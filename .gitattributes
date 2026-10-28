@@ -1,0 +1,8 @@
+* text=auto
+*.sh text eol=lf
+*.tmpl text eol=lf
+Dockerfile text eol=lf
+# Bedrock worlds are LevelDB; never touch line endings (db/*.log are binary)
+**/world/** -text
+**/spike/world/** -text
+*.png binary

@@ -1,0 +1,102 @@
+# Spike: two BDS servers (lobby + game) and a relay. Run from network/: npm run spike:up
+# UDP_PORTS_SPEC placeholders: %PUBLIC% and %LAN% are replaced with resolved IPv4s by the entrypoint.
+name: minecade-spike
+
+x-bds: &bds
+  image: minecade/bds-base:local
+  entrypoint: ["/bin/bash", "/spike/entrypoint.sh"]
+  volumes:
+    - ./:/spike:ro
+  stdin_open: true
+  stop_grace_period: 5s
+
+services:
+  lobby:
+    <<: *bds
+    container_name: minecade-spike-lobby
+    environment:
+      ROLE: lobby
+      SERVER_PORT: "19132"
+      TARGET_PORT: "19133"
+      UDP_PORTS_SPEC: ${SPIKE_UDP_LOBBY:-%PUBLIC%:19132:19132}
+      LAN_HOST: ${LAN_HOST}
+      PUBLIC_HOST: ${PUBLIC_HOST:-auto}
+      ALLOW_LIST: ${ALLOW_LIST:-}
+      PERMS: ${SPIKE_PERMS:-allowlist}
+    ports:
+      - "19132:19132/tcp"
+      - "19132:19132/udp"
+    labels:
+      minecade.spike: "1"
+      minecade.role: lobby
+
+  game:
+    <<: *bds
+    container_name: minecade-spike-game
+    environment:
+      ROLE: game
+      SERVER_PORT: "19133"
+      TARGET_PORT: "19132"
+      UDP_PORTS_SPEC: ${SPIKE_UDP_GAME:-%PUBLIC%:19133:19133}
+      LAN_HOST: ${LAN_HOST}
+      PUBLIC_HOST: ${PUBLIC_HOST:-auto}
+      ALLOW_LIST: ${ALLOW_LIST:-}
+      PERMS: ${SPIKE_PERMS:-allowlist}
+    ports:
+      - "19133:19133/tcp"
+      - "19133:19133/udp"
+    labels:
+      minecade.spike: "1"
+      minecade.role: game
+
+  # PC-only probes (not forwarded on the router). They tell us which UDP advertisement works
+  # for a player on your own LAN, since BDS allows only one advertised IP per server.
+  probe-lan:
+    <<: *bds
+    container_name: minecade-spike-probe-lan
+    environment:
+      ROLE: probe-lan
+      SERVER_PORT: "19134"
+      TARGET_PORT: "19132"
+      UDP_PORTS_SPEC: "%LAN%:19134:19134"
+      LAN_HOST: ${LAN_HOST}
+      PUBLIC_HOST: ${PUBLIC_HOST:-auto}
+      ALLOW_LIST: ${ALLOW_LIST:-}
+      PERMS: ${SPIKE_PERMS:-allowlist}
+    ports:
+      - "19134:19134/tcp"
+      - "19134:19134/udp"
+    labels:
+      minecade.spike: "1"
+      minecade.role: probe-lan
+
+  probe-auto:
+    <<: *bds
+    container_name: minecade-spike-probe-auto
+    environment:
+      ROLE: probe-auto
+      SERVER_PORT: "19135"
+      TARGET_PORT: "19132"
+      UDP_PORTS_SPEC: "19135"
+      LAN_HOST: ${LAN_HOST}
+      PUBLIC_HOST: ${PUBLIC_HOST:-auto}
+      ALLOW_LIST: ${ALLOW_LIST:-}
+      PERMS: ${SPIKE_PERMS:-allowlist}
+    ports:
+      - "19135:19135/tcp"
+      - "19135:19135/udp"
+    labels:
+      minecade.spike: "1"
+      minecade.role: probe-auto
+
+  relay:
+    build: ./relay
+    container_name: minecade-spike-relay
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    ports:
+      - "127.0.0.1:8080:8080"
+
+networks:
+  default:
+    name: minecade-spike

@@ -1,0 +1,24 @@
+{
+  "format_version": 2,
+  "header": {
+    "name": "Minecade Spike Net",
+    "description": "Spike: @minecraft/server-net HTTP checks",
+    "uuid": "09e34cb1-b8f2-4b2a-8482-b9f631bbc378",
+    "version": [1, 0, 0],
+    "min_engine_version": [1, 26, 60]
+  },
+  "modules": [
+    {
+      "type": "script",
+      "language": "javascript",
+      "uuid": "e3c4ce0f-1ace-45dc-a41b-8ec9973a3aaa",
+      "version": [1, 0, 0],
+      "entry": "scripts/main.js"
+    }
+  ],
+  "dependencies": [
+    { "module_name": "@minecraft/server", "version": "2.11.0" },
+    { "module_name": "@minecraft/server-admin", "version": "1.0.0-beta" },
+    { "module_name": "@minecraft/server-net", "version": "1.0.0-beta" }
+  ]
+}

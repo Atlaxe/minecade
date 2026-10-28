@@ -1,0 +1,8 @@
+{
+  "name": "minecade-spike-relay",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "dockerode": "5.0.1"
+  }
+}
