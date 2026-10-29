@@ -64,4 +64,5 @@ WORKDIR /app
 COPY --from=build /src/dist/orchestrator/index.cjs ./index.cjs
 COPY --from=build /src/dist/registry.json ./registry.json
 ENV REGISTRY_PATH=/app/registry.json
-CMD ["node", "index.cjs"]
+# node:sqlite (player stats) is stable enough for us but still prints an experimental warning.
+CMD ["node", "--disable-warning=ExperimentalWarning", "index.cjs"]

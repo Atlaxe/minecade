@@ -173,7 +173,7 @@ async function buildOrchestrator(): Promise<void> {
     platform: "node",
     target: "node22",
     // ssh2 (via dockerode) loads optional native addons inside try/catch; it falls back to JS.
-    external: ["cpu-features", "*.node"],
+    external: ["cpu-features", "*.node", "node:sqlite"],
     logLevel: "warning",
   });
 }

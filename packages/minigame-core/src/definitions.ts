@@ -15,3 +15,4 @@ export {
 } from "./config.ts";
 export type { Box, MapConfig, Vec3 } from "./map-config.ts";
 export type { Registry, RegistryGame, RegistryMap } from "./registry.ts";
+export { killDeathRatio, winRate } from "./stats-math.ts";

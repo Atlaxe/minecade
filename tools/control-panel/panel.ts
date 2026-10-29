@@ -165,12 +165,16 @@ function containerView(info: Docker.ContainerInfo) {
   };
 }
 
-/** The main stack's game status from the orchestrator, or null when it isn't running. */
-async function orchestratorStatus(): Promise<unknown> {
-  const running = containers.some(
+/** Whether the main stack's orchestrator container is running. */
+function orchestratorRunning(): boolean {
+  return containers.some(
     (info) => stackOf(info) === "main" && info.State === "running" && info.Labels["minecade.role"] === "orchestrator",
   );
-  if (!running) return null;
+}
+
+/** The main stack's game status from the orchestrator, or null when it isn't running. */
+async function orchestratorStatus(): Promise<unknown> {
+  if (!orchestratorRunning()) return null;
   try {
     const response = await fetch(`${ORCHESTRATOR_URL}/v1/status`, { signal: AbortSignal.timeout(1000) });
     return response.ok ? await response.json() : { error: `HTTP ${response.status}` };
@@ -396,6 +400,10 @@ async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> 
       if (!containers.some((info) => info.Id === id)) return sendJson(res, 404, { error: "unknown container" });
       return sendJson(res, 200, { lines: followers.get(id)?.lines ?? [] });
     }
+    if (path === "/api/stats") {
+      const result = await fetchStats();
+      return sendJson(res, result.status, result.body);
+    }
     return sendJson(res, 404, { error: "not found" });
   }
 
@@ -451,6 +459,25 @@ async function relayToOrchestrator(start: boolean, body: Record<string, unknown>
     return { status: response.status, body: result };
   } catch {
     return { status: 502, body: { error: "the orchestrator is not answering" } };
+  }
+}
+
+/** Everyone's stats from the orchestrator, or an error the page shows as is. */
+async function fetchStats(): Promise<{ status: number; body: unknown }> {
+  try {
+    const response = await fetch(`${ORCHESTRATOR_URL}/v1/stats`, { signal: AbortSignal.timeout(3000) });
+    const result = (await response.json().catch(() => ({}))) as { error?: string };
+    if (response.ok) return { status: 200, body: result };
+    // An orchestrator built before stats only knows POST there and answers 405.
+    if (response.status === 404 || response.status === 405) {
+      return { status: 502, body: { error: "The running orchestrator has no stats yet. Restart the Minecade network to update it." } };
+    }
+    return { status: 502, body: { error: `Orchestrator: ${result.error ?? `HTTP ${response.status}`}` } };
+  } catch {
+    const error = orchestratorRunning()
+      ? "The orchestrator is not answering yet."
+      : "The orchestrator isn't running. Start the Minecade network to see stats.";
+    return { status: 502, body: { error } };
   }
 }
 

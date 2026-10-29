@@ -5,6 +5,7 @@ import { randomBytes } from "node:crypto";
 import {
   PROTOCOL_VERSION,
   type InboundMessage,
+  type MatchStats,
   type OutboundEvent,
   type StartGame,
   type StatusSnapshot,
@@ -18,6 +19,8 @@ import type { WarmPool } from "./warm-pool.ts";
 
 const SERVER_STARTED = /^\[[^\]]*\] Server started\./;
 const SCRIPT_LINE = /^\[[^\]]*\] \[Scripting\] /;
+/** BDS logs each player's Xbox account id as they connect, which keeps stats across gamertag changes. */
+const PLAYER_CONNECTED = /\] Player connected: (.+), xuid: (\d+)/;
 const START_ATTEMPTS = 4;
 const EMPTY_CHECK_MS = 10_000;
 /** How long a game gets to send its players home after return_all. */
@@ -36,6 +39,8 @@ export interface SessionDeps {
   toLobby(message: InboundMessage): void;
   /** The public address players are sent to, resolved from PUBLIC_HOST. */
   publicIp(): Promise<string>;
+  /** A stats part from the running game. `xuids` maps lowercase gamertags to Xbox account ids. */
+  onMatchStats?(part: MatchStats, context: { game: RegistryGame; xuids: ReadonlyMap<string, string> }): void;
   newSessionId?: () => string;
   random?: () => number;
 }
@@ -51,6 +56,8 @@ interface Session {
   state: "starting" | "running" | "stopping";
   publicIp: string;
   players: string[];
+  /** Lowercase gamertag to xuid, from the game's console. */
+  xuids: Map<string, string>;
   handle?: ServerHandle;
   link?: ServerLink;
   packReady: boolean;
@@ -98,6 +105,7 @@ export class SessionManager {
       state: "starting",
       publicIp: "",
       players: [],
+      xuids: new Map(),
       packReady: false,
       logReady: false,
       lastPlayersAt: Date.now(),
@@ -245,6 +253,8 @@ export class SessionManager {
       handle.console.onLine((line) => {
         // Game containers are deleted when the session ends, so keep their script output here.
         if (SCRIPT_LINE.test(line) && !line.includes("[NET]")) log.info(`game ${session.id}: ${line}`);
+        const connected = PLAYER_CONNECTED.exec(line);
+        if (connected) session.xuids.set(connected[1].toLowerCase(), connected[2]);
         if (session.logReady || !SERVER_STARTED.test(line)) return;
         session.logReady = true;
         this.checkReady(session);
@@ -284,8 +294,17 @@ export class SessionManager {
         return;
       }
       case "match_stats":
-        // One line per part; milestone 6b stores them.
+        // One raw line per part, whether or not it's stored.
         console.log(`[STATS] ${JSON.stringify(event)}`);
+        if (event.sessionId !== session.id) {
+          log.warn(`session ${session.id} sent stats for session ${String(event.sessionId)}; ignored`);
+          return;
+        }
+        try {
+          this.deps.onMatchStats?.(event, { game: session.game, xuids: session.xuids });
+        } catch (error) {
+          log.error(`session ${session.id}: could not store stats: ${describeError(error)}`);
+        }
         return;
       case "end_game":
         void this.finish(session, String(event.reason));

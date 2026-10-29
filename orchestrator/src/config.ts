@@ -27,6 +27,8 @@ export interface Config {
   readyTimeoutMs: number;
   emptyBackstopMs: number;
   registryPath: string;
+  /** Where player stats are stored (the minecade-data volume), or "" for no storage. */
+  dataDir: string;
 }
 
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
@@ -52,6 +54,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     readyTimeoutMs: integer(env.READY_TIMEOUT_S, 120) * 1000,
     emptyBackstopMs: integer(env.EMPTY_BACKSTOP_S, 180) * 1000,
     registryPath: env.REGISTRY_PATH || "/app/registry.json",
+    dataDir: env.DATA_DIR ?? "",
   };
 }
 

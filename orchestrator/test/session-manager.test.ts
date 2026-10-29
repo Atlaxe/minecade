@@ -26,6 +26,18 @@ async function startAndReady(t: ReturnType<typeof setupSessions>) {
 
 const types = (t: ReturnType<typeof setupSessions>) => t.lobby.map((message) => message.t);
 
+const statsPart = {
+  t: "match_stats" as const,
+  sessionId: "s1",
+  matchId: "s1.1",
+  part: 1,
+  parts: 1,
+  game: "probe",
+  map: "default",
+  mode: "solo" as const,
+  durationSec: 30,
+};
+
 describe("SessionManager: starting", () => {
   it("starts the game container and tells the lobby", async () => {
     const t = setupSessions();
@@ -199,6 +211,19 @@ describe("SessionManager: running", () => {
     };
     link.emit(stats);
     expect(console.log).toHaveBeenCalledWith(`[STATS] ${JSON.stringify(stats)}`);
+  });
+
+  it("passes stats on with the xuids from the game's console, and ignores another session's", async () => {
+    const received: { part: OutboundEvent; xuids: Record<string, string> }[] = [];
+    const t = setupSessions({}, { onMatchStats: (part, { xuids }) => received.push({ part, xuids: Object.fromEntries(xuids) }) });
+    const { handle, link } = await startAndReady(t);
+    handle.console.emit("[2026-10-29 15:31:14:610 INFO] Player connected: get a waffle, xuid: 2535411111111111");
+    handle.console.emit("[2026-10-29 15:31:16:706 INFO] Player Spawned: get a waffle xuid: 2535411111111111, pfid: abc");
+    handle.console.emit("[2026-10-29 15:31:20:000 INFO] Player connected: Friend, xuid: 2535422222222222");
+    const part = { ...statsPart, rows: [{ n: "get a waffle", r: "w" as const, k: 1, d: 0, dd: 20, dt: 0, s: 30, bs: 1 }] };
+    link.emit(part);
+    link.emit({ ...part, sessionId: "other", matchId: "other.1" });
+    expect(received).toEqual([{ part, xuids: { "get a waffle": "2535411111111111", friend: "2535422222222222" } }]);
   });
 
   it("reports a crash while running, and while starting", async () => {

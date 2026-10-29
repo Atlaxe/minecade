@@ -56,8 +56,10 @@ services:
       COMPOSE_PROJECT: minecade
       KEYS_VOLUME: minecade-keys
       ORCH_URL: http://orchestrator:8080
+      DATA_DIR: /data
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
+      - data:/data
     ports:
       # The debug API stays on this PC; servers reach the orchestrator over the network.
       - "127.0.0.1:8080:8080"
@@ -76,3 +78,7 @@ volumes:
   # start. `docker compose down` keeps it; deleting it means everyone accepts trust again.
   keys:
     name: minecade-keys
+  # Player stats (stats.db, the raw stats-events.jsonl, and daily backups/). Kept by
+  # `docker compose down` and the panel's Stop; only `down -v` or deleting it erases stats.
+  data:
+    name: minecade-data

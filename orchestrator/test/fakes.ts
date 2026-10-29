@@ -7,7 +7,7 @@ import type { ContainerSummary, DockerAdapter, GameSpec, ServerHandle } from "..
 import type { LineConsole } from "../src/links/logstdin-link.ts";
 import type { ServerLink } from "../src/links/server-link.ts";
 import type { Registry } from "../src/registry.ts";
-import { SessionManager } from "../src/session-manager.ts";
+import { SessionManager, type SessionDeps } from "../src/session-manager.ts";
 import { NoopWarmPool } from "../src/warm-pool.ts";
 
 export const SERVER_STARTED_LINE = "[2026-10-29 00:47:10:058 INFO] Server started.";
@@ -132,7 +132,7 @@ export function testConfig(overrides: Partial<Config> = {}): Config {
   return { ...loadConfig({ LAN_HOST: "192.168.40.98", LAN_PLAYERS: "Steve" }), ...overrides };
 }
 
-export function setupSessions(overrides: Partial<Config> = {}) {
+export function setupSessions(overrides: Partial<Config> = {}, deps: Partial<SessionDeps> = {}) {
   const config = testConfig(overrides);
   const docker = new FakeDocker();
   const links: FakeLink[] = [];
@@ -151,6 +151,7 @@ export function setupSessions(overrides: Partial<Config> = {}) {
     publicIp: async () => "203.0.113.7",
     newSessionId: () => "s1",
     random: () => 0.99,
+    ...deps,
   });
   return { config, docker, links, lobby, sessions };
 }

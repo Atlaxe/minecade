@@ -25,6 +25,7 @@
   .pill { padding: 1px 8px; border-radius: 10px; color: #fff; font-size: 12px; }
   .ok { background: var(--ok); } .warn { background: var(--warn); } .bad { background: var(--bad); } .off { background: var(--muted); }
   .muted { color: var(--muted); }
+  .num { text-align: right; }
   .hint { color: var(--muted); font-size: 12px; margin: 4px 0 0; }
   .error { color: var(--bad); }
   #banner { display: none; background: var(--bad); color: #fff; padding: 8px 12px; border-radius: 6px; margin-bottom: 12px; }
@@ -61,6 +62,10 @@
 <section id="logs-section" hidden>
   <div class="row"><h2 id="logs-title" style="margin:0">Logs</h2><button id="close-logs">Close</button></div>
   <pre id="logs"></pre>
+</section>
+<section>
+  <div class="row"><h2 style="margin:0">Player stats</h2><select id="stats-game"><option value="">Overall</option></select><button id="stats-refresh">Refresh</button></div>
+  <div id="stats"><p class="hint">Loading...</p></div>
 </section>
 <section>
   <h2>Activity</h2>
@@ -121,6 +126,7 @@ function render(next) {
   renderStacks();
   renderConnection();
   renderEnv();
+  reloadStatsWhenIdle();
 }
 
 function renderStacks() {
@@ -243,6 +249,89 @@ function showLogs(container) {
   logsTimer = setInterval(load, 2000);
 }
 $("close-logs").onclick = () => { clearInterval(logsTimer); $("logs-section").hidden = true; };
+
+// Stats load when the page opens, on Refresh and when a game ends, never on a timer.
+let stats = null;
+let statsSort = { key: "games", desc: true };
+
+function formatPlayTime(seconds) {
+  if (seconds < 60) return `${seconds}s`;
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) return `${minutes}m`;
+  return `${Math.floor(minutes / 60)}h ${String(minutes % 60).padStart(2, "0")}m`;
+}
+
+const stat = (key, label, text = String) => ({ key, label, text, value: (line) => line[key] });
+const STATS_COLUMNS = [
+  stat("games", "Games"), stat("wins", "W"), stat("losses", "L"), stat("winRate", "Win %", (value) => `${value}%`),
+  stat("kills", "K"), stat("deaths", "D"), stat("kd", "K/D"), stat("dealt", "Damage dealt"), stat("taken", "Damage taken"),
+  stat("seconds", "Time played", formatPlayTime),
+];
+
+async function loadStats() {
+  $("stats-refresh").disabled = true;
+  const response = await fetch("/api/stats").catch(() => null);
+  const result = response ? await response.json().catch(() => ({})) : {};
+  $("stats-refresh").disabled = false;
+  stats = response?.ok ? result : null;
+  $("stats-game").disabled = !stats;
+  if (stats) { renderStatsGames(); renderStats(); return; }
+  // A helper started before stats existed has no /api/stats.
+  const error = !response ? "Could not reach the panel helper."
+    : response.status === 404 ? "The panel helper is out of date. Close this window, wait 15 seconds, then open Minecade Panel again."
+    : result.error ?? `HTTP ${response.status}`;
+  $("stats").replaceChildren(el("p", { className: "error" }, error));
+}
+
+function renderStatsGames() {
+  const select = $("stats-game");
+  const pick = select.value;
+  const games = [...stats.games].sort((a, b) => a.name.localeCompare(b.name));
+  select.replaceChildren(el("option", { value: "" }, "Overall"), ...games.map((game) => el("option", { value: game.id }, game.name)));
+  select.value = games.some((game) => game.id === pick) ? pick : "";
+}
+
+function renderStats() {
+  const game = stats.games.find((candidate) => candidate.id === $("stats-game").value);
+  const extras = (game?.extras ?? []).map((extra) => ({
+    key: `extra:${extra.key}`, label: extra.label, text: String, value: (line) => line.extras?.[extra.key] ?? 0,
+  }));
+  const columns = [...STATS_COLUMNS, ...extras];
+  const rows = stats.players
+    .map((player) => ({ name: player.name, line: game ? player.games[game.id] : player.overall }))
+    .filter((row) => row.line);
+  if (rows.length === 0) {
+    const empty = stats.players.length === 0 ? "No stats yet. Matches with at least 2 players are recorded." : `No ${game.name} matches recorded yet.`;
+    $("stats").replaceChildren(el("p", { className: "hint" }, empty));
+    return;
+  }
+  // A game's own columns go away when another game is picked.
+  if (statsSort.key !== "name" && !columns.some((c) => c.key === statsSort.key)) statsSort = { key: "games", desc: true };
+  const column = columns.find((c) => c.key === statsSort.key);
+  const byName = (a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: "base" });
+  rows.sort((a, b) => (statsSort.desc ? -1 : 1) * (column ? column.value(a.line) - column.value(b.line) : byName(a, b)) || byName(a, b));
+  const header = (key, label, className = "num") => el("th", { className, style: "cursor:pointer", onclick: () => {
+    statsSort = { key, desc: statsSort.key === key ? !statsSort.desc : key !== "name" };
+    renderStats();
+  } }, label, statsSort.key === key ? (statsSort.desc ? " ▼" : " ▲") : "");
+  $("stats").replaceChildren(el("table", {},
+    el("tr", {}, header("name", "Player", ""), ...columns.map((c) => header(c.key, c.label))),
+    ...rows.map((row) => el("tr", {}, el("td", {}, row.name), ...columns.map((c) => el("td", { className: "num" }, c.text(c.value(row.line)))))),
+  ));
+}
+
+// A game's stats are final once its session is over, and an orchestrator that just came up has some.
+let lastGameState;
+function reloadStatsWhenIdle() {
+  const status = state.stacks.find((stack) => stack.id === "main")?.orchestrator;
+  const gameState = status && !status.error ? status.state : null;
+  if (lastGameState !== undefined && lastGameState !== "idle" && gameState === "idle") loadStats();
+  lastGameState = gameState;
+}
+
+$("stats-refresh").onclick = () => loadStats();
+$("stats-game").onchange = () => renderStats();
+loadStats();
 
 function addActivity(entry) {
   const pre = $("activity");

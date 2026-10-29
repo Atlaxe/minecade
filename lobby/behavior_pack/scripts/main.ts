@@ -1,6 +1,6 @@
-// Lobby server script: gives every player the Game Selector compass, keeps them on the
-// platform, shows the orchestrator status, and connects the selector logic
-// (lobby-controller.ts) to players, forms and the orchestrator.
+// Lobby server script: gives every player the Game Selector compass and the Stats book, keeps
+// them on the platform, shows the orchestrator status, and connects the selector and stats
+// logic (lobby-controller.ts, stats-controller.ts) to players, forms and the orchestrator.
 import {
   EntityComponentTypes,
   ItemLockMode,
@@ -15,8 +15,10 @@ import { log, normalizePlayer, showForm, type Scope } from "@minecade/minigame-c
 import { bootServer } from "@minecade/minigame-core/bootstrap";
 import registry from "#registry";
 import { LobbyController, type GameChoice } from "./lobby-controller.ts";
+import { StatsController } from "./stats-controller.ts";
 
 const COMPASS = "minecraft:compass";
+const BOOK = "minecraft:book";
 
 function playerNamed(name: string): Player | undefined {
   return world.getAllPlayers().find((player) => player.name === name);
@@ -92,10 +94,28 @@ bootServer(({ vars, transport, transfer, root }) => {
     root,
     { registry, devMinPlayers: vars.devMinPlayers },
   );
+  const stats = new StatsController(
+    {
+      send: (event) => transport.send(event),
+      notify: (name, text) => playerNamed(name)?.sendMessage(text),
+      show: async (name, scope, { title, body, buttons }) => {
+        const player = playerNamed(name);
+        if (!player) return undefined;
+        const form = new ActionFormData().title(title).body(body);
+        for (const button of buttons) form.button(button);
+        return (await showForm(scope, player, form))?.selection;
+      },
+    },
+    root,
+    { registry },
+  );
   root.add(
     transport.onMessage((message) => {
-      log.info(`orchestrator: ${message.t}${message.t === "status" ? ` ${message.state} ${message.game ?? ""}` : ""}`);
+      if (message.t !== "stats_reply") {
+        log.info(`orchestrator: ${message.t}${message.t === "status" ? ` ${message.state} ${message.game ?? ""}` : ""}`);
+      }
       lobby.onMessage(message);
+      stats.onMessage(message);
     }),
   );
 
@@ -112,6 +132,11 @@ bootServer(({ vars, transport, transfer, root }) => {
       compass.lockMode = ItemLockMode.slot;
       compass.keepOnDeath = true;
       inventory.setItem(0, compass);
+      const book = new ItemStack(BOOK, 1);
+      book.nameTag = "Stats";
+      book.lockMode = ItemLockMode.slot;
+      book.keepOnDeath = true;
+      inventory.setItem(1, book);
     }
     player.selectedSlotIndex = 0;
   }
@@ -124,21 +149,24 @@ bootServer(({ vars, transport, transfer, root }) => {
       if (player.isValid) lobby.onPlayerJoined(player.name);
     }, 2);
   });
-  root.subscribe(world.afterEvents.playerLeave, ({ playerName }) => lobby.onPlayerLeft(playerName));
+  root.subscribe(world.afterEvents.playerLeave, ({ playerName }) => {
+    lobby.onPlayerLeft(playerName);
+    stats.onPlayerLeft(playerName);
+  });
 
-  // A tap can fire both events (and itemUse repeats while held): one selector per tick per player.
+  // A tap can fire both events (and itemUse repeats while held): one form per tick per player.
   const lastTap = new Map<string, number>();
-  const tap = (player: Player) => {
+  const tap = (player: Player, item: string | undefined) => {
+    if (item !== COMPASS && item !== BOOK) return;
     if (lastTap.get(player.name) === system.currentTick) return;
     lastTap.set(player.name, system.currentTick);
-    void lobby.openSelector(player.name);
+    if (item === COMPASS) void lobby.openSelector(player.name);
+    else void stats.openStats(player.name);
   };
-  root.subscribe(world.afterEvents.itemUse, ({ source, itemStack }) => {
-    if (itemStack.typeId === COMPASS) tap(source);
-  });
+  root.subscribe(world.afterEvents.itemUse, ({ source, itemStack }) => tap(source, itemStack.typeId));
   // Aiming at a block (the platform) may skip itemUse.
   root.subscribe(world.afterEvents.playerInteractWithBlock, ({ player, itemStack, isFirstEvent }) => {
-    if (isFirstEvent && itemStack?.typeId === COMPASS) tap(player);
+    if (isFirstEvent) tap(player, itemStack?.typeId);
   });
 
   let frame = 0;

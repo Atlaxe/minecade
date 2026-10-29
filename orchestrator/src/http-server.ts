@@ -1,5 +1,5 @@
 // The orchestrator's HTTP server. Transport links (/v1/servers/...) serve the lobby and game
-// servers on the compose network. The debug API (/v1/status, /v1/start, /v1/end) is for the
+// servers on the compose network. The debug API (/v1/status, /v1/start, /v1/end, /v1/stats) is for the
 // control panel and curl on this PC: compose publishes the port on 127.0.0.1 only, and the
 // checks below refuse requests addressed to "orchestrator:8080" or sent by a web page.
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
@@ -8,12 +8,15 @@ import type { HttpLinkHub } from "./links/http-link.ts";
 import { describeError, log } from "./log.ts";
 import type { Registry } from "./registry.ts";
 import type { SessionManager } from "./session-manager.ts";
+import type { StatsStore } from "./stats/store.ts";
 
 export interface ServerDeps {
   config: Config;
   hub: HttpLinkHub;
   sessions: SessionManager;
   registry: Registry;
+  /** Undefined when stats storage is off. */
+  stats?: StatsStore;
 }
 
 export function createOrchestratorServer(deps: ServerDeps): Server {
@@ -26,6 +29,19 @@ export function createOrchestratorServer(deps: ServerDeps): Server {
     }
     if (req.method === "GET" && path === "/v1/status") {
       return sendJson(res, 200, { ...deps.sessions.status(), transport: deps.config.transport, games: deps.registry.games });
+    }
+    const statsRoute = /^\/v1\/stats(?:\/([^/]+))?$/.exec(path);
+    if (req.method === "GET" && statsRoute) {
+      if (!deps.stats) return sendJson(res, 503, { error: "stats storage is off (see the orchestrator log)" });
+      if (statsRoute[1] === undefined) return sendJson(res, 200, deps.stats.overview());
+      let name: string;
+      try {
+        name = decodeURIComponent(statsRoute[1]);
+      } catch {
+        return sendJson(res, 400, { error: "bad player name" });
+      }
+      const player = deps.stats.player(name);
+      return player ? sendJson(res, 200, player) : sendJson(res, 404, { error: `no stats for "${name}"` });
     }
     if (req.method !== "POST") return sendJson(res, 405, { error: "method not allowed" });
     const body = await readJson(req);

@@ -1,7 +1,7 @@
 // Wire protocol between the servers' behavior packs and the orchestrator. Pure TypeScript with
 // no runtime imports: bundled into packs by esbuild and imported by the orchestrator under Node.
 
-export const PROTOCOL_VERSION = 2;
+export const PROTOCOL_VERSION = 3;
 
 /**
  * Upper bound for one encoded message, in either direction and over either transport, so no
@@ -109,7 +109,15 @@ export interface EndGame {
   reason: EndReason;
 }
 
-export type OutboundEvent = ServerReady | StartGame | StatusRequest | PlayerCount | MatchStats | EndGame;
+/** The lobby asks for a player's stats: overall, or for one game. */
+export interface StatsQuery {
+  t: "stats_query";
+  requestId: string;
+  player: string;
+  game?: string;
+}
+
+export type OutboundEvent = ServerReady | StartGame | StatusRequest | PlayerCount | MatchStats | EndGame | StatsQuery;
 
 // ---- Orchestrator -> server ----------------------------------------------------------------
 
@@ -161,7 +169,38 @@ export interface ReturnAll {
   reason: string;
 }
 
-export type InboundMessage = StartRejected | GameStarting | GameReady | GameFailed | GameEnded | Status | ReturnAll;
+/** A player's totals over the matches that count (2+ players, or co-op). */
+export interface StatsTotals {
+  games: number;
+  wins: number;
+  losses: number;
+  draws: number;
+  kills: number;
+  deaths: number;
+  /** Damage dealt to players and taken from anything, in health points. */
+  dealt: number;
+  taken: number;
+  /** Seconds played. */
+  seconds: number;
+  bestStreak: number;
+  /** Matches left before the end. */
+  left: number;
+  /** The game's own counters by key, in per-game totals. */
+  extras?: Record<string, number>;
+}
+
+export interface StatsReply {
+  t: "stats_reply";
+  requestId: string;
+  player: string;
+  /** "none": no matches that count yet. "unavailable": stats storage is off or failed. */
+  status: "ok" | "none" | "unavailable";
+  totals?: StatsTotals;
+  /** Only when no game was asked for: the games this player has played, most played first. */
+  games?: { id: string; games: number }[];
+}
+
+export type InboundMessage = StartRejected | GameStarting | GameReady | GameFailed | GameEnded | Status | ReturnAll | StatsReply;
 
 // ---- Encoding --------------------------------------------------------------------------------
 
@@ -172,6 +211,7 @@ const OUTBOUND_TYPES: ReadonlySet<string> = new Set<OutboundEvent["t"]>([
   "player_count",
   "match_stats",
   "end_game",
+  "stats_query",
 ]);
 
 const INBOUND_TYPES: ReadonlySet<string> = new Set<InboundMessage["t"]>([
@@ -182,6 +222,7 @@ const INBOUND_TYPES: ReadonlySet<string> = new Set<InboundMessage["t"]>([
   "game_ended",
   "status",
   "return_all",
+  "stats_reply",
 ]);
 
 export class MessageTooLargeError extends Error {

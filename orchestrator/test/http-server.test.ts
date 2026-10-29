@@ -1,18 +1,22 @@
 import { request, type Server } from "node:http";
 import type { AddressInfo } from "node:net";
+import { DatabaseSync } from "node:sqlite";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createOrchestratorServer } from "../src/http-server.ts";
 import { HttpLinkHub } from "../src/links/http-link.ts";
+import { StatsStore } from "../src/stats/store.ts";
 import { registry, setupSessions } from "./fakes.ts";
 
 let server: Server;
 let port: number;
 let t: ReturnType<typeof setupSessions>;
+let stats: StatsStore | undefined;
 
 beforeEach(async () => {
   vi.spyOn(console, "log").mockImplementation(() => {});
   t = setupSessions();
-  server = createOrchestratorServer({ config: t.config, hub: new HttpLinkHub(), sessions: t.sessions, registry });
+  stats = new StatsStore(new DatabaseSync(":memory:"), { registry });
+  server = createOrchestratorServer({ config: t.config, hub: new HttpLinkHub(), sessions: t.sessions, registry, stats });
   await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
   port = (server.address() as AddressInfo).port;
   t.config.httpPort = port; // the debug API accepts Host: 127.0.0.1:<its port>
@@ -21,6 +25,7 @@ beforeEach(async () => {
 afterEach(async () => {
   server.closeAllConnections();
   await new Promise((resolve) => server.close(resolve));
+  stats?.close();
   vi.restoreAllMocks();
 });
 
@@ -63,6 +68,31 @@ describe("debug API", () => {
     expect((await call("GET", "/v1/status", undefined, { host: "orchestrator:8080" })).status).toBe(403);
     expect((await call("POST", "/v1/start", { game: "probe" }, { origin: "https://evil.example" })).status).toBe(403);
     expect(t.docker.specs).toHaveLength(0);
+  });
+
+  it("serves everyone's stats and one player's, with 404 for a stranger", async () => {
+    const row = { r: "w" as const, k: 1, d: 0, dd: 20, dt: 0, s: 30, bs: 1 };
+    stats!.record(
+      { t: "match_stats", sessionId: "s1", matchId: "s1.1", part: 1, parts: 1, game: "probe", map: "default", mode: "solo", durationSec: 30, rows: [{ n: "get a waffle", ...row }, { n: "Friend", ...row, r: "l" }] },
+      new Map(),
+    );
+    const everyone = await call("GET", "/v1/stats");
+    expect(everyone.status).toBe(200);
+    expect((everyone.body.players as { name: string }[]).map((player) => player.name)).toEqual(["Friend", "get a waffle"]);
+    const one = await call("GET", "/v1/stats/GET%20A%20WAFFLE");
+    expect(one).toMatchObject({ status: 200, body: { name: "get a waffle", overall: { games: 1, wins: 1 }, recent: [{ matchId: "s1.1" }] } });
+    expect(await call("GET", "/v1/stats/nobody")).toEqual({ status: 404, body: { error: 'no stats for "nobody"' } });
+    expect((await call("GET", "/v1/stats/%E0%A4%A")).status).toBe(400);
+    expect((await call("GET", "/v1/stats", undefined, { host: "orchestrator:8080" })).status).toBe(403);
+  });
+
+  it("answers 503 for stats when storage is off", async () => {
+    server.closeAllConnections();
+    await new Promise((resolve) => server.close(resolve));
+    server = createOrchestratorServer({ config: t.config, hub: new HttpLinkHub(), sessions: t.sessions, registry });
+    await new Promise<void>((resolve) => server.listen(port, "127.0.0.1", resolve));
+    expect((await call("GET", "/v1/stats")).status).toBe(503);
+    expect((await call("GET", "/v1/stats/alex")).status).toBe(503);
   });
 
   it("still serves the transport links", async () => {
