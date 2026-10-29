@@ -1,0 +1,231 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Minecade Panel</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' rx='3' fill='%233a7d44'/%3E%3Crect x='4' y='4' width='3' height='3' fill='%23fff'/%3E%3Crect x='9' y='4' width='3' height='3' fill='%23fff'/%3E%3Crect x='4' y='9' width='8' height='3' fill='%23fff'/%3E%3C/svg%3E">
+<style>
+  :root { color-scheme: light dark; --ok: #2f8f46; --warn: #b7791f; --bad: #c0392b; --muted: #888; --line: #8884; }
+  body { font: 14px/1.4 "Segoe UI", system-ui, sans-serif; margin: 0; padding: 16px; max-width: 980px; }
+  h1 { font-size: 18px; margin: 0; }
+  h2 { font-size: 15px; margin: 0 0 8px; }
+  header { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 12px; }
+  section { border: 1px solid var(--line); border-radius: 6px; padding: 12px; margin-bottom: 12px; }
+  table { width: 100%; border-collapse: collapse; margin-top: 8px; }
+  th, td { text-align: left; padding: 4px 6px; border-top: 1px solid var(--line); vertical-align: top; }
+  th { font-weight: 600; color: var(--muted); border-top: none; }
+  button { font: inherit; padding: 4px 10px; cursor: pointer; }
+  button:disabled { cursor: default; }
+  input[type=text] { font: inherit; width: 100%; box-sizing: border-box; padding: 4px 6px; }
+  label { display: block; margin: 8px 0 2px; font-weight: 600; }
+  pre { font: 12px/1.35 Consolas, monospace; margin: 8px 0 0; padding: 8px; max-height: 260px; overflow: auto; border: 1px solid var(--line); border-radius: 4px; white-space: pre-wrap; word-break: break-all; }
+  .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .pill { padding: 1px 8px; border-radius: 10px; color: #fff; font-size: 12px; }
+  .ok { background: var(--ok); } .warn { background: var(--warn); } .bad { background: var(--bad); } .off { background: var(--muted); }
+  .muted { color: var(--muted); }
+  .hint { color: var(--muted); font-size: 12px; margin: 4px 0 0; }
+  .error { color: var(--bad); }
+  #banner { display: none; background: var(--bad); color: #fff; padding: 8px 12px; border-radius: 6px; margin-bottom: 12px; }
+  dl { display: grid; grid-template-columns: max-content 1fr; gap: 4px 12px; margin: 0; }
+  dt { color: var(--muted); }
+  dd { margin: 0; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Minecade Panel</h1>
+  <span id="docker" class="pill off">Docker: ...</span>
+  <button id="start-docker" hidden>Start Docker Desktop</button>
+  <span id="busy" class="muted"></span>
+</header>
+<div id="banner"></div>
+<div id="stacks"></div>
+<section>
+  <h2>Connection</h2>
+  <dl id="connection"></dl>
+</section>
+<section>
+  <h2>Players (.env)</h2>
+  <label for="allow-list">ALLOW_LIST: who may join (comma-separated gamertags; empty lets anyone in)</label>
+  <input id="allow-list" type="text" spellcheck="false">
+  <label for="lan-players">LAN_PLAYERS: players on this home network (transferred by LAN address)</label>
+  <input id="lan-players" type="text" spellcheck="false">
+  <div class="row" style="margin-top:8px">
+    <button id="save-env">Save</button>
+    <span id="env-result" class="muted"></span>
+  </div>
+</section>
+<section id="logs-section" hidden>
+  <div class="row"><h2 id="logs-title" style="margin:0">Logs</h2><button id="close-logs">Close</button></div>
+  <pre id="logs"></pre>
+</section>
+<section>
+  <h2>Activity</h2>
+  <pre id="activity"></pre>
+</section>
+<script>
+"use strict";
+const $ = (id) => document.getElementById(id);
+
+// Opening the panel again closes the older window, so only the newest one stays.
+const channel = new BroadcastChannel("minecade-panel");
+channel.onmessage = (event) => { if (event.data === "hello") window.close(); };
+channel.postMessage("hello");
+
+function el(tag, props = {}, ...children) {
+  const node = document.createElement(tag);
+  for (const [key, value] of Object.entries(props)) {
+    if (key === "onclick") node.onclick = value;
+    else if (key === "className") node.className = value;
+    else node.setAttribute(key, value);
+  }
+  for (const child of children) node.append(child instanceof Node ? child : document.createTextNode(String(child)));
+  return node;
+}
+
+async function post(path, body) {
+  try {
+    const response = await fetch(path, {
+      method: "POST",
+      headers: { "content-type": "application/json", "x-minecade-panel": "1" },
+      body: JSON.stringify(body ?? {}),
+    });
+    const result = await response.json().catch(() => ({}));
+    if (!response.ok) addActivity({ at: new Date().toISOString(), text: `Error: ${result.error ?? response.status}` });
+    return { ok: response.ok, result };
+  } catch (error) {
+    addActivity({ at: new Date().toISOString(), text: `Error: ${error}` });
+    return { ok: false, result: {} };
+  }
+}
+
+const DOCKER_PILL = {
+  running: ["ok", "Docker: running"],
+  starting: ["warn", "Docker: starting..."],
+  "not-responding": ["warn", "Docker: not responding"],
+  stopped: ["bad", "Docker: stopped"],
+};
+
+let state = null;
+
+function render(next) {
+  state = next;
+  const [cls, text] = DOCKER_PILL[state.docker] ?? ["off", `Docker: ${state.docker}`];
+  $("docker").className = `pill ${cls}`;
+  $("docker").textContent = text;
+  $("start-docker").hidden = state.docker !== "stopped";
+  $("busy").textContent = state.busy ? `Working: ${state.busy}...` : "";
+  renderStacks();
+  renderConnection();
+  renderEnv();
+}
+
+function renderStacks() {
+  const root = $("stacks");
+  root.replaceChildren();
+  const canAct = state.docker === "running" && !state.busy;
+  for (const stack of state.stacks) {
+    if (!stack.available && stack.id === "main") continue; // appears once docker-compose.yml exists
+    const status = stack.running ? el("span", { className: "pill ok" }, "running") : el("span", { className: "pill off" }, "stopped");
+    const action = (verb) => () => post(`/api/stacks/${stack.id}/${verb}`);
+    const buttons = [
+      el("button", { onclick: action("up") }, stack.running ? "Start (update)" : "Start"),
+      el("button", { onclick: action("restart") }, "Restart"),
+      el("button", { onclick: action("down") }, "Stop"),
+    ];
+    for (const button of buttons) button.disabled = !canAct || !stack.available;
+    const section = el("section", {}, el("div", { className: "row" }, el("h2", { style: "margin:0" }, stack.label), status, ...buttons));
+    if (!stack.available) {
+      section.append(el("p", { className: "hint" }, `Missing: ${stack.missing.join(", ")}. Run npm run spike:build and npm run spike:world first.`));
+    }
+    if (stack.containers.length > 0) {
+      const rows = stack.containers.map((c) => el("tr", {},
+        el("td", {}, c.name, c.role ? el("div", { className: "muted" }, c.role) : ""),
+        el("td", {}, c.state === "running" ? el("span", { className: "pill ok" }, "running") : el("span", { className: "pill off" }, c.state), el("div", { className: "muted" }, c.status)),
+        el("td", {}, c.ports || el("span", { className: "muted" }, "-")),
+        el("td", {}, !c.isBds ? el("span", { className: "muted" }, "-")
+          : c.players ? (c.players.length ? c.players.join(", ") : el("span", { className: "muted" }, "nobody"))
+          : el("span", { className: "muted" }, c.playersNote || "-")),
+        el("td", {}, el("button", { onclick: () => showLogs(c) }, "Logs")),
+      ));
+      section.append(el("table", {}, el("tr", {}, ...["Container", "State", "Ports", "Online", ""].map((h) => el("th", {}, h))), ...rows));
+    } else {
+      section.append(el("p", { className: "hint" }, "No containers. Press Start to boot this stack."));
+    }
+    root.append(section);
+  }
+}
+
+function renderConnection() {
+  const c = state.connection;
+  const lan = c.lanHost ? `${c.lanHost}:${c.joinPort}` : "LAN_HOST is not set in .env";
+  const lanNote = c.lanHost && !c.lanHostOk ? el("span", { className: "error" }, "  (this PC no longer has this address; update LAN_HOST and the router forward)") : "";
+  const pub = c.publicIp ? `${c.publicIp}:${c.joinPort}` : "unknown (lookup failed)";
+  $("connection").replaceChildren(
+    el("dt", {}, "You (this network)"), el("dd", {}, lan, lanNote),
+    el("dt", {}, "Friends (internet)"), el("dd", {}, pub, el("span", { className: "muted" }, c.publicHost === "auto" ? "  (auto-detected)" : "")),
+    el("dt", {}, "Note"), el("dd", { className: "muted" }, "The public address can't be tested from this PC: the router doesn't loop it back. Test it from a phone on cellular data."),
+  );
+}
+
+let envDirty = false;
+$("allow-list").oninput = $("lan-players").oninput = () => { envDirty = true; };
+
+function renderEnv() {
+  const missing = state.env.missing;
+  $("save-env").disabled = missing;
+  if (missing) { $("env-result").textContent = "No .env file. Copy .env.example to .env first."; return; }
+  if (envDirty || document.activeElement === $("allow-list") || document.activeElement === $("lan-players")) return;
+  $("allow-list").value = state.env.ALLOW_LIST;
+  $("lan-players").value = state.env.LAN_PLAYERS;
+}
+
+$("save-env").onclick = async () => {
+  const { ok, result } = await post("/api/env", { ALLOW_LIST: $("allow-list").value, LAN_PLAYERS: $("lan-players").value });
+  $("env-result").className = ok ? "muted" : "error";
+  $("env-result").textContent = ok ? (result.changed ? "Saved. Restart the stack to apply." : "No changes.") : (result.error ?? "Save failed.");
+  if (ok) { envDirty = false; $("allow-list").blur(); $("lan-players").blur(); }
+};
+
+$("start-docker").onclick = () => post("/api/docker/start");
+
+let logsTimer = null;
+function showLogs(container) {
+  $("logs-section").hidden = false;
+  $("logs-title").textContent = `Logs: ${container.name}`;
+  clearInterval(logsTimer);
+  const load = async () => {
+    const response = await fetch(`/api/logs?id=${encodeURIComponent(container.id)}`).catch(() => null);
+    if (!response || !response.ok) { $("logs").textContent = "(not available; is the container running?)"; return; }
+    const pre = $("logs");
+    const atBottom = pre.scrollTop + pre.clientHeight >= pre.scrollHeight - 4;
+    pre.textContent = (await response.json()).lines.join("\n");
+    if (atBottom) pre.scrollTop = pre.scrollHeight;
+  };
+  load();
+  logsTimer = setInterval(load, 2000);
+}
+$("close-logs").onclick = () => { clearInterval(logsTimer); $("logs-section").hidden = true; };
+
+function addActivity(entry) {
+  const pre = $("activity");
+  const atBottom = pre.scrollTop + pre.clientHeight >= pre.scrollHeight - 4;
+  pre.textContent += `${entry.at.slice(11, 19)}  ${entry.text}\n`;
+  const lines = pre.textContent.split("\n");
+  if (lines.length > 400) pre.textContent = lines.slice(-400).join("\n");
+  if (atBottom) pre.scrollTop = pre.scrollHeight;
+}
+
+const events = new EventSource("/api/events");
+events.addEventListener("state", (event) => render(JSON.parse(event.data)));
+events.addEventListener("activity", (event) => addActivity(JSON.parse(event.data)));
+// The helper replays recent activity on every (re)connect, so start the pane fresh.
+events.onopen = () => { $("banner").style.display = "none"; $("activity").textContent = ""; };
+events.onerror = () => {
+  $("banner").textContent = "Lost contact with the panel helper. If this doesn't clear, close this window and open Minecade Panel again.";
+  $("banner").style.display = "block";
+};
+</script>
+</body>
+</html>

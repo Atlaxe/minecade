@@ -2,6 +2,7 @@
 *.sh text eol=lf
 *.tmpl text eol=lf
 Dockerfile text eol=lf
+*.vbs text eol=crlf
 # Bedrock worlds are LevelDB; never touch line endings (db/*.log are binary)
 **/world/** -text
 **/spike/world/** -text

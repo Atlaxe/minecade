@@ -1,7 +1,7 @@
 // Small dockerode helpers shared by the build/bake tools and the spike.
 import { mkdir } from "node:fs/promises";
 import { createInterface } from "node:readline";
-import { PassThrough } from "node:stream";
+import { PassThrough, type Readable } from "node:stream";
 import { pipeline } from "node:stream/promises";
 import Docker from "dockerode";
 import * as tar from "tar";
@@ -64,6 +64,28 @@ export async function attachConsole(container: Docker.Container, echo = false): 
       listeners.clear();
       stream.end();
     },
+  };
+}
+
+/**
+ * Follows a container's log from its first line, calling `onLine` for each line, until the
+ * returned stop function is called or the stream ends (the container stopped). Requires Tty: false.
+ */
+export async function followLogs(
+  container: Docker.Container,
+  onLine: (line: string) => void,
+  onEnd?: () => void,
+): Promise<() => void> {
+  const stream = (await container.logs({ follow: true, stdout: true, stderr: true, since: 0 })) as unknown as Readable;
+  const out = new PassThrough();
+  container.modem.demuxStream(stream, out, out);
+  const lines = createInterface({ input: out });
+  lines.on("line", onLine);
+  stream.on("end", () => out.end());
+  stream.on("close", () => onEnd?.());
+  return () => {
+    lines.close();
+    stream.destroy();
   };
 }
 

@@ -13,6 +13,8 @@
     "spike:up": "docker compose -f spike/docker-compose.spike.yml --env-file .env up -d --build",
     "spike:down": "docker compose -f spike/docker-compose.spike.yml --env-file .env down",
     "cmd": "tsx tools/build/send-command.ts",
+    "panel": "node --disable-warning=ExperimentalWarning tools/control-panel/panel.ts",
+    "panel:shortcut": "node --disable-warning=ExperimentalWarning tools/control-panel/shortcut.ts",
     "typecheck": "tsc -p tsconfig.node.json && tsc -p tsconfig.packs.json"
   },
   "devDependencies": {

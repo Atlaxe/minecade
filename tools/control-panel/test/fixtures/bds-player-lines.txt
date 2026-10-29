@@ -1,0 +1,6 @@
+[2026-10-28 22:35:31:298 INFO] Server started.
+[2026-10-28 22:40:02:114 INFO] Player connected: Steve Builder, xuid: 2535412345678901
+[2026-10-28 22:40:05:871 INFO] Player Spawned: Steve Builder xuid: 2535412345678901, pfid: 1a2b3c4d5e6f7a8b
+[2026-10-28 22:41:10:003 INFO] Player connected: Alex, xuid: 2535498765432109
+[2026-10-28 22:41:12:450 INFO] Player Spawned: Alex xuid: 2535498765432109, pfid: 9f8e7d6c5b4a3f2e
+[2026-10-28 22:45:33:520 INFO] Player disconnected: Steve Builder, xuid: 2535412345678901, pfid: 1a2b3c4d5e6f7a8b
