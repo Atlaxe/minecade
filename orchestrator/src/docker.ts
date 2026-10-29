@@ -20,6 +20,8 @@ export interface GameSpec {
   port: number;
   env: Record<string, string>;
   labels: Record<string, string>;
+  /** Named Docker volumes to mount, as { volume name: path in the container }. */
+  volumes: Record<string, string>;
 }
 
 export interface ServerHandle {
@@ -77,6 +79,7 @@ export class DockerodeAdapter implements DockerAdapter {
       ExposedPorts: { [tcp]: {}, [udp]: {} },
       HostConfig: {
         NetworkMode: spec.network,
+        Mounts: Object.entries(spec.volumes).map(([source, target]) => ({ Type: "volume" as const, Source: source, Target: target })),
         // The Engine API takes one entry per port; there are no ranges.
         PortBindings: { [tcp]: [{ HostPort: String(spec.port) }], [udp]: [{ HostPort: String(spec.port) }] },
       },

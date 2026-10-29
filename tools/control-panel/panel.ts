@@ -4,7 +4,7 @@
 //   --stay       never exit on its own (development)
 //   --no-window  don't open a window (testing with curl)
 import { spawn } from "node:child_process";
-import { appendFileSync, existsSync, mkdirSync, writeFileSync } from "node:fs";
+import { appendFileSync, existsSync, mkdirSync, statSync, writeFileSync } from "node:fs";
 import { readFile, writeFile } from "node:fs/promises";
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import { networkInterfaces, tmpdir } from "node:os";
@@ -183,8 +183,11 @@ async function buildState() {
   const envText = existsSync(envPath) ? await readFile(envPath, "utf8") : undefined;
   const env = envText === undefined ? undefined : readEnv(envText);
   const orchestrator = await orchestratorStatus();
+  // Containers read .env only when they are created.
+  const envChangedAt = envText === undefined ? 0 : statSync(envPath).mtimeMs;
   const stacks = STACKS.map((stack) => {
     const members = containers.filter((info) => stackOf(info) === stack.id);
+    const settingsStale = members.some((info) => info.State === "running" && info.Created * 1000 < envChangedAt);
     const missing = [stack.file, ...stack.requires].filter((file) => !existsSync(join(repoRoot, file)));
     return {
       id: stack.id,
@@ -192,6 +195,7 @@ async function buildState() {
       available: missing.length === 0,
       missing,
       running: members.some((info) => info.State === "running"),
+      settingsStale,
       containers: members.map(containerView).sort((a, b) => a.name.localeCompare(b.name)),
       orchestrator: stack.id === "main" ? orchestrator : null,
     };

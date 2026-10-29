@@ -27,7 +27,9 @@ let ending = false;
 
 function sendToLobby(player: Player, why: string): void {
   // Players on the host's network can't reach its public address (no NAT loopback).
-  const hostname = lanPlayers.has(player.name.toLowerCase()) ? lanHost : publicHost;
+  const onLan = lanPlayers.has(player.name.toLowerCase());
+  const hostname = onLan ? lanHost : publicHost;
+  console.warn(`[probe] sending ${player.name} to ${hostname}:${lobbyPort} (${onLan ? "in LAN_PLAYERS" : "not in LAN_PLAYERS, public"})`);
   player.sendMessage(`${why} Sending you back to the lobby...`);
   try {
     transferPlayer(player, { hostname, port: lobbyPort });

@@ -17,6 +17,7 @@ import { resolveGameMap, type Registry, type RegistryGame, type RegistryMap } fr
 import type { WarmPool } from "./warm-pool.ts";
 
 const SERVER_STARTED = /^\[[^\]]*\] Server started\./;
+const SCRIPT_LINE = /^\[[^\]]*\] \[Scripting\] /;
 const START_ATTEMPTS = 4;
 const EMPTY_CHECK_MS = 10_000;
 /** How long a game gets to send its players home after return_all. */
@@ -195,6 +196,8 @@ export class SessionManager {
         GAME: session.game.id,
         MAP: session.map.id,
         SERVER_ID: session.id,
+        // Every game runs on the game port under one saved identity, so players trust it once.
+        IDENTITY: "game",
         SESSION_ID: session.id,
         SERVER_PORT: String(config.gamePort),
         LOBBY_PORT: String(config.lobbyPort),
@@ -215,6 +218,7 @@ export class SessionManager {
         [LABELS.game]: session.game.id,
         [LABELS.managedBy]: MANAGED_BY,
       },
+      volumes: config.keysVolume ? { [config.keysVolume]: "/keys" } : {},
     };
   }
 
@@ -239,6 +243,8 @@ export class SessionManager {
     session.cleanup.push(link.onEvent((event) => this.onGameEvent(session, event)));
     session.cleanup.push(
       handle.console.onLine((line) => {
+        // Game containers are deleted when the session ends, so keep their script output here.
+        if (SCRIPT_LINE.test(line) && !line.includes("[NET]")) log.info(`game ${session.id}: ${line}`);
         if (session.logReady || !SERVER_STARTED.test(line)) return;
         session.logReady = true;
         this.checkReady(session);

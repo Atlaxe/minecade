@@ -39,6 +39,7 @@ Both transports work. **Default: HTTP** (`TRANSPORT=http`): structured requests,
 - `level-type` no longer exists.
 - `transport=nethernet` is the default. `server-port` is the TCP signaling port.
 - `server-udp-ports` supports a **single UDP port shared by all clients** (the default mode) or a range, with an optional `IP:public:local` prefix. Only one IP per server.
+- **Server identity:** BDS loads `keys/server_identity_key.pem` (unencrypted P-384). Without it, it makes up a new identity at every start and players must accept server trust again (from `bedrock_server_how_to.html`). The entrypoint keeps one key per role (`lobby`, `game`) in the `minecade-keys` volume.
 
 ## Network design consequence
 

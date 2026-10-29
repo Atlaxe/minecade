@@ -28,12 +28,15 @@ services:
       GAME: lobby
       MAP: main
       SERVER_ID: lobby
+      IDENTITY: lobby
       SERVER_PORT: "19132"
       SERVER_NAME: Minecade lobby
       ORCH_URL: http://orchestrator:8080
     ports:
       - "19132:19132/tcp"
       - "19132:19132/udp"
+    volumes:
+      - keys:/keys
     stdin_open: true
     labels:
       minecade.role: lobby
@@ -51,6 +54,7 @@ services:
       SERVER_IMAGE: minecade/bds:local
       NETWORK: minecade
       COMPOSE_PROJECT: minecade
+      KEYS_VOLUME: minecade-keys
       ORCH_URL: http://orchestrator:8080
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
@@ -66,3 +70,9 @@ services:
 networks:
   default:
     name: minecade
+
+volumes:
+  # Saved server identity keys, so players accept server trust once per server, not on every
+  # start. `docker compose down` keeps it; deleting it means everyone accepts trust again.
+  keys:
+    name: minecade-keys

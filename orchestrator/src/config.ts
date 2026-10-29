@@ -15,6 +15,8 @@ export interface Config {
   network: string;
   /** Compose project of the main stack, used to find the lobby container. */
   composeProject: string;
+  /** Docker volume holding the saved server identity keys, or "" for none. */
+  keysVolume: string;
   /** How servers on the network reach this orchestrator. */
   orchestratorUrl: string;
   httpPort: number;
@@ -41,6 +43,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     serverImage: env.SERVER_IMAGE || "minecade/bds:local",
     network: env.NETWORK || "minecade",
     composeProject: env.COMPOSE_PROJECT || "minecade",
+    keysVolume: env.KEYS_VOLUME ?? "",
     orchestratorUrl: env.ORCH_URL || "http://orchestrator:8080",
     httpPort: integer(env.HTTP_PORT, 8080),
     lobbyPort: integer(env.LOBBY_PORT, 19132),

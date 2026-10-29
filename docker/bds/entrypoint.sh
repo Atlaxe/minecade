@@ -5,6 +5,7 @@
 #   SERVER_ID       how the orchestrator knows this server ("lobby", or the session id)
 #   SERVER_PORT     TCP signaling and UDP game port (the same number inside and outside)
 #   TRANSPORT       http | log (must match the orchestrator)
+#   IDENTITY        name of this server's saved identity key in /keys (default: SERVER_ID)
 #   ORCH_URL, LAN_HOST, PUBLIC_HOST, LAN_PLAYERS, ALLOW_LIST, LOBBY_PORT, SESSION_ID,
 #   EXPECTED_PLAYERS, MAX_PLAYERS, SERVER_NAME, DEV_MIN_PLAYERS
 set -euo pipefail
@@ -78,6 +79,23 @@ if [[ -n "${ALLOW_LIST:-}" ]]; then
   set_prop allow-list true
 else
   set_prop allow-list false
+fi
+
+# --- Server identity ---------------------------------------------------------------------------
+# Without a saved key BDS makes up a new identity at every start, and players must accept server
+# trust again each time. Keys live in the shared /keys volume, one per role ("lobby", "game"),
+# so every game container on the game port keeps the same identity.
+if [[ -d /keys ]]; then
+  key="/keys/${IDENTITY:-$SERVER_ID}.pem"
+  if [[ ! -s "$key" ]]; then
+    openssl ecparam -name secp384r1 -genkey -noout -out "$key.tmp"
+    mv "$key.tmp" "$key"
+    echo "[minecade] created server identity key $key"
+  fi
+  mkdir -p keys
+  cp "$key" keys/server_identity_key.pem
+else
+  echo "[minecade] no /keys volume: this server gets a new identity at every start" >&2
 fi
 
 # --- World: a fresh copy of the template ---------------------------------------------------

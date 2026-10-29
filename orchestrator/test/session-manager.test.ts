@@ -47,6 +47,8 @@ describe("SessionManager: starting", () => {
       EXPECTED_PLAYERS: "Steve,Alex",
       MAX_PLAYERS: "10",
     });
+    expect(spec.env.IDENTITY).toBe("game");
+    expect(spec.volumes).toEqual({});
     expect(spec.labels).toMatchObject({ "minecade.role": "game", "minecade.session": "s1", "minecade.managed-by": "orchestrator" });
     expect(types(t)).toEqual(["game_starting", "status"]);
     expect(t.sessions.status()).toMatchObject({ state: "starting", sessionId: "s1", game: "probe", map: "default" });
@@ -81,6 +83,25 @@ describe("SessionManager: starting", () => {
     expect(busy).toMatchObject({ ok: false, reason: "busy: Probe is running" });
     expect(t.lobby.at(-1)).toMatchObject({ t: "start_rejected", requestId: "r2", status: { state: "running", sessionId: "s1" } });
     expect(t.docker.specs).toHaveLength(1);
+  });
+
+  it("mounts the identity key volume so every game keeps one server identity", async () => {
+    const t = setupSessions({ keysVolume: "minecade-keys" });
+    await t.sessions.start(startRequest);
+    expect(t.docker.specs[0].volumes).toEqual({ "minecade-keys": "/keys" });
+  });
+
+  it("copies the game's script output into the orchestrator log", async () => {
+    const t = setupSessions();
+    await t.sessions.start(startRequest);
+    const handle = t.docker.handles[0];
+    handle.console.emit("[2026-10-29 01:40:00:000 WARN] [Scripting] [probe] sending get a waffle to 192.168.40.98:19132");
+    handle.console.emit('[2026-10-29 01:40:00:000 WARN] [Scripting] [NET] {"t":"status_request"}');
+    handle.console.emit("[2026-10-29 01:40:00:000 INFO] Player connected: get a waffle, xuid: 1");
+    const logged = vi.mocked(console.log).mock.calls.map(([line]) => String(line));
+    expect(logged.filter((line) => line.includes("game s1:"))).toEqual([
+      "[orchestrator] game s1: [2026-10-29 01:40:00:000 WARN] [Scripting] [probe] sending get a waffle to 192.168.40.98:19132",
+    ]);
   });
 
   it("picks one of the game's maps for 'random'", async () => {

@@ -52,6 +52,7 @@
   <input id="allow-list" type="text" spellcheck="false">
   <label for="lan-players">LAN_PLAYERS: players on this home network (transferred by LAN address)</label>
   <input id="lan-players" type="text" spellcheck="false">
+  <p id="lan-warning" class="error" hidden>Add your own gamertag here. Without it, transfers from this PC go to the public address, which this PC can't reach.</p>
   <div class="row" style="margin-top:8px">
     <button id="save-env">Save</button>
     <span id="env-result" class="muted"></span>
@@ -140,6 +141,9 @@ function renderStacks() {
     if (!stack.available) {
       section.append(el("p", { className: "hint" }, `Missing: ${stack.missing.join(", ")}. Run npm run spike:build and npm run spike:world first.`));
     }
+    if (stack.settingsStale) {
+      section.append(el("p", { className: "error" }, ".env changed after this stack started. Click Restart to apply the new settings."));
+    }
     if (stack.orchestrator) section.append(renderGame(stack.orchestrator));
     if (stack.containers.length > 0) {
       const rows = stack.containers.map((c) => el("tr", {},
@@ -207,6 +211,7 @@ function renderEnv() {
   const missing = state.env.missing;
   $("save-env").disabled = missing;
   if (missing) { $("env-result").textContent = "No .env file. Copy .env.example to .env first."; return; }
+  $("lan-warning").hidden = state.env.LAN_PLAYERS.trim() !== "";
   if (envDirty || document.activeElement === $("allow-list") || document.activeElement === $("lan-players")) return;
   $("allow-list").value = state.env.ALLOW_LIST;
   $("lan-players").value = state.env.LAN_PLAYERS;
