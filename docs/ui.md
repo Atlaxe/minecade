@@ -132,10 +132,11 @@ menu); on the main menu they end the session. Team picking and the stats screens
   stats) needs no new picture. Text heights are in `LAYOUT` in `hologram.ts`; tune them if
   redrawn frames need the text elsewhere. Text colors are in `TONES`: normal text is white, so it
   reads well against the glowing panel (text isn't blended with it).
-- **Which way text faces:** a `TextPrimitive`'s rotation is the rotation of a camera that reads it,
-  in Minecraft yaw (0 looks south, 90 west, 180 north, 270 east). Text on a side is read from
-  outside, looking toward the middle, so `readerYaw()` in `hologram.ts` gives the south side 180,
-  the west 270, the north 0 and the east 90.
+- **Which way text faces:** a `TextPrimitive`'s y rotation is the direction its reader faces, and
+  it turns the opposite way from Minecraft's player yaw: 0 is read facing south, 90 facing east,
+  180 north, 270 west (measured in game). Text on a side is read from outside, facing the middle,
+  so `readerYaw()` in `hologram.ts` gives the south side 180, the west 90, the north 0 and the
+  east 270.
 - **The picture:** on the game screen, the `minecade:picture` property picks a 16:9 picture from
   `Array.pictures` in the `holo_picture` render controller: the chosen map's preview, or the
   game's picture while the map is random (placeholders for either when there's none). It shows 2
@@ -188,8 +189,10 @@ them (cell 0 is the player icon). Glyphs can go in any text a form shows.
 or `collection_panel` (on a plain panel, `collection_index` is silently ignored, and every item
 shows button 0). Scrolling areas reuse vanilla `common.scrolling_panel`. The back arrow is vanilla
 `common.close_button` with vanilla's back button textures. Pictures fill their control with
-`"fill": true, "keep_ratio": false`. Sizes in percent are of the parent, so the layouts' root
-(`long_form`) fills the screen and the game grid can be `"80%"` of it. A texture with a `.json`
+`"fill": true, "keep_ratio": false`. Sizes in percent are of the parent. Vanilla sizes the form
+screen's content panel (`server_form.main_screen_content`) `[0, 0]`, which makes any percentage
+inside it zero, so `ui/server_form.json` resizes it to fill the screen; then the layouts' root
+(`long_form`) fills the screen too and the game grid can be `"80%"` of it. A texture with a `.json`
 file next to it (`nineslice_size`, `base_size`) is a nine-slice: its outer slices keep their size
 and the middle stretches.
 

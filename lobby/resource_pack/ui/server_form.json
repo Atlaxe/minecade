@@ -4,7 +4,12 @@
   // Minecade's themed menus. Forms whose title starts with a layout mark (formatting codes that
   // never render, see lobby/behavior_pack/scripts/menus.ts) get a layout from minecade_forms.json;
   // every other form stays vanilla. Merged into the vanilla file, so updates to it still apply.
+  //
+  // Vanilla sizes this panel [0, 0] (its forms are fixed sizes centered on it), which makes every
+  // percentage size inside it zero. Filling the screen lets our layouts size against the screen
+  // (the game grid is 80% of its height); vanilla's forms stay the same, centered.
   "main_screen_content": {
+    "size": ["100%", "100%"],
     "modifications": [
       {
         "array_name": "controls",
@@ -12,6 +17,7 @@
         "value": {
           "minecade_forms_factory_panel": {
             "type": "panel",
+            "size": ["100%", "100%"],
             "factory": {
               "name": "server_form_factory",
               "control_ids": {

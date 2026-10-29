@@ -16,12 +16,12 @@ const BLOCK = "minecade:terminal";
 const TEXT_OUT = 1.56;
 
 /**
- * A text's rotation is the rotation of a camera that reads it, in Minecraft yaw (0 looks south,
- * 90 west, 180 north, 270 east). Text on a side is read by someone outside looking toward the
- * middle, so it gets the yaw of that look: south side 180, west 270, north 0, east 90.
+ * A text's y rotation is the direction its reader faces, turning the opposite way from Minecraft's
+ * player yaw: 0 is read facing south, 90 facing east, 180 north, 270 west (measured in game). Text
+ * on a side is read by someone outside facing the middle: south side 180, west 90, north 0, east 270.
  */
 function readerYaw(x: number, z: number): number {
-  return (((Math.atan2(x, -z) * 180) / Math.PI) % 360 + 360) % 360;
+  return (((Math.atan2(-x, -z) * 180) / Math.PI) % 360 + 360) % 360;
 }
 
 /** The four sides, as outward directions (south, west, north, east). */
