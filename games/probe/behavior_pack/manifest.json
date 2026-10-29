@@ -1,0 +1,23 @@
+{
+  "format_version": 2,
+  "header": {
+    "name": "Minecade Probe",
+    "description": "Test game for the orchestrator: reports ready, then sends players back to the lobby",
+    "uuid": "85954224-8a77-4f7c-9615-296ad4c79108",
+    "version": [0, 1, 0],
+    "min_engine_version": [1, 26, 60]
+  },
+  "modules": [
+    {
+      "type": "script",
+      "language": "javascript",
+      "uuid": "77375800-a9d2-401d-a9b4-4019509e68bf",
+      "version": [0, 1, 0],
+      "entry": "scripts/main.js"
+    }
+  ],
+  "dependencies": [
+    { "module_name": "@minecraft/server", "version": "2.11.0" },
+    { "module_name": "@minecraft/server-admin", "version": "1.0.0-beta" }
+  ]
+}

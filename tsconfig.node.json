@@ -6,6 +6,7 @@
     "spike/*.ts",
     "orchestrator/**/*.ts",
     "packages/*/test/**/*.ts",
+    "games/*/game.config.ts",
     "vitest.config.ts"
   ],
   "exclude": ["tools/build/test/fixtures/**"]

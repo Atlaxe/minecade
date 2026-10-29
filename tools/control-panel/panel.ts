@@ -28,6 +28,8 @@ import {
 
 const PORT = 8099;
 const ORIGIN = `http://127.0.0.1:${PORT}`;
+/** The orchestrator's debug API, published on this PC only. */
+const ORCHESTRATOR_URL = "http://127.0.0.1:8080";
 const JOIN_PORT = 19132;
 const LOG_LINES_KEPT = 300;
 const ACTIVITY_KEPT = 200;
@@ -163,9 +165,24 @@ function containerView(info: Docker.ContainerInfo) {
   };
 }
 
+/** The main stack's game status from the orchestrator, or null when it isn't running. */
+async function orchestratorStatus(): Promise<unknown> {
+  const running = containers.some(
+    (info) => stackOf(info) === "main" && info.State === "running" && info.Labels["minecade.role"] === "orchestrator",
+  );
+  if (!running) return null;
+  try {
+    const response = await fetch(`${ORCHESTRATOR_URL}/v1/status`, { signal: AbortSignal.timeout(1000) });
+    return response.ok ? await response.json() : { error: `HTTP ${response.status}` };
+  } catch {
+    return { error: "not answering yet" };
+  }
+}
+
 async function buildState() {
   const envText = existsSync(envPath) ? await readFile(envPath, "utf8") : undefined;
   const env = envText === undefined ? undefined : readEnv(envText);
+  const orchestrator = await orchestratorStatus();
   const stacks = STACKS.map((stack) => {
     const members = containers.filter((info) => stackOf(info) === stack.id);
     const missing = [stack.file, ...stack.requires].filter((file) => !existsSync(join(repoRoot, file)));
@@ -176,6 +193,7 @@ async function buildState() {
       missing,
       running: members.some((info) => info.State === "running"),
       containers: members.map(containerView).sort((a, b) => a.name.localeCompare(b.name)),
+      orchestrator: stack.id === "main" ? orchestrator : null,
     };
   });
   const lanHost = env?.LAN_HOST ?? "";
@@ -405,7 +423,31 @@ async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> 
     const result = await saveEnv(body);
     return sendJson(res, result.status, result.body);
   }
+  if (path === "/api/game/start" || path === "/api/game/end") {
+    const result = await relayToOrchestrator(path === "/api/game/start", body);
+    return sendJson(res, result.status, result.body);
+  }
   return sendJson(res, 404, { error: "not found" });
+}
+
+/** Starts or ends a game through the orchestrator's debug API. */
+async function relayToOrchestrator(start: boolean, body: Record<string, unknown>): Promise<{ status: number; body: unknown }> {
+  const payload = start ? { game: String(body.game ?? ""), map: String(body.map || "random") } : {};
+  try {
+    const response = await fetch(`${ORCHESTRATOR_URL}${start ? "/v1/start" : "/v1/end"}`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(payload),
+      signal: AbortSignal.timeout(30_000),
+    });
+    const result = (await response.json().catch(() => ({}))) as { error?: string };
+    if (response.ok) note(start ? `Starting ${payload.game}...` : "Ending the game...");
+    else note(`Orchestrator: ${result.error ?? `HTTP ${response.status}`}`);
+    void refresh();
+    return { status: response.status, body: result };
+  } catch {
+    return { status: 502, body: { error: "the orchestrator is not answering" } };
+  }
 }
 
 function otherRunningStack(id: StackId): string | undefined {

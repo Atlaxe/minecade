@@ -59,13 +59,18 @@ What this settles:
 - The advertised UDP address does not matter to a LAN client, so every server advertises the public IP.
 - A player on the host's LAN must be transferred by LAN address. `LAN_PLAYERS` in `.env` lists those gamertags, and every other player gets the public address.
 
-## Deferred (needs a second Microsoft account)
+## Remote client results (phone on cellular data, 2026-10-28)
 
-Router forwards for TCP+UDP 19132-19134 are in place (Plume). These tests are on hold until a friend can join:
+Router forwards for TCP+UDP 19132-19134 are in place (Plume).
+
+| Test | Result | Notes |
+|---|---|---|
+| Remote client joins `<public IP>:19132` | PASS | Phone on cellular data, same account with the PC client closed. Proves the forwards and the public UDP advertisement. |
+
+## Still open (needs a friend)
 
 | Test | Expected |
 |---|---|
-| Remote client joins `<public IP>:19132` | Proves the forwards and the public UDP advertisement |
 | Remote client compass transfer via public address, both directions | Proves transfers through the forwards |
 | Console via BedrockConnect, same steps | Low risk: BedrockConnect itself moves consoles with the same transfer packet |
 | Two players on one server (one LAN, one remote) | Proves the shared single UDP port with mixed clients |

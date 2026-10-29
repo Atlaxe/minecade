@@ -1,0 +1,68 @@
+# Minecade network: the lobby and the orchestrator. The orchestrator creates and removes game
+# server containers (minecade-game-<session>) itself. Start and stop with the Minecade Panel, or:
+#   docker compose --env-file .env up -d --build
+#   docker compose --env-file .env down
+name: minecade
+
+x-server-env: &server-env
+  TRANSPORT: ${TRANSPORT:-http}
+  PUBLIC_HOST: ${PUBLIC_HOST:-auto}
+  LAN_HOST: ${LAN_HOST:?set LAN_HOST in .env}
+  LAN_PLAYERS: ${LAN_PLAYERS:-}
+  ALLOW_LIST: ${ALLOW_LIST:-}
+  DEV_MIN_PLAYERS: ${DEV_MIN_PLAYERS:-}
+
+services:
+  lobby:
+    image: minecade/bds:local
+    build:
+      context: .
+      dockerfile: docker/bds/Dockerfile
+      target: server
+      args:
+        EULA: ${EULA:-}
+        BDS_VERSION: ${BDS_VERSION:-1.26.60.6}
+    container_name: minecade-lobby
+    environment:
+      <<: *server-env
+      GAME: lobby
+      MAP: main
+      SERVER_ID: lobby
+      SERVER_PORT: "19132"
+      SERVER_NAME: Minecade lobby
+      ORCH_URL: http://orchestrator:8080
+    ports:
+      - "19132:19132/tcp"
+      - "19132:19132/udp"
+    stdin_open: true
+    labels:
+      minecade.role: lobby
+    stop_grace_period: 10s
+
+  orchestrator:
+    image: minecade/orchestrator:local
+    build:
+      context: .
+      dockerfile: docker/bds/Dockerfile
+      target: orchestrator
+    container_name: minecade-orchestrator
+    environment:
+      <<: *server-env
+      SERVER_IMAGE: minecade/bds:local
+      NETWORK: minecade
+      COMPOSE_PROJECT: minecade
+      ORCH_URL: http://orchestrator:8080
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    ports:
+      # The debug API stays on this PC; servers reach the orchestrator over the network.
+      - "127.0.0.1:8080:8080"
+    labels:
+      minecade.role: orchestrator
+    init: true
+    # Time to send players home and remove a running game container on shutdown.
+    stop_grace_period: 30s
+
+networks:
+  default:
+    name: minecade

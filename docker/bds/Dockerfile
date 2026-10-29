@@ -1,4 +1,20 @@
 # syntax=docker/dockerfile:1
+# One Dockerfile, two images:
+#   --target server        minecade/bds:local         the lobby and every game server
+#   --target orchestrator  minecade/orchestrator:local
+
+# ---------------------------------------------------------------------------
+# build: compiles the packs and templates (dist/templates), the registry and
+# the orchestrator bundle.
+# ---------------------------------------------------------------------------
+FROM node:22-bookworm-slim AS build
+WORKDIR /src
+COPY package.json package-lock.json ./
+COPY packages/minigame-core/package.json packages/minigame-core/
+COPY orchestrator/package.json orchestrator/
+RUN npm ci --no-audit --no-fund
+COPY . .
+RUN npm run build
 
 # ---------------------------------------------------------------------------
 # bds: Ubuntu + official Bedrock Dedicated Server. Cached independently of the
@@ -30,3 +46,22 @@ RUN curl -fsSL --retry 3 \
  && echo "${BDS_VERSION}" > /bds/.bds-version
 
 ENV LD_LIBRARY_PATH=/bds
+
+# ---------------------------------------------------------------------------
+# server: BDS + the built templates + the entrypoint that picks GAME and MAP.
+# ---------------------------------------------------------------------------
+FROM bds AS server
+COPY --from=build /src/dist/templates /templates
+COPY docker/bds/entrypoint.sh /usr/local/bin/minecade-entrypoint
+RUN chmod +x /usr/local/bin/minecade-entrypoint
+ENTRYPOINT ["/usr/local/bin/minecade-entrypoint"]
+
+# ---------------------------------------------------------------------------
+# orchestrator: Node + the bundled orchestrator and the game registry.
+# ---------------------------------------------------------------------------
+FROM node:22-bookworm-slim AS orchestrator
+WORKDIR /app
+COPY --from=build /src/dist/orchestrator/index.cjs ./index.cjs
+COPY --from=build /src/dist/registry.json ./registry.json
+ENV REGISTRY_PATH=/app/registry.json
+CMD ["node", "index.cjs"]

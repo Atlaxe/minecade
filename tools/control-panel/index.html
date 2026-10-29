@@ -16,6 +16,7 @@
   th, td { text-align: left; padding: 4px 6px; border-top: 1px solid var(--line); vertical-align: top; }
   th { font-weight: 600; color: var(--muted); border-top: none; }
   button { font: inherit; padding: 4px 10px; cursor: pointer; }
+  select { font: inherit; padding: 3px 6px; }
   button:disabled { cursor: default; }
   input[type=text] { font: inherit; width: 100%; box-sizing: border-box; padding: 4px 6px; }
   label { display: block; margin: 8px 0 2px; font-weight: 600; }
@@ -139,6 +140,7 @@ function renderStacks() {
     if (!stack.available) {
       section.append(el("p", { className: "hint" }, `Missing: ${stack.missing.join(", ")}. Run npm run spike:build and npm run spike:world first.`));
     }
+    if (stack.orchestrator) section.append(renderGame(stack.orchestrator));
     if (stack.containers.length > 0) {
       const rows = stack.containers.map((c) => el("tr", {},
         el("td", {}, c.name, c.role ? el("div", { className: "muted" }, c.role) : ""),
@@ -155,6 +157,35 @@ function renderStacks() {
     }
     root.append(section);
   }
+}
+
+// The game picker is rebuilt on every update, so remember the choice across renders.
+let gamePick = "";
+
+function renderGame(status) {
+  if (status.error) return el("p", { className: "hint" }, `Orchestrator: ${status.error}`);
+  const idle = status.state === "idle";
+  const summary = idle
+    ? "No game running."
+    : `${status.game} on ${status.map}: ${status.state} (session ${status.sessionId}). Players: ${status.players.length ? status.players.join(", ") : "none"}`;
+  const select = el("select", {});
+  for (const game of status.games) {
+    for (const map of game.maps) select.append(el("option", { value: `${game.id}|${map.id}` }, `${game.name}: ${map.name}`));
+  }
+  if (gamePick) select.value = gamePick;
+  select.onchange = () => { gamePick = select.value; };
+  const start = el("button", { onclick: () => {
+    const [game, map] = select.value.split("|");
+    post("/api/game/start", { game, map });
+  } }, "Start game");
+  const end = el("button", { onclick: () => post("/api/game/end") }, "End game");
+  start.disabled = !idle || !select.value;
+  end.disabled = idle;
+  return el("div", { style: "margin-top:8px" },
+    el("div", { className: "row" }, el("strong", {}, "Game"), el("span", {}, summary)),
+    el("div", { className: "row", style: "margin-top:6px" }, select, start, end),
+    el("p", { className: "hint" }, "Players join the game on port 19133 until the lobby can send them there (milestone 5)."),
+  );
 }
 
 function renderConnection() {
