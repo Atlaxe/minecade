@@ -5,3 +5,4 @@ export * from "./protocol/index.ts";
 export type { Transport, TransportFactory, TransportOptions } from "./transport/transport.ts";
 export { describeError, log } from "./log.ts";
 export { defineGame, type GameConfig } from "./config.ts";
+export type { Box, MapConfig, Vec3 } from "./map-config.ts";

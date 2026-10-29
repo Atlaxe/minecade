@@ -1,3 +1,14 @@
 {
-  "name": "Main"
+  "name": "Main",
+  "spawns": [[0, 65, 0]],
+  "bounds": { "min": [-16, 40, -16], "max": [16, 100, 16] },
+  "build": {
+    "commands": [
+      "fill -12 64 -12 12 64 12 light_gray_concrete",
+      "fill -12 65 -12 12 65 -12 gray_concrete",
+      "fill -12 65 12 12 65 12 gray_concrete",
+      "fill -12 65 -11 -12 65 11 gray_concrete",
+      "fill 12 65 -11 12 65 11 gray_concrete"
+    ]
+  }
 }

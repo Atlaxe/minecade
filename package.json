@@ -9,6 +9,8 @@
   "scripts": {
     "test": "vitest run",
     "build": "tsx tools/build/build.ts",
+    "bake": "tsx tools/build/bake.ts",
+    "check": "npm run typecheck && npm test",
     "spike:build": "tsx spike/build-packs.ts",
     "spike:world": "tsx spike/make-world.ts",
     "spike:up": "docker compose -f spike/docker-compose.spike.yml --env-file .env up -d --build",

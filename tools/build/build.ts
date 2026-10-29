@@ -1,59 +1,121 @@
 // Builds every server target into dist/templates/servers/<target>/, writes dist/registry.json,
 // and bundles the orchestrator into dist/orchestrator/. A target is the lobby (lobby/) or a game
-// (games/<id>/ with a game.config.ts). Each behavior pack is bundled once per transport, and the
-// container entrypoint keeps the pair that matches TRANSPORT.
-// Milestone 4 adds full validation, map baking, resource packs and shared packs.
+// (games/<id>/ with a game.config.ts). Everything is validated first, and all problems are
+// reported together. Each behavior pack is bundled once per transport, and the container
+// entrypoint keeps the pair that matches TRANSPORT.
 import { existsSync } from "node:fs";
 import { cp, mkdir, readdir, readFile, rm, writeFile } from "node:fs/promises";
 import { join, relative } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { build } from "esbuild";
-import type { GameConfig } from "@minecade/minigame-core";
+import type { GameConfig, MapConfig } from "@minecade/minigame-core";
 import type { TransportKind } from "@minecade/minigame-core/protocol";
+import { enableBetaApis, patchLevelDat } from "./leveldat.ts";
+import { MODULE_VERSIONS, pinManifest, type Manifest } from "./mc-versions.ts";
 import { transportPlugin } from "./transport-plugin.ts";
+import { validateGameConfig, validateMapConfig } from "./validate.ts";
 
 const root = fileURLToPath(new URL("../../", import.meta.url));
 const dist = join(root, "dist");
 const TRANSPORTS: TransportKind[] = ["http", "log"];
 /** Added to the HTTP variant's manifest only, so log-transport servers never load it. */
-const SERVER_NET = { module_name: "@minecraft/server-net", version: "1.0.0-beta" };
+const SERVER_NET = { module_name: "@minecraft/server-net", version: MODULE_VERSIONS["@minecraft/server-net"] };
+/** A pack holding only these files has no content, and clients shouldn't download it. */
+const PACK_BOILERPLATE = new Set(["manifest.json", "pack_icon.png"]);
 
 interface Target {
   id: string;
   dir: string;
   game?: GameConfig;
+  behaviorPack?: Manifest;
+  resourcePack?: Manifest;
+  maps: { id: string; dir: string; config: MapConfig }[];
 }
 
-interface Manifest {
-  header: { uuid: string };
-  modules: { type: string; uuid: string; entry?: string }[];
-  dependencies?: { module_name?: string; uuid?: string; version: unknown }[];
+const problems: string[] = [];
+const uuids = new Map<string, string>();
+
+function report(path: string, list: string[]): void {
+  for (const problem of list) problems.push(`${relative(root, path)}: ${problem}`);
+}
+
+async function readJson(path: string): Promise<unknown> {
+  try {
+    return JSON.parse(await readFile(path, "utf8"));
+  } catch (error) {
+    report(path, [`not valid JSON (${error instanceof Error ? error.message : String(error)})`]);
+    return undefined;
+  }
+}
+
+/** Reads and checks a pack manifest: pinned versions and UUIDs unique across every pack. */
+async function loadManifest(packDir: string): Promise<Manifest | undefined> {
+  const path = join(packDir, "manifest.json");
+  const manifest = (await readJson(path)) as Manifest | undefined;
+  if (!manifest) return undefined;
+  try {
+    const pinned = pinManifest(manifest);
+    for (const uuid of [pinned.header.uuid, ...pinned.modules.map((module) => module.uuid)]) {
+      const owner = uuids.get(uuid);
+      if (owner) report(path, [`UUID ${uuid} is already used by ${owner}`]);
+      uuids.set(uuid, relative(root, packDir));
+    }
+    return pinned;
+  } catch (error) {
+    report(path, [error instanceof Error ? error.message : String(error)]);
+    return undefined;
+  }
+}
+
+async function hasContent(dir: string): Promise<boolean> {
+  for (const entry of await readdir(dir, { recursive: true, withFileTypes: true })) {
+    if (entry.isFile() && !(entry.parentPath === dir && PACK_BOILERPLATE.has(entry.name))) return true;
+  }
+  return false;
+}
+
+async function loadTarget(id: string, dir: string, configPath?: string): Promise<Target> {
+  const target: Target = { id, dir, maps: [] };
+  if (configPath) {
+    target.game = (await import(pathToFileURL(configPath).href)).default as GameConfig;
+    report(configPath, validateGameConfig(target.game, id));
+  }
+  if (existsSync(join(dir, "behavior_pack", "manifest.json"))) target.behaviorPack = await loadManifest(join(dir, "behavior_pack"));
+  const rpDir = join(dir, "resource_pack");
+  if (existsSync(join(rpDir, "manifest.json")) && (await hasContent(rpDir))) target.resourcePack = await loadManifest(rpDir);
+
+  const mapsDir = join(dir, "maps");
+  for (const mapId of existsSync(mapsDir) ? (await readdir(mapsDir)).sort() : []) {
+    const mapDir = join(mapsDir, mapId);
+    const mapJson = join(mapDir, "map.json");
+    if (!existsSync(mapJson)) {
+      report(mapDir, ["map.json is missing"]);
+      continue;
+    }
+    const config = await readJson(mapJson);
+    if (config === undefined) continue;
+    report(mapJson, validateMapConfig(config, { kind: target.game ? "game" : "lobby", maxPlayers: target.game?.maxPlayers }));
+    if (!existsSync(join(mapDir, "world", "level.dat"))) {
+      report(mapDir, ["world/level.dat is missing: run npm run bake, or drop in a world built in the client"]);
+    }
+    target.maps.push({ id: mapId, dir: mapDir, config: config as MapConfig });
+  }
+  if (target.maps.length === 0) report(dir, ["needs at least one map in maps/<id>/"]);
+  return target;
 }
 
 async function discoverTargets(): Promise<Target[]> {
-  const targets: Target[] = [{ id: "lobby", dir: join(root, "lobby") }];
+  const targets = [await loadTarget("lobby", join(root, "lobby"))];
   for (const id of (await readdir(join(root, "games"))).sort()) {
     const configPath = join(root, "games", id, "game.config.ts");
-    if (!existsSync(configPath)) continue;
-    const game = (await import(pathToFileURL(configPath).href)).default as GameConfig;
-    if (game.id !== id) throw new Error(`games/${id}/game.config.ts: id "${game.id}" must match the folder name`);
-    targets.push({ id, dir: join(root, "games", id), game });
+    if (existsSync(configPath)) targets.push(await loadTarget(id, join(root, "games", id), configPath));
   }
   return targets;
 }
 
-async function buildPack(src: string, out: string, uuids: Map<string, string>): Promise<void> {
-  const manifest = JSON.parse(await readFile(join(src, "manifest.json"), "utf8")) as Manifest;
-  for (const uuid of [manifest.header.uuid, ...manifest.modules.map((module) => module.uuid)]) {
-    const owner = uuids.get(uuid);
-    if (owner) throw new Error(`${relative(root, src)}: UUID ${uuid} is already used by ${owner}`);
-    uuids.set(uuid, relative(root, src));
-  }
+async function buildBehaviorPack(src: string, out: string, manifest: Manifest): Promise<void> {
   // Everything except the sources and the manifest ships as-is (icons, texts, ...).
-  await cp(src, out, {
-    recursive: true,
-    filter: (path) => !path.endsWith(".ts") && path !== join(src, "manifest.json"),
-  });
+  await cp(src, out, { recursive: true, filter: (path) => !path.endsWith(".ts") && path !== join(src, "manifest.json") });
   for (const kind of TRANSPORTS) {
     await build({
       entryPoints: [join(src, "scripts", "main.ts")],
@@ -73,19 +135,21 @@ async function buildPack(src: string, out: string, uuids: Map<string, string>): 
   }
 }
 
+async function buildResourcePack(src: string, out: string, manifest: Manifest): Promise<void> {
+  await cp(src, out, { recursive: true, filter: (path) => path !== join(src, "manifest.json") });
+  await writeFile(join(out, "manifest.json"), JSON.stringify(manifest, null, 2));
+}
+
 async function buildMaps(target: Target, out: string): Promise<{ id: string; name: string }[]> {
-  const mapsDir = join(target.dir, "maps");
-  const maps: { id: string; name: string }[] = [];
-  for (const id of existsSync(mapsDir) ? (await readdir(mapsDir)).sort() : []) {
-    const world = join(mapsDir, id, "world");
-    if (!existsSync(join(world, "level.dat"))) throw new Error(`${relative(root, world)}: level.dat is missing`);
-    await cp(join(mapsDir, id), join(out, "maps", id), { recursive: true });
-    const mapJson = join(mapsDir, id, "map.json");
-    const name = existsSync(mapJson) ? (JSON.parse(await readFile(mapJson, "utf8")).name ?? id) : id;
-    maps.push({ id, name });
+  for (const map of target.maps) {
+    const mapOut = join(out, "maps", map.id);
+    await cp(join(map.dir, "world"), join(mapOut, "world"), { recursive: true });
+    // Worlds built by hand in the client usually lack Beta APIs, which every pack needs.
+    await patchLevelDat(join(mapOut, "world", "level.dat"), enableBetaApis);
+    const { build: _bakeOnly, ...runtime } = map.config;
+    await writeFile(join(mapOut, "map.json"), JSON.stringify(runtime, null, 2));
   }
-  if (maps.length === 0) throw new Error(`${relative(root, target.dir)}: needs at least one map in maps/<id>/world`);
-  return maps;
+  return target.maps.map((map) => ({ id: map.id, name: map.config.name }));
 }
 
 async function buildOrchestrator(): Promise<void> {
@@ -102,22 +166,29 @@ async function buildOrchestrator(): Promise<void> {
   });
 }
 
+const targets = await discoverTargets();
+if (problems.length > 0) {
+  console.error(`Build stopped: ${problems.length} problem${problems.length === 1 ? "" : "s"}\n  ${problems.join("\n  ")}`);
+  process.exit(1);
+}
+
 await rm(dist, { recursive: true, force: true });
-const uuids = new Map<string, string>();
 const registry: { games: unknown[] } = { games: [] };
-for (const target of await discoverTargets()) {
+for (const target of targets) {
   const out = join(dist, "templates", "servers", target.id);
   await mkdir(out, { recursive: true });
-  const packDir = join(target.dir, "behavior_pack");
-  if (existsSync(join(packDir, "manifest.json"))) {
-    await buildPack(packDir, join(out, "behavior_packs", `${target.id}_bp`), uuids);
+  if (target.behaviorPack) {
+    await buildBehaviorPack(join(target.dir, "behavior_pack"), join(out, "behavior_packs", `${target.id}_bp`), target.behaviorPack);
+  }
+  if (target.resourcePack) {
+    await buildResourcePack(join(target.dir, "resource_pack"), join(out, "resource_packs", `${target.id}_rp`), target.resourcePack);
   }
   const maps = await buildMaps(target, out);
   if (target.game) {
     const { id, name, description, minPlayers, maxPlayers } = target.game;
     registry.games.push({ id, name, description, minPlayers, maxPlayers, maps });
   }
-  console.log(`built ${target.id} (maps: ${maps.map((map) => map.id).join(", ")})`);
+  console.log(`built ${target.id} (maps: ${maps.map((map) => map.id).join(", ")}${target.resourcePack ? ", resource pack" : ""})`);
 }
 await writeFile(join(dist, "registry.json"), JSON.stringify(registry, null, 2));
 await buildOrchestrator();

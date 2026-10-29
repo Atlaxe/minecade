@@ -104,19 +104,39 @@ mkdir -p worlds
 cp -r "$MAP_DIR/world" worlds/active
 
 # --- Packs: keep the manifest and script built for TRANSPORT -------------------------------
+pack_ref() { # manifest.json -> one world pack list entry
+  jq -c '{pack_id: .header.uuid, version: .header.version}' "$1"
+}
+
 packs='[]'
 if [[ -d "$TEMPLATE/behavior_packs" ]]; then
   for src in "$TEMPLATE"/behavior_packs/*/; do
+    [[ -d "$src" ]] || continue
     dest="behavior_packs/minecade_$(basename "$src")"
     rm -rf "$dest"
     cp -r "$src" "$dest"
     mv "$dest/manifest.${TRANSPORT}.json" "$dest/manifest.json"
     rm -f "$dest"/manifest.*.json
     find "$dest/scripts" -name 'main.*.js' ! -name "main.${TRANSPORT}.js" -delete
-    packs="$(jq -c --slurpfile m "$dest/manifest.json" '. + [{pack_id: $m[0].header.uuid, version: $m[0].header.version}]' <<< "$packs")"
+    packs="$(jq -c --argjson ref "$(pack_ref "$dest/manifest.json")" '. + [$ref]' <<< "$packs")"
   done
 fi
 echo "$packs" > worlds/active/world_behavior_packs.json
+
+# Resource packs exist in a template only when they have content (the build skips empty ones),
+# and players are asked to download them, so require them only when there are any.
+rpacks='[]'
+if [[ -d "$TEMPLATE/resource_packs" ]]; then
+  for src in "$TEMPLATE"/resource_packs/*/; do
+    [[ -d "$src" ]] || continue
+    dest="resource_packs/minecade_$(basename "$src")"
+    rm -rf "$dest"
+    cp -r "$src" "$dest"
+    rpacks="$(jq -c --argjson ref "$(pack_ref "$dest/manifest.json")" '. + [$ref]' <<< "$rpacks")"
+  done
+fi
+echo "$rpacks" > worlds/active/world_resource_packs.json
+set_prop texturepack-required "$([[ "$rpacks" != "[]" ]] && echo true || echo false)"
 
 # --- Script config ---------------------------------------------------------------------------
 mkdir -p config/default

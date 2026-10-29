@@ -1,3 +1,15 @@
 {
-  "name": "Default"
+  "name": "Default",
+  "spawns": [
+    [3, 65, 0], [2, 65, 2], [0, 65, 3], [-2, 65, 2],
+    [-3, 65, 0], [-2, 65, -2], [0, 65, -3], [2, 65, -2]
+  ],
+  "spectatorSpawn": [0, 70, 0],
+  "bounds": { "min": [-12, 40, -12], "max": [12, 100, 12] },
+  "build": {
+    "commands": [
+      "fill -5 64 -5 5 64 5 white_concrete",
+      "setblock 0 64 0 lime_concrete"
+    ]
+  }
 }

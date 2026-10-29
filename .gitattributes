@@ -7,3 +7,4 @@ Dockerfile text eol=lf
 **/world/** -text
 **/spike/world/** -text
 *.png binary
+*.dat binary
