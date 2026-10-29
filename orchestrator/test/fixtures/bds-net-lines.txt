@@ -1,0 +1,5 @@
+[2026-10-28 22:35:31:298 INFO] Server started.
+[2026-10-28 22:35:31:309 WARN] [Scripting] [NET] {"from":"lobby","t":"hello","via":"warn"}
+[2026-10-28 22:35:31:310 INFO] [Scripting] [NET] {"from":"lobby","t":"hello_log","via":"log"}
+[2026-10-28 22:35:31:310 INFO] [Scripting] [NET] {"from":"lobby","t":"hello_info","via":"info"}
+[2026-10-28 22:35:31:310 ERROR] [Scripting] [NET] {"from":"lobby","t":"hello_error","via":"error"}

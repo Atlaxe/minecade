@@ -1,5 +1,12 @@
 {
   "extends": "./tsconfig.base.json",
   "compilerOptions": { "types": ["node"] },
-  "include": ["tools/**/*.ts", "spike/*.ts"]
+  "include": [
+    "tools/**/*.ts",
+    "spike/*.ts",
+    "orchestrator/**/*.ts",
+    "packages/*/test/**/*.ts",
+    "vitest.config.ts"
+  ],
+  "exclude": ["tools/build/test/fixtures/**"]
 }

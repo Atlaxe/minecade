@@ -1,5 +1,10 @@
 {
   "extends": "./tsconfig.base.json",
   "compilerOptions": { "types": [] },
-  "include": ["types/**/*.d.ts", "spike/packs/**/*.ts"]
+  "include": [
+    "types/**/*.d.ts",
+    "spike/packs/**/*.ts",
+    "packages/*/src/**/*.ts",
+    "tools/build/test/fixtures/**/*.ts"
+  ]
 }

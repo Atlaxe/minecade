@@ -44,12 +44,30 @@ Both transports work. **Default: HTTP** (`TRANSPORT=http`): structured requests,
 
 Each server uses one TCP port and one UDP port with the same number. **Router forwards: TCP and UDP 19132-19134**, which matches the original brief. Each server advertises the public IP (`<public>:<port>:<port>`). A player on the host's own LAN therefore needs router NAT loopback, or a fallback (see pending tests).
 
-## Pending (needs a real client)
+## Client results (Windows PC on the same LAN, 2026-10-28)
 
-| Test | Who | Expected |
+| Test | Result | Notes |
 |---|---|---|
-| PC joins `192.168.40.98:19132` (lobby, public IP advertised) | you | Works only if the router does NAT loopback for UDP |
-| PC joins `192.168.40.98:19134` (probe-lan, LAN IP advertised) | you | Proves NetherNet through Docker Desktop works at all |
-| PC joins `192.168.40.98:19135` (probe-auto, no IP advertised) | you | Shows what BDS does without an advertised IP |
-| PC compass transfer lobby to game and back (LAN and Public) | you | Script `transferPlayer` works |
-| Console via BedrockConnect, public IP 19132, transfer both ways | remote friend | Console accepts a script-initiated transfer |
+| PC joins `192.168.40.98:19132` (lobby, public IP advertised) | PASS | NetherNet works through Docker Desktop port publishing. |
+| PC joins `192.168.40.98:19134` (probe-lan, LAN IP advertised) | PASS | |
+| PC joins `192.168.40.98:19135` (probe-auto, no IP advertised) | PASS | |
+| PC compass transfer via LAN address, both directions | PASS | Script `transferPlayer` works. |
+| PC compass transfer via public address | FAIL (expected) | "Multiplayer Connection Failed". TCP to the public IP fails from inside the LAN: the router does no NAT loopback. |
+
+What this settles:
+
+- The advertised UDP address does not matter to a LAN client, so every server advertises the public IP.
+- A player on the host's LAN must be transferred by LAN address. `LAN_PLAYERS` in `.env` lists those gamertags, and every other player gets the public address.
+
+## Deferred (needs a second Microsoft account)
+
+Router forwards for TCP+UDP 19132-19134 are in place (Plume). These tests are on hold until a friend can join:
+
+| Test | Expected |
+|---|---|
+| Remote client joins `<public IP>:19132` | Proves the forwards and the public UDP advertisement |
+| Remote client compass transfer via public address, both directions | Proves transfers through the forwards |
+| Console via BedrockConnect, same steps | Low risk: BedrockConnect itself moves consoles with the same transfer packet |
+| Two players on one server (one LAN, one remote) | Proves the shared single UDP port with mixed clients |
+
+If a deferred test fails, the likely fixes are configuration (forwards, advertised IP, Docker network mode), not code. A single account can also run the remote test from a phone on cellular data, with Minecraft fully closed on the PC.

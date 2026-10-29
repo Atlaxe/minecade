@@ -3,9 +3,11 @@
   "private": true,
   "type": "module",
   "workspaces": [
-    "packages/*"
+    "packages/*",
+    "orchestrator"
   ],
   "scripts": {
+    "test": "vitest run",
     "spike:build": "tsx spike/build-packs.ts",
     "spike:world": "tsx spike/make-world.ts",
     "spike:up": "docker compose -f spike/docker-compose.spike.yml --env-file .env up -d --build",
