@@ -99,6 +99,17 @@
     ]
   },
 
+  // Every menu's background, in the hologram's style: a see-through nine-slice frame with corner
+  // brackets (it keeps its border at any size), and faint scanlines tiled over it.
+  "holo_background": {
+    "type": "panel",
+    "size": ["100%", "100%"],
+    "controls": [
+      { "frame": { "type": "image", "texture": "textures/minecade/ui/holo_panel", "size": ["100%", "100%"] } },
+      { "scanlines": { "type": "image", "texture": "textures/minecade/ui/holo_scanlines", "tiled": true, "size": ["100% - 8px", "100% - 8px"], "layer": 1 } }
+    ]
+  },
+
   // A button face: one picture, stretched.
   "face": {
     "type": "image",
@@ -123,7 +134,7 @@
       }
     ],
     "controls": [
-      { "background": { "type": "image", "texture": "textures/minecade/ui/panel", "size": ["100%", "100%"], "layer": 1 } },
+      { "background@minecade_forms.holo_background": { "layer": 1 } },
       {
         "logo": {
           "type": "image",
@@ -215,7 +226,7 @@
       }
     ],
     "controls": [
-      { "background": { "type": "image", "texture": "textures/minecade/ui/panel_grid", "size": ["100%", "100%"], "layer": 1 } },
+      { "background@minecade_forms.holo_background": { "layer": 1 } },
       {
         "heading": {
           "type": "label",
@@ -327,7 +338,7 @@
       }
     ],
     "controls": [
-      { "background": { "type": "image", "texture": "textures/minecade/ui/panel_game", "size": ["100%", "100%"], "layer": 1 } },
+      { "background@minecade_forms.holo_background": { "layer": 1 } },
       {
         "details": {
           "type": "panel",
@@ -532,7 +543,8 @@
     "size": ["100%", "100%"],
     "fill": true,
     "keep_ratio": false,
-    "controls": [{ "label@minecade_forms.button_label": { "anchor_from": "center", "anchor_to": "center" } }]
+    // Centered lines: a setting's second line is its bars (menus.ts settingBars).
+    "controls": [{ "label@minecade_forms.button_label": { "anchor_from": "center", "anchor_to": "center", "text_alignment": "center" } }]
   },
 
   // The switch: the label on the left, and an on or off switch on the right.

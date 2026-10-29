@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { stripColors, type RegistryGame } from "@minecade/minigame-core";
 import { MARK, PREVIEWS, defaultSettings, gameAction, gameButtons, gamePicture, mapOptions, nextSetting, playerCount, playerRange, settingsFor } from "../behavior_pack/scripts/game-screen.ts";
-import { GLYPH, gameForm, gamesForm } from "../behavior_pack/scripts/menus.ts";
+import { GLYPH, gameForm, gamesForm, settingBars } from "../behavior_pack/scripts/menus.ts";
 
 const sumo: RegistryGame = {
   id: "sumo",
@@ -19,6 +19,7 @@ const sumo: RegistryGame = {
 const teams: RegistryGame = { ...sumo, id: "paintball", name: "Paintball", teams: { count: [2, 4] } };
 const roles: RegistryGame = { ...sumo, id: "hide", name: "Hide and Seek", teams: { count: 2, defs: [{ id: "seekers", name: "Seekers", color: "§c", size: 1 }, { id: "hiders", name: "Hiders", color: "§a", size: "rest" }] } };
 const round = { id: "round", label: "Round", values: [{ value: "15", label: "15 s" }, { value: "30", label: "30 s" }] };
+const round3 = { ...round, values: [...round.values, { value: "60", label: "60 s" }] };
 const probe: RegistryGame = { ...sumo, id: "probe", name: "Probe", icon: undefined, options: [round] };
 
 describe("the game screen model", () => {
@@ -72,7 +73,15 @@ describe("the game screen model", () => {
       expect(mark.endsWith("§r")).toBe(true);
       expect(layouts).toContain(mark);
       for (const other of marks) if (other !== mark) expect(mark).not.toContain(other);
+      for (const glyph of Object.values(GLYPH)) expect(glyph).not.toContain(mark);
     }
+  });
+
+  it("shows a bar per setting value, the chosen one bright", () => {
+    expect(settingBars(round3, "30")).toBe(`${GLYPH.barOff}${GLYPH.barOn}${GLYPH.barOff}`);
+    expect(settingBars(round3, "15")).toBe(`${GLYPH.barOn}${GLYPH.barOff}${GLYPH.barOff}`);
+    expect(settingBars(round3, "nope")).toBe(`${GLYPH.barOn}${GLYPH.barOff}${GLYPH.barOff}`);
+    expect(settingBars(round3, undefined)).toBe(`${GLYPH.barOn}${GLYPH.barOff}${GLYPH.barOff}`);
   });
 });
 
@@ -102,12 +111,12 @@ describe("the Play forms", () => {
     expect(stripColors(form.titleText)).toBe("Paintball");
     expect(form.buttons).toEqual([
       `${MARK.toggle}Random map`,
-      `${MARK.setting}Teams: Random`,
+      `${MARK.setting}Teams: Random\n${GLYPH.barOff}${GLYPH.barOn}`,
       `${MARK.maps[0]}Arena`,
       `${MARK.maps[1]}${MARK.selected}Pit`,
       `${MARK.start}Start`,
     ]);
-    expect(form.buttons.map(stripColors)).toEqual(["Random map", "Teams: Random", "Arena", "Pit", "Start"]);
+    expect(form.buttons.map(stripColors)).toEqual(["Random map", `Teams: Random\n${GLYPH.barOff}${GLYPH.barOn}`, "Arena", "Pit", "Start"]);
     expect(stripColors(form.bodyText)).toBe("Knock everyone off.\n\n2-6 players");
   });
 

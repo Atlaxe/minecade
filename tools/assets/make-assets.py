@@ -34,7 +34,6 @@ LOGO_SOURCE = ROOT / "tools" / "assets" / "source" / "minecade-title.png"
 CYAN = (90, 210, 255)
 BRIGHT = (190, 240, 255)
 DEEP = (20, 70, 140)
-NAVY = (8, 20, 40)
 
 
 FORCE = "--force" in sys.argv
@@ -210,19 +209,32 @@ def block_top(kind: str) -> Image.Image:
 # ---- Form art (personal menus) ----------------------------------------------------------------
 
 
-def ui_panel() -> Image.Image:
-    """The main menu background at 2x (600x232 for a 300x116 panel): translucent navy, glowing frame."""
-    width, height = 600, 232
-    image = Image.new("RGBA", (width, height), (0, 0, 0, 0))
+def holo_ui_panel() -> Image.Image:
+    """
+    Every menu's background, in the hologram frame's style (holo_base): a nine-slice at 1x (64x64,
+    24 pixel slices), so the frame and the corner brackets keep their size at any panel size. Forms
+    can't blend additively like the hologram, so the dark fill is see-through instead: the world
+    shows through dimly and the frame glows. Keep the border and brackets within 24 pixels of the
+    edge; the middle stretches. The scanlines are a separate, tiled image (holo_scanlines).
+    """
+    size = 64
+    image = Image.new("RGBA", (size, size), (0, 0, 0, 0))
     draw = ImageDraw.Draw(image)
-    draw.rounded_rectangle((2, 2, width - 3, height - 3), radius=16, fill=(*NAVY, 235))
-    for y in range(8, height - 8, 6):
-        draw.line((10, y, width - 11, y), fill=(14, 32, 60, 235))
-    draw.rounded_rectangle((2, 2, width - 3, height - 3), radius=16, outline=(*CYAN, 255), width=3)
-    arm = 34
-    for cx, cy, dx, dy in ((12, 12, 1, 1), (width - 13, 12, -1, 1), (12, height - 13, 1, -1), (width - 13, height - 13, -1, -1)):
-        draw.line((cx, cy, cx + dx * arm, cy), fill=(*BRIGHT, 255), width=4)
-        draw.line((cx, cy, cx, cy + dy * arm), fill=(*BRIGHT, 255), width=4)
+    draw.rectangle((0, 0, size - 1, size - 1), outline=(*CYAN, 40), width=1)  # outer glow
+    draw.rectangle((1, 1, size - 2, size - 2), outline=(*CYAN, 90), width=1)
+    draw.rectangle((2, 2, size - 3, size - 3), fill=(4, 16, 34, 170), outline=(*DEEP, 255), width=2)
+    inset, arm = 5, 16
+    for cx, cy, dx, dy in ((inset, inset, 1, 1), (size - 1 - inset, inset, -1, 1), (inset, size - 1 - inset, 1, -1), (size - 1 - inset, size - 1 - inset, -1, -1)):
+        draw.line((cx, cy, cx + dx * arm, cy), fill=(*CYAN, 255), width=2)
+        draw.line((cx, cy, cx, cy + dy * arm), fill=(*CYAN, 255), width=2)
+    return image
+
+
+def holo_scanlines() -> Image.Image:
+    """Faint scanlines, tiled over a menu's background: one light line every 3 pixels."""
+    image = Image.new("RGBA", (4, 3), (0, 0, 0, 0))
+    for x in range(4):
+        image.putpixel((x, 0), (60, 140, 210, 40))
     return image
 
 
@@ -290,19 +302,6 @@ def ui_outline(size: tuple[int, int], state: str) -> Image.Image:
     return image
 
 
-def ui_nine_panel() -> Image.Image:
-    """
-    A menu background as a nine-slice at 1x (48x48, 8 pixel slices): the corners and edges keep
-    their size and the middle stretches, so the panel fits any size (the game grid is 80% of the
-    screen's height). Keep anything that mustn't stretch within 8 pixels of the edge.
-    """
-    size = 48
-    image = Image.new("RGBA", (size, size), (0, 0, 0, 0))
-    draw = ImageDraw.Draw(image)
-    draw.rounded_rectangle((0, 0, size - 1, size - 1), radius=6, fill=(*NAVY, 235), outline=(*CYAN, 255), width=2)
-    return image
-
-
 def toggle(on: bool) -> Image.Image:
     """An on/off switch at 2x (52x26 for 26x13): a pill with its knob left (off) or right (on)."""
     width, height = 52, 26
@@ -318,13 +317,16 @@ def toggle(on: bool) -> Image.Image:
 def glyphs() -> Image.Image:
     """
     Icons drawn inside text: a 256x256 page of 16x16 cells, character U+E300 onward (menus.ts
-    GLYPH). Cell 0 is the player icon. The game sizes each cell to the text and trims empty columns.
+    GLYPH). Cell 0 is the player icon; cells 1 and 2 are a setting's bars (the chosen value bright,
+    the others dim). The game sizes each cell to the text and trims empty columns.
     """
     image = Image.new("RGBA", (256, 256), (0, 0, 0, 0))
     draw = ImageDraw.Draw(image)
     white = (255, 255, 255, 255)
     draw.ellipse((5, 1, 10, 6), fill=white)  # head
     draw.rounded_rectangle((3, 8, 12, 15), radius=3, fill=white)  # shoulders
+    draw.rectangle((16 + 1, 10, 16 + 11, 13), fill=(*BRIGHT, 255))  # bar, chosen
+    draw.rectangle((32 + 1, 10, 32 + 11, 13), fill=(50, 80, 110, 255))  # bar, not chosen
     return image
 
 
@@ -366,15 +368,15 @@ def main() -> None:
     for kind in ("corner", "edge", "center"):
         save(block_top(kind), LOBBY_TEXTURES / "blocks" / f"terminal_{kind}.png")
 
-    save(ui_panel(), LOBBY_TEXTURES / "ui" / "panel.png")
+    # Every menu's background (main menu, game grid, game screen).
+    save_nineslice(holo_ui_panel(), LOBBY_TEXTURES / "ui" / "holo_panel.png", 24)
+    save(holo_scanlines(), LOBBY_TEXTURES / "ui" / "holo_scanlines.png")
     for state in ("default", "hover", "pressed"):
         save(ui_tile(state), LOBBY_TEXTURES / "ui" / f"tile_{state}.png")
     for kind in ("play", "stats"):
         save(ui_icon(kind), LOBBY_TEXTURES / "ui" / f"icon_{kind}.png")
 
     # The game grid and game screen.
-    save_nineslice(ui_nine_panel(), LOBBY_TEXTURES / "ui" / "panel_grid.png", 8)
-    save_nineslice(ui_nine_panel(), LOBBY_TEXTURES / "ui" / "panel_game.png", 8)
     for state in ("default", "hover", "pressed"):
         save(ui_frame((280, 92), state, 10), LOBBY_TEXTURES / "ui" / f"card_{state}.png")
         save(ui_outline((208, 116), state), LOBBY_TEXTURES / "ui" / f"tile_map_{state}.png")

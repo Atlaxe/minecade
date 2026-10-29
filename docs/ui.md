@@ -167,8 +167,10 @@ from `ctx.vars.settings` (random teams skips team picking).
 **Game options:** a game can offer its own settings on the game screen with `options` in
 `game.config.ts`. Each value has a label; the first is the default. The build checks the ids
 (lower camelCase, as the orchestrator passes them on) and allows at most 8 settings, Teams
-included. Probe has two, to test the screen: Round really sets its stage length, and Teams does
-nothing in Probe. Probe says the settings it got in chat when the match starts.
+included. Each setting's button shows its value and, under it, a bar per value with the chosen one
+bright (`settingBars()` in `scripts/menus.ts`, drawn with font glyphs). Probe has two settings, to
+test the screen: Round really sets its stage length, and Teams does nothing in Probe. Probe says
+the settings it got in chat when the match starts.
 
 ```ts
 options: [
@@ -217,23 +219,33 @@ settings do that, not the images:
 So when drawing hologram art: paint on black, use brightness for glow, and expect dark fills to
 mostly disappear.
 
+**The menus can't blend that way.** Form images (JSON UI) have no blend mode, only transparency
+(vanilla's UI files have no blend setting anywhere). So the menu backgrounds copy the hologram's
+look with transparency instead: a see-through dark fill (the world shows through dimly, as through
+the hologram), a glowing border and corner brackets, and faint scanlines. Two JSON UI features
+keep it crisp at any size: `holo_panel.png` is a nine-slice (its outer 24 pixels, with the border
+and brackets, keep their size; the middle stretches), and `holo_scanlines.png` is tiled
+(`"tiled": true`), repeated at its own size instead of stretched. Both are drawn together as
+`holo_background` in `ui/minecade_forms.json`. The hologram frames and the menu background are
+separate images, so redrawing one doesn't change the other.
+
 ## The art
 
 Every image is a placeholder from `tools/assets/make-assets.py` (Pillow), meant to be redrawn by
 hand. The script only writes images that don't exist yet (delete one to regenerate it); `--force`
 regenerates all of them and overwrites any edits. Images are stretched to their display size, so
-keep each one's proportions, except the nine-slice panels, which stretch only their middle.
+keep each one's proportions, except the nine-slice menu background, which stretches only its
+middle, and the tiled scanlines, which repeat.
 
 | Image | Shown as | Art size |
 |---|---|---|
 | `packages/minigame-core/resource_pack/textures/minecade/hud/clock.png` | HUD clock icon, 10x10 | 16x16 |
 | `lobby/resource_pack/textures/minecade/ui/logo.png` | Main menu logo, 232x50 | 1072x240, transparent background |
-| `lobby/resource_pack/textures/minecade/ui/panel.png` | Main menu background, 300x116 | 600x232 |
+| `lobby/resource_pack/textures/minecade/ui/holo_panel.png` | Every menu's background (main menu 300x116, game grid 430 wide by 80% of the screen, game screen 460x250) | 64x64 at 1x, nine-slice (`holo_panel.json`): the outer 24 pixels hold the border and corner brackets and keep their size, the middle stretches; partly transparent |
+| `lobby/resource_pack/textures/minecade/ui/holo_scanlines.png` | Scanlines over every menu's background, tiled (repeated at 1 pixel per pixel) | 4x3, one faint line on top, the rest transparent |
 | `lobby/resource_pack/textures/minecade/ui/tile_default.png`, `tile_hover.png`, `tile_pressed.png` | Menu buttons, 136x34 | 272x68 |
 | `lobby/resource_pack/textures/minecade/ui/icon_play.png`, `icon_stats.png` | Button icons, 20x20 | 64x64 |
-| `lobby/resource_pack/textures/minecade/ui/panel_grid.png` | Game grid background, 430 wide by 80% of the screen | 48x48 at 1x, nine-slice: the outer 8 pixels are the border and corners, the middle stretches (`panel_grid.json`) |
 | `lobby/resource_pack/textures/minecade/ui/card_default.png`, `_hover`, `_pressed` | Game cards, 132x44 (the picture sits on the left, 60x34) | 280x92 |
-| `lobby/resource_pack/textures/minecade/ui/panel_game.png` | Game screen background, 460x250 | 48x48 at 1x, nine-slice like `panel_grid` (`panel_game.json`) |
 | `lobby/resource_pack/textures/minecade/ui/tile_map_default.png`, `_hover`, `_pressed` | Map tile frames, drawn over the map's preview, 104x58; the preview sits inside the 2 pixel border (100x54) | 208x116, a 4 pixel border, square corners, transparent middle |
 | `lobby/resource_pack/textures/minecade/ui/tile_map_selected.png` | Drawn over the chosen map's tile, 104x58 | 208x116, transparent middle |
 | `lobby/resource_pack/textures/minecade/ui/tile_dim.png` | Darkens the map tiles while Random is on, 100x54 | 8x8, black, partly transparent |
@@ -242,7 +254,7 @@ keep each one's proportions, except the nine-slice panels, which stretch only th
 | `lobby/resource_pack/textures/minecade/ui/game_placeholder.png` | The picture of a game without its own (demo games) | 320x180 (16:9) |
 | `lobby/resource_pack/textures/minecade/ui/button_default.png`, `_hover`, `_pressed` | The Random switch, setting and Start buttons, 210x28 | 400x64 |
 | `lobby/resource_pack/textures/minecade/ui/toggle_on.png`, `toggle_off.png` | The Random map switch, 26x13 | 52x26 |
-| `lobby/resource_pack/font/glyph_E3.png` | Icons inside text, about the height of a letter; cell 0 (U+E300) is the player icon on the game cards | 256x256, 16x16 cells, white on transparent |
+| `lobby/resource_pack/font/glyph_E3.png` | Icons inside text, about the height of a letter: cell 0 (U+E300) is the player icon on the game cards; cells 1 and 2 (U+E301, U+E302) are a setting's bars under its label, bright for the chosen value and dim for the others | 256x256, 16x16 cells, on transparent |
 | `games/<id>/icon.png` | The game's picture: on its card (60x34) and on the hologram (2 blocks wide) while the map is random | 320x180 (16:9), required for every game |
 | `games/<id>/maps/<map>/preview.png` | A map's preview on its tile (100x54) and on the hologram when it's chosen (optional) | 320x180 (16:9), such as a screenshot |
 | `lobby/resource_pack/textures/minecade/holo/frame_logo.png`, `frame_panel.png` | Hologram frames, 3x3 blocks on all four sides, with live text over them; `frame_logo` has the logo up top | 512x512 (square), additive |

@@ -4,7 +4,7 @@
 // markers in game-screen.ts. Without the pack, they're plain forms with readable titles and buttons.
 import { ActionFormData } from "@minecraft/server-ui";
 import { say } from "@minecade/minigame-core";
-import { MARK, gameButtons, gamePicture, mapOptions, playerCount, playerRange, settingLabel, settingsFor } from "./game-screen.ts";
+import { MARK, gameButtons, gamePicture, mapOptions, playerCount, playerRange, settingLabel, settingsFor, type GameSetting } from "./game-screen.ts";
 import type { GameChoice } from "./lobby-controller.ts";
 
 /** Layout marks. Each must match the resource pack's UI files (a test checks). */
@@ -17,6 +17,9 @@ export const LAYOUT = {
 /** Icons drawn inline in text, from the lobby resource pack's font/glyph_E3.png (one 16x16 cell each). */
 export const GLYPH = {
   player: "",
+  /** A setting's bars: the chosen value, and the others. */
+  barOn: "",
+  barOff: "",
 } as const;
 
 export const MAIN_MENU_CHOICES = ["play", "stats"] as const;
@@ -36,6 +39,12 @@ export function gamesForm(choices: GameChoice[]): ActionFormData {
     form.button(`${MARK.games[index % 3]}${game.name}\n${playable ? "§7" : "§c"}${GLYPH.player} ${playerCount(game)}`, gamePicture(game));
   });
   return form;
+}
+
+/** One bar per value, the chosen one bright (the first when the value is unknown, as settingLabel does). */
+export function settingBars(setting: GameSetting, current: string | undefined): string {
+  const chosen = Math.max(0, setting.values.findIndex((option) => option.value === current));
+  return setting.values.map((_, index) => (index === chosen ? GLYPH.barOn : GLYPH.barOff)).join("");
 }
 
 export interface GameView {
@@ -60,7 +69,8 @@ export function gameForm(view: GameView): ActionFormData {
       form.button(`${mark}${view.random ? MARK.on : ""}Random map`);
     } else if (action.kind === "setting") {
       const setting = settings.find((candidate) => candidate.id === action.id)!;
-      form.button(`${mark}${setting.label}: ${settingLabel(setting, view.settings[setting.id])}`);
+      const current = view.settings[setting.id];
+      form.button(`${mark}${setting.label}: ${settingLabel(setting, current)}\n${settingBars(setting, current)}`);
     } else if (action.kind === "map") {
       const map = maps.find((option) => option.id === action.map)!;
       const state = view.random ? MARK.dim : map.id === view.map ? MARK.selected : "";
