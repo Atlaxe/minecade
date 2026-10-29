@@ -11,7 +11,7 @@ import {
   type Vector3,
 } from "@minecraft/server";
 import { ActionFormData, uiManager } from "@minecraft/server-ui";
-import { log, showForm, type Scope } from "@minecade/minigame-core";
+import { log, normalizePlayer, showForm, type Scope } from "@minecade/minigame-core";
 import { bootServer } from "@minecade/minigame-core/bootstrap";
 import registry from "#registry";
 import { LobbyController, type GameChoice } from "./lobby-controller.ts";
@@ -101,11 +101,12 @@ bootServer(({ vars, transport, transfer, root }) => {
 
   function setUp(player: Player): void {
     if (!player.isValid) return;
+    // Effects, input locks or a spectator game mode can follow a player back from a game.
+    normalizePlayer(player);
     // Rejoining players otherwise appear wherever they logged out.
     player.teleport(spawn);
     const inventory = player.getComponent(EntityComponentTypes.Inventory)?.container;
     if (inventory) {
-      inventory.clearAll();
       const compass = new ItemStack(COMPASS, 1);
       compass.nameTag = "Game Selector";
       compass.lockMode = ItemLockMode.slot;

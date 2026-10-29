@@ -186,15 +186,16 @@ describe("SessionManager: running", () => {
     expect(t.sessions.status().players).toEqual(["Steve", "Alex"]);
     expect(t.lobby.at(-1)).toMatchObject({ t: "status", players: ["Steve", "Alex"] });
     const stats: OutboundEvent = {
-      t: "stats",
+      t: "match_stats",
       sessionId: "s1",
+      matchId: "s1.1",
+      part: 1,
+      parts: 1,
       game: "probe",
       map: "default",
-      players: ["Steve"],
-      kills: {},
-      deaths: {},
-      winner: null,
+      mode: "solo",
       durationSec: 12,
+      rows: [{ n: "Steve", r: "w", k: 0, d: 0, dd: 0, dt: 0, s: 12, bs: 0 }],
     };
     link.emit(stats);
     expect(console.log).toHaveBeenCalledWith(`[STATS] ${JSON.stringify(stats)}`);

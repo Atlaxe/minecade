@@ -91,7 +91,7 @@ export class SessionManager {
     if (!resolved.ok) return this.reject(request.requestId, resolved.reason);
 
     const session: Session = {
-      id: this.deps.newSessionId?.() ?? randomBytes(4).toString("hex"),
+      id: this.deps.newSessionId?.() ?? randomBytes(6).toString("hex"),
       requestId: request.requestId,
       game: resolved.game,
       map: resolved.map,
@@ -283,8 +283,8 @@ export class SessionManager {
         this.pushStatus();
         return;
       }
-      case "stats":
-        // One line per finished game; stats storage comes later.
+      case "match_stats":
+        // One line per part; milestone 6b stores them.
         console.log(`[STATS] ${JSON.stringify(event)}`);
         return;
       case "end_game":

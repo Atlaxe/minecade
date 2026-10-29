@@ -77,3 +77,18 @@ Router forwards for TCP+UDP 19132-19134 are in place (Plume).
 | Two players on one server (one LAN, one remote) | Proves the shared single UDP port with mixed clients |
 
 If a deferred test fails, the likely fixes are configuration (forwards, advertised IP, Docker network mode), not code. A single account can also run the remote test from a phone on cellular data, with Minecraft fully closed on the PC.
+
+## Damage events (BDS 1.26.60.6, @minecraft/server 2.11.0, checked 2026-10-29)
+
+Measured headless on mobs with `/damage`, armor, effects and real arrows. The combat code in `packages/minigame-core/src/game/combat.ts` relies on these facts.
+
+| Question | Finding |
+|---|---|
+| `beforeEvents.entityHurt` `damage` | **After** armor and resistance: diamond armor turned 10 into 3, resistance II turned 5 into 3, magic ignored armor. Absorption is not reflected. |
+| Health read inside the before-event | **Already reduced by the hit** (health 10, hit 4: reads 6, and negative on a killing blow). Health before the hit = reported + damage. |
+| `afterEvents.entityHurt` `damage` | Equals the health actually lost, except with absorption (absorption is spent after the event). |
+| `cancel = true` | Blocks the damage **and** the knockback; no after-event fires. |
+| Writing `damage = N` | Sets the final amount, lower or higher; armor is not applied again. |
+| `/kill`, void, fall | All fire both events. Causes: `selfDestruct` (damage = remaining health), `void` (4 every 10 ticks), `fall`. |
+| Projectiles | A real arrow: `damagingEntity` = shooter, `damagingProjectile` = `minecraft:arrow`. With no owner, both are the arrow. |
+| Invulnerability frames | A stronger second hit fires the before-event with only the difference; a weaker or equal one fires nothing. |

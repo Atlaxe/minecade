@@ -11,6 +11,11 @@ export default defineConfig({
       { find: /^@minecraft\/server-net$/, replacement: fake("fake-mc-server-net.ts") },
       { find: /^@minecraft\/server-ui$/, replacement: fake("fake-mc-server-ui.ts") },
       { find: /^@minecraft\/server-admin$/, replacement: fake("fake-mc-server-admin.ts") },
+      // Pack bundles pick a transport at build time; tests use the log one, which only needs the fakes.
+      {
+        find: /^#transport$/,
+        replacement: fileURLToPath(new URL("./packages/minigame-core/src/transport/log-stdin.ts", import.meta.url)),
+      },
     ],
   },
   test: {

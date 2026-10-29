@@ -100,7 +100,7 @@ describe("showForm", () => {
     await flushPromises();
     scope.dispose();
     expect(closedFor).toEqual(["Steve"]);
-    openForms[0].respond({ canceled: false, selection: 0 });
+    expect(openForms).toHaveLength(0); // closed; its answer arrives after the scope ended
     await flushPromises();
     expect(settled).not.toHaveBeenCalled();
   });

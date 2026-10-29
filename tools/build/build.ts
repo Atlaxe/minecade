@@ -94,7 +94,7 @@ async function loadTarget(id: string, dir: string, configPath?: string): Promise
     }
     const config = await readJson(mapJson);
     if (config === undefined) continue;
-    report(mapJson, validateMapConfig(config, { kind: target.game ? "game" : "lobby", maxPlayers: target.game?.maxPlayers }));
+    report(mapJson, validateMapConfig(config, { kind: target.game ? "game" : "lobby", maxPlayers: target.game?.maxPlayers, requires: target.game?.map }));
     if (!existsSync(join(mapDir, "world", "level.dat"))) {
       report(mapDir, ["world/level.dat is missing: run npm run bake, or drop in a world built in the client"]);
     }
@@ -160,8 +160,8 @@ async function buildMaps(target: Target, out: string): Promise<{ id: string; nam
   return target.maps.map((map) => ({ id: map.id, name: map.config.name }));
 }
 
-function pick({ id, name, description, minPlayers, maxPlayers }: GameConfig): Omit<RegistryGame, "maps"> {
-  return { id, name, description, minPlayers, maxPlayers };
+function pick({ id, name, description, minPlayers, maxPlayers, stats }: GameConfig): Omit<RegistryGame, "maps"> {
+  return { id, name, description, minPlayers, maxPlayers, ...(stats ? { stats } : {}) };
 }
 
 async function buildOrchestrator(): Promise<void> {

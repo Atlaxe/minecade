@@ -8,7 +8,8 @@
     "packages/*/test/**/*.ts",
     "games/*/game.config.ts",
     "lobby/test/**/*.ts",
-    "vitest.config.ts"
+    "vitest.config.ts",
+    "types/transport-alias.d.ts"
   ],
   "exclude": ["tools/build/test/fixtures/**"]
 }

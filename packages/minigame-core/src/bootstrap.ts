@@ -4,19 +4,13 @@
 // "#transport", which only pack bundles can resolve.
 import { world } from "@minecraft/server";
 import { createTransport, kind } from "#transport";
+import type { ServerContext } from "./context.ts";
 import { PROTOCOL_VERSION } from "./protocol/index.ts";
 import { Scope } from "./scope.ts";
 import { TransferService } from "./transfer.ts";
-import type { Transport } from "./transport/transport.ts";
-import { readServerVars, type ServerVars } from "./vars.ts";
+import { readServerVars } from "./vars.ts";
 
-export interface ServerContext {
-  vars: ServerVars;
-  transport: Transport;
-  transfer: TransferService;
-  /** Lives as long as the server. Everything the pack sets up hangs off it. */
-  root: Scope;
-}
+export type { ServerContext } from "./context.ts";
 
 export function bootServer(onReady: (ctx: ServerContext) => void): void {
   const handle = world.afterEvents.worldLoad.subscribe(() => {

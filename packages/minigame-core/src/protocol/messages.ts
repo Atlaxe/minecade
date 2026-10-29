@@ -1,7 +1,7 @@
 // Wire protocol between the servers' behavior packs and the orchestrator. Pure TypeScript with
 // no runtime imports: bundled into packs by esbuild and imported by the orchestrator under Node.
 
-export const PROTOCOL_VERSION = 1;
+export const PROTOCOL_VERSION = 2;
 
 /**
  * Upper bound for one encoded message, in either direction and over either transport, so no
@@ -59,16 +59,48 @@ export interface PlayerCount {
   players: string[];
 }
 
-export interface GameStats {
-  t: "stats";
+/** One player's line in a finished match. Short keys keep a part under MAX_MESSAGE_CHARS. */
+export interface StatsRow {
+  /** Gamertag. */
+  n: string;
+  /** Win, loss or draw. */
+  r: "w" | "l" | "d";
+  /** Team id, in team games. */
+  tm?: string;
+  /** Kills and deaths against players. */
+  k: number;
+  d: number;
+  /** Damage dealt to players and taken from anything, in health points. */
+  dd: number;
+  dt: number;
+  /** Seconds in the match. */
+  s: number;
+  /** Best kill streak. */
+  bs: number;
+  /** Left before the end. */
+  q?: 1;
+  /** Game-specific counters, as declared in the game's stats config. */
+  x?: Record<string, number>;
+}
+
+/**
+ * A finished match's stats, possibly split into several parts (each repeats the header) so
+ * every part fits the message size limit. matchId + part identifies a part, so a retried
+ * send is recorded once.
+ */
+export interface MatchStats {
+  t: "match_stats";
   sessionId: string;
+  matchId: string;
+  part: number;
+  parts: number;
   game: string;
   map: string;
-  players: string[];
-  kills: Record<string, number>;
-  deaths: Record<string, number>;
-  winner: string | null;
+  mode: "solo" | "team" | "coop";
   durationSec: number;
+  /** Winning player or team, if any. */
+  winner?: string;
+  rows: StatsRow[];
 }
 
 export interface EndGame {
@@ -77,7 +109,7 @@ export interface EndGame {
   reason: EndReason;
 }
 
-export type OutboundEvent = ServerReady | StartGame | StatusRequest | PlayerCount | GameStats | EndGame;
+export type OutboundEvent = ServerReady | StartGame | StatusRequest | PlayerCount | MatchStats | EndGame;
 
 // ---- Orchestrator -> server ----------------------------------------------------------------
 
@@ -138,7 +170,7 @@ const OUTBOUND_TYPES: ReadonlySet<string> = new Set<OutboundEvent["t"]>([
   "start_game",
   "status_request",
   "player_count",
-  "stats",
+  "match_stats",
   "end_game",
 ]);
 

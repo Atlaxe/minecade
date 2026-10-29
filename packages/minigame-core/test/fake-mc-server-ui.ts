@@ -70,7 +70,12 @@ class FakeForm {
 export class ActionFormData extends FakeForm {}
 
 export const uiManager = {
+  /** Records the call and closes that player's open forms, which then resolve as closed. */
   closeAllForms(player: { name: string }): void {
     closedFor.push(player.name);
+    for (const open of openForms.filter((form) => form.player.name === player.name)) {
+      openForms.splice(openForms.indexOf(open), 1);
+      open.respond({ canceled: true, cancelationReason: FormCancelationReason.UserClosed });
+    }
   },
 };
