@@ -1,6 +1,6 @@
 // Map baking logic with no I/O, kept apart from bake.ts so it can be unit-tested.
 import nbt from "prismarine-nbt";
-import type { MapConfig } from "@minecade/minigame-core";
+import type { MapConfig } from "@minecade/minigame-core/config";
 import { getTag, setTag, type LevelDat } from "./leveldat.ts";
 
 type Tag = Parameters<typeof setTag>[2];

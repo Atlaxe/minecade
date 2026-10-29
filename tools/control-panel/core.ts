@@ -1,6 +1,6 @@
 // Control panel logic with no I/O, kept apart from panel.ts so it can be unit-tested.
 
-export type StackId = "spike" | "main";
+export type StackId = "main";
 
 export interface StackDef {
   id: StackId;
@@ -13,14 +13,9 @@ export interface StackDef {
   requires: string[];
 }
 
+// The milestone 1 spike servers (spike/) stay out of the panel; run them with npm run spike:up
+// when re-checking a new Bedrock release.
 export const STACKS: readonly StackDef[] = [
-  {
-    id: "spike",
-    label: "Spike test servers",
-    file: "spike/docker-compose.spike.yml",
-    project: "minecade-spike",
-    requires: ["spike/world/level.dat", "spike/dist/world_behavior_packs.json"],
-  },
   { id: "main", label: "Minecade network", file: "docker-compose.yml", project: "minecade", requires: [] },
 ];
 

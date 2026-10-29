@@ -1,7 +1,7 @@
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import nbt from "prismarine-nbt";
-import type { MapConfig } from "@minecade/minigame-core";
+import type { MapConfig } from "@minecade/minigame-core/config";
 import { bakeSettings, checkBakeSettings, classifyResponse } from "../bake-core.ts";
 import { getTag, readLevelDat, setTag } from "../leveldat.ts";
 

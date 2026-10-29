@@ -2,24 +2,9 @@
 // orchestrator image). start_game names a map id or "random", so a future map vote only has to
 // supply an id.
 import { readFileSync } from "node:fs";
+import type { Registry, RegistryGame, RegistryMap } from "@minecade/minigame-core/config";
 
-export interface RegistryMap {
-  id: string;
-  name: string;
-}
-
-export interface RegistryGame {
-  id: string;
-  name: string;
-  description?: string;
-  minPlayers: number;
-  maxPlayers: number;
-  maps: RegistryMap[];
-}
-
-export interface Registry {
-  games: RegistryGame[];
-}
+export type { Registry, RegistryGame, RegistryMap };
 
 export function loadRegistry(path: string): Registry {
   const registry = JSON.parse(readFileSync(path, "utf8")) as Registry;

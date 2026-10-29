@@ -1,0 +1,165 @@
+// Lobby server script: gives every player the Game Selector compass, keeps them on the
+// platform, shows the orchestrator status, and connects the selector logic
+// (lobby-controller.ts) to players, forms and the orchestrator.
+import {
+  EntityComponentTypes,
+  ItemLockMode,
+  ItemStack,
+  system,
+  world,
+  type Player,
+  type Vector3,
+} from "@minecraft/server";
+import { ActionFormData, uiManager } from "@minecraft/server-ui";
+import { log, showForm, type Scope } from "@minecade/minigame-core";
+import { bootServer } from "@minecade/minigame-core/bootstrap";
+import registry from "#registry";
+import { LobbyController, type GameChoice } from "./lobby-controller.ts";
+
+const COMPASS = "minecraft:compass";
+
+function playerNamed(name: string): Player | undefined {
+  return world.getAllPlayers().find((player) => player.name === name);
+}
+
+function recipients(to: string): Player[] {
+  if (to === "all") return world.getAllPlayers();
+  const player = playerNamed(to);
+  return player ? [player] : [];
+}
+
+/** Game, then map (skipped when there's one), then a confirmation. */
+async function chooseGame(player: Player | undefined, scope: Scope, choices: GameChoice[]) {
+  if (!player) return undefined;
+  const gameForm = new ActionFormData().title("Pick a game");
+  for (const { game, playable, reason } of choices) {
+    gameForm.button(playable ? `${game.name}\n${game.minPlayers}-${game.maxPlayers} players` : `${game.name}\n${reason}`);
+  }
+  const gamePick = await showForm(scope, player, gameForm);
+  if (gamePick?.selection === undefined) return undefined;
+  const { game, playable, reason } = choices[gamePick.selection];
+  if (!playable) {
+    player.sendMessage(`${game.name} ${reason}.`);
+    return undefined;
+  }
+
+  let map = game.maps[0];
+  if (game.maps.length > 1) {
+    const mapForm = new ActionFormData().title(game.name).body("Pick a map").button("Random");
+    for (const candidate of game.maps) mapForm.button(candidate.name);
+    const mapPick = await showForm(scope, player, mapForm);
+    if (mapPick?.selection === undefined) return undefined;
+    map = mapPick.selection === 0 ? { id: "random", name: "a random map" } : game.maps[mapPick.selection - 1];
+  }
+
+  // An action form rather than a message form, so "Start" is always selection 0.
+  const confirm = new ActionFormData()
+    .title(game.name)
+    .body(`Start ${game.name} on ${map.name}? Everyone in the lobby (up to ${game.maxPlayers}) goes.`)
+    .button("Start")
+    .button("Cancel");
+  const answer = await showForm(scope, player, confirm);
+  return answer?.selection === 0 ? { game: game.id, map: map.id } : undefined;
+}
+
+bootServer(({ vars, transport, transfer, root }) => {
+  const [sx, sy, sz] = vars.mapConfig.spawns[0] ?? [0, 65, 0];
+  const spawn: Vector3 = { x: sx + 0.5, y: sy, z: sz + 0.5 };
+  const bounds = vars.mapConfig.bounds;
+
+  const lobby = new LobbyController(
+    {
+      send: (event) => transport.send(event),
+      onlinePlayers: () => world.getAllPlayers().map((player) => player.name),
+      transfer: (name, port) => {
+        const player = playerNamed(name);
+        if (player) transfer.transfer(player, port);
+      },
+      notify: (to, text) => {
+        for (const player of recipients(to)) player.sendMessage(text);
+      },
+      title: (to, title, subtitle) => {
+        for (const player of recipients(to)) {
+          player.onScreenDisplay.setTitle(title, { fadeInDuration: 5, stayDuration: 30, fadeOutDuration: 10, subtitle });
+        }
+      },
+      closeForms: (name) => {
+        const player = playerNamed(name);
+        if (player) uiManager.closeAllForms(player);
+      },
+      chooseGame: (name, scope, choices) => chooseGame(playerNamed(name), scope, choices),
+    },
+    root,
+    { registry, devMinPlayers: vars.devMinPlayers },
+  );
+  root.add(
+    transport.onMessage((message) => {
+      log.info(`orchestrator: ${message.t}${message.t === "status" ? ` ${message.state} ${message.game ?? ""}` : ""}`);
+      lobby.onMessage(message);
+    }),
+  );
+
+  function setUp(player: Player): void {
+    if (!player.isValid) return;
+    // Rejoining players otherwise appear wherever they logged out.
+    player.teleport(spawn);
+    const inventory = player.getComponent(EntityComponentTypes.Inventory)?.container;
+    if (inventory) {
+      inventory.clearAll();
+      const compass = new ItemStack(COMPASS, 1);
+      compass.nameTag = "Game Selector";
+      compass.lockMode = ItemLockMode.slot;
+      compass.keepOnDeath = true;
+      inventory.setItem(0, compass);
+    }
+    player.selectedSlotIndex = 0;
+  }
+
+  root.subscribe(world.afterEvents.playerSpawn, ({ player, initialSpawn }) => {
+    if (!initialSpawn) return;
+    // A teleport during the spawn itself can be overridden by the client, so wait 2 ticks.
+    root.timeout(() => {
+      setUp(player);
+      if (player.isValid) lobby.onPlayerJoined(player.name);
+    }, 2);
+  });
+  root.subscribe(world.afterEvents.playerLeave, ({ playerName }) => lobby.onPlayerLeft(playerName));
+
+  // A tap can fire both events (and itemUse repeats while held): one selector per tick per player.
+  const lastTap = new Map<string, number>();
+  const tap = (player: Player) => {
+    if (lastTap.get(player.name) === system.currentTick) return;
+    lastTap.set(player.name, system.currentTick);
+    void lobby.openSelector(player.name);
+  };
+  root.subscribe(world.afterEvents.itemUse, ({ source, itemStack }) => {
+    if (itemStack.typeId === COMPASS) tap(source);
+  });
+  // Aiming at a block (the platform) may skip itemUse.
+  root.subscribe(world.afterEvents.playerInteractWithBlock, ({ player, itemStack, isFirstEvent }) => {
+    if (isFirstEvent && itemStack?.typeId === COMPASS) tap(player);
+  });
+
+  let frame = 0;
+  root.interval(() => {
+    const text = lobby.actionBar(frame++);
+    for (const player of world.getAllPlayers()) player.onScreenDisplay.setActionBar(text);
+  }, 20);
+
+  // Anyone who walks or falls out of the lobby area goes back to spawn.
+  if (bounds) {
+    root.interval(() => {
+      for (const player of world.getAllPlayers()) {
+        const { x, y, z } = player.location;
+        const inside =
+          x >= bounds.min[0] && x <= bounds.max[0] + 1 &&
+          y >= bounds.min[1] && y <= bounds.max[1] + 1 &&
+          z >= bounds.min[2] && z <= bounds.max[2] + 1;
+        if (!inside) player.teleport(spawn);
+      }
+    }, 10);
+  }
+
+  // After a script reload, players are already here.
+  for (const player of world.getAllPlayers()) setUp(player);
+});

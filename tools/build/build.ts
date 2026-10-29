@@ -8,11 +8,11 @@ import { cp, mkdir, readdir, readFile, rm, writeFile } from "node:fs/promises";
 import { join, relative } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { build } from "esbuild";
-import type { GameConfig, MapConfig } from "@minecade/minigame-core";
+import type { GameConfig, MapConfig, Registry, RegistryGame } from "@minecade/minigame-core/config";
 import type { TransportKind } from "@minecade/minigame-core/protocol";
 import { enableBetaApis, patchLevelDat } from "./leveldat.ts";
 import { MODULE_VERSIONS, pinManifest, type Manifest } from "./mc-versions.ts";
-import { transportPlugin } from "./transport-plugin.ts";
+import { registryPlugin, transportPlugin } from "./transport-plugin.ts";
 import { validateGameConfig, validateMapConfig } from "./validate.ts";
 
 const root = fileURLToPath(new URL("../../", import.meta.url));
@@ -113,25 +113,33 @@ async function discoverTargets(): Promise<Target[]> {
   return targets;
 }
 
-async function buildBehaviorPack(src: string, out: string, manifest: Manifest): Promise<void> {
+async function buildBehaviorPack(src: string, out: string, manifest: Manifest, registry: Registry): Promise<void> {
   // Everything except the sources and the manifest ships as-is (icons, texts, ...).
   await cp(src, out, { recursive: true, filter: (path) => !path.endsWith(".ts") && path !== join(src, "manifest.json") });
   for (const kind of TRANSPORTS) {
+    const bundle = join(out, "scripts", `main.${kind}.js`);
     await build({
       entryPoints: [join(src, "scripts", "main.ts")],
-      outfile: join(out, "scripts", `main.${kind}.js`),
+      outfile: bundle,
       bundle: true,
       format: "esm",
       platform: "neutral",
       target: "es2022",
       external: ["@minecraft/*"],
-      plugins: [transportPlugin(kind)],
+      plugins: [transportPlugin(kind), registryPlugin(registry)],
       logLevel: "warning",
     });
     const variant = structuredClone(manifest);
     for (const module of variant.modules) if (module.type === "script") module.entry = `scripts/main.${kind}.js`;
     if (kind === "http") variant.dependencies = [...(variant.dependencies ?? []), SERVER_NET];
     await writeFile(join(out, `manifest.${kind}.json`), JSON.stringify(variant, null, 2));
+    // A script importing a module its manifest doesn't declare fails to load at all on the server.
+    const declared = new Set(variant.dependencies?.map((dependency) => dependency.module_name));
+    const imported = new Set([...(await readFile(bundle, "utf8")).matchAll(/from\s*"(@minecraft\/[a-z-]+)"/g)].map((match) => match[1]));
+    const missing = [...imported].filter((module) => !declared.has(module));
+    if (missing.length > 0) {
+      throw new Error(`${relative(root, src)}: the ${kind} bundle imports ${missing.join(", ")}; add it to manifest.json dependencies`);
+    }
   }
 }
 
@@ -150,6 +158,10 @@ async function buildMaps(target: Target, out: string): Promise<{ id: string; nam
     await writeFile(join(mapOut, "map.json"), JSON.stringify(runtime, null, 2));
   }
   return target.maps.map((map) => ({ id: map.id, name: map.config.name }));
+}
+
+function pick({ id, name, description, minPlayers, maxPlayers }: GameConfig): Omit<RegistryGame, "maps"> {
+  return { id, name, description, minPlayers, maxPlayers };
 }
 
 async function buildOrchestrator(): Promise<void> {
@@ -172,22 +184,26 @@ if (problems.length > 0) {
   process.exit(1);
 }
 
+// Known before any bundling, so the lobby pack can embed it ("#registry").
+const registry: Registry = {
+  games: targets.flatMap(({ game, maps }) =>
+    game
+      ? [{ ...pick(game), maps: maps.map((map) => ({ id: map.id, name: map.config.name })) }]
+      : [],
+  ),
+};
+
 await rm(dist, { recursive: true, force: true });
-const registry: { games: unknown[] } = { games: [] };
 for (const target of targets) {
   const out = join(dist, "templates", "servers", target.id);
   await mkdir(out, { recursive: true });
   if (target.behaviorPack) {
-    await buildBehaviorPack(join(target.dir, "behavior_pack"), join(out, "behavior_packs", `${target.id}_bp`), target.behaviorPack);
+    await buildBehaviorPack(join(target.dir, "behavior_pack"), join(out, "behavior_packs", `${target.id}_bp`), target.behaviorPack, registry);
   }
   if (target.resourcePack) {
     await buildResourcePack(join(target.dir, "resource_pack"), join(out, "resource_packs", `${target.id}_rp`), target.resourcePack);
   }
   const maps = await buildMaps(target, out);
-  if (target.game) {
-    const { id, name, description, minPlayers, maxPlayers } = target.game;
-    registry.games.push({ id, name, description, minPlayers, maxPlayers, maps });
-  }
   console.log(`built ${target.id} (maps: ${maps.map((map) => map.id).join(", ")}${target.resourcePack ? ", resource pack" : ""})`);
 }
 await writeFile(join(dist, "registry.json"), JSON.stringify(registry, null, 2));

@@ -1,4 +1,4 @@
-import { defineGame } from "@minecade/minigame-core";
+import { defineGame } from "@minecade/minigame-core/config";
 
 export default defineGame({
   id: "probe",

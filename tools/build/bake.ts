@@ -10,7 +10,7 @@ import { tmpdir } from "node:os";
 import { join, relative } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import * as tar from "tar";
-import type { GameConfig, MapConfig } from "@minecade/minigame-core";
+import type { GameConfig, MapConfig } from "@minecade/minigame-core/config";
 import { readEnv } from "../control-panel/core.ts";
 import { bakeSettings, checkBakeSettings, classifyResponse, stripLogPrefix } from "./bake-core.ts";
 import { attachConsole, connectDocker, copyDirFromContainer, findContainerByName, type ServerConsole } from "./docker-util.ts";

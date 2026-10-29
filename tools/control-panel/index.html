@@ -139,7 +139,7 @@ function renderStacks() {
     for (const button of buttons) button.disabled = !canAct || !stack.available;
     const section = el("section", {}, el("div", { className: "row" }, el("h2", { style: "margin:0" }, stack.label), status, ...buttons));
     if (!stack.available) {
-      section.append(el("p", { className: "hint" }, `Missing: ${stack.missing.join(", ")}. Run npm run spike:build and npm run spike:world first.`));
+      section.append(el("p", { className: "hint" }, `Missing: ${stack.missing.join(", ")}.`));
     }
     if (stack.settingsStale) {
       section.append(el("p", { className: "error" }, ".env changed after this stack started. Click Restart to apply the new settings."));

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { GameConfig } from "@minecade/minigame-core";
+import type { GameConfig } from "@minecade/minigame-core/config";
 import { validateGameConfig, validateMapConfig } from "../validate.ts";
 
 const game: GameConfig = { id: "sumo", name: "Sumo", minPlayers: 2, maxPlayers: 3 };

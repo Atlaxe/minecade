@@ -104,16 +104,16 @@ describe(".env helpers", () => {
 describe("stackOf", () => {
   const project = (name: string) => ({ "com.docker.compose.project": name });
 
-  it("sorts containers into the panel's stacks", () => {
-    expect(stackOf({ Names: ["/minecade-spike-relay"], Labels: project("minecade-spike") })).toBe("spike");
-    expect(
-      stackOf({ Names: ["/minecade-spike-game"], Labels: { ...project("minecade-spike"), "minecade.role": "game" } }),
-    ).toBe("spike");
+  it("sorts the network's containers, including orchestrator-made game servers", () => {
     expect(stackOf({ Names: ["/minecade-lobby"], Labels: project("minecade") })).toBe("main");
     expect(stackOf({ Names: ["/minecade-game-abc"], Labels: { "minecade.role": "game" } })).toBe("main");
   });
 
-  it("ignores every other container on the engine", () => {
+  it("ignores every other container on the engine, including the spike diagnostic", () => {
+    expect(stackOf({ Names: ["/minecade-spike-relay"], Labels: project("minecade-spike") })).toBeUndefined();
+    expect(
+      stackOf({ Names: ["/minecade-spike-game"], Labels: { ...project("minecade-spike"), "minecade.role": "game" } }),
+    ).toBeUndefined();
     expect(stackOf({ Names: ["/supabase_db_kaheforms"], Labels: project("supabase_kaheforms") })).toBeUndefined();
     expect(stackOf({ Names: ["/wordpress"], Labels: {} })).toBeUndefined();
   });

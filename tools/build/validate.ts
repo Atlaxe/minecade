@@ -1,6 +1,6 @@
 // Checks for game configs and map.json files. Each function returns a list of problems (empty
 // when valid) so the build can report everything at once instead of stopping at the first.
-import type { GameConfig, MapConfig, Vec3 } from "@minecade/minigame-core";
+import type { GameConfig, MapConfig, Vec3 } from "@minecade/minigame-core/config";
 
 /** Bedrock overworld height limits. */
 const MIN_Y = -64;

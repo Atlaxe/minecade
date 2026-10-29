@@ -7,6 +7,7 @@
     "orchestrator/**/*.ts",
     "packages/*/test/**/*.ts",
     "games/*/game.config.ts",
+    "lobby/test/**/*.ts",
     "vitest.config.ts"
   ],
   "exclude": ["tools/build/test/fixtures/**"]

@@ -9,9 +9,17 @@ export default defineConfig({
     alias: [
       { find: /^@minecraft\/server$/, replacement: fake("fake-mc-server.ts") },
       { find: /^@minecraft\/server-net$/, replacement: fake("fake-mc-server-net.ts") },
+      { find: /^@minecraft\/server-ui$/, replacement: fake("fake-mc-server-ui.ts") },
+      { find: /^@minecraft\/server-admin$/, replacement: fake("fake-mc-server-admin.ts") },
     ],
   },
   test: {
-    include: ["packages/*/test/**/*.test.ts", "orchestrator/test/**/*.test.ts", "tools/**/test/**/*.test.ts"],
+    include: [
+      "packages/*/test/**/*.test.ts",
+      "orchestrator/test/**/*.test.ts",
+      "tools/**/test/**/*.test.ts",
+      "lobby/test/**/*.test.ts",
+      "games/*/test/**/*.test.ts",
+    ],
   },
 });
