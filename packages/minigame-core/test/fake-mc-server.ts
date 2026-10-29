@@ -248,8 +248,11 @@ export class FakePlayer {
   isValid = true;
   nameTag: string;
   location: Vector3 = { x: 0, y: 65, z: 0 };
+  viewDirection: Vector3 = { x: 0, y: 0, z: 1 };
   selectedSlotIndex = 0;
   readonly teleports: Vector3[] = [];
+  /** Every applyKnockback call, in order. */
+  readonly knockbacks: { x: number; z: number; vertical: number }[] = [];
   readonly messages: string[] = [];
   readonly titles: string[] = [];
   actionBar = "";
@@ -326,6 +329,15 @@ export class FakePlayer {
     writable("Entity::teleport");
     this.location = { ...location };
     this.teleports.push({ ...location });
+  }
+
+  getViewDirection(): Vector3 {
+    return { ...this.viewDirection };
+  }
+
+  applyKnockback(horizontalForce: { x: number; z: number }, verticalStrength: number): void {
+    writable("Entity::applyKnockback");
+    this.knockbacks.push({ x: horizontalForce.x, z: horizontalForce.z, vertical: verticalStrength });
   }
 
   setGameMode(mode?: string): void {
@@ -488,6 +500,7 @@ class FakeWorld {
     playerLeave: new FakeSignal<{ playerId: string; playerName: string }>(),
     entityHurt: new FakeSignal<{ hurtEntity: FakePlayer; damage: number; damageSource: DamageSource }, unknown>(),
     entityDie: new FakeSignal<{ deadEntity: FakePlayer; damageSource: DamageSource }, unknown>(),
+    entityHitEntity: new FakeSignal<{ damagingEntity: FakePlayer; hitEntity: FakePlayer }, unknown>(),
     itemUse: new FakeSignal<{ source: FakePlayer; itemStack: ItemStack }>(),
     playerInteractWithBlock: new FakeSignal<{ player: FakePlayer; itemStack?: ItemStack; isFirstEvent: boolean }>(),
   };
@@ -556,6 +569,12 @@ class FakeWorld {
     victim.health.currentValue = Math.max(0, before - event.damage);
     this.afterEvents.entityHurt.emit({ hurtEntity: victim, damage: event.damage, damageSource }, acceptsEntity(victim));
     if (victim.health.currentValue <= 0) this.die(victim, damageSource);
+  }
+
+  /** A melee hit: the swing (entityHitEntity, even when the damage is canceled), then its damage. */
+  melee(attacker: FakePlayer, victim: FakePlayer, damage = 1): void {
+    this.hurt(victim, damage, "entityAttack", { attacker });
+    this.afterEvents.entityHitEntity.emit({ damagingEntity: attacker, hitEntity: victim }, acceptsEntity(attacker));
   }
 
   /** /kill: lethal, cause selfDestruct. */

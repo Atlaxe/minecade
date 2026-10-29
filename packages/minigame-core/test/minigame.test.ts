@@ -3,66 +3,12 @@
 // objectives, game rules, locked or spectating players, open forms).
 import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import type { GameConfig } from "../src/config.ts";
-import type { ServerContext } from "../src/context.ts";
-import { Minigame, type GameContext } from "../src/game/minigame.ts";
+import { Minigame } from "../src/game/minigame.ts";
 import { removeLeftoverObjectives } from "../src/game/sidebar.ts";
 import type { Result } from "../src/game/results.ts";
-import { playSession } from "../src/game/session.ts";
-import { normalizePlayer } from "../src/player.ts";
-import type { MatchStats, OutboundEvent } from "../src/protocol/index.ts";
-import { Scope } from "../src/scope.ts";
-import { TransferService } from "../src/transfer.ts";
-import type { ServerVars } from "../src/vars.ts";
-import { resetAdmin } from "./fake-mc-server-admin.ts";
-import { ItemStack, system, world, type FakePlayer } from "./fake-mc-server.ts";
-import { closedFor, openForms, queueFormResponses, resetForms } from "./fake-mc-server-ui.ts";
-import { flushPromises } from "./util.ts";
-
-const SERVER_RULES = { pvp: true, showDeathMessages: true, doImmediateRespawn: false, keepInventory: false, fallDamage: true };
-
-function seeded(seed: number): () => number {
-  let state = seed;
-  return () => {
-    state = (state * 1103515245 + 12345) % 2147483648;
-    return state / 2147483648;
-  };
-}
-
-const root = new Scope("server");
-const sent: OutboundEvent[] = [];
-
-function context(expectedPlayers: string[]): GameContext {
-  const vars: ServerVars = {
-    serverId: "s1",
-    role: "game",
-    game: "test",
-    map: "arena",
-    sessionId: "s1",
-    orchestratorUrl: "",
-    transport: "log",
-    lanHost: "192.168.40.98",
-    publicHost: "203.0.113.7",
-    serverPort: 19133,
-    lobbyPort: 19132,
-    lanPlayers: [],
-    expectedPlayers,
-    mapConfig: {
-      name: "Arena",
-      spawns: [[0, 65, 0], [4, 65, 0], [-4, 65, 0], [0, 65, 4]],
-      spectatorSpawn: [0, 75, 0],
-      bounds: { min: [-20, 40, -20], max: [20, 100, 20] },
-      killY: 50,
-    },
-    devMinPlayers: undefined,
-  };
-  const server: ServerContext = {
-    vars,
-    transport: { kind: "log", send: (event) => sent.push(event), onMessage: () => () => {}, dispose: () => {} },
-    transfer: new TransferService(vars),
-    root,
-  };
-  return { ...server, random: seeded(7), match: 1 };
-}
+import { ItemStack, world, type FakePlayer } from "./fake-mc-server.ts";
+import { closedFor, queueFormResponses } from "./fake-mc-server-ui.ts";
+import { createHarness, everyoneLeaves, expectBaseline as expectBaselineOf, playToEnd as playToEndOn, snapshot as snapshotOf, statsRows, ticks, type Baseline, type Harness } from "./game-harness.ts";
 
 class TestGame extends Minigame {
   onEndHook: ((result: Result) => void) | undefined;
@@ -72,68 +18,15 @@ class TestGame extends Minigame {
   }
 }
 
-/** Moves time on, letting promise callbacks run after every tick. */
-async function ticks(count: number): Promise<void> {
-  for (let i = 0; i < count; i++) {
-    system.advanceTicks(1);
-    await flushPromises(2);
-  }
-}
-
-interface Baseline {
-  listeners: Record<string, number>;
-  pending: number;
-  live: ReturnType<Scope["live"]>;
-}
-
-const snapshot = (): Baseline => ({ listeners: world.listenerCounts(), pending: system.pendingRuns, live: root.live() });
-
-/** Runs a game through the session wrapper until it is fully over, then everyone "goes back". */
-async function playToEnd(game: Minigame, baseline: Baseline, act: () => Promise<void>): Promise<Result | undefined> {
-  let result: Result | undefined;
-  let done = false;
-  const runGame = game.run.bind(game);
-  game.run = async () => (result = await runGame());
-  void playSession(game, root, baseline.live, async () => {
-    for (const player of world.getAllPlayers()) normalizePlayer(player as never);
-    done = true;
-  });
-  await act();
-  for (let i = 0; i < 2000 && !done; i++) await ticks(1);
-  expect(done).toBe(true);
-  return result;
-}
-
-function expectBaseline(baseline: Baseline): void {
-  expect(world.listenerCounts()).toEqual(baseline.listeners);
-  expect(system.pendingRuns).toBe(baseline.pending);
-  expect(root.live()).toEqual(baseline.live);
-  expect(openForms).toHaveLength(0);
-  expect(world.scoreboard.getObjectives()).toEqual([]);
-  expect(world.gameRules).toEqual(SERVER_RULES);
-  for (const player of world.getAllPlayers()) {
-    expect(player.unlocked, `${player.name} unlocked`).toBe(true);
-    expect(player.gameMode, `${player.name} game mode`).toBe("Adventure");
-    expect(player.effects.size).toBe(0);
-    expect(player.health.currentValue).toBe(20);
-  }
-  expect(vi.mocked(console.warn).mock.calls.flat().join("\n")).not.toMatch(/left resources behind|cleanup failed/);
-}
-
-const statsOf = (from: number) =>
-  sent.slice(from).filter((event): event is MatchStats => event.t === "match_stats").flatMap((part) => part.rows);
-
-function everyoneLeaves(): void {
-  for (const player of world.getAllPlayers()) world.leave(player.name);
-}
+let harness: Harness;
+const context = (expected: string[]) => harness.context(expected);
+const snapshot = () => snapshotOf(harness.root);
+const playToEnd = (game: Minigame, baseline: Baseline, act: () => Promise<void>) => playToEndOn(game, harness.root, baseline, act);
+const expectBaseline = (baseline: Baseline) => expectBaselineOf(harness.root, baseline);
+const statsOf = (from: number) => statsRows(harness.sent, from);
 
 beforeAll(() => {
-  system.reset();
-  world.reset();
-  Object.assign(world.gameRules, SERVER_RULES);
-  resetForms();
-  resetAdmin();
-  for (const level of ["info", "warn", "error", "log"] as const) vi.spyOn(console, level).mockImplementation(() => {});
+  harness = createHarness();
 });
 
 afterEach(() => {
@@ -155,7 +48,7 @@ describe("three games in a row on one server", () => {
     const players = ["A", "B", "C", "D"].map((name) => world.join(name));
     const [a, b, c, d] = players;
     const baseline = snapshot();
-    const from = sent.length;
+    const from = harness.sent.length;
     const game = new TestGame(context(["A", "B", "C", "D"]), config);
 
     const result = await playToEnd(game, baseline, async () => {
@@ -204,7 +97,7 @@ describe("three games in a row on one server", () => {
     const config: GameConfig = { id: "duel", name: "Duel", minPlayers: 2, maxPlayers: 2, countdownSeconds: 3, waitForPlayersSeconds: 2 };
     const [a] = [world.join("A"), world.join("B")];
     const baseline = snapshot();
-    const from = sent.length;
+    const from = harness.sent.length;
     const game = new TestGame(context(["A", "B"]), config);
 
     const result = await playToEnd(game, baseline, async () => {
@@ -237,7 +130,7 @@ describe("three games in a row on one server", () => {
     };
     const players = new Map(["A", "B", "C", "D"].map((name) => [name, world.join(name)]));
     const baseline = snapshot();
-    const from = sent.length;
+    const from = harness.sent.length;
     const game = new TestGame(context(["A", "B", "C", "D"]), config);
     let winner = "";
 
@@ -284,7 +177,7 @@ describe("Minigame details", () => {
     const config: GameConfig = { id: "ffa2", name: "FFA", minPlayers: 2, maxPlayers: 3, countdownSeconds: 1, endDelaySeconds: 1, stats: { mode: "solo" } };
     const [a, b, c] = ["A", "B", "C"].map((name) => world.join(name));
     const baseline = snapshot();
-    const from = sent.length;
+    const from = harness.sent.length;
     const game = new TestGame(context(["A", "B", "C"]), config);
     await playToEnd(game, baseline, async () => {
       await ticks(25);
@@ -308,7 +201,7 @@ describe("Minigame details", () => {
     const config: GameConfig = { id: "ffa3", name: "FFA", minPlayers: 2, maxPlayers: 3, countdownSeconds: 1, endDelaySeconds: 1, stats: { mode: "solo" } };
     const [a, b, c] = ["A", "B", "C"].map((name) => world.join(name));
     const baseline = snapshot();
-    const from = sent.length;
+    const from = harness.sent.length;
     const game = new TestGame(context(["A", "B", "C"]), config);
     await playToEnd(game, baseline, async () => {
       await ticks(25);

@@ -1,0 +1,17 @@
+{
+  "name": "Arena",
+  "spawns": [
+    [5, 65, 0], [3, 65, 4], [-3, 65, 4],
+    [-5, 65, 0], [-3, 65, -4], [3, 65, -4]
+  ],
+  "spectatorSpawn": [0, 72, 0],
+  "bounds": { "min": [-20, 50, -20], "max": [20, 90, 20] },
+  "killY": 58,
+  "build": {
+    "commands": [
+      "fill -7 64 -7 7 64 7 red_concrete",
+      "fill -6 64 -6 6 64 6 white_concrete",
+      "setblock 0 64 0 light_gray_concrete"
+    ]
+  }
+}

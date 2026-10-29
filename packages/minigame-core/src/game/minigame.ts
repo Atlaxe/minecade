@@ -456,8 +456,9 @@ export abstract class Minigame<C extends GameConfig = GameConfig> {
     const team = this.teamOf(name);
     if (team) player.nameTag = `${team.color}${player.name}`;
     const [x, y, z] = this.spawnPoint(name);
-    const [cx, cy, cz] = this.map.center();
-    player.teleport({ x: x + 0.5, y, z: z + 0.5 }, { facingLocation: { x: cx, y: cy, z: cz } });
+    // Face the middle of the map at eye level, so nobody starts looking at the sky or the floor.
+    const [cx, , cz] = this.map.center();
+    player.teleport({ x: x + 0.5, y, z: z + 0.5 }, { facingLocation: { x: cx + 0.5, y: y + 1.62, z: cz + 0.5 } });
     this.kits.give(player, team?.color);
     const protect = this.config.respawn?.protectSeconds;
     if (why === "respawn" && protect) this.protectedUntil.set(name.toLowerCase(), system.currentTick + protect * 20);
