@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Scope, stripColors, type InboundMessage, type OutboundEvent, type Registry } from "@minecade/minigame-core";
 import { system } from "../../packages/minigame-core/test/fake-mc-server.ts";
 import { flushPromises } from "../../packages/minigame-core/test/util.ts";
+import { demoGames } from "../behavior_pack/scripts/demo-games.ts";
 import { LobbyController, type LobbyOptions, type LobbyPorts } from "../behavior_pack/scripts/lobby-controller.ts";
 
 const registry: Registry = {
@@ -92,6 +93,13 @@ describe("LobbyController: starting a game", () => {
 
     const solo = setup(["Steve"], { devMinPlayers: 1 });
     expect(solo.lobby.choices().every((choice) => choice.playable)).toBe(true);
+  });
+
+  it("lists demo games after the real ones, but never starts them", () => {
+    const t = setup(["Steve", "Alex"], { demoGames: demoGames(2) });
+    expect(t.lobby.choices().map(({ game }) => game.id)).toEqual(["probe", "sumo", "demo_paintball", "demo_block_drop"]);
+    expect(plain(t.lobby.request("Steve", "demo_block_drop", "random"))).toBe("Block Drop is a demo game, so it can't start.");
+    expect(t.sent).toEqual([]);
   });
 
   it("refuses while a game is running, starting or wrapping up, and says why", () => {

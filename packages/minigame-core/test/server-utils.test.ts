@@ -119,6 +119,7 @@ describe("readServerVars", () => {
       lobbyPort: 19132,
       serverPort: 19133,
       devMinPlayers: "1",
+      devDemoGames: "8",
       settings: '{"teams":"random"}',
     });
     expect(readServerVars()).toMatchObject({
@@ -131,12 +132,13 @@ describe("readServerVars", () => {
       lobbyPort: 19132,
       serverPort: 19133,
       devMinPlayers: 1,
+      devDemoGames: 8,
       settings: { teams: "random" },
     });
   });
 
   it("falls back to defaults for missing or broken values", () => {
-    setVariables({ role: "lobby", lanPlayers: "[oops", devMinPlayers: "" });
+    setVariables({ role: "lobby", lanPlayers: "[oops", devMinPlayers: "", devDemoGames: "lots" });
     expect(readServerVars()).toMatchObject({
       role: "lobby",
       sessionId: "",
@@ -145,6 +147,7 @@ describe("readServerVars", () => {
       mapConfig: { name: "", spawns: [] },
       lobbyPort: 19132,
       devMinPlayers: undefined,
+      devDemoGames: 0,
       settings: {},
     });
     expect(console.warn).toHaveBeenCalledWith(expect.stringContaining('"lanPlayers" is not valid JSON'));

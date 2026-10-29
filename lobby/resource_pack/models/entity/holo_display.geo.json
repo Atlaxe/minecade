@@ -193,7 +193,7 @@
           ]
         },
         {
-          "name": "icon_s",
+          "name": "picture_s",
           "parent": "screen",
           "pivot": [
             0,
@@ -233,7 +233,7 @@
           ]
         },
         {
-          "name": "icon_e",
+          "name": "picture_e",
           "parent": "screen",
           "pivot": [
             0,
@@ -273,7 +273,7 @@
           ]
         },
         {
-          "name": "icon_n",
+          "name": "picture_n",
           "parent": "screen",
           "pivot": [
             0,
@@ -313,7 +313,7 @@
           ]
         },
         {
-          "name": "icon_w",
+          "name": "picture_w",
           "parent": "screen",
           "pivot": [
             0,
@@ -369,7 +369,7 @@
               ],
               "size": [
                 32,
-                40,
+                52,
                 0
               ],
               "uv": {
@@ -403,7 +403,7 @@
               ],
               "size": [
                 0,
-                40,
+                52,
                 32
               ],
               "uv": {

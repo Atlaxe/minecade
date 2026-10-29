@@ -25,12 +25,15 @@ export interface ServerVars {
   mapConfig: MapConfig;
   /** Overrides every game's minimum player count when set (solo testing). */
   devMinPlayers: number | undefined;
+  /** The lobby adds this many made-up games to its menus (menu testing); 0 for none. */
+  devDemoGames: number;
   /** Choices from the lobby's game screen, such as { teams: "random" }. */
   settings: Record<string, string>;
 }
 
 export function readServerVars(): ServerVars {
   const devMinPlayers = Number(text("devMinPlayers"));
+  const devDemoGames = Number(text("devDemoGames"));
   return {
     serverId: text("serverId"),
     role: text("role") === "lobby" ? "lobby" : "game",
@@ -47,6 +50,7 @@ export function readServerVars(): ServerVars {
     expectedPlayers: json("expectedPlayers", []),
     mapConfig: json("mapConfig", { name: "", spawns: [] }),
     devMinPlayers: Number.isInteger(devMinPlayers) && devMinPlayers > 0 ? devMinPlayers : undefined,
+    devDemoGames: Number.isInteger(devDemoGames) && devDemoGames > 0 ? devDemoGames : 0,
     settings: json("settings", {}),
   };
 }

@@ -15,11 +15,11 @@
           "default": 0,
           "client_sync": true
         },
-        "minecade:game": {
+        "minecade:picture": {
           "type": "int",
           "range": [
             0,
-            63
+            255
           ],
           "default": 0,
           "client_sync": true

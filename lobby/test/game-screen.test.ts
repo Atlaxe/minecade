@@ -1,7 +1,8 @@
+import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { stripColors, type RegistryGame } from "@minecade/minigame-core";
-import { MARK, PREVIEWS, defaultSettings, gameAction, gameButtons, mapOptions, nextSetting, playerRange, settingsFor } from "../behavior_pack/scripts/game-screen.ts";
-import { gameForm, gamesForm } from "../behavior_pack/scripts/menus.ts";
+import { MARK, PREVIEWS, defaultSettings, gameAction, gameButtons, gamePicture, mapOptions, nextSetting, playerCount, playerRange, settingsFor } from "../behavior_pack/scripts/game-screen.ts";
+import { GLYPH, gameForm, gamesForm } from "../behavior_pack/scripts/menus.ts";
 
 const sumo: RegistryGame = {
   id: "sumo",
@@ -17,19 +18,20 @@ const sumo: RegistryGame = {
 };
 const teams: RegistryGame = { ...sumo, id: "paintball", name: "Paintball", teams: { count: [2, 4] } };
 const roles: RegistryGame = { ...sumo, id: "hide", name: "Hide and Seek", teams: { count: 2, defs: [{ id: "seekers", name: "Seekers", color: "§c", size: 1 }, { id: "hiders", name: "Hiders", color: "§a", size: "rest" }] } };
+const round = { id: "round", label: "Round", values: [{ value: "15", label: "15 s" }, { value: "30", label: "30 s" }] };
+const probe: RegistryGame = { ...sumo, id: "probe", name: "Probe", icon: undefined, options: [round] };
 
 describe("the game screen model", () => {
-  it("offers Random first, then every map with its preview", () => {
+  it("offers every map with its preview, and pictures with placeholders", () => {
     expect(mapOptions(sumo)).toEqual([
-      { id: "random", name: "Random", preview: PREVIEWS.random },
       { id: "arena_1", name: "Arena", preview: PREVIEWS.none },
       { id: "pit", name: "Pit", preview: "textures/minecade/maps/sumo/pit" },
     ]);
-    const many = { ...sumo, maps: Array.from({ length: 10 }, (_, i) => ({ id: `m${i}`, name: `Map ${i}` })) };
-    expect(mapOptions(many)).toHaveLength(11);
+    expect(gamePicture(sumo)).toBe("textures/minecade/games/sumo");
+    expect(gamePicture(probe)).toBe(PREVIEWS.game);
   });
 
-  it("offers Pick or Random teams only for games where players pick their team", () => {
+  it("offers Pick or Random teams for games where players pick their team, then the game's own options", () => {
     expect(settingsFor(sumo)).toEqual([]);
     expect(settingsFor(roles)).toEqual([]);
     expect(settingsFor({ ...teams, teams: { count: 2, pick: false } })).toEqual([]);
@@ -38,16 +40,19 @@ describe("the game screen model", () => {
     expect(defaultSettings(teams)).toEqual({ teams: "pick" });
     expect(nextSetting(setting, "pick")).toBe("random");
     expect(nextSetting(setting, "random")).toBe("pick");
+    expect(settingsFor({ ...teams, options: [round] }).map((entry) => entry.id)).toEqual(["teams", "round"]);
+    expect(defaultSettings(probe)).toEqual({ round: "15" });
   });
 
-  it("orders the buttons maps, then settings, then Start, and marks each for its column", () => {
+  it("orders the buttons Random switch, settings, maps, then Start, and marks each for its column", () => {
     expect(gameButtons(teams)).toEqual([
-      { action: { kind: "map", map: "random" }, mark: MARK.maps[0] },
-      { action: { kind: "map", map: "arena_1" }, mark: MARK.maps[1] },
-      { action: { kind: "map", map: "pit" }, mark: MARK.maps[0] },
+      { action: { kind: "random" }, mark: MARK.toggle },
       { action: { kind: "setting", id: "teams" }, mark: MARK.setting },
+      { action: { kind: "map", map: "arena_1" }, mark: MARK.maps[0] },
+      { action: { kind: "map", map: "pit" }, mark: MARK.maps[1] },
       { action: { kind: "start" }, mark: MARK.start },
     ]);
+    expect(gameAction(sumo, 0)).toEqual({ kind: "random" });
     expect(gameAction(sumo, 2)).toEqual({ kind: "map", map: "pit" });
     expect(gameAction(sumo, 3)).toEqual({ kind: "start" });
     expect(gameAction(sumo, 4)).toBeUndefined();
@@ -55,47 +60,64 @@ describe("the game screen model", () => {
 
   it("writes player counts", () => {
     expect(playerRange(sumo)).toBe("2-6 players");
-    expect(playerRange({ ...sumo, minPlayers: 4, maxPlayers: 4 })).toBe("4 players");
+    expect(playerCount(sumo)).toBe("2-6");
+    expect(playerCount({ ...sumo, minPlayers: 4, maxPlayers: 4 })).toBe("4");
+  });
+
+  it("uses marks that never render, don't contain each other, and that the layouts know", () => {
+    const layouts = readFileSync(new URL("../resource_pack/ui/minecade_forms.json", import.meta.url), "utf8");
+    const marks = [...MARK.games, ...MARK.maps, MARK.toggle, MARK.on, MARK.setting, MARK.start, MARK.selected, MARK.dim];
+    for (const mark of marks) {
+      expect(stripColors(mark)).toBe("");
+      expect(mark.endsWith("§r")).toBe(true);
+      expect(layouts).toContain(mark);
+      for (const other of marks) if (other !== mark) expect(mark).not.toContain(other);
+    }
   });
 });
 
 describe("the Play forms", () => {
-  it("shows a card per game with its players, red when there aren't enough, across three columns", () => {
+  it("shows a card per game with a player icon and count, red when there aren't enough, across three columns", () => {
     const form = gamesForm([
       { game: sumo, playable: true },
       { game: teams, playable: false, reason: "needs at least 2 players" },
       { game: roles, playable: true },
-      { game: sumo, playable: true },
+      { game: probe, playable: true },
     ]) as unknown as { buttons: string[]; titleText: string };
     expect(stripColors(form.titleText)).toBe("Play");
     expect(form.buttons).toEqual([
-      `${MARK.games[0]}Sumo\n§72-6 players`,
-      `${MARK.games[1]}Paintball\n§cneeds at least 2 players`,
-      `${MARK.games[2]}Hide and Seek\n§72-6 players`,
-      `${MARK.games[0]}Sumo\n§72-6 players`,
+      `${MARK.games[0]}Sumo\n§7${GLYPH.player} 2-6`,
+      `${MARK.games[1]}Paintball\n§c${GLYPH.player} 2-6`,
+      `${MARK.games[2]}Hide and Seek\n§7${GLYPH.player} 2-6`,
+      `${MARK.games[0]}Probe\n§7${GLYPH.player} 2-6`,
     ]);
   });
 
-  it("marks the map tiles, the chosen map, the settings and Start for their columns", () => {
-    const form = gameForm({ choice: { game: teams, playable: true }, map: "pit", settings: { teams: "random" } }) as unknown as {
+  it("marks the switch, the settings, the map tiles and Start; the chosen map is outlined", () => {
+    const form = gameForm({ choice: { game: teams, playable: true }, random: false, map: "pit", settings: { teams: "random" } }) as unknown as {
       buttons: string[];
       titleText: string;
       bodyText: string;
     };
     expect(stripColors(form.titleText)).toBe("Paintball");
     expect(form.buttons).toEqual([
-      `${MARK.maps[0]}Random`,
-      `${MARK.maps[1]}Arena`,
-      `${MARK.maps[0]}${MARK.selected}Pit`,
+      `${MARK.toggle}Random map`,
       `${MARK.setting}Teams: Random`,
+      `${MARK.maps[0]}Arena`,
+      `${MARK.maps[1]}${MARK.selected}Pit`,
       `${MARK.start}Start`,
     ]);
-    expect(form.buttons.map(stripColors)).toEqual(["Random", "Arena", "Pit", "Teams: Random", "Start"]);
+    expect(form.buttons.map(stripColors)).toEqual(["Random map", "Teams: Random", "Arena", "Pit", "Start"]);
     expect(stripColors(form.bodyText)).toBe("Knock everyone off.\n\n2-6 players");
   });
 
+  it("turns the switch on and dims every map tile while the map is random", () => {
+    const form = gameForm({ choice: { game: sumo, playable: true }, random: true, map: "pit", settings: {} }) as unknown as { buttons: string[] };
+    expect(form.buttons).toEqual([`${MARK.toggle}${MARK.on}Random map`, `${MARK.maps[0]}${MARK.dim}Arena`, `${MARK.maps[1]}${MARK.dim}Pit`, `${MARK.start}Start`]);
+  });
+
   it("warns in the info and dims Start when there aren't enough players", () => {
-    const form = gameForm({ choice: { game: sumo, playable: false, reason: "needs at least 2 players" }, map: "random", settings: {} }) as unknown as {
+    const form = gameForm({ choice: { game: sumo, playable: false, reason: "needs at least 2 players" }, random: true, map: "arena_1", settings: {} }) as unknown as {
       buttons: string[];
       bodyText: string;
     };

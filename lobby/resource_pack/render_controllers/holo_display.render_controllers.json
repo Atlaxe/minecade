@@ -44,11 +44,11 @@
       ],
       "ignore_lighting": true
     },
-    "controller.render.minecade.holo_icon": {
+    "controller.render.minecade.holo_picture": {
       "arrays": {
         "textures": {
-          "Array.icons": [
-            "Texture.icon_none"
+          "Array.pictures": [
+            "Texture.picture_0"
           ]
         }
       },
@@ -59,7 +59,7 @@
         }
       ],
       "textures": [
-        "Array.icons[q.property('minecade:game')]"
+        "Array.pictures[q.property('minecade:picture')]"
       ],
       "part_visibility": [
         {
@@ -72,16 +72,16 @@
           "screen": true
         },
         {
-          "icon_s": true
+          "picture_s": true
         },
         {
-          "icon_e": true
+          "picture_e": true
         },
         {
-          "icon_n": true
+          "picture_n": true
         },
         {
-          "icon_w": true
+          "picture_w": true
         }
       ],
       "ignore_lighting": true

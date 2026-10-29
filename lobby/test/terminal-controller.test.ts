@@ -5,7 +5,6 @@ import { system } from "../../packages/minigame-core/test/fake-mc-server.ts";
 import { flushPromises } from "../../packages/minigame-core/test/util.ts";
 import type { GameChoice } from "../behavior_pack/scripts/lobby-controller.ts";
 import { LAYOUT, MAIN_MENU_CHOICES, type GameView } from "../behavior_pack/scripts/menus.ts";
-import { MARK } from "../behavior_pack/scripts/game-screen.ts";
 import { gameContent, gamesContent, idleContent, mainContent, type HoloContent } from "../behavior_pack/scripts/holo-content.ts";
 import { TerminalController, type TerminalPorts } from "../behavior_pack/scripts/terminal-controller.ts";
 
@@ -27,9 +26,12 @@ const paintball: RegistryGame = {
   maps: [{ id: "yard", name: "Yard" }],
   teams: { count: 2 },
 };
-/** Button places on the game screen (maps, then settings, then Start). */
+/** Button places on the game screen (the Random switch, the settings, the maps, then Start). */
+const RANDOM = 0;
+const SUMO_ARENA = 1;
+const SUMO_PIT = 2;
 const SUMO_START = 3;
-const PAINTBALL_TEAMS = 2;
+const PAINTBALL_TEAMS = 1;
 const PAINTBALL_START = 3;
 
 interface Pending<T> {
@@ -171,20 +173,42 @@ describe("TerminalController: Play", () => {
 
     t.grids[0].answer(0); // Sumo
     await flushPromises();
-    expect(t.screens[0].view).toMatchObject({ map: "random", settings: {} });
-    expect(t.holo.at(-1)).toEqual(gameContent({ game: sumo, playable: true }, "Random", {}));
+    const first = { choice: { game: sumo, playable: true }, random: true, map: "arena_1", settings: {} };
+    expect(t.screens[0].view).toEqual(first);
+    expect(t.holo.at(-1)).toEqual(gameContent(first));
 
-    t.screens[0].answer(1); // the first real map
+    t.screens[0].answer(SUMO_PIT); // a tile while Random is on: picks it and turns Random off
     await flushPromises();
-    expect(t.screens[1].view.map).toBe("arena_1");
-    expect(t.holo.at(-1)?.lines[0]).toEqual({ text: "Map: Arena", tone: "highlight" });
+    expect(t.screens[1].view).toMatchObject({ random: false, map: "pit" });
+    expect(t.holo.at(-1)?.lines[0]).toEqual({ text: "Map: Pit", tone: "highlight" });
 
-    t.screens[1].answer(SUMO_START);
+    t.screens[1].answer(SUMO_ARENA);
+    await flushPromises();
+    t.screens[2].answer(SUMO_START);
     await flushPromises();
     expect(t.requests).toEqual([["Steve", "sumo", "arena_1", {}]]);
     expect(t.terminal.current).toBeUndefined(); // the session ends once the game is starting
     expect(t.holo.at(-1)).toEqual(idleContent());
     expect(t.root.live()).toEqual({ scopes: 1, subscriptions: 0, runs: 0 });
+  });
+
+  it("switches Random map off and on; with it on, Start sends random", async () => {
+    const t = setup();
+    void t.terminal.tap("Steve");
+    t.mains[0].answer("play");
+    await flushPromises();
+    t.grids[0].answer(0);
+    await flushPromises();
+    t.screens[0].answer(RANDOM);
+    await flushPromises();
+    expect(t.screens[1].view).toMatchObject({ random: false, map: "arena_1" });
+    expect(t.holo.at(-1)?.picture).toBe("textures/minecade/ui/map_placeholder");
+    t.screens[1].answer(RANDOM);
+    await flushPromises();
+    expect(t.screens[2].view).toMatchObject({ random: true, map: "arena_1" });
+    t.screens[2].answer(SUMO_START);
+    await flushPromises();
+    expect(t.requests).toEqual([["Steve", "sumo", "random", {}]]);
   });
 
   it("switches a team game's teams between Pick and Random, and sends the choice", async () => {
@@ -264,24 +288,19 @@ describe("TerminalController: Play", () => {
     t.grids[0].answer(0);
     await flushPromises();
     t.setChoices([]);
-    t.screens[0].answer(1);
+    t.screens[0].answer(SUMO_ARENA);
     await flushPromises();
     expect(t.grids).toHaveLength(2);
   });
 });
 
 describe("menus", () => {
-  it("uses layout and column marks the lobby resource pack knows, and that never render", () => {
+  it("uses layout marks the lobby resource pack knows, and that never render", () => {
     const pack = (file: string) => readFileSync(new URL(`../resource_pack/ui/${file}`, import.meta.url), "utf8");
     for (const mark of Object.values(LAYOUT)) {
       expect(stripColors(mark)).toBe("");
       expect(pack("server_form.json")).toContain(`'${mark}'`);
       expect(pack("minecade_forms.json")).toContain(`'${mark}'`);
-    }
-    for (const mark of [...MARK.games, ...MARK.maps, MARK.setting, MARK.start, MARK.selected]) {
-      expect(stripColors(mark)).toBe("");
-      expect(mark.endsWith("§r")).toBe(true);
-      expect(pack("minecade_forms.json")).toContain(mark);
     }
     expect(MAIN_MENU_CHOICES).toEqual(["play", "stats"]);
   });

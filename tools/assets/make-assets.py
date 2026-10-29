@@ -10,6 +10,7 @@ Outputs:
     lobby/resource_pack/textures/minecade/ui/...                             holographic menu art
     lobby/resource_pack/textures/minecade/holo/...                           hologram frames, beam
     lobby/resource_pack/textures/minecade/blocks/...                         terminal block faces
+    lobby/resource_pack/font/glyph_E3.png                                    icons drawn inside text (the player icon)
     games/<id>/icon.png                                                      16:9 game pictures (Probe, Sumo)
 
 Fonts come from Windows (Bahnschrift, else Consolas Bold); they only matter when regenerating.
@@ -17,6 +18,7 @@ The logo source is tools/assets/source/minecade-title.png (the orange original).
 """
 
 import colorsys
+import json
 import sys
 from pathlib import Path
 
@@ -25,6 +27,7 @@ from PIL import Image, ImageDraw, ImageFilter, ImageFont
 ROOT = Path(__file__).resolve().parents[2]
 CORE_TEXTURES = ROOT / "packages" / "minigame-core" / "resource_pack" / "textures" / "minecade"
 LOBBY_TEXTURES = ROOT / "lobby" / "resource_pack" / "textures" / "minecade"
+LOBBY_FONT = ROOT / "lobby" / "resource_pack" / "font"
 LOGO_SOURCE = ROOT / "tools" / "assets" / "source" / "minecade-title.png"
 
 # Holographic palette: retro blues.
@@ -44,6 +47,16 @@ def save(image: Image.Image, path: Path) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     image.save(path)
     print(f"wrote {path.relative_to(ROOT).as_posix()}")
+
+
+def save_nineslice(image: Image.Image, path: Path, slice_size: int) -> None:
+    """A stretchable image: its outer slice_size pixels keep their size, the middle stretches."""
+    save(image, path)
+    meta = path.with_suffix(".json")
+    if meta.exists() and not FORCE:
+        return
+    meta.write_text(json.dumps({"nineslice_size": slice_size, "base_size": list(image.size)}) + "\n", encoding="utf-8", newline="\n")
+    print(f"wrote {meta.relative_to(ROOT).as_posix()}")
 
 
 def font(size: int) -> ImageFont.FreeTypeFont:
@@ -147,17 +160,19 @@ def holo_frames(logo: Image.Image) -> dict[str, Image.Image]:
 
 
 def holo_beam() -> Image.Image:
-    """The projection cone: brightest at the bottom center, fading up and out."""
+    """The projection cone: brightest at the bottom center, fading up and out to black at the top."""
     width, height = 128, 256
     image = Image.new("RGB", (width, height), (0, 0, 0))
     px = image.load()
     for y in range(height):
         rise = 1 - y / (height - 1)  # 1 at the top row of the texture
         spread = 6 + (width / 2 - 6) * rise
+        # The top third fades to black, so the beam has no hard edge (additive: black is invisible).
+        top_fade = min(1.0, (1 - rise) / 0.35) ** 1.5
         for x in range(width):
             off = abs(x - (width - 1) / 2) / spread
             if off <= 1:
-                strength = (1 - off) ** 1.6 * (0.25 + 0.75 * (1 - rise))
+                strength = (1 - off) ** 1.6 * (0.25 + 0.75 * (1 - rise)) * top_fade
                 px[x, y] = (round(CYAN[0] * strength), round(CYAN[1] * strength), round(CYAN[2] * strength))
     return image
 
@@ -257,26 +272,59 @@ def ui_frame(size: tuple[int, int], state: str, radius: int = 12) -> Image.Image
     return image
 
 
-def ui_outline(size: tuple[int, int], state: str, radius: int = 8) -> Image.Image:
-    """A frame drawn over a picture: an outline only (with a light tint on hover and press)."""
+def ui_outline(size: tuple[int, int], state: str) -> Image.Image:
+    """
+    A map tile's frame at 2x, drawn over its picture: a square outline 4 pixels wide (2 on screen),
+    with a light tint on hover and press. Selected is a thicker white outline. The picture sits
+    inside the outline, so the corners stay square.
+    """
     width, height = size
     image = Image.new("RGBA", (width, height), (0, 0, 0, 0))
     draw = ImageDraw.Draw(image)
+    if state == "selected":
+        draw.rectangle((0, 0, width - 1, height - 1), outline=(255, 255, 255, 255), width=6)
+        return image
     tint = {"default": (0, 0, 0, 0), "hover": (120, 200, 255, 40), "pressed": (160, 220, 255, 70)}[state]
-    outline = {"default": (*CYAN, 200), "hover": (*BRIGHT, 255), "pressed": (255, 255, 255, 255)}[state]
-    draw.rounded_rectangle((2, 2, width - 3, height - 3), radius=radius, fill=tint, outline=outline, width=3)
+    outline = {"default": (*CYAN, 220), "hover": (*BRIGHT, 255), "pressed": (255, 255, 255, 255)}[state]
+    draw.rectangle((0, 0, width - 1, height - 1), fill=tint, outline=outline, width=4)
     return image
 
 
-def ui_big_panel(size: tuple[int, int]) -> Image.Image:
-    """A larger menu background at 2x, like ui_panel."""
-    width, height = size
+def ui_nine_panel() -> Image.Image:
+    """
+    A menu background as a nine-slice at 1x (48x48, 8 pixel slices): the corners and edges keep
+    their size and the middle stretches, so the panel fits any size (the game grid is 80% of the
+    screen's height). Keep anything that mustn't stretch within 8 pixels of the edge.
+    """
+    size = 48
+    image = Image.new("RGBA", (size, size), (0, 0, 0, 0))
+    draw = ImageDraw.Draw(image)
+    draw.rounded_rectangle((0, 0, size - 1, size - 1), radius=6, fill=(*NAVY, 235), outline=(*CYAN, 255), width=2)
+    return image
+
+
+def toggle(on: bool) -> Image.Image:
+    """An on/off switch at 2x (52x26 for 26x13): a pill with its knob left (off) or right (on)."""
+    width, height = 52, 26
     image = Image.new("RGBA", (width, height), (0, 0, 0, 0))
     draw = ImageDraw.Draw(image)
-    draw.rounded_rectangle((2, 2, width - 3, height - 3), radius=16, fill=(*NAVY, 235))
-    for y in range(8, height - 8, 6):
-        draw.line((10, y, width - 11, y), fill=(14, 32, 60, 235))
-    draw.rounded_rectangle((2, 2, width - 3, height - 3), radius=16, outline=(*CYAN, 255), width=3)
+    fill = (40, 140, 210, 255) if on else (10, 30, 56, 255)
+    draw.rounded_rectangle((1, 1, width - 2, height - 2), radius=12, fill=fill, outline=(*(BRIGHT if on else CYAN), 255), width=2)
+    knob = (width - 24, 3, width - 4, height - 4) if on else (3, 3, 23, height - 4)
+    draw.ellipse(knob, fill=(255, 255, 255, 255) if on else (120, 150, 180, 255))
+    return image
+
+
+def glyphs() -> Image.Image:
+    """
+    Icons drawn inside text: a 256x256 page of 16x16 cells, character U+E300 onward (menus.ts
+    GLYPH). Cell 0 is the player icon. The game sizes each cell to the text and trims empty columns.
+    """
+    image = Image.new("RGBA", (256, 256), (0, 0, 0, 0))
+    draw = ImageDraw.Draw(image)
+    white = (255, 255, 255, 255)
+    draw.ellipse((5, 1, 10, 6), fill=white)  # head
+    draw.rounded_rectangle((3, 8, 12, 15), radius=3, fill=white)  # shoulders
     return image
 
 
@@ -325,16 +373,20 @@ def main() -> None:
         save(ui_icon(kind), LOBBY_TEXTURES / "ui" / f"icon_{kind}.png")
 
     # The game grid and game screen.
-    save(ui_big_panel((860, 580)), LOBBY_TEXTURES / "ui" / "panel_grid.png")
-    save(ui_big_panel((920, 500)), LOBBY_TEXTURES / "ui" / "panel_game.png")
+    save_nineslice(ui_nine_panel(), LOBBY_TEXTURES / "ui" / "panel_grid.png", 8)
+    save_nineslice(ui_nine_panel(), LOBBY_TEXTURES / "ui" / "panel_game.png", 8)
     for state in ("default", "hover", "pressed"):
         save(ui_frame((280, 92), state, 10), LOBBY_TEXTURES / "ui" / f"card_{state}.png")
-        save(ui_outline((200, 112), state), LOBBY_TEXTURES / "ui" / f"tile_map_{state}.png")
+        save(ui_outline((208, 116), state), LOBBY_TEXTURES / "ui" / f"tile_map_{state}.png")
         save(ui_frame((400, 64), state), LOBBY_TEXTURES / "ui" / f"button_{state}.png")
-    save(ui_frame((200, 112), "selected", 8), LOBBY_TEXTURES / "ui" / "tile_map_selected.png")
+    save(ui_outline((208, 116), "selected"), LOBBY_TEXTURES / "ui" / "tile_map_selected.png")
+    save(Image.new("RGBA", (8, 8), (0, 0, 0, 150)), LOBBY_TEXTURES / "ui" / "tile_dim.png")
+    save(toggle(True), LOBBY_TEXTURES / "ui" / "toggle_on.png")
+    save(toggle(False), LOBBY_TEXTURES / "ui" / "toggle_off.png")
+    save(glyphs(), LOBBY_FONT / "glyph_E3.png")
     save(fade_bottom(), LOBBY_TEXTURES / "ui" / "fade_bottom.png")
     save(picture("No preview", (40, 52, 70), (18, 24, 34)), LOBBY_TEXTURES / "ui" / "map_placeholder.png")
-    save(picture("?", (30, 80, 140), (10, 30, 60)), LOBBY_TEXTURES / "ui" / "map_random.png")
+    save(picture("No picture", (60, 50, 90), (24, 20, 40)), LOBBY_TEXTURES / "ui" / "game_placeholder.png")
 
     save(picture("PROBE", (60, 70, 90), (25, 30, 40)), ROOT / "games" / "probe" / "icon.png")
     save(picture("SUMO", (190, 60, 60), (70, 20, 20)), ROOT / "games" / "sumo" / "icon.png")

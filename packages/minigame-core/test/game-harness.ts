@@ -74,6 +74,7 @@ export function createHarness(): Harness {
         expectedPlayers,
         mapConfig,
         devMinPlayers: undefined,
+        devDemoGames: 0,
         settings,
       };
       const server: ServerContext = {

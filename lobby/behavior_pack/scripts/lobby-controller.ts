@@ -8,6 +8,7 @@
 //   pending  this lobby's own start request. Replies for any other requestId are ignored, which
 //            also covers stale messages queued from before a lobby restart.
 import { COLOR, Scope, nameOf, say, type Chime, type InboundMessage, type OutboundEvent, type Registry, type RegistryGame, type StatusSnapshot } from "@minecade/minigame-core";
+import { isDemoGame } from "./demo-games.ts";
 
 export interface GameChoice {
   game: RegistryGame;
@@ -30,6 +31,8 @@ export interface LobbyOptions {
   registry: Registry;
   /** Replaces every game's minimum player count when set (solo testing). */
   devMinPlayers?: number;
+  /** Made-up games listed after the real ones (menu testing); they can't start. See demo-games.ts. */
+  demoGames?: RegistryGame[];
   newRequestId?: () => string;
   /** Longer than the orchestrator's 120 s ready timeout, so its answer normally comes first. */
   startTimeoutTicks?: number;
@@ -49,7 +52,7 @@ interface Pending {
 export class LobbyController {
   private readonly ports: LobbyPorts;
   private readonly scope: Scope;
-  private readonly registry: Registry;
+  private readonly games: RegistryGame[];
   private readonly devMinPlayers: number | undefined;
   private readonly newRequestId: () => string;
   private readonly startTimeoutTicks: number;
@@ -60,7 +63,7 @@ export class LobbyController {
   constructor(ports: LobbyPorts, scope: Scope, options: LobbyOptions) {
     this.ports = ports;
     this.scope = scope;
-    this.registry = options.registry;
+    this.games = [...options.registry.games, ...(options.demoGames ?? [])];
     this.devMinPlayers = options.devMinPlayers;
     this.newRequestId = options.newRequestId ?? randomId;
     this.startTimeoutTicks = options.startTimeoutTicks ?? 150 * 20;
@@ -103,7 +106,7 @@ export class LobbyController {
   /** Every game, and whether there are enough players in the lobby for it right now. */
   choices(): GameChoice[] {
     const online = this.ports.onlinePlayers().length;
-    return this.registry.games.map((game) => {
+    return this.games.map((game) => {
       const needed = this.devMinPlayers ?? game.minPlayers;
       return online >= needed ? { game, playable: true } : { game, playable: false, reason: `needs at least ${needed} players` };
     });
@@ -130,6 +133,7 @@ export class LobbyController {
     const picked = this.choices().find((candidate) => candidate.game.id === gameId);
     if (!picked) return say.error(`There's no game called ${gameId}.`);
     if (!picked.playable) return say.warn(`${picked.game.name} ${picked.reason}.`);
+    if (isDemoGame(gameId)) return say.warn(`${picked.game.name} is a demo game, so it can't start.`);
     this.start(starter, picked.game, mapId, settings);
     return undefined;
   }
@@ -186,7 +190,7 @@ export class LobbyController {
   }
 
   private gameName(id: string | undefined): string {
-    return this.registry.games.find((game) => game.id === id)?.name ?? id ?? "A game";
+    return this.games.find((game) => game.id === id)?.name ?? id ?? "A game";
   }
 }
 

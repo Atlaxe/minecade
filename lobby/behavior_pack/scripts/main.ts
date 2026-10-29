@@ -3,9 +3,10 @@
 // lobby-controller.ts, stats-controller.ts) to players, forms and the orchestrator.
 import { system, world, type Player, type Vector3 } from "@minecraft/server";
 import { ActionFormData, uiManager } from "@minecraft/server-ui";
-import { describeError, log, normalizePlayer, playChime, showForm } from "@minecade/minigame-core";
+import { describeError, holoPictures, log, normalizePlayer, playChime, showForm } from "@minecade/minigame-core";
 import { bootServer } from "@minecade/minigame-core/bootstrap";
 import registry from "#registry";
+import { demoGames } from "./demo-games.ts";
 import { Hologram } from "./hologram.ts";
 import { LobbyController } from "./lobby-controller.ts";
 import { MAIN_MENU_CHOICES, gameForm, gamesForm, mainMenuForm } from "./menus.ts";
@@ -68,7 +69,7 @@ bootServer(({ vars, transport, transfer, root }) => {
       },
     },
     root,
-    { registry, devMinPlayers: vars.devMinPlayers },
+    { registry, devMinPlayers: vars.devMinPlayers, demoGames: demoGames(vars.devDemoGames) },
   );
   const stats = new StatsController(
     {
@@ -88,8 +89,8 @@ bootServer(({ vars, transport, transfer, root }) => {
   // The terminal sits at the map's "terminal" point (the middle block of its 3x3 console).
   const [tx, ty, tz] = vars.mapConfig.points?.terminal?.[0] ?? [0, 65, 0];
   const overworld = world.getDimension("overworld");
-  // Icon 0 is "none"; the build adds each game's icon in registry order.
-  const hologram = new Hologram(overworld, { x: tx, y: ty, z: tz }, (game) => registry.games.findIndex((candidate) => candidate.id === game) + 1);
+  // The build gives the hologram the same picture list (game pictures, map previews, placeholders).
+  const hologram = new Hologram(overworld, { x: tx, y: ty, z: tz }, holoPictures(registry));
   const terminal = new TerminalController(
     {
       mainMenu: async (name, scope) => {

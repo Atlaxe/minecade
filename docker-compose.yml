@@ -31,6 +31,7 @@ services:
       IDENTITY: lobby
       SERVER_PORT: "19132"
       SERVER_NAME: Minecade lobby
+      DEV_DEMO_GAMES: ${DEV_DEMO_GAMES:-}
       ORCH_URL: http://orchestrator:8080
     ports:
       - "19132:19132/tcp"

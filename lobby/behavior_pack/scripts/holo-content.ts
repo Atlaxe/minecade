@@ -1,9 +1,10 @@
 // What the hologram shows, as plain data: one of two frames (the user's art), a title, text
-// lines, and on the game screen the game's picture. The terminal builds this for each screen;
+// lines, and on the game screen a 16:9 picture. The terminal builds this for each screen;
 // hologram.ts draws it on all four sides. Highlights are text colors ("tones"), so no screen needs
 // a picture of its own.
-import { playerRange, settingLabel, settingsFor } from "./game-screen.ts";
+import { gamePicture, mapOptions, playerRange, settingLabel, settingsFor } from "./game-screen.ts";
 import type { GameChoice } from "./lobby-controller.ts";
+import type { GameView } from "./menus.ts";
 
 /** "logo": the logo up top, room below (idle and main). "panel": everything else. */
 export type Frame = "logo" | "panel";
@@ -18,13 +19,13 @@ export interface HoloContent {
   frame: Frame;
   title?: string;
   lines: HoloLine[];
-  /** A game id: its 16:9 picture shows under the title. */
-  icon?: string;
+  /** A texture path (a game's picture or a map's preview), shown under the title. */
+  picture?: string;
 }
 
-/** Lines that fit under the title (fewer under a game's picture). */
+/** Lines that fit under the title (fewer under a picture). */
 export const MAX_LINES = 6;
-export const MAX_LINES_WITH_ICON = 3;
+export const MAX_LINES_WITH_PICTURE = 4;
 
 const line = (text: string, tone: Tone = "normal"): HoloLine => ({ text, tone });
 
@@ -45,15 +46,19 @@ export function gamesContent(choices: GameChoice[]): HoloContent {
   return { frame: "panel", title: "Choose a game", lines: fit(choices.map(({ game, playable }) => line(game.name, playable ? "normal" : "dim")), MAX_LINES) };
 }
 
-/** One game: its picture, the chosen map, its settings, and the players it needs. */
-export function gameContent(choice: GameChoice, mapName: string, settings: Record<string, string>): HoloContent {
-  const { game, playable, reason } = choice;
+/**
+ * One game: the chosen map's preview (the game's picture while the map is random), the map, its
+ * settings, and the players it needs.
+ */
+export function gameContent(view: GameView): HoloContent {
+  const { game, playable, reason } = view.choice;
+  const map = view.random ? undefined : mapOptions(game).find((option) => option.id === view.map);
   const lines = [
-    line(`Map: ${mapName}`, "highlight"),
-    ...settingsFor(game).map((setting) => line(`${setting.label}: ${settingLabel(setting, settings[setting.id])}`)),
+    line(`Map: ${map?.name ?? "Random"}`, "highlight"),
+    ...settingsFor(game).map((setting) => line(`${setting.label}: ${settingLabel(setting, view.settings[setting.id])}`)),
     playable ? line(playerRange(game), "dim") : line(`Needs ${reason?.replace(/^needs at least /, "") ?? "more players"}`, "warn"),
   ];
-  return { frame: "panel", title: game.name, icon: game.id, lines: fit(lines, MAX_LINES_WITH_ICON) };
+  return { frame: "panel", title: game.name, picture: map?.preview ?? gamePicture(game), lines: fit(lines, MAX_LINES_WITH_PICTURE) };
 }
 
 /** Keeps the lines that fit; the last one says how many more there are. */

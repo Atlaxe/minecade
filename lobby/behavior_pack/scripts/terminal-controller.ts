@@ -9,7 +9,7 @@
 //             └─ Stats ─> the stats screens
 // Closing a menu goes back one step; closing the main menu ends the session.
 import { Scope, say } from "@minecade/minigame-core";
-import { defaultSettings, gameAction, mapOptions, nextSetting, settingsFor } from "./game-screen.ts";
+import { defaultSettings, gameAction, nextSetting, settingsFor } from "./game-screen.ts";
 import { gameContent, gamesContent, idleContent, mainContent, type HoloContent } from "./holo-content.ts";
 import type { GameChoice } from "./lobby-controller.ts";
 import type { GameView } from "./menus.ts";
@@ -132,26 +132,34 @@ export class TerminalController {
     }
   }
 
-  /** One game's screen: pick a map and settings, then Start. Resolves true once the game is starting. */
+  /**
+   * One game's screen: Random map or a chosen one, the settings, then Start. Resolves true once the
+   * game is starting. Picking a map tile turns Random off.
+   */
   private async gameScreen(name: string, scope: Scope, gameId: string): Promise<boolean> {
-    let map = "random";
+    let random = true;
+    let map: string | undefined;
     let settings: Record<string, string> | undefined;
     for (;;) {
       // Look the game up each time: players may have joined or left since.
       const choice = this.ports.choices().find((candidate) => candidate.game.id === gameId);
       if (!choice) return false;
       settings ??= defaultSettings(choice.game);
-      const mapName = mapOptions(choice.game).find((option) => option.id === map)?.name ?? map;
-      this.show(gameContent(choice, mapName, settings));
-      const selection = await this.ports.gameMenu(name, scope, { choice, map, settings });
+      map ??= choice.game.maps[0]?.id ?? "random";
+      const view = { choice, random, map, settings };
+      this.show(gameContent(view));
+      const selection = await this.ports.gameMenu(name, scope, view);
       if (selection === undefined) return false;
       const action = gameAction(choice.game, selection);
-      if (action?.kind === "map") map = action.map;
-      else if (action?.kind === "setting") {
+      if (action?.kind === "random") random = !random;
+      else if (action?.kind === "map") {
+        random = false;
+        map = action.map;
+      } else if (action?.kind === "setting") {
         const setting = settingsFor(choice.game).find((candidate) => candidate.id === action.id);
         if (setting) settings = { ...settings, [setting.id]: nextSetting(setting, settings[setting.id]) };
       } else if (action?.kind === "start") {
-        const refusal = this.ports.request(name, gameId, map, settings);
+        const refusal = this.ports.request(name, gameId, random ? "random" : map, settings);
         if (refusal === undefined) return true;
         this.ports.notify(name, refusal);
         if (this.ports.busy()) return false;

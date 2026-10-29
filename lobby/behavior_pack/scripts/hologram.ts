@@ -1,8 +1,8 @@
 // The terminal in the world: the 3x3 console of minecade:terminal blocks, and the hologram above
 // it. The hologram (minecade:holo_display) shows a frame picked by its "minecade:screen" property
-// and, on the game screen, a game's picture picked by "minecade:game"; everything else is text
-// drawn on each of its four sides (holo-content.ts says what). Everything is (re)built at boot;
-// the area may not be loaded yet, so placing retries until it works.
+// and, on the game screen, a picture (a game's or a map's) picked by "minecade:picture";
+// everything else is text drawn on each of its four sides (holo-content.ts says what). Everything
+// is (re)built at boot; the area may not be loaded yet, so placing retries until it works.
 import { BlockPermutation, TextPrimitive, world, type Dimension, type Entity, type RGBA, type Vector3 } from "@minecraft/server";
 import { describeError, log } from "@minecade/minigame-core";
 import { MAX_LINES, type Frame, type HoloContent, type Tone } from "./holo-content.ts";
@@ -14,16 +14,24 @@ const BLOCK = "minecade:terminal";
 
 /** How far the text sits from the middle: just in front of the 3-block-wide panels. */
 const TEXT_OUT = 1.56;
+
 /**
- * The four sides: an outward direction and the text's yaw. Measured in game: yaw 0 reads from the
- * south, 180 from the north, 270 from the west and 90 from the east.
+ * A text's rotation is the rotation of a camera that reads it, in Minecraft yaw (0 looks south,
+ * 90 west, 180 north, 270 east). Text on a side is read by someone outside looking toward the
+ * middle, so it gets the yaw of that look: south side 180, west 270, north 0, east 90.
  */
+function readerYaw(x: number, z: number): number {
+  return (((Math.atan2(x, -z) * 180) / Math.PI) % 360 + 360) % 360;
+}
+
+/** The four sides, as outward directions (south, west, north, east). */
 const SIDES = [
-  { x: 0, z: 1, yaw: 0 },
-  { x: -1, z: 0, yaw: 270 },
-  { x: 0, z: -1, yaw: 180 },
-  { x: 1, z: 0, yaw: 90 },
-] as const;
+  { x: 0, z: 1 },
+  { x: -1, z: 0 },
+  { x: 0, z: -1 },
+  { x: 1, z: 0 },
+].map((side) => ({ ...side, yaw: readerYaw(side.x, side.z) }));
+type SideDirection = (typeof SIDES)[number];
 
 /**
  * Where text goes, in blocks from the middle of the panel (which spans -1.5 to +1.5). Tune these
@@ -33,18 +41,19 @@ const LAYOUT = {
   title: 1.1,
   /** The first line on the logo frame (under the logo). */
   logoLines: -0.2,
-  /** The first line on the panel frame, without and with a game picture (the picture spans -0.375 to 0.75). */
+  /** The first line on the panel frame, without and with a picture (the picture spans -0.375 to 0.75). */
   panelLines: 0.75,
-  iconLines: -0.62,
-  lineGap: 0.32,
+  pictureLines: -0.6,
+  lineGap: 0.28,
 };
 
+/** Text colors. Text isn't blended with the glowing panel behind it, so these show as they are. */
 const TONES: Record<Tone, RGBA> = {
-  title: { red: 0.86, green: 0.96, blue: 1, alpha: 1 },
-  normal: { red: 0.55, green: 0.87, blue: 1, alpha: 1 },
-  highlight: { red: 1, green: 0.92, blue: 0.45, alpha: 1 },
-  dim: { red: 0.45, green: 0.58, blue: 0.7, alpha: 1 },
-  warn: { red: 1, green: 0.45, blue: 0.45, alpha: 1 },
+  title: { red: 1, green: 1, blue: 1, alpha: 1 },
+  normal: { red: 1, green: 1, blue: 1, alpha: 1 },
+  highlight: { red: 1, green: 0.9, blue: 0.35, alpha: 1 },
+  dim: { red: 0.72, green: 0.8, blue: 0.88, alpha: 1 },
+  warn: { red: 1, green: 0.55, blue: 0.55, alpha: 1 },
 };
 
 interface Side {
@@ -56,18 +65,18 @@ export class Hologram {
   private readonly dimension: Dimension;
   /** The middle terminal block. */
   private readonly point: Vector3;
-  /** The game's picture index in the resource pack's Array.icons (0 for none). */
-  private readonly iconOf: (game: string) => number;
+  /** The resource pack's Array.pictures (holoPictures in minigame-core); index 0 is none. */
+  private readonly pictures: string[];
   private display: Entity | undefined;
   private sides: Side[] = [];
   private content: HoloContent = { frame: "logo", lines: [] };
   private waitingLogged = false;
   private readyLogged = false;
 
-  constructor(dimension: Dimension, point: Vector3, iconOf: (game: string) => number) {
+  constructor(dimension: Dimension, point: Vector3, pictures: string[]) {
     this.dimension = dimension;
     this.point = point;
-    this.iconOf = iconOf;
+    this.pictures = pictures;
   }
 
   /** The top center of the terminal: where the projection starts. */
@@ -127,7 +136,7 @@ export class Hologram {
     }));
   }
 
-  private text(side: (typeof SIDES)[number], scale: number): TextPrimitive {
+  private text(side: SideDirection, scale: number): TextPrimitive {
     const text = new TextPrimitive({ dimension: this.dimension, ...this.middle }, "");
     text.useRotation = true;
     text.rotation = { x: 0, y: side.yaw, z: 0 };
@@ -143,12 +152,12 @@ export class Hologram {
 
   private apply(): void {
     try {
-      const { frame, title, lines, icon } = this.content;
+      const { frame, title, lines, picture } = this.content;
       if (this.display?.isValid) {
         this.display.setProperty("minecade:screen", FRAMES[frame]);
-        this.display.setProperty("minecade:game", icon ? this.iconOf(icon) : 0);
+        this.display.setProperty("minecade:picture", picture ? Math.max(0, this.pictures.indexOf(picture)) : 0);
       }
-      const first = frame === "logo" ? LAYOUT.logoLines : icon ? LAYOUT.iconLines : LAYOUT.panelLines;
+      const first = frame === "logo" ? LAYOUT.logoLines : picture ? LAYOUT.pictureLines : LAYOUT.panelLines;
       SIDES.forEach((side, index) => {
         const rows = this.sides[index];
         if (!rows) return;
@@ -163,7 +172,7 @@ export class Hologram {
     }
   }
 
-  private place(text: TextPrimitive, side: (typeof SIDES)[number], height: number, value: string, color: RGBA): void {
+  private place(text: TextPrimitive, side: SideDirection, height: number, value: string, color: RGBA): void {
     const { x, y, z } = this.middle;
     text.setLocation({ dimension: this.dimension, x: x + side.x * TEXT_OUT, y: y + height, z: z + side.z * TEXT_OUT });
     text.color = color;

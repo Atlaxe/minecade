@@ -53,6 +53,7 @@ Build Battle, Prophunt, Zombies, Hide and Seek, Block Drop). See [Adding a game]
    | `ALLOW_LIST` | Gamertags allowed to join, comma-separated. Empty means anyone with your address can join. |
    | `PUBLIC_HOST` | `auto` (looks up your public IP at start) or a DDNS hostname. |
    | `DEV_MIN_PLAYERS` | Empty normally. `1` lets every game start with one player, for testing alone. |
+   | `DEV_DEMO_GAMES` | Empty normally. A number (up to 12) adds that many made-up games to the lobby's menus, for testing how they look with more games. They can't be started. |
 
 3. Start everything, either way:
    - **Panel:** run `npm run panel:shortcut` once to put a "Minecade Panel" shortcut on your
@@ -209,7 +210,8 @@ docs/                     map format and measured BDS behavior
    build rejects duplicates). Replace `icon.png` (the game's 16:9 picture, such as 320x180,
    in the lobby's game grid and on the hologram; every game needs one).
 2. Edit `game.config.ts`: name, player counts, timers, teams, respawns, combat, win rule,
-   scoring, kits and which stats to record. The fields are documented in
+   scoring, kits, which stats to record, and any `options` for the lobby's game screen (see
+   `docs/ui.md`). The fields are documented in
    `packages/minigame-core/src/config.ts`, and the build validates them.
 3. Write the game in `behavior_pack/scripts/`: a class extending `Minigame` that overrides only
    what's different. The framework already handles waiting, the countdown, teams, deaths without

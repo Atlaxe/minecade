@@ -10,7 +10,7 @@
         "frame_logo": "textures/minecade/holo/frame_logo",
         "frame_panel": "textures/minecade/holo/frame_panel",
         "beam": "textures/minecade/holo/beam",
-        "icon_none": "textures/minecade/holo/icon_none"
+        "picture_0": "textures/minecade/holo/icon_none"
       },
       "geometry": {
         "default": "geometry.minecade.holo_display"
@@ -25,7 +25,7 @@
       },
       "render_controllers": [
         "controller.render.minecade.holo_screen",
-        "controller.render.minecade.holo_icon",
+        "controller.render.minecade.holo_picture",
         "controller.render.minecade.holo_beam"
       ]
     }

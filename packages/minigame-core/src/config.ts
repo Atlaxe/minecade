@@ -24,6 +24,15 @@ export interface TeamsConfig {
   defs?: TeamDef[];
 }
 
+/** A choice on the lobby's game screen. The game reads the picked value from ctx.vars.settings[id]. */
+export interface GameOptionConfig {
+  /** Lower camelCase, such as "round". */
+  id: string;
+  label: string;
+  /** The first is the default. */
+  values: { value: string; label: string }[];
+}
+
 export interface RespawnConfig {
   mode: "none" | "lives" | "unlimited" | "stage";
   lives?: number;
@@ -103,6 +112,8 @@ export interface GameConfig {
   /** Players who arrive after the start: sent back, spectating, or joining in. Default "spectate". */
   lateJoin?: "return" | "spectate" | "join";
   teams?: TeamsConfig;
+  /** Extra choices for the lobby's game screen (team games already get Teams: Pick or Random). */
+  options?: GameOptionConfig[];
   respawn?: RespawnConfig;
   combat?: CombatConfig;
   /** "last" = last player (or team) standing, "coop" = everyone wins or loses together. */

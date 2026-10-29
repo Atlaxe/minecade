@@ -4,7 +4,7 @@
 // markers in game-screen.ts. Without the pack, they're plain forms with readable titles and buttons.
 import { ActionFormData } from "@minecraft/server-ui";
 import { say } from "@minecade/minigame-core";
-import { MARK, gameButtons, mapOptions, playerRange, settingLabel, settingsFor } from "./game-screen.ts";
+import { MARK, gameButtons, gamePicture, mapOptions, playerCount, playerRange, settingLabel, settingsFor } from "./game-screen.ts";
 import type { GameChoice } from "./lobby-controller.ts";
 
 /** Layout marks. Each must match the resource pack's UI files (a test checks). */
@@ -12,6 +12,11 @@ export const LAYOUT = {
   main: "§m§a§i§n",
   games: "§g§r§i§d",
   game: "§g§a§m§e",
+} as const;
+
+/** Icons drawn inline in text, from the lobby resource pack's font/glyph_E3.png (one 16x16 cell each). */
+export const GLYPH = {
+  player: "",
 } as const;
 
 export const MAIN_MENU_CHOICES = ["play", "stats"] as const;
@@ -24,23 +29,25 @@ export function mainMenuForm(): ActionFormData {
     .button("Stats", "textures/minecade/ui/icon_stats");
 }
 
-/** A card per game, three columns across: its 16:9 picture, its name, and the players it needs (red when short). */
+/** A card per game, three columns across: its 16:9 picture, its name, and a player icon with the players it needs (red when short). */
 export function gamesForm(choices: GameChoice[]): ActionFormData {
   const form = new ActionFormData().title(`${LAYOUT.games}§rPlay`);
-  choices.forEach(({ game, playable, reason }, index) => {
-    form.button(`${MARK.games[index % 3]}${game.name}\n${playable ? `§7${playerRange(game)}` : `§c${reason}`}`, game.icon);
+  choices.forEach(({ game, playable }, index) => {
+    form.button(`${MARK.games[index % 3]}${game.name}\n${playable ? "§7" : "§c"}${GLYPH.player} ${playerCount(game)}`, gamePicture(game));
   });
   return form;
 }
 
 export interface GameView {
   choice: GameChoice;
-  /** The selected map id, or "random". */
+  /** Random map, or the chosen one. */
+  random: boolean;
+  /** The chosen map's id (the first map until another is picked). */
   map: string;
   settings: Record<string, string>;
 }
 
-/** The game screen: map tiles (two columns, the chosen one outlined), the settings, and Start. */
+/** The game screen: the Random map switch, the settings, map tiles (two columns, the chosen one outlined), and Start. */
 export function gameForm(view: GameView): ActionFormData {
   const { game, playable, reason } = view.choice;
   const info = [game.description ? say.minor(game.description) : "", say.info(playerRange(game))];
@@ -49,12 +56,15 @@ export function gameForm(view: GameView): ActionFormData {
   const maps = mapOptions(game);
   const settings = settingsFor(game);
   for (const { action, mark } of gameButtons(game)) {
-    if (action.kind === "map") {
-      const map = maps.find((option) => option.id === action.map)!;
-      form.button(`${mark}${map.id === view.map ? MARK.selected : ""}${map.name}`, map.preview);
+    if (action.kind === "random") {
+      form.button(`${mark}${view.random ? MARK.on : ""}Random map`);
     } else if (action.kind === "setting") {
       const setting = settings.find((candidate) => candidate.id === action.id)!;
       form.button(`${mark}${setting.label}: ${settingLabel(setting, view.settings[setting.id])}`);
+    } else if (action.kind === "map") {
+      const map = maps.find((option) => option.id === action.map)!;
+      const state = view.random ? MARK.dim : map.id === view.map ? MARK.selected : "";
+      form.button(`${mark}${state}${map.name}`, map.preview);
     } else {
       form.button(`${mark}${playable ? "Start" : "§7Start"}`);
     }

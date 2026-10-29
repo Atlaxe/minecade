@@ -6,24 +6,31 @@
 // marker at the start of the button's text: formatting codes that never render, each ending in §r.
 // Each column lists every button but shows only those with its marker, so buttons can come in any
 // order and the selection is simply the button's place in the form.
-import type { RegistryGame } from "@minecade/minigame-core";
+import { PLACEHOLDER_PICTURES, type GameOptionConfig, type RegistryGame } from "@minecade/minigame-core";
 
-/** Column markers. Each must match minecade_forms.json (a test checks). */
+/** Column and state markers. Each must match minecade_forms.json (a test checks), and none may contain another. */
 export const MARK = {
   /** The game grid's three columns. */
   games: ["§q§1§r", "§q§2§r", "§q§3§r"],
   /** The game screen's two map columns. */
   maps: ["§m§1§r", "§m§2§r"],
+  /** The Random map switch. */
+  toggle: "§t§g§r",
+  /** Added to the switch while it's on. */
+  on: "§o§n§r",
   setting: "§c§t§r",
   start: "§s§t§r",
   /** Added to the chosen map's tile, so it's outlined. */
   selected: "§s§e§l§r",
+  /** Added to every map tile while Random is on, so they're dimmed. */
+  dim: "§d§m§r",
 } as const;
 
 export const PREVIEWS = {
-  random: "textures/minecade/ui/map_random",
+  /** For games without an icon.png (demo games). */
+  game: PLACEHOLDER_PICTURES.game,
   /** For maps without a preview.png. */
-  none: "textures/minecade/ui/map_placeholder",
+  none: PLACEHOLDER_PICTURES.map,
 } as const;
 
 export interface MapOption {
@@ -32,53 +39,57 @@ export interface MapOption {
   preview: string;
 }
 
-export interface GameSetting {
-  id: string;
-  label: string;
-  options: { value: string; label: string }[];
-}
+/** A setting on the game screen: Teams for team games, then the game's own options. */
+export type GameSetting = GameOptionConfig;
 
-export type GameAction = { kind: "map"; map: string } | { kind: "start" } | { kind: "setting"; id: string };
+export type GameAction = { kind: "random" } | { kind: "map"; map: string } | { kind: "setting"; id: string } | { kind: "start" };
 
-/** A button on the game screen, in form order: the maps, then the settings, then Start. */
+/** A button on the game screen, in form order: the Random switch, the settings, the maps, then Start. */
 export interface GameButton {
   action: GameAction;
   mark: string;
 }
 
-/** Random first, then every map. */
-export function mapOptions(game: RegistryGame): MapOption[] {
-  const maps = game.maps.map((map) => ({ id: map.id, name: map.name, preview: map.preview ?? PREVIEWS.none }));
-  return [{ id: "random", name: "Random", preview: PREVIEWS.random }, ...maps];
+/** The game's picture, or the placeholder. */
+export function gamePicture(game: RegistryGame): string {
+  return game.icon ?? PREVIEWS.game;
 }
 
-/** Team games where players pick their own team can switch to random teams instead. */
+/** Every map, with its preview or the placeholder. */
+export function mapOptions(game: RegistryGame): MapOption[] {
+  return game.maps.map((map) => ({ id: map.id, name: map.name, preview: map.preview ?? PREVIEWS.none }));
+}
+
+const TEAMS: GameSetting = { id: "teams", label: "Teams", values: [{ value: "pick", label: "Pick" }, { value: "random", label: "Random" }] };
+
+/** Team games where players pick their own team can switch to random teams; then the game's own options. */
 export function settingsFor(game: RegistryGame): GameSetting[] {
   const teams = game.teams;
   const roles = (teams?.defs ?? []).some((team) => team.size !== undefined);
-  if (!teams || teams.pick === false || roles) return [];
-  return [{ id: "teams", label: "Teams", options: [{ value: "pick", label: "Pick" }, { value: "random", label: "Random" }] }];
+  const pickable = teams !== undefined && teams.pick !== false && !roles;
+  return [...(pickable ? [TEAMS] : []), ...(game.options ?? [])];
 }
 
 export function defaultSettings(game: RegistryGame): Record<string, string> {
-  return Object.fromEntries(settingsFor(game).map((setting) => [setting.id, setting.options[0].value]));
+  return Object.fromEntries(settingsFor(game).map((setting) => [setting.id, setting.values[0].value]));
 }
 
-/** The next option of a setting, wrapping around. */
+/** The next value of a setting, wrapping around. */
 export function nextSetting(setting: GameSetting, current: string | undefined): string {
-  const index = setting.options.findIndex((option) => option.value === current);
-  return setting.options[(index + 1) % setting.options.length].value;
+  const index = setting.values.findIndex((option) => option.value === current);
+  return setting.values[(index + 1) % setting.values.length].value;
 }
 
 export function settingLabel(setting: GameSetting, current: string | undefined): string {
-  return setting.options.find((option) => option.value === current)?.label ?? setting.options[0].label;
+  return setting.values.find((option) => option.value === current)?.label ?? setting.values[0].label;
 }
 
 /** The game screen's buttons, in form order. Maps alternate between the two map columns. */
 export function gameButtons(game: RegistryGame): GameButton[] {
   return [
-    ...mapOptions(game).map((map, index) => ({ action: { kind: "map" as const, map: map.id }, mark: MARK.maps[index % 2] })),
+    { action: { kind: "random" as const }, mark: MARK.toggle },
     ...settingsFor(game).map((setting) => ({ action: { kind: "setting" as const, id: setting.id }, mark: MARK.setting })),
+    ...mapOptions(game).map((map, index) => ({ action: { kind: "map" as const, map: map.id }, mark: MARK.maps[index % 2] })),
     { action: { kind: "start" as const }, mark: MARK.start },
   ];
 }
@@ -90,5 +101,10 @@ export function gameAction(game: RegistryGame, selection: number): GameAction | 
 
 /** "2-6 players", or "4 players" when the count is fixed. */
 export function playerRange(game: RegistryGame): string {
-  return game.minPlayers === game.maxPlayers ? `${game.minPlayers} players` : `${game.minPlayers}-${game.maxPlayers} players`;
+  return `${playerCount(game)} players`;
+}
+
+/** "2-6", or "4" when the count is fixed. */
+export function playerCount(game: RegistryGame): string {
+  return game.minPlayers === game.maxPlayers ? `${game.minPlayers}` : `${game.minPlayers}-${game.maxPlayers}`;
 }

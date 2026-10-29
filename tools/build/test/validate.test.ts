@@ -22,6 +22,38 @@ describe("validateGameConfig", () => {
       "maxPlayers must be a whole number no smaller than minPlayers",
     ]);
   });
+
+  it("checks game screen options against what the orchestrator passes on", () => {
+    const round = { id: "round", label: "Round", values: [{ value: "15", label: "15 s" }, { value: "30", label: "30 s" }] };
+    expect(validateGameConfig({ ...game, options: [round] }, "sumo")).toEqual([]);
+    expect(validateGameConfig({ ...game, options: [{ id: "teams", label: "Teams", values: round.values }] }, "sumo")).toEqual([]);
+    expect(
+      validateGameConfig(
+        {
+          ...game,
+          teams: { count: 2 },
+          minPlayers: 2,
+          options: [
+            { id: "teams", label: "Teams", values: round.values },
+            { id: "Bad id", label: "", values: [{ value: "x".repeat(33), label: "" }] },
+            round,
+            round,
+          ],
+        },
+        "sumo",
+      ),
+    ).toEqual([
+      "options ids must be unique",
+      'options "teams": team games already get a Teams setting',
+      'options "Bad id": the id must be lower camelCase letters, digits or _, up to 32 characters',
+      'options "Bad id": label is required',
+      'options "Bad id": needs at least 2 values',
+      'options "Bad id": values must be 1 to 32 characters',
+      'options "Bad id": every value needs a label',
+    ]);
+    const many = Array.from({ length: 8 }, (_, i) => ({ ...round, id: `option${i}` }));
+    expect(validateGameConfig({ ...game, teams: { count: 2 }, minPlayers: 2, options: many }, "sumo")).toEqual(["a game can have at most 8 settings, Teams included"]);
+  });
 });
 
 describe("validateMapConfig", () => {

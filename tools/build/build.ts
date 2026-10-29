@@ -8,7 +8,7 @@ import { cp, mkdir, readdir, readFile, rm, writeFile } from "node:fs/promises";
 import { join, relative } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { build } from "esbuild";
-import type { GameConfig, MapConfig, Registry, RegistryGame } from "@minecade/minigame-core/config";
+import { holoPictures, type GameConfig, type MapConfig, type Registry, type RegistryGame } from "@minecade/minigame-core/config";
 import type { TransportKind } from "@minecade/minigame-core/protocol";
 import { enableBetaApis, patchLevelDat } from "./leveldat.ts";
 import { MODULE_VERSIONS, pinManifest, type Manifest } from "./mc-versions.ts";
@@ -162,10 +162,12 @@ async function buildResourcePack(src: string, out: string, manifest: Manifest, e
   await writeFile(join(out, "manifest.json"), JSON.stringify(stamped, null, 2));
 }
 
+/** The hologram's "minecade:picture" property goes up to this (lobby behavior pack entity). */
+const MAX_HOLO_PICTURES = 256;
+
 /**
  * The lobby pack gets every game's picture and map preview (for the Play menus), and the
- * hologram's picture list in registry order: 0 is "none", then one per game (the lobby's Hologram
- * uses the same numbering).
+ * hologram's picture list from holoPictures(), which the lobby's Hologram numbers the same way.
  */
 async function addGameIcons(out: string): Promise<void> {
   for (const target of targets) {
@@ -179,12 +181,14 @@ async function addGameIcons(out: string): Promise<void> {
   if (!existsSync(entityPath) || !existsSync(controllersPath)) return;
   const entity = JSON.parse(await readFile(entityPath, "utf8"));
   const controllers = JSON.parse(await readFile(controllersPath, "utf8"));
-  const icons = ["Texture.icon_none"];
-  registry.games.forEach((game, index) => {
-    entity["minecraft:client_entity"].description.textures[`icon_${index + 1}`] = game.icon;
-    icons.push(`Texture.icon_${index + 1}`);
-  });
-  controllers.render_controllers["controller.render.minecade.holo_icon"].arrays.textures["Array.icons"] = icons;
+  const pictures = holoPictures(registry);
+  if (pictures.length > MAX_HOLO_PICTURES) {
+    throw new Error(`the lobby hologram can show ${MAX_HOLO_PICTURES} pictures, but the games and maps have ${pictures.length}`);
+  }
+  const textures = entity["minecraft:client_entity"].description.textures;
+  pictures.forEach((picture, index) => (textures[`picture_${index}`] = picture));
+  const list = pictures.map((_, index) => `Texture.picture_${index}`);
+  controllers.render_controllers["controller.render.minecade.holo_picture"].arrays.textures["Array.pictures"] = list;
   await writeFile(entityPath, JSON.stringify(entity, null, 2));
   await writeFile(controllersPath, JSON.stringify(controllers, null, 2));
 }
@@ -201,7 +205,7 @@ async function buildMaps(target: Target, out: string): Promise<{ id: string; nam
   return target.maps.map((map) => ({ id: map.id, name: map.config.name }));
 }
 
-function pick({ id, name, description, minPlayers, maxPlayers, teams, stats }: GameConfig): Omit<RegistryGame, "maps"> {
+function pick({ id, name, description, minPlayers, maxPlayers, teams, options, stats }: GameConfig): Omit<RegistryGame, "maps"> {
   return {
     id,
     name,
@@ -210,6 +214,7 @@ function pick({ id, name, description, minPlayers, maxPlayers, teams, stats }: G
     maxPlayers,
     icon: `textures/minecade/games/${id}`,
     ...(teams ? { teams } : {}),
+    ...(options ? { options } : {}),
     ...(stats ? { stats } : {}),
   };
 }

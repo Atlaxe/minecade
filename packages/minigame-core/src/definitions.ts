@@ -4,6 +4,7 @@ export {
   defineGame,
   type CombatConfig,
   type GameConfig,
+  type GameOptionConfig,
   type KitDef,
   type KitItem,
   type RespawnConfig,
@@ -14,7 +15,7 @@ export {
   type TeamsConfig,
 } from "./config.ts";
 export type { Box, MapConfig, Vec3 } from "./map-config.ts";
-export type { Registry, RegistryGame, RegistryMap } from "./registry.ts";
+export { PLACEHOLDER_PICTURES, holoPictures, type Registry, type RegistryGame, type RegistryMap } from "./registry.ts";
 export { killDeathRatio, winRate } from "./stats-math.ts";
 export {
   COLOR,
