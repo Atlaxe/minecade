@@ -5,8 +5,8 @@ import type { StatsConfig, TeamsConfig } from "./config.ts";
 export interface RegistryMap {
   id: string;
   name: string;
-  /** Texture path in the lobby resource pack, when the map has an icon.png. */
-  icon?: string;
+  /** Texture path of the map's 16:9 screenshot in the lobby resource pack, when it has a preview.png. */
+  preview?: string;
 }
 
 export interface RegistryGame {
@@ -16,7 +16,7 @@ export interface RegistryGame {
   minPlayers: number;
   maxPlayers: number;
   maps: RegistryMap[];
-  /** Texture path of the game's icon in the lobby resource pack. */
+  /** Texture path of the game's 16:9 picture in the lobby resource pack. */
   icon?: string;
   /** The game's team setup, so the lobby can offer team settings and picks. */
   teams?: TeamsConfig;

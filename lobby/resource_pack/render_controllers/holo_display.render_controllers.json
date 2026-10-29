@@ -5,12 +5,8 @@
       "arrays": {
         "textures": {
           "Array.screens": [
-            "Texture.idle",
-            "Texture.main",
-            "Texture.main_play",
-            "Texture.main_stats",
-            "Texture.games",
-            "Texture.game"
+            "Texture.frame_logo",
+            "Texture.frame_panel"
           ]
         }
       },

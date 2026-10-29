@@ -4,9 +4,10 @@ import { Scope, stripColors, type RegistryGame } from "@minecade/minigame-core";
 import { system } from "../../packages/minigame-core/test/fake-mc-server.ts";
 import { flushPromises } from "../../packages/minigame-core/test/util.ts";
 import type { GameChoice } from "../behavior_pack/scripts/lobby-controller.ts";
-import { LAYOUT, MAIN_MENU_CHOICES, SELECTED, type GameView } from "../behavior_pack/scripts/menus.ts";
-import { START_SLOT } from "../behavior_pack/scripts/game-screen.ts";
-import { TerminalController, type HoloView, type TerminalPorts } from "../behavior_pack/scripts/terminal-controller.ts";
+import { LAYOUT, MAIN_MENU_CHOICES, type GameView } from "../behavior_pack/scripts/menus.ts";
+import { MARK } from "../behavior_pack/scripts/game-screen.ts";
+import { gameContent, gamesContent, idleContent, mainContent, type HoloContent } from "../behavior_pack/scripts/holo-content.ts";
+import { TerminalController, type TerminalPorts } from "../behavior_pack/scripts/terminal-controller.ts";
 
 const sumo: RegistryGame = {
   id: "sumo",
@@ -26,6 +27,10 @@ const paintball: RegistryGame = {
   maps: [{ id: "yard", name: "Yard" }],
   teams: { count: 2 },
 };
+/** Button places on the game screen (maps, then settings, then Start). */
+const SUMO_START = 3;
+const PAINTBALL_TEAMS = 2;
+const PAINTBALL_START = 3;
 
 interface Pending<T> {
   name: string;
@@ -38,7 +43,7 @@ function setup() {
   const screens: (Pending<number> & { view: GameView })[] = [];
   const notes: [string, string][] = [];
   const closed: string[] = [];
-  const holo: HoloView[] = [];
+  const holo: HoloContent[] = [];
   const requests: [string, string, string, Record<string, string>][] = [];
   const distances = new Map<string, number | undefined>();
   let finishStats: (() => void) | undefined;
@@ -95,7 +100,7 @@ describe("TerminalController: the lock", () => {
     const t = setup();
     void t.terminal.tap("Steve");
     expect(t.terminal.current).toBe("Steve");
-    expect(t.holo.at(-1)).toEqual({ screen: "main", user: "Steve" });
+    expect(t.holo.at(-1)).toEqual(mainContent());
     void t.terminal.tap("Alex");
     void t.terminal.tap("Steve"); // already in the menu: nothing new
     expect(t.mains.map((menu) => menu.name)).toEqual(["Steve"]);
@@ -104,7 +109,7 @@ describe("TerminalController: the lock", () => {
     t.mains[0].answer(undefined); // closed the menu
     await flushPromises();
     expect(t.terminal.current).toBeUndefined();
-    expect(t.holo.at(-1)).toEqual({ screen: "idle" });
+    expect(t.holo.at(-1)).toEqual(idleContent());
     void t.terminal.tap("Alex");
     expect(t.terminal.current).toBe("Alex");
   });
@@ -124,7 +129,7 @@ describe("TerminalController: the lock", () => {
     expect(t.terminal.current).toBeUndefined();
     t.mains[0].answer("play"); // the closed menu's late answer does nothing
     await flushPromises();
-    expect(t.holo.at(-1)).toEqual({ screen: "idle" });
+    expect(t.holo.at(-1)).toEqual(idleContent());
 
     void t.terminal.tap("Alex");
     t.distances.set("Alex", 12);
@@ -146,7 +151,7 @@ describe("TerminalController: the lock", () => {
   it("shows the idle screen on refresh, but not while someone is using it", () => {
     const t = setup();
     t.terminal.refresh();
-    expect(t.holo).toEqual([{ screen: "idle" }]);
+    expect(t.holo).toEqual([idleContent()]);
     void t.terminal.tap("Steve");
     const shown = t.holo.length;
     t.terminal.refresh();
@@ -160,24 +165,25 @@ describe("TerminalController: Play", () => {
     void t.terminal.tap("Steve");
     t.mains[0].answer("play");
     await flushPromises();
-    expect(t.holo.at(-1)).toEqual({ screen: "games", user: "Steve" });
+    expect(t.holo.at(-2)).toEqual(mainContent("play"));
+    expect(t.holo.at(-1)).toEqual(gamesContent(t.grids[0].choices));
     expect(t.grids[0].choices.map((choice) => choice.game.id)).toEqual(["sumo", "paintball"]);
 
     t.grids[0].answer(0); // Sumo
     await flushPromises();
     expect(t.screens[0].view).toMatchObject({ map: "random", settings: {} });
-    expect(t.holo.at(-1)).toEqual({ screen: "game", user: "Steve", game: "sumo", map: "Random" });
+    expect(t.holo.at(-1)).toEqual(gameContent({ game: sumo, playable: true }, "Random", {}));
 
     t.screens[0].answer(1); // the first real map
     await flushPromises();
     expect(t.screens[1].view.map).toBe("arena_1");
-    expect(t.holo.at(-1)).toMatchObject({ map: "Arena" });
+    expect(t.holo.at(-1)?.lines[0]).toEqual({ text: "Map: Arena", tone: "highlight" });
 
-    t.screens[1].answer(START_SLOT);
+    t.screens[1].answer(SUMO_START);
     await flushPromises();
     expect(t.requests).toEqual([["Steve", "sumo", "arena_1", {}]]);
     expect(t.terminal.current).toBeUndefined(); // the session ends once the game is starting
-    expect(t.holo.at(-1)).toEqual({ screen: "idle" });
+    expect(t.holo.at(-1)).toEqual(idleContent());
     expect(t.root.live()).toEqual({ scopes: 1, subscriptions: 0, runs: 0 });
   });
 
@@ -189,10 +195,11 @@ describe("TerminalController: Play", () => {
     t.grids[0].answer(1); // Paintball
     await flushPromises();
     expect(t.screens[0].view.settings).toEqual({ teams: "pick" });
-    t.screens[0].answer(START_SLOT + 1); // the Teams button
+    t.screens[0].answer(PAINTBALL_TEAMS);
     await flushPromises();
     expect(t.screens[1].view.settings).toEqual({ teams: "random" });
-    t.screens[1].answer(START_SLOT);
+    expect(t.holo.at(-1)?.lines[1]).toEqual({ text: "Teams: Random", tone: "normal" });
+    t.screens[1].answer(PAINTBALL_START);
     await flushPromises();
     expect(t.requests).toEqual([["Steve", "paintball", "random", { teams: "random" }]]);
   });
@@ -210,7 +217,7 @@ describe("TerminalController: Play", () => {
     t.grids[1].answer(undefined); // closed the grid: back to the main menu
     await flushPromises();
     expect(t.mains).toHaveLength(2);
-    expect(t.holo.at(-1)).toEqual({ screen: "main", user: "Steve" });
+    expect(t.holo.at(-1)).toEqual(mainContent());
   });
 
   it("stays on the game screen when Start is refused, and leaves when a game is running", async () => {
@@ -221,13 +228,13 @@ describe("TerminalController: Play", () => {
     await flushPromises();
     t.grids[0].answer(0);
     await flushPromises();
-    t.screens[0].answer(START_SLOT);
+    t.screens[0].answer(SUMO_START);
     await flushPromises();
     expect(t.notes).toEqual([["Steve", "Sumo needs at least 2 players."]]);
     expect(t.screens).toHaveLength(2);
 
     t.setBusy("Probe is in progress (1 playing).");
-    t.screens[1].answer(START_SLOT);
+    t.screens[1].answer(SUMO_START);
     await flushPromises();
     expect(t.mains).toHaveLength(2); // back on the main menu
   });
@@ -243,7 +250,7 @@ describe("TerminalController: Play", () => {
 
     t.mains[1].answer("stats");
     await flushPromises();
-    expect(t.holo.at(-1)).toEqual({ screen: "main_stats", user: "Steve" });
+    expect(t.holo.at(-1)).toEqual(mainContent("stats"));
     t.finishStats();
     await flushPromises();
     expect(t.mains).toHaveLength(3);
@@ -264,15 +271,18 @@ describe("TerminalController: Play", () => {
 });
 
 describe("menus", () => {
-  it("uses layout marks the lobby resource pack knows, and that never render", () => {
+  it("uses layout and column marks the lobby resource pack knows, and that never render", () => {
     const pack = (file: string) => readFileSync(new URL(`../resource_pack/ui/${file}`, import.meta.url), "utf8");
     for (const mark of Object.values(LAYOUT)) {
       expect(stripColors(mark)).toBe("");
       expect(pack("server_form.json")).toContain(`'${mark}'`);
       expect(pack("minecade_forms.json")).toContain(`'${mark}'`);
     }
-    expect(stripColors(SELECTED)).toBe("");
-    expect(pack("minecade_forms.json")).toContain(`'${SELECTED}'`);
+    for (const mark of [...MARK.games, ...MARK.maps, MARK.setting, MARK.start, MARK.selected]) {
+      expect(stripColors(mark)).toBe("");
+      expect(mark.endsWith("§r")).toBe(true);
+      expect(pack("minecade_forms.json")).toContain(mark);
+    }
     expect(MAIN_MENU_CHOICES).toEqual(["play", "stats"]);
   });
 });

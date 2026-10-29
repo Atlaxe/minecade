@@ -8,9 +8,9 @@ The images are meant to be redrawn by hand; by default this never touches an exi
 Outputs:
     packages/minigame-core/resource_pack/textures/minecade/hud/clock.png   HUD match clock icon
     lobby/resource_pack/textures/minecade/ui/...                             holographic menu art
-    lobby/resource_pack/textures/minecade/holo/...                           hologram screens, beam
+    lobby/resource_pack/textures/minecade/holo/...                           hologram frames, beam
     lobby/resource_pack/textures/minecade/blocks/...                         terminal block faces
-    games/<id>/icon.png                                                      game icons (Probe, Sumo)
+    games/<id>/icon.png                                                      16:9 game pictures (Probe, Sumo)
 
 Fonts come from Windows (Bahnschrift, else Consolas Bold); they only matter when regenerating.
 The logo source is tools/assets/source/minecade-title.png (the orange original).
@@ -139,56 +139,11 @@ def paste_logo(image: Image.Image, logo: Image.Image, top: int, width: int) -> N
     image.paste(background, ((HOLO - width) // 2, top), mask=scaled.split()[3])
 
 
-def centered_text(draw: ImageDraw.ImageDraw, y: int, text: str, size: int, fill) -> None:
-    face = font(size)
-    width = draw.textlength(text, font=face)
-    draw.text(((HOLO - width) / 2, y), text, font=face, fill=fill)
-
-
-def holo_button(draw: ImageDraw.ImageDraw, box, label: str, icon: str, lit: bool) -> None:
-    x0, y0, x1, y1 = box
-    draw.rounded_rectangle(box, radius=18, fill=(30, 110, 190) if lit else (6, 30, 60), outline=BRIGHT if lit else CYAN, width=4)
-    cx = (x0 + x1) // 2
-    color = (255, 255, 255) if lit else CYAN
-    if icon == "play":
-        draw.polygon([(cx - 22, y0 + 34), (cx - 22, y0 + 86), (cx + 26, y0 + 60)], fill=color)
-    else:
-        for i, height in enumerate((26, 44, 60)):
-            left = cx - 33 + i * 24
-            draw.rectangle((left, y0 + 90 - height, left + 16, y0 + 90), fill=color)
-    face = font(40)
-    width = draw.textlength(label, font=face)
-    draw.text((cx - width / 2, y1 - 64), label, font=face, fill=color)
-
-
-def holo_placeholder(title: str, subtitle: str) -> Image.Image:
-    """A plain hologram screen with a heading, for the user to redraw."""
-    image = holo_base()
-    draw = ImageDraw.Draw(image)
-    centered_text(draw, 40, title, 46, CYAN)
-    centered_text(draw, 96, subtitle, 26, DEEP)
-    return image
-
-
-def holo_screens(logo: Image.Image) -> dict[str, Image.Image]:
-    idle = holo_base()
-    paste_logo(idle, logo, 120, 440)
-    draw = ImageDraw.Draw(idle)
-    centered_text(draw, 300, "TAP THE TERMINAL", 44, CYAN)
-    draw.line((150, 370, HOLO - 150, 370), fill=DEEP, width=3)
-
-    screens = {"idle": idle}
-    for name, lit in (("main", None), ("main_play", "play"), ("main_stats", "stats")):
-        image = holo_base()
-        paste_logo(image, logo, 60, 420)
-        draw = ImageDraw.Draw(image)
-        holo_button(draw, (60, 230, 236, 450), "PLAY", "play", lit == "play")
-        holo_button(draw, (276, 230, 452, 450), "STATS", "stats", lit == "stats")
-        screens[name] = image
-    screens["games"] = holo_placeholder("SELECT A GAME", "placeholder")
-    # The game screen leaves the middle free: the chosen game's icon shows there.
-    screens["game"] = holo_placeholder("GAME", "placeholder")
-    return screens
+def holo_frames(logo: Image.Image) -> dict[str, Image.Image]:
+    """The hologram's two frames; all text is drawn live on top (see lobby scripts/hologram.ts)."""
+    with_logo = holo_base()
+    paste_logo(with_logo, logo, 40, 420)
+    return {"frame_logo": with_logo, "frame_panel": holo_base()}
 
 
 def holo_beam() -> Image.Image:
@@ -302,6 +257,17 @@ def ui_frame(size: tuple[int, int], state: str, radius: int = 12) -> Image.Image
     return image
 
 
+def ui_outline(size: tuple[int, int], state: str, radius: int = 8) -> Image.Image:
+    """A frame drawn over a picture: an outline only (with a light tint on hover and press)."""
+    width, height = size
+    image = Image.new("RGBA", (width, height), (0, 0, 0, 0))
+    draw = ImageDraw.Draw(image)
+    tint = {"default": (0, 0, 0, 0), "hover": (120, 200, 255, 40), "pressed": (160, 220, 255, 70)}[state]
+    outline = {"default": (*CYAN, 200), "hover": (*BRIGHT, 255), "pressed": (255, 255, 255, 255)}[state]
+    draw.rounded_rectangle((2, 2, width - 3, height - 3), radius=radius, fill=tint, outline=outline, width=3)
+    return image
+
+
 def ui_big_panel(size: tuple[int, int]) -> Image.Image:
     """A larger menu background at 2x, like ui_panel."""
     width, height = size
@@ -314,14 +280,27 @@ def ui_big_panel(size: tuple[int, int]) -> Image.Image:
     return image
 
 
-def game_icon(letter: str, color: tuple[int, int, int]) -> Image.Image:
-    """A placeholder game icon: a colored badge with the game's initial."""
-    image = Image.new("RGBA", (128, 128), (0, 0, 0, 0))
+def picture(title: str, top: tuple[int, int, int], bottom: tuple[int, int, int]) -> Image.Image:
+    """A 16:9 placeholder picture (320x180): a vertical gradient with a big title."""
+    width, height = 320, 180
+    image = Image.new("RGB", (width, height))
     draw = ImageDraw.Draw(image)
-    draw.rounded_rectangle((6, 6, 121, 121), radius=22, fill=(*color, 255), outline=(*BRIGHT, 255), width=5)
-    face = font(84)
-    width = draw.textlength(letter, font=face)
-    draw.text(((128 - width) / 2, 8), letter, font=face, fill=(255, 255, 255))
+    for y in range(height):
+        t = y / (height - 1)
+        draw.line((0, y, width, y), fill=tuple(round(a + (b - a) * t) for a, b in zip(top, bottom)))
+    face = font(54)
+    text_width = draw.textlength(title, font=face)
+    draw.text(((width - text_width) / 2, 50), title, font=face, fill=(255, 255, 255))
+    return image
+
+
+def fade_bottom() -> Image.Image:
+    """Black, fading in from transparent at the top to dark at the bottom: under text on pictures."""
+    image = Image.new("RGBA", (8, 64))
+    for y in range(64):
+        alpha = round(200 * (y / 63) ** 1.4)
+        for x in range(8):
+            image.putpixel((x, y), (0, 0, 0, alpha))
     return image
 
 
@@ -330,7 +309,7 @@ def main() -> None:
 
     logo = blue_logo()
     save(logo, LOBBY_TEXTURES / "ui" / "logo.png")
-    for name, image in holo_screens(logo).items():
+    for name, image in holo_frames(logo).items():
         save(image, LOBBY_TEXTURES / "holo" / f"{name}.png")
     save(holo_beam(), LOBBY_TEXTURES / "holo" / "beam.png")
     save(Image.new("RGB", (16, 16), (0, 0, 0)), LOBBY_TEXTURES / "holo" / "icon_none.png")
@@ -342,20 +321,23 @@ def main() -> None:
     save(ui_panel(), LOBBY_TEXTURES / "ui" / "panel.png")
     for state in ("default", "hover", "pressed"):
         save(ui_tile(state), LOBBY_TEXTURES / "ui" / f"tile_{state}.png")
-    for kind in ("play", "stats", "random", "map"):
+    for kind in ("play", "stats"):
         save(ui_icon(kind), LOBBY_TEXTURES / "ui" / f"icon_{kind}.png")
 
-    # The game picker and game screen.
-    save(ui_big_panel((860, 600)), LOBBY_TEXTURES / "ui" / "panel_grid.png")
-    save(ui_big_panel((880, 464)), LOBBY_TEXTURES / "ui" / "panel_game.png")
+    # The game grid and game screen.
+    save(ui_big_panel((860, 580)), LOBBY_TEXTURES / "ui" / "panel_grid.png")
+    save(ui_big_panel((920, 500)), LOBBY_TEXTURES / "ui" / "panel_game.png")
     for state in ("default", "hover", "pressed"):
-        save(ui_frame((192, 156), state, 14), LOBBY_TEXTURES / "ui" / f"tile_game_{state}.png")
-        save(ui_frame((196, 76), state), LOBBY_TEXTURES / "ui" / f"tile_map_{state}.png")
+        save(ui_frame((280, 92), state, 10), LOBBY_TEXTURES / "ui" / f"card_{state}.png")
+        save(ui_outline((200, 112), state), LOBBY_TEXTURES / "ui" / f"tile_map_{state}.png")
         save(ui_frame((400, 64), state), LOBBY_TEXTURES / "ui" / f"button_{state}.png")
-    save(ui_frame((196, 76), "selected"), LOBBY_TEXTURES / "ui" / "tile_map_selected.png")
+    save(ui_frame((200, 112), "selected", 8), LOBBY_TEXTURES / "ui" / "tile_map_selected.png")
+    save(fade_bottom(), LOBBY_TEXTURES / "ui" / "fade_bottom.png")
+    save(picture("No preview", (40, 52, 70), (18, 24, 34)), LOBBY_TEXTURES / "ui" / "map_placeholder.png")
+    save(picture("?", (30, 80, 140), (10, 30, 60)), LOBBY_TEXTURES / "ui" / "map_random.png")
 
-    save(game_icon("P", (60, 70, 90)), ROOT / "games" / "probe" / "icon.png")
-    save(game_icon("S", (180, 50, 50)), ROOT / "games" / "sumo" / "icon.png")
+    save(picture("PROBE", (60, 70, 90), (25, 30, 40)), ROOT / "games" / "probe" / "icon.png")
+    save(picture("SUMO", (190, 60, 60), (70, 20, 20)), ROOT / "games" / "sumo" / "icon.png")
 
 
 if __name__ == "__main__":

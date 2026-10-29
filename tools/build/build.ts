@@ -30,9 +30,9 @@ interface Target {
   game?: GameConfig;
   behaviorPack?: Manifest;
   resourcePack?: Manifest;
-  /** The game's icon.png (required for games). */
+  /** The game's 16:9 icon.png (required for games). */
   icon?: string;
-  maps: { id: string; dir: string; config: MapConfig; icon?: string }[];
+  maps: { id: string; dir: string; config: MapConfig; preview?: string }[];
 }
 
 const problems: string[] = [];
@@ -88,7 +88,7 @@ async function loadTarget(id: string, dir: string, configPath?: string): Promise
   if (existsSync(join(rpDir, "manifest.json")) && (await hasContent(rpDir))) target.resourcePack = await loadManifest(rpDir);
   if (target.game) {
     if (existsSync(join(dir, "icon.png"))) target.icon = join(dir, "icon.png");
-    else report(dir, ["icon.png is missing: the lobby's game picker shows it (a square PNG, 128x128 works well)"]);
+    else report(dir, ["icon.png is missing: the lobby's game picker and hologram show it (a 16:9 PNG, such as 320x180)"]);
   }
 
   const mapsDir = join(dir, "maps");
@@ -105,8 +105,8 @@ async function loadTarget(id: string, dir: string, configPath?: string): Promise
     if (!existsSync(join(mapDir, "world", "level.dat"))) {
       report(mapDir, ["world/level.dat is missing: run npm run bake, or drop in a world built in the client"]);
     }
-    const icon = join(mapDir, "icon.png");
-    target.maps.push({ id: mapId, dir: mapDir, config: config as MapConfig, ...(existsSync(icon) ? { icon } : {}) });
+    const preview = join(mapDir, "preview.png");
+    target.maps.push({ id: mapId, dir: mapDir, config: config as MapConfig, ...(existsSync(preview) ? { preview } : {}) });
   }
   if (target.maps.length === 0) report(dir, ["needs at least one map in maps/<id>/"]);
   return target;
@@ -163,15 +163,15 @@ async function buildResourcePack(src: string, out: string, manifest: Manifest, e
 }
 
 /**
- * The lobby pack gets every game's and map's icon (for the game picker), and the hologram's icon
- * list in registry order: icon 0 is "none", then one per game (the lobby's Hologram uses the same
- * numbering).
+ * The lobby pack gets every game's picture and map preview (for the Play menus), and the
+ * hologram's picture list in registry order: 0 is "none", then one per game (the lobby's Hologram
+ * uses the same numbering).
  */
 async function addGameIcons(out: string): Promise<void> {
   for (const target of targets) {
     if (target.icon) await cp(target.icon, join(out, "textures", "minecade", "games", `${target.id}.png`));
     for (const map of target.maps) {
-      if (map.icon) await cp(map.icon, join(out, "textures", "minecade", "maps", target.id, `${map.id}.png`));
+      if (map.preview) await cp(map.preview, join(out, "textures", "minecade", "maps", target.id, `${map.id}.png`));
     }
   }
   const entityPath = join(out, "entity", "holo_display.entity.json");
@@ -247,7 +247,7 @@ const registry: Registry = {
             maps: maps.map((map) => ({
               id: map.id,
               name: map.config.name,
-              ...(map.icon ? { icon: `textures/minecade/maps/${game.id}/${map.id}` } : {}),
+              ...(map.preview ? { preview: `textures/minecade/maps/${game.id}/${map.id}` } : {}),
             })),
           },
         ]

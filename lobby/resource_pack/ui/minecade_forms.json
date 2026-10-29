@@ -1,7 +1,12 @@
 {
   "namespace": "minecade_forms",
 
-  // Every Minecade layout lives in here; each shows only for its own title mark.
+  // Every Minecade layout lives in here; each shows only for its own title mark (menus.ts).
+  //
+  // Columns of buttons: a stack_panel factory over "form_buttons" makes an item for every button,
+  // and each item shows only if its text carries the column's marker (game-screen.ts MARK). A
+  // hidden item takes no space in a stack panel, so several columns can share the same buttons in
+  // any order. Markers are formatting codes ending in §r, so labels show the text as is.
   "long_form": {
     "type": "panel",
     "size": ["100%c", "100%c"],
@@ -12,7 +17,80 @@
     ]
   },
 
-  // The terminal's main menu: the logo, and Play and Stats side by side under it.
+  // ---- Shared pieces ---------------------------------------------------------------------------
+
+  // Back one step: the close button, with vanilla's back arrow, top left. Same as Esc.
+  "back_arrow@common.close_button": {
+    "layer": 6,
+    "anchor_from": "top_left",
+    "anchor_to": "top_left",
+    "$close_button_offset": [6, 6],
+    "controls": [
+      { "default@common.close_button_panel": { "$close_button_texture": "textures/ui/back_button_default" } },
+      { "hover@common.close_button_panel": { "$close_button_texture": "textures/ui/back_button_hover" } },
+      { "pressed@common.close_button_panel": { "$close_button_texture": "textures/ui/back_button_pressed" } }
+    ]
+  },
+
+  // A scroll area like the vanilla form's.
+  "scroll@common.scrolling_panel": {
+    "$show_background": false,
+    "$scroll_size": [5, "100% - 4px"],
+    "$scrolling_pane_size": ["100% - 4px", "100% - 2px"],
+    "$scrolling_pane_offset": [2, 0],
+    "$scroll_bar_right_padding_size": [0, 0]
+  },
+
+  // A column of buttons (see the top of this file).
+  "button_column": {
+    "type": "stack_panel",
+    "orientation": "vertical",
+    "collection_name": "form_buttons",
+    "bindings": [{ "binding_name": "#form_button_contents", "binding_name_override": "#collection_length" }]
+  },
+
+  // The form button's picture (its icon path), stretched to the control's size.
+  "button_picture": {
+    "type": "image",
+    "fill": true,
+    "keep_ratio": false,
+    "bilinear": true,
+    "bindings": [
+      { "binding_name": "#form_button_texture", "binding_name_override": "#texture", "binding_type": "collection", "binding_collection_name": "form_buttons" },
+      {
+        "binding_name": "#form_button_texture_file_system",
+        "binding_name_override": "#texture_file_system",
+        "binding_type": "collection",
+        "binding_collection_name": "form_buttons"
+      }
+    ]
+  },
+
+  "button_icon@minecade_forms.button_picture": {
+    "layer": 2,
+    "bilinear": false
+  },
+
+  "button_label": {
+    "type": "label",
+    "text": "#form_button_text",
+    "color": [0.86, 0.96, 1.0],
+    "shadow": true,
+    "layer": 2,
+    "bindings": [{ "binding_name": "#form_button_text", "binding_type": "collection", "binding_collection_name": "form_buttons" }]
+  },
+
+  // A button face: one picture, stretched.
+  "face": {
+    "type": "image",
+    "texture": "$tile_texture",
+    "size": ["100%", "100%"],
+    "fill": true,
+    "keep_ratio": false
+  },
+
+  // ---- The main menu ---------------------------------------------------------------------------
+  // The logo, and Play and Stats side by side under it.
   "main_menu": {
     "type": "panel",
     "size": [300, 116],
@@ -55,7 +133,7 @@
           "bindings": [{ "binding_name": "#form_button_contents", "binding_name_override": "#collection_length" }]
         }
       },
-      { "close@common.close_button": { "layer": 6, "$close_button_offset": [-6, 6] } }
+      { "back@minecade_forms.back_arrow": {} }
     ]
   },
 
@@ -85,56 +163,28 @@
     "size": ["100%", "100%"],
     "controls": [
       {
-        "icon": {
-          "type": "image",
+        "icon@minecade_forms.button_icon": {
           "size": [20, 20],
           "anchor_from": "left_middle",
           "anchor_to": "left_middle",
-          "offset": [9, 0],
-          "layer": 2,
-          "bindings": [
-            {
-              "binding_name": "#form_button_texture",
-              "binding_name_override": "#texture",
-              "binding_type": "collection",
-              "binding_collection_name": "form_buttons"
-            },
-            {
-              "binding_name": "#form_button_texture_file_system",
-              "binding_name_override": "#texture_file_system",
-              "binding_type": "collection",
-              "binding_collection_name": "form_buttons"
-            }
-          ]
+          "offset": [9, 0]
         }
       },
       {
-        "label": {
-          "type": "label",
-          "text": "#form_button_text",
-          "color": [0.86, 0.96, 1.0],
-          "shadow": true,
+        "label@minecade_forms.button_label": {
           "anchor_from": "left_middle",
           "anchor_to": "left_middle",
-          "offset": [36, 0],
-          "layer": 2,
-          "bindings": [
-            {
-              "binding_name": "#form_button_text",
-              "binding_type": "collection",
-              "binding_collection_name": "form_buttons"
-            }
-          ]
+          "offset": [36, 0]
         }
       }
     ]
   },
 
-  // ---- Play: the game grid --------------------------------------------------------------------
-  // Up to 12 games as tiles, 4 across. Tiles past the last game hide themselves.
+  // ---- Play: the game grid ---------------------------------------------------------------------
+  // Three columns of wide cards (16:9 picture left, name and player count right), scrolling.
   "games_menu": {
     "type": "panel",
-    "size": [430, 300],
+    "size": [430, 290],
     "layer": 2,
     "bindings": [
       { "binding_name": "#title_text" },
@@ -154,82 +204,98 @@
           "shadow": true,
           "anchor_from": "top_middle",
           "anchor_to": "top_middle",
-          "offset": [0, 12],
+          "offset": [0, 11],
           "layer": 3
         }
       },
       {
-        "grid": {
-          "type": "grid",
-          "size": [408, 252],
+        "games@minecade_forms.scroll": {
+          "size": [420, 246],
           "anchor_from": "top_middle",
           "anchor_to": "top_middle",
-          "offset": [0, 32],
+          "offset": [0, 34],
           "layer": 3,
-          "grid_dimensions": [4, 3],
-          "grid_item_template": "minecade_forms.game_tile",
-          "collection_name": "form_buttons"
+          "$scrolling_content": "minecade_forms.games_columns"
         }
       },
-      { "close@common.close_button": { "layer": 6, "$close_button_offset": [-6, 6] } }
+      { "back@minecade_forms.back_arrow": {} }
     ]
   },
 
-  "game_tile": {
+  "games_columns": {
+    "type": "stack_panel",
+    "orientation": "horizontal",
+    "size": ["100%c", "100%cm"],
+    "anchor_from": "top_left",
+    "anchor_to": "top_left",
+    "controls": [
+      { "column_1@minecade_forms.games_column_1": {} },
+      { "column_2@minecade_forms.games_column_2": {} },
+      { "column_3@minecade_forms.games_column_3": {} }
+    ]
+  },
+
+  "games_column_1@minecade_forms.button_column": { "size": [136, "100%c"], "factory": { "name": "buttons", "control_ids": { "button": "@minecade_forms.game_card_1" } } },
+  "games_column_2@minecade_forms.button_column": { "size": [136, "100%c"], "factory": { "name": "buttons", "control_ids": { "button": "@minecade_forms.game_card_2" } } },
+  "games_column_3@minecade_forms.button_column": { "size": [136, "100%c"], "factory": { "name": "buttons", "control_ids": { "button": "@minecade_forms.game_card_3" } } },
+
+  "game_card_1@minecade_forms.game_card": { "$card_mark": "§q§1§r" },
+  "game_card_2@minecade_forms.game_card": { "$card_mark": "§q§2§r" },
+  "game_card_3@minecade_forms.game_card": { "$card_mark": "§q§3§r" },
+
+  "game_card": {
     "type": "panel",
-    "size": [102, 84],
+    "size": [136, 48],
+    "$card_mark|default": "",
     "bindings": [
       { "binding_name": "#form_button_text", "binding_type": "collection", "binding_collection_name": "form_buttons" },
-      { "binding_type": "view", "source_property_name": "(not (#form_button_text = ''))", "target_property_name": "#visible" }
+      {
+        "binding_type": "view",
+        "source_property_name": "(not ((#form_button_text - $card_mark) = #form_button_text))",
+        "target_property_name": "#visible"
+      }
     ],
     "controls": [
       {
         "button@common.button": {
           "$pressed_button_name": "button.form_button_click",
-          "size": [96, 78],
+          "size": [132, 44],
           "bindings": [{ "binding_type": "collection_details", "binding_collection_name": "form_buttons" }],
           "controls": [
-            { "default@minecade_forms.game_tile_face": { "$tile_texture": "textures/minecade/ui/tile_game_default" } },
-            { "hover@minecade_forms.game_tile_face": { "$tile_texture": "textures/minecade/ui/tile_game_hover" } },
-            { "pressed@minecade_forms.game_tile_face": { "$tile_texture": "textures/minecade/ui/tile_game_pressed" } }
+            { "default@minecade_forms.face": { "$tile_texture": "textures/minecade/ui/card_default" } },
+            { "hover@minecade_forms.face": { "$tile_texture": "textures/minecade/ui/card_hover" } },
+            { "pressed@minecade_forms.face": { "$tile_texture": "textures/minecade/ui/card_pressed" } }
           ]
         }
-      }
-    ]
-  },
-
-  "game_tile_face": {
-    "type": "image",
-    "texture": "$tile_texture",
-    "size": ["100%", "100%"],
-    "controls": [
+      },
       {
-        "icon@minecade_forms.button_icon": {
-          "size": [36, 36],
-          "anchor_from": "top_middle",
-          "anchor_to": "top_middle",
-          "offset": [0, 7]
+        "picture@minecade_forms.button_picture": {
+          "size": [60, 34],
+          "anchor_from": "left_middle",
+          "anchor_to": "left_middle",
+          "offset": [7, 0],
+          "layer": 4
         }
       },
       {
         "label@minecade_forms.button_label": {
-          "size": ["100% - 6px", "default"],
-          "text_alignment": "center",
-          "anchor_from": "bottom_middle",
-          "anchor_to": "bottom_middle",
-          "offset": [0, -5]
+          "size": [58, "default"],
+          "font_scale_factor": 0.85,
+          "anchor_from": "left_middle",
+          "anchor_to": "left_middle",
+          "offset": [72, 0],
+          "layer": 4
         }
       }
     ]
   },
 
-  // ---- Play: one game's screen ----------------------------------------------------------------
-  // Left: map tiles (form buttons 0 to 7; the selected one starts with '§s§e§l§r'). Right: the
-  // game's name and info, then the settings (buttons 9 and 10) and Start (button 8), placed by
-  // their fixed index (see lobby/behavior_pack/scripts/game-screen.ts).
+  // ---- Play: one game's screen -----------------------------------------------------------------
+  // Left: two scrolling columns of map tiles. Right: the game's name and info, its settings, and
+  // Start pinned to the bottom.
   "game_menu": {
     "type": "panel",
-    "size": [440, 232],
+    "size": [460, 250],
     "layer": 2,
     "bindings": [
       { "binding_name": "#title_text" },
@@ -249,100 +315,134 @@
           "shadow": true,
           "anchor_from": "top_left",
           "anchor_to": "top_left",
-          "offset": [16, 12],
+          "offset": [32, 11],
           "layer": 3
         }
       },
       {
-        "maps_grid": {
-          "type": "grid",
-          "size": [204, 168],
+        "maps@minecade_forms.scroll": {
+          "size": [226, 206],
           "anchor_from": "top_left",
           "anchor_to": "top_left",
-          "offset": [12, 30],
+          "offset": [8, 34],
           "layer": 3,
-          "grid_dimensions": [2, 4],
-          "grid_item_template": "minecade_forms.map_tile",
-          "collection_name": "form_buttons"
+          "$scrolling_content": "minecade_forms.map_columns"
         }
       },
       {
         "details": {
           "type": "panel",
-          "size": [200, 200],
+          "size": [208, 222],
           "anchor_from": "top_right",
           "anchor_to": "top_right",
-          "offset": [-14, 14],
+          "offset": [-12, 16],
           "layer": 3,
-          "collection_name": "form_buttons",
           "controls": [
             {
-              "name": {
-                "type": "label",
-                "text": "#title_text",
-                "color": [0.86, 0.96, 1.0],
-                "shadow": true,
-                "font_scale_factor": 1.5,
+              "top": {
+                "type": "stack_panel",
+                "orientation": "vertical",
+                "size": ["100%", "100%c"],
                 "anchor_from": "top_left",
                 "anchor_to": "top_left",
-                "bindings": [{ "binding_name": "#title_text" }]
+                "controls": [
+                  {
+                    "name": {
+                      "type": "label",
+                      "text": "#title_text",
+                      "color": [0.86, 0.96, 1.0],
+                      "shadow": true,
+                      "font_scale_factor": 1.4,
+                      "size": ["100%", "default"],
+                      "bindings": [{ "binding_name": "#title_text" }]
+                    }
+                  },
+                  { "gap": { "type": "panel", "size": ["100%", 5] } },
+                  {
+                    "info": {
+                      "type": "label",
+                      "text": "#form_text",
+                      "color": [0.62, 0.86, 1.0],
+                      "size": ["100%", "default"]
+                    }
+                  },
+                  { "gap_settings": { "type": "panel", "size": ["100%", 8] } },
+                  { "settings@minecade_forms.settings_column": {} }
+                ]
               }
             },
-            {
-              "info": {
-                "type": "label",
-                "text": "#form_text",
-                "color": [0.62, 0.86, 1.0],
-                "size": ["100%", "default"],
-                "anchor_from": "top_left",
-                "anchor_to": "top_left",
-                "offset": [0, 20]
-              }
-            },
-            { "setting_0@minecade_forms.wide_button": { "collection_index": 9, "anchor_from": "bottom_left", "anchor_to": "bottom_left", "offset": [0, -80] } },
-            { "setting_1@minecade_forms.wide_button": { "collection_index": 10, "anchor_from": "bottom_left", "anchor_to": "bottom_left", "offset": [0, -42] } },
-            { "start@minecade_forms.wide_button": { "collection_index": 8, "anchor_from": "bottom_left", "anchor_to": "bottom_left", "offset": [0, 0] } }
+            { "start@minecade_forms.start_column": { "size": ["100%", 36], "anchor_from": "bottom_left", "anchor_to": "bottom_left" } }
           ]
         }
       },
-      { "close@common.close_button": { "layer": 6, "$close_button_offset": [-6, 6] } }
+      { "back@minecade_forms.back_arrow": {} }
     ]
   },
 
+  "map_columns": {
+    "type": "stack_panel",
+    "orientation": "horizontal",
+    "size": ["100%c", "100%cm"],
+    "anchor_from": "top_left",
+    "anchor_to": "top_left",
+    "controls": [
+      { "column_a@minecade_forms.map_column_a": {} },
+      { "column_b@minecade_forms.map_column_b": {} }
+    ]
+  },
+
+  "map_column_a@minecade_forms.button_column": { "size": [108, "100%c"], "factory": { "name": "buttons", "control_ids": { "button": "@minecade_forms.map_tile_a" } } },
+  "map_column_b@minecade_forms.button_column": { "size": [108, "100%c"], "factory": { "name": "buttons", "control_ids": { "button": "@minecade_forms.map_tile_b" } } },
+
+  "map_tile_a@minecade_forms.map_tile": { "$tile_mark": "§m§1§r" },
+  "map_tile_b@minecade_forms.map_tile": { "$tile_mark": "§m§2§r" },
+
+  // The map's 16:9 preview, a dark fade, the white name, the selected outline, and a transparent
+  // button on top whose states draw only an outline.
   "map_tile": {
     "type": "panel",
-    "size": [102, 42],
+    "size": [108, 62],
+    "$tile_mark|default": "",
     "bindings": [
       { "binding_name": "#form_button_text", "binding_type": "collection", "binding_collection_name": "form_buttons" },
-      { "binding_type": "view", "source_property_name": "(not (#form_button_text = ''))", "target_property_name": "#visible" }
+      {
+        "binding_type": "view",
+        "source_property_name": "(not ((#form_button_text - $tile_mark) = #form_button_text))",
+        "target_property_name": "#visible"
+      }
     ],
     "controls": [
+      { "picture@minecade_forms.button_picture": { "size": [104, 58], "layer": 1 } },
       {
-        "button@common.button": {
-          "$pressed_button_name": "button.form_button_click",
-          "size": [98, 38],
-          "bindings": [{ "binding_type": "collection_details", "binding_collection_name": "form_buttons" }],
-          "controls": [
-            { "default@minecade_forms.map_tile_face": { "$tile_texture": "textures/minecade/ui/tile_map_default" } },
-            { "hover@minecade_forms.map_tile_face": { "$tile_texture": "textures/minecade/ui/tile_map_hover" } },
-            { "pressed@minecade_forms.map_tile_face": { "$tile_texture": "textures/minecade/ui/tile_map_pressed" } }
-          ]
+        "shade": {
+          "type": "image",
+          "texture": "textures/minecade/ui/fade_bottom",
+          "size": [104, 32],
+          "anchor_from": "bottom_middle",
+          "anchor_to": "bottom_middle",
+          "offset": [0, -2],
+          "fill": true,
+          "keep_ratio": false,
+          "layer": 2
         }
-      }
-    ]
-  },
-
-  "map_tile_face": {
-    "type": "image",
-    "texture": "$tile_texture",
-    "size": ["100%", "100%"],
-    "controls": [
+      },
+      {
+        "label@minecade_forms.button_label": {
+          "color": [1.0, 1.0, 1.0],
+          "anchor_from": "bottom_left",
+          "anchor_to": "bottom_left",
+          "offset": [8, -6],
+          "layer": 3
+        }
+      },
       {
         "selected": {
           "type": "image",
           "texture": "textures/minecade/ui/tile_map_selected",
-          "size": ["100%", "100%"],
-          "layer": 3,
+          "size": [104, 58],
+          "fill": true,
+          "keep_ratio": false,
+          "layer": 5,
           "bindings": [
             { "binding_name": "#form_button_text", "binding_type": "collection", "binding_collection_name": "form_buttons" },
             {
@@ -354,36 +454,48 @@
         }
       },
       {
-        "icon@minecade_forms.button_icon": {
-          "size": [18, 18],
-          "anchor_from": "left_middle",
-          "anchor_to": "left_middle",
-          "offset": [7, 0]
-        }
-      },
-      {
-        "label@minecade_forms.button_label": {
-          "anchor_from": "left_middle",
-          "anchor_to": "left_middle",
-          "offset": [30, 0]
+        "button@common.button": {
+          "$pressed_button_name": "button.form_button_click",
+          "size": [104, 58],
+          "layer": 4,
+          "bindings": [{ "binding_type": "collection_details", "binding_collection_name": "form_buttons" }],
+          "controls": [
+            { "default@minecade_forms.face": { "$tile_texture": "textures/minecade/ui/tile_map_default" } },
+            { "hover@minecade_forms.face": { "$tile_texture": "textures/minecade/ui/tile_map_hover" } },
+            { "pressed@minecade_forms.face": { "$tile_texture": "textures/minecade/ui/tile_map_pressed" } }
+          ]
         }
       }
     ]
   },
 
-  // Start and the settings: a full-width button at a fixed form button index ("collection_index").
-  "wide_button": {
+  // The settings (as many as the game has) and Start: full-width buttons in their own columns.
+  // Start's column is one button tall, so it stays pinned to the bottom.
+  "settings_column@minecade_forms.button_column": { "size": ["100%", "100%c"], "factory": { "name": "buttons", "control_ids": { "button": "@minecade_forms.setting_slot" } } },
+  "start_column@minecade_forms.button_column": { "size": ["100%", "100%c"], "factory": { "name": "buttons", "control_ids": { "button": "@minecade_forms.start_slot" } } },
+
+  "setting_slot@minecade_forms.wide_slot": { "$slot_mark": "§c§t§r" },
+  "start_slot@minecade_forms.wide_slot": { "$slot_mark": "§s§t§r" },
+
+  "wide_slot": {
     "type": "panel",
-    "size": [200, 32],
+    "size": ["100%", 36],
+    "$slot_mark|default": "",
     "bindings": [
       { "binding_name": "#form_button_text", "binding_type": "collection", "binding_collection_name": "form_buttons" },
-      { "binding_type": "view", "source_property_name": "(not (#form_button_text = ''))", "target_property_name": "#visible" }
+      {
+        "binding_type": "view",
+        "source_property_name": "(not ((#form_button_text - $slot_mark) = #form_button_text))",
+        "target_property_name": "#visible"
+      }
     ],
     "controls": [
       {
         "button@common.button": {
           "$pressed_button_name": "button.form_button_click",
-          "size": ["100%", "100%"],
+          "size": ["100%", 32],
+          "anchor_from": "top_left",
+          "anchor_to": "top_left",
           "bindings": [{ "binding_type": "collection_details", "binding_collection_name": "form_buttons" }],
           "controls": [
             { "default@minecade_forms.wide_button_face": { "$tile_texture": "textures/minecade/ui/button_default" } },
@@ -399,30 +511,8 @@
     "type": "image",
     "texture": "$tile_texture",
     "size": ["100%", "100%"],
+    "fill": true,
+    "keep_ratio": false,
     "controls": [{ "label@minecade_forms.button_label": { "anchor_from": "center", "anchor_to": "center" } }]
-  },
-
-  // The form button's icon and text, read from the button's place in the collection.
-  "button_icon": {
-    "type": "image",
-    "layer": 2,
-    "bindings": [
-      { "binding_name": "#form_button_texture", "binding_name_override": "#texture", "binding_type": "collection", "binding_collection_name": "form_buttons" },
-      {
-        "binding_name": "#form_button_texture_file_system",
-        "binding_name_override": "#texture_file_system",
-        "binding_type": "collection",
-        "binding_collection_name": "form_buttons"
-      }
-    ]
-  },
-
-  "button_label": {
-    "type": "label",
-    "text": "#form_button_text",
-    "color": [0.86, 0.96, 1.0],
-    "shadow": true,
-    "layer": 2,
-    "bindings": [{ "binding_name": "#form_button_text", "binding_type": "collection", "binding_collection_name": "form_buttons" }]
   }
 }

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { stripColors, type RegistryGame } from "@minecade/minigame-core";
-import { ICONS, MAP_SLOTS, SETTING_SLOTS, START_SLOT, defaultSettings, gameAction, mapOptions, nextSetting, playerRange, settingsFor } from "../behavior_pack/scripts/game-screen.ts";
-import { SELECTED, gameForm, gamesForm } from "../behavior_pack/scripts/menus.ts";
+import { MARK, PREVIEWS, defaultSettings, gameAction, gameButtons, mapOptions, nextSetting, playerRange, settingsFor } from "../behavior_pack/scripts/game-screen.ts";
+import { gameForm, gamesForm } from "../behavior_pack/scripts/menus.ts";
 
 const sumo: RegistryGame = {
   id: "sumo",
@@ -12,21 +12,21 @@ const sumo: RegistryGame = {
   icon: "textures/minecade/games/sumo",
   maps: [
     { id: "arena_1", name: "Arena" },
-    { id: "pit", name: "Pit", icon: "textures/minecade/maps/sumo/pit" },
+    { id: "pit", name: "Pit", preview: "textures/minecade/maps/sumo/pit" },
   ],
 };
 const teams: RegistryGame = { ...sumo, id: "paintball", name: "Paintball", teams: { count: [2, 4] } };
 const roles: RegistryGame = { ...sumo, id: "hide", name: "Hide and Seek", teams: { count: 2, defs: [{ id: "seekers", name: "Seekers", color: "§c", size: 1 }, { id: "hiders", name: "Hiders", color: "§a", size: "rest" }] } };
 
 describe("the game screen model", () => {
-  it("offers Random first, then the game's maps with their icons", () => {
+  it("offers Random first, then every map with its preview", () => {
     expect(mapOptions(sumo)).toEqual([
-      { id: "random", name: "Random", icon: ICONS.random },
-      { id: "arena_1", name: "Arena", icon: ICONS.map },
-      { id: "pit", name: "Pit", icon: "textures/minecade/maps/sumo/pit" },
+      { id: "random", name: "Random", preview: PREVIEWS.random },
+      { id: "arena_1", name: "Arena", preview: PREVIEWS.none },
+      { id: "pit", name: "Pit", preview: "textures/minecade/maps/sumo/pit" },
     ]);
     const many = { ...sumo, maps: Array.from({ length: 10 }, (_, i) => ({ id: `m${i}`, name: `Map ${i}` })) };
-    expect(mapOptions(many)).toHaveLength(MAP_SLOTS);
+    expect(mapOptions(many)).toHaveLength(11);
   });
 
   it("offers Pick or Random teams only for games where players pick their team", () => {
@@ -40,13 +40,17 @@ describe("the game screen model", () => {
     expect(nextSetting(setting, "random")).toBe("pick");
   });
 
-  it("maps each button to its action: maps, then Start, then the settings", () => {
-    expect(gameAction(sumo, 0)).toEqual({ kind: "map", map: "random" });
+  it("orders the buttons maps, then settings, then Start, and marks each for its column", () => {
+    expect(gameButtons(teams)).toEqual([
+      { action: { kind: "map", map: "random" }, mark: MARK.maps[0] },
+      { action: { kind: "map", map: "arena_1" }, mark: MARK.maps[1] },
+      { action: { kind: "map", map: "pit" }, mark: MARK.maps[0] },
+      { action: { kind: "setting", id: "teams" }, mark: MARK.setting },
+      { action: { kind: "start" }, mark: MARK.start },
+    ]);
     expect(gameAction(sumo, 2)).toEqual({ kind: "map", map: "pit" });
-    expect(gameAction(sumo, 5)).toBeUndefined(); // an empty map slot
-    expect(gameAction(sumo, START_SLOT)).toEqual({ kind: "start" });
-    expect(gameAction(sumo, START_SLOT + 1)).toBeUndefined();
-    expect(gameAction(teams, START_SLOT + 1)).toEqual({ kind: "setting", id: "teams" });
+    expect(gameAction(sumo, 3)).toEqual({ kind: "start" });
+    expect(gameAction(sumo, 4)).toBeUndefined();
   });
 
   it("writes player counts", () => {
@@ -56,26 +60,37 @@ describe("the game screen model", () => {
 });
 
 describe("the Play forms", () => {
-  it("shows a tile per game with its players, red when there aren't enough", () => {
+  it("shows a card per game with its players, red when there aren't enough, across three columns", () => {
     const form = gamesForm([
       { game: sumo, playable: true },
       { game: teams, playable: false, reason: "needs at least 2 players" },
+      { game: roles, playable: true },
+      { game: sumo, playable: true },
     ]) as unknown as { buttons: string[]; titleText: string };
     expect(stripColors(form.titleText)).toBe("Play");
-    expect(form.buttons).toEqual(["Sumo\n§72-6 players", "Paintball\n§cneeds at least 2 players"]);
+    expect(form.buttons).toEqual([
+      `${MARK.games[0]}Sumo\n§72-6 players`,
+      `${MARK.games[1]}Paintball\n§cneeds at least 2 players`,
+      `${MARK.games[2]}Hide and Seek\n§72-6 players`,
+      `${MARK.games[0]}Sumo\n§72-6 players`,
+    ]);
   });
 
-  it("lays out map tiles, then Start, then the settings, at fixed places", () => {
+  it("marks the map tiles, the chosen map, the settings and Start for their columns", () => {
     const form = gameForm({ choice: { game: teams, playable: true }, map: "pit", settings: { teams: "random" } }) as unknown as {
       buttons: string[];
       titleText: string;
       bodyText: string;
     };
     expect(stripColors(form.titleText)).toBe("Paintball");
-    expect(form.buttons).toHaveLength(MAP_SLOTS + 1 + SETTING_SLOTS);
-    expect(form.buttons.slice(0, 4)).toEqual(["Random", "Arena", `${SELECTED}Pit`, ""]);
-    expect(form.buttons[START_SLOT]).toBe("Start");
-    expect(form.buttons.slice(START_SLOT + 1)).toEqual(["Teams: Random", ""]);
+    expect(form.buttons).toEqual([
+      `${MARK.maps[0]}Random`,
+      `${MARK.maps[1]}Arena`,
+      `${MARK.maps[0]}${MARK.selected}Pit`,
+      `${MARK.setting}Teams: Random`,
+      `${MARK.start}Start`,
+    ]);
+    expect(form.buttons.map(stripColors)).toEqual(["Random", "Arena", "Pit", "Teams: Random", "Start"]);
     expect(stripColors(form.bodyText)).toBe("Knock everyone off.\n\n2-6 players");
   });
 
@@ -85,6 +100,6 @@ describe("the Play forms", () => {
       bodyText: string;
     };
     expect(stripColors(form.bodyText)).toContain("Sumo needs at least 2 players.");
-    expect(form.buttons[START_SLOT]).toBe("§7Start");
+    expect(form.buttons.at(-1)).toBe(`${MARK.start}§7Start`);
   });
 });

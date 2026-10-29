@@ -10,20 +10,9 @@
 // Closing a menu goes back one step; closing the main menu ends the session.
 import { Scope, say } from "@minecade/minigame-core";
 import { defaultSettings, gameAction, mapOptions, nextSetting, settingsFor } from "./game-screen.ts";
+import { gameContent, gamesContent, idleContent, mainContent, type HoloContent } from "./holo-content.ts";
 import type { GameChoice } from "./lobby-controller.ts";
 import type { GameView } from "./menus.ts";
-
-/** What the hologram shows. Must match the screen order in the lobby resource pack. */
-export type HoloScreen = "idle" | "main" | "main_play" | "main_stats" | "games" | "game";
-
-export interface HoloView {
-  screen: HoloScreen;
-  /** Who is at the terminal, shown on every side. */
-  user?: string;
-  /** The game on the game screen (its icon shows), and the selected map's name. */
-  game?: string;
-  map?: string;
-}
 
 export interface TerminalPorts {
   /** The themed main menu. Resolves the choice, or undefined if closed. Never settles if `scope` is disposed first. */
@@ -46,7 +35,7 @@ export interface TerminalPorts {
   closeForms(name: string): void;
   /** Blocks from the player to the terminal, or undefined if they're not here. */
   distance(name: string): number | undefined;
-  hologram(view: HoloView): void;
+  hologram(content: HoloContent): void;
 }
 
 export interface TerminalOptions {
@@ -101,14 +90,14 @@ export class TerminalController {
     scope.interval(() => this.watch(name), 10);
     try {
       for (;;) {
-        this.show({ screen: "main", user: name });
+        this.show(mainContent());
         const choice = await this.ports.mainMenu(name, scope);
         if (choice === undefined) return;
         if (choice === "play") {
-          this.show({ screen: "main_play", user: name });
+          this.show(mainContent("play"));
           if (await this.play(name, scope)) return;
         } else {
-          this.show({ screen: "main_stats", user: name });
+          this.show(mainContent("stats"));
           await scope.guard(this.ports.stats(name));
         }
       }
@@ -119,7 +108,7 @@ export class TerminalController {
 
   /** Shows the idle screen unless someone is using the terminal (at boot, and when it frees up). */
   refresh(): void {
-    if (this.user === undefined) this.ports.hologram({ screen: "idle" });
+    if (this.user === undefined) this.ports.hologram(idleContent());
   }
 
   onPlayerLeft(name: string): void {
@@ -134,8 +123,8 @@ export class TerminalController {
         this.ports.notify(name, busy);
         return false;
       }
-      this.show({ screen: "games", user: name });
       const choices = this.ports.choices();
+      this.show(gamesContent(choices));
       const index = await this.ports.gamesMenu(name, scope, choices);
       if (index === undefined) return false;
       const choice = choices[index];
@@ -153,7 +142,7 @@ export class TerminalController {
       if (!choice) return false;
       settings ??= defaultSettings(choice.game);
       const mapName = mapOptions(choice.game).find((option) => option.id === map)?.name ?? map;
-      this.show({ screen: "game", user: name, game: gameId, map: mapName });
+      this.show(gameContent(choice, mapName, settings));
       const selection = await this.ports.gameMenu(name, scope, { choice, map, settings });
       if (selection === undefined) return false;
       const action = gameAction(choice.game, selection);
@@ -170,9 +159,9 @@ export class TerminalController {
     }
   }
 
-  private show(view: HoloView): void {
+  private show(content: HoloContent): void {
     this.lastActivity = this.now();
-    this.ports.hologram(view);
+    this.ports.hologram(content);
   }
 
   /** Ends the session when its player walks away or leaves it alone too long. */
