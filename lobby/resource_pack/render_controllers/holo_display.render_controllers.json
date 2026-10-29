@@ -1,0 +1,24 @@
+{
+  "format_version": "1.10.0",
+  "render_controllers": {
+    "controller.render.minecade.holo_screen": {
+      "arrays": {
+        "textures": {
+          "Array.screens": ["Texture.idle", "Texture.main", "Texture.main_play", "Texture.main_stats"]
+        }
+      },
+      "geometry": "Geometry.default",
+      "materials": [{ "*": "Material.default" }],
+      "textures": ["Array.screens[q.property('minecade:screen')]"],
+      "part_visibility": [{ "*": false }, { "root": true }, { "screen": true }],
+      "ignore_lighting": true
+    },
+    "controller.render.minecade.holo_beam": {
+      "geometry": "Geometry.default",
+      "materials": [{ "*": "Material.default" }],
+      "textures": ["Texture.beam"],
+      "part_visibility": [{ "*": false }, { "root": true }, { "beam": true }],
+      "ignore_lighting": true
+    }
+  }
+}

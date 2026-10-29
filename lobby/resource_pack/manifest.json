@@ -1,0 +1,17 @@
+{
+  "format_version": 2,
+  "header": {
+    "name": "Minecade Lobby",
+    "description": "The lobby's terminal, hologram and holographic menus",
+    "uuid": "2d946071-8150-47a9-bfd8-27b8a4dbc206",
+    "version": [1, 0, 0],
+    "min_engine_version": [1, 26, 60]
+  },
+  "modules": [
+    {
+      "type": "resources",
+      "uuid": "ee99b49f-0dd5-42f5-9b1d-a804ea075c63",
+      "version": [1, 0, 0]
+    }
+  ]
+}

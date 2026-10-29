@@ -1,0 +1,231 @@
+{
+  "format_version": "1.21.100",
+  "minecraft:block": {
+    "description": {
+      "identifier": "minecade:terminal",
+      "menu_category": {
+        "category": "none"
+      },
+      "states": {
+        "minecade:part": {
+          "values": {
+            "min": 0,
+            "max": 8
+          }
+        }
+      }
+    },
+    "components": {
+      "minecade:terminal": {},
+      "minecraft:geometry": "minecraft:geometry.full_block",
+      "minecraft:material_instances": {
+        "*": {
+          "texture": "minecade_terminal_side",
+          "render_method": "opaque"
+        },
+        "up": {
+          "texture": "minecade_terminal_edge",
+          "render_method": "opaque"
+        }
+      },
+      "minecraft:light_emission": 6,
+      "minecraft:destructible_by_mining": false,
+      "minecraft:destructible_by_explosion": false,
+      "minecraft:map_color": "#1a3a5a"
+    },
+    "permutations": [
+      {
+        "condition": "q.block_state('minecade:part') == 0",
+        "components": {
+          "minecraft:material_instances": {
+            "*": {
+              "texture": "minecade_terminal_side",
+              "render_method": "opaque"
+            },
+            "up": {
+              "texture": "minecade_terminal_corner",
+              "render_method": "opaque"
+            }
+          },
+          "minecraft:transformation": {
+            "rotation": [
+              0,
+              0,
+              0
+            ]
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('minecade:part') == 2",
+        "components": {
+          "minecraft:material_instances": {
+            "*": {
+              "texture": "minecade_terminal_side",
+              "render_method": "opaque"
+            },
+            "up": {
+              "texture": "minecade_terminal_corner",
+              "render_method": "opaque"
+            }
+          },
+          "minecraft:transformation": {
+            "rotation": [
+              0,
+              -90,
+              0
+            ]
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('minecade:part') == 8",
+        "components": {
+          "minecraft:material_instances": {
+            "*": {
+              "texture": "minecade_terminal_side",
+              "render_method": "opaque"
+            },
+            "up": {
+              "texture": "minecade_terminal_corner",
+              "render_method": "opaque"
+            }
+          },
+          "minecraft:transformation": {
+            "rotation": [
+              0,
+              180,
+              0
+            ]
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('minecade:part') == 6",
+        "components": {
+          "minecraft:material_instances": {
+            "*": {
+              "texture": "minecade_terminal_side",
+              "render_method": "opaque"
+            },
+            "up": {
+              "texture": "minecade_terminal_corner",
+              "render_method": "opaque"
+            }
+          },
+          "minecraft:transformation": {
+            "rotation": [
+              0,
+              90,
+              0
+            ]
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('minecade:part') == 1",
+        "components": {
+          "minecraft:material_instances": {
+            "*": {
+              "texture": "minecade_terminal_side",
+              "render_method": "opaque"
+            },
+            "up": {
+              "texture": "minecade_terminal_edge",
+              "render_method": "opaque"
+            }
+          },
+          "minecraft:transformation": {
+            "rotation": [
+              0,
+              0,
+              0
+            ]
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('minecade:part') == 5",
+        "components": {
+          "minecraft:material_instances": {
+            "*": {
+              "texture": "minecade_terminal_side",
+              "render_method": "opaque"
+            },
+            "up": {
+              "texture": "minecade_terminal_edge",
+              "render_method": "opaque"
+            }
+          },
+          "minecraft:transformation": {
+            "rotation": [
+              0,
+              -90,
+              0
+            ]
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('minecade:part') == 7",
+        "components": {
+          "minecraft:material_instances": {
+            "*": {
+              "texture": "minecade_terminal_side",
+              "render_method": "opaque"
+            },
+            "up": {
+              "texture": "minecade_terminal_edge",
+              "render_method": "opaque"
+            }
+          },
+          "minecraft:transformation": {
+            "rotation": [
+              0,
+              180,
+              0
+            ]
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('minecade:part') == 3",
+        "components": {
+          "minecraft:material_instances": {
+            "*": {
+              "texture": "minecade_terminal_side",
+              "render_method": "opaque"
+            },
+            "up": {
+              "texture": "minecade_terminal_edge",
+              "render_method": "opaque"
+            }
+          },
+          "minecraft:transformation": {
+            "rotation": [
+              0,
+              90,
+              0
+            ]
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('minecade:part') == 4",
+        "components": {
+          "minecraft:material_instances": {
+            "*": {
+              "texture": "minecade_terminal_side",
+              "render_method": "opaque"
+            },
+            "up": {
+              "texture": "minecade_terminal_center",
+              "render_method": "opaque"
+            }
+          },
+          "minecraft:light_emission": 12
+        }
+      }
+    ]
+  }
+}

@@ -1,24 +1,31 @@
-// Lobby server script: gives every player the Game Selector compass and the Stats book, keeps
-// them on the platform, shows the orchestrator status, and connects the selector and stats
-// logic (lobby-controller.ts, stats-controller.ts) to players, forms and the orchestrator.
-import {
-  EntityComponentTypes,
-  ItemLockMode,
-  ItemStack,
-  system,
-  world,
-  type Player,
-  type Vector3,
-} from "@minecraft/server";
+// Lobby server script: places the terminal and its hologram, keeps players on the platform, and
+// connects the terminal, game selector and stats logic (terminal-controller.ts,
+// lobby-controller.ts, stats-controller.ts) to players, forms and the orchestrator.
+import { system, world, type Player, type Vector3 } from "@minecraft/server";
 import { ActionFormData, uiManager } from "@minecraft/server-ui";
-import { log, normalizePlayer, playChime, say, showForm, type Scope } from "@minecade/minigame-core";
+import { describeError, log, normalizePlayer, playChime, say, showForm, type Scope } from "@minecade/minigame-core";
 import { bootServer } from "@minecade/minigame-core/bootstrap";
 import registry from "#registry";
+import { Hologram } from "./hologram.ts";
 import { LobbyController, type GameChoice } from "./lobby-controller.ts";
+import { MAIN_MENU_CHOICES, mainMenuForm } from "./menus.ts";
 import { StatsController } from "./stats-controller.ts";
+import { TerminalController } from "./terminal-controller.ts";
 
-const COMPASS = "minecraft:compass";
-const BOOK = "minecraft:book";
+// Block components must be registered at startup, before the world (and bootServer) loads. Taps
+// are handed to the terminal once it exists; one per player per tick.
+let tapTerminal: (name: string) => void = () => {};
+const lastTap = new Map<string, number>();
+system.beforeEvents.startup.subscribe(({ blockComponentRegistry }) => {
+  blockComponentRegistry.registerCustomComponent("minecade:terminal", {
+    onPlayerInteract: ({ player }) => {
+      if (!player || lastTap.get(player.name) === system.currentTick) return;
+      lastTap.set(player.name, system.currentTick);
+      const name = player.name;
+      system.run(() => tapTerminal(name));
+    },
+  });
+});
 
 function playerNamed(name: string): Player | undefined {
   return world.getAllPlayers().find((player) => player.name === name);
@@ -113,6 +120,60 @@ bootServer(({ vars, transport, transfer, root }) => {
     root,
     { registry },
   );
+  // The terminal sits at the map's "terminal" point (the middle block of its 3x3 console).
+  const [tx, ty, tz] = vars.mapConfig.points?.terminal?.[0] ?? [0, 65, 0];
+  const overworld = world.getDimension("overworld");
+  const hologram = new Hologram(overworld, { x: tx, y: ty, z: tz });
+  const terminal = new TerminalController(
+    {
+      mainMenu: async (name, scope) => {
+        const player = playerNamed(name);
+        if (!player) return undefined;
+        const status = lobby.idle ? "Pick a game, or look up your stats." : lobby.statusLine();
+        const answer = await showForm(scope, player, mainMenuForm(status));
+        return answer?.selection === undefined ? undefined : MAIN_MENU_CHOICES[answer.selection];
+      },
+      play: (name) => lobby.openSelector(name),
+      stats: (name) => stats.openStats(name),
+      starting: () => lobby.starting,
+      statusLine: () => lobby.statusLine(),
+      notify: (name, text) => playerNamed(name)?.sendMessage(text),
+      closeForms: (name) => {
+        const player = playerNamed(name);
+        if (player) uiManager.closeAllForms(player);
+      },
+      distance: (name) => {
+        const player = playerNamed(name);
+        if (!player) return undefined;
+        const { x, z } = hologram.center;
+        return Math.hypot(player.location.x - x, player.location.z - z);
+      },
+      hologram: (screen, caption) => hologram.show(screen, caption),
+    },
+    root,
+    { now: () => system.currentTick },
+  );
+  tapTerminal = (name) => void terminal.tap(name);
+  // The area may only load once a player is near; ensure() is cheap once everything is there.
+  let placed = false;
+  const place = () => {
+    const ok = hologram.ensure();
+    if (ok && !placed) terminal.refresh();
+    placed = ok;
+  };
+  root.interval(place, 100);
+  // Keep the terminal's area loaded, so it's built before anyone joins.
+  const TICKING_AREA = "minecade_terminal";
+  if (!world.tickingAreaManager.getTickingArea(TICKING_AREA)) {
+    world.tickingAreaManager
+      .createTickingArea(TICKING_AREA, {
+        dimension: overworld,
+        from: { x: tx - 1, y: ty, z: tz - 1 },
+        to: { x: tx + 1, y: ty + 5, z: tz + 1 },
+      })
+      .then(place, (error: unknown) => log.warn(`could not keep the terminal loaded: ${describeError(error)}`));
+  }
+
   root.add(
     transport.onMessage((message) => {
       if (message.t !== "stats_reply") {
@@ -120,29 +181,16 @@ bootServer(({ vars, transport, transfer, root }) => {
       }
       lobby.onMessage(message);
       stats.onMessage(message);
+      terminal.refresh();
     }),
   );
 
   function setUp(player: Player): void {
     if (!player.isValid) return;
-    // Effects, input locks or a spectator game mode can follow a player back from a game.
+    // Effects, input locks, items or a spectator game mode can follow a player back from a game.
     normalizePlayer(player);
-    // Rejoining players otherwise appear wherever they logged out.
-    player.teleport(spawn);
-    const inventory = player.getComponent(EntityComponentTypes.Inventory)?.container;
-    if (inventory) {
-      const compass = new ItemStack(COMPASS, 1);
-      compass.nameTag = "Game Selector";
-      compass.lockMode = ItemLockMode.slot;
-      compass.keepOnDeath = true;
-      inventory.setItem(0, compass);
-      const book = new ItemStack(BOOK, 1);
-      book.nameTag = "Stats";
-      book.lockMode = ItemLockMode.slot;
-      book.keepOnDeath = true;
-      inventory.setItem(1, book);
-    }
-    player.selectedSlotIndex = 0;
+    // Rejoining players otherwise appear wherever they logged out. Everyone faces the terminal.
+    player.teleport(spawn, { facingLocation: hologram.center });
   }
 
   root.subscribe(world.afterEvents.playerSpawn, ({ player, initialSpawn }) => {
@@ -150,27 +198,15 @@ bootServer(({ vars, transport, transfer, root }) => {
     // A teleport during the spawn itself can be overridden by the client, so wait 2 ticks.
     root.timeout(() => {
       setUp(player);
+      if (!placed) place();
       if (player.isValid) lobby.onPlayerJoined(player.name);
     }, 2);
   });
   root.subscribe(world.afterEvents.playerLeave, ({ playerName }) => {
     lobby.onPlayerLeft(playerName);
     stats.onPlayerLeft(playerName);
-  });
-
-  // A tap can fire both events (and itemUse repeats while held): one form per tick per player.
-  const lastTap = new Map<string, number>();
-  const tap = (player: Player, item: string | undefined) => {
-    if (item !== COMPASS && item !== BOOK) return;
-    if (lastTap.get(player.name) === system.currentTick) return;
-    lastTap.set(player.name, system.currentTick);
-    if (item === COMPASS) void lobby.openSelector(player.name);
-    else void stats.openStats(player.name);
-  };
-  root.subscribe(world.afterEvents.itemUse, ({ source, itemStack }) => tap(source, itemStack.typeId));
-  // Aiming at a block (the platform) may skip itemUse.
-  root.subscribe(world.afterEvents.playerInteractWithBlock, ({ player, itemStack, isFirstEvent }) => {
-    if (isFirstEvent) tap(player, itemStack?.typeId);
+    terminal.onPlayerLeft(playerName);
+    lastTap.delete(playerName);
   });
 
   // Anyone who walks or falls out of the lobby area goes back to spawn.

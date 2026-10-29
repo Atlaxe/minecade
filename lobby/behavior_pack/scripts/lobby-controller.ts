@@ -100,7 +100,7 @@ export class LobbyController {
         return;
       case "game_ended":
         if (pending?.sessionId === message.sessionId) this.clearPending();
-        this.ports.notify("all", say.minor(`The last game ended (${message.reason}). Use the compass to start another.`));
+        this.ports.notify("all", say.minor(`The last game ended (${message.reason}). Use the terminal to start another.`));
         return;
       default:
         return;
@@ -135,6 +135,32 @@ export class LobbyController {
       return;
     }
     this.start(name, picked.game, choice.map);
+  }
+
+  /** True while this lobby is starting a game (from the request until everyone is sent). */
+  get starting(): boolean {
+    return this.pending !== undefined;
+  }
+
+  /** True when nothing is running or starting: a game can be started. */
+  get idle(): boolean {
+    return !this.pending && this.status.state === "idle";
+  }
+
+  /** One line about the network's state, for the terminal's idle hologram. */
+  statusLine(): string {
+    if (this.pending) return `Starting ${this.pending.game.name}...`;
+    const game = this.gameName(this.status.game);
+    switch (this.status.state) {
+      case "starting":
+        return `${game} is starting`;
+      case "running":
+        return `${game} in progress (${this.status.players.length} playing)`;
+      case "stopping":
+        return `Wrapping up ${game}`;
+      default:
+        return "Tap the terminal to play";
+    }
   }
 
   onPlayerJoined(name: string): void {

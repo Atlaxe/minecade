@@ -5,7 +5,7 @@ your own Windows PC with Docker, only while you want it: a lobby where anyone ca
 game servers that start on demand, and automatic transfers between them. Players on Xbox,
 PlayStation, PC and phone can all join.
 
-- **Lobby** (port 19132): a Game Selector compass and a Stats book.
+- **Lobby** (port 19132): a holographic terminal where anyone can pick a game or look up stats.
 - **Game server** (port 19133): one game at a time, started from a fresh copy of its map and
   removed when the game ends.
 - **Orchestrator:** starts and stops game servers, routes players, and stores player stats.
@@ -132,10 +132,11 @@ Gamertags in `LAN_PLAYERS` are sent to `LAN_HOST` instead.
 
 ## Playing
 
-- **Game Selector (compass, first slot):** pick a game, a map (or random), then confirm.
-  Everyone in the lobby goes, up to the game's player limit. Anyone who arrives while a game is
-  running waits in the lobby for the next one.
-- **Stats (book, second slot):** your wins, kills, K/D and more, overall and per game.
+- **The terminal** (the glowing 3x3 console in the middle of the lobby): tap it for the menu.
+  One player uses it at a time, and the hologram above it shows everyone what they're doing.
+  - **Play:** pick a game, a map (or random), then confirm. Everyone in the lobby goes, up to the
+    game's player limit. Anyone who arrives while a game is running waits for the next one.
+  - **Stats:** your wins, kills, K/D and more, overall and per game.
 - After the game, everyone is sent back to the lobby automatically.
 
 Games wait up to 30 seconds for everyone to arrive, then count down with everyone frozen in
@@ -227,13 +228,13 @@ described in [docs/maps.md](docs/maps.md).
 
 Run `npm run smoke` first, then check by hand with a console or phone player if you can:
 
-1. Join the lobby. You get the compass and the Stats book, and the action bar says
-   "Use the compass to pick a game".
-2. Use the compass: pick Sumo and confirm. Everyone sees the countdown and is transferred.
+1. Join the lobby, facing the terminal; its hologram says "Tap the terminal".
+2. Tap the terminal, choose Play, pick Sumo and confirm. Everyone sees the countdown and is
+   transferred.
 3. On the game server: the countdown freezes everyone, then the match starts.
 4. Play to a win. The winner's title shows, then everyone is back in the lobby within about 10
    seconds.
-5. Open the Stats book: the match is counted.
+5. Tap the terminal and open Stats: the match is counted.
 6. `docker ps` shows no `minecade-game-` container.
 
 ## Troubleshooting

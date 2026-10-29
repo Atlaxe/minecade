@@ -244,7 +244,7 @@ describe("LobbyController: recovering", () => {
   it("announces the end of a game", () => {
     const t = setup();
     t.say({ t: "game_ended", sessionId: "s1", reason: "finished" });
-    expect(t.notesTo("all")).toEqual(["The last game ended (finished). Use the compass to start another."]);
+    expect(t.notesTo("all")).toEqual(["The last game ended (finished). Use the terminal to start another."]);
   });
 
   it("closes a player's selector when they leave", () => {

@@ -1,7 +1,7 @@
 # Look and feel
 
-How Minecade talks to players and how its lobby UI is built. Later parts of the UI pass (the
-terminal, hologram and menus) add their sections here.
+How Minecade talks to players and how its lobby UI is built: messages and colors, the HUD clock,
+countdown sounds, and the lobby terminal with its hologram and themed menus.
 
 ## Messages and colors
 
@@ -94,3 +94,47 @@ HUD clock now, and other shared UI later. The build stamps every resource pack's
 hash of its files, because clients cache server packs by UUID and version and would otherwise keep
 an old copy. Images come from `tools/assets/make-assets.py` (Pillow): rerun it after changing the
 art and commit the PNGs it writes.
+
+## The lobby terminal
+
+The lobby's menus live on a terminal in the middle of the lobby, not on items. One player uses it
+at a time; a public hologram above it shows everyone what they're doing.
+
+| Screen | The terminal's user sees | Everyone sees (the hologram) |
+|---|---|---|
+| Idle | nothing | The logo, "Tap the terminal", and a status line ("Sumo in progress (3 playing)") |
+| Main | The themed menu: logo, Play and Stats | Play and Stats, the chosen one lit, and "<name> is at the terminal" |
+
+(The game picker, team picking and the stats screens get their own screens next.)
+
+**Pieces:**
+
+- **The console:** nine `minecade:terminal` blocks (`lobby/behavior_pack/blocks/terminal.json`),
+  one block type with a `minecade:part` state from 0 to 8 (reading order from the north-west
+  corner). The top faces are drawn for the north-west corner and the north edge, and each part
+  rotates its block. The center is the glowing projector. Tapping any part calls the
+  `minecade:terminal` custom component, registered in `main.ts` at startup.
+- **The hologram:** one `minecade:holo_display` entity (`behavior_pack/entities/holo_display.json`,
+  `resource_pack/entity/...`). Its model is four 3x3 panels facing out, so it reads from every
+  side, plus a projection beam. The `minecade:screen` property (client-synced) picks the picture
+  from `Array.screens` in `render_controllers/holo_display.render_controllers.json`; the order
+  must match `SCREENS` in `scripts/hologram.ts`. It uses the `entity_beam_additive` material, so
+  black is see-through and colors glow.
+- **The caption:** a `TextPrimitive` floating above the hologram, for live text (who's at the
+  terminal, the network status).
+- **Placement:** the map's `points.terminal` is the middle console block. At boot the lobby
+  keeps that area loaded (a ticking area), places the console, spawns the hologram and caption,
+  and checks every 5 seconds that they're still there.
+- **The lock:** `TerminalController` (`scripts/terminal-controller.ts`, unit-tested with ports).
+  The session ends when its player closes the menu, starts a game, leaves, walks more than 8
+  blocks away, or leaves it alone for 2 minutes.
+
+**Themed menus:** a form whose title starts with a layout mark (formatting codes that never
+render, `LAYOUT` in `scripts/menus.ts`) gets Minecade's layout from the lobby resource pack:
+`ui/server_form.json` merges a second form factory into the vanilla screen and hides the vanilla
+form for marked titles, and `ui/minecade_forms.json` holds the layouts. Without the pack, marked
+forms are plain forms with a readable title. A test checks the marks match the pack.
+
+**Art:** `tools/assets/make-assets.py` draws the hologram screens, the beam, the console faces,
+the menu panel, tiles and icons, and recolors the logo (`tools/assets/source/minecade-title.png`,
+orange) to holographic blue.

@@ -1,0 +1,142 @@
+{
+  "namespace": "minecade_forms",
+
+  // Every Minecade layout lives in here; each shows only for its own title mark.
+  "long_form": {
+    "type": "panel",
+    "size": ["100%c", "100%c"],
+    "controls": [{ "main_menu@minecade_forms.main_menu": {} }]
+  },
+
+  // The terminal's main menu: logo, a status line (the form body) and the Play and Stats tiles.
+  "main_menu": {
+    "type": "panel",
+    "size": [300, 196],
+    "layer": 2,
+    "bindings": [
+      { "binding_name": "#title_text" },
+      {
+        "binding_type": "view",
+        "source_property_name": "(not ((#title_text - '§m§a§i§n') = #title_text))",
+        "target_property_name": "#visible"
+      }
+    ],
+    "controls": [
+      { "background": { "type": "image", "texture": "textures/minecade/ui/panel", "size": ["100%", "100%"], "layer": 1 } },
+      {
+        "logo": {
+          "type": "image",
+          "texture": "textures/minecade/ui/logo",
+          "size": [232, 50],
+          "anchor_from": "top_middle",
+          "anchor_to": "top_middle",
+          "offset": [0, 10],
+          "layer": 3
+        }
+      },
+      {
+        "status": {
+          "type": "label",
+          "text": "#form_text",
+          "color": [0.62, 0.86, 1.0],
+          "shadow": true,
+          "text_alignment": "center",
+          "size": ["90%", "default"],
+          "anchor_from": "top_middle",
+          "anchor_to": "top_middle",
+          "offset": [0, 62],
+          "layer": 3
+        }
+      },
+      {
+        "tiles": {
+          "type": "stack_panel",
+          "orientation": "horizontal",
+          "size": ["100%c", 80],
+          "anchor_from": "bottom_middle",
+          "anchor_to": "bottom_middle",
+          "offset": [0, -16],
+          "layer": 3,
+          "factory": {
+            "name": "buttons",
+            "control_ids": { "button": "@minecade_forms.tile_button" }
+          },
+          "collection_name": "form_buttons",
+          "bindings": [{ "binding_name": "#form_button_contents", "binding_name_override": "#collection_length" }]
+        }
+      },
+      { "close@common.close_button": { "layer": 6, "$close_button_offset": [-6, 6] } }
+    ]
+  },
+
+  // A tile: icon on top, label below. Hover and pressed states brighten it.
+  "tile_button": {
+    "type": "panel",
+    "size": [120, 80],
+    "controls": [
+      {
+        "button@common.button": {
+          "$pressed_button_name": "button.form_button_click",
+          "size": [110, 74],
+          "bindings": [{ "binding_type": "collection_details", "binding_collection_name": "form_buttons" }],
+          "controls": [
+            { "default@minecade_forms.tile_face": { "$tile_texture": "textures/minecade/ui/tile_default" } },
+            { "hover@minecade_forms.tile_face": { "$tile_texture": "textures/minecade/ui/tile_hover" } },
+            { "pressed@minecade_forms.tile_face": { "$tile_texture": "textures/minecade/ui/tile_pressed" } }
+          ]
+        }
+      }
+    ]
+  },
+
+  "tile_face": {
+    "type": "image",
+    "texture": "$tile_texture",
+    "size": ["100%", "100%"],
+    "controls": [
+      {
+        "icon": {
+          "type": "image",
+          "size": [30, 30],
+          "anchor_from": "top_middle",
+          "anchor_to": "top_middle",
+          "offset": [0, 9],
+          "layer": 2,
+          "bindings": [
+            {
+              "binding_name": "#form_button_texture",
+              "binding_name_override": "#texture",
+              "binding_type": "collection",
+              "binding_collection_name": "form_buttons"
+            },
+            {
+              "binding_name": "#form_button_texture_file_system",
+              "binding_name_override": "#texture_file_system",
+              "binding_type": "collection",
+              "binding_collection_name": "form_buttons"
+            }
+          ]
+        }
+      },
+      {
+        "label": {
+          "type": "label",
+          "text": "#form_button_text",
+          "color": [0.86, 0.96, 1.0],
+          "shadow": true,
+          "anchor_from": "bottom_middle",
+          "anchor_to": "bottom_middle",
+          "offset": [0, -10],
+          "layer": 2,
+          "bindings": [
+            {
+              "binding_name": "#form_button_text",
+              "binding_type": "collection",
+              "binding_collection_name": "form_buttons"
+            }
+          ]
+        }
+      }
+    ]
+  }
+}

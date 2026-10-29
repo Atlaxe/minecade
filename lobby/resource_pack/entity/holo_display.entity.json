@@ -1,0 +1,20 @@
+{
+  "format_version": "1.10.0",
+  "minecraft:client_entity": {
+    "description": {
+      "identifier": "minecade:holo_display",
+      "materials": { "default": "entity_beam_additive" },
+      "textures": {
+        "idle": "textures/minecade/holo/idle",
+        "main": "textures/minecade/holo/main",
+        "main_play": "textures/minecade/holo/main_play",
+        "main_stats": "textures/minecade/holo/main_stats",
+        "beam": "textures/minecade/holo/beam"
+      },
+      "geometry": { "default": "geometry.minecade.holo_display" },
+      "animations": { "float": "animation.minecade.holo_display.float" },
+      "scripts": { "animate": ["float"] },
+      "render_controllers": ["controller.render.minecade.holo_screen", "controller.render.minecade.holo_beam"]
+    }
+  }
+}
