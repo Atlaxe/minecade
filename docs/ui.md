@@ -63,10 +63,12 @@ decides the result (the highest score, or a draw).
 
 The clock shows top right with a clock icon, turning red in the last 30 seconds. Bedrock has no
 script API for placing text on the HUD, so it rides on the action bar: games send
-`::T04:59|<rest of the line>` (`::R` in the last 30 seconds, see `hudLine()` in
+`::T 4:59|<rest of the line>` (`::R` in the last 30 seconds, see `hudLine()` in
 `packages/minigame-core/src/hud.ts`), and the core resource pack's `ui/hud_screen.json` splits it:
 the clock goes top right and the rest shows as the normal action bar line. Without the pack the
-line still reads as text. To see JSON UI errors in the client, turn on Settings, Creator, Content
+line still reads as text. In JSON UI, engine variables such as `$actionbar_text` only work in
+expressions after being copied into the control's own variable (`"$atext": "$actionbar_text"`),
+and expressions go in plain properties (`"visible"`, `"text"`), not view bindings. To see JSON UI errors in the client, turn on Settings, Creator, Content
 Log GUI.
 
 ## Countdown sounds

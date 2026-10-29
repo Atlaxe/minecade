@@ -15,6 +15,9 @@ const GAME_PORT = 19133;
 const root = fileURLToPath(new URL("../../", import.meta.url));
 const docker = connectDocker();
 let failures = 0;
+// Right after a restart, Docker's port proxy accepts connections before the orchestrator listens,
+// so a request can hang on fetch's unref'd timeout timer alone; Node would then exit mid-wait.
+setInterval(() => {}, 60_000);
 
 function pass(text: string): void {
   console.log(`  PASS  ${text}`);

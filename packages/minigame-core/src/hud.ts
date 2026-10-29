@@ -1,11 +1,11 @@
 // The HUD timer and countdown sounds, shared by games and the lobby.
 //
 // Timer: Bedrock has no script API for placing text on the HUD, so the clock rides on the action
-// bar. A game sends "<mark><mm:ss>|<rest>", and the core resource pack
+// bar. A game sends "<mark><m:ss>|<rest>", and the core resource pack
 // (packages/minigame-core/resource_pack/ui/hud_screen.json) shows the clock top right with a clock
 // icon and the rest as the normal action bar line. The mark and time are plain ASCII with a fixed
-// width (9 characters), so JSON UI can split them with '%.9s'. Without the pack the line still
-// reads sensibly: "::T04:59|Lives: 2".
+// width (9 characters: minutes are padded with a space, " 4:59"), so JSON UI can split them with
+// '%.9s'. Without the pack the line still reads: "::T 4:59|Lives: 2".
 import type { Player } from "@minecraft/server";
 
 export const TIMER_MARK = "::T";
@@ -17,7 +17,7 @@ const URGENT_SECONDS = 30;
 export function hudLine(secondsLeft: number | undefined, rest = ""): string {
   if (secondsLeft === undefined) return rest;
   const whole = Math.min(99 * 60 + 59, Math.max(0, Math.ceil(secondsLeft)));
-  const clock = `${String(Math.floor(whole / 60)).padStart(2, "0")}:${String(whole % 60).padStart(2, "0")}`;
+  const clock = `${String(Math.floor(whole / 60)).padStart(2, " ")}:${String(whole % 60).padStart(2, "0")}`;
   return `${whole <= URGENT_SECONDS ? TIMER_URGENT_MARK : TIMER_MARK}${clock}|${rest}`;
 }
 

@@ -4,9 +4,10 @@ import { world } from "./fake-mc-server.ts";
 
 describe("hudLine", () => {
   it("prefixes the line with the mark and a fixed-width clock", () => {
-    expect(hudLine(299)).toBe("::T04:59|");
-    expect(hudLine(65, "Lives: 2")).toBe("::T01:05|Lives: 2");
-    expect(hudLine(4.2)).toBe("::R00:05|"); // partial seconds round up
+    expect(hudLine(299)).toBe("::T 4:59|");
+    expect(hudLine(65, "Lives: 2")).toBe("::T 1:05|Lives: 2");
+    expect(hudLine(4.2)).toBe("::R 0:05|"); // partial seconds round up
+    expect(hudLine(600)).toBe("::T10:00|");
   });
 
   it("turns urgent in the last 30 seconds, and stays 9 characters for the resource pack to split", () => {
