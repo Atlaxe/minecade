@@ -103,9 +103,12 @@ at a time; a public hologram above it shows everyone what they're doing.
 | Screen | The terminal's user sees | Everyone sees (the hologram) |
 |---|---|---|
 | Idle | nothing | The idle picture (the logo, "Tap the terminal") |
-| Main | The themed menu: logo, Play and Stats side by side | Play and Stats, the chosen one lit |
+| Main | The themed menu: logo, Play and Stats side by side | Play and Stats, the chosen one lit, and the user's name |
+| Play | A grid of game tiles: icon, name, players needed (red when there aren't enough) | The game grid picture and the user's name |
+| Game | Left: map tiles (Random first, the chosen one outlined). Right: the game's name and info, a red warning when there aren't enough players, settings (Teams: Pick or Random, for team games), Start | The game picture with the game's icon, "Map: ...", and the user's name |
 
-(The game picker, team picking and the stats screens get their own screens next.)
+Closing a menu goes back one step (game screen to grid to main menu); closing the main menu ends
+the session. Team picking and the stats screens get their own screens next.
 
 **Pieces:**
 
@@ -122,12 +125,25 @@ at a time; a public hologram above it shows everyone what they're doing.
   (client-synced) picks the picture from `Array.screens` in
   `render_controllers/holo_display.render_controllers.json`; the order must match `SCREENS` in
   `scripts/hologram.ts`.
+- **The game icon:** the hologram's `minecade:game` property picks an icon (from `Array.icons` in
+  the `holo_icon` render controller), shown on each side on the game screen. The build fills that
+  list from the games in registry order (icon 0 is none), and the lobby script uses the same order.
+- **Names and info:** text fixed to each of the four sides (`TextPrimitive`s in
+  `scripts/hologram.ts`): the user's name, and the chosen map on the game screen. If the text ever
+  reads from the inside, add 180 to every yaw in `SIDES`.
 - **Placement:** the map's `points.terminal` is the middle console block. At boot the lobby
   keeps that area loaded (a ticking area), places the console and spawns the hologram, and
   checks every 5 seconds that they're still there.
 - **The lock:** `TerminalController` (`scripts/terminal-controller.ts`, unit-tested with ports).
   The session ends when its player closes the menu, starts a game, leaves, walks more than 8
   blocks away, or leaves it alone for 2 minutes.
+
+**The game screen's buttons** sit at fixed places so the themed layout can split them into two
+columns: map tiles first (8, padded with empty buttons; the selected one starts with an invisible
+`SELECTED` mark), then Start (button 8), then the settings (buttons 9 and 10). The layout pins
+Start and the settings by `collection_index`. See `scripts/game-screen.ts`. Start sends
+`start_game` with the settings, the orchestrator passes them to the game server as `GAME_SETTINGS`,
+and a game reads them from `ctx.vars.settings` (random teams skips team picking).
 
 **Themed menus:** a form whose title starts with a layout mark (formatting codes that never
 render, `LAYOUT` in `scripts/menus.ts`) gets Minecade's layout from the lobby resource pack:
@@ -163,7 +179,16 @@ overwrites any edits. Images are stretched to their display size, so keep each o
 | `lobby/resource_pack/textures/minecade/ui/panel.png` | Main menu background, 300x116 | 600x232 |
 | `lobby/resource_pack/textures/minecade/ui/tile_default.png`, `tile_hover.png`, `tile_pressed.png` | Menu buttons, 136x34 | 272x68 |
 | `lobby/resource_pack/textures/minecade/ui/icon_play.png`, `icon_stats.png` | Button icons, 20x20 | 64x64 |
-| `lobby/resource_pack/textures/minecade/holo/idle.png`, `main.png`, `main_play.png`, `main_stats.png` | Hologram screens, 3x3 blocks on all four sides | 512x512 (square), additive |
+| `lobby/resource_pack/textures/minecade/ui/panel_grid.png` | Game grid background, 430x300 | 860x600 |
+| `lobby/resource_pack/textures/minecade/ui/tile_game_default.png`, `_hover`, `_pressed` | Game tiles, 96x78 | 192x156 |
+| `lobby/resource_pack/textures/minecade/ui/panel_game.png` | Game screen background, 440x232 | 880x464 |
+| `lobby/resource_pack/textures/minecade/ui/tile_map_default.png`, `_hover`, `_pressed` | Map tiles, 98x38 | 196x76 |
+| `lobby/resource_pack/textures/minecade/ui/tile_map_selected.png` | Drawn over the chosen map's tile, 98x38 | 196x76, transparent middle |
+| `lobby/resource_pack/textures/minecade/ui/button_default.png`, `_hover`, `_pressed` | Start and setting buttons, 200x32 | 400x64 |
+| `lobby/resource_pack/textures/minecade/ui/icon_random.png`, `icon_map.png` | Map tile icons (Random, and maps without their own icon), 18x18 | 64x64 |
+| `games/<id>/icon.png` | The game's tile icon (36x36) and its hologram icon | 128x128, required for every game |
+| `games/<id>/maps/<map>/icon.png` | A map tile's icon, 18x18 (optional) | 64x64 |
+| `lobby/resource_pack/textures/minecade/holo/idle.png`, `main.png`, `main_play.png`, `main_stats.png`, `games.png`, `game.png` | Hologram screens, 3x3 blocks on all four sides; `game.png` gets the game's icon over its upper middle | 512x512 (square), additive |
 | `lobby/resource_pack/textures/minecade/holo/beam.png` | Projection beam, two crossed planes 2 wide by 2.5 tall | 128x256, additive, the projector at the bottom |
 | `lobby/resource_pack/textures/minecade/blocks/terminal_side.png` | Console sides | 16x16 |
 | `lobby/resource_pack/textures/minecade/blocks/terminal_corner.png`, `terminal_edge.png`, `terminal_center.png` | Console tops | 16x16; the corner is drawn as the north-west corner (rims on the north and west sides) and the edge as the north edge, and the blocks rotate them into place |

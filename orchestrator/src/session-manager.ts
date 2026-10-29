@@ -125,7 +125,7 @@ export class SessionManager {
 
     try {
       session.publicIp = await this.deps.publicIp();
-      const handle = await this.launch(this.gameSpec(session, request.players));
+      const handle = await this.launch(this.gameSpec(session, request.players, cleanSettings(request.settings)));
       if (this.session !== session || session.state === "stopping") {
         // The session ended (aborted or timed out) while the container was starting.
         await handle.remove();
@@ -205,7 +205,7 @@ export class SessionManager {
     return { ok: false, reason };
   }
 
-  private gameSpec(session: Session, players: string[]): GameSpec {
+  private gameSpec(session: Session, players: string[], settings: Record<string, string>): GameSpec {
     const config = this.deps.config;
     return {
       name: `minecade-game-${session.id}`,
@@ -229,6 +229,7 @@ export class SessionManager {
         ALLOW_LIST: config.allowList,
         DEV_MIN_PLAYERS: config.devMinPlayers,
         EXPECTED_PLAYERS: players.join(","),
+        GAME_SETTINGS: JSON.stringify(settings),
         MAX_PLAYERS: String(session.game.maxPlayers + 2),
         SERVER_NAME: `Minecade ${session.game.name}`,
       },
@@ -383,6 +384,16 @@ export class SessionManager {
     this.pushStatus();
     for (const resolve of this.idleWaiters.splice(0)) resolve();
   }
+}
+
+/** At most 8 settings of short ids and values; anything else is dropped. */
+export function cleanSettings(settings: unknown): Record<string, string> {
+  if (typeof settings !== "object" || settings === null || Array.isArray(settings)) return {};
+  const clean: Record<string, string> = {};
+  for (const [key, value] of Object.entries(settings).slice(0, 8)) {
+    if (/^[a-z][a-zA-Z0-9_]{0,31}$/.test(key) && typeof value === "string" && value.length <= 32) clean[key] = value;
+  }
+  return clean;
 }
 
 function isPortBusy(error: unknown): boolean {

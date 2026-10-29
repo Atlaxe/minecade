@@ -1,27 +1,50 @@
-// The terminal in the world: the 3x3 console of minecade:terminal blocks and the hologram display
-// above it (minecade:holo_display, whose "minecade:screen" property picks the picture). Both are
-// (re)built at boot; the area may not be loaded yet, so placing retries until it works.
-import { BlockPermutation, type Dimension, type Entity, type Vector3 } from "@minecraft/server";
+// The terminal in the world: the 3x3 console of minecade:terminal blocks, the hologram display
+// above it (minecade:holo_display: its "minecade:screen" property picks the picture and
+// "minecade:game" the game icon), and on each of the hologram's four sides, text fixed to the
+// panel: who's at the terminal, and the selected map. Everything is (re)built at boot; the area
+// may not be loaded yet, so placing retries until it works.
+import { BlockPermutation, TextPrimitive, world, type Dimension, type Entity, type Vector3 } from "@minecraft/server";
 import { describeError, log } from "@minecade/minigame-core";
-import type { HoloScreen } from "./terminal-controller.ts";
+import type { HoloScreen, HoloView } from "./terminal-controller.ts";
 
 /** The hologram's pictures, in the order of the lobby resource pack's Array.screens. */
-const SCREENS: Record<HoloScreen, number> = { idle: 0, main: 1, main_play: 2, main_stats: 3 };
+const SCREENS: Record<HoloScreen, number> = { idle: 0, main: 1, main_play: 2, main_stats: 3, games: 4, game: 5 };
 const DISPLAY = "minecade:holo_display";
 const BLOCK = "minecade:terminal";
+/** How far the text sits from the middle: just in front of the 3-block-wide panels. */
+const TEXT_OUT = 1.56;
+/**
+ * The four sides: an outward direction and the text's yaw (0 faces south). If the text ever reads
+ * from the inside, add 180 to every yaw.
+ */
+const SIDES = [
+  { x: 0, z: 1, yaw: 0 },
+  { x: -1, z: 0, yaw: 90 },
+  { x: 0, z: -1, yaw: 180 },
+  { x: 1, z: 0, yaw: 270 },
+] as const;
+
+interface SideText {
+  name: TextPrimitive;
+  info: TextPrimitive;
+}
 
 export class Hologram {
   private readonly dimension: Dimension;
   /** The middle terminal block. */
   private readonly point: Vector3;
+  /** The game's icon index in the resource pack's Array.icons (0 for none). */
+  private readonly iconOf: (game: string) => number;
   private display: Entity | undefined;
-  private screen: HoloScreen = "idle";
+  private texts: SideText[] = [];
+  private view: HoloView = { screen: "idle" };
   private waitingLogged = false;
   private readyLogged = false;
 
-  constructor(dimension: Dimension, point: Vector3) {
+  constructor(dimension: Dimension, point: Vector3, iconOf: (game: string) => number) {
     this.dimension = dimension;
     this.point = point;
+    this.iconOf = iconOf;
   }
 
   /** The top center of the terminal: where the projection starts. */
@@ -45,8 +68,8 @@ export class Hologram {
     }
   }
 
-  show(screen: HoloScreen): void {
-    this.screen = screen;
+  show(view: HoloView): void {
+    this.view = view;
     this.apply();
   }
 
@@ -66,14 +89,43 @@ export class Hologram {
 
   private spawnDisplay(): void {
     for (const old of this.dimension.getEntities({ type: DISPLAY })) old.remove();
-    const { x, y, z } = this.center;
+    const { y } = this.center;
     // The display's origin is the middle of its 3x3x3 volume, 2 blocks above the console top.
-    this.display = this.dimension.spawnEntity(DISPLAY, { x, y: y + 2, z });
+    this.display = this.dimension.spawnEntity(DISPLAY, { ...this.center, y: y + 2 });
+    // Text shapes live in the world, not the entity; this is the only text the lobby draws.
+    world.primitiveShapesManager.removeAll();
+    this.texts = SIDES.map((side) => ({
+      name: this.text(side, y + 0.8, { red: 1, green: 1, blue: 1, alpha: 1 }),
+      info: this.text(side, y + 1.15, { red: 0.55, green: 0.87, blue: 1, alpha: 1 }),
+    }));
+  }
+
+  private text(side: (typeof SIDES)[number], y: number, color: { red: number; green: number; blue: number; alpha: number }): TextPrimitive {
+    const { x, z } = this.center;
+    const text = new TextPrimitive({ dimension: this.dimension, x: x + side.x * TEXT_OUT, y, z: z + side.z * TEXT_OUT }, "");
+    text.useRotation = true;
+    text.rotation = { x: 0, y: side.yaw, z: 0 };
+    text.textBackfaceVisible = false;
+    text.backfaceVisible = false;
+    text.depthTest = true;
+    text.color = color;
+    text.backgroundColorOverride = { red: 0, green: 0, blue: 0, alpha: 0 };
+    text.maximumRenderDistance = 48;
+    world.primitiveShapesManager.addText(text, this.dimension);
+    return text;
   }
 
   private apply(): void {
     try {
-      if (this.display?.isValid) this.display.setProperty("minecade:screen", SCREENS[this.screen]);
+      const { screen, user, game, map } = this.view;
+      if (this.display?.isValid) {
+        this.display.setProperty("minecade:screen", SCREENS[screen]);
+        this.display.setProperty("minecade:game", screen === "game" && game ? this.iconOf(game) : 0);
+      }
+      for (const side of this.texts) {
+        side.name.setText(user ?? "");
+        side.info.setText(screen === "game" && map ? `Map: ${map}` : "");
+      }
     } catch (error) {
       log.warn(`hologram update failed: ${describeError(error)}`);
     }

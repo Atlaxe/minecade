@@ -1,7 +1,7 @@
 // Wire protocol between the servers' behavior packs and the orchestrator. Pure TypeScript with
 // no runtime imports: bundled into packs by esbuild and imported by the orchestrator under Node.
 
-export const PROTOCOL_VERSION = 3;
+export const PROTOCOL_VERSION = 4;
 
 /**
  * Upper bound for one encoded message, in either direction and over either transport, so no
@@ -47,6 +47,8 @@ export interface StartGame {
   game: string;
   map: string;
   players: string[];
+  /** Choices made on the game screen, such as { teams: "random" }. Passed to the game as is. */
+  settings?: Record<string, string>;
 }
 
 export interface StatusRequest {

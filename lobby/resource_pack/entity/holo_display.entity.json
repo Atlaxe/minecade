@@ -3,18 +3,35 @@
   "minecraft:client_entity": {
     "description": {
       "identifier": "minecade:holo_display",
-      "materials": { "default": "entity_beam_additive" },
+      "materials": {
+        "default": "entity_beam_additive"
+      },
       "textures": {
         "idle": "textures/minecade/holo/idle",
         "main": "textures/minecade/holo/main",
         "main_play": "textures/minecade/holo/main_play",
         "main_stats": "textures/minecade/holo/main_stats",
-        "beam": "textures/minecade/holo/beam"
+        "games": "textures/minecade/holo/games",
+        "game": "textures/minecade/holo/game",
+        "beam": "textures/minecade/holo/beam",
+        "icon_none": "textures/minecade/holo/icon_none"
       },
-      "geometry": { "default": "geometry.minecade.holo_display" },
-      "animations": { "float": "animation.minecade.holo_display.float" },
-      "scripts": { "animate": ["float"] },
-      "render_controllers": ["controller.render.minecade.holo_screen", "controller.render.minecade.holo_beam"]
+      "geometry": {
+        "default": "geometry.minecade.holo_display"
+      },
+      "animations": {
+        "float": "animation.minecade.holo_display.float"
+      },
+      "scripts": {
+        "animate": [
+          "float"
+        ]
+      },
+      "render_controllers": [
+        "controller.render.minecade.holo_screen",
+        "controller.render.minecade.holo_icon",
+        "controller.render.minecade.holo_beam"
+      ]
     }
   }
 }

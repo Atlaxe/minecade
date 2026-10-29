@@ -10,6 +10,7 @@ Outputs:
     lobby/resource_pack/textures/minecade/ui/...                             holographic menu art
     lobby/resource_pack/textures/minecade/holo/...                           hologram screens, beam
     lobby/resource_pack/textures/minecade/blocks/...                         terminal block faces
+    games/<id>/icon.png                                                      game icons (Probe, Sumo)
 
 Fonts come from Windows (Bahnschrift, else Consolas Bold); they only matter when regenerating.
 The logo source is tools/assets/source/minecade-title.png (the orange original).
@@ -160,6 +161,15 @@ def holo_button(draw: ImageDraw.ImageDraw, box, label: str, icon: str, lit: bool
     draw.text((cx - width / 2, y1 - 64), label, font=face, fill=color)
 
 
+def holo_placeholder(title: str, subtitle: str) -> Image.Image:
+    """A plain hologram screen with a heading, for the user to redraw."""
+    image = holo_base()
+    draw = ImageDraw.Draw(image)
+    centered_text(draw, 40, title, 46, CYAN)
+    centered_text(draw, 96, subtitle, 26, DEEP)
+    return image
+
+
 def holo_screens(logo: Image.Image) -> dict[str, Image.Image]:
     idle = holo_base()
     paste_logo(idle, logo, 120, 440)
@@ -175,6 +185,9 @@ def holo_screens(logo: Image.Image) -> dict[str, Image.Image]:
         holo_button(draw, (60, 230, 236, 450), "PLAY", "play", lit == "play")
         holo_button(draw, (276, 230, 452, 450), "STATS", "stats", lit == "stats")
         screens[name] = image
+    screens["games"] = holo_placeholder("SELECT A GAME", "placeholder")
+    # The game screen leaves the middle free: the chosen game's icon shows there.
+    screens["game"] = holo_placeholder("GAME", "placeholder")
     return screens
 
 
@@ -260,10 +273,55 @@ def ui_icon(kind: str) -> Image.Image:
     color = (*BRIGHT, 255)
     if kind == "play":
         draw.polygon([(18, 10), (18, 54), (52, 32)], fill=color)
-    else:
+    elif kind == "stats":
         for i, height in enumerate((20, 34, 48)):
             left = 8 + i * 18
             draw.rectangle((left, 56 - height, left + 12, 56), fill=color)
+    elif kind == "random":
+        draw.rounded_rectangle((8, 8, 56, 56), radius=8, outline=color, width=5)
+        for x, y in ((22, 22), (42, 42), (32, 32), (22, 42), (42, 22)):
+            draw.ellipse((x - 4, y - 4, x + 4, y + 4), fill=color)
+    else:  # map
+        draw.polygon([(8, 16), (24, 8), (40, 16), (56, 8), (56, 48), (40, 56), (24, 48), (8, 56)], outline=color, width=4)
+        draw.line((24, 8, 24, 48), fill=color, width=3)
+        draw.line((40, 16, 40, 56), fill=color, width=3)
+    return image
+
+
+def ui_frame(size: tuple[int, int], state: str, radius: int = 12) -> Image.Image:
+    """A button or tile at 2x, in the given state: default, hover, pressed, or selected (a bright outline only)."""
+    width, height = size
+    image = Image.new("RGBA", (width, height), (0, 0, 0, 0))
+    draw = ImageDraw.Draw(image)
+    if state == "selected":
+        draw.rounded_rectangle((2, 2, width - 3, height - 3), radius=radius, outline=(255, 255, 255, 255), width=6)
+        return image
+    fill = {"default": (10, 36, 70, 230), "hover": (24, 80, 140, 240), "pressed": (40, 120, 190, 250)}[state]
+    outline = {"default": CYAN, "hover": BRIGHT, "pressed": (255, 255, 255)}[state]
+    draw.rounded_rectangle((2, 2, width - 3, height - 3), radius=radius, fill=fill, outline=(*outline, 255), width=4)
+    return image
+
+
+def ui_big_panel(size: tuple[int, int]) -> Image.Image:
+    """A larger menu background at 2x, like ui_panel."""
+    width, height = size
+    image = Image.new("RGBA", (width, height), (0, 0, 0, 0))
+    draw = ImageDraw.Draw(image)
+    draw.rounded_rectangle((2, 2, width - 3, height - 3), radius=16, fill=(*NAVY, 235))
+    for y in range(8, height - 8, 6):
+        draw.line((10, y, width - 11, y), fill=(14, 32, 60, 235))
+    draw.rounded_rectangle((2, 2, width - 3, height - 3), radius=16, outline=(*CYAN, 255), width=3)
+    return image
+
+
+def game_icon(letter: str, color: tuple[int, int, int]) -> Image.Image:
+    """A placeholder game icon: a colored badge with the game's initial."""
+    image = Image.new("RGBA", (128, 128), (0, 0, 0, 0))
+    draw = ImageDraw.Draw(image)
+    draw.rounded_rectangle((6, 6, 121, 121), radius=22, fill=(*color, 255), outline=(*BRIGHT, 255), width=5)
+    face = font(84)
+    width = draw.textlength(letter, font=face)
+    draw.text(((128 - width) / 2, 8), letter, font=face, fill=(255, 255, 255))
     return image
 
 
@@ -275,6 +333,7 @@ def main() -> None:
     for name, image in holo_screens(logo).items():
         save(image, LOBBY_TEXTURES / "holo" / f"{name}.png")
     save(holo_beam(), LOBBY_TEXTURES / "holo" / "beam.png")
+    save(Image.new("RGB", (16, 16), (0, 0, 0)), LOBBY_TEXTURES / "holo" / "icon_none.png")
 
     save(block_side(), LOBBY_TEXTURES / "blocks" / "terminal_side.png")
     for kind in ("corner", "edge", "center"):
@@ -283,8 +342,20 @@ def main() -> None:
     save(ui_panel(), LOBBY_TEXTURES / "ui" / "panel.png")
     for state in ("default", "hover", "pressed"):
         save(ui_tile(state), LOBBY_TEXTURES / "ui" / f"tile_{state}.png")
-    for kind in ("play", "stats"):
+    for kind in ("play", "stats", "random", "map"):
         save(ui_icon(kind), LOBBY_TEXTURES / "ui" / f"icon_{kind}.png")
+
+    # The game picker and game screen.
+    save(ui_big_panel((860, 600)), LOBBY_TEXTURES / "ui" / "panel_grid.png")
+    save(ui_big_panel((880, 464)), LOBBY_TEXTURES / "ui" / "panel_game.png")
+    for state in ("default", "hover", "pressed"):
+        save(ui_frame((192, 156), state, 14), LOBBY_TEXTURES / "ui" / f"tile_game_{state}.png")
+        save(ui_frame((196, 76), state), LOBBY_TEXTURES / "ui" / f"tile_map_{state}.png")
+        save(ui_frame((400, 64), state), LOBBY_TEXTURES / "ui" / f"button_{state}.png")
+    save(ui_frame((196, 76), "selected"), LOBBY_TEXTURES / "ui" / "tile_map_selected.png")
+
+    save(game_icon("P", (60, 70, 90)), ROOT / "games" / "probe" / "icon.png")
+    save(game_icon("S", (180, 50, 50)), ROOT / "games" / "sumo" / "icon.png")
 
 
 if __name__ == "__main__":

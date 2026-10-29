@@ -1,28 +1,52 @@
 // The lobby terminal, as plain logic: one player at a time uses it, and the hologram above it
-// shows everyone what they're doing. main.ts passes in ports for forms, players and the hologram,
-// so this file is unit-tested with plain data.
+// shows everyone what they're doing. main.ts passes in ports for forms, players, the lobby and
+// the hologram, so this file is unit-tested with plain data.
 //
 // The user keeps the terminal until they close the menu, start a game, leave, walk away, or
 // leave it untouched for a while; then the hologram goes back to the idle screen.
+//
+//   main menu ── Play ──> game grid ──> game screen (map, settings) ── Start ──> the game starts
+//             └─ Stats ─> the stats screens
+// Closing a menu goes back one step; closing the main menu ends the session.
 import { Scope, say } from "@minecade/minigame-core";
+import { defaultSettings, gameAction, mapOptions, nextSetting, settingsFor } from "./game-screen.ts";
+import type { GameChoice } from "./lobby-controller.ts";
+import type { GameView } from "./menus.ts";
 
 /** What the hologram shows. Must match the screen order in the lobby resource pack. */
-export type HoloScreen = "idle" | "main" | "main_play" | "main_stats";
+export type HoloScreen = "idle" | "main" | "main_play" | "main_stats" | "games" | "game";
+
+export interface HoloView {
+  screen: HoloScreen;
+  /** Who is at the terminal, shown on every side. */
+  user?: string;
+  /** The game on the game screen (its icon shows), and the selected map's name. */
+  game?: string;
+  map?: string;
+}
 
 export interface TerminalPorts {
   /** The themed main menu. Resolves the choice, or undefined if closed. Never settles if `scope` is disposed first. */
   mainMenu(name: string, scope: Scope): Promise<"play" | "stats" | undefined>;
-  /** The game picker (resolves when the player is done with it). */
-  play(name: string): Promise<void>;
+  /** The game grid. Resolves the index of the chosen game, or undefined to go back. */
+  gamesMenu(name: string, scope: Scope, choices: GameChoice[]): Promise<number | undefined>;
+  /** The game screen. Resolves the index of the pressed button, or undefined to go back. */
+  gameMenu(name: string, scope: Scope, view: GameView): Promise<number | undefined>;
   /** The stats screens (resolves when the player is done with them). */
   stats(name: string): Promise<void>;
-  /** True while the lobby is starting a game. */
+  /** Every game, and whether there are enough players for it. */
+  choices(): GameChoice[];
+  /** Why no game can start right now, if so. */
+  busy(): string | undefined;
+  /** True while the lobby is starting a game: the terminal waits. */
   starting(): boolean;
+  /** Starts a game; returns why not, if it can't. */
+  request(name: string, game: string, map: string, settings: Record<string, string>): string | undefined;
   notify(name: string, text: string): void;
   closeForms(name: string): void;
   /** Blocks from the player to the terminal, or undefined if they're not here. */
   distance(name: string): number | undefined;
-  hologram(screen: HoloScreen): void;
+  hologram(view: HoloView): void;
 }
 
 export interface TerminalOptions {
@@ -77,15 +101,14 @@ export class TerminalController {
     scope.interval(() => this.watch(name), 10);
     try {
       for (;;) {
-        this.show("main");
+        this.show({ screen: "main", user: name });
         const choice = await this.ports.mainMenu(name, scope);
         if (choice === undefined) return;
         if (choice === "play") {
-          this.show("main_play");
-          await scope.guard(this.ports.play(name));
-          if (this.ports.starting()) return;
+          this.show({ screen: "main_play", user: name });
+          if (await this.play(name, scope)) return;
         } else {
-          this.show("main_stats");
+          this.show({ screen: "main_stats", user: name });
           await scope.guard(this.ports.stats(name));
         }
       }
@@ -96,16 +119,60 @@ export class TerminalController {
 
   /** Shows the idle screen unless someone is using the terminal (at boot, and when it frees up). */
   refresh(): void {
-    if (this.user === undefined) this.ports.hologram("idle");
+    if (this.user === undefined) this.ports.hologram({ screen: "idle" });
   }
 
   onPlayerLeft(name: string): void {
     if (this.user === name) this.session?.dispose();
   }
 
-  private show(screen: HoloScreen): void {
+  /** The game grid, then a game's screen. Resolves true once a game is starting. */
+  private async play(name: string, scope: Scope): Promise<boolean> {
+    for (;;) {
+      const busy = this.ports.busy();
+      if (busy) {
+        this.ports.notify(name, busy);
+        return false;
+      }
+      this.show({ screen: "games", user: name });
+      const choices = this.ports.choices();
+      const index = await this.ports.gamesMenu(name, scope, choices);
+      if (index === undefined) return false;
+      const choice = choices[index];
+      if (choice && (await this.gameScreen(name, scope, choice.game.id))) return true;
+    }
+  }
+
+  /** One game's screen: pick a map and settings, then Start. Resolves true once the game is starting. */
+  private async gameScreen(name: string, scope: Scope, gameId: string): Promise<boolean> {
+    let map = "random";
+    let settings: Record<string, string> | undefined;
+    for (;;) {
+      // Look the game up each time: players may have joined or left since.
+      const choice = this.ports.choices().find((candidate) => candidate.game.id === gameId);
+      if (!choice) return false;
+      settings ??= defaultSettings(choice.game);
+      const mapName = mapOptions(choice.game).find((option) => option.id === map)?.name ?? map;
+      this.show({ screen: "game", user: name, game: gameId, map: mapName });
+      const selection = await this.ports.gameMenu(name, scope, { choice, map, settings });
+      if (selection === undefined) return false;
+      const action = gameAction(choice.game, selection);
+      if (action?.kind === "map") map = action.map;
+      else if (action?.kind === "setting") {
+        const setting = settingsFor(choice.game).find((candidate) => candidate.id === action.id);
+        if (setting) settings = { ...settings, [setting.id]: nextSetting(setting, settings[setting.id]) };
+      } else if (action?.kind === "start") {
+        const refusal = this.ports.request(name, gameId, map, settings);
+        if (refusal === undefined) return true;
+        this.ports.notify(name, refusal);
+        if (this.ports.busy()) return false;
+      }
+    }
+  }
+
+  private show(view: HoloView): void {
     this.lastActivity = this.now();
-    this.ports.hologram(screen);
+    this.ports.hologram(view);
   }
 
   /** Ends the session when its player walks away or leaves it alone too long. */

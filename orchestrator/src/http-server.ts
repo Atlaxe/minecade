@@ -7,7 +7,7 @@ import type { Config } from "./config.ts";
 import type { HttpLinkHub } from "./links/http-link.ts";
 import { describeError, log } from "./log.ts";
 import type { Registry } from "./registry.ts";
-import type { SessionManager } from "./session-manager.ts";
+import { cleanSettings, type SessionManager } from "./session-manager.ts";
 import type { StatsStore } from "./stats/store.ts";
 
 export interface ServerDeps {
@@ -53,6 +53,7 @@ export function createOrchestratorServer(deps: ServerDeps): Server {
         game: body.game,
         map: typeof body.map === "string" && body.map ? body.map : "random",
         players: Array.isArray(body.players) ? body.players.map(String) : [],
+        settings: cleanSettings(body.settings),
       });
       return result.ok ? sendJson(res, 202, result) : sendJson(res, 409, { error: result.reason });
     }

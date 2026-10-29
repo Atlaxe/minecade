@@ -1,10 +1,10 @@
-// The lobby's game selector, as plain logic. It never touches the Minecraft API itself: main.ts
-// passes in ports for players, forms and the orchestrator, so this file is unit-tested with
-// plain data.
+// Starting games from the lobby, as plain logic. It never touches the Minecraft API itself: main.ts
+// passes in ports for players and the orchestrator, so this file is unit-tested with plain data.
+// The terminal (terminal-controller.ts) shows the choices and calls request() on Start.
 //
 // Two pieces of state are kept apart on purpose:
-//   status   mirrors the orchestrator's latest status. It decides whether a game can start and
-//            what the action bar says. It never triggers transfers.
+//   status   mirrors the orchestrator's latest status. It decides whether a game can start. It
+//            never triggers transfers.
 //   pending  this lobby's own start request. Replies for any other requestId are ignored, which
 //            also covers stale messages queued from before a lobby restart.
 import { COLOR, Scope, nameOf, say, type Chime, type InboundMessage, type OutboundEvent, type Registry, type RegistryGame, type StatusSnapshot } from "@minecade/minigame-core";
@@ -24,11 +24,6 @@ export interface LobbyPorts {
   title(to: string | "all", title: string, subtitle?: string): void;
   chime(to: string, chime: Chime): void;
   closeForms(name: string): void;
-  /**
-   * Walks a player through picking a game and map and confirming. Resolves undefined if they
-   * back out. Never settles if `scope` is disposed first.
-   */
-  chooseGame(name: string, scope: Scope, choices: GameChoice[]): Promise<{ game: string; map: string } | undefined>;
 }
 
 export interface LobbyOptions {
@@ -61,8 +56,6 @@ export class LobbyController {
   private readonly countdownSeconds: number;
   private status: StatusSnapshot = { state: "idle", players: [] };
   private pending: Pending | undefined;
-  /** Players with the selector open, each with a scope that closes it. */
-  private readonly selectors = new Map<string, Scope>();
 
   constructor(ports: LobbyPorts, scope: Scope, options: LobbyOptions) {
     this.ports = ports;
@@ -107,34 +100,38 @@ export class LobbyController {
     }
   }
 
-  /** A player used the compass. */
-  async openSelector(name: string): Promise<void> {
-    if (this.selectors.has(name)) return;
-    const busy = this.busyMessage();
-    if (busy) {
-      this.ports.notify(name, busy);
-      return;
-    }
-    const scope = this.scope.child(`selector:${name}`);
-    this.selectors.set(name, scope);
-    scope.add(() => this.selectors.delete(name));
-    const choice = await this.ports.chooseGame(name, scope, this.gameChoices());
-    scope.dispose();
-    if (!choice) return;
+  /** Every game, and whether there are enough players in the lobby for it right now. */
+  choices(): GameChoice[] {
+    const online = this.ports.onlinePlayers().length;
+    return this.registry.games.map((game) => {
+      const needed = this.devMinPlayers ?? game.minPlayers;
+      return online >= needed ? { game, playable: true } : { game, playable: false, reason: `needs at least ${needed} players` };
+    });
+  }
 
-    // Someone else may have started a game, or players may have left, while the forms were open.
-    const busyNow = this.busyMessage();
-    if (busyNow) {
-      this.ports.notify(name, busyNow);
-      return;
+  /** Why no game can start right now (one is starting, running or wrapping up), if so. */
+  busy(): string | undefined {
+    if (this.pending) return say.info(`Starting ${this.pending.game.name}, hang on.`);
+    const game = this.gameName(this.status.game);
+    if (this.status.state === "starting" || this.status.state === "running") {
+      return say.info(`${game} is in progress (${this.status.players.length} playing). You'll join the next round.`);
     }
-    const picked = this.gameChoices().find((candidate) => candidate.game.id === choice.game);
-    if (!picked) return;
-    if (!picked.playable) {
-      this.ports.notify(name, say.warn(`${picked.game.name} ${picked.reason}.`));
-      return;
-    }
-    this.start(name, picked.game, choice.map);
+    if (this.status.state === "stopping") return say.minor("Wrapping up the last game. Try again in a moment.");
+    return undefined;
+  }
+
+  /**
+   * Starts a game for everyone in the lobby. Checks again first, since someone else may have
+   * started a game, or players may have left, while the menus were open. Returns why not, if so.
+   */
+  request(starter: string, gameId: string, mapId: string, settings: Record<string, string> = {}): string | undefined {
+    const busy = this.busy();
+    if (busy) return busy;
+    const picked = this.choices().find((candidate) => candidate.game.id === gameId);
+    if (!picked) return say.error(`There's no game called ${gameId}.`);
+    if (!picked.playable) return say.warn(`${picked.game.name} ${picked.reason}.`);
+    this.start(starter, picked.game, mapId, settings);
+    return undefined;
   }
 
   /** True while this lobby is starting a game (from the request until everyone is sent). */
@@ -143,15 +140,11 @@ export class LobbyController {
   }
 
   onPlayerJoined(name: string): void {
-    const busy = this.busyMessage();
+    const busy = this.busy();
     if (busy) this.ports.notify(name, busy);
   }
 
-  onPlayerLeft(name: string): void {
-    this.selectors.get(name)?.dispose();
-  }
-
-  private start(starter: string, game: RegistryGame, mapId: string): void {
+  private start(starter: string, game: RegistryGame, mapId: string, settings: Record<string, string>): void {
     const players = this.ports.onlinePlayers().slice(0, game.maxPlayers);
     const mapName = mapId === "random" ? "a random map" : (game.maps.find((map) => map.id === mapId)?.name ?? mapId);
     const pending: Pending = { requestId: this.newRequestId(), game, mapName, players, scope: this.scope.child("pending") };
@@ -164,7 +157,7 @@ export class LobbyController {
     }, this.startTimeoutTicks);
     this.ports.notify("all", say.important(`${nameOf(starter)} is starting ${game.name} on ${mapName}.`));
     this.ports.title("all", say.info(`Starting ${game.name}`), say.minor(mapName));
-    this.ports.send({ t: "start_game", requestId: pending.requestId, game: game.id, map: mapId, players });
+    this.ports.send({ t: "start_game", requestId: pending.requestId, game: game.id, map: mapId, players, settings });
   }
 
   private async sendPlayers(pending: Pending, port: number): Promise<void> {
@@ -190,24 +183,6 @@ export class LobbyController {
   private clearPending(): void {
     this.pending?.scope.dispose();
     this.pending = undefined;
-  }
-
-  private busyMessage(): string | undefined {
-    if (this.pending) return say.info(`Starting ${this.pending.game.name}, hang on.`);
-    const game = this.gameName(this.status.game);
-    if (this.status.state === "starting" || this.status.state === "running") {
-      return say.info(`${game} is in progress (${this.status.players.length} playing). You'll join the next round.`);
-    }
-    if (this.status.state === "stopping") return say.minor("Wrapping up the last game. Try again in a moment.");
-    return undefined;
-  }
-
-  private gameChoices(): GameChoice[] {
-    const online = this.ports.onlinePlayers().length;
-    return this.registry.games.map((game) => {
-      const needed = this.devMinPlayers ?? game.minPlayers;
-      return online >= needed ? { game, playable: true } : { game, playable: false, reason: `needs at least ${needed} players` };
-    });
   }
 
   private gameName(id: string | undefined): string {

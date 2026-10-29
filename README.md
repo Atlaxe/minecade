@@ -206,7 +206,8 @@ docs/                     map format and measured BDS behavior
 ### Adding a game
 
 1. Copy `games/sumo` to `games/<id>` and give `behavior_pack/manifest.json` two new UUIDs (the
-   build rejects duplicates).
+   build rejects duplicates). Replace `icon.png` (the game's icon in the lobby's game picker;
+   every game needs one).
 2. Edit `game.config.ts`: name, player counts, timers, teams, respawns, combat, win rule,
    scoring, kits and which stats to record. The fields are documented in
    `packages/minigame-core/src/config.ts`, and the build validates them.
@@ -214,7 +215,8 @@ docs/                     map format and measured BDS behavior
    what's different. The framework already handles waiting, the countdown, teams, deaths without
    a death screen, kill credit, respawns, win checks, the sidebar, stats and cleanup. Hooks and
    helpers are documented in `packages/minigame-core/src/game/minigame.ts`.
-4. Add a map under `maps/<map-id>/` and bake it.
+4. Add a map under `maps/<map-id>/` and bake it. An optional `icon.png` there shows on its map
+   tile.
 5. Test it with the fake world in `test/` (see `games/sumo/test/sumo.test.ts` and
    `packages/minigame-core/test/game-harness.ts`), then `npm run check`, `npm run build` and
    `docker compose up -d --build`. It appears in the lobby's Game Selector.

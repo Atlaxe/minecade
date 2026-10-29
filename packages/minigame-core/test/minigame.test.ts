@@ -244,6 +244,28 @@ describe("Minigame details", () => {
     everyoneLeaves();
   });
 
+  it("hands out the team picker, unless the lobby's game screen chose random teams", async () => {
+    const config: GameConfig = { id: "pick", name: "Pick", minPlayers: 2, maxPlayers: 4, countdownSeconds: 3, endDelaySeconds: 1, teams: { count: 2 } };
+    const star = (player: FakePlayer) => player.inventory.items().some((item) => item.typeId === "minecraft:nether_star");
+    for (const settings of [{}, { teams: "random" }] as Record<string, string>[]) {
+      const [a, b] = ["A", "B"].map((name) => world.join(name));
+      const baseline = snapshot();
+      const game = new TestGame(harness.context(["A", "B"], undefined, settings), config);
+      await playToEnd(game, baseline, async () => {
+        await ticks(3);
+        expect(star(a)).toBe(settings.teams !== "random");
+        await ticks(15 * 20 + 5);
+        expect(game.phase).toBe("playing");
+        expect(new Set([game.roster.get("A")?.team, game.roster.get("B")?.team]).size).toBe(2);
+        game.finish({ kind: "draw", reason: "test over" });
+        await ticks(2);
+      });
+      expect(star(b)).toBe(false);
+      expectBaseline(baseline);
+      everyoneLeaves();
+    }
+  });
+
   it("removes a sidebar objective left behind by a crashed game", () => {
     world.scoreboard.addObjective("mc_crashed", "Old");
     world.scoreboard.addObjective("other", "Not ours");

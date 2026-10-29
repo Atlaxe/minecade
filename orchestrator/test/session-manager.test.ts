@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { PROTOCOL_VERSION, type OutboundEvent } from "@minecade/minigame-core/protocol";
+import { cleanSettings } from "../src/session-manager.ts";
 import { SERVER_STARTED_LINE, setupSessions } from "./fakes.ts";
 
 const ready: OutboundEvent = { t: "server_ready", protocol: PROTOCOL_VERSION, role: "game", transport: "http", sessionId: "s1" };
@@ -57,6 +58,7 @@ describe("SessionManager: starting", () => {
       PUBLIC_HOST: "203.0.113.7",
       LAN_PLAYERS: "Steve",
       EXPECTED_PLAYERS: "Steve,Alex",
+      GAME_SETTINGS: "{}",
       MAX_PLAYERS: "10",
     });
     expect(spec.env.IDENTITY).toBe("game");
@@ -64,6 +66,17 @@ describe("SessionManager: starting", () => {
     expect(spec.labels).toMatchObject({ "minecade.role": "game", "minecade.session": "s1", "minecade.managed-by": "orchestrator" });
     expect(types(t)).toEqual(["game_starting", "status"]);
     expect(t.sessions.status()).toMatchObject({ state: "starting", sessionId: "s1", game: "probe", map: "default" });
+  });
+
+  it("passes the game screen's settings to the game, dropping anything malformed", async () => {
+    const t = setupSessions();
+    await t.sessions.start({ ...startRequest, settings: { teams: "random" } });
+    expect(JSON.parse(t.docker.specs[0].env.GAME_SETTINGS)).toEqual({ teams: "random" });
+    const odd = { teams: "random", "Bad Key": "x", long: "y".repeat(40), num: 3 as unknown as string };
+    expect(cleanSettings(odd)).toEqual({ teams: "random" });
+    expect(cleanSettings(["teams"])).toEqual({});
+    expect(cleanSettings(Object.fromEntries(Array.from({ length: 12 }, (_, i) => [`k${i}`, "v"])))).toHaveProperty("k7");
+    expect(Object.keys(cleanSettings(Object.fromEntries(Array.from({ length: 12 }, (_, i) => [`k${i}`, "v"]))))).toHaveLength(8);
   });
 
   it("is ready only once both server_ready and 'Server started.' arrive", async () => {

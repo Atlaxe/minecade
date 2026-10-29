@@ -7,7 +7,7 @@
 #   TRANSPORT       http | log (must match the orchestrator)
 #   IDENTITY        name of this server's saved identity key in /keys (default: SERVER_ID)
 #   ORCH_URL, LAN_HOST, PUBLIC_HOST, LAN_PLAYERS, ALLOW_LIST, LOBBY_PORT, SESSION_ID,
-#   EXPECTED_PLAYERS, MAX_PLAYERS, SERVER_NAME, DEV_MIN_PLAYERS
+#   EXPECTED_PLAYERS, MAX_PLAYERS, SERVER_NAME, DEV_MIN_PLAYERS, GAME_SETTINGS
 set -euo pipefail
 cd /bds
 
@@ -155,6 +155,9 @@ map_config='{}'
 [[ -f "$MAP_DIR/map.json" ]] && map_config="$(jq -c . "$MAP_DIR/map.json")"
 role="game"
 [[ "$GAME" == "lobby" ]] && role="lobby"
+# The lobby's game screen choices ({"teams":"random"}), or none.
+game_settings="${GAME_SETTINGS:-}"
+[[ -n "$game_settings" ]] || game_settings='{}'
 jq -n \
   --arg serverId "$SERVER_ID" \
   --arg role "$role" \
@@ -171,6 +174,7 @@ jq -n \
   --arg expectedPlayers "$(csv_json "${EXPECTED_PLAYERS:-}")" \
   --arg mapConfig "$map_config" \
   --arg devMinPlayers "${DEV_MIN_PLAYERS:-}" \
+  --arg settings "$game_settings" \
   '$ARGS.named' > config/default/variables.json
 
 echo "[minecade] ${SERVER_ID}: ${GAME}/${MAP} on port ${SERVER_PORT}, transport ${TRANSPORT}, public ${PUBLIC_IP}, allow-list $([[ -n "${ALLOW_LIST:-}" ]] && echo on || echo off)"

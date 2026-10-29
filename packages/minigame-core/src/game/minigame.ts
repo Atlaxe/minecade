@@ -614,16 +614,19 @@ export abstract class Minigame<C extends GameConfig = GameConfig> {
 
   // ---- Pregame ----------------------------------------------------------------------------
 
-  private get picksOpen(): boolean {
+  /** Players pick teams unless the game says no, or the lobby's game screen chose random teams. */
+  private get teamPicking(): boolean {
     const teams = this.config.teams;
-    const teamPick = teams !== undefined && teams.pick !== false && !(teams.defs ?? []).some((team) => team.size !== undefined);
-    return teamPick || this.kits.pick;
+    return teams !== undefined && teams.pick !== false && this.ctx.vars.settings?.teams !== "random";
+  }
+
+  private get picksOpen(): boolean {
+    const roles = (this.config.teams?.defs ?? []).some((team) => team.size !== undefined);
+    return (this.teamPicking && !roles) || this.kits.pick;
   }
 
   private hasPicked(name: string): boolean {
-    const teams = this.config.teams;
-    const needsTeam = teams !== undefined && teams.pick !== false;
-    return (!needsTeam || this.teamPicks.has(name.toLowerCase())) && (!this.kits.pick || this.kits.hasChosen(name));
+    return (!this.teamPicking || this.teamPicks.has(name.toLowerCase())) && (!this.kits.pick || this.kits.hasChosen(name));
   }
 
   private get minPlayers(): number {
@@ -672,7 +675,7 @@ export abstract class Minigame<C extends GameConfig = GameConfig> {
     this.pickerOpen.add(key);
     try {
       const teams = this.config.teams;
-      if (teams && teams.pick !== false) {
+      if (teams && this.teamPicking) {
         const options = activeTeams(this.online().length, teams);
         const form = new ActionFormData().title("Pick a team");
         for (const team of options) {

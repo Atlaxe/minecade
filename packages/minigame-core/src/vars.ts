@@ -25,6 +25,8 @@ export interface ServerVars {
   mapConfig: MapConfig;
   /** Overrides every game's minimum player count when set (solo testing). */
   devMinPlayers: number | undefined;
+  /** Choices from the lobby's game screen, such as { teams: "random" }. */
+  settings: Record<string, string>;
 }
 
 export function readServerVars(): ServerVars {
@@ -45,6 +47,7 @@ export function readServerVars(): ServerVars {
     expectedPlayers: json("expectedPlayers", []),
     mapConfig: json("mapConfig", { name: "", spawns: [] }),
     devMinPlayers: Number.isInteger(devMinPlayers) && devMinPlayers > 0 ? devMinPlayers : undefined,
+    settings: json("settings", {}),
   };
 }
 

@@ -41,7 +41,7 @@ export interface Harness {
   root: Scope;
   /** Everything the games sent to the orchestrator. */
   sent: OutboundEvent[];
-  context(expectedPlayers: string[], mapConfig?: MapConfig): GameContext;
+  context(expectedPlayers: string[], mapConfig?: MapConfig, settings?: Record<string, string>): GameContext;
 }
 
 /** Resets the fake world and console spies. Call once per test file (beforeAll). */
@@ -57,7 +57,7 @@ export function createHarness(): Harness {
   return {
     root,
     sent,
-    context(expectedPlayers, mapConfig = ARENA) {
+    context(expectedPlayers, mapConfig = ARENA, settings = {}) {
       const vars: ServerVars = {
         serverId: "s1",
         role: "game",
@@ -74,6 +74,7 @@ export function createHarness(): Harness {
         expectedPlayers,
         mapConfig,
         devMinPlayers: undefined,
+        settings,
       };
       const server: ServerContext = {
         vars,

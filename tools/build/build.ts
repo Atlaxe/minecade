@@ -30,7 +30,9 @@ interface Target {
   game?: GameConfig;
   behaviorPack?: Manifest;
   resourcePack?: Manifest;
-  maps: { id: string; dir: string; config: MapConfig }[];
+  /** The game's icon.png (required for games). */
+  icon?: string;
+  maps: { id: string; dir: string; config: MapConfig; icon?: string }[];
 }
 
 const problems: string[] = [];
@@ -84,6 +86,10 @@ async function loadTarget(id: string, dir: string, configPath?: string): Promise
   if (existsSync(join(dir, "behavior_pack", "manifest.json"))) target.behaviorPack = await loadManifest(join(dir, "behavior_pack"));
   const rpDir = join(dir, "resource_pack");
   if (existsSync(join(rpDir, "manifest.json")) && (await hasContent(rpDir))) target.resourcePack = await loadManifest(rpDir);
+  if (target.game) {
+    if (existsSync(join(dir, "icon.png"))) target.icon = join(dir, "icon.png");
+    else report(dir, ["icon.png is missing: the lobby's game picker shows it (a square PNG, 128x128 works well)"]);
+  }
 
   const mapsDir = join(dir, "maps");
   for (const mapId of existsSync(mapsDir) ? (await readdir(mapsDir)).sort() : []) {
@@ -99,7 +105,8 @@ async function loadTarget(id: string, dir: string, configPath?: string): Promise
     if (!existsSync(join(mapDir, "world", "level.dat"))) {
       report(mapDir, ["world/level.dat is missing: run npm run bake, or drop in a world built in the client"]);
     }
-    target.maps.push({ id: mapId, dir: mapDir, config: config as MapConfig });
+    const icon = join(mapDir, "icon.png");
+    target.maps.push({ id: mapId, dir: mapDir, config: config as MapConfig, ...(existsSync(icon) ? { icon } : {}) });
   }
   if (target.maps.length === 0) report(dir, ["needs at least one map in maps/<id>/"]);
   return target;
@@ -144,11 +151,42 @@ async function buildBehaviorPack(src: string, out: string, manifest: Manifest, r
   }
 }
 
-/** Copies a resource pack, versioned by its content so clients download it again whenever it changes. */
-async function buildResourcePack(src: string, out: string, manifest: Manifest): Promise<void> {
+/**
+ * Copies a resource pack (plus anything `extra` adds), versioned by its content so clients
+ * download it again whenever it changes.
+ */
+async function buildResourcePack(src: string, out: string, manifest: Manifest, extra?: (out: string) => Promise<void>): Promise<void> {
   await cp(src, out, { recursive: true, filter: (path) => path !== join(src, "manifest.json") });
-  const stamped = withPatchVersion(manifest, await contentHash(src));
+  await extra?.(out);
+  const stamped = withPatchVersion(manifest, await contentHash(out));
   await writeFile(join(out, "manifest.json"), JSON.stringify(stamped, null, 2));
+}
+
+/**
+ * The lobby pack gets every game's and map's icon (for the game picker), and the hologram's icon
+ * list in registry order: icon 0 is "none", then one per game (the lobby's Hologram uses the same
+ * numbering).
+ */
+async function addGameIcons(out: string): Promise<void> {
+  for (const target of targets) {
+    if (target.icon) await cp(target.icon, join(out, "textures", "minecade", "games", `${target.id}.png`));
+    for (const map of target.maps) {
+      if (map.icon) await cp(map.icon, join(out, "textures", "minecade", "maps", target.id, `${map.id}.png`));
+    }
+  }
+  const entityPath = join(out, "entity", "holo_display.entity.json");
+  const controllersPath = join(out, "render_controllers", "holo_display.render_controllers.json");
+  if (!existsSync(entityPath) || !existsSync(controllersPath)) return;
+  const entity = JSON.parse(await readFile(entityPath, "utf8"));
+  const controllers = JSON.parse(await readFile(controllersPath, "utf8"));
+  const icons = ["Texture.icon_none"];
+  registry.games.forEach((game, index) => {
+    entity["minecraft:client_entity"].description.textures[`icon_${index + 1}`] = game.icon;
+    icons.push(`Texture.icon_${index + 1}`);
+  });
+  controllers.render_controllers["controller.render.minecade.holo_icon"].arrays.textures["Array.icons"] = icons;
+  await writeFile(entityPath, JSON.stringify(entity, null, 2));
+  await writeFile(controllersPath, JSON.stringify(controllers, null, 2));
 }
 
 async function buildMaps(target: Target, out: string): Promise<{ id: string; name: string }[]> {
@@ -163,8 +201,17 @@ async function buildMaps(target: Target, out: string): Promise<{ id: string; nam
   return target.maps.map((map) => ({ id: map.id, name: map.config.name }));
 }
 
-function pick({ id, name, description, minPlayers, maxPlayers, stats }: GameConfig): Omit<RegistryGame, "maps"> {
-  return { id, name, description, minPlayers, maxPlayers, ...(stats ? { stats } : {}) };
+function pick({ id, name, description, minPlayers, maxPlayers, teams, stats }: GameConfig): Omit<RegistryGame, "maps"> {
+  return {
+    id,
+    name,
+    description,
+    minPlayers,
+    maxPlayers,
+    icon: `textures/minecade/games/${id}`,
+    ...(teams ? { teams } : {}),
+    ...(stats ? { stats } : {}),
+  };
 }
 
 async function buildOrchestrator(): Promise<void> {
@@ -194,7 +241,16 @@ if (problems.length > 0) {
 const registry: Registry = {
   games: targets.flatMap(({ game, maps }) =>
     game
-      ? [{ ...pick(game), maps: maps.map((map) => ({ id: map.id, name: map.config.name })) }]
+      ? [
+          {
+            ...pick(game),
+            maps: maps.map((map) => ({
+              id: map.id,
+              name: map.config.name,
+              ...(map.icon ? { icon: `textures/minecade/maps/${game.id}/${map.id}` } : {}),
+            })),
+          },
+        ]
       : [],
   ),
 };
@@ -208,7 +264,8 @@ for (const target of targets) {
   }
   if (coreResourcePack) await buildResourcePack(coreRpDir, join(out, "resource_packs", "core_rp"), coreResourcePack);
   if (target.resourcePack) {
-    await buildResourcePack(join(target.dir, "resource_pack"), join(out, "resource_packs", `${target.id}_rp`), target.resourcePack);
+    const extra = target.id === "lobby" ? addGameIcons : undefined;
+    await buildResourcePack(join(target.dir, "resource_pack"), join(out, "resource_packs", `${target.id}_rp`), target.resourcePack, extra);
   }
   const maps = await buildMaps(target, out);
   console.log(`built ${target.id} (maps: ${maps.map((map) => map.id).join(", ")}${target.resourcePack ? ", resource pack" : ""})`);

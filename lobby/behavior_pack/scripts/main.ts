@@ -1,14 +1,14 @@
 // Lobby server script: places the terminal and its hologram, keeps players on the platform, and
-// connects the terminal, game selector and stats logic (terminal-controller.ts,
+// connects the terminal, game starting and stats logic (terminal-controller.ts,
 // lobby-controller.ts, stats-controller.ts) to players, forms and the orchestrator.
 import { system, world, type Player, type Vector3 } from "@minecraft/server";
 import { ActionFormData, uiManager } from "@minecraft/server-ui";
-import { describeError, log, normalizePlayer, playChime, say, showForm, type Scope } from "@minecade/minigame-core";
+import { describeError, log, normalizePlayer, playChime, showForm } from "@minecade/minigame-core";
 import { bootServer } from "@minecade/minigame-core/bootstrap";
 import registry from "#registry";
 import { Hologram } from "./hologram.ts";
-import { LobbyController, type GameChoice } from "./lobby-controller.ts";
-import { MAIN_MENU_CHOICES, mainMenuForm } from "./menus.ts";
+import { LobbyController } from "./lobby-controller.ts";
+import { MAIN_MENU_CHOICES, gameForm, gamesForm, mainMenuForm } from "./menus.ts";
 import { StatsController } from "./stats-controller.ts";
 import { TerminalController } from "./terminal-controller.ts";
 
@@ -35,40 +35,6 @@ function recipients(to: string): Player[] {
   if (to === "all") return world.getAllPlayers();
   const player = playerNamed(to);
   return player ? [player] : [];
-}
-
-/** Game, then map (skipped when there's one), then a confirmation. */
-async function chooseGame(player: Player | undefined, scope: Scope, choices: GameChoice[]) {
-  if (!player) return undefined;
-  const gameForm = new ActionFormData().title("Pick a game");
-  for (const { game, playable, reason } of choices) {
-    gameForm.button(playable ? `${game.name}\n${game.minPlayers}-${game.maxPlayers} players` : `${game.name}\n${reason}`);
-  }
-  const gamePick = await showForm(scope, player, gameForm);
-  if (gamePick?.selection === undefined) return undefined;
-  const { game, playable, reason } = choices[gamePick.selection];
-  if (!playable) {
-    player.sendMessage(say.warn(`${game.name} ${reason}.`));
-    return undefined;
-  }
-
-  let map = game.maps[0];
-  if (game.maps.length > 1) {
-    const mapForm = new ActionFormData().title(game.name).body("Pick a map").button("Random");
-    for (const candidate of game.maps) mapForm.button(candidate.name);
-    const mapPick = await showForm(scope, player, mapForm);
-    if (mapPick?.selection === undefined) return undefined;
-    map = mapPick.selection === 0 ? { id: "random", name: "a random map" } : game.maps[mapPick.selection - 1];
-  }
-
-  // An action form rather than a message form, so "Start" is always selection 0.
-  const confirm = new ActionFormData()
-    .title(game.name)
-    .body(`Start ${game.name} on ${map.name}? Everyone in the lobby (up to ${game.maxPlayers}) goes.`)
-    .button("Start")
-    .button("Cancel");
-  const answer = await showForm(scope, player, confirm);
-  return answer?.selection === 0 ? { game: game.id, map: map.id } : undefined;
 }
 
 bootServer(({ vars, transport, transfer, root }) => {
@@ -100,7 +66,6 @@ bootServer(({ vars, transport, transfer, root }) => {
         const player = playerNamed(name);
         if (player) uiManager.closeAllForms(player);
       },
-      chooseGame: (name, scope, choices) => chooseGame(playerNamed(name), scope, choices),
     },
     root,
     { registry, devMinPlayers: vars.devMinPlayers },
@@ -123,7 +88,8 @@ bootServer(({ vars, transport, transfer, root }) => {
   // The terminal sits at the map's "terminal" point (the middle block of its 3x3 console).
   const [tx, ty, tz] = vars.mapConfig.points?.terminal?.[0] ?? [0, 65, 0];
   const overworld = world.getDimension("overworld");
-  const hologram = new Hologram(overworld, { x: tx, y: ty, z: tz });
+  // Icon 0 is "none"; the build adds each game's icon in registry order.
+  const hologram = new Hologram(overworld, { x: tx, y: ty, z: tz }, (game) => registry.games.findIndex((candidate) => candidate.id === game) + 1);
   const terminal = new TerminalController(
     {
       mainMenu: async (name, scope) => {
@@ -132,8 +98,18 @@ bootServer(({ vars, transport, transfer, root }) => {
         const answer = await showForm(scope, player, mainMenuForm());
         return answer?.selection === undefined ? undefined : MAIN_MENU_CHOICES[answer.selection];
       },
-      play: (name) => lobby.openSelector(name),
+      gamesMenu: async (name, scope, choices) => {
+        const player = playerNamed(name);
+        return player ? (await showForm(scope, player, gamesForm(choices)))?.selection : undefined;
+      },
+      gameMenu: async (name, scope, view) => {
+        const player = playerNamed(name);
+        return player ? (await showForm(scope, player, gameForm(view)))?.selection : undefined;
+      },
       stats: (name) => stats.openStats(name),
+      choices: () => lobby.choices(),
+      busy: () => lobby.busy(),
+      request: (name, game, map, settings) => lobby.request(name, game, map, settings),
       starting: () => lobby.starting,
       notify: (name, text) => playerNamed(name)?.sendMessage(text),
       closeForms: (name) => {
@@ -146,7 +122,7 @@ bootServer(({ vars, transport, transfer, root }) => {
         const { x, z } = hologram.center;
         return Math.hypot(player.location.x - x, player.location.z - z);
       },
-      hologram: (screen) => hologram.show(screen),
+      hologram: (view) => hologram.show(view),
     },
     root,
     { now: () => system.currentTick },
@@ -200,7 +176,6 @@ bootServer(({ vars, transport, transfer, root }) => {
     }, 2);
   });
   root.subscribe(world.afterEvents.playerLeave, ({ playerName }) => {
-    lobby.onPlayerLeft(playerName);
     stats.onPlayerLeft(playerName);
     terminal.onPlayerLeft(playerName);
     lastTap.delete(playerName);

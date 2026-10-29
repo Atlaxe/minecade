@@ -5,7 +5,11 @@
   "long_form": {
     "type": "panel",
     "size": ["100%c", "100%c"],
-    "controls": [{ "main_menu@minecade_forms.main_menu": {} }]
+    "controls": [
+      { "main_menu@minecade_forms.main_menu": {} },
+      { "games_menu@minecade_forms.games_menu": {} },
+      { "game_menu@minecade_forms.game_menu": {} }
+    ]
   },
 
   // The terminal's main menu: the logo, and Play and Stats side by side under it.
@@ -124,5 +128,301 @@
         }
       }
     ]
+  },
+
+  // ---- Play: the game grid --------------------------------------------------------------------
+  // Up to 12 games as tiles, 4 across. Tiles past the last game hide themselves.
+  "games_menu": {
+    "type": "panel",
+    "size": [430, 300],
+    "layer": 2,
+    "bindings": [
+      { "binding_name": "#title_text" },
+      {
+        "binding_type": "view",
+        "source_property_name": "(not ((#title_text - '§g§r§i§d') = #title_text))",
+        "target_property_name": "#visible"
+      }
+    ],
+    "controls": [
+      { "background": { "type": "image", "texture": "textures/minecade/ui/panel_grid", "size": ["100%", "100%"], "layer": 1 } },
+      {
+        "heading": {
+          "type": "label",
+          "text": "Choose a game",
+          "color": [0.62, 0.86, 1.0],
+          "shadow": true,
+          "anchor_from": "top_middle",
+          "anchor_to": "top_middle",
+          "offset": [0, 12],
+          "layer": 3
+        }
+      },
+      {
+        "grid": {
+          "type": "grid",
+          "size": [408, 252],
+          "anchor_from": "top_middle",
+          "anchor_to": "top_middle",
+          "offset": [0, 32],
+          "layer": 3,
+          "grid_dimensions": [4, 3],
+          "grid_item_template": "minecade_forms.game_tile",
+          "collection_name": "form_buttons"
+        }
+      },
+      { "close@common.close_button": { "layer": 6, "$close_button_offset": [-6, 6] } }
+    ]
+  },
+
+  "game_tile": {
+    "type": "panel",
+    "size": [102, 84],
+    "bindings": [
+      { "binding_name": "#form_button_text", "binding_type": "collection", "binding_collection_name": "form_buttons" },
+      { "binding_type": "view", "source_property_name": "(not (#form_button_text = ''))", "target_property_name": "#visible" }
+    ],
+    "controls": [
+      {
+        "button@common.button": {
+          "$pressed_button_name": "button.form_button_click",
+          "size": [96, 78],
+          "bindings": [{ "binding_type": "collection_details", "binding_collection_name": "form_buttons" }],
+          "controls": [
+            { "default@minecade_forms.game_tile_face": { "$tile_texture": "textures/minecade/ui/tile_game_default" } },
+            { "hover@minecade_forms.game_tile_face": { "$tile_texture": "textures/minecade/ui/tile_game_hover" } },
+            { "pressed@minecade_forms.game_tile_face": { "$tile_texture": "textures/minecade/ui/tile_game_pressed" } }
+          ]
+        }
+      }
+    ]
+  },
+
+  "game_tile_face": {
+    "type": "image",
+    "texture": "$tile_texture",
+    "size": ["100%", "100%"],
+    "controls": [
+      {
+        "icon@minecade_forms.button_icon": {
+          "size": [36, 36],
+          "anchor_from": "top_middle",
+          "anchor_to": "top_middle",
+          "offset": [0, 7]
+        }
+      },
+      {
+        "label@minecade_forms.button_label": {
+          "size": ["100% - 6px", "default"],
+          "text_alignment": "center",
+          "anchor_from": "bottom_middle",
+          "anchor_to": "bottom_middle",
+          "offset": [0, -5]
+        }
+      }
+    ]
+  },
+
+  // ---- Play: one game's screen ----------------------------------------------------------------
+  // Left: map tiles (form buttons 0 to 7; the selected one starts with '§s§e§l§r'). Right: the
+  // game's name and info, then the settings (buttons 9 and 10) and Start (button 8), placed by
+  // their fixed index (see lobby/behavior_pack/scripts/game-screen.ts).
+  "game_menu": {
+    "type": "panel",
+    "size": [440, 232],
+    "layer": 2,
+    "bindings": [
+      { "binding_name": "#title_text" },
+      {
+        "binding_type": "view",
+        "source_property_name": "(not ((#title_text - '§g§a§m§e') = #title_text))",
+        "target_property_name": "#visible"
+      }
+    ],
+    "controls": [
+      { "background": { "type": "image", "texture": "textures/minecade/ui/panel_game", "size": ["100%", "100%"], "layer": 1 } },
+      {
+        "maps_heading": {
+          "type": "label",
+          "text": "Map",
+          "color": [0.62, 0.86, 1.0],
+          "shadow": true,
+          "anchor_from": "top_left",
+          "anchor_to": "top_left",
+          "offset": [16, 12],
+          "layer": 3
+        }
+      },
+      {
+        "maps_grid": {
+          "type": "grid",
+          "size": [204, 168],
+          "anchor_from": "top_left",
+          "anchor_to": "top_left",
+          "offset": [12, 30],
+          "layer": 3,
+          "grid_dimensions": [2, 4],
+          "grid_item_template": "minecade_forms.map_tile",
+          "collection_name": "form_buttons"
+        }
+      },
+      {
+        "details": {
+          "type": "panel",
+          "size": [200, 200],
+          "anchor_from": "top_right",
+          "anchor_to": "top_right",
+          "offset": [-14, 14],
+          "layer": 3,
+          "collection_name": "form_buttons",
+          "controls": [
+            {
+              "name": {
+                "type": "label",
+                "text": "#title_text",
+                "color": [0.86, 0.96, 1.0],
+                "shadow": true,
+                "font_scale_factor": 1.5,
+                "anchor_from": "top_left",
+                "anchor_to": "top_left",
+                "bindings": [{ "binding_name": "#title_text" }]
+              }
+            },
+            {
+              "info": {
+                "type": "label",
+                "text": "#form_text",
+                "color": [0.62, 0.86, 1.0],
+                "size": ["100%", "default"],
+                "anchor_from": "top_left",
+                "anchor_to": "top_left",
+                "offset": [0, 20]
+              }
+            },
+            { "setting_0@minecade_forms.wide_button": { "collection_index": 9, "anchor_from": "bottom_left", "anchor_to": "bottom_left", "offset": [0, -80] } },
+            { "setting_1@minecade_forms.wide_button": { "collection_index": 10, "anchor_from": "bottom_left", "anchor_to": "bottom_left", "offset": [0, -42] } },
+            { "start@minecade_forms.wide_button": { "collection_index": 8, "anchor_from": "bottom_left", "anchor_to": "bottom_left", "offset": [0, 0] } }
+          ]
+        }
+      },
+      { "close@common.close_button": { "layer": 6, "$close_button_offset": [-6, 6] } }
+    ]
+  },
+
+  "map_tile": {
+    "type": "panel",
+    "size": [102, 42],
+    "bindings": [
+      { "binding_name": "#form_button_text", "binding_type": "collection", "binding_collection_name": "form_buttons" },
+      { "binding_type": "view", "source_property_name": "(not (#form_button_text = ''))", "target_property_name": "#visible" }
+    ],
+    "controls": [
+      {
+        "button@common.button": {
+          "$pressed_button_name": "button.form_button_click",
+          "size": [98, 38],
+          "bindings": [{ "binding_type": "collection_details", "binding_collection_name": "form_buttons" }],
+          "controls": [
+            { "default@minecade_forms.map_tile_face": { "$tile_texture": "textures/minecade/ui/tile_map_default" } },
+            { "hover@minecade_forms.map_tile_face": { "$tile_texture": "textures/minecade/ui/tile_map_hover" } },
+            { "pressed@minecade_forms.map_tile_face": { "$tile_texture": "textures/minecade/ui/tile_map_pressed" } }
+          ]
+        }
+      }
+    ]
+  },
+
+  "map_tile_face": {
+    "type": "image",
+    "texture": "$tile_texture",
+    "size": ["100%", "100%"],
+    "controls": [
+      {
+        "selected": {
+          "type": "image",
+          "texture": "textures/minecade/ui/tile_map_selected",
+          "size": ["100%", "100%"],
+          "layer": 3,
+          "bindings": [
+            { "binding_name": "#form_button_text", "binding_type": "collection", "binding_collection_name": "form_buttons" },
+            {
+              "binding_type": "view",
+              "source_property_name": "(not ((#form_button_text - '§s§e§l§r') = #form_button_text))",
+              "target_property_name": "#visible"
+            }
+          ]
+        }
+      },
+      {
+        "icon@minecade_forms.button_icon": {
+          "size": [18, 18],
+          "anchor_from": "left_middle",
+          "anchor_to": "left_middle",
+          "offset": [7, 0]
+        }
+      },
+      {
+        "label@minecade_forms.button_label": {
+          "anchor_from": "left_middle",
+          "anchor_to": "left_middle",
+          "offset": [30, 0]
+        }
+      }
+    ]
+  },
+
+  // Start and the settings: a full-width button at a fixed form button index ("collection_index").
+  "wide_button": {
+    "type": "panel",
+    "size": [200, 32],
+    "bindings": [
+      { "binding_name": "#form_button_text", "binding_type": "collection", "binding_collection_name": "form_buttons" },
+      { "binding_type": "view", "source_property_name": "(not (#form_button_text = ''))", "target_property_name": "#visible" }
+    ],
+    "controls": [
+      {
+        "button@common.button": {
+          "$pressed_button_name": "button.form_button_click",
+          "size": ["100%", "100%"],
+          "bindings": [{ "binding_type": "collection_details", "binding_collection_name": "form_buttons" }],
+          "controls": [
+            { "default@minecade_forms.wide_button_face": { "$tile_texture": "textures/minecade/ui/button_default" } },
+            { "hover@minecade_forms.wide_button_face": { "$tile_texture": "textures/minecade/ui/button_hover" } },
+            { "pressed@minecade_forms.wide_button_face": { "$tile_texture": "textures/minecade/ui/button_pressed" } }
+          ]
+        }
+      }
+    ]
+  },
+
+  "wide_button_face": {
+    "type": "image",
+    "texture": "$tile_texture",
+    "size": ["100%", "100%"],
+    "controls": [{ "label@minecade_forms.button_label": { "anchor_from": "center", "anchor_to": "center" } }]
+  },
+
+  // The form button's icon and text, read from the button's place in the collection.
+  "button_icon": {
+    "type": "image",
+    "layer": 2,
+    "bindings": [
+      { "binding_name": "#form_button_texture", "binding_name_override": "#texture", "binding_type": "collection", "binding_collection_name": "form_buttons" },
+      {
+        "binding_name": "#form_button_texture_file_system",
+        "binding_name_override": "#texture_file_system",
+        "binding_type": "collection",
+        "binding_collection_name": "form_buttons"
+      }
+    ]
+  },
+
+  "button_label": {
+    "type": "label",
+    "text": "#form_button_text",
+    "color": [0.86, 0.96, 1.0],
+    "shadow": true,
+    "layer": 2,
+    "bindings": [{ "binding_name": "#form_button_text", "binding_type": "collection", "binding_collection_name": "form_buttons" }]
   }
 }
