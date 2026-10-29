@@ -249,6 +249,7 @@ export class FakePlayer {
   nameTag: string;
   location: Vector3 = { x: 0, y: 65, z: 0 };
   viewDirection: Vector3 = { x: 0, y: 0, z: 1 };
+  isSprinting = false;
   selectedSlotIndex = 0;
   readonly teleports: Vector3[] = [];
   /** Every applyKnockback call, in order. */
@@ -552,7 +553,8 @@ class FakeWorld {
   }
 
   /** Damages a player the way BDS does (see the file header). */
-  hurt(victim: FakePlayer, damage: number, cause: string, from?: { attacker?: FakePlayer; projectile?: string }): void {
+  /** `cooldown`: the victim is in their 10-tick hit cooldown, so BDS fires the before-event and then drops the hit. */
+  hurt(victim: FakePlayer, damage: number, cause: string, from?: { attacker?: FakePlayer; projectile?: string; cooldown?: boolean }): void {
     const damageSource: DamageSource = {
       cause,
       damagingEntity: from?.attacker ?? (from?.projectile ? { typeId: from.projectile, id: "projectile" } : undefined),
@@ -562,7 +564,7 @@ class FakeWorld {
     victim.health.currentValue = before - damage; // BDS reports the health with the hit already taken
     const event: HurtBeforeEvent = { hurtEntity: victim, damage, damageSource, cancel: false };
     this.beforeEvents.entityHurt.emit(event, acceptsEntity(victim));
-    if (event.cancel) {
+    if (event.cancel || from?.cooldown) {
       victim.health.currentValue = before;
       return;
     }
@@ -572,8 +574,8 @@ class FakeWorld {
   }
 
   /** A melee hit: the swing (entityHitEntity, even when the damage is canceled), then its damage. */
-  melee(attacker: FakePlayer, victim: FakePlayer, damage = 1): void {
-    this.hurt(victim, damage, "entityAttack", { attacker });
+  melee(attacker: FakePlayer, victim: FakePlayer, damage = 1, cooldown = false): void {
+    this.hurt(victim, damage, "entityAttack", { attacker, cooldown });
     this.afterEvents.entityHitEntity.emit({ damagingEntity: attacker, hitEntity: victim }, acceptsEntity(attacker));
   }
 

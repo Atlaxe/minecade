@@ -98,15 +98,12 @@ export class Combat {
       event.cancel = true;
       return;
     }
-    if (attacker !== undefined && attacker !== name) {
-      if (!this.host.canFight(attacker) || this.host.areAllies(attacker, name)) {
-        event.cancel = true;
-        return;
-      }
-      this.credit.hit(name, attacker, system.currentTick);
+    if (attacker !== undefined && attacker !== name && (!this.host.canFight(attacker) || this.host.areAllies(attacker, name))) {
+      event.cancel = true;
+      return;
     }
     if ((cause === "fall" && this.config.fall === false) || this.config.damage === "none") {
-      event.cancel = true; // knockback games: the hit still counts toward kill credit (above)
+      event.cancel = true;
       return;
     }
     // Measured on BDS 1.26.60: here the reported health already has this hit taken off, and
@@ -122,17 +119,25 @@ export class Combat {
     // and the entityDie backstop handles it if it does kill.
     if (event.damage >= before && !victim.getEffect("absorption")) {
       event.cancel = true;
+      if (attacker !== undefined) this.credit.hit(name, attacker, system.currentTick);
       this.dying.add(name.toLowerCase());
       this.stats.damage(name, before, attacker);
       scope.defer(() => this.host.down(name, cause));
     }
   }
 
-  /** Non-lethal damage that went through: count it. */
+  /**
+   * A hit that landed (non-lethal, or let through for absorption): count it, and credit the
+   * attacker here rather than in the before-event. Measured on BDS: during a victim's 10-tick
+   * hit cooldown, another hit still fires the before-event but does nothing (no after-event), so
+   * crediting it would let a tap steal a knock-off.
+   */
   private afterHurt(event: EntityHurtAfterEvent): void {
     if (!this.host.playing) return;
     const victim = (event.hurtEntity as Player).name;
-    this.stats.damage(victim, Math.min(event.damage, MAX_HEALTH), playerName(event.damageSource.damagingEntity));
+    const attacker = playerName(event.damageSource.damagingEntity);
+    if (attacker !== undefined) this.credit.hit(victim, attacker, system.currentTick);
+    this.stats.damage(victim, Math.min(event.damage, MAX_HEALTH), attacker);
   }
 
   /** A death we couldn't intercept (/kill, or damage set straight to zero). */

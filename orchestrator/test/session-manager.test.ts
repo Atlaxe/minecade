@@ -272,6 +272,7 @@ describe("SessionManager: startup and shutdown", () => {
     ];
     const pending = t.sessions.cleanupLeftovers();
     await vi.advanceTimersByTimeAsync(0);
+    expect(await t.sessions.start(startRequest)).toEqual({ ok: false, reason: "the network is still starting up; try again in a few seconds" });
     expect(t.links.map((link) => link.serverId)).toEqual(["old"]);
     expect(t.links[0].sent).toEqual([{ t: "return_all", reason: "The network restarted." }]);
     expect(t.docker.removeContainer).not.toHaveBeenCalled();
@@ -279,6 +280,7 @@ describe("SessionManager: startup and shutdown", () => {
     await pending;
     expect(t.docker.removeContainer.mock.calls).toEqual([["c1"], ["c2"]]);
     expect(t.links[0].closed).toBe(true);
+    expect(await t.sessions.start(startRequest)).toMatchObject({ ok: true });
   });
 
   it("on shutdown, sends players home and removes the game once it ends", async () => {

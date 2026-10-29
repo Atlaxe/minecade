@@ -64,10 +64,10 @@ async function main(): Promise<void> {
   log.info(
     `listening on :${config.httpPort} (transport ${config.transport}, games: ${registry.games.map((game) => game.id).join(", ")})`,
   );
-  log.info(`public address: ${(await publicIp()) || "unknown"}, LAN address: ${config.lanHost}`);
-
-  await sessions.cleanupLeftovers();
+  // The lobby channel opens before anything slow, so a game started early still reaches the lobby.
   lobby.start();
+  log.info(`public address: ${(await publicIp()) || "unknown"}, LAN address: ${config.lanHost}`);
+  await sessions.cleanupLeftovers();
 
   let stopping = false;
   const shutdown = async (signal: string) => {

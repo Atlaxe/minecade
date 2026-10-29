@@ -32,7 +32,11 @@ export interface RespawnConfig {
 }
 
 export interface CombatConfig {
-  /** "none" cancels all damage (knockback games); hits still count toward kill credit. */
+  /**
+   * "none" cancels every hit, knockback included (building and parkour games). For hits that
+   * push but don't hurt, keep "normal" and return 0 from onDamage, as Sumo does: a 0-damage hit
+   * keeps vanilla knockback and the 10-tick hit cooldown.
+   */
   damage?: "normal" | "none";
   fall?: boolean;
   /** What leaving the map bounds (or dropping below killY) does. Default "down". */

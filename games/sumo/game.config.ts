@@ -19,9 +19,18 @@ export default defineGame({
   timeUp: "draw",
   stats: { mode: "solo", pvp: true },
   /**
-   * "vanilla": a player's hit lands with 0 damage, so the normal knockback plays.
-   * "scripted": the hit is canceled and the victim is pushed by script with these numbers, at
-   * most once per `cooldownTicks`.
+   * "vanilla" (default): a player's hit lands with 0 damage, which keeps Minecraft's own
+   * knockback (sprint bonus included) and its 10-tick hit cooldown.
+   * "scripted": the hit is canceled and the victim is pushed by script, at most once per
+   * `cooldownTicks` per victim. The defaults match vanilla as measured on BDS 1.26.60 (see
+   * docs/spike-results.md, "Knockback"); raise them for a bouncier Sumo.
    */
-  knockback: { mode: "vanilla" as "vanilla" | "scripted", horizontal: 0.9, vertical: 0.35, cooldownTicks: 8 },
+  knockback: {
+    mode: "vanilla" as "vanilla" | "scripted",
+    horizontal: 1.0,
+    vertical: 0.4,
+    sprintHorizontal: 1.5,
+    sprintVertical: 0.32,
+    cooldownTicks: 10,
+  },
 });

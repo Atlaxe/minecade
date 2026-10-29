@@ -71,6 +71,8 @@ export class SessionManager {
   private readonly deps: SessionDeps;
   private session: Session | undefined;
   private idleWaiters: (() => void)[] = [];
+  /** True while leftover games from an earlier run are being removed: they still hold the game port. */
+  private cleaningUp = false;
 
   constructor(deps: SessionDeps) {
     this.deps = deps;
@@ -93,6 +95,7 @@ export class SessionManager {
   }
 
   async start(request: StartRequest): Promise<StartResult> {
+    if (this.cleaningUp) return this.reject(request.requestId, "the network is still starting up; try again in a few seconds");
     if (this.session) return this.reject(request.requestId, `busy: ${this.session.game.name} is ${this.session.state}`);
     const resolved = resolveGameMap(this.deps.registry, request.game, request.map, this.deps.random);
     if (!resolved.ok) return this.reject(request.requestId, resolved.reason);
@@ -147,6 +150,15 @@ export class SessionManager {
 
   /** Startup: sends leftover games from an earlier run home, then removes them. */
   async cleanupLeftovers(): Promise<void> {
+    this.cleaningUp = true;
+    try {
+      await this.removeLeftovers();
+    } finally {
+      this.cleaningUp = false;
+    }
+  }
+
+  private async removeLeftovers(): Promise<void> {
     const leftovers = await this.deps.docker.listGames();
     if (leftovers.length === 0) return;
     log.info(`found ${leftovers.length} leftover game container(s); sending players back to the lobby`);

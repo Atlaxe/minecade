@@ -64,6 +64,7 @@ describe("Sumo", () => {
       expect(b.gameMode).toBe("Spectator");
 
       world.melee(c, a, 5);
+      world.melee(b, a, 5, true); // a spectator, and inside A's hit cooldown anyway: no credit
       knockOff(a);
       await ticks(3);
     });
@@ -78,9 +79,27 @@ describe("Sumo", () => {
     everyoneLeaves();
   });
 
+  it("credits the hit that knocked a player off, not a tap that landed in their hit cooldown", async () => {
+    const { players, baseline, from, game } = start(["A", "B", "C"]);
+    const [a, b, c] = players;
+    await playToEnd(game, harness.root, baseline, async () => {
+      await ticks(COUNTDOWN_TICKS);
+      world.melee(a, b, 1);
+      world.melee(c, b, 1, true); // BDS fires the before-event, then drops the hit
+      knockOff(b);
+      await ticks(3);
+      knockOff(c);
+      await ticks(3);
+    });
+    const kills = Object.fromEntries(statsRows(harness.sent, from).map((row) => [row.n, row.k]));
+    expect(kills).toEqual({ A: 1, B: 0, C: 0 });
+    expectBaseline(harness.root, baseline);
+    everyoneLeaves();
+  });
+
   it("in scripted mode, cancels the hit and pushes the victim away from the attacker, once per cooldown", async () => {
     const knockback = { ...config.knockback, mode: "scripted" as const };
-    const { players, baseline, game } = start(["A", "B"], { knockback });
+    const { players, baseline, from, game } = start(["A", "B"], { knockback });
     const [a, b] = players;
     await playToEnd(game, harness.root, baseline, async () => {
       await ticks(COUNTDOWN_TICKS);
@@ -93,14 +112,17 @@ describe("Sumo", () => {
       world.melee(a, b, 5); // too soon: no second push
       expect(b.knockbacks).toHaveLength(1);
       await ticks(1);
+      a.isSprinting = true;
       world.melee(a, b, 5);
       expect(b.knockbacks).toHaveLength(2);
+      expect(b.knockbacks[1]).toEqual({ x: knockback.sprintHorizontal, z: 0, vertical: knockback.sprintVertical });
 
-      knockOff(b);
+      knockOff(b); // the push is credited, though no damage ever landed
       await ticks(3);
       world.melee(b, a, 5); // a spectator can't push anyone
       expect(a.knockbacks).toEqual([]);
     });
+    expect(statsRows(harness.sent, from).find((row) => row.n === "A")).toMatchObject({ k: 1, r: "w" });
     expectBaseline(harness.root, baseline);
     everyoneLeaves();
   });

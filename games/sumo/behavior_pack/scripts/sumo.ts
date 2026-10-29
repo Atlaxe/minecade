@@ -18,9 +18,9 @@ export class Sumo extends Minigame<typeof config> {
     if (timedOut) return this.onTimeUp();
   }
 
-  /** Scripted mode: the hit itself was canceled, so push the victim away from the attacker. */
+  /** Scripted mode: the hit itself was canceled, so push the victim away from the attacker and credit the push. */
   private pushOnHit(scope: Scope): void {
-    const { horizontal, vertical, cooldownTicks } = this.config.knockback;
+    const { cooldownTicks } = this.config.knockback;
     const lastPush = new Map<string, number>();
     scope.subscribe(
       world.afterEvents.entityHitEntity,
@@ -32,11 +32,18 @@ export class Sumo extends Minigame<typeof config> {
         const key = victim.name.toLowerCase();
         if (system.currentTick - (lastPush.get(key) ?? Number.NEGATIVE_INFINITY) < cooldownTicks) return;
         lastPush.set(key, system.currentTick);
+        const { horizontal, vertical } = this.pushStrength(attacker.isSprinting);
         const { x, z } = pushDirection(attacker.location, victim.location, attacker.getViewDirection());
         victim.applyKnockback({ x: x * horizontal, z: z * horizontal }, vertical);
+        this.credit.hit(victim.name, attacker.name, system.currentTick);
       },
       { entityTypes: ["minecraft:player"] },
     );
+  }
+
+  private pushStrength(sprinting: boolean): { horizontal: number; vertical: number } {
+    const { horizontal, vertical, sprintHorizontal, sprintVertical } = this.config.knockback;
+    return sprinting ? { horizontal: sprintHorizontal, vertical: sprintVertical } : { horizontal, vertical };
   }
 }
 

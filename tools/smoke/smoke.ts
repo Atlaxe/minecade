@@ -82,7 +82,12 @@ if ((await lobby?.inspect())?.State.Running) pass("lobby container is running");
 else fail("lobby container is not running");
 
 const startedAt = new Date(Date.now() - 1000);
-const start = await api("POST", "/v1/start", { game: GAME, map: MAP });
+// Right after a restart the orchestrator may still be removing leftover games; it says so.
+const start = (await waitUntil(60, async () => {
+  const attempt = await api("POST", "/v1/start", { game: GAME, map: MAP });
+  return attempt.status === 409 && String(attempt.body.error).includes("starting up") ? undefined : attempt;
+}));
+if (!start) stop("the orchestrator was still starting up after 60 s");
 const sessionId = start.body.sessionId;
 if (start.status !== 202 || typeof sessionId !== "string") stop(`starting ${GAME} failed: HTTP ${start.status} ${JSON.stringify(start.body)}`);
 pass(`started ${GAME} on ${MAP} (session ${sessionId})`);
