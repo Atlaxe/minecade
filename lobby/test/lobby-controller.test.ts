@@ -34,6 +34,7 @@ function setup(online: string[] = ["Steve", "Alex"], options: Partial<LobbyOptio
   const notes: [string, string][] = [];
   const titles: [string, string, string | undefined][] = [];
   const closed: string[] = [];
+  const chimes: [string, string][] = [];
   const selectors: OpenSelector[] = [];
   let requests = 0;
   const ports: LobbyPorts = {
@@ -43,6 +44,7 @@ function setup(online: string[] = ["Steve", "Alex"], options: Partial<LobbyOptio
     // Tests read what players see, without the color codes.
     notify: (to, text) => notes.push([to, stripColors(text)]),
     title: (to, title, subtitle) => titles.push([to, stripColors(title), subtitle === undefined ? undefined : stripColors(subtitle)]),
+    chime: (to, chime) => chimes.push([to, chime]),
     closeForms: (name) => closed.push(name),
     chooseGame: (name, scope, choices) =>
       scope.guard(new Promise((pick) => selectors.push({ name, scope, choices, pick }))),
@@ -51,7 +53,7 @@ function setup(online: string[] = ["Steve", "Alex"], options: Partial<LobbyOptio
   const lobby = new LobbyController(ports, root, { registry, newRequestId: () => `r${++requests}`, ...options });
   const say = (message: InboundMessage) => lobby.onMessage(message);
   const notesTo = (to: string) => notes.filter(([who]) => who === to).map(([, text]) => text);
-  return { players, sent, transfers, notes, notesTo, titles, closed, selectors, root, lobby, say };
+  return { players, sent, transfers, notes, notesTo, titles, chimes, closed, selectors, root, lobby, say };
 }
 
 /** Steve opens the selector and starts Sumo on Arena 1 (request "r1"). */
@@ -77,8 +79,6 @@ describe("LobbyController: starting a game", () => {
     expect(t.sent).toEqual([{ t: "start_game", requestId: "r1", game: "sumo", map: "arena_1", players: ["Steve", "Alex"] }]);
     expect(t.notesTo("all")).toEqual(["Steve is starting Sumo on Arena 1."]);
     expect(t.titles).toEqual([["all", "Starting Sumo", "Arena 1"]]);
-    expect(stripColors(t.lobby.actionBar(0)!)).toBe("Starting Sumo.");
-    expect(stripColors(t.lobby.actionBar(2)!)).toBe("Starting Sumo...");
   });
 
   it("sends at most maxPlayers players", async () => {
@@ -128,7 +128,6 @@ describe("LobbyController: starting a game", () => {
       "Sumo is in progress (2 playing). You'll join the next round.",
       "Wrapping up the last game. Try again in a moment.",
     ]);
-    expect(t.lobby.actionBar(0)).toBeUndefined(); // the lobby's action bar stays clear unless it's starting a game
   });
 
   it("checks again at confirm time, since someone else may have started a game meanwhile", async () => {
@@ -165,12 +164,12 @@ describe("LobbyController: sending players", () => {
       await flushPromises();
     }
     expect(countdown()).toEqual(["Steve:3", "Alex:3", "Steve:2", "Alex:2", "Steve:1", "Alex:1"]);
+    expect(t.chimes).toEqual(["Steve", "Alex", "Steve", "Alex", "Steve", "Alex"].map((name) => [name, "bell"]));
     expect(t.transfers).toEqual([
       ["Steve", 19133],
       ["Alex", 19133],
     ]);
     expect(t.notesTo("Bob")).toEqual(["Sumo started without you. You'll join the next round."]);
-    expect(t.lobby.actionBar(0)).toBeUndefined();
   });
 
   it("skips listed players who left during the countdown", async () => {
@@ -193,7 +192,6 @@ describe("LobbyController: sending players", () => {
     system.advanceTicks(100);
     await flushPromises();
     expect(t.transfers).toEqual([]);
-    expect(stripColors(t.lobby.actionBar(0)!)).toBe("Starting Sumo.");
   });
 
   it("cancels the countdown if the game fails meanwhile", async () => {
@@ -217,7 +215,6 @@ describe("LobbyController: recovering", () => {
     await startSumo(t);
     t.say({ t: "start_rejected", requestId: "r1", reason: "busy: Probe is running", status: { state: "running", players: [] } });
     expect(t.notesTo("all").at(-1)).toBe("Couldn't start Sumo: busy: Probe is running");
-    expect(t.lobby.actionBar(0)).toBeUndefined();
 
     await startSumo(t);
     t.say({ t: "game_failed", requestId: "r2", reason: "the game server did not become ready in time" });
@@ -231,9 +228,7 @@ describe("LobbyController: recovering", () => {
     await startSumo(t);
     t.say({ t: "game_starting", requestId: "r1", sessionId: "s1", game: "sumo", map: "arena_1" });
     t.say({ t: "status", state: "starting", sessionId: "s1", game: "sumo", map: "arena_1", players: [] });
-    expect(stripColors(t.lobby.actionBar(0)!)).toBe("Starting Sumo.");
     t.say({ t: "status", state: "idle", players: [] }); // the orchestrator restarted
-    expect(t.lobby.actionBar(0)).toBeUndefined();
   });
 
   it("asks the orchestrator for the real state when no answer comes for 150 s", async () => {

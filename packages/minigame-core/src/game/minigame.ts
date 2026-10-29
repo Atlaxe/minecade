@@ -16,6 +16,7 @@ import {
 import { ActionFormData } from "@minecraft/server-ui";
 import type { ServerContext } from "../context.ts";
 import type { GameConfig, TeamDef } from "../config.ts";
+import { countdownChime, hudLine, playChime, type Chime } from "../hud.ts";
 import { describeError, log } from "../log.ts";
 import type { Vec3 } from "../map-config.ts";
 import { normalizePlayer } from "../player.ts";
@@ -64,6 +65,8 @@ export interface StageResult<T = unknown> {
   timedOut: boolean;
 }
 
+/** Every match has a clock unless its config says otherwise (timeLimitSeconds: 0 for none). */
+export const DEFAULT_TIME_LIMIT_SECONDS = 5 * 60;
 const PICKER_ITEM = "minecraft:nether_star";
 const PICKER_SLOT = 8;
 /** Rules every game gets unless it says otherwise: deaths are handled by core, invisibly. */
@@ -143,12 +146,19 @@ export abstract class Minigame<C extends GameConfig = GameConfig> {
   protected onStart(): void {}
 
   /**
-   * The match itself. The default is one stage of timeLimitSeconds (or until a win check ends
-   * it). Return a result, or nothing for a draw. finish() ends it from anywhere.
+   * The match itself. The default is one stage of timeLimitSeconds (5 minutes unless set; 0 for
+   * no limit), or until a win check ends it. Return a result, or nothing for a draw. finish()
+   * ends it from anywhere.
    */
   protected async play(): Promise<Result | void> {
-    const { timedOut } = await this.stage("Match", { seconds: this.config.timeLimitSeconds });
+    const { timedOut } = await this.stage("Match", { seconds: this.timeLimit });
     if (timedOut) return this.onTimeUp();
+  }
+
+  /** The match length in seconds, or undefined for no limit. */
+  protected get timeLimit(): number | undefined {
+    const seconds = this.config.timeLimitSeconds ?? DEFAULT_TIME_LIMIT_SECONDS;
+    return seconds > 0 ? seconds : undefined;
   }
 
   /** After a player has been reset, teleported and kitted. */
@@ -207,12 +217,11 @@ export abstract class Minigame<C extends GameConfig = GameConfig> {
 
   /**
    * The action bar line for a player, refreshed twice a second. Only what matters right now:
-   * the clock in a stage's last 30 seconds, lives in lives games, and a respawn countdown.
+   * lives in lives games and a respawn countdown. The stage clock is drawn separately, top
+   * right (see hud.ts).
    */
   protected hud(name: string): string | undefined {
     const parts: string[] = [];
-    const stage = this.currentStage;
-    if (stage?.secondsLeft !== undefined && stage.secondsLeft <= 30) parts.push(say.warn(`${stage.name}: ${clock(stage.secondsLeft)}`));
     const participant = this.roster.get(name);
     if (participant && this.config.respawn?.mode === "lives" && participant.state !== "out") parts.push(say.info(`Lives: ${participant.lives}`));
     const respawnAt = this.respawnAt.get(name.toLowerCase());
@@ -422,6 +431,11 @@ export abstract class Minigame<C extends GameConfig = GameConfig> {
 
   broadcast(text: string): void {
     world.sendMessage(text);
+  }
+
+  /** A countdown sound for everyone on the server. */
+  chime(chime: Chime): void {
+    for (const player of world.getAllPlayers()) playChime(player, chime);
   }
 
   /** A title for one player, or everyone when `to` is omitted. */
@@ -718,6 +732,7 @@ export abstract class Minigame<C extends GameConfig = GameConfig> {
         }
         if (picks && left > 3 && online.every((name) => this.hasPicked(name))) left = 3;
         this.title(`${COLOR.highlight}${left}`, say.minor(picks ? "Use the star to pick" : `${this.config.name} is starting`));
+        this.chime(countdownChime(left));
         await scope.wait(20);
         left--;
       }
@@ -733,10 +748,12 @@ export abstract class Minigame<C extends GameConfig = GameConfig> {
     this.freeze(this.roster.inState("alive").map((participant) => participant.name), scope);
     for (let left = seconds; left > 0; left--) {
       this.title(`${COLOR.highlight}${left}`, say.minor(label));
+      this.chime(countdownChime(left));
       await scope.wait(20);
     }
     scope.dispose();
     this.title(say.success("Go!"), say.minor(label));
+    this.chime("go");
   }
 
   // ---- The match --------------------------------------------------------------------------
@@ -777,9 +794,11 @@ export abstract class Minigame<C extends GameConfig = GameConfig> {
     }, 20);
 
     for (const participant of this.roster.all()) this.spawn(participant.name, "start");
-    for (const team of this.teams) {
-      for (const member of this.roster.teamMembers(team.id)) this.title(`${team.color}${team.name} team`, say.minor(this.config.name), member.name);
+    for (const participant of this.roster.all()) {
+      const team = this.teamOf(participant.name);
+      this.title(say.success("Go!"), team ? say.minor(`You're on the ${nameOf(`${team.name} team`, team.color)}`) : say.minor(this.config.name), participant.name);
     }
+    this.chime("go");
     this.contestSides = this.roster.standingSides().length;
     try {
       this.onStart();
@@ -818,8 +837,9 @@ export abstract class Minigame<C extends GameConfig = GameConfig> {
   }
 
   private refreshDisplays(): void {
+    const secondsLeft = this.currentStage?.secondsLeft;
     for (const player of world.getAllPlayers()) {
-      const text = this.hud(player.name);
+      const text = hudLine(secondsLeft, this.hud(player.name) ?? "");
       if (text) player.onScreenDisplay.setActionBar(text);
     }
     const board = this.roundWins ?? (this.config.scoring ? this.score : undefined);
@@ -969,7 +989,3 @@ export abstract class Minigame<C extends GameConfig = GameConfig> {
   }
 }
 
-function clock(seconds: number): string {
-  const whole = Math.max(0, Math.ceil(seconds));
-  return `${Math.floor(whole / 60)}:${String(whole % 60).padStart(2, "0")}`;
-}

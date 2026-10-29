@@ -254,6 +254,8 @@ export class FakePlayer {
   readonly teleports: Vector3[] = [];
   /** Every applyKnockback call, in order. */
   readonly knockbacks: { x: number; z: number; vertical: number }[] = [];
+  /** Every sound played to this player, in order. */
+  readonly sounds: { id: string; pitch?: number; volume?: number }[] = [];
   readonly messages: string[] = [];
   readonly titles: string[] = [];
   actionBar = "";
@@ -330,6 +332,11 @@ export class FakePlayer {
     writable("Entity::teleport");
     this.location = { ...location };
     this.teleports.push({ ...location });
+  }
+
+  playSound(id: string, options: { pitch?: number; volume?: number } = {}): void {
+    writable("Player::playSound");
+    this.sounds.push({ id, ...options });
   }
 
   getViewDirection(): Vector3 {

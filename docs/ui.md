@@ -48,10 +48,37 @@ For anything more (a line that depends on the weapon, say), override
 `protected deathMessage(victim, down)` in the game's `Minigame` class. Returning `undefined`
 skips the line.
 
-## Action bar
+## Action bar and match clock
 
 The action bar (the line above the hotbar) only shows what matters right now:
 
-- **Lobby:** nothing, except "Starting <game>..." while a game is starting.
-- **Games:** the stage clock in its last 30 seconds, lives in games with lives, and
-  "Respawning in N" while respawning. A game can show more by overriding `hud(name)`.
+- **Lobby:** nothing. Starting a game shows titles and a countdown instead.
+- **Games:** lives in games with lives, "Respawning in N" while respawning, and "Waiting for
+  players" before the match. A game can show more by overriding `hud(name)`.
+
+Every match has a clock: `timeLimitSeconds` in `game.config.ts`, 5 minutes when a game doesn't
+set one (`DEFAULT_TIME_LIMIT_SECONDS`), or `0` for no limit. Games that override `play()` should
+use `this.timeLimit` so the default applies to them too. When time runs out, `onTimeUp()`
+decides the result (the highest score, or a draw).
+
+The clock shows top right with a clock icon, turning red in the last 30 seconds. Bedrock has no
+script API for placing text on the HUD, so it rides on the action bar: games send
+`::T04:59|<rest of the line>` (`::R` in the last 30 seconds, see `hudLine()` in
+`packages/minigame-core/src/hud.ts`), and the core resource pack's `ui/hud_screen.json` splits it:
+the clock goes top right and the rest shows as the normal action bar line. Without the pack the
+line still reads as text. To see JSON UI errors in the client, turn on Settings, Creator, Content
+Log GUI.
+
+## Countdown sounds
+
+Every countdown (the match start, each round, and the lobby's "Joining" countdown) plays a tick
+for each second, a bell for 3, 2 and 1, and a flourish with "Go!" (`CHIMES` and `countdownChime()`
+in `hud.ts`). Games can play them too with `this.chime("bell")`.
+
+## The core resource pack
+
+`packages/minigame-core/resource_pack/` goes to every server, before the server's own pack: the
+HUD clock now, and other shared UI later. The build stamps every resource pack's version from a
+hash of its files, because clients cache server packs by UUID and version and would otherwise keep
+an old copy. Images come from `tools/assets/make-assets.py` (Pillow): rerun it after changing the
+art and commit the PNGs it writes.

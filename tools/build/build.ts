@@ -12,6 +12,7 @@ import type { GameConfig, MapConfig, Registry, RegistryGame } from "@minecade/mi
 import type { TransportKind } from "@minecade/minigame-core/protocol";
 import { enableBetaApis, patchLevelDat } from "./leveldat.ts";
 import { MODULE_VERSIONS, pinManifest, type Manifest } from "./mc-versions.ts";
+import { contentHash, withPatchVersion } from "./pack-version.ts";
 import { registryPlugin, transportPlugin } from "./transport-plugin.ts";
 import { validateGameConfig, validateMapConfig } from "./validate.ts";
 
@@ -143,9 +144,11 @@ async function buildBehaviorPack(src: string, out: string, manifest: Manifest, r
   }
 }
 
+/** Copies a resource pack, versioned by its content so clients download it again whenever it changes. */
 async function buildResourcePack(src: string, out: string, manifest: Manifest): Promise<void> {
   await cp(src, out, { recursive: true, filter: (path) => path !== join(src, "manifest.json") });
-  await writeFile(join(out, "manifest.json"), JSON.stringify(manifest, null, 2));
+  const stamped = withPatchVersion(manifest, await contentHash(src));
+  await writeFile(join(out, "manifest.json"), JSON.stringify(stamped, null, 2));
 }
 
 async function buildMaps(target: Target, out: string): Promise<{ id: string; name: string }[]> {
@@ -179,6 +182,9 @@ async function buildOrchestrator(): Promise<void> {
 }
 
 const targets = await discoverTargets();
+// Every server gets the core resource pack (the HUD timer and other shared UI), before its own.
+const coreRpDir = join(root, "packages", "minigame-core", "resource_pack");
+const coreResourcePack = existsSync(join(coreRpDir, "manifest.json")) ? await loadManifest(coreRpDir) : undefined;
 if (problems.length > 0) {
   console.error(`Build stopped: ${problems.length} problem${problems.length === 1 ? "" : "s"}\n  ${problems.join("\n  ")}`);
   process.exit(1);
@@ -200,6 +206,7 @@ for (const target of targets) {
   if (target.behaviorPack) {
     await buildBehaviorPack(join(target.dir, "behavior_pack"), join(out, "behavior_packs", `${target.id}_bp`), target.behaviorPack, registry);
   }
+  if (coreResourcePack) await buildResourcePack(coreRpDir, join(out, "resource_packs", "core_rp"), coreResourcePack);
   if (target.resourcePack) {
     await buildResourcePack(join(target.dir, "resource_pack"), join(out, "resource_packs", `${target.id}_rp`), target.resourcePack);
   }

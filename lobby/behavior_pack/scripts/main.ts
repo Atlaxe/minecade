@@ -11,7 +11,7 @@ import {
   type Vector3,
 } from "@minecraft/server";
 import { ActionFormData, uiManager } from "@minecraft/server-ui";
-import { log, normalizePlayer, say, showForm, type Scope } from "@minecade/minigame-core";
+import { log, normalizePlayer, playChime, say, showForm, type Scope } from "@minecade/minigame-core";
 import { bootServer } from "@minecade/minigame-core/bootstrap";
 import registry from "#registry";
 import { LobbyController, type GameChoice } from "./lobby-controller.ts";
@@ -84,6 +84,10 @@ bootServer(({ vars, transport, transfer, root }) => {
         for (const player of recipients(to)) {
           player.onScreenDisplay.setTitle(title, { fadeInDuration: 5, stayDuration: 30, fadeOutDuration: 10, subtitle });
         }
+      },
+      chime: (name, chime) => {
+        const player = playerNamed(name);
+        if (player) playChime(player, chime);
       },
       closeForms: (name) => {
         const player = playerNamed(name);
@@ -168,13 +172,6 @@ bootServer(({ vars, transport, transfer, root }) => {
   root.subscribe(world.afterEvents.playerInteractWithBlock, ({ player, itemStack, isFirstEvent }) => {
     if (isFirstEvent) tap(player, itemStack?.typeId);
   });
-
-  let frame = 0;
-  root.interval(() => {
-    // Only while a game is starting; otherwise the last line fades on its own.
-    const text = lobby.actionBar(frame++);
-    if (text) for (const player of world.getAllPlayers()) player.onScreenDisplay.setActionBar(text);
-  }, 20);
 
   // Anyone who walks or falls out of the lobby area goes back to spawn.
   if (bounds) {

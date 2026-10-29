@@ -1,0 +1,176 @@
+{
+  "namespace": "hud",
+
+  // The match clock. Bedrock has no script API for HUD text, so games send the clock on the
+  // action bar as "::T04:59|<rest of the line>" ("::R" in the last 30 seconds; see
+  // packages/minigame-core/src/hud.ts). The action bar becomes a full-screen panel: the clock goes
+  // top right with a clock icon, and the rest of the line (if any) shows where the action bar
+  // normally is. Text without the mark shows exactly like the vanilla action bar.
+  "hud_actionbar_text": {
+    "type": "panel",
+    "size": [ "100%", "100%" ],
+    "offset": [ 0, 0 ],
+    "$mc_mark": "::T",
+    "$mc_urgent": "::R",
+    "controls": [
+      { "mc_actionbar_plain@hud.mc_actionbar_plain": {} },
+      { "mc_actionbar_rest@hud.mc_actionbar_rest": {} },
+      { "mc_timer@hud.mc_timer": {} }
+    ]
+  },
+
+  // No mark: the vanilla action bar.
+  "mc_actionbar_plain": {
+    "type": "image",
+    "size": [ "100%c + 12px", "100%c + 5px" ],
+    "offset": [ 0, "50%-68px" ],
+    "texture": "textures/ui/hud_tip_text_background",
+    "alpha": "@hud.anim_actionbar_text_background_alpha_out",
+    "controls": [
+      {
+        "actionbar_message": {
+          "type": "label",
+          "anchor_from": "center",
+          "anchor_to": "center",
+          "color": "$tool_tip_text",
+          "enable_profanity_filter": true,
+          "layer": 31,
+          "text": "$actionbar_text",
+          "shadow": true,
+          "localize": false,
+          "alpha": "@hud.anim_actionbar_text_alpha_out"
+        }
+      }
+    ],
+    "bindings": [
+      {
+        "binding_type": "view",
+        "source_property_name": "((($actionbar_text - $mc_mark) = $actionbar_text) and (($actionbar_text - $mc_urgent) = $actionbar_text))",
+        "target_property_name": "#visible"
+      }
+    ]
+  },
+
+  // Marked: whatever follows the 9-character clock, if anything.
+  "mc_actionbar_rest": {
+    "type": "image",
+    "size": [ "100%c + 12px", "100%c + 5px" ],
+    "offset": [ 0, "50%-68px" ],
+    "texture": "textures/ui/hud_tip_text_background",
+    "alpha": "@hud.anim_actionbar_text_background_alpha_out",
+    "controls": [
+      {
+        "actionbar_message": {
+          "type": "label",
+          "anchor_from": "center",
+          "anchor_to": "center",
+          "color": "$tool_tip_text",
+          "layer": 31,
+          "text": "#text",
+          "shadow": true,
+          "localize": false,
+          "alpha": "@hud.anim_actionbar_text_alpha_out",
+          "bindings": [
+            {
+              "binding_type": "view",
+              "source_property_name": "($actionbar_text - ('%.9s' * $actionbar_text))",
+              "target_property_name": "#text"
+            }
+          ]
+        }
+      }
+    ],
+    "bindings": [
+      {
+        "binding_type": "view",
+        "source_property_name": "((not ((($actionbar_text - $mc_mark) = $actionbar_text) and (($actionbar_text - $mc_urgent) = $actionbar_text))) and (not (($actionbar_text - ('%.9s' * $actionbar_text)) = '')))",
+        "target_property_name": "#visible"
+      }
+    ]
+  },
+
+  // Marked: the clock, top right.
+  "mc_timer": {
+    "type": "image",
+    "texture": "textures/ui/hud_tip_text_background",
+    "anchor_from": "top_right",
+    "anchor_to": "top_right",
+    "offset": [ -4, 4 ],
+    "size": [ 50, 14 ],
+    "layer": 30,
+    "alpha": "@hud.anim_actionbar_text_background_alpha_out",
+    "controls": [
+      {
+        "mc_clock_icon": {
+          "type": "image",
+          "texture": "textures/minecade/hud/clock",
+          "anchor_from": "left_middle",
+          "anchor_to": "left_middle",
+          "offset": [ 3, 0 ],
+          "size": [ 10, 10 ],
+          "layer": 31,
+          "alpha": "@hud.anim_actionbar_text_alpha_out"
+        }
+      },
+      {
+        "mc_clock_time": {
+          "type": "label",
+          "anchor_from": "left_middle",
+          "anchor_to": "left_middle",
+          "offset": [ 16, 0 ],
+          "color": [ 1.0, 1.0, 1.0 ],
+          "layer": 31,
+          "text": "#text",
+          "shadow": true,
+          "localize": false,
+          "alpha": "@hud.anim_actionbar_text_alpha_out",
+          "bindings": [
+            {
+              "binding_type": "view",
+              "source_property_name": "((('%.8s' * $actionbar_text) - $mc_mark) - $mc_urgent)",
+              "target_property_name": "#text"
+            },
+            {
+              "binding_type": "view",
+              "source_property_name": "(($actionbar_text - $mc_urgent) = $actionbar_text)",
+              "target_property_name": "#visible"
+            }
+          ]
+        }
+      },
+      {
+        "mc_clock_time_urgent": {
+          "type": "label",
+          "anchor_from": "left_middle",
+          "anchor_to": "left_middle",
+          "offset": [ 16, 0 ],
+          "color": [ 1.0, 0.33, 0.33 ],
+          "layer": 31,
+          "text": "#text",
+          "shadow": true,
+          "localize": false,
+          "alpha": "@hud.anim_actionbar_text_alpha_out",
+          "bindings": [
+            {
+              "binding_type": "view",
+              "source_property_name": "((('%.8s' * $actionbar_text) - $mc_mark) - $mc_urgent)",
+              "target_property_name": "#text"
+            },
+            {
+              "binding_type": "view",
+              "source_property_name": "(not (($actionbar_text - $mc_urgent) = $actionbar_text))",
+              "target_property_name": "#visible"
+            }
+          ]
+        }
+      }
+    ],
+    "bindings": [
+      {
+        "binding_type": "view",
+        "source_property_name": "(not ((($actionbar_text - $mc_mark) = $actionbar_text) and (($actionbar_text - $mc_urgent) = $actionbar_text)))",
+        "target_property_name": "#visible"
+      }
+    ]
+  }
+}

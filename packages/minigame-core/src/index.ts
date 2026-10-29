@@ -12,6 +12,7 @@ export { TransferService } from "./transfer.ts";
 export { showForm } from "./ui.ts";
 export { normalizePlayer } from "./player.ts";
 export { killDeathRatio, winRate } from "./stats-math.ts";
+export { CHIMES, TIMER_MARK, TIMER_URGENT_MARK, countdownChime, hudLine, playChime, type Chime } from "./hud.ts";
 export {
   COLOR,
   KILL_VERBS,

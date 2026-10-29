@@ -55,6 +55,11 @@ describe("Sumo", () => {
       expect(b.health.currentValue).toBe(20);
       await ticks(COUNTDOWN_TICKS);
       expect(game.phase).toBe("playing");
+      // 5, 4 tick; 3, 2, 1 ring; then "Go!" with its flourish.
+      expect(a.sounds.map((sound) => sound.id)).toEqual(["note.hat", "note.hat", "note.bell", "note.bell", "note.bell", "random.levelup"]);
+      expect(a.titles.map(stripColors).at(-1)).toBe("Go! | Sumo");
+      await ticks(10);
+      expect(a.actionBar).toMatch(/^::T0(3:00|2:\d\d)\|$/); // Sumo's 3 minutes, drawn top right by the core pack
 
       world.melee(a, b, 5);
       expect(b.health.currentValue).toBe(20); // the hit landed with 0 damage
@@ -79,6 +84,19 @@ describe("Sumo", () => {
       { n: "B", r: "l", k: 0, d: 1, dd: 0, dt: 0 },
       { n: "C", r: "w", k: 1, d: 0, dd: 0, dt: 0 },
     ]);
+    expectBaseline(harness.root, baseline);
+    everyoneLeaves();
+  });
+
+  it("has a 5 minute clock when a game doesn't set its own", async () => {
+    const { players, baseline, game } = start(["A", "B"], { timeLimitSeconds: undefined });
+    const [a, b] = players;
+    await playToEnd(game, harness.root, baseline, async () => {
+      await ticks(COUNTDOWN_TICKS + 10);
+      expect(a.actionBar).toMatch(/^::T0(5:00|4:5\d)\|$/);
+      knockOff(b);
+      await ticks(3);
+    });
     expectBaseline(harness.root, baseline);
     everyoneLeaves();
   });

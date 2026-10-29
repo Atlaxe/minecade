@@ -1,0 +1,17 @@
+{
+  "format_version": 2,
+  "header": {
+    "name": "Minecade Core",
+    "description": "Shared Minecade UI for every server: the HUD match timer",
+    "uuid": "06b8993c-2ce9-423b-812e-ad137871bf1d",
+    "version": [1, 0, 0],
+    "min_engine_version": [1, 26, 60]
+  },
+  "modules": [
+    {
+      "type": "resources",
+      "uuid": "df1924d5-469b-493a-a875-f982e54126c7",
+      "version": [1, 0, 0]
+    }
+  ]
+}

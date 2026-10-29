@@ -12,8 +12,8 @@ export const MODULE_VERSIONS: Record<string, string> = {
 export const MIN_ENGINE_VERSION = [1, 26, 60];
 
 export interface Manifest {
-  header: { uuid: string; min_engine_version?: number[] };
-  modules: { type: string; uuid: string; entry?: string }[];
+  header: { uuid: string; version?: number[]; min_engine_version?: number[] };
+  modules: { type: string; uuid: string; version?: number[]; entry?: string }[];
   dependencies?: { module_name?: string; uuid?: string; version: unknown }[];
 }
 

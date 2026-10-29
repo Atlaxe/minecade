@@ -12,7 +12,7 @@ export class Sumo extends Minigame<typeof config> {
   }
 
   protected override async play(): Promise<Result | void> {
-    const { timedOut } = await this.stage("Match", { seconds: this.config.timeLimitSeconds }, (stage) => {
+    const { timedOut } = await this.stage("Match", { seconds: this.timeLimit }, (stage) => {
       if (this.config.knockback.mode === "scripted") this.pushOnHit(stage.scope);
     });
     if (timedOut) return this.onTimeUp();

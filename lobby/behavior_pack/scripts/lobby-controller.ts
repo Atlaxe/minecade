@@ -7,7 +7,7 @@
 //            what the action bar says. It never triggers transfers.
 //   pending  this lobby's own start request. Replies for any other requestId are ignored, which
 //            also covers stale messages queued from before a lobby restart.
-import { COLOR, Scope, nameOf, say, type InboundMessage, type OutboundEvent, type Registry, type RegistryGame, type StatusSnapshot } from "@minecade/minigame-core";
+import { COLOR, Scope, nameOf, say, type Chime, type InboundMessage, type OutboundEvent, type Registry, type RegistryGame, type StatusSnapshot } from "@minecade/minigame-core";
 
 export interface GameChoice {
   game: RegistryGame;
@@ -22,6 +22,7 @@ export interface LobbyPorts {
   transfer(name: string, port: number): void;
   notify(to: string | "all", text: string): void;
   title(to: string | "all", title: string, subtitle?: string): void;
+  chime(to: string, chime: Chime): void;
   closeForms(name: string): void;
   /**
    * Walks a player through picking a game and map and confirming. Resolves undefined if they
@@ -145,15 +146,6 @@ export class LobbyController {
     this.selectors.get(name)?.dispose();
   }
 
-  /**
-   * The action bar text, or undefined for none: only while this lobby is starting a game.
-   * `frame` counts seconds, for the "starting" animation.
-   */
-  actionBar(frame: number): string | undefined {
-    if (!this.pending) return undefined;
-    return say.info(`Starting ${this.pending.game.name}${".".repeat((frame % 3) + 1)}`);
-  }
-
   private start(starter: string, game: RegistryGame, mapId: string): void {
     const players = this.ports.onlinePlayers().slice(0, game.maxPlayers);
     const mapName = mapId === "random" ? "a random map" : (game.maps.find((map) => map.id === mapId)?.name ?? mapId);
@@ -174,7 +166,11 @@ export class LobbyController {
     const online = new Set(this.ports.onlinePlayers());
     for (const name of pending.players) if (online.has(name)) this.ports.closeForms(name);
     for (let left = this.countdownSeconds; left > 0; left--) {
-      for (const name of pending.players) if (online.has(name)) this.ports.title(name, `${COLOR.highlight}${left}`, say.minor(`Joining ${pending.game.name}`));
+      for (const name of pending.players) {
+        if (!online.has(name)) continue;
+        this.ports.title(name, `${COLOR.highlight}${left}`, say.minor(`Joining ${pending.game.name}`));
+        this.ports.chime(name, left <= 3 ? "bell" : "tick");
+      }
       await pending.scope.wait(20);
     }
     // Look players up now: some may have left during the countdown.
