@@ -11,7 +11,7 @@ import {
   type Vector3,
 } from "@minecraft/server";
 import { ActionFormData, uiManager } from "@minecraft/server-ui";
-import { log, normalizePlayer, showForm, type Scope } from "@minecade/minigame-core";
+import { log, normalizePlayer, say, showForm, type Scope } from "@minecade/minigame-core";
 import { bootServer } from "@minecade/minigame-core/bootstrap";
 import registry from "#registry";
 import { LobbyController, type GameChoice } from "./lobby-controller.ts";
@@ -41,7 +41,7 @@ async function chooseGame(player: Player | undefined, scope: Scope, choices: Gam
   if (gamePick?.selection === undefined) return undefined;
   const { game, playable, reason } = choices[gamePick.selection];
   if (!playable) {
-    player.sendMessage(`${game.name} ${reason}.`);
+    player.sendMessage(say.warn(`${game.name} ${reason}.`));
     return undefined;
   }
 
@@ -171,8 +171,9 @@ bootServer(({ vars, transport, transfer, root }) => {
 
   let frame = 0;
   root.interval(() => {
+    // Only while a game is starting; otherwise the last line fades on its own.
     const text = lobby.actionBar(frame++);
-    for (const player of world.getAllPlayers()) player.onScreenDisplay.setActionBar(text);
+    if (text) for (const player of world.getAllPlayers()) player.onScreenDisplay.setActionBar(text);
   }, 20);
 
   // Anyone who walks or falls out of the lobby area goes back to spawn.

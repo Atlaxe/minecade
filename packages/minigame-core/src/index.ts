@@ -13,6 +13,18 @@ export { showForm } from "./ui.ts";
 export { normalizePlayer } from "./player.ts";
 export { killDeathRatio, winRate } from "./stats-math.ts";
 export {
+  COLOR,
+  KILL_VERBS,
+  NO_KILLER_LINES,
+  deathMessage,
+  nameOf,
+  ordinal,
+  say,
+  stripColors,
+  type Death,
+  type DeathMessageConfig,
+} from "./text.ts";
+export {
   Minigame,
   type Down,
   type DownDecision,

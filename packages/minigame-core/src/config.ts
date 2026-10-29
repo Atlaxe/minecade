@@ -1,6 +1,7 @@
 // A game's definition, exported from games/<id>/game.config.ts. The build reads it to fill the
 // registry and check the game's maps; the game server reads it to run the match. Every field
 // beyond the basics is optional, with defaults that suit a free-for-all last-standing game.
+import type { DeathMessageConfig } from "./text.ts";
 
 export interface TeamDef {
   id: string;
@@ -116,6 +117,8 @@ export interface GameConfig {
   map?: { points?: string[]; regions?: string[]; teamSpawns?: boolean };
   /** Recorded to the stats service when set; games without it record nothing. */
   stats?: StatsConfig;
+  /** Kill-feed wording: extra "was <verb> by" verbs (Paintball: "painted"), or lines of its own. */
+  deathMessages?: DeathMessageConfig;
 }
 
 /** Identity helper that type-checks a game.config.ts default export. */

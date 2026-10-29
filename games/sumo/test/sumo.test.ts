@@ -2,7 +2,7 @@
 // platform is a kill for the last hitter, and the last player standing wins.
 import { readFileSync } from "node:fs";
 import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
-import type { MapConfig } from "@minecade/minigame-core/config";
+import { stripColors, type MapConfig } from "@minecade/minigame-core/config";
 import { transfers } from "../../../packages/minigame-core/test/fake-mc-server-admin.ts";
 import { world, type FakePlayer } from "../../../packages/minigame-core/test/fake-mc-server.ts";
 import {
@@ -47,6 +47,7 @@ function knockOff(player: FakePlayer): void {
 describe("Sumo", () => {
   it("hits only push, and the last hitter gets the kill for a knock-off", async () => {
     const { players, baseline, from, game } = start(["A", "B", "C"]);
+    const chatFrom = world.chat.length;
     const [a, b, c] = players;
     const result = await playToEnd(game, harness.root, baseline, async () => {
       await ticks(2);
@@ -70,11 +71,33 @@ describe("Sumo", () => {
     });
 
     expect(result).toMatchObject({ kind: "win", players: ["C"] });
+    const feed = world.chat.slice(chatFrom).map(stripColors);
+    expect(feed.filter((line) => / was .+ by /.test(line))).toEqual([expect.stringMatching(/^B was .+ by A$/), expect.stringMatching(/^A was .+ by C$/)]);
+    expect(feed).toContain("C wins Sumo! (last one standing)");
     expect(statsRows(harness.sent, from).map(({ n, r, k, d, dd, dt }) => ({ n, r, k, d, dd, dt }))).toEqual([
       { n: "A", r: "l", k: 1, d: 1, dd: 0, dt: 0 },
       { n: "B", r: "l", k: 0, d: 1, dd: 0, dt: 0 },
       { n: "C", r: "w", k: 1, d: 0, dd: 0, dt: 0 },
     ]);
+    expectBaseline(harness.root, baseline);
+    everyoneLeaves();
+  });
+
+  it("uses a game's own kill verbs, and a void line when nobody gets the credit", async () => {
+    const { players, baseline, game } = start(["A", "B", "C"], { deathMessages: { verbs: ["shoved off"], replace: true } });
+    const [a, b, c] = players;
+    const chatFrom = world.chat.length;
+    await playToEnd(game, harness.root, baseline, async () => {
+      await ticks(COUNTDOWN_TICKS);
+      world.melee(a, b, 1);
+      knockOff(b);
+      await ticks(3);
+      knockOff(c); // nobody touched C
+      await ticks(3);
+    });
+    const feed = world.chat.slice(chatFrom).map(stripColors);
+    expect(feed[0]).toBe("B was shoved off by A");
+    expect(feed[1]).toMatch(/^C (fell into the void|took a long walk off a short platform|forgot how gravity works|found the edge of the map)$/);
     expectBaseline(harness.root, baseline);
     everyoneLeaves();
   });

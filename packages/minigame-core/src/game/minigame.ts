@@ -20,6 +20,7 @@ import { describeError, log } from "../log.ts";
 import type { Vec3 } from "../map-config.ts";
 import { normalizePlayer } from "../player.ts";
 import type { Scope } from "../scope.ts";
+import { COLOR, deathMessage as formatDeath, nameOf, say } from "../text.ts";
 import { showForm } from "../ui.ts";
 import { Combat, type CombatHost, type Hit } from "./combat.ts";
 import { KillCredit } from "./credit.ts";
@@ -102,6 +103,8 @@ export abstract class Minigame<C extends GameConfig = GameConfig> {
   private readonly teamPicks = new Map<string, string>();
   private readonly pickerOpen = new Set<string>();
   private readonly protectedUntil = new Map<string, number>();
+  /** When each respawning player comes back (tick), for the action bar. */
+  private readonly respawnAt = new Map<string, number>();
   private winCheckQueued = false;
   private startTick = 0;
   private sidebar: Sidebar | undefined;
@@ -202,16 +205,35 @@ export abstract class Minigame<C extends GameConfig = GameConfig> {
     return spawns[Math.max(0, everyone.indexOf(key)) % Math.max(1, spawns.length)] ?? [0, 65, 0];
   }
 
-  /** The action bar line for a player, refreshed twice a second. */
+  /**
+   * The action bar line for a player, refreshed twice a second. Only what matters right now:
+   * the clock in a stage's last 30 seconds, lives in lives games, and a respawn countdown.
+   */
   protected hud(name: string): string | undefined {
     const parts: string[] = [];
     const stage = this.currentStage;
-    if (stage?.secondsLeft !== undefined) parts.push(`${stage.name}: ${clock(stage.secondsLeft)}`);
+    if (stage?.secondsLeft !== undefined && stage.secondsLeft <= 30) parts.push(say.warn(`${stage.name}: ${clock(stage.secondsLeft)}`));
     const participant = this.roster.get(name);
-    if (participant && this.config.respawn?.mode === "lives") parts.push(`Lives: ${participant.lives}`);
-    if (participant?.state === "respawning") parts.push("Respawning...");
-    if (!participant || participant.state === "out") parts.push("Spectating");
+    if (participant && this.config.respawn?.mode === "lives" && participant.state !== "out") parts.push(say.info(`Lives: ${participant.lives}`));
+    const respawnAt = this.respawnAt.get(name.toLowerCase());
+    if (participant?.state === "respawning" && respawnAt !== undefined) {
+      parts.push(say.info(`Respawning in ${Math.max(1, Math.ceil((respawnAt - system.currentTick) / 20))}`));
+    }
     return parts.length > 0 ? parts.join("   ") : undefined;
+  }
+
+  /**
+   * The kill-feed line for a down, or undefined for none. The default is a random
+   * "<victim> was <verb> by <killer>" from the game's deathMessages config; override for more.
+   */
+  protected deathMessage(victim: string, down: Down): string | undefined {
+    if (down.cause === "left") return undefined;
+    const killer = down.killer;
+    return formatDeath(
+      { victim, victimColor: this.teamOf(victim)?.color, killer, killerColor: killer ? this.teamOf(killer)?.color : undefined, cause: down.cause },
+      this.config.deathMessages,
+      this.ctx.random,
+    );
   }
 
   /** After the result is known and announced, before players are sent back. */
@@ -349,10 +371,10 @@ export abstract class Minigame<C extends GameConfig = GameConfig> {
       if (result.kind === "win") {
         const side = result.team ?? result.players[0];
         const total = wins.add(side);
-        this.broadcast(`${this.sideName(side)} wins round ${round}.`);
+        this.broadcast(say.important(`${this.sideName(side)} wins round ${round}!`));
         if (total >= options.firstTo) return this.sideWins(side, `won ${options.firstTo} rounds`);
       } else {
-        this.broadcast(`Round ${round}: ${result.reason}.`);
+        this.broadcast(say.minor(`Round ${round}: ${result.reason}.`));
       }
     }
   }
@@ -484,9 +506,12 @@ export abstract class Minigame<C extends GameConfig = GameConfig> {
       this.stats.kill(killer);
       const perKill = this.config.scoring?.perKill;
       if (perKill) this.score.add(this.sideOf(killer), perKill);
-      this.broadcast(`${this.display(name)} was taken out by ${this.display(killer)}.`);
-    } else if (cause !== "left") {
-      this.broadcast(`${this.display(name)} is out.`);
+    }
+    try {
+      const line = this.deathMessage(name, { cause, killer });
+      if (line) this.broadcast(line);
+    } catch (error) {
+      log.error(`${this.config.id}: deathMessage failed: ${describeError(error)}`);
     }
     let decision: DownDecision | void = undefined;
     try {
@@ -522,12 +547,13 @@ export abstract class Minigame<C extends GameConfig = GameConfig> {
     if (decision === "eliminate") {
       participant.state = "out";
       this.combat.settled(name);
-      this.title("§cEliminated", undefined, name);
+      this.title(say.error("Eliminated"), say.minor("You're spectating now"), name);
       return;
     }
     participant.state = "respawning";
     if (decision === "wait") return; // back at respawnAll()
     const delay = Math.max(1, (this.config.respawn?.delaySeconds ?? 3) * 20);
+    this.respawnAt.set(name.toLowerCase(), system.currentTick + delay);
     this.playingScope?.timeout(() => {
       if (participant.state === "respawning") this.spawn(name, "respawn");
     }, delay);
@@ -545,7 +571,7 @@ export abstract class Minigame<C extends GameConfig = GameConfig> {
     const participant = this.roster.get(name);
     const rule = this.config.lateJoin ?? "spectate";
     if (rule === "return") {
-      player.sendMessage(`${this.config.name} is already running. Sending you back to the lobby.`);
+      player.sendMessage(say.info(`${this.config.name} is already running. Sending you back to the lobby.`));
       this.ctx.transfer.transfer(player, this.ctx.vars.lobbyPort);
       return;
     }
@@ -557,7 +583,7 @@ export abstract class Minigame<C extends GameConfig = GameConfig> {
     }
     normalizePlayer(player);
     this.spectate(name);
-    player.sendMessage(`${this.config.name} is in progress. You're spectating.`);
+    player.sendMessage(say.minor(`${this.config.name} is in progress. You're spectating.`));
   }
 
   private departed(name: string): void {
@@ -668,7 +694,7 @@ export abstract class Minigame<C extends GameConfig = GameConfig> {
         return false;
       }
       const needed = Math.max(this.minPlayers, expected.length);
-      for (const player of world.getAllPlayers()) player.onScreenDisplay.setActionBar(`Waiting for players (${online.length}/${needed})`);
+      for (const player of world.getAllPlayers()) player.onScreenDisplay.setActionBar(say.info(`Waiting for players (${online.length}/${needed})`));
       await this.scope.wait(20);
     }
   }
@@ -687,11 +713,11 @@ export abstract class Minigame<C extends GameConfig = GameConfig> {
         if (this.outcome) return false;
         const online = this.online();
         if (online.length < this.minPlayers) {
-          this.broadcast("Not enough players. Waiting again.");
+          this.broadcast(say.warn("Not enough players. Waiting again."));
           return false;
         }
         if (picks && left > 3 && online.every((name) => this.hasPicked(name))) left = 3;
-        this.title(`${left}`, picks ? "Use the star to pick" : `${this.config.name} is starting`);
+        this.title(`${COLOR.highlight}${left}`, say.minor(picks ? "Use the star to pick" : `${this.config.name} is starting`));
         await scope.wait(20);
         left--;
       }
@@ -706,11 +732,11 @@ export abstract class Minigame<C extends GameConfig = GameConfig> {
     const scope = (this.playingScope ?? this.scope).child("round-countdown");
     this.freeze(this.roster.inState("alive").map((participant) => participant.name), scope);
     for (let left = seconds; left > 0; left--) {
-      this.title(`${left}`, label);
+      this.title(`${COLOR.highlight}${left}`, say.minor(label));
       await scope.wait(20);
     }
     scope.dispose();
-    this.title("Go!", label);
+    this.title(say.success("Go!"), say.minor(label));
   }
 
   // ---- The match --------------------------------------------------------------------------
@@ -752,7 +778,7 @@ export abstract class Minigame<C extends GameConfig = GameConfig> {
 
     for (const participant of this.roster.all()) this.spawn(participant.name, "start");
     for (const team of this.teams) {
-      for (const member of this.roster.teamMembers(team.id)) this.title(`${team.color}${team.name} team`, this.config.name, member.name);
+      for (const member of this.roster.teamMembers(team.id)) this.title(`${team.color}${team.name} team`, say.minor(this.config.name), member.name);
     }
     this.contestSides = this.roster.standingSides().length;
     try {
@@ -851,16 +877,18 @@ export abstract class Minigame<C extends GameConfig = GameConfig> {
     switch (result.kind) {
       case "win": {
         const team = result.team !== undefined ? this.teams.find((def) => def.id === result.team) : undefined;
-        const who = team ? `${team.color}${team.name} team` : result.players.join(", ");
-        this.title(`${who} wins!`, result.reason);
-        this.broadcast(`${who} wins ${this.config.name} (${result.reason}).`);
+        const who = team ? nameOf(`${team.name} team`, team.color) : result.players.map((name) => nameOf(name)).join(say.highlight(", "));
+        this.title(`${who} ${COLOR.highlight}wins!`, say.minor(result.reason));
+        this.broadcast(`${say.highlight(`${who} wins ${this.config.name}!`)} ${say.minor(`(${result.reason})`)}`);
         return;
       }
       case "coop":
-        this.title(result.won ? "§aVictory!" : "§cDefeat", result.reason);
+        this.title(result.won ? say.success("Victory!") : say.error("Defeat"), say.minor(result.reason));
+        this.broadcast(result.won ? say.success(`${this.config.name}: victory!`) : say.error(`${this.config.name}: defeat.`));
         return;
       case "draw":
-        this.title("Draw", result.reason);
+        this.title(say.highlight("Draw"), say.minor(result.reason));
+        this.broadcast(`${say.highlight(`${this.config.name} ended in a draw.`)} ${say.minor(`(${result.reason})`)}`);
         return;
       default:
         return;
@@ -928,14 +956,10 @@ export abstract class Minigame<C extends GameConfig = GameConfig> {
     return this.roster.get(name)?.team ?? this.roster.get(name)?.name ?? name;
   }
 
+  /** A team's name in its color, or a player's name (in their team color, else white). */
   private sideName(side: string): string {
     const team = this.teams.find((def) => def.id === side);
-    return team ? `${team.color}${team.name}` : side;
-  }
-
-  private display(name: string): string {
-    const team = this.teamOf(name);
-    return team ? `${team.color}${name}§r` : name;
+    return team ? nameOf(team.name, team.color) : nameOf(side, this.teamOf(side)?.color);
   }
 
   private smallestTeam(): string | undefined {

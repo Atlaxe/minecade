@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { Scope, type OutboundEvent, type Registry, type StatsQuery, type StatsReply, type StatsTotals } from "@minecade/minigame-core";
+import { Scope, stripColors, type OutboundEvent, type Registry, type StatsQuery, type StatsReply, type StatsTotals } from "@minecade/minigame-core";
 import { system } from "../../packages/minigame-core/test/fake-mc-server.ts";
 import { flushPromises } from "../../packages/minigame-core/test/util.ts";
 import { StatsController, describe as describeTotals, formatDuration, type StatsForm, type StatsPorts } from "../behavior_pack/scripts/stats-controller.ts";
@@ -45,7 +45,7 @@ function setup() {
   let requests = 0;
   const ports: StatsPorts = {
     send: (event) => sent.push(event),
-    notify: (name, text) => notes.push([name, text]),
+    notify: (name, text) => notes.push([name, stripColors(text)]),
     show: (name, scope, form) => scope.guard(new Promise((answer) => forms.push({ ...form, name, answer }))),
   };
   const root = new Scope("lobby");

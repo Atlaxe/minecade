@@ -3,6 +3,7 @@
 import type { Player } from "@minecraft/server";
 import { transferPlayer } from "@minecraft/server-admin";
 import { describeError, log } from "./log.ts";
+import { say } from "./text.ts";
 import type { ServerVars } from "./vars.ts";
 
 export class TransferService {
@@ -34,7 +35,7 @@ export class TransferService {
       return true;
     } catch (error) {
       log.warn(`could not transfer ${player.name}: ${describeError(error)}`);
-      player.sendMessage("Couldn't send you to the other server. Ask the host to check the logs.");
+      player.sendMessage(say.error("Couldn't send you to the other server. Ask the host to check the logs."));
       return false;
     }
   }

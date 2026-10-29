@@ -1,7 +1,7 @@
 // The lobby's Stats book, as plain logic like the selector: main.ts passes in ports for forms
 // and the orchestrator. Tapping the book asks the orchestrator for the player's totals, shows
 // them with a button per game played, and each game's page has its own counters.
-import { Scope, killDeathRatio, winRate, type InboundMessage, type OutboundEvent, type Registry, type StatsReply, type StatsTotals } from "@minecade/minigame-core";
+import { Scope, killDeathRatio, say, winRate, type InboundMessage, type OutboundEvent, type Registry, type StatsReply, type StatsTotals } from "@minecade/minigame-core";
 
 export interface StatsForm {
   title: string;
@@ -88,11 +88,11 @@ export class StatsController {
     forget();
     this.waiting.delete(requestId);
     if (!reply || reply.status === "unavailable") {
-      this.ports.notify(name, "Stats are unavailable right now. Try again later.");
+      this.ports.notify(name, say.warn("Stats are unavailable right now. Try again later."));
       return undefined;
     }
     if (reply.status === "none") {
-      this.ports.notify(name, game === undefined ? "No stats yet. Matches with at least 2 players count." : "No stats for that game yet.");
+      this.ports.notify(name, say.minor(game === undefined ? "No stats yet. Matches with at least 2 players count." : "No stats for that game yet."));
       return undefined;
     }
     return reply;

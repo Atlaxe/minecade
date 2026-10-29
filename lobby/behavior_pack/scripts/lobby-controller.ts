@@ -7,7 +7,7 @@
 //            what the action bar says. It never triggers transfers.
 //   pending  this lobby's own start request. Replies for any other requestId are ignored, which
 //            also covers stale messages queued from before a lobby restart.
-import { Scope, type InboundMessage, type OutboundEvent, type Registry, type RegistryGame, type StatusSnapshot } from "@minecade/minigame-core";
+import { COLOR, Scope, nameOf, say, type InboundMessage, type OutboundEvent, type Registry, type RegistryGame, type StatusSnapshot } from "@minecade/minigame-core";
 
 export interface GameChoice {
   game: RegistryGame;
@@ -89,17 +89,17 @@ export class LobbyController {
         return;
       case "start_rejected":
         if (pending?.requestId !== message.requestId) return;
-        this.ports.notify("all", `Couldn't start ${pending.game.name}: ${message.reason}`);
+        this.ports.notify("all", say.error(`Couldn't start ${pending.game.name}: ${message.reason}`));
         this.clearPending();
         return;
       case "game_failed":
         if (pending?.requestId !== message.requestId) return;
-        this.ports.notify("all", `${pending.game.name} failed to start: ${message.reason}`);
+        this.ports.notify("all", say.error(`${pending.game.name} failed to start: ${message.reason}`));
         this.clearPending();
         return;
       case "game_ended":
         if (pending?.sessionId === message.sessionId) this.clearPending();
-        this.ports.notify("all", `The last game ended (${message.reason}). Use the compass to start another.`);
+        this.ports.notify("all", say.minor(`The last game ended (${message.reason}). Use the compass to start another.`));
         return;
       default:
         return;
@@ -130,7 +130,7 @@ export class LobbyController {
     const picked = this.gameChoices().find((candidate) => candidate.game.id === choice.game);
     if (!picked) return;
     if (!picked.playable) {
-      this.ports.notify(name, `${picked.game.name} ${picked.reason}.`);
+      this.ports.notify(name, say.warn(`${picked.game.name} ${picked.reason}.`));
       return;
     }
     this.start(name, picked.game, choice.map);
@@ -145,20 +145,13 @@ export class LobbyController {
     this.selectors.get(name)?.dispose();
   }
 
-  /** The action bar text. `frame` counts seconds, for the "starting" animation. */
-  actionBar(frame: number): string {
-    if (this.pending) return `Starting ${this.pending.game.name}${".".repeat((frame % 3) + 1)}`;
-    const game = this.gameName(this.status.game);
-    switch (this.status.state) {
-      case "starting":
-        return `${game} is starting`;
-      case "running":
-        return `${game} in progress (${this.status.players.length} playing)`;
-      case "stopping":
-        return `Wrapping up ${game}`;
-      default:
-        return "Use the compass to pick a game";
-    }
+  /**
+   * The action bar text, or undefined for none: only while this lobby is starting a game.
+   * `frame` counts seconds, for the "starting" animation.
+   */
+  actionBar(frame: number): string | undefined {
+    if (!this.pending) return undefined;
+    return say.info(`Starting ${this.pending.game.name}${".".repeat((frame % 3) + 1)}`);
   }
 
   private start(starter: string, game: RegistryGame, mapId: string): void {
@@ -168,12 +161,12 @@ export class LobbyController {
     this.pending = pending;
     // No answer at all (orchestrator down): ask for the real state instead of guessing.
     pending.scope.timeout(() => {
-      this.ports.notify("all", `${game.name} didn't start in time. Try again.`);
+      this.ports.notify("all", say.error(`${game.name} didn't start in time. Try again.`));
       this.clearPending();
       this.ports.send({ t: "status_request" });
     }, this.startTimeoutTicks);
-    this.ports.notify("all", `${starter} is starting ${game.name} on ${mapName}.`);
-    this.ports.title("all", `Starting ${game.name}`, mapName);
+    this.ports.notify("all", say.important(`${nameOf(starter)} is starting ${game.name} on ${mapName}.`));
+    this.ports.title("all", say.info(`Starting ${game.name}`), say.minor(mapName));
     this.ports.send({ t: "start_game", requestId: pending.requestId, game: game.id, map: mapId, players });
   }
 
@@ -181,14 +174,14 @@ export class LobbyController {
     const online = new Set(this.ports.onlinePlayers());
     for (const name of pending.players) if (online.has(name)) this.ports.closeForms(name);
     for (let left = this.countdownSeconds; left > 0; left--) {
-      for (const name of pending.players) if (online.has(name)) this.ports.title(name, String(left), `Joining ${pending.game.name}`);
+      for (const name of pending.players) if (online.has(name)) this.ports.title(name, `${COLOR.highlight}${left}`, say.minor(`Joining ${pending.game.name}`));
       await pending.scope.wait(20);
     }
     // Look players up now: some may have left during the countdown.
     const stillHere = new Set(this.ports.onlinePlayers());
     for (const name of pending.players) if (stillHere.has(name)) this.ports.transfer(name, port);
     for (const name of stillHere) {
-      if (!pending.players.includes(name)) this.ports.notify(name, `${pending.game.name} started without you. You'll join the next round.`);
+      if (!pending.players.includes(name)) this.ports.notify(name, say.minor(`${pending.game.name} started without you. You'll join the next round.`));
     }
     if (this.pending === pending) this.clearPending();
   }
@@ -199,12 +192,12 @@ export class LobbyController {
   }
 
   private busyMessage(): string | undefined {
-    if (this.pending) return `Starting ${this.pending.game.name}, hang on.`;
+    if (this.pending) return say.info(`Starting ${this.pending.game.name}, hang on.`);
     const game = this.gameName(this.status.game);
     if (this.status.state === "starting" || this.status.state === "running") {
-      return `${game} is in progress (${this.status.players.length} playing). You'll join the next round.`;
+      return say.info(`${game} is in progress (${this.status.players.length} playing). You'll join the next round.`);
     }
-    if (this.status.state === "stopping") return "Wrapping up the last game. Try again in a moment.";
+    if (this.status.state === "stopping") return say.minor("Wrapping up the last game. Try again in a moment.");
     return undefined;
   }
 

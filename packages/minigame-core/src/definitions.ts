@@ -16,3 +16,15 @@ export {
 export type { Box, MapConfig, Vec3 } from "./map-config.ts";
 export type { Registry, RegistryGame, RegistryMap } from "./registry.ts";
 export { killDeathRatio, winRate } from "./stats-math.ts";
+export {
+  COLOR,
+  KILL_VERBS,
+  NO_KILLER_LINES,
+  deathMessage,
+  nameOf,
+  ordinal,
+  say,
+  stripColors,
+  type Death,
+  type DeathMessageConfig,
+} from "./text.ts";
