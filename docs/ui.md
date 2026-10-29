@@ -62,14 +62,24 @@ use `this.timeLimit` so the default applies to them too. When time runs out, `on
 decides the result (the highest score, or a draw).
 
 The clock shows top right with a clock icon, turning red in the last 30 seconds. Bedrock has no
-script API for placing text on the HUD, so it rides on the action bar: games send
-`::T 4:59|<rest of the line>` (`::R` in the last 30 seconds, see `hudLine()` in
-`packages/minigame-core/src/hud.ts`), and the core resource pack's `ui/hud_screen.json` splits it:
-the clock goes top right and the rest shows as the normal action bar line. Without the pack the
-line still reads as text. In JSON UI, engine variables such as `$actionbar_text` only work in
-expressions after being copied into the control's own variable (`"$atext": "$actionbar_text"`),
-and expressions go in plain properties (`"visible"`, `"text"`), not view bindings. To see JSON UI errors in the client, turn on Settings, Creator, Content
-Log GUI.
+script API for placing text on the HUD, so it rides on the action bar: `hudLine()` in
+`packages/minigame-core/src/hud.ts` starts the line with `HUD_MARK`, a run of formatting codes
+that never renders, then the clock and anything else ("2:53   Lives: 2"). The core resource
+pack's `ui/hud_screen.json` turns the action bar into a full-screen panel and shows marked lines
+in a box top right, after a clock icon; unmarked lines show like the vanilla action bar. Without
+the pack, the action bar just reads "2:53   Lives: 2". To see JSON UI errors in the client, turn
+on Settings, Creator, Content Log GUI.
+
+What JSON UI allowed here, found in-game on 26.60:
+
+- Engine variables such as `$actionbar_text` work in expressions only after being copied into
+  the control's own variable: `"$atext": "$actionbar_text"`.
+- Expressions go in plain properties. `"visible": "(not (($atext - 'x') = $atext))"` works, and
+  `"text": "('%.8s' * $atext)"` works ('%.Ns' keeps the first N bytes).
+- String subtraction doesn't produce text: `"text": "($atext - 'x')"` fails with "expected a
+  string". That's why the mark is invisible formatting codes instead of being cut off.
+- View bindings need a `#property`: one whose expression only uses `$atext` fails with "Must
+  define a source property name in the binding!".
 
 ## Countdown sounds
 

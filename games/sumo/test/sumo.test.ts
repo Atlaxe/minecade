@@ -59,7 +59,7 @@ describe("Sumo", () => {
       expect(a.sounds.map((sound) => sound.id)).toEqual(["note.hat", "note.hat", "note.bell", "note.bell", "note.bell", "random.levelup"]);
       expect(a.titles.map(stripColors).at(-1)).toBe("Go! | Sumo");
       await ticks(10);
-      expect(a.actionBar).toMatch(/^::T (3:00|2:\d\d)\|$/); // Sumo's 3 minutes, drawn top right by the core pack
+      expect(stripColors(a.actionBar)).toMatch(/^(3:00|2:\d\d)$/); // Sumo's 3 minutes, drawn top right by the core pack
 
       world.melee(a, b, 5);
       expect(b.health.currentValue).toBe(20); // the hit landed with 0 damage
@@ -93,7 +93,7 @@ describe("Sumo", () => {
     const [a, b] = players;
     await playToEnd(game, harness.root, baseline, async () => {
       await ticks(COUNTDOWN_TICKS + 10);
-      expect(a.actionBar).toMatch(/^::T (5:00|4:5\d)\|$/);
+      expect(stripColors(a.actionBar)).toMatch(/^(5:00|4:5\d)$/);
       knockOff(b);
       await ticks(3);
     });

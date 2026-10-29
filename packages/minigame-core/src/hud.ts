@@ -1,24 +1,22 @@
 // The HUD timer and countdown sounds, shared by games and the lobby.
 //
 // Timer: Bedrock has no script API for placing text on the HUD, so the clock rides on the action
-// bar. A game sends "<mark><m:ss>|<rest>", and the core resource pack
-// (packages/minigame-core/resource_pack/ui/hud_screen.json) shows the clock top right with a clock
-// icon and the rest as the normal action bar line. The mark and time are plain ASCII with a fixed
-// width (9 characters: minutes are padded with a space, " 4:59"), so JSON UI can split them with
-// '%.9s'. Without the pack the line still reads: "::T 4:59|Lives: 2".
+// bar. A game sends HUD_MARK plus the clock and anything else ("Lives: 2"), and the core resource
+// pack (packages/minigame-core/resource_pack/ui/hud_screen.json) shows marked lines in a box top
+// right with a clock icon. The mark is formatting codes, which never render, so the box shows the
+// line as is, and without the pack the action bar simply reads "2:53   Lives: 2".
 import type { Player } from "@minecraft/server";
 
-export const TIMER_MARK = "::T";
-/** The mark for the last 30 seconds: the clock turns red. */
-export const TIMER_URGENT_MARK = "::R";
+/** Starts every action bar line that carries the clock. Must match the core pack's hud_screen.json. */
+export const HUD_MARK = "§r§m§c§r";
 const URGENT_SECONDS = 30;
 
-/** The action bar text for a stage clock plus the usual line (which may be empty). */
+/** The action bar text for a stage clock (white, red in the last 30 seconds) plus the usual line. */
 export function hudLine(secondsLeft: number | undefined, rest = ""): string {
   if (secondsLeft === undefined) return rest;
-  const whole = Math.min(99 * 60 + 59, Math.max(0, Math.ceil(secondsLeft)));
-  const clock = `${String(Math.floor(whole / 60)).padStart(2, " ")}:${String(whole % 60).padStart(2, "0")}`;
-  return `${whole <= URGENT_SECONDS ? TIMER_URGENT_MARK : TIMER_MARK}${clock}|${rest}`;
+  const whole = Math.max(0, Math.ceil(secondsLeft));
+  const clock = `${Math.floor(whole / 60)}:${String(whole % 60).padStart(2, "0")}`;
+  return `${HUD_MARK}${whole <= URGENT_SECONDS ? "§c" : "§f"}${clock}${rest ? `§7   ${rest}` : ""}`;
 }
 
 export type Chime = "tick" | "bell" | "go";

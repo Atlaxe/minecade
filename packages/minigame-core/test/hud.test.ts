@@ -1,24 +1,26 @@
 import { describe, expect, it } from "vitest";
-import { CHIMES, TIMER_MARK, TIMER_URGENT_MARK, countdownChime, hudLine, playChime } from "../src/hud.ts";
+import { readFileSync } from "node:fs";
+import { CHIMES, HUD_MARK, countdownChime, hudLine, playChime } from "../src/hud.ts";
+import { stripColors } from "../src/text.ts";
 import { world } from "./fake-mc-server.ts";
 
 describe("hudLine", () => {
-  it("prefixes the line with the mark and a fixed-width clock", () => {
-    expect(hudLine(299)).toBe("::T 4:59|");
-    expect(hudLine(65, "Lives: 2")).toBe("::T 1:05|Lives: 2");
-    expect(hudLine(4.2)).toBe("::R 0:05|"); // partial seconds round up
-    expect(hudLine(600)).toBe("::T10:00|");
+  it("starts with the invisible mark, then the clock and the rest of the line", () => {
+    expect(hudLine(299)).toBe(`${HUD_MARK}§f4:59`);
+    expect(hudLine(65, "Lives: 2")).toBe(`${HUD_MARK}§f1:05§7   Lives: 2`);
+    expect(hudLine(4.2)).toBe(`${HUD_MARK}§c0:05`); // partial seconds round up
+    expect(stripColors(hudLine(600, "Respawning in 3"))).toBe("10:00   Respawning in 3");
   });
 
-  it("turns urgent in the last 30 seconds, and stays 9 characters for the resource pack to split", () => {
-    expect(hudLine(31).startsWith(TIMER_MARK)).toBe(true);
-    expect(hudLine(30).startsWith(TIMER_URGENT_MARK)).toBe(true);
-    for (const seconds of [0, 9, 59, 60, 599, 3599, 5999, 6000, 100000]) {
-      const line = hudLine(seconds, "rest");
-      expect(line.slice(9)).toBe("rest");
-      expect(line[8]).toBe("|");
-    }
-    expect(hudLine(100000)).toBe("::T99:59|");
+  it("turns the clock red in the last 30 seconds", () => {
+    expect(hudLine(31)).toBe(`${HUD_MARK}§f0:31`);
+    expect(hudLine(30)).toBe(`${HUD_MARK}§c0:30`);
+  });
+
+  it("uses the same mark as the core resource pack", () => {
+    const hud = readFileSync(new URL("../resource_pack/ui/hud_screen.json", import.meta.url), "utf8");
+    expect(hud.split(`'${HUD_MARK}'`).length - 1).toBe(2);
+    expect(stripColors(HUD_MARK)).toBe("");
   });
 
   it("is just the line without a clock", () => {

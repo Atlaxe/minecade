@@ -2,22 +2,23 @@
   "namespace": "hud",
 
   // The match clock. Bedrock has no script API for HUD text, so games send the clock on the
-  // action bar as "::T 4:59|<rest of the line>" ("::R" in the last 30 seconds; see
-  // packages/minigame-core/src/hud.ts). The action bar becomes a full-screen panel: the clock goes
-  // top right with a clock icon, and the rest of the line (if any) shows where the action bar
-  // normally is. Text without the mark shows exactly like the vanilla action bar.
+  // action bar, starting with a mark made of formatting codes that never render
+  // (HUD_MARK in packages/minigame-core/src/hud.ts): "<mark>§f2:53§7   Lives: 2". The action bar
+  // becomes a full-screen panel: marked lines show in a box top right with a clock icon, and
+  // anything else shows exactly like the vanilla action bar.
   //
-  // Engine variables such as $actionbar_text can't be used in expressions directly, so each
-  // control copies it into $atext first, then uses expressions in plain properties ("visible",
-  // "text"). '%.Ns' truncates to N bytes; the mark and clock are ASCII, so bytes are characters.
+  // What JSON UI allows here, tested in-game on 26.60 (see docs/ui.md):
+  //   - engine variables such as $actionbar_text work in expressions only after being copied
+  //     into the control's own variable ("$atext": "$actionbar_text");
+  //   - string subtraction works in "visible" checks, but doesn't produce text;
+  //   - view bindings need a #property, so they can't read $atext alone.
   "hud_actionbar_text": {
     "type": "panel",
     "size": [ "100%", "100%" ],
     "offset": [ 0, 0 ],
     "controls": [
       { "mc_actionbar_plain@hud.mc_actionbar_plain": {} },
-      { "mc_actionbar_rest@hud.mc_actionbar_rest": {} },
-      { "mc_timer@hud.mc_timer": {} }
+      { "mc_hud_box@hud.mc_hud_box": {} }
     ]
   },
 
@@ -29,7 +30,7 @@
     "offset": [ 0, "50%-68px" ],
     "texture": "textures/ui/hud_tip_text_background",
     "alpha": "@hud.anim_actionbar_text_background_alpha_out",
-    "visible": "((($atext - '::T') = $atext) and (($atext - '::R') = $atext))",
+    "visible": "(($atext - '§r§m§c§r') = $atext)",
     "controls": [
       {
         "actionbar_message": {
@@ -48,88 +49,51 @@
     ]
   },
 
-  // Marked: whatever follows the 9-character mark and clock, if anything.
-  "mc_actionbar_rest": {
-    "type": "image",
-    "$atext": "$actionbar_text",
-    "size": [ "100%c + 12px", "100%c + 5px" ],
-    "offset": [ 0, "50%-68px" ],
-    "texture": "textures/ui/hud_tip_text_background",
-    "alpha": "@hud.anim_actionbar_text_background_alpha_out",
-    "visible": "((not ((($atext - '::T') = $atext) and (($atext - '::R') = $atext))) and (not (($atext - ('%.9s' * $atext)) = '')))",
-    "controls": [
-      {
-        "actionbar_message": {
-          "type": "label",
-          "$atext": "$actionbar_text",
-          "anchor_from": "center",
-          "anchor_to": "center",
-          "color": "$tool_tip_text",
-          "layer": 31,
-          "text": "($atext - ('%.9s' * $atext))",
-          "shadow": true,
-          "localize": false,
-          "alpha": "@hud.anim_actionbar_text_alpha_out"
-        }
-      }
-    ]
-  },
-
-  // Marked: the clock, top right. White, or red in the last 30 seconds.
-  "mc_timer": {
+  // Marked: the clock (and anything after it), top right, after a clock icon. The mark itself
+  // is formatting codes, so the label shows the line as is.
+  "mc_hud_box": {
     "type": "image",
     "$atext": "$actionbar_text",
     "texture": "textures/ui/hud_tip_text_background",
     "anchor_from": "top_right",
     "anchor_to": "top_right",
     "offset": [ -4, 4 ],
-    "size": [ 46, 14 ],
+    "size": [ "100%c + 8px", "100%c + 4px" ],
     "layer": 30,
     "alpha": "@hud.anim_actionbar_text_background_alpha_out",
-    "visible": "(not ((($atext - '::T') = $atext) and (($atext - '::R') = $atext)))",
+    "visible": "(not (($atext - '§r§m§c§r') = $atext))",
     "controls": [
       {
-        "mc_clock_icon": {
-          "type": "image",
-          "texture": "textures/minecade/hud/clock",
-          "anchor_from": "left_middle",
-          "anchor_to": "left_middle",
-          "offset": [ 3, 0 ],
-          "size": [ 10, 10 ],
-          "layer": 31,
-          "alpha": "@hud.anim_actionbar_text_alpha_out"
-        }
-      },
-      {
-        "mc_clock_time": {
-          "type": "label",
-          "$atext": "$actionbar_text",
-          "anchor_from": "left_middle",
-          "anchor_to": "left_middle",
-          "offset": [ 14, 0 ],
-          "color": [ 1.0, 1.0, 1.0 ],
-          "layer": 31,
-          "text": "((('%.8s' * $atext) - '::T') - '::R')",
-          "visible": "(($atext - '::R') = $atext)",
-          "shadow": true,
-          "localize": false,
-          "alpha": "@hud.anim_actionbar_text_alpha_out"
-        }
-      },
-      {
-        "mc_clock_time_urgent": {
-          "type": "label",
-          "$atext": "$actionbar_text",
-          "anchor_from": "left_middle",
-          "anchor_to": "left_middle",
-          "offset": [ 14, 0 ],
-          "color": [ 1.0, 0.33, 0.33 ],
-          "layer": 31,
-          "text": "((('%.8s' * $atext) - '::T') - '::R')",
-          "visible": "(not (($atext - '::R') = $atext))",
-          "shadow": true,
-          "localize": false,
-          "alpha": "@hud.anim_actionbar_text_alpha_out"
+        "mc_hud_row": {
+          "type": "stack_panel",
+          "orientation": "horizontal",
+          "anchor_from": "center",
+          "anchor_to": "center",
+          "size": [ "100%c", 10 ],
+          "controls": [
+            {
+              "mc_clock_icon": {
+                "type": "image",
+                "texture": "textures/minecade/hud/clock",
+                "size": [ 10, 10 ],
+                "layer": 31,
+                "alpha": "@hud.anim_actionbar_text_alpha_out"
+              }
+            },
+            { "mc_clock_gap": { "type": "panel", "size": [ 3, 10 ] } },
+            {
+              "mc_hud_text": {
+                "type": "label",
+                "size": [ "default", 10 ],
+                "color": [ 1.0, 1.0, 1.0 ],
+                "layer": 31,
+                "text": "$actionbar_text",
+                "shadow": true,
+                "localize": false,
+                "alpha": "@hud.anim_actionbar_text_alpha_out"
+              }
+            }
+          ]
         }
       }
     ]
