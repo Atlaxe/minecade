@@ -19,7 +19,7 @@ Everything runs on the official Bedrock Dedicated Server (BDS) with TypeScript b
 | Game | Players | What it is |
 |---|---|---|
 | Sumo | 2-6 | Hits only push. Knock everyone off the platform; last one standing wins. |
-| Probe | 1-8 | A 15 second test game that exercises the whole flow. |
+| Probe | 2-8 | A short test game on two teams that exercises the whole flow, team picks in the lobby included. Set `DEV_MIN_PLAYERS=1` to play it alone. |
 
 More games are planned (Arena, Search and Destroy, Paintball, One in the Quiver, Microbattles,
 Build Battle, Prophunt, Zombies, Hide and Seek, Block Drop). See [Adding a game](#adding-a-game).

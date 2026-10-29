@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { PROTOCOL_VERSION, type OutboundEvent } from "@minecade/minigame-core/protocol";
-import { cleanSettings } from "../src/session-manager.ts";
+import { cleanPicks, cleanSettings } from "../src/session-manager.ts";
 import { SERVER_STARTED_LINE, setupSessions } from "./fakes.ts";
 
 const ready: OutboundEvent = { t: "server_ready", protocol: PROTOCOL_VERSION, role: "game", transport: "http", sessionId: "s1" };
@@ -273,6 +273,24 @@ describe("SessionManager: running", () => {
     t.sessions.onLobbyEvent({ t: "start_game", ...startRequest });
     await vi.advanceTimersByTimeAsync(0);
     expect(t.docker.specs).toHaveLength(1);
+  });
+
+  it("forwards the lobby's team picks to the game they're for, cleaned", async () => {
+    const t = setupSessions();
+    t.sessions.onLobbyEvent({ t: "team_picks", sessionId: "s1", picks: { Steve: "red" } }); // no game yet: dropped
+    const { link } = await startAndReady(t);
+    t.sessions.onLobbyEvent({ t: "team_picks", sessionId: "other", picks: { Steve: "red" } }); // another session: dropped
+    t.sessions.onLobbyEvent({ t: "team_picks", sessionId: "s1", picks: { Steve: "red", Alex: "Not An Id", "": "blue" } });
+    expect(link.sent).toEqual([{ t: "team_picks", picks: { Steve: "red" } }]);
+  });
+});
+
+describe("cleanPicks", () => {
+  it("keeps up to 32 picks of short names to team ids", () => {
+    expect(cleanPicks({ Steve: "red", "get a waffle": "blue", Bad: 3, Worse: "Red Team" })).toEqual({ Steve: "red", "get a waffle": "blue" });
+    expect(cleanPicks(["red"])).toEqual({});
+    expect(cleanPicks(null)).toEqual({});
+    expect(Object.keys(cleanPicks(Object.fromEntries(Array.from({ length: 40 }, (_, i) => [`P${i}`, "red"]))))).toHaveLength(32);
   });
 });
 

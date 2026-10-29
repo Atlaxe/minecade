@@ -325,8 +325,8 @@ def glyphs() -> Image.Image:
     white = (255, 255, 255, 255)
     draw.ellipse((5, 1, 10, 6), fill=white)  # head
     draw.rounded_rectangle((3, 8, 12, 15), radius=3, fill=white)  # shoulders
-    draw.rectangle((16 + 1, 10, 16 + 11, 13), fill=(*BRIGHT, 255))  # bar, chosen
-    draw.rectangle((32 + 1, 10, 32 + 11, 13), fill=(50, 80, 110, 255))  # bar, not chosen
+    draw.rectangle((16 + 1, 12, 16 + 11, 13), fill=(*BRIGHT, 255))  # bar, chosen
+    draw.rectangle((32 + 1, 12, 32 + 11, 13), fill=(50, 80, 110, 255))  # bar, not chosen
     return image
 
 

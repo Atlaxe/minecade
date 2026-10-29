@@ -300,6 +300,19 @@ export abstract class Minigame<C extends GameConfig = GameConfig> {
     this.currentStage?.end();
   }
 
+  /**
+   * The team picks made in the lobby (player name to team id), forwarded by the orchestrator.
+   * They decide teams when the match begins, up to each team's cap; picks that come later are
+   * ignored.
+   */
+  setTeamPicks(picks: Record<string, string>): void {
+    if (this.currentPhase !== "waiting" && this.currentPhase !== "countdown") {
+      log.warn(`${this.config.id}: team picks arrived after the match began; ignored`);
+      return;
+    }
+    for (const [name, team] of Object.entries(picks)) this.teamPicks.set(name.toLowerCase(), team);
+  }
+
   // ---- Helpers for play() -----------------------------------------------------------------
 
   /**
@@ -614,10 +627,13 @@ export abstract class Minigame<C extends GameConfig = GameConfig> {
 
   // ---- Pregame ----------------------------------------------------------------------------
 
-  /** Players pick teams unless the game says no, or the lobby's game screen chose random teams. */
+  /**
+   * Players pick teams here (with the star) only for starts that didn't come from the lobby's game
+   * screen: there, "pick" means the lobby collects the picks (setTeamPicks) and "random" means none.
+   */
   private get teamPicking(): boolean {
     const teams = this.config.teams;
-    return teams !== undefined && teams.pick !== false && this.ctx.vars.settings?.teams !== "random";
+    return teams !== undefined && teams.pick !== false && this.ctx.vars.settings?.teams === undefined;
   }
 
   private get picksOpen(): boolean {

@@ -52,6 +52,8 @@ function setup() {
   let starting = false;
   let busy: string | undefined;
   let refusal: string | undefined;
+  const picking = new Set<string>();
+  const reopened: string[] = [];
   let choices: GameChoice[] = [
     { game: sumo, playable: true },
     { game: paintball, playable: true },
@@ -64,6 +66,11 @@ function setup() {
     choices: () => choices,
     busy: () => busy,
     starting: () => starting,
+    reopenTeamPick: (name) => {
+      if (!picking.has(name)) return false;
+      reopened.push(name);
+      return true;
+    },
     request: (name, game, map, settings) => {
       requests.push([name, game, map, settings]);
       if (refusal === undefined) starting = true;
@@ -85,6 +92,8 @@ function setup() {
     holo,
     requests,
     distances,
+    picking,
+    reopened,
     root,
     terminal,
     finishStats: () => finishStats?.(),
@@ -116,12 +125,25 @@ describe("TerminalController: the lock", () => {
     expect(t.terminal.current).toBe("Alex");
   });
 
-  it("refuses taps while a game is starting", () => {
+  it("refuses taps while a game is starting, but gives players picking teams their team form back", () => {
     const t = setup();
     t.setStarting(true);
+    t.picking.add("Steve");
     void t.terminal.tap("Alex");
+    void t.terminal.tap("Steve");
     expect(t.terminal.current).toBeUndefined();
     expect(t.notes).toEqual([["Alex", "A game is starting, hang on."]]);
+    expect(t.reopened).toEqual(["Steve"]);
+  });
+
+  it("keeps the hologram on the starting game until the start is over", () => {
+    const t = setup();
+    t.setStarting(true);
+    t.terminal.refresh();
+    expect(t.holo).toEqual([]);
+    t.setStarting(false);
+    t.terminal.refresh();
+    expect(t.holo).toEqual([idleContent()]);
   });
 
   it("ends the session when its player leaves, walks away or leaves it alone", async () => {
@@ -188,7 +210,7 @@ describe("TerminalController: Play", () => {
     await flushPromises();
     expect(t.requests).toEqual([["Steve", "sumo", "arena_1", {}]]);
     expect(t.terminal.current).toBeUndefined(); // the session ends once the game is starting
-    expect(t.holo.at(-1)).toEqual(idleContent());
+    expect(t.holo.at(-1)?.title).toBe("Sumo"); // the starting game stays up until the start is over
     expect(t.root.live()).toEqual({ scopes: 1, subscriptions: 0, runs: 0 });
   });
 

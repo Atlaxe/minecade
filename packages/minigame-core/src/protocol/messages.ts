@@ -1,7 +1,7 @@
 // Wire protocol between the servers' behavior packs and the orchestrator. Pure TypeScript with
 // no runtime imports: bundled into packs by esbuild and imported by the orchestrator under Node.
 
-export const PROTOCOL_VERSION = 4;
+export const PROTOCOL_VERSION = 5;
 
 /**
  * Upper bound for one encoded message, in either direction and over either transport, so no
@@ -119,7 +119,14 @@ export interface StatsQuery {
   game?: string;
 }
 
-export type OutboundEvent = ServerReady | StartGame | StatusRequest | PlayerCount | MatchStats | EndGame | StatsQuery;
+/** The lobby's team picks for a game it started, by player name and team id. Sent once picking ends. */
+export interface LobbyTeamPicks {
+  t: "team_picks";
+  sessionId: string;
+  picks: Record<string, string>;
+}
+
+export type OutboundEvent = ServerReady | StartGame | StatusRequest | PlayerCount | MatchStats | EndGame | StatsQuery | LobbyTeamPicks;
 
 // ---- Orchestrator -> server ----------------------------------------------------------------
 
@@ -202,7 +209,13 @@ export interface StatsReply {
   games?: { id: string; games: number }[];
 }
 
-export type InboundMessage = StartRejected | GameStarting | GameReady | GameFailed | GameEnded | Status | ReturnAll | StatsReply;
+/** The team picks made in the lobby, forwarded to the game server they're for. */
+export interface TeamPicks {
+  t: "team_picks";
+  picks: Record<string, string>;
+}
+
+export type InboundMessage = StartRejected | GameStarting | GameReady | GameFailed | GameEnded | Status | ReturnAll | StatsReply | TeamPicks;
 
 // ---- Encoding --------------------------------------------------------------------------------
 
@@ -214,6 +227,7 @@ const OUTBOUND_TYPES: ReadonlySet<string> = new Set<OutboundEvent["t"]>([
   "match_stats",
   "end_game",
   "stats_query",
+  "team_picks",
 ]);
 
 const INBOUND_TYPES: ReadonlySet<string> = new Set<InboundMessage["t"]>([
@@ -225,6 +239,7 @@ const INBOUND_TYPES: ReadonlySet<string> = new Set<InboundMessage["t"]>([
   "status",
   "return_all",
   "stats_reply",
+  "team_picks",
 ]);
 
 export class MessageTooLargeError extends Error {

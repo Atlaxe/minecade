@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { RegistryGame } from "@minecade/minigame-core";
 import { PREVIEWS } from "../behavior_pack/scripts/game-screen.ts";
-import { MAX_LINES, MAX_LINES_WITH_PICTURE, fit, gameContent, gamesContent, idleContent, mainContent } from "../behavior_pack/scripts/holo-content.ts";
+import { MAX_LINES, MAX_LINES_WITH_PICTURE, fit, gameContent, gamesContent, idleContent, mainContent, teamsContent } from "../behavior_pack/scripts/holo-content.ts";
 
 const sumo: RegistryGame = {
   id: "sumo",
@@ -76,5 +76,40 @@ describe("what the hologram shows", () => {
   it("keeps lines that fit as they are", () => {
     const lines = [{ text: "a", tone: "normal" as const }];
     expect(fit(lines, 3)).toBe(lines);
+  });
+});
+
+describe("the team picking view on the hologram", () => {
+  const team = (id: string, name: string, color: string, members: string[]) => ({ id, name, color, members, cap: 2, full: members.length >= 2 });
+
+  it("shows each team in its color, who is still random, and when teams lock", () => {
+    const content = teamsContent({
+      game: "Paint",
+      status: "Teams lock in 4 s",
+      teams: [team("red", "Red", "§c", ["Steve", "Alex"]), team("blue", "Blue", "§9", [])],
+      unpicked: ["Bob"],
+    });
+    expect(content).toEqual({
+      frame: "panel",
+      title: "Paint",
+      lines: [
+        { text: "Red: Steve, Alex", tone: "normal", color: "§c" },
+        { text: "Blue: -", tone: "normal", color: "§9" },
+        { text: "Random: Bob", tone: "dim" },
+        { text: "Teams lock in 4 s", tone: "highlight" },
+      ],
+    });
+  });
+
+  it("shortens long lists and always keeps the status line", () => {
+    const content = teamsContent({
+      game: "Paint",
+      status: "Waiting for the server...",
+      teams: ["a", "b", "c", "d"].map((id) => team(id, id.toUpperCase(), "§f", ["P1", "P2", "P3", "P4", "P5"])),
+      unpicked: ["Q1", "Q2"],
+    });
+    expect(content.lines).toHaveLength(MAX_LINES);
+    expect(content.lines[0].text).toBe("A: P1, P2, P3 +2");
+    expect(content.lines.at(-1)).toEqual({ text: "Waiting for the server...", tone: "highlight" });
   });
 });

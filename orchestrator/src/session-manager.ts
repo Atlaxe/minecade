@@ -91,7 +91,20 @@ export class SessionManager {
   onLobbyEvent(event: OutboundEvent): void {
     if (event.t === "start_game") void this.start(event);
     else if (event.t === "status_request" || event.t === "server_ready") this.pushStatus();
+    else if (event.t === "team_picks") this.forwardTeamPicks(event.sessionId, event.picks);
     else log.warn(`lobby sent an unexpected "${event.t}"`);
+  }
+
+  /** Passes the lobby's team picks on to the game server they're for, once it's up. */
+  private forwardTeamPicks(sessionId: string, picks: unknown): void {
+    const session = this.session;
+    if (!session || session.id !== sessionId || !session.link) {
+      log.warn(`team picks for session ${sessionId} dropped: that game server isn't up`);
+      return;
+    }
+    const clean = cleanPicks(picks);
+    session.link.send({ t: "team_picks", picks: clean });
+    log.info(`session ${session.id}: team picks ${JSON.stringify(clean)}`);
   }
 
   async start(request: StartRequest): Promise<StartResult> {
@@ -392,6 +405,16 @@ export function cleanSettings(settings: unknown): Record<string, string> {
   const clean: Record<string, string> = {};
   for (const [key, value] of Object.entries(settings).slice(0, 8)) {
     if (/^[a-z][a-zA-Z0-9_]{0,31}$/.test(key) && typeof value === "string" && value.length <= 32) clean[key] = value;
+  }
+  return clean;
+}
+
+/** At most 32 picks of player names (1 to 32 characters) to team ids; anything else is dropped. */
+export function cleanPicks(picks: unknown): Record<string, string> {
+  if (typeof picks !== "object" || picks === null || Array.isArray(picks)) return {};
+  const clean: Record<string, string> = {};
+  for (const [name, team] of Object.entries(picks).slice(0, 32)) {
+    if (name.length >= 1 && name.length <= 32 && typeof team === "string" && /^[a-z][a-zA-Z0-9_]{0,31}$/.test(team)) clean[name] = team;
   }
   return clean;
 }

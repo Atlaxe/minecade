@@ -7,10 +7,12 @@ import { describeError, holoPictures, log, normalizePlayer, playChime, showForm 
 import { bootServer } from "@minecade/minigame-core/bootstrap";
 import registry from "#registry";
 import { demoGames } from "./demo-games.ts";
+import { teamsContent } from "./holo-content.ts";
 import { Hologram } from "./hologram.ts";
 import { LobbyController } from "./lobby-controller.ts";
 import { MAIN_MENU_CHOICES, gameForm, gamesForm, mainMenuForm } from "./menus.ts";
 import { StatsController } from "./stats-controller.ts";
+import { TeamPickForm } from "./team-pick-form.ts";
 import { TerminalController } from "./terminal-controller.ts";
 
 // Block components must be registered at startup, before the world (and bootServer) loads. Taps
@@ -67,10 +69,37 @@ bootServer(({ vars, transport, transfer, root }) => {
         const player = playerNamed(name);
         if (player) uiManager.closeAllForms(player);
       },
+      teamPicks: {
+        open: (name, view) => {
+          const open = teamForms.get(name);
+          if (open?.showing) return open.update(view);
+          open?.close();
+          const player = playerNamed(name);
+          if (!player) return;
+          const form = new TeamPickForm(player, view, (team) => lobby.pickTeam(name, team));
+          teamForms.set(name, form);
+          void form.show();
+        },
+        update: (name, view) => {
+          try {
+            teamForms.get(name)?.update(view);
+          } catch (error) {
+            log.warn(`team form for ${name}: ${describeError(error)}`);
+          }
+        },
+        close: (name) => {
+          teamForms.get(name)?.close();
+          teamForms.delete(name);
+        },
+        hologram: (view) => hologram.show(teamsContent(view)),
+      },
+      startEnded: () => terminal.refresh(),
     },
     root,
     { registry, devMinPlayers: vars.devMinPlayers, demoGames: demoGames(vars.devDemoGames) },
   );
+  /** The live team forms while players pick teams for a game that's starting, by player name. */
+  const teamForms = new Map<string, TeamPickForm>();
   const stats = new StatsController(
     {
       send: (event) => transport.send(event),
@@ -112,6 +141,7 @@ bootServer(({ vars, transport, transfer, root }) => {
       busy: () => lobby.busy(),
       request: (name, game, map, settings) => lobby.request(name, game, map, settings),
       starting: () => lobby.starting,
+      reopenTeamPick: (name) => lobby.reopenTeamPick(name),
       notify: (name, text) => playerNamed(name)?.sendMessage(text),
       closeForms: (name) => {
         const player = playerNamed(name);
@@ -179,6 +209,8 @@ bootServer(({ vars, transport, transfer, root }) => {
   root.subscribe(world.afterEvents.playerLeave, ({ playerName }) => {
     stats.onPlayerLeft(playerName);
     terminal.onPlayerLeft(playerName);
+    lobby.onPlayerLeft(playerName);
+    teamForms.delete(playerName);
     lastTap.delete(playerName);
   });
 

@@ -27,8 +27,10 @@ export interface TerminalPorts {
   choices(): GameChoice[];
   /** Why no game can start right now, if so. */
   busy(): string | undefined;
-  /** True while the lobby is starting a game: the terminal waits. */
+  /** True while the lobby is starting a game: the terminal waits, and the hologram is the start's. */
   starting(): boolean;
+  /** Brings back a player's team form while teams are being picked; false if there's none for them. */
+  reopenTeamPick(name: string): boolean;
   /** Starts a game; returns why not, if it can't. */
   request(name: string, game: string, map: string, settings: Record<string, string>): string | undefined;
   notify(name: string, text: string): void;
@@ -76,7 +78,7 @@ export class TerminalController {
       return;
     }
     if (this.ports.starting()) {
-      this.ports.notify(name, say.info("A game is starting, hang on."));
+      if (!this.ports.reopenTeamPick(name)) this.ports.notify(name, say.info("A game is starting, hang on."));
       return;
     }
     const scope = this.scope.child(`terminal:${name}`);
@@ -106,9 +108,13 @@ export class TerminalController {
     }
   }
 
-  /** Shows the idle screen unless someone is using the terminal (at boot, and when it frees up). */
+  /**
+   * Shows the idle screen unless someone is using the terminal or a game is starting (at boot, when
+   * the terminal frees up, and when a start ends). While a game starts, the hologram keeps the
+   * game's screen, or shows the team picks.
+   */
   refresh(): void {
-    if (this.user === undefined) this.ports.hologram(idleContent());
+    if (this.user === undefined && !this.ports.starting()) this.ports.hologram(idleContent());
   }
 
   onPlayerLeft(name: string): void {

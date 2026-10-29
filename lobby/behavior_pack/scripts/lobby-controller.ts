@@ -9,6 +9,8 @@
 //            also covers stale messages queued from before a lobby restart.
 import { COLOR, Scope, nameOf, say, type Chime, type InboundMessage, type OutboundEvent, type Registry, type RegistryGame, type StatusSnapshot } from "@minecade/minigame-core";
 import { isDemoGame } from "./demo-games.ts";
+import { settingsFor } from "./game-screen.ts";
+import { TeamPickController, type TeamPickPorts } from "./team-pick-controller.ts";
 
 export interface GameChoice {
   game: RegistryGame;
@@ -25,6 +27,10 @@ export interface LobbyPorts {
   title(to: string | "all", title: string, subtitle?: string): void;
   chime(to: string, chime: Chime): void;
   closeForms(name: string): void;
+  /** The live team forms and the hologram, for team games where players pick in the lobby. */
+  teamPicks?: TeamPickPorts;
+  /** A start is over (the players were sent, or it failed): the terminal's hologram can go back to idle. */
+  startEnded?(): void;
 }
 
 export interface LobbyOptions {
@@ -45,8 +51,12 @@ interface Pending {
   mapName: string;
   players: string[];
   sessionId?: string;
-  /** The timeout and the countdown live here, so clearing the request stops both. */
+  /** The timeout, the team picking and the countdown live here, so clearing the request stops them all. */
   scope: Scope;
+  /** Team picking, for team games set to Pick; the players are sent once it ends. */
+  teamPick?: TeamPickController;
+  /** The game's port, once it's ready. */
+  port?: number;
 }
 
 export class LobbyController {
@@ -82,6 +92,12 @@ export class LobbyController {
         if (pending?.requestId === message.requestId) pending.sessionId = message.sessionId;
         return;
       case "game_ready":
+        if (pending?.requestId === message.requestId && pending.teamPick) {
+          pending.sessionId = message.sessionId;
+          pending.port = message.port;
+          pending.teamPick.ready();
+          return;
+        }
         if (pending?.requestId === message.requestId) void this.sendPlayers(pending, message.port);
         return;
       case "start_rejected":
@@ -148,6 +164,20 @@ export class LobbyController {
     if (busy) this.ports.notify(name, busy);
   }
 
+  onPlayerLeft(name: string): void {
+    this.pending?.teamPick?.leave(name);
+  }
+
+  /** A player joined a team on their team form (or went back to random, with `team` undefined). */
+  pickTeam(name: string, team: string | undefined): void {
+    this.pending?.teamPick?.pick(name, team);
+  }
+
+  /** Brings a player's team form back while teams are being picked. False if there's none for them. */
+  reopenTeamPick(name: string): boolean {
+    return this.pending?.teamPick?.reopen(name) ?? false;
+  }
+
   private start(starter: string, game: RegistryGame, mapId: string, settings: Record<string, string>): void {
     const players = this.ports.onlinePlayers().slice(0, game.maxPlayers);
     const mapName = mapId === "random" ? "a random map" : (game.maps.find((map) => map.id === mapId)?.name ?? mapId);
@@ -161,7 +191,27 @@ export class LobbyController {
     }, this.startTimeoutTicks);
     this.ports.notify("all", say.important(`${nameOf(starter)} is starting ${game.name} on ${mapName}.`));
     this.ports.title("all", say.info(`Starting ${game.name}`), say.minor(mapName));
-    this.ports.send({ t: "start_game", requestId: pending.requestId, game: game.id, map: mapId, players, settings });
+    // Team games set to Pick: the players pick here while the game server boots ("pick" tells the
+    // game to wait for these picks instead of handing out its own picker).
+    const picking = lobbyPicksTeams(game, settings) && this.ports.teamPicks !== undefined;
+    const sent = picking ? { ...settings, teams: "pick" } : settings;
+    this.ports.send({ t: "start_game", requestId: pending.requestId, game: game.id, map: mapId, players, settings: sent });
+    if (picking && game.teams && this.ports.teamPicks) {
+      pending.teamPick = new TeamPickController(this.ports.teamPicks, pending.scope.child("teams"), {
+        game: game.name,
+        players,
+        teams: game.teams,
+        online: () => this.ports.onlinePlayers(),
+        done: (picks) => this.picksDone(pending, picks),
+      });
+    }
+  }
+
+  /** Picking ended (the game server is ready): pass the picks on, then send everyone. */
+  private picksDone(pending: Pending, picks: Record<string, string>): void {
+    if (this.pending !== pending || pending.sessionId === undefined || pending.port === undefined) return;
+    this.ports.send({ t: "team_picks", sessionId: pending.sessionId, picks });
+    void this.sendPlayers(pending, pending.port);
   }
 
   private async sendPlayers(pending: Pending, port: number): Promise<void> {
@@ -187,11 +237,17 @@ export class LobbyController {
   private clearPending(): void {
     this.pending?.scope.dispose();
     this.pending = undefined;
+    this.ports.startEnded?.();
   }
 
   private gameName(id: string | undefined): string {
     return this.games.find((game) => game.id === id)?.name ?? id ?? "A game";
   }
+}
+
+/** Team games whose players pick their own team, with Teams set to Pick on the game screen. */
+export function lobbyPicksTeams(game: RegistryGame, settings: Record<string, string>): boolean {
+  return settingsFor(game).some((setting) => setting.id === "teams") && settings.teams !== "random";
 }
 
 function randomId(): string {

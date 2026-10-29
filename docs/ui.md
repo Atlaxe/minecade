@@ -106,9 +106,10 @@ at a time; a public hologram above it shows everyone what they're doing.
 | Main | The themed menu: logo, Play and Stats side by side | The logo frame, Play and Stats, the chosen one lit |
 | Play | A scrolling grid of game cards, 3 across, 80% of the screen's height: the game's 16:9 picture, its name, a player icon and the players needed (red when there aren't enough) | "Choose a game" and the game names, dimmed when there aren't enough players |
 | Game | Left: the game's name and info, a red warning when there aren't enough players, the Random map switch (on at first), the settings (Teams: Pick or Random for team games, then the game's own options), Start at the bottom. Right: scrolling map tiles, 2 across, each a 16:9 preview with the name over it; dimmed while Random is on, the chosen one outlined when it's off. Clicking a tile turns Random off and picks that map | The game's name, "Map: ...", the settings, the players it needs, and a picture: the chosen map's preview, or the game's picture while the map is random |
+| Teams | After Start on a team game set to Pick, **every player in the match** gets a live team form (see below) | The game's name, each team and its players in the team's color, who's still random, and when teams lock |
 
 The back arrow (top left of every menu) and Esc go back one step (game screen to grid to main
-menu); on the main menu they end the session. Team picking and the stats screens get their own screens next.
+menu); on the main menu they end the session. The stats screens get their own screens next.
 
 **Pieces:**
 
@@ -162,15 +163,38 @@ columns; `MARK.dim` darkens them while Random is on, and `MARK.selected` outline
 one), then Start. `gameButtons()` says what each one does, so the terminal knows what was pressed
 from its place in the list. Start sends `start_game` with the map (or "random") and the settings,
 the orchestrator passes the settings to the game server as `GAME_SETTINGS`, and a game reads them
-from `ctx.vars.settings` (random teams skips team picking).
+from `ctx.vars.settings`.
+
+**Team picks in the lobby:** for team games where players pick (Teams: Pick on the game screen),
+players pick in the lobby while the game server boots, so no time is lost on the game server.
+- **The form:** right after Start, every player in the match gets a live team form. It's a
+  data-driven `CustomForm` from `@minecraft/server-ui` (`scripts/team-pick-form.ts`), the newer
+  kind of form whose text updates while it's open and whose buttons don't close it. It renders in
+  Ore UI, so the resource pack can't theme it.
+- **On it:** each team with its players and count ("2/3"), a Join button per team (disabled when
+  the team is full), a Random team button, and a status line.
+- **Rules:** the teams and caps are the game's own (`activeTeams`, and `ceil(players / teams)`
+  per team, as `assignTeams` honors), worked out in `scripts/team-picks.ts`. A player who leaves
+  the lobby loses their pick. Someone who closed the form gets it back by tapping the terminal.
+- **When teams lock** (`scripts/team-pick-controller.ts`, unit-tested with ports): once the game
+  server is ready, and everyone has picked or 20 s have passed, but never before 5 s. Then the
+  forms close, the lobby sends `team_picks` to the orchestrator, which forwards it to the game
+  server, and the usual countdown and transfer run.
+- **On the game server:** `Minigame.setTeamPicks()` keeps the picks for when the match begins.
+  Players without a pick are dealt out randomly, and picks over a team's cap move to another team.
+  With Teams: Pick, the game doesn't hand out its own picker (the nether star); with Random, nobody
+  picks. The star is only for starts that don't come from the lobby's game screen (the debug API).
+- **The hologram:** while teams are picked it shows them, and it stays on the starting game until
+  the players are sent; then it goes back to idle.
 
 **Game options:** a game can offer its own settings on the game screen with `options` in
 `game.config.ts`. Each value has a label; the first is the default. The build checks the ids
 (lower camelCase, as the orchestrator passes them on) and allows at most 8 settings, Teams
 included. Each setting's button shows its value and, under it, a bar per value with the chosen one
-bright (`settingBars()` in `scripts/menus.ts`, drawn with font glyphs). Probe has two settings, to
-test the screen: Round really sets its stage length, and Teams does nothing in Probe. Probe says
-the settings it got in chat when the match starts.
+bright (`settingBars()` in `scripts/menus.ts`, drawn with font glyphs). Probe is the test game for
+all of this: it has two teams (so Teams: Pick or Random, and the team form) and a Round setting
+that really sets its stage length. It needs 2 players, so set `DEV_MIN_PLAYERS=1` to test alone.
+When the match starts, Probe says the settings it got and who is on which team.
 
 ```ts
 options: [

@@ -5,6 +5,7 @@
 import { gamePicture, mapOptions, playerRange, settingLabel, settingsFor } from "./game-screen.ts";
 import type { GameChoice } from "./lobby-controller.ts";
 import type { GameView } from "./menus.ts";
+import type { TeamPickView } from "./team-pick-controller.ts";
 
 /** "logo": the logo up top, room below (idle and main). "panel": everything else. */
 export type Frame = "logo" | "panel";
@@ -13,6 +14,8 @@ export type Tone = "title" | "normal" | "highlight" | "dim" | "warn";
 export interface HoloLine {
   text: string;
   tone: Tone;
+  /** A § color code (a team's color) instead of the tone's color. */
+  color?: string;
 }
 
 export interface HoloContent {
@@ -59,6 +62,19 @@ export function gameContent(view: GameView): HoloContent {
     playable ? line(playerRange(game), "dim") : line(`Needs ${reason?.replace(/^needs at least /, "") ?? "more players"}`, "warn"),
   ];
   return { frame: "panel", title: game.name, picture: map?.preview ?? gamePicture(game), lines: fit(lines, MAX_LINES_WITH_PICTURE) };
+}
+
+/** Team picking: each team and its players in the team's color, who's still random, and when teams lock. */
+export function teamsContent(view: TeamPickView): HoloContent {
+  const teams = view.teams.map((team): HoloLine => ({ text: `${team.name}: ${names(team.members)}`, tone: "normal", color: team.color }));
+  if (view.unpicked.length > 0) teams.push(line(`Random: ${names(view.unpicked)}`, "dim"));
+  return { frame: "panel", title: view.game, lines: [...fit(teams, MAX_LINES - 1), line(view.status, "highlight")] };
+}
+
+/** Up to three names, then how many more: "Steve, Alex, Bob +2". */
+function names(list: string[]): string {
+  if (list.length === 0) return "-";
+  return list.length <= 3 ? list.join(", ") : `${list.slice(0, 3).join(", ")} +${list.length - 3}`;
 }
 
 /** Keeps the lines that fit; the last one says how many more there are. */

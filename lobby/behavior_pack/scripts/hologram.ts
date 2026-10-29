@@ -56,6 +56,18 @@ const TONES: Record<Tone, RGBA> = {
   warn: { red: 1, green: 0.55, blue: 0.55, alpha: 1 },
 };
 
+/** Minecraft's § color codes as text colors, for lines in a team's color. */
+const CODE_COLORS: Record<string, RGBA> = Object.fromEntries(
+  (
+    [
+      ["§0", 0x000000], ["§1", 0x0000aa], ["§2", 0x00aa00], ["§3", 0x00aaaa],
+      ["§4", 0xaa0000], ["§5", 0xaa00aa], ["§6", 0xffaa00], ["§7", 0xaaaaaa],
+      ["§8", 0x555555], ["§9", 0x5555ff], ["§a", 0x55ff55], ["§b", 0x55ffff],
+      ["§c", 0xff5555], ["§d", 0xff55ff], ["§e", 0xffff55], ["§f", 0xffffff],
+    ] as const
+  ).map(([code, rgb]) => [code, { red: (rgb >> 16) / 255, green: ((rgb >> 8) & 0xff) / 255, blue: (rgb & 0xff) / 255, alpha: 1 }]),
+);
+
 interface Side {
   title: TextPrimitive;
   lines: TextPrimitive[];
@@ -164,7 +176,8 @@ export class Hologram {
         this.place(rows.title, side, LAYOUT.title, title ?? "", TONES.title);
         rows.lines.forEach((row, i) => {
           const content = lines[i];
-          this.place(row, side, first - i * LAYOUT.lineGap, content?.text ?? "", TONES[content?.tone ?? "normal"]);
+          const color = (content?.color && CODE_COLORS[content.color]) || TONES[content?.tone ?? "normal"];
+          this.place(row, side, first - i * LAYOUT.lineGap, content?.text ?? "", color);
         });
       });
     } catch (error) {

@@ -29,6 +29,9 @@ function setup(online: string[] = ["Steve", "Alex"], options: Partial<LobbyOptio
   const titles: [string, string, string | undefined][] = [];
   const closed: string[] = [];
   const chimes: [string, string][] = [];
+  const teamForms: string[] = [];
+  const teamFormsClosed: string[] = [];
+  let startsEnded = 0;
   let requests = 0;
   const ports: LobbyPorts = {
     send: (event) => sent.push(event),
@@ -39,12 +42,19 @@ function setup(online: string[] = ["Steve", "Alex"], options: Partial<LobbyOptio
     title: (to, title, subtitle) => titles.push([to, stripColors(title), subtitle === undefined ? undefined : stripColors(subtitle)]),
     chime: (to, chime) => chimes.push([to, chime]),
     closeForms: (name) => closed.push(name),
+    teamPicks: {
+      open: (name) => teamForms.push(name),
+      update: () => {},
+      close: (name) => teamFormsClosed.push(name),
+      hologram: () => {},
+    },
+    startEnded: () => startsEnded++,
   };
   const root = new Scope("lobby");
   const lobby = new LobbyController(ports, root, { registry, newRequestId: () => `r${++requests}`, ...options });
   const say = (message: InboundMessage) => lobby.onMessage(message);
   const notesTo = (to: string) => notes.filter(([who]) => who === to).map(([, text]) => text);
-  return { players, sent, transfers, notes, notesTo, titles, chimes, closed, root, lobby, say };
+  return { players, sent, transfers, notes, notesTo, titles, chimes, closed, teamForms, teamFormsClosed, startsEnded: () => startsEnded, root, lobby, say };
 }
 
 /** Steve presses Start on Sumo, Arena 1 (request "r1"). */
@@ -233,5 +243,74 @@ describe("LobbyController: recovering", () => {
     startSumo(t);
     t.root.dispose();
     expect(system.pendingRuns).toBe(0);
+  });
+});
+
+describe("LobbyController: team picks", () => {
+  const teamGame: Registry = {
+    games: [{ id: "paint", name: "Paint", minPlayers: 2, maxPlayers: 4, teams: { count: 2 }, maps: [{ id: "yard", name: "Yard" }] }],
+  };
+  const ready = { t: "game_ready", requestId: "r1", sessionId: "s1", game: "paint", map: "yard", port: 19133, hosts: { public: "x", lan: "y" } } as const;
+
+  it("lets everyone pick a team while the game server boots, then sends the picks before the players", async () => {
+    const t = setup(["Steve", "Alex"], { registry: teamGame });
+    expect(t.lobby.request("Steve", "paint", "yard", { teams: "pick" })).toBeUndefined();
+    expect(t.sent).toEqual([{ t: "start_game", requestId: "r1", game: "paint", map: "yard", players: ["Steve", "Alex"], settings: { teams: "pick" } }]);
+    expect(t.teamForms).toEqual(["Steve", "Alex"]);
+    t.say({ t: "game_starting", requestId: "r1", sessionId: "s1", game: "paint", map: "yard" });
+    t.lobby.pickTeam("Steve", "blue");
+    t.lobby.pickTeam("Alex", "red");
+    expect(t.lobby.reopenTeamPick("Steve")).toBe(true);
+    t.say(ready);
+    expect(t.transfers).toEqual([]); // picking lasts at least 5 s
+    system.advanceTicks(100);
+    expect(t.sent.at(-1)).toEqual({ t: "team_picks", sessionId: "s1", picks: { Steve: "blue", Alex: "red" } });
+    expect(t.teamFormsClosed).toEqual(["Steve", "Alex"]);
+    expect(t.lobby.reopenTeamPick("Steve")).toBe(false);
+    for (let second = 0; second < 3; second++) {
+      system.advanceTicks(20);
+      await flushPromises();
+    }
+    expect(t.transfers).toEqual([
+      ["Steve", 19133],
+      ["Alex", 19133],
+    ]);
+    expect(t.startsEnded()).toBe(1);
+  });
+
+  it("skips picking when the game screen chose random teams, or the game has no teams", () => {
+    const t = setup(["Steve", "Alex"], { registry: teamGame });
+    t.lobby.request("Steve", "paint", "yard", { teams: "random" });
+    expect(t.teamForms).toEqual([]);
+    t.say(ready);
+    expect(t.closed).toEqual(["Steve", "Alex"]); // straight to the countdown
+    expect(t.sent.some((event) => event.t === "team_picks")).toBe(false);
+
+    const sumo = setup();
+    startSumo(sumo);
+    expect(sumo.teamForms).toEqual([]);
+  });
+
+  it("closes the team forms when the start fails", () => {
+    const t = setup(["Steve", "Alex"], { registry: teamGame });
+    t.lobby.request("Steve", "paint", "yard", { teams: "pick" });
+    t.say({ t: "game_failed", requestId: "r1", reason: "no room" });
+    expect(t.teamFormsClosed).toEqual(["Steve", "Alex"]);
+    expect(t.lobby.starting).toBe(false);
+    expect(t.startsEnded()).toBe(1);
+    expect(t.root.live()).toEqual({ scopes: 1, subscriptions: 0, runs: 0 });
+  });
+
+  it("drops the pick of a player who leaves the lobby", () => {
+    const t = setup(["Steve", "Alex"], { registry: teamGame });
+    t.lobby.request("Steve", "paint", "yard", { teams: "pick" });
+    t.say({ t: "game_starting", requestId: "r1", sessionId: "s1", game: "paint", map: "yard" });
+    t.lobby.pickTeam("Steve", "red");
+    t.lobby.pickTeam("Alex", "blue");
+    t.players.splice(t.players.indexOf("Alex"), 1);
+    t.lobby.onPlayerLeft("Alex");
+    t.say(ready);
+    system.advanceTicks(100);
+    expect(t.sent.at(-1)).toEqual({ t: "team_picks", sessionId: "s1", picks: { Steve: "red" } });
   });
 });

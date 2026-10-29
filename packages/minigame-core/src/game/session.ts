@@ -28,6 +28,7 @@ export function runGameServer(factory: (ctx: GameContext) => Minigame): void {
     root.add(
       transport.onMessage((message) => {
         if (message.t === "return_all") game?.abort("aborted");
+        else if (message.t === "team_picks") game?.setTeamPicks(message.picks);
       }),
     );
     root.subscribe(

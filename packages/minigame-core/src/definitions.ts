@@ -17,6 +17,7 @@ export {
 export type { Box, MapConfig, Vec3 } from "./map-config.ts";
 export { PLACEHOLDER_PICTURES, holoPictures, type Registry, type RegistryGame, type RegistryMap } from "./registry.ts";
 export { killDeathRatio, winRate } from "./stats-math.ts";
+export { DEFAULT_TEAMS, activeTeams, assignTeams } from "./game/teams.ts";
 export {
   COLOR,
   KILL_VERBS,

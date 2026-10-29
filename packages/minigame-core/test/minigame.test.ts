@@ -244,7 +244,31 @@ describe("Minigame details", () => {
     everyoneLeaves();
   });
 
-  it("hands out the team picker, unless the lobby's game screen chose random teams", async () => {
+  it("uses the lobby's team picks instead of handing out its own picker, and ignores late ones", async () => {
+    const config: GameConfig = { id: "pick", name: "Pick", minPlayers: 2, maxPlayers: 4, countdownSeconds: 3, endDelaySeconds: 1, teams: { count: 2 } };
+    const star = (player: FakePlayer) => player.inventory.items().some((item) => item.typeId === "minecraft:nether_star");
+    const [a] = ["A", "B"].map((name) => world.join(name));
+    const baseline = snapshot();
+    const game = new TestGame(harness.context(["A", "B"], undefined, { teams: "pick" }), config);
+    game.setTeamPicks({ A: "blue", b: "blue" });
+    await playToEnd(game, baseline, async () => {
+      await ticks(3);
+      expect(star(a)).toBe(false);
+      await ticks(3 * 20 + 5); // the plain countdown: no 15 s for picking
+      expect(game.phase).toBe("playing");
+      // Both picked blue, but a team holds ceil(2 / 2) = 1: A (first) keeps it.
+      expect(game.roster.get("A")?.team).toBe("blue");
+      expect(game.roster.get("B")?.team).toBe("red");
+      game.setTeamPicks({ B: "blue" });
+      expect(game.roster.get("B")?.team).toBe("red");
+      game.finish({ kind: "draw", reason: "test over" });
+      await ticks(2);
+    });
+    expectBaseline(baseline);
+    everyoneLeaves();
+  });
+
+  it("hands out the team picker for starts outside the lobby, unless the lobby's game screen chose random teams", async () => {
     const config: GameConfig = { id: "pick", name: "Pick", minPlayers: 2, maxPlayers: 4, countdownSeconds: 3, endDelaySeconds: 1, teams: { count: 2 } };
     const star = (player: FakePlayer) => player.inventory.items().some((item) => item.typeId === "minecraft:nether_star");
     for (const settings of [{}, { teams: "random" }] as Record<string, string>[]) {
