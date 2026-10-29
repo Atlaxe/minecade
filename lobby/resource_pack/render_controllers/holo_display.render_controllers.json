@@ -10,7 +10,15 @@
       "geometry": "Geometry.default",
       "materials": [{ "*": "Material.default" }],
       "textures": ["Array.screens[q.property('minecade:screen')]"],
-      "part_visibility": [{ "*": false }, { "root": true }, { "screen": true }],
+      "part_visibility": [
+        { "*": false },
+        { "root": true },
+        { "screen": true },
+        { "panel_s": true },
+        { "panel_e": true },
+        { "panel_n": true },
+        { "panel_w": true }
+      ],
       "ignore_lighting": true
     },
     "controller.render.minecade.holo_beam": {

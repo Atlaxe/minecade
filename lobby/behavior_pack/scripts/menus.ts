@@ -11,11 +11,10 @@ export const LAYOUT = {
 
 export const MAIN_MENU_CHOICES = ["play", "stats"] as const;
 
-/** Play and Stats, under the Minecade logo, with a status line. */
-export function mainMenuForm(status: string): ActionFormData {
+/** Play and Stats under the Minecade logo. */
+export function mainMenuForm(): ActionFormData {
   return new ActionFormData()
     .title(`${LAYOUT.main}§rMinecade`)
-    .body(status)
     .button("Play", "textures/minecade/ui/icon_play")
     .button("Stats", "textures/minecade/ui/icon_stats");
 }

@@ -142,27 +142,6 @@ export class LobbyController {
     return this.pending !== undefined;
   }
 
-  /** True when nothing is running or starting: a game can be started. */
-  get idle(): boolean {
-    return !this.pending && this.status.state === "idle";
-  }
-
-  /** One line about the network's state, for the terminal's idle hologram. */
-  statusLine(): string {
-    if (this.pending) return `Starting ${this.pending.game.name}...`;
-    const game = this.gameName(this.status.game);
-    switch (this.status.state) {
-      case "starting":
-        return `${game} is starting`;
-      case "running":
-        return `${game} in progress (${this.status.players.length} playing)`;
-      case "stopping":
-        return `Wrapping up ${game}`;
-      default:
-        return "Tap the terminal to play";
-    }
-  }
-
   onPlayerJoined(name: string): void {
     const busy = this.busyMessage();
     if (busy) this.ports.notify(name, busy);

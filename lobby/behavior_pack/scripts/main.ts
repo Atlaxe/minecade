@@ -129,14 +129,12 @@ bootServer(({ vars, transport, transfer, root }) => {
       mainMenu: async (name, scope) => {
         const player = playerNamed(name);
         if (!player) return undefined;
-        const status = lobby.idle ? "Pick a game, or look up your stats." : lobby.statusLine();
-        const answer = await showForm(scope, player, mainMenuForm(status));
+        const answer = await showForm(scope, player, mainMenuForm());
         return answer?.selection === undefined ? undefined : MAIN_MENU_CHOICES[answer.selection];
       },
       play: (name) => lobby.openSelector(name),
       stats: (name) => stats.openStats(name),
       starting: () => lobby.starting,
-      statusLine: () => lobby.statusLine(),
       notify: (name, text) => playerNamed(name)?.sendMessage(text),
       closeForms: (name) => {
         const player = playerNamed(name);
@@ -148,7 +146,7 @@ bootServer(({ vars, transport, transfer, root }) => {
         const { x, z } = hologram.center;
         return Math.hypot(player.location.x - x, player.location.z - z);
       },
-      hologram: (screen, caption) => hologram.show(screen, caption),
+      hologram: (screen) => hologram.show(screen),
     },
     root,
     { now: () => system.currentTick },
@@ -181,7 +179,6 @@ bootServer(({ vars, transport, transfer, root }) => {
       }
       lobby.onMessage(message);
       stats.onMessage(message);
-      terminal.refresh();
     }),
   );
 

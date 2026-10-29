@@ -8,10 +8,10 @@
     "controls": [{ "main_menu@minecade_forms.main_menu": {} }]
   },
 
-  // The terminal's main menu: logo, a status line (the form body) and the Play and Stats tiles.
+  // The terminal's main menu: the logo, and Play and Stats side by side under it.
   "main_menu": {
     "type": "panel",
-    "size": [300, 196],
+    "size": [300, 116],
     "layer": 2,
     "bindings": [
       { "binding_name": "#title_text" },
@@ -35,27 +35,13 @@
         }
       },
       {
-        "status": {
-          "type": "label",
-          "text": "#form_text",
-          "color": [0.62, 0.86, 1.0],
-          "shadow": true,
-          "text_alignment": "center",
-          "size": ["90%", "default"],
-          "anchor_from": "top_middle",
-          "anchor_to": "top_middle",
-          "offset": [0, 62],
-          "layer": 3
-        }
-      },
-      {
         "tiles": {
           "type": "stack_panel",
           "orientation": "horizontal",
-          "size": ["100%c", 80],
+          "size": ["100%c", 38],
           "anchor_from": "bottom_middle",
           "anchor_to": "bottom_middle",
-          "offset": [0, -16],
+          "offset": [0, -12],
           "layer": 3,
           "factory": {
             "name": "buttons",
@@ -69,15 +55,15 @@
     ]
   },
 
-  // A tile: icon on top, label below. Hover and pressed states brighten it.
+  // A wide, short tile: icon on the left, label beside it. Hover and pressed states brighten it.
   "tile_button": {
     "type": "panel",
-    "size": [120, 80],
+    "size": [140, 38],
     "controls": [
       {
         "button@common.button": {
           "$pressed_button_name": "button.form_button_click",
-          "size": [110, 74],
+          "size": [136, 34],
           "bindings": [{ "binding_type": "collection_details", "binding_collection_name": "form_buttons" }],
           "controls": [
             { "default@minecade_forms.tile_face": { "$tile_texture": "textures/minecade/ui/tile_default" } },
@@ -97,10 +83,10 @@
       {
         "icon": {
           "type": "image",
-          "size": [30, 30],
-          "anchor_from": "top_middle",
-          "anchor_to": "top_middle",
-          "offset": [0, 9],
+          "size": [20, 20],
+          "anchor_from": "left_middle",
+          "anchor_to": "left_middle",
+          "offset": [9, 0],
           "layer": 2,
           "bindings": [
             {
@@ -124,9 +110,9 @@
           "text": "#form_button_text",
           "color": [0.86, 0.96, 1.0],
           "shadow": true,
-          "anchor_from": "bottom_middle",
-          "anchor_to": "bottom_middle",
-          "offset": [0, -10],
+          "anchor_from": "left_middle",
+          "anchor_to": "left_middle",
+          "offset": [36, 0],
           "layer": 2,
           "bindings": [
             {

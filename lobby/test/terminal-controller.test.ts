@@ -15,22 +15,20 @@ function setup() {
   const menus: Menu[] = [];
   const notes: [string, string][] = [];
   const closed: string[] = [];
-  const holo: [HoloScreen, string][] = [];
+  const holo: HoloScreen[] = [];
   const distances = new Map<string, number | undefined>();
   let finishPlay: (() => void) | undefined;
   let finishStats: (() => void) | undefined;
   let starting = false;
-  let status = "Tap the terminal to play";
   const ports: TerminalPorts = {
     mainMenu: (name, scope) => scope.guard(new Promise((answer) => menus.push({ name, answer }))),
     play: () => new Promise<void>((done) => (finishPlay = done)),
     stats: () => new Promise<void>((done) => (finishStats = done)),
     starting: () => starting,
-    statusLine: () => status,
     notify: (name, text) => notes.push([name, stripColors(text)]),
     closeForms: (name) => closed.push(name),
     distance: (name) => (distances.has(name) ? distances.get(name) : 2),
-    hologram: (screen, caption) => holo.push([screen, caption]),
+    hologram: (screen) => holo.push(screen),
   };
   const root = new Scope("lobby");
   const terminal = new TerminalController(ports, root, { now: () => system.currentTick, idleTicks: 200 });
@@ -45,7 +43,6 @@ function setup() {
     finishPlay: () => finishPlay?.(),
     finishStats: () => finishStats?.(),
     setStarting: (value: boolean) => (starting = value),
-    setStatus: (value: string) => (status = value),
   };
 }
 
@@ -56,7 +53,7 @@ describe("TerminalController", () => {
     const t = setup();
     void t.terminal.tap("Steve");
     expect(t.terminal.current).toBe("Steve");
-    expect(t.holo.at(-1)).toEqual(["main", "Steve is at the terminal"]);
+    expect(t.holo.at(-1)).toBe("main");
     void t.terminal.tap("Alex");
     void t.terminal.tap("Steve"); // already in the menu: nothing new
     expect(t.menus.map((menu) => menu.name)).toEqual(["Steve"]);
@@ -65,7 +62,7 @@ describe("TerminalController", () => {
     t.menus[0].answer(undefined); // closed the menu
     await flushPromises();
     expect(t.terminal.current).toBeUndefined();
-    expect(t.holo.at(-1)).toEqual(["idle", "Tap the terminal to play"]);
+    expect(t.holo.at(-1)).toBe("idle");
     void t.terminal.tap("Alex");
     expect(t.terminal.current).toBe("Alex");
   });
@@ -75,15 +72,15 @@ describe("TerminalController", () => {
     void t.terminal.tap("Steve");
     t.menus[0].answer("stats");
     await flushPromises();
-    expect(t.holo.at(-1)).toEqual(["main_stats", "Steve is browsing stats"]);
+    expect(t.holo.at(-1)).toBe("main_stats");
     t.finishStats();
     await flushPromises();
     expect(t.menus).toHaveLength(2);
-    expect(t.holo.at(-1)).toEqual(["main", "Steve is at the terminal"]);
+    expect(t.holo.at(-1)).toBe("main");
 
     t.menus[1].answer("play");
     await flushPromises();
-    expect(t.holo.at(-1)).toEqual(["main_play", "Steve is picking a game"]);
+    expect(t.holo.at(-1)).toBe("main_play");
     t.finishPlay(); // backed out of the picker: main menu again
     await flushPromises();
     expect(t.menus).toHaveLength(3);
@@ -95,11 +92,10 @@ describe("TerminalController", () => {
     t.menus[0].answer("play");
     await flushPromises();
     t.setStarting(true);
-    t.setStatus("Starting Sumo...");
     t.finishPlay();
     await flushPromises();
     expect(t.terminal.current).toBeUndefined();
-    expect(t.holo.at(-1)).toEqual(["idle", "Starting Sumo..."]);
+    expect(t.holo.at(-1)).toBe("idle");
     void t.terminal.tap("Alex");
     expect(t.notes).toEqual([["Alex", "A game is starting, hang on."]]);
     expect(t.root.live()).toEqual({ scopes: 1, subscriptions: 0, runs: 0 });
@@ -112,7 +108,7 @@ describe("TerminalController", () => {
     expect(t.terminal.current).toBeUndefined();
     t.menus[0].answer("play"); // the closed menu's late answer does nothing
     await flushPromises();
-    expect(t.holo.at(-1)?.[0]).toBe("idle");
+    expect(t.holo.at(-1)).toBe("idle");
 
     void t.terminal.tap("Alex");
     t.distances.set("Alex", 12);
@@ -131,11 +127,10 @@ describe("TerminalController", () => {
     expect(t.root.live()).toEqual({ scopes: 1, subscriptions: 0, runs: 0 });
   });
 
-  it("keeps the idle hologram's status line current, but not while someone is using it", () => {
+  it("shows the idle screen on refresh, but not while someone is using it", () => {
     const t = setup();
-    t.setStatus("Sumo in progress (3 playing)");
     t.terminal.refresh();
-    expect(t.holo.at(-1)).toEqual(["idle", "Sumo in progress (3 playing)"]);
+    expect(t.holo).toEqual(["idle"]);
     void t.terminal.tap("Steve");
     const shown = t.holo.length;
     t.terminal.refresh();

@@ -102,8 +102,8 @@ at a time; a public hologram above it shows everyone what they're doing.
 
 | Screen | The terminal's user sees | Everyone sees (the hologram) |
 |---|---|---|
-| Idle | nothing | The logo, "Tap the terminal", and a status line ("Sumo in progress (3 playing)") |
-| Main | The themed menu: logo, Play and Stats | Play and Stats, the chosen one lit, and "<name> is at the terminal" |
+| Idle | nothing | The idle picture (the logo, "Tap the terminal") |
+| Main | The themed menu: logo, Play and Stats side by side | Play and Stats, the chosen one lit |
 
 (The game picker, team picking and the stats screens get their own screens next.)
 
@@ -115,16 +115,16 @@ at a time; a public hologram above it shows everyone what they're doing.
   rotates its block. The center is the glowing projector. Tapping any part calls the
   `minecade:terminal` custom component, registered in `main.ts` at startup.
 - **The hologram:** one `minecade:holo_display` entity (`behavior_pack/entities/holo_display.json`,
-  `resource_pack/entity/...`). Its model is four 3x3 panels facing out, so it reads from every
-  side, plus a projection beam. The `minecade:screen` property (client-synced) picks the picture
-  from `Array.screens` in `render_controllers/holo_display.render_controllers.json`; the order
-  must match `SCREENS` in `scripts/hologram.ts`. It uses the `entity_beam_additive` material, so
-  black is see-through and colors glow.
-- **The caption:** a `TextPrimitive` floating above the hologram, for live text (who's at the
-  terminal, the network status).
+  `resource_pack/entity/...`). Its model is one 3x3 panel copied to all four sides by rotating it
+  (`panel_s`, `panel_e`, `panel_n`, `panel_w`), so every side shows the same, unmirrored picture,
+  plus a projection beam. Bedrock entity models flip the x axis, so the panel's UV runs backwards
+  (`"uv": [48, 0], "uv_size": [-48, 48]`) to read correctly. The `minecade:screen` property
+  (client-synced) picks the picture from `Array.screens` in
+  `render_controllers/holo_display.render_controllers.json`; the order must match `SCREENS` in
+  `scripts/hologram.ts`.
 - **Placement:** the map's `points.terminal` is the middle console block. At boot the lobby
-  keeps that area loaded (a ticking area), places the console, spawns the hologram and caption,
-  and checks every 5 seconds that they're still there.
+  keeps that area loaded (a ticking area), places the console and spawns the hologram, and
+  checks every 5 seconds that they're still there.
 - **The lock:** `TerminalController` (`scripts/terminal-controller.ts`, unit-tested with ports).
   The session ends when its player closes the menu, starts a game, leaves, walks more than 8
   blocks away, or leaves it alone for 2 minutes.
@@ -135,6 +135,38 @@ render, `LAYOUT` in `scripts/menus.ts`) gets Minecade's layout from the lobby re
 form for marked titles, and `ui/minecade_forms.json` holds the layouts. Without the pack, marked
 forms are plain forms with a readable title. A test checks the marks match the pack.
 
-**Art:** `tools/assets/make-assets.py` draws the hologram screens, the beam, the console faces,
-the menu panel, tiles and icons, and recolors the logo (`tools/assets/source/minecade-title.png`,
-orange) to holographic blue.
+## How the hologram looks the way it does
+
+The hologram PNGs are dark, but in game the hologram looks light, see-through and glowing. Two
+settings do that, not the images:
+
+- **Additive blending** (the `entity_beam_additive` material in
+  `resource_pack/entity/holo_display.entity.json`): each pixel's color is added to whatever is
+  behind it. Black adds nothing, so it's invisible; dark colors are a faint tint; bright colors
+  glow. Transparency in the PNG doesn't matter, brightness does.
+- **`ignore_lighting: true`** (in the render controllers): the hologram is always fully bright,
+  day or night, in shade or not.
+
+So when drawing hologram art: paint on black, use brightness for glow, and expect dark fills to
+mostly disappear.
+
+## The art
+
+Every image is a placeholder from `tools/assets/make-assets.py` (Pillow), meant to be redrawn by
+hand. The script only writes images that don't exist yet; `--force` regenerates all of them and
+overwrites any edits. Images are stretched to their display size, so keep each one's proportions.
+
+| Image | Shown as | Art size |
+|---|---|---|
+| `packages/minigame-core/resource_pack/textures/minecade/hud/clock.png` | HUD clock icon, 10x10 | 16x16 |
+| `lobby/resource_pack/textures/minecade/ui/logo.png` | Main menu logo, 232x50 | 1072x240, transparent background |
+| `lobby/resource_pack/textures/minecade/ui/panel.png` | Main menu background, 300x116 | 600x232 |
+| `lobby/resource_pack/textures/minecade/ui/tile_default.png`, `tile_hover.png`, `tile_pressed.png` | Menu buttons, 136x34 | 272x68 |
+| `lobby/resource_pack/textures/minecade/ui/icon_play.png`, `icon_stats.png` | Button icons, 20x20 | 64x64 |
+| `lobby/resource_pack/textures/minecade/holo/idle.png`, `main.png`, `main_play.png`, `main_stats.png` | Hologram screens, 3x3 blocks on all four sides | 512x512 (square), additive |
+| `lobby/resource_pack/textures/minecade/holo/beam.png` | Projection beam, two crossed planes 2 wide by 2.5 tall | 128x256, additive, the projector at the bottom |
+| `lobby/resource_pack/textures/minecade/blocks/terminal_side.png` | Console sides | 16x16 |
+| `lobby/resource_pack/textures/minecade/blocks/terminal_corner.png`, `terminal_edge.png`, `terminal_center.png` | Console tops | 16x16; the corner is drawn as the north-west corner (rims on the north and west sides) and the edge as the north edge, and the blocks rotate them into place |
+
+The logo source is `tools/assets/source/minecade-title.png` (the orange original); the script
+recolors it to holographic blue.

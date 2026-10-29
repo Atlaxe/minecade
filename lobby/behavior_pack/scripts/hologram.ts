@@ -1,8 +1,7 @@
-// The terminal in the world: the 3x3 console of minecade:terminal blocks, the hologram display
-// above it (minecade:holo_display, whose "minecade:screen" property picks the picture), and a
-// floating caption under the hologram. Everything is (re)built at boot; the area may not be loaded
-// until a player is near, so placing retries until it works.
-import { BlockPermutation, TextPrimitive, world, type Dimension, type Entity, type Vector3 } from "@minecraft/server";
+// The terminal in the world: the 3x3 console of minecade:terminal blocks and the hologram display
+// above it (minecade:holo_display, whose "minecade:screen" property picks the picture). Both are
+// (re)built at boot; the area may not be loaded yet, so placing retries until it works.
+import { BlockPermutation, type Dimension, type Entity, type Vector3 } from "@minecraft/server";
 import { describeError, log } from "@minecade/minigame-core";
 import type { HoloScreen } from "./terminal-controller.ts";
 
@@ -16,9 +15,7 @@ export class Hologram {
   /** The middle terminal block. */
   private readonly point: Vector3;
   private display: Entity | undefined;
-  private caption: TextPrimitive | undefined;
   private screen: HoloScreen = "idle";
-  private captionText = "";
   private waitingLogged = false;
   private readyLogged = false;
 
@@ -48,9 +45,8 @@ export class Hologram {
     }
   }
 
-  show(screen: HoloScreen, caption: string): void {
+  show(screen: HoloScreen): void {
     this.screen = screen;
-    this.captionText = caption;
     this.apply();
   }
 
@@ -73,22 +69,11 @@ export class Hologram {
     const { x, y, z } = this.center;
     // The display's origin is the middle of its 3x3x3 volume, 2 blocks above the console top.
     this.display = this.dimension.spawnEntity(DISPLAY, { x, y: y + 2, z });
-    // Text shapes outlive scripts; this is the only text the lobby draws.
-    world.primitiveShapesManager.removeAll();
-    const caption = new TextPrimitive({ dimension: this.dimension, x, y: y + 3.9, z }, "");
-    caption.useRotation = false;
-    caption.depthTest = true;
-    caption.color = { red: 0.55, green: 0.87, blue: 1, alpha: 1 };
-    caption.backgroundColorOverride = { red: 0, green: 0.06, blue: 0.14, alpha: 0.55 };
-    caption.maximumRenderDistance = 48;
-    world.primitiveShapesManager.addText(caption, this.dimension);
-    this.caption = caption;
   }
 
   private apply(): void {
     try {
       if (this.display?.isValid) this.display.setProperty("minecade:screen", SCREENS[this.screen]);
-      this.caption?.setText(this.captionText);
     } catch (error) {
       log.warn(`hologram update failed: ${describeError(error)}`);
     }

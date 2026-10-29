@@ -18,13 +18,11 @@ export interface TerminalPorts {
   stats(name: string): Promise<void>;
   /** True while the lobby is starting a game. */
   starting(): boolean;
-  /** One line about the network for the idle hologram ("Sumo in progress (3 playing)"). */
-  statusLine(): string;
   notify(name: string, text: string): void;
   closeForms(name: string): void;
   /** Blocks from the player to the terminal, or undefined if they're not here. */
   distance(name: string): number | undefined;
-  hologram(screen: HoloScreen, caption: string): void;
+  hologram(screen: HoloScreen): void;
 }
 
 export interface TerminalOptions {
@@ -79,15 +77,15 @@ export class TerminalController {
     scope.interval(() => this.watch(name), 10);
     try {
       for (;;) {
-        this.show("main", `${name} is at the terminal`);
+        this.show("main");
         const choice = await this.ports.mainMenu(name, scope);
         if (choice === undefined) return;
         if (choice === "play") {
-          this.show("main_play", `${name} is picking a game`);
+          this.show("main_play");
           await scope.guard(this.ports.play(name));
           if (this.ports.starting()) return;
         } else {
-          this.show("main_stats", `${name} is browsing stats`);
+          this.show("main_stats");
           await scope.guard(this.ports.stats(name));
         }
       }
@@ -96,18 +94,18 @@ export class TerminalController {
     }
   }
 
-  /** The idle hologram's status line changed (or the terminal just freed up). */
+  /** Shows the idle screen unless someone is using the terminal (at boot, and when it frees up). */
   refresh(): void {
-    if (this.user === undefined) this.ports.hologram("idle", this.ports.statusLine());
+    if (this.user === undefined) this.ports.hologram("idle");
   }
 
   onPlayerLeft(name: string): void {
     if (this.user === name) this.session?.dispose();
   }
 
-  private show(screen: HoloScreen, caption: string): void {
+  private show(screen: HoloScreen): void {
     this.lastActivity = this.now();
-    this.ports.hologram(screen, caption);
+    this.ports.hologram(screen);
   }
 
   /** Ends the session when its player walks away or leaves it alone too long. */

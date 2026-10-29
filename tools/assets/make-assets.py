@@ -1,7 +1,9 @@
-"""Generates Minecade's UI images with Pillow. Rerun after changing anything here, then commit
-the PNGs it writes:
+"""Generates Minecade's placeholder UI images with Pillow, then commit the PNGs it writes:
 
-    python tools/assets/make-assets.py
+    python tools/assets/make-assets.py            writes only images that don't exist yet
+    python tools/assets/make-assets.py --force    regenerates every image (overwrites edits!)
+
+The images are meant to be redrawn by hand; by default this never touches an existing file.
 
 Outputs:
     packages/minigame-core/resource_pack/textures/minecade/hud/clock.png   HUD match clock icon
@@ -14,6 +16,7 @@ The logo source is tools/assets/source/minecade-title.png (the orange original).
 """
 
 import colorsys
+import sys
 from pathlib import Path
 
 from PIL import Image, ImageDraw, ImageFilter, ImageFont
@@ -30,7 +33,13 @@ DEEP = (20, 70, 140)
 NAVY = (8, 20, 40)
 
 
+FORCE = "--force" in sys.argv
+
+
 def save(image: Image.Image, path: Path) -> None:
+    if path.exists() and not FORCE:
+        print(f"kept  {path.relative_to(ROOT).as_posix()}")
+        return
     path.parent.mkdir(parents=True, exist_ok=True)
     image.save(path)
     print(f"wrote {path.relative_to(ROOT).as_posix()}")
@@ -219,8 +228,8 @@ def block_top(kind: str) -> Image.Image:
 
 
 def ui_panel() -> Image.Image:
-    """The menu background at 2x (600x392 for a 300x196 panel): translucent navy, glowing frame."""
-    width, height = 600, 392
+    """The main menu background at 2x (600x232 for a 300x116 panel): translucent navy, glowing frame."""
+    width, height = 600, 232
     image = Image.new("RGBA", (width, height), (0, 0, 0, 0))
     draw = ImageDraw.Draw(image)
     draw.rounded_rectangle((2, 2, width - 3, height - 3), radius=16, fill=(*NAVY, 235))
@@ -235,13 +244,13 @@ def ui_panel() -> Image.Image:
 
 
 def ui_tile(state: str) -> Image.Image:
-    """A menu tile at 2x (220x148 for 110x74): default, hover or pressed."""
-    width, height = 220, 148
+    """A menu button at 2x (272x68 for 136x34): default, hover or pressed."""
+    width, height = 272, 68
     fill = {"default": (10, 36, 70, 230), "hover": (24, 80, 140, 240), "pressed": (40, 120, 190, 250)}[state]
     outline = {"default": CYAN, "hover": BRIGHT, "pressed": (255, 255, 255)}[state]
     image = Image.new("RGBA", (width, height), (0, 0, 0, 0))
     draw = ImageDraw.Draw(image)
-    draw.rounded_rectangle((2, 2, width - 3, height - 3), radius=14, fill=fill, outline=(*outline, 255), width=4)
+    draw.rounded_rectangle((2, 2, width - 3, height - 3), radius=10, fill=fill, outline=(*outline, 255), width=4)
     return image
 
 
