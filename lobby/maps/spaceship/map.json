@@ -1,0 +1,11 @@
+{
+  "name": "Spaceship",
+  "spawns": [[0, 69, 7]],
+  "bounds": { "min": [-18, 40, -18], "max": [18, 100, 18] },
+  "points": { "terminal": [[0, 68, 3]] },
+  "build": {
+    "commands": [
+      "time set 12500"
+    ]
+  }
+}
