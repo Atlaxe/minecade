@@ -24,17 +24,62 @@
 
   // ---- Shared pieces ---------------------------------------------------------------------------
 
-  // Back one step: the close button, with vanilla's back arrow, top left. Same as Esc.
+  // Back one step: vanilla's close button, with our white back arrow, top left. Same as Esc.
   "back_arrow@common.close_button": {
     "layer": 6,
     "anchor_from": "top_left",
     "anchor_to": "top_left",
     "$close_button_offset": [6, 6],
     "controls": [
-      { "default@common.close_button_panel": { "$close_button_texture": "textures/ui/back_button_default" } },
-      { "hover@common.close_button_panel": { "$close_button_texture": "textures/ui/back_button_hover" } },
-      { "pressed@common.close_button_panel": { "$close_button_texture": "textures/ui/back_button_pressed" } }
+      { "default@common.close_button_panel": { "$close_button_texture": "textures/minecade/ui/back_default" } },
+      { "hover@common.close_button_panel": { "$close_button_texture": "textures/minecade/ui/back_hover" } },
+      { "pressed@common.close_button_panel": { "$close_button_texture": "textures/minecade/ui/back_pressed" } }
     ]
+  },
+
+  // Leave the terminal: the X, top right, white (red when hovered). It's a form button (every themed
+  // menu's first, marked §c§l§s§r), so the scripts can tell it from the back arrow and Esc, which go
+  // back one step. Sized like vanilla's close button: a 21x21 button with a 15x15 image.
+  "close_x@minecade_forms.button_column": {
+    "size": [21, "100%c"],
+    "layer": 6,
+    "anchor_from": "top_right",
+    "anchor_to": "top_right",
+    "offset": [-6, 6],
+    "factory": { "name": "buttons", "control_ids": { "button": "@minecade_forms.close_x_slot" } }
+  },
+
+  "close_x_slot": {
+    "type": "panel",
+    "size": [21, 21],
+    "bindings": [
+      { "binding_name": "#form_button_text", "binding_type": "collection", "binding_collection_name": "form_buttons" },
+      {
+        "binding_type": "view",
+        "source_property_name": "(not ((#form_button_text - '§c§l§s§r') = #form_button_text))",
+        "target_property_name": "#visible"
+      }
+    ],
+    "controls": [
+      {
+        "button@common.button": {
+          "$pressed_button_name": "button.form_button_click",
+          "size": [21, 21],
+          "bindings": [{ "binding_type": "collection_details", "binding_collection_name": "form_buttons" }],
+          "controls": [
+            { "default@minecade_forms.close_x_face": { "$close_texture": "textures/minecade/ui/close_default" } },
+            { "hover@minecade_forms.close_x_face": { "$close_texture": "textures/minecade/ui/close_hover" } },
+            { "pressed@minecade_forms.close_x_face": { "$close_texture": "textures/minecade/ui/close_pressed" } }
+          ]
+        }
+      }
+    ]
+  },
+
+  "close_x_face": {
+    "type": "image",
+    "texture": "$close_texture",
+    "size": [15, 15]
   },
 
   // A scroll area like the vanilla form's.
@@ -165,9 +210,10 @@
           "bindings": [{ "binding_name": "#form_button_contents", "binding_name_override": "#collection_length" }]
         }
       },
-      // DEV_HOLO_PREVIEW only: a small Preview button in the top right corner.
-      { "preview@minecade_forms.preview_column": { "anchor_from": "top_right", "anchor_to": "top_right", "offset": [-8, 8], "layer": 3 } },
-      { "back@minecade_forms.back_arrow": {} }
+      // DEV_HOLO_PREVIEW only: a small Preview button in the top right corner, left of the X.
+      { "preview@minecade_forms.preview_column": { "anchor_from": "top_right", "anchor_to": "top_right", "offset": [-32, 8], "layer": 3 } },
+      { "back@minecade_forms.back_arrow": {} },
+      { "close@minecade_forms.close_x": {} }
     ]
   },
 
@@ -201,7 +247,7 @@
   },
 
   // A wide, short tile: icon on the left, label beside it. Hover and pressed states brighten it.
-  // The Preview button (marked) isn't a tile; it has its own corner spot.
+  // The Preview button and the X (marked) aren't tiles; they have their own corner spots.
   "tile_button": {
     "type": "panel",
     "size": [140, 38],
@@ -209,7 +255,7 @@
       { "binding_name": "#form_button_text", "binding_type": "collection", "binding_collection_name": "form_buttons" },
       {
         "binding_type": "view",
-        "source_property_name": "((#form_button_text - '§p§v§r') = #form_button_text)",
+        "source_property_name": "(((#form_button_text - '§p§v§r') = #form_button_text) and ((#form_button_text - '§c§l§s§r') = #form_button_text))",
         "target_property_name": "#visible"
       }
     ],
@@ -291,7 +337,8 @@
           "$scrolling_content": "minecade_forms.games_columns"
         }
       },
-      { "back@minecade_forms.back_arrow": {} }
+      { "back@minecade_forms.back_arrow": {} },
+      { "close@minecade_forms.close_x": {} }
     ]
   },
 
@@ -459,7 +506,8 @@
           ]
         }
       },
-      { "back@minecade_forms.back_arrow": {} }
+      { "back@minecade_forms.back_arrow": {} },
+      { "close@minecade_forms.close_x": {} }
     ]
   },
 
@@ -666,7 +714,8 @@
           "$scrolling_content": "minecade_forms.player_column"
         }
       },
-      { "back@minecade_forms.back_arrow": {} }
+      { "back@minecade_forms.back_arrow": {} },
+      { "close@minecade_forms.close_x": {} }
     ]
   },
 
@@ -812,7 +861,8 @@
           ]
         }
       },
-      { "back@minecade_forms.back_arrow": {} }
+      { "back@minecade_forms.back_arrow": {} },
+      { "close@minecade_forms.close_x": {} }
     ]
   },
 

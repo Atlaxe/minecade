@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { stripColors, type StatsTotals } from "@minecade/minigame-core";
 import { MARK } from "../behavior_pack/scripts/game-screen.ts";
-import { LAYOUT, mainMenuForm, playersForm, statsForm } from "../behavior_pack/scripts/menus.ts";
+import { CLOSE_BUTTON, LAYOUT, mainMenuForm, playersForm, statsForm } from "../behavior_pack/scripts/menus.ts";
 import { GLOBAL_TAB, badgeFor, formatDuration, playersView, statColumns, statsBody, statsButtons, statsTabAt, type StatsView } from "../behavior_pack/scripts/stats-screens.ts";
 
 const totals = (more: Partial<StatsTotals> = {}): StatsTotals => ({
@@ -83,7 +83,7 @@ describe("the stats forms", () => {
   it("marks each player row, gives it a badge, and marks the viewer with (me)", () => {
     const form = playersForm({ viewer: "Steve", players: ["Steve", "Alex"], more: 3 }) as unknown as { buttons: string[]; titleText: string; bodyText: string };
     expect(form.titleText.startsWith(LAYOUT.players)).toBe(true);
-    expect(form.buttons).toEqual([`${MARK.player}Steve §7(me)`, `${MARK.player}Alex`]);
+    expect(form.buttons).toEqual([CLOSE_BUTTON, `${MARK.player}Steve §7(me)`, `${MARK.player}Alex`]);
     expect(stripColors(form.bodyText)).toBe("And 3 more not listed.");
   });
 
@@ -91,6 +91,7 @@ describe("the stats forms", () => {
     const form = statsForm(view) as unknown as { buttons: string[]; titleText: string; bodyText: string };
     expect(form.titleText).toBe(`${LAYOUT.stats}§rAlex`);
     expect(form.buttons).toEqual([
+      CLOSE_BUTTON,
       `${MARK.portrait}Alex`,
       `${MARK.tab}Global`,
       `${MARK.tab}${MARK.selected}Sumo`,
@@ -103,7 +104,7 @@ describe("the stats forms", () => {
 
 describe("the main menu", () => {
   it("adds a marked Preview button only with DEV_HOLO_PREVIEW", () => {
-    expect((mainMenuForm() as unknown as { buttons: string[] }).buttons).toEqual(["Play", "Stats"]);
-    expect((mainMenuForm(true) as unknown as { buttons: string[] }).buttons).toEqual(["Play", "Stats", `${MARK.preview}Preview`]);
+    expect((mainMenuForm() as unknown as { buttons: string[] }).buttons).toEqual([CLOSE_BUTTON, "Play", "Stats"]);
+    expect((mainMenuForm(true) as unknown as { buttons: string[] }).buttons).toEqual([CLOSE_BUTTON, "Play", "Stats", `${MARK.preview}Preview`]);
   });
 });

@@ -112,8 +112,11 @@ at a time; a public hologram above it shows everyone what they're doing.
 | Stats list | A scrolling list of everyone with stats, each with their letter badge; you first, marked "(me)", even with no stats yet | "Stats" and the players' names, the viewer first but without "(me)", up to 7, then "+N more" |
 | Player stats | Left: the player's badge (where their 3D skin goes later, see `docs/skins.md`) and a tab per view: Global, then each game they've played. Right: their name, their rank in the open view, and their stats as tiles in three columns: Results, Combat, More | A grid. Top row: the badge on the left; beside it the open tab's name (yellow), the player's name and their rank. Below: the open tab's stats as a table across the panel, the same three columns of value over label |
 
-The back arrow (top left of every menu) and Esc go back one step (game screen to grid to main
-menu, player stats to the list to the main menu); on the main menu they end the session.
+The back arrow (top left of every menu, white) and Esc go back one step (game screen to grid to
+main menu, player stats to the list to the main menu); on the main menu they end the session. The
+X (top right of every menu, white, red when hovered) leaves the terminal from any menu. It's every
+themed menu's first button (marked `MARK.close`), and `menuChoice()` in `game-screen.ts` turns it
+into `CLOSE`, so the scripts can tell it from the back arrow.
 
 **Pieces:**
 
@@ -287,7 +290,9 @@ them (cell 0 is the player icon). Glyphs can go in any text a form shows.
 **JSON UI notes for these layouts:** a factory's collection only works on a `stack_panel`, `grid`
 or `collection_panel` (on a plain panel, `collection_index` is silently ignored, and every item
 shows button 0). Scrolling areas reuse vanilla `common.scrolling_panel`. The back arrow is vanilla
-`common.close_button` with vanilla's back button textures. `"fill": true` on an image scales it to
+`common.close_button` with our own arrow textures (`back_*`). The X can't be a close button (that
+only closes the form, the same as Esc), so it's a form button in its own one-button column
+(`close_x`), anchored top right, its image swapped on hover and press. `"fill": true` on an image scales it to
 cover its control and crops what overflows (even with `"keep_ratio": false`), so pictures use it
 and frames never do. Sizes in percent are of the parent. Vanilla sizes the form
 screen's content panel (`server_form.main_screen_content`) `[0, 0]`, which makes any percentage
@@ -355,6 +360,8 @@ middle, and the tiled scanlines, which repeat.
 | `lobby/resource_pack/textures/minecade/ui/map_placeholder.png` | The preview of a map without its own (on its tile and the hologram) | 320x180 (16:9) |
 | `lobby/resource_pack/textures/minecade/ui/game_placeholder.png` | The picture of a game without its own (demo games) | 320x180 (16:9) |
 | `lobby/resource_pack/textures/minecade/ui/button_default.png`, `_hover`, `_pressed` | Every button: main menu tiles (136x34), game cards (132x44), the Random switch, settings and Start (210x28), player rows, tabs | 16x16 at 1x, nine-slice (4 pixel slices): navy, a 2 pixel cyan line down the left and right edges, square corners |
+| `lobby/resource_pack/textures/minecade/ui/back_default.png`, `_hover`, `_pressed` | Every menu's back arrow, top left, 15x15 | 15x15, a white arrow (light blue on hover) |
+| `lobby/resource_pack/textures/minecade/ui/close_default.png`, `_hover`, `_pressed` | Every menu's X, top right, 15x15 | 15x15, a white X (red on hover, dark red pressed) |
 | `lobby/resource_pack/textures/minecade/ui/toggle_on.png`, `toggle_off.png` | The Random map switch, 26x13 | 52x26, a square track with a square knob |
 | `lobby/resource_pack/textures/minecade/ui/tab_selected.png` | Drawn over the open tab on a player's stats | 16x16 at 1x, nine-slice: a white 2 pixel outline, transparent middle |
 | `lobby/resource_pack/textures/minecade/ui/portrait_frame.png` | The frame around the portrait on a player's stats, 96x96 | 16x16 at 1x, nine-slice: a cyan 2 pixel outline, transparent middle |

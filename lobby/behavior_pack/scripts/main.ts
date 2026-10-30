@@ -11,6 +11,7 @@ import { countdownContent, teamsContent } from "./holo-content.ts";
 import { Hologram } from "./hologram.ts";
 import { LobbyController } from "./lobby-controller.ts";
 import { PREVIEW_SCREENS } from "./holo-preview.ts";
+import { CLOSE, menuChoice } from "./game-screen.ts";
 import { MAIN_MENU_CHOICES, gameForm, gamesForm, mainMenuForm, playersForm, previewForm, statsForm } from "./menus.ts";
 import { StatsController } from "./stats-controller.ts";
 import { TeamPickForm } from "./team-pick-form.ts";
@@ -103,11 +104,11 @@ bootServer(({ vars, transport, transfer, root }) => {
       notify: (name, text) => playerNamed(name)?.sendMessage(text),
       playersMenu: async (name, scope, view) => {
         const player = playerNamed(name);
-        return player ? (await showForm(scope, player, playersForm(view)))?.selection : undefined;
+        return player ? menuChoice((await showForm(scope, player, playersForm(view)))?.selection) : undefined;
       },
       statsMenu: async (name, scope, view) => {
         const player = playerNamed(name);
-        return player ? (await showForm(scope, player, statsForm(view)))?.selection : undefined;
+        return player ? menuChoice((await showForm(scope, player, statsForm(view)))?.selection) : undefined;
       },
     },
     root,
@@ -123,8 +124,8 @@ bootServer(({ vars, transport, transfer, root }) => {
       mainMenu: async (name, scope) => {
         const player = playerNamed(name);
         if (!player) return undefined;
-        const answer = await showForm(scope, player, mainMenuForm(vars.devHoloPreview));
-        return answer?.selection === undefined ? undefined : MAIN_MENU_CHOICES[answer.selection];
+        const choice = menuChoice((await showForm(scope, player, mainMenuForm(vars.devHoloPreview)))?.selection);
+        return choice === undefined || choice === CLOSE ? choice : MAIN_MENU_CHOICES[choice];
       },
       previewMenu: async (name, scope) => {
         const player = playerNamed(name);
@@ -133,11 +134,11 @@ bootServer(({ vars, transport, transfer, root }) => {
       },
       gamesMenu: async (name, scope, choices) => {
         const player = playerNamed(name);
-        return player ? (await showForm(scope, player, gamesForm(choices)))?.selection : undefined;
+        return player ? menuChoice((await showForm(scope, player, gamesForm(choices)))?.selection) : undefined;
       },
       gameMenu: async (name, scope, view) => {
         const player = playerNamed(name);
-        return player ? (await showForm(scope, player, gameForm(view)))?.selection : undefined;
+        return player ? menuChoice((await showForm(scope, player, gameForm(view)))?.selection) : undefined;
       },
       stats: (name, show) => stats.openStats(name, show),
       choices: () => lobby.choices(),

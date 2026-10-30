@@ -325,6 +325,45 @@ def glyphs() -> Image.Image:
     return image
 
 
+# The back arrow, pixel by pixel (diagonal lines this small come out uneven).
+BACK_ARROW = [
+    "...............",
+    "...............",
+    ".......#.......",
+    "......##.......",
+    ".....##........",
+    "....##.........",
+    "...###########.",
+    "..############.",
+    "...###########.",
+    "....##.........",
+    ".....##........",
+    "......##.......",
+    ".......#.......",
+    "...............",
+    "...............",
+]
+
+
+def nav_icon(kind: str, color: tuple[int, int, int]) -> Image.Image:
+    """
+    The menus' back arrow (top left) and X (top right), 15x15 like vanilla's close button images:
+    white, with hover and pressed colors (the X turns red).
+    """
+    image = Image.new("RGBA", (15, 15), (0, 0, 0, 0))
+    draw = ImageDraw.Draw(image)
+    fill = (*color, 255)
+    if kind == "back":
+        for y, row in enumerate(BACK_ARROW):
+            for x, cell in enumerate(row):
+                if cell == "#":
+                    image.putpixel((x, y), fill)
+    else:
+        draw.line((3, 3, 11, 11), fill=fill, width=3)
+        draw.line((3, 11, 11, 3), fill=fill, width=3)
+    return image
+
+
 BADGE_CHARACTERS = "abcdefghijklmnopqrstuvwxyz0123456789"
 
 
@@ -402,6 +441,11 @@ def main() -> None:
     save(toggle(True), LOBBY_TEXTURES / "ui" / "toggle_on.png")
     save(toggle(False), LOBBY_TEXTURES / "ui" / "toggle_off.png")
     save(glyphs(), LOBBY_FONT / "glyph_E3.png")
+
+    # Every menu's back arrow and X.
+    for state, back, close in (("default", (255, 255, 255), (255, 255, 255)), ("hover", BRIGHT, (235, 64, 64)), ("pressed", (140, 190, 220), (160, 30, 30))):
+        save(nav_icon("back", back), LOBBY_TEXTURES / "ui" / f"back_{state}.png")
+        save(nav_icon("close", close), LOBBY_TEXTURES / "ui" / f"close_{state}.png")
 
     # The stats screens: an outline for the open tab, the portrait's frame, stat tiles, and player badges.
     save_nineslice(ui_outline("selected"), LOBBY_TEXTURES / "ui" / "tab_selected.png", 4)

@@ -5,16 +5,17 @@
 //
 //   players list ──> a player's screen (Global, Sumo, ...) ── back ──> players list ── back ──> done
 import { Scope, say, type InboundMessage, type OutboundEvent, type Registry, type StatsReply } from "@minecade/minigame-core";
+import { CLOSE } from "./game-screen.ts";
 import { statsContent, statsListContent, type HoloContent } from "./holo-content.ts";
 import { GLOBAL_TAB, playersView, statColumns, statsBody, statsTabAt, type PlayersView, type StatsTab, type StatsView } from "./stats-screens.ts";
 
 export interface StatsPorts {
   send(event: OutboundEvent): void;
   notify(name: string, text: string): void;
-  /** The players list. Resolves the picked row's index, or undefined if closed. Never settles if `scope` is disposed first. */
-  playersMenu(name: string, scope: Scope, view: PlayersView): Promise<number | undefined>;
-  /** A player's screen. Resolves the pressed button's index, or undefined to go back. */
-  statsMenu(name: string, scope: Scope, view: StatsView): Promise<number | undefined>;
+  /** The players list. Resolves the picked row's index, undefined if closed, or CLOSE for the X. Never settles if `scope` is disposed first. */
+  playersMenu(name: string, scope: Scope, view: PlayersView): Promise<number | typeof CLOSE | undefined>;
+  /** A player's screen. Resolves the pressed button's index, undefined to go back, or CLOSE for the X. */
+  statsMenu(name: string, scope: Scope, view: StatsView): Promise<number | typeof CLOSE | undefined>;
 }
 
 export interface StatsOptions {
@@ -52,30 +53,33 @@ export class StatsController {
     this.open.get(name)?.dispose();
   }
 
-  /** Opens the stats screens; resolves when the player is done. `show` puts content on the hologram. */
-  async openStats(name: string, show: (content: HoloContent) => void = () => {}): Promise<void> {
-    if (this.open.has(name)) return;
+  /** Opens the stats screens; resolves when the player is done, true if they pressed the X. `show` puts content on the hologram. */
+  async openStats(name: string, show: (content: HoloContent) => void = () => {}): Promise<boolean> {
+    if (this.open.has(name)) return false;
     const scope = this.scope.child(`stats:${name}`);
     this.open.set(name, scope);
     scope.add(() => this.open.delete(name));
     try {
       const list = await this.ask(scope, name, { kind: "players" });
-      if (!list) return;
+      if (!list) return false;
       for (;;) {
         const view = playersView(name, list.players ?? [], list.more ?? 0);
         show(statsListContent(view));
         const pick = await this.ports.playersMenu(name, scope, view);
+        if (pick === CLOSE) return true;
         const player = pick === undefined ? undefined : view.players[pick];
-        if (player === undefined) return;
-        if (!(await this.playerScreen(name, scope, player, show))) return;
+        if (player === undefined) return false;
+        const after = await this.playerScreen(name, scope, player, show);
+        if (after === CLOSE) return true;
+        if (!after) return false;
       }
     } finally {
       scope.dispose();
     }
   }
 
-  /** One player's screen, a tab at a time. Resolves true to go back to the list, false if stats became unavailable. */
-  private async playerScreen(viewer: string, scope: Scope, player: string, show: (content: HoloContent) => void): Promise<boolean> {
+  /** One player's screen, a tab at a time. Resolves true to go back to the list, false if stats became unavailable, or CLOSE for the X. */
+  private async playerScreen(viewer: string, scope: Scope, player: string, show: (content: HoloContent) => void): Promise<boolean | typeof CLOSE> {
     const overview = await this.ask(scope, viewer, { player });
     if (!overview) return false;
     const tabs: StatsTab[] = [GLOBAL_TAB, ...(overview.games ?? []).map((game) => ({ id: game.id, name: this.gameName(game.id) }))];
@@ -94,6 +98,7 @@ export class StatsController {
       const view: StatsView = { player, tabs, tab: tab.id, body: statsBody(reply.totals, placement), columns: statColumns(reply.totals, extras), ...(placement ? { placement } : {}) };
       show(statsContent(view));
       const selection = await this.ports.statsMenu(viewer, scope, view);
+      if (selection === CLOSE) return CLOSE;
       if (selection === undefined) return true;
       tab = statsTabAt(view, selection) ?? tab;
     }

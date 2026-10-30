@@ -4,6 +4,7 @@ import { Scope, stripColors, type RegistryGame } from "@minecade/minigame-core";
 import { system } from "../../packages/minigame-core/test/fake-mc-server.ts";
 import { flushPromises } from "../../packages/minigame-core/test/util.ts";
 import type { GameChoice } from "../behavior_pack/scripts/lobby-controller.ts";
+import { CLOSE } from "../behavior_pack/scripts/game-screen.ts";
 import { LAYOUT, MAIN_MENU_CHOICES, type GameView } from "../behavior_pack/scripts/menus.ts";
 import { gameContent, gamesContent, idleContent, mainContent, type HoloContent } from "../behavior_pack/scripts/holo-content.ts";
 import { TerminalController, type TerminalPorts } from "../behavior_pack/scripts/terminal-controller.ts";
@@ -41,16 +42,16 @@ interface Pending<T> {
 }
 
 function setup() {
-  const mains: Pending<"play" | "stats" | "preview">[] = [];
+  const mains: Pending<"play" | "stats" | "preview" | typeof CLOSE>[] = [];
   const previews: Pending<PreviewScreen>[] = [];
-  const grids: (Pending<number> & { choices: GameChoice[] })[] = [];
-  const screens: (Pending<number> & { view: GameView })[] = [];
+  const grids: (Pending<number | typeof CLOSE> & { choices: GameChoice[] })[] = [];
+  const screens: (Pending<number | typeof CLOSE> & { view: GameView })[] = [];
   const notes: [string, string][] = [];
   const closed: string[] = [];
   const holo: HoloContent[] = [];
   const requests: [string, string, string, Record<string, string>][] = [];
   const distances = new Map<string, number | undefined>();
-  let finishStats: (() => void) | undefined;
+  let finishStats: ((closed: boolean) => void) | undefined;
   let statsShow: ((content: HoloContent) => void) | undefined;
   let starting = false;
   let busy: string | undefined;
@@ -68,7 +69,7 @@ function setup() {
     gameMenu: (name, scope, view) => scope.guard(new Promise((answer) => screens.push({ name, answer, view }))),
     stats: (_name, show) => {
       statsShow = show;
-      return new Promise<void>((done) => (finishStats = done));
+      return new Promise<boolean>((done) => (finishStats = done));
     },
     choices: () => choices,
     busy: () => busy,
@@ -104,7 +105,7 @@ function setup() {
     reopened,
     root,
     terminal,
-    finishStats: () => finishStats?.(),
+    finishStats: (closed = false) => finishStats?.(closed),
     statsShow: (content: HoloContent) => statsShow?.(content),
     setStarting: (value: boolean) => (starting = value),
     setBusy: (value: string | undefined) => (busy = value),
@@ -275,6 +276,40 @@ describe("TerminalController: Play", () => {
     await flushPromises();
     expect(t.mains).toHaveLength(2);
     expect(t.holo.at(-1)).toEqual(mainContent());
+  });
+
+  it("leaves the terminal from any menu with the X", async () => {
+    const t = setup();
+    const ended = () => t.terminal.current === undefined && JSON.stringify(t.holo.at(-1)) === JSON.stringify(idleContent());
+    void t.terminal.tap("Steve");
+    t.mains[0].answer(CLOSE); // the main menu
+    await flushPromises();
+    expect(ended()).toBe(true);
+
+    void t.terminal.tap("Steve");
+    t.mains[1].answer("play");
+    await flushPromises();
+    t.grids[0].answer(CLOSE); // the game grid
+    await flushPromises();
+    expect(ended()).toBe(true);
+
+    void t.terminal.tap("Steve");
+    t.mains[2].answer("play");
+    await flushPromises();
+    t.grids[1].answer(0);
+    await flushPromises();
+    t.screens[0].answer(CLOSE); // a game's screen
+    await flushPromises();
+    expect(ended()).toBe(true);
+    expect(t.requests).toEqual([]);
+
+    void t.terminal.tap("Steve");
+    t.mains[3].answer("stats");
+    await flushPromises();
+    t.finishStats(true); // the X in the stats screens
+    await flushPromises();
+    expect(ended()).toBe(true);
+    expect(t.mains).toHaveLength(4);
   });
 
   it("stays on the game screen when Start is refused, and leaves when a game is running", async () => {

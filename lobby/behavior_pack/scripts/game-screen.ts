@@ -31,7 +31,21 @@ export const MARK = {
   stats: ["§u§1§r", "§u§2§r", "§u§3§r"],
   /** The main menu's Preview button (DEV_HOLO_PREVIEW), shown small in the corner instead of as a tile. */
   preview: "§p§v§r",
+  /** The X in every themed menu's top right corner (always the menu's first button): leaves the terminal. */
+  close: "§c§l§s§r",
 } as const;
+
+/** What a themed menu's X means: leave the terminal. The back arrow and Esc go back one step instead. */
+export const CLOSE = "close";
+
+/**
+ * A themed menu's answer, from the form's selection: CLOSE for the X (the first button), otherwise
+ * the pressed button's place among the rest, or undefined when the menu was closed (back).
+ */
+export function menuChoice(selection: number | undefined): number | typeof CLOSE | undefined {
+  if (selection === undefined) return undefined;
+  return selection === 0 ? CLOSE : selection - 1;
+}
 
 export const PREVIEWS = {
   /** For games without an icon.png (demo games). */

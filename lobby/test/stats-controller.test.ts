@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { Scope, stripColors, type OutboundEvent, type Registry, type StatsQuery, type StatsReply, type StatsTotals } from "@minecade/minigame-core";
 import { system } from "../../packages/minigame-core/test/fake-mc-server.ts";
 import { flushPromises } from "../../packages/minigame-core/test/util.ts";
+import { CLOSE } from "../behavior_pack/scripts/game-screen.ts";
 import type { HoloContent } from "../behavior_pack/scripts/holo-content.ts";
 import { StatsController, type StatsPorts } from "../behavior_pack/scripts/stats-controller.ts";
 import type { PlayersView, StatsView } from "../behavior_pack/scripts/stats-screens.ts";
@@ -38,7 +39,7 @@ const totals = (more: Partial<StatsTotals> = {}): StatsTotals => ({
 interface Open<V> {
   name: string;
   view: V;
-  answer(index: number | undefined): void;
+  answer(index: number | typeof CLOSE | undefined): void;
 }
 
 function setup() {
@@ -109,6 +110,26 @@ describe("StatsController", () => {
     expect(t.lists).toHaveLength(2);
     t.lists[1].answer(undefined); // closed: done
     await done;
+    expect(t.root.live()).toEqual({ scopes: 1, subscriptions: 0, runs: 0 });
+  });
+
+  it("ends with true when the player presses the X, on the list or on a player's screen", async () => {
+    const t = setup();
+    const fromList = t.open();
+    t.reply("q1", { players: ["Alex"] });
+    await flushPromises();
+    t.lists[0].answer(CLOSE);
+    expect(await fromList).toBe(true);
+
+    const fromScreen = t.open();
+    t.reply("q2", { players: ["Alex"] });
+    await flushPromises();
+    t.lists[1].answer(1); // Alex
+    await flushPromises();
+    t.reply("q3", { player: "Alex", totals: totals() });
+    await flushPromises();
+    t.screens[0].answer(CLOSE);
+    expect(await fromScreen).toBe(true);
     expect(t.root.live()).toEqual({ scopes: 1, subscriptions: 0, runs: 0 });
   });
 

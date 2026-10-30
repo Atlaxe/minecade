@@ -9,23 +9,29 @@
 //             └─ Stats ─> the stats screens
 // Closing a menu goes back one step; closing the main menu ends the session.
 import { Scope, say } from "@minecade/minigame-core";
-import { defaultSettings, gameAction, nextSetting, settingsFor } from "./game-screen.ts";
+import { CLOSE, defaultSettings, gameAction, nextSetting, settingsFor } from "./game-screen.ts";
 import { gameContent, gamesContent, idleContent, mainContent, type HoloContent } from "./holo-content.ts";
 import { previewContent, type PreviewScreen } from "./holo-preview.ts";
 import type { GameChoice } from "./lobby-controller.ts";
 import type { GameView } from "./menus.ts";
 
 export interface TerminalPorts {
-  /** The themed main menu. Resolves the choice, or undefined if closed. Never settles if `scope` is disposed first. */
-  mainMenu(name: string, scope: Scope): Promise<"play" | "stats" | "preview" | undefined>;
+  /**
+   * The themed main menu. Resolves the choice, undefined if closed, or CLOSE for the X (as every
+   * themed menu does). Never settles if `scope` is disposed first.
+   */
+  mainMenu(name: string, scope: Scope): Promise<"play" | "stats" | "preview" | typeof CLOSE | undefined>;
   /** DEV_HOLO_PREVIEW: the list of hologram screens to preview. Resolves the picked one, or undefined to go back. */
   previewMenu(name: string, scope: Scope): Promise<PreviewScreen | undefined>;
   /** The game grid. Resolves the index of the chosen game, or undefined to go back. */
-  gamesMenu(name: string, scope: Scope, choices: GameChoice[]): Promise<number | undefined>;
+  gamesMenu(name: string, scope: Scope, choices: GameChoice[]): Promise<number | typeof CLOSE | undefined>;
   /** The game screen. Resolves the index of the pressed button, or undefined to go back. */
-  gameMenu(name: string, scope: Scope, view: GameView): Promise<number | undefined>;
-  /** The stats screens (resolves when the player is done with them). They show content on the hologram through `show`. */
-  stats(name: string, show: (content: HoloContent) => void): Promise<void>;
+  gameMenu(name: string, scope: Scope, view: GameView): Promise<number | typeof CLOSE | undefined>;
+  /**
+   * The stats screens. Resolves when the player is done with them: true if they pressed the X.
+   * They show content on the hologram through `show`.
+   */
+  stats(name: string, show: (content: HoloContent) => void): Promise<boolean>;
   /** Every game, and whether there are enough players for it. */
   choices(): GameChoice[];
   /** Why no game can start right now, if so. */
@@ -100,7 +106,7 @@ export class TerminalController {
       for (;;) {
         this.show(mainContent());
         const choice = await this.ports.mainMenu(name, scope);
-        if (choice === undefined) return;
+        if (choice === undefined || choice === CLOSE) return;
         if (choice === "play") {
           this.show(mainContent("play"));
           if (await this.play(name, scope)) return;
@@ -112,7 +118,7 @@ export class TerminalController {
           return;
         } else {
           this.show(mainContent("stats"));
-          await scope.guard(this.ports.stats(name, (content) => this.show(content)));
+          if (await scope.guard(this.ports.stats(name, (content) => this.show(content)))) return;
         }
       }
     } finally {
@@ -133,7 +139,7 @@ export class TerminalController {
     if (this.user === name) this.session?.dispose();
   }
 
-  /** The game grid, then a game's screen. Resolves true once a game is starting. */
+  /** The game grid, then a game's screen. Resolves true when the session is over: a game is starting, or the player pressed the X. */
   private async play(name: string, scope: Scope): Promise<boolean> {
     for (;;) {
       const busy = this.ports.busy();
@@ -145,14 +151,16 @@ export class TerminalController {
       this.show(gamesContent(choices));
       const index = await this.ports.gamesMenu(name, scope, choices);
       if (index === undefined) return false;
+      if (index === CLOSE) return true;
       const choice = choices[index];
       if (choice && (await this.gameScreen(name, scope, choice.game.id))) return true;
     }
   }
 
   /**
-   * One game's screen: Random map or a chosen one, the settings, then Start. Resolves true once the
-   * game is starting. Picking a map tile turns Random off.
+   * One game's screen: Random map or a chosen one, the settings, then Start. Resolves true when the
+   * session is over: the game is starting, or the player pressed the X. Picking a map tile turns
+   * Random off.
    */
   private async gameScreen(name: string, scope: Scope, gameId: string): Promise<boolean> {
     let random = true;
@@ -168,6 +176,7 @@ export class TerminalController {
       this.show(gameContent(view));
       const selection = await this.ports.gameMenu(name, scope, view);
       if (selection === undefined) return false;
+      if (selection === CLOSE) return true;
       const action = gameAction(choice.game, selection);
       if (action?.kind === "random") random = !random;
       else if (action?.kind === "map") {

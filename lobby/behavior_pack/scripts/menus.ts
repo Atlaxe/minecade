@@ -2,6 +2,7 @@
 // never render; the lobby resource pack (ui/server_form.json and ui/minecade_forms.json) shows
 // marked forms with Minecade's holographic layouts, and sorts their buttons into columns by the
 // markers in game-screen.ts. Without the pack, they're plain forms with readable titles and buttons.
+// Every themed menu's first button is the X (top right), which main.ts turns into CLOSE.
 import { ActionFormData } from "@minecraft/server-ui";
 import { say } from "@minecade/minigame-core";
 import { MARK, gameButtons, gamePicture, mapOptions, playerCount, playerRange, settingLabel, settingsFor, type GameSetting } from "./game-screen.ts";
@@ -28,10 +29,17 @@ export const GLYPH = {
 
 export const MAIN_MENU_CHOICES = ["play", "stats", "preview"] as const;
 
+/** The X: every themed menu's first button, shown in its top right corner (menuChoice() turns it into CLOSE). */
+export const CLOSE_BUTTON = `${MARK.close}Close`;
+
+/** A themed menu: its title (starting with its layout mark), then the X. */
+function themedForm(title: string): ActionFormData {
+  return new ActionFormData().title(title).button(CLOSE_BUTTON);
+}
+
 /** Play and Stats under the Minecade logo; with DEV_HOLO_PREVIEW, a small Preview button in the corner too. */
 export function mainMenuForm(preview = false): ActionFormData {
-  const form = new ActionFormData()
-    .title(`${LAYOUT.main}§rMinecade`)
+  const form = themedForm(`${LAYOUT.main}§rMinecade`)
     .button("Play", "textures/minecade/ui/icon_play")
     .button("Stats", "textures/minecade/ui/icon_stats");
   if (preview) form.button(`${MARK.preview}Preview`);
@@ -47,7 +55,7 @@ export function previewForm(): ActionFormData {
 
 /** A card per game, three columns across: its 16:9 picture, its name, and a player icon with the players it needs (red when short). */
 export function gamesForm(choices: GameChoice[]): ActionFormData {
-  const form = new ActionFormData().title(`${LAYOUT.games}§rPlay`);
+  const form = themedForm(`${LAYOUT.games}§rPlay`);
   choices.forEach(({ game, playable }, index) => {
     form.button(`${MARK.games[index % 3]}${game.name}\n${playable ? "§7" : "§c"}${GLYPH.player} ${playerCount(game)}`, gamePicture(game));
   });
@@ -74,7 +82,7 @@ export function gameForm(view: GameView): ActionFormData {
   const { game, playable, reason } = view.choice;
   const info = [game.description ? say.minor(game.description) : "", say.info(playerRange(game))];
   if (!playable) info.push(say.warn(`${game.name} ${reason}.`));
-  const form = new ActionFormData().title(`${LAYOUT.game}§r${game.name}`).body(info.filter(Boolean).join("\n\n"));
+  const form = themedForm(`${LAYOUT.game}§r${game.name}`).body(info.filter(Boolean).join("\n\n"));
   const maps = mapOptions(game);
   const settings = settingsFor(game);
   for (const { action, mark } of gameButtons(game)) {
@@ -97,7 +105,7 @@ export function gameForm(view: GameView): ActionFormData {
 
 /** The stats list: a row per player with their badge, the viewer first with "(me)". */
 export function playersForm(view: PlayersView): ActionFormData {
-  const form = new ActionFormData().title(`${LAYOUT.players}§rStats`);
+  const form = themedForm(`${LAYOUT.players}§rStats`);
   if (view.more > 0) form.body(say.minor(`And ${view.more} more not listed.`));
   for (const name of view.players) form.button(`${MARK.player}${name}${name === view.viewer ? " §7(me)" : ""}`, badgeFor(name));
   return form;
@@ -108,7 +116,7 @@ export function playersForm(view: PlayersView): ActionFormData {
  * body, and the open tab's stats as tiles in three columns (value over label).
  */
 export function statsForm(view: StatsView): ActionFormData {
-  const form = new ActionFormData().title(`${LAYOUT.stats}§r${view.player}`).body(view.body);
+  const form = themedForm(`${LAYOUT.stats}§r${view.player}`).body(view.body);
   for (const button of statsButtons(view)) {
     if (button.kind === "portrait") form.button(`${MARK.portrait}${view.player}`, badgeFor(view.player));
     else if (button.kind === "tab") form.button(`${MARK.tab}${button.tab.id === view.tab ? MARK.selected : ""}${button.tab.name}`);

@@ -1,8 +1,8 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { stripColors, type RegistryGame } from "@minecade/minigame-core";
-import { MARK, PREVIEWS, defaultSettings, gameAction, gameButtons, gamePicture, mapOptions, nextSetting, playerCount, playerRange, settingsFor } from "../behavior_pack/scripts/game-screen.ts";
-import { GLYPH, gameForm, gamesForm, settingBars } from "../behavior_pack/scripts/menus.ts";
+import { CLOSE, MARK, PREVIEWS, defaultSettings, menuChoice, gameAction, gameButtons, gamePicture, mapOptions, nextSetting, playerCount, playerRange, settingsFor } from "../behavior_pack/scripts/game-screen.ts";
+import { CLOSE_BUTTON, GLYPH, gameForm, gamesForm, settingBars } from "../behavior_pack/scripts/menus.ts";
 
 const sumo: RegistryGame = {
   id: "sumo",
@@ -67,7 +67,7 @@ describe("the game screen model", () => {
 
   it("uses marks that never render, don't contain each other, and that the layouts know", () => {
     const layouts = readFileSync(new URL("../resource_pack/ui/minecade_forms.json", import.meta.url), "utf8");
-    const marks = [...MARK.games, ...MARK.maps, MARK.toggle, MARK.on, MARK.setting, MARK.start, MARK.selected, MARK.dim, MARK.player, MARK.portrait, MARK.tab, ...MARK.stats, MARK.preview];
+    const marks = [...MARK.games, ...MARK.maps, MARK.toggle, MARK.on, MARK.setting, MARK.start, MARK.selected, MARK.dim, MARK.player, MARK.portrait, MARK.tab, ...MARK.stats, MARK.preview, MARK.close];
     for (const mark of marks) {
       expect(stripColors(mark)).toBe("");
       expect(mark.endsWith("§r")).toBe(true);
@@ -75,6 +75,14 @@ describe("the game screen model", () => {
       for (const other of marks) if (other !== mark) expect(mark).not.toContain(other);
       for (const glyph of Object.values(GLYPH)) expect(glyph).not.toContain(mark);
     }
+  });
+
+  it("turns a themed menu's answer into the X (its first button), a place among the other buttons, or back", () => {
+    expect(menuChoice(undefined)).toBeUndefined();
+    expect(menuChoice(0)).toBe(CLOSE);
+    expect(menuChoice(1)).toBe(0);
+    expect(menuChoice(4)).toBe(3);
+    expect(stripColors(CLOSE_BUTTON)).toBe("Close");
   });
 
   it("shows a bar per setting value, the chosen one bright", () => {
@@ -95,6 +103,7 @@ describe("the Play forms", () => {
     ]) as unknown as { buttons: string[]; titleText: string };
     expect(stripColors(form.titleText)).toBe("Play");
     expect(form.buttons).toEqual([
+      CLOSE_BUTTON,
       `${MARK.games[0]}Sumo\n§7${GLYPH.player} 2-6`,
       `${MARK.games[1]}Paintball\n§c${GLYPH.player} 2-6`,
       `${MARK.games[2]}Hide and Seek\n§7${GLYPH.player} 2-6`,
@@ -110,19 +119,20 @@ describe("the Play forms", () => {
     };
     expect(stripColors(form.titleText)).toBe("Paintball");
     expect(form.buttons).toEqual([
+      CLOSE_BUTTON,
       `${MARK.toggle}Random map`,
       `${MARK.setting}Teams: Random\n${GLYPH.barOff}${GLYPH.barOn}`,
       `${MARK.maps[0]}Arena`,
       `${MARK.maps[1]}${MARK.selected}Pit`,
       `${MARK.start}Start`,
     ]);
-    expect(form.buttons.map(stripColors)).toEqual(["Random map", `Teams: Random\n${GLYPH.barOff}${GLYPH.barOn}`, "Arena", "Pit", "Start"]);
+    expect(form.buttons.map(stripColors)).toEqual(["Close", "Random map", `Teams: Random\n${GLYPH.barOff}${GLYPH.barOn}`, "Arena", "Pit", "Start"]);
     expect(stripColors(form.bodyText)).toBe("Knock everyone off.\n\n2-6 players");
   });
 
   it("turns the switch on and dims every map tile while the map is random", () => {
     const form = gameForm({ choice: { game: sumo, playable: true }, random: true, map: "pit", settings: {} }) as unknown as { buttons: string[] };
-    expect(form.buttons).toEqual([`${MARK.toggle}${MARK.on}Random map`, `${MARK.maps[0]}${MARK.dim}Arena`, `${MARK.maps[1]}${MARK.dim}Pit`, `${MARK.start}Start`]);
+    expect(form.buttons).toEqual([CLOSE_BUTTON, `${MARK.toggle}${MARK.on}Random map`, `${MARK.maps[0]}${MARK.dim}Arena`, `${MARK.maps[1]}${MARK.dim}Pit`, `${MARK.start}Start`]);
   });
 
   it("warns in the info and dims Start when there aren't enough players", () => {
