@@ -66,12 +66,14 @@ export const HOLO_LAYOUT = {
   /** Buttons under the logo (idle and main). */
   logoButtons: { y: -0.45, x: 0.62 },
   grid: { columns: [-0.85, 0, 0.85], width: 0.78, top: 0.66, rowGap: 0.42, rows: 5, scale: 0.6, lineGap: 0.13, countGap: 0.15, countScale: 0.42 },
-  game: { left: -1.25, width: 1.25, players: 0.84, settingsTop: 0.4, settingGap: 0.26, settings: 6, scale: 0.6, valueGap: 0.08 },
+  /** Room between a table's widest label and its answers. */
+  tableGap: 0.08,
   /**
-   * Game screen, layout 2: under the banner, two columns starting at `top`, inside the safe edge
-   * (`left` and `edge`). Two banner sizes to compare: the widest full 16:9 one, and a taller one.
+   * The game screen: under the banner, two columns starting at `top`, inside the safe edge (`left`
+   * and `edge`). `wide` is the full 16:9 banner (the one used); `tall`, a taller banner with its
+   * sides cropped, is kept in the Preview menu.
    */
-  gameBanner: {
+  game: {
     left: -1.28,
     leftWidth: 1.08,
     right: -0.05,
@@ -83,6 +85,8 @@ export const HOLO_LAYOUT = {
     wide: { top: -0.27, settings: 3 },
     tall: { top: -0.49, settings: 2 },
   },
+  /** The old game screen layout, with the picture in the top right corner (kept in the Preview menu). */
+  gameCorner: { left: -1.25, width: 1.25, players: 0.84, settingsTop: 0.4, settingGap: 0.26, settings: 6, scale: 0.6 },
   /** `numberGap` is extra room under the big number, which draws lower than its estimated height. */
   countdown: { gap: 0.12, titleScale: 1, headingScale: 0.9, numberScale: 3, numberGap: 0.25, mapScale: 0.55, noteScale: 0.45 },
   teams: { header: 0.72, membersTop: 0.42, memberGap: 0.25, members: 4, random: -0.82, status: -1.15, scale: 0.75, minScale: 0.45 },
@@ -233,13 +237,11 @@ export function gamesContent(choices: GameChoice[]): HoloContent {
 }
 
 /**
- * One game, like its screen's left column, everything left-aligned: the name, the players, then the
- * map and the settings as a table of labels (white) and answers (yellow, like the chosen one). The
- * picture is at the top right: the chosen map's preview, or the game's while the map is random. The
- * map list and Start aren't shown: only the terminal's user picks those.
+ * The old game screen layout (kept in the Preview menu), everything left-aligned: the name, the
+ * players, then the map and settings table. The picture is at the top right corner.
  */
-export function gameContent(view: GameView): HoloContent {
-  const L = HOLO_LAYOUT.game;
+export function gameCornerContent(view: GameView): HoloContent {
+  const L = HOLO_LAYOUT.gameCorner;
   const { game, playable } = view.choice;
   const chosen = chosenMap(view);
   return {
@@ -255,13 +257,15 @@ export function gameContent(view: GameView): HoloContent {
 }
 
 /**
- * One game, layout 2 (only in the Preview menu for now): the picture across the top (the banner),
- * then two columns starting at the same height, each left-aligned: the name and players on the
- * left, the map and settings table on the right. `size` "tall" uses the taller banner (its sides
- * cropped), which leaves room for fewer settings.
+ * One game, like its screen: the picture across the top (the banner: the chosen map's preview, or
+ * the game's while the map is random), then two columns starting at the same height, each
+ * left-aligned: the name and players on the left, and on the right the map and settings as a table
+ * of labels (white) and answers (yellow, like the chosen one). The map list and Start aren't shown:
+ * only the terminal's user picks those. `size` "tall" (Preview only) uses the taller banner, its
+ * sides cropped, which leaves room for fewer settings.
  */
-export function gameBannerContent(view: GameView, size: "wide" | "tall" = "wide"): HoloContent {
-  const L = HOLO_LAYOUT.gameBanner;
+export function gameContent(view: GameView, size: "wide" | "tall" = "wide"): HoloContent {
+  const L = HOLO_LAYOUT.game;
   const { top, settings } = L[size];
   const { game, playable } = view.choice;
   const chosen = chosenMap(view);
@@ -311,7 +315,7 @@ function gameRows(view: GameView, chosen: MapOption | undefined): { label: strin
  */
 function table(rows: { label: string; value: string }[], at: { left: number; y: number; gap: number; scale: number; labelWidth: number; right: number }): HoloElement[] {
   const labels = rows.map((row, index) => fittedLeft(row.label, at.left, at.y - index * at.gap, at.labelWidth, at.scale, 0.4));
-  const valueLeft = at.left + Math.max(...labels.map((label) => textWidth(label.text, label.scale))) + HOLO_LAYOUT.game.valueGap;
+  const valueLeft = at.left + Math.max(...labels.map((label) => textWidth(label.text, label.scale))) + HOLO_LAYOUT.tableGap;
   return rows.flatMap((row, index) => [labels[index], fittedLeft(row.value, valueLeft, labels[index].y, at.right - valueLeft, at.scale, 0.4, { box: "selected" })]);
 }
 

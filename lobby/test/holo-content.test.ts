@@ -5,8 +5,8 @@ import {
   HOLO_LAYOUT,
   MAX_ELEMENTS,
   countdownContent,
-  gameBannerContent,
   gameContent,
+  gameCornerContent,
   gamesContent,
   idleContent,
   mainContent,
@@ -123,8 +123,8 @@ describe("the hologram layouts", () => {
     expect(find(wrapped, "2-6").y).toBeLessThan(find(wrapped, "the Wool").y);
   });
 
-  it("mirrors the game screen's left column: the name, players, then the map and settings as labels with yellow answers, all left-aligned", () => {
-    const random = gameContent({ choice: { game: probe, playable: true }, random: true, map: "arena_1", settings: { round: "30" } });
+  it("keeps the old game screen layout (Preview only): the name, players, then the map and settings as labels with yellow answers, all left-aligned, the picture in the corner", () => {
+    const random = gameCornerContent({ choice: { game: probe, playable: true }, random: true, map: "arena_1", settings: { round: "30" } });
     onPanel(random);
     expect(random.picture).toBe(PREVIEWS.game);
     const map = find(random, "Map:");
@@ -138,25 +138,25 @@ describe("the hologram layouts", () => {
     expect(leftEdge(find(random, "Random"))).toBeGreaterThan(leftEdge(map) + textWidth("Round:", round.scale));
     for (const gone of ["Random map: On", "Maps", "Arena", "Pit", "Start"]) expect(has(random, gone), gone).toBe(false);
 
-    const pit = gameContent({ choice: { game: sumo, playable: false, reason: "needs at least 2 players" }, random: false, map: "pit", settings: {} });
+    const pit = gameCornerContent({ choice: { game: sumo, playable: false, reason: "needs at least 2 players" }, random: false, map: "pit", settings: {} });
     expect(pit.picture).toBe("textures/minecade/maps/sumo/pit");
     expect(find(pit, "Pit").box).toBe("selected");
     expect(find(pit, "Needs 2 players").tone).toBe("warn");
     // The table is below the picture, so a long map name keeps its room.
-    const long = gameContent({ choice: { game: { ...sumo, maps: [{ id: "w", name: "Warehouse District" }] }, playable: true }, random: false, map: "w", settings: {} });
+    const long = gameCornerContent({ choice: { game: { ...sumo, maps: [{ id: "w", name: "Warehouse District" }] }, playable: true }, random: false, map: "w", settings: {} });
     onPanel(long);
     expect(find(long, "Warehouse District").box).toBe("selected");
     // A map without its own preview shows the placeholder, not the game's picture.
-    expect(gameContent({ choice: { game: sumo, playable: true }, random: false, map: "arena_1", settings: {} }).picture).toBe(PREVIEWS.none);
-    onPanel(gameContent({ choice: { game: { ...sumo, name: "Capture the Wool on a Long Name" }, playable: true }, random: true, map: "pit", settings: {} }));
+    expect(gameCornerContent({ choice: { game: sumo, playable: true }, random: false, map: "arena_1", settings: {} }).picture).toBe(PREVIEWS.none);
+    onPanel(gameCornerContent({ choice: { game: { ...sumo, name: "Capture the Wool on a Long Name" }, playable: true }, random: true, map: "pit", settings: {} }));
   });
 
-  it("lays the game screen out with the picture across the top (layout 2), then the name and players beside the settings table, both starting at one height", () => {
+  it("lays the game screen out with the picture across the top, then the name and players beside the settings table, both starting at one height", () => {
     const view = { choice: { game: probe, playable: true }, random: true, map: "arena_1", settings: { round: "30" } };
-    const content = gameBannerContent(view);
+    const content = gameContent(view);
     onPanel(content);
     expect(content).toMatchObject({ picture: PREVIEWS.game, pictureSpot: "banner" });
-    expect(gameContent(view).pictureSpot).toBeUndefined();
+    expect(gameCornerContent(view).pictureSpot).toBeUndefined();
     const [name, players, map, random, round, thirty] = ["Probe", "2-6 players", "Map:", "Random", "Round:", "30 s"].map((text) => find(content, text));
     expect(name.tone).toBe("title");
     // Both columns start at the same height, below the banner (it ends at y -0.17).
@@ -169,19 +169,19 @@ describe("the hologram layouts", () => {
     expect(leftEdge(thirty)).toBeCloseTo(leftEdge(random));
     expect(leftEdge(map)).toBeGreaterThan(name.x + textWidth(name.text, name.scale) / 2);
     expect([random.box, thirty.box]).toEqual(["selected", "selected"]);
-    expect(find(gameBannerContent({ ...view, random: false, map: "pit" }), "Pit").box).toBe("selected");
+    expect(find(gameContent({ ...view, random: false, map: "pit" }), "Pit").box).toBe("selected");
     // Lots of settings: as many as fit above the bottom edge (Map plus 3, or Map plus 2 under the taller banner).
     const options = Array.from({ length: 6 }, (_, i) => ({ id: `option${i}`, label: `Option ${i}`, values: [{ value: "a", label: "A" }, { value: "b", label: "B" }] }));
     const crowded = { ...view, choice: { game: { ...probe, name: "Capture the Wool on a Long Name", options }, playable: false, reason: "needs at least 4 players" } };
     const labels = (content: HoloContent) => content.elements.filter((element) => element.text.endsWith(":")).length;
-    onPanel(gameBannerContent(crowded));
-    expect(labels(gameBannerContent(crowded))).toBe(4);
-    const tall = gameBannerContent(crowded, "tall");
+    onPanel(gameContent(crowded));
+    expect(labels(gameContent(crowded))).toBe(4);
+    const tall = gameContent(crowded, "tall");
     onPanel(tall);
     expect(tall.pictureSpot).toBe("tall");
     expect(labels(tall)).toBe(3);
     // Under the taller banner (it ends at y -0.39).
-    expect(top(find(gameBannerContent(view, "tall"), "Probe"))).toBeLessThan(-0.39);
+    expect(top(find(gameContent(view, "tall"), "Probe"))).toBeLessThan(-0.39);
   });
 
   it("shows a starting game centered both ways: the server booting, then the seconds left in yellow", () => {

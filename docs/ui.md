@@ -106,7 +106,7 @@ at a time; a public hologram above it shows everyone what they're doing.
 | Idle | nothing | The logo frame, "Tap the terminal" |
 | Main | The themed menu: logo, Play and Stats side by side | The logo frame, Play and Stats, the chosen one lit |
 | Play | A scrolling grid of game cards, 3 across, 80% of the screen's height: the game's 16:9 picture, its name, a player icon and the players needed (red when there aren't enough) | "Choose a game" and the game names, dimmed when there aren't enough players |
-| Game | Left: the game's name and info, a red warning when there aren't enough players, the Random map switch (on at first), the settings (Teams: Pick or Random for team games, then the game's own options), Start at the bottom. Right: scrolling map tiles, 2 across, each a 16:9 preview with the name over it; dimmed while Random is on, the chosen one outlined when it's off. Clicking a tile turns Random off and picks that map | Left, all left-aligned: the game's name, the players it needs, then a table of "Map:" and each setting in white, with the answers (Random or the map's name, then each setting's value) in yellow. Top right, top-aligned with the name: the chosen map's preview (or the "No preview" placeholder), or the game's picture while the map is random. No map list or Start (only the terminal's user picks those) |
+| Game | Left: the game's name and info, a red warning when there aren't enough players, the Random map switch (on at first), the settings (Teams: Pick or Random for team games, then the game's own options), Start at the bottom. Right: scrolling map tiles, 2 across, each a 16:9 preview with the name over it; dimmed while Random is on, the chosen one outlined when it's off. Clicking a tile turns Random off and picks that map | Across the top, as wide as the frame allows: the chosen map's preview (or the "No preview" placeholder), or the game's picture while the map is random. Under it, two columns starting at the same height: the game's name and the players it needs on the left, and a table of "Map:" and each setting (up to 3) in white with the answers in yellow on the right. No map list or Start (only the terminal's user picks those) |
 | Teams | After Start on a team game set to Pick, **every player in the match** gets a live team form (see below) | The game's name, each team and its players in the team's color, who's still random, and when teams lock |
 | Starting | Nothing on screen (a chat message says who started what); the countdown chimes play for the players in the match | Centered: "Starting Sumo", the map and "Getting the server ready" while its server boots (after the team picks, for team games), then "Starting Sumo in", the seconds left in big yellow numbers, and the map |
 | Stats list | A scrolling list of everyone with stats, each with their letter badge; you first, marked "(me)", even with no stats yet | "Stats" and the players' names, the viewer first but without "(me)", up to 7, then "+N more" |
@@ -156,11 +156,10 @@ menu, player stats to the list to the main menu); on the main menu they end the 
 - **Previewing layouts** (`DEV_HOLO_PREVIEW=1` in `.env`): the terminal's main menu gets a small
   Preview button in its corner. It lists every hologram screen (`scripts/holo-preview.ts`); pick
   one, the form closes, and that screen stays on the hologram with sample data until the terminal
-  is tapped again, so you can walk around it without a form in the way. It also lists layouts
-  being tried out: "Game screen, layout 2" (`gameBannerContent()`: the picture across the top,
-  then the name and players beside the settings table), widest and taller, isn't used by the
-  real game screen yet;
-  switching is one call in `terminal-controller.ts`.
+  is tapped again, so you can walk around it without a form in the way. It also keeps the game
+  screen layouts tried before: a taller picture with its sides cropped (`gameContent(view,
+  "tall")`), and the old layout with the picture in the top right corner (`gameCornerContent()`).
+  The terminal uses `gameContent(view)`.
 - **Which way text faces:** a `TextPrimitive`'s y rotation is the direction its reader faces, and
   it turns the opposite way from Minecraft's player yaw: 0 is read facing south, 90 facing east,
   180 north, 270 west (measured in game). Text on a side is read from outside, facing the middle,
@@ -168,18 +167,17 @@ menu, player stats to the list to the main menu); on the main menu they end the 
   east 270.
 - **Pictures:** the model has two picture spots on each side, fixed in
   `models/entity/holo_display.geo.json`:
-  - **The picture** (top right, 16:9, 1.2 blocks wide, top-aligned with the title): on the game
-    screen, the chosen map's preview, or the game's picture while the map is random. The
-    `minecade:picture` property picks it from `Array.pictures` (`holo_picture` render
-    controller). `holoPictures()` in `packages/minigame-core/src/registry.ts` makes the list
+  - **The picture:** on the game screen, the chosen map's preview, or the game's picture while the
+    map is random. The `minecade:picture` property picks it from `Array.pictures` (`holo_picture`
+    render controller). `holoPictures()` in `packages/minigame-core/src/registry.ts` makes the list
     (none, the placeholders, then every game's picture and map preview), up to 256.
-  - **The banner:** the same picture across the top instead, for layout 2, in two sizes being
-    compared: the widest full 16:9 one (2.72 blocks wide, y -0.17 to 1.36, just inside the
-    frame's corner brackets), and a taller one (y -0.39 to 1.36) that crops 6.25% off each side
-    of the picture (its bones' UV starts at 3 of 48 and spans 42) instead of stretching it. The
-    `minecade:picture_spot` property picks the spot (0 the corner, 1 the banner, 2 the taller
-    banner; `pictureSpot` in the content), and the `holo_picture` render controller shows the
-    `picture_*`, `banner_*` or `tall_*` bones to match.
+  - **Where the picture goes:** the game screen puts it across the top (the banner: full 16:9,
+    2.72 blocks wide, y -0.17 to 1.36, just inside the frame's corner brackets). The Preview menu
+    keeps two spots tried before: a taller banner (y -0.39 to 1.36) that crops 6.25% off each side
+    of the picture (its bones' UV starts at 3 of 48 and spans 42) instead of stretching it, and
+    the top right corner (16:9, 1.2 blocks wide). The `minecade:picture_spot` property picks the
+    spot (0 the corner, 1 the banner, 2 the taller banner; `pictureSpot` in the content), and the
+    `holo_picture` render controller shows the `picture_*`, `banner_*` or `tall_*` bones to match.
   - **The portrait** (top left, square, 0.75 blocks, top-aligned with the title): on a player's
     stats, their badge. The `minecade:portrait` property picks it from `Array.portraits`
     (`holo_portrait` render controller), listed by `holoPortraits()` (none, then every badge).
