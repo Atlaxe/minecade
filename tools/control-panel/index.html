@@ -4,73 +4,225 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Minecade Panel</title>
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' rx='3' fill='%233a7d44'/%3E%3Crect x='4' y='4' width='3' height='3' fill='%23fff'/%3E%3Crect x='9' y='4' width='3' height='3' fill='%23fff'/%3E%3Crect x='4' y='9' width='8' height='3' fill='%23fff'/%3E%3C/svg%3E">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' rx='3' fill='%235ad2ff'/%3E%3Crect x='4' y='4' width='3' height='3' fill='%2304202d'/%3E%3Crect x='9' y='4' width='3' height='3' fill='%2304202d'/%3E%3Crect x='4' y='9' width='8' height='3' fill='%2304202d'/%3E%3C/svg%3E">
 <style>
-  :root { color-scheme: light dark; --ok: #2f8f46; --warn: #b7791f; --bad: #c0392b; --muted: #888; --line: #8884; }
-  body { font: 14px/1.4 "Segoe UI", system-ui, sans-serif; margin: 0; padding: 16px; max-width: 980px; }
-  h1 { font-size: 18px; margin: 0; }
-  h2 { font-size: 15px; margin: 0 0 8px; }
-  header { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 12px; }
-  section { border: 1px solid var(--line); border-radius: 6px; padding: 12px; margin-bottom: 12px; }
-  table { width: 100%; border-collapse: collapse; margin-top: 8px; }
-  th, td { text-align: left; padding: 4px 6px; border-top: 1px solid var(--line); vertical-align: top; }
-  th { font-weight: 600; color: var(--muted); border-top: none; }
-  button { font: inherit; padding: 4px 10px; cursor: pointer; }
-  select { font: inherit; padding: 3px 6px; }
-  button:disabled { cursor: default; }
-  input[type=text] { font: inherit; width: 100%; box-sizing: border-box; padding: 4px 6px; }
-  label { display: block; margin: 8px 0 2px; font-weight: 600; }
-  pre { font: 12px/1.35 Consolas, monospace; margin: 8px 0 0; padding: 8px; max-height: 260px; overflow: auto; border: 1px solid var(--line); border-radius: 4px; white-space: pre-wrap; word-break: break-all; }
+  /* Two tones: the page behind, cards on top. The accent is the lobby hologram's cyan. */
+  :root {
+    color-scheme: dark;
+    --bg: #121922; --side: #0d131a; --card: #1c2530; --raised: #283342; --raised-hover: #324051; --inset: #141b24;
+    --text: #e2e9f1; --muted: #8b98a9; --accent: #5ad2ff; --accent-hover: #8adfff; --on-accent: #04202d;
+    --ok: #4fcf76; --warn: #e5ab3c; --bad: #ff6b61; --off: #8b98a9;
+    --zebra: #ffffff06; --hover: #5ad2ff10; --shadow: none;
+  }
+  @media (prefers-color-scheme: light) {
+    :root {
+      color-scheme: light;
+      --bg: #edf1f6; --side: #e1e7ef; --card: #ffffff; --raised: #e5eaf1; --raised-hover: #d8dfe9; --inset: #f2f5f9;
+      --text: #17202b; --muted: #5b6878; --accent: #0a8bc2; --accent-hover: #0879a9; --on-accent: #ffffff;
+      --ok: #1d8a42; --warn: #a66900; --bad: #c9342b; --off: #6b7888;
+      --zebra: #0f1e320a; --hover: #0a8bc212; --shadow: 0 1px 3px #0f1e3214;
+    }
+  }
+  * { box-sizing: border-box; }
+  [hidden] { display: none !important; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 14px/1.45 "Segoe UI", system-ui, sans-serif; }
+  .app { display: grid; grid-template-columns: 200px 1fr; height: 100vh; }
+
+  .sidebar { background: var(--side); display: flex; flex-direction: column; gap: 2px; padding: 16px 10px; overflow-y: auto; }
+  .brand { display: flex; align-items: center; gap: 10px; padding: 2px 10px 18px; }
+  .mark { width: 30px; height: 30px; flex: none; }
+  .mark-bg { fill: var(--accent); } .mark-face { fill: var(--on-accent); }
+  .brand-name { font-weight: 700; font-size: 16px; line-height: 1.1; }
+  .brand-sub { color: var(--muted); font-size: 12px; }
+  .nav-item { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 8px; color: var(--muted); font-weight: 600; text-decoration: none; }
+  .nav-item svg { width: 18px; height: 18px; flex: none; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+  .nav-item:hover { background: var(--hover); color: var(--text); }
+  .nav-item.active { background: color-mix(in srgb, var(--accent) 14%, transparent); color: var(--accent); }
+  .nav-item .dot, .nav-item .count { margin-left: auto; }
+  .count { background: color-mix(in srgb, var(--accent) 16%, transparent); color: var(--accent); border-radius: 999px; padding: 0 7px; font-size: 12px; }
+  .side-foot { margin-top: auto; display: grid; gap: 6px; padding: 14px 10px 0; font-size: 12px; }
+  .side-status { display: flex; justify-content: space-between; align-items: center; gap: 8px; color: var(--muted); }
+  .side-busy { display: flex; align-items: center; gap: 8px; color: var(--warn); margin-bottom: 4px; }
+
+  main { overflow-y: auto; padding: 24px 28px 48px; scrollbar-gutter: stable; }
+  .page { max-width: 960px; }
+  .page-head h1 { font-size: 21px; margin: 0; }
+  .page-head p { color: var(--muted); margin: 2px 0 18px; }
+  .card { background: var(--card); border-radius: 12px; padding: 16px 18px; margin-bottom: 14px; box-shadow: var(--shadow); }
+  .card-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 12px; }
+  .card-head h2 { font-size: 15px; margin: 0; }
+  .actions { margin-left: auto; display: flex; gap: 8px; flex-wrap: wrap; }
   .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
-  .pill { padding: 1px 8px; border-radius: 10px; color: #fff; font-size: 12px; }
-  .ok { background: var(--ok); } .warn { background: var(--warn); } .bad { background: var(--bad); } .off { background: var(--muted); }
+
+  button { font: inherit; font-size: 13px; font-weight: 600; color: var(--text); background: var(--raised); border: 0; border-radius: 7px; padding: 6px 13px; cursor: pointer; }
+  button:hover:not(:disabled) { background: var(--raised-hover); }
+  button.primary { background: var(--accent); color: var(--on-accent); }
+  button.primary:hover:not(:disabled) { background: var(--accent-hover); }
+  button.danger { color: var(--bad); }
+  button.small { font-size: 12px; padding: 3px 10px; }
+  button:disabled { opacity: .45; cursor: default; }
+  select, input[type=text] { font: inherit; color: var(--text); background: var(--inset); border: 0; border-radius: 7px; padding: 6px 10px; }
+  select { min-width: 220px; cursor: pointer; }
+  input[type=text] { width: 100%; }
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+  .table-wrap { overflow-x: auto; }
+  table { width: 100%; border-collapse: separate; border-spacing: 0; font-variant-numeric: tabular-nums; }
+  th, td { text-align: left; padding: 7px 10px; vertical-align: top; }
+  th { color: var(--muted); font-size: 12px; font-weight: 600; white-space: nowrap; }
+  th.sortable { cursor: pointer; user-select: none; }
+  th.sortable:hover, th.sorted { color: var(--accent); }
+  tbody tr:nth-child(odd) td { background: var(--zebra); }
+  tbody tr:hover td { background: var(--hover); }
+  tbody td:first-child { border-radius: 7px 0 0 7px; }
+  tbody td:last-child { border-radius: 0 7px 7px 0; }
+  td.end { text-align: right; }
+  td.nowrap { white-space: nowrap; }
+
+  .pill, .status, .dot, .callout, .toast { --tone: var(--off); }
+  .ok { --tone: var(--ok); } .warn { --tone: var(--warn); } .bad { --tone: var(--bad); } .off { --tone: var(--off); }
+  .pill { display: inline-flex; align-items: center; gap: 6px; padding: 1px 9px; border-radius: 999px; font-size: 12px; font-weight: 600; color: var(--tone); background: color-mix(in srgb, var(--tone) 15%, transparent); }
+  .pill::before, .status::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: currentColor; flex: none; }
+  .status { display: inline-flex; align-items: center; gap: 6px; color: var(--tone); font-weight: 600; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--tone); flex: none; }
+  .callout { margin: 12px 0 0; padding: 8px 12px; border-radius: 8px; color: var(--tone); background: color-mix(in srgb, var(--tone) 13%, transparent); }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; }
+  .chip { background: var(--raised); border-radius: 999px; padding: 1px 10px; font-size: 13px; white-space: nowrap; }
+  .chip.bot { color: var(--muted); }
+
   .muted { color: var(--muted); }
+  .small { font-size: 12px; }
+  .strong { font-weight: 600; }
+  .mono { font-family: "Cascadia Mono", Consolas, monospace; font-size: 12px; }
   .num { text-align: right; }
-  .hint { color: var(--muted); font-size: 12px; margin: 4px 0 0; }
+  .hint { color: var(--muted); font-size: 12px; margin: 6px 0 0; }
   .error { color: var(--bad); }
-  #banner { display: none; background: var(--bad); color: #fff; padding: 8px 12px; border-radius: 6px; margin-bottom: 12px; }
-  dl { display: grid; grid-template-columns: max-content 1fr; gap: 4px 12px; margin: 0; }
+  .game-title { font-size: 16px; font-weight: 600; }
+  .game-now { display: grid; gap: 6px; margin-bottom: 12px; }
+  .busy-line { display: flex; align-items: center; gap: 10px; margin-top: 12px; color: var(--muted); min-width: 0; }
+  .busy-line .mono { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+  dl { display: grid; grid-template-columns: max-content 1fr; gap: 10px 18px; margin: 0; align-items: center; }
   dt { color: var(--muted); }
-  dd { margin: 0; }
+  dd { margin: 0; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  .address { font-size: 14px; }
+
+  .server-list { display: grid; gap: 10px; }
+  .server-row { display: grid; grid-template-columns: 140px 1fr; gap: 12px; align-items: start; }
+  .field + .field { margin-top: 14px; }
+  .field label { display: block; font-weight: 600; }
+  .field label .mono { color: var(--muted); font-weight: 400; margin-left: 6px; }
+  .field .hint { margin: 0 0 6px; }
+
+  pre.log { font: 12px/1.45 "Cascadia Mono", Consolas, monospace; margin: 0; padding: 10px 12px; height: 34vh; min-height: 160px; overflow: auto; background: var(--inset); border-radius: 8px; white-space: pre-wrap; word-break: break-all; }
+  pre.log:empty::before { content: "Nothing yet."; color: var(--muted); }
+
+  .spin { width: 12px; height: 12px; flex: none; border-radius: 50%; border: 2px solid color-mix(in srgb, var(--accent) 30%, transparent); border-top-color: var(--accent); animation: spin .8s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  @media (prefers-reduced-motion: reduce) { .spin { animation-duration: 3s; } }
+
+  #banner { display: none; background: color-mix(in srgb, var(--bad) 18%, var(--card)); padding: 10px 14px; border-radius: 10px; margin-bottom: 14px; }
+  #toasts { position: fixed; right: 18px; bottom: 18px; display: grid; gap: 8px; max-width: min(380px, calc(100vw - 36px)); z-index: 10; }
+  .toast { display: flex; gap: 10px; background: var(--raised); border-radius: 10px; padding: 10px 14px 10px 10px; box-shadow: 0 6px 20px #0005; cursor: pointer; }
+  .toast::before { content: ""; width: 4px; border-radius: 2px; background: var(--tone); flex: none; }
+
+  @media (max-width: 720px) {
+    .app { grid-template-columns: 1fr; height: auto; }
+    .sidebar { flex-direction: row; flex-wrap: wrap; align-items: center; padding: 8px 12px; }
+    .brand { padding: 0 8px 0 0; }
+    .brand-sub { display: none; }
+    .side-foot { margin: 0 0 0 auto; padding: 0; }
+    main { padding: 16px; }
+    .server-row { grid-template-columns: 1fr; gap: 4px; }
+  }
 </style>
 </head>
 <body>
-<header>
-  <h1>Minecade Panel</h1>
-  <span id="docker" class="pill off">Docker: ...</span>
-  <button id="start-docker" hidden>Start Docker Desktop</button>
-  <span id="busy" class="muted"></span>
-</header>
+<div class="app">
+<nav class="sidebar" aria-label="Sections">
+  <div class="brand">
+    <svg class="mark" viewBox="0 0 16 16" aria-hidden="true"><rect class="mark-bg" width="16" height="16" rx="3"/><rect class="mark-face" x="4" y="4" width="3" height="3"/><rect class="mark-face" x="9" y="4" width="3" height="3"/><rect class="mark-face" x="4" y="9" width="8" height="3"/></svg>
+    <div><div class="brand-name">Minecade</div><div class="brand-sub">Panel</div></div>
+  </div>
+  <a class="nav-item" href="#servers" data-page="servers">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="6.5" rx="1.5"/><rect x="3" y="13.5" width="18" height="6.5" rx="1.5"/><path d="M7 7.25h.01M7 16.75h.01"/></svg>
+    <span>Servers</span><span id="nav-network" class="dot off"></span>
+  </a>
+  <a class="nav-item" href="#players" data-page="players">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c0-3.6 2.9-6 6.5-6s6.5 2.4 6.5 6"/><path d="M16 4.5a3.5 3.5 0 0 1 0 7M18 14.2c2.1.7 3.5 2.8 3.5 5.8"/></svg>
+    <span>Players</span><span id="nav-online" class="count" title="Players online" hidden></span>
+  </a>
+  <a class="nav-item" href="#logs" data-page="logs">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 8h8M8 12h8M8 16h5"/></svg>
+    <span>Logs</span>
+  </a>
+  <div class="side-foot">
+    <div id="busy" class="side-busy" hidden><span class="spin"></span><span id="busy-text"></span></div>
+    <div class="side-status"><span>Docker</span><span id="docker" class="status off">...</span></div>
+    <div class="side-status"><span>Network</span><span id="network" class="status off">...</span></div>
+    <button id="start-docker" class="primary" hidden>Start Docker Desktop</button>
+  </div>
+</nav>
+<main>
 <div id="banner"></div>
-<div id="stacks"></div>
-<section>
-  <h2>Connection</h2>
-  <dl id="connection"></dl>
-</section>
-<section>
-  <h2>Players (.env)</h2>
-  <label for="allow-list">ALLOW_LIST: who may join (comma-separated gamertags; empty lets anyone in)</label>
-  <input id="allow-list" type="text" spellcheck="false">
-  <label for="lan-players">LAN_PLAYERS: players on this home network (transferred by LAN address)</label>
-  <input id="lan-players" type="text" spellcheck="false">
-  <p id="lan-warning" class="error" hidden>Add your own gamertag here. Without it, transfers from this PC go to the public address, which this PC can't reach.</p>
-  <div class="row" style="margin-top:8px">
-    <button id="save-env">Save</button>
-    <span id="env-result" class="muted"></span>
+
+<section id="page-servers" class="page">
+  <div class="page-head"><h1>Servers</h1><p>Start and stop the network, run a game, and see what each server is doing.</p></div>
+  <div id="stacks"><p class="hint">Connecting to the panel helper...</p></div>
+  <div class="card">
+    <div class="card-head"><h2>Join addresses</h2></div>
+    <dl id="connection"></dl>
+    <p class="hint">The public address can't be tested from this PC: the router doesn't loop it back. Test it from a phone on cellular data.</p>
   </div>
 </section>
-<section id="logs-section" hidden>
-  <div class="row"><h2 id="logs-title" style="margin:0">Logs</h2><button id="close-logs">Close</button></div>
-  <pre id="logs"></pre>
+
+<section id="page-players" class="page" hidden>
+  <div class="page-head"><h1>Players</h1><p>Who is online, who can join, and how everyone is doing.</p></div>
+  <div class="card">
+    <div class="card-head"><h2>Online now</h2><span id="online-count" class="muted"></span></div>
+    <div id="online"></div>
+  </div>
+  <div class="card">
+    <div class="card-head"><h2>Who can join</h2><span class="muted small">Saved to .env</span></div>
+    <div class="field">
+      <label for="allow-list">Allow list<span class="mono">ALLOW_LIST</span></label>
+      <p class="hint">Who may join, as comma-separated gamertags. Empty lets anyone in.</p>
+      <input id="allow-list" type="text" spellcheck="false">
+    </div>
+    <div class="field">
+      <label for="lan-players">LAN players<span class="mono">LAN_PLAYERS</span></label>
+      <p class="hint">Players on this home network. They are transferred by LAN address.</p>
+      <input id="lan-players" type="text" spellcheck="false">
+      <p id="lan-warning" class="callout bad" hidden>Add your own gamertag here. Without it, transfers from this PC go to the public address, which this PC can't reach.</p>
+    </div>
+    <div class="row" style="margin-top:14px">
+      <button id="save-env" class="primary">Save</button>
+      <span id="env-result" class="muted"></span>
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-head">
+      <h2>Player stats</h2>
+      <div class="actions"><select id="stats-game" aria-label="Game"><option value="">Overall</option></select><button id="stats-refresh">Refresh</button></div>
+    </div>
+    <div id="stats"><p class="hint">Loading...</p></div>
+  </div>
 </section>
-<section>
-  <div class="row"><h2 style="margin:0">Player stats</h2><select id="stats-game"><option value="">Overall</option></select><button id="stats-refresh">Refresh</button></div>
-  <div id="stats"><p class="hint">Loading...</p></div>
+
+<section id="page-logs" class="page" hidden>
+  <div class="page-head"><h1>Logs</h1><p>What the panel did, and each server's console.</p></div>
+  <div class="card">
+    <div class="card-head"><h2>Panel activity</h2></div>
+    <pre id="activity" class="log"></pre>
+  </div>
+  <div class="card">
+    <div class="card-head"><h2>Server console</h2><div class="actions"><select id="logs-pick" aria-label="Container"></select></div></div>
+    <pre id="console-log" class="log"></pre>
+  </div>
 </section>
-<section>
-  <h2>Activity</h2>
-  <pre id="activity"></pre>
-</section>
+</main>
+</div>
+<div id="toasts" aria-live="polite"></div>
 <script>
 "use strict";
 const $ = (id) => document.getElementById(id);
@@ -87,8 +239,21 @@ function el(tag, props = {}, ...children) {
     else if (key === "className") node.className = value;
     else node.setAttribute(key, value);
   }
-  for (const child of children) node.append(child instanceof Node ? child : document.createTextNode(String(child)));
+  // Arrays are spread, and null, false and "" leave nothing, so optional parts can be inline.
+  for (const child of children.flat()) {
+    if (child === null || child === undefined || child === false || child === "") continue;
+    node.append(child instanceof Node ? child : document.createTextNode(String(child)));
+  }
   return node;
+}
+
+/** Rebuilds a holder only when what it shows changed, so an open picker survives the updates every 2 seconds. */
+const drawn = new WeakMap();
+function patch(holder, key, build) {
+  const text = JSON.stringify(key);
+  if (drawn.get(holder) === text) return;
+  drawn.set(holder, text);
+  holder.replaceChildren(...[build()].flat().filter(Boolean));
 }
 
 async function post(path, body) {
@@ -107,107 +272,252 @@ async function post(path, body) {
   }
 }
 
-const DOCKER_PILL = {
-  running: ["ok", "Docker: running"],
-  starting: ["warn", "Docker: starting..."],
-  "not-responding": ["warn", "Docker: not responding"],
-  stopped: ["bad", "Docker: stopped"],
+function toast(text, tone) {
+  const node = el("div", { className: `toast ${tone}`, role: "status", title: "Click to close" }, el("span", {}, text));
+  node.onclick = () => node.remove();
+  $("toasts").append(node);
+  while ($("toasts").children.length > 3) $("toasts").firstElementChild.remove();
+  setTimeout(() => node.remove(), tone === "bad" ? 10_000 : 5000);
+}
+
+async function copy(text) {
+  try {
+    await navigator.clipboard.writeText(text);
+    toast(`Copied ${text}`, "ok");
+  } catch {
+    toast("Could not copy. Select the address and press Ctrl+C.", "bad");
+  }
+}
+
+// ---- Pages -------------------------------------------------------------------------------
+
+const PAGES = ["servers", "players", "logs"];
+let page = "servers";
+
+function showPage(name) {
+  page = PAGES.includes(name) ? name : "servers";
+  for (const id of PAGES) {
+    $(`page-${id}`).hidden = id !== page;
+    const link = document.querySelector(`[data-page="${id}"]`);
+    link.classList.toggle("active", id === page);
+    if (id === page) link.setAttribute("aria-current", "page");
+    else link.removeAttribute("aria-current");
+  }
+  if (location.hash !== `#${page}`) history.replaceState(null, "", `#${page}`);
+  syncLogs();
+}
+window.onhashchange = () => showPage(location.hash.slice(1));
+
+// ---- State -------------------------------------------------------------------------------
+
+const DOCKER_STATUS = {
+  running: ["ok", "running"],
+  starting: ["warn", "starting..."],
+  "not-responding": ["warn", "not responding"],
+  stopped: ["bad", "stopped"],
 };
+const ACTION_WORDS = { up: "starting", down: "stopping", restart: "restarting" };
+const ACTION_DONE = { up: "started", down: "stopped", restart: "restarted" };
+const ACTION_NAMES = { up: "start", down: "stop", restart: "restart" };
 
 let state = null;
 
 function render(next) {
   state = next;
-  const [cls, text] = DOCKER_PILL[state.docker] ?? ["off", `Docker: ${state.docker}`];
-  $("docker").className = `pill ${cls}`;
-  $("docker").textContent = text;
-  $("start-docker").hidden = state.docker !== "stopped";
-  $("busy").textContent = state.busy ? `Working: ${state.busy}...` : "";
+  renderSidebar();
   renderStacks();
   renderConnection();
+  renderOnline();
   renderEnv();
+  renderLogPicker();
   reloadStatsWhenIdle();
 }
 
+/** The busy action as a word ("starting"), from the helper's "<stack>: <action>". */
+function busyWord(busy) {
+  const action = /: (\w+)$/.exec(busy ?? "")?.[1];
+  return ACTION_WORDS[action] ?? action ?? "";
+}
+
+/** The skin watcher's account waits in the lobby, so it isn't counted as a player. */
+function isWatcher(name) {
+  const watcher = state.env.WATCHER_GAMERTAG ?? "";
+  return watcher !== "" && name.toLowerCase() === watcher.toLowerCase();
+}
+
+const mainStatus = () => state.stacks.find((stack) => stack.id === "main")?.orchestrator ?? null;
+const bdsServers = () => state.stacks.flatMap((stack) => stack.containers).filter((c) => c.isBds && c.state === "running");
+
+function onlinePlayers() {
+  const names = new Map();
+  for (const server of bdsServers()) {
+    for (const name of server.players ?? []) if (!isWatcher(name)) names.set(name.toLowerCase(), name);
+  }
+  return [...names.values()];
+}
+
+function setStatus(node, tone, text) {
+  node.className = `status ${tone}`;
+  node.textContent = text;
+}
+
+function renderSidebar() {
+  const [dockerTone, dockerText] = DOCKER_STATUS[state.docker] ?? ["off", state.docker];
+  setStatus($("docker"), dockerTone, dockerText);
+  $("start-docker").hidden = state.docker !== "stopped";
+  const main = state.stacks.find((stack) => stack.id === "main");
+  const working = main && state.busy?.startsWith(`${main.label}: `);
+  const [tone, text] = working ? ["warn", busyWord(state.busy)] : main?.running ? ["ok", "running"] : ["off", "stopped"];
+  setStatus($("network"), tone, text);
+  $("nav-network").className = `dot ${tone}`;
+  $("nav-network").title = `Network: ${text}`;
+  const online = onlinePlayers().length;
+  $("nav-online").hidden = online === 0;
+  $("nav-online").textContent = online;
+  $("busy").hidden = !state.busy;
+  $("busy-text").textContent = state.busy ? `${state.busy.replace(/: \w+$/, "")}: ${busyWord(state.busy)}...` : "";
+}
+
+// ---- Servers -----------------------------------------------------------------------------
+
 function renderStacks() {
   const root = $("stacks");
-  root.replaceChildren();
+  // The main stack appears once docker-compose.yml exists.
+  const stacks = state.stacks.filter((stack) => stack.available || stack.id !== "main");
+  const ids = stacks.map((stack) => stack.id).join();
+  if (root.dataset.ids !== ids) {
+    root.dataset.ids = ids;
+    root.replaceChildren(...stacks.map((stack) => el("div", { id: `stack-${stack.id}` }, el("div", {}), el("div", {}), el("div", {}))));
+  }
   const canAct = state.docker === "running" && !state.busy;
-  for (const stack of state.stacks) {
-    if (!stack.available && stack.id === "main") continue; // appears once docker-compose.yml exists
-    const status = stack.running ? el("span", { className: "pill ok" }, "running") : el("span", { className: "pill off" }, "stopped");
-    const action = (verb) => () => post(`/api/stacks/${stack.id}/${verb}`);
-    const buttons = [
-      el("button", { onclick: action("up") }, stack.running ? "Start (update)" : "Start"),
-      el("button", { onclick: action("restart") }, "Restart"),
-      el("button", { onclick: action("down") }, "Stop"),
-    ];
-    for (const button of buttons) button.disabled = !canAct || !stack.available;
-    const section = el("section", {}, el("div", { className: "row" }, el("h2", { style: "margin:0" }, stack.label), status, ...buttons));
-    if (!stack.available) {
-      section.append(el("p", { className: "hint" }, `Missing: ${stack.missing.join(", ")}.`));
-    }
-    if (stack.settingsStale) {
-      section.append(el("p", { className: "error" }, ".env changed after this stack started. Click Restart to apply the new settings."));
-    }
-    if (stack.orchestrator) section.append(renderGame(stack.orchestrator));
-    if (stack.containers.length > 0) {
-      const rows = stack.containers.map((c) => el("tr", {},
-        el("td", {}, c.name, c.role ? el("div", { className: "muted" }, c.role) : ""),
-        el("td", {}, c.state === "running" ? el("span", { className: "pill ok" }, "running") : el("span", { className: "pill off" }, c.state), el("div", { className: "muted" }, c.status)),
-        el("td", {}, c.ports || el("span", { className: "muted" }, "-")),
-        el("td", {}, !c.isBds ? el("span", { className: "muted" }, "-")
-          : c.players ? (c.players.length ? c.players.join(", ") : el("span", { className: "muted" }, "nobody"))
-          : el("span", { className: "muted" }, c.playersNote || "-")),
-        el("td", {}, el("button", { onclick: () => showLogs(c) }, "Logs")),
-      ));
-      section.append(el("table", {}, el("tr", {}, ...["Container", "State", "Ports", "Online", ""].map((h) => el("th", {}, h))), ...rows));
-    } else {
-      section.append(el("p", { className: "hint" }, "No containers. Press Start to boot this stack."));
-    }
-    root.append(section);
+  for (const stack of stacks) {
+    const [controls, game, servers] = $(`stack-${stack.id}`).children;
+    const busy = state.busy?.startsWith(`${stack.label}: `) ? state.busy : null;
+    const facts = [stack.label, stack.available, stack.missing, stack.running, stack.settingsStale];
+    patch(controls, [facts, canAct, busy], () => stackCard(stack, canAct, busy));
+    patch(game, stack.orchestrator, () => stack.orchestrator && gameCard(stack.orchestrator));
+    patch(servers, [stack.containers, state.env.WATCHER_GAMERTAG], () => containersCard(stack));
   }
 }
 
-// The game picker is rebuilt on every update, so remember the choice across renders.
+function stackCard(stack, canAct, busy) {
+  const action = (verb) => () => post(`/api/stacks/${stack.id}/${verb}`);
+  const buttons = [
+    el("button", { className: stack.running ? "" : "primary", onclick: action("up") }, stack.running ? "Start (update)" : "Start"),
+    el("button", { onclick: action("restart") }, "Restart"),
+    el("button", { className: "danger", onclick: action("down") }, "Stop"),
+  ];
+  for (const button of buttons) button.disabled = !canAct || !stack.available;
+  const [tone, text] = busy ? ["warn", busyWord(busy)] : stack.running ? ["ok", "running"] : ["off", "stopped"];
+  return el("div", { className: "card" },
+    el("div", { className: "card-head" }, el("h2", {}, stack.label), el("span", { className: `pill ${tone}` }, text), el("div", { className: "actions" }, buttons)),
+    !stack.available && el("p", { className: "hint" }, `Missing: ${stack.missing.join(", ")}.`),
+    stack.settingsStale && el("p", { className: "callout warn" }, ".env changed after this stack started. Click Restart to apply the new settings."),
+    busy && el("div", { className: "busy-line" }, el("span", { className: "spin" }), el("span", { id: "busy-line", className: "mono" }, lastActivity)),
+  );
+}
+
+// The game picker is rebuilt when the game status changes, so remember the choice across renders.
 let gamePick = "";
 
-function renderGame(status) {
-  if (status.error) return el("p", { className: "hint" }, `Orchestrator: ${status.error}`);
+const GAME_STATES = { idle: ["off", "no game"], starting: ["warn", "starting"], running: ["ok", "running"], stopping: ["warn", "ending"] };
+
+/** "Sumo on Arena", with names when the status gives ids. */
+function gameTitle(status) {
+  const game = status.games?.find((candidate) => candidate.id === status.game);
+  const map = game?.maps.find((candidate) => candidate.id === status.map);
+  return `${game?.name ?? status.game} on ${map?.name ?? status.map}`;
+}
+
+function gameCard(status) {
+  const head = (...extra) => el("div", { className: "card-head" }, el("h2", {}, "Game"), extra);
+  if (status.error) return el("div", { className: "card" }, head(), el("p", { className: "hint" }, `Orchestrator: ${status.error}`));
   const idle = status.state === "idle";
-  const summary = idle
-    ? "No game running."
-    : `${status.game} on ${status.map}: ${status.state} (session ${status.sessionId}). Players: ${status.players.length ? status.players.join(", ") : "none"}`;
-  const select = el("select", {});
+  const [tone, text] = GAME_STATES[status.state] ?? ["warn", status.state];
+  const select = el("select", { "aria-label": "Game and map" });
   for (const game of status.games) {
     for (const map of game.maps) select.append(el("option", { value: `${game.id}|${map.id}` }, `${game.name}: ${map.name}`));
   }
   if (gamePick) select.value = gamePick;
   select.onchange = () => { gamePick = select.value; };
-  const start = el("button", { onclick: () => {
+  const start = el("button", { className: "primary", onclick: () => {
     const [game, map] = select.value.split("|");
     post("/api/game/start", { game, map });
   } }, "Start game");
-  const end = el("button", { onclick: () => post("/api/game/end") }, "End game");
+  const end = el("button", { className: "danger", onclick: () => post("/api/game/end") }, "End game");
   start.disabled = !idle || !select.value;
   end.disabled = idle;
-  return el("div", { style: "margin-top:8px" },
-    el("div", { className: "row" }, el("strong", {}, "Game"), el("span", {}, summary)),
-    el("div", { className: "row", style: "margin-top:6px" }, select, start, end),
-    el("p", { className: "hint" }, "Players join the game on port 19133 until the lobby can send them there (milestone 5)."),
+  const players = status.players ?? [];
+  return el("div", { className: "card" },
+    head(el("span", { className: `pill ${tone}` }, text)),
+    idle
+      ? el("p", { className: "muted", style: "margin:0 0 12px" }, "No game running. Start one here, or from the terminal in the lobby.")
+      : el("div", { className: "game-now" },
+        el("div", {}, el("span", { className: "game-title" }, gameTitle(status)), el("span", { className: "muted small", style: "margin-left:10px" }, `session ${status.sessionId}`)),
+        players.length ? el("div", { className: "chips" }, players.map(chip)) : el("span", { className: "muted" }, "No players yet.")),
+    el("div", { className: "row" }, select, start, end),
   );
+}
+
+function containersCard(stack) {
+  const head = el("div", { className: "card-head" }, el("h2", {}, "Containers"));
+  if (stack.containers.length === 0) {
+    return el("div", { className: "card" }, head, el("p", { className: "hint" }, "No containers. Press Start to boot this stack."));
+  }
+  const rows = stack.containers.map((c) => el("tr", {},
+    el("td", { className: "nowrap" }, el("div", { className: "strong" }, c.name), c.role && el("div", { className: "muted small" }, c.role)),
+    el("td", { className: "nowrap" }, el("span", { className: `pill ${c.state === "running" ? "ok" : "off"}` }, c.state), el("div", { className: "muted small" }, c.status)),
+    el("td", { className: "mono nowrap" }, c.ports || el("span", { className: "muted" }, "-")),
+    el("td", {}, onlineCell(c)),
+    el("td", { className: "end" }, el("button", { className: "small", onclick: () => showLogs(c) }, "Logs")),
+  ));
+  const header = el("tr", {}, ["Container", "State", "Ports", "Online", ""].map((h) => el("th", {}, h)));
+  return el("div", { className: "card" }, head, el("div", { className: "table-wrap" }, el("table", {}, el("thead", {}, header), el("tbody", {}, rows))));
+}
+
+function onlineCell(c) {
+  if (!c.isBds) return el("span", { className: "muted" }, "-");
+  if (!c.players) return el("span", { className: "muted" }, c.playersNote || "-");
+  if (c.players.length === 0) return el("span", { className: "muted" }, "nobody");
+  return el("div", { className: "chips" }, c.players.map(chip));
+}
+
+function chip(name) {
+  if (isWatcher(name)) return el("span", { className: "chip bot", title: "The skin watcher's account (WATCHER_GAMERTAG)" }, `${name} (skin watcher)`);
+  return el("span", { className: "chip" }, name);
 }
 
 function renderConnection() {
   const c = state.connection;
-  const lan = c.lanHost ? `${c.lanHost}:${c.joinPort}` : "LAN_HOST is not set in .env";
-  const lanNote = c.lanHost && !c.lanHostOk ? el("span", { className: "error" }, "  (this PC no longer has this address; update LAN_HOST and the router forward)") : "";
-  const pub = c.publicIp ? `${c.publicIp}:${c.joinPort}` : "unknown (lookup failed)";
-  $("connection").replaceChildren(
-    el("dt", {}, "You (this network)"), el("dd", {}, lan, lanNote),
-    el("dt", {}, "Friends (internet)"), el("dd", {}, pub, el("span", { className: "muted" }, c.publicHost === "auto" ? "  (auto-detected)" : "")),
-    el("dt", {}, "Note"), el("dd", { className: "muted" }, "The public address can't be tested from this PC: the router doesn't loop it back. Test it from a phone on cellular data."),
-  );
+  const address = (text) => [el("span", { className: "mono address" }, text), el("button", { className: "small", onclick: () => copy(text) }, "Copy")];
+  patch($("connection"), c, () => [
+    el("dt", {}, "You (this network)"),
+    el("dd", {},
+      c.lanHost ? address(`${c.lanHost}:${c.joinPort}`) : el("span", { className: "error" }, "LAN_HOST is not set in .env"),
+      c.lanHost && !c.lanHostOk && el("span", { className: "error" }, "This PC no longer has this address. Update LAN_HOST and the router forward.")),
+    el("dt", {}, "Friends (internet)"),
+    el("dd", {},
+      c.publicIp ? address(`${c.publicIp}:${c.joinPort}`) : el("span", { className: "muted" }, "unknown (lookup failed)"),
+      c.publicIp && c.publicHost === "auto" && el("span", { className: "muted small" }, "auto-detected")),
+  ]);
+}
+
+// ---- Players -----------------------------------------------------------------------------
+
+const SERVER_NAMES = { lobby: "Lobby", game: "Game" };
+
+function renderOnline() {
+  const servers = bdsServers();
+  const status = mainStatus();
+  const playing = status && !status.error && status.state !== "idle" ? gameTitle(status) : "";
+  const count = onlinePlayers().length;
+  $("online-count").textContent = servers.length ? `${count} ${count === 1 ? "player" : "players"}` : "";
+  patch($("online"), [servers, state.env.WATCHER_GAMERTAG, playing], () => {
+    if (servers.length === 0) return el("p", { className: "muted", style: "margin:0" }, "The network is stopped, so nobody is online.");
+    return el("div", { className: "server-list" }, servers.map((server) => el("div", { className: "server-row" },
+      el("div", {}, el("div", { className: "strong" }, SERVER_NAMES[server.role] ?? server.name), server.role === "game" && playing && el("div", { className: "muted small" }, playing)),
+      onlineCell(server))));
+  });
 }
 
 let envDirty = false;
@@ -226,29 +536,11 @@ function renderEnv() {
 $("save-env").onclick = async () => {
   const { ok, result } = await post("/api/env", { ALLOW_LIST: $("allow-list").value, LAN_PLAYERS: $("lan-players").value });
   $("env-result").className = ok ? "muted" : "error";
-  $("env-result").textContent = ok ? (result.changed ? "Saved. Restart the stack to apply." : "No changes.") : (result.error ?? "Save failed.");
+  $("env-result").textContent = ok ? (result.changed ? "Saved. Restart the network on the Servers page to apply." : "No changes.") : (result.error ?? "Save failed.");
   if (ok) { envDirty = false; $("allow-list").blur(); $("lan-players").blur(); }
 };
 
 $("start-docker").onclick = () => post("/api/docker/start");
-
-let logsTimer = null;
-function showLogs(container) {
-  $("logs-section").hidden = false;
-  $("logs-title").textContent = `Logs: ${container.name}`;
-  clearInterval(logsTimer);
-  const load = async () => {
-    const response = await fetch(`/api/logs?id=${encodeURIComponent(container.id)}`).catch(() => null);
-    if (!response || !response.ok) { $("logs").textContent = "(not available; is the container running?)"; return; }
-    const pre = $("logs");
-    const atBottom = pre.scrollTop + pre.clientHeight >= pre.scrollHeight - 4;
-    pre.textContent = (await response.json()).lines.join("\n");
-    if (atBottom) pre.scrollTop = pre.scrollHeight;
-  };
-  load();
-  logsTimer = setInterval(load, 2000);
-}
-$("close-logs").onclick = () => { clearInterval(logsTimer); $("logs-section").hidden = true; };
 
 // Stats load when the page opens, on Refresh and when a game ends, never on a timer.
 let stats = null;
@@ -280,7 +572,7 @@ async function loadStats() {
   const error = !response ? "Could not reach the panel helper."
     : response.status === 404 ? "The panel helper is out of date. Close this window, wait 15 seconds, then open Minecade Panel again."
     : result.error ?? `HTTP ${response.status}`;
-  $("stats").replaceChildren(el("p", { className: "error" }, error));
+  $("stats").replaceChildren(el("p", { className: "error", style: "margin:0" }, error));
 }
 
 function renderStatsGames() {
@@ -302,7 +594,7 @@ function renderStats() {
     .filter((row) => row.line);
   if (rows.length === 0) {
     const empty = stats.players.length === 0 ? "No stats yet. Matches with at least 2 players are recorded." : `No ${game.name} matches recorded yet.`;
-    $("stats").replaceChildren(el("p", { className: "hint" }, empty));
+    $("stats").replaceChildren(el("p", { className: "muted", style: "margin:0" }, empty));
     return;
   }
   // A game's own columns go away when another game is picked.
@@ -310,20 +602,20 @@ function renderStats() {
   const column = columns.find((c) => c.key === statsSort.key);
   const byName = (a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: "base" });
   rows.sort((a, b) => (statsSort.desc ? -1 : 1) * (column ? column.value(a.line) - column.value(b.line) : byName(a, b)) || byName(a, b));
-  const header = (key, label, className = "num") => el("th", { className, style: "cursor:pointer", onclick: () => {
+  const header = (key, label, align = "num") => el("th", { className: `sortable ${align} ${statsSort.key === key ? "sorted" : ""}`, onclick: () => {
     statsSort = { key, desc: statsSort.key === key ? !statsSort.desc : key !== "name" };
     renderStats();
   } }, label, statsSort.key === key ? (statsSort.desc ? " ▼" : " ▲") : "");
-  $("stats").replaceChildren(el("table", {},
-    el("tr", {}, header("name", "Player", ""), ...columns.map((c) => header(c.key, c.label))),
-    ...rows.map((row) => el("tr", {}, el("td", {}, row.name), ...columns.map((c) => el("td", { className: "num" }, c.text(c.value(row.line)))))),
-  ));
+  $("stats").replaceChildren(el("div", { className: "table-wrap" }, el("table", {},
+    el("thead", {}, el("tr", {}, header("name", "Player", ""), columns.map((c) => header(c.key, c.label)))),
+    el("tbody", {}, rows.map((row) => el("tr", {}, el("td", { className: "strong" }, row.name), columns.map((c) => el("td", { className: "num" }, c.text(c.value(row.line))))))),
+  )));
 }
 
 // A game's stats are final once its session is over, and an orchestrator that just came up has some.
 let lastGameState;
 function reloadStatsWhenIdle() {
-  const status = state.stacks.find((stack) => stack.id === "main")?.orchestrator;
+  const status = mainStatus();
   const gameState = status && !status.error ? status.state : null;
   if (lastGameState !== undefined && lastGameState !== "idle" && gameState === "idle") loadStats();
   lastGameState = gameState;
@@ -333,6 +625,80 @@ $("stats-refresh").onclick = () => loadStats();
 $("stats-game").onchange = () => renderStats();
 loadStats();
 
+// ---- Logs --------------------------------------------------------------------------------
+
+// The container picked in the log viewer. A recreated container comes back with a new id under
+// the same name, so the name finds it again.
+let logsPick = { id: "", name: "" };
+let logsTimer = null;
+let logsShown = "";
+
+function renderLogPicker() {
+  const list = state.stacks.flatMap((stack) => stack.containers);
+  if (!list.some((c) => c.id === logsPick.id)) {
+    const next = list.find((c) => c.name === logsPick.name) ?? list.find((c) => c.isBds && c.state === "running") ?? list[0];
+    logsPick = next ? { id: next.id, name: next.name } : { id: "", name: "" };
+  }
+  const select = $("logs-pick");
+  patch(select, list.map((c) => [c.id, c.name, c.state]), () =>
+    list.map((c) => el("option", { value: c.id }, c.state === "running" ? c.name : `${c.name} (${c.state})`)));
+  select.disabled = list.length === 0;
+  if (select.value !== logsPick.id) select.value = logsPick.id;
+  syncLogs();
+}
+
+$("logs-pick").onchange = () => {
+  const id = $("logs-pick").value;
+  const container = state.stacks.flatMap((stack) => stack.containers).find((c) => c.id === id);
+  logsPick = { id, name: container?.name ?? "" };
+  syncLogs();
+};
+
+function showLogs(container) {
+  logsPick = { id: container.id, name: container.name };
+  $("logs-pick").value = container.id;
+  location.hash = "#logs";
+}
+
+/** Polls the picked container's log while the Logs page is open. */
+function syncLogs() {
+  if (!state) return;
+  const want = page === "logs" ? logsPick.id : "";
+  if (!want) {
+    clearInterval(logsTimer);
+    logsTimer = null;
+    if (!logsPick.id) { $("console-log").textContent = "No containers. Start the network on the Servers page."; logsShown = ""; }
+    return;
+  }
+  if (logsTimer && logsShown === want) return;
+  clearInterval(logsTimer);
+  loadLogs(true);
+  logsTimer = setInterval(() => loadLogs(false), 2000);
+}
+
+async function loadLogs(fresh) {
+  const id = logsPick.id;
+  const pre = $("console-log");
+  if (fresh) { logsShown = id; pre.textContent = "Loading..."; }
+  const response = await fetch(`/api/logs?id=${encodeURIComponent(id)}`).catch(() => null);
+  const lines = response?.ok ? (await response.json()).lines : null;
+  if (id !== logsPick.id) return;
+  if (!lines) { pre.textContent = "(not available; is the container running?)"; return; }
+  const atBottom = fresh || pre.scrollTop + pre.clientHeight >= pre.scrollHeight - 4;
+  pre.textContent = lines.length ? lines.join("\n") : "(no lines yet)";
+  if (atBottom) pre.scrollTop = pre.scrollHeight;
+}
+
+let lastActivity = "";
+
+/** Results of the panel's own actions pop up, since the activity log is on another page. */
+function toastTone(text) {
+  if (/^(Error|Orchestrator): /.test(text)) return "bad";
+  if (!state?.stacks.some((stack) => text.startsWith(`${stack.label}: `))) return null;
+  if (/ failed | could not /.test(text)) return "bad";
+  return / done\.$/.test(text) ? "ok" : null;
+}
+
 function addActivity(entry) {
   const pre = $("activity");
   const atBottom = pre.scrollTop + pre.clientHeight >= pre.scrollHeight - 4;
@@ -340,7 +706,18 @@ function addActivity(entry) {
   const lines = pre.textContent.split("\n");
   if (lines.length > 400) pre.textContent = lines.slice(-400).join("\n");
   if (atBottom) pre.scrollTop = pre.scrollHeight;
+  lastActivity = entry.text;
+  if ($("busy-line")) $("busy-line").textContent = entry.text;
+  // The helper replays recent activity on every (re)connect; only new entries pop up.
+  const tone = toastTone(entry.text);
+  if (tone && Date.now() - Date.parse(entry.at) < 5000) {
+    toast(entry.text
+      .replace(/: (up|down|restart) done\.$/, (_, action) => `: ${ACTION_DONE[action]}.`)
+      .replace(/: (up|down|restart) failed (.*)$/, (_, action, rest) => `: ${ACTION_NAMES[action]} failed ${rest} The details are on the Logs page.`), tone);
+  }
 }
+
+showPage(location.hash.slice(1));
 
 const events = new EventSource("/api/events");
 events.addEventListener("state", (event) => render(JSON.parse(event.data)));

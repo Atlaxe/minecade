@@ -223,6 +223,7 @@ async function buildState() {
           missing: false,
           ALLOW_LIST: env.ALLOW_LIST ?? "",
           LAN_PLAYERS: env.LAN_PLAYERS ?? "",
+          WATCHER_GAMERTAG: env.WATCHER_GAMERTAG ?? "",
           TRANSPORT: env.TRANSPORT ?? "",
           BDS_VERSION: env.BDS_VERSION ?? "",
         }

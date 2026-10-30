@@ -162,7 +162,7 @@ Xbox account, so stats survive a gamertag change.
 - **Where:** the `minecade-data` Docker volume: `stats.db`, a raw log of every match
   (`stats-events.jsonl`), and a backup at every start and once a day (`backups/`, newest 14
   kept). `docker compose down` and the panel's Stop keep it.
-- **See them:** the Stats book in the lobby, the "Player stats" table in the panel, or
+- **See them:** the Stats book in the lobby, the Players page in the panel, or
   `http://127.0.0.1:8080/v1/stats` and `http://127.0.0.1:8080/v1/stats/<gamertag>` on the PC.
 - **Reset everything:** stop the stack, then `docker volume rm minecade-data`. This also
   deletes the backups.
