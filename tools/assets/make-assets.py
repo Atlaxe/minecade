@@ -35,6 +35,8 @@ LOGO_SOURCE = ROOT / "tools" / "assets" / "source" / "minecade-title.png"
 CYAN = (90, 210, 255)
 BRIGHT = (190, 240, 255)
 DEEP = (20, 70, 140)
+# Stars in each warp layer (the north and south walls show three, zoomed, fading in and out).
+WARP_STARS = 1200
 
 
 FORCE = "--force" in sys.argv
@@ -130,12 +132,13 @@ HOLO = 512  # each screen is a square texture shown on a 3x3 block panel
 
 
 def holo_base() -> Image.Image:
-    """A dark panel with scanlines, a glowing frame and corner brackets."""
+    """
+    A dark panel with a glowing frame and corner brackets. The scanlines are a separate layer that
+    rolls upward over it (holo_scan_lines).
+    """
     image = Image.new("RGB", (HOLO, HOLO), (0, 0, 0))
     draw = ImageDraw.Draw(image)
     draw.rectangle((8, 8, HOLO - 9, HOLO - 9), fill=(4, 16, 34))
-    for y in range(10, HOLO - 10, 4):
-        draw.line((10, y, HOLO - 11, y), fill=(6, 26, 52))
     draw.rectangle((8, 8, HOLO - 9, HOLO - 9), outline=DEEP, width=3)
     arm = 46
     for cx, cy, dx, dy in ((14, 14, 1, 1), (HOLO - 15, 14, -1, 1), (14, HOLO - 15, 1, -1), (HOLO - 15, HOLO - 15, -1, -1)):
@@ -159,6 +162,19 @@ def holo_frames(logo: Image.Image) -> dict[str, Image.Image]:
     return {"frame_logo": with_logo, "frame_panel": holo_base()}
 
 
+def holo_scan_lines() -> Image.Image:
+    """
+    The hologram's moving scanlines: one faint line every 4 rows, drawn additively and repeated
+    32 times up each panel (128 lines, as the frames had), scrolled upward by the
+    holo_scanlines render controller.
+    """
+    image = Image.new("RGB", (16, 16), (0, 0, 0))
+    draw = ImageDraw.Draw(image)
+    for y in range(0, 16, 4):
+        draw.line((0, y, 15, y), fill=(4, 16, 30))
+    return image
+
+
 def holo_backdrop() -> Image.Image:
     """
     Behind the hologram's panels: a faint see-through blue (about 14%), drawn with an alpha-blended
@@ -170,24 +186,41 @@ def holo_backdrop() -> Image.Image:
 
 def stars() -> Image.Image:
     """
-    The star box's walls and floor (lobby map.json "stars"): stars on black, drawn additively, so
-    black shows nothing and only the stars add light. A fixed seed keeps it the same every run.
-    Mostly faint single pixels, some brighter ones, a few bright ones with a small cross of glow,
-    and some tinted blue.
+    The star box's east and west walls, floor and ceiling (lobby map.json "stars"): stars on black,
+    drawn additively, so black shows nothing and only the stars add light.
     """
-    rng = random.Random(7)
+    return star_field(7, 1800)
+
+
+def warp(level: int) -> Image.Image:
+    """
+    The star box's north and south walls, at brightness level 1 to 7 of 7: a different field from
+    stars(), zoomed by the warp render controllers, which fade a layer in and out by switching
+    between these levels (level 0 is icon_none, black).
+    """
+    return star_field(11, WARP_STARS, level / 7)
+
+
+def star_field(seed: int, count: int, brightness: float = 1.0) -> Image.Image:
+    """
+    Stars on black, 512x512, the same every run for a seed: mostly faint single pixels, some
+    brighter ones, a few bright ones with a small cross of glow, and some tinted blue. It wraps at
+    the edges (it repeats as it scrolls). brightness scales every star.
+    """
+    rng = random.Random(seed)
     image = Image.new("RGB", (512, 512), (0, 0, 0))
 
     def put(x: int, y: int, color: tuple[int, int, int]) -> None:
         r, g, b = image.getpixel((x % 512, y % 512))
         image.putpixel((x % 512, y % 512), (max(r, color[0]), max(g, color[1]), max(b, color[2])))
 
-    for _ in range(1800):
+    for _ in range(count):
         x, y = rng.randrange(512), rng.randrange(512)
         roll = rng.random()
         level = rng.randint(60, 130) if roll < 0.8 else rng.randint(150, 220) if roll < 0.97 else rng.randint(230, 255)
         tint = rng.random()
         color = (round(level * 0.7), round(level * 0.85), level) if tint < 0.2 else (level, level, level)
+        color = tuple(round(channel * brightness) for channel in color)
         put(x, y, color)
         if roll >= 0.97:
             halo = tuple(round(channel * 0.45) for channel in color)
@@ -459,6 +492,9 @@ def main() -> None:
     save(holo_beam(), LOBBY_TEXTURES / "holo" / "beam.png")
     save(holo_backdrop(), LOBBY_TEXTURES / "holo" / "backdrop.png")
     save(stars(), LOBBY_TEXTURES / "holo" / "stars.png")
+    for level in range(1, 8):
+        save(warp(level), LOBBY_TEXTURES / "holo" / f"warp_{level}.png")
+    save(holo_scan_lines(), LOBBY_TEXTURES / "holo" / "scanlines.png")
     save(Image.new("RGB", (16, 16), (0, 0, 0)), LOBBY_TEXTURES / "holo" / "icon_none.png")
 
     save(block_side(), LOBBY_TEXTURES / "blocks" / "terminal_side.png")

@@ -328,6 +328,14 @@ settings do that, not the images:
 So when drawing hologram art: paint on black, use brightness for glow, and expect dark fills to
 mostly disappear.
 
+The **scanlines** are their own layer, not part of the frames: `scanlines.png` (one faint line
+every 4 rows) on the `scan_*` bones just in front of the panels, repeated 32 times up each panel
+(128 lines) and rolling upward about 0.15 blocks a second. The `holo_scanlines` render controller
+does it with `uv_anim` and vanilla's `charged_creeper` material (additive, and it repeats the
+texture as it scrolls; the star box uses it the same way). Change the `1.6` in its offset for
+another speed, or make it negative to roll downward. Pictures and portraits get the lines over
+them too.
+
 Adding light can't make anything darker or change what's behind it. A **backdrop** sits just
 inside the panels (the `backdrop_*` bones): `backdrop.png`, a faint blue (about 14%), drawn with an
 alpha-blended material (`entity_alphablend`) by the first render controller, so the sky behind the
@@ -338,7 +346,8 @@ panels is tinted blue before the panels, pictures and portrait add their light. 
 size: `minecade:star_box`, one entity at the terminal whose model is four walls, a floor and a
 ceiling, each 96 blocks wide (48 blocks out from the middle), facing inward, each covered by
 `stars.png`. Black adds nothing, so the real night sky shows through and only the stars add light;
-the sky keeps its own stars and moon behind them. The east and west walls and the ceiling (the
+the sky keeps its own stars and moon behind them (the north and south walls use the warp
+images instead, below). The east and west walls and the ceiling (the
 `moving` bone) drift north to south, one wall width every 30 seconds, as if the lobby were flying
 north: their own render controller (`controller.render.minecade.star_box_moving`) scrolls the
 texture with `uv_anim`, using vanilla's `charged_creeper` material (additive like the rest, and it
@@ -346,7 +355,20 @@ repeats the texture as it scrolls). Change the `30.0` there for another speed, o
 reverse it. The west wall's texture is mirrored so one scroll moves both walls the same way. The
 ceiling is a copy of the east wall turned flat about the north-south axis, so its stars drift the
 same way; it has both faces (the same stars on each), so it shows from below whichever way it
-ends up facing. The box always faces south, so the direction holds. The lobby script keeps one box placed, like the hologram (`star-box.ts`). It
+ends up facing. The box always faces south, so the direction holds.
+
+The north and south walls **warp**: stars on the north wall spread out from its middle, as if
+coming toward you, and stars on the south wall sink into its middle, as if left behind. Each wall
+has three layers (`star_box_north_0` to `_2`, `star_box_south_0` to `_2`), each a different part
+of one star field. A layer lives 8 seconds: it zooms from 1x to 2x about the wall's middle (2x to
+1x on the south wall) with `uv_anim`, fading in and back out, and starts over while it's dark, so
+the restart can't be seen. The layers are a third of a life apart, so the wall always has stars.
+The fade switches between `warp_1.png` to `warp_7.png` (the field at 7 brightness levels; level
+0 is black), since a render controller can't dim a texture. The client entity's `pre_animation`
+works out each layer's life, brightness and zoom. At the edges, the stars move about as fast as
+the side walls'.
+
+The lobby script keeps one box placed, like the hologram (`star-box.ts`). It
 only looks right at night (`"time": "midnight"`), since in daylight the dim stars disappear into the
 bright sky. On a very short render distance, fog can fade the walls 48 blocks out.
 
@@ -392,9 +414,11 @@ middle, and the tiled scanlines, which repeat.
 | `lobby/resource_pack/font/glyph_E3.png` | Icons inside text, about the height of a letter: cell 0 (U+E300) is the player icon on the game cards; cells 1 and 2 (U+E301, U+E302) are a setting's bars under its label, bright for the chosen value and dim for the others | 256x256, 16x16 cells, on transparent |
 | `games/<id>/icon.png` | The game's picture: on its card (60x34) and on the hologram (2 blocks wide) while the map is random | 320x180 (16:9), required for every game |
 | `games/<id>/maps/<map>/preview.png` | A map's preview on its tile (100x54) and on the hologram when it's chosen (optional) | 320x180 (16:9), such as a screenshot |
-| `lobby/resource_pack/textures/minecade/holo/frame_logo.png`, `frame_panel.png` | Hologram frames, 3x3 blocks on all four sides, with live text over them; `frame_logo` has the logo up top | 512x512 (square), additive |
+| `lobby/resource_pack/textures/minecade/holo/frame_logo.png`, `frame_panel.png` | Hologram frames, 3x3 blocks on all four sides, with live text over them; `frame_logo` has the logo up top; no scanlines (they're a moving layer, `scanlines.png`) | 512x512 (square), additive |
 | `lobby/resource_pack/textures/minecade/holo/backdrop.png` | Behind the hologram's panels, tinting the sky behind them | 16x16, light blue (28, 185, 244) at about 14% (alpha 35), alpha-blended |
-| `lobby/resource_pack/textures/minecade/holo/stars.png` | The star box's walls, floor and ceiling, 96 blocks wide each; it scrolls on the east and west walls and the ceiling | 512x512, stars on black, additive (black shows nothing); drawn with a fixed seed; must tile (no seams), since it repeats as it scrolls |
+| `lobby/resource_pack/textures/minecade/holo/scanlines.png` | The hologram's scanlines, rolling upward over every panel, repeated 32 times up each | 16x16, a faint line every 4 rows, additive; must tile |
+| `lobby/resource_pack/textures/minecade/holo/stars.png` | The star box's east and west walls, floor and ceiling, 96 blocks wide each; it scrolls on the east and west walls and the ceiling | 512x512, stars on black, additive (black shows nothing); drawn with a fixed seed; must tile (no seams), since it repeats as it scrolls |
+| `lobby/resource_pack/textures/minecade/holo/warp_1.png` to `warp_7.png` | The star box's north and south walls (three zooming layers each) | 512x512, one star field (1200 stars, a different seed from `stars.png`) at brightness 1/7 to 7/7, additive; must tile; regenerate all seven together |
 | `lobby/resource_pack/textures/minecade/holo/beam.png` | Projection beam, two crossed planes 2 wide by 3.25 tall | 128x256, additive, the projector at the bottom; fade the top to black so the beam has no hard edge |
 | `lobby/resource_pack/textures/minecade/blocks/terminal_side.png` | Console sides | 16x16 |
 | `lobby/resource_pack/textures/minecade/blocks/terminal_corner.png`, `terminal_edge.png`, `terminal_center.png` | Console tops | 16x16; the corner is drawn as the north-west corner (rims on the north and west sides) and the edge as the north edge, and the blocks rotate them into place |

@@ -8,15 +8,45 @@
         "moving": "charged_creeper"
       },
       "textures": {
-        "default": "textures/minecade/holo/stars"
+        "default": "textures/minecade/holo/stars",
+        "warp_0": "textures/minecade/holo/icon_none",
+        "warp_1": "textures/minecade/holo/warp_1",
+        "warp_2": "textures/minecade/holo/warp_2",
+        "warp_3": "textures/minecade/holo/warp_3",
+        "warp_4": "textures/minecade/holo/warp_4",
+        "warp_5": "textures/minecade/holo/warp_5",
+        "warp_6": "textures/minecade/holo/warp_6",
+        "warp_7": "textures/minecade/holo/warp_7"
       },
       "geometry": {
         "default": "geometry.minecade.star_box"
       },
       "render_controllers": [
         "controller.render.minecade.star_box",
-        "controller.render.minecade.star_box_moving"
-      ]
+        "controller.render.minecade.star_box_moving",
+        "controller.render.minecade.star_box_north_0",
+        "controller.render.minecade.star_box_north_1",
+        "controller.render.minecade.star_box_north_2",
+        "controller.render.minecade.star_box_south_0",
+        "controller.render.minecade.star_box_south_1",
+        "controller.render.minecade.star_box_south_2"
+      ],
+      "scripts": {
+        "pre_animation": [
+          "variable.warp_0 = math.mod(query.life_time / 8.0, 1.0);",
+          "variable.warp_level_0 = math.floor(math.pow(math.sin(variable.warp_0 * 180.0), 2.0) * 7.0 + 0.5);",
+          "variable.warp_in_0 = math.pow(2.0, -variable.warp_0);",
+          "variable.warp_out_0 = math.pow(2.0, variable.warp_0 - 1.0);",
+          "variable.warp_1 = math.mod(query.life_time / 8.0 + 0.3333, 1.0);",
+          "variable.warp_level_1 = math.floor(math.pow(math.sin(variable.warp_1 * 180.0), 2.0) * 7.0 + 0.5);",
+          "variable.warp_in_1 = math.pow(2.0, -variable.warp_1);",
+          "variable.warp_out_1 = math.pow(2.0, variable.warp_1 - 1.0);",
+          "variable.warp_2 = math.mod(query.life_time / 8.0 + 0.6667, 1.0);",
+          "variable.warp_level_2 = math.floor(math.pow(math.sin(variable.warp_2 * 180.0), 2.0) * 7.0 + 0.5);",
+          "variable.warp_in_2 = math.pow(2.0, -variable.warp_2);",
+          "variable.warp_out_2 = math.pow(2.0, variable.warp_2 - 1.0);"
+        ]
+      }
     }
   }
 }
