@@ -88,6 +88,17 @@ const proxy = new NetherNetProxy({
 for (const event of ["signalingRejected", "sessionOpen", "sessionReady", "sessionClose", "packetError"] as const) {
   proxy.on(event, (...args: unknown[]) => report(`relay_${event}`, { detail: args.map(describe) }));
 }
+// What happens to a login through the relay: whether it reaches the lobby, and what the lobby answers.
+const PACKET = { login: 1, playStatus: 2, disconnect: 5 } as const;
+proxy.packetHandler(PACKET.login, { direction: "c2s" }).after((buffer: Buffer, context: { connectionId: string }) => {
+  report("login_sent", { connectionId: context.connectionId, bytes: buffer.length });
+});
+proxy.packetHandler(PACKET.playStatus, { direction: "s2c" }).after((buffer: Buffer, context: { connectionId: string }) => {
+  report("play_status", { connectionId: context.connectionId, status: playStatus(buffer) });
+});
+proxy.packetHandler(PACKET.disconnect, { direction: "s2c" }).after((buffer: Buffer, context: { connectionId: string }) => {
+  report("lobby_disconnect", { connectionId: context.connectionId, ...disconnectSummary(buffer) });
+});
 proxy.on("playerJoin", ({ identity, clientData }) => {
   saveSkin(identity.name, identity.xuid, clientData as unknown as Record<string, unknown>).catch((error: unknown) => report("save_failed", { error: String(error) }));
 });
@@ -168,6 +179,49 @@ function sdpSummary(sdp: string): Record<string, unknown> {
     };
   } catch (error) {
     return { attributes, identity: `unreadable: ${String(error)}` };
+  }
+}
+
+/** An unsigned LEB128 varint at `offset`, and where the next field starts. */
+function varuint(buffer: Buffer, offset: number): [value: number, next: number] {
+  let value = 0;
+  let shift = 0;
+  let at = offset;
+  for (;;) {
+    const byte = buffer[at++];
+    if (byte === undefined) throw new Error("truncated varint");
+    value |= (byte & 0x7f) << shift;
+    if ((byte & 0x80) === 0) return [value >>> 0, at];
+    shift += 7;
+    if (shift > 28) throw new Error("varint too long");
+  }
+}
+
+/** A Disconnect packet: its reason code, whether the message is hidden, and the message (plus the first bytes, in case the layout differs). */
+function disconnectSummary(buffer: Buffer): Record<string, unknown> {
+  const hex = buffer.subarray(0, 64).toString("hex");
+  try {
+    const [, afterHeader] = varuint(buffer, 0);
+    const [zigzag, afterReason] = varuint(buffer, afterHeader);
+    const hidden = buffer[afterReason] === 1;
+    let message: string | undefined;
+    if (!hidden) {
+      const [length, start] = varuint(buffer, afterReason + 1);
+      message = buffer.subarray(start, start + length).toString("utf8");
+    }
+    return { reason: (zigzag >>> 1) ^ -(zigzag & 1), hidden, message, hex };
+  } catch (error) {
+    return { unreadable: String(error), hex };
+  }
+}
+
+/** A PlayStatus packet's status (0 login success, 1 and 2 outdated client or server, 3 player spawn, ...). */
+function playStatus(buffer: Buffer): number | string {
+  try {
+    const [, at] = varuint(buffer, 0);
+    return buffer.readInt32BE(at);
+  } catch {
+    return buffer.toString("hex");
   }
 }
 
