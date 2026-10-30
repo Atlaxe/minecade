@@ -33,6 +33,166 @@
           ]
         },
         {
+          "name": "backdrop_s",
+          "parent": "screen",
+          "pivot": [
+            0,
+            0,
+            0
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "cubes": [
+            {
+              "origin": [
+                -24,
+                -24,
+                23.8
+              ],
+              "size": [
+                48,
+                48,
+                0
+              ],
+              "uv": {
+                "south": {
+                  "uv": [
+                    0,
+                    0
+                  ],
+                  "uv_size": [
+                    48,
+                    48
+                  ]
+                }
+              }
+            }
+          ]
+        },
+        {
+          "name": "backdrop_e",
+          "parent": "screen",
+          "pivot": [
+            0,
+            0,
+            0
+          ],
+          "rotation": [
+            0,
+            90,
+            0
+          ],
+          "cubes": [
+            {
+              "origin": [
+                -24,
+                -24,
+                23.8
+              ],
+              "size": [
+                48,
+                48,
+                0
+              ],
+              "uv": {
+                "south": {
+                  "uv": [
+                    0,
+                    0
+                  ],
+                  "uv_size": [
+                    48,
+                    48
+                  ]
+                }
+              }
+            }
+          ]
+        },
+        {
+          "name": "backdrop_n",
+          "parent": "screen",
+          "pivot": [
+            0,
+            0,
+            0
+          ],
+          "rotation": [
+            0,
+            180,
+            0
+          ],
+          "cubes": [
+            {
+              "origin": [
+                -24,
+                -24,
+                23.8
+              ],
+              "size": [
+                48,
+                48,
+                0
+              ],
+              "uv": {
+                "south": {
+                  "uv": [
+                    0,
+                    0
+                  ],
+                  "uv_size": [
+                    48,
+                    48
+                  ]
+                }
+              }
+            }
+          ]
+        },
+        {
+          "name": "backdrop_w",
+          "parent": "screen",
+          "pivot": [
+            0,
+            0,
+            0
+          ],
+          "rotation": [
+            0,
+            270,
+            0
+          ],
+          "cubes": [
+            {
+              "origin": [
+                -24,
+                -24,
+                23.8
+              ],
+              "size": [
+                48,
+                48,
+                0
+              ],
+              "uv": {
+                "south": {
+                  "uv": [
+                    0,
+                    0
+                  ],
+                  "uv_size": [
+                    48,
+                    48
+                  ]
+                }
+              }
+            }
+          ]
+        },
+        {
           "name": "panel_s",
           "parent": "screen",
           "pivot": [

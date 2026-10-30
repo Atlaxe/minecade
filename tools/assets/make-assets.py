@@ -158,6 +158,14 @@ def holo_frames(logo: Image.Image) -> dict[str, Image.Image]:
     return {"frame_logo": with_logo, "frame_panel": holo_base()}
 
 
+def holo_backdrop() -> Image.Image:
+    """
+    Behind the hologram's panels: see-through black (about 60%), drawn with an alpha-blended
+    material, so a bright sky behind the panels is darkened and the glowing panels stand out.
+    """
+    return Image.new("RGBA", (16, 16), (0, 0, 0, 150))
+
+
 def holo_beam() -> Image.Image:
     """The projection cone: brightest at the bottom center, fading up and out to black at the top."""
     width, height = 128, 256
@@ -419,6 +427,7 @@ def main() -> None:
     for name, image in holo_frames(logo).items():
         save(image, LOBBY_TEXTURES / "holo" / f"{name}.png")
     save(holo_beam(), LOBBY_TEXTURES / "holo" / "beam.png")
+    save(holo_backdrop(), LOBBY_TEXTURES / "holo" / "backdrop.png")
     save(Image.new("RGB", (16, 16), (0, 0, 0)), LOBBY_TEXTURES / "holo" / "icon_none.png")
 
     save(block_side(), LOBBY_TEXTURES / "blocks" / "terminal_side.png")

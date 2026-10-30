@@ -4,14 +4,16 @@
     "description": {
       "identifier": "minecade:holo_display",
       "materials": {
-        "default": "entity_beam_additive"
+        "default": "entity_beam_additive",
+        "backdrop": "entity_alphablend"
       },
       "textures": {
         "frame_logo": "textures/minecade/holo/frame_logo",
         "frame_panel": "textures/minecade/holo/frame_panel",
         "beam": "textures/minecade/holo/beam",
         "picture_0": "textures/minecade/holo/icon_none",
-        "portrait_0": "textures/minecade/holo/icon_none"
+        "portrait_0": "textures/minecade/holo/icon_none",
+        "backdrop": "textures/minecade/holo/backdrop"
       },
       "geometry": {
         "default": "geometry.minecade.holo_display"
@@ -25,6 +27,7 @@
         ]
       },
       "render_controllers": [
+        "controller.render.minecade.holo_backdrop",
         "controller.render.minecade.holo_screen",
         "controller.render.minecade.holo_picture",
         "controller.render.minecade.holo_portrait",

@@ -1,6 +1,41 @@
 {
   "format_version": "1.10.0",
   "render_controllers": {
+    "controller.render.minecade.holo_backdrop": {
+      "geometry": "Geometry.default",
+      "materials": [
+        {
+          "*": "Material.backdrop"
+        }
+      ],
+      "textures": [
+        "Texture.backdrop"
+      ],
+      "part_visibility": [
+        {
+          "*": false
+        },
+        {
+          "root": true
+        },
+        {
+          "screen": true
+        },
+        {
+          "backdrop_s": true
+        },
+        {
+          "backdrop_e": true
+        },
+        {
+          "backdrop_n": true
+        },
+        {
+          "backdrop_w": true
+        }
+      ],
+      "ignore_lighting": true
+    },
     "controller.render.minecade.holo_screen": {
       "arrays": {
         "textures": {
