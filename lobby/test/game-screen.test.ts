@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { stripColors, type RegistryGame } from "@minecade/minigame-core";
-import { CLOSE, MARK, PREVIEWS, defaultSettings, menuChoice, gameAction, gameButtons, gamePicture, mapOptions, nextSetting, playerCount, playerRange, settingsFor } from "../behavior_pack/scripts/game-screen.ts";
+import { CLOSE, MARK, PREVIEWS, STRAY_CLOSE_TICKS, defaultSettings, menuChoice, gameAction, strayClose, gameButtons, gamePicture, mapOptions, nextSetting, playerCount, playerRange, settingsFor } from "../behavior_pack/scripts/game-screen.ts";
 import { CLOSE_BUTTON, GLYPH, gameForm, gamesForm, settingBars } from "../behavior_pack/scripts/menus.ts";
 
 const sumo: RegistryGame = {
@@ -83,6 +83,14 @@ describe("the game screen model", () => {
     expect(menuChoice(1)).toBe(0);
     expect(menuChoice(4)).toBe(3);
     expect(stripColors(CLOSE_BUTTON)).toBe("Close");
+  });
+
+  it("treats an X right as a menu opens as a stray click, and anything else as a choice", () => {
+    expect(strayClose(CLOSE, 0)).toBe(true);
+    expect(strayClose(CLOSE, STRAY_CLOSE_TICKS - 1)).toBe(true);
+    expect(strayClose(CLOSE, STRAY_CLOSE_TICKS)).toBe(false);
+    expect(strayClose(0, 1)).toBe(false);
+    expect(strayClose(undefined, 1)).toBe(false);
   });
 
   it("shows a bar per setting value, the chosen one bright", () => {

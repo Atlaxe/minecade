@@ -2,8 +2,8 @@
 // connects the terminal, game starting and stats logic (terminal-controller.ts,
 // lobby-controller.ts, stats-controller.ts) to players, forms and the orchestrator.
 import { GameMode, system, world, type Player, type Vector3 } from "@minecraft/server";
-import { uiManager } from "@minecraft/server-ui";
-import { describeError, holoPictures, holoPortraits, log, normalizePlayer, playChime, showForm } from "@minecade/minigame-core";
+import { uiManager, type ActionFormData } from "@minecraft/server-ui";
+import { describeError, holoPictures, holoPortraits, log, normalizePlayer, playChime, showForm, type Scope } from "@minecade/minigame-core";
 import { bootServer } from "@minecade/minigame-core/bootstrap";
 import registry from "#registry";
 import skins from "#skins";
@@ -12,7 +12,7 @@ import { countdownContent, teamsContent } from "./holo-content.ts";
 import { Hologram } from "./hologram.ts";
 import { LobbyController } from "./lobby-controller.ts";
 import { PREVIEW_SCREENS } from "./holo-preview.ts";
-import { CLOSE, menuChoice } from "./game-screen.ts";
+import { CLOSE, menuChoice, strayClose } from "./game-screen.ts";
 import { MAIN_MENU_CHOICES, gameForm, gamesForm, mainMenuForm, playersForm, previewForm, statsForm } from "./menus.ts";
 import { isWatcher, useSkins } from "./skins.ts";
 import { StarBox } from "./star-box.ts";
@@ -54,6 +54,27 @@ function recipients(to: string): Player[] {
   if (to === "all") return lobbyPlayers();
   const player = playerNamed(to);
   return player ? [player] : [];
+}
+
+/**
+ * Shows a themed menu and resolves its choice (menuChoice). An X that comes right as the menu
+ * opens is a stray click (strayClose): the menu shows again instead of closing the terminal.
+ */
+async function showMenu(scope: Scope, player: Player, form: ActionFormData): Promise<number | typeof CLOSE | undefined> {
+  for (;;) {
+    // From the last attempt: showForm tries again while the player is busy.
+    let shownAt = system.currentTick;
+    const response = await showForm(scope, player, {
+      show: (target: Player) => {
+        shownAt = system.currentTick;
+        return form.show(target);
+      },
+    });
+    const choice = menuChoice(response?.selection);
+    const ticksOpen = system.currentTick - shownAt;
+    if (!strayClose(choice, ticksOpen)) return choice;
+    log.info(`ignored a stray X on ${player.name}'s menu, ${ticksOpen} ticks after it opened`);
+  }
 }
 
 bootServer(({ vars, transport, transfer, root }) => {
@@ -119,11 +140,11 @@ bootServer(({ vars, transport, transfer, root }) => {
       notify: (name, text) => playerNamed(name)?.sendMessage(text),
       playersMenu: async (name, scope, view) => {
         const player = playerNamed(name);
-        return player ? menuChoice((await showForm(scope, player, playersForm(view)))?.selection) : undefined;
+        return player ? showMenu(scope, player, playersForm(view)) : undefined;
       },
       statsMenu: async (name, scope, view) => {
         const player = playerNamed(name);
-        return player ? menuChoice((await showForm(scope, player, statsForm(view)))?.selection) : undefined;
+        return player ? showMenu(scope, player, statsForm(view)) : undefined;
       },
     },
     root,
@@ -141,7 +162,7 @@ bootServer(({ vars, transport, transfer, root }) => {
       mainMenu: async (name, scope) => {
         const player = playerNamed(name);
         if (!player) return undefined;
-        const choice = menuChoice((await showForm(scope, player, mainMenuForm(vars.devHoloPreview)))?.selection);
+        const choice = await showMenu(scope, player, mainMenuForm(vars.devHoloPreview));
         return choice === undefined || choice === CLOSE ? choice : MAIN_MENU_CHOICES[choice];
       },
       previewMenu: async (name, scope) => {
@@ -151,11 +172,11 @@ bootServer(({ vars, transport, transfer, root }) => {
       },
       gamesMenu: async (name, scope, choices) => {
         const player = playerNamed(name);
-        return player ? menuChoice((await showForm(scope, player, gamesForm(choices)))?.selection) : undefined;
+        return player ? showMenu(scope, player, gamesForm(choices)) : undefined;
       },
       gameMenu: async (name, scope, view) => {
         const player = playerNamed(name);
-        return player ? menuChoice((await showForm(scope, player, gameForm(view)))?.selection) : undefined;
+        return player ? showMenu(scope, player, gameForm(view)) : undefined;
       },
       stats: (name, show) => stats.openStats(name, show),
       choices: () => lobby.choices(),

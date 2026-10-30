@@ -49,6 +49,20 @@ export function menuChoice(selection: number | undefined): number | typeof CLOSE
   return selection === 0 ? CLOSE : selection - 1;
 }
 
+/**
+ * How soon after a menu opens its X counts as a stray click, not a choice. Clicking fast on a menu
+ * that shows itself again (the Random switch) sometimes closed the whole terminal: the X is the
+ * first button, and a click landing just as the menu opens can hit it (most likely a marker column,
+ * whose top slot is the first button until its visibility applies). Nobody reaches the X on
+ * purpose this fast.
+ */
+export const STRAY_CLOSE_TICKS = 6;
+
+/** Whether a menu's answer is a stray X (see STRAY_CLOSE_TICKS), so the menu should just show again. */
+export function strayClose(choice: number | typeof CLOSE | undefined, ticksOpen: number): boolean {
+  return choice === CLOSE && ticksOpen < STRAY_CLOSE_TICKS;
+}
+
 export const PREVIEWS = {
   /** For games without an icon.png (demo games). */
   game: PLACEHOLDER_PICTURES.game,

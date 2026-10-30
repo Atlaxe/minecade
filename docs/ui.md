@@ -339,8 +339,10 @@ mostly disappear.
 
 Adding light can't make anything darker or change what's behind it. A **backdrop** sits just
 inside the panels (the `backdrop_*` bones): `backdrop.png`, a faint blue (about 14%), drawn with an
-alpha-blended material (`entity_alphablend`) by the first render controller, so the sky behind the
-panels is tinted blue before the panels, pictures and portrait add their light. A darker color
+alpha-blended material (`entity_alphablend`) before the panels, so the sky behind the panels is
+tinted blue before the panels, pictures and portrait add their light. That material keeps depth,
+so anything drawn after it behind a backdrop plane is hidden: the beam, which runs up inside the
+panels, is drawn first (its render controller is first in the list) and the backdrop tints over it. A darker color
 (black at about 60% was tried first) dims a bright sky instead; more opacity makes either stronger.
 
 **The star box** (lobby map.json `"stars": true`) uses the same additive trick at a much larger

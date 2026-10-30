@@ -27,11 +27,11 @@
         ]
       },
       "render_controllers": [
+        "controller.render.minecade.holo_beam",
         "controller.render.minecade.holo_backdrop",
         "controller.render.minecade.holo_screen",
         "controller.render.minecade.holo_picture",
-        "controller.render.minecade.holo_portrait",
-        "controller.render.minecade.holo_beam"
+        "controller.render.minecade.holo_portrait"
       ]
     }
   }
