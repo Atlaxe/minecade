@@ -2,6 +2,7 @@
 //   <xuid>/meta.json       who and what (SkinMeta)
 //   <xuid>/skin.rgba       the skin's pixels, 4 bytes each, rows top to bottom
 //   <xuid>/model.geo.json  a character creator skin's own model (absent for classic skins)
+//   <xuid>/face.rgba       a character creator skin's face: its "animated_face" model's texture
 import { existsSync } from "node:fs";
 import { readdir, readFile } from "node:fs/promises";
 import { join } from "node:path";
@@ -13,6 +14,8 @@ export interface SkinMeta extends SkinShape {
   /** The gamertag the player last had. */
   name: string;
   skinId?: string;
+  /** A character creator skin's face texture (face.rgba): its size, and how many frames it stacks (the face, then its blink). */
+  face?: { width: number; height: number; frames?: number };
   /** Changes when the skin does (the watcher skips saving an unchanged one). */
   hash: string;
   updatedAt: string;
@@ -23,6 +26,8 @@ export interface StoredSkin {
   image: Image;
   /** The parsed model.geo.json, when there is one. */
   geometry?: unknown;
+  /** face.rgba, when there is one. */
+  face?: Image;
 }
 
 /** Every saved skin in `dir`, by xuid; folders that are incomplete or unreadable are skipped. */
@@ -37,7 +42,10 @@ export async function readSkins(dir: string): Promise<StoredSkin[]> {
       if (!meta.xuid || data.length !== meta.width * meta.height * 4) continue;
       const geometryPath = join(folder, "model.geo.json");
       const geometry = existsSync(geometryPath) ? JSON.parse(await readFile(geometryPath, "utf8")) : undefined;
-      skins.push({ meta, image: { width: meta.width, height: meta.height, data }, ...(geometry ? { geometry } : {}) });
+      const facePath = join(folder, "face.rgba");
+      const faceData = meta.face && existsSync(facePath) ? new Uint8Array(await readFile(facePath)) : undefined;
+      const face = meta.face && faceData?.length === meta.face.width * meta.face.height * 4 ? { width: meta.face.width, height: meta.face.height, data: faceData } : undefined;
+      skins.push({ meta, image: { width: meta.width, height: meta.height, data }, ...(geometry ? { geometry } : {}), ...(face ? { face } : {}) });
     } catch {
       continue;
     }

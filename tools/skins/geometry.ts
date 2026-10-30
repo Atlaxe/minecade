@@ -19,6 +19,19 @@ export interface Cube {
   pivot?: Vec3;
 }
 
+/**
+ * A bone's mesh (character creator models use these instead of cubes): positions in model space,
+ * and polygons of 3 or 4 corners, each corner [position, normal, uv] indices. UVs are 0 to 1 with
+ * v counted from the bottom when `normalized_uvs` is set, otherwise texture pixels.
+ */
+export interface PolyMesh {
+  normalized_uvs?: boolean;
+  positions: Vec3[];
+  normals: Vec3[];
+  uvs: [number, number][];
+  polys: [number, number, number][][];
+}
+
 export interface Bone {
   name: string;
   parent?: string;
@@ -28,6 +41,7 @@ export interface Bone {
   inflate?: number;
   neverRender?: boolean;
   cubes?: Cube[];
+  poly_mesh?: PolyMesh;
 }
 
 export interface Model {
@@ -108,7 +122,7 @@ export const LEGACY: Model = {
  * ({ "geometry.name": { texturewidth, textureheight, bones } }, where a key can name the
  * geometry it extends after a colon).
  */
-export function parseGeometry(file: unknown, identifier?: string): Model {
+export function parseGeometry(file: unknown, identifier?: string, exact = false): Model {
   if (!file || typeof file !== "object") throw new Error("not a geometry file");
   const entries: { id: string; textureWidth: number; textureHeight: number; bones: Bone[] }[] = [];
   const modern = (file as Record<string, unknown>)["minecraft:geometry"];
@@ -127,9 +141,24 @@ export function parseGeometry(file: unknown, identifier?: string): Model {
     const legacy = value as { texturewidth?: number; textureheight?: number; bones?: Bone[] };
     entries.push({ id: key.split(":")[0], textureWidth: legacy.texturewidth ?? 64, textureHeight: legacy.textureheight ?? 64, bones: legacy.bones ?? [] });
   }
-  const entry = entries.find((candidate) => candidate.id === identifier) ?? entries[0];
+  const entry = entries.find((candidate) => candidate.id === identifier) ?? (exact ? undefined : entries[0]);
   if (!entry) throw new Error("no geometry in the file");
   return { textureWidth: entry.textureWidth, textureHeight: entry.textureHeight, bones: entry.bones };
+}
+
+/**
+ * A character creator skin's face model ("animated_face" in its resource patch), drawn with its own
+ * texture (the face, then its blink below, of which the model's UVs use the first); undefined for
+ * other skins.
+ */
+export function faceModelFor(skin: SkinShape, geometryFile?: unknown): Model | undefined {
+  const name = skin.geometry?.animated_face;
+  if (!skin.persona || !name || !geometryFile) return undefined;
+  try {
+    return parseGeometry(geometryFile, name, true);
+  } catch {
+    return undefined;
+  }
 }
 
 /**

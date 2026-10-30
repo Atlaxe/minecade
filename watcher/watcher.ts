@@ -14,6 +14,8 @@
 //   <xuid>/meta.json       who and what (written last, so a folder with one is complete)
 //   <xuid>/skin.rgba       the skin's pixels, 4 bytes each, rows top to bottom
 //   <xuid>/model.geo.json  a character creator skin's own model
+//   <xuid>/face.rgba       a character creator skin's face (its "animated_face" model's texture:
+//                          the face, then its blink, top to bottom)
 import { createHash } from "node:crypto";
 import { mkdir, readFile, rename, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
@@ -33,6 +35,8 @@ const RETRY_MS = 20_000;
 const WAIT_MS = 10_000;
 /** A visit that hasn't reached the lobby by then is given up and tried again. */
 const JOIN_TIMEOUT_MS = 90_000;
+/** A skin animation's type for a character creator skin's face. */
+const FACE_ANIMATION = 1;
 /** server_script_debug_drawer: the hologram's text shapes, which bedrock-protocol can't decode and the watcher doesn't need. */
 const UNREADABLE_PACKET = 328;
 
@@ -77,10 +81,18 @@ async function lobbyAnswers(): Promise<boolean> {
   }
 }
 
+interface SkinImage {
+  width?: number;
+  height?: number;
+  data?: Uint8Array;
+}
+
 interface Skin {
   skin_id?: string;
   skin_resource_pack?: string;
-  skin_data?: { width?: number; height?: number; data?: Uint8Array };
+  skin_data?: SkinImage;
+  /** Animated parts: a character creator skin's face is type 1 (the face and its blink, as frames). */
+  animations?: { skin_image?: SkinImage; animation_type?: number; animation_frames?: number }[];
   geometry_data?: string;
   arm_size?: string;
   persona?: boolean;
@@ -180,7 +192,14 @@ async function saveSkin(player: { name: string; xuid: string }, skin: Skin | und
     return;
   }
   const geometry = typeof skin?.geometry_data === "string" && skin.geometry_data.length > 0 ? skin.geometry_data : undefined;
-  const hash = createHash("sha256").update(pixels).update(geometry ?? "").digest("hex").slice(0, 16);
+  const faceAnimation = skin?.animations?.find((animation) => animation.animation_type === FACE_ANIMATION);
+  const face = image(faceAnimation?.skin_image);
+  const hash = createHash("sha256")
+    .update(pixels)
+    .update(geometry ?? "")
+    .update(face?.pixels ?? Buffer.alloc(0))
+    .digest("hex")
+    .slice(0, 16);
   const folder = join(SKINS_DIR, player.xuid);
   const saved = await readJson(join(folder, "meta.json"));
   if (saved?.hash === hash && saved?.name === player.name) return;
@@ -194,6 +213,7 @@ async function saveSkin(player: { name: string; xuid: string }, skin: Skin | und
     premium: skin?.premium === true,
     armSize: skin?.arm_size,
     geometry: patch?.geometry,
+    ...(face ? { face: { width: face.width, height: face.height, frames: faceAnimation?.animation_frames ?? 1 } } : {}),
     skinId: skin?.skin_id,
     hash,
     updatedAt: new Date().toISOString(),
@@ -202,8 +222,18 @@ async function saveSkin(player: { name: string; xuid: string }, skin: Skin | und
   await writeAtomically(join(folder, "skin.rgba"), pixels);
   if (geometry) await writeAtomically(join(folder, "model.geo.json"), geometry);
   else await rm(join(folder, "model.geo.json"), { force: true });
+  if (face) await writeAtomically(join(folder, "face.rgba"), face.pixels);
+  else await rm(join(folder, "face.rgba"), { force: true });
   await writeAtomically(join(folder, "meta.json"), `${JSON.stringify(meta, null, 2)}\n`);
   report("skin_saved", { name: player.name, width, height, persona: meta.persona, changed: saved !== undefined });
+}
+
+/** A skin image's pixels, when it's complete. */
+function image(source: SkinImage | undefined): { width: number; height: number; pixels: Buffer } | undefined {
+  const width = Number(source?.width);
+  const height = Number(source?.height);
+  const pixels = source?.data ? Buffer.from(source.data) : Buffer.alloc(0);
+  return width > 0 && height > 0 && pixels.length === width * height * 4 ? { width, height, pixels } : undefined;
 }
 
 async function writeAtomically(path: string, data: string | Buffer): Promise<void> {

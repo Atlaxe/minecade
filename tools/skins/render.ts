@@ -4,7 +4,7 @@
 // (-x, -y, z) applied z, then y, then x), where box UV and the face corners below are laid out.
 // The camera is orthographic and looks at the model's front (north, -z).
 import { blankImage, type Image } from "./png.ts";
-import type { Bone, Cube, FaceName, FaceUv, Model, Vec3 } from "./geometry.ts";
+import type { Bone, Cube, FaceName, FaceUv, Model, PolyMesh, Vec3 } from "./geometry.ts";
 
 /** How much of the model the image shows: the head, head and shoulders down to the waist, or all of it. */
 export type Framing = "head" | "bust" | "full";
@@ -22,26 +22,35 @@ export interface RenderOptions {
   supersample?: number;
 }
 
-/** Bones that aren't the player's body (attachment points and armor); character creator models can carry them. */
-const NOT_BODY = /cape|elytra|item|armor|legging|boot|sock|belt|helmet|parrot|shield/i;
-/** The bust framing shows the model down to this height (model pixels: the waist is at 12, the shoulders at 24). */
+/** Bones that aren't the player's body; character creator models can carry them. (Their head is on a bone named "helmet".) */
+const NOT_BODY = /cape|elytra|item|parrot|shield/i;
+/**
+ * The bust framing shows the model down to this height (model pixels: classic models have the
+ * waist at 12 and the shoulders at 24, character creator ones at 10 and 20).
+ */
 const CHEST = 15;
 /** Where the light comes from, in camera space: above, in front and to the viewer's left. */
 const LIGHT = normalize([0.35, 0.85, -0.55]);
 
-interface Face {
-  bone: string;
-  corners: [Vec3, Vec3, Vec3, Vec3];
-  normal: Vec3;
-  /** Texture rectangle: (u0, v0) at the first corner, (u1, v1) at the third. */
-  uv: [number, number, number, number];
+/** A model and the texture it's drawn with. A character creator skin is two: the body, and the face with its own texture. */
+export interface Layer {
+  model: Model;
+  texture: Image;
 }
 
-/** Bones the head framing shows: the head, and whatever a character creator model hangs on it. */
-const HEAD = /head|hat|hair|face|eye|mouth/i;
+/** A flat polygon of the model (a cube's side, or a mesh's polygon), with a texture point (pixels) per corner. */
+interface Face {
+  bone: string;
+  corners: Vec3[];
+  uvs: [number, number][];
+  normal: Vec3;
+}
 
-/** The model drawn with `texture` (its skin), on a transparent background. */
-export function renderModel(model: Model, texture: Image, options: RenderOptions): Image {
+/** Bones the head framing shows: the head (a character creator model's is "helmet"), and what hangs on it. */
+const HEAD = /head|hat|helmet|hair|face|eye|mouth/i;
+
+/** The layers drawn together (sharing one depth buffer), on a transparent background. */
+export function renderModel(layers: Layer[], options: RenderOptions): Image {
   const { width, height, yaw = 25, pitch = 12, framing = "full", padding = 0.06, supersample = 3 } = options;
   const turn = rotation(-pitch, yaw, 0);
   // Turned toward the camera, then flipped to the image: looking along +z, the viewer's right is
@@ -50,7 +59,8 @@ export function renderModel(model: Model, texture: Image, options: RenderOptions
     const [x, y, z] = apply(turn, corner);
     return [-x, -y, z];
   };
-  const faces = modelFaces(model)
+  const faces = layers
+    .flatMap((layer) => modelFaces(layer.model).map((face) => ({ ...face, layer })))
     .filter((face) => framing !== "head" || HEAD.test(face.bone))
     .map((face) => ({ ...face, points: face.corners.map(toView), facing: apply(turn, face.normal) }));
 
@@ -72,41 +82,52 @@ export function renderModel(model: Model, texture: Image, options: RenderOptions
     if (face.facing[2] >= 0) continue;
     const brightness = 0.55 + 0.45 * Math.max(0, dot(face.facing, LIGHT));
     const screen = face.points.map(([x, y, z]) => [x * scale + offsetX, y * scale + offsetY, z] as Vec3);
-    const [u0, v0, u1, v1] = face.uv;
-    const uvs: [number, number][] = [
-      [u0, v0],
-      [u1, v0],
-      [u1, v1],
-      [u0, v1],
-    ];
-    // Sampled just inside the face's own rectangle, so its edges never pick up a neighbor's texels.
-    const inside = (value: number, a: number, b: number) => Math.min(Math.max(a, b) - 1e-3, Math.max(Math.min(a, b) + 1e-3, value));
-    const sample = (u: number, v: number) => texel(texture, model, inside(u, u0, u1), inside(v, v0, v1));
-    fillTriangle(big, depth, [screen[0], screen[1], screen[2]], [uvs[0], uvs[1], uvs[2]], sample, brightness);
-    fillTriangle(big, depth, [screen[0], screen[2], screen[3]], [uvs[0], uvs[2], uvs[3]], sample, brightness);
+    // Sampled just inside the face's own texture area, so its edges never pick up a neighbor's texels.
+    const us = face.uvs.map((uv) => uv[0]);
+    const vs = face.uvs.map((uv) => uv[1]);
+    const inside = (value: number, values: number[]) => Math.min(Math.max(...values) - 1e-3, Math.max(Math.min(...values) + 1e-3, value));
+    const sample = (u: number, v: number) => texel(face.layer.texture, face.layer.model, inside(u, us), inside(v, vs));
+    // A fan of triangles from the first corner.
+    for (let i = 1; i + 1 < screen.length; i++) {
+      fillTriangle(big, depth, [screen[0], screen[i], screen[i + 1]], [face.uvs[0], face.uvs[i], face.uvs[i + 1]], sample, brightness);
+    }
   }
   return shrink(big, supersample);
 }
 
-/** Every face of the model, in Blockbench space, with its cube's and bones' rotations applied. */
+/** Every face of the model (cube sides and mesh polygons), in Blockbench space, with its cube's and bones' rotations applied. */
 function modelFaces(model: Model): Face[] {
   const bones = new Map(model.bones.map((bone) => [bone.name, bone]));
   const faces: Face[] = [];
+  const place = (bone: Bone, face: Omit<Face, "bone">, transforms: Transform[]) =>
+    faces.push({
+      bone: bone.name,
+      corners: face.corners.map((corner) => transforms.reduce((point, transform) => transform(point), corner)),
+      normal: transforms.reduce((normal, transform) => sub(transform(normal), transform([0, 0, 0])), face.normal),
+      uvs: face.uvs,
+    });
   for (const bone of model.bones) {
     if (bone.neverRender || NOT_BODY.test(bone.name)) continue;
+    const chain = boneChain(bone, bones);
     for (const cube of bone.cubes ?? []) {
-      const transforms = [cubeTransform(cube), ...boneChain(bone, bones)];
-      for (const face of cubeFaces(cube, bone)) {
-        faces.push({
-          bone: bone.name,
-          corners: face.corners.map((corner) => transforms.reduce((point, transform) => transform(point), corner)) as Face["corners"],
-          normal: transforms.reduce((normal, transform) => sub(transform(normal), transform([0, 0, 0])), face.normal),
-          uv: face.uv,
-        });
-      }
+      for (const face of cubeFaces(cube, bone)) place(bone, face, [cubeTransform(cube), ...chain]);
     }
+    if (bone.poly_mesh) for (const face of meshFaces(bone.poly_mesh, model)) place(bone, face, chain);
   }
   return faces;
+}
+
+/** A mesh's polygons, in Blockbench space (x mirrored), with texture points in pixels. */
+function meshFaces(mesh: PolyMesh, model: Model): Omit<Face, "bone">[] {
+  const mirrored = ([x, y, z]: Vec3): Vec3 => [-x, y, z];
+  const pixels = ([u, v]: [number, number]): [number, number] =>
+    mesh.normalized_uvs ? [u * model.textureWidth, (1 - v) * model.textureHeight] : [u, model.textureHeight - v];
+  return mesh.polys.flatMap((poly) => {
+    const corners = poly.map(([position]) => mesh.positions[position]);
+    const normal = mesh.normals[poly[0]?.[1]];
+    if (poly.length < 3 || corners.some((corner) => !corner) || !normal) return [];
+    return [{ corners: corners.map(mirrored), uvs: poly.map(([, , uv]) => pixels(mesh.uvs[uv] ?? [0, 0])), normal: mirrored(normal) }];
+  });
 }
 
 type Transform = (point: Vec3) => Vec3;
@@ -157,8 +178,15 @@ function cubeFaces(cube: Cube, bone: Bone): Omit<Face, "bone">[] {
     down: [[x1, y0, z0], [x0, y0, z0], [x0, y0, z1], [x1, y0, z1]],
   };
   const normals: Record<FaceName, Vec3> = { north: [0, 0, -1], south: [0, 0, 1], east: [1, 0, 0], west: [-1, 0, 0], up: [0, 1, 0], down: [0, -1, 0] };
-  const uvs = faceUvs(cube, bone);
-  return (Object.keys(corners) as FaceName[]).flatMap((side) => (uvs[side] ? [{ corners: corners[side], normal: normals[side], uv: uvs[side] }] : []));
+  const rects = faceUvs(cube, bone);
+  return (Object.keys(corners) as FaceName[]).flatMap((side) => {
+    const rect = rects[side];
+    if (!rect) return [];
+    // The rectangle's corners in the same order as the face's.
+    const [u0, v0, u1, v1] = rect;
+    const uvs: [number, number][] = [[u0, v0], [u1, v0], [u1, v1], [u0, v1]];
+    return [{ corners: corners[side], normal: normals[side], uvs }];
+  });
 }
 
 /** Each face's texture rectangle (u0, v0, u1, v1), by the side it's on in Blockbench space. */

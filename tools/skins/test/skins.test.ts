@@ -2,7 +2,7 @@ import { mkdtemp, mkdir, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { LEGACY, SLIM, WIDE, modelFor, parseGeometry } from "../geometry.ts";
+import { LEGACY, SLIM, WIDE, faceModelFor, modelFor, parseGeometry } from "../geometry.ts";
 import { hologramLook } from "../look.ts";
 import { blankImage, decodePng, encodePng, type Image } from "../png.ts";
 import { renderModel } from "../render.ts";
@@ -71,7 +71,7 @@ describe("player models", () => {
 
 describe("rendering a model", () => {
   it("draws the front of a skin facing the viewer: the player's right arm on the left, transparent around", () => {
-    const front = renderModel(WIDE, testSkin(), { width: 64, height: 128, yaw: 0, pitch: 0, framing: "full", supersample: 1 });
+    const front = renderModel([{ model: WIDE, texture: testSkin() }], { width: 64, height: 128, yaw: 0, pitch: 0, framing: "full", supersample: 1 });
     expect(strongest(front, 0, 0)).toBe("clear");
     // Across the chest: right arm (red), body (blue), left arm (green).
     expect(row(front, 50)).toEqual(["red", "blue", "green"]);
@@ -81,10 +81,10 @@ describe("rendering a model", () => {
 
   it("turns the model so its right side shows, and frames a bust or a head", () => {
     const skin = testSkin();
-    const turned = renderModel(WIDE, skin, { width: 128, height: 128, yaw: 30, pitch: 10, framing: "bust", supersample: 1 });
+    const turned = renderModel([{ model: WIDE, texture: skin }], { width: 128, height: 128, yaw: 30, pitch: 10, framing: "bust", supersample: 1 });
     // The bust is cut at the chest: arms and body reach the bottom edge.
     expect(row(turned, 127)).toEqual(expect.arrayContaining(["red", "blue"]));
-    const head = renderModel(WIDE, skin, { width: 64, height: 64, framing: "head", supersample: 1 });
+    const head = renderModel([{ model: WIDE, texture: skin }], { width: 64, height: 64, framing: "head", supersample: 1 });
     const colors = new Set(Array.from({ length: 64 }, (_, y) => row(head, y)).flat());
     expect(colors.has("blue")).toBe(false);
     expect(colors.size).toBeGreaterThan(0);
@@ -99,8 +99,54 @@ describe("rendering a model", () => {
       bones: [{ name: "body", pivot: [0, 0, 0] as [number, number, number], rotation: [0, 90, 0] as [number, number, number], cubes: [{ origin: [-2, 0, -2] as [number, number, number], size: [4, 4, 4] as [number, number, number], uv: { north: { uv: [0, 0] as [number, number], uv_size: [8, 8] as [number, number] }, east: { uv: [8, 0] as [number, number], uv_size: [8, 8] as [number, number] }, west: { uv: [8, 0] as [number, number], uv_size: [8, 8] as [number, number] } } }] }],
     };
     // Turned a quarter, a side face (blue) faces the viewer instead of the front (red).
-    const image = renderModel(model, texture, { width: 32, height: 32, yaw: 0, pitch: 0, supersample: 1 });
+    const image = renderModel([{ model, texture }], { width: 32, height: 32, yaw: 0, pitch: 0, supersample: 1 });
     expect(strongest(image, 16, 16)).toBe("blue");
+  });
+});
+
+describe("character creator skins", () => {
+  const quad = (y: number, v: [number, number]) => ({
+    normalized_uvs: true,
+    positions: [[-2, y, -2], [2, y, -2], [2, y + 4, -2], [-2, y + 4, -2]] as [number, number, number][],
+    normals: [[0, 0, -1]] as [number, number, number][],
+    // v counts from the bottom: the quad's bottom edge at v[0], its top at v[1].
+    uvs: [[0, v[0]], [1, v[0]], [1, v[1]], [0, v[1]]] as [number, number][],
+    polys: [[[0, 0, 0], [1, 0, 1], [2, 0, 2], [3, 0, 3]]] as [number, number, number][][],
+  });
+
+  it("draws meshes (texture points from the bottom up) and a face layer with its own texture", () => {
+    const body = blankImage(8, 8);
+    for (let i = 0; i < 64; i++) body.data.set(i < 32 ? [230, 30, 30, 255] : [30, 30, 230, 255], i * 4); // top half red, bottom half blue
+    const face = blankImage(4, 4);
+    for (let i = 0; i < 16; i++) face.data.set([30, 230, 30, 255], i * 4);
+    const bodyModel = { textureWidth: 8, textureHeight: 8, bones: [{ name: "body", poly_mesh: quad(0, [0.5, 1]) }] };
+    const faceModel = { textureWidth: 4, textureHeight: 4, bones: [{ name: "head", poly_mesh: quad(4, [0, 1]) }] };
+    const image = renderModel(
+      [
+        { model: bodyModel, texture: body },
+        { model: faceModel, texture: face },
+      ],
+      { width: 32, height: 64, yaw: 0, pitch: 0, padding: 0, supersample: 1 },
+    );
+    // The face layer on top, the body below, sampling the body texture's top half (red).
+    expect(strongest(image, 16, 16)).toBe("green");
+    expect(strongest(image, 16, 48)).toBe("red");
+    // The head framing keeps the face layer's head.
+    const head = renderModel([{ model: faceModel, texture: face }], { width: 16, height: 16, framing: "head", supersample: 1 });
+    expect(strongest(head, 8, 8)).toBe("green");
+  });
+
+  it("finds the face model by the skin's animated_face name, and only for character creator skins", () => {
+    const file = {
+      "minecraft:geometry": [
+        { description: { identifier: "geometry.persona_x", texture_width: 256, texture_height: 256 }, bones: [] },
+        { description: { identifier: "geometry.animated_face_x", texture_width: 32, texture_height: 64 }, bones: [{ name: "head" }] },
+      ],
+    };
+    const persona = { width: 256, height: 256, persona: true, geometry: { default: "geometry.persona_x", animated_face: "geometry.animated_face_x" } };
+    expect(faceModelFor(persona, file)).toEqual({ textureWidth: 32, textureHeight: 64, bones: [{ name: "head" }] });
+    expect(faceModelFor({ ...persona, geometry: { default: "geometry.persona_x", animated_face: "geometry.missing" } }, file)).toBeUndefined();
+    expect(faceModelFor({ width: 64, height: 64 }, file)).toBeUndefined();
   });
 });
 
@@ -125,8 +171,14 @@ describe("saved skins", () => {
     await mkdir(join(dir, "456"));
     await writeFile(join(dir, "456", "meta.json"), JSON.stringify({ xuid: "456", name: "Broken", width: 64, height: 64 }));
     await writeFile(join(dir, "456", "skin.rgba"), Buffer.alloc(10));
+    await mkdir(join(dir, "789"));
+    await writeFile(join(dir, "789", "meta.json"), JSON.stringify({ xuid: "789", name: "Alex", width: 64, height: 64, persona: true, face: { width: 32, height: 64 }, hash: "h", updatedAt: "now" }));
+    await writeFile(join(dir, "789", "skin.rgba"), skin.data);
+    await writeFile(join(dir, "789", "face.rgba"), Buffer.alloc(32 * 64 * 4));
     const skins = await readSkins(dir);
-    expect(skins.map((stored) => stored.meta.name)).toEqual(["Steve"]);
+    expect(skins.map((stored) => stored.meta.name)).toEqual(["Steve", "Alex"]);
+    expect(skins[1].face?.width).toBe(32);
+    expect(skins[0].face).toBeUndefined();
     expect(await readSkins(join(dir, "missing"))).toEqual([]);
 
     const set = renderSkinSet(skins[0]);
