@@ -15,7 +15,19 @@ export {
   type TeamsConfig,
 } from "./config.ts";
 export type { Box, MapConfig, Vec3 } from "./map-config.ts";
-export { BADGE_CHARACTERS, PLACEHOLDER_PICTURES, badgeFor, holoPictures, holoPortraits, type Registry, type RegistryGame, type RegistryMap } from "./registry.ts";
+export {
+  BADGE_CHARACTERS,
+  PLACEHOLDER_PICTURES,
+  badgeFor,
+  holoPictures,
+  holoPortraits,
+  skinTexture,
+  type PlayerSkin,
+  type Registry,
+  type RegistryGame,
+  type RegistryMap,
+  type SkinRender,
+} from "./registry.ts";
 export { killDeathRatio, winRate } from "./stats-math.ts";
 export { DEFAULT_TEAMS, activeTeams, assignTeams } from "./game/teams.ts";
 export {

@@ -46,9 +46,32 @@ export function badgeFor(name: string): string {
   return `textures/minecade/badges/${first && BADGE_CHARACTERS.includes(first) ? first : "other"}`;
 }
 
-/** The portraits the lobby hologram can show, in order: none first, then every badge (the build and the lobby share this list). */
-export function holoPortraits(): string[] {
-  return [PLACEHOLDER_PICTURES.none, ...[...BADGE_CHARACTERS, "other"].map((character) => `textures/minecade/badges/${character}`)];
+/**
+ * A player whose skin the lobby pack has renders of (the build makes them from what the skin
+ * watcher saved; packs import the list as "#skins"). `key` names the renders: the player's xuid.
+ */
+export interface PlayerSkin {
+  name: string;
+  key: string;
+}
+
+/** The renders of each player's skin (tools/skins/skin-set.ts): for the hologram, the stats portrait, and the stats list's rows. */
+export type SkinRender = "holo" | "portrait" | "head";
+
+export function skinTexture(key: string, render: SkinRender): string {
+  return `textures/minecade/skins/${key}_${render}`;
+}
+
+/**
+ * The portraits the lobby hologram can show, in order: none first, then every badge, then each
+ * player's skin (the build and the lobby share this list).
+ */
+export function holoPortraits(skins: PlayerSkin[] = []): string[] {
+  return [
+    PLACEHOLDER_PICTURES.none,
+    ...[...BADGE_CHARACTERS, "other"].map((character) => `textures/minecade/badges/${character}`),
+    ...skins.map((skin) => skinTexture(skin.key, "holo")),
+  ];
 }
 
 /**

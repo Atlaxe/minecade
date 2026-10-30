@@ -42,6 +42,8 @@ class FakeForm {
   titleText = "";
   bodyText = "";
   readonly buttons: string[] = [];
+  /** Each button's icon path, in the same order (undefined for buttons without one). */
+  readonly icons: (string | undefined)[] = [];
 
   title(text: string): this {
     this.titleText = text;
@@ -53,8 +55,9 @@ class FakeForm {
     return this;
   }
 
-  button(text: string): this {
+  button(text: string, iconPath?: string): this {
     this.buttons.push(text);
+    this.icons.push(iconPath);
     return this;
   }
 

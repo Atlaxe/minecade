@@ -3,7 +3,7 @@
 // the one matching TRANSPORT, so a log-transport server never imports @minecraft/server-net.
 import { fileURLToPath } from "node:url";
 import type { Plugin } from "esbuild";
-import type { Registry } from "@minecade/minigame-core/config";
+import type { PlayerSkin, Registry } from "@minecade/minigame-core/config";
 import type { TransportKind } from "@minecade/minigame-core/protocol";
 
 const transportDir = fileURLToPath(new URL("../../packages/minigame-core/src/transport/", import.meta.url));
@@ -32,6 +32,17 @@ export function registryPlugin(registry: Registry): Plugin {
     setup(build) {
       build.onResolve({ filter: /^#registry$/ }, () => ({ path: "registry", namespace: "minecade-registry" }));
       build.onLoad({ filter: /.*/, namespace: "minecade-registry" }, () => ({ contents: JSON.stringify(registry), loader: "json" }));
+    },
+  };
+}
+
+/** Resolves "#skins" to the players whose skin renders this build put in the lobby pack, inlined as JSON. */
+export function skinsPlugin(skins: PlayerSkin[]): Plugin {
+  return {
+    name: "minecade-skins",
+    setup(build) {
+      build.onResolve({ filter: /^#skins$/ }, () => ({ path: "skins", namespace: "minecade-skins" }));
+      build.onLoad({ filter: /.*/, namespace: "minecade-skins" }, () => ({ contents: JSON.stringify(skins), loader: "json" }));
     },
   };
 }

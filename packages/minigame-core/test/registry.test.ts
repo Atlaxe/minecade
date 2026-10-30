@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { PLACEHOLDER_PICTURES, badgeFor, holoPictures, holoPortraits, type Registry } from "../src/definitions.ts";
+import { PLACEHOLDER_PICTURES, badgeFor, holoPictures, holoPortraits, skinTexture, type Registry } from "../src/definitions.ts";
 
 describe("holoPictures", () => {
   it("lists none, the placeholders, then each game's picture and map previews, once each", () => {
@@ -36,5 +36,15 @@ describe("holoPortraits", () => {
     expect(portraits[0]).toBe(PLACEHOLDER_PICTURES.none);
     expect(portraits).toHaveLength(1 + 36 + 1);
     for (const name of ["Steve", "zed", "7even", "_x", ""]) expect(portraits).toContain(badgeFor(name));
+  });
+
+  it("adds each player's hologram render after the badges", () => {
+    const portraits = holoPortraits([
+      { name: "Steve", key: "111" },
+      { name: "Alex", key: "222" },
+    ]);
+    expect(portraits).toHaveLength(1 + 36 + 1 + 2);
+    expect(portraits.slice(-2)).toEqual([skinTexture("111", "holo"), skinTexture("222", "holo")]);
+    expect(skinTexture("111", "head")).toBe("textures/minecade/skins/111_head");
   });
 });

@@ -6,6 +6,7 @@ import { uiManager } from "@minecraft/server-ui";
 import { describeError, holoPictures, holoPortraits, log, normalizePlayer, playChime, showForm } from "@minecade/minigame-core";
 import { bootServer } from "@minecade/minigame-core/bootstrap";
 import registry from "#registry";
+import skins from "#skins";
 import { demoGames } from "./demo-games.ts";
 import { countdownContent, teamsContent } from "./holo-content.ts";
 import { Hologram } from "./hologram.ts";
@@ -13,6 +14,7 @@ import { LobbyController } from "./lobby-controller.ts";
 import { PREVIEW_SCREENS } from "./holo-preview.ts";
 import { CLOSE, menuChoice } from "./game-screen.ts";
 import { MAIN_MENU_CHOICES, gameForm, gamesForm, mainMenuForm, playersForm, previewForm, statsForm } from "./menus.ts";
+import { useSkins } from "./skins.ts";
 import { StatsController } from "./stats-controller.ts";
 import { TeamPickForm } from "./team-pick-form.ts";
 import { TerminalController } from "./terminal-controller.ts";
@@ -117,8 +119,10 @@ bootServer(({ vars, transport, transfer, root }) => {
   // The terminal sits at the map's "terminal" point (the middle block of its 3x3 console).
   const [tx, ty, tz] = vars.mapConfig.points?.terminal?.[0] ?? [0, 65, 0];
   const overworld = world.getDimension("overworld");
-  // The build gives the hologram the same picture lists (game pictures, map previews, placeholders; badges).
-  const hologram = new Hologram(overworld, { x: tx, y: ty, z: tz }, holoPictures(registry), holoPortraits());
+  // The build gives the hologram the same picture lists (game pictures, map previews, placeholders;
+  // badges and players' skin renders).
+  useSkins(skins);
+  const hologram = new Hologram(overworld, { x: tx, y: ty, z: tz }, holoPictures(registry), holoPortraits(skins));
   const terminal = new TerminalController(
     {
       mainMenu: async (name, scope) => {

@@ -5,15 +5,18 @@
 // entrypoint keeps the pair that matches TRANSPORT.
 import { existsSync } from "node:fs";
 import { cp, mkdir, readdir, readFile, rm, writeFile } from "node:fs/promises";
-import { join, relative } from "node:path";
+import { dirname, join, relative } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { build } from "esbuild";
-import { holoPictures, holoPortraits, type GameConfig, type MapConfig, type Registry, type RegistryGame } from "@minecade/minigame-core/config";
+import { holoPictures, holoPortraits, skinTexture, type GameConfig, type MapConfig, type PlayerSkin, type Registry, type RegistryGame } from "@minecade/minigame-core/config";
 import type { TransportKind } from "@minecade/minigame-core/protocol";
+import { encodePng } from "../skins/png.ts";
+import { RENDERS, renderSkinSet } from "../skins/skin-set.ts";
+import { readSkins } from "../skins/store.ts";
 import { enableBetaApis, patchLevelDat } from "./leveldat.ts";
 import { MODULE_VERSIONS, pinManifest, type Manifest } from "./mc-versions.ts";
 import { contentHash, withPatchVersion } from "./pack-version.ts";
-import { registryPlugin, transportPlugin } from "./transport-plugin.ts";
+import { registryPlugin, skinsPlugin, transportPlugin } from "./transport-plugin.ts";
 import { validateGameConfig, validateMapConfig } from "./validate.ts";
 
 const root = fileURLToPath(new URL("../../", import.meta.url));
@@ -121,7 +124,7 @@ async function discoverTargets(): Promise<Target[]> {
   return targets;
 }
 
-async function buildBehaviorPack(src: string, out: string, manifest: Manifest, registry: Registry): Promise<void> {
+async function buildBehaviorPack(src: string, out: string, manifest: Manifest, registry: Registry, skins: PlayerSkin[]): Promise<void> {
   // Everything except the sources and the manifest ships as-is (icons, texts, ...).
   await cp(src, out, { recursive: true, filter: (path) => !path.endsWith(".ts") && path !== join(src, "manifest.json") });
   for (const kind of TRANSPORTS) {
@@ -134,7 +137,7 @@ async function buildBehaviorPack(src: string, out: string, manifest: Manifest, r
       platform: "neutral",
       target: "es2022",
       external: ["@minecraft/*"],
-      plugins: [transportPlugin(kind), registryPlugin(registry)],
+      plugins: [transportPlugin(kind), registryPlugin(registry), skinsPlugin(skins)],
       logLevel: "warning",
     });
     const variant = structuredClone(manifest);
@@ -162,14 +165,40 @@ async function buildResourcePack(src: string, out: string, manifest: Manifest, e
   await writeFile(join(out, "manifest.json"), JSON.stringify(stamped, null, 2));
 }
 
-/** The hologram's "minecade:picture" property goes up to this (lobby behavior pack entity). */
+/** The hologram's "minecade:picture" and "minecade:portrait" properties go up to these (lobby behavior pack entity). */
 const MAX_HOLO_PICTURES = 256;
+const MAX_HOLO_PORTRAITS = 256;
 
 /**
- * The lobby pack gets every game's picture and map preview (for the Play menus), and the
- * hologram's picture list from holoPictures(), which the lobby's Hologram numbers the same way.
+ * Renders of every player skin the watcher saved (skins/<xuid>/), for the lobby pack, by texture
+ * path, and the list the lobby looks them up in ("#skins"). A skin that can't be drawn is left
+ * out, so its player keeps their letter badge.
+ */
+async function renderPlayerSkins(): Promise<{ list: PlayerSkin[]; files: Map<string, Buffer> }> {
+  const list: PlayerSkin[] = [];
+  const files = new Map<string, Buffer>();
+  for (const skin of await readSkins(join(root, "skins"))) {
+    try {
+      const renders = renderSkinSet(skin);
+      for (const kind of RENDERS) files.set(`${skinTexture(skin.meta.xuid, kind)}.png`, encodePng(renders[kind]));
+      list.push({ name: skin.meta.name, key: skin.meta.xuid });
+    } catch (error) {
+      console.warn(`left out ${skin.meta.name}'s skin: ${error instanceof Error ? error.message : String(error)}`);
+    }
+  }
+  return { list, files };
+}
+
+/**
+ * The lobby pack gets every game's picture and map preview (for the Play menus), the players' skin
+ * renders, and the hologram's picture and portrait lists from holoPictures() and holoPortraits(),
+ * which the lobby's Hologram numbers the same way.
  */
 async function addGameIcons(out: string): Promise<void> {
+  for (const [path, png] of playerSkins.files) {
+    await mkdir(dirname(join(out, path)), { recursive: true });
+    await writeFile(join(out, path), png);
+  }
   for (const target of targets) {
     if (target.icon) await cp(target.icon, join(out, "textures", "minecade", "games", `${target.id}.png`));
     for (const map of target.maps) {
@@ -189,7 +218,10 @@ async function addGameIcons(out: string): Promise<void> {
   pictures.forEach((picture, index) => (textures[`picture_${index}`] = picture));
   const list = pictures.map((_, index) => `Texture.picture_${index}`);
   controllers.render_controllers["controller.render.minecade.holo_picture"].arrays.textures["Array.pictures"] = list;
-  const portraits = holoPortraits();
+  const portraits = holoPortraits(playerSkins.list);
+  if (portraits.length > MAX_HOLO_PORTRAITS) {
+    throw new Error(`the lobby hologram can show ${MAX_HOLO_PORTRAITS} portraits, but the badges and player skins make ${portraits.length}`);
+  }
   portraits.forEach((portrait, index) => (textures[`portrait_${index}`] = portrait));
   controllers.render_controllers["controller.render.minecade.holo_portrait"].arrays.textures["Array.portraits"] = portraits.map((_, index) => `Texture.portrait_${index}`);
   await writeFile(entityPath, JSON.stringify(entity, null, 2));
@@ -263,12 +295,15 @@ const registry: Registry = {
   ),
 };
 
+// Also known before any bundling, for "#skins".
+const playerSkins = await renderPlayerSkins();
+
 await rm(dist, { recursive: true, force: true });
 for (const target of targets) {
   const out = join(dist, "templates", "servers", target.id);
   await mkdir(out, { recursive: true });
   if (target.behaviorPack) {
-    await buildBehaviorPack(join(target.dir, "behavior_pack"), join(out, "behavior_packs", `${target.id}_bp`), target.behaviorPack, registry);
+    await buildBehaviorPack(join(target.dir, "behavior_pack"), join(out, "behavior_packs", `${target.id}_bp`), target.behaviorPack, registry, playerSkins.list);
   }
   if (coreResourcePack) await buildResourcePack(coreRpDir, join(out, "resource_packs", "core_rp"), coreResourcePack);
   if (target.resourcePack) {
@@ -280,4 +315,4 @@ for (const target of targets) {
 }
 await writeFile(join(dist, "registry.json"), JSON.stringify(registry, null, 2));
 await buildOrchestrator();
-console.log("built registry.json and the orchestrator");
+console.log(`built registry.json and the orchestrator; ${playerSkins.list.length} player skin${playerSkins.list.length === 1 ? "" : "s"} rendered`);
