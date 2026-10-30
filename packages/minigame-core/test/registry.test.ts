@@ -45,6 +45,6 @@ describe("holoPortraits", () => {
     ]);
     expect(portraits).toHaveLength(1 + 36 + 1 + 2);
     expect(portraits.slice(-2)).toEqual([skinTexture("111", "holo"), skinTexture("222", "holo")]);
-    expect(skinTexture("111", "head")).toBe("textures/minecade/skins/111_head");
+    expect(skinTexture("111", "holo_head")).toBe("textures/minecade/skins/111_holo_head");
   });
 });

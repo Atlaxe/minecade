@@ -1,8 +1,8 @@
 # Player skins
 
 The stats list shows each player's head, and a player's stats screen and the hologram show their
-head and shoulders, drawn from their own skin at an angle (in the hologram's blue on the
-hologram). A player the watcher hasn't seen yet has a letter badge instead (`badgeFor()`).
+head and shoulders, drawn from their own skin at an angle in the hologram's blue. A player the
+watcher hasn't seen yet has a letter badge instead (`badgeFor()`).
 
 ## How it works
 
@@ -17,9 +17,13 @@ hologram). A player the watcher hasn't seen yet has a letter badge instead (`bad
    never goes to a game: everyone passes through the lobby, so that's where it sees every skin.
 3. **The build renders them.** `tools/skins/` is a small software renderer: it draws each skin on
    its model (vanilla's classic wide, slim or old 64x32 model, or a character creator skin's own
-   model from its geometry data) at an angle, with shading. Each player gets three renders in the
-   lobby pack (`textures/minecade/skins/<xuid>_holo`, `_portrait`, `_head`), and the lobby's
-   scripts get the list as `#skins`.
+   model from its geometry data) at an angle, with shading, then gives it the hologram's look
+   (blue by brightness, glowing edges, scanlines, transparent around). Each player gets two
+   renders in the lobby pack: head and shoulders (`textures/minecade/skins/<xuid>_holo`, for the
+   hologram and the stats screen) and the head alone (`_holo_head`, for the stats list), and the
+   lobby's scripts get the list as `#skins`. The background is transparent rather than black: the
+   hologram draws additively, so both show as nothing there, and the menus draw it over their own
+   background.
 4. **New skins show after the next build and lobby restart** (`docker compose up -d --build`, the
    panel's Start, or a smoke test). Bedrock only shows pictures that are in a resource pack, and
    the lobby loads its packs when it starts; clients download the new pack on their next join.
@@ -32,8 +36,8 @@ volume. bedrock-protocol signs in posing as the Nintendo Switch version of Minec
 account you don't mind losing.
 
 **Looking at the renders:** `npm run skins` renders every saved skin into its folder (`skin.png`,
-`holo.png`, `portrait.png`, `head.png`), and `npm run skins -- <skin.png> [slim]` renders one skin
-file.
+`holo.png` and `holo-head.png` as the lobby has them, and `portrait.png` and `head.png` in color),
+and `npm run skins -- <skin.png> [slim]` renders one skin file.
 
 **Not done yet:** a 3D model of each player in the world (for showing players in games). The
 lobby pack would need a figure entity with each player's texture (and a character creator

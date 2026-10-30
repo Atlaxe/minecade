@@ -6,7 +6,7 @@ import { LEGACY, SLIM, WIDE, modelFor, parseGeometry } from "../geometry.ts";
 import { hologramLook } from "../look.ts";
 import { blankImage, decodePng, encodePng, type Image } from "../png.ts";
 import { renderModel } from "../render.ts";
-import { renderSkinSet } from "../skin-set.ts";
+import { renderPreviews, renderSkinSet } from "../skin-set.ts";
 import { readSkins } from "../store.ts";
 
 /** A 64x64 classic skin with every part a different color (only what these tests look at). */
@@ -105,11 +105,11 @@ describe("rendering a model", () => {
 });
 
 describe("the hologram look", () => {
-  it("turns a render blue on black, with bright edges", () => {
+  it("turns a render blue, with bright edges, on transparent (which the additive hologram shows as nothing)", () => {
     const render = blankImage(5, 5);
     for (let y = 1; y < 4; y++) for (let x = 1; x < 4; x++) render.data.set([200, 50, 50, 255], (y * 5 + x) * 4);
     const look = hologramLook(render);
-    expect(pixel(look, 0, 0)).toEqual([0, 0, 0, 255]);
+    expect(pixel(look, 0, 0)).toEqual([0, 0, 0, 0]);
     expect(strongest(look, 2, 2)).toBe("blue");
     expect(pixel(look, 1, 1)).toEqual([190, 240, 255, 255]);
   });
@@ -130,8 +130,9 @@ describe("saved skins", () => {
     expect(await readSkins(join(dir, "missing"))).toEqual([]);
 
     const set = renderSkinSet(skins[0]);
-    expect([set.holo.width, set.holo.height, set.portrait.width, set.head.width]).toEqual([128, 128, 128, 64]);
-    expect(pixel(set.holo, 0, 0)).toEqual([0, 0, 0, 255]);
-    expect(pixel(set.portrait, 0, 0)[3]).toBe(0);
+    expect([set.holo.width, set.holo.height, set.holo_head.width, set.holo_head.height]).toEqual([128, 128, 64, 64]);
+    expect(pixel(set.holo, 0, 0)[3]).toBe(0);
+    expect(strongest(set.holo_head, 32, 32)).toBe("blue");
+    expect(Object.keys(renderPreviews(skins[0]))).toEqual(["holo", "holo-head", "portrait", "head"]);
   });
 });

@@ -7,7 +7,7 @@ import { ordinal } from "@minecade/minigame-core";
 import { gamePicture, mapOptions, playerCount, playerRange, settingLabel, settingsFor, type MapOption } from "./game-screen.ts";
 import type { CountdownView, GameChoice } from "./lobby-controller.ts";
 import type { GameView } from "./menus.ts";
-import { holoPortraitFor } from "./skins.ts";
+import { portraitFor } from "./skins.ts";
 import { STAT_COLUMNS, type PlayersView, type StatsView } from "./stats-screens.ts";
 import type { TeamPickView } from "./team-pick-controller.ts";
 
@@ -397,7 +397,7 @@ export function statsListContent(view: PlayersView): HoloContent {
 export function statsContent(view: StatsView): HoloContent {
   const L = HOLO_LAYOUT.stats;
   const elements: HoloElement[] = [];
-  const portrait = holoPortraitFor(view.player);
+  const portrait = portraitFor(view.player);
   const tab = view.tabs.find((candidate) => candidate.id === view.tab);
   if (tab) elements.push(fittedLeft(tab.name, L.left, L.tab, L.width, L.tabScale, L.minScale, { box: "selected" }));
   elements.push(fittedLeft(view.player, L.left, L.name, L.width, L.nameScale, 0.5, { tone: "title" }));

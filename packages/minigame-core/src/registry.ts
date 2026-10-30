@@ -55,8 +55,11 @@ export interface PlayerSkin {
   key: string;
 }
 
-/** The renders of each player's skin (tools/skins/skin-set.ts): for the hologram, the stats portrait, and the stats list's rows. */
-export type SkinRender = "holo" | "portrait" | "head";
+/**
+ * The renders of each player's skin, in the hologram's look (tools/skins/skin-set.ts): head and
+ * shoulders (the hologram's portrait and the stats screen's), and the head alone (the stats list's rows).
+ */
+export type SkinRender = "holo" | "holo_head";
 
 export function skinTexture(key: string, render: SkinRender): string {
   return `textures/minecade/skins/${key}_${render}`;

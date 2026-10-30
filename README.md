@@ -169,8 +169,8 @@ Xbox account, so stats survive a gamertag change.
 
 ## Player skins
 
-The stats screens and the hologram show each player's own skin, drawn at an angle (in the
-hologram's blue on the hologram). Scripts can't read skins, so a bot does it: the skin watcher, a
+The stats screens and the hologram show each player's own skin, drawn at an angle in the
+hologram's blue. Scripts can't read skins, so a bot does it: the skin watcher, a
 spare Microsoft account (`WATCHER_GAMERTAG`) that stays in the lobby, invisible and out of games,
 and saves every player's skin to `skins/` (on this PC only; it's gitignored).
 
