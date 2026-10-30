@@ -8,7 +8,7 @@
         "moving": "charged_creeper"
       },
       "textures": {
-        "default": "textures/minecade/holo/stars",
+        "default": "textures/minecade/sky/stars",
         "warp_0": "textures/minecade/holo/icon_none",
         "warp_1": "textures/minecade/holo/warp_1",
         "warp_2": "textures/minecade/holo/warp_2",

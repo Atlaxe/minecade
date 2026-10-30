@@ -91,10 +91,18 @@ in `hud.ts`). Games can play them too with `this.chime("bell")`.
 ## The core resource pack
 
 `packages/minigame-core/resource_pack/` goes to every server, before the server's own pack: the
-HUD clock now, and other shared UI later. The build stamps every resource pack's version from a
+HUD clock, the loading screen, and art more than one pack uses (the logo, the stars). The build stamps every resource pack's version from a
 hash of its files, because clients cache server packs by UUID and version and would otherwise keep
 an old copy. Images come from `tools/assets/make-assets.py` (Pillow): rerun it after changing the
 art and commit the PNGs it writes.
+
+**The loading screen** while a world loads (joining a Minecade server, a transfer between them)
+shows the star field instead of vanilla's dirt, and Minecade's logo instead of Minecraft's.
+`ui/progress_screen.json` points the world loading screens at a tiled `stars.png` (vanilla
+darkens its dirt with a gradient; ours has none), and `ui/ui_art_assets_common.json` swaps the
+logo (`common_art.title_image`, so the pause menu shows it too), keeping its shape. Both merge into
+the vanilla files. A server's packs only apply once the player is joining it, so the screens
+before that ("Locating server", downloading packs) are the player's own and stay vanilla.
 
 ## The lobby terminal
 
@@ -393,7 +401,7 @@ middle, and the tiled scanlines, which repeat.
 | Image | Shown as | Art size |
 |---|---|---|
 | `packages/minigame-core/resource_pack/textures/minecade/hud/clock.png` | HUD clock icon, 10x10 | 16x16 |
-| `lobby/resource_pack/textures/minecade/ui/logo.png` | Main menu logo, 232x50 | 1072x240, transparent background |
+| `packages/minigame-core/resource_pack/textures/minecade/ui/logo.png` | Main menu logo, 232x50; the logo on every server's loading screen and pause menu | 1072x240, transparent background |
 | `lobby/resource_pack/textures/minecade/ui/holo_panel.png` | Every menu's background (main menu 300x116, game grid 430 wide by 80% of the screen, game screen 460x250) | 64x64 at 1x, nine-slice (`holo_panel.json`): the outer 24 pixels hold the border and corner brackets and keep their size, the middle stretches; partly transparent |
 | `lobby/resource_pack/textures/minecade/ui/holo_scanlines.png` | Scanlines over every menu's background, tiled (repeated at 1 pixel per pixel) | 4x3, one faint line on top, the rest transparent |
 | `lobby/resource_pack/textures/minecade/ui/icon_play.png`, `icon_stats.png` | Button icons, 20x20 | 64x64 |
@@ -417,7 +425,7 @@ middle, and the tiled scanlines, which repeat.
 | `lobby/resource_pack/textures/minecade/holo/frame_logo.png`, `frame_panel.png` | Hologram frames, 3x3 blocks on all four sides, with live text over them; `frame_logo` has the logo up top; no scanlines (they're a moving layer, `scanlines.png`) | 512x512 (square), additive |
 | `lobby/resource_pack/textures/minecade/holo/backdrop.png` | Behind the hologram's panels, tinting the sky behind them | 16x16, light blue (28, 185, 244) at about 14% (alpha 35), alpha-blended |
 | `lobby/resource_pack/textures/minecade/holo/scanlines.png` | The hologram's scanlines, rolling upward over every panel, repeated 32 times up each | 16x16, a faint line every 4 rows, additive; must tile |
-| `lobby/resource_pack/textures/minecade/holo/stars.png` | The star box's east and west walls, floor and ceiling, 96 blocks wide each; it scrolls on the east and west walls and the ceiling | 512x512, stars on black, additive (black shows nothing); drawn with a fixed seed; must tile (no seams), since it repeats as it scrolls |
+| `packages/minigame-core/resource_pack/textures/minecade/sky/stars.png` | The star box's east and west walls, floor and ceiling, 96 blocks wide each (it scrolls on the east and west walls and the ceiling); every server's loading screen, tiled | 512x512, stars on black, additive (black shows nothing); drawn with a fixed seed; must tile (no seams), since it repeats as it scrolls |
 | `lobby/resource_pack/textures/minecade/holo/warp_1.png` to `warp_7.png` | The star box's north and south walls (three zooming layers each) | 512x512, one star field (1200 stars, a different seed from `stars.png`) at brightness 1/7 to 7/7, additive; must tile; regenerate all seven together |
 | `lobby/resource_pack/textures/minecade/holo/beam.png` | Projection beam, two crossed planes 2 wide by 3.25 tall | 128x256, additive, the projector at the bottom; fade the top to black so the beam has no hard edge |
 | `lobby/resource_pack/textures/minecade/blocks/terminal_side.png` | Console sides | 16x16 |

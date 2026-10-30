@@ -1,0 +1,11 @@
+{
+  "namespace": "common_art",
+
+  // The Minecraft logo becomes Minecade's (the hologram's blue logo) wherever vanilla shows it on
+  // our servers: the loading screen and the pause menu. Merged into the vanilla file. Vanilla
+  // stretches the logo to its panel (about 5.3 to 1); ours is 4.47 to 1, so it keeps its shape.
+  "title_image": {
+    "texture": "textures/minecade/ui/logo",
+    "keep_ratio": true
+  }
+}

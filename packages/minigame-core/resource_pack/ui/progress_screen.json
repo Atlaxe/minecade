@@ -1,0 +1,24 @@
+{
+  "namespace": "progress",
+
+  // The loading screen while a world loads (joining a Minecade server, including a transfer between
+  // them): the star field instead of vanilla's dirt, at full brightness (vanilla darkens its dirt
+  // with a gradient). Merged into the vanilla file; only the background changes. Screens before a
+  // server's packs load ("Locating server", downloading packs) are the player's own and stay
+  // vanilla. The logo on it is common_art.title_image (ui_art_assets_common.json).
+  "minecade_loading_background": {
+    "type": "image",
+    "texture": "textures/minecade/sky/stars",
+    "layer": 1,
+    "tiled": true,
+    "tiled_scale": [1, 1]
+  },
+
+  "world_loading_progress_screen": {
+    "$screen_bg_content": "progress.minecade_loading_background"
+  },
+
+  "overworld_loading_progress_screen": {
+    "$screen_bg_content": "progress.minecade_loading_background"
+  }
+}

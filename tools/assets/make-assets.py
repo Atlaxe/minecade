@@ -486,12 +486,14 @@ def main() -> None:
     save(clock_icon(), CORE_TEXTURES / "hud" / "clock.png")
 
     logo = blue_logo()
-    save(logo, LOBBY_TEXTURES / "ui" / "logo.png")
+    # The core pack: the lobby's menus and every server's loading screen and pause menu use it.
+    save(logo, CORE_TEXTURES / "ui" / "logo.png")
     for name, image in holo_frames(logo).items():
         save(image, LOBBY_TEXTURES / "holo" / f"{name}.png")
     save(holo_beam(), LOBBY_TEXTURES / "holo" / "beam.png")
     save(holo_backdrop(), LOBBY_TEXTURES / "holo" / "backdrop.png")
-    save(stars(), LOBBY_TEXTURES / "holo" / "stars.png")
+    # The core pack: the star box and every server's loading screen.
+    save(stars(), CORE_TEXTURES / "sky" / "stars.png")
     for level in range(1, 8):
         save(warp(level), LOBBY_TEXTURES / "holo" / f"warp_{level}.png")
     save(holo_scan_lines(), LOBBY_TEXTURES / "holo" / "scanlines.png")
