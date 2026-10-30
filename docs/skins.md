@@ -43,17 +43,29 @@ explains why, and how skins could come later.
   connection to the server needs a multiplayer token: `authenticateTransport()` in
   `@nethernet-proxy/relay` 0.2.0 runs a Microsoft device-code sign-in (prismarine-auth, posing as
   the Nintendo Switch version of Minecraft) and caches the token on disk.
-- **The test is ready to run** with a spare Microsoft account (never anyone's main one):
-  `spike/skins/` (see its README) runs the relay in a `node:26` container on port 19140, in front
-  of the running lobby, and saves joining players' skins to `spike/skins/out/`.
-  `npm run spike:skins:check` passes: the relay's packages load and it reaches the lobby. BDS
-  1.26.60 answers `/v1/join` with an empty body, so the game version for the sign-in comes from
-  `BDS_VERSION`.
-- **Still untested:** the sign-in itself, whether joining through the relay works on 1.26.60 (the
-  library targets 1.26.50), and whether WebRTC through Docker on Windows reaches the relay (it
-  advertises `LAN_HOST` and publishes UDP 19141 to 19150).
-- **The other route,** a bot that joins the lobby and reads skins from the player list, also needs
-  its own Microsoft account.
+- **The relay test (October 30, 2026), with a spare account:** `spike/skins/` (see its README)
+  runs the relay in a `node:26` container on port 19140, in front of the running lobby.
+  - **What worked:** the sign-in (once the account had an Xbox profile; a brand-new Microsoft
+    account doesn't). The relay's gateway accepted the player's multiplayer token, WebRTC through
+    Docker on Windows reached the relay on the LAN, and the relay connected to the lobby. BDS
+    1.26.60 answers `/v1/join` with an empty body, so the game version for the sign-in comes from
+    `BDS_VERSION`.
+  - **What failed:** the lobby refuses the player's login 7 ms after it arrives through the relay,
+    with Disconnect reason 46 (not authenticated), which the game shows as "You need to
+    authenticate to Microsoft services" (a Guardian error). The relay's identity line and the
+    lobby's are built the same way, so that's not the cause: BDS ties the login to the account
+    that opened the connection, and through the relay that's the spare account, not the player.
+    **A pass-through relay can't sit in front of an online-mode BDS.**
+- **What's left:**
+  - **An observer bot (the likelier route):** the spare account joins the lobby as an ordinary
+    player and reads every player's skin from the player list, which BDS sends to everyone. The
+    lobby's security doesn't change. It needs a Bedrock client library that joins over NetherNet
+    on 1.26.60 and handles the lobby's required resource pack (PrismarineJS `bedrock-protocol` was
+    adding NetherNet in September 2026). The bot shows up as a player, so the lobby would hide it
+    and leave it out of counts and stats.
+  - **An offline-mode lobby behind the relay:** the relay checks every player's sign-in, and the
+    lobby trusts whoever the relay sends. The lobby must then be reachable only through the relay,
+    and every lobby connection depends on a young library (0.2.0). A much bigger change.
 
 ## Open risks
 
