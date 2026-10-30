@@ -15,6 +15,8 @@ export type MapEdit =
   | { op: "add"; target: MapList; at: MapPosition }
   /** Moves an entry and keeps its facing. */
   | { op: "move"; target: MapList; index: number; at: Vec3 }
+  /** Replaces an entry: its position and its facing. */
+  | { op: "set"; target: MapList; index: number; at: MapPosition }
   /** Sets a fixed facing, or clears it (the entry faces the map's middle again). */
   | { op: "face"; target: MapList; index: number; facing?: Facing }
   | { op: "remove"; target: MapList; index: number }
@@ -26,12 +28,23 @@ export type MapEdit =
   | { op: "setRegion"; name: string; index: number; box: Box }
   | { op: "removeRegion"; name: string; index: number }
   | { op: "name"; name: string }
-  | { op: "draft"; draft: boolean };
+  | { op: "draft"; draft: boolean }
+  /** Sets (or, with no value, removes) a game-specific key, such as Sumo's eliminationY. */
+  | { op: "extra"; key: string; value?: string | number | boolean }
+  /** Removes "build", so `npm run bake` no longer rebuilds the world (world edits are kept). */
+  | { op: "dropBuild" }
+  /** Several edits as one change (one undo step). */
+  | { op: "batch"; edits: MapEdit[] };
 
 export class MapEditError extends Error {}
 
+/** True for the keys map.json defines; every other key is a game's own setting. */
+export function isMapKey(key: string): boolean {
+  return KEY_ORDER.includes(key);
+}
+
 /** Where new keys go, the order map.json files are written in. Unknown keys stay where they are. */
-const KEY_ORDER = ["name", "draft", "spawns", "spectatorSpawn", "bounds", "killY", "teamSpawns", "points", "regions", "time", "stars", "cameras", "source", "build"];
+const KEY_ORDER: readonly string[] = ["name", "draft", "spawns", "spectatorSpawn", "bounds", "killY", "teamSpawns", "points", "regions", "time", "stars", "cameras", "source", "build"];
 
 export function applyEdit(config: MapConfig, edit: MapEdit): MapConfig {
   switch (edit.op) {
@@ -39,6 +52,8 @@ export function applyEdit(config: MapConfig, edit: MapEdit): MapConfig {
       return setList(config, edit.target, [...listOf(config, edit.target), edit.at]);
     case "move":
       return updateEntry(config, edit.target, edit.index, (entry) => (entry.length === 5 ? [...edit.at, entry[3], entry[4]] : [...edit.at]));
+    case "set":
+      return updateEntry(config, edit.target, edit.index, () => [...edit.at]);
     case "face":
       return updateEntry(config, edit.target, edit.index, (entry) => (edit.facing ? [entry[0], entry[1], entry[2], edit.facing.yaw, edit.facing.pitch] : [entry[0], entry[1], entry[2]]));
     case "remove": {
@@ -75,6 +90,59 @@ export function applyEdit(config: MapConfig, edit: MapEdit): MapConfig {
       return withKey(config, "name", edit.name);
     case "draft":
       return withKey(config, "draft", edit.draft ? true : undefined);
+    case "extra":
+      if (isMapKey(edit.key) || !/^[A-Za-z][A-Za-z0-9_]*$/.test(edit.key)) throw new MapEditError(`"${edit.key}" is not a game setting`);
+      return withKey(config, edit.key, edit.value);
+    case "dropBuild":
+      return withKey(config, "build", undefined);
+    case "batch":
+      return edit.edits.reduce(applyEdit, config);
+  }
+}
+
+/** A list's place in map.json: "spawns", "spectatorSpawn", "teamSpawns.red" or "points.bombA". */
+export function listKey(target: MapList): string {
+  switch (target.list) {
+    case "spawns":
+    case "spectatorSpawn":
+      return target.list;
+    case "teamSpawns":
+      return `teamSpawns.${target.team}`;
+    case "points":
+      return `points.${target.name}`;
+  }
+}
+
+/** A short description of an edit, for logs and undo: "add spawns", "move points.bombA 2". */
+export function describeEdit(edit: MapEdit): string {
+  switch (edit.op) {
+    case "add":
+      return `add ${listKey(edit.target)}`;
+    case "move":
+    case "set":
+    case "face":
+    case "remove":
+      return `${edit.op} ${listKey(edit.target)} ${edit.index + 1}`;
+    case "renumber":
+      return `renumber ${listKey(edit.target)} ${edit.from + 1} to ${edit.to + 1}`;
+    case "addRegion":
+      return `add regions.${edit.name}`;
+    case "setRegion":
+    case "removeRegion":
+      return `${edit.op === "setRegion" ? "set" : "remove"} regions.${edit.name} ${edit.index + 1}`;
+    case "bounds":
+    case "killY":
+      return `${edit.op === "bounds" ? (edit.box ? "set" : "clear") : edit.y === undefined ? "clear" : "set"} ${edit.op}`;
+    case "name":
+      return `rename to "${edit.name}"`;
+    case "draft":
+      return edit.draft ? "mark as draft" : "mark ready";
+    case "extra":
+      return `set ${edit.key}`;
+    case "dropBuild":
+      return "drop build";
+    case "batch":
+      return edit.edits.map(describeEdit).join(", ");
   }
 }
 
@@ -128,7 +196,10 @@ function withEntry<T>(record: Record<string, T[]> | undefined, name: string, lis
   return Object.keys(next).length > 0 ? next : undefined;
 }
 
-/** Sets a top-level key in place, adds it in KEY_ORDER's place, or removes it when `value` is undefined. */
+/**
+ * Sets a top-level key in place, adds it in KEY_ORDER's place (a game's own keys go after the map
+ * data, before the editor's), or removes it when `value` is undefined.
+ */
 function withKey(config: MapConfig, key: string, value: unknown): MapConfig {
   const entries = Object.entries(config).filter(([existing]) => existing !== key || value !== undefined);
   if (value === undefined) return Object.fromEntries(entries) as MapConfig;
@@ -136,7 +207,7 @@ function withKey(config: MapConfig, key: string, value: unknown): MapConfig {
   if (at >= 0) {
     entries[at] = [key, value];
   } else {
-    const rank = KEY_ORDER.indexOf(key);
+    const rank = KEY_ORDER.includes(key) ? KEY_ORDER.indexOf(key) : KEY_ORDER.indexOf("stars") + 0.5;
     const before = entries.findIndex(([existing]) => KEY_ORDER.includes(existing) && KEY_ORDER.indexOf(existing) > rank);
     entries.splice(before < 0 ? entries.length : before, 0, [key, value]);
   }

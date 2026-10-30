@@ -1,6 +1,6 @@
 # Milestone 10: map editor server (Select, Edit, Preview) (plan)
 
-**Status:** approved 2026-10-30. Milestone 9 (the UI pass) is done, so this is next. Built in 9 passes, functionality first (see "Passes"). Pass 10.1 (spike) is done (`docs/spike-results.md`, "Map editor"). Next: pass 10.2. The games come after it as milestones 11 and on.
+**Status:** approved 2026-10-30. Milestone 9 (the UI pass) is done, so this is next. Built in 9 passes, functionality first (see "Passes"). Passes 10.1 to 10.3 are done (the spike's results are in `docs/spike-results.md`, "Map editor"; the editor's guide is `docs/editor.md`). Next: pass 10.4. The games come after it as milestones 11 and on.
 
 **For the session that implements this:**
 - Work in `C:\dev\minecade\network`.
@@ -440,6 +440,21 @@ the client's worlds folder, plus the spaceship world.
 - Panel: a Map editor section with Start (target, map, New map) and Stop, the running mode and
   "ready to join", the checklist mirror, the log, and the `EDITOR_ALLOW_LIST` and `MAP_EDITORS`
   settings. The editor container shows in the container list.
+
+*Done 2026-10-30. Where it differs from the design above:*
+- The container runs on `minecade/bds-base:local` (bake's plain BDS image), not `minecade/bds:local`.
+  The host stages the entrypoint, the editor's packs (built from the checkout at every start) and
+  the map, so the editor always runs the checked-out code and never needs the network's images
+  rebuilt or `npm run build` to pass.
+- The world is saved at stop only when blocks changed (or a map editor switches it on in the map
+  menu), so a session that only places spawns changes nothing but `map.json`. Hot "Save world" stays
+  in 10.8.
+- Before a save, the pack loads every chunk a marker was ever in (the script `TickingAreaManager`)
+  and removes them all; the host saves only when none are left.
+- Edits travel as ops, and the host answers each with a hash of its copy; undo, redo and hand edits
+  of `map.json` send the whole map, in parts within the scriptevent limit.
+- Open: a saved world keeps BDS's records of the players who joined (position, inventory, an account
+  id). Check in 10.5 whether Chunker's prune drops them; otherwise strip them before a save.
 
 **10.4 Region and Kill Y tools.** Region tool, Kill Y tool, and a plain particle outline of the
 box being edited and of the bounds (stand-in for the colored boundary blocks).

@@ -9,6 +9,8 @@ PlayStation, PC and phone can all join.
 - **Game server** (port 19133): one game at a time, started from a fresh copy of its map and
   removed when the game ends.
 - **Orchestrator:** starts and stops game servers, routes players, and stores player stats.
+- **Map editor** (port 19134): a server where you place a map's spawns and other data in game,
+  written straight to its `map.json` (see [docs/editor.md](docs/editor.md)).
 - **Minecade Panel:** a small Windows app to start and stop everything, edit settings, read logs
   and see player stats.
 
@@ -80,7 +82,7 @@ Forward these ports on your router to your PC's LAN IP (`LAN_HOST`):
 | Minecade UDP | 19132-19134 | 19132-19134 | UDP |
 
 Each server uses one TCP port and the UDP port with the same number: the lobby 19132, games
-19133, and 19134 is reserved for a spare game server.
+19133, and the map editor 19134.
 
 If friends can't connect even though the forwards are in place, allow the ports in Windows
 Firewall (PowerShell as administrator):
@@ -202,6 +204,7 @@ Clients refuse to join a server on a different version. When Minecraft updates:
 | `npm run check` | Typecheck everything and run all tests. |
 | `npm run build` | Validate every game and map, and bundle the packs, worlds and orchestrator into `dist/`. The Docker build runs this too. |
 | `npm run bake -- <target> <map>` | Build a map's world from its `map.json` (see [docs/maps.md](docs/maps.md)). |
+| `npm run editor -- <target> <map>` | Run the map editor on a map (`--new` for a new one; `status` and `stop` too). See [docs/editor.md](docs/editor.md). |
 | `npm run smoke` | End-to-end test with no players: rebuild, start Sumo, check the container and ports, let it end, check cleanup. Add `-- --no-build` to skip the rebuild. |
 | `npm run cmd -- <container> <command>` | Send a console command to a running server, for example `npm run cmd -- minecade-lobby list`. |
 | `npm run panel` | Run the Minecade Panel from the terminal. |
@@ -222,15 +225,18 @@ orchestrator's log.
 ```
 packages/minigame-core/   shared runtime: scopes, transfers, forms, the minigame framework, protocol
 lobby/                    the lobby's behavior pack and map
+editor/                   the map editor's packs (its server is started by tools/editor/)
+packs/blocks/             the shared blocks pack every server loads (custom blocks)
 games/<id>/               one folder per game: game.config.ts, behavior_pack/, maps/, test/
 orchestrator/             the session manager, transport links, stats store, debug API
 watcher/                  the skin watcher (a bot in the lobby that saves players' skins)
 tools/build/              build, bake and console tools
+tools/editor/             the map editor's host tool (npm run editor)
 tools/skins/              the skin renderer (npm run skins)
 tools/control-panel/      the Minecade Panel
 tools/smoke/              the smoke test
 docker/bds/               the server image and its entrypoint
-docs/                     map format, measured BDS behavior, the lobby UI (ui.md), skins (skins.md)
+docs/                     map format (maps.md), the map editor (editor.md), measured BDS behavior, the lobby UI (ui.md), skins (skins.md)
 ```
 
 ### Adding a game
@@ -255,7 +261,8 @@ docs/                     map format, measured BDS behavior, the lobby UI (ui.md
 ### Adding a map
 
 Write a `map.json` and run `npm run bake`, or drop in a world built in the client. Both are
-described in [docs/maps.md](docs/maps.md).
+described in [docs/maps.md](docs/maps.md). Then place its spawns and points in game with the map
+editor ([docs/editor.md](docs/editor.md)), or start a new one there with `--new`.
 
 ## Checklist before a game night
 

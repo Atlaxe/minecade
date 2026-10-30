@@ -3,18 +3,22 @@
 // `npm run panel`. It exits shortly after the last window closes.
 //   --stay       never exit on its own (development)
 //   --no-window  don't open a window (testing with curl)
+//   --port N     serve on port N instead of 8099 (testing beside a running Panel)
 import { spawn } from "node:child_process";
-import { appendFileSync, existsSync, mkdirSync, statSync, writeFileSync } from "node:fs";
+import { appendFileSync, closeSync, existsSync, mkdirSync, openSync, statSync, writeFileSync } from "node:fs";
 import { readdir, readFile, writeFile } from "node:fs/promises";
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import { networkInterfaces, tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { createInterface } from "node:readline";
 import { fileURLToPath } from "node:url";
 import type Docker from "dockerode";
+import { editorStatus, stopEditor } from "../editor/control.ts";
+import { parseArgs as parseEditorArgs, type EditorStatus } from "../editor/editor-core.ts";
 import {
   checkLobbyMap,
   checkRequest,
+  editorTargetChoices,
   formatPorts,
   lobbyMapChoices,
   normalizeNames,
@@ -28,7 +32,8 @@ import {
   type StackId,
 } from "./core.ts";
 
-const PORT = 8099;
+const portArg = process.argv.indexOf("--port");
+const PORT = portArg >= 0 ? Number(process.argv[portArg + 1]) : 8099;
 const ORIGIN = `http://127.0.0.1:${PORT}`;
 /** The orchestrator's debug API, published on this PC only. */
 const ORCHESTRATOR_URL = "http://127.0.0.1:8080";
@@ -39,8 +44,14 @@ const DOCKER_START_GRACE_MS = 3 * 60_000;
 
 const repoRoot = fileURLToPath(new URL("../../", import.meta.url));
 const envPath = join(repoRoot, ".env");
+/** The map editor's output when the Panel starts it (it runs on after the Panel closes). */
+const editorLogPath = join(repoRoot, "work", "editor", "editor.log");
+const EDITOR_LOG_LINES = 150;
+/** How long a starting editor may take to answer on its control port before the Panel gives up waiting. */
+const EDITOR_LAUNCH_MS = 30_000;
 const dataDir = join(process.env.LOCALAPPDATA ?? tmpdir(), "minecade-panel");
-const logPath = join(dataDir, "panel.log");
+// A helper on another port (testing) keeps its own log, so it never clears the running Panel's.
+const logPath = join(dataDir, PORT === 8099 ? "panel.log" : `panel-${PORT}.log`);
 const stay = process.argv.includes("--stay");
 const noWindow = process.argv.includes("--no-window");
 
@@ -197,6 +208,38 @@ async function lobbyMaps() {
   return lobbyMapChoices(entries);
 }
 
+/** What the map editor can open: the lobby and each game, with their maps (drafts too). */
+async function editorTargets() {
+  const targets: { id: string; config?: string; maps: { id: string; json: string }[] }[] = [];
+  const add = async (id: string, dir: string, config?: string) => {
+    const mapsDir = join(dir, "maps");
+    const maps: { id: string; json: string }[] = [];
+    for (const map of existsSync(mapsDir) ? (await readdir(mapsDir)).sort() : []) {
+      const path = join(mapsDir, map, "map.json");
+      if (existsSync(path)) maps.push({ id: map, json: await readFile(path, "utf8") });
+    }
+    targets.push({ id, config, maps });
+  };
+  await add("lobby", join(repoRoot, "lobby"));
+  for (const id of (await readdir(join(repoRoot, "games"))).sort()) {
+    const config = join(repoRoot, "games", id, "game.config.ts");
+    if (existsSync(config)) await add(id, join(repoRoot, "games", id), await readFile(config, "utf8"));
+  }
+  return editorTargetChoices(targets);
+}
+
+/** A start the Panel asked for, until the editor answers on its control port (or gives up). */
+let editorLaunch: { at: number; target: string; map: string } | null = null;
+
+/** The running editor's status, a start in progress, or the last run's log when none is running. */
+async function editorState(): Promise<{ status: EditorStatus | null; launching: boolean; log: string[] }> {
+  const status = (await editorStatus(500)) ?? null;
+  if (status || (editorLaunch && Date.now() - editorLaunch.at > EDITOR_LAUNCH_MS)) editorLaunch = null;
+  if (status) return { status, launching: false, log: status.log };
+  const text = existsSync(editorLogPath) ? await readFile(editorLogPath, "utf8") : "";
+  return { status: null, launching: editorLaunch !== null, log: text.split(/\r?\n/).filter(Boolean).slice(-EDITOR_LOG_LINES) };
+}
+
 async function buildState() {
   const envText = existsSync(envPath) ? await readFile(envPath, "utf8") : undefined;
   const env = envText === undefined ? undefined : readEnv(envText);
@@ -239,11 +282,15 @@ async function buildState() {
           LAN_PLAYERS: env.LAN_PLAYERS ?? "",
           WATCHER_GAMERTAG: env.WATCHER_GAMERTAG ?? "",
           LOBBY_MAP: env.LOBBY_MAP ?? "",
+          EDITOR_ALLOW_LIST: env.EDITOR_ALLOW_LIST ?? "",
+          MAP_EDITORS: env.MAP_EDITORS ?? "",
           TRANSPORT: env.TRANSPORT ?? "",
           BDS_VERSION: env.BDS_VERSION ?? "",
         }
       : { missing: true },
     lobbyMaps: await lobbyMaps(),
+    editor: await editorState(),
+    editorTargets: await editorTargets(),
   };
 }
 
@@ -347,7 +394,7 @@ function startDockerDesktop(): void {
 async function saveEnv(body: Record<string, unknown>): Promise<{ status: number; body: unknown }> {
   if (!existsSync(envPath)) return { status: 409, body: { error: "No .env file. Copy .env.example to .env first." } };
   const values: Record<string, string> = {};
-  for (const key of ["ALLOW_LIST", "LAN_PLAYERS"]) {
+  for (const key of ["ALLOW_LIST", "LAN_PLAYERS", "EDITOR_ALLOW_LIST", "MAP_EDITORS"]) {
     if (body[key] === undefined) continue;
     const result = normalizeNames(String(body[key]));
     if (!result.ok) return { status: 400, body: { error: `${key}: ${result.error}` } };
@@ -457,11 +504,60 @@ async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> 
     const result = await saveEnv(body);
     return sendJson(res, result.status, result.body);
   }
+  if (path === "/api/editor/start") {
+    const result = await startEditor(body);
+    void refresh();
+    return sendJson(res, result.status, result.body);
+  }
+  if (path === "/api/editor/stop") {
+    if (!(await stopEditor())) return sendJson(res, 409, { error: "no map editor is running" });
+    note("Map editor: stopping (it saves first)...");
+    void refresh();
+    return sendJson(res, 202, { ok: true });
+  }
   if (path === "/api/game/start" || path === "/api/game/end") {
     const result = await relayToOrchestrator(path === "/api/game/start", body);
     return sendJson(res, result.status, result.body);
   }
   return sendJson(res, 404, { error: "not found" });
+}
+
+/**
+ * Starts the map editor (tools/editor/editor.ts) as its own process, which keeps running after the
+ * Panel closes. Its output goes to work/editor/editor.log; the Panel follows it on its control port.
+ */
+async function startEditor(body: Record<string, unknown>): Promise<{ status: number; body: unknown }> {
+  const target = String(body.target ?? "");
+  const map = String(body.map ?? "").trim();
+  const fresh = body.fresh === true;
+  const args = parseEditorArgs([target, map, ...(fresh ? ["--new"] : [])]);
+  if (args.command !== "edit") return { status: 400, body: { error: args.command === "help" ? (args.error ?? "pick a map") : "pick a map" } };
+  const choice = (await editorTargets()).find((candidate) => candidate.id === target);
+  if (!choice) return { status: 400, body: { error: `unknown target "${target}"` } };
+  const exists = choice.maps.some((candidate) => candidate.id === map);
+  if (fresh && exists) return { status: 409, body: { error: `${choice.name} already has a map "${map}"` } };
+  if (!fresh && !exists) return { status: 404, body: { error: `${choice.name} has no map "${map}"` } };
+  if (editorLaunch || (await editorStatus(500))) return { status: 409, body: { error: "a map editor is already running" } };
+  if (dockerState !== "running") return { status: 409, body: { error: "Docker is not running" } };
+  mkdirSync(dirname(editorLogPath), { recursive: true });
+  const out = openSync(editorLogPath, "w");
+  try {
+    const child = spawn(process.execPath, ["--import", "tsx", join("tools", "editor", "editor.ts"), target, map, ...(fresh ? ["--new"] : [])], {
+      cwd: repoRoot,
+      detached: true,
+      stdio: ["ignore", out, out],
+      windowsHide: true,
+    });
+    child.on("exit", (code) => {
+      if (code !== 0) note(`Map editor: stopped with exit code ${code}. Its log is on the Map editor page.`);
+    });
+    child.unref();
+  } finally {
+    closeSync(out);
+  }
+  editorLaunch = { at: Date.now(), target, map };
+  note(`Map editor: starting ${choice.name}, ${map}${fresh ? " (new)" : ""}...`);
+  return { status: 202, body: { ok: true } };
 }
 
 /** Starts or ends a game through the orchestrator's debug API. */

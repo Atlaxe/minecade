@@ -3,22 +3,20 @@
 //   npm run bake -- <target> <map>     for example: npm run bake -- lobby main
 //   npm run bake -- --all              every map that has a "build" section
 //   add --verbose to echo the server console
-import { spawnSync } from "node:child_process";
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync } from "node:fs";
 import { mkdir, mkdtemp, readdir, readFile, rename, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, relative } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import * as tar from "tar";
 import type { GameConfig, MapConfig } from "@minecade/minigame-core/config";
-import { readEnv } from "../control-panel/core.ts";
+import { BASE_IMAGE, buildBaseImage } from "./base-image.ts";
 import { bakeSettings, checkBakeSettings, classifyResponse, stripLogPrefix } from "./bake-core.ts";
 import { attachConsole, connectDocker, copyDirFromContainer, findContainerByName, type ServerConsole } from "./docker-util.ts";
 import { readLevelDat, writeLevelDat } from "./leveldat.ts";
 import { validateMapConfig } from "./validate.ts";
 
 const root = fileURLToPath(new URL("../../", import.meta.url));
-const IMAGE = "minecade/bds-base:local";
 const NAME = "minecade-bake";
 /** A level.dat written by BDS 1.26.60.6. Newer servers upgrade it when they load it. */
 const BASE_LEVEL_DAT = join(root, "tools", "build", "fixtures", "base-level.dat");
@@ -76,19 +74,6 @@ async function findAllMaps(): Promise<MapRef[]> {
   return refs;
 }
 
-/** Builds (or, with the cache, just re-tags) the plain BDS image, so the bake matches the runtime version. */
-function buildBaseImage(): void {
-  const envPath = join(root, ".env");
-  if (!existsSync(envPath)) throw new Error("no .env file: copy .env.example to .env and set EULA=TRUE");
-  const env = readEnv(readFileSync(envPath, "utf8"));
-  if (env.EULA !== "TRUE") throw new Error("set EULA=TRUE in .env to accept the Minecraft EULA (https://www.minecraft.net/eula)");
-  console.log(`Preparing ${IMAGE} (BDS ${env.BDS_VERSION || "default"})...`);
-  const args = ["build", "--target", "bds", "-t", IMAGE, "-f", "docker/bds/Dockerfile", "--build-arg", `EULA=${env.EULA}`];
-  if (env.BDS_VERSION) args.push("--build-arg", `BDS_VERSION=${env.BDS_VERSION}`);
-  const result = spawnSync("docker", [...args, "."], { cwd: root, encoding: "utf8", stdio: verbose ? "inherit" : "pipe" });
-  if (result.status !== 0) throw new Error(`docker build failed:\n${result.stderr ?? result.error?.message ?? ""}`);
-}
-
 /** Sends console commands one at a time, each followed by a scriptevent marker that ends its reply. */
 function commandRunner(serverConsole: ServerConsole) {
   let markers = 0;
@@ -144,7 +129,7 @@ async function bake(ref: MapRef): Promise<void> {
   if (stale) await stale.remove({ force: true });
   const container = await docker.createContainer({
     name: NAME,
-    Image: IMAGE,
+    Image: BASE_IMAGE,
     Entrypoint: ["/bin/bash", "-c", SERVER_SCRIPT],
     OpenStdin: true,
     StdinOnce: false,
@@ -206,7 +191,7 @@ if (!process.argv.includes("--all") && positional.length !== 2) {
 try {
   const refs = process.argv.includes("--all") ? await findAllMaps() : [await loadMap(positional[0], positional[1])];
   if (refs.length === 0) throw new Error('no map has a "build" section');
-  buildBaseImage();
+  buildBaseImage(root, verbose);
   for (const ref of refs) await bake(ref);
   console.log(`Baked ${refs.length} map${refs.length === 1 ? "" : "s"}. Commit the world folders.`);
 } catch (error) {

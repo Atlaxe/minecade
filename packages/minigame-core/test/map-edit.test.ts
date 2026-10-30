@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { MapConfig } from "../src/map-config.ts";
-import { MapEditError, applyEdit, listOf } from "../src/map-edit.ts";
+import { MapEditError, applyEdit, describeEdit, listKey, listOf, type MapEdit } from "../src/map-edit.ts";
 import { formatMapConfig } from "../src/map-format.ts";
 
 const base: MapConfig = {
@@ -69,6 +69,36 @@ describe("applyEdit", () => {
     const withSpectator = applyEdit(base, { op: "add", target: { list: "spectatorSpawn" }, at: [0, 80, 0] });
     expect(() => applyEdit(withSpectator, { op: "add", target: { list: "spectatorSpawn" }, at: [0, 81, 0] })).toThrow("a map has one spectator spawn");
     expect(() => applyEdit(base, { op: "name", name: "" })).toThrow("a map needs a name");
+  });
+
+  it("replaces entries, sets game settings, drops build, and batches edits as one change", () => {
+    let map = applyEdit(base, { op: "set", target: { list: "spawns" }, index: 0, at: [1, 66, 1, 45, 0] });
+    expect(map.spawns[0]).toEqual([1, 66, 1, 45, 0]);
+    map = applyEdit(map, { op: "extra", key: "eliminationY", value: 50 });
+    expect(Object.keys(map)).toEqual(["name", "spawns", "bounds", "points", "eliminationY", "build"]);
+    expect(applyEdit(map, { op: "extra", key: "eliminationY" }).eliminationY).toBeUndefined();
+    expect(() => applyEdit(map, { op: "extra", key: "spawns", value: 1 })).toThrow(MapEditError);
+    expect(applyEdit(map, { op: "dropBuild" }).build).toBeUndefined();
+    const batch: MapEdit = {
+      op: "batch",
+      edits: [
+        { op: "remove", target: { list: "spawns" }, index: 1 },
+        { op: "add", target: { list: "points", name: "flag" }, at: [-5, 65, 0, 90, 0] },
+      ],
+    };
+    map = applyEdit(base, batch);
+    expect(map.spawns).toEqual([[5, 65, 0]]);
+    expect(map.points).toEqual({ flag: [[0, 65, 0], [-5, 65, 0, 90, 0]] });
+    expect(describeEdit(batch)).toBe("remove spawns 2, add points.flag");
+    // A batch that fails partway changes nothing.
+    expect(() => applyEdit(base, { op: "batch", edits: [{ op: "dropBuild" }, { op: "remove", target: { list: "spawns" }, index: 5 }] })).toThrow(MapEditError);
+  });
+
+  it("names lists and edits for logs", () => {
+    expect(listKey({ list: "teamSpawns", team: "red" })).toBe("teamSpawns.red");
+    expect(listKey({ list: "points", name: "bombA" })).toBe("points.bombA");
+    expect(describeEdit({ op: "move", target: { list: "spawns" }, index: 2, at: [0, 0, 0] })).toBe("move spawns 3");
+    expect(describeEdit({ op: "draft", draft: false })).toBe("mark ready");
   });
 
   it("lists a map's entries", () => {

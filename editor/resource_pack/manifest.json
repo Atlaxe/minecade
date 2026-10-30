@@ -1,0 +1,17 @@
+{
+  "format_version": 2,
+  "header": {
+    "name": "Minecade Map Editor resources",
+    "description": "The map editor's item icons and marker model",
+    "uuid": "31a1ad1a-84c9-4a90-915e-4c9aa6d51386",
+    "version": [0, 1, 0],
+    "min_engine_version": [1, 26, 60]
+  },
+  "modules": [
+    {
+      "type": "resources",
+      "uuid": "b731986f-daee-4cb3-be3c-55e2f04adda1",
+      "version": [0, 1, 0]
+    }
+  ]
+}

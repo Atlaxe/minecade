@@ -7,6 +7,7 @@
     "packages/*/src/**/*.ts",
     "games/*/behavior_pack/**/*.ts",
     "lobby/behavior_pack/**/*.ts",
+    "editor/behavior_pack/**/*.ts",
     "tools/build/test/fixtures/**/*.ts"
   ]
 }

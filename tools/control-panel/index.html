@@ -152,6 +152,10 @@
     <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c0-3.6 2.9-6 6.5-6s6.5 2.4 6.5 6"/><path d="M16 4.5a3.5 3.5 0 0 1 0 7M18 14.2c2.1.7 3.5 2.8 3.5 5.8"/></svg>
     <span>Players</span><span id="nav-online" class="count" title="Players online" hidden></span>
   </a>
+  <a class="nav-item" href="#editor" data-page="editor">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 4 3 6.5V20l6-2.5 6 2.5 6-2.5V4l-6 2.5z"/><path d="M9 4v13.5M15 6.5V20"/></svg>
+    <span>Map editor</span><span id="nav-editor" class="dot off"></span>
+  </a>
   <a class="nav-item" href="#logs" data-page="logs">
     <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 8h8M8 12h8M8 16h5"/></svg>
     <span>Logs</span>
@@ -206,6 +210,33 @@
       <div class="actions"><select id="stats-game" aria-label="Game"><option value="">Overall</option></select><button id="stats-refresh">Refresh</button></div>
     </div>
     <div id="stats"><p class="hint">Loading...</p></div>
+  </div>
+</section>
+
+<section id="page-editor" class="page" hidden>
+  <div class="page-head"><h1>Map editor</h1><p>Place a map's spawns and other data in game, on port 19134. Every change goes straight into map.json.</p></div>
+  <div id="editor-server"></div>
+  <div id="editor-checklist"></div>
+  <div class="card">
+    <div class="card-head"><h2>Editor log</h2><span class="muted small">work/editor/editor.log</span></div>
+    <pre id="editor-log" class="log"></pre>
+  </div>
+  <div class="card">
+    <div class="card-head"><h2>Who can use the editor</h2><span class="muted small">Saved to .env, used at the next start</span></div>
+    <div class="field">
+      <label for="editor-allow">Editor allow list<span class="mono">EDITOR_ALLOW_LIST</span></label>
+      <p class="hint">Who may join the editor besides the LAN players, as comma-separated gamertags.</p>
+      <input id="editor-allow" type="text" spellcheck="false">
+    </div>
+    <div class="field">
+      <label for="map-editors">Map editors<span class="mono">MAP_EDITORS</span></label>
+      <p class="hint">Who gets the tools. Everyone else who joins builds in creative. Empty means every LAN player.</p>
+      <input id="map-editors" type="text" spellcheck="false">
+    </div>
+    <div class="row" style="margin-top:14px">
+      <button id="save-editor-env" class="primary">Save</button>
+      <span id="editor-env-result" class="muted"></span>
+    </div>
   </div>
 </section>
 
@@ -291,7 +322,7 @@ async function copy(text) {
 
 // ---- Pages -------------------------------------------------------------------------------
 
-const PAGES = ["servers", "players", "logs"];
+const PAGES = ["servers", "players", "editor", "logs"];
 let page = "servers";
 
 function showPage(name) {
@@ -329,6 +360,7 @@ function render(next) {
   renderConnection();
   renderOnline();
   renderEnv();
+  renderEditor();
   renderLogPicker();
   reloadStatsWhenIdle();
 }
@@ -528,7 +560,7 @@ function renderConnection() {
 
 // ---- Players -----------------------------------------------------------------------------
 
-const SERVER_NAMES = { lobby: "Lobby", game: "Game" };
+const SERVER_NAMES = { lobby: "Lobby", game: "Game", editor: "Map editor" };
 
 function renderOnline() {
   const servers = bdsServers();
@@ -649,6 +681,142 @@ $("stats-refresh").onclick = () => loadStats();
 $("stats-game").onchange = () => renderStats();
 loadStats();
 
+// ---- Map editor --------------------------------------------------------------------------
+
+const EDITOR_STATES = {
+  starting: ["warn", "starting"], ready: ["ok", "ready to join"], stopping: ["warn", "saving and stopping"],
+  stopped: ["off", "stopped"], failed: ["bad", "failed"],
+};
+const NEW_MAP = "__new";
+// The pickers are rebuilt with the card, so remember the choices across renders.
+let editorPick = { target: "", map: "", fresh: "" };
+
+function editorTone(editor) {
+  if (editor.status) return EDITOR_STATES[editor.status.state] ?? ["warn", editor.status.state];
+  return editor.launching ? EDITOR_STATES.starting : EDITOR_STATES.stopped;
+}
+
+function renderEditor() {
+  const editor = state.editor ?? { status: null, launching: false, log: [] };
+  const status = editor.status;
+  const [tone, text] = editorTone(editor);
+  $("nav-editor").className = `dot ${tone}`;
+  $("nav-editor").title = `Map editor: ${text}`;
+  const facts = status && [status.state, status.error, status.targetName, status.mapName, status.map, status.draft, status.join, status.players];
+  patch($("editor-server"), [facts, editor.launching, state.editorTargets, state.docker], () => editorCard(editor));
+  patch($("editor-checklist"), status && [status.checklist, status.undo, status.redo, status.saveWorld], () => status && checklistCard(status));
+  const pre = $("editor-log");
+  const lines = editor.log.join("\n");
+  if (pre.textContent !== lines) {
+    const atBottom = pre.scrollTop + pre.clientHeight >= pre.scrollHeight - 4;
+    pre.textContent = lines;
+    if (atBottom) pre.scrollTop = pre.scrollHeight;
+  }
+  renderEditorEnv();
+}
+
+function editorCard(editor) {
+  const status = editor.status;
+  const [tone, text] = editorTone(editor);
+  const head = (...extra) => el("div", { className: "card-head" }, el("h2", {}, "Editor server"), el("span", { className: `pill ${tone}` }, text), extra);
+  if (status && status.state !== "stopped") {
+    const stop = el("button", { className: "danger", onclick: () => post("/api/editor/stop") }, "Stop");
+    stop.disabled = status.state === "stopping";
+    const players = status.players.length
+      ? el("div", { className: "chips" }, status.players.map((name) => el("span", { className: "chip" }, status.editors.some((e) => e.toLowerCase() === name.toLowerCase()) ? `${name} (map editor)` : name)))
+      : el("span", { className: "muted" }, "Nobody yet.");
+    return el("div", { className: "card" },
+      head(el("div", { className: "actions" }, stop)),
+      el("div", { className: "game-now" },
+        el("div", {}, el("span", { className: "game-title" }, `${status.targetName}: ${status.mapName}`), el("span", { className: "muted small", style: "margin-left:10px" }, `${status.map}${status.draft ? ", draft" : ""}`)),
+        players),
+      el("dl", {}, el("dt", {}, "Join"), el("dd", {}, el("span", { className: "mono address" }, status.join), el("button", { className: "small", onclick: () => copy(status.join) }, "Copy"))),
+      status.error && el("p", { className: "callout bad" }, status.error),
+      el("p", { className: "hint" }, "Stop saves the world back into the map when blocks changed. map.json already has every change."));
+  }
+  if (editor.launching) {
+    return el("div", { className: "card" }, head(), el("div", { className: "busy-line" }, el("span", { className: "spin" }), el("span", {}, "Building the editor's packs and starting the server...")));
+  }
+  return el("div", { className: "card" }, head(), editorStartForm());
+}
+
+function editorStartForm() {
+  const targets = state.editorTargets ?? [];
+  const target = el("select", { "aria-label": "Game or lobby" });
+  for (const choice of targets) target.append(el("option", { value: choice.id }, choice.name));
+  if (targets.some((choice) => choice.id === editorPick.target)) target.value = editorPick.target;
+  const map = el("select", { "aria-label": "Map" });
+  const fresh = el("input", { type: "text", spellcheck: "false", placeholder: "new map id, such as castle", "aria-label": "New map id" });
+  fresh.value = editorPick.fresh;
+  const start = el("button", { className: "primary" }, "Start");
+  const fillMaps = () => {
+    const choice = targets.find((candidate) => candidate.id === target.value);
+    map.replaceChildren(...(choice?.maps ?? []).map((m) => el("option", { value: m.id }, `${m.name} (${m.id})${m.draft ? ", draft" : ""}`)), el("option", { value: NEW_MAP }, "New map..."));
+    const keep = [...map.options].some((option) => option.value === editorPick.map);
+    map.value = keep ? editorPick.map : map.options[0].value;
+  };
+  const sync = () => {
+    editorPick = { target: target.value, map: map.value, fresh: fresh.value };
+    fresh.hidden = map.value !== NEW_MAP;
+    start.disabled = state.docker !== "running" || (map.value === NEW_MAP && !fresh.value.trim());
+  };
+  target.onchange = () => { editorPick.target = target.value; fillMaps(); sync(); };
+  map.onchange = fresh.oninput = sync;
+  fillMaps();
+  sync();
+  start.onclick = async () => {
+    const isNew = map.value === NEW_MAP;
+    start.disabled = true;
+    const { ok } = await post("/api/editor/start", { target: target.value, map: isNew ? fresh.value.trim() : map.value, fresh: isNew });
+    if (ok && isNew) editorPick = { target: target.value, map: fresh.value.trim(), fresh: "" };
+    start.disabled = false;
+  };
+  return [
+    el("div", { className: "row" }, target, map, el("span", { style: "flex:1;min-width:160px" }, fresh), start),
+    el("p", { className: "hint" }, `Once it's ready, join ${state.connection.lanHost || "LAN_HOST"}:19134 (accept the server's trust prompt the first time). A new map starts as a void world with a glass pad.`),
+  ];
+}
+
+function checklistCard(status) {
+  const { rows, problems, warnings, ready } = status.checklist;
+  const count = problems.length;
+  const table = el("div", { className: "table-wrap" }, el("table", {},
+    el("thead", {}, el("tr", {}, ["Needs", "Has", ""].map((h) => el("th", {}, h)))),
+    el("tbody", {}, rows.map((row) => el("tr", {},
+      el("td", { className: "strong" }, row.label),
+      el("td", { className: "nowrap" }, `${row.have} of ${row.need}`),
+      el("td", { className: "end" }, el("span", { className: `pill ${row.done ? "ok" : "bad"}` }, row.done ? "done" : "missing")))))));
+  const facts = [
+    status.undo && `Undo: ${status.undo}`,
+    status.redo && `Redo: ${status.redo}`,
+    status.saveWorld ? "The world is saved at stop." : "No block changes: the world is kept as it was.",
+  ].filter(Boolean).join("  |  ");
+  return el("div", { className: "card" },
+    el("div", { className: "card-head" }, el("h2", {}, "Checklist"), el("span", { className: `pill ${ready ? "ok" : "bad"}` }, ready ? (status.draft ? "ready to mark ready" : "ready") : `${count} problem${count === 1 ? "" : "s"}`)),
+    rows.length ? table : el("p", { className: "muted", style: "margin:0" }, "This map's game asks for nothing beyond its spawns."),
+    problems.map((problem) => el("p", { className: "callout bad" }, problem)),
+    warnings.map((warning) => el("p", { className: "callout warn" }, warning)),
+    el("p", { className: "hint" }, facts));
+}
+
+let editorEnvDirty = false;
+$("editor-allow").oninput = $("map-editors").oninput = () => { editorEnvDirty = true; };
+
+function renderEditorEnv() {
+  const missing = state.env.missing;
+  $("save-editor-env").disabled = missing;
+  if (missing || editorEnvDirty || document.activeElement === $("editor-allow") || document.activeElement === $("map-editors")) return;
+  $("editor-allow").value = state.env.EDITOR_ALLOW_LIST;
+  $("map-editors").value = state.env.MAP_EDITORS;
+}
+
+$("save-editor-env").onclick = async () => {
+  const { ok, result } = await post("/api/env", { EDITOR_ALLOW_LIST: $("editor-allow").value, MAP_EDITORS: $("map-editors").value });
+  $("editor-env-result").className = ok ? "muted" : "error";
+  $("editor-env-result").textContent = ok ? (result.changed ? "Saved. The editor uses it from its next start." : "No changes.") : (result.error ?? "Save failed.");
+  if (ok) { editorEnvDirty = false; $("editor-allow").blur(); $("map-editors").blur(); }
+};
+
 // ---- Logs --------------------------------------------------------------------------------
 
 // The container picked in the log viewer. A recreated container comes back with a new id under
@@ -718,6 +886,7 @@ let lastActivity = "";
 /** Results of the panel's own actions pop up, since the activity log is on another page. */
 function toastTone(text) {
   if (/^(Error|Orchestrator): /.test(text)) return "bad";
+  if (/^Map editor: .*exit code/.test(text)) return "bad";
   if (!state?.stacks.some((stack) => text.startsWith(`${stack.label}: `))) return null;
   if (/ failed | could not /.test(text)) return "bad";
   return / done\.$/.test(text) ? "ok" : null;

@@ -1,0 +1,15 @@
+{
+  "format_version": "1.21.60",
+  "minecraft:item": {
+    "description": {
+      "identifier": "minecade:map_menu",
+      "menu_category": { "category": "none" }
+    },
+    "components": {
+      "minecraft:icon": { "textures": { "default": "minecade_map_menu" } },
+      "minecraft:display_name": { "value": "Map menu" },
+      "minecraft:max_stack_size": 1,
+      "minecraft:can_destroy_in_creative": false
+    }
+  }
+}

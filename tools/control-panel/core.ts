@@ -28,8 +28,9 @@ export interface ContainerLike {
 export function stackOf(container: ContainerLike): StackId | undefined {
   const project = container.Labels?.["com.docker.compose.project"];
   if (project) return STACKS.find((stack) => stack.project === project)?.id;
-  // Game servers are created by the orchestrator, not by compose.
+  // Game servers are created by the orchestrator, and the map editor by its host tool, not by compose.
   if (container.Names.some((name) => name.startsWith("/minecade-game-"))) return "main";
+  if (container.Labels?.["minecade.role"] === "editor") return "main";
   return undefined;
 }
 
@@ -69,6 +70,12 @@ const PLAYER_LINE = /^\[[^\]]*\] Player (connected|disconnected): ([^,]+)/;
 const PLAYER_LIKE = /^\[[^\]]*\] Player (dis)?connected\b/i;
 const SERVER_STARTED = /^\[[^\]]*\] Server started\./;
 
+/** A player joining or leaving, from a BDS log line. */
+export function playerEvent(line: string): { kind: "connected" | "disconnected"; name: string } | undefined {
+  const match = PLAYER_LINE.exec(line.trimEnd());
+  return match ? { kind: match[1] as "connected" | "disconnected", name: match[2].trim() } : undefined;
+}
+
 /** Tracks who is online from a BDS log, read from the first line. */
 export class PlayerLog {
   /** True once "Server started." has been seen. */
@@ -85,11 +92,10 @@ export class PlayerLog {
       this.online.clear();
       return;
     }
-    const match = PLAYER_LINE.exec(text);
-    if (match) {
-      const name = match[2].trim();
-      if (match[1] === "connected") this.online.set(name.toLowerCase(), name);
-      else this.online.delete(name.toLowerCase());
+    const event = playerEvent(text);
+    if (event) {
+      if (event.kind === "connected") this.online.set(event.name.toLowerCase(), event.name);
+      else this.online.delete(event.name.toLowerCase());
     } else if (PLAYER_LIKE.test(text)) {
       this.formatChanged = true;
     }
@@ -169,6 +175,32 @@ export function lobbyMapChoices(entries: { id: string; json: string }[]): LobbyM
     }
   }
   return choices;
+}
+
+export interface EditorTargetChoice {
+  /** "lobby", or a game id. */
+  id: string;
+  name: string;
+  maps: { id: string; name: string; draft: boolean }[];
+}
+
+/**
+ * What the map editor can open, for the Panel's pickers: the lobby, then each game (its name read
+ * from game.config.ts, which the Panel can't import), each with its maps, drafts too.
+ */
+export function editorTargetChoices(targets: { id: string; config?: string; maps: { id: string; json: string }[] }[]): EditorTargetChoice[] {
+  return targets.map(({ id, config, maps }) => {
+    const name = id === "lobby" ? "Lobby" : (/\bname:\s*"([^"]+)"/.exec(config ?? "")?.[1] ?? id);
+    const choices = maps.map((map) => {
+      try {
+        const parsed = JSON.parse(map.json) as { name?: unknown; draft?: unknown };
+        return { id: map.id, name: typeof parsed.name === "string" && parsed.name ? parsed.name : map.id, draft: parsed.draft === true };
+      } catch {
+        return { id: map.id, name: `${map.id} (not valid JSON)`, draft: false };
+      }
+    });
+    return { id, name, maps: choices };
+  });
 }
 
 /** A LOBBY_MAP value: empty (the default, spaceship) or one of the finished lobby maps. */

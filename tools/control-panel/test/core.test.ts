@@ -3,10 +3,12 @@ import { describe, expect, it } from "vitest";
 import {
   checkLobbyMap,
   checkRequest,
+  editorTargetChoices,
   formatPorts,
   lobbyMapChoices,
   normalizeNames,
   PlayerLog,
+  playerEvent,
   readEnv,
   setEnvValues,
   shouldExit,
@@ -109,6 +111,7 @@ describe("stackOf", () => {
   it("sorts the network's containers, including orchestrator-made game servers", () => {
     expect(stackOf({ Names: ["/minecade-lobby"], Labels: project("minecade") })).toBe("main");
     expect(stackOf({ Names: ["/minecade-game-abc"], Labels: { "minecade.role": "game" } })).toBe("main");
+    expect(stackOf({ Names: ["/minecade-editor"], Labels: { "minecade.role": "editor" } })).toBe("main");
   });
 
   it("ignores every other container on the engine, including the spike diagnostic", () => {
@@ -118,6 +121,27 @@ describe("stackOf", () => {
     ).toBeUndefined();
     expect(stackOf({ Names: ["/supabase_db_kaheforms"], Labels: project("supabase_kaheforms") })).toBeUndefined();
     expect(stackOf({ Names: ["/wordpress"], Labels: {} })).toBeUndefined();
+  });
+});
+
+describe("map editor", () => {
+  it("reads joins and leaves for opping map editors", () => {
+    expect(playerEvent(playerLines[1])).toEqual({ kind: "connected", name: "Steve Builder" });
+    expect(playerEvent(playerLines[5])).toEqual({ kind: "disconnected", name: "Steve Builder" });
+    expect(playerEvent(playerLines[2])).toBeUndefined();
+  });
+
+  it("lists the lobby and the games with their maps, drafts too", () => {
+    const choices = editorTargetChoices([
+      { id: "lobby", maps: [{ id: "spaceship", json: '{"name":"Spaceship"}' }] },
+      { id: "sumo", config: 'defineGame({\n  id: "sumo",\n  name: "Sumo",\n  description: "x"', maps: [{ id: "test", json: '{"name":"Test","draft":true}' }, { id: "bad", json: "{" }] },
+      { id: "odd", config: "export default {}", maps: [] },
+    ]);
+    expect(choices).toEqual([
+      { id: "lobby", name: "Lobby", maps: [{ id: "spaceship", name: "Spaceship", draft: false }] },
+      { id: "sumo", name: "Sumo", maps: [{ id: "test", name: "Test", draft: true }, { id: "bad", name: "bad (not valid JSON)", draft: false }] },
+      { id: "odd", name: "odd", maps: [] },
+    ]);
   });
 });
 

@@ -1,5 +1,7 @@
 node_modules/
 dist/
+# The map editor's working files (its log, later the Select mode copies).
+work/
 .env
 spike/dist/
 spike/world/

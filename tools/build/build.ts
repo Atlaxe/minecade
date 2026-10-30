@@ -1,9 +1,9 @@
 // Builds every server target into dist/templates/servers/<target>/, writes dist/registry.json,
-// and bundles the orchestrator into dist/orchestrator/. A target is the lobby (lobby/) or a game
-// (games/<id>/ with a game.config.ts). Everything is validated first, and all problems are
-// reported together. Each behavior pack is bundled once per transport, and the container
-// entrypoint keeps the pair that matches TRANSPORT. Draft maps (the map editor's unfinished ones)
-// are skipped with a warning, and so is a game with no finished map.
+// and bundles the orchestrator into dist/orchestrator/. A target is the lobby (lobby/), a game
+// (games/<id>/ with a game.config.ts), or the map editor (editor/, packs only). Everything is
+// validated first, and all problems are reported together. Packs are built by packs.ts, and every
+// server gets the shared packs (the core resource pack and the shared blocks pack). Draft maps (the
+// map editor's unfinished ones) are skipped with a warning, and so is a game with no finished map.
 import { existsSync } from "node:fs";
 import { cp, mkdir, readdir, readFile, rm, writeFile } from "node:fs/promises";
 import { dirname, join, relative } from "node:path";
@@ -23,23 +23,18 @@ import {
   type Registry,
   type RegistryGame,
 } from "@minecade/minigame-core/config";
-import type { TransportKind } from "@minecade/minigame-core/protocol";
 import { encodePng } from "../skins/png.ts";
 import { RENDERS, renderSkinSet } from "../skins/skin-set.ts";
 import { readSkins } from "../skins/store.ts";
 import { enableBetaApis, patchLevelDat } from "./leveldat.ts";
-import { MODULE_VERSIONS, pinManifest, type Manifest } from "./mc-versions.ts";
-import { contentHash, withPatchVersion } from "./pack-version.ts";
-import { registryPlugin, skinsPlugin, transportPlugin } from "./transport-plugin.ts";
+import { pinManifest, type Manifest } from "./mc-versions.ts";
+import { addSharedPacks, buildBehaviorPack, buildResourcePack, hasContent, sharedPacks, type SharedPack } from "./packs.ts";
 import { mapWarnings, validateGameConfig, validateMapConfig } from "./validate.ts";
 
 const root = fileURLToPath(new URL("../../", import.meta.url));
 const dist = join(root, "dist");
-const TRANSPORTS: TransportKind[] = ["http", "log"];
-/** Added to the HTTP variant's manifest only, so log-transport servers never load it. */
-const SERVER_NET = { module_name: "@minecraft/server-net", version: MODULE_VERSIONS["@minecraft/server-net"] };
-/** A pack holding only these files has no content, and clients shouldn't download it. */
-const PACK_BOILERPLATE = new Set(["manifest.json", "pack_icon.png"]);
+/** The map editor's target: packs only, no maps (tools/editor stages the map it edits). */
+const EDITOR = "editor";
 
 interface Target {
   id: string;
@@ -98,13 +93,6 @@ async function loadManifest(packDir: string): Promise<Manifest | undefined> {
   }
 }
 
-async function hasContent(dir: string): Promise<boolean> {
-  for (const entry of await readdir(dir, { recursive: true, withFileTypes: true })) {
-    if (entry.isFile() && !(entry.parentPath === dir && PACK_BOILERPLATE.has(entry.name))) return true;
-  }
-  return false;
-}
-
 async function loadTarget(id: string, dir: string, configPath?: string): Promise<Target> {
   const target: Target = { id, dir, teams: [], maps: [] };
   const kind = id === "lobby" ? "lobby" : "game";
@@ -122,6 +110,7 @@ async function loadTarget(id: string, dir: string, configPath?: string): Promise
     if (existsSync(join(dir, "icon.png"))) target.icon = join(dir, "icon.png");
     else report(dir, ["icon.png is missing: the lobby's game picker and hologram show it (a 16:9 PNG, such as 320x180)"]);
   }
+  if (id === EDITOR) return target;
 
   const mapsDir = join(dir, "maps");
   let drafts = 0;
@@ -165,48 +154,9 @@ async function discoverTargets(): Promise<Target[]> {
     const configPath = join(root, "games", id, "game.config.ts");
     if (existsSync(configPath)) targets.push(await loadTarget(id, join(root, "games", id), configPath));
   }
+  const editorDir = join(root, EDITOR);
+  if (existsSync(join(editorDir, "behavior_pack", "manifest.json"))) targets.push(await loadTarget(EDITOR, editorDir));
   return targets.filter((target) => !target.skip);
-}
-
-async function buildBehaviorPack(src: string, out: string, manifest: Manifest, registry: Registry, skins: PlayerSkin[]): Promise<void> {
-  // Everything except the sources and the manifest ships as-is (icons, texts, ...).
-  await cp(src, out, { recursive: true, filter: (path) => !path.endsWith(".ts") && path !== join(src, "manifest.json") });
-  for (const kind of TRANSPORTS) {
-    const bundle = join(out, "scripts", `main.${kind}.js`);
-    await build({
-      entryPoints: [join(src, "scripts", "main.ts")],
-      outfile: bundle,
-      bundle: true,
-      format: "esm",
-      platform: "neutral",
-      target: "es2022",
-      external: ["@minecraft/*"],
-      plugins: [transportPlugin(kind), registryPlugin(registry), skinsPlugin(skins)],
-      logLevel: "warning",
-    });
-    const variant = structuredClone(manifest);
-    for (const module of variant.modules) if (module.type === "script") module.entry = `scripts/main.${kind}.js`;
-    if (kind === "http") variant.dependencies = [...(variant.dependencies ?? []), SERVER_NET];
-    await writeFile(join(out, `manifest.${kind}.json`), JSON.stringify(variant, null, 2));
-    // A script importing a module its manifest doesn't declare fails to load at all on the server.
-    const declared = new Set(variant.dependencies?.map((dependency) => dependency.module_name));
-    const imported = new Set([...(await readFile(bundle, "utf8")).matchAll(/from\s*"(@minecraft\/[a-z-]+)"/g)].map((match) => match[1]));
-    const missing = [...imported].filter((module) => !declared.has(module));
-    if (missing.length > 0) {
-      throw new Error(`${relative(root, src)}: the ${kind} bundle imports ${missing.join(", ")}; add it to manifest.json dependencies`);
-    }
-  }
-}
-
-/**
- * Copies a resource pack (plus anything `extra` adds), versioned by its content so clients
- * download it again whenever it changes.
- */
-async function buildResourcePack(src: string, out: string, manifest: Manifest, extra?: (out: string) => Promise<void>): Promise<void> {
-  await cp(src, out, { recursive: true, filter: (path) => path !== join(src, "manifest.json") });
-  await extra?.(out);
-  const stamped = withPatchVersion(manifest, await contentHash(out));
-  await writeFile(join(out, "manifest.json"), JSON.stringify(stamped, null, 2));
 }
 
 /** The hologram's "minecade:picture" and "minecade:portrait" properties go up to these (lobby behavior pack entity). */
@@ -313,9 +263,12 @@ async function buildOrchestrator(): Promise<void> {
 
 const targets = await discoverTargets();
 if (warnings.length > 0) console.warn(`${warnings.length} warning${warnings.length === 1 ? "" : "s"}:\n  ${warnings.join("\n  ")}`);
-// Every server gets the core resource pack (the HUD timer and other shared UI), before its own.
-const coreRpDir = join(root, "packages", "minigame-core", "resource_pack");
-const coreResourcePack = existsSync(join(coreRpDir, "manifest.json")) ? await loadManifest(coreRpDir) : undefined;
+// Every server gets the shared packs (the core resource pack, the shared blocks pack), before its own.
+const shared: { pack: SharedPack; manifest: Manifest }[] = [];
+for (const pack of await sharedPacks()) {
+  const manifest = await loadManifest(pack.dir);
+  if (manifest) shared.push({ pack, manifest });
+}
 if (problems.length > 0) {
   console.error(`Build stopped: ${problems.length} problem${problems.length === 1 ? "" : "s"}\n  ${problems.join("\n  ")}`);
   process.exit(1);
@@ -356,13 +309,14 @@ for (const target of targets) {
   if (target.behaviorPack) {
     await buildBehaviorPack(join(target.dir, "behavior_pack"), join(out, "behavior_packs", `${target.id}_bp`), target.behaviorPack, registry, playerSkins.list);
   }
-  if (coreResourcePack) await buildResourcePack(coreRpDir, join(out, "resource_packs", "core_rp"), coreResourcePack);
+  await addSharedPacks(out, shared);
   if (target.resourcePack) {
     const extra = target.id === "lobby" ? addGameIcons : undefined;
     await buildResourcePack(join(target.dir, "resource_pack"), join(out, "resource_packs", `${target.id}_rp`), target.resourcePack, extra);
   }
   const maps = await buildMaps(target, out);
-  console.log(`built ${target.id} (maps: ${maps.map((map) => map.id).join(", ")}${target.resourcePack ? ", resource pack" : ""})`);
+  const parts = [...(maps.length > 0 ? [`maps: ${maps.map((map) => map.id).join(", ")}`] : []), ...(target.resourcePack ? ["resource pack"] : [])];
+  console.log(`built ${target.id}${parts.length > 0 ? ` (${parts.join(", ")})` : ""}`);
 }
 await writeFile(join(dist, "registry.json"), JSON.stringify(registry, null, 2));
 await buildOrchestrator();

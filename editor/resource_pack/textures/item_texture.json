@@ -1,0 +1,8 @@
+{
+  "resource_pack_name": "minecade_editor",
+  "texture_name": "atlas.items",
+  "texture_data": {
+    "minecade_map_menu": { "textures": "textures/items/map_menu" },
+    "minecade_spawn_tool": { "textures": "textures/items/spawn_tool" }
+  }
+}

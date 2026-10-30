@@ -36,10 +36,25 @@ export {
   type MapTime,
   type Vec3,
 } from "./map-config.ts";
-export { MapEditError, applyEdit, listOf, type MapEdit, type MapList } from "./map-edit.ts";
+export { MapEditError, applyEdit, describeEdit, isMapKey, listKey, listOf, type MapEdit, type MapList } from "./map-edit.ts";
+export { mapChecklist, type Checklist, type ChecklistRow } from "./map-checklist.ts";
 export { formatMapConfig } from "./map-format.ts";
 export { mapRequirements, type MapField, type MapRequirement, type RequirementOptions } from "./map-requirements.ts";
 export { mapWarnings, validateMapConfig, type MapRules } from "./map-validate.ts";
+export {
+  ConfigAssembler,
+  EDIT_LOG_MARKER,
+  EDIT_SCRIPT_EVENT_ID,
+  extractEditPayload,
+  mapHash,
+  parseEditorEvent,
+  parseHostMessage,
+  splitConfig,
+  type EditorEvent,
+  type EditorInfo,
+  type EditorRules,
+  type HostMessage,
+} from "./editor-protocol.ts";
 export {
   BADGE_CHARACTERS,
   PLACEHOLDER_PICTURES,

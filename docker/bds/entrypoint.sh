@@ -9,6 +9,9 @@
 #   ORCH_URL, LAN_HOST, PUBLIC_HOST, LAN_PLAYERS, ALLOW_LIST, LOBBY_PORT, SESSION_ID,
 #   EXPECTED_PLAYERS, MAX_PLAYERS, SERVER_NAME, DEV_MIN_PLAYERS, DEV_DEMO_GAMES, DEV_HOLO_PREVIEW,
 #   WATCHER_GAMERTAG, GAME_SETTINGS
+#   EDITOR_MODE     set by the map editor (tools/editor): its host stages the map being edited in
+#                   /editor (world/, map.json, editor.json). Players get creative mode, and the allow
+#                   list is always on: LAN_PLAYERS plus EDITOR_ALLOW_LIST.
 set -euo pipefail
 cd /bds
 
@@ -19,7 +22,7 @@ SERVER_PORT="${SERVER_PORT:-19132}"
 TRANSPORT="${TRANSPORT:-http}"
 ORCH_URL="${ORCH_URL:-http://orchestrator:8080}"
 TEMPLATE="/templates/servers/${GAME}"
-MAP_DIR="${TEMPLATE}/maps/${MAP}"
+if [[ -n "${EDITOR_MODE:-}" ]]; then MAP_DIR=/editor; else MAP_DIR="${TEMPLATE}/maps/${MAP}"; fi
 
 fail() { echo "[minecade] $*" >&2; exit 1; }
 [[ "$TRANSPORT" == "http" || "$TRANSPORT" == "log" ]] || fail "TRANSPORT must be http or log, got: $TRANSPORT"
@@ -66,8 +69,14 @@ set_prop online-mode true
 # Needed for console scriptevent and tickingarea. Players join as members, not operators.
 set_prop allow-cheats true
 set_prop default-player-permission-level member
-set_prop gamemode adventure
-set_prop force-gamemode true
+if [[ -n "${EDITOR_MODE:-}" ]]; then
+  # Everyone builds in creative; the editor's host ops the map editors when they join.
+  set_prop gamemode creative
+  set_prop force-gamemode false
+else
+  set_prop gamemode adventure
+  set_prop force-gamemode true
+fi
 set_prop difficulty peaceful
 set_prop view-distance 10
 set_prop tick-distance 4
@@ -75,7 +84,8 @@ set_prop content-log-console-output-enabled true
 set_prop content-log-level info
 set_prop emit-server-telemetry false
 
-if [[ -n "${ALLOW_LIST:-}" ]]; then
+[[ -n "${EDITOR_MODE:-}" ]] && ALLOW_LIST="${LAN_PLAYERS:-},${EDITOR_ALLOW_LIST:-}"
+if [[ -n "${EDITOR_MODE:-}" || -n "${ALLOW_LIST:-}" ]]; then
   csv_json "$ALLOW_LIST" | jq 'map({name: ., ignoresPlayerLimit: false})' > allowlist.json
   set_prop allow-list true
 else
@@ -116,9 +126,13 @@ if [[ -d "$TEMPLATE/behavior_packs" ]]; then
     dest="behavior_packs/minecade_$(basename "$src")"
     rm -rf "$dest"
     cp -r "$src" "$dest"
-    mv "$dest/manifest.${TRANSPORT}.json" "$dest/manifest.json"
-    rm -f "$dest"/manifest.*.json
-    find "$dest/scripts" -name 'main.*.js' ! -name "main.${TRANSPORT}.js" -delete
+    # A pack with scripts comes with a manifest and a bundle per transport; one without (the shared
+    # blocks pack) comes as it is.
+    if [[ -f "$dest/manifest.${TRANSPORT}.json" ]]; then
+      mv "$dest/manifest.${TRANSPORT}.json" "$dest/manifest.json"
+      rm -f "$dest"/manifest.*.json
+      find "$dest/scripts" -name 'main.*.js' ! -name "main.${TRANSPORT}.js" -delete
+    fi
     packs="$(jq -c --argjson ref "$(pack_ref "$dest/manifest.json")" '. + [$ref]' <<< "$packs")"
   done
 fi
@@ -156,6 +170,10 @@ map_config='{}'
 [[ -f "$MAP_DIR/map.json" ]] && map_config="$(jq -c . "$MAP_DIR/map.json")"
 role="game"
 [[ "$GAME" == "lobby" ]] && role="lobby"
+[[ -n "${EDITOR_MODE:-}" ]] && role="editor"
+# The map editor's settings (tools/editor writes them), or none.
+editor_info=""
+[[ -n "${EDITOR_MODE:-}" ]] && editor_info="$(jq -c . /editor/editor.json)"
 # The lobby's game screen choices ({"teams":"random"}), or none.
 game_settings="${GAME_SETTINGS:-}"
 [[ -n "$game_settings" ]] || game_settings='{}'
@@ -179,6 +197,7 @@ jq -n \
   --arg devHoloPreview "${DEV_HOLO_PREVIEW:-}" \
   --arg watcher "${WATCHER_GAMERTAG:-}" \
   --arg settings "$game_settings" \
+  --arg editor "$editor_info" \
   '$ARGS.named' > config/default/variables.json
 
 echo "[minecade] ${SERVER_ID}: ${GAME}/${MAP} on port ${SERVER_PORT}, transport ${TRANSPORT}, public ${PUBLIC_IP}, allow-list $([[ -n "${ALLOW_LIST:-}" ]] && echo on || echo off)"

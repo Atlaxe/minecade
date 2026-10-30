@@ -4,6 +4,9 @@ Every server target (the lobby, and each game under `games/<id>/`) has one or mo
 `maps/<map-id>/`. A map is a `map.json` plus a `world/` folder. The build checks every map and
 copies it into the server templates. Each game server starts from a fresh copy of its world.
 
+The map editor sets spawns and points in game and writes `map.json` for you; see
+[editor.md](editor.md).
+
 ## map.json
 
 ```json

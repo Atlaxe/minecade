@@ -24,6 +24,7 @@ export default defineConfig({
       "orchestrator/test/**/*.test.ts",
       "tools/**/test/**/*.test.ts",
       "lobby/test/**/*.test.ts",
+      "editor/test/**/*.test.ts",
       "games/*/test/**/*.test.ts",
     ],
   },

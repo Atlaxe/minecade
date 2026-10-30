@@ -8,6 +8,7 @@
     "packages/*/test/**/*.ts",
     "games/*/game.config.ts",
     "lobby/test/**/*.ts",
+    "editor/test/**/*.ts",
     "vitest.config.ts",
     "types/transport-alias.d.ts"
   ],
