@@ -6,5 +6,6 @@ spike/world/
 spike/results/
 # Captured skins are players' personal data; they stay on this PC.
 spike/skins/out/
+/skins/
 *.tsbuildinfo
 **/world.new/

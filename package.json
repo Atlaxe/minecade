@@ -20,6 +20,7 @@
     "spike:watcher:check": "docker compose -f spike/docker-compose.skins.yml --env-file .env run --rm --build -e CHECK_ONLY=1 watcher",
     "spike:watcher": "docker compose -f spike/docker-compose.skins.yml --env-file .env up -d --build watcher",
     "spike:skins:down": "docker compose -f spike/docker-compose.skins.yml --env-file .env down",
+    "skins": "tsx tools/skins/render-all.ts",
     "cmd": "tsx tools/build/send-command.ts",
     "smoke": "tsx tools/smoke/smoke.ts",
     "panel": "node --disable-warning=ExperimentalWarning tools/control-panel/panel.ts",
