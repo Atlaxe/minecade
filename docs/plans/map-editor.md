@@ -1,10 +1,10 @@
 # Milestone 10: map editor server (Select, Edit, Preview) (plan)
 
-**Status:** approved 2026-10-30, not started. Next: part 10.0 (spike). The user calls the UI pass milestone 9; this is milestone 10, and the games come after it as milestones 11 and on.
+**Status:** approved 2026-10-30. Milestone 9 (the UI pass) is done, so this is next. Built in 9 passes, functionality first (see "Passes"). Next: pass 10.1 (spike). The games come after it as milestones 11 and on.
 
 **For the session that implements this:**
 - Work in `C:\dev\minecade\network`.
-- Stop and report after each part. Commit and push after each part, with no attribution, committing only that part's files.
+- Stop and report after each pass. Commit and push after each pass, with no attribution, committing only that pass's files.
 - Deploy only when nobody is online.
 - Org writing rules: no em dashes, no emojis, US spelling, in code, docs and commit messages.
 - The architecture plan is `~/.claude/plans/project-scaffold-a-private-dazzling-mochi.md`, and `docs/spike-results.md` records what earlier spikes found.
@@ -22,7 +22,7 @@ This milestone turns the spare port (19134) into a **map editor server** with th
 
 Each game declares the map data it needs in `game.config.ts`. The editor turns that into a checklist with a tool for each entry, so a new game needs no new editor code. Lobbies work the same way.
 
-Follows the usual rules: stop and report after each part, commit and push after each part, no em dashes, no emojis, US spelling.
+Follows the usual rules: stop and report after each pass, commit and push after each pass, no em dashes, no emojis, US spelling.
 
 ## Your decisions
 
@@ -390,55 +390,84 @@ Every change shows in `map.json` at once (watch it in VS Code), and undo is in t
 | `games/<game>/maps/<id>/` | `map.json`, `world/`, `preview.png` | yes |
 | `lobby/maps/<id>/` | the same, for lobbies | yes |
 
-## Parts (stop and report after each, commit and push)
+## Passes (stop and report after each, commit and push)
 
-**10.0 Spike.** Uses one of your converted worlds. Results go in `docs/spike-results.md` under "Map editor". It checks:
-1. **Chunker CLI in Docker:** prunes a Bedrock world to chosen chunks (Bedrock to Bedrock, same version), and BDS 1.26.60.6 loads the result. Fallback if it can't: delete chunk keys with a LevelDB tool in a container.
-2. **Structure moves in BDS:** the largest tile `structureManager.createFromWorld` and `place` accept, that block entities and item frames survive, and how long a 100x60x100 map takes.
-3. **Staging your converted world:** copy time into the container, and the void-generator patch on its level.dat.
-4. **Editor basics on 1.26.60:**
-   - custom items with icons, and the custom command API with 2.11.0;
-   - the translucent, no-collision boundary block, including on console;
-   - hits on marker entities, `TextPrimitive.visibleTo`, and `op` from the console.
-5. **Camera:**
-   - `camera.setCamera` with the free preset at an exact position and angle;
-   - `setHudVisibility`;
-   - spectators hidden from the viewer, and player name tags hidden for a shot.
-6. **Hot save:** `save hold`, `query` and `resume`, with a copy while the server runs.
-7. **Preview mount:** a bind mount of a host path into a container that the orchestrator creates (Docker Desktop path translation).
-8. **Players:**
-   - `allowlist add` and `allowlist remove` work live from the console;
-   - whether BDS logs a join it refused for the allow list (for "Recently refused");
-   - a transfer from the lobby to port 19134 and back works on the LAN and from outside.
+Re-sliced on 2026-10-30 by tier: **functionality first** (a working editor with plain forms, from
+the CLI and the Panel), **then UI tweaks, then nice-to-have features**. The design above is
+unchanged; until the later passes, simpler stand-ins fill in (noted per pass).
 
-**10.1 Map format v2 and core.**
-- Facing entries, kill regions, per-team keys, requirement descriptors, drafts, `source` and `cameras` (stripped by the build).
-- `lobby/lobby.config.ts`, and `LOBBY_MAP` in place of the hard-coded lobby map.
-- The shared validator in core, requirements (games and lobby) in the registry, the formatter.
+### Functionality
+
+**10.1 Spike** (only what the functional passes rely on; later passes check their own risks first:
+boundary blocks on consoles, the camera, the live allow list, hot save). Results go in
+`docs/spike-results.md` under "Map editor". Source world: a copy of "Datapacking (imported)" from
+the client's worlds folder, plus the spaceship world.
+1. **Chunker CLI in Docker** prunes a Bedrock world to chosen chunks (Bedrock to Bedrock), and BDS
+   1.26.60.6 loads the result. Fallback: delete chunk keys with a LevelDB tool in a container.
+2. **Structure moves in BDS:** the largest tile `structureManager.createFromWorld` and `place`
+   accept, that block entities and item frames survive, and how long a 100x60x100 map takes.
+3. **Staging a converted world:** copy time into the container, and the void-generator patch on
+   its level.dat.
+4. **Editor basics on 1.26.60:** custom items, hits on marker entities, `op` from the console.
+5. **Preview plumbing:** a transfer from port 19134 to a game and back, and a bind mount of a host
+   path into a container the orchestrator creates (Docker Desktop path translation).
+
+**10.2 Map format v2 and core.**
+- Facing entries, kill regions, per-team keys, requirement descriptors, drafts, `source` and
+  `cameras` (stripped by the build).
+- `lobby/lobby.config.ts`, and `LOBBY_MAP` in place of the hard-coded lobby map (with a Panel
+  picker).
+- The shared validator in core (keeping the `time` and `stars` checks), requirements (games and
+  lobby) in the registry, the formatter, the pure edit ops.
 - Docs in `docs/maps.md`.
 
-**10.2 Editor server and Edit mode basics.**
-- Entrypoint editor mode, `npm run editor` for Edit mode and `--new` (stage, sync, undo, save, stop).
-- Access lists and roles, and the in-game Players screen (live allow list, role switches, saved to `.env`).
+**10.3 Editor server and Edit basics.** After it, Sumo's `arena_1` can be edited end to end.
+- Entrypoint editor mode, `npm run editor` for Edit mode and `--new` (stage, sync, undo, save,
+  stop).
+- The map menu (plain forms), checklist, spawn tool with simple markers (a name tag with the list
+  and number), Mark ready.
+- Access lists and roles from `.env` (stand-in for the in-game Players screen).
+- The host session runs on its own: in the foreground from `npm run editor`, or started by the
+  Panel as a background process (log in `work/editor/editor.log`) with a local control port for
+  status, save and stop, so closing the Panel never stops the editor.
+- Panel: a Map editor section with Start (target, map, New map) and Stop, the running mode and
+  "ready to join", the checklist mirror, the log, and the `EDITOR_ALLOW_LIST` and `MAP_EDITORS`
+  settings. The editor container shows in the container list.
+
+**10.4 Region and Kill Y tools.** Region tool, Kill Y tool, and a plain particle outline of the
+box being edited and of the bounds (stand-in for the colored boundary blocks).
+
+**10.5 Select mode.**
+- World picker (client worlds by name, folders, `.mcworld`), select tool, confirm form.
+- Background extraction (Chunker prune, crop and recenter pass, draft map), Update from world.
+- Switching to Edit restarts the editor, and players rejoin by hand after about 30 seconds
+  (stand-in for the lobby waiting room).
+- Panel: Select with the world picker, the selections with their extraction status, Edit and
+  Update.
+
+**10.6 Preview:** `DEV_LIVE_MAPS`, Preview with the return to the editor, Preview as lobby, and
+both in the Panel.
+
+### UI tweaks
+
+**10.7 Editor look and feel.**
 - The mode in the top-right box (`HUD_MODE_MARK`).
-- The pack's map menu, checklist and spawn tool with markers. That is enough to edit Sumo's `arena_1` end to end.
+- Item icons; marker models with numbers, list colors and facing arrows.
+- Boundary blocks with the Layers form; inspect mode.
+- Editor forms in the Minecade style where it helps, and Panel polish.
 
-**10.3 Edit mode tools.**
-- Region tool, Kill Y tool.
-- Boundary blocks with the Layers form, inspect mode.
-- Mirror tool, camera tool, `mc:` commands, hot save.
+### Nice to have
 
-**10.4 Select mode.**
-- World picker (client worlds by name, folders, `.mcworld`), select tool with Shrink to build, confirm form.
-- Background extraction (Chunker prune, crop and recenter pass, draft map), switching to Edit, Update from world.
+**10.8 Smoother workflow.**
 - Mode switches through the lobby:
   - protocol 7 (`editor_hold`, `editor_return`);
   - the orchestrator's `/v1/editor/hold` and `/v1/editor/return`;
   - lobby waiting players, the 3-minute timeout, and the offer to start the main stack.
+- The in-game Players screen.
+- Hot "Save world", Shrink to build, `mc:` commands.
 
-**10.5 Preview mode:** `DEV_LIVE_MAPS`, Preview with the return to the editor, Preview as lobby.
-
-**10.6 Panel section:** modes, world picker, status, settings, Use latest screenshot.
+**10.9 Extra tools:** mirror tool, camera tool and "Use latest screenshot", the lobby terminal
+marker.
 
 **Then milestones 11 and on, one per game:**
 1. Declare the game's `map` requirements.
@@ -517,7 +546,7 @@ Every change shows in `map.json` at once (watch it in VS Code), and undo is in t
 
 ## Verification
 
-- **Each part:** `npm run check` and `npm run build`.
+- **Each pass:** `npm run check` and `npm run build`.
 - **Tests:**
   - **Edit ops:** add, move, delete, renumber, mirror with yaw.
   - **Validator v2:** facing entries, per-team keys, kill regions, team ids, drafts skipped.
