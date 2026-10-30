@@ -1,6 +1,6 @@
 // Checks for game configs and map.json files. Each function returns a list of problems (empty
 // when valid) so the build can report everything at once instead of stopping at the first.
-import type { Box, GameConfig, MapConfig, Vec3 } from "@minecade/minigame-core/config";
+import { MAP_TIMES, mapTimeTicks, type Box, type GameConfig, type MapConfig, type Vec3 } from "@minecade/minigame-core/config";
 
 /** Bedrock overworld height limits. */
 const MIN_Y = -64;
@@ -92,6 +92,11 @@ export function validateMapConfig(raw: unknown, rules: MapRules): string[] {
   }
   if (map.spectatorSpawn !== undefined && !isVec3(map.spectatorSpawn)) problems.push('"spectatorSpawn" must be [x, y, z]');
   if (map.killY !== undefined && (typeof map.killY !== "number" || !Number.isFinite(map.killY))) problems.push('"killY" must be a number');
+  if (map.time !== undefined && mapTimeTicks(map.time) === undefined) {
+    problems.push(`"time" must be one of ${Object.keys(MAP_TIMES).join(", ")}, or ticks from 0 to 23999`);
+  }
+  if (map.stars !== undefined && typeof map.stars !== "boolean") problems.push('"stars" must be true or false');
+  if (map.stars === true && rules.kind !== "lobby") problems.push('"stars" is only for the lobby map');
 
   // Named entries: shape, then (below) inside the bounds.
   const points: [string, unknown][] = spawns.map((spawn, i): [string, unknown] => [`spawns[${i}]`, spawn]);

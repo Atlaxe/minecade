@@ -5,6 +5,7 @@
 import { world } from "@minecraft/server";
 import { createTransport, kind } from "#transport";
 import type { ServerContext } from "./context.ts";
+import { mapTimeTicks } from "./map-config.ts";
 import { PROTOCOL_VERSION } from "./protocol/index.ts";
 import { Scope } from "./scope.ts";
 import { TransferService } from "./transfer.ts";
@@ -16,6 +17,12 @@ export function bootServer(onReady: (ctx: ServerContext) => void): void {
   const handle = world.afterEvents.worldLoad.subscribe(() => {
     world.afterEvents.worldLoad.unsubscribe(handle);
     const vars = readServerVars();
+    // map.json "time": the sky stays at that time of day.
+    const ticks = mapTimeTicks(vars.mapConfig.time);
+    if (ticks !== undefined) {
+      world.gameRules.doDayLightCycle = false;
+      world.setTimeOfDay(ticks);
+    }
     const transport = createTransport({ serverId: vars.serverId, orchestratorUrl: vars.orchestratorUrl });
     const ctx: ServerContext = { vars, transport, transfer: new TransferService(vars), root: new Scope(vars.role) };
     onReady(ctx);

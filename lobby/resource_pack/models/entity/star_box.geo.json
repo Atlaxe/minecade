@@ -1,0 +1,151 @@
+{
+  "format_version": "1.12.0",
+  "minecraft:geometry": [
+    {
+      "description": {
+        "identifier": "geometry.minecade.star_box",
+        "texture_width": 512,
+        "texture_height": 512,
+        "visible_bounds_width": 110,
+        "visible_bounds_height": 110,
+        "visible_bounds_offset": [
+          0,
+          0,
+          0
+        ]
+      },
+      "bones": [
+        {
+          "name": "root",
+          "pivot": [
+            0,
+            0,
+            0
+          ],
+          "cubes": [
+            {
+              "origin": [
+                -768,
+                -768,
+                768
+              ],
+              "size": [
+                1536,
+                1536,
+                0
+              ],
+              "uv": {
+                "north": {
+                  "uv": [
+                    0,
+                    0
+                  ],
+                  "uv_size": [
+                    512,
+                    512
+                  ]
+                }
+              }
+            },
+            {
+              "origin": [
+                -768,
+                -768,
+                -768
+              ],
+              "size": [
+                1536,
+                1536,
+                0
+              ],
+              "uv": {
+                "south": {
+                  "uv": [
+                    0,
+                    0
+                  ],
+                  "uv_size": [
+                    512,
+                    512
+                  ]
+                }
+              }
+            },
+            {
+              "origin": [
+                768,
+                -768,
+                -768
+              ],
+              "size": [
+                0,
+                1536,
+                1536
+              ],
+              "uv": {
+                "west": {
+                  "uv": [
+                    0,
+                    0
+                  ],
+                  "uv_size": [
+                    512,
+                    512
+                  ]
+                }
+              }
+            },
+            {
+              "origin": [
+                -768,
+                -768,
+                -768
+              ],
+              "size": [
+                0,
+                1536,
+                1536
+              ],
+              "uv": {
+                "east": {
+                  "uv": [
+                    0,
+                    0
+                  ],
+                  "uv_size": [
+                    512,
+                    512
+                  ]
+                }
+              }
+            },
+            {
+              "origin": [
+                -768,
+                -768,
+                -768
+              ],
+              "size": [
+                1536,
+                0,
+                1536
+              ],
+              "uv": {
+                "up": {
+                  "uv": [
+                    0,
+                    0
+                  ],
+                  "uv_size": [
+                    512,
+                    512
+                  ]
+                }
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

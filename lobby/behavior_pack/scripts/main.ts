@@ -15,6 +15,7 @@ import { PREVIEW_SCREENS } from "./holo-preview.ts";
 import { CLOSE, menuChoice } from "./game-screen.ts";
 import { MAIN_MENU_CHOICES, gameForm, gamesForm, mainMenuForm, playersForm, previewForm, statsForm } from "./menus.ts";
 import { isWatcher, useSkins } from "./skins.ts";
+import { StarBox } from "./star-box.ts";
 import { StatsController } from "./stats-controller.ts";
 import { TeamPickForm } from "./team-pick-form.ts";
 import { TerminalController } from "./terminal-controller.ts";
@@ -179,12 +180,23 @@ bootServer(({ vars, transport, transfer, root }) => {
     { now: () => system.currentTick },
   );
   tapTerminal = (name) => void terminal.tap(name);
+  // map.json "stars": the star box sits where the hologram's display does (in the ticking area).
+  const { x: cx, y: cy, z: cz } = hologram.center;
+  const stars = vars.mapConfig.stars === true ? new StarBox(overworld, { x: cx, y: cy + 2, z: cz }) : undefined;
   // The area may only load once a player is near; ensure() is cheap once everything is there.
   let placed = false;
+  let starsLogged = false;
   const place = () => {
     const ok = hologram.ensure();
     if (ok && !placed) terminal.refresh();
     placed = ok;
+    if (!ok || !stars) return;
+    try {
+      stars.ensure();
+    } catch (error) {
+      if (!starsLogged) log.warn(`could not place the star box: ${describeError(error)}`);
+      starsLogged = true;
+    }
   };
   root.interval(place, 100);
   // Keep the terminal's area loaded, so it's built before anyone joins.

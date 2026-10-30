@@ -2,5 +2,7 @@
   "name": "Spaceship",
   "spawns": [[0, 69, 7]],
   "bounds": { "min": [-35, 40, -35], "max": [35, 100, 35] },
-  "points": { "terminal": [[0, 68, 3]] }
+  "points": { "terminal": [[0, 68, 3]] },
+  "time": "midnight",
+  "stars": true
 }

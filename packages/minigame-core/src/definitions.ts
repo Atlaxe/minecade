@@ -14,7 +14,7 @@ export {
   type TeamDef,
   type TeamsConfig,
 } from "./config.ts";
-export type { Box, MapConfig, Vec3 } from "./map-config.ts";
+export { MAP_TIMES, mapTimeTicks, type Box, type MapConfig, type MapTime, type Vec3 } from "./map-config.ts";
 export {
   BADGE_CHARACTERS,
   PLACEHOLDER_PICTURES,

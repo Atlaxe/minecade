@@ -1,0 +1,20 @@
+{
+  "format_version": "1.10.0",
+  "minecraft:client_entity": {
+    "description": {
+      "identifier": "minecade:star_box",
+      "materials": {
+        "default": "entity_beam_additive"
+      },
+      "textures": {
+        "default": "textures/minecade/holo/stars"
+      },
+      "geometry": {
+        "default": "geometry.minecade.star_box"
+      },
+      "render_controllers": [
+        "controller.render.minecade.star_box"
+      ]
+    }
+  }
+}

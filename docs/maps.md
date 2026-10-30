@@ -28,6 +28,8 @@ copies it into the server templates. Each game server starts from a fresh copy o
 | `spectatorSpawn` | no | Where eliminated players watch from. |
 | `bounds` | when `build` is used | The playable box, in whole blocks (inclusive). Players outside it are out (in games with `combat.outOfBounds: "down"`), and spectators are kept inside. Spawns must be inside it, and y must stay within -64 to 319. |
 | `killY` | no | Anyone below this height is out (knocked off, fell into the void). |
+| `time` | no | A fixed time of day: the daylight cycle stops there when the server starts. `day`, `noon`, `sunset`, `night`, `midnight` or `sunrise`, or ticks from 0 to 23999. |
+| `stars` | no | The lobby only: `true` puts a star box around the map, so stars show in every direction, below the horizon too (Bedrock's own sky has stars only above it). Use it with a night `time`. See "The star box" in `docs/ui.md`. |
 | `teamSpawns` | no | `{ "<team or role id>": [[x, y, z], ...] }`. Team games spawn each team at its own points. With these, `spawns` may have fewer than `maxPlayers` entries. |
 | `points` | no | `{ "<name>": [[x, y, z], ...] }`: named positions a game uses, such as bomb sites or mob spawns. |
 | `regions` | no | `{ "<name>": [{ "min": [x, y, z], "max": [x, y, z] }, ...] }`: named boxes, such as build plots or a floor that falls away. |

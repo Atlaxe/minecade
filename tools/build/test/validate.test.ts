@@ -91,4 +91,15 @@ describe("validateMapConfig", () => {
       '"bounds" is required when "build" is present (baking works inside it)',
     ]);
   });
+
+  it("checks the time of day and the star box", () => {
+    expect(validateMapConfig({ name: "Main", spawns: [[0, 65, 0]], time: "midnight", stars: true }, { kind: "lobby" })).toEqual([]);
+    expect(validateMapConfig({ name: "Arena", spawns, time: 6000 }, { kind: "game", maxPlayers: 3 })).toEqual([]);
+    const timeProblem = '"time" must be one of day, noon, sunset, night, midnight, sunrise, or ticks from 0 to 23999';
+    for (const time of ["dusk", 24000, -1, 1.5, "toString"]) {
+      expect(validateMapConfig({ name: "Main", spawns: [[0, 65, 0]], time }, { kind: "lobby" })).toEqual([timeProblem]);
+    }
+    expect(validateMapConfig({ name: "Main", spawns: [[0, 65, 0]], stars: "yes" }, { kind: "lobby" })).toEqual(['"stars" must be true or false']);
+    expect(validateMapConfig({ name: "Arena", spawns, stars: true }, { kind: "game", maxPlayers: 3 })).toEqual(['"stars" is only for the lobby map']);
+  });
 });

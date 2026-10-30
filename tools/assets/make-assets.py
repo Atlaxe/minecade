@@ -19,6 +19,7 @@ The logo source is tools/assets/source/minecade-title.png (the orange original).
 
 import colorsys
 import json
+import random
 import sys
 from pathlib import Path
 
@@ -164,6 +165,34 @@ def holo_backdrop() -> Image.Image:
     material, so a bright sky behind the panels is darkened and the glowing panels stand out.
     """
     return Image.new("RGBA", (16, 16), (0, 0, 0, 150))
+
+
+def stars() -> Image.Image:
+    """
+    The star box's walls and floor (lobby map.json "stars"): stars on black, drawn additively, so
+    black shows nothing and only the stars add light. A fixed seed keeps it the same every run.
+    Mostly faint single pixels, some brighter ones, a few bright ones with a small cross of glow,
+    and some tinted blue.
+    """
+    rng = random.Random(7)
+    image = Image.new("RGB", (512, 512), (0, 0, 0))
+
+    def put(x: int, y: int, color: tuple[int, int, int]) -> None:
+        r, g, b = image.getpixel((x % 512, y % 512))
+        image.putpixel((x % 512, y % 512), (max(r, color[0]), max(g, color[1]), max(b, color[2])))
+
+    for _ in range(1800):
+        x, y = rng.randrange(512), rng.randrange(512)
+        roll = rng.random()
+        level = rng.randint(60, 130) if roll < 0.8 else rng.randint(150, 220) if roll < 0.97 else rng.randint(230, 255)
+        tint = rng.random()
+        color = (round(level * 0.7), round(level * 0.85), level) if tint < 0.2 else (level, level, level)
+        put(x, y, color)
+        if roll >= 0.97:
+            halo = tuple(round(channel * 0.45) for channel in color)
+            for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1)):
+                put(x + dx, y + dy, halo)
+    return image
 
 
 def holo_beam() -> Image.Image:
@@ -428,6 +457,7 @@ def main() -> None:
         save(image, LOBBY_TEXTURES / "holo" / f"{name}.png")
     save(holo_beam(), LOBBY_TEXTURES / "holo" / "beam.png")
     save(holo_backdrop(), LOBBY_TEXTURES / "holo" / "backdrop.png")
+    save(stars(), LOBBY_TEXTURES / "holo" / "stars.png")
     save(Image.new("RGB", (16, 16), (0, 0, 0)), LOBBY_TEXTURES / "holo" / "icon_none.png")
 
     save(block_side(), LOBBY_TEXTURES / "blocks" / "terminal_side.png")
