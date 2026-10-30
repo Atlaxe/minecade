@@ -214,7 +214,7 @@ The editor reuses the top-right box the game clock uses (`packages/minigame-core
 
 All of these are items with their own icons and forms. `showForm` handles the busy retry. Map editors get them from the map menu; builders get nothing extra.
 
-**Controls:** hit (left click), use (right click) and forms only. **No control needs sneaking:** you can't sneak while flying in creative (sneaking flies you down), so sneak combinations are out. Holding a tool never breaks the block you hit.
+**Controls:** hit (left click), use (right click) and forms only. **No control needs sneaking:** you can't sneak while flying in creative (sneaking flies you down), so sneak combinations are out. Holding a tool never breaks the block you hit. A use is the same event whether you aim at air, a block or a marker (`itemUse`; the spike found no separate event), so each tool finds what you're aiming at itself (`getBlockFromViewDirection`, `getEntitiesFromViewDirection`). Markers and cameras are hit to open their forms; tapping them does nothing.
 
 1. **Map menu** (item in slot 9, or `/mc:map`):
    - shows the map name and game;
@@ -257,8 +257,8 @@ All of these are items with their own icons and forms. `showForm` handles the bu
    - **Form:** a name, and the kind:
      - **Map preview:** no players in the shot. Other players are switched to spectator, so they're invisible, while someone looks through the camera.
      - **Game picture:** players stay in the shot, with their name tags hidden.
-   - **Look through:** tap the camera. Your view locks to it (`camera.setCamera` with the free preset), and the HUD, markers and boundary blocks are hidden. Another player can walk into view, and you take the screenshot. Use (right click) to exit.
-   - **Other options on tap:** Re-aim from my view, Delete.
+   - **Look through:** hit the camera and choose Look through. Your view locks to it (`camera.setCamera` with the free preset), and the HUD, markers and boundary blocks are hidden. Another player can walk into view, and you take the screenshot. Use (right click) to exit.
+   - **Other options in the same form:** Re-aim from my view, Delete.
    - **Saving the picture:** the Panel's "Use latest screenshot" takes the newest picture from your Captures folder, crops it to 16:9, and saves it as the map's `preview.png` (map preview) or the game's `icon.png` (game picture).
 9. **Commands** (custom command API, `mc:` namespace, map editors only):
    - `/mc:map`, `/mc:spawn add [team]`, `/mc:tp spawn <n>`, `/mc:tp point <name> <n>`, `/mc:tp camera <name>`
@@ -356,7 +356,7 @@ Convert the Java world with Chunker and save the Bedrock world in your client's 
 Every change shows in `map.json` at once (watch it in VS Code), and undo is in the menu or `/mc:undo`.
 
 ### 4. Pictures
-- **Map preview:** place a camera with a nice view of Castle, kind "Map preview". Tap it, Look through, take the screenshot. Then in the Panel, Use latest screenshot, which saves `games/sad/maps/castle/preview.png`.
+- **Map preview:** place a camera with a nice view of Castle, kind "Map preview". Hit it, choose Look through, take the screenshot. Then in the Panel, Use latest screenshot, which saves `games/sad/maps/castle/preview.png`.
 - **Game picture** (once per game, on any map): place a camera of kind "Game picture". A friend stands in the shot while you look through and screenshot. Use latest screenshot saves `games/sad/icon.png`.
 
 ### 5. Preview
@@ -429,6 +429,11 @@ the client's worlds folder, plus the spaceship world.
 - The map menu (plain forms), checklist, spawn tool with simple markers (a name tag with the list
   and number), Mark ready.
 - Access lists and roles from `.env` (stand-in for the in-game Players screen).
+- A shared pack slot (for example `packs/blocks/`, behavior and resource) that the build adds to
+  every server (lobby, games, editor), like the core resource pack, for the user's custom blocks.
+  It stays empty until their pack lands. They keep converting Java worlds with their own Chunker
+  block mappings; the editor never maps blocks (it only prunes Bedrock to Bedrock, and Chunker
+  keeps blocks it doesn't recognize).
 - The host session runs on its own: in the foreground from `npm run editor`, or started by the
   Panel as a background process (log in `work/editor/editor.log`) with a local control port for
   status, save and stop, so closing the Panel never stops the editor.
@@ -446,6 +451,8 @@ box being edited and of the bounds (stand-in for the colored boundary blocks).
   (stand-in for the lobby waiting room).
 - Panel: Select with the world picker, the selections with their extraction status, Edit and
   Update.
+- The extraction's temporary BDS loads the shared block pack too, and a check like the spike's
+  confirms that pruning and moving keep custom blocks, on a world that uses them.
 
 **10.6 Preview:** `DEV_LIVE_MAPS`, Preview with the return to the editor, Preview as lobby, and
 both in the Panel.

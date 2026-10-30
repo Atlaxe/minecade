@@ -125,6 +125,10 @@ chunks x 6..12, z -5..2 (blocks x 96..207, z -80..47, y -64..0): 156,583 blocks,
 172 signs. Automated part: `npx tsx spike/editor/run.ts "<world folder>"` (results in
 `spike/results/editor.json`); in-game part: `spike/editor/ingame.ts`.
 
+**Who checked what:** the rows marked "(in game)" were done by the user on the test servers and
+confirmed in their logs. Every other row ran headless: scripts and throwaway test servers with no
+player, checked by fingerprints, file listings and container output.
+
 | Check | Finding |
 |---|---|
 | Chunker CLI in Docker | **Works.** `minecade/chunker:local` (`docker/chunker/Dockerfile`: Temurin 21 JRE, `chunker-cli-1.21.0.jar` pinned by checksum). `-f INPUT` keeps the world's version (Bedrock 1.26.60 to 1.26.60; `BEDROCK_R26_60` also exists). Pruning file: `{"configs": {"minecraft:overworld": {"include": true, "regions": [{"minChunkX", "minChunkZ", "maxChunkX", "maxChunkZ"}]}}}`, chunk coordinates, inclusive. The whole world prunes to one build in about 5 s; a second prune of the moved build takes 2 s. Only the chosen chunks remain, and BDS loads the result. |
@@ -136,8 +140,8 @@ chunks x 6..12, z -5..2 (blocks x 96..207, z -80..47, y -64..0): 156,583 blocks,
 | Exactness | After the move, save, prune and reload, the build's fingerprint (every block's type, states, container contents and sign text, by relative position) **matches the original exactly**. Right after the move, only 30 walls differed (their live connection states); they match again after the reload. Item frames and paintings weren't in the test build, so they're unchecked. |
 | Staging a world | Copying the whole 6.8 MB world into a container: 0.2 s. BDS boots in 2 s. |
 | First console command | The first command sent right as BDS prints "Server started." can arrive garbled ("Unknown command: {"). The host must confirm each command's reply (or retry), as the runner does for ticking areas. |
-| Custom items (in game) | **Work.** A custom item (`items/*.json`, format 1.21.60) with its own icon from `textures/item_texture.json`. `afterEvents.itemUse` fires on use (right click) and `afterEvents.entityHitBlock` on hits. In creative mode a hit still breaks the block, so the real tools must cancel breaking while held. |
-| Marker entities (in game) | **Work.** A summonable custom entity with a name tag always shown; `afterEvents.entityHitEntity` reports hits on it, with no damage taken. |
+| Custom items (in game) | **Work.** A custom item (`items/*.json`, format 1.21.60) shows its own icon from `textures/item_texture.json`. `afterEvents.itemUse` fires on every use (right click) **whether aimed at air, a block or a marker**: `playerInteractWithBlock` never fired for this item. Tools find what the player aims at themselves on each use (`getBlockFromViewDirection`, `getEntitiesFromViewDirection`). `afterEvents.entityHitBlock` reports hits; in creative mode a hit still breaks the block, so the real tools must cancel breaking while held. |
+| Marker entities (in game) | **Work** for hits: a summonable custom entity with a name tag always shown, and `afterEvents.entityHitEntity` reports hits on it, with no damage taken. **Tapping (use on) a marker does nothing:** `playerInteractWithEntity` never fired (the entity has no interact component), and the use counts as a plain `itemUse`. Markers are edited by hitting them. |
 | Transfers (in game) | **Work** on the LAN: `transferPlayer` from port 19134 to 19133 and back, each server with its own saved identity (the new `editor` key is in the `minecade-keys` volume, so the trust prompt comes once). From outside the network is still untested (`docs/to-test.md`). |
 | `op` from the console | Not settled: the test world was a copy of the user's own world, which already saved them as an operator. Pass 10.3 checks it on a fresh map world. |
 | Sneaking | The user's note: **you can't sneak while flying** in creative (sneaking flies you down), so editor controls never use sneak combinations (`docs/plans/map-editor.md`, "Controls"). |
