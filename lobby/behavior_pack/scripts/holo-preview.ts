@@ -12,7 +12,8 @@ export const PREVIEW_SCREENS = [
   { id: "main", name: "Main menu" },
   { id: "games", name: "Game grid" },
   { id: "game", name: "Game screen" },
-  { id: "game2", name: "Game screen, layout 2" },
+  { id: "game2", name: "Game screen, layout 2 (widest)" },
+  { id: "game2tall", name: "Game screen, layout 2 (taller)" },
   { id: "teams", name: "Team picks" },
   { id: "players", name: "Stats list" },
   { id: "stats", name: "Player stats" },
@@ -38,11 +39,13 @@ export function previewContent(screen: PreviewScreen, choices: GameChoice[], vie
     case "games":
       return gamesContent(choices);
     case "game":
-    case "game2": {
+    case "game2":
+    case "game2tall": {
       const choice = choices.find((candidate) => Object.keys(defaultSettings(candidate.game)).length > 0) ?? choices[0];
       if (!choice) return gamesContent(choices);
       const view = { choice, random: false, map: choice.game.maps[0]?.id ?? "random", settings: defaultSettings(choice.game) };
-      return screen === "game" ? gameContent(view) : gameBannerContent(view);
+      if (screen === "game") return gameContent(view);
+      return gameBannerContent(view, screen === "game2" ? "wide" : "tall");
     }
     case "teams":
       return teamsContent({

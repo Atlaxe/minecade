@@ -159,9 +159,9 @@ describe("the hologram layouts", () => {
     expect(gameContent(view).pictureSpot).toBeUndefined();
     const [name, players, map, random, round, thirty] = ["Probe", "2-6 players", "Map:", "Random", "Round:", "30 s"].map((text) => find(content, text));
     expect(name.tone).toBe("title");
-    // Both columns start at the same height, below the banner (it ends at y -0.14).
+    // Both columns start at the same height, below the banner (it ends at y -0.17).
     expect(top(name)).toBeCloseTo(top(map));
-    expect(top(name)).toBeLessThan(-0.14);
+    expect(top(name)).toBeLessThan(-0.17);
     expect(top(players)).toBeLessThan(bottom(name));
     // Each column is left-aligned: the name over the players, the labels over each other, the answers over each other.
     expect(leftEdge(players)).toBeCloseTo(leftEdge(name));
@@ -170,9 +170,18 @@ describe("the hologram layouts", () => {
     expect(leftEdge(map)).toBeGreaterThan(name.x + textWidth(name.text, name.scale) / 2);
     expect([random.box, thirty.box]).toEqual(["selected", "selected"]);
     expect(find(gameBannerContent({ ...view, random: false, map: "pit" }), "Pit").box).toBe("selected");
-    // Lots of settings still fit above the bottom edge.
+    // Lots of settings: as many as fit above the bottom edge (Map plus 3, or Map plus 2 under the taller banner).
     const options = Array.from({ length: 6 }, (_, i) => ({ id: `option${i}`, label: `Option ${i}`, values: [{ value: "a", label: "A" }, { value: "b", label: "B" }] }));
-    onPanel(gameBannerContent({ ...view, choice: { game: { ...probe, name: "Capture the Wool on a Long Name", options }, playable: false, reason: "needs at least 4 players" } }));
+    const crowded = { ...view, choice: { game: { ...probe, name: "Capture the Wool on a Long Name", options }, playable: false, reason: "needs at least 4 players" } };
+    const labels = (content: HoloContent) => content.elements.filter((element) => element.text.endsWith(":")).length;
+    onPanel(gameBannerContent(crowded));
+    expect(labels(gameBannerContent(crowded))).toBe(4);
+    const tall = gameBannerContent(crowded, "tall");
+    onPanel(tall);
+    expect(tall.pictureSpot).toBe("tall");
+    expect(labels(tall)).toBe(3);
+    // Under the taller banner (it ends at y -0.39).
+    expect(top(find(gameBannerContent(view, "tall"), "Probe"))).toBeLessThan(-0.39);
   });
 
   it("shows a starting game centered both ways: the server booting, then the seconds left in yellow", () => {

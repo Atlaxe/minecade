@@ -94,6 +94,18 @@
         },
         {
           "banner_w": "q.property('minecade:picture_spot') == 1"
+        },
+        {
+          "tall_s": "q.property('minecade:picture_spot') == 2"
+        },
+        {
+          "tall_e": "q.property('minecade:picture_spot') == 2"
+        },
+        {
+          "tall_n": "q.property('minecade:picture_spot') == 2"
+        },
+        {
+          "tall_w": "q.property('minecade:picture_spot') == 2"
         }
       ],
       "ignore_lighting": true

@@ -12,7 +12,7 @@ import { MAX_ELEMENTS, type Box, type Frame, type HoloContent, type HoloElement,
 /** The frames, in the order of the lobby resource pack's Array.screens. */
 const FRAMES: Record<Frame, number> = { logo: 0, panel: 1 };
 /** The picture's spots, as the holo_picture render controller shows them. */
-const PICTURE_SPOTS: Record<PictureSpot, number> = { corner: 0, banner: 1 };
+const PICTURE_SPOTS: Record<PictureSpot, number> = { corner: 0, banner: 1, tall: 2 };
 const DISPLAY = "minecade:holo_display";
 const BLOCK = "minecade:terminal";
 

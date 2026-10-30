@@ -158,7 +158,8 @@ menu, player stats to the list to the main menu); on the main menu they end the 
   one, the form closes, and that screen stays on the hologram with sample data until the terminal
   is tapped again, so you can walk around it without a form in the way. It also lists layouts
   being tried out: "Game screen, layout 2" (`gameBannerContent()`: the picture across the top,
-  then the name and players beside the settings table) isn't used by the real game screen yet;
+  then the name and players beside the settings table), widest and taller, isn't used by the
+  real game screen yet;
   switching is one call in `terminal-controller.ts`.
 - **Which way text faces:** a `TextPrimitive`'s y rotation is the direction its reader faces, and
   it turns the opposite way from Minecraft's player yaw: 0 is read facing south, 90 facing east,
@@ -172,10 +173,13 @@ menu, player stats to the list to the main menu); on the main menu they end the 
     `minecade:picture` property picks it from `Array.pictures` (`holo_picture` render
     controller). `holoPictures()` in `packages/minigame-core/src/registry.ts` makes the list
     (none, the placeholders, then every game's picture and map preview), up to 256.
-  - **The banner:** the same picture across the top instead (16:9, 2.56 blocks wide, y -0.14 to
-    1.3), for layout 2. The `minecade:picture_spot` property picks the spot (0 the corner, 1 the
+  - **The banner:** the same picture across the top instead, for layout 2, in two sizes being
+    compared: the widest full 16:9 one (2.72 blocks wide, y -0.17 to 1.36, just inside the
+    frame's corner brackets), and a taller one (y -0.39 to 1.36) that crops 6.25% off each side
+    of the picture (its bones' UV starts at 3 of 48 and spans 42) instead of stretching it. The
+    `minecade:picture_spot` property picks the spot (0 the corner, 1 the banner, 2 the taller
     banner; `pictureSpot` in the content), and the `holo_picture` render controller shows the
-    `picture_*` or `banner_*` bones to match.
+    `picture_*`, `banner_*` or `tall_*` bones to match.
   - **The portrait** (top left, square, 0.75 blocks, top-aligned with the title): on a player's
     stats, their badge. The `minecade:portrait` property picks it from `Array.portraits`
     (`holo_portrait` render controller), listed by `holoPortraits()` (none, then every badge).

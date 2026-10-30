@@ -311,13 +311,15 @@ def glyphs() -> Image.Image:
     """
     Icons drawn inside text: a 256x256 page of 16x16 cells, character U+E300 onward (menus.ts
     GLYPH). Cell 0 is the player icon; cells 1 and 2 are a setting's bars (the chosen value bright,
-    the others dim). The game sizes each cell to the text and trims empty columns.
+    the others dim). The game sizes each cell to the text and trims empty columns. Measured in a
+    form: one glyph pixel draws about 1.13 text pixels, and a line's digits cover rows 4 to 9 of the
+    cell, so an icon as tall as the text is 6 rows, in rows 4 to 9.
     """
     image = Image.new("RGBA", (256, 256), (0, 0, 0, 0))
     draw = ImageDraw.Draw(image)
     white = (255, 255, 255, 255)
-    draw.rectangle((5, 2, 9, 6), fill=white)  # head
-    draw.rectangle((3, 8, 11, 13), fill=white)  # body
+    draw.rectangle((6, 4, 8, 5), fill=white)  # head
+    draw.rectangle((5, 7, 9, 9), fill=white)  # body
     draw.rectangle((16 + 1, 12, 16 + 11, 13), fill=(*BRIGHT, 255))  # bar, chosen
     draw.rectangle((32 + 1, 12, 32 + 11, 13), fill=(50, 80, 110, 255))  # bar, not chosen
     return image

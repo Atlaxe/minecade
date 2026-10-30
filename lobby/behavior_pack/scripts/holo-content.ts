@@ -30,8 +30,8 @@ export interface HoloElement {
   box?: Box;
 }
 
-/** Where the picture goes: the top right corner, or across the top (the banner). */
-export type PictureSpot = "corner" | "banner";
+/** Where the picture goes: the top right corner, across the top (the banner), or across the top and taller (its sides cropped). */
+export type PictureSpot = "corner" | "banner" | "tall";
 
 export interface HoloContent {
   frame: Frame;
@@ -50,8 +50,9 @@ export const MAX_ELEMENTS = 48;
  * Where things go, in blocks from the panel's middle. Text stays within `edge` of the middle, inside
  * the frame's border and corner brackets (at about 1.4). The picture and portrait spots are fixed in
  * the hologram's model (models/entity/holo_display.geo.json), all top-aligned with the title: the
- * picture spans x 0.08 to 1.28 and y 0.54 to 1.22, the banner (the picture across the top) x -1.28
- * to 1.28 and y -0.14 to 1.3, the portrait x -1.25 to -0.5 and y 0.47 to 1.22. (The model's x runs
+ * picture spans x 0.08 to 1.28 and y 0.54 to 1.22, the banner (the picture across the top) x -1.36
+ * to 1.36 and y -0.17 to 1.36 (y -0.39 to 1.36 when taller, its sides cropped), the portrait x -1.25
+ * to -0.5 and y 0.47 to 1.22. (The model's x runs
  * opposite to the reader's: a spot on the reader's right has negative x in the model.)
  */
 export const HOLO_LAYOUT = {
@@ -66,8 +67,22 @@ export const HOLO_LAYOUT = {
   logoButtons: { y: -0.45, x: 0.62 },
   grid: { columns: [-0.85, 0, 0.85], width: 0.78, top: 0.66, rowGap: 0.42, rows: 5, scale: 0.6, lineGap: 0.13, countGap: 0.15, countScale: 0.42 },
   game: { left: -1.25, width: 1.25, players: 0.84, settingsTop: 0.4, settingGap: 0.26, settings: 6, scale: 0.6, valueGap: 0.08 },
-  /** Game screen, layout 2: under the banner, two columns starting at `top`, lined up with the banner's sides (`left` and `edge`). */
-  gameBanner: { top: -0.26, left: -1.28, leftWidth: 1.08, right: -0.05, edge: 1.28, titleScale: 1, playersGap: 0.06, scale: 0.6, settingGap: 0.27, settings: 3 },
+  /**
+   * Game screen, layout 2: under the banner, two columns starting at `top`, inside the safe edge
+   * (`left` and `edge`). Two banner sizes to compare: the widest full 16:9 one, and a taller one.
+   */
+  gameBanner: {
+    left: -1.28,
+    leftWidth: 1.08,
+    right: -0.05,
+    edge: 1.28,
+    titleScale: 1,
+    playersGap: 0.06,
+    scale: 0.65,
+    settingGap: 0.28,
+    wide: { top: -0.27, settings: 3 },
+    tall: { top: -0.49, settings: 2 },
+  },
   /** `numberGap` is extra room under the big number, which draws lower than its estimated height. */
   countdown: { gap: 0.12, titleScale: 1, headingScale: 0.9, numberScale: 3, numberGap: 0.25, mapScale: 0.55, noteScale: 0.45 },
   teams: { header: 0.72, membersTop: 0.42, memberGap: 0.25, members: 4, random: -0.82, status: -1.15, scale: 0.75, minScale: 0.45 },
@@ -242,22 +257,24 @@ export function gameContent(view: GameView): HoloContent {
 /**
  * One game, layout 2 (only in the Preview menu for now): the picture across the top (the banner),
  * then two columns starting at the same height, each left-aligned: the name and players on the
- * left, the map and settings table on the right.
+ * left, the map and settings table on the right. `size` "tall" uses the taller banner (its sides
+ * cropped), which leaves room for fewer settings.
  */
-export function gameBannerContent(view: GameView): HoloContent {
+export function gameBannerContent(view: GameView, size: "wide" | "tall" = "wide"): HoloContent {
   const L = HOLO_LAYOUT.gameBanner;
+  const { top, settings } = L[size];
   const { game, playable } = view.choice;
   const chosen = chosenMap(view);
   const titleScale = fitScale(game.name, L.titleScale, L.leftWidth, 0.5);
-  const playersTop = L.top - textHeight(titleScale) - L.playersGap;
+  const playersTop = top - textHeight(titleScale) - L.playersGap;
   return {
     frame: "panel",
     elements: [
-      fittedLeft(game.name, L.left, topAligned(L.top, titleScale), L.leftWidth, titleScale, titleScale, { tone: "title" }),
+      fittedLeft(game.name, L.left, topAligned(top, titleScale), L.leftWidth, titleScale, titleScale, { tone: "title" }),
       fittedLeft(playersLine(view.choice), L.left, topAligned(playersTop, L.scale), L.leftWidth, L.scale, 0.4, { tone: playable ? "dim" : "warn" }),
-      ...table(gameRows(view, chosen).slice(0, L.settings + 1), {
+      ...table(gameRows(view, chosen).slice(0, settings + 1), {
         left: L.right,
-        y: topAligned(L.top, L.scale),
+        y: topAligned(top, L.scale),
         gap: L.settingGap,
         scale: L.scale,
         labelWidth: (L.edge - L.right) / 2,
@@ -265,7 +282,7 @@ export function gameBannerContent(view: GameView): HoloContent {
       }),
     ],
     picture: chosen?.preview ?? gamePicture(game),
-    pictureSpot: "banner",
+    pictureSpot: size === "wide" ? "banner" : "tall",
   };
 }
 
