@@ -1,32 +1,54 @@
 # Player skins
 
-The original UI plan has players' skins in the lobby: a 3D figure with a blue holographic tint
-on the stats screen and the hologram, and heads in the stats list. For now, every player has a
-letter badge instead (`badgeFor()` in `lobby/behavior_pack/scripts/stats-screens.ts`). This page
-explains why, and how skins could come later.
+The stats list shows each player's head, and a player's stats screen and the hologram show their
+head and shoulders, drawn from their own skin at an angle (in the hologram's blue on the
+hologram). A player the watcher hasn't seen yet has a letter badge instead (`badgeFor()`).
 
-## Why other players' skins can't be shown yet
+## How it works
+
+1. **The watcher saves skins.** `watcher/watcher.ts` is a bot that stays in the lobby as a
+   spare Microsoft account (the `watcher` service in `docker-compose.yml`, set by
+   `WATCHER_GAMERTAG`). The lobby sends every player the skins of everyone online, and again when
+   someone changes skin, so the bot saves each one to `skins/<xuid>/` (gitignored: skins are
+   players' personal data). It reconnects whenever it drops out, such as when the lobby restarts.
+2. **The lobby hides it.** With `WATCHER_GAMERTAG` set, the lobby puts the watcher in spectator
+   mode (invisible to everyone else) and leaves it out of player counts, game starts, team picks,
+   messages and the stats screens (`isWatcher()` in `lobby/behavior_pack/scripts/skins.ts`). It
+   never goes to a game: everyone passes through the lobby, so that's where it sees every skin.
+3. **The build renders them.** `tools/skins/` is a small software renderer: it draws each skin on
+   its model (vanilla's classic wide, slim or old 64x32 model, or a character creator skin's own
+   model from its geometry data) at an angle, with shading. Each player gets three renders in the
+   lobby pack (`textures/minecade/skins/<xuid>_holo`, `_portrait`, `_head`), and the lobby's
+   scripts get the list as `#skins`.
+4. **New skins show after the next build and lobby restart** (`docker compose up -d --build`, the
+   panel's Start, or a smoke test). Bedrock only shows pictures that are in a resource pack, and
+   the lobby loads its packs when it starts; clients download the new pack on their next join.
+
+**Setting it up:** create a spare Microsoft account, sign in once at https://www.xbox.com to give
+it a gamertag (an Xbox profile), put that gamertag in `.env` as `WATCHER_GAMERTAG`, and start the
+stack. The watcher's log (`docker logs minecade-watcher`) shows a `sign_in_needed` line with a URL
+and a code: sign in as the spare account. The sign-in is kept in the `minecade-watcher-auth`
+volume. bedrock-protocol signs in posing as the Nintendo Switch version of Minecraft, so use an
+account you don't mind losing.
+
+**Looking at the renders:** `npm run skins` renders every saved skin into its folder (`skin.png`,
+`holo.png`, `portrait.png`, `head.png`), and `npm run skins -- <skin.png> [slim]` renders one skin
+file.
+
+**Not done yet:** a 3D model of each player in the world (for showing players in games). The
+lobby pack would need a figure entity with each player's texture (and a character creator
+skin's own model).
+
+## Why it takes a bot
 
 - **No script API:** behavior pack scripts can't read a player's skin, not even the viewer's.
 - **Player heads are always Steve:** Bedrock's player head item has no skin data, unlike Java's.
 - **The paper doll draws only the viewer:** the UI's skin preview (as in the inventory) always
   shows the person looking at it, so a form can't show someone else's skin.
 - **Player IDs don't help:** a script can see a player's name and entity id, but nothing links
-  those to their skin's pixels. The skin only travels in the player's login data, which the
-  server keeps to itself.
-
-## The plan for later
-
-1. **Capture each skin once.** On a player's first join, read their skin from their login
-   packet and save it, keyed by their xuid, and again when it changes. Scripts never see the login
-   packet, so this needs a small relay (a proxy) between players and the lobby that reads it as
-   it passes.
-2. **Bake the saved skins into the lobby's resource pack.** At lobby startup, the build adds
-   each saved skin as a texture and bumps the pack version, so clients download the new pack.
-3. **Draw them.**
-   - **On the hologram and the stats screen:** a custom figure entity with the player model,
-     using the player's texture, in the hologram's additive blue.
-   - **As list heads:** the head part of each texture, cut out at bake time.
+  those to their skin's pixels. The skin travels in the player's login data, which the server
+  keeps to itself, and in the player list the server sends every player, which is what the bot
+  reads.
 
 ## What we checked (October 2026)
 

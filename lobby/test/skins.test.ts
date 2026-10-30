@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import { badgeFor, skinTexture } from "@minecade/minigame-core";
 import { statsContent } from "../behavior_pack/scripts/holo-content.ts";
 import { playersForm, statsForm } from "../behavior_pack/scripts/menus.ts";
-import { headFor, holoPortraitFor, portraitFor, useSkins } from "../behavior_pack/scripts/skins.ts";
+import { headFor, holoPortraitFor, isWatcher, portraitFor, useSkins } from "../behavior_pack/scripts/skins.ts";
 import { GLOBAL_TAB } from "../behavior_pack/scripts/stats-screens.ts";
 
 afterEach(() => useSkins([]));
@@ -25,5 +25,11 @@ describe("players' skin renders", () => {
     const view = { player: "Alex", tabs: [GLOBAL_TAB], tab: GLOBAL_TAB.id, body: "", columns: [] };
     expect((statsForm(view) as unknown as { icons: (string | undefined)[] }).icons).toContain(skinTexture("9", "portrait"));
     expect(statsContent(view).portrait).toBe(skinTexture("9", "holo"));
+  });
+
+  it("knows the skin watcher by its gamertag (any case), and nobody when there's none", () => {
+    expect(isWatcher("MinecadeServer", "minecadeserver")).toBe(true);
+    expect(isWatcher("Steve", "MinecadeServer")).toBe(false);
+    expect(isWatcher("", "")).toBe(false);
   });
 });

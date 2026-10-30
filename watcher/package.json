@@ -1,0 +1,12 @@
+{
+  "name": "minecade-watcher",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": "^26.0.0"
+  },
+  "dependencies": {
+    "bedrock-protocol": "3.61.0",
+    "nethernet": "1.1.2"
+  }
+}

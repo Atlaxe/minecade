@@ -121,6 +121,7 @@ describe("readServerVars", () => {
       devMinPlayers: "1",
       devDemoGames: "8",
       devHoloPreview: "1",
+      watcher: " MinecadeServer ",
       settings: '{"teams":"random"}',
     });
     expect(readServerVars()).toMatchObject({
@@ -135,6 +136,7 @@ describe("readServerVars", () => {
       devMinPlayers: 1,
       devDemoGames: 8,
       devHoloPreview: true,
+      watcher: "MinecadeServer",
       settings: { teams: "random" },
     });
   });
@@ -151,6 +153,7 @@ describe("readServerVars", () => {
       devMinPlayers: undefined,
       devDemoGames: 0,
       devHoloPreview: false,
+      watcher: "",
       settings: {},
     });
     expect(console.warn).toHaveBeenCalledWith(expect.stringContaining('"lanPlayers" is not valid JSON'));

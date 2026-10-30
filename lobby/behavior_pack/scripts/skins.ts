@@ -30,3 +30,8 @@ export function portraitFor(name: string): string {
 export function holoPortraitFor(name: string): string {
   return pictureFor(name, "holo");
 }
+
+/** Whether a player is the skin watcher (`watcher` is WATCHER_GAMERTAG; empty when there's none). */
+export function isWatcher(name: string, watcher: string): boolean {
+  return watcher !== "" && name.toLowerCase() === watcher.toLowerCase();
+}

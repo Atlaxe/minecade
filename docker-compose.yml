@@ -33,6 +33,7 @@ services:
       SERVER_NAME: Minecade lobby
       DEV_DEMO_GAMES: ${DEV_DEMO_GAMES:-}
       DEV_HOLO_PREVIEW: ${DEV_HOLO_PREVIEW:-}
+      WATCHER_GAMERTAG: ${WATCHER_GAMERTAG:-}
       ORCH_URL: http://orchestrator:8080
     ports:
       - "19132:19132/tcp"
@@ -72,6 +73,28 @@ services:
     # Time to send players home and remove a running game container on shutdown.
     stop_grace_period: 30s
 
+  # The skin watcher (watcher/watcher.ts): a bot that stays in the lobby as the spare account set in
+  # WATCHER_GAMERTAG and saves players' skins to ./skins, which the build renders into the lobby
+  # pack. Off (it exits) while WATCHER_GAMERTAG is empty; the first start asks for a sign-in in its
+  # log (docker logs minecade-watcher).
+  watcher:
+    image: minecade/watcher:local
+    build: ./watcher
+    container_name: minecade-watcher
+    depends_on:
+      - lobby
+    environment:
+      LOBBY_URL: http://lobby:19132
+      BDS_VERSION: ${BDS_VERSION:-1.26.60.6}
+      WATCHER_GAMERTAG: ${WATCHER_GAMERTAG:-}
+    volumes:
+      - watcher-auth:/auth
+      - ./skins:/skins
+    labels:
+      minecade.role: watcher
+    restart: on-failure
+    stop_grace_period: 5s
+
 networks:
   default:
     name: minecade
@@ -85,3 +108,6 @@ volumes:
   # `docker compose down` and the panel's Stop; only `down -v` or deleting it erases stats.
   data:
     name: minecade-data
+  # The skin watcher's sign-in (the spare Microsoft account). Deleting it means signing in again.
+  watcher-auth:
+    name: minecade-watcher-auth

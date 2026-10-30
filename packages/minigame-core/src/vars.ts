@@ -29,6 +29,8 @@ export interface ServerVars {
   devDemoGames: number;
   /** The lobby terminal's main menu gets a Preview button for the hologram's screens (layout tuning). */
   devHoloPreview: boolean;
+  /** The skin watcher's gamertag (WATCHER_GAMERTAG), which the lobby keeps invisible and out of games; empty when there's none. */
+  watcher: string;
   /** Choices from the lobby's game screen, such as { teams: "random" }. */
   settings: Record<string, string>;
 }
@@ -54,6 +56,7 @@ export function readServerVars(): ServerVars {
     devMinPlayers: Number.isInteger(devMinPlayers) && devMinPlayers > 0 ? devMinPlayers : undefined,
     devDemoGames: Number.isInteger(devDemoGames) && devDemoGames > 0 ? devDemoGames : 0,
     devHoloPreview: ["1", "true", "yes"].includes(text("devHoloPreview").toLowerCase()),
+    watcher: text("watcher").trim(),
     settings: json("settings", {}),
   };
 }

@@ -1,7 +1,7 @@
 // Lobby server script: places the terminal and its hologram, keeps players on the platform, and
 // connects the terminal, game starting and stats logic (terminal-controller.ts,
 // lobby-controller.ts, stats-controller.ts) to players, forms and the orchestrator.
-import { system, world, type Player, type Vector3 } from "@minecraft/server";
+import { GameMode, system, world, type Player, type Vector3 } from "@minecraft/server";
 import { uiManager } from "@minecraft/server-ui";
 import { describeError, holoPictures, holoPortraits, log, normalizePlayer, playChime, showForm } from "@minecade/minigame-core";
 import { bootServer } from "@minecade/minigame-core/bootstrap";
@@ -14,7 +14,7 @@ import { LobbyController } from "./lobby-controller.ts";
 import { PREVIEW_SCREENS } from "./holo-preview.ts";
 import { CLOSE, menuChoice } from "./game-screen.ts";
 import { MAIN_MENU_CHOICES, gameForm, gamesForm, mainMenuForm, playersForm, previewForm, statsForm } from "./menus.ts";
-import { useSkins } from "./skins.ts";
+import { isWatcher, useSkins } from "./skins.ts";
 import { StatsController } from "./stats-controller.ts";
 import { TeamPickForm } from "./team-pick-form.ts";
 import { TerminalController } from "./terminal-controller.ts";
@@ -34,12 +34,23 @@ system.beforeEvents.startup.subscribe(({ blockComponentRegistry }) => {
   });
 });
 
+/**
+ * The skin watcher's gamertag (WATCHER_GAMERTAG, set at boot): a bot that's in the lobby all the
+ * time to save players' skins (watcher/), kept in spectator mode and out of everything else.
+ */
+let watcherName = "";
+
+/** Everyone in the lobby except the skin watcher. */
+function lobbyPlayers(): Player[] {
+  return world.getAllPlayers().filter((player) => !isWatcher(player.name, watcherName));
+}
+
 function playerNamed(name: string): Player | undefined {
   return world.getAllPlayers().find((player) => player.name === name);
 }
 
 function recipients(to: string): Player[] {
-  if (to === "all") return world.getAllPlayers();
+  if (to === "all") return lobbyPlayers();
   const player = playerNamed(to);
   return player ? [player] : [];
 }
@@ -48,11 +59,12 @@ bootServer(({ vars, transport, transfer, root }) => {
   const [sx, sy, sz] = vars.mapConfig.spawns[0] ?? [0, 65, 0];
   const spawn: Vector3 = { x: sx + 0.5, y: sy, z: sz + 0.5 };
   const bounds = vars.mapConfig.bounds;
+  watcherName = vars.watcher;
 
   const lobby = new LobbyController(
     {
       send: (event) => transport.send(event),
-      onlinePlayers: () => world.getAllPlayers().map((player) => player.name),
+      onlinePlayers: () => lobbyPlayers().map((player) => player.name),
       transfer: (name, port) => {
         const player = playerNamed(name);
         if (player) transfer.transfer(player, port);
@@ -199,6 +211,12 @@ bootServer(({ vars, transport, transfer, root }) => {
 
   function setUp(player: Player): void {
     if (!player.isValid) return;
+    if (isWatcher(player.name, watcherName)) {
+      // Spectators are invisible to everyone else and can't touch anything.
+      normalizePlayer(player, GameMode.Spectator);
+      player.teleport(spawn);
+      return;
+    }
     // Effects, input locks, items or a spectator game mode can follow a player back from a game.
     normalizePlayer(player);
     // Rejoining players otherwise appear wherever they logged out. Everyone faces the terminal.
@@ -211,7 +229,7 @@ bootServer(({ vars, transport, transfer, root }) => {
     root.timeout(() => {
       setUp(player);
       if (!placed) place();
-      if (player.isValid) lobby.onPlayerJoined(player.name);
+      if (player.isValid && !isWatcher(player.name, watcherName)) lobby.onPlayerJoined(player.name);
     }, 2);
   });
   root.subscribe(world.afterEvents.playerLeave, ({ playerName }) => {
@@ -225,7 +243,7 @@ bootServer(({ vars, transport, transfer, root }) => {
   // Anyone who walks or falls out of the lobby area goes back to spawn.
   if (bounds) {
     root.interval(() => {
-      for (const player of world.getAllPlayers()) {
+      for (const player of lobbyPlayers()) {
         const { x, y, z } = player.location;
         const inside =
           x >= bounds.min[0] && x <= bounds.max[0] + 1 &&

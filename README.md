@@ -52,6 +52,7 @@ Build Battle, Prophunt, Zombies, Hide and Seek, Block Drop). See [Adding a game]
    | `LAN_PLAYERS` | Gamertags of everyone playing from your home network, at least your own. See [why](#why-lan_players). |
    | `ALLOW_LIST` | Gamertags allowed to join, comma-separated. Empty means anyone with your address can join. |
    | `PUBLIC_HOST` | `auto` (looks up your public IP at start) or a DDNS hostname. |
+   | `WATCHER_GAMERTAG` | The gamertag of a spare Microsoft account that stays in the lobby to save players' skins (see [Player skins](#player-skins)). Empty turns it off, and players get letter badges. |
    | `DEV_MIN_PLAYERS` | Empty normally. `1` lets every game start with one player, for testing alone. |
    | `DEV_HOLO_PREVIEW` | Empty normally. `1` adds a Preview button to the terminal's main menu: pick a hologram screen, and it stays up with sample data until you tap the terminal again, so you can look at it without a form in the way. |
    | `DEV_DEMO_GAMES` | Empty normally. A number (up to 12) adds that many made-up games to the lobby's menus, for testing how they look with more games. They can't be started. |
@@ -166,6 +167,23 @@ Xbox account, so stats survive a gamertag change.
 - **Reset everything:** stop the stack, then `docker volume rm minecade-data`. This also
   deletes the backups.
 
+## Player skins
+
+The stats screens and the hologram show each player's own skin, drawn at an angle (in the
+hologram's blue on the hologram). Scripts can't read skins, so a bot does it: the skin watcher, a
+spare Microsoft account (`WATCHER_GAMERTAG`) that stays in the lobby, invisible and out of games,
+and saves every player's skin to `skins/` (on this PC only; it's gitignored).
+
+- **Setting it up:** make a spare Microsoft account, sign in once at https://www.xbox.com to give
+  it a gamertag, set `WATCHER_GAMERTAG` to it, and start the stack. `docker logs minecade-watcher`
+  then shows a `sign_in_needed` line: open its URL and enter its code as the spare account. Use an
+  account you don't mind losing; the bot signs in posing as the Switch version of Minecraft.
+- **New skins** show after the next build and restart (Start in the panel, or
+  `docker compose up -d --build`).
+- **See the renders:** `npm run skins` draws every saved skin into its folder under `skins/`.
+
+How it works, and why it takes a bot: [docs/skins.md](docs/skins.md).
+
 ## Updating BDS when consoles update
 
 Clients refuse to join a server on a different version. When Minecraft updates:
@@ -205,7 +223,9 @@ packages/minigame-core/   shared runtime: scopes, transfers, forms, the minigame
 lobby/                    the lobby's behavior pack and map
 games/<id>/               one folder per game: game.config.ts, behavior_pack/, maps/, test/
 orchestrator/             the session manager, transport links, stats store, debug API
+watcher/                  the skin watcher (a bot in the lobby that saves players' skins)
 tools/build/              build, bake and console tools
+tools/skins/              the skin renderer (npm run skins)
 tools/control-panel/      the Minecade Panel
 tools/smoke/              the smoke test
 docker/bds/               the server image and its entrypoint

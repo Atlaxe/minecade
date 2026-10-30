@@ -144,7 +144,7 @@ async function lookupPublicIp(): Promise<string | null> {
 function containerView(info: Docker.ContainerInfo) {
   const role = info.Labels["minecade.role"];
   const follower = followers.get(info.Id);
-  const isBds = role !== undefined && role !== "orchestrator";
+  const isBds = role !== undefined && role !== "orchestrator" && role !== "watcher";
   let players: string[] | null = null;
   let playersNote = "";
   if (isBds && info.State === "running") {
