@@ -64,6 +64,18 @@ explains why, and how skins could come later.
     resource pack without downloading it). That release can only find NetherNet servers by LAN
     discovery or through Xbox, so the bot swaps in BDS's HTTP signaling. A real version would hide
     the bot in the lobby and leave it out of counts, stats and game starts.
+  - **The watcher works (October 30, 2026):** it joined the lobby as the spare account
+    ("MinecadeServer") and saved a player's classic skin (64x64, `geometry.humanoid.custom`) from
+    the player list, a real skin image. Notes from the test:
+    - in bedrock-protocol's 1.26.60 definitions the player list's `records` is a plain array of
+      `{ type: "add" | "remove", uuid, username, xbox_user_id, skin_data: Skin, ... }`, and the image
+      is `skin_data.skin_data` (`{ width, height, data }`);
+    - it can't decode `server_script_debug_drawer` (packet 328, the hologram's text shapes), which
+      it doesn't need;
+    - a bot stopped without leaving keeps its session for about 15 seconds, and starting it again
+      meanwhile is refused with "server_id_conflict", so it now leaves cleanly on stop;
+    - still untested: a character creator skin (likely 256x256 with its own geometry), and a skin
+      change while in the lobby.
   - **An offline-mode lobby behind the relay:** the relay checks every player's sign-in, and the
     lobby trusts whoever the relay sends. The lobby must then be reachable only through the relay,
     and every lobby connection depends on a young library (0.2.0). A much bigger change.

@@ -55,6 +55,15 @@ else client.once("connect_allowed", attach);
 const names = new Map<string, { name: string; xuid: string }>();
 let saved = 0;
 
+// A packet bedrock-protocol can't decode is dropped with an "error"; keep the last one read, so the
+// error can say which packet it was, and save its bytes (out/failed-<id>-<time>.bin) to study.
+let lastPacket: Buffer | undefined;
+const readPacket = client.readPacket.bind(client);
+client.readPacket = (packet: Buffer) => {
+  lastPacket = packet;
+  readPacket(packet);
+};
+
 client.on("spawn", () => {
   report("spawned", { as: client.profile?.name, stayMinutes: STAY_MINUTES });
   setTimeout(() => {
@@ -63,9 +72,12 @@ client.on("spawn", () => {
     process.exit(0);
   }, STAY_MINUTES * 60_000);
 });
-client.on("player_list", (packet: { records?: { type?: string; records?: Record<string, unknown>[] } }) => {
-  if (packet.records?.type !== "add") return;
-  for (const record of packet.records.records ?? []) {
+// The player list's records: { type: "add" | "remove", uuid, username, xbox_user_id, skin_data: Skin, ... }.
+client.on("player_list", (packet: { records?: Record<string, unknown>[] }) => {
+  const records = Array.isArray(packet.records) ? packet.records : [];
+  report("player_list", { count: records.length, types: [...new Set(records.map((record) => record.type))] });
+  for (const record of records) {
+    if (record.type !== "add") continue;
     const name = String(record.username ?? "unknown");
     const xuid = String(record.xbox_user_id ?? "");
     names.set(String(record.uuid), { name, xuid });
@@ -82,11 +94,30 @@ client.on("player_skin", (packet: { uuid?: unknown; skin?: Record<string, unknow
 });
 client.on("transfer", (packet: unknown) => report("transferred", { packet }));
 client.on("kick", (packet: unknown) => report("kicked", { packet }));
-client.on("error", (error: unknown) => report("error", { error: String(error) }));
+client.on("error", (error: unknown) => {
+  const packet = lastPacket;
+  lastPacket = undefined;
+  if (!packet) return report("error", { error: String(error) });
+  const id = packetId(packet);
+  const file = `${OUT}/failed-${id}-${Date.now()}.bin`;
+  mkdir(OUT, { recursive: true })
+    .then(() => writeFile(file, packet))
+    .catch(() => {});
+  report("error", { error: String(error), packetId: id, bytes: packet.length, saved: file });
+});
 client.on("close", (reason: unknown) => {
   report("closed", { reason: String(reason ?? ""), saved });
   process.exit(0);
 });
+// Leave the lobby cleanly when the container stops, or the lobby keeps the session a while and
+// refuses the next start ("server_id_conflict").
+for (const signal of ["SIGINT", "SIGTERM"] as const) {
+  process.once(signal, () => {
+    report("stopping", { saved });
+    client.close();
+    setTimeout(() => process.exit(0), 500);
+  });
+}
 
 /**
  * Writes out/watch-<xuid>-<name>.png (the skin's pixels) and .json (what else the skin says, without
@@ -124,6 +155,16 @@ async function save(name: string, xuid: string, skin: Record<string, unknown> | 
   } else {
     report("no_skin", { name, from, width, height, bytes: pixels.length, skinFields: info.skinFields });
   }
+}
+
+/** A packet's id: the low 10 bits of its first varint (the rest are sub-client bits). */
+function packetId(packet: Buffer): number {
+  let value = 0;
+  for (let at = 0, shift = 0; at < packet.length && shift < 35; at++, shift += 7) {
+    value |= (packet[at] & 0x7f) << shift;
+    if ((packet[at] & 0x80) === 0) break;
+  }
+  return value & 0x3ff;
 }
 
 function parseJson(value: unknown): unknown {
