@@ -2,8 +2,8 @@
 // floor drawn with stars, so the night sky has stars below the horizon too (Bedrock's own sky only
 // has them above). It sits at the terminal, inside its ticking area, and is placed like the
 // hologram: retried until the area is loaded, then kept (respawned if it goes missing). It always
-// faces south (yaw 0): its east and west walls drift north to south (the resource pack's
-// star_box_moving render controller), as if the lobby were flying north through space.
+// faces south (yaw 0): its east and west walls and its ceiling drift north to south (the resource
+// pack's star_box_moving render controller), as if the lobby were flying north through space.
 import type { Dimension, Entity, Vector3 } from "@minecraft/server";
 
 const STAR_BOX = "minecade:star_box";

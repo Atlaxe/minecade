@@ -17,7 +17,7 @@
           "*": true
         },
         {
-          "sides": false
+          "moving": false
         }
       ]
     },
@@ -36,7 +36,7 @@
           "*": false
         },
         {
-          "sides": true
+          "moving": true
         }
       ],
       "uv_anim": {
