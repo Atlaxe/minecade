@@ -3,7 +3,7 @@
 // Preview button lists these; the picked one stays up until the terminal is tapped again.
 import type { StatsTotals } from "@minecade/minigame-core";
 import { defaultSettings } from "./game-screen.ts";
-import { gameContent, gamesContent, idleContent, mainContent, statsContent, statsListContent, teamsContent, type HoloContent } from "./holo-content.ts";
+import { countdownContent, gameBannerContent, gameContent, gamesContent, idleContent, mainContent, statsContent, statsListContent, teamsContent, type HoloContent } from "./holo-content.ts";
 import type { GameChoice } from "./lobby-controller.ts";
 import { GLOBAL_TAB, statColumns } from "./stats-screens.ts";
 
@@ -12,9 +12,12 @@ export const PREVIEW_SCREENS = [
   { id: "main", name: "Main menu" },
   { id: "games", name: "Game grid" },
   { id: "game", name: "Game screen" },
+  { id: "game2", name: "Game screen, layout 2" },
   { id: "teams", name: "Team picks" },
   { id: "players", name: "Stats list" },
   { id: "stats", name: "Player stats" },
+  { id: "starting", name: "Starting" },
+  { id: "countdown", name: "Countdown" },
 ] as const;
 
 export type PreviewScreen = (typeof PREVIEW_SCREENS)[number]["id"];
@@ -34,10 +37,12 @@ export function previewContent(screen: PreviewScreen, choices: GameChoice[], vie
       return mainContent("play");
     case "games":
       return gamesContent(choices);
-    case "game": {
+    case "game":
+    case "game2": {
       const choice = choices.find((candidate) => Object.keys(defaultSettings(candidate.game)).length > 0) ?? choices[0];
       if (!choice) return gamesContent(choices);
-      return gameContent({ choice, random: false, map: choice.game.maps[0]?.id ?? "random", settings: defaultSettings(choice.game) });
+      const view = { choice, random: false, map: choice.game.maps[0]?.id ?? "random", settings: defaultSettings(choice.game) };
+      return screen === "game" ? gameContent(view) : gameBannerContent(view);
     }
     case "teams":
       return teamsContent({
@@ -60,5 +65,9 @@ export function previewContent(screen: PreviewScreen, choices: GameChoice[], vie
         columns: statColumns(SAMPLE_TOTALS),
         placement: { rank: 3, of: 9 },
       });
+    case "starting":
+      return countdownContent({ game: "Sumo", map: "Arena" });
+    case "countdown":
+      return countdownContent({ game: "Sumo", map: "Arena", left: 3 });
   }
 }

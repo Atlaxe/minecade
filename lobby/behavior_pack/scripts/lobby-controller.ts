@@ -7,7 +7,7 @@
 //            never triggers transfers.
 //   pending  this lobby's own start request. Replies for any other requestId are ignored, which
 //            also covers stale messages queued from before a lobby restart.
-import { COLOR, Scope, nameOf, say, type Chime, type InboundMessage, type OutboundEvent, type Registry, type RegistryGame, type StatusSnapshot } from "@minecade/minigame-core";
+import { Scope, nameOf, say, type Chime, type InboundMessage, type OutboundEvent, type Registry, type RegistryGame, type StatusSnapshot } from "@minecade/minigame-core";
 import { isDemoGame } from "./demo-games.ts";
 import { settingsFor } from "./game-screen.ts";
 import { TeamPickController, type TeamPickPorts } from "./team-pick-controller.ts";
@@ -24,13 +24,22 @@ export interface LobbyPorts {
   onlinePlayers(): string[];
   transfer(name: string, port: number): void;
   notify(to: string | "all", text: string): void;
-  title(to: string | "all", title: string, subtitle?: string): void;
   chime(to: string, chime: Chime): void;
   closeForms(name: string): void;
   /** The live team forms and the hologram, for team games where players pick in the lobby. */
   teamPicks?: TeamPickPorts;
+  /** The hologram's countdown screen: while the game's server boots, then each second before everyone is sent. */
+  countdown?(view: CountdownView): void;
   /** A start is over (the players were sent, or it failed): the terminal's hologram can go back to idle. */
   startEnded?(): void;
+}
+
+/** A game that's starting, for the hologram: `left` is unset while its server boots, then the seconds before everyone is sent. */
+export interface CountdownView {
+  game: string;
+  /** The map's name, or "a random map". */
+  map: string;
+  left?: number;
 }
 
 export interface LobbyOptions {
@@ -190,10 +199,11 @@ export class LobbyController {
       this.ports.send({ t: "status_request" });
     }, this.startTimeoutTicks);
     this.ports.notify("all", say.important(`${nameOf(starter)} is starting ${game.name} on ${mapName}.`));
-    this.ports.title("all", say.info(`Starting ${game.name}`), say.minor(mapName));
     // Team games set to Pick: the players pick here while the game server boots ("pick" tells the
-    // game to wait for these picks instead of handing out its own picker).
+    // game to wait for these picks instead of handing out its own picker). The team view owns the
+    // hologram until then; otherwise it shows the countdown screen while the server boots.
     const picking = lobbyPicksTeams(game, settings) && this.ports.teamPicks !== undefined;
+    if (!picking) this.ports.countdown?.({ game: game.name, map: mapName });
     const sent = picking ? { ...settings, teams: "pick" } : settings;
     this.ports.send({ t: "start_game", requestId: pending.requestId, game: game.id, map: mapId, players, settings: sent });
     if (picking && game.teams && this.ports.teamPicks) {
@@ -218,11 +228,8 @@ export class LobbyController {
     const online = new Set(this.ports.onlinePlayers());
     for (const name of pending.players) if (online.has(name)) this.ports.closeForms(name);
     for (let left = this.countdownSeconds; left > 0; left--) {
-      for (const name of pending.players) {
-        if (!online.has(name)) continue;
-        this.ports.title(name, `${COLOR.highlight}${left}`, say.minor(`Joining ${pending.game.name}`));
-        this.ports.chime(name, left <= 3 ? "bell" : "tick");
-      }
+      this.ports.countdown?.({ game: pending.game.name, map: pending.mapName, left });
+      for (const name of pending.players) if (online.has(name)) this.ports.chime(name, left <= 3 ? "bell" : "tick");
       await pending.scope.wait(20);
     }
     // Look players up now: some may have left during the countdown.

@@ -1,15 +1,18 @@
 // The terminal in the world: the 3x3 console of minecade:terminal blocks, and the hologram above
 // it. The hologram (minecade:holo_display) shows a frame picked by its "minecade:screen" property,
-// a 16:9 picture (a game's or a map's) picked by "minecade:picture" and a square portrait (a
-// player's badge) picked by "minecade:portrait"; everything else is text placed on each of its four
+// a 16:9 picture (a game's or a map's) picked by "minecade:picture" (in the corner or across the
+// top, by "minecade:picture_spot") and a square portrait (a player's badge) picked by
+// "minecade:portrait"; everything else is text placed on each of its four
 // sides, some with a box behind it for a button (holo-content.ts says what and where). Everything
 // is (re)built at boot; the area may not be loaded yet, so placing retries until it works.
 import { BlockPermutation, TextPrimitive, world, type Dimension, type Entity, type RGBA, type Vector3 } from "@minecraft/server";
 import { describeError, log } from "@minecade/minigame-core";
-import { MAX_ELEMENTS, type Box, type Frame, type HoloContent, type HoloElement, type Tone } from "./holo-content.ts";
+import { MAX_ELEMENTS, type Box, type Frame, type HoloContent, type HoloElement, type PictureSpot, type Tone } from "./holo-content.ts";
 
 /** The frames, in the order of the lobby resource pack's Array.screens. */
 const FRAMES: Record<Frame, number> = { logo: 0, panel: 1 };
+/** The picture's spots, as the holo_picture render controller shows them. */
+const PICTURE_SPOTS: Record<PictureSpot, number> = { corner: 0, banner: 1 };
 const DISPLAY = "minecade:holo_display";
 const BLOCK = "minecade:terminal";
 
@@ -159,10 +162,11 @@ export class Hologram {
 
   private apply(): void {
     try {
-      const { frame, elements, picture, portrait } = this.content;
+      const { frame, elements, picture, pictureSpot, portrait } = this.content;
       if (this.display?.isValid) {
         this.display.setProperty("minecade:screen", FRAMES[frame]);
         this.display.setProperty("minecade:picture", picture ? Math.max(0, this.pictures.indexOf(picture)) : 0);
+        this.display.setProperty("minecade:picture_spot", PICTURE_SPOTS[pictureSpot ?? "corner"]);
         this.display.setProperty("minecade:portrait", portrait ? Math.max(0, this.portraits.indexOf(portrait)) : 0);
       }
       SIDES.forEach((side, index) => {

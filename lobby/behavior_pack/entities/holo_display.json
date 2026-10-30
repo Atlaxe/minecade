@@ -24,6 +24,15 @@
           "default": 0,
           "client_sync": true
         },
+        "minecade:picture_spot": {
+          "type": "int",
+          "range": [
+            0,
+            3
+          ],
+          "default": 0,
+          "client_sync": true
+        },
         "minecade:portrait": {
           "type": "int",
           "range": [

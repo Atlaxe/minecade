@@ -72,16 +72,28 @@
           "screen": true
         },
         {
-          "picture_s": true
+          "picture_s": "q.property('minecade:picture_spot') == 0"
         },
         {
-          "picture_e": true
+          "picture_e": "q.property('minecade:picture_spot') == 0"
         },
         {
-          "picture_n": true
+          "picture_n": "q.property('minecade:picture_spot') == 0"
         },
         {
-          "picture_w": true
+          "picture_w": "q.property('minecade:picture_spot') == 0"
+        },
+        {
+          "banner_s": "q.property('minecade:picture_spot') == 1"
+        },
+        {
+          "banner_e": "q.property('minecade:picture_spot') == 1"
+        },
+        {
+          "banner_n": "q.property('minecade:picture_spot') == 1"
+        },
+        {
+          "banner_w": "q.property('minecade:picture_spot') == 1"
         }
       ],
       "ignore_lighting": true

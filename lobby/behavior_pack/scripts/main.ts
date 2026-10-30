@@ -7,7 +7,7 @@ import { describeError, holoPictures, holoPortraits, log, normalizePlayer, playC
 import { bootServer } from "@minecade/minigame-core/bootstrap";
 import registry from "#registry";
 import { demoGames } from "./demo-games.ts";
-import { teamsContent } from "./holo-content.ts";
+import { countdownContent, teamsContent } from "./holo-content.ts";
 import { Hologram } from "./hologram.ts";
 import { LobbyController } from "./lobby-controller.ts";
 import { PREVIEW_SCREENS } from "./holo-preview.ts";
@@ -57,11 +57,6 @@ bootServer(({ vars, transport, transfer, root }) => {
       notify: (to, text) => {
         for (const player of recipients(to)) player.sendMessage(text);
       },
-      title: (to, title, subtitle) => {
-        for (const player of recipients(to)) {
-          player.onScreenDisplay.setTitle(title, { fadeInDuration: 5, stayDuration: 30, fadeOutDuration: 10, subtitle });
-        }
-      },
       chime: (name, chime) => {
         const player = playerNamed(name);
         if (player) playChime(player, chime);
@@ -94,6 +89,7 @@ bootServer(({ vars, transport, transfer, root }) => {
         },
         hologram: (view) => hologram.show(teamsContent(view)),
       },
+      countdown: (view) => hologram.show(countdownContent(view)),
       startEnded: () => terminal.refresh(),
     },
     root,

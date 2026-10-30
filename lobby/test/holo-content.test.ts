@@ -4,6 +4,8 @@ import { PREVIEWS } from "../behavior_pack/scripts/game-screen.ts";
 import {
   HOLO_LAYOUT,
   MAX_ELEMENTS,
+  countdownContent,
+  gameBannerContent,
   gameContent,
   gamesContent,
   idleContent,
@@ -12,6 +14,7 @@ import {
   fitScale,
   statsListContent,
   teamsContent,
+  textHeight,
   textWidth,
   truncate,
   wrap,
@@ -61,6 +64,10 @@ function onPanel(content: HoloContent): void {
 
 /** Where an element's text starts (it's placed by its middle). */
 const leftEdge = (element: HoloElement) => element.x - textWidth(element.text, element.scale ?? 1) / 2;
+
+/** Where an element's text tops out and bottoms out (it's placed by its middle). */
+const top = (element: HoloElement) => element.y + textHeight(element.scale ?? 1) / 2;
+const bottom = (element: HoloElement) => element.y - textHeight(element.scale ?? 1) / 2;
 
 const has = (content: HoloContent, text: string) => content.elements.some((element) => element.text.trim() === text);
 
@@ -142,6 +149,46 @@ describe("the hologram layouts", () => {
     // A map without its own preview shows the placeholder, not the game's picture.
     expect(gameContent({ choice: { game: sumo, playable: true }, random: false, map: "arena_1", settings: {} }).picture).toBe(PREVIEWS.none);
     onPanel(gameContent({ choice: { game: { ...sumo, name: "Capture the Wool on a Long Name" }, playable: true }, random: true, map: "pit", settings: {} }));
+  });
+
+  it("lays the game screen out with the picture across the top (layout 2), then the name and players beside the settings table, both starting at one height", () => {
+    const view = { choice: { game: probe, playable: true }, random: true, map: "arena_1", settings: { round: "30" } };
+    const content = gameBannerContent(view);
+    onPanel(content);
+    expect(content).toMatchObject({ picture: PREVIEWS.game, pictureSpot: "banner" });
+    expect(gameContent(view).pictureSpot).toBeUndefined();
+    const [name, players, map, random, round, thirty] = ["Probe", "2-6 players", "Map:", "Random", "Round:", "30 s"].map((text) => find(content, text));
+    expect(name.tone).toBe("title");
+    // Both columns start at the same height, below the banner (it ends at y -0.02).
+    expect(top(name)).toBeCloseTo(top(map));
+    expect(top(name)).toBeLessThan(-0.02);
+    expect(top(players)).toBeLessThan(bottom(name));
+    // Each column is left-aligned: the name over the players, the labels over each other, the answers over each other.
+    expect(leftEdge(players)).toBeCloseTo(leftEdge(name));
+    expect(leftEdge(round)).toBeCloseTo(leftEdge(map));
+    expect(leftEdge(thirty)).toBeCloseTo(leftEdge(random));
+    expect(leftEdge(map)).toBeGreaterThan(name.x + textWidth(name.text, name.scale) / 2);
+    expect([random.box, thirty.box]).toEqual(["selected", "selected"]);
+    expect(find(gameBannerContent({ ...view, random: false, map: "pit" }), "Pit").box).toBe("selected");
+    // Lots of settings still fit above the bottom edge.
+    const options = Array.from({ length: 6 }, (_, i) => ({ id: `option${i}`, label: `Option ${i}`, values: [{ value: "a", label: "A" }, { value: "b", label: "B" }] }));
+    onPanel(gameBannerContent({ ...view, choice: { game: { ...probe, name: "Capture the Wool on a Long Name", options }, playable: false, reason: "needs at least 4 players" } }));
+  });
+
+  it("shows a starting game centered both ways: the server booting, then the seconds left in yellow", () => {
+    const boot = countdownContent({ game: "Sumo", map: "Arena" });
+    const count = countdownContent({ game: "Sumo", map: "a random map", left: 3 });
+    for (const content of [boot, count]) {
+      onPanel(content);
+      for (const element of content.elements) expect(element.x).toBe(0);
+      const middle = (top(content.elements[0]) + bottom(content.elements.at(-1)!)) / 2;
+      expect(middle).toBeCloseTo(0);
+      // Top to bottom, without overlapping.
+      content.elements.slice(1).forEach((element, index) => expect(top(element)).toBeLessThan(bottom(content.elements[index])));
+    }
+    expect(boot.elements.map((element) => element.text)).toEqual(["Starting Sumo", "on Arena", "Getting the server ready"]);
+    expect(count.elements.map((element) => element.text)).toEqual(["Starting Sumo in", "3", "on a random map"]);
+    expect(find(count, "3")).toMatchObject({ tone: "highlight", scale: HOLO_LAYOUT.countdown.numberScale });
   });
 
   it("shows team picking as a column per team in the team's color", () => {

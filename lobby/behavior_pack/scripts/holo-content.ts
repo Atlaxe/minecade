@@ -4,8 +4,8 @@
 // team screens build this from the same views their forms use; hologram.ts draws it on all four
 // sides. Positions and sizes are in HOLO_LAYOUT, to tune against the frame art.
 import { ordinal } from "@minecade/minigame-core";
-import { gamePicture, mapOptions, playerCount, playerRange, settingLabel, settingsFor } from "./game-screen.ts";
-import type { GameChoice } from "./lobby-controller.ts";
+import { gamePicture, mapOptions, playerCount, playerRange, settingLabel, settingsFor, type MapOption } from "./game-screen.ts";
+import type { CountdownView, GameChoice } from "./lobby-controller.ts";
 import type { GameView } from "./menus.ts";
 import { STAT_COLUMNS, badgeFor, type PlayersView, type StatsView } from "./stats-screens.ts";
 import type { TeamPickView } from "./team-pick-controller.ts";
@@ -30,11 +30,15 @@ export interface HoloElement {
   box?: Box;
 }
 
+/** Where the picture goes: the top right corner, or across the top (the banner). */
+export type PictureSpot = "corner" | "banner";
+
 export interface HoloContent {
   frame: Frame;
   elements: HoloElement[];
-  /** A 16:9 texture path (a game's picture or a map's preview), at the top right. */
+  /** A 16:9 texture path (a game's picture or a map's preview), at the top right unless `pictureSpot` says otherwise. */
   picture?: string;
+  pictureSpot?: PictureSpot;
   /** A square texture path (a player's badge), at the top left. */
   portrait?: string;
 }
@@ -45,14 +49,16 @@ export const MAX_ELEMENTS = 48;
 /**
  * Where things go, in blocks from the panel's middle. Text stays within `edge` of the middle, inside
  * the frame's border and corner brackets (at about 1.4). The picture and portrait spots are fixed in
- * the hologram's model (models/entity/holo_display.geo.json), both top-aligned with the title: the
- * picture spans x 0.08 to 1.28 and y 0.54 to 1.22, the portrait x -1.25 to -0.5 and y 0.47 to
- * 1.22. (The model's x runs opposite to the reader's: a spot on the reader's right has negative x
- * in the model.)
+ * the hologram's model (models/entity/holo_display.geo.json), all top-aligned with the title: the
+ * picture spans x 0.08 to 1.28 and y 0.54 to 1.22, the banner (the picture across the top) x -1.1
+ * to 1.1 and y -0.02 to 1.22, the portrait x -1.25 to -0.5 and y 0.47 to 1.22. (The model's x runs
+ * opposite to the reader's: a spot on the reader's right has negative x in the model.)
  */
 export const HOLO_LAYOUT = {
   /** One font pixel at scale 1, in blocks (measured in game: "Choose a game", 74 font pixels wide, is about 2.0 blocks at 1.15). */
   pixel: 0.024,
+  /** A line's height in font pixels at scale 1 (for placing text by its top). */
+  lineHeight: 8,
   /** How far from the middle text may reach, either way. */
   edge: 1.25,
   title: { y: 1.12, scale: 1.15 },
@@ -60,6 +66,9 @@ export const HOLO_LAYOUT = {
   logoButtons: { y: -0.45, x: 0.62 },
   grid: { columns: [-0.85, 0, 0.85], width: 0.78, top: 0.66, rowGap: 0.42, rows: 5, scale: 0.6, lineGap: 0.13, countGap: 0.15, countScale: 0.42 },
   game: { left: -1.25, width: 1.25, players: 0.84, settingsTop: 0.4, settingGap: 0.26, settings: 6, scale: 0.6, valueGap: 0.08 },
+  /** Game screen, layout 2: under the banner, two columns starting at `top`. */
+  gameBanner: { top: -0.14, left: -1.25, leftWidth: 1.05, right: -0.1, titleScale: 0.9, playersGap: 0.06, scale: 0.55, settingGap: 0.24, settings: 4 },
+  countdown: { gap: 0.12, titleScale: 1, headingScale: 0.9, numberScale: 3, mapScale: 0.55, noteScale: 0.45 },
   teams: { header: 0.72, membersTop: 0.42, memberGap: 0.25, members: 4, random: -0.82, status: -1.15, scale: 0.75, minScale: 0.45 },
   list: { top: 0.72, gap: 0.3, rows: 7, scale: 0.8 },
   stats: {
@@ -105,6 +114,16 @@ export function textWidth(value: string, scale = 1): number {
   let pixels = 0;
   for (const char of value) pixels += ADVANCES[char] ?? 6;
   return pixels * scale * HOLO_LAYOUT.pixel;
+}
+
+/** How tall a line is at `scale`, in blocks. */
+export function textHeight(scale = 1): number {
+  return HOLO_LAYOUT.lineHeight * scale * HOLO_LAYOUT.pixel;
+}
+
+/** The y that puts a line's top at `top` (text is placed by its middle). */
+function topAligned(top: number, scale: number): number {
+  return top - textHeight(scale) / 2;
 }
 
 /** The largest scale, up to `maxScale` and no smaller than `minScale`, at which `value` fits `width`. */
@@ -205,25 +224,110 @@ export function gamesContent(choices: GameChoice[]): HoloContent {
  */
 export function gameContent(view: GameView): HoloContent {
   const L = HOLO_LAYOUT.game;
-  const { game, playable, reason } = view.choice;
-  const chosen = view.random ? undefined : mapOptions(game).find((option) => option.id === view.map);
-  const players = playable ? playerRange(game) : `Needs ${reason?.replace(/^needs at least /, "") ?? "more players"}`;
-  const elements = [
-    fittedLeft(game.name, L.left, HOLO_LAYOUT.title.y, L.width, HOLO_LAYOUT.title.scale, 0.6, { tone: "title" }),
-    fittedLeft(players, L.left, L.players, L.width, L.scale, 0.4, { tone: playable ? "dim" : "warn" }),
-  ];
-  const rows = [
+  const { game, playable } = view.choice;
+  const chosen = chosenMap(view);
+  return {
+    frame: "panel",
+    elements: [
+      fittedLeft(game.name, L.left, HOLO_LAYOUT.title.y, L.width, HOLO_LAYOUT.title.scale, 0.6, { tone: "title" }),
+      fittedLeft(playersLine(view.choice), L.left, L.players, L.width, L.scale, 0.4, { tone: playable ? "dim" : "warn" }),
+      // The table sits below the picture, so the answers can run to the edge.
+      ...table(gameRows(view, chosen).slice(0, L.settings + 1), { left: L.left, y: L.settingsTop, gap: L.settingGap, scale: L.scale, labelWidth: L.width / 2, right: HOLO_LAYOUT.edge }),
+    ],
+    picture: chosen?.preview ?? gamePicture(game),
+  };
+}
+
+/**
+ * One game, layout 2 (only in the Preview menu for now): the picture across the top (the banner),
+ * then two columns starting at the same height, each left-aligned: the name and players on the
+ * left, the map and settings table on the right.
+ */
+export function gameBannerContent(view: GameView): HoloContent {
+  const L = HOLO_LAYOUT.gameBanner;
+  const { game, playable } = view.choice;
+  const chosen = chosenMap(view);
+  const titleScale = fitScale(game.name, L.titleScale, L.leftWidth, 0.5);
+  const playersTop = L.top - textHeight(titleScale) - L.playersGap;
+  return {
+    frame: "panel",
+    elements: [
+      fittedLeft(game.name, L.left, topAligned(L.top, titleScale), L.leftWidth, titleScale, titleScale, { tone: "title" }),
+      fittedLeft(playersLine(view.choice), L.left, topAligned(playersTop, L.scale), L.leftWidth, L.scale, 0.4, { tone: playable ? "dim" : "warn" }),
+      ...table(gameRows(view, chosen).slice(0, L.settings + 1), {
+        left: L.right,
+        y: topAligned(L.top, L.scale),
+        gap: L.settingGap,
+        scale: L.scale,
+        labelWidth: (HOLO_LAYOUT.edge - L.right) / 2,
+        right: HOLO_LAYOUT.edge,
+      }),
+    ],
+    picture: chosen?.preview ?? gamePicture(game),
+    pictureSpot: "banner",
+  };
+}
+
+/** The game screen's chosen map, or undefined while the map is random. */
+function chosenMap(view: GameView): MapOption | undefined {
+  return view.random ? undefined : mapOptions(view.choice.game).find((option) => option.id === view.map);
+}
+
+/** The players a game takes, or how many more it needs. */
+function playersLine({ game, playable, reason }: GameChoice): string {
+  return playable ? playerRange(game) : `Needs ${reason?.replace(/^needs at least /, "") ?? "more players"}`;
+}
+
+/** The game screen's map (the chosen one, or Random) and settings, as a table's rows. */
+function gameRows(view: GameView, chosen: MapOption | undefined): { label: string; value: string }[] {
+  return [
     { label: "Map:", value: chosen?.name ?? "Random" },
-    ...settingsFor(game).map((setting) => ({ label: `${setting.label}:`, value: settingLabel(setting, view.settings[setting.id]) })),
-  ].slice(0, L.settings + 1);
-  const labels = rows.map((row, index) => fittedLeft(row.label, L.left, L.settingsTop - index * L.settingGap, L.width / 2, L.scale, 0.4));
-  const valueLeft = L.left + Math.max(...labels.map((label) => textWidth(label.text, label.scale))) + L.valueGap;
-  // The table sits below the picture, so the answers can run to the edge.
-  const valueWidth = HOLO_LAYOUT.edge - valueLeft;
-  rows.forEach((row, index) => {
-    elements.push(labels[index], fittedLeft(row.value, valueLeft, labels[index].y, valueWidth, L.scale, 0.4, { box: "selected" }));
+    ...settingsFor(view.choice.game).map((setting) => ({ label: `${setting.label}:`, value: settingLabel(setting, view.settings[setting.id]) })),
+  ];
+}
+
+/**
+ * A table of labels (white) and answers (yellow, like the chosen one), `gap` apart from the first
+ * row at `y`: the labels start at `left` (each at most `labelWidth` wide), and the answers line up
+ * just right of the widest label and run to `right`.
+ */
+function table(rows: { label: string; value: string }[], at: { left: number; y: number; gap: number; scale: number; labelWidth: number; right: number }): HoloElement[] {
+  const labels = rows.map((row, index) => fittedLeft(row.label, at.left, at.y - index * at.gap, at.labelWidth, at.scale, 0.4));
+  const valueLeft = at.left + Math.max(...labels.map((label) => textWidth(label.text, label.scale))) + HOLO_LAYOUT.game.valueGap;
+  return rows.flatMap((row, index) => [labels[index], fittedLeft(row.value, valueLeft, labels[index].y, at.right - valueLeft, at.scale, 0.4, { box: "selected" })]);
+}
+
+/**
+ * A game that's starting, centered both ways: "Starting Sumo", the map and "Getting the server
+ * ready" while its server boots, then "Starting Sumo in", the seconds left (big, in yellow) and the
+ * map.
+ */
+export function countdownContent(view: CountdownView): HoloContent {
+  const L = HOLO_LAYOUT.countdown;
+  const map: Line = { value: `on ${view.map}`, scale: L.mapScale, more: { tone: "dim" } };
+  const lines: Line[] =
+    view.left === undefined
+      ? [{ value: `Starting ${view.game}`, scale: L.titleScale, more: { tone: "title" } }, map, { value: "Getting the server ready", scale: L.noteScale, more: { tone: "dim" } }]
+      : [{ value: `Starting ${view.game} in`, scale: L.headingScale }, { value: String(view.left), scale: L.numberScale, more: { tone: "highlight" } }, map];
+  return { frame: "panel", elements: centered(lines, L.gap) };
+}
+
+interface Line {
+  value: string;
+  scale: number;
+  more?: Partial<HoloElement>;
+}
+
+/** Lines stacked top to bottom, `gap` apart, each centered across, the whole block centered on the panel's middle. */
+function centered(lines: Line[], gap: number): HoloElement[] {
+  const shown = lines.map(({ value, scale, more }) => fitted(value, 0, 0, HOLO_LAYOUT.edge * 2, scale, scale / 2, more));
+  const height = shown.reduce((sum, line) => sum + textHeight(line.scale), 0) + gap * (shown.length - 1);
+  let top = height / 2;
+  return shown.map((line) => {
+    const y = topAligned(top, line.scale ?? 1);
+    top -= textHeight(line.scale) + gap;
+    return { ...line, y };
   });
-  return { frame: "panel", elements, picture: chosen?.preview ?? gamePicture(game) };
 }
 
 /** Team picking: a column per team (its name and count in the team's color, then its players), who's still random, and when teams lock. */

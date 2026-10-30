@@ -3,7 +3,7 @@ import { Scope, stripColors, type InboundMessage, type OutboundEvent, type Regis
 import { system } from "../../packages/minigame-core/test/fake-mc-server.ts";
 import { flushPromises } from "../../packages/minigame-core/test/util.ts";
 import { demoGames } from "../behavior_pack/scripts/demo-games.ts";
-import { LobbyController, type LobbyOptions, type LobbyPorts } from "../behavior_pack/scripts/lobby-controller.ts";
+import { LobbyController, type CountdownView, type LobbyOptions, type LobbyPorts } from "../behavior_pack/scripts/lobby-controller.ts";
 
 const registry: Registry = {
   games: [
@@ -26,7 +26,7 @@ function setup(online: string[] = ["Steve", "Alex"], options: Partial<LobbyOptio
   const sent: OutboundEvent[] = [];
   const transfers: [string, number][] = [];
   const notes: [string, string][] = [];
-  const titles: [string, string, string | undefined][] = [];
+  const countdowns: CountdownView[] = [];
   const closed: string[] = [];
   const chimes: [string, string][] = [];
   const teamForms: string[] = [];
@@ -39,7 +39,6 @@ function setup(online: string[] = ["Steve", "Alex"], options: Partial<LobbyOptio
     transfer: (name, port) => transfers.push([name, port]),
     // Tests read what players see, without the color codes.
     notify: (to, text) => notes.push([to, stripColors(text)]),
-    title: (to, title, subtitle) => titles.push([to, stripColors(title), subtitle === undefined ? undefined : stripColors(subtitle)]),
     chime: (to, chime) => chimes.push([to, chime]),
     closeForms: (name) => closed.push(name),
     teamPicks: {
@@ -48,13 +47,14 @@ function setup(online: string[] = ["Steve", "Alex"], options: Partial<LobbyOptio
       close: (name) => teamFormsClosed.push(name),
       hologram: () => {},
     },
+    countdown: (view) => countdowns.push(view),
     startEnded: () => startsEnded++,
   };
   const root = new Scope("lobby");
   const lobby = new LobbyController(ports, root, { registry, newRequestId: () => `r${++requests}`, ...options });
   const say = (message: InboundMessage) => lobby.onMessage(message);
   const notesTo = (to: string) => notes.filter(([who]) => who === to).map(([, text]) => text);
-  return { players, sent, transfers, notes, notesTo, titles, chimes, closed, teamForms, teamFormsClosed, startsEnded: () => startsEnded, root, lobby, say };
+  return { players, sent, transfers, notes, notesTo, countdowns, chimes, closed, teamForms, teamFormsClosed, startsEnded: () => startsEnded, root, lobby, say };
 }
 
 /** Steve presses Start on Sumo, Arena 1 (request "r1"). */
@@ -81,7 +81,8 @@ describe("LobbyController: starting a game", () => {
       { t: "start_game", requestId: "r1", game: "sumo", map: "arena_1", players: ["Steve", "Alex"], settings: { teams: "random" } },
     ]);
     expect(t.notesTo("all")).toEqual(["Steve is starting Sumo on Arena 1."]);
-    expect(t.titles).toEqual([["all", "Starting Sumo", "Arena 1"]]);
+    // The hologram's countdown screen, while the server boots (no titles on players' screens).
+    expect(t.countdowns).toEqual([{ game: "Sumo", map: "Arena 1" }]);
     expect(t.lobby.starting).toBe(true);
   });
 
@@ -145,13 +146,13 @@ describe("LobbyController: sending players", () => {
     t.say({ t: "game_starting", requestId: "r1", sessionId: "s1", game: "sumo", map: "arena_1" });
     t.say({ t: "game_ready", requestId: "r1", sessionId: "s1", game: "sumo", map: "arena_1", port: 19133, hosts: { public: "x", lan: "y" } });
     expect(t.closed).toEqual(["Steve", "Alex"]);
-    const countdown = () => t.titles.filter(([, title]) => /^\d$/.test(title)).map(([to, title]) => `${to}:${title}`);
-    expect(countdown()).toEqual(["Steve:3", "Alex:3"]);
+    const countdown = () => t.countdowns.filter((view) => view.left !== undefined);
+    expect(countdown()).toEqual([{ game: "Sumo", map: "Arena 1", left: 3 }]);
     for (let second = 0; second < 3; second++) {
       system.advanceTicks(20);
       await flushPromises();
     }
-    expect(countdown()).toEqual(["Steve:3", "Alex:3", "Steve:2", "Alex:2", "Steve:1", "Alex:1"]);
+    expect(countdown().map((view) => view.left)).toEqual([3, 2, 1]);
     expect(t.chimes).toEqual(["Steve", "Alex", "Steve", "Alex", "Steve", "Alex"].map((name) => [name, "bell"]));
     expect(t.transfers).toEqual([
       ["Steve", 19133],
@@ -263,8 +264,10 @@ describe("LobbyController: team picks", () => {
     expect(t.lobby.reopenTeamPick("Steve")).toBe(true);
     t.say(ready);
     expect(t.transfers).toEqual([]); // picking lasts at least 5 s
+    expect(t.countdowns).toEqual([]); // the team view owns the hologram while picking
     system.advanceTicks(100);
     expect(t.sent.at(-1)).toEqual({ t: "team_picks", sessionId: "s1", picks: { Steve: "blue", Alex: "red" } });
+    expect(t.countdowns).toEqual([{ game: "Paint", map: "Yard", left: 3 }]);
     expect(t.teamFormsClosed).toEqual(["Steve", "Alex"]);
     expect(t.lobby.reopenTeamPick("Steve")).toBe(false);
     for (let second = 0; second < 3; second++) {
