@@ -28,6 +28,30 @@ explains why, and how skins could come later.
      using the player's texture, in the hologram's additive blue.
    - **As list heads:** the head part of each texture, cut out at bake time.
 
+## What we checked (October 2026)
+
+- **No public skin API covers our players.** Microsoft doesn't publish Bedrock skins. GeyserMC's
+  Global API (`GET /v2/skin/:xuid`) only has skins of Bedrock players who joined a Java server
+  running Geyser and Floodgate, which our players haven't. mc-api.io looks players up by xuid but
+  doesn't say where its Bedrock skins come from.
+- **A relay can read the skin, but needs a Microsoft account.**
+  [nethernet-proxy](https://github.com/SKYNETWORK-MCBE/nethernet-proxy) (MIT, TypeScript, Node
+  26) relays NetherNet connections and passes each player's own login through to the server. Its
+  join event exposes the login's client data, including `SkinData` (raw RGBA),
+  `SkinImageWidth`/`SkinImageHeight`, `SkinGeometryData` and `PersonaSkin`. Upstream decoded both
+  character creator (256x256) and classic (64x64) skins on 1.26.51. However, the relay's own
+  connection to the server needs a multiplayer token: `authenticateTransport()` in
+  `@nethernet-proxy/relay` 0.2.0 runs a Microsoft device-code sign-in (prismarine-auth, posing as
+  the Nintendo Switch version of Minecraft) and caches the token on disk.
+- **Where it stopped:** the user chose not to sign an account in, so the relay was never run.
+  Still untested: whether it works with 1.26.60 (it targets 1.26.50), and whether WebRTC's UDP
+  ports work through Docker on Windows.
+- **If this is picked up again:** use a spare Microsoft account (not anyone's main one), run the
+  relay in a `node:26` container on a test port (the lobby's own port untouched), and check that
+  joining, the terminal and transfers to games still work through it before saving any skins. The
+  other route, a bot that joins the lobby and reads skins from the player list, also needs its own
+  Microsoft account.
+
 ## Open risks
 
 - **The relay:** Bedrock 1.26 connects through NetherNet (WebRTC), not plain RakNet, so a proxy
