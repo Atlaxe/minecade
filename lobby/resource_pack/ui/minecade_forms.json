@@ -88,7 +88,6 @@
   // Shown only while the button's text carries $state_mark (such as the chosen map's outline).
   "button_state_image": {
     "type": "image",
-    "fill": true,
     "keep_ratio": false,
     "$state_mark|default": "",
     "bindings": [
@@ -112,12 +111,13 @@
     ]
   },
 
-  // A button face: one picture, stretched.
+  // A button face: a nine-slice frame (button_*), sized to the button. Frames never use "fill":
+  // in JSON UI it scales an image to cover its control and crops the rest, which would cut the
+  // frame's edges off. Pictures (button_picture) do use it.
   "face": {
     "type": "image",
     "texture": "$tile_texture",
     "size": ["100%", "100%"],
-    "fill": true,
     "keep_ratio": false
   },
 
@@ -180,9 +180,9 @@
           "size": [136, 34],
           "bindings": [{ "binding_type": "collection_details", "binding_collection_name": "form_buttons" }],
           "controls": [
-            { "default@minecade_forms.tile_face": { "$tile_texture": "textures/minecade/ui/tile_default" } },
-            { "hover@minecade_forms.tile_face": { "$tile_texture": "textures/minecade/ui/tile_hover" } },
-            { "pressed@minecade_forms.tile_face": { "$tile_texture": "textures/minecade/ui/tile_pressed" } }
+            { "default@minecade_forms.tile_face": { "$tile_texture": "textures/minecade/ui/button_default" } },
+            { "hover@minecade_forms.tile_face": { "$tile_texture": "textures/minecade/ui/button_hover" } },
+            { "pressed@minecade_forms.tile_face": { "$tile_texture": "textures/minecade/ui/button_pressed" } }
           ]
         }
       }
@@ -296,9 +296,9 @@
           "size": [132, 44],
           "bindings": [{ "binding_type": "collection_details", "binding_collection_name": "form_buttons" }],
           "controls": [
-            { "default@minecade_forms.face": { "$tile_texture": "textures/minecade/ui/card_default" } },
-            { "hover@minecade_forms.face": { "$tile_texture": "textures/minecade/ui/card_hover" } },
-            { "pressed@minecade_forms.face": { "$tile_texture": "textures/minecade/ui/card_pressed" } }
+            { "default@minecade_forms.face": { "$tile_texture": "textures/minecade/ui/button_default" } },
+            { "hover@minecade_forms.face": { "$tile_texture": "textures/minecade/ui/button_hover" } },
+            { "pressed@minecade_forms.face": { "$tile_texture": "textures/minecade/ui/button_pressed" } }
           ]
         }
       },
@@ -466,7 +466,6 @@
           "anchor_from": "bottom_middle",
           "anchor_to": "bottom_middle",
           "offset": [0, -4],
-          "fill": true,
           "keep_ratio": false,
           "layer": 2
         }
@@ -543,7 +542,6 @@
     "type": "image",
     "texture": "$tile_texture",
     "size": ["100%", "100%"],
-    "fill": true,
     "keep_ratio": false,
     // Centered lines: a setting's second line is its bars (menus.ts settingBars).
     "controls": [{ "label@minecade_forms.button_label": { "anchor_from": "center", "anchor_to": "center", "text_alignment": "center" } }]
@@ -554,7 +552,6 @@
     "type": "image",
     "texture": "$tile_texture",
     "size": ["100%", "100%"],
-    "fill": true,
     "keep_ratio": false,
     "controls": [
       { "label@minecade_forms.button_label": { "anchor_from": "left_middle", "anchor_to": "left_middle", "offset": [10, 0] } },
@@ -669,7 +666,6 @@
     "type": "image",
     "texture": "$tile_texture",
     "size": ["100%", "100%"],
-    "fill": true,
     "keep_ratio": false,
     "controls": [
       { "badge@minecade_forms.button_picture": { "size": [20, 20], "anchor_from": "left_middle", "anchor_to": "left_middle", "offset": [6, 0], "layer": 2 } },
@@ -679,7 +675,8 @@
 
   // ---- Stats: one player ---------------------------------------------------------------------
   // Left: the player's portrait (their badge for now; a 3D skin later, docs/skins.md) and a tab
-  // per view (Global, then each game). Right: the player's name and the open tab's stats.
+  // per view (Global, then each game). Right: the player's name, their rank (the body), and the
+  // open tab's stats as tiles in three columns under their headings.
   "stats_detail": {
     "type": "panel",
     "size": [460, 250],
@@ -738,14 +735,38 @@
               }
             },
             {
-              "stats": {
+              "rank": {
                 "type": "label",
                 "text": "#form_text",
-                "color": [0.62, 0.86, 1.0],
+                "color": [1.0, 0.9, 0.35],
+                "shadow": true,
                 "size": ["100%", "default"],
                 "anchor_from": "top_left",
                 "anchor_to": "top_left",
-                "offset": [0, 24]
+                "offset": [0, 22]
+              }
+            },
+            {
+              "headings": {
+                "type": "stack_panel",
+                "orientation": "horizontal",
+                "size": ["100%", 10],
+                "anchor_from": "top_left",
+                "anchor_to": "top_left",
+                "offset": [0, 40],
+                "controls": [
+                  { "results@minecade_forms.stat_heading": { "text": "Results" } },
+                  { "combat@minecade_forms.stat_heading": { "text": "Combat" } },
+                  { "more@minecade_forms.stat_heading": { "text": "More" } }
+                ]
+              }
+            },
+            {
+              "columns@minecade_forms.scroll": {
+                "size": ["100%", "100% - 54px"],
+                "anchor_from": "bottom_left",
+                "anchor_to": "bottom_left",
+                "$scrolling_content": "minecade_forms.stat_columns"
               }
             }
           ]
@@ -771,7 +792,7 @@
     ],
     "controls": [
       { "picture@minecade_forms.button_picture": { "size": [88, 88], "layer": 1 } },
-      { "frame": { "type": "image", "texture": "textures/minecade/ui/tile_map_default", "size": ["100%", "100%"], "fill": true, "keep_ratio": false, "layer": 2 } }
+      { "frame": { "type": "image", "texture": "textures/minecade/ui/portrait_frame", "size": ["100%", "100%"], "layer": 2 } }
     ]
   },
 
@@ -814,6 +835,54 @@
           "$state_mark": "§s§e§l§r"
         }
       }
+    ]
+  },
+
+  "stat_heading": {
+    "type": "label",
+    "size": [94, 10],
+    "color": [0.62, 0.86, 1.0],
+    "shadow": true,
+    "text_alignment": "center"
+  },
+
+  "stat_columns": {
+    "type": "stack_panel",
+    "orientation": "horizontal",
+    "size": ["100%c", "100%cm"],
+    "anchor_from": "top_left",
+    "anchor_to": "top_left",
+    "controls": [
+      { "column_1@minecade_forms.stat_column_1": {} },
+      { "column_2@minecade_forms.stat_column_2": {} },
+      { "column_3@minecade_forms.stat_column_3": {} }
+    ]
+  },
+
+  "stat_column_1@minecade_forms.button_column": { "size": [94, "100%c"], "factory": { "name": "buttons", "control_ids": { "button": "@minecade_forms.stat_tile_1" } } },
+  "stat_column_2@minecade_forms.button_column": { "size": [94, "100%c"], "factory": { "name": "buttons", "control_ids": { "button": "@minecade_forms.stat_tile_2" } } },
+  "stat_column_3@minecade_forms.button_column": { "size": [94, "100%c"], "factory": { "name": "buttons", "control_ids": { "button": "@minecade_forms.stat_tile_3" } } },
+
+  "stat_tile_1@minecade_forms.stat_tile": { "$stat_mark": "§u§1§r" },
+  "stat_tile_2@minecade_forms.stat_tile": { "$stat_mark": "§u§2§r" },
+  "stat_tile_3@minecade_forms.stat_tile": { "$stat_mark": "§u§3§r" },
+
+  // A stat: its value over its label, on a dim tile. Not a button.
+  "stat_tile": {
+    "type": "panel",
+    "size": [94, 30],
+    "$stat_mark|default": "",
+    "bindings": [
+      { "binding_name": "#form_button_text", "binding_type": "collection", "binding_collection_name": "form_buttons" },
+      {
+        "binding_type": "view",
+        "source_property_name": "(not ((#form_button_text - $stat_mark) = #form_button_text))",
+        "target_property_name": "#visible"
+      }
+    ],
+    "controls": [
+      { "tile": { "type": "image", "texture": "textures/minecade/ui/stat_tile", "size": [90, 27], "anchor_from": "top_left", "anchor_to": "top_left", "layer": 1 } },
+      { "label@minecade_forms.button_label": { "size": [90, "default"], "text_alignment": "center", "anchor_from": "top_left", "anchor_to": "top_left", "offset": [0, 4], "layer": 2 } }
     ]
   }
 }

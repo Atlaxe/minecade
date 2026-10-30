@@ -67,7 +67,7 @@ describe("the game screen model", () => {
 
   it("uses marks that never render, don't contain each other, and that the layouts know", () => {
     const layouts = readFileSync(new URL("../resource_pack/ui/minecade_forms.json", import.meta.url), "utf8");
-    const marks = [...MARK.games, ...MARK.maps, MARK.toggle, MARK.on, MARK.setting, MARK.start, MARK.selected, MARK.dim, MARK.player, MARK.portrait, MARK.tab];
+    const marks = [...MARK.games, ...MARK.maps, MARK.toggle, MARK.on, MARK.setting, MARK.start, MARK.selected, MARK.dim, MARK.player, MARK.portrait, MARK.tab, ...MARK.stats];
     for (const mark of marks) {
       expect(stripColors(mark)).toBe("");
       expect(mark.endsWith("§r")).toBe(true);

@@ -238,17 +238,6 @@ def holo_scanlines() -> Image.Image:
     return image
 
 
-def ui_tile(state: str) -> Image.Image:
-    """A menu button at 2x (272x68 for 136x34): default, hover or pressed."""
-    width, height = 272, 68
-    fill = {"default": (10, 36, 70, 230), "hover": (24, 80, 140, 240), "pressed": (40, 120, 190, 250)}[state]
-    outline = {"default": CYAN, "hover": BRIGHT, "pressed": (255, 255, 255)}[state]
-    image = Image.new("RGBA", (width, height), (0, 0, 0, 0))
-    draw = ImageDraw.Draw(image)
-    draw.rounded_rectangle((2, 2, width - 3, height - 3), radius=10, fill=fill, outline=(*outline, 255), width=4)
-    return image
-
-
 def ui_icon(kind: str) -> Image.Image:
     image = Image.new("RGBA", (64, 64), (0, 0, 0, 0))
     draw = ImageDraw.Draw(image)
@@ -270,47 +259,51 @@ def ui_icon(kind: str) -> Image.Image:
     return image
 
 
-def ui_frame(size: tuple[int, int], state: str, radius: int = 12) -> Image.Image:
-    """A button or tile at 2x, in the given state: default, hover, pressed, or selected (a bright outline only)."""
-    width, height = size
-    image = Image.new("RGBA", (width, height), (0, 0, 0, 0))
-    draw = ImageDraw.Draw(image)
-    if state == "selected":
-        draw.rounded_rectangle((2, 2, width - 3, height - 3), radius=radius, outline=(255, 255, 255, 255), width=6)
-        return image
+def ui_button(state: str) -> Image.Image:
+    """
+    Every button (menu tiles, game cards, settings, the Random switch, Start, player rows, tabs):
+    a 1x nine-slice (16x16, 4 pixel slices), so it looks the same at any size. Navy, with a cyan
+    line down the left and right edges and square corners; hover and pressed brighten it.
+    """
+    size = 16
     fill = {"default": (10, 36, 70, 230), "hover": (24, 80, 140, 240), "pressed": (40, 120, 190, 250)}[state]
-    outline = {"default": CYAN, "hover": BRIGHT, "pressed": (255, 255, 255)}[state]
-    draw.rounded_rectangle((2, 2, width - 3, height - 3), radius=radius, fill=fill, outline=(*outline, 255), width=4)
-    return image
-
-
-def ui_outline(size: tuple[int, int], state: str) -> Image.Image:
-    """
-    A map tile's frame at 2x, drawn over its picture: a square outline 4 pixels wide (2 on screen),
-    with a light tint on hover and press. Selected is a thicker white outline. The picture sits
-    inside the outline, so the corners stay square.
-    """
-    width, height = size
-    image = Image.new("RGBA", (width, height), (0, 0, 0, 0))
+    line = {"default": CYAN, "hover": BRIGHT, "pressed": (255, 255, 255)}[state]
+    image = Image.new("RGBA", (size, size), fill)
     draw = ImageDraw.Draw(image)
-    if state == "selected":
-        draw.rectangle((0, 0, width - 1, height - 1), outline=(255, 255, 255, 255), width=6)
-        return image
-    tint = {"default": (0, 0, 0, 0), "hover": (120, 200, 255, 40), "pressed": (160, 220, 255, 70)}[state]
-    outline = {"default": (*CYAN, 220), "hover": (*BRIGHT, 255), "pressed": (255, 255, 255, 255)}[state]
-    draw.rectangle((0, 0, width - 1, height - 1), fill=tint, outline=outline, width=4)
+    draw.rectangle((0, 0, 1, size - 1), fill=(*line, 255))
+    draw.rectangle((size - 2, 0, size - 1, size - 1), fill=(*line, 255))
     return image
+
+
+def ui_outline(state: str) -> Image.Image:
+    """
+    A square 2 pixel outline, as a 1x nine-slice (16x16, 4 pixel slices), drawn over pictures and
+    buttons: the map tile frames (default, and hover and pressed with a light tint), the chosen map
+    and the open tab (selected, white), and the stats portrait (portrait).
+    """
+    size = 16
+    image = Image.new("RGBA", (size, size), (0, 0, 0, 0))
+    draw = ImageDraw.Draw(image)
+    tint = {"default": (0, 0, 0, 0), "hover": (120, 200, 255, 40), "pressed": (160, 220, 255, 70), "selected": (0, 0, 0, 0), "portrait": (0, 0, 0, 0)}[state]
+    outline = {"default": (*CYAN, 220), "hover": (*BRIGHT, 255), "pressed": (255, 255, 255, 255), "selected": (255, 255, 255, 255), "portrait": (*CYAN, 255)}[state]
+    draw.rectangle((0, 0, size - 1, size - 1), fill=tint, outline=outline, width=2)
+    return image
+
+
+def stat_tile() -> Image.Image:
+    """A stat's tile on a player's stats: a dim navy box with no lines, so it doesn't look clickable (1x nine-slice)."""
+    return Image.new("RGBA", (16, 16), (6, 22, 44, 170))
 
 
 def toggle(on: bool) -> Image.Image:
-    """An on/off switch at 2x (52x26 for 26x13): a pill with its knob left (off) or right (on)."""
+    """An on/off switch at 2x (52x26 for 26x13): a square track with a square knob, left (off) or right (on)."""
     width, height = 52, 26
     image = Image.new("RGBA", (width, height), (0, 0, 0, 0))
     draw = ImageDraw.Draw(image)
     fill = (40, 140, 210, 255) if on else (10, 30, 56, 255)
-    draw.rounded_rectangle((1, 1, width - 2, height - 2), radius=12, fill=fill, outline=(*(BRIGHT if on else CYAN), 255), width=2)
-    knob = (width - 24, 3, width - 4, height - 4) if on else (3, 3, 23, height - 4)
-    draw.ellipse(knob, fill=(255, 255, 255, 255) if on else (120, 150, 180, 255))
+    draw.rectangle((1, 1, width - 2, height - 2), fill=fill, outline=(*(BRIGHT if on else CYAN), 255), width=2)
+    knob = (width - 24, 5, width - 6, height - 6) if on else (5, 5, 23, height - 6)
+    draw.rectangle(knob, fill=(255, 255, 255, 255) if on else (120, 150, 180, 255))
     return image
 
 
@@ -323,8 +316,8 @@ def glyphs() -> Image.Image:
     image = Image.new("RGBA", (256, 256), (0, 0, 0, 0))
     draw = ImageDraw.Draw(image)
     white = (255, 255, 255, 255)
-    draw.ellipse((5, 1, 10, 6), fill=white)  # head
-    draw.rounded_rectangle((3, 8, 12, 15), radius=3, fill=white)  # shoulders
+    draw.rectangle((5, 1, 10, 6), fill=white)  # head
+    draw.rectangle((3, 8, 12, 15), fill=white)  # body
     draw.rectangle((16 + 1, 12, 16 + 11, 13), fill=(*BRIGHT, 255))  # bar, chosen
     draw.rectangle((32 + 1, 12, 32 + 11, 13), fill=(50, 80, 110, 255))  # bar, not chosen
     return image
@@ -336,7 +329,7 @@ BADGE_CHARACTERS = "abcdefghijklmnopqrstuvwxyz0123456789"
 def badge(character: str) -> Image.Image:
     """
     A player's letter badge (64x64, shown 20x20 in the stats list and 88x88 as the portrait),
-    standing in for their head until skins can be shown: a disc in a color picked by the
+    standing in for their head until skins can be shown: a square in a color picked by the
     letter, with the letter on it. "other" (names starting with anything else) shows a "?".
     """
     size = 64
@@ -345,7 +338,7 @@ def badge(character: str) -> Image.Image:
     index = BADGE_CHARACTERS.find(character)
     hue = (index * 0.27) % 1 if index >= 0 else 0.6
     r, g, b = colorsys.hsv_to_rgb(hue, 0.55, 0.85)
-    draw.ellipse((2, 2, size - 3, size - 3), fill=(round(r * 255), round(g * 255), round(b * 255), 255), outline=(*BRIGHT, 255), width=3)
+    draw.rectangle((2, 2, size - 3, size - 3), fill=(round(r * 255), round(g * 255), round(b * 255), 255), outline=(*BRIGHT, 255), width=3)
     letter = character.upper() if index >= 0 else "?"
     face = font(40)
     left, top, right, bottom = draw.textbbox((0, 0), letter, font=face)
@@ -394,24 +387,24 @@ def main() -> None:
     # Every menu's background (main menu, game grid, game screen).
     save_nineslice(holo_ui_panel(), LOBBY_TEXTURES / "ui" / "holo_panel.png", 24)
     save(holo_scanlines(), LOBBY_TEXTURES / "ui" / "holo_scanlines.png")
+    # Every button, and the square outlines.
     for state in ("default", "hover", "pressed"):
-        save(ui_tile(state), LOBBY_TEXTURES / "ui" / f"tile_{state}.png")
+        save_nineslice(ui_button(state), LOBBY_TEXTURES / "ui" / f"button_{state}.png", 4)
+        save_nineslice(ui_outline(state), LOBBY_TEXTURES / "ui" / f"tile_map_{state}.png", 4)
+    save_nineslice(ui_outline("selected"), LOBBY_TEXTURES / "ui" / "tile_map_selected.png", 4)
     for kind in ("play", "stats"):
         save(ui_icon(kind), LOBBY_TEXTURES / "ui" / f"icon_{kind}.png")
 
     # The game grid and game screen.
-    for state in ("default", "hover", "pressed"):
-        save(ui_frame((280, 92), state, 10), LOBBY_TEXTURES / "ui" / f"card_{state}.png")
-        save(ui_outline((208, 116), state), LOBBY_TEXTURES / "ui" / f"tile_map_{state}.png")
-        save(ui_frame((400, 64), state), LOBBY_TEXTURES / "ui" / f"button_{state}.png")
-    save(ui_outline((208, 116), "selected"), LOBBY_TEXTURES / "ui" / "tile_map_selected.png")
     save(Image.new("RGBA", (8, 8), (0, 0, 0, 150)), LOBBY_TEXTURES / "ui" / "tile_dim.png")
     save(toggle(True), LOBBY_TEXTURES / "ui" / "toggle_on.png")
     save(toggle(False), LOBBY_TEXTURES / "ui" / "toggle_off.png")
     save(glyphs(), LOBBY_FONT / "glyph_E3.png")
 
-    # The stats screens: an outline for the open tab, and player badges.
-    save(ui_outline((248, 48), "selected"), LOBBY_TEXTURES / "ui" / "tab_selected.png")
+    # The stats screens: an outline for the open tab, the portrait's frame, stat tiles, and player badges.
+    save_nineslice(ui_outline("selected"), LOBBY_TEXTURES / "ui" / "tab_selected.png", 4)
+    save_nineslice(ui_outline("portrait"), LOBBY_TEXTURES / "ui" / "portrait_frame.png", 4)
+    save_nineslice(stat_tile(), LOBBY_TEXTURES / "ui" / "stat_tile.png", 4)
     for character in [*BADGE_CHARACTERS, "other"]:
         save(badge(character), LOBBY_TEXTURES / "badges" / f"{character}.png")
     save(fade_bottom(), LOBBY_TEXTURES / "ui" / "fade_bottom.png")

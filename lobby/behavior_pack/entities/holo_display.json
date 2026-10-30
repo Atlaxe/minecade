@@ -23,6 +23,15 @@
           ],
           "default": 0,
           "client_sync": true
+        },
+        "minecade:portrait": {
+          "type": "int",
+          "range": [
+            0,
+            63
+          ],
+          "default": 0,
+          "client_sync": true
         }
       }
     },

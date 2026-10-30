@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { stripColors, type StatsTotals } from "@minecade/minigame-core";
 import { MARK } from "../behavior_pack/scripts/game-screen.ts";
 import { LAYOUT, playersForm, statsForm } from "../behavior_pack/scripts/menus.ts";
-import { GLOBAL_TAB, badgeFor, describe as describeTotals, formatDuration, playersView, statsBody, statsTabAt, type StatsView } from "../behavior_pack/scripts/stats-screens.ts";
+import { GLOBAL_TAB, badgeFor, formatDuration, playersView, statColumns, statsBody, statsButtons, statsTabAt, type StatsView } from "../behavior_pack/scripts/stats-screens.ts";
 
 const totals = (more: Partial<StatsTotals> = {}): StatsTotals => ({
   games: 4,
@@ -19,7 +19,13 @@ const totals = (more: Partial<StatsTotals> = {}): StatsTotals => ({
   ...more,
 });
 
-const view: StatsView = { player: "Alex", tabs: [GLOBAL_TAB, { id: "sumo", name: "Sumo" }], tab: "sumo", body: "Rank: 1st of 2" };
+const view: StatsView = {
+  player: "Alex",
+  tabs: [GLOBAL_TAB, { id: "sumo", name: "Sumo" }],
+  tab: "sumo",
+  body: "Rank: 1st of 2",
+  columns: [[{ label: "Wins", value: "3" }], [{ label: "Kills", value: "7" }], []],
+};
 
 describe("the stats screens", () => {
   it("picks a badge by the name's first letter or digit", () => {
@@ -33,31 +39,40 @@ describe("the stats screens", () => {
     expect(playersView("Steve", ["Alex", "STEVE", "Zed"], 2)).toEqual({ viewer: "Steve", players: ["Steve", "Alex", "Zed"], more: 2 });
   });
 
-  it("maps buttons to tabs: the portrait first, then each tab", () => {
+  it("orders the buttons portrait, tabs, then stat tiles, and maps only tabs to tabs", () => {
+    expect(statsButtons(view).map((button) => button.kind)).toEqual(["portrait", "tab", "tab", "stat", "stat"]);
     expect(statsTabAt(view, 0)).toBeUndefined();
     expect(statsTabAt(view, 1)).toEqual(GLOBAL_TAB);
     expect(statsTabAt(view, 2)).toEqual({ id: "sumo", name: "Sumo" });
-    expect(statsTabAt(view, 3)).toBeUndefined();
+    expect(statsTabAt(view, 3)).toBeUndefined(); // a stat tile
   });
 
-  it("writes the rank, the totals and the game's own counters", () => {
-    expect(statsBody(totals(), { rank: 3, of: 11 }).split("\n").slice(0, 3)).toEqual(["Rank: 3rd of 11", "", "Games: 4   Wins: 3   Losses: 1"]);
-    expect(statsBody(totals({ extras: { plants: 2 } }), undefined, [["plants", "Bombs planted"], ["defuses", "Defuses"]])).toContain("Bombs planted: 2\nDefuses: 0");
+  it("heads a tab with the rank, or says there are no stats", () => {
+    expect(statsBody(totals(), { rank: 3, of: 11 })).toBe("Rank: 3rd of 11");
+    expect(statsBody(totals())).toBe("");
     expect(statsBody(undefined)).toBe("No stats yet.\nMatches with at least 2 players count.");
     expect(statsBody(totals({ games: 0 }))).toBe("No stats yet.\nMatches with at least 2 players count.");
   });
 
-  it("formats totals and durations", () => {
-    expect(describeTotals(totals({ draws: 1, left: 2 }))).toBe(
-      [
-        "Games: 4   Wins: 3   Losses: 1   Draws: 1",
-        "Win rate: 75%",
-        "Kills: 7   Deaths: 2   K/D: 3.5",
-        "Damage dealt: 140.5   Damage taken: 60",
-        "Best kill streak: 4   Time played: 1h 05m",
-        "Left early: 2",
-      ].join("\n"),
-    );
+  it("splits the stats into Results, Combat and More, with draws, leavers and the game's own counters only when there are some", () => {
+    const labels = (columns: { label: string }[][]) => columns.map((column) => column.map((stat) => stat.label));
+    expect(labels(statColumns(totals()))).toEqual([
+      ["Games", "Wins", "Losses", "Win rate"],
+      ["Kills", "Deaths", "K/D", "Best streak"],
+      ["Damage dealt", "Damage taken", "Time played"],
+    ]);
+    const all = statColumns(totals({ draws: 1, left: 2, extras: { plants: 2 } }), [["plants", "Bombs planted"], ["defuses", "Defuses"]]);
+    expect(labels(all)[0]).toContain("Draws");
+    expect(all[2].slice(-3)).toEqual([
+      { label: "Left early", value: "2" },
+      { label: "Bombs planted", value: "2" },
+      { label: "Defuses", value: "0" },
+    ]);
+    expect(all[0].at(-1)).toEqual({ label: "Win rate", value: "75%" });
+    expect(statColumns(undefined)).toEqual([]);
+  });
+
+  it("formats durations", () => {
     expect(formatDuration(45)).toBe("45s");
     expect(formatDuration(720)).toBe("12m");
     expect(formatDuration(3900)).toBe("1h 05m");
@@ -72,10 +87,16 @@ describe("the stats forms", () => {
     expect(stripColors(form.bodyText)).toBe("And 3 more not listed.");
   });
 
-  it("puts the portrait first, then the tabs with the open one outlined, and the stats as the body", () => {
+  it("puts the portrait first, then the tabs with the open one outlined, then the stat tiles by column, and the rank as the body", () => {
     const form = statsForm(view) as unknown as { buttons: string[]; titleText: string; bodyText: string };
     expect(form.titleText).toBe(`${LAYOUT.stats}§rAlex`);
-    expect(form.buttons).toEqual([`${MARK.portrait}Alex`, `${MARK.tab}Global`, `${MARK.tab}${MARK.selected}Sumo`]);
+    expect(form.buttons).toEqual([
+      `${MARK.portrait}Alex`,
+      `${MARK.tab}Global`,
+      `${MARK.tab}${MARK.selected}Sumo`,
+      `${MARK.stats[0]}§f3\n§7Wins`,
+      `${MARK.stats[1]}§f7\n§7Kills`,
+    ]);
     expect(form.bodyText).toBe("Rank: 1st of 2");
   });
 });

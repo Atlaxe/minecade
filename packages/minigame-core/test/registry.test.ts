@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { PLACEHOLDER_PICTURES, holoPictures, type Registry } from "../src/definitions.ts";
+import { PLACEHOLDER_PICTURES, badgeFor, holoPictures, holoPortraits, type Registry } from "../src/definitions.ts";
 
 describe("holoPictures", () => {
   it("lists none, the placeholders, then each game's picture and map previews, once each", () => {
@@ -27,5 +27,14 @@ describe("holoPictures", () => {
       "textures/minecade/maps/sumo/pit",
     ]);
     expect(holoPictures({ games: [] })).toHaveLength(3);
+  });
+});
+
+describe("holoPortraits", () => {
+  it("lists none, then every badge, and every badge a name can get is in it", () => {
+    const portraits = holoPortraits();
+    expect(portraits[0]).toBe(PLACEHOLDER_PICTURES.none);
+    expect(portraits).toHaveLength(1 + 36 + 1);
+    for (const name of ["Steve", "zed", "7even", "_x", ""]) expect(portraits).toContain(badgeFor(name));
   });
 });

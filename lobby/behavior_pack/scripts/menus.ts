@@ -93,12 +93,16 @@ export function playersForm(view: PlayersView): ActionFormData {
   return form;
 }
 
-/** A player's stats: their portrait (badge), a tab per view (the open one outlined), and the open tab's text as the body. */
+/**
+ * A player's stats: their portrait (badge), a tab per view (the open one outlined), the rank as the
+ * body, and the open tab's stats as tiles in three columns (value over label).
+ */
 export function statsForm(view: StatsView): ActionFormData {
   const form = new ActionFormData().title(`${LAYOUT.stats}§r${view.player}`).body(view.body);
   for (const button of statsButtons(view)) {
     if (button.kind === "portrait") form.button(`${MARK.portrait}${view.player}`, badgeFor(view.player));
-    else form.button(`${MARK.tab}${button.tab.id === view.tab ? MARK.selected : ""}${button.tab.name}`);
+    else if (button.kind === "tab") form.button(`${MARK.tab}${button.tab.id === view.tab ? MARK.selected : ""}${button.tab.name}`);
+    else form.button(`${MARK.stats[button.column]}§f${button.stat.value}\n§7${button.stat.label}`);
   }
   return form;
 }

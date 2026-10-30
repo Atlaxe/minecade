@@ -1,16 +1,12 @@
 // The stats screens' model, as plain data: the players list (the viewer first), one player's
-// screen (a portrait, then a tab per view: Global and each game played), the text each tab shows,
-// and the letter badges that stand in for player heads until skins can be shown (docs/skins.md).
-// The forms (menus.ts) and the stats controller share it.
+// screen (a portrait, a tab per view: Global and each game played, the rank, and the stats in
+// three columns), and the letter badges that stand in for player heads until skins can be shown
+// (docs/skins.md). The forms (menus.ts), the hologram (holo-content.ts) and the stats controller
+// share it.
 import { killDeathRatio, ordinal, winRate, type StatsTotals } from "@minecade/minigame-core";
 
-const BADGE_CHARACTERS = "abcdefghijklmnopqrstuvwxyz0123456789";
-
-/** A player's badge in the lobby resource pack: their name's first letter or digit, or "other". */
-export function badgeFor(name: string): string {
-  const first = name.trim().charAt(0).toLowerCase();
-  return `textures/minecade/badges/${first && BADGE_CHARACTERS.includes(first) ? first : "other"}`;
-}
+// Badges are shared with the hologram's portrait list (holoPortraits), so they live in minigame-core.
+export { badgeFor } from "@minecade/minigame-core";
 
 export interface PlayersView {
   viewer: string;
@@ -34,18 +30,36 @@ export interface StatsTab {
 
 export const GLOBAL_TAB: StatsTab = { id: "global", name: "Global" };
 
+export interface StatTile {
+  label: string;
+  value: string;
+}
+
+/** The three stat columns' headings. */
+export const STAT_COLUMNS = ["Results", "Combat", "More"] as const;
+
 export interface StatsView {
   player: string;
   /** Global first, then the games played, most played first. */
   tabs: StatsTab[];
   /** The open tab's id. */
   tab: string;
+  /** The rank line, or why there are no stats. */
   body: string;
+  /** The open tab's stats in three columns (STAT_COLUMNS); empty without stats. */
+  columns: StatTile[][];
+  placement?: Placement;
 }
 
-/** The player's screen buttons, in form order: the portrait, then the tabs. */
-export function statsButtons(view: StatsView): ({ kind: "portrait" } | { kind: "tab"; tab: StatsTab })[] {
-  return [{ kind: "portrait" as const }, ...view.tabs.map((tab) => ({ kind: "tab" as const, tab }))];
+export type StatsButton = { kind: "portrait" } | { kind: "tab"; tab: StatsTab } | { kind: "stat"; column: number; stat: StatTile };
+
+/** The player's screen buttons, in form order: the portrait, the tabs, then the stat tiles (shown, not clicked). */
+export function statsButtons(view: StatsView): StatsButton[] {
+  return [
+    { kind: "portrait" as const },
+    ...view.tabs.map((tab) => ({ kind: "tab" as const, tab })),
+    ...view.columns.flatMap((stats, column) => stats.map((stat) => ({ kind: "stat" as const, column, stat }))),
+  ];
 }
 
 /** The tab the button at `selection` opens, if it's a tab. */
@@ -59,25 +73,37 @@ export interface Placement {
   of: number;
 }
 
-/** A tab's text: the player's rank, then their totals, then any of the game's own counters. */
-export function statsBody(totals: StatsTotals | undefined, placement?: Placement, extras: [key: string, label: string][] = []): string {
+/** A tab's headline: the player's rank there, or why there are no stats. */
+export function statsBody(totals: StatsTotals | undefined, placement?: Placement): string {
   if (!totals || totals.games === 0) return "No stats yet.\nMatches with at least 2 players count.";
-  const rank = placement ? [`Rank: ${ordinal(placement.rank)} of ${placement.of}`, ""] : [];
-  return [...rank, describe(totals, extras)].join("\n");
+  return placement ? `Rank: ${ordinal(placement.rank)} of ${placement.of}` : "";
 }
 
-/** The totals as text, plus any of the game's own counters. */
-export function describe(totals: StatsTotals, extras: [key: string, label: string][] = []): string {
-  const lines = [
-    `Games: ${totals.games}   Wins: ${totals.wins}   Losses: ${totals.losses}${totals.draws > 0 ? `   Draws: ${totals.draws}` : ""}`,
-    `Win rate: ${winRate(totals.wins, totals.games)}%`,
-    `Kills: ${totals.kills}   Deaths: ${totals.deaths}   K/D: ${killDeathRatio(totals.kills, totals.deaths)}`,
-    `Damage dealt: ${totals.dealt}   Damage taken: ${totals.taken}`,
-    `Best kill streak: ${totals.bestStreak}   Time played: ${formatDuration(totals.seconds)}`,
+/**
+ * A tab's stats in three columns: Results (games, wins, losses, draws, win rate), Combat (kills,
+ * deaths, K/D, best streak) and More (damage, time played, matches left, the game's own counters).
+ * Draws and matches left only show when there are some. Empty without stats.
+ */
+export function statColumns(totals: StatsTotals | undefined, extras: [key: string, label: string][] = []): StatTile[][] {
+  if (!totals || totals.games === 0) return [];
+  const tile = (label: string, value: string | number): StatTile => ({ label, value: String(value) });
+  return [
+    [
+      tile("Games", totals.games),
+      tile("Wins", totals.wins),
+      tile("Losses", totals.losses),
+      ...(totals.draws > 0 ? [tile("Draws", totals.draws)] : []),
+      tile("Win rate", `${winRate(totals.wins, totals.games)}%`),
+    ],
+    [tile("Kills", totals.kills), tile("Deaths", totals.deaths), tile("K/D", killDeathRatio(totals.kills, totals.deaths)), tile("Best streak", totals.bestStreak)],
+    [
+      tile("Damage dealt", totals.dealt),
+      tile("Damage taken", totals.taken),
+      tile("Time played", formatDuration(totals.seconds)),
+      ...(totals.left > 0 ? [tile("Left early", totals.left)] : []),
+      ...extras.map(([key, label]) => tile(label, totals.extras?.[key] ?? 0)),
+    ],
   ];
-  if (totals.left > 0) lines.push(`Left early: ${totals.left}`);
-  for (const [key, label] of extras) lines.push(`${label}: ${totals.extras?.[key] ?? 0}`);
-  return lines.join("\n");
 }
 
 /** "45s", "12m" or "1h 05m". */

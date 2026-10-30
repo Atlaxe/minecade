@@ -86,6 +86,48 @@
       ],
       "ignore_lighting": true
     },
+    "controller.render.minecade.holo_portrait": {
+      "arrays": {
+        "textures": {
+          "Array.portraits": [
+            "Texture.portrait_0"
+          ]
+        }
+      },
+      "geometry": "Geometry.default",
+      "materials": [
+        {
+          "*": "Material.default"
+        }
+      ],
+      "textures": [
+        "Array.portraits[q.property('minecade:portrait')]"
+      ],
+      "part_visibility": [
+        {
+          "*": false
+        },
+        {
+          "root": true
+        },
+        {
+          "screen": true
+        },
+        {
+          "portrait_s": true
+        },
+        {
+          "portrait_e": true
+        },
+        {
+          "portrait_n": true
+        },
+        {
+          "portrait_w": true
+        }
+      ],
+      "ignore_lighting": true
+    },
     "controller.render.minecade.holo_beam": {
       "geometry": "Geometry.default",
       "materials": [

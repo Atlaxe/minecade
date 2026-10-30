@@ -6,7 +6,7 @@
 //   players list ──> a player's screen (Global, Sumo, ...) ── back ──> players list ── back ──> done
 import { Scope, say, type InboundMessage, type OutboundEvent, type Registry, type StatsReply } from "@minecade/minigame-core";
 import { statsContent, statsListContent, type HoloContent } from "./holo-content.ts";
-import { GLOBAL_TAB, playersView, statsBody, statsTabAt, type PlayersView, type StatsTab, type StatsView } from "./stats-screens.ts";
+import { GLOBAL_TAB, playersView, statColumns, statsBody, statsTabAt, type PlayersView, type StatsTab, type StatsView } from "./stats-screens.ts";
 
 export interface StatsPorts {
   send(event: OutboundEvent): void;
@@ -63,7 +63,7 @@ export class StatsController {
       if (!list) return;
       for (;;) {
         const view = playersView(name, list.players ?? [], list.more ?? 0);
-        show(statsListContent(view.players.length + view.more));
+        show(statsListContent(view));
         const pick = await this.ports.playersMenu(name, scope, view);
         const player = pick === undefined ? undefined : view.players[pick];
         if (player === undefined) return;
@@ -91,8 +91,8 @@ export class StatsController {
       }
       const placement = reply.rank !== undefined && reply.of !== undefined ? { rank: reply.rank, of: reply.of } : undefined;
       const extras = tab.id === GLOBAL_TAB.id ? [] : this.extraLabels(tab.id);
-      const view: StatsView = { player, tabs, tab: tab.id, body: statsBody(reply.totals, placement, extras) };
-      show(statsContent(player, tab.name, reply.totals, placement));
+      const view: StatsView = { player, tabs, tab: tab.id, body: statsBody(reply.totals, placement), columns: statColumns(reply.totals, extras), ...(placement ? { placement } : {}) };
+      show(statsContent(view));
       const selection = await this.ports.statsMenu(viewer, scope, view);
       if (selection === undefined) return true;
       tab = statsTabAt(view, selection) ?? tab;

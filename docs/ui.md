@@ -108,7 +108,7 @@ at a time; a public hologram above it shows everyone what they're doing.
 | Game | Left: the game's name and info, a red warning when there aren't enough players, the Random map switch (on at first), the settings (Teams: Pick or Random for team games, then the game's own options), Start at the bottom. Right: scrolling map tiles, 2 across, each a 16:9 preview with the name over it; dimmed while Random is on, the chosen one outlined when it's off. Clicking a tile turns Random off and picks that map | The game's name, "Map: ...", the settings, the players it needs, and a picture: the chosen map's preview, or the game's picture while the map is random |
 | Teams | After Start on a team game set to Pick, **every player in the match** gets a live team form (see below) | The game's name, each team and its players in the team's color, who's still random, and when teams lock |
 | Stats list | A scrolling list of everyone with stats, each with their letter badge; you first, marked "(me)", even with no stats yet | "Stats", "Pick a player", how many players |
-| Player stats | Left: the player's badge (where their 3D skin goes later, see `docs/skins.md`) and a tab per view: Global, then each game they've played. Right: their name, their rank in the open view, and their stats | The player's name, the open tab, their rank, wins, win rate and K/D |
+| Player stats | Left: the player's badge (where their 3D skin goes later, see `docs/skins.md`) and a tab per view: Global, then each game they've played. Right: their name, their rank in the open view, and their stats as tiles in three columns: Results, Combat, More | The same layout: the badge and tabs on the left, the name, rank and stat columns on the right |
 
 The back arrow (top left of every menu) and Esc go back one step (game screen to grid to main
 menu, player stats to the list to the main menu); on the main menu they end the session.
@@ -125,28 +125,37 @@ menu, player stats to the list to the main menu); on the main menu they end the 
   (`panel_s`, `panel_e`, `panel_n`, `panel_w`), so every side shows the same, unmirrored picture,
   plus a projection beam. The panel is a flat cube at z = +24 whose south face points outward,
   with its UV running normally (`"uv": [0, 0], "uv_size": [48, 48]`).
-- **Frames plus live text:** the hologram has two background frames, picked by the client-synced
+- **Frames:** the hologram has two background frames, picked by the client-synced
   `minecade:screen` property from `Array.screens` in
   `render_controllers/holo_display.render_controllers.json` (the order must match `FRAMES` in
   `scripts/hologram.ts`): `frame_logo` (the logo up top, for idle and main) and `frame_panel`
-  (everything else). Everything else on it is text: `scripts/holo-content.ts` says what each
-  screen shows (a title, up to 6 lines, each with a tone: normal, highlight, dim or warn), and
-  `scripts/hologram.ts` draws it on each side with `TextPrimitive`s. So a new screen (team picks,
-  stats) needs no new picture. Text heights are in `LAYOUT` in `hologram.ts`; tune them if
-  redrawn frames need the text elsewhere. Text colors are in `TONES`: normal text is white, so it
-  reads well against the glowing panel (text isn't blended with it).
+  (everything else).
+- **Layouts:** each screen's hologram recreates its form. `scripts/holo-content.ts` builds a list
+  of text elements, each placed on the panel (`x` and `y` in blocks from the middle, -1.5 to 1.5,
+  as its reader sees it) with a size, a tone or team color, and optionally a box behind it: a
+  button, the selected (open or chosen) one, or a stat's tile. `scripts/hologram.ts` keeps 48 text
+  shapes (`TextPrimitive`s) per side and places them; a box is the shape's background color. The
+  builders take the same views the forms use, so a form and its hologram can't drift apart.
+  Positions and sizes are in `HOLO_LAYOUT` in `holo-content.ts`; tune them there if text overlaps
+  or redrawn frames need it elsewhere. Text and box colors are in `TONES` and `BOXES` in
+  `hologram.ts` (text isn't blended with the glowing panel, so they show as they are).
 - **Which way text faces:** a `TextPrimitive`'s y rotation is the direction its reader faces, and
   it turns the opposite way from Minecraft's player yaw: 0 is read facing south, 90 facing east,
   180 north, 270 west (measured in game). Text on a side is read from outside, facing the middle,
   so `readerYaw()` in `hologram.ts` gives the south side 180, the west 90, the north 0 and the
   east 270.
-- **The picture:** on the game screen, the `minecade:picture` property picks a 16:9 picture from
-  `Array.pictures` in the `holo_picture` render controller: the chosen map's preview, or the
-  game's picture while the map is random (placeholders for either when there's none). It shows 2
-  blocks wide above the middle of each side, with up to 4 lines under it. `holoPictures()` in
-  `packages/minigame-core/src/registry.ts` makes the list (none, the placeholders, then every
-  game's picture and map preview); the build writes it into the pack and the lobby looks pictures
-  up in the same list. It holds up to 256 pictures.
+- **Pictures:** the model has two picture spots on each side, fixed in
+  `models/entity/holo_display.geo.json`:
+  - **The picture** (top right, 16:9, 1.25 blocks wide): on the game screen, the chosen map's
+    preview, or the game's picture while the map is random. The `minecade:picture` property picks
+    it from `Array.pictures` (`holo_picture` render controller). `holoPictures()` in
+    `packages/minigame-core/src/registry.ts` makes the list (none, the placeholders, then every
+    game's picture and map preview), up to 256.
+  - **The portrait** (top left, square): on a player's stats, their badge. The `minecade:portrait`
+    property picks it from `Array.portraits` (`holo_portrait` render controller), listed by
+    `holoPortraits()` (none, then every badge).
+
+  The build writes both lists into the pack, and the lobby looks pictures up in the same lists.
 - **Placement:** the map's `points.terminal` is the middle console block. At boot the lobby
   keeps that area loaded (a ticking area), places the console and spawns the hologram, and
   checks every 5 seconds that they're still there.
@@ -206,6 +215,12 @@ ports):
 - **A player:** picking one asks for their overall stats, the games they've played and their
   rank. Each tab (Global, then each game, most played first) is asked for once, then remembered
   while the screen is open.
+- **Stat columns:** the open tab's stats show as tiles (value over label) in three columns,
+  `statColumns()` in `scripts/stats-screens.ts`: Results (games, wins, losses, draws, win rate),
+  Combat (kills, deaths, K/D, best streak) and More (damage, time played, matches left early, and
+  the game's own counters). Draws and matches left early only show when there are some. The tiles
+  are form buttons marked for their column (`MARK.stats`), drawn as plain tiles, so they can't be
+  clicked.
 - **Ranks:** the orchestrator ranks everyone with matches that count by wins, then win rate, then
   kills (`StatsStore.rank`). Players equal on all three share a place. Global leaves co-op games
   out, as the totals do.
@@ -243,13 +258,20 @@ them (cell 0 is the player icon). Glyphs can go in any text a form shows.
 **JSON UI notes for these layouts:** a factory's collection only works on a `stack_panel`, `grid`
 or `collection_panel` (on a plain panel, `collection_index` is silently ignored, and every item
 shows button 0). Scrolling areas reuse vanilla `common.scrolling_panel`. The back arrow is vanilla
-`common.close_button` with vanilla's back button textures. Pictures fill their control with
-`"fill": true, "keep_ratio": false`. Sizes in percent are of the parent. Vanilla sizes the form
+`common.close_button` with vanilla's back button textures. `"fill": true` on an image scales it to
+cover its control and crops what overflows (even with `"keep_ratio": false`), so pictures use it
+and frames never do. Sizes in percent are of the parent. Vanilla sizes the form
 screen's content panel (`server_form.main_screen_content`) `[0, 0]`, which makes any percentage
 inside it zero, so `ui/server_form.json` resizes it to fill the screen; then the layouts' root
 (`long_form`) fills the screen too and the game grid can be `"80%"` of it. A texture with a `.json`
 file next to it (`nineslice_size`, `base_size`) is a nine-slice: its outer slices keep their size
 and the middle stretches.
+
+**The square style:** every button (main menu tiles, game cards, settings, the Random switch, Start,
+player rows, tabs) uses one set of art, `button_default/hover/pressed.png`: a 1x nine-slice, navy
+with a cyan line down the left and right edges and square corners, so it looks the same at any
+size. Outlines (map tiles, the chosen map, the open tab, the portrait) are square nine-slices too.
+Nothing in the menus is round.
 
 **Themed menus:** a form whose title starts with a layout mark (formatting codes that never
 render, `LAYOUT` in `scripts/menus.ts`) gets Minecade's layout from the lobby resource pack:
@@ -296,19 +318,19 @@ middle, and the tiled scanlines, which repeat.
 | `lobby/resource_pack/textures/minecade/ui/logo.png` | Main menu logo, 232x50 | 1072x240, transparent background |
 | `lobby/resource_pack/textures/minecade/ui/holo_panel.png` | Every menu's background (main menu 300x116, game grid 430 wide by 80% of the screen, game screen 460x250) | 64x64 at 1x, nine-slice (`holo_panel.json`): the outer 24 pixels hold the border and corner brackets and keep their size, the middle stretches; partly transparent |
 | `lobby/resource_pack/textures/minecade/ui/holo_scanlines.png` | Scanlines over every menu's background, tiled (repeated at 1 pixel per pixel) | 4x3, one faint line on top, the rest transparent |
-| `lobby/resource_pack/textures/minecade/ui/tile_default.png`, `tile_hover.png`, `tile_pressed.png` | Menu buttons, 136x34 | 272x68 |
 | `lobby/resource_pack/textures/minecade/ui/icon_play.png`, `icon_stats.png` | Button icons, 20x20 | 64x64 |
-| `lobby/resource_pack/textures/minecade/ui/card_default.png`, `_hover`, `_pressed` | Game cards, 132x44 (the picture sits on the left, 60x34) | 280x92 |
-| `lobby/resource_pack/textures/minecade/ui/tile_map_default.png`, `_hover`, `_pressed` | Map tile frames, drawn over the map's preview, 104x58; the preview sits inside the 2 pixel border (100x54) | 208x116, a 4 pixel border, square corners, transparent middle |
-| `lobby/resource_pack/textures/minecade/ui/tile_map_selected.png` | Drawn over the chosen map's tile, 104x58 | 208x116, transparent middle |
+| `lobby/resource_pack/textures/minecade/ui/tile_map_default.png`, `_hover`, `_pressed` | Map tile frames, drawn over the map's preview, 104x58; the preview sits inside the 2 pixel border (100x54) | 16x16 at 1x, nine-slice (4 pixel slices): a 2 pixel square outline, transparent middle (a light tint on hover and press) |
+| `lobby/resource_pack/textures/minecade/ui/tile_map_selected.png` | Drawn over the chosen map's tile, 104x58 | 16x16 at 1x, nine-slice: a white 2 pixel outline, transparent middle |
 | `lobby/resource_pack/textures/minecade/ui/tile_dim.png` | Darkens the map tiles while Random is on, 100x54 | 8x8, black, partly transparent |
 | `lobby/resource_pack/textures/minecade/ui/fade_bottom.png` | The dark fade under a map's name, stretched over the tile's lower half | 8x64, black, transparent at the top |
 | `lobby/resource_pack/textures/minecade/ui/map_placeholder.png` | The preview of a map without its own (on its tile and the hologram) | 320x180 (16:9) |
 | `lobby/resource_pack/textures/minecade/ui/game_placeholder.png` | The picture of a game without its own (demo games) | 320x180 (16:9) |
-| `lobby/resource_pack/textures/minecade/ui/button_default.png`, `_hover`, `_pressed` | The Random switch, setting and Start buttons, 210x28 | 400x64 |
-| `lobby/resource_pack/textures/minecade/ui/toggle_on.png`, `toggle_off.png` | The Random map switch, 26x13 | 52x26 |
-| `lobby/resource_pack/textures/minecade/ui/tab_selected.png` | Drawn over the open tab on a player's stats, 124x24 | 248x48, transparent middle |
-| `lobby/resource_pack/textures/minecade/badges/a.png` to `z.png`, `0.png` to `9.png`, `other.png` | Player badges: 20x20 in the stats list, 88x88 as the portrait on a player's stats (where their skin goes later) | 64x64, transparent corners |
+| `lobby/resource_pack/textures/minecade/ui/button_default.png`, `_hover`, `_pressed` | Every button: main menu tiles (136x34), game cards (132x44), the Random switch, settings and Start (210x28), player rows, tabs | 16x16 at 1x, nine-slice (4 pixel slices): navy, a 2 pixel cyan line down the left and right edges, square corners |
+| `lobby/resource_pack/textures/minecade/ui/toggle_on.png`, `toggle_off.png` | The Random map switch, 26x13 | 52x26, a square track with a square knob |
+| `lobby/resource_pack/textures/minecade/ui/tab_selected.png` | Drawn over the open tab on a player's stats | 16x16 at 1x, nine-slice: a white 2 pixel outline, transparent middle |
+| `lobby/resource_pack/textures/minecade/ui/portrait_frame.png` | The frame around the portrait on a player's stats, 96x96 | 16x16 at 1x, nine-slice: a cyan 2 pixel outline, transparent middle |
+| `lobby/resource_pack/textures/minecade/ui/stat_tile.png` | Behind each stat on a player's stats, 90x27 | 16x16 at 1x, nine-slice: dim navy, no lines (so it doesn't look clickable) |
+| `lobby/resource_pack/textures/minecade/badges/a.png` to `z.png`, `0.png` to `9.png`, `other.png` | Player badges: 20x20 in the stats list, 88x88 as the portrait on a player's stats and about 0.9 blocks on the hologram (where their skin goes later) | 64x64, a square |
 | `lobby/resource_pack/font/glyph_E3.png` | Icons inside text, about the height of a letter: cell 0 (U+E300) is the player icon on the game cards; cells 1 and 2 (U+E301, U+E302) are a setting's bars under its label, bright for the chosen value and dim for the others | 256x256, 16x16 cells, on transparent |
 | `games/<id>/icon.png` | The game's picture: on its card (60x34) and on the hologram (2 blocks wide) while the map is random | 320x180 (16:9), required for every game |
 | `games/<id>/maps/<map>/preview.png` | A map's preview on its tile (100x54) and on the hologram when it's chosen (optional) | 320x180 (16:9), such as a screenshot |

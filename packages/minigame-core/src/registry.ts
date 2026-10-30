@@ -37,6 +37,20 @@ export const PLACEHOLDER_PICTURES = {
   map: "textures/minecade/ui/map_placeholder",
 } as const;
 
+/** Letter badges in the lobby resource pack (textures/minecade/badges/<character>.png), plus "other". */
+export const BADGE_CHARACTERS = "abcdefghijklmnopqrstuvwxyz0123456789";
+
+/** A player's badge: their name's first letter or digit, or "other". Stands in for their head until skins can be shown. */
+export function badgeFor(name: string): string {
+  const first = name.trim().charAt(0).toLowerCase();
+  return `textures/minecade/badges/${first && BADGE_CHARACTERS.includes(first) ? first : "other"}`;
+}
+
+/** The portraits the lobby hologram can show, in order: none first, then every badge (the build and the lobby share this list). */
+export function holoPortraits(): string[] {
+  return [PLACEHOLDER_PICTURES.none, ...[...BADGE_CHARACTERS, "other"].map((character) => `textures/minecade/badges/${character}`)];
+}
+
 /**
  * The pictures the lobby hologram can show, in order: none first, then the placeholders, then
  * every game's picture and map preview. The build writes this list into the hologram's render

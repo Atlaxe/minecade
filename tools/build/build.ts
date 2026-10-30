@@ -8,7 +8,7 @@ import { cp, mkdir, readdir, readFile, rm, writeFile } from "node:fs/promises";
 import { join, relative } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { build } from "esbuild";
-import { holoPictures, type GameConfig, type MapConfig, type Registry, type RegistryGame } from "@minecade/minigame-core/config";
+import { holoPictures, holoPortraits, type GameConfig, type MapConfig, type Registry, type RegistryGame } from "@minecade/minigame-core/config";
 import type { TransportKind } from "@minecade/minigame-core/protocol";
 import { enableBetaApis, patchLevelDat } from "./leveldat.ts";
 import { MODULE_VERSIONS, pinManifest, type Manifest } from "./mc-versions.ts";
@@ -189,6 +189,9 @@ async function addGameIcons(out: string): Promise<void> {
   pictures.forEach((picture, index) => (textures[`picture_${index}`] = picture));
   const list = pictures.map((_, index) => `Texture.picture_${index}`);
   controllers.render_controllers["controller.render.minecade.holo_picture"].arrays.textures["Array.pictures"] = list;
+  const portraits = holoPortraits();
+  portraits.forEach((portrait, index) => (textures[`portrait_${index}`] = portrait));
+  controllers.render_controllers["controller.render.minecade.holo_portrait"].arrays.textures["Array.portraits"] = portraits.map((_, index) => `Texture.portrait_${index}`);
   await writeFile(entityPath, JSON.stringify(entity, null, 2));
   await writeFile(controllersPath, JSON.stringify(controllers, null, 2));
 }

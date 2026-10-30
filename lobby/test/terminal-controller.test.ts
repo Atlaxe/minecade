@@ -207,7 +207,7 @@ describe("TerminalController: Play", () => {
     t.screens[0].answer(SUMO_PIT); // a tile while Random is on: picks it and turns Random off
     await flushPromises();
     expect(t.screens[1].view).toMatchObject({ random: false, map: "pit" });
-    expect(t.holo.at(-1)?.lines[0]).toEqual({ text: "Map: Pit", tone: "highlight" });
+    expect(t.holo.at(-1)?.elements.find((element) => element.text.trim() === "Pit")?.box).toBe("selected");
 
     t.screens[1].answer(SUMO_ARENA);
     await flushPromises();
@@ -215,7 +215,7 @@ describe("TerminalController: Play", () => {
     await flushPromises();
     expect(t.requests).toEqual([["Steve", "sumo", "arena_1", {}]]);
     expect(t.terminal.current).toBeUndefined(); // the session ends once the game is starting
-    expect(t.holo.at(-1)?.title).toBe("Sumo"); // the starting game stays up until the start is over
+    expect(t.holo.at(-1)?.elements[0].text).toBe("Sumo"); // the starting game stays up until the start is over
     expect(t.root.live()).toEqual({ scopes: 1, subscriptions: 0, runs: 0 });
   });
 
@@ -249,7 +249,7 @@ describe("TerminalController: Play", () => {
     t.screens[0].answer(PAINTBALL_TEAMS);
     await flushPromises();
     expect(t.screens[1].view.settings).toEqual({ teams: "random" });
-    expect(t.holo.at(-1)?.lines[1]).toEqual({ text: "Teams: Random", tone: "normal" });
+    expect(t.holo.at(-1)?.elements.some((element) => element.text.trim() === "Teams: Random")).toBe(true);
     t.screens[1].answer(PAINTBALL_START);
     await flushPromises();
     expect(t.requests).toEqual([["Steve", "paintball", "random", { teams: "random" }]]);

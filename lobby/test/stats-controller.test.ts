@@ -73,7 +73,7 @@ describe("StatsController", () => {
     t.reply("q1", { players: ["Alex", "steve", "Zed"] });
     await flushPromises();
     expect(t.lists[0].view).toEqual({ viewer: "Steve", players: ["Steve", "Alex", "Zed"], more: 0 });
-    expect(t.holo.at(-1)).toMatchObject({ title: "Stats", lines: [{ text: "Pick a player" }, { text: "3 players" }] });
+    expect(t.holo.at(-1)?.elements.map((element) => element.text.trim())).toEqual(["Stats", "Steve (me)", "Alex", "Zed"]);
 
     t.lists[0].answer(1); // Alex
     await flushPromises();
@@ -84,9 +84,10 @@ describe("StatsController", () => {
     expect(global.player).toBe("Alex");
     expect(global.tabs.map((tab) => tab.name)).toEqual(["Global", "Search and Destroy", "Sumo"]);
     expect(global.tab).toBe("global");
-    expect(global.body.split("\n")[0]).toBe("Rank: 2nd of 5");
-    expect(t.holo.at(-1)?.title).toBe("Alex");
-    expect(t.holo.at(-1)?.lines.slice(0, 3).map((line) => line.text)).toEqual(["Global", "Rank 2nd of 5", "Wins 2 of 3 games"]);
+    expect(global.body).toBe("Rank: 2nd of 5");
+    expect(global.columns.map((column) => column[0].label)).toEqual(["Games", "Kills", "Damage dealt"]);
+    expect(t.holo.at(-1)?.portrait).toBe("textures/minecade/badges/a");
+    expect(t.holo.at(-1)?.elements.map((element) => element.text.trim()).slice(0, 5)).toEqual(["Alex", "Global", "Search and Destroy", "Sumo", "Rank 2nd of 5"]);
 
     t.screens[0].answer(2); // the Search and Destroy tab (button 0 is the portrait)
     await flushPromises();
@@ -94,7 +95,7 @@ describe("StatsController", () => {
     t.reply("q3", { totals: totals({ games: 2, extras: { plants: 3 } }), rank: 1, of: 3 });
     await flushPromises();
     expect(t.screens[1].view.tab).toBe("snd");
-    expect(t.screens[1].view.body).toContain("Bombs planted: 3");
+    expect(t.screens[1].view.columns[2].at(-1)).toEqual({ label: "Bombs planted", value: "3" });
 
     t.screens[1].answer(1); // back to Global: no new query
     await flushPromises();
@@ -123,7 +124,8 @@ describe("StatsController", () => {
     await flushPromises();
     expect(t.screens[0].view.tabs.map((tab) => tab.id)).toEqual(["global"]);
     expect(t.screens[0].view.body).toBe("No stats yet.\nMatches with at least 2 players count.");
-    expect(t.holo.at(-1)).toMatchObject({ title: "Steve", lines: [{ text: "Global" }, { text: "No stats yet" }] });
+    expect(t.screens[0].view.columns).toEqual([]);
+    expect(t.holo.at(-1)?.elements.map((element) => element.text.trim())).toEqual(["Steve", "Global", "No stats yet"]);
   });
 
   it("says when stats are unavailable or the orchestrator doesn't answer, and ignores late replies", async () => {

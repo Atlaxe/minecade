@@ -1,7 +1,19 @@
 import { describe, expect, it } from "vitest";
-import type { RegistryGame } from "@minecade/minigame-core";
+import type { RegistryGame, StatsTotals } from "@minecade/minigame-core";
 import { PREVIEWS } from "../behavior_pack/scripts/game-screen.ts";
-import { MAX_LINES, MAX_LINES_WITH_PICTURE, fit, gameContent, gamesContent, idleContent, mainContent, statsContent, statsListContent, teamsContent } from "../behavior_pack/scripts/holo-content.ts";
+import {
+  MAX_ELEMENTS,
+  gameContent,
+  gamesContent,
+  idleContent,
+  mainContent,
+  statsContent,
+  statsListContent,
+  teamsContent,
+  type HoloContent,
+  type HoloElement,
+} from "../behavior_pack/scripts/holo-content.ts";
+import { GLOBAL_TAB, statColumns } from "../behavior_pack/scripts/stats-screens.ts";
 
 const sumo: RegistryGame = {
   id: "sumo",
@@ -14,132 +26,119 @@ const sumo: RegistryGame = {
     { id: "pit", name: "Pit", preview: "textures/minecade/maps/sumo/pit" },
   ],
 };
-const paintball: RegistryGame = { ...sumo, id: "paintball", name: "Paintball", icon: undefined, teams: { count: 2 } };
+const probe: RegistryGame = {
+  ...sumo,
+  id: "probe",
+  name: "Probe",
+  icon: undefined,
+  options: [{ id: "round", label: "Round", values: [{ value: "15", label: "15 s" }, { value: "30", label: "30 s" }] }],
+};
+const totals: StatsTotals = { games: 4, wins: 3, losses: 1, draws: 0, kills: 7, deaths: 2, dealt: 10, taken: 5, seconds: 600, bestStreak: 2, left: 0 };
 
-describe("what the hologram shows", () => {
-  it("shows the logo frame while idle and on the main menu, with the chosen item highlighted", () => {
-    expect(idleContent()).toEqual({ frame: "logo", lines: [{ text: "Tap the terminal", tone: "normal" }] });
-    expect(mainContent().lines.map((line) => line.tone)).toEqual(["normal", "normal"]);
-    expect(mainContent("play").lines).toEqual([
-      { text: "Play", tone: "highlight" },
-      { text: "Stats", tone: "normal" },
-    ]);
-    expect(mainContent("stats").lines[1]).toEqual({ text: "Stats", tone: "highlight" });
+/** The element showing `text` (trimmed), so tests don't depend on padding. */
+function find(content: HoloContent, text: string): HoloElement {
+  const element = content.elements.find((candidate) => candidate.text.trim() === text);
+  if (!element) throw new Error(`no "${text}" in ${content.elements.map((candidate) => candidate.text.trim()).join(" | ")}`);
+  return element;
+}
+
+/** Every element sits on the panel, and there are no more than the hologram draws. */
+function onPanel(content: HoloContent): void {
+  expect(content.elements.length).toBeLessThanOrEqual(MAX_ELEMENTS);
+  for (const element of content.elements) {
+    expect(Math.abs(element.x)).toBeLessThanOrEqual(1.5);
+    expect(Math.abs(element.y)).toBeLessThanOrEqual(1.5);
+  }
+}
+
+describe("the hologram layouts", () => {
+  it("shows a Tap the terminal button, then Play and Stats side by side, the chosen one selected", () => {
+    expect(idleContent()).toMatchObject({ frame: "logo" });
+    expect(find(idleContent(), "Tap the terminal").box).toBe("button");
+    const main = mainContent("stats");
+    const play = find(main, "Play");
+    const stats = find(main, "Stats");
+    expect(play.y).toBe(stats.y);
+    expect(play.x).toBeLessThan(stats.x);
+    expect([play.box, stats.box]).toEqual(["button", "selected"]);
   });
 
-  it("lists the games, dimming those without enough players, and says how many more don't fit", () => {
+  it("lays the game grid out in three columns of cards, dim without enough players, with +N more past 15", () => {
     const content = gamesContent([
       { game: sumo, playable: true },
-      { game: paintball, playable: false, reason: "needs at least 2 players" },
+      { game: probe, playable: false, reason: "needs at least 2 players" },
     ]);
-    expect(content).toEqual({
-      frame: "panel",
-      title: "Choose a game",
-      lines: [
-        { text: "Sumo", tone: "normal" },
-        { text: "Paintball", tone: "dim" },
-      ],
-    });
-    const many = Array.from({ length: 9 }, (_, i) => ({ game: { ...sumo, name: `Game ${i}` }, playable: true }));
-    const lines = gamesContent(many).lines;
-    expect(lines).toHaveLength(MAX_LINES);
-    expect(lines.at(-1)).toEqual({ text: "and 4 more", tone: "dim" });
+    onPanel(content);
+    expect(find(content, "Choose a game").tone).toBe("title");
+    expect(find(content, "Sumo")).toMatchObject({ box: "button", tone: "normal" });
+    expect(find(content, "Probe").tone).toBe("dim");
+    expect(find(content, "Probe").x).toBeGreaterThan(find(content, "Sumo").x);
+    const many = Array.from({ length: 20 }, (_, i) => ({ game: { ...sumo, name: `Game ${i}` }, playable: true }));
+    const full = gamesContent(many);
+    onPanel(full);
+    expect(find(full, "+6 more").tone).toBe("dim");
   });
 
-  it("shows the game's picture while the map is random, the map, the settings and the players it needs", () => {
-    expect(gameContent({ choice: { game: paintball, playable: true }, random: true, map: "arena_1", settings: { teams: "random" } })).toEqual({
-      frame: "panel",
-      title: "Paintball",
-      picture: PREVIEWS.game,
-      lines: [
-        { text: "Map: Random", tone: "highlight" },
-        { text: "Teams: Random", tone: "normal" },
-        { text: "2-6 players", tone: "dim" },
-      ],
-    });
-    const short = gameContent({ choice: { game: sumo, playable: false, reason: "needs at least 2 players" }, random: true, map: "arena_1", settings: {} });
-    expect(short.picture).toBe("textures/minecade/games/sumo");
-    expect(short.lines).toEqual([
-      { text: "Map: Random", tone: "highlight" },
-      { text: "Needs 2 players", tone: "warn" },
-    ]);
-    expect(short.lines.length).toBeLessThanOrEqual(MAX_LINES_WITH_PICTURE);
-  });
+  it("mirrors the game screen: info and buttons on the left, the picture and maps on the right", () => {
+    const random = gameContent({ choice: { game: probe, playable: true }, random: true, map: "arena_1", settings: { round: "30" } });
+    onPanel(random);
+    expect(random.picture).toBe(PREVIEWS.game);
+    expect(find(random, "Random map: On").box).toBe("selected");
+    expect(find(random, "Round: 30 s").box).toBe("button");
+    expect(find(random, "Start").x).toBeLessThan(0);
+    expect(find(random, "Arena")).toMatchObject({ tone: "dim", box: "button" });
+    expect(find(random, "Arena").x).toBeGreaterThan(0);
 
-  it("shows the chosen map's preview, or the map placeholder", () => {
-    const pit = gameContent({ choice: { game: sumo, playable: true }, random: false, map: "pit", settings: {} });
+    const pit = gameContent({ choice: { game: sumo, playable: false, reason: "needs at least 2 players" }, random: false, map: "pit", settings: {} });
     expect(pit.picture).toBe("textures/minecade/maps/sumo/pit");
-    expect(pit.lines[0]).toEqual({ text: "Map: Pit", tone: "highlight" });
-    expect(gameContent({ choice: { game: sumo, playable: true }, random: false, map: "arena_1", settings: {} }).picture).toBe(PREVIEWS.none);
+    expect(find(pit, "Random map: Off").box).toBe("button");
+    expect(find(pit, "Pit")).toMatchObject({ box: "selected", tone: "normal" });
+    expect(find(pit, "Needs 2 players").tone).toBe("warn");
+    expect(find(pit, "Start").tone).toBe("dim");
   });
 
-  it("keeps lines that fit as they are", () => {
-    const lines = [{ text: "a", tone: "normal" as const }];
-    expect(fit(lines, 3)).toBe(lines);
-  });
-});
-
-describe("the team picking view on the hologram", () => {
-  const team = (id: string, name: string, color: string, members: string[]) => ({ id, name, color, members, cap: 2, full: members.length >= 2 });
-
-  it("shows each team in its color, who is still random, and when teams lock", () => {
+  it("shows team picking as a column per team in the team's color", () => {
     const content = teamsContent({
-      game: "Paint",
+      game: "Probe",
       status: "Teams lock in 4 s",
-      teams: [team("red", "Red", "§c", ["Steve", "Alex"]), team("blue", "Blue", "§9", [])],
-      unpicked: ["Bob"],
-    });
-    expect(content).toEqual({
-      frame: "panel",
-      title: "Paint",
-      lines: [
-        { text: "Red: Steve, Alex", tone: "normal", color: "§c" },
-        { text: "Blue: -", tone: "normal", color: "§9" },
-        { text: "Random: Bob", tone: "dim" },
-        { text: "Teams lock in 4 s", tone: "highlight" },
+      teams: [
+        { id: "red", name: "Red", color: "§c", members: ["Steve"], cap: 1, full: true },
+        { id: "blue", name: "Blue", color: "§9", members: [], cap: 1, full: false },
       ],
+      unpicked: ["Alex"],
     });
+    onPanel(content);
+    expect(find(content, "Red 1/1")).toMatchObject({ color: "§c", box: "tile" });
+    expect(find(content, "Steve").x).toBe(find(content, "Red 1/1").x);
+    expect(find(content, "Blue 0/1").x).toBeGreaterThan(find(content, "Red 1/1").x);
+    expect(find(content, "Random: Alex").tone).toBe("dim");
+    expect(find(content, "Teams lock in 4 s").tone).toBe("highlight");
   });
 
-  it("shortens long lists and always keeps the status line", () => {
-    const content = teamsContent({
-      game: "Paint",
-      status: "Waiting for the server...",
-      teams: ["a", "b", "c", "d"].map((id) => team(id, id.toUpperCase(), "§f", ["P1", "P2", "P3", "P4", "P5"])),
-      unpicked: ["Q1", "Q2"],
-    });
-    expect(content.lines).toHaveLength(MAX_LINES);
-    expect(content.lines[0].text).toBe("A: P1, P2, P3 +2");
-    expect(content.lines.at(-1)).toEqual({ text: "Waiting for the server...", tone: "highlight" });
+  it("lists players like the stats list, the viewer first with (me)", () => {
+    const content = statsListContent({ viewer: "Steve", players: ["Steve", "Alex"], more: 0 });
+    onPanel(content);
+    expect(find(content, "Steve (me)").box).toBe("button");
+    expect(find(content, "Steve (me)").y).toBeGreaterThan(find(content, "Alex").y);
+    const crowd = statsListContent({ viewer: "Steve", players: Array.from({ length: 10 }, (_, i) => `P${i}`), more: 5 });
+    onPanel(crowd);
+    expect(find(crowd, "+9 more").tone).toBe("dim");
   });
-});
 
-describe("the stats views on the hologram", () => {
-  it("shows the list, then a player's tab with their rank and key numbers", () => {
-    expect(statsListContent(1).lines).toEqual([
-      { text: "Pick a player", tone: "normal" },
-      { text: "1 player", tone: "dim" },
-    ]);
-    const content = statsContent(
-      "Alex",
-      "Sumo",
-      { games: 4, wins: 3, losses: 1, draws: 0, kills: 7, deaths: 2, dealt: 0, taken: 0, seconds: 0, bestStreak: 0, left: 0 },
-      { rank: 1, of: 6 },
-    );
-    expect(content).toEqual({
-      frame: "panel",
-      title: "Alex",
-      lines: [
-        { text: "Sumo", tone: "highlight" },
-        { text: "Rank 1st of 6", tone: "normal" },
-        { text: "Wins 3 of 4 games", tone: "normal" },
-        { text: "Win rate 75%", tone: "normal" },
-        { text: "K/D 3.5", tone: "normal" },
-      ],
-    });
-    expect(statsContent("Alex", "Global", undefined).lines).toEqual([
-      { text: "Global", tone: "highlight" },
-      { text: "No stats yet", tone: "dim" },
-    ]);
+  it("mirrors a player's stats: portrait and tabs on the left, the rank and stat columns on the right", () => {
+    const view = { player: "Alex", tabs: [GLOBAL_TAB, { id: "sumo", name: "Sumo" }], tab: "sumo", body: "", columns: statColumns(totals), placement: { rank: 2, of: 9 } };
+    const content = statsContent(view);
+    onPanel(content);
+    expect(content.portrait).toBe("textures/minecade/badges/a");
+    expect(find(content, "Sumo").box).toBe("selected");
+    expect(find(content, "Global").box).toBe("button");
+    expect(find(content, "Global").x).toBeLessThan(0);
+    expect(find(content, "Rank 2nd of 9").tone).toBe("highlight");
+    expect(find(content, "Results").x).toBeLessThan(find(content, "Combat").x);
+    expect(find(content, "75%").box).toBe("tile");
+    expect(find(content, "Win rate").y).toBeLessThan(find(content, "75%").y);
+
+    const none = statsContent({ ...view, tab: "global", columns: [], placement: undefined });
+    expect(find(none, "No stats yet").tone).toBe("dim");
   });
 });
