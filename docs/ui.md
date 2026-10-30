@@ -140,6 +140,12 @@ menu, player stats to the list to the main menu); on the main menu they end the 
   Positions and sizes are in `HOLO_LAYOUT` in `holo-content.ts`; tune them there if text overlaps
   or redrawn frames need it elsewhere. Colors are in `TONES` and `BOX_COLORS` in `hologram.ts`
   (text isn't blended with the glowing panel, so they show as they are).
+- **Fitting text:** text is placed by its middle, and there's no way to measure it, so widths are
+  estimated: about 0.14 blocks per character at scale 1 (`HOLO_LAYOUT.charWidth`, measured in
+  game). `fitScale()` shrinks text to fit a width (down to a minimum), `truncate()` cuts what still
+  doesn't fit with "..", `wrap()` splits long game names onto two lines, and left-aligned text is
+  placed half its width right of the left edge. The layout tests check that no text runs past the
+  panel's edge by this estimate.
 - **Previewing layouts** (`DEV_HOLO_PREVIEW=1` in `.env`): the terminal's main menu gets a small
   Preview button in its corner. It lists every hologram screen (`scripts/holo-preview.ts`); pick
   one, the form closes, and that screen stays on the hologram with sample data until the terminal
@@ -161,6 +167,8 @@ menu, player stats to the list to the main menu); on the main menu they end the 
     `holoPortraits()` (none, then every badge).
 
   The build writes both lists into the pack, and the lobby looks pictures up in the same lists.
+  The model's x runs opposite to the reader's left and right: the picture (on the reader's right)
+  has negative x in the model, and the portrait (on the reader's left) positive x.
 - **Placement:** the map's `points.terminal` is the middle console block. At boot the lobby
   keeps that area loaded (a ticking area), places the console and spawns the hologram, and
   checks every 5 seconds that they're still there.

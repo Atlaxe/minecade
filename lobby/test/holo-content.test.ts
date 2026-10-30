@@ -8,8 +8,12 @@ import {
   idleContent,
   mainContent,
   statsContent,
+  fitScale,
   statsListContent,
   teamsContent,
+  textWidth,
+  truncate,
+  wrap,
   type HoloContent,
   type HoloElement,
 } from "../behavior_pack/scripts/holo-content.ts";
@@ -43,11 +47,12 @@ function find(content: HoloContent, text: string): HoloElement {
   return element;
 }
 
-/** Every element sits on the panel, and there are no more than the hologram draws. */
+/** Every element sits on the panel, edges included (by the width estimate), and there are no more than the hologram draws. */
 function onPanel(content: HoloContent): void {
   expect(content.elements.length).toBeLessThanOrEqual(MAX_ELEMENTS);
   for (const element of content.elements) {
-    expect(Math.abs(element.x)).toBeLessThanOrEqual(1.5);
+    const half = textWidth(element.text.trim(), element.scale ?? 1) / 2;
+    expect(Math.abs(element.x) + half, element.text).toBeLessThanOrEqual(1.5);
     expect(Math.abs(element.y)).toBeLessThanOrEqual(1.5);
   }
 }
@@ -64,7 +69,22 @@ describe("the hologram layouts", () => {
     expect([play.box, stats.box]).toEqual(["button", "selected"]);
   });
 
-  it("lays the game grid out in three columns of cards, dim without enough players, with +N more past 15", () => {
+  it("fits text: shrinks to a width, truncates what still doesn't fit, wraps by words", () => {
+    expect(fitScale("Short", 1, 10)).toBe(1);
+    expect(fitScale("A much longer name", 1, 1, 0.4)).toBeCloseTo(1 / textWidth("A much longer name"));
+    expect(fitScale("A much longer name than that", 1, 0.5, 0.4)).toBe(0.4);
+    expect(truncate("Short", 1, 10)).toBe("Short");
+    const cut = truncate("Capture the Wool", 0.6, 0.9);
+    expect(cut.endsWith("..")).toBe(true);
+    expect(textWidth(cut, 0.6)).toBeLessThanOrEqual(0.9 + 1e-9);
+    expect(wrap("Hide and Seek", 0.6, 0.92, 2)).toEqual(["Hide and", "Seek"]);
+    expect(wrap("Sumo", 0.6, 0.92, 2)).toEqual(["Sumo"]);
+    const long = wrap("The Very Long Game Name Goes On", 0.6, 0.92, 2);
+    expect(long).toHaveLength(2);
+    expect(long[1].endsWith("..")).toBe(true);
+  });
+
+  it("lays the game grid out in three columns of cards, long names on two lines, dim without enough players, with +N more past 15", () => {
     const content = gamesContent([
       { game: sumo, playable: true },
       { game: probe, playable: false, reason: "needs at least 2 players" },
@@ -78,15 +98,25 @@ describe("the hologram layouts", () => {
     const full = gamesContent(many);
     onPanel(full);
     expect(find(full, "+6 more").tone).toBe("dim");
+    const wrapped = gamesContent([{ game: { ...sumo, name: "Capture the Wool" }, playable: true }]);
+    onPanel(wrapped);
+    expect(find(wrapped, "Capture").x).toBe(find(wrapped, "the Wool").x);
+    expect(find(wrapped, "the Wool").y).toBeLessThan(find(wrapped, "Capture").y);
+    expect(find(wrapped, "2-6").y).toBeLessThan(find(wrapped, "the Wool").y);
   });
 
-  it("mirrors the game screen: info and buttons on the left, the picture and maps on the right", () => {
+  it("mirrors the game screen: info and settings left-aligned on the left, the picture and maps on the right, no Start", () => {
     const random = gameContent({ choice: { game: probe, playable: true }, random: true, map: "arena_1", settings: { round: "30" } });
     onPanel(random);
     expect(random.picture).toBe(PREVIEWS.game);
     expect(find(random, "Random map: On").box).toBe("selected");
-    expect(find(random, "Round: 30 s").box).toBe("button");
-    expect(find(random, "Start").x).toBeLessThan(0);
+    const round = find(random, "Round: 30 s");
+    expect(round.box).toBe("button");
+    const leftEdge = (element: HoloElement) => element.x - textWidth(element.text, element.scale ?? 1) / 2;
+    expect(leftEdge(round)).toBeCloseTo(leftEdge(find(random, "Random map: On")));
+    expect(leftEdge(find(random, "Probe"))).toBeCloseTo(leftEdge(round));
+    expect(random.elements.some((element) => element.text.trim() === "Start")).toBe(false);
+    expect(find(random, "Maps").tone).toBe("dim");
     expect(find(random, "Arena")).toMatchObject({ tone: "dim", box: "button" });
     expect(find(random, "Arena").x).toBeGreaterThan(0);
 
@@ -95,7 +125,7 @@ describe("the hologram layouts", () => {
     expect(find(pit, "Random map: Off").box).toBe("button");
     expect(find(pit, "Pit")).toMatchObject({ box: "selected", tone: "normal" });
     expect(find(pit, "Needs 2 players").tone).toBe("warn");
-    expect(find(pit, "Start").tone).toBe("dim");
+    onPanel(gameContent({ choice: { game: { ...sumo, name: "Capture the Wool on a Long Name" }, playable: true }, random: true, map: "pit", settings: {} }));
   });
 
   it("shows team picking as a column per team in the team's color", () => {
@@ -114,6 +144,14 @@ describe("the hologram layouts", () => {
     expect(find(content, "Blue 0/1").x).toBeGreaterThan(find(content, "Red 1/1").x);
     expect(find(content, "Random: Alex").tone).toBe("dim");
     expect(find(content, "Teams lock in 4 s").tone).toBe("highlight");
+    const long = teamsContent({
+      game: "Probe",
+      status: "",
+      teams: [1, 2, 3, 4].map((n) => ({ id: `t${n}`, name: `T${n}`, color: "§f", members: ["AVeryLongGamertagX"], cap: 2, full: false })),
+      unpicked: [],
+    });
+    onPanel(long);
+    expect(long.elements.find((element) => element.text.startsWith("AVery"))!.scale!).toBeLessThan(0.75);
   });
 
   it("lists players like the stats list, the viewer first with (me)", () => {
@@ -126,14 +164,14 @@ describe("the hologram layouts", () => {
     expect(find(crowd, "+9 more").tone).toBe("dim");
   });
 
-  it("mirrors a player's stats: portrait and tabs on the left, the rank and stat columns on the right", () => {
+  it("mirrors a player's stats: the portrait and the open tab on the left, the rank and stat columns on the right", () => {
     const view = { player: "Alex", tabs: [GLOBAL_TAB, { id: "sumo", name: "Sumo" }], tab: "sumo", body: "", columns: statColumns(totals), placement: { rank: 2, of: 9 } };
     const content = statsContent(view);
     onPanel(content);
     expect(content.portrait).toBe("textures/minecade/badges/a");
-    expect(find(content, "Sumo").box).toBe("selected");
-    expect(find(content, "Global").box).toBe("button");
-    expect(find(content, "Global").x).toBeLessThan(0);
+    expect(find(content, "Sumo")).toMatchObject({ box: "selected" });
+    expect(find(content, "Sumo").x).toBeLessThan(0);
+    expect(content.elements.some((element) => element.text.trim() === "Global")).toBe(false);
     expect(find(content, "Rank 2nd of 9").tone).toBe("highlight");
     expect(find(content, "Results").x).toBeLessThan(find(content, "Combat").x);
     expect(find(content, "75%").box).toBe("tile");
@@ -141,6 +179,7 @@ describe("the hologram layouts", () => {
 
     const none = statsContent({ ...view, tab: "global", columns: [], placement: undefined });
     expect(find(none, "No stats yet").tone).toBe("dim");
+    onPanel(statsContent({ ...view, player: "A Really Long Gamertag" }));
   });
 });
 

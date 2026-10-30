@@ -87,7 +87,7 @@ describe("StatsController", () => {
     expect(global.body).toBe("Rank: 2nd of 5");
     expect(global.columns.map((column) => column[0].label)).toEqual(["Games", "Kills", "Damage dealt"]);
     expect(t.holo.at(-1)?.portrait).toBe("textures/minecade/badges/a");
-    expect(t.holo.at(-1)?.elements.map((element) => element.text.trim()).slice(0, 5)).toEqual(["Alex", "Global", "Search and Destroy", "Sumo", "Rank 2nd of 5"]);
+    expect(t.holo.at(-1)?.elements.map((element) => element.text.trim()).slice(0, 3)).toEqual(["Alex", "Global", "Rank 2nd of 5"]);
 
     t.screens[0].answer(2); // the Search and Destroy tab (button 0 is the portrait)
     await flushPromises();
