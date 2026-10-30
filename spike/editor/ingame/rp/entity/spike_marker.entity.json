@@ -1,0 +1,20 @@
+{
+  "format_version": "1.10.0",
+  "minecraft:client_entity": {
+    "description": {
+      "identifier": "minecade:spike_marker",
+      "materials": {
+        "default": "entity_alphatest"
+      },
+      "textures": {
+        "default": "textures/entity/spike_marker"
+      },
+      "geometry": {
+        "default": "geometry.minecade.spike_marker"
+      },
+      "render_controllers": [
+        "controller.render.default"
+      ]
+    }
+  }
+}

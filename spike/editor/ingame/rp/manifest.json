@@ -1,0 +1,29 @@
+{
+  "format_version": 2,
+  "header": {
+    "name": "Minecade Editor Spike (in game) resources",
+    "description": "Spike: the wand icon and the marker model",
+    "uuid": "959db1ae-b13b-448e-a30d-392c21817e23",
+    "version": [
+      1,
+      0,
+      0
+    ],
+    "min_engine_version": [
+      1,
+      26,
+      60
+    ]
+  },
+  "modules": [
+    {
+      "type": "resources",
+      "uuid": "e72d8566-83d0-4a19-9520-61c895a31cea",
+      "version": [
+        1,
+        0,
+        0
+      ]
+    }
+  ]
+}

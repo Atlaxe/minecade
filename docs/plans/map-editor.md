@@ -1,6 +1,6 @@
 # Milestone 10: map editor server (Select, Edit, Preview) (plan)
 
-**Status:** approved 2026-10-30. Milestone 9 (the UI pass) is done, so this is next. Built in 9 passes, functionality first (see "Passes"). Next: pass 10.1 (spike). The games come after it as milestones 11 and on.
+**Status:** approved 2026-10-30. Milestone 9 (the UI pass) is done, so this is next. Built in 9 passes, functionality first (see "Passes"). Pass 10.1 (spike) is done (`docs/spike-results.md`, "Map editor"). Next: pass 10.2. The games come after it as milestones 11 and on.
 
 **For the session that implements this:**
 - Work in `C:\dev\minecade\network`.
@@ -214,6 +214,8 @@ The editor reuses the top-right box the game clock uses (`packages/minigame-core
 
 All of these are items with their own icons and forms. `showForm` handles the busy retry. Map editors get them from the map menu; builders get nothing extra.
 
+**Controls:** hit (left click), use (right click) and forms only. **No control needs sneaking:** you can't sneak while flying in creative (sneaking flies you down), so sneak combinations are out. Holding a tool never breaks the block you hit.
+
 1. **Map menu** (item in slot 9, or `/mc:map`):
    - shows the map name and game;
    - **checklist:** every requirement in red or green with counts. Tap one to get its tool or to teleport to the problem;
@@ -230,7 +232,7 @@ All of these are items with their own icons and forms. `showForm` handles the bu
    - **Editing:** hit a marker to open its form: move here, take my facing, clear facing, change list, renumber, delete.
 3. **Region tool** (the select tool's corners):
    - **Form:** save as Bounds, as a named region (new, or one from the requirements, per team if declared), or as a Kill region. You can nudge each side, and "Floor at killY" lines the bottom up.
-   - Sneak and use the tool inside an existing region to edit or delete it.
+   - Existing regions are edited or deleted from the map menu: each region in its list has Edit, Nudge, Go to and Delete.
 4. **Kill Y tool:** sets killY one block below your feet, or to a number typed in the form. Its layer draws the plane.
 5. **Mirror tool:** for symmetric team maps.
    - **Mode:** rotate 180 degrees, or flip on X or Z.
@@ -255,7 +257,7 @@ All of these are items with their own icons and forms. `showForm` handles the bu
    - **Form:** a name, and the kind:
      - **Map preview:** no players in the shot. Other players are switched to spectator, so they're invisible, while someone looks through the camera.
      - **Game picture:** players stay in the shot, with their name tags hidden.
-   - **Look through:** tap the camera. Your view locks to it (`camera.setCamera` with the free preset), and the HUD, markers and boundary blocks are hidden. Another player can walk into view, and you take the screenshot. Sneak to exit.
+   - **Look through:** tap the camera. Your view locks to it (`camera.setCamera` with the free preset), and the HUD, markers and boundary blocks are hidden. Another player can walk into view, and you take the screenshot. Use (right click) to exit.
    - **Other options on tap:** Re-aim from my view, Delete.
    - **Saving the picture:** the Panel's "Use latest screenshot" takes the newest picture from your Captures folder, crops it to 16:9, and saves it as the map's `preview.png` (map preview) or the game's `icon.png` (game picture).
 9. **Commands** (custom command API, `mc:` namespace, map editors only):

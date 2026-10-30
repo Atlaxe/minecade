@@ -1,0 +1,49 @@
+{
+  "format_version": 2,
+  "header": {
+    "name": "Minecade Editor Spike (in game)",
+    "description": "Spike: custom items, marker hits, op and transfers for the map editor",
+    "uuid": "876910ba-9d82-461d-9ca1-0b7345eb2dce",
+    "version": [
+      1,
+      0,
+      0
+    ],
+    "min_engine_version": [
+      1,
+      26,
+      60
+    ]
+  },
+  "modules": [
+    {
+      "type": "script",
+      "language": "javascript",
+      "uuid": "ee46653b-753f-451a-ad08-7536a7b43899",
+      "version": [
+        1,
+        0,
+        0
+      ],
+      "entry": "scripts/main.js"
+    }
+  ],
+  "dependencies": [
+    {
+      "module_name": "@minecraft/server",
+      "version": "2.11.0"
+    },
+    {
+      "module_name": "@minecraft/server-admin",
+      "version": "1.0.0-beta"
+    },
+    {
+      "uuid": "959db1ae-b13b-448e-a30d-392c21817e23",
+      "version": [
+        1,
+        0,
+        0
+      ]
+    }
+  ]
+}

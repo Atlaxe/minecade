@@ -1,0 +1,9 @@
+{
+  "resource_pack_name": "minecade_editor_spike",
+  "texture_name": "atlas.items",
+  "texture_data": {
+    "spike_wand": {
+      "textures": "textures/items/spike_wand"
+    }
+  }
+}
