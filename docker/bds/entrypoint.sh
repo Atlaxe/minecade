@@ -7,7 +7,8 @@
 #   TRANSPORT       http | log (must match the orchestrator)
 #   IDENTITY        name of this server's saved identity key in /keys (default: SERVER_ID)
 #   ORCH_URL, LAN_HOST, PUBLIC_HOST, LAN_PLAYERS, ALLOW_LIST, LOBBY_PORT, SESSION_ID,
-#   EXPECTED_PLAYERS, MAX_PLAYERS, SERVER_NAME, DEV_MIN_PLAYERS, DEV_DEMO_GAMES, GAME_SETTINGS
+#   EXPECTED_PLAYERS, MAX_PLAYERS, SERVER_NAME, DEV_MIN_PLAYERS, DEV_DEMO_GAMES, DEV_HOLO_PREVIEW,
+#   GAME_SETTINGS
 set -euo pipefail
 cd /bds
 
@@ -175,6 +176,7 @@ jq -n \
   --arg mapConfig "$map_config" \
   --arg devMinPlayers "${DEV_MIN_PLAYERS:-}" \
   --arg devDemoGames "${DEV_DEMO_GAMES:-}" \
+  --arg devHoloPreview "${DEV_HOLO_PREVIEW:-}" \
   --arg settings "$game_settings" \
   '$ARGS.named' > config/default/variables.json
 

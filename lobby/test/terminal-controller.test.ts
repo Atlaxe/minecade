@@ -7,6 +7,7 @@ import type { GameChoice } from "../behavior_pack/scripts/lobby-controller.ts";
 import { LAYOUT, MAIN_MENU_CHOICES, type GameView } from "../behavior_pack/scripts/menus.ts";
 import { gameContent, gamesContent, idleContent, mainContent, type HoloContent } from "../behavior_pack/scripts/holo-content.ts";
 import { TerminalController, type TerminalPorts } from "../behavior_pack/scripts/terminal-controller.ts";
+import { previewContent, type PreviewScreen } from "../behavior_pack/scripts/holo-preview.ts";
 
 const sumo: RegistryGame = {
   id: "sumo",
@@ -40,7 +41,8 @@ interface Pending<T> {
 }
 
 function setup() {
-  const mains: Pending<"play" | "stats">[] = [];
+  const mains: Pending<"play" | "stats" | "preview">[] = [];
+  const previews: Pending<PreviewScreen>[] = [];
   const grids: (Pending<number> & { choices: GameChoice[] })[] = [];
   const screens: (Pending<number> & { view: GameView })[] = [];
   const notes: [string, string][] = [];
@@ -61,6 +63,7 @@ function setup() {
   ];
   const ports: TerminalPorts = {
     mainMenu: (name, scope) => scope.guard(new Promise((answer) => mains.push({ name, answer }))),
+    previewMenu: (name, scope) => scope.guard(new Promise((answer) => previews.push({ name, answer }))),
     gamesMenu: (name, scope, list) => scope.guard(new Promise((answer) => grids.push({ name, answer, choices: list }))),
     gameMenu: (name, scope, view) => scope.guard(new Promise((answer) => screens.push({ name, answer, view }))),
     stats: (_name, show) => {
@@ -89,6 +92,7 @@ function setup() {
   const terminal = new TerminalController(ports, root, { now: () => system.currentTick, idleTicks: 200 });
   return {
     mains,
+    previews,
     grids,
     screens,
     notes,
@@ -323,6 +327,32 @@ describe("TerminalController: Play", () => {
   });
 });
 
+describe("TerminalController: hologram previews (DEV_HOLO_PREVIEW)", () => {
+  it("keeps a previewed screen on the hologram until the next tap, and goes back to the menu if none is picked", async () => {
+    const t = setup();
+    void t.terminal.tap("Steve");
+    t.mains[0].answer("preview");
+    await flushPromises();
+    t.previews[0].answer(undefined); // closed the list: back to the main menu
+    await flushPromises();
+    expect(t.mains).toHaveLength(2);
+    t.mains[1].answer("preview");
+    await flushPromises();
+    t.previews[1].answer("teams");
+    await flushPromises();
+    const teams = previewContent("teams", [], "Steve");
+    expect(t.terminal.current).toBeUndefined();
+    expect(t.holo.at(-1)).toEqual(teams);
+    t.terminal.refresh(); // the periodic refresh keeps it up
+    expect(t.holo.at(-1)).toEqual(teams);
+    void t.terminal.tap("Steve"); // the next tap ends the preview
+    expect(t.holo.at(-1)).toEqual(mainContent());
+    t.mains[2].answer(undefined);
+    await flushPromises();
+    expect(t.holo.at(-1)).toEqual(idleContent());
+  });
+});
+
 describe("menus", () => {
   it("uses layout marks the lobby resource pack knows, and that never render", () => {
     const pack = (file: string) => readFileSync(new URL(`../resource_pack/ui/${file}`, import.meta.url), "utf8");
@@ -331,6 +361,6 @@ describe("menus", () => {
       expect(pack("server_form.json")).toContain(`'${mark}'`);
       expect(pack("minecade_forms.json")).toContain(`'${mark}'`);
     }
-    expect(MAIN_MENU_CHOICES).toEqual(["play", "stats"]);
+    expect(MAIN_MENU_CHOICES).toEqual(["play", "stats", "preview"]);
   });
 });

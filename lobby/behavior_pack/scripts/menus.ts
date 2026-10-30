@@ -6,6 +6,7 @@ import { ActionFormData } from "@minecraft/server-ui";
 import { say } from "@minecade/minigame-core";
 import { MARK, gameButtons, gamePicture, mapOptions, playerCount, playerRange, settingLabel, settingsFor, type GameSetting } from "./game-screen.ts";
 import type { GameChoice } from "./lobby-controller.ts";
+import { PREVIEW_SCREENS } from "./holo-preview.ts";
 import { badgeFor, statsButtons, type PlayersView, type StatsView } from "./stats-screens.ts";
 
 /** Layout marks. Each must match the resource pack's UI files (a test checks). */
@@ -25,14 +26,23 @@ export const GLYPH = {
   barOff: "",
 } as const;
 
-export const MAIN_MENU_CHOICES = ["play", "stats"] as const;
+export const MAIN_MENU_CHOICES = ["play", "stats", "preview"] as const;
 
-/** Play and Stats under the Minecade logo. */
-export function mainMenuForm(): ActionFormData {
-  return new ActionFormData()
+/** Play and Stats under the Minecade logo; with DEV_HOLO_PREVIEW, a small Preview button in the corner too. */
+export function mainMenuForm(preview = false): ActionFormData {
+  const form = new ActionFormData()
     .title(`${LAYOUT.main}§rMinecade`)
     .button("Play", "textures/minecade/ui/icon_play")
     .button("Stats", "textures/minecade/ui/icon_stats");
+  if (preview) form.button(`${MARK.preview}Preview`);
+  return form;
+}
+
+/** DEV_HOLO_PREVIEW: a plain list of the hologram's screens. */
+export function previewForm(): ActionFormData {
+  const form = new ActionFormData().title("Hologram preview").body("Pick a screen. It stays on the hologram until you tap the terminal again.");
+  for (const screen of PREVIEW_SCREENS) form.button(screen.name);
+  return form;
 }
 
 /** A card per game, three columns across: its 16:9 picture, its name, and a player icon with the players it needs (red when short). */

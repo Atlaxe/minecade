@@ -27,6 +27,8 @@ export interface ServerVars {
   devMinPlayers: number | undefined;
   /** The lobby adds this many made-up games to its menus (menu testing); 0 for none. */
   devDemoGames: number;
+  /** The lobby terminal's main menu gets a Preview button for the hologram's screens (layout tuning). */
+  devHoloPreview: boolean;
   /** Choices from the lobby's game screen, such as { teams: "random" }. */
   settings: Record<string, string>;
 }
@@ -51,6 +53,7 @@ export function readServerVars(): ServerVars {
     mapConfig: json("mapConfig", { name: "", spawns: [] }),
     devMinPlayers: Number.isInteger(devMinPlayers) && devMinPlayers > 0 ? devMinPlayers : undefined,
     devDemoGames: Number.isInteger(devDemoGames) && devDemoGames > 0 ? devDemoGames : 0,
+    devHoloPreview: ["1", "true", "yes"].includes(text("devHoloPreview").toLowerCase()),
     settings: json("settings", {}),
   };
 }

@@ -1,6 +1,6 @@
 // What the hologram shows, as plain data: one of two frames (the user's art), text elements placed
-// on the panel, and up to two pictures. Each screen's layout mirrors its form: buttons are text
-// with a box behind it, the open or chosen one boxed as selected. The terminal and the stats and
+// on the panel, and up to two pictures. Each screen's layout mirrors its form: buttons are light
+// blue text, the open or chosen one yellow. The terminal and the stats and
 // team screens build this from the same views their forms use; hologram.ts draws it on all four
 // sides. Positions and sizes are in HOLO_LAYOUT, to tune against the frame art.
 import { ordinal } from "@minecade/minigame-core";
@@ -13,7 +13,7 @@ import type { TeamPickView } from "./team-pick-controller.ts";
 /** "logo": the logo up top, room below (idle and main). "panel": everything else. */
 export type Frame = "logo" | "panel";
 export type Tone = "title" | "normal" | "highlight" | "dim" | "warn";
-/** A box behind text: a button, the open or chosen one, or a stat's tile. */
+/** What a piece of text stands for: a button, the open or chosen one, or a stat's tile. It shows as a color (no background, which would hide the glow). */
 export type Box = "button" | "selected" | "tile";
 
 export interface HoloElement {

@@ -29,6 +29,8 @@ export const MARK = {
   portrait: "§p§o§r",
   tab: "§t§a§r",
   stats: ["§u§1§r", "§u§2§r", "§u§3§r"],
+  /** The main menu's Preview button (DEV_HOLO_PREVIEW), shown small in the corner instead of as a tile. */
+  preview: "§p§v§r",
 } as const;
 
 export const PREVIEWS = {

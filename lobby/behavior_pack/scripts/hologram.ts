@@ -37,14 +37,6 @@ const SIDES = [
 ].map((side) => ({ ...side, yaw: readerYaw(side.x, side.z), rightX: side.z, rightZ: -side.x }));
 type SideDirection = (typeof SIDES)[number];
 
-/** Boxes behind text, standing in for buttons. Like the text, they're drawn as they are, not blended. */
-const BOXES: Record<Box, RGBA> = {
-  button: { red: 0.04, green: 0.16, blue: 0.32, alpha: 0.8 },
-  selected: { red: 0.15, green: 0.55, blue: 0.85, alpha: 0.85 },
-  tile: { red: 0.02, green: 0.08, blue: 0.18, alpha: 0.65 },
-};
-const NO_BOX: RGBA = { red: 0, green: 0, blue: 0, alpha: 0 };
-
 /** Text colors. Text isn't blended with the glowing panel behind it, so these show as they are. */
 const TONES: Record<Tone, RGBA> = {
   title: { red: 1, green: 1, blue: 1, alpha: 1 },
@@ -53,6 +45,17 @@ const TONES: Record<Tone, RGBA> = {
   dim: { red: 0.72, green: 0.8, blue: 0.88, alpha: 1 },
   warn: { red: 1, green: 0.55, blue: 0.55, alpha: 1 },
 };
+
+/**
+ * How a box shows. Text never gets a background (a solid background would hide the hologram's
+ * glow), so buttons are light blue like the forms' text and the selected one is yellow.
+ */
+const BOX_COLORS: Record<Box, RGBA | undefined> = {
+  button: { red: 0.62, green: 0.86, blue: 1, alpha: 1 },
+  selected: TONES.highlight,
+  tile: undefined,
+};
+const NO_BACKGROUND: RGBA = { red: 0, green: 0, blue: 0, alpha: 0 };
 
 /** Minecraft's § color codes as text colors, for lines in a team's color. */
 const CODE_COLORS: Record<string, RGBA> = Object.fromEntries(
@@ -170,6 +173,15 @@ export class Hologram {
     }
   }
 
+  /** A team's color first, then selected (yellow), then a dim, warning or title tone, then a button's light blue, else white. */
+  private colorOf(element: HoloElement | undefined): RGBA {
+    if (element?.color && CODE_COLORS[element.color]) return CODE_COLORS[element.color];
+    if (element?.box === "selected") return TONES.highlight;
+    const tone = element?.tone ?? "normal";
+    if (tone !== "normal") return TONES[tone];
+    return (element?.box && BOX_COLORS[element.box]) || TONES.normal;
+  }
+
   /** Puts an element on a side (or blanks the shape when there's none). */
   private place(text: TextPrimitive, side: SideDirection, element: HoloElement | undefined): void {
     const { x, y, z } = this.middle;
@@ -181,8 +193,8 @@ export class Hologram {
       z: z + side.z * TEXT_OUT + side.rightZ * across,
     });
     text.scale = element?.scale ?? 1;
-    text.color = (element?.color && CODE_COLORS[element.color]) || TONES[element?.tone ?? "normal"];
-    text.backgroundColorOverride = element?.box ? BOXES[element.box] : NO_BOX;
+    text.color = this.colorOf(element);
+    text.backgroundColorOverride = NO_BACKGROUND;
     text.setText(element?.text ?? "");
   }
 }

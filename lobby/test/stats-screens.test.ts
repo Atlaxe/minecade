@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { stripColors, type StatsTotals } from "@minecade/minigame-core";
 import { MARK } from "../behavior_pack/scripts/game-screen.ts";
-import { LAYOUT, playersForm, statsForm } from "../behavior_pack/scripts/menus.ts";
+import { LAYOUT, mainMenuForm, playersForm, statsForm } from "../behavior_pack/scripts/menus.ts";
 import { GLOBAL_TAB, badgeFor, formatDuration, playersView, statColumns, statsBody, statsButtons, statsTabAt, type StatsView } from "../behavior_pack/scripts/stats-screens.ts";
 
 const totals = (more: Partial<StatsTotals> = {}): StatsTotals => ({
@@ -98,5 +98,12 @@ describe("the stats forms", () => {
       `${MARK.stats[1]}§f7\n§7Kills`,
     ]);
     expect(form.bodyText).toBe("Rank: 1st of 2");
+  });
+});
+
+describe("the main menu", () => {
+  it("adds a marked Preview button only with DEV_HOLO_PREVIEW", () => {
+    expect((mainMenuForm() as unknown as { buttons: string[] }).buttons).toEqual(["Play", "Stats"]);
+    expect((mainMenuForm(true) as unknown as { buttons: string[] }).buttons).toEqual(["Play", "Stats", `${MARK.preview}Preview`]);
   });
 });

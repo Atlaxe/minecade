@@ -120,6 +120,7 @@ describe("readServerVars", () => {
       serverPort: 19133,
       devMinPlayers: "1",
       devDemoGames: "8",
+      devHoloPreview: "1",
       settings: '{"teams":"random"}',
     });
     expect(readServerVars()).toMatchObject({
@@ -133,6 +134,7 @@ describe("readServerVars", () => {
       serverPort: 19133,
       devMinPlayers: 1,
       devDemoGames: 8,
+      devHoloPreview: true,
       settings: { teams: "random" },
     });
   });
@@ -148,6 +150,7 @@ describe("readServerVars", () => {
       lobbyPort: 19132,
       devMinPlayers: undefined,
       devDemoGames: 0,
+      devHoloPreview: false,
       settings: {},
     });
     expect(console.warn).toHaveBeenCalledWith(expect.stringContaining('"lanPlayers" is not valid JSON'));

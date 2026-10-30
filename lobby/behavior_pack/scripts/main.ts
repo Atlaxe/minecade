@@ -10,7 +10,8 @@ import { demoGames } from "./demo-games.ts";
 import { teamsContent } from "./holo-content.ts";
 import { Hologram } from "./hologram.ts";
 import { LobbyController } from "./lobby-controller.ts";
-import { MAIN_MENU_CHOICES, gameForm, gamesForm, mainMenuForm, playersForm, statsForm } from "./menus.ts";
+import { PREVIEW_SCREENS } from "./holo-preview.ts";
+import { MAIN_MENU_CHOICES, gameForm, gamesForm, mainMenuForm, playersForm, previewForm, statsForm } from "./menus.ts";
 import { StatsController } from "./stats-controller.ts";
 import { TeamPickForm } from "./team-pick-form.ts";
 import { TerminalController } from "./terminal-controller.ts";
@@ -126,8 +127,13 @@ bootServer(({ vars, transport, transfer, root }) => {
       mainMenu: async (name, scope) => {
         const player = playerNamed(name);
         if (!player) return undefined;
-        const answer = await showForm(scope, player, mainMenuForm());
+        const answer = await showForm(scope, player, mainMenuForm(vars.devHoloPreview));
         return answer?.selection === undefined ? undefined : MAIN_MENU_CHOICES[answer.selection];
+      },
+      previewMenu: async (name, scope) => {
+        const player = playerNamed(name);
+        const answer = player ? await showForm(scope, player, previewForm()) : undefined;
+        return answer?.selection === undefined ? undefined : PREVIEW_SCREENS[answer.selection]?.id;
       },
       gamesMenu: async (name, scope, choices) => {
         const player = playerNamed(name);

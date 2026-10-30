@@ -53,6 +53,7 @@ Build Battle, Prophunt, Zombies, Hide and Seek, Block Drop). See [Adding a game]
    | `ALLOW_LIST` | Gamertags allowed to join, comma-separated. Empty means anyone with your address can join. |
    | `PUBLIC_HOST` | `auto` (looks up your public IP at start) or a DDNS hostname. |
    | `DEV_MIN_PLAYERS` | Empty normally. `1` lets every game start with one player, for testing alone. |
+   | `DEV_HOLO_PREVIEW` | Empty normally. `1` adds a Preview button to the terminal's main menu: pick a hologram screen, and it stays up with sample data until you tap the terminal again, so you can look at it without a form in the way. |
    | `DEV_DEMO_GAMES` | Empty normally. A number (up to 12) adds that many made-up games to the lobby's menus, for testing how they look with more games. They can't be started. |
    | `DEV_DEMO_STATS` | Empty normally. `1` fills the lobby's stats screens with made-up players and matches, kept in memory only, for testing alone. The real stats database isn't read or changed while it's on. |
 
@@ -109,21 +110,27 @@ CheckNetIsolation LoopbackExempt -a -n="Microsoft.MinecraftUWP_8wekyb3d8bbwe"
 
 **Friends elsewhere on PC or phone:** Add Server with your public IP (or DDNS name), port `19132`.
 
-**Friends on Xbox or PlayStation:** consoles can't add servers directly, so they use the public
-[BedrockConnect](https://github.com/Pugmatt/BedrockConnect) DNS:
+**Friends on Xbox, PlayStation or Switch:** consoles can't add servers directly, so they use
+[BedrockConnect](https://wiki.bedrockconnect.app/). The servers only speak NetherNet (Minecraft's
+current connection type), so use the BedrockConnect **phone app**, which handles it:
 
-1. Set the console's DNS.
-   - **Xbox:** Settings, General, Network settings, Advanced settings, DNS settings, Manual:
-     primary `104.238.130.180`, secondary `8.8.8.8`.
-   - **PlayStation:** Settings, Network, Settings, Set Up Internet Connection, (your network),
-     Advanced Settings, DNS Settings, Manual: primary `45.55.68.52`, secondary `8.8.8.8`.
-2. In Minecraft, open the Servers tab and join any featured server. The BedrockConnect menu
-   opens instead.
-3. Choose "Connect to a Server" and enter your public IP and port `19132`. They can save it there
-   for next time.
+1. Make sure the console's DNS is set to **Automatic**. If it was ever set to a BedrockConnect DNS
+   address, set it back: with a custom DNS, Minecraft can't reach its multiplayer services and the
+   join fails with a NetherNet error ("trouble establishing a connection to multiplayer services").
+   - **PlayStation:** Settings, Network, Settings, Set Up Internet Connection, (the network),
+     Advanced Settings, DNS Settings, Automatic.
+   - **Xbox:** Settings, General, Network settings, Advanced settings, DNS settings, Automatic.
+2. On a phone on the same Wi-Fi as the console, open the BedrockConnect app and add a server with
+   your public IP and port `19132`, then start it. On Android with Xbox or PlayStation, if the
+   console doesn't see it, set the app's Settings, Network Transport to RakNet (that only affects
+   the phone-to-console hop). On iPhone, keep NetherNet and update the app.
+3. On the console, the server shows up as a LAN world (Worlds or Friends tab). Join it, and the
+   app hands the console over to your server.
 
-Minecade doesn't host its own BedrockConnect: it would need port 19132 (the lobby's) and would
-turn your PC into a public DNS server.
+The BedrockConnect server list may show your server as offline: it checks with the old kind of
+ping, which NetherNet servers don't answer. Joining still works.
+
+Minecade doesn't host its own BedrockConnect: it would need port 19132 (the lobby's).
 
 ### Why LAN_PLAYERS
 

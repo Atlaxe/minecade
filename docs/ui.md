@@ -132,13 +132,18 @@ menu, player stats to the list to the main menu); on the main menu they end the 
   (everything else).
 - **Layouts:** each screen's hologram recreates its form. `scripts/holo-content.ts` builds a list
   of text elements, each placed on the panel (`x` and `y` in blocks from the middle, -1.5 to 1.5,
-  as its reader sees it) with a size, a tone or team color, and optionally a box behind it: a
-  button, the selected (open or chosen) one, or a stat's tile. `scripts/hologram.ts` keeps 48 text
-  shapes (`TextPrimitive`s) per side and places them; a box is the shape's background color. The
+  as its reader sees it) with a size, a tone or team color, and what it stands for: a button, the
+  selected (open or chosen) one, or a stat's tile. `scripts/hologram.ts` keeps 48 text shapes
+  (`TextPrimitive`s) per side and places them. Text never gets a background, because a solid
+  background hides the hologram's glow: buttons are light blue, the selected one yellow. The
   builders take the same views the forms use, so a form and its hologram can't drift apart.
   Positions and sizes are in `HOLO_LAYOUT` in `holo-content.ts`; tune them there if text overlaps
-  or redrawn frames need it elsewhere. Text and box colors are in `TONES` and `BOXES` in
-  `hologram.ts` (text isn't blended with the glowing panel, so they show as they are).
+  or redrawn frames need it elsewhere. Colors are in `TONES` and `BOX_COLORS` in `hologram.ts`
+  (text isn't blended with the glowing panel, so they show as they are).
+- **Previewing layouts** (`DEV_HOLO_PREVIEW=1` in `.env`): the terminal's main menu gets a small
+  Preview button in its corner. It lists every hologram screen (`scripts/holo-preview.ts`); pick
+  one, the form closes, and that screen stays on the hologram with sample data until the terminal
+  is tapped again, so you can walk around it without a form in the way.
 - **Which way text faces:** a `TextPrimitive`'s y rotation is the direction its reader faces, and
   it turns the opposite way from Minecraft's player yaw: 0 is read facing south, 90 facing east,
   180 north, 270 west (measured in game). Text on a side is read from outside, facing the middle,

@@ -14,6 +14,7 @@ import {
   type HoloElement,
 } from "../behavior_pack/scripts/holo-content.ts";
 import { GLOBAL_TAB, statColumns } from "../behavior_pack/scripts/stats-screens.ts";
+import { PREVIEW_SCREENS, previewContent } from "../behavior_pack/scripts/holo-preview.ts";
 
 const sumo: RegistryGame = {
   id: "sumo",
@@ -140,5 +141,19 @@ describe("the hologram layouts", () => {
 
     const none = statsContent({ ...view, tab: "global", columns: [], placement: undefined });
     expect(find(none, "No stats yet").tone).toBe("dim");
+  });
+});
+
+describe("hologram previews", () => {
+  it("has sample content for every screen, on the panel", () => {
+    const choices = [
+      { game: sumo, playable: true },
+      { game: probe, playable: true },
+    ];
+    for (const { id } of PREVIEW_SCREENS) onPanel(previewContent(id, choices, "Steve"));
+    // The game screen previews a game with settings.
+    expect(find(previewContent("game", choices, "Steve"), "Round: 15 s").box).toBe("button");
+    expect(previewContent("stats", choices, "Steve").portrait).toBe("textures/minecade/badges/s");
+    expect(previewContent("game", [], "Steve").elements[0].text).toBe("Choose a game");
   });
 });

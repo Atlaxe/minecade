@@ -165,14 +165,54 @@
           "bindings": [{ "binding_name": "#form_button_contents", "binding_name_override": "#collection_length" }]
         }
       },
+      // DEV_HOLO_PREVIEW only: a small Preview button in the top right corner.
+      { "preview@minecade_forms.preview_column": { "anchor_from": "top_right", "anchor_to": "top_right", "offset": [-8, 8], "layer": 3 } },
       { "back@minecade_forms.back_arrow": {} }
     ]
   },
 
+  "preview_column@minecade_forms.button_column": { "size": [64, "100%c"], "factory": { "name": "buttons", "control_ids": { "button": "@minecade_forms.preview_slot" } } },
+
+  "preview_slot": {
+    "type": "panel",
+    "size": [64, 18],
+    "bindings": [
+      { "binding_name": "#form_button_text", "binding_type": "collection", "binding_collection_name": "form_buttons" },
+      {
+        "binding_type": "view",
+        "source_property_name": "(not ((#form_button_text - '§p§v§r') = #form_button_text))",
+        "target_property_name": "#visible"
+      }
+    ],
+    "controls": [
+      {
+        "button@common.button": {
+          "$pressed_button_name": "button.form_button_click",
+          "size": [64, 18],
+          "bindings": [{ "binding_type": "collection_details", "binding_collection_name": "form_buttons" }],
+          "controls": [
+            { "default@minecade_forms.wide_button_face": { "$tile_texture": "textures/minecade/ui/button_default" } },
+            { "hover@minecade_forms.wide_button_face": { "$tile_texture": "textures/minecade/ui/button_hover" } },
+            { "pressed@minecade_forms.wide_button_face": { "$tile_texture": "textures/minecade/ui/button_pressed" } }
+          ]
+        }
+      }
+    ]
+  },
+
   // A wide, short tile: icon on the left, label beside it. Hover and pressed states brighten it.
+  // The Preview button (marked) isn't a tile; it has its own corner spot.
   "tile_button": {
     "type": "panel",
     "size": [140, 38],
+    "bindings": [
+      { "binding_name": "#form_button_text", "binding_type": "collection", "binding_collection_name": "form_buttons" },
+      {
+        "binding_type": "view",
+        "source_property_name": "((#form_button_text - '§p§v§r') = #form_button_text)",
+        "target_property_name": "#visible"
+      }
+    ],
     "controls": [
       {
         "button@common.button": {

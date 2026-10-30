@@ -11,12 +11,15 @@
 import { Scope, say } from "@minecade/minigame-core";
 import { defaultSettings, gameAction, nextSetting, settingsFor } from "./game-screen.ts";
 import { gameContent, gamesContent, idleContent, mainContent, type HoloContent } from "./holo-content.ts";
+import { previewContent, type PreviewScreen } from "./holo-preview.ts";
 import type { GameChoice } from "./lobby-controller.ts";
 import type { GameView } from "./menus.ts";
 
 export interface TerminalPorts {
   /** The themed main menu. Resolves the choice, or undefined if closed. Never settles if `scope` is disposed first. */
-  mainMenu(name: string, scope: Scope): Promise<"play" | "stats" | undefined>;
+  mainMenu(name: string, scope: Scope): Promise<"play" | "stats" | "preview" | undefined>;
+  /** DEV_HOLO_PREVIEW: the list of hologram screens to preview. Resolves the picked one, or undefined to go back. */
+  previewMenu(name: string, scope: Scope): Promise<PreviewScreen | undefined>;
   /** The game grid. Resolves the index of the chosen game, or undefined to go back. */
   gamesMenu(name: string, scope: Scope, choices: GameChoice[]): Promise<number | undefined>;
   /** The game screen. Resolves the index of the pressed button, or undefined to go back. */
@@ -56,6 +59,8 @@ export class TerminalController {
   private readonly now: () => number;
   private user: string | undefined;
   private session: Scope | undefined;
+  /** A previewed screen that stays on the hologram until the terminal is tapped again. */
+  private pinned: HoloContent | undefined;
   private lastActivity = 0;
 
   constructor(ports: TerminalPorts, scope: Scope, options: TerminalOptions) {
@@ -82,6 +87,7 @@ export class TerminalController {
       return;
     }
     const scope = this.scope.child(`terminal:${name}`);
+    this.pinned = undefined;
     this.user = name;
     this.session = scope;
     scope.add(() => {
@@ -98,6 +104,12 @@ export class TerminalController {
         if (choice === "play") {
           this.show(mainContent("play"));
           if (await this.play(name, scope)) return;
+        } else if (choice === "preview") {
+          const screen = await this.ports.previewMenu(name, scope);
+          if (screen === undefined) continue;
+          // The session ends and the screen stays up (refresh shows it) until the next tap.
+          this.pinned = previewContent(screen, this.ports.choices(), name);
+          return;
         } else {
           this.show(mainContent("stats"));
           await scope.guard(this.ports.stats(name, (content) => this.show(content)));
@@ -109,12 +121,12 @@ export class TerminalController {
   }
 
   /**
-   * Shows the idle screen unless someone is using the terminal or a game is starting (at boot, when
-   * the terminal frees up, and when a start ends). While a game starts, the hologram keeps the
-   * game's screen, or shows the team picks.
+   * Shows the idle screen (or a pinned preview) unless someone is using the terminal or a game is
+   * starting (at boot, when the terminal frees up, and when a start ends). While a game starts, the
+   * hologram keeps the game's screen, or shows the team picks.
    */
   refresh(): void {
-    if (this.user === undefined && !this.ports.starting()) this.ports.hologram(idleContent());
+    if (this.user === undefined && !this.ports.starting()) this.ports.hologram(this.pinned ?? idleContent());
   }
 
   onPlayerLeft(name: string): void {
