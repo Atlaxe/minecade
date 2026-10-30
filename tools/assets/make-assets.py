@@ -316,8 +316,8 @@ def glyphs() -> Image.Image:
     image = Image.new("RGBA", (256, 256), (0, 0, 0, 0))
     draw = ImageDraw.Draw(image)
     white = (255, 255, 255, 255)
-    draw.rectangle((5, 1, 10, 6), fill=white)  # head
-    draw.rectangle((3, 8, 12, 15), fill=white)  # body
+    draw.rectangle((5, 2, 9, 6), fill=white)  # head
+    draw.rectangle((3, 8, 11, 13), fill=white)  # body
     draw.rectangle((16 + 1, 12, 16 + 11, 13), fill=(*BRIGHT, 255))  # bar, chosen
     draw.rectangle((32 + 1, 12, 32 + 11, 13), fill=(50, 80, 110, 255))  # bar, not chosen
     return image

@@ -159,9 +159,9 @@ describe("the hologram layouts", () => {
     expect(gameContent(view).pictureSpot).toBeUndefined();
     const [name, players, map, random, round, thirty] = ["Probe", "2-6 players", "Map:", "Random", "Round:", "30 s"].map((text) => find(content, text));
     expect(name.tone).toBe("title");
-    // Both columns start at the same height, below the banner (it ends at y -0.02).
+    // Both columns start at the same height, below the banner (it ends at y -0.14).
     expect(top(name)).toBeCloseTo(top(map));
-    expect(top(name)).toBeLessThan(-0.02);
+    expect(top(name)).toBeLessThan(-0.14);
     expect(top(players)).toBeLessThan(bottom(name));
     // Each column is left-aligned: the name over the players, the labels over each other, the answers over each other.
     expect(leftEdge(players)).toBeCloseTo(leftEdge(name));
@@ -189,6 +189,10 @@ describe("the hologram layouts", () => {
     expect(boot.elements.map((element) => element.text)).toEqual(["Starting Sumo", "on Arena", "Getting the server ready"]);
     expect(count.elements.map((element) => element.text)).toEqual(["Starting Sumo in", "3", "on a random map"]);
     expect(find(count, "3")).toMatchObject({ tone: "highlight", scale: HOLO_LAYOUT.countdown.numberScale });
+    // Extra room under the big number, so the map's line clears it.
+    const [heading, number, map] = count.elements;
+    expect(bottom(number) - top(map)).toBeCloseTo(HOLO_LAYOUT.countdown.gap + HOLO_LAYOUT.countdown.numberGap);
+    expect(bottom(heading) - top(number)).toBeCloseTo(HOLO_LAYOUT.countdown.gap);
   });
 
   it("shows team picking as a column per team in the team's color", () => {

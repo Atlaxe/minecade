@@ -50,8 +50,8 @@ export const MAX_ELEMENTS = 48;
  * Where things go, in blocks from the panel's middle. Text stays within `edge` of the middle, inside
  * the frame's border and corner brackets (at about 1.4). The picture and portrait spots are fixed in
  * the hologram's model (models/entity/holo_display.geo.json), all top-aligned with the title: the
- * picture spans x 0.08 to 1.28 and y 0.54 to 1.22, the banner (the picture across the top) x -1.1
- * to 1.1 and y -0.02 to 1.22, the portrait x -1.25 to -0.5 and y 0.47 to 1.22. (The model's x runs
+ * picture spans x 0.08 to 1.28 and y 0.54 to 1.22, the banner (the picture across the top) x -1.28
+ * to 1.28 and y -0.14 to 1.3, the portrait x -1.25 to -0.5 and y 0.47 to 1.22. (The model's x runs
  * opposite to the reader's: a spot on the reader's right has negative x in the model.)
  */
 export const HOLO_LAYOUT = {
@@ -66,9 +66,10 @@ export const HOLO_LAYOUT = {
   logoButtons: { y: -0.45, x: 0.62 },
   grid: { columns: [-0.85, 0, 0.85], width: 0.78, top: 0.66, rowGap: 0.42, rows: 5, scale: 0.6, lineGap: 0.13, countGap: 0.15, countScale: 0.42 },
   game: { left: -1.25, width: 1.25, players: 0.84, settingsTop: 0.4, settingGap: 0.26, settings: 6, scale: 0.6, valueGap: 0.08 },
-  /** Game screen, layout 2: under the banner, two columns starting at `top`. */
-  gameBanner: { top: -0.14, left: -1.25, leftWidth: 1.05, right: -0.1, titleScale: 0.9, playersGap: 0.06, scale: 0.55, settingGap: 0.24, settings: 4 },
-  countdown: { gap: 0.12, titleScale: 1, headingScale: 0.9, numberScale: 3, mapScale: 0.55, noteScale: 0.45 },
+  /** Game screen, layout 2: under the banner, two columns starting at `top`, lined up with the banner's sides (`left` and `edge`). */
+  gameBanner: { top: -0.26, left: -1.28, leftWidth: 1.08, right: -0.05, edge: 1.28, titleScale: 1, playersGap: 0.06, scale: 0.6, settingGap: 0.27, settings: 3 },
+  /** `numberGap` is extra room under the big number, which draws lower than its estimated height. */
+  countdown: { gap: 0.12, titleScale: 1, headingScale: 0.9, numberScale: 3, numberGap: 0.25, mapScale: 0.55, noteScale: 0.45 },
   teams: { header: 0.72, membersTop: 0.42, memberGap: 0.25, members: 4, random: -0.82, status: -1.15, scale: 0.75, minScale: 0.45 },
   list: { top: 0.72, gap: 0.3, rows: 7, scale: 0.8 },
   stats: {
@@ -259,8 +260,8 @@ export function gameBannerContent(view: GameView): HoloContent {
         y: topAligned(L.top, L.scale),
         gap: L.settingGap,
         scale: L.scale,
-        labelWidth: (HOLO_LAYOUT.edge - L.right) / 2,
-        right: HOLO_LAYOUT.edge,
+        labelWidth: (L.edge - L.right) / 2,
+        right: L.edge,
       }),
     ],
     picture: chosen?.preview ?? gamePicture(game),
@@ -308,24 +309,27 @@ export function countdownContent(view: CountdownView): HoloContent {
   const lines: Line[] =
     view.left === undefined
       ? [{ value: `Starting ${view.game}`, scale: L.titleScale, more: { tone: "title" } }, map, { value: "Getting the server ready", scale: L.noteScale, more: { tone: "dim" } }]
-      : [{ value: `Starting ${view.game} in`, scale: L.headingScale }, { value: String(view.left), scale: L.numberScale, more: { tone: "highlight" } }, map];
+      : [{ value: `Starting ${view.game} in`, scale: L.headingScale }, { value: String(view.left), scale: L.numberScale, after: L.numberGap, more: { tone: "highlight" } }, map];
   return { frame: "panel", elements: centered(lines, L.gap) };
 }
 
 interface Line {
   value: string;
   scale: number;
+  /** Extra room under this line, on top of the usual gap. */
+  after?: number;
   more?: Partial<HoloElement>;
 }
 
 /** Lines stacked top to bottom, `gap` apart, each centered across, the whole block centered on the panel's middle. */
 function centered(lines: Line[], gap: number): HoloElement[] {
   const shown = lines.map(({ value, scale, more }) => fitted(value, 0, 0, HOLO_LAYOUT.edge * 2, scale, scale / 2, more));
-  const height = shown.reduce((sum, line) => sum + textHeight(line.scale), 0) + gap * (shown.length - 1);
+  const below = (index: number) => (index < lines.length - 1 ? gap + (lines[index].after ?? 0) : 0);
+  const height = shown.reduce((sum, line, index) => sum + textHeight(line.scale) + below(index), 0);
   let top = height / 2;
-  return shown.map((line) => {
+  return shown.map((line, index) => {
     const y = topAligned(top, line.scale ?? 1);
-    top -= textHeight(line.scale) + gap;
+    top -= textHeight(line.scale) + below(index);
     return { ...line, y };
   });
 }

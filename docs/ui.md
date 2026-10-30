@@ -172,8 +172,8 @@ menu, player stats to the list to the main menu); on the main menu they end the 
     `minecade:picture` property picks it from `Array.pictures` (`holo_picture` render
     controller). `holoPictures()` in `packages/minigame-core/src/registry.ts` makes the list
     (none, the placeholders, then every game's picture and map preview), up to 256.
-  - **The banner:** the same picture across the top instead (16:9, 2.2 blocks wide, y -0.02 to
-    1.22), for layout 2. The `minecade:picture_spot` property picks the spot (0 the corner, 1 the
+  - **The banner:** the same picture across the top instead (16:9, 2.56 blocks wide, y -0.14 to
+    1.3), for layout 2. The `minecade:picture_spot` property picks the spot (0 the corner, 1 the
     banner; `pictureSpot` in the content), and the `holo_picture` render controller shows the
     `picture_*` or `banner_*` bones to match.
   - **The portrait** (top left, square, 0.75 blocks, top-aligned with the title): on a player's
