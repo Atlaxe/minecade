@@ -328,11 +328,11 @@ settings do that, not the images:
 So when drawing hologram art: paint on black, use brightness for glow, and expect dark fills to
 mostly disappear.
 
-Adding light can't make anything darker, so against a bright sky the hologram would wash out. A
-**backdrop** sits just inside the panels (the `backdrop_*` bones): `backdrop.png`, black at about
-60%, drawn with an alpha-blended material (`entity_alphablend`) by the first render controller,
-so the sky behind the panels is dimmed before the panels, pictures and portrait add their light.
-Make `backdrop.png` more or less opaque to change how dark it gets.
+Adding light can't make anything darker or change what's behind it. A **backdrop** sits just
+inside the panels (the `backdrop_*` bones): `backdrop.png`, a faint blue (about 14%), drawn with an
+alpha-blended material (`entity_alphablend`) by the first render controller, so the sky behind the
+panels is tinted blue before the panels, pictures and portrait add their light. A darker color
+(black at about 60% was tried first) dims a bright sky instead; more opacity makes either stronger.
 
 **The star box** (lobby map.json `"stars": true`) uses the same additive trick at a much larger
 size: `minecade:star_box`, one entity at the terminal whose model is four walls and a floor 96
@@ -385,7 +385,7 @@ middle, and the tiled scanlines, which repeat.
 | `games/<id>/icon.png` | The game's picture: on its card (60x34) and on the hologram (2 blocks wide) while the map is random | 320x180 (16:9), required for every game |
 | `games/<id>/maps/<map>/preview.png` | A map's preview on its tile (100x54) and on the hologram when it's chosen (optional) | 320x180 (16:9), such as a screenshot |
 | `lobby/resource_pack/textures/minecade/holo/frame_logo.png`, `frame_panel.png` | Hologram frames, 3x3 blocks on all four sides, with live text over them; `frame_logo` has the logo up top | 512x512 (square), additive |
-| `lobby/resource_pack/textures/minecade/holo/backdrop.png` | Behind the hologram's panels, darkening the sky behind them | 16x16, black at about 60% (alpha 150), alpha-blended |
+| `lobby/resource_pack/textures/minecade/holo/backdrop.png` | Behind the hologram's panels, tinting the sky behind them | 16x16, light blue (28, 185, 244) at about 14% (alpha 35), alpha-blended |
 | `lobby/resource_pack/textures/minecade/holo/stars.png` | The star box's walls and floor, 96 blocks wide each | 512x512, stars on black, additive (black shows nothing); drawn with a fixed seed |
 | `lobby/resource_pack/textures/minecade/holo/beam.png` | Projection beam, two crossed planes 2 wide by 3.25 tall | 128x256, additive, the projector at the bottom; fade the top to black so the beam has no hard edge |
 | `lobby/resource_pack/textures/minecade/blocks/terminal_side.png` | Console sides | 16x16 |

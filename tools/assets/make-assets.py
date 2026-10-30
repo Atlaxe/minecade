@@ -161,10 +161,11 @@ def holo_frames(logo: Image.Image) -> dict[str, Image.Image]:
 
 def holo_backdrop() -> Image.Image:
     """
-    Behind the hologram's panels: see-through black (about 60%), drawn with an alpha-blended
-    material, so a bright sky behind the panels is darkened and the glowing panels stand out.
+    Behind the hologram's panels: a faint see-through blue (about 14%), drawn with an alpha-blended
+    material, so the sky behind the panels takes on the hologram's blue and the panels read as one
+    glowing screen.
     """
-    return Image.new("RGBA", (16, 16), (0, 0, 0, 150))
+    return Image.new("RGBA", (16, 16), (28, 185, 244, 35))
 
 
 def stars() -> Image.Image:
