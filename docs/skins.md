@@ -43,14 +43,17 @@ explains why, and how skins could come later.
   connection to the server needs a multiplayer token: `authenticateTransport()` in
   `@nethernet-proxy/relay` 0.2.0 runs a Microsoft device-code sign-in (prismarine-auth, posing as
   the Nintendo Switch version of Minecraft) and caches the token on disk.
-- **Where it stopped:** the user chose not to sign an account in, so the relay was never run.
-  Still untested: whether it works with 1.26.60 (it targets 1.26.50), and whether WebRTC's UDP
-  ports work through Docker on Windows.
-- **If this is picked up again:** use a spare Microsoft account (not anyone's main one), run the
-  relay in a `node:26` container on a test port (the lobby's own port untouched), and check that
-  joining, the terminal and transfers to games still work through it before saving any skins. The
-  other route, a bot that joins the lobby and reads skins from the player list, also needs its own
-  Microsoft account.
+- **The test is ready to run** with a spare Microsoft account (never anyone's main one):
+  `spike/skins/` (see its README) runs the relay in a `node:26` container on port 19140, in front
+  of the running lobby, and saves joining players' skins to `spike/skins/out/`.
+  `npm run spike:skins:check` passes: the relay's packages load and it reaches the lobby. BDS
+  1.26.60 answers `/v1/join` with an empty body, so the game version for the sign-in comes from
+  `BDS_VERSION`.
+- **Still untested:** the sign-in itself, whether joining through the relay works on 1.26.60 (the
+  library targets 1.26.50), and whether WebRTC through Docker on Windows reaches the relay (it
+  advertises `LAN_HOST` and publishes UDP 19141 to 19150).
+- **The other route,** a bot that joins the lobby and reads skins from the player list, also needs
+  its own Microsoft account.
 
 ## Open risks
 

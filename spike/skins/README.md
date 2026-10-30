@@ -1,0 +1,48 @@
+# Skin capture spike
+
+A test, not a feature: can a relay in front of the lobby read each player's skin from their login
+on Bedrock 1.26.60 (NetherNet), without breaking joining? Background and findings are in
+`docs/skins.md`.
+
+**How it works:** `skins.ts` runs [nethernet-proxy](https://github.com/SKYNETWORK-MCBE/nethernet-proxy)
+0.2.0 (MIT) in a Node 26 container on the main stack's Docker network. Players join the relay on
+port 19140 instead of the lobby's 19132. The relay passes each player's own login through to the
+lobby, and saves the skin from it to `spike/skins/out/` (gitignored: skins are personal data).
+The lobby itself isn't changed, and transfers to games go straight to the game servers.
+
+**The account:** the relay's own connection to the lobby needs a Minecraft multiplayer token,
+from a Microsoft account. Use a spare account, never anyone's main one. There's no password
+anywhere: the first run prints a code, and you enter it at the printed URL while signed in as the
+spare account. The library signs in posing as the Nintendo Switch version of Minecraft. The token
+is cached in the `minecade-skin-spike-cache` Docker volume, not in the repo.
+
+## Running it
+
+Run these from `network/`, with the main stack up (`docker compose up -d`):
+
+1. `npm run spike:skins:check` builds the container and checks that the relay's packages load and
+   that the lobby answers. It doesn't sign in.
+2. `npm run spike:skins` starts the relay. Then `docker logs -f minecade-skin-spike` shows a
+   `device_login` line with a `url` and a `userCode`: open the URL, enter the code, and sign in as
+   the spare account. Then `signed_in` and `listening` follow.
+3. In Minecraft, add a server with your `LAN_HOST` address and port 19140, and join it. You should
+   land in the lobby as usual. Check that walking around, the terminal, and starting Sumo (and
+   coming back) all work.
+4. Look in `spike/skins/out/`: `<xuid>-<name>.png` is the skin, and `.json` has what else the
+   login says about it (size, character creator or classic, geometry). Try once with a classic
+   skin and once with a character creator skin.
+
+## Cleaning up
+
+- `npm run spike:skins:down` stops the relay.
+- `docker volume rm minecade-skin-spike-cache` deletes the cached sign-in token and the relay's key.
+- Delete `spike/skins/out/` to delete the captured skins.
+
+## What to watch for
+
+- **The version:** nethernet-proxy targets 1.26.50, and it decodes the server's start-game packet
+  with an older protocol library. If joining through the relay fails right after loading, that's
+  the likely cause (`relay_*` and `leave` lines in the log say why).
+- **The network:** the relay advertises `LAN_HOST` and the UDP ports 19141 to 19150 (one per
+  player connected at a time). From outside your network it would also need those ports forwarded
+  on the router; this test is meant for your own network only.

@@ -1,0 +1,29 @@
+# Skin capture spike (see spike/skins/README.md): a relay in front of the running lobby, on its own
+# ports. Run from network/ with the npm scripts: spike:skins:check, spike:skins, spike:skins:down.
+name: minecade-skin-spike
+
+services:
+  skins:
+    build: ./skins
+    container_name: minecade-skin-spike
+    environment:
+      LOBBY_URL: http://minecade-lobby:19132
+      ADVERTISE: ${LAN_HOST:?set LAN_HOST in .env}
+      BDS_VERSION: ${BDS_VERSION:?set BDS_VERSION in .env}
+    ports:
+      - "19140:19140/tcp"
+      - "19141-19150:19141-19150/udp"
+    volumes:
+      - cache:/cache
+      - ./skins/out:/spike/out
+    stop_grace_period: 5s
+
+# The main stack's network, so the relay reaches the lobby by its container name.
+networks:
+  default:
+    name: minecade
+    external: true
+
+volumes:
+  cache:
+    name: minecade-skin-spike-cache
