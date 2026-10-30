@@ -314,6 +314,94 @@
         ]
       },
       "ignore_lighting": true
+    },
+    "controller.render.minecade.star_box_north_3": {
+      "arrays": {
+        "textures": {
+          "Array.warp": [
+            "Texture.warp_0",
+            "Texture.warp_1",
+            "Texture.warp_2",
+            "Texture.warp_3",
+            "Texture.warp_4",
+            "Texture.warp_5",
+            "Texture.warp_6",
+            "Texture.warp_7"
+          ]
+        }
+      },
+      "geometry": "Geometry.default",
+      "materials": [
+        {
+          "*": "Material.moving"
+        }
+      ],
+      "textures": [
+        "Array.warp[variable.warp_level_3]"
+      ],
+      "part_visibility": [
+        {
+          "*": false
+        },
+        {
+          "north": true
+        }
+      ],
+      "uv_anim": {
+        "offset": [
+          "0.5 - 0.5 * variable.warp_in_3 + 0.19",
+          "0.5 - 0.5 * variable.warp_in_3 + 0.43"
+        ],
+        "scale": [
+          "variable.warp_in_3",
+          "variable.warp_in_3"
+        ]
+      },
+      "ignore_lighting": true
+    },
+    "controller.render.minecade.star_box_south_3": {
+      "arrays": {
+        "textures": {
+          "Array.warp": [
+            "Texture.warp_0",
+            "Texture.warp_1",
+            "Texture.warp_2",
+            "Texture.warp_3",
+            "Texture.warp_4",
+            "Texture.warp_5",
+            "Texture.warp_6",
+            "Texture.warp_7"
+          ]
+        }
+      },
+      "geometry": "Geometry.default",
+      "materials": [
+        {
+          "*": "Material.moving"
+        }
+      ],
+      "textures": [
+        "Array.warp[variable.warp_level_3]"
+      ],
+      "part_visibility": [
+        {
+          "*": false
+        },
+        {
+          "south": true
+        }
+      ],
+      "uv_anim": {
+        "offset": [
+          "0.5 - 0.5 * variable.warp_out_3 + 0.31",
+          "0.5 - 0.5 * variable.warp_out_3 + 0.27"
+        ],
+        "scale": [
+          "variable.warp_out_3",
+          "variable.warp_out_3"
+        ]
+      },
+      "ignore_lighting": true
     }
   }
 }

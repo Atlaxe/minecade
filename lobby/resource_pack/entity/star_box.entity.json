@@ -27,24 +27,30 @@
         "controller.render.minecade.star_box_north_0",
         "controller.render.minecade.star_box_north_1",
         "controller.render.minecade.star_box_north_2",
+        "controller.render.minecade.star_box_north_3",
         "controller.render.minecade.star_box_south_0",
         "controller.render.minecade.star_box_south_1",
-        "controller.render.minecade.star_box_south_2"
+        "controller.render.minecade.star_box_south_2",
+        "controller.render.minecade.star_box_south_3"
       ],
       "scripts": {
         "pre_animation": [
           "variable.warp_0 = math.mod(query.life_time / 8.0, 1.0);",
-          "variable.warp_level_0 = math.floor(math.pow(math.sin(variable.warp_0 * 180.0), 2.0) * 7.0 + 0.5);",
+          "variable.warp_level_0 = math.floor(math.clamp(math.min(variable.warp_0, 1.0 - variable.warp_0) * 4.0, 0.0, 1.0) * 7.0 + 0.5);",
           "variable.warp_in_0 = math.pow(2.0, -variable.warp_0);",
           "variable.warp_out_0 = math.pow(2.0, variable.warp_0 - 1.0);",
-          "variable.warp_1 = math.mod(query.life_time / 8.0 + 0.3333, 1.0);",
-          "variable.warp_level_1 = math.floor(math.pow(math.sin(variable.warp_1 * 180.0), 2.0) * 7.0 + 0.5);",
+          "variable.warp_1 = math.mod(query.life_time / 8.0 + 0.25, 1.0);",
+          "variable.warp_level_1 = math.floor(math.clamp(math.min(variable.warp_1, 1.0 - variable.warp_1) * 4.0, 0.0, 1.0) * 7.0 + 0.5);",
           "variable.warp_in_1 = math.pow(2.0, -variable.warp_1);",
           "variable.warp_out_1 = math.pow(2.0, variable.warp_1 - 1.0);",
-          "variable.warp_2 = math.mod(query.life_time / 8.0 + 0.6667, 1.0);",
-          "variable.warp_level_2 = math.floor(math.pow(math.sin(variable.warp_2 * 180.0), 2.0) * 7.0 + 0.5);",
+          "variable.warp_2 = math.mod(query.life_time / 8.0 + 0.5, 1.0);",
+          "variable.warp_level_2 = math.floor(math.clamp(math.min(variable.warp_2, 1.0 - variable.warp_2) * 4.0, 0.0, 1.0) * 7.0 + 0.5);",
           "variable.warp_in_2 = math.pow(2.0, -variable.warp_2);",
-          "variable.warp_out_2 = math.pow(2.0, variable.warp_2 - 1.0);"
+          "variable.warp_out_2 = math.pow(2.0, variable.warp_2 - 1.0);",
+          "variable.warp_3 = math.mod(query.life_time / 8.0 + 0.75, 1.0);",
+          "variable.warp_level_3 = math.floor(math.clamp(math.min(variable.warp_3, 1.0 - variable.warp_3) * 4.0, 0.0, 1.0) * 7.0 + 0.5);",
+          "variable.warp_in_3 = math.pow(2.0, -variable.warp_3);",
+          "variable.warp_out_3 = math.pow(2.0, variable.warp_3 - 1.0);"
         ]
       }
     }

@@ -79,51 +79,6 @@
       ],
       "ignore_lighting": true
     },
-    "controller.render.minecade.holo_scanlines": {
-      "geometry": "Geometry.default",
-      "materials": [
-        {
-          "*": "Material.scan"
-        }
-      ],
-      "textures": [
-        "Texture.scanlines"
-      ],
-      "part_visibility": [
-        {
-          "*": false
-        },
-        {
-          "root": true
-        },
-        {
-          "screen": true
-        },
-        {
-          "scan_s": true
-        },
-        {
-          "scan_e": true
-        },
-        {
-          "scan_n": true
-        },
-        {
-          "scan_w": true
-        }
-      ],
-      "uv_anim": {
-        "offset": [
-          0.0,
-          "math.mod(query.life_time * 1.6, 1.0)"
-        ],
-        "scale": [
-          1.0,
-          32.0
-        ]
-      },
-      "ignore_lighting": true
-    },
     "controller.render.minecade.holo_picture": {
       "arrays": {
         "textures": {

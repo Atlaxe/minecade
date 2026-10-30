@@ -35,8 +35,8 @@ LOGO_SOURCE = ROOT / "tools" / "assets" / "source" / "minecade-title.png"
 CYAN = (90, 210, 255)
 BRIGHT = (190, 240, 255)
 DEEP = (20, 70, 140)
-# Stars in each warp layer (the north and south walls show three, zoomed, fading in and out).
-WARP_STARS = 1200
+# Stars in each warp layer (the north and south walls show four, zoomed, fading in and out).
+WARP_STARS = 600
 
 
 FORCE = "--force" in sys.argv
@@ -132,13 +132,12 @@ HOLO = 512  # each screen is a square texture shown on a 3x3 block panel
 
 
 def holo_base() -> Image.Image:
-    """
-    A dark panel with a glowing frame and corner brackets. The scanlines are a separate layer that
-    rolls upward over it (holo_scan_lines).
-    """
+    """A dark panel with scanlines, a glowing frame and corner brackets."""
     image = Image.new("RGB", (HOLO, HOLO), (0, 0, 0))
     draw = ImageDraw.Draw(image)
     draw.rectangle((8, 8, HOLO - 9, HOLO - 9), fill=(4, 16, 34))
+    for y in range(10, HOLO - 10, 4):
+        draw.line((10, y, HOLO - 11, y), fill=(6, 26, 52))
     draw.rectangle((8, 8, HOLO - 9, HOLO - 9), outline=DEEP, width=3)
     arm = 46
     for cx, cy, dx, dy in ((14, 14, 1, 1), (HOLO - 15, 14, -1, 1), (14, HOLO - 15, 1, -1), (HOLO - 15, HOLO - 15, -1, -1)):
@@ -160,19 +159,6 @@ def holo_frames(logo: Image.Image) -> dict[str, Image.Image]:
     with_logo = holo_base()
     paste_logo(with_logo, logo, 40, 420)
     return {"frame_logo": with_logo, "frame_panel": holo_base()}
-
-
-def holo_scan_lines() -> Image.Image:
-    """
-    The hologram's moving scanlines: one faint line every 4 rows, drawn additively and repeated
-    32 times up each panel (128 lines, as the frames had), scrolled upward by the
-    holo_scanlines render controller.
-    """
-    image = Image.new("RGB", (16, 16), (0, 0, 0))
-    draw = ImageDraw.Draw(image)
-    for y in range(0, 16, 4):
-        draw.line((0, y, 15, y), fill=(4, 16, 30))
-    return image
 
 
 def holo_backdrop() -> Image.Image:
@@ -496,7 +482,6 @@ def main() -> None:
     save(stars(), CORE_TEXTURES / "sky" / "stars.png")
     for level in range(1, 8):
         save(warp(level), LOBBY_TEXTURES / "holo" / f"warp_{level}.png")
-    save(holo_scan_lines(), LOBBY_TEXTURES / "holo" / "scanlines.png")
     save(Image.new("RGB", (16, 16), (0, 0, 0)), LOBBY_TEXTURES / "holo" / "icon_none.png")
 
     save(block_side(), LOBBY_TEXTURES / "blocks" / "terminal_side.png")
