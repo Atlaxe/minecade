@@ -105,10 +105,10 @@ at a time; a public hologram above it shows everyone what they're doing.
 | Idle | nothing | The logo frame, "Tap the terminal" |
 | Main | The themed menu: logo, Play and Stats side by side | The logo frame, Play and Stats, the chosen one lit |
 | Play | A scrolling grid of game cards, 3 across, 80% of the screen's height: the game's 16:9 picture, its name, a player icon and the players needed (red when there aren't enough) | "Choose a game" and the game names, dimmed when there aren't enough players |
-| Game | Left: the game's name and info, a red warning when there aren't enough players, the Random map switch (on at first), the settings (Teams: Pick or Random for team games, then the game's own options), Start at the bottom. Right: scrolling map tiles, 2 across, each a 16:9 preview with the name over it; dimmed while Random is on, the chosen one outlined when it's off. Clicking a tile turns Random off and picks that map | The game's name, "Map: ...", the settings, the players it needs, and a picture: the chosen map's preview, or the game's picture while the map is random |
+| Game | Left: the game's name and info, a red warning when there aren't enough players, the Random map switch (on at first), the settings (Teams: Pick or Random for team games, then the game's own options), Start at the bottom. Right: scrolling map tiles, 2 across, each a 16:9 preview with the name over it; dimmed while Random is on, the chosen one outlined when it's off. Clicking a tile turns Random off and picks that map | Left, all left-aligned: the game's name, the players it needs, then a table of "Map:" and each setting in white, with the answers (Random or the map's name, then each setting's value) in yellow. Top right, top-aligned with the name: the chosen map's preview (or the "No preview" placeholder), or the game's picture while the map is random. No map list or Start (only the terminal's user picks those) |
 | Teams | After Start on a team game set to Pick, **every player in the match** gets a live team form (see below) | The game's name, each team and its players in the team's color, who's still random, and when teams lock |
-| Stats list | A scrolling list of everyone with stats, each with their letter badge; you first, marked "(me)", even with no stats yet | "Stats", "Pick a player", how many players |
-| Player stats | Left: the player's badge (where their 3D skin goes later, see `docs/skins.md`) and a tab per view: Global, then each game they've played. Right: their name, their rank in the open view, and their stats as tiles in three columns: Results, Combat, More | The same layout: the badge and tabs on the left, the name, rank and stat columns on the right |
+| Stats list | A scrolling list of everyone with stats, each with their letter badge; you first, marked "(me)", even with no stats yet | "Stats" and the players' names, the viewer first but without "(me)", up to 7, then "+N more" |
+| Player stats | Left: the player's badge (where their 3D skin goes later, see `docs/skins.md`) and a tab per view: Global, then each game they've played. Right: their name, their rank in the open view, and their stats as tiles in three columns: Results, Combat, More | A grid. Top row: the badge on the left; beside it the open tab's name (yellow), the player's name and their rank. Below: the open tab's stats as a table across the panel, the same three columns of value over label |
 
 The back arrow (top left of every menu) and Esc go back one step (game screen to grid to main
 menu, player stats to the list to the main menu); on the main menu they end the session.
@@ -140,12 +140,17 @@ menu, player stats to the list to the main menu); on the main menu they end the 
   Positions and sizes are in `HOLO_LAYOUT` in `holo-content.ts`; tune them there if text overlaps
   or redrawn frames need it elsewhere. Colors are in `TONES` and `BOX_COLORS` in `hologram.ts`
   (text isn't blended with the glowing panel, so they show as they are).
-- **Fitting text:** text is placed by its middle, and there's no way to measure it, so widths are
-  estimated: about 0.14 blocks per character at scale 1 (`HOLO_LAYOUT.charWidth`, measured in
-  game). `fitScale()` shrinks text to fit a width (down to a minimum), `truncate()` cuts what still
-  doesn't fit with "..", `wrap()` splits long game names onto two lines, and left-aligned text is
-  placed half its width right of the left edge. The layout tests check that no text runs past the
-  panel's edge by this estimate.
+- **Fitting text:** text is placed by its middle, and there's no way to measure it, so
+  `textWidth()` estimates widths from the default font's character widths in font pixels (most
+  characters are 6, a space 4, "l" 3, "i" and ":" 2; the table is `ADVANCES`), at 0.024 blocks
+  per font pixel at scale 1 (`HOLO_LAYOUT.pixel`, measured in game). Per-character widths matter
+  for left-aligned text: with a flat width per character, lines with spaces and colons started
+  further right than their neighbors. `fitScale()` shrinks text to fit a width (down to a
+  minimum), `truncate()` cuts what still doesn't fit with "..", `wrap()` splits long game names
+  onto two lines, and left-aligned text is placed half its width right of the left edge.
+- **The safe edge:** the frame's border and corner brackets sit about 0.1 blocks inside the
+  panel's edge, so text stays within 1.25 blocks of the middle (`HOLO_LAYOUT.edge`). The layout
+  tests check that no text runs past it (with a little slack) by the width estimate.
 - **Previewing layouts** (`DEV_HOLO_PREVIEW=1` in `.env`): the terminal's main menu gets a small
   Preview button in its corner. It lists every hologram screen (`scripts/holo-preview.ts`); pick
   one, the form closes, and that screen stays on the hologram with sample data until the terminal
@@ -157,14 +162,14 @@ menu, player stats to the list to the main menu); on the main menu they end the 
   east 270.
 - **Pictures:** the model has two picture spots on each side, fixed in
   `models/entity/holo_display.geo.json`:
-  - **The picture** (top right, 16:9, 1.25 blocks wide): on the game screen, the chosen map's
-    preview, or the game's picture while the map is random. The `minecade:picture` property picks
-    it from `Array.pictures` (`holo_picture` render controller). `holoPictures()` in
-    `packages/minigame-core/src/registry.ts` makes the list (none, the placeholders, then every
-    game's picture and map preview), up to 256.
-  - **The portrait** (top left, square): on a player's stats, their badge. The `minecade:portrait`
-    property picks it from `Array.portraits` (`holo_portrait` render controller), listed by
-    `holoPortraits()` (none, then every badge).
+  - **The picture** (top right, 16:9, 1.2 blocks wide, top-aligned with the title): on the game
+    screen, the chosen map's preview, or the game's picture while the map is random. The
+    `minecade:picture` property picks it from `Array.pictures` (`holo_picture` render
+    controller). `holoPictures()` in `packages/minigame-core/src/registry.ts` makes the list
+    (none, the placeholders, then every game's picture and map preview), up to 256.
+  - **The portrait** (top left, square, 0.75 blocks, top-aligned with the title): on a player's
+    stats, their badge. The `minecade:portrait` property picks it from `Array.portraits`
+    (`holo_portrait` render controller), listed by `holoPortraits()` (none, then every badge).
 
   The build writes both lists into the pack, and the lobby looks pictures up in the same lists.
   The model's x runs opposite to the reader's left and right: the picture (on the reader's right)

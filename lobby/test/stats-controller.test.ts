@@ -73,7 +73,7 @@ describe("StatsController", () => {
     t.reply("q1", { players: ["Alex", "steve", "Zed"] });
     await flushPromises();
     expect(t.lists[0].view).toEqual({ viewer: "Steve", players: ["Steve", "Alex", "Zed"], more: 0 });
-    expect(t.holo.at(-1)?.elements.map((element) => element.text.trim())).toEqual(["Stats", "Steve (me)", "Alex", "Zed"]);
+    expect(t.holo.at(-1)?.elements.map((element) => element.text.trim())).toEqual(["Stats", "Steve", "Alex", "Zed"]);
 
     t.lists[0].answer(1); // Alex
     await flushPromises();
@@ -87,7 +87,7 @@ describe("StatsController", () => {
     expect(global.body).toBe("Rank: 2nd of 5");
     expect(global.columns.map((column) => column[0].label)).toEqual(["Games", "Kills", "Damage dealt"]);
     expect(t.holo.at(-1)?.portrait).toBe("textures/minecade/badges/a");
-    expect(t.holo.at(-1)?.elements.map((element) => element.text.trim()).slice(0, 3)).toEqual(["Alex", "Global", "Rank 2nd of 5"]);
+    expect(t.holo.at(-1)?.elements.map((element) => element.text.trim()).slice(0, 3)).toEqual(["Global", "Alex", "Rank 2nd of 5"]);
 
     t.screens[0].answer(2); // the Search and Destroy tab (button 0 is the portrait)
     await flushPromises();
@@ -125,7 +125,7 @@ describe("StatsController", () => {
     expect(t.screens[0].view.tabs.map((tab) => tab.id)).toEqual(["global"]);
     expect(t.screens[0].view.body).toBe("No stats yet.\nMatches with at least 2 players count.");
     expect(t.screens[0].view.columns).toEqual([]);
-    expect(t.holo.at(-1)?.elements.map((element) => element.text.trim())).toEqual(["Steve", "Global", "No stats yet"]);
+    expect(t.holo.at(-1)?.elements.map((element) => element.text.trim())).toEqual(["Global", "Steve", "No stats yet"]);
   });
 
   it("says when stats are unavailable or the orchestrator doesn't answer, and ignores late replies", async () => {

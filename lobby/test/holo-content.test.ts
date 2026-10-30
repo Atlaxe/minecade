@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { RegistryGame, StatsTotals } from "@minecade/minigame-core";
 import { PREVIEWS } from "../behavior_pack/scripts/game-screen.ts";
 import {
+  HOLO_LAYOUT,
   MAX_ELEMENTS,
   gameContent,
   gamesContent,
@@ -47,15 +48,21 @@ function find(content: HoloContent, text: string): HoloElement {
   return element;
 }
 
-/** Every element sits on the panel, edges included (by the width estimate), and there are no more than the hologram draws. */
+/** Every element sits inside the frame, edges included (by the width estimate), and there are no more than the hologram draws. */
 function onPanel(content: HoloContent): void {
   expect(content.elements.length).toBeLessThanOrEqual(MAX_ELEMENTS);
+  const limit = HOLO_LAYOUT.edge + 0.05;
   for (const element of content.elements) {
     const half = textWidth(element.text.trim(), element.scale ?? 1) / 2;
-    expect(Math.abs(element.x) + half, element.text).toBeLessThanOrEqual(1.5);
-    expect(Math.abs(element.y)).toBeLessThanOrEqual(1.5);
+    expect(Math.abs(element.x) + half, element.text).toBeLessThanOrEqual(limit);
+    expect(Math.abs(element.y), element.text).toBeLessThanOrEqual(limit);
   }
 }
+
+/** Where an element's text starts (it's placed by its middle). */
+const leftEdge = (element: HoloElement) => element.x - textWidth(element.text, element.scale ?? 1) / 2;
+
+const has = (content: HoloContent, text: string) => content.elements.some((element) => element.text.trim() === text);
 
 describe("the hologram layouts", () => {
   it("shows a Tap the terminal button, then Play and Stats side by side, the chosen one selected", () => {
@@ -69,11 +76,15 @@ describe("the hologram layouts", () => {
     expect([play.box, stats.box]).toEqual(["button", "selected"]);
   });
 
-  it("fits text: shrinks to a width, truncates what still doesn't fit, wraps by words", () => {
+  it("fits text: measures by the font's character widths, shrinks to a width, truncates what still doesn't fit, wraps by words", () => {
+    expect(textWidth("ii")).toBeLessThan(textWidth("MM"));
+    expect(textWidth("a b")).toBeLessThan(textWidth("abc"));
+    expect(textWidth("Choose a game", 1.15)).toBeCloseTo(2.0, 1);
     expect(fitScale("Short", 1, 10)).toBe(1);
     expect(fitScale("A much longer name", 1, 1, 0.4)).toBeCloseTo(1 / textWidth("A much longer name"));
     expect(fitScale("A much longer name than that", 1, 0.5, 0.4)).toBe(0.4);
     expect(truncate("Short", 1, 10)).toBe("Short");
+    expect(truncate("Warehouse", fitScale("Warehouse", 1, 0.71, 0.4), 0.71)).toBe("Warehouse");
     const cut = truncate("Capture the Wool", 0.6, 0.9);
     expect(cut.endsWith("..")).toBe(true);
     expect(textWidth(cut, 0.6)).toBeLessThanOrEqual(0.9 + 1e-9);
@@ -105,26 +116,31 @@ describe("the hologram layouts", () => {
     expect(find(wrapped, "2-6").y).toBeLessThan(find(wrapped, "the Wool").y);
   });
 
-  it("mirrors the game screen: info and settings left-aligned on the left, the picture and maps on the right, no Start", () => {
+  it("mirrors the game screen's left column: the name, players, then the map and settings as labels with yellow answers, all left-aligned", () => {
     const random = gameContent({ choice: { game: probe, playable: true }, random: true, map: "arena_1", settings: { round: "30" } });
     onPanel(random);
     expect(random.picture).toBe(PREVIEWS.game);
-    expect(find(random, "Random map: On").box).toBe("selected");
-    const round = find(random, "Round: 30 s");
-    expect(round.box).toBe("button");
-    const leftEdge = (element: HoloElement) => element.x - textWidth(element.text, element.scale ?? 1) / 2;
-    expect(leftEdge(round)).toBeCloseTo(leftEdge(find(random, "Random map: On")));
-    expect(leftEdge(find(random, "Probe"))).toBeCloseTo(leftEdge(round));
-    expect(random.elements.some((element) => element.text.trim() === "Start")).toBe(false);
-    expect(find(random, "Maps").tone).toBe("dim");
-    expect(find(random, "Arena")).toMatchObject({ tone: "dim", box: "button" });
-    expect(find(random, "Arena").x).toBeGreaterThan(0);
+    const map = find(random, "Map:");
+    const round = find(random, "Round:");
+    expect(map.box).toBeUndefined();
+    expect(find(random, "Random")).toMatchObject({ box: "selected", y: map.y });
+    expect(find(random, "30 s")).toMatchObject({ box: "selected", y: round.y });
+    expect(round.y).toBeLessThan(map.y);
+    for (const element of [find(random, "Probe"), find(random, "2-6 players"), round]) expect(leftEdge(element)).toBeCloseTo(leftEdge(map));
+    expect(leftEdge(find(random, "30 s"))).toBeCloseTo(leftEdge(find(random, "Random")));
+    expect(leftEdge(find(random, "Random"))).toBeGreaterThan(leftEdge(map) + textWidth("Round:", round.scale));
+    for (const gone of ["Random map: On", "Maps", "Arena", "Pit", "Start"]) expect(has(random, gone), gone).toBe(false);
 
     const pit = gameContent({ choice: { game: sumo, playable: false, reason: "needs at least 2 players" }, random: false, map: "pit", settings: {} });
     expect(pit.picture).toBe("textures/minecade/maps/sumo/pit");
-    expect(find(pit, "Random map: Off").box).toBe("button");
-    expect(find(pit, "Pit")).toMatchObject({ box: "selected", tone: "normal" });
+    expect(find(pit, "Pit").box).toBe("selected");
     expect(find(pit, "Needs 2 players").tone).toBe("warn");
+    // The table is below the picture, so a long map name keeps its room.
+    const long = gameContent({ choice: { game: { ...sumo, maps: [{ id: "w", name: "Warehouse District" }] }, playable: true }, random: false, map: "w", settings: {} });
+    onPanel(long);
+    expect(find(long, "Warehouse District").box).toBe("selected");
+    // A map without its own preview shows the placeholder, not the game's picture.
+    expect(gameContent({ choice: { game: sumo, playable: true }, random: false, map: "arena_1", settings: {} }).picture).toBe(PREVIEWS.none);
     onPanel(gameContent({ choice: { game: { ...sumo, name: "Capture the Wool on a Long Name" }, playable: true }, random: true, map: "pit", settings: {} }));
   });
 
@@ -154,32 +170,47 @@ describe("the hologram layouts", () => {
     expect(long.elements.find((element) => element.text.startsWith("AVery"))!.scale!).toBeLessThan(0.75);
   });
 
-  it("lists players like the stats list, the viewer first with (me)", () => {
+  it("lists players like the stats list, the viewer first, without the form's (me)", () => {
     const content = statsListContent({ viewer: "Steve", players: ["Steve", "Alex"], more: 0 });
     onPanel(content);
-    expect(find(content, "Steve (me)").box).toBe("button");
-    expect(find(content, "Steve (me)").y).toBeGreaterThan(find(content, "Alex").y);
+    expect(find(content, "Steve").box).toBe("button");
+    expect(find(content, "Steve").y).toBeGreaterThan(find(content, "Alex").y);
+    expect(content.elements.some((element) => element.text.includes("(me)"))).toBe(false);
     const crowd = statsListContent({ viewer: "Steve", players: Array.from({ length: 10 }, (_, i) => `P${i}`), more: 5 });
     onPanel(crowd);
     expect(find(crowd, "+9 more").tone).toBe("dim");
   });
 
-  it("mirrors a player's stats: the portrait and the open tab on the left, the rank and stat columns on the right", () => {
+  it("lays a player's stats out as a grid: the open tab, name and rank beside the portrait, then the stat table across the panel", () => {
     const view = { player: "Alex", tabs: [GLOBAL_TAB, { id: "sumo", name: "Sumo" }], tab: "sumo", body: "", columns: statColumns(totals), placement: { rank: 2, of: 9 } };
     const content = statsContent(view);
     onPanel(content);
     expect(content.portrait).toBe("textures/minecade/badges/a");
-    expect(find(content, "Sumo")).toMatchObject({ box: "selected" });
-    expect(find(content, "Sumo").x).toBeLessThan(0);
-    expect(content.elements.some((element) => element.text.trim() === "Global")).toBe(false);
-    expect(find(content, "Rank 2nd of 9").tone).toBe("highlight");
-    expect(find(content, "Results").x).toBeLessThan(find(content, "Combat").x);
+    const [tab, name, rank] = content.elements;
+    expect([tab.text, name.text, rank.text]).toEqual(["Sumo", "Alex", "Rank 2nd of 9"]);
+    expect([tab.box, name.tone, rank.tone]).toEqual(["selected", "title", "highlight"]);
+    expect(tab.y).toBeGreaterThan(name.y);
+    expect(name.y).toBeGreaterThan(rank.y);
+    for (const element of [name, rank]) expect(leftEdge(element)).toBeCloseTo(leftEdge(tab));
+    // Right of the portrait, which ends at x -0.5.
+    expect(leftEdge(tab)).toBeGreaterThan(-0.5);
+    expect(has(content, "Global")).toBe(false);
+    const [results, combat, more] = ["Results", "Combat", "More"].map((heading) => find(content, heading));
+    expect(results.y).toBeLessThan(rank.y);
+    expect(results.x).toBeLessThan(combat.x);
+    expect(combat.x).toBeLessThan(more.x);
+    expect(results.x).toBeLessThan(leftEdge(tab));
     expect(find(content, "75%").box).toBe("tile");
     expect(find(content, "Win rate").y).toBeLessThan(find(content, "75%").y);
 
     const none = statsContent({ ...view, tab: "global", columns: [], placement: undefined });
+    expect(none.elements.map((element) => element.text)).toEqual(["Global", "Alex", "No stats yet"]);
     expect(find(none, "No stats yet").tone).toBe("dim");
     onPanel(statsContent({ ...view, player: "A Really Long Gamertag" }));
+    const extras = Array.from({ length: 6 }, (_, i): [string, string] => [`extra${i}`, `Counter number ${i}`]);
+    const crowded = statsContent({ ...view, columns: statColumns(totals, extras) });
+    onPanel(crowded);
+    expect(find(crowded, "+4 more").tone).toBe("dim");
   });
 });
 
@@ -191,7 +222,8 @@ describe("hologram previews", () => {
     ];
     for (const { id } of PREVIEW_SCREENS) onPanel(previewContent(id, choices, "Steve"));
     // The game screen previews a game with settings.
-    expect(find(previewContent("game", choices, "Steve"), "Round: 15 s").box).toBe("button");
+    const game = previewContent("game", choices, "Steve");
+    expect(find(game, "15 s").y).toBe(find(game, "Round:").y);
     expect(previewContent("stats", choices, "Steve").portrait).toBe("textures/minecade/badges/s");
     expect(previewContent("game", [], "Steve").elements[0].text).toBe("Choose a game");
   });

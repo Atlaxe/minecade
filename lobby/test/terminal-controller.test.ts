@@ -253,7 +253,9 @@ describe("TerminalController: Play", () => {
     t.screens[0].answer(PAINTBALL_TEAMS);
     await flushPromises();
     expect(t.screens[1].view.settings).toEqual({ teams: "random" });
-    expect(t.holo.at(-1)?.elements.some((element) => element.text.trim() === "Teams: Random")).toBe(true);
+    const shown = t.holo.at(-1)?.elements ?? [];
+    const teams = shown.find((element) => element.text === "Teams:");
+    expect(shown.find((element) => element !== teams && element.y === teams?.y)?.text).toBe("Random");
     t.screens[1].answer(PAINTBALL_START);
     await flushPromises();
     expect(t.requests).toEqual([["Steve", "paintball", "random", { teams: "random" }]]);

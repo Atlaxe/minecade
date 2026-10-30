@@ -43,35 +43,68 @@ export interface HoloContent {
 export const MAX_ELEMENTS = 48;
 
 /**
- * Where things go, in blocks from the panel's middle. The picture and portrait spots are fixed in
- * the hologram's model (models/entity/holo_display.geo.json): the picture spans x 0.13 to 1.38
- * and y 0.31 to 1.02, the portrait x -1.38 to -0.5 and y 0.19 to 1.06. (The model's x runs
- * opposite to the reader's: a spot on the reader's right has negative x in the model.)
+ * Where things go, in blocks from the panel's middle. Text stays within `edge` of the middle, inside
+ * the frame's border and corner brackets (at about 1.4). The picture and portrait spots are fixed in
+ * the hologram's model (models/entity/holo_display.geo.json), both top-aligned with the title: the
+ * picture spans x 0.08 to 1.28 and y 0.54 to 1.22, the portrait x -1.25 to -0.5 and y 0.47 to
+ * 1.22. (The model's x runs opposite to the reader's: a spot on the reader's right has negative x
+ * in the model.)
  */
 export const HOLO_LAYOUT = {
-  /** About how wide one character is at scale 1, in blocks (measured in game: about 0.135). */
-  charWidth: 0.14,
+  /** One font pixel at scale 1, in blocks (measured in game: "Choose a game", 74 font pixels wide, is about 2.0 blocks at 1.15). */
+  pixel: 0.024,
+  /** How far from the middle text may reach, either way. */
+  edge: 1.25,
   title: { y: 1.12, scale: 1.15 },
   /** Buttons under the logo (idle and main). */
   logoButtons: { y: -0.45, x: 0.62 },
-  grid: { columns: [-1, 0, 1], width: 0.92, top: 0.66, rowGap: 0.42, rows: 5, scale: 0.6, lineGap: 0.13, countGap: 0.15, countScale: 0.42 },
-  game: { left: -1.35, width: 1.4, players: 0.84, random: 0.45, settingsTop: 0.15, settingGap: 0.3, settings: 4, scale: 0.6, mapsHeading: 0.13, mapColumns: [0.44, 1.06], mapWidth: 0.58, mapsTop: -0.1, mapGap: 0.28, mapRows: 5 },
+  grid: { columns: [-0.85, 0, 0.85], width: 0.78, top: 0.66, rowGap: 0.42, rows: 5, scale: 0.6, lineGap: 0.13, countGap: 0.15, countScale: 0.42 },
+  game: { left: -1.25, width: 1.25, players: 0.84, settingsTop: 0.4, settingGap: 0.26, settings: 6, scale: 0.6, valueGap: 0.08 },
   teams: { header: 0.72, membersTop: 0.42, memberGap: 0.25, members: 4, random: -0.82, status: -1.15, scale: 0.75, minScale: 0.45 },
   list: { top: 0.72, gap: 0.3, rows: 7, scale: 0.8 },
-  stats: { leftX: -0.94, tab: -0.12, rightX: 0.6, rightWidth: 1.7, rank: 0.84, columns: [0.02, 0.62, 1.22], columnWidth: 0.56, headings: 0.58, tilesTop: 0.36, tileGap: 0.3, labelGap: 0.12, tiles: 6, valueScale: 0.55, labelScale: 0.4, minScale: 0.28 },
+  stats: {
+    left: -0.35,
+    width: 1.6,
+    tab: 1.14,
+    tabScale: 0.5,
+    name: 0.9,
+    nameScale: 1,
+    rank: 0.62,
+    rankScale: 0.55,
+    columns: [-0.84, 0, 0.84],
+    columnWidth: 0.8,
+    headings: 0.3,
+    headingScale: 0.45,
+    tilesTop: 0.08,
+    tileGap: 0.24,
+    labelGap: 0.11,
+    tiles: 6,
+    valueScale: 0.55,
+    labelScale: 0.4,
+    minScale: 0.28,
+  },
 } as const;
+
+/** The font's advance for each character, in font pixels, where it isn't the usual 6 (5 wide plus 1 of spacing). */
+const ADVANCES: Record<string, number> = Object.fromEntries(
+  (
+    [
+      ["!',.:;i|", 2],
+      ["`l", 3],
+      [' "()*I[]t{}', 4],
+      ["<>fk", 5],
+      ["@~", 7],
+    ] as const
+  ).flatMap(([chars, advance]) => [...chars].map((char) => [char, advance])),
+);
 
 const text = (value: string, x: number, y: number, more: Partial<HoloElement> = {}): HoloElement => ({ text: value, x, y, ...more });
 
-/** The title, at most `width` wide (smaller for long ones), centered on `x`. */
-const title = (value: string, x = 0, width = 2.8): HoloElement => {
-  const scale = fitScale(value, HOLO_LAYOUT.title.scale, width, 0.6);
-  return text(truncate(value, scale, width), x, HOLO_LAYOUT.title.y, { scale, tone: "title" });
-};
-
-/** Roughly how wide `value` is at `scale`, in blocks (the font is proportional, so this is an estimate). */
+/** About how wide `value` is at `scale`, in blocks, from the font's character widths. */
 export function textWidth(value: string, scale = 1): number {
-  return value.length * scale * HOLO_LAYOUT.charWidth;
+  let pixels = 0;
+  for (const char of value) pixels += ADVANCES[char] ?? 6;
+  return pixels * scale * HOLO_LAYOUT.pixel;
 }
 
 /** The largest scale, up to `maxScale` and no smaller than `minScale`, at which `value` fits `width`. */
@@ -82,9 +115,12 @@ export function fitScale(value: string, maxScale: number, width: number, minScal
 
 /** `value` cut down (ending in "..") so it fits `width` at `scale`. */
 export function truncate(value: string, scale: number, width: number): string {
-  if (textWidth(value, scale) <= width) return value;
-  const room = Math.max(1, Math.floor(width / (scale * HOLO_LAYOUT.charWidth)) - 2);
-  return `${value.slice(0, room).trimEnd()}..`;
+  // A hair of slack, so text shrunk to exactly `width` by fitScale() isn't cut by rounding.
+  const fits = (candidate: string) => textWidth(candidate, scale) <= width + 1e-9;
+  if (fits(value)) return value;
+  let kept = value;
+  while (kept.length > 1 && !fits(`${kept.trimEnd()}..`)) kept = kept.slice(0, -1);
+  return `${kept.trimEnd()}..`;
 }
 
 /** `value` wrapped by words into lines that fit `width` at `scale`; the last allowed line is truncated. */
@@ -108,6 +144,22 @@ export function wrap(value: string, scale: number, width: number, maxLines: numb
 function leftAligned(value: string, left: number, y: number, more: Partial<HoloElement> & { scale: number }): HoloElement {
   return text(value, left + textWidth(value, more.scale) / 2, y, more);
 }
+
+/** Text centered on `x`, shrunk to fit `width` (down to `minScale`), then truncated if it still doesn't. */
+function fitted(value: string, x: number, y: number, width: number, maxScale: number, minScale: number, more: Partial<HoloElement> = {}): HoloElement {
+  const scale = fitScale(value, maxScale, width, minScale);
+  return text(truncate(value, scale, width), x, y, { scale, ...more });
+}
+
+/** Like `fitted`, but starting at `left`. */
+function fittedLeft(value: string, left: number, y: number, width: number, maxScale: number, minScale: number, more: Partial<HoloElement> = {}): HoloElement {
+  const scale = fitScale(value, maxScale, width, minScale);
+  return leftAligned(truncate(value, scale, width), left, y, { ...more, scale });
+}
+
+/** The title, at most `width` wide (smaller for long ones), centered on `x`. */
+const title = (value: string, x = 0, width = HOLO_LAYOUT.edge * 2): HoloElement =>
+  fitted(value, x, HOLO_LAYOUT.title.y, width, HOLO_LAYOUT.title.scale, 0.6, { tone: "title" });
 
 export function idleContent(): HoloContent {
   return { frame: "logo", elements: [text("  Tap the terminal  ", 0, HOLO_LAYOUT.logoButtons.y, { box: "button" })] };
@@ -146,110 +198,100 @@ export function gamesContent(choices: GameChoice[]): HoloContent {
 }
 
 /**
- * One game, like its screen: on the left the name, players, the Random map switch and the settings,
- * left-aligned; on the right the picture (the chosen map's preview, or the game's while the map is
- * random) over the maps in two columns, the chosen one selected and all of them dim while random.
- * Start isn't shown: only the terminal's user can press it.
+ * One game, like its screen's left column, everything left-aligned: the name, the players, then the
+ * map and the settings as a table of labels (white) and answers (yellow, like the chosen one). The
+ * picture is at the top right: the chosen map's preview, or the game's while the map is random. The
+ * map list and Start aren't shown: only the terminal's user picks those.
  */
 export function gameContent(view: GameView): HoloContent {
   const L = HOLO_LAYOUT.game;
   const { game, playable, reason } = view.choice;
-  const maps = mapOptions(game);
-  const chosen = view.random ? undefined : maps.find((option) => option.id === view.map);
-  const line = (value: string, y: number, more: Partial<HoloElement> = {}) => {
-    const scale = fitScale(value, L.scale, L.width, 0.4);
-    return leftAligned(truncate(value, scale, L.width), L.left, y, { scale, ...more });
-  };
-  const titleScale = fitScale(game.name, HOLO_LAYOUT.title.scale, L.width, 0.6);
+  const chosen = view.random ? undefined : mapOptions(game).find((option) => option.id === view.map);
+  const players = playable ? playerRange(game) : `Needs ${reason?.replace(/^needs at least /, "") ?? "more players"}`;
   const elements = [
-    leftAligned(truncate(game.name, titleScale, L.width), L.left, HOLO_LAYOUT.title.y, { scale: titleScale, tone: "title" }),
-    line(playable ? playerRange(game) : `Needs ${reason?.replace(/^needs at least /, "") ?? "more players"}`, L.players, { tone: playable ? "dim" : "warn" }),
-    line(`Random map: ${view.random ? "On" : "Off"}`, L.random, { box: view.random ? "selected" : "button" }),
+    fittedLeft(game.name, L.left, HOLO_LAYOUT.title.y, L.width, HOLO_LAYOUT.title.scale, 0.6, { tone: "title" }),
+    fittedLeft(players, L.left, L.players, L.width, L.scale, 0.4, { tone: playable ? "dim" : "warn" }),
   ];
-  settingsFor(game)
-    .slice(0, L.settings)
-    .forEach((setting, index) => elements.push(line(`${setting.label}: ${settingLabel(setting, view.settings[setting.id])}`, L.settingsTop - index * L.settingGap, { box: "button" })));
-  const middle = (L.mapColumns[0] + L.mapColumns[L.mapColumns.length - 1]) / 2;
-  elements.push(text("Maps", middle, L.mapsHeading, { scale: 0.45, tone: "dim" }));
-  const room = L.mapColumns.length * L.mapRows;
-  const shown = maps.length > room ? maps.slice(0, room - 1) : maps;
-  shown.forEach((map, index) => {
-    const x = L.mapColumns[index % L.mapColumns.length];
-    const y = L.mapsTop - Math.floor(index / L.mapColumns.length) * L.mapGap;
-    const scale = fitScale(map.name, L.scale, L.mapWidth, 0.4);
-    elements.push(text(truncate(map.name, scale, L.mapWidth), x, y, { scale, box: map.id === chosen?.id ? "selected" : "button", tone: view.random ? "dim" : "normal" }));
+  const rows = [
+    { label: "Map:", value: chosen?.name ?? "Random" },
+    ...settingsFor(game).map((setting) => ({ label: `${setting.label}:`, value: settingLabel(setting, view.settings[setting.id]) })),
+  ].slice(0, L.settings + 1);
+  const labels = rows.map((row, index) => fittedLeft(row.label, L.left, L.settingsTop - index * L.settingGap, L.width / 2, L.scale, 0.4));
+  const valueLeft = L.left + Math.max(...labels.map((label) => textWidth(label.text, label.scale))) + L.valueGap;
+  // The table sits below the picture, so the answers can run to the edge.
+  const valueWidth = HOLO_LAYOUT.edge - valueLeft;
+  rows.forEach((row, index) => {
+    elements.push(labels[index], fittedLeft(row.value, valueLeft, labels[index].y, valueWidth, L.scale, 0.4, { box: "selected" }));
   });
-  if (shown.length < maps.length) {
-    const index = shown.length;
-    elements.push(text(`+${maps.length - index} more`, L.mapColumns[index % L.mapColumns.length], L.mapsTop - Math.floor(index / L.mapColumns.length) * L.mapGap, { scale: 0.45, tone: "dim" }));
-  }
   return { frame: "panel", elements, picture: chosen?.preview ?? gamePicture(game) };
 }
 
 /** Team picking: a column per team (its name and count in the team's color, then its players), who's still random, and when teams lock. */
 export function teamsContent(view: TeamPickView): HoloContent {
   const L = HOLO_LAYOUT.teams;
+  const span = HOLO_LAYOUT.edge * 2;
   const count = Math.max(1, view.teams.length);
+  const width = span / count - 0.1;
   const elements = [title(view.game)];
   view.teams.forEach((team, index) => {
-    const x = -1.5 + ((index + 0.5) * 3) / count;
-    elements.push(text(` ${team.name} ${team.members.length}/${team.cap} `, x, L.header, { scale: L.scale, color: team.color, box: "tile" }));
+    const x = -HOLO_LAYOUT.edge + ((index + 0.5) * span) / count;
+    elements.push(fitted(`${team.name} ${team.members.length}/${team.cap}`, x, L.header, width, L.scale, L.minScale, { color: team.color, box: "tile" }));
     const shown = team.members.length > L.members ? team.members.slice(0, L.members - 1) : team.members;
-    const width = 3 / count - 0.1;
-    shown.forEach((name, row) => {
-      const scale = fitScale(name, L.scale, width, L.minScale);
-      elements.push(text(truncate(name, scale, width), x, L.membersTop - row * L.memberGap, { scale }));
-    });
+    shown.forEach((name, row) => elements.push(fitted(name, x, L.membersTop - row * L.memberGap, width, L.scale, L.minScale)));
     if (shown.length < team.members.length) {
-      elements.push(text(`+${team.members.length - shown.length} more`, x, L.membersTop - shown.length * L.memberGap, { scale: L.scale, tone: "dim" }));
+      elements.push(fitted(`+${team.members.length - shown.length} more`, x, L.membersTop - shown.length * L.memberGap, width, L.scale, L.minScale, { tone: "dim" }));
     }
   });
-  if (view.unpicked.length > 0) elements.push(text(`Random: ${names(view.unpicked)}`, 0, L.random, { scale: L.scale, tone: "dim" }));
-  elements.push(text(view.status, 0, L.status, { scale: L.scale, tone: "highlight" }));
+  if (view.unpicked.length > 0) elements.push(fitted(`Random: ${names(view.unpicked)}`, 0, L.random, span, L.scale, L.minScale, { tone: "dim" }));
+  elements.push(fitted(view.status, 0, L.status, span, L.scale, L.minScale, { tone: "highlight" }));
   return { frame: "panel", elements };
 }
 
-/** The stats list: a column of player rows, the viewer first with "(me)". */
+/** The stats list: a column of player rows, the viewer first like the form (but without its "(me)": the hologram is for everyone). */
 export function statsListContent(view: PlayersView): HoloContent {
   const L = HOLO_LAYOUT.list;
+  const span = HOLO_LAYOUT.edge * 2;
   const total = view.players.length + view.more;
   const shown = total > L.rows ? view.players.slice(0, L.rows - 1) : view.players;
   const elements = [title("Stats")];
-  shown.forEach((name, row) => elements.push(text(` ${name}${name === view.viewer ? " (me)" : ""} `, 0, L.top - row * L.gap, { scale: L.scale, box: "button" })));
+  shown.forEach((name, row) => elements.push(fitted(name, 0, L.top - row * L.gap, span, L.scale, 0.4, { box: "button" })));
   if (shown.length < total) elements.push(text(`+${total - shown.length} more`, 0, L.top - shown.length * L.gap, { scale: L.scale, tone: "dim" }));
   return { frame: "panel", elements };
 }
 
 /**
- * A player's stats, like their screen: on the left the portrait (badge) with the open tab's name
- * under it; on the right the name, the rank, and the open tab's stats in three columns (value over
- * label), sized to fit their columns.
+ * A player's stats as a grid. The top row has the portrait (badge) on the left and, beside it, the
+ * open tab's name, the player's name and their rank. Below it, the open tab's stats are a table
+ * across the panel: three columns of value over label, the last row "+N more" when they don't fit.
  */
 export function statsContent(view: StatsView): HoloContent {
   const L = HOLO_LAYOUT.stats;
-  const elements = [title(view.player, L.rightX, L.rightWidth)];
+  const elements: HoloElement[] = [];
+  const portrait = badgeFor(view.player);
   const tab = view.tabs.find((candidate) => candidate.id === view.tab);
-  if (tab) {
-    const scale = fitScale(tab.name, L.valueScale + 0.15, 1.1, L.minScale);
-    elements.push(text(truncate(tab.name, scale, 1.1), L.leftX, L.tab, { scale, box: "selected" }));
-  }
+  if (tab) elements.push(fittedLeft(tab.name, L.left, L.tab, L.width, L.tabScale, L.minScale, { box: "selected" }));
+  elements.push(fittedLeft(view.player, L.left, L.name, L.width, L.nameScale, 0.5, { tone: "title" }));
   if (view.columns.length === 0) {
-    elements.push(text("No stats yet", L.rightX, L.rank, { scale: L.valueScale + 0.15, tone: "dim" }));
-    return { frame: "panel", elements, portrait: badgeFor(view.player) };
+    elements.push(fittedLeft("No stats yet", L.left, L.rank, L.width, L.rankScale, L.minScale, { tone: "dim" }));
+    return { frame: "panel", elements, portrait };
   }
-  if (view.placement) elements.push(text(`Rank ${ordinal(view.placement.rank)} of ${view.placement.of}`, L.rightX, L.rank, { scale: L.valueScale + 0.15, tone: "highlight" }));
+  if (view.placement) {
+    elements.push(fittedLeft(`Rank ${ordinal(view.placement.rank)} of ${view.placement.of}`, L.left, L.rank, L.width, L.rankScale, L.minScale, { tone: "highlight" }));
+  }
   view.columns.forEach((stats, column) => {
     const x = L.columns[column];
-    elements.push(text(STAT_COLUMNS[column], x, L.headings, { scale: fitScale(STAT_COLUMNS[column], L.labelScale, L.columnWidth, L.minScale), tone: "dim" }));
-    stats.slice(0, L.tiles).forEach((stat, row) => {
+    elements.push(fitted(STAT_COLUMNS[column], x, L.headings, L.columnWidth, L.headingScale, L.minScale, { tone: "dim" }));
+    const shown = stats.length > L.tiles ? stats.slice(0, L.tiles - 1) : stats;
+    shown.forEach((stat, row) => {
       const y = L.tilesTop - row * L.tileGap;
-      const valueScale = fitScale(stat.value, L.valueScale, L.columnWidth, L.minScale);
-      const labelScale = fitScale(stat.label, L.labelScale, L.columnWidth, L.minScale);
-      elements.push(text(truncate(stat.value, valueScale, L.columnWidth), x, y, { scale: valueScale, box: "tile" }));
-      elements.push(text(truncate(stat.label, labelScale, L.columnWidth), x, y - L.labelGap, { scale: labelScale, tone: "dim" }));
+      elements.push(fitted(stat.value, x, y, L.columnWidth, L.valueScale, L.minScale, { box: "tile" }));
+      elements.push(fitted(stat.label, x, y - L.labelGap, L.columnWidth, L.labelScale, L.minScale, { tone: "dim" }));
     });
+    if (shown.length < stats.length) {
+      elements.push(fitted(`+${stats.length - shown.length} more`, x, L.tilesTop - shown.length * L.tileGap, L.columnWidth, L.labelScale, L.minScale, { tone: "dim" }));
+    }
   });
-  return { frame: "panel", elements, portrait: badgeFor(view.player) };
+  return { frame: "panel", elements, portrait };
 }
 
 /** Up to three names, then how many more: "Steve, Alex, Bob +2". */
