@@ -38,7 +38,9 @@ const client = bedrock.createClient({
   transport: "nethernet",
   skipPing: true,
   version: VERSION,
-  nethernet: { networkId: 0n },
+  // The server's network id: BDS's HTTP signaling never uses it (only our own signals carry it),
+  // but bedrock-protocol refuses 0.
+  nethernet: { networkId: 1n },
   username: "watcher",
   // The sign-in token is cached in the spike's Docker volume, so later runs skip the code.
   profilesFolder: "/cache/watcher",
