@@ -135,7 +135,8 @@ const stats = await api("GET", "/v1/stats").catch(() => undefined);
 if (stats?.status === 200) pass(`stats storage answers (${(stats.body.players as unknown[]).length} players recorded)`);
 else fail(`GET /v1/stats answered ${stats ? `HTTP ${stats.status} ${JSON.stringify(stats.body)}` : "nothing"}`);
 
-const problems = log.split("\n").filter((line) => /\] (WARN|ERROR) /.test(line));
+// A dev setting (DEV_*) is on on purpose; the orchestrator says so at startup, which can land in the window.
+const problems = log.split("\n").filter((line) => /\] (WARN|ERROR) /.test(line) && !/\bDEV_[A-Z_]+ is on\b/.test(line));
 if (problems.length === 0) pass("no warnings or errors in the orchestrator log");
 else fail(`the orchestrator logged problems:\n        ${problems.join("\n        ")}`);
 
