@@ -74,8 +74,16 @@ explains why, and how skins could come later.
       it doesn't need;
     - a bot stopped without leaving keeps its session for about 15 seconds, and starting it again
       meanwhile is refused with "server_id_conflict", so it now leaves cleanly on stop;
-    - still untested: a character creator skin (likely 256x256 with its own geometry), and a skin
-      change while in the lobby.
+    - a character creator skin came through too: 256x256, `persona: true`, with its own model
+      (`geometry.persona_<id>`, plus `geometry.animated_face_persona_<id>`). Its picture is a sheet
+      of body parts, not the classic skin layout, so drawing it needs that model, which the skin
+      carries in `geometry_data` (the watcher saves it as `.geo.json`). A head for the stats list
+      would be cut from the sheet using the model's head bone;
+    - a bot that only closes its connection keeps its session for about 15 seconds too, so a quick
+      restart still has to wait;
+    - when the lobby restarts, the bot drops out and doesn't come back: an always-on bot needs to
+      reconnect;
+    - still untested: a skin change while in the lobby.
   - **An offline-mode lobby behind the relay:** the relay checks every player's sign-in, and the
     lobby trusts whoever the relay sends. The lobby must then be reachable only through the relay,
     and every lobby connection depends on a young library (0.2.0). A much bigger change.

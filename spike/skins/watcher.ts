@@ -142,12 +142,16 @@ async function save(name: string, xuid: string, skin: Record<string, unknown> | 
     premium: skin?.premium,
     armSize: skin?.arm_size,
     geometry: patch?.geometry,
+    geometryBytes: typeof skin?.geometry_data === "string" ? skin.geometry_data.length : 0,
     recordFields: fields,
     skinFields: skin ? Object.keys(skin) : [],
   };
   const file = `${OUT}/watch-${xuid || "unknown"}-${name.replace(/[^A-Za-z0-9_-]/g, "_")}`;
   await mkdir(OUT, { recursive: true });
   await writeFile(`${file}.json`, `${JSON.stringify(info, null, 2)}\n`);
+  // Character creator skins come with their own model (the classic ones use the standard humanoid);
+  // drawing one needs it, so keep it beside the picture.
+  if (typeof skin?.geometry_data === "string" && skin.geometry_data.length > 0) await writeFile(`${file}.geo.json`, skin.geometry_data);
   if (width > 0 && height > 0 && pixels.length === width * height * 4) {
     await writeFile(`${file}.png`, png(width, height, pixels));
     saved++;
