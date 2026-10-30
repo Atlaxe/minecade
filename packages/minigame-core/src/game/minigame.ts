@@ -18,7 +18,7 @@ import type { ServerContext } from "../context.ts";
 import type { GameConfig, TeamDef } from "../config.ts";
 import { countdownChime, hudLine, playChime, type Chime } from "../hud.ts";
 import { describeError, log } from "../log.ts";
-import type { Vec3 } from "../map-config.ts";
+import { facingOf, type MapPosition } from "../map-config.ts";
 import { normalizePlayer } from "../player.ts";
 import type { Scope } from "../scope.ts";
 import { COLOR, deathMessage as formatDeath, nameOf, say } from "../text.ts";
@@ -202,7 +202,7 @@ export abstract class Minigame<C extends GameConfig = GameConfig> {
   }
 
   /** Team spawns for team games, otherwise the map's spawns in roster order. */
-  protected spawnPoint(name: string): Vec3 {
+  protected spawnPoint(name: string): MapPosition {
     const participant = this.roster.get(name);
     const key = name.toLowerCase();
     if (participant?.team) {
@@ -438,8 +438,7 @@ export abstract class Minigame<C extends GameConfig = GameConfig> {
     const player = this.player(name);
     if (!player) return;
     player.setGameMode(GameMode.Spectator);
-    const [x, y, z] = this.map.spectatorSpawn;
-    player.teleport({ x: x + 0.5, y, z: z + 0.5 });
+    this.place(player, this.map.spectatorSpawn);
   }
 
   broadcast(text: string): void {
@@ -504,10 +503,7 @@ export abstract class Minigame<C extends GameConfig = GameConfig> {
     normalizePlayer(player, this.gameMode);
     const team = this.teamOf(name);
     if (team) player.nameTag = `${team.color}${player.name}`;
-    const [x, y, z] = this.spawnPoint(name);
-    // Face the middle of the map at eye level, so nobody starts looking at the sky or the floor.
-    const [cx, , cz] = this.map.center();
-    player.teleport({ x: x + 0.5, y, z: z + 0.5 }, { facingLocation: { x: cx + 0.5, y: y + 1.62, z: cz + 0.5 } });
+    this.place(player, this.spawnPoint(name), true);
     this.kits.give(player, team?.color);
     const protect = this.config.respawn?.protectSeconds;
     if (why === "respawn" && protect) this.protectedUntil.set(name.toLowerCase(), system.currentTick + protect * 20);
@@ -681,8 +677,26 @@ export abstract class Minigame<C extends GameConfig = GameConfig> {
 
   private placeWaiting(player: Player): void {
     const index = Math.max(0, this.online().indexOf(player.name));
-    const [x, y, z] = this.map.spawns[index % Math.max(1, this.map.spawns.length)] ?? [0, 65, 0];
-    player.teleport({ x: x + 0.5, y, z: z + 0.5 });
+    this.place(player, this.map.spawns[index % Math.max(1, this.map.spawns.length)] ?? [0, 65, 0]);
+  }
+
+  /**
+   * Teleports to the middle of a map position's block, facing its saved facing. Without one,
+   * spawns face the middle of the map at eye level, so nobody starts looking at the sky or the
+   * floor; other places keep the player's own facing.
+   */
+  private place(player: Player, position: MapPosition, faceCenter = false): void {
+    const [x, y, z] = position;
+    const location = { x: x + 0.5, y, z: z + 0.5 };
+    const facing = facingOf(position);
+    if (facing) {
+      player.teleport(location, { rotation: { x: facing.pitch, y: facing.yaw } });
+    } else if (faceCenter) {
+      const [cx, , cz] = this.map.center();
+      player.teleport(location, { facingLocation: { x: cx + 0.5, y: y + 1.62, z: cz + 0.5 } });
+    } else {
+      player.teleport(location);
+    }
   }
 
   private async openPicker(player: Player, scope: Scope): Promise<void> {
@@ -844,13 +858,12 @@ export abstract class Minigame<C extends GameConfig = GameConfig> {
       const player = this.player(participant.name);
       if (player && this.map.outOfBounds(player.location)) this.down(participant.name, "void");
     }
-    // Spectators fly through walls: keep them over the map.
+    // Spectators fly through walls: keep them over the map (kill regions don't apply to them).
     for (const participant of this.roster.inState("out", "respawning")) {
       const player = this.player(participant.name);
       const bounds = this.map.bounds;
-      if (player && bounds && this.map.outOfBounds({ ...player.location, y: Math.max(player.location.y, bounds.min[1]) })) {
-        const [x, y, z] = this.map.spectatorSpawn;
-        player.teleport({ x: x + 0.5, y, z: z + 0.5 });
+      if (player && bounds && this.map.outOfBounds({ ...player.location, y: Math.max(player.location.y, bounds.min[1]) }, { killRegions: false })) {
+        this.place(player, this.map.spectatorSpawn);
       }
     }
   }

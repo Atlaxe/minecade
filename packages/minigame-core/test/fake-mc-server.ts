@@ -252,6 +252,8 @@ export class FakePlayer {
   isSprinting = false;
   selectedSlotIndex = 0;
   readonly teleports: Vector3[] = [];
+  /** The facing of each teleport, in order: a rotation (x pitch, y yaw), a point to face, or none. */
+  readonly teleportFacings: ({ rotation: { x: number; y: number } } | { facingLocation: Vector3 } | undefined)[] = [];
   /** Every applyKnockback call, in order. */
   readonly knockbacks: { x: number; z: number; vertical: number }[] = [];
   /** Every sound played to this player, in order. */
@@ -328,10 +330,13 @@ export class FakePlayer {
     }
   }
 
-  teleport(location: Vector3): void {
+  teleport(location: Vector3, options: { rotation?: { x: number; y: number }; facingLocation?: Vector3 } = {}): void {
     writable("Entity::teleport");
     this.location = { ...location };
     this.teleports.push({ ...location });
+    if (options.rotation) this.teleportFacings.push({ rotation: { ...options.rotation } });
+    else if (options.facingLocation) this.teleportFacings.push({ facingLocation: { ...options.facingLocation } });
+    else this.teleportFacings.push(undefined);
   }
 
   playSound(id: string, options: { pitch?: number; volume?: number } = {}): void {

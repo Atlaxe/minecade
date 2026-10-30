@@ -1,8 +1,10 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import {
+  checkLobbyMap,
   checkRequest,
   formatPorts,
+  lobbyMapChoices,
   normalizeNames,
   PlayerLog,
   readEnv,
@@ -116,6 +118,30 @@ describe("stackOf", () => {
     ).toBeUndefined();
     expect(stackOf({ Names: ["/supabase_db_kaheforms"], Labels: project("supabase_kaheforms") })).toBeUndefined();
     expect(stackOf({ Names: ["/wordpress"], Labels: {} })).toBeUndefined();
+  });
+});
+
+describe("LOBBY_MAP", () => {
+  const choices = lobbyMapChoices([
+    { id: "main", json: '{ "name": "Main", "spawns": [] }' },
+    { id: "spaceship", json: '{ "name": "Spaceship", "spawns": [] }' },
+    { id: "castle", json: '{ "name": "Castle", "draft": true, "spawns": [] }' },
+    { id: "broken", json: "{ nope" },
+    { id: "nameless", json: '{ "spawns": [] }' },
+  ]);
+
+  it("offers the finished lobby maps by name", () => {
+    expect(choices).toEqual([
+      { id: "main", name: "Main" },
+      { id: "spaceship", name: "Spaceship" },
+      { id: "nameless", name: "nameless" },
+    ]);
+  });
+
+  it("accepts one of them, or empty for the default", () => {
+    expect(checkLobbyMap(" main ", choices)).toEqual({ ok: true, value: "main" });
+    expect(checkLobbyMap("", choices)).toEqual({ ok: true, value: "" });
+    expect(checkLobbyMap("castle", choices)).toEqual({ ok: false, error: '"castle" is not a finished lobby map (main, spaceship, nameless)' });
   });
 });
 

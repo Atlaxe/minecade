@@ -24,24 +24,54 @@ copies it into the server templates. Each game server starts from a fresh copy o
 | Field | Required | Meaning |
 |---|---|---|
 | `name` | yes | Shown in the game selector. |
-| `spawns` | yes | `[x, y, z]` positions. The lobby needs one; a game needs one per player slot (at least `maxPlayers`). The first is also the world spawn. |
+| `draft` | no | `true` for an unfinished map: the build skips it with a warning (and skips a game whose maps are all drafts). The map editor's "Mark ready" removes it. |
+| `spawns` | yes | Positions (see below). The lobby needs one; a game needs one per player slot (at least `maxPlayers`). The first is also the world spawn. |
 | `spectatorSpawn` | no | Where eliminated players watch from. |
 | `bounds` | when `build` is used | The playable box, in whole blocks (inclusive). Players outside it are out (in games with `combat.outOfBounds: "down"`), and spectators are kept inside. Spawns must be inside it, and y must stay within -64 to 319. |
-| `killY` | no | Anyone below this height is out (knocked off, fell into the void). |
+| `killY` | no | Anyone below this height is out (knocked off, fell into the void). Within -64 to 319. |
 | `time` | no | A fixed time of day: the daylight cycle stops there when the server starts. `day`, `noon`, `sunset`, `night`, `midnight` or `sunrise`, or ticks from 0 to 23999. |
 | `stars` | no | The lobby only: `true` puts a star box around the map, so stars show in every direction, below the horizon too (Bedrock's own sky has stars only above it). Use it with a night `time`. See "The star box" in `docs/ui.md`. |
-| `teamSpawns` | no | `{ "<team or role id>": [[x, y, z], ...] }`. Team games spawn each team at its own points. With these, `spawns` may have fewer than `maxPlayers` entries. |
-| `points` | no | `{ "<name>": [[x, y, z], ...] }`: named positions a game uses, such as bomb sites or mob spawns. |
-| `regions` | no | `{ "<name>": [{ "min": [x, y, z], "max": [x, y, z] }, ...] }`: named boxes, such as build plots or a floor that falls away. |
+| `teamSpawns` | no | `{ "<team or role id>": [positions] }`. Team games spawn each team at its own points. With these, `spawns` may have fewer than `maxPlayers` entries. The keys must be the game's team ids. |
+| `points` | no | `{ "<name>": [positions] }`: named positions a game uses, such as bomb sites or mob spawns. `"<name>.<team>"` is one team's (`"flag.red"`). |
+| `regions` | no | `{ "<name>": [{ "min": [x, y, z], "max": [x, y, z] }, ...] }`: named boxes, such as build plots or a floor that falls away. `"<name>.<team>"` is one team's. The name `kill` is reserved: anyone inside a `kill` box is out, the same as falling below `killY` (spectators fly over them). |
 | `build.commands` | no | Console commands (no leading `/`) that build the world, run once by `npm run bake`. |
+| `source`, `cameras` | no | Written by the map editor: where the map was cut from, and its preview cameras. Servers never get them. |
 | anything else | no | Game-specific settings the game reads itself. |
 
-Positions, points and regions must all be inside `bounds`. A game can list the `points` and
-`regions` names it needs in its config, and say whether it needs `teamSpawns`
-(`map: { points: ["bombA", "bombB"], teamSpawns: true }`). The build then rejects any of its
-maps that lacks one.
+**Positions** are `[x, y, z]` block coordinates, or `[x, y, z, yaw, pitch]` with a fixed facing in
+degrees (yaw -180 to 180, 0 faces south; pitch -90 up to 90 down). Without a facing, spawns face
+the middle of the map, and the lobby's spawn faces the terminal. Positions, points and regions
+must all be inside `bounds`.
 
-`npm run build` reports every problem in every map at once.
+Servers get `map.json` without `build`, `source`, `cameras` and `draft`. `npm run build` reports
+every problem in every map at once, and warns (without stopping) about two entries of a list on
+the same block.
+
+## What a game's maps need
+
+A game says what its maps must have in the `map` block of its `game.config.ts`. The build checks
+every map against it, and the map editor shows it as each map's checklist:
+
+```ts
+map: {
+  spawns: { min: "maxPlayers" },   // the default; a number also works
+  teamSpawns: { perTeam: 5 },      // or true for at least one per team
+  spectatorSpawn: true,
+  killY: true,
+  bounds: true,
+  points: { bombA: { label: "Bomb site A" }, bombB: { label: "Bomb site B", count: 1 } },
+  regions: { buyZone: { label: "Buy zone", perTeam: true } },
+}
+```
+
+`perTeam` entries are needed once for every team the game can have (`"buyZone.red"`,
+`"buyZone.blue"`). The short forms still work: `points: ["bombA", "bombB"]`,
+`regions: ["floor"]`, `teamSpawns: true`. With `teamSpawns`, the plain `spawns` need only one.
+
+**The lobby** declares its own in `lobby/lobby.config.ts`: one spawn and the `terminal` point
+(the middle block of the terminal's 3x3 console; the hologram floats above it). `LOBBY_MAP` in
+`.env` picks which of `lobby/maps/` is the live lobby (default `spaceship`), and the Panel has a
+picker for it on the Servers page. A restart applies it.
 
 ## Baking a map
 

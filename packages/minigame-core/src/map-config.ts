@@ -1,11 +1,40 @@
-// A map's map.json. The build validates it, `npm run bake` builds the world from it, and the
-// runtime receives it (without "build") as the mapConfig server variable.
+// A map's map.json. The build validates it, `npm run bake` builds the world from it, the map
+// editor writes it, and the runtime receives it (without the editor-only keys) as the mapConfig
+// server variable.
 
 export type Vec3 = [x: number, y: number, z: number];
+
+/**
+ * A position in map.json: [x, y, z] (spawns face the map's middle), or [x, y, z, yaw, pitch] for
+ * a fixed facing in degrees (yaw -180 to 180, 0 is south; pitch -90 up to 90 down).
+ */
+export type MapPosition = Vec3 | [x: number, y: number, z: number, yaw: number, pitch: number];
+
+export interface Facing {
+  yaw: number;
+  pitch: number;
+}
 
 export interface Box {
   min: Vec3;
   max: Vec3;
+}
+
+/** The region name whose boxes put a player out, the same as falling below killY. */
+export const KILL_REGION = "kill";
+
+/** Per-team entries in points and regions are keyed "<name>.<team>", such as "buyZone.red". */
+export function teamKey(name: string, team?: string): string {
+  return team ? `${name}.${team}` : name;
+}
+
+export function positionXyz(position: MapPosition): Vec3 {
+  return [position[0], position[1], position[2]];
+}
+
+/** A position's saved facing, or undefined when it faces the map's middle. */
+export function facingOf(position: MapPosition): Facing | undefined {
+  return position.length === 5 ? { yaw: position[3], pitch: position[4] } : undefined;
 }
 
 /** Names for times of day, in ticks (Bedrock's TimeOfDay values). */
@@ -21,20 +50,39 @@ export function mapTimeTicks(time: unknown): number | undefined {
   return undefined;
 }
 
+/** Where a map was cut from (the map editor's Select mode), so "Update from world" can redo it. */
+export interface MapSource {
+  /** The converted world's name. */
+  world: string;
+  /** The selected box, in that world's coordinates. */
+  box: Box;
+  /** What was added to move the box to the middle (x 0, z 0). */
+  offset: Vec3;
+}
+
+/** A preview camera placed in the map editor: where the screenshot is taken from. */
+export interface MapCamera {
+  at: [x: number, y: number, z: number, yaw: number, pitch: number];
+  /** "map": the map's preview, without players. "game": the game's picture, players in the shot. */
+  kind: "map" | "game";
+}
+
 export interface MapConfig {
   name: string;
+  /** An unfinished map: the build skips it until the editor's "Mark ready" removes the flag. */
+  draft?: boolean;
   /** Where players appear: one for the lobby, at least one per player slot for a game. */
-  spawns: Vec3[];
-  spectatorSpawn?: Vec3;
+  spawns: MapPosition[];
+  spectatorSpawn?: MapPosition;
   /** The playable area. Required for baking, which builds and checks inside it. */
   bounds?: Box;
   /** Below this height a player is out (void games). */
   killY?: number;
   /** Spawns per team, role or side, keyed by its id. */
-  teamSpawns?: Record<string, Vec3[]>;
-  /** Named positions, such as bomb sites or mob spawns. */
-  points?: Record<string, Vec3[]>;
-  /** Named areas, such as build plots or a floor. */
+  teamSpawns?: Record<string, MapPosition[]>;
+  /** Named positions, such as bomb sites or mob spawns; "<name>.<team>" for one team's. */
+  points?: Record<string, MapPosition[]>;
+  /** Named areas, such as build plots or a floor; "<name>.<team>" for one team's; "kill" puts players out. */
   regions?: Record<string, Box[]>;
   /** A fixed time of day: the daylight cycle stops there (set when the server starts). */
   time?: MapTime;
@@ -42,6 +90,19 @@ export interface MapConfig {
   stars?: boolean;
   /** Console commands (without "/") that `npm run bake` runs once to build the world. */
   build?: { commands: string[] };
+  /** The map editor only (stripped from servers' copies). */
+  source?: MapSource;
+  cameras?: Record<string, MapCamera>;
   /** Game-specific values, such as Sumo's eliminationY. */
   [key: string]: unknown;
+}
+
+/** Keys only the build and the map editor use; servers get the map without them. */
+export const EDITOR_ONLY_KEYS = ["build", "source", "cameras", "draft"] as const;
+
+/** The map as servers get it: without the editor-only keys. */
+export function runtimeMapConfig(config: MapConfig): MapConfig {
+  const runtime: MapConfig = { ...config };
+  for (const key of EDITOR_ONLY_KEYS) delete runtime[key];
+  return runtime;
 }

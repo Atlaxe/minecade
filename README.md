@@ -53,6 +53,7 @@ Build Battle, Prophunt, Zombies, Hide and Seek, Block Drop). See [Adding a game]
    | `ALLOW_LIST` | Gamertags allowed to join, comma-separated. Empty means anyone with your address can join. |
    | `PUBLIC_HOST` | `auto` (looks up your public IP at start) or a DDNS hostname. |
    | `WATCHER_GAMERTAG` | The gamertag of a spare Microsoft account that stays in the lobby to save players' skins (see [Player skins](#player-skins)). Empty turns it off, and players get letter badges. |
+   | `LOBBY_MAP` | Empty normally (the `spaceship` lobby). The id of another map in `lobby/maps/` to use it as the lobby; the Panel has a picker on the Servers page. Restart the network to apply. |
    | `DEV_MIN_PLAYERS` | Empty normally. `1` lets every game start with one player, for testing alone. |
    | `DEV_HOLO_PREVIEW` | Empty normally. `1` adds a Preview button to the terminal's main menu: pick a hologram screen, and it stays up with sample data until you tap the terminal again, so you can look at it without a form in the way. |
    | `DEV_DEMO_GAMES` | Empty normally. A number (up to 12) adds that many made-up games to the lobby's menus, for testing how they look with more games. They can't be started. |

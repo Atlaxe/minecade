@@ -5,7 +5,7 @@
 //   --no-window  don't open a window (testing with curl)
 import { spawn } from "node:child_process";
 import { appendFileSync, existsSync, mkdirSync, statSync, writeFileSync } from "node:fs";
-import { readFile, writeFile } from "node:fs/promises";
+import { readdir, readFile, writeFile } from "node:fs/promises";
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import { networkInterfaces, tmpdir } from "node:os";
 import { join } from "node:path";
@@ -13,8 +13,10 @@ import { createInterface } from "node:readline";
 import { fileURLToPath } from "node:url";
 import type Docker from "dockerode";
 import {
+  checkLobbyMap,
   checkRequest,
   formatPorts,
+  lobbyMapChoices,
   normalizeNames,
   PlayerLog,
   readEnv,
@@ -183,6 +185,18 @@ async function orchestratorStatus(): Promise<unknown> {
   }
 }
 
+/** The finished lobby maps, for the LOBBY_MAP picker. */
+async function lobbyMaps() {
+  const dir = join(repoRoot, "lobby", "maps");
+  if (!existsSync(dir)) return [];
+  const entries: { id: string; json: string }[] = [];
+  for (const id of (await readdir(dir)).sort()) {
+    const path = join(dir, id, "map.json");
+    if (existsSync(path)) entries.push({ id, json: await readFile(path, "utf8") });
+  }
+  return lobbyMapChoices(entries);
+}
+
 async function buildState() {
   const envText = existsSync(envPath) ? await readFile(envPath, "utf8") : undefined;
   const env = envText === undefined ? undefined : readEnv(envText);
@@ -224,10 +238,12 @@ async function buildState() {
           ALLOW_LIST: env.ALLOW_LIST ?? "",
           LAN_PLAYERS: env.LAN_PLAYERS ?? "",
           WATCHER_GAMERTAG: env.WATCHER_GAMERTAG ?? "",
+          LOBBY_MAP: env.LOBBY_MAP ?? "",
           TRANSPORT: env.TRANSPORT ?? "",
           BDS_VERSION: env.BDS_VERSION ?? "",
         }
       : { missing: true },
+    lobbyMaps: await lobbyMaps(),
   };
 }
 
@@ -336,6 +352,11 @@ async function saveEnv(body: Record<string, unknown>): Promise<{ status: number;
     const result = normalizeNames(String(body[key]));
     if (!result.ok) return { status: 400, body: { error: `${key}: ${result.error}` } };
     values[key] = result.value;
+  }
+  if (body.LOBBY_MAP !== undefined) {
+    const result = checkLobbyMap(String(body.LOBBY_MAP), await lobbyMaps());
+    if (!result.ok) return { status: 400, body: { error: `LOBBY_MAP: ${result.error}` } };
+    values.LOBBY_MAP = result.value;
   }
   const before = await readFile(envPath, "utf8");
   const after = setEnvValues(before, values);

@@ -267,6 +267,33 @@ describe("MapView", () => {
     expect(bare.regions("floor")).toEqual([]);
     expect(bare.killY).toBeUndefined();
   });
+
+  it("keeps saved facings, and centers on a spawn's block", () => {
+    const view = new MapView({ name: "Facing", spawns: [[1, 64, 2, 90, 10]], spectatorSpawn: [0, 80, 0, -45, 30] });
+    expect(view.spawns[0]).toEqual([1, 64, 2, 90, 10]);
+    expect(view.spectatorSpawn).toEqual([0, 80, 0, -45, 30]);
+    expect(view.center()).toEqual([1, 64, 2]);
+    expect(new MapView({ name: "Fallback", spawns: [[1, 64, 2, 90, 10]] }).spectatorSpawn).toEqual([1, 69, 2]);
+  });
+
+  it("puts players out inside a kill region, but not spectators", () => {
+    const pit: Box = { min: [0, 50, 0], max: [4, 55, 4] };
+    const view = new MapView({ ...base, bounds: { min: [-10, 40, -10], max: [10, 90, 10] }, regions: { kill: [pit] } });
+    expect(view.killRegions).toEqual([pit]);
+    expect(view.outOfBounds({ x: 2, y: 52, z: 2 })).toBe(true);
+    expect(view.outOfBounds({ x: 2, y: 52, z: 2 }, { killRegions: false })).toBe(false);
+    expect(view.outOfBounds({ x: 2, y: 56, z: 2 })).toBe(false);
+    expect(new MapView(base).killRegions).toEqual([]);
+  });
+
+  it("reads one team's points and regions", () => {
+    const zone: Box = { min: [0, 60, 0], max: [3, 62, 3] };
+    const view = new MapView({ ...base, points: { flag: [[0, 65, 0]], "flag.red": [[-5, 65, 0]] }, regions: { "buyZone.blue": [zone] } });
+    expect(view.points("flag")).toEqual([[0, 65, 0]]);
+    expect(view.points("flag", "red")).toEqual([[-5, 65, 0]]);
+    expect(view.points("flag", "blue")).toEqual([]);
+    expect(view.regions("buyZone", "blue")).toEqual([zone]);
+  });
 });
 
 describe("inside", () => {

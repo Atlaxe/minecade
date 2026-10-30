@@ -2,13 +2,27 @@
 // and bundles the orchestrator into dist/orchestrator/. A target is the lobby (lobby/) or a game
 // (games/<id>/ with a game.config.ts). Everything is validated first, and all problems are
 // reported together. Each behavior pack is bundled once per transport, and the container
-// entrypoint keeps the pair that matches TRANSPORT.
+// entrypoint keeps the pair that matches TRANSPORT. Draft maps (the map editor's unfinished ones)
+// are skipped with a warning, and so is a game with no finished map.
 import { existsSync } from "node:fs";
 import { cp, mkdir, readdir, readFile, rm, writeFile } from "node:fs/promises";
 import { dirname, join, relative } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { build } from "esbuild";
-import { holoPictures, holoPortraits, skinTexture, type GameConfig, type MapConfig, type PlayerSkin, type Registry, type RegistryGame } from "@minecade/minigame-core/config";
+import {
+  holoPictures,
+  holoPortraits,
+  mapRequirements,
+  possibleTeams,
+  runtimeMapConfig,
+  skinTexture,
+  type GameConfig,
+  type LobbyConfig,
+  type MapConfig,
+  type PlayerSkin,
+  type Registry,
+  type RegistryGame,
+} from "@minecade/minigame-core/config";
 import type { TransportKind } from "@minecade/minigame-core/protocol";
 import { encodePng } from "../skins/png.ts";
 import { RENDERS, renderSkinSet } from "../skins/skin-set.ts";
@@ -17,7 +31,7 @@ import { enableBetaApis, patchLevelDat } from "./leveldat.ts";
 import { MODULE_VERSIONS, pinManifest, type Manifest } from "./mc-versions.ts";
 import { contentHash, withPatchVersion } from "./pack-version.ts";
 import { registryPlugin, skinsPlugin, transportPlugin } from "./transport-plugin.ts";
-import { validateGameConfig, validateMapConfig } from "./validate.ts";
+import { mapWarnings, validateGameConfig, validateMapConfig } from "./validate.ts";
 
 const root = fileURLToPath(new URL("../../", import.meta.url));
 const dist = join(root, "dist");
@@ -31,6 +45,12 @@ interface Target {
   id: string;
   dir: string;
   game?: GameConfig;
+  /** The lobby's lobby/lobby.config.ts, when it has one. */
+  lobby?: LobbyConfig;
+  /** Every team the game can have, for team spawns and "<name>.<team>" keys. */
+  teams: { id: string; name: string }[];
+  /** A game whose maps are all drafts: not built at all. */
+  skip?: boolean;
   behaviorPack?: Manifest;
   resourcePack?: Manifest;
   /** The game's 16:9 icon.png (required for games). */
@@ -39,10 +59,15 @@ interface Target {
 }
 
 const problems: string[] = [];
+const warnings: string[] = [];
 const uuids = new Map<string, string>();
 
 function report(path: string, list: string[]): void {
   for (const problem of list) problems.push(`${relative(root, path)}: ${problem}`);
+}
+
+function warn(path: string, list: string[]): void {
+  for (const warning of list) warnings.push(`${relative(root, path)}: ${warning}`);
 }
 
 async function readJson(path: string): Promise<unknown> {
@@ -81,10 +106,14 @@ async function hasContent(dir: string): Promise<boolean> {
 }
 
 async function loadTarget(id: string, dir: string, configPath?: string): Promise<Target> {
-  const target: Target = { id, dir, maps: [] };
-  if (configPath) {
+  const target: Target = { id, dir, teams: [], maps: [] };
+  const kind = id === "lobby" ? "lobby" : "game";
+  if (configPath && kind === "lobby") {
+    target.lobby = (await import(pathToFileURL(configPath).href)).default as LobbyConfig;
+  } else if (configPath) {
     target.game = (await import(pathToFileURL(configPath).href)).default as GameConfig;
     report(configPath, validateGameConfig(target.game, id));
+    if (target.game.teams) target.teams = possibleTeams(target.game.teams).map(({ id: teamId, name }) => ({ id: teamId, name }));
   }
   if (existsSync(join(dir, "behavior_pack", "manifest.json"))) target.behaviorPack = await loadManifest(join(dir, "behavior_pack"));
   const rpDir = join(dir, "resource_pack");
@@ -95,6 +124,7 @@ async function loadTarget(id: string, dir: string, configPath?: string): Promise
   }
 
   const mapsDir = join(dir, "maps");
+  let drafts = 0;
   for (const mapId of existsSync(mapsDir) ? (await readdir(mapsDir)).sort() : []) {
     const mapDir = join(mapsDir, mapId);
     const mapJson = join(mapDir, "map.json");
@@ -104,24 +134,38 @@ async function loadTarget(id: string, dir: string, configPath?: string): Promise
     }
     const config = await readJson(mapJson);
     if (config === undefined) continue;
-    report(mapJson, validateMapConfig(config, { kind: target.game ? "game" : "lobby", maxPlayers: target.game?.maxPlayers, requires: target.game?.map }));
+    const found = validateMapConfig(config, { kind, maxPlayers: target.game?.maxPlayers, requires: (target.game ?? target.lobby)?.map, teams: target.teams });
+    if ((config as MapConfig).draft === true) {
+      // Unfinished: never shipped, and its problems are the map editor's checklist, not build failures.
+      warn(mapJson, [`draft map, skipped${found.length > 0 ? ` (still to do: ${found.join("; ")})` : ""}`]);
+      drafts++;
+      continue;
+    }
+    report(mapJson, found);
+    if (found.length === 0) warn(mapJson, mapWarnings(config as MapConfig));
     if (!existsSync(join(mapDir, "world", "level.dat"))) {
       report(mapDir, ["world/level.dat is missing: run npm run bake, or drop in a world built in the client"]);
     }
     const preview = join(mapDir, "preview.png");
     target.maps.push({ id: mapId, dir: mapDir, config: config as MapConfig, ...(existsSync(preview) ? { preview } : {}) });
   }
-  if (target.maps.length === 0) report(dir, ["needs at least one map in maps/<id>/"]);
+  if (target.maps.length === 0 && drafts > 0 && kind === "game") {
+    warn(dir, ["every map is a draft, so the game is skipped"]);
+    target.skip = true;
+  } else if (target.maps.length === 0) {
+    report(dir, [drafts > 0 ? "needs at least one finished map (the others are drafts)" : "needs at least one map in maps/<id>/"]);
+  }
   return target;
 }
 
 async function discoverTargets(): Promise<Target[]> {
-  const targets = [await loadTarget("lobby", join(root, "lobby"))];
+  const lobbyConfig = join(root, "lobby", "lobby.config.ts");
+  const targets = [await loadTarget("lobby", join(root, "lobby"), existsSync(lobbyConfig) ? lobbyConfig : undefined)];
   for (const id of (await readdir(join(root, "games"))).sort()) {
     const configPath = join(root, "games", id, "game.config.ts");
     if (existsSync(configPath)) targets.push(await loadTarget(id, join(root, "games", id), configPath));
   }
-  return targets;
+  return targets.filter((target) => !target.skip);
 }
 
 async function buildBehaviorPack(src: string, out: string, manifest: Manifest, registry: Registry, skins: PlayerSkin[]): Promise<void> {
@@ -234,8 +278,7 @@ async function buildMaps(target: Target, out: string): Promise<{ id: string; nam
     await cp(join(map.dir, "world"), join(mapOut, "world"), { recursive: true });
     // Worlds built by hand in the client usually lack Beta APIs, which every pack needs.
     await patchLevelDat(join(mapOut, "world", "level.dat"), enableBetaApis);
-    const { build: _bakeOnly, ...runtime } = map.config;
-    await writeFile(join(mapOut, "map.json"), JSON.stringify(runtime, null, 2));
+    await writeFile(join(mapOut, "map.json"), JSON.stringify(runtimeMapConfig(map.config), null, 2));
   }
   return target.maps.map((map) => ({ id: map.id, name: map.config.name }));
 }
@@ -269,6 +312,7 @@ async function buildOrchestrator(): Promise<void> {
 }
 
 const targets = await discoverTargets();
+if (warnings.length > 0) console.warn(`${warnings.length} warning${warnings.length === 1 ? "" : "s"}:\n  ${warnings.join("\n  ")}`);
 // Every server gets the core resource pack (the HUD timer and other shared UI), before its own.
 const coreRpDir = join(root, "packages", "minigame-core", "resource_pack");
 const coreResourcePack = existsSync(join(coreRpDir, "manifest.json")) ? await loadManifest(coreRpDir) : undefined;
@@ -277,9 +321,11 @@ if (problems.length > 0) {
   process.exit(1);
 }
 
-// Known before any bundling, so the lobby pack can embed it ("#registry").
+// Known before any bundling, so the lobby pack can embed it ("#registry"). Each entry carries what
+// its maps need (the map editor's checklist).
+const lobbyTarget = targets.find((target) => target.id === "lobby")!;
 const registry: Registry = {
-  games: targets.flatMap(({ game, maps }) =>
+  games: targets.flatMap(({ game, maps, teams }) =>
     game
       ? [
           {
@@ -289,10 +335,15 @@ const registry: Registry = {
               name: map.config.name,
               ...(map.preview ? { preview: `textures/minecade/maps/${game.id}/${map.id}` } : {}),
             })),
+            mapRequirements: mapRequirements(game.map, { kind: "game", maxPlayers: game.maxPlayers, teams }),
           },
         ]
       : [],
   ),
+  lobby: {
+    maps: lobbyTarget.maps.map((map) => ({ id: map.id, name: map.config.name })),
+    mapRequirements: mapRequirements(lobbyTarget.lobby?.map, { kind: "lobby" }),
+  },
 };
 
 // Also known before any bundling, for "#skins".

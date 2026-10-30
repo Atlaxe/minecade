@@ -2,7 +2,7 @@
 // platform is a kill for the last hitter, and the last player standing wins.
 import { readFileSync } from "node:fs";
 import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
-import { stripColors, type MapConfig } from "@minecade/minigame-core/config";
+import { runtimeMapConfig, stripColors, type MapConfig } from "@minecade/minigame-core/config";
 import { transfers } from "../../../packages/minigame-core/test/fake-mc-server-admin.ts";
 import { world, type FakePlayer } from "../../../packages/minigame-core/test/fake-mc-server.ts";
 import {
@@ -18,7 +18,7 @@ import {
 import config from "../game.config.ts";
 import { Sumo, pushDirection } from "../behavior_pack/scripts/sumo.ts";
 
-const { build: _build, ...arena } = JSON.parse(readFileSync(new URL("../maps/arena_1/map.json", import.meta.url), "utf8")) as MapConfig;
+const arena = runtimeMapConfig(JSON.parse(readFileSync(new URL("../maps/arena_1/map.json", import.meta.url), "utf8")) as MapConfig);
 const COUNTDOWN_TICKS = config.countdownSeconds * 20 + 5;
 
 let harness: Harness;

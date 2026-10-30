@@ -393,7 +393,7 @@ function renderStacks() {
   for (const stack of stacks) {
     const [controls, game, servers] = $(`stack-${stack.id}`).children;
     const busy = state.busy?.startsWith(`${stack.label}: `) ? state.busy : null;
-    const facts = [stack.label, stack.available, stack.missing, stack.running, stack.settingsStale];
+    const facts = [stack.label, stack.available, stack.missing, stack.running, stack.settingsStale, state.env.LOBBY_MAP, state.lobbyMaps];
     patch(controls, [facts, canAct, busy], () => stackCard(stack, canAct, busy));
     patch(game, stack.orchestrator, () => stack.orchestrator && gameCard(stack.orchestrator));
     patch(servers, [stack.containers, state.env.WATCHER_GAMERTAG], () => containersCard(stack));
@@ -412,9 +412,33 @@ function stackCard(stack, canAct, busy) {
   return el("div", { className: "card" },
     el("div", { className: "card-head" }, el("h2", {}, stack.label), el("span", { className: `pill ${tone}` }, text), el("div", { className: "actions" }, buttons)),
     !stack.available && el("p", { className: "hint" }, `Missing: ${stack.missing.join(", ")}.`),
+    stack.id === "main" && lobbyMapRow(),
     stack.settingsStale && el("p", { className: "callout warn" }, ".env changed after this stack started. Click Restart to apply the new settings."),
     busy && el("div", { className: "busy-line" }, el("span", { className: "spin" }), el("span", { id: "busy-line", className: "mono" }, lastActivity)),
   );
+}
+
+// The lobby map picker is rebuilt with the network card, so remember the choice across renders.
+let lobbyPick = "";
+
+/** Which lobby map the network uses (LOBBY_MAP in .env); a restart applies it. */
+function lobbyMapRow() {
+  const maps = state.lobbyMaps ?? [];
+  if (state.env.missing || maps.length === 0) return null;
+  const saved = state.env.LOBBY_MAP || "spaceship";
+  const select = el("select", { "aria-label": "Lobby map" });
+  for (const map of maps) select.append(el("option", { value: map.id }, map.name));
+  select.value = lobbyPick || saved;
+  const result = el("span", { className: "muted small" });
+  const save = el("button", { onclick: async () => {
+    const { ok, result: answer } = await post("/api/env", { LOBBY_MAP: select.value });
+    result.className = ok ? "muted small" : "error";
+    result.textContent = ok ? (answer.changed ? "Saved. Restart to apply." : "No changes.") : (answer.error ?? "Save failed.");
+    if (ok) lobbyPick = "";
+  } }, "Save");
+  save.disabled = select.value === saved;
+  select.onchange = () => { lobbyPick = select.value; save.disabled = select.value === saved; };
+  return el("div", { className: "row" }, el("span", {}, "Lobby map"), el("span", { className: "mono muted" }, "LOBBY_MAP"), select, save, result);
 }
 
 // The game picker is rebuilt when the game status changes, so remember the choice across renders.

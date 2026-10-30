@@ -3,7 +3,7 @@
 // lobby-controller.ts, stats-controller.ts) to players, forms and the orchestrator.
 import { GameMode, system, world, type Player, type Vector3 } from "@minecraft/server";
 import { uiManager, type ActionFormData } from "@minecraft/server-ui";
-import { describeError, holoPictures, holoPortraits, log, normalizePlayer, playChime, showForm, type Scope } from "@minecade/minigame-core";
+import { MapView, describeError, facingOf, holoPictures, holoPortraits, log, normalizePlayer, playChime, showForm, type Scope } from "@minecade/minigame-core";
 import { bootServer } from "@minecade/minigame-core/bootstrap";
 import registry from "#registry";
 import skins from "#skins";
@@ -78,9 +78,12 @@ async function showMenu(scope: Scope, player: Player, form: ActionFormData): Pro
 }
 
 bootServer(({ vars, transport, transfer, root }) => {
-  const [sx, sy, sz] = vars.mapConfig.spawns[0] ?? [0, 65, 0];
+  const map = new MapView(vars.mapConfig);
+  const spawnPoint = map.spawns[0] ?? [0, 65, 0];
+  const [sx, sy, sz] = spawnPoint;
   const spawn: Vector3 = { x: sx + 0.5, y: sy, z: sz + 0.5 };
-  const bounds = vars.mapConfig.bounds;
+  // A spawn with a saved facing (set in the map editor) keeps it; otherwise everyone faces the terminal.
+  const spawnFacing = facingOf(spawnPoint);
   watcherName = vars.watcher;
 
   const lobby = new LobbyController(
@@ -252,8 +255,13 @@ bootServer(({ vars, transport, transfer, root }) => {
     }
     // Effects, input locks, items or a spectator game mode can follow a player back from a game.
     normalizePlayer(player);
-    // Rejoining players otherwise appear wherever they logged out. Everyone faces the terminal.
-    player.teleport(spawn, { facingLocation: hologram.center });
+    // Rejoining players otherwise appear wherever they logged out.
+    sendToSpawn(player);
+  }
+
+  function sendToSpawn(player: Player): void {
+    if (spawnFacing) player.teleport(spawn, { rotation: { x: spawnFacing.pitch, y: spawnFacing.yaw } });
+    else player.teleport(spawn, { facingLocation: hologram.center });
   }
 
   root.subscribe(world.afterEvents.playerSpawn, ({ player, initialSpawn }) => {
@@ -273,16 +281,11 @@ bootServer(({ vars, transport, transfer, root }) => {
     lastTap.delete(playerName);
   });
 
-  // Anyone who walks or falls out of the lobby area goes back to spawn.
-  if (bounds) {
+  // Anyone who walks or falls out of the lobby area (or into a kill region) goes back to spawn.
+  if (map.bounds || map.killY !== undefined || map.killRegions.length > 0) {
     root.interval(() => {
       for (const player of lobbyPlayers()) {
-        const { x, y, z } = player.location;
-        const inside =
-          x >= bounds.min[0] && x <= bounds.max[0] + 1 &&
-          y >= bounds.min[1] && y <= bounds.max[1] + 1 &&
-          z >= bounds.min[2] && z <= bounds.max[2] + 1;
-        if (!inside) player.teleport(spawn);
+        if (map.outOfBounds(player.location)) sendToSpawn(player);
       }
     }, 10);
   }

@@ -2,11 +2,15 @@
 // (which the build runs) and the orchestrator import from "@minecade/minigame-core/config".
 export {
   defineGame,
+  defineLobby,
   type CombatConfig,
   type GameConfig,
   type GameOptionConfig,
   type KitDef,
   type KitItem,
+  type LobbyConfig,
+  type MapEntryRequirement,
+  type MapRequirementsConfig,
   type RespawnConfig,
   type ScoringConfig,
   type StatsConfig,
@@ -14,7 +18,28 @@ export {
   type TeamDef,
   type TeamsConfig,
 } from "./config.ts";
-export { MAP_TIMES, mapTimeTicks, type Box, type MapConfig, type MapTime, type Vec3 } from "./map-config.ts";
+export {
+  EDITOR_ONLY_KEYS,
+  KILL_REGION,
+  MAP_TIMES,
+  facingOf,
+  mapTimeTicks,
+  positionXyz,
+  runtimeMapConfig,
+  teamKey,
+  type Box,
+  type Facing,
+  type MapCamera,
+  type MapConfig,
+  type MapPosition,
+  type MapSource,
+  type MapTime,
+  type Vec3,
+} from "./map-config.ts";
+export { MapEditError, applyEdit, listOf, type MapEdit, type MapList } from "./map-edit.ts";
+export { formatMapConfig } from "./map-format.ts";
+export { mapRequirements, type MapField, type MapRequirement, type RequirementOptions } from "./map-requirements.ts";
+export { mapWarnings, validateMapConfig, type MapRules } from "./map-validate.ts";
 export {
   BADGE_CHARACTERS,
   PLACEHOLDER_PICTURES,
@@ -25,11 +50,12 @@ export {
   type PlayerSkin,
   type Registry,
   type RegistryGame,
+  type RegistryLobby,
   type RegistryMap,
   type SkinRender,
 } from "./registry.ts";
 export { killDeathRatio, winRate } from "./stats-math.ts";
-export { DEFAULT_TEAMS, activeTeams, assignTeams } from "./game/teams.ts";
+export { DEFAULT_TEAMS, activeTeams, assignTeams, possibleTeams } from "./game/teams.ts";
 export {
   COLOR,
   KILL_VERBS,

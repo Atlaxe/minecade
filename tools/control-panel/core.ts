@@ -149,6 +149,35 @@ const FORBIDDEN_NAME_CHARS = /[$#"'\\=\u0000-\u001f\u007f]/;
 
 export type NormalizeResult = { ok: true; value: string } | { ok: false; error: string };
 
+export interface LobbyMapChoice {
+  id: string;
+  name: string;
+}
+
+/**
+ * The lobby maps LOBBY_MAP can pick: lobby/maps/<id>/map.json files that read as JSON and aren't
+ * drafts (the build skips drafts), with their names.
+ */
+export function lobbyMapChoices(entries: { id: string; json: string }[]): LobbyMapChoice[] {
+  const choices: LobbyMapChoice[] = [];
+  for (const { id, json } of entries) {
+    try {
+      const map = JSON.parse(json) as { name?: unknown; draft?: unknown };
+      if (map && typeof map === "object" && map.draft !== true) choices.push({ id, name: typeof map.name === "string" && map.name ? map.name : id });
+    } catch {
+      // Not valid JSON: the build reports it.
+    }
+  }
+  return choices;
+}
+
+/** A LOBBY_MAP value: empty (the default, spaceship) or one of the finished lobby maps. */
+export function checkLobbyMap(raw: string, choices: LobbyMapChoice[]): NormalizeResult {
+  const value = raw.trim();
+  if (value === "" || choices.some((choice) => choice.id === value)) return { ok: true, value };
+  return { ok: false, error: `"${value}" is not a finished lobby map (${choices.map((choice) => choice.id).join(", ") || "none"})` };
+}
+
 /** Cleans a comma-separated gamertag list: trims, drops blanks and case-insensitive duplicates. */
 export function normalizeNames(raw: string): NormalizeResult {
   const seen = new Set<string>();

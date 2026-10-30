@@ -1,6 +1,8 @@
-// The game registry the build produces: every game and its maps. The orchestrator reads it as
-// registry.json; packs that need it (the lobby) import it as "#registry".
+// The game registry the build produces: every game and its maps, and the lobby's maps. The
+// orchestrator reads it as registry.json; packs that need it (the lobby, the map editor) import it
+// as "#registry".
 import type { GameOptionConfig, StatsConfig, TeamsConfig } from "./config.ts";
+import type { MapRequirement } from "./map-requirements.ts";
 
 export interface RegistryMap {
   id: string;
@@ -24,10 +26,18 @@ export interface RegistryGame {
   options?: GameOptionConfig[];
   /** How the stats service records this game; absent for games without stats. */
   stats?: StatsConfig;
+  /** What the game's maps need (mapRequirements): the map editor's checklist. */
+  mapRequirements?: MapRequirement[];
+}
+
+export interface RegistryLobby {
+  maps: RegistryMap[];
+  mapRequirements: MapRequirement[];
 }
 
 export interface Registry {
   games: RegistryGame[];
+  lobby?: RegistryLobby;
 }
 
 /** Stand-in pictures in the lobby resource pack, for games and maps without their own. */

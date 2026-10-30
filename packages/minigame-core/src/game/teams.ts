@@ -28,6 +28,14 @@ export function activeTeams(players: number, cfg: TeamsConfig): TeamDef[] {
   return defs.slice(0, Math.max(1, Math.min(count, defs.length)));
 }
 
+/** Every team a match could use: all defs for role teams, else as many as the largest count. */
+export function possibleTeams(cfg: TeamsConfig): TeamDef[] {
+  const defs = cfg.defs ?? DEFAULT_TEAMS;
+  if (isRoleSetup(defs)) return defs;
+  const count = typeof cfg.count === "number" ? cfg.count : cfg.count[1];
+  return defs.slice(0, Math.max(1, Math.min(count, defs.length)));
+}
+
 /** Returns player -> team id for every player. */
 export function assignTeams(
   players: string[],

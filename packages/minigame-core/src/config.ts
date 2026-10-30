@@ -124,8 +124,8 @@ export interface GameConfig {
   kits?: { pick?: boolean; list: KitDef[] };
   /** Game rules for the match (world.gameRules keys). Restored afterwards. */
   gameRules?: Record<string, boolean | number>;
-  /** Map entries this game needs. The build checks every map has them. */
-  map?: { points?: string[]; regions?: string[]; teamSpawns?: boolean };
+  /** Map entries this game needs. The build checks every map has them, and the map editor lists them. */
+  map?: MapRequirementsConfig;
   /** Recorded to the stats service when set; games without it record nothing. */
   stats?: StatsConfig;
   /** Kill-feed wording: extra "was <verb> by" verbs (Paintball: "painted"), or lines of its own. */
@@ -134,5 +134,41 @@ export interface GameConfig {
 
 /** Identity helper that type-checks a game.config.ts default export. */
 export function defineGame<C extends GameConfig>(config: C): C {
+  return config;
+}
+
+/** A named point or region a map needs. */
+export interface MapEntryRequirement {
+  /** Shown in the map editor's checklist. Default: the name. */
+  label?: string;
+  /** How many entries. Default 1. */
+  count?: number;
+  /** One per team ("<name>.<team>" keys), for every team the game can have. */
+  perTeam?: boolean;
+}
+
+/**
+ * The map entries a game (or the lobby) needs. The short forms still work: `points` and `regions`
+ * as lists of names, `teamSpawns: true`.
+ */
+export interface MapRequirementsConfig {
+  /** Spawns needed: a number, or "maxPlayers" (the default for games; the lobby needs 1). */
+  spawns?: { min?: number | "maxPlayers" };
+  /** Spawns per team: true for at least 1 each, or how many each team needs. */
+  teamSpawns?: boolean | { perTeam?: number };
+  spectatorSpawn?: boolean;
+  killY?: boolean;
+  bounds?: boolean;
+  points?: string[] | Record<string, MapEntryRequirement>;
+  regions?: string[] | Record<string, MapEntryRequirement>;
+}
+
+/** The lobby's definition, exported from lobby/lobby.config.ts: what its maps need. */
+export interface LobbyConfig {
+  map?: MapRequirementsConfig;
+}
+
+/** Identity helper that type-checks lobby/lobby.config.ts's default export. */
+export function defineLobby<C extends LobbyConfig>(config: C): C {
   return config;
 }
