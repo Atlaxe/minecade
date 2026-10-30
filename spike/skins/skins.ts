@@ -10,6 +10,24 @@ const LOBBY_URL = process.env.LOBBY_URL ?? "http://minecade-lobby:19132";
 /** The address players reach the relay at (LAN_HOST), advertised for the WebRTC connection. */
 const ADVERTISE = process.env.ADVERTISE ?? "";
 const SIGNALING_PORT = 19140;
+
+// The relay's own join requests to the lobby, and the lobby's answers, to compare the lobby's identity with the relay's.
+const realFetch = globalThis.fetch;
+globalThis.fetch = async (input, init) => {
+  const response = await realFetch(input, init);
+  const url = input instanceof Request ? input.url : String(input);
+  if (url.startsWith(LOBBY_URL) && init?.method === "POST") {
+    const body = await response.clone().text();
+    const offer = typeof init.body === "string" ? init.body : "";
+    report("lobby_join", {
+      path: new URL(url).pathname,
+      status: response.status,
+      offer: offer ? sdpSummary(offer) : undefined,
+      answer: body.startsWith("v=0") ? sdpSummary(body) : body.slice(0, 80),
+    });
+  }
+  return response;
+};
 /** Published one-to-one by docker-compose.skins.yml; one per player connected at a time. */
 const UDP_PORTS: [number, number] = [19141, 19150];
 const OUT = process.env.OUT_DIR ?? "/spike/out";
@@ -47,7 +65,29 @@ const proxy = new NetherNetProxy({
   // Joining matters more than the skin: a player whose login can't be read still gets in.
   requireClientData: false,
   log: (event, fields) => report(`relay_${event}`, fields),
+  gateway: {
+    configure(gateway) {
+      // Each signaling request and its answer, to see where a join fails (never the token or the SDP itself).
+      gateway.use(async (context, next) => {
+        const offer = context.req.method === "POST" ? await context.req.text() : "";
+        const response = await next();
+        report("http", {
+          from: context.remoteAddress,
+          method: context.req.method,
+          path: context.url.pathname,
+          status: response.status,
+          why: response.ok ? undefined : await response.clone().text(),
+          offer: offer ? sdpSummary(offer) : undefined,
+          answer: offer && response.ok ? sdpSummary(await response.clone().text()) : undefined,
+        });
+        return response;
+      });
+    },
+  },
 });
+for (const event of ["signalingRejected", "sessionOpen", "sessionReady", "sessionClose", "packetError"] as const) {
+  proxy.on(event, (...args: unknown[]) => report(`relay_${event}`, { detail: args.map(describe) }));
+}
 proxy.on("playerJoin", ({ identity, clientData }) => {
   saveSkin(identity.name, identity.xuid, clientData as unknown as Record<string, unknown>).catch((error: unknown) => report("save_failed", { error: String(error) }));
 });
@@ -93,6 +133,51 @@ async function saveSkin(name: string | undefined, xuid: string | undefined, data
   } else {
     report("no_skin", { name, width, height, bytes: pixels.length });
   }
+}
+
+/**
+ * What an SDP offer or answer carries: its attribute names, and for the identity line (the sender's
+ * token, which the other side checks) only its domain, the token's header fields, issuer, audience,
+ * expiry and claim names. Never the token or the SDP itself.
+ */
+function sdpSummary(sdp: string): Record<string, unknown> {
+  const lines = sdp.split(/\r?\n/);
+  const attributes = [...new Set(lines.filter((line) => line.startsWith("a=")).map((line) => line.split(/[:\s]/)[0]))];
+  const identity = lines.find((line) => line.startsWith("a=identity:"));
+  if (!identity) return { attributes, identity: "missing" };
+  try {
+    const envelope = JSON.parse(Buffer.from(identity.slice("a=identity:".length), "base64").toString("utf8")) as Record<string, unknown>;
+    const assertion = JSON.parse(String(envelope.assertion ?? "{}")) as Record<string, unknown>;
+    const [header, payload] = String(assertion.token ?? "").split(".");
+    const part = (value: string | undefined) => JSON.parse(Buffer.from(value ?? "", "base64url").toString("utf8")) as Record<string, unknown>;
+    const tokenHeader = part(header);
+    const claims = part(payload);
+    return {
+      attributes,
+      identity: {
+        envelope: Object.keys(envelope).sort(),
+        idp: envelope.idp,
+        assertion: Object.keys(assertion).sort(),
+        fingerprintsHeader: part(String(assertion.fingerprints ?? "").split(".")[0]),
+        tokenHeader: { alg: tokenHeader.alg, fields: Object.keys(tokenHeader).sort() },
+        iss: claims.iss,
+        aud: claims.aud,
+        expiresIn: typeof claims.exp === "number" ? Math.round(claims.exp - Date.now() / 1000) : undefined,
+        claims: Object.keys(claims).sort(),
+      },
+    };
+  } catch (error) {
+    return { attributes, identity: `unreadable: ${String(error)}` };
+  }
+}
+
+function describe(value: unknown): unknown {
+  if (value instanceof Error) return value.message;
+  if (value && typeof value === "object") {
+    const fields = value as Record<string, unknown>;
+    return { connectionId: fields.connectionId, networkId: fields.networkId, reason: fields.reason, type: fields.constructor?.name };
+  }
+  return value;
 }
 
 /** The version in a /v1/join status body, if it has one. */
