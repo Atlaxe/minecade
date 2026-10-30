@@ -364,8 +364,11 @@ has four layers (`star_box_north_0` to `_3`, `star_box_south_0` to `_3`), each a
 of one star field. A layer lives 8 seconds: it zooms from 1x to 2x about the wall's middle (2x to
 1x on the south wall) with `uv_anim`, fading in over its first 2 seconds and out over its last 2,
 and starts over while it's dark, so the restart can't be seen. The layers are a quarter of a life
-apart, so while one fades out another is already fully in, and two are always fully in (three
-layers that faded the whole time left moments with few stars).
+apart, so while one fades out another is already fully in, and two are always fully in. Each
+layer is its own plane (the `north_0` to `north_3` and `south_0` to `south_3` bones), a block
+nearer the middle than the one before and drawn after it: on one shared plane the first layer
+drawn hid the others (the material keeps depth), so only one showed, with a gap whenever it
+started over.
 The fade switches between `warp_1.png` to `warp_7.png` (the field at 7 brightness levels; level
 0 is black), since a render controller can't dim a texture. The client entity's `pre_animation`
 works out each layer's life, brightness and zoom. At the edges, the stars move about as fast as
