@@ -16,6 +16,11 @@ anywhere: the first run prints a code, and you enter it at the printed URL while
 spare account. The library signs in posing as the Nintendo Switch version of Minecraft. The token
 is cached in the `minecade-skin-spike-cache` Docker volume, not in the repo.
 
+The account needs an Xbox profile (a gamertag). A brand-new Microsoft account doesn't have one,
+and the relay stops right after the sign-in with "Your account currently does not have an Xbox
+profile". Sign in once at https://www.xbox.com with the account and create the gamertag it asks
+for, then start the relay again.
+
 ## Running it
 
 Run these from `network/`, with the main stack up (`docker compose up -d`):
