@@ -8,7 +8,7 @@ import { say } from "@minecade/minigame-core";
 import { MARK, gameButtons, gamePicture, mapOptions, playerCount, playerRange, settingLabel, settingsFor, type GameSetting } from "./game-screen.ts";
 import type { GameChoice } from "./lobby-controller.ts";
 import { PREVIEW_SCREENS } from "./holo-preview.ts";
-import { headFor, portraitFor } from "./skins.ts";
+import { hasSkin, headFor, portraitFor } from "./skins.ts";
 import { statsButtons, type PlayersView, type StatsView } from "./stats-screens.ts";
 
 /** Layout marks. Each must match the resource pack's UI files (a test checks). */
@@ -119,7 +119,7 @@ export function playersForm(view: PlayersView): ActionFormData {
 export function statsForm(view: StatsView): ActionFormData {
   const form = themedForm(`${LAYOUT.stats}§r${view.player}`).body(view.body);
   for (const button of statsButtons(view)) {
-    if (button.kind === "portrait") form.button(`${MARK.portrait}${view.player}`, portraitFor(view.player));
+    if (button.kind === "portrait") form.button(`${MARK.portrait}${hasSkin(view.player) ? MARK.render : ""}${view.player}`, portraitFor(view.player));
     else if (button.kind === "tab") form.button(`${MARK.tab}${button.tab.id === view.tab ? MARK.selected : ""}${button.tab.name}`);
     else form.button(`${MARK.stats[button.column]}§f${button.stat.value}\n§7${button.stat.label}`);
   }

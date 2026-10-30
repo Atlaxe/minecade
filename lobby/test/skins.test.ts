@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it } from "vitest";
 import { badgeFor, skinTexture } from "@minecade/minigame-core";
+import { MARK } from "../behavior_pack/scripts/game-screen.ts";
 import { statsContent } from "../behavior_pack/scripts/holo-content.ts";
 import { playersForm, statsForm } from "../behavior_pack/scripts/menus.ts";
 import { headFor, isWatcher, portraitFor, useSkins } from "../behavior_pack/scripts/skins.ts";
@@ -22,7 +23,12 @@ describe("players' skin renders", () => {
     const list = playersForm({ viewer: "Steve", players: ["Steve", "Alex"], more: 0 }) as unknown as { icons: (string | undefined)[] };
     expect(list.icons.slice(-2)).toEqual([badgeFor("Steve"), skinTexture("9", "holo_head")]);
     const view = { player: "Alex", tabs: [GLOBAL_TAB], tab: GLOBAL_TAB.id, body: "", columns: [] };
-    expect((statsForm(view) as unknown as { icons: (string | undefined)[] }).icons).toContain(skinTexture("9", "holo"));
+    const form = statsForm(view) as unknown as { buttons: string[]; icons: (string | undefined)[] };
+    expect(form.icons).toContain(skinTexture("9", "holo"));
+    // The player's own render is marked, so it isn't framed; a badge isn't marked, so it is.
+    expect(form.buttons).toContain(`${MARK.portrait}${MARK.render}Alex`);
+    const badge = statsForm({ ...view, player: "Steve" }) as unknown as { buttons: string[] };
+    expect(badge.buttons).toContain(`${MARK.portrait}Steve`);
     expect(statsContent(view).portrait).toBe(skinTexture("9", "holo"));
   });
 

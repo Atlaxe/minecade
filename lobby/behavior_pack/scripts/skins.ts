@@ -12,6 +12,11 @@ export function useSkins(skins: PlayerSkin[]): void {
   for (const skin of skins) keys.set(skin.name.toLowerCase(), skin.key);
 }
 
+/** Whether the lobby pack has renders of a player's skin (otherwise they get their letter badge). */
+export function hasSkin(name: string): boolean {
+  return keys.has(name.toLowerCase());
+}
+
 function pictureFor(name: string, render: SkinRender): string {
   const key = keys.get(name.toLowerCase());
   return key ? skinTexture(key, render) : badgeFor(name);

@@ -868,7 +868,8 @@
 
   "portrait_column@minecade_forms.button_column": { "size": [96, "100%c"], "factory": { "name": "buttons", "control_ids": { "button": "@minecade_forms.portrait" } } },
 
-  // Not a button: just the player's badge, framed.
+  // Not a button: the player's picture. A letter badge is framed; the player's own render (marked
+  // §i§m§g§r) isn't.
   "portrait": {
     "type": "panel",
     "size": [96, 96],
@@ -882,7 +883,22 @@
     ],
     "controls": [
       { "picture@minecade_forms.button_picture": { "size": [88, 88], "layer": 1 } },
-      { "frame": { "type": "image", "texture": "textures/minecade/ui/portrait_frame", "size": ["100%", "100%"], "layer": 2 } }
+      {
+        "frame": {
+          "type": "image",
+          "texture": "textures/minecade/ui/portrait_frame",
+          "size": ["100%", "100%"],
+          "layer": 2,
+          "bindings": [
+            { "binding_name": "#form_button_text", "binding_type": "collection", "binding_collection_name": "form_buttons" },
+            {
+              "binding_type": "view",
+              "source_property_name": "((#form_button_text - '§i§m§g§r') = #form_button_text)",
+              "target_property_name": "#visible"
+            }
+          ]
+        }
+      }
     ]
   },
 

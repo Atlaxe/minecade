@@ -33,6 +33,8 @@ export const MARK = {
   preview: "§p§v§r",
   /** The X in every themed menu's top right corner (always the menu's first button): leaves the terminal. */
   close: "§c§l§s§r",
+  /** Added to the stats portrait when it's the player's own render (their skin), which has no frame; letter badges keep theirs. */
+  render: "§i§m§g§r",
 } as const;
 
 /** What a themed menu's X means: leave the terminal. The back arrow and Esc go back one step instead. */
