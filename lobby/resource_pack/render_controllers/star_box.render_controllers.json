@@ -11,6 +11,44 @@
       "textures": [
         "Texture.default"
       ],
+      "ignore_lighting": true,
+      "part_visibility": [
+        {
+          "*": true
+        },
+        {
+          "sides": false
+        }
+      ]
+    },
+    "controller.render.minecade.star_box_moving": {
+      "geometry": "Geometry.default",
+      "materials": [
+        {
+          "*": "Material.moving"
+        }
+      ],
+      "textures": [
+        "Texture.default"
+      ],
+      "part_visibility": [
+        {
+          "*": false
+        },
+        {
+          "sides": true
+        }
+      ],
+      "uv_anim": {
+        "offset": [
+          "-math.mod(query.life_time / 30.0, 1.0)",
+          0.0
+        ],
+        "scale": [
+          1.0,
+          1.0
+        ]
+      },
       "ignore_lighting": true
     }
   }

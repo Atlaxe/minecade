@@ -4,7 +4,8 @@
     "description": {
       "identifier": "minecade:star_box",
       "materials": {
-        "default": "entity_beam_additive"
+        "default": "entity_beam_additive",
+        "moving": "charged_creeper"
       },
       "textures": {
         "default": "textures/minecade/holo/stars"
@@ -13,7 +14,8 @@
         "default": "geometry.minecade.star_box"
       },
       "render_controllers": [
-        "controller.render.minecade.star_box"
+        "controller.render.minecade.star_box",
+        "controller.render.minecade.star_box_moving"
       ]
     }
   }

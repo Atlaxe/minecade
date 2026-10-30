@@ -338,7 +338,13 @@ panels is tinted blue before the panels, pictures and portrait add their light. 
 size: `minecade:star_box`, one entity at the terminal whose model is four walls and a floor 96
 blocks wide (48 blocks out from the middle), facing inward, each covered by `stars.png`. Black adds
 nothing, so the real night sky shows through and only the stars add light; the sky above keeps its
-own stars and moon. The lobby script keeps one box placed, like the hologram (`star-box.ts`). It
+own stars and moon. The east and west walls drift north to south, one wall width every 30
+seconds, as if the lobby were flying north: their own render controller
+(`controller.render.minecade.star_box_moving`) scrolls the texture with `uv_anim`, using vanilla's
+`charged_creeper` material (additive like the rest, and it repeats the texture as it scrolls).
+Change the `30.0` there for another speed, or flip its sign to reverse it. The west wall's texture
+is mirrored so one scroll moves both walls the same way. The box always faces south, so the
+direction holds. The lobby script keeps one box placed, like the hologram (`star-box.ts`). It
 only looks right at night (`"time": "midnight"`), since in daylight the dim stars disappear into the
 bright sky. On a very short render distance, fog can fade the walls 48 blocks out.
 
@@ -386,7 +392,7 @@ middle, and the tiled scanlines, which repeat.
 | `games/<id>/maps/<map>/preview.png` | A map's preview on its tile (100x54) and on the hologram when it's chosen (optional) | 320x180 (16:9), such as a screenshot |
 | `lobby/resource_pack/textures/minecade/holo/frame_logo.png`, `frame_panel.png` | Hologram frames, 3x3 blocks on all four sides, with live text over them; `frame_logo` has the logo up top | 512x512 (square), additive |
 | `lobby/resource_pack/textures/minecade/holo/backdrop.png` | Behind the hologram's panels, tinting the sky behind them | 16x16, light blue (28, 185, 244) at about 14% (alpha 35), alpha-blended |
-| `lobby/resource_pack/textures/minecade/holo/stars.png` | The star box's walls and floor, 96 blocks wide each | 512x512, stars on black, additive (black shows nothing); drawn with a fixed seed |
+| `lobby/resource_pack/textures/minecade/holo/stars.png` | The star box's walls and floor, 96 blocks wide each; it scrolls on the east and west walls | 512x512, stars on black, additive (black shows nothing); drawn with a fixed seed; must tile (no seams), since it repeats as it scrolls |
 | `lobby/resource_pack/textures/minecade/holo/beam.png` | Projection beam, two crossed planes 2 wide by 3.25 tall | 128x256, additive, the projector at the bottom; fade the top to black so the beam has no hard edge |
 | `lobby/resource_pack/textures/minecade/blocks/terminal_side.png` | Console sides | 16x16 |
 | `lobby/resource_pack/textures/minecade/blocks/terminal_corner.png`, `terminal_edge.png`, `terminal_center.png` | Console tops | 16x16; the corner is drawn as the north-west corner (rims on the north and west sides) and the edge as the north edge, and the blocks rotate them into place |
