@@ -57,12 +57,13 @@ explains why, and how skins could come later.
     that opened the connection, and through the relay that's the spare account, not the player.
     **A pass-through relay can't sit in front of an online-mode BDS.**
 - **What's left:**
-  - **An observer bot (the likelier route):** the spare account joins the lobby as an ordinary
+  - **An observer bot (being tested):** the spare account joins the lobby as an ordinary
     player and reads every player's skin from the player list, which BDS sends to everyone. The
-    lobby's security doesn't change. It needs a Bedrock client library that joins over NetherNet
-    on 1.26.60 and handles the lobby's required resource pack (PrismarineJS `bedrock-protocol` was
-    adding NetherNet in September 2026). The bot shows up as a player, so the lobby would hide it
-    and leave it out of counts and stats.
+    lobby's security doesn't change. `spike/skins/watcher.ts` does this with PrismarineJS
+    `bedrock-protocol` 3.61.0 (1.26.60 and NetherNet support; it answers the lobby's required
+    resource pack without downloading it). That release can only find NetherNet servers by LAN
+    discovery or through Xbox, so the bot swaps in BDS's HTTP signaling. A real version would hide
+    the bot in the lobby and leave it out of counts, stats and game starts.
   - **An offline-mode lobby behind the relay:** the relay checks every player's sign-in, and the
     lobby trusts whoever the relay sends. The lobby must then be reachable only through the relay,
     and every lobby connection depends on a young library (0.2.0). A much bigger change.

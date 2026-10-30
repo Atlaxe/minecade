@@ -1,5 +1,6 @@
-# Skin capture spike (see spike/skins/README.md): a relay in front of the running lobby, on its own
-# ports. Run from network/ with the npm scripts: spike:skins:check, spike:skins, spike:skins:down.
+# Skin capture spikes (see spike/skins/README.md): a relay in front of the running lobby on its own
+# ports (skins), and a bot that joins the lobby (watcher). Run from network/ with the npm scripts:
+# spike:skins:check, spike:skins, spike:watcher:check, spike:watcher, and spike:skins:down for both.
 name: minecade-skin-spike
 
 services:
@@ -18,7 +19,22 @@ services:
       - ./skins/out:/spike/out
     stop_grace_period: 5s
 
-# The main stack's network, so the relay reaches the lobby by its container name.
+  # The watcher: a bot that joins the lobby as the spare account and saves skins from the player
+  # list (watcher.ts). It only connects out, so it publishes no ports.
+  watcher:
+    build: ./skins
+    container_name: minecade-skin-watcher
+    command: ["node", "watcher.ts"]
+    environment:
+      LOBBY_URL: http://minecade-lobby:19132
+      BDS_VERSION: ${BDS_VERSION:?set BDS_VERSION in .env}
+      WATCH_MINUTES: ${SKIN_WATCH_MINUTES:-10}
+    volumes:
+      - cache:/cache
+      - ./skins/out:/spike/out
+    stop_grace_period: 5s
+
+# The main stack's network, so the spikes reach the lobby by its container name.
 networks:
   default:
     name: minecade
