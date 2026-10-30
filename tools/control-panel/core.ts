@@ -40,10 +40,13 @@ export interface PortLike {
   IP?: string;
 }
 
-/** "19132 tcp+udp, 127.0.0.1:8080 tcp". Docker lists IPv4 and IPv6 bindings separately. */
-export function formatPorts(ports: PortLike[]): string {
+/**
+ * "19132 tcp+udp, 127.0.0.1:8080 tcp". Docker lists IPv4 and IPv6 bindings separately, and gives
+ * null instead of a list for a container without ports (the watcher).
+ */
+export function formatPorts(ports: PortLike[] | null | undefined): string {
   const byPort = new Map<string, Set<string>>();
-  for (const port of ports) {
+  for (const port of ports ?? []) {
     if (!port.PublicPort) continue;
     const key = port.IP === "127.0.0.1" ? `127.0.0.1:${port.PublicPort}` : String(port.PublicPort);
     if (!byPort.has(key)) byPort.set(key, new Set());

@@ -133,6 +133,11 @@ describe("formatPorts", () => {
       ]),
     ).toBe("127.0.0.1:8080 tcp, 19132 tcp+udp, 19133 udp");
   });
+
+  it("is empty for a container without ports, which Docker lists as null", () => {
+    expect(formatPorts(null)).toBe("");
+    expect(formatPorts([])).toBe("");
+  });
 });
 
 describe("checkRequest", () => {
