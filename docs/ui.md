@@ -107,9 +107,11 @@ at a time; a public hologram above it shows everyone what they're doing.
 | Play | A scrolling grid of game cards, 3 across, 80% of the screen's height: the game's 16:9 picture, its name, a player icon and the players needed (red when there aren't enough) | "Choose a game" and the game names, dimmed when there aren't enough players |
 | Game | Left: the game's name and info, a red warning when there aren't enough players, the Random map switch (on at first), the settings (Teams: Pick or Random for team games, then the game's own options), Start at the bottom. Right: scrolling map tiles, 2 across, each a 16:9 preview with the name over it; dimmed while Random is on, the chosen one outlined when it's off. Clicking a tile turns Random off and picks that map | The game's name, "Map: ...", the settings, the players it needs, and a picture: the chosen map's preview, or the game's picture while the map is random |
 | Teams | After Start on a team game set to Pick, **every player in the match** gets a live team form (see below) | The game's name, each team and its players in the team's color, who's still random, and when teams lock |
+| Stats list | A scrolling list of everyone with stats, each with their letter badge; you first, marked "(me)", even with no stats yet | "Stats", "Pick a player", how many players |
+| Player stats | Left: the player's badge (where their 3D skin goes later, see `docs/skins.md`) and a tab per view: Global, then each game they've played. Right: their name, their rank in the open view, and their stats | The player's name, the open tab, their rank, wins, win rate and K/D |
 
 The back arrow (top left of every menu) and Esc go back one step (game screen to grid to main
-menu); on the main menu they end the session. The stats screens get their own screens next.
+menu, player stats to the list to the main menu); on the main menu they end the session.
 
 **Pieces:**
 
@@ -186,6 +188,33 @@ players pick in the lobby while the game server boots, so no time is lost on the
   picks. The star is only for starts that don't come from the lobby's game screen (the debug API).
 - **The hologram:** while teams are picked it shows them, and it stays on the starting game until
   the players are sent; then it goes back to idle.
+- **Why a live form here, unlike the other menus:** a classic form (the themed menus) closes on
+  every click and can't change while it's open, so every change means showing the form again.
+  For team picks, players would only see each other's picks after their form reopened, and every
+  pick would close and reopen everyone's form. The live form updates in place and its buttons
+  don't close it; the cost is that it can't be themed.
+- **If live forms become stylable:** if a future Minecraft update lets resource packs style these
+  live forms the way JSON UI styles classic forms, move the themed menus (main menu, game grid,
+  game screen, stats) to live forms too, so they update in place instead of reopening on every
+  click.
+
+**Stats screens** (`scripts/stats-controller.ts`, `scripts/stats-screens.ts`, unit-tested with
+ports):
+- **The list:** Stats on the main menu asks the orchestrator for everyone with stats
+  (`stats_query` with `kind: "players"`) and lists them by name, with you first, marked "(me)",
+  even before your first match that counts.
+- **A player:** picking one asks for their overall stats, the games they've played and their
+  rank. Each tab (Global, then each game, most played first) is asked for once, then remembered
+  while the screen is open.
+- **Ranks:** the orchestrator ranks everyone with matches that count by wins, then win rate, then
+  kills (`StatsStore.rank`). Players equal on all three share a place. Global leaves co-op games
+  out, as the totals do.
+- **Which matches count:** matches with at least 2 players, or co-op games.
+- **Testing alone:** `DEV_DEMO_STATS=1` in `.env` fills the stats with made-up players and matches
+  (`orchestrator/src/stats/demo.ts`), kept in memory only. The real stats database isn't read or
+  changed while it's on.
+- **Badges:** until players' skins can be shown (`docs/skins.md`), each player has a letter badge
+  by their name's first letter or digit (`badgeFor()`).
 
 **Game options:** a game can offer its own settings on the game screen with `options` in
 `game.config.ts`. Each value has a label; the first is the default. The build checks the ids
@@ -278,6 +307,8 @@ middle, and the tiled scanlines, which repeat.
 | `lobby/resource_pack/textures/minecade/ui/game_placeholder.png` | The picture of a game without its own (demo games) | 320x180 (16:9) |
 | `lobby/resource_pack/textures/minecade/ui/button_default.png`, `_hover`, `_pressed` | The Random switch, setting and Start buttons, 210x28 | 400x64 |
 | `lobby/resource_pack/textures/minecade/ui/toggle_on.png`, `toggle_off.png` | The Random map switch, 26x13 | 52x26 |
+| `lobby/resource_pack/textures/minecade/ui/tab_selected.png` | Drawn over the open tab on a player's stats, 124x24 | 248x48, transparent middle |
+| `lobby/resource_pack/textures/minecade/badges/a.png` to `z.png`, `0.png` to `9.png`, `other.png` | Player badges: 20x20 in the stats list, 88x88 as the portrait on a player's stats (where their skin goes later) | 64x64, transparent corners |
 | `lobby/resource_pack/font/glyph_E3.png` | Icons inside text, about the height of a letter: cell 0 (U+E300) is the player icon on the game cards; cells 1 and 2 (U+E301, U+E302) are a setting's bars under its label, bright for the chosen value and dim for the others | 256x256, 16x16 cells, on transparent |
 | `games/<id>/icon.png` | The game's picture: on its card (60x34) and on the hologram (2 blocks wide) while the map is random | 320x180 (16:9), required for every game |
 | `games/<id>/maps/<map>/preview.png` | A map's preview on its tile (100x54) and on the hologram when it's chosen (optional) | 320x180 (16:9), such as a screenshot |

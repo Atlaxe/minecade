@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { RegistryGame } from "@minecade/minigame-core";
 import { PREVIEWS } from "../behavior_pack/scripts/game-screen.ts";
-import { MAX_LINES, MAX_LINES_WITH_PICTURE, fit, gameContent, gamesContent, idleContent, mainContent, teamsContent } from "../behavior_pack/scripts/holo-content.ts";
+import { MAX_LINES, MAX_LINES_WITH_PICTURE, fit, gameContent, gamesContent, idleContent, mainContent, statsContent, statsListContent, teamsContent } from "../behavior_pack/scripts/holo-content.ts";
 
 const sumo: RegistryGame = {
   id: "sumo",
@@ -111,5 +111,35 @@ describe("the team picking view on the hologram", () => {
     expect(content.lines).toHaveLength(MAX_LINES);
     expect(content.lines[0].text).toBe("A: P1, P2, P3 +2");
     expect(content.lines.at(-1)).toEqual({ text: "Waiting for the server...", tone: "highlight" });
+  });
+});
+
+describe("the stats views on the hologram", () => {
+  it("shows the list, then a player's tab with their rank and key numbers", () => {
+    expect(statsListContent(1).lines).toEqual([
+      { text: "Pick a player", tone: "normal" },
+      { text: "1 player", tone: "dim" },
+    ]);
+    const content = statsContent(
+      "Alex",
+      "Sumo",
+      { games: 4, wins: 3, losses: 1, draws: 0, kills: 7, deaths: 2, dealt: 0, taken: 0, seconds: 0, bestStreak: 0, left: 0 },
+      { rank: 1, of: 6 },
+    );
+    expect(content).toEqual({
+      frame: "panel",
+      title: "Alex",
+      lines: [
+        { text: "Sumo", tone: "highlight" },
+        { text: "Rank 1st of 6", tone: "normal" },
+        { text: "Wins 3 of 4 games", tone: "normal" },
+        { text: "Win rate 75%", tone: "normal" },
+        { text: "K/D 3.5", tone: "normal" },
+      ],
+    });
+    expect(statsContent("Alex", "Global", undefined).lines).toEqual([
+      { text: "Global", tone: "highlight" },
+      { text: "No stats yet", tone: "dim" },
+    ]);
   });
 });

@@ -10,6 +10,8 @@ export interface Config {
   lanPlayers: string;
   allowList: string;
   devMinPlayers: string;
+  /** Dev only: use made-up stats in memory instead of the stats database (stats/demo.ts). */
+  devDemoStats: boolean;
   serverImage: string;
   /** Docker network shared with the lobby; game containers join it too. */
   network: string;
@@ -42,6 +44,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     lanPlayers: env.LAN_PLAYERS ?? "",
     allowList: env.ALLOW_LIST ?? "",
     devMinPlayers: env.DEV_MIN_PLAYERS ?? "",
+    devDemoStats: ["1", "true", "yes"].includes((env.DEV_DEMO_STATS ?? "").toLowerCase()),
     serverImage: env.SERVER_IMAGE || "minecade/bds:local",
     network: env.NETWORK || "minecade",
     composeProject: env.COMPOSE_PROJECT || "minecade",

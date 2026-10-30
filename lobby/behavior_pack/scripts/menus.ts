@@ -6,12 +6,15 @@ import { ActionFormData } from "@minecraft/server-ui";
 import { say } from "@minecade/minigame-core";
 import { MARK, gameButtons, gamePicture, mapOptions, playerCount, playerRange, settingLabel, settingsFor, type GameSetting } from "./game-screen.ts";
 import type { GameChoice } from "./lobby-controller.ts";
+import { badgeFor, statsButtons, type PlayersView, type StatsView } from "./stats-screens.ts";
 
 /** Layout marks. Each must match the resource pack's UI files (a test checks). */
 export const LAYOUT = {
   main: "§m§a§i§n",
   games: "§g§r§i§d",
   game: "§g§a§m§e",
+  players: "§s§l§s§t",
+  stats: "§s§d§t§l",
 } as const;
 
 /** Icons drawn inline in text, from the lobby resource pack's font/glyph_E3.png (one 16x16 cell each). */
@@ -78,6 +81,24 @@ export function gameForm(view: GameView): ActionFormData {
     } else {
       form.button(`${mark}${playable ? "Start" : "§7Start"}`);
     }
+  }
+  return form;
+}
+
+/** The stats list: a row per player with their badge, the viewer first with "(me)". */
+export function playersForm(view: PlayersView): ActionFormData {
+  const form = new ActionFormData().title(`${LAYOUT.players}§rStats`);
+  if (view.more > 0) form.body(say.minor(`And ${view.more} more not listed.`));
+  for (const name of view.players) form.button(`${MARK.player}${name}${name === view.viewer ? " §7(me)" : ""}`, badgeFor(name));
+  return form;
+}
+
+/** A player's stats: their portrait (badge), a tab per view (the open one outlined), and the open tab's text as the body. */
+export function statsForm(view: StatsView): ActionFormData {
+  const form = new ActionFormData().title(`${LAYOUT.stats}§r${view.player}`).body(view.body);
+  for (const button of statsButtons(view)) {
+    if (button.kind === "portrait") form.button(`${MARK.portrait}${view.player}`, badgeFor(view.player));
+    else form.button(`${MARK.tab}${button.tab.id === view.tab ? MARK.selected : ""}${button.tab.name}`);
   }
   return form;
 }

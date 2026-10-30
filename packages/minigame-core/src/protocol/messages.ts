@@ -1,7 +1,7 @@
 // Wire protocol between the servers' behavior packs and the orchestrator. Pure TypeScript with
 // no runtime imports: bundled into packs by esbuild and imported by the orchestrator under Node.
 
-export const PROTOCOL_VERSION = 5;
+export const PROTOCOL_VERSION = 6;
 
 /**
  * Upper bound for one encoded message, in either direction and over either transport, so no
@@ -111,12 +111,14 @@ export interface EndGame {
   reason: EndReason;
 }
 
-/** The lobby asks for a player's stats: overall, or for one game. */
+/** The lobby asks for a player's stats (overall, or for one game), or with kind "players" for who has stats. */
 export interface StatsQuery {
   t: "stats_query";
   requestId: string;
+  /** The player to look up; for kind "players", whoever is asking. */
   player: string;
   game?: string;
+  kind?: "players";
 }
 
 /** The lobby's team picks for a game it started, by player name and team id. Sent once picking ends. */
@@ -207,6 +209,14 @@ export interface StatsReply {
   totals?: StatsTotals;
   /** Only when no game was asked for: the games this player has played, most played first. */
   games?: { id: string; games: number }[];
+  /** The player's place, overall or in the game asked for: by wins, then win rate, then kills. */
+  rank?: number;
+  /** How many players are ranked there. */
+  of?: number;
+  /** Kind "players": everyone with stats, sorted by name. */
+  players?: string[];
+  /** Kind "players": how many names were left out to fit the message. */
+  more?: number;
 }
 
 /** The team picks made in the lobby, forwarded to the game server they're for. */

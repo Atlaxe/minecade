@@ -24,6 +24,10 @@ export const MARK = {
   selected: "§s§e§l§r",
   /** Added to every map tile while Random is on, so they're dimmed. */
   dim: "§d§m§r",
+  /** The stats screens: a player in the list, the player's portrait (badge), and a tab. */
+  player: "§p§l§r",
+  portrait: "§p§o§r",
+  tab: "§t§a§r",
 } as const;
 
 export const PREVIEWS = {

@@ -2,6 +2,7 @@
 // lines, and on the game screen a 16:9 picture. The terminal builds this for each screen;
 // hologram.ts draws it on all four sides. Highlights are text colors ("tones"), so no screen needs
 // a picture of its own.
+import { killDeathRatio, ordinal, winRate, type StatsTotals } from "@minecade/minigame-core";
 import { gamePicture, mapOptions, playerRange, settingLabel, settingsFor } from "./game-screen.ts";
 import type { GameChoice } from "./lobby-controller.ts";
 import type { GameView } from "./menus.ts";
@@ -69,6 +70,27 @@ export function teamsContent(view: TeamPickView): HoloContent {
   const teams = view.teams.map((team): HoloLine => ({ text: `${team.name}: ${names(team.members)}`, tone: "normal", color: team.color }));
   if (view.unpicked.length > 0) teams.push(line(`Random: ${names(view.unpicked)}`, "dim"));
   return { frame: "panel", title: view.game, lines: [...fit(teams, MAX_LINES - 1), line(view.status, "highlight")] };
+}
+
+/** The stats list is open. */
+export function statsListContent(players: number): HoloContent {
+  return { frame: "panel", title: "Stats", lines: [line("Pick a player"), line(`${players} ${players === 1 ? "player" : "players"}`, "dim")] };
+}
+
+/** A player's stats as someone browses them: the open tab, their rank and the key numbers. */
+export function statsContent(player: string, tab: string, totals: StatsTotals | undefined, placement?: { rank: number; of: number }): HoloContent {
+  if (!totals || totals.games === 0) return { frame: "panel", title: player, lines: [line(tab, "highlight"), line("No stats yet", "dim")] };
+  return {
+    frame: "panel",
+    title: player,
+    lines: [
+      line(tab, "highlight"),
+      ...(placement ? [line(`Rank ${ordinal(placement.rank)} of ${placement.of}`)] : []),
+      line(`Wins ${totals.wins} of ${totals.games} ${totals.games === 1 ? "game" : "games"}`),
+      line(`Win rate ${winRate(totals.wins, totals.games)}%`),
+      line(`K/D ${killDeathRatio(totals.kills, totals.deaths)}`),
+    ],
+  };
 }
 
 /** Up to three names, then how many more: "Steve, Alex, Bob +2". */

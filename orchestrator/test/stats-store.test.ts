@@ -8,6 +8,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import type { MatchStats, StatsRow } from "@minecade/minigame-core/protocol";
 import type { Registry } from "../src/registry.ts";
 import { answerStatsQuery } from "../src/stats/reply.ts";
+import { DEMO_PLAYERS, seedDemoStats } from "../src/stats/demo.ts";
 import { StatsStore, type PlayerSummary } from "../src/stats/store.ts";
 import { checkMatchStats } from "../src/stats/validate.ts";
 
@@ -280,7 +281,7 @@ describe("answerStatsQuery", () => {
       overall: line,
       games: Object.fromEntries(Array.from({ length: count }, (_, i) => [`game_with_a_long_identifier_${String(i).padStart(3, "0")}`, { ...line, games: count - i }])),
     });
-    const stub = (count: number) => ({ summary: () => summaryWith(count) }) as unknown as StatsStore;
+    const stub = (count: number) => ({ summary: () => summaryWith(count), rank: () => undefined }) as unknown as StatsStore;
     expect(answerStatsQuery(stub(11), query).games).toHaveLength(11);
     const trimmed = answerStatsQuery(stub(100), query);
     expect(trimmed.games!.length).toBeLessThan(100);
@@ -293,5 +294,73 @@ describe("answerStatsQuery", () => {
     const broken = { summary: () => { throw new Error("disk I/O error"); } } as unknown as StatsStore;
     expect(answerStatsQuery(broken, query).status).toBe("unavailable");
     vi.restoreAllMocks();
+  });
+});
+
+describe("ranks and the players list", () => {
+  it("lists everyone with matches that count, by name in any case", () => {
+    const store = memoryStore();
+    store.record(match("sumo", [row("kai", "w"), row("Alex", "l")]), noXuids);
+    store.record(match("sumo", [row("Solo", "w")]), noXuids); // doesn't count: one player
+    expect(store.playerNames()).toEqual(["Alex", "kai"]);
+  });
+
+  it("ranks by wins, then win rate, then kills, and players equal on all three share a place", () => {
+    const store = memoryStore();
+    // Alex: 2 wins of 2. Kai: 2 wins of 3. Bo and Cy: 0 wins, Bo with more kills. Di equals Cy.
+    store.record(match("sumo", [row("Alex", "w"), row("Bo", "l", { k: 3 }), row("Cy", "l"), row("Di", "l")]), noXuids);
+    store.record(match("sumo", [row("Alex", "w"), row("Kai", "l")]), noXuids);
+    store.record(match("sumo", [row("Kai", "w"), row("Bo", "l")]), noXuids);
+    store.record(match("sumo", [row("Kai", "w"), row("Cy", "l")]), noXuids);
+    expect(store.rank("alex")).toEqual({ rank: 1, of: 5 });
+    expect(store.rank("Kai")).toEqual({ rank: 2, of: 5 });
+    expect(store.rank("Bo")).toEqual({ rank: 3, of: 5 });
+    expect(store.rank("Cy")).toEqual({ rank: 4, of: 5 });
+    expect(store.rank("Di")).toEqual({ rank: 4, of: 5 });
+    expect(store.rank("Nobody")).toBeUndefined();
+  });
+
+  it("ranks per game, and leaves co-op out of the overall ranking", () => {
+    const store = memoryStore();
+    store.record(match("zombies", [row("Alex", "w"), row("Kai", "w")]), noXuids);
+    store.record(match("snd", [row("Kai", "w"), row("Bo", "l")]), noXuids);
+    expect(store.rank("Alex")).toBeUndefined(); // only co-op
+    expect(store.rank("Kai")).toEqual({ rank: 1, of: 2 });
+    expect(store.rank("Alex", "zombies")).toEqual({ rank: 1, of: 2 });
+    expect(store.rank("Bo", "snd")).toEqual({ rank: 2, of: 2 });
+  });
+
+  it("answers the players list, trimmed to fit with how many more there are", () => {
+    const store = memoryStore();
+    store.record(match("sumo", [row("Alex", "w"), row("Kai", "l")]), noXuids);
+    const query = { t: "stats_query" as const, requestId: "q1", player: "Alex", kind: "players" as const };
+    expect(answerStatsQuery(store, query)).toEqual({ t: "stats_reply", requestId: "q1", player: "Alex", status: "ok", players: ["Alex", "Kai"] });
+    const crowd = Array.from({ length: 200 }, (_, i) => `Player_with_name${String(i).padStart(3, "0")}`);
+    const stub = { playerNames: () => crowd } as unknown as StatsStore;
+    const trimmed = answerStatsQuery(stub, query);
+    expect(trimmed.players!.length + trimmed.more!).toBe(200);
+    expect(trimmed.players![0]).toBe(crowd[0]);
+    expect(JSON.stringify(trimmed).length).toBeLessThanOrEqual(1800);
+  });
+
+  it("adds the player's rank to overall and game replies", () => {
+    const store = memoryStore();
+    store.record(match("sumo", [row("Alex", "w"), row("Kai", "l")]), noXuids);
+    const query = { t: "stats_query" as const, requestId: "q1", player: "Kai" };
+    expect(answerStatsQuery(store, query)).toMatchObject({ status: "ok", rank: 2, of: 2 });
+    expect(answerStatsQuery(store, { ...query, game: "sumo" })).toMatchObject({ status: "ok", rank: 2, of: 2 });
+  });
+});
+
+describe("demo stats", () => {
+  it("gives every listed name and made-up player ranked stats, the same every time", () => {
+    const first = memoryStore();
+    seedDemoStats(first, registry, ["get a waffle", ""]);
+    const names = first.playerNames();
+    expect(names).toEqual(expect.arrayContaining(["get a waffle", ...DEMO_PLAYERS]));
+    for (const name of names) expect(first.rank(name) ?? first.rank(name, "zombies")).toBeDefined();
+    const second = memoryStore();
+    seedDemoStats(second, registry, ["get a waffle"]);
+    expect(second.overview()).toEqual(first.overview());
   });
 });

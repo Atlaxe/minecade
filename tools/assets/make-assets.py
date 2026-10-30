@@ -330,6 +330,29 @@ def glyphs() -> Image.Image:
     return image
 
 
+BADGE_CHARACTERS = "abcdefghijklmnopqrstuvwxyz0123456789"
+
+
+def badge(character: str) -> Image.Image:
+    """
+    A player's letter badge (64x64, shown 20x20 in the stats list and 88x88 as the portrait),
+    standing in for their head until skins can be shown: a disc in a color picked by the
+    letter, with the letter on it. "other" (names starting with anything else) shows a "?".
+    """
+    size = 64
+    image = Image.new("RGBA", (size, size), (0, 0, 0, 0))
+    draw = ImageDraw.Draw(image)
+    index = BADGE_CHARACTERS.find(character)
+    hue = (index * 0.27) % 1 if index >= 0 else 0.6
+    r, g, b = colorsys.hsv_to_rgb(hue, 0.55, 0.85)
+    draw.ellipse((2, 2, size - 3, size - 3), fill=(round(r * 255), round(g * 255), round(b * 255), 255), outline=(*BRIGHT, 255), width=3)
+    letter = character.upper() if index >= 0 else "?"
+    face = font(40)
+    left, top, right, bottom = draw.textbbox((0, 0), letter, font=face)
+    draw.text(((size - (right - left)) / 2 - left, (size - (bottom - top)) / 2 - top), letter, font=face, fill=(255, 255, 255, 255))
+    return image
+
+
 def picture(title: str, top: tuple[int, int, int], bottom: tuple[int, int, int]) -> Image.Image:
     """A 16:9 placeholder picture (320x180): a vertical gradient with a big title."""
     width, height = 320, 180
@@ -386,6 +409,11 @@ def main() -> None:
     save(toggle(True), LOBBY_TEXTURES / "ui" / "toggle_on.png")
     save(toggle(False), LOBBY_TEXTURES / "ui" / "toggle_off.png")
     save(glyphs(), LOBBY_FONT / "glyph_E3.png")
+
+    # The stats screens: an outline for the open tab, and player badges.
+    save(ui_outline((248, 48), "selected"), LOBBY_TEXTURES / "ui" / "tab_selected.png")
+    for character in [*BADGE_CHARACTERS, "other"]:
+        save(badge(character), LOBBY_TEXTURES / "badges" / f"{character}.png")
     save(fade_bottom(), LOBBY_TEXTURES / "ui" / "fade_bottom.png")
     save(picture("No preview", (40, 52, 70), (18, 24, 34)), LOBBY_TEXTURES / "ui" / "map_placeholder.png")
     save(picture("No picture", (60, 50, 90), (24, 20, 40)), LOBBY_TEXTURES / "ui" / "game_placeholder.png")

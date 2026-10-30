@@ -243,6 +243,28 @@ export class StatsStore {
     return { games, players: summaries.sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: "base" })) };
   }
 
+  /** The names of everyone with matches that count, sorted (any case). */
+  playerNames(): string[] {
+    return this.summaries(null, this.names())
+      .map((summary) => summary.name)
+      .sort((a, b) => a.localeCompare(b, undefined, { sensitivity: "base" }));
+  }
+
+  /**
+   * A player's place among everyone with matches that count, overall (solo and team games) or in
+   * one game: by wins, then win rate, then kills. Players equal on all three share a place.
+   * Undefined if the player has no matches that count there.
+   */
+  rank(name: string, game?: string): { rank: number; of: number } | undefined {
+    const ranked = this.summaries(null, this.names()).flatMap((summary) => {
+      const totals = game === undefined ? summary.overall : summary.games[game];
+      return totals && totals.games > 0 ? [{ who: summary.name.toLowerCase(), totals }] : [];
+    });
+    const mine = ranked.find((entry) => entry.who === name.toLowerCase())?.totals;
+    if (!mine) return undefined;
+    return { rank: ranked.filter((entry) => ranksAbove(entry.totals, mine)).length + 1, of: ranked.length };
+  }
+
   /** One player's totals by gamertag (any case), or undefined if they've never been recorded. */
   summary(name: string): PlayerSummary | undefined {
     const who = name.toLowerCase();
@@ -378,6 +400,13 @@ function add(totals: StatsTotals, row: TotalsRow): void {
 
 function line(totals: StatsTotals): StatsLine {
   return { ...totals, kd: killDeathRatio(totals.kills, totals.deaths), winRate: winRate(totals.wins, totals.games) };
+}
+
+/** Ranking order: more wins, then a better win rate, then more kills. */
+function ranksAbove(a: StatsLine, b: StatsLine): boolean {
+  if (a.wins !== b.wins) return a.wins > b.wins;
+  if (a.winRate !== b.winRate) return a.winRate > b.winRate;
+  return a.kills > b.kills;
 }
 
 function round1(value: number): number {

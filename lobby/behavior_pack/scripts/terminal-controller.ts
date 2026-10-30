@@ -21,8 +21,8 @@ export interface TerminalPorts {
   gamesMenu(name: string, scope: Scope, choices: GameChoice[]): Promise<number | undefined>;
   /** The game screen. Resolves the index of the pressed button, or undefined to go back. */
   gameMenu(name: string, scope: Scope, view: GameView): Promise<number | undefined>;
-  /** The stats screens (resolves when the player is done with them). */
-  stats(name: string): Promise<void>;
+  /** The stats screens (resolves when the player is done with them). They show content on the hologram through `show`. */
+  stats(name: string, show: (content: HoloContent) => void): Promise<void>;
   /** Every game, and whether there are enough players for it. */
   choices(): GameChoice[];
   /** Why no game can start right now, if so. */
@@ -100,7 +100,7 @@ export class TerminalController {
           if (await this.play(name, scope)) return;
         } else {
           this.show(mainContent("stats"));
-          await scope.guard(this.ports.stats(name));
+          await scope.guard(this.ports.stats(name, (content) => this.show(content)));
         }
       }
     } finally {

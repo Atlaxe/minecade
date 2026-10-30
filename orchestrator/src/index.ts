@@ -1,6 +1,7 @@
 // Orchestrator entry point: wires the config, registry, stats store, Docker, transport links,
 // lobby channel, session manager and HTTP server, then handles startup cleanup and shutdown.
 import { lookup } from "node:dns/promises";
+import { DatabaseSync } from "node:sqlite";
 import { loadConfig } from "./config.ts";
 import { DockerodeAdapter } from "./docker.ts";
 import { createOrchestratorServer } from "./http-server.ts";
@@ -10,6 +11,7 @@ import { LobbyChannel } from "./lobby.ts";
 import { describeError, log } from "./log.ts";
 import { loadRegistry } from "./registry.ts";
 import { SessionManager } from "./session-manager.ts";
+import { seedDemoStats } from "./stats/demo.ts";
 import { answerStatsQuery } from "./stats/reply.ts";
 import { StatsStore } from "./stats/store.ts";
 import { checkMatchStats } from "./stats/validate.ts";
@@ -24,7 +26,7 @@ async function main(): Promise<void> {
   const docker = new DockerodeAdapter(config.composeProject);
   const hub = new HttpLinkHub();
   const publicIp = publicIpResolver(config.publicHost);
-  const stats = openStats(config.dataDir, registry);
+  const stats = config.devDemoStats ? openDemoStats(registry, config.lanPlayers) : openStats(config.dataDir, registry);
 
   // The lobby channel is created after the session manager, which only calls toLobby later.
   let lobby: LobbyChannel | undefined;
@@ -111,6 +113,14 @@ function openStats(dataDir: string, registry: ReturnType<typeof loadRegistry>): 
   backup();
   setInterval(backup, BACKUP_INTERVAL_MS).unref();
   log.info(`stats stored in ${dataDir}`);
+  return store;
+}
+
+/** DEV_DEMO_STATS: made-up stats in memory. Nothing is read from or written to the stats database. */
+function openDemoStats(registry: ReturnType<typeof loadRegistry>, lanPlayers: string): StatsStore {
+  const store = new StatsStore(new DatabaseSync(":memory:"), { registry });
+  seedDemoStats(store, registry, lanPlayers.split(",").map((name) => name.trim()));
+  log.warn("DEV_DEMO_STATS is on: the lobby shows made-up stats, and new matches are kept in memory only");
   return store;
 }
 

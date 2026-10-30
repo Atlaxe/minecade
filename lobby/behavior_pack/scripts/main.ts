@@ -2,7 +2,7 @@
 // connects the terminal, game starting and stats logic (terminal-controller.ts,
 // lobby-controller.ts, stats-controller.ts) to players, forms and the orchestrator.
 import { system, world, type Player, type Vector3 } from "@minecraft/server";
-import { ActionFormData, uiManager } from "@minecraft/server-ui";
+import { uiManager } from "@minecraft/server-ui";
 import { describeError, holoPictures, log, normalizePlayer, playChime, showForm } from "@minecade/minigame-core";
 import { bootServer } from "@minecade/minigame-core/bootstrap";
 import registry from "#registry";
@@ -10,7 +10,7 @@ import { demoGames } from "./demo-games.ts";
 import { teamsContent } from "./holo-content.ts";
 import { Hologram } from "./hologram.ts";
 import { LobbyController } from "./lobby-controller.ts";
-import { MAIN_MENU_CHOICES, gameForm, gamesForm, mainMenuForm } from "./menus.ts";
+import { MAIN_MENU_CHOICES, gameForm, gamesForm, mainMenuForm, playersForm, statsForm } from "./menus.ts";
 import { StatsController } from "./stats-controller.ts";
 import { TeamPickForm } from "./team-pick-form.ts";
 import { TerminalController } from "./terminal-controller.ts";
@@ -104,12 +104,13 @@ bootServer(({ vars, transport, transfer, root }) => {
     {
       send: (event) => transport.send(event),
       notify: (name, text) => playerNamed(name)?.sendMessage(text),
-      show: async (name, scope, { title, body, buttons }) => {
+      playersMenu: async (name, scope, view) => {
         const player = playerNamed(name);
-        if (!player) return undefined;
-        const form = new ActionFormData().title(title).body(body);
-        for (const button of buttons) form.button(button);
-        return (await showForm(scope, player, form))?.selection;
+        return player ? (await showForm(scope, player, playersForm(view)))?.selection : undefined;
+      },
+      statsMenu: async (name, scope, view) => {
+        const player = playerNamed(name);
+        return player ? (await showForm(scope, player, statsForm(view)))?.selection : undefined;
       },
     },
     root,
@@ -136,7 +137,7 @@ bootServer(({ vars, transport, transfer, root }) => {
         const player = playerNamed(name);
         return player ? (await showForm(scope, player, gameForm(view)))?.selection : undefined;
       },
-      stats: (name) => stats.openStats(name),
+      stats: (name, show) => stats.openStats(name, show),
       choices: () => lobby.choices(),
       busy: () => lobby.busy(),
       request: (name, game, map, settings) => lobby.request(name, game, map, settings),

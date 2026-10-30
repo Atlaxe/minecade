@@ -54,6 +54,7 @@ Build Battle, Prophunt, Zombies, Hide and Seek, Block Drop). See [Adding a game]
    | `PUBLIC_HOST` | `auto` (looks up your public IP at start) or a DDNS hostname. |
    | `DEV_MIN_PLAYERS` | Empty normally. `1` lets every game start with one player, for testing alone. |
    | `DEV_DEMO_GAMES` | Empty normally. A number (up to 12) adds that many made-up games to the lobby's menus, for testing how they look with more games. They can't be started. |
+   | `DEV_DEMO_STATS` | Empty normally. `1` fills the lobby's stats screens with made-up players and matches, kept in memory only, for testing alone. The real stats database isn't read or changed while it's on. |
 
 3. Start everything, either way:
    - **Panel:** run `npm run panel:shortcut` once to put a "Minecade Panel" shortcut on your
@@ -201,7 +202,7 @@ tools/build/              build, bake and console tools
 tools/control-panel/      the Minecade Panel
 tools/smoke/              the smoke test
 docker/bds/               the server image and its entrypoint
-docs/                     map format and measured BDS behavior
+docs/                     map format, measured BDS behavior, the lobby UI (ui.md), skins (skins.md)
 ```
 
 ### Adding a game

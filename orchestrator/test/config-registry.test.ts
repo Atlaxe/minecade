@@ -18,7 +18,9 @@ describe("loadConfig", () => {
       sparePort: 19134,
       readyTimeoutMs: 120_000,
       emptyBackstopMs: 180_000,
+      devDemoStats: false,
     });
+    expect(loadConfig({ LAN_HOST: "x", DEV_DEMO_STATS: "1" }).devDemoStats).toBe(true);
   });
 
   it("rejects bad settings", () => {

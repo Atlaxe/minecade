@@ -49,6 +49,7 @@ function setup() {
   const requests: [string, string, string, Record<string, string>][] = [];
   const distances = new Map<string, number | undefined>();
   let finishStats: (() => void) | undefined;
+  let statsShow: ((content: HoloContent) => void) | undefined;
   let starting = false;
   let busy: string | undefined;
   let refusal: string | undefined;
@@ -62,7 +63,10 @@ function setup() {
     mainMenu: (name, scope) => scope.guard(new Promise((answer) => mains.push({ name, answer }))),
     gamesMenu: (name, scope, list) => scope.guard(new Promise((answer) => grids.push({ name, answer, choices: list }))),
     gameMenu: (name, scope, view) => scope.guard(new Promise((answer) => screens.push({ name, answer, view }))),
-    stats: () => new Promise<void>((done) => (finishStats = done)),
+    stats: (_name, show) => {
+      statsShow = show;
+      return new Promise<void>((done) => (finishStats = done));
+    },
     choices: () => choices,
     busy: () => busy,
     starting: () => starting,
@@ -97,6 +101,7 @@ function setup() {
     root,
     terminal,
     finishStats: () => finishStats?.(),
+    statsShow: (content: HoloContent) => statsShow?.(content),
     setStarting: (value: boolean) => (starting = value),
     setBusy: (value: string | undefined) => (busy = value),
     setRefusal: (value: string | undefined) => (refusal = value),
@@ -297,6 +302,8 @@ describe("TerminalController: Play", () => {
     t.mains[1].answer("stats");
     await flushPromises();
     expect(t.holo.at(-1)).toEqual(mainContent("stats"));
+    t.statsShow(idleContent()); // the stats screens put their own content up through the terminal
+    expect(t.holo.at(-1)).toEqual(idleContent());
     t.finishStats();
     await flushPromises();
     expect(t.mains).toHaveLength(3);
