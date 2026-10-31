@@ -22,8 +22,10 @@ export interface EditorStatus {
   join: string;
   players: string[];
   editors: string[];
-  /** The world is saved back into the map when the editor stops. */
-  saveWorld: boolean;
+  /** Blocks changed since the world was last saved: Save, or stopping, saves them into the map. */
+  unsaved: boolean;
+  /** A Save is running. */
+  saving: boolean;
   undo?: string;
   redo?: string;
   checklist: { rows: { label: string; have: number; need: number; done: boolean }[]; problems: string[]; warnings: string[]; ready: boolean };
@@ -34,13 +36,14 @@ export interface EditorStatus {
 
 export type EditorArgs =
   | { command: "edit"; target: string; map: string; fresh: boolean; verbose: boolean }
-  | { command: "status" | "stop" }
+  | { command: "status" | "save" | "stop" }
   | { command: "help"; error?: string };
 
 export const USAGE = `Usage:
   npm run editor -- <target> <map>          edit a map (target: lobby or a game id), for example: sumo arena_1
   npm run editor -- <target> <map> --new    a new draft map: a void world with a glass pad
   npm run editor -- status                  what the running editor is doing
+  npm run editor -- save                    save the running editor's world into the map now
   npm run editor -- stop                    stop the running editor (it saves first)
 Add --verbose to echo the server console.`;
 
@@ -50,7 +53,7 @@ export function parseArgs(argv: string[]): EditorArgs {
   const unknown = [...flags].filter((flag) => !["--new", "--verbose", "--help"].includes(flag));
   if (unknown.length > 0) return { command: "help", error: `unknown option ${unknown.join(", ")}` };
   if (flags.has("--help") || words.length === 0) return { command: "help" };
-  if (words.length === 1 && (words[0] === "status" || words[0] === "stop")) return { command: words[0] };
+  if (words.length === 1 && (words[0] === "status" || words[0] === "save" || words[0] === "stop")) return { command: words[0] };
   if (words.length !== 2) return { command: "help", error: "expected a target and a map" };
   const [target, map] = words;
   if (!MAP_ID.test(map)) return { command: "help", error: `"${map}" is not a map id: use lower case letters, digits, _ and -` };

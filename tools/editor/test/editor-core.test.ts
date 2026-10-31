@@ -7,6 +7,7 @@ describe("parseArgs", () => {
     expect(parseArgs(["sumo", "arena_1"])).toEqual({ command: "edit", target: "sumo", map: "arena_1", fresh: false, verbose: false });
     expect(parseArgs(["sumo", "test", "--new", "--verbose"])).toMatchObject({ command: "edit", fresh: true, verbose: true });
     expect(parseArgs(["stop"])).toEqual({ command: "stop" });
+    expect(parseArgs(["save"])).toEqual({ command: "save" });
     expect(parseArgs([])).toEqual({ command: "help" });
   });
 

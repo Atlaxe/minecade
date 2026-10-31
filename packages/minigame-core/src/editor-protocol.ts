@@ -38,8 +38,10 @@ export type EditorEvent =
   | { t: "redo"; by: string }
   /** The pack's copy differs from the host's: send the whole map.json again. */
   | { t: "resync" }
-  /** Whether the world is saved when the editor stops: blocks changed, or a map editor chose it. */
-  | { t: "saveWorld"; by: string; save: boolean }
+  /** Save the world now (the Save button). map.json is written on every change already. */
+  | { t: "save"; by: string }
+  /** Blocks changed, so the world has changes to save. Sent at most every few seconds. */
+  | { t: "changed"; by: string }
   /** The answer to "cleanup": how many markers are still in the world (the world is saved only at 0). */
   | { t: "clean"; id: number; left: number; error?: string };
 
@@ -49,15 +51,17 @@ export type HostMessage =
   | { t: "config"; id: number; seq: number; part: number; parts: number; data: string }
   /** The host applied edit `seq`; `hash` is mapHash() of its copy afterwards. */
   | { t: "ack"; seq: number; hash: string }
-  /** Undo and redo (what each would change), and whether the world is saved at stop. */
-  | { t: "status"; undo?: string; redo?: string; saveWorld: boolean }
+  /** Undo and redo (what each would change), whether blocks changed since the last save, and whether a save is running. */
+  | { t: "status"; undo?: string; redo?: string; unsaved: boolean; saving: boolean }
   /** A chat line for one player, or for everyone when `to` is absent. */
   | { t: "say"; to?: string; text: string }
   /** Remove every marker (the world is about to be saved), then answer with "clean". */
-  | { t: "cleanup"; id: number };
+  | { t: "cleanup"; id: number }
+  /** A save while running is done: show the markers again. */
+  | { t: "resume" };
 
-const EVENT_TYPES = new Set(["ready", "edit", "undo", "redo", "resync", "saveWorld", "clean"]);
-const MESSAGE_TYPES = new Set(["config", "ack", "status", "say", "cleanup"]);
+const EVENT_TYPES = new Set(["ready", "edit", "undo", "redo", "resync", "save", "changed", "clean"]);
+const MESSAGE_TYPES = new Set(["config", "ack", "status", "say", "cleanup", "resume"]);
 
 // BDS prints script console output as "[<time> <LEVEL>] [Scripting] <text>". Requiring that prefix
 // means "[EDIT]" anywhere else in the log (a player's chat, a command) is never taken for an event.

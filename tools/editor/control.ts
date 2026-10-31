@@ -1,5 +1,5 @@
-// The running editor's control port on this PC (127.0.0.1:8097): GET /status and POST /stop, for
-// the Panel and `npm run editor -- status | stop`. Requests are checked the way the Panel checks its
+// The running editor's control port on this PC (127.0.0.1:8097): GET /status, POST /save and
+// POST /stop, for the Panel and `npm run editor -- status | save | stop`. Requests are checked the way the Panel checks its
 // own, so a web page can't reach it.
 import { createServer, type Server } from "node:http";
 import { checkRequest } from "../control-panel/core.ts";
@@ -8,7 +8,7 @@ import { CONTROL_PORT, type EditorStatus } from "./editor-core.ts";
 const ORIGIN = `http://127.0.0.1:${CONTROL_PORT}`;
 
 /** Serves the control port. Fails when another editor already holds it. */
-export function serveControl(handlers: { status(): EditorStatus; stop(): void }): Promise<Server> {
+export function serveControl(handlers: { status(): EditorStatus; save(): void; stop(): void }): Promise<Server> {
   const server = createServer((req, res) => {
     const method = req.method ?? "GET";
     const refusal = checkRequest(
@@ -23,6 +23,10 @@ export function serveControl(handlers: { status(): EditorStatus; stop(): void })
     req.resume();
     if (refusal) return reply(403, { error: refusal });
     if (method === "GET" && path === "/status") return reply(200, handlers.status());
+    if (method === "POST" && path === "/save") {
+      handlers.save();
+      return reply(202, { ok: true });
+    }
     if (method === "POST" && path === "/stop") {
       handlers.stop();
       return reply(202, { ok: true });
@@ -48,9 +52,18 @@ export async function editorStatus(timeoutMs = 1000): Promise<EditorStatus | und
 }
 
 /** Asks the running editor to stop (it saves first). False when none answers. */
-export async function stopEditor(): Promise<boolean> {
+export function stopEditor(): Promise<boolean> {
+  return post("/stop");
+}
+
+/** Asks the running editor to save its world into the map now. False when none answers. */
+export function saveEditor(): Promise<boolean> {
+  return post("/save");
+}
+
+async function post(path: string): Promise<boolean> {
   try {
-    const response = await fetch(`${ORIGIN}/stop`, { method: "POST", headers: { "x-minecade-panel": "1" }, signal: AbortSignal.timeout(3000) });
+    const response = await fetch(`${ORIGIN}${path}`, { method: "POST", headers: { "x-minecade-panel": "1" }, signal: AbortSignal.timeout(3000) });
     return response.ok;
   } catch {
     return false;

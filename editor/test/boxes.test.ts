@@ -2,17 +2,21 @@ import { describe, expect, it } from "vitest";
 import type { Box } from "@minecade/minigame-core/config";
 import {
   blockBox,
+  DOTS,
   describeBox,
-  edgePoints,
   floorAt,
   growBox,
+  nearDots,
   nudgeBox,
   parseHeight,
   planePoints,
+  rectDots,
   sameBox,
   sizeText,
   topCenter,
+  viewDots,
   type Point,
+  type View,
 } from "../behavior_pack/scripts/boxes.ts";
 
 const none = { west: 0, east: 0, down: 0, up: 0, north: 0, south: 0 };
@@ -54,36 +58,65 @@ describe("selection boxes", () => {
   });
 });
 
+
 describe("outline dots", () => {
   const key = (point: Point) => `${point.x},${point.y},${point.z}`;
+  /** Looking along +z from `eye`. */
+  const viewFrom = (x: number, y: number, z: number): View => ({ eye: { x, y, z }, look: { x: 0, y: 0, z: 1 } });
 
-  it("draws a one-block box as its 8 corners", () => {
-    const points = edgePoints(blockBox([0, 0, 0]), { x: 0, y: 0, z: 0 }, 40, 1000);
-    expect(points.map(key).sort()).toEqual(["0,0,0", "0,0,1", "0,1,0", "0,1,1", "1,0,0", "1,0,1", "1,1,0", "1,1,1"]);
+  it("draws every edge of a box in front, each corner once, none twice", () => {
+    const dots = viewDots(blockBox([0, 0, 5]), viewFrom(0.5, 0.5, 0), 1000);
+    const keys = new Set(dots.map(key));
+    expect(keys.size).toBe(dots.length);
+    for (const corner of ["0,0,5", "1,0,5", "0,1,5", "1,1,5", "0,0,6", "1,0,6", "0,1,6", "1,1,6"]) expect(keys.has(corner)).toBe(true);
   });
 
-  it("puts a dot at every block along each edge, and none twice", () => {
-    const points = edgePoints({ min: [0, 0, 0], max: [2, 1, 0] }, { x: 1, y: 1, z: 0 }, 40, 1000);
-    // Outer edges: 4 along x with 4 dots, 4 along y with 1 between corners, 4 along z with none.
-    expect(points).toHaveLength(16 + 4);
-    expect(new Set(points.map(key)).size).toBe(points.length);
+  it("spaces dots by distance, on multiples of the gap from the box's corner", () => {
+    const box: Box = { min: [0, 0, 2], max: [0, 0, 401] };
+    const dots = viewDots(box, viewFrom(0, 0, 0), 10_000).filter((dot) => dot.x === 0 && dot.y === 0);
+    const near = dots.filter((dot) => dot.z < 10).length;
+    const far = dots.filter((dot) => dot.z >= 30 && dot.z < 38).length;
+    expect(near).toBeGreaterThan(far);
+    // Along the edge's axis every dot short of the pull-in distance sits on a multiple of the narrowest gap.
+    const unmoved = dots.filter((dot) => dot.z < DOTS.project - 0.5);
+    expect(unmoved.length).toBeGreaterThan(30);
+    expect(unmoved.every((dot) => ((dot.z - 2) / DOTS.minGap) % 1 === 0)).toBe(true);
   });
 
-  it("spaces dots out to stay within the budget, keeping the corners", () => {
-    const box: Box = { min: [0, 0, 0], max: [99, 0, 0] };
-    const points = edgePoints(box, { x: 50, y: 0, z: 0 }, 1000, 100);
-    expect(points.length).toBeLessThanOrEqual(100);
-    expect(points.length).toBeGreaterThan(25);
-    const keys = new Set(points.map(key));
-    for (const corner of ["0,0,0", "100,0,0", "0,1,1", "100,1,1"]) expect(keys.has(corner)).toBe(true);
+  it("pulls far dots in along the line of sight, so a box shows from any distance", () => {
+    const box: Box = { min: [-10, -10, 1000], max: [9, 9, 1019] };
+    const view = viewFrom(0, 0, 0);
+    const dots = viewDots(box, view, 1000);
+    expect(dots.length).toBeGreaterThan(0);
+    for (const dot of dots) {
+      expect(Math.hypot(dot.x, dot.y, dot.z)).toBeCloseTo(DOTS.project, 6);
+      expect(dot.size).toBeCloseTo(Math.min(DOTS.maxSize, DOTS.project * DOTS.sizePerBlock), 6);
+    }
+    // The corner at -10 -10 1000 is drawn on its own line of sight.
+    const scale = DOTS.project / Math.hypot(10, 10, 1000);
+    expect(dots.some((dot) => Math.abs(dot.x + 10 * scale) < 1e-9 && Math.abs(dot.y + 10 * scale) < 1e-9 && Math.abs(dot.z - 1000 * scale) < 1e-9)).toBe(true);
   });
 
-  it("only draws what's within reach", () => {
-    const box: Box = { min: [0, 0, 0], max: [999, 0, 0] };
-    const points = edgePoints(box, { x: 500, y: 0, z: 0 }, 10, 1000);
-    expect(points.every((point) => Math.hypot(point.x - 500, point.y, point.z) <= 10)).toBe(true);
-    expect(points.filter((point) => point.y === 0 && point.z === 0)).toHaveLength(21);
-    expect(edgePoints(box, { x: 500, y: 50, z: 0 }, 10, 1000)).toEqual([]);
+  it("sizes near dots by their distance", () => {
+    const [dot] = viewDots(blockBox([0, 0, 30]), viewFrom(0, 0, 0), 1000);
+    expect(dot.size).toBeCloseTo(Math.max(DOTS.minSize, Math.hypot(dot.x, dot.y, dot.z) * DOTS.sizePerBlock), 6);
+  });
+
+  it("leaves out what's behind the player", () => {
+    expect(viewDots(blockBox([0, 0, -20]), viewFrom(0, 0, 0), 1000)).toEqual([]);
+    expect(nearDots([{ x: 0, y: 0, z: -5 }, { x: 0, y: 0, z: 5 }], viewFrom(0, 0, 0)).map(key)).toEqual(["0,0,5"]);
+  });
+
+  it("widens the gaps to stay within the budget", () => {
+    const box: Box = { min: [-50, -50, 2], max: [49, 49, 101] };
+    const dots = viewDots(box, viewFrom(0, 0, 0), 150);
+    expect(dots.length).toBeLessThanOrEqual(150);
+    expect(dots.length).toBeGreaterThan(30);
+  });
+
+  it("outlines the kill Y plane's rectangle", () => {
+    const keys = new Set(rectDots(-5, 5, 5, 15, 58, viewFrom(0, 60, 0), 1000).map(key));
+    for (const corner of ["-5,58,5", "5,58,5", "-5,58,15", "5,58,15"]) expect(keys.has(corner)).toBe(true);
   });
 
   it("dots the kill Y plane near the player, inside the bounds", () => {

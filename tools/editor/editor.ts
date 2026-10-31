@@ -1,11 +1,11 @@
 // The map editor's host tool: runs the editor server on port 19134 with one map, keeps map.json in
 // step with the game, and saves the world back into the map when it stops. See docs/editor.md.
 //   npm run editor -- <target> <map> [--new] [--verbose]     for example: npm run editor -- sumo arena_1
-//   npm run editor -- status | stop
+//   npm run editor -- status | save | stop
 // The Panel starts the same tool in the background (its output goes to work/editor/editor.log).
 // Either way it answers on 127.0.0.1:8097, which the Panel and `npm run editor -- stop` use.
 import { fileURLToPath } from "node:url";
-import { editorStatus, serveControl, stopEditor } from "./control.ts";
+import { editorStatus, saveEditor, serveControl, stopEditor } from "./control.ts";
 import { USAGE, parseArgs } from "./editor-core.ts";
 import { EditorSession } from "./session.ts";
 import { loadTarget } from "./targets.ts";
@@ -24,10 +24,28 @@ if (args.command === "status") {
   if (!status) console.log("No map editor is running.");
   else {
     console.log(`${status.targetName}, ${status.mapName} (${status.map}): ${status.state}. Join ${status.join}.`);
-    console.log(`Online: ${status.players.join(", ") || "nobody"}. The world ${status.saveWorld ? "is saved" : "is kept as it was"} at stop.`);
+    const world = status.saving ? "is being saved" : status.unsaved ? "has unsaved block changes (Save, or stopping, saves them)" : "is saved";
+    console.log(`Online: ${status.players.join(", ") || "nobody"}. The world ${world}.`);
     for (const row of status.checklist.rows) console.log(`  ${row.done ? "ok     " : "missing"} ${row.label} ${row.have}/${row.need}`);
     for (const problem of status.checklist.problems) console.log(`  ${problem}`);
   }
+  process.exit(0);
+}
+
+if (args.command === "save") {
+  if (!(await saveEditor())) {
+    console.log("No map editor is running.");
+    process.exit(0);
+  }
+  console.log("Saving the map editor's world into the map...");
+  // Wait for the save to start, then for it to finish.
+  await new Promise((resolve) => setTimeout(resolve, 1000));
+  let status = await editorStatus();
+  while (status?.saving) {
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+    status = await editorStatus();
+  }
+  console.log(status?.log.at(-1) ?? "The editor stopped.");
   process.exit(0);
 }
 
@@ -56,7 +74,7 @@ if (args.command === "edit") {
     console.error(error instanceof Error ? error.message : String(error));
     process.exit(1);
   }
-  const control = await serveControl({ status: () => session.status(), stop: () => void session.stop() }).catch((error: unknown) => {
+  const control = await serveControl({ status: () => session.status(), save: () => void session.save("this PC"), stop: () => void session.stop() }).catch((error: unknown) => {
     console.error(error instanceof Error ? error.message : String(error));
     process.exit(1);
   });

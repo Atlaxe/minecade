@@ -1,9 +1,9 @@
 {
   "namespace": "server_form",
 
-  // The map editor's side menus. Forms whose title starts with the side mark (formatting codes that
-  // never render, see editor/behavior_pack/scripts/menu.ts) get the layout in editor_forms.json;
-  // every other form stays vanilla. Merged into the vanilla file, so updates to it still apply.
+  // The map editor's menus. Forms whose title starts with a layout mark (formatting codes that never
+  // render, see editor/behavior_pack/scripts/marks.ts) get a layout in editor_forms.json; every
+  // other form stays vanilla. Merged into the vanilla file, so updates to it still apply.
   //
   // Vanilla sizes this panel [0, 0] (its forms are fixed sizes centered on it), which makes every
   // percentage size inside it zero. Filling the screen lets the side menu take the screen's full
@@ -30,7 +30,7 @@
     ]
   },
 
-  // The vanilla action form hides itself for marked titles. Like every control a binding shows, it
+  // The vanilla action form hides itself for marked titles (the side mark or the map menu's). Like every control a binding shows, it
   // starts hidden, so a new form's first frame (before the bindings) has nothing stale to click.
   "long_form": {
     "visible": false,
@@ -42,7 +42,7 @@
           { "binding_name": "#title_text" },
           {
             "binding_type": "view",
-            "source_property_name": "((#title_text - '§s§i§d§e') = #title_text)",
+            "source_property_name": "(((#title_text - '§s§i§d§e') = #title_text) and ((#title_text - '§m§a§p') = #title_text))",
             "target_property_name": "#visible"
           }
         ]

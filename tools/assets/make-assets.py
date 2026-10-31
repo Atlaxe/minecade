@@ -11,7 +11,8 @@ Outputs:
     lobby/resource_pack/textures/minecade/holo/...                           hologram frames, beam
     lobby/resource_pack/textures/minecade/blocks/...                         terminal block faces
     lobby/resource_pack/font/glyph_E3.png                                    icons drawn inside text (the player icon)
-    editor/resource_pack/textures/minecade/editor/...                        the map editor's dark side menus
+    editor/resource_pack/textures/minecade/editor/...                        the map editor's dark side menus and icons
+    editor/resource_pack/textures/particle/outline.png                        the editor's outline dot (white, dark rim)
     editor/resource_pack/textures/entity/editor_marker_facing.png            the red facing line on markers
     games/<id>/icon.png                                                      16:9 game pictures (Probe, Sumo)
 
@@ -21,6 +22,7 @@ The logo source is tools/assets/source/minecade-title.png (the orange original).
 
 import colorsys
 import json
+import math
 import random
 import sys
 from pathlib import Path
@@ -434,12 +436,21 @@ def editor_panel() -> Image.Image:
     return image
 
 
-def editor_button(state: str) -> Image.Image:
+# Editor button faces by tone: gray for most, green for Save, red for deleting and removing.
+EDITOR_FACES = {
+    "gray": {"default": EDITOR_FACE, "hover": (72, 73, 74), "pressed": (36, 37, 38)},
+    "save": {"default": EDITOR_GREEN, "hover": (78, 163, 52), "pressed": (44, 100, 28)},
+    "danger": {"default": (170, 42, 42), "hover": (204, 56, 56), "pressed": (128, 30, 30)},
+}
+
+
+def editor_button(state: str, tone: str = "gray") -> Image.Image:
     """
-    An editor menu button, 16x16 at 1x, nine-slice (4 pixel slices): a flat gray face with a lighter
+    An editor menu button, 16x16 at 1x, nine-slice (4 pixel slices): a flat face with a lighter
     top edge and a darker bottom edge, lighter on hover; pressed swaps the edges so it looks pushed in.
+    Gray, green (Save) or red (deleting and removing), all with white text.
     """
-    face = {"default": EDITOR_FACE, "hover": (72, 73, 74), "pressed": (36, 37, 38)}[state]
+    face = EDITOR_FACES[tone][state]
     light = tuple(min(255, c + 40) for c in face)
     dark = (18, 18, 19)
     top, bottom = (dark, light) if state == "pressed" else (light, dark)
@@ -458,6 +469,50 @@ def editor_switch(on: bool) -> Image.Image:
     draw.rectangle((1, 1, width - 2, height - 2), fill=(*(EDITOR_GREEN if on else (88, 89, 92)), 255), outline=(18, 18, 19, 255), width=2)
     knob = (width - 24, 5, width - 6, height - 6) if on else (5, 5, 23, height - 6)
     draw.rectangle(knob, fill=(255, 255, 255, 255) if on else (200, 201, 204, 255))
+    return image
+
+
+def editor_picked() -> Image.Image:
+    """The outline on the tool in hand and the picked option, 16x16 at 1x, nine-slice: a 2 pixel white square outline."""
+    image = Image.new("RGBA", (16, 16), (0, 0, 0, 0))
+    ImageDraw.Draw(image).rectangle((0, 0, 15, 15), outline=(255, 255, 255, 235), width=2)
+    return image
+
+
+def editor_icon(kind: str, color: tuple[int, int, int] = (255, 255, 255)) -> Image.Image:
+    """
+    The map menu's quick icons, 16x16 (drawn at 64x64 and scaled down): a check mark, Undo and
+    Redo (a U-turn arrow, Redo mirrored), and a gear for the map settings.
+    """
+    size = 64
+    image = Image.new("RGBA", (size, size), (0, 0, 0, 0))
+    draw = ImageDraw.Draw(image)
+    fill = (*color, 255)
+    if kind == "check":
+        draw.line([(10, 34), (25, 49), (54, 16)], fill=fill, width=9, joint="curve")
+    elif kind in ("undo", "redo"):
+        draw.line([(22, 18), (40, 18)], fill=fill, width=7)
+        draw.arc((24, 18 - 3, 56, 50 + 3), start=-90, end=90, fill=fill, width=7)
+        draw.line([(40, 50), (14, 50)], fill=fill, width=7)
+        draw.polygon([(6, 18), (24, 4), (24, 32)], fill=fill)
+        if kind == "redo":
+            image = image.transpose(Image.Transpose.FLIP_LEFT_RIGHT)
+    elif kind == "gear":
+        center = size / 2
+        for y in range(size):
+            for x in range(size):
+                dx, dy = x + 0.5 - center, y + 0.5 - center
+                r = math.hypot(dx, dy)
+                outer = 29 if math.cos(8 * math.atan2(dy, dx)) > 0.25 else 22
+                if 9 <= r <= outer:
+                    image.putpixel((x, y), fill)
+    return image.resize((16, 16), Image.Resampling.LANCZOS)
+
+
+def outline_dot() -> Image.Image:
+    """The editor's outline dot, 4x4: a white middle (the particle tints it) and a black rim that tinting leaves black."""
+    image = Image.new("RGBA", (4, 4), (0, 0, 0, 255))
+    ImageDraw.Draw(image).rectangle((1, 1, 2, 2), fill=(255, 255, 255, 255))
     return image
 
 
@@ -565,6 +620,13 @@ def main() -> None:
     save(Image.new("RGBA", (4, 1), (72, 73, 76, 255)), EDITOR_TEXTURES / "minecade" / "editor" / "rule.png")
     for state in ("default", "hover", "pressed"):
         save_nineslice(editor_button(state), EDITOR_TEXTURES / "minecade" / "editor" / f"button_{state}.png", 4)
+        save_nineslice(editor_button(state, "save"), EDITOR_TEXTURES / "minecade" / "editor" / f"save_{state}.png", 4)
+        save_nineslice(editor_button(state, "danger"), EDITOR_TEXTURES / "minecade" / "editor" / f"danger_{state}.png", 4)
+    save_nineslice(editor_picked(), EDITOR_TEXTURES / "minecade" / "editor" / "picked.png", 4)
+    for kind, name in (("check", "check"), ("undo", "undo"), ("redo", "redo"), ("gear", "settings")):
+        save(editor_icon(kind), EDITOR_TEXTURES / "minecade" / "editor" / f"icon_{name}.png")
+    save(editor_icon("check", (110, 220, 90)), EDITOR_TEXTURES / "minecade" / "editor" / "icon_check_done.png")
+    save(outline_dot(), EDITOR_TEXTURES / "particle" / "outline.png")
     save(editor_switch(True), EDITOR_TEXTURES / "minecade" / "editor" / "switch_on.png")
     save(editor_switch(False), EDITOR_TEXTURES / "minecade" / "editor" / "switch_off.png")
     for state, color in (("default", (255, 255, 255)), ("hover", (235, 64, 64)), ("pressed", (160, 30, 30))):

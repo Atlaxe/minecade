@@ -13,7 +13,7 @@ import { dirname, join } from "node:path";
 import { createInterface } from "node:readline";
 import { fileURLToPath } from "node:url";
 import type Docker from "dockerode";
-import { editorStatus, stopEditor } from "../editor/control.ts";
+import { editorStatus, saveEditor, stopEditor } from "../editor/control.ts";
 import { parseArgs as parseEditorArgs, type EditorStatus } from "../editor/editor-core.ts";
 import {
   checkLobbyMap,
@@ -508,6 +508,12 @@ async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> 
     const result = await startEditor(body);
     void refresh();
     return sendJson(res, result.status, result.body);
+  }
+  if (path === "/api/editor/save") {
+    if (!(await saveEditor())) return sendJson(res, 409, { error: "no map editor is running" });
+    note("Map editor: saving the world into the map...");
+    void refresh();
+    return sendJson(res, 202, { ok: true });
   }
   if (path === "/api/editor/stop") {
     if (!(await stopEditor())) return sendJson(res, 409, { error: "no map editor is running" });

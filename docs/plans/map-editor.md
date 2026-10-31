@@ -458,7 +458,8 @@ the client's worlds folder, plus the spaceship world.
 - Brought forward from 10.7 on 2026-10-30, after the user's first in-game run:
   - the button menus (map menu, checklist, marker form) as a dark panel down the right side, full
     height and scrolling, in Minecraft Ten;
-  - every tool button is a switch, and a tool goes in hotbar slot 1, unlocked, one at a time;
+  - every tool button is a switch, and a tool goes in hotbar slot 1, unlocked, one at a time
+    (the switches became the map menu's tool grid after 10.4);
   - a glowing red line from each faced marker's top toward its facing, tilted by the pitch.
 
 **10.4 Region and Kill Y tools.** Region tool, Kill Y tool, and a plain particle outline of the
@@ -477,6 +478,19 @@ box being edited and of the bounds (stand-in for the colored boundary blocks).
 - Existing boxes are in the map menu's "Bounds and regions" list (Edit, Nudge, Go to, Delete).
 - The region tool's item doesn't set `can_destroy_in_creative: false`, so its hits reach the script
   (`entityHitBlock`); the editor cancels the break instead, as for every tool.
+- Changed on 2026-10-30, after the user's first look in game (brought forward from 10.7 and 10.8):
+  - The map menu: quick icons (the checklist pill, Undo, Redo, a gear for map settings) with
+    tooltips, a grid of the tools' icons (tap to pick one, again to put it away), the picked tool's
+    settings (scrolling), and a green Save bar at the bottom. Mark ready moved to the checklist, and
+    Drop build commands to the gear. Delete and remove buttons are red everywhere.
+  - The Spawn and Kill Y tools act at once, with their settings in the map menu (the spawn list,
+    Save my facing, the snap). While a tool is held, the action bar says what a use does.
+  - Save while running (`save hold`, from 10.8) replaces the "Save the world at stop" switch:
+    Save in the map menu, the Panel or `npm run editor -- save`. Stopping still saves block changes
+    made since the last save.
+  - Outlines show from any distance: dots past 40 blocks are drawn 40 blocks out on the same line
+    of sight, spaced and sized by distance, with a dark rim for contrast. Still particles, so only
+    the holder sees them (entity models were the other option, but everyone would see them).
 
 **10.5 Select mode.**
 - World picker (client worlds by name, folders, `.mcworld`), select tool, confirm form.
@@ -508,7 +522,7 @@ both in the Panel.
   - the orchestrator's `/v1/editor/hold` and `/v1/editor/return`;
   - lobby waiting players, the 3-minute timeout, and the offer to start the main stack.
 - The in-game Players screen.
-- Hot "Save world", Shrink to build, `mc:` commands.
+- Shrink to build, `mc:` commands. (Hot "Save world" came early, after 10.4.)
 
 **10.9 Extra tools:** mirror tool, camera tool and "Use latest screenshot", the lobby terminal
 marker.

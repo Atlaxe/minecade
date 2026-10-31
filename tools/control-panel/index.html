@@ -702,9 +702,9 @@ function renderEditor() {
   const [tone, text] = editorTone(editor);
   $("nav-editor").className = `dot ${tone}`;
   $("nav-editor").title = `Map editor: ${text}`;
-  const facts = status && [status.state, status.error, status.targetName, status.mapName, status.map, status.draft, status.join, status.players];
+  const facts = status && [status.state, status.error, status.targetName, status.mapName, status.map, status.draft, status.join, status.players, status.saving];
   patch($("editor-server"), [facts, editor.launching, state.editorTargets, state.docker], () => editorCard(editor));
-  patch($("editor-checklist"), status && [status.checklist, status.undo, status.redo, status.saveWorld], () => status && checklistCard(status));
+  patch($("editor-checklist"), status && [status.checklist, status.undo, status.redo, status.unsaved, status.saving], () => status && checklistCard(status));
   const pre = $("editor-log");
   const lines = editor.log.join("\n");
   if (pre.textContent !== lines) {
@@ -720,13 +720,16 @@ function editorCard(editor) {
   const [tone, text] = editorTone(editor);
   const head = (...extra) => el("div", { className: "card-head" }, el("h2", {}, "Editor server"), el("span", { className: `pill ${tone}` }, text), extra);
   if (status && status.state !== "stopped") {
+    const save = el("button", { onclick: () => post("/api/editor/save") }, status.saving ? "Saving..." : "Save");
+    save.disabled = status.state !== "ready" || status.saving;
+    save.title = "Save the world into the map now (map.json is saved on every change)";
     const stop = el("button", { className: "danger", onclick: () => post("/api/editor/stop") }, "Stop");
     stop.disabled = status.state === "stopping";
     const players = status.players.length
       ? el("div", { className: "chips" }, status.players.map((name) => el("span", { className: "chip" }, status.editors.some((e) => e.toLowerCase() === name.toLowerCase()) ? `${name} (map editor)` : name)))
       : el("span", { className: "muted" }, "Nobody yet.");
     return el("div", { className: "card" },
-      head(el("div", { className: "actions" }, stop)),
+      head(el("div", { className: "actions" }, save, stop)),
       el("div", { className: "game-now" },
         el("div", {}, el("span", { className: "game-title" }, `${status.targetName}: ${status.mapName}`), el("span", { className: "muted small", style: "margin-left:10px" }, `${status.map}${status.draft ? ", draft" : ""}`)),
         players),
@@ -789,7 +792,7 @@ function checklistCard(status) {
   const facts = [
     status.undo && `Undo: ${status.undo}`,
     status.redo && `Redo: ${status.redo}`,
-    status.saveWorld ? "The world is saved at stop." : "No block changes: the world is kept as it was.",
+    status.saving ? "Saving the world..." : status.unsaved ? "Unsaved block changes: Save, or stopping, saves them." : "The world is saved.",
   ].filter(Boolean).join("  |  ");
   return el("div", { className: "card" },
     el("div", { className: "card-head" }, el("h2", {}, "Checklist"), el("span", { className: `pill ${ready ? "ok" : "bad"}` }, ready ? (status.draft ? "ready to mark ready" : "ready") : `${count} problem${count === 1 ? "" : "s"}`)),

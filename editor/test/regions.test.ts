@@ -9,7 +9,9 @@ import {
   regionLabel,
   regionName,
   regionTargets,
+  selectionActions,
 } from "../behavior_pack/scripts/regions.ts";
+import { dangerText } from "../behavior_pack/scripts/marks.ts";
 
 const rules: EditorRules = {
   kind: "game",
@@ -99,5 +101,13 @@ describe("the map's boxes", () => {
     expect(plot).toBeDefined();
     expect(plot).not.toEqual(BOUNDS_COLOR);
     expect(plot).not.toEqual(KILL_COLOR);
+  });
+});
+
+describe("selection actions", () => {
+  it("offers Save changes only while editing, Floor only with kill Y, Back only after a change, Clear in red", () => {
+    expect(selectionActions(undefined, 0, undefined).map((entry) => entry.action)).toEqual(["saveAs", "nudge", "clear"]);
+    expect(selectionActions("Bounds", 2, 58).map((entry) => entry.action)).toEqual(["saveChanges", "saveAs", "nudge", "floor", "back", "clear"]);
+    expect(selectionActions(undefined, 0, undefined).at(-1)?.text).toBe(dangerText("Clear selection"));
   });
 });

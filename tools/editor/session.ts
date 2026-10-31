@@ -1,7 +1,8 @@
 // One map editor session in Edit mode. Stages the map in the editor's server container, keeps
 // map.json in step with the game (it applies the pack's edits with the same code, writes the file,
 // keeps undo and redo, and sends hand edits of map.json into the game), ops the map editors as
-// they join, and on stop saves the world back into the map when its blocks changed.
+// they join, saves the world back into the map on Save (while it runs, with save hold), and on
+// stop when blocks changed since the last save.
 import { existsSync, unwatchFile, watchFile } from "node:fs";
 import { cp, mkdir, mkdtemp, readFile, rename, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -29,7 +30,16 @@ import { BASE_IMAGE, buildBaseImage } from "../build/base-image.ts";
 import { attachConsole, connectDocker, copyDirFromContainer, findContainerByName, type ServerConsole } from "../build/docker-util.ts";
 import { enableBetaApis, patchLevelDat, readLevelDat, writeLevelDat } from "../build/leveldat.ts";
 import { PlayerLog, playerEvent, readEnv } from "../control-panel/core.ts";
-import { CONTAINER_NAME, EDITOR_PORT, History, editorAllowList, mapEditors, newMapConfig, withLineEndings, type EditorStatus } from "./editor-core.ts";
+import {
+  CONTAINER_NAME,
+  EDITOR_PORT,
+  History,
+  editorAllowList,
+  mapEditors,
+  newMapConfig,
+  withLineEndings,
+  type EditorStatus,
+} from "./editor-core.ts";
 import type { EditorTarget } from "./targets.ts";
 import { buildEditorTemplate } from "./template.ts";
 
@@ -45,6 +55,8 @@ const CLEAN_TIMEOUT_MS = 60_000;
 const STOP_TIMEOUT_MS = 30_000;
 const REPLY_TIMEOUT_MS = 5000;
 const OP_ATTEMPTS = 5;
+/** How many times a held save is asked whether its files are ready, half a second apart. */
+const SAVE_QUERY_ATTEMPTS = 20;
 
 export interface SessionOptions {
   target: EditorTarget;
@@ -69,7 +81,12 @@ export class EditorSession {
   private text = "";
   private badText = "";
   private readonly history = new History();
-  private saveWorld = false;
+  /** Blocks changed since the world was last saved (a new map's world has never been saved). */
+  private unsaved = false;
+  /** The Save that is running, if one is. */
+  private saving: Promise<void> | undefined;
+  /** Blocks changed while the running Save was under way, so they may not be in it. */
+  private changedWhileSaving = false;
   /** The pack's last edit applied here. */
   private seq = 0;
   private configId = 0;
@@ -120,10 +137,19 @@ export class EditorSession {
     return this.stopping;
   }
 
+  /** Saves the world into the map now, while the server runs. A second call while one runs joins it. */
+  save(by: string): Promise<void> {
+    this.saving ??= this.hotSave(by).finally(() => {
+      this.saving = undefined;
+      void this.sendStatus();
+    });
+    return this.saving;
+  }
+
   /** Stops at once without saving the world (map.json already has every change). */
   async forceStop(): Promise<void> {
     this.note("Quitting without saving the world.");
-    this.saveWorld = false;
+    this.unsaved = false;
     this.stopping ??= this.shutdown(false);
     await this.stopping;
   }
@@ -141,7 +167,8 @@ export class EditorSession {
       join: `${this.env.LAN_HOST ?? "?"}:${EDITOR_PORT}`,
       players: this.players.players ?? [],
       editors: this.editors,
-      saveWorld: this.saveWorld,
+      unsaved: this.unsaved,
+      saving: this.saving !== undefined,
       undo: this.history.undoLabel,
       redo: this.history.redoLabel,
       checklist: {
@@ -242,7 +269,7 @@ export class EditorSession {
       bakeSettings(dat, withSpawn(this.config));
       enableBetaApis(dat);
       await writeLevelDat(join(world, "level.dat"), dat);
-      this.saveWorld = true;
+      this.unsaved = true;
       this.note("The map has no world yet: it starts as a void world with a glass pad.");
     } else {
       await cp(source, world, { recursive: true });
@@ -342,12 +369,21 @@ export class EditorSession {
       case "resync":
         void this.sendConfig();
         return;
-      case "saveWorld":
-        this.saveWorld = event.save;
-        this.note(`${event.by}: the world ${event.save ? "will be saved" : "will be kept as it was"} when the editor stops.`);
-        void this.sendStatus();
+      case "save":
+        void this.save(event.by);
+        return;
+      case "changed":
+        this.blocksChanged(event.by);
         return;
     }
+  }
+
+  private blocksChanged(by: string): void {
+    if (this.saving) this.changedWhileSaving = true;
+    if (this.unsaved) return;
+    this.unsaved = true;
+    this.note(`${by} changed blocks: Save, or stopping, saves the world into the map.`);
+    void this.sendStatus();
   }
 
   private applyPackEdit(event: Extract<EditorEvent, { t: "edit" }>): void {
@@ -429,7 +465,7 @@ export class EditorSession {
   }
 
   private sendStatus(): Promise<unknown> {
-    return this.send({ t: "status", undo: this.history.undoLabel, redo: this.history.redoLabel, saveWorld: this.saveWorld });
+    return this.send({ t: "status", undo: this.history.undoLabel, redo: this.history.redoLabel, unsaved: this.unsaved, saving: this.saving !== undefined });
   }
 
   private say(text: string, to?: string): Promise<unknown> {
@@ -516,28 +552,18 @@ export class EditorSession {
   // ---- Stopping ---------------------------------------------------------------------------
 
   private async shutdown(save: boolean): Promise<void> {
+    // A Save under way finishes first; its world copy is taken while the server still runs.
+    await this.saving;
     const failed = this.state === "failed";
     if (!failed) this.state = "stopping";
     unwatchFile(this.mapPath);
     await this.writing;
     try {
       const running = this.container !== undefined && (await this.container.inspect()).State.Running;
-      let clean = false;
-      if (save && this.saveWorld && running) {
-        this.note("Removing the markers before saving the world...");
-        const id = ++this.cleanupId;
-        const answer = this.waitFor(`clean:${id}`, CLEAN_TIMEOUT_MS).catch(() => undefined);
-        await this.send({ t: "cleanup", id });
-        const event = (await answer) as Extract<EditorEvent, { t: "clean" }> | undefined;
-        clean = event?.left === 0;
-        if (!clean) {
-          const why = !event ? "the pack didn't answer" : (event.error ?? `${event.left} markers are still in it`);
-          this.note(`The world was NOT saved (${why}). map.json has every change.`);
-        }
-      }
+      const clean = save && this.unsaved && running && (await this.removeMarkers());
       if (running) await this.stopServer();
-      if (clean) await this.saveWorldFiles();
-      else if (!this.saveWorld) this.note("No blocks changed, so the world was kept as it was.");
+      if (clean) await this.saveWorldFiles((dest) => copyDirFromContainer(this.container!, "/bds/worlds/active", dest));
+      else if (!this.unsaved) this.note("No blocks changed since the last save, so the world was kept as it was.");
     } catch (error) {
       this.note(`Stopping went wrong: ${message(error)}`);
     } finally {
@@ -559,22 +585,102 @@ export class EditorSession {
     }
   }
 
-  /** Copies the stopped server's world into the map: the bake settings, the map's own name file, swapped in whole. */
-  private async saveWorldFiles(): Promise<void> {
+  /** Asks the pack to remove every marker before a save. True when none are left; otherwise says why. */
+  private async removeMarkers(): Promise<boolean> {
+    this.note("Removing the markers before saving the world...");
+    const id = ++this.cleanupId;
+    const answer = this.waitFor(`clean:${id}`, CLEAN_TIMEOUT_MS).catch(() => undefined);
+    await this.send({ t: "cleanup", id });
+    const event = (await answer) as Extract<EditorEvent, { t: "clean" }> | undefined;
+    if (event?.left === 0) return true;
+    const why = !event ? "the pack didn't answer" : (event.error ?? `${event.left} markers are still in it`);
+    this.note(`The world was NOT saved (${why}). map.json has every change.`);
+    return false;
+  }
+
+  /**
+   * Save while the server runs: map.json is already written, so this saves the world. The markers
+   * come out, `save hold` makes BDS write the world and keep its files still, the world is copied
+   * once `save query` says it's ready, and `save resume` lets it carry on.
+   */
+  private async hotSave(by: string): Promise<void> {
+    // Waiting first also lets save() note this run, so the status below says a save is running.
+    await this.writing;
+    if (this.state !== "ready" || !this.container) {
+      void this.say("The editor isn't ready to save.", by);
+      return;
+    }
+    this.note(`${by}: saving the world...`);
+    this.changedWhileSaving = false;
+    void this.sendStatus();
+    let saved = false;
+    try {
+      const clean = await this.removeMarkers();
+      try {
+        if (clean) saved = await this.saveWorldFiles((dest) => this.copyHeldWorld(dest));
+      } finally {
+        await this.send({ t: "resume" });
+      }
+    } catch (error) {
+      this.note(`Saving went wrong: ${message(error)}`);
+    }
+    if (!saved) {
+      void this.say("§cThe world was NOT saved: see the editor's log. map.json has every change.", by);
+      return;
+    }
+    this.unsaved = this.changedWhileSaving;
+    void this.say(`Saved the map and the world (${by}).`);
+  }
+
+  /**
+   * Copies the running world into `dest` under `save hold`, then resumes. The files are copied
+   * whole: `save query` also lists a length for each, but on BDS 1.26 a log's listed length is from
+   * before the save wrote the chunks (tested: a copy cut to it lost the blocks placed before the
+   * save). Held, the server deletes nothing, and LevelDB drops a half-written record at a log's end.
+   */
+  private async copyHeldWorld(dest: string): Promise<void> {
+    const held = await this.command("save hold", /Saving|already|not been completed/i);
+    if (held === undefined) throw new Error("the server didn't answer save hold");
+    try {
+      let ready = false;
+      for (let attempt = 0; attempt < SAVE_QUERY_ATTEMPTS && !ready; attempt++) {
+        const answer = await this.command("save query", /Files are now ready to be copied|not been completed|save hold/i);
+        ready = answer !== undefined && /ready to be copied/.test(answer);
+        if (!ready) await delay(500);
+      }
+      if (!ready) throw new Error("the server didn't get its files ready to copy (save query)");
+      await copyDirFromContainer(this.container!, "/bds/worlds/active", dest);
+    } finally {
+      await this.command("save resume", /resumed|not been|Changes to the (level|world)/i);
+    }
+  }
+
+  /**
+   * Copies the world into the map: `copy` fills a new folder, which gets the bake settings and the
+   * map's own name file and is swapped in whole. False (and a note) when it didn't work.
+   */
+  private async saveWorldFiles(copy: (dest: string) => Promise<void>): Promise<boolean> {
     const worldDir = join(this.mapDir, "world");
     const fresh = `${worldDir}.new`;
-    await rm(fresh, { recursive: true, force: true });
-    await copyDirFromContainer(this.container!, "/bds/worlds/active", fresh);
-    for (const file of RUNTIME_FILES) await rm(join(fresh, file), { force: true });
-    await patchLevelDat(join(fresh, "level.dat"), (dat) => bakeSettings(dat, withSpawn(this.config)));
-    const nameFile = join(worldDir, "levelname.txt");
-    if (existsSync(nameFile)) await cp(nameFile, join(fresh, "levelname.txt"));
-    else await writeFile(join(fresh, "levelname.txt"), this.config.name);
-    // Retries cover Windows file watchers (VS Code) briefly holding files in the old world.
-    await rm(worldDir, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
-    await rename(fresh, worldDir);
+    try {
+      await rm(fresh, { recursive: true, force: true });
+      await copy(fresh);
+      for (const file of RUNTIME_FILES) await rm(join(fresh, file), { force: true });
+      await patchLevelDat(join(fresh, "level.dat"), (dat) => bakeSettings(dat, withSpawn(this.config)));
+      const nameFile = join(worldDir, "levelname.txt");
+      if (existsSync(nameFile)) await cp(nameFile, join(fresh, "levelname.txt"));
+      else await writeFile(join(fresh, "levelname.txt"), this.config.name);
+      // Retries cover Windows file watchers (VS Code) briefly holding files in the old world.
+      await rm(worldDir, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
+      await rename(fresh, worldDir);
+    } catch (error) {
+      this.note(`The world was NOT saved (${message(error)}). map.json has every change.`);
+      await rm(fresh, { recursive: true, force: true }).catch(() => {});
+      return false;
+    }
     this.note(`Saved the world to ${relative(root, worldDir)}.`);
     if (this.config.build) this.note("Note: npm run bake would replace these block changes. Drop the build commands in the map menu to keep them.");
+    return true;
   }
 
   private async removeContainer(): Promise<void> {

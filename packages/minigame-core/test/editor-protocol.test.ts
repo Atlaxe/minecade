@@ -60,5 +60,8 @@ describe("editor protocol", () => {
     expect(parseEditorEvent("not json")).toBeUndefined();
     expect(parseHostMessage('{"t":"say","text":"hi"}')).toEqual({ t: "say", text: "hi" });
     expect(parseHostMessage("[1]")).toBeUndefined();
+    expect(parseEditorEvent('{"t":"save","by":"a"}')).toEqual({ t: "save", by: "a" });
+    expect(parseEditorEvent('{"t":"saveWorld","by":"a","save":true}')).toBeUndefined();
+    expect(parseHostMessage('{"t":"resume"}')).toEqual({ t: "resume" });
   });
 });

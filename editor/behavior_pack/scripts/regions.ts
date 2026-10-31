@@ -2,6 +2,7 @@
 // colors their outlines are drawn in: pure functions of the map and its rules, so they can be
 // tested without a server.
 import { KILL_REGION, mapRequirements, type Box, type EditorRules, type MapConfig, type MapRequirement } from "@minecade/minigame-core/config";
+import { dangerText } from "./marks.ts";
 
 /** An outline color, each part from 0 to 1 (the script API's RGB). */
 export interface Rgb {
@@ -44,6 +45,24 @@ export interface RegionTarget {
   kind: "bounds" | "region" | "new";
   /** The region's name, for kind "region". */
   name?: string;
+}
+
+export type SelectionAction = "saveChanges" | "saveAs" | "nudge" | "floor" | "back" | "clear";
+
+/**
+ * What a selection offers, in the region form and the map menu: Save changes while it edits a
+ * saved box (`editing` is that box's label), Floor at kill Y when the map has one, and Back one
+ * step after `steps` changes.
+ */
+export function selectionActions(editing: string | undefined, steps: number, killY: number | undefined): { action: SelectionAction; text: string }[] {
+  return [
+    ...(editing ? [{ action: "saveChanges" as const, text: `Save changes\n§7to ${editing}` }] : []),
+    { action: "saveAs", text: "Save as...\n§7bounds, a region or a kill region" },
+    { action: "nudge", text: "Nudge sides" },
+    ...(killY === undefined ? [] : [{ action: "floor" as const, text: `Floor at kill Y\n§7bottom at y ${killY}` }]),
+    ...(steps > 0 ? [{ action: "back" as const, text: "Back one step" }] : []),
+    { action: "clear", text: dangerText("Clear selection") },
+  ];
 }
 
 /** The bounds, the kill region, the regions the rules ask for, any others the map has, then a new one. */

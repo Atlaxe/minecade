@@ -1,14 +1,14 @@
 // The region tool. Hit a block to start a selection there (that one block), then use the tool on
 // blocks, up to REACH away, to grow the selection to them, so any box can be picked without placing
-// blocks. Using it at the air, or Selection in the map menu, opens the region form: save the box
-// as the bounds, a region or a kill region, nudge its sides, or put its bottom at kill Y. The map
-// menu's Bounds and regions list edits, nudges, visits and deletes the boxes a map already has.
+// blocks. Using it at the air opens the region form: save the box as the bounds, a region or a kill
+// region, nudge its sides, or put its bottom at kill Y. With the tool picked, the map menu offers
+// the same, and lists the map's boxes to edit, nudge, visit or delete.
 import { world, type Block, type Player } from "@minecraft/server";
 import { ActionFormData, ModalFormData } from "@minecraft/server-ui";
 import type { Box, MapEdit, Scope, Vec3 } from "@minecade/minigame-core";
 import { blockBox, describeBox, floorAt, growBox, nudgeBox, sameBox, sizeText, topCenter, type Sides } from "./boxes.ts";
-import { sideTitle } from "./menu.ts";
-import { entryBox, regionEntries, regionLabel, regionName, regionTargets, type RegionEntry } from "./regions.ts";
+import { dangerText, sideTitle } from "./marks.ts";
+import { entryBox, regionEntries, regionLabel, regionName, regionTargets, selectionActions, type RegionEntry, type SelectionAction } from "./regions.ts";
 import { actionBar, heldTool, type ToolHost } from "./tool-host.ts";
 
 /** How far a use reaches to grow the selection, in blocks. */
@@ -35,7 +35,6 @@ interface Selection {
   editing?: RegionEntry;
 }
 
-type SelectionAction = "saveChanges" | "saveAs" | "nudge" | "floor" | "back" | "clear";
 type EntryAction = "edit" | "nudge" | "goTo" | "delete";
 
 export class RegionTool {
@@ -71,10 +70,19 @@ export class RegionTool {
     return selection && { box: selection.box, editing: selection.editing?.key };
   }
 
-  /** The size of the player's selection ("12 x 5 x 30"), for the map menu. */
-  selectionText(player: Player): string | undefined {
+  /** The player's selection for the map menu: the box, the label of the saved box it edits, and how many steps back it has. */
+  menuSelection(player: Player): { box: Box; editing?: string; steps: number } | undefined {
     const selection = this.selections.get(keyOf(player));
-    return selection && sizeText(selection.box);
+    if (!selection) return undefined;
+    const editing = selection.editing && this.current(selection.editing) ? selection.editing.label : undefined;
+    return { box: selection.box, editing, steps: selection.history.length };
+  }
+
+  /** The action bar line while the tool is held: what hitting and using it do. */
+  hint(player: Player): string {
+    const selection = this.selections.get(keyOf(player));
+    if (!selection) return "Region tool: hit a block to start a box";
+    return `Selection ${sizeText(selection.box)}   Use on a block: grow   Use at the sky: save   Hit: new box`;
   }
 
   /** A use: grows the selection to the block in view, or opens the region form when there's none in reach. */
@@ -106,21 +114,23 @@ export class RegionTool {
       this.host.tell(player, "No selection yet: hit a block with the region tool to start one.");
       return;
     }
-    const killY = this.host.map().killY;
     const editing = selection.editing && this.current(selection.editing) ? selection.editing : undefined;
-    const actions: { action: SelectionAction; text: string }[] = [
-      ...(editing ? [{ action: "saveChanges" as const, text: `Save changes\n§7to ${editing.label}` }] : []),
-      { action: "saveAs", text: "Save as...\n§7bounds, a region or a kill region" },
-      { action: "nudge", text: "Nudge sides" },
-      ...(killY === undefined ? [] : [{ action: "floor" as const, text: `Floor at kill Y\n§7bottom at y ${killY}` }]),
-      ...(selection.history.length > 0 ? [{ action: "back" as const, text: "Back one step" }] : []),
-      { action: "clear", text: "Clear selection" },
-    ];
+    const actions = selectionActions(editing?.label, selection.history.length, this.host.map().killY);
     const form = new ActionFormData().title(sideTitle("Selection")).body(`${describeBox(selection.box)}${editing ? `\nEditing ${editing.label}.` : ""}`);
     for (const { text } of actions) form.button(text);
     const response = await this.host.show(player, form);
     const action = response?.selection === undefined ? undefined : actions[response.selection]?.action;
-    if (!action || !player.isValid || this.selections.get(keyOf(player)) !== selection) return;
+    if (action && player.isValid && this.selections.get(keyOf(player)) === selection) await this.selectionAction(player, action);
+  }
+
+  /** Does one of the selection's actions (from the region form or the map menu). */
+  async selectionAction(player: Player, action: SelectionAction): Promise<void> {
+    const selection = this.selections.get(keyOf(player));
+    if (!selection) {
+      this.host.tell(player, "No selection yet: hit a block with the region tool to start one.");
+      return;
+    }
+    const killY = this.host.map().killY;
     switch (action) {
       case "saveChanges":
         this.saveChanges(player, selection);
@@ -157,18 +167,16 @@ export class RegionTool {
     }
   }
 
-  /** The map menu's list of the map's boxes: tap one to edit, nudge, visit or delete it. */
-  async regionsMenu(player: Player): Promise<void> {
-    const entries = regionEntries(this.host.map(), this.host.rules);
-    if (entries.length === 0) {
-      this.host.tell(player, "This map has no bounds or regions yet: make them with the region tool.");
-      return;
-    }
-    const form = new ActionFormData().title(sideTitle("Bounds and regions")).body("Tap one to edit, nudge, visit or delete it.");
-    for (const entry of entries) form.button(`${entry.label}\n§7${sizeText(entry.box)}`);
-    const response = await this.host.show(player, form);
-    const entry = response?.selection === undefined ? undefined : entries[response.selection];
-    if (entry && player.isValid) await this.entryMenu(player, entry);
+  /** The map's boxes, for the map menu. */
+  entries(): RegionEntry[] {
+    return regionEntries(this.host.map(), this.host.rules);
+  }
+
+  /** A box's menu (edit, nudge, go to, delete), by its key, from the map menu. */
+  async boxMenu(player: Player, key: string): Promise<void> {
+    const entry = this.entries().find((candidate) => candidate.key === key);
+    if (entry) await this.entryMenu(player, entry);
+    else this.host.tell(player, "That box changed since the menu opened. Open the map menu again.");
   }
 
   private async entryMenu(player: Player, entry: RegionEntry): Promise<void> {
@@ -176,7 +184,7 @@ export class RegionTool {
       { action: "edit", text: "Edit\n§7load it into your selection" },
       { action: "nudge", text: "Nudge sides" },
       { action: "goTo", text: "Go to\n§7on top, over its middle" },
-      { action: "delete", text: "§cDelete" },
+      { action: "delete", text: dangerText("Delete") },
     ];
     const form = new ActionFormData().title(sideTitle(entry.label)).body(describeBox(entry.box));
     for (const { text } of actions) form.button(text);
@@ -284,7 +292,7 @@ export class RegionTool {
   /** False (and a message) when the entry changed since it was picked. */
   private unchanged(player: Player, entry: RegionEntry): boolean {
     if (this.current(entry)) return true;
-    this.host.tell(player, `${entry.label} changed since you picked it. Pick it again from Bounds and regions in the map menu.`);
+    this.host.tell(player, `${entry.label} changed since you picked it. Pick it again in the map menu, with the region tool picked.`);
     return false;
   }
 }
