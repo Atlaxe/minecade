@@ -46,7 +46,7 @@ import { blockPosition, compass, markerSpecs, snapFacing, SNAPS, spawnLists, typ
 import { MapState } from "./map-state.ts";
 import { MARKER, Markers } from "./markers.ts";
 import { dangerText, mapTitle, sideTitle } from "./marks.ts";
-import { LOBBY_TEXT, checklistBody, mapMenuBody, mapMenuEntries, markReadyText, parseSetting, rowText, type MenuAction, type SpawnSettings } from "./menu.ts";
+import { LOBBY_TEXT, checklistBody, mapMenuBody, mapMenuEntries, parseSetting, publishBody, publishText, rowText, type MenuAction, type SpawnSettings } from "./menu.ts";
 import { EDITOR_TOOLS, SELECT_TOOL, toolOf, type EditorTool, type ToolId } from "./tools.ts";
 
 const MAP_MENU = "minecade:map_menu";
@@ -83,7 +83,7 @@ export class Editor {
   private readonly formOpen = new Set<string>();
   /** Players whose map menu opens again when the host answers (after Undo or Redo). */
   private readonly reopen = new Set<string>();
-  private status: { undo?: string; redo?: string; unsaved: boolean; saving: boolean };
+  private status: { undo?: string; redo?: string; unsaved: boolean; saving: boolean; publishing?: boolean };
   /** When block changes were last reported to the host, in ticks. */
   private changedAt = -CHANGED_TICKS;
 
@@ -213,7 +213,7 @@ export class Editor {
         }
         return;
       case "status":
-        this.status = { undo: message.undo, redo: message.redo, unsaved: message.unsaved, saving: message.saving };
+        this.status = { undo: message.undo, redo: message.redo, unsaved: message.unsaved, saving: message.saving, publishing: message.publishing };
         for (const key of [...this.reopen]) this.reopenMenu(key);
         return;
       case "say":
@@ -444,11 +444,10 @@ export class Editor {
     const checklist = mapChecklist(this.state.current, this.info.rules);
     const form = new ActionFormData().title(sideTitle("Checklist")).body(checklistBody(checklist));
     for (const row of checklist.rows) form.button(rowText(row));
-    const draft = this.state.current.draft === true;
-    if (draft) form.button(markReadyText(checklist));
+    form.button(publishText(checklist, this.state.current.draft === true, this.status.publishing === true));
     const response = await this.show(player, form);
     if (response?.selection === undefined || !player.isValid) return;
-    if (draft && response.selection === checklist.rows.length) return this.markReady(player);
+    if (response.selection === checklist.rows.length) return this.publish(player);
     const row = checklist.rows[response.selection];
     if (!row) return;
     if (row.field === "bounds" || row.field === "regions") {
@@ -504,13 +503,26 @@ export class Editor {
     player.selectedSlotIndex = TOOL_SLOT;
   }
 
-  private async markReady(player: Player): Promise<void> {
-    const checklist = mapChecklist(this.state.current, this.info.rules);
-    if (!checklist.ready) {
-      tell(player, `§cNot ready yet:§r ${checklist.problems.join("; ")}`);
+  /** Publish, after a confirm: the host saves, then commits and pushes the map's folder. */
+  private async publish(player: Player): Promise<void> {
+    if (this.status.publishing) {
+      tell(player, "It's being published already.");
       return;
     }
-    this.edit(player, { op: "draft", draft: false }, "Marked ready: the next build includes this map.");
+    const checklist = mapChecklist(this.state.current, this.info.rules);
+    if (!checklist.ready) {
+      tell(player, `§cNot ready to publish:§r ${checklist.problems.join("; ")}`);
+      return;
+    }
+    const form = new ActionFormData()
+      .title(sideTitle("Publish?"))
+      .body(publishBody(this.info.target, this.info.targetName, this.info.map, this.state.current))
+      .button("Publish\n§7save, commit and push")
+      .button("Cancel");
+    const response = await this.show(player, form);
+    if (response?.selection !== 0 || !player.isValid) return;
+    this.status = { ...this.status, publishing: true };
+    this.link.send({ t: "publish", by: player.name });
   }
 
   /** The gear: the map's name and game settings, Back to Select, the editor lobby, and dropping build commands. */

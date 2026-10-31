@@ -14,7 +14,7 @@ import { dirname, join } from "node:path";
 import { createInterface } from "node:readline";
 import { fileURLToPath } from "node:url";
 import type Docker from "dockerode";
-import { editorStatus, saveEditor, stopEditor } from "../editor/control.ts";
+import { editorStatus, publishEditor, saveEditor, stopEditor } from "../editor/control.ts";
 import type { EditorStatus } from "../editor/editor-core.ts";
 import {
   checkLobbyMap,
@@ -554,6 +554,13 @@ async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> 
     const result = await saveEditor();
     if (!result.ok) return sendJson(res, 409, { error: result.error ?? "no map is open in Edit" });
     note("Map editor: saving the map open in Edit...");
+    void refresh();
+    return sendJson(res, 202, { ok: true });
+  }
+  if (path === "/api/editor/publish") {
+    const result = await publishEditor();
+    if (!result.ok) return sendJson(res, 409, { error: result.error ?? "no map is open in Edit" });
+    note("Map editor: publishing the map open in Edit (save, then commit and push)...");
     void refresh();
     return sendJson(res, 202, { ok: true });
   }

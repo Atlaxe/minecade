@@ -41,7 +41,7 @@ Follows the usual rules: stop and report after each pass, commit and push after 
 | Spawn facing | A "Save my facing" toggle on the spawn form. It is off by default, so the spawn faces the map center as it does today |
 | First-version extras | Mirror tool; inspect mode with colored, walk-through **boundary blocks** whose layers you toggle in a form |
 | Preview pictures | A placeable camera that saves a position and view angle. Look through it to take the screenshot. Map previews have no players in them; game pictures can |
-| Unfinished maps | `"draft": true`; builds skip drafts, and "Mark ready" removes the flag |
+| Unfinished maps | `"draft": true`; builds skip drafts, and Publish removes the flag, then commits and pushes the map (the user's request, 2026-10-31) |
 | Lobbies | Same editor and modes. `lobby/lobby.config.ts` declares spawn and terminal. `LOBBY_MAP` picks the live lobby |
 | Order | Editor core, then Select (import), then games |
 
@@ -94,7 +94,7 @@ your PC (host)                                     Docker
 - **Draft maps:** `"draft": true` marks a map as unfinished.
   - Extraction creates drafts. The normal build skips them with a warning, so a half-done map never blocks `npm run build` or `docker compose up --build`.
   - The Preview build includes the map being previewed once its checklist is complete.
-  - "Mark ready" in the map menu removes the flag.
+  - Publish (the checklist's last button) removes the flag, saves, and commits and pushes the map's folder.
 - **Editor-only keys** (the build strips them from shipped copies, as it already does with `build`):
   - `source`: the converted world's name, the selected box, and the offset applied. "Update from world" uses it.
   - `cameras`: the preview cameras: `{ "<name>": { "at": [x, y, z, yaw, pitch], "kind": "map" | "game" } }`.
@@ -225,7 +225,7 @@ All of these are items with their own icons and forms. `showForm` handles the bu
 1. **Map menu** (item in slot 9, or `/mc:map`):
    - shows the map name and game;
    - **checklist:** every requirement in red or green with counts. Tap one to get its tool or to teleport to the problem;
-   - the Layers form, inspect mode on and off, undo and redo, Save world, Mark ready;
+   - the Layers form, inspect mode on and off, undo and redo, Save world, Publish;
    - **mode switches:** Back to Select (when the map has a `source`), Preview;
    - Players (see "Player management");
    - map settings: name, plus game extras as text fields.
@@ -291,7 +291,7 @@ All of these are items with their own icons and forms. `showForm` handles the bu
 
 A Map editor section in `tools/control-panel/index.html`, backed by the same `tools/editor` modules under the panel's busy lock, with streamed output:
 - **Select:** a world picker (client worlds by name, or browse), and the selections with their extraction status.
-- **Edit:** target and map pickers (plus New map), the live checklist mirror, Save world, Mark ready.
+- **Edit:** target and map pickers (plus New map), the live checklist mirror, Save world, Publish.
 - **Preview:** Preview, and Preview as lobby.
 - **Server:** Start, Stop, which mode is running, and whether it's ready to join.
 - **Pictures:** Use latest screenshot.
@@ -318,7 +318,7 @@ SELECT  box Castle, confirm --> background extraction --> games/sad/maps/castle/
                                                             PREVIEW  play it, come back
                                                                   |
                                                                   v
-                                      Mark ready --> commit --> rebuild --> live in the lobby
+                                      Publish (commit, push) --> rebuild --> live in the lobby
 ```
 
 ### 1. Convert (you, as today)
@@ -371,17 +371,17 @@ Every change shows in `map.json` at once (watch it in VS Code), and undo is in t
 3. After the match, everyone is back in Edit mode. Repeat steps 3 to 5 as needed.
 
 ### 6. Ship
-1. When the checklist is complete, choose Mark ready (removes `draft`).
-2. Stop the editor. The world is saved and cleaned.
-3. Run `npm run check` and `npm run build`.
-4. Commit `games/sad/maps/castle/` and push.
-5. When nobody is online, run `docker compose up -d --build` (or Restart in the Panel). Castle appears on Search and Destroy's game screen.
+1. When the checklist is complete, choose Publish (the checklist's last button, or the Panel's). It
+   removes `draft`, saves the world, commits `games/sad/maps/castle/` as "Automated Map Build :
+   Search and Destroy Castle <date> <time>", and pushes it.
+2. When nobody is online, shut the editor down and Start the network (it builds from the checkout).
+   Castle appears on Search and Destroy's game screen.
 
 ### 7. Later: you changed Castle in Java
 1. Convert again with Chunker.
 2. In the Panel, Select, then pick the new world.
 3. In the menu, Castle, then Update. Only `world/` is replaced; the spawns, regions and cameras stay put.
-4. Preview again, then commit.
+4. Preview again, then Publish.
 
 ### Shorter paths
 - **A test map for a new game:** `npm run editor -- sad test --new` (a void world with a glass pad, a draft `map.json`). Build the test arena, then steps 3 to 6. A plain platform can still come from `build.commands` and `npm run bake`.
@@ -555,6 +555,12 @@ predated the Map editor page):*
 - When a map boxed in Select is ready, map editors on Select and Edit get a notice above the hotbar
   with a chime ("Castle is ready to load in Edit", held about 6 seconds, the `notice` message), and
   chat says where to open it. The runner sends both, so it reaches them on either server.
+
+*Then, at the user's request:* **Publish** replaces Mark ready (the checklist's last button, the
+Panel's Edit row, `npm run editor -- publish`). After a confirm it removes `draft`, saves the world,
+commits only the map's folder as "Automated Map Build : <Game> <Map> <date> <time>" (the user's
+format) and pushes it (`tools/editor/publish.ts`). The lobby lists the map from the network's next
+start, which builds from the checkout.
 
 **10.6 Preview:** `DEV_LIVE_MAPS`, Preview with the return to the editor, Preview as lobby, and
 both in the Panel.

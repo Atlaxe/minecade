@@ -13,6 +13,7 @@ import { readEnv } from "../control-panel/core.ts";
 import { buildCatalog, mapLabel, noteRecent, requestedWorld, worldId } from "./catalog.ts";
 import { SLOTS, isMapId, mapEditors, planOpen, portHolders, type EditorStatus, type Slot, type SlotId } from "./editor-core.ts";
 import { HomeSession } from "./home-session.ts";
+import type { Git } from "./publish.ts";
 import { SelectSession } from "./select-session.ts";
 import { Selections } from "./selections.ts";
 import { delay, message, type ServerSession } from "./server-session.ts";
@@ -40,6 +41,8 @@ export interface RunnerOptions {
   verbose: boolean;
   /** The servers' ports and containers (a headless test passes its own). */
   slots?: Record<SlotId, Slot>;
+  /** How Publish runs git (a headless test passes one that never pushes to GitHub). */
+  git?: Git;
 }
 
 export class EditorRunner {
@@ -47,6 +50,7 @@ export class EditorRunner {
   private readonly root: string;
   private readonly verbose: boolean;
   private readonly slots: Record<SlotId, Slot>;
+  private readonly git: Git | undefined;
   private readonly lines: string[] = [];
   private readonly startedAt = new Date().toISOString();
   private state: EditorStatus["state"] = "starting";
@@ -69,6 +73,7 @@ export class EditorRunner {
     this.root = options.root;
     this.verbose = options.verbose;
     this.slots = options.slots ?? SLOTS;
+    this.git = options.git;
     this.selections = new Selections(this.root, { verbose: this.verbose, note: (text) => this.log(`Extract: ${text}`) });
     this.selections.onChange((world, info, gone) => {
       // Forget takes a map off a list as it is, ready or failed.
@@ -132,6 +137,13 @@ export class EditorRunner {
   save(): boolean {
     if (!this.work.edit || this.work.edit.status().state !== "ready") return false;
     void this.work.edit.save("this PC");
+    return true;
+  }
+
+  /** Publishes the map open in Edit (saved, then committed and pushed). False when none is. */
+  publish(): boolean {
+    if (!this.work.edit || this.work.edit.status().state !== "ready") return false;
+    void this.work.edit.publish("this PC");
     return true;
   }
 
@@ -216,7 +228,7 @@ export class EditorRunner {
       slot: "edit",
       request: { to: "edit", target: request.target, map: request.map },
       label: mapLabel(target.name, name, request.map),
-      make: () => new EditorSession({ slot: this.slots.edit, verbose: this.verbose, note: (text) => this.log(text), target, mapId: request.map, fresh: request.fresh }),
+      make: () => new EditorSession({ slot: this.slots.edit, verbose: this.verbose, note: (text) => this.log(text), target, mapId: request.map, fresh: request.fresh, git: this.git }),
     };
   }
 

@@ -94,7 +94,7 @@ export function mapMenuEntries(view: MapMenuView): MenuEntry[] {
   const entries: MenuEntry[] = [
     {
       action: { kind: "checklist" },
-      text: `${MARK.pill}${done}/${total}\n§7Checklist: ${problemCount(view.checklist)}`,
+      text: `${MARK.pill}${done}/${total}\n§7Checklist: ${view.checklist.ready && view.config.draft === true ? "ready to publish" : problemCount(view.checklist)}`,
       icon: view.checklist.ready ? ICONS.checkDone : ICONS.check,
     },
     { action: { kind: "undo" }, text: `${MARK.quick}${view.undo ? "" : MARK.dim}Undo\n§7${view.undo ?? "nothing to undo"}`, icon: ICONS.undo },
@@ -179,9 +179,22 @@ export function checklistBody(checklist: Checklist): string {
   return `${lines.join("\n")}\n§rTap an entry for its tool.`;
 }
 
-/** Mark ready, under the checklist's rows, for a draft. */
-export function markReadyText(checklist: Checklist): string {
-  return `Mark ready\n§7${checklist.ready ? "the build will include it" : "finish the checklist first"}`;
+/** Publish, under the checklist's rows: commit and push the map, which stops being a draft. */
+export function publishText(checklist: Checklist, draft: boolean, publishing: boolean): string {
+  if (publishing) return "Publishing...\n§7saving, then commit and push";
+  if (!checklist.ready) return "Publish\n§7finish the checklist first";
+  return draft ? "Publish\n§7put it in the lobby: commit and push" : "Publish changes\n§7commit and push this version";
+}
+
+/** What Publish's confirm says it does. */
+export function publishBody(target: string, targetName: string, mapId: string, config: MapConfig): string {
+  const where = target === "lobby" ? "the Panel's lobby map picker has it" : `it's in ${targetName}'s map list in the lobby`;
+  return [
+    `Publish ${config.name} (${mapId}) for ${targetName}?`,
+    "",
+    `The map and its world are saved, then its folder is committed ("Automated Map Build") and pushed to GitHub.`,
+    `${config.draft === true ? "It stops being a draft, and " : ""}${where} from the network's next start.`,
+  ].join("\n");
 }
 
 /**

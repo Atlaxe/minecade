@@ -709,10 +709,10 @@ function renderEditor() {
   const [tone, text] = editorTone(editor);
   $("nav-editor").className = `dot ${tone}`;
   $("nav-editor").title = `Map editor: ${text}`;
-  const server = (s) => s && [s.state, s.error, s.players, s.world, s.targetName, s.mapName, s.map, s.draft, s.saving, s.unsaved];
+  const server = (s) => s && [s.state, s.error, s.players, s.world, s.targetName, s.mapName, s.map, s.draft, s.saving, s.unsaved, s.publishing, s.checklist?.ready];
   const facts = status && [status.state, status.error, status.join, status.home.players, status.waiting, server(status.select), server(status.edit)];
   patch($("editor-server"), [tone, text, editor.old, editor.stale, editor.launching, state.docker, state.busy, state.networkRunning, state.connection.lanHost, facts], () => editorCard(editor, status));
-  patch($("editor-checklist"), status?.edit && [status.edit.checklist, status.edit.undo, status.edit.redo, status.edit.unsaved, status.edit.saving, status.edit.mapName], () => status?.edit && checklistCard(status.edit));
+  patch($("editor-checklist"), status?.edit && [status.edit.checklist, status.edit.undo, status.edit.redo, status.edit.unsaved, status.edit.saving, status.edit.publishing, status.edit.draft, status.edit.mapName], () => status?.edit && checklistCard(status.edit));
   patch($("editor-select"), status?.select && [status.select.world, status.select.selections], () => status?.select && selectionsCard(status.select));
   const pre = $("editor-log");
   const lines = editor.log.join("\n");
@@ -754,7 +754,7 @@ function editorCard(editor, status) {
     const rows = [
       serverRow("Editor lobby", 19132, status.home, "where everyone joins"),
       serverRow("Select", 19133, status.select, status.select ? status.select.world : "nothing open"),
-      serverRow("Edit", 19134, status.edit, status.edit ? `${status.edit.targetName}: ${status.edit.mapName} (${status.edit.map})${status.edit.draft ? ", draft" : ""}` : "nothing open", status.edit && saveButton(status.edit)),
+      serverRow("Edit", 19134, status.edit, status.edit ? `${status.edit.targetName}: ${status.edit.mapName} (${status.edit.map})${status.edit.draft ? ", draft" : ""}` : "nothing open", status.edit && [saveButton(status.edit), " ", publishButton(status.edit)]),
     ];
     return el("div", { className: "card" },
       head(el("div", { className: "actions" }, editor.stale && restart("Restart"), shutDown)),
@@ -798,6 +798,17 @@ function saveButton(edit) {
   return save;
 }
 
+/** Publish: the map stops being a draft, is saved, and its folder is committed and pushed. */
+function publishButton(edit) {
+  const publish = el("button", { className: "small", onclick: () => {
+    const draft = edit.draft ? " It stops being a draft." : "";
+    if (confirm(`Publish ${edit.mapName} (${edit.map}) for ${edit.targetName}? The map and its world are saved, then its folder is committed and pushed to GitHub.${draft} Start the network then includes it.`)) post("/api/editor/publish");
+  } }, edit.publishing ? "Publishing..." : "Publish");
+  publish.disabled = edit.state !== "ready" || edit.publishing || !edit.checklist.ready;
+  publish.title = edit.checklist.ready ? "Save, then commit and push this map, so the lobby lists it" : "Finish the checklist first";
+  return publish;
+}
+
 /** The maps cut out of the world open in Select, and how each extraction is going. */
 function selectionsCard(select) {
   const list = select.selections;
@@ -830,9 +841,10 @@ function checklistCard(status) {
     status.undo && `Undo: ${status.undo}`,
     status.redo && `Redo: ${status.redo}`,
     status.saving ? "Saving the world..." : status.unsaved ? "Unsaved block changes: Save, or shutting down, saves them." : "The world is saved.",
+    status.publishing && "Publishing: commit and push...",
   ].filter(Boolean).join("  |  ");
   return el("div", { className: "card" },
-    el("div", { className: "card-head" }, el("h2", {}, `Checklist: ${status.mapName}`), el("span", { className: `pill ${ready ? "ok" : "bad"}` }, ready ? (status.draft ? "ready to mark ready" : "ready") : `${count} problem${count === 1 ? "" : "s"}`)),
+    el("div", { className: "card-head" }, el("h2", {}, `Checklist: ${status.mapName}`), el("span", { className: `pill ${ready ? "ok" : "bad"}` }, ready ? (status.draft ? "ready to publish" : "ready") : `${count} problem${count === 1 ? "" : "s"}`)),
     rows.length ? table : el("p", { className: "muted", style: "margin:0" }, "This map's game asks for nothing beyond its spawns."),
     problems.map((problem) => el("p", { className: "callout bad" }, problem)),
     warnings.map((warning) => el("p", { className: "callout warn" }, warning)),

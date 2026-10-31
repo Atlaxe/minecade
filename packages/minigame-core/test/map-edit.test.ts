@@ -98,7 +98,7 @@ describe("applyEdit", () => {
     expect(listKey({ list: "teamSpawns", team: "red" })).toBe("teamSpawns.red");
     expect(listKey({ list: "points", name: "bombA" })).toBe("points.bombA");
     expect(describeEdit({ op: "move", target: { list: "spawns" }, index: 2, at: [0, 0, 0] })).toBe("move spawns 3");
-    expect(describeEdit({ op: "draft", draft: false })).toBe("mark ready");
+    expect(describeEdit({ op: "draft", draft: false })).toBe("publish (no longer a draft)");
   });
 
   it("lists a map's entries", () => {

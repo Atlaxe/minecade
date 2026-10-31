@@ -136,7 +136,7 @@ export function describeEdit(edit: MapEdit): string {
     case "name":
       return `rename to "${edit.name}"`;
     case "draft":
-      return edit.draft ? "mark as draft" : "mark ready";
+      return edit.draft ? "mark as draft" : "publish (no longer a draft)";
     case "extra":
       return `set ${edit.key}`;
     case "dropBuild":

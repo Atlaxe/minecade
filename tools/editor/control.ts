@@ -1,7 +1,8 @@
 // The running editor's control port on this PC (127.0.0.1:8097), for the Panel and
-// `npm run editor -- status | save | stop | <target> <map> | select "<world>"`:
+// `npm run editor -- status | save | publish | stop | <target> <map> | select "<world>"`:
 //   GET /status              what each of its servers is doing
 //   POST /save               save the map open in Edit now
+//   POST /publish            publish the map open in Edit (saved, then committed and pushed)
 //   POST /open {request}     open a map in Edit or a world in Select (an OpenRequest)
 //   POST /stop               shut it down (Edit saves first)
 // Requests are checked the way the Panel checks its own, so a web page can't reach it.
@@ -17,6 +18,8 @@ export interface ControlHandlers {
   status(): EditorStatus;
   /** False when no map is open in Edit. */
   save(): boolean;
+  /** False when no map is open in Edit. */
+  publish(): boolean;
   stop(): void;
   /** Undefined when it's under way, or why not. */
   open(request: OpenRequest): Promise<string | undefined>;
@@ -53,6 +56,7 @@ export function serveControl(handlers: ControlHandlers): Promise<Server> {
         }
         if (method === "GET" && path === "/status") return reply(200, handlers.status());
         if (method === "POST" && path === "/save") return handlers.save() ? reply(202, { ok: true }) : reply(409, { error: "no map is open in Edit" });
+        if (method === "POST" && path === "/publish") return handlers.publish() ? reply(202, { ok: true }) : reply(409, { error: "no map is open in Edit" });
         if (method === "POST" && path === "/stop") {
           handlers.stop();
           return reply(202, { ok: true });
@@ -103,6 +107,11 @@ export async function stopEditor(): Promise<boolean> {
 /** Asks the running editor to save the map open in Edit now; the error when it can't (or none answers). */
 export function saveEditor(): Promise<{ ok: boolean; error?: string }> {
   return post("/save");
+}
+
+/** Asks the running editor to publish the map open in Edit; the error when it can't (or none answers). */
+export function publishEditor(): Promise<{ ok: boolean; error?: string }> {
+  return post("/publish");
 }
 
 /** Asks the running editor to open a map or a world; the error when it can't (or none answers). */

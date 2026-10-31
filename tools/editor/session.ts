@@ -1,8 +1,9 @@
 // The Edit server: one map. Stages the map in its server container, keeps map.json in step with the
 // game (it applies the pack's edits with the same code, writes the file, keeps undo and redo, and
 // sends hand edits of map.json into the game), saves the world back into the map on Save (while it
-// runs, with save hold), and on stop when blocks changed since the last save. The server itself
-// (starting, the console, opping map editors) is ServerSession's.
+// runs, with save hold), and on stop when blocks changed since the last save. Publish saves too, then
+// commits the map's folder and pushes it (publish.ts). The server itself (starting, the console,
+// opping map editors) is ServerSession's.
 import { existsSync, unwatchFile, watchFile } from "node:fs";
 import { cp, mkdir, readFile, rename, rm, writeFile } from "node:fs/promises";
 import { join, relative } from "node:path";
@@ -21,6 +22,7 @@ import { bakeSettings } from "../build/bake-core.ts";
 import { copyDirFromContainer } from "../build/docker-util.ts";
 import { enableBetaApis, patchLevelDat, readLevelDat, writeLevelDat } from "../build/leveldat.ts";
 import { History, newMapConfig, withLineEndings, type EditStatus } from "./editor-core.ts";
+import { gitIn, publishMap, publishMessage, type Git } from "./publish.ts";
 import { findWorld } from "./selections.ts";
 import { RUNTIME_FILES, ServerSession, delay, message, root, type SessionBase } from "./server-session.ts";
 import type { EditorTarget } from "./targets.ts";
@@ -36,12 +38,15 @@ export interface SessionOptions extends SessionBase {
   mapId: string;
   /** Make a new draft map (map.json and a void world with a glass pad), with this name. */
   fresh?: { name: string };
+  /** How Publish runs git: in this checkout, unless a test says otherwise. */
+  git?: Git;
 }
 
 export class EditorSession extends ServerSession {
   private readonly target: EditorTarget;
   private readonly mapId: string;
   private readonly fresh: { name: string } | undefined;
+  private readonly git: Git;
   private readonly mapDir: string;
   private readonly mapPath: string;
   private config: MapConfig = { name: "", spawns: [] };
@@ -51,8 +56,10 @@ export class EditorSession extends ServerSession {
   private readonly history = new History();
   /** Blocks changed since the world was last saved (a new map's world has never been saved). */
   private unsaved = false;
-  /** The Save that is running, if one is. */
-  private saving: Promise<void> | undefined;
+  /** The Save that is running, if one is: true once the world is saved. */
+  private saving: Promise<boolean> | undefined;
+  /** The Publish that is running, if one is. */
+  private publishing: Promise<void> | undefined;
   /** Blocks changed while the running Save was under way, so they may not be in it. */
   private changedWhileSaving = false;
   /** The world the map came from, when it can be found: Back to Select opens it. */
@@ -67,17 +74,30 @@ export class EditorSession extends ServerSession {
     this.target = options.target;
     this.mapId = options.mapId;
     this.fresh = options.fresh;
+    this.git = options.git ?? gitIn(root);
     this.mapDir = join(options.target.dir, "maps", options.mapId);
     this.mapPath = join(this.mapDir, "map.json");
   }
 
   /** Saves the world into the map now, while the server runs. A second call while one runs joins it. */
-  save(by: string): Promise<void> {
+  save(by: string): Promise<boolean> {
     this.saving ??= this.hotSave(by).finally(() => {
       this.saving = undefined;
       void this.sendStatus();
     });
     return this.saving;
+  }
+
+  /**
+   * Publishes the map once its checklist is done: it stops being a draft, the world is saved, and the
+   * map's folder is committed and pushed. A second call while one runs joins it.
+   */
+  publish(by: string): Promise<void> {
+    this.publishing ??= this.runPublish(by).finally(() => {
+      this.publishing = undefined;
+      void this.sendStatus();
+    });
+    return this.publishing;
   }
 
   /** Stops at once without saving the world (map.json already has every change). */
@@ -105,6 +125,7 @@ export class EditorSession extends ServerSession {
       draft: this.config.draft === true,
       unsaved: this.unsaved,
       saving: this.saving !== undefined,
+      publishing: this.publishing !== undefined,
       undo: this.history.undoLabel,
       redo: this.history.redoLabel,
       checklist: {
@@ -203,6 +224,9 @@ export class EditorSession extends ServerSession {
       case "save":
         void this.save(event.by);
         return;
+      case "publish":
+        void this.publish(event.by);
+        return;
       case "changed":
         this.blocksChanged(event.by);
         return;
@@ -298,7 +322,14 @@ export class EditorSession extends ServerSession {
   }
 
   private sendStatus(): Promise<unknown> {
-    return this.send({ t: "status", undo: this.history.undoLabel, redo: this.history.redoLabel, unsaved: this.unsaved, saving: this.saving !== undefined });
+    return this.send({
+      t: "status",
+      undo: this.history.undoLabel,
+      redo: this.history.redoLabel,
+      unsaved: this.unsaved,
+      saving: this.saving !== undefined,
+      publishing: this.publishing !== undefined,
+    });
   }
 
   // ---- Saving and stopping ----------------------------------------------------------------
@@ -331,12 +362,12 @@ export class EditorSession extends ServerSession {
    * come out, `save hold` makes BDS write the world and keep its files still, the world is copied
    * once `save query` says it's ready, and `save resume` lets it carry on.
    */
-  private async hotSave(by: string): Promise<void> {
+  private async hotSave(by: string): Promise<boolean> {
     // Waiting first also lets save() note this run, so the status below says a save is running.
     await this.writing;
     if (this.state !== "ready" || !this.container) {
       void this.say("The editor isn't ready to save.", by);
-      return;
+      return false;
     }
     this.note(`${by}: saving the world...`);
     this.changedWhileSaving = false;
@@ -354,10 +385,60 @@ export class EditorSession extends ServerSession {
     }
     if (!saved) {
       void this.say("§cThe world was NOT saved: see the editor's log. map.json has every change.", by);
-      return;
+      return false;
     }
     this.unsaved = this.changedWhileSaving;
     void this.say(`Saved the map and the world (${by}).`);
+    return true;
+  }
+
+  private async runPublish(by: string): Promise<void> {
+    await this.writing;
+    if (this.state !== "ready") {
+      void this.say("The editor isn't ready to publish.", by);
+      return;
+    }
+    const checklist = mapChecklist(this.config, this.target.rules);
+    if (!checklist.ready) {
+      void this.say(`§cNot ready to publish:§r ${checklist.problems.join("; ")}`, by);
+      return;
+    }
+    const name = this.config.name;
+    const path = relative(root, this.mapDir).replaceAll("\\", "/");
+    this.note(`${by}: publishing ${path}...`);
+    void this.sendStatus();
+    void this.say(`${by} is publishing ${name}: saving, then commit and push...`);
+    if (this.config.draft === true) {
+      const edit = { op: "draft", draft: false } as const;
+      this.history.record(this.config, `${describeEdit(edit)} (${by})`);
+      this.config = applyEdit(this.config, edit);
+      this.writeMap();
+      void this.sendConfig();
+    }
+    await this.saving;
+    if (this.unsaved && !(await this.save(by))) {
+      void this.say(`§c${name} was NOT published: the world didn't save.`);
+      return;
+    }
+    await this.writing;
+    const result = await publishMap(this.git, path, publishMessage(this.target.name, name, new Date()));
+    if (result.outcome === "pushed") {
+      const commit = result.commit ? ` (commit ${result.commit})` : "";
+      const where = this.target.id === "lobby" ? "the Panel's lobby map picker has it" : `it's in ${this.target.name}'s map list in the lobby`;
+      this.note(`Published ${path}${commit}: committed and pushed.`);
+      void this.say(`§a${name} is published${commit}: ${where} from the network's next start.`);
+      void this.send({ t: "notice", text: `§a${name} is published` });
+    } else if (result.outcome === "unchanged") {
+      this.note(`${path} has no changes since it was last published.`);
+      void this.say(`${name} has no changes since it was last published.`, by);
+    } else {
+      this.note(`Publishing ${path} failed${result.commit ? ` after commit ${result.commit}` : ""}: ${result.error}`);
+      void this.say(
+        result.commit
+          ? `§c${name} is committed here (${result.commit}) but NOT pushed: ${result.error}. Publish again to push it.`
+          : `§c${name} was NOT published: ${result.error}.`,
+      );
+    }
   }
 
   /**

@@ -4,11 +4,11 @@
 //   npm run editor [--verbose]                               boot it
 //   npm run editor -- <target> <map> [--new] [--verbose]     boot it (or use the running one) and open a map
 //   npm run editor -- select "<world>" [--verbose]           the same with a world in Select
-//   npm run editor -- status | save | stop
+//   npm run editor -- status | save | publish | stop
 // The Panel starts the same tool in the background (its output goes to work/editor/editor.log).
 // Either way it answers on 127.0.0.1:8097, which the Panel and `npm run editor -- stop` use.
 import { fileURLToPath } from "node:url";
-import { editorStatus, openInEditor, saveEditor, serveControl, stopEditor } from "./control.ts";
+import { editorStatus, openInEditor, publishEditor, saveEditor, serveControl, stopEditor } from "./control.ts";
 import { USAGE, parseArgs, type EditorStatus } from "./editor-core.ts";
 import { EditorRunner } from "./runner.ts";
 
@@ -39,6 +39,23 @@ if (args.command === "save") {
   await new Promise((resolve) => setTimeout(resolve, 1000));
   let status = await editorStatus();
   while (status?.edit?.saving) {
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+    status = await editorStatus();
+  }
+  console.log(status?.log.at(-1) ?? "The editor stopped.");
+  process.exit(0);
+}
+
+if (args.command === "publish") {
+  const result = await publishEditor();
+  if (!result.ok) {
+    console.log(result.error === "no map editor is running" ? "No map editor is running." : `Can't publish: ${result.error}.`);
+    process.exit(0);
+  }
+  console.log("Publishing the map open in Edit (saving, then commit and push)...");
+  await new Promise((resolve) => setTimeout(resolve, 1000));
+  let status = await editorStatus();
+  while (status?.edit?.publishing) {
     await new Promise((resolve) => setTimeout(resolve, 1000));
     status = await editorStatus();
   }
@@ -82,6 +99,7 @@ runner.onExit = (ok) => {
 const control = await serveControl({
   status: () => runner.status(),
   save: () => runner.save(),
+  publish: () => runner.publish(),
   stop: () => void runner.shutdown(),
   open: (request) => runner.request("this PC", request),
 }).catch((error: unknown) => {
@@ -126,7 +144,8 @@ function printStatus(status: EditorStatus): void {
   const edit = status.edit;
   if (edit) {
     const world = edit.saving ? "being saved" : edit.unsaved ? "has unsaved block changes" : "saved";
-    console.log(`  Edit:   ${edit.targetName}, ${edit.mapName} (${edit.map}), ${edit.state}, ${edit.players.join(", ") || "nobody"}; the world is ${world}`);
+    const draft = edit.draft ? ", a draft" : "";
+    console.log(`  Edit:   ${edit.targetName}, ${edit.mapName} (${edit.map})${draft}, ${edit.state}, ${edit.players.join(", ") || "nobody"}; the world is ${world}${edit.publishing ? "; publishing" : ""}`);
     for (const row of edit.checklist.rows) console.log(`    ${row.done ? "ok     " : "missing"} ${row.label} ${row.have}/${row.need}`);
   }
   for (const entry of status.waiting) console.log(`  ${entry.name} is waiting for ${entry.label}`);

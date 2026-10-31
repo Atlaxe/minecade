@@ -69,7 +69,7 @@ export interface MapCamera {
 
 export interface MapConfig {
   name: string;
-  /** An unfinished map: the build skips it until the editor's "Mark ready" removes the flag. */
+  /** An unfinished map: the build skips it until the editor's Publish removes the flag. */
   draft?: boolean;
   /** Where players appear: one for the lobby, at least one per player slot for a game. */
   spawns: MapPosition[];

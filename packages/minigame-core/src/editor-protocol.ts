@@ -128,6 +128,8 @@ export type EditorEvent =
   | { t: "resync" }
   /** Save the world now (the Save button). map.json is written on every change already. */
   | { t: "save"; by: string }
+  /** Publish the map: no longer a draft, saved, then its folder committed and pushed (the checklist's Publish). */
+  | { t: "publish"; by: string }
   /** Blocks changed, so the world has changes to save. Sent at most every few seconds. */
   | { t: "changed"; by: string }
   /** The answer to "cleanup": how many markers are still in the world (the world is saved only at 0). */
@@ -149,8 +151,8 @@ export type HostMessage =
   | { t: "home"; id: number; part: number; parts: number; data: string }
   /** The host applied edit `seq`; `hash` is mapHash() of its copy afterwards. */
   | { t: "ack"; seq: number; hash: string }
-  /** Undo and redo (what each would change), whether blocks changed since the last save, and whether a save is running. */
-  | { t: "status"; undo?: string; redo?: string; unsaved: boolean; saving: boolean }
+  /** Undo and redo (what each would change), whether blocks changed since the last save, and whether a save or a publish is running. */
+  | { t: "status"; undo?: string; redo?: string; unsaved: boolean; saving: boolean; publishing?: boolean }
   /** A chat line for one player, or for everyone when `to` is absent. */
   | { t: "say"; to?: string; text: string }
   /** A line above the hotbar for the map editors here, with a chime: news such as a map that's ready. */
@@ -168,7 +170,7 @@ export type HostMessage =
   /** Extract mode: move `box` by `offset`, clearing the box's chunks around it, then answer with "extracted". */
   | { t: "extract"; box: Box; offset: Vec3 };
 
-const EVENT_TYPES = new Set(["ready", "edit", "undo", "redo", "resync", "save", "changed", "clean", "saveMap", "mapAction", "open", "extracted"]);
+const EVENT_TYPES = new Set(["ready", "edit", "undo", "redo", "resync", "save", "publish", "changed", "clean", "saveMap", "mapAction", "open", "extracted"]);
 const MESSAGE_TYPES = new Set(["config", "home", "ack", "status", "say", "notice", "cleanup", "resume", "selection", "forgotten", "goto", "extract"]);
 
 // BDS prints script console output as "[<time> <LEVEL>] [Scripting] <text>". Requiring that prefix

@@ -23,7 +23,7 @@ Each port keeps the identity the network's server on it has, so if you've played
 there's no trust prompt; otherwise accept it once per server.
 
 The page shows each server (what it has open, and who is on it), the checklist of the map open in
-Edit with **Save**, the maps cut from the world open in Select, and the editor's log. **Shut down**
+Edit with **Save** and **Publish**, the maps cut from the world open in Select, and the editor's log. **Shut down**
 stops all three (Edit saves first); then **Start the network** brings the lobby and games back.
 Closing the Panel doesn't stop the editor.
 
@@ -38,6 +38,7 @@ npm run editor -- select "<world>"        the same with a world in Select: its n
                                           its folder, or a .mcworld file
 npm run editor -- status                  what each of its servers is doing
 npm run editor -- save                    save the map open in Edit now
+npm run editor -- publish                 publish the map open in Edit (see "Publishing")
 npm run editor -- stop                    shut it down (Edit saves first)
 ```
 
@@ -167,8 +168,8 @@ screen.
 1. **Quick icons**, each with a tooltip when you point at it:
    - **The checklist pill** (a check and "2/5", the check green when nothing is missing): each
      thing the map's game needs, green when done, with what the build would refuse the map for. Tap
-     an entry to get its tool, already set to that list. **Mark ready** (draft maps) is at the
-     bottom: once nothing is missing, it removes `"draft"` so the build includes the map.
+     an entry to get its tool, already set to that list. **Publish** is at the bottom: once nothing
+     is missing, it puts the map in the lobby (see "Publishing").
    - **Undo** and **Redo** (faded when there's nothing to undo or redo; the tooltip says what they'd
      change). The menu opens again afterward, so you can undo several steps.
    - **The gear** (map settings): the map's name and the game's own settings in `map.json` (such as
@@ -243,6 +244,32 @@ screen.
 - A map with `build` commands is rebuilt from them by `npm run bake`, which would replace block
   changes. Drop the commands from the map menu's gear to keep them.
 
+## Publishing
+
+When a map is done, **Publish** puts it in the lobby: the last button in the checklist (map
+editors), **Publish** on the Panel's Edit row, or `npm run editor -- publish`. In game and in the
+Panel it asks first. Then it:
+
+1. checks the checklist: a map with problems isn't published;
+2. removes `"draft"`, so the build includes the map (an undo step, like any change);
+3. saves the world into the map, when blocks changed since the last save;
+4. commits only the map's folder (`games/<game>/maps/<id>/`, or `lobby/maps/<id>/`), whatever else
+   is changed in the checkout, as `Automated Map Build : <Game> <Map> <date> <time>`, for example
+   `Automated Map Build : Sumo Sewer 2026-10-31 18:42` (this PC's time);
+5. pushes it to GitHub, after catching up with commits pushed from elsewhere when nothing local is
+   in the way.
+
+Chat says when it's done, with the commit, and map editors hear a chime and see "Sewer is
+published" above the hotbar. The lobby lists the map from the network's next start: **Shut down**
+the editor, then **Start the network**, which builds from this checkout. A lobby map shows in the
+Panel's lobby map picker instead.
+
+Publish again after more changes (the button then reads **Publish changes**): it commits what
+changed. With nothing changed, it says so and commits nothing. When the push fails (no connection,
+or GitHub has commits that clash with local changes), the commit stays here, chat says why, and
+publishing again pushes it. The commit goes on the branch of the checkout the editor runs from
+(the Panel's, normally `main`).
+
 ## How it works
 
 - `npm run editor` (`tools/editor/`) starts the containers `minecade-editor-lobby` (19132),
@@ -271,7 +298,11 @@ screen.
   the copies down, but on BDS 1.26 a log's listed length is from before the save wrote the chunks:
   a copy cut to it lost the blocks placed before the save, while the whole copy kept them (and
   not ones placed after `save resume`).
-- The host answers on `127.0.0.1:8097` (`GET /status`, `POST /save`, `POST /open`, `POST /stop`),
+- **Publish** (`tools/editor/publish.ts`) runs git in the checkout: `fetch` and `merge --ff-only`
+  (skipped quietly when local changes are in the way), `add --all` and `commit` naming the map's
+  folder (so nothing else staged goes in), then `push`. It never asks on the console
+  (`GIT_TERMINAL_PROMPT=0`), and gives the network steps two minutes, for a sign-in window.
+- The host answers on `127.0.0.1:8097` (`GET /status`, `POST /save`, `POST /publish`, `POST /open`, `POST /stop`),
   which the Panel and `npm run editor -- status | save | stop | <target> <map>` use. When the Panel
   boots the editor, its output goes to `work/editor/editor.log`.
 - **The menus** are classic forms themed by the editor's resource pack, like the lobby's menus

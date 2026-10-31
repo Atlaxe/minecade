@@ -1,7 +1,7 @@
 // Map editor host logic with no I/O, kept apart from the sessions so it can be unit-tested.
 import { openKey, type MapConfig, type OpenRequest, type RecentEntry, type SelectionInfo, type ServersInfo } from "@minecade/minigame-core/config";
 
-/** The host's control port on this PC: status, save, open and stop, for the Panel and `npm run editor`. */
+/** The host's control port on this PC: status, save, publish, open and stop, for the Panel and `npm run editor`. */
 export const CONTROL_PORT = 8097;
 /** A map id is a folder name in maps/: lower case letters, digits, _ and -. */
 const MAP_ID = /^[a-z0-9][a-z0-9_-]{0,47}$/;
@@ -55,6 +55,8 @@ export interface EditStatus extends ServerStatus {
   unsaved: boolean;
   /** A Save is running. */
   saving: boolean;
+  /** A Publish is running: saving, then the commit and push. */
+  publishing: boolean;
   undo?: string;
   redo?: string;
   checklist: { rows: { label: string; have: number; need: number; done: boolean }[]; problems: string[]; warnings: string[]; ready: boolean };
@@ -97,7 +99,7 @@ export interface EditorStatus {
 
 export type EditorArgs =
   | { command: "boot"; open?: Exclude<OpenRequest, { to: "home" }>; verbose: boolean }
-  | { command: "status" | "save" | "stop" }
+  | { command: "status" | "save" | "publish" | "stop" }
   | { command: "help"; error?: string };
 
 export const USAGE = `Usage:
@@ -110,6 +112,8 @@ export const USAGE = `Usage:
                                             its folder, or a .mcworld file
   npm run editor -- status                  what the running editor is doing
   npm run editor -- save                    save the map open in Edit now
+  npm run editor -- publish                 publish the map open in Edit: it stops being a draft, is
+                                            saved, and its folder is committed and pushed
   npm run editor -- stop                    shut the editor down (Edit saves first)
 Add --verbose to echo the servers' consoles. The editor takes the network's ports (19132-19134),
 so stop the network first.`;
@@ -126,7 +130,7 @@ export function parseArgs(argv: string[]): EditorArgs {
     const world = words.slice(1).join(" ").trim();
     return world ? { command: "boot", open: { to: "select", world }, verbose } : { command: "help", error: "select needs a world: its name, its folder or a .mcworld file" };
   }
-  if (words.length === 1 && (words[0] === "status" || words[0] === "save" || words[0] === "stop")) return { command: words[0] };
+  if (words.length === 1 && (words[0] === "status" || words[0] === "save" || words[0] === "publish" || words[0] === "stop")) return { command: words[0] };
   if (words.length !== 2) return { command: "help", error: "expected a target and a map" };
   const [target, map] = words;
   if (!isMapId(map)) return { command: "help", error: `"${map}" is not a map id: use lower case letters, digits, _ and -` };

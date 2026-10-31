@@ -27,7 +27,7 @@ The map editor sets spawns and points in game and writes `map.json` for you; see
 | Field | Required | Meaning |
 |---|---|---|
 | `name` | yes | Shown in the game selector. |
-| `draft` | no | `true` for an unfinished map: the build skips it with a warning (and skips a game whose maps are all drafts). The map editor's "Mark ready" removes it. |
+| `draft` | no | `true` for an unfinished map: the build skips it with a warning (and skips a game whose maps are all drafts). The map editor's Publish removes it, then commits and pushes the map. |
 | `spawns` | yes | Positions (see below). The lobby needs one; a game needs one per player slot (at least `maxPlayers`). The first is also the world spawn. |
 | `spectatorSpawn` | no | Where eliminated players watch from. |
 | `bounds` | when `build` is used | The playable box, in whole blocks (inclusive). Players outside it are out (in games with `combat.outOfBounds: "down"`), and spectators are kept inside. Spawns must be inside it, and y must stay within -64 to 319. |

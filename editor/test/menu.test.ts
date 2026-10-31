@@ -14,7 +14,8 @@ import {
   killYSettings,
   mapMenuBody,
   mapMenuEntries,
-  markReadyText,
+  publishBody,
+  publishText,
   parseSetting,
   regionSettings,
   rowText,
@@ -131,11 +132,24 @@ describe("tool settings", () => {
 });
 
 describe("checklist", () => {
-  it("shows checklist rows, problems, and Mark ready", () => {
+  it("shows checklist rows, problems, and Publish", () => {
     const checklist = mapChecklist(draft, rules);
     expect(rowText(checklist.rows[0])).toBe("§cSpawns\n§71 of 2");
     expect(checklistBody(checklist)).toContain("§c- needs at least 2 spawns (one per player slot), has 1");
-    expect(markReadyText(checklist)).toBe("Mark ready\n§7finish the checklist first");
+    expect(publishText(checklist, true, false)).toBe("Publish\n§7finish the checklist first");
+    const done = mapChecklist({ ...draft, spawns: [[0, 65, 0], [2, 65, 0]] }, rules);
+    expect(done.ready).toBe(true);
+    expect(publishText(done, true, false)).toBe("Publish\n§7put it in the lobby: commit and push");
+    expect(publishText(done, false, false)).toBe("Publish changes\n§7commit and push this version");
+    expect(publishText(done, false, true)).toBe("Publishing...\n§7saving, then commit and push");
+  });
+
+  it("says what Publish does, and where the map shows", () => {
+    const body = publishBody("sumo", "Sumo", "castle", { ...draft, name: "Castle" });
+    expect(body.split("\n")[0]).toBe("Publish Castle (castle) for Sumo?");
+    expect(body).toContain("committed (\"Automated Map Build\") and pushed to GitHub");
+    expect(body).toContain("It stops being a draft, and it's in Sumo's map list in the lobby from the network's next start.");
+    expect(publishBody("lobby", "Lobby", "space", { name: "Space", spawns: [] })).toContain("\nthe Panel's lobby map picker has it");
   });
 
   it("reads game settings as the type they had", () => {

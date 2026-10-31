@@ -54,7 +54,7 @@ On Sumo's `arena_1` in Edit:
   side menus that scroll.
 - Pointing at a quick icon or a tool shows its name in a tooltip box. If none shows, say so.
 - The pill shows only its count; its tooltip says "Checklist: ready" or the problems. Tap it: the
-  checklist, with Mark ready at the bottom on a draft.
+  checklist, with Publish at the bottom.
 - Undo and Redo are faded with nothing to undo or redo. After placing a spawn, Undo removes it and
   the menu opens again.
 - The gear opens Map settings: Name and game settings (the old form). Drop build commands shows,
@@ -73,6 +73,20 @@ On Sumo's `arena_1` in Edit:
 - Save: tap it. Chat says it's saving, the markers vanish for a moment and come back, then "Saved
   the map and the world". Place a block and open the menu: the bar says "unsaved block changes".
   The Panel's Save does the same; Stop saves the block changes since.
+- Publish (after the editor's next boot; it really commits and pushes, so use a map you mean to
+  publish): on a draft with a done checklist, the pill's tooltip says "Checklist: ready to publish",
+  and the checklist's last button reads "Publish / put it in the lobby: commit and push". With
+  problems, it says "finish the checklist first", and tapping it lists them.
+- Tap Publish: a "Publish?" side menu says what happens; Cancel does nothing. Publish: chat says
+  it's publishing, the markers blink while the world saves, then a chime, "<map> is published" above
+  the hotbar, and chat gives the commit. The map menu's top line no longer says "draft".
+- On GitHub, the newest commit is "Automated Map Build : Sumo <map> <date> <time>" (your time) and
+  holds only that map's folder. Other uncommitted changes in the checkout are still uncommitted.
+- Publish again: the button now reads "Publish changes"; with nothing changed, chat says the map has
+  no changes since it was last published.
+- The Panel: the Edit row has Publish beside Save (grayed while the checklist has problems). It
+  asks first, then reads "Publishing..." while it runs.
+- Shut down, then Start the network: the map is in Sumo's map list on the lobby terminal.
 - Region tool:
   - Holding it, the line above the hotbar says what a hit and a use do, and the selection's size.
   - Hitting a block starts a one-block selection (yellow dots) and doesn't break the block.
