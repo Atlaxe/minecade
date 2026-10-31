@@ -2,18 +2,20 @@
 // box the way the region tool does (hit a block to start, use on blocks to grow, use at the sky for
 // its form), and Save as map sends it to the host (tools/editor/select-session.ts), which cuts it
 // out and moves it to the middle in the background. The maps from this world and how each is going
-// arrive as "selection" messages; the map menu lists them, and a ready one can be edited (the
-// editor restarts on it). Nothing here changes the world: the host never saves it.
+// arrive as "selection" messages; the map menu lists them, and a ready one can be edited (it opens
+// on the Edit server, and the host moves the player there). Nothing here changes the world: the
+// host never saves it.
 import { EntityComponentTypes, GameMode, ItemLockMode, ItemStack, world, type Block, type Container, type Player } from "@minecraft/server";
 import { ActionFormData, ModalFormData } from "@minecraft/server-ui";
 import { describeError, log, showForm, type Scope, type SelectInfo, type SelectionInfo } from "@minecade/minigame-core";
 import type { HostMessage } from "@minecade/minigame-core/config";
 import { blockInView, change, keyOf, nudgeForm, xyz, type Picking } from "./box-picker.ts";
 import { blockBox, describeBox, growBox, sameBox, sizeText } from "./boxes.ts";
+import { goto } from "./goto.ts";
 import { HostLink } from "./link.ts";
 import { blockPosition } from "./lists.ts";
 import { dangerText, mapTitle, sideTitle } from "./marks.ts";
-import { mapActions, selectMenuBody, selectMenuEntries, statusLine, type MapAction, type MenuAction, type PickAction } from "./menu.ts";
+import { mapActions, mapIdFrom, selectMenuBody, selectMenuEntries, statusLine, type MapAction, type MenuAction, type PickAction } from "./menu.ts";
 import { Outlines } from "./outlines.ts";
 import { BOUNDS_COLOR, KILL_COLOR, type Rgb } from "./regions.ts";
 import { actionBar, heldTool, hintBar } from "./tool-host.ts";
@@ -97,7 +99,7 @@ export class Selector {
     this.link.send({ t: "ready" });
   }
 
-  private receive(message: Exclude<HostMessage, { t: "config" }>): void {
+  private receive(message: Exclude<HostMessage, { t: "config" | "home" }>): void {
     switch (message.t) {
       case "selection": {
         const same = (map: SelectionInfo) => map.target === message.item.target && map.map === message.item.map;
@@ -109,6 +111,9 @@ export class Selector {
         return;
       case "say":
         for (const player of world.getAllPlayers()) if (!message.to || player.name === message.to) tell(player, message.text);
+        return;
+      case "goto":
+        goto(message.players, message.port, message.label, tell);
         return;
       case "cleanup":
         // Select mode has no markers.
@@ -329,6 +334,9 @@ export class Selector {
         return this.pick(player, action.action);
       case "map":
         return this.mapMenu(player, action.target, action.map);
+      case "lobby":
+        this.link.send({ t: "open", by: player.name, request: { to: "home" } });
+        return;
       default:
         return;
     }
@@ -350,7 +358,7 @@ export class Selector {
 
   private async mapAction(player: Player, map: SelectionInfo, action: MapAction): Promise<void> {
     if (action === "edit") {
-      this.link.send({ t: "switch", by: player.name, to: "edit", target: map.target, map: map.map });
+      this.link.send({ t: "open", by: player.name, request: { to: "edit", target: map.target, map: map.map } });
       return;
     }
     if (action === "update") {
@@ -370,15 +378,6 @@ export class Selector {
 function colorOf(map: SelectionInfo): Rgb {
   if (map.status === "ready") return READY_COLOR;
   return map.status === "failed" ? KILL_COLOR : BOUNDS_COLOR;
-}
-
-/** A map id from a name: "Castle Keep" is castle_keep. */
-function mapIdFrom(name: string): string {
-  return name
-    .toLowerCase()
-    .replace(/[^a-z0-9_-]+/g, "_")
-    .replace(/^[_-]+|[_-]+$/g, "")
-    .slice(0, 48);
 }
 
 function tell(player: Player, text: string): void {

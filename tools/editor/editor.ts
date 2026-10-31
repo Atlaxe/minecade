@@ -1,22 +1,16 @@
-// The map editor's host tool: runs the editor server on port 19134, in Edit mode on one map (it
-// keeps map.json in step with the game and saves the world back into the map) or in Select mode
-// on a converted world (boxing maps, which are extracted in the background). One session runs at a
-// time; a switch (from the game, the Panel or the terminal) stops it and starts the next in this
-// same process, and extractions carry on across switches. See docs/editor.md.
-//   npm run editor -- <target> <map> [--new] [--verbose]     for example: npm run editor -- sumo arena_1
-//   npm run editor -- select "<world>" [--verbose]
+// The map editor's host tool: boots the editor's three servers (runner.ts) on the network's ports:
+// the editor lobby on 19132, where everyone joins and picks a map or a world to open, Select on
+// 19133 and Edit on 19134. See docs/editor.md.
+//   npm run editor [--verbose]                               boot it
+//   npm run editor -- <target> <map> [--new] [--verbose]     boot it (or use the running one) and open a map
+//   npm run editor -- select "<world>" [--verbose]           the same with a world in Select
 //   npm run editor -- status | save | stop
 // The Panel starts the same tool in the background (its output goes to work/editor/editor.log).
 // Either way it answers on 127.0.0.1:8097, which the Panel and `npm run editor -- stop` use.
 import { fileURLToPath } from "node:url";
-import { editorStatus, saveEditor, serveControl, stopEditor } from "./control.ts";
-import { USAGE, parseArgs, type EditorStatus, type NextSession } from "./editor-core.ts";
-import { SelectSession } from "./select-session.ts";
-import { Selections } from "./selections.ts";
-import type { ServerSession } from "./server-session.ts";
-import { EditorSession } from "./session.ts";
-import { loadTarget } from "./targets.ts";
-import { resolveWorld } from "./worlds.ts";
+import { editorStatus, openInEditor, saveEditor, serveControl, stopEditor } from "./control.ts";
+import { USAGE, parseArgs, type EditorStatus } from "./editor-core.ts";
+import { EditorRunner } from "./runner.ts";
 
 const root = fileURLToPath(new URL("../../", import.meta.url));
 const args = parseArgs(process.argv.slice(2));
@@ -35,15 +29,16 @@ if (args.command === "status") {
 }
 
 if (args.command === "save") {
-  if (!(await saveEditor())) {
-    console.log("No map editor is running.");
+  const result = await saveEditor();
+  if (!result.ok) {
+    console.log(result.error === "no map editor is running" ? "No map editor is running." : `Can't save: ${result.error}.`);
     process.exit(0);
   }
-  console.log("Saving the map editor's world into the map...");
+  console.log("Saving the map open in Edit...");
   // Wait for the save to start, then for it to finish.
   await new Promise((resolve) => setTimeout(resolve, 1000));
   let status = await editorStatus();
-  while (status?.mode === "edit" && status.saving) {
+  while (status?.edit?.saving) {
     await new Promise((resolve) => setTimeout(resolve, 1000));
     status = await editorStatus();
   }
@@ -56,102 +51,39 @@ if (args.command === "stop") {
     console.log("No map editor is running.");
     process.exit(0);
   }
-  console.log("Stopping the map editor (it saves first)...");
-  // It answers until it has finished saving and stopping.
+  console.log("Shutting the map editor down (Edit saves first)...");
+  // It answers until every server has stopped.
   while (await editorStatus()) await new Promise((resolve) => setTimeout(resolve, 1000));
   console.log("Stopped.");
   process.exit(0);
 }
 
-if (args.command !== "edit" && args.command !== "select") process.exit(1);
+if (args.command !== "boot") process.exit(1);
 const running = await editorStatus();
 if (running) {
-  console.error(`A map editor is already running (${describe(running)}: ${running.state}). Stop it first: npm run editor -- stop`);
-  process.exit(1);
-}
-
-const verbose = args.verbose;
-// Extractions outlive sessions: their lines go to whichever session runs now.
-const selections = new Selections(root, { verbose, note: (text) => session.log(text) });
-let session: ServerSession;
-/** The session to start once this one has stopped (a switch). */
-let next: NextSession | undefined;
-let stopping = false;
-
-/** Makes the session for a start or a switch; throws (with the reason) when it can't. */
-async function create(launch: NextSession & { fresh?: boolean }): Promise<ServerSession> {
-  if (launch.mode === "edit") return new EditorSession({ target: await loadTarget(root, launch.target), mapId: launch.map, fresh: launch.fresh ?? false, verbose });
-  return new SelectSession({ world: await resolveWorld(launch.world, selections.unzipDir), selections, verbose });
-}
-
-async function run(made: ServerSession): Promise<void> {
-  session = made;
-  session.onSwitch = (to) => {
-    next = to;
-    void session.stop();
-  };
-  session.onEnd = (ok) => void ended(ok);
-  // A failed start has already been reported, and onEnd follows.
-  await session.start().catch(() => {});
-}
-
-async function ended(ok: boolean): Promise<void> {
-  const to = next;
-  next = undefined;
-  if (to && !stopping) {
-    try {
-      return await run(await create(to));
-    } catch (error) {
-      console.error(`Could not switch: ${error instanceof Error ? error.message : String(error)}`);
-      ok = false;
-    }
+  if (!running.booted) {
+    console.error("An older map editor is running: stop it first (npm run editor -- stop).");
+    process.exit(1);
   }
-  if (selections.busy > 0) {
-    console.log(`Waiting for ${selections.busy} extraction${selections.busy === 1 ? "" : "s"} to finish before quitting...`);
-    await selections.idle();
+  if (!args.open) {
+    console.log(`The map editor is running already: join ${running.join}.`);
+    process.exit(0);
   }
+  const result = await openInEditor(args.open);
+  console.log(result.ok ? "Opening it in the running editor: watch with npm run editor -- status." : `Can't open it: ${result.error}.`);
+  process.exit(result.ok ? 0 : 1);
+}
+
+const runner = new EditorRunner({ root, verbose: args.verbose });
+runner.onExit = (ok) => {
   control.close();
   process.exit(ok ? 0 : 1);
-}
-
-let first: ServerSession;
-try {
-  first = await create(args.command === "edit" ? { mode: "edit", target: args.target, map: args.map, fresh: args.fresh } : { mode: "select", world: args.world });
-} catch (error) {
-  console.error(error instanceof Error ? error.message : String(error));
-  process.exit(1);
-}
-session = first;
+};
 const control = await serveControl({
-  status: () => session.status(),
-  save: () => {
-    if (session instanceof EditorSession) void session.save("this PC");
-  },
-  stop: () => {
-    stopping = true;
-    void session.stop();
-  },
-  switchTo: async (to) => {
-    if (next) return "a switch is under way already";
-    // Check the target or world before stopping the session that runs now.
-    if (to.mode === "select") {
-      try {
-        await resolveWorld(to.world, selections.unzipDir);
-      } catch (error) {
-        return error instanceof Error ? error.message : String(error);
-      }
-    } else if (session instanceof SelectSession) {
-      const problem = session.editProblem(to.target, to.map);
-      if (problem) return problem;
-    }
-    next = to;
-    void session.stop();
-    return undefined;
-  },
-  selection: async ({ action, target, map }) => {
-    if (!(session instanceof SelectSession)) return "the editor isn't in Select mode";
-    return session.mapAction("this PC", action, target, map);
-  },
+  status: () => runner.status(),
+  save: () => runner.save(),
+  stop: () => void runner.shutdown(),
+  open: (request) => runner.request("this PC", request),
 }).catch((error: unknown) => {
   console.error(error instanceof Error ? error.message : String(error));
   process.exit(1);
@@ -159,30 +91,43 @@ const control = await serveControl({
 
 let interrupts = 0;
 process.on("SIGINT", () => {
-  stopping = true;
   if (++interrupts === 1) {
-    console.log("Stopping (it saves first; press Ctrl+C again to quit without saving the world)...");
-    void session.stop();
+    console.log("Shutting down (Edit saves first; press Ctrl+C again to quit without saving the world)...");
+    void runner.shutdown();
   } else {
-    void session.forceStop();
+    void runner.shutdown(true);
   }
 });
-await run(first);
 
-function describe(status: EditorStatus): string {
-  return status.mode === "edit" ? `${status.targetName}, ${status.mapName}` : `Select mode on "${status.world}"`;
+try {
+  await runner.boot();
+} catch (error) {
+  console.error(`Could not boot the map editor: ${error instanceof Error ? error.message : String(error)}`);
+  control.close();
+  process.exit(1);
+}
+if (args.open) {
+  const problem = await runner.request("this PC", args.open);
+  if (problem) console.error(`Can't open it: ${problem}`);
 }
 
 function printStatus(status: EditorStatus): void {
-  console.log(`${describe(status)}${status.mode === "edit" ? ` (${status.map})` : ""}: ${status.state}. Join ${status.join}.`);
-  if (status.mode === "select") {
-    console.log(`Online: ${status.players.join(", ") || "nobody"}. Maps from this world:`);
-    for (const item of status.selections) console.log(`  ${item.status.padEnd(10)} ${item.targetName}, ${item.name} (${item.map})${item.error ? `: ${item.error}` : ""}`);
-    if (status.selections.length === 0) console.log("  none yet");
+  if (!status.booted) {
+    console.log("An older map editor is running (from before the editor lobby): stop it with npm run editor -- stop.");
     return;
   }
-  const world = status.saving ? "is being saved" : status.unsaved ? "has unsaved block changes (Save, or stopping, saves them)" : "is saved";
-  console.log(`Online: ${status.players.join(", ") || "nobody"}. The world ${world}.`);
-  for (const row of status.checklist.rows) console.log(`  ${row.done ? "ok     " : "missing"} ${row.label} ${row.have}/${row.need}`);
-  for (const problem of status.checklist.problems) console.log(`  ${problem}`);
+  console.log(`Map editor: ${status.state}. Join ${status.join}.`);
+  console.log(`  Lobby:  ${status.home.state}, ${status.home.players.join(", ") || "nobody"}`);
+  const select = status.select;
+  if (select) {
+    console.log(`  Select: "${select.world}", ${select.state}, ${select.players.join(", ") || "nobody"}`);
+    for (const item of select.selections) console.log(`    ${item.status.padEnd(10)} ${item.targetName}, ${item.name} (${item.map})${item.error ? `: ${item.error}` : ""}`);
+  }
+  const edit = status.edit;
+  if (edit) {
+    const world = edit.saving ? "being saved" : edit.unsaved ? "has unsaved block changes" : "saved";
+    console.log(`  Edit:   ${edit.targetName}, ${edit.mapName} (${edit.map}), ${edit.state}, ${edit.players.join(", ") || "nobody"}; the world is ${world}`);
+    for (const row of edit.checklist.rows) console.log(`    ${row.done ? "ok     " : "missing"} ${row.label} ${row.have}/${row.need}`);
+  }
+  for (const entry of status.waiting) console.log(`  ${entry.name} is waiting for ${entry.label}`);
 }

@@ -1,7 +1,7 @@
-// What every editor server session shares, Edit (session.ts) or Select (select-session.ts):
-// starting the editor server (minecade-editor on port 19134, with the editor's packs built from
+// What every editor server shares, the editor lobby (home-session.ts), Select (select-session.ts)
+// or Edit (session.ts): starting its server (on its slot's port, with the editor's packs built from
 // this checkout and a folder staged at /editor), talking to the pack over the console, opping map
-// editors as they join, and stopping. A session can ask the runner (editor.ts) for the next one.
+// editors as they join, sending players on, and stopping. The runner (runner.ts) runs all three.
 import { existsSync } from "node:fs";
 import { cp, mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -9,17 +9,16 @@ import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import type Docker from "dockerode";
 import * as tar from "tar";
-import { EDIT_SCRIPT_EVENT_ID, extractEditPayload, parseEditorEvent, type EditorEvent, type HostMessage } from "@minecade/minigame-core/config";
+import { EDIT_SCRIPT_EVENT_ID, extractEditPayload, parseEditorEvent, type EditorEvent, type HostMessage, type OpenRequest } from "@minecade/minigame-core/config";
 import { BASE_IMAGE, buildBaseImage } from "../build/base-image.ts";
 import { attachConsole, connectDocker, findContainerByName, type ServerConsole } from "../build/docker-util.ts";
 import { PlayerLog, playerEvent, readEnv } from "../control-panel/core.ts";
-import { CONTAINER_NAME, EDITOR_PORT, editorAllowList, mapEditors, type EditorStatus, type NextSession } from "./editor-core.ts";
+import { editorAllowList, mapEditors, type ServerState, type ServerStatus, type Slot } from "./editor-core.ts";
 import { buildEditorTemplate } from "./template.ts";
 
 export const root = fileURLToPath(new URL("../../", import.meta.url));
 /** Files BDS adds to a running world that a map's world doesn't keep. */
 export const RUNTIME_FILES = ["level.dat_old", "world_behavior_packs.json", "world_resource_packs.json"];
-const LOG_KEPT = 200;
 const START_TIMEOUT_MS = 180_000;
 const READY_TIMEOUT_MS = 60_000;
 const CLEAN_TIMEOUT_MS = 60_000;
@@ -27,14 +26,22 @@ const STOP_TIMEOUT_MS = 30_000;
 const REPLY_TIMEOUT_MS = 5000;
 const OP_ATTEMPTS = 5;
 
+export interface SessionBase {
+  slot: Slot;
+  /** Echo the server console. */
+  verbose: boolean;
+  /** Where the session's log lines go (the runner's log). */
+  note(text: string): void;
+}
+
 export abstract class ServerSession {
+  readonly slot: Slot;
   protected readonly verbose: boolean;
-  protected state: EditorStatus["state"] = "starting";
+  protected state: ServerState = "starting";
   protected error: string | undefined;
   protected env: Record<string, string> = {};
   protected editors: string[] = [];
   protected readonly players = new PlayerLog();
-  protected readonly lines: string[] = [];
   /** The last server console lines, for a failure message. */
   protected readonly recent: string[] = [];
   protected readonly startedAt = new Date().toISOString();
@@ -42,26 +49,31 @@ export abstract class ServerSession {
   protected console: ServerConsole | undefined;
   protected exited: Promise<number> | undefined;
   protected stopping: Promise<void> | undefined;
+  private readonly sink: (text: string) => void;
   private readonly waiters = new Map<string, (event: EditorEvent) => void>();
   private commands: Promise<unknown> = Promise.resolve();
   private cleanupId = 0;
   /** Called once the session is over: stopped (true) or failed (false). */
   onEnd: (ok: boolean) => void = () => {};
-  /** Asked for from inside (the pack): the runner starts `next` once this session has stopped. */
-  onSwitch: (next: NextSession, by: string) => void = () => {};
+  /** A player asked (in the pack) to open a map or a world, or to go to the editor lobby. */
+  onOpen: (request: OpenRequest, by: string) => void = () => {};
+  /** A player joined or left this server. */
+  onPlayer: (name: string, kind: "connected" | "disconnected") => void = () => {};
 
-  constructor(verbose: boolean) {
-    this.verbose = verbose;
+  constructor(options: SessionBase) {
+    this.slot = options.slot;
+    this.verbose = options.verbose;
+    this.sink = options.note;
   }
 
-  abstract status(): EditorStatus;
+  abstract status(): ServerStatus & { mode: string };
   /** What the server shows in the log while starting ("Sumo, Arena (arena_1)"). */
   protected abstract label(): string;
   /** Reads what the session works on (the map or the world), before the server is made. */
   protected abstract prepare(): Promise<void>;
   /** Fills the folder staged at /editor: world/, map.json, editor.json (and the entrypoint, added here). */
   protected abstract stage(dir: string): Promise<void>;
-  /** The pack's events other than "ready" and "clean". */
+  /** The pack's events other than "ready", "clean" and "open". */
   protected abstract onEvent(event: EditorEvent): void;
   /** Runs once the pack is ready and the console answers. */
   protected abstract afterReady(): Promise<void>;
@@ -94,20 +106,38 @@ export abstract class ServerSession {
     await this.stopping;
   }
 
-  /** A line in this session's log (the Panel shows it), for work that outlives sessions (extractions). */
+  /** A line in this server's log, for work that outlives it (extractions) and the runner's notes. */
   log(text: string): void {
     this.note(text);
   }
 
+  /** Who is on this server now. */
+  online(): string[] {
+    return this.players.players ?? [];
+  }
+
+  /** Sends these players to the editor server on `port`, through the pack. */
+  async goto(players: string[], port: number, label: string): Promise<void> {
+    if (players.length > 0 && this.state === "ready") await this.send({ t: "goto", players, port, label });
+  }
+
+  say(text: string, to?: string): Promise<unknown> {
+    return this.send({ t: "say", text, ...(to ? { to } : {}) });
+  }
+
+  send(message: HostMessage): Promise<string | undefined> {
+    // JSON.stringify escapes control characters, so a message can never spill onto a second console line.
+    return this.command(`scriptevent ${EDIT_SCRIPT_EVENT_ID} ${JSON.stringify(message)}`, /Script event minecade:edit has been sent/);
+  }
+
   /** The join address and who is on, for status(). */
-  protected common(): Pick<EditorStatus, "state" | "error" | "join" | "players" | "editors" | "log" | "startedAt"> {
+  protected common(): ServerStatus {
     return {
       state: this.state,
       ...(this.error ? { error: this.error } : {}),
-      join: `${this.env.LAN_HOST ?? "?"}:${EDITOR_PORT}`,
-      players: this.players.players ?? [],
+      join: `${this.env.LAN_HOST ?? "?"}:${this.slot.port}`,
+      players: this.online(),
       editors: this.editors,
-      log: [...this.lines],
       startedAt: this.startedAt,
     };
   }
@@ -124,9 +154,9 @@ export abstract class ServerSession {
     await this.prepare();
 
     const docker = connectDocker();
-    const old = await findContainerByName(docker, CONTAINER_NAME);
+    const old = await findContainerByName(docker, this.slot.container);
     if (old) {
-      if ((await old.inspect()).State.Running) throw new Error(`${CONTAINER_NAME} is already running: stop it first (npm run editor -- stop)`);
+      if ((await old.inspect()).State.Running) throw new Error(`${this.slot.container} is already running: stop it first (npm run editor -- stop)`);
       await old.remove({ force: true });
     }
     buildBaseImage(root, this.verbose);
@@ -147,7 +177,7 @@ export abstract class ServerSession {
     this.console.onLine((line) => this.onLine(line));
     const ready = this.waitFor("ready", START_TIMEOUT_MS + READY_TIMEOUT_MS);
     const started = this.console.waitFor(/Server started\./, START_TIMEOUT_MS);
-    this.note(`Starting the editor server: ${this.label()}...`);
+    this.note(`Starting: ${this.label()}...`);
     await container.start();
     this.exited = container.wait().then((result: { StatusCode: number }) => result.StatusCode);
     void this.exited.then((code) => this.onExit(code));
@@ -161,29 +191,28 @@ export abstract class ServerSession {
     if (!warm) throw new Error("the server console does not answer");
     await this.afterReady();
     this.state = "ready";
-    this.note(`Ready: join ${this.env.LAN_HOST}:${EDITOR_PORT}. Map editors: ${this.editors.join(", ") || "nobody (set MAP_EDITORS or LAN_PLAYERS)"}.`);
+    this.note(`Ready on port ${this.slot.port}.`);
   }
 
   private containerOptions(): Docker.ContainerCreateOptions {
-    const port = String(EDITOR_PORT);
+    const port = String(this.slot.port);
     const status = this.status();
-    const mode = status.mode;
     const env: Record<string, string> = {
       GAME: "editor",
-      MAP: status.mode === "edit" ? status.map : "select",
-      SERVER_ID: "editor",
-      IDENTITY: "editor",
+      MAP: "map" in status && typeof status.map === "string" ? status.map : status.mode,
+      SERVER_ID: this.slot.container,
+      IDENTITY: this.slot.identity,
       SERVER_PORT: port,
       SERVER_NAME: "Minecade map editor",
       TRANSPORT: "log",
-      EDITOR_MODE: mode,
+      EDITOR_MODE: status.mode,
       LAN_HOST: this.env.LAN_HOST,
       PUBLIC_HOST: this.env.PUBLIC_HOST || "auto",
       LAN_PLAYERS: this.env.LAN_PLAYERS ?? "",
       EDITOR_ALLOW_LIST: this.env.EDITOR_ALLOW_LIST ?? "",
     };
     return {
-      name: CONTAINER_NAME,
+      name: this.slot.container,
       Image: BASE_IMAGE,
       // The plain BDS image has no Minecade entrypoint: the staged copy is this checkout's.
       Entrypoint: ["/bin/bash", "/editor/entrypoint.sh"],
@@ -194,11 +223,11 @@ export abstract class ServerSession {
       ExposedPorts: { [`${port}/tcp`]: {}, [`${port}/udp`]: {} },
       HostConfig: {
         PortBindings: { [`${port}/tcp`]: [{ HostPort: port }], [`${port}/udp`]: [{ HostPort: port }] },
-        // The saved "editor" identity, so players accept the server's trust once.
+        // The saved identities, so players accept each server's trust once.
         Binds: ["minecade-keys:/keys"],
       },
       // Never managed-by=orchestrator, so the orchestrator's cleanup leaves it alone.
-      Labels: { "minecade.role": "editor", "minecade.editor": status.mode === "edit" ? `${status.target}/${status.map}` : `select/${status.world}` },
+      Labels: { "minecade.role": "editor", "minecade.editor": `${this.slot.id}: ${this.label()}` },
     };
   }
 
@@ -211,6 +240,7 @@ export abstract class ServerSession {
       if (!event) this.note(`Ignored a malformed editor event: ${payload.slice(0, 120)}`);
       else if (event.t === "ready") this.resolve("ready", event);
       else if (event.t === "clean") this.resolve(`clean:${event.id}`, event);
+      else if (event.t === "open") this.onOpen(event.request, event.by);
       else this.onEvent(event);
       return;
     }
@@ -222,19 +252,11 @@ export abstract class ServerSession {
       const editor = this.editors.some((name) => name.toLowerCase() === joined.name.toLowerCase());
       this.note(`${joined.name} ${joined.kind === "connected" ? `joined (${editor ? "map editor" : "builder"})` : "left"}.`);
       if (joined.kind === "connected" && editor) void this.op(joined.name);
+      this.onPlayer(joined.name, joined.kind);
       return;
     }
     // The pack's own log lines and any errors, without the time stamp.
     if (/\[Scripting\]| ERROR\]/.test(line) && !this.verbose) this.note(`server: ${line.replace(/^\[[^\]]*\]\s*/, "")}`);
-  }
-
-  protected say(text: string, to?: string): Promise<unknown> {
-    return this.send({ t: "say", text, ...(to ? { to } : {}) });
-  }
-
-  protected send(message: HostMessage): Promise<string | undefined> {
-    // JSON.stringify escapes control characters, so a message can never spill onto a second console line.
-    return this.command(`scriptevent ${EDIT_SCRIPT_EVENT_ID} ${JSON.stringify(message)}`, /Script event minecade:edit has been sent/);
   }
 
   /**
@@ -260,10 +282,13 @@ export abstract class ServerSession {
     return result;
   }
 
-  /** Map editors are operators, so they can use commands. A player who just connected may need a moment. */
+  /**
+   * Map editors are operators, so they can use commands. A player who just connected may need a
+   * moment ("No targets matched"); one who is an operator already gets "Could not op".
+   */
   private async op(name: string): Promise<void> {
     for (let attempt = 0; attempt < OP_ATTEMPTS; attempt++) {
-      const answer = await this.command(`op "${name}"`, /Opped|already|No targets matched/i);
+      const answer = await this.command(`op "${name}"`, /Opped|already|Could not op|No targets matched/i);
       if (answer === undefined) return;
       if (!/No targets matched/i.test(answer)) {
         this.note(`${name} is an operator.`);
@@ -296,7 +321,7 @@ export abstract class ServerSession {
   /** Waits for `promise`, failing early if the server stops first. */
   private async untilExit<T>(promise: Promise<T>): Promise<T> {
     const exited = this.exited!.then((code) => {
-      throw new Error(`the editor server stopped while starting (exit code ${code})`);
+      throw new Error(`the server stopped while starting (exit code ${code})`);
     });
     return Promise.race([promise, exited]);
   }
@@ -304,7 +329,7 @@ export abstract class ServerSession {
   private onExit(code: number): void {
     if (this.state !== "ready") return;
     this.state = "failed";
-    this.error = `the editor server stopped unexpectedly (exit code ${code})`;
+    this.error = `the server stopped unexpectedly (exit code ${code})`;
     this.note(`${this.error}. Last server lines:\n  ${this.recent.slice(-15).join("\n  ")}`);
     this.stopping ??= this.shutdown(false);
   }
@@ -338,6 +363,19 @@ export abstract class ServerSession {
     return false;
   }
 
+  /** Stops a server that has nothing to save (the editor lobby, Select). */
+  protected async plainShutdown(last: string): Promise<void> {
+    const failed = this.state === "failed";
+    if (!failed) this.state = "stopping";
+    try {
+      if (await this.running()) await this.stopServer();
+    } catch (error) {
+      this.note(`Stopping went wrong: ${message(error)}`);
+    } finally {
+      await this.endSession(failed, () => this.note(last));
+    }
+  }
+
   /** The end of every shutdown: the container goes, and the runner hears about it. */
   protected async endSession(failed: boolean, last?: () => void): Promise<void> {
     this.console?.close();
@@ -352,10 +390,7 @@ export abstract class ServerSession {
   }
 
   protected note(text: string): void {
-    const line = `${new Date().toISOString().slice(11, 19)}  ${text}`;
-    console.log(line);
-    this.lines.push(line);
-    if (this.lines.length > LOG_KEPT) this.lines.shift();
+    this.sink(`${this.slot.label}: ${text}`);
   }
 }
 

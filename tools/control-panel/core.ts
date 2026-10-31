@@ -177,32 +177,6 @@ export function lobbyMapChoices(entries: { id: string; json: string }[]): LobbyM
   return choices;
 }
 
-export interface EditorTargetChoice {
-  /** "lobby", or a game id. */
-  id: string;
-  name: string;
-  maps: { id: string; name: string; draft: boolean }[];
-}
-
-/**
- * What the map editor can open, for the Panel's pickers: the lobby, then each game (its name read
- * from game.config.ts, which the Panel can't import), each with its maps, drafts too.
- */
-export function editorTargetChoices(targets: { id: string; config?: string; maps: { id: string; json: string }[] }[]): EditorTargetChoice[] {
-  return targets.map(({ id, config, maps }) => {
-    const name = id === "lobby" ? "Lobby" : (/\bname:\s*"([^"]+)"/.exec(config ?? "")?.[1] ?? id);
-    const choices = maps.map((map) => {
-      try {
-        const parsed = JSON.parse(map.json) as { name?: unknown; draft?: unknown };
-        return { id: map.id, name: typeof parsed.name === "string" && parsed.name ? parsed.name : map.id, draft: parsed.draft === true };
-      } catch {
-        return { id: map.id, name: `${map.id} (not valid JSON)`, draft: false };
-      }
-    });
-    return { id, name, maps: choices };
-  });
-}
-
 /** A LOBBY_MAP value: empty (the default, spaceship) or one of the finished lobby maps. */
 export function checkLobbyMap(raw: string, choices: LobbyMapChoice[]): NormalizeResult {
   const value = raw.trim();
@@ -260,6 +234,14 @@ export interface LifetimeInfo {
   lastWindowAt?: number;
   /** A compose action is running. Exiting could break it halfway. */
   busy: boolean;
+}
+
+/**
+ * Whether a program that started at `startedAt` runs older code than its files: one of them (their
+ * modification times, in ms) was saved after it started.
+ */
+export function isStale(startedAt: number, mtimes: number[]): boolean {
+  return mtimes.some((mtime) => mtime > startedAt);
 }
 
 export function shouldExit(info: LifetimeInfo): boolean {

@@ -1,11 +1,15 @@
 import { describe, expect, it } from "vitest";
 import {
   ConfigAssembler,
+  PartsAssembler,
   extractEditPayload,
   mapHash,
+  openKey,
   parseEditorEvent,
   parseHostMessage,
   splitConfig,
+  splitHome,
+  type HomeState,
   type HostMessage,
 } from "../src/editor-protocol.ts";
 import type { MapConfig } from "../src/map-config.ts";
@@ -46,6 +50,29 @@ describe("editor protocol", () => {
     expect(assembler.add(old[1])).toBeUndefined();
   });
 
+  it("sends the editor lobby's state in parts too", () => {
+    const state: HomeState = {
+      catalog: {
+        targets: [{ id: "sumo", name: "Sumo", maps: Array.from({ length: 80 }, (_, i) => ({ id: `arena_${i}`, name: `Arena "${i}"`, draft: i % 2 === 0 })) }],
+        worlds: [{ id: "abc=", name: "Datapacking (imported)", maps: 2 }],
+        recent: [{ request: { to: "edit", target: "sumo", map: "arena_1" }, label: "Sumo: Arena (arena_1)" }],
+      },
+      servers: { edit: { request: { to: "edit", target: "sumo", map: "arena_1" }, label: "Sumo: Arena (arena_1)", state: "ready", players: ["a"] }, waiting: [] },
+    };
+    const parts = splitHome(state, 4).filter((message): message is Extract<HostMessage, { t: "home" }> => message.t === "home");
+    expect(parts.length).toBeGreaterThan(1);
+    for (const part of parts) expect(JSON.stringify(part).length).toBeLessThanOrEqual(MAX_MESSAGE_CHARS);
+    const assembler = new PartsAssembler();
+    const results = parts.map((part) => assembler.add(part));
+    expect(JSON.parse(results.at(-1)!)).toEqual(state);
+  });
+
+  it("names what a request opens, so the same map or world matches", () => {
+    expect(openKey({ to: "edit", target: "sumo", map: "arena_1" })).toBe(openKey({ to: "edit", target: "sumo", map: "arena_1", fresh: { name: "Arena" } }));
+    expect(openKey({ to: "select", world: "abc=" })).toBe("select:abc=");
+    expect(openKey({ to: "home" })).toBe("home");
+  });
+
   it("fingerprints a map by its content and key order", () => {
     expect(mapHash(small)).toBe(mapHash(JSON.parse(JSON.stringify(small))));
     expect(mapHash(small)).not.toBe(mapHash({ ...small, spawns: [[0, 66, 0]] }));
@@ -64,7 +91,9 @@ describe("editor protocol", () => {
     expect(parseEditorEvent('{"t":"saveWorld","by":"a","save":true}')).toBeUndefined();
     expect(parseHostMessage('{"t":"resume"}')).toEqual({ t: "resume" });
     expect(parseEditorEvent('{"t":"saveMap","by":"a","box":{"min":[0,0,0],"max":[1,1,1]},"target":"sumo","map":"castle","name":"Castle","spawn":[0,1,0]}')?.t).toBe("saveMap");
-    expect(parseEditorEvent('{"t":"switch","by":"a","to":"select"}')).toEqual({ t: "switch", by: "a", to: "select" });
+    expect(parseEditorEvent('{"t":"open","by":"a","request":{"to":"select"}}')).toEqual({ t: "open", by: "a", request: { to: "select" } });
+    expect(parseEditorEvent('{"t":"switch","by":"a","to":"select"}')).toBeUndefined();
+    expect(parseHostMessage('{"t":"goto","players":["a"],"port":19133,"label":"Select"}')?.t).toBe("goto");
     expect(parseEditorEvent('{"t":"extracted","ok":true,"tiles":4}')?.t).toBe("extracted");
     expect(parseHostMessage('{"t":"extract","box":{"min":[0,0,0],"max":[1,1,1]},"offset":[0,0,0]}')?.t).toBe("extract");
     expect(parseHostMessage('{"t":"forgotten","target":"sumo","map":"castle"}')?.t).toBe("forgotten");

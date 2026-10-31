@@ -1,15 +1,17 @@
 // The pack's side of the editor protocol: events go to the host as "[EDIT] {json}" lines on the
 // server log, and the host's messages arrive as "scriptevent minecade:edit {json}" typed into the
-// server console. The whole map comes in parts, put back together here.
+// server console. The whole map (and the editor lobby's state) comes in parts, put back together here.
 import { ScriptEventSource, system } from "@minecraft/server";
 import {
   ConfigAssembler,
   EDIT_LOG_MARKER,
   EDIT_SCRIPT_EVENT_ID,
+  PartsAssembler,
   describeError,
   log,
   parseHostMessage,
   type EditorEvent,
+  type HomeState,
   type HostMessage,
   type MapConfig,
   type Scope,
@@ -18,11 +20,14 @@ import {
 export interface HostHandlers {
   /** The host's whole map, after it applied the pack's edits up to `seq`. */
   config(config: MapConfig, seq: number): void;
-  message(message: Exclude<HostMessage, { t: "config" }>): void;
+  /** The editor lobby's whole state (the editor lobby only). */
+  home?(state: HomeState): void;
+  message(message: Exclude<HostMessage, { t: "config" | "home" }>): void;
 }
 
 export class HostLink {
   private readonly assembler = new ConfigAssembler();
+  private readonly homeParts = new PartsAssembler();
 
   constructor(scope: Scope, handlers: HostHandlers) {
     scope.subscribe(
@@ -40,6 +45,11 @@ export class HostLink {
           return;
         }
         try {
+          if (message.t === "home") {
+            const text = this.homeParts.add(message);
+            if (text !== undefined) handlers.home?.(JSON.parse(text) as HomeState);
+            return;
+          }
           if (message.t !== "config") {
             handlers.message(message);
             return;

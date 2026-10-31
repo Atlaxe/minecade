@@ -50,6 +50,15 @@ export class Selections {
     return this.pending;
   }
 
+  /** Whether a map's world is being cut out (or redone) now, so Edit can't open it yet. */
+  extracting(target: string, map: string): boolean {
+    const busy = new Set(["queued", "extracting", "updating"]);
+    for (const file of this.files.values()) {
+      if (file.selections.some((selection) => selection.target === target && selection.map === map && busy.has(selection.status))) return true;
+    }
+    return false;
+  }
+
   /** Resolves once every queued extraction has finished. */
   idle(): Promise<void> {
     return this.queue;

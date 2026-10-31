@@ -1,31 +1,25 @@
 // The running editor's control port on this PC (127.0.0.1:8097), for the Panel and
-// `npm run editor -- status | save | stop`:
-//   GET /status              what it's doing (Edit or Select)
-//   POST /save               Edit: save the world into the map now
-//   POST /stop               stop (Edit saves first)
-//   POST /switch {next}      restart in Select on a world, or in Edit on a map
-//   POST /selection {...}    Select: retry, forget or update a map in the world's list
+// `npm run editor -- status | save | stop | <target> <map> | select "<world>"`:
+//   GET /status              what each of its servers is doing
+//   POST /save               save the map open in Edit now
+//   POST /open {request}     open a map in Edit or a world in Select (an OpenRequest)
+//   POST /stop               shut it down (Edit saves first)
 // Requests are checked the way the Panel checks its own, so a web page can't reach it.
 import { createServer, type Server } from "node:http";
+import type { OpenRequest } from "@minecade/minigame-core/config";
 import { checkRequest } from "../control-panel/core.ts";
-import { CONTROL_PORT, type EditorStatus, type NextSession } from "./editor-core.ts";
+import { CONTROL_PORT, type EditorStatus } from "./editor-core.ts";
 
 const ORIGIN = `http://127.0.0.1:${CONTROL_PORT}`;
 const MAX_BODY = 10_000;
 
-export interface SelectionRequest {
-  action: "retry" | "forget" | "update";
-  target: string;
-  map: string;
-}
-
 export interface ControlHandlers {
   status(): EditorStatus;
-  save(): void;
+  /** False when no map is open in Edit. */
+  save(): boolean;
   stop(): void;
   /** Undefined when it's under way, or why not. */
-  switchTo(next: NextSession): Promise<string | undefined>;
-  selection(request: SelectionRequest): Promise<string | undefined>;
+  open(request: OpenRequest): Promise<string | undefined>;
 }
 
 /** Serves the control port. Fails when another editor already holds it. */
@@ -58,26 +52,15 @@ export function serveControl(handlers: ControlHandlers): Promise<Server> {
           return reply(400, { error: "not JSON" });
         }
         if (method === "GET" && path === "/status") return reply(200, handlers.status());
-        if (method === "POST" && path === "/save") {
-          handlers.save();
-          return reply(202, { ok: true });
-        }
+        if (method === "POST" && path === "/save") return handlers.save() ? reply(202, { ok: true }) : reply(409, { error: "no map is open in Edit" });
         if (method === "POST" && path === "/stop") {
           handlers.stop();
           return reply(202, { ok: true });
         }
-        if (method === "POST" && path === "/switch") {
-          const next = nextOf(body);
-          if (!next) return reply(400, { error: "switch to {mode: 'select', world} or {mode: 'edit', target, map}" });
-          const problem = await handlers.switchTo(next);
-          return problem ? reply(409, { error: problem }) : reply(202, { ok: true });
-        }
-        if (method === "POST" && path === "/selection") {
-          const action = body.action;
-          if ((action !== "retry" && action !== "forget" && action !== "update") || typeof body.target !== "string" || typeof body.map !== "string") {
-            return reply(400, { error: "selection needs action (retry, forget or update), target and map" });
-          }
-          const problem = await handlers.selection({ action, target: body.target, map: body.map });
+        if (method === "POST" && path === "/open") {
+          const request = requestOf(body.request);
+          if (!request) return reply(400, { error: "open needs a request: {to: 'edit', target, map} or {to: 'select', world}" });
+          const problem = await handlers.open(request);
           return problem ? reply(409, { error: problem }) : reply(202, { ok: true });
         }
         return reply(404, { error: "not found" });
@@ -92,13 +75,17 @@ export function serveControl(handlers: ControlHandlers): Promise<Server> {
   });
 }
 
-function nextOf(body: Record<string, unknown>): NextSession | undefined {
-  if (body.mode === "select" && typeof body.world === "string" && body.world.trim()) return { mode: "select", world: body.world };
-  if (body.mode === "edit" && typeof body.target === "string" && typeof body.map === "string") return { mode: "edit", target: body.target, map: body.map };
+function requestOf(value: unknown): OpenRequest | undefined {
+  const body = (typeof value === "object" && value !== null ? value : {}) as Record<string, unknown>;
+  if (body.to === "select" && typeof body.world === "string" && body.world.trim()) return { to: "select", world: body.world };
+  if (body.to === "edit" && typeof body.target === "string" && typeof body.map === "string") {
+    const fresh = body.fresh as { name?: unknown } | undefined;
+    return { to: "edit", target: body.target, map: body.map, ...(fresh && typeof fresh.name === "string" ? { fresh: { name: fresh.name } } : {}) };
+  }
   return undefined;
 }
 
-/** The running editor's status, or undefined when none answers. */
+/** The running editor's status, or undefined when none answers. An editor older than the editor lobby answers without `booted`. */
 export async function editorStatus(timeoutMs = 1000): Promise<EditorStatus | undefined> {
   try {
     const response = await fetch(`${ORIGIN}/status`, { signal: AbortSignal.timeout(timeoutMs) });
@@ -108,24 +95,19 @@ export async function editorStatus(timeoutMs = 1000): Promise<EditorStatus | und
   }
 }
 
-/** Asks the running editor to stop (it saves first). False when none answers. */
+/** Asks the running editor to shut down (Edit saves first). False when none answers. */
 export async function stopEditor(): Promise<boolean> {
   return (await post("/stop")).ok;
 }
 
-/** Asks the running editor to save its world into the map now. False when none answers. */
-export async function saveEditor(): Promise<boolean> {
-  return (await post("/save")).ok;
+/** Asks the running editor to save the map open in Edit now; the error when it can't (or none answers). */
+export function saveEditor(): Promise<{ ok: boolean; error?: string }> {
+  return post("/save");
 }
 
-/** Asks the running editor to switch; the error when it can't (or none answers). */
-export function switchEditor(next: NextSession): Promise<{ ok: boolean; error?: string }> {
-  return post("/switch", next);
-}
-
-/** Asks the running editor (in Select mode) to retry, forget or update a map. */
-export function selectionAction(request: SelectionRequest): Promise<{ ok: boolean; error?: string }> {
-  return post("/selection", request);
+/** Asks the running editor to open a map or a world; the error when it can't (or none answers). */
+export function openInEditor(request: OpenRequest): Promise<{ ok: boolean; error?: string }> {
+  return post("/open", { request });
 }
 
 async function post(path: string, body?: unknown): Promise<{ ok: boolean; error?: string }> {

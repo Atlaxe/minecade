@@ -1,12 +1,16 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { mapChecklist, stripColors, type MapConfig } from "@minecade/minigame-core/config";
+import { mapChecklist, stripColors, type HomeState, type MapConfig } from "@minecade/minigame-core/config";
 import { spawnLists } from "../behavior_pack/scripts/lists.ts";
 import { COLUMNS, LAYOUT, MARK, dangerText, headingText, mapTitle, sideTitle, switchText } from "../behavior_pack/scripts/marks.ts";
 import {
   ICONS,
+  LOBBY_TEXT,
   checklistBody,
+  homeEntries,
   mapActions,
+  mapEntries,
+  mapIdFrom,
   killYSettings,
   mapMenuBody,
   mapMenuEntries,
@@ -18,6 +22,9 @@ import {
   selectMenuEntries,
   spawnSettings,
   statusLine,
+  switchWarning,
+  targetEntries,
+  worldEntries,
   type MapMenuView,
 } from "../behavior_pack/scripts/menu.ts";
 import { regionEntries } from "../behavior_pack/scripts/regions.ts";
@@ -181,13 +188,17 @@ describe("Select mode's map menu", () => {
       { kind: "none" },
       { kind: "map", target: "sumo", map: "castle" },
       { kind: "map", target: "sumo", map: "keep" },
+      { kind: "none" },
+      { kind: "lobby" },
     ]);
     expect(entries[0].text).toBe(`${MARK.tool}${COLUMNS[0]}${MARK.on}Select tool\n§7box a map to cut out`);
     expect(entries[1].text).toBe(headingText("Selection: 112 x 65 x 128"));
-    expect(entries.at(-2)?.text).toBe("Castle (castle)\n§7Sumo: §aready: tap to edit it");
+    expect(entries.at(-4)?.text).toBe("Castle (castle)\n§7Sumo: §aready: tap to edit it");
     expect(selectMenuEntries({ world: "Arenas", toolOut: false, maps: [] }).map((entry) => entry.text)).toEqual([
       `${MARK.tool}${COLUMNS[0]}Select tool\n§7box a map to cut out`,
       headingText("No maps from this world yet"),
+      headingText("Elsewhere"),
+      LOBBY_TEXT,
     ]);
   });
 
@@ -198,5 +209,76 @@ describe("Select mode's map menu", () => {
     expect(mapActions(failed).map((entry) => entry.action)).toEqual(["retry", "forget"]);
     expect(mapActions({ ...ready, status: "queued" })).toEqual([]);
     expect(selectMenuBody("Arenas", false)).toBe('Select mode on "Arenas"\n\n§fPick the Select tool above.');
+  });
+});
+
+describe("the editor lobby's menu", () => {
+  const empty: HomeState = {
+    catalog: {
+      targets: [
+        { id: "lobby", name: "Lobby", maps: [{ id: "spaceship", name: "Spaceship", draft: false }] },
+        { id: "sumo", name: "Sumo", maps: [] },
+      ],
+      worlds: [
+        { id: "abc=", name: "Datapacking (imported)", maps: 2 },
+        { id: "def=", name: "My World", maps: 0 },
+      ],
+      recent: [],
+    },
+    servers: { waiting: [] },
+  };
+  const arena = { to: "edit" as const, target: "sumo", map: "arena_1" };
+  const datapacking = { to: "select" as const, world: "abc=" };
+
+  it("offers Open a map and New map when nothing is open", () => {
+    expect(homeEntries(empty).map((entry) => entry.action)).toEqual([{ kind: "none" }, { kind: "maps" }, { kind: "new" }]);
+  });
+
+  it("puts what's open first, then recent maps and worlds that aren't open", () => {
+    const state: HomeState = {
+      catalog: {
+        ...empty.catalog,
+        recent: [
+          { request: arena, label: "Sumo: Arena (arena_1)" },
+          { request: datapacking, label: "Datapacking (imported)" },
+          { request: { to: "edit", target: "lobby", map: "spaceship" }, label: "Lobby: Spaceship (spaceship)" },
+        ],
+      },
+      servers: { edit: { request: arena, label: "Sumo: Arena (arena_1)", state: "ready", players: ["Friend"] }, waiting: [] },
+    };
+    const entries = homeEntries(state);
+    expect(entries.map((entry) => entry.action)).toEqual([
+      { kind: "none" },
+      { kind: "open", request: arena },
+      { kind: "none" },
+      { kind: "open", request: datapacking },
+      { kind: "open", request: { to: "edit", target: "lobby", map: "spaceship" } },
+      { kind: "none" },
+      { kind: "maps" },
+      { kind: "new" },
+    ]);
+    expect(entries[1].text).toBe("Sumo: Arena (arena_1)\n§7Edit: open: Friend");
+    expect(entries[3].text).toBe("Datapacking (imported)\n§7box maps in this world");
+  });
+
+  it("lists targets, maps and worlds, with an empty world last", () => {
+    expect(targetEntries(empty.catalog).map((entry) => stripColors(entry.text))).toEqual(["Lobby\n1 map", "Sumo\nno maps yet"]);
+    expect(mapEntries(empty.catalog.targets[0])).toEqual([{ map: "spaceship", text: "Spaceship (spaceship)\n§7ready for games" }]);
+    expect(worldEntries(empty.catalog).map((entry) => entry.world)).toEqual(["abc=", "def=", undefined]);
+    expect(worldEntries(empty.catalog)[0].text).toBe("Datapacking (imported)\n§72 maps from it");
+  });
+
+  it("asks before moving others off a server that has something else open", () => {
+    const busy: HomeState = { ...empty, servers: { edit: { request: arena, label: "Sumo: Arena (arena_1)", state: "ready", players: ["Friend"] }, waiting: [] } };
+    expect(switchWarning(busy, { to: "edit", target: "sumo", map: "castle" })).toBe(
+      "Friend is in Edit on Sumo: Arena (arena_1). They wait in the editor lobby while Edit switches (it saves first), then come back with you.",
+    );
+    expect(switchWarning(busy, arena)).toBeUndefined();
+    expect(switchWarning(busy, datapacking)).toBeUndefined();
+    expect(switchWarning({ ...busy, servers: { edit: { ...busy.servers.edit!, players: [] }, waiting: [] } }, { to: "edit", target: "sumo", map: "castle" })).toBeUndefined();
+  });
+
+  it("makes map ids from names", () => {
+    expect(mapIdFrom("Castle Keep!")).toBe("castle_keep");
   });
 });

@@ -1,8 +1,21 @@
-// What the map menu and the checklist offer, as plain data: the editor turns these into forms.
-// The map menu has its own layout (resource_pack/ui/editor_forms.json, picked by LAYOUT.map): the
-// quick icons (the checklist pill, Undo, Redo, Map settings), the tool grid, the picked tool's
-// settings (scrolling) and a green Save bar. Each button's mark (marks.ts) says where it goes.
-import { listOf, type Box, type Checklist, type ChecklistRow, type MapConfig, type SelectionInfo } from "@minecade/minigame-core/config";
+// What the map menu, the checklist and the editor lobby's form offer, as plain data: the editor
+// turns these into forms. The map menu has its own layout (resource_pack/ui/editor_forms.json,
+// picked by LAYOUT.map): the quick icons (the checklist pill, Undo, Redo, Map settings), the tool
+// grid, the picked tool's settings (scrolling) and a green Save bar. Each button's mark (marks.ts)
+// says where it goes.
+import {
+  listOf,
+  openKey,
+  type Box,
+  type Catalog,
+  type Checklist,
+  type ChecklistRow,
+  type HomeState,
+  type MapConfig,
+  type OpenRequest,
+  type SelectionInfo,
+  type ServerInfo,
+} from "@minecade/minigame-core/config";
 import { sizeText } from "./boxes.ts";
 import { SNAPS, type Snap, type SpawnList } from "./lists.ts";
 import { COLUMNS, MARK, dangerText, headingText, switchText } from "./marks.ts";
@@ -37,7 +50,9 @@ export type MenuAction =
   /** Select mode: something to do with the selection. */
   | { kind: "pick"; action: PickAction }
   /** Select mode: a map from this world (its own menu). */
-  | { kind: "map"; target: string; map: string };
+  | { kind: "map"; target: string; map: string }
+  /** Go to the editor lobby, to open another map or world. */
+  | { kind: "lobby" };
 
 /** What Select mode's selection offers. */
 export type PickAction = "saveMap" | "nudge" | "back" | "clear";
@@ -222,8 +237,12 @@ export function selectMenuEntries(view: SelectMenuView): MenuEntry[] {
   for (const map of view.maps) {
     entries.push({ action: { kind: "map", target: map.target, map: map.map }, text: `${map.name} (${map.map})\n§7${map.targetName}: ${statusLine(map)}` });
   }
+  entries.push({ action: { kind: "none" }, text: headingText("Elsewhere") }, { action: { kind: "lobby" }, text: LOBBY_TEXT });
   return entries;
 }
+
+/** The button that goes to the editor lobby (Select's map menu, Edit's gear). */
+export const LOBBY_TEXT = "Editor lobby\n§7open another map or world";
 
 /** The text over Select mode's settings: the world, then how to use the Select tool. */
 export function selectMenuBody(world: string, toolOut: boolean): string {
@@ -252,7 +271,7 @@ export type MapAction = "edit" | "update" | "retry" | "forget";
 export function mapActions(map: SelectionInfo): { action: MapAction; text: string }[] {
   if (map.status === "ready") {
     return [
-      { action: "edit", text: `Edit ${map.map}\n§7the editor restarts on it: rejoin after about 30 s` },
+      { action: "edit", text: `Edit ${map.map}\n§7open it on the Edit server: you're moved there` },
       { action: "update", text: dangerText("Update from this world\n§7redo its blocks; changes made in Edit are lost") },
       { action: "forget", text: "Forget\n§7take it off this list; the map stays" },
     ];
@@ -264,4 +283,99 @@ export function mapActions(map: SelectionInfo): { action: MapAction; text: strin
     ];
   }
   return [];
+}
+
+// ---- The editor lobby ---------------------------------------------------------------------------
+
+/** A map id from a name: "Castle Keep" is castle_keep. */
+export function mapIdFrom(name: string): string {
+  return name
+    .toLowerCase()
+    .replace(/[^a-z0-9_-]+/g, "_")
+    .replace(/^[_-]+|[_-]+$/g, "")
+    .slice(0, 48);
+}
+
+/** How many recent maps and worlds the editor lobby's menu shows. */
+const RECENT_SHOWN = 3;
+
+export type HomeAction =
+  /** Open a map or a world, or go to the server that has it open. */
+  | { kind: "open"; request: Extract<OpenRequest, { to: "edit" | "select" }> }
+  /** Open a map...: pick the lobby or a game, then one of its maps. */
+  | { kind: "maps" }
+  /** New map...: pick a world to copy builds from (or an empty world). */
+  | { kind: "new" }
+  /** A heading: nothing happens but the menu opening again. */
+  | { kind: "none" };
+
+export interface HomeEntry {
+  action: HomeAction;
+  text: string;
+}
+
+/** The editor lobby's menu: what's open now, what was opened lately, then Open a map and New map. */
+export function homeEntries(state: HomeState): HomeEntry[] {
+  const entries: HomeEntry[] = [];
+  const open: [string, ServerInfo][] = [];
+  if (state.servers.edit) open.push(["Edit", state.servers.edit]);
+  if (state.servers.select) open.push(["Select", state.servers.select]);
+  if (open.length > 0) {
+    entries.push({ action: { kind: "none" }, text: headingText("Open now") });
+    for (const [mode, info] of open) entries.push({ action: { kind: "open", request: info.request }, text: `${info.label}\n§7${mode}: ${serverLine(info)}` });
+  }
+  const openKeys = new Set(open.map(([, info]) => openKey(info.request)));
+  const recent = state.catalog.recent.filter((entry) => !openKeys.has(openKey(entry.request))).slice(0, RECENT_SHOWN);
+  if (recent.length > 0) {
+    entries.push({ action: { kind: "none" }, text: headingText("Recent") });
+    for (const entry of recent) {
+      entries.push({ action: { kind: "open", request: entry.request }, text: `${entry.label}\n§7${entry.request.to === "edit" ? "edit this map" : "box maps in this world"}` });
+    }
+  }
+  entries.push(
+    { action: { kind: "none" }, text: headingText("Maps") },
+    { action: { kind: "maps" }, text: "Open a map...\n§7the lobby's and every game's maps" },
+    { action: { kind: "new" }, text: "New map...\n§7copy builds from one of your worlds" },
+  );
+  return entries;
+}
+
+/** How an open server is doing, in a few words. */
+export function serverLine(info: ServerInfo): string {
+  if (info.state === "starting") return "§eloading...";
+  if (info.state === "stopping") return "§eclosing...";
+  return info.players.length === 0 ? "open, nobody on it" : `open: ${info.players.join(", ")}`;
+}
+
+/** Open a map: the lobby and each game, with how many maps each has. */
+export function targetEntries(catalog: Catalog): { target: string; text: string }[] {
+  return catalog.targets.map((target) => {
+    const count = target.maps.length;
+    return { target: target.id, text: `${target.name}\n§7${count === 0 ? "no maps yet" : `${count} map${count === 1 ? "" : "s"}`}` };
+  });
+}
+
+/** A target's maps, drafts marked. */
+export function mapEntries(target: Catalog["targets"][number]): { map: string; text: string }[] {
+  return target.maps.map((map) => ({ map: map.id, text: `${map.name} (${map.id})\n§7${map.draft ? "draft" : "ready for games"}` }));
+}
+
+/** New map: the client's worlds (how many maps came from each), then an empty world. */
+export function worldEntries(catalog: Catalog): { world?: string; text: string }[] {
+  const entries: { world?: string; text: string }[] = catalog.worlds.map((world) => ({
+    world: world.id,
+    text: `${world.name}\n§7${world.maps === 0 ? "no maps from it yet" : `${world.maps} map${world.maps === 1 ? "" : "s"} from it`}`,
+  }));
+  entries.push({ text: "Empty world\n§7a glass pad in the void, for a quick test map" });
+  return entries;
+}
+
+/** Why opening `request` should be confirmed: who it moves off a server that has something else open. */
+export function switchWarning(state: HomeState, request: Extract<OpenRequest, { to: "edit" | "select" }>): string | undefined {
+  const mode = request.to === "edit" ? "Edit" : "Select";
+  const info = request.to === "edit" ? state.servers.edit : state.servers.select;
+  if (!info || openKey(info.request) === openKey(request) || info.players.length === 0) return undefined;
+  const who = info.players.length === 1 ? `${info.players[0]} is` : `${info.players.length} players are`;
+  const saves = request.to === "edit" ? " (it saves first)" : "";
+  return `${who} in ${mode} on ${info.label}. They wait in the editor lobby while ${mode} switches${saves}, then come back with you.`;
 }

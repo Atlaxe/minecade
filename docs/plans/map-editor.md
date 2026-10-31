@@ -1,6 +1,6 @@
 # Milestone 10: map editor server (Select, Edit, Preview) (plan)
 
-**Status:** approved 2026-10-30. Milestone 9 (the UI pass) is done, so this is next. Built in 9 passes, functionality first (see "Passes"). Passes 10.1 to 10.4 are done (the spike's results are in `docs/spike-results.md`, "Map editor"; the editor's guide is `docs/editor.md`). Next: pass 10.5. The games come after it as milestones 11 and on.
+**Status:** approved 2026-10-30. Milestone 9 (the UI pass) is done, so this is next. Built in 9 passes, functionality first (see "Passes"). Passes 10.1 to 10.5 are done, and the editor boots into an editor lobby since 2026-10-31 (the spike's results are in `docs/spike-results.md`, "Map editor"; the editor's guide is `docs/editor.md`). Next: pass 10.6. The games come after it as milestones 11 and on.
 
 **For the session that implements this:**
 - Work in `C:\dev\minecade\network`.
@@ -520,6 +520,29 @@ box being edited and of the bounds (stand-in for the colored boundary blocks).
   Bedrock pack isn't built yet). It survived both prunes and the move; rerun it with the real
   blocks once they land in `packs/blocks/`.
 - Each world's list lives in `work/select/<world>.json`; there's no Shrink to build yet (10.8).
+
+*Changed on 2026-10-31, after the user's first try (the Panel couldn't start the editor: its server
+predated the Map editor page):*
+- **Boot up map editor** replaces the Panel's pickers: picking happens in game. The editor is three
+  servers on the network's ports (the user's choice: the network never runs beside the editor, so
+  booting stops it, after a confirm):
+  - **the editor lobby** on 19132: black (a closed cell, blind, no movement, camera or HUD), with a
+    Map editor menu that opens again whenever it closes: Open now, Recent (the "previous" maps),
+    Open a map (target, then map), New map (the client's worlds, or an empty world with a glass pad);
+  - **Select** on 19133 and **Edit** on 19134, each started (or restarted) by what's opened.
+- Players move between them by transfer (`goto`, through `TransferService`), never by rejoining:
+  whoever asks waits where they are, and players on a server that restarts wait in the editor
+  lobby. This replaces "Mode switches through the lobby" (protocol 7, `editor_hold`) for the editor.
+- Select and Edit run side by side, so Edit <map> leaves Select up, and Back to Select is instant
+  when Select has that world.
+- Each port keeps the network's identity there (`lobby`, `game`, `editor`), so there are no new
+  trust prompts, and no new router forwards.
+- The Panel and the editor say when they run older code than the checkout: **Restart Panel** (a
+  fresh helper takes over its port) and **Restart** for the editor.
+- Fixed: a map editor rejoining a server got "Could not op" and "The server didn't answer"
+  (BDS's answer for someone who is an operator already).
+- 10.6 Preview needs a game port while the editor holds all three: settle it in 10.6 (for example,
+  the preview game takes the Select port).
 
 **10.6 Preview:** `DEV_LIVE_MAPS`, Preview with the return to the editor, Preview as lobby, and
 both in the Panel.

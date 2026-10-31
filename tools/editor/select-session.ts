@@ -1,8 +1,7 @@
-// One map editor session in Select mode: a copy of a converted world on the editor server (with
-// the void generator, so flying past it grows nothing; the world itself is never opened), where
-// map editors box maps. Saving a box as a map queues its extraction (selections.ts); the list and
-// how each extraction is going reach the pack, which shows them in the map menu. Nothing in Select
-// mode is saved: stopping just stops.
+// The Select server: a copy of a converted world (with the void generator, so flying past it grows
+// nothing; the world itself is never opened), where map editors box maps. Saving a box as a map
+// queues its extraction (selections.ts); the list and how each extraction is going reach the pack,
+// which shows them in the map menu. Nothing in Select mode is saved: stopping just stops.
 import { cp, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import type { EditorEvent, SelectInfo, SelectionInfo } from "@minecade/minigame-core/config";
@@ -11,7 +10,7 @@ import { enableBetaApis, patchLevelDat } from "../build/leveldat.ts";
 import type { SelectStatus } from "./editor-core.ts";
 import { centerOffset, insideBox, mapIdProblem } from "./select-core.ts";
 import type { Selections } from "./selections.ts";
-import { RUNTIME_FILES, ServerSession, root } from "./server-session.ts";
+import { RUNTIME_FILES, ServerSession, root, type SessionBase } from "./server-session.ts";
 import { listTargets, type EditorTarget } from "./targets.ts";
 import type { World } from "./worlds.ts";
 
@@ -22,8 +21,8 @@ export class SelectSession extends ServerSession {
   private infos: SelectionInfo[] = [];
   private offChange: (() => void) | undefined;
 
-  constructor(options: { world: World; selections: Selections; verbose: boolean }) {
-    super(options.verbose);
+  constructor(options: SessionBase & { world: World; selections: Selections }) {
+    super(options);
     this.world = options.world;
     this.selections = options.selections;
   }
@@ -38,13 +37,6 @@ export class SelectSession extends ServerSession {
     if (problem) this.note(`${by}: can't ${action} ${target}/${map}: ${problem}`);
     else this.note(`${by}: ${action} ${target}/${map}`);
     return problem;
-  }
-
-  /** Why Edit can't open this map yet, or undefined when it can. */
-  editProblem(target: string, map: string): string | undefined {
-    const info = this.infos.find((candidate) => candidate.target === target && candidate.map === map);
-    if (!info) return `${map} isn't in ${this.world.name}'s list`;
-    return info.status === "ready" ? undefined : `${map} isn't ready (${info.status})`;
   }
 
   protected label(): string {
@@ -100,17 +92,6 @@ export class SelectSession extends ServerSession {
           if (problem) void this.say(`§c${problem}`, event.by);
         });
         return;
-      case "switch": {
-        if (event.to !== "edit") return;
-        const problem = this.editProblem(event.target, event.map);
-        if (problem) {
-          void this.say(`§c${problem}`, event.by);
-          return;
-        }
-        void this.say(`Switching to Edit on ${event.map}: the editor restarts. Rejoin in about 30 seconds.`);
-        this.onSwitch({ mode: "edit", target: event.target, map: event.map }, event.by);
-        return;
-      }
     }
   }
 
@@ -140,15 +121,7 @@ export class SelectSession extends ServerSession {
   }
 
   protected async shutdown(): Promise<void> {
-    const failed = this.state === "failed";
-    if (!failed) this.state = "stopping";
     this.offChange?.();
-    try {
-      if (await this.running()) await this.stopServer();
-    } catch (error) {
-      this.note(`Stopping went wrong: ${error instanceof Error ? error.message : String(error)}`);
-    } finally {
-      await this.endSession(failed, () => this.note("Stopped Select mode."));
-    }
+    await this.plainShutdown(`Stopped Select mode on "${this.world.name}".`);
   }
 }

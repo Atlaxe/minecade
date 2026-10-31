@@ -34,6 +34,7 @@ import {
   type MapPosition,
   type Scope,
 } from "@minecade/minigame-core";
+import { goto } from "./goto.ts";
 import { KillYTool } from "./kill-y-tool.ts";
 import { HostLink } from "./link.ts";
 import { Outlines } from "./outlines.ts";
@@ -44,7 +45,7 @@ import { blockPosition, compass, markerSpecs, snapFacing, SNAPS, spawnLists, typ
 import { MapState } from "./map-state.ts";
 import { MARKER, Markers } from "./markers.ts";
 import { dangerText, mapTitle, sideTitle } from "./marks.ts";
-import { checklistBody, mapMenuBody, mapMenuEntries, markReadyText, parseSetting, rowText, type MenuAction, type SpawnSettings } from "./menu.ts";
+import { LOBBY_TEXT, checklistBody, mapMenuBody, mapMenuEntries, markReadyText, parseSetting, rowText, type MenuAction, type SpawnSettings } from "./menu.ts";
 import { EDITOR_TOOLS, SELECT_TOOL, toolOf, type EditorTool, type ToolId } from "./tools.ts";
 
 const MAP_MENU = "minecade:map_menu";
@@ -201,7 +202,7 @@ export class Editor {
     log.info(`laid a glass pad at ${x} ${y - 1} ${z}`);
   }
 
-  private receive(message: Exclude<HostMessage, { t: "config" }>): void {
+  private receive(message: Exclude<HostMessage, { t: "config" | "home" }>): void {
     switch (message.t) {
       case "ack":
         if (!this.state.ack(message.seq, message.hash)) {
@@ -215,6 +216,9 @@ export class Editor {
         return;
       case "say":
         for (const player of world.getAllPlayers()) if (!message.to || player.name === message.to) tell(player, message.text);
+        return;
+      case "goto":
+        goto(message.players, message.port, message.label, tell);
         return;
       case "cleanup":
         void this.markers.clear().then(
@@ -504,9 +508,9 @@ export class Editor {
     this.edit(player, { op: "draft", draft: false }, "Marked ready: the next build includes this map.");
   }
 
-  /** The gear: the map's name and game settings, and dropping its build commands. */
+  /** The gear: the map's name and game settings, Back to Select, the editor lobby, and dropping build commands. */
   private async settingsMenu(player: Player): Promise<void> {
-    const actions: ("settings" | "select" | "dropBuild")[] = ["settings"];
+    const actions: ("settings" | "select" | "lobby" | "dropBuild")[] = ["settings"];
     const form = new ActionFormData()
       .title(sideTitle("Map settings"))
       .body(`${this.state.current.name} (${this.info.map}), ${this.info.targetName}`)
@@ -515,6 +519,8 @@ export class Editor {
       actions.push("select");
       form.button(`Back to Select\n§7box more maps in "${this.info.from}"`);
     }
+    actions.push("lobby");
+    form.button(LOBBY_TEXT);
     if (this.state.current.build !== undefined) {
       actions.push("dropBuild");
       form.button(dangerText("Drop build commands\n§7keep block changes made here"));
@@ -524,7 +530,7 @@ export class Editor {
     if (!action || !player.isValid) return;
     if (action === "settings") return this.settingsForm(player);
     if (action === "dropBuild") return this.dropBuild(player);
-    this.link.send({ t: "switch", by: player.name, to: "select" });
+    this.link.send({ t: "open", by: player.name, request: action === "select" ? { to: "select" } : { to: "home" } });
   }
 
   private async settingsForm(player: Player): Promise<void> {

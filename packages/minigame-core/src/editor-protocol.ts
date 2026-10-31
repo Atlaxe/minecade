@@ -1,9 +1,10 @@
 // Messages between the map editor's pack (editor/) and its host tool (tools/editor/), over the
 // server console the way the log transport works: the pack writes "[EDIT] {json}" lines to the
 // server log, and the host answers with "scriptevent minecade:edit {json}" typed into the console.
-// A whole map.json can be longer than one scriptevent carries, so it travels in parts. The same
-// pack runs in three modes: Edit (one map), Select (boxing maps in a converted world) and Extract
-// (a server with no players that moves a box to the middle, for the host's extraction).
+// A whole map.json (or the editor lobby's state) can be longer than one scriptevent carries, so it
+// travels in parts. The same pack runs in four modes: the editor lobby (home: the form that opens
+// maps and worlds), Edit (one map), Select (boxing maps in a converted world) and Extract (a server
+// with no players that moves a box to the middle, for the host's extraction).
 import type { Box, MapConfig, Vec3 } from "./map-config.ts";
 import type { MapEdit } from "./map-edit.ts";
 import type { MapRules } from "./map-validate.ts";
@@ -16,7 +17,14 @@ export const EDIT_LOG_MARKER = "[EDIT] ";
 export type EditorRules = Omit<MapRules, "teams"> & { teams?: { id: string; name: string; color: string }[] };
 
 /** What the host tells the pack at start: editor.json, passed in as the "editor" server variable. */
-export type EditorInfo = EditInfo | SelectInfo | ExtractInfo;
+export type EditorInfo = HomeInfo | EditInfo | SelectInfo | ExtractInfo;
+
+/** The editor lobby: a black screen and a form that opens maps and worlds on the other servers. */
+export interface HomeInfo {
+  mode: "home";
+  editors: string[];
+  home: HomeState;
+}
 
 /** Edit mode: one map. */
 export interface EditInfo {
@@ -65,6 +73,49 @@ export interface SelectionInfo {
   error?: string;
 }
 
+/**
+ * Something to open: a map in Edit (a new one, in an empty world, with `fresh`), a world in Select
+ * (a world from the catalog by its id; none means the world the map in Edit came from), or the
+ * editor lobby.
+ */
+export type OpenRequest =
+  | { to: "edit"; target: string; map: string; fresh?: { name: string } }
+  | { to: "select"; world?: string }
+  | { to: "home" };
+
+/** The editor lobby's form: what can be opened, and what's open now. */
+export interface HomeState {
+  catalog: Catalog;
+  servers: ServersInfo;
+}
+
+export interface Catalog {
+  /** The lobby and each game, with their maps. */
+  targets: { id: string; name: string; maps: { id: string; name: string; draft: boolean }[] }[];
+  /** The client's worlds: `id` is the world's folder name, and `maps` how many maps came from it. */
+  worlds: { id: string; name: string; maps: number }[];
+  /** What was opened lately, newest first. */
+  recent: RecentEntry[];
+}
+
+export type RecentEntry = { request: Extract<OpenRequest, { to: "edit" | "select" }>; label: string };
+
+/** The Select and Edit servers, when one is open, and who waits for one to be ready. */
+export interface ServersInfo {
+  select?: ServerInfo;
+  edit?: ServerInfo;
+  waiting: { name: string; label: string }[];
+}
+
+export interface ServerInfo {
+  /** What opens it (its openKey() tells a pick of the same thing from another). */
+  request: Extract<OpenRequest, { to: "edit" | "select" }>;
+  /** "Datapacking (imported)", or "Sumo: Arena (arena_1)". */
+  label: string;
+  state: "starting" | "ready" | "stopping";
+  players: string[];
+}
+
 /** What the pack tells the host. */
 export type EditorEvent =
   /** The pack has loaded and swept up markers an earlier run left behind. */
@@ -85,9 +136,8 @@ export type EditorEvent =
   | { t: "saveMap"; by: string; box: Box; target: string; map: string; name: string; spawn: Vec3 }
   /** Select mode: try a failed extraction again, forget a map in the list, or redo a map's world from this world. */
   | { t: "mapAction"; by: string; action: "retry" | "forget" | "update"; target: string; map: string }
-  /** Restart the editor in Edit mode on a map, or in Select mode on the world the map came from. */
-  | { t: "switch"; by: string; to: "edit"; target: string; map: string }
-  | { t: "switch"; by: string; to: "select" }
+  /** Open a map or a world (on its server), or go to the editor lobby. */
+  | { t: "open"; by: string; request: OpenRequest }
   /** Extract mode: the box was moved (or why not). */
   | { t: "extracted"; ok: boolean; error?: string; tiles?: number; drops?: number };
 
@@ -95,6 +145,8 @@ export type EditorEvent =
 export type HostMessage =
   /** One part of the whole map.json, after the host applied the pack's edits up to `seq`. */
   | { t: "config"; id: number; seq: number; part: number; parts: number; data: string }
+  /** One part of the editor lobby's whole HomeState. */
+  | { t: "home"; id: number; part: number; parts: number; data: string }
   /** The host applied edit `seq`; `hash` is mapHash() of its copy afterwards. */
   | { t: "ack"; seq: number; hash: string }
   /** Undo and redo (what each would change), whether blocks changed since the last save, and whether a save is running. */
@@ -109,11 +161,13 @@ export type HostMessage =
   | { t: "selection"; item: SelectionInfo }
   /** Select mode: a map left the list. */
   | { t: "forgotten"; target: string; map: string }
+  /** Send these players to the editor server on `port` (`label` says what's there). */
+  | { t: "goto"; players: string[]; port: number; label: string }
   /** Extract mode: move `box` by `offset`, clearing the box's chunks around it, then answer with "extracted". */
   | { t: "extract"; box: Box; offset: Vec3 };
 
-const EVENT_TYPES = new Set(["ready", "edit", "undo", "redo", "resync", "save", "changed", "clean", "saveMap", "mapAction", "switch", "extracted"]);
-const MESSAGE_TYPES = new Set(["config", "ack", "status", "say", "cleanup", "resume", "selection", "forgotten", "extract"]);
+const EVENT_TYPES = new Set(["ready", "edit", "undo", "redo", "resync", "save", "changed", "clean", "saveMap", "mapAction", "open", "extracted"]);
+const MESSAGE_TYPES = new Set(["config", "home", "ack", "status", "say", "cleanup", "resume", "selection", "forgotten", "goto", "extract"]);
 
 // BDS prints script console output as "[<time> <LEVEL>] [Scripting] <text>". Requiring that prefix
 // means "[EDIT]" anywhere else in the log (a player's chat, a command) is never taken for an event.
@@ -143,6 +197,12 @@ function parseTyped(json: string, types: Set<string>): { t: string } | undefined
   }
 }
 
+/** What a request opens, as one string: the same map or world gives the same key. */
+export function openKey(request: OpenRequest): string {
+  if (request.to === "edit") return `edit:${request.target}/${request.map}`;
+  return request.to === "select" ? `select:${request.world ?? ""}` : "home";
+}
+
 /** A short fingerprint of a map.json (FNV-1a of its JSON), so both sides can tell they agree. */
 export function mapHash(config: MapConfig): string {
   const text = JSON.stringify(config);
@@ -156,27 +216,36 @@ export function mapHash(config: MapConfig): string {
 
 /** The whole map.json as "config" messages, each within the scriptevent size limit. */
 export function splitConfig(config: MapConfig, seq: number, id: number): HostMessage[] {
-  const text = JSON.stringify(config);
+  const pieces = splitText(JSON.stringify(config), (data) => ({ t: "config", id, seq, part: 9999, parts: 9999, data }));
+  return pieces.map((data, part) => ({ t: "config", id, seq, part, parts: pieces.length, data }));
+}
+
+/** The editor lobby's whole state as "home" messages, each within the scriptevent size limit. */
+export function splitHome(state: HomeState, id: number): HostMessage[] {
+  const pieces = splitText(JSON.stringify(state), (data) => ({ t: "home", id, part: 9999, parts: 9999, data }));
+  return pieces.map((data, part) => ({ t: "home", id, part, parts: pieces.length, data }));
+}
+
+/** `text` in pieces that each fit one message once `wrap` puts them in one. */
+function splitText(text: string, wrap: (data: string) => HostMessage): string[] {
   const pieces: string[] = [];
   for (let start = 0; start < text.length || pieces.length === 0; ) {
     // Quotes and backslashes grow when the piece is quoted again, so shrink until it fits.
     let size = Math.min(text.length - start, MAX_MESSAGE_CHARS - 100);
-    while (size > 1 && JSON.stringify({ t: "config", id, seq, part: 9999, parts: 9999, data: text.slice(start, start + size) }).length > MAX_MESSAGE_CHARS) {
-      size = Math.floor(size * 0.8);
-    }
+    while (size > 1 && JSON.stringify(wrap(text.slice(start, start + size))).length > MAX_MESSAGE_CHARS) size = Math.floor(size * 0.8);
     pieces.push(text.slice(start, start + size));
     start += size;
   }
-  return pieces.map((data, part) => ({ t: "config", id, seq, part, parts: pieces.length, data }));
+  return pieces;
 }
 
-/** Puts "config" parts back together. A newer transfer replaces an unfinished older one. */
-export class ConfigAssembler {
+/** Puts the parts of one kind of message back together. A newer transfer replaces an unfinished older one. */
+export class PartsAssembler {
   private id = -1;
   private parts: string[] = [];
 
-  /** The whole map.json and its seq once the last part of a transfer arrives, else undefined. */
-  add(message: Extract<HostMessage, { t: "config" }>): { config: MapConfig; seq: number } | undefined {
+  /** The whole text once the last part of a transfer arrives, else undefined. */
+  add(message: { id: number; part: number; parts: number; data: string }): string | undefined {
     if (message.id !== this.id) {
       this.id = message.id;
       this.parts = [];
@@ -186,6 +255,18 @@ export class ConfigAssembler {
     const text = this.parts.slice(0, message.parts).join("");
     this.parts = [];
     this.id = -1;
+    return text;
+  }
+}
+
+/** Puts "config" parts back together. */
+export class ConfigAssembler {
+  private readonly parts = new PartsAssembler();
+
+  /** The whole map.json and its seq once the last part of a transfer arrives, else undefined. */
+  add(message: Extract<HostMessage, { t: "config" }>): { config: MapConfig; seq: number } | undefined {
+    const text = this.parts.add(message);
+    if (text === undefined) return undefined;
     try {
       return { config: JSON.parse(text) as MapConfig, seq: message.seq };
     } catch {

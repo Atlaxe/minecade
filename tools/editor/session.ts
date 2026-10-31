@@ -1,8 +1,8 @@
-// One map editor session in Edit mode. Stages the map in the editor's server container, keeps
-// map.json in step with the game (it applies the pack's edits with the same code, writes the file,
-// keeps undo and redo, and sends hand edits of map.json into the game), saves the world back into
-// the map on Save (while it runs, with save hold), and on stop when blocks changed since the last
-// save. The server itself (starting, the console, opping map editors) is ServerSession's.
+// The Edit server: one map. Stages the map in its server container, keeps map.json in step with the
+// game (it applies the pack's edits with the same code, writes the file, keeps undo and redo, and
+// sends hand edits of map.json into the game), saves the world back into the map on Save (while it
+// runs, with save hold), and on stop when blocks changed since the last save. The server itself
+// (starting, the console, opping map editors) is ServerSession's.
 import { existsSync, unwatchFile, watchFile } from "node:fs";
 import { cp, mkdir, readFile, rename, rm, writeFile } from "node:fs/promises";
 import { join, relative } from "node:path";
@@ -22,7 +22,7 @@ import { copyDirFromContainer } from "../build/docker-util.ts";
 import { enableBetaApis, patchLevelDat, readLevelDat, writeLevelDat } from "../build/leveldat.ts";
 import { History, newMapConfig, withLineEndings, type EditStatus } from "./editor-core.ts";
 import { findWorld } from "./selections.ts";
-import { RUNTIME_FILES, ServerSession, delay, message, root } from "./server-session.ts";
+import { RUNTIME_FILES, ServerSession, delay, message, root, type SessionBase } from "./server-session.ts";
 import type { EditorTarget } from "./targets.ts";
 import type { World } from "./worlds.ts";
 
@@ -31,19 +31,17 @@ const BASE_LEVEL_DAT = join(root, "tools", "build", "fixtures", "base-level.dat"
 /** How many times a held save is asked whether its files are ready, half a second apart. */
 const SAVE_QUERY_ATTEMPTS = 20;
 
-export interface SessionOptions {
+export interface SessionOptions extends SessionBase {
   target: EditorTarget;
   mapId: string;
-  /** Make a new draft map (map.json and a void world with a glass pad). */
-  fresh: boolean;
-  /** Echo the server console. */
-  verbose: boolean;
+  /** Make a new draft map (map.json and a void world with a glass pad), with this name. */
+  fresh?: { name: string };
 }
 
 export class EditorSession extends ServerSession {
   private readonly target: EditorTarget;
   private readonly mapId: string;
-  private readonly fresh: boolean;
+  private readonly fresh: { name: string } | undefined;
   private readonly mapDir: string;
   private readonly mapPath: string;
   private config: MapConfig = { name: "", spawns: [] };
@@ -65,7 +63,7 @@ export class EditorSession extends ServerSession {
   private writing: Promise<unknown> = Promise.resolve();
 
   constructor(options: SessionOptions) {
-    super(options.verbose);
+    super(options);
     this.target = options.target;
     this.mapId = options.mapId;
     this.fresh = options.fresh;
@@ -130,7 +128,7 @@ export class EditorSession extends ServerSession {
     if (this.fresh) {
       if (existsSync(this.mapPath)) throw new Error(`${path} already exists: leave out --new to edit it`);
       await mkdir(this.mapDir, { recursive: true });
-      await writeFile(this.mapPath, formatMapConfig(newMapConfig(this.mapId)));
+      await writeFile(this.mapPath, formatMapConfig(newMapConfig(this.mapId, this.fresh.name)));
       this.note(`Created ${path} (a draft).`);
     } else if (!existsSync(this.mapPath)) {
       throw new Error(`there is no map at ${path}: add --new to make one`);
@@ -208,17 +206,6 @@ export class EditorSession extends ServerSession {
       case "changed":
         this.blocksChanged(event.by);
         return;
-      case "switch": {
-        if (event.to !== "select") return;
-        const world = this.backToSelect();
-        if (typeof world === "string") {
-          void this.say(`§c${world}`, event.by);
-          return;
-        }
-        void this.say(`Back to Select on "${world.name}": the world is saved, and the editor restarts. Rejoin in about 30 seconds.`);
-        this.onSwitch({ mode: "select", world: world.path }, event.by);
-        return;
-      }
     }
   }
 

@@ -1,64 +1,88 @@
 # Map editor
 
-The map editor is a Bedrock server on port 19134 with two modes:
+The map editor is three Bedrock servers, booted together on the network's ports:
 
-- **Select mode** cuts maps out of a world you converted from Java: box a build, and it's moved to
-  the middle and saved as a new draft map in the background.
-- **Edit mode** sets a map's data in game: spawns, the spectator spawn, named points, the bounds,
-  kill Y and regions, with a checklist of what the map's game still needs. Every change goes
-  straight into the map's `map.json`.
+- **The editor lobby** (port 19132) is where everyone joins. It's dark, with a menu that stays
+  open: open a map in Edit, copy builds from one of your worlds into Select, or go to what's open.
+- **Select** (port 19133) cuts maps out of a world you converted from Java: box a build, and it's
+  moved to the middle and saved as a new draft map in the background.
+- **Edit** (port 19134) sets a map's data in game: spawns, the spectator spawn, named points, the
+  bounds, kill Y and regions, with a checklist of what the map's game still needs. Every change
+  goes straight into the map's `map.json`.
+
+Players move between the three by transfer, so nobody rejoins by hand. The network (the lobby and
+games) is stopped while the editor runs: they use the same ports.
 
 Preview comes in a later pass of milestone 10 (see `docs/plans/map-editor.md`).
 
 ## Starting and stopping
 
-From the Panel: open **Map editor**.
+From the Panel: open **Map editor** and press **Boot up map editor**. If the network is running,
+the Panel asks first, then stops it. Once the page says the editor is ready, join `LAN_HOST:19132`.
+Each port keeps the identity the network's server on it has, so if you've played on the network,
+there's no trust prompt; otherwise accept it once per server.
 
-- **Edit:** pick the lobby or a game, pick a map (or **New map...** and type an id), and press
-  **Start**. The page shows when it's ready to join, who is online, the checklist and the editor's
-  log. **Save** saves the world into the map while the editor runs.
-- **Select:** under **Select mode**, pick a world from the list (the worlds in Minecraft's worlds
-  folder, by the name the game shows) or type a world folder or `.mcworld` file, and press **Open in
-  Select**.
-
-**Stop** stops the editor (Edit saves first). Closing the Panel doesn't stop the editor.
-
-**Switching** while the editor runs: **Open in Select** (it reads **Switch to this world** then)
-restarts the editor in Select mode on the world you pick, **Start** or a map's **Edit** restarts it
-in Edit mode on that map, and **Back to Select** goes back to the world the map came from. Edit
-saves first. Everyone on the editor rejoins after about 30 seconds.
+The page shows each server (what it has open, and who is on it), the checklist of the map open in
+Edit with **Save**, the maps cut from the world open in Select, and the editor's log. **Shut down**
+stops all three (Edit saves first); then **Start the network** brings the lobby and games back.
+Closing the Panel doesn't stop the editor.
 
 From a terminal:
 
 ```
-npm run editor -- <target> <map>          for example: npm run editor -- sumo arena_1
-npm run editor -- <target> <map> --new    a new draft map: a void world with a glass pad
-npm run editor -- select "<world>"        Select mode: the world's name in Minecraft, its folder,
-                                          or a .mcworld file
-npm run editor -- status                  what the running editor is doing
-npm run editor -- save                    save its world into the map now
-npm run editor -- stop                    stop it (it saves first)
+npm run editor                            boot it, then join LAN_HOST:19132
+npm run editor -- <target> <map>          boot it (or use the running one) and open a map in Edit,
+                                          for example: npm run editor -- sumo arena_1
+npm run editor -- <target> <map> --new    the same with a new draft map: a void world with a glass pad
+npm run editor -- select "<world>"        the same with a world in Select: its name in Minecraft,
+                                          its folder, or a .mcworld file
+npm run editor -- status                  what each of its servers is doing
+npm run editor -- save                    save the map open in Edit now
+npm run editor -- stop                    shut it down (Edit saves first)
 ```
 
-`<target>` is `lobby` or a game id. In the terminal, Ctrl+C stops the editor the same way; press it
-twice to quit without saving the world (`map.json` keeps every change either way).
+`<target>` is `lobby` or a game id. The terminal refuses to boot while the network runs: stop it
+first (the Panel's Servers page, or `docker compose down`). In the terminal, Ctrl+C shuts the
+editor down the same way; press it twice to quit without saving the world (`map.json` keeps every
+change either way).
 
-Starting takes a few seconds: the editor builds its own packs from this checkout, so it never needs
+Booting takes a few seconds: the editor builds its own packs from this checkout, so it never needs
 `npm run build` or a network restart, and it works on a map that still has problems. Only one editor
 runs at a time.
 
-Then join `LAN_HOST:19134` (the Panel shows the address). The first time, accept the server's trust
-prompt; it keeps the same identity after that. The Docker network doesn't need to be running.
+**Restarting** (for new editor code, or new settings in `.env`): when the editor's code changed
+since it booted, the Panel says so, with **Restart**, which shuts it down (Edit saves first) and
+boots it again. From a terminal: `npm run editor -- stop`, then `npm run editor`. The editor runs
+the code in the checkout it starts from (the main checkout, for the Panel), so restart it after new
+editor code is merged there.
 
-**Restarting** (for new editor code, or new settings in `.env`): **Stop**, wait until the page
-says the editor has stopped, then **Start** again. From a terminal: `npm run editor -- stop`, then
-`npm run editor -- <target> <map>`. The editor runs the code in the checkout it starts from (the
-main checkout, for the Panel), so restart it after new editor code is merged there.
+The Panel says the same about its own code, with **Restart Panel** at the top of every page. (A
+Panel from before Restart Panel existed can't: close every Panel window, wait about 20 seconds for
+it to exit, and open it again.)
 
-The Panel's server runs the code it opened with, but it reads its page from disk on every request,
-so an old Panel can show the new **Map editor** page while its server can't start the editor (Start
-does nothing, or says "not found"). After an update to the Panel, close every Panel window, wait
-about 20 seconds for it to exit, and open it again.
+## The editor lobby
+
+You're shut in a small dark room with the **Map editor** menu, which opens again whenever it
+closes:
+
+- **Open now:** the map open in Edit and the world open in Select, with who is on each. Pick one to
+  go there.
+- **Recent:** the last few maps and worlds opened (kept in `work/editor/recent.json`).
+- **Open a map...:** the lobby or a game, then one of its maps (drafts are marked). It opens in Edit.
+- **New map...:** pick the world to copy builds from: the worlds in Minecraft's worlds folder, by
+  the name the game shows, with how many maps came from each. A copy opens in Select. **Empty world**
+  at the bottom makes a draft map on a glass pad in the void instead: pick what it's for, its name
+  and its map id.
+
+While the server you picked loads (about 20 seconds; a big world takes longer to copy), the menu
+says so, and you're moved there once it's ready. Opening something else on a server others are on
+asks first: they wait in the editor lobby while it switches (Edit saves first), then come back.
+
+Builders (see "Who can join") wait in the editor lobby until a map is open in Edit, and are moved
+there.
+
+**Going back:** **Editor lobby**, in Select's map menu and in Edit's gear, takes you to the menu to
+open another map or world. Select and Edit keep running meanwhile, so going back to them is instant.
 
 ## Select mode: cutting maps out of a world
 
@@ -79,12 +103,12 @@ so flying past the converted area grows no new land.
 - **Outlines** (while you hold the Select tool): your box in yellow, and every map from this world,
   green once it's ready, white while it's queued or being cut out, red when it failed.
 - **The map menu** lists the maps from this world with how each is going:
-  - **Ready:** **Edit <map>** (the editor restarts on it in Edit mode; rejoin after about 30
-    seconds), **Update from this world** (red: cuts it out again and replaces its blocks; spawns,
-    regions and the rest of `map.json` stay, and block changes made in Edit are lost), and
+  - **Ready:** **Edit <map>** (it opens in Edit, and you're moved there once it's ready; Select
+    keeps running), **Update from this world** (red: cuts it out again and replaces its blocks;
+    spawns, regions and the rest of `map.json` stay, and block changes made in Edit are lost), and
     **Forget** (takes it off this list; the map stays).
   - **Failed:** why, then **Try again** or **Forget**.
-  - The Panel's Select mode card lists the same, with the same buttons.
+  - The Panel lists them too, with how each is going.
 
 **What a new map gets:**
 
@@ -95,11 +119,12 @@ so flying past the converted area grows no new land.
   left out of the build until they're marked ready, so the build keeps passing.
 
 **Back to Select:** in Edit mode, the map menu's gear has **Back to Select** for a map that came
-from a world on this PC, so you can go back and box more. The Panel has the same button.
+from a world on this PC, so you can go back and box more. It's instant when Select has that world
+open; otherwise Select opens it first, and you're moved there once it's ready.
 
 **Each world's list** is kept in `work/select/<world>.json` (ignored by git), so it's there when
 you open the world again. Maps in the repo whose `source` names the world join its list, ready.
-Extractions carry on across switches, and stopping the editor waits for them to finish.
+Extractions carry on while you open other worlds, and shutting the editor down waits for them to finish.
 
 **Custom blocks:** the extraction's server loads the shared block pack (`packs/blocks/`), so maps
 that use custom blocks keep them. This was checked with a stand-in custom block; check it again
@@ -107,7 +132,7 @@ with the real blocks once they're in `packs/blocks/`.
 
 ## Who can join, and who gets the tools
 
-Set these in `.env`, or on the Panel's Map editor page. They apply at the editor's next start.
+Set these in `.env`, or on the Panel's Map editor page. They apply at the editor's next boot.
 
 | Setting | Meaning |
 |---|---|
@@ -115,7 +140,8 @@ Set these in `.env`, or on the Panel's Map editor page. They apply at the editor
 | `EDITOR_ALLOW_LIST` | Also allowed in. Everyone else is refused. |
 | `MAP_EDITORS` | Who gets the tools (and operator, for commands). Empty means everyone in `LAN_PLAYERS`. |
 
-Everyone else who joins is a **builder**: creative mode, no tools.
+Everyone else who joins is a **builder**: they wait in the editor lobby until a map is open in
+Edit, then build there in creative mode, with no tools.
 
 ## In game
 
@@ -211,9 +237,20 @@ screen.
 
 ## How it works
 
-- `npm run editor` (`tools/editor/`) starts the container `minecade-editor` on the plain BDS image
-  that `npm run bake` uses, with the editor's packs (`editor/`), the shared packs, the map's world
-  and `map.json` copied in. The container's entrypoint is `docker/bds/entrypoint.sh` in editor mode.
+- `npm run editor` (`tools/editor/`) starts the containers `minecade-editor-lobby` (19132),
+  `minecade-editor-select` (19133) and `minecade-editor-edit` (19134) on the plain BDS image that
+  `npm run bake` uses, each with the editor's packs (`editor/`), the shared packs, a world and
+  `map.json` copied in. Their entrypoint is `docker/bds/entrypoint.sh` in editor mode, and each uses
+  the identity the network's server on that port has (`lobby`, `game`, `editor`).
+- **The runner** (`tools/editor/runner.ts`) runs the three: the editor lobby (`home-session.ts`) all
+  the time, and Select (`select-session.ts`) and Edit (`session.ts`) once something is opened, all on
+  `ServerSession` (`server-session.ts`: the server, the console, opping map editors and `goto`).
+  Opening a map or a world on a server that has something else open moves its players to the editor
+  lobby (a `goto` message: the pack transfers them, LAN or public by `LAN_PLAYERS`), stops it (Edit
+  saves), and starts it on the new one; then everyone waiting for it is moved there, from whichever
+  server they're on. The lobby's menu gets the catalog (`catalog.ts`: every map, the client's worlds
+  by their folder name, the recent list) and what's open, in parts (`home` messages), whenever it
+  changes.
 - The editor's pack applies each change at once and writes an `[EDIT] {json}` line to the server
   log. The host applies the same change with the same code (`applyEdit` in minigame-core), writes
   `map.json`, keeps undo and redo, and answers with `scriptevent minecade:edit {json}` on the
@@ -226,9 +263,9 @@ screen.
   the copies down, but on BDS 1.26 a log's listed length is from before the save wrote the chunks:
   a copy cut to it lost the blocks placed before the save, while the whole copy kept them (and
   not ones placed after `save resume`).
-- The host answers on `127.0.0.1:8097` (`GET /status`, `POST /save`, `POST /stop`, `POST /switch`,
-  `POST /selection`), which the Panel and `npm run editor -- status | save | stop` use. When the Panel starts the editor, its output
-  goes to `work/editor/editor.log`.
+- The host answers on `127.0.0.1:8097` (`GET /status`, `POST /save`, `POST /open`, `POST /stop`),
+  which the Panel and `npm run editor -- status | save | stop | <target> <map>` use. When the Panel
+  boots the editor, its output goes to `work/editor/editor.log`.
 - **The menus** are classic forms themed by the editor's resource pack, like the lobby's menus
   (`docs/ui.md`). A title starting with a layout mark (`LAYOUT` in
   `editor/behavior_pack/scripts/marks.ts`) gets a layout in `editor/resource_pack/ui/editor_forms.json`:
@@ -262,11 +299,6 @@ screen.
   unloading never finishes loading (found on the test world). The spike proved the rest
   (`docs/spike-results.md`, "Map editor"), and on build B of "Datapacking (imported)" the extracted
   map's block fingerprint matches the original exactly.
-- **Sessions** (`tools/editor/editor.ts`): one runs at a time, an `EditorSession` (`session.ts`) or
-  a `SelectSession` (`select-session.ts`), both on `ServerSession` (`server-session.ts`: the
-  server, the console and opping map editors). A switch stops the session and starts the next in
-  the same process; the control port stays up (`POST /switch`, `POST /selection` for Retry, Forget
-  and Update).
 - **The outlines** are particles (`editor/resource_pack/particles/outline.json`) sent to the holder
   only. `viewDots` in `scripts/boxes.ts` works out where each dot goes and how big it is for that
   player (tune `DOTS` there), and each refresh has a budget, so a big map costs no more than a
@@ -280,11 +312,16 @@ isn't committed; see its README.
 
 ## Troubleshooting
 
-- **"A map editor is already running":** `npm run editor -- stop`, or Stop on the Panel.
-- **Can't join:** first check that an editor is running (the Panel's Map editor page, or
-  `npm run editor -- status`): with none running, nothing answers on port 19134 and the join
-  fails. If the Panel's Start does nothing, restart the Panel (see Restarting above). Then check that your gamertag is in `LAN_PLAYERS` or `EDITOR_ALLOW_LIST`, and that port
-  19134 is forwarded and allowed (see the README).
+- **"The editor's ports are in use":** the network (or something else) holds 19132-19134. Stop it
+  first: the Panel does that for you when you boot from there.
+- **"An older map editor is running":** one from before the editor lobby. The Panel's **Restart
+  the editor** shuts it down (it saves first) and boots the new one; from a terminal,
+  `npm run editor -- stop`.
+- **Can't join:** first check that the editor is running (the Panel's Map editor page, or
+  `npm run editor -- status`): with none running, nothing answers on port 19132 and the join
+  fails. If the Panel's buttons do nothing, restart the Panel (see Restarting above). Then check
+  that your gamertag is in `LAN_PLAYERS` or `EDITOR_ALLOW_LIST`, and, from outside this network,
+  that ports 19132-19134 are forwarded (see the README).
 - **No tools:** you're a builder. Add your gamertag to `MAP_EDITORS` (or leave it empty and be in
   `LAN_PLAYERS`), then restart the editor.
 - **The world wasn't saved:** the editor's log says why (markers it couldn't remove, the server not

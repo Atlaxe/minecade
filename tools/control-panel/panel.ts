@@ -4,23 +4,23 @@
 //   --stay       never exit on its own (development)
 //   --no-window  don't open a window (testing with curl)
 //   --port N     serve on port N instead of 8099 (testing beside a running Panel)
+//   --restarting started by Restart Panel: wait for the old one to free the port, open no window
 import { spawn } from "node:child_process";
 import { appendFileSync, closeSync, existsSync, mkdirSync, openSync, statSync, writeFileSync } from "node:fs";
-import { readdir, readFile, writeFile } from "node:fs/promises";
+import { readdir, readFile, stat, writeFile } from "node:fs/promises";
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import { networkInterfaces, tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { createInterface } from "node:readline";
 import { fileURLToPath } from "node:url";
 import type Docker from "dockerode";
-import { editorStatus, saveEditor, selectionAction, stopEditor, switchEditor } from "../editor/control.ts";
-import { clientWorlds } from "../editor/worlds.ts";
-import { parseArgs as parseEditorArgs, type EditorStatus } from "../editor/editor-core.ts";
+import { editorStatus, saveEditor, stopEditor } from "../editor/control.ts";
+import type { EditorStatus } from "../editor/editor-core.ts";
 import {
   checkLobbyMap,
   checkRequest,
-  editorTargetChoices,
   formatPorts,
+  isStale,
   lobbyMapChoices,
   normalizeNames,
   PlayerLog,
@@ -50,11 +50,21 @@ const editorLogPath = join(repoRoot, "work", "editor", "editor.log");
 const EDITOR_LOG_LINES = 150;
 /** How long a starting editor may take to answer on its control port before the Panel gives up waiting. */
 const EDITOR_LAUNCH_MS = 30_000;
+/** How long a restarting editor may take to shut down (Edit saves first) before the Panel stops waiting. */
+const EDITOR_STOP_MS = 5 * 60_000;
+/** The Panel's own code: when one of these changes, the page offers Restart Panel. */
+const PANEL_SOURCES = ["tools/control-panel/panel.ts", "tools/control-panel/core.ts", "tools/editor/control.ts", "tools/editor/editor-core.ts"];
+/** The map editor's code (the host tool, its packs, the shared core and the server entrypoint). */
+const EDITOR_SOURCES = ["tools/editor", "tools/build", "editor", "packages/minigame-core/src", "docker/bds/entrypoint.sh"];
+/** Source times are read again at most this often. */
+const SOURCE_TIMES_MS = 5000;
 const dataDir = join(process.env.LOCALAPPDATA ?? tmpdir(), "minecade-panel");
 // A helper on another port (testing) keeps its own log, so it never clears the running Panel's.
 const logPath = join(dataDir, PORT === 8099 ? "panel.log" : `panel-${PORT}.log`);
 const stay = process.argv.includes("--stay");
-const noWindow = process.argv.includes("--no-window");
+const restarting = process.argv.includes("--restarting");
+// A restarted Panel's windows reload on their own.
+const noWindow = process.argv.includes("--no-window") || restarting;
 
 mkdirSync(dataDir, { recursive: true });
 writeFileSync(logPath, "");
@@ -209,36 +219,56 @@ async function lobbyMaps() {
   return lobbyMapChoices(entries);
 }
 
-/** What the map editor can open: the lobby and each game, with their maps (drafts too). */
-async function editorTargets() {
-  const targets: { id: string; config?: string; maps: { id: string; json: string }[] }[] = [];
-  const add = async (id: string, dir: string, config?: string) => {
-    const mapsDir = join(dir, "maps");
-    const maps: { id: string; json: string }[] = [];
-    for (const map of existsSync(mapsDir) ? (await readdir(mapsDir)).sort() : []) {
-      const path = join(mapsDir, map, "map.json");
-      if (existsSync(path)) maps.push({ id: map, json: await readFile(path, "utf8") });
-    }
-    targets.push({ id, config, maps });
-  };
-  await add("lobby", join(repoRoot, "lobby"));
-  for (const id of (await readdir(join(repoRoot, "games"))).sort()) {
-    const config = join(repoRoot, "games", id, "game.config.ts");
-    if (existsSync(config)) await add(id, join(repoRoot, "games", id), await readFile(config, "utf8"));
-  }
-  return editorTargetChoices(targets);
-}
-
-/** A start the Panel asked for, until the editor answers on its control port (or gives up). */
+/** A boot the Panel asked for, until the editor answers on its control port (or gives up). */
 let editorLaunch: { at: number } | null = null;
+/** A restart under way: the old editor is shutting down, and the new one boots once it has. */
+let editorRestart = false;
 
-/** The running editor's status, a start in progress, or the last run's log when none is running. */
-async function editorState(): Promise<{ status: EditorStatus | null; launching: boolean; log: string[] }> {
+/**
+ * The running editor's status, a boot in progress, or the last run's log when none is running.
+ * `old` is an editor from before the editor lobby (its status has another shape), and `stale` one
+ * started before its code last changed: either should be restarted.
+ */
+async function editorState(): Promise<{ status: EditorStatus | null; old: boolean; stale: boolean; launching: boolean; restarting: boolean; log: string[] }> {
   const status = (await editorStatus(500)) ?? null;
   if (status || (editorLaunch && Date.now() - editorLaunch.at > EDITOR_LAUNCH_MS)) editorLaunch = null;
-  if (status) return { status, launching: false, log: status.log };
+  if (status) {
+    const old = status.booted !== true;
+    const stale = old || isStale(Date.parse(status.startedAt), await sourceTimes(EDITOR_SOURCES));
+    return { status, old, stale, launching: false, restarting: editorRestart, log: Array.isArray(status.log) ? status.log : [] };
+  }
   const text = existsSync(editorLogPath) ? await readFile(editorLogPath, "utf8") : "";
-  return { status: null, launching: editorLaunch !== null, log: text.split(/\r?\n/).filter(Boolean).slice(-EDITOR_LOG_LINES) };
+  const log = text.split(/\r?\n/).filter(Boolean).slice(-EDITOR_LOG_LINES);
+  return { status: null, old: false, stale: false, launching: editorLaunch !== null || editorRestart, restarting: editorRestart, log };
+}
+
+const sourceTimeCache = new Map<string, { at: number; times: number[] }>();
+
+/** The modification times of these files, and of every file under these folders (tests and node_modules aside). */
+async function sourceTimes(paths: string[]): Promise<number[]> {
+  const key = paths.join("|");
+  const cached = sourceTimeCache.get(key);
+  if (cached && Date.now() - cached.at < SOURCE_TIMES_MS) return cached.times;
+  const times: number[] = [];
+  const visit = async (path: string): Promise<void> => {
+    const info = await stat(path).catch(() => undefined);
+    if (!info) return;
+    if (!info.isDirectory()) {
+      times.push(info.mtimeMs);
+      return;
+    }
+    for (const entry of await readdir(path)) {
+      if (entry !== "node_modules" && entry !== "test" && !entry.startsWith(".")) await visit(join(path, entry));
+    }
+  };
+  for (const path of paths) await visit(join(repoRoot, path));
+  sourceTimeCache.set(key, { at: Date.now(), times });
+  return times;
+}
+
+/** Whether the network (the lobby, the orchestrator or a game) is running: the map editor needs its ports. */
+function networkRunning(): boolean {
+  return containers.some((info) => info.State === "running" && stackOf(info) === "main" && info.Labels["minecade.role"] !== "editor");
 }
 
 async function buildState() {
@@ -249,14 +279,16 @@ async function buildState() {
   const envChangedAt = envText === undefined ? 0 : statSync(envPath).mtimeMs;
   const stacks = STACKS.map((stack) => {
     const members = containers.filter((info) => stackOf(info) === stack.id);
-    const settingsStale = members.some((info) => info.State === "running" && info.Created * 1000 < envChangedAt);
+    // The map editor's servers are listed with the network but aren't it (they run while it's stopped).
+    const servers = members.filter((info) => info.Labels["minecade.role"] !== "editor");
+    const settingsStale = servers.some((info) => info.State === "running" && info.Created * 1000 < envChangedAt);
     const missing = [stack.file, ...stack.requires].filter((file) => !existsSync(join(repoRoot, file)));
     return {
       id: stack.id,
       label: stack.label,
       available: missing.length === 0,
       missing,
-      running: members.some((info) => info.State === "running"),
+      running: servers.some((info) => info.State === "running"),
       settingsStale,
       containers: members.map(containerView).sort((a, b) => a.name.localeCompare(b.name)),
       orchestrator: stack.id === "main" ? orchestrator : null,
@@ -291,8 +323,9 @@ async function buildState() {
       : { missing: true },
     lobbyMaps: await lobbyMaps(),
     editor: await editorState(),
-    editorTargets: await editorTargets(),
-    editorWorlds: await clientWorlds().catch(() => []),
+    networkRunning: networkRunning(),
+    /** The Panel's own code changed since it started: Restart Panel picks it up. */
+    panelStale: isStale(startedAt, await sourceTimes(PANEL_SOURCES)),
   };
 }
 
@@ -358,7 +391,7 @@ const COMPOSE_ACTIONS: Record<string, string[]> = {
   restart: ["up", "-d", "--build", "--force-recreate"],
 };
 
-function runCompose(stack: StackDef, action: string): void {
+function runCompose(stack: StackDef, action: string, done?: (ok: boolean) => void): void {
   busy = `${stack.label}: ${action}`;
   const args = ["compose", "--ansi", "never", "--progress", "plain", "-f", join(repoRoot, stack.file), "--env-file", envPath];
   note(`${stack.label}: ${action}...`);
@@ -369,16 +402,16 @@ function runCompose(stack: StackDef, action: string): void {
     });
   }
   let finished = false;
-  const finish = (message: string) => {
+  const finish = (message: string, ok: boolean) => {
     if (finished) return;
     finished = true;
     note(message);
     busy = null;
-    void refresh();
+    void refresh().then(() => done?.(ok));
   };
-  child.on("error", (error) => finish(`${stack.label}: ${action} could not run docker: ${error.message}`));
+  child.on("error", (error) => finish(`${stack.label}: ${action} could not run docker: ${error.message}`, false));
   child.on("close", (code) =>
-    finish(code === 0 ? `${stack.label}: ${action} done.` : `${stack.label}: ${action} failed (exit code ${code}).`),
+    finish(code === 0 ? `${stack.label}: ${action} done.` : `${stack.label}: ${action} failed (exit code ${code}).`, code === 0),
   );
 }
 
@@ -494,6 +527,7 @@ async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> 
     if (busy) return sendJson(res, 409, { error: `busy: ${busy}` });
     if (dockerState !== "running") return sendJson(res, 409, { error: "Docker is not running" });
     if (stackRoute[2] !== "down") {
+      if (stack.id === "main" && (await editorStatus(500))) return sendJson(res, 409, { error: "shut the map editor down first: it uses the network's ports" });
       const blocker = otherRunningStack(stack.id);
       if (blocker) return sendJson(res, 409, { error: `stop "${blocker}" first: both use the same ports` });
       if (!existsSync(envPath)) return sendJson(res, 409, { error: "No .env file. Copy .env.example to .env first." });
@@ -506,42 +540,33 @@ async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> 
     const result = await saveEnv(body);
     return sendJson(res, result.status, result.body);
   }
-  if (path === "/api/editor/start") {
-    const result = await startEditor(body);
+  if (path === "/api/editor/boot") {
+    const result = await bootEditor(body.stopNetwork === true);
     void refresh();
     return sendJson(res, result.status, result.body);
   }
-  if (path === "/api/editor/select") {
-    const result = await selectWorld(body);
+  if (path === "/api/editor/restart") {
+    const result = await restartEditor(body.stopNetwork === true);
     void refresh();
     return sendJson(res, result.status, result.body);
-  }
-  if (path === "/api/editor/switch") {
-    const target = String(body.target ?? "");
-    const map = String(body.map ?? "");
-    const result = await switchEditor({ mode: "edit", target, map });
-    if (result.ok) note(`Map editor: switching to Edit on ${target}/${map} (players rejoin after about 30 seconds)...`);
-    void refresh();
-    return sendJson(res, result.ok ? 202 : 409, result.ok ? { ok: true } : { error: result.error });
-  }
-  if (path === "/api/editor/selection") {
-    const action = body.action;
-    if (action !== "retry" && action !== "forget" && action !== "update") return sendJson(res, 400, { error: "action must be retry, forget or update" });
-    const result = await selectionAction({ action, target: String(body.target ?? ""), map: String(body.map ?? "") });
-    void refresh();
-    return sendJson(res, result.ok ? 202 : 409, result.ok ? { ok: true } : { error: result.error });
   }
   if (path === "/api/editor/save") {
-    if (!(await saveEditor())) return sendJson(res, 409, { error: "no map editor is running" });
-    note("Map editor: saving the world into the map...");
+    const result = await saveEditor();
+    if (!result.ok) return sendJson(res, 409, { error: result.error ?? "no map is open in Edit" });
+    note("Map editor: saving the map open in Edit...");
     void refresh();
     return sendJson(res, 202, { ok: true });
   }
   if (path === "/api/editor/stop") {
     if (!(await stopEditor())) return sendJson(res, 409, { error: "no map editor is running" });
-    note("Map editor: stopping (it saves first)...");
+    note("Map editor: shutting down (Edit saves first)...");
     void refresh();
     return sendJson(res, 202, { ok: true });
+  }
+  if (path === "/api/panel/restart") {
+    sendJson(res, 202, { ok: true, pid: process.pid });
+    setTimeout(restartPanel, 100);
+    return;
   }
   if (path === "/api/game/start" || path === "/api/game/end") {
     const result = await relayToOrchestrator(path === "/api/game/start", body);
@@ -551,54 +576,58 @@ async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> 
 }
 
 /**
- * Starts the map editor (tools/editor/editor.ts) as its own process, which keeps running after the
- * Panel closes. Its output goes to work/editor/editor.log; the Panel follows it on its control port.
+ * Boots the map editor (tools/editor/editor.ts) as its own process, which keeps running after the
+ * Panel closes. It takes the network's ports, so a running network is stopped first, once the page
+ * has confirmed it (`stopNetwork`).
  */
-async function startEditor(body: Record<string, unknown>): Promise<{ status: number; body: unknown }> {
-  const target = String(body.target ?? "");
-  const map = String(body.map ?? "").trim();
-  const fresh = body.fresh === true;
-  const args = parseEditorArgs([target, map, ...(fresh ? ["--new"] : [])]);
-  if (args.command !== "edit") return { status: 400, body: { error: args.command === "help" ? (args.error ?? "pick a map") : "pick a map" } };
-  const choice = (await editorTargets()).find((candidate) => candidate.id === target);
-  if (!choice) return { status: 400, body: { error: `unknown target "${target}"` } };
-  const exists = choice.maps.some((candidate) => candidate.id === map);
-  if (fresh && exists) return { status: 409, body: { error: `${choice.name} already has a map "${map}"` } };
-  if (!fresh && !exists) return { status: 404, body: { error: `${choice.name} has no map "${map}"` } };
-  if (editorLaunch) return { status: 409, body: { error: "a map editor is starting already" } };
-  if (await editorStatus(500)) {
-    // One is running: it restarts on this map (a new map needs a fresh start).
-    if (fresh) return { status: 409, body: { error: "a map editor is running: stop it before making a new map" } };
-    const result = await switchEditor({ mode: "edit", target, map });
-    if (result.ok) note(`Map editor: switching to ${choice.name}, ${map} (players rejoin after about 30 seconds)...`);
-    return result.ok ? { status: 202, body: { ok: true } } : { status: 409, body: { error: result.error } };
-  }
-  return launchEditor([target, map, ...(fresh ? ["--new"] : [])], `${choice.name}, ${map}${fresh ? " (new)" : ""}`);
+async function bootEditor(stopNetwork: boolean): Promise<{ status: number; body: unknown }> {
+  if (dockerState !== "running") return { status: 409, body: { error: "Docker is not running" } };
+  if (editorLaunch) return { status: 409, body: { error: "the map editor is booting already" } };
+  if (await editorStatus(500)) return { status: 409, body: { error: "the map editor is running already" } };
+  if (busy) return { status: 409, body: { error: `busy: ${busy}` } };
+  if (!networkRunning()) return launchEditor();
+  if (!stopNetwork) return { status: 409, body: { error: "the network is running, and the map editor needs its ports", network: true } };
+  const network = STACKS.find((stack) => stack.id === "main")!;
+  note("Map editor: stopping the network first (the editor takes its ports)...");
+  runCompose(network, "down", (ok) => {
+    if (ok) launchEditor();
+    else note("Map editor: not booted, because the network didn't stop.");
+  });
+  return { status: 202, body: { ok: true } };
 }
 
-/**
- * Select mode on a world (its name in Minecraft, a folder or a .mcworld file): starts the editor,
- * or, when one is running, switches it to that world.
- */
-async function selectWorld(body: Record<string, unknown>): Promise<{ status: number; body: unknown }> {
-  const world = String(body.world ?? "").trim();
-  if (!world) return { status: 400, body: { error: "pick a world" } };
-  if (editorLaunch) return { status: 409, body: { error: "a map editor is starting already" } };
-  if (await editorStatus(500)) {
-    const result = await switchEditor({ mode: "select", world });
-    if (result.ok) note(`Map editor: switching to Select mode on "${world}" (players rejoin after about 30 seconds)...`);
-    return result.ok ? { status: 202, body: { ok: true } } : { status: 409, body: { error: result.error } };
-  }
-  return launchEditor(["select", world], `Select mode on "${world}"`);
+/** Shuts the running editor down (Edit saves first), then boots it again on this checkout's code. */
+async function restartEditor(stopNetwork: boolean): Promise<{ status: number; body: unknown }> {
+  if (editorRestart) return { status: 409, body: { error: "the map editor is restarting already" } };
+  if (!(await stopEditor())) return { status: 409, body: { error: "no map editor is running" } };
+  editorRestart = true;
+  note("Map editor: restarting on this checkout's code (Edit saves first)...");
+  void (async () => {
+    try {
+      const until = Date.now() + EDITOR_STOP_MS;
+      while (Date.now() < until && (await editorStatus(500))) await new Promise((resolve) => setTimeout(resolve, 1000));
+      if (await editorStatus(500)) {
+        note("Map editor: it didn't shut down in time. Boot it again once it has.");
+        return;
+      }
+      await refresh();
+      const result = await bootEditor(stopNetwork);
+      if (result.status >= 400) note(`Map editor: could not boot it again: ${(result.body as { error?: string }).error}`);
+    } finally {
+      editorRestart = false;
+      void refresh();
+    }
+  })();
+  return { status: 202, body: { ok: true } };
 }
 
-/** Starts the editor process with these arguments; it keeps running after the Panel closes. */
-function launchEditor(args: string[], label: string): { status: number; body: unknown } {
+/** Starts the editor process; it keeps running after the Panel closes. */
+function launchEditor(): { status: number; body: unknown } {
   if (dockerState !== "running") return { status: 409, body: { error: "Docker is not running" } };
   mkdirSync(dirname(editorLogPath), { recursive: true });
   const out = openSync(editorLogPath, "w");
   try {
-    const child = spawn(process.execPath, ["--import", "tsx", join("tools", "editor", "editor.ts"), ...args], {
+    const child = spawn(process.execPath, ["--import", "tsx", join("tools", "editor", "editor.ts")], {
       cwd: repoRoot,
       detached: true,
       stdio: ["ignore", out, out],
@@ -612,7 +641,7 @@ function launchEditor(args: string[], label: string): { status: number; body: un
     closeSync(out);
   }
   editorLaunch = { at: Date.now() };
-  note(`Map editor: starting ${label}...`);
+  note("Map editor: booting (the editor lobby first)...");
   return { status: 202, body: { ok: true } };
 }
 
@@ -662,6 +691,17 @@ function otherRunningStack(id: StackId): string | undefined {
 
 // ---- Window and lifetime -----------------------------------------------------------------
 
+/** Starts a fresh Panel on this checkout's code, which takes over this one's port (its windows reload), then quits. */
+function restartPanel(): void {
+  log("restarting on this checkout's code");
+  server.close();
+  for (const res of windows) res.end();
+  for (const follower of followers.values()) follower.stop();
+  const args = [...process.execArgv, fileURLToPath(import.meta.url), ...process.argv.slice(2).filter((arg) => arg !== "--restarting"), "--restarting"];
+  spawn(process.execPath, args, { cwd: process.cwd(), detached: true, stdio: "ignore", windowsHide: true }).unref();
+  setTimeout(() => process.exit(0), 100);
+}
+
 function openWindow(): void {
   if (noWindow) return;
   const url = `${ORIGIN}/`;
@@ -699,7 +739,12 @@ async function probePort(): Promise<"ours" | "other" | "free"> {
 }
 
 async function handOff(): Promise<void> {
-  const probe = await probePort();
+  let probe = await probePort();
+  // Restarted: the old Panel is on its way out.
+  for (let tries = 0; restarting && probe === "ours" && tries < 50; tries++) {
+    await new Promise((resolve) => setTimeout(resolve, 200));
+    probe = await probePort();
+  }
   if (probe === "ours") {
     log("a panel is already running; opening a window for it");
     openWindow();
@@ -722,7 +767,13 @@ const server = createServer((req, res) => {
   });
 });
 
+let listenTries = 0;
 server.on("error", async (error: NodeJS.ErrnoException) => {
+  // Restarted: the old Panel may still hold the port for a moment.
+  if (error.code === "EADDRINUSE" && restarting && ++listenTries < 20) {
+    setTimeout(() => server.listen(PORT, "127.0.0.1"), 250);
+    return;
+  }
   if (error.code === "EADDRINUSE") {
     await handOff();
     log(`port ${PORT} is in use`);

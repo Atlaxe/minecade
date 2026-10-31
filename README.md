@@ -9,8 +9,9 @@ PlayStation, PC and phone can all join.
 - **Game server** (port 19133): one game at a time, started from a fresh copy of its map and
   removed when the game ends.
 - **Orchestrator:** starts and stops game servers, routes players, and stores player stats.
-- **Map editor** (port 19134): a server where you place a map's spawns and other data in game,
-  written straight to its `map.json` (see [docs/editor.md](docs/editor.md)).
+- **Map editor** (ports 19132-19134, while the network is stopped): an editor lobby where you pick
+  a map to edit or one of your worlds to cut new maps out of, then servers where you place a map's
+  spawns and other data in game, written straight to its `map.json` (see [docs/editor.md](docs/editor.md)).
 - **Minecade Panel:** a small Windows app to start and stop everything, edit settings, read logs
   and see player stats.
 
@@ -81,8 +82,9 @@ Forward these ports on your router to your PC's LAN IP (`LAN_HOST`):
 | Minecade TCP | 19132-19134 | 19132-19134 | TCP |
 | Minecade UDP | 19132-19134 | 19132-19134 | UDP |
 
-Each server uses one TCP port and the UDP port with the same number: the lobby 19132, games
-19133, and the map editor 19134.
+Each server uses one TCP port and the UDP port with the same number: the lobby 19132 and games
+19133. The map editor takes all three while it runs (its editor lobby 19132, Select 19133 and Edit
+19134), with the network stopped.
 
 If friends can't connect even though the forwards are in place, allow the ports in Windows
 Firewall (PowerShell as administrator):
@@ -204,7 +206,7 @@ Clients refuse to join a server on a different version. When Minecraft updates:
 | `npm run check` | Typecheck everything and run all tests. |
 | `npm run build` | Validate every game and map, and bundle the packs, worlds and orchestrator into `dist/`. The Docker build runs this too. |
 | `npm run bake -- <target> <map>` | Build a map's world from its `map.json` (see [docs/maps.md](docs/maps.md)). |
-| `npm run editor -- <target> <map>` | Run the map editor on a map (`--new` for a new one; `status` and `stop` too). See [docs/editor.md](docs/editor.md). |
+| `npm run editor` | Boot the map editor, then join its editor lobby on port 19132 (`-- <target> <map>` opens a map right away; `status`, `save` and `stop` too). See [docs/editor.md](docs/editor.md). |
 | `npm run smoke` | End-to-end test with no players: rebuild, start Sumo, check the container and ports, let it end, check cleanup. Add `-- --no-build` to skip the rebuild. |
 | `npm run cmd -- <container> <command>` | Send a console command to a running server, for example `npm run cmd -- minecade-lobby list`. |
 | `npm run panel` | Run the Minecade Panel from the terminal. |
@@ -262,7 +264,7 @@ docs/                     map format (maps.md), the map editor (editor.md), meas
 
 Write a `map.json` and run `npm run bake`, or drop in a world built in the client. Both are
 described in [docs/maps.md](docs/maps.md). Then place its spawns and points in game with the map
-editor ([docs/editor.md](docs/editor.md)), or start a new one there with `--new`.
+editor ([docs/editor.md](docs/editor.md)), or start a new one there (its editor lobby's New map).
 
 ## Checklist before a game night
 
