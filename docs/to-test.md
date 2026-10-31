@@ -72,6 +72,25 @@ After the editor's next Stop and Start in the Panel (it runs the code it started
 - A gamertag in `EDITOR_ALLOW_LIST` but not `MAP_EDITORS` joins as a builder: creative, no tools.
 - A gamertag in neither list is refused.
 
+## Block pack (Java mod)
+
+The custom blocks mod (built from the private block-pack project) in a 26.2 Fabric profile, in the
+Minecade Showroom world. The headless server already checked every state change and click; these
+need a real client:
+
+- Sitting: right-click a stool, you sit on it; sneak to get up. If you sit too high or sink into it,
+  say so.
+- Connected textures: the 3x3 walls in the Connections area (framed glass, windows, their panes,
+  layered stone) and the pillars join with no lines inside. A small seam where three framed glass
+  blocks meet in an inside corner is expected.
+- Globes: the globe sits on the stand's arm, tilted with it; right-click turns it a quarter.
+- Chests: the latch shows on every wood, including acacia, birch, cherry, crimson and warped.
+- Flags show a cloth of their dye color, pointing the way they face.
+- Jars: water and the 16 dye colors show as a liquid inside the glass.
+- Hitboxes: paper lanterns and stools are outlined around the model, not a full block.
+- Placing: a sconce goes on the floor or a wall depending on where you click, like a torch;
+  buntings go on a ceiling or a wall. A candle holder held against one adds a candle.
+
 ## Solo
 
 Lobby terminal memory (after the network's next Start or Restart in the Panel):
