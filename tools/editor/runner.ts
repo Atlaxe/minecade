@@ -7,7 +7,7 @@
 import { existsSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
-import { openKey, type HomeState, type OpenRequest, type ServerInfo } from "@minecade/minigame-core/config";
+import { openKey, type HomeState, type OpenRequest, type SelectionInfo, type ServerInfo } from "@minecade/minigame-core/config";
 import { connectDocker } from "../build/docker-util.ts";
 import { readEnv } from "../control-panel/core.ts";
 import { buildCatalog, mapLabel, noteRecent, requestedWorld, worldId } from "./catalog.ts";
@@ -70,9 +70,12 @@ export class EditorRunner {
     this.verbose = options.verbose;
     this.slots = options.slots ?? SLOTS;
     this.selections = new Selections(this.root, { verbose: this.verbose, note: (text) => this.log(`Extract: ${text}`) });
-    this.selections.onChange((_world, info) => {
+    this.selections.onChange((world, info, gone) => {
+      // Forget takes a map off a list as it is, ready or failed.
+      if (gone || (info.status !== "ready" && info.status !== "failed")) return;
       // A map that's ready shows in the lobby's lists.
       if (info.status === "ready") this.homeChanged();
+      void this.announce(world, info).catch((error: unknown) => this.log(`Could not announce ${info.target}/${info.map}: ${message(error)}`));
     });
   }
 
@@ -365,6 +368,28 @@ export class EditorRunner {
 
   private isEditor(name: string): boolean {
     return this.editors.some((editor) => editor.toLowerCase() === name.toLowerCase());
+  }
+
+  /**
+   * Tells the map editors on Select and Edit that a map cut out of `world` is ready to load (in
+   * chat, and above the hotbar), or, on Select with that world open, that it failed.
+   */
+  private async announce(world: string, info: SelectionInfo): Promise<void> {
+    const name = `${info.name} (${info.map})`;
+    for (const session of [this.work.select, this.work.edit]) {
+      if (!session || session.status().state !== "ready") continue;
+      const status = session.status();
+      const here = status.mode === "select" && status.world === world;
+      let text: string;
+      if (info.status === "failed") {
+        if (!here) continue;
+        text = `§c${name} failed: ${info.error ?? "see the editor's log"}`;
+      } else {
+        text = `§a${name} is ready: ${here ? `Edit ${info.map} in the map menu loads it.` : `open it from the editor lobby (Open a map, ${info.targetName}).`}`;
+      }
+      for (const player of session.online().filter((online) => this.isEditor(online))) await session.say(text, player);
+      if (info.status === "ready") await session.send({ t: "notice", text: `§a${info.name} is ready to load in Edit` });
+    }
   }
 
   private setWork(slot: WorkSlot, session: ServerSession | undefined): void {

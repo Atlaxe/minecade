@@ -97,5 +97,6 @@ describe("editor protocol", () => {
     expect(parseEditorEvent('{"t":"extracted","ok":true,"tiles":4}')?.t).toBe("extracted");
     expect(parseHostMessage('{"t":"extract","box":{"min":[0,0,0],"max":[1,1,1]},"offset":[0,0,0]}')?.t).toBe("extract");
     expect(parseHostMessage('{"t":"forgotten","target":"sumo","map":"castle"}')?.t).toBe("forgotten");
+    expect(parseHostMessage('{"t":"notice","text":"Castle is ready"}')).toEqual({ t: "notice", text: "Castle is ready" });
   });
 });

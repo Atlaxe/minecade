@@ -36,7 +36,7 @@ Follows the usual rules: stop and report after each pass, commit and push after 
 | Roles | **Map editors** (`MAP_EDITORS`; empty means everyone in `LAN_PLAYERS`) get the tools, mode switches and Preview. Everyone else who joins is a **builder**: creative mode only |
 | Player management | In game: map editors add and remove allow-list entries and switch players between builder and editor from a Players screen. Changes take effect at once and are saved to `.env`, so the Panel shows the same lists |
 | Mode switches | Players wait in the lobby while the editor restarts, then are sent back automatically. Nobody rejoins by hand |
-| Mode on screen | The top-right box that shows the game clock shows the mode instead: Select, Edit, or Build (a builder in Edit mode) |
+| Mode on screen | A small box top center, styled like the game clock's box (the user's choice, 2026-10-31): Select, Edit, or Build (a builder in Edit mode), with the world or map |
 | Building | No build helpers. Big changes happen in Java, then "Update from world" replaces the blocks and keeps the map data |
 | Spawn facing | A "Save my facing" toggle on the spawn form. It is off by default, so the spawn faces the map center as it does today |
 | First-version extras | Mirror tool; inspect mode with colored, walk-through **boundary blocks** whose layers you toggle in a form |
@@ -172,18 +172,24 @@ The lobby is the waiting room while the editor restarts into another world, so n
 
 ## Mode on screen
 
-The editor reuses the top-right box the game clock uses (`packages/minigame-core/src/hud.ts` and `resource_pack/ui/hud_screen.json` in the core pack, which every server already gets).
+A small box top center, styled like the box the game clock uses top right (built early, on
+2026-10-31; the user asked for top center).
 - **What it shows:**
-  - **Select** in Select mode;
-  - **Edit** for map editors in Edit mode;
-  - **Build** for builders in Edit mode;
-  - in Preview, the game's own clock takes the box, as usual.
+  - **Select** and the world in Select mode;
+  - **Edit** and the map ("Sumo: Arena") for map editors in Edit mode;
+  - **Build** and the map for builders in Edit mode;
+  - nothing in the editor lobby, whose HUD is hidden.
 - **How it works:**
-  - A second mark, `HUD_MODE_MARK`, uses the same box with a mode icon instead of the clock icon.
-  - Inspect mode adds its readout to the same line, for example "Edit   in bounds, 12 above killY, buyZone.red".
-  - The action bar can only hold one line, so mixing the two would make them compete.
-  - The editor refreshes the line about twice a second, so it never fades.
-- **The lobby** uses the same box for waiting players ("Editor: switching to Edit (Castle)").
+  - It rides on the title, not the action bar, so the tools' hints and notices above the hotbar
+    never compete with it. Nothing else on the editor's servers sends titles.
+  - A title starting with `MODE_MARK` (`editor/behavior_pack/scripts/hud.ts`) shows in the box;
+    any other title shows as in vanilla. The override is in the editor's resource pack
+    (`editor/resource_pack/ui/hud_screen.json`), not the core pack, because games send titles of
+    their own (the countdown's "Go!").
+  - The editor sends the line when a player spawns and every 5 seconds; each one stays up 20 seconds.
+  - Inspect mode can add its readout to the same line, for example "Edit   in bounds, 12 above killY, buyZone.red".
+- **Preview** (10.6) has to share the title with the game's countdown: settle it there (for example,
+  the line only between the game's titles).
 
 ## Select mode
 
@@ -240,7 +246,7 @@ All of these are items with their own icons and forms. `showForm` handles the bu
    - **What:** from one team to another; spawns, team points and team regions. Yaw is mirrored too.
    - Ghost markers preview the result before Apply, and Apply is one undo step.
 6. **Inspect mode:**
-   - A readout in the top-right box, after the mode, as you walk: inside or outside bounds, height above killY, which regions you are in, the nearest spawn.
+   - A readout in the mode box, after the mode, as you walk: inside or outside bounds, height above killY, which regions you are in, the nearest spawn.
    - On a lobby map, leaving the bounds reads "sent back to spawn".
 7. **Boundary blocks and layers:**
    - **The block:** `minecade:boundary` has no collision and a translucent tint, so you can walk through it. A color state gives 16 colors.
@@ -320,7 +326,7 @@ Convert the Java world with Chunker and save the Bedrock world in your client's 
 
 ### 2. Select
 1. **Start it:** in the Panel, Select, then pick "Arenas" from the list (or run `npm run editor -- select "Arenas"`). Then join `LAN_HOST:19134`; you accept the editor's trust prompt the first time only. Later switches go through the lobby automatically, so this is the only time you join by hand.
-2. You arrive at the world's spawn in creative mode, holding the select tool and the map menu. The top-right box reads "Select".
+2. You arrive at the world's spawn in creative mode, holding the select tool and the map menu. The box top center reads "Select".
 3. **Box the map:** fly to Castle. Hit one corner, use the tool on the opposite corner, or box it roughly and press "Shrink to build".
 4. **Confirm:** Target "Search and Destroy", map id `castle`, name "Castle".
 5. **Extraction** starts in the background. Box the next map while it runs.
@@ -544,13 +550,19 @@ predated the Map editor page):*
 - 10.6 Preview needs a game port while the editor holds all three: settle it in 10.6 (for example,
   the preview game takes the Select port).
 
+*Then, the same day, at the user's request:*
+- The mode box top center (see "Mode on screen"), brought forward from 10.7.
+- When a map boxed in Select is ready, map editors on Select and Edit get a notice above the hotbar
+  with a chime ("Castle is ready to load in Edit", held about 6 seconds, the `notice` message), and
+  chat says where to open it. The runner sends both, so it reaches them on either server.
+
 **10.6 Preview:** `DEV_LIVE_MAPS`, Preview with the return to the editor, Preview as lobby, and
 both in the Panel.
 
 ### UI tweaks
 
 **10.7 Editor look and feel.**
-- The mode in the top-right box (`HUD_MODE_MARK`).
+- (The mode box came early, on 2026-10-31.)
 - Item icons; marker models with numbers and list colors (the facing line came in 10.3).
 - Boundary blocks with the Layers form; inspect mode.
 - The forms with fields in the editor's dark style where it helps (the button menus came in 10.3),
@@ -599,9 +611,8 @@ marker.
 **Changed**
 - **Core** (`packages/minigame-core/src/`):
   - `map-config.ts`, `config.ts`, `registry.ts`, `game/map-view.ts`, `game/minigame.ts`;
-  - `hud.ts` (`HUD_MODE_MARK`, a mode line);
   - `protocol/messages.ts` (protocol 7: `editor_hold`, `editor_return`).
-- **Core resource pack:** `packages/minigame-core/resource_pack/ui/hud_screen.json` (the second mark and a mode icon).
+- **Editor resource pack:** `editor/resource_pack/ui/hud_screen.json` (the mode box, from marked titles).
 - **Lobby:** `lobby/behavior_pack/scripts/` (waiting players: the top-right box, left out of game starts, sent back to the editor, the timeout).
 - **Build** (`tools/build/`):
   - `build.ts`: an editor target with no maps, requirements in the registry, skips drafts, strips `source` and `cameras`;

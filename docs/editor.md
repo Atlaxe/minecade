@@ -84,6 +84,12 @@ there.
 **Going back:** **Editor lobby**, in Select's map menu and in Edit's gear, takes you to the menu to
 open another map or world. Select and Edit keep running meanwhile, so going back to them is instant.
 
+**Where you are:** on Select and Edit, a small box top center says which server you're on and
+what's open there: **Select** and the world, **Edit** and the map (for map editors), or **Build**
+and the map (for builders). It's a title the editor's resource pack draws as a box
+(`editor/resource_pack/ui/hud_screen.json`, the mark in `editor/behavior_pack/scripts/hud.ts`), the
+way games draw their clock top right; other titles show as usual. Preview gets its line in pass 10.6.
+
 ## Select mode: cutting maps out of a world
 
 Build maps in Java, convert the world to Bedrock with Chunker (as before), then open it in Select
@@ -99,7 +105,9 @@ so flying past the converted area grows no new land.
   what the map is for (the lobby or a game), its name, and its map id (left empty, it's made from the
   name: "Castle Keep" is `castle_keep`). An id the game has already is refused.
 - **The map is cut out in the background,** one at a time, so you can box the next map meanwhile.
-  It takes about 20 seconds for a 112 x 65 x 128 build.
+  It takes about 20 seconds for a 112 x 65 x 128 build. When it's ready, map editors on Select and
+  Edit hear a chime and see "<name> is ready to load in Edit" above the hotbar for a few seconds,
+  and chat says where to open it: Edit <map> in Select's map menu, or Open a map in the editor lobby.
 - **Outlines** (while you hold the Select tool): your box in yellow, and every map from this world,
   green once it's ready, white while it's queued or being cut out, red when it failed.
 - **The map menu** lists the maps from this world with how each is going:

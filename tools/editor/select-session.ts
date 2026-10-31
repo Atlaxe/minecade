@@ -53,10 +53,8 @@ export class SelectSession extends ServerSession {
       if (gone) this.infos = this.infos.filter((candidate) => !same(candidate));
       else this.infos = this.infos.some(same) ? this.infos.map((candidate) => (same(candidate) ? info : candidate)) : [...this.infos, info];
       if (this.state !== "ready") return;
+      // The runner says when one is ready or failed.
       void this.send(gone ? { t: "forgotten", target: info.target, map: info.map } : { t: "selection", item: info });
-      if (!gone && (info.status === "ready" || info.status === "failed")) {
-        void this.say(info.status === "ready" ? `§a${info.name} (${info.map}) is ready: open the map menu to edit it.` : `§c${info.name} (${info.map}) failed: ${info.error ?? "see the editor's log"}`);
-      }
     });
   }
 

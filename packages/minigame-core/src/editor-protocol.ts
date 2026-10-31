@@ -153,6 +153,8 @@ export type HostMessage =
   | { t: "status"; undo?: string; redo?: string; unsaved: boolean; saving: boolean }
   /** A chat line for one player, or for everyone when `to` is absent. */
   | { t: "say"; to?: string; text: string }
+  /** A line above the hotbar for the map editors here, with a chime: news such as a map that's ready. */
+  | { t: "notice"; text: string }
   /** Remove every marker (the world is about to be saved), then answer with "clean". */
   | { t: "cleanup"; id: number }
   /** A save while running is done: show the markers again. */
@@ -167,7 +169,7 @@ export type HostMessage =
   | { t: "extract"; box: Box; offset: Vec3 };
 
 const EVENT_TYPES = new Set(["ready", "edit", "undo", "redo", "resync", "save", "changed", "clean", "saveMap", "mapAction", "open", "extracted"]);
-const MESSAGE_TYPES = new Set(["config", "home", "ack", "status", "say", "cleanup", "resume", "selection", "forgotten", "goto", "extract"]);
+const MESSAGE_TYPES = new Set(["config", "home", "ack", "status", "say", "notice", "cleanup", "resume", "selection", "forgotten", "goto", "extract"]);
 
 // BDS prints script console output as "[<time> <LEVEL>] [Scripting] <text>". Requiring that prefix
 // means "[EDIT]" anywhere else in the log (a player's chat, a command) is never taken for an event.

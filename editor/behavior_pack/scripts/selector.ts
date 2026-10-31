@@ -12,13 +12,14 @@ import type { HostMessage } from "@minecade/minigame-core/config";
 import { blockInView, change, keyOf, nudgeForm, xyz, type Picking } from "./box-picker.ts";
 import { blockBox, describeBox, growBox, sameBox, sizeText } from "./boxes.ts";
 import { goto } from "./goto.ts";
+import { keepModeLine, modeLine } from "./hud.ts";
 import { HostLink } from "./link.ts";
 import { blockPosition } from "./lists.ts";
 import { dangerText, mapTitle, sideTitle } from "./marks.ts";
 import { mapActions, mapIdFrom, selectMenuBody, selectMenuEntries, statusLine, type MapAction, type MenuAction, type PickAction } from "./menu.ts";
 import { Outlines } from "./outlines.ts";
 import { BOUNDS_COLOR, KILL_COLOR, type Rgb } from "./regions.ts";
-import { actionBar, heldTool, hintBar } from "./tool-host.ts";
+import { actionBar, heldTool, hintBar, notice } from "./tool-host.ts";
 import { SELECT_TOOL } from "./tools.ts";
 
 const MAP_MENU = "minecade:map_menu";
@@ -96,6 +97,7 @@ export class Selector {
       if (event.itemStack && ITEMS.has(event.itemStack.typeId)) event.cancel = true;
     });
     scope.interval(() => this.hints(), HINT_TICKS);
+    keepModeLine(scope, () => modeLine("select", this.info.world));
     this.link.send({ t: "ready" });
   }
 
@@ -111,6 +113,9 @@ export class Selector {
         return;
       case "say":
         for (const player of world.getAllPlayers()) if (!message.to || player.name === message.to) tell(player, message.text);
+        return;
+      case "notice":
+        for (const player of world.getAllPlayers()) if (this.isEditor(player)) notice(this.scope, player, message.text);
         return;
       case "goto":
         goto(message.players, message.port, message.label, tell);

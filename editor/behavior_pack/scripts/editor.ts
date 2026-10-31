@@ -35,12 +35,13 @@ import {
   type Scope,
 } from "@minecade/minigame-core";
 import { goto } from "./goto.ts";
+import { keepModeLine, modeLine } from "./hud.ts";
 import { KillYTool } from "./kill-y-tool.ts";
 import { HostLink } from "./link.ts";
 import { Outlines } from "./outlines.ts";
 import { outlineBoxes } from "./regions.ts";
 import { RegionTool } from "./region-tool.ts";
-import { actionBar, heldTool, hintBar, type ToolHost } from "./tool-host.ts";
+import { actionBar, heldTool, hintBar, notice, type ToolHost } from "./tool-host.ts";
 import { blockPosition, compass, markerSpecs, snapFacing, SNAPS, spawnLists, type MarkerSpec, type SpawnList } from "./lists.ts";
 import { MapState } from "./map-state.ts";
 import { MARKER, Markers } from "./markers.ts";
@@ -171,6 +172,7 @@ export class Editor {
     scope.subscribe(world.afterEvents.playerPlaceBlock, ({ player }) => this.blocksChanged(player.name));
     scope.subscribe(world.afterEvents.playerBreakBlock, ({ player }) => this.blocksChanged(player.name));
     scope.interval(() => this.hints(), HINT_TICKS);
+    keepModeLine(scope, (player) => modeLine(this.isEditor(player) ? "edit" : "build", `${this.info.targetName}: ${this.state.current.name}`));
     this.refresh();
     void this.prepareWorld();
   }
@@ -216,6 +218,9 @@ export class Editor {
         return;
       case "say":
         for (const player of world.getAllPlayers()) if (!message.to || player.name === message.to) tell(player, message.text);
+        return;
+      case "notice":
+        for (const player of world.getAllPlayers()) if (this.isEditor(player)) notice(this.scope, player, message.text);
         return;
       case "goto":
         goto(message.players, message.port, message.label, tell);

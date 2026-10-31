@@ -1,0 +1,172 @@
+{
+  "namespace": "hud",
+
+  // The mode box: which editor server the player is on, top center. Bedrock has no script API for
+  // HUD text, so the editor sends the line as a title starting with a mark made of formatting codes
+  // that never render (MODE_MARK in editor/behavior_pack/scripts/hud.ts), the way the game clock
+  // rides on the action bar (packages/minigame-core/resource_pack/ui/hud_screen.json). The title
+  // becomes a full-screen panel: marked titles show in a small box top center, and anything else
+  // shows exactly like the vanilla title (mc_title_plain is vanilla's hud_title_text from 26.60).
+  // Only the editor's servers load this pack; games send titles of their own (the countdown).
+  "hud_title_text": {
+    "type": "panel",
+    "size": [ "100%", "100%" ],
+    "offset": [ 0, 0 ],
+    "layer": 1,
+    "alpha": 1.0,
+    "propagate_alpha": false,
+    "controls": [
+      { "mc_title_plain@hud.mc_title_plain": {} },
+      { "mc_mode_box@hud.mc_mode_box": {} }
+    ]
+  },
+
+  // No mark: the vanilla title and subtitle. Both halves start hidden until their binding decides,
+  // so a mode line never flashes as a big title.
+  "mc_title_plain": {
+    "type": "stack_panel",
+    "orientation": "vertical",
+    "offset": [ 0, -19 ],
+    "layer": 1,
+    "visible": false,
+    "alpha": "@hud.anim_title_text_alpha_in",
+    "propagate_alpha": true,
+    "bindings": [
+      { "binding_name": "#hud_title_text_string", "binding_type": "global" },
+      {
+        "binding_type": "view",
+        "source_property_name": "((#hud_title_text_string - '§r§m§o§r') = #hud_title_text_string)",
+        "target_property_name": "#visible"
+      }
+    ],
+    "controls": [
+      {
+        "title_frame": {
+          "type": "panel",
+          "size": [ "100%", "100%cm" ],
+          "controls": [
+            {
+              "title_background": {
+                "type": "image",
+                "size": [ "100%sm + 30px", "100%sm + 6px" ],
+                "texture": "textures/ui/hud_tip_text_background",
+                "alpha": "@hud.anim_title_background_alpha_in"
+              }
+            },
+            {
+              "title": {
+                "type": "label",
+                "anchor_from": "top_middle",
+                "anchor_to": "top_middle",
+                "color": "$title_command_text_color",
+                "enable_profanity_filter": true,
+                "text": "#text",
+                "layer": 31,
+                "localize": false,
+                "font_size": "extra_large",
+                "variables": [
+                  { "requires": "(not $title_shadow)", "$show_shadow": false },
+                  { "requires": "$title_shadow", "$show_shadow": true }
+                ],
+                "shadow": "$show_shadow",
+                "text_alignment": "center",
+                "offset": [ 0, 6 ],
+                "bindings": [
+                  { "binding_name": "#hud_title_text_string", "binding_name_override": "#text", "binding_type": "global" }
+                ]
+              }
+            }
+          ]
+        }
+      },
+      {
+        "subtitle_frame": {
+          "type": "panel",
+          "size": [ "100%", "100%cm" ],
+          "controls": [
+            {
+              "subtitle_background": {
+                "type": "image",
+                "size": [ "100%sm + 20px", "100%sm + 5px" ],
+                "offset": [ 0, 16 ],
+                "texture": "textures/ui/hud_tip_text_background",
+                "variables": [
+                  { "requires": "$subtitle_initially_visible", "$subtitle_bg": "@hud.anim_title_background_alpha_in" },
+                  { "requires": "(not $subtitle_initially_visible)", "$subtitle_bg": "@hud.anim_subtitle_background_alpha_in" }
+                ],
+                "alpha": "$subtitle_bg"
+              }
+            },
+            {
+              "subtitle": {
+                "type": "label",
+                "anchor_from": "top_middle",
+                "anchor_to": "top_middle",
+                "color": "$title_command_text_color",
+                "enable_profanity_filter": true,
+                "text": "#text",
+                "layer": 31,
+                "localize": false,
+                "font_size": "large",
+                "variables": [
+                  { "requires": "$subtitle_initially_visible", "$anim_type": 1.0 },
+                  { "requires": "(not $subtitle_initially_visible)", "$anim_type": "@hud.anim_subtitle_text_alpha_in" },
+                  { "requires": "(not $title_shadow)", "$show_shadow": false },
+                  { "requires": "$title_shadow", "$show_shadow": true }
+                ],
+                "shadow": "$show_shadow",
+                "alpha": "$anim_type",
+                "text_alignment": "center",
+                "offset": [ 1, 19 ],
+                "bindings": [
+                  { "binding_name": "#hud_subtitle_text_string", "binding_name_override": "#text", "binding_type": "global" }
+                ]
+              }
+            }
+          ]
+        }
+      }
+    ]
+  },
+
+  // Marked: the mode line in a box top center, styled like the game clock's box. The mark itself
+  // is formatting codes, so the label shows the line as is.
+  "mc_mode_box": {
+    "type": "image",
+    "texture": "textures/ui/hud_tip_text_background",
+    "anchor_from": "top_middle",
+    "anchor_to": "top_middle",
+    "offset": [ 0, 4 ],
+    "size": [ "100%c + 12px", "100%c + 4px" ],
+    "layer": 30,
+    "visible": false,
+    "alpha": "@hud.anim_title_background_alpha_in",
+    "bindings": [
+      { "binding_name": "#hud_title_text_string", "binding_type": "global" },
+      {
+        "binding_type": "view",
+        "source_property_name": "(not ((#hud_title_text_string - '§r§m§o§r') = #hud_title_text_string))",
+        "target_property_name": "#visible"
+      }
+    ],
+    "controls": [
+      {
+        "mc_mode_text": {
+          "type": "label",
+          "anchor_from": "center",
+          "anchor_to": "center",
+          "size": [ "default", 10 ],
+          "color": [ 1.0, 1.0, 1.0 ],
+          "layer": 31,
+          "text": "#text",
+          "shadow": true,
+          "localize": false,
+          "alpha": "@hud.anim_title_text_alpha_in",
+          "bindings": [
+            { "binding_name": "#hud_title_text_string", "binding_name_override": "#text", "binding_type": "global" }
+          ]
+        }
+      }
+    ]
+  }
+}

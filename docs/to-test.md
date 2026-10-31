@@ -95,6 +95,15 @@ On Sumo's `arena_1` in Edit:
     the whole map).
   - If no dots show at all, the custom particle didn't load: say so.
 
+The mode box (top center, after the editor's next boot):
+
+- In Select: a small dark box top center reads "Select" (aqua) and the world's name (gray), styled
+  like a game's clock box. It stays up the whole time, through forms and after respawning.
+- In Edit: "Edit" (green) and "Sumo: Arena" for a map editor; a builder sees "Build" (yellow).
+- No big title flashes in the middle of the screen when you arrive on a server. If the mode shows
+  as a big title in the middle instead of the box, say so.
+- The editor lobby shows no box (its HUD is hidden).
+
 Select mode (pass 10.5), opened from the editor lobby's New map:
 
 - On Datapacking you get the Select tool in slot 1 and the map menu in slot 9, and the world is the
@@ -104,6 +113,11 @@ Select mode (pass 10.5), opened from the editor lobby's New map:
 - Stand inside the box, use the tool at the sky, Save as map: for Sumo, a name, and an empty map id
   (it's made from the name). Chat says it's queued; the box turns white, then green when ready (about
   20 seconds), and chat says so. Standing outside the box is refused.
+- When it's ready: a chime, and "<name> is ready to load in Edit" in green above the hotbar for about
+  6 seconds, even while you hold the Select tool (its hint comes back after). Hitting a block meanwhile
+  replaces it at once. Chat says to use Edit <map> in the map menu.
+- Save another map, and before it's ready, go to Edit (Edit <map> on the first one): the same notice
+  and chime come in Edit, and chat says to open it from the editor lobby.
 - Box a second build while the first is being cut out: both end up ready.
 - The map menu lists both with their status (so does the Panel). On a ready one: Edit <map>. Chat
   says it's opening; you're moved to Edit once it's ready, at the spawn where you stood, centered at
