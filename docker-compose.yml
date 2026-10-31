@@ -38,6 +38,11 @@ services:
     ports:
       - "19132:19132/tcp"
       - "19132:19132/udp"
+      # A second entrance for players coming back from a game (LOBBY_PORT on the orchestrator). A
+      # PS5 never reached 19132 when sent there by address, but reached a game's 19133 fine. Only
+      # the join handshake is TCP; the game traffic still uses UDP 19132. The warm pool would need
+      # another spare port.
+      - "19134:19132/tcp"
     volumes:
       - keys:/keys
     stdin_open: true
@@ -60,6 +65,8 @@ services:
       KEYS_VOLUME: minecade-keys
       ORCH_URL: http://orchestrator:8080
       DATA_DIR: /data
+      # Game servers send players back to the lobby on its second entrance (see the lobby's ports).
+      LOBBY_PORT: "19134"
       DEV_DEMO_STATS: ${DEV_DEMO_STATS:-}
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
@@ -95,6 +102,29 @@ services:
     restart: on-failure
     stop_grace_period: 5s
 
+  # The friends broadcast (broadcaster/): a spare Microsoft account that shows the lobby in its
+  # friends' Friends tab, so console players can join without a phone app. It relays their join
+  # to the lobby, and they connect straight to the public address. Off (it exits) unless BROADCAST
+  # is 1; the Panel turns it on and off without restarting the network. The first start asks for a
+  # sign-in in its log (docker logs minecade-broadcaster, or the Panel).
+  broadcaster:
+    image: minecade/broadcaster:local
+    build: ./broadcaster
+    container_name: minecade-broadcaster
+    depends_on:
+      - lobby
+    environment:
+      BROADCAST: ${BROADCAST:-}
+      LOBBY_HOST: lobby
+      LOBBY_PORT: "19132"
+    volumes:
+      - broadcaster:/data
+    stdin_open: true
+    labels:
+      minecade.role: broadcaster
+    restart: on-failure
+    stop_grace_period: 5s
+
 networks:
   default:
     name: minecade
@@ -111,3 +141,6 @@ volumes:
   # The skin watcher's sign-in (the spare Microsoft account). Deleting it means signing in again.
   watcher-auth:
     name: minecade-watcher-auth
+  # The friends broadcast's sign-in and logs. Deleting it means signing in again.
+  broadcaster:
+    name: minecade-broadcaster

@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import {
+  BroadcastLog,
   checkLobbyMap,
   checkRequest,
   formatPorts,
@@ -63,6 +64,42 @@ describe("PlayerLog", () => {
       "[2026-10-28 22:50:00:000 INFO] Player disconnected: Nobody, xuid: 1, pfid: 2",
     ]);
     expect(log.players).toEqual(["Steve Builder"]);
+  });
+});
+
+// MCXboxBroadcast build 162's own output, color codes included, with made-up names and numbers.
+const broadcastLines = readFileSync(new URL("./fixtures/broadcaster-lines.txt", import.meta.url), "utf8")
+  .split(/\r?\n/)
+  .filter(Boolean);
+
+function feedBroadcast(lines: string[]): BroadcastLog {
+  const log = new BroadcastLog();
+  for (const line of lines) log.feed(line);
+  return log;
+}
+
+describe("BroadcastLog", () => {
+  it("asks for the sign-in it printed", () => {
+    const log = feedBroadcast(broadcastLines.slice(0, 3));
+    expect(log.phase).toBe("sign-in");
+    expect(log.signIn).toEqual({ url: "https://www.microsoft.com/link", code: "ABCD1234" });
+    expect(log.lastError).toBe("Failed to ping server");
+  });
+
+  it("follows it to signed in and live, with the account and the last join", () => {
+    expect(feedBroadcast(broadcastLines.slice(0, 4))).toMatchObject({ phase: "signed-in", account: "Spare Bot 42", signIn: null });
+    const log = feedBroadcast(broadcastLines);
+    expect(log).toMatchObject({ phase: "live", account: "Spare Bot 42", lastJoin: "Steve Builder", lastError: "" });
+  });
+
+  it("starts fresh when a restarted container replays an earlier run", () => {
+    const log = feedBroadcast([...broadcastLines, broadcastLines[0]]);
+    expect(log).toMatchObject({ phase: "starting", account: "", lastJoin: "" });
+  });
+
+  it("ignores lines it doesn't know", () => {
+    const log = feedBroadcast([broadcastLines[0], "\tat com.rtm516.mcxboxbroadcast.Main.main(Main.java:1)"]);
+    expect(log).toMatchObject({ phase: "starting", lastError: "" });
   });
 });
 

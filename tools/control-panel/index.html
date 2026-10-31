@@ -349,9 +349,9 @@ const DOCKER_STATUS = {
   "not-responding": ["warn", "not responding"],
   stopped: ["bad", "stopped"],
 };
-const ACTION_WORDS = { up: "starting", down: "stopping", restart: "restarting" };
-const ACTION_DONE = { up: "started", down: "stopped", restart: "restarted" };
-const ACTION_NAMES = { up: "start", down: "stop", restart: "restart" };
+const ACTION_WORDS = { up: "starting", down: "stopping", restart: "restarting", broadcast: "updating the broadcast" };
+const ACTION_DONE = { up: "started", down: "stopped", restart: "restarted", broadcast: "broadcast updated" };
+const ACTION_NAMES = { up: "start", down: "stop", restart: "restart", broadcast: "broadcast update" };
 
 let state = null;
 
@@ -428,7 +428,7 @@ function renderStacks() {
   for (const stack of stacks) {
     const [controls, game, servers] = $(`stack-${stack.id}`).children;
     const busy = state.busy?.startsWith(`${stack.label}: `) ? state.busy : null;
-    const facts = [stack.label, stack.available, stack.missing, stack.running, stack.settingsStale, state.env.LOBBY_MAP, state.lobbyMaps];
+    const facts = [stack.label, stack.available, stack.missing, stack.running, stack.settingsStale, state.env.LOBBY_MAP, state.lobbyMaps, state.broadcast];
     patch(controls, [facts, canAct, busy], () => stackCard(stack, canAct, busy));
     patch(game, stack.orchestrator, () => stack.orchestrator && gameCard(stack.orchestrator));
     patch(servers, [stack.containers, state.env.WATCHER_GAMERTAG], () => containersCard(stack));
@@ -448,6 +448,7 @@ function stackCard(stack, canAct, busy) {
     el("div", { className: "card-head" }, el("h2", {}, stack.label), el("span", { className: `pill ${tone}` }, text), el("div", { className: "actions" }, buttons)),
     !stack.available && el("p", { className: "hint" }, `Missing: ${stack.missing.join(", ")}.`),
     stack.id === "main" && lobbyMapRow(),
+    stack.id === "main" && broadcastRow(stack.running),
     stack.settingsStale && el("p", { className: "callout warn" }, ".env changed after this stack started. Click Restart to apply the new settings."),
     busy && el("div", { className: "busy-line" }, el("span", { className: "spin" }), el("span", { id: "busy-line", className: "mono" }, lastActivity)),
   );
@@ -474,6 +475,30 @@ function lobbyMapRow() {
   save.disabled = select.value === saved;
   select.onchange = () => { lobbyPick = select.value; save.disabled = select.value === saved; };
   return el("div", { className: "row" }, el("span", {}, "Lobby map"), el("span", { className: "mono muted" }, "LOBBY_MAP"), select, save, result);
+}
+
+/**
+ * The friends broadcast (BROADCAST in .env): a spare account that puts the lobby in its friends'
+ * Friends tab. Turning it on or off applies at once while the network runs, without a restart.
+ */
+function broadcastRow(running) {
+  const b = state.broadcast;
+  if (state.env.missing || !b) return null;
+  const toggle = el("button", { onclick: () => post("/api/broadcast", { on: !b.on }) }, b.on ? "Turn off" : "Turn on");
+  toggle.disabled = Boolean(state.busy);
+  const parts = [el("span", {}, "Friends tab"), el("span", { className: "mono muted" }, "BROADCAST"), toggle];
+  const say = (text, className = "muted small") => el("span", { className }, text);
+  if (!b.on) parts.push(say("Off. Console friends can't see the lobby in their Friends tab."));
+  else if (!running || !b.container) parts.push(say("On. It starts with the network."));
+  else if (b.container !== "running") parts.push(say("On, but it isn't running. Its log (Containers, minecade-broadcaster) says why.", "error"));
+  else if (b.phase === "sign-in" && b.signIn) {
+    parts.push(say("Sign in with the spare account at"), el("a", { href: b.signIn.url, target: "_blank" }, b.signIn.url),
+      say("with the code"), el("span", { className: "mono strong" }, b.signIn.code), el("button", { className: "small", onclick: () => copy(b.signIn.code) }, "Copy"));
+  } else if (b.phase === "live") {
+    parts.push(say(`On. Friends who add ${b.account} in Minecraft see the lobby in their Friends tab.${b.lastJoin ? ` Last join: ${b.lastJoin}.` : ""}`));
+  } else parts.push(say(b.phase === "signed-in" ? `Signed in as ${b.account}. Starting...` : "Starting..."));
+  if (b.on && b.lastError && b.phase !== "live") parts.push(say(b.lastError, "error"));
+  return el("div", { className: "row" }, parts);
 }
 
 // The game picker is rebuilt when the game status changes, so remember the choice across renders.
@@ -548,8 +573,9 @@ function chip(name) {
 
 function renderConnection() {
   const c = state.connection;
+  const b = state.broadcast ?? {};
   const address = (text) => [el("span", { className: "mono address" }, text), el("button", { className: "small", onclick: () => copy(text) }, "Copy")];
-  patch($("connection"), c, () => [
+  patch($("connection"), [c, b.on, b.account], () => [
     el("dt", {}, "You (this network)"),
     el("dd", {},
       c.lanHost ? address(`${c.lanHost}:${c.joinPort}`) : el("span", { className: "error" }, "LAN_HOST is not set in .env"),
@@ -558,6 +584,11 @@ function renderConnection() {
     el("dd", {},
       c.publicIp ? address(`${c.publicIp}:${c.joinPort}`) : el("span", { className: "muted" }, "unknown (lookup failed)"),
       c.publicIp && c.publicHost === "auto" && el("span", { className: "muted small" }, "auto-detected")),
+    el("dt", {}, "Console friends"),
+    el("dd", {},
+      !b.on ? el("span", { className: "muted" }, "Turn on the Friends tab broadcast on the Servers page.")
+        : b.account ? [el("span", {}, "Add"), el("span", { className: "mono address" }, b.account), el("span", {}, "as a friend in Minecraft, then join from the Friends tab.")]
+        : el("span", { className: "muted" }, "The broadcast hasn't signed in yet (Servers page).")),
   ]);
 }
 
@@ -957,8 +988,8 @@ function addActivity(entry) {
   const tone = toastTone(entry.text);
   if (tone && Date.now() - Date.parse(entry.at) < 5000) {
     toast(entry.text
-      .replace(/: (up|down|restart) done\.$/, (_, action) => `: ${ACTION_DONE[action]}.`)
-      .replace(/: (up|down|restart) failed (.*)$/, (_, action, rest) => `: ${ACTION_NAMES[action]} failed ${rest} The details are on the Logs page.`), tone);
+      .replace(/: (up|down|restart|broadcast) done\.$/, (_, action) => `: ${ACTION_DONE[action]}.`)
+      .replace(/: (up|down|restart|broadcast) failed (.*)$/, (_, action, rest) => `: ${ACTION_NAMES[action]} failed ${rest} The details are on the Logs page.`), tone);
   }
 }
 

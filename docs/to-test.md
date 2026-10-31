@@ -6,7 +6,24 @@ Tests still to run by hand. Delete a line once it passes.
 
 - Join through the public address, then go from the lobby to a game and back (both transfers).
 - Two players on one server, one on the LAN and one remote.
-- A console player through BedrockConnect: join, play a game, come back.
+- A console player through the Friends tab broadcast: join from the Friends tab, play a game, and
+  land back in the lobby on its own (coming back now uses the lobby's second entrance, TCP 19134;
+  before it, a PS5 got Terracotta there and had to rejoin from the Friends tab). If a trust prompt
+  shows on the way back, say so.
+
+## Friends tab broadcast (Panel)
+
+After the network's next Start or Restart in the Panel, with the old test container gone
+(`docker rm -f minecade-broadcast-test`):
+
+- Servers page, Friends tab row: Turn on starts `minecade-broadcaster` while the lobby keeps
+  running (nobody is disconnected), and the restart banner doesn't appear.
+- The first time, the row shows the microsoft.com/link address and a code, with Copy. Sign in with
+  the spare account: the row then reads "On" with the account's gamertag, and the connection card's
+  Console friends line names it.
+- After a friend joins from the Friends tab, the row adds "Last join: <their gamertag>".
+- Turn off stops it, and the row reads "Off". Turn on again: no new sign-in is asked for.
+- You (LAN_PLAYERS) still come back from a game to the lobby (through LAN_HOST, port 19134).
 
 ## Needs a second player
 

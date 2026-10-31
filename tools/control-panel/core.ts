@@ -108,6 +108,64 @@ export class PlayerLog {
   }
 }
 
+// MCXboxBroadcast (build 162) log lines, once their color codes are stripped:
+//   "[18:13:15 INFO] [Auth] To sign in, use a web browser to open the page {url} and enter the code {code} to authenticate."
+//   "[18:18:03 INFO] [Primary Session] Successfully authenticated as {gamertag} ({xuid}) with 0/1000 friends"
+//   "[18:18:06 INFO] [Primary Session] Creation of Xbox LIVE session was successful!"
+//   "[18:20:52 INFO] [Primary Session] Relayed bedrock client {gamertag} ({xuid}) to target server."
+const COLOR_CODE = /\x1b\[[0-9;]*m/g;
+const BROADCAST_STARTED = /^\[[^\]]*\] Starting MCXboxBroadcast\b/;
+const BROADCAST_SIGN_IN = /To sign in, use a web browser to open the page (\S+) and enter the code (\S+)/;
+const BROADCAST_ACCOUNT = /Successfully authenticated as (.+?) \(\d+\)/;
+const BROADCAST_LIVE = /Creation of Xbox LIVE session was successful/;
+const BROADCAST_RELAYED = /Relayed bedrock client (.+?) \(\d+\) to target server/;
+const BROADCAST_ERROR = /^\[[^\]]* ERROR\] (.+)$/;
+
+/** Where the friends broadcast is: starting, waiting for a sign-in, signed in, or in Friends tabs. */
+export type BroadcastPhase = "starting" | "sign-in" | "signed-in" | "live";
+
+/** Tracks the friends broadcast's state from its log, read from the first line. */
+export class BroadcastLog {
+  phase: BroadcastPhase = "starting";
+  /** The signed-in account's gamertag. */
+  account = "";
+  /** The sign-in it asks for, until someone signs in. */
+  signIn: { url: string; code: string } | null = null;
+  /** The last player whose join it relayed to the lobby. */
+  lastJoin = "";
+  /** The last error since it last went live. */
+  lastError = "";
+
+  feed(line: string): void {
+    const text = line.replace(COLOR_CODE, "").trimEnd();
+    if (BROADCAST_STARTED.test(text)) {
+      // A restarted container replays its earlier runs first.
+      Object.assign(this, { phase: "starting", account: "", signIn: null, lastJoin: "", lastError: "" });
+      return;
+    }
+    const signIn = BROADCAST_SIGN_IN.exec(text);
+    const account = BROADCAST_ACCOUNT.exec(text);
+    const relayed = BROADCAST_RELAYED.exec(text);
+    const error = BROADCAST_ERROR.exec(text);
+    if (signIn) {
+      this.phase = "sign-in";
+      this.signIn = { url: signIn[1], code: signIn[2] };
+    } else if (account) {
+      this.phase = "signed-in";
+      this.account = account[1];
+      this.signIn = null;
+    } else if (BROADCAST_LIVE.test(text)) {
+      this.phase = "live";
+      this.lastError = "";
+    } else if (relayed) {
+      this.lastJoin = relayed[1];
+    } else if (error) {
+      // Without the "[Primary Session] " tag.
+      this.lastError = error[1].replace(/^\[[^\]]*\] /, "");
+    }
+  }
+}
+
 // ---- .env --------------------------------------------------------------------------------
 
 const ENV_LINE = /^([A-Za-z_][A-Za-z0-9_]*)=(.*)$/;

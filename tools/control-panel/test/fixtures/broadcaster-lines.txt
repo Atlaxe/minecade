@@ -1,0 +1,8 @@
+[18:13:14 [m[36;1mINFO[m[m] [m[39mStarting MCXboxBroadcast Standalone build 162 (git-master-e7ef6b0) for Bedrock 1.26.60 (2225)[m[m
+[18:13:15 [m[31mERROR[m[m] [m[31m[Primary Session] Failed to ping server[m[m
+[18:13:15 [m[36;1mINFO[m[m] [m[39m[Auth] To sign in, use a web browser to open the page https://www.microsoft.com/link and enter the code ABCD1234 to authenticate.[m[m
+[18:18:03 [m[36;1mINFO[m[m] [m[39m[Primary Session] Successfully authenticated as Spare Bot 42 (2535400000000001) with 0/1000 friends[m[m
+[18:18:05 [m[36;1mINFO[m[m] [m[39m[Primary Session] NetherNet signaling started on ID: 1000000000000000001[m[m
+[18:18:06 [m[36;1mINFO[m[m] [m[39m[Primary Session] Creation of Xbox LIVE session was successful![m[m
+[18:20:37 [m[36;1mINFO[m[m] [m[39m[Primary Session] Added Steve Builder (2535400000000002) as a friend[m[m
+[18:20:52 [m[36;1mINFO[m[m] [m[39m[Primary Session] Relayed bedrock client Steve Builder (2535400000000002) to target server.[m[m

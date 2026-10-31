@@ -17,6 +17,7 @@ import type Docker from "dockerode";
 import { editorStatus, publishEditor, saveEditor, stopEditor } from "../editor/control.ts";
 import type { EditorStatus } from "../editor/editor-core.ts";
 import {
+  BroadcastLog,
   checkLobbyMap,
   checkRequest,
   formatPorts,
@@ -86,6 +87,8 @@ interface Follower {
   stop: () => void;
   lines: string[];
   players: PlayerLog;
+  /** The friends broadcast's state, for its container only. */
+  broadcast?: BroadcastLog;
 }
 
 /** One log follower per running container in our stacks, keyed by container id. */
@@ -122,7 +125,9 @@ async function syncContainers(): Promise<void> {
 }
 
 async function follow(id: string): Promise<void> {
+  const role = containers.find((info) => info.Id === id)?.Labels["minecade.role"];
   const follower: Follower = { stop: () => {}, lines: [], players: new PlayerLog() };
+  if (role === "broadcaster") follower.broadcast = new BroadcastLog();
   followers.set(id, follower);
   try {
     follower.stop = await dockerUtil!.followLogs(
@@ -131,6 +136,7 @@ async function follow(id: string): Promise<void> {
         follower.lines.push(line);
         if (follower.lines.length > LOG_LINES_KEPT) follower.lines.shift();
         follower.players.feed(line);
+        follower.broadcast?.feed(line);
       },
       () => {
         if (followers.get(id) === follower) followers.delete(id);
@@ -168,7 +174,7 @@ async function lookupPublicIp(): Promise<string | null> {
 function containerView(info: Docker.ContainerInfo) {
   const role = info.Labels["minecade.role"];
   const follower = followers.get(info.Id);
-  const isBds = role !== undefined && role !== "orchestrator" && role !== "watcher";
+  const isBds = role !== undefined && role !== "orchestrator" && role !== "watcher" && role !== "broadcaster";
   let players: string[] | null = null;
   let playersNote = "";
   if (isBds && info.State === "running") {
@@ -271,12 +277,45 @@ function networkRunning(): boolean {
   return containers.some((info) => info.State === "running" && stackOf(info) === "main" && info.Labels["minecade.role"] !== "editor");
 }
 
+/** The main stack's container with this role, if it has one. */
+function mainContainer(role: string): Docker.ContainerInfo | undefined {
+  return containers.find((info) => stackOf(info) === "main" && info.Labels["minecade.role"] === role);
+}
+
+/**
+ * The last .env write that only turned the friends broadcast on or off, and when the settings last
+ * changed before it. That write applies at once, so it doesn't call for a restart.
+ */
+let broadcastWrite: { mtime: number; settingsAt: number } | null = null;
+
+/** When .env last changed in a way that only a restart applies (containers read it when created). */
+function settingsChangedAt(): number {
+  if (!existsSync(envPath)) return 0;
+  const mtime = statSync(envPath).mtimeMs;
+  return broadcastWrite && mtime === broadcastWrite.mtime ? broadcastWrite.settingsAt : mtime;
+}
+
+/** The friends broadcast: whether BROADCAST is on, its container's state, and what its log says. */
+function broadcastState(env: Record<string, string> | undefined) {
+  const info = mainContainer("broadcaster");
+  const log = info ? followers.get(info.Id)?.broadcast : undefined;
+  return {
+    on: env?.BROADCAST === "1",
+    container: info?.State ?? null,
+    phase: log?.phase ?? null,
+    account: log?.account ?? "",
+    signIn: log?.signIn ?? null,
+    lastJoin: log?.lastJoin ?? "",
+    lastError: log?.lastError ?? "",
+  };
+}
+
 async function buildState() {
   const envText = existsSync(envPath) ? await readFile(envPath, "utf8") : undefined;
   const env = envText === undefined ? undefined : readEnv(envText);
   const orchestrator = await orchestratorStatus();
   // Containers read .env only when they are created.
-  const envChangedAt = envText === undefined ? 0 : statSync(envPath).mtimeMs;
+  const envChangedAt = envText === undefined ? 0 : settingsChangedAt();
   const stacks = STACKS.map((stack) => {
     const members = containers.filter((info) => stackOf(info) === stack.id);
     // The map editor's servers are listed with the network but aren't it (they run while it's stopped).
@@ -321,6 +360,7 @@ async function buildState() {
           BDS_VERSION: env.BDS_VERSION ?? "",
         }
       : { missing: true },
+    broadcast: broadcastState(env),
     lobbyMaps: await lobbyMaps(),
     editor: await editorState(),
     networkRunning: networkRunning(),
@@ -389,6 +429,8 @@ const COMPOSE_ACTIONS: Record<string, string[]> = {
   down: ["down"],
   // Recreates the containers so .env edits apply; plain `compose restart` would keep them.
   restart: ["up", "-d", "--build", "--force-recreate"],
+  // Recreates only the friends broadcast with the new BROADCAST, leaving the servers alone.
+  broadcast: ["up", "-d", "--build", "--no-deps", "broadcaster"],
 };
 
 function runCompose(stack: StackDef, action: string, done?: (ok: boolean) => void): void {
@@ -448,6 +490,28 @@ async function saveEnv(body: Record<string, unknown>): Promise<{ status: number;
   }
   void refresh();
   return { status: 200, body: { changed: after !== before, restartNeeded: after !== before } };
+}
+
+/**
+ * Turns the friends broadcast on or off (BROADCAST in .env). With the lobby running, only the
+ * broadcast's container is recreated, so nobody is disconnected; otherwise it applies at the next
+ * Start.
+ */
+async function setBroadcast(on: boolean): Promise<{ status: number; body: unknown }> {
+  if (!existsSync(envPath)) return { status: 409, body: { error: "No .env file. Copy .env.example to .env first." } };
+  if (busy) return { status: 409, body: { error: `busy: ${busy}` } };
+  const before = await readFile(envPath, "utf8");
+  const after = setEnvValues(before, { BROADCAST: on ? "1" : "" });
+  if (after !== before) {
+    const settingsAt = settingsChangedAt();
+    await writeFile(envPath, after);
+    broadcastWrite = { mtime: statSync(envPath).mtimeMs, settingsAt };
+  }
+  const apply = dockerState === "running" && mainContainer("lobby")?.State === "running";
+  if (apply) runCompose(STACKS.find((stack) => stack.id === "main")!, "broadcast");
+  else note(`Friends broadcast ${on ? "on: it starts" : "off: it stays off"} with the network.`);
+  void refresh();
+  return { status: 200, body: { changed: after !== before, applied: apply } };
 }
 
 // ---- HTTP --------------------------------------------------------------------------------
@@ -538,6 +602,11 @@ async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> 
   }
   if (path === "/api/env") {
     const result = await saveEnv(body);
+    return sendJson(res, result.status, result.body);
+  }
+  if (path === "/api/broadcast") {
+    if (typeof body.on !== "boolean") return sendJson(res, 400, { error: "expected {on: true|false}" });
+    const result = await setBroadcast(body.on);
     return sendJson(res, result.status, result.body);
   }
   if (path === "/api/editor/boot") {

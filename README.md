@@ -12,6 +12,8 @@ PlayStation, PC and phone can all join.
 - **Map editor** (ports 19132-19134, while the network is stopped): an editor lobby where you pick
   a map to edit or one of your worlds to cut new maps out of, then servers where you place a map's
   spawns and other data in game, written straight to its `map.json` (see [docs/editor.md](docs/editor.md)).
+- **Friends tab broadcast** (optional): a spare Microsoft account that shows the lobby in its
+  friends' Friends tab, so console players can join (see [Friends tab broadcast](#friends-tab-broadcast)).
 - **Minecade Panel:** a small Windows app to start and stop everything, edit settings, read logs
   and see player stats.
 
@@ -56,6 +58,7 @@ Build Battle, Prophunt, Zombies, Hide and Seek, Block Drop). See [Adding a game]
    | `ALLOW_LIST` | Gamertags allowed to join, comma-separated. Empty means anyone with your address can join. |
    | `PUBLIC_HOST` | `auto` (looks up your public IP at start) or a DDNS hostname. |
    | `WATCHER_GAMERTAG` | The gamertag of a spare Microsoft account that stays in the lobby to save players' skins (see [Player skins](#player-skins)). Empty turns it off, and players get letter badges. |
+   | `BROADCAST` | Empty normally (off). `1` shows the lobby in the Friends tab of a spare account's friends, for console players (see [Friends tab broadcast](#friends-tab-broadcast)). The Panel's Servers page turns it on and off. |
    | `LOBBY_MAP` | Empty normally (the `spaceship` lobby). The id of another map in `lobby/maps/` to use it as the lobby; the Panel has a picker on the Servers page. Restart the network to apply. |
    | `DEV_MIN_PLAYERS` | Empty normally. `1` lets every game start with one player, for testing alone. |
    | `DEV_HOLO_PREVIEW` | Empty normally. `1` adds a Preview button to the terminal's main menu: pick a hologram screen, and it stays up with sample data until you tap the terminal again, so you can look at it without a form in the way. |
@@ -83,8 +86,9 @@ Forward these ports on your router to your PC's LAN IP (`LAN_HOST`):
 | Minecade UDP | 19132-19134 | 19132-19134 | UDP |
 
 Each server uses one TCP port and the UDP port with the same number: the lobby 19132 and games
-19133. The map editor takes all three while it runs (its editor lobby 19132, Select 19133 and Edit
-19134), with the network stopped.
+19133. Players coming back from a game reach the lobby through a second TCP entrance on 19134 (a
+PS5 sent back to 19132 never got there). The map editor takes all three while it runs (its editor
+lobby 19132, Select 19133 and Edit 19134), with the network stopped.
 
 If friends can't connect even though the forwards are in place, allow the ports in Windows
 Firewall (PowerShell as administrator):
@@ -116,7 +120,42 @@ CheckNetIsolation LoopbackExempt -a -n="Microsoft.MinecraftUWP_8wekyb3d8bbwe"
 
 **Friends elsewhere on PC or phone:** Add Server with your public IP (or DDNS name), port `19132`.
 
-**Friends on Xbox, PlayStation or Switch:** consoles can't add servers directly, so they use
+**Friends on Xbox, PlayStation or Switch:** consoles can't add servers directly. Turn on the
+[Friends tab broadcast](#friends-tab-broadcast), and the lobby shows up in their Friends tab.
+[BedrockConnect](#bedrockconnect) is the other way, but a PS5 couldn't get through it in testing.
+
+### Friends tab broadcast
+
+A spare Microsoft account (with an Xbox profile; not anyone's main one, and not the skin watcher's)
+shows the lobby as a joinable world to everyone on its friends list, using
+[MCXboxBroadcast](https://github.com/MCXboxBroadcast/Broadcaster). When a friend joins, it passes
+the join on to the lobby, and their console connects straight to your public address.
+
+1. On the Panel's Servers page, press **Turn on** next to Friends tab. With the network running it
+   starts at once, and nobody is disconnected.
+2. The first time, that row shows a sign-in link and code: sign in with the spare account. The
+   sign-in is kept in the `minecade-broadcaster` Docker volume.
+3. Friends add the account's gamertag as a friend in Minecraft. It accepts friend requests on its
+   own and sends an invite, and the lobby shows under Joinable Friends in their Friends tab (the
+   first time can take a few minutes).
+
+**Turn off** stops it. Without the Panel: `BROADCAST=1` in `.env`, then start or restart the
+network; `docker logs minecade-broadcaster` shows the sign-in code.
+
+- **The account:** MCXboxBroadcast acts like a game client on Xbox Live, which may break
+  Microsoft's terms, so the account could be banned. Use a spare one.
+- **What friends see:** a fixed name, "Minecade lobby", and no player count. BDS answers the status
+  check with an empty reply, so there's nothing live to show.
+- **Your home network:** keep joining with Add Server. The broadcast sends everyone to your public
+  address, which most routers can't reach from inside (see [Why LAN_PLAYERS](#why-lan_players)).
+
+### BedrockConnect
+
+On 2026-10-31 a PS5 couldn't join through the BedrockConnect phone app: it saw the app's world
+but never reached the lobby (a Terracotta error, then a NetherNet error). Use the
+[Friends tab broadcast](#friends-tab-broadcast) first. The steps, for Xbox, Switch or another try:
+
+Consoles can't add servers directly, so they can use
 [BedrockConnect](https://wiki.bedrockconnect.app/). The servers only speak NetherNet (Minecraft's
 current connection type), so use the BedrockConnect **phone app**, which handles it:
 
@@ -133,8 +172,8 @@ current connection type), so use the BedrockConnect **phone app**, which handles
 3. On the console, the server shows up as a LAN world (Worlds or Friends tab). Join it, and the
    app hands the console over to your server.
 
-The BedrockConnect server list may show your server as offline: it checks with the old kind of
-ping, which NetherNet servers don't answer. Joining still works.
+The BedrockConnect app may show your server's status as unavailable: BDS answers status checks
+with an empty reply.
 
 Minecade doesn't host its own BedrockConnect: it would need port 19132 (the lobby's).
 
