@@ -118,19 +118,32 @@ need a real client:
 
 Open `minecade-showroom.mcworld` (from the private block-pack project's `out` folder) on a Bedrock
 device; it brings the blocks pack with it. BDS already loaded the pack with no errors, placed every
-block, gave every chest its storage and checked the connection rules; these need a real client:
+block, gave every chest its storage and checked the connection rules. A probe world also checked
+collision (items dropped on doors, ladders, wicker fences, stairs, slabs, posts, gates and flags
+land where Java's shapes say), right-clicks (book piles, jars, candle holders, sconces, awnings,
+globes, flower boxes, stools) and placing doors, ladders, panes and posts from their items. These
+need a real client:
 
-- Every block looks like its Java version in the Java showroom: textures, shapes, which way it
-  faces. Stairs, slabs and walls are the first place to look; if any block faces the opposite way
-  or is mirrored, say which.
-- Collision: walk up stairs and slabs, and you can't jump over walls and fences.
-- Chests: right-click opens a 27-slot chest (each half of a double chest has its own). Hitting the
-  chest breaks it and drops what was inside. If right-click doesn't open anything, say so.
-- Sitting: right-click a stool, you sit; sneak to get up.
-- Right-click actions as in Java: candle holders, sconces, jars (water bucket, dye, bucket), book
-  piles, globes, awnings, feasts and pies, cabinets, doors, trapdoors and gates.
-- Placing in Bedrock: stairs and slabs take the half you click; walls, fences, panes and connected
-  glass join as you build; a sconce goes on a wall when you click a wall.
+- Looks: every block looks like its Java version in the Java showroom: textures, shapes, which way
+  it faces. If any block faces the opposite way or is mirrored, say which.
+- The Connections area at the end draws everything, including the planter, the tatami pair, the
+  blackstone furnace on soul sand and the double chest next to the cooking pot and skillet. Canvas
+  rugs, cooking pots and skillets show, with no geometry errors in the content log.
+- Collision matches what you see: doors (open and closed), ladders, fences, wicker fences (a lone
+  one is a thin post) and posts lying on their side. A flag only stops you at its pole.
+- Climbing: walk into a ladder or a rope to climb it; stop and you slide down slowly.
+- No flickering faces on paper lanterns, awnings or glass. After right-clicking an awning, its top
+  stripes still run the same way as before.
+- Glass: in a wall of framed glass or windows you don't see the faces between the blocks.
+- Chests: right-click opens one from any side; the lid opens while it's open, with chest sounds.
+  Hitting it breaks it and drops what was inside. Each half of a double chest has its own 27 slots.
+- Sitting: the hotbar hint reads "Sneak or jump to get up", and jumping gets you up.
+- Creative menu: Construction has a group per family (copper tiles, food crates and so on) holding
+  its stairs, slabs and walls. Doors, panes, bars, ladders and gates show flat icons; walls, fences
+  and posts show their sides, not a bare post.
+- Flower boxes: right-click with a flower or a fern adds up to three of one kind; an empty hand
+  takes one out. Book piles go 1, 2, 3, 4 books and back to 1 on each right-click.
+- Placing: stairs and slabs take the half you click; a sconce goes on a wall when you click a wall.
 
 ## Solo
 
