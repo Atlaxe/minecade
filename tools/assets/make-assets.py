@@ -13,6 +13,7 @@ Outputs:
     lobby/resource_pack/font/glyph_E3.png                                    icons drawn inside text (the player icon)
     editor/resource_pack/textures/minecade/editor/...                        the map editor's dark side menus and icons
     editor/resource_pack/textures/particle/outline.png                        the editor's outline dot (white, dark rim)
+    editor/resource_pack/textures/items/select_tool.png                       Select mode's tool (a crop mark)
     editor/resource_pack/textures/entity/editor_marker_facing.png            the red facing line on markers
     games/<id>/icon.png                                                      16:9 game pictures (Probe, Sumo)
 
@@ -509,6 +510,18 @@ def editor_icon(kind: str, color: tuple[int, int, int] = (255, 255, 255)) -> Ima
     return image.resize((16, 16), Image.Resampling.LANCZOS)
 
 
+def select_tool_icon() -> Image.Image:
+    """The Select tool's item icon, 16x16 like the other editor items: a crop mark (two interlocking L shapes, white and cyan)."""
+    image = Image.new("RGBA", (16, 16), (0, 0, 0, 0))
+    draw = ImageDraw.Draw(image)
+    white, cyan = (242, 239, 230, 255), (90, 210, 255, 255)
+    draw.rectangle((3, 1, 4, 12), fill=white)
+    draw.rectangle((3, 11, 14, 12), fill=white)
+    draw.rectangle((1, 3, 12, 4), fill=cyan)
+    draw.rectangle((11, 3, 12, 14), fill=cyan)
+    return image
+
+
 def outline_dot() -> Image.Image:
     """The editor's outline dot, 4x4: a white middle (the particle tints it) and a black rim that tinting leaves black."""
     image = Image.new("RGBA", (4, 4), (0, 0, 0, 255))
@@ -627,6 +640,7 @@ def main() -> None:
         save(editor_icon(kind), EDITOR_TEXTURES / "minecade" / "editor" / f"icon_{name}.png")
     save(editor_icon("check", (110, 220, 90)), EDITOR_TEXTURES / "minecade" / "editor" / "icon_check_done.png")
     save(outline_dot(), EDITOR_TEXTURES / "particle" / "outline.png")
+    save(select_tool_icon(), EDITOR_TEXTURES / "items" / "select_tool.png")
     save(editor_switch(True), EDITOR_TEXTURES / "minecade" / "editor" / "switch_on.png")
     save(editor_switch(False), EDITOR_TEXTURES / "minecade" / "editor" / "switch_off.png")
     for state, color in (("default", (255, 255, 255)), ("hover", (235, 64, 64)), ("pressed", (160, 30, 30))):

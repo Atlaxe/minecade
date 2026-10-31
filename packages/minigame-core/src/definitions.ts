@@ -50,10 +50,14 @@ export {
   parseEditorEvent,
   parseHostMessage,
   splitConfig,
+  type EditInfo,
   type EditorEvent,
   type EditorInfo,
   type EditorRules,
+  type ExtractInfo,
   type HostMessage,
+  type SelectInfo,
+  type SelectionInfo,
 } from "./editor-protocol.ts";
 export {
   BADGE_CHARACTERS,

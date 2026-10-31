@@ -6,6 +6,7 @@ import { COLUMNS, LAYOUT, MARK, dangerText, headingText, mapTitle, sideTitle, sw
 import {
   ICONS,
   checklistBody,
+  mapActions,
   killYSettings,
   mapMenuBody,
   mapMenuEntries,
@@ -13,7 +14,10 @@ import {
   parseSetting,
   regionSettings,
   rowText,
+  selectMenuBody,
+  selectMenuEntries,
   spawnSettings,
+  statusLine,
   type MapMenuView,
 } from "../behavior_pack/scripts/menu.ts";
 import { regionEntries } from "../behavior_pack/scripts/regions.ts";
@@ -157,5 +161,42 @@ describe("layouts", () => {
   it("never lets one mark read as another", () => {
     const marks = [...Object.values(MARK), ...COLUMNS];
     for (const mark of marks) for (const other of marks) if (mark !== other) expect(other.includes(mark)).toBe(false);
+  });
+});
+
+describe("Select mode's map menu", () => {
+  const box = { min: [96, -64, -80] as [number, number, number], max: [207, 0, 47] as [number, number, number] };
+  const ready = { target: "sumo", targetName: "Sumo", map: "castle", name: "Castle", box, status: "ready" as const };
+  const failed = { ...ready, map: "keep", name: "Keep", status: "failed" as const, error: "Chunker stopped" };
+
+  it("has the Select tool, the selection's actions, then the maps from the world", () => {
+    const entries = selectMenuEntries({ world: "Arenas", toolOut: true, selection: { box, steps: 1 }, maps: [ready, failed] });
+    expect(entries.map((entry) => entry.action)).toEqual([
+      { kind: "tool", tool: "select" },
+      { kind: "none" },
+      { kind: "pick", action: "saveMap" },
+      { kind: "pick", action: "nudge" },
+      { kind: "pick", action: "back" },
+      { kind: "pick", action: "clear" },
+      { kind: "none" },
+      { kind: "map", target: "sumo", map: "castle" },
+      { kind: "map", target: "sumo", map: "keep" },
+    ]);
+    expect(entries[0].text).toBe(`${MARK.tool}${COLUMNS[0]}${MARK.on}Select tool\n§7box a map to cut out`);
+    expect(entries[1].text).toBe(headingText("Selection: 112 x 65 x 128"));
+    expect(entries.at(-2)?.text).toBe("Castle (castle)\n§7Sumo: §aready: tap to edit it");
+    expect(selectMenuEntries({ world: "Arenas", toolOut: false, maps: [] }).map((entry) => entry.text)).toEqual([
+      `${MARK.tool}${COLUMNS[0]}Select tool\n§7box a map to cut out`,
+      headingText("No maps from this world yet"),
+    ]);
+  });
+
+  it("says how each extraction is going, and offers what fits", () => {
+    expect(statusLine({ ...ready, status: "extracting" })).toBe("§ebeing cut out...");
+    expect(mapActions(ready).map((entry) => entry.action)).toEqual(["edit", "update", "forget"]);
+    expect(mapActions(ready)[1].text).toContain(MARK.danger);
+    expect(mapActions(failed).map((entry) => entry.action)).toEqual(["retry", "forget"]);
+    expect(mapActions({ ...ready, status: "queued" })).toEqual([]);
+    expect(selectMenuBody("Arenas", false)).toBe('Select mode on "Arenas"\n\n§fPick the Select tool above.');
   });
 });

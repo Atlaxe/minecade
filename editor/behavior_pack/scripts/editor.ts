@@ -2,7 +2,7 @@
 // the markers (the region and Kill Y tools have their own files, and get what they need through a
 // ToolHost). A change shows here at once and goes to the host (tools/editor), which writes
 // map.json and answers; MapState keeps the two copies in step. Save asks the host to save the
-// world into the map while it runs. Map editors (EditorInfo.editors) get the tools; everyone else
+// world into the map while it runs. Map editors (EditInfo.editors) get the tools; everyone else
 // builds in creative. Every control is a hit, a use or a form, never sneaking: players fly in
 // creative, and sneaking while flying flies down.
 import {
@@ -27,7 +27,7 @@ import {
   mapChecklist,
   mapTimeTicks,
   showForm,
-  type EditorInfo,
+  type EditInfo,
   type HostMessage,
   type MapConfig,
   type MapEdit,
@@ -37,6 +37,7 @@ import {
 import { KillYTool } from "./kill-y-tool.ts";
 import { HostLink } from "./link.ts";
 import { Outlines } from "./outlines.ts";
+import { outlineBoxes } from "./regions.ts";
 import { RegionTool } from "./region-tool.ts";
 import { actionBar, heldTool, hintBar, type ToolHost } from "./tool-host.ts";
 import { blockPosition, compass, markerSpecs, snapFacing, SNAPS, spawnLists, type MarkerSpec, type SpawnList } from "./lists.ts";
@@ -44,11 +45,11 @@ import { MapState } from "./map-state.ts";
 import { MARKER, Markers } from "./markers.ts";
 import { dangerText, mapTitle, sideTitle } from "./marks.ts";
 import { checklistBody, mapMenuBody, mapMenuEntries, markReadyText, parseSetting, rowText, type MenuAction, type SpawnSettings } from "./menu.ts";
-import { EDITOR_TOOLS, toolOf, type EditorTool, type ToolId } from "./tools.ts";
+import { EDITOR_TOOLS, SELECT_TOOL, toolOf, type EditorTool, type ToolId } from "./tools.ts";
 
 const MAP_MENU = "minecade:map_menu";
 /** Every editor item: builders never keep one, and none breaks the block it hits. */
-const TOOLS = new Set([MAP_MENU, ...EDITOR_TOOLS.map((tool) => tool.item)]);
+const TOOLS = new Set([MAP_MENU, ...EDITOR_TOOLS.map((tool) => tool.item), SELECT_TOOL.item]);
 /** The map menu's hotbar slot (0-based): the last one, slot 9 on screen. */
 const MENU_SLOT = 8;
 /** Where a tool goes when it's picked: slot 1 on screen, never locked. */
@@ -68,7 +69,7 @@ type MarkerAction = "move" | "face" | "unface" | "list" | "number" | "delete";
 
 export class Editor {
   private readonly scope: Scope;
-  private readonly info: EditorInfo;
+  private readonly info: EditInfo;
   private readonly state: MapState;
   private readonly link: HostLink;
   private readonly markers: Markers;
@@ -84,7 +85,7 @@ export class Editor {
   /** When block changes were last reported to the host, in ticks. */
   private changedAt = -CHANGED_TICKS;
 
-  constructor(scope: Scope, info: EditorInfo, map: MapConfig) {
+  constructor(scope: Scope, info: EditInfo, map: MapConfig) {
     this.scope = scope;
     this.info = info;
     this.state = new MapState(map);
@@ -113,7 +114,19 @@ export class Editor {
     };
     this.regionTool = new RegionTool(scope, host);
     this.killYTool = new KillYTool(host);
-    new Outlines(scope, { ...host, selection: (player) => this.regionTool.selectionOf(player) }, ["region", "killY"]);
+    new Outlines(
+      scope,
+      {
+        isEditor: (player) => this.isEditor(player),
+        selection: (player) => this.regionTool.selectionOf(player),
+        boxes: () => outlineBoxes(this.state.current, info.rules),
+        killY: () => {
+          const y = this.state.current.killY;
+          return typeof y === "number" ? { y, over: this.state.current.bounds } : undefined;
+        },
+      },
+      ["region", "killY"],
+    );
   }
 
   start(): void {
@@ -307,7 +320,7 @@ export class Editor {
       if (!tool || !this.isEditor(player)) continue;
       if (tool === "spawn") hintBar(player, this.spawnHint(player));
       else if (tool === "region") hintBar(player, this.regionTool.hint(player));
-      else hintBar(player, this.killYTool.hint(player));
+      else if (tool === "killY") hintBar(player, this.killYTool.hint(player));
     }
   }
 
@@ -493,16 +506,25 @@ export class Editor {
 
   /** The gear: the map's name and game settings, and dropping its build commands. */
   private async settingsMenu(player: Player): Promise<void> {
-    const build = this.state.current.build !== undefined;
+    const actions: ("settings" | "select" | "dropBuild")[] = ["settings"];
     const form = new ActionFormData()
       .title(sideTitle("Map settings"))
       .body(`${this.state.current.name} (${this.info.map}), ${this.info.targetName}`)
       .button("Name and game settings\n§7the map's name, and the game's own settings");
-    if (build) form.button(dangerText("Drop build commands\n§7keep block changes made here"));
+    if (this.info.from) {
+      actions.push("select");
+      form.button(`Back to Select\n§7box more maps in "${this.info.from}"`);
+    }
+    if (this.state.current.build !== undefined) {
+      actions.push("dropBuild");
+      form.button(dangerText("Drop build commands\n§7keep block changes made here"));
+    }
     const response = await this.show(player, form);
-    if (response?.selection === undefined || !player.isValid) return;
-    if (response.selection === 0) return this.settingsForm(player);
-    if (build) return this.dropBuild(player);
+    const action = response?.selection === undefined ? undefined : actions[response.selection];
+    if (!action || !player.isValid) return;
+    if (action === "settings") return this.settingsForm(player);
+    if (action === "dropBuild") return this.dropBuild(player);
+    this.link.send({ t: "switch", by: player.name, to: "select" });
   }
 
   private async settingsForm(player: Player): Promise<void> {

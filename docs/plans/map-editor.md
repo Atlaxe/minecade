@@ -502,6 +502,25 @@ box being edited and of the bounds (stand-in for the colored boundary blocks).
 - The extraction's temporary BDS loads the shared block pack too, and a check like the spike's
   confirms that pruning and moving keep custom blocks, on a world that uses them.
 
+*Done 2026-10-30. Where it differs from the design above:*
+- The Select tool works like the region tool (the user's choice in 10.4): a hit starts a box, uses
+  on blocks grow it, a use at the sky opens its form. "Save as map" asks for the target, the name and
+  the map id (empty: made from the name).
+- The first spawn is where the player stands when they save (the user's choice), moved with the
+  map; saving from outside the box is refused.
+- Both switches exist: Edit <map> from Select, and Back to Select from Edit (the gear, and the
+  Panel) for a map whose world is on this PC (the user's choice). The Panel's world picker also
+  switches a running editor to another world.
+- The extraction's server runs the editor pack in a third mode (extract), not a separate pack.
+  Ticking areas load a whole phase at once when it fits the limit (300 chunks), and wait 2 s after
+  removing areas: an area next to still-unloading chunks never finished loading. On build B of
+  "Datapacking (imported)" the extracted map's fingerprint matches the original exactly, in about
+  20 s.
+- The custom blocks check used a stand-in block in a test-only pack (the user's choice: their
+  Bedrock pack isn't built yet). It survived both prunes and the move; rerun it with the real
+  blocks once they land in `packs/blocks/`.
+- Each world's list lives in `work/select/<world>.json`; there's no Shrink to build yet (10.8).
+
 **10.6 Preview:** `DEV_LIVE_MAPS`, Preview with the return to the editor, Preview as lobby, and
 both in the Panel.
 

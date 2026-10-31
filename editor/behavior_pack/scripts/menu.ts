@@ -2,12 +2,12 @@
 // The map menu has its own layout (resource_pack/ui/editor_forms.json, picked by LAYOUT.map): the
 // quick icons (the checklist pill, Undo, Redo, Map settings), the tool grid, the picked tool's
 // settings (scrolling) and a green Save bar. Each button's mark (marks.ts) says where it goes.
-import { listOf, type Box, type Checklist, type ChecklistRow, type MapConfig } from "@minecade/minigame-core/config";
+import { listOf, type Box, type Checklist, type ChecklistRow, type MapConfig, type SelectionInfo } from "@minecade/minigame-core/config";
 import { sizeText } from "./boxes.ts";
 import { SNAPS, type Snap, type SpawnList } from "./lists.ts";
 import { COLUMNS, MARK, dangerText, headingText, switchText } from "./marks.ts";
 import { selectionActions, type RegionEntry, type SelectionAction } from "./regions.ts";
-import { EDITOR_TOOLS, type ToolId } from "./tools.ts";
+import { EDITOR_TOOLS, SELECT_TOOL, type ToolId } from "./tools.ts";
 
 /** The quick icons' pictures (editor/resource_pack/textures/minecade/editor/). */
 export const ICONS = {
@@ -33,7 +33,14 @@ export type MenuAction =
   | { kind: "box"; key: string }
   | { kind: "typeKillY" }
   | { kind: "removeKillY" }
-  | { kind: "save" };
+  | { kind: "save" }
+  /** Select mode: something to do with the selection. */
+  | { kind: "pick"; action: PickAction }
+  /** Select mode: a map from this world (its own menu). */
+  | { kind: "map"; target: string; map: string };
+
+/** What Select mode's selection offers. */
+export type PickAction = "saveMap" | "nudge" | "back" | "clear";
 
 export interface MenuEntry {
   action: MenuAction;
@@ -181,4 +188,80 @@ function progress(checklist: Checklist): { done: number; total: number } {
 function problemCount(checklist: Checklist): string {
   const count = checklist.problems.length;
   return count === 0 ? "ready" : `${count} problem${count === 1 ? "" : "s"}`;
+}
+
+// ---- Select mode ------------------------------------------------------------------------------
+
+export interface SelectMenuView {
+  world: string;
+  /** The Select tool is out. */
+  toolOut: boolean;
+  selection?: { box: Box; steps: number };
+  maps: SelectionInfo[];
+}
+
+/** Select mode's map menu: the Select tool, the selection's actions, then the maps from this world. */
+export function selectMenuEntries(view: SelectMenuView): MenuEntry[] {
+  const entries: MenuEntry[] = [
+    {
+      action: { kind: "tool", tool: SELECT_TOOL.id },
+      text: `${MARK.tool}${COLUMNS[0]}${view.toolOut ? MARK.on : ""}${SELECT_TOOL.label}\n§7${SELECT_TOOL.hint}`,
+      icon: SELECT_TOOL.icon,
+    },
+  ];
+  if (view.selection) {
+    entries.push(
+      { action: { kind: "none" }, text: headingText(`Selection: ${sizeText(view.selection.box)}`) },
+      { action: { kind: "pick", action: "saveMap" }, text: "Save as map...\n§7cut it out as a new map" },
+      { action: { kind: "pick", action: "nudge" }, text: "Nudge sides" },
+    );
+    if (view.selection.steps > 0) entries.push({ action: { kind: "pick", action: "back" }, text: "Back one step" });
+    entries.push({ action: { kind: "pick", action: "clear" }, text: dangerText("Clear selection") });
+  }
+  entries.push({ action: { kind: "none" }, text: headingText(view.maps.length > 0 ? `Maps from this world (${view.maps.length})` : "No maps from this world yet") });
+  for (const map of view.maps) {
+    entries.push({ action: { kind: "map", target: map.target, map: map.map }, text: `${map.name} (${map.map})\n§7${map.targetName}: ${statusLine(map)}` });
+  }
+  return entries;
+}
+
+/** The text over Select mode's settings: the world, then how to use the Select tool. */
+export function selectMenuBody(world: string, toolOut: boolean): string {
+  return `Select mode on "${world}"\n\n§f${toolOut ? SELECT_TOOL.howTo : "Pick the Select tool above."}`;
+}
+
+/** How a map's extraction is going, in a few words. */
+export function statusLine(map: SelectionInfo): string {
+  switch (map.status) {
+    case "queued":
+      return "§equeued";
+    case "extracting":
+      return "§ebeing cut out...";
+    case "updating":
+      return "§ebeing updated...";
+    case "ready":
+      return "§aready: tap to edit it";
+    case "failed":
+      return "§cfailed: tap for why";
+  }
+}
+
+export type MapAction = "edit" | "update" | "retry" | "forget";
+
+/** What a map from this world offers in its own menu, by its status. */
+export function mapActions(map: SelectionInfo): { action: MapAction; text: string }[] {
+  if (map.status === "ready") {
+    return [
+      { action: "edit", text: `Edit ${map.map}\n§7the editor restarts on it: rejoin after about 30 s` },
+      { action: "update", text: dangerText("Update from this world\n§7redo its blocks; changes made in Edit are lost") },
+      { action: "forget", text: "Forget\n§7take it off this list; the map stays" },
+    ];
+  }
+  if (map.status === "failed") {
+    return [
+      { action: "retry", text: "Try again" },
+      { action: "forget", text: dangerText("Forget\n§7take it off this list") },
+    ];
+  }
+  return [];
 }

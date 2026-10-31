@@ -8,6 +8,8 @@ describe("parseArgs", () => {
     expect(parseArgs(["sumo", "test", "--new", "--verbose"])).toMatchObject({ command: "edit", fresh: true, verbose: true });
     expect(parseArgs(["stop"])).toEqual({ command: "stop" });
     expect(parseArgs(["save"])).toEqual({ command: "save" });
+    expect(parseArgs(["select", "Datapacking", "(imported)"])).toEqual({ command: "select", world: "Datapacking (imported)", verbose: false });
+    expect(parseArgs(["select"])).toMatchObject({ command: "help", error: expect.stringContaining("select needs a world") });
     expect(parseArgs([])).toEqual({ command: "help" });
   });
 

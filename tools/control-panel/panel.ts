@@ -13,7 +13,8 @@ import { dirname, join } from "node:path";
 import { createInterface } from "node:readline";
 import { fileURLToPath } from "node:url";
 import type Docker from "dockerode";
-import { editorStatus, saveEditor, stopEditor } from "../editor/control.ts";
+import { editorStatus, saveEditor, selectionAction, stopEditor, switchEditor } from "../editor/control.ts";
+import { clientWorlds } from "../editor/worlds.ts";
 import { parseArgs as parseEditorArgs, type EditorStatus } from "../editor/editor-core.ts";
 import {
   checkLobbyMap,
@@ -229,7 +230,7 @@ async function editorTargets() {
 }
 
 /** A start the Panel asked for, until the editor answers on its control port (or gives up). */
-let editorLaunch: { at: number; target: string; map: string } | null = null;
+let editorLaunch: { at: number } | null = null;
 
 /** The running editor's status, a start in progress, or the last run's log when none is running. */
 async function editorState(): Promise<{ status: EditorStatus | null; launching: boolean; log: string[] }> {
@@ -291,6 +292,7 @@ async function buildState() {
     lobbyMaps: await lobbyMaps(),
     editor: await editorState(),
     editorTargets: await editorTargets(),
+    editorWorlds: await clientWorlds().catch(() => []),
   };
 }
 
@@ -509,6 +511,26 @@ async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> 
     void refresh();
     return sendJson(res, result.status, result.body);
   }
+  if (path === "/api/editor/select") {
+    const result = await selectWorld(body);
+    void refresh();
+    return sendJson(res, result.status, result.body);
+  }
+  if (path === "/api/editor/switch") {
+    const target = String(body.target ?? "");
+    const map = String(body.map ?? "");
+    const result = await switchEditor({ mode: "edit", target, map });
+    if (result.ok) note(`Map editor: switching to Edit on ${target}/${map} (players rejoin after about 30 seconds)...`);
+    void refresh();
+    return sendJson(res, result.ok ? 202 : 409, result.ok ? { ok: true } : { error: result.error });
+  }
+  if (path === "/api/editor/selection") {
+    const action = body.action;
+    if (action !== "retry" && action !== "forget" && action !== "update") return sendJson(res, 400, { error: "action must be retry, forget or update" });
+    const result = await selectionAction({ action, target: String(body.target ?? ""), map: String(body.map ?? "") });
+    void refresh();
+    return sendJson(res, result.ok ? 202 : 409, result.ok ? { ok: true } : { error: result.error });
+  }
   if (path === "/api/editor/save") {
     if (!(await saveEditor())) return sendJson(res, 409, { error: "no map editor is running" });
     note("Map editor: saving the world into the map...");
@@ -543,12 +565,40 @@ async function startEditor(body: Record<string, unknown>): Promise<{ status: num
   const exists = choice.maps.some((candidate) => candidate.id === map);
   if (fresh && exists) return { status: 409, body: { error: `${choice.name} already has a map "${map}"` } };
   if (!fresh && !exists) return { status: 404, body: { error: `${choice.name} has no map "${map}"` } };
-  if (editorLaunch || (await editorStatus(500))) return { status: 409, body: { error: "a map editor is already running" } };
+  if (editorLaunch) return { status: 409, body: { error: "a map editor is starting already" } };
+  if (await editorStatus(500)) {
+    // One is running: it restarts on this map (a new map needs a fresh start).
+    if (fresh) return { status: 409, body: { error: "a map editor is running: stop it before making a new map" } };
+    const result = await switchEditor({ mode: "edit", target, map });
+    if (result.ok) note(`Map editor: switching to ${choice.name}, ${map} (players rejoin after about 30 seconds)...`);
+    return result.ok ? { status: 202, body: { ok: true } } : { status: 409, body: { error: result.error } };
+  }
+  return launchEditor([target, map, ...(fresh ? ["--new"] : [])], `${choice.name}, ${map}${fresh ? " (new)" : ""}`);
+}
+
+/**
+ * Select mode on a world (its name in Minecraft, a folder or a .mcworld file): starts the editor,
+ * or, when one is running, switches it to that world.
+ */
+async function selectWorld(body: Record<string, unknown>): Promise<{ status: number; body: unknown }> {
+  const world = String(body.world ?? "").trim();
+  if (!world) return { status: 400, body: { error: "pick a world" } };
+  if (editorLaunch) return { status: 409, body: { error: "a map editor is starting already" } };
+  if (await editorStatus(500)) {
+    const result = await switchEditor({ mode: "select", world });
+    if (result.ok) note(`Map editor: switching to Select mode on "${world}" (players rejoin after about 30 seconds)...`);
+    return result.ok ? { status: 202, body: { ok: true } } : { status: 409, body: { error: result.error } };
+  }
+  return launchEditor(["select", world], `Select mode on "${world}"`);
+}
+
+/** Starts the editor process with these arguments; it keeps running after the Panel closes. */
+function launchEditor(args: string[], label: string): { status: number; body: unknown } {
   if (dockerState !== "running") return { status: 409, body: { error: "Docker is not running" } };
   mkdirSync(dirname(editorLogPath), { recursive: true });
   const out = openSync(editorLogPath, "w");
   try {
-    const child = spawn(process.execPath, ["--import", "tsx", join("tools", "editor", "editor.ts"), target, map, ...(fresh ? ["--new"] : [])], {
+    const child = spawn(process.execPath, ["--import", "tsx", join("tools", "editor", "editor.ts"), ...args], {
       cwd: repoRoot,
       detached: true,
       stdio: ["ignore", out, out],
@@ -561,8 +611,8 @@ async function startEditor(body: Record<string, unknown>): Promise<{ status: num
   } finally {
     closeSync(out);
   }
-  editorLaunch = { at: Date.now(), target, map };
-  note(`Map editor: starting ${choice.name}, ${map}${fresh ? " (new)" : ""}...`);
+  editorLaunch = { at: Date.now() };
+  note(`Map editor: starting ${label}...`);
   return { status: 202, body: { ok: true } };
 }
 

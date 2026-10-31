@@ -17,10 +17,7 @@ const FLAT_GENERATOR = 2;
  * spread, and the world spawn at the first spawn point. Beta APIs are left to the build.
  */
 export function bakeSettings(dat: LevelDat, map: MapConfig): void {
-  const layers = parseLayers(getTag(dat, "FlatWorldLayers"));
-  layers.block_layers = [{ block_name: "minecraft:air", count: 1 }];
-  setTag(dat, "Generator", nbt.int(FLAT_GENERATOR) as Tag);
-  setTag(dat, "FlatWorldLayers", nbt.string(JSON.stringify(layers)) as Tag);
+  voidGenerator(dat);
   for (const rule of GAMERULES_OFF) setTag(dat, rule, nbt.byte(0) as Tag);
   setTag(dat, "spawnradius", nbt.int(0) as Tag);
   setTag(dat, "Time", nbt.long([0, BAKE_TIME]) as Tag);
@@ -28,6 +25,14 @@ export function bakeSettings(dat: LevelDat, map: MapConfig): void {
   setTag(dat, "SpawnX", nbt.int(Math.floor(x)) as Tag);
   setTag(dat, "SpawnY", nbt.int(Math.floor(y)) as Tag);
   setTag(dat, "SpawnZ", nbt.int(Math.floor(z)) as Tag);
+}
+
+/** Only the void generator: chunks that don't exist yet generate empty (Select mode's copy of a world). */
+export function voidGenerator(dat: LevelDat): void {
+  const layers = parseLayers(getTag(dat, "FlatWorldLayers"));
+  layers.block_layers = [{ block_name: "minecraft:air", count: 1 }];
+  setTag(dat, "Generator", nbt.int(FLAT_GENERATOR) as Tag);
+  setTag(dat, "FlatWorldLayers", nbt.string(JSON.stringify(layers)) as Tag);
 }
 
 /** Names the bake settings that BDS changed while the world was running. Empty if none. */

@@ -5,32 +5,14 @@
 // the same, and lists the map's boxes to edit, nudge, visit or delete.
 import { world, type Block, type Player } from "@minecraft/server";
 import { ActionFormData, ModalFormData } from "@minecraft/server-ui";
-import type { Box, MapEdit, Scope, Vec3 } from "@minecade/minigame-core";
-import { blockBox, describeBox, floorAt, growBox, nudgeBox, sameBox, sizeText, topCenter, type Sides } from "./boxes.ts";
+import type { Box, MapEdit, Scope } from "@minecade/minigame-core";
+import { blockInView, change, keyOf, nudgeForm, xyz, type Picking } from "./box-picker.ts";
+import { blockBox, describeBox, floorAt, growBox, sameBox, sizeText, topCenter } from "./boxes.ts";
 import { dangerText, sideTitle } from "./marks.ts";
 import { entryBox, regionEntries, regionLabel, regionName, regionTargets, selectionActions, type RegionEntry, type SelectionAction } from "./regions.ts";
 import { actionBar, heldTool, type ToolHost } from "./tool-host.ts";
 
-/** How far a use reaches to grow the selection, in blocks. */
-const REACH = 64;
-/** How many steps Back one step can go. */
-const HISTORY = 50;
-/** How far one nudge can move a side, in blocks. */
-const NUDGE = 16;
-
-const SIDES: [keyof Sides, string][] = [
-  ["west", "West side (x -). Above 0 moves a side out, below 0 in"],
-  ["east", "East side (x +)"],
-  ["down", "Bottom"],
-  ["up", "Top"],
-  ["north", "North side (z -)"],
-  ["south", "South side (z +)"],
-];
-
-interface Selection {
-  box: Box;
-  /** Earlier boxes, newest last, for Back one step. */
-  history: Box[];
+interface Selection extends Picking {
   /** The saved box this one was loaded from or saved as: Save changes writes it back. */
   editing?: RegionEntry;
 }
@@ -87,7 +69,7 @@ export class RegionTool {
 
   /** A use: grows the selection to the block in view, or opens the region form when there's none in reach. */
   async use(player: Player): Promise<void> {
-    const block = player.getBlockFromViewDirection({ maxDistance: REACH, includeLiquidBlocks: true, includePassableBlocks: true })?.block;
+    const block = blockInView(player);
     const selection = this.selections.get(keyOf(player));
     if (!block) {
       if (selection) await this.selectionForm(player);
@@ -138,7 +120,7 @@ export class RegionTool {
       case "saveAs":
         return this.saveAs(player, selection);
       case "nudge": {
-        const box = await this.nudge(player, selection.box, "Nudge the selection");
+        const box = await nudgeForm(this.host, player, selection.box, "Nudge the selection");
         if (!box || sameBox(box, selection.box) || this.selections.get(keyOf(player)) !== selection) return;
         change(selection, box);
         actionBar(player, `Selection: ${describeBox(box)}`);
@@ -198,7 +180,7 @@ export class RegionTool {
         this.host.tell(player, `${entry.label} is in your selection. Change it with the region tool, then use the tool at the air and choose Save changes.`);
         return;
       case "nudge": {
-        const box = await this.nudge(player, entry.box, `Nudge ${entry.label}`);
+        const box = await nudgeForm(this.host, player, entry.box, `Nudge ${entry.label}`);
         if (!box || sameBox(box, entry.box) || !player.isValid || !this.unchanged(player, entry)) return;
         if (!this.host.edit(player, saveEdit(entry, box), `${entry.label} nudged: ${describeBox(box)}.`)) return;
         // Their own selection of this box follows it.
@@ -269,20 +251,6 @@ export class RegionTool {
     }
   }
 
-  /** Asks how far to move each side; the moved box, or undefined (and a message) when it doesn't work. */
-  private async nudge(player: Player, box: Box, title: string): Promise<Box | undefined> {
-    const form = new ModalFormData().title(title);
-    for (const [, label] of SIDES) form.slider(label, -NUDGE, NUDGE, { valueStep: 1, defaultValue: 0 });
-    form.submitButton("Nudge");
-    const response = await this.host.show(player, form);
-    const values = response?.formValues;
-    if (!values || !player.isValid) return undefined;
-    const sides = Object.fromEntries(SIDES.map(([side], i) => [side, Number(values[i]) || 0])) as unknown as Sides;
-    const nudged = nudgeBox(box, sides);
-    if (!nudged) this.host.tell(player, "§cThat would turn the box inside out: a side can't pass the one across from it.");
-    return nudged;
-  }
-
   /** True when the map still has this entry's box where it was. */
   private current(entry: RegionEntry): boolean {
     const box = entryBox(this.host.map(), entry);
@@ -300,19 +268,4 @@ export class RegionTool {
 /** The edit that writes `box` over a saved entry. */
 function saveEdit(entry: RegionEntry, box: Box): MapEdit {
   return entry.region ? { op: "setRegion", name: entry.region.name, index: entry.region.index, box } : { op: "bounds", box };
-}
-
-/** Moves a selection to a new box, keeping the old one for Back one step. */
-function change(selection: Selection, box: Box): void {
-  selection.history.push(selection.box);
-  if (selection.history.length > HISTORY) selection.history.shift();
-  selection.box = box;
-}
-
-function xyz(block: Block): Vec3 {
-  return [block.location.x, block.location.y, block.location.z];
-}
-
-function keyOf(player: Player): string {
-  return player.name.toLowerCase();
 }

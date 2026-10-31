@@ -1,23 +1,40 @@
 # Map editor
 
-The map editor is a Bedrock server on port 19134 where you set a map's data in game: spawns, the
-spectator spawn, named points, the bounds, kill Y and regions, with a checklist of what the map's
-game still needs. Every change goes straight into the map's `map.json`. This page covers Edit mode
-as it is today; Select mode (cutting maps out of a converted world) and Preview come in later passes
-of milestone 10 (see `docs/plans/map-editor.md`).
+The map editor is a Bedrock server on port 19134 with two modes:
+
+- **Select mode** cuts maps out of a world you converted from Java: box a build, and it's moved to
+  the middle and saved as a new draft map in the background.
+- **Edit mode** sets a map's data in game: spawns, the spectator spawn, named points, the bounds,
+  kill Y and regions, with a checklist of what the map's game still needs. Every change goes
+  straight into the map's `map.json`.
+
+Preview comes in a later pass of milestone 10 (see `docs/plans/map-editor.md`).
 
 ## Starting and stopping
 
-From the Panel: open **Map editor**, pick the lobby or a game, pick a map (or **New map...** and
-type an id), and press **Start**. The page shows when it's ready to join, who is online, the
-checklist and the editor's log. **Save** saves the world into the map while the editor runs.
-**Stop** saves and stops it. Closing the Panel doesn't stop the editor.
+From the Panel: open **Map editor**.
+
+- **Edit:** pick the lobby or a game, pick a map (or **New map...** and type an id), and press
+  **Start**. The page shows when it's ready to join, who is online, the checklist and the editor's
+  log. **Save** saves the world into the map while the editor runs.
+- **Select:** under **Select mode**, pick a world from the list (the worlds in Minecraft's worlds
+  folder, by the name the game shows) or type a world folder or `.mcworld` file, and press **Open in
+  Select**.
+
+**Stop** stops the editor (Edit saves first). Closing the Panel doesn't stop the editor.
+
+**Switching** while the editor runs: **Open in Select** (it reads **Switch to this world** then)
+restarts the editor in Select mode on the world you pick, **Start** or a map's **Edit** restarts it
+in Edit mode on that map, and **Back to Select** goes back to the world the map came from. Edit
+saves first. Everyone on the editor rejoins after about 30 seconds.
 
 From a terminal:
 
 ```
 npm run editor -- <target> <map>          for example: npm run editor -- sumo arena_1
 npm run editor -- <target> <map> --new    a new draft map: a void world with a glass pad
+npm run editor -- select "<world>"        Select mode: the world's name in Minecraft, its folder,
+                                          or a .mcworld file
 npm run editor -- status                  what the running editor is doing
 npm run editor -- save                    save its world into the map now
 npm run editor -- stop                    stop it (it saves first)
@@ -42,6 +59,51 @@ The Panel's server runs the code it opened with, but it reads its page from disk
 so an old Panel can show the new **Map editor** page while its server can't start the editor (Start
 does nothing, or says "not found"). After an update to the Panel, close every Panel window, wait
 about 20 seconds for it to exit, and open it again.
+
+## Select mode: cutting maps out of a world
+
+Build maps in Java, convert the world to Bedrock with Chunker (as before), then open it in Select
+mode. The editor runs on a copy, so your world is never changed. The copy gets the void generator,
+so flying past the converted area grows no new land.
+
+**In game,** map editors get the **Select tool** (slot 1) and the map menu (slot 9):
+
+- **Hit a block** to start a box there. **Use the tool on blocks** (up to 64 away) to grow the box
+  to them. **Use it at the sky** for the selection's form: **Save as map...**, Nudge sides, Back one
+  step, and Clear (red). The line above the hotbar says what a hit and a use do, and the box's size.
+- **Save as map:** stand inside the box (where you stand becomes the map's first spawn), then pick
+  what the map is for (the lobby or a game), its name, and its map id (left empty, it's made from the
+  name: "Castle Keep" is `castle_keep`). An id the game has already is refused.
+- **The map is cut out in the background,** one at a time, so you can box the next map meanwhile.
+  It takes about 20 seconds for a 112 x 65 x 128 build.
+- **Outlines** (while you hold the Select tool): your box in yellow, and every map from this world,
+  green once it's ready, white while it's queued or being cut out, red when it failed.
+- **The map menu** lists the maps from this world with how each is going:
+  - **Ready:** **Edit <map>** (the editor restarts on it in Edit mode; rejoin after about 30
+    seconds), **Update from this world** (red: cuts it out again and replaces its blocks; spawns,
+    regions and the rest of `map.json` stay, and block changes made in Edit are lost), and
+    **Forget** (takes it off this list; the map stays).
+  - **Failed:** why, then **Try again** or **Forget**.
+  - The Panel's Select mode card lists the same, with the same buttons.
+
+**What a new map gets:**
+
+- `maps/<id>/world`: the box moved so its middle sits at x 0, z 0 (heights stay), and nothing else.
+  Neighboring builds that spill into the same chunks are cleared.
+- A draft `map.json` with its name, `"draft": true`, the first spawn (where you stood, moved with
+  the map), the bounds (the moved box) and `source` (the world, the box and the offset). Drafts are
+  left out of the build until they're marked ready, so the build keeps passing.
+
+**Back to Select:** in Edit mode, the map menu's gear has **Back to Select** for a map that came
+from a world on this PC, so you can go back and box more. The Panel has the same button.
+
+**Each world's list** is kept in `work/select/<world>.json` (ignored by git), so it's there when
+you open the world again. Maps in the repo whose `source` names the world join its list, ready.
+Extractions carry on across switches, and stopping the editor waits for them to finish.
+
+**Custom blocks:** the extraction's server loads the shared block pack (`packs/blocks/`), so maps
+that use custom blocks keep them. This was checked with a stand-in custom block; check it again
+with the real blocks once they're in `packs/blocks/`.
 
 ## Who can join, and who gets the tools
 
@@ -164,8 +226,8 @@ screen.
   the copies down, but on BDS 1.26 a log's listed length is from before the save wrote the chunks:
   a copy cut to it lost the blocks placed before the save, while the whole copy kept them (and
   not ones placed after `save resume`).
-- The host answers on `127.0.0.1:8097` (`GET /status`, `POST /save`, `POST /stop`), which the Panel
-  and `npm run editor -- status | save | stop` use. When the Panel starts the editor, its output
+- The host answers on `127.0.0.1:8097` (`GET /status`, `POST /save`, `POST /stop`, `POST /switch`,
+  `POST /selection`), which the Panel and `npm run editor -- status | save | stop` use. When the Panel starts the editor, its output
   goes to `work/editor/editor.log`.
 - **The menus** are classic forms themed by the editor's resource pack, like the lobby's menus
   (`docs/ui.md`). A title starting with a layout mark (`LAYOUT` in
@@ -183,6 +245,28 @@ screen.
   the `facing` bone), drawn glowing with the hologram's additive material. The marker spawns turned
   to the entry's yaw, so the line (the model's front) points that way, and a client-synced property
   tilts it by the pitch. A marker whose facing changes is placed again.
+- **Extraction** (`tools/editor/extract.ts`, queued by `selections.ts`):
+  1. Chunker (`minecade/chunker:local`, `tools/editor/chunker.ts`) prunes a copy of the world to the
+     box's chunks.
+  2. A throwaway BDS, `minecade-extract` (no ports, no players), runs the editor pack in extract
+     mode (`scripts/extractor.ts`). It captures the box in 64x64 columns (the biggest structure
+     allowed), clears every chunk the box touches, places the columns at the offset twice (a block
+     attached to a column not yet placed pops off the first time; entities only once), and removes
+     dropped items. Stopping the server saves it.
+  3. Chunker prunes to the moved box's chunks, and the bake settings go into level.dat.
+  4. The world is swapped into `maps/<id>/world`, and a new map's `map.json` written.
+
+  Chunks are loaded with script ticking areas, a whole phase at once (the source, then the
+  destination) when that fits the ticking limit (300 chunks), otherwise a 64x64 region at a time.
+  After areas are removed, the next ones wait 2 seconds: an area next to chunks that are still
+  unloading never finishes loading (found on the test world). The spike proved the rest
+  (`docs/spike-results.md`, "Map editor"), and on build B of "Datapacking (imported)" the extracted
+  map's block fingerprint matches the original exactly.
+- **Sessions** (`tools/editor/editor.ts`): one runs at a time, an `EditorSession` (`session.ts`) or
+  a `SelectSession` (`select-session.ts`), both on `ServerSession` (`server-session.ts`: the
+  server, the console and opping map editors). A switch stops the session and starts the next in
+  the same process; the control port stays up (`POST /switch`, `POST /selection` for Retry, Forget
+  and Update).
 - **The outlines** are particles (`editor/resource_pack/particles/outline.json`) sent to the holder
   only. `viewDots` in `scripts/boxes.ts` works out where each dot goes and how big it is for that
   player (tune `DOTS` there), and each refresh has a budget, so a big map costs no more than a

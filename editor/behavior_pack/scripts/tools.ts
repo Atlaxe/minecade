@@ -2,7 +2,7 @@
 // tool grid: it goes in hotbar slot 1, unlocked, and only one tool is out at a time. A new tool
 // adds a row here and gets its icon in the grid.
 
-export type ToolId = "spawn" | "region" | "killY";
+export type ToolId = "spawn" | "region" | "killY" | "select";
 
 export interface EditorTool {
   id: ToolId;
@@ -44,7 +44,17 @@ export const EDITOR_TOOLS: EditorTool[] = [
   },
 ];
 
-/** The tool an item is, if it is one. */
+/** Select mode's only tool: boxes a map in a converted world. */
+export const SELECT_TOOL: EditorTool = {
+  id: "select",
+  item: "minecade:select_tool",
+  icon: "textures/items/select_tool",
+  label: "Select tool",
+  hint: "box a map to cut out",
+  howTo: "Hit a block to start a box around a map. Use the tool on blocks (up to 64 away) to grow the box to them. Use it at the sky to save the box as a map.",
+};
+
+/** The tool an item is, if it is one (in either mode). */
 export function toolOf(item: string): EditorTool | undefined {
-  return EDITOR_TOOLS.find((tool) => tool.item === item);
+  return [...EDITOR_TOOLS, SELECT_TOOL].find((tool) => tool.item === item);
 }

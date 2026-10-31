@@ -67,6 +67,29 @@ After the editor's next Stop and Start in the Panel (it runs the code it started
     the whole map).
   - If no dots show at all, the custom particle didn't load: say so.
 
+Select mode (pass 10.5), after restarting the Panel (it has new buttons):
+
+- Map editor page, Select mode: the world list shows "Datapacking (imported)". Open in Select, then
+  join: you get the Select tool in slot 1 and the map menu in slot 9, and the world is the one you
+  converted (flying past its edge grows nothing).
+- Box a build: hit a block, use the tool on the far corners. The line above the hotbar shows the
+  size and what a hit and a use do; the yellow outline follows.
+- Stand inside the box, use the tool at the sky, Save as map: for Sumo, a name, and an empty map id
+  (it's made from the name). Chat says it's queued; the box turns white, then green when ready (about
+  20 seconds), and chat says so. Standing outside the box is refused.
+- Box a second build while the first is being cut out: both end up ready.
+- The map menu lists both with their status. On a ready one: Edit <map>. The editor restarts; rejoin
+  after about 30 seconds and you're in Edit mode on it, at the spawn where you stood, centered at
+  x 0, z 0, with nothing from the neighboring builds.
+- In Edit, the gear: Back to Select. The world is saved, the editor restarts in Select mode on
+  Datapacking, and the list still has both maps.
+- The Panel: while the editor runs, pick another world and Switch to this world; the editor restarts
+  on it. The Panel's list has Edit, Update, Try again and Forget, as in game.
+- Update from this world (red, with a confirm) on a ready map: its blocks are redone, its spawns and
+  map.json stay.
+- `git status` shows the new maps (`games/sumo/maps/<id>/`) and nothing else; delete the ones you
+  don't keep.
+
 ## Needs a second player (map editor)
 
 - A gamertag in `EDITOR_ALLOW_LIST` but not `MAP_EDITORS` joins as a builder: creative, no tools.

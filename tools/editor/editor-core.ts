@@ -1,27 +1,36 @@
 // Map editor host logic with no I/O, kept apart from the session so it can be unit-tested.
-import type { MapConfig } from "@minecade/minigame-core/config";
+import type { MapConfig, SelectionInfo } from "@minecade/minigame-core/config";
 
 /** The editor server's port (TCP and UDP), the network's spare one. */
 export const EDITOR_PORT = 19134;
-/** The host's control port on this PC: status, save and stop, for the Panel and `npm run editor -- stop`. */
+/** The host's control port on this PC: status, save, switch and stop, for the Panel and `npm run editor`. */
 export const CONTROL_PORT = 8097;
 export const CONTAINER_NAME = "minecade-editor";
 /** A map id is a folder name in maps/: lower case letters, digits, _ and -. */
 const MAP_ID = /^[a-z0-9][a-z0-9_-]{0,47}$/;
 
 /** What the running editor reports on its control port: the Panel shows it, and `npm run editor -- status` prints it. */
-export interface EditorStatus {
+export type EditorStatus = EditStatus | SelectStatus;
+
+interface StatusBase {
   state: "starting" | "ready" | "stopping" | "stopped" | "failed";
   error?: string;
+  /** The address to join from this network: "<LAN_HOST>:19134". */
+  join: string;
+  players: string[];
+  editors: string[];
+  /** The session's recent log lines, oldest first. */
+  log: string[];
+  startedAt: string;
+}
+
+export interface EditStatus extends StatusBase {
+  mode: "edit";
   target: string;
   targetName: string;
   map: string;
   mapName: string;
   draft: boolean;
-  /** The address to join from this network: "<LAN_HOST>:19134". */
-  join: string;
-  players: string[];
-  editors: string[];
   /** Blocks changed since the world was last saved: Save, or stopping, saves them into the map. */
   unsaved: boolean;
   /** A Save is running. */
@@ -29,19 +38,34 @@ export interface EditorStatus {
   undo?: string;
   redo?: string;
   checklist: { rows: { label: string; have: number; need: number; done: boolean }[]; problems: string[]; warnings: string[]; ready: boolean };
-  /** The session's recent log lines, oldest first. */
-  log: string[];
-  startedAt: string;
+  /** The world the map came from (its name and folder), when Back to Select can open it. */
+  from?: string;
+  fromPath?: string;
 }
+
+export interface SelectStatus extends StatusBase {
+  mode: "select";
+  /** The world's name, and the folder it was opened from. */
+  world: string;
+  worldPath: string;
+  /** The maps boxed in this world, and how their extractions are going. */
+  selections: SelectionInfo[];
+}
+
+/** What the runner (editor.ts) starts next, after a switch. */
+export type NextSession = { mode: "edit"; target: string; map: string } | { mode: "select"; world: string };
 
 export type EditorArgs =
   | { command: "edit"; target: string; map: string; fresh: boolean; verbose: boolean }
+  | { command: "select"; world: string; verbose: boolean }
   | { command: "status" | "save" | "stop" }
   | { command: "help"; error?: string };
 
 export const USAGE = `Usage:
   npm run editor -- <target> <map>          edit a map (target: lobby or a game id), for example: sumo arena_1
   npm run editor -- <target> <map> --new    a new draft map: a void world with a glass pad
+  npm run editor -- select "<world>"        Select mode: box maps in a converted world (its name in
+                                            Minecraft, its folder, or a .mcworld file)
   npm run editor -- status                  what the running editor is doing
   npm run editor -- save                    save the running editor's world into the map now
   npm run editor -- stop                    stop the running editor (it saves first)
@@ -53,11 +77,20 @@ export function parseArgs(argv: string[]): EditorArgs {
   const unknown = [...flags].filter((flag) => !["--new", "--verbose", "--help"].includes(flag));
   if (unknown.length > 0) return { command: "help", error: `unknown option ${unknown.join(", ")}` };
   if (flags.has("--help") || words.length === 0) return { command: "help" };
+  if (words[0] === "select") {
+    const world = words.slice(1).join(" ").trim();
+    return world ? { command: "select", world, verbose: flags.has("--verbose") } : { command: "help", error: "select needs a world: its name, its folder or a .mcworld file" };
+  }
   if (words.length === 1 && (words[0] === "status" || words[0] === "save" || words[0] === "stop")) return { command: words[0] };
   if (words.length !== 2) return { command: "help", error: "expected a target and a map" };
   const [target, map] = words;
-  if (!MAP_ID.test(map)) return { command: "help", error: `"${map}" is not a map id: use lower case letters, digits, _ and -` };
+  if (!isMapId(map)) return { command: "help", error: `"${map}" is not a map id: use lower case letters, digits, _ and -` };
   return { command: "edit", target, map, fresh: flags.has("--new"), verbose: flags.has("--verbose") };
+}
+
+/** A map id: lower case letters, digits, _ and -, as a folder in maps/. */
+export function isMapId(map: string): boolean {
+  return MAP_ID.test(map);
 }
 
 /** Comma-separated gamertags as one list: trimmed, without blanks or case-insensitive duplicates. */

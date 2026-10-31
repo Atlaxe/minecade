@@ -1,13 +1,14 @@
-// Particle outlines for a map editor holding the region tool or the Kill Y tool: their selection
-// (yellow), the bounds (white), kill regions and the kill Y plane (red), and every other region in
-// its own color. Only the player holding the tool sees them. Every edge shows from any distance:
+// Particle outlines for a map editor holding a box tool (in Edit, the region and Kill Y tools; in
+// Select, the Select tool): their selection (yellow), and the boxes the source gives with their
+// colors (in Edit: the bounds white, kill regions and the kill Y plane red, every other region in
+// its own color). Only the player holding the tool sees them. Every edge shows from any distance:
 // far dots are drawn closer in on the same line of sight, sized and spaced by distance
 // (boxes.ts viewDots), so they look alike near and far. Each dot has a dark rim, so it shows on
 // bright and dark backgrounds alike. A budget per refresh keeps a big map as cheap as a small one.
 import { MolangVariableMap, world, type Player } from "@minecraft/server";
-import type { Box, EditorRules, MapConfig, Scope } from "@minecade/minigame-core";
+import type { Box, Scope } from "@minecade/minigame-core";
 import { nearDots, planePoints, rectDots, viewDots, type Dot, type View } from "./boxes.ts";
-import { KILL_COLOR, SELECTION_COLOR, outlineBoxes, type Rgb } from "./regions.ts";
+import { KILL_COLOR, SELECTION_COLOR, type OutlineBox, type Rgb } from "./regions.ts";
 import { heldTool } from "./tool-host.ts";
 import type { ToolId } from "./tools.ts";
 
@@ -24,11 +25,13 @@ const PLANE_SPACING = 3;
 const PLANE_EDGE_BUDGET = 120;
 
 export interface OutlineSource {
-  map(): MapConfig;
-  readonly rules: EditorRules;
   isEditor(player: Player): boolean;
   /** The player's selection, and the key of the saved box it edits (drawn as the selection only). */
   selection(player: Player): { box: Box; editing?: string } | undefined;
+  /** Every box to outline, each in its color. */
+  boxes(): OutlineBox[];
+  /** The kill Y plane, if there is one, and the box it's drawn over (the bounds). */
+  killY?(): { y: number; over?: Box } | undefined;
 }
 
 export class Outlines {
@@ -45,9 +48,8 @@ export class Outlines {
   private draw(): void {
     const players = world.getAllPlayers().filter((player) => this.tools.has(heldTool(player)) && this.source.isEditor(player));
     if (players.length === 0) return;
-    const config = this.source.map();
-    const boxes = outlineBoxes(config, this.source.rules);
-    const bounds = boxes.find((outline) => outline.key === "bounds")?.box;
+    const boxes = this.source.boxes();
+    const plane = this.source.killY?.();
     for (const player of players) {
       const view: View = { eye: player.getHeadLocation(), look: player.getViewDirection() };
       const selection = this.source.selection(player);
@@ -55,9 +57,10 @@ export class Outlines {
       const shown = boxes.filter((outline) => outline.key !== selection?.editing);
       const each = Math.max(BOX_BUDGET, Math.floor(BOXES_BUDGET / Math.max(1, shown.length)));
       for (const outline of shown) dots(player, viewDots(outline.box, view, each), outline.color);
-      if (typeof config.killY === "number") {
-        dots(player, nearDots(planePoints(config.killY, bounds, view.eye, PLANE_RADIUS, PLANE_SPACING), view), KILL_COLOR);
-        if (bounds) dots(player, rectDots(bounds.min[0], bounds.min[2], bounds.max[0] + 1, bounds.max[2] + 1, config.killY, view, PLANE_EDGE_BUDGET), KILL_COLOR);
+      if (plane) {
+        const { y, over } = plane;
+        dots(player, nearDots(planePoints(y, over, view.eye, PLANE_RADIUS, PLANE_SPACING), view), KILL_COLOR);
+        if (over) dots(player, rectDots(over.min[0], over.min[2], over.max[0] + 1, over.max[2] + 1, y, view, PLANE_EDGE_BUDGET), KILL_COLOR);
       }
     }
   }

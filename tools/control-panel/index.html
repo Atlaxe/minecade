@@ -214,8 +214,13 @@
 </section>
 
 <section id="page-editor" class="page" hidden>
-  <div class="page-head"><h1>Map editor</h1><p>Place a map's spawns and other data in game, on port 19134. Every change goes straight into map.json.</p></div>
+  <div class="page-head"><h1>Map editor</h1><p>Cut maps out of converted worlds (Select mode), and place their spawns and other data in game (Edit mode), on port 19134. Every change goes straight into map.json.</p></div>
   <div id="editor-server"></div>
+  <div class="card">
+    <div class="card-head"><h2>Select mode</h2><span class="muted small">cut maps out of a converted world</span></div>
+    <div id="select-picker"></div>
+    <div id="select-list"></div>
+  </div>
   <div id="editor-checklist"></div>
   <div class="card">
     <div class="card-head"><h2>Editor log</h2><span class="muted small">work/editor/editor.log</span></div>
@@ -690,6 +695,11 @@ const EDITOR_STATES = {
 const NEW_MAP = "__new";
 // The pickers are rebuilt with the card, so remember the choices across renders.
 let editorPick = { target: "", map: "", fresh: "" };
+let selectPick = { world: "", path: "" };
+const SELECTION_TONES = {
+  queued: ["warn", "queued"], extracting: ["warn", "being cut out"], updating: ["warn", "being updated"],
+  ready: ["ok", "ready"], failed: ["bad", "failed"],
+};
 
 function editorTone(editor) {
   if (editor.status) return EDITOR_STATES[editor.status.state] ?? ["warn", editor.status.state];
@@ -702,9 +712,12 @@ function renderEditor() {
   const [tone, text] = editorTone(editor);
   $("nav-editor").className = `dot ${tone}`;
   $("nav-editor").title = `Map editor: ${text}`;
-  const facts = status && [status.state, status.error, status.targetName, status.mapName, status.map, status.draft, status.join, status.players, status.saving];
+  const facts = status && [status.state, status.error, status.mode, status.targetName, status.mapName, status.map, status.draft, status.world, status.from, status.join, status.players, status.saving];
   patch($("editor-server"), [facts, editor.launching, state.editorTargets, state.docker], () => editorCard(editor));
-  patch($("editor-checklist"), status && [status.checklist, status.undo, status.redo, status.unsaved, status.saving], () => status && checklistCard(status));
+  const running = Boolean(status && status.state !== "stopped");
+  patch($("select-picker"), [running, status?.state, editor.launching, state.editorWorlds, state.docker], () => selectPicker(editor));
+  patch($("select-list"), status?.mode === "select" && [status.world, status.selections], () => status?.mode === "select" && selectionsTable(status.selections));
+  patch($("editor-checklist"), status?.mode === "edit" && [status.checklist, status.undo, status.redo, status.unsaved, status.saving], () => status?.mode === "edit" && checklistCard(status));
   const pre = $("editor-log");
   const lines = editor.log.join("\n");
   if (pre.textContent !== lines) {
@@ -720,16 +733,31 @@ function editorCard(editor) {
   const [tone, text] = editorTone(editor);
   const head = (...extra) => el("div", { className: "card-head" }, el("h2", {}, "Editor server"), el("span", { className: `pill ${tone}` }, text), extra);
   if (status && status.state !== "stopped") {
-    const save = el("button", { onclick: () => post("/api/editor/save") }, status.saving ? "Saving..." : "Save");
-    save.disabled = status.state !== "ready" || status.saving;
-    save.title = "Save the world into the map now (map.json is saved on every change)";
     const stop = el("button", { className: "danger", onclick: () => post("/api/editor/stop") }, "Stop");
     stop.disabled = status.state === "stopping";
     const players = status.players.length
       ? el("div", { className: "chips" }, status.players.map((name) => el("span", { className: "chip" }, status.editors.some((e) => e.toLowerCase() === name.toLowerCase()) ? `${name} (map editor)` : name)))
       : el("span", { className: "muted" }, "Nobody yet.");
+    if (status.mode === "select") {
+      return el("div", { className: "card" },
+        head(el("div", { className: "actions" }, stop)),
+        el("div", { className: "game-now" },
+          el("div", {}, el("span", { className: "game-title" }, `Select mode: ${status.world}`), el("span", { className: "muted small", style: "margin-left:10px" }, status.worldPath)),
+          players),
+        el("dl", {}, el("dt", {}, "Join"), el("dd", {}, el("span", { className: "mono address" }, status.join), el("button", { className: "small", onclick: () => copy(status.join) }, "Copy"))),
+        status.error && el("p", { className: "callout bad" }, status.error),
+        el("p", { className: "hint" }, "Box maps with the Select tool in game: each is cut out in the background (listed under Select mode). Nothing in Select mode is saved."));
+    }
+    const save = el("button", { onclick: () => post("/api/editor/save") }, status.saving ? "Saving..." : "Save");
+    save.disabled = status.state !== "ready" || status.saving;
+    save.title = "Save the world into the map now (map.json is saved on every change)";
+    const back = status.fromPath && el("button", { onclick: () => post("/api/editor/select", { world: status.fromPath }) }, "Back to Select");
+    if (back) {
+      back.disabled = status.state !== "ready";
+      back.title = `Save, then restart in Select mode on "${status.from}"`;
+    }
     return el("div", { className: "card" },
-      head(el("div", { className: "actions" }, save, stop)),
+      head(el("div", { className: "actions" }, back, save, stop)),
       el("div", { className: "game-now" },
         el("div", {}, el("span", { className: "game-title" }, `${status.targetName}: ${status.mapName}`), el("span", { className: "muted small", style: "margin-left:10px" }, `${status.map}${status.draft ? ", draft" : ""}`)),
         players),
@@ -778,6 +806,59 @@ function editorStartForm() {
     el("div", { className: "row" }, target, map, el("span", { style: "flex:1;min-width:160px" }, fresh), start),
     el("p", { className: "hint" }, `Once it's ready, join ${state.connection.lanHost || "LAN_HOST"}:19134 (accept the server's trust prompt the first time). A new map starts as a void world with a glass pad.`),
   ];
+}
+
+/** Select mode's world picker: opens the world, or switches a running editor to it. */
+function selectPicker(editor) {
+  const status = editor.status;
+  const running = Boolean(status && status.state !== "stopped");
+  const worlds = state.editorWorlds ?? [];
+  const pick = el("select", { "aria-label": "World" });
+  for (const world of worlds) pick.append(el("option", { value: world.path }, world.name));
+  if (worlds.some((world) => world.path === selectPick.world)) pick.value = selectPick.world;
+  const path = el("input", { type: "text", spellcheck: "false", placeholder: "or a world folder or .mcworld file", "aria-label": "World folder or .mcworld file" });
+  path.value = selectPick.path;
+  const open = el("button", { className: "primary" }, running ? "Switch to this world" : "Open in Select");
+  const sync = () => {
+    selectPick = { world: pick.value, path: path.value };
+    open.disabled = state.docker !== "running" || editor.launching || (!pick.value && !path.value.trim()) || status?.state === "starting" || status?.state === "stopping";
+  };
+  pick.onchange = path.oninput = sync;
+  sync();
+  open.onclick = async () => {
+    open.disabled = true;
+    await post("/api/editor/select", { world: path.value.trim() || pick.value });
+    sync();
+  };
+  return [
+    el("div", { className: "row" }, pick, el("span", { style: "flex:1;min-width:200px" }, path), open),
+    el("p", { className: "hint" }, running
+      ? "Opening a world restarts the editor on it (Edit saves first): everyone rejoins after about 30 seconds."
+      : `Opens a copy of a converted world (the world itself is never changed), to box maps in with the Select tool. Join ${state.connection.lanHost || "LAN_HOST"}:19134 once it's ready.`),
+  ];
+}
+
+/** The maps from the open world, and how each extraction is going. */
+function selectionsTable(list) {
+  if (!list.length) return el("p", { className: "muted", style: "margin:0" }, "No maps from this world yet: box one with the Select tool in game.");
+  return el("div", { className: "table-wrap" }, el("table", {},
+    el("thead", {}, el("tr", {}, ["Map", "For", "Status", ""].map((h) => el("th", {}, h)))),
+    el("tbody", {}, list.map((item) => {
+      const [tone, label] = SELECTION_TONES[item.status] ?? ["warn", item.status];
+      const act = (action) => post("/api/editor/selection", { action, target: item.target, map: item.map });
+      const buttons = [];
+      if (item.status === "ready") {
+        buttons.push(el("button", { className: "small", onclick: () => post("/api/editor/switch", { target: item.target, map: item.map }) }, "Edit"));
+        buttons.push(el("button", { className: "small danger", onclick: () => confirm(`Update ${item.map} from this world? Its blocks are cut out again, and block changes made in Edit are lost. Spawns and the rest of map.json stay.`) && act("update") }, "Update"));
+      }
+      if (item.status === "failed") buttons.push(el("button", { className: "small", onclick: () => act("retry") }, "Try again"));
+      if (item.status === "ready" || item.status === "failed") buttons.push(el("button", { className: "small", onclick: () => act("forget") }, "Forget"));
+      return el("tr", {},
+        el("td", { className: "strong" }, `${item.name} (${item.map})`),
+        el("td", {}, item.targetName),
+        el("td", {}, el("span", { className: `pill ${tone}` }, label), item.error && el("div", { className: "muted small" }, item.error)),
+        el("td", { className: "end" }, el("div", { className: "actions" }, buttons)));
+    }))));
 }
 
 function checklistCard(status) {

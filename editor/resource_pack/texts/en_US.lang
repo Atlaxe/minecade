@@ -2,4 +2,5 @@ item.minecade:map_menu=Map menu
 item.minecade:spawn_tool=Spawn tool
 item.minecade:region_tool=Region tool
 item.minecade:kill_y_tool=Kill Y tool
+item.minecade:select_tool=Select tool
 entity.minecade:editor_marker.name=Marker

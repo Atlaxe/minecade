@@ -63,5 +63,10 @@ describe("editor protocol", () => {
     expect(parseEditorEvent('{"t":"save","by":"a"}')).toEqual({ t: "save", by: "a" });
     expect(parseEditorEvent('{"t":"saveWorld","by":"a","save":true}')).toBeUndefined();
     expect(parseHostMessage('{"t":"resume"}')).toEqual({ t: "resume" });
+    expect(parseEditorEvent('{"t":"saveMap","by":"a","box":{"min":[0,0,0],"max":[1,1,1]},"target":"sumo","map":"castle","name":"Castle","spawn":[0,1,0]}')?.t).toBe("saveMap");
+    expect(parseEditorEvent('{"t":"switch","by":"a","to":"select"}')).toEqual({ t: "switch", by: "a", to: "select" });
+    expect(parseEditorEvent('{"t":"extracted","ok":true,"tiles":4}')?.t).toBe("extracted");
+    expect(parseHostMessage('{"t":"extract","box":{"min":[0,0,0],"max":[1,1,1]},"offset":[0,0,0]}')?.t).toBe("extract");
+    expect(parseHostMessage('{"t":"forgotten","target":"sumo","map":"castle"}')?.t).toBe("forgotten");
   });
 });

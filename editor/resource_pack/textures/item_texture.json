@@ -5,6 +5,7 @@
     "minecade_map_menu": { "textures": "textures/items/map_menu" },
     "minecade_spawn_tool": { "textures": "textures/items/spawn_tool" },
     "minecade_region_tool": { "textures": "textures/items/region_tool" },
-    "minecade_kill_y_tool": { "textures": "textures/items/kill_y_tool" }
+    "minecade_kill_y_tool": { "textures": "textures/items/kill_y_tool" },
+    "minecade_select_tool": { "textures": "textures/items/select_tool" }
   }
 }
