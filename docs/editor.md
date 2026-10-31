@@ -191,7 +191,8 @@ screen.
 ## Shared blocks pack
 
 `packs/blocks/` holds custom blocks that every server loads (the lobby, every game and the
-editor), so a map using them works anywhere. It's empty until the blocks land; see its README.
+editor), so a map using them works anywhere. It's filled from the private block-pack project and
+isn't committed; see its README.
 
 ## Troubleshooting
 

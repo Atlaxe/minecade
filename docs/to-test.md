@@ -91,6 +91,24 @@ need a real client:
 - Placing: a sconce goes on the floor or a wall depending on where you click, like a torch;
   buntings go on a ceiling or a wall. A candle holder held against one adds a candle.
 
+## Block pack (Bedrock)
+
+Open `minecade-showroom.mcworld` (from the private block-pack project's `out` folder) on a Bedrock
+device; it brings the blocks pack with it. BDS already loaded the pack with no errors, placed every
+block, gave every chest its storage and checked the connection rules; these need a real client:
+
+- Every block looks like its Java version in the Java showroom: textures, shapes, which way it
+  faces. Stairs, slabs and walls are the first place to look; if any block faces the opposite way
+  or is mirrored, say which.
+- Collision: walk up stairs and slabs, and you can't jump over walls and fences.
+- Chests: right-click opens a 27-slot chest (each half of a double chest has its own). Hitting the
+  chest breaks it and drops what was inside. If right-click doesn't open anything, say so.
+- Sitting: right-click a stool, you sit; sneak to get up.
+- Right-click actions as in Java: candle holders, sconces, jars (water bucket, dye, bucket), book
+  piles, globes, awnings, feasts and pies, cabinets, doors, trapdoors and gates.
+- Placing in Bedrock: stairs and slabs take the half you click; walls, fences, panes and connected
+  glass join as you build; a sconce goes on a wall when you click a wall.
+
 ## Solo
 
 Lobby terminal memory (after the network's next Start or Restart in the Panel):
