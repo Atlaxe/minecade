@@ -1,5 +1,6 @@
 // The map editor in game (Edit mode): roles, the map menu and its checklist, the spawn tool and
-// the markers. A change shows here at once and goes to the host (tools/editor), which writes
+// the markers (the region and Kill Y tools have their own files, and get what they need through a
+// ToolHost). A change shows here at once and goes to the host (tools/editor), which writes
 // map.json and answers; MapState keeps the two copies in step. Map editors (EditorInfo.editors)
 // get the tools; everyone else builds in creative. Every control is a hit, a use or a form, never
 // sneaking: players fly in creative, and sneaking while flying flies down.
@@ -31,7 +32,11 @@ import {
   type MapPosition,
   type Scope,
 } from "@minecade/minigame-core";
+import { KillYTool } from "./kill-y-tool.ts";
 import { HostLink } from "./link.ts";
+import { Outlines } from "./outlines.ts";
+import { RegionTool } from "./region-tool.ts";
+import type { ToolHost } from "./tool-host.ts";
 import { blockPosition, compass, markerSpecs, snapFacing, SNAPS, spawnLists, type MarkerSpec, type Snap, type SpawnList } from "./lists.ts";
 import { MapState } from "./map-state.ts";
 import { MARKER, Markers } from "./markers.ts";
@@ -53,6 +58,8 @@ const PAD_RADIUS = 4;
 /** Said when a tool is switched on. */
 const TOOL_NOTES: Record<ToolId, string> = {
   spawn: "use it where a spawn or point goes. Hit a marker to change it.",
+  region: "hit a block to start a box, use the tool on blocks to grow it, and use it at the air to save it.",
+  killY: "use it to set the height players are out below. While you hold it, the plane shows in red.",
 };
 
 /** What a map editor last picked in the spawn tool's form. */
@@ -70,6 +77,8 @@ export class Editor {
   private readonly state: MapState;
   private readonly link: HostLink;
   private readonly markers: Markers;
+  private readonly regionTool: RegionTool;
+  private readonly killYTool: KillYTool;
   private readonly dimension: Dimension;
   private readonly editors: Set<string>;
   private readonly settings = new Map<string, ToolSettings>();
@@ -91,6 +100,21 @@ export class Editor {
       },
       message: (message) => this.receive(message),
     });
+    const host: ToolHost = {
+      map: () => this.state.current,
+      rules: info.rules,
+      isEditor: (player) => this.isEditor(player),
+      edit: (player, edit, done) => this.edit(player, edit, done),
+      show: (player, form) => this.show(player, form),
+      tell,
+      equip: (player, id) => {
+        const tool = EDITOR_TOOLS.find((candidate) => candidate.id === id);
+        if (tool) this.equipTool(player, tool);
+      },
+    };
+    this.regionTool = new RegionTool(scope, host);
+    this.killYTool = new KillYTool(host);
+    new Outlines(scope, { ...host, selection: (player) => this.regionTool.selectionOf(player) }, ["region", "killY"]);
   }
 
   start(): void {
@@ -114,8 +138,11 @@ export class Editor {
         takeTools(source);
         return;
       }
+      const tool = toolOf(itemStack.typeId)?.id;
       if (itemStack.typeId === MAP_MENU) void this.mapMenu(source);
-      else if (toolOf(itemStack.typeId)?.id === "spawn") void this.spawnTool(source);
+      else if (tool === "spawn") void this.spawnTool(source);
+      else if (tool === "region") void this.regionTool.use(source);
+      else if (tool === "killY") void this.killYTool.use(source);
     });
     scope.subscribe(world.afterEvents.entityHitEntity, ({ damagingEntity, hitEntity }) => {
       if (hitEntity.typeId !== MARKER || damagingEntity.typeId !== "minecraft:player") return;
@@ -262,7 +289,8 @@ export class Editor {
     const config = this.state.current;
     const inventory = inventoryOf(player);
     const tools = EDITOR_TOOLS.filter((tool) => inventory && holds(inventory, tool.item)).map((tool) => tool.id);
-    const entries = menuEntries({ config, checklist: mapChecklist(config, this.info.rules), tools, ...this.status });
+    const selection = this.regionTool.selectionText(player);
+    const entries = menuEntries({ config, checklist: mapChecklist(config, this.info.rules), tools, ...this.status, selection });
     const form = new ActionFormData().title(sideTitle("Map menu")).body(menuBody(this.info.targetName, this.info.map, config));
     for (const entry of entries) form.button(entry.text);
     const response = await this.show(player, form);
@@ -277,6 +305,10 @@ export class Editor {
       case "tool":
         if (tool) this.switchTool(player, tool);
         return;
+      case "selection":
+        return this.regionTool.selectionForm(player);
+      case "regions":
+        return this.regionTool.regionsMenu(player);
       case "undo":
       case "redo":
         this.link.send({ t: action, by: player.name });
@@ -305,6 +337,14 @@ export class Editor {
     const response = await this.show(player, form);
     const row = response?.selection === undefined ? undefined : checklist.rows[response.selection];
     if (!row || !player.isValid) return;
+    if (row.field === "bounds" || row.field === "regions") {
+      this.regionTool.equip(player, row.key);
+      return;
+    }
+    if (row.field === "killY") {
+      this.killYTool.equip(player);
+      return;
+    }
     const list = this.lists().find((candidate) => candidate.key === row.key);
     if (!list) {
       tell(player, `There's no tool for ${row.label} yet: set it in map.json, and the editor picks up the change.`);

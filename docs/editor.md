@@ -1,10 +1,10 @@
 # Map editor
 
 The map editor is a Bedrock server on port 19134 where you set a map's data in game: spawns, the
-spectator spawn and named points, with a checklist of what the map's game still needs. Every change
-goes straight into the map's `map.json`. This page covers Edit mode as it is today; Select mode
-(cutting maps out of a converted world), Preview, and the region and Kill Y tools come in later
-passes of milestone 10 (see `docs/plans/map-editor.md`).
+spectator spawn, named points, the bounds, kill Y and regions, with a checklist of what the map's
+game still needs. Every change goes straight into the map's `map.json`. This page covers Edit mode
+as it is today; Select mode (cutting maps out of a converted world) and Preview come in later passes
+of milestone 10 (see `docs/plans/map-editor.md`).
 
 ## Starting and stopping
 
@@ -49,18 +49,24 @@ Everyone else who joins is a **builder**: creative mode, no tools.
 Every control is a hit (left click), a use (right click) or a form. None needs sneaking, which
 would fly you down.
 
-The map menu, the checklist and a marker's form open as a dark panel down the right side of the
-screen, full height, so the world stays in view on the left. Their buttons run top down and scroll
-when there are more than fit. Esc or the X closes them. The forms with fields (the spawn tool's
-Place form, Map settings, Change list, Renumber) are the game's own, in the middle of the screen.
+The map menu, the checklist, a marker's form and the region and Kill Y tools' menus open as a dark
+panel down the right side of the screen, full height, so the world stays in view on the left. Their
+buttons run top down and scroll when there are more than fit. Esc or the X closes them. The forms
+with fields (the spawn tool's Place form, Map settings, Change list, Renumber, Save as, Nudge sides,
+a typed kill Y) are the game's own, in the middle of the screen.
 
 - **Map menu** (slot 9, locked, map editors only): the map's name and game, then:
   - **Checklist:** each thing the map's game needs, green when done, with what the build would
     refuse the map for. Tap an entry to get its tool, already set to that list.
-  - **Tools** (the Spawn tool for now): each is a switch. On puts the tool in slot 1 and in your
+  - **Tools** (the Spawn tool, the Region tool and the Kill Y tool): each is a switch. On puts the tool in slot 1 and in your
     hand, and the menu closes. Off takes it away. One tool is out at a time: switching one on puts
     any other away. The tool isn't locked, so you can move it; whatever was in slot 1 moves to a
     free slot.
+  - **Selection** (when you have one): the region tool's form, for places where a block is always
+    in reach, such as indoors.
+  - **Bounds and regions** (when the map has any): every box the map has. Tap one to **Edit** it
+    (it becomes your selection, then Save changes writes it back), **Nudge** its sides (saved at
+    once), **Go to** it (on top, over its middle), or **Delete** it.
   - **Undo** and **Redo**, with what each would change.
   - **Mark ready** (draft maps): once nothing is missing, removes `"draft"` so the build includes the
     map.
@@ -78,6 +84,28 @@ Place form, Map settings, Change list, Renumber) are the game's own, in the midd
   from the top of its marker toward the facing, tilted up or down with the saved pitch. **Hit a
   marker** to move it to where you stand, give it your facing, clear its facing, move it to another
   list, renumber it, or delete it.
+- **Region tool:** picks a box, for the bounds, a region or a kill region (anyone inside a kill
+  region is out).
+  - **Hit a block** to start a new selection: that one block.
+  - **Use the tool on a block**, up to 64 blocks away, to grow the selection to it, on every axis.
+    Any box can be picked without placing blocks: hit one corner, then use the tool on the blocks
+    at the far edges. The size shows above the hotbar.
+  - **Use the tool at the air** (no block within 64 blocks) to open the region form:
+    - **Save changes** (when the selection came from Edit, or was saved already): writes it back.
+    - **Save as:** the bounds, a kill region, a region the game asks for (one per team when it
+      asks for that), a region the map already has, or a new region you name (letters, digits
+      and `_`). A region holds a list of boxes, and each save adds one.
+    - **Nudge sides:** moves each side up to 16 blocks out (above 0) or in (below 0).
+    - **Floor at kill Y:** puts the bottom of the box at kill Y.
+    - **Back one step** undoes the last change to the selection; **Clear selection**.
+  - The checklist's bounds and region rows give you the tool already set to that row.
+- **Kill Y tool:** players below kill Y are out. Use it to set kill Y one block below your feet, to
+  type a height (from -64 to 319), or to remove it.
+- **Outlines:** while you hold the region tool or the Kill Y tool, dots outline your selection
+  (yellow), the bounds (white), kill regions (red), each other region in its own color (a team's
+  region in the team's color), and the kill Y plane (red). Only you see them. They're drawn within
+  about 40 blocks of you, and get sparser on a big box, so they stay smooth on any map. They stand
+  in for the boundary blocks of a later pass.
 
 ## Saving
 

@@ -10,12 +10,24 @@ describe("map menu", () => {
   it("offers undo and redo only when there is something to undo or redo, and Mark ready only for drafts", () => {
     const checklist = mapChecklist(draft, { kind: "game", maxPlayers: 2 });
     const entries = menuEntries({ config: draft, checklist, tools: [], undo: "add spawns", saveWorld: false });
-    expect(entries.map((entry) => entry.action)).toEqual(["checklist", "tool", "undo", "markReady", "settings", "saveWorld", "dropBuild"]);
+    expect(entries.map((entry) => entry.action)).toEqual(["checklist", "tool", "tool", "tool", "regions", "undo", "markReady", "settings", "saveWorld", "dropBuild"]);
     expect(entries[0].text).toBe("Checklist (0 of 1)\n§c1 problem");
     expect(entries.find((entry) => entry.action === "markReady")?.text).toContain("finish the checklist first");
     const ready = { ...draft, draft: undefined, build: undefined, spawns: [[0, 65, 0], [1, 65, 0]] } as MapConfig;
     const actions = menuEntries({ config: ready, checklist: mapChecklist(ready, { kind: "game", maxPlayers: 2 }), tools: [], redo: "add spawns", saveWorld: true }).map((entry) => entry.action);
-    expect(actions).toEqual(["checklist", "tool", "redo", "settings", "saveWorld"]);
+    expect(actions).toEqual(["checklist", "tool", "tool", "tool", "regions", "redo", "settings", "saveWorld"]);
+  });
+
+  it("offers the player's selection, and the map's boxes when it has any, after the tools", () => {
+    const bare: MapConfig = { name: "Void", spawns: [[0, 65, 0]] };
+    const view = (config: MapConfig, selection?: string) =>
+      menuEntries({ config, checklist: mapChecklist(config, { kind: "game", maxPlayers: 1 }), tools: ["region"], saveWorld: false, selection });
+    expect(view(bare).map((entry) => entry.action)).toEqual(["checklist", "tool", "tool", "tool", "settings", "saveWorld"]);
+    const boxes: MapConfig = { ...bare, bounds: { min: [-5, 50, -5], max: [5, 70, 5] }, regions: { kill: [{ min: [0, 50, 0], max: [1, 51, 1] }, { min: [2, 50, 2], max: [3, 51, 3] }] } };
+    const entries = view(boxes, "12 x 5 x 30");
+    expect(entries.map((entry) => entry.action).slice(4, 6)).toEqual(["selection", "regions"]);
+    expect(entries.find((entry) => entry.action === "selection")?.text).toBe("Selection\n§712 x 5 x 30: save or nudge it");
+    expect(entries.find((entry) => entry.action === "regions")?.text).toBe("Bounds and regions (3)\n§7edit, nudge, go to, delete");
   });
 
   it("shows every tool and the world as switches, on while they're on", () => {
@@ -31,6 +43,8 @@ describe("map menu", () => {
 
   it("knows each tool by its item", () => {
     expect(toolOf("minecade:spawn_tool")?.id).toBe("spawn");
+    expect(toolOf("minecade:region_tool")?.id).toBe("region");
+    expect(toolOf("minecade:kill_y_tool")?.id).toBe("killY");
     expect(toolOf("minecade:map_menu")).toBeUndefined();
   });
 

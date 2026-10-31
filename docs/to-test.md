@@ -27,6 +27,20 @@ Tests still to run by hand. Delete a line once it passes.
   blocks toward where you faced. Placed while looking down, it tilts down. If it points backward or
   tilts the wrong way, say so: it's one sign to flip.
 - Take my facing on a marker turns its line; Clear facing removes it.
+- Region tool (pass 10.4), on Sumo's `arena_1`:
+  - The map menu shows the Region tool and Kill Y tool switches.
+  - Hitting a block starts a one-block selection (yellow dots) and doesn't break the block.
+  - Using the tool on blocks grows the selection to them, and the size shows above the hotbar.
+  - Using it at the sky opens the region form. Save as a kill region, then as a new region named
+    `plot`: `map.json` gets both, and each outline shows in its own color. Undo removes the last.
+  - Save as Bounds replaces Sumo's bounds; the white outline moves. Undo puts them back.
+  - Nudge sides and Floor at kill Y change the selection; Back one step undoes them.
+  - Bounds and regions in the map menu: Edit, then grow it and Save changes; Nudge; Go to; Delete.
+  - Kill Y tool: Set to (one below your feet), Type a height, Remove. The red dot plane moves.
+  - Outlines show only while holding the region or Kill Y tool, and stay smooth with a big
+    selection (grow one across the whole map).
+  - If no dots show at all, the custom particle didn't load: say so (the fallback is the game's
+    colored flame particle).
 
 ## Needs a second player (map editor)
 

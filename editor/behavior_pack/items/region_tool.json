@@ -1,0 +1,14 @@
+{
+  "format_version": "1.21.60",
+  "minecraft:item": {
+    "description": {
+      "identifier": "minecade:region_tool",
+      "menu_category": { "category": "none" }
+    },
+    "components": {
+      "minecraft:icon": { "textures": { "default": "minecade_region_tool" } },
+      "minecraft:display_name": { "value": "Region tool" },
+      "minecraft:max_stack_size": 1
+    }
+  }
+}

@@ -1,6 +1,6 @@
 # Milestone 10: map editor server (Select, Edit, Preview) (plan)
 
-**Status:** approved 2026-10-30. Milestone 9 (the UI pass) is done, so this is next. Built in 9 passes, functionality first (see "Passes"). Passes 10.1 to 10.3 are done (the spike's results are in `docs/spike-results.md`, "Map editor"; the editor's guide is `docs/editor.md`). Next: pass 10.4. The games come after it as milestones 11 and on.
+**Status:** approved 2026-10-30. Milestone 9 (the UI pass) is done, so this is next. Built in 9 passes, functionality first (see "Passes"). Passes 10.1 to 10.4 are done (the spike's results are in `docs/spike-results.md`, "Map editor"; the editor's guide is `docs/editor.md`). Next: pass 10.5. The games come after it as milestones 11 and on.
 
 **For the session that implements this:**
 - Work in `C:\dev\minecade\network`.
@@ -463,6 +463,20 @@ the client's worlds folder, plus the spaceship world.
 
 **10.4 Region and Kill Y tools.** Region tool, Kill Y tool, and a plain particle outline of the
 box being edited and of the bounds (stand-in for the colored boundary blocks).
+
+*Done 2026-10-30. Where it differs from the design above:*
+- Selecting (the user's choice): a hit starts a one-block selection, and each use on a block, up to
+  64 blocks away, grows it to that block on every axis, so the box needs no corners in mid-air. A
+  use at the air (or Selection in the map menu) opens the region form: Save changes, Save as,
+  Nudge sides (up to 16 blocks each way), Floor at kill Y, Back one step, Clear.
+- The outlines show everything, not only the selection and the bounds: the selection (yellow), the
+  bounds (white), kill regions and the kill Y plane (a deeper red than any team's), each other
+  region in its own color (team regions in the team's), to the player holding the region or Kill Y
+  tool only. Dots come from a small custom particle, only within 40 blocks, and a box over its
+  budget gets sparser dots, so a big map costs the same as a small one.
+- Existing boxes are in the map menu's "Bounds and regions" list (Edit, Nudge, Go to, Delete).
+- The region tool's item doesn't set `can_destroy_in_creative: false`, so its hits reach the script
+  (`entityHitBlock`); the editor cancels the break instead, as for every tool.
 
 **10.5 Select mode.**
 - World picker (client worlds by name, folders, `.mcworld`), select tool, confirm form.

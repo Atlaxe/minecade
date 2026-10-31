@@ -27,7 +27,7 @@ export function switchText(label: string, hint: string, on: boolean): string {
   return `${MARK.toggle}${on ? MARK.on : ""}${label}\n§7${hint}`;
 }
 
-export type MenuAction = "checklist" | "tool" | "undo" | "redo" | "markReady" | "settings" | "saveWorld" | "dropBuild";
+export type MenuAction = "checklist" | "tool" | "selection" | "regions" | "undo" | "redo" | "markReady" | "settings" | "saveWorld" | "dropBuild";
 
 export interface MenuEntry {
   action: MenuAction;
@@ -46,6 +46,8 @@ export interface MenuView {
   redo?: string;
   /** The world is saved when the editor stops. */
   saveWorld: boolean;
+  /** The size of this player's region tool selection ("12 x 5 x 30"), when they have one. */
+  selection?: string;
 }
 
 /** The map menu's buttons, top down. */
@@ -55,6 +57,9 @@ export function menuEntries(view: MenuView): MenuEntry[] {
     { action: "checklist", text: `Checklist (${done} of ${total})${view.checklist.problems.length > 0 ? "\n§c" : "\n§a"}${problemCount(view.checklist)}` },
   ];
   for (const tool of EDITOR_TOOLS) entries.push({ action: "tool", tool: tool.id, text: switchText(tool.label, tool.hint, view.tools.includes(tool.id)) });
+  if (view.selection) entries.push({ action: "selection", text: `Selection\n§7${view.selection}: save or nudge it` });
+  const boxes = boxCount(view.config);
+  if (boxes > 0) entries.push({ action: "regions", text: `Bounds and regions (${boxes})\n§7edit, nudge, go to, delete` });
   if (view.undo) entries.push({ action: "undo", text: `Undo\n§7${view.undo}` });
   if (view.redo) entries.push({ action: "redo", text: `Redo\n§7${view.redo}` });
   if (view.config.draft === true) entries.push({ action: "markReady", text: `Mark ready\n§7${view.checklist.ready ? "the build will include it" : "finish the checklist first"}` });
@@ -95,6 +100,13 @@ export function parseSetting(text: string, old: string | number | boolean): stri
 
 function progress(checklist: Checklist): { done: number; total: number } {
   return { done: checklist.rows.filter((row) => row.done).length, total: checklist.rows.length };
+}
+
+/** The bounds plus every region box. */
+function boxCount(config: MapConfig): number {
+  const regions: unknown = config.regions;
+  const lists = typeof regions === "object" && regions !== null ? Object.values(regions) : [];
+  return (config.bounds ? 1 : 0) + lists.reduce((count: number, list) => count + (Array.isArray(list) ? list.length : 0), 0);
 }
 
 function problemCount(checklist: Checklist): string {
