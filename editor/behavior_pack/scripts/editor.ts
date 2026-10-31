@@ -26,6 +26,8 @@ import {
   log,
   mapChecklist,
   mapTimeTicks,
+  positionText,
+  positionXyz,
   showForm,
   type EditInfo,
   type HostMessage,
@@ -42,7 +44,8 @@ import { Outlines } from "./outlines.ts";
 import { outlineBoxes } from "./regions.ts";
 import { RegionTool } from "./region-tool.ts";
 import { actionBar, heldTool, hintBar, notice, type ToolHost } from "./tool-host.ts";
-import { blockPosition, compass, markerSpecs, snapFacing, SNAPS, spawnLists, type MarkerSpec, type SpawnList } from "./lists.ts";
+import { REACH } from "./box-picker.ts";
+import { aimedPoint, compass, entryPosition, markerSpecs, snapFacing, SNAPS, spawnLists, type AimedFace, type MarkerSpec, type SpawnList } from "./lists.ts";
 import { MapState } from "./map-state.ts";
 import { MARKER, Markers } from "./markers.ts";
 import { dangerText, mapTitle, sideTitle } from "./marks.ts";
@@ -64,6 +67,8 @@ const PAD_RADIUS = 4;
 const HINT_TICKS = 10;
 /** Block changes are reported to the host at most this often. */
 const CHANGED_TICKS = 100;
+/** How far below a block side the Spawn tool looks for the floor to stand an entry on. */
+const FLOOR_REACH = 8;
 /** Undo and Redo open the map menu again once the host answers, or after this long. */
 const REOPEN_TICKS = 40;
 
@@ -241,7 +246,7 @@ export class Editor {
     const key = player.name.toLowerCase();
     let settings = this.settings.get(key);
     if (!settings) {
-      settings = { list: "spawns", keepFacing: false, snap: "exact" };
+      settings = { list: "spawns", center: false, keepFacing: false, snap: "exact" };
       this.settings.set(key, settings);
     }
     return settings;
@@ -323,7 +328,8 @@ export class Editor {
     const count = listOf(this.state.current, list.target).length;
     const what = list.single ? `${count > 0 ? "move" : "place"} ${list.entry}` : `place ${list.entry} ${count + 1}`;
     const facing = settings.keepFacing ? `, facing your way (${SNAPS.find((snap) => snap.snap === settings.snap)?.label ?? "Exact"})` : "";
-    return `Use: ${what} here${facing}   Hit a marker: change it`;
+    const where = settings.center ? "in the block you aim at" : "where you aim";
+    return `Use: ${what} ${where}${facing}   Hit a marker: change it`;
   }
 
   // ---- Map menu ---------------------------------------------------------------------------
@@ -378,6 +384,9 @@ export class Editor {
         return this.mapMenu(player);
       case "list":
         settings.list = action.key;
+        return this.mapMenu(player);
+      case "center":
+        settings.center = !settings.center;
         return this.mapMenu(player);
       case "keepFacing":
         settings.keepFacing = !settings.keepFacing;
@@ -568,9 +577,25 @@ export class Editor {
 
   // ---- Spawn tool and markers -------------------------------------------------------------
 
-  /** Places an entry where the player stands, into the list picked in the map menu. */
+  /**
+   * Where a use of the Spawn tool aims: on top of a block, exactly there; at a block's side, just
+   * in front of that spot on the floor below it; at the sky, where the player stands.
+   */
+  private aimedAt(player: Player): { x: number; y: number; z: number } {
+    const hit = player.getBlockFromViewDirection({ maxDistance: REACH, includeLiquidBlocks: true, includePassableBlocks: true });
+    if (!hit) return player.location;
+    const { point, onTop } = aimedPoint({ block: hit.block.location, face: hit.face as AimedFace["face"], faceLocation: hit.faceLocation });
+    if (onTop) return point;
+    try {
+      const floor = this.dimension.getBlockBelow({ x: point.x, y: point.y + 0.5, z: point.z }, { maxDistance: FLOOR_REACH });
+      return floor ? { ...point, y: floor.location.y + 1 } : point;
+    } catch {
+      return point;
+    }
+  }
+
+  /** Places an entry where the player aims, into the list picked in the map menu. */
   private spawnTool(player: Player): void {
-    const at = blockPosition(player.location);
     const view = player.getRotation();
     const list = this.spawnList(player);
     if (!list) {
@@ -579,12 +604,12 @@ export class Editor {
     }
     const settings = this.settingsOf(player);
     const facing = settings.keepFacing ? snapFacing({ yaw: view.y, pitch: view.x }, settings.snap) : undefined;
-    const position: MapPosition = facing ? [...at, facing.yaw, facing.pitch] : at;
+    const position = entryPosition(this.aimedAt(player), settings.center, facing);
     const count = listOf(this.state.current, list.target).length;
     const replace = list.single && count > 0;
     const edit: MapEdit = replace ? { op: "set", target: list.target, index: 0, at: position } : { op: "add", target: list.target, at: position };
     const name = list.single ? list.entry : `${list.entry} ${count + 1}`;
-    const done = `${name} ${replace ? "moved" : "placed"} at ${at.join(" ")}${facing ? `, facing ${compass(facing.yaw)}` : ""}`;
+    const done = `${name} ${replace ? "moved" : "placed"} at ${positionText(position)}${facing ? `, facing ${compass(facing.yaw)}` : ""}`;
     if (this.edit(player, edit, `${done}.`)) actionBar(player, done);
   }
 
@@ -603,7 +628,7 @@ export class Editor {
       { action: "delete", text: dangerText("Delete") },
     ];
     const facing = spec.facing ? `facing ${compass(spec.facing.yaw)} (yaw ${spec.facing.yaw}, pitch ${spec.facing.pitch})` : "facing the middle of the map";
-    const form = new ActionFormData().title(sideTitle(name)).body(`At ${position.slice(0, 3).join(" ")}, ${facing}.`);
+    const form = new ActionFormData().title(sideTitle(name)).body(`At ${positionText(position)}, ${facing}.`);
     for (const { text } of actions) form.button(text);
     const response = await this.show(player, form);
     const action = response?.selection === undefined ? undefined : actions[response.selection]?.action;
@@ -611,8 +636,8 @@ export class Editor {
     const target = list.target;
     switch (action) {
       case "move": {
-        const at = blockPosition(player.location);
-        this.edit(player, { op: "move", target, index, at }, `${name} moved to ${at.join(" ")}.`);
+        const at = positionXyz(entryPosition(player.location, this.settingsOf(player).center));
+        this.edit(player, { op: "move", target, index, at }, `${name} moved to ${positionText(at)}.`);
         return;
       }
       case "face": {

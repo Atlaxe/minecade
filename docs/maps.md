@@ -41,13 +41,16 @@ The map editor sets spawns and points in game and writes `map.json` for you; see
 | `source`, `cameras` | no | Written by the map editor: where the map was cut from, and its preview cameras. Servers never get them. |
 | anything else | no | Game-specific settings the game reads itself. |
 
-**Positions** are `[x, y, z]` block coordinates, or `[x, y, z, yaw, pitch]` with a fixed facing in
-degrees (yaw -180 to 180, 0 faces south; pitch -90 up to 90 down). Without a facing, spawns face
-the middle of the map, and the lobby's spawn faces the terminal. Positions, points and regions
-must all be inside `bounds`.
+**Positions** are `[x, y, z]`, or `[x, y, z, yaw, pitch]` with a fixed facing in degrees (yaw -180
+to 180, 0 faces south; pitch -90 up to 90 down). Whole x and z mean the middle of that block
+(`[3, 65, -2]` stands at 3.5, 65, -1.5); a fraction in x or z makes it an exact point
+(`[3.27, 65, -1.84]`), which is what the map editor's Spawn tool writes. y is the feet. Without a
+facing, spawns face the middle of the map, and the lobby's spawn faces the terminal. Positions,
+points and regions must all be inside `bounds` (x 12.7 is inside a max of 12). The lobby's
+`terminal` point is always a block.
 
 Servers get `map.json` without `build`, `source`, `cameras` and `draft`. `npm run build` reports
-every problem in every map at once, and warns (without stopping) about two entries of a list on
+every problem in every map at once, and warns (without stopping) about two entries of a list in
 the same block.
 
 ## What a game's maps need

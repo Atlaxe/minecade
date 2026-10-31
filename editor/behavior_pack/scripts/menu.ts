@@ -41,6 +41,7 @@ export type MenuAction =
   | { kind: "none" }
   | { kind: "list"; key: string }
   | { kind: "keepFacing" }
+  | { kind: "center" }
   | { kind: "snap" }
   | { kind: "selection"; action: SelectionAction }
   | { kind: "box"; key: string }
@@ -67,6 +68,8 @@ export interface MenuEntry {
 /** The spawn tool's settings, as a map editor last picked them. */
 export interface SpawnSettings {
   list: string;
+  /** Whole blocks (the middle of the block), not exactly where the player aims. */
+  center: boolean;
   keepFacing: boolean;
   snap: Snap;
 }
@@ -129,6 +132,8 @@ export function spawnSettings(config: MapConfig, checklist: Checklist, lists: Sp
   }
   const snap = SNAPS.find((candidate) => candidate.snap === settings.snap)?.label ?? "Exact";
   entries.push(
+    { action: { kind: "none" }, text: headingText("Position") },
+    { action: { kind: "center" }, text: switchText("Center on block", settings.center ? "the middle of the block" : "off: exactly where you aim", settings.center) },
     { action: { kind: "none" }, text: headingText("Facing") },
     { action: { kind: "keepFacing" }, text: switchText("Save my facing", settings.keepFacing ? "the way you look" : "off: it faces the middle of the map", settings.keepFacing) },
     { action: { kind: "snap" }, text: `Snap: ${snap}\n§7tap for ${SNAPS.filter((candidate) => candidate.label !== snap).map((candidate) => candidate.label).join(" or ")}` },

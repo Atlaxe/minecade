@@ -24,7 +24,7 @@ export const EDITOR_TOOLS: EditorTool[] = [
     icon: "textures/items/spawn_tool",
     label: "Spawn tool",
     hint: "spawns and points",
-    howTo: "Use it where you stand to place an entry there, into the list picked below. Hit a marker to change it.",
+    howTo: "Use it on a block to place an entry exactly where you aim (at the sky: where you stand), into the list picked below. Hit a marker to change it.",
   },
   {
     id: "region",

@@ -6,7 +6,8 @@ export type Vec3 = [x: number, y: number, z: number];
 
 /**
  * A position in map.json: [x, y, z] (spawns face the map's middle), or [x, y, z, yaw, pitch] for
- * a fixed facing in degrees (yaw -180 to 180, 0 is south; pitch -90 up to 90 down).
+ * a fixed facing in degrees (yaw -180 to 180, 0 is south; pitch -90 up to 90 down). Whole x and z
+ * mean the middle of that block; a fraction in either makes it an exact point (see worldPoint).
  */
 export type MapPosition = Vec3 | [x: number, y: number, z: number, yaw: number, pitch: number];
 
@@ -30,6 +31,46 @@ export function teamKey(name: string, team?: string): string {
 
 export function positionXyz(position: MapPosition): Vec3 {
   return [position[0], position[1], position[2]];
+}
+
+/** True when x or z has a fraction: the position is an exact point, not a block's middle. */
+export function isExact(position: MapPosition): boolean {
+  return !Number.isInteger(position[0]) || !Number.isInteger(position[2]);
+}
+
+/**
+ * Where a position stands in the world: whole x and z are the middle of that block (as every map
+ * made before exact positions), anything else is exactly that point. y is the feet in both.
+ */
+export function worldPoint(position: MapPosition): { x: number; y: number; z: number } {
+  const [x, y, z] = position;
+  return isExact(position) ? { x, y, z } : { x: x + 0.5, y, z: z + 0.5 };
+}
+
+/**
+ * An exact position at a point in the world, rounded to 0.01, with the facing when given. Whole x
+ * and z would read as a block's middle, half a block away, so x moves by 0.01 then.
+ */
+export function exactPosition(point: { x: number; y: number; z: number }, facing?: Facing): MapPosition {
+  const round = (value: number) => Math.round(value * 100) / 100 || 0;
+  let x = round(point.x);
+  const z = round(point.z);
+  if (Number.isInteger(x) && Number.isInteger(z)) x = round(x + 0.01);
+  const y = round(point.y);
+  return facing ? [x, y, z, facing.yaw, facing.pitch] : [x, y, z];
+}
+
+/** The block a position is in. */
+export function blockOf(position: MapPosition): Vec3 {
+  return [Math.floor(position[0]), Math.floor(position[1]), Math.floor(position[2])];
+}
+
+/** A position for messages: "3 65 -2", or "3.27 65 -1.84". */
+export function positionText(position: MapPosition): string {
+  return position
+    .slice(0, 3)
+    .map((value) => String(Math.round(value * 100) / 100))
+    .join(" ");
 }
 
 /** A position's saved facing, or undefined when it faces the map's middle. */

@@ -64,6 +64,11 @@ On Sumo's `arena_1` in Edit:
 - Spawn tool: in the menu, Place into lists each list with its count, the one in use outlined; tap
   another to switch. Save my facing is a switch; Snap cycles Exact, 45 and 90 degrees. Holding the
   tool, the line above the hotbar says what a use will place. A use places at once, no form.
+- Exact placing (after the editor's next boot): aim at a spot near a block's corner and use the
+  Spawn tool: the marker stands exactly there, not in the block's middle, and chat gives the spot
+  with decimals ("3.27 65 -1.84"). Aim at a wall: it stands on the floor just in front of where you
+  aimed. Aim at the sky: it goes where you stand. Turn on Center on block: it goes in the block's
+  middle again. Hit a marker, Move here: it moves exactly to where you stand.
 - A spawn placed with "Save my facing" shows a glowing red line from the top of its marker, about 2
   blocks toward where you faced. Placed while looking down, it tilts down. If it points backward or
   tilts the wrong way, say so: it's one sign to flip.

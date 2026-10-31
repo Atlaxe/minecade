@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { EditorRules, MapConfig } from "@minecade/minigame-core/config";
-import { blockPosition, compass, markerPitch, markerSpecs, sameYaw, snapFacing, spawnLists } from "../behavior_pack/scripts/lists.ts";
+import { aimedPoint, blockPosition, compass, entryPosition, markerPitch, markerSpecs, sameYaw, snapFacing, spawnLists } from "../behavior_pack/scripts/lists.ts";
 
 const rules: EditorRules = {
   kind: "game",
@@ -50,6 +50,37 @@ describe("spawn tool lists", () => {
       ["points.extra#0", "§eextra 1"],
     ]);
     expect(specs[1]).toMatchObject({ at: { x: -4.5, y: 65, z: 0.5 }, facing: { yaw: 90, pitch: 0 } });
+  });
+
+  it("stands a marker on an exact position where it is, not in its block's middle", () => {
+    const specs = markerSpecs({ name: "M", spawns: [[3.27, 65, -1.84]] }, spawnLists({ name: "M", spawns: [] }, { kind: "game", maxPlayers: 2 }));
+    expect(specs[0].at).toEqual({ x: 3.27, y: 65, z: -1.84 });
+  });
+});
+
+describe("where the Spawn tool places", () => {
+  const block = { x: 3, y: 64, z: -2 };
+
+  it("puts an entry exactly where it aims on top of a block", () => {
+    expect(aimedPoint({ block, face: "Up", faceLocation: { x: 0.27, y: 1, z: 0.16 } })).toEqual({ point: { x: 3.27, y: 65, z: -1.84 }, onTop: true });
+    // A world location (older APIs) means the same spot.
+    expect(aimedPoint({ block, face: "Up", faceLocation: { x: 3.27, y: 65, z: -1.84 } }).point).toEqual({ x: 3.27, y: 65, z: -1.84 });
+  });
+
+  it("puts it just in front of a side it aims at, for the floor below", () => {
+    const { point, onTop } = aimedPoint({ block, face: "South", faceLocation: { x: 0.5, y: 0.6, z: 1 } });
+    expect(onTop).toBe(false);
+    expect(point.x).toBeCloseTo(3.5);
+    expect(point.y).toBeCloseTo(64.6);
+    expect(point.z).toBeCloseTo(-0.7);
+  });
+
+  it("rounds to hundredths, or centers on the block when asked", () => {
+    expect(entryPosition({ x: 3.2712, y: 65.0001, z: -1.8449 }, false)).toEqual([3.27, 65, -1.84]);
+    expect(entryPosition({ x: 3.2712, y: 65.0001, z: -1.8449 }, false, { yaw: 90, pitch: 0 })).toEqual([3.27, 65, -1.84, 90, 0]);
+    expect(entryPosition({ x: 3.2712, y: 64.99999, z: -1.8449 }, true)).toEqual([3, 65, -2]);
+    // Whole x and z would mean a block's middle, so an exact point never comes out whole.
+    expect(entryPosition({ x: 4.001, y: 65, z: 2 }, false)).toEqual([4.01, 65, 2]);
   });
 });
 

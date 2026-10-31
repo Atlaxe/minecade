@@ -1,14 +1,17 @@
 // The lists the spawn tool places entries into, and the markers that show every entry: pure
 // functions of the map and its rules, so they can be tested without a server.
 import {
+  exactPosition,
   facingOf,
   listKey,
   listOf,
   mapRequirements,
+  worldPoint,
   type EditorRules,
   type Facing,
   type MapConfig,
   type MapList,
+  type MapPosition,
 } from "@minecade/minigame-core/config";
 
 export interface SpawnList {
@@ -71,7 +74,7 @@ export interface MarkerSpec {
   index: number;
   /** The marker's name tag. */
   label: string;
-  /** Where the marker stands: the middle of the entry's block. */
+  /** Where the marker stands: the entry's exact point, or the middle of its block. */
   at: { x: number; y: number; z: number };
   facing?: Facing;
 }
@@ -87,7 +90,7 @@ export function markerSpecs(config: MapConfig, lists: SpawnList[]): MarkerSpec[]
         list,
         index,
         label: facing ? `${name}\n§7faces ${compass(facing.yaw)}` : name,
-        at: { x: position[0] + 0.5, y: position[1], z: position[2] + 0.5 },
+        at: worldPoint(position),
         ...(facing ? { facing } : {}),
       };
     }),
@@ -136,4 +139,52 @@ export function sameYaw(a: number, b: number): boolean {
 export function blockPosition(location: { x: number; y: number; z: number }): [number, number, number] {
   // Standing on a block puts the feet at a whole number, sometimes a hair under it.
   return [Math.floor(location.x), Math.floor(location.y + 0.01), Math.floor(location.z)];
+}
+
+type Point = { x: number; y: number; z: number };
+
+/** The face of a block a use is aimed at, and where on it (from the block's bottom north-west corner). */
+export interface AimedFace {
+  block: Point;
+  face: "Up" | "Down" | "North" | "South" | "East" | "West";
+  faceLocation: Point;
+}
+
+/** How far in front of a block's side an entry goes, so a player standing there isn't in the wall. */
+const SIDE_GAP = 0.3;
+const OUTWARD: Record<AimedFace["face"], [number, number, number]> = {
+  Up: [0, 1, 0],
+  Down: [0, -1, 0],
+  North: [0, 0, -1],
+  South: [0, 0, 1],
+  East: [1, 0, 0],
+  West: [-1, 0, 0],
+};
+
+/**
+ * The spot an aimed use picks: on top of a block, exactly where it's aimed (onTop); at a side or
+ * underneath, just in front of that spot, for the editor to drop to the floor below it.
+ */
+export function aimedPoint(aim: AimedFace): { point: Point; onTop: boolean } {
+  const { block, face } = aim;
+  // The API gives the hit from the block's corner; a world location (older versions) is taken back to that.
+  const corner = (value: number, base: number) => (value < -0.01 || value > 1.01 ? value - base : value);
+  const hit = {
+    x: block.x + corner(aim.faceLocation.x, block.x),
+    y: block.y + corner(aim.faceLocation.y, block.y),
+    z: block.z + corner(aim.faceLocation.z, block.z),
+  };
+  if (face === "Up") return { point: { x: hit.x, y: block.y + 1, z: hit.z }, onTop: true };
+  const [dx, dy, dz] = OUTWARD[face];
+  return { point: { x: hit.x + dx * SIDE_GAP, y: hit.y + dy * SIDE_GAP, z: hit.z + dz * SIDE_GAP }, onTop: false };
+}
+
+/**
+ * An entry's position at a point: exactly there (to 0.01), or with `center` the middle of the
+ * block it's in, as whole numbers. The facing comes along when given.
+ */
+export function entryPosition(point: Point, center: boolean, facing?: Facing): MapPosition {
+  if (!center) return exactPosition(point, facing);
+  const at = blockPosition(point);
+  return facing ? [...at, facing.yaw, facing.pitch] : at;
 }

@@ -93,7 +93,17 @@ describe("validateMapConfig: map format v2", () => {
 describe("mapWarnings", () => {
   it("points out two entries of a list on the same block", () => {
     const map: MapConfig = { name: "M", spawns: [[0, 65, 0], [1, 65, 0], [0, 65, 0, 90, 0]], points: { flag: [[2, 65, 2], [2, 65, 2]] } };
-    expect(mapWarnings(map)).toEqual(["spawns[2] is at the same block as spawns[0]", "points.flag[1] is at the same block as points.flag[0]"]);
+    expect(mapWarnings(map)).toEqual(["spawns[2] is in the same block as spawns[0]", "points.flag[1] is in the same block as points.flag[0]"]);
     expect(mapWarnings({ name: "M", spawns: [[0, 65, 0]] })).toEqual([]);
+    expect(mapWarnings({ name: "M", spawns: [[0.2, 65, 0.3], [0.8, 65, 0.9], [1.2, 65, 0.3]] })).toEqual(["spawns[1] is in the same block as spawns[0]"]);
+  });
+});
+
+describe("exact positions", () => {
+  it("keeps a point inside its bounds' last block, as the runtime does", () => {
+    const rules: MapRules = { kind: "game", maxPlayers: 1 };
+    const bounds = { min: [-12, 40, -12], max: [12, 100, 12] } as MapConfig["bounds"];
+    expect(validateMapConfig({ name: "M", spawns: [[12.7, 65, -12]], bounds }, rules)).toEqual([]);
+    expect(validateMapConfig({ name: "M", spawns: [[13.01, 65, 0]], bounds }, rules)).toEqual(['spawns[0] [13.01,65,0] is outside "bounds"']);
   });
 });

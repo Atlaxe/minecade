@@ -39,6 +39,6 @@ describe("mapChecklist", () => {
   it("warns about two entries on the same block once nothing is missing", () => {
     const list = mapChecklist({ name: "Hall", spawns: [[0, 65, 0], [0, 65, 0]] }, { kind: "lobby" });
     expect(list.ready).toBe(true);
-    expect(list.warnings).toEqual(["spawns[1] is at the same block as spawns[0]"]);
+    expect(list.warnings).toEqual(["spawns[1] is in the same block as spawns[0]"]);
   });
 });

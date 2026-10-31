@@ -40,7 +40,7 @@ function view(config: MapConfig, extra: Partial<MapMenuView> = {}): MapMenuView 
     checklist: mapChecklist(config, rules),
     unsaved: false,
     saving: false,
-    spawn: { lists: spawnLists(config, rules), settings: { list: "spawns", keepFacing: false, snap: "exact" } },
+    spawn: { lists: spawnLists(config, rules), settings: { list: "spawns", center: false, keepFacing: false, snap: "exact" } },
     region: { entries: regionEntries(config, rules) },
     ...extra,
   };
@@ -70,7 +70,7 @@ describe("map menu", () => {
 
   it("shows the tool out's settings between the tools and Save", () => {
     const kinds = (tool: MapMenuView["tool"]) => mapMenuEntries(view({ ...draft, killY: 50 }, { tool })).map((entry) => entry.action.kind).slice(7, -1);
-    expect(kinds("spawn")).toEqual(["none", "list", "list", "none", "keepFacing", "snap"]);
+    expect(kinds("spawn")).toEqual(["none", "list", "list", "none", "center", "none", "keepFacing", "snap"]);
     expect(kinds("region")).toEqual(["none", "box"]);
     expect(kinds("killY")).toEqual(["none", "typeKillY", "removeKillY"]);
     expect(kinds(undefined)).toEqual([]);
@@ -96,11 +96,13 @@ describe("map menu", () => {
 
 describe("tool settings", () => {
   it("lists the spawn tool's lists with counts, the picked one marked, then facing", () => {
-    const entries = spawnSettings(draft, mapChecklist(draft, rules), spawnLists(draft, rules), { list: "spectatorSpawn", keepFacing: true, snap: "45" });
+    const entries = spawnSettings(draft, mapChecklist(draft, rules), spawnLists(draft, rules), { list: "spectatorSpawn", center: true, keepFacing: true, snap: "45" });
     expect(entries.map((entry) => entry.text)).toEqual([
       headingText("Place into"),
       "Spawns\n§71 of 2",
       `${MARK.picked}Spectator spawn\n§70`,
+      headingText("Position"),
+      switchText("Center on block", "the middle of the block", true),
       headingText("Facing"),
       switchText("Save my facing", "the way you look", true),
       "Snap: 45 degrees\n§7tap for Exact or 90 degrees",

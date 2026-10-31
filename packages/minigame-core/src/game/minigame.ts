@@ -18,7 +18,7 @@ import type { ServerContext } from "../context.ts";
 import type { GameConfig, TeamDef } from "../config.ts";
 import { countdownChime, hudLine, playChime, type Chime } from "../hud.ts";
 import { describeError, log } from "../log.ts";
-import { facingOf, type MapPosition } from "../map-config.ts";
+import { facingOf, worldPoint, type MapPosition } from "../map-config.ts";
 import { normalizePlayer } from "../player.ts";
 import type { Scope } from "../scope.ts";
 import { COLOR, deathMessage as formatDeath, nameOf, say } from "../text.ts";
@@ -681,13 +681,13 @@ export abstract class Minigame<C extends GameConfig = GameConfig> {
   }
 
   /**
-   * Teleports to the middle of a map position's block, facing its saved facing. Without one,
-   * spawns face the middle of the map at eye level, so nobody starts looking at the sky or the
-   * floor; other places keep the player's own facing.
+   * Teleports to a map position (the middle of its block, or the exact point), facing its saved
+   * facing. Without one, spawns face the middle of the map at eye level, so nobody starts looking
+   * at the sky or the floor; other places keep the player's own facing.
    */
   private place(player: Player, position: MapPosition, faceCenter = false): void {
-    const [x, y, z] = position;
-    const location = { x: x + 0.5, y, z: z + 0.5 };
+    const location = worldPoint(position);
+    const y = location.y;
     const facing = facingOf(position);
     if (facing) {
       player.teleport(location, { rotation: { x: facing.pitch, y: facing.yaw } });

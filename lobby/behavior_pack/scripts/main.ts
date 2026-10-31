@@ -3,7 +3,7 @@
 // lobby-controller.ts, stats-controller.ts) to players, forms and the orchestrator.
 import { GameMode, system, world, type Player, type Vector3 } from "@minecraft/server";
 import { uiManager, type ActionFormData } from "@minecraft/server-ui";
-import { MapView, describeError, facingOf, holoPictures, holoPortraits, log, normalizePlayer, playChime, showForm, type Scope } from "@minecade/minigame-core";
+import { MapView, blockOf, describeError, facingOf, holoPictures, holoPortraits, log, normalizePlayer, playChime, showForm, worldPoint, type Scope } from "@minecade/minigame-core";
 import { bootServer } from "@minecade/minigame-core/bootstrap";
 import registry from "#registry";
 import skins from "#skins";
@@ -84,8 +84,7 @@ async function showMenu(scope: Scope, player: Player, form: ActionFormData): Pro
 bootServer(({ vars, transport, transfer, root }) => {
   const map = new MapView(vars.mapConfig);
   const spawnPoint = map.spawns[0] ?? [0, 65, 0];
-  const [sx, sy, sz] = spawnPoint;
-  const spawn: Vector3 = { x: sx + 0.5, y: sy, z: sz + 0.5 };
+  const spawn: Vector3 = worldPoint(spawnPoint);
   // A spawn with a saved facing (set in the map editor) keeps it; otherwise everyone faces the terminal.
   const spawnFacing = facingOf(spawnPoint);
   watcherName = vars.watcher;
@@ -160,8 +159,9 @@ bootServer(({ vars, transport, transfer, root }) => {
     root,
     { registry },
   );
-  // The terminal sits at the map's "terminal" point (the middle block of its 3x3 console).
-  const [tx, ty, tz] = vars.mapConfig.points?.terminal?.[0] ?? [0, 65, 0];
+  // The terminal sits at the map's "terminal" point (the middle block of its 3x3 console), a block
+  // even when the point was placed exactly.
+  const [tx, ty, tz] = blockOf(vars.mapConfig.points?.terminal?.[0] ?? [0, 65, 0]);
   const overworld = world.getDimension("overworld");
   // The build gives the hologram the same picture lists (game pictures, map previews, placeholders;
   // badges and players' skin renders).

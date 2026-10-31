@@ -183,12 +183,16 @@ screen.
 
 **The tools act at once.** While you hold one, the line above the hotbar says what a use does.
 
-- **Spawn tool:** use it where an entry goes. It goes at your feet, in whole blocks, into the list
-  picked in the map menu, with your facing when Save my facing is on.
+- **Spawn tool:** aim at where an entry goes and use it, within 64 blocks. On top of a block, it
+  goes exactly where you aim (to a hundredth of a block, like an entity), not the block's middle; at
+  a block's side, just in front of that spot, on the floor below it; at the sky, where you stand.
+  It goes into the list picked in the map menu, with your facing when Save my facing is on.
+  **Center on block** (in the tool's settings, off at first) puts it in the middle of the block
+  instead, the old way, for symmetric arenas.
 - **Markers:** every entry shows as a marker with a name tag: its list, its number, and the way it
   faces when that's saved. An entry with a saved facing also has a glowing red line, 2 blocks long,
   from the top of its marker toward the facing, tilted up or down with the saved pitch. **Hit a
-  marker** to move it to where you stand, give it your facing, clear its facing, move it to another
+  marker** to move it exactly to where you stand, give it your facing, clear its facing, move it to another
   list, renumber it, or delete it.
 - **Region tool:** picks a box, for the bounds, a region or a kill region (anyone inside a kill
   region is out).

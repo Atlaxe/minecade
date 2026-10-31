@@ -125,7 +125,7 @@ export function validateMapConfig(raw: unknown, rules: MapRules): string[] {
   return problems;
 }
 
-/** Things worth a look that don't stop a build: two entries of a list at the same block. */
+/** Things worth a look that don't stop a build: two entries of a list in the same block. */
 export function mapWarnings(config: MapConfig): string[] {
   const warnings: string[] = [];
   const lists: [string, unknown][] = [["spawns", config.spawns]];
@@ -138,10 +138,10 @@ export function mapWarnings(config: MapConfig): string[] {
     const seen = new Map<string, number>();
     list.forEach((position, i) => {
       if (!isPosition(position)) return;
-      const at = xyz(position).join(",");
+      const at = xyz(position).map(Math.floor).join(",");
       const first = seen.get(at);
       if (first === undefined) seen.set(at, i);
-      else warnings.push(`${name}[${i}] is at the same block as ${name}[${first}]`);
+      else warnings.push(`${name}[${i}] is in the same block as ${name}[${first}]`);
     });
   }
   return warnings;
@@ -248,6 +248,7 @@ function xyz(position: MapPosition): Vec3 {
   return [position[0], position[1], position[2]];
 }
 
+/** Inside a box of whole blocks: x 12.7 is inside a max of 12, as at runtime (MapView). */
 function inside(point: Vec3, min: Vec3, max: Vec3): boolean {
-  return point.every((value, axis) => value >= min[axis] && value <= max[axis]);
+  return point.every((value, axis) => value >= min[axis] && value < max[axis] + 1);
 }
