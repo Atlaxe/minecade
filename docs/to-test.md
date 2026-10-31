@@ -34,6 +34,6 @@ Tests still to run by hand. Delete a line once it passes.
 
 ## Solo
 
-- Change your skin while in the lobby: the watcher saves the new one.
-- Click a menu button fast many times: the menu never closes. The lobby log shows "ignored a stray
-  X" when the guard caught one.
+- Lobby game screen: click Random map, then, without moving the mouse, click it again once the menu
+  has reopened. It switches back and the menu stays open. If the menu closes instead, the lobby log
+  says "left the terminal with the X, N ticks after the menu opened".

@@ -72,7 +72,11 @@ async function showMenu(scope: Scope, player: Player, form: ActionFormData): Pro
     });
     const choice = menuChoice(response?.selection);
     const ticksOpen = system.currentTick - shownAt;
-    if (!strayClose(choice, ticksOpen)) return choice;
+    if (!strayClose(choice, ticksOpen)) {
+      // How long a closing menu had been open, in case an X still comes from a click meant elsewhere.
+      if (choice === CLOSE) log.info(`${player.name} left the terminal with the X, ${ticksOpen} ticks after the menu opened`);
+      return choice;
+    }
     log.info(`ignored a stray X on ${player.name}'s menu, ${ticksOpen} ticks after it opened`);
   }
 }

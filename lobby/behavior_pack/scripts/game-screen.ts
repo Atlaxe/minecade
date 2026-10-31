@@ -54,7 +54,8 @@ export function menuChoice(selection: number | undefined): number | typeof CLOSE
  * that shows itself again (the Random switch) sometimes closed the whole terminal: the X is the
  * first button, and a click landing just as the menu opens can hit it (most likely a marker column,
  * whose top slot is the first button until its visibility applies). Nobody reaches the X on
- * purpose this fast.
+ * purpose this fast. The layouts now start every such slot hidden (docs/ui.md), which also covers
+ * a slower click with a still mouse; this guard stays as a second line.
  */
 export const STRAY_CLOSE_TICKS = 6;
 

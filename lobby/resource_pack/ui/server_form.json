@@ -30,8 +30,10 @@
     ]
   },
 
-  // The vanilla action form hides itself for marked titles.
+  // The vanilla action form hides itself for marked titles. Like every control a binding shows, it
+  // starts hidden, so a new form's first frame (before the bindings) has nothing stale to click.
   "long_form": {
+    "visible": false,
     "modifications": [
       {
         "array_name": "bindings",

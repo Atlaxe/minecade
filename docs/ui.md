@@ -309,6 +309,17 @@ inside it zero, so `ui/server_form.json` resizes it to fill the screen; then the
 file next to it (`nineslice_size`, `base_size`) is a nine-slice: its outer slices keep their size
 and the middle stretches.
 
+**Controls a binding shows start hidden.** Every control whose visibility comes from a view
+binding (the menus picked by their title mark, every column item, the state pictures, and
+vanilla's `long_form` in `ui/server_form.json`) also has `"visible": false`. A new screen's first
+frame comes before its bindings apply. In that frame every column shows every item, so the game
+screen's switch column has the X's item (button 0) right where the Random switch sits. Clicking the
+switch made the menu reopen, and a second click without moving the mouse closed the terminal, most
+likely because the click went to what the pointer was over in that first frame. Starting hidden
+leaves nothing stale there. The X's 6-tick guard (`strayClose`) stays as a second line, and the lobby log says how long a
+menu had been open whenever the X closes it. `tools/build/test/pack-json.test.ts` checks this rule in
+every pack's UI files, and that every pack JSON file parses.
+
 **The square style:** every button (main menu tiles, game cards, settings, the Random switch, Start,
 player rows, tabs) uses one set of art, `button_default/hover/pressed.png`: a 1x nine-slice, navy
 with a cyan line down the left and right edges and square corners, so it looks the same at any
