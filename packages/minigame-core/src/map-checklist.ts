@@ -41,9 +41,10 @@ function count(config: MapConfig, requirement: MapRequirement): number {
       return Array.isArray(config.spawns) ? config.spawns.length : 0;
     case "spectatorSpawn":
     case "queueSpawn":
-    case "bounds":
     case "killY":
       return config[requirement.field] === undefined ? 0 : 1;
+    case "bounds":
+      return Array.isArray(config.bounds) ? config.bounds.length : config.bounds === undefined ? 0 : 1;
     case "teamSpawns":
       if (requirement.name === undefined) return isRecord(config.teamSpawns) ? Object.keys(config.teamSpawns).length : 0;
       return lengthOf(config.teamSpawns, requirement.name);

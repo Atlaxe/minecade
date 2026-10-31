@@ -43,7 +43,7 @@ import { keepModeLine, modeLine } from "./hud.ts";
 import { KillYTool } from "./kill-y-tool.ts";
 import { HostLink } from "./link.ts";
 import { Outlines } from "./outlines.ts";
-import { outlineBoxes } from "./regions.ts";
+import { boundsAround, outlineBoxes } from "./regions.ts";
 import { RegionTool } from "./region-tool.ts";
 import { actionBar, heldTool, hintBar, notice, type ToolHost } from "./tool-host.ts";
 import { REACH } from "./box-picker.ts";
@@ -140,7 +140,7 @@ export class Editor {
         boxes: () => outlineBoxes(this.state.current, info.rules),
         killY: () => {
           const y = this.state.current.killY;
-          return typeof y === "number" ? { y, over: this.state.current.bounds } : undefined;
+          return typeof y === "number" ? { y, over: boundsAround(this.state.current) } : undefined;
         },
       },
       ["region", "killY"],

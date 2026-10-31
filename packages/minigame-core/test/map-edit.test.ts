@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { MapConfig } from "../src/map-config.ts";
+import type { Box, MapConfig } from "../src/map-config.ts";
 import { MapEditError, applyEdit, describeEdit, listKey, listOf, type MapEdit } from "../src/map-edit.ts";
 import { formatMapConfig } from "../src/map-format.ts";
 
@@ -13,7 +13,7 @@ const base: MapConfig = {
   points: { flag: [[0, 65, 0]] },
   build: { commands: ["fill -7 64 -7 7 64 7 stone"] },
 };
-const box = { min: [-2, 50, -2], max: [2, 55, 2] } as MapConfig["bounds"] & object;
+const box: Box = { min: [-2, 50, -2], max: [2, 55, 2] };
 
 describe("applyEdit", () => {
   it("adds, moves, faces, removes and renumbers list entries, keeping facings", () => {
@@ -61,6 +61,27 @@ describe("applyEdit", () => {
     map = applyEdit(map, { op: "bounds", box });
     expect(Object.keys(map)).toEqual(["name", "spawns", "bounds", "points", "build"]);
     expect(applyEdit(map, { op: "name", name: "Fort" }).name).toBe("Fort");
+  });
+
+  it("adds, changes and removes bounds boxes, writing one box as a box", () => {
+    const second: Box = { min: [30, 50, -5], max: [40, 60, 5] };
+    let map = applyEdit(base, { op: "addBounds", box: second });
+    expect(map.bounds).toEqual([base.bounds, second]);
+    map = applyEdit(map, { op: "setBounds", index: 1, box });
+    expect(map.bounds).toEqual([base.bounds, box]);
+    map = applyEdit(map, { op: "removeBounds", index: 0 });
+    expect(map.bounds).toEqual(box);
+    expect(Object.keys(map)).toEqual(Object.keys(base));
+    expect(applyEdit(map, { op: "removeBounds", index: 0 }).bounds).toBeUndefined();
+    // Bounds replaces them all with one box.
+    expect(applyEdit(applyEdit(base, { op: "addBounds", box: second }), { op: "bounds", box }).bounds).toEqual(box);
+    expect(applyEdit({ name: "New", spawns: [] }, { op: "addBounds", box }).bounds).toEqual(box);
+    expect(() => applyEdit(base, { op: "setBounds", index: 1, box })).toThrow("there is no entry 2 (the list has 1)");
+    expect(describeEdit({ op: "addBounds", box })).toBe("add bounds");
+    expect(describeEdit({ op: "removeBounds", index: 1 })).toBe("remove bounds 2");
+    expect(formatMapConfig(applyEdit(base, { op: "addBounds", box: second }))).toContain(
+      '"bounds": [\n    { "min": [-20, 50, -20], "max": [20, 90, 20] },\n    { "min": [30, 50, -5], "max": [40, 60, 5] }\n  ],',
+    );
   });
 
   it("refuses edits that don't fit", () => {

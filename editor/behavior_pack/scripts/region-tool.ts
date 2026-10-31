@@ -196,7 +196,7 @@ export class RegionTool {
         this.host.tell(player, `On top of ${entry.label}.`);
         return;
       case "delete": {
-        const edit: MapEdit = entry.region ? { op: "removeRegion", name: entry.region.name, index: entry.region.index } : { op: "bounds" };
+        const edit: MapEdit = entry.region ? { op: "removeRegion", name: entry.region.name, index: entry.region.index } : { op: "removeBounds", index: entry.bounds ?? 0 };
         if (!this.host.edit(player, edit, `${entry.label} deleted.`)) return;
         const selection = this.selections.get(keyOf(player));
         if (selection?.editing?.key === entry.key) selection.editing = undefined;
@@ -235,7 +235,15 @@ export class RegionTool {
     const box = selection.box;
     if (target.kind === "bounds") {
       const done = `Bounds ${this.host.map().bounds ? "replaced" : "set"}: ${describeBox(box)}.`;
-      if (this.host.edit(player, { op: "bounds", box }, done)) selection.editing = { key: "bounds", label: "Bounds", box };
+      if (this.host.edit(player, { op: "bounds", box }, done)) selection.editing = { key: "bounds#0", label: "Bounds", box, bounds: 0 };
+      return;
+    }
+    if (target.kind === "addBounds") {
+      const index = regionEntries(this.host.map(), this.host.rules).filter((entry) => entry.bounds !== undefined).length;
+      const label = `Bounds ${index + 1}`;
+      if (this.host.edit(player, { op: "addBounds", box }, `${label} added: ${describeBox(box)}. A player inside any bounds box is in.`)) {
+        selection.editing = { key: `bounds#${index}`, label, box, bounds: index };
+      }
       return;
     }
     const name = target.kind === "new" ? regionName(String(response.formValues[1] ?? "")) : target.name;
@@ -267,5 +275,5 @@ export class RegionTool {
 
 /** The edit that writes `box` over a saved entry. */
 function saveEdit(entry: RegionEntry, box: Box): MapEdit {
-  return entry.region ? { op: "setRegion", name: entry.region.name, index: entry.region.index, box } : { op: "bounds", box };
+  return entry.region ? { op: "setRegion", name: entry.region.name, index: entry.region.index, box } : { op: "setBounds", index: entry.bounds ?? 0, box };
 }

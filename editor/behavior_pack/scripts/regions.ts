@@ -1,7 +1,7 @@
 // The boxes a map has (its bounds and regions), where the region tool can save a box, and the
 // colors their outlines are drawn in: pure functions of the map and its rules, so they can be
 // tested without a server.
-import { KILL_REGION, mapRequirements, type Box, type EditorRules, type MapConfig, type MapRequirement } from "@minecade/minigame-core/config";
+import { KILL_REGION, enclosingBox, mapRequirements, type Box, type EditorRules, type MapConfig, type MapRequirement } from "@minecade/minigame-core/config";
 import { dangerText } from "./marks.ts";
 
 /** An outline color, each part from 0 to 1 (the script API's RGB). */
@@ -37,12 +37,15 @@ const CODE_COLORS: Record<string, number> = {
   f: 0xffffff,
 };
 
-/** Where the region tool can save a box: the bounds, a region (as a new entry in its list), or a region named in the form. */
+/**
+ * Where the region tool can save a box: the bounds (replacing them all), another bounds box, a
+ * region (as a new entry in its list), or a region named in the form.
+ */
 export interface RegionTarget {
-  /** "bounds", "regions.<name>" (the checklist's key for it), or "new". */
+  /** "bounds", "addBounds", "regions.<name>" (the checklist's key for it), or "new". */
   key: string;
   label: string;
-  kind: "bounds" | "region" | "new";
+  kind: "bounds" | "addBounds" | "region" | "new";
   /** The region's name, for kind "region". */
   name?: string;
 }
@@ -65,30 +68,33 @@ export function selectionActions(editing: string | undefined, steps: number, kil
   ];
 }
 
-/** The bounds, the kill region, the regions the rules ask for, any others the map has, then a new one. */
+/** The bounds (and another bounds box), the kill region, the regions the rules ask for, any others the map has, then a new one. */
 export function regionTargets(config: MapConfig, rules: EditorRules): RegionTarget[] {
+  const bounds = boundsEntries(config).length;
   return [
-    { key: "bounds", label: "Bounds", kind: "bounds" },
+    { key: "bounds", label: bounds > 1 ? `Bounds (replaces all ${bounds} boxes)` : "Bounds", kind: "bounds" },
+    ...(bounds > 0 ? [{ key: "addBounds", label: "Add to bounds (another box)", kind: "addBounds" } as const] : []),
     ...regionNames(config, rules).map((name): RegionTarget => ({ key: `regions.${name}`, label: regionLabel(name, rules), kind: "region", name })),
     { key: "new", label: "New region...", kind: "new" },
   ];
 }
 
-/** A box the map has: the bounds, or entry `index` of the region `name`. */
+/** A box the map has: a bounds box, or entry `index` of the region `name`. */
 export interface RegionEntry {
-  /** "bounds", or "regions.<name>#<index>". */
+  /** "bounds#<index>", or "regions.<name>#<index>". */
   key: string;
-  /** "Bounds", "Kill region 2", "Buy zone (Red) 1". */
+  /** "Bounds", "Bounds 2", "Kill region 2", "Buy zone (Red) 1". */
   label: string;
   box: Box;
-  /** Undefined for the bounds. */
+  /** Undefined for a bounds box. */
   region?: { name: string; index: number };
+  /** A bounds box's place among them. */
+  bounds?: number;
 }
 
-/** Every box the map has: the bounds first, then each region's boxes, in regionTargets' order. */
+/** Every box the map has: the bounds boxes first, then each region's boxes, in regionTargets' order. */
 export function regionEntries(config: MapConfig, rules: EditorRules): RegionEntry[] {
-  const entries: RegionEntry[] = [];
-  if (isBox(config.bounds)) entries.push({ key: "bounds", label: "Bounds", box: config.bounds });
+  const entries: RegionEntry[] = boundsEntries(config);
   const regions = regionsOf(config);
   for (const name of regionNames(config, rules)) {
     const list = regions[name];
@@ -103,8 +109,29 @@ export function regionEntries(config: MapConfig, rules: EditorRules): RegionEntr
 
 /** The box at an entry's place in the map now, if there is one. */
 export function entryBox(config: MapConfig, entry: RegionEntry): Box | undefined {
-  const box: unknown = entry.region ? regionsOf(config)[entry.region.name]?.[entry.region.index] : config.bounds;
+  const box: unknown = entry.region ? regionsOf(config)[entry.region.name]?.[entry.region.index] : boundsOf(config)[entry.bounds ?? 0];
   return isBox(box) ? box : undefined;
+}
+
+/** The box around every bounds box (the kill Y plane is drawn over it), if the map has bounds. */
+export function boundsAround(config: MapConfig): Box | undefined {
+  return enclosingBox(boundsEntries(config).map((entry) => entry.box));
+}
+
+/** The bounds boxes: "Bounds" when there's one, "Bounds 1", "Bounds 2" when there are several. */
+function boundsEntries(config: MapConfig): RegionEntry[] {
+  const list = boundsOf(config);
+  const entries: RegionEntry[] = [];
+  list.forEach((box, index) => {
+    if (isBox(box)) entries.push({ key: `bounds#${index}`, label: list.length > 1 ? `Bounds ${index + 1}` : "Bounds", box, bounds: index });
+  });
+  return entries;
+}
+
+/** "bounds" as a list, whether the map has one box or several. */
+function boundsOf(config: MapConfig): unknown[] {
+  const bounds: unknown = config.bounds;
+  return bounds === undefined ? [] : Array.isArray(bounds) ? bounds : [bounds];
 }
 
 /** A region's name in forms: its label from the rules, "Kill region", "name (Team)", or the name itself. */

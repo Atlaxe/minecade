@@ -3,6 +3,7 @@ import type { EditorRules, MapConfig } from "@minecade/minigame-core/config";
 import {
   BOUNDS_COLOR,
   KILL_COLOR,
+  boundsAround,
   entryBox,
   outlineBoxes,
   regionEntries,
@@ -41,6 +42,7 @@ describe("region tool targets", () => {
   it("offers the bounds, the kill region, required regions, the map's others, then a new one", () => {
     expect(regionTargets(map, rules).map((target) => [target.key, target.label])).toEqual([
       ["bounds", "Bounds"],
+      ["addBounds", "Add to bounds (another box)"],
       ["regions.kill", "Kill region"],
       ["regions.bombA", "Bomb site A"],
       ["regions.buyZone.red", "Buy zone (Red)"],
@@ -51,7 +53,15 @@ describe("region tool targets", () => {
   });
 
   it("keys targets the way the checklist keys its rows", () => {
-    expect(regionTargets({ name: "Empty", spawns: [] }, rules).find((target) => target.key === "regions.buyZone.blue")?.name).toBe("buyZone.blue");
+    const empty = regionTargets({ name: "Empty", spawns: [] }, rules);
+    expect(empty.find((target) => target.key === "regions.buyZone.blue")?.name).toBe("buyZone.blue");
+    // Another bounds box only once the map has one.
+    expect(empty.some((target) => target.kind === "addBounds")).toBe(false);
+  });
+
+  it("says Bounds replaces them all when there are several", () => {
+    const several = { ...map, bounds: [map.bounds, { min: [30, 50, 0], max: [40, 60, 5] }] } as MapConfig;
+    expect(regionTargets(several, rules)[0].label).toBe("Bounds (replaces all 2 boxes)");
   });
 
   it("labels team regions of unknown names by their team", () => {
@@ -71,13 +81,26 @@ describe("the map's boxes", () => {
   it("lists the bounds, then each region's boxes, numbered", () => {
     const entries = regionEntries(map, rules);
     expect(entries.map((entry) => [entry.key, entry.label])).toEqual([
-      ["bounds", "Bounds"],
+      ["bounds#0", "Bounds"],
       ["regions.kill#0", "Kill region 1"],
       ["regions.kill#1", "Kill region 2"],
       ["regions.buyZone.red#0", "Buy zone (Red) 1"],
       ["regions.plot#0", "plot 1"],
     ]);
     expect(entries[2].region).toEqual({ name: "kill", index: 1 });
+  });
+
+  it("numbers several bounds boxes, and draws kill Y over the box around them", () => {
+    const second = { min: [30, 50, 0], max: [40, 60, 5] } as const;
+    const several = { ...map, bounds: [map.bounds, second] } as MapConfig;
+    const entries = regionEntries(several, rules).filter((entry) => entry.bounds !== undefined);
+    expect(entries.map((entry) => [entry.key, entry.label, entry.bounds])).toEqual([
+      ["bounds#0", "Bounds 1", 0],
+      ["bounds#1", "Bounds 2", 1],
+    ]);
+    expect(entryBox(several, entries[1])).toEqual(second);
+    expect(boundsAround(several)).toEqual({ min: [-20, 50, -20], max: [40, 90, 20] });
+    expect(boundsAround({ name: "Empty", spawns: [] })).toBeUndefined();
   });
 
   it("finds an entry's box in the map as it is now", () => {
@@ -94,7 +117,7 @@ describe("the map's boxes", () => {
 
   it("colors outlines: bounds white, kill red, team regions in the team's color, others in turn", () => {
     const outlines = outlineBoxes(map, rules);
-    expect(outlines.find((outline) => outline.key === "bounds")?.color).toEqual(BOUNDS_COLOR);
+    expect(outlines.find((outline) => outline.key === "bounds#0")?.color).toEqual(BOUNDS_COLOR);
     expect(outlines.find((outline) => outline.key === "regions.kill#1")?.color).toEqual(KILL_COLOR);
     expect(outlines.find((outline) => outline.key === "regions.buyZone.red#0")?.color).toEqual({ red: 1, green: 85 / 255, blue: 85 / 255 });
     const plot = outlines.find((outline) => outline.key === "regions.plot#0")?.color;

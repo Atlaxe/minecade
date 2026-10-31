@@ -951,11 +951,12 @@ export abstract class Minigame<C extends GameConfig = GameConfig> {
       const player = this.player(participant.name);
       if (player && this.map.outOfBounds(player.location)) this.down(participant.name, "void");
     }
-    // Spectators fly through walls: keep them over the map (kill regions don't apply to them).
+    // Spectators fly through walls: keep them over the map (kill regions and the gaps between
+    // bounds boxes don't apply to them).
     for (const participant of this.roster.inState("out", "respawning")) {
       const player = this.player(participant.name);
       const bounds = this.map.bounds;
-      if (player && bounds && this.map.outOfBounds({ ...player.location, y: Math.max(player.location.y, bounds.min[1]) }, { killRegions: false })) {
+      if (player && bounds && this.map.outOfBounds({ ...player.location, y: Math.max(player.location.y, bounds.min[1]) }, { killRegions: false, enclosing: true })) {
         this.place(player, this.map.spectatorSpawn);
       }
     }

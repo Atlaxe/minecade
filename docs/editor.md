@@ -202,16 +202,17 @@ screen.
   invisible to each other; off: they roam free) and **Countdown** (the seconds, once everyone's
   in, before they go to their spawns; 5 at first).
 - **Region tool:** picks a box, for the bounds, a region or a kill region (anyone inside a kill
-  region is out).
+  region is out). The bounds can be several boxes: a player inside any of them is in.
   - **Hit a block** to start a new selection: that one block.
   - **Use the tool on a block**, up to 64 blocks away, to grow the selection to it, on every axis.
     Any box can be picked without placing blocks: hit one corner, then use the tool on the blocks
     at the far edges.
   - **Use the tool at the sky** (no block within 64 blocks) to open the region form:
     - **Save changes** (when the selection came from Edit, or was saved already): writes it back.
-    - **Save as:** the bounds, a kill region, a region the game asks for (one per team when it
-      asks for that), a region the map already has, or a new region you name (letters, digits
-      and `_`). A region holds a list of boxes, and each save adds one.
+    - **Save as:** the bounds (replacing every bounds box), **Add to bounds** (another bounds box,
+      once the map has one), a kill region, a region the game asks for (one per team when it asks
+      for that), a region the map already has, or a new region you name (letters, digits and `_`).
+      A region holds a list of boxes, and each save adds one.
     - **Nudge sides:** moves each side up to 16 blocks out (above 0) or in (below 0).
     - **Floor at kill Y:** puts the bottom of the box at kill Y.
     - **Back one step** undoes the last change to the selection; **Clear selection**.
@@ -219,8 +220,8 @@ screen.
 - **Kill Y tool:** players below kill Y are out. Use it to set kill Y one block below your feet.
 - **Outlines:** while you hold the region tool or the Kill Y tool, dots outline your selection
   (yellow), the bounds (white), kill regions (red), each other region in its own color (a team's
-  region in the team's color), and the kill Y plane (red: a grid near you, and the bounds' edge at
-  that height). Only you see them. Every edge shows however far away it is: dots past 40 blocks are
+  region in the team's color), and the kill Y plane (red: a grid near you, and the edge of the box
+  around the bounds at that height). Only you see them. Every edge shows however far away it is: dots past 40 blocks are
   drawn 40 blocks out, on the same line of sight, so they sit where the edge is on screen. Dots are
   spaced and sized by distance, so a line looks the same near and far, and each has a dark rim so
   it shows on bright and dark backgrounds. They stand in for the boundary blocks of a later pass.

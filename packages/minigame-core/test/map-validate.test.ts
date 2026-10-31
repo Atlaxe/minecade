@@ -108,6 +108,29 @@ describe("exact positions", () => {
   });
 });
 
+describe("several bounds boxes", () => {
+  const rules: MapRules = { kind: "game", maxPlayers: 1 };
+  const west = { min: [-20, 40, -5], max: [-10, 80, 5] } as MapConfig["bounds"] & object;
+  const east = { min: [10, 40, -5], max: [20, 80, 5] } as MapConfig["bounds"] & object;
+
+  it("takes positions inside any box, and regions inside the box around them all", () => {
+    expect(validateMapConfig({ name: "M", spawns: [[-15, 65, 0], [15, 65, 0]], bounds: [west, east], regions: { kill: [{ min: [-12, 40, -2], max: [12, 45, 2] }] } }, rules)).toEqual([]);
+    expect(validateMapConfig({ name: "M", spawns: [[0, 65, 0]], bounds: [west, east] }, rules)).toEqual(['spawns[0] [0,65,0] is outside "bounds"']);
+    expect(validateMapConfig({ name: "M", spawns: [[15, 65, 0]], bounds: [west, east], regions: { plot: [{ min: [15, 40, 0], max: [25, 45, 1] }] } }, rules)).toEqual([
+      'regions.plot[0] is outside "bounds"',
+    ]);
+  });
+
+  it("names the box with a problem, and refuses an empty list", () => {
+    const flipped = { min: [5, 40, 5], max: [0, 80, 0] };
+    expect(validateMapConfig({ name: "M", spawns: [[-15, 65, 0]], bounds: [west, flipped, { min: [0, 0] }] } as unknown as MapConfig, rules)).toEqual([
+      '"bounds[1]" min must not be larger than max',
+      '"bounds[2]" must be { "min": [x, y, z], "max": [x, y, z] }',
+    ]);
+    expect(validateMapConfig({ name: "M", spawns: [[0, 65, 0]], bounds: [] }, rules)).toEqual(['"bounds" must be a box, or a list of boxes']);
+  });
+});
+
 describe("the queue spawn", () => {
   const rules: MapRules = { kind: "game", maxPlayers: 1 };
 

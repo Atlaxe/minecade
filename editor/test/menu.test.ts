@@ -126,7 +126,7 @@ describe("tool settings", () => {
       headingText("Bounds and regions (1)"),
       "Bounds\n§711 x 11 x 11: edit, nudge, go to, delete",
     ]);
-    expect(entries.at(-1)?.action).toEqual({ kind: "box", key: "bounds" });
+    expect(entries.at(-1)?.action).toEqual({ kind: "box", key: "bounds#0" });
     expect(regionSettings(undefined, [], undefined).map((entry) => entry.text)).toEqual([headingText("No bounds or regions yet")]);
   });
 

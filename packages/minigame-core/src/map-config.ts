@@ -73,6 +73,24 @@ export function positionText(position: MapPosition): string {
     .join(" ");
 }
 
+/** A map's bounds boxes: none, its one box, or each of several. */
+export function boundsBoxes(config: Pick<MapConfig, "bounds">): Box[] {
+  const bounds = config.bounds;
+  return bounds === undefined ? [] : Array.isArray(bounds) ? [...bounds] : [bounds];
+}
+
+/** The box around all of a map's bounds boxes (the box itself when there's one), or undefined. */
+export function boundsBox(config: Pick<MapConfig, "bounds">): Box | undefined {
+  return enclosingBox(boundsBoxes(config));
+}
+
+/** The smallest box holding all of these, or undefined for none. */
+export function enclosingBox(boxes: Box[]): Box | undefined {
+  if (boxes.length === 0) return undefined;
+  const corner = (side: "min" | "max", pick: (...values: number[]) => number) => [0, 1, 2].map((axis) => pick(...boxes.map((box) => box[side][axis]))) as Vec3;
+  return { min: corner("min", Math.min), max: corner("max", Math.max) };
+}
+
 /** A position's saved facing, or undefined when it faces the map's middle. */
 export function facingOf(position: MapPosition): Facing | undefined {
   return position.length === 5 ? { yaw: position[3], pitch: position[4] } : undefined;
@@ -119,8 +137,11 @@ export interface MapConfig {
   queueSpawn?: MapPosition;
   /** How players wait at the queue spawn (see QueueSettings). */
   queue?: Partial<QueueSettings>;
-  /** The playable area. Required for baking, which builds and checks inside it. */
-  bounds?: Box;
+  /**
+   * The playable area: one box, or several (a player inside any of them is in). Required for
+   * baking, which builds and checks inside the box around them all (boundsBox).
+   */
+  bounds?: Box | Box[];
   /** Below this height a player is out (void games). */
   killY?: number;
   /** Spawns per team, role or side, keyed by its id. */

@@ -2,7 +2,7 @@
 // once) and its host tool (which applies the same change and writes the file). Each edit returns a
 // new config and never changes the old one; undo keeps the old configs. New keys go where a person
 // would write them (spawns near the top, build last), and lists or names left empty are removed.
-import { QUEUE_COUNTDOWN, queueSettings, type Box, type Facing, type MapConfig, type MapPosition, type QueueSettings, type Vec3 } from "./map-config.ts";
+import { QUEUE_COUNTDOWN, boundsBoxes, queueSettings, type Box, type Facing, type MapConfig, type MapPosition, type QueueSettings, type Vec3 } from "./map-config.ts";
 
 /** A list of positions in map.json. The spectator and queue spawns are lists of at most one. */
 export type MapList =
@@ -23,7 +23,12 @@ export type MapEdit =
   | { op: "remove"; target: MapList; index: number }
   /** Moves entry `from` to place `to`; the others shift. */
   | { op: "renumber"; target: MapList; from: number; to: number }
+  /** Replaces every bounds box with this one, or (with none) removes the bounds. */
   | { op: "bounds"; box?: Box }
+  /** Another bounds box: a player inside any of them is in. */
+  | { op: "addBounds"; box: Box }
+  | { op: "setBounds"; index: number; box: Box }
+  | { op: "removeBounds"; index: number }
   | { op: "killY"; y?: number }
   | { op: "addRegion"; name: string; box: Box }
   | { op: "setRegion"; name: string; index: number; box: Box }
@@ -74,6 +79,18 @@ export function applyEdit(config: MapConfig, edit: MapEdit): MapConfig {
     }
     case "bounds":
       return withKey(config, "bounds", edit.box);
+    case "addBounds":
+      return setBounds(config, [...boundsBoxes(config), edit.box]);
+    case "setBounds": {
+      const boxes = boundsBoxes(config);
+      checkIndex(boxes, edit.index);
+      return setBounds(config, boxes.map((box, i) => (i === edit.index ? edit.box : box)));
+    }
+    case "removeBounds": {
+      const boxes = boundsBoxes(config);
+      checkIndex(boxes, edit.index);
+      return setBounds(config, boxes.filter((_, i) => i !== edit.index));
+    }
     case "killY":
       return withKey(config, "killY", edit.y);
     case "addRegion":
@@ -146,6 +163,11 @@ export function describeEdit(edit: MapEdit): string {
     case "bounds":
     case "killY":
       return `${edit.op === "bounds" ? (edit.box ? "set" : "clear") : edit.y === undefined ? "clear" : "set"} ${edit.op}`;
+    case "addBounds":
+      return "add bounds";
+    case "setBounds":
+    case "removeBounds":
+      return `${edit.op === "setBounds" ? "set" : "remove"} bounds ${edit.index + 1}`;
     case "name":
       return `rename to "${edit.name}"`;
     case "draft":
@@ -193,6 +215,11 @@ function setList(config: MapConfig, target: MapList, list: MapPosition[]): MapCo
     case "points":
       return withKey(config, "points", withEntry(config.points, target.name, list));
   }
+}
+
+/** One box is written as a box (as every map before several bounds), more as a list, none removes the key. */
+function setBounds(config: MapConfig, boxes: Box[]): MapConfig {
+  return withKey(config, "bounds", boxes.length === 0 ? undefined : boxes.length === 1 ? boxes[0] : boxes);
 }
 
 function setRegion(config: MapConfig, name: string, boxes: Box[]): MapConfig {

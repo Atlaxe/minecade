@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { MAP_TIMES, blockOf, exactPosition, isExact, mapTimeTicks, positionText, worldPoint } from "../src/map-config.ts";
+import { MAP_TIMES, blockOf, boundsBox, boundsBoxes, enclosingBox, exactPosition, isExact, mapTimeTicks, positionText, worldPoint } from "../src/map-config.ts";
 
 describe("mapTimeTicks", () => {
   it("turns a time's name into ticks, and passes ticks through", () => {
@@ -33,5 +33,20 @@ describe("positions", () => {
     expect(blockOf([3.27, 65, -1.84])).toEqual([3, 65, -2]);
     expect(positionText([3.27, 65, -1.84, 90, 0])).toBe("3.27 65 -1.84");
     expect(positionText([3, 65, -2])).toBe("3 65 -2");
+  });
+});
+
+describe("bounds", () => {
+  const west = { min: [-20, 40, -5], max: [-10, 80, 5] } as const;
+  const east = { min: [10, 50, -8], max: [20, 90, 5] } as const;
+
+  it("lists one box or several, and the box around them all", () => {
+    expect(boundsBoxes({})).toEqual([]);
+    expect(boundsBoxes({ bounds: { min: [...west.min], max: [...west.max] } })).toHaveLength(1);
+    const both = { bounds: [{ min: [...west.min], max: [...west.max] }, { min: [...east.min], max: [...east.max] }] } as { bounds: { min: [number, number, number]; max: [number, number, number] }[] };
+    expect(boundsBoxes(both)).toHaveLength(2);
+    expect(boundsBox(both)).toEqual({ min: [-20, 40, -8], max: [20, 90, 5] });
+    expect(boundsBox({})).toBeUndefined();
+    expect(enclosingBox([])).toBeUndefined();
   });
 });

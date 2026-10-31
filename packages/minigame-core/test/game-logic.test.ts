@@ -237,6 +237,19 @@ describe("MapView", () => {
     expect(view.outOfBounds({ x: 0, y: 91, z: 0 })).toBe(true);
   });
 
+  it("is in inside any of several bounds boxes; spectators get the box around them all", () => {
+    const view = new MapView({ ...base, bounds: [{ min: [-20, 50, -5], max: [-10, 90, 5] }, { min: [10, 60, -5], max: [20, 90, 5] }] });
+    expect(view.boundsBoxes).toHaveLength(2);
+    expect(view.bounds).toEqual({ min: [-20, 50, -5], max: [20, 90, 5] });
+    expect(view.center()).toEqual([0, 70, 0]);
+    expect(view.outOfBounds({ x: -15, y: 55, z: 0 })).toBe(false);
+    expect(view.outOfBounds({ x: 15, y: 65, z: 0 })).toBe(false);
+    expect(view.outOfBounds({ x: 0, y: 65, z: 0 })).toBe(true);
+    expect(view.outOfBounds({ x: 15, y: 55, z: 0 })).toBe(true);
+    expect(view.outOfBounds({ x: 0, y: 65, z: 0 }, { killRegions: false, enclosing: true })).toBe(false);
+    expect(view.outOfBounds({ x: 0, y: 65, z: 9 }, { killRegions: false, enclosing: true })).toBe(true);
+  });
+
   it("checks killY and bounds together, and nothing without either", () => {
     const view = new MapView({ ...base, killY: 60, bounds: { min: [-10, 50, -10], max: [10, 90, 10] } });
     expect(view.outOfBounds({ x: 0, y: 55, z: 0 })).toBe(true);

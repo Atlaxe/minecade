@@ -2,7 +2,7 @@
 // problems live). validateMapConfig returns a list of problems (empty when valid) so everything
 // is reported at once; mapWarnings lists things worth a look that don't stop a build.
 import type { MapRequirementsConfig } from "./config.ts";
-import { MAP_TIMES, QUEUE_COUNTDOWN, QUEUE_MODES, mapTimeTicks, type Box, type MapConfig, type MapPosition, type Vec3 } from "./map-config.ts";
+import { MAP_TIMES, QUEUE_COUNTDOWN, QUEUE_MODES, enclosingBox, mapTimeTicks, type Box, type MapConfig, type MapPosition, type Vec3 } from "./map-config.ts";
 import { mapRequirements, type MapRequirement } from "./map-requirements.ts";
 
 /** Bedrock overworld height limits. */
@@ -106,18 +106,31 @@ export function validateMapConfig(raw: unknown, rules: MapRules): string[] {
     }
   }
 
+  // One box, or several: every position must be inside one of them, every region inside the box
+  // around them all.
   const bounds = map.bounds;
   if (bounds !== undefined) {
-    if (!isBox(bounds)) {
-      problems.push('"bounds" must be { "min": [x, y, z], "max": [x, y, z] }');
-    } else {
-      if (bounds.min.some((value, axis) => value > bounds.max[axis])) problems.push('"bounds" min must not be larger than max');
-      if (bounds.min[1] < MIN_Y || bounds.max[1] > MAX_Y) problems.push(`"bounds" y must stay within ${MIN_Y} to ${MAX_Y}`);
+    const several = Array.isArray(bounds);
+    const entries: unknown[] = several ? bounds : [bounds];
+    const shaped: Box[] = [];
+    if (entries.length === 0) problems.push('"bounds" must be a box, or a list of boxes');
+    entries.forEach((box, i) => {
+      const label = several ? `"bounds[${i}]"` : '"bounds"';
+      if (!isBox(box)) {
+        problems.push(`${label} must be { "min": [x, y, z], "max": [x, y, z] }`);
+        return;
+      }
+      if (box.min.some((value, axis) => value > box.max[axis])) problems.push(`${label} min must not be larger than max`);
+      if (box.min[1] < MIN_Y || box.max[1] > MAX_Y) problems.push(`${label} y must stay within ${MIN_Y} to ${MAX_Y}`);
+      shaped.push(box);
+    });
+    const around = shaped.length === entries.length ? enclosingBox(shaped) : undefined;
+    if (around) {
       for (const [name, point] of points) {
-        if (!inside(point, bounds.min, bounds.max)) problems.push(`${name} ${JSON.stringify(point)} is outside "bounds"`);
+        if (!shaped.some((box) => inside(point, box.min, box.max))) problems.push(`${name} ${JSON.stringify(point)} is outside "bounds"`);
       }
       for (const [name, box] of boxes) {
-        if (!inside(box.min, bounds.min, bounds.max) || !inside(box.max, bounds.min, bounds.max)) problems.push(`${name} is outside "bounds"`);
+        if (!inside(box.min, around.min, around.max) || !inside(box.max, around.min, around.max)) problems.push(`${name} is outside "bounds"`);
       }
     }
   }

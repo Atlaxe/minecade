@@ -32,7 +32,7 @@ The map editor sets spawns and points in game and writes `map.json` for you; see
 | `spectatorSpawn` | no | Where eliminated players watch from. |
 | `queueSpawn` | no | Where players wait for everyone to join before the game puts them at their spawns (see "The queue spawn" below). |
 | `queue` | no | How they wait there: `{ "mode": "lock" \| "free", "countdown": 5 }`. `lock` (the default) keeps everyone on the spot, looking around but unable to move, and invisible with no name tags, so nobody sees the others; `free` lets them roam. `countdown` is whole seconds (1 to 60, default 5). |
-| `bounds` | when `build` is used | The playable box, in whole blocks (inclusive). Players outside it are out (in games with `combat.outOfBounds: "down"`), and spectators are kept inside. Spawns must be inside it, and y must stay within -64 to 319. |
+| `bounds` | when `build` is used | The playable area, in whole blocks (inclusive): one box, or a list of boxes for an area of another shape (an L-shaped arena, two islands). Players outside every box are out (in games with `combat.outOfBounds: "down"`), and in the lobby go back to spawn. Spectators are kept inside the box around them all, flying over the gaps. Spawns must be inside a box, and y must stay within -64 to 319. Baking works inside the box around them all. |
 | `killY` | no | Anyone below this height is out (knocked off, fell into the void). Within -64 to 319. |
 | `time` | no | A fixed time of day: the daylight cycle stops there when the server starts. `day`, `noon`, `sunset`, `night`, `midnight` or `sunrise`, or ticks from 0 to 23999. |
 | `stars` | no | The lobby only: `true` puts a star box around the map, so stars show in every direction, below the horizon too (Bedrock's own sky has stars only above it). Use it with a night `time`. See "The star box" in `docs/ui.md`. |
@@ -47,8 +47,9 @@ The map editor sets spawns and points in game and writes `map.json` for you; see
 to 180, 0 faces south; pitch -90 up to 90 down). Whole x and z mean the middle of that block
 (`[3, 65, -2]` stands at 3.5, 65, -1.5); a fraction in x or z makes it an exact point
 (`[3.27, 65, -1.84]`), which is what the map editor's Spawn tool writes. y is the feet. Without a
-facing, spawns face the middle of the map, and the lobby's spawn faces the terminal. Positions,
-points and regions must all be inside `bounds` (x 12.7 is inside a max of 12). The lobby's
+facing, spawns face the middle of the map, and the lobby's spawn faces the terminal. Positions
+and points must be inside a `bounds` box, and regions inside the box around them all (x 12.7 is
+inside a max of 12). The lobby's
 `terminal` point is always a block.
 
 Servers get `map.json` without `build`, `source`, `cameras` and `draft`. `npm run build` reports

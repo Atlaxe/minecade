@@ -9,7 +9,7 @@ import { tmpdir } from "node:os";
 import { join, relative } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import * as tar from "tar";
-import type { GameConfig, MapConfig } from "@minecade/minigame-core/config";
+import { boundsBox, type Box, type GameConfig, type MapConfig } from "@minecade/minigame-core/config";
 import { BASE_IMAGE, buildBaseImage } from "./base-image.ts";
 import { bakeSettings, checkBakeSettings, classifyResponse, stripLogPrefix } from "./bake-core.ts";
 import { attachConsole, connectDocker, copyDirFromContainer, findContainerByName, type ServerConsole } from "./docker-util.ts";
@@ -120,7 +120,9 @@ function commandRunner(serverConsole: ServerConsole) {
 
 async function bake(ref: MapRef): Promise<void> {
   const label = `${ref.target}/${ref.mapId}`;
-  const { bounds, build } = ref.map as Required<Pick<MapConfig, "bounds" | "build">>;
+  const { build } = ref.map as Required<Pick<MapConfig, "build">>;
+  // Several bounds boxes bake inside the box around them all.
+  const bounds = boundsBox(ref.map) as Box;
   console.log(`Baking ${label}: ${build.commands.length} build commands`);
 
   const staging = await mkdtemp(join(tmpdir(), "minecade-bake-"));
