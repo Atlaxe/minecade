@@ -130,7 +130,7 @@ describe("TerminalController: the lock", () => {
     t.mains[0].answer(undefined); // closed the menu
     await flushPromises();
     expect(t.terminal.current).toBeUndefined();
-    expect(t.holo.at(-1)).toEqual(idleContent());
+    expect(t.holo.at(-1)).toEqual(mainContent()); // the last screen stays up
     void t.terminal.tap("Alex");
     expect(t.terminal.current).toBe("Alex");
   });
@@ -163,7 +163,7 @@ describe("TerminalController: the lock", () => {
     expect(t.terminal.current).toBeUndefined();
     t.mains[0].answer("play"); // the closed menu's late answer does nothing
     await flushPromises();
-    expect(t.holo.at(-1)).toEqual(idleContent());
+    expect(t.holo.at(-1)).toEqual(mainContent());
 
     void t.terminal.tap("Alex");
     t.distances.set("Alex", 12);
@@ -280,18 +280,19 @@ describe("TerminalController: Play", () => {
 
   it("leaves the terminal from any menu with the X, and the next tap opens that menu again", async () => {
     const t = setup();
-    const ended = () => t.terminal.current === undefined && JSON.stringify(t.holo.at(-1)) === JSON.stringify(idleContent());
+    // The session is over, and the hologram keeps the last screen.
+    const ended = (screen: HoloContent) => t.terminal.current === undefined && JSON.stringify(t.holo.at(-1)) === JSON.stringify(screen);
     void t.terminal.tap("Steve");
     t.mains[0].answer(CLOSE); // the main menu
     await flushPromises();
-    expect(ended()).toBe(true);
+    expect(ended(mainContent())).toBe(true);
 
     void t.terminal.tap("Steve");
     t.mains[1].answer("play");
     await flushPromises();
     t.grids[0].answer(CLOSE); // the game grid
     await flushPromises();
-    expect(ended()).toBe(true);
+    expect(ended(gamesContent(t.grids[0].choices))).toBe(true);
 
     void t.terminal.tap("Steve"); // the grid again
     expect(t.grids).toHaveLength(2);
@@ -300,7 +301,9 @@ describe("TerminalController: Play", () => {
     await flushPromises();
     t.screens[0].answer(CLOSE); // a game's screen
     await flushPromises();
-    expect(ended()).toBe(true);
+    expect(ended(gameContent(t.screens[0].view))).toBe(true);
+    t.terminal.refresh(); // the periodic refresh keeps it up
+    expect(ended(gameContent(t.screens[0].view))).toBe(true);
     expect(t.requests).toEqual([]);
 
     void t.terminal.tap("Steve"); // Sumo's screen again; back goes to the grid, then the main menu
@@ -311,9 +314,10 @@ describe("TerminalController: Play", () => {
     await flushPromises();
     t.mains[2].answer("stats");
     await flushPromises();
+    t.statsShow(gamesContent([])); // stands in for a stats screen on the hologram
     t.finishStats(true); // the X in the stats screens
     await flushPromises();
-    expect(ended()).toBe(true);
+    expect(ended(gamesContent([]))).toBe(true);
 
     void t.terminal.tap("Steve"); // the stats screens again
     expect(t.holo.at(-1)).toEqual(mainContent("stats"));
@@ -372,7 +376,9 @@ describe("TerminalController: Play", () => {
     expect(t.requests).toEqual([["Steve", "paintball", "random", { teams: "random" }]]);
     expect(t.terminal.current).toBeUndefined();
 
-    t.setStarting(false); // the game is over
+    t.setStarting(false); // the start is over: the hologram shows Paintball's screen again
+    t.terminal.refresh();
+    expect(t.holo.at(-1)).toEqual(gameContent(t.screens[7].view));
     void t.terminal.tap("Steve"); // Paintball's screen, ready to go again
     expect(t.screens[8].view).toMatchObject({ choice: { game: paintball }, settings: { teams: "random" } });
     expect(t.mains).toHaveLength(2);
@@ -470,7 +476,7 @@ describe("TerminalController: hologram previews (DEV_HOLO_PREVIEW)", () => {
     expect(t.holo.at(-1)).toEqual(mainContent());
     t.mains[2].answer(undefined);
     await flushPromises();
-    expect(t.holo.at(-1)).toEqual(idleContent());
+    expect(t.holo.at(-1)).toEqual(mainContent());
   });
 });
 

@@ -3,7 +3,7 @@
 // the hologram, so this file is unit-tested with plain data.
 //
 // The user keeps the terminal until they close the menu, start a game, leave, walk away, or
-// leave it untouched for a while; then the hologram goes back to the idle screen.
+// leave it untouched for a while; the hologram keeps the last screen up until the next tap.
 //
 //   main menu ── Play ──> game grid ──> game screen (map, settings) ── Start ──> the game starts
 //             └─ Stats ─> the stats screens
@@ -86,8 +86,8 @@ export class TerminalController {
   private readonly now: () => number;
   private user: string | undefined;
   private session: Scope | undefined;
-  /** A previewed screen that stays on the hologram until the terminal is tapped again. */
-  private pinned: HoloContent | undefined;
+  /** The last screen the terminal showed (or a previewed one). It stays on the hologram after a session ends, until the next tap. */
+  private lastScreen: HoloContent | undefined;
   private lastActivity = 0;
   private readonly memory = new Map<string, Memory>();
 
@@ -115,7 +115,6 @@ export class TerminalController {
       return;
     }
     const scope = this.scope.child(`terminal:${name}`);
-    this.pinned = undefined;
     this.user = name;
     this.session = scope;
     scope.add(() => {
@@ -144,7 +143,7 @@ export class TerminalController {
           const screen = await this.ports.previewMenu(name, scope);
           if (screen === undefined) continue;
           // The session ends and the screen stays up (refresh shows it) until the next tap.
-          this.pinned = previewContent(screen, this.ports.choices(), name);
+          this.lastScreen = previewContent(screen, this.ports.choices(), name);
           return;
         } else {
           memory.screen = "stats";
@@ -158,12 +157,12 @@ export class TerminalController {
   }
 
   /**
-   * Shows the idle screen (or a pinned preview) unless someone is using the terminal or a game is
-   * starting (at boot, when the terminal frees up, and when a start ends). While a game starts, the
-   * hologram keeps the game's screen, or shows the team picks.
+   * Shows the last screen (the idle screen before anyone has used the terminal) unless someone is
+   * using it or a game is starting (at boot, when the terminal frees up, and when a start ends).
+   * While a game starts, the hologram keeps the game's screen, or shows the team picks.
    */
   refresh(): void {
-    if (this.user === undefined && !this.ports.starting()) this.ports.hologram(this.pinned ?? idleContent());
+    if (this.user === undefined && !this.ports.starting()) this.ports.hologram(this.lastScreen ?? idleContent());
   }
 
   onPlayerLeft(name: string): void {
@@ -243,6 +242,7 @@ export class TerminalController {
 
   private show(content: HoloContent): void {
     this.lastActivity = this.now();
+    this.lastScreen = content;
     this.ports.hologram(content);
   }
 

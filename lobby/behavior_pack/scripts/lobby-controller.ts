@@ -30,7 +30,7 @@ export interface LobbyPorts {
   teamPicks?: TeamPickPorts;
   /** The hologram's countdown screen: while the game's server boots, then each second before everyone is sent. */
   countdown?(view: CountdownView): void;
-  /** A start is over (the players were sent, or it failed): the terminal's hologram can go back to idle. */
+  /** A start is over (the players were sent, or it failed): the terminal's hologram can show its last screen again. */
   startEnded?(): void;
 }
 
