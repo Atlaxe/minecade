@@ -4,7 +4,11 @@
     "description": {
       "identifier": "minecade:editor_marker",
       "is_spawnable": false,
-      "is_summonable": true
+      "is_summonable": true,
+      "properties": {
+        "minecade:faced": { "type": "bool", "default": false, "client_sync": true },
+        "minecade:pitch": { "type": "int", "range": [-90, 90], "default": 0, "client_sync": true }
+      }
     },
     "components": {
       "minecraft:collision_box": { "width": 0.6, "height": 1.0 },

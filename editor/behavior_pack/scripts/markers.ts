@@ -1,14 +1,22 @@
 // Marker entities that show every spawn and point, numbered by list. Hitting one opens its form.
+// An entry with a saved facing gets a red line from the marker's top toward it: the marker spawns
+// turned to the entry's yaw (the line is the model's front), and tilts the line by the entry's
+// pitch through a client-synced property.
 // They live only while the editor runs: a marker in a chunk nobody is near is saved with that
 // chunk, so every chunk a marker was ever in is remembered (also in a world property, in case the
 // server crashes), and clear() loads them all and removes every marker before the world is saved.
 import { world, type Dimension, type Entity, type Vector3 } from "@minecraft/server";
 import { describeError, log, type Scope } from "@minecade/minigame-core";
-import type { MarkerSpec } from "./lists.ts";
+import { markerPitch, sameYaw, type MarkerSpec } from "./lists.ts";
 
 export const MARKER = "minecade:editor_marker";
 /** On each marker: its MarkerSpec key. */
 const KEY_PROPERTY = "minecade:key";
+/** On each marker: the yaw it was spawned with. */
+const YAW_PROPERTY = "minecade:yaw";
+/** Entity properties the client draws the facing line from (editor_marker.json). */
+const FACED_PROPERTY = "minecade:faced";
+const PITCH_PROPERTY = "minecade:pitch";
 /** On the world: the chunks markers were in, as JSON ["x,z", ...]. */
 const CHUNKS_PROPERTY = "minecade:markerChunks";
 const SYNC_TICKS = 20;
@@ -52,7 +60,8 @@ export class Markers {
     const shown = new Set<string>();
     for (const entity of this.dimension.getEntities({ type: MARKER })) {
       const spec = this.specOf(entity);
-      if (!spec || shown.has(spec.key)) {
+      // Turned another way: placed again below, so the line's yaw comes from the spawn.
+      if (!spec || shown.has(spec.key) || !sameYaw(Number(entity.getDynamicProperty(YAW_PROPERTY) ?? 0), yawOf(spec))) {
         entity.remove();
         continue;
       }
@@ -62,15 +71,16 @@ export class Markers {
         this.remember(spec.at);
       }
       if (entity.nameTag !== spec.label) entity.nameTag = spec.label;
-      face(entity, spec);
+      showFacing(entity, spec);
     }
     for (const spec of this.specs.values()) {
       if (shown.has(spec.key) || !this.dimension.isChunkLoaded(spec.at)) continue;
       try {
-        const entity = this.dimension.spawnEntity(MARKER, spec.at);
+        const entity = this.dimension.spawnEntity(MARKER, spec.at, { initialRotation: yawOf(spec) });
         entity.setDynamicProperty(KEY_PROPERTY, spec.key);
+        entity.setDynamicProperty(YAW_PROPERTY, yawOf(spec));
         entity.nameTag = spec.label;
-        face(entity, spec);
+        showFacing(entity, spec);
         this.remember(spec.at);
       } catch (error) {
         log.warn(`could not place the marker ${spec.key}: ${describeError(error)}`);
@@ -130,10 +140,17 @@ export class Markers {
   }
 }
 
-/** Turns a marker the way its entry faces, so a later model can show it. */
-function face(entity: Entity, spec: MarkerSpec): void {
-  const yaw = spec.facing?.yaw ?? 0;
-  if (Math.abs(entity.getRotation().y - yaw) > 0.5) entity.setRotation({ x: 0, y: yaw });
+/** The way a marker is turned: its entry's yaw, or south without a facing. */
+function yawOf(spec: MarkerSpec): number {
+  return spec.facing?.yaw ?? 0;
+}
+
+/** Shows or hides the facing line and sets its tilt. */
+function showFacing(entity: Entity, spec: MarkerSpec): void {
+  const faced = spec.facing !== undefined;
+  const pitch = markerPitch(spec.facing);
+  if (entity.getProperty(FACED_PROPERTY) !== faced) entity.setProperty(FACED_PROPERTY, faced);
+  if (entity.getProperty(PITCH_PROPERTY) !== pitch) entity.setProperty(PITCH_PROPERTY, pitch);
 }
 
 function distance(a: Vector3, b: Vector3): number {

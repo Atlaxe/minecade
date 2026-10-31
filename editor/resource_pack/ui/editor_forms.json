@@ -1,0 +1,222 @@
+{
+  "namespace": "editor_forms",
+
+  // The map editor's button menus (the map menu, the checklist, the marker form): a dark panel down
+  // the right side of the screen, full height, so the world stays in view on the left. A form gets it
+  // when its title starts with the side mark (menu.ts LAYOUT). The title and the X stay at the top;
+  // the body and the buttons scroll under them, top down.
+  //
+  // Every control that a binding shows starts hidden ("visible": false): a new screen's first frame
+  // comes before its bindings apply, and a click without a mouse move goes to whatever was under the
+  // pointer then (see docs/ui.md).
+  "long_form": {
+    "type": "panel",
+    "size": ["100%", "100%"],
+    "controls": [{ "side_menu@editor_forms.side_menu": {} }]
+  },
+
+  "side_menu": {
+    "type": "panel",
+    "size": [200, "100%"],
+    "anchor_from": "right_middle",
+    "anchor_to": "right_middle",
+    "layer": 2,
+    "visible": false,
+    "bindings": [
+      { "binding_name": "#title_text" },
+      {
+        "binding_type": "view",
+        "source_property_name": "(not ((#title_text - '§s§i§d§e') = #title_text))",
+        "target_property_name": "#visible"
+      }
+    ],
+    "controls": [
+      { "background": { "type": "image", "texture": "textures/minecade/editor/panel", "size": ["100%", "100%"], "layer": 1 } },
+      {
+        "title": {
+          "type": "label",
+          "text": "#title_text",
+          "font_type": "MinecraftTen",
+          "font_scale_factor": 1.2,
+          "color": [1.0, 1.0, 1.0],
+          "shadow": true,
+          "size": ["100% - 36px", "default"],
+          "anchor_from": "top_left",
+          "anchor_to": "top_left",
+          "offset": [10, 10],
+          "layer": 3,
+          "bindings": [{ "binding_name": "#title_text" }]
+        }
+      },
+      { "close@editor_forms.close_x": {} },
+      {
+        "rule": {
+          "type": "image",
+          "texture": "textures/minecade/editor/rule",
+          "size": ["100% - 16px", 1],
+          "anchor_from": "top_middle",
+          "anchor_to": "top_middle",
+          "offset": [0, 30],
+          "layer": 3
+        }
+      },
+      {
+        "content@editor_forms.scroll": {
+          "size": ["100% - 8px", "100% - 38px"],
+          "anchor_from": "bottom_middle",
+          "anchor_to": "bottom_middle",
+          "offset": [0, -4],
+          "layer": 3,
+          "$scrolling_content": "editor_forms.side_content"
+        }
+      }
+    ]
+  },
+
+  // Closes the menu, the same as Esc: vanilla's close button with a white X (red when hovered). Not a
+  // form button, so no form's button 0 is a way out.
+  "close_x@common.close_button": {
+    "layer": 6,
+    "anchor_from": "top_right",
+    "anchor_to": "top_right",
+    "$close_button_offset": [-6, 7],
+    "controls": [
+      { "default@common.close_button_panel": { "$close_button_texture": "textures/minecade/editor/close_default" } },
+      { "hover@common.close_button_panel": { "$close_button_texture": "textures/minecade/editor/close_hover" } },
+      { "pressed@common.close_button_panel": { "$close_button_texture": "textures/minecade/editor/close_pressed" } }
+    ]
+  },
+
+  // A scroll area like the vanilla form's.
+  "scroll@common.scrolling_panel": {
+    "$show_background": false,
+    "$scroll_size": [5, "100% - 4px"],
+    "$scrolling_pane_size": ["100% - 4px", "100% - 2px"],
+    "$scrolling_pane_offset": [2, 0],
+    "$scroll_bar_right_padding_size": [0, 0]
+  },
+
+  // The body, then one full-width button per form button, top down.
+  "side_content": {
+    "type": "stack_panel",
+    "orientation": "vertical",
+    "size": ["100% - 4px", "100%c"],
+    "anchor_from": "top_left",
+    "anchor_to": "top_left",
+    "controls": [
+      {
+        "body": {
+          "type": "panel",
+          "size": ["100%", "100%c + 8px"],
+          "controls": [
+            {
+              "label": {
+                "type": "label",
+                "text": "#form_text",
+                "color": [0.78, 0.79, 0.81],
+                "size": ["100% - 8px", "default"],
+                "anchor_from": "top_left",
+                "anchor_to": "top_left",
+                "offset": [4, 4],
+                "bindings": [{ "binding_name": "#form_text" }]
+              }
+            }
+          ]
+        }
+      },
+      { "buttons@editor_forms.button_column": {} }
+    ]
+  },
+
+  "button_column": {
+    "type": "stack_panel",
+    "orientation": "vertical",
+    "size": ["100%", "100%c"],
+    "collection_name": "form_buttons",
+    "factory": { "name": "buttons", "control_ids": { "button": "@editor_forms.button_slot" } },
+    "bindings": [{ "binding_name": "#form_button_contents", "binding_name_override": "#collection_length" }]
+  },
+
+  // Always shown: unlike the lobby's columns, every button is in this one list.
+  "button_slot": {
+    "type": "panel",
+    "size": ["100%", 36],
+    "controls": [
+      {
+        "button@common.button": {
+          "$pressed_button_name": "button.form_button_click",
+          "size": ["100%", 34],
+          "anchor_from": "top_left",
+          "anchor_to": "top_left",
+          "bindings": [{ "binding_type": "collection_details", "binding_collection_name": "form_buttons" }],
+          "controls": [
+            { "default@editor_forms.button_face": { "$face_texture": "textures/minecade/editor/button_default" } },
+            { "hover@editor_forms.button_face": { "$face_texture": "textures/minecade/editor/button_hover" } },
+            { "pressed@editor_forms.button_face": { "$face_texture": "textures/minecade/editor/button_pressed" } }
+          ]
+        }
+      }
+    ]
+  },
+
+  // A button: its two lines on the left, and for a switch (§t§g§r) an on or off picture on the
+  // right (on while the text also has §o§n§r).
+  "button_face": {
+    "type": "image",
+    "texture": "$face_texture",
+    "size": ["100%", "100%"],
+    "keep_ratio": false,
+    "controls": [
+      {
+        "label": {
+          "type": "label",
+          "text": "#form_button_text",
+          "font_type": "MinecraftTen",
+          "color": [1.0, 1.0, 1.0],
+          "size": ["100% - 46px", "default"],
+          "anchor_from": "left_middle",
+          "anchor_to": "left_middle",
+          "offset": [9, 0],
+          "layer": 2,
+          "bindings": [{ "binding_name": "#form_button_text", "binding_type": "collection", "binding_collection_name": "form_buttons" }]
+        }
+      },
+      {
+        "off@editor_forms.switch_image": {
+          "texture": "textures/minecade/editor/switch_off",
+          "bindings": [
+            { "binding_name": "#form_button_text", "binding_type": "collection", "binding_collection_name": "form_buttons" },
+            {
+              "binding_type": "view",
+              "source_property_name": "((not ((#form_button_text - '§t§g§r') = #form_button_text)) and ((#form_button_text - '§o§n§r') = #form_button_text))",
+              "target_property_name": "#visible"
+            }
+          ]
+        }
+      },
+      {
+        "on@editor_forms.switch_image": {
+          "texture": "textures/minecade/editor/switch_on",
+          "bindings": [
+            { "binding_name": "#form_button_text", "binding_type": "collection", "binding_collection_name": "form_buttons" },
+            {
+              "binding_type": "view",
+              "source_property_name": "(not ((#form_button_text - '§o§n§r') = #form_button_text))",
+              "target_property_name": "#visible"
+            }
+          ]
+        }
+      }
+    ]
+  },
+
+  "switch_image": {
+    "type": "image",
+    "size": [26, 13],
+    "anchor_from": "right_middle",
+    "anchor_to": "right_middle",
+    "offset": [-9, 0],
+    "layer": 2,
+    "visible": false
+  }
+}

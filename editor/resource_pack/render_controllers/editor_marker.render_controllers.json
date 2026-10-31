@@ -1,0 +1,18 @@
+{
+  "format_version": "1.8.0",
+  "render_controllers": {
+    "controller.render.minecade.editor_marker": {
+      "geometry": "Geometry.default",
+      "materials": [{ "*": "Material.default" }],
+      "textures": ["Texture.default"],
+      "part_visibility": [{ "*": true }, { "facing": false }]
+    },
+    "controller.render.minecade.editor_marker_facing": {
+      "geometry": "Geometry.default",
+      "materials": [{ "*": "Material.facing" }],
+      "textures": ["Texture.facing"],
+      "part_visibility": [{ "*": false }, { "root": true }, { "facing": "query.property('minecade:faced')" }],
+      "ignore_lighting": true
+    }
+  }
+}

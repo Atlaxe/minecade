@@ -3,10 +3,12 @@
   "minecraft:client_entity": {
     "description": {
       "identifier": "minecade:editor_marker",
-      "materials": { "default": "entity_alphatest" },
-      "textures": { "default": "textures/entity/editor_marker" },
+      "materials": { "default": "entity_alphatest", "facing": "entity_beam_additive" },
+      "textures": { "default": "textures/entity/editor_marker", "facing": "textures/entity/editor_marker_facing" },
       "geometry": { "default": "geometry.minecade.editor_marker" },
-      "render_controllers": ["controller.render.default"]
+      "animations": { "pitch": "animation.minecade.editor_marker.pitch" },
+      "scripts": { "animate": ["pitch"] },
+      "render_controllers": ["controller.render.minecade.editor_marker", "controller.render.minecade.editor_marker_facing"]
     }
   }
 }

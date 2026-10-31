@@ -49,24 +49,35 @@ Everyone else who joins is a **builder**: creative mode, no tools.
 Every control is a hit (left click), a use (right click) or a form. None needs sneaking, which
 would fly you down.
 
-- **Map menu** (slot 9, map editors only): the map's name and game, then:
+The map menu, the checklist and a marker's form open as a dark panel down the right side of the
+screen, full height, so the world stays in view on the left. Their buttons run top down and scroll
+when there are more than fit. Esc or the X closes them. The forms with fields (the spawn tool's
+Place form, Map settings, Change list, Renumber) are the game's own, in the middle of the screen.
+
+- **Map menu** (slot 9, locked, map editors only): the map's name and game, then:
   - **Checklist:** each thing the map's game needs, green when done, with what the build would
     refuse the map for. Tap an entry to get its tool, already set to that list.
-  - **Spawn tool:** gives you the tool.
+  - **Tools** (the Spawn tool for now): each is a switch. On puts the tool in slot 1 and in your
+    hand, and the menu closes. Off takes it away. One tool is out at a time: switching one on puts
+    any other away. The tool isn't locked, so you can move it; whatever was in slot 1 moves to a
+    free slot.
   - **Undo** and **Redo**, with what each would change.
   - **Mark ready** (draft maps): once nothing is missing, removes `"draft"` so the build includes the
     map.
   - **Map settings:** the map's name, and the game's own settings in `map.json` (such as a number
     a game reads), as text fields.
-  - **World:** whether the world is saved when the editor stops (see below). Tap to switch.
+  - **Save the world at stop:** a switch for whether the world is saved when the editor stops (see
+    below). The menu opens again with it flipped.
   - **Drop build commands** (maps made by `npm run bake`): keeps the world as you change it.
 - **Spawn tool:** use it where an entry goes. The form picks the list (spawns, the spectator spawn,
   each team's spawns, and every point the game asks for), **Save my facing** (off means the entry
   faces the middle of the map, as before), and how to round the facing (exact, 45 or 90 degrees).
   The entry goes at your feet, in whole blocks.
 - **Markers:** every entry shows as a marker with a name tag: its list, its number, and the way it
-  faces when that's saved. **Hit a marker** to move it to where you stand, give it your facing,
-  clear its facing, move it to another list, renumber it, or delete it.
+  faces when that's saved. An entry with a saved facing also has a glowing red line, 2 blocks long,
+  from the top of its marker toward the facing, tilted up or down with the saved pitch. **Hit a
+  marker** to move it to where you stand, give it your facing, clear its facing, move it to another
+  list, renumber it, or delete it.
 
 ## Saving
 
@@ -94,6 +105,16 @@ would fly you down.
 - The host answers on `127.0.0.1:8097` (`GET /status`, `POST /stop`), which the Panel and
   `npm run editor -- status | stop` use. When the Panel starts the editor, its output goes to
   `work/editor/editor.log`.
+- **The side menus** are classic forms themed by the editor's resource pack, like the lobby's
+  menus (`docs/ui.md`): a title starting with the side mark (`LAYOUT.side` in
+  `editor/behavior_pack/scripts/menu.ts`) gets the layout in `editor/resource_pack/ui/editor_forms.json`,
+  and a button marked as a switch (`MARK.toggle`, plus `MARK.on`) shows an on or off picture. The
+  tools are listed in `scripts/tools.ts`: a new tool adds a row there and gets its switch. The art
+  comes from `tools/assets/make-assets.py`.
+- **The facing line** is part of the marker's model (`editor/resource_pack/models/entity/editor_marker.geo.json`,
+  the `facing` bone), drawn glowing with the hologram's additive material. The marker spawns turned
+  to the entry's yaw, so the line (the model's front) points that way, and a client-synced property
+  tilts it by the pitch. A marker whose facing changes is placed again.
 
 ## Shared blocks pack
 

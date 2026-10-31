@@ -1,0 +1,11 @@
+{
+  "format_version": "1.8.0",
+  "animations": {
+    "animation.minecade.editor_marker.pitch": {
+      "loop": true,
+      "bones": {
+        "facing": { "rotation": ["query.property('minecade:pitch')", 0, 0] }
+      }
+    }
+  }
+}

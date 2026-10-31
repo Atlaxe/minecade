@@ -455,6 +455,11 @@ the client's worlds folder, plus the spaceship world.
   of `map.json` send the whole map, in parts within the scriptevent limit.
 - Open: a saved world keeps BDS's records of the players who joined (position, inventory, an account
   id). Check in 10.5 whether Chunker's prune drops them; otherwise strip them before a save.
+- Brought forward from 10.7 on 2026-10-30, after the user's first in-game run:
+  - the button menus (map menu, checklist, marker form) as a dark panel down the right side, full
+    height and scrolling, in Minecraft Ten;
+  - every tool button is a switch, and a tool goes in hotbar slot 1, unlocked, one at a time;
+  - a glowing red line from each faced marker's top toward its facing, tilted by the pitch.
 
 **10.4 Region and Kill Y tools.** Region tool, Kill Y tool, and a plain particle outline of the
 box being edited and of the bounds (stand-in for the colored boundary blocks).
@@ -476,9 +481,10 @@ both in the Panel.
 
 **10.7 Editor look and feel.**
 - The mode in the top-right box (`HUD_MODE_MARK`).
-- Item icons; marker models with numbers, list colors and facing arrows.
+- Item icons; marker models with numbers and list colors (the facing line came in 10.3).
 - Boundary blocks with the Layers form; inspect mode.
-- Editor forms in the Minecade style where it helps, and Panel polish.
+- The forms with fields in the editor's dark style where it helps (the button menus came in 10.3),
+  and Panel polish.
 
 ### Nice to have
 

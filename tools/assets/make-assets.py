@@ -11,6 +11,8 @@ Outputs:
     lobby/resource_pack/textures/minecade/holo/...                           hologram frames, beam
     lobby/resource_pack/textures/minecade/blocks/...                         terminal block faces
     lobby/resource_pack/font/glyph_E3.png                                    icons drawn inside text (the player icon)
+    editor/resource_pack/textures/minecade/editor/...                        the map editor's dark side menus
+    editor/resource_pack/textures/entity/editor_marker_facing.png            the red facing line on markers
     games/<id>/icon.png                                                      16:9 game pictures (Probe, Sumo)
 
 Fonts come from Windows (Bahnschrift, else Consolas Bold); they only matter when regenerating.
@@ -29,12 +31,16 @@ ROOT = Path(__file__).resolve().parents[2]
 CORE_TEXTURES = ROOT / "packages" / "minigame-core" / "resource_pack" / "textures" / "minecade"
 LOBBY_TEXTURES = ROOT / "lobby" / "resource_pack" / "textures" / "minecade"
 LOBBY_FONT = ROOT / "lobby" / "resource_pack" / "font"
+EDITOR_TEXTURES = ROOT / "editor" / "resource_pack" / "textures"
 LOGO_SOURCE = ROOT / "tools" / "assets" / "source" / "minecade-title.png"
 
 # Holographic palette: retro blues.
 CYAN = (90, 210, 255)
 BRIGHT = (190, 240, 255)
 DEEP = (20, 70, 140)
+# The map editor's menus: Ore UI grays, darker than the lobby's holographic blues.
+EDITOR_FACE = (49, 50, 51)
+EDITOR_GREEN = (60, 133, 39)
 # Stars in each warp layer (the north and south walls show four, zoomed, fading in and out).
 WARP_STARS = 600
 
@@ -421,6 +427,40 @@ def nav_icon(kind: str, color: tuple[int, int, int]) -> Image.Image:
     return image
 
 
+def editor_panel() -> Image.Image:
+    """The editor's side menu background, 16x16 at 1x, nine-slice: near black, a little see-through, a 1 pixel gray border."""
+    image = Image.new("RGBA", (16, 16), (22, 22, 24, 236))
+    ImageDraw.Draw(image).rectangle((0, 0, 15, 15), outline=(72, 73, 76, 255), width=1)
+    return image
+
+
+def editor_button(state: str) -> Image.Image:
+    """
+    An editor menu button, 16x16 at 1x, nine-slice (4 pixel slices): a flat gray face with a lighter
+    top edge and a darker bottom edge, lighter on hover; pressed swaps the edges so it looks pushed in.
+    """
+    face = {"default": EDITOR_FACE, "hover": (72, 73, 74), "pressed": (36, 37, 38)}[state]
+    light = tuple(min(255, c + 40) for c in face)
+    dark = (18, 18, 19)
+    top, bottom = (dark, light) if state == "pressed" else (light, dark)
+    image = Image.new("RGBA", (16, 16), (*face, 255))
+    draw = ImageDraw.Draw(image)
+    draw.line((0, 0, 15, 0), fill=(*top, 255))
+    draw.rectangle((0, 14, 15, 15), fill=(*bottom, 255))
+    return image
+
+
+def editor_switch(on: bool) -> Image.Image:
+    """An editor switch at 2x (52x26 for 26x13): a square track with a white knob, green and right when on, gray and left when off."""
+    width, height = 52, 26
+    image = Image.new("RGBA", (width, height), (0, 0, 0, 0))
+    draw = ImageDraw.Draw(image)
+    draw.rectangle((1, 1, width - 2, height - 2), fill=(*(EDITOR_GREEN if on else (88, 89, 92)), 255), outline=(18, 18, 19, 255), width=2)
+    knob = (width - 24, 5, width - 6, height - 6) if on else (5, 5, 23, height - 6)
+    draw.rectangle(knob, fill=(255, 255, 255, 255) if on else (200, 201, 204, 255))
+    return image
+
+
 BADGE_CHARACTERS = "abcdefghijklmnopqrstuvwxyz0123456789"
 
 
@@ -519,6 +559,17 @@ def main() -> None:
     save(fade_bottom(), LOBBY_TEXTURES / "ui" / "fade_bottom.png")
     save(picture("No preview", (40, 52, 70), (18, 24, 34)), LOBBY_TEXTURES / "ui" / "map_placeholder.png")
     save(picture("No picture", (60, 50, 90), (24, 20, 40)), LOBBY_TEXTURES / "ui" / "game_placeholder.png")
+
+    # The map editor: its side menus, and the red line a marker draws toward its saved facing.
+    save_nineslice(editor_panel(), EDITOR_TEXTURES / "minecade" / "editor" / "panel.png", 4)
+    save(Image.new("RGBA", (4, 1), (72, 73, 76, 255)), EDITOR_TEXTURES / "minecade" / "editor" / "rule.png")
+    for state in ("default", "hover", "pressed"):
+        save_nineslice(editor_button(state), EDITOR_TEXTURES / "minecade" / "editor" / f"button_{state}.png", 4)
+    save(editor_switch(True), EDITOR_TEXTURES / "minecade" / "editor" / "switch_on.png")
+    save(editor_switch(False), EDITOR_TEXTURES / "minecade" / "editor" / "switch_off.png")
+    for state, color in (("default", (255, 255, 255)), ("hover", (235, 64, 64)), ("pressed", (160, 30, 30))):
+        save(nav_icon("close", color), EDITOR_TEXTURES / "minecade" / "editor" / f"close_{state}.png")
+    save(Image.new("RGB", (16, 16), (255, 40, 40)), EDITOR_TEXTURES / "entity" / "editor_marker_facing.png")
 
     save(picture("PROBE", (60, 70, 90), (25, 30, 40)), ROOT / "games" / "probe" / "icon.png")
     save(picture("SUMO", (190, 60, 60), (70, 20, 20)), ROOT / "games" / "sumo" / "icon.png")

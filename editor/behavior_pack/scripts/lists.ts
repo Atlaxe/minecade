@@ -121,6 +121,17 @@ export function snapFacing(view: Facing, snap: Snap): Facing {
   return { yaw: ((((yaw + 180) % 360) + 360) % 360) - 180 + 0, pitch: Math.max(-90, Math.min(90, pitch)) + 0 };
 }
 
+/** A marker's facing line tilt: the entry's pitch in whole degrees, 0 without a facing. */
+export function markerPitch(facing: Facing | undefined): number {
+  return facing ? Math.max(-90, Math.min(90, Math.round(facing.pitch))) + 0 : 0;
+}
+
+/** Whether two yaws point the same way, within half a degree (-180 and 180 are the same). */
+export function sameYaw(a: number, b: number): boolean {
+  const difference = (((a - b) % 360) + 360) % 360;
+  return Math.min(difference, 360 - difference) <= 0.5;
+}
+
 /** The block a player stands in: their feet, in whole blocks. */
 export function blockPosition(location: { x: number; y: number; z: number }): [number, number, number] {
   // Standing on a block puts the feet at a whole number, sometimes a hair under it.

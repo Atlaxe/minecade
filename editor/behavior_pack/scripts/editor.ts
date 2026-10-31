@@ -35,17 +35,25 @@ import { HostLink } from "./link.ts";
 import { blockPosition, compass, markerSpecs, snapFacing, SNAPS, spawnLists, type MarkerSpec, type Snap, type SpawnList } from "./lists.ts";
 import { MapState } from "./map-state.ts";
 import { MARKER, Markers } from "./markers.ts";
-import { checklistBody, menuBody, menuEntries, parseSetting, rowText, type MenuAction } from "./menu.ts";
+import { checklistBody, menuBody, menuEntries, parseSetting, rowText, sideTitle, type MenuEntry } from "./menu.ts";
+import { EDITOR_TOOLS, toolOf, type EditorTool, type ToolId } from "./tools.ts";
 
 const MAP_MENU = "minecade:map_menu";
-const SPAWN_TOOL = "minecade:spawn_tool";
-const TOOLS = new Set([MAP_MENU, SPAWN_TOOL]);
+/** Every editor item: builders never keep one, and none breaks the block it hits. */
+const TOOLS = new Set([MAP_MENU, ...EDITOR_TOOLS.map((tool) => tool.item)]);
 /** The map menu's hotbar slot (0-based): the last one, slot 9 on screen. */
 const MENU_SLOT = 8;
+/** Where a tool goes when it's switched on: slot 1 on screen, never locked. */
+const TOOL_SLOT = 0;
 const PREFIX = "§b[Editor]§r ";
 const NOON = 6000;
 /** A new map's glass pad reaches this far from its first spawn, one block below it. */
 const PAD_RADIUS = 4;
+
+/** Said when a tool is switched on. */
+const TOOL_NOTES: Record<ToolId, string> = {
+  spawn: "use it where a spawn or point goes. Hit a marker to change it.",
+};
 
 /** What a map editor last picked in the spawn tool's form. */
 interface ToolSettings {
@@ -107,7 +115,7 @@ export class Editor {
         return;
       }
       if (itemStack.typeId === MAP_MENU) void this.mapMenu(source);
-      else void this.spawnTool(source);
+      else if (toolOf(itemStack.typeId)?.id === "spawn") void this.spawnTool(source);
     });
     scope.subscribe(world.afterEvents.entityHitEntity, ({ damagingEntity, hitEntity }) => {
       if (hitEntity.typeId !== MARKER || damagingEntity.typeId !== "minecraft:player") return;
@@ -252,20 +260,22 @@ export class Editor {
 
   private async mapMenu(player: Player): Promise<void> {
     const config = this.state.current;
-    const entries = menuEntries({ config, checklist: mapChecklist(config, this.info.rules), ...this.status });
-    const form = new ActionFormData().title("Map menu").body(menuBody(this.info.targetName, this.info.map, config));
+    const inventory = inventoryOf(player);
+    const tools = EDITOR_TOOLS.filter((tool) => inventory && holds(inventory, tool.item)).map((tool) => tool.id);
+    const entries = menuEntries({ config, checklist: mapChecklist(config, this.info.rules), tools, ...this.status });
+    const form = new ActionFormData().title(sideTitle("Map menu")).body(menuBody(this.info.targetName, this.info.map, config));
     for (const entry of entries) form.button(entry.text);
     const response = await this.show(player, form);
-    const action = response?.selection === undefined ? undefined : entries[response.selection]?.action;
-    if (action && player.isValid) await this.menuAction(player, action);
+    const entry = response?.selection === undefined ? undefined : entries[response.selection];
+    if (entry && player.isValid) await this.menuAction(player, entry);
   }
 
-  private async menuAction(player: Player, action: MenuAction): Promise<void> {
+  private async menuAction(player: Player, { action, tool }: MenuEntry): Promise<void> {
     switch (action) {
       case "checklist":
         return this.checklistMenu(player);
-      case "spawnTool":
-        this.giveSpawnTool(player);
+      case "tool":
+        if (tool) this.switchTool(player, tool);
         return;
       case "undo":
       case "redo":
@@ -280,7 +290,8 @@ export class Editor {
         this.status = { ...this.status, saveWorld: save };
         this.link.send({ t: "saveWorld", by: player.name, save });
         tell(player, save ? "The world will be saved when the editor stops." : "The world will be kept as it was when the editor stops: block changes are dropped.");
-        return;
+        // Open again, so the switch shows its new state.
+        return this.mapMenu(player);
       }
       case "dropBuild":
         return this.dropBuild(player);
@@ -289,7 +300,7 @@ export class Editor {
 
   private async checklistMenu(player: Player): Promise<void> {
     const checklist = mapChecklist(this.state.current, this.info.rules);
-    const form = new ActionFormData().title("Checklist").body(checklistBody(checklist));
+    const form = new ActionFormData().title(sideTitle("Checklist")).body(checklistBody(checklist));
     for (const row of checklist.rows) form.button(rowText(row));
     const response = await this.show(player, form);
     const row = response?.selection === undefined ? undefined : checklist.rows[response.selection];
@@ -300,13 +311,43 @@ export class Editor {
       return;
     }
     this.settingsOf(player).list = list.key;
-    this.giveSpawnTool(player, list);
+    const tool = EDITOR_TOOLS.find((candidate) => candidate.id === "spawn");
+    if (tool) this.equipTool(player, tool);
+    tell(player, `Spawn tool set to ${list.label}: use it where the entry goes.`);
   }
 
-  private giveSpawnTool(player: Player, list?: SpawnList): void {
+  /** The map menu's tool switch: takes the tool away when it's out, else puts it in hand. */
+  private switchTool(player: Player, id: ToolId): void {
+    const tool = EDITOR_TOOLS.find((candidate) => candidate.id === id);
     const inventory = inventoryOf(player);
-    if (inventory && !holds(inventory, SPAWN_TOOL)) inventory.addItem(new ItemStack(SPAWN_TOOL, 1));
-    tell(player, list ? `Spawn tool set to ${list.label}: use it where the entry goes.` : "Spawn tool: use it where a spawn or point goes. Hit a marker to change it.");
+    if (!tool || !inventory) return;
+    if (holds(inventory, tool.item)) {
+      removeItems(inventory, new Set([tool.item]));
+      tell(player, `${tool.label} off.`);
+      return;
+    }
+    this.equipTool(player, tool);
+    tell(player, `${tool.label} on: ${TOOL_NOTES[tool.id]}`);
+  }
+
+  /**
+   * Puts a tool in slot 1, unlocked, and selects it. Only one tool is out at a time: the others go
+   * away, and whatever else was in slot 1 moves to a free slot (creative mode has more if there's none).
+   */
+  private equipTool(player: Player, tool: EditorTool): void {
+    const inventory = inventoryOf(player);
+    if (!inventory) return;
+    for (let slot = 0; slot < inventory.size; slot++) {
+      if (slot !== TOOL_SLOT && toolOf(inventory.getItem(slot)?.typeId ?? "")) inventory.setItem(slot, undefined);
+    }
+    const old = inventory.getItem(TOOL_SLOT);
+    if (old?.typeId !== tool.item) {
+      const item = new ItemStack(tool.item, 1);
+      item.keepOnDeath = true;
+      inventory.setItem(TOOL_SLOT, item);
+      if (old && !toolOf(old.typeId)) inventory.addItem(old);
+    }
+    player.selectedSlotIndex = TOOL_SLOT;
   }
 
   private async markReady(player: Player): Promise<void> {
@@ -399,13 +440,13 @@ export class Editor {
     const actions: { action: MarkerAction; text: string }[] = [
       { action: "move", text: "Move here" },
       { action: "face", text: "Take my facing" },
-      ...(spec.facing ? [{ action: "unface" as const, text: "Clear facing\n§8face the middle again" }] : []),
+      ...(spec.facing ? [{ action: "unface" as const, text: "Clear facing\n§7face the middle again" }] : []),
       { action: "list", text: "Change list" },
       ...(entries.length > 1 ? [{ action: "number" as const, text: "Renumber" }] : []),
-      { action: "delete", text: "§4Delete" },
+      { action: "delete", text: "§cDelete" },
     ];
     const facing = spec.facing ? `facing ${compass(spec.facing.yaw)} (yaw ${spec.facing.yaw}, pitch ${spec.facing.pitch})` : "facing the middle of the map";
-    const form = new ActionFormData().title(name).body(`At ${position.slice(0, 3).join(" ")}, ${facing}.`);
+    const form = new ActionFormData().title(sideTitle(name)).body(`At ${position.slice(0, 3).join(" ")}, ${facing}.`);
     for (const { text } of actions) form.button(text);
     const response = await this.show(player, form);
     const action = response?.selection === undefined ? undefined : actions[response.selection]?.action;
@@ -486,12 +527,15 @@ function holds(inventory: Container, typeId: string): boolean {
   return false;
 }
 
+function removeItems(inventory: Container, typeIds: Set<string>): void {
+  for (let slot = 0; slot < inventory.size; slot++) {
+    const item = inventory.getItem(slot);
+    if (item && typeIds.has(item.typeId)) inventory.setItem(slot, undefined);
+  }
+}
+
 /** Builders never keep a tool, even one left from when they were a map editor. */
 function takeTools(player: Player): void {
   const inventory = inventoryOf(player);
-  if (!inventory) return;
-  for (let slot = 0; slot < inventory.size; slot++) {
-    const item = inventory.getItem(slot);
-    if (item && TOOLS.has(item.typeId)) inventory.setItem(slot, undefined);
-  }
+  if (inventory) removeItems(inventory, TOOLS);
 }

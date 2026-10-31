@@ -15,17 +15,18 @@ Tests still to run by hand. Delete a line once it passes.
 - Team picks with real players: the team form and the hologram's team lists.
 - Another player's skin shows in the stats screens after the next build.
 
-## Map editor (pass 10.3)
+## Map editor
 
-- Sumo end to end: `npm run editor -- sumo arena_1` (or Start on the Panel's Map editor page), join
-  `LAN_HOST:19134`, place a spawn with "Save my facing" on, and watch `map.json` change. Undo it
-  from the map menu. Stop, then `git diff` shows only the intended change, and reopening shows no
-  leftover markers.
-- The editor log says "<your gamertag> is an operator" after you join.
-- Hitting a block with the map menu or the spawn tool doesn't break it.
-- Hitting a marker opens its form: move here, take my facing, change list, renumber, delete.
-- Place or break a block, stop: the world is saved, and a reopen has no markers in it.
-- `--new`: `npm run editor -- sumo test --new` starts on a glass pad; stop saves the world.
+- The map menu, the checklist and a marker's form open on the right side of the screen, full
+  height, dark, with titles and buttons in Minecraft Ten. With more buttons than fit, they scroll.
+- The Spawn tool switch: on puts the tool in slot 1, in your hand (whatever was in slot 1 moves to
+  another slot), and the next map menu shows the switch on. You can move the tool. Off takes it
+  away.
+- Save the world at stop: the menu opens again with the switch flipped.
+- A spawn placed with "Save my facing" shows a glowing red line from the top of its marker, about 2
+  blocks toward where you faced. Placed while looking down, it tilts down. If it points backward or
+  tilts the wrong way, say so: it's one sign to flip.
+- Take my facing on a marker turns its line; Clear facing removes it.
 
 ## Needs a second player (map editor)
 

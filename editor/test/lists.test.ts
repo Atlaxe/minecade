@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { EditorRules, MapConfig } from "@minecade/minigame-core/config";
-import { blockPosition, compass, markerSpecs, snapFacing, spawnLists } from "../behavior_pack/scripts/lists.ts";
+import { blockPosition, compass, markerPitch, markerSpecs, sameYaw, snapFacing, spawnLists } from "../behavior_pack/scripts/lists.ts";
 
 const rules: EditorRules = {
   kind: "game",
@@ -64,6 +64,21 @@ describe("facing", () => {
     expect(snapFacing({ yaw: 179, pitch: -3 }, "90")).toEqual({ yaw: -180, pitch: 0 });
     expect(snapFacing({ yaw: -0.2, pitch: -0.3 }, "exact")).toEqual({ yaw: 0, pitch: 0 });
     expect(Object.is(snapFacing({ yaw: -0.2, pitch: -0.3 }, "exact").yaw, 0)).toBe(true);
+  });
+
+  it("tilts a marker's facing line by the pitch, in whole degrees", () => {
+    expect(markerPitch(undefined)).toBe(0);
+    expect(markerPitch({ yaw: 90, pitch: 12.6 })).toBe(13);
+    expect(markerPitch({ yaw: 90, pitch: -95 })).toBe(-90);
+    expect(Object.is(markerPitch({ yaw: 0, pitch: -0.2 }), 0)).toBe(true);
+  });
+
+  it("compares yaws around the circle", () => {
+    expect(sameYaw(180, -180)).toBe(true);
+    expect(sameYaw(359.8, 0)).toBe(true);
+    expect(sameYaw(45, 45.4)).toBe(true);
+    expect(sameYaw(45, 46)).toBe(false);
+    expect(sameYaw(0, 180)).toBe(false);
   });
 
   it("puts a player's feet in a block, even a hair under the top of the one below", () => {
