@@ -11,9 +11,12 @@
 #   WATCHER_GAMERTAG, GAME_SETTINGS
 #   PREVIEW         set by the map editor's Preview (tools/editor/preview-session.ts): the map's label,
 #                   shown in the game's mode box top center.
+#   GUEST_LOBBY_PORT  set by Preview too: where players outside LAN_PLAYERS (the editor's invited
+#                   guests) go home, the editor lobby, since LOBBY_PORT there is Edit's.
 #   EDITOR_MODE     set by the map editor (tools/editor): its host stages the map being edited in
 #                   /editor (world/, map.json, editor.json). Players get creative mode, and the allow
-#                   list is always on: LAN_PLAYERS only.
+#                   list is always on: LAN_PLAYERS, plus EDITOR_GUESTS (the players the editor
+#                   invited, passed to the editor lobby and Select only, never Edit).
 set -euo pipefail
 cd /bds
 
@@ -86,7 +89,7 @@ set_prop content-log-console-output-enabled true
 set_prop content-log-level info
 set_prop emit-server-telemetry false
 
-[[ -n "${EDITOR_MODE:-}" ]] && ALLOW_LIST="${LAN_PLAYERS:-}"
+[[ -n "${EDITOR_MODE:-}" ]] && ALLOW_LIST="${LAN_PLAYERS:-},${EDITOR_GUESTS:-}"
 if [[ -n "${EDITOR_MODE:-}" || -n "${ALLOW_LIST:-}" ]]; then
   csv_json "$ALLOW_LIST" | jq 'map({name: ., ignoresPlayerLimit: false})' > allowlist.json
   set_prop allow-list true
@@ -198,6 +201,7 @@ jq -n \
   --arg devDemoGames "${DEV_DEMO_GAMES:-}" \
   --arg devHoloPreview "${DEV_HOLO_PREVIEW:-}" \
   --arg preview "${PREVIEW:-}" \
+  --arg guestLobbyPort "${GUEST_LOBBY_PORT:-}" \
   --arg watcher "${WATCHER_GAMERTAG:-}" \
   --arg settings "$game_settings" \
   --arg editor "$editor_info" \

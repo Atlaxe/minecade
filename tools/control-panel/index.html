@@ -217,6 +217,7 @@
 <section id="page-editor" class="page" hidden>
   <div class="page-head"><h1>Map editor</h1><p>Boot it, then join the editor lobby (port 19132), which asks what to open: a map in Edit (port 19134), or a copy of one of your worlds in Select (port 19133), to cut new maps out of. Every change goes straight into map.json. The network is stopped while the editor runs: they use the same ports.</p></div>
   <div id="editor-server"></div>
+  <div id="editor-guests"></div>
   <div id="editor-checklist"></div>
   <div id="editor-select"></div>
   <div class="card">
@@ -728,6 +729,7 @@ function renderEditor() {
   patch($("editor-server"), [tone, text, editor.old, editor.stale, editor.launching, state.docker, state.busy, state.networkRunning, state.connection.lanHost, facts], () => editorCard(editor, status));
   patch($("editor-checklist"), status?.edit && [status.edit.checklist, status.edit.undo, status.edit.redo, status.edit.unsaved, status.edit.saving, status.edit.publishing, status.edit.draft, status.edit.mapName], () => status?.edit && checklistCard(status.edit));
   patch($("editor-select"), status?.select && [status.select.world, status.select.selections], () => status?.select && selectionsCard(status.select));
+  patch($("editor-guests"), status?.state === "ready" && [status.guests], () => status?.state === "ready" && guestsCard(status.guests ?? []));
   const pre = $("editor-log");
   const lines = editor.log.join("\n");
   if (pre.textContent !== lines) {
@@ -837,6 +839,27 @@ function endPreviewButton(preview) {
   button.disabled = preview.state !== "ready" && preview.state !== "starting";
   button.title = "End the match now: everyone goes back to Edit";
   return button;
+}
+
+/** Invited players: they may join Select and previews (never Edit), at the network's address. */
+function guestsCard(guests) {
+  const where = { home: "waiting in the editor lobby", select: "on Select", preview: "in the preview" };
+  const input = el("input", { type: "text", placeholder: "Gamertag", maxLength: 20, className: "mono" });
+  const invite = () => {
+    const name = input.value.trim();
+    if (name) post("/api/editor/guests", { name, on: true });
+  };
+  input.addEventListener("keydown", (event) => event.key === "Enter" && invite());
+  const rows = guests.map((guest) =>
+    el("tr", {},
+      el("td", {}, guest.name),
+      el("td", { className: "muted" }, guest.on ? where[guest.on] : "not on"),
+      el("td", {}, el("button", { className: "small danger", onclick: () => post("/api/editor/guests", { name: guest.name, on: false }) }, "Remove"))));
+  return el("div", { className: "card" },
+    el("div", { className: "card-head" }, el("h2", {}, "Guests"), el("span", { className: "muted small" }, "Select and Preview only")),
+    guests.length > 0 && el("div", { className: "table-wrap" }, el("table", {}, el("tbody", {}, rows))),
+    el("div", { className: "actions" }, input, el("button", { onclick: invite }, "Invite")),
+    el("p", { className: "hint" }, "Invited friends join this PC's address on port 19132, as for the network, and go to Select or the preview, whichever is open. Edit stays for map editors (LAN_PLAYERS). Remove disconnects them."));
 }
 
 /** The maps cut out of the world open in Select, and how each extraction is going. */

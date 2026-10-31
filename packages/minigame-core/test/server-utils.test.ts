@@ -5,7 +5,7 @@ import type { ActionFormData as RealActionFormData } from "@minecraft/server-ui"
 import { Scope } from "../src/scope.ts";
 import { TransferService } from "../src/transfer.ts";
 import { showForm } from "../src/ui.ts";
-import { readServerVars } from "../src/vars.ts";
+import { homePort, readServerVars } from "../src/vars.ts";
 import { failTransfers, resetAdmin, setVariables, transfers } from "./fake-mc-server-admin.ts";
 import { system } from "./fake-mc-server.ts";
 import { ActionFormData, closedFor, openForms, queueFormResponses, resetForms, shownForms } from "./fake-mc-server-ui.ts";
@@ -122,6 +122,7 @@ describe("readServerVars", () => {
       devDemoGames: "8",
       devHoloPreview: "1",
       preview: " Sumo: Arena ",
+      guestLobbyPort: "19132",
       watcher: " MinecadeServer ",
       settings: '{"teams":"random"}',
     });
@@ -138,9 +139,17 @@ describe("readServerVars", () => {
       devDemoGames: 8,
       devHoloPreview: true,
       preview: "Sumo: Arena",
+      guestLobbyPort: 19132,
       watcher: "MinecadeServer",
       settings: { teams: "random" },
     });
+  });
+
+  it("sends a preview's guests home to the editor lobby, and everyone else to the lobby port", () => {
+    const preview = { lobbyPort: 19134, guestLobbyPort: 19132, lanPlayers: ["Get A Waffle"] };
+    expect(homePort(preview, "get a waffle")).toBe(19134);
+    expect(homePort(preview, "Friend")).toBe(19132);
+    expect(homePort({ ...preview, guestLobbyPort: undefined }, "Friend")).toBe(19134);
   });
 
   it("falls back to defaults for missing or broken values", () => {
@@ -156,6 +165,7 @@ describe("readServerVars", () => {
       devDemoGames: 0,
       devHoloPreview: false,
       preview: "",
+      guestLobbyPort: undefined,
       watcher: "",
       settings: {},
     });

@@ -1,9 +1,10 @@
 // The running editor's control port on this PC (127.0.0.1:8097), for the Panel and
-// `npm run editor -- status | save | publish | preview | stop | <target> <map> | select "<world>"`:
+// `npm run editor -- status | save | publish | preview | invite | stop | <target> <map> | select "<world>"`:
 //   GET /status              what each of its servers is doing
 //   POST /save               save the map open in Edit now
 //   POST /publish            publish the map open in Edit (saved, then committed and pushed)
 //   POST /preview            play the map open in Edit as its game; POST /preview/end ends it
+//   POST /guests {name, on}  invite a player to Select and previews, or take the invitation back
 //   POST /open {request}     open a map in Edit or a world in Select (an OpenRequest)
 //   POST /stop               shut it down (Edit saves first)
 // Requests are checked the way the Panel checks its own, so a web page can't reach it.
@@ -25,6 +26,8 @@ export interface ControlHandlers {
   preview(): string | undefined;
   /** False when no preview runs. */
   endPreview(): boolean;
+  /** Undefined when it's done, or why not. */
+  invite(name: string, on: boolean): Promise<string | undefined>;
   stop(): void;
   /** Undefined when it's under way, or why not. */
   open(request: OpenRequest): Promise<string | undefined>;
@@ -67,6 +70,11 @@ export function serveControl(handlers: ControlHandlers): Promise<Server> {
           return problem ? reply(409, { error: problem }) : reply(202, { ok: true });
         }
         if (method === "POST" && path === "/preview/end") return handlers.endPreview() ? reply(202, { ok: true }) : reply(409, { error: "no preview is running" });
+        if (method === "POST" && path === "/guests") {
+          if (typeof body.name !== "string" || typeof body.on !== "boolean") return reply(400, { error: "expected {name: gamertag, on: true|false}" });
+          const problem = await handlers.invite(body.name, body.on);
+          return problem ? reply(409, { error: problem }) : reply(200, { ok: true });
+        }
         if (method === "POST" && path === "/stop") {
           handlers.stop();
           return reply(202, { ok: true });
@@ -132,6 +140,11 @@ export function previewEditor(): Promise<{ ok: boolean; error?: string }> {
 /** Asks the running editor to end its preview; the error when there's none (or none answers). */
 export function endPreviewEditor(): Promise<{ ok: boolean; error?: string }> {
   return post("/preview/end");
+}
+
+/** Asks the running editor to invite a player (on), or take the invitation back; the error when it can't (or none answers). */
+export function inviteEditor(name: string, on: boolean): Promise<{ ok: boolean; error?: string }> {
+  return post("/guests", { name, on });
 }
 
 /** Asks the running editor to open a map or a world; the error when it can't (or none answers). */

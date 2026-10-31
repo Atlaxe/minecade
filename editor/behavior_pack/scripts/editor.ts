@@ -49,11 +49,13 @@ import { actionBar, heldTool, hintBar, notice, type ToolHost } from "./tool-host
 import { REACH } from "./box-picker.ts";
 import { aimedPoint, compass, entryPosition, markerSpecs, snapFacing, SNAPS, spawnLists, type AimedFace, type MarkerSpec, type SpawnList } from "./lists.ts";
 import { MapState } from "./map-state.ts";
+import { PlayersMenu } from "./players.ts";
 import { MARKER, Markers } from "./markers.ts";
 import { dangerText, mapTitle, sideTitle } from "./marks.ts";
 import {
   BOUNDARIES_BODY,
   LOBBY_TEXT,
+  PLAYERS_TEXT,
   boundaryEntries,
   checklistBody,
   mapMenuBody,
@@ -102,6 +104,7 @@ export class Editor {
   private readonly markers: Markers;
   private readonly regionTool: RegionTool;
   private readonly killYTool: KillYTool;
+  private readonly players: PlayersMenu;
   private readonly dimension: Dimension;
   private readonly settings = new Map<string, SpawnSettings>();
   private readonly formOpen = new Set<string>();
@@ -128,6 +131,7 @@ export class Editor {
       },
       message: (message) => this.receive(message),
     });
+    this.players = new PlayersMenu(this.link, (player, form) => this.show(player, form));
     const host: ToolHost = {
       map: () => this.state.current,
       rules: info.rules,
@@ -245,6 +249,9 @@ export class Editor {
         return;
       case "goto":
         goto(message.players, message.port, message.label, tell);
+        return;
+      case "guests":
+        this.players.update(message.guests);
         return;
       case "cleanup":
         void this.markers.clear().then(
@@ -577,7 +584,7 @@ export class Editor {
   }
 
   private async settingsMenu(player: Player): Promise<void> {
-    const actions: ("settings" | "select" | "lobby" | "dropBuild")[] = ["settings"];
+    const actions: ("settings" | "select" | "lobby" | "players" | "dropBuild")[] = ["settings"];
     const form = new ActionFormData()
       .title(sideTitle("Map settings"))
       .body(`${this.state.current.name} (${this.info.map}), ${this.info.targetName}`)
@@ -586,6 +593,8 @@ export class Editor {
       actions.push("select");
       form.button(`Back to Select\n§7box more maps in "${this.info.from}"`);
     }
+    actions.push("players");
+    form.button(PLAYERS_TEXT);
     actions.push("lobby");
     form.button(LOBBY_TEXT);
     if (this.state.current.build !== undefined) {
@@ -597,6 +606,7 @@ export class Editor {
     if (!action || !player.isValid) return;
     if (action === "settings") return this.settingsForm(player);
     if (action === "dropBuild") return this.dropBuild(player);
+    if (action === "players") return this.players.open(player);
     this.link.send({ t: "open", by: player.name, request: action === "select" ? { to: "select" } : { to: "home" } });
   }
 

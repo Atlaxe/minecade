@@ -6,7 +6,10 @@ import { COLUMNS, LAYOUT, MARK, dangerText, headingText, mapTitle, sideTitle, sw
 import {
   ICONS,
   LOBBY_TEXT,
+  PLAYERS_TEXT,
   boundaryEntries,
+  guestEntries,
+  guestWaitText,
   checklistBody,
   homeEntries,
   mapActions,
@@ -95,6 +98,27 @@ describe("map menu", () => {
     expect(toolOf("minecade:region_tool")?.id).toBe("region");
     expect(toolOf("minecade:kill_y_tool")?.id).toBe("killY");
     expect(toolOf("minecade:map_menu")).toBeUndefined();
+  });
+});
+
+describe("the Players menu", () => {
+  it("has Invite, then each guest and where they are", () => {
+    expect(guestEntries([{ name: "Friend", on: "select" }, { name: "Pal" }, { name: "Mate", on: "home" }, { name: "Bud", on: "preview" }])).toEqual([
+      { text: "Invite a player...\n§7by gamertag" },
+      { name: "Friend", text: "Friend\n§7on Select" },
+      { name: "Pal", text: "Pal\n§7not on" },
+      { name: "Mate", text: "Mate\n§7waiting in the editor lobby" },
+      { name: "Bud", text: "Bud\n§7in the preview" },
+    ]);
+    expect(PLAYERS_TEXT).toBe("Players\n§7invite friends to Select and previews");
+  });
+
+  it("tells a guest in the editor lobby what they wait for", () => {
+    const select = { request: { to: "select" as const, world: "w" }, label: "Arenas", state: "ready" as const, players: [] };
+    expect(guestWaitText({ waiting: [] })).toContain("Waiting for the map editor to open Select or start a preview.");
+    expect(guestWaitText({ waiting: [], select })).toContain("Moving you to Arenas (Select)...");
+    expect(guestWaitText({ waiting: [], select: { ...select, state: "starting" } })).toContain("Loading Arenas (Select)...");
+    expect(guestWaitText({ waiting: [], preview: { label: "Sumo: Arena", state: "starting" } })).toContain("Loading the preview of Sumo: Arena...");
   });
 });
 
@@ -225,15 +249,17 @@ describe("Select mode's map menu", () => {
       { kind: "map", target: "sumo", map: "castle" },
       { kind: "map", target: "sumo", map: "keep" },
       { kind: "none" },
+      { kind: "players" },
       { kind: "lobby" },
     ]);
     expect(entries[0].text).toBe(`${MARK.tool}${COLUMNS[0]}${MARK.on}Select tool\n§7box a map to cut out`);
     expect(entries[1].text).toBe(headingText("Selection: 112 x 65 x 128"));
-    expect(entries.at(-4)?.text).toBe("Castle (castle)\n§7Sumo: §aready: tap to edit it");
+    expect(entries.at(-5)?.text).toBe("Castle (castle)\n§7Sumo: §aready: tap to edit it");
     expect(selectMenuEntries({ world: "Arenas", toolOut: false, maps: [] }).map((entry) => entry.text)).toEqual([
       `${MARK.tool}${COLUMNS[0]}Select tool\n§7box a map to cut out`,
       headingText("No maps from this world yet"),
       headingText("Elsewhere"),
+      PLAYERS_TEXT,
       LOBBY_TEXT,
     ]);
   });
@@ -267,7 +293,7 @@ describe("the editor lobby's menu", () => {
   const datapacking = { to: "select" as const, world: "abc=" };
 
   it("offers Open a map and New map when nothing is open", () => {
-    expect(homeEntries(empty).map((entry) => entry.action)).toEqual([{ kind: "none" }, { kind: "maps" }, { kind: "new" }]);
+    expect(homeEntries(empty).map((entry) => entry.action)).toEqual([{ kind: "none" }, { kind: "maps" }, { kind: "new" }, { kind: "none" }, { kind: "players" }]);
   });
 
   it("puts what's open first, then recent maps and worlds that aren't open", () => {
@@ -292,6 +318,8 @@ describe("the editor lobby's menu", () => {
       { kind: "none" },
       { kind: "maps" },
       { kind: "new" },
+      { kind: "none" },
+      { kind: "players" },
     ]);
     expect(entries[1].text).toBe("Sumo: Arena (arena_1)\n§7Edit: open: Friend");
     expect(entries[3].text).toBe("Datapacking (imported)\n§7box maps in this world");

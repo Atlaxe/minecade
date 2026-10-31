@@ -32,7 +32,7 @@ Follows the usual rules: stop and report after each pass, commit and push after 
 | Modes | Select (box a map in the converted world and confirm), Edit (set the data in the map's own void world), Preview (play it) |
 | Import result | A void world holding only the selected box, centered at x 0, z 0 (y kept) |
 | Controls | npm commands do the work; a Map editor section in the Minecade Panel calls the same code |
-| Joining | Only `LAN_PLAYERS`, each one a map editor (the user edits alone: builders, the extra allow lists and the Players screen were dropped on 2026-10-31) |
+| Joining | `LAN_PLAYERS`, each one a map editor (builders and the extra allow lists were dropped on 2026-10-31). Then, the same day: friends a map editor invites (the Players menu, the Panel) may join Select or a preview, one server at a time, never Edit |
 | Mode switches | Players wait in the lobby while the editor restarts, then are sent back automatically. Nobody rejoins by hand |
 | Mode on screen | A small box top center, styled like the game clock's box (the user's choice, 2026-10-31): Select, Edit or Preview, with the world or map |
 | Building | No build helpers. Big changes happen in Java, then "Update from world" replaces the blocks and keeps the map data |

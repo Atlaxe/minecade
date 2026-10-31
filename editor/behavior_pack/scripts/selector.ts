@@ -18,6 +18,7 @@ import { blockPosition } from "./lists.ts";
 import { dangerText, mapTitle, sideTitle } from "./marks.ts";
 import { mapActions, mapIdFrom, selectMenuBody, selectMenuEntries, statusLine, type MapAction, type MenuAction, type PickAction } from "./menu.ts";
 import { Outlines } from "./outlines.ts";
+import { PlayersMenu, isMapEditor } from "./players.ts";
 import { BOUNDS_COLOR, KILL_COLOR, type Rgb } from "./regions.ts";
 import { actionBar, heldTool, hintBar, notice } from "./tool-host.ts";
 import { SELECT_TOOL } from "./tools.ts";
@@ -38,6 +39,7 @@ export class Selector {
   private readonly scope: Scope;
   private readonly info: SelectInfo;
   private readonly link: HostLink;
+  private readonly players: PlayersMenu;
   private readonly selections = new Map<string, Picking>();
   private readonly formOpen = new Set<string>();
   /** The target each player last saved a map for. */
@@ -49,6 +51,7 @@ export class Selector {
     this.info = info;
     this.maps = [...info.selections];
     this.link = new HostLink(scope, { config: () => {}, message: (message) => this.receive(message) });
+    this.players = new PlayersMenu(this.link, (player, form) => this.show(player, form));
     new Outlines(
       scope,
       {
@@ -76,14 +79,14 @@ export class Selector {
       this.lastTarget.delete(key);
     });
     scope.subscribe(world.afterEvents.itemUse, ({ source, itemStack }) => {
-      if (!ITEMS.has(itemStack.typeId)) return;
+      if (!ITEMS.has(itemStack.typeId) || !isMapEditor(source)) return;
       if (itemStack.typeId === MAP_MENU) void this.menu(source);
       else void this.use(source);
     });
     scope.subscribe(world.afterEvents.entityHitBlock, ({ damagingEntity, hitBlock }) => {
       if (damagingEntity.typeId !== "minecraft:player") return;
       const player = damagingEntity as Player;
-      if (heldTool(player) === "select") this.begin(player, hitBlock);
+      if (heldTool(player) === "select" && isMapEditor(player)) this.begin(player, hitBlock);
     });
     // The Select tool never breaks the block it hits, which creative mode would.
     scope.subscribeBefore(world.beforeEvents.playerBreakBlock, (event) => {
@@ -113,6 +116,9 @@ export class Selector {
       case "goto":
         goto(message.players, message.port, message.label, tell);
         return;
+      case "guests":
+        this.players.update(message.guests);
+        return;
       case "cleanup":
         // Select mode has no markers.
         this.link.send({ t: "clean", id: message.id, left: 0 });
@@ -123,6 +129,11 @@ export class Selector {
   private welcome(player: Player): void {
     if (!player.isValid) return;
     player.setGameMode(GameMode.Creative);
+    if (!isMapEditor(player)) {
+      // A guest: look around and build (Select's world is a copy, never saved), with no tools.
+      tell(player, `Welcome to "${this.info.world}" in the map editor's Select mode. Fly around and build as you like: this is a copy, and nothing here is kept.`);
+      return;
+    }
     const inventory = inventoryOf(player);
     const menu = new ItemStack(MAP_MENU, 1);
     menu.lockMode = ItemLockMode.slot;
@@ -326,6 +337,8 @@ export class Selector {
       case "lobby":
         this.link.send({ t: "open", by: player.name, request: { to: "home" } });
         return;
+      case "players":
+        return this.players.open(player);
       default:
         return;
     }

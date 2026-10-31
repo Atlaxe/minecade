@@ -7,7 +7,7 @@ export * from "./definitions.ts";
 export type { Transport, TransportFactory, TransportOptions } from "./transport/transport.ts";
 export { describeError, log } from "./log.ts";
 export { inBeforeEvent, Scope, type ScopeCounts, type Signal } from "./scope.ts";
-export { readServerVars, type ServerVars } from "./vars.ts";
+export { homePort, readServerVars, type ServerVars } from "./vars.ts";
 export { TransferService } from "./transfer.ts";
 export { showForm } from "./ui.ts";
 export { normalizePlayer } from "./player.ts";

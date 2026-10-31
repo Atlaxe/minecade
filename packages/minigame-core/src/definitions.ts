@@ -71,6 +71,7 @@ export {
   type EditorInfo,
   type EditorRules,
   type ExtractInfo,
+  type GuestInfo,
   type HomeInfo,
   type HomeState,
   type HostMessage,

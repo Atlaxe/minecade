@@ -4,6 +4,7 @@ import { ScriptEventSource, system, world } from "@minecraft/server";
 import { bootServer } from "../bootstrap.ts";
 import { describeError, log } from "../log.ts";
 import { normalizePlayer } from "../player.ts";
+import { homePort } from "../vars.ts";
 import type { EndReason } from "../protocol/index.ts";
 import type { Scope, ScopeCounts } from "../scope.ts";
 import type { GameContext, Minigame } from "./minigame.ts";
@@ -49,7 +50,7 @@ export function runGameServer(factory: (ctx: GameContext) => Minigame): void {
     void playSession(game, server.root, baseline, async (reason) => {
       for (const player of world.getAllPlayers()) {
         normalizePlayer(player);
-        server.transfer.transfer(player, vars.lobbyPort);
+        server.transfer.transfer(player, homePort(vars, player.name));
       }
       for (let second = 0; second < EMPTY_WAIT_SECONDS && world.getAllPlayers().length > 0; second++) await root.wait(20);
       transport.send({ t: "end_game", sessionId: vars.sessionId, reason });

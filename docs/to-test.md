@@ -121,6 +121,20 @@ The mode box (top center, after the editor's next boot):
   as a big title in the middle instead of the box, say so.
 - The editor lobby shows no box (its HUD is hidden).
 
+Guests (after the editor's next boot; needs a second account that isn't in LAN_PLAYERS):
+
+- Edit's gear, Players: Invite a player, type their gamertag. Chat says they're invited and the
+  address to join. The Panel's Guests card lists them.
+- With nothing open on Select, the guest joins this PC's address (port 19132): a dark screen that
+  says it's waiting for Select or a preview, and no editor menu.
+- Open a world in Select: the guest is moved there, in creative, with no tools. They can fly and
+  break or place blocks. They can't join Edit (19134 refuses them).
+- Start a preview from Edit: the guest goes to the editor lobby while Select closes, then both of
+  you go into the preview. When it ends, you're back in Edit and they're in the editor lobby, then
+  on Select once it reopens.
+- Players, tap the guest, Remove: they're disconnected with "You're no longer invited to the map
+  editor", and can't rejoin.
+
 Several bounds and the Boundaries view (after the editor's next boot), on a copy of Sumo's Arena:
 
 - The map menu's top row has five icons beside the checklist pill (Undo, Redo, an eye, the play

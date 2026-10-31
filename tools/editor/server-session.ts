@@ -1,7 +1,8 @@
 // What every editor server shares, the editor lobby (home-session.ts), Select (select-session.ts)
 // or Edit (session.ts): starting its server (on its slot's port, with the editor's packs built from
 // this checkout and a folder staged at /editor), talking to the pack over the console, opping map
-// editors as they join, sending players on, and stopping. The runner (runner.ts) runs all three.
+// editors as they join, letting invited guests in (the lobby and Select only), sending players on,
+// and stopping. The runner (runner.ts) runs all three.
 import { existsSync } from "node:fs";
 import { cp, mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -25,6 +26,9 @@ const CLEAN_TIMEOUT_MS = 60_000;
 const STOP_TIMEOUT_MS = 30_000;
 const REPLY_TIMEOUT_MS = 5000;
 const OP_ATTEMPTS = 5;
+/** BDS's answers to allowlist add and remove, and to kick. */
+const ALLOW_REPLY = /allow ?list|Unknown command|Syntax error/i;
+const KICK_REPLY = /Kicked|No targets matched|Unknown command|Syntax error/i;
 
 export interface SessionBase {
   slot: Slot;
@@ -32,6 +36,8 @@ export interface SessionBase {
   verbose: boolean;
   /** Where the session's log lines go (the runner's log). */
   note(text: string): void;
+  /** The invited players this server lets in too, at start (the editor lobby and Select; never Edit). */
+  guests?: () => string[];
 }
 
 export abstract class ServerSession {
@@ -49,6 +55,7 @@ export abstract class ServerSession {
   protected exited: Promise<number> | undefined;
   protected stopping: Promise<void> | undefined;
   private readonly sink: (text: string) => void;
+  private readonly guests: (() => string[]) | undefined;
   private readonly waiters = new Map<string, (event: EditorEvent) => void>();
   private commands: Promise<unknown> = Promise.resolve();
   private cleanupId = 0;
@@ -58,11 +65,14 @@ export abstract class ServerSession {
   onOpen: (request: OpenRequest, by: string) => void = () => {};
   /** A player joined or left this server. */
   onPlayer: (name: string, kind: "connected" | "disconnected") => void = () => {};
+  /** A map editor invited a player (on), or took the invitation back, from the Players menu. */
+  onInvite: (name: string, on: boolean, by: string) => void = () => {};
 
   constructor(options: SessionBase) {
     this.slot = options.slot;
     this.verbose = options.verbose;
     this.sink = options.note;
+    this.guests = options.guests;
   }
 
   abstract status(): ServerStatus & { mode: string };
@@ -118,6 +128,16 @@ export abstract class ServerSession {
   /** Sends these players to the editor server on `port`, through the pack. */
   async goto(players: string[], port: number, label: string): Promise<void> {
     if (players.length > 0 && this.state === "ready") await this.send({ t: "goto", players, port, label });
+  }
+
+  /** Lets an invited player in (on), or no longer, while the server runs (its allow list). */
+  async allow(name: string, on: boolean): Promise<void> {
+    if (this.state === "ready") await this.command(`allowlist ${on ? "add" : "remove"} "${name}"`, ALLOW_REPLY);
+  }
+
+  /** Disconnects a player, with the reason on their screen (nothing happens when they aren't here). */
+  async kick(name: string, reason: string): Promise<void> {
+    if (this.state === "ready" && this.online().some((online) => online.toLowerCase() === name.toLowerCase())) await this.command(`kick "${name}" ${reason}`, KICK_REPLY);
   }
 
   say(text: string, to?: string): Promise<unknown> {
@@ -206,6 +226,7 @@ export abstract class ServerSession {
       LAN_HOST: this.env.LAN_HOST,
       PUBLIC_HOST: this.env.PUBLIC_HOST || "auto",
       LAN_PLAYERS: this.env.LAN_PLAYERS ?? "",
+      EDITOR_GUESTS: (this.guests?.() ?? []).join(","),
     };
     return {
       name: this.slot.container,
@@ -237,6 +258,7 @@ export abstract class ServerSession {
       else if (event.t === "ready") this.resolve("ready", event);
       else if (event.t === "clean") this.resolve(`clean:${event.id}`, event);
       else if (event.t === "open") this.onOpen(event.request, event.by);
+      else if (event.t === "invite") this.onInvite(event.name, event.on, event.by);
       else this.onEvent(event);
       return;
     }
@@ -246,7 +268,8 @@ export abstract class ServerSession {
     const joined = playerEvent(line);
     if (joined) {
       this.note(`${joined.name} ${joined.kind === "connected" ? "joined" : "left"}.`);
-      if (joined.kind === "connected") void this.op(joined.name);
+      // Map editors only: invited guests stay members.
+      if (joined.kind === "connected" && this.isEditor(joined.name)) void this.op(joined.name);
       this.onPlayer(joined.name, joined.kind);
       return;
     }
@@ -277,8 +300,12 @@ export abstract class ServerSession {
     return result;
   }
 
+  private isEditor(name: string): boolean {
+    return editorPlayers(this.env).some((editor) => editor.toLowerCase() === name.toLowerCase());
+  }
+
   /**
-   * Everyone here is an operator, so they can use commands. A player who just connected may need a
+   * Every map editor here is an operator, so they can use commands. A player who just connected may need a
    * moment ("No targets matched"); one who is an operator already gets "Could not op".
    */
   private async op(name: string): Promise<void> {

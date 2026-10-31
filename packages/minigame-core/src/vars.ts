@@ -31,6 +31,11 @@ export interface ServerVars {
   devHoloPreview: boolean;
   /** A game previewed from the map editor: the map's label ("Sumo: Arena"), shown in its mode box; empty otherwise. */
   preview: string;
+  /**
+   * A preview's guests (players outside LAN_PLAYERS, invited by the map editor) go home here, the
+   * editor lobby, since Edit (lobbyPort) is only for map editors; undefined everywhere else.
+   */
+  guestLobbyPort: number | undefined;
   /** The skin watcher's gamertag (WATCHER_GAMERTAG), which the lobby keeps invisible and out of games; empty when there's none. */
   watcher: string;
   /** Choices from the lobby's game screen, such as { teams: "random" }. */
@@ -59,6 +64,7 @@ export function readServerVars(): ServerVars {
     devDemoGames: Number.isInteger(devDemoGames) && devDemoGames > 0 ? devDemoGames : 0,
     devHoloPreview: ["1", "true", "yes"].includes(text("devHoloPreview").toLowerCase()),
     preview: text("preview").trim(),
+    guestLobbyPort: Number(text("guestLobbyPort")) || undefined,
     watcher: text("watcher").trim(),
     settings: json("settings", {}),
   };
@@ -78,4 +84,11 @@ function json<T>(name: string, fallback: T): T {
     log.warn(`server variable "${name}" is not valid JSON; using the default`);
     return fallback;
   }
+}
+
+/** Where a player goes home from a game: the lobby, or for a map editor's guest in a preview, the editor lobby. */
+export function homePort(vars: Pick<ServerVars, "lobbyPort" | "guestLobbyPort" | "lanPlayers">, name: string): number {
+  if (vars.guestLobbyPort === undefined) return vars.lobbyPort;
+  const lan = vars.lanPlayers.some((player) => player.toLowerCase() === name.toLowerCase());
+  return lan ? vars.lobbyPort : vars.guestLobbyPort;
 }

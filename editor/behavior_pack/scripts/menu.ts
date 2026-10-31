@@ -12,6 +12,7 @@ import {
   type Catalog,
   type Checklist,
   type ChecklistRow,
+  type GuestInfo,
   type HomeState,
   type MapConfig,
   type OpenRequest,
@@ -61,7 +62,9 @@ export type MenuAction =
   /** Select mode: a map from this world (its own menu). */
   | { kind: "map"; target: string; map: string }
   /** Go to the editor lobby, to open another map or world. */
-  | { kind: "lobby" };
+  | { kind: "lobby" }
+  /** The Players menu: invite friends to Select and previews. */
+  | { kind: "players" };
 
 /** What Select mode's selection offers. */
 export type PickAction = "saveMap" | "nudge" | "back" | "clear";
@@ -298,12 +301,38 @@ export function selectMenuEntries(view: SelectMenuView): MenuEntry[] {
   for (const map of view.maps) {
     entries.push({ action: { kind: "map", target: map.target, map: map.map }, text: `${map.name} (${map.map})\n§7${map.targetName}: ${statusLine(map)}` });
   }
-  entries.push({ action: { kind: "none" }, text: headingText("Elsewhere") }, { action: { kind: "lobby" }, text: LOBBY_TEXT });
+  entries.push({ action: { kind: "none" }, text: headingText("Elsewhere") }, { action: { kind: "players" }, text: PLAYERS_TEXT }, { action: { kind: "lobby" }, text: LOBBY_TEXT });
   return entries;
 }
 
 /** The button that goes to the editor lobby (Select's map menu, Edit's gear). */
 export const LOBBY_TEXT = "Editor lobby\n§7open another map or world";
+
+/** The button that opens the Players menu (Select's map menu, Edit's gear, the editor lobby's menu). */
+export const PLAYERS_TEXT = "Players\n§7invite friends to Select and previews";
+
+/** The Players menu's text: who guests are, and where they can go. */
+export const PLAYERS_BODY =
+  "Invite friends by gamertag. They join this PC's address on port 19132, as for the network, and go to Select or the preview, whichever is open (they wait in the editor lobby when neither is). Edit stays yours. Tap a guest to remove them.";
+
+/** Where a guest is, in a few words. */
+export function guestWhere(guest: GuestInfo): string {
+  switch (guest.on) {
+    case "home":
+      return "waiting in the editor lobby";
+    case "select":
+      return "on Select";
+    case "preview":
+      return "in the preview";
+    default:
+      return "not on";
+  }
+}
+
+/** The Players menu: Invite, then each guest (tap to remove). */
+export function guestEntries(guests: GuestInfo[]): { name?: string; text: string }[] {
+  return [{ text: "Invite a player...\n§7by gamertag" }, ...guests.map((guest) => ({ name: guest.name, text: `${guest.name}\n§7${guestWhere(guest)}` }))];
+}
 
 /** The text over Select mode's settings: the world, then how to use the Select tool. */
 export function selectMenuBody(world: string, toolOut: boolean): string {
@@ -367,6 +396,8 @@ export type HomeAction =
   | { kind: "maps" }
   /** New map...: pick a world to copy builds from (or an empty world). */
   | { kind: "new" }
+  /** The Players menu: invite friends to Select and previews. */
+  | { kind: "players" }
   /** A heading: nothing happens but the menu opening again. */
   | { kind: "none" };
 
@@ -397,6 +428,8 @@ export function homeEntries(state: HomeState): HomeEntry[] {
     { action: { kind: "none" }, text: headingText("Maps") },
     { action: { kind: "maps" }, text: "Open a map...\n§7the lobby's and every game's maps" },
     { action: { kind: "new" }, text: "New map...\n§7copy builds from one of your worlds" },
+    { action: { kind: "none" }, text: headingText("Friends") },
+    { action: { kind: "players" }, text: PLAYERS_TEXT },
   );
   return entries;
 }
@@ -439,4 +472,16 @@ export function switchWarning(state: HomeState, request: Extract<OpenRequest, { 
   const who = info.players.length === 1 ? `${info.players[0]} is` : `${info.players.length} players are`;
   const saves = request.to === "edit" ? " (it saves first)" : "";
   return `${who} in ${mode} on ${info.label}. They wait in the editor lobby while ${mode} switches${saves}, then come back with you.`;
+}
+
+/**
+ * What a guest in the editor lobby sees: the preview or Select loading, or waiting for one (the
+ * host moves them as soon as one is ready).
+ */
+export function guestWaitText(servers: HomeState["servers"]): string {
+  const preview = servers.preview;
+  if (preview) return `Loading the preview of ${preview.label}...\n\nYou'll be moved there as soon as it's ready.`;
+  const select = servers.select;
+  if (select) return `${select.state === "ready" ? "Moving you to" : "Loading"} ${select.label} (Select)...\n\nYou'll be moved there as soon as it's ready.`;
+  return "Waiting for the map editor to open Select or start a preview.\n\nYou'll be moved there as soon as one is ready.";
 }

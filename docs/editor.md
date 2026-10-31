@@ -40,6 +40,8 @@ npm run editor -- status                  what each of its servers is doing
 npm run editor -- save                    save the map open in Edit now
 npm run editor -- publish                 publish the map open in Edit (see "Publishing")
 npm run editor -- preview [end]           play the map open in Edit as its game, or end that (see "Preview")
+npm run editor -- invite "<gamertag>"     let a friend join Select and previews (see "Who can join")
+npm run editor -- uninvite "<gamertag>"   take that back, and disconnect them
 npm run editor -- stop                    shut it down (Edit saves first)
 ```
 
@@ -139,8 +141,28 @@ with the real blocks once they're in `packs/blocks/`.
 
 ## Who can join
 
-Only the gamertags in `LAN_PLAYERS` (in `.env`), and each one is a map editor: the tools, and
-operator for commands. Everyone else is refused. A change applies at the editor's next boot.
+- **Map editors:** the gamertags in `LAN_PLAYERS` (in `.env`). They get the tools, and operator for
+  commands, on every server. A change applies at the editor's next boot.
+- **Guests:** friends a map editor invites by gamertag. They may be in the editor lobby and on
+  whatever runs on port 19133, **Select or a preview** (only one runs at a time), but **never Edit**.
+  Everyone else is refused.
+
+**Inviting:** **Players** in the editor lobby's menu, in Select's map menu, or in Edit's gear;
+the Panel's Guests card; or `npm run editor -- invite "<gamertag>"`. The list is kept in
+`work/editor/guests.json` until you remove someone (tap them in Players, Remove on the Panel, or
+`npm run editor -- uninvite "<gamertag>"`), which also disconnects them. A dedicated server can't
+send Xbox invites: a guest adds this PC's address on port 19132 (the network's address,
+`PUBLIC_HOST`) and joins it.
+
+**Where guests go:**
+- Joining, they land in the editor lobby (a dark screen with no menu) and are moved straight on to
+  Select or the preview, whichever is open; if neither is, they wait there until one is.
+- On Select they're in creative with no tools: they can fly around and build. Select's world is a
+  copy that's never saved, so nothing they do reaches the maps you cut out.
+- **Preview:** guests on Select (or waiting) come along into the game with everyone in Edit. When
+  it ends, map editors go back to Edit and guests to the editor lobby, then on to Select when it
+  reopens.
+- Only map editors can open maps or worlds, start a preview or invite players.
 
 ## In game
 
@@ -305,7 +327,10 @@ publishing again pushes it. The commit goes on the branch of the checkout the ed
   the identity the network's server on that port has (`lobby`, `game`, `editor`).
 - **The runner** (`tools/editor/runner.ts`) runs the three: the editor lobby (`home-session.ts`) all
   the time, and Select (`select-session.ts`) and Edit (`session.ts`) once something is opened, all on
-  `ServerSession` (`server-session.ts`: the server, the console, opping map editors and `goto`).
+  `ServerSession` (`server-session.ts`: the server, the console, opping map editors, the live allow
+  list for guests, and `goto`). Guests (`guests.ts`) are on the lobby's and Select's allow lists
+  (`EDITOR_GUESTS`) and a preview's, never Edit's; a preview sends them home to the editor lobby
+  (`GUEST_LOBBY_PORT`).
   Opening a map or a world on a server that has something else open moves its players to the editor
   lobby (a `goto` message: the pack transfers them, LAN or public by `LAN_PLAYERS`), stops it (Edit
   saves), and starts it on the new one; then everyone waiting for it is moved there, from whichever
@@ -334,7 +359,7 @@ publishing again pushes it. The commit goes on the branch of the checkout the ed
   it `return_all` on the console. `LOBBY_PORT` is Edit's port, so the game's own trip home lands
   there. A small resource pack carries the editor's mode box, and the `preview` server variable
   makes the game keep "Preview" in it (never over its own titles).
-- The host answers on `127.0.0.1:8097` (`GET /status`, `POST /save`, `POST /publish`, `POST /preview`, `POST /preview/end`, `POST /open`, `POST /stop`),
+- The host answers on `127.0.0.1:8097` (`GET /status`, `POST /save`, `POST /publish`, `POST /preview`, `POST /preview/end`, `POST /guests`, `POST /open`, `POST /stop`),
   which the Panel and `npm run editor -- status | save | stop | <target> <map>` use. When the Panel
   boots the editor, its output goes to `work/editor/editor.log`.
 - **The menus** are classic forms themed by the editor's resource pack, like the lobby's menus

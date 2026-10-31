@@ -1,5 +1,5 @@
 // Map editor host logic with no I/O, kept apart from the sessions so it can be unit-tested.
-import { openKey, type MapConfig, type OpenRequest, type RecentEntry, type SelectionInfo, type ServersInfo } from "@minecade/minigame-core/config";
+import { openKey, type GuestInfo, type MapConfig, type OpenRequest, type RecentEntry, type SelectionInfo, type ServersInfo } from "@minecade/minigame-core/config";
 
 /** The host's control port on this PC: status, save, publish, open and stop, for the Panel and `npm run editor`. */
 export const CONTROL_PORT = 8097;
@@ -93,14 +93,18 @@ export interface EditorStatus {
   select?: SelectStatus;
   edit?: EditStatus;
   /** A Preview: the game on Select's port (Select is closed meanwhile). */
-  preview?: { state: "starting" | "ready" | "stopping" | "stopped" | "failed"; label: string; port: number; error?: string };
+  preview?: { state: "starting" | "ready" | "stopping" | "stopped" | "failed"; label: string; port: number; players: string[]; error?: string };
   /** Players waiting for a server, and what for. */
   waiting: ServersInfo["waiting"];
+  /** The invited players (Select and Preview only), and where each one is. */
+  guests: GuestInfo[];
 }
 
 export type EditorArgs =
   | { command: "boot"; open?: Exclude<OpenRequest, { to: "home" }>; verbose: boolean }
   | { command: "status" | "save" | "publish" | "preview" | "endPreview" | "stop" }
+  /** Invite a player to Select and previews (on), or take the invitation back. */
+  | { command: "invite"; name: string; on: boolean }
   | { command: "help"; error?: string };
 
 export const USAGE = `Usage:
@@ -118,6 +122,9 @@ export const USAGE = `Usage:
   npm run editor -- preview                 play the map open in Edit as its game (on port 19133);
                                             everyone in Edit goes, and comes back when it ends
   npm run editor -- preview end             end the preview now
+  npm run editor -- invite "<gamertag>"     let a friend join Select and previews (never Edit):
+                                            they join this PC's address, as for the network
+  npm run editor -- uninvite "<gamertag>"   take the invitation back (and disconnect them)
   npm run editor -- stop                    shut the editor down (Edit saves first)
 Add --verbose to echo the servers' consoles. The editor takes the network's ports (19132-19134),
 so stop the network first.`;
@@ -136,6 +143,10 @@ export function parseArgs(argv: string[]): EditorArgs {
   }
   if (words.length === 1 && (words[0] === "status" || words[0] === "save" || words[0] === "publish" || words[0] === "preview" || words[0] === "stop")) return { command: words[0] };
   if (words.length === 2 && words[0] === "preview" && words[1] === "end") return { command: "endPreview" };
+  if (words[0] === "invite" || words[0] === "uninvite") {
+    const name = words.slice(1).join(" ").trim();
+    return name ? { command: "invite", name, on: words[0] === "invite" } : { command: "help", error: `${words[0]} needs a gamertag` };
+  }
   if (words.length !== 2) return { command: "help", error: "expected a target and a map" };
   const [target, map] = words;
   if (!isMapId(map)) return { command: "help", error: `"${map}" is not a map id: use lower case letters, digits, _ and -` };

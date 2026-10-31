@@ -8,7 +8,7 @@
 // The Panel starts the same tool in the background (its output goes to work/editor/editor.log).
 // Either way it answers on 127.0.0.1:8097, which the Panel and `npm run editor -- stop` use.
 import { fileURLToPath } from "node:url";
-import { editorStatus, endPreviewEditor, openInEditor, previewEditor, publishEditor, saveEditor, serveControl, stopEditor } from "./control.ts";
+import { editorStatus, endPreviewEditor, inviteEditor, openInEditor, previewEditor, publishEditor, saveEditor, serveControl, stopEditor } from "./control.ts";
 import { USAGE, parseArgs, type EditorStatus } from "./editor-core.ts";
 import { EditorRunner } from "./runner.ts";
 
@@ -73,6 +73,16 @@ if (args.command === "preview" || args.command === "endPreview") {
   process.exit(0);
 }
 
+if (args.command === "invite") {
+  const result = await inviteEditor(args.name, args.on);
+  if (!result.ok) {
+    console.log(result.error === "no map editor is running" ? "No map editor is running." : `Can't: ${result.error}.`);
+    process.exit(0);
+  }
+  console.log(args.on ? `Invited ${args.name}: they join this PC's address (port 19132), as for the network, and go to Select or a preview.` : `${args.name} is no longer invited.`);
+  process.exit(0);
+}
+
 if (args.command === "stop") {
   if (!(await stopEditor())) {
     console.log("No map editor is running.");
@@ -112,6 +122,7 @@ const control = await serveControl({
   publish: () => runner.publish(),
   preview: () => runner.preview("this PC"),
   endPreview: () => runner.endPreview(),
+  invite: (name, on) => runner.invite("this PC", name, on),
   stop: () => void runner.shutdown(),
   open: (request) => runner.request("this PC", request),
 }).catch((error: unknown) => {
@@ -162,4 +173,5 @@ function printStatus(status: EditorStatus): void {
   }
   if (status.preview) console.log(`  Preview: ${status.preview.label}, ${status.preview.state} on port ${status.preview.port}`);
   for (const entry of status.waiting) console.log(`  ${entry.name} is waiting for ${entry.label}`);
+  if (status.guests.length > 0) console.log(`  Invited: ${status.guests.map((guest) => `${guest.name}${guest.on ? ` (on ${guest.on === "home" ? "the editor lobby" : guest.on === "select" ? "Select" : "the preview"})` : ""}`).join(", ")}`);
 }

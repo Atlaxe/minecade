@@ -1,8 +1,9 @@
 // The editor lobby in game: where everyone joins. Players are shut in a small dark cell (blind, in
 // adventure, unable to move or look around, with no HUD), and get the Map editor form, which opens
 // again whenever it closes: open a map in Edit, copy builds from one of the client's worlds in
-// Select, or go to what's open now. The host (tools/editor/runner.ts) starts the server that's
-// picked and moves the player there once it's ready; meanwhile the form says what's loading.
+// Select, go to what's open now, or invite friends (Players). The host (tools/editor/runner.ts)
+// starts the server that's picked and moves the player there once it's ready; meanwhile the form
+// says what's loading. Invited guests never get the menu: they wait here for Select or a preview.
 import {
   BlockVolume,
   GameMode,
@@ -19,7 +20,8 @@ import type { HostMessage } from "@minecade/minigame-core/config";
 import { goto } from "./goto.ts";
 import { HostLink } from "./link.ts";
 import { dangerText, headingText, sideTitle } from "./marks.ts";
-import { homeEntries, mapEntries, mapIdFrom, switchWarning, targetEntries, worldEntries } from "./menu.ts";
+import { guestWaitText, homeEntries, mapEntries, mapIdFrom, switchWarning, targetEntries, worldEntries } from "./menu.ts";
+import { PlayersMenu, isMapEditor } from "./players.ts";
 
 const PREFIX = "§b[Editor]§r ";
 /** Where players stand: the world's spawn, inside the cell. */
@@ -36,7 +38,7 @@ const BLIND_TICKS = 1_000_000;
 const MENU_BODY = "Open a map to edit it, or copy builds from one of your worlds to make new maps.";
 
 type Request = Extract<OpenRequest, { to: "edit" | "select" }>;
-type View = { kind: "menu" } | { kind: "wait"; label: string };
+type View = { kind: "menu" } | { kind: "wait"; label: string } | { kind: "guest"; text: string };
 
 export class Home {
   private readonly scope: Scope;
@@ -48,6 +50,7 @@ export class Home {
   /** What each player picked last, shown as loading until the host's state takes over. */
   private readonly pending = new Map<string, { label: string; until: number }>();
   private readonly formOpen = new Set<string>();
+  private readonly players: PlayersMenu;
 
   constructor(scope: Scope, info: HomeInfo) {
     this.scope = scope;
@@ -61,6 +64,7 @@ export class Home {
       },
       message: (message) => this.receive(message),
     });
+    this.players = new PlayersMenu(this.link, (player, form) => this.show(player, form));
   }
 
   start(): void {
@@ -107,6 +111,9 @@ export class Home {
       case "goto":
         goto(message.players, message.port, message.label, tell);
         return;
+      case "guests":
+        this.players.update(message.guests);
+        return;
       case "cleanup":
         // The editor lobby has no markers.
         this.link.send({ t: "clean", id: message.id, left: 0 });
@@ -141,6 +148,7 @@ export class Home {
         const view = this.viewOf(player);
         this.shown.set(key, viewKey(view));
         if (view.kind === "menu") await this.menu(player);
+        else if (view.kind === "guest") await this.guestNotice(player, view.text);
         else await this.notice(player, view);
         await this.scope.wait(REOPEN_TICKS);
       }
@@ -153,6 +161,7 @@ export class Home {
 
   /** What this player should see now: the menu, or what's loading for them. */
   private viewOf(player: Player): View {
+    if (!isMapEditor(player)) return { kind: "guest", text: guestWaitText(this.state.servers) };
     const key = keyOf(player);
     const waiting = this.state.servers.waiting.find((entry) => entry.name.toLowerCase() === key);
     if (waiting) return { kind: "wait", label: waiting.label };
@@ -175,6 +184,12 @@ export class Home {
       .title(sideTitle("Loading"))
       .body(`Loading ${view.label}...\n\nYou'll be moved there as soon as it's ready: that takes about 20 seconds.`)
       .button(headingText("Please wait"));
+    await this.show(player, form);
+  }
+
+  /** A guest waits here for Select or a preview; the host moves them. */
+  private async guestNotice(player: Player, text: string): Promise<void> {
+    const form = new ActionFormData().title(sideTitle("Map editor")).body(text).button(headingText("Please wait"));
     await this.show(player, form);
   }
 
@@ -202,6 +217,7 @@ export class Home {
     if (action.kind === "open") await this.open(player, action.request);
     else if (action.kind === "maps") await this.pickMap(player);
     else if (action.kind === "new") await this.pickWorld(player);
+    else if (action.kind === "players") await this.players.open(player);
   }
 
   /** Open a map: the lobby or a game, then one of its maps. */
@@ -290,7 +306,7 @@ export class Home {
 }
 
 function viewKey(view: View): string {
-  return view.kind === "wait" ? `wait:${view.label}` : view.kind;
+  return view.kind === "wait" ? `wait:${view.label}` : view.kind === "guest" ? `guest:${view.text}` : view.kind;
 }
 
 function keyOf(player: Player): string {

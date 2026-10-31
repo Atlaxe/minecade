@@ -23,6 +23,7 @@ import { normalizePlayer } from "../player.ts";
 import type { Scope } from "../scope.ts";
 import { COLOR, deathMessage as formatDeath, nameOf, say } from "../text.ts";
 import { showForm } from "../ui.ts";
+import { homePort } from "../vars.ts";
 import { Combat, type CombatHost, type Hit } from "./combat.ts";
 import { KillCredit } from "./credit.ts";
 import { Kits } from "./kits.ts";
@@ -617,7 +618,7 @@ export abstract class Minigame<C extends GameConfig = GameConfig> {
     const rule = this.config.lateJoin ?? "spectate";
     if (rule === "return") {
       player.sendMessage(say.info(`${this.config.name} is already running. Sending you back to the lobby.`));
-      this.ctx.transfer.transfer(player, this.ctx.vars.lobbyPort);
+      this.ctx.transfer.transfer(player, homePort(this.ctx.vars, player.name));
       return;
     }
     if (rule === "join") {

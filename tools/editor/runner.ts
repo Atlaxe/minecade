@@ -3,15 +3,18 @@
 // to box maps in; Edit on 19134, one map. Opening something starts its server (or restarts it on
 // the new map or world). Players move between the servers by transfer, never by rejoining: whoever
 // asked waits where they are, and anyone on a server that restarts waits in the editor lobby, until
-// the server is ready. Extractions (selections.ts) run in the background and outlive the servers.
+// the server is ready. Players a map editor invited (guests.ts) may be on the editor lobby and on
+// whatever runs on Select's port (Select, or a preview), never Edit: they're moved on to that as
+// soon as it's ready. Extractions (selections.ts) run in the background and outlive the servers.
 import { existsSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
-import { openKey, type HomeState, type OpenRequest, type SelectionInfo, type ServerInfo } from "@minecade/minigame-core/config";
+import { openKey, type GuestInfo, type HomeState, type OpenRequest, type SelectionInfo, type ServerInfo } from "@minecade/minigame-core/config";
 import { connectDocker } from "../build/docker-util.ts";
 import { readEnv } from "../control-panel/core.ts";
 import { buildCatalog, mapLabel, noteRecent, requestedWorld, worldId } from "./catalog.ts";
 import { SLOTS, editorPlayers, isMapId, planOpen, portHolders, type EditorStatus, type Slot, type SlotId } from "./editor-core.ts";
+import { addGuest, readGuests, removeGuest, writeGuests } from "./guests.ts";
 import { HomeSession } from "./home-session.ts";
 import { PreviewSession } from "./preview-session.ts";
 import type { Git } from "./publish.ts";
@@ -29,6 +32,8 @@ const LEAVE_MS = 2000;
 const HOME_UPDATE_MS = 300;
 /** After a preview, players are back in Edit about this long after the game ends. */
 const BACK_MS = 6000;
+/** A guest who just joined the editor lobby is moved on after this long (once they're in the world). */
+const GUEST_ON_MS = 2000;
 
 type WorkSlot = "select" | "edit";
 type Opened = { request: Extract<OpenRequest, { to: "edit" | "select" }>; label: string };
@@ -58,7 +63,13 @@ export class EditorRunner {
   private readonly startedAt = new Date().toISOString();
   private state: EditorStatus["state"] = "starting";
   private error: string | undefined;
+  private env: Record<string, string> = {};
+  /** Map editors (LAN_PLAYERS): everyone else on the servers is an invited guest. */
   private players: string[] = [];
+  /** The invited players (work/editor/guests.json). */
+  private guests: string[] = [];
+  /** The guest list each server heard last, so it hears only of changes. */
+  private readonly guestsSent = new WeakMap<ServerSession, string>();
   private home: HomeSession | undefined;
   private readonly work: { select?: SelectSession; edit?: EditorSession } = {};
   /** What each work server has open. */
@@ -95,7 +106,9 @@ export class EditorRunner {
   /** Starts the editor lobby. Throws (with the reason) when it can't. */
   async boot(): Promise<void> {
     const envPath = join(this.root, ".env");
-    if (existsSync(envPath)) this.players = editorPlayers(readEnv(await readFile(envPath, "utf8")));
+    if (existsSync(envPath)) this.env = readEnv(await readFile(envPath, "utf8"));
+    this.players = editorPlayers(this.env);
+    this.guests = await readGuests(this.root);
     const docker = connectDocker();
     const holders = portHolders(await docker.listContainers(), Object.values(this.slots).map((slot) => slot.port));
     if (holders.length > 0) {
@@ -105,9 +118,10 @@ export class EditorRunner {
     for (const info of await docker.listContainers({ all: true, filters: { label: ["minecade.role=editor"] } })) {
       if (info.State !== "running") await docker.getContainer(info.Id).remove({ force: true }).catch(() => {});
     }
-    const home = new HomeSession({ slot: this.slots.home, verbose: this.verbose, note: (text) => this.log(text), home: () => this.homeState() });
+    const home = new HomeSession({ slot: this.slots.home, verbose: this.verbose, note: (text) => this.log(text), home: () => this.homeState(), guests: () => this.guests });
     this.home = home;
     home.onOpen = (request, by) => void this.request(by, request);
+    home.onInvite = (name, on, by) => void this.invite(by, name, on);
     home.onPlayer = (name, kind) => this.joined(home, name, kind);
     home.onEnd = () => {
       if (this.state === "ready") {
@@ -123,7 +137,7 @@ export class EditorRunner {
       throw error;
     }
     this.state = "ready";
-    this.log(`Ready: join ${home.status().join}. Who can join: ${this.players.join(", ") || "nobody (set LAN_PLAYERS)"}.`);
+    this.log(`Ready: join ${home.status().join}. Map editors: ${this.players.join(", ") || "nobody (set LAN_PLAYERS)"}.${this.guests.length > 0 ? ` Invited: ${this.guests.join(", ")}.` : ""}`);
   }
 
   status(): EditorStatus {
@@ -139,6 +153,7 @@ export class EditorRunner {
       ...(this.work.edit ? { edit: this.work.edit.status() } : {}),
       ...(this.previewing ? { preview: this.previewing.status() } : {}),
       waiting: [...this.waiting.values()].map(({ name, label }) => ({ name, label })),
+      guests: this.guestInfo(),
     };
   }
 
@@ -161,7 +176,7 @@ export class EditorRunner {
    * brings everyone back. Answers at once: undefined when it's under way, or why it can't be.
    */
   preview(by: string): string | undefined {
-    const problem = this.previewProblem();
+    const problem = this.isGuest(by) ? "only map editors can start a preview" : this.previewProblem();
     if (problem) {
       this.log(`${by}: can't preview: ${problem}`);
       void this.tell(by, `§c${problem}`);
@@ -191,6 +206,20 @@ export class EditorRunner {
     const problem = await this.tryRequest(by, request);
     if (problem) {
       this.log(`${by}: can't open that: ${problem}`);
+      void this.tell(by, `§c${problem}`);
+    }
+    return problem;
+  }
+
+  /**
+   * Invites a player (on), or takes the invitation back, from a map editor in game or this PC.
+   * Guests may join the editor lobby and whatever runs on Select's port, never Edit; taking an
+   * invitation back disconnects them. Undefined when it's done, or why it can't be.
+   */
+  async invite(by: string, name: string, on: boolean): Promise<string | undefined> {
+    const problem = await this.tryInvite(by, name.trim(), on);
+    if (problem) {
+      this.log(`${by}: can't ${on ? "invite" : "remove"} ${name}: ${problem}`);
       void this.tell(by, `§c${problem}`);
     }
     return problem;
@@ -227,6 +256,7 @@ export class EditorRunner {
 
   private async tryRequest(by: string, request: OpenRequest): Promise<string | undefined> {
     if (this.state !== "ready") return this.state === "stopping" ? "the editor is shutting down" : "the editor is still starting";
+    if (this.isGuest(by)) return "only map editors can open maps and worlds";
     if (request.to === "home") {
       const on = this.whereIs(by);
       if (on && on !== this.home) await on.goto([by], this.slots.home.port, "the editor lobby");
@@ -286,7 +316,7 @@ export class EditorRunner {
       slot: "select",
       request: { to: "select", world: client ? worldId(world) : world.path },
       label: world.name,
-      make: () => new SelectSession({ slot: this.slots.select, verbose: this.verbose, note: (text) => this.log(text), world, selections: this.selections }),
+      make: () => new SelectSession({ slot: this.slots.select, verbose: this.verbose, note: (text) => this.log(text), world, selections: this.selections, guests: () => this.guests }),
     };
   }
 
@@ -316,6 +346,7 @@ export class EditorRunner {
     this.setWork(slot, session);
     this.opened.set(slot, { request: launch.request, label: launch.label });
     session.onOpen = (request, who) => void this.request(who, request);
+    session.onInvite = (name, on, who) => void this.invite(who, name, on);
     if (session instanceof EditorSession) session.onPreview = (who) => void this.preview(who);
     session.onPlayer = (name, kind) => this.joined(session, name, kind);
     session.onEnd = (ok) => {
@@ -368,16 +399,20 @@ export class EditorRunner {
       await edit.say("§cThe preview didn't start: the world didn't save.");
       return;
     }
+    // Guests on Select, or waiting in the lobby, come along.
+    const guests = [...(this.home?.online() ?? []), ...(this.work.select?.online() ?? [])].filter((name) => this.isGuest(name));
     await this.closeSelect(by);
     const env = readEnv(await readFile(join(this.root, ".env"), "utf8"));
     const session = new PreviewSession({
       port: this.slots.select.port,
       container: `${this.slots.select.container.replace(/-select$/, "")}-preview`,
       returnPort: this.slots.edit.port,
+      guestPort: this.slots.home.port,
+      guests: this.guests,
       map: source.map,
       label: source.label,
       maxPlayers: source.maxPlayers + 1,
-      players: edit.online(),
+      players: [...edit.online(), ...guests],
       env,
       verbose: this.verbose,
       note: (text) => this.log(text),
@@ -394,8 +429,10 @@ export class EditorRunner {
       return;
     }
     session.onEnd = (why) => void this.previewEnded(session, why);
+    session.onPlayer = () => this.homeChanged();
     const players = this.work.edit?.online() ?? [];
     if (players.length > 0) await this.work.edit?.goto(players, this.slots.select.port, `the preview of ${source.label}`);
+    await this.sendGuests();
     this.homeChanged();
   }
 
@@ -449,6 +486,7 @@ export class EditorRunner {
     }
     // Whoever asked from this server itself is there already.
     for (const name of session.online()) this.waiting.delete(name.toLowerCase());
+    if (slot === "select") await this.sendGuests();
     this.homeChanged();
   }
 
@@ -456,6 +494,11 @@ export class EditorRunner {
   private joined(server: ServerSession, name: string, kind: "connected" | "disconnected"): void {
     this.homeChanged();
     if (kind !== "connected" || server !== this.home) return;
+    // A guest goes on to Select or the preview, if one is ready (or waits here until one is).
+    if (this.isGuest(name)) {
+      setTimeout(() => void this.sendGuests().catch((error: unknown) => this.log(`Could not move ${name} on: ${message(error)}`)), GUEST_ON_MS);
+      return;
+    }
     // Back in the lobby: on to a server that's waiting for them.
     const entry = this.waiting.get(name.toLowerCase());
     if (entry) void this.deliver(entry.slot);
@@ -473,9 +516,17 @@ export class EditorRunner {
     };
     const select = info("select");
     const edit = info("edit");
+    const previewState = this.previewing?.state;
+    const preview =
+      this.previewing && (previewState === "starting" || previewState === "ready" || previewState === "stopping") ? { label: this.previewing.status().label, state: previewState } : undefined;
     return {
       catalog: await buildCatalog(this.root),
-      servers: { ...(select ? { select } : {}), ...(edit ? { edit } : {}), waiting: [...this.waiting.values()].map(({ name, label }) => ({ name, label })) },
+      servers: {
+        ...(select ? { select } : {}),
+        ...(edit ? { edit } : {}),
+        ...(preview ? { preview } : {}),
+        waiting: [...this.waiting.values()].map(({ name, label }) => ({ name, label })),
+      },
     };
   }
 
@@ -485,7 +536,89 @@ export class EditorRunner {
     this.homeTimer = setTimeout(() => {
       this.homeTimer = undefined;
       void this.home?.update().catch((error: unknown) => this.log(`Could not update the editor lobby: ${message(error)}`));
+      void this.sendGuestLists().catch((error: unknown) => this.log(`Could not send the guest list: ${message(error)}`));
     }, HOME_UPDATE_MS);
+  }
+
+  // ---- Guests -----------------------------------------------------------------------------
+
+  private async tryInvite(by: string, name: string, on: boolean): Promise<string | undefined> {
+    if (this.state !== "ready") return this.state === "stopping" ? "the editor is shutting down" : "the editor is still starting";
+    if (this.isGuest(by)) return "only map editors can invite players";
+    const result = on ? addGuest(this.guests, name, this.players) : removeGuest(this.guests, name);
+    if (typeof result === "string") return result;
+    const tag = on ? result[result.length - 1] : (this.guests.find((guest) => guest.toLowerCase() === name.toLowerCase()) ?? name);
+    this.guests = result;
+    await writeGuests(this.root, this.guests);
+    for (const server of this.guestServers()) await server.allow(tag, on);
+    if (on) {
+      this.log(`${by}: invited ${tag}.`);
+      const where = this.guestTarget() ? "they go straight to what's open on Select's port" : "they wait in the editor lobby until you open Select or start a preview";
+      void this.tell(by, `Invited ${tag}: they join ${this.guestAddress()}, as for the network, and ${where}. Edit stays yours.`);
+    } else {
+      this.log(`${by}: ${tag} is no longer invited.`);
+      for (const server of this.guestServers()) await server.kick(tag, "You're no longer invited to the map editor.");
+      void this.tell(by, `${tag} is no longer invited.`);
+    }
+    this.homeChanged();
+    return undefined;
+  }
+
+  /** Anyone who isn't a map editor (LAN_PLAYERS) is an invited guest ("this PC" is the host itself). */
+  private isGuest(name: string): boolean {
+    return name !== "this PC" && !this.players.some((player) => player.toLowerCase() === name.toLowerCase());
+  }
+
+  /** The invited players, and where each one is. */
+  private guestInfo(): GuestInfo[] {
+    const on = (name: string, players: string[] | undefined) => players?.some((player) => player.toLowerCase() === name.toLowerCase()) === true;
+    return this.guests.map((name): GuestInfo => {
+      if (on(name, this.previewing?.online())) return { name, on: "preview" };
+      if (on(name, this.work.select?.online())) return { name, on: "select" };
+      if (on(name, this.home?.online())) return { name, on: "home" };
+      return { name };
+    });
+  }
+
+  /** The servers that let guests in now: the editor lobby, and Select or the preview. */
+  private guestServers(): { allow(name: string, on: boolean): Promise<void>; kick(name: string, reason: string): Promise<void> }[] {
+    return [this.home, this.work.select, this.previewing].filter((server) => server !== undefined);
+  }
+
+  /** Where guests go now: Select's port, once Select or a preview is ready there. */
+  private guestTarget(): { port: number; label: string } | undefined {
+    if (this.previewing || this.previewAsked) {
+      return this.previewing?.state === "ready" ? { port: this.slots.select.port, label: `the preview of ${this.previewing.status().label}` } : undefined;
+    }
+    const select = this.work.select;
+    const opened = this.opened.get("select");
+    return select && opened && select.status().state === "ready" ? { port: this.slots.select.port, label: opened.label } : undefined;
+  }
+
+  /** Moves guests in the editor lobby on to Select or the preview, if one is ready. */
+  private async sendGuests(): Promise<void> {
+    const target = this.guestTarget();
+    const home = this.home;
+    if (!target || !home) return;
+    const names = home.online().filter((name) => this.isGuest(name));
+    if (names.length > 0) await home.goto(names, target.port, target.label);
+  }
+
+  /** Tells every server that changed its view of the guests (for the Players menu). */
+  private async sendGuestLists(): Promise<void> {
+    const guests = this.guestInfo();
+    const text = JSON.stringify(guests);
+    for (const server of this.servers()) {
+      if (server.status().state !== "ready" || this.guestsSent.get(server) === text) continue;
+      this.guestsSent.set(server, text);
+      await server.send({ t: "guests", guests });
+    }
+  }
+
+  /** The address guests join: the network's public one, on the editor lobby's port. */
+  private guestAddress(): string {
+    const host = this.env.PUBLIC_HOST && this.env.PUBLIC_HOST !== "auto" ? this.env.PUBLIC_HOST : "this PC's public address";
+    return `${host}:${this.slots.home.port}`;
   }
 
   // ---- Players ----------------------------------------------------------------------------

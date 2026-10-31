@@ -35,6 +35,9 @@ describe("parseArgs", () => {
     expect(parseArgs(["publish"])).toEqual({ command: "publish" });
     expect(parseArgs(["preview"])).toEqual({ command: "preview" });
     expect(parseArgs(["preview", "end"])).toEqual({ command: "endPreview" });
+    expect(parseArgs(["invite", "Some", "Friend"])).toEqual({ command: "invite", name: "Some Friend", on: true });
+    expect(parseArgs(["uninvite", "Pal"])).toEqual({ command: "invite", name: "Pal", on: false });
+    expect(parseArgs(["invite"])).toEqual({ command: "help", error: "invite needs a gamertag" });
     expect(parseArgs(["status"])).toEqual({ command: "status" });
     expect(parseArgs(["--help"])).toEqual({ command: "help" });
   });

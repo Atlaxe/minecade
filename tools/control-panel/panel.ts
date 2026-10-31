@@ -14,7 +14,7 @@ import { dirname, join } from "node:path";
 import { createInterface } from "node:readline";
 import { fileURLToPath } from "node:url";
 import type Docker from "dockerode";
-import { editorStatus, endPreviewEditor, previewEditor, publishEditor, saveEditor, stopEditor } from "../editor/control.ts";
+import { editorStatus, endPreviewEditor, inviteEditor, previewEditor, publishEditor, saveEditor, stopEditor } from "../editor/control.ts";
 import type { EditorStatus } from "../editor/editor-core.ts";
 import {
   BroadcastLog,
@@ -638,6 +638,14 @@ async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> 
     note(start ? "Map editor: starting a preview of the map open in Edit..." : "Map editor: ending the preview...");
     void refresh();
     return sendJson(res, 202, { ok: true });
+  }
+  if (path === "/api/editor/guests") {
+    if (typeof body.name !== "string" || typeof body.on !== "boolean") return sendJson(res, 400, { error: "expected {name, on: true|false}" });
+    const result = await inviteEditor(body.name, body.on);
+    if (!result.ok) return sendJson(res, 409, { error: result.error ?? "no map editor is running" });
+    note(body.on ? `Map editor: invited ${body.name}.` : `Map editor: ${body.name} is no longer invited.`);
+    void refresh();
+    return sendJson(res, 200, { ok: true });
   }
   if (path === "/api/editor/stop") {
     if (!(await stopEditor())) return sendJson(res, 409, { error: "no map editor is running" });
