@@ -121,6 +121,21 @@ The mode box (top center, after the editor's next boot):
   as a big title in the middle instead of the box, say so.
 - The editor lobby shows no box (its HUD is hidden).
 
+Several bounds and the Boundaries view (after the editor's next boot), on a copy of Sumo's Arena:
+
+- The map menu's top row has five icons beside the checklist pill (Undo, Redo, an eye, the play
+  icon, the gear), none cut off or overlapping.
+- The eye opens Boundaries: Show all, then Bounds, and Kill Y or regions when the map has them.
+  Switch Bounds on, close the menu and put the tool away: the white outline stays. Switch it off:
+  it goes. Show all, then tap Bounds: every other boundary stays on.
+- Holding the Region tool still shows everything. Reopen the map (or boot again): your switches
+  are as you left them.
+- Region tool: box a second area beside the arena, use it at the sky, Save as "Add to bounds
+  (another box)". "Bounds and regions" lists Bounds 1 and Bounds 2; Boundaries says 2 boxes.
+  `map.json` has `"bounds": [ ... ]` with both.
+- Preview it: walking from one box into the other is fine; stepping off into the gap between them
+  puts you out. Delete Bounds 2: `map.json` is back to one box, as an object.
+
 Preview and the queue spawn (pass 10.6, after the editor's next boot), on a copy of Sumo's Arena:
 
 - Spawn tool, Place into: Queue spawn. Place it on a spot with a floor, a little away from the

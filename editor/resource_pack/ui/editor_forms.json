@@ -596,7 +596,7 @@
     ]
   },
 
-  // Undo, Redo and Map settings (§q§i§r).
+  // Undo, Redo, Boundaries, Preview and Map settings (§q§i§r): 25 wide each, so five fit beside the pill.
   "quick_strip": {
     "type": "stack_panel",
     "orientation": "horizontal",
@@ -608,7 +608,7 @@
 
   "quick_slot": {
     "type": "panel",
-    "size": [26, 24],
+    "size": [25, 24],
     "visible": false,
     "bindings": [
       { "binding_name": "#form_button_text", "binding_type": "collection", "binding_collection_name": "form_buttons" },

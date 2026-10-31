@@ -38,6 +38,8 @@ export interface EditInfo {
   fresh: boolean;
   /** The converted world the map came from, when Select mode can open it again (Back to Select). */
   from?: string;
+  /** Each map editor's Boundaries switches (outline groups, or "all"), by lower-case gamertag. */
+  view?: Record<string, string[]>;
 }
 
 /** Select mode: a converted world, to box maps in. */
@@ -130,6 +132,8 @@ export type EditorEvent =
   | { t: "preview"; by: string }
   /** Blocks changed, so the world has changes to save. Sent at most every few seconds. */
   | { t: "changed"; by: string }
+  /** A map editor's Boundaries switches changed (kept for their next map). */
+  | { t: "view"; by: string; shown: string[] }
   /** The answer to "cleanup": how many markers are still in the world (the world is saved only at 0). */
   | { t: "clean"; id: number; left: number; error?: string }
   /** Select mode: extract this box as a new map. `spawn` (where the player stood) becomes its first spawn. */
@@ -168,7 +172,7 @@ export type HostMessage =
   /** Extract mode: move `box` by `offset`, clearing the box's chunks around it, then answer with "extracted". */
   | { t: "extract"; box: Box; offset: Vec3 };
 
-const EVENT_TYPES = new Set(["ready", "edit", "undo", "redo", "resync", "save", "publish", "preview", "changed", "clean", "saveMap", "mapAction", "open", "extracted"]);
+const EVENT_TYPES = new Set(["ready", "edit", "undo", "redo", "resync", "save", "publish", "preview", "changed", "view", "clean", "saveMap", "mapAction", "open", "extracted"]);
 const MESSAGE_TYPES = new Set(["config", "home", "ack", "status", "say", "notice", "cleanup", "resume", "selection", "forgotten", "goto", "extract"]);
 
 // BDS prints script console output as "[<time> <LEVEL>] [Scripting] <text>". Requiring that prefix

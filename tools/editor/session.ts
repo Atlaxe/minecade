@@ -27,6 +27,7 @@ import { gitIn, publishMap, publishMessage, type Git } from "./publish.ts";
 import { findWorld } from "./selections.ts";
 import { RUNTIME_FILES, ServerSession, delay, message, root, type SessionBase } from "./server-session.ts";
 import type { EditorTarget } from "./targets.ts";
+import { readViews, saveView } from "./views.ts";
 import type { World } from "./worlds.ts";
 
 /** A level.dat written by BDS (bake's): a new map's void world starts from it. */
@@ -207,6 +208,7 @@ export class EditorSession extends ServerSession {
       rules: this.target.rules,
       fresh: newWorld,
       ...(this.from ? { from: this.from.name } : {}),
+      view: await readViews(root),
     };
     await writeFile(join(dir, "editor.json"), JSON.stringify(info));
   }
@@ -243,6 +245,9 @@ export class EditorSession extends ServerSession {
         return;
       case "changed":
         this.blocksChanged(event.by);
+        return;
+      case "view":
+        void saveView(root, event.by, event.shown).catch((error: unknown) => this.note(`Could not keep ${event.by}'s Boundaries switches: ${message(error)}`));
         return;
     }
   }

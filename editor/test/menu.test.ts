@@ -6,6 +6,7 @@ import { COLUMNS, LAYOUT, MARK, dangerText, headingText, mapTitle, sideTitle, sw
 import {
   ICONS,
   LOBBY_TEXT,
+  boundaryEntries,
   checklistBody,
   homeEntries,
   mapActions,
@@ -51,7 +52,8 @@ function view(config: MapConfig, extra: Partial<MapMenuView> = {}): MapMenuView 
 describe("map menu", () => {
   it("has the quick icons, then the tools, then Save, with no tool out", () => {
     const entries = mapMenuEntries(view(draft));
-    expect(entries.map((entry) => entry.action.kind)).toEqual(["checklist", "undo", "redo", "settings", "tool", "tool", "tool", "save"]);
+    expect(entries.map((entry) => entry.action.kind)).toEqual(["checklist", "undo", "redo", "boundaries", "settings", "tool", "tool", "tool", "save"]);
+    expect(entries[3]).toEqual({ action: { kind: "boundaries" }, text: `${MARK.quick}Boundaries\n§7see the bounds and regions you pick`, icon: ICONS.boundaries });
     expect(entries[0].text).toBe(`${MARK.pill}0/1\n§7Checklist: 1 problem`);
     expect(entries[0].icon).toBe(ICONS.check);
     expect(entries.at(-1)?.text).toBe(`${MARK.save}Save\nthe map and the world`);
@@ -71,7 +73,7 @@ describe("map menu", () => {
   });
 
   it("shows the tool out's settings between the tools and Save", () => {
-    const kinds = (tool: MapMenuView["tool"]) => mapMenuEntries(view({ ...draft, killY: 50 }, { tool })).map((entry) => entry.action.kind).slice(7, -1);
+    const kinds = (tool: MapMenuView["tool"]) => mapMenuEntries(view({ ...draft, killY: 50 }, { tool })).map((entry) => entry.action.kind).slice(8, -1);
     expect(kinds("spawn")).toEqual(["none", "list", "list", "list", "none", "center", "none", "keepFacing", "snap"]);
     expect(kinds("region")).toEqual(["none", "box"]);
     expect(kinds("killY")).toEqual(["none", "typeKillY", "removeKillY"]);
@@ -93,6 +95,21 @@ describe("map menu", () => {
     expect(toolOf("minecade:region_tool")?.id).toBe("region");
     expect(toolOf("minecade:kill_y_tool")?.id).toBe("killY");
     expect(toolOf("minecade:map_menu")).toBeUndefined();
+  });
+});
+
+describe("the Boundaries view", () => {
+  it("has Show all, then a switch per boundary, on when it or all is on", () => {
+    const rows = [
+      { group: "bounds", label: "Bounds", detail: "white, 1 box" },
+      { group: "killY", label: "Kill Y", detail: "red plane, y 50" },
+    ];
+    expect(boundaryEntries(rows, new Set(["killY"]))).toEqual([
+      { group: "all", text: switchText("Show all", "every boundary on this map", false) },
+      { group: "bounds", text: switchText("Bounds", "white, 1 box", false) },
+      { group: "killY", text: switchText("Kill Y", "red plane, y 50", true) },
+    ]);
+    expect(boundaryEntries(rows, new Set(["all"])).every((entry) => entry.text.includes(MARK.on))).toBe(true);
   });
 });
 

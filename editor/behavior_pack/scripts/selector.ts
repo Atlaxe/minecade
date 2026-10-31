@@ -56,7 +56,7 @@ export class Selector {
           const selection = this.selections.get(keyOf(player));
           return selection && { box: selection.box };
         },
-        boxes: () => this.maps.map((map) => ({ key: `${map.target}/${map.map}`, box: map.box, color: colorOf(map) })),
+        boxes: () => this.maps.map((map) => ({ key: `${map.target}/${map.map}`, group: "maps", box: map.box, color: colorOf(map) })),
       },
       ["select"],
     );

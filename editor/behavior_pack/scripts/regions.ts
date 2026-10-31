@@ -152,8 +152,58 @@ export function regionName(text: string): string | undefined {
 export interface OutlineBox {
   /** The entry's key, so the box being edited can be left out. */
   key: string;
+  /** The Boundaries view's switch it shows with: "bounds", or "regions.<name>". */
+  group: string;
   box: Box;
   color: Rgb;
+}
+
+/** The Boundaries view's switch for every boundary at once. */
+export const ALL_BOUNDARIES = "all";
+/** The Boundaries view's switch for the kill Y plane. */
+export const KILL_Y_GROUP = "killY";
+
+/** A row of the Boundaries view: one switch per boundary the map has. */
+export interface BoundaryRow {
+  group: string;
+  label: string;
+  /** Under the label: how many boxes, or the height. */
+  detail: string;
+}
+
+/** The map's boundaries, in outline order: the bounds, kill Y, kill regions, then each other region. */
+export function boundaryRows(config: MapConfig, rules: EditorRules): BoundaryRow[] {
+  const rows: BoundaryRow[] = [];
+  const boxes = (count: number) => `${count} box${count === 1 ? "" : "es"}`;
+  const bounds = boundsEntries(config).length;
+  if (bounds > 0) rows.push({ group: "bounds", label: "Bounds", detail: `white, ${boxes(bounds)}` });
+  if (typeof config.killY === "number") rows.push({ group: KILL_Y_GROUP, label: "Kill Y", detail: `red plane, y ${config.killY}` });
+  const regions = regionsOf(config);
+  for (const name of regionNames(config, rules)) {
+    const count = Array.isArray(regions[name]) ? regions[name].filter(isBox).length : 0;
+    if (count === 0) continue;
+    const label = name === KILL_REGION ? "Kill regions" : regionLabel(name, rules);
+    rows.push({ group: `regions.${name}`, label, detail: `${name === KILL_REGION ? "red, " : ""}${boxes(count)}` });
+  }
+  return rows;
+}
+
+/** True when a boundary group is switched on in the Boundaries view (or every one is). */
+export function outlineShown(group: string, shown: ReadonlySet<string>): boolean {
+  return shown.has(ALL_BOUNDARIES) || shown.has(group);
+}
+
+/**
+ * The switches after one is tapped: Show all turns every one on or off; one switch while all are on
+ * leaves every other boundary on.
+ */
+export function toggleBoundary(shown: ReadonlySet<string>, group: string, groups: string[]): Set<string> {
+  if (group === ALL_BOUNDARIES) return new Set(shown.has(ALL_BOUNDARIES) ? [] : [ALL_BOUNDARIES]);
+  if (shown.has(ALL_BOUNDARIES)) return new Set(groups.filter((other) => other !== group));
+  const next = new Set(shown);
+  if (next.has(group)) next.delete(group);
+  else next.add(group);
+  return next;
 }
 
 /** Every box the map has, with its outline color: bounds white, kill red, team regions in the team's color. */
@@ -167,6 +217,7 @@ export function outlineBoxes(config: MapConfig, rules: EditorRules): OutlineBox[
   }
   return regionEntries(config, rules).map((entry) => ({
     key: entry.key,
+    group: entry.region ? `regions.${entry.region.name}` : "bounds",
     box: entry.box,
     color: entry.region ? (colors.get(entry.region.name) ?? BOUNDS_COLOR) : BOUNDS_COLOR,
   }));

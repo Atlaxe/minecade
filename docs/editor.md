@@ -162,6 +162,11 @@ screen.
      is missing, it puts the map in the lobby (see "Publishing").
    - **Undo** and **Redo** (faded when there's nothing to undo or redo; the tooltip says what they'd
      change). The menu opens again afterward, so you can undo several steps.
+   - **The eye** (Boundaries): a switch for every boundary the map has (the bounds, kill Y, kill
+     regions, and each other region), and **Show all**. A boundary switched on shows to you all the
+     time, whatever you hold (see "Outlines" below). Your switches are kept for your next map and
+     the next boot (`work/editor/view.json`).
+   - **The play icon** (Preview, game maps only): see "Preview".
    - **The gear** (map settings): the map's name and the game's own settings in `map.json` (such as
      a number a game reads), as text fields; and **Drop build commands** (maps made by
      `npm run bake`), which keeps the world as you change it.
@@ -221,10 +226,11 @@ screen.
 - **Outlines:** while you hold the region tool or the Kill Y tool, dots outline your selection
   (yellow), the bounds (white), kill regions (red), each other region in its own color (a team's
   region in the team's color), and the kill Y plane (red: a grid near you, and the edge of the box
-  around the bounds at that height). Only you see them. Every edge shows however far away it is: dots past 40 blocks are
-  drawn 40 blocks out, on the same line of sight, so they sit where the edge is on screen. Dots are
-  spaced and sized by distance, so a line looks the same near and far, and each has a dark rim so
-  it shows on bright and dark backgrounds. They stand in for the boundary blocks of a later pass.
+  around the bounds at that height). The boundaries you switched on in the Boundaries view (the
+  map menu's eye) show whatever you hold. Only you see them. Every edge shows however far away it
+  is: dots past 40 blocks are drawn 40 blocks out, on the same line of sight, so they sit where the
+  edge is on screen. Dots are spaced and sized by distance, so a line looks the same near and far,
+  and each has a dark rim so it shows on bright and dark backgrounds.
 
 ## Saving
 

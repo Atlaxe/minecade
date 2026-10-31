@@ -3,7 +3,10 @@ import type { EditorRules, MapConfig } from "@minecade/minigame-core/config";
 import {
   BOUNDS_COLOR,
   KILL_COLOR,
+  boundaryRows,
   boundsAround,
+  outlineShown,
+  toggleBoundary,
   entryBox,
   outlineBoxes,
   regionEntries,
@@ -124,6 +127,36 @@ describe("the map's boxes", () => {
     expect(plot).toBeDefined();
     expect(plot).not.toEqual(BOUNDS_COLOR);
     expect(plot).not.toEqual(KILL_COLOR);
+  });
+});
+
+describe("the Boundaries view", () => {
+  it("has a row per boundary the map has, in outline order", () => {
+    expect(boundaryRows({ ...map, killY: 45 }, rules).map((row) => [row.group, row.label, row.detail])).toEqual([
+      ["bounds", "Bounds", "white, 1 box"],
+      ["killY", "Kill Y", "red plane, y 45"],
+      ["regions.kill", "Kill regions", "red, 2 boxes"],
+      ["regions.buyZone.red", "Buy zone (Red)", "1 box"],
+      ["regions.plot", "plot", "1 box"],
+    ]);
+    expect(boundaryRows({ name: "Empty", spawns: [] }, rules)).toEqual([]);
+  });
+
+  it("groups each outline with its switch", () => {
+    const groups = outlineBoxes(map, rules).map((outline) => outline.group);
+    expect(groups).toEqual(["bounds", "regions.kill", "regions.kill", "regions.buyZone.red", "regions.plot"]);
+    expect(outlineShown("regions.kill", new Set(["regions.kill"]))).toBe(true);
+    expect(outlineShown("bounds", new Set(["regions.kill"]))).toBe(false);
+    expect(outlineShown("bounds", new Set(["all"]))).toBe(true);
+  });
+
+  it("toggles one switch, or all of them; one switch while all are on leaves the others on", () => {
+    const groups = ["bounds", "killY", "regions.kill"];
+    expect([...toggleBoundary(new Set(), "bounds", groups)]).toEqual(["bounds"]);
+    expect([...toggleBoundary(new Set(["bounds"]), "bounds", groups)]).toEqual([]);
+    expect([...toggleBoundary(new Set(["bounds"]), "all", groups)]).toEqual(["all"]);
+    expect([...toggleBoundary(new Set(["all"]), "all", groups)]).toEqual([]);
+    expect([...toggleBoundary(new Set(["all"]), "killY", groups)]).toEqual(["bounds", "regions.kill"]);
   });
 });
 

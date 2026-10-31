@@ -21,7 +21,7 @@ import {
 import { sizeText } from "./boxes.ts";
 import { SNAPS, type Snap, type SpawnList } from "./lists.ts";
 import { COLUMNS, MARK, dangerText, headingText, switchText } from "./marks.ts";
-import { selectionActions, type RegionEntry, type SelectionAction } from "./regions.ts";
+import { ALL_BOUNDARIES, outlineShown, selectionActions, type BoundaryRow, type RegionEntry, type SelectionAction } from "./regions.ts";
 import { EDITOR_TOOLS, SELECT_TOOL, type ToolId } from "./tools.ts";
 
 /** The quick icons' pictures (editor/resource_pack/textures/minecade/editor/). */
@@ -32,6 +32,7 @@ export const ICONS = {
   redo: "textures/minecade/editor/icon_redo",
   settings: "textures/minecade/editor/icon_settings",
   play: "textures/minecade/editor/icon_play",
+  boundaries: "textures/minecade/editor/icon_boundaries",
 } as const;
 
 export type MenuAction =
@@ -39,6 +40,8 @@ export type MenuAction =
   | { kind: "undo" }
   | { kind: "redo" }
   | { kind: "settings" }
+  /** The Boundaries view: a switch per boundary, to see it whatever you hold. */
+  | { kind: "boundaries" }
   /** Play the map as its game (Preview), then come back. */
   | { kind: "preview" }
   | { kind: "tool"; tool: ToolId }
@@ -109,12 +112,13 @@ export function mapMenuEntries(view: MapMenuView): MenuEntry[] {
     },
     { action: { kind: "undo" }, text: `${MARK.quick}${view.undo ? "" : MARK.dim}Undo\n§7${view.undo ?? "nothing to undo"}`, icon: ICONS.undo },
     { action: { kind: "redo" }, text: `${MARK.quick}${view.redo ? "" : MARK.dim}Redo\n§7${view.redo ?? "nothing to redo"}`, icon: ICONS.redo },
-    { action: { kind: "settings" }, text: `${MARK.quick}Map settings\n§7name, game settings, build commands`, icon: ICONS.settings },
+    { action: { kind: "boundaries" }, text: `${MARK.quick}Boundaries\n§7see the bounds and regions you pick`, icon: ICONS.boundaries },
   ];
   if (view.game) {
     const ready = view.checklist.ready;
     entries.push({ action: { kind: "preview" }, text: `${MARK.quick}${ready ? "" : MARK.dim}Preview\n§7${ready ? `play it as ${view.game}, then come back` : "finish the checklist first"}`, icon: ICONS.play });
   }
+  entries.push({ action: { kind: "settings" }, text: `${MARK.quick}Map settings\n§7name, game settings, build commands`, icon: ICONS.settings });
   EDITOR_TOOLS.forEach((tool, i) => {
     const picked = tool.id === view.tool ? MARK.on : "";
     entries.push({ action: { kind: "tool", tool: tool.id }, text: `${MARK.tool}${COLUMNS[i % COLUMNS.length]}${picked}${tool.label}\n§7${tool.hint}`, icon: tool.icon });
@@ -124,6 +128,18 @@ export function mapMenuEntries(view: MapMenuView): MenuEntry[] {
   else if (view.tool === "killY") entries.push(...killYSettings(view.config.killY));
   entries.push({ action: { kind: "save" }, text: `${MARK.save}${saveText(view)}` });
   return entries;
+}
+
+/** The Boundaries view's text: what a switch does. */
+export const BOUNDARIES_BODY =
+  "A boundary switched on shows to you all the time, whatever you hold. Holding the Region or Kill Y tool shows every one, as always.";
+
+/** The Boundaries view's switches: Show all, then one per boundary the map has. */
+export function boundaryEntries(rows: BoundaryRow[], shown: ReadonlySet<string>): { group: string; text: string }[] {
+  return [
+    { group: ALL_BOUNDARIES, text: switchText("Show all", "every boundary on this map", shown.has(ALL_BOUNDARIES)) },
+    ...rows.map((row) => ({ group: row.group, text: switchText(row.label, row.detail, outlineShown(row.group, shown)) })),
+  ];
 }
 
 /** The text over the settings: the map, then how to use the picked tool. */

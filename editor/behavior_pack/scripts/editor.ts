@@ -43,7 +43,7 @@ import { keepModeLine, modeLine } from "./hud.ts";
 import { KillYTool } from "./kill-y-tool.ts";
 import { HostLink } from "./link.ts";
 import { Outlines } from "./outlines.ts";
-import { boundsAround, outlineBoxes } from "./regions.ts";
+import { boundaryRows, boundsAround, outlineBoxes, toggleBoundary } from "./regions.ts";
 import { RegionTool } from "./region-tool.ts";
 import { actionBar, heldTool, hintBar, notice, type ToolHost } from "./tool-host.ts";
 import { REACH } from "./box-picker.ts";
@@ -52,7 +52,9 @@ import { MapState } from "./map-state.ts";
 import { MARKER, Markers } from "./markers.ts";
 import { dangerText, mapTitle, sideTitle } from "./marks.ts";
 import {
+  BOUNDARIES_BODY,
   LOBBY_TEXT,
+  boundaryEntries,
   checklistBody,
   mapMenuBody,
   mapMenuEntries,
@@ -87,6 +89,9 @@ const FLOOR_REACH = 8;
 /** Undo and Redo open the map menu again once the host answers, or after this long. */
 const REOPEN_TICKS = 40;
 
+/** No boundary switched on. */
+const NONE_SHOWN: ReadonlySet<string> = new Set();
+
 type MarkerAction = "move" | "face" | "unface" | "queueMode" | "queueCountdown" | "list" | "number" | "delete";
 
 export class Editor {
@@ -102,6 +107,8 @@ export class Editor {
   private readonly formOpen = new Set<string>();
   /** Players whose map menu opens again when the host answers (after Undo or Redo). */
   private readonly reopen = new Set<string>();
+  /** Each player's Boundaries switches, by lower-case name (kept by the host between maps). */
+  private readonly shown = new Map<string, Set<string>>();
   private status: { undo?: string; redo?: string; unsaved: boolean; saving: boolean; publishing?: boolean };
   /** When block changes were last reported to the host, in ticks. */
   private changedAt = -CHANGED_TICKS;
@@ -112,6 +119,7 @@ export class Editor {
     this.state = new MapState(map);
     this.dimension = world.getDimension("overworld");
     this.status = { unsaved: info.fresh, saving: false };
+    for (const [name, groups] of Object.entries(info.view ?? {})) this.shown.set(name.toLowerCase(), new Set(groups));
     this.markers = new Markers(this.dimension, scope);
     this.link = new HostLink(scope, {
       config: (config, seq) => {
@@ -142,6 +150,7 @@ export class Editor {
           const y = this.state.current.killY;
           return typeof y === "number" ? { y, over: boundsAround(this.state.current) } : undefined;
         },
+        shown: (player) => this.shown.get(player.name.toLowerCase()) ?? NONE_SHOWN,
       },
       ["region", "killY"],
     );
@@ -393,6 +402,8 @@ export class Editor {
         return;
       case "settings":
         return this.settingsMenu(player);
+      case "boundaries":
+        return this.boundariesMenu(player);
       case "preview": {
         const checklist = mapChecklist(this.state.current, this.info.rules);
         if (!checklist.ready) {
@@ -544,6 +555,27 @@ export class Editor {
   }
 
   /** The gear: the map's name and game settings, Back to Select, the editor lobby, and dropping build commands. */
+  /** A switch per boundary the map has: switched on, it shows to this player whatever they hold. */
+  private async boundariesMenu(player: Player): Promise<void> {
+    const key = player.name.toLowerCase();
+    const rows = boundaryRows(this.state.current, this.info.rules);
+    const entries = boundaryEntries(rows, this.shown.get(key) ?? NONE_SHOWN);
+    const body = rows.length > 0 ? BOUNDARIES_BODY : `${BOUNDARIES_BODY}\n\nThis map has no boundaries yet: the Region tool and the Kill Y tool make them.`;
+    const form = new ActionFormData().title(sideTitle("Boundaries")).body(body);
+    for (const entry of entries) form.button(entry.text);
+    const response = await this.show(player, form);
+    const picked = response?.selection === undefined ? undefined : entries[response.selection];
+    if (!picked || !player.isValid) return;
+    const next = toggleBoundary(
+      this.shown.get(key) ?? NONE_SHOWN,
+      picked.group,
+      rows.map((row) => row.group),
+    );
+    this.shown.set(key, next);
+    this.link.send({ t: "view", by: player.name, shown: [...next] });
+    return this.boundariesMenu(player);
+  }
+
   private async settingsMenu(player: Player): Promise<void> {
     const actions: ("settings" | "select" | "lobby" | "dropBuild")[] = ["settings"];
     const form = new ActionFormData()
