@@ -126,6 +126,13 @@ X (top right of every menu, white, red when hovered) leaves the terminal from an
 themed menu's first button (marked `MARK.close`), and `menuChoice()` in `game-screen.ts` turns it
 into `CLOSE`, so the scripts can tell it from the back arrow.
 
+The terminal remembers where each player was (`Memory` in `terminal-controller.ts`). However a
+session ends (the X, Esc on the main menu, walking away, timing out, leaving the lobby, or starting a
+game), the player's next tap opens the menu they were on. Each game's screen keeps their Random
+switch, map and settings, so after a game they're back on its screen, ready to start it again. The
+stats screens open on the player and tab they had open, until they go back to the list. A game
+running when they tap still sends them to the main menu. The memory lasts until the lobby restarts.
+
 **Pieces:**
 
 - **The console:** nine `minecade:terminal` blocks (`lobby/behavior_pack/blocks/terminal.json`),
@@ -318,7 +325,9 @@ switch made the menu reopen, and a second click without moving the mouse closed 
 likely because the click went to what the pointer was over in that first frame. Starting hidden
 leaves nothing stale there. The X's 6-tick guard (`strayClose`) stays as a second line, and the lobby log says how long a
 menu had been open whenever the X closes it. `tools/build/test/pack-json.test.ts` checks this rule in
-every pack's UI files, and that every pack JSON file parses.
+every pack's UI files, and that every pack JSON file parses. The second click still closes the
+terminal now and then; that's accepted as an edge case, and since the terminal remembers the
+player's place, the next tap opens the same screen with the same choices.
 
 **The square style:** every button (main menu tiles, game cards, settings, the Random switch, Start,
 player rows, tabs) uses one set of art, `button_default/hover/pressed.png`: a 1x nine-slice, navy

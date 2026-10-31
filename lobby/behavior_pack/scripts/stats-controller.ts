@@ -4,6 +4,9 @@
 // what's open, through the terminal.
 //
 //   players list ──> a player's screen (Global, Sumo, ...) ── back ──> players list ── back ──> done
+//
+// A viewer who leaves a player's screen any way but back (the X, walking away, leaving) gets that
+// player and tab again the next time they open the stats screens.
 import { Scope, say, type InboundMessage, type OutboundEvent, type Registry, type StatsReply } from "@minecade/minigame-core";
 import { CLOSE } from "./game-screen.ts";
 import { statsContent, statsListContent, type HoloContent } from "./holo-content.ts";
@@ -36,6 +39,8 @@ export class StatsController {
   /** Players with the stats screens open, each with a scope that closes them. */
   private readonly open = new Map<string, Scope>();
   private readonly waiting = new Map<string, (reply: StatsReply) => void>();
+  /** The player's screen and tab each viewer has open, kept until they go back to the list. */
+  private readonly places = new Map<string, { player: string; tab: string }>();
 
   constructor(ports: StatsPorts, scope: Scope, options: StatsOptions) {
     this.ports = ports;
@@ -53,25 +58,34 @@ export class StatsController {
     this.open.get(name)?.dispose();
   }
 
-  /** Opens the stats screens; resolves when the player is done, true if they pressed the X. `show` puts content on the hologram. */
-  async openStats(name: string, show: (content: HoloContent) => void = () => {}): Promise<boolean> {
+  /**
+   * Opens the stats screens; resolves when the player is done, true if they pressed the X. `show`
+   * puts content on the hologram. Disposing `within` (the terminal session) closes them, and the
+   * promise never settles.
+   */
+  async openStats(name: string, show: (content: HoloContent) => void = () => {}, within: Scope = this.scope): Promise<boolean> {
     if (this.open.has(name)) return false;
-    const scope = this.scope.child(`stats:${name}`);
+    const scope = within.child(`stats:${name}`);
     this.open.set(name, scope);
     scope.add(() => this.open.delete(name));
     try {
       const list = await this.ask(scope, name, { kind: "players" });
       if (!list) return false;
+      // The player's screen the viewer left open last time, if any, comes first.
+      let player = this.places.get(name)?.player;
       for (;;) {
-        const view = playersView(name, list.players ?? [], list.more ?? 0);
-        show(statsListContent(view));
-        const pick = await this.ports.playersMenu(name, scope, view);
-        if (pick === CLOSE) return true;
-        const player = pick === undefined ? undefined : view.players[pick];
-        if (player === undefined) return false;
+        if (player === undefined) {
+          const view = playersView(name, list.players ?? [], list.more ?? 0);
+          show(statsListContent(view));
+          const pick = await this.ports.playersMenu(name, scope, view);
+          if (pick === CLOSE) return true;
+          player = pick === undefined ? undefined : view.players[pick];
+          if (player === undefined) return false;
+        }
         const after = await this.playerScreen(name, scope, player, show);
         if (after === CLOSE) return true;
         if (!after) return false;
+        player = undefined;
       }
     } finally {
       scope.dispose();
@@ -85,8 +99,10 @@ export class StatsController {
     const tabs: StatsTab[] = [GLOBAL_TAB, ...(overview.games ?? []).map((game) => ({ id: game.id, name: this.gameName(game.id) }))];
     // Each tab is asked for once while the screen is open.
     const replies = new Map<string, StatsReply>([[GLOBAL_TAB.id, overview]]);
-    let tab = GLOBAL_TAB;
+    const place = this.places.get(viewer);
+    let tab = (place?.player === player ? tabs.find((candidate) => candidate.id === place.tab) : undefined) ?? GLOBAL_TAB;
     for (;;) {
+      this.places.set(viewer, { player, tab: tab.id });
       let reply = replies.get(tab.id);
       if (!reply) {
         reply = await this.ask(scope, viewer, { player, game: tab.id });
@@ -99,7 +115,10 @@ export class StatsController {
       show(statsContent(view));
       const selection = await this.ports.statsMenu(viewer, scope, view);
       if (selection === CLOSE) return CLOSE;
-      if (selection === undefined) return true;
+      if (selection === undefined) {
+        this.places.delete(viewer);
+        return true;
+      }
       tab = statsTabAt(view, selection) ?? tab;
     }
   }

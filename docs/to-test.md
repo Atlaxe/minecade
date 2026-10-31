@@ -49,6 +49,15 @@ Tests still to run by hand. Delete a line once it passes.
 
 ## Solo
 
-- Lobby game screen: click Random map, then, without moving the mouse, click it again once the menu
-  has reopened. It switches back and the menu stays open. If the menu closes instead, the lobby log
-  says "left the terminal with the X, N ticks after the menu opened".
+Lobby terminal memory (after the network's next Start or Restart in the Panel):
+
+- On a game's screen, switch Random off, pick a map and change a setting, then press the X. Tap the
+  terminal: that game's screen opens with the same choices.
+- The same after walking away from the terminal, and after leaving the lobby and joining again.
+- Esc back to the grid, open another game, then go back to the first: its choices are still there.
+- Start a game from the screen; back in the lobby, a tap opens that game's screen, ready to start
+  again.
+- Stats: open a player's stats on a game tab and press the X. A tap opens that player and tab. Go
+  back to the list, press the X: a tap opens the list.
+- Walk away while the stats screens are open: they close and stay closed (before, the list opened
+  again).

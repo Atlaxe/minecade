@@ -67,7 +67,7 @@ function setup() {
     previewMenu: (name, scope) => scope.guard(new Promise((answer) => previews.push({ name, answer }))),
     gamesMenu: (name, scope, list) => scope.guard(new Promise((answer) => grids.push({ name, answer, choices: list }))),
     gameMenu: (name, scope, view) => scope.guard(new Promise((answer) => screens.push({ name, answer, view }))),
-    stats: (_name, show) => {
+    stats: (_name, _scope, show) => {
       statsShow = show;
       return new Promise<boolean>((done) => (finishStats = done));
     },
@@ -278,7 +278,7 @@ describe("TerminalController: Play", () => {
     expect(t.holo.at(-1)).toEqual(mainContent());
   });
 
-  it("leaves the terminal from any menu with the X", async () => {
+  it("leaves the terminal from any menu with the X, and the next tap opens that menu again", async () => {
     const t = setup();
     const ended = () => t.terminal.current === undefined && JSON.stringify(t.holo.at(-1)) === JSON.stringify(idleContent());
     void t.terminal.tap("Steve");
@@ -293,9 +293,9 @@ describe("TerminalController: Play", () => {
     await flushPromises();
     expect(ended()).toBe(true);
 
-    void t.terminal.tap("Steve");
-    t.mains[2].answer("play");
-    await flushPromises();
+    void t.terminal.tap("Steve"); // the grid again
+    expect(t.grids).toHaveLength(2);
+    expect(t.holo.at(-1)).toEqual(gamesContent(t.grids[1].choices));
     t.grids[1].answer(0);
     await flushPromises();
     t.screens[0].answer(CLOSE); // a game's screen
@@ -303,13 +303,97 @@ describe("TerminalController: Play", () => {
     expect(ended()).toBe(true);
     expect(t.requests).toEqual([]);
 
-    void t.terminal.tap("Steve");
-    t.mains[3].answer("stats");
+    void t.terminal.tap("Steve"); // Sumo's screen again; back goes to the grid, then the main menu
+    expect(t.screens[1].view.choice.game.id).toBe("sumo");
+    t.screens[1].answer(undefined);
+    await flushPromises();
+    t.grids[2].answer(undefined);
+    await flushPromises();
+    t.mains[2].answer("stats");
     await flushPromises();
     t.finishStats(true); // the X in the stats screens
     await flushPromises();
     expect(ended()).toBe(true);
+
+    void t.terminal.tap("Steve"); // the stats screens again
+    expect(t.holo.at(-1)).toEqual(mainContent("stats"));
+    t.finishStats(); // back: the main menu
+    await flushPromises();
     expect(t.mains).toHaveLength(4);
+    t.mains[3].answer(undefined); // closed the main menu
+    await flushPromises();
+    void t.terminal.tap("Steve"); // the main menu again
+    expect(t.mains).toHaveLength(5);
+  });
+
+  it("keeps each player's choices on each game's screen, through a walk-away, a trip away and a start", async () => {
+    const t = setup();
+    void t.terminal.tap("Steve");
+    t.mains[0].answer("play");
+    await flushPromises();
+    t.grids[0].answer(1); // Paintball
+    await flushPromises();
+    t.screens[0].answer(PAINTBALL_TEAMS); // Teams: Random
+    await flushPromises();
+    t.screens[1].answer(undefined); // back to the grid
+    await flushPromises();
+    t.grids[1].answer(0); // Sumo
+    await flushPromises();
+    t.screens[2].answer(SUMO_PIT);
+    await flushPromises();
+    t.distances.set("Steve", 12); // walks away
+    system.advanceTicks(10);
+    expect(t.terminal.current).toBeUndefined();
+
+    t.distances.set("Steve", 2);
+    void t.terminal.tap("Steve"); // Sumo's screen, as they left it
+    expect(t.screens[4].view).toMatchObject({ random: false, map: "pit" });
+    expect(t.holo.at(-1)).toEqual(gameContent(t.screens[4].view));
+    t.terminal.onPlayerLeft("Steve"); // off to a game, say
+
+    void t.terminal.tap("Alex"); // someone else has their own place and choices
+    t.mains[1].answer("play");
+    await flushPromises();
+    t.grids[2].answer(0);
+    await flushPromises();
+    expect(t.screens[5].view).toMatchObject({ random: true, map: "arena_1" });
+    t.screens[5].answer(CLOSE);
+    await flushPromises();
+
+    void t.terminal.tap("Steve"); // back from the game
+    expect(t.screens[6].view).toMatchObject({ random: false, map: "pit" });
+    t.screens[6].answer(undefined);
+    await flushPromises();
+    t.grids[3].answer(1); // Paintball still has Teams: Random
+    await flushPromises();
+    expect(t.screens[7].view.settings).toEqual({ teams: "random" });
+    t.screens[7].answer(PAINTBALL_START);
+    await flushPromises();
+    expect(t.requests).toEqual([["Steve", "paintball", "random", { teams: "random" }]]);
+    expect(t.terminal.current).toBeUndefined();
+
+    t.setStarting(false); // the game is over
+    void t.terminal.tap("Steve"); // Paintball's screen, ready to go again
+    expect(t.screens[8].view).toMatchObject({ choice: { game: paintball }, settings: { teams: "random" } });
+    expect(t.mains).toHaveLength(2);
+    expect(t.root.live()).toMatchObject({ scopes: 2 });
+  });
+
+  it("opens the main menu instead of a remembered game while a game is running", async () => {
+    const t = setup();
+    void t.terminal.tap("Steve");
+    t.mains[0].answer("play");
+    await flushPromises();
+    t.grids[0].answer(0);
+    await flushPromises();
+    t.screens[0].answer(CLOSE);
+    await flushPromises();
+    t.setBusy("Sumo is in progress (2 playing).");
+    void t.terminal.tap("Steve");
+    await flushPromises();
+    expect(t.notes).toEqual([["Steve", "Sumo is in progress (2 playing)."]]);
+    expect(t.screens).toHaveLength(1);
+    expect(t.mains).toHaveLength(2);
   });
 
   it("stays on the game screen when Start is refused, and leaves when a game is running", async () => {

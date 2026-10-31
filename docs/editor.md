@@ -32,6 +32,16 @@ runs at a time.
 Then join `LAN_HOST:19134` (the Panel shows the address). The first time, accept the server's trust
 prompt; it keeps the same identity after that. The Docker network doesn't need to be running.
 
+**Restarting** (for new editor code, or new settings in `.env`): **Stop**, wait until the page
+says the editor has stopped, then **Start** again. From a terminal: `npm run editor -- stop`, then
+`npm run editor -- <target> <map>`. The editor runs the code in the checkout it starts from (the
+main checkout, for the Panel), so restart it after new editor code is merged there.
+
+The Panel's server runs the code it opened with, but it reads its page from disk on every request,
+so an old Panel can show the new **Map editor** page while its server can't start the editor (Start
+does nothing, or says "not found"). After an update to the Panel, close every Panel window, wait
+about 20 seconds for it to exit, and open it again.
+
 ## Who can join, and who gets the tools
 
 Set these in `.env`, or on the Panel's Map editor page. They apply at the editor's next start.
@@ -152,8 +162,10 @@ editor), so a map using them works anywhere. It's empty until the blocks land; s
 ## Troubleshooting
 
 - **"A map editor is already running":** `npm run editor -- stop`, or Stop on the Panel.
-- **Can't join:** check that your gamertag is in `LAN_PLAYERS` or `EDITOR_ALLOW_LIST`, and that
-  port 19134 is forwarded and allowed (see the README).
+- **Can't join:** first check that an editor is running (the Panel's Map editor page, or
+  `npm run editor -- status`): with none running, nothing answers on port 19134 and the join
+  fails. If the Panel's Start does nothing, restart the Panel (see Restarting above). Then check that your gamertag is in `LAN_PLAYERS` or `EDITOR_ALLOW_LIST`, and that port
+  19134 is forwarded and allowed (see the README).
 - **No tools:** you're a builder. Add your gamertag to `MAP_EDITORS` (or leave it empty and be in
   `LAN_PLAYERS`), then restart the editor.
 - **The world wasn't saved:** the editor's log says why (markers it couldn't remove, or no block

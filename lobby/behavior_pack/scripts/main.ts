@@ -185,7 +185,7 @@ bootServer(({ vars, transport, transfer, root }) => {
         const player = playerNamed(name);
         return player ? showMenu(scope, player, gameForm(view)) : undefined;
       },
-      stats: (name, show) => stats.openStats(name, show),
+      stats: (name, scope, show) => stats.openStats(name, show, scope),
       choices: () => lobby.choices(),
       busy: () => lobby.busy(),
       request: (name, game, map, settings) => lobby.request(name, game, map, settings),

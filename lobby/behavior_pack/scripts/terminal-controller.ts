@@ -8,7 +8,12 @@
 //   main menu ── Play ──> game grid ──> game screen (map, settings) ── Start ──> the game starts
 //             └─ Stats ─> the stats screens
 // Closing a menu goes back one step; closing the main menu ends the session.
-import { Scope, say } from "@minecade/minigame-core";
+//
+// The terminal remembers each player's place (see Memory): however a session ends (the X, Esc on
+// the main menu, walking away, timing out, leaving, or a game starting), their next tap opens the
+// menu they were on, with their choices on each game's screen. The stats screens keep their own
+// place (stats-controller.ts).
+import { Scope, say, type RegistryGame } from "@minecade/minigame-core";
 import { CLOSE, defaultSettings, gameAction, nextSetting, settingsFor } from "./game-screen.ts";
 import { gameContent, gamesContent, idleContent, mainContent, type HoloContent } from "./holo-content.ts";
 import { previewContent, type PreviewScreen } from "./holo-preview.ts";
@@ -29,9 +34,9 @@ export interface TerminalPorts {
   gameMenu(name: string, scope: Scope, view: GameView): Promise<number | typeof CLOSE | undefined>;
   /**
    * The stats screens. Resolves when the player is done with them: true if they pressed the X.
-   * They show content on the hologram through `show`.
+   * They show content on the hologram through `show`. Never settles if `scope` is disposed first.
    */
-  stats(name: string, show: (content: HoloContent) => void): Promise<boolean>;
+  stats(name: string, scope: Scope, show: (content: HoloContent) => void): Promise<boolean>;
   /** Every game, and whether there are enough players for it. */
   choices(): GameChoice[];
   /** Why no game can start right now, if so. */
@@ -57,6 +62,22 @@ export interface TerminalOptions {
   now(): number;
 }
 
+/** A game screen's choices: the Random switch, the chosen map and the settings. */
+type GamePicks = Pick<GameView, "random" | "map" | "settings">;
+
+/**
+ * What the terminal keeps for each player between taps, by name. It lives as long as the lobby's
+ * script does, so it outlasts a trip to a game and back, but not a lobby restart.
+ */
+interface Memory {
+  /** The menu they were on last. */
+  screen: "main" | "games" | "game" | "stats";
+  /** The game whose screen they opened last. */
+  game?: string;
+  /** Their choices on each game's screen they've opened. */
+  games: Map<string, GamePicks>;
+}
+
 export class TerminalController {
   private readonly ports: TerminalPorts;
   private readonly scope: Scope;
@@ -68,6 +89,7 @@ export class TerminalController {
   /** A previewed screen that stays on the hologram until the terminal is tapped again. */
   private pinned: HoloContent | undefined;
   private lastActivity = 0;
+  private readonly memory = new Map<string, Memory>();
 
   constructor(ports: TerminalPorts, scope: Scope, options: TerminalOptions) {
     this.ports = ports;
@@ -102,14 +124,22 @@ export class TerminalController {
       this.refresh();
     });
     scope.interval(() => this.watch(name), 10);
+    const memory = this.memoryOf(name);
     try {
-      for (;;) {
-        this.show(mainContent());
-        const choice = await this.ports.mainMenu(name, scope);
-        if (choice === undefined || choice === CLOSE) return;
+      // The first pass opens the menu the player was on last; after that, the main menu.
+      for (let resume = memory.screen !== "main"; ; resume = false) {
+        let choice: "play" | "stats" | "preview";
+        if (resume) choice = memory.screen === "stats" ? "stats" : "play";
+        else {
+          memory.screen = "main";
+          this.show(mainContent());
+          const picked = await this.ports.mainMenu(name, scope);
+          if (picked === undefined || picked === CLOSE) return;
+          choice = picked;
+        }
         if (choice === "play") {
           this.show(mainContent("play"));
-          if (await this.play(name, scope)) return;
+          if (await this.play(name, scope, memory, resume)) return;
         } else if (choice === "preview") {
           const screen = await this.ports.previewMenu(name, scope);
           if (screen === undefined) continue;
@@ -117,8 +147,9 @@ export class TerminalController {
           this.pinned = previewContent(screen, this.ports.choices(), name);
           return;
         } else {
+          memory.screen = "stats";
           this.show(mainContent("stats"));
-          if (await scope.guard(this.ports.stats(name, (content) => this.show(content)))) return;
+          if (await scope.guard(this.ports.stats(name, scope, (content) => this.show(content)))) return;
         }
       }
     } finally {
@@ -139,59 +170,75 @@ export class TerminalController {
     if (this.user === name) this.session?.dispose();
   }
 
-  /** The game grid, then a game's screen. Resolves true when the session is over: a game is starting, or the player pressed the X. */
-  private async play(name: string, scope: Scope): Promise<boolean> {
+  /**
+   * The game grid, then a game's screen. Resolves true when the session is over: a game is
+   * starting, or the player pressed the X. Resuming on a game's screen opens it first; going back
+   * from it shows the grid.
+   */
+  private async play(name: string, scope: Scope, memory: Memory, resume: boolean): Promise<boolean> {
+    let open = resume && memory.screen === "game" ? memory.game : undefined;
     for (;;) {
       const busy = this.ports.busy();
       if (busy) {
         this.ports.notify(name, busy);
         return false;
       }
-      const choices = this.ports.choices();
-      this.show(gamesContent(choices));
-      const index = await this.ports.gamesMenu(name, scope, choices);
-      if (index === undefined) return false;
-      if (index === CLOSE) return true;
-      const choice = choices[index];
-      if (choice && (await this.gameScreen(name, scope, choice.game.id))) return true;
+      if (open === undefined) {
+        memory.screen = "games";
+        const choices = this.ports.choices();
+        this.show(gamesContent(choices));
+        const index = await this.ports.gamesMenu(name, scope, choices);
+        if (index === undefined) return false;
+        if (index === CLOSE) return true;
+        open = choices[index]?.game.id;
+      }
+      if (open !== undefined && (await this.gameScreen(name, scope, open, memory))) return true;
+      open = undefined;
     }
   }
 
   /**
    * One game's screen: Random map or a chosen one, the settings, then Start. Resolves true when the
    * session is over: the game is starting, or the player pressed the X. Picking a map tile turns
-   * Random off.
+   * Random off. The player's choices are kept for their next visit.
    */
-  private async gameScreen(name: string, scope: Scope, gameId: string): Promise<boolean> {
-    let random = true;
-    let map: string | undefined;
-    let settings: Record<string, string> | undefined;
+  private async gameScreen(name: string, scope: Scope, gameId: string, memory: Memory): Promise<boolean> {
+    memory.screen = "game";
+    memory.game = gameId;
     for (;;) {
       // Look the game up each time: players may have joined or left since.
       const choice = this.ports.choices().find((candidate) => candidate.game.id === gameId);
       if (!choice) return false;
-      settings ??= defaultSettings(choice.game);
-      map ??= choice.game.maps[0]?.id ?? "random";
-      const view = { choice, random, map, settings };
+      const picks = picksFor(memory, choice.game);
+      const view = { choice, ...picks };
       this.show(gameContent(view));
       const selection = await this.ports.gameMenu(name, scope, view);
       if (selection === undefined) return false;
       if (selection === CLOSE) return true;
       const action = gameAction(choice.game, selection);
-      if (action?.kind === "random") random = !random;
+      if (action?.kind === "random") picks.random = !picks.random;
       else if (action?.kind === "map") {
-        random = false;
-        map = action.map;
+        picks.random = false;
+        picks.map = action.map;
       } else if (action?.kind === "setting") {
         const setting = settingsFor(choice.game).find((candidate) => candidate.id === action.id);
-        if (setting) settings = { ...settings, [setting.id]: nextSetting(setting, settings[setting.id]) };
+        if (setting) picks.settings = { ...picks.settings, [setting.id]: nextSetting(setting, picks.settings[setting.id]) };
       } else if (action?.kind === "start") {
-        const refusal = this.ports.request(name, gameId, random ? "random" : map, settings);
+        const refusal = this.ports.request(name, gameId, picks.random ? "random" : picks.map, picks.settings);
         if (refusal === undefined) return true;
         this.ports.notify(name, refusal);
         if (this.ports.busy()) return false;
       }
     }
+  }
+
+  private memoryOf(name: string): Memory {
+    let memory = this.memory.get(name);
+    if (!memory) {
+      memory = { screen: "main", games: new Map() };
+      this.memory.set(name, memory);
+    }
+    return memory;
   }
 
   private show(content: HoloContent): void {
@@ -210,4 +257,14 @@ export class TerminalController {
     }
     this.session?.dispose();
   }
+}
+
+/** A player's choices on a game's screen: the ones they made last time, or Random on, the first map and the default settings. */
+function picksFor(memory: Memory, game: RegistryGame): GamePicks {
+  let picks = memory.games.get(game.id);
+  if (!picks) {
+    picks = { random: true, map: game.maps[0]?.id ?? "random", settings: defaultSettings(game) };
+    memory.games.set(game.id, picks);
+  }
+  return picks;
 }

@@ -133,6 +133,67 @@ describe("StatsController", () => {
     expect(t.root.live()).toEqual({ scopes: 1, subscriptions: 0, runs: 0 });
   });
 
+  it("opens on the player's screen and tab the viewer left, and on the list once they've gone back", async () => {
+    const t = setup();
+    const alex = { player: "Alex", totals: totals(), games: [{ id: "sumo", games: 1 }] };
+    void t.open();
+    t.reply("q1", { players: ["Alex"] });
+    await flushPromises();
+    t.lists[0].answer(1); // Alex
+    await flushPromises();
+    t.reply("q2", alex);
+    await flushPromises();
+    t.screens[0].answer(2); // the Sumo tab
+    await flushPromises();
+    t.reply("q3", { totals: totals() });
+    await flushPromises();
+    t.screens[1].answer(CLOSE);
+    await flushPromises();
+
+    const again = t.open();
+    t.reply("q4", { players: ["Alex"] });
+    await flushPromises();
+    t.reply("q5", alex);
+    await flushPromises();
+    expect(t.queries()[5]).toEqual({ t: "stats_query", requestId: "q6", player: "Alex", game: "sumo" });
+    t.reply("q6", { totals: totals() });
+    await flushPromises();
+    expect(t.lists).toHaveLength(1);
+    expect(t.screens[2].view).toMatchObject({ player: "Alex", tab: "sumo" });
+    t.screens[2].answer(undefined); // back: the list
+    await flushPromises();
+    expect(t.lists).toHaveLength(2);
+    t.lists[1].answer(undefined);
+    expect(await again).toBe(false);
+
+    void t.open();
+    t.reply("q7", { players: ["Alex"] });
+    await flushPromises();
+    expect(t.lists).toHaveLength(3);
+  });
+
+  it("closes with the terminal session it was opened in, keeping the viewer's place", async () => {
+    const t = setup();
+    const session = t.root.child("terminal:Steve");
+    void t.stats.openStats("Steve", () => {}, session);
+    t.reply("q1", { players: ["Alex"] });
+    await flushPromises();
+    t.lists[0].answer(1);
+    await flushPromises();
+    t.reply("q2", { player: "Alex", totals: totals() });
+    await flushPromises();
+    session.dispose(); // walked away
+    t.screens[0].answer(undefined); // the closed form's late answer does nothing
+    await flushPromises();
+    expect(t.lists).toHaveLength(1);
+    expect(t.root.live()).toEqual({ scopes: 1, subscriptions: 0, runs: 0 });
+
+    void t.open();
+    t.reply("q3", { players: ["Alex"] });
+    await flushPromises();
+    expect(t.queries()[3]).toEqual({ t: "stats_query", requestId: "q4", player: "Alex" });
+  });
+
   it("shows the viewer even without stats, and a player with none says so", async () => {
     const t = setup();
     void t.open();
