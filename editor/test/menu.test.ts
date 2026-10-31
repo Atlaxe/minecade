@@ -318,3 +318,16 @@ describe("the queue spawn's marker", () => {
     for (const text of ["", "0", "61", "2.5", "ten"]) expect(parseCountdown(text)).toBeUndefined();
   });
 });
+
+describe("Preview in the map menu", () => {
+  it("is a quick icon on a game's map, faded until the checklist is done, and none on a lobby map", () => {
+    const icon = (config: MapConfig) => mapMenuEntries(view(config, { game: "Sumo" })).find((entry) => entry.action.kind === "preview");
+    expect(icon(draft)).toEqual({ action: { kind: "preview" }, text: `${MARK.quick}${MARK.dim}Preview
+§7finish the checklist first`, icon: ICONS.play });
+    const done = { ...draft, spawns: [[0, 65, 0], [2, 65, 0]] } as MapConfig;
+    expect(icon(done)?.text).toBe(`${MARK.quick}Preview
+§7play it as Sumo, then come back`);
+    expect(mapMenuEntries(view(done)).some((entry) => entry.action.kind === "preview")).toBe(false);
+    expect(readFileSync(new URL(`../resource_pack/${ICONS.play}.png`, import.meta.url)).length).toBeGreaterThan(0);
+  });
+});

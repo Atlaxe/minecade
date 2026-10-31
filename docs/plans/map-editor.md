@@ -253,14 +253,16 @@ All of these are items with their own icons and forms. `showForm` handles the bu
 
 ## Preview mode
 
-- **Game maps** (needs the main stack running and `DEV_LIVE_MAPS=1`):
-  1. "Preview" in the map menu saves the world and runs `npm run build`. A problem stops it.
-  2. The orchestrator starts the real game on this map from your local `dist/templates` (mounted over the image's copy), with `returnPort: 19134`.
-  3. When the game is ready, the editor transfers everyone to it.
-  4. After the match, everyone lands back on the editor, still in Edit mode.
-  - Refused while another game is running. `DEV_MIN_PLAYERS=1` covers solo tests.
-- **Lobby maps:** there is only one lobby, so "Preview as lobby" restarts the real lobby on this map from your local build, using a `docker-compose.dev.yml` override that mounts `dist/templates`. It is refused while anyone else is in the lobby.
-- **The lobby's map list** only shows new maps after a normal rebuild.
+Built in 10.6 (2026-10-31) without the network, which never runs beside the editor:
+- **Game maps:** Preview (the map menu's play icon, the Panel, `npm run editor -- preview`) saves
+  the world, builds the game and this one map from the checkout, and runs it on Select's port
+  (19133, the game identity; Select closes meanwhile and opens again after). The editor starts it
+  itself with the log transport, standing in for the orchestrator, with `LOBBY_PORT` set to Edit's
+  port and `DEV_MIN_PLAYERS=1`. Everyone in Edit is moved there once it's ready, and the game's own
+  trip home brings them back to Edit. End preview sends it `return_all`. Stats are never recorded.
+- **Lobby maps:** not yet (the user's choice): the lobby would need the editor to answer its game
+  starts. Publish, then start the network.
+- **The lobby's map list** shows new maps after the network's next start (Publish).
 
 ## Lobbies
 
@@ -553,8 +555,16 @@ start, which builds from the checkout.
   map), then the spawns and the usual frozen countdown (`Minigame` in minigame-core). Placed with
   the Spawn tool; its marker has Lock in and Countdown.
 
-**10.6 Preview:** `DEV_LIVE_MAPS`, Preview with the return to the editor, Preview as lobby, and
-both in the Panel.
+**10.6 Preview:** Preview with the return to the editor, in game and in the Panel.
+
+*Done 2026-10-31 (see "Preview mode" for how it works). Where it differs from the design above:*
+- The editor runs the preview game itself on Select's port, since the network never runs beside
+  it: no `DEV_LIVE_MAPS`, no orchestrator.
+- Games only; Preview as lobby waits until it's needed (the user's choice).
+- The mode box reads "Preview" in the game too (a small resource pack with the editor's override,
+  and the `preview` server variable).
+- Built alongside, at the user's request: exact positions, the queue spawn, and dropping builders
+  (see the notes above).
 
 ### UI tweaks
 

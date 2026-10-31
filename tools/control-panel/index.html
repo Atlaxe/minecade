@@ -724,7 +724,7 @@ function renderEditor() {
   $("nav-editor").className = `dot ${tone}`;
   $("nav-editor").title = `Map editor: ${text}`;
   const server = (s) => s && [s.state, s.error, s.players, s.world, s.targetName, s.mapName, s.map, s.draft, s.saving, s.unsaved, s.publishing, s.checklist?.ready];
-  const facts = status && [status.state, status.error, status.join, status.home.players, status.waiting, server(status.select), server(status.edit)];
+  const facts = status && [status.state, status.error, status.join, status.home.players, status.waiting, server(status.select), server(status.edit), status.preview?.state, status.preview?.label];
   patch($("editor-server"), [tone, text, editor.old, editor.stale, editor.launching, state.docker, state.busy, state.networkRunning, state.connection.lanHost, facts], () => editorCard(editor, status));
   patch($("editor-checklist"), status?.edit && [status.edit.checklist, status.edit.undo, status.edit.redo, status.edit.unsaved, status.edit.saving, status.edit.publishing, status.edit.draft, status.edit.mapName], () => status?.edit && checklistCard(status.edit));
   patch($("editor-select"), status?.select && [status.select.world, status.select.selections], () => status?.select && selectionsCard(status.select));
@@ -766,8 +766,10 @@ function editorCard(editor, status) {
     shutDown.title = "Stop every editor server (Edit saves first)";
     const rows = [
       serverRow("Editor lobby", 19132, status.home, "where everyone joins"),
-      serverRow("Select", 19133, status.select, status.select ? status.select.world : "nothing open"),
-      serverRow("Edit", 19134, status.edit, status.edit ? `${status.edit.targetName}: ${status.edit.mapName} (${status.edit.map})${status.edit.draft ? ", draft" : ""}` : "nothing open", status.edit && [saveButton(status.edit), " ", publishButton(status.edit)]),
+      status.preview
+        ? serverRow("Preview", 19133, status.preview, status.preview.label, endPreviewButton(status.preview))
+        : serverRow("Select", 19133, status.select, status.select ? status.select.world : "nothing open"),
+      serverRow("Edit", 19134, status.edit, status.edit ? `${status.edit.targetName}: ${status.edit.mapName} (${status.edit.map})${status.edit.draft ? ", draft" : ""}` : "nothing open", status.edit && [saveButton(status.edit), " ", publishButton(status.edit), " ", previewButton(status.edit, status.preview)]),
     ];
     return el("div", { className: "card" },
       head(el("div", { className: "actions" }, editor.stale && restart("Restart"), shutDown)),
@@ -795,7 +797,7 @@ function editorCard(editor, status) {
 
 function serverRow(name, port, server, what, extra) {
   const [tone, label] = server ? SERVER_STATES[server.state] ?? ["warn", server.state] : ["off", "closed"];
-  const players = server?.players.length ? server.players.join(", ") : "nobody";
+  const players = server && !server.players ? "" : server?.players.length ? server.players.join(", ") : "nobody";
   return el("tr", {},
     el("td", { className: "strong" }, name, el("div", { className: "muted small" }, `port ${port}`)),
     el("td", {}, what, server?.error && el("div", { className: "muted small" }, server.error)),
@@ -820,6 +822,21 @@ function publishButton(edit) {
   publish.disabled = edit.state !== "ready" || edit.publishing || !edit.checklist.ready;
   publish.title = edit.checklist.ready ? "Save, then commit and push this map, so the lobby lists it" : "Finish the checklist first";
   return publish;
+}
+
+/** Preview: the map open in Edit as its game on 19133 (Select closes meanwhile); everyone in Edit goes. */
+function previewButton(edit, preview) {
+  const button = el("button", { className: "small", onclick: () => post("/api/editor/preview") }, preview ? "Previewing..." : "Preview");
+  button.disabled = edit.state !== "ready" || Boolean(preview) || !edit.checklist.ready || edit.target === "lobby";
+  button.title = edit.target === "lobby" ? "Lobby maps can't be previewed yet" : edit.checklist.ready ? "Play this map as its game, then come back to Edit" : "Finish the checklist first";
+  return button;
+}
+
+function endPreviewButton(preview) {
+  const button = el("button", { className: "small", onclick: () => post("/api/editor/preview/end") }, "End preview");
+  button.disabled = preview.state !== "ready" && preview.state !== "starting";
+  button.title = "End the match now: everyone goes back to Edit";
+  return button;
 }
 
 /** The maps cut out of the world open in Select, and how each extraction is going. */

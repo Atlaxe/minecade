@@ -39,6 +39,7 @@ npm run editor -- select "<world>"        the same with a world in Select: its n
 npm run editor -- status                  what each of its servers is doing
 npm run editor -- save                    save the map open in Edit now
 npm run editor -- publish                 publish the map open in Edit (see "Publishing")
+npm run editor -- preview [end]           play the map open in Edit as its game, or end that (see "Preview")
 npm run editor -- stop                    shut it down (Edit saves first)
 ```
 
@@ -85,7 +86,8 @@ open another map or world. Select and Edit keep running meanwhile, so going back
 **Where you are:** on Select and Edit, a small box top center says which server you're on and
 what's open there: **Select** and the world, or **Edit** and the map. It's a title the editor's resource pack draws as a box
 (`editor/resource_pack/ui/hud_screen.json`, the mark in `editor/behavior_pack/scripts/hud.ts`), the
-way games draw their clock top right; other titles show as usual. Preview gets its line in pass 10.6.
+way games draw their clock top right; other titles show as usual. In a preview it reads **Preview**
+and the map.
 
 ## Select mode: cutting maps out of a world
 
@@ -241,6 +243,26 @@ screen.
 - A map with `build` commands is rebuilt from them by `npm run bake`, which would replace block
   changes. Drop the commands from the map menu's gear to keep them.
 
+## Preview
+
+**Preview** plays the map open in Edit as its real game, then brings you back to Edit: the play
+icon in the map menu's top row (a game's map with its checklist done; lobby maps can't be
+previewed yet), **Preview** on the Panel's Edit row, or `npm run editor -- preview`.
+
+1. The editor saves the world (when blocks changed) and builds the game from this checkout, with
+   the map as it is now, draft or not.
+2. The game runs on port 19133, Select's port (the network's game port, so no trust prompt). Select
+   closes meanwhile; anyone on it waits in the editor lobby, and it opens again on the same world
+   afterward.
+3. Once the game is ready (about 30 seconds), everyone in Edit is moved there. The game starts as
+   soon as you're all in, even alone (a preview needs one player). The mode box top center reads
+   **Preview** and the map.
+4. When the match ends (a win, everyone out, or the time limit), the game sends everyone back to
+   Edit, as the network's games send players to the lobby. **End preview** (the Panel's Preview
+   row, or `npm run editor -- preview end`) ends it at any time.
+
+A preview never counts toward stats.
+
 ## Publishing
 
 When a map is done, **Publish** puts it in the lobby: the last button in the checklist (map
@@ -299,7 +321,13 @@ publishing again pushes it. The commit goes on the branch of the checkout the ed
   (skipped quietly when local changes are in the way), `add --all` and `commit` naming the map's
   folder (so nothing else staged goes in), then `push`. It never asks on the console
   (`GIT_TERMINAL_PROMPT=0`), and gives the network steps two minutes, for a sign-in window.
-- The host answers on `127.0.0.1:8097` (`GET /status`, `POST /save`, `POST /publish`, `POST /open`, `POST /stop`),
+- **Preview** (`tools/editor/preview-session.ts`, `preview-template.ts`) runs the game the way the
+  editor runs its own servers (the base image, with the template and entrypoint put in), with the
+  log transport: the game's `[NET]` lines say `server_ready` and `end_game`, and End preview sends
+  it `return_all` on the console. `LOBBY_PORT` is Edit's port, so the game's own trip home lands
+  there. A small resource pack carries the editor's mode box, and the `preview` server variable
+  makes the game keep "Preview" in it (never over its own titles).
+- The host answers on `127.0.0.1:8097` (`GET /status`, `POST /save`, `POST /publish`, `POST /preview`, `POST /preview/end`, `POST /open`, `POST /stop`),
   which the Panel and `npm run editor -- status | save | stop | <target> <map>` use. When the Panel
   boots the editor, its output goes to `work/editor/editor.log`.
 - **The menus** are classic forms themed by the editor's resource pack, like the lobby's menus

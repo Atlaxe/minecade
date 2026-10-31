@@ -16,7 +16,7 @@ import {
 import { ActionFormData } from "@minecraft/server-ui";
 import type { ServerContext } from "../context.ts";
 import type { GameConfig, TeamDef } from "../config.ts";
-import { countdownChime, hudLine, playChime, type Chime } from "../hud.ts";
+import { countdownChime, hudLine, playChime, previewLine, type Chime } from "../hud.ts";
 import { describeError, log } from "../log.ts";
 import { facingOf, worldPoint, type MapPosition } from "../map-config.ts";
 import { normalizePlayer } from "../player.ts";
@@ -69,6 +69,11 @@ export interface StageResult<T = unknown> {
 export const DEFAULT_TIME_LIMIT_SECONDS = 5 * 60;
 const PICKER_ITEM = "minecraft:nether_star";
 const PICKER_SLOT = 8;
+/** How often a preview's mode line is checked, and sent again when a title replaced it or it's due. */
+const PREVIEW_CHECK_TICKS = 20;
+const PREVIEW_REFRESH_TICKS = 100;
+/** A title() lasts this long (stay plus fade out); the preview's line waits until it's gone. */
+const TITLE_TICKS = 40;
 /** Invisibility in a locked queue lasts until normalizePlayer clears it at the spawn. */
 const QUEUE_EFFECT_TICKS = 1_000_000;
 /** Rules every game gets unless it says otherwise: deaths are handled by core, invisibly. */
@@ -99,6 +104,9 @@ export abstract class Minigame<C extends GameConfig = GameConfig> {
   private countdownScope: Scope | undefined;
   /** Players wait at the map's queue spawn (until the queue countdown ends). */
   private queued = false;
+  /** When title() last showed a title, and when the preview's mode line was last sent, in ticks. */
+  private titleAt = -TITLE_TICKS;
+  private previewSentAt = -PREVIEW_REFRESH_TICKS;
   private outcome: Result | undefined;
   private settle: (result: Result) => void = () => {};
   private readonly finished: Promise<Result>;
@@ -257,6 +265,7 @@ export abstract class Minigame<C extends GameConfig = GameConfig> {
   /** Runs the whole match and resolves with its result once everything is cleaned up. */
   async run(): Promise<Result> {
     this.applyGameRules();
+    if (this.ctx.vars.preview) this.keepPreviewLine(this.ctx.vars.preview);
     this.scope.subscribe(world.afterEvents.playerSpawn, ({ player, initialSpawn }) => {
       if (!initialSpawn) return;
       const name = player.name;
@@ -464,6 +473,7 @@ export abstract class Minigame<C extends GameConfig = GameConfig> {
 
   /** A title for one player, or everyone when `to` is omitted. */
   title(title: string, subtitle?: string, to?: string): void {
+    this.titleAt = system.currentTick;
     const players = to === undefined ? world.getAllPlayers() : [this.player(to)].filter((player): player is Player => !!player);
     for (const player of players) {
       player.onScreenDisplay.setTitle(title, { fadeInDuration: 0, stayDuration: 30, fadeOutDuration: 10, subtitle });
@@ -675,6 +685,29 @@ export abstract class Minigame<C extends GameConfig = GameConfig> {
         if (this.map.outOfBounds(player.location) || this.offQueueSpot(player)) this.placeWaiting(player);
       }
     }, 10);
+  }
+
+  /**
+   * A game previewed from the map editor keeps "Preview   Sumo: Arena" in the mode box top center.
+   * It rides on the title, so it never goes out while one of the game's titles is up (they all go
+   * through title()), and comes back as soon as one is gone.
+   */
+  private keepPreviewLine(label: string): void {
+    const line = previewLine(label);
+    this.scope.interval(() => {
+      const now = system.currentTick;
+      if (now - this.titleAt < TITLE_TICKS) return;
+      if (this.previewSentAt > this.titleAt && now - this.previewSentAt < PREVIEW_REFRESH_TICKS) return;
+      this.previewSentAt = now;
+      for (const player of world.getAllPlayers()) {
+        try {
+          player.onScreenDisplay.setTitle(line, { fadeInDuration: 0, stayDuration: PREVIEW_REFRESH_TICKS * 4, fadeOutDuration: 0 });
+        } catch {
+          // gone, or not ready for titles yet: the next check sends it
+        }
+      }
+    }, PREVIEW_CHECK_TICKS);
+    this.scope.subscribe(world.afterEvents.playerSpawn, () => (this.previewSentAt = -PREVIEW_REFRESH_TICKS));
   }
 
   /** Everyone into the queue (`on`), or out of it to their waiting spawns. */

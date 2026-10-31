@@ -4,10 +4,10 @@
 // (editor/resource_pack/ui/hud_screen.json), the way the game clock rides on the action bar
 // (packages/minigame-core/src/hud.ts). Nothing else on the editor's servers sends titles.
 import { world, type Player } from "@minecraft/server";
-import type { Scope } from "@minecade/minigame-core";
+import { MODE_MARK, type Scope } from "@minecade/minigame-core";
 
-/** Starts every title that is a mode line. Must match editor/resource_pack/ui/hud_screen.json. */
-export const MODE_MARK = "§r§m§o§r";
+/** Starts every title that is a mode line (minigame-core's, shared with a previewed game). */
+export { MODE_MARK };
 
 export type Mode = "select" | "edit";
 

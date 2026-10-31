@@ -31,6 +31,7 @@ export const ICONS = {
   undo: "textures/minecade/editor/icon_undo",
   redo: "textures/minecade/editor/icon_redo",
   settings: "textures/minecade/editor/icon_settings",
+  play: "textures/minecade/editor/icon_play",
 } as const;
 
 export type MenuAction =
@@ -38,6 +39,8 @@ export type MenuAction =
   | { kind: "undo" }
   | { kind: "redo" }
   | { kind: "settings" }
+  /** Play the map as its game (Preview), then come back. */
+  | { kind: "preview" }
   | { kind: "tool"; tool: ToolId }
   /** A heading: nothing happens but the menu opening again. */
   | { kind: "none" }
@@ -79,6 +82,8 @@ export interface SpawnSettings {
 export interface MapMenuView {
   config: MapConfig;
   checklist: Checklist;
+  /** The game's name, for Preview; none for a lobby map (which can't be previewed yet). */
+  game?: string;
   /** The tool this player has out, if any. */
   tool?: ToolId;
   /** What undo and redo would change, when there is something to undo or redo. */
@@ -106,6 +111,10 @@ export function mapMenuEntries(view: MapMenuView): MenuEntry[] {
     { action: { kind: "redo" }, text: `${MARK.quick}${view.redo ? "" : MARK.dim}Redo\n§7${view.redo ?? "nothing to redo"}`, icon: ICONS.redo },
     { action: { kind: "settings" }, text: `${MARK.quick}Map settings\n§7name, game settings, build commands`, icon: ICONS.settings },
   ];
+  if (view.game) {
+    const ready = view.checklist.ready;
+    entries.push({ action: { kind: "preview" }, text: `${MARK.quick}${ready ? "" : MARK.dim}Preview\n§7${ready ? `play it as ${view.game}, then come back` : "finish the checklist first"}`, icon: ICONS.play });
+  }
   EDITOR_TOOLS.forEach((tool, i) => {
     const picked = tool.id === view.tool ? MARK.on : "";
     entries.push({ action: { kind: "tool", tool: tool.id }, text: `${MARK.tool}${COLUMNS[i % COLUMNS.length]}${picked}${tool.label}\n§7${tool.hint}`, icon: tool.icon });

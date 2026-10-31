@@ -14,7 +14,7 @@ import { dirname, join } from "node:path";
 import { createInterface } from "node:readline";
 import { fileURLToPath } from "node:url";
 import type Docker from "dockerode";
-import { editorStatus, publishEditor, saveEditor, stopEditor } from "../editor/control.ts";
+import { editorStatus, endPreviewEditor, previewEditor, publishEditor, saveEditor, stopEditor } from "../editor/control.ts";
 import type { EditorStatus } from "../editor/editor-core.ts";
 import {
   BroadcastLog,
@@ -628,6 +628,14 @@ async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> 
     const result = await publishEditor();
     if (!result.ok) return sendJson(res, 409, { error: result.error ?? "no map is open in Edit" });
     note("Map editor: publishing the map open in Edit (save, then commit and push)...");
+    void refresh();
+    return sendJson(res, 202, { ok: true });
+  }
+  if (path === "/api/editor/preview" || path === "/api/editor/preview/end") {
+    const start = path === "/api/editor/preview";
+    const result = start ? await previewEditor() : await endPreviewEditor();
+    if (!result.ok) return sendJson(res, 409, { error: result.error ?? "no map editor is running" });
+    note(start ? "Map editor: starting a preview of the map open in Edit..." : "Map editor: ending the preview...");
     void refresh();
     return sendJson(res, 202, { ok: true });
   }

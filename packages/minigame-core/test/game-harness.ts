@@ -76,6 +76,7 @@ export function createHarness(): Harness {
         devMinPlayers: undefined,
         devDemoGames: 0,
         devHoloPreview: false,
+        preview: "",
         watcher: "",
         settings,
       };

@@ -364,6 +364,7 @@ export class Editor {
     const entries = mapMenuEntries({
       config,
       checklist: mapChecklist(config, this.info.rules),
+      ...(this.info.rules.kind === "game" ? { game: this.info.targetName } : {}),
       tool,
       ...this.status,
       spawn: { lists: this.lists(), settings: this.settingsOf(player) },
@@ -392,6 +393,16 @@ export class Editor {
         return;
       case "settings":
         return this.settingsMenu(player);
+      case "preview": {
+        const checklist = mapChecklist(this.state.current, this.info.rules);
+        if (!checklist.ready) {
+          tell(player, `§cFinish the checklist first:§r ${checklist.problems.join("; ")}`);
+          return;
+        }
+        this.link.send({ t: "preview", by: player.name });
+        actionBar(player, "Starting the preview...");
+        return;
+      }
       case "tool":
         this.pickTool(player, action.tool);
         return this.mapMenu(player);

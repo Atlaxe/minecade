@@ -4,6 +4,7 @@
 import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import type { GameConfig } from "../src/config.ts";
 import { Minigame } from "../src/game/minigame.ts";
+import { MODE_MARK, previewLine } from "../src/hud.ts";
 import { removeLeftoverObjectives } from "../src/game/sidebar.ts";
 import type { Result } from "../src/game/results.ts";
 import { ItemStack, world, type FakePlayer } from "./fake-mc-server.ts";
@@ -359,6 +360,30 @@ describe("the queue spawn", () => {
       await ticks(5 * 20 + 10);
       expect(game.phase).toBe("countdown");
       expect(at(b)).toEqual([4.5, 65, 0.5]);
+      game.finish({ kind: "draw", reason: "test over" });
+      await ticks(2);
+    });
+    expectBaseline(baseline);
+    everyoneLeaves();
+  });
+});
+
+describe("a game previewed from the map editor", () => {
+  it("keeps Preview in the mode box, but never over its own countdown or Go!", async () => {
+    const [a] = ["A", "B"].map((name) => world.join(name));
+    const baseline = snapshot();
+    const context = harness.context(["A", "B"]);
+    context.vars.preview = "Sumo: Arena";
+    const game = new TestGame(context, { id: "preview", name: "Preview", minPlayers: 2, maxPlayers: 2, countdownSeconds: 2, endDelaySeconds: 1 });
+    await playToEnd(game, baseline, async () => {
+      await ticks(150);
+      expect(game.phase).toBe("playing");
+      const go = a.titles.findIndex((title) => title.includes("Go!"));
+      const preview = a.titles.findIndex((title) => title.startsWith(MODE_MARK));
+      expect(go).toBeGreaterThan(0);
+      expect(preview).toBeGreaterThan(go);
+      expect(a.titles[preview]).toBe(previewLine("Sumo: Arena"));
+      expect(a.titles.slice(0, go).some((title) => title.startsWith(MODE_MARK))).toBe(false);
       game.finish({ kind: "draw", reason: "test over" });
       await ticks(2);
     });

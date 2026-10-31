@@ -121,6 +121,7 @@ describe("readServerVars", () => {
       devMinPlayers: "1",
       devDemoGames: "8",
       devHoloPreview: "1",
+      preview: " Sumo: Arena ",
       watcher: " MinecadeServer ",
       settings: '{"teams":"random"}',
     });
@@ -136,6 +137,7 @@ describe("readServerVars", () => {
       devMinPlayers: 1,
       devDemoGames: 8,
       devHoloPreview: true,
+      preview: "Sumo: Arena",
       watcher: "MinecadeServer",
       settings: { teams: "random" },
     });
@@ -153,6 +155,7 @@ describe("readServerVars", () => {
       devMinPlayers: undefined,
       devDemoGames: 0,
       devHoloPreview: false,
+      preview: "",
       watcher: "",
       settings: {},
     });

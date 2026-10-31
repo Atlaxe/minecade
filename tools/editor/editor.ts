@@ -4,11 +4,11 @@
 //   npm run editor [--verbose]                               boot it
 //   npm run editor -- <target> <map> [--new] [--verbose]     boot it (or use the running one) and open a map
 //   npm run editor -- select "<world>" [--verbose]           the same with a world in Select
-//   npm run editor -- status | save | publish | stop
+//   npm run editor -- status | save | publish | preview [end] | stop
 // The Panel starts the same tool in the background (its output goes to work/editor/editor.log).
 // Either way it answers on 127.0.0.1:8097, which the Panel and `npm run editor -- stop` use.
 import { fileURLToPath } from "node:url";
-import { editorStatus, openInEditor, publishEditor, saveEditor, serveControl, stopEditor } from "./control.ts";
+import { editorStatus, endPreviewEditor, openInEditor, previewEditor, publishEditor, saveEditor, serveControl, stopEditor } from "./control.ts";
 import { USAGE, parseArgs, type EditorStatus } from "./editor-core.ts";
 import { EditorRunner } from "./runner.ts";
 
@@ -63,6 +63,16 @@ if (args.command === "publish") {
   process.exit(0);
 }
 
+if (args.command === "preview" || args.command === "endPreview") {
+  const result = args.command === "preview" ? await previewEditor() : await endPreviewEditor();
+  if (!result.ok) {
+    console.log(result.error === "no map editor is running" ? "No map editor is running." : `Can't: ${result.error}.`);
+    process.exit(0);
+  }
+  console.log(args.command === "preview" ? "Starting the preview: everyone in Edit goes as soon as it's ready." : "Ending the preview: everyone goes back to Edit.");
+  process.exit(0);
+}
+
 if (args.command === "stop") {
   if (!(await stopEditor())) {
     console.log("No map editor is running.");
@@ -100,6 +110,8 @@ const control = await serveControl({
   status: () => runner.status(),
   save: () => runner.save(),
   publish: () => runner.publish(),
+  preview: () => runner.preview("this PC"),
+  endPreview: () => runner.endPreview(),
   stop: () => void runner.shutdown(),
   open: (request) => runner.request("this PC", request),
 }).catch((error: unknown) => {
@@ -148,5 +160,6 @@ function printStatus(status: EditorStatus): void {
     console.log(`  Edit:   ${edit.targetName}, ${edit.mapName} (${edit.map})${draft}, ${edit.state}, ${edit.players.join(", ") || "nobody"}; the world is ${world}${edit.publishing ? "; publishing" : ""}`);
     for (const row of edit.checklist.rows) console.log(`    ${row.done ? "ok     " : "missing"} ${row.label} ${row.have}/${row.need}`);
   }
+  if (status.preview) console.log(`  Preview: ${status.preview.label}, ${status.preview.state} on port ${status.preview.port}`);
   for (const entry of status.waiting) console.log(`  ${entry.name} is waiting for ${entry.label}`);
 }

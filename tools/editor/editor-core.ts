@@ -92,13 +92,15 @@ export interface EditorStatus {
   home: HomeStatus;
   select?: SelectStatus;
   edit?: EditStatus;
+  /** A Preview: the game on Select's port (Select is closed meanwhile). */
+  preview?: { state: "starting" | "ready" | "stopping" | "stopped" | "failed"; label: string; port: number; error?: string };
   /** Players waiting for a server, and what for. */
   waiting: ServersInfo["waiting"];
 }
 
 export type EditorArgs =
   | { command: "boot"; open?: Exclude<OpenRequest, { to: "home" }>; verbose: boolean }
-  | { command: "status" | "save" | "publish" | "stop" }
+  | { command: "status" | "save" | "publish" | "preview" | "endPreview" | "stop" }
   | { command: "help"; error?: string };
 
 export const USAGE = `Usage:
@@ -113,6 +115,9 @@ export const USAGE = `Usage:
   npm run editor -- save                    save the map open in Edit now
   npm run editor -- publish                 publish the map open in Edit: it stops being a draft, is
                                             saved, and its folder is committed and pushed
+  npm run editor -- preview                 play the map open in Edit as its game (on port 19133);
+                                            everyone in Edit goes, and comes back when it ends
+  npm run editor -- preview end             end the preview now
   npm run editor -- stop                    shut the editor down (Edit saves first)
 Add --verbose to echo the servers' consoles. The editor takes the network's ports (19132-19134),
 so stop the network first.`;
@@ -129,7 +134,8 @@ export function parseArgs(argv: string[]): EditorArgs {
     const world = words.slice(1).join(" ").trim();
     return world ? { command: "boot", open: { to: "select", world }, verbose } : { command: "help", error: "select needs a world: its name, its folder or a .mcworld file" };
   }
-  if (words.length === 1 && (words[0] === "status" || words[0] === "save" || words[0] === "publish" || words[0] === "stop")) return { command: words[0] };
+  if (words.length === 1 && (words[0] === "status" || words[0] === "save" || words[0] === "publish" || words[0] === "preview" || words[0] === "stop")) return { command: words[0] };
+  if (words.length === 2 && words[0] === "preview" && words[1] === "end") return { command: "endPreview" };
   if (words.length !== 2) return { command: "help", error: "expected a target and a map" };
   const [target, map] = words;
   if (!isMapId(map)) return { command: "help", error: `"${map}" is not a map id: use lower case letters, digits, _ and -` };

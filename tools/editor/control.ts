@@ -1,8 +1,9 @@
 // The running editor's control port on this PC (127.0.0.1:8097), for the Panel and
-// `npm run editor -- status | save | publish | stop | <target> <map> | select "<world>"`:
+// `npm run editor -- status | save | publish | preview | stop | <target> <map> | select "<world>"`:
 //   GET /status              what each of its servers is doing
 //   POST /save               save the map open in Edit now
 //   POST /publish            publish the map open in Edit (saved, then committed and pushed)
+//   POST /preview            play the map open in Edit as its game; POST /preview/end ends it
 //   POST /open {request}     open a map in Edit or a world in Select (an OpenRequest)
 //   POST /stop               shut it down (Edit saves first)
 // Requests are checked the way the Panel checks its own, so a web page can't reach it.
@@ -20,6 +21,10 @@ export interface ControlHandlers {
   save(): boolean;
   /** False when no map is open in Edit. */
   publish(): boolean;
+  /** Undefined when it's under way, or why not. */
+  preview(): string | undefined;
+  /** False when no preview runs. */
+  endPreview(): boolean;
   stop(): void;
   /** Undefined when it's under way, or why not. */
   open(request: OpenRequest): Promise<string | undefined>;
@@ -57,6 +62,11 @@ export function serveControl(handlers: ControlHandlers): Promise<Server> {
         if (method === "GET" && path === "/status") return reply(200, handlers.status());
         if (method === "POST" && path === "/save") return handlers.save() ? reply(202, { ok: true }) : reply(409, { error: "no map is open in Edit" });
         if (method === "POST" && path === "/publish") return handlers.publish() ? reply(202, { ok: true }) : reply(409, { error: "no map is open in Edit" });
+        if (method === "POST" && path === "/preview") {
+          const problem = handlers.preview();
+          return problem ? reply(409, { error: problem }) : reply(202, { ok: true });
+        }
+        if (method === "POST" && path === "/preview/end") return handlers.endPreview() ? reply(202, { ok: true }) : reply(409, { error: "no preview is running" });
         if (method === "POST" && path === "/stop") {
           handlers.stop();
           return reply(202, { ok: true });
@@ -112,6 +122,16 @@ export function saveEditor(): Promise<{ ok: boolean; error?: string }> {
 /** Asks the running editor to publish the map open in Edit; the error when it can't (or none answers). */
 export function publishEditor(): Promise<{ ok: boolean; error?: string }> {
   return post("/publish");
+}
+
+/** Asks the running editor to preview the map open in Edit; the error when it can't (or none answers). */
+export function previewEditor(): Promise<{ ok: boolean; error?: string }> {
+  return post("/preview");
+}
+
+/** Asks the running editor to end its preview; the error when there's none (or none answers). */
+export function endPreviewEditor(): Promise<{ ok: boolean; error?: string }> {
+  return post("/preview/end");
 }
 
 /** Asks the running editor to open a map or a world; the error when it can't (or none answers). */

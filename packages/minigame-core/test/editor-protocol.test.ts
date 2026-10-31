@@ -89,6 +89,7 @@ describe("editor protocol", () => {
     expect(parseHostMessage("[1]")).toBeUndefined();
     expect(parseEditorEvent('{"t":"save","by":"a"}')).toEqual({ t: "save", by: "a" });
     expect(parseEditorEvent('{"t":"publish","by":"a"}')).toEqual({ t: "publish", by: "a" });
+    expect(parseEditorEvent('{"t":"preview","by":"a"}')).toEqual({ t: "preview", by: "a" });
     expect(parseEditorEvent('{"t":"saveWorld","by":"a","save":true}')).toBeUndefined();
     expect(parseHostMessage('{"t":"resume"}')).toEqual({ t: "resume" });
     expect(parseEditorEvent('{"t":"saveMap","by":"a","box":{"min":[0,0,0],"max":[1,1,1]},"target":"sumo","map":"castle","name":"Castle","spawn":[0,1,0]}')?.t).toBe("saveMap");

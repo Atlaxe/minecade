@@ -9,6 +9,18 @@ import type { Player } from "@minecraft/server";
 
 /** Starts every action bar line that carries the clock. Must match the core pack's hud_screen.json. */
 export const HUD_MARK = "§r§m§c§r";
+
+/**
+ * Starts a title that shows in the map editor's mode box top center instead of as a title: the
+ * editor's servers, and a game previewed from the editor, carry the override
+ * (editor/resource_pack/ui/hud_screen.json, which must use the same mark).
+ */
+export const MODE_MARK = "§r§m§o§r";
+
+/** The mode box's line in a game previewed from the map editor: "Preview   Sumo: Arena". */
+export function previewLine(label: string): string {
+  return `${MODE_MARK}§dPreview${label ? `§7   ${label}` : ""}`;
+}
 const URGENT_SECONDS = 30;
 
 /** The action bar text for a stage clock (white, red in the last 30 seconds) plus the usual line. */

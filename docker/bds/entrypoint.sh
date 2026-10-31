@@ -9,6 +9,8 @@
 #   ORCH_URL, LAN_HOST, PUBLIC_HOST, LAN_PLAYERS, ALLOW_LIST, LOBBY_PORT, SESSION_ID,
 #   EXPECTED_PLAYERS, MAX_PLAYERS, SERVER_NAME, DEV_MIN_PLAYERS, DEV_DEMO_GAMES, DEV_HOLO_PREVIEW,
 #   WATCHER_GAMERTAG, GAME_SETTINGS
+#   PREVIEW         set by the map editor's Preview (tools/editor/preview-session.ts): the map's label,
+#                   shown in the game's mode box top center.
 #   EDITOR_MODE     set by the map editor (tools/editor): its host stages the map being edited in
 #                   /editor (world/, map.json, editor.json). Players get creative mode, and the allow
 #                   list is always on: LAN_PLAYERS only.
@@ -195,6 +197,7 @@ jq -n \
   --arg devMinPlayers "${DEV_MIN_PLAYERS:-}" \
   --arg devDemoGames "${DEV_DEMO_GAMES:-}" \
   --arg devHoloPreview "${DEV_HOLO_PREVIEW:-}" \
+  --arg preview "${PREVIEW:-}" \
   --arg watcher "${WATCHER_GAMERTAG:-}" \
   --arg settings "$game_settings" \
   --arg editor "$editor_info" \

@@ -121,6 +121,25 @@ The mode box (top center, after the editor's next boot):
   as a big title in the middle instead of the box, say so.
 - The editor lobby shows no box (its HUD is hidden).
 
+Preview and the queue spawn (pass 10.6, after the editor's next boot), on a copy of Sumo's Arena:
+
+- Spawn tool, Place into: Queue spawn. Place it on a spot with a floor, a little away from the
+  arena. Its marker reads "Queue spawn (lock in, 5 s)". Hit it: Lock in (a switch, on) and
+  Countdown: 5 s. Set the countdown to 8: the marker says 8 s.
+- The map menu's top row has a play icon (Preview), faded with a checklist problem (its tooltip
+  says to finish the checklist first). Tap it with the checklist done: chat says the preview is
+  starting, and about 30 seconds later you're moved to port 19133.
+- In the preview: the box top center reads "Preview" and "Sumo: <map>". You're at the queue spawn,
+  unable to walk but able to look around; your own body and name tag are hidden from others. The
+  queue countdown (8, 7, ... with "Spawning in") runs, then you're at a spawn, visible, frozen for
+  the usual 3-2-1, then "Go!". The "Preview" box comes back after "Go!", never over the countdown.
+- Fall off: the match ends, and you're back in Edit, with chat saying how the preview ended.
+- Preview again and press the Panel's End preview (on the Preview row, where Select's row was):
+  you're back in Edit at once. Select (if it was open) comes back on its world.
+- Turn Lock in off (Free) and preview: you can walk around the queue area; falling below kill Y
+  or leaving the bounds puts you back at the queue spawn.
+- A map without a queue spawn previews as before: you wait at a spawn.
+
 Select mode (pass 10.5), opened from the editor lobby's New map:
 
 - On Datapacking you get the Select tool in slot 1 and the map menu in slot 9, and the world is the

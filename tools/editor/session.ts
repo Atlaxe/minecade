@@ -22,6 +22,7 @@ import { bakeSettings } from "../build/bake-core.ts";
 import { copyDirFromContainer } from "../build/docker-util.ts";
 import { enableBetaApis, patchLevelDat, readLevelDat, writeLevelDat } from "../build/leveldat.ts";
 import { History, newMapConfig, withLineEndings, type EditStatus } from "./editor-core.ts";
+import type { PreviewMap } from "./preview-template.ts";
 import { gitIn, publishMap, publishMessage, type Git } from "./publish.ts";
 import { findWorld } from "./selections.ts";
 import { RUNTIME_FILES, ServerSession, delay, message, root, type SessionBase } from "./server-session.ts";
@@ -43,6 +44,8 @@ export interface SessionOptions extends SessionBase {
 }
 
 export class EditorSession extends ServerSession {
+  /** Preview in the map menu (set by the runner, which runs it). */
+  onPreview: ((by: string) => void) | undefined;
   private readonly target: EditorTarget;
   private readonly mapId: string;
   private readonly fresh: { name: string } | undefined;
@@ -105,6 +108,15 @@ export class EditorSession extends ServerSession {
     this.note("Quitting without saving the world.");
     this.unsaved = false;
     await super.forceStop();
+  }
+
+  /** What a Preview builds: the game, the map (its folder and map.json as it is now), and its label. */
+  previewSource(): { map: PreviewMap; label: string; maxPlayers: number } {
+    return {
+      map: { game: this.target.id, mapId: this.mapId, mapDir: this.mapDir, config: this.config },
+      label: `${this.target.name}: ${this.config.name}`,
+      maxPlayers: this.target.rules.maxPlayers ?? 1,
+    };
   }
 
   /** The world for Back to Select, or why there's none. */
@@ -225,6 +237,9 @@ export class EditorSession extends ServerSession {
         return;
       case "publish":
         void this.publish(event.by);
+        return;
+      case "preview":
+        this.onPreview?.(event.by);
         return;
       case "changed":
         this.blocksChanged(event.by);

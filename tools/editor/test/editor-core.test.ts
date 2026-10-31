@@ -33,6 +33,8 @@ describe("parseArgs", () => {
     expect(parseArgs(["stop"])).toEqual({ command: "stop" });
     expect(parseArgs(["save"])).toEqual({ command: "save" });
     expect(parseArgs(["publish"])).toEqual({ command: "publish" });
+    expect(parseArgs(["preview"])).toEqual({ command: "preview" });
+    expect(parseArgs(["preview", "end"])).toEqual({ command: "endPreview" });
     expect(parseArgs(["status"])).toEqual({ command: "status" });
     expect(parseArgs(["--help"])).toEqual({ command: "help" });
   });

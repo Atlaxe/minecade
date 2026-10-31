@@ -13,6 +13,7 @@ import { readEnv } from "../control-panel/core.ts";
 import { buildCatalog, mapLabel, noteRecent, requestedWorld, worldId } from "./catalog.ts";
 import { SLOTS, editorPlayers, isMapId, planOpen, portHolders, type EditorStatus, type Slot, type SlotId } from "./editor-core.ts";
 import { HomeSession } from "./home-session.ts";
+import { PreviewSession } from "./preview-session.ts";
 import type { Git } from "./publish.ts";
 import { SelectSession } from "./select-session.ts";
 import { Selections } from "./selections.ts";
@@ -26,6 +27,8 @@ const LOG_KEPT = 300;
 const LEAVE_MS = 2000;
 /** Changes to the lobby's state are sent at most this often. */
 const HOME_UPDATE_MS = 300;
+/** After a preview, players are back in Edit about this long after the game ends. */
+const BACK_MS = 6000;
 
 type WorkSlot = "select" | "edit";
 type Opened = { request: Extract<OpenRequest, { to: "edit" | "select" }>; label: string };
@@ -66,6 +69,11 @@ export class EditorRunner {
   private readonly queues: Record<WorkSlot, Promise<unknown>> = { select: Promise.resolve(), edit: Promise.resolve() };
   private homeTimer: NodeJS.Timeout | undefined;
   private shutting: Promise<void> | undefined;
+  /** A Preview running on Select's port, and what Select had open before it, to open again after. */
+  private previewing: PreviewSession | undefined;
+  /** A preview was asked for and is getting under way (saving, closing Select). */
+  private previewAsked = false;
+  private selectBefore: Opened | undefined;
   /** Called once everything has stopped: true when it went well. */
   onExit: (ok: boolean) => void = () => {};
 
@@ -129,6 +137,7 @@ export class EditorRunner {
       home: this.home?.status() ?? { mode: "home", state: "starting", join: "", players: [], startedAt: this.startedAt },
       ...(this.work.select ? { select: this.work.select.status() } : {}),
       ...(this.work.edit ? { edit: this.work.edit.status() } : {}),
+      ...(this.previewing ? { preview: this.previewing.status() } : {}),
       waiting: [...this.waiting.values()].map(({ name, label }) => ({ name, label })),
     };
   }
@@ -144,6 +153,33 @@ export class EditorRunner {
   publish(): boolean {
     if (!this.work.edit || this.work.edit.status().state !== "ready") return false;
     void this.work.edit.publish("this PC");
+    return true;
+  }
+
+  /**
+   * Plays the map open in Edit as its game on Select's port (from a player there, or this PC), then
+   * brings everyone back. Answers at once: undefined when it's under way, or why it can't be.
+   */
+  preview(by: string): string | undefined {
+    const problem = this.previewProblem();
+    if (problem) {
+      this.log(`${by}: can't preview: ${problem}`);
+      void this.tell(by, `§c${problem}`);
+      return problem;
+    }
+    this.previewAsked = true;
+    this.queues.select = this.queues.select
+      .then(() => this.runPreview(by))
+      .catch((error: unknown) => this.log(`The preview went wrong: ${message(error)}`))
+      .finally(() => (this.previewAsked = false));
+    return undefined;
+  }
+
+  /** Ends the preview now: the game sends everyone back to Edit. False when none runs. */
+  endPreview(): boolean {
+    if (!this.previewing) return false;
+    this.log("Ending the preview...");
+    void this.previewing.end();
     return true;
   }
 
@@ -166,6 +202,7 @@ export class EditorRunner {
       this.state = "stopping";
       this.log(force ? "Shutting down without saving the world..." : "Shutting down (Edit saves first)...");
       const stop = (session: ServerSession | undefined) => (session ? (force ? session.forceStop() : session.stop()) : Promise.resolve());
+      await this.previewing?.stop();
       await Promise.all([stop(this.work.edit), stop(this.work.select)]);
       await stop(this.home);
       if (this.selections.busy > 0) {
@@ -195,6 +232,7 @@ export class EditorRunner {
       if (on && on !== this.home) await on.goto([by], this.slots.home.port, "the editor lobby");
       return undefined;
     }
+    if (request.to === "select" && this.previewing) return "a preview is running on Select's port: end it first";
     let launch: Launch;
     try {
       launch = request.to === "edit" ? await this.editLaunch(request) : await this.selectLaunch(by, request.world);
@@ -278,6 +316,7 @@ export class EditorRunner {
     this.setWork(slot, session);
     this.opened.set(slot, { request: launch.request, label: launch.label });
     session.onOpen = (request, who) => void this.request(who, request);
+    if (session instanceof EditorSession) session.onPreview = (who) => void this.preview(who);
     session.onPlayer = (name, kind) => this.joined(session, name, kind);
     session.onEnd = (ok) => {
       if (this.work[slot] !== session) return;
@@ -302,6 +341,97 @@ export class EditorRunner {
     await noteRecent(this.root, { request: launch.request, label: launch.label }).catch((error: unknown) => this.log(`Could not note it as recent: ${message(error)}`));
     this.homeChanged();
     await this.deliver(slot);
+  }
+
+  // ---- Preview --------------------------------------------------------------------------------
+
+  /** Why a preview can't start now; `asked` leaves out the one that was just asked for. */
+  private previewProblem(asked = false): string | undefined {
+    if (this.state !== "ready") return this.state === "stopping" ? "the editor is shutting down" : "the editor is still starting";
+    if (this.previewing || (this.previewAsked && !asked)) return "a preview is running already";
+    const status = this.work.edit?.status();
+    if (!status || status.state !== "ready") return "no map is open in Edit";
+    if (status.target === "lobby") return "a lobby map can't be previewed yet: publish it, then start the network";
+    if (!status.checklist.ready) return `finish the checklist first: ${status.checklist.problems.join("; ")}`;
+    return undefined;
+  }
+
+  /** Saves Edit's world, closes Select, starts the game on its port, and moves everyone in Edit there. */
+  private async runPreview(by: string): Promise<void> {
+    const edit = this.work.edit;
+    if (!edit || this.previewProblem(true)) return;
+    const source = edit.previewSource();
+    this.log(`${by}: preview ${source.label}`);
+    await edit.say(`${by === "this PC" ? "This PC" : by} is starting a preview of ${source.label}: everyone here goes as soon as it's ready (about 30 seconds).`);
+    await edit.send({ t: "notice", text: `§dStarting the preview of ${source.label}` });
+    if (edit.status().unsaved && !(await edit.save(by))) {
+      await edit.say("§cThe preview didn't start: the world didn't save.");
+      return;
+    }
+    await this.closeSelect(by);
+    const env = readEnv(await readFile(join(this.root, ".env"), "utf8"));
+    const session = new PreviewSession({
+      port: this.slots.select.port,
+      container: `${this.slots.select.container.replace(/-select$/, "")}-preview`,
+      returnPort: this.slots.edit.port,
+      map: source.map,
+      label: source.label,
+      maxPlayers: source.maxPlayers + 1,
+      players: edit.online(),
+      env,
+      verbose: this.verbose,
+      note: (text) => this.log(text),
+    });
+    this.previewing = session;
+    this.homeChanged();
+    try {
+      await session.start();
+    } catch (error) {
+      this.log(`The preview didn't start: ${message(error)}`);
+      await this.work.edit?.say(`§cThe preview didn't start: ${message(error)}`);
+      this.previewing = undefined;
+      this.reopenSelect();
+      return;
+    }
+    session.onEnd = (why) => void this.previewEnded(session, why);
+    const players = this.work.edit?.online() ?? [];
+    if (players.length > 0) await this.work.edit?.goto(players, this.slots.select.port, `the preview of ${source.label}`);
+    this.homeChanged();
+  }
+
+  /** Select gives its port to the preview: whoever is on it waits in the editor lobby. */
+  private async closeSelect(by: string): Promise<void> {
+    const select = this.work.select;
+    const opened = this.opened.get("select");
+    if (!select || !opened) return;
+    this.selectBefore = opened;
+    const players = select.online();
+    if (players.length > 0) {
+      await select.say(`${by === "this PC" ? "This PC" : by} started a preview on this port: Select closes until it ends, and opens again after.`);
+      await select.goto(players, this.slots.home.port, "the editor lobby");
+      await delay(LEAVE_MS);
+    }
+    this.setWork("select", undefined);
+    this.opened.delete("select");
+    this.homeChanged();
+    await select.stop();
+  }
+
+  private async previewEnded(session: PreviewSession, why: string): Promise<void> {
+    if (this.previewing !== session) return;
+    this.log(`The preview is over: ${why}.`);
+    await session.stop();
+    this.previewing = undefined;
+    this.homeChanged();
+    setTimeout(() => void this.work.edit?.say(`Back from the preview: ${why}.`), BACK_MS);
+    this.reopenSelect();
+  }
+
+  /** Opens again what Select had open before a preview took its port. */
+  private reopenSelect(): void {
+    const before = this.selectBefore;
+    this.selectBefore = undefined;
+    if (before && this.state === "ready") void this.request("this PC", before.request);
   }
 
   /** Sends everyone waiting for this server to it, once it's ready. */
