@@ -55,7 +55,7 @@ function view(config: MapConfig, extra: Partial<MapMenuView> = {}): MapMenuView 
 describe("map menu", () => {
   it("has the quick icons, then the tools, then Save, with no tool out", () => {
     const entries = mapMenuEntries(view(draft));
-    expect(entries.map((entry) => entry.action.kind)).toEqual(["checklist", "undo", "redo", "boundaries", "settings", "tool", "tool", "tool", "save"]);
+    expect(entries.map((entry) => entry.action.kind)).toEqual(["checklist", "undo", "redo", "boundaries", "settings", "tool", "tool", "tool", "tool", "save"]);
     expect(entries[3]).toEqual({ action: { kind: "boundaries" }, text: `${MARK.quick}Boundaries\n§7see the bounds and regions you pick`, icon: ICONS.boundaries });
     expect(entries[0].text).toBe(`${MARK.pill}0/1\n§7Checklist: 1 problem`);
     expect(entries[0].icon).toBe(ICONS.check);
@@ -76,7 +76,7 @@ describe("map menu", () => {
   });
 
   it("shows the tool out's settings between the tools and Save", () => {
-    const kinds = (tool: MapMenuView["tool"]) => mapMenuEntries(view({ ...draft, killY: 50 }, { tool })).map((entry) => entry.action.kind).slice(8, -1);
+    const kinds = (tool: MapMenuView["tool"]) => mapMenuEntries(view({ ...draft, killY: 50 }, { tool })).map((entry) => entry.action.kind).slice(9, -1);
     expect(kinds("spawn")).toEqual(["none", "list", "list", "list", "none", "center", "none", "keepFacing", "snap"]);
     expect(kinds("region")).toEqual(["none", "box"]);
     expect(kinds("killY")).toEqual(["none", "typeKillY", "removeKillY"]);
@@ -97,6 +97,7 @@ describe("map menu", () => {
     expect(toolOf("minecade:spawn_tool")?.id).toBe("spawn");
     expect(toolOf("minecade:region_tool")?.id).toBe("region");
     expect(toolOf("minecade:kill_y_tool")?.id).toBe("killY");
+    expect(toolOf("minecade:camera_tool")?.id).toBe("camera");
     expect(toolOf("minecade:map_menu")).toBeUndefined();
   });
 });

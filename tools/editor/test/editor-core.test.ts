@@ -38,6 +38,9 @@ describe("parseArgs", () => {
     expect(parseArgs(["invite", "Some", "Friend"])).toEqual({ command: "invite", name: "Some Friend", on: true });
     expect(parseArgs(["uninvite", "Pal"])).toEqual({ command: "invite", name: "Pal", on: false });
     expect(parseArgs(["invite"])).toEqual({ command: "help", error: "invite needs a gamertag" });
+    expect(parseArgs(["picture"])).toEqual({ command: "picture", kind: "map" });
+    expect(parseArgs(["picture", "game"])).toEqual({ command: "picture", kind: "game" });
+    expect(parseArgs(["picture", "hat"]).command).toBe("help");
     expect(parseArgs(["status"])).toEqual({ command: "status" });
     expect(parseArgs(["--help"])).toEqual({ command: "help" });
   });

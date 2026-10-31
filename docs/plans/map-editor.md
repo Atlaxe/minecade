@@ -587,6 +587,19 @@ start, which builds from the checkout.
 **10.9 Extra tools:** mirror tool, camera tool and "Use latest screenshot", the lobby terminal
 marker.
 
+*The camera came early, on 2026-10-31, at the user's request (see "Pictures" in
+`docs/editor.md`). Where it differs from the design above:*
+- The Camera tool is the grid's fourth tool. A camera is a marker entity (magenta, its facing line
+  where it looks) until 10.7's camera model.
+- Look through hides the HUD, markers and outlines; a map preview also makes you invisible, since
+  guests never join Edit and you're the only one who could be in the shot.
+- The newest screenshot (Game Bar's `Videos\Captures`, or `Pictures\Screenshots`, from the last 10
+  minutes) is cropped to 16:9 and scaled to 320x180 (`docs/ui.md`), from the camera's form, the
+  question after Look through, the Panel's checklist card or `npm run editor -- picture [game]`.
+  Publish commits a game's `icon.png` along with the map.
+- Also at the user's request the same day: several bounds boxes (`"bounds"` as a list) and the
+  Boundaries view (a switch per boundary in the map menu's eye, shown whatever you hold).
+
 **Then milestones 11 and on, one per game:**
 1. Declare the game's `map` requirements.
 2. Select or create its test map and fill it in.

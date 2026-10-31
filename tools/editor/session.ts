@@ -6,7 +6,7 @@
 // opping map editors) is ServerSession's.
 import { existsSync, unwatchFile, watchFile } from "node:fs";
 import { cp, mkdir, readFile, rename, rm, writeFile } from "node:fs/promises";
-import { join, relative } from "node:path";
+import { basename, join, relative } from "node:path";
 import {
   applyEdit,
   describeEdit,
@@ -27,6 +27,7 @@ import { gitIn, publishMap, publishMessage, type Git } from "./publish.ts";
 import { findWorld } from "./selections.ts";
 import { RUNTIME_FILES, ServerSession, delay, message, root, type SessionBase } from "./server-session.ts";
 import type { EditorTarget } from "./targets.ts";
+import { saveNewestScreenshot } from "./screenshot.ts";
 import { readViews, saveView } from "./views.ts";
 import type { World } from "./worlds.ts";
 
@@ -249,6 +250,9 @@ export class EditorSession extends ServerSession {
       case "view":
         void saveView(root, event.by, event.shown).catch((error: unknown) => this.note(`Could not keep ${event.by}'s Boundaries switches: ${message(error)}`));
         return;
+      case "picture":
+        void this.picture(event.by, event.kind);
+        return;
     }
   }
 
@@ -440,7 +444,10 @@ export class EditorSession extends ServerSession {
       return;
     }
     await this.writing;
-    const result = await publishMap(this.git, path, publishMessage(this.target.name, name, new Date()));
+    // A game's picture (the camera's Game picture) goes along when it changed.
+    const icon = join(this.target.dir, "icon.png");
+    const paths = this.target.id !== "lobby" && existsSync(icon) ? [path, relative(root, icon).replaceAll("\\", "/")] : [path];
+    const result = await publishMap(this.git, paths, publishMessage(this.target.name, name, new Date()));
     if (result.outcome === "pushed") {
       const commit = result.commit ? ` (commit ${result.commit})` : "";
       const where = this.target.id === "lobby" ? "the Panel's lobby map picker has it" : `it's in ${this.target.name}'s map list in the lobby`;
@@ -458,6 +465,31 @@ export class EditorSession extends ServerSession {
           : `§c${name} was NOT published: ${result.error}.`,
       );
     }
+  }
+
+  /**
+   * Saves the newest screenshot on this PC (taken in the last few minutes), cropped to 16:9 at
+   * 320x180, as the map's preview.png ("map") or the game's icon.png ("game"): the camera's
+   * picture. Publish commits it. Undefined when it's saved, or why not.
+   */
+  async picture(by: string, kind: "map" | "game"): Promise<string | undefined> {
+    const tell = (text: string) => void (by === "this PC" ? this.say(text) : this.say(text, by));
+    if (this.target.id === "lobby") {
+      tell("§cThe lobby shows no picture of its own map: pictures are for games' maps.");
+      return "the lobby shows no picture of its own map";
+    }
+    const out = kind === "map" ? join(this.mapDir, "preview.png") : join(this.target.dir, "icon.png");
+    const what = kind === "map" ? `${this.config.name}'s preview` : `${this.target.name}'s picture`;
+    const result = await saveNewestScreenshot(out);
+    if (typeof result === "string") {
+      this.note(`${by}: no picture saved: ${result}.`);
+      tell(`§cNo picture saved: ${result}.`);
+      return result;
+    }
+    const file = relative(root, out).replaceAll("\\", "/");
+    this.note(`${by}: saved ${file} (320x180) from ${result.from}.`);
+    tell(`§aSaved ${what} from your screenshot of ${Math.max(1, Math.round(result.ageMs / 1000))} s ago (${basename(result.from)}). Publish puts it in the lobby.`);
+    return undefined;
   }
 
   /**

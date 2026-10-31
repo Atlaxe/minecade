@@ -44,6 +44,8 @@ import { KillYTool } from "./kill-y-tool.ts";
 import { HostLink } from "./link.ts";
 import { Outlines } from "./outlines.ts";
 import { boundaryRows, boundsAround, outlineBoxes, toggleBoundary } from "./regions.ts";
+import { CameraTool } from "./camera-tool.ts";
+import { cameraMarkers, type CameraMarker } from "./cameras.ts";
 import { RegionTool } from "./region-tool.ts";
 import { actionBar, heldTool, hintBar, notice, type ToolHost } from "./tool-host.ts";
 import { REACH } from "./box-picker.ts";
@@ -101,9 +103,10 @@ export class Editor {
   private readonly info: EditInfo;
   private readonly state: MapState;
   private readonly link: HostLink;
-  private readonly markers: Markers;
+  private readonly markers: Markers<MarkerSpec | CameraMarker>;
   private readonly regionTool: RegionTool;
   private readonly killYTool: KillYTool;
+  private readonly cameraTool: CameraTool;
   private readonly players: PlayersMenu;
   private readonly dimension: Dimension;
   private readonly settings = new Map<string, SpawnSettings>();
@@ -123,7 +126,7 @@ export class Editor {
     this.dimension = world.getDimension("overworld");
     this.status = { unsaved: info.fresh, saving: false };
     for (const [name, groups] of Object.entries(info.view ?? {})) this.shown.set(name.toLowerCase(), new Set(groups));
-    this.markers = new Markers(this.dimension, scope);
+    this.markers = new Markers<MarkerSpec | CameraMarker>(this.dimension, scope);
     this.link = new HostLink(scope, {
       config: (config, seq) => {
         this.state.replace(config, seq);
@@ -145,6 +148,12 @@ export class Editor {
     };
     this.regionTool = new RegionTool(scope, host);
     this.killYTool = new KillYTool(host);
+    this.cameraTool = new CameraTool({
+      ...host,
+      targetName: info.targetName,
+      picture: (player, kind) => this.link.send({ t: "picture", by: player.name, kind }),
+      lookChanged: () => (this.cameraTool.anyoneLooking() ? this.markers.hide() : this.markers.unhide()),
+    });
     new Outlines(
       scope,
       {
@@ -155,6 +164,7 @@ export class Editor {
           return typeof y === "number" ? { y, over: boundsAround(this.state.current) } : undefined;
         },
         shown: (player) => this.shown.get(player.name.toLowerCase()) ?? NONE_SHOWN,
+        hidden: (player) => this.cameraTool.isLooking(player),
       },
       ["region", "killY"],
     );
@@ -172,23 +182,30 @@ export class Editor {
       if (initialSpawn) scope.defer(() => this.welcome(player));
     });
     scope.subscribe(world.afterEvents.playerLeave, ({ playerName }) => {
+      this.cameraTool.forget(playerName);
       this.settings.delete(playerName.toLowerCase());
       this.formOpen.delete(playerName.toLowerCase());
       this.reopen.delete(playerName.toLowerCase());
     });
     scope.subscribe(world.afterEvents.itemUse, ({ source, itemStack }) => {
       if (!TOOLS.has(itemStack.typeId)) return;
+      // Looking through a camera, any use comes back first.
+      if (this.cameraTool.isLooking(source)) {
+        this.cameraTool.stop(source);
+        return;
+      }
       const tool = toolOf(itemStack.typeId)?.id;
       if (itemStack.typeId === MAP_MENU) void this.mapMenu(source);
       else if (tool === "spawn") this.spawnTool(source);
       else if (tool === "region") void this.regionTool.use(source);
       else if (tool === "killY") this.killYTool.use(source);
+      else if (tool === "camera") this.cameraTool.use(source);
     });
     scope.subscribe(world.afterEvents.entityHitEntity, ({ damagingEntity, hitEntity }) => {
       if (hitEntity.typeId !== MARKER || damagingEntity.typeId !== "minecraft:player") return;
       const player = damagingEntity as Player;
       const spec = this.markers.specOf(hitEntity);
-      if (spec) void this.markerMenu(player, spec);
+      if (spec) void ("camera" in spec ? this.cameraTool.menu(player, spec.camera) : this.markerMenu(player, spec));
     });
     // A tool never breaks the block it hits, which creative mode would.
     scope.subscribeBefore(world.beforeEvents.playerBreakBlock, (event) => {
@@ -197,7 +214,7 @@ export class Editor {
     scope.subscribe(world.afterEvents.playerPlaceBlock, ({ player }) => this.blocksChanged(player.name));
     scope.subscribe(world.afterEvents.playerBreakBlock, ({ player }) => this.blocksChanged(player.name));
     scope.interval(() => this.hints(), HINT_TICKS);
-    keepModeLine(scope, () => modeLine("edit", `${this.info.targetName}: ${this.state.current.name}`));
+    keepModeLine(scope, () => modeLine("edit", `${this.info.targetName}: ${this.state.current.name}`), (player) => this.cameraTool.isLooking(player));
     this.refresh();
     void this.prepareWorld();
   }
@@ -266,7 +283,7 @@ export class Editor {
   }
 
   private refresh(): void {
-    this.markers.show(markerSpecs(this.state.current, this.lists()));
+    this.markers.show([...markerSpecs(this.state.current, this.lists()), ...cameraMarkers(this.state.current)]);
   }
 
   private lists(): SpawnList[] {
@@ -345,10 +362,11 @@ export class Editor {
   private hints(): void {
     for (const player of world.getAllPlayers()) {
       const tool = heldTool(player);
-      if (!tool) continue;
+      if (!tool || this.cameraTool.isLooking(player)) continue;
       if (tool === "spawn") hintBar(player, this.spawnHint(player));
       else if (tool === "region") hintBar(player, this.regionTool.hint(player));
       else if (tool === "killY") hintBar(player, this.killYTool.hint(player));
+      else if (tool === "camera") hintBar(player, this.cameraTool.hint(player));
     }
   }
 
@@ -385,6 +403,7 @@ export class Editor {
       ...this.status,
       spawn: { lists: this.lists(), settings: this.settingsOf(player) },
       region: { selection: this.regionTool.menuSelection(player), entries: tool === "region" ? this.regionTool.entries() : [] },
+      camera: { kind: this.cameraTool.kindOf(player) },
     });
     const form = new ActionFormData().title(mapTitle("Map menu")).body(mapMenuBody(this.info.targetName, this.info.map, config, tool));
     for (const entry of entries) form.button(entry.text, entry.icon);
@@ -447,6 +466,11 @@ export class Editor {
       case "removeKillY":
         this.killYTool.remove(player);
         return;
+      case "cameraKind":
+        this.cameraTool.toggleKind(player);
+        return this.mapMenu(player);
+      case "camera":
+        return this.cameraTool.menu(player, action.name);
       case "save":
         this.save(player);
         return;

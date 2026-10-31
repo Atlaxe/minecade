@@ -2,7 +2,7 @@
 // tool grid: it goes in hotbar slot 1, unlocked, and only one tool is out at a time. A new tool
 // adds a row here and gets its icon in the grid.
 
-export type ToolId = "spawn" | "region" | "killY" | "select";
+export type ToolId = "spawn" | "region" | "killY" | "camera" | "select";
 
 export interface EditorTool {
   id: ToolId;
@@ -41,6 +41,14 @@ export const EDITOR_TOOLS: EditorTool[] = [
     label: "Kill Y tool",
     hint: "the height players are out below",
     howTo: "Players below kill Y are out. Use the tool to set it one block below your feet.",
+  },
+  {
+    id: "camera",
+    item: "minecade:camera_tool",
+    icon: "textures/items/camera_tool",
+    label: "Camera tool",
+    hint: "pictures for the lobby",
+    howTo: "Use it to place a camera at your eyes, looking where you look. Hit a camera to look through it and take a screenshot; use the tool again to come back.",
   },
 ];
 

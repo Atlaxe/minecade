@@ -69,16 +69,21 @@ function pointList(name: string, label: string, color: string): SpawnList {
   return { target, key: listKey(target), label, entry: label, color, single: false };
 }
 
-export interface MarkerSpec {
-  /** "<list key>#<index>", stored on the marker entity. */
+/** What every marker has (markers.ts draws these): an entry's, or a camera's (cameras.ts). */
+export interface MarkerShape {
+  /** Stored on the marker entity: "<list key>#<index>", or "camera:<name>". */
   key: string;
-  list: SpawnList;
-  index: number;
   /** The marker's name tag. */
   label: string;
   /** Where the marker stands: the entry's exact point, or the middle of its block. */
   at: { x: number; y: number; z: number };
   facing?: Facing;
+}
+
+/** An entry's marker. */
+export interface MarkerSpec extends MarkerShape {
+  list: SpawnList;
+  index: number;
 }
 
 /** A marker for every entry of every list. */

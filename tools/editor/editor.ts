@@ -8,7 +8,7 @@
 // The Panel starts the same tool in the background (its output goes to work/editor/editor.log).
 // Either way it answers on 127.0.0.1:8097, which the Panel and `npm run editor -- stop` use.
 import { fileURLToPath } from "node:url";
-import { editorStatus, endPreviewEditor, inviteEditor, openInEditor, previewEditor, publishEditor, saveEditor, serveControl, stopEditor } from "./control.ts";
+import { editorStatus, endPreviewEditor, inviteEditor, openInEditor, pictureEditor, previewEditor, publishEditor, saveEditor, serveControl, stopEditor } from "./control.ts";
 import { USAGE, parseArgs, type EditorStatus } from "./editor-core.ts";
 import { EditorRunner } from "./runner.ts";
 
@@ -73,6 +73,12 @@ if (args.command === "preview" || args.command === "endPreview") {
   process.exit(0);
 }
 
+if (args.command === "picture") {
+  const result = await pictureEditor(args.kind);
+  console.log(result.ok ? `Saved your newest screenshot as ${args.kind === "map" ? "the map's preview" : "the game's picture"} (Publish commits it).` : result.error === "no map editor is running" ? "No map editor is running." : `Can't: ${result.error}.`);
+  process.exit(0);
+}
+
 if (args.command === "invite") {
   const result = await inviteEditor(args.name, args.on);
   if (!result.ok) {
@@ -123,6 +129,7 @@ const control = await serveControl({
   preview: () => runner.preview("this PC"),
   endPreview: () => runner.endPreview(),
   invite: (name, on) => runner.invite("this PC", name, on),
+  picture: (kind) => runner.picture(kind),
   stop: () => void runner.shutdown(),
   open: (request) => runner.request("this PC", request),
 }).catch((error: unknown) => {

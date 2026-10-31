@@ -121,6 +121,21 @@ The mode box (top center, after the editor's next boot):
   as a big title in the middle instead of the box, say so.
 - The editor lobby shows no box (its HUD is hidden).
 
+The Camera tool (after the editor's next boot), on a copy of Sumo's Arena:
+
+- The tool grid has a fourth tool, a camera icon. Pick it: the action bar says a use places
+  Camera 1. Use it looking over the arena: a magenta marker "Camera 1, Map preview" floats at your
+  eye height, its red line pointing where you looked. `map.json` has `cameras`.
+- Hit the marker, Look through: your view jumps to the camera, with no HUD, no hotbar, no markers
+  and no outlines. Look around with the mouse: the view stays put. Take a screenshot with
+  Win+Alt+PrtScn. Right click: you're back, with the HUD, and asked whether to use the screenshot.
+  Use it: chat says it saved the map's preview; `games/sumo/maps/<map>/preview.png` is 320x180 and
+  shows the shot.
+- Switch the camera to Game picture, Look through again: you're visible this time; walk into the
+  shot. Use it: `games/sumo/icon.png` is replaced (don't publish that one unless you mean to).
+- Aim from my view moves the marker to your eyes. Delete removes it. The Panel's "Newest screenshot
+  as: Map preview" does the same as the form.
+
 Guests (after the editor's next boot; needs a second account that isn't in LAN_PLAYERS):
 
 - Edit's gear, Players: Invite a player, type their gamertag. Chat says they're invited and the

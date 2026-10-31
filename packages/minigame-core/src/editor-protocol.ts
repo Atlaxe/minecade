@@ -144,6 +144,8 @@ export type EditorEvent =
   | { t: "changed"; by: string }
   /** A map editor's Boundaries switches changed (kept for their next map). */
   | { t: "view"; by: string; shown: string[] }
+  /** Save the newest screenshot on the host's PC as the map's preview ("map") or the game's picture ("game"). */
+  | { t: "picture"; by: string; kind: "map" | "game" }
   /** The answer to "cleanup": how many markers are still in the world (the world is saved only at 0). */
   | { t: "clean"; id: number; left: number; error?: string }
   /** Select mode: extract this box as a new map. `spawn` (where the player stood) becomes its first spawn. */
@@ -186,7 +188,7 @@ export type HostMessage =
   /** Extract mode: move `box` by `offset`, clearing the box's chunks around it, then answer with "extracted". */
   | { t: "extract"; box: Box; offset: Vec3 };
 
-const EVENT_TYPES = new Set(["ready", "edit", "undo", "redo", "resync", "save", "publish", "preview", "changed", "view", "clean", "saveMap", "mapAction", "open", "invite", "extracted"]);
+const EVENT_TYPES = new Set(["ready", "edit", "undo", "redo", "resync", "save", "publish", "preview", "changed", "view", "picture", "clean", "saveMap", "mapAction", "open", "invite", "extracted"]);
 const MESSAGE_TYPES = new Set(["config", "home", "ack", "status", "say", "notice", "cleanup", "resume", "selection", "forgotten", "goto", "guests", "extract"]);
 
 // BDS prints script console output as "[<time> <LEVEL>] [Scripting] <text>". Requiring that prefix

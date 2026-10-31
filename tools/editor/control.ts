@@ -5,6 +5,7 @@
 //   POST /publish            publish the map open in Edit (saved, then committed and pushed)
 //   POST /preview            play the map open in Edit as its game; POST /preview/end ends it
 //   POST /guests {name, on}  invite a player to Select and previews, or take the invitation back
+//   POST /picture {kind}     the newest screenshot as the map's preview ("map") or the game's picture ("game")
 //   POST /open {request}     open a map in Edit or a world in Select (an OpenRequest)
 //   POST /stop               shut it down (Edit saves first)
 // Requests are checked the way the Panel checks its own, so a web page can't reach it.
@@ -28,6 +29,8 @@ export interface ControlHandlers {
   endPreview(): boolean;
   /** Undefined when it's done, or why not. */
   invite(name: string, on: boolean): Promise<string | undefined>;
+  /** Undefined when it's saved, or why not. */
+  picture(kind: "map" | "game"): Promise<string | undefined>;
   stop(): void;
   /** Undefined when it's under way, or why not. */
   open(request: OpenRequest): Promise<string | undefined>;
@@ -70,6 +73,11 @@ export function serveControl(handlers: ControlHandlers): Promise<Server> {
           return problem ? reply(409, { error: problem }) : reply(202, { ok: true });
         }
         if (method === "POST" && path === "/preview/end") return handlers.endPreview() ? reply(202, { ok: true }) : reply(409, { error: "no preview is running" });
+        if (method === "POST" && path === "/picture") {
+          if (body.kind !== "map" && body.kind !== "game") return reply(400, { error: 'expected {kind: "map" | "game"}' });
+          const problem = await handlers.picture(body.kind);
+          return problem ? reply(409, { error: problem }) : reply(200, { ok: true });
+        }
         if (method === "POST" && path === "/guests") {
           if (typeof body.name !== "string" || typeof body.on !== "boolean") return reply(400, { error: "expected {name: gamertag, on: true|false}" });
           const problem = await handlers.invite(body.name, body.on);
@@ -145,6 +153,11 @@ export function endPreviewEditor(): Promise<{ ok: boolean; error?: string }> {
 /** Asks the running editor to invite a player (on), or take the invitation back; the error when it can't (or none answers). */
 export function inviteEditor(name: string, on: boolean): Promise<{ ok: boolean; error?: string }> {
   return post("/guests", { name, on });
+}
+
+/** Asks the running editor to save the newest screenshot as the map's preview or the game's picture; the error when it can't. */
+export function pictureEditor(kind: "map" | "game"): Promise<{ ok: boolean; error?: string }> {
+  return post("/picture", { kind });
 }
 
 /** Asks the running editor to open a map or a world; the error when it can't (or none answers). */

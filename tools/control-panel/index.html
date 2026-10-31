@@ -727,7 +727,7 @@ function renderEditor() {
   const server = (s) => s && [s.state, s.error, s.players, s.world, s.targetName, s.mapName, s.map, s.draft, s.saving, s.unsaved, s.publishing, s.checklist?.ready];
   const facts = status && [status.state, status.error, status.join, status.home.players, status.waiting, server(status.select), server(status.edit), status.preview?.state, status.preview?.label];
   patch($("editor-server"), [tone, text, editor.old, editor.stale, editor.launching, state.docker, state.busy, state.networkRunning, state.connection.lanHost, facts], () => editorCard(editor, status));
-  patch($("editor-checklist"), status?.edit && [status.edit.checklist, status.edit.undo, status.edit.redo, status.edit.unsaved, status.edit.saving, status.edit.publishing, status.edit.draft, status.edit.mapName], () => status?.edit && checklistCard(status.edit));
+  patch($("editor-checklist"), status?.edit && [status.edit.checklist, status.edit.undo, status.edit.redo, status.edit.unsaved, status.edit.saving, status.edit.publishing, status.edit.draft, status.edit.mapName, status.edit.target], () => status?.edit && checklistCard(status.edit));
   patch($("editor-select"), status?.select && [status.select.world, status.select.selections], () => status?.select && selectionsCard(status.select));
   patch($("editor-guests"), status?.state === "ready" && [status.guests], () => status?.state === "ready" && guestsCard(status.guests ?? []));
   const pre = $("editor-log");
@@ -901,7 +901,11 @@ function checklistCard(status) {
     rows.length ? table : el("p", { className: "muted", style: "margin:0" }, "This map's game asks for nothing beyond its spawns."),
     problems.map((problem) => el("p", { className: "callout bad" }, problem)),
     warnings.map((warning) => el("p", { className: "callout warn" }, warning)),
-    el("p", { className: "hint" }, facts));
+    el("p", { className: "hint" }, facts),
+    status.target !== "lobby" && el("div", { className: "actions" },
+      el("span", { className: "muted small" }, "Newest screenshot as:"),
+      el("button", { className: "small", title: "Crop your newest screenshot (taken in the last 10 minutes) to 16:9 and save it as this map's preview.png", onclick: () => post("/api/editor/picture", { kind: "map" }) }, "Map preview"),
+      el("button", { className: "small", title: `Crop your newest screenshot to 16:9 and save it as ${status.targetName}'s icon.png`, onclick: () => post("/api/editor/picture", { kind: "game" }) }, "Game picture")));
 }
 
 // ---- Logs --------------------------------------------------------------------------------

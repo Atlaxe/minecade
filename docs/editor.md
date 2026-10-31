@@ -42,6 +42,7 @@ npm run editor -- publish                 publish the map open in Edit (see "Pub
 npm run editor -- preview [end]           play the map open in Edit as its game, or end that (see "Preview")
 npm run editor -- invite "<gamertag>"     let a friend join Select and previews (see "Who can join")
 npm run editor -- uninvite "<gamertag>"   take that back, and disconnect them
+npm run editor -- picture [game]          your newest screenshot as the map's preview (or the game's picture)
 npm run editor -- stop                    shut it down (Edit saves first)
 ```
 
@@ -190,9 +191,10 @@ screen.
      the next boot (`work/editor/view.json`).
    - **The play icon** (Preview, game maps only): see "Preview".
    - **The gear** (map settings): the map's name and the game's own settings in `map.json` (such as
-     a number a game reads), as text fields; and **Drop build commands** (maps made by
-     `npm run bake`), which keeps the world as you change it.
-2. **Tools:** a grid of the tools' icons (the Spawn tool, the Region tool and the Kill Y tool), with
+     a number a game reads), as text fields; **Players** (see "Who can join"); and **Drop build
+     commands** (maps made by `npm run bake`), which keeps the world as you change it.
+2. **Tools:** a grid of the tools' icons (the Spawn tool, the Region tool, the Kill Y tool and the
+   Camera tool), with
    their names as tooltips. Tap one to put it in slot 1 and in your hand; the menu opens again with
    that tool's settings. Tap it again to put it away. The one you have out is outlined. One tool is
    out at a time: picking one puts any other away. The tool isn't locked, so you can move it;
@@ -245,6 +247,7 @@ screen.
     - **Back one step** undoes the last change to the selection; **Clear selection**.
   - The checklist's bounds and region rows give you the tool already set to that row.
 - **Kill Y tool:** players below kill Y are out. Use it to set kill Y one block below your feet.
+- **Camera tool:** pictures for the lobby (see "Pictures").
 - **Outlines:** while you hold the region tool or the Kill Y tool, dots outline your selection
   (yellow), the bounds (white), kill regions (red), each other region in its own color (a team's
   region in the team's color), and the kill Y plane (red: a grid near you, and the edge of the box
@@ -291,6 +294,31 @@ previewed yet), **Preview** on the Panel's Edit row, or `npm run editor -- previ
    row, or `npm run editor -- preview end`) ends it at any time.
 
 A preview never counts toward stats.
+
+## Pictures
+
+The lobby shows a picture of each map (its tile, and the hologram when it's picked) and of each
+game. The Camera tool frames them, and the editor saves your screenshot as the picture.
+
+1. **Place a camera:** with the Camera tool, use it where the shot should be taken from, looking
+   the way it should look. "Camera 1" appears there (a magenta marker whose red line shows where
+   it looks), saved in `map.json`'s `cameras`. The tool's settings say what new cameras are:
+   - **Map preview** (Game picture off): the map's picture, with nobody in the shot (you're made
+     invisible while you look through);
+   - **Game picture** (on): the game's picture, where you can walk into the shot.
+2. **Look through:** hit the camera, Look through. Your view moves to the camera, with the HUD,
+   the markers and the outlines hidden. Take the screenshot: **Win+Alt+PrtScn** (Xbox Game Bar,
+   saved in `Videos\Captures`) or **Win+PrtScn** (saved in `Pictures\Screenshots`). Use the Camera
+   tool again to come back.
+3. **Use it:** coming back asks whether to use your newest screenshot (taken in the last 10
+   minutes). Its middle 16:9 is scaled to 320x180 and saved as the map's `preview.png` (a map
+   preview) or the game's `icon.png` (a game picture). The camera's form (Use my newest screenshot),
+   the Panel's checklist card ("Newest screenshot as") and `npm run editor -- picture [game]` do the
+   same. Publish commits both.
+
+Hit a camera for its form: Look through, Use my newest screenshot, **Aim from my view** (moves it to
+your eyes, looking your way), **Game picture** (switches its kind), Delete. The tool's settings list
+every camera too. Lobby maps can have cameras, but the lobby shows no picture of its own map.
 
 ## Publishing
 
@@ -359,7 +387,7 @@ publishing again pushes it. The commit goes on the branch of the checkout the ed
   it `return_all` on the console. `LOBBY_PORT` is Edit's port, so the game's own trip home lands
   there. A small resource pack carries the editor's mode box, and the `preview` server variable
   makes the game keep "Preview" in it (never over its own titles).
-- The host answers on `127.0.0.1:8097` (`GET /status`, `POST /save`, `POST /publish`, `POST /preview`, `POST /preview/end`, `POST /guests`, `POST /open`, `POST /stop`),
+- The host answers on `127.0.0.1:8097` (`GET /status`, `POST /save`, `POST /publish`, `POST /preview`, `POST /preview/end`, `POST /guests`, `POST /picture`, `POST /open`, `POST /stop`),
   which the Panel and `npm run editor -- status | save | stop | <target> <map>` use. When the Panel
   boots the editor, its output goes to `work/editor/editor.log`.
 - **The menus** are classic forms themed by the editor's resource pack, like the lobby's menus

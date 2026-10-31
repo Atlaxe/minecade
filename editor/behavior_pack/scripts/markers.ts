@@ -7,7 +7,7 @@
 // server crashes), and clear() loads them all and removes every marker before the world is saved.
 import { world, type Dimension, type Entity, type Vector3 } from "@minecraft/server";
 import { describeError, log, type Scope } from "@minecade/minigame-core";
-import { markerPitch, sameYaw, type MarkerSpec } from "./lists.ts";
+import { markerPitch, sameYaw, type MarkerShape } from "./lists.ts";
 
 export const MARKER = "minecade:editor_marker";
 /** On each marker: its MarkerSpec key. */
@@ -23,11 +23,14 @@ const SYNC_TICKS = 20;
 /** Ticking areas loaded at once while clearing; the pack's limit may be lower. */
 const SWEEP_BATCH = 16;
 
-export class Markers {
+export class Markers<Spec extends MarkerShape = MarkerShape> {
   private readonly dimension: Dimension;
-  private specs = new Map<string, MarkerSpec>();
+  private specs = new Map<string, Spec>();
   private readonly chunks = new Set<string>();
+  /** Cleared for a save, until resume(). */
   private paused = false;
+  /** Out of a camera's shot, until unhide(). */
+  private hidden = false;
 
   constructor(dimension: Dimension, scope: Scope) {
     this.dimension = dimension;
@@ -44,19 +47,19 @@ export class Markers {
   }
 
   /** Shows these markers, and only these, wherever their chunks are loaded. */
-  show(specs: MarkerSpec[]): void {
+  show(specs: Spec[]): void {
     this.specs = new Map(specs.map((spec) => [spec.key, spec]));
     this.sync();
   }
 
   /** What a marker entity stands for, if it's a current marker. */
-  specOf(entity: Entity): MarkerSpec | undefined {
+  specOf(entity: Entity): Spec | undefined {
     const key = entity.getDynamicProperty(KEY_PROPERTY);
     return typeof key === "string" ? this.specs.get(key) : undefined;
   }
 
   private sync(): void {
-    if (this.paused) return;
+    if (this.paused || this.hidden) return;
     const shown = new Set<string>();
     for (const entity of this.dimension.getEntities({ type: MARKER })) {
       const spec = this.specOf(entity);
@@ -122,6 +125,17 @@ export class Markers {
     return left;
   }
 
+  /** Takes every loaded marker away until unhide(), out of a camera's shot. */
+  hide(): void {
+    this.hidden = true;
+    this.removeAll();
+  }
+
+  unhide(): void {
+    this.hidden = false;
+    this.sync();
+  }
+
   /** Shows the markers again after clear(). */
   resume(): void {
     this.paused = false;
@@ -141,12 +155,12 @@ export class Markers {
 }
 
 /** The way a marker is turned: its entry's yaw, or south without a facing. */
-function yawOf(spec: MarkerSpec): number {
+function yawOf(spec: MarkerShape): number {
   return spec.facing?.yaw ?? 0;
 }
 
 /** Shows or hides the facing line and sets its tilt. */
-function showFacing(entity: Entity, spec: MarkerSpec): void {
+function showFacing(entity: Entity, spec: MarkerShape): void {
   const faced = spec.facing !== undefined;
   const pitch = markerPitch(spec.facing);
   if (entity.getProperty(FACED_PROPERTY) !== faced) entity.setProperty(FACED_PROPERTY, faced);

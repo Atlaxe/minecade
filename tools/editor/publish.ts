@@ -49,21 +49,22 @@ export function gitIn(cwd: string): Git {
  * It catches up with GitHub first when it can, so the push goes through; a push that fails leaves
  * the commit here, and publishing again pushes it.
  */
-export async function publishMap(git: Git, path: string, message: string): Promise<PublishResult> {
+export async function publishMap(git: Git, paths: string | string[], message: string): Promise<PublishResult> {
+  const only = ["--", ...(Array.isArray(paths) ? paths : [paths])];
   const upstream = await git(["rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{upstream}"], LOCAL_MS);
   // Fails when local changes are in the way; the push below then says what's wrong.
   if (upstream.code === 0 && (await git(["fetch", "--quiet"], NETWORK_MS)).code === 0) {
     await git(["merge", "--ff-only", "--quiet", "@{upstream}"], LOCAL_MS);
   }
 
-  const added = await git(["add", "--all", "--", path], LOCAL_MS);
+  const added = await git(["add", "--all", ...only], LOCAL_MS);
   if (added.code !== 0) return { outcome: "failed", error: `git add: ${firstLine(added.out)}` };
-  const diff = await git(["diff", "--cached", "--quiet", "--", path], LOCAL_MS);
+  const diff = await git(["diff", "--cached", "--quiet", ...only], LOCAL_MS);
   if (diff.code !== 0 && diff.code !== 1) return { outcome: "failed", error: `git diff: ${firstLine(diff.out)}` };
   let commit: string | undefined;
   if (diff.code === 1) {
-    // Naming the path commits only it, even with other changes staged.
-    const committed = await git(["commit", "--quiet", "-m", message, "--", path], LOCAL_MS);
+    // Naming the paths commits only them, even with other changes staged.
+    const committed = await git(["commit", "--quiet", "-m", message, ...only], LOCAL_MS);
     if (committed.code !== 0) return { outcome: "failed", error: `git commit: ${firstLine(committed.out)}` };
     commit = (await git(["rev-parse", "--short", "HEAD"], LOCAL_MS)).out;
   }

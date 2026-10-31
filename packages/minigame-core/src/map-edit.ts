@@ -2,7 +2,7 @@
 // once) and its host tool (which applies the same change and writes the file). Each edit returns a
 // new config and never changes the old one; undo keeps the old configs. New keys go where a person
 // would write them (spawns near the top, build last), and lists or names left empty are removed.
-import { QUEUE_COUNTDOWN, boundsBoxes, queueSettings, type Box, type Facing, type MapConfig, type MapPosition, type QueueSettings, type Vec3 } from "./map-config.ts";
+import { QUEUE_COUNTDOWN, boundsBoxes, queueSettings, type Box, type MapCamera, type Facing, type MapConfig, type MapPosition, type QueueSettings, type Vec3 } from "./map-config.ts";
 
 /** A list of positions in map.json. The spectator and queue spawns are lists of at most one. */
 export type MapList =
@@ -37,6 +37,8 @@ export type MapEdit =
   | { op: "draft"; draft: boolean }
   /** Changes how players wait at the queue spawn (what's left out stays as it is). */
   | { op: "queue"; mode?: QueueSettings["mode"]; countdown?: number }
+  /** Places or changes a preview camera (the map editor's Camera tool), or with none removes it. */
+  | { op: "camera"; name: string; camera?: MapCamera }
   /** Sets (or, with no value, removes) a game-specific key, such as Sumo's eliminationY. */
   | { op: "extra"; key: string; value?: string | number | boolean }
   /** Removes "build", so `npm run bake` no longer rebuilds the world (world edits are kept). */
@@ -119,6 +121,15 @@ export function applyEdit(config: MapConfig, edit: MapEdit): MapConfig {
       const queue = { ...queueSettings(config), ...(edit.mode ? { mode: edit.mode } : {}), ...(edit.countdown !== undefined ? { countdown: edit.countdown } : {}) };
       return withKey(config, "queue", queue);
     }
+    case "camera": {
+      const name = edit.name.trim();
+      if (!name) throw new MapEditError("a camera needs a name");
+      const cameras: Record<string, MapCamera> = { ...config.cameras };
+      if (edit.camera) cameras[name] = edit.camera;
+      else if (!(name in cameras)) throw new MapEditError(`there is no camera "${name}"`);
+      else delete cameras[name];
+      return withKey(config, "cameras", Object.keys(cameras).length > 0 ? cameras : undefined);
+    }
     case "extra":
       if (isMapKey(edit.key) || !/^[A-Za-z][A-Za-z0-9_]*$/.test(edit.key)) throw new MapEditError(`"${edit.key}" is not a game setting`);
       return withKey(config, edit.key, edit.value);
@@ -174,6 +185,8 @@ export function describeEdit(edit: MapEdit): string {
       return edit.draft ? "mark as draft" : "publish (no longer a draft)";
     case "queue":
       return ["queue:", edit.mode && (edit.mode === "lock" ? "lock in" : "free"), edit.countdown !== undefined && `${edit.countdown} s countdown`].filter(Boolean).join(" ");
+    case "camera":
+      return `${edit.camera ? "set" : "remove"} camera ${edit.name}`;
     case "extra":
       return `set ${edit.key}`;
     case "dropBuild":

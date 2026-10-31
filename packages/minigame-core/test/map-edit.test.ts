@@ -84,6 +84,20 @@ describe("applyEdit", () => {
     );
   });
 
+  it("places, changes and removes preview cameras", () => {
+    const camera = { at: [0, 80, -20, 0, 20] as [number, number, number, number, number], kind: "map" as const };
+    let map = applyEdit(base, { op: "camera", name: "Camera 1", camera });
+    expect(map.cameras).toEqual({ "Camera 1": camera });
+    expect(Object.keys(map).at(-2)).toBe("cameras");
+    map = applyEdit(map, { op: "camera", name: "Camera 1", camera: { ...camera, kind: "game" } });
+    expect(map.cameras?.["Camera 1"].kind).toBe("game");
+    expect(applyEdit(map, { op: "camera", name: "Camera 1" }).cameras).toBeUndefined();
+    expect(() => applyEdit(map, { op: "camera", name: "Camera 9" })).toThrow('there is no camera "Camera 9"');
+    expect(() => applyEdit(map, { op: "camera", name: " ", camera })).toThrow("a camera needs a name");
+    expect(describeEdit({ op: "camera", name: "Camera 1", camera })).toBe("set camera Camera 1");
+    expect(describeEdit({ op: "camera", name: "Camera 1" })).toBe("remove camera Camera 1");
+  });
+
   it("refuses edits that don't fit", () => {
     expect(() => applyEdit(base, { op: "remove", target: { list: "spawns" }, index: 2 })).toThrow(MapEditError);
     expect(() => applyEdit(base, { op: "move", target: { list: "points", name: "bomb" }, index: 0, at: [0, 0, 0] })).toThrow("there is no entry 1 (the list has 0)");

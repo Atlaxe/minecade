@@ -21,11 +21,11 @@ export function modeLine(mode: Mode, detail = ""): string {
   return `${MODE_MARK}${MODES[mode]}${detail ? `§7   ${detail}` : ""}`;
 }
 
-/** Keeps every player's mode line up: when they spawn, and every few seconds after. */
-export function keepModeLine(scope: Scope, lineOf: (player: Player) => string): void {
+/** Keeps every player's mode line up: when they spawn, and every few seconds after (not while `hidden`). */
+export function keepModeLine(scope: Scope, lineOf: (player: Player) => string, hidden?: (player: Player) => boolean): void {
   const show = (player: Player) => {
     try {
-      if (player.isValid) player.onScreenDisplay.setTitle(lineOf(player), { fadeInDuration: 0, stayDuration: STAY_TICKS, fadeOutDuration: 0 });
+      if (player.isValid && !hidden?.(player)) player.onScreenDisplay.setTitle(lineOf(player), { fadeInDuration: 0, stayDuration: STAY_TICKS, fadeOutDuration: 0 });
     } catch {
       // left between the check and the call
     }

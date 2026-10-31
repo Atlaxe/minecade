@@ -34,6 +34,8 @@ export interface OutlineSource {
   killY?(): { y: number; over?: Box } | undefined;
   /** The boundary groups this player switched on (regions.ts outlineShown), shown whatever they hold. */
   shown?(player: Player): ReadonlySet<string>;
+  /** True while this player sees none (looking through a camera). */
+  hidden?(player: Player): boolean;
 }
 
 /** Everything: what a player holding one of the tools sees. */
@@ -53,6 +55,7 @@ export class Outlines {
   private draw(): void {
     const viewers: [Player, ReadonlySet<string>, boolean][] = [];
     for (const player of world.getAllPlayers()) {
+      if (this.source.hidden?.(player)) continue;
       const holding = this.tools.has(heldTool(player));
       const shown = holding ? EVERYTHING : this.source.shown?.(player);
       if (shown && shown.size > 0) viewers.push([player, shown, holding]);

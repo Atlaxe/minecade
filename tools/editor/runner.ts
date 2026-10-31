@@ -190,6 +190,16 @@ export class EditorRunner {
     return undefined;
   }
 
+  /**
+   * Saves the newest screenshot on this PC as the preview picture of the map open in Edit
+   * ("map"), or as its game's picture ("game"). Undefined when it's saved, or why not.
+   */
+  async picture(kind: "map" | "game"): Promise<string | undefined> {
+    const edit = this.work.edit;
+    if (!edit || edit.status().state !== "ready") return "no map is open in Edit";
+    return edit.picture("this PC", kind);
+  }
+
   /** Ends the preview now: the game sends everyone back to Edit. False when none runs. */
   endPreview(): boolean {
     if (!this.previewing) return false;

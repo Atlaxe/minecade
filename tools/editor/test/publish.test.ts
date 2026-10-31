@@ -88,6 +88,14 @@ describe("publishMap", () => {
     ]);
   });
 
+  it("commits the game's picture along with the map when it's given", async () => {
+    await writeFile(join(work, MAP, "preview.png"), Buffer.from([137, 80, 78, 71]));
+    await writeFile(join(work, "icon.png"), Buffer.from([137, 80, 78, 71, 1]));
+    const result = await publishMap(gitIn(work), [MAP, "icon.png"], "Automated Map Build : Sumo Castle Keep 2026-10-31 18:55");
+    expect(result.outcome).toBe("pushed");
+    expect(git(remote, "show", "--name-only", "--format=", "main").split("\n").sort()).toEqual([`${MAP}/preview.png`, "icon.png"]);
+  });
+
   it("keeps the commit when the push fails, and pushes it on the next publish", async () => {
     await writeFile(join(work, MAP, "map.json"), '{ "name": "Castle Gate" }\n');
     git(work, "remote", "set-url", "origin", join(dir, "nowhere.git"));

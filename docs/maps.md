@@ -40,7 +40,7 @@ The map editor sets spawns and points in game and writes `map.json` for you; see
 | `points` | no | `{ "<name>": [positions] }`: named positions a game uses, such as bomb sites or mob spawns. `"<name>.<team>"` is one team's (`"flag.red"`). |
 | `regions` | no | `{ "<name>": [{ "min": [x, y, z], "max": [x, y, z] }, ...] }`: named boxes, such as build plots or a floor that falls away. `"<name>.<team>"` is one team's. The name `kill` is reserved: anyone inside a `kill` box is out, the same as falling below `killY` (spectators fly over them). |
 | `build.commands` | no | Console commands (no leading `/`) that build the world, run once by `npm run bake`. |
-| `source`, `cameras` | no | Written by the map editor: where the map was cut from, and its preview cameras. Servers never get them. |
+| `source`, `cameras` | no | Written by the map editor: where the map was cut from, and its preview cameras (`{ "Camera 1": { "at": [x, y, z, yaw, pitch], "kind": "map" \| "game" } }`, the eye point and view the Camera tool saved). Servers never get them. |
 | anything else | no | Game-specific settings the game reads itself. |
 
 **Positions** are `[x, y, z]`, or `[x, y, z, yaw, pitch]` with a fixed facing in degrees (yaw -180

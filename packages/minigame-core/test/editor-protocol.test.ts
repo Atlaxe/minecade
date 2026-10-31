@@ -92,6 +92,7 @@ describe("editor protocol", () => {
     expect(parseEditorEvent('{"t":"preview","by":"a"}')).toEqual({ t: "preview", by: "a" });
     expect(parseEditorEvent('{"t":"invite","by":"a","name":"Friend","on":true}')).toEqual({ t: "invite", by: "a", name: "Friend", on: true });
     expect(parseEditorEvent('{"t":"view","by":"a","shown":["bounds"]}')).toEqual({ t: "view", by: "a", shown: ["bounds"] });
+    expect(parseEditorEvent('{"t":"picture","by":"a","kind":"map"}')).toEqual({ t: "picture", by: "a", kind: "map" });
     expect(parseHostMessage('{"t":"guests","guests":[{"name":"Friend","on":"select"}]}')).toEqual({ t: "guests", guests: [{ name: "Friend", on: "select" }] });
     expect(parseEditorEvent('{"t":"saveWorld","by":"a","save":true}')).toBeUndefined();
     expect(parseHostMessage('{"t":"resume"}')).toEqual({ t: "resume" });

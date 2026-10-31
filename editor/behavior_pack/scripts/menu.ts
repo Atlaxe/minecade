@@ -22,6 +22,7 @@ import {
 import { sizeText } from "./boxes.ts";
 import { SNAPS, type Snap, type SpawnList } from "./lists.ts";
 import { COLUMNS, MARK, dangerText, headingText, switchText } from "./marks.ts";
+import { CAMERA_KINDS, camerasOf, type CameraKind } from "./cameras.ts";
 import { ALL_BOUNDARIES, outlineShown, selectionActions, type BoundaryRow, type RegionEntry, type SelectionAction } from "./regions.ts";
 import { EDITOR_TOOLS, SELECT_TOOL, type ToolId } from "./tools.ts";
 
@@ -56,6 +57,9 @@ export type MenuAction =
   | { kind: "box"; key: string }
   | { kind: "typeKillY" }
   | { kind: "removeKillY" }
+  /** The camera tool: the kind of new cameras, and a camera's form. */
+  | { kind: "cameraKind" }
+  | { kind: "camera"; name: string }
   | { kind: "save" }
   /** Select mode: something to do with the selection. */
   | { kind: "pick"; action: PickAction }
@@ -102,6 +106,8 @@ export interface MapMenuView {
   spawn: { lists: SpawnList[]; settings: SpawnSettings };
   /** For the region tool's settings: the player's selection, and the map's boxes. */
   region: { selection?: { box: Box; editing?: string; steps: number }; entries: RegionEntry[] };
+  /** For the camera tool's settings: the kind new cameras get. */
+  camera?: { kind: CameraKind };
 }
 
 /** The map menu's buttons: the quick icons, the tools, the picked tool's settings, then Save. */
@@ -129,8 +135,20 @@ export function mapMenuEntries(view: MapMenuView): MenuEntry[] {
   if (view.tool === "spawn") entries.push(...spawnSettings(view.config, view.checklist, view.spawn.lists, view.spawn.settings));
   else if (view.tool === "region") entries.push(...regionSettings(view.region.selection, view.region.entries, view.config.killY));
   else if (view.tool === "killY") entries.push(...killYSettings(view.config.killY));
+  else if (view.tool === "camera") entries.push(...cameraSettings(view.config, view.camera?.kind ?? "map"));
   entries.push({ action: { kind: "save" }, text: `${MARK.save}${saveText(view)}` });
   return entries;
+}
+
+/** The camera tool's settings: the kind of new cameras, then the map's cameras (tap one for its form). */
+export function cameraSettings(config: MapConfig, kind: CameraKind): MenuEntry[] {
+  const cameras = camerasOf(config);
+  return [
+    { action: { kind: "none" }, text: headingText("New cameras") },
+    { action: { kind: "cameraKind" }, text: switchText("Game picture", kind === "game" ? CAMERA_KINDS.game.hint : `off: a map preview, ${CAMERA_KINDS.map.hint.split(", ")[1]}`, kind === "game") },
+    { action: { kind: "none" }, text: headingText(cameras.length > 0 ? `Cameras (${cameras.length})` : "No cameras yet") },
+    ...cameras.map(([name, camera]): MenuEntry => ({ action: { kind: "camera", name }, text: `${name}\n§7${CAMERA_KINDS[camera.kind].label}` })),
+  ];
 }
 
 /** The Boundaries view's text: what a switch does. */
