@@ -30,6 +30,8 @@ The map editor sets spawns and points in game and writes `map.json` for you; see
 | `draft` | no | `true` for an unfinished map: the build skips it with a warning (and skips a game whose maps are all drafts). The map editor's Publish removes it, then commits and pushes the map. |
 | `spawns` | yes | Positions (see below). The lobby needs one; a game needs one per player slot (at least `maxPlayers`). The first is also the world spawn. |
 | `spectatorSpawn` | no | Where eliminated players watch from. |
+| `queueSpawn` | no | Where players wait for everyone to join before the game puts them at their spawns (see "The queue spawn" below). |
+| `queue` | no | How they wait there: `{ "mode": "lock" \| "free", "countdown": 5 }`. `lock` (the default) keeps everyone on the spot, looking around but unable to move, and invisible with no name tags, so nobody sees the others; `free` lets them roam. `countdown` is whole seconds (1 to 60, default 5). |
 | `bounds` | when `build` is used | The playable box, in whole blocks (inclusive). Players outside it are out (in games with `combat.outOfBounds: "down"`), and spectators are kept inside. Spawns must be inside it, and y must stay within -64 to 319. |
 | `killY` | no | Anyone below this height is out (knocked off, fell into the void). Within -64 to 319. |
 | `time` | no | A fixed time of day: the daylight cycle stops there when the server starts. `day`, `noon`, `sunset`, `night`, `midnight` or `sunrise`, or ticks from 0 to 23999. |
@@ -53,6 +55,20 @@ Servers get `map.json` without `build`, `source`, `cameras` and `draft`. `npm ru
 every problem in every map at once, and warns (without stopping) about two entries of a list in
 the same block.
 
+## The queue spawn
+
+With a `queueSpawn`, the start of a game goes:
+
+1. Everyone who joins waits at the queue spawn (locked in or free, by `queue.mode`). Anyone who
+   falls below `killY` or leaves `bounds` (or, locked in, gets pushed off the spot) is put back.
+2. Once everyone expected is in (or the wait runs out with enough players), a countdown of
+   `queue.countdown` seconds runs there ("Spawning in").
+3. Everyone moves to their spawns, visible again, for the game's usual frozen countdown, then "Go!".
+   If players drop below the minimum, it's back to the queue.
+
+Without one, players wait at their spawns, as before. The map editor places it with the Spawn
+tool (Queue spawn, in Place into); hit its marker for Lock in and the countdown.
+
 ## What a game's maps need
 
 A game says what its maps must have in the `map` block of its `game.config.ts`. The build checks
@@ -63,6 +79,7 @@ map: {
   spawns: { min: "maxPlayers" },   // the default; a number also works
   teamSpawns: { perTeam: 5 },      // or true for at least one per team
   spectatorSpawn: true,
+  queueSpawn: true,                // only when every map must have one
   killY: true,
   bounds: true,
   points: { bombA: { label: "Bomb site A" }, bombB: { label: "Bomb site B", count: 1 } },

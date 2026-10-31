@@ -69,6 +69,8 @@ export interface StageResult<T = unknown> {
 export const DEFAULT_TIME_LIMIT_SECONDS = 5 * 60;
 const PICKER_ITEM = "minecraft:nether_star";
 const PICKER_SLOT = 8;
+/** Invisibility in a locked queue lasts until normalizePlayer clears it at the spawn. */
+const QUEUE_EFFECT_TICKS = 1_000_000;
 /** Rules every game gets unless it says otherwise: deaths are handled by core, invisibly. */
 const DEFAULT_GAME_RULES: Record<string, boolean | number> = {
   showDeathMessages: false,
@@ -95,6 +97,8 @@ export abstract class Minigame<C extends GameConfig = GameConfig> {
   private currentPhase: Phase = "waiting";
   private playingScope: Scope | undefined;
   private countdownScope: Scope | undefined;
+  /** Players wait at the map's queue spawn (until the queue countdown ends). */
+  private queued = false;
   private outcome: Result | undefined;
   private settle: (result: Result) => void = () => {};
   private readonly finished: Promise<Result>;
@@ -268,11 +272,19 @@ export abstract class Minigame<C extends GameConfig = GameConfig> {
     }
 
     const pregame = this.scope.child("pregame");
+    // A map with a queue spawn: everyone waits there, then a countdown puts them at their spawns
+    // for the usual frozen countdown. A countdown that falls through sends them back to it.
+    this.queued = this.map.queueSpawn !== undefined;
     this.openPregame(pregame);
     for (;;) {
+      if (this.map.queueSpawn && !this.queued) this.requeue(true);
       if (!(await this.waitForPlayers())) {
         pregame.dispose();
         return this.conclude(this.outcome ?? aborted("not_enough_players"));
+      }
+      if (this.queued) {
+        if (!(await this.queueCountdown(this.map.queue.countdown))) continue;
+        this.requeue(false);
       }
       if (await this.countdown()) break;
     }
@@ -656,12 +668,27 @@ export abstract class Minigame<C extends GameConfig = GameConfig> {
         if (itemStack.typeId === PICKER_ITEM) void this.openPicker(source, scope);
       });
     }
-    // Nobody can be hurt before the match (combat ignores non-participants); fallers come back.
+    // Nobody can be hurt before the match (combat ignores non-participants); fallers come back,
+    // and so does anyone pushed off a locked queue spawn.
     scope.interval(() => {
       for (const player of world.getAllPlayers()) {
-        if (this.map.outOfBounds(player.location)) this.placeWaiting(player);
+        if (this.map.outOfBounds(player.location) || this.offQueueSpot(player)) this.placeWaiting(player);
       }
     }, 10);
+  }
+
+  /** Everyone into the queue (`on`), or out of it to their waiting spawns. */
+  private requeue(on: boolean): void {
+    this.queued = on;
+    for (const player of world.getAllPlayers()) this.prepareWaiting(player);
+  }
+
+  /** A locked-in player more than a block from the queue spawn (pushed, or lagging). */
+  private offQueueSpot(player: Player): boolean {
+    const spawn = this.map.queueSpawn;
+    if (!this.queued || !spawn || this.map.queue.mode !== "lock") return false;
+    const spot = worldPoint(spawn);
+    return Math.hypot(player.location.x - spot.x, player.location.z - spot.z) > 1 || Math.abs(player.location.y - spot.y) > 1;
   }
 
   private prepareWaiting(player: Player): void {
@@ -675,7 +702,25 @@ export abstract class Minigame<C extends GameConfig = GameConfig> {
     }
   }
 
+  /**
+   * At the queue spawn while queued (locked in: unable to move but free to look around, and
+   * invisible without a name tag, so nobody sees the others), else at a spawn of their own.
+   * normalizePlayer, at every spawn, undoes the queue's lock.
+   */
   private placeWaiting(player: Player): void {
+    const queueSpawn = this.map.queueSpawn;
+    if (this.queued && queueSpawn) {
+      this.place(player, queueSpawn);
+      if (this.map.queue.mode !== "lock") return;
+      try {
+        player.inputPermissions.setPermissionCategory(InputPermissionCategory.Movement, false);
+        player.addEffect("invisibility", QUEUE_EFFECT_TICKS, { amplifier: 0, showParticles: false });
+        player.nameTag = "";
+      } catch (error) {
+        log.warn(`could not lock ${player.name} in the queue: ${describeError(error)}`);
+      }
+      return;
+    }
     const index = Math.max(0, this.online().indexOf(player.name));
     this.place(player, this.map.spawns[index % Math.max(1, this.map.spawns.length)] ?? [0, 65, 0]);
   }
@@ -744,6 +789,21 @@ export abstract class Minigame<C extends GameConfig = GameConfig> {
       for (const player of world.getAllPlayers()) player.onScreenDisplay.setActionBar(say.info(`Waiting for players (${online.length}/${needed})`));
       await this.scope.wait(20);
     }
+  }
+
+  /** The queue's countdown, once everyone's in. False when players drop below the minimum. */
+  private async queueCountdown(seconds: number): Promise<boolean> {
+    for (let left = seconds; left > 0; left--) {
+      if (this.outcome) return false;
+      if (this.online().length < this.minPlayers) {
+        this.broadcast(say.warn("Not enough players. Waiting again."));
+        return false;
+      }
+      this.title(`${COLOR.highlight}${left}`, say.minor("Spawning in"));
+      this.chime(countdownChime(left));
+      await this.scope.wait(20);
+    }
+    return !this.outcome;
   }
 
   /** Frozen countdown. Returns false when players drop below the minimum. */

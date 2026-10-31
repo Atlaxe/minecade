@@ -8,7 +8,7 @@ import { removeLeftoverObjectives } from "../src/game/sidebar.ts";
 import type { Result } from "../src/game/results.ts";
 import { ItemStack, world, type FakePlayer } from "./fake-mc-server.ts";
 import { closedFor, queueFormResponses } from "./fake-mc-server-ui.ts";
-import { createHarness, everyoneLeaves, expectBaseline as expectBaselineOf, playToEnd as playToEndOn, snapshot as snapshotOf, statsRows, ticks, type Baseline, type Harness } from "./game-harness.ts";
+import { ARENA, createHarness, everyoneLeaves, expectBaseline as expectBaselineOf, playToEnd as playToEndOn, snapshot as snapshotOf, statsRows, ticks, type Baseline, type Harness } from "./game-harness.ts";
 
 class TestGame extends Minigame {
   onEndHook: ((result: Result) => void) | undefined;
@@ -296,5 +296,73 @@ describe("Minigame details", () => {
     removeLeftoverObjectives();
     expect(world.scoreboard.getObjectives().map((objective) => objective.id)).toEqual(["other"]);
     world.scoreboard.removeObjective("other");
+  });
+});
+
+describe("the queue spawn", () => {
+  const config: GameConfig = { id: "queue", name: "Queue", minPlayers: 2, maxPlayers: 2, countdownSeconds: 2, endDelaySeconds: 1 };
+  const at = (player: FakePlayer) => [player.location.x, player.location.y, player.location.z];
+
+  it("locks players in at the queue spawn, counts down, then puts them at their spawns for the usual countdown", async () => {
+    const [a, b] = ["A", "B"].map((name) => world.join(name));
+    const baseline = snapshot();
+    const map = { ...ARENA, queueSpawn: [10.25, 70, -3.5, 180, 0], queue: { mode: "lock", countdown: 3 } } as typeof ARENA;
+    const game = new TestGame(harness.context(["A"], map), config);
+    await playToEnd(game, baseline, async () => {
+      await ticks(2);
+      // Both are in the queue: on the spot, locked in, invisible, without a name tag.
+      expect([at(a), at(b)]).toEqual([[10.25, 70, -3.5], [10.25, 70, -3.5]]);
+      expect(a.unlocked).toBe(false);
+      expect(a.effects.has("invisibility")).toBe(true);
+      expect(a.nameTag).toBe("");
+      // Pushed off the spot: put back.
+      a.location = { x: 14, y: 70, z: -3.5 };
+      await ticks(10);
+      expect(at(a)).toEqual([10.25, 70, -3.5]);
+      // Everyone expected is in, so the queue countdown (3 s) runs, still in the queue.
+      expect(game.phase).toBe("waiting");
+      expect(a.titles.some((title) => title.includes("Spawning in"))).toBe(true);
+      await ticks(55);
+      // Out of the queue: at their spawns, visible, named, frozen for the usual countdown.
+      expect(game.phase).toBe("countdown");
+      expect([at(a), at(b)]).toEqual([[0.5, 65, 0.5], [4.5, 65, 0.5]]);
+      expect(a.effects.has("invisibility")).toBe(false);
+      expect(a.nameTag).toBe("A");
+      expect(a.unlocked).toBe(false);
+      await ticks(2 * 20 + 5);
+      expect(game.phase).toBe("playing");
+      expect(a.unlocked).toBe(true);
+      game.finish({ kind: "draw", reason: "test over" });
+      await ticks(2);
+    });
+    expectBaseline(baseline);
+    everyoneLeaves();
+  });
+
+  it("lets players roam in free mode, and brings back anyone who falls", async () => {
+    const [a, b] = ["A", "B"].map((name) => world.join(name));
+    const baseline = snapshot();
+    const map = { ...ARENA, queueSpawn: [0, 70, 10], queue: { mode: "free" } } as typeof ARENA;
+    const game = new TestGame(harness.context(["A", "B"], map), config);
+    await playToEnd(game, baseline, async () => {
+      await ticks(2);
+      expect(at(a)).toEqual([0.5, 70, 10.5]);
+      expect(a.unlocked).toBe(true);
+      expect(a.effects.has("invisibility")).toBe(false);
+      a.location = { x: 5, y: 70, z: 5 };
+      await ticks(10);
+      expect(at(a)).toEqual([5, 70, 5]); // roaming is fine
+      a.location = { x: 5, y: 45, z: 5 }; // below kill Y
+      await ticks(10);
+      expect(at(a)).toEqual([0.5, 70, 10.5]);
+      // Everyone expected is in: the default 5 s queue countdown, then the spawns.
+      await ticks(5 * 20 + 10);
+      expect(game.phase).toBe("countdown");
+      expect(at(b)).toEqual([4.5, 65, 0.5]);
+      game.finish({ kind: "draw", reason: "test over" });
+      await ticks(2);
+    });
+    expectBaseline(baseline);
+    everyoneLeaves();
   });
 });

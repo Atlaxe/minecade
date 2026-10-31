@@ -22,6 +22,8 @@ export {
   EDITOR_ONLY_KEYS,
   KILL_REGION,
   MAP_TIMES,
+  QUEUE_COUNTDOWN,
+  QUEUE_MODES,
   blockOf,
   exactPosition,
   facingOf,
@@ -29,6 +31,7 @@ export {
   mapTimeTicks,
   positionText,
   positionXyz,
+  queueSettings,
   runtimeMapConfig,
   teamKey,
   worldPoint,
@@ -39,6 +42,7 @@ export {
   type MapPosition,
   type MapSource,
   type MapTime,
+  type QueueSettings,
   type Vec3,
 } from "./map-config.ts";
 export { MapEditError, applyEdit, describeEdit, isMapKey, listKey, listOf, type MapEdit, type MapList } from "./map-edit.ts";

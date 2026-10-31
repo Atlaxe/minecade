@@ -107,3 +107,26 @@ describe("applyEdit", () => {
     expect(listOf(base, { list: "spectatorSpawn" })).toEqual([]);
   });
 });
+
+describe("the queue spawn", () => {
+  const base: MapConfig = { name: "M", spawns: [[0, 65, 0]] };
+
+  it("is a list of one, placed after the spectator spawn, with its settings beside it", () => {
+    const placed = applyEdit(base, { op: "add", target: { list: "queueSpawn" }, at: [0, 80, 30] });
+    expect(placed.queueSpawn).toEqual([0, 80, 30]);
+    expect(() => applyEdit(placed, { op: "add", target: { list: "queueSpawn" }, at: [1, 80, 30] })).toThrow("one queue spawn");
+    const free = applyEdit(placed, { op: "queue", mode: "free" });
+    expect(free.queue).toEqual({ mode: "free", countdown: 5 });
+    expect(Object.keys(applyEdit(free, { op: "queue", countdown: 9 }))).toEqual(["name", "spawns", "queueSpawn", "queue"]);
+    expect(describeEdit({ op: "queue", mode: "lock", countdown: 9 })).toBe("queue: lock in 9 s countdown");
+  });
+
+  it("refuses settings without a queue spawn or out of range, and drops them with it", () => {
+    expect(() => applyEdit(base, { op: "queue", mode: "free" })).toThrow("place the queue spawn first");
+    const placed: MapConfig = { ...base, queueSpawn: [0, 80, 30], queue: { mode: "free", countdown: 5 } };
+    expect(() => applyEdit(placed, { op: "queue", countdown: 0 })).toThrow("whole seconds from 1 to 60");
+    const removed = applyEdit(placed, { op: "remove", target: { list: "queueSpawn" }, index: 0 });
+    expect(removed.queueSpawn).toBeUndefined();
+    expect(removed.queue).toBeUndefined();
+  });
+});

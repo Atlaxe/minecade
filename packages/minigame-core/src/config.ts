@@ -157,6 +157,8 @@ export interface MapRequirementsConfig {
   /** Spawns per team: true for at least 1 each, or how many each team needs. */
   teamSpawns?: boolean | { perTeam?: number };
   spectatorSpawn?: boolean;
+  /** Where players wait for everyone to join before they're put at their spawns (map.json "queueSpawn"). */
+  queueSpawn?: boolean;
   killY?: boolean;
   bounds?: boolean;
   points?: string[] | Record<string, MapEntryRequirement>;

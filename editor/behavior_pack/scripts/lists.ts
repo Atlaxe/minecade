@@ -6,6 +6,7 @@ import {
   listKey,
   listOf,
   mapRequirements,
+  queueSettings,
   worldPoint,
   type EditorRules,
   type Facing,
@@ -24,17 +25,18 @@ export interface SpawnList {
   entry: string;
   /** A § color code for its markers. */
   color: string;
-  /** Holds at most one entry (the spectator spawn): a new one replaces it. */
+  /** Holds at most one entry (the spectator and queue spawns): a new one replaces it. */
   single: boolean;
 }
 
-/** Spawns, the spectator spawn (games), each team's spawns, then the points the rules ask for and any others the map has. */
+/** Spawns, the spectator and queue spawns (games), each team's spawns, then the points the rules ask for and any others the map has. */
 export function spawnLists(config: MapConfig, rules: EditorRules): SpawnList[] {
   const lists: SpawnList[] = [];
   const lobby = rules.kind === "lobby";
   lists.push({ target: { list: "spawns" }, key: "spawns", label: lobby ? "Spawn" : "Spawns", entry: "Spawn", color: "§f", single: false });
   if (!lobby) {
     lists.push({ target: { list: "spectatorSpawn" }, key: "spectatorSpawn", label: "Spectator spawn", entry: "Spectator spawn", color: "§7", single: true });
+    lists.push({ target: { list: "queueSpawn" }, key: "queueSpawn", label: "Queue spawn", entry: "Queue spawn", color: "§b", single: true });
   }
   const teams = rules.teams ?? [];
   const teamIds = new Set(teams.map((team) => team.id));
@@ -84,7 +86,8 @@ export function markerSpecs(config: MapConfig, lists: SpawnList[]): MarkerSpec[]
   return lists.flatMap((list) =>
     listOf(config, list.target).map((position, index) => {
       const facing = facingOf(position);
-      const name = `${list.color}${list.entry}${list.single ? "" : ` ${index + 1}`}`;
+      const queue = list.key === "queueSpawn" ? ` (${queueText(config)})` : "";
+      const name = `${list.color}${list.entry}${list.single ? "" : ` ${index + 1}`}${queue}`;
       return {
         key: `${list.key}#${index}`,
         list,
@@ -95,6 +98,12 @@ export function markerSpecs(config: MapConfig, lists: SpawnList[]): MarkerSpec[]
       };
     }),
   );
+}
+
+/** How players wait at the queue spawn, in a few words: "lock in, 5 s" or "free, 10 s". */
+export function queueText(config: MapConfig): string {
+  const queue = queueSettings(config);
+  return `${queue.mode === "lock" ? "lock in" : "free"}, ${queue.countdown} s`;
 }
 
 const DIRECTIONS = ["south", "southwest", "west", "northwest", "north", "northeast", "east", "southeast"];

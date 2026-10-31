@@ -40,6 +40,7 @@ function count(config: MapConfig, requirement: MapRequirement): number {
     case "spawns":
       return Array.isArray(config.spawns) ? config.spawns.length : 0;
     case "spectatorSpawn":
+    case "queueSpawn":
     case "bounds":
     case "killY":
       return config[requirement.field] === undefined ? 0 : 1;

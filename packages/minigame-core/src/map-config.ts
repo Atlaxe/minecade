@@ -115,6 +115,10 @@ export interface MapConfig {
   /** Where players appear: one for the lobby, at least one per player slot for a game. */
   spawns: MapPosition[];
   spectatorSpawn?: MapPosition;
+  /** Where players wait for everyone to join, before the game puts them at their spawns. */
+  queueSpawn?: MapPosition;
+  /** How players wait at the queue spawn (see QueueSettings). */
+  queue?: Partial<QueueSettings>;
   /** The playable area. Required for baking, which builds and checks inside it. */
   bounds?: Box;
   /** Below this height a player is out (void games). */
@@ -136,6 +140,28 @@ export interface MapConfig {
   cameras?: Record<string, MapCamera>;
   /** Game-specific values, such as Sumo's eliminationY. */
   [key: string]: unknown;
+}
+
+/**
+ * How players wait at a map's queue spawn: "lock" keeps them on the spot (looking around, not
+ * moving) and invisible to each other, "free" lets them roam. Once everyone is in, `countdown`
+ * seconds count down before the game puts them at their spawns.
+ */
+export interface QueueSettings {
+  mode: "lock" | "free";
+  countdown: number;
+}
+
+export const QUEUE_MODES = ["lock", "free"] as const;
+export const QUEUE_COUNTDOWN = { default: 5, min: 1, max: 60 } as const;
+
+/** A map's queue settings, with the defaults for what's unset. */
+export function queueSettings(config: Pick<MapConfig, "queue">): QueueSettings {
+  const queue = config.queue ?? {};
+  return {
+    mode: queue.mode === "free" ? "free" : "lock",
+    countdown: typeof queue.countdown === "number" ? queue.countdown : QUEUE_COUNTDOWN.default,
+  };
 }
 
 /** Keys only the build and the map editor use; servers get the map without them. */

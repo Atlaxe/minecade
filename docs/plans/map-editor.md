@@ -543,6 +543,16 @@ commits only the map's folder as "Automated Map Build : <Game> <Map> <date> <tim
 format) and pushes it (`tools/editor/publish.ts`). The lobby lists the map from the network's next
 start, which builds from the checkout.
 
+*Then, with 10.6, at the user's request (2026-10-31):*
+- The Spawn tool places entries exactly where you aim (on top of a block; in front of a side, on
+  the floor; at the sky, where you stand), like entities. Positions may have decimals: whole x and
+  z still mean a block's middle (`worldPoint` in `map-config.ts`). **Center on block** keeps the
+  old way.
+- **A queue spawn** (`queueSpawn`, `queue: { mode, countdown }`): players wait there for everyone,
+  locked in (look around, can't move, invisible) or free, then a countdown (5 s by default, set per
+  map), then the spawns and the usual frozen countdown (`Minigame` in minigame-core). Placed with
+  the Spawn tool; its marker has Lock in and Countdown.
+
 **10.6 Preview:** `DEV_LIVE_MAPS`, Preview with the return to the editor, Preview as lobby, and
 both in the Panel.
 

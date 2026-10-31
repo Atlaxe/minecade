@@ -4,8 +4,10 @@
 // grid, the picked tool's settings (scrolling) and a green Save bar. Each button's mark (marks.ts)
 // says where it goes.
 import {
+  QUEUE_COUNTDOWN,
   listOf,
   openKey,
+  queueSettings,
   type Box,
   type Catalog,
   type Checklist,
@@ -182,6 +184,22 @@ export function checklistBody(checklist: Checklist): string {
   if (checklist.ready && checklist.warnings.length === 0) return "§aNothing missing. Tap an entry for its tool.";
   const lines = [...checklist.problems.map((problem) => `§c- ${problem}`), ...checklist.warnings.map((warning) => `§e- ${warning}`)];
   return `${lines.join("\n")}\n§rTap an entry for its tool.`;
+}
+
+/** What the queue spawn's marker adds to its form: Lock in (a switch) and the countdown. */
+export function queueActions(config: MapConfig): { action: "queueMode" | "queueCountdown"; text: string }[] {
+  const queue = queueSettings(config);
+  const lock = queue.mode === "lock";
+  return [
+    { action: "queueMode", text: switchText("Lock in", lock ? "look around, can't move, invisible" : "off: free to roam", lock) },
+    { action: "queueCountdown", text: `Countdown: ${queue.countdown} s\n§7once everyone's in, before the spawns` },
+  ];
+}
+
+/** The queue countdown typed in its form: whole seconds within the limits, else undefined. */
+export function parseCountdown(text: string): number | undefined {
+  const value = Number(text.trim());
+  return text.trim() !== "" && Number.isInteger(value) && value >= QUEUE_COUNTDOWN.min && value <= QUEUE_COUNTDOWN.max ? value : undefined;
 }
 
 /** Publish, under the checklist's rows: commit and push the map, which stops being a draft. */

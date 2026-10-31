@@ -14,8 +14,10 @@ import {
   killYSettings,
   mapMenuBody,
   mapMenuEntries,
+  parseCountdown,
   publishBody,
   publishText,
+  queueActions,
   parseSetting,
   regionSettings,
   rowText,
@@ -70,7 +72,7 @@ describe("map menu", () => {
 
   it("shows the tool out's settings between the tools and Save", () => {
     const kinds = (tool: MapMenuView["tool"]) => mapMenuEntries(view({ ...draft, killY: 50 }, { tool })).map((entry) => entry.action.kind).slice(7, -1);
-    expect(kinds("spawn")).toEqual(["none", "list", "list", "none", "center", "none", "keepFacing", "snap"]);
+    expect(kinds("spawn")).toEqual(["none", "list", "list", "list", "none", "center", "none", "keepFacing", "snap"]);
     expect(kinds("region")).toEqual(["none", "box"]);
     expect(kinds("killY")).toEqual(["none", "typeKillY", "removeKillY"]);
     expect(kinds(undefined)).toEqual([]);
@@ -101,6 +103,7 @@ describe("tool settings", () => {
       headingText("Place into"),
       "Spawns\n§71 of 2",
       `${MARK.picked}Spectator spawn\n§70`,
+      "Queue spawn\n§70",
       headingText("Position"),
       switchText("Center on block", "the middle of the block", true),
       headingText("Facing"),
@@ -296,5 +299,22 @@ describe("the editor lobby's menu", () => {
 
   it("makes map ids from names", () => {
     expect(mapIdFrom("Castle Keep!")).toBe("castle_keep");
+  });
+});
+
+describe("the queue spawn's marker", () => {
+  it("adds Lock in and the countdown to its form", () => {
+    expect(queueActions({ name: "M", spawns: [], queueSpawn: [0, 80, 30] })).toEqual([
+      { action: "queueMode", text: switchText("Lock in", "look around, can't move, invisible", true) },
+      { action: "queueCountdown", text: "Countdown: 5 s\n§7once everyone's in, before the spawns" },
+    ]);
+    expect(queueActions({ name: "M", spawns: [], queueSpawn: [0, 80, 30], queue: { mode: "free", countdown: 12 } })[0].text).toBe(
+      switchText("Lock in", "off: free to roam", false),
+    );
+  });
+
+  it("reads a typed countdown as whole seconds within the limits", () => {
+    expect(parseCountdown(" 10 ")).toBe(10);
+    for (const text of ["", "0", "61", "2.5", "ten"]) expect(parseCountdown(text)).toBeUndefined();
   });
 });

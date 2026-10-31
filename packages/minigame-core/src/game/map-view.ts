@@ -1,5 +1,5 @@
 // Read-only access to the running map's map.json, with the geometry helpers games need.
-import { KILL_REGION, positionXyz, teamKey, type Box, type MapConfig, type MapPosition, type Vec3 } from "../map-config.ts";
+import { KILL_REGION, positionXyz, queueSettings, teamKey, type Box, type MapConfig, type MapPosition, type QueueSettings, type Vec3 } from "../map-config.ts";
 
 export class MapView {
   readonly config: MapConfig;
@@ -18,6 +18,17 @@ export class MapView {
     if (spawn) return [...spawn] as MapPosition;
     const [x, y, z] = this.config.spawns[0] ?? [0, 70, 0];
     return [x, y + 5, z];
+  }
+
+  /** Where players wait for everyone to join before the game puts them at their spawns, if the map has one. */
+  get queueSpawn(): MapPosition | undefined {
+    const spawn = this.config.queueSpawn;
+    return spawn ? ([...spawn] as MapPosition) : undefined;
+  }
+
+  /** How players wait at the queue spawn (the defaults when the map doesn't say). */
+  get queue(): QueueSettings {
+    return queueSettings(this.config);
   }
 
   get bounds(): Box | undefined {

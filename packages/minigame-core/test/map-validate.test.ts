@@ -107,3 +107,17 @@ describe("exact positions", () => {
     expect(validateMapConfig({ name: "M", spawns: [[13.01, 65, 0]], bounds }, rules)).toEqual(['spawns[0] [13.01,65,0] is outside "bounds"']);
   });
 });
+
+describe("the queue spawn", () => {
+  const rules: MapRules = { kind: "game", maxPlayers: 1 };
+
+  it("checks its position, its settings, and that a game asking for it has it", () => {
+    expect(validateMapConfig({ name: "M", spawns: [[0, 65, 0]], queueSpawn: [0, 80, 30], queue: { mode: "free", countdown: 10 } }, rules)).toEqual([]);
+    expect(validateMapConfig({ name: "M", spawns: [[0, 65, 0]], queueSpawn: [0, 80], queue: { mode: "stand", countdown: 0.5 } }, rules)).toEqual([
+      '"queueSpawn" must be [x, y, z]',
+      '"queue.mode" must be lock or free',
+      '"queue.countdown" must be whole seconds from 1 to 60',
+    ]);
+    expect(validateMapConfig({ name: "M", spawns: [[0, 65, 0]] }, { ...rules, requires: { queueSpawn: true } })).toEqual(['this game needs a "queueSpawn"']);
+  });
+});

@@ -169,8 +169,8 @@ screen.
    out at a time: picking one puts any other away. The tool isn't locked, so you can move it;
    whatever was in slot 1 moves to a free slot.
 3. **The tool's settings** (they scroll): the map's name and game, how to use the tool, then:
-   - **Spawn tool:** **Place into**, each list (spawns, the spectator spawn, each team's spawns, and
-     every point the game asks for) with its count, the one in use outlined; **Save my facing** (off
+   - **Spawn tool:** **Place into**, each list (spawns, the spectator spawn, the queue spawn, each
+     team's spawns, and every point the game asks for) with its count, the one in use outlined; **Save my facing** (off
      means the entry faces the middle of the map); and **Snap** (exact, 45 or 90 degrees), changed
      by tapping it.
    - **Region tool:** your selection's size, then its actions (the same as the region form below),
@@ -192,8 +192,13 @@ screen.
 - **Markers:** every entry shows as a marker with a name tag: its list, its number, and the way it
   faces when that's saved. An entry with a saved facing also has a glowing red line, 2 blocks long,
   from the top of its marker toward the facing, tilted up or down with the saved pitch. **Hit a
-  marker** to move it exactly to where you stand, give it your facing, clear its facing, move it to another
-  list, renumber it, or delete it.
+  marker** to move it exactly to where you stand, give it your facing, clear its facing, move it to
+  another list, renumber it, or delete it.
+- **Queue spawn:** where players wait for everyone to join, before the game puts them at their
+  spawns (see "The queue spawn" in `docs/maps.md`). Its marker reads "Queue spawn (lock in, 5 s)".
+  Hit it for two more buttons: **Lock in** (on: players can look around but not move, and are
+  invisible to each other; off: they roam free) and **Countdown** (the seconds, once everyone's
+  in, before they go to their spawns; 5 at first).
 - **Region tool:** picks a box, for the bounds, a region or a kill region (anyone inside a kill
   region is out).
   - **Hit a block** to start a new selection: that one block.

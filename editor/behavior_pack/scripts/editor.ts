@@ -26,8 +26,10 @@ import {
   log,
   mapChecklist,
   mapTimeTicks,
+  QUEUE_COUNTDOWN,
   positionText,
   positionXyz,
+  queueSettings,
   showForm,
   type EditInfo,
   type HostMessage,
@@ -49,7 +51,20 @@ import { aimedPoint, compass, entryPosition, markerSpecs, snapFacing, SNAPS, spa
 import { MapState } from "./map-state.ts";
 import { MARKER, Markers } from "./markers.ts";
 import { dangerText, mapTitle, sideTitle } from "./marks.ts";
-import { LOBBY_TEXT, checklistBody, mapMenuBody, mapMenuEntries, parseSetting, publishBody, publishText, rowText, type MenuAction, type SpawnSettings } from "./menu.ts";
+import {
+  LOBBY_TEXT,
+  checklistBody,
+  mapMenuBody,
+  mapMenuEntries,
+  parseCountdown,
+  parseSetting,
+  publishBody,
+  publishText,
+  queueActions,
+  rowText,
+  type MenuAction,
+  type SpawnSettings,
+} from "./menu.ts";
 import { EDITOR_TOOLS, SELECT_TOOL, toolOf, type EditorTool, type ToolId } from "./tools.ts";
 
 const MAP_MENU = "minecade:map_menu";
@@ -72,7 +87,7 @@ const FLOOR_REACH = 8;
 /** Undo and Redo open the map menu again once the host answers, or after this long. */
 const REOPEN_TICKS = 40;
 
-type MarkerAction = "move" | "face" | "unface" | "list" | "number" | "delete";
+type MarkerAction = "move" | "face" | "unface" | "queueMode" | "queueCountdown" | "list" | "number" | "delete";
 
 export class Editor {
   private readonly scope: Scope;
@@ -623,6 +638,7 @@ export class Editor {
       { action: "move", text: "Move here" },
       { action: "face", text: "Take my facing" },
       ...(spec.facing ? [{ action: "unface" as const, text: "Clear facing\n§7face the middle again" }] : []),
+      ...(list.key === "queueSpawn" ? queueActions(this.state.current) : []),
       { action: "list", text: "Change list" },
       ...(entries.length > 1 ? [{ action: "number" as const, text: "Renumber" }] : []),
       { action: "delete", text: dangerText("Delete") },
@@ -649,6 +665,13 @@ export class Editor {
       case "unface":
         this.edit(player, { op: "face", target, index }, `${name} faces the middle of the map.`);
         return;
+      case "queueMode": {
+        const mode = queueSettings(this.state.current).mode === "lock" ? "free" : "lock";
+        this.edit(player, { op: "queue", mode }, mode === "lock" ? "Queue: lock in. Players wait on the spot, invisible." : "Queue: free. Players roam until they're put at their spawns.");
+        return;
+      }
+      case "queueCountdown":
+        return this.queueCountdown(player);
       case "list":
         return this.changeList(player, spec, position, name);
       case "number":
@@ -680,6 +703,22 @@ export class Editor {
     const taken = list.single && listOf(this.state.current, list.target).length > 0;
     const add: MapEdit = taken ? { op: "set", target: list.target, index: 0, at: position } : { op: "add", target: list.target, at: position };
     this.edit(player, { op: "batch", edits: [{ op: "remove", target: spec.list.target, index: spec.index }, add] }, `${name} is now in ${list.label}.`);
+  }
+
+  private async queueCountdown(player: Player): Promise<void> {
+    const now = queueSettings(this.state.current).countdown;
+    const form = new ModalFormData()
+      .title("Queue countdown")
+      .textField(`Seconds (${QUEUE_COUNTDOWN.min} to ${QUEUE_COUNTDOWN.max}), once everyone's in, before the spawns`, String(now), { defaultValue: String(now) })
+      .submitButton("Save");
+    const response = await this.show(player, form);
+    if (!response?.formValues || !player.isValid) return;
+    const countdown = parseCountdown(String(response.formValues[0] ?? ""));
+    if (countdown === undefined) {
+      tell(player, `§cThe countdown is whole seconds from ${QUEUE_COUNTDOWN.min} to ${QUEUE_COUNTDOWN.max}; kept ${now}.`);
+      return;
+    }
+    if (countdown !== now) this.edit(player, { op: "queue", countdown }, `Queue countdown: ${countdown} s.`);
   }
 
   private async renumber(player: Player, spec: MarkerSpec, count: number, name: string): Promise<void> {

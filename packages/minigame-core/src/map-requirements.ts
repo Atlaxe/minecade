@@ -3,7 +3,7 @@
 import type { MapEntryRequirement, MapRequirementsConfig } from "./config.ts";
 import { teamKey } from "./map-config.ts";
 
-export type MapField = "spawns" | "spectatorSpawn" | "bounds" | "killY" | "points" | "regions" | "teamSpawns";
+export type MapField = "spawns" | "spectatorSpawn" | "queueSpawn" | "bounds" | "killY" | "points" | "regions" | "teamSpawns";
 
 export interface MapRequirement {
   /** Where it lives in map.json, and a unique id: "spawns", "points.bombA", "regions.buyZone.red", "teamSpawns.red". */
@@ -13,7 +13,7 @@ export interface MapRequirement {
   /** The point or region key (with ".<team>" for one team's), or the team id for team spawns. */
   name?: string;
   team?: string;
-  /** Entries needed; for the spectator spawn, bounds and killY, 1 means "set". */
+  /** Entries needed; for the spectator and queue spawns, bounds and killY, 1 means "set". */
   min: number;
   /** Spawns only: the minimum is one per player slot. */
   perPlayer?: boolean;
@@ -26,7 +26,7 @@ export interface RequirementOptions {
   teams?: { id: string; name: string }[];
 }
 
-/** The requirements in checklist order: spawns, spectator spawn, bounds, killY, points, regions, team spawns. */
+/** The requirements in checklist order: spawns, spectator spawn, queue spawn, bounds, killY, points, regions, team spawns. */
 export function mapRequirements(map: MapRequirementsConfig | undefined, options: RequirementOptions): MapRequirement[] {
   const list: MapRequirement[] = [];
   const teams = options.teams ?? [];
@@ -41,6 +41,7 @@ export function mapRequirements(map: MapRequirementsConfig | undefined, options:
     list.push({ key: "spawns", label: "Spawns", field: "spawns", min: perPlayer ? (options.maxPlayers ?? 1) : 1, perPlayer });
   }
   if (map?.spectatorSpawn) list.push({ key: "spectatorSpawn", label: "Spectator spawn", field: "spectatorSpawn", min: 1 });
+  if (map?.queueSpawn) list.push({ key: "queueSpawn", label: "Queue spawn", field: "queueSpawn", min: 1 });
   if (map?.bounds) list.push({ key: "bounds", label: "Bounds", field: "bounds", min: 1 });
   if (map?.killY) list.push({ key: "killY", label: "Kill Y", field: "killY", min: 1 });
   for (const field of ["points", "regions"] as const) {

@@ -2,7 +2,7 @@
 // problems live). validateMapConfig returns a list of problems (empty when valid) so everything
 // is reported at once; mapWarnings lists things worth a look that don't stop a build.
 import type { MapRequirementsConfig } from "./config.ts";
-import { MAP_TIMES, mapTimeTicks, type Box, type MapConfig, type MapPosition, type Vec3 } from "./map-config.ts";
+import { MAP_TIMES, QUEUE_COUNTDOWN, QUEUE_MODES, mapTimeTicks, type Box, type MapConfig, type MapPosition, type Vec3 } from "./map-config.ts";
 import { mapRequirements, type MapRequirement } from "./map-requirements.ts";
 
 /** Bedrock overworld height limits. */
@@ -40,6 +40,19 @@ export function validateMapConfig(raw: unknown, rules: MapRules): string[] {
     problems.push(`needs at least ${needed} spawn${needed === 1 ? "" : "s"}${perSlot}, has ${spawns.length}`);
   }
   if (map.spectatorSpawn !== undefined) checkPosition(map.spectatorSpawn, "spectatorSpawn", problems, '"spectatorSpawn"');
+  if (map.queueSpawn !== undefined) checkPosition(map.queueSpawn, "queueSpawn", problems, '"queueSpawn"');
+  if (map.queue !== undefined) {
+    const queue = map.queue as Record<string, unknown>;
+    const { min, max } = QUEUE_COUNTDOWN;
+    if (!isRecord(queue)) problems.push('"queue" must be { "mode": "lock" | "free", "countdown": seconds }');
+    else {
+      if (queue.mode !== undefined && !(QUEUE_MODES as readonly unknown[]).includes(queue.mode)) problems.push(`"queue.mode" must be ${QUEUE_MODES.join(" or ")}`);
+      const countdown = queue.countdown;
+      if (countdown !== undefined && (typeof countdown !== "number" || !Number.isInteger(countdown) || countdown < min || countdown > max)) {
+        problems.push(`"queue.countdown" must be whole seconds from ${min} to ${max}`);
+      }
+    }
+  }
   if (map.killY !== undefined) {
     if (typeof map.killY !== "number" || !Number.isFinite(map.killY)) problems.push('"killY" must be a number');
     else if (map.killY < MIN_Y || map.killY > MAX_Y) problems.push(`"killY" must be within ${MIN_Y} to ${MAX_Y}`);
@@ -54,6 +67,7 @@ export function validateMapConfig(raw: unknown, rules: MapRules): string[] {
   const points: [string, Vec3][] = [];
   spawns.forEach((spawn, i) => isPosition(spawn) && points.push([`spawns[${i}]`, xyz(spawn)]));
   if (isPosition(map.spectatorSpawn)) points.push(["spectatorSpawn", xyz(map.spectatorSpawn)]);
+  if (isPosition(map.queueSpawn)) points.push(["queueSpawn", xyz(map.queueSpawn)]);
   const teamIds = rules.teams?.map((team) => team.id);
   for (const [field, entries] of [
     ["teamSpawns", map.teamSpawns],
@@ -155,6 +169,8 @@ function missing(requirement: MapRequirement, map: Partial<MapConfig>, who: stri
       return [];
     case "spectatorSpawn":
       return map.spectatorSpawn === undefined ? [`${who} needs a "spectatorSpawn"`] : [];
+    case "queueSpawn":
+      return map.queueSpawn === undefined ? [`${who} needs a "queueSpawn"`] : [];
     case "bounds":
       return map.bounds === undefined ? [`${who} needs "bounds"`] : [];
     case "killY":

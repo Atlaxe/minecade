@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { EditorRules, MapConfig } from "@minecade/minigame-core/config";
-import { aimedPoint, blockPosition, compass, entryPosition, markerPitch, markerSpecs, sameYaw, snapFacing, spawnLists } from "../behavior_pack/scripts/lists.ts";
+import { aimedPoint, blockPosition, compass, entryPosition, markerPitch, markerSpecs, queueText, sameYaw, snapFacing, spawnLists } from "../behavior_pack/scripts/lists.ts";
 
 const rules: EditorRules = {
   kind: "game",
@@ -21,11 +21,12 @@ const map: MapConfig = {
 };
 
 describe("spawn tool lists", () => {
-  it("offers spawns, the spectator spawn, team spawns and the points, required ones first", () => {
+  it("offers spawns, the spectator and queue spawns, team spawns and the points, required ones first", () => {
     const lists = spawnLists(map, rules);
     expect(lists.map((list) => [list.key, list.label])).toEqual([
       ["spawns", "Spawns"],
       ["spectatorSpawn", "Spectator spawn"],
+      ["queueSpawn", "Queue spawn"],
       ["teamSpawns.red", "Red spawns"],
       ["teamSpawns.blue", "Blue spawns"],
       ["teamSpawns.green", "green spawns"],
@@ -50,6 +51,13 @@ describe("spawn tool lists", () => {
       ["points.extra#0", "§eextra 1"],
     ]);
     expect(specs[1]).toMatchObject({ at: { x: -4.5, y: 65, z: 0.5 }, facing: { yaw: 90, pitch: 0 } });
+  });
+
+  it("names the queue spawn's marker with how players wait there", () => {
+    const queued: MapConfig = { name: "M", spawns: [], queueSpawn: [0, 80, 30], queue: { mode: "free", countdown: 10 } };
+    const specs = markerSpecs(queued, spawnLists(queued, { kind: "game", maxPlayers: 2 }));
+    expect(specs.map((spec) => spec.label)).toEqual(["§bQueue spawn (free, 10 s)"]);
+    expect(queueText({ name: "M", spawns: [], queueSpawn: [0, 80, 30] })).toBe("lock in, 5 s");
   });
 
   it("stands a marker on an exact position where it is, not in its block's middle", () => {
