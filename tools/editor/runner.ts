@@ -11,7 +11,7 @@ import { openKey, type HomeState, type OpenRequest, type SelectionInfo, type Ser
 import { connectDocker } from "../build/docker-util.ts";
 import { readEnv } from "../control-panel/core.ts";
 import { buildCatalog, mapLabel, noteRecent, requestedWorld, worldId } from "./catalog.ts";
-import { SLOTS, isMapId, mapEditors, planOpen, portHolders, type EditorStatus, type Slot, type SlotId } from "./editor-core.ts";
+import { SLOTS, editorPlayers, isMapId, planOpen, portHolders, type EditorStatus, type Slot, type SlotId } from "./editor-core.ts";
 import { HomeSession } from "./home-session.ts";
 import type { Git } from "./publish.ts";
 import { SelectSession } from "./select-session.ts";
@@ -55,7 +55,7 @@ export class EditorRunner {
   private readonly startedAt = new Date().toISOString();
   private state: EditorStatus["state"] = "starting";
   private error: string | undefined;
-  private editors: string[] = [];
+  private players: string[] = [];
   private home: HomeSession | undefined;
   private readonly work: { select?: SelectSession; edit?: EditorSession } = {};
   /** What each work server has open. */
@@ -87,7 +87,7 @@ export class EditorRunner {
   /** Starts the editor lobby. Throws (with the reason) when it can't. */
   async boot(): Promise<void> {
     const envPath = join(this.root, ".env");
-    if (existsSync(envPath)) this.editors = mapEditors(readEnv(await readFile(envPath, "utf8")));
+    if (existsSync(envPath)) this.players = editorPlayers(readEnv(await readFile(envPath, "utf8")));
     const docker = connectDocker();
     const holders = portHolders(await docker.listContainers(), Object.values(this.slots).map((slot) => slot.port));
     if (holders.length > 0) {
@@ -115,7 +115,7 @@ export class EditorRunner {
       throw error;
     }
     this.state = "ready";
-    this.log(`Ready: join ${home.status().join}. Map editors: ${this.editors.join(", ") || "nobody (set MAP_EDITORS or LAN_PLAYERS)"}.`);
+    this.log(`Ready: join ${home.status().join}. Who can join: ${this.players.join(", ") || "nobody (set LAN_PLAYERS)"}.`);
   }
 
   status(): EditorStatus {
@@ -126,7 +126,7 @@ export class EditorRunner {
       join: this.home?.status().join ?? `?:${this.slots.home.port}`,
       startedAt: this.startedAt,
       log: [...this.lines],
-      home: this.home?.status() ?? { mode: "home", state: "starting", join: "", players: [], editors: this.editors, startedAt: this.startedAt },
+      home: this.home?.status() ?? { mode: "home", state: "starting", join: "", players: [], startedAt: this.startedAt },
       ...(this.work.select ? { select: this.work.select.status() } : {}),
       ...(this.work.edit ? { edit: this.work.edit.status() } : {}),
       waiting: [...this.waiting.values()].map(({ name, label }) => ({ name, label })),
@@ -304,7 +304,7 @@ export class EditorRunner {
     await this.deliver(slot);
   }
 
-  /** Sends everyone waiting for this server (and, for Edit, the builders in the lobby) to it, once it's ready. */
+  /** Sends everyone waiting for this server to it, once it's ready. */
   private async deliver(slot: WorkSlot): Promise<void> {
     const session = this.work[slot];
     const opened = this.opened.get(slot);
@@ -312,11 +312,7 @@ export class EditorRunner {
     const port = this.slots[slot].port;
     for (const server of this.servers()) {
       if (server === session) continue;
-      const names = server.online().filter((name) => {
-        const entry = this.waiting.get(name.toLowerCase());
-        if (entry) return entry.slot === slot;
-        return slot === "edit" && server === this.home && !this.isEditor(name);
-      });
+      const names = server.online().filter((name) => this.waiting.get(name.toLowerCase())?.slot === slot);
       if (names.length === 0) continue;
       for (const name of names) this.waiting.delete(name.toLowerCase());
       await server.goto(names, port, opened.label);
@@ -330,10 +326,9 @@ export class EditorRunner {
   private joined(server: ServerSession, name: string, kind: "connected" | "disconnected"): void {
     this.homeChanged();
     if (kind !== "connected" || server !== this.home) return;
-    // Back in the lobby: on to a server that's waiting for them (or Edit, for a builder).
+    // Back in the lobby: on to a server that's waiting for them.
     const entry = this.waiting.get(name.toLowerCase());
     if (entry) void this.deliver(entry.slot);
-    else if (!this.isEditor(name)) void this.deliver("edit");
   }
 
   // ---- The lobby's state ------------------------------------------------------------------
@@ -378,12 +373,8 @@ export class EditorRunner {
     return this.whereIs(name)?.say(text, name) ?? Promise.resolve();
   }
 
-  private isEditor(name: string): boolean {
-    return this.editors.some((editor) => editor.toLowerCase() === name.toLowerCase());
-  }
-
   /**
-   * Tells the map editors on Select and Edit that a map cut out of `world` is ready to load (in
+   * Tells everyone on Select and Edit that a map cut out of `world` is ready to load (in
    * chat, and above the hotbar), or, on Select with that world open, that it failed.
    */
   private async announce(world: string, info: SelectionInfo): Promise<void> {
@@ -399,7 +390,7 @@ export class EditorRunner {
       } else {
         text = `§a${name} is ready: ${here ? `Edit ${info.map} in the map menu loads it.` : `open it from the editor lobby (Open a map, ${info.targetName}).`}`;
       }
-      for (const player of session.online().filter((online) => this.isEditor(online))) await session.say(text, player);
+      for (const player of session.online()) await session.say(text, player);
       if (info.status === "ready") await session.send({ t: "notice", text: `§a${info.name} is ready to load in Edit` });
     }
   }

@@ -55,7 +55,7 @@ export class HomeSession extends ServerSession {
     await writeLevelDat(join(world, "level.dat"), dat);
     await writeFile(join(world, "levelname.txt"), "Editor lobby");
     await writeFile(join(dir, "map.json"), JSON.stringify({ name: "Editor lobby", spawns: [SPAWN] }));
-    const info: HomeInfo = { mode: "home", editors: this.editors, home: await this.home() };
+    const info: HomeInfo = { mode: "home", home: await this.home() };
     await writeFile(join(dir, "editor.json"), JSON.stringify(info));
   }
 

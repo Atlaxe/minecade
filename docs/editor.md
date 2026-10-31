@@ -79,15 +79,11 @@ While the server you picked loads (about 20 seconds; a big world takes longer to
 says so, and you're moved there once it's ready. Opening something else on a server others are on
 asks first: they wait in the editor lobby while it switches (Edit saves first), then come back.
 
-Builders (see "Who can join") wait in the editor lobby until a map is open in Edit, and are moved
-there.
-
 **Going back:** **Editor lobby**, in Select's map menu and in Edit's gear, takes you to the menu to
 open another map or world. Select and Edit keep running meanwhile, so going back to them is instant.
 
 **Where you are:** on Select and Edit, a small box top center says which server you're on and
-what's open there: **Select** and the world, **Edit** and the map (for map editors), or **Build**
-and the map (for builders). It's a title the editor's resource pack draws as a box
+what's open there: **Select** and the world, or **Edit** and the map. It's a title the editor's resource pack draws as a box
 (`editor/resource_pack/ui/hud_screen.json`, the mark in `editor/behavior_pack/scripts/hud.ts`), the
 way games draw their clock top right; other titles show as usual. Preview gets its line in pass 10.6.
 
@@ -139,18 +135,10 @@ Extractions carry on while you open other worlds, and shutting the editor down w
 that use custom blocks keep them. This was checked with a stand-in custom block; check it again
 with the real blocks once they're in `packs/blocks/`.
 
-## Who can join, and who gets the tools
+## Who can join
 
-Set these in `.env`, or on the Panel's Map editor page. They apply at the editor's next boot.
-
-| Setting | Meaning |
-|---|---|
-| `LAN_PLAYERS` | Always allowed in. |
-| `EDITOR_ALLOW_LIST` | Also allowed in. Everyone else is refused. |
-| `MAP_EDITORS` | Who gets the tools (and operator, for commands). Empty means everyone in `LAN_PLAYERS`. |
-
-Everyone else who joins is a **builder**: they wait in the editor lobby until a map is open in
-Edit, then build there in creative mode, with no tools.
+Only the gamertags in `LAN_PLAYERS` (in `.env`), and each one is a map editor: the tools, and
+operator for commands. Everyone else is refused. A change applies at the editor's next boot.
 
 ## In game
 
@@ -163,7 +151,7 @@ closes them. Buttons that delete or remove something are red. The forms with fie
 Change list, Renumber, Save as, Nudge sides, a typed kill Y) are the game's own, in the middle of the
 screen.
 
-**The map menu** (slot 9, locked, map editors only), top down:
+**The map menu** (slot 9, locked), top down:
 
 1. **Quick icons**, each with a tooltip when you point at it:
    - **The checklist pill** (a check and "2/5", the check green when nothing is missing): each
@@ -359,9 +347,7 @@ isn't committed; see its README.
 - **Can't join:** first check that the editor is running (the Panel's Map editor page, or
   `npm run editor -- status`): with none running, nothing answers on port 19132 and the join
   fails. If the Panel's buttons do nothing, restart the Panel (see Restarting above). Then check
-  that your gamertag is in `LAN_PLAYERS` or `EDITOR_ALLOW_LIST`, and, from outside this network,
+  that your gamertag is in `LAN_PLAYERS`, and, from outside this network,
   that ports 19132-19134 are forwarded (see the README).
-- **No tools:** you're a builder. Add your gamertag to `MAP_EDITORS` (or leave it empty and be in
-  `LAN_PLAYERS`), then restart the editor.
 - **The world wasn't saved:** the editor's log says why (markers it couldn't remove, the server not
   getting its files ready, or no block changes at stop). `map.json` still has every change.

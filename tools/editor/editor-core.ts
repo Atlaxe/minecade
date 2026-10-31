@@ -40,7 +40,6 @@ export interface ServerStatus {
   /** The address to join it from this network: "<LAN_HOST>:<port>". */
   join: string;
   players: string[];
-  editors: string[];
   startedAt: string;
 }
 
@@ -214,15 +213,9 @@ export function nameList(...lists: (string | undefined)[]): string[] {
   return names;
 }
 
-/** The map editors: MAP_EDITORS, or everyone in LAN_PLAYERS when it's empty. */
-export function mapEditors(env: Record<string, string>): string[] {
-  const named = nameList(env.MAP_EDITORS);
-  return named.length > 0 ? named : nameList(env.LAN_PLAYERS);
-}
-
-/** Who may join the editor: LAN_PLAYERS and EDITOR_ALLOW_LIST. */
-export function editorAllowList(env: Record<string, string>): string[] {
-  return nameList(env.LAN_PLAYERS, env.EDITOR_ALLOW_LIST);
+/** Who may join the editor, each one a map editor: LAN_PLAYERS. */
+export function editorPlayers(env: Record<string, string>): string[] {
+  return nameList(env.LAN_PLAYERS);
 }
 
 /** A new map's map.json: a draft (named after its id unless it has a name), with one spawn above the glass pad. */

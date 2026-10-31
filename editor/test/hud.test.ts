@@ -17,7 +17,7 @@ describe("modeLine", () => {
   it("starts with the invisible mark, then the mode in its color and the detail in gray", () => {
     expect(modeLine("edit", "Sumo: Arena")).toBe(`${MODE_MARK}§aEdit§7   Sumo: Arena`);
     expect(modeLine("select")).toBe(`${MODE_MARK}§bSelect`);
-    expect(stripColors(modeLine("build", "Lobby: Main"))).toBe("Build   Lobby: Main");
+    expect(stripColors(modeLine("select", "Arenas"))).toBe("Select   Arenas");
   });
 
   it("uses the same mark as the editor's resource pack, for the plain title and the box", () => {

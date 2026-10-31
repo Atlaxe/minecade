@@ -32,14 +32,12 @@ Follows the usual rules: stop and report after each pass, commit and push after 
 | Modes | Select (box a map in the converted world and confirm), Edit (set the data in the map's own void world), Preview (play it) |
 | Import result | A void world holding only the selected box, centered at x 0, z 0 (y kept) |
 | Controls | npm commands do the work; a Map editor section in the Minecade Panel calls the same code |
-| Joining | Port 19134 is open. `LAN_PLAYERS` are let in automatically; everyone else must be on `EDITOR_ALLOW_LIST` |
-| Roles | **Map editors** (`MAP_EDITORS`; empty means everyone in `LAN_PLAYERS`) get the tools, mode switches and Preview. Everyone else who joins is a **builder**: creative mode only |
-| Player management | In game: map editors add and remove allow-list entries and switch players between builder and editor from a Players screen. Changes take effect at once and are saved to `.env`, so the Panel shows the same lists |
+| Joining | Only `LAN_PLAYERS`, each one a map editor (the user edits alone: builders, the extra allow lists and the Players screen were dropped on 2026-10-31) |
 | Mode switches | Players wait in the lobby while the editor restarts, then are sent back automatically. Nobody rejoins by hand |
-| Mode on screen | A small box top center, styled like the game clock's box (the user's choice, 2026-10-31): Select, Edit, or Build (a builder in Edit mode), with the world or map |
+| Mode on screen | A small box top center, styled like the game clock's box (the user's choice, 2026-10-31): Select, Edit or Preview, with the world or map |
 | Building | No build helpers. Big changes happen in Java, then "Update from world" replaces the blocks and keeps the map data |
 | Spawn facing | A "Save my facing" toggle on the spawn form. It is off by default, so the spawn faces the map center as it does today |
-| First-version extras | Mirror tool; inspect mode with colored, walk-through **boundary blocks** whose layers you toggle in a form |
+| First-version extras | Mirror tool. (Inspect mode and the colored boundary blocks were dropped on 2026-10-31: the user prefers the particle outlines) |
 | Preview pictures | A placeable camera that saves a position and view angle. Look through it to take the screenshot. Map previews have no players in them; game pictures can |
 | Unfinished maps | `"draft": true`; builds skip drafts, and Publish removes the flag, then commits and pushes the map (the user's request, 2026-10-31) |
 | Lobbies | Same editor and modes. `lobby/lobby.config.ts` declares spawn and terminal. `LOBBY_MAP` picks the live lobby |
@@ -152,23 +150,8 @@ The lobby is the waiting room while the editor restarts into another world, so n
 
 ## Player management (in game)
 
-**Players screen:** in the map menu, for map editors only.
-- **Online players:** each one with their role. Tap to switch between Editor and Builder; it takes effect at once:
-  - the tools are given or taken away;
-  - the player is opped or deopped from the console.
-- **Allow list:**
-  - the `EDITOR_ALLOW_LIST` entries, with Remove (and "kick if online");
-  - Add, with a gamertag text field.
-  - `LAN_PLAYERS` are shown as always allowed. They can only be changed in the Panel, because they also route players on the main network.
-- **Recently refused:** gamertags the server turned away, with one tap to allow. Only if BDS logs refused joins; the spike checks.
-
-**Saving:**
-- The host applies allow-list changes live with `allowlist add` and `allowlist remove` on the console.
-- It writes `EDITOR_ALLOW_LIST` and `MAP_EDITORS` to `.env`, reusing the Panel's env editing code in `tools/control-panel/core.ts`. The Panel and the next start see the same lists.
-
-**Safety:**
-- You can't demote yourself, and the last map editor can't be demoted.
-- Every change is logged with who made it.
+Dropped on 2026-10-31 (the user edits alone): no builders, no extra allow lists and no Players
+screen. Only `LAN_PLAYERS` can join the editor, and each one is a map editor.
 
 ## Mode on screen
 
@@ -176,8 +159,7 @@ A small box top center, styled like the box the game clock uses top right (built
 2026-10-31; the user asked for top center).
 - **What it shows:**
   - **Select** and the world in Select mode;
-  - **Edit** and the map ("Sumo: Arena") for map editors in Edit mode;
-  - **Build** and the map for builders in Edit mode;
+  - **Edit** and the map ("Sumo: Arena") in Edit mode;
   - nothing in the editor lobby, whose HUD is hidden.
 - **How it works:**
   - It rides on the title, not the action bar, so the tools' hints and notices above the hotbar
@@ -187,7 +169,6 @@ A small box top center, styled like the box the game clock uses top right (built
     (`editor/resource_pack/ui/hud_screen.json`), not the core pack, because games send titles of
     their own (the countdown's "Go!").
   - The editor sends the line when a player spawns and every 5 seconds; each one stays up 20 seconds.
-  - Inspect mode can add its readout to the same line, for example "Edit   in bounds, 12 above killY, buyZone.red".
 - **Preview** (10.6) has to share the title with the game's countdown: settle it there (for example,
   the line only between the game's titles).
 
@@ -245,10 +226,10 @@ All of these are items with their own icons and forms. `showForm` handles the bu
    - **Center:** the bounds center, or where you stand.
    - **What:** from one team to another; spawns, team points and team regions. Yaw is mirrored too.
    - Ghost markers preview the result before Apply, and Apply is one undo step.
-6. **Inspect mode:**
+6. **Inspect mode** (dropped on 2026-10-31, with the boundary blocks):
    - A readout in the mode box, after the mode, as you walk: inside or outside bounds, height above killY, which regions you are in, the nearest spawn.
    - On a lobby map, leaving the bounds reads "sent back to spawn".
-7. **Boundary blocks and layers:**
+7. **Boundary blocks and layers** (dropped on 2026-10-31: the particle outlines stay):
    - **The block:** `minecade:boundary` has no collision and a translucent tint, so you can walk through it. A color state gives 16 colors.
    - **Placement:** blocks go only into air, along a box's edges or walls (the style is set in the Layers form).
    - **Layers form:** a toggle per layer: bounds (white), kill Y plane (red grid), kill regions (red), each named region (its own color, with a legend), team regions (team colors), the selection.
@@ -570,19 +551,18 @@ both in the Panel.
 **10.7 Editor look and feel.**
 - (The mode box came early, on 2026-10-31.)
 - Item icons; marker models with numbers and list colors (the facing line came in 10.3).
-- Boundary blocks with the Layers form; inspect mode.
+- (Boundary blocks, the Layers form and inspect mode were dropped on 2026-10-31: the particle
+  outlines stay.)
 - The forms with fields in the editor's dark style where it helps (the button menus came in 10.3),
   and Panel polish.
 
 ### Nice to have
 
 **10.8 Smoother workflow.**
-- Mode switches through the lobby:
-  - protocol 7 (`editor_hold`, `editor_return`);
-  - the orchestrator's `/v1/editor/hold` and `/v1/editor/return`;
-  - lobby waiting players, the 3-minute timeout, and the offer to start the main stack.
-- The in-game Players screen.
-- Shrink to build, `mc:` commands. (Hot "Save world" came early, after 10.4.)
+- `mc:` commands. (Hot "Save world" came early, after 10.4.)
+- Dropped on 2026-10-31: mode switches through the lobby (the editor lobby replaced them), the
+  in-game Players screen (the user edits alone) and Shrink to build (the selection tools are
+  enough).
 
 **10.9 Extra tools:** mirror tool, camera tool and "Use latest screenshot", the lobby terminal
 marker.

@@ -11,7 +11,7 @@
 #   WATCHER_GAMERTAG, GAME_SETTINGS
 #   EDITOR_MODE     set by the map editor (tools/editor): its host stages the map being edited in
 #                   /editor (world/, map.json, editor.json). Players get creative mode, and the allow
-#                   list is always on: LAN_PLAYERS plus EDITOR_ALLOW_LIST.
+#                   list is always on: LAN_PLAYERS only.
 set -euo pipefail
 cd /bds
 
@@ -84,7 +84,7 @@ set_prop content-log-console-output-enabled true
 set_prop content-log-level info
 set_prop emit-server-telemetry false
 
-[[ -n "${EDITOR_MODE:-}" ]] && ALLOW_LIST="${LAN_PLAYERS:-},${EDITOR_ALLOW_LIST:-}"
+[[ -n "${EDITOR_MODE:-}" ]] && ALLOW_LIST="${LAN_PLAYERS:-}"
 if [[ -n "${EDITOR_MODE:-}" || -n "${ALLOW_LIST:-}" ]]; then
   csv_json "$ALLOW_LIST" | jq 'map({name: ., ignoresPlayerLimit: false})' > allowlist.json
   set_prop allow-list true

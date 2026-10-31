@@ -1,9 +1,8 @@
 // The editor lobby in game: where everyone joins. Players are shut in a small dark cell (blind, in
-// adventure, unable to move or look around, with no HUD), and map editors get the Map editor form,
-// which opens again whenever it closes: open a map in Edit, copy builds from one of the client's
-// worlds in Select, or go to what's open now. The host (tools/editor/runner.ts) starts the server
-// that's picked and moves the player there once it's ready; meanwhile the form says what's loading.
-// Builders wait here until a map editor opens a map in Edit.
+// adventure, unable to move or look around, with no HUD), and get the Map editor form, which opens
+// again whenever it closes: open a map in Edit, copy builds from one of the client's worlds in
+// Select, or go to what's open now. The host (tools/editor/runner.ts) starts the server that's
+// picked and moves the player there once it's ready; meanwhile the form says what's loading.
 import {
   BlockVolume,
   GameMode,
@@ -37,12 +36,11 @@ const BLIND_TICKS = 1_000_000;
 const MENU_BODY = "Open a map to edit it, or copy builds from one of your worlds to make new maps.";
 
 type Request = Extract<OpenRequest, { to: "edit" | "select" }>;
-type View = { kind: "menu" } | { kind: "wait"; label: string } | { kind: "builder" };
+type View = { kind: "menu" } | { kind: "wait"; label: string };
 
 export class Home {
   private readonly scope: Scope;
   private readonly link: HostLink;
-  private readonly editors: Set<string>;
   private readonly dimension: Dimension;
   private state: HomeState;
   /** Players whose form loop runs, with the view their open form shows. */
@@ -54,7 +52,6 @@ export class Home {
   constructor(scope: Scope, info: HomeInfo) {
     this.scope = scope;
     this.state = info.home;
-    this.editors = new Set(info.editors.map((name) => name.toLowerCase()));
     this.dimension = world.getDimension("overworld");
     this.link = new HostLink(scope, {
       config: () => {},
@@ -117,10 +114,6 @@ export class Home {
     }
   }
 
-  private isEditor(player: Player): boolean {
-    return this.editors.has(player.name.toLowerCase());
-  }
-
   /** Into the cell, in the dark, then the form. */
   private welcome(player: Player): void {
     if (!player.isValid) return;
@@ -158,9 +151,8 @@ export class Home {
     }
   }
 
-  /** What this player should see now: the menu, what's loading for them, or the builders' wait. */
+  /** What this player should see now: the menu, or what's loading for them. */
   private viewOf(player: Player): View {
-    if (!this.isEditor(player)) return { kind: "builder" };
     const key = keyOf(player);
     const waiting = this.state.servers.waiting.find((entry) => entry.name.toLowerCase() === key);
     if (waiting) return { kind: "wait", label: waiting.label };
@@ -178,17 +170,11 @@ export class Home {
     }
   }
 
-  private async notice(player: Player, view: Exclude<View, { kind: "menu" }>): Promise<void> {
-    const form =
-      view.kind === "wait"
-        ? new ActionFormData()
-            .title(sideTitle("Loading"))
-            .body(`Loading ${view.label}...\n\nYou'll be moved there as soon as it's ready: that takes about 20 seconds.`)
-            .button(headingText("Please wait"))
-        : new ActionFormData()
-            .title(sideTitle("Map editor"))
-            .body("Waiting for a map editor to open a map. You'll be moved there to build as soon as one is open.")
-            .button(headingText("Please wait"));
+  private async notice(player: Player, view: Extract<View, { kind: "wait" }>): Promise<void> {
+    const form = new ActionFormData()
+      .title(sideTitle("Loading"))
+      .body(`Loading ${view.label}...\n\nYou'll be moved there as soon as it's ready: that takes about 20 seconds.`)
+      .button(headingText("Please wait"));
     await this.show(player, form);
   }
 

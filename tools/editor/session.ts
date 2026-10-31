@@ -192,7 +192,6 @@ export class EditorSession extends ServerSession {
       target: this.target.id,
       targetName: this.target.name,
       map: this.mapId,
-      editors: this.editors,
       rules: this.target.rules,
       fresh: newWorld,
       ...(this.from ? { from: this.from.name } : {}),

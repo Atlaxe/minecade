@@ -223,23 +223,6 @@
     <div class="card-head"><h2>Editor log</h2><span class="muted small">work/editor/editor.log</span></div>
     <pre id="editor-log" class="log"></pre>
   </div>
-  <div class="card">
-    <div class="card-head"><h2>Who can use the editor</h2><span class="muted small">Saved to .env, used at the next start</span></div>
-    <div class="field">
-      <label for="editor-allow">Editor allow list<span class="mono">EDITOR_ALLOW_LIST</span></label>
-      <p class="hint">Who may join the editor besides the LAN players, as comma-separated gamertags.</p>
-      <input id="editor-allow" type="text" spellcheck="false">
-    </div>
-    <div class="field">
-      <label for="map-editors">Map editors<span class="mono">MAP_EDITORS</span></label>
-      <p class="hint">Who gets the tools. Everyone else who joins builds in creative. Empty means every LAN player.</p>
-      <input id="map-editors" type="text" spellcheck="false">
-    </div>
-    <div class="row" style="margin-top:14px">
-      <button id="save-editor-env" class="primary">Save</button>
-      <span id="editor-env-result" class="muted"></span>
-    </div>
-  </div>
 </section>
 
 <section id="page-logs" class="page" hidden>
@@ -752,7 +735,6 @@ function renderEditor() {
     pre.textContent = lines;
     if (atBottom) pre.scrollTop = pre.scrollHeight;
   }
-  renderEditorEnv();
 }
 
 /** Boots the editor, or restarts it on the current code; the network stops first, once confirmed. */
@@ -881,24 +863,6 @@ function checklistCard(status) {
     warnings.map((warning) => el("p", { className: "callout warn" }, warning)),
     el("p", { className: "hint" }, facts));
 }
-
-let editorEnvDirty = false;
-$("editor-allow").oninput = $("map-editors").oninput = () => { editorEnvDirty = true; };
-
-function renderEditorEnv() {
-  const missing = state.env.missing;
-  $("save-editor-env").disabled = missing;
-  if (missing || editorEnvDirty || document.activeElement === $("editor-allow") || document.activeElement === $("map-editors")) return;
-  $("editor-allow").value = state.env.EDITOR_ALLOW_LIST;
-  $("map-editors").value = state.env.MAP_EDITORS;
-}
-
-$("save-editor-env").onclick = async () => {
-  const { ok, result } = await post("/api/env", { EDITOR_ALLOW_LIST: $("editor-allow").value, MAP_EDITORS: $("map-editors").value });
-  $("editor-env-result").className = ok ? "muted" : "error";
-  $("editor-env-result").textContent = ok ? (result.changed ? "Saved. The editor uses it from its next start." : "No changes.") : (result.error ?? "Save failed.");
-  if (ok) { editorEnvDirty = false; $("editor-allow").blur(); $("map-editors").blur(); }
-};
 
 // ---- Logs --------------------------------------------------------------------------------
 

@@ -5,8 +5,7 @@ import {
   History,
   SLOTS,
   addRecent,
-  editorAllowList,
-  mapEditors,
+  editorPlayers,
   nameList,
   newMapConfig,
   parseArgs,
@@ -95,16 +94,9 @@ describe("recent maps and worlds", () => {
   });
 });
 
-describe("access lists", () => {
-  const env = { LAN_PLAYERS: "get a waffle, Friend", EDITOR_ALLOW_LIST: "friend,Builder ", MAP_EDITORS: "" };
-
-  it("lets in LAN players and the editor allow list", () => {
-    expect(editorAllowList(env)).toEqual(["get a waffle", "Friend", "Builder"]);
-  });
-
-  it("makes LAN players the map editors unless MAP_EDITORS names them", () => {
-    expect(mapEditors(env)).toEqual(["get a waffle", "Friend"]);
-    expect(mapEditors({ ...env, MAP_EDITORS: "Builder" })).toEqual(["Builder"]);
+describe("who can join", () => {
+  it("lets in LAN players, each a map editor, and nobody else", () => {
+    expect(editorPlayers({ LAN_PLAYERS: "get a waffle, Friend,friend ", EDITOR_ALLOW_LIST: "Builder", MAP_EDITORS: "Builder" })).toEqual(["get a waffle", "Friend"]);
     expect(nameList(" , ,")).toEqual([]);
   });
 });

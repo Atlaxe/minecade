@@ -11,7 +11,6 @@ export interface ToolHost {
   /** The map as players see it now. */
   map(): MapConfig;
   readonly rules: EditorRules;
-  isEditor(player: Player): boolean;
   /** Applies an edit and sends it to the host; false (and a message) when it doesn't fit. */
   edit(player: Player, edit: MapEdit, done?: string): boolean;
   /** Shows a form unless this player has one of the editor's open already. */

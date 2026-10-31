@@ -111,7 +111,7 @@ The mode box (top center, after the editor's next boot):
 
 - In Select: a small dark box top center reads "Select" (aqua) and the world's name (gray), styled
   like a game's clock box. It stays up the whole time, through forms and after respawning.
-- In Edit: "Edit" (green) and "Sumo: Arena" for a map editor; a builder sees "Build" (yellow).
+- In Edit: "Edit" (green) and "Sumo: Arena".
 - No big title flashes in the middle of the screen when you arrive on a server. If the mode shows
   as a big title in the middle instead of the box, say so.
 - The editor lobby shows no box (its HUD is hidden).
@@ -141,12 +141,6 @@ Select mode (pass 10.5), opened from the editor lobby's New map:
   map.json stay.
 - `git status` shows the new maps (`games/sumo/maps/<id>/`) and nothing else; delete the ones you
   don't keep.
-
-## Needs a second player (map editor)
-
-- A gamertag in `EDITOR_ALLOW_LIST` but not `MAP_EDITORS` joins as a builder: the editor lobby says
-  to wait for a map editor, and they're moved to Edit (creative, no tools) once a map is open there.
-- A gamertag in neither list is refused.
 
 ## Block pack (Java mod)
 

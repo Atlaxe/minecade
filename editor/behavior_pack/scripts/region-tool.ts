@@ -30,7 +30,7 @@ export class RegionTool {
     scope.subscribe(world.afterEvents.entityHitBlock, ({ damagingEntity, hitBlock }) => {
       if (damagingEntity.typeId !== "minecraft:player") return;
       const player = damagingEntity as Player;
-      if (heldTool(player) === "region" && host.isEditor(player)) this.start(player, hitBlock);
+      if (heldTool(player) === "region") this.start(player, hitBlock);
     });
     scope.subscribe(world.afterEvents.playerLeave, ({ playerName }) => {
       this.selections.delete(playerName.toLowerCase());

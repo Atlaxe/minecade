@@ -20,13 +20,13 @@ const loaded = world.afterEvents.worldLoad.subscribe(() => {
     const scope = new Scope("editor");
     if (info.mode === "home") {
       new Home(scope, info).start();
-      log.info(`map editor: the editor lobby, map editors: ${info.editors.join(", ") || "none"}`);
+      log.info(`map editor: the editor lobby`);
     } else if (info.mode === "edit") {
       new Editor(scope, info, map).start();
-      log.info(`map editor: ${info.target}/${info.map}, map editors: ${info.editors.join(", ") || "none"}`);
+      log.info(`map editor: ${info.target}/${info.map}`);
     } else if (info.mode === "select") {
       new Selector(scope, info).start();
-      log.info(`map editor: Select mode on "${info.world}", map editors: ${info.editors.join(", ") || "none"}`);
+      log.info(`map editor: Select mode on "${info.world}"`);
     } else {
       new Extractor(scope).start();
       log.info("map editor: extract mode");

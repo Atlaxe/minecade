@@ -1,10 +1,10 @@
-// The map editor in game (Edit mode): roles, the map menu and its checklist, the spawn tool and
-// the markers (the region and Kill Y tools have their own files, and get what they need through a
+// The map editor in game (Edit mode): the map menu and its checklist, the spawn tool and the
+// markers (the region and Kill Y tools have their own files, and get what they need through a
 // ToolHost). A change shows here at once and goes to the host (tools/editor), which writes
 // map.json and answers; MapState keeps the two copies in step. Save asks the host to save the
-// world into the map while it runs. Map editors (EditInfo.editors) get the tools; everyone else
-// builds in creative. Every control is a hit, a use or a form, never sneaking: players fly in
-// creative, and sneaking while flying flies down.
+// world into the map while it runs. Everyone here is a map editor (the server lets in LAN_PLAYERS
+// only). Every control is a hit, a use or a form, never sneaking: players fly in creative, and
+// sneaking while flying flies down.
 import {
   BlockVolume,
   EntityComponentTypes,
@@ -50,7 +50,7 @@ import { LOBBY_TEXT, checklistBody, mapMenuBody, mapMenuEntries, parseSetting, p
 import { EDITOR_TOOLS, SELECT_TOOL, toolOf, type EditorTool, type ToolId } from "./tools.ts";
 
 const MAP_MENU = "minecade:map_menu";
-/** Every editor item: builders never keep one, and none breaks the block it hits. */
+/** Every editor item: none breaks the block it hits. */
 const TOOLS = new Set([MAP_MENU, ...EDITOR_TOOLS.map((tool) => tool.item), SELECT_TOOL.item]);
 /** The map menu's hotbar slot (0-based): the last one, slot 9 on screen. */
 const MENU_SLOT = 8;
@@ -78,7 +78,6 @@ export class Editor {
   private readonly regionTool: RegionTool;
   private readonly killYTool: KillYTool;
   private readonly dimension: Dimension;
-  private readonly editors: Set<string>;
   private readonly settings = new Map<string, SpawnSettings>();
   private readonly formOpen = new Set<string>();
   /** Players whose map menu opens again when the host answers (after Undo or Redo). */
@@ -92,7 +91,6 @@ export class Editor {
     this.info = info;
     this.state = new MapState(map);
     this.dimension = world.getDimension("overworld");
-    this.editors = new Set(info.editors.map((name) => name.toLowerCase()));
     this.status = { unsaved: info.fresh, saving: false };
     this.markers = new Markers(this.dimension, scope);
     this.link = new HostLink(scope, {
@@ -105,7 +103,6 @@ export class Editor {
     const host: ToolHost = {
       map: () => this.state.current,
       rules: info.rules,
-      isEditor: (player) => this.isEditor(player),
       edit: (player, edit, done) => this.edit(player, edit, done),
       show: (player, form) => this.show(player, form),
       tell,
@@ -119,7 +116,6 @@ export class Editor {
     new Outlines(
       scope,
       {
-        isEditor: (player) => this.isEditor(player),
         selection: (player) => this.regionTool.selectionOf(player),
         boxes: () => outlineBoxes(this.state.current, info.rules),
         killY: () => {
@@ -149,10 +145,6 @@ export class Editor {
     });
     scope.subscribe(world.afterEvents.itemUse, ({ source, itemStack }) => {
       if (!TOOLS.has(itemStack.typeId)) return;
-      if (!this.isEditor(source)) {
-        takeTools(source);
-        return;
-      }
       const tool = toolOf(itemStack.typeId)?.id;
       if (itemStack.typeId === MAP_MENU) void this.mapMenu(source);
       else if (tool === "spawn") this.spawnTool(source);
@@ -163,7 +155,7 @@ export class Editor {
       if (hitEntity.typeId !== MARKER || damagingEntity.typeId !== "minecraft:player") return;
       const player = damagingEntity as Player;
       const spec = this.markers.specOf(hitEntity);
-      if (spec && this.isEditor(player)) void this.markerMenu(player, spec);
+      if (spec) void this.markerMenu(player, spec);
     });
     // A tool never breaks the block it hits, which creative mode would.
     scope.subscribeBefore(world.beforeEvents.playerBreakBlock, (event) => {
@@ -172,7 +164,7 @@ export class Editor {
     scope.subscribe(world.afterEvents.playerPlaceBlock, ({ player }) => this.blocksChanged(player.name));
     scope.subscribe(world.afterEvents.playerBreakBlock, ({ player }) => this.blocksChanged(player.name));
     scope.interval(() => this.hints(), HINT_TICKS);
-    keepModeLine(scope, (player) => modeLine(this.isEditor(player) ? "edit" : "build", `${this.info.targetName}: ${this.state.current.name}`));
+    keepModeLine(scope, () => modeLine("edit", `${this.info.targetName}: ${this.state.current.name}`));
     this.refresh();
     void this.prepareWorld();
   }
@@ -220,7 +212,7 @@ export class Editor {
         for (const player of world.getAllPlayers()) if (!message.to || player.name === message.to) tell(player, message.text);
         return;
       case "notice":
-        for (const player of world.getAllPlayers()) if (this.isEditor(player)) notice(this.scope, player, message.text);
+        for (const player of world.getAllPlayers()) notice(this.scope, player, message.text);
         return;
       case "goto":
         goto(message.players, message.port, message.label, tell);
@@ -243,10 +235,6 @@ export class Editor {
 
   private lists(): SpawnList[] {
     return spawnLists(this.state.current, this.info.rules);
-  }
-
-  private isEditor(player: Player): boolean {
-    return this.editors.has(player.name.toLowerCase());
   }
 
   private settingsOf(player: Player): SpawnSettings {
@@ -273,16 +261,11 @@ export class Editor {
     // Saved player data in the world could hold another game mode.
     player.setGameMode(GameMode.Creative);
     const where = `${this.state.current.name}, ${this.info.targetName}.`;
-    if (this.isEditor(player)) {
-      const menu = new ItemStack(MAP_MENU, 1);
-      menu.lockMode = ItemLockMode.slot;
-      menu.keepOnDeath = true;
-      inventoryOf(player)?.setItem(MENU_SLOT, menu);
-      tell(player, `${where} You're a map editor: the map menu in slot 9 has the checklist, the tools and Save. Hit a marker to change it.`);
-    } else {
-      takeTools(player);
-      tell(player, `${where} You're a builder: build in creative. Map editors place the spawns and other map data.`);
-    }
+    const menu = new ItemStack(MAP_MENU, 1);
+    menu.lockMode = ItemLockMode.slot;
+    menu.keepOnDeath = true;
+    inventoryOf(player)?.setItem(MENU_SLOT, menu);
+    tell(player, `${where} The map menu in slot 9 has the checklist, the tools and Save. Hit a marker to change it.`);
   }
 
   /** Tells the host blocks changed, so Save or stopping saves the world. At most every few seconds. */
@@ -326,7 +309,7 @@ export class Editor {
   private hints(): void {
     for (const player of world.getAllPlayers()) {
       const tool = heldTool(player);
-      if (!tool || !this.isEditor(player)) continue;
+      if (!tool) continue;
       if (tool === "spawn") hintBar(player, this.spawnHint(player));
       else if (tool === "region") hintBar(player, this.regionTool.hint(player));
       else if (tool === "killY") hintBar(player, this.killYTool.hint(player));
@@ -706,10 +689,4 @@ function removeItems(inventory: Container, typeIds: Set<string>): void {
     const item = inventory.getItem(slot);
     if (item && typeIds.has(item.typeId)) inventory.setItem(slot, undefined);
   }
-}
-
-/** Builders never keep a tool, even one left from when they were a map editor. */
-function takeTools(player: Player): void {
-  const inventory = inventoryOf(player);
-  if (inventory) removeItems(inventory, TOOLS);
 }

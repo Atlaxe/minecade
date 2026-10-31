@@ -13,7 +13,7 @@ import { EDIT_SCRIPT_EVENT_ID, extractEditPayload, parseEditorEvent, type Editor
 import { BASE_IMAGE, buildBaseImage } from "../build/base-image.ts";
 import { attachConsole, connectDocker, findContainerByName, type ServerConsole } from "../build/docker-util.ts";
 import { PlayerLog, playerEvent, readEnv } from "../control-panel/core.ts";
-import { editorAllowList, mapEditors, type ServerState, type ServerStatus, type Slot } from "./editor-core.ts";
+import { editorPlayers, type ServerState, type ServerStatus, type Slot } from "./editor-core.ts";
 import { buildEditorTemplate } from "./template.ts";
 
 export const root = fileURLToPath(new URL("../../", import.meta.url));
@@ -40,7 +40,6 @@ export abstract class ServerSession {
   protected state: ServerState = "starting";
   protected error: string | undefined;
   protected env: Record<string, string> = {};
-  protected editors: string[] = [];
   protected readonly players = new PlayerLog();
   /** The last server console lines, for a failure message. */
   protected readonly recent: string[] = [];
@@ -137,7 +136,6 @@ export abstract class ServerSession {
       ...(this.error ? { error: this.error } : {}),
       join: `${this.env.LAN_HOST ?? "?"}:${this.slot.port}`,
       players: this.online(),
-      editors: this.editors,
       startedAt: this.startedAt,
     };
   }
@@ -149,8 +147,7 @@ export abstract class ServerSession {
     if (!existsSync(envPath)) throw new Error("no .env file: copy .env.example to .env and fill it in");
     this.env = readEnv(await readFile(envPath, "utf8"));
     if (!this.env.LAN_HOST) throw new Error("set LAN_HOST in .env");
-    if (editorAllowList(this.env).length === 0) throw new Error("nobody could join: put your gamertag in LAN_PLAYERS in .env");
-    this.editors = mapEditors(this.env);
+    if (editorPlayers(this.env).length === 0) throw new Error("nobody could join: put your gamertag in LAN_PLAYERS in .env");
     await this.prepare();
 
     const docker = connectDocker();
@@ -209,7 +206,6 @@ export abstract class ServerSession {
       LAN_HOST: this.env.LAN_HOST,
       PUBLIC_HOST: this.env.PUBLIC_HOST || "auto",
       LAN_PLAYERS: this.env.LAN_PLAYERS ?? "",
-      EDITOR_ALLOW_LIST: this.env.EDITOR_ALLOW_LIST ?? "",
     };
     return {
       name: this.slot.container,
@@ -249,9 +245,8 @@ export abstract class ServerSession {
     this.players.feed(line);
     const joined = playerEvent(line);
     if (joined) {
-      const editor = this.editors.some((name) => name.toLowerCase() === joined.name.toLowerCase());
-      this.note(`${joined.name} ${joined.kind === "connected" ? `joined (${editor ? "map editor" : "builder"})` : "left"}.`);
-      if (joined.kind === "connected" && editor) void this.op(joined.name);
+      this.note(`${joined.name} ${joined.kind === "connected" ? "joined" : "left"}.`);
+      if (joined.kind === "connected") void this.op(joined.name);
       this.onPlayer(joined.name, joined.kind);
       return;
     }
@@ -283,7 +278,7 @@ export abstract class ServerSession {
   }
 
   /**
-   * Map editors are operators, so they can use commands. A player who just connected may need a
+   * Everyone here is an operator, so they can use commands. A player who just connected may need a
    * moment ("No targets matched"); one who is an operator already gets "Could not op".
    */
   private async op(name: string): Promise<void> {

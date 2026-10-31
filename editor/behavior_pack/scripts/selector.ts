@@ -38,7 +38,6 @@ export class Selector {
   private readonly scope: Scope;
   private readonly info: SelectInfo;
   private readonly link: HostLink;
-  private readonly editors: Set<string>;
   private readonly selections = new Map<string, Picking>();
   private readonly formOpen = new Set<string>();
   /** The target each player last saved a map for. */
@@ -48,13 +47,11 @@ export class Selector {
   constructor(scope: Scope, info: SelectInfo) {
     this.scope = scope;
     this.info = info;
-    this.editors = new Set(info.editors.map((name) => name.toLowerCase()));
     this.maps = [...info.selections];
     this.link = new HostLink(scope, { config: () => {}, message: (message) => this.receive(message) });
     new Outlines(
       scope,
       {
-        isEditor: (player) => this.isEditor(player),
         selection: (player) => {
           const selection = this.selections.get(keyOf(player));
           return selection && { box: selection.box };
@@ -80,17 +77,13 @@ export class Selector {
     });
     scope.subscribe(world.afterEvents.itemUse, ({ source, itemStack }) => {
       if (!ITEMS.has(itemStack.typeId)) return;
-      if (!this.isEditor(source)) {
-        takeItems(source);
-        return;
-      }
       if (itemStack.typeId === MAP_MENU) void this.menu(source);
       else void this.use(source);
     });
     scope.subscribe(world.afterEvents.entityHitBlock, ({ damagingEntity, hitBlock }) => {
       if (damagingEntity.typeId !== "minecraft:player") return;
       const player = damagingEntity as Player;
-      if (heldTool(player) === "select" && this.isEditor(player)) this.begin(player, hitBlock);
+      if (heldTool(player) === "select") this.begin(player, hitBlock);
     });
     // The Select tool never breaks the block it hits, which creative mode would.
     scope.subscribeBefore(world.beforeEvents.playerBreakBlock, (event) => {
@@ -115,7 +108,7 @@ export class Selector {
         for (const player of world.getAllPlayers()) if (!message.to || player.name === message.to) tell(player, message.text);
         return;
       case "notice":
-        for (const player of world.getAllPlayers()) if (this.isEditor(player)) notice(this.scope, player, message.text);
+        for (const player of world.getAllPlayers()) notice(this.scope, player, message.text);
         return;
       case "goto":
         goto(message.players, message.port, message.label, tell);
@@ -127,18 +120,9 @@ export class Selector {
     }
   }
 
-  private isEditor(player: Player): boolean {
-    return this.editors.has(player.name.toLowerCase());
-  }
-
   private welcome(player: Player): void {
     if (!player.isValid) return;
     player.setGameMode(GameMode.Creative);
-    if (!this.isEditor(player)) {
-      takeItems(player);
-      tell(player, `Select mode on "${this.info.world}": map editors box maps here. Look around in creative.`);
-      return;
-    }
     const inventory = inventoryOf(player);
     const menu = new ItemStack(MAP_MENU, 1);
     menu.lockMode = ItemLockMode.slot;
@@ -161,7 +145,7 @@ export class Selector {
 
   private hints(): void {
     for (const player of world.getAllPlayers()) {
-      if (heldTool(player) !== "select" || !this.isEditor(player)) continue;
+      if (heldTool(player) !== "select") continue;
       const selection = this.selections.get(keyOf(player));
       hintBar(
         player,
@@ -403,10 +387,4 @@ function removeItems(inventory: Container, typeIds: Set<string>): void {
     const item = inventory.getItem(slot);
     if (item && typeIds.has(item.typeId)) inventory.setItem(slot, undefined);
   }
-}
-
-/** Builders never keep an editor item. */
-function takeItems(player: Player): void {
-  const inventory = inventoryOf(player);
-  if (inventory) removeItems(inventory, ITEMS);
 }

@@ -25,7 +25,6 @@ const PLANE_SPACING = 3;
 const PLANE_EDGE_BUDGET = 120;
 
 export interface OutlineSource {
-  isEditor(player: Player): boolean;
   /** The player's selection, and the key of the saved box it edits (drawn as the selection only). */
   selection(player: Player): { box: Box; editing?: string } | undefined;
   /** Every box to outline, each in its color. */
@@ -46,7 +45,7 @@ export class Outlines {
   }
 
   private draw(): void {
-    const players = world.getAllPlayers().filter((player) => this.tools.has(heldTool(player)) && this.source.isEditor(player));
+    const players = world.getAllPlayers().filter((player) => this.tools.has(heldTool(player)));
     if (players.length === 0) return;
     const boxes = this.source.boxes();
     const plane = this.source.killY?.();

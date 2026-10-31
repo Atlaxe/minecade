@@ -1,6 +1,6 @@
-// The mode box: which editor server the player is on (Select, Edit, or Build for builders in
-// Edit), with the world or map, in a small box top center. Bedrock has no script API for HUD text,
-// so the line rides on the title: a title starting with MODE_MARK shows in the box
+// The mode box: which editor server the player is on (Select or Edit), with the world or map, in
+// a small box top center. Bedrock has no script API for HUD text, so the line rides on the title:
+// a title starting with MODE_MARK shows in the box
 // (editor/resource_pack/ui/hud_screen.json), the way the game clock rides on the action bar
 // (packages/minigame-core/src/hud.ts). Nothing else on the editor's servers sends titles.
 import { world, type Player } from "@minecraft/server";
@@ -9,9 +9,9 @@ import type { Scope } from "@minecade/minigame-core";
 /** Starts every title that is a mode line. Must match editor/resource_pack/ui/hud_screen.json. */
 export const MODE_MARK = "§r§m§o§r";
 
-export type Mode = "select" | "edit" | "build";
+export type Mode = "select" | "edit";
 
-const MODES: Readonly<Record<Mode, string>> = { select: "§bSelect", edit: "§aEdit", build: "§eBuild" };
+const MODES: Readonly<Record<Mode, string>> = { select: "§bSelect", edit: "§aEdit" };
 /** How often the line is sent again; each one stays up longer than that, so it never fades. */
 const REFRESH_TICKS = 100;
 const STAY_TICKS = 400;

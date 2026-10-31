@@ -73,7 +73,6 @@ export class SelectSession extends ServerSession {
     const info: SelectInfo = {
       mode: "select",
       world: this.world.name,
-      editors: this.editors,
       targets: this.targets.map(({ id, name, maps }) => ({ id, name, maps })),
       selections: this.infos,
     };

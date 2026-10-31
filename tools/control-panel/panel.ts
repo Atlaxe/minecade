@@ -354,8 +354,6 @@ async function buildState() {
           LAN_PLAYERS: env.LAN_PLAYERS ?? "",
           WATCHER_GAMERTAG: env.WATCHER_GAMERTAG ?? "",
           LOBBY_MAP: env.LOBBY_MAP ?? "",
-          EDITOR_ALLOW_LIST: env.EDITOR_ALLOW_LIST ?? "",
-          MAP_EDITORS: env.MAP_EDITORS ?? "",
           TRANSPORT: env.TRANSPORT ?? "",
           BDS_VERSION: env.BDS_VERSION ?? "",
         }
@@ -471,7 +469,7 @@ function startDockerDesktop(): void {
 async function saveEnv(body: Record<string, unknown>): Promise<{ status: number; body: unknown }> {
   if (!existsSync(envPath)) return { status: 409, body: { error: "No .env file. Copy .env.example to .env first." } };
   const values: Record<string, string> = {};
-  for (const key of ["ALLOW_LIST", "LAN_PLAYERS", "EDITOR_ALLOW_LIST", "MAP_EDITORS"]) {
+  for (const key of ["ALLOW_LIST", "LAN_PLAYERS"]) {
     if (body[key] === undefined) continue;
     const result = normalizeNames(String(body[key]));
     if (!result.ok) return { status: 400, body: { error: `${key}: ${result.error}` } };

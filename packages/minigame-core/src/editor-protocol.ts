@@ -22,7 +22,6 @@ export type EditorInfo = HomeInfo | EditInfo | SelectInfo | ExtractInfo;
 /** The editor lobby: a black screen and a form that opens maps and worlds on the other servers. */
 export interface HomeInfo {
   mode: "home";
-  editors: string[];
   home: HomeState;
 }
 
@@ -34,8 +33,6 @@ export interface EditInfo {
   /** "Lobby", or the game's name. */
   targetName: string;
   map: string;
-  /** Gamertags of the map editors (MAP_EDITORS, or LAN_PLAYERS when that's empty). Everyone else builds. */
-  editors: string[];
   rules: EditorRules;
   /** A new world: the pack lays a glass pad under the first spawn. */
   fresh: boolean;
@@ -48,7 +45,6 @@ export interface SelectInfo {
   mode: "select";
   /** The world's name. */
   world: string;
-  editors: string[];
   /** What a map can be saved for: the lobby and each game, with the map ids each has already. */
   targets: { id: string; name: string; maps: string[] }[];
   /** The maps boxed in this world so far. */
@@ -155,7 +151,7 @@ export type HostMessage =
   | { t: "status"; undo?: string; redo?: string; unsaved: boolean; saving: boolean; publishing?: boolean }
   /** A chat line for one player, or for everyone when `to` is absent. */
   | { t: "say"; to?: string; text: string }
-  /** A line above the hotbar for the map editors here, with a chime: news such as a map that's ready. */
+  /** A line above the hotbar for everyone here, with a chime: news such as a map that's ready. */
   | { t: "notice"; text: string }
   /** Remove every marker (the world is about to be saved), then answer with "clean". */
   | { t: "cleanup"; id: number }
