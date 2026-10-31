@@ -31,7 +31,8 @@ function setup(online: string[] = ["Steve", "Alex"], options: Partial<LobbyOptio
   const chimes: [string, string][] = [];
   const teamForms: string[] = [];
   const teamFormsClosed: string[] = [];
-  let startsEnded = 0;
+  /** Each ended start: true when the players were sent. */
+  const startsEnded: boolean[] = [];
   let requests = 0;
   const ports: LobbyPorts = {
     send: (event) => sent.push(event),
@@ -48,13 +49,13 @@ function setup(online: string[] = ["Steve", "Alex"], options: Partial<LobbyOptio
       hologram: () => {},
     },
     countdown: (view) => countdowns.push(view),
-    startEnded: () => startsEnded++,
+    startEnded: (started) => startsEnded.push(started),
   };
   const root = new Scope("lobby");
   const lobby = new LobbyController(ports, root, { registry, newRequestId: () => `r${++requests}`, ...options });
   const say = (message: InboundMessage) => lobby.onMessage(message);
   const notesTo = (to: string) => notes.filter(([who]) => who === to).map(([, text]) => text);
-  return { players, sent, transfers, notes, notesTo, countdowns, chimes, closed, teamForms, teamFormsClosed, startsEnded: () => startsEnded, root, lobby, say };
+  return { players, sent, transfers, notes, notesTo, countdowns, chimes, closed, teamForms, teamFormsClosed, startsEnded, root, lobby, say };
 }
 
 /** Steve presses Start on Sumo, Arena 1 (request "r1"). */
@@ -278,7 +279,7 @@ describe("LobbyController: team picks", () => {
       ["Steve", 19133],
       ["Alex", 19133],
     ]);
-    expect(t.startsEnded()).toBe(1);
+    expect(t.startsEnded).toEqual([true]);
   });
 
   it("skips picking when the game screen chose random teams, or the game has no teams", () => {
@@ -300,7 +301,7 @@ describe("LobbyController: team picks", () => {
     t.say({ t: "game_failed", requestId: "r1", reason: "no room" });
     expect(t.teamFormsClosed).toEqual(["Steve", "Alex"]);
     expect(t.lobby.starting).toBe(false);
-    expect(t.startsEnded()).toBe(1);
+    expect(t.startsEnded).toEqual([false]);
     expect(t.root.live()).toEqual({ scopes: 1, subscriptions: 0, runs: 0 });
   });
 

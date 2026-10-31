@@ -3,16 +3,17 @@
 // the hologram, so this file is unit-tested with plain data.
 //
 // The user keeps the terminal until they close the menu, start a game, leave, walk away, or
-// leave it untouched for a while; the hologram keeps the last screen up until the next tap.
+// leave it untouched for a while; the hologram keeps the last screen up until the next tap, or
+// until a game starts.
 //
 //   main menu ── Play ──> game grid ──> game screen (map, settings) ── Start ──> the game starts
 //             └─ Stats ─> the stats screens
 // Closing a menu goes back one step; closing the main menu ends the session.
 //
 // The terminal remembers each player's place (see Memory): however a session ends (the X, Esc on
-// the main menu, walking away, timing out, leaving, or a game starting), their next tap opens the
-// menu they were on, with their choices on each game's screen. The stats screens keep their own
-// place (stats-controller.ts).
+// the main menu, walking away, timing out or leaving), their next tap opens the menu they were on,
+// with their choices on each game's screen. The stats screens keep their own place
+// (stats-controller.ts). Once a game starts, everything starts over at the main menu.
 import { Scope, say, type RegistryGame } from "@minecade/minigame-core";
 import { CLOSE, defaultSettings, gameAction, nextSetting, settingsFor } from "./game-screen.ts";
 import { gameContent, gamesContent, idleContent, mainContent, type HoloContent } from "./holo-content.ts";
@@ -65,10 +66,7 @@ export interface TerminalOptions {
 /** A game screen's choices: the Random switch, the chosen map and the settings. */
 type GamePicks = Pick<GameView, "random" | "map" | "settings">;
 
-/**
- * What the terminal keeps for each player between taps, by name. It lives as long as the lobby's
- * script does, so it outlasts a trip to a game and back, but not a lobby restart.
- */
+/** What the terminal keeps for each player between taps, by name, until a game starts. */
 interface Memory {
   /** The menu they were on last. */
   screen: "main" | "games" | "game" | "stats";
@@ -163,6 +161,18 @@ export class TerminalController {
    */
   refresh(): void {
     if (this.user === undefined && !this.ports.starting()) this.ports.hologram(this.lastScreen ?? idleContent());
+  }
+
+  /**
+   * A start is over (`started`: the players were sent). Once a game has started, everyone's place
+   * and choices are forgotten, so the next tap opens the main menu, and the hologram shows it.
+   */
+  startEnded(started: boolean): void {
+    if (started) {
+      this.memory.clear();
+      this.lastScreen = mainContent();
+    }
+    this.refresh();
   }
 
   onPlayerLeft(name: string): void {

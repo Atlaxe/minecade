@@ -6,7 +6,7 @@
 //   players list ──> a player's screen (Global, Sumo, ...) ── back ──> players list ── back ──> done
 //
 // A viewer who leaves a player's screen any way but back (the X, walking away, leaving) gets that
-// player and tab again the next time they open the stats screens.
+// player and tab again the next time they open the stats screens, until a game starts.
 import { Scope, say, type InboundMessage, type OutboundEvent, type Registry, type StatsReply } from "@minecade/minigame-core";
 import { CLOSE } from "./game-screen.ts";
 import { statsContent, statsListContent, type HoloContent } from "./holo-content.ts";
@@ -39,7 +39,7 @@ export class StatsController {
   /** Players with the stats screens open, each with a scope that closes them. */
   private readonly open = new Map<string, Scope>();
   private readonly waiting = new Map<string, (reply: StatsReply) => void>();
-  /** The player's screen and tab each viewer has open, kept until they go back to the list. */
+  /** The player's screen and tab each viewer has open, kept until they go back to the list or a game starts. */
   private readonly places = new Map<string, { player: string; tab: string }>();
 
   constructor(ports: StatsPorts, scope: Scope, options: StatsOptions) {
@@ -56,6 +56,11 @@ export class StatsController {
 
   onPlayerLeft(name: string): void {
     this.open.get(name)?.dispose();
+  }
+
+  /** Forgets every viewer's place (a game started), so the stats screens open on the list. */
+  forgetPlaces(): void {
+    this.places.clear();
   }
 
   /**

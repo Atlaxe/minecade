@@ -54,12 +54,12 @@ Lobby terminal memory (after the network's next Start or Restart in the Panel):
 - On a game's screen, switch Random off, pick a map and change a setting, then press the X. Tap the
   terminal: that game's screen opens with the same choices.
 - The hologram keeps showing the last screen after the X, Esc on the main menu, or walking away
-  (it doesn't go back to "Tap the terminal"), and shows the started game's screen again after a
-  start.
+  (it doesn't go back to "Tap the terminal").
 - The same after walking away from the terminal, and after leaving the lobby and joining again.
 - Esc back to the grid, open another game, then go back to the first: its choices are still there.
-- Start a game from the screen; back in the lobby, a tap opens that game's screen, ready to start
-  again.
+- Start a game. Once everyone is sent, the hologram shows the main screen. Back in the lobby, a
+  tap opens the main menu, each game's screen has Random on and its first map and settings again,
+  and Stats opens on the list.
 - Stats: open a player's stats on a game tab and press the X. A tap opens that player and tab. Go
   back to the list, press the X: a tap opens the list.
 - Walk away while the stats screens are open: they close and stay closed (before, the list opened

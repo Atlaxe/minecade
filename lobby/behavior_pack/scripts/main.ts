@@ -134,7 +134,10 @@ bootServer(({ vars, transport, transfer, root }) => {
         hologram: (view) => hologram.show(teamsContent(view)),
       },
       countdown: (view) => hologram.show(countdownContent(view)),
-      startEnded: () => terminal.refresh(),
+      startEnded: (started) => {
+        if (started) stats.forgetPlaces();
+        terminal.startEnded(started);
+      },
     },
     root,
     { registry, devMinPlayers: vars.devMinPlayers, demoGames: demoGames(vars.devDemoGames) },

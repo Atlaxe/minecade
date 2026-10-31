@@ -330,7 +330,7 @@ describe("TerminalController: Play", () => {
     expect(t.mains).toHaveLength(5);
   });
 
-  it("keeps each player's choices on each game's screen, through a walk-away, a trip away and a start", async () => {
+  it("keeps each player's place and choices through a walk-away and a rejoin, until a game starts", async () => {
     const t = setup();
     void t.terminal.tap("Steve");
     t.mains[0].answer("play");
@@ -353,7 +353,7 @@ describe("TerminalController: Play", () => {
     void t.terminal.tap("Steve"); // Sumo's screen, as they left it
     expect(t.screens[4].view).toMatchObject({ random: false, map: "pit" });
     expect(t.holo.at(-1)).toEqual(gameContent(t.screens[4].view));
-    t.terminal.onPlayerLeft("Steve"); // off to a game, say
+    t.terminal.onPlayerLeft("Steve"); // leaves the lobby
 
     void t.terminal.tap("Alex"); // someone else has their own place and choices
     t.mains[1].answer("play");
@@ -364,7 +364,7 @@ describe("TerminalController: Play", () => {
     t.screens[5].answer(CLOSE);
     await flushPromises();
 
-    void t.terminal.tap("Steve"); // back from the game
+    void t.terminal.tap("Steve"); // joined again
     expect(t.screens[6].view).toMatchObject({ random: false, map: "pit" });
     t.screens[6].answer(undefined);
     await flushPromises();
@@ -376,12 +376,25 @@ describe("TerminalController: Play", () => {
     expect(t.requests).toEqual([["Steve", "paintball", "random", { teams: "random" }]]);
     expect(t.terminal.current).toBeUndefined();
 
-    t.setStarting(false); // the start is over: the hologram shows Paintball's screen again
-    t.terminal.refresh();
+    t.setStarting(false); // the start failed: everything is kept
+    t.terminal.startEnded(false);
     expect(t.holo.at(-1)).toEqual(gameContent(t.screens[7].view));
-    void t.terminal.tap("Steve"); // Paintball's screen, ready to go again
+    void t.terminal.tap("Steve");
     expect(t.screens[8].view).toMatchObject({ choice: { game: paintball }, settings: { teams: "random" } });
     expect(t.mains).toHaveLength(2);
+    t.screens[8].answer(PAINTBALL_START);
+    await flushPromises();
+
+    t.setStarting(false); // this time the game started: everyone starts over at the main menu
+    t.terminal.startEnded(true);
+    expect(t.holo.at(-1)).toEqual(mainContent());
+    void t.terminal.tap("Steve");
+    expect(t.mains).toHaveLength(3);
+    t.mains[2].answer("play");
+    await flushPromises();
+    t.grids[4].answer(1); // Paintball, with its first choices again
+    await flushPromises();
+    expect(t.screens[9].view).toMatchObject({ random: true, map: "yard", settings: { teams: "pick" } });
     expect(t.root.live()).toMatchObject({ scopes: 2 });
   });
 

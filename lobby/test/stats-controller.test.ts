@@ -172,6 +172,25 @@ describe("StatsController", () => {
     expect(t.lists).toHaveLength(3);
   });
 
+  it("forgets every viewer's place once a game starts", async () => {
+    const t = setup();
+    void t.open();
+    t.reply("q1", { players: ["Alex"] });
+    await flushPromises();
+    t.lists[0].answer(1); // Alex
+    await flushPromises();
+    t.reply("q2", { player: "Alex", totals: totals() });
+    await flushPromises();
+    t.screens[0].answer(CLOSE);
+    await flushPromises();
+    t.stats.forgetPlaces();
+
+    void t.open();
+    t.reply("q3", { players: ["Alex"] });
+    await flushPromises();
+    expect(t.lists).toHaveLength(2); // the list, not Alex's screen
+  });
+
   it("closes with the terminal session it was opened in, keeping the viewer's place", async () => {
     const t = setup();
     const session = t.root.child("terminal:Steve");

@@ -111,7 +111,7 @@ at a time; a public hologram above it shows everyone what they're doing.
 
 | Screen | The terminal's user sees | Everyone sees (the hologram) |
 |---|---|---|
-| Idle | nothing | The logo frame, "Tap the terminal", until someone first uses the terminal. After that, the last screen stays up between sessions |
+| Idle | nothing | The logo frame, "Tap the terminal", until someone first uses the terminal. After that, the last screen stays up between sessions, and the main screen after a game starts |
 | Main | The themed menu: logo, Play and Stats side by side | The logo frame, Play and Stats, the chosen one lit |
 | Play | A scrolling grid of game cards, 3 across, 80% of the screen's height: the game's 16:9 picture, its name, a player icon and the players needed (red when there aren't enough) | "Choose a game" and the game names, dimmed when there aren't enough players |
 | Game | Left: the game's name and info, a red warning when there aren't enough players, the Random map switch (on at first), the settings (Teams: Pick or Random for team games, then the game's own options), Start at the bottom. Right: scrolling map tiles, 2 across, each a 16:9 preview with the name over it; dimmed while Random is on, the chosen one outlined when it's off. Clicking a tile turns Random off and picks that map | Across the top, as wide as the frame allows: the chosen map's preview (or the "No preview" placeholder), or the game's picture while the map is random. Under it, two columns starting at the same height: the game's name and the players it needs on the left, and a table of "Map:" and each setting (up to 3) in white with the answers in yellow on the right. No map list or Start (only the terminal's user picks those) |
@@ -126,13 +126,15 @@ X (top right of every menu, white, red when hovered) leaves the terminal from an
 themed menu's first button (marked `MARK.close`), and `menuChoice()` in `game-screen.ts` turns it
 into `CLOSE`, so the scripts can tell it from the back arrow.
 
-The terminal remembers where each player was (`Memory` in `terminal-controller.ts`). However a
-session ends (the X, Esc on the main menu, walking away, timing out, leaving the lobby, or starting a
-game), the player's next tap opens the menu they were on. Each game's screen keeps their Random
-switch, map and settings, so after a game they're back on its screen, ready to start it again. The
-stats screens open on the player and tab they had open, until they go back to the list. A game
-running when they tap still sends them to the main menu. The memory lasts until the lobby restarts.
-The hologram keeps the last screen up the same way when a session ends, until the next tap.
+The terminal remembers where each player was (`Memory` in `terminal-controller.ts`) until a game
+starts. However a session ends (the X, Esc on the main menu, walking away, timing out, or leaving
+the lobby), the player's next tap opens the menu they were on, and each game's screen keeps their
+Random switch, map and settings. The stats screens open on the player and tab they had open,
+until they go back to the list. The hologram keeps the last screen up between sessions. Once a
+game starts (the players are sent), everyone starts over: the hologram shows the main screen, the
+next tap opens the main menu with every game's first choices, and the stats screens open on the
+list. A start that fails keeps everything. A game running when someone taps still sends them to
+the main menu.
 
 **Pieces:**
 
@@ -244,7 +246,7 @@ players pick in the lobby while the game server boots, so no time is lost on the
   With Teams: Pick, the game doesn't hand out its own picker (the nether star); with Random, nobody
   picks. The star is only for starts that don't come from the lobby's game screen (the debug API).
 - **The hologram:** while teams are picked it shows them, and it stays on the starting game until
-  the players are sent; then it shows the terminal's last screen again (the started game's).
+  the players are sent; then it shows the main screen.
 - **Why a live form here, unlike the other menus:** a classic form (the themed menus) closes on
   every click and can't change while it's open, so every change means showing the form again.
   For team picks, players would only see each other's picks after their form reopened, and every

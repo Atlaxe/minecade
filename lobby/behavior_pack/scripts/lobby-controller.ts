@@ -30,8 +30,8 @@ export interface LobbyPorts {
   teamPicks?: TeamPickPorts;
   /** The hologram's countdown screen: while the game's server boots, then each second before everyone is sent. */
   countdown?(view: CountdownView): void;
-  /** A start is over (the players were sent, or it failed): the terminal's hologram can show its last screen again. */
-  startEnded?(): void;
+  /** A start is over: `started` when the players were sent, false when it failed. The terminal can show its hologram again. */
+  startEnded?(started: boolean): void;
 }
 
 /** A game that's starting, for the hologram: `left` is unset while its server boots, then the seconds before everyone is sent. */
@@ -238,13 +238,13 @@ export class LobbyController {
     for (const name of stillHere) {
       if (!pending.players.includes(name)) this.ports.notify(name, say.minor(`${pending.game.name} started without you. You'll join the next round.`));
     }
-    if (this.pending === pending) this.clearPending();
+    if (this.pending === pending) this.clearPending(true);
   }
 
-  private clearPending(): void {
+  private clearPending(started = false): void {
     this.pending?.scope.dispose();
     this.pending = undefined;
-    this.ports.startEnded?.();
+    this.ports.startEnded?.(started);
   }
 
   private gameName(id: string | undefined): string {
