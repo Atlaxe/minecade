@@ -7,7 +7,10 @@
   // - side (the checklist, the marker form, the region forms): the title and the X at the top, the
   //   body and the buttons scrolling under them, top down;
   // - map (the map menu): the title and the X, the quick icons, the tool grid, the tool's settings
-  //   (the body and the other buttons, scrolling), and the green Save bar at the bottom.
+  //   (the body and the other buttons, scrolling), and the green Save bar at the bottom;
+  // - home (the editor lobby's menu): the title and the X, a row of icons (Open a map, New map, the
+  //   Recent filters, Leave), then the body and the other buttons scrolling.
+  // A side title can also carry the loading mark (§l§o§a§d): five dots after it light up in turn.
   // A form's buttons are one list. Each part of a layout makes an item for every button and shows
   // only the ones with its mark (scripts/marks.ts MARK); a hidden item takes no space.
   //
@@ -17,7 +20,7 @@
   "long_form": {
     "type": "panel",
     "size": ["100%", "100%"],
-    "controls": [{ "side_menu@editor_forms.side_menu": {} }, { "map_menu@editor_forms.map_menu": {} }]
+    "controls": [{ "side_menu@editor_forms.side_menu": {} }, { "map_menu@editor_forms.map_menu": {} }, { "home_menu@editor_forms.home_menu": {} }]
   },
 
   "side_menu": {
@@ -113,7 +116,82 @@
     ]
   },
 
-  // What both layouts have: the background, the title and the X, and a line under the title.
+  "home_menu": {
+    "type": "panel",
+    "size": [200, "100%"],
+    "anchor_from": "right_middle",
+    "anchor_to": "right_middle",
+    "layer": 2,
+    "visible": false,
+    "bindings": [
+      { "binding_name": "#title_text" },
+      {
+        "binding_type": "view",
+        "source_property_name": "(not ((#title_text - '§h§o§m§e') = #title_text))",
+        "target_property_name": "#visible"
+      }
+    ],
+    "controls": [
+      { "frame@editor_forms.frame": {} },
+      {
+        "parts": {
+          "type": "stack_panel",
+          "orientation": "vertical",
+          "size": ["100% - 8px", "100% - 35px"],
+          "anchor_from": "top_middle",
+          "anchor_to": "top_middle",
+          "offset": [0, 31],
+          "layer": 3,
+          "controls": [
+            { "icons@editor_forms.home_icons": {} },
+            { "rule_icons@editor_forms.rule_row": {} },
+            { "list@editor_forms.scroll": { "size": ["100%", "fill"], "$scrolling_content": "editor_forms.side_content" } }
+          ]
+        }
+      }
+    ]
+  },
+
+  // The editor lobby's icon row: Open a map and New map (§q§i§r), a divider, a funnel, the Recent
+  // filters (§q§f§r, outlined while on), and Leave (§q§e§r) at the right end.
+  "home_icons": {
+    "type": "panel",
+    "size": ["100%", 30],
+    "controls": [
+      {
+        "row": {
+          "type": "stack_panel",
+          "orientation": "horizontal",
+          "size": ["100%c", 24],
+          "anchor_from": "left_middle",
+          "anchor_to": "left_middle",
+          "offset": [4, 0],
+          "controls": [
+            { "actions@editor_forms.quick_strip": {} },
+            {
+              "divider": {
+                "type": "panel",
+                "size": [9, 24],
+                "controls": [{ "line": { "type": "image", "texture": "textures/minecade/editor/rule", "size": [1, 16], "keep_ratio": false } }]
+              }
+            },
+            {
+              "funnel": {
+                "type": "panel",
+                "size": [18, 24],
+                "controls": [{ "icon": { "type": "image", "texture": "textures/minecade/editor/icon_filter", "size": [16, 16], "bilinear": false, "alpha": 0.55 } }]
+              }
+            },
+            { "filters@editor_forms.filter_strip": {} }
+          ]
+        }
+      },
+      { "end@editor_forms.end_strip": { "anchor_from": "right_middle", "anchor_to": "right_middle", "offset": [-3, 0] } }
+    ]
+  },
+
+  // What every layout has: the background, the title and the X, and a line under the title. A
+  // loading title (§l§o§a§d) gets the dots after it.
   "frame": {
     "type": "panel",
     "size": ["100%", "100%"],
@@ -132,7 +210,70 @@
           "anchor_to": "top_left",
           "offset": [10, 10],
           "layer": 3,
-          "bindings": [{ "binding_name": "#title_text" }]
+          "visible": false,
+          "bindings": [
+            { "binding_name": "#title_text" },
+            {
+              "binding_type": "view",
+              "source_property_name": "((#title_text - '§l§o§a§d') = #title_text)",
+              "target_property_name": "#visible"
+            }
+          ]
+        }
+      },
+      {
+        "loading_title": {
+          "type": "stack_panel",
+          "orientation": "horizontal",
+          "size": ["100%c", 12],
+          "anchor_from": "top_left",
+          "anchor_to": "top_left",
+          "offset": [10, 10],
+          "layer": 3,
+          "visible": false,
+          "bindings": [
+            { "binding_name": "#title_text" },
+            {
+              "binding_type": "view",
+              "source_property_name": "(not ((#title_text - '§l§o§a§d') = #title_text))",
+              "target_property_name": "#visible"
+            }
+          ],
+          "controls": [
+            {
+              "label": {
+                "type": "label",
+                "text": "#title_text",
+                "font_type": "MinecraftTen",
+                "font_scale_factor": 1.2,
+                "color": [1.0, 1.0, 1.0],
+                "shadow": true,
+                "size": ["default", 12],
+                "bindings": [{ "binding_name": "#title_text" }]
+              }
+            },
+            {
+              "dots": {
+                "type": "panel",
+                "size": [34, 12],
+                "controls": [
+                  {
+                    "image": {
+                      "type": "image",
+                      "texture": "textures/minecade/editor/loading_dots",
+                      "bilinear": false,
+                      "size": [27, 3],
+                      "uv_size": [27, 3],
+                      "uv": "@editor_forms.loading_dots_animation",
+                      "anchor_from": "bottom_left",
+                      "anchor_to": "bottom_left",
+                      "offset": [5, -2]
+                    }
+                  }
+                ]
+              }
+            }
+          ]
         }
       },
       { "close@editor_forms.close_x": {} },
@@ -148,6 +289,16 @@
         }
       }
     ]
+  },
+
+  // The loading dots: loading_dots.png holds five frames side by side (a flip book steps right),
+  // each with the next dot lit.
+  "loading_dots_animation": {
+    "anim_type": "flip_book",
+    "initial_uv": [0, 0],
+    "frame_count": 5,
+    "frame_step": 27,
+    "fps": 6
   },
 
   // Closes the menu, the same as Esc: vanilla's close button with a white X (red when hovered). Not a
@@ -222,8 +373,8 @@
     "bindings": [{ "binding_name": "#form_button_contents", "binding_name_override": "#collection_length" }]
   },
 
-  // Every button but the map menu's quick icons (§q§p§r, §q§i§r), tools (§t§l§r) and Save (§s§v§r):
-  // a heading (§h§d§r, plain text) or a full-width button.
+  // Every button but the icon rows' icons (§q§p§r, §q§i§r, §q§f§r, §q§e§r), tools (§t§l§r) and
+  // Save (§s§v§r): a heading (§h§d§r, plain text) or a full-width button.
   "button_slot": {
     "type": "stack_panel",
     "orientation": "vertical",
@@ -233,7 +384,7 @@
       { "binding_name": "#form_button_text", "binding_type": "collection", "binding_collection_name": "form_buttons" },
       {
         "binding_type": "view",
-        "source_property_name": "(((#form_button_text - '§q§p§r') = #form_button_text) and ((#form_button_text - '§q§i§r') = #form_button_text) and ((#form_button_text - '§t§l§r') = #form_button_text) and ((#form_button_text - '§s§v§r') = #form_button_text))",
+        "source_property_name": "(((#form_button_text - '§q§p§r') = #form_button_text) and ((#form_button_text - '§q§i§r') = #form_button_text) and ((#form_button_text - '§q§f§r') = #form_button_text) and ((#form_button_text - '§q§e§r') = #form_button_text) and ((#form_button_text - '§t§l§r') = #form_button_text) and ((#form_button_text - '§s§v§r') = #form_button_text))",
         "target_property_name": "#visible"
       }
     ],
@@ -299,8 +450,9 @@
   },
 
   // A button: gray, or red for deleting and removing (§d§g§r); outlined when it's the picked option
-  // (§p§k§r); its two lines on the left in white; and for a switch (§t§g§r) an on or off picture on
-  // the right (on while the text also has §o§n§r).
+  // (§p§k§r); its two lines on the left in white, or for a card (§i§c§r) its icon on the left and
+  // the lines beside it; and for a switch (§t§g§r) an on or off picture on the right (on while the
+  // text also has §o§n§r).
   "button_face": {
     "type": "panel",
     "size": ["100%", "100%"],
@@ -356,7 +508,61 @@
           "anchor_to": "left_middle",
           "offset": [9, 0],
           "layer": 2,
-          "bindings": [{ "binding_name": "#form_button_text", "binding_type": "collection", "binding_collection_name": "form_buttons" }]
+          "visible": false,
+          "bindings": [
+            { "binding_name": "#form_button_text", "binding_type": "collection", "binding_collection_name": "form_buttons" },
+            {
+              "binding_type": "view",
+              "source_property_name": "((#form_button_text - '§i§c§r') = #form_button_text)",
+              "target_property_name": "#visible"
+            }
+          ]
+        }
+      },
+      {
+        "card_icon@editor_forms.button_icon": {
+          "size": [16, 16],
+          "anchor_from": "left_middle",
+          "anchor_to": "left_middle",
+          "offset": [10, 0],
+          "visible": false,
+          "bindings": [
+            { "binding_name": "#form_button_texture", "binding_name_override": "#texture", "binding_type": "collection", "binding_collection_name": "form_buttons" },
+            {
+              "binding_name": "#form_button_texture_file_system",
+              "binding_name_override": "#texture_file_system",
+              "binding_type": "collection",
+              "binding_collection_name": "form_buttons"
+            },
+            { "binding_name": "#form_button_text", "binding_type": "collection", "binding_collection_name": "form_buttons" },
+            {
+              "binding_type": "view",
+              "source_property_name": "(not ((#form_button_text - '§i§c§r') = #form_button_text))",
+              "target_property_name": "#visible"
+            }
+          ]
+        }
+      },
+      {
+        "card_label": {
+          "type": "label",
+          "text": "#form_button_text",
+          "font_type": "MinecraftTen",
+          "color": [1.0, 1.0, 1.0],
+          "size": ["100% - 44px", "default"],
+          "anchor_from": "left_middle",
+          "anchor_to": "left_middle",
+          "offset": [34, 0],
+          "layer": 2,
+          "visible": false,
+          "bindings": [
+            { "binding_name": "#form_button_text", "binding_type": "collection", "binding_collection_name": "form_buttons" },
+            {
+              "binding_type": "view",
+              "source_property_name": "(not ((#form_button_text - '§i§c§r') = #form_button_text))",
+              "target_property_name": "#visible"
+            }
+          ]
         }
       },
       {
@@ -596,7 +802,8 @@
     ]
   },
 
-  // Undo, Redo, Boundaries, Preview and Map settings (§q§i§r): 25 wide each, so five fit beside the pill.
+  // Undo, Redo, Boundaries, Preview and Map settings (§q§i§r): 25 wide each, so five fit beside the
+  // pill. In the editor lobby's row: Open a map and New map.
   "quick_strip": {
     "type": "stack_panel",
     "orientation": "horizontal",
@@ -619,6 +826,37 @@
       }
     ],
     "controls": [{ "button@editor_forms.icon_button": { "size": [22, 22] } }]
+  },
+
+  // The editor lobby's Recent filters (§q§f§r) and Leave (§q§e§r): quick icons in strips of their own.
+  "filter_strip@editor_forms.quick_strip": {
+    "factory": { "name": "buttons", "control_ids": { "button": "@editor_forms.filter_slot" } }
+  },
+
+  "filter_slot@editor_forms.quick_slot": {
+    "bindings": [
+      { "binding_name": "#form_button_text", "binding_type": "collection", "binding_collection_name": "form_buttons" },
+      {
+        "binding_type": "view",
+        "source_property_name": "(not ((#form_button_text - '§q§f§r') = #form_button_text))",
+        "target_property_name": "#visible"
+      }
+    ]
+  },
+
+  "end_strip@editor_forms.quick_strip": {
+    "factory": { "name": "buttons", "control_ids": { "button": "@editor_forms.end_slot" } }
+  },
+
+  "end_slot@editor_forms.quick_slot": {
+    "bindings": [
+      { "binding_name": "#form_button_text", "binding_type": "collection", "binding_collection_name": "form_buttons" },
+      {
+        "binding_type": "view",
+        "source_property_name": "(not ((#form_button_text - '§q§e§r') = #form_button_text))",
+        "target_property_name": "#visible"
+      }
+    ]
   },
 
   // The tool grid: five columns, each showing the tools marked for it (§t§l§r and §c§0§r to

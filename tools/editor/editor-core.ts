@@ -5,8 +5,8 @@ import { openKey, type GuestInfo, type MapConfig, type OpenRequest, type RecentE
 export const CONTROL_PORT = 8097;
 /** A map id is a folder name in maps/: lower case letters, digits, _ and -. */
 const MAP_ID = /^[a-z0-9][a-z0-9_-]{0,47}$/;
-/** How many recently opened maps and worlds are kept (the editor lobby shows a few). */
-const RECENT_KEPT = 5;
+/** How many recently opened maps, worlds and previews are kept (the editor lobby shows a few of each kind). */
+const RECENT_KEPT = 15;
 
 export type SlotId = "home" | "select" | "edit";
 
@@ -199,7 +199,7 @@ export function parseRecent(text: string): RecentEntry[] {
     return value.filter((entry): entry is RecentEntry => {
       const request = (entry as Partial<RecentEntry>)?.request;
       if (typeof (entry as Partial<RecentEntry>)?.label !== "string" || !request) return false;
-      if (request.to === "edit") return typeof request.target === "string" && typeof request.map === "string";
+      if (request.to === "edit" || request.to === "preview") return typeof request.target === "string" && typeof request.map === "string";
       return request.to === "select" && typeof request.world === "string";
     });
   } catch {

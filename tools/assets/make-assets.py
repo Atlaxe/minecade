@@ -483,7 +483,9 @@ def editor_picked() -> Image.Image:
 def editor_icon(kind: str, color: tuple[int, int, int] = (255, 255, 255)) -> Image.Image:
     """
     The map menu's quick icons, 16x16 (drawn at 64x64 and scaled down): a check mark, Undo and
-    Redo (a U-turn arrow, Redo mirrored), and a gear for the map settings.
+    Redo (a U-turn arrow, Redo mirrored), and a gear for the map settings. And the editor lobby's: a
+    pencil (Open a map, and maps opened in Edit), a plus (New map), a crop mark (worlds opened in
+    Select), a funnel before the Recent filters, and a door with an arrow going out (Leave).
     """
     size = 64
     image = Image.new("RGBA", (size, size), (0, 0, 0, 0))
@@ -507,7 +509,44 @@ def editor_icon(kind: str, color: tuple[int, int, int] = (255, 255, 255)) -> Ima
                 outer = 29 if math.cos(8 * math.atan2(dy, dx)) > 0.25 else 22
                 if 9 <= r <= outer:
                     image.putpixel((x, y), fill)
+    elif kind == "pencil":
+        # Pointing down and left: the body, its bare tip, and the eraser end past a small gap.
+        draw.line([(19, 45), (45, 19)], fill=fill, width=12)
+        draw.polygon([(15, 41), (23, 49), (9, 55)], fill=fill)
+        draw.line([(49, 15), (53, 11)], fill=fill, width=12)
+    elif kind == "plus":
+        draw.rectangle((27, 8, 36, 55), fill=fill)
+        draw.rectangle((8, 27, 55, 36), fill=fill)
+    elif kind == "crop":
+        # Two interlocking L shapes, like the Select tool's.
+        draw.rectangle((14, 4, 21, 50), fill=fill)
+        draw.rectangle((14, 43, 60, 50), fill=fill)
+        draw.rectangle((4, 14, 50, 21), fill=fill)
+        draw.rectangle((43, 14, 50, 60), fill=fill)
+    elif kind == "funnel":
+        draw.polygon([(10, 12), (54, 12), (37, 32), (37, 52), (27, 58), (27, 32)], fill=fill)
+    elif kind == "leave":
+        # A door frame open on the right, and an arrow going out through it.
+        draw.line([(36, 16), (36, 8), (10, 8), (10, 56), (36, 56), (36, 48)], fill=fill, width=6, joint="curve")
+        draw.line([(22, 32), (48, 32)], fill=fill, width=7)
+        draw.polygon([(60, 32), (45, 19), (45, 45)], fill=fill)
     return image.resize((16, 16), Image.Resampling.LANCZOS)
+
+
+def loading_dots() -> Image.Image:
+    """
+    The dots after a loading title (the editor lobby's Loading screen): five frames side by side
+    (UI flip books step right), each five 3x3 dots 3 apart with one lit aqua, left to right.
+    """
+    dot, gap, count = 3, 3, 5
+    width = count * dot + (count - 1) * gap
+    image = Image.new("RGBA", (width * count, dot), (0, 0, 0, 0))
+    draw = ImageDraw.Draw(image)
+    for frame in range(count):
+        for i in range(count):
+            x = frame * width + i * (dot + gap)
+            draw.rectangle((x, 0, x + dot - 1, dot - 1), fill=(85, 255, 255, 255) if i == frame else (110, 112, 118, 255))
+    return image
 
 
 def select_tool_icon() -> Image.Image:
@@ -639,6 +678,9 @@ def main() -> None:
     for kind, name in (("check", "check"), ("undo", "undo"), ("redo", "redo"), ("gear", "settings")):
         save(editor_icon(kind), EDITOR_TEXTURES / "minecade" / "editor" / f"icon_{name}.png")
     save(editor_icon("check", (110, 220, 90)), EDITOR_TEXTURES / "minecade" / "editor" / "icon_check_done.png")
+    for kind, name in (("pencil", "edit"), ("plus", "new"), ("crop", "select"), ("funnel", "filter"), ("leave", "leave")):
+        save(editor_icon(kind), EDITOR_TEXTURES / "minecade" / "editor" / f"icon_{name}.png")
+    save(loading_dots(), EDITOR_TEXTURES / "minecade" / "editor" / "loading_dots.png")
     save(outline_dot(), EDITOR_TEXTURES / "particle" / "outline.png")
     save(select_tool_icon(), EDITOR_TEXTURES / "items" / "select_tool.png")
     save(editor_switch(True), EDITOR_TEXTURES / "minecade" / "editor" / "switch_on.png")

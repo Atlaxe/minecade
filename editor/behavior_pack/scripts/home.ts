@@ -1,9 +1,11 @@
 // The editor lobby in game: where everyone joins. Players are shut in a small dark cell (blind, in
 // adventure, unable to move or look around, with no HUD), and get the Map editor form, which opens
 // again whenever it closes: open a map in Edit, copy builds from one of the client's worlds in
-// Select, go to what's open now, or invite friends (Players). The host (tools/editor/runner.ts)
-// starts the server that's picked and moves the player there once it's ready; meanwhile the form
-// says what's loading. Invited guests never get the menu: they wait here for Select or a preview.
+// Select, go to what's open now, pick up something from Recent (filtered by kind if they like,
+// and a preview card plays that map again), invite friends (Players), or leave. The host
+// (tools/editor/runner.ts) starts what's picked and moves the player there once it's ready;
+// meanwhile the form says what's loading. Invited guests never get the menu: they wait here for
+// Select or a preview.
 import {
   BlockVolume,
   GameMode,
@@ -19,8 +21,8 @@ import { describeError, log, showForm, type HomeInfo, type HomeState, type OpenR
 import type { HostMessage } from "@minecade/minigame-core/config";
 import { goto } from "./goto.ts";
 import { HostLink } from "./link.ts";
-import { dangerText, headingText, sideTitle } from "./marks.ts";
-import { guestWaitText, homeEntries, mapEntries, mapIdFrom, switchWarning, targetEntries, worldEntries } from "./menu.ts";
+import { dangerText, headingText, homeTitle, loadingTitle, sideTitle } from "./marks.ts";
+import { guestWaitText, homeEntries, mapEntries, mapIdFrom, switchWarning, targetEntries, worldEntries, type RecentKind } from "./menu.ts";
 import { PlayersMenu, isMapEditor } from "./players.ts";
 
 const PREFIX = "§b[Editor]§r ";
@@ -35,9 +37,9 @@ const PENDING_TICKS = 100;
 const VIEW_TICKS = 20;
 /** Long enough to last the whole visit. */
 const BLIND_TICKS = 1_000_000;
-const MENU_BODY = "Open a map to edit it, or copy builds from one of your worlds to make new maps.";
+const LEAVE_BODY = "You're disconnected from the map editor. Whatever is open in Select and Edit keeps running: join this PC's address again to come back.";
 
-type Request = Extract<OpenRequest, { to: "edit" | "select" }>;
+type Request = Extract<OpenRequest, { to: "edit" | "select" | "preview" }>;
 type View = { kind: "menu" } | { kind: "wait"; label: string } | { kind: "guest"; text: string };
 
 export class Home {
@@ -50,6 +52,8 @@ export class Home {
   /** What each player picked last, shown as loading until the host's state takes over. */
   private readonly pending = new Map<string, { label: string; until: number }>();
   private readonly formOpen = new Set<string>();
+  /** The kind of Recent entry each player shows only, when they picked a filter. */
+  private readonly filters = new Map<string, RecentKind>();
   private readonly players: PlayersMenu;
 
   constructor(scope: Scope, info: HomeInfo) {
@@ -79,6 +83,7 @@ export class Home {
       this.shown.delete(key);
       this.pending.delete(key);
       this.formOpen.delete(key);
+      this.filters.delete(key);
     });
     scope.interval(() => this.refreshViews(), VIEW_TICKS);
     void this.buildCell();
@@ -181,7 +186,7 @@ export class Home {
 
   private async notice(player: Player, view: Extract<View, { kind: "wait" }>): Promise<void> {
     const form = new ActionFormData()
-      .title(sideTitle("Loading"))
+      .title(loadingTitle("Loading"))
       .body(`Loading ${view.label}...\n\nYou'll be moved there as soon as it's ready: that takes about 20 seconds.`)
       .button(headingText("Please wait"));
     await this.show(player, form);
@@ -189,7 +194,7 @@ export class Home {
 
   /** A guest waits here for Select or a preview; the host moves them. */
   private async guestNotice(player: Player, text: string): Promise<void> {
-    const form = new ActionFormData().title(sideTitle("Map editor")).body(text).button(headingText("Please wait"));
+    const form = new ActionFormData().title(loadingTitle("Waiting")).body(text).button(headingText("Please wait"));
     await this.show(player, form);
   }
 
@@ -208,9 +213,10 @@ export class Home {
   // ---- The menu -----------------------------------------------------------------------------
 
   private async menu(player: Player): Promise<void> {
-    const entries = homeEntries(this.state);
-    const form = new ActionFormData().title(sideTitle("Map editor")).body(MENU_BODY);
-    for (const entry of entries) form.button(entry.text);
+    const key = keyOf(player);
+    const entries = homeEntries(this.state, this.filters.get(key));
+    const form = new ActionFormData().title(homeTitle("Map editor"));
+    for (const entry of entries) form.button(entry.text, entry.icon);
     const response = await this.show(player, form);
     const action = response?.selection === undefined ? undefined : entries[response.selection]?.action;
     if (!action || !player.isValid) return;
@@ -218,6 +224,19 @@ export class Home {
     else if (action.kind === "maps") await this.pickMap(player);
     else if (action.kind === "new") await this.pickWorld(player);
     else if (action.kind === "players") await this.players.open(player);
+    else if (action.kind === "leave") await this.leave(player);
+    else if (action.kind === "filter") {
+      // The menu opens again at once with the filter on, or off again when it was on.
+      if (this.filters.get(key) === action.filter) this.filters.delete(key);
+      else this.filters.set(key, action.filter);
+    }
+  }
+
+  /** Leave, after a confirm: the host disconnects the player. */
+  private async leave(player: Player): Promise<void> {
+    const form = new ActionFormData().title(sideTitle("Leave?")).body(LEAVE_BODY).button(dangerText("Leave")).button("Cancel");
+    const response = await this.show(player, form);
+    if (response?.selection === 0 && player.isValid) this.link.send({ t: "leave", by: player.name });
   }
 
   /** Open a map: the lobby or a game, then one of its maps. */
@@ -296,11 +315,13 @@ export class Home {
     this.link.send({ t: "open", by: player.name, request });
   }
 
-  /** What a request opens, the way the host names it ("Sumo: Arena (arena_1)", or the world's name). */
+  /** What a request opens, the way the host names it ("Sumo: Arena (arena_1)", the world's name, or "the preview of Sumo: Arena"). */
   private labelOf(request: Request): string {
     if (request.to === "select") return this.state.catalog.worlds.find((world) => world.id === request.world)?.name ?? "the world";
     const target = this.state.catalog.targets.find((candidate) => candidate.id === request.target);
-    const name = request.fresh?.name ?? target?.maps.find((map) => map.id === request.map)?.name ?? request.map;
+    const fresh = request.to === "edit" ? request.fresh?.name : undefined;
+    const name = fresh ?? target?.maps.find((map) => map.id === request.map)?.name ?? request.map;
+    if (request.to === "preview") return `the preview of ${target?.name ?? request.target}: ${name}`;
     return `${target?.name ?? request.target}: ${name} (${request.map})`;
   }
 }

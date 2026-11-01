@@ -3,7 +3,8 @@
 The map editor is three Bedrock servers, booted together on the network's ports:
 
 - **The editor lobby** (port 19132) is where everyone joins. It's dark, with a menu that stays
-  open: open a map in Edit, copy builds from one of your worlds into Select, or go to what's open.
+  open: open a map in Edit, copy builds from one of your worlds into Select, go to what's open, or
+  pick up something recent (a map, a world, or a preview to play again).
 - **Select** (port 19133) cuts maps out of a world you converted from Java: box a build, and it's
   moved to the middle and saved as a new draft map in the background.
 - **Edit** (port 19134) sets a map's data in game: spawns, the spectator spawn, named points, the
@@ -12,8 +13,6 @@ The map editor is three Bedrock servers, booted together on the network's ports:
 
 Players move between the three by transfer, so nobody rejoins by hand. The network (the lobby and
 games) is stopped while the editor runs: they use the same ports.
-
-Preview comes in a later pass of milestone 10 (see `docs/plans/map-editor.md`).
 
 ## Starting and stopping
 
@@ -68,20 +67,32 @@ it to exit, and open it again.)
 ## The editor lobby
 
 You're shut in a small dark room with the **Map editor** menu, which opens again whenever it
-closes:
+closes. Its top row is icons (point at one for its name):
+
+- **Open a map** (the pencil): the lobby or a game, then one of its maps (drafts are marked). It
+  opens in Edit.
+- **New map** (the plus): pick the world to copy builds from: the worlds in Minecraft's worlds
+  folder, by the name the game shows, with how many maps came from each. A copy opens in Select.
+  **Empty world** at the bottom makes a draft map on a glass pad in the void instead: pick what
+  it's for, its name and its map id.
+- **The Recent filters** (after the funnel): Edit, Select and Preview show only that kind in
+  Recent, outlined while on. Tap the one that's on to show everything again.
+- **Leave** (the door, at the right end): disconnects you, after a confirm. Select and Edit keep
+  running; join again to come back.
+
+Under them, each with an icon on the left for its kind (a pencil for a map in Edit, a crop mark for
+a world in Select, the play icon for a preview):
 
 - **Open now:** the map open in Edit and the world open in Select, with who is on each. Pick one to
   go there.
-- **Recent:** the last few maps and worlds opened (kept in `work/editor/recent.json`).
-- **Open a map...:** the lobby or a game, then one of its maps (drafts are marked). It opens in Edit.
-- **New map...:** pick the world to copy builds from: the worlds in Minecraft's worlds folder, by
-  the name the game shows, with how many maps came from each. A copy opens in Select. **Empty world**
-  at the bottom makes a draft map on a glass pad in the void instead: pick what it's for, its name
-  and its map id.
+- **Recent:** the last 5 maps, worlds and previews (10 of one kind with a filter on), kept in
+  `work/editor/recent.json`. A preview card plays that map again (see "Preview").
+- **Players:** invite friends (see "Who can join").
 
 While the server you picked loads (about 20 seconds; a big world takes longer to copy), the menu
-says so, and you're moved there once it's ready. Opening something else on a server others are on
-asks first: they wait in the editor lobby while it switches (Edit saves first), then come back.
+says so, with five dots after its title lighting up one at a time, and you're moved there once
+it's ready. Opening something else on a server others are on asks first: they wait in the editor
+lobby while it switches (Edit saves first), then come back.
 
 **Going back:** **Editor lobby**, in Select's map menu and in Edit's gear, takes you to the menu to
 open another map or world. Select and Edit keep running meanwhile, so going back to them is instant.
@@ -292,6 +303,11 @@ previewed yet), **Preview** on the Panel's Edit row, or `npm run editor -- previ
 4. When the match ends (a win, everyone out, or the time limit), the game sends everyone back to
    Edit, as the network's games send players to the lobby. **End preview** (the Panel's Preview
    row, or `npm run editor -- preview end`) ends it at any time.
+
+**From the editor lobby:** a preview card in Recent (every preview leaves one) plays that map
+again from its folder as it is, without opening it in Edit (Edit saves first when it has that map
+open, and keeps running). Its checklist must be done. You wait in the editor lobby while it
+starts, it's just you and any invited guests, and the game sends you back to the editor lobby.
 
 A preview never counts toward stats.
 

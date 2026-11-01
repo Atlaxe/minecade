@@ -317,7 +317,10 @@ screen's content panel (`server_form.main_screen_content`) `[0, 0]`, which makes
 inside it zero, so `ui/server_form.json` resizes it to fill the screen; then the layouts' root
 (`long_form`) fills the screen too and the game grid can be `"80%"` of it. A texture with a `.json`
 file next to it (`nineslice_size`, `base_size`) is a nine-slice: its outer slices keep their size
-and the middle stretches.
+and the middle stretches. A flip book (`"anim_type": "flip_book"`, set as an image's `uv`, with
+`uv_size` one frame) steps right through frames side by side, `frame_step` pixels each, and loops:
+vanilla's loading bar is 640x8 in steps of 64. The map editor's loading dots
+(`editor/resource_pack/textures/minecade/editor/loading_dots.png`) are one.
 
 **Controls a binding shows start hidden.** Every control whose visibility comes from a view
 binding (the menus picked by their title mark, every column item, the state pictures, and

@@ -51,6 +51,24 @@ In Edit, on a copy of Sumo's Arena:
   about as big on screen as near ones and staying on their edges as you fly or turn. A selection
   grown across the whole map stays smooth.
 
+The editor lobby's menu (after the editor's next boot):
+
+- The top row: a pencil, a plus, a thin divider, a funnel, three filter icons (a pencil, a crop
+  mark, a play icon) and a door at the right end, none cut off or overlapping. Pointing at each
+  shows its name in a tooltip box. The pencil opens Open a map and the plus New map, as before;
+  the list has no Maps section any more.
+- Open now and Recent are cards: an icon on the left (pencil for Edit, crop mark for Select, play
+  for a preview) and the name beside it. Open now's cards also say who is on them.
+- Tap the crop mark filter: it's outlined, the heading reads "Recent: Select only" and only worlds
+  are listed. Tap it again: everything. A kind with nothing yet says so ("No previews yet").
+- Preview a map from Edit, then go to the editor lobby: Recent has it with the play icon. Tap it:
+  "Loading the preview of ...", about 30 seconds later you're in the preview, and when it ends
+  you're back in the editor lobby, with chat saying how it ended. Edit stayed open meanwhile.
+- Loading anything: the title reads "Loading" with five dots after it, lit aqua one at a time from
+  left to right. If they don't move, or sit too high or low beside the word, say so.
+- The door: a "Leave?" menu. Cancel goes back; Leave disconnects you with "You left the map editor.
+  Join again to come back." Joining again brings you back to the menu.
+
 Select (New map from one of your worlds):
 
 - The box top center reads "Select" (aqua) and the world's name.

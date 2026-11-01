@@ -2,11 +2,12 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { mapChecklist, stripColors, type HomeState, type MapConfig } from "@minecade/minigame-core/config";
 import { spawnLists } from "../behavior_pack/scripts/lists.ts";
-import { COLUMNS, LAYOUT, MARK, dangerText, headingText, mapTitle, sideTitle, switchText } from "../behavior_pack/scripts/marks.ts";
+import { COLUMNS, LAYOUT, LOADING, MARK, dangerText, headingText, homeTitle, loadingTitle, mapTitle, sideTitle, switchText } from "../behavior_pack/scripts/marks.ts";
 import {
   ICONS,
   LOBBY_TEXT,
   PLAYERS_TEXT,
+  RECENT_KINDS,
   boundaryEntries,
   guestEntries,
   guestWaitText,
@@ -222,13 +223,26 @@ describe("layouts", () => {
       expect(stripColors(mark)).toBe("");
       expect(pack("editor_forms.json")).toContain(`'${mark}'`);
     }
+    expect(stripColors(LOADING)).toBe("");
+    expect(pack("editor_forms.json")).toContain(`'${LOADING}'`);
     expect(stripColors(sideTitle("Checklist"))).toBe("Checklist");
     expect(stripColors(mapTitle("Map menu"))).toBe("Map menu");
+    expect(stripColors(homeTitle("Map editor"))).toBe("Map editor");
+    expect(stripColors(loadingTitle("Loading"))).toBe("Loading");
+    expect(loadingTitle("Loading").startsWith(LAYOUT.side)).toBe(true);
   });
 
   it("never lets one mark read as another", () => {
     const marks = [...Object.values(MARK), ...COLUMNS];
     for (const mark of marks) for (const other of marks) if (mark !== other) expect(other.includes(mark)).toBe(false);
+    const titles = [...Object.values(LAYOUT), LOADING];
+    for (const mark of titles) for (const other of titles) if (mark !== other) expect(other.includes(mark)).toBe(false);
+  });
+
+  it("has every icon the menus use in the pack", () => {
+    for (const icon of Object.values(ICONS)) expect(readFileSync(new URL(`../resource_pack/${icon}.png`, import.meta.url)).length).toBeGreaterThan(0);
+    expect(pack("editor_forms.json")).toContain("textures/minecade/editor/icon_filter");
+    expect(pack("editor_forms.json")).toContain("textures/minecade/editor/loading_dots");
   });
 });
 
@@ -292,38 +306,78 @@ describe("the editor lobby's menu", () => {
   };
   const arena = { to: "edit" as const, target: "sumo", map: "arena_1" };
   const datapacking = { to: "select" as const, world: "abc=" };
+  const arenaPreview = { to: "preview" as const, target: "sumo", map: "arena_1" };
+  const iconRow = [
+    { kind: "maps" },
+    { kind: "new" },
+    { kind: "filter", filter: "edit" },
+    { kind: "filter", filter: "select" },
+    { kind: "filter", filter: "preview" },
+    { kind: "leave" },
+  ];
+  const withRecent: HomeState = {
+    catalog: {
+      ...empty.catalog,
+      recent: [
+        { request: arena, label: "Sumo: Arena (arena_1)" },
+        { request: arenaPreview, label: "Sumo: Arena (arena_1)" },
+        { request: datapacking, label: "Datapacking (imported)" },
+        { request: { to: "edit", target: "lobby", map: "spaceship" }, label: "Lobby: Spaceship (spaceship)" },
+      ],
+    },
+    servers: { edit: { request: arena, label: "Sumo: Arena (arena_1)", state: "ready", players: ["Friend"] }, waiting: [] },
+  };
 
-  it("offers Open a map and New map when nothing is open", () => {
-    expect(homeEntries(empty).map((entry) => entry.action)).toEqual([{ kind: "none" }, { kind: "maps" }, { kind: "new" }, { kind: "none" }, { kind: "players" }]);
+  it("starts with the icon row: Open a map, New map, the Recent filters and Leave", () => {
+    const entries = homeEntries(empty);
+    expect(entries.slice(0, 6).map((entry) => entry.action)).toEqual(iconRow);
+    expect(entries[0]).toEqual({ action: { kind: "maps" }, text: `${MARK.quick}Open a map\n§7the lobby's and every game's maps`, icon: ICONS.edit });
+    expect(entries[1].icon).toBe(ICONS.new);
+    expect(entries.slice(2, 5).map((entry) => entry.icon)).toEqual([ICONS.edit, ICONS.select, ICONS.play]);
+    expect(entries.slice(2, 5).every((entry) => entry.text.startsWith(MARK.filter) && !entry.text.includes(MARK.on))).toBe(true);
+    expect(entries[5]).toEqual({ action: { kind: "leave" }, text: `${MARK.end}Leave\n§7disconnect from the map editor`, icon: ICONS.leave });
+    expect(entries.slice(6).map((entry) => entry.text)).toEqual([headingText("Recent"), headingText("§8Nothing opened yet"), headingText("Friends"), PLAYERS_TEXT]);
   });
 
-  it("puts what's open first, then recent maps and worlds that aren't open", () => {
-    const state: HomeState = {
-      catalog: {
-        ...empty.catalog,
-        recent: [
-          { request: arena, label: "Sumo: Arena (arena_1)" },
-          { request: datapacking, label: "Datapacking (imported)" },
-          { request: { to: "edit", target: "lobby", map: "spaceship" }, label: "Lobby: Spaceship (spaceship)" },
-        ],
-      },
-      servers: { edit: { request: arena, label: "Sumo: Arena (arena_1)", state: "ready", players: ["Friend"] }, waiting: [] },
-    };
-    const entries = homeEntries(state);
+  it("puts what's open first, then Recent as cards with an icon for their kind", () => {
+    const entries = homeEntries(withRecent).slice(6);
     expect(entries.map((entry) => entry.action)).toEqual([
       { kind: "none" },
       { kind: "open", request: arena },
       { kind: "none" },
+      { kind: "open", request: arenaPreview },
       { kind: "open", request: datapacking },
       { kind: "open", request: { to: "edit", target: "lobby", map: "spaceship" } },
       { kind: "none" },
-      { kind: "maps" },
-      { kind: "new" },
-      { kind: "none" },
       { kind: "players" },
     ]);
-    expect(entries[1].text).toBe("Sumo: Arena (arena_1)\n§7Edit: open: Friend");
-    expect(entries[3].text).toBe("Datapacking (imported)\n§7box maps in this world");
+    expect(entries[1]).toEqual({ action: { kind: "open", request: arena }, text: `${MARK.card}Sumo: Arena (arena_1)\n§7open: Friend`, icon: ICONS.edit });
+    expect(entries.slice(3, 6).map((entry) => [entry.text, entry.icon])).toEqual([
+      [`${MARK.card}Sumo: Arena (arena_1)`, ICONS.play],
+      [`${MARK.card}Datapacking (imported)`, ICONS.select],
+      [`${MARK.card}Lobby: Spaceship (spaceship)`, ICONS.edit],
+    ]);
+  });
+
+  it("shows only one kind in Recent with its filter on, outlined", () => {
+    const entries = homeEntries(withRecent, "preview");
+    const filters = entries.filter((entry) => entry.action.kind === "filter");
+    expect(filters.map((entry) => entry.text.includes(MARK.on))).toEqual([false, false, true]);
+    expect(filters[2].text).toBe(`${MARK.filter}${MARK.on}Recent: Preview only\n§7on: tap again to show everything`);
+    const recent = entries.slice(entries.findIndex((entry) => entry.text === headingText("Recent: Preview only")));
+    expect(recent.map((entry) => entry.action)).toEqual([{ kind: "none" }, { kind: "open", request: arenaPreview }, { kind: "none" }, { kind: "players" }]);
+    // What's open stays listed; an empty kind says so.
+    expect(homeEntries(withRecent, "select").some((entry) => entry.text === `${MARK.card}Sumo: Arena (arena_1)\n§7open: Friend`)).toBe(true);
+    expect(homeEntries(empty, "preview").map((entry) => entry.text)).toContain(headingText("§8No previews yet"));
+    expect(RECENT_KINDS.map((kind) => kind.kind)).toEqual(["edit", "select", "preview"]);
+  });
+
+  it("shows five recent entries, or ten of one kind", () => {
+    const recent = Array.from({ length: 12 }, (_, i) => ({ request: { to: "edit" as const, target: "sumo", map: `m${i}` }, label: `m${i}` }));
+    const state: HomeState = { ...empty, catalog: { ...empty.catalog, recent } };
+    const cards = (filter?: "edit") => homeEntries(state, filter).filter((entry) => entry.text.startsWith(MARK.card)).length;
+    expect(cards()).toBe(5);
+    expect(cards("edit")).toBe(10);
   });
 
   it("lists targets, maps and worlds, with an empty world last", () => {
@@ -340,6 +394,11 @@ describe("the editor lobby's menu", () => {
     );
     expect(switchWarning(busy, arena)).toBeUndefined();
     expect(switchWarning(busy, datapacking)).toBeUndefined();
+    expect(switchWarning(busy, arenaPreview)).toBeUndefined();
+    const selecting: HomeState = { ...empty, servers: { select: { request: datapacking, label: "Datapacking (imported)", state: "ready", players: ["Friend"] }, waiting: [] } };
+    expect(switchWarning(selecting, arenaPreview)).toBe(
+      "Friend is in Select on Datapacking (imported). Select closes while the preview runs: map editors wait in the editor lobby, and Select opens again when it ends.",
+    );
     expect(switchWarning({ ...busy, servers: { edit: { ...busy.servers.edit!, players: [] }, waiting: [] } }, { to: "edit", target: "sumo", map: "castle" })).toBeUndefined();
   });
 

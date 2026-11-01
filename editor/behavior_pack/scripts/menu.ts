@@ -1,8 +1,9 @@
 // What the map menu, the checklist and the editor lobby's form offer, as plain data: the editor
 // turns these into forms. The map menu has its own layout (resource_pack/ui/editor_forms.json,
 // picked by LAYOUT.map): the quick icons (the checklist pill, Undo, Redo, Map settings), the tool
-// grid, the picked tool's settings (scrolling) and a green Save bar. Each button's mark (marks.ts)
-// says where it goes.
+// grid, the picked tool's settings (scrolling) and a green Save bar. So does the editor lobby's
+// menu (LAYOUT.home): a row of icons, then what's open and Recent as cards with an icon each. Each
+// button's mark (marks.ts) says where it goes.
 import {
   QUEUE_COUNTDOWN,
   listOf,
@@ -15,7 +16,7 @@ import {
   type GuestInfo,
   type HomeState,
   type MapConfig,
-  type OpenRequest,
+  type RecentEntry,
   type SelectionInfo,
   type ServerInfo,
 } from "@minecade/minigame-core/config";
@@ -35,6 +36,11 @@ export const ICONS = {
   settings: "textures/minecade/editor/icon_settings",
   play: "textures/minecade/editor/icon_play",
   boundaries: "textures/minecade/editor/icon_boundaries",
+  /** The editor lobby: a pencil (Open a map, and maps opened in Edit), a plus (New map), a crop mark (worlds opened in Select), and Leave. */
+  edit: "textures/minecade/editor/icon_edit",
+  new: "textures/minecade/editor/icon_new",
+  select: "textures/minecade/editor/icon_select",
+  leave: "textures/minecade/editor/icon_leave",
 } as const;
 
 export type MenuAction =
@@ -404,16 +410,31 @@ export function mapIdFrom(name: string): string {
     .slice(0, 48);
 }
 
-/** How many recent maps and worlds the editor lobby's menu shows. */
-const RECENT_SHOWN = 3;
+/** How many recent entries the editor lobby's menu shows: of every kind, and with a filter on. */
+const RECENT_SHOWN = 5;
+const RECENT_FILTERED = 10;
+
+/** What a Recent entry is: a map opened in Edit, a world opened in Select, or a map previewed. */
+export type RecentKind = RecentEntry["request"]["to"];
+
+/** Recent's kinds, in the order of their filters in the icon row. */
+export const RECENT_KINDS: { kind: RecentKind; name: string; hint: string; none: string; icon: string }[] = [
+  { kind: "edit", name: "Edit", hint: "maps you opened in Edit", none: "No maps opened in Edit yet", icon: ICONS.edit },
+  { kind: "select", name: "Select", hint: "worlds you boxed maps in", none: "No worlds opened in Select yet", icon: ICONS.select },
+  { kind: "preview", name: "Preview", hint: "maps you previewed (a tap plays one again)", none: "No previews yet", icon: ICONS.play },
+];
 
 export type HomeAction =
-  /** Open a map or a world, or go to the server that has it open. */
-  | { kind: "open"; request: Extract<OpenRequest, { to: "edit" | "select" }> }
-  /** Open a map...: pick the lobby or a game, then one of its maps. */
+  /** Open a map or a world, or go to the server that has it open; or preview a map again. */
+  | { kind: "open"; request: RecentEntry["request"] }
+  /** Open a map: pick the lobby or a game, then one of its maps. */
   | { kind: "maps" }
-  /** New map...: pick a world to copy builds from (or an empty world). */
+  /** New map: pick a world to copy builds from (or an empty world). */
   | { kind: "new" }
+  /** Show only this kind in Recent, or everything again when it's on already. */
+  | { kind: "filter"; filter: RecentKind }
+  /** Disconnect from the map editor (after a confirm). */
+  | { kind: "leave" }
   /** The Players menu: invite friends to Select and previews. */
   | { kind: "players" }
   /** A heading: nothing happens but the menu opening again. */
@@ -422,34 +443,46 @@ export type HomeAction =
 export interface HomeEntry {
   action: HomeAction;
   text: string;
+  /** The icon in the icon row, or on a card's left. */
+  icon?: string;
 }
 
-/** The editor lobby's menu: what's open now, what was opened lately, then Open a map and New map. */
-export function homeEntries(state: HomeState): HomeEntry[] {
-  const entries: HomeEntry[] = [];
-  const open: [string, ServerInfo][] = [];
-  if (state.servers.edit) open.push(["Edit", state.servers.edit]);
-  if (state.servers.select) open.push(["Select", state.servers.select]);
+/**
+ * The editor lobby's menu: the icon row (Open a map, New map, a filter for each kind of Recent
+ * entry, Leave), then what's open now and Recent as cards with an icon for their kind, then Players.
+ */
+export function homeEntries(state: HomeState, filter?: RecentKind): HomeEntry[] {
+  const entries: HomeEntry[] = [
+    { action: { kind: "maps" }, text: `${MARK.quick}Open a map\n§7the lobby's and every game's maps`, icon: ICONS.edit },
+    { action: { kind: "new" }, text: `${MARK.quick}New map\n§7copy builds from one of your worlds, or start from an empty one`, icon: ICONS.new },
+  ];
+  for (const { kind, name, hint, icon } of RECENT_KINDS) {
+    const on = filter === kind;
+    entries.push({ action: { kind: "filter", filter: kind }, text: `${MARK.filter}${on ? MARK.on : ""}Recent: ${name} only\n§7${on ? "on: tap again to show everything" : hint}`, icon });
+  }
+  entries.push({ action: { kind: "leave" }, text: `${MARK.end}Leave\n§7disconnect from the map editor`, icon: ICONS.leave });
+  const open: [RecentKind, ServerInfo][] = [];
+  if (state.servers.edit) open.push(["edit", state.servers.edit]);
+  if (state.servers.select) open.push(["select", state.servers.select]);
   if (open.length > 0) {
     entries.push({ action: { kind: "none" }, text: headingText("Open now") });
-    for (const [mode, info] of open) entries.push({ action: { kind: "open", request: info.request }, text: `${info.label}\n§7${mode}: ${serverLine(info)}` });
+    for (const [kind, info] of open) entries.push({ action: { kind: "open", request: info.request }, text: `${MARK.card}${info.label}\n§7${serverLine(info)}`, icon: kindIcon(kind) });
   }
   const openKeys = new Set(open.map(([, info]) => openKey(info.request)));
-  const recent = state.catalog.recent.filter((entry) => !openKeys.has(openKey(entry.request))).slice(0, RECENT_SHOWN);
-  if (recent.length > 0) {
-    entries.push({ action: { kind: "none" }, text: headingText("Recent") });
-    for (const entry of recent) {
-      entries.push({ action: { kind: "open", request: entry.request }, text: `${entry.label}\n§7${entry.request.to === "edit" ? "edit this map" : "box maps in this world"}` });
-    }
-  }
-  entries.push(
-    { action: { kind: "none" }, text: headingText("Maps") },
-    { action: { kind: "maps" }, text: "Open a map...\n§7the lobby's and every game's maps" },
-    { action: { kind: "new" }, text: "New map...\n§7copy builds from one of your worlds" },
-    { action: { kind: "none" }, text: headingText("Friends") },
-    { action: { kind: "players" }, text: PLAYERS_TEXT },
-  );
+  const shown = RECENT_KINDS.find((candidate) => candidate.kind === filter);
+  const recent = state.catalog.recent
+    .filter((entry) => !openKeys.has(openKey(entry.request)) && (!shown || entry.request.to === shown.kind))
+    .slice(0, shown ? RECENT_FILTERED : RECENT_SHOWN);
+  entries.push({ action: { kind: "none" }, text: headingText(shown ? `Recent: ${shown.name} only` : "Recent") });
+  if (recent.length === 0) entries.push({ action: { kind: "none" }, text: headingText(`§8${shown?.none ?? "Nothing opened yet"}`) });
+  for (const entry of recent) entries.push({ action: { kind: "open", request: entry.request }, text: `${MARK.card}${entry.label}`, icon: kindIcon(entry.request.to) });
+  entries.push({ action: { kind: "none" }, text: headingText("Friends") }, { action: { kind: "players" }, text: PLAYERS_TEXT });
   return entries;
+}
+
+/** A Recent entry's icon, by its kind. */
+function kindIcon(kind: RecentKind): string {
+  return RECENT_KINDS.find((candidate) => candidate.kind === kind)?.icon ?? ICONS.edit;
 }
 
 /** How an open server is doing, in a few words. */
@@ -483,7 +516,13 @@ export function worldEntries(catalog: Catalog): { world?: string; text: string }
 }
 
 /** Why opening `request` should be confirmed: who it moves off a server that has something else open. */
-export function switchWarning(state: HomeState, request: Extract<OpenRequest, { to: "edit" | "select" }>): string | undefined {
+export function switchWarning(state: HomeState, request: RecentEntry["request"]): string | undefined {
+  if (request.to === "preview") {
+    const select = state.servers.select;
+    if (!select || select.players.length === 0) return undefined;
+    const who = select.players.length === 1 ? `${select.players[0]} is` : `${select.players.length} players are`;
+    return `${who} in Select on ${select.label}. Select closes while the preview runs: map editors wait in the editor lobby, and Select opens again when it ends.`;
+  }
   const mode = request.to === "edit" ? "Edit" : "Select";
   const info = request.to === "edit" ? state.servers.edit : state.servers.select;
   if (!info || openKey(info.request) === openKey(request) || info.players.length === 0) return undefined;

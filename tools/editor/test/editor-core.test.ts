@@ -92,12 +92,18 @@ describe("recent maps and worlds", () => {
     expect(addRecent([arena], world)).toEqual([world, arena]);
     expect(addRecent([world, arena], { ...arena, label: "renamed" })).toEqual([{ ...arena, label: "renamed" }, world]);
     let list: RecentEntry[] = [];
-    for (let i = 0; i < 9; i++) list = addRecent(list, { request: { to: "edit", target: "sumo", map: `m${i}` }, label: `m${i}` });
-    expect(list.map((entry) => entry.label)).toEqual(["m8", "m7", "m6", "m5", "m4"]);
+    for (let i = 0; i < 20; i++) list = addRecent(list, { request: { to: "edit", target: "sumo", map: `m${i}` }, label: `m${i}` });
+    expect(list.map((entry) => entry.label)).toEqual(["m19", "m18", "m17", "m16", "m15", "m14", "m13", "m12", "m11", "m10", "m9", "m8", "m7", "m6", "m5"]);
+  });
+
+  it("keeps a preview of a map apart from editing it", () => {
+    const preview: RecentEntry = { request: { to: "preview", target: "sumo", map: "arena_1" }, label: "Sumo: Arena (arena_1)" };
+    expect(addRecent([arena, world], preview)).toEqual([preview, arena, world]);
   });
 
   it("reads the file, skipping what doesn't fit", () => {
-    expect(parseRecent(JSON.stringify([arena, { label: "x" }, world, { request: { to: "home" }, label: "home" }]))).toEqual([arena, world]);
+    const preview: RecentEntry = { request: { to: "preview", target: "sumo", map: "arena_1" }, label: "Sumo: Arena (arena_1)" };
+    expect(parseRecent(JSON.stringify([arena, { label: "x" }, world, { request: { to: "home" }, label: "home" }, preview, { request: { to: "preview", target: "sumo" }, label: "y" }]))).toEqual([arena, world, preview]);
     expect(parseRecent("not json")).toEqual([]);
   });
 });

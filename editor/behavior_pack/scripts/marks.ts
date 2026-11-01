@@ -8,7 +8,12 @@ export const LAYOUT = {
   side: "§s§i§d§e",
   /** The map menu: the quick icons, the tool grid, the tool's settings (scrolling) and Save. */
   map: "§m§a§p",
+  /** The editor lobby's menu: a row of icons (Open a map, New map, the Recent filters, Leave), then the list scrolling. */
+  home: "§h§o§m§e",
 } as const;
+
+/** Added to a side layout's title: five dots after it light up one at a time, while something loads. */
+export const LOADING = "§l§o§a§d";
 
 /** Button marks. */
 export const MARK = {
@@ -32,6 +37,12 @@ export const MARK = {
   dim: "§d§m§r",
   /** The map menu's green Save bar, under the scrolling settings. */
   save: "§s§v§r",
+  /** A Recent filter in the editor lobby's icon row, after the funnel (outlined while on, with `on`). */
+  filter: "§q§f§r",
+  /** A square icon at the right end of the editor lobby's icon row (Leave). */
+  end: "§q§e§r",
+  /** A full-width button with its icon on the left and its text beside it (the editor lobby's Open now and Recent). */
+  card: "§i§c§r",
 } as const;
 
 /** The tool grid's columns, left to right: tool n goes in column n % COLUMNS.length. */
@@ -45,6 +56,16 @@ export function sideTitle(title: string): string {
 /** A title that gets the map menu's layout. */
 export function mapTitle(title: string): string {
   return `${LAYOUT.map}§r${title}`;
+}
+
+/** A title that gets the editor lobby's layout. */
+export function homeTitle(title: string): string {
+  return `${LAYOUT.home}§r${title}`;
+}
+
+/** A side layout's title with the loading dots after it. */
+export function loadingTitle(title: string): string {
+  return `${LAYOUT.side}${LOADING}§r${title}`;
 }
 
 /** A switch's button text: the name, and a hint under it. */

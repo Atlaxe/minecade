@@ -71,6 +71,7 @@ describe("editor protocol", () => {
     expect(openKey({ to: "edit", target: "sumo", map: "arena_1" })).toBe(openKey({ to: "edit", target: "sumo", map: "arena_1", fresh: { name: "Arena" } }));
     expect(openKey({ to: "select", world: "abc=" })).toBe("select:abc=");
     expect(openKey({ to: "home" })).toBe("home");
+    expect(openKey({ to: "preview", target: "sumo", map: "arena_1" })).toBe("preview:sumo/arena_1");
   });
 
   it("fingerprints a map by its content and key order", () => {
@@ -91,6 +92,7 @@ describe("editor protocol", () => {
     expect(parseEditorEvent('{"t":"publish","by":"a"}')).toEqual({ t: "publish", by: "a" });
     expect(parseEditorEvent('{"t":"preview","by":"a"}')).toEqual({ t: "preview", by: "a" });
     expect(parseEditorEvent('{"t":"invite","by":"a","name":"Friend","on":true}')).toEqual({ t: "invite", by: "a", name: "Friend", on: true });
+    expect(parseEditorEvent('{"t":"leave","by":"a"}')).toEqual({ t: "leave", by: "a" });
     expect(parseEditorEvent('{"t":"view","by":"a","shown":["bounds"]}')).toEqual({ t: "view", by: "a", shown: ["bounds"] });
     expect(parseEditorEvent('{"t":"picture","by":"a","kind":"map"}')).toEqual({ t: "picture", by: "a", kind: "map" });
     expect(parseHostMessage('{"t":"guests","guests":[{"name":"Friend","on":"select"}]}')).toEqual({ t: "guests", guests: [{ name: "Friend", on: "select" }] });

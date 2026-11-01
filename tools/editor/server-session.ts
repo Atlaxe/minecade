@@ -67,6 +67,8 @@ export abstract class ServerSession {
   onPlayer: (name: string, kind: "connected" | "disconnected") => void = () => {};
   /** A map editor invited a player (on), or took the invitation back, from the Players menu. */
   onInvite: (name: string, on: boolean, by: string) => void = () => {};
+  /** A player asked to leave (the editor lobby's Leave). */
+  onLeave: (by: string) => void = () => {};
 
   constructor(options: SessionBase) {
     this.slot = options.slot;
@@ -259,6 +261,7 @@ export abstract class ServerSession {
       else if (event.t === "clean") this.resolve(`clean:${event.id}`, event);
       else if (event.t === "open") this.onOpen(event.request, event.by);
       else if (event.t === "invite") this.onInvite(event.name, event.on, event.by);
+      else if (event.t === "leave") this.onLeave(event.by);
       else this.onEvent(event);
       return;
     }

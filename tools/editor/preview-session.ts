@@ -1,9 +1,10 @@
-// A Preview: the real game on the map open in Edit, on Select's port (the network's game port and
-// identity, so no trust prompt), started by the editor itself while the network is down. The game
-// talks over the console (the log transport) the way it talks to the orchestrator: it says
-// server_ready once it can take players, and end_game once it has sent everyone back: map editors
-// to LOBBY_PORT, which is Edit's, and invited guests to GUEST_LOBBY_PORT, the editor lobby's. The
-// runner (runner.ts) moves the players there and back.
+// A Preview: the real game on a map (the one open in Edit, or one from the editor lobby's Recent),
+// on Select's port (the network's game port and identity, so no trust prompt), started by the
+// editor itself while the network is down. The game talks over the console (the log transport) the
+// way it talks to the orchestrator: it says server_ready once it can take players, and end_game
+// once it has sent everyone back: map editors to LOBBY_PORT, which is Edit's (or the editor
+// lobby's, for a preview started there), and invited guests to GUEST_LOBBY_PORT, the editor
+// lobby's. The runner (runner.ts) moves the players there and back.
 import { cp, mkdir, mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -31,7 +32,7 @@ export interface PreviewOptions {
   /** Select's port, where the game runs, and the container's name. */
   port: number;
   container: string;
-  /** Where the game sends map editors when it ends: Edit's port. */
+  /** Where the game sends map editors when it ends: Edit's port, or the editor lobby's for a preview started there. */
   returnPort: number;
   /** Where it sends invited guests: the editor lobby's port. */
   guestPort: number;

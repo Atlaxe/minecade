@@ -570,6 +570,11 @@ start, which builds from the checkout.
 
 **10.7 Editor look and feel.**
 - (The mode box came early, on 2026-10-31.)
+- (The editor lobby's menu came early too, on 2026-10-31, at the user's request: a row of icons
+  with tooltips like the map menu's (Open a map, New map, a filter per kind of Recent entry,
+  Leave), Open now and Recent as cards with an icon for their kind, previews in Recent (a card
+  plays the map again and comes back to the editor lobby), and loading dots after the Loading
+  title.)
 - Item icons; marker models with numbers and list colors (the facing line came in 10.3).
 - (Boundary blocks, the Layers form and inspect mode were dropped on 2026-10-31: the particle
   outlines stay.)

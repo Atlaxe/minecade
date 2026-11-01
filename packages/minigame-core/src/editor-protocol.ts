@@ -73,12 +73,13 @@ export interface SelectionInfo {
 
 /**
  * Something to open: a map in Edit (a new one, in an empty world, with `fresh`), a world in Select
- * (a world from the catalog by its id; none means the world the map in Edit came from), or the
- * editor lobby.
+ * (a world from the catalog by its id; none means the world the map in Edit came from), a preview
+ * of a map from its folder (the editor lobby's Recent), or the editor lobby.
  */
 export type OpenRequest =
   | { to: "edit"; target: string; map: string; fresh?: { name: string } }
   | { to: "select"; world?: string }
+  | { to: "preview"; target: string; map: string }
   | { to: "home" };
 
 /** The editor lobby's form: what can be opened, and what's open now. */
@@ -96,7 +97,8 @@ export interface Catalog {
   recent: RecentEntry[];
 }
 
-export type RecentEntry = { request: Extract<OpenRequest, { to: "edit" | "select" }>; label: string };
+/** Something opened or previewed lately: the lobby's Recent shows it with an icon for its kind. */
+export type RecentEntry = { request: Extract<OpenRequest, { to: "edit" | "select" | "preview" }>; label: string };
 
 /** The Select and Edit servers, when one is open, a preview on Select's port, and who waits for one to be ready. */
 export interface ServersInfo {
@@ -156,6 +158,8 @@ export type EditorEvent =
   | { t: "open"; by: string; request: OpenRequest }
   /** Invite a player (on), or take the invitation back (the Players menu). */
   | { t: "invite"; by: string; name: string; on: boolean }
+  /** The editor lobby's Leave: disconnect this player. */
+  | { t: "leave"; by: string }
   /** Extract mode: the box was moved (or why not). */
   | { t: "extracted"; ok: boolean; error?: string; tiles?: number; drops?: number };
 
@@ -188,7 +192,7 @@ export type HostMessage =
   /** Extract mode: move `box` by `offset`, clearing the box's chunks around it, then answer with "extracted". */
   | { t: "extract"; box: Box; offset: Vec3 };
 
-const EVENT_TYPES = new Set(["ready", "edit", "undo", "redo", "resync", "save", "publish", "preview", "changed", "view", "picture", "clean", "saveMap", "mapAction", "open", "invite", "extracted"]);
+const EVENT_TYPES = new Set(["ready", "edit", "undo", "redo", "resync", "save", "publish", "preview", "changed", "view", "picture", "clean", "saveMap", "mapAction", "open", "invite", "leave", "extracted"]);
 const MESSAGE_TYPES = new Set(["config", "home", "ack", "status", "say", "notice", "cleanup", "resume", "selection", "forgotten", "goto", "guests", "extract"]);
 
 // BDS prints script console output as "[<time> <LEVEL>] [Scripting] <text>". Requiring that prefix
@@ -222,6 +226,7 @@ function parseTyped(json: string, types: Set<string>): { t: string } | undefined
 /** What a request opens, as one string: the same map or world gives the same key. */
 export function openKey(request: OpenRequest): string {
   if (request.to === "edit") return `edit:${request.target}/${request.map}`;
+  if (request.to === "preview") return `preview:${request.target}/${request.map}`;
   return request.to === "select" ? `select:${request.world ?? ""}` : "home";
 }
 
