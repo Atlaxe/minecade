@@ -145,7 +145,7 @@ export class RegionTool {
           break;
         }
         case "step":
-          step = NUDGE_STEPS[((NUDGE_STEPS as readonly number[]).indexOf(step) + 1) % NUDGE_STEPS.length];
+          step = action.step;
           break;
         case "clear":
           this.selections.delete(key);
@@ -185,6 +185,7 @@ export class RegionTool {
         return this.selectionForm(player);
       case "nudge": {
         const box = await nudgeMenu(this.host, player, selection.box, "Nudge sides");
+        if (box === "back") return this.selectionForm(player);
         if (!box || sameBox(box, selection.box) || this.selections.get(keyOf(player)) !== selection) return;
         change(selection, box);
         actionBar(player, `Selection: ${describeBox(box)}`);
@@ -245,6 +246,7 @@ export class RegionTool {
         return;
       case "nudge": {
         const box = await nudgeMenu(this.host, player, entry.box, `Nudge ${entry.label}`);
+        if (box === "back") return this.entryMenu(player, entry);
         if (!box || sameBox(box, entry.box) || !player.isValid || !this.unchanged(player, entry)) return;
         if (!this.host.edit(player, saveEdit(entry, box), `${entry.label} nudged: ${describeBox(box)}.`)) return;
         // Their own selection of this box follows it.

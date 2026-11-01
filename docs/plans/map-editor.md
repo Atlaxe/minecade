@@ -588,6 +588,13 @@ start, which builds from the checkout.
   green-when-on tiles; each tool's own screen (a spawn, a selection, kill Y, a camera) with nudge
   rows and a green save pinned at the bottom; a Help link per tool; markers colored by kind; and
   `[Game : Map]` in chat.)
+- (Then, the same night: the loading screen on every server while a player waits to move (the
+  host's `loading` and `loaded` messages); Export to Map waits on it, then asks to edit the map;
+  /reset and a 10-second check give back items a command block cleared; Back to Lobby as a house
+  icon at the right end of icon rows; a back arrow left of a sub-menu's title; Step as a toggle;
+  Export's fields fixed with only its list scrolling; Select's outlines while a menu is open.
+  No-collision flying in creative isn't possible on Bedrock (only spectator mode has it, and
+  spectators can't use items).)
 - Item icons; marker models with numbers and list colors (the facing line came in 10.3).
 - (Boundary blocks, the Layers form and inspect mode were dropped on 2026-10-31: the particle
   outlines stay.)

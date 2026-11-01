@@ -371,7 +371,13 @@ The rules every editor menu follows (the user's, from 2026-10-31):
   side screen, the way hitting a marker does: a toggle first, then its settings, nudge rows (a
   minus and a plus each), and a green button pinned at the bottom that saves it. Closing it keeps
   nothing.
-- **Back to Lobby** is pinned at the bottom of every menu that can leave for the editor lobby.
+- **Back to Lobby** is an icon (a house) at the right end of the icon row of every menu that can
+  leave for the editor lobby. A sub-menu (Nudge sides, Export to Map) has a back arrow left of its
+  title, opposite the X.
+- **Step** (how far a nudge moves) is a toggle too, right before the nudge rows.
+- **Loading:** whoever waits for another server sees the loading screen (the dots) until they're
+  moved, wherever they are: the host tells the server (`loading`, `loaded`).
+- **A side menu open shows the outlines** (Select), as holding the tool does.
 - The step that finishes something is green; deleting or removing is red.
 
 ## How the hologram looks the way it does

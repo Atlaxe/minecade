@@ -24,7 +24,7 @@ import {
 } from "@minecade/minigame-core/config";
 import { relativeSide, sizeText, type Cardinal, type Sides } from "./boxes.ts";
 import { SNAPS, compass, type Snap, type SpawnList } from "./lists.ts";
-import { COLUMNS, MARK, dangerText, goText, headingText, linkText, saveBarText, segmentText, switchText } from "./marks.ts";
+import { COLUMNS, MARK, dangerText, goText, headingText, linkText, saveBarText, segmentText, stepTileText, switchText } from "./marks.ts";
 import { CAMERA_KINDS, camerasOf, type CameraKind } from "./cameras.ts";
 import { ALL_BOUNDARIES, outlineShown, type BoundaryRow, type RegionEntry, type RegionTarget, type SelectionAction } from "./regions.ts";
 import { EDITOR_TOOLS, SELECT_TOOL, type ToolId } from "./tools.ts";
@@ -43,10 +43,11 @@ export const ICONS = {
   new: "textures/minecade/editor/icon_new",
   select: "textures/minecade/editor/icon_select",
   leave: "textures/minecade/editor/icon_leave",
-  /** Players (every icon row), a question mark whose tooltip is a how-to, and a nudge row's minus (its plus is `new`). */
+  /** Players (every icon row), a nudge row's minus (its plus is `new`), Back to Lobby (a house), and the back arrow. */
   players: "textures/minecade/editor/icon_players",
-  help: "textures/minecade/editor/icon_help",
   minus: "textures/minecade/editor/icon_minus",
+  lobby: "textures/minecade/editor/icon_lobby",
+  back: "textures/minecade/editor/icon_back",
 } as const;
 
 export type MenuAction =
@@ -254,7 +255,7 @@ export type EntryScreenAction =
   | { kind: "unface" }
   | { kind: "snap" }
   | { kind: "axis"; axis: 0 | 1 | 2; by: 1 | -1 }
-  | { kind: "step" }
+  | { kind: "step"; step: number }
   | { kind: "queueMode" }
   | { kind: "queueCountdown" }
   | { kind: "renumber" }
@@ -307,7 +308,7 @@ export function entryScreenEntries(view: EntryScreenView): { action: EntryScreen
       { action: { kind: "axis", axis, by: 1 }, text: `${MARK.plus}${name} ${plus}` },
     );
   }
-  entries.push({ action: { kind: "step" }, text: `Step: ${view.step} block${view.step === 1 ? "" : "s"}\n§7how far a minus or plus moves it` });
+  entries.push(...stepEntries(POINT_STEPS, view.step));
   if (view.existing && view.existing.count > 1) entries.push({ action: { kind: "renumber" }, text: "Renumber" });
   if (view.existing) entries.push({ action: { kind: "delete" }, text: dangerText("Delete") });
   const list = view.lists.find((candidate) => candidate.key === view.list);
@@ -336,7 +337,7 @@ export type RegionScreenAction =
   | { kind: "floor" }
   | { kind: "back" }
   | { kind: "side"; side: keyof Sides; by: 1 | -1 }
-  | { kind: "step" }
+  | { kind: "step"; step: number }
   | { kind: "clear" }
   | { kind: "save" }
   | { kind: "none" };
@@ -367,12 +368,12 @@ export function regionScreenEntries(view: RegionScreenView): { action: RegionScr
       { action: { kind: "side", side, by: 1 }, text: `${MARK.plus}${name} out` },
     );
   }
-  entries.push({ action: { kind: "step" }, text: `Step: ${view.step} block${view.step === 1 ? "" : "s"}\n§7how far a minus or plus moves a side` }, { action: { kind: "clear" }, text: dangerText("Clear selection") });
+  entries.push(...stepEntries(NUDGE_STEPS, view.step), { action: { kind: "clear" }, text: dangerText("Clear selection") });
   entries.push({ action: { kind: "save" }, text: saveBarText(view.target === "editing" && view.editing ? `Save ${view.editing}` : "Save") });
   return entries;
 }
 
-export type KillYScreenAction = { kind: "type" } | { kind: "height"; by: 1 | -1 } | { kind: "step" } | { kind: "remove" } | { kind: "save" } | { kind: "none" };
+export type KillYScreenAction = { kind: "type" } | { kind: "height"; by: 1 | -1 } | { kind: "step"; step: number } | { kind: "remove" } | { kind: "save" } | { kind: "none" };
 
 /** The Kill Y tool's screen: the height (typed, or nudged), Step, Remove (red, once it's set), and Set kill Y, green, at the bottom. */
 export function killYScreenEntries(view: { y: number; set: boolean; step: number }): { action: KillYScreenAction; text: string }[] {
@@ -381,7 +382,7 @@ export function killYScreenEntries(view: { y: number; set: boolean; step: number
     { action: { kind: "type" }, text: `${MARK.lead}Type a height\n§7from -64 to 319` },
     { action: { kind: "height", by: -1 }, text: `${MARK.minus}Height: ${view.y}` },
     { action: { kind: "height", by: 1 }, text: `${MARK.plus}Height up` },
-    { action: { kind: "step" }, text: `Step: ${view.step} block${view.step === 1 ? "" : "s"}\n§7how far a minus or plus moves it` },
+    ...stepEntries(NUDGE_STEPS, view.step),
     ...(view.set ? [{ action: { kind: "remove" } as const, text: dangerText("Remove kill Y") }] : []),
     { action: { kind: "save" }, text: saveBarText("Set kill Y") },
   ];
@@ -468,12 +469,12 @@ export interface SelectMenuView {
   maps: SelectionInfo[];
 }
 
-/** How to box a map, in the question mark's tooltip (Select's menus). */
+/** How to box a map: Select's Help link puts it in chat. */
 export const SELECT_HELP = `${SELECT_TOOL.howTo} Spawns are placed in Edit.`;
 
-/** Select mode's map menu: the icon row (Back one step, Players, how-to), the selection's actions, the maps from this world, and Back to Lobby. */
+/** Select mode's map menu: the icon row (Back one step, Players, Back to Lobby at the right end), Help, the selection's actions, and the maps from this world. */
 export function selectMenuEntries(view: SelectMenuView): MenuEntry[] {
-  const entries: MenuEntry[] = [backEntry(view.selection?.steps ?? 0), PLAYERS_ENTRY, helpEntry("How to box a map", SELECT_HELP)];
+  const entries: MenuEntry[] = [backEntry(view.selection?.steps ?? 0), PLAYERS_ENTRY, LOBBY_ENTRY, HELP_ENTRY];
   if (view.selection) entries.push(...selectionEntries(view.selection.box));
   else entries.push({ action: { kind: "none" }, text: headingText("No selection yet") });
   entries.push({ action: { kind: "none" }, text: headingText(view.maps.length > 0 ? `Maps from this world (${view.maps.length})` : "No maps from this world yet") });
@@ -483,13 +484,12 @@ export function selectMenuEntries(view: SelectMenuView): MenuEntry[] {
     const line = map.status === "ready" ? "" : `\n${statusLine(map)}`;
     entries.push({ action: { kind: "map", target: map.target, map: map.map }, text: `${MARK.card}${status}${map.name} (${map.map})${line}`, icon: ICONS.edit });
   }
-  entries.push({ action: { kind: "lobby" }, text: LOBBY_TEXT });
   return entries;
 }
 
-/** The selection's form (the Select tool used at the sky): Back one step and how-to in the icon row, then the selection's actions. */
+/** The selection's form (the Select tool used at the sky): Back one step in the icon row, Help, then the selection's actions. */
 export function selectionFormEntries(selection: { box: Box; steps: number }): MenuEntry[] {
-  return [backEntry(selection.steps), helpEntry("How to box a map", SELECT_HELP), ...selectionEntries(selection.box)];
+  return [backEntry(selection.steps), HELP_ENTRY, ...selectionEntries(selection.box)];
 }
 
 /** The selection's size, then Export to Map (green), Nudge sides and Clear selection (red). */
@@ -507,28 +507,28 @@ function backEntry(steps: number): MenuEntry {
   return { action: { kind: "pick", action: "back" }, text: `${MARK.quick}${steps > 0 ? "" : MARK.dim}Back one step\n§7${steps > 0 ? "undo the selection's last change" : "nothing to step back"}`, icon: ICONS.undo };
 }
 
-/** A question mark whose tooltip says how something works; tapping it does nothing. */
-function helpEntry(title: string, text: string): MenuEntry {
-  return { action: { kind: "none" }, text: `${MARK.quick}${title}\n§7${text}`, icon: ICONS.help };
-}
+/** A Help link: how something works, in chat. */
+const HELP_ENTRY: MenuEntry = { action: { kind: "help" }, text: linkText("Help") };
 
-/** The button that goes to the editor lobby, pinned at the bottom (Select's map menu, Edit's gear). */
-export const LOBBY_TEXT = `${MARK.bottom}Back to Lobby`;
+/** Back to Lobby: an icon at the right end of the icon row (Select's map menu, Edit's gear). */
+export const LOBBY_TEXT = `${MARK.end}Back to Lobby`;
+const LOBBY_ENTRY: MenuEntry = { action: { kind: "lobby" }, text: LOBBY_TEXT, icon: ICONS.lobby };
 
 /** The Players icon (Select's map menu, Edit's gear, the editor lobby's menu): its tooltip says what it's for. */
 export const PLAYERS_TEXT = `${MARK.quick}Players\n§7invite friends to Select and previews`;
 const PLAYERS_ENTRY: MenuEntry = { action: { kind: "players" }, text: PLAYERS_TEXT, icon: ICONS.players };
 
-/** Edit's gear: the Players icon, then the map's settings, Back to Select, the red ones, and Back to Lobby. */
+/** Edit's gear: Players and Back to Lobby (right end) in the icon row, then the map's settings and the red ones. */
 export type GearAction = "settings" | "players" | "dropBuild" | "delete" | "lobby";
 
 export function gearEntries(view: { build: boolean }): { action: GearAction; text: string; icon?: string }[] {
   const entries: { action: GearAction; text: string; icon?: string }[] = [
     { action: "players", text: PLAYERS_TEXT, icon: ICONS.players },
+    { action: "lobby", text: LOBBY_TEXT, icon: ICONS.lobby },
     { action: "settings", text: "Name and game settings" },
   ];
   if (view.build) entries.push({ action: "dropBuild", text: dangerText("Drop build commands") });
-  entries.push({ action: "delete", text: dangerText("Delete map") }, { action: "lobby", text: LOBBY_TEXT });
+  entries.push({ action: "delete", text: dangerText("Delete map") });
   return entries;
 }
 
@@ -539,24 +539,37 @@ export interface ExportDraft {
   target: string;
 }
 
-export type ExportAction = { kind: "name" } | { kind: "id" } | { kind: "target"; target: string } | { kind: "export" } | { kind: "none" };
+export type ExportAction = { kind: "name" } | { kind: "id" } | { kind: "target"; target: string } | { kind: "export" } | { kind: "back" } | { kind: "none" };
 
-/** Export to Map: Name, then Map id, then the targets to pick from (the picked one outlined), then Export to Map (green). */
-export function exportEntries(draft: ExportDraft, targets: { id: string; name: string }[]): { action: ExportAction; text: string }[] {
+/** The back arrow left of a sub-menu's title. */
+export const BACK_TEXT = `${MARK.back}Back`;
+
+/**
+ * Export to Map: the back arrow; Name, Map id and the "For" heading, which stay put; the targets to
+ * pick from, the only part that scrolls (the picked one outlined); and Export to Map, green, pinned
+ * at the bottom.
+ */
+export function exportEntries(draft: ExportDraft, targets: { id: string; name: string }[]): { action: ExportAction; text: string; icon?: string }[] {
   const id = draft.map ?? mapIdFrom(draft.name);
   return [
-    { action: { kind: "name" }, text: `Name: ${draft.name || "§8none yet"}` },
-    { action: { kind: "id" }, text: `Map id: ${id ? `${draft.map ? "" : "§7"}${id}` : "§8from the name"}` },
-    { action: { kind: "none" }, text: headingText("For") },
+    { action: { kind: "back" }, text: BACK_TEXT, icon: ICONS.back },
+    { action: { kind: "name" }, text: `${MARK.fixed}Name: ${draft.name || "§8none yet"}` },
+    { action: { kind: "id" }, text: `${MARK.fixed}Map id: ${id ? `${draft.map ? "" : "§8"}${id}` : "§8from the name"}` },
+    { action: { kind: "none" }, text: `${MARK.fixed}${headingText("For")}` },
     ...targets.map((target) => ({ action: { kind: "target" as const, target: target.id }, text: `${target.id === draft.target ? MARK.picked : ""}${target.name}` })),
-    { action: { kind: "export" }, text: goText("Export to Map") },
+    { action: { kind: "export" }, text: saveBarText("Export to Map") },
   ];
 }
 
-/** How far each tap moves a side: Step cycles through these. */
+/** How far each tap moves a side: Step's tiles. */
 export const NUDGE_STEPS = [1, 5, 10] as const;
 
-export type NudgeAction = { kind: "side"; side: keyof Sides; by: 1 | -1 } | { kind: "step" } | { kind: "reset" } | { kind: "nudge" } | { kind: "none" };
+/** The Step toggle: a tile per distance, the one in use green. */
+export function stepEntries(steps: readonly number[], step: number): { action: { kind: "step"; step: number }; text: string }[] {
+  return steps.map((value, i) => ({ action: { kind: "step", step: value }, text: stepTileText(`${value} block${value === 1 ? "" : "s"}`, i, value === step) }));
+}
+
+export type NudgeAction = { kind: "side"; side: keyof Sides; by: 1 | -1 } | { kind: "step"; step: number } | { kind: "reset" } | { kind: "nudge" } | { kind: "back" } | { kind: "none" };
 
 /** The sides in Nudge's order, with their names and, for the four around, their compass direction. */
 const NUDGE_SIDES: { side: keyof Sides; name: string; compass?: Cardinal }[] = [
@@ -574,7 +587,7 @@ const NUDGE_SIDES: { side: keyof Sides; name: string; compass?: Cardinal }[] = [
  * Nudge (green), which keeps it.
  */
 export function nudgeEntries(view: { sides: Sides; step: number; facing: Cardinal }): { action: NudgeAction; text: string; icon?: string }[] {
-  const entries: { action: NudgeAction; text: string; icon?: string }[] = [];
+  const entries: { action: NudgeAction; text: string; icon?: string }[] = [{ action: { kind: "back" }, text: BACK_TEXT, icon: ICONS.back }];
   for (const { side, name, compass } of NUDGE_SIDES) {
     const where = compass ? ` (${relativeSide(view.facing, compass)})` : "";
     const moved = view.sides[side];
@@ -583,7 +596,7 @@ export function nudgeEntries(view: { sides: Sides; step: number; facing: Cardina
       { action: { kind: "side", side, by: 1 }, text: `${MARK.plus}${name} out`, icon: ICONS.new },
     );
   }
-  entries.push({ action: { kind: "step" }, text: `Step: ${view.step} block${view.step === 1 ? "" : "s"}\n§7how far a minus or plus moves a side` });
+  entries.push(...stepEntries(NUDGE_STEPS, view.step));
   if (Object.values(view.sides).some((value) => value !== 0)) entries.push({ action: { kind: "reset" }, text: "Reset\n§7put every side back" });
   entries.push({ action: { kind: "nudge" }, text: saveBarText("Nudge") });
   return entries;

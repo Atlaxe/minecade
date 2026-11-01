@@ -307,7 +307,9 @@ export class EditorRunner {
     }
     if (by !== "this PC") {
       this.waiting.set(by.toLowerCase(), { name: by, slot: launch.slot, label: launch.label });
-      if (this.whereIs(by) !== this.home) void this.tell(by, `Opening ${launch.chat}: you'll be moved there when it's ready.`);
+      // Off the editor lobby (which shows its own), they get the loading screen until they're moved.
+      const on = this.whereIs(by);
+      if (on && on !== this.home) void on.send({ t: "loading", players: [by], label: launch.label });
     }
     this.log(`${by}: open ${launch.label}`);
     this.homeChanged();
@@ -406,6 +408,7 @@ export class EditorRunner {
         if (entry.slot !== slot) continue;
         this.waiting.delete(key);
         void this.tell(entry.name, `§cCould not open ${launch.chat}§c: ${message(error)}`);
+        void this.whereIs(entry.name)?.send({ t: "loaded", players: [entry.name] });
       }
       this.homeChanged();
       return;
@@ -491,8 +494,11 @@ export class EditorRunner {
     this.log(`${by}: preview ${source.label}`);
     await edit.say(`${by === "this PC" ? "This PC" : by} is starting a preview of ${chatMapName(status.targetName, status.mapName)}: everyone here goes as soon as it's ready (about 30 seconds).`);
     await edit.send({ t: "notice", text: `§dStarting the preview of ${source.label}` });
+    // Everyone here goes, so everyone gets the loading screen.
+    await edit.send({ t: "loading", players: edit.online(), label: `the preview of ${source.label}` });
     if (status.unsaved && !(await edit.save(by))) {
       await edit.say("§cThe preview didn't start: the world didn't save.");
+      await edit.send({ t: "loaded", players: edit.online() });
       return;
     }
     const recent: RecentEntry = { request: { to: "preview", target: status.target, map: status.map }, label: mapLabel(status.targetName, status.mapName, status.map) };
@@ -584,7 +590,10 @@ export class EditorRunner {
       await session.start();
     } catch (error) {
       this.log(`The preview didn't start: ${message(error)}`);
-      if (from === "edit") await this.work.edit?.say(`§cThe preview didn't start: ${message(error)}`);
+      if (from === "edit") {
+        await this.work.edit?.say(`§cThe preview didn't start: ${message(error)}`);
+        await this.work.edit?.send({ t: "loaded", players: this.work.edit.online() });
+      }
       this.dropPreviewWaiting(`§cThe preview didn't start: ${message(error)}`);
       this.previewing = undefined;
       this.previewFrom = undefined;

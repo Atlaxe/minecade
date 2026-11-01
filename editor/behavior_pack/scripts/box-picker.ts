@@ -65,10 +65,11 @@ export function change(selection: Picking, box: Box): void {
 
 /**
  * Nudge sides: a minus and a plus for each side, a step at a time, with the moved box outlined at
- * once and the way the player faces on the action bar. Nudge keeps it: the moved box, or undefined
- * when they closed the menu (the box stays as it was).
+ * once and the way the player faces on the action bar. Nudge keeps it: the moved box; "back" for
+ * the back arrow (the caller opens the menu it came from); undefined when they closed the menu (the
+ * box stays as it was either way).
  */
-export async function nudgeMenu(host: Pick<ToolHost, "show" | "tell">, player: Player, box: Box, title: string): Promise<Box | undefined> {
+export async function nudgeMenu(host: Pick<ToolHost, "show" | "tell">, player: Player, box: Box, title: string): Promise<Box | "back" | undefined> {
   const key = keyOf(player);
   let sides = UNMOVED;
   let step: number = NUDGE_STEPS[0];
@@ -87,7 +88,8 @@ export async function nudgeMenu(host: Pick<ToolHost, "show" | "tell">, player: P
       const action = response?.selection === undefined ? undefined : entries[response.selection]?.action;
       if (!action || !player.isValid) return undefined;
       if (action.kind === "nudge") return moved;
-      if (action.kind === "step") step = NUDGE_STEPS[((NUDGE_STEPS as readonly number[]).indexOf(step) + 1) % NUDGE_STEPS.length];
+      if (action.kind === "back") return "back";
+      if (action.kind === "step") step = action.step;
       else if (action.kind === "reset") sides = UNMOVED;
       else if (action.kind === "side") {
         const next = { ...sides, [action.side]: sides[action.side] + action.by * step };

@@ -191,11 +191,15 @@ export type HostMessage =
   | { t: "goto"; players: string[]; port: number; label: string }
   /** The invited players, and where each is (for the Players menu). */
   | { t: "guests"; guests: GuestInfo[] }
+  /** These players wait here for another server (`label` says what): the pack shows the loading screen until they're moved. */
+  | { t: "loading"; players: string[]; label: string }
+  /** What these players waited for didn't start: the loading screen closes. */
+  | { t: "loaded"; players: string[] }
   /** Extract mode: move `box` by `offset`, clearing the box's chunks around it, then answer with "extracted". */
   | { t: "extract"; box: Box; offset: Vec3 };
 
 const EVENT_TYPES = new Set(["ready", "edit", "undo", "redo", "resync", "save", "publish", "preview", "changed", "view", "picture", "clean", "saveMap", "mapAction", "deleteMap", "open", "invite", "leave", "extracted"]);
-const MESSAGE_TYPES = new Set(["config", "home", "ack", "status", "say", "notice", "cleanup", "resume", "selection", "forgotten", "goto", "guests", "extract"]);
+const MESSAGE_TYPES = new Set(["config", "home", "ack", "status", "say", "notice", "cleanup", "resume", "selection", "forgotten", "goto", "guests", "loading", "loaded", "extract"]);
 
 // BDS prints script console output as "[<time> <LEVEL>] [Scripting] <text>". Requiring that prefix
 // means "[EDIT]" anywhere else in the log (a player's chat, a command) is never taken for an event.

@@ -61,6 +61,12 @@ export const MARK = {
   iconOnly: "§i§o§r",
   /** A link: aqua text with no face (Help). */
   link: "§h§l§r",
+  /** Stays put above the scrolling list (Export's Name and Map id). */
+  fixed: "§f§x§r",
+  /** A tile of the Step toggle, right before the nudge rows (with one of SEGMENT_COLUMNS). */
+  stepTile: "§s§t§r",
+  /** The back arrow left of the title, opposite the X: back to the menu this one came from. */
+  back: "§b§c§r",
 } as const;
 
 /** A toggle's columns: tile n goes in column n % 3, so the tiles fill rows of three. */
@@ -112,6 +118,11 @@ export function dangerText(text: string): string {
 /** A toggle's tile `index`, green while `on`. */
 export function segmentText(text: string, index: number, on: boolean, iconOnly = false): string {
   return `${MARK.segment}${SEGMENT_COLUMNS[index % SEGMENT_COLUMNS.length]}${iconOnly ? MARK.iconOnly : ""}${on ? MARK.on : ""}${text}`;
+}
+
+/** A Step toggle tile `index`, green while `on`. */
+export function stepTileText(text: string, index: number, on: boolean): string {
+  return `${MARK.stepTile}${SEGMENT_COLUMNS[index % SEGMENT_COLUMNS.length]}${on ? MARK.on : ""}${text}`;
 }
 
 /** A link's text: aqua. */

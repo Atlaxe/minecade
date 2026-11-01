@@ -44,6 +44,8 @@ import {
 import { goto } from "./goto.ts";
 import { keepModeLine, modeLine } from "./hud.ts";
 import { KillYTool } from "./kill-y-tool.ts";
+import { LoadingScreens } from "./loading.ts";
+import { onReset } from "./reset.ts";
 import { HostLink } from "./link.ts";
 import { Outlines } from "./outlines.ts";
 import { boundaryRows, boundsAround, outlineBoxes, toggleBoundary } from "./regions.ts";
@@ -93,6 +95,8 @@ const HINT_TICKS = 10;
 const CHANGED_TICKS = 100;
 /** How far below a block side the Spawn tool looks for the floor to stand an entry on. */
 const FLOOR_REACH = 8;
+/** How often map editors are checked for the map menu (a command block may have cleared it). */
+const ITEMS_TICKS = 200;
 /** How often the facing line goes back on the action bar while a spawn's screen is open. */
 const FACING_TICKS = 20;
 /** Undo and Redo open the map menu again once the host answers, or after this long. */
@@ -112,6 +116,7 @@ export class Editor {
   private readonly killYTool: KillYTool;
   private readonly cameraTool: CameraTool;
   private readonly players: PlayersMenu;
+  private readonly loading: LoadingScreens;
   private readonly dimension: Dimension;
   private readonly settings = new Map<string, SpawnSettings>();
   private readonly formOpen = new Set<string>();
@@ -154,6 +159,7 @@ export class Editor {
     };
     this.regionTool = new RegionTool(scope, host);
     this.killYTool = new KillYTool(host);
+    this.loading = new LoadingScreens(scope, (player, form) => this.show(player, form));
     this.cameraTool = new CameraTool({
       ...host,
       targetName: info.targetName,
@@ -223,6 +229,8 @@ export class Editor {
     scope.subscribe(world.afterEvents.playerPlaceBlock, ({ player }) => this.blocksChanged(player.name));
     scope.subscribe(world.afterEvents.playerBreakBlock, ({ player }) => this.blocksChanged(player.name));
     scope.interval(() => this.hints(), HINT_TICKS);
+    scope.interval(() => this.checkItems(), ITEMS_TICKS);
+    onReset((player) => this.reset(player));
     keepModeLine(scope, () => modeLine("edit", `${this.info.targetName}: ${this.state.current.name}`), (player) => this.cameraTool.isLooking(player));
     this.refresh();
     void this.prepareWorld();
@@ -279,6 +287,12 @@ export class Editor {
       case "guests":
         this.players.update(message.guests);
         return;
+      case "loading":
+        for (const player of world.getAllPlayers()) if (message.players.includes(player.name)) void this.loading.wait(player, message.label);
+        return;
+      case "loaded":
+        for (const player of world.getAllPlayers()) if (message.players.includes(player.name)) this.loading.stop(player);
+        return;
       case "cleanup":
         void this.markers.clear().then(
           (left) => this.link.send({ t: "clean", id: message.id, left }),
@@ -323,11 +337,34 @@ export class Editor {
     // Saved player data in the world could hold another game mode.
     player.setGameMode(GameMode.Creative);
     const where = `${chatMapName(this.info.targetName, this.state.current.name)}.`;
+    this.giveMenu(player);
+    tell(player, `${where} The map menu in slot 9 has the checklist, the tools and Save. Hit a marker to change it.`);
+  }
+
+  private giveMenu(player: Player): void {
     const menu = new ItemStack(MAP_MENU, 1);
     menu.lockMode = ItemLockMode.slot;
     menu.keepOnDeath = true;
     inventoryOf(player)?.setItem(MENU_SLOT, menu);
-    tell(player, `${where} The map menu in slot 9 has the checklist, the tools and Save. Hit a marker to change it.`);
+  }
+
+  /** /reset: creative mode and the map menu, at once. */
+  private reset(player: Player): void {
+    if (!player.isValid) return;
+    player.setGameMode(GameMode.Creative);
+    const inventory = inventoryOf(player);
+    if (inventory && !holds(inventory, MAP_MENU)) this.giveMenu(player);
+    tell(player, "Reset: creative mode, and your map menu.");
+  }
+
+  /** Players missing the map menu get it back (a command block may have cleared it). */
+  private checkItems(): void {
+    for (const player of world.getAllPlayers()) {
+      const inventory = inventoryOf(player);
+      if (!inventory || holds(inventory, MAP_MENU)) continue;
+      this.giveMenu(player);
+      tell(player, "Your map menu was gone: it's back. /reset also brings back creative mode.");
+    }
   }
 
   /** Tells the host blocks changed, so Save or stopping saves the world. At most every few seconds. */
@@ -806,7 +843,7 @@ export class Editor {
             break;
           }
           case "step":
-            step = POINT_STEPS[((POINT_STEPS as readonly number[]).indexOf(step) + 1) % POINT_STEPS.length];
+            step = action.step;
             break;
           case "queueMode": {
             const mode = queueSettings(this.state.current).mode === "lock" ? "free" : "lock";

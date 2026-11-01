@@ -98,6 +98,8 @@ describe("editor protocol", () => {
     expect(parseEditorEvent('{"t":"view","by":"a","shown":["bounds"]}')).toEqual({ t: "view", by: "a", shown: ["bounds"] });
     expect(parseEditorEvent('{"t":"picture","by":"a","kind":"map"}')).toEqual({ t: "picture", by: "a", kind: "map" });
     expect(parseHostMessage('{"t":"guests","guests":[{"name":"Friend","on":"select"}]}')).toEqual({ t: "guests", guests: [{ name: "Friend", on: "select" }] });
+    expect(parseHostMessage('{"t":"loading","players":["Alex"],"label":"Sumo: Arena (arena_1)"}')).toEqual({ t: "loading", players: ["Alex"], label: "Sumo: Arena (arena_1)" });
+    expect(parseHostMessage('{"t":"loaded","players":["Alex"]}')).toEqual({ t: "loaded", players: ["Alex"] });
     expect(parseEditorEvent('{"t":"saveWorld","by":"a","save":true}')).toBeUndefined();
     expect(parseHostMessage('{"t":"resume"}')).toEqual({ t: "resume" });
     expect(parseEditorEvent('{"t":"saveMap","by":"a","box":{"min":[0,0,0],"max":[1,1,1]},"target":"sumo","map":"castle","name":"Castle","spawn":[0,1,0]}')?.t).toBe("saveMap");

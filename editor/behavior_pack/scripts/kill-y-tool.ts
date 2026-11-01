@@ -46,7 +46,7 @@ export class KillYTool {
         if (action.kind === "remove") return this.remove(player);
         if (action.kind === "type") y = (await this.typeHeight(player, y)) ?? y;
         else if (action.kind === "height") y = Math.min(MAX_HEIGHT, Math.max(MIN_HEIGHT, y + action.by * step));
-        else if (action.kind === "step") step = NUDGE_STEPS[((NUDGE_STEPS as readonly number[]).indexOf(step) + 1) % NUDGE_STEPS.length];
+        else if (action.kind === "step") step = action.step;
       }
     } finally {
       showKillY(player, undefined);

@@ -111,20 +111,25 @@ so flying past the converted area grows no new land.
 **The world can't be changed in Select:** nobody can break or place blocks there. Maps are changed
 in Edit.
 
-**In game,** map editors get the **Select tool** (slot 1, locked there) and the map menu (slot 9):
+**In game,** map editors get the **Select tool** (slot 1, locked there) and the map menu (slot 9).
+Some worlds have command blocks that clear inventories: every 10 seconds, a map editor missing
+either gets it back, and **/reset** (`/minecade:reset`) brings both back at once, with creative
+mode (in Edit, the map menu):
 
 - **Hit a block** to start a box there. **Use the tool on blocks** (up to 64 away) to grow the box
   to them. **Use it at the sky** for the selection's form: **Export to Map** (green), Nudge sides
   and Clear selection (red), with Back one step in its icon row. The line above the hotbar says what
   a hit and a use do, and the box's size.
-- **Nudge sides:** a minus (in) and a plus (out) for each side, one step at a time (**Step** cycles
-  1, 5 and 10 blocks). Each side says where it is from you (ahead, behind, left or right) and how
-  far it moved, and the line above the hotbar says which way you face. The outline shows the moved
-  box at once; **Nudge** (green) keeps it, and the X puts the box back.
-- **Export to Map:** a side menu: **Name** and **Map id** (tap either for a small text box; an
-  empty map id is made from the name: "Castle Keep" is `castle_keep`), then what the map is for (the
-  lobby or a game, the picked one outlined), then **Export to Map** (green). An id the game has
-  already is refused.
+- **Nudge sides:** a minus (in) and a plus (out) for each side; **Step** (1, 5 or 10 blocks) is a
+  toggle above them. Each side says where it is from you (ahead, behind, left or right) and how far
+  it moved, and the line above the hotbar says which way you face. The outline shows the moved box
+  at once; **Nudge** (green, at the bottom) keeps it, the back arrow goes back to the menu you came
+  from, and the X closes it; either way the box stays as it was.
+- **Export to Map:** a side menu: **Name** and **Map id** (tap either to type it; an empty map id is
+  made from the name: "Castle Keep" is `castle_keep`) and **For** stay put, and only the list of
+  what the map is for (the lobby or a game, the picked one outlined) scrolls; **Export to Map**
+  (green) is pinned at the bottom. An id the game has already is refused. Then the loading screen
+  shows while it's cut out, and once it's ready, it asks whether to edit it.
 - **The map is cut out in the background,** one at a time, so you can box the next map meanwhile.
   It takes about 20 seconds for a 112 x 65 x 128 build. When it's ready, map editors on Select and
   Edit hear a chime and see "<name> is ready to load in Edit" above the hotbar for a few seconds,
@@ -132,11 +137,13 @@ in Edit.
 - **Outlines** (while you hold the Select tool): your box in yellow, and every map from this world,
   green once it's ready, white while it's queued or being cut out, red when it failed.
 - **The map menu:** an icon row (**Back one step**, faded with nothing to step back; **Players**;
-  and a question mark whose tooltip says how to box a map), your selection's actions, the maps from
-  this world, and **Back to Lobby** pinned at the bottom.
+  and **Back to Lobby**, a house, at the right end), a **Help** link (how to box a map, in chat),
+  your selection's actions, and the maps from this world. While any of Select's menus is open, the
+  outlines show.
   - **A ready map** is a card with its name. Tap it: **Edit** (green) or Cancel. Edit opens it on
-    the Edit server, the menu says it's loading (with the loading dots), and you're moved there once
-    it's ready; Select keeps running.
+    the Edit server, the loading screen shows (with the loading dots), and you're moved there once
+    it's ready; Select keeps running. Every move between servers shows the loading screen, in Edit
+    too (a preview starting, say).
   - **A failed one** says so. Tap it for why, then **Try again** or **Remove from this list**.
   - A map is deleted only from Edit (its gear's **Delete map**), which also takes it off this list.
   - The Panel lists them too, with how each is going.
@@ -217,11 +224,11 @@ game in gold and the map in orange.
      time, whatever you hold (see "Outlines" below). Your switches are kept for your next map and
      the next boot (`work/editor/view.json`).
    - **The play icon** (Preview, game maps only): see "Preview".
-   - **The gear** (map settings): **Players** in its icon row (see "Who can join"); **Name and game
-     settings** (the map's name and the game's own settings in `map.json`, such as a number a game
-     reads, as text fields); **Drop build commands** (red, maps made by `npm run bake`), which keeps
-     the world as you change it; **Delete map** (red, see "Deleting a map"); and **Back to Lobby**
-     pinned at the bottom (Select is in the editor lobby's Open now).
+   - **The gear** (map settings): **Players** and **Back to Lobby** (a house, at the right end) in its
+     icon row (Select is in the editor lobby's Open now); **Name and game settings** (the map's name
+     and the game's own settings in `map.json`, such as a number a game reads, as text fields);
+     **Drop build commands** (red, maps made by `npm run bake`), which keeps the world as you change
+     it; and **Delete map** (red, see "Deleting a map").
 2. **Tools:** a grid of the tools' icons (the Spawn tool, the Region tool, the Kill Y tool and the
    Camera tool), with
    their names as tooltips. Tap one to put it in slot 1 and in your hand; the menu opens again with

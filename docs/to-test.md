@@ -105,6 +105,26 @@ The editor lobby's menu (after the editor's next boot):
 - The door: a "Leave?" menu. Cancel goes back; Leave disconnects you with "You left the map editor.
   Join again to come back." Joining again brings you back to the menu.
 
+Loading, /reset and Select's latest changes (after the editor's next boot):
+
+- Every move between servers shows the loading screen (the dots), not only in the editor lobby:
+  tap a map's Edit in Select; start a preview from Edit (everyone in Edit sees it). If opening fails,
+  it closes and chat says why.
+- Select: Export to Map, then the loading screen ("Exporting") stays up until the map is cut out,
+  then "Edit <name>?" asks. A failed export shows why.
+- /reset (or /minecade:reset) in Select or Edit: creative mode and your editor items back. Clear
+  your inventory with a command (/clear): within about 10 seconds, the map menu (and in Select the
+  Select tool) comes back by itself, with a chat line.
+- Select's map menu: the icon row has Back one step, Players, and a house (Back to Lobby) at the
+  right end; under it an aqua Help link that puts how to box a map in chat, with a chime. No
+  question mark, nothing pinned at the bottom.
+- With any Select menu open (holding the map menu), the outlines show.
+- Nudge sides: a back arrow left of the title (back to the menu you came from); Step is three
+  tiles (1, 5, 10 blocks) above the rows, the one in use green; Nudge is green at the bottom.
+- Export to Map: a back arrow; Name, Map id and For stay put while only the games list scrolls;
+  Export to Map is green, pinned at the bottom.
+- Edit's gear: Players and the house (Back to Lobby) in its icon row.
+
 Select (New map from one of your worlds; after the editor's next boot):
 
 - The box top center reads "Select" (aqua) and the world's name.

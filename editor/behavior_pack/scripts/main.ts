@@ -8,6 +8,8 @@ import { Scope, describeError, log } from "@minecade/minigame-core";
 import { Editor } from "./editor.ts";
 import { Extractor } from "./extractor.ts";
 import { Home } from "./home.ts";
+// Registers /reset as the script loads (Select and Edit say what it does).
+import "./reset.ts";
 import { Selector } from "./selector.ts";
 import { readEditorVars } from "./vars.ts";
 

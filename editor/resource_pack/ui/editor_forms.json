@@ -45,8 +45,8 @@
     "controls": [{"frame@editor_forms.frame": {}}, {"parts@editor_forms.side_parts": {}}]
   },
 
-  // Under the title: the body and the buttons scrolling, and the button pinned at the bottom (§b§t§r):
-  // green (§g§o§r) to save what the menu sets up, such as a new spawn.
+  // Under the title: the buttons that stay put (§f§x§r), the body and the other buttons scrolling, and
+  // the button pinned at the bottom (§b§t§r): green (§g§o§r) to save what the menu sets up.
   "side_parts": {
     "type": "stack_panel",
     "orientation": "vertical",
@@ -56,6 +56,7 @@
     "offset": [0, 31],
     "layer": 3,
     "controls": [
+      {"fixed@editor_forms.fixed_column": {}},
       {"list@editor_forms.scroll": {"size": ["100%", "fill"], "$scrolling_content": "editor_forms.side_content"}},
       {"bottom@editor_forms.bottom_strip": {}}
     ]
@@ -195,22 +196,47 @@
     "controls": [
       {"background": {"type": "image", "texture": "textures/minecade/editor/panel", "size": ["100%", "100%"], "layer": 1}},
       {
-        "title": {
-          "type": "label",
-          "text": "#title_text",
-          "font_type": "MinecraftTen",
-          "font_scale_factor": 1.2,
-          "color": [1.0, 1.0, 1.0],
-          "shadow": true,
-          "size": ["100% - 36px", "default"],
+        "title_row": {
+          "type": "stack_panel",
+          "orientation": "horizontal",
+          "size": ["100% - 36px", 22],
           "anchor_from": "top_left",
           "anchor_to": "top_left",
-          "offset": [10, 10],
+          "offset": [5, 5],
           "layer": 3,
-          "visible": false,
-          "bindings": [
-            {"binding_name": "#title_text"},
-            {"binding_type": "view", "source_property_name": "((#title_text - '§l§o§a§d') = #title_text)", "target_property_name": "#visible"}
+          "controls": [
+            {"back@editor_forms.back_strip": {}},
+            {
+              "title_box": {
+                "type": "panel",
+                "size": ["fill", 22],
+                "controls": [
+                  {
+                    "title": {
+                      "type": "label",
+                      "text": "#title_text",
+                      "font_type": "MinecraftTen",
+                      "font_scale_factor": 1.2,
+                      "color": [1.0, 1.0, 1.0],
+                      "shadow": true,
+                      "size": ["100% - 5px", "default"],
+                      "anchor_from": "left_middle",
+                      "anchor_to": "left_middle",
+                      "offset": [5, 0],
+                      "visible": false,
+                      "bindings": [
+                        {"binding_name": "#title_text"},
+                        {
+                          "binding_type": "view",
+                          "source_property_name": "((#title_text - '§l§o§a§d') = #title_text)",
+                          "target_property_name": "#visible"
+                        }
+                      ]
+                    }
+                  }
+                ]
+              }
+            }
           ]
         }
       },
@@ -314,8 +340,9 @@
     "$scroll_bar_right_padding_size": [0, 0]
   },
 
-  // The scrolling part, top down: the body; a toggle (§s§g§r tiles); the leading buttons (§l§d§r); nudge
-  // rows (§s§m§r, §s§p§r); then every other button. Each part is empty in forms without its marks.
+  // The scrolling part, top down: the body; a toggle (§s§g§r tiles); the leading buttons (§l§d§r); the
+  // Step toggle (§s§t§r tiles) and the nudge rows (§s§m§r, §s§p§r); then every other button. Each part
+  // is empty in forms without its marks.
   "side_content": {
     "type": "stack_panel",
     "orientation": "vertical",
@@ -345,6 +372,7 @@
       },
       {"segments@editor_forms.segment_grid": {}},
       {"lead@editor_forms.lead_column": {}},
+      {"steps@editor_forms.step_grid": {}},
       {"steppers@editor_forms.stepper_grid": {}},
       {"buttons@editor_forms.button_column": {}}
     ]
@@ -430,6 +458,89 @@
       {
         "binding_type": "view",
         "source_property_name": "((not ((#form_button_text - '§s§g§r') = #form_button_text)) and (not ((#form_button_text - '§g§2§r') = #form_button_text)))",
+        "target_property_name": "#visible"
+      }
+    ]
+  },
+
+  // Step, a second toggle (§s§t§r tiles) right before the nudge rows: how far a minus or plus moves.
+  "step_grid": {
+    "type": "panel",
+    "size": ["100%", "100%c"],
+    "controls": [
+      {
+        "grid": {
+          "type": "stack_panel",
+          "orientation": "horizontal",
+          "size": ["100%c", "100%cm"],
+          "anchor_from": "top_left",
+          "anchor_to": "top_left",
+          "offset": [4, 0],
+          "controls": [
+            {
+              "column_0": {
+                "type": "stack_panel",
+                "orientation": "vertical",
+                "size": ["100%cm", "100%c"],
+                "collection_name": "form_buttons",
+                "factory": {"name": "buttons", "control_ids": {"button": "@editor_forms.step_slot_0"}},
+                "bindings": [{"binding_name": "#form_button_contents", "binding_name_override": "#collection_length"}]
+              }
+            },
+            {
+              "column_1": {
+                "type": "stack_panel",
+                "orientation": "vertical",
+                "size": ["100%cm", "100%c"],
+                "collection_name": "form_buttons",
+                "factory": {"name": "buttons", "control_ids": {"button": "@editor_forms.step_slot_1"}},
+                "bindings": [{"binding_name": "#form_button_contents", "binding_name_override": "#collection_length"}]
+              }
+            },
+            {
+              "column_2": {
+                "type": "stack_panel",
+                "orientation": "vertical",
+                "size": ["100%cm", "100%c"],
+                "collection_name": "form_buttons",
+                "factory": {"name": "buttons", "control_ids": {"button": "@editor_forms.step_slot_2"}},
+                "bindings": [{"binding_name": "#form_button_contents", "binding_name_override": "#collection_length"}]
+              }
+            }
+          ]
+        }
+      }
+    ]
+  },
+
+  "step_slot_0@editor_forms.segment_slot": {
+    "bindings": [
+      {"binding_name": "#form_button_text", "binding_type": "collection", "binding_collection_name": "form_buttons"},
+      {
+        "binding_type": "view",
+        "source_property_name": "((not ((#form_button_text - '§s§t§r') = #form_button_text)) and (not ((#form_button_text - '§g§0§r') = #form_button_text)))",
+        "target_property_name": "#visible"
+      }
+    ]
+  },
+
+  "step_slot_1@editor_forms.segment_slot": {
+    "bindings": [
+      {"binding_name": "#form_button_text", "binding_type": "collection", "binding_collection_name": "form_buttons"},
+      {
+        "binding_type": "view",
+        "source_property_name": "((not ((#form_button_text - '§s§t§r') = #form_button_text)) and (not ((#form_button_text - '§g§1§r') = #form_button_text)))",
+        "target_property_name": "#visible"
+      }
+    ]
+  },
+
+  "step_slot_2@editor_forms.segment_slot": {
+    "bindings": [
+      {"binding_name": "#form_button_text", "binding_type": "collection", "binding_collection_name": "form_buttons"},
+      {
+        "binding_type": "view",
+        "source_property_name": "((not ((#form_button_text - '§s§t§r') = #form_button_text)) and (not ((#form_button_text - '§g§2§r') = #form_button_text)))",
         "target_property_name": "#visible"
       }
     ]
@@ -633,6 +744,16 @@
     ]
   },
 
+  // The buttons that stay put above the scrolling list (§f§x§r).
+  "fixed_column": {
+    "type": "stack_panel",
+    "orientation": "vertical",
+    "size": ["100%", "100%c"],
+    "collection_name": "form_buttons",
+    "factory": {"name": "buttons", "control_ids": {"button": "@editor_forms.fixed_slot"}},
+    "bindings": [{"binding_name": "#form_button_contents", "binding_name_override": "#collection_length"}]
+  },
+
   // The leading buttons (§l§d§r), before the nudge rows.
   "lead_column": {
     "type": "stack_panel",
@@ -666,7 +787,7 @@
       {"binding_name": "#form_button_text", "binding_type": "collection", "binding_collection_name": "form_buttons"},
       {
         "binding_type": "view",
-        "source_property_name": "(((#form_button_text - '§q§p§r') = #form_button_text) and ((#form_button_text - '§q§i§r') = #form_button_text) and ((#form_button_text - '§q§e§r') = #form_button_text) and ((#form_button_text - '§t§l§r') = #form_button_text) and ((#form_button_text - '§s§v§r') = #form_button_text) and ((#form_button_text - '§b§t§r') = #form_button_text) and ((#form_button_text - '§s§m§r') = #form_button_text) and ((#form_button_text - '§s§p§r') = #form_button_text) and ((#form_button_text - '§l§d§r') = #form_button_text) and ((#form_button_text - '§s§g§r') = #form_button_text))",
+        "source_property_name": "(((#form_button_text - '§q§p§r') = #form_button_text) and ((#form_button_text - '§q§i§r') = #form_button_text) and ((#form_button_text - '§q§e§r') = #form_button_text) and ((#form_button_text - '§t§l§r') = #form_button_text) and ((#form_button_text - '§s§v§r') = #form_button_text) and ((#form_button_text - '§b§t§r') = #form_button_text) and ((#form_button_text - '§s§m§r') = #form_button_text) and ((#form_button_text - '§s§p§r') = #form_button_text) and ((#form_button_text - '§l§d§r') = #form_button_text) and ((#form_button_text - '§s§g§r') = #form_button_text) and ((#form_button_text - '§f§x§r') = #form_button_text) and ((#form_button_text - '§s§t§r') = #form_button_text) and ((#form_button_text - '§b§c§r') = #form_button_text))",
         "target_property_name": "#visible"
       }
     ],
@@ -684,6 +805,17 @@
       {
         "binding_type": "view",
         "source_property_name": "(not ((#form_button_text - '§l§d§r') = #form_button_text))",
+        "target_property_name": "#visible"
+      }
+    ]
+  },
+
+  "fixed_slot@editor_forms.button_slot": {
+    "bindings": [
+      {"binding_name": "#form_button_text", "binding_type": "collection", "binding_collection_name": "form_buttons"},
+      {
+        "binding_type": "view",
+        "source_property_name": "(not ((#form_button_text - '§f§x§r') = #form_button_text))",
         "target_property_name": "#visible"
       }
     ]
@@ -1661,7 +1793,7 @@
     "controls": [{"button@editor_forms.icon_button": {"size": [22, 22]}}]
   },
 
-  // Leave (§q§e§r), at the right end of the editor lobby's row.
+  // The icon at the right end of a row (§q§e§r): Leave in the editor lobby, Back to Lobby elsewhere.
   "end_strip": {
     "type": "stack_panel",
     "orientation": "horizontal",
@@ -1684,6 +1816,31 @@
       }
     ],
     "controls": [{"button@editor_forms.icon_button": {"size": [22, 22]}}]
+  },
+
+  // A back arrow left of the title (§b§c§r), opposite the X: back to the menu this one came from.
+  "back_strip": {
+    "type": "stack_panel",
+    "orientation": "horizontal",
+    "size": ["100%c", 22],
+    "collection_name": "form_buttons",
+    "factory": {"name": "buttons", "control_ids": {"button": "@editor_forms.back_slot"}},
+    "bindings": [{"binding_name": "#form_button_contents", "binding_name_override": "#collection_length"}]
+  },
+
+  "back_slot": {
+    "type": "panel",
+    "size": [22, 22],
+    "visible": false,
+    "bindings": [
+      {"binding_name": "#form_button_text", "binding_type": "collection", "binding_collection_name": "form_buttons"},
+      {
+        "binding_type": "view",
+        "source_property_name": "(not ((#form_button_text - '§b§c§r') = #form_button_text))",
+        "target_property_name": "#visible"
+      }
+    ],
+    "controls": [{"button@editor_forms.icon_button": {"size": [20, 20]}}]
   },
 
   // The tool grid: five columns, each showing the tools marked for it (§t§l§r and §c§0§r to
