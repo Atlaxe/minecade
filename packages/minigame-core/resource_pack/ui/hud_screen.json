@@ -7,6 +7,10 @@
   // becomes a full-screen panel: marked lines show in a box top right with a clock icon, and
   // anything else shows exactly like the vanilla action bar.
   //
+  // A game that shows each player their own score (One in the Quiver's kills) puts the number at
+  // the end of the line as more formatting codes (countCodes in hud.ts: "§k§t§1§k§u§5§r" is 15),
+  // and a second box left of the clock's shows a skull and the digits those codes name.
+  //
   // What JSON UI allows here, tested in-game on 26.60 (see docs/ui.md):
   //   - engine variables such as $actionbar_text work in expressions only after being copied
   //     into the control's own variable ("$atext": "$actionbar_text");
@@ -18,7 +22,7 @@
     "offset": [ 0, 0 ],
     "controls": [
       { "mc_actionbar_plain@hud.mc_actionbar_plain": {} },
-      { "mc_hud_box@hud.mc_hud_box": {} }
+      { "mc_hud_row@hud.mc_hud_row": {} }
     ]
   },
 
@@ -49,22 +53,119 @@
     ]
   },
 
-  // Marked: the clock (and anything after it), top right, after a clock icon. The mark itself
-  // is formatting codes, so the label shows the line as is.
-  "mc_hud_box": {
-    "type": "image",
+  // Marked: top right, the own score's box (when the line has one) and the clock's, side by side.
+  "mc_hud_row": {
+    "type": "stack_panel",
+    "orientation": "horizontal",
     "$atext": "$actionbar_text",
-    "texture": "textures/ui/hud_tip_text_background",
     "anchor_from": "top_right",
     "anchor_to": "top_right",
     "offset": [ -4, 4 ],
+    "size": [ "100%c", 14 ],
+    "visible": "(not (($atext - '§r§m§c§r') = $atext))",
+    "controls": [
+      { "mc_count_box@hud.mc_count_box": {} },
+      {
+        "mc_count_gap": {
+          "type": "panel",
+          "$atext": "$actionbar_text",
+          "size": [ 2, 14 ],
+          "ignored": "(($atext - '§k§u') = $atext)"
+        }
+      },
+      { "mc_hud_box@hud.mc_hud_box": {} }
+    ]
+  },
+
+  // The own score: a skull, then the digits. Each place (hundreds, tens, units) has a label per
+  // digit, and only the one whose codes are in the line is kept ("ignored" leaves the others out
+  // of the row, so a 5 is as narrow as one digit). A line without a score has no units codes, and
+  // no box.
+  "mc_count_box": {
+    "type": "image",
+    "$atext": "$actionbar_text",
+    "texture": "textures/ui/hud_tip_text_background",
+    "size": [ "100%c + 8px", 14 ],
+    "layer": 30,
+    "alpha": "@hud.anim_actionbar_text_background_alpha_out",
+    "ignored": "(($atext - '§k§u') = $atext)",
+    "visible": "(not (($atext - '§k§u') = $atext))",
+    "controls": [
+      {
+        "mc_count_row": {
+          "type": "stack_panel",
+          "orientation": "horizontal",
+          "anchor_from": "center",
+          "anchor_to": "center",
+          "size": [ "100%c", 10 ],
+          "controls": [
+            {
+              "mc_skull_icon": {
+                "type": "image",
+                "texture": "textures/minecade/hud/skull",
+                "size": [ 10, 10 ],
+                "layer": 31,
+                "alpha": "@hud.anim_actionbar_text_alpha_out"
+              }
+            },
+            { "mc_skull_gap": { "type": "panel", "size": [ 3, 10 ] } },
+            { "h1@hud.mc_digit": { "text": "1", "ignored": "(($atext - '§k§h§1') = $atext)", "visible": "(not (($atext - '§k§h§1') = $atext))" } },
+            { "h2@hud.mc_digit": { "text": "2", "ignored": "(($atext - '§k§h§2') = $atext)", "visible": "(not (($atext - '§k§h§2') = $atext))" } },
+            { "h3@hud.mc_digit": { "text": "3", "ignored": "(($atext - '§k§h§3') = $atext)", "visible": "(not (($atext - '§k§h§3') = $atext))" } },
+            { "h4@hud.mc_digit": { "text": "4", "ignored": "(($atext - '§k§h§4') = $atext)", "visible": "(not (($atext - '§k§h§4') = $atext))" } },
+            { "h5@hud.mc_digit": { "text": "5", "ignored": "(($atext - '§k§h§5') = $atext)", "visible": "(not (($atext - '§k§h§5') = $atext))" } },
+            { "h6@hud.mc_digit": { "text": "6", "ignored": "(($atext - '§k§h§6') = $atext)", "visible": "(not (($atext - '§k§h§6') = $atext))" } },
+            { "h7@hud.mc_digit": { "text": "7", "ignored": "(($atext - '§k§h§7') = $atext)", "visible": "(not (($atext - '§k§h§7') = $atext))" } },
+            { "h8@hud.mc_digit": { "text": "8", "ignored": "(($atext - '§k§h§8') = $atext)", "visible": "(not (($atext - '§k§h§8') = $atext))" } },
+            { "h9@hud.mc_digit": { "text": "9", "ignored": "(($atext - '§k§h§9') = $atext)", "visible": "(not (($atext - '§k§h§9') = $atext))" } },
+            { "t0@hud.mc_digit": { "text": "0", "ignored": "(($atext - '§k§t§0') = $atext)", "visible": "(not (($atext - '§k§t§0') = $atext))" } },
+            { "t1@hud.mc_digit": { "text": "1", "ignored": "(($atext - '§k§t§1') = $atext)", "visible": "(not (($atext - '§k§t§1') = $atext))" } },
+            { "t2@hud.mc_digit": { "text": "2", "ignored": "(($atext - '§k§t§2') = $atext)", "visible": "(not (($atext - '§k§t§2') = $atext))" } },
+            { "t3@hud.mc_digit": { "text": "3", "ignored": "(($atext - '§k§t§3') = $atext)", "visible": "(not (($atext - '§k§t§3') = $atext))" } },
+            { "t4@hud.mc_digit": { "text": "4", "ignored": "(($atext - '§k§t§4') = $atext)", "visible": "(not (($atext - '§k§t§4') = $atext))" } },
+            { "t5@hud.mc_digit": { "text": "5", "ignored": "(($atext - '§k§t§5') = $atext)", "visible": "(not (($atext - '§k§t§5') = $atext))" } },
+            { "t6@hud.mc_digit": { "text": "6", "ignored": "(($atext - '§k§t§6') = $atext)", "visible": "(not (($atext - '§k§t§6') = $atext))" } },
+            { "t7@hud.mc_digit": { "text": "7", "ignored": "(($atext - '§k§t§7') = $atext)", "visible": "(not (($atext - '§k§t§7') = $atext))" } },
+            { "t8@hud.mc_digit": { "text": "8", "ignored": "(($atext - '§k§t§8') = $atext)", "visible": "(not (($atext - '§k§t§8') = $atext))" } },
+            { "t9@hud.mc_digit": { "text": "9", "ignored": "(($atext - '§k§t§9') = $atext)", "visible": "(not (($atext - '§k§t§9') = $atext))" } },
+            { "u0@hud.mc_digit": { "text": "0", "ignored": "(($atext - '§k§u§0') = $atext)", "visible": "(not (($atext - '§k§u§0') = $atext))" } },
+            { "u1@hud.mc_digit": { "text": "1", "ignored": "(($atext - '§k§u§1') = $atext)", "visible": "(not (($atext - '§k§u§1') = $atext))" } },
+            { "u2@hud.mc_digit": { "text": "2", "ignored": "(($atext - '§k§u§2') = $atext)", "visible": "(not (($atext - '§k§u§2') = $atext))" } },
+            { "u3@hud.mc_digit": { "text": "3", "ignored": "(($atext - '§k§u§3') = $atext)", "visible": "(not (($atext - '§k§u§3') = $atext))" } },
+            { "u4@hud.mc_digit": { "text": "4", "ignored": "(($atext - '§k§u§4') = $atext)", "visible": "(not (($atext - '§k§u§4') = $atext))" } },
+            { "u5@hud.mc_digit": { "text": "5", "ignored": "(($atext - '§k§u§5') = $atext)", "visible": "(not (($atext - '§k§u§5') = $atext))" } },
+            { "u6@hud.mc_digit": { "text": "6", "ignored": "(($atext - '§k§u§6') = $atext)", "visible": "(not (($atext - '§k§u§6') = $atext))" } },
+            { "u7@hud.mc_digit": { "text": "7", "ignored": "(($atext - '§k§u§7') = $atext)", "visible": "(not (($atext - '§k§u§7') = $atext))" } },
+            { "u8@hud.mc_digit": { "text": "8", "ignored": "(($atext - '§k§u§8') = $atext)", "visible": "(not (($atext - '§k§u§8') = $atext))" } },
+            { "u9@hud.mc_digit": { "text": "9", "ignored": "(($atext - '§k§u§9') = $atext)", "visible": "(not (($atext - '§k§u§9') = $atext))" } }
+          ]
+        }
+      }
+    ]
+  },
+
+  "mc_digit": {
+    "type": "label",
+    "$atext": "$actionbar_text",
+    "size": [ "default", 10 ],
+    "color": [ 1.0, 1.0, 1.0 ],
+    "layer": 31,
+    "shadow": true,
+    "localize": false,
+    "alpha": "@hud.anim_actionbar_text_alpha_out"
+  },
+
+  // The clock (and anything after it), after a clock icon. The mark and the score's codes are
+  // formatting codes, so the label shows the line as is.
+  "mc_hud_box": {
+    "type": "image",
+    "texture": "textures/ui/hud_tip_text_background",
     "size": [ "100%c + 8px", "100%c + 4px" ],
     "layer": 30,
     "alpha": "@hud.anim_actionbar_text_background_alpha_out",
-    "visible": "(not (($atext - '§r§m§c§r') = $atext))",
     "controls": [
       {
-        "mc_hud_row": {
+        "mc_clock_row": {
           "type": "stack_panel",
           "orientation": "horizontal",
           "anchor_from": "center",

@@ -157,6 +157,7 @@ describe("three games in a row on one server", () => {
       world.hurt(player(first), 30, "entityAttack", { attacker: player(killer) });
       await ticks(1);
       expect(player(first).gameMode).toBe("Spectator"); // respawning in 2 s
+      expect(player(first).titles.at(-1)).toBe("§e2 | §7Respawning in§r");
       world.hurt(player(second), 30, "entityAttack", { attacker: player(killer) });
       await ticks(1);
       const teleportsAtWin = player(first).teleports.length;

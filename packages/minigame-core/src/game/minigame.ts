@@ -77,6 +77,7 @@ const PREVIEW_CHECK_TICKS = 20;
 const PREVIEW_REFRESH_TICKS = 100;
 /** A title() lasts this long (stay plus fade out); the preview's line waits until it's gone. */
 const TITLE_TICKS = 40;
+const TITLE_FADE_TICKS = 10;
 /** Invisibility in a locked queue lasts until normalizePlayer clears it at the spawn. */
 const QUEUE_EFFECT_TICKS = 1_000_000;
 /** Rules every game gets unless it says otherwise: deaths are handled by core, invisibly. */
@@ -123,8 +124,10 @@ export abstract class Minigame<C extends GameConfig = GameConfig> {
   private readonly teamPicks = new Map<string, string>();
   private readonly pickerOpen = new Set<string>();
   private readonly protectedUntil = new Map<string, number>();
-  /** When each respawning player comes back (tick), for the action bar. */
+  /** When each respawning player comes back (tick), for their countdown. */
   private readonly respawnAt = new Map<string, number>();
+  /** The second each respawning player's countdown title shows. */
+  private readonly respawnShown = new Map<string, number>();
   private winCheckQueued = false;
   private startTick = 0;
   private sidebar: Sidebar | undefined;
@@ -239,19 +242,14 @@ export abstract class Minigame<C extends GameConfig = GameConfig> {
   }
 
   /**
-   * The action bar line for a player, refreshed twice a second. Only what matters right now:
-   * lives in lives games and a respawn countdown. The stage clock is drawn separately, top
-   * right (see hud.ts).
+   * The action bar line for a player, refreshed twice a second. Only what matters right now: lives
+   * in lives games. The stage clock is drawn separately, top right (see hud.ts), with this line
+   * after it; a respawn countdown is a title.
    */
   protected hud(name: string): string | undefined {
-    const parts: string[] = [];
     const participant = this.roster.get(name);
-    if (participant && this.config.respawn?.mode === "lives" && participant.state !== "out") parts.push(say.info(`Lives: ${participant.lives}`));
-    const respawnAt = this.respawnAt.get(name.toLowerCase());
-    if (participant?.state === "respawning" && respawnAt !== undefined) {
-      parts.push(say.info(`Respawning in ${Math.max(1, Math.ceil((respawnAt - system.currentTick) / 20))}`));
-    }
-    return parts.length > 0 ? parts.join("   ") : undefined;
+    if (participant && this.config.respawn?.mode === "lives" && participant.state !== "out") return say.info(`Lives: ${participant.lives}`);
+    return undefined;
   }
 
   /**
@@ -487,12 +485,12 @@ export abstract class Minigame<C extends GameConfig = GameConfig> {
     for (const player of world.getAllPlayers()) playChime(player, chime);
   }
 
-  /** A title for one player, or everyone when `to` is omitted. */
-  title(title: string, subtitle?: string, to?: string): void {
+  /** A title for one player, or everyone when `to` is omitted, up for `stay` ticks, then fading for 10. */
+  title(title: string, subtitle?: string, to?: string, stay = 30): void {
     this.titleAt = system.currentTick;
     const players = to === undefined ? world.getAllPlayers() : [this.player(to)].filter((player): player is Player => !!player);
     for (const player of players) {
-      player.onScreenDisplay.setTitle(title, { fadeInDuration: 0, stayDuration: 30, fadeOutDuration: 10, subtitle });
+      player.onScreenDisplay.setTitle(title, { fadeInDuration: 0, stayDuration: stay, fadeOutDuration: TITLE_FADE_TICKS, subtitle });
     }
   }
 
@@ -553,6 +551,8 @@ export abstract class Minigame<C extends GameConfig = GameConfig> {
     this.credit.clear(name);
     const protect = this.config.respawn?.protectSeconds;
     if (why === "respawn" && protect) this.protectedUntil.set(name.toLowerCase(), system.currentTick + protect * 20);
+    this.respawnAt.delete(name.toLowerCase());
+    this.respawnShown.delete(name.toLowerCase());
     if (this.fakes?.has(name)) {
       this.placeFake(name, this.spawnPoint(name, why), true);
       return;
@@ -634,6 +634,7 @@ export abstract class Minigame<C extends GameConfig = GameConfig> {
     if (decision === "wait") return; // back at respawnAll()
     const delay = Math.max(1, (this.config.respawn?.delaySeconds ?? 3) * 20);
     this.respawnAt.set(name.toLowerCase(), system.currentTick + delay);
+    this.respawnTitles();
     this.playingScope?.timeout(() => {
       if (participant.state === "respawning") this.spawn(name, "respawn");
     }, delay);
@@ -1027,11 +1028,20 @@ export abstract class Minigame<C extends GameConfig = GameConfig> {
 
   private refreshDisplays(): void {
     const secondsLeft = this.currentStage?.secondsLeft;
+    const scoring = this.config.scoring;
+    const own = scoring?.display === "own";
     for (const player of world.getAllPlayers()) {
-      const text = hudLine(secondsLeft, this.hud(player.name) ?? "");
+      const rest = this.hud(player.name) ?? "";
+      const count = own ? this.ownScore(player.name) : undefined;
+      // With no clock there's no box to put the score beside: it goes on the action bar as text.
+      const text =
+        secondsLeft === undefined && count !== undefined
+          ? [say.info(`${scoring?.title ?? "Score"}: ${count}`), rest].filter(Boolean).join("   ")
+          : hudLine(secondsLeft, rest, count);
       if (text) player.onScreenDisplay.setActionBar(text);
     }
-    const board = this.roundWins ?? (this.config.scoring ? this.score : undefined);
+    this.respawnTitles();
+    const board = this.roundWins ?? (scoring && !own ? this.score : undefined);
     if (!board) return;
     if (!this.sidebar) {
       this.sidebar = new Sidebar(this.playingScope ?? this.scope, `${this.ctx.vars.sessionId}`.slice(0, 12), this.config.scoring?.title ?? (this.roundWins ? "Rounds" : "Score"));
@@ -1232,6 +1242,28 @@ export abstract class Minigame<C extends GameConfig = GameConfig> {
   private areTeammates(a: string, b: string): boolean {
     const teamA = this.roster.get(a)?.team;
     return teamA !== undefined && teamA === this.roster.get(b)?.team;
+  }
+
+  /**
+   * A respawning player's countdown, like the start's: the seconds left as a title over
+   * "Respawning in". Each one stays until the next, and the last is gone as they respawn.
+   */
+  private respawnTitles(): void {
+    for (const participant of this.roster.inState("respawning")) {
+      const key = participant.name.toLowerCase();
+      const at = this.respawnAt.get(key);
+      if (at === undefined) continue; // waiting for the next stage
+      const left = at - system.currentTick;
+      const seconds = Math.max(1, Math.ceil(left / 20));
+      if (this.respawnShown.get(key) === seconds) continue;
+      this.respawnShown.set(key, seconds);
+      this.title(`${COLOR.highlight}${seconds}`, say.minor("Respawning in"), participant.name, Math.min(30, Math.max(0, left - TITLE_FADE_TICKS)));
+    }
+  }
+
+  /** The score a player sees as their own (their team's in team games); undefined for anyone not playing. */
+  private ownScore(name: string): number | undefined {
+    return this.roster.get(name) ? this.score.get(this.sideOf(name)) : undefined;
   }
 
   /** The scoring side of a player: their team in team games, else themselves. */

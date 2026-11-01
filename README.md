@@ -292,7 +292,8 @@ docs/                     map format (maps.md), the map editor (editor.md), meas
    `packages/minigame-core/src/config.ts`, and the build validates them.
 3. Write the game in `behavior_pack/scripts/`: a class extending `Minigame` that overrides only
    what's different. The framework already handles waiting, the countdown, teams, deaths without
-   a death screen, kill credit, respawns, win checks, the sidebar, stats and cleanup. Hooks and
+   a death screen, kill credit, respawns, win checks, scores (the sidebar, or each player's own
+   beside the clock), stats and cleanup. Hooks and
    helpers are documented in `packages/minigame-core/src/game/minigame.ts`.
 4. Make its maps in the map editor ([docs/editor.md](docs/editor.md)), or add one under
    `maps/<map-id>/` and bake it. Until the game has a finished map, the build skips it with a

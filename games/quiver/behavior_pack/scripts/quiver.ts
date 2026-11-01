@@ -1,6 +1,6 @@
 // One in the Quiver on the minigame framework. Core already handles the rest: unlimited respawns
-// after a short delay with spawn protection, a kill (and a point) for each credited down, the Kills
-// sidebar, the clock and the stats. This class makes arrows lethal, pays an arrow for every kill,
+// after a short delay with spawn protection, a kill (and a point) for each credited down, each
+// player's own kills top right beside the clock, and the stats. This class makes arrows lethal, pays an arrow for every kill,
 // removes missed arrows, respawns players away from everyone, and ends the match at the kill target.
 import { EntityComponentTypes, ItemLockMode, ItemStack, system, world, type Player, type Vector3 } from "@minecraft/server";
 import {
@@ -85,7 +85,7 @@ export class Quiver extends Minigame<typeof config> {
 
   protected override onSpawn(player: Player, why: SpawnReason): void {
     giveArrows(player, this.config.arrows.perLife);
-    // A late joiner is on the sidebar from the start, like everyone else.
+    // A late joiner is in the scores from the start (at 0), like everyone else.
     if (why === "join" && !this.score.entries().some(([id]) => id === player.name)) this.score.set(player.name, 0);
   }
 

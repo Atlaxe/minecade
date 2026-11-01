@@ -352,7 +352,7 @@ previewed yet), **Preview** on the Panel's Edit row, or `npm run editor -- previ
 up to the game's player limit. A fake player looks like a player (Steve) with a name tag, "Fake 1",
 "Fake 2" and so on, and the game treats it as one: before the match it waits at a spawn of its own
 and counts toward the players needed to start; it gets a team in team games, spawns, respawns and
-is eliminated by the game's rules; it's on the sidebar, and its downs show in the kill feed. It
+is eliminated by the game's rules; it has a score like anyone, and its downs show in the kill feed. It
 doesn't move or fight back. Hit it, shoot it or knock it off like a player (a game's own weapons
 work on it too: One in the Quiver's arrow kills it). **Right click** one for a side panel that asks
 first: **Kill Fake 1** (red) takes it down, credited to you, and **Cancel** leaves it. Once the

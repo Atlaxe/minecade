@@ -7,6 +7,7 @@ The images are meant to be redrawn by hand; by default this never touches an exi
 
 Outputs:
     packages/minigame-core/resource_pack/textures/minecade/hud/clock.png   HUD match clock icon
+    packages/minigame-core/resource_pack/textures/minecade/hud/skull.png   HUD own score icon (kills)
     packages/minigame-core/resource_pack/textures/ui/item_lock_*.png         blank: locked items show no lock corner
     lobby/resource_pack/textures/minecade/ui/...                             holographic menu art
     lobby/resource_pack/textures/minecade/holo/...                           hologram frames, beam
@@ -103,6 +104,38 @@ def clock_icon() -> Image.Image:
     draw.line((8, 4, 8, 8), fill=hand)
     draw.line((8, 7, 11, 7), fill=hand)
     draw.line((8, 8, 11, 8), fill=hand)
+    return image
+
+
+# A 16x16 pixel-art skull: "#" bone, "o" the clock's dark face, "." clear.
+SKULL = (
+    "................",
+    ".....######.....",
+    "...##########...",
+    "..############..",
+    ".##############.",
+    ".##############.",
+    ".##ooo####ooo##.",
+    ".#oooo####oooo#.",
+    ".#oooo####oooo#.",
+    ".##oo######oo##.",
+    "..#####oo#####..",
+    "...##########...",
+    "....########....",
+    "....##o##o##....",
+    "....########....",
+    "................",
+)
+
+
+def skull_icon() -> Image.Image:
+    """The own score's icon (kills): a white skull with dark eyes, the clock's colors."""
+    colors = {"#": (235, 240, 245, 255), "o": (30, 40, 60, 235)}
+    image = Image.new("RGBA", (16, 16), (0, 0, 0, 0))
+    for y, row in enumerate(SKULL):
+        for x, cell in enumerate(row):
+            if cell in colors:
+                image.putpixel((x, y), colors[cell])
     return image
 
 
@@ -653,6 +686,7 @@ def fade_bottom() -> Image.Image:
 
 def main() -> None:
     save(clock_icon(), CORE_TEXTURES / "hud" / "clock.png")
+    save(skull_icon(), CORE_TEXTURES / "hud" / "skull.png")
 
     logo = blue_logo()
     # The core pack: the lobby's menus and every server's loading screen and pause menu use it.

@@ -16,6 +16,7 @@ import {
 } from "../../../packages/minigame-core/test/game-harness.ts";
 import { validateGameConfig } from "../../../tools/build/validate.ts";
 import config from "../game.config.ts";
+import { countCodes } from "../../../packages/minigame-core/src/hud.ts";
 import { ARROW_SLOT, ARROW_VERBS, Quiver, giveArrows, pickSpawn, rankSpawns } from "../behavior_pack/scripts/quiver.ts";
 
 const ARROW = "minecraft:arrow";
@@ -98,6 +99,10 @@ describe("One in the Quiver", () => {
       await ticks(10); // the action bar's next refresh
       expect(stripColors(a.actionBar)).toContain("+1 arrow");
       expect(a.sounds.at(-1)?.id).toBe("random.orb");
+      // Each player sees only their own kills, top right: no sidebar.
+      expect(a.actionBar.endsWith(countCodes(1))).toBe(true);
+      expect(c.actionBar.endsWith(countCodes(0))).toBe(true);
+      expect(world.scoreboard.sidebar).toBeUndefined();
 
       const missed = world.projectileLands(c);
       expect(missed.isValid).toBe(false);
@@ -177,7 +182,12 @@ describe("One in the Quiver", () => {
       at(a, 12.5, 0.5); // on spawn 0, east
       at(c, -11.5, 0.5); // on spawn 5, west
       shoot(a, b);
-      await ticks(RESPAWN_TICKS);
+      await ticks(2);
+      // The countdown is a title, like the start's, and stays off the action bar.
+      expect(stripColors(b.titles.at(-1) ?? "")).toBe("2 | Respawning in");
+      await ticks(RESPAWN_TICKS - 2);
+      expect(b.titles.map(stripColors)).toContain("1 | Respawning in");
+      expect(stripColors(b.actionBar)).not.toContain("Respawning");
       expect(game.roster.get("B")?.state).toBe("alive");
       expect(b.gameMode).toBe("Adventure");
       // Spawns 2, 3, 7 and 8 (south and north) are farthest from both; the safest 3 are 2, 3 and 7.
@@ -205,16 +215,16 @@ describe("One in the Quiver", () => {
     everyoneLeaves();
   });
 
-  it("a late arrival joins in with a kit, on the sidebar at 0; the last player left wins once everyone else has gone", async () => {
+  it("a late arrival joins in with a kit, at 0 kills; the last player left wins once everyone else has gone", async () => {
     const { baseline, game } = start(["A", "B"]);
     const result = await playToEnd(game, harness.root, baseline, async () => {
       await ticks(COUNTDOWN_TICKS);
       const late = world.join("Late");
-      await ticks(12); // in, and the sidebar's next refresh
+      await ticks(12); // in, and the action bar's next refresh
       expect(game.roster.get("Late")?.state).toBe("alive");
       expect(late.gameMode).toBe("Adventure");
       expect(arrowsOf(late)).toBe(1);
-      expect([...(world.scoreboard.sidebar?.scores.keys() ?? [])].map(stripColors).sort()).toEqual(["A", "B", "Late"]);
+      expect(late.actionBar.endsWith(countCodes(0))).toBe(true);
       world.leave("B");
       world.leave("Late");
       await ticks(3);

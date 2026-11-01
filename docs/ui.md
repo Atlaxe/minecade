@@ -58,8 +58,9 @@ The action bar (the line above the hotbar) only shows what matters right now:
 
 - **Lobby:** nothing. Starting a game shows a chat message, and the countdown is on the terminal's
   hologram (no titles).
-- **Games:** lives in games with lives, "Respawning in N" while respawning, and "Waiting for
-  players" before the match. A game can show more by overriding `hud(name)`.
+- **Games:** lives in games with lives, and "Waiting for players" before the match. A game can
+  show more by overriding `hud(name)`. A respawn countdown is a title instead, like the start's:
+  the seconds left over "Respawning in", the last one gone as the player comes back.
 
 Every match has a clock: `timeLimitSeconds` in `game.config.ts`, 5 minutes when a game doesn't
 set one (`DEFAULT_TIME_LIMIT_SECONDS`), or `0` for no limit. Games that override `play()` should
@@ -85,6 +86,16 @@ What JSON UI allowed here, found in-game on 26.60:
   string". That's why the mark is invisible formatting codes instead of being cut off.
 - View bindings need a `#property`: one whose expression only uses `$atext` fails with "Must
   define a source property name in the binding!".
+
+**Own score:** a game whose `scoring` has `display: "own"` (One in the Quiver) has no sidebar.
+Each player sees only their own score (their team's in team games) in a second box left of the
+clock's, with a skull and the number, its own background like the clock's. It rides on the same
+action bar line: since JSON UI can't cut text out of it, `countCodes()` in `hud.ts` adds the number
+at the end as more formatting codes ("§k§t§1§k§u§5§r" is 15: each place's codes, then the digit as
+a code), which never show in the clock's box. The pack's box has a label for each digit in each
+place, and keeps only the ones whose codes are in the line (`"ignored"`, so a 5 is one digit wide).
+It shows 0 to 999. A test checks the codes match the pack. With no clock (a time limit of 0), the
+score is plain action bar text ("Kills: 5").
 
 ## Countdown sounds
 
@@ -478,6 +489,7 @@ middle, and the tiled scanlines, which repeat.
 | Image | Shown as | Art size |
 |---|---|---|
 | `packages/minigame-core/resource_pack/textures/minecade/hud/clock.png` | HUD clock icon, 10x10 | 16x16 |
+| `packages/minigame-core/resource_pack/textures/minecade/hud/skull.png` | HUD own score icon (kills), 10x10 | 16x16 |
 | `packages/minigame-core/resource_pack/textures/minecade/ui/logo.png` | Main menu logo, 232x50; the logo on every server's loading screen and pause menu | 1072x240, transparent background |
 | `lobby/resource_pack/textures/minecade/ui/holo_panel.png` | Every menu's background (main menu 300x116, game grid 430 wide by 80% of the screen, game screen 460x250) | 64x64 at 1x, nine-slice (`holo_panel.json`): the outer 24 pixels hold the border and corner brackets and keep their size, the middle stretches; partly transparent |
 | `lobby/resource_pack/textures/minecade/ui/holo_scanlines.png` | Scanlines over every menu's background, tiled (repeated at 1 pixel per pixel) | 4x3, one faint line on top, the rest transparent |

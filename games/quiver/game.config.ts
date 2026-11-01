@@ -19,7 +19,8 @@ export default defineGame({
   lateJoin: "join",
   combat: { fall: false, killCreditSeconds: 6 },
   respawn: { mode: "unlimited", delaySeconds: 2, protectSeconds: 2 },
-  scoring: { per: "player", perKill: 1, title: "Kills" },
+  // Each player sees only their own kills, top right beside the clock: no sidebar.
+  scoring: { per: "player", perKill: 1, title: "Kills", display: "own" },
   kits: {
     list: [
       {

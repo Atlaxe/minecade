@@ -61,6 +61,11 @@ export interface ScoringConfig {
   target?: number;
   /** Sidebar title. */
   title?: string;
+  /**
+   * Who sees which scores: "sidebar" (the default) lists everyone's; "own" shows each player only
+   * theirs (their team's in team games), top right in a box with a skull, left of the clock.
+   */
+  display?: "sidebar" | "own";
 }
 
 export interface KitItem {

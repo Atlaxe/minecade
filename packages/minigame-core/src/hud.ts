@@ -5,6 +5,11 @@
 // pack (packages/minigame-core/resource_pack/ui/hud_screen.json) shows marked lines in a box top
 // right with a clock icon. The mark is formatting codes, which never render, so the box shows the
 // line as is, and without the pack the action bar simply reads "2:53   Lives: 2".
+//
+// Own score: a game whose scoring shows "own" also shows each player their score in a box of its
+// own left of the clock, with a skull. JSON UI can't cut text out of the action bar, so the number
+// rides at the end of the line as formatting codes too (countCodes), and the pack shows the digit
+// whose code it finds in each place.
 import type { Player } from "@minecraft/server";
 
 /** Starts every action bar line that carries the clock. Must match the core pack's hud_screen.json. */
@@ -23,12 +28,30 @@ export function previewLine(label: string): string {
 }
 const URGENT_SECONDS = 30;
 
-/** The action bar text for a stage clock (white, red in the last 30 seconds) plus the usual line. */
-export function hudLine(secondsLeft: number | undefined, rest = ""): string {
+/** Each place of the own score's number (hundreds, tens, units) as codes, before the digit's code. Must match hud_screen.json. */
+export const COUNT_PLACES = ["§k§h", "§k§t", "§k§u"] as const;
+/** The highest own score the HUD shows. */
+export const MAX_COUNT = 999;
+
+/**
+ * The action bar text for a stage clock (white, red in the last 30 seconds) plus the usual line,
+ * and the player's own score when `count` is given (the pack shows it in its own box).
+ */
+export function hudLine(secondsLeft: number | undefined, rest = "", count?: number): string {
   if (secondsLeft === undefined) return rest;
   const whole = Math.max(0, Math.ceil(secondsLeft));
   const clock = `${Math.floor(whole / 60)}:${String(whole % 60).padStart(2, "0")}`;
-  return `${HUD_MARK}${whole <= URGENT_SECONDS ? "§c" : "§f"}${clock}${rest ? `§7   ${rest}` : ""}`;
+  return `${HUD_MARK}${whole <= URGENT_SECONDS ? "§c" : "§f"}${clock}${rest ? `§7   ${rest}` : ""}${count === undefined ? "" : countCodes(count)}`;
+}
+
+/**
+ * A score (0 to 999) as formatting codes that never render: each place's codes, then its digit as
+ * a code ("§k§t§1§k§u§5§r" is 15). Leading zeros are left out, so the pack shows only the digits there are.
+ */
+export function countCodes(count: number): string {
+  const digits = String(Math.min(MAX_COUNT, Math.max(0, Math.round(count))));
+  const places = COUNT_PLACES.slice(COUNT_PLACES.length - digits.length);
+  return `${places.map((place, index) => `${place}§${digits[index]}`).join("")}§r`;
 }
 
 export type Chime = "tick" | "bell" | "go";

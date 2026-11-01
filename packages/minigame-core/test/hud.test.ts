@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
-import { CHIMES, HUD_MARK, countdownChime, hudLine, playChime } from "../src/hud.ts";
+import { CHIMES, COUNT_PLACES, HUD_MARK, countCodes, countdownChime, hudLine, playChime } from "../src/hud.ts";
 import { stripColors } from "../src/text.ts";
 import { world } from "./fake-mc-server.ts";
 
@@ -26,6 +26,37 @@ describe("hudLine", () => {
   it("is just the line without a clock", () => {
     expect(hudLine(undefined, "Respawning in 3")).toBe("Respawning in 3");
     expect(hudLine(undefined)).toBe("");
+  });
+
+  it("ends with the player's own score as codes, which never show in the clock's box", () => {
+    expect(hudLine(65, "+1 arrow", 15)).toBe(`${HUD_MARK}§f1:05§7   +1 arrow§k§t§1§k§u§5§r`);
+    expect(stripColors(hudLine(65, "", 7))).toBe("1:05");
+  });
+});
+
+describe("countCodes", () => {
+  it("names each digit by its place, leaving out leading zeros", () => {
+    expect(countCodes(0)).toBe("§k§u§0§r");
+    expect(countCodes(7)).toBe("§k§u§7§r");
+    expect(countCodes(15)).toBe("§k§t§1§k§u§5§r");
+    expect(countCodes(208)).toBe("§k§h§2§k§t§0§k§u§8§r");
+    expect(stripColors(countCodes(208))).toBe("");
+  });
+
+  it("keeps to whole numbers from 0 to 999", () => {
+    expect(countCodes(-3)).toBe(countCodes(0));
+    expect(countCodes(1234)).toBe(countCodes(999));
+    expect(countCodes(4.6)).toBe(countCodes(5));
+  });
+
+  it("matches the core resource pack: a label for every digit in every place, and the box keyed on the units", () => {
+    const hud = readFileSync(new URL("../resource_pack/ui/hud_screen.json", import.meta.url), "utf8");
+    COUNT_PLACES.forEach((place, index) => {
+      for (let digit = index === 0 ? 1 : 0; digit <= 9; digit++) {
+        expect(hud).toContain(`"text": "${digit}", "ignored": "(($atext - '${place}§${digit}') = $atext)"`);
+      }
+    });
+    expect(hud).toContain(`"ignored": "(($atext - '${COUNT_PLACES[2]}') = $atext)"`);
   });
 });
 
