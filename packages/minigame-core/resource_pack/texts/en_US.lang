@@ -1,0 +1,13 @@
+## Locked items look like any other item on every Minecade server: vanilla's lock lines under an
+## item's name (the hotbar's "Can't Move Items can't be: moved, dropped, removed, crafted with",
+## "This item is not lost on death", and the same in the inventory's hover text) are blank. The
+## lock corner and "Can't move item" are hidden too (textures/ui, ui/ui_common.json).
+item.itemLock.cantDrop=
+item.itemLock.cantMove=
+item.itemLock.hoverText.cantBe.moved=
+item.itemLock.hoverText.cantBe.dropped=
+item.itemLock.hoverText.cantBe.removed=
+item.itemLock.hoverText.cantBe.craftedWith=
+item.itemLock.keepOnDeath=
+item.itemLock.popupNotice.cantDrop=
+item.itemLock.popupNotice.cantMove=

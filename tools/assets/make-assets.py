@@ -7,6 +7,7 @@ The images are meant to be redrawn by hand; by default this never touches an exi
 
 Outputs:
     packages/minigame-core/resource_pack/textures/minecade/hud/clock.png   HUD match clock icon
+    packages/minigame-core/resource_pack/textures/ui/item_lock_*.png         blank: locked items show no lock corner
     lobby/resource_pack/textures/minecade/ui/...                             holographic menu art
     lobby/resource_pack/textures/minecade/holo/...                           hologram frames, beam
     lobby/resource_pack/textures/minecade/blocks/...                         terminal block faces
@@ -723,9 +724,9 @@ def main() -> None:
     for state, color in (("default", (255, 255, 255)), ("hover", (235, 64, 64)), ("pressed", (160, 30, 30))):
         save(nav_icon("close", color), EDITOR_TEXTURES / "minecade" / "editor" / f"close_{state}.png")
     save(Image.new("RGB", (16, 16), (255, 40, 40)), EDITOR_TEXTURES / "entity" / "editor_marker_facing.png")
-    # Locked items show no red or yellow corner in the editor (the map menu and Select's tool are locked).
+    # The core pack: locked items show no red or yellow corner on any server (kit items, the editor's map menu).
     for name in ("item_lock_red", "item_lock_yellow"):
-        save(Image.new("RGBA", (16, 16), (0, 0, 0, 0)), EDITOR_TEXTURES / "ui" / f"{name}.png")
+        save(Image.new("RGBA", (16, 16), (0, 0, 0, 0)), CORE_TEXTURES.parent / "ui" / f"{name}.png")
     # Markers by kind (lists.ts MARKER_KINDS): spawns orange, the spectator spawn gray, the queue spawn
     # aqua, team spawns green, points yellow, cameras magenta.
     for kind, color in (("", (255, 170, 30)), ("_spectator", (175, 185, 205)), ("_queue", (60, 200, 255)), ("_team", (90, 220, 90)), ("_point", (255, 230, 60))):

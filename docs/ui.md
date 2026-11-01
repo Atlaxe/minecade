@@ -108,6 +108,15 @@ logo (`common_art.title_image`, so the pause menu shows it too), keeping its sha
 the vanilla files. A server's packs only apply once the player is joining it, so the screens
 before that ("Locating server", downloading packs) are the player's own and stay vanilla.
 
+**Locked items look like any other item** (the default everywhere: kit items, Quiver's arrows, the
+map editor's map menu). Vanilla marks a locked item three ways, and the core pack removes all
+three: the red or yellow corner on its slot (`textures/ui/item_lock_red` and `item_lock_yellow`
+are blank), the lines under its name in the hotbar and the inventory ("Can't Move Items can't be:
+moved, dropped, removed, crafted with", "This item is not lost on death": blank in
+`texts/en_US.lang`), and "Can't move item" above the hotbar when one is moved
+(`common.item_lock_notification` is hidden in `ui/ui_common.json`). A game never needs to do
+anything for this: lock items as usual (`lockMode`, `keepOnDeath`).
+
 ## The lobby terminal
 
 The lobby's menus live on a terminal in the middle of the lobby, not on items. One player uses it
@@ -380,8 +389,8 @@ The rules every editor menu follows (the user's, from 2026-10-31):
 - **A side menu open shows the outlines** (Select), as holding the tool does.
 - **Text sits in the middle of its button** (lifted a pixel: the face's dark bottom edge makes the
   middle look lower). Headings wrap rather than overlap.
-- **Locked items** (the map menu, Select's tool) show no red corner and no "Can't move item": the
-  editor's resource pack blanks `textures/ui/item_lock_red` and hides `common.item_lock_notification`.
+- **Locked items** (the map menu, Select's tool) look like any other item, as on every server (see
+  "The core resource pack").
 - **Every sub-menu** (the gear, the checklist, Boundaries, a tool screen opened from the map menu, a
   camera's or a box's menu, Players) has the back arrow.
 - The step that finishes something is green; deleting or removing is red.

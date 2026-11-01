@@ -1,0 +1,13 @@
+{
+  "namespace": "common",
+
+  // Locked items (kit items, the map editor's map menu) look like any other item. Vanilla says
+  // an item is locked with a red or yellow corner on its slot (textures/ui/item_lock_red and
+  // item_lock_yellow, blank in this pack), lines under its name (blank in texts/en_US.lang), and
+  // "Can't move item" above the hotbar when one is moved: this hides that line. Merged into the
+  // vanilla file, on every server.
+  "item_lock_notification": {
+    "visible": false,
+    "size": [0, 0]
+  }
+}
