@@ -126,43 +126,25 @@ Guests (needs a second account that isn't in LAN_PLAYERS):
 
 ## Block pack (Java mod)
 
-The custom blocks mod in a 26.2 Fabric profile, in the Minecade Showroom world. Everything else
-passed on 2026-10-31; connected glass is left:
+The custom blocks mod in a 26.2 Fabric profile. Take the new mod jar from the private block-pack
+project's `out/mods` folder and the new `minecade-showroom-java.zip` from `out`. Everything else
+passed on 2026-10-31:
 
-- Connected glass (framed glass and the windows, as blocks and panes, in the Connections area): the
-  textures join across neighbors, but where a glass block meets another, its top and bottom
-  textures still show through the glass. It passes when a 3x3 wall or a stack looks like one sheet,
-  with no faces between the blocks. A small seam where three framed glass blocks meet in an inside
-  corner is expected. Likely cause: the mod draws every face of these blocks, even against the same
-  block, where vanilla glass skips those faces.
+- Connected glass (framed glass and the windows, in the Connections area): a 3x3 wall or a stack
+  looks like one sheet, with no faces between the blocks. The mod now skips them, as vanilla glass
+  does. A small seam where three framed glass blocks meet in an inside corner is expected.
+- Planters: right-click a planter's top with any flower. One-block flowers sit on it, and tall ones
+  (sunflower, lilac, rose bush, peony, pitcher plant) stand two blocks high. Breaking the planter or
+  either half takes the flower and drops it once (nothing in creative). The Connections area has a
+  planter with every flower.
 
 ## Block pack (Bedrock)
 
-Open `minecade-showroom.mcworld` (from the private block-pack project's `out` folder) on a Bedrock
-device; it brings the blocks pack with it. BDS already loaded the pack with no errors, placed every
-block, gave every chest its storage and checked the connection rules. A probe world also checked
-collision (items dropped on doors, ladders, wicker fences, stairs, slabs, posts, gates and flags
-land where Java's shapes say), right-clicks (book piles, jars, candle holders, sconces, awnings,
-globes, flower boxes, stools) and placing doors, ladders, panes and posts from their items. These
-need a real client:
+Open the new `minecade-showroom.mcworld` from the private block-pack project's `out` folder.
+Everything else passed on 2026-10-31. BDS already put flowers on planters from a simulated
+player's clicks and broke them again, and every showroom block came through a Chunker conversion
+and a map editor cut exactly. This needs a real client:
 
-- Looks: every block looks like its Java version in the Java showroom: textures, shapes, which way
-  it faces. If any block faces the opposite way or is mirrored, say which.
-- The Connections area at the end draws everything, including the planter, the tatami pair, the
-  blackstone furnace on soul sand and the double chest next to the cooking pot and skillet. Canvas
-  rugs, cooking pots and skillets show, with no geometry errors in the content log.
-- Collision matches what you see: doors (open and closed), ladders, fences, wicker fences (a lone
-  one is a thin post) and posts lying on their side. A flag only stops you at its pole.
-- Climbing: walk into a ladder or a rope to climb it; stop and you slide down slowly.
-- No flickering faces on paper lanterns, awnings or glass. After right-clicking an awning, its top
-  stripes still run the same way as before.
-- Glass: in a wall of framed glass or windows you don't see the faces between the blocks.
-- Chests: right-click opens one from any side; the lid opens while it's open, with chest sounds.
-  Hitting it breaks it and drops what was inside. Each half of a double chest has its own 27 slots.
-- Sitting: the hotbar hint reads "Sneak or jump to get up", and jumping gets you up.
-- Creative menu: Construction has a group per family (copper tiles, food crates and so on) holding
-  its stairs, slabs and walls. Doors, panes, bars, ladders and gates show flat icons; walls, fences
-  and posts show their sides, not a bare post.
-- Flower boxes: right-click with a flower or a fern adds up to three of one kind; an empty hand
-  takes one out. Book piles go 1, 2, 3, 4 books and back to 1 on each right-click.
-- Placing: stairs and slabs take the half you click; a sconce goes on a wall when you click a wall.
+- Planters: right-click a planter's top with any flower. It stands there and looks like that flower
+  does anywhere else, not thinner or darker. Tall flowers take two blocks. Blocks still go against
+  a planter's sides without sneaking. The Connections area has a planter with every flower.
