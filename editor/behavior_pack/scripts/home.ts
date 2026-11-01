@@ -1,8 +1,8 @@
 // The editor lobby in game: where everyone joins. Players are shut in a small dark cell (blind, in
 // adventure, unable to move or look around, with no HUD), and get the Map editor form, which opens
-// again whenever it closes: open a map in Edit, copy builds from one of the client's worlds in
-// Select, go to what's open now, pick up something from Recent (filtered by kind if they like,
-// and a preview card plays that map again), invite friends (Players), or leave. The host
+// again whenever it closes: a card for each map opened lately (Select its world, Edit it, or
+// Preview it after picking how many fake players), Search for any map, copy builds from one of the
+// client's worlds in Select (New map), invite friends (Players), or leave. The host
 // (tools/editor/runner.ts) starts what's picked and moves the player there once it's ready;
 // meanwhile the form says what's loading. Invited guests never get the menu: they wait here for
 // Select or a preview.
@@ -22,7 +22,7 @@ import type { HostMessage } from "@minecade/minigame-core/config";
 import { goto } from "./goto.ts";
 import { HostLink } from "./link.ts";
 import { dangerText, headingText, homeTitle, loadingTitle, sideTitle } from "./marks.ts";
-import { guestWaitText, homeEntries, mapEntries, mapIdFrom, switchWarning, targetEntries, worldEntries, type RecentKind } from "./menu.ts";
+import { guestWaitText, homeEntries, mapEntries, mapIdFrom, previewEntries, switchWarning, targetEntries, worldEntries } from "./menu.ts";
 import { PlayersMenu, isMapEditor } from "./players.ts";
 
 const PREFIX = "§b[Editor]§r ";
@@ -52,8 +52,6 @@ export class Home {
   /** What each player picked last, shown as loading until the host's state takes over. */
   private readonly pending = new Map<string, { label: string; until: number }>();
   private readonly formOpen = new Set<string>();
-  /** The kind of Recent entry each player shows only, when they picked a filter. */
-  private readonly filters = new Map<string, RecentKind>();
   private readonly players: PlayersMenu;
 
   constructor(scope: Scope, info: HomeInfo) {
@@ -83,7 +81,6 @@ export class Home {
       this.shown.delete(key);
       this.pending.delete(key);
       this.formOpen.delete(key);
-      this.filters.delete(key);
     });
     scope.interval(() => this.refreshViews(), VIEW_TICKS);
     void this.buildCell();
@@ -213,23 +210,33 @@ export class Home {
   // ---- The menu -----------------------------------------------------------------------------
 
   private async menu(player: Player): Promise<void> {
-    const key = keyOf(player);
-    const entries = homeEntries(this.state, this.filters.get(key));
+    const entries = homeEntries(this.state);
     const form = new ActionFormData().title(homeTitle("Map editor"));
     for (const entry of entries) form.button(entry.text, entry.icon);
     const response = await this.show(player, form);
     const action = response?.selection === undefined ? undefined : entries[response.selection]?.action;
     if (!action || !player.isValid) return;
     if (action.kind === "open") await this.open(player, action.request);
+    else if (action.kind === "preview") await this.previewMenu(player, action.target, action.map);
     else if (action.kind === "maps") await this.pickMap(player);
     else if (action.kind === "new") await this.pickWorld(player);
     else if (action.kind === "players") await this.players.open(player, () => this.menu(player));
     else if (action.kind === "leave") await this.leave(player);
-    else if (action.kind === "filter") {
-      // The menu opens again at once with the filter on, or off again when it was on.
-      if (this.filters.get(key) === action.filter) this.filters.delete(key);
-      else this.filters.set(key, action.filter);
-    }
+    else if (action.kind === "off") tell(player, action.why);
+  }
+
+  /** Before a card's preview loads: how many fake players its match starts with, then Start preview. */
+  private async previewMenu(player: Player, target: string, map: string, fakes = 0): Promise<void> {
+    const most = Math.max(0, (this.state.catalog.targets.find((candidate) => candidate.id === target)?.maxPlayers ?? 1) - 1);
+    const entries = previewEntries({ fakes, most, back: true });
+    const form = new ActionFormData().title(sideTitle("Preview"));
+    for (const entry of entries) form.button(entry.text, entry.icon);
+    const response = await this.show(player, form);
+    const action = response?.selection === undefined ? undefined : entries[response.selection]?.action;
+    if (!action || !player.isValid || action.kind === "back") return;
+    if (action.kind === "fakes") return this.previewMenu(player, target, map, action.fakes);
+    if (action.kind === "none") return this.previewMenu(player, target, map, fakes);
+    await this.open(player, { to: "preview", target, map, fakes: Math.min(fakes, most) });
   }
 
   /** Leave, after a confirm: the host disconnects the player. */
@@ -239,10 +246,10 @@ export class Home {
     if (response?.selection === 0 && player.isValid) this.link.send({ t: "leave", by: player.name });
   }
 
-  /** Open a map: the lobby or a game, then one of its maps. */
+  /** Search: the lobby or a game, then one of its maps. */
   private async pickMap(player: Player): Promise<void> {
     const targets = targetEntries(this.state.catalog);
-    const form = new ActionFormData().title(sideTitle("Open a map")).body("Whose map?");
+    const form = new ActionFormData().title(sideTitle("Search")).body("Whose map?");
     for (const { text } of targets) form.button(text);
     const picked = await this.show(player, form);
     const target = this.state.catalog.targets.find((candidate) => candidate.id === targets[picked?.selection ?? -1]?.target);

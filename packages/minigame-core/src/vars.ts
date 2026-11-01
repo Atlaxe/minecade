@@ -31,6 +31,8 @@ export interface ServerVars {
   devHoloPreview: boolean;
   /** A game previewed from the map editor: the map's label ("Sumo: Arena"), shown in its mode box; empty otherwise. */
   preview: string;
+  /** A preview's fake players to add as it starts (picked before the preview loads); 0 for none. */
+  previewFakes: number;
   /**
    * A preview's guests (players outside LAN_PLAYERS, invited by the map editor) go home here, the
    * editor lobby, since Edit (lobbyPort) is only for map editors; undefined everywhere else.
@@ -64,6 +66,7 @@ export function readServerVars(): ServerVars {
     devDemoGames: Number.isInteger(devDemoGames) && devDemoGames > 0 ? devDemoGames : 0,
     devHoloPreview: ["1", "true", "yes"].includes(text("devHoloPreview").toLowerCase()),
     preview: text("preview").trim(),
+    previewFakes: Math.max(0, Math.trunc(Number(text("previewFakes")) || 0)),
     guestLobbyPort: Number(text("guestLobbyPort")) || undefined,
     watcher: text("watcher").trim(),
     settings: json("settings", {}),

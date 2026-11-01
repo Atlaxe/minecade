@@ -43,6 +43,22 @@ export interface EditInfo {
   from?: string;
   /** Each map editor's Boundaries switches (outline groups, or "all"), by lower-case gamertag. */
   view?: Record<string, string[]>;
+  /** The pictures in the editor's pack, for the thumbnail menus. */
+  pictures?: PictureInfo;
+}
+
+/**
+ * The pictures Edit can show (they're in the editor's pack, as of when this map opened): the
+ * screenshots used before (work/editor/shots, textures/minecade/shots/<id>), which of them this map
+ * and its game use now, and every map with a picture (textures/minecade/maps/<target>/<map>), for
+ * importing one from another game.
+ */
+export interface PictureInfo {
+  /** Newest first. `label` says where it was used: "Sumo: Sewer", or "not used yet". */
+  shots: { id: string; label: string }[];
+  /** The shot this map's preview and its game's picture are, or "own" for a picture that isn't one of them; none without a picture. */
+  current: { map?: string; game?: string };
+  maps: { target: string; targetName: string; map: string; name: string }[];
 }
 
 /** Select mode: a converted world, to box maps in. */
@@ -82,7 +98,7 @@ export interface SelectionInfo {
 export type OpenRequest =
   | { to: "edit"; target: string; map: string; fresh?: { name: string } }
   | { to: "select"; world?: string }
-  | { to: "preview"; target: string; map: string }
+  | { to: "preview"; target: string; map: string; fakes?: number }
   | { to: "home" };
 
 /** The editor lobby's form: what can be opened, and what's open now. */
@@ -92,12 +108,25 @@ export interface HomeState {
 }
 
 export interface Catalog {
-  /** The lobby and each game, with their maps. */
-  targets: { id: string; name: string; maps: { id: string; name: string; draft: boolean }[] }[];
+  /**
+   * The lobby and each game, with their maps: whether a map's checklist is done (it can be
+   * previewed), the client world it came from (its id in `worlds`, when that world is there), and
+   * whether it has a picture. A game says how many players it takes.
+   */
+  targets: { id: string; name: string; maxPlayers?: number; maps: CatalogMap[] }[];
   /** The client's worlds: `id` is the world's folder name, and `maps` how many maps came from it. */
   worlds: { id: string; name: string; maps: number }[];
   /** What was opened lately, newest first. */
   recent: RecentEntry[];
+}
+
+export interface CatalogMap {
+  id: string;
+  name: string;
+  draft: boolean;
+  ready: boolean;
+  world?: string;
+  picture?: boolean;
 }
 
 /** Something opened or previewed lately: the lobby's Recent shows it with an icon for its kind. */
@@ -143,14 +172,20 @@ export type EditorEvent =
   | { t: "save"; by: string }
   /** Publish the map: no longer a draft, saved, then its folder committed and pushed (the checklist's Publish). */
   | { t: "publish"; by: string }
-  /** Play the map as the real game on Select's port, then come back (the map menu's Preview). */
-  | { t: "preview"; by: string }
+  /** Play the map as the real game on Select's port, then come back (the map menu's Preview), with this many fake players. */
+  | { t: "preview"; by: string; fakes?: number }
   /** Blocks changed, so the world has changes to save. Sent at most every few seconds. */
   | { t: "changed"; by: string }
   /** A map editor's Boundaries switches changed (kept for their next map). */
   | { t: "view"; by: string; shown: string[] }
-  /** Save the newest screenshot on the host's PC as the map's preview ("map") or the game's picture ("game"). */
+  /** Save the newest screenshot on the host's PC as the map's preview ("map") or the game's picture ("game"), keeping it with the others used before. */
   | { t: "picture"; by: string; kind: "map" | "game" }
+  /** Use a screenshot used before (PictureInfo.shots) as the map's preview or the game's picture. */
+  | { t: "thumbnail"; by: string; kind: "map" | "game"; shot: string }
+  /** Use another map's preview picture as this map's. */
+  | { t: "importPicture"; by: string; target: string; map: string }
+  /** Give the map open in Edit another map id: Edit saves and opens again under it. */
+  | { t: "renameMap"; by: string; map: string }
   /** The answer to "cleanup": how many markers are still in the world (the world is saved only at 0). */
   | { t: "clean"; id: number; left: number; error?: string }
   /** Select mode: export this box as a new map (its spectator spawn goes above it; spawns are placed in Edit). */
@@ -201,7 +236,7 @@ export type HostMessage =
   /** Extract mode: move `box` by `offset`, clearing the box's chunks around it, then answer with "extracted". */
   | { t: "extract"; box: Box; offset: Vec3 };
 
-const EVENT_TYPES = new Set(["ready", "edit", "undo", "redo", "resync", "save", "publish", "preview", "changed", "view", "picture", "clean", "saveMap", "mapAction", "deleteMap", "open", "invite", "leave", "extracted"]);
+const EVENT_TYPES = new Set(["ready", "edit", "undo", "redo", "resync", "save", "publish", "preview", "changed", "view", "picture", "thumbnail", "importPicture", "renameMap", "clean", "saveMap", "mapAction", "deleteMap", "open", "invite", "leave", "extracted"]);
 const MESSAGE_TYPES = new Set(["config", "home", "ack", "status", "say", "notice", "cleanup", "resume", "selection", "forgotten", "goto", "guests", "loading", "loaded", "extract"]);
 
 // BDS prints script console output as "[<time> <LEVEL>] [Scripting] <text>". Requiring that prefix

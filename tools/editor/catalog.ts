@@ -1,29 +1,40 @@
-// What the editor lobby's form offers (the Catalog): every map of the lobby and each game, the
-// client's worlds by the name the game shows (with how many maps came from each), and what was
-// opened lately (work/editor/recent.json). A world travels by its folder's name, never its path.
+// What the editor lobby's form offers (the Catalog): every map of the lobby and each game (whether
+// its checklist is done, the world it came from, whether it has a picture), the client's worlds by
+// the name the game shows (with how many maps came from each), and what was opened lately
+// (work/editor/recent.json). A world travels by its folder's name, never its path.
 import { existsSync } from "node:fs";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { basename, join } from "node:path";
-import type { Catalog, MapConfig, RecentEntry } from "@minecade/minigame-core/config";
+import { mapChecklist, type Catalog, type MapConfig, type RecentEntry } from "@minecade/minigame-core/config";
 import { addRecent, parseRecent } from "./editor-core.ts";
 import { listTargets } from "./targets.ts";
 import { clientWorlds, resolveWorld, type World } from "./worlds.ts";
 
 export async function buildCatalog(root: string, appData?: string): Promise<Catalog> {
+  const client = await clientWorlds(appData);
   const targets: Catalog["targets"] = [];
   /** How many maps came from each world, by its name. */
   const fromWorld = new Map<string, number>();
   for (const target of await listTargets(root)) {
     const maps: Catalog["targets"][number]["maps"] = [];
     for (const id of target.maps) {
-      const config = await readMap(join(target.dir, "maps", id, "map.json"));
-      maps.push({ id, name: config?.name || id, draft: config?.draft === true });
+      const folder = join(target.dir, "maps", id);
+      const config = await readMap(join(folder, "map.json"));
       const world = config?.source?.world;
       if (world) fromWorld.set(world, (fromWorld.get(world) ?? 0) + 1);
+      const from = world ? client.find((candidate) => candidate.name === world) : undefined;
+      maps.push({
+        id,
+        name: config?.name || id,
+        draft: config?.draft === true,
+        ready: config !== undefined && mapChecklist(config, target.rules).ready,
+        ...(from ? { world: worldId(from) } : {}),
+        ...(existsSync(join(folder, "preview.png")) ? { picture: true } : {}),
+      });
     }
-    targets.push({ id: target.id, name: target.name, maps });
+    targets.push({ id: target.id, name: target.name, ...(target.rules.maxPlayers ? { maxPlayers: target.rules.maxPlayers } : {}), maps });
   }
-  const worlds = (await clientWorlds(appData)).map((world) => ({ id: worldId(world), name: world.name, maps: fromWorld.get(world.name) ?? 0 }));
+  const worlds = client.map((world) => ({ id: worldId(world), name: world.name, maps: fromWorld.get(world.name) ?? 0 }));
   return { targets, worlds, recent: await readRecent(root) };
 }
 
@@ -46,6 +57,18 @@ export function mapLabel(targetName: string, mapName: string, map: string): stri
 export async function readRecent(root: string): Promise<RecentEntry[]> {
   const path = recentPath(root);
   return existsSync(path) ? parseRecent(await readFile(path, "utf8")) : [];
+}
+
+/** Points the recent list's entries for a map at its new id (a map given another id in Edit). */
+export async function renameRecent(root: string, target: string, from: string, to: string): Promise<void> {
+  const list = await readRecent(root);
+  let changed = false;
+  const renamed = list.map((entry): RecentEntry => {
+    if (entry.request.to === "select" || entry.request.target !== target || entry.request.map !== from) return entry;
+    changed = true;
+    return { ...entry, request: { ...entry.request, map: to }, label: entry.label.replace(`(${from})`, `(${to})`) };
+  });
+  if (changed) await writeFile(recentPath(root), `${JSON.stringify(renamed, null, 2)}\n`);
 }
 
 /** Takes entries off the recent list (a deleted map's). */

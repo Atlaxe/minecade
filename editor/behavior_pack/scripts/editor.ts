@@ -37,6 +37,7 @@ import {
   type MapEdit,
   type Facing,
   type MapPosition,
+  type PictureInfo,
   type Scope,
   chatMapName,
   playChime,
@@ -45,7 +46,7 @@ import { goto } from "./goto.ts";
 import { keepModeLine, modeLine } from "./hud.ts";
 import { KillYTool } from "./kill-y-tool.ts";
 import { LoadingScreens } from "./loading.ts";
-import { onReset } from "./commands.ts";
+import { onReset, zoomOnEmptyHand } from "./commands.ts";
 import { HostLink } from "./link.ts";
 import { Outlines } from "./outlines.ts";
 import { boundaryRows, boundsAround, outlineBoxes, toggleBoundary } from "./regions.ts";
@@ -60,30 +61,40 @@ import { aimedPoint, compass, entryPosition, lookAt, mapMiddle, markerSpecs, sna
 import { MapState } from "./map-state.ts";
 import { PlayersMenu } from "./players.ts";
 import { MARKER, Markers } from "./markers.ts";
-import { dangerText, iconsTitle, mapTitle, sideTitle } from "./marks.ts";
+import { dangerText, goText, iconsTitle, mapTitle, sideTitle } from "./marks.ts";
 import {
   BACK_TEXT,
   BOUNDARIES_BODY,
   ICONS,
   boundaryEntries,
+  gamePictureTexture,
   gearEntries,
   checklistBody,
   entryScreenEntries,
+  importMapEntries,
+  importTargetEntries,
+  mapIdFrom,
   mapMenuEntries,
+  mapPictureTexture,
   POINT_STEPS,
   parseCountdown,
   parseSetting,
+  previewEntries,
   publishBody,
   publishText,
   rowText,
+  thumbnailEntries,
   type MenuAction,
   type SpawnSettings,
 } from "./menu.ts";
 import { EDITOR_TOOLS, SELECT_TOOL, toolOf, type EditorTool, type ToolId } from "./tools.ts";
 
 const MAP_MENU = "minecade:map_menu";
+/** The Camera tool's Snapshot: it comes and goes with the tool, in slot 2. */
+const SNAPSHOT = "minecade:snapshot";
+const SNAPSHOT_SLOT = 1;
 /** Every editor item: none breaks the block it hits. */
-const TOOLS = new Set([MAP_MENU, ...EDITOR_TOOLS.map((tool) => tool.item), SELECT_TOOL.item]);
+const TOOLS = new Set([MAP_MENU, SNAPSHOT, ...EDITOR_TOOLS.map((tool) => tool.item), SELECT_TOOL.item]);
 /** The map menu's hotbar slot (0-based): the last one, slot 9 on screen. */
 const MENU_SLOT = 8;
 /** Where a tool goes when it's picked: slot 1 on screen, never locked. */
@@ -104,6 +115,8 @@ const ITEMS_TICKS = 200;
 const FACING_TICKS = 20;
 /** Undo and Redo open the map menu again once the host answers, or after this long. */
 const REOPEN_TICKS = 40;
+/** A joining map editor is put in creative again this long after the welcome. */
+const CREATIVE_AGAIN_TICKS = 20;
 
 /** No boundary switched on. */
 const NONE_SHOWN: ReadonlySet<string> = new Set();
@@ -132,6 +145,8 @@ export class Editor {
   private readonly reopen = new Set<string>();
   /** Each player's Boundaries switches, by lower-case name (kept by the host between maps). */
   private readonly shown = new Map<string, Set<string>>();
+  /** The pictures in the pack for the thumbnail menus, with which ones the map and game use now. */
+  private readonly pictures: PictureInfo;
   private status: { undo?: string; redo?: string; unsaved: boolean; saving: boolean; publishing?: boolean };
   /** When block changes were last reported to the host, in ticks. */
   private changedAt = -CHANGED_TICKS;
@@ -143,6 +158,7 @@ export class Editor {
     this.dimension = world.getDimension("overworld");
     this.status = { unsaved: info.fresh, saving: false };
     for (const [name, groups] of Object.entries(info.view ?? {})) this.shown.set(name.toLowerCase(), new Set(groups));
+    this.pictures = JSON.parse(JSON.stringify(info.pictures ?? { shots: [], current: {}, maps: [] })) as PictureInfo;
     this.markers = new Markers<MarkerSpec | CameraMarker>(this.dimension, scope);
     this.link = new HostLink(scope, {
       config: (config, seq) => {
@@ -198,10 +214,15 @@ export class Editor {
     world.gameRules.doDayLightCycle = false;
     world.gameRules.doWeatherCycle = false;
     world.gameRules.doMobSpawning = false;
+    // The map's command blocks could clear the map menu or change game modes.
+    world.gameRules.commandBlocksEnabled = false;
     world.setTimeOfDay(mapTimeTicks(this.state.current.time) ?? NOON);
 
     scope.subscribe(world.afterEvents.playerSpawn, ({ player, initialSpawn }) => {
+      // Creative at every spawn, not only the first: a mode saved with the player in this world
+      // can come back after the welcome, and then blocks can't be broken.
       if (initialSpawn) scope.defer(() => this.welcome(player));
+      else scope.defer(() => this.creative(player));
     });
     scope.subscribe(world.afterEvents.playerLeave, ({ playerName }) => {
       this.cameraTool.forget(playerName);
@@ -211,18 +232,23 @@ export class Editor {
     });
     scope.subscribe(world.afterEvents.itemUse, ({ source, itemStack }) => {
       if (!TOOLS.has(itemStack.typeId)) return;
-      // Looking through a camera, any use comes back first.
+      if (itemStack.typeId === SNAPSHOT) {
+        void this.cameraTool.snapshot(source);
+        return;
+      }
+      // Looking through a camera, any other use comes back first.
       if (this.cameraTool.isLooking(source)) {
         this.cameraTool.stop(source);
         return;
       }
       const tool = toolOf(itemStack.typeId)?.id;
       if (itemStack.typeId === MAP_MENU) void this.mapMenu(source);
-      else if (tool === "spawn") this.spawnTool(source);
-      else if (tool === "region") void this.regionTool.use(source);
-      else if (tool === "killY") void this.killYTool.use(source);
-      else if (tool === "camera") void this.cameraTool.use(source);
+      else if (tool === "spawn") void this.spawnTool(source);
+      else if (tool === "region") this.regionTool.use(source);
+      else if (tool === "killY") this.killYTool.use(source);
+      else if (tool === "camera") this.cameraTool.use(source);
     });
+    zoomOnEmptyHand(scope);
     scope.subscribe(world.afterEvents.entityHitEntity, ({ damagingEntity, hitEntity }) => {
       if (hitEntity.typeId !== MARKER || damagingEntity.typeId !== "minecraft:player") return;
       const player = damagingEntity as Player;
@@ -344,11 +370,21 @@ export class Editor {
 
   private welcome(player: Player): void {
     if (!player.isValid) return;
-    // Saved player data in the world could hold another game mode.
-    player.setGameMode(GameMode.Creative);
+    // Saved player data in the world could hold another game mode, and can be applied a moment
+    // after the first spawn: creative again a second later.
+    this.creative(player);
+    this.scope.timeout(() => this.creative(player), CREATIVE_AGAIN_TICKS);
     const where = `${chatMapName(this.info.targetName, this.state.current.name)}.`;
     this.giveMenu(player);
     tell(player, `${where} The map menu in slot 9 has the checklist, the tools and Save. Hit a marker to change it.`);
+  }
+
+  private creative(player: Player): void {
+    try {
+      if (player.isValid && player.getGameMode() !== GameMode.Creative) player.setGameMode(GameMode.Creative);
+    } catch {
+      // left meanwhile
+    }
   }
 
   private giveMenu(player: Player): void {
@@ -417,6 +453,10 @@ export class Editor {
   /** The held tool's hint on the action bar: what a use will do. */
   private hints(): void {
     for (const player of world.getAllPlayers()) {
+      if (!this.cameraTool.isLooking(player) && heldItem(player) === SNAPSHOT) {
+        hintBar(player, "Use: pick a camera, frame its picture, then take it");
+        continue;
+      }
       const tool = heldTool(player);
       // Nudge sides puts the way the player faces there instead.
       if (!tool || this.cameraTool.isLooking(player) || nudgePreview(player)) continue;
@@ -500,9 +540,7 @@ export class Editor {
           tell(player, `§cFinish the checklist first:§r ${checklist.problems.join("; ")}`);
           return;
         }
-        this.link.send({ t: "preview", by: player.name });
-        actionBar(player, "Starting the preview...");
-        return;
+        return this.previewMenu(player);
       }
       case "tool":
         this.pickTool(player, action.tool);
@@ -542,6 +580,25 @@ export class Editor {
         this.save(player);
         return;
     }
+  }
+
+  /**
+   * Before a preview loads: how many fake players its match starts with (none up to what fits
+   * beside everyone here, who all go), then Start preview.
+   */
+  private async previewMenu(player: Player, fakes = 0): Promise<void> {
+    const most = Math.max(0, (this.info.rules.maxPlayers ?? 1) - world.getAllPlayers().length);
+    const entries = previewEntries({ fakes, most, back: true });
+    const form = new ActionFormData().title(sideTitle("Preview"));
+    for (const entry of entries) form.button(entry.text, entry.icon);
+    const response = await this.show(player, form);
+    const action = response?.selection === undefined ? undefined : entries[response.selection]?.action;
+    if (!action || !player.isValid) return;
+    if (action.kind === "back") return this.mapMenu(player);
+    if (action.kind === "fakes") return this.previewMenu(player, action.fakes);
+    if (action.kind === "none") return this.previewMenu(player, fakes);
+    this.link.send({ t: "preview", by: player.name, fakes: Math.min(fakes, most) });
+    actionBar(player, "Starting the preview...");
   }
 
   /** Opens the map menu again once the host has answered (its status comes after undo and redo). */
@@ -603,32 +660,42 @@ export class Editor {
     const inventory = inventoryOf(player);
     if (!tool || !inventory) return;
     if (holds(inventory, tool.item)) {
-      removeItems(inventory, new Set([tool.item]));
+      removeItems(inventory, new Set(tool.id === "camera" ? [tool.item, SNAPSHOT] : [tool.item]));
+      if (tool.id === "camera") this.cameraTool.stop(player);
       actionBar(player, `${tool.label} put away`);
       return;
     }
     this.equipTool(player, tool);
-    actionBar(player, `${tool.label} in slot 1`);
+    actionBar(player, tool.id === "camera" ? `${tool.label} in slot 1, the Snapshot in slot 2` : `${tool.label} in slot 1`);
   }
 
   /**
    * Puts a tool in slot 1, unlocked, and selects it. Only one tool is out at a time: the others go
    * away, and whatever else was in slot 1 moves to a free slot (creative mode has more if there's none).
+   * The Camera tool brings the Snapshot into slot 2 the same way.
    */
   private equipTool(player: Player, tool: EditorTool): void {
     const inventory = inventoryOf(player);
     if (!inventory) return;
+    const keepSnapshot = tool.id === "camera";
     for (let slot = 0; slot < inventory.size; slot++) {
-      if (slot !== TOOL_SLOT && toolOf(inventory.getItem(slot)?.typeId ?? "")) inventory.setItem(slot, undefined);
+      const id = inventory.getItem(slot)?.typeId ?? "";
+      if (slot !== TOOL_SLOT && (toolOf(id) || (id === SNAPSHOT && !(keepSnapshot && slot === SNAPSHOT_SLOT)))) inventory.setItem(slot, undefined);
     }
-    const old = inventory.getItem(TOOL_SLOT);
-    if (old?.typeId !== tool.item) {
-      const item = new ItemStack(tool.item, 1);
-      item.keepOnDeath = true;
-      inventory.setItem(TOOL_SLOT, item);
-      if (old && !toolOf(old.typeId)) inventory.addItem(old);
-    }
+    if (!keepSnapshot) this.cameraTool.stop(player);
+    this.putItem(inventory, TOOL_SLOT, tool.item);
+    if (keepSnapshot) this.putItem(inventory, SNAPSHOT_SLOT, SNAPSHOT);
     player.selectedSlotIndex = TOOL_SLOT;
+  }
+
+  /** An editor item in `slot` (kept on death), moving whatever else was there to a free slot. */
+  private putItem(inventory: Container, slot: number, typeId: string): void {
+    const old = inventory.getItem(slot);
+    if (old?.typeId === typeId) return;
+    const item = new ItemStack(typeId, 1);
+    item.keepOnDeath = true;
+    inventory.setItem(slot, item);
+    if (old && !toolOf(old.typeId) && old.typeId !== SNAPSHOT) inventory.addItem(old);
   }
 
   /** Publish, after a confirm: the host saves, then commits and pushes the map's folder. */
@@ -675,9 +742,9 @@ export class Editor {
     return this.boundariesMenu(player);
   }
 
-  /** The gear: Players in its icon row, the map's settings, Back to Select, the red ones, and Back to Lobby at the bottom. */
+  /** The gear: Players and Back to Lobby in its icon row, Name and game settings, the thumbnails (a game's map), then the red ones. */
   private async settingsMenu(player: Player): Promise<void> {
-    const entries = gearEntries({ build: this.state.current.build !== undefined });
+    const entries = gearEntries({ build: this.state.current.build !== undefined, game: this.info.rules.kind === "game" });
     const form = new ActionFormData().title(iconsTitle("Map settings")).body(`${this.state.current.name} (${this.info.map}), ${this.info.targetName}`);
     for (const entry of entries) form.button(entry.text, entry.icon);
     const response = await this.show(player, form);
@@ -687,6 +754,8 @@ export class Editor {
     if (action === "settings") return this.settingsForm(player);
     if (action === "dropBuild") return this.dropBuild(player);
     if (action === "delete") return this.deleteMap(player);
+    if (action === "mapThumbnail") return this.thumbnailMenu(player, "map");
+    if (action === "gameThumbnail") return this.thumbnailMenu(player, "game");
     if (action === "players") return this.players.open(player, () => this.settingsMenu(player));
     this.link.send({ t: "open", by: player.name, request: { to: "home" } });
   }
@@ -714,20 +783,106 @@ export class Editor {
     const extras = Object.entries(config).filter(
       (entry): entry is [string, string | number | boolean] => !isMapKey(entry[0]) && ["string", "number", "boolean"].includes(typeof entry[1]),
     );
+    // The map id shows once the map has a name: the form opens again with it after a first name.
+    const named = config.name.trim() !== "";
     const form = new ModalFormData().title(sideTitle("Map settings")).textField("Name", "The map's name", { defaultValue: config.name });
+    if (named) form.textField("Map id", this.info.map, { defaultValue: this.info.map });
     for (const [key, value] of extras) form.textField(`${key} (${typeof value})`, String(value), { defaultValue: String(value) });
     form.submitButton("Save");
     const response = await this.show(player, form);
     if (!response?.formValues || !player.isValid) return;
-    const [name, ...values] = response.formValues.map((value) => String(value ?? ""));
+    const [name, ...rest] = response.formValues.map((value) => String(value ?? ""));
+    const id = named ? (rest.shift() ?? "").trim() : this.info.map;
     const edits: MapEdit[] = [];
     if (name.trim() && name.trim() !== config.name) edits.push({ op: "name", name: name.trim() });
     extras.forEach(([key, old], i) => {
-      const value = parseSetting(values[i] ?? "", old);
+      const value = parseSetting(rest[i] ?? "", old);
       if (value === undefined) tell(player, `§c${key} must be ${typeof old === "boolean" ? "true or false" : `a ${typeof old}`}; kept ${String(old)}.`);
       else if (value !== old) edits.push({ op: "extra", key, value });
     });
     if (edits.length > 0) this.edit(player, edits.length === 1 ? edits[0] : { op: "batch", edits }, "Map settings saved.");
+    if (id && id !== this.info.map) this.renameMap(player, id);
+    else if (!named && name.trim()) return this.settingsForm(player);
+  }
+
+  /** Gives the map another id: the host saves, closes Edit and opens it again under that id. */
+  private renameMap(player: Player, id: string): void {
+    if (!/^[a-z0-9][a-z0-9_-]{0,47}$/.test(id)) {
+      tell(player, `§c"${id}" is not a map id: use lower case letters, digits, _ and -.`);
+      return;
+    }
+    this.link.send({ t: "renameMap", by: player.name, map: id });
+    tell(player, `The map id becomes ${id}: Edit saves, then opens it again under that id.`);
+  }
+
+  // ---- Thumbnails ---------------------------------------------------------------------------
+
+  /**
+   * Edit Map Thumbnail or Edit Minigame Thumbnail: the pictures used before, two to a row, the one
+   * in use outlined green; tap one to use it. A map's also offers Import from another minigame.
+   */
+  private async thumbnailMenu(player: Player, kind: "map" | "game"): Promise<void> {
+    const own = kind === "map" ? mapPictureTexture(this.info.target, this.info.map) : gamePictureTexture(this.info.target);
+    const entries = thumbnailEntries({ kind, pictures: this.pictures, own });
+    const form = new ActionFormData().title(sideTitle(kind === "map" ? "Map thumbnail" : "Minigame thumbnail"));
+    for (const entry of entries) form.button(entry.text, entry.icon);
+    const response = await this.show(player, form);
+    const action = response?.selection === undefined ? undefined : entries[response.selection]?.action;
+    if (!action || !player.isValid) return;
+    if (action.kind === "back") return this.settingsMenu(player);
+    if (action.kind === "import") return this.importMenu(player);
+    if (action.kind === "shot") {
+      this.link.send({ t: "thumbnail", by: player.name, kind, shot: action.id });
+      this.pictures.current[kind] = action.id;
+    }
+    return this.thumbnailMenu(player, kind);
+  }
+
+  /** Import from another minigame: the games with maps that have a picture. */
+  private async importMenu(player: Player): Promise<void> {
+    const targets = importTargetEntries(this.pictures, this.info.target);
+    const form = new ActionFormData().title(sideTitle("Import a thumbnail")).button(BACK_TEXT, ICONS.back);
+    if (targets.length === 0) form.body("No other game has a map with a picture yet.");
+    for (const { text } of targets) form.button(text);
+    const response = await this.show(player, form);
+    if (response?.selection === undefined || !player.isValid) return;
+    if (response.selection === 0) return this.thumbnailMenu(player, "map");
+    const target = targets[response.selection - 1]?.target;
+    if (target) return this.importMapMenu(player, target);
+  }
+
+  /**
+   * A game's maps with a picture, as cards. Picking one asks first, then uses its picture, then
+   * asks whether this map takes its name and map id too (Edit opens it again under that id).
+   */
+  private async importMapMenu(player: Player, target: string): Promise<void> {
+    const entries = importMapEntries(this.pictures, target);
+    const targetName = this.pictures.maps.find((map) => map.target === target)?.targetName ?? target;
+    const form = new ActionFormData().title(sideTitle(targetName));
+    for (const entry of entries) form.button(entry.text, entry.icon);
+    const response = await this.show(player, form);
+    const action = response?.selection === undefined ? undefined : entries[response.selection]?.action;
+    if (!action || !player.isValid) return;
+    if (action.kind === "back") return this.importMenu(player);
+    const here = this.state.current.name;
+    const confirm = new ActionFormData()
+      .title(sideTitle("Use its thumbnail?"))
+      .body(`${targetName}'s ${action.name} picture becomes ${here}'s thumbnail.`)
+      .button(goText("Use it"))
+      .button("Cancel");
+    if ((await this.show(player, confirm))?.selection !== 0 || !player.isValid) return this.importMapMenu(player, target);
+    this.link.send({ t: "importPicture", by: player.name, target, map: action.map });
+    this.pictures.current.map = undefined;
+    const sameName = action.name === here && action.map === this.info.map;
+    if (sameName) return;
+    const naming = new ActionFormData()
+      .title(sideTitle("Import map name?"))
+      .body(`Call this map ${action.name} (${action.map}) too? ${action.map === this.info.map ? "" : "Edit saves, then opens it again under that map id."}`.trim())
+      .button(goText("Import name"))
+      .button("Keep mine");
+    if ((await this.show(player, naming))?.selection !== 0 || !player.isValid) return;
+    if (action.name !== here) this.edit(player, { op: "name", name: action.name }, `Named ${action.name}.`);
+    if (action.map !== this.info.map) this.renameMap(player, mapIdFrom(action.map));
   }
 
   private async dropBuild(player: Player): Promise<void> {
@@ -745,11 +900,11 @@ export class Editor {
 
   /**
    * Where a use of the Spawn tool aims: on top of a block, exactly there; at a block's side, just
-   * in front of that spot on the floor below it; at the sky, where the player stands.
+   * in front of that spot on the floor below it; at the sky, nowhere (no tool opens a menu there).
    */
-  private aimedAt(player: Player): { x: number; y: number; z: number } {
+  private aimedAt(player: Player): { x: number; y: number; z: number } | undefined {
     const hit = player.getBlockFromViewDirection({ maxDistance: REACH, includeLiquidBlocks: true, includePassableBlocks: true });
-    if (!hit) return player.location;
+    if (!hit) return undefined;
     const { point, onTop } = aimedPoint({ block: hit.block.location, face: hit.face as AimedFace["face"], faceLocation: hit.faceLocation });
     if (onTop) return point;
     try {
@@ -773,8 +928,13 @@ export class Editor {
     if (player.isSneaking) {
       return this.entryScreen(player, { list, at: pointOf(entryPosition(player.location, settings.center)), facing: snapFacing({ yaw: view.y, pitch: view.x }, settings.snap) });
     }
+    const aimed = this.aimedAt(player);
+    if (!aimed) {
+      actionBar(player, "Aim at a block to place it");
+      return Promise.resolve();
+    }
     const facing = settings.keepFacing ? snapFacing({ yaw: view.y, pitch: view.x }, settings.snap) : undefined;
-    return this.entryScreen(player, { list, at: pointOf(entryPosition(this.aimedAt(player), settings.center)), facing });
+    return this.entryScreen(player, { list, at: pointOf(entryPosition(aimed, settings.center)), facing });
   }
 
   /** A marker's screen (it was hit, or picked in the map menu, which `back` opens again). */
@@ -796,7 +956,9 @@ export class Editor {
     const tool = heldTool(player);
     if (tool === "spawn") {
       const settings = this.settingsOf(player);
-      const at = pointOf(entryPosition(player.isSneaking ? player.location : this.aimedAt(player), settings.center));
+      const aimed = player.isSneaking ? player.location : this.aimedAt(player);
+      if (!aimed) return undefined;
+      const at = pointOf(entryPosition(aimed, settings.center));
       const yaw = player.isSneaking || settings.keepFacing ? player.getRotation().y : lookAt(at, mapMiddle(this.state.current)).yaw;
       return { kind: "point", at, yaw, style: this.spawnList(player)?.style ?? 0 };
     }
@@ -1004,6 +1166,15 @@ function titleCase(text: string): string {
 
 function inventoryOf(player: Player): Container | undefined {
   return player.getComponent(EntityComponentTypes.Inventory)?.container;
+}
+
+/** The item in the player's hand, if any. */
+function heldItem(player: Player): string | undefined {
+  try {
+    return inventoryOf(player)?.getItem(player.selectedSlotIndex)?.typeId;
+  } catch {
+    return undefined;
+  }
 }
 
 function holds(inventory: Container, typeId: string): boolean {

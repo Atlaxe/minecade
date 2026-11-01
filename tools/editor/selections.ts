@@ -150,6 +150,32 @@ export class Selections {
     }
   }
 
+  /**
+   * A map given another id (and name) in Edit: every world's list follows, the open lists and the
+   * files of worlds not open now.
+   */
+  async renameMap(target: string, from: string, to: string, name: string): Promise<void> {
+    const same = (selection: Selection) => selection.target === target && selection.map === from;
+    for (const file of this.files.values()) {
+      const selection = file.selections.find(same);
+      if (!selection) continue;
+      const before = await this.info(selection);
+      Object.assign(selection, { map: to, name });
+      await this.save(file);
+      for (const listener of this.listeners) listener(file.world, before, true);
+      await this.changed(file, selection);
+    }
+    if (!existsSync(this.dir)) return;
+    for (const entry of await readdir(this.dir)) {
+      if (!entry.endsWith(".json")) continue;
+      const path = join(this.dir, entry);
+      const file = parseSelectFile(await readFile(path, "utf8"));
+      if (!file || this.files.has(file.world) || !file.selections.some(same)) continue;
+      file.selections = file.selections.map((selection) => (same(selection) ? { ...selection, map: to, name } : selection));
+      await writeFile(path, `${JSON.stringify(file, null, 2)}\n`);
+    }
+  }
+
   private enqueue(file: SelectFile, selection: Selection): void {
     this.pending++;
     this.queue = this.queue

@@ -24,7 +24,7 @@ export const EDITOR_TOOLS: EditorTool[] = [
     icon: "textures/items/spawn_tool",
     label: "Spawn tool",
     hint: "spawns and points",
-    howTo: "Use it on a block to place an entry exactly where you aim (at the sky: where you stand), into the list picked below. Hit a marker to change it.",
+    howTo: "Use it on a block to place an entry exactly where you aim, into the list picked below. Hit a marker to change it.",
   },
   {
     id: "region",
@@ -32,7 +32,7 @@ export const EDITOR_TOOLS: EditorTool[] = [
     icon: "textures/items/region_tool",
     label: "Region tool",
     hint: "bounds, regions, kill regions",
-    howTo: "Hit a block to start a box. Use the tool on blocks (up to 64 away) to grow the box to them. Use it at the sky to save the box.",
+    howTo: "Hit a block to start a box. Use the tool on blocks (up to 64 away) to grow the box to them. Save it here, in the map menu.",
   },
   {
     id: "killY",
@@ -40,7 +40,7 @@ export const EDITOR_TOOLS: EditorTool[] = [
     icon: "textures/items/kill_y_tool",
     label: "Kill Y tool",
     hint: "the height players are out below",
-    howTo: "Players below kill Y are out. Use the tool to set it one block below your feet.",
+    howTo: "Players below kill Y are out. Use the tool to set it one block below your feet; Set kill Y here fine-tunes it.",
   },
   {
     id: "camera",
@@ -48,7 +48,7 @@ export const EDITOR_TOOLS: EditorTool[] = [
     icon: "textures/items/camera_tool",
     label: "Camera tool",
     hint: "pictures for the lobby",
-    howTo: "Use it to place a camera at your eyes, looking where you look. Hit a camera to look through it and take a screenshot; use the tool again to come back.",
+    howTo: "Use it to place a camera at your eyes, looking where you look. The Snapshot in slot 2 takes its picture: pick a camera, frame it, then F1 and F2.",
   },
 ];
 
@@ -59,7 +59,7 @@ export const SELECT_TOOL: EditorTool = {
   icon: "textures/items/select_tool",
   label: "Select tool",
   hint: "box a map to cut out",
-  howTo: "Hit a block to start a box around a map. Use the tool on blocks (up to 64 away) to grow the box to them. Use it at the sky to export the box as a map.",
+  howTo: "Hit a block to start a box around a map. Use the tool on blocks (up to 64 away) to grow the box to them. Export it from the map menu.",
 };
 
 /** The tool an item is, if it is one (in either mode). */

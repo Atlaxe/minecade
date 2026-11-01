@@ -69,25 +69,28 @@ it to exit, and open it again.)
 You're shut in a small dark room with the **Map editor** menu, which opens again whenever it
 closes. Its top row is icons (point at one for its name):
 
-- **Open a map** (the pencil): the lobby or a game, then one of its maps (drafts are marked). It
-  opens in Edit.
 - **New map** (the plus): pick the world to copy builds from: the worlds in Minecraft's worlds
   folder, by the name the game shows, with how many maps came from each. A copy opens in Select.
   **Empty world** at the bottom makes a draft map on a glass pad in the void instead: pick what
   it's for, its name and its map id.
 - **Players** (the person): invite friends (see "Who can join").
-- **The Recent filter:** a row of three tiles under the icons (Edit, Select, Preview), the one
-  that's on green; it shows only that kind in Recent. Tap it again to show everything.
 - **Leave** (the door, at the right end): disconnects you, after a confirm. Select and Edit keep
   running; join again to come back.
 
-Under them, each with an icon on the left for its kind (a pencil for a map in Edit, a crop mark for
-a world in Select, the play icon for a preview):
+Under them, **Recent**, with a **Search** link (a magnifying glass) on its right: the lobby or a
+game, then one of its maps (drafts are marked), which opens in Edit. Then a card for each map
+opened lately (up to 8, from `work/editor/recent.json`, newest first): its game and name, and three
+icons on the right, each with a tooltip:
 
-- **Open now:** the map open in Edit and the world open in Select, with who is on each. Pick one to
-  go there.
-- **Recent:** the last 5 maps, worlds and previews (10 of one kind with a filter on), kept in
-  `work/editor/recent.json`. A preview card plays that map again (see "Preview").
+- **Select** (the crop mark): opens the world the map came from, to box more maps. Faded when that
+  world isn't on this PC.
+- **Edit** (the pencil): opens the map in Edit (or takes you there when it's open already).
+- **Preview** (the play icon): asks how many fake players the match starts with, then plays the map
+  (see "Preview"). Faded until its checklist is done, and on lobby maps.
+
+A world opened in Select with no map card of its own gets a card too: Select lights up, Edit and
+Preview are faded. Tapping a faded icon says in chat what's missing.
+
 While the server you picked loads (about 20 seconds; a big world takes longer to copy), the menu
 says so, with five dots after its title lighting up one at a time, and you're moved there once
 it's ready. Opening something else on a server others are on asks first: they wait in the editor
@@ -112,10 +115,12 @@ so flying past the converted area grows no new land.
 in Edit.
 
 **In game,** map editors get the **Select tool** (slot 1, locked there) and the map menu (slot 9).
-Some worlds have command blocks that clear inventories: every 10 seconds, a map editor missing
-either gets it back, and **/reset** (`/minecade:reset`) brings both back at once, with creative
-mode (in Edit, the map menu). **/zoom** zooms the view in like a spyglass, whatever you hold; again
-to zoom out (scripts can't see keys other than jump and sneak, so it can't be on a key):
+Command blocks don't run anywhere a map is opened (Select, Edit, previews and every server of the
+network). Every 10 seconds, a map editor missing either item gets it back, and **/reset**
+(`/minecade:reset`) brings both back at once, with creative mode (in Edit, the map menu). **/zoom**
+zooms the view in like a spyglass, whatever you hold; again to zoom out. A **right click with an
+empty hand** does the same, but only aimed at a block or a mob within reach: scripts see no key but
+jump and sneak, and a click at the sky reaches no script.
 
 - **Hit a block** to start a box there. **Use the tool on blocks** (up to 64 away) to grow the box
   to them; the block you aim at is outlined. The map menu has **Export to Map** (green), Nudge
@@ -126,15 +131,15 @@ to zoom out (scripts can't see keys other than jump and sneak, so it can't be on
   it moved, and the line above the hotbar says which way you face. The outline shows the moved box
   at once; **Nudge** (green, at the bottom) keeps it, the back arrow goes back to the menu you came
   from, and the X closes it; either way the box stays as it was.
-- **Export to Map:** a side menu: **Name** and **Map id** (tap either to type it; an empty map id is
-  made from the name: "Castle Keep" is `castle_keep`) and **For** stay put, and only the list of
-  what the map is for (the lobby or a game, the picked one outlined) scrolls; **Export to Map**
-  (green) is pinned at the bottom. An id the game has already is refused. Then the loading screen
-  shows while it's cut out, and once it's ready, it asks whether to edit it.
+- **Export to Map:** a side menu with text boxes: **Name**, then **For** (the lobby or a game) and
+  **Next**. Once there's a name it opens again with **Map id** too, filled in from the name
+  ("Castle Keep" is `castle_keep`); the id follows the name until you type over it. **Export to
+  Map** (green) at the bottom exports it; the X closes it. An id the game has already is refused.
+  Then the loading screen shows while it's cut out, and once it's ready, it asks whether to edit it.
 - **The map is cut out in the background,** one at a time, so you can box the next map meanwhile.
   It takes about 20 seconds for a 112 x 65 x 128 build. When it's ready, map editors on Select and
   Edit hear a chime and see "<name> is ready to load in Edit" above the hotbar for a few seconds,
-  and chat says where to open it: its card in Select's map menu, or Open a map in the editor lobby.
+  and chat says where to open it: its card in Select's map menu, or Search in the editor lobby.
 - **Outlines** (while you hold the Select tool): your box in yellow, and every map from this world,
   green once it's ready, white while it's queued or being cut out, red when it failed.
 - **The map menu:** an icon row (**Back one step**, faded with nothing to step back; **Players**;
@@ -226,10 +231,12 @@ game in gold and the map in orange.
      the next boot (`work/editor/view.json`).
    - **The play icon** (Preview, game maps only): see "Preview".
    - **The gear** (map settings): **Players** and **Back to Lobby** (a house, at the right end) in its
-     icon row (Select is in the editor lobby's Open now); **Name and game settings** (the map's name
-     and the game's own settings in `map.json`, such as a number a game reads, as text fields);
-     **Drop build commands** (red, maps made by `npm run bake`), which keeps the world as you change
-     it; and **Delete map** (red, see "Deleting a map").
+     icon row (Select is on the map's card in the editor lobby); **Name and game settings** (the
+     map's name, its **Map id** once it has a name, and the game's own settings in `map.json`, such
+     as a number a game reads, as text fields; see "A new map id"); **Edit Map Thumbnail** and **Edit
+     Minigame Thumbnail** (a game's maps, see "Pictures"); **Drop build commands** (red, maps made by
+     `npm run bake`), which keeps the world as you change it; and **Delete map** (red, see "Deleting
+     a map").
 2. **Tools:** a grid of the tools' icons (the Spawn tool, the Region tool, the Kill Y tool and the
    Camera tool), with
    their names as tooltips. Tap one to put it in slot 1 and in your hand; the menu opens again with
@@ -248,10 +255,14 @@ game in gold and the map in orange.
 4. **Save:** a green bar at the bottom, outside the scrolling part. It saves the world into the map
    now (see Saving); its tooltip says whether blocks changed since the last save.
 
-**Each tool opens its own screen.** Using a tool opens a side screen for what it sets up: a toggle
-first, then its settings and nudge rows (a minus and a plus each, **Step** cycling how far), and a
-green button pinned at the bottom that saves it. Closing the screen keeps nothing. While you hold a
-tool, the line above the hotbar says what a use does.
+**Tools set things; menus are in the map menu.** No tool opens a menu when you use it at the sky:
+the Spawn tool opens an entry's screen only aimed at a block, the Region tool only grows its box
+(save it from the map menu), the Kill Y tool sets kill Y at once, and the Camera tool places a camera
+at once. A screen for what a tool sets up has a toggle first, then its settings and nudge rows (a
+minus and a plus each, **Step** cycling how far), and a green button pinned at the bottom that saves
+it; closing it keeps nothing. While you hold a tool, the line above the hotbar says what a use does.
+Blocks break as usual with an empty hand or anything but the editor's items (in creative: Edit puts
+you back in creative at every spawn).
 
 - **The aim cursor:** holding the Spawn tool, the Region tool or Select's tool, an entity shows
   where a use lands, up to 64 blocks out: a glowing outline around the block for the box tools, a
@@ -260,8 +271,8 @@ tool, the line above the hotbar says what a use does.
   entity, so it follows the aim at once and hides behind blocks.
 - **Spawn tool:** aim at where an entry goes and use it, within 64 blocks. On top of a block, the
   spot is exactly where you aim (to a hundredth of a block, like an entity); at a block's side, just
-  in front of that spot, on the floor below it; at the sky, where you stand. **Sneak and use** it
-  for where you stand, facing the way you look. Its screen: which list
+  in front of that spot, on the floor below it; at the sky, nothing. **Sneak and use** it for where
+  you stand, facing the way you look. Its screen: which list
   (Spawn, Spectator, Queue, each team, each point), the position (tap it to type one, **Move here**,
   **Center on block**), the facing (**Take my facing**, **Clear facing**, **Snap**), the queue's
   Lock in and Countdown for the queue spawn, and X, Y and Z nudge rows; the see-through marker
@@ -288,7 +299,8 @@ tool, the line above the hotbar says what a use does.
   - **Use the tool on a block**, up to 64 blocks away, to grow the selection to it, on every axis.
     Any box can be picked without placing blocks: hit one corner, then use the tool on the blocks
     at the far edges.
-  - **Use the tool at the sky** (no block within 64 blocks) for the selection's screen:
+  - **Save the selection** in the map menu (the tool's settings) opens the selection's screen (used
+    at the sky, the tool does nothing):
     - **What to save it as** (a toggle): **This box** (when the selection came from a saved box:
       writes it back), **Bounds** (replacing every bounds box), **Add bounds** (another bounds box,
       once the map has one), a kill region, a region the game asks for (one per team when it asks
@@ -298,10 +310,12 @@ tool, the line above the hotbar says what a use does.
       plus for each side, the outline following at once.
     - **Clear selection** (red), and **Save** (green) at the bottom.
   - The checklist's bounds and region rows give you the tool already set to that row.
-- **Kill Y tool:** players below kill Y are out. Use it for its screen, starting one block below
-  your feet: type a height or nudge it (the plane is drawn at it), and **Set kill Y** (green).
-- **Camera tool:** pictures for the lobby (see "Pictures"). Using it opens the new camera's
-  screen: Map preview or Game picture (a toggle), **Aim from my view**, and **Place camera**.
+- **Kill Y tool:** players below kill Y are out. Use it to set kill Y one block below your feet at
+  once (Undo takes it back). **Set kill Y** in the map menu opens its screen: type a height or nudge
+  it (the plane is drawn at it), and **Set kill Y** (green).
+- **Camera tool:** pictures for the lobby (see "Pictures"). Using it places a camera at your eyes at
+  once, looking your way, of the kind the tool's settings say (**Game picture** off or on). It comes
+  with the **Snapshot** in slot 2.
 - **Outlines:** while you hold the region tool or the Kill Y tool, dots outline your selection
   (yellow), the bounds (white), kill regions (red), each other region in its own color (a team's
   region in the team's color), and the kill Y plane (red: a grid near you, and the edge of the box
@@ -333,7 +347,9 @@ tool, the line above the hotbar says what a use does.
 
 **Preview** plays the map open in Edit as its real game, then brings you back to Edit: the play
 icon in the map menu's top row (a game's map with its checklist done; lobby maps can't be
-previewed yet), **Preview** on the Panel's Edit row, or `npm run editor -- preview`.
+previewed yet), **Preview** on the Panel's Edit row, or `npm run editor -- preview`. In game it asks
+first how many **fake players** the match starts with (a toggle from 0 up to what fits beside
+everyone going, at most 7), then **Start preview** (green).
 
 1. The editor saves the world (when blocks changed) and builds the game from this checkout, with
    the map as it is now, draft or not.
@@ -348,48 +364,77 @@ previewed yet), **Preview** on the Panel's Edit row, or `npm run editor -- previ
    any time and sends everyone back (for an invited guest, it only sends them home to the editor
    lobby), and so does **End preview** (the Panel's Preview row, or `npm run editor -- preview end`).
 
-**Fake players:** **/fake** (`/minecade:fake`) adds a fake player to the match, `/fake 3` three,
-up to the game's player limit. A fake player looks like a player (Steve) with a name tag, "Fake 1",
-"Fake 2" and so on, and the game treats it as one: before the match it waits at a spawn of its own
+**Fake players:** the ones picked before the preview loads wait with you from the start (the game
+reads `PREVIEW_FAKES`), and **/fake** (`/minecade:fake`) adds more, `/fake 3` three, up to the
+game's player limit. A fake player looks like a player (Steve) with a name tag, "Fake 1", "Fake 2"
+and so on (hidden during the match, like players' unless the game shows name tags), and the game
+treats it as one: before the match it waits at a spawn of its own
 and counts toward the players needed to start; it gets a team in team games, spawns, respawns and
 is eliminated by the game's rules; it has a score like anyone, and its downs show in the kill feed. It
 doesn't move or fight back. Hit it, shoot it or knock it off like a player (a game's own weapons
 work on it too: One in the Quiver's arrow kills it). **Right click** one for a side panel that asks
-first: **Kill Fake 1** (red) takes it down, credited to you, and **Cancel** leaves it. Once the
+first: **Fake 1 kills you** (red) takes you down, credited to the fake (it plays out what the game
+does when a player kills you), and **Cancel** leaves things be. Once the
 match has started, /fake only works in games that let late joiners in (One in the Quiver; not
 Sumo). The packs for this live in `editor/preview/` and only previews get them.
 
-**From the editor lobby:** a preview card in Recent (every preview leaves one) plays that map
-again from its folder as it is, without opening it in Edit (Edit saves first when it has that map
-open, and keeps running). Its checklist must be done. You wait in the editor lobby while it
-starts, it's just you and any invited guests, and the game sends you back to the editor lobby.
+**From the editor lobby:** a map card's Preview icon (lit once its checklist is done) asks how many
+fake players, then plays that map from its folder as it is, without opening it in Edit (Edit saves
+first when it has that map open, and keeps running). You wait in the editor lobby while it starts,
+it's just you and any invited guests, and the game sends you back to the editor lobby.
 
 A preview never counts toward stats.
 
 ## Pictures
 
 The lobby shows a picture of each map (its tile, and the hologram when it's picked) and of each
-game. The Camera tool frames them, and the editor saves your screenshot as the picture.
+game: the map's thumbnail and the minigame's. Cameras frame them, and the editor saves your
+screenshot as the picture.
 
 1. **Place a camera:** with the Camera tool, use it where the shot should be taken from, looking
-   the way it should look. "Camera 1" appears there (a magenta marker whose red line shows where
-   it looks), saved in `map.json`'s `cameras`. The tool's settings say what new cameras are:
-   - **Map preview** (Game picture off): the map's picture, with nobody in the shot (you're made
+   the way it should look. "Camera 1" appears there at once (a magenta marker whose red line shows
+   where it looks), saved in `map.json`'s `cameras`. The tool's settings say what new cameras are:
+   - **Map preview** (Game picture off): the map's thumbnail, with nobody in the shot (you're made
      invisible while you look through);
-   - **Game picture** (on): the game's picture, where you can walk into the shot.
-2. **Look through:** hit the camera, Look through. Your view moves to the camera, with the HUD,
-   the markers and the outlines hidden. Take the screenshot: **Win+Alt+PrtScn** (Xbox Game Bar,
-   saved in `Videos\Captures`) or **Win+PrtScn** (saved in `Pictures\Screenshots`). Use the Camera
-   tool again to come back.
-3. **Use it:** coming back asks whether to use your newest screenshot (taken in the last 10
-   minutes). Its middle 16:9 is scaled to 320x180 and saved as the map's `preview.png` (a map
-   preview) or the game's `icon.png` (a game picture). The camera's form (Use my newest screenshot),
-   the Panel's checklist card ("Newest screenshot as") and `npm run editor -- picture [game]` do the
-   same. Publish commits both.
+   - **Game picture** (on): the minigame's thumbnail, where you can walk into the shot.
+   A new angle is a new camera: a camera keeps its place, but the Snapshot can nudge it.
+2. **Snapshot** (slot 2 while the Camera tool is out): use it and pick a camera. Your view moves
+   to it with the HUD, the markers and the outlines hidden, and corner marks frame the 16:9 middle
+   of the screen, which is what a picture keeps. Its side menu: **Take a screenshot**, **Back to my
+   view**, **Game picture**, nudge rows to move it along X, Y and Z, **Turn** it and **Tilt** it
+   (**Step**: small, medium or large), and **Use latest screenshot** (green). The back arrow goes
+   to the cameras.
+3. **Take the screenshot:** Take a screenshot closes the menu and says how, at the frame's top:
+   **F1** hides everything (the frame too), **F2** takes Minecraft's own screenshot, **F1** brings
+   it back. Scripts can't take one. The Xbox Game Bar (Win+Alt+PrtScn) and Windows (Win+PrtScn) work
+   too.
+4. **Use it:** use the Snapshot again, then **Use latest screenshot**: your newest screenshot (taken
+   in the last 10 minutes, a JPEG from Minecraft's `com.mojang\Screenshots` or a PNG) has its middle
+   16:9 scaled to 320x180, kept with the others (`work/editor/shots/`, listed with where each was used
+   in `work/editor/shots.json`), and saved as the map's `preview.png` or the game's `icon.png`. Your
+   view comes back. The Panel's checklist card ("Newest screenshot as") and `npm run editor --
+   picture [game]` do the same. Publish commits both.
 
-Hit a camera for its form: Look through, Use my newest screenshot, **Aim from my view** (moves it to
-your eyes, looking your way), **Game picture** (switches its kind), Delete. The tool's settings list
-every camera too. Lobby maps can have cameras, but the lobby shows no picture of its own map.
+**Edit Map Thumbnail** and **Edit Minigame Thumbnail** (the gear) show every picture kept so far,
+two to a row, the one in use outlined green, each named for where it was used last; tap one to use
+it. Pictures saved after Edit opened show from the next time a map opens there (the editor's pack
+carries them). Edit Map Thumbnail also has **Import from another minigame**: pick a game, then one
+of its maps with a picture (cards with the picture and the name); it asks first, uses that picture,
+then asks **Import map name?**: **Import name** gives this map that map's name and map id too (see
+"A new map id"), **Keep mine** doesn't. It's for a map you're reusing in another game.
+
+Hit a camera for its form: **Game picture** (switches its kind) and Delete. The tool's settings list
+every camera too. Lobby maps can have cameras (the Snapshot only nudges them there), but the lobby
+shows no picture of its own map.
+
+## A new map id
+
+**Map id** in Name and game settings (it shows once the map has a name), or an imported name, gives
+the map open in Edit another id: everyone in Edit waits in the editor lobby, Edit saves and stops,
+the folder moves to `maps/<new id>/`, its world's list in Select and Recent follow, and it opens
+again under the new id with everyone back. An id the game has already is refused. A published map's
+old folder is still in git: its removal goes with the map's next Publish (noted in
+`work/editor/renames.json`).
 
 ## Publishing
 

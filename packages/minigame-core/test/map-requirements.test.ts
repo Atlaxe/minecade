@@ -8,8 +8,8 @@ const TEAMS = [
 ];
 
 describe("mapRequirements", () => {
-  it("needs a spawn per player slot by default, and one for the lobby", () => {
-    expect(mapRequirements(undefined, { kind: "game", maxPlayers: 6 })).toEqual([{ key: "spawns", label: "Spawns", field: "spawns", min: 6, perPlayer: true }]);
+  it("needs a spawn per player slot by default, and a spectator or queue spawn; the lobby needs one spawn", () => {
+    expect(mapRequirements(undefined, { kind: "game", maxPlayers: 6 })).toEqual([{ key: "spawns", label: "Spawns", field: "spawns", min: 6, perPlayer: true }, { key: "spectatorOrQueue", label: "Spectator or queue spawn", field: "spectatorOrQueue", min: 1 }]);
     expect(mapRequirements(undefined, { kind: "lobby" })).toEqual([{ key: "spawns", label: "Spawn", field: "spawns", min: 1 }]);
     expect(mapRequirements({ spawns: { min: 2 } }, { kind: "game", maxPlayers: 6 })[0]).toEqual({ key: "spawns", label: "Spawns", field: "spawns", min: 2 });
     expect(mapRequirements({ spawns: { min: "maxPlayers" } }, { kind: "game", maxPlayers: 6 })[0].min).toBe(6);
@@ -18,6 +18,7 @@ describe("mapRequirements", () => {
   it("reads the short forms", () => {
     expect(mapRequirements({ points: ["flag"], regions: ["floor"], teamSpawns: true }, { kind: "game", maxPlayers: 4 })).toEqual([
       { key: "spawns", label: "Spawns", field: "spawns", min: 1, perPlayer: false },
+      { key: "spectatorOrQueue", label: "Spectator or queue spawn", field: "spectatorOrQueue", min: 1 },
       { key: "points.flag", label: "flag", field: "points", name: "flag", min: 1 },
       { key: "regions.floor", label: "floor", field: "regions", name: "floor", min: 1 },
       { key: "teamSpawns", label: "Team spawns", field: "teamSpawns", min: 1 },
@@ -51,8 +52,15 @@ describe("mapRequirements", () => {
     expect(list.find((requirement) => requirement.key === "regions.buyZone.blue")).toMatchObject({ field: "regions", name: "buyZone.blue", team: "blue" });
   });
 
+  it("asks for exactly the spectator and queue spawns a game names, or neither when it says false", () => {
+    const keys = (map: Parameters<typeof mapRequirements>[0]) => mapRequirements(map, { kind: "game", maxPlayers: 2 }).map((requirement) => requirement.key);
+    expect(keys({ queueSpawn: true })).toEqual(["spawns", "queueSpawn"]);
+    expect(keys({ spectatorSpawn: true, queueSpawn: true })).toEqual(["spawns", "spectatorSpawn", "queueSpawn"]);
+    expect(keys({ spectatorSpawn: false })).toEqual(["spawns"]);
+  });
+
   it("treats per-team entries as one when the game has no teams", () => {
-    expect(mapRequirements({ points: { flag: { perTeam: true } } }, { kind: "game", maxPlayers: 2 })[1]).toEqual({ key: "points.flag", label: "flag", field: "points", name: "flag", min: 1 });
+    expect(mapRequirements({ points: { flag: { perTeam: true } } }, { kind: "game", maxPlayers: 2 })[2]).toEqual({ key: "points.flag", label: "flag", field: "points", name: "flag", min: 1 });
   });
 
   it("reads the lobby's terminal", () => {

@@ -29,7 +29,7 @@ The map editor sets spawns and points in game and writes `map.json` for you; see
 | `name` | yes | Shown in the game selector. |
 | `draft` | no | `true` for an unfinished map: the build skips it with a warning (and skips a game whose maps are all drafts). The map editor's Publish removes it, then commits and pushes the map. |
 | `spawns` | yes | Positions (see below). The lobby needs one; a game needs one per player slot (at least `maxPlayers`). The first is also the world spawn. |
-| `spectatorSpawn` | no | Where eliminated players watch from. |
+| `spectatorSpawn` | no | Where players watch from when they're out or waiting to respawn, flying in spectator mode. A map without one has them watch from its `queueSpawn` instead (see below). A game needs one or the other unless its config says otherwise. |
 | `queueSpawn` | no | Where players wait for everyone to join before the game puts them at their spawns (see "The queue spawn" below). |
 | `queue` | no | How they wait there: `{ "mode": "lock" \| "free", "countdown": 5 }`. `lock` (the default) keeps everyone on the spot, looking around but unable to move, and invisible with no name tags, so nobody sees the others; `free` lets them roam. `countdown` is whole seconds (1 to 60, default 5). |
 | `bounds` | when `build` is used | The playable area, in whole blocks (inclusive): one box, or a list of boxes for an area of another shape (an L-shaped arena, two islands). Players outside every box are out (in games with `combat.outOfBounds: "down"`), and in the lobby go back to spawn. Spectators are kept inside the box around them all, flying over the gaps. Spawns must be inside a box, and y must stay within -64 to 319. Baking works inside the box around them all. |
@@ -70,6 +70,16 @@ With a `queueSpawn`, the start of a game goes:
 Without one, players wait at their spawns, as before. The map editor places it with the Spawn
 tool (Queue spawn, in Place into); hit its marker for Lock in and the countdown.
 
+**Watching from the queue spawn:** a map with a `queueSpawn` and no `spectatorSpawn` has players
+who are out (or waiting to respawn), late joiners who spectate, and players past the game's limit
+wait at the queue spawn instead: on foot in adventure mode, with empty hands, seen by others but
+without a name tag (whatever `queue.mode` says). A fall below `killY` or a step out of `bounds` puts
+them back there.
+
+**Name tags:** while players wait (at their spawns, or in a free queue) their gamertags show. During
+the match they're hidden, players' and a preview's fake players' alike, unless the game's config has
+`nameTags: true` (then team games show them in the team's color).
+
 ## What a game's maps need
 
 A game says what its maps must have in the `map` block of its `game.config.ts`. The build checks
@@ -91,6 +101,12 @@ map: {
 `perTeam` entries are needed once for every team the game can have (`"buyZone.red"`,
 `"buyZone.blue"`). The short forms still work: `points: ["bombA", "bombB"]`,
 `regions: ["floor"]`, `teamSpawns: true`. With `teamSpawns`, the plain `spawns` need only one.
+
+**Where players watch from:** a game that names neither `spectatorSpawn` nor `queueSpawn` needs one
+or the other (the checklist's "Spectator or queue spawn" row): a map with only a queue spawn passes
+and previews, and its players watch from there. Naming either asks for exactly what's named:
+`spectatorSpawn: true` for one, both for both, and `spectatorSpawn: false` for a game that needs
+neither.
 
 **Markers:** `marker` says how the map editor draws a list's entries: `"player"`, a mannequin (the
 default for every kind of spawn); `"post"`, a thin post with a square head (the default for points,

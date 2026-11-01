@@ -1,9 +1,9 @@
 // The region tool. Hit a block to start a selection there (that one block), then use the tool on
 // blocks, up to REACH away, to grow the selection to them, so any box can be picked without placing
-// blocks. Using it at the air opens the selection's screen: what to save it as (the bounds, a
-// region, a kill region, a new region), its sides nudged with the outline following, Floor at kill
-// Y and Back one step, and Save at the bottom. With the tool picked, the map menu opens the same
-// screen, and lists the map's boxes to edit, nudge, visit or delete.
+// blocks. The tool only sets the box: used at the sky it does nothing. With the tool picked, the
+// map menu opens the selection's screen (what to save it as: the bounds, a region, a kill region, a
+// new region; its sides nudged with the outline following, Floor at kill Y and Back one step, and
+// Save at the bottom), and lists the map's boxes to edit, nudge, visit or delete.
 import { world, type Block, type Player } from "@minecraft/server";
 import { ActionFormData, ModalFormData } from "@minecraft/server-ui";
 import type { Box, MapEdit, Scope } from "@minecade/minigame-core";
@@ -47,7 +47,7 @@ export class RegionTool {
     this.host.equip(player, "region");
     const label = regionTargets(this.host.map(), this.host.rules).find((candidate) => candidate.key === target)?.label;
     if (label) this.targets.set(keyOf(player), target);
-    this.host.tell(player, `${label ? `Region tool set to ${label}: hit` : "Region tool: hit"} a block to start a box, use the tool on blocks to grow it, and use it at the air to save it.`);
+    this.host.tell(player, `${label ? `Region tool set to ${label}: hit` : "Region tool: hit"} a block to start a box, use the tool on blocks to grow it, and save it from the map menu.`);
   }
 
   /** The player's selection, and the key of the entry it edits, for the outlines. */
@@ -68,16 +68,15 @@ export class RegionTool {
   hint(player: Player): string {
     const selection = this.selections.get(keyOf(player));
     if (!selection) return "Region tool: hit a block to start a box";
-    return `Selection ${sizeText(selection.box)}   Use on a block: grow   Use at the sky: save   Hit: new box`;
+    return `Selection ${sizeText(selection.box)}   Use on a block: grow   Hit: new box   Save: map menu`;
   }
 
-  /** A use: grows the selection to the block in view, or opens the region form when there's none in reach. */
-  async use(player: Player): Promise<void> {
+  /** A use: grows the selection to the block in view. At the sky it only says where saving is: no tool opens a menu there. */
+  use(player: Player): void {
     const block = blockInView(player);
     const selection = this.selections.get(keyOf(player));
     if (!block) {
-      if (selection) await this.selectionForm(player);
-      else this.host.tell(player, "No selection yet: hit a block with the region tool to start one.");
+      actionBar(player, selection ? "Save the selection from the map menu" : "Hit a block to start a box");
       return;
     }
     if (!selection) {
@@ -246,7 +245,7 @@ export class RegionTool {
       case "edit":
         this.selections.set(keyOf(player), { box: entry.box, history: [], editing: entry });
         this.host.equip(player, "region");
-        this.host.tell(player, `${entry.label} is in your selection. Change it with the region tool, then use the tool at the air and choose Save changes.`);
+        this.host.tell(player, `${entry.label} is in your selection. Change it with the region tool, then save it from the map menu.`);
         return;
       case "nudge": {
         const box = await nudgeMenu(this.host, player, entry.box, `Nudge ${entry.label}`);

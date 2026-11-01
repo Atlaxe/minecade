@@ -1,13 +1,15 @@
 ## Locked items look like any other item on every Minecade server: vanilla's lock lines under an
 ## item's name (the hotbar's "Can't Move Items can't be: moved, dropped, removed, crafted with",
-## "This item is not lost on death", and the same in the inventory's hover text) are blank. The
-## lock corner and "Can't move item" are hidden too (textures/ui, ui/ui_common.json).
-item.itemLock.cantDrop=
-item.itemLock.cantMove=
-item.itemLock.hoverText.cantBe.moved=
-item.itemLock.hoverText.cantBe.dropped=
-item.itemLock.hoverText.cantBe.removed=
-item.itemLock.hoverText.cantBe.craftedWith=
-item.itemLock.keepOnDeath=
-item.itemLock.popupNotice.cantDrop=
-item.itemLock.popupNotice.cantMove=
+## "This item is not lost on death", and the same in the inventory's hover text) are a reset code,
+## which draws nothing. An empty value doesn't take: the client kept vanilla's text. The hotbar
+## popup also shows only its first line (ui/hud_screen.json). The lock corner and "Can't move item"
+## are hidden too (textures/ui, ui/ui_common.json). en_GB.lang is the same file.
+item.itemLock.cantDrop=§r
+item.itemLock.cantMove=§r
+item.itemLock.hoverText.cantBe.moved=§r
+item.itemLock.hoverText.cantBe.dropped=§r
+item.itemLock.hoverText.cantBe.removed=§r
+item.itemLock.hoverText.cantBe.craftedWith=§r
+item.itemLock.keepOnDeath=§r
+item.itemLock.popupNotice.cantDrop=§r
+item.itemLock.popupNotice.cantMove=§r

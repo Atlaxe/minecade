@@ -367,6 +367,54 @@ describe("the queue spawn", () => {
     expectBaseline(baseline);
     everyoneLeaves();
   });
+
+  it("is where players watch from without a spectator spawn: on foot, seen, nameless, and kept in bounds", async () => {
+    const players = ["A", "B", "C"].map((name) => world.join(name));
+    const [a, b] = players;
+    const baseline = snapshot();
+    const { spectatorSpawn: _none, ...arena } = ARENA;
+    const map = { ...arena, queueSpawn: [0, 70, 10], queue: { mode: "free", countdown: 1 } } as typeof ARENA;
+    const game = new TestGame(harness.context(["A", "B", "C"], map), { ...config, maxPlayers: 3, minPlayers: 3, timeLimitSeconds: 0 });
+    await playToEnd(game, baseline, async () => {
+      await ticks(2);
+      // Waiting in a free queue, name tags show.
+      expect(a.nameTag).toBe("A");
+      await ticks(20 + 10 + 2 * 20 + 10);
+      expect(game.phase).toBe("playing");
+      // During the match they're hidden (the game doesn't ask for them).
+      expect(players.map((player) => player.nameTag)).toEqual(["", "", ""]);
+      world.hurt(a, 30, "entityAttack", { attacker: b });
+      await ticks(2);
+      expect(game.roster.get("A")?.state).toBe("out");
+      expect(a.gameMode).toBe("Adventure");
+      expect(at(a)).toEqual([0.5, 70, 10.5]);
+      expect(a.nameTag).toBe("");
+      expect(a.effects.has("invisibility")).toBe(false);
+      // A fall puts them back at the queue spawn.
+      a.location = { x: 0, y: 45, z: 10 };
+      await ticks(10);
+      expect(at(a)).toEqual([0.5, 70, 10.5]);
+      game.finish({ kind: "draw", reason: "test over" });
+      await ticks(2);
+    });
+    expectBaseline(baseline);
+    everyoneLeaves();
+  });
+
+  it("shows name tags during the match for a game that asks for them", async () => {
+    const players = ["A", "B"].map((name) => world.join(name));
+    const baseline = snapshot();
+    const game = new TestGame(harness.context(["A", "B"]), { ...config, nameTags: true });
+    await playToEnd(game, baseline, async () => {
+      await ticks(150);
+      expect(game.phase).toBe("playing");
+      expect(players.map((player) => player.nameTag)).toEqual(["A", "B"]);
+      game.finish({ kind: "draw", reason: "test over" });
+      await ticks(2);
+    });
+    expectBaseline(baseline);
+    everyoneLeaves();
+  });
 });
 
 describe("a game previewed from the map editor", () => {

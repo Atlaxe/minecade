@@ -17,15 +17,17 @@ import {
   type ChecklistRow,
   type GuestInfo,
   type HomeState,
+  type MapCamera,
   type MapConfig,
+  type PictureInfo,
   type RecentEntry,
   type SelectionInfo,
   type ServerInfo,
 } from "@minecade/minigame-core/config";
 import { relativeSide, sizeText, type Cardinal, type Sides } from "./boxes.ts";
 import { SNAPS, compass, type Snap, type SpawnList } from "./lists.ts";
-import { COLUMNS, MARK, dangerText, goText, headingText, linkText, saveBarText, segmentText, stepTileText, switchText } from "./marks.ts";
-import { CAMERA_KINDS, camerasOf, type CameraKind } from "./cameras.ts";
+import { COLUMNS, MARK, cardIconText, cardTitleText, dangerText, goText, headingText, linkText, pictureText, saveBarText, segmentText, stepTileText, switchText } from "./marks.ts";
+import { CAMERA_KINDS, cameraPlace, camerasOf, type CameraKind } from "./cameras.ts";
 import { ALL_BOUNDARIES, outlineShown, type BoundaryRow, type RegionEntry, type RegionTarget, type SelectionAction } from "./regions.ts";
 import { EDITOR_TOOLS, SELECT_TOOL, type ToolId } from "./tools.ts";
 
@@ -38,7 +40,7 @@ export const ICONS = {
   settings: "textures/minecade/editor/icon_settings",
   play: "textures/minecade/editor/icon_play",
   boundaries: "textures/minecade/editor/icon_boundaries",
-  /** The editor lobby: a pencil (Open a map, and maps opened in Edit), a plus (New map), a crop mark (worlds opened in Select), and Leave. */
+  /** The editor lobby: a pencil (Edit a map), a plus (New map), a crop mark (Select its world), and Leave. */
   edit: "textures/minecade/editor/icon_edit",
   new: "textures/minecade/editor/icon_new",
   select: "textures/minecade/editor/icon_select",
@@ -48,7 +50,22 @@ export const ICONS = {
   minus: "textures/minecade/editor/icon_minus",
   lobby: "textures/minecade/editor/icon_lobby",
   back: "textures/minecade/editor/icon_back",
+  /** The editor lobby's Search link (a magnifying glass). */
+  search: "textures/minecade/editor/icon_search",
 } as const;
+
+/** Where the editor's pack keeps the pictures (tools/editor/pictures.ts): a shot used before, a map's preview, a game's picture. */
+export function shotTexture(id: string): string {
+  return `textures/minecade/shots/${id}`;
+}
+
+export function mapPictureTexture(target: string, map: string): string {
+  return `textures/minecade/maps/${target}/${map}`;
+}
+
+export function gamePictureTexture(target: string): string {
+  return `textures/minecade/games/${target}`;
+}
 
 export type MenuAction =
   | { kind: "checklist" }
@@ -320,7 +337,7 @@ export function entryScreenEntries(view: EntryScreenView): { action: EntryScreen
   return entries;
 }
 
-/** The selection's screen (the Region tool used at the sky). */
+/** The selection's screen (Save the selection, in the map menu). */
 export interface RegionScreenView {
   targets: RegionTarget[];
   /** The picked target's key; "editing" saves over the box the selection came from. */
@@ -397,16 +414,129 @@ export function killYScreenEntries(view: { y: number; set: boolean; step: number
   ];
 }
 
-export type CameraScreenAction = { kind: "kind"; camera: CameraKind } | { kind: "aim" } | { kind: "save" } | { kind: "none" };
+// ---- Snapshot ---------------------------------------------------------------------------------
+// The Camera tool's Snapshot (slot 2): pick a camera, look through it with the 16:9 frame, nudge it,
+// then take the screenshot with Minecraft's own keys and use it.
 
-/** A new camera's screen: its kind (a toggle of two wide tiles), where it is and looks, Aim from my view, and Place camera, green, at the bottom. */
-export function cameraScreenEntries(view: { kind: CameraKind; at: string; looks: string }): { action: CameraScreenAction; text: string }[] {
+/** How far each nudge moves a camera and turns or tilts it: Step's tiles. */
+export const SNAPSHOT_STEPS = [
+  { label: "Small", move: 0.1, turn: 1 },
+  { label: "Medium", move: 0.5, turn: 5 },
+  { label: "Large", move: 2, turn: 15 },
+] as const;
+
+export type SnapshotAction =
+  | { kind: "back" }
+  | { kind: "shoot" }
+  | { kind: "use" }
+  | { kind: "stop" }
+  | { kind: "kind" }
+  | { kind: "move"; axis: 0 | 1 | 2; by: 1 | -1 }
+  | { kind: "turn"; by: 1 | -1 }
+  | { kind: "tilt"; by: 1 | -1 }
+  | { kind: "step"; step: number }
+  | { kind: "none" };
+
+/** The Snapshot's list of cameras: tap one to look through it. */
+export function snapshotListEntries(config: MapConfig): { camera?: string; text: string }[] {
+  const cameras = camerasOf(config);
+  if (cameras.length === 0) return [{ text: headingText("No cameras yet: use the Camera tool to place one") }];
+  return cameras.map(([name, camera]) => ({ camera: name, text: `${name}\n§7${CAMERA_KINDS[camera.kind].label}` }));
+}
+
+/**
+ * The Snapshot while looking through a camera: the back arrow (to the cameras), where it is, Take
+ * a screenshot, Back to my view and the Game picture switch; nudge rows to move it along each axis,
+ * turn it and tilt it; Step; and Use latest screenshot, green, at the bottom. A lobby map has no
+ * picture, so there it only nudges.
+ */
+export function snapshotEntries(view: { camera: MapCamera; step: number; lobby: boolean }): { action: SnapshotAction; text: string; icon?: string }[] {
+  const [x, y, z, yaw, pitch] = view.camera.at;
+  const place = cameraPlace(view.camera);
+  const entries: { action: SnapshotAction; text: string; icon?: string }[] = [{ action: { kind: "back" }, text: BACK_TEXT, icon: ICONS.back }];
+  const lead = (action: SnapshotAction, text: string) => entries.push({ action, text: `${MARK.lead}${text}` });
+  lead({ kind: "none" }, headingText(`At ${place.at}, looking ${place.looks}`));
+  if (!view.lobby) lead({ kind: "shoot" }, "Take a screenshot\n§7F1 hides everything, F2 takes it, F1 brings it back");
+  lead({ kind: "stop" }, "Back to my view");
+  lead({ kind: "kind" }, switchText("Game picture", view.camera.kind === "game" ? CAMERA_KINDS.game.hint : `off: a map preview, ${CAMERA_KINDS.map.hint.split(", ")[1]}`, view.camera.kind === "game"));
+  const rows: [SnapshotAction, SnapshotAction, string, string][] = [
+    [{ kind: "move", axis: 0, by: -1 }, { kind: "move", axis: 0, by: 1 }, `X (east +): ${coordinate(x)}`, "X east"],
+    [{ kind: "move", axis: 1, by: -1 }, { kind: "move", axis: 1, by: 1 }, `Y (up +): ${coordinate(y)}`, "Y up"],
+    [{ kind: "move", axis: 2, by: -1 }, { kind: "move", axis: 2, by: 1 }, `Z (south +): ${coordinate(z)}`, "Z south"],
+    [{ kind: "turn", by: -1 }, { kind: "turn", by: 1 }, `Turn (right +): ${coordinate(yaw)}`, "Turn right"],
+    [{ kind: "tilt", by: -1 }, { kind: "tilt", by: 1 }, `Tilt (down +): ${coordinate(pitch)}`, "Tilt down"],
+  ];
+  for (const [minus, plus, label, more] of rows) {
+    entries.push({ action: minus, text: `${MARK.minus}${label}`, icon: ICONS.minus }, { action: plus, text: `${MARK.plus}${more}`, icon: ICONS.new });
+  }
+  SNAPSHOT_STEPS.forEach((step, i) => entries.push({ action: { kind: "step", step: i }, text: stepTileText(step.label, i, i === view.step) }));
+  if (!view.lobby) entries.push({ action: { kind: "use" }, text: saveBarText(`Use latest screenshot\n§7as ${view.camera.kind === "map" ? "the map's thumbnail" : "the game's thumbnail"}`) });
+  return entries;
+}
+
+// ---- Thumbnails -------------------------------------------------------------------------------
+
+export type ThumbnailAction = { kind: "back" } | { kind: "import" } | { kind: "shot"; id: string } | { kind: "none" };
+
+/**
+ * A thumbnail menu (Map settings' Edit Map Thumbnail or Edit Minigame Thumbnail): the back arrow,
+ * Import from another minigame for a map's (it stays put), then every picture used before, two to a
+ * row, the one in use outlined green. A picture that isn't one of them (made before they were kept)
+ * comes first when it's the one in use.
+ */
+export function thumbnailEntries(view: { kind: "map" | "game"; pictures: PictureInfo; own?: string }): { action: ThumbnailAction; text: string; icon?: string }[] {
+  const entries: { action: ThumbnailAction; text: string; icon?: string }[] = [{ action: { kind: "back" }, text: BACK_TEXT, icon: ICONS.back }];
+  if (view.kind === "map") entries.push({ action: { kind: "import" }, text: `${MARK.fixed}${linkText("Import from another minigame")}` });
+  const current = view.pictures.current[view.kind];
+  const tiles: { action: ThumbnailAction; label: string; icon: string; on: boolean }[] = [];
+  if (current === "own" && view.own) tiles.push({ action: { kind: "none" }, label: "In use now", icon: view.own, on: true });
+  for (const shot of view.pictures.shots) tiles.push({ action: { kind: "shot", id: shot.id }, label: shot.label, icon: shotTexture(shot.id), on: shot.id === current });
+  if (tiles.length === 0) entries.push({ action: { kind: "none" }, text: headingText("No pictures yet: the Camera tool's Snapshot takes them") });
+  tiles.forEach((tile, i) => entries.push({ action: tile.action, text: pictureText(`${tile.label}${tile.on ? "\n§7in use" : ""}`, i, tile.on), icon: tile.icon }));
+  return entries;
+}
+
+/** Import from another minigame: the games with maps that have a picture (not this one, nor the lobby). */
+export function importTargetEntries(pictures: PictureInfo, here: string): { target: string; text: string }[] {
+  const counts = new Map<string, { name: string; count: number }>();
+  for (const map of pictures.maps) {
+    if (map.target === here || map.target === "lobby") continue;
+    const entry = counts.get(map.target) ?? { name: map.targetName, count: 0 };
+    entry.count++;
+    counts.set(map.target, entry);
+  }
+  return [...counts].map(([target, { name, count }]) => ({ target, text: `${name}\n§7${count} map${count === 1 ? "" : "s"} with a picture` }));
+}
+
+export type ImportMapAction = { kind: "back" } | { kind: "map"; map: string; name: string };
+
+/** A game's maps with a picture, as cards: the picture and the map's name, two to a row. */
+export function importMapEntries(pictures: PictureInfo, target: string): { action: ImportMapAction; text: string; icon?: string }[] {
+  const maps = pictures.maps.filter((map) => map.target === target);
   return [
-    ...(["map", "game"] as const).map((kind, i) => ({ action: { kind: "kind", camera: kind } as const, text: segmentText(CAMERA_KINDS[kind].label, i, kind === view.kind, false, true) })),
-    { action: { kind: "none" }, text: `${MARK.lead}${headingText(view.at)}` },
-    { action: { kind: "none" }, text: `${MARK.lead}${headingText(view.looks)}` },
-    { action: { kind: "aim" }, text: `${MARK.lead}Aim from my view\n§7move it to your eyes, looking your way` },
-    { action: { kind: "save" }, text: saveBarText("Place camera") },
+    { action: { kind: "back" }, text: BACK_TEXT, icon: ICONS.back },
+    ...maps.map((map, i) => ({ action: { kind: "map" as const, map: map.map, name: map.name }, text: pictureText(`${map.name}\n§7${map.map}`, i, false), icon: mapPictureTexture(target, map.map) })),
+  ];
+}
+
+// ---- Preview ----------------------------------------------------------------------------------
+
+/** The most fake players the preview menu offers. */
+export const MAX_PREVIEW_FAKES = 7;
+
+export type PreviewAction = { kind: "back" } | { kind: "fakes"; fakes: number } | { kind: "start" } | { kind: "none" };
+
+/**
+ * Before a preview loads: how many fake players the match starts with, as a toggle (0 up to what
+ * fits beside the players going), and Start preview, green, at the bottom.
+ */
+export function previewEntries(view: { fakes: number; most: number; back: boolean }): { action: PreviewAction; text: string; icon?: string }[] {
+  const most = Math.max(0, Math.min(MAX_PREVIEW_FAKES, view.most));
+  return [
+    ...(view.back ? [{ action: { kind: "back" } as const, text: BACK_TEXT, icon: ICONS.back }] : []),
+    { action: { kind: "none" }, text: `${MARK.lead}${headingText("Fake players")}` },
+    ...Array.from({ length: most + 1 }, (_, fakes) => ({ action: { kind: "fakes", fakes } as const, text: stepTileText(String(fakes), fakes, fakes === Math.min(view.fakes, most)) })),
+    { action: { kind: "start" }, text: saveBarText("Start preview") },
   ];
 }
 
@@ -524,15 +654,17 @@ export const PLAYERS_TEXT = `${MARK.quick}Players\n§7invite friends to Select a
 const PLAYERS_ENTRY: MenuEntry = { action: { kind: "players" }, text: PLAYERS_TEXT, icon: ICONS.players };
 
 /** Edit's gear: Players and Back to Lobby (right end) in the icon row, then the map's settings and the red ones. */
-export type GearAction = "settings" | "players" | "dropBuild" | "delete" | "lobby" | "back";
+export type GearAction = "settings" | "players" | "dropBuild" | "delete" | "lobby" | "back" | "mapThumbnail" | "gameThumbnail";
 
-export function gearEntries(view: { build: boolean }): { action: GearAction; text: string; icon?: string }[] {
+/** Edit's gear: the icon row, Name and game settings, the thumbnails (a game's map), then the red ones. */
+export function gearEntries(view: { build: boolean; game: boolean }): { action: GearAction; text: string; icon?: string }[] {
   const entries: { action: GearAction; text: string; icon?: string }[] = [
     { action: "back", text: BACK_TEXT, icon: ICONS.back },
     { action: "players", text: PLAYERS_TEXT, icon: ICONS.players },
     { action: "lobby", text: LOBBY_TEXT, icon: ICONS.lobby },
     { action: "settings", text: "Name and game settings" },
   ];
+  if (view.game) entries.push({ action: "mapThumbnail", text: "Edit Map Thumbnail" }, { action: "gameThumbnail", text: "Edit Minigame Thumbnail" });
   if (view.build) entries.push({ action: "dropBuild", text: dangerText("Drop build commands") });
   entries.push({ action: "delete", text: dangerText("Delete map") });
   return entries;
@@ -545,27 +677,8 @@ export interface ExportDraft {
   target: string;
 }
 
-export type ExportAction = { kind: "name" } | { kind: "id" } | { kind: "target"; target: string } | { kind: "export" } | { kind: "back" } | { kind: "none" };
-
 /** The back arrow left of a sub-menu's title. */
 export const BACK_TEXT = `${MARK.back}Back`;
-
-/**
- * Export to Map: the back arrow; Name, Map id and the "For" heading, which stay put; the targets to
- * pick from, the only part that scrolls (the picked one outlined); and Export to Map, green, pinned
- * at the bottom.
- */
-export function exportEntries(draft: ExportDraft, targets: { id: string; name: string }[]): { action: ExportAction; text: string; icon?: string }[] {
-  const id = draft.map ?? mapIdFrom(draft.name);
-  return [
-    { action: { kind: "back" }, text: BACK_TEXT, icon: ICONS.back },
-    { action: { kind: "name" }, text: `${MARK.fixed}Name: ${draft.name || "§8none yet"}` },
-    { action: { kind: "id" }, text: `${MARK.fixed}Map id: ${id ? `${draft.map ? "" : "§8"}${id}` : "§8from the name"}` },
-    { action: { kind: "none" }, text: `${MARK.fixed}${headingText("For")}` },
-    ...targets.map((target) => ({ action: { kind: "target" as const, target: target.id }, text: `${target.id === draft.target ? MARK.picked : ""}${target.name}` })),
-    { action: { kind: "export" }, text: saveBarText("Export to Map") },
-  ];
-}
 
 /** How far each tap moves a side: Step's tiles. */
 export const NUDGE_STEPS = [1, 5, 10] as const;
@@ -681,92 +794,109 @@ export function mapIdFrom(name: string): string {
     .slice(0, 48);
 }
 
-/** How many recent entries the editor lobby's menu shows: of every kind, and with a filter on. */
-const RECENT_SHOWN = 5;
-const RECENT_FILTERED = 10;
-
-/** What a Recent entry is: a map opened in Edit, a world opened in Select, or a map previewed. */
-export type RecentKind = RecentEntry["request"]["to"];
-
-/** Recent's kinds, in the order of their filters in the icon row. */
-export const RECENT_KINDS: { kind: RecentKind; name: string; hint: string; none: string; icon: string }[] = [
-  { kind: "edit", name: "Edit", hint: "maps you opened in Edit", none: "No maps opened in Edit yet", icon: ICONS.edit },
-  { kind: "select", name: "Select", hint: "worlds you boxed maps in", none: "No worlds opened in Select yet", icon: ICONS.select },
-  { kind: "preview", name: "Preview", hint: "maps you previewed (a tap plays one again)", none: "No previews yet", icon: ICONS.play },
-];
+/** How many cards the editor lobby's menu shows. */
+const CARDS_SHOWN = 8;
 
 export type HomeAction =
-  /** Open a map or a world, or go to the server that has it open; or preview a map again. */
-  | { kind: "open"; request: RecentEntry["request"] }
-  /** Open a map: pick the lobby or a game, then one of its maps. */
+  /** Open a map in Edit or a world in Select, or go to the server that has it open. */
+  | { kind: "open"; request: Extract<RecentEntry["request"], { to: "edit" | "select" }> }
+  /** Preview a map from its folder (after picking how many fake players). */
+  | { kind: "preview"; target: string; map: string }
+  /** Search: pick the lobby or a game, then one of its maps. */
   | { kind: "maps" }
   /** New map: pick a world to copy builds from (or an empty world). */
   | { kind: "new" }
-  /** Show only this kind in Recent, or everything again when it's on already. */
-  | { kind: "filter"; filter: RecentKind }
   /** Disconnect from the map editor (after a confirm). */
   | { kind: "leave" }
   /** The Players menu: invite friends to Select and previews. */
   | { kind: "players" }
-  /** A heading: nothing happens but the menu opening again. */
+  /** A faded icon: its step isn't done, so it only says why. */
+  | { kind: "off"; why: string }
+  /** A heading or a card's title: nothing happens but the menu opening again. */
   | { kind: "none" };
 
 export interface HomeEntry {
   action: HomeAction;
   text: string;
-  /** The icon in the icon row, or on a card's left. */
+  /** The icon in the icon row, or on a card. */
   icon?: string;
 }
 
+/** A card: a map (newest first by when it was opened), or a world opened in Select with no map of its own among the cards. */
+export type HomeCard =
+  | { kind: "map"; target: Catalog["targets"][number]; map: Catalog["targets"][number]["maps"][number] }
+  | { kind: "world"; world: Catalog["worlds"][number] };
+
+/** The cards from Recent: one per map (Edit and Preview entries alike), then worlds whose maps have none. */
+export function homeCards(catalog: Catalog): HomeCard[] {
+  const cards: HomeCard[] = [];
+  const seen = new Set<string>();
+  for (const entry of catalog.recent) {
+    const request = entry.request;
+    if (request.to === "select") {
+      const world = catalog.worlds.find((candidate) => candidate.id === request.world);
+      if (world && !seen.has(`world:${world.id}`)) cards.push({ kind: "world", world });
+      if (world) seen.add(`world:${world.id}`);
+      continue;
+    }
+    const target = catalog.targets.find((candidate) => candidate.id === request.target);
+    const map = target?.maps.find((candidate) => candidate.id === request.map);
+    if (!target || !map || seen.has(`map:${target.id}/${map.id}`)) continue;
+    seen.add(`map:${target.id}/${map.id}`);
+    cards.push({ kind: "map", target, map });
+  }
+  const mapWorlds = new Set(cards.flatMap((card) => (card.kind === "map" && card.map.world ? [card.map.world] : [])));
+  return cards.filter((card) => card.kind === "map" || !mapWorlds.has(card.world.id)).slice(0, CARDS_SHOWN);
+}
+
 /**
- * The editor lobby's menu: the icon row (Open a map, New map, Players, a filter for each kind of
- * Recent entry, Leave), then what's open now and Recent as cards with an icon for their kind.
+ * The editor lobby's menu: the icon row (New map, Players, and Leave at the right end), then Recent
+ * with Search on its right, and the cards: each map's title, with Select (the world it came from),
+ * Edit and Preview icons on its right, faded when that step isn't done. A world with no map yet
+ * has Select only.
  */
-export function homeEntries(state: HomeState, filter?: RecentKind): HomeEntry[] {
+export function homeEntries(state: HomeState): HomeEntry[] {
   const entries: HomeEntry[] = [
-    { action: { kind: "maps" }, text: `${MARK.quick}Open a map\n§7the lobby's and every game's maps`, icon: ICONS.edit },
     { action: { kind: "new" }, text: `${MARK.quick}New map\n§7copy builds from one of your worlds, or start from an empty one`, icon: ICONS.new },
     { action: { kind: "players" }, text: PLAYERS_TEXT, icon: ICONS.players },
+    { action: { kind: "leave" }, text: `${MARK.end}Leave\n§7disconnect from the map editor`, icon: ICONS.leave },
+    { action: { kind: "none" }, text: `${MARK.cardHead}${headingText("Recent")}` },
+    { action: { kind: "maps" }, text: `${MARK.cardLink}Search\n§7the lobby's and every game's maps`, icon: ICONS.search },
   ];
-  RECENT_KINDS.forEach(({ kind, name, hint, icon }, i) => {
-    const on = filter === kind;
-    entries.push({ action: { kind: "filter", filter: kind }, text: segmentText(`Recent: ${name} only\n§7${on ? "on: tap again to show everything" : hint}`, i, on, true), icon });
-  });
-  entries.push({ action: { kind: "leave" }, text: `${MARK.end}Leave\n§7disconnect from the map editor`, icon: ICONS.leave });
-  const open: [RecentKind, ServerInfo][] = [];
-  if (state.servers.edit) open.push(["edit", state.servers.edit]);
-  if (state.servers.select) open.push(["select", state.servers.select]);
-  if (open.length > 0) {
-    entries.push({ action: { kind: "none" }, text: headingText("Open now") });
-    for (const [kind, info] of open) {
-      const line = serverLine(info);
-      entries.push({ action: { kind: "open", request: info.request }, text: line ? `${MARK.card}${MARK.twoLine}${info.label}\n${line}` : `${MARK.card}${info.label}`, icon: kindIcon(kind) });
-    }
-  }
-  const openKeys = new Set(open.map(([, info]) => openKey(info.request)));
-  const shown = RECENT_KINDS.find((candidate) => candidate.kind === filter);
-  const recent = state.catalog.recent
-    .filter((entry) => !openKeys.has(openKey(entry.request)) && (!shown || entry.request.to === shown.kind))
-    .slice(0, shown ? RECENT_FILTERED : RECENT_SHOWN);
-  entries.push({ action: { kind: "none" }, text: headingText(shown ? `Recent: ${shown.name} only` : "Recent") });
-  if (recent.length === 0) entries.push({ action: { kind: "none" }, text: headingText(`§8${shown?.none ?? "Nothing opened yet"}`) });
-  for (const entry of recent) entries.push({ action: { kind: "open", request: entry.request }, text: `${MARK.card}${entry.label}`, icon: kindIcon(entry.request.to) });
+  const cards = homeCards(state.catalog);
+  if (cards.length === 0) entries.push({ action: { kind: "none" }, text: headingText("§8Nothing opened yet") });
+  for (const card of cards) entries.push(...cardEntries(card, state.catalog));
   return entries;
 }
 
-/** A Recent entry's icon, by its kind. */
-function kindIcon(kind: RecentKind): string {
-  return RECENT_KINDS.find((candidate) => candidate.kind === kind)?.icon ?? ICONS.edit;
+/** A card's buttons: its title, then its Select, Edit and Preview icons. */
+function cardEntries(card: HomeCard, catalog: Catalog): HomeEntry[] {
+  if (card.kind === "world") {
+    const { world } = card;
+    return [
+      { action: { kind: "none" }, text: cardTitleText(world.name) },
+      { action: { kind: "open", request: { to: "select", world: world.id } }, text: cardIconText(`Select\n§7box maps in ${world.name}`, 0, true), icon: ICONS.select },
+      { action: { kind: "off", why: "Box a map in Select and export it first." }, text: cardIconText("Edit\n§7box a map and export it first", 1, false), icon: ICONS.edit },
+      { action: { kind: "off", why: "Export a map, then finish its checklist in Edit." }, text: cardIconText("Preview\n§7export a map and finish its checklist first", 2, false), icon: ICONS.play },
+    ];
+  }
+  const { target, map } = card;
+  const world = map.world ? catalog.worlds.find((candidate) => candidate.id === map.world) : undefined;
+  const lobby = target.id === "lobby";
+  const why = lobby ? "A lobby map can't be previewed yet: publish it, then start the network." : "Open it in Edit and finish its checklist first.";
+  return [
+    { action: { kind: "none" }, text: cardTitleText(`${target.name}: ${map.name}`) },
+    world
+      ? { action: { kind: "open", request: { to: "select", world: world.id } }, text: cardIconText(`Select\n§7box more maps in ${world.name}`, 0, true), icon: ICONS.select }
+      : { action: { kind: "off", why: "This map didn't come from a world on this PC." }, text: cardIconText("Select\n§7its world isn't on this PC", 0, false), icon: ICONS.select },
+    { action: { kind: "open", request: { to: "edit", target: target.id, map: map.id } }, text: cardIconText(`Edit\n§7${map.id}${map.draft ? ", a draft" : ""}`, 1, true), icon: ICONS.edit },
+    !lobby && map.ready
+      ? { action: { kind: "preview", target: target.id, map: map.id }, text: cardIconText("Preview\n§7play it, with fake players if you like", 2, true), icon: ICONS.play }
+      : { action: { kind: "off", why }, text: cardIconText(`Preview\n§7${lobby ? "lobby maps can't be previewed yet" : "finish its checklist first"}`, 2, false), icon: ICONS.play },
+  ];
 }
 
-/** How an open server is doing, in a few words. */
-export function serverLine(info: ServerInfo): string | undefined {
-  if (info.state === "starting") return "§eloading...";
-  if (info.state === "stopping") return "§eclosing...";
-  return undefined;
-}
-
-/** Open a map: the lobby and each game, with how many maps each has. */
+/** Search: the lobby and each game, with how many maps each has. */
 export function targetEntries(catalog: Catalog): { target: string; text: string }[] {
   return catalog.targets.map((target) => {
     const count = target.maps.length;

@@ -3,7 +3,7 @@
 // the lobby's kill target wins.
 import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import { runtimeMapConfig, stripColors, validateMapConfig, type MapConfig, type MapPosition } from "@minecade/minigame-core/config";
-import { FakePlayer, ItemStack, world } from "../../../packages/minigame-core/test/fake-mc-server.ts";
+import { FakePlayer, ItemStack, world, type FakeMob } from "../../../packages/minigame-core/test/fake-mc-server.ts";
 import {
   createHarness,
   everyoneLeaves,
@@ -65,7 +65,7 @@ const arrowsOf = (player: FakePlayer) => player.inventory.items().filter((item) 
 const ARROW_LINE = new RegExp(`^B was (${ARROW_VERBS.join("|")}) by A \\(10 blocks\\)$`);
 
 describe("One in the Quiver", () => {
-  it("has a valid config, and maps need 10 spawns, a spectator spawn and kill Y", () => {
+  it("has a valid config, and maps need 10 spawns, a spectator or queue spawn, and kill Y", () => {
     expect(validateGameConfig(config, "quiver")).toEqual([]);
     const rules = { kind: "game" as const, maxPlayers: config.maxPlayers, requires: config.map };
     expect(validateMapConfig(RANGE, rules)).toEqual([]);
@@ -97,14 +97,21 @@ describe("One in the Quiver", () => {
       expect(arrowsOf(a)).toBe(1);
       expect(a.inventory.getItem(ARROW_SLOT)?.amount).toBe(1);
       await ticks(10); // the action bar's next refresh
-      expect(stripColors(a.actionBar)).toContain("+1 arrow");
+      expect(stripColors(a.actionBar)).not.toContain("arrow");
       expect(a.sounds.at(-1)?.id).toBe("random.orb");
       // Each player sees only their own kills, top right: no sidebar.
       expect(a.actionBar.endsWith(countCodes(1))).toBe(true);
       expect(c.actionBar.endsWith(countCodes(0))).toBe(true);
       expect(world.scoreboard.sidebar).toBeUndefined();
 
-      const missed = world.projectileLands(c);
+      // A missed arrow stays while it may still fly on, and goes once it has lain still for 5
+      // seconds, or as soon as a player is close enough to pick it up.
+      const missed = world.projectileLands(c, ARROW, { x: 30, y: 65, z: 30 });
+      const close = world.projectileLands(c, ARROW, { x: 0.5, y: 66, z: 1.5 });
+      await ticks(2);
+      expect(missed.isValid).toBe(true);
+      expect(close.isValid).toBe(false);
+      await ticks(100);
       expect(missed.isValid).toBe(false);
       expect(world.projectileLands(c, "minecraft:snowball").isValid).toBe(true);
 
@@ -249,8 +256,10 @@ describe("respawn points", () => {
       previewed.addFakes(1);
       await ticks(20 + COUNTDOWN_TICKS);
       expect(previewed.phase).toBe("playing");
-      const fake = world.overworld.spawned.find((mob) => mob.isValid && mob.nameTag === "Fake 1");
+      // Its name tag is hidden during the match, as players' are: the game says which body it is.
+      const fake = previewed.body("Fake 1") as FakeMob | undefined;
       expect(fake).toBeDefined();
+      expect(fake?.nameTag).toBe("");
       at(a, 0.5, 0.5);
       fake!.location = { x: 10.5, y: 65, z: 0.5 };
       a.inventory.setItem(ARROW_SLOT, undefined);

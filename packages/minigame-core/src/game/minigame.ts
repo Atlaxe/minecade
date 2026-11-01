@@ -21,7 +21,7 @@ import { describeError, log } from "../log.ts";
 import { facingOf, worldPoint, type MapPosition } from "../map-config.ts";
 import { normalizePlayer } from "../player.ts";
 import type { Scope } from "../scope.ts";
-import { COLOR, deathMessage as formatDeath, nameOf, say } from "../text.ts";
+import { COLOR, deathMessage as formatDeath, nameOf, say, stripColors } from "../text.ts";
 import { showForm } from "../ui.ts";
 import { homePort } from "../vars.ts";
 import { Combat, type CombatHost, type Hit } from "./combat.ts";
@@ -295,6 +295,10 @@ export abstract class Minigame<C extends GameConfig = GameConfig> {
     // for the usual frozen countdown. A countdown that falls through sends them back to it.
     this.queued = this.map.queueSpawn !== undefined;
     this.openPregame(pregame);
+    // A preview starts with the fake players picked before it loaded: they wait like anyone else,
+    // leaving room for everyone the preview expects.
+    const room = this.config.maxPlayers - this.ctx.vars.expectedPlayers.length;
+    if (this.fakes && this.ctx.vars.previewFakes > 0 && room > 0) log.info(stripColors(this.addFakes(Math.min(this.ctx.vars.previewFakes, room))));
     for (;;) {
       if (this.map.queueSpawn && !this.queued) this.requeue(true);
       if (!(await this.waitForPlayers())) {
@@ -472,6 +476,13 @@ export abstract class Minigame<C extends GameConfig = GameConfig> {
     }
     const player = this.player(name);
     if (!player) return;
+    if (this.map.watchesFromQueue) {
+      // No spectator spawn: they wait at the queue spawn on foot, with empty hands, seen but nameless.
+      normalizePlayer(player, GameMode.Adventure);
+      player.nameTag = "";
+      this.place(player, this.map.spectatorSpawn);
+      return;
+    }
     player.setGameMode(GameMode.Spectator);
     this.place(player, this.map.spectatorSpawn);
   }
@@ -554,14 +565,14 @@ export abstract class Minigame<C extends GameConfig = GameConfig> {
     this.respawnAt.delete(name.toLowerCase());
     this.respawnShown.delete(name.toLowerCase());
     if (this.fakes?.has(name)) {
-      this.placeFake(name, this.spawnPoint(name, why), true);
+      this.placeFake(name, this.spawnPoint(name, why), true, this.config.nameTags === true);
       return;
     }
     const player = this.player(name);
     if (!player) return;
     normalizePlayer(player, this.gameMode);
     const team = this.teamOf(name);
-    if (team) player.nameTag = `${team.color}${player.name}`;
+    player.nameTag = this.config.nameTags !== true ? "" : team ? `${team.color}${player.name}` : player.name;
     this.place(player, this.spawnPoint(name, why), true);
     this.kits.give(player, team?.color);
     try {
@@ -810,10 +821,14 @@ export abstract class Minigame<C extends GameConfig = GameConfig> {
     return this.map.spawns[index % Math.max(1, this.map.spawns.length)] ?? [0, 65, 0];
   }
 
-  /** Puts a fake player at a map position (in its team's color), with a body again if it had none, once its chunk is ticking. */
-  private placeFake(name: string, position: MapPosition, faceCenter = false): void {
+  /**
+   * Puts a fake player at a map position, with a body again if it had none, once its chunk is
+   * ticking. Its name shows in its team's color, unless `tagged` is false (a match without name tags).
+   */
+  private placeFake(name: string, position: MapPosition, faceCenter = false, tagged = true): void {
     const team = this.teamOf(name);
-    void this.fakes?.place(name, worldPoint(position), team ? `${team.color}${name}` : name).then((body) => {
+    const tag = !tagged ? "" : team ? `${team.color}${name}` : name;
+    void this.fakes?.place(name, worldPoint(position), tag).then((body) => {
       try {
         if (body?.isValid) this.place(body, position, faceCenter);
       } catch (error) {
@@ -1015,6 +1030,15 @@ export abstract class Minigame<C extends GameConfig = GameConfig> {
       const body = this.body(participant.name);
       if (body && this.map.outOfBounds(body.location)) this.down(participant.name, "void");
     }
+    // Spectators at the queue spawn are on foot: a fall or a walk out of bounds puts them back. Anyone
+    // here who isn't playing counts (late joiners and extras watch too).
+    if (this.map.watchesFromQueue) {
+      for (const player of world.getAllPlayers()) {
+        const state = this.roster.get(player.name)?.state;
+        if ((state === undefined || state === "out" || state === "respawning") && this.map.outOfBounds(player.location)) this.place(player, this.map.spectatorSpawn);
+      }
+      return;
+    }
     // Spectators fly through walls: keep them over the map (kill regions and the gaps between
     // bounds boxes don't apply to them).
     for (const participant of this.roster.inState("out", "respawning")) {
@@ -1174,15 +1198,19 @@ export abstract class Minigame<C extends GameConfig = GameConfig> {
       this.spawn(name, "join");
     }
     if (added.length === 0) return say.minor(`${this.config.name} is full: ${this.config.maxPlayers} players.`);
-    return say.info(`Added ${added.join(", ")}. Right click one to kill it.`);
+    return say.info(`Added ${added.join(", ")}. Right click one to be killed by it.`);
   }
 
-  /** A fake player's confirmed kill: it goes down, credited to `by` when they're its enemy in the match. Returns why not, if it can't. */
-  killFake(name: string, by: string): string | undefined {
+  /**
+   * A fake player kills `victim`, a real player who asked (right click, then confirm): they go
+   * down, credited to the fake when it's their enemy in the match. Returns why not, if it can't.
+   */
+  fakeKills(name: string, victim: string): string | undefined {
     if (this.currentPhase !== "playing") return say.minor("The match hasn't started.");
     if (this.roster.get(name)?.state !== "alive") return say.minor(`${name} isn't in play right now.`);
-    if (this.roster.get(by)?.state === "alive" && !this.areTeammates(by, name)) this.credit.hit(name, by, system.currentTick);
-    this.down(name, "entityAttack");
+    if (this.roster.get(victim)?.state !== "alive") return say.minor("You aren't in play right now.");
+    if (!this.areTeammates(name, victim)) this.credit.hit(victim, name, system.currentTick);
+    this.down(victim, "entityAttack");
     return undefined;
   }
 
@@ -1198,7 +1226,7 @@ export abstract class Minigame<C extends GameConfig = GameConfig> {
     this.ctx.transfer.transfer(player, homePort(this.ctx.vars, player.name));
   }
 
-  /** Right clicking a fake player asks, in the side panel, whether to kill it. */
+  /** Right clicking a fake player asks, in the side panel, whether it should kill you. */
   private watchFakes(fakes: FakePlayers): void {
     this.scope.add(() => fakes.clear());
     this.scope.subscribe(world.afterEvents.playerInteractWithEntity, ({ player, target }) => {
@@ -1212,10 +1240,10 @@ export abstract class Minigame<C extends GameConfig = GameConfig> {
     if (this.confirmOpen.has(key)) return;
     this.confirmOpen.add(key);
     try {
-      const form = new ActionFormData().title(`${SIDE_TITLE}${name}`).button(`${DANGER_BUTTON}Kill ${name}`).button("Cancel");
+      const form = new ActionFormData().title(`${SIDE_TITLE}${name}`).button(`${DANGER_BUTTON}${name} kills you`).button("Cancel");
       const answer = await showForm(this.scope, player, form);
       if (answer?.selection !== 0) return;
-      const why = this.killFake(name, player.name);
+      const why = this.fakeKills(name, player.name);
       if (why && player.isValid) player.sendMessage(why);
     } finally {
       this.confirmOpen.delete(key);

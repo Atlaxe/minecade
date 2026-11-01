@@ -13,11 +13,20 @@ export class MapView {
     return this.config.spawns;
   }
 
+  /** Where spectators go: the spectator spawn, else the queue spawn (see watchesFromQueue), else above the first spawn. */
   get spectatorSpawn(): MapPosition {
-    const spawn = this.config.spectatorSpawn;
+    const spawn = this.config.spectatorSpawn ?? this.config.queueSpawn;
     if (spawn) return [...spawn] as MapPosition;
     const [x, y, z] = this.config.spawns[0] ?? [0, 70, 0];
     return [x, y + 5, z];
+  }
+
+  /**
+   * A map with a queue spawn and no spectator spawn: spectators wait at the queue spawn on foot,
+   * seen but without a name tag, instead of flying over the map.
+   */
+  get watchesFromQueue(): boolean {
+    return this.config.spectatorSpawn === undefined && this.config.queueSpawn !== undefined;
   }
 
   /** Where players wait for everyone to join before the game puts them at their spawns, if the map has one. */

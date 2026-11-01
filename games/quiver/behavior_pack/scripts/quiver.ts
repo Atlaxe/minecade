@@ -2,7 +2,7 @@
 // after a short delay with spawn protection, a kill (and a point) for each credited down, each
 // player's own kills top right beside the clock, and the stats. This class makes arrows lethal, pays an arrow for every kill,
 // removes missed arrows, respawns players away from everyone, and ends the match at the kill target.
-import { EntityComponentTypes, ItemLockMode, ItemStack, system, world, type Player, type Vector3 } from "@minecraft/server";
+import { EntityComponentTypes, ItemLockMode, ItemStack, system, world, type Entity, type Player, type Vector3 } from "@minecraft/server";
 import {
   Minigame,
   deathMessage as killLine,
@@ -26,8 +26,12 @@ export const ARROW_SLOT = 8;
 const MAX_STACK = 64;
 /** Any arrow hit from another player is lethal. */
 const LETHAL = 1000;
-/** How long "+1 arrow" stays on the action bar after a kill. */
-const REWARD_TICKS = 40;
+/** A missed arrow is removed once it has lain still this long (5 seconds)... */
+const STILL_TICKS = 100;
+/** ...or as soon as a player comes this close (blocks from their middle), before they can pick it up. */
+const PICKUP_RANGE = 2.5;
+/** How often missed arrows are checked. */
+const LANDED_CHECK_TICKS = 2;
 /** Kill streaks are announced in chat every this many kills in a row. */
 const STREAK_EVERY = 5;
 /** The share of spawns, safest first, that a respawn picks from at random (at least one). */
@@ -36,8 +40,8 @@ const SAFE_SHARE = 0.3;
 export const ARROW_VERBS = ["shot", "sniped", "skewered", "pinned", "picked off", "tagged"];
 
 export class Quiver extends Minigame<typeof config> {
-  /** When each player last earned an arrow (tick), for the action bar. */
-  private readonly rewardAt = new Map<string, number>();
+  /** Arrows that hit a block, by entity id: where each was last seen, and since when it hasn't moved. */
+  private readonly landed = new Map<string, { arrow: Entity; at: Vector3; stillSince: number }>();
 
   /** The lobby's First to setting, or its first choice. */
   get killTarget(): number {
@@ -46,14 +50,16 @@ export class Quiver extends Minigame<typeof config> {
   }
 
   protected override setup(): void {
-    // A missed arrow is gone: it's removed where it lands, so nobody can pick it up.
+    // A missed arrow is gone once it has lain still for a while, so nobody can pick it up. Not at
+    // once: an arrow that only grazed a block on its way may still reach someone.
     this.scope.subscribe(world.afterEvents.projectileHitBlock, ({ projectile }) => {
       try {
-        if (projectile.typeId === ARROW) projectile.remove();
+        if (projectile.typeId === ARROW) this.landed.set(projectile.id, { arrow: projectile, at: { ...projectile.location }, stillSince: system.currentTick });
       } catch (error) {
-        log.warn(`quiver: could not remove an arrow: ${describeError(error)}`);
+        log.warn(`quiver: could not follow an arrow: ${describeError(error)}`);
       }
     });
+    this.scope.interval(() => this.sweepArrows(), LANDED_CHECK_TICKS);
     // An arrow that reaches a player (or a preview's fake player) kills even when no damage event
     // comes: a hit during the victim's hit cooldown (just after a sword hit) fires none when it's
     // weaker (measured on BDS). When the damage event did come first, its down is already under way
@@ -100,7 +106,6 @@ export class Quiver extends Minigame<typeof config> {
     const shooter = this.player(killer);
     if (shooter && this.roster.get(killer)?.state === "alive") {
       giveArrows(shooter, this.config.arrows.perKill);
-      this.rewardAt.set(killer.toLowerCase(), system.currentTick);
       shooter.playSound("random.orb", { pitch: 1.4, volume: 0.7 });
     }
     const streak = this.stats.get(killer)?.streak ?? 0;
@@ -134,12 +139,32 @@ export class Quiver extends Minigame<typeof config> {
     return pickSpawn(this.map.spawns, enemies, this.ctx.random) ?? super.spawnPoint(name, why);
   }
 
-  protected override hud(name: string): string | undefined {
-    const base = super.hud(name);
-    const earned = this.rewardAt.get(name.toLowerCase());
-    if (earned === undefined || system.currentTick - earned >= REWARD_TICKS) return base;
-    const count = this.config.arrows.perKill;
-    return [say.success(`+${count} arrow${count === 1 ? "" : "s"}`), base].filter(Boolean).join("   ");
+  /** Removes missed arrows that have lain still long enough, or that a player has come close to. */
+  private sweepArrows(): void {
+    if (this.landed.size === 0) return;
+    const players = world.getAllPlayers().map((player) => ({ x: player.location.x, y: player.location.y + 0.9, z: player.location.z }));
+    const now = system.currentTick;
+    for (const [id, landed] of this.landed) {
+      try {
+        if (!landed.arrow.isValid) {
+          this.landed.delete(id);
+          continue;
+        }
+        const at = landed.arrow.location;
+        if (Math.hypot(at.x - landed.at.x, at.y - landed.at.y, at.z - landed.at.z) > 0.01) {
+          landed.at = { ...at };
+          landed.stillSince = now;
+        }
+        const near = players.some((player) => Math.hypot(player.x - at.x, player.y - at.y, player.z - at.z) < PICKUP_RANGE);
+        if (near || now - landed.stillSince >= STILL_TICKS) {
+          landed.arrow.remove();
+          this.landed.delete(id);
+        }
+      } catch (error) {
+        this.landed.delete(id);
+        log.warn(`quiver: could not remove an arrow: ${describeError(error)}`);
+      }
+    }
   }
 
   /** Whole blocks between the killer and the victim, while both are here. */

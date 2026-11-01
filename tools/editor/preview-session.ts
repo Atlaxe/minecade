@@ -45,6 +45,8 @@ export interface PreviewOptions {
   maxPlayers: number;
   /** Who is expected: the game starts as soon as they're all in. */
   players: string[];
+  /** Fake players the match starts with (picked before the preview loads). */
+  fakes: number;
   env: Record<string, string>;
   verbose: boolean;
   note(text: string): void;
@@ -229,6 +231,7 @@ export class PreviewSession {
       EXPECTED_PLAYERS: options.players.join(","),
       MAX_PLAYERS: String(options.maxPlayers),
       PREVIEW: options.label,
+      PREVIEW_FAKES: String(options.fakes),
     };
     return {
       name: options.container,

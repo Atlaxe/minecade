@@ -413,10 +413,12 @@ export class FakeEntity {
   readonly typeId: string;
   readonly id: string;
   isValid = true;
+  location: Vector3;
 
-  constructor(typeId: string) {
+  constructor(typeId: string, location: Vector3 = { x: 0, y: 65, z: 0 }) {
     this.typeId = typeId;
     this.id = String(nextEntityId++);
+    this.location = { ...location };
   }
 
   remove(): void {
@@ -710,8 +712,8 @@ class FakeWorld {
   }
 
   /** A projectile (an arrow by default) sticks in a block: returns it, so a test can see whether it was removed. */
-  projectileLands(source?: FakePlayer, typeId = "minecraft:arrow"): FakeEntity {
-    const projectile = new FakeEntity(typeId);
+  projectileLands(source?: FakePlayer, typeId = "minecraft:arrow", location?: Vector3): FakeEntity {
+    const projectile = new FakeEntity(typeId, location);
     this.afterEvents.projectileHitBlock.emit({ projectile, source });
     return projectile;
   }

@@ -17,7 +17,8 @@
     "propagate_alpha": false,
     "controls": [
       { "mc_title_plain@hud.mc_title_plain": {} },
-      { "mc_mode_box@hud.mc_mode_box": {} }
+      { "mc_mode_box@hud.mc_mode_box": {} },
+      { "mc_snapshot_frame@hud.mc_snapshot_frame": {} }
     ]
   },
 
@@ -35,7 +36,7 @@
       { "binding_name": "#hud_title_text_string", "binding_type": "global" },
       {
         "binding_type": "view",
-        "source_property_name": "((#hud_title_text_string - '§r§m§o§r') = #hud_title_text_string)",
+        "source_property_name": "(((#hud_title_text_string - '§r§m§o§r') = #hud_title_text_string) and ((#hud_title_text_string - '§r§s§n§r') = #hud_title_text_string))",
         "target_property_name": "#visible"
       }
     ],
@@ -164,6 +165,68 @@
           "alpha": "@hud.anim_title_text_alpha_in",
           "bindings": [
             { "binding_name": "#hud_title_text_string", "binding_name_override": "#text", "binding_type": "global" }
+          ]
+        }
+      }
+    ]
+  },
+
+  // Marked §r§s§n§r: the Snapshot's 16:9 frame while a map editor looks through a camera, so they see
+  // what a picture keeps (the host crops a screenshot's middle 16:9). The outer panel is as wide as
+  // the screen and 9/16 of that tall (at most the screen's height); the inner one is 16/9 of its
+  // height wide (at most its width), which is 16:9 on a wide window or a tall one. The rest of the
+  // title shows at the frame's top. F1 hides it with everything else.
+  "mc_snapshot_frame": {
+    "type": "panel",
+    "size": [ "100%", "56.25%x" ],
+    "max_size": [ "100%", "100%" ],
+    "anchor_from": "center",
+    "anchor_to": "center",
+    "layer": 30,
+    "visible": false,
+    "bindings": [
+      { "binding_name": "#hud_title_text_string", "binding_type": "global" },
+      {
+        "binding_type": "view",
+        "source_property_name": "(not ((#hud_title_text_string - '§r§s§n§r') = #hud_title_text_string))",
+        "target_property_name": "#visible"
+      }
+    ],
+    "controls": [
+      {
+        "mc_snapshot_inner": {
+          "type": "panel",
+          "size": [ "177.78%y", "100%" ],
+          "max_size": [ "100%", "100%" ],
+          "anchor_from": "center",
+          "anchor_to": "center",
+          "controls": [
+            {
+              "corners": {
+                "type": "image",
+                "texture": "textures/minecade/editor/snapshot_frame",
+                "size": [ "100% - 8px", "100% - 8px" ],
+                "anchor_from": "center",
+                "anchor_to": "center",
+                "layer": 30
+              }
+            },
+            {
+              "line": {
+                "type": "label",
+                "anchor_from": "top_middle",
+                "anchor_to": "top_middle",
+                "offset": [ 0, 14 ],
+                "color": [ 1.0, 1.0, 1.0 ],
+                "layer": 31,
+                "text": "#text",
+                "shadow": true,
+                "localize": false,
+                "bindings": [
+                  { "binding_name": "#hud_title_text_string", "binding_name_override": "#text", "binding_type": "global" }
+                ]
+              }
+            }
           ]
         }
       }

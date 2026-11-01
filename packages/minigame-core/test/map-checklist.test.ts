@@ -29,10 +29,12 @@ describe("mapChecklist", () => {
   });
 
   it("needs one plain spawn once a map has team spawns", () => {
-    const map: MapConfig = { name: "Arena", spawns: [[0, 65, 0]], teamSpawns: { red: [[1, 65, 0]], blue: [[-1, 65, 0]] } };
+    const map: MapConfig = { name: "Arena", spawns: [[0, 65, 0]], queueSpawn: [0, 70, 20], teamSpawns: { red: [[1, 65, 0]], blue: [[-1, 65, 0]] } };
     const list = mapChecklist(map, { kind: "game", maxPlayers: 8, teams, requires: { teamSpawns: true } });
     expect(list.rows[0]).toMatchObject({ key: "spawns", have: 1, need: 1, done: true });
     expect(list.rows.filter((row) => row.field === "teamSpawns").every((row) => row.done)).toBe(true);
+    // Its queue spawn is where players watch from too.
+    expect(list.rows[1]).toMatchObject({ key: "spectatorOrQueue", have: 1, need: 1, done: true });
     expect(list.ready).toBe(true);
   });
 

@@ -22,13 +22,15 @@ import {
 import { bakeSettings } from "../build/bake-core.ts";
 import { copyDirFromContainer } from "../build/docker-util.ts";
 import { enableBetaApis, patchLevelDat, readLevelDat, writeLevelDat } from "../build/leveldat.ts";
-import { History, newMapConfig, withLineEndings, type EditStatus } from "./editor-core.ts";
+import { History, isMapId, newMapConfig, withLineEndings, type EditStatus } from "./editor-core.ts";
 import type { PreviewMap } from "./preview-template.ts";
 import { gitIn, publishMap, publishMessage, type Git } from "./publish.ts";
 import { findWorld } from "./selections.ts";
 import { RUNTIME_FILES, ServerSession, delay, message, root, type SessionBase } from "./server-session.ts";
-import type { EditorTarget } from "./targets.ts";
-import { saveNewestScreenshot } from "./screenshot.ts";
+import { targetDir, type EditorTarget } from "./targets.ts";
+import { pictureInfo } from "./pictures.ts";
+import { forgetRenames, renamedFrom } from "./renames.ts";
+import { keepNewestScreenshot, useShot, type ShotKind } from "./shots.ts";
 import { readViews, saveView } from "./views.ts";
 import type { World } from "./worlds.ts";
 
@@ -48,9 +50,11 @@ export interface SessionOptions extends SessionBase {
 
 export class EditorSession extends ServerSession {
   /** Preview in the map menu (set by the runner, which runs it). */
-  onPreview: ((by: string) => void) | undefined;
+  onPreview: ((by: string, fakes: number) => void) | undefined;
   /** A map editor asked to delete this map (the gear's Delete map): the runner closes Edit and deletes it. */
   onDelete: ((by: string) => void) | undefined;
+  /** A map editor gave this map another id (Map settings, or a thumbnail imported with its name): the runner reopens it under that id. */
+  onRename: ((by: string, map: string) => void) | undefined;
   private readonly target: EditorTarget;
   private readonly mapId: string;
   private readonly fresh: { name: string } | undefined;
@@ -213,6 +217,7 @@ export class EditorSession extends ServerSession {
       fresh: newWorld,
       ...(this.from ? { from: this.from.name } : {}),
       view: await readViews(root),
+      pictures: await pictureInfo(root, this.target.id, this.mapId),
     };
     await writeFile(join(dir, "editor.json"), JSON.stringify(info));
   }
@@ -245,7 +250,7 @@ export class EditorSession extends ServerSession {
         void this.publish(event.by);
         return;
       case "preview":
-        this.onPreview?.(event.by);
+        this.onPreview?.(event.by, Math.max(0, Math.trunc(event.fakes ?? 0)));
         return;
       case "deleteMap":
         this.onDelete?.(event.by);
@@ -258,6 +263,15 @@ export class EditorSession extends ServerSession {
         return;
       case "picture":
         void this.picture(event.by, event.kind);
+        return;
+      case "thumbnail":
+        void this.thumbnail(event.by, event.kind, event.shot);
+        return;
+      case "importPicture":
+        void this.importPicture(event.by, event.target, event.map);
+        return;
+      case "renameMap":
+        this.onRename?.(event.by, event.map);
         return;
     }
   }
@@ -450,10 +464,13 @@ export class EditorSession extends ServerSession {
       return;
     }
     await this.writing;
-    // A game's picture (the camera's Game picture) goes along when it changed.
+    // A game's picture (the camera's Game picture) goes along when it changed, and so does the
+    // removal of the folder this map had before it got another id.
     const icon = join(this.target.dir, "icon.png");
     const paths = this.target.id !== "lobby" && existsSync(icon) ? [path, relative(root, icon).replaceAll("\\", "/")] : [path];
-    const result = await publishMap(this.git, paths, publishMessage(this.target.name, name, new Date()));
+    const old = await renamedFrom(root, path);
+    const result = await publishMap(this.git, [...paths, ...old], publishMessage(this.target.name, name, new Date()));
+    if (result.outcome === "pushed" && old.length > 0) await forgetRenames(root, path);
     if (result.outcome === "pushed") {
       const commit = result.commit ? ` (commit ${result.commit})` : "";
       const where = this.target.id === "lobby" ? "the Panel's lobby map picker has it" : `it's in ${this.target.name}'s map list in the lobby`;
@@ -474,28 +491,64 @@ export class EditorSession extends ServerSession {
   }
 
   /**
-   * Saves the newest screenshot on this PC (taken in the last few minutes), cropped to 16:9 at
-   * 320x180, as the map's preview.png ("map") or the game's icon.png ("game"): the camera's
-   * picture. Publish commits it. Undefined when it's saved, or why not.
+   * Keeps the newest screenshot on this PC (taken in the last few minutes) with the pictures used
+   * before (shots.ts), cropped to 16:9 at 320x180, and uses it as the map's preview.png ("map") or
+   * the game's icon.png ("game"): the Snapshot's picture. Publish commits it. Undefined when it's
+   * saved, or why not.
    */
-  async picture(by: string, kind: "map" | "game"): Promise<string | undefined> {
-    const tell = (text: string) => void (by === "this PC" ? this.say(text) : this.say(text, by));
-    if (this.target.id === "lobby") {
-      tell("§cThe lobby shows no picture of its own map: pictures are for games' maps.");
-      return "the lobby shows no picture of its own map";
+  async picture(by: string, kind: ShotKind): Promise<string | undefined> {
+    const problem = this.pictureProblem(by);
+    if (problem) return problem;
+    const shot = await keepNewestScreenshot(root, by);
+    if (typeof shot === "string") {
+      this.note(`${by}: no picture saved: ${shot}.`);
+      this.tellOne(by, `§cNo picture saved: ${shot}.`);
+      return shot;
     }
+    const ago = Math.max(1, Math.round((Date.now() - shot.takenAt) / 1000));
+    return this.thumbnail(by, kind, shot.id, `from your screenshot of ${ago} s ago (${basename(shot.from)})`);
+  }
+
+  /** Uses a picture used before (a shot's id) as the map's preview or the game's picture. Undefined when it's saved, or why not. */
+  async thumbnail(by: string, kind: ShotKind, id: string, from = "from the pictures used before"): Promise<string | undefined> {
+    const problem = this.pictureProblem(by);
+    if (problem) return problem;
     const out = kind === "map" ? join(this.mapDir, "preview.png") : join(this.target.dir, "icon.png");
-    const what = kind === "map" ? `${this.config.name}'s preview` : `${this.target.name}'s picture`;
-    const result = await saveNewestScreenshot(out);
-    if (typeof result === "string") {
-      this.note(`${by}: no picture saved: ${result}.`);
-      tell(`§cNo picture saved: ${result}.`);
-      return result;
+    const use = { target: this.target.id, targetName: this.target.name, map: this.mapId, mapName: this.config.name, kind, at: Date.now() };
+    const failed = await useShot(root, id, out, use).catch((error: unknown) => message(error));
+    if (failed) {
+      this.tellOne(by, `§cNo picture saved: ${failed}.`);
+      return failed;
     }
-    const file = relative(root, out).replaceAll("\\", "/");
-    this.note(`${by}: saved ${file} (320x180) from ${result.from}.`);
-    tell(`§aSaved ${what} from your screenshot of ${Math.max(1, Math.round(result.ageMs / 1000))} s ago (${basename(result.from)}). Publish puts it in the lobby.`);
+    const what = kind === "map" ? `${this.config.name}'s thumbnail` : `${this.target.name}'s thumbnail`;
+    this.note(`${by}: saved ${relative(root, out).replaceAll("\\", "/")} (320x180) ${from}.`);
+    this.tellOne(by, `§aSaved ${what} ${from}. Publish puts it in the lobby.`);
     return undefined;
+  }
+
+  /** Uses another map's preview picture as this map's (the thumbnail menu's import). */
+  private async importPicture(by: string, targetId: string, mapId: string): Promise<void> {
+    if (this.pictureProblem(by)) return;
+    const picture = join(targetDir(root, targetId), "maps", mapId, "preview.png");
+    if (!isMapId(mapId) || !existsSync(picture)) {
+      this.tellOne(by, "§cThat map has no picture any more.");
+      return;
+    }
+    await cp(picture, join(this.mapDir, "preview.png"));
+    this.note(`${by}: copied ${targetId}/${mapId}'s preview.png to ${this.target.id}/${this.mapId}.`);
+    this.tellOne(by, `§aSaved ${this.config.name}'s thumbnail from ${mapId}'s. Publish puts it in the lobby.`);
+  }
+
+  /** Why no picture can be saved here: a lobby map shows none. */
+  private pictureProblem(by: string): string | undefined {
+    if (this.target.id !== "lobby") return undefined;
+    this.tellOne(by, "§cThe lobby shows no picture of its own map: pictures are for games' maps.");
+    return "the lobby shows no picture of its own map";
+  }
+
+  /** A chat line for the player who asked (everyone, when it was this PC). */
+  private tellOne(by: string, text: string): void {
+    void (by === "this PC" ? this.say(text) : this.say(text, by));
   }
 
   /**

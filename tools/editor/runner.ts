@@ -7,7 +7,7 @@
 // whatever runs on Select's port (Select, or a preview), never Edit: they're moved on to that as
 // soon as it's ready. Extractions (selections.ts) run in the background and outlive the servers.
 import { existsSync } from "node:fs";
-import { readFile } from "node:fs/promises";
+import { readFile, rename } from "node:fs/promises";
 import { join, relative } from "node:path";
 import {
   chatMapName,
@@ -23,11 +23,12 @@ import {
 } from "@minecade/minigame-core/config";
 import { connectDocker } from "../build/docker-util.ts";
 import { readEnv } from "../control-panel/core.ts";
-import { buildCatalog, forgetRecent, mapLabel, noteRecent, requestedWorld, worldId } from "./catalog.ts";
+import { buildCatalog, forgetRecent, mapLabel, noteRecent, renameRecent, requestedWorld, worldId } from "./catalog.ts";
 import { SLOTS, editorPlayers, isMapId, planOpen, portHolders, type EditorStatus, type Slot, type SlotId } from "./editor-core.ts";
 import { addGuest, readGuests, removeGuest, writeGuests } from "./guests.ts";
 import { HomeSession } from "./home-session.ts";
 import { PreviewSession } from "./preview-session.ts";
+import { noteRename } from "./renames.ts";
 import type { PreviewMap } from "./preview-template.ts";
 import { deleteMapFolder, deleteMessage, gitIn, type Git } from "./publish.ts";
 import { SelectSession } from "./select-session.ts";
@@ -64,6 +65,8 @@ interface PreviewPlan {
   recent: RecentEntry;
   /** Edit (the map menu's Preview, or the Panel's), or the editor lobby (a preview card in Recent). */
   from: "edit" | "home";
+  /** Fake players the match starts with. */
+  fakes: number;
 }
 
 export interface RunnerOptions {
@@ -200,7 +203,7 @@ export class EditorRunner {
    * Plays the map open in Edit as its game on Select's port (from a player there, or this PC), then
    * brings everyone back. Answers at once: undefined when it's under way, or why it can't be.
    */
-  preview(by: string): string | undefined {
+  preview(by: string, fakes = 0): string | undefined {
     const problem = this.isGuest(by) ? "only map editors can start a preview" : this.previewProblem();
     if (problem) {
       this.log(`${by}: can't preview: ${problem}`);
@@ -209,7 +212,7 @@ export class EditorRunner {
     }
     this.previewAsked = true;
     this.queues.select = this.queues.select
-      .then(() => this.runPreview(by))
+      .then(() => this.runPreview(by, fakes))
       .catch((error: unknown) => this.log(`The preview went wrong: ${message(error)}`))
       .finally(() => (this.previewAsked = false));
     return undefined;
@@ -388,8 +391,9 @@ export class EditorRunner {
     session.onOpen = (request, who) => void this.request(who, request);
     session.onInvite = (name, on, who) => void this.invite(who, name, on);
     if (session instanceof EditorSession) {
-      session.onPreview = (who) => void this.preview(who);
+      session.onPreview = (who, fakes) => void this.preview(who, fakes);
       session.onDelete = (who) => this.deleteMap(who, session);
+      session.onRename = (who, map) => this.renameMap(who, session, map);
     }
     session.onPlayer = (name, kind) => this.joined(session, name, kind);
     session.onEnd = (ok) => {
@@ -465,6 +469,65 @@ export class EditorRunner {
       });
   }
 
+  /**
+   * Gives the map open in Edit another map id (Map settings' Map id, or a picture imported with its
+   * map's name): everyone there waits in the editor lobby, Edit saves and stops, the folder moves
+   * (a published map's old folder goes with its next Publish), Select's lists and Recent follow,
+   * and the map opens again under its new id with everyone back.
+   */
+  private renameMap(by: string, edit: EditorSession, to: string): void {
+    if (this.isGuest(by) || this.work.edit !== edit) return;
+    if (this.previewing || this.previewAsked) {
+      void this.tell(by, "§cEnd the preview first: it may be playing this map.");
+      return;
+    }
+    const { target, targetName, map, mapName } = edit.status();
+    if (to === map) return;
+    const dir = targetDir(this.root, target);
+    if (!isMapId(to)) {
+      void this.tell(by, `§c"${to}" is not a map id: use lower case letters, digits, _ and -.`);
+      return;
+    }
+    if (existsSync(join(dir, "maps", to))) {
+      void this.tell(by, `§c${targetName} has a map "${to}" already: pick another id.`);
+      return;
+    }
+    const label = mapLabel(targetName, mapName, to);
+    this.log(`${by}: ${map} becomes ${to} (${targetName})`);
+    this.queues.edit = this.queues.edit
+      .then(async () => {
+        if (this.work.edit !== edit) return;
+        const players = edit.online();
+        if (edit.status().unsaved && !(await edit.save(by))) {
+          void this.tell(by, "§cThe map id didn't change: the world didn't save.");
+          return;
+        }
+        for (const name of players) this.waiting.set(name.toLowerCase(), { name, slot: "edit", label });
+        await edit.say(`${by} is giving ${chatMapName(targetName, mapName)} the map id ${to}: wait in the editor lobby, and you'll be back when it's ready.`);
+        if (players.length > 0) {
+          await edit.goto(players, this.slots.home.port, "the editor lobby");
+          await delay(LEAVE_MS);
+        }
+        this.setWork("edit", undefined);
+        this.opened.delete("edit");
+        this.homeChanged();
+        await edit.stop();
+        const from = relative(this.root, join(dir, "maps", map)).replaceAll("\\", "/");
+        const next = relative(this.root, join(dir, "maps", to)).replaceAll("\\", "/");
+        const tracked = await (this.git ?? gitIn(this.root))(["ls-files", "--", from], 30_000);
+        await rename(join(dir, "maps", map), join(dir, "maps", to));
+        if (tracked.code === 0 && tracked.out) await noteRename(this.root, from, next);
+        await this.selections.renameMap(target, map, to, mapName);
+        await renameRecent(this.root, target, map, to);
+        this.log(`Moved ${from} to ${next}${tracked.out ? ": its next Publish removes the old folder" : ""}.`);
+        this.queues.edit = this.queues.edit.then(async () => this.launch(by, await this.editLaunch({ to: "edit", target, map: to })));
+      })
+      .catch((error: unknown) => {
+        this.log(`Renaming ${map} went wrong: ${message(error)}`);
+        void this.tell(by, `§cGiving it the map id ${to} went wrong: ${message(error)}`);
+      });
+  }
+
   // ---- Preview --------------------------------------------------------------------------------
 
   /** Why no preview can start now (the editor isn't ready, or one runs); `asked` leaves out the one that was just asked for. */
@@ -486,7 +549,7 @@ export class EditorRunner {
   }
 
   /** Saves Edit's world, then plays the map open there, moving everyone in Edit to it. */
-  private async runPreview(by: string): Promise<void> {
+  private async runPreview(by: string, fakes: number): Promise<void> {
     const edit = this.work.edit;
     if (!edit || this.previewProblem(true)) return;
     const source = edit.previewSource();
@@ -502,7 +565,7 @@ export class EditorRunner {
       return;
     }
     const recent: RecentEntry = { request: { to: "preview", target: status.target, map: status.map }, label: mapLabel(status.targetName, status.mapName, status.map) };
-    await this.playPreview(by, { source, recent, from: "edit" });
+    await this.playPreview(by, { source, recent, from: "edit", fakes });
   }
 
   /**
@@ -556,6 +619,7 @@ export class EditorRunner {
       source: { map: { game: target.id, mapId: request.map, mapDir, config }, label: `${target.name}: ${name}`, maxPlayers: target.rules.maxPlayers ?? 1 },
       recent: { request: { to: "preview", target: target.id, map: request.map }, label: mapLabel(target.name, name, request.map) },
       from: "home",
+      fakes: request.fakes ?? 0,
     };
   }
 
@@ -579,6 +643,7 @@ export class EditorRunner {
       label: source.label,
       maxPlayers: source.maxPlayers + 1,
       players: [...(from === "edit" ? (this.work.edit?.online() ?? []) : asked), ...guests],
+      fakes: plan.fakes,
       env,
       verbose: this.verbose,
       note: (text) => this.log(text),
@@ -846,7 +911,7 @@ export class EditorRunner {
         if (!here) continue;
         text = `§c${name} failed: ${info.error ?? "see the editor's log"}`;
       } else {
-        text = `§a${name} is ready: ${here ? `Edit ${info.map} in the map menu loads it.` : `open it from the editor lobby (Open a map, ${info.targetName}).`}`;
+        text = `§a${name} is ready: ${here ? `Edit ${info.map} in the map menu loads it.` : `open it from the editor lobby (Search, ${info.targetName}).`}`;
       }
       for (const player of session.online()) await session.say(text, player);
       if (info.status === "ready") await session.send({ t: "notice", text: `§a${info.name} is ready to load in Edit` });

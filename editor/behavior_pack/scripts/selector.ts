@@ -1,6 +1,6 @@
 // Select mode in game: map editors box maps in a copy of a converted world. The Select tool (always
-// in slot 1) picks a box the way the region tool does (hit a block to start, use on blocks to grow,
-// use at the sky for its form), and Export to Map sends it to the host
+// in slot 1) picks a box the way the region tool does (hit a block to start, use on blocks to grow;
+// the map menu exports it), and Export to Map sends it to the host
 // (tools/editor/select-session.ts), which cuts it out and moves it to the middle in the background.
 // The maps from this world and how each is going arrive as "selection" messages; the map menu
 // lists them, and a ready one can be edited (it opens on the Edit server, and the host moves the
@@ -24,7 +24,6 @@ import { iconsTitle, sideTitle } from "./marks.ts";
 import {
   SELECT_HELP,
   editBody,
-  exportEntries,
   mapActions,
   mapIdFrom,
   selectMenuEntries,
@@ -37,7 +36,7 @@ import {
 } from "./menu.ts";
 import { Outlines } from "./outlines.ts";
 import { PlayersMenu, isMapEditor } from "./players.ts";
-import { onReset } from "./commands.ts";
+import { onReset, zoomOnEmptyHand } from "./commands.ts";
 import { BOUNDS_COLOR, KILL_COLOR, type Rgb } from "./regions.ts";
 import { actionBar, heldTool, hintBar, notice } from "./tool-host.ts";
 import { SELECT_TOOL } from "./tools.ts";
@@ -102,6 +101,8 @@ export class Selector {
     const scope = this.scope;
     world.gameRules.doWeatherCycle = false;
     world.gameRules.doMobSpawning = false;
+    // A converted world's command blocks could clear the Select tool or change game modes.
+    world.gameRules.commandBlocksEnabled = false;
     scope.subscribe(world.afterEvents.playerSpawn, ({ player, initialSpawn }) => {
       if (initialSpawn) scope.defer(() => this.welcome(player));
     });
@@ -129,6 +130,7 @@ export class Selector {
     scope.subscribeBefore(world.beforeEvents.playerInteractWithBlock, (event) => {
       if (!event.itemStack || !ITEMS.has(event.itemStack.typeId)) event.cancel = true;
     });
+    zoomOnEmptyHand(scope);
     scope.interval(() => this.hints(), HINT_TICKS);
     scope.interval(() => this.checkItems(), ITEMS_TICKS);
     onReset((player) => this.reset(player));
@@ -235,7 +237,7 @@ export class Selector {
       hintBar(
         player,
         selection
-          ? `Selection ${sizeText(selection.box)}   Use on a block: grow   Use at the sky: export   Hit: new box`
+          ? `Selection ${sizeText(selection.box)}   Use on a block: grow   Hit: new box   Export: map menu`
           : "Select tool: hit a block to start a box around a map",
       );
     }
@@ -320,48 +322,36 @@ export class Selector {
 
   // ---- Export to Map ------------------------------------------------------------------------
 
-  /** Export to Map: Name, Map id, what it's for, then Export (green). Each pick reopens it; the back arrow goes back. */
+  /**
+   * Export to Map, in the side panel: the Name box, the Map id box once there's a name (filled in
+   * from it), what it's for, and Export to Map (green). A first name opens it again with the Map id,
+   * which follows the name until it's typed over.
+   */
   private async exportMenu(player: Player, selection: Picking): Promise<void> {
     const key = keyOf(player);
     const targets = this.info.targets;
     const draft = this.drafts.get(key) ?? { name: "", target: targets[0]?.id ?? "lobby" };
     this.drafts.set(key, draft);
-    const entries = exportEntries(draft, targets);
-    const form = new ActionFormData().title(sideTitle("Export to Map"));
-    for (const entry of entries) form.button(entry.text, entry.icon);
+    const named = draft.name !== "";
+    const shownId = draft.map ?? mapIdFrom(draft.name);
+    const form = new ModalFormData().title(sideTitle("Export to Map")).textField("Name", "Castle", { defaultValue: draft.name });
+    if (named) form.textField("Map id", "castle", { defaultValue: shownId });
+    form.dropdown("For", targets.map((target) => target.name), { defaultValueIndex: Math.max(0, targets.findIndex((target) => target.id === draft.target)) });
+    form.submitButton(named ? "Export to Map" : "Next");
     const response = await this.show(player, form);
-    const action = response?.selection === undefined ? undefined : entries[response.selection]?.action;
-    if (!action || !player.isValid || this.selections.get(key) !== selection) return;
-    switch (action.kind) {
-      case "name": {
-        const name = await this.typed(player, "Name", "Castle", draft.name);
-        if (name !== undefined) draft.name = name;
-        break;
-      }
-      case "id": {
-        const id = await this.typed(player, "Map id (empty: from the name)", mapIdFrom(draft.name) || "castle", draft.map ?? "");
-        if (id !== undefined) draft.map = id || undefined;
-        break;
-      }
-      case "target":
-        draft.target = action.target;
-        break;
-      case "back":
-        return this.menu(player);
-      case "export": {
-        const exported = this.export(player, selection, draft);
-        if (exported) return this.waitForExport(player, exported.target, exported.map);
-        break;
-      }
-    }
+    if (!response?.formValues || !player.isValid || this.selections.get(key) !== selection) return;
+    const values = response.formValues;
+    const name = String(values[0] ?? "").trim();
+    const typedId = named ? String(values[1] ?? "").trim() : "";
+    draft.target = targets[Number(values[named ? 2 : 1])]?.id ?? draft.target;
+    // Left as it was shown (or emptied), the id is still the name's.
+    draft.map = typedId === "" || (typedId === shownId && draft.map === undefined) ? undefined : typedId;
+    draft.name = name;
+    if (!name) tell(player, "§cThe map needs a name.");
+    if (!name || !named) return this.exportMenu(player, selection);
+    const exported = this.export(player, selection, draft);
+    if (exported) return this.waitForExport(player, exported.target, exported.map);
     return this.exportMenu(player, selection);
-  }
-
-  /** A small text box for one field; the text typed (trimmed), or undefined when closed. */
-  private async typed(player: Player, label: string, placeholder: string, value: string): Promise<string | undefined> {
-    const form = new ModalFormData().title(sideTitle(label)).textField(label, placeholder, { defaultValue: value }).submitButton("Done");
-    const response = await this.show(player, form);
-    return response?.formValues ? String(response.formValues[0] ?? "").trim() : undefined;
   }
 
   /** Sends the export to the host; what it exported, or undefined (and why) when it can't go yet. */

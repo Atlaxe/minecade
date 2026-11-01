@@ -123,10 +123,13 @@ before that ("Locating server", downloading packs) are the player's own and stay
 map editor's map menu). Vanilla marks a locked item three ways, and the core pack removes all
 three: the red or yellow corner on its slot (`textures/ui/item_lock_red` and `item_lock_yellow`
 are blank), the lines under its name in the hotbar and the inventory ("Can't Move Items can't be:
-moved, dropped, removed, crafted with", "This item is not lost on death": blank in
-`texts/en_US.lang`), and "Can't move item" above the hotbar when one is moved
-(`common.item_lock_notification` is hidden in `ui/ui_common.json`). A game never needs to do
-anything for this: lock items as usual (`lockMode`, `keepOnDeath`).
+moved, dropped, removed, crafted with", "This item is not lost on death"), and "Can't move item"
+above the hotbar when one is moved (`common.item_lock_notification` is hidden in
+`ui/ui_common.json`). The lines are a reset code (`§r`) in `texts/en_US.lang` and `en_GB.lang`,
+which draws nothing: blank values didn't take in the client (it kept vanilla's text). The item's
+name above the hotbar (`hud.item_name_text_root` in `ui/hud_screen.json`) shows only its first line
+too, so the box stays one line tall whatever the lines say. A game never needs to do anything for
+this: lock items as usual (`lockMode`, `keepOnDeath`).
 
 ## The lobby terminal
 
@@ -384,16 +387,31 @@ The rules every editor menu follows (the user's, from 2026-10-31):
   center already shows (the map, the game) isn't repeated. Status that changes (a card's "open:
   Friend", "failed") stays visible, on a taller button (`MARK.twoLine`).
 - **Buttons** use the game's regular font (only titles use Minecraft Ten), one line, 22 pixels tall.
-- **Icon rows** for actions that fit an icon (Players, Back one step, Open a map), with tooltips.
-- **Toggles** (one choice of several: the lobby's Recent filter, a spawn's list, what a selection
-  is saved as) are tiles touching in a row, the one that's on green.
-- **Tool screens:** what a tool sets up (a spawn, a selection, kill Y, a camera) opens in its own
-  side screen, the way hitting a marker does: a toggle first, then its settings, nudge rows (a
-  minus and a plus each), and a green button pinned at the bottom that saves it. Closing it keeps
-  nothing.
+- **Icon rows** for actions that fit an icon (Players, Back one step, New map), with tooltips.
+- **Toggles** (one choice of several: a spawn's list, what a selection is saved as, how many fake
+  players) are tiles touching in a row, the one that's on green.
+- **Tool screens:** what a tool sets up (a spawn, a selection, kill Y) opens in its own side screen,
+  the way hitting a marker does: a toggle first, then its settings, nudge rows (a minus and a plus
+  each), and a green button pinned at the bottom that saves it. Closing it keeps nothing.
+- **No tool opens a menu at the sky:** menus open from the map menu, or from a tool aimed at a block
+  (the Spawn tool). A tool used at the sky does nothing, or acts at once (the Kill Y tool sets kill
+  Y, the Camera tool places a camera).
+- **Cards** (the editor lobby's maps): the title on the left and a row of icons on the right, each
+  with a tooltip, faded (`MARK.dim`) when that step isn't done yet. The title isn't a button. Built
+  like the tool grid: a column of titles (`MARK.cardTitle`) and one column per icon
+  (`MARK.cardIcon` with `CARD_COLUMNS`), a card's buttons one after another so the rows line up.
+  A heading row over them (`MARK.cardHead`) can carry a link with an icon on its right
+  (`MARK.cardLink`: Search).
+- **Picture tiles** (the thumbnail menus): two to a row (`MARK.picture`), the button's icon as a
+  16:9 picture with its name under it, outlined green (`picked_green`) while it's the one in use.
+  The pictures are in the editor's pack (`tools/editor/pictures.ts`), so new ones show from the next
+  server start.
 - **Back to Lobby** is an icon (a house) at the right end of the icon row of every menu that can
-  leave for the editor lobby. A sub-menu (Nudge sides, Export to Map) has a back arrow left of its
-  title, opposite the X.
+  leave for the editor lobby. A sub-menu (Nudge sides, the Snapshot, a thumbnail menu) has a back
+  arrow left of its title, opposite the X, drawn like the X: a bare white arrow with no face,
+  lighter when hovered (`back_default`, `_hover`, `_pressed`). A side menu with text boxes (Export
+  to Map, Name and game settings) has no back arrow: a form with fields has one button, the green
+  one at the bottom, so it can't hear another; the X closes it.
 - **Step** (how far a nudge moves) is a toggle too, right before the nudge rows.
 - **Loading:** whoever waits for another server sees the loading screen (the dots) until they're
   moved, wherever they are: the host tells the server (`loading`, `loaded`).

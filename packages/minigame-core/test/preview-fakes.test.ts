@@ -1,5 +1,5 @@
 // A game previewed from the map editor: fake players (/fake) wait, spawn and go down like players,
-// right clicking one asks to kill it, and /exit ends the preview for a map editor (a guest just
+// right clicking one asks whether it should kill you, and /exit ends the preview for a map editor (a guest just
 // leaves). Outside previews there are no fake players.
 import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import type { GameConfig } from "../src/config.ts";
@@ -35,12 +35,16 @@ function preview(names: string[], config: GameConfig, guests: string[] = []) {
   const context = harness.context(names);
   context.vars.preview = "FFA: Arena";
   context.vars.lanPlayers = names.filter((name) => !guests.includes(name));
-  return { players, baseline, game: new TestGame(context, config) };
+  current = new TestGame(context, config);
+  return { players, baseline, game: current };
 }
 
-/** A fake player's body now (the newest one spawned under that name). */
+/** The game the test is previewing. */
+let current: Minigame | undefined;
+
+/** A fake player's body now (its name tag is hidden during a match, so the game says which it is). */
 function bodyOf(name: string): FakeMob | undefined {
-  return world.overworld.spawned.filter((mob) => mob.typeId === FAKE_PLAYER && mob.isValid && stripColors(mob.nameTag) === name).at(-1);
+  return current?.body(name) as FakeMob | undefined;
 }
 
 describe("fake players in a preview", () => {
@@ -55,9 +59,13 @@ describe("fake players in a preview", () => {
       // They wait at spawns of their own: the player has the first.
       expect(bodyOf("Fake 1")?.location).toEqual({ x: 4.5, y: 65, z: 0.5 });
       expect(bodyOf("Fake 2")?.location).toEqual({ x: -3.5, y: 65, z: 0.5 });
+      expect(stripColors(bodyOf("Fake 2")?.nameTag ?? "")).toBe("Fake 2");
       await ticks(20 + COUNTDOWN_TICKS);
       expect(game.phase).toBe("playing");
       expect(game.roster.all().map((participant) => participant.name)).toEqual(["A", "Fake 1", "Fake 2"]);
+      // Name tags are hidden during a match (the game doesn't ask for them), fakes' as well as players'.
+      expect(bodyOf("Fake 2")?.nameTag).toBe("");
+      expect(players[0].nameTag).toBe("");
 
       // A sword kill: the hit is intercepted like a player's, and the fake is out (no respawns).
       const fake1 = bodyOf("Fake 1");
@@ -68,19 +76,22 @@ describe("fake players in a preview", () => {
       expect(game.roster.get("Fake 1")?.state).toBe("out");
       expect(stripColors(world.chat.at(-1) ?? "")).toMatch(/^Fake 1 .* A$/);
 
-      // Right click: the side panel asks first. Cancel keeps it; Kill takes it down.
+      // Right click: the side panel asks first. Cancel leaves everyone be; confirming lets the fake
+      // kill the player, credited to it.
       queueFormResponses({ canceled: false, selection: 1 });
       world.afterEvents.playerInteractWithEntity.emit({ player: a, target: bodyOf("Fake 2")! });
       await ticks(2);
       expect(shownForms.at(-1)?.titleText).toBe(`${SIDE_TITLE}Fake 2`);
-      expect(shownForms.at(-1)?.buttons).toEqual([`${DANGER_BUTTON}Kill Fake 2`, "Cancel"]);
-      expect(game.roster.get("Fake 2")?.state).toBe("alive");
+      expect(shownForms.at(-1)?.buttons).toEqual([`${DANGER_BUTTON}Fake 2 kills you`, "Cancel"]);
+      expect(game.roster.get("A")?.state).toBe("alive");
       queueFormResponses({ canceled: false, selection: 0 });
       world.afterEvents.playerInteractWithEntity.emit({ player: a, target: bodyOf("Fake 2")! });
       await ticks(2);
-      expect(game.roster.get("Fake 2")?.state).toBe("out");
+      expect(game.roster.get("A")?.state).toBe("out");
+      expect(game.roster.get("Fake 2")?.state).toBe("alive");
+      expect(world.chat.map(stripColors)).toContainEqual(expect.stringMatching(/^A .* Fake 2$/));
     });
-    expect(result).toMatchObject({ kind: "win", players: ["A"] });
+    expect(result).toMatchObject({ kind: "win", players: ["Fake 2"] });
     // Nothing is left of them once the match is over.
     expect(world.overworld.spawned.filter((mob) => mob.isValid)).toEqual([]);
     expect(world.tickingAreaManager.areas.size).toBe(0);
@@ -122,6 +133,19 @@ describe("fake players in a preview", () => {
       game.exitPreview(guest as never);
       expect(transfers.map((transfer) => transfer.player)).toEqual(["Guest"]);
       expect(game.phase).toBe("playing");
+    });
+    expectBaseline(harness.root, baseline);
+  });
+
+  it("start with the match when picked before the preview loaded, leaving room for everyone expected", async () => {
+    const { baseline, game } = preview(["A", "B"], { ...FFA, win: "custom", timeLimitSeconds: 0 });
+    game.ctx.vars.previewFakes = 5;
+    await playToEnd(game, harness.root, baseline, async () => {
+      await ticks(2);
+      // FFA takes 4 and the preview expects A and B: room for 2 of the 5.
+      expect(game.roster.all().length === 0 && ["Fake 1", "Fake 2"].every((name) => bodyOf(name) !== undefined)).toBe(true);
+      expect(bodyOf("Fake 3")).toBeUndefined();
+      game.abort();
     });
     expectBaseline(harness.root, baseline);
   });

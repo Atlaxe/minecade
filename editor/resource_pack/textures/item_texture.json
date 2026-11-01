@@ -7,6 +7,7 @@
     "minecade_region_tool": { "textures": "textures/items/region_tool" },
     "minecade_kill_y_tool": { "textures": "textures/items/kill_y_tool" },
     "minecade_camera_tool": { "textures": "textures/items/camera_tool" },
+    "minecade_snapshot": { "textures": "textures/items/snapshot" },
     "minecade_select_tool": { "textures": "textures/items/select_tool" }
   }
 }

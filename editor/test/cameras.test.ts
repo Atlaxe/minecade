@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { MapConfig } from "@minecade/minigame-core/config";
-import { cameraActions, cameraAt, cameraMarkers, camerasOf, cameraText, nextCameraName } from "../behavior_pack/scripts/cameras.ts";
+import { cameraActions, cameraAt, cameraMarkers, camerasOf, cameraText, nextCameraName, nudgeCamera } from "../behavior_pack/scripts/cameras.ts";
 import { MARKER_KINDS, MARKER_STYLES } from "../behavior_pack/scripts/lists.ts";
 import { MARK, dangerText } from "../behavior_pack/scripts/marks.ts";
 import { cameraSettings } from "../behavior_pack/scripts/menu.ts";
@@ -44,14 +44,24 @@ describe("cameras", () => {
     });
   });
 
-  it("describes a camera, and offers its actions (no picture on a lobby map)", () => {
+  it("describes a camera, and offers only its kind and Delete (the Snapshot takes its picture)", () => {
     expect(cameraText(map.cameras!["Camera 2"])).toBe("Map preview at 3.3 70.6 -14, looking south, 25 degrees down");
     expect(cameraText({ at: [0, 90, 0, 90, -10], kind: "game" })).toBe("Game picture at 0 90 0, looking west, 10 degrees up");
-    expect(cameraActions(map.cameras!["Camera 2"], false).map((entry) => entry.action)).toEqual(["look", "picture", "aim", "kind", "delete"]);
-    expect(cameraActions(map.cameras!["Camera 2"], true).map((entry) => entry.action)).toEqual(["look", "aim", "kind", "delete"]);
-    expect(cameraActions(map.cameras!["Camera 10"], false)[1].text).toBe("Use my newest screenshot\n§7as the game's picture");
-    expect(cameraActions(map.cameras!["Camera 10"], false)[3].text).toContain(MARK.on);
-    expect(cameraActions(map.cameras!["Camera 2"], false).at(-1)?.text).toBe(dangerText("Delete"));
+    expect(cameraActions(map.cameras!["Camera 2"]).map((entry) => entry.action)).toEqual(["kind", "delete"]);
+    expect(cameraActions(map.cameras!["Camera 10"])[0].text).toContain(MARK.on);
+    expect(cameraActions(map.cameras!["Camera 2"])[0].text).not.toContain(MARK.on);
+    expect(cameraActions(map.cameras!["Camera 2"]).at(-1)?.text).toBe(dangerText("Delete"));
+  });
+
+  it("nudges a camera along an axis, turns it round past 180, and tilts it no further than straight up or down", () => {
+    const camera = { at: [3.25, 70.6, -14, 175, 85] as [number, number, number, number, number], kind: "map" as const };
+    expect(nudgeCamera(camera, { axis: 1, by: 0.1 }).at).toEqual([3.25, 70.7, -14, 175, 85]);
+    expect(nudgeCamera(camera, { axis: 0, by: -2 }).at).toEqual([1.25, 70.6, -14, 175, 85]);
+    expect(nudgeCamera(camera, { turn: 15 }).at[3]).toBe(-170);
+    expect(nudgeCamera({ ...camera, at: [0, 0, 0, -175, 0] }, { turn: -15 }).at[3]).toBe(170);
+    expect(nudgeCamera(camera, { tilt: 15 }).at[4]).toBe(90);
+    expect(nudgeCamera(camera, { tilt: -5 }).at[4]).toBe(80);
+    expect(nudgeCamera(camera, { tilt: 1 }).kind).toBe("map");
   });
 
   it("has the tool's settings: the kind for new cameras, then each camera", () => {

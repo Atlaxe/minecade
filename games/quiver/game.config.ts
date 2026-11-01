@@ -35,8 +35,9 @@ export default defineGame({
   },
   options: [{ id: "target", label: "First to", values: KILL_TARGETS.map((kills) => ({ value: String(kills), label: `${kills} kills` })) }],
   // More spawns than players, so a respawn can always land away from everyone. Respawning players
-  // watch from the spectator spawn for the 2 second delay.
-  map: { spawns: { min: 10 }, spectatorSpawn: true, killY: true },
+  // watch from the spectator spawn for the 2 second delay, or from the queue spawn when the map has
+  // no spectator spawn (core's default: one or the other).
+  map: { spawns: { min: 10 }, killY: true },
   stats: {
     mode: "solo",
     pvp: true,

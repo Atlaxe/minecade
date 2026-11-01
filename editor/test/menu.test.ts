@@ -3,23 +3,28 @@ import { describe, expect, it } from "vitest";
 import { mapChecklist, stripColors, type HomeState, type MapConfig } from "@minecade/minigame-core/config";
 import { DANGER_BUTTON, SIDE_TITLE } from "../../packages/minigame-core/src/game/preview.ts";
 import { spawnLists } from "../behavior_pack/scripts/lists.ts";
-import { COLUMNS, LAYOUT, LOADING, MARK, SEGMENT_COLUMNS, dangerText, goText, headingText, homeTitle, iconsTitle, linkText, loadingTitle, mapTitle, saveBarText, segmentText, sideTitle, stepTileText, switchText } from "../behavior_pack/scripts/marks.ts";
+import { CARD_COLUMNS, COLUMNS, LAYOUT, LOADING, MARK, SEGMENT_COLUMNS, cardIconText, cardTitleText, dangerText, goText, headingText, homeTitle, iconsTitle, linkText, loadingTitle, mapTitle, pictureText, saveBarText, segmentText, sideTitle, stepTileText, switchText } from "../behavior_pack/scripts/marks.ts";
 import {
   BACK_TEXT,
   ICONS,
   LOBBY_TEXT,
   PLAYERS_TEXT,
-  RECENT_KINDS,
+  SNAPSHOT_STEPS,
   SELECT_HELP,
   boundaryEntries,
   editBody,
-  exportEntries,
   facingLine,
   gearEntries,
   nudgeEntries,
   guestEntries,
   guestWaitText,
-  cameraScreenEntries,
+  homeCards,
+  importMapEntries,
+  importTargetEntries,
+  previewEntries,
+  snapshotEntries,
+  snapshotListEntries,
+  thumbnailEntries,
   checklistBody,
   entryScreenEntries,
   killYScreenEntries,
@@ -48,7 +53,7 @@ import { regionEntries } from "../behavior_pack/scripts/regions.ts";
 import { EDITOR_TOOLS, toolOf } from "../behavior_pack/scripts/tools.ts";
 
 const rules = { kind: "game" as const, maxPlayers: 2 };
-const draft: MapConfig = { name: "Arena", draft: true, spawns: [[0, 65, 0]], build: { commands: ["fill 0 64 0 1 64 1 stone"] }, bounds: { min: [-5, 60, -5], max: [5, 70, 5] } };
+const draft: MapConfig = { name: "Arena", draft: true, spawns: [[0, 65, 0]], spectatorSpawn: [0, 69, 0], build: { commands: ["fill 0 64 0 1 64 1 stone"] }, bounds: { min: [-5, 60, -5], max: [5, 70, 5] } };
 
 function view(config: MapConfig, extra: Partial<MapMenuView> = {}): MapMenuView {
   return {
@@ -67,7 +72,7 @@ describe("map menu", () => {
     const entries = mapMenuEntries(view(draft));
     expect(entries.map((entry) => entry.action.kind)).toEqual(["checklist", "undo", "redo", "boundaries", "settings", "tool", "tool", "tool", "tool", "save"]);
     expect(entries[3]).toEqual({ action: { kind: "boundaries" }, text: `${MARK.quick}Boundaries\n§7see the bounds and regions you pick`, icon: ICONS.boundaries });
-    expect(entries[0].text).toBe(`${MARK.pill}0/1\n§7Checklist: 1 problem`);
+    expect(entries[0].text).toBe(`${MARK.pill}1/2\n§7Checklist: 1 problem`);
     expect(entries[0].icon).toBe(ICONS.check);
     expect(entries.at(-1)?.text).toBe(`${MARK.save}Save\n§7saves the map and the world`);
   });
@@ -87,8 +92,8 @@ describe("map menu", () => {
 
   it("shows the tool out's settings, after a Help link, between the tools and Save", () => {
     const kinds = (tool: MapMenuView["tool"]) => mapMenuEntries(view({ ...draft, killY: 50 }, { tool })).map((entry) => entry.action.kind).slice(9, -1);
-    // Spawn: Help, then each list with its entries (Spawns has one, the spectator and queue spawns none).
-    expect(kinds("spawn")).toEqual(["help", "none", "entry", "none", "none"]);
+    // Spawn: Help, then each list with its entries (Spawns and the spectator spawn have one, the queue spawn none).
+    expect(kinds("spawn")).toEqual(["help", "none", "entry", "none", "entry", "none"]);
     expect(kinds("region")).toEqual(["help", "none", "box"]);
     expect(kinds("killY")).toEqual(["help", "none", "killY", "removeKillY"]);
     expect(kinds(undefined)).toEqual([]);
@@ -220,7 +225,7 @@ describe("layouts", () => {
       expect(pack("server_form.json")).toContain(`'${mark}'`);
       expect(pack("editor_forms.json")).toContain(`'${mark}'`);
     }
-    for (const mark of [...Object.values(MARK), ...COLUMNS, ...SEGMENT_COLUMNS]) {
+    for (const mark of [...Object.values(MARK), ...COLUMNS, ...SEGMENT_COLUMNS, ...CARD_COLUMNS]) {
       expect(stripColors(mark)).toBe("");
       expect(pack("editor_forms.json")).toContain(`'${mark}'`);
     }
@@ -240,7 +245,7 @@ describe("layouts", () => {
   });
 
   it("never lets one mark read as another", () => {
-    const marks = [...Object.values(MARK), ...COLUMNS, ...SEGMENT_COLUMNS];
+    const marks = [...Object.values(MARK), ...COLUMNS, ...SEGMENT_COLUMNS, ...CARD_COLUMNS];
     for (const mark of marks) for (const other of marks) if (mark !== other) expect(other.includes(mark)).toBe(false);
     const titles = [...Object.values(LAYOUT), LOADING];
     for (const mark of titles) for (const other of titles) if (mark !== other) expect(other.includes(mark)).toBe(false);
@@ -301,26 +306,6 @@ describe("Select mode's map menu", () => {
     expect(mapActions({ ...ready, status: "queued" })).toEqual([]);
   });
 
-  it("exports with Name, Map id and For staying put, the targets scrolling, and Export pinned at the bottom", () => {
-    const targets = [
-      { id: "lobby", name: "Lobby" },
-      { id: "sumo", name: "Sumo" },
-    ];
-    const blank = exportEntries({ name: "", target: "sumo" }, targets);
-    expect(blank.map((entry) => entry.text)).toEqual([
-      BACK_TEXT,
-      `${MARK.fixed}Name: §8none yet`,
-      `${MARK.fixed}Map id: §8from the name`,
-      `${MARK.fixed}${headingText("For")}`,
-      "Lobby",
-      `${MARK.picked}Sumo`,
-      saveBarText("Export to Map"),
-    ]);
-    expect(blank.map((entry) => entry.action.kind)).toEqual(["back", "name", "id", "none", "target", "target", "export"]);
-    expect(blank[0].icon).toBe(ICONS.back);
-    expect(exportEntries({ name: "Castle Keep", target: "lobby" }, targets).slice(1, 3).map((entry) => entry.text)).toEqual([`${MARK.fixed}Name: Castle Keep`, `${MARK.fixed}Map id: §8castle_keep`]);
-    expect(exportEntries({ name: "Castle Keep", map: "keep", target: "lobby" }, targets)[2].text).toBe(`${MARK.fixed}Map id: keep`);
-  });
 });
 
 describe("Nudge sides", () => {
@@ -357,16 +342,61 @@ describe("Nudge sides", () => {
 });
 
 describe("Edit's gear", () => {
-  it("has Players and Back to Lobby (right end) in its icon row, then the settings and the red ones", () => {
-    expect(gearEntries({ build: true })).toEqual([
+  it("has Players and Back to Lobby (right end) in its icon row, then the settings, the thumbnails and the red ones", () => {
+    expect(gearEntries({ build: true, game: true })).toEqual([
       { action: "back", text: BACK_TEXT, icon: ICONS.back },
       { action: "players", text: PLAYERS_TEXT, icon: ICONS.players },
       { action: "lobby", text: LOBBY_TEXT, icon: ICONS.lobby },
       { action: "settings", text: "Name and game settings" },
+      { action: "mapThumbnail", text: "Edit Map Thumbnail" },
+      { action: "gameThumbnail", text: "Edit Minigame Thumbnail" },
       { action: "dropBuild", text: dangerText("Drop build commands") },
       { action: "delete", text: dangerText("Delete map") },
     ]);
-    expect(gearEntries({ build: false }).map((entry) => entry.action)).toEqual(["back", "players", "lobby", "settings", "delete"]);
+    // A lobby map has no thumbnails.
+    expect(gearEntries({ build: false, game: false }).map((entry) => entry.action)).toEqual(["back", "players", "lobby", "settings", "delete"]);
+  });
+});
+
+describe("thumbnails", () => {
+  const pictures = {
+    shots: [
+      { id: "s1", label: "Sumo: Arena" },
+      { id: "s2", label: "not used yet" },
+    ],
+    current: { map: "s2", game: "own" },
+    maps: [
+      { target: "sumo", targetName: "Sumo", map: "arena_1", name: "Arena" },
+      { target: "sumo", targetName: "Sumo", map: "pit", name: "Pit" },
+      { target: "quiver", targetName: "One in the Quiver", map: "mansion", name: "Mansion" },
+      { target: "lobby", targetName: "Lobby", map: "spaceship", name: "Spaceship" },
+    ],
+  };
+
+  it("shows the pictures used before two to a row, the one in use green, and Import for a map's", () => {
+    const map = thumbnailEntries({ kind: "map", pictures, own: "textures/minecade/maps/quiver/mansion" });
+    expect(map[0]).toEqual({ action: { kind: "back" }, text: BACK_TEXT, icon: ICONS.back });
+    expect(map[1]).toEqual({ action: { kind: "import" }, text: `${MARK.fixed}${linkText("Import from another minigame")}` });
+    expect(map.slice(2)).toEqual([
+      { action: { kind: "shot", id: "s1" }, text: pictureText("Sumo: Arena", 0, false), icon: "textures/minecade/shots/s1" },
+      { action: { kind: "shot", id: "s2" }, text: pictureText("not used yet\n§7in use", 1, true), icon: "textures/minecade/shots/s2" },
+    ]);
+    // A game's picture that isn't one of them comes first, in use; no Import.
+    const game = thumbnailEntries({ kind: "game", pictures, own: "textures/minecade/games/quiver" });
+    expect(game.map((entry) => entry.action.kind)).toEqual(["back", "none", "shot", "shot"]);
+    expect(game[1]).toEqual({ action: { kind: "none" }, text: pictureText("In use now\n§7in use", 0, true), icon: "textures/minecade/games/quiver" });
+    expect(thumbnailEntries({ kind: "game", pictures: { shots: [], current: {}, maps: [] } }).at(-1)?.text).toBe(headingText("No pictures yet: the Camera tool's Snapshot takes them"));
+  });
+
+  it("imports from another game's maps with a picture, as picture cards", () => {
+    expect(importTargetEntries(pictures, "quiver")).toEqual([{ target: "sumo", text: "Sumo\n§72 maps with a picture" }]);
+    expect(importTargetEntries(pictures, "sumo").map((entry) => entry.target)).toEqual(["quiver"]);
+    const cards = importMapEntries(pictures, "sumo");
+    expect(cards[0].action).toEqual({ kind: "back" });
+    expect(cards.slice(1)).toEqual([
+      { action: { kind: "map", map: "arena_1", name: "Arena" }, text: pictureText("Arena\n§7arena_1", 0, false), icon: "textures/minecade/maps/sumo/arena_1" },
+      { action: { kind: "map", map: "pit", name: "Pit" }, text: pictureText("Pit\n§7pit", 1, false), icon: "textures/minecade/maps/sumo/pit" },
+    ]);
   });
 });
 
@@ -374,8 +404,16 @@ describe("the editor lobby's menu", () => {
   const empty: HomeState = {
     catalog: {
       targets: [
-        { id: "lobby", name: "Lobby", maps: [{ id: "spaceship", name: "Spaceship", draft: false }] },
-        { id: "sumo", name: "Sumo", maps: [] },
+        { id: "lobby", name: "Lobby", maps: [{ id: "spaceship", name: "Spaceship", draft: false, ready: true }] },
+        {
+          id: "sumo",
+          name: "Sumo",
+          maxPlayers: 6,
+          maps: [
+            { id: "arena_1", name: "Arena", draft: false, ready: true, world: "abc=" },
+            { id: "pit", name: "Pit", draft: true, ready: false },
+          ],
+        },
       ],
       worlds: [
         { id: "abc=", name: "Datapacking (imported)", maps: 2 },
@@ -387,16 +425,8 @@ describe("the editor lobby's menu", () => {
   };
   const arena = { to: "edit" as const, target: "sumo", map: "arena_1" };
   const datapacking = { to: "select" as const, world: "abc=" };
+  const myWorld = { to: "select" as const, world: "def=" };
   const arenaPreview = { to: "preview" as const, target: "sumo", map: "arena_1" };
-  const iconRow = [
-    { kind: "maps" },
-    { kind: "new" },
-    { kind: "players" },
-    { kind: "filter", filter: "edit" },
-    { kind: "filter", filter: "select" },
-    { kind: "filter", filter: "preview" },
-    { kind: "leave" },
-  ];
   const withRecent: HomeState = {
     catalog: {
       ...empty.catalog,
@@ -404,68 +434,73 @@ describe("the editor lobby's menu", () => {
         { request: arena, label: "Sumo: Arena (arena_1)" },
         { request: arenaPreview, label: "Sumo: Arena (arena_1)" },
         { request: datapacking, label: "Datapacking (imported)" },
+        { request: myWorld, label: "My World" },
+        { request: { to: "edit", target: "sumo", map: "pit" }, label: "Sumo: Pit (pit)" },
         { request: { to: "edit", target: "lobby", map: "spaceship" }, label: "Lobby: Spaceship (spaceship)" },
+        { request: { to: "edit", target: "sumo", map: "gone" }, label: "Sumo: Gone (gone)" },
       ],
     },
-    servers: { edit: { request: arena, label: "Sumo: Arena (arena_1)", state: "ready", players: ["Friend"] }, waiting: [] },
+    servers: { waiting: [] },
   };
 
-  it("starts with the icon row: Open a map, New map, Players, the Recent filters and Leave", () => {
+  it("starts with the icon row (New map, Players, Leave at the right end), then Recent with Search on its right", () => {
     const entries = homeEntries(empty);
-    expect(entries.slice(0, 7).map((entry) => entry.action)).toEqual(iconRow);
-    expect(entries[0]).toEqual({ action: { kind: "maps" }, text: `${MARK.quick}Open a map\n§7the lobby's and every game's maps`, icon: ICONS.edit });
-    expect(entries[1].icon).toBe(ICONS.new);
-    expect(entries[2]).toEqual({ action: { kind: "players" }, text: PLAYERS_TEXT, icon: ICONS.players });
-    expect(entries.slice(3, 6).map((entry) => entry.icon)).toEqual([ICONS.edit, ICONS.select, ICONS.play]);
-    // The filters are a toggle of icon tiles, none on.
-    expect(entries.slice(3, 6).map((entry) => entry.text.slice(0, 12))).toEqual(SEGMENT_COLUMNS.map((column) => `${MARK.segment}${column}`));
-    expect(entries.slice(3, 6).every((entry) => entry.text.includes(MARK.iconOnly) && !entry.text.includes(MARK.on))).toBe(true);
-    expect(entries[6]).toEqual({ action: { kind: "leave" }, text: `${MARK.end}Leave\n§7disconnect from the map editor`, icon: ICONS.leave });
-    expect(entries.slice(7).map((entry) => entry.text)).toEqual([headingText("Recent"), headingText("§8Nothing opened yet")]);
+    expect(entries.slice(0, 5).map((entry) => entry.action)).toEqual([{ kind: "new" }, { kind: "players" }, { kind: "leave" }, { kind: "none" }, { kind: "maps" }]);
+    expect(entries[0].icon).toBe(ICONS.new);
+    expect(entries[1]).toEqual({ action: { kind: "players" }, text: PLAYERS_TEXT, icon: ICONS.players });
+    expect(entries[2]).toEqual({ action: { kind: "leave" }, text: `${MARK.end}Leave\n§7disconnect from the map editor`, icon: ICONS.leave });
+    expect(entries[3].text).toBe(`${MARK.cardHead}${headingText("Recent")}`);
+    expect(entries[4]).toEqual({ action: { kind: "maps" }, text: `${MARK.cardLink}Search\n§7the lobby's and every game's maps`, icon: ICONS.search });
+    expect(entries.slice(5).map((entry) => entry.text)).toEqual([headingText("§8Nothing opened yet")]);
   });
 
-  it("puts what's open first, then Recent as cards with an icon for their kind", () => {
-    const entries = homeEntries(withRecent).slice(7);
-    expect(entries.map((entry) => entry.action)).toEqual([
-      { kind: "none" },
-      { kind: "open", request: arena },
-      { kind: "none" },
-      { kind: "open", request: arenaPreview },
-      { kind: "open", request: datapacking },
-      { kind: "open", request: { to: "edit", target: "lobby", map: "spaceship" } },
+  it("shows one card per map (its title, then Select, Edit and Preview), and a world with no map card of its own", () => {
+    const cards = homeCards(withRecent.catalog);
+    // Arena's Edit and Preview entries make one card; Datapacking has Arena's card; a gone map has none.
+    expect(cards.map((card) => (card.kind === "map" ? `${card.target.id}/${card.map.id}` : card.world.id))).toEqual(["sumo/arena_1", "def=", "sumo/pit", "lobby/spaceship"]);
+    const entries = homeEntries(withRecent).slice(5);
+    expect(entries).toHaveLength(16);
+    const [title, select, edit, preview] = entries;
+    expect(title).toEqual({ action: { kind: "none" }, text: cardTitleText("Sumo: Arena") });
+    expect(select).toEqual({ action: { kind: "open", request: datapacking }, text: cardIconText("Select\n§7box more maps in Datapacking (imported)", 0, true), icon: ICONS.select });
+    expect(edit).toEqual({ action: { kind: "open", request: arena }, text: cardIconText("Edit\n§7arena_1", 1, true), icon: ICONS.edit });
+    expect(preview).toEqual({ action: { kind: "preview", target: "sumo", map: "arena_1" }, text: cardIconText("Preview\n§7play it, with fake players if you like", 2, true), icon: ICONS.play });
+    // A world with no map yet: Select only.
+    expect(entries.slice(4, 8).map((entry) => entry.action.kind)).toEqual(["none", "open", "off", "off"]);
+    expect(entries[6].text).toContain(MARK.dim);
+    // A draft whose checklist isn't done, from no world on this PC: Select and Preview faded.
+    expect(entries.slice(8, 12).map((entry) => [entry.action.kind, entry.text.includes(MARK.dim)])).toEqual([
+      ["none", false],
+      ["off", true],
+      ["open", false],
+      ["off", true],
     ]);
-    // Open now says only that it's loading or closing: not who's on it.
-    expect(entries[1]).toEqual({ action: { kind: "open", request: arena }, text: `${MARK.card}Sumo: Arena (arena_1)`, icon: ICONS.edit });
-    expect(entries.slice(3, 6).map((entry) => [entry.text, entry.icon])).toEqual([
-      [`${MARK.card}Sumo: Arena (arena_1)`, ICONS.play],
-      [`${MARK.card}Datapacking (imported)`, ICONS.select],
-      [`${MARK.card}Lobby: Spaceship (spaceship)`, ICONS.edit],
-    ]);
+    expect(entries[10].text).toBe(cardIconText("Edit\n§7pit, a draft", 1, true));
+    // A lobby map can't be previewed yet.
+    expect(entries[15].action).toEqual({ kind: "off", why: "A lobby map can't be previewed yet: publish it, then start the network." });
   });
 
-  it("shows only one kind in Recent with its filter on, outlined", () => {
-    const entries = homeEntries(withRecent, "preview");
-    const filters = entries.filter((entry) => entry.action.kind === "filter");
-    expect(filters.map((entry) => entry.text.includes(MARK.on))).toEqual([false, false, true]);
-    expect(filters[2].text).toBe(segmentText("Recent: Preview only\n§7on: tap again to show everything", 2, true, true));
-    const recent = entries.slice(entries.findIndex((entry) => entry.text === headingText("Recent: Preview only")));
-    expect(recent.map((entry) => entry.action)).toEqual([{ kind: "none" }, { kind: "open", request: arenaPreview }]);
-    // What's open stays listed; an empty kind says so.
-    expect(homeEntries(withRecent, "select").some((entry) => entry.text === `${MARK.card}Sumo: Arena (arena_1)`)).toBe(true);
-    expect(homeEntries(empty, "preview").map((entry) => entry.text)).toContain(headingText("§8No previews yet"));
-    expect(RECENT_KINDS.map((kind) => kind.kind)).toEqual(["edit", "select", "preview"]);
+  it("shows eight cards at most", () => {
+    const maps = Array.from({ length: 12 }, (_, i) => ({ id: `m${i}`, name: `M${i}`, draft: false, ready: true }));
+    const recent = maps.map((map) => ({ request: { to: "edit" as const, target: "sumo", map: map.id }, label: map.name }));
+    const state: HomeState = { ...empty, catalog: { ...empty.catalog, targets: [{ id: "sumo", name: "Sumo", maps }], recent } };
+    expect(homeEntries(state).filter((entry) => entry.text.startsWith(MARK.cardTitle))).toHaveLength(8);
   });
 
-  it("shows five recent entries, or ten of one kind", () => {
-    const recent = Array.from({ length: 12 }, (_, i) => ({ request: { to: "edit" as const, target: "sumo", map: `m${i}` }, label: `m${i}` }));
-    const state: HomeState = { ...empty, catalog: { ...empty.catalog, recent } };
-    const cards = (filter?: "edit") => homeEntries(state, filter).filter((entry) => entry.text.startsWith(MARK.card)).length;
-    expect(cards()).toBe(5);
-    expect(cards("edit")).toBe(10);
+  it("offers fake players before a preview: none up to what fits, then Start preview", () => {
+    const entries = previewEntries({ fakes: 2, most: 5, back: true });
+    expect(entries[0]).toEqual({ action: { kind: "back" }, text: BACK_TEXT, icon: ICONS.back });
+    expect(entries[1].text).toBe(`${MARK.lead}${headingText("Fake players")}`);
+    const tiles = entries.filter((entry) => entry.action.kind === "fakes");
+    expect(tiles.map((entry) => entry.action)).toEqual([0, 1, 2, 3, 4, 5].map((fakes) => ({ kind: "fakes", fakes })));
+    expect(tiles.map((entry) => entry.text.includes(MARK.on))).toEqual([false, false, true, false, false, false]);
+    expect(entries.at(-1)).toEqual({ action: { kind: "start" }, text: saveBarText("Start preview") });
+    expect(previewEntries({ fakes: 0, most: 20, back: false }).filter((entry) => entry.action.kind === "fakes")).toHaveLength(8);
+    expect(previewEntries({ fakes: 3, most: 1, back: false }).filter((entry) => entry.text.includes(MARK.on)).map((entry) => entry.action)).toEqual([{ kind: "fakes", fakes: 1 }]);
   });
 
   it("lists targets, maps and worlds, with an empty world last", () => {
-    expect(targetEntries(empty.catalog).map((entry) => stripColors(entry.text))).toEqual(["Lobby\n1 map", "Sumo\nno maps yet"]);
+    expect(targetEntries(empty.catalog).map((entry) => stripColors(entry.text))).toEqual(["Lobby\n1 map", "Sumo\n2 maps"]);
     expect(mapEntries(empty.catalog.targets[0])).toEqual([{ map: "spaceship", text: "Spaceship (spaceship)\n§7ready for games" }]);
     expect(worldEntries(empty.catalog).map((entry) => entry.world)).toEqual(["abc=", "def=", undefined]);
     expect(worldEntries(empty.catalog)[0].text).toBe("Datapacking (imported)\n§72 maps from it");
@@ -545,14 +580,32 @@ describe("tool screens", () => {
     expect(fromMenu.find((entry) => entry.text.includes("Back one step"))?.action.kind).toBe("undo");
   });
 
-  it("sets kill Y and places a camera from their own screens", () => {
+  it("sets kill Y from its own screen", () => {
     expect(killYScreenEntries({ y: 57, set: true, step: 1 }).map((entry) => entry.action.kind)).toEqual(["none", "type", "height", "height", "step", "step", "step", "remove", "save"]);
     expect(killYScreenEntries({ y: 57, set: false, step: 1 }).at(-1)?.text).toBe(saveBarText("Set kill Y"));
-    const camera = cameraScreenEntries({ kind: "game", at: "At 0 70 0", looks: "Looking north, level" });
-    // Two wide tiles, then where it is and looks on two short lines.
-    expect(camera.slice(0, 2).map((entry) => entry.text)).toEqual([segmentText("Map preview", 0, false, false, true), segmentText("Game picture", 1, true, false, true)]);
-    expect(camera.slice(2, 4).map((entry) => entry.text)).toEqual([`${MARK.lead}${headingText("At 0 70 0")}`, `${MARK.lead}${headingText("Looking north, level")}`]);
-    expect(camera.at(-1)?.text).toBe(saveBarText("Place camera"));
+  });
+
+  it("has the Snapshot: the cameras to pick, then nudge rows, Step, and Use latest screenshot at the bottom", () => {
+    expect(snapshotListEntries({ ...draft, cameras: { "Camera 1": { at: [0, 70, 0, 0, 0], kind: "game" } } })).toEqual([{ camera: "Camera 1", text: "Camera 1\n§7Game picture" }]);
+    expect(snapshotListEntries(draft)).toEqual([{ text: headingText("No cameras yet: use the Camera tool to place one") }]);
+    const entries = snapshotEntries({ camera: { at: [1, 70, -2, 90, 10], kind: "map" }, step: 1, lobby: false });
+    expect(entries[0].action).toEqual({ kind: "back" });
+    expect(entries.slice(1, 5).map((entry) => entry.action.kind)).toEqual(["none", "shoot", "stop", "kind"]);
+    expect(entries[1].text).toBe(`${MARK.lead}${headingText("At 1 70 -2, looking west, 10 degrees down")}`);
+    expect(entries[4].text).not.toContain(MARK.on);
+    const rows = entries.filter((entry) => entry.text.startsWith(MARK.minus));
+    expect(rows.map((entry) => entry.text)).toEqual([
+      `${MARK.minus}X (east +): 1`,
+      `${MARK.minus}Y (up +): 70`,
+      `${MARK.minus}Z (south +): -2`,
+      `${MARK.minus}Turn (right +): 90`,
+      `${MARK.minus}Tilt (down +): 10`,
+    ]);
+    expect(entries.filter((entry) => entry.action.kind === "step").map((entry) => entry.text)).toEqual(SNAPSHOT_STEPS.map((step, i) => stepTileText(step.label, i, i === 1)));
+    expect(entries.at(-1)).toEqual({ action: { kind: "use" }, text: saveBarText("Use latest screenshot\n§7as the map's thumbnail") });
+    // A lobby map has no picture: only the nudges.
+    const lobby = snapshotEntries({ camera: { at: [1, 70, -2, 90, 10], kind: "map" }, step: 0, lobby: true });
+    expect(lobby.some((entry) => entry.action.kind === "shoot" || entry.action.kind === "use")).toBe(false);
   });
 
   it("reads a typed countdown as whole seconds within the limits", () => {

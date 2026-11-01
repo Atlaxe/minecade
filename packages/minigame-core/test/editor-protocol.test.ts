@@ -54,7 +54,7 @@ describe("editor protocol", () => {
   it("sends the editor lobby's state in parts too", () => {
     const state: HomeState = {
       catalog: {
-        targets: [{ id: "sumo", name: "Sumo", maps: Array.from({ length: 80 }, (_, i) => ({ id: `arena_${i}`, name: `Arena "${i}"`, draft: i % 2 === 0 })) }],
+        targets: [{ id: "sumo", name: "Sumo", maps: Array.from({ length: 80 }, (_, i) => ({ id: `arena_${i}`, name: `Arena "${i}"`, draft: i % 2 === 0, ready: i % 3 === 0 })) }],
         worlds: [{ id: "abc=", name: "Datapacking (imported)", maps: 2 }],
         recent: [{ request: { to: "edit", target: "sumo", map: "arena_1" }, label: "Sumo: Arena (arena_1)" }],
       },

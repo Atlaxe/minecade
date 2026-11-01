@@ -7,7 +7,8 @@ const spawns = [
   [0, 64, 0],
   [2, 64, 0],
 ];
-const game: MapRules = { kind: "game", maxPlayers: 2 };
+/** A game that needs no spectator or queue spawn, so these tests see only what they check. */
+const game: MapRules = { kind: "game", maxPlayers: 2, requires: { spectatorSpawn: false } };
 
 describe("validateMapConfig: killY and named entries", () => {
   it("accepts killY, team spawns, points and regions inside the bounds", () => {
@@ -20,7 +21,7 @@ describe("validateMapConfig: killY and named entries", () => {
       points: { flag: [[0, 70, 0], [1, 70, 1]] },
       regions: { floor: [{ min: [-10, 50, -10], max: [10, 63, 10] }] },
     };
-    const rules: MapRules = { kind: "game", maxPlayers: 8, requires: { points: ["flag"], regions: ["floor"], teamSpawns: true } };
+    const rules: MapRules = { kind: "game", maxPlayers: 8, requires: { points: ["flag"], regions: ["floor"], teamSpawns: true, spectatorSpawn: false } };
     expect(validateMapConfig(map, rules)).toEqual([]);
   });
 
@@ -91,20 +92,31 @@ describe("validateMapConfig: killY and named entries", () => {
   });
 
   it("reports the entries the game requires that the map is missing", () => {
-    const rules: MapRules = { kind: "game", maxPlayers: 2, requires: { points: ["flag", "base"], regions: ["floor"], teamSpawns: true } };
+    const rules: MapRules = { kind: "game", maxPlayers: 2, requires: { points: ["flag", "base"], regions: ["floor"], teamSpawns: true, spectatorSpawn: false } };
     expect(validateMapConfig({ name: "Bare", spawns, points: { flag: [[0, 64, 0]] } }, rules)).toEqual([
       'this game needs a "points.base" entry',
       'this game needs a "regions.floor" entry',
       'this game needs "teamSpawns"',
     ]);
-    expect(validateMapConfig({ name: "Bare", spawns, teamSpawns: {} }, { kind: "game", maxPlayers: 2, requires: { teamSpawns: true } })).toEqual([
+    expect(validateMapConfig({ name: "Bare", spawns, teamSpawns: {} }, { kind: "game", maxPlayers: 2, requires: { teamSpawns: true, spectatorSpawn: false } })).toEqual([
       'this game needs "teamSpawns"',
     ]);
-    expect(validateMapConfig({ name: "Bare", spawns }, { kind: "game", maxPlayers: 2, requires: {} })).toEqual([]);
+    expect(validateMapConfig({ name: "Bare", spawns }, { kind: "game", maxPlayers: 2, requires: { spectatorSpawn: false } })).toEqual([]);
+  });
+
+  it("needs a spectator spawn or a queue spawn from a game that names neither, and exactly what a game names", () => {
+    const either: MapRules = { kind: "game", maxPlayers: 2 };
+    expect(validateMapConfig({ name: "Bare", spawns }, either)).toEqual(['this game needs a "spectatorSpawn" or a "queueSpawn"']);
+    expect(validateMapConfig({ name: "Bare", spawns, spectatorSpawn: [0, 70, 0] }, either)).toEqual([]);
+    expect(validateMapConfig({ name: "Bare", spawns, queueSpawn: [0, 70, 0] }, either)).toEqual([]);
+    const both: MapRules = { kind: "game", maxPlayers: 2, requires: { spectatorSpawn: true, queueSpawn: true } };
+    expect(validateMapConfig({ name: "Bare", spawns, queueSpawn: [0, 70, 0] }, both)).toEqual(['this game needs a "spectatorSpawn"']);
+    expect(validateMapConfig({ name: "Bare", spawns, spectatorSpawn: [0, 70, 0] }, { kind: "game", maxPlayers: 2, requires: { spectatorSpawn: true } })).toEqual([]);
+    expect(validateMapConfig({ name: "Main", spawns: [[0, 65, 0]] }, { kind: "lobby" })).toEqual([]);
   });
 
   it("waives one spawn per player slot when the map has team spawns", () => {
-    const rules: MapRules = { kind: "game", maxPlayers: 8 };
+    const rules: MapRules = { kind: "game", maxPlayers: 8, requires: { spectatorSpawn: false } };
     const teamSpawns = { red: [[-5, 64, 0]], blue: [[5, 64, 0]] };
     expect(validateMapConfig({ name: "Fort", spawns: [[0, 64, 0]], teamSpawns }, rules)).toEqual([]);
     expect(validateMapConfig({ name: "Fort", spawns: [[0, 64, 0]], teamSpawns: {} }, rules)).toEqual([

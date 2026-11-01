@@ -58,12 +58,12 @@ describe("validateGameConfig", () => {
 
 describe("validateMapConfig", () => {
   it("accepts a game map and a lobby map", () => {
-    expect(validateMapConfig({ name: "Arena", spawns, bounds, build: { commands: ["fill 0 63 0 1 63 1 stone"] } }, { kind: "game", maxPlayers: 3 })).toEqual([]);
+    expect(validateMapConfig({ name: "Arena", spawns, spectatorSpawn: [0, 80, 0], bounds, build: { commands: ["fill 0 63 0 1 63 1 stone"] } }, { kind: "game", maxPlayers: 3 })).toEqual([]);
     expect(validateMapConfig({ name: "Main", spawns: [[0, 65, 0]], eliminationY: 58 }, { kind: "lobby" })).toEqual([]);
   });
 
   it("needs a spawn for every player slot", () => {
-    expect(validateMapConfig({ name: "Arena", spawns: spawns.slice(0, 2) }, { kind: "game", maxPlayers: 3 })).toEqual([
+    expect(validateMapConfig({ name: "Arena", spawns: spawns.slice(0, 2), spectatorSpawn: [0, 80, 0] }, { kind: "game", maxPlayers: 3 })).toEqual([
       "needs at least 3 spawns (one per player slot), has 2",
     ]);
     expect(validateMapConfig({ name: "Main", spawns: [] }, { kind: "lobby" })).toEqual(["needs at least 1 spawn, has 0"]);
@@ -94,12 +94,12 @@ describe("validateMapConfig", () => {
 
   it("checks the time of day and the star box", () => {
     expect(validateMapConfig({ name: "Main", spawns: [[0, 65, 0]], time: "midnight", stars: true }, { kind: "lobby" })).toEqual([]);
-    expect(validateMapConfig({ name: "Arena", spawns, time: 6000 }, { kind: "game", maxPlayers: 3 })).toEqual([]);
+    expect(validateMapConfig({ name: "Arena", spawns, spectatorSpawn: [0, 80, 0], time: 6000 }, { kind: "game", maxPlayers: 3 })).toEqual([]);
     const timeProblem = '"time" must be one of day, noon, sunset, night, midnight, sunrise, or ticks from 0 to 23999';
     for (const time of ["dusk", 24000, -1, 1.5, "toString"]) {
       expect(validateMapConfig({ name: "Main", spawns: [[0, 65, 0]], time }, { kind: "lobby" })).toEqual([timeProblem]);
     }
     expect(validateMapConfig({ name: "Main", spawns: [[0, 65, 0]], stars: "yes" }, { kind: "lobby" })).toEqual(['"stars" must be true or false']);
-    expect(validateMapConfig({ name: "Arena", spawns, stars: true }, { kind: "game", maxPlayers: 3 })).toEqual(['"stars" is only for the lobby map']);
+    expect(validateMapConfig({ name: "Arena", spawns, spectatorSpawn: [0, 80, 0], stars: true }, { kind: "game", maxPlayers: 3 })).toEqual(['"stars" is only for the lobby map']);
   });
 });

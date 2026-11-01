@@ -2,12 +2,21 @@
 // a small box top center. Bedrock has no script API for HUD text, so the line rides on the title:
 // a title starting with MODE_MARK shows in the box
 // (editor/resource_pack/ui/hud_screen.json), the way the game clock rides on the action bar
-// (packages/minigame-core/src/hud.ts). Nothing else on the editor's servers sends titles.
+// (packages/minigame-core/src/hud.ts). The Snapshot's 16:9 frame rides on the title the same way
+// (FRAME_MARK). Nothing else on the editor's servers sends titles.
 import { world, type Player } from "@minecraft/server";
 import { MODE_MARK, type Scope } from "@minecade/minigame-core";
 
 /** Starts every title that is a mode line (minigame-core's, shared with a previewed game). */
 export { MODE_MARK };
+
+/** Starts the title that shows the Snapshot's 16:9 frame; the rest of the title shows at its top. */
+export const FRAME_MARK = "§r§s§n§r";
+
+/** The Snapshot's frame, with `text` at its top. */
+export function frameLine(text = ""): string {
+  return `${FRAME_MARK}${text}`;
+}
 
 export type Mode = "select" | "edit";
 

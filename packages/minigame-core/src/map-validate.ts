@@ -184,6 +184,8 @@ function missing(requirement: MapRequirement, map: Partial<MapConfig>, who: stri
       return map.spectatorSpawn === undefined ? [`${who} needs a "spectatorSpawn"`] : [];
     case "queueSpawn":
       return map.queueSpawn === undefined ? [`${who} needs a "queueSpawn"`] : [];
+    case "spectatorOrQueue":
+      return map.spectatorSpawn === undefined && map.queueSpawn === undefined ? [`${who} needs a "spectatorSpawn" or a "queueSpawn"`] : [];
     case "bounds":
       return map.bounds === undefined ? [`${who} needs "bounds"`] : [];
     case "killY":

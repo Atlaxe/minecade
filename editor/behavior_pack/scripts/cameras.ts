@@ -67,18 +67,35 @@ export function cameraPlace(camera: MapCamera): { at: string; looks: string } {
   return { at: [x, y, z].map((value) => Math.round(value * 10) / 10).join(" "), looks: `${compass(yaw)}, ${tilt}` };
 }
 
-export type CameraAction = "look" | "picture" | "aim" | "kind" | "delete";
+export type CameraAction = "kind" | "delete";
 
-/** A camera's form: Look through, Use my newest screenshot (not on a lobby map), Aim from my view, the kind, Delete. */
-export function cameraActions(camera: MapCamera, lobby: boolean): { action: CameraAction; text: string }[] {
-  const picture = camera.kind === "map" ? "as the map's preview" : "as the game's picture";
+/**
+ * A camera's form: the kind and Delete. Its picture is the Snapshot's (the Camera tool's slot 2),
+ * and a new angle is a new camera.
+ */
+export function cameraActions(camera: MapCamera): { action: CameraAction; text: string }[] {
   return [
-    { action: "look", text: "Look through\n§7your view moves here, with no HUD" },
-    ...(lobby ? [] : [{ action: "picture" as const, text: `Use my newest screenshot\n§7${picture}` }]),
-    { action: "aim", text: "Aim from my view\n§7move it to your eyes, looking your way" },
     { action: "kind", text: switchText("Game picture", camera.kind === "game" ? CAMERA_KINDS.game.hint : "off: a map preview, nobody in the shot", camera.kind === "game") },
     { action: "delete", text: dangerText("Delete") },
   ];
+}
+
+/** A camera moved `by` along an axis, or turned (yaw) or tilted (pitch, kept from -90 to 90), its numbers rounded like cameraAt's. */
+export function nudgeCamera(camera: MapCamera, change: { axis: 0 | 1 | 2; by: number } | { turn: number } | { tilt: number }): MapCamera {
+  const [x, y, z, yaw, pitch] = camera.at;
+  const fix = (value: number) => Number(value.toFixed(2));
+  if ("axis" in change) {
+    const at: [number, number, number] = [x, y, z];
+    at[change.axis] = fix(at[change.axis] + change.by);
+    return { ...camera, at: [...at, yaw, pitch] };
+  }
+  if ("turn" in change) {
+    let turned = fix(yaw + change.turn);
+    if (turned > 180) turned = fix(turned - 360);
+    if (turned <= -180) turned = fix(turned + 360);
+    return { ...camera, at: [x, y, z, turned, pitch] };
+  }
+  return { ...camera, at: [x, y, z, yaw, fix(Math.max(-90, Math.min(90, pitch + change.tilt)))] };
 }
 
 function isCamera(value: unknown): value is MapCamera {

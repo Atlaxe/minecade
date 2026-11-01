@@ -55,6 +55,8 @@ export class Extractor {
   }
 
   start(): void {
+    // Nothing in the world being cut out runs while it's moved.
+    world.gameRules.commandBlocksEnabled = false;
     this.link.send({ t: "ready" });
   }
 

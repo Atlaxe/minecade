@@ -17,6 +17,9 @@ export function bootServer(onReady: (ctx: ServerContext) => void): void {
   const handle = world.afterEvents.worldLoad.subscribe(() => {
     world.afterEvents.worldLoad.unsubscribe(handle);
     const vars = readServerVars();
+    // Maps come from worlds built in Java and converted: command blocks left in them could clear
+    // inventories or change game modes, so none run on any server.
+    world.gameRules.commandBlocksEnabled = false;
     // map.json "time": the sky stays at that time of day.
     const ticks = mapTimeTicks(vars.mapConfig.time);
     if (ticks !== undefined) {

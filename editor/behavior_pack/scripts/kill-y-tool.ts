@@ -1,6 +1,7 @@
-// The Kill Y tool. Players below kill Y are out. A use opens its screen at one block below your
-// feet: type a height or nudge it, with the plane drawn at it (outlines.ts), and Set kill Y saves it.
-// With the tool picked, the map menu opens the same screen, and removes kill Y.
+// The Kill Y tool. Players below kill Y are out. A use sets it at once, one block below your feet
+// (no tool opens a menu where it's aimed). With the tool picked, the map menu opens its screen: type
+// a height or nudge it, with the plane drawn at it (outlines.ts), and Set kill Y saves it; and it
+// removes kill Y.
 import type { Player } from "@minecraft/server";
 import { ActionFormData, ModalFormData } from "@minecraft/server-ui";
 import { showKillY } from "./box-picker.ts";
@@ -20,12 +21,12 @@ export class KillYTool {
   /** Puts the tool in hand, for the checklist's Kill Y row. */
   equip(player: Player): void {
     this.host.equip(player, "killY");
-    this.host.tell(player, "Kill Y tool: use it to set the height players are out below, starting one block below your feet. While you hold it, the plane shows in red.");
+    this.host.tell(player, "Kill Y tool: use it to set the height players are out below to one block below your feet; fine-tune it in the map menu. While you hold it, the plane shows in red.");
   }
 
-  /** A use: the screen, at one block below the player's feet. */
-  use(player: Player): Promise<void> {
-    return this.screen(player, below(player));
+  /** A use: kill Y one block below the player's feet, at once (Undo takes it back). */
+  use(player: Player): void {
+    this.set(player, below(player));
   }
 
   /** The screen: the height (typed or nudged, the plane drawn there), Remove, and Set kill Y at the bottom. */
@@ -57,7 +58,7 @@ export class KillYTool {
   /** The action bar line while the tool is held: what a use does. */
   hint(player: Player): string {
     const now = this.host.map().killY;
-    return `Use: set kill Y, from one below your feet (${below(player)})   Now: ${now === undefined ? "not set" : now}`;
+    return `Use: set kill Y to ${below(player)}, one below your feet   Now: ${now === undefined ? "not set" : now}`;
   }
 
   /** A height typed into a side form; undefined (and why) when it isn't one. */

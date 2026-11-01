@@ -1,25 +1,31 @@
-// The Camera tool: preview pictures. A use places a camera at your eyes, looking where you look
-// ("Camera 1", "Camera 2" and on), of the kind picked in the tool's settings: a map preview (the
+// The Camera tool: preview pictures. A use places a camera at your eyes at once, looking where you
+// look ("Camera 1", "Camera 2" and on), of the kind set in the tool's settings: a map preview (the
 // map's tile and hologram picture in the lobby, nobody in the shot) or a game picture (the game's
-// picture, where you can walk into the shot). Hit a camera's marker for its form. Look through
-// moves your view to the camera with the HUD, markers and outlines hidden, so the screenshot is
-// just the map; use the tool again to come back, and the host can save your newest screenshot as
-// the picture (tools/editor/screenshot.ts).
+// picture, where you can walk into the shot). Hit a camera's marker for its form (its kind, Delete).
+// The tool comes with the Snapshot in slot 2: pick a camera and your view moves to it, with the HUD,
+// markers and outlines hidden and a 16:9 frame showing what a picture keeps; nudge it, take the
+// screenshot with Minecraft's own keys (F1 hides everything, F2 takes it), then Use latest
+// screenshot has the host save it as the picture (tools/editor/shots.ts).
 import { HudVisibility, type Player } from "@minecraft/server";
 import { ActionFormData } from "@minecraft/server-ui";
 import { describeError } from "@minecade/minigame-core";
-import { CAMERA_KINDS, cameraActions, cameraAt, cameraPlace, cameraText, nextCameraName, type CameraKind } from "./cameras.ts";
+import { CAMERA_KINDS, cameraActions, cameraAt, cameraText, nextCameraName, nudgeCamera, type CameraKind } from "./cameras.ts";
+import { frameLine } from "./hud.ts";
 import { sideTitle } from "./marks.ts";
-import { BACK_TEXT, ICONS, cameraScreenEntries } from "./menu.ts";
-import type { ToolHost } from "./tool-host.ts";
+import { BACK_TEXT, ICONS, SNAPSHOT_STEPS, snapshotEntries, snapshotListEntries, type SnapshotAction } from "./menu.ts";
+import { actionBar, type ToolHost } from "./tool-host.ts";
 
 /** Long enough to last any look through. */
 const LOOK_TICKS = 1_000_000;
+/** The frame's title stays up this long (it's sent again after every change). */
+const FRAME_TICKS = 20 * 60 * 10;
+/** What the frame says once Take a screenshot is picked. */
+const SHOOT_LINE = "§fF1 hides everything, F2 takes the screenshot, F1 brings it back. Then use the Snapshot again.";
 
 export interface CameraHost extends ToolHost {
   /** "Sumo", or "Lobby" (a lobby map has no picture). */
   readonly targetName: string;
-  /** Asks the host to save the newest screenshot on its PC as the map's preview or the game's picture. */
+  /** Asks the host to save the newest screenshot on its PC as the map's thumbnail or the game's. */
   picture(player: Player, kind: CameraKind): void;
   /** Someone started or stopped looking through a camera: markers and outlines hide while anyone does. */
   lookChanged(): void;
@@ -29,8 +35,9 @@ export class CameraTool {
   private readonly host: CameraHost;
   /** The kind new cameras get, per player. */
   private readonly kinds = new Map<string, CameraKind>();
-  /** Who is looking through which camera. */
+  /** Who is looking through which camera, and the Snapshot's Step they last picked. */
   private readonly looking = new Map<string, { name: string; kind: CameraKind }>();
+  private readonly steps = new Map<string, number>();
 
   constructor(host: CameraHost) {
     this.host = host;
@@ -52,48 +59,25 @@ export class CameraTool {
     return this.looking.size > 0;
   }
 
-  /** A use: the new camera's screen (at the player's eyes), or brings a player looking through one back. */
-  async use(player: Player): Promise<void> {
-    if (this.isLooking(player)) {
-      this.stop(player);
-      return;
-    }
-    let kind = this.kindOf(player);
-    let camera = cameraAt(player.getHeadLocation(), player.getRotation(), kind);
-    for (;;) {
-      const name = nextCameraName(this.host.map());
-      const place = cameraPlace(camera);
-      const entries = cameraScreenEntries({ kind, at: `At ${place.at}`, looks: `Looking ${place.looks}` });
-      const form = new ActionFormData().title(sideTitle(`New camera: ${name}`));
-      for (const entry of entries) form.button(entry.text);
-      const response = await this.host.show(player, form);
-      const action = response?.selection === undefined ? undefined : entries[response.selection]?.action;
-      if (!action || !player.isValid) return;
-      if (action.kind === "save") {
-        this.host.edit(player, { op: "camera", name, camera }, `${name} placed: ${cameraText(camera)}. Hit its marker to look through it.`);
-        return;
-      }
-      if (action.kind === "kind") {
-        kind = action.camera;
-        this.kinds.set(player.name.toLowerCase(), kind);
-        camera = { ...camera, kind };
-      } else if (action.kind === "aim") camera = cameraAt(player.getHeadLocation(), player.getRotation(), kind);
-    }
+  /** A use: a new camera at the player's eyes, looking their way, of the kind in the tool's settings. */
+  use(player: Player): void {
+    const kind = this.kindOf(player);
+    const name = nextCameraName(this.host.map());
+    const camera = cameraAt(player.getHeadLocation(), player.getRotation(), kind);
+    if (this.host.edit(player, { op: "camera", name, camera })) actionBar(player, `${name} placed (${CAMERA_KINDS[kind].label.toLowerCase()}): the Snapshot takes its picture`);
   }
 
   /** The action bar line while the tool is held. */
   hint(player: Player): string {
-    return `Use: place ${nextCameraName(this.host.map())} at your eyes (${CAMERA_KINDS[this.kindOf(player)].label})   Hit a camera: look through it`;
+    return `Use: place ${nextCameraName(this.host.map())} at your eyes (${CAMERA_KINDS[this.kindOf(player)].label})   Snapshot: slot 2`;
   }
 
-  /** A camera's form, from its marker or the tool's settings. */
+  /** A camera's form, from its marker or the tool's settings: its kind, and Delete. */
   async menu(player: Player, name: string, back?: () => Promise<void>): Promise<void> {
     const camera = this.host.map().cameras?.[name];
     if (!camera) return;
-    const lobby = this.host.rules.kind === "lobby";
-    const actions = cameraActions(camera, lobby);
-    const body = `${cameraText(camera)}.\n\nLook through, then take your screenshot (Windows: Win+Alt+PrtScn, or Win+PrtScn) and use the Camera tool to come back.${lobby ? "" : " Then Use my newest screenshot saves it as the picture."}`;
-    const form = new ActionFormData().title(sideTitle(name)).body(body);
+    const actions = cameraActions(camera);
+    const form = new ActionFormData().title(sideTitle(name)).body(`${cameraText(camera)}.`);
     const offset = back ? 1 : 0;
     if (back) form.button(BACK_TEXT, ICONS.back);
     for (const { text } of actions) form.button(text);
@@ -106,83 +90,168 @@ export class CameraTool {
       this.host.tell(player, `${name} is gone.`);
       return;
     }
-    switch (action) {
-      case "look":
-        this.look(player, name);
-        return;
-      case "picture":
-        this.host.picture(player, now.kind);
-        return;
-      case "aim": {
-        const camera = cameraAt(player.getHeadLocation(), player.getRotation(), now.kind);
-        this.host.edit(player, { op: "camera", name, camera }, `${name} aimed: ${cameraText(camera)}.`);
-        return;
+    if (action === "kind") {
+      const kind = now.kind === "map" ? "game" : "map";
+      this.host.edit(player, { op: "camera", name, camera: { ...now, kind } }, `${name} is a ${CAMERA_KINDS[kind].label.toLowerCase()} now.`);
+      return this.menu(player, name, back);
+    }
+    if (this.isLookingAt(name)) {
+      this.host.tell(player, `Someone is looking through ${name}: it can't be deleted now.`);
+      return;
+    }
+    this.host.edit(player, { op: "camera", name }, `${name} deleted.`);
+  }
+
+  // ---- The Snapshot ---------------------------------------------------------------------------
+
+  /** A use of the Snapshot: its menu for the camera the player looks through, else the cameras to pick from. */
+  async snapshot(player: Player): Promise<void> {
+    const looking = this.looking.get(player.name.toLowerCase());
+    if (looking && this.host.map().cameras?.[looking.name]) return this.snapshotMenu(player, looking.name);
+    if (looking) this.stop(player);
+    return this.pickCamera(player);
+  }
+
+  /** The cameras: tap one to look through it. */
+  private async pickCamera(player: Player): Promise<void> {
+    const entries = snapshotListEntries(this.host.map());
+    const form = new ActionFormData().title(sideTitle("Snapshot"));
+    for (const entry of entries) form.button(entry.text);
+    const response = await this.host.show(player, form);
+    const name = response?.selection === undefined ? undefined : entries[response.selection]?.camera;
+    if (!name || !player.isValid) return;
+    if (!this.look(player, name)) return;
+    return this.snapshotMenu(player, name);
+  }
+
+  /** While looking through `name`: nudge it, take the screenshot, use it, or come back. */
+  private async snapshotMenu(player: Player, name: string): Promise<void> {
+    const key = player.name.toLowerCase();
+    for (;;) {
+      const camera = this.host.map().cameras?.[name];
+      if (!camera || !this.isLooking(player)) return;
+      const step = this.steps.get(key) ?? 1;
+      const entries = snapshotEntries({ camera, step, lobby: this.host.rules.kind === "lobby" });
+      const form = new ActionFormData().title(sideTitle(name));
+      for (const entry of entries) form.button(entry.text, entry.icon);
+      const response = await this.host.show(player, form);
+      const action: SnapshotAction | undefined = response?.selection === undefined ? undefined : entries[response.selection]?.action;
+      if (!action || !player.isValid) return;
+      switch (action.kind) {
+        case "none":
+          continue;
+        case "back":
+          return this.pickCamera(player);
+        case "stop":
+          this.stop(player);
+          return;
+        case "shoot":
+          this.frame(player, SHOOT_LINE);
+          return;
+        case "use":
+          this.host.picture(player, camera.kind);
+          this.stop(player);
+          return;
+        case "step":
+          this.steps.set(key, action.step);
+          continue;
+        case "kind": {
+          const kind = camera.kind === "map" ? "game" : "map";
+          this.host.edit(player, { op: "camera", name, camera: { ...camera, kind } });
+          this.lookAs(player, kind);
+          continue;
+        }
+        default: {
+          const size = SNAPSHOT_STEPS[step] ?? SNAPSHOT_STEPS[1];
+          const nudged =
+            action.kind === "move"
+              ? nudgeCamera(camera, { axis: action.axis, by: action.by * size.move })
+              : action.kind === "turn"
+                ? nudgeCamera(camera, { turn: action.by * size.turn })
+                : nudgeCamera(camera, { tilt: action.by * size.turn });
+          if (this.host.edit(player, { op: "camera", name, camera: nudged })) this.view(player, nudged.at);
+        }
       }
-      case "kind": {
-        const kind = now.kind === "map" ? "game" : "map";
-        this.host.edit(player, { op: "camera", name, camera: { ...now, kind } }, `${name} is a ${CAMERA_KINDS[kind].label.toLowerCase()} now.`);
-        return this.menu(player, name);
-      }
-      case "delete":
-        this.host.edit(player, { op: "camera", name }, `${name} deleted.`);
-        return;
     }
   }
 
-  /** Moves the player's view to the camera, with the HUD (and, for a map preview, the player) hidden. */
-  look(player: Player, name: string): void {
+  /** Moves the player's view to the camera, with the HUD (and, for a map preview, the player) hidden, and the frame shown. False when it couldn't. */
+  look(player: Player, name: string): boolean {
     const camera = this.host.map().cameras?.[name];
-    if (!camera) return;
-    const [x, y, z, yaw, pitch] = camera.at;
-    // A use of the tool in hand brings them back.
-    this.host.equip(player, "camera");
+    if (!camera) return false;
+    const was = this.looking.get(player.name.toLowerCase());
     try {
-      player.camera.setCamera("minecraft:free", { location: { x, y, z }, rotation: { x: pitch, y: yaw } });
+      this.view(player, camera.at);
       player.onScreenDisplay.setHudVisibility(HudVisibility.Hide);
-      player.runCommand("title @s clear");
-      if (camera.kind === "map") player.addEffect("invisibility", LOOK_TICKS, { showParticles: false });
+      if (was && was.kind !== camera.kind) this.lookAs(player, camera.kind);
+      else if (!was && camera.kind === "map") player.addEffect("invisibility", LOOK_TICKS, { showParticles: false });
     } catch (error) {
       this.host.tell(player, `§cCouldn't look through ${name}: ${describeError(error)}`);
       this.restore(player, camera.kind);
-      return;
+      this.looking.delete(player.name.toLowerCase());
+      this.host.lookChanged();
+      return false;
     }
     this.looking.set(player.name.toLowerCase(), { name, kind: camera.kind });
+    this.frame(player);
     this.host.lookChanged();
+    return true;
   }
 
-  /** Brings the player's view back, then offers to save their newest screenshot. */
+  /** Brings the player's view back. */
   stop(player: Player): void {
     const looking = this.looking.get(player.name.toLowerCase());
     if (!looking) return;
     this.looking.delete(player.name.toLowerCase());
     this.restore(player, looking.kind);
     this.host.lookChanged();
-    if (this.host.rules.kind !== "lobby") void this.offerPicture(player, looking.name, looking.kind);
   }
 
   /** A player who left: nothing to restore, the view resets when they join again. */
   forget(name: string): void {
+    this.steps.delete(name.toLowerCase());
     if (this.looking.delete(name.toLowerCase())) this.host.lookChanged();
+  }
+
+  private isLookingAt(name: string): boolean {
+    return [...this.looking.values()].some((looking) => looking.name === name);
+  }
+
+  /** The free camera at a camera's place and angle. */
+  private view(player: Player, at: [number, number, number, number, number]): void {
+    const [x, y, z, yaw, pitch] = at;
+    player.camera.setCamera("minecraft:free", { location: { x, y, z }, rotation: { x: pitch, y: yaw } });
+  }
+
+  /** The player seen or not, for a camera that changed kind while they look through it. */
+  private lookAs(player: Player, kind: CameraKind): void {
+    const looking = this.looking.get(player.name.toLowerCase());
+    if (looking) looking.kind = kind;
+    try {
+      if (kind === "map") player.addEffect("invisibility", LOOK_TICKS, { showParticles: false });
+      else player.removeEffect("invisibility");
+    } catch {
+      // left meanwhile
+    }
+  }
+
+  /** The 16:9 frame (hud.ts FRAME_MARK), with a line at its top. */
+  private frame(player: Player, line = ""): void {
+    try {
+      player.onScreenDisplay.setTitle(frameLine(line), { fadeInDuration: 0, stayDuration: FRAME_TICKS, fadeOutDuration: 0 });
+    } catch {
+      // left meanwhile
+    }
   }
 
   private restore(player: Player, kind: CameraKind): void {
     try {
       player.camera.clear();
       player.onScreenDisplay.setHudVisibility(HudVisibility.Reset);
+      player.runCommand("title @s clear");
       if (kind === "map") player.removeEffect("invisibility");
     } catch {
       // left meanwhile
     }
-  }
-
-  private async offerPicture(player: Player, name: string, kind: CameraKind): Promise<void> {
-    const what = kind === "map" ? "the map's preview in the lobby" : `${this.host.targetName}'s picture in the lobby`;
-    const form = new ActionFormData()
-      .title(sideTitle("Use the screenshot?"))
-      .body(`Save your newest screenshot (taken in the last 10 minutes) from ${name} as ${what}? It's cropped to 16:9, and Publish puts it in the lobby.`)
-      .button("Use it")
-      .button("Not now");
-    const response = await this.host.show(player, form);
-    if (response?.selection === 0 && player.isValid) this.host.picture(player, kind);
   }
 }

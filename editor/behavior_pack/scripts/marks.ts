@@ -8,7 +8,7 @@ export const LAYOUT = {
   side: "§s§i§d§e",
   /** The map menu: the quick icons, the tool grid, the tool's settings (scrolling) and Save. */
   map: "§m§a§p",
-  /** The editor lobby's menu: a row of icons (Open a map, New map, Players, the Recent filters, Leave), then the list scrolling. */
+  /** The editor lobby's menu: a row of icons (New map, Players, Leave), then Recent and the map cards scrolling. */
   home: "§h§o§m§e",
   /** A row of icons (with their tooltips), the list scrolling, and a button pinned at the bottom (Back to Lobby). */
   icons: "§i§c§o§n",
@@ -41,7 +41,7 @@ export const MARK = {
   save: "§s§v§r",
   /** A square icon at the right end of the editor lobby's icon row (Leave). */
   end: "§q§e§r",
-  /** A full-width button with its icon on the left and its text beside it (the editor lobby's Open now and Recent). */
+  /** A full-width button with its icon on the left and its text beside it (Select's maps from this world). */
   card: "§i§c§r",
   /** Green, with white text: the step that finishes something (Export to Map, Nudge, Edit). */
   go: "§g§o§r",
@@ -69,7 +69,20 @@ export const MARK = {
   back: "§b§c§r",
   /** A wider toggle tile, for a toggle of two (with segment). */
   wide: "§w§d§r",
+  /** A card's title, on the left of its row (the editor lobby's maps): plain, not a button. */
+  cardTitle: "§c§t§r",
+  /** One of a card's icons, right of its title (with one of CARD_COLUMNS); faded with dim. */
+  cardIcon: "§c§n§r",
+  /** The heading over the cards, on the left of its row (Recent). */
+  cardHead: "§c§h§r",
+  /** A link with an icon at the right of the cards' heading (Search). */
+  cardLink: "§s§c§r",
+  /** A picture tile (with one of SEGMENT_COLUMNS' first two): the picture, its name under it, and a green outline while on. */
+  picture: "§p§c§r",
 } as const;
+
+/** A card's icon columns, left to right: a card has one icon in each. */
+export const CARD_COLUMNS = ["§v§0§r", "§v§1§r", "§v§2§r"] as const;
 
 /** A toggle's columns: tile n goes in column n % 3, so the tiles fill rows of three. */
 export const SEGMENT_COLUMNS = ["§g§0§r", "§g§1§r", "§g§2§r"] as const;
@@ -100,6 +113,21 @@ export function iconsTitle(title: string): string {
 /** A green button's text. */
 export function goText(text: string): string {
   return `${MARK.go}${text}`;
+}
+
+/** A picture tile `index` (two to a row), outlined green while `on` (the picture in use). */
+export function pictureText(text: string, index: number, on: boolean): string {
+  return `${MARK.picture}${SEGMENT_COLUMNS[index % 2]}${on ? MARK.on : ""}${text}`;
+}
+
+/** A card's title. */
+export function cardTitleText(text: string): string {
+  return `${MARK.cardTitle}${text}`;
+}
+
+/** A card's icon in column `index`, faded (its step isn't done) unless `on`. */
+export function cardIconText(text: string, index: number, on: boolean): string {
+  return `${MARK.cardIcon}${CARD_COLUMNS[index]}${on ? "" : MARK.dim}${text}`;
 }
 
 /** A side layout's title with the loading dots after it. */

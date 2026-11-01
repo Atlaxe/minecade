@@ -116,6 +116,11 @@ export interface GameConfig {
   endDelaySeconds?: number;
   /** Players who arrive after the start: sent back, spectating, or joining in. Default "spectate". */
   lateJoin?: "return" | "spectate" | "join";
+  /**
+   * Gamertags over players during the match. Default false: hidden from the start until the end.
+   * They always show while players wait at the queue spawn (free) or their spawns.
+   */
+  nameTags?: boolean;
   teams?: TeamsConfig;
   /** Extra choices for the lobby's game screen (team games already get Teams: Pick or Random). */
   options?: GameOptionConfig[];
@@ -171,6 +176,11 @@ export interface MapRequirementsConfig {
   spawns?: { min?: number | "maxPlayers"; marker?: MarkerStyle };
   /** Spawns per team: true for at least 1 each, or how many each team needs. */
   teamSpawns?: boolean | { perTeam?: number; marker?: MarkerStyle };
+  /**
+   * Where players watch from (map.json "spectatorSpawn"). A game that names neither this nor
+   * queueSpawn needs one or the other: without a spectator spawn, players watch from the queue
+   * spawn. Naming either one asks for exactly what's named (both, for a game that needs both).
+   */
   spectatorSpawn?: boolean | { marker?: MarkerStyle };
   /** Where players wait for everyone to join before they're put at their spawns (map.json "queueSpawn"). */
   queueSpawn?: boolean | { marker?: MarkerStyle };

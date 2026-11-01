@@ -198,5 +198,91 @@
         }
       }
     ]
+  },
+
+  // The item name above the hotbar shows only its first line: the name. Vanilla adds a locked
+  // item's lock lines under it ("Can't Move Items can't be: ...", "This item is not lost on death").
+  // texts/en_US.lang draws them as nothing, and this cuts off whatever lines are left, so the box
+  // stays one line tall. Vanilla's item_name_text_root, with the label in a one-line panel that
+  // clips; the background follows that panel.
+  "item_name_text_root": {
+    "type": "panel",
+    "size": [ "100%cm", "100%cm" ],
+    "$show_interact_padding|default": false,
+    "$show_survival_padding|default": false,
+    "$show_text_background|default": false,
+    "$localize|default": true,
+    "$text_color|default": "$tool_tip_text",
+    "$text_binding|default": "#item_text",
+    "anchor_from": "bottom_middle",
+    "anchor_to": "bottom_middle",
+    "$wait_duration|default": 1,
+    "$destroy_id|default": "item_name_text",
+    "controls": [
+      {
+        "item_text_aligner": {
+          "type": "stack_panel",
+          "size": [ "100%cm", "100%c" ],
+          "controls": [
+            {
+              "item_text_control": {
+                "type": "panel",
+                "size": [ "100%cm", "100%cm" ],
+                "controls": [
+                  {
+                    "item_text_background": {
+                      "ignored": "(not $show_text_background)",
+                      "type": "image",
+                      "size": [ "100%sm + 12px", "100%sm + 5px" ],
+                      "texture": "textures/ui/hud_tip_text_background",
+                      "alpha": "@hud.anim_item_name_background_alpha_in"
+                    }
+                  },
+                  {
+                    "item_text_first_line": {
+                      "type": "panel",
+                      "size": [ "100%c", 10 ],
+                      "clips_children": true,
+                      "controls": [
+                        {
+                          "item_text_label": {
+                            "type": "label",
+                            "anchor_from": "top_middle",
+                            "anchor_to": "top_middle",
+                            "max_size": [ 200, "default" ],
+                            "text_alignment": "center",
+                            "layer": 31,
+                            "color": "$text_color",
+                            "text": "#text",
+                            "localize": "$localize",
+                            "alpha": "@hud.anim_item_name_text_alpha_in",
+                            "shadow": true,
+                            "bindings": [ { "binding_name": "$text_binding", "binding_name_override": "#text" } ]
+                          }
+                        }
+                      ]
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "interact_padding@common.empty_panel": {
+                "visible": "$show_interact_padding",
+                "size": [ "100%sm", 18 ],
+                "bindings": [ { "binding_name": "#interact_visible", "binding_name_override": "#visible", "binding_condition": "always" } ]
+              }
+            },
+            {
+              "survival_buffer@common.empty_panel": {
+                "visible": "$show_survival_padding",
+                "size": [ "100%sm", 17 ],
+                "bindings": [ { "binding_name": "#show_survival_ui", "binding_name_override": "#visible" } ]
+              }
+            }
+          ]
+        }
+      }
+    ]
   }
 }

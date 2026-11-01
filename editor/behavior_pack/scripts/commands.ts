@@ -3,8 +3,11 @@
 //   the Select tool) and creative mode, for worlds whose command blocks clear inventories or change
 //   game modes. Select and Edit say what resetting does.
 // - /zoom (minecade:zoom): zooms the view in, like a spyglass, whatever you hold; again to zoom
-//   back out. A key can't do it: scripts only see the jump and sneak buttons.
-import { CommandPermissionLevel, CustomCommandStatus, system, type Player } from "@minecraft/server";
+//   back out. A key can't do it: scripts only see the jump and sneak buttons. A right click with an
+//   empty hand does the same (zoomOnEmptyHand), on any platform, but only aimed at a block or a
+//   mob within reach: a right click at the sky reaches no script.
+import { CommandPermissionLevel, CustomCommandStatus, system, world, type Player } from "@minecraft/server";
+import type { Scope } from "@minecade/minigame-core";
 
 /** The field of view while zoomed in (Minecraft's default is about 70). */
 const ZOOM_FOV = 30;
@@ -38,6 +41,16 @@ system.beforeEvents.startup.subscribe(({ customCommandRegistry }) => {
     },
   );
 });
+
+/** A right click with an empty hand on a block (once per click, not while held) or on a mob zooms in or back out. */
+export function zoomOnEmptyHand(scope: Scope): void {
+  scope.subscribeBefore(world.beforeEvents.playerInteractWithBlock, ({ player, itemStack, isFirstEvent }) => {
+    if (!itemStack && isFirstEvent) system.run(() => toggleZoom(player));
+  });
+  scope.subscribe(world.afterEvents.playerInteractWithEntity, ({ player, itemStack }) => {
+    if (!itemStack) toggleZoom(player);
+  });
+}
 
 function toggleZoom(player: Player): void {
   if (!player.isValid) return;

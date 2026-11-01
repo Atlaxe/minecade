@@ -16,6 +16,7 @@ Outputs:
     editor/resource_pack/textures/minecade/editor/...                        the map editor's dark side menus and icons
     editor/resource_pack/textures/particle/outline.png                        the editor's outline dot (white, dark rim)
     editor/resource_pack/textures/items/select_tool.png                       Select mode's tool (a crop mark)
+    editor/resource_pack/textures/items/snapshot.png                          the Camera tool's Snapshot (a photo)
     editor/resource_pack/textures/entity/editor_marker_facing.png            the red facing line on markers
     editor/resource_pack/textures/entity/editor_marker*.png                  markers, a color per kind
     games/<id>/icon.png                                                      16:9 game pictures (Probe, Sumo, One in the Quiver)
@@ -578,7 +579,43 @@ def editor_icon(kind: str, color: tuple[int, int, int] = (255, 255, 255)) -> Ima
         draw.polygon([(6, 32), (28, 12), (28, 52)], fill=fill)
     elif kind == "minus":
         draw.rectangle((8, 27, 55, 36), fill=fill)
+    elif kind == "search":
+        # A magnifying glass: a ring, and its handle down and right.
+        draw.ellipse((6, 6, 42, 42), outline=fill, width=8)
+        draw.line([(37, 37), (56, 56)], fill=fill, width=11)
     return image.resize((16, 16), Image.Resampling.LANCZOS)
+
+
+def snapshot_icon() -> Image.Image:
+    """The Snapshot item's icon, 16x16 like the other editor items: a photo with a sun and hills, in a white frame."""
+    image = Image.new("RGBA", (16, 16), (0, 0, 0, 0))
+    draw = ImageDraw.Draw(image)
+    draw.rectangle((1, 3, 14, 12), fill=(242, 239, 230, 255))
+    draw.rectangle((2, 4, 13, 11), fill=(90, 170, 235, 255))
+    draw.rectangle((10, 5, 11, 6), fill=(255, 220, 80, 255))
+    draw.polygon([(2, 11), (6, 7), (9, 10), (11, 8), (13, 10), (13, 11)], fill=(70, 150, 60, 255))
+    return image
+
+
+def snapshot_frame() -> Image.Image:
+    """
+    The Snapshot view's 16:9 frame, 24x24 at 1x, nine-slice (8 pixel slices): a white L in each
+    corner, the edges between them clear, so it stretches to any size with crisp corners.
+    """
+    image = Image.new("RGBA", (24, 24), (0, 0, 0, 0))
+    draw = ImageDraw.Draw(image)
+    white = (255, 255, 255, 230)
+    for x0, y0, dx, dy in ((0, 0, 1, 1), (23, 0, -1, 1), (0, 23, 1, -1), (23, 23, -1, -1)):
+        draw.line([(x0, y0), (x0 + 6 * dx, y0)], fill=white, width=2)
+        draw.line([(x0, y0), (x0, y0 + 6 * dy)], fill=white, width=2)
+    return image
+
+
+def editor_picked_green() -> Image.Image:
+    """The current thumbnail's outline, 16x16 at 1x, nine-slice: a 2 pixel green square outline."""
+    image = Image.new("RGBA", (16, 16), (0, 0, 0, 0))
+    ImageDraw.Draw(image).rectangle((0, 0, 15, 15), outline=(*EDITOR_GREEN, 255), width=2)
+    return image
 
 
 def loading_dots() -> Image.Image:
@@ -757,6 +794,14 @@ def main() -> None:
     save(editor_switch(False), EDITOR_TEXTURES / "minecade" / "editor" / "switch_off.png")
     for state, color in (("default", (255, 255, 255)), ("hover", (235, 64, 64)), ("pressed", (160, 30, 30))):
         save(nav_icon("close", color), EDITOR_TEXTURES / "minecade" / "editor" / f"close_{state}.png")
+    # The back arrow, drawn like the X with no face: white, lighter when hovered.
+    for state, color in (("default", (255, 255, 255)), ("hover", BRIGHT), ("pressed", (140, 190, 220))):
+        save(nav_icon("back", color), EDITOR_TEXTURES / "minecade" / "editor" / f"back_{state}.png")
+    # The editor lobby's Search link, the Snapshot item, its 16:9 frame, and the current thumbnail's outline.
+    save(editor_icon("search"), EDITOR_TEXTURES / "minecade" / "editor" / "icon_search.png")
+    save(snapshot_icon(), EDITOR_TEXTURES / "items" / "snapshot.png")
+    save_nineslice(snapshot_frame(), EDITOR_TEXTURES / "minecade" / "editor" / "snapshot_frame.png", 8)
+    save_nineslice(editor_picked_green(), EDITOR_TEXTURES / "minecade" / "editor" / "picked_green.png", 4)
     save(Image.new("RGB", (16, 16), (255, 40, 40)), EDITOR_TEXTURES / "entity" / "editor_marker_facing.png")
     # The core pack: locked items show no red or yellow corner on any server (kit items, the editor's map menu).
     for name in ("item_lock_red", "item_lock_yellow"):

@@ -3,7 +3,8 @@
 import type { MapEntryRequirement, MapRequirementsConfig, MarkerStyle } from "./config.ts";
 import { teamKey } from "./map-config.ts";
 
-export type MapField = "spawns" | "spectatorSpawn" | "queueSpawn" | "bounds" | "killY" | "points" | "regions" | "teamSpawns";
+/** "spectatorOrQueue": a spectator spawn or a queue spawn, either one (games that name neither). */
+export type MapField = "spawns" | "spectatorSpawn" | "queueSpawn" | "spectatorOrQueue" | "bounds" | "killY" | "points" | "regions" | "teamSpawns";
 
 export interface MapRequirement {
   /** Where it lives in map.json, and a unique id: "spawns", "points.bombA", "regions.buyZone.red", "teamSpawns.red". */
@@ -28,7 +29,7 @@ export interface RequirementOptions {
   teams?: { id: string; name: string }[];
 }
 
-/** The requirements in checklist order: spawns, spectator spawn, queue spawn, bounds, killY, points, regions, team spawns. */
+/** The requirements in checklist order: spawns, spectator or queue spawn, spectator spawn, queue spawn, bounds, killY, points, regions, team spawns. */
 export function mapRequirements(map: MapRequirementsConfig | undefined, options: RequirementOptions): MapRequirement[] {
   const list: MapRequirement[] = [];
   const teams = options.teams ?? [];
@@ -41,6 +42,11 @@ export function mapRequirements(map: MapRequirementsConfig | undefined, options:
     // Team games spawn players by team, so their plain spawns only need one (for waiting).
     const perPlayer = !map?.teamSpawns;
     list.push({ key: "spawns", label: "Spawns", field: "spawns", min: perPlayer ? (options.maxPlayers ?? 1) : 1, perPlayer });
+  }
+  // A game watches from the spectator spawn, or from the queue spawn when the map has no spectator
+  // spawn: one or the other, unless the game names what it needs.
+  if (options.kind === "game" && map?.spectatorSpawn === undefined && map?.queueSpawn === undefined) {
+    list.push({ key: "spectatorOrQueue", label: "Spectator or queue spawn", field: "spectatorOrQueue", min: 1 });
   }
   if (map?.spectatorSpawn) list.push({ key: "spectatorSpawn", label: "Spectator spawn", field: "spectatorSpawn", min: 1 });
   if (map?.queueSpawn) list.push({ key: "queueSpawn", label: "Queue spawn", field: "queueSpawn", min: 1 });

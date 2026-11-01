@@ -9,7 +9,7 @@ const TEAMS = [
   { id: "blue", name: "Blue" },
 ];
 const bounds = { min: [-20, 40, -20], max: [20, 100, 20] };
-const game: MapRules = { kind: "game", maxPlayers: 1, teams: TEAMS };
+const game: MapRules = { kind: "game", maxPlayers: 1, teams: TEAMS, requires: { spectatorSpawn: false } };
 
 describe("validateMapConfig: map format v2", () => {
   it("accepts saved facings, kill regions, per-team keys and the editor's keys", () => {
@@ -46,7 +46,7 @@ describe("validateMapConfig: map format v2", () => {
   it("needs team keys to be the game's teams, when the teams are known", () => {
     const map = { name: "M", spawns: [[0, 65, 0]], teamSpawns: { green: [[0, 65, 1]] }, points: { "flag.green": [[0, 65, 2]] }, regions: { "zone.red": [{ min: [0, 60, 0], max: [1, 61, 1] }] } };
     expect(validateMapConfig(map, game)).toEqual(['teamSpawns.green: "green" must be one of red, blue', 'points.flag.green: "green" must be one of red, blue']);
-    expect(validateMapConfig(map, { kind: "game", maxPlayers: 1 })).toEqual([]);
+    expect(validateMapConfig(map, { kind: "game", maxPlayers: 1, requires: { spectatorSpawn: false } })).toEqual([]);
     expect(validateMapConfig({ name: "M", spawns: [[0, 65, 0]], points: { "flag.red": [[0, 65, 2]] } }, { kind: "lobby", teams: [] })).toEqual([
       'points.flag.red: "red" must be a team, and this map\'s game has none',
     ]);
@@ -101,7 +101,7 @@ describe("mapWarnings", () => {
 
 describe("exact positions", () => {
   it("keeps a point inside its bounds' last block, as the runtime does", () => {
-    const rules: MapRules = { kind: "game", maxPlayers: 1 };
+    const rules: MapRules = { kind: "game", maxPlayers: 1, requires: { spectatorSpawn: false } };
     const bounds = { min: [-12, 40, -12], max: [12, 100, 12] } as MapConfig["bounds"];
     expect(validateMapConfig({ name: "M", spawns: [[12.7, 65, -12]], bounds }, rules)).toEqual([]);
     expect(validateMapConfig({ name: "M", spawns: [[13.01, 65, 0]], bounds }, rules)).toEqual(['spawns[0] [13.01,65,0] is outside "bounds"']);
@@ -109,7 +109,7 @@ describe("exact positions", () => {
 });
 
 describe("several bounds boxes", () => {
-  const rules: MapRules = { kind: "game", maxPlayers: 1 };
+  const rules: MapRules = { kind: "game", maxPlayers: 1, requires: { spectatorSpawn: false } };
   const west = { min: [-20, 40, -5], max: [-10, 80, 5] } as MapConfig["bounds"] & object;
   const east = { min: [10, 40, -5], max: [20, 80, 5] } as MapConfig["bounds"] & object;
 
