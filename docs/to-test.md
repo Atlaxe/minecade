@@ -112,9 +112,10 @@ Locked items, marker styles and a preview's fake players (after the editor's nex
   game: Quiver's sword, bow and arrows show only their names.
 - Edit a lobby map: the terminal is a yellow post (a thin post with a square head), its red line
   out of the head; spawns are still mannequins. With the Spawn tool on Terminal, the see-through
-  marker is a post too.
-- Preview a Quiver map: `/fake` puts Fake 1 (Steve, with a name tag) at a spawn; `/fake 3` adds
-  three more; the match starts with you and them.
+  marker is a post too. (A game's own marker model can't be checked yet: no game ships one.)
+- Preview a Quiver map: `/fake` puts Fake 1 (Steve, with a name tag) at a spawn before the match
+  starts, and it counts toward the players needed; `/fake 3` adds three more; the match starts with
+  you and them.
 - Shoot a fake: it goes down at once, the kill feed says "Fake 1 was shot by you (N blocks)", you
   get an arrow back, and it comes back at a spawn 2 seconds later. A sword kill works too.
 - Right click a fake: the side panel opens with "Kill Fake 2" (red) and Cancel. Cancel leaves it;
@@ -258,6 +259,8 @@ Guests (needs a second account that isn't in LAN_PLAYERS):
 - Start a preview from Edit: the guest waits in the editor lobby while Select closes, then you both
   go into the preview. When it ends, you're back in Edit and they're in the editor lobby, then on
   Select once it reopens.
+- In a preview, the guest types `/exit`: only they go home to the editor lobby, and the preview
+  goes on for you.
 - Players, tap the guest, Remove: they're disconnected with "You're no longer invited to the map
   editor", and can't rejoin.
 - With a second map editor (another LAN_PLAYERS account) in Edit, opening another map asks about
