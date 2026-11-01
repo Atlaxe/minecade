@@ -4,7 +4,7 @@
 // which shows them in the map menu. Nothing in Select mode is saved: stopping just stops.
 import { cp, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
-import type { EditorEvent, SelectInfo, SelectionInfo } from "@minecade/minigame-core/config";
+import { chatMapName, type EditorEvent, type SelectInfo, type SelectionInfo } from "@minecade/minigame-core/config";
 import { voidGenerator } from "../build/bake-core.ts";
 import { enableBetaApis, patchLevelDat } from "../build/leveldat.ts";
 import type { SelectStatus } from "./editor-core.ts";
@@ -103,7 +103,7 @@ export class SelectSession extends ServerSession {
     }
     await this.selections.add(this.world.name, { target: target.id, map: event.map, name, box: event.box, offset: centerOffset(event.box) });
     this.note(`${event.by}: ${target.name}, ${name} (${event.map}) queued for extraction.`);
-    void this.say(`${name} (${event.map}) is exporting: it's cut out and moved to the middle in the background. You can box the next map meanwhile.`, event.by);
+    void this.say(`${chatMapName(target.name, name)} is exporting: it's cut out and moved to the middle in the background. You can box the next map meanwhile.`, event.by);
   }
 
   protected async afterReady(): Promise<void> {

@@ -9,6 +9,7 @@ import { cp, mkdir, readFile, rename, rm, writeFile } from "node:fs/promises";
 import { basename, join, relative } from "node:path";
 import {
   applyEdit,
+  chatMapName,
   describeEdit,
   formatMapConfig,
   mapChecklist,
@@ -435,7 +436,7 @@ export class EditorSession extends ServerSession {
     const path = relative(root, this.mapDir).replaceAll("\\", "/");
     this.note(`${by}: publishing ${path}...`);
     void this.sendStatus();
-    void this.say(`${by} is publishing ${name}: saving, then commit and push...`);
+    void this.say(`${by} is publishing ${chatMapName(this.target.name, name)}: saving, then commit and push...`);
     if (this.config.draft === true) {
       const edit = { op: "draft", draft: false } as const;
       this.history.record(this.config, `${describeEdit(edit)} (${by})`);
@@ -445,7 +446,7 @@ export class EditorSession extends ServerSession {
     }
     await this.saving;
     if (this.unsaved && !(await this.save(by))) {
-      void this.say(`§c${name} was NOT published: the world didn't save.`);
+      void this.say(`${chatMapName(this.target.name, name)} §cwas NOT published: the world didn't save.`);
       return;
     }
     await this.writing;
@@ -457,11 +458,11 @@ export class EditorSession extends ServerSession {
       const commit = result.commit ? ` (commit ${result.commit})` : "";
       const where = this.target.id === "lobby" ? "the Panel's lobby map picker has it" : `it's in ${this.target.name}'s map list in the lobby`;
       this.note(`Published ${path}${commit}: committed and pushed.`);
-      void this.say(`§a${name} is published${commit}: ${where} from the network's next start.`);
+      void this.say(`${chatMapName(this.target.name, name)} §ais published${commit}: ${where} from the network's next start.`);
       void this.send({ t: "notice", text: `§a${name} is published` });
     } else if (result.outcome === "unchanged") {
       this.note(`${path} has no changes since it was last published.`);
-      void this.say(`${name} has no changes since it was last published.`, by);
+      void this.say(`${chatMapName(this.target.name, name)} has no changes since it was last published.`, by);
     } else {
       this.note(`Publishing ${path} failed${result.commit ? ` after commit ${result.commit}` : ""}: ${result.error}`);
       void this.say(

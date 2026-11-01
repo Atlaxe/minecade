@@ -2,9 +2,14 @@
   "format_version": "1.8.0",
   "render_controllers": {
     "controller.render.minecade.editor_marker": {
+      "arrays": {
+        "textures": {
+          "Array.kinds": ["Texture.default", "Texture.spectator", "Texture.queue", "Texture.team", "Texture.point", "Texture.camera"]
+        }
+      },
       "geometry": "Geometry.default",
       "materials": [{ "*": "Material.default" }],
-      "textures": ["Texture.default"],
+      "textures": ["Array.kinds[query.property('minecade:kind')]"],
       "part_visibility": [{ "*": true }, { "facing": false }]
     },
     "controller.render.minecade.editor_marker_facing": {

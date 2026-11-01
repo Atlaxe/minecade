@@ -1,20 +1,21 @@
 {
   "namespace": "editor_forms",
 
-  // The map editor's button menus: a dark panel down the right side of the screen, full height, so
-  // the world stays in view on the left. A form picks its layout by a mark at the start of its title
+  // The map editor's menus: a dark panel down the right side of the screen, full height, so the
+  // world stays in view on the left. A form picks its layout by a mark at the start of its title
   // (scripts/marks.ts LAYOUT):
-  // - side (the checklist, the marker form, the region forms): the title and the X at the top, the
-  //   body and the buttons scrolling under them, top down;
+  // - side (the checklist, a marker's form, the tools' forms): the title and the X at the top, the
+  //   body and the buttons scrolling under them, and a button pinned at the bottom;
   // - map (the map menu): the title and the X, the quick icons, the tool grid, the tool's settings
   //   (the body and the other buttons, scrolling), and the green Save bar at the bottom;
-  // - icons (Select's map menu, the selection's form, Edit's gear): the title and the X, a row of
-  //   icons with tooltips, the body and the other buttons scrolling, and a button pinned at the
-  //   bottom (§b§t§r: Back to Lobby);
-  // - home (the editor lobby's menu): the same, wider, with the Recent filters in its row.
+  // - icons (Select's map menu, the selection's form, Edit's gear) and home (the editor lobby's
+  //   menu): the title and the X, a row of icons with tooltips, the list scrolling, and a button
+  //   pinned at the bottom (§b§t§r: Back to Lobby).
   // A side title can also carry the loading mark (§l§o§a§d): five dots after it light up in turn.
+  // Forms with fields titled with the side mark get the same side panel (custom_form).
   // A form's buttons are one list. Each part of a layout makes an item for every button and shows
-  // only the ones with its mark (scripts/marks.ts MARK); a hidden item takes no space.
+  // only the ones with its mark (scripts/marks.ts MARK); a hidden item takes no space. Buttons use
+  // the game's regular font; only titles use Minecraft Ten. Help text goes in tooltips.
   //
   // Every control that a binding shows starts hidden ("visible": false): a new screen's first frame
   // comes before its bindings apply, and a click without a mouse move goes to whatever was under the
@@ -23,10 +24,10 @@
     "type": "panel",
     "size": ["100%", "100%"],
     "controls": [
-      { "side_menu@editor_forms.side_menu": {} },
-      { "map_menu@editor_forms.map_menu": {} },
-      { "icon_menu@editor_forms.icon_menu": {} },
-      { "home_menu@editor_forms.home_menu": {} }
+      {"side_menu@editor_forms.side_menu": {}},
+      {"map_menu@editor_forms.map_menu": {}},
+      {"icon_menu@editor_forms.icon_menu": {}},
+      {"home_menu@editor_forms.home_menu": {}}
     ]
   },
 
@@ -38,25 +39,25 @@
     "layer": 2,
     "visible": false,
     "bindings": [
-      { "binding_name": "#title_text" },
-      {
-        "binding_type": "view",
-        "source_property_name": "(not ((#title_text - '§s§i§d§e') = #title_text))",
-        "target_property_name": "#visible"
-      }
+      {"binding_name": "#title_text"},
+      {"binding_type": "view", "source_property_name": "(not ((#title_text - '§s§i§d§e') = #title_text))", "target_property_name": "#visible"}
     ],
+    "controls": [{"frame@editor_forms.frame": {}}, {"parts@editor_forms.side_parts": {}}]
+  },
+
+  // Under the title: the body and the buttons scrolling, and the button pinned at the bottom (§b§t§r):
+  // green (§g§o§r) to save what the menu sets up, such as a new spawn.
+  "side_parts": {
+    "type": "stack_panel",
+    "orientation": "vertical",
+    "size": ["100% - 8px", "100% - 35px"],
+    "anchor_from": "top_middle",
+    "anchor_to": "top_middle",
+    "offset": [0, 31],
+    "layer": 3,
     "controls": [
-      { "frame@editor_forms.frame": {} },
-      {
-        "content@editor_forms.scroll": {
-          "size": ["100% - 8px", "100% - 38px"],
-          "anchor_from": "bottom_middle",
-          "anchor_to": "bottom_middle",
-          "offset": [0, -4],
-          "layer": 3,
-          "$scrolling_content": "editor_forms.side_content"
-        }
-      }
+      {"list@editor_forms.scroll": {"size": ["100%", "fill"], "$scrolling_content": "editor_forms.side_content"}},
+      {"bottom@editor_forms.bottom_strip": {}}
     ]
   },
 
@@ -68,15 +69,11 @@
     "layer": 2,
     "visible": false,
     "bindings": [
-      { "binding_name": "#title_text" },
-      {
-        "binding_type": "view",
-        "source_property_name": "(not ((#title_text - '§m§a§p') = #title_text))",
-        "target_property_name": "#visible"
-      }
+      {"binding_name": "#title_text"},
+      {"binding_type": "view", "source_property_name": "(not ((#title_text - '§m§a§p') = #title_text))", "target_property_name": "#visible"}
     ],
     "controls": [
-      { "frame@editor_forms.frame": {} },
+      {"frame@editor_forms.frame": {}},
       {
         "parts": {
           "type": "stack_panel",
@@ -100,29 +97,31 @@
                       "anchor_from": "left_middle",
                       "anchor_to": "left_middle",
                       "offset": [4, 0],
-                      "controls": [{ "pill@editor_forms.pill_strip": {} }, { "icons@editor_forms.quick_strip": {} }]
+                      "controls": [{"pill@editor_forms.pill_strip": {}}, {"icons@editor_forms.quick_strip": {}}]
                     }
                   }
                 ]
               }
             },
-            { "rule_quick@editor_forms.rule_row": {} },
+            {"rule_quick@editor_forms.rule_row": {}},
             {
               "tools": {
                 "type": "panel",
                 "size": ["100%", "100%c + 6px"],
-                "controls": [{ "grid@editor_forms.tool_grid": { "anchor_from": "top_left", "anchor_to": "top_left", "offset": [4, 3] } }]
+                "controls": [{"grid@editor_forms.tool_grid": {"anchor_from": "top_left", "anchor_to": "top_left", "offset": [4, 3]}}]
               }
             },
-            { "rule_tools@editor_forms.rule_row": {} },
-            { "settings@editor_forms.scroll": { "size": ["100%", "fill"], "$scrolling_content": "editor_forms.side_content" } },
-            { "save@editor_forms.save_strip": {} }
+            {"rule_tools@editor_forms.rule_row": {}},
+            {"settings@editor_forms.scroll": {"size": ["100%", "fill"], "$scrolling_content": "editor_forms.side_content"}},
+            {"save@editor_forms.save_strip": {}}
           ]
         }
       }
     ]
   },
 
+  // The icon row layouts: menus with a row of icons (Select's map menu, Edit's gear), and the editor
+  // lobby's menu.
   "icon_menu": {
     "type": "panel",
     "size": [200, "100%"],
@@ -131,33 +130,24 @@
     "layer": 2,
     "visible": false,
     "bindings": [
-      { "binding_name": "#title_text" },
-      {
-        "binding_type": "view",
-        "source_property_name": "(not ((#title_text - '§i§c§o§n') = #title_text))",
-        "target_property_name": "#visible"
-      }
+      {"binding_name": "#title_text"},
+      {"binding_type": "view", "source_property_name": "(not ((#title_text - '§i§c§o§n') = #title_text))", "target_property_name": "#visible"}
     ],
-    "controls": [{ "frame@editor_forms.frame": {} }, { "parts@editor_forms.icon_parts": { "$filters": false } }]
+    "controls": [{"frame@editor_forms.frame": {}}, {"parts@editor_forms.icon_parts": {}}]
   },
 
-  // Wider than the other menus, so its row fits Players and the filters as well as Leave.
   "home_menu": {
     "type": "panel",
-    "size": [216, "100%"],
+    "size": [200, "100%"],
     "anchor_from": "right_middle",
     "anchor_to": "right_middle",
     "layer": 2,
     "visible": false,
     "bindings": [
-      { "binding_name": "#title_text" },
-      {
-        "binding_type": "view",
-        "source_property_name": "(not ((#title_text - '§h§o§m§e') = #title_text))",
-        "target_property_name": "#visible"
-      }
+      {"binding_name": "#title_text"},
+      {"binding_type": "view", "source_property_name": "(not ((#title_text - '§h§o§m§e') = #title_text))", "target_property_name": "#visible"}
     ],
-    "controls": [{ "frame@editor_forms.frame": {} }, { "parts@editor_forms.icon_parts": { "$filters": true } }]
+    "controls": [{"frame@editor_forms.frame": {}}, {"parts@editor_forms.icon_parts": {}}]
   },
 
   // Under the title: the icon row, a line, the list scrolling, and the button pinned at the bottom.
@@ -170,19 +160,17 @@
     "offset": [0, 31],
     "layer": 3,
     "controls": [
-      { "icons@editor_forms.home_icons": {} },
-      { "rule_icons@editor_forms.rule_row": {} },
-      { "list@editor_forms.scroll": { "size": ["100%", "fill"], "$scrolling_content": "editor_forms.side_content" } },
-      { "bottom@editor_forms.bottom_strip": {} }
+      {"icons@editor_forms.home_icons": {}},
+      {"rule_icons@editor_forms.rule_row": {}},
+      {"list@editor_forms.scroll": {"size": ["100%", "fill"], "$scrolling_content": "editor_forms.side_content"}},
+      {"bottom@editor_forms.bottom_strip": {}}
     ]
   },
 
-  // An icon row: the icons (§q§i§r), then in the editor lobby ($filters) a divider, a funnel and
-  // the Recent filters (§q§f§r, outlined while on), and Leave (§q§e§r) at the right end.
+  // An icon row: the icons (§q§i§r) from the left, and Leave (§q§e§r) at the right end.
   "home_icons": {
     "type": "panel",
     "size": ["100%", 30],
-    "$filters|default": false,
     "controls": [
       {
         "row": {
@@ -192,39 +180,20 @@
           "anchor_from": "left_middle",
           "anchor_to": "left_middle",
           "offset": [4, 0],
-          "controls": [
-            { "actions@editor_forms.quick_strip": {} },
-            {
-              "divider": {
-                "type": "panel",
-                "size": [9, 24],
-                "visible": "$filters",
-                "controls": [{ "line": { "type": "image", "texture": "textures/minecade/editor/rule", "size": [1, 16], "keep_ratio": false } }]
-              }
-            },
-            {
-              "funnel": {
-                "type": "panel",
-                "size": [18, 24],
-                "visible": "$filters",
-                "controls": [{ "icon": { "type": "image", "texture": "textures/minecade/editor/icon_filter", "size": [16, 16], "bilinear": false, "alpha": 0.55 } }]
-              }
-            },
-            { "filters@editor_forms.filter_strip": {} }
-          ]
+          "controls": [{"actions@editor_forms.quick_strip": {}}]
         }
       },
-      { "end@editor_forms.end_strip": { "anchor_from": "right_middle", "anchor_to": "right_middle", "offset": [-3, 0] } }
+      {"end@editor_forms.end_strip": {"anchor_from": "right_middle", "anchor_to": "right_middle", "offset": [-3, 0]}}
     ]
   },
 
-  // What every layout has: the background, the title and the X, and a line under the title. A
-  // loading title (§l§o§a§d) gets the dots after it.
+  // What every layout has: the background, the title (Minecraft Ten, the only place it's used) and the
+  // X, and a line under the title. A loading title (§l§o§a§d) gets the dots after it.
   "frame": {
     "type": "panel",
     "size": ["100%", "100%"],
     "controls": [
-      { "background": { "type": "image", "texture": "textures/minecade/editor/panel", "size": ["100%", "100%"], "layer": 1 } },
+      {"background": {"type": "image", "texture": "textures/minecade/editor/panel", "size": ["100%", "100%"], "layer": 1}},
       {
         "title": {
           "type": "label",
@@ -240,12 +209,8 @@
           "layer": 3,
           "visible": false,
           "bindings": [
-            { "binding_name": "#title_text" },
-            {
-              "binding_type": "view",
-              "source_property_name": "((#title_text - '§l§o§a§d') = #title_text)",
-              "target_property_name": "#visible"
-            }
+            {"binding_name": "#title_text"},
+            {"binding_type": "view", "source_property_name": "((#title_text - '§l§o§a§d') = #title_text)", "target_property_name": "#visible"}
           ]
         }
       },
@@ -260,12 +225,8 @@
           "layer": 3,
           "visible": false,
           "bindings": [
-            { "binding_name": "#title_text" },
-            {
-              "binding_type": "view",
-              "source_property_name": "(not ((#title_text - '§l§o§a§d') = #title_text))",
-              "target_property_name": "#visible"
-            }
+            {"binding_name": "#title_text"},
+            {"binding_type": "view", "source_property_name": "(not ((#title_text - '§l§o§a§d') = #title_text))", "target_property_name": "#visible"}
           ],
           "controls": [
             {
@@ -277,7 +238,7 @@
                 "color": [1.0, 1.0, 1.0],
                 "shadow": true,
                 "size": ["default", 12],
-                "bindings": [{ "binding_name": "#title_text" }]
+                "bindings": [{"binding_name": "#title_text"}]
               }
             },
             {
@@ -304,7 +265,7 @@
           ]
         }
       },
-      { "close@editor_forms.close_x": {} },
+      {"close@editor_forms.close_x": {}},
       {
         "rule": {
           "type": "image",
@@ -321,13 +282,7 @@
 
   // The loading dots: loading_dots.png holds five frames side by side (a flip book steps right),
   // each with the next dot lit.
-  "loading_dots_animation": {
-    "anim_type": "flip_book",
-    "initial_uv": [0, 0],
-    "frame_count": 5,
-    "frame_step": 27,
-    "fps": 6
-  },
+  "loading_dots_animation": {"anim_type": "flip_book", "initial_uv": [0, 0], "frame_count": 5, "frame_step": 27, "fps": 6},
 
   // Closes the menu, the same as Esc: vanilla's close button with a white X (red when hovered). Not a
   // form button, so no form's button 0 is a way out.
@@ -337,17 +292,17 @@
     "anchor_to": "top_right",
     "$close_button_offset": [-6, 7],
     "controls": [
-      { "default@common.close_button_panel": { "$close_button_texture": "textures/minecade/editor/close_default" } },
-      { "hover@common.close_button_panel": { "$close_button_texture": "textures/minecade/editor/close_hover" } },
-      { "pressed@common.close_button_panel": { "$close_button_texture": "textures/minecade/editor/close_pressed" } }
+      {"default@common.close_button_panel": {"$close_button_texture": "textures/minecade/editor/close_default"}},
+      {"hover@common.close_button_panel": {"$close_button_texture": "textures/minecade/editor/close_hover"}},
+      {"pressed@common.close_button_panel": {"$close_button_texture": "textures/minecade/editor/close_pressed"}}
     ]
   },
 
-  // A thin line between the map menu's parts.
+  // A thin line between a layout's parts.
   "rule_row": {
     "type": "panel",
     "size": ["100%", 5],
-    "controls": [{ "line": { "type": "image", "texture": "textures/minecade/editor/rule", "size": ["100% - 8px", 1] } }]
+    "controls": [{"line": {"type": "image", "texture": "textures/minecade/editor/rule", "size": ["100% - 8px", 1]}}]
   },
 
   // A scroll area like the vanilla form's.
@@ -359,8 +314,8 @@
     "$scroll_bar_right_padding_size": [0, 0]
   },
 
-  // The body, then one full-width button per form button, top down (in the map menu, the buttons
-  // that aren't quick icons, tools or Save: the tool's settings).
+  // The scrolling part, top down: the body; a toggle (§s§g§r tiles); the leading buttons (§l§d§r); nudge
+  // rows (§s§m§r, §s§p§r); then every other button. Each part is empty in forms without its marks.
   "side_content": {
     "type": "stack_panel",
     "orientation": "vertical",
@@ -371,7 +326,7 @@
       {
         "body": {
           "type": "panel",
-          "size": ["100%", "100%c + 8px"],
+          "size": ["100%", "100%c + 6px"],
           "controls": [
             {
               "label": {
@@ -381,147 +336,311 @@
                 "size": ["100% - 8px", "default"],
                 "anchor_from": "top_left",
                 "anchor_to": "top_left",
-                "offset": [4, 4],
-                "bindings": [{ "binding_name": "#form_text" }]
+                "offset": [4, 3],
+                "bindings": [{"binding_name": "#form_text"}]
               }
             }
           ]
         }
       },
-      { "steppers@editor_forms.stepper_grid": {} },
-      { "buttons@editor_forms.button_column": {} }
+      {"segments@editor_forms.segment_grid": {}},
+      {"lead@editor_forms.lead_column": {}},
+      {"steppers@editor_forms.stepper_grid": {}},
+      {"buttons@editor_forms.button_column": {}}
     ]
   },
 
-  // Nudge sides' rows: a column of minus buttons (§s§m§r), each with its text beside it (the side,
-  // where it is, how far it moved), and a column of plus buttons (§s§p§r). Both list the sides in
-  // the same order, so each row lines up. Empty in every other form.
-  "stepper_grid": {
-    "type": "stack_panel",
-    "orientation": "horizontal",
-    "size": ["100%", "100%cm"],
-    "controls": [
-      {
-        "minus_column": {
-          "type": "stack_panel",
-          "orientation": "vertical",
-          "size": ["100% - 30px", "100%c"],
-          "collection_name": "form_buttons",
-          "factory": { "name": "buttons", "control_ids": { "button": "@editor_forms.minus_slot" } },
-          "bindings": [{ "binding_name": "#form_button_contents", "binding_name_override": "#collection_length" }]
-        }
-      },
-      {
-        "plus_column": {
-          "type": "stack_panel",
-          "orientation": "vertical",
-          "size": [30, "100%c"],
-          "collection_name": "form_buttons",
-          "factory": { "name": "buttons", "control_ids": { "button": "@editor_forms.plus_slot" } },
-          "bindings": [{ "binding_name": "#form_button_contents", "binding_name_override": "#collection_length" }]
-        }
-      }
-    ]
-  },
-
-  "minus_slot": {
+  // A toggle: tiles side by side (three to a row, by their column mark §g§0§r to §g§2§r), touching, so
+  // their edges make one rectangle; the one that's on (§o§n§r) is green. A tile shows its text, or
+  // with §i§o§r its icon and a tooltip.
+  "segment_grid": {
     "type": "panel",
-    "size": ["100%", 28],
-    "visible": false,
-    "bindings": [
-      { "binding_name": "#form_button_text", "binding_type": "collection", "binding_collection_name": "form_buttons" },
-      {
-        "binding_type": "view",
-        "source_property_name": "(not ((#form_button_text - '§s§m§r') = #form_button_text))",
-        "target_property_name": "#visible"
-      }
-    ],
-    "controls": [
-      { "button@editor_forms.step_button": { "size": [22, 22], "anchor_from": "left_middle", "anchor_to": "left_middle", "offset": [4, 0] } },
-      {
-        "label": {
-          "type": "label",
-          "text": "#form_button_text",
-          "font_type": "MinecraftTen",
-          "color": [1.0, 1.0, 1.0],
-          "size": ["100% - 36px", "default"],
-          "anchor_from": "left_middle",
-          "anchor_to": "left_middle",
-          "offset": [32, 0],
-          "layer": 2,
-          "bindings": [{ "binding_name": "#form_button_text", "binding_type": "collection", "binding_collection_name": "form_buttons" }]
-        }
-      }
-    ]
-  },
-
-  "plus_slot": {
-    "type": "panel",
-    "size": [30, 28],
-    "visible": false,
-    "bindings": [
-      { "binding_name": "#form_button_text", "binding_type": "collection", "binding_collection_name": "form_buttons" },
-      {
-        "binding_type": "view",
-        "source_property_name": "(not ((#form_button_text - '§s§p§r') = #form_button_text))",
-        "target_property_name": "#visible"
-      }
-    ],
-    "controls": [{ "button@editor_forms.step_button": { "size": [22, 22] } }]
-  },
-
-  // A square icon button with no tooltip (a nudge row's minus or plus: the row says what it does).
-  "step_button@common.button": {
-    "$pressed_button_name": "button.form_button_click",
-    "anchor_from": "center",
-    "anchor_to": "center",
-    "bindings": [{ "binding_type": "collection_details", "binding_collection_name": "form_buttons" }],
-    "controls": [
-      { "default@editor_forms.icon_face": { "$face_texture": "textures/minecade/editor/button_default" } },
-      { "hover@editor_forms.icon_face": { "$face_texture": "textures/minecade/editor/button_hover" } },
-      { "pressed@editor_forms.icon_face": { "$face_texture": "textures/minecade/editor/button_pressed" } }
-    ]
-  },
-
-  // The button pinned under the list (§b§t§r: Back to Lobby), so it's always at the bottom.
-  "bottom_strip": {
-    "type": "stack_panel",
-    "orientation": "vertical",
     "size": ["100%", "100%c"],
-    "collection_name": "form_buttons",
-    "factory": { "name": "buttons", "control_ids": { "button": "@editor_forms.bottom_slot" } },
-    "bindings": [{ "binding_name": "#form_button_contents", "binding_name_override": "#collection_length" }]
-  },
-
-  "bottom_slot": {
-    "type": "panel",
-    "size": ["100%", 40],
-    "visible": false,
-    "bindings": [
-      { "binding_name": "#form_button_text", "binding_type": "collection", "binding_collection_name": "form_buttons" },
-      {
-        "binding_type": "view",
-        "source_property_name": "(not ((#form_button_text - '§b§t§r') = #form_button_text))",
-        "target_property_name": "#visible"
-      }
-    ],
     "controls": [
       {
-        "button@common.button": {
-          "$pressed_button_name": "button.form_button_click",
-          "size": ["100% - 8px", 34],
-          "anchor_from": "bottom_middle",
-          "anchor_to": "bottom_middle",
-          "offset": [0, -2],
-          "bindings": [{ "binding_type": "collection_details", "binding_collection_name": "form_buttons" }],
+        "grid": {
+          "type": "stack_panel",
+          "orientation": "horizontal",
+          "size": ["100%c", "100%cm"],
+          "anchor_from": "top_left",
+          "anchor_to": "top_left",
+          "offset": [4, 0],
           "controls": [
-            { "default@editor_forms.button_face": { "$face_texture": "textures/minecade/editor/button_default", "$danger_texture": "textures/minecade/editor/danger_default", "$go_texture": "textures/minecade/editor/save_default" } },
-            { "hover@editor_forms.button_face": { "$face_texture": "textures/minecade/editor/button_hover", "$danger_texture": "textures/minecade/editor/danger_hover", "$go_texture": "textures/minecade/editor/save_hover" } },
-            { "pressed@editor_forms.button_face": { "$face_texture": "textures/minecade/editor/button_pressed", "$danger_texture": "textures/minecade/editor/danger_pressed", "$go_texture": "textures/minecade/editor/save_pressed" } }
+            {
+              "column_0": {
+                "type": "stack_panel",
+                "orientation": "vertical",
+                "size": ["100%cm", "100%c"],
+                "collection_name": "form_buttons",
+                "factory": {"name": "buttons", "control_ids": {"button": "@editor_forms.segment_slot_0"}},
+                "bindings": [{"binding_name": "#form_button_contents", "binding_name_override": "#collection_length"}]
+              }
+            },
+            {
+              "column_1": {
+                "type": "stack_panel",
+                "orientation": "vertical",
+                "size": ["100%cm", "100%c"],
+                "collection_name": "form_buttons",
+                "factory": {"name": "buttons", "control_ids": {"button": "@editor_forms.segment_slot_1"}},
+                "bindings": [{"binding_name": "#form_button_contents", "binding_name_override": "#collection_length"}]
+              }
+            },
+            {
+              "column_2": {
+                "type": "stack_panel",
+                "orientation": "vertical",
+                "size": ["100%cm", "100%c"],
+                "collection_name": "form_buttons",
+                "factory": {"name": "buttons", "control_ids": {"button": "@editor_forms.segment_slot_2"}},
+                "bindings": [{"binding_name": "#form_button_contents", "binding_name_override": "#collection_length"}]
+              }
+            }
           ]
         }
       }
     ]
+  },
+
+  "segment_slot_0@editor_forms.segment_slot": {
+    "bindings": [
+      {"binding_name": "#form_button_text", "binding_type": "collection", "binding_collection_name": "form_buttons"},
+      {
+        "binding_type": "view",
+        "source_property_name": "((not ((#form_button_text - '§s§g§r') = #form_button_text)) and (not ((#form_button_text - '§g§0§r') = #form_button_text)))",
+        "target_property_name": "#visible"
+      }
+    ]
+  },
+
+  "segment_slot_1@editor_forms.segment_slot": {
+    "bindings": [
+      {"binding_name": "#form_button_text", "binding_type": "collection", "binding_collection_name": "form_buttons"},
+      {
+        "binding_type": "view",
+        "source_property_name": "((not ((#form_button_text - '§s§g§r') = #form_button_text)) and (not ((#form_button_text - '§g§1§r') = #form_button_text)))",
+        "target_property_name": "#visible"
+      }
+    ]
+  },
+
+  "segment_slot_2@editor_forms.segment_slot": {
+    "bindings": [
+      {"binding_name": "#form_button_text", "binding_type": "collection", "binding_collection_name": "form_buttons"},
+      {
+        "binding_type": "view",
+        "source_property_name": "((not ((#form_button_text - '§s§g§r') = #form_button_text)) and (not ((#form_button_text - '§g§2§r') = #form_button_text)))",
+        "target_property_name": "#visible"
+      }
+    ]
+  },
+
+  "segment_slot": {
+    "type": "stack_panel",
+    "orientation": "horizontal",
+    "size": ["100%c", 22],
+    "visible": false,
+    "controls": [
+      {
+        "text_tile": {
+          "type": "panel",
+          "size": [62, 22],
+          "visible": false,
+          "bindings": [
+            {"binding_name": "#form_button_text", "binding_type": "collection", "binding_collection_name": "form_buttons"},
+            {
+              "binding_type": "view",
+              "source_property_name": "((#form_button_text - '§i§o§r') = #form_button_text)",
+              "target_property_name": "#visible"
+            }
+          ],
+          "controls": [
+            {
+              "button@common.button": {
+                "$pressed_button_name": "button.form_button_click",
+                "size": ["100%", "100%"],
+                "bindings": [{"binding_type": "collection_details", "binding_collection_name": "form_buttons"}],
+                "controls": [
+                  {
+                    "default@editor_forms.segment_text_face": {
+                      "$face_texture": "textures/minecade/editor/button_default",
+                      "$danger_texture": "textures/minecade/editor/danger_default",
+                      "$go_texture": "textures/minecade/editor/save_default"
+                    }
+                  },
+                  {
+                    "hover@editor_forms.segment_text_face": {
+                      "$face_texture": "textures/minecade/editor/button_hover",
+                      "$danger_texture": "textures/minecade/editor/danger_hover",
+                      "$go_texture": "textures/minecade/editor/save_hover",
+                      "$tooltip": true
+                    }
+                  },
+                  {
+                    "pressed@editor_forms.segment_text_face": {
+                      "$face_texture": "textures/minecade/editor/button_pressed",
+                      "$danger_texture": "textures/minecade/editor/danger_pressed",
+                      "$go_texture": "textures/minecade/editor/save_pressed"
+                    }
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      },
+      {
+        "icon_tile": {
+          "type": "panel",
+          "size": [30, 22],
+          "visible": false,
+          "bindings": [
+            {"binding_name": "#form_button_text", "binding_type": "collection", "binding_collection_name": "form_buttons"},
+            {
+              "binding_type": "view",
+              "source_property_name": "(not ((#form_button_text - '§i§o§r') = #form_button_text))",
+              "target_property_name": "#visible"
+            }
+          ],
+          "controls": [
+            {
+              "button@common.button": {
+                "$pressed_button_name": "button.form_button_click",
+                "size": ["100%", "100%"],
+                "bindings": [{"binding_type": "collection_details", "binding_collection_name": "form_buttons"}],
+                "controls": [
+                  {
+                    "default@editor_forms.segment_icon_face": {
+                      "$face_texture": "textures/minecade/editor/button_default",
+                      "$danger_texture": "textures/minecade/editor/danger_default",
+                      "$go_texture": "textures/minecade/editor/save_default"
+                    }
+                  },
+                  {
+                    "hover@editor_forms.segment_icon_face": {
+                      "$face_texture": "textures/minecade/editor/button_hover",
+                      "$danger_texture": "textures/minecade/editor/danger_hover",
+                      "$go_texture": "textures/minecade/editor/save_hover",
+                      "$tooltip": true
+                    }
+                  },
+                  {
+                    "pressed@editor_forms.segment_icon_face": {
+                      "$face_texture": "textures/minecade/editor/button_pressed",
+                      "$danger_texture": "textures/minecade/editor/danger_pressed",
+                      "$go_texture": "textures/minecade/editor/save_pressed"
+                    }
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      }
+    ]
+  },
+
+  // A tile's face: gray, or green while it's on; its text (first line only), or its icon and tooltip.
+  "segment_text_face": {
+    "type": "panel",
+    "size": ["100%", "100%"],
+    "$tooltip|default": false,
+    "controls": [
+      {
+        "off@editor_forms.face_image": {
+          "texture": "$face_texture",
+          "bindings": [
+            {"binding_name": "#form_button_text", "binding_type": "collection", "binding_collection_name": "form_buttons"},
+            {
+              "binding_type": "view",
+              "source_property_name": "((#form_button_text - '§o§n§r') = #form_button_text)",
+              "target_property_name": "#visible"
+            }
+          ]
+        }
+      },
+      {
+        "on@editor_forms.face_image": {
+          "texture": "$go_texture",
+          "bindings": [
+            {"binding_name": "#form_button_text", "binding_type": "collection", "binding_collection_name": "form_buttons"},
+            {
+              "binding_type": "view",
+              "source_property_name": "(not ((#form_button_text - '§o§n§r') = #form_button_text))",
+              "target_property_name": "#visible"
+            }
+          ]
+        }
+      },
+      {
+        "text": {
+          "type": "panel",
+          "size": ["100% - 4px", 10],
+          "clips_children": true,
+          "offset": [0, 1],
+          "layer": 2,
+          "controls": [
+            {
+              "label": {
+                "type": "label",
+                "text": "#form_button_text",
+                "color": [1.0, 1.0, 1.0],
+                "bindings": [{"binding_name": "#form_button_text", "binding_type": "collection", "binding_collection_name": "form_buttons"}],
+                "size": ["default", "default"],
+                "anchor_from": "top_middle",
+                "anchor_to": "top_middle"
+              }
+            }
+          ]
+        }
+      }
+    ]
+  },
+
+  "segment_icon_face": {
+    "type": "panel",
+    "size": ["100%", "100%"],
+    "$tooltip|default": false,
+    "controls": [
+      {
+        "off@editor_forms.face_image": {
+          "texture": "$face_texture",
+          "bindings": [
+            {"binding_name": "#form_button_text", "binding_type": "collection", "binding_collection_name": "form_buttons"},
+            {
+              "binding_type": "view",
+              "source_property_name": "((#form_button_text - '§o§n§r') = #form_button_text)",
+              "target_property_name": "#visible"
+            }
+          ]
+        }
+      },
+      {
+        "on@editor_forms.face_image": {
+          "texture": "$go_texture",
+          "bindings": [
+            {"binding_name": "#form_button_text", "binding_type": "collection", "binding_collection_name": "form_buttons"},
+            {
+              "binding_type": "view",
+              "source_property_name": "(not ((#form_button_text - '§o§n§r') = #form_button_text))",
+              "target_property_name": "#visible"
+            }
+          ]
+        }
+      },
+      {"icon@editor_forms.button_icon": {"size": [16, 16]}},
+      {"tooltip@editor_forms.tooltip": {"visible": "$tooltip"}}
+    ]
+  },
+
+  // The leading buttons (§l§d§r), before the nudge rows.
+  "lead_column": {
+    "type": "stack_panel",
+    "orientation": "vertical",
+    "size": ["100%", "100%c"],
+    "collection_name": "form_buttons",
+    "factory": {"name": "buttons", "control_ids": {"button": "@editor_forms.lead_slot"}},
+    "bindings": [{"binding_name": "#form_button_contents", "binding_name_override": "#collection_length"}]
   },
 
   "button_column": {
@@ -529,35 +648,53 @@
     "orientation": "vertical",
     "size": ["100%", "100%c"],
     "collection_name": "form_buttons",
-    "factory": { "name": "buttons", "control_ids": { "button": "@editor_forms.button_slot" } },
-    "bindings": [{ "binding_name": "#form_button_contents", "binding_name_override": "#collection_length" }]
+    "factory": {"name": "buttons", "control_ids": {"button": "@editor_forms.button_slot"}},
+    "bindings": [{"binding_name": "#form_button_contents", "binding_name_override": "#collection_length"}]
   },
 
-  // Every button but the icon rows' icons (§q§p§r, §q§i§r, §q§f§r, §q§e§r), tools (§t§l§r), Save
-  // (§s§v§r), the pinned bottom one (§b§t§r) and nudge rows (§s§m§r, §s§p§r): a heading (§h§d§r,
-  // plain text) or a full-width button.
+  // Every button but those with a place of their own (the icon rows' §q§p§r, §q§i§r and §q§e§r, tools
+  // §t§l§r, Save §s§v§r, the pinned one §b§t§r, nudge rows, leading buttons §l§d§r and toggles §s§g§r): a
+  // heading (§h§d§r, plain text), a link (§h§l§r, Help), or a button. A button shows its first line,
+  // and its second line (§7, help) in a tooltip; one marked §t§w§r is taller and shows both (a card's
+  // status, say).
   "button_slot": {
     "type": "stack_panel",
     "orientation": "vertical",
     "size": ["100%", "100%c"],
     "visible": false,
     "bindings": [
-      { "binding_name": "#form_button_text", "binding_type": "collection", "binding_collection_name": "form_buttons" },
+      {"binding_name": "#form_button_text", "binding_type": "collection", "binding_collection_name": "form_buttons"},
       {
         "binding_type": "view",
-        "source_property_name": "(((#form_button_text - '§q§p§r') = #form_button_text) and ((#form_button_text - '§q§i§r') = #form_button_text) and ((#form_button_text - '§q§f§r') = #form_button_text) and ((#form_button_text - '§q§e§r') = #form_button_text) and ((#form_button_text - '§t§l§r') = #form_button_text) and ((#form_button_text - '§s§v§r') = #form_button_text) and ((#form_button_text - '§b§t§r') = #form_button_text) and ((#form_button_text - '§s§m§r') = #form_button_text) and ((#form_button_text - '§s§p§r') = #form_button_text))",
+        "source_property_name": "(((#form_button_text - '§q§p§r') = #form_button_text) and ((#form_button_text - '§q§i§r') = #form_button_text) and ((#form_button_text - '§q§e§r') = #form_button_text) and ((#form_button_text - '§t§l§r') = #form_button_text) and ((#form_button_text - '§s§v§r') = #form_button_text) and ((#form_button_text - '§b§t§r') = #form_button_text) and ((#form_button_text - '§s§m§r') = #form_button_text) and ((#form_button_text - '§s§p§r') = #form_button_text) and ((#form_button_text - '§l§d§r') = #form_button_text) and ((#form_button_text - '§s§g§r') = #form_button_text))",
         "target_property_name": "#visible"
       }
     ],
-    "controls": [{ "heading@editor_forms.heading_row": {} }, { "button@editor_forms.button_row": {} }]
+    "controls": [
+      {"heading@editor_forms.heading_row": {}},
+      {"link@editor_forms.link_row": {}},
+      {"short@editor_forms.short_row": {}},
+      {"tall@editor_forms.tall_row": {}}
+    ]
+  },
+
+  "lead_slot@editor_forms.button_slot": {
+    "bindings": [
+      {"binding_name": "#form_button_text", "binding_type": "collection", "binding_collection_name": "form_buttons"},
+      {
+        "binding_type": "view",
+        "source_property_name": "(not ((#form_button_text - '§l§d§r') = #form_button_text))",
+        "target_property_name": "#visible"
+      }
+    ]
   },
 
   "heading_row": {
     "type": "panel",
-    "size": ["100%", 18],
+    "size": ["100%", 16],
     "visible": false,
     "bindings": [
-      { "binding_name": "#form_button_text", "binding_type": "collection", "binding_collection_name": "form_buttons" },
+      {"binding_name": "#form_button_text", "binding_type": "collection", "binding_collection_name": "form_buttons"},
       {
         "binding_type": "view",
         "source_property_name": "(not ((#form_button_text - '§h§d§r') = #form_button_text))",
@@ -573,22 +710,23 @@
           "size": ["100% - 8px", "default"],
           "anchor_from": "bottom_left",
           "anchor_to": "bottom_left",
-          "offset": [4, -4],
-          "bindings": [{ "binding_name": "#form_button_text", "binding_type": "collection", "binding_collection_name": "form_buttons" }]
+          "offset": [4, -3],
+          "bindings": [{"binding_name": "#form_button_text", "binding_type": "collection", "binding_collection_name": "form_buttons"}]
         }
       }
     ]
   },
 
-  "button_row": {
+  // A link (§h§l§r, such as Help): aqua text with no face; the row lights up while hovered.
+  "link_row": {
     "type": "panel",
-    "size": ["100%", 36],
+    "size": ["100%", 16],
     "visible": false,
     "bindings": [
-      { "binding_name": "#form_button_text", "binding_type": "collection", "binding_collection_name": "form_buttons" },
+      {"binding_name": "#form_button_text", "binding_type": "collection", "binding_collection_name": "form_buttons"},
       {
         "binding_type": "view",
-        "source_property_name": "((#form_button_text - '§h§d§r') = #form_button_text)",
+        "source_property_name": "(not ((#form_button_text - '§h§l§r') = #form_button_text))",
         "target_property_name": "#visible"
       }
     ],
@@ -596,14 +734,143 @@
       {
         "button@common.button": {
           "$pressed_button_name": "button.form_button_click",
-          "size": ["100%", 34],
+          "size": ["100%", 14],
+          "anchor_from": "left_middle",
+          "anchor_to": "left_middle",
+          "bindings": [{"binding_type": "collection_details", "binding_collection_name": "form_buttons"}],
+          "controls": [
+            {"default@editor_forms.link_face": {"$lit": false}},
+            {"hover@editor_forms.link_face": {"$lit": true}},
+            {"pressed@editor_forms.link_face": {"$lit": true}}
+          ]
+        }
+      }
+    ]
+  },
+
+  "link_face": {
+    "type": "panel",
+    "size": ["100%", "100%"],
+    "$lit|default": false,
+    "controls": [
+      {
+        "lit": {
+          "type": "image",
+          "texture": "textures/minecade/editor/button_hover",
+          "size": ["100%", "100%"],
+          "keep_ratio": false,
+          "alpha": 0.5,
+          "visible": "$lit"
+        }
+      },
+      {
+        "label": {
+          "type": "label",
+          "text": "#form_button_text",
+          "color": [0.33, 1.0, 1.0],
+          "bindings": [{"binding_name": "#form_button_text", "binding_type": "collection", "binding_collection_name": "form_buttons"}],
+          "size": ["100% - 8px", "default"],
+          "anchor_from": "left_middle",
+          "anchor_to": "left_middle",
+          "offset": [4, 0],
+          "layer": 2
+        }
+      }
+    ]
+  },
+
+  "short_row": {
+    "type": "panel",
+    "size": ["100%", 24],
+    "visible": false,
+    "bindings": [
+      {"binding_name": "#form_button_text", "binding_type": "collection", "binding_collection_name": "form_buttons"},
+      {
+        "binding_type": "view",
+        "source_property_name": "(((#form_button_text - '§h§d§r') = #form_button_text) and ((#form_button_text - '§h§l§r') = #form_button_text) and ((#form_button_text - '§t§w§r') = #form_button_text))",
+        "target_property_name": "#visible"
+      }
+    ],
+    "controls": [
+      {
+        "button@common.button": {
+          "$pressed_button_name": "button.form_button_click",
+          "size": ["100%", 22],
           "anchor_from": "top_left",
           "anchor_to": "top_left",
-          "bindings": [{ "binding_type": "collection_details", "binding_collection_name": "form_buttons" }],
+          "bindings": [{"binding_type": "collection_details", "binding_collection_name": "form_buttons"}],
           "controls": [
-            { "default@editor_forms.button_face": { "$face_texture": "textures/minecade/editor/button_default", "$danger_texture": "textures/minecade/editor/danger_default", "$go_texture": "textures/minecade/editor/save_default" } },
-            { "hover@editor_forms.button_face": { "$face_texture": "textures/minecade/editor/button_hover", "$danger_texture": "textures/minecade/editor/danger_hover", "$go_texture": "textures/minecade/editor/save_hover" } },
-            { "pressed@editor_forms.button_face": { "$face_texture": "textures/minecade/editor/button_pressed", "$danger_texture": "textures/minecade/editor/danger_pressed", "$go_texture": "textures/minecade/editor/save_pressed" } }
+            {
+              "default@editor_forms.short_face": {
+                "$face_texture": "textures/minecade/editor/button_default",
+                "$danger_texture": "textures/minecade/editor/danger_default",
+                "$go_texture": "textures/minecade/editor/save_default"
+              }
+            },
+            {
+              "hover@editor_forms.short_face": {
+                "$face_texture": "textures/minecade/editor/button_hover",
+                "$danger_texture": "textures/minecade/editor/danger_hover",
+                "$go_texture": "textures/minecade/editor/save_hover",
+                "$tooltip": true
+              }
+            },
+            {
+              "pressed@editor_forms.short_face": {
+                "$face_texture": "textures/minecade/editor/button_pressed",
+                "$danger_texture": "textures/minecade/editor/danger_pressed",
+                "$go_texture": "textures/minecade/editor/save_pressed"
+              }
+            }
+          ]
+        }
+      }
+    ]
+  },
+
+  "tall_row": {
+    "type": "panel",
+    "size": ["100%", 32],
+    "visible": false,
+    "bindings": [
+      {"binding_name": "#form_button_text", "binding_type": "collection", "binding_collection_name": "form_buttons"},
+      {
+        "binding_type": "view",
+        "source_property_name": "(((#form_button_text - '§h§d§r') = #form_button_text) and (not ((#form_button_text - '§t§w§r') = #form_button_text)))",
+        "target_property_name": "#visible"
+      }
+    ],
+    "controls": [
+      {
+        "button@common.button": {
+          "$pressed_button_name": "button.form_button_click",
+          "size": ["100%", 30],
+          "anchor_from": "top_left",
+          "anchor_to": "top_left",
+          "bindings": [{"binding_type": "collection_details", "binding_collection_name": "form_buttons"}],
+          "controls": [
+            {
+              "default@editor_forms.tall_face": {
+                "$face_texture": "textures/minecade/editor/button_default",
+                "$danger_texture": "textures/minecade/editor/danger_default",
+                "$go_texture": "textures/minecade/editor/save_default"
+              }
+            },
+            {
+              "hover@editor_forms.tall_face": {
+                "$face_texture": "textures/minecade/editor/button_hover",
+                "$danger_texture": "textures/minecade/editor/danger_hover",
+                "$go_texture": "textures/minecade/editor/save_hover",
+                "$tooltip": true
+              }
+            },
+            {
+              "pressed@editor_forms.tall_face": {
+                "$face_texture": "textures/minecade/editor/button_pressed",
+                "$danger_texture": "textures/minecade/editor/danger_pressed",
+                "$go_texture": "textures/minecade/editor/save_pressed"
+              }
+            }
           ]
         }
       }
@@ -611,19 +878,20 @@
   },
 
   // A button: gray, red for deleting and removing (§d§g§r), or green for the step that finishes
-  // something (§g§o§r: Export to Map, Nudge, Edit); outlined when it's the picked option
-  // (§p§k§r); its two lines on the left in white, or for a card (§i§c§r) its icon on the left and
-  // the lines beside it; and for a switch (§t§g§r) an on or off picture on the right (on while the
-  // text also has §o§n§r).
-  "button_face": {
+  // something (§g§o§r); outlined when it's the picked option (§p§k§r); its text on the left in the
+  // game's regular font, or for a card (§i§c§r) its icon on the left and the text beside it; for a
+  // switch (§t§g§r) an on or off picture on the right (on while the text also has §o§n§r); and when it
+  // has a second line (§7), that line in a tooltip while hovered.
+  "short_face": {
     "type": "panel",
     "size": ["100%", "100%"],
+    "$tooltip|default": false,
     "controls": [
       {
         "plain@editor_forms.face_image": {
           "texture": "$face_texture",
           "bindings": [
-            { "binding_name": "#form_button_text", "binding_type": "collection", "binding_collection_name": "form_buttons" },
+            {"binding_name": "#form_button_text", "binding_type": "collection", "binding_collection_name": "form_buttons"},
             {
               "binding_type": "view",
               "source_property_name": "(((#form_button_text - '§d§g§r') = #form_button_text) and ((#form_button_text - '§g§o§r') = #form_button_text))",
@@ -633,26 +901,26 @@
         }
       },
       {
-        "go@editor_forms.face_image": {
-          "texture": "$go_texture",
+        "danger@editor_forms.face_image": {
+          "texture": "$danger_texture",
           "bindings": [
-            { "binding_name": "#form_button_text", "binding_type": "collection", "binding_collection_name": "form_buttons" },
+            {"binding_name": "#form_button_text", "binding_type": "collection", "binding_collection_name": "form_buttons"},
             {
               "binding_type": "view",
-              "source_property_name": "(not ((#form_button_text - '§g§o§r') = #form_button_text))",
+              "source_property_name": "(not ((#form_button_text - '§d§g§r') = #form_button_text))",
               "target_property_name": "#visible"
             }
           ]
         }
       },
       {
-        "danger@editor_forms.face_image": {
-          "texture": "$danger_texture",
+        "go@editor_forms.face_image": {
+          "texture": "$go_texture",
           "bindings": [
-            { "binding_name": "#form_button_text", "binding_type": "collection", "binding_collection_name": "form_buttons" },
+            {"binding_name": "#form_button_text", "binding_type": "collection", "binding_collection_name": "form_buttons"},
             {
               "binding_type": "view",
-              "source_property_name": "(not ((#form_button_text - '§d§g§r') = #form_button_text))",
+              "source_property_name": "(not ((#form_button_text - '§g§o§r') = #form_button_text))",
               "target_property_name": "#visible"
             }
           ]
@@ -663,32 +931,10 @@
           "texture": "textures/minecade/editor/picked",
           "layer": 3,
           "bindings": [
-            { "binding_name": "#form_button_text", "binding_type": "collection", "binding_collection_name": "form_buttons" },
+            {"binding_name": "#form_button_text", "binding_type": "collection", "binding_collection_name": "form_buttons"},
             {
               "binding_type": "view",
               "source_property_name": "(not ((#form_button_text - '§p§k§r') = #form_button_text))",
-              "target_property_name": "#visible"
-            }
-          ]
-        }
-      },
-      {
-        "label": {
-          "type": "label",
-          "text": "#form_button_text",
-          "font_type": "MinecraftTen",
-          "color": [1.0, 1.0, 1.0],
-          "size": ["100% - 46px", "default"],
-          "anchor_from": "left_middle",
-          "anchor_to": "left_middle",
-          "offset": [9, 0],
-          "layer": 2,
-          "visible": false,
-          "bindings": [
-            { "binding_name": "#form_button_text", "binding_type": "collection", "binding_collection_name": "form_buttons" },
-            {
-              "binding_type": "view",
-              "source_property_name": "((#form_button_text - '§i§c§r') = #form_button_text)",
               "target_property_name": "#visible"
             }
           ]
@@ -699,17 +945,22 @@
           "size": [16, 16],
           "anchor_from": "left_middle",
           "anchor_to": "left_middle",
-          "offset": [10, 0],
+          "offset": [8, 0],
           "visible": false,
           "bindings": [
-            { "binding_name": "#form_button_texture", "binding_name_override": "#texture", "binding_type": "collection", "binding_collection_name": "form_buttons" },
+            {
+              "binding_name": "#form_button_texture",
+              "binding_name_override": "#texture",
+              "binding_type": "collection",
+              "binding_collection_name": "form_buttons"
+            },
             {
               "binding_name": "#form_button_texture_file_system",
               "binding_name_override": "#texture_file_system",
               "binding_type": "collection",
               "binding_collection_name": "form_buttons"
             },
-            { "binding_name": "#form_button_text", "binding_type": "collection", "binding_collection_name": "form_buttons" },
+            {"binding_name": "#form_button_text", "binding_type": "collection", "binding_collection_name": "form_buttons"},
             {
               "binding_type": "view",
               "source_property_name": "(not ((#form_button_text - '§i§c§r') = #form_button_text))",
@@ -719,23 +970,67 @@
         }
       },
       {
-        "card_label": {
-          "type": "label",
-          "text": "#form_button_text",
-          "font_type": "MinecraftTen",
-          "color": [1.0, 1.0, 1.0],
-          "size": ["100% - 44px", "default"],
+        "text": {
+          "type": "panel",
+          "size": ["100% - 46px", 10],
+          "clips_children": true,
           "anchor_from": "left_middle",
           "anchor_to": "left_middle",
-          "offset": [34, 0],
+          "offset": [9, 1],
           "layer": 2,
           "visible": false,
           "bindings": [
-            { "binding_name": "#form_button_text", "binding_type": "collection", "binding_collection_name": "form_buttons" },
+            {"binding_name": "#form_button_text", "binding_type": "collection", "binding_collection_name": "form_buttons"},
+            {
+              "binding_type": "view",
+              "source_property_name": "((#form_button_text - '§i§c§r') = #form_button_text)",
+              "target_property_name": "#visible"
+            }
+          ],
+          "controls": [
+            {
+              "label": {
+                "type": "label",
+                "text": "#form_button_text",
+                "color": [1.0, 1.0, 1.0],
+                "bindings": [{"binding_name": "#form_button_text", "binding_type": "collection", "binding_collection_name": "form_buttons"}],
+                "size": ["100%", "default"],
+                "anchor_from": "top_left",
+                "anchor_to": "top_left"
+              }
+            }
+          ]
+        }
+      },
+      {
+        "card_text": {
+          "type": "panel",
+          "size": ["100% - 40px", 10],
+          "clips_children": true,
+          "anchor_from": "left_middle",
+          "anchor_to": "left_middle",
+          "offset": [30, 1],
+          "layer": 2,
+          "visible": false,
+          "bindings": [
+            {"binding_name": "#form_button_text", "binding_type": "collection", "binding_collection_name": "form_buttons"},
             {
               "binding_type": "view",
               "source_property_name": "(not ((#form_button_text - '§i§c§r') = #form_button_text))",
               "target_property_name": "#visible"
+            }
+          ],
+          "controls": [
+            {
+              "label": {
+                "type": "label",
+                "text": "#form_button_text",
+                "color": [1.0, 1.0, 1.0],
+                "bindings": [{"binding_name": "#form_button_text", "binding_type": "collection", "binding_collection_name": "form_buttons"}],
+                "size": ["100%", "default"],
+                "anchor_from": "top_left",
+                "anchor_to": "top_left"
+              }
             }
           ]
         }
@@ -744,7 +1039,7 @@
         "off@editor_forms.switch_image": {
           "texture": "textures/minecade/editor/switch_off",
           "bindings": [
-            { "binding_name": "#form_button_text", "binding_type": "collection", "binding_collection_name": "form_buttons" },
+            {"binding_name": "#form_button_text", "binding_type": "collection", "binding_collection_name": "form_buttons"},
             {
               "binding_type": "view",
               "source_property_name": "((not ((#form_button_text - '§t§g§r') = #form_button_text)) and ((#form_button_text - '§o§n§r') = #form_button_text))",
@@ -757,11 +1052,220 @@
         "on@editor_forms.switch_image": {
           "texture": "textures/minecade/editor/switch_on",
           "bindings": [
-            { "binding_name": "#form_button_text", "binding_type": "collection", "binding_collection_name": "form_buttons" },
+            {"binding_name": "#form_button_text", "binding_type": "collection", "binding_collection_name": "form_buttons"},
             {
               "binding_type": "view",
               "source_property_name": "(not ((#form_button_text - '§o§n§r') = #form_button_text))",
               "target_property_name": "#visible"
+            }
+          ]
+        }
+      },
+      {
+        "tip": {
+          "type": "panel",
+          "size": ["100%", "100%"],
+          "visible": "$tooltip",
+          "controls": [
+            {
+              "when_help": {
+                "type": "panel",
+                "size": ["100%", "100%"],
+                "visible": false,
+                "bindings": [
+                  {"binding_name": "#form_button_text", "binding_type": "collection", "binding_collection_name": "form_buttons"},
+                  {
+                    "binding_type": "view",
+                    "source_property_name": "(not ((#form_button_text - '§7') = #form_button_text))",
+                    "target_property_name": "#visible"
+                  }
+                ],
+                "controls": [{"tooltip@editor_forms.tooltip": {}}]
+              }
+            }
+          ]
+        }
+      }
+    ]
+  },
+
+  // A tall button (§t§w§r): the same, with both lines showing.
+  "tall_face": {
+    "type": "panel",
+    "size": ["100%", "100%"],
+    "$tooltip|default": false,
+    "controls": [
+      {
+        "plain@editor_forms.face_image": {
+          "texture": "$face_texture",
+          "bindings": [
+            {"binding_name": "#form_button_text", "binding_type": "collection", "binding_collection_name": "form_buttons"},
+            {
+              "binding_type": "view",
+              "source_property_name": "(((#form_button_text - '§d§g§r') = #form_button_text) and ((#form_button_text - '§g§o§r') = #form_button_text))",
+              "target_property_name": "#visible"
+            }
+          ]
+        }
+      },
+      {
+        "danger@editor_forms.face_image": {
+          "texture": "$danger_texture",
+          "bindings": [
+            {"binding_name": "#form_button_text", "binding_type": "collection", "binding_collection_name": "form_buttons"},
+            {
+              "binding_type": "view",
+              "source_property_name": "(not ((#form_button_text - '§d§g§r') = #form_button_text))",
+              "target_property_name": "#visible"
+            }
+          ]
+        }
+      },
+      {
+        "go@editor_forms.face_image": {
+          "texture": "$go_texture",
+          "bindings": [
+            {"binding_name": "#form_button_text", "binding_type": "collection", "binding_collection_name": "form_buttons"},
+            {
+              "binding_type": "view",
+              "source_property_name": "(not ((#form_button_text - '§g§o§r') = #form_button_text))",
+              "target_property_name": "#visible"
+            }
+          ]
+        }
+      },
+      {
+        "picked@editor_forms.face_image": {
+          "texture": "textures/minecade/editor/picked",
+          "layer": 3,
+          "bindings": [
+            {"binding_name": "#form_button_text", "binding_type": "collection", "binding_collection_name": "form_buttons"},
+            {
+              "binding_type": "view",
+              "source_property_name": "(not ((#form_button_text - '§p§k§r') = #form_button_text))",
+              "target_property_name": "#visible"
+            }
+          ]
+        }
+      },
+      {
+        "card_icon@editor_forms.button_icon": {
+          "size": [16, 16],
+          "anchor_from": "left_middle",
+          "anchor_to": "left_middle",
+          "offset": [8, 0],
+          "visible": false,
+          "bindings": [
+            {
+              "binding_name": "#form_button_texture",
+              "binding_name_override": "#texture",
+              "binding_type": "collection",
+              "binding_collection_name": "form_buttons"
+            },
+            {
+              "binding_name": "#form_button_texture_file_system",
+              "binding_name_override": "#texture_file_system",
+              "binding_type": "collection",
+              "binding_collection_name": "form_buttons"
+            },
+            {"binding_name": "#form_button_text", "binding_type": "collection", "binding_collection_name": "form_buttons"},
+            {
+              "binding_type": "view",
+              "source_property_name": "(not ((#form_button_text - '§i§c§r') = #form_button_text))",
+              "target_property_name": "#visible"
+            }
+          ]
+        }
+      },
+      {
+        "text": {
+          "type": "label",
+          "text": "#form_button_text",
+          "color": [1.0, 1.0, 1.0],
+          "bindings": [
+            {"binding_name": "#form_button_text", "binding_type": "collection", "binding_collection_name": "form_buttons"},
+            {
+              "binding_type": "view",
+              "source_property_name": "((#form_button_text - '§i§c§r') = #form_button_text)",
+              "target_property_name": "#visible"
+            }
+          ],
+          "size": ["100% - 46px", "default"],
+          "anchor_from": "left_middle",
+          "anchor_to": "left_middle",
+          "offset": [9, 0],
+          "layer": 2,
+          "visible": false
+        }
+      },
+      {
+        "card_text": {
+          "type": "label",
+          "text": "#form_button_text",
+          "color": [1.0, 1.0, 1.0],
+          "bindings": [
+            {"binding_name": "#form_button_text", "binding_type": "collection", "binding_collection_name": "form_buttons"},
+            {
+              "binding_type": "view",
+              "source_property_name": "(not ((#form_button_text - '§i§c§r') = #form_button_text))",
+              "target_property_name": "#visible"
+            }
+          ],
+          "size": ["100% - 40px", "default"],
+          "anchor_from": "left_middle",
+          "anchor_to": "left_middle",
+          "offset": [30, 0],
+          "layer": 2,
+          "visible": false
+        }
+      },
+      {
+        "off@editor_forms.switch_image": {
+          "texture": "textures/minecade/editor/switch_off",
+          "bindings": [
+            {"binding_name": "#form_button_text", "binding_type": "collection", "binding_collection_name": "form_buttons"},
+            {
+              "binding_type": "view",
+              "source_property_name": "((not ((#form_button_text - '§t§g§r') = #form_button_text)) and ((#form_button_text - '§o§n§r') = #form_button_text))",
+              "target_property_name": "#visible"
+            }
+          ]
+        }
+      },
+      {
+        "on@editor_forms.switch_image": {
+          "texture": "textures/minecade/editor/switch_on",
+          "bindings": [
+            {"binding_name": "#form_button_text", "binding_type": "collection", "binding_collection_name": "form_buttons"},
+            {
+              "binding_type": "view",
+              "source_property_name": "(not ((#form_button_text - '§o§n§r') = #form_button_text))",
+              "target_property_name": "#visible"
+            }
+          ]
+        }
+      },
+      {
+        "tip": {
+          "type": "panel",
+          "size": ["100%", "100%"],
+          "visible": "$tooltip",
+          "controls": [
+            {
+              "when_help": {
+                "type": "panel",
+                "size": ["100%", "100%"],
+                "visible": false,
+                "bindings": [
+                  {"binding_name": "#form_button_text", "binding_type": "collection", "binding_collection_name": "form_buttons"},
+                  {
+                    "binding_type": "view",
+                    "source_property_name": "(not ((#form_button_text - '§7') = #form_button_text))",
+                    "target_property_name": "#visible"
+                  }
+                ],
+                "controls": [{"tooltip@editor_forms.tooltip": {}}]
+              }
             }
           ]
         }
@@ -770,24 +1274,159 @@
   },
 
   // A nine-slice face (button_*, danger_*, save_*, picked), sized to its button.
-  "face_image": {
-    "type": "image",
-    "size": ["100%", "100%"],
-    "keep_ratio": false,
-    "visible": false
+  "face_image": {"type": "image", "size": ["100%", "100%"], "keep_ratio": false, "visible": false},
+
+  "switch_image": {"type": "image", "size": [26, 13], "anchor_from": "right_middle", "anchor_to": "right_middle", "offset": [-8, 0], "layer": 2, "visible": false},
+
+  // Nudge rows: a column of minus buttons (§s§m§r), each with its text beside it (the side or axis,
+  // and how far it moved), and a column of plus buttons (§s§p§r). Both list them in the same order, so
+  // each row lines up.
+  "stepper_grid": {
+    "type": "stack_panel",
+    "orientation": "horizontal",
+    "size": ["100%", "100%cm"],
+    "controls": [
+      {
+        "minus_column": {
+          "type": "stack_panel",
+          "orientation": "vertical",
+          "size": ["100% - 30px", "100%c"],
+          "collection_name": "form_buttons",
+          "factory": {"name": "buttons", "control_ids": {"button": "@editor_forms.minus_slot"}},
+          "bindings": [{"binding_name": "#form_button_contents", "binding_name_override": "#collection_length"}]
+        }
+      },
+      {
+        "plus_column": {
+          "type": "stack_panel",
+          "orientation": "vertical",
+          "size": [30, "100%c"],
+          "collection_name": "form_buttons",
+          "factory": {"name": "buttons", "control_ids": {"button": "@editor_forms.plus_slot"}},
+          "bindings": [{"binding_name": "#form_button_contents", "binding_name_override": "#collection_length"}]
+        }
+      }
+    ]
   },
 
-  "switch_image": {
-    "type": "image",
-    "size": [26, 13],
-    "anchor_from": "right_middle",
-    "anchor_to": "right_middle",
-    "offset": [-9, 0],
-    "layer": 2,
-    "visible": false
+  "minus_slot": {
+    "type": "panel",
+    "size": ["100%", 24],
+    "visible": false,
+    "bindings": [
+      {"binding_name": "#form_button_text", "binding_type": "collection", "binding_collection_name": "form_buttons"},
+      {
+        "binding_type": "view",
+        "source_property_name": "(not ((#form_button_text - '§s§m§r') = #form_button_text))",
+        "target_property_name": "#visible"
+      }
+    ],
+    "controls": [
+      {"button@editor_forms.step_button": {"size": [20, 20], "anchor_from": "left_middle", "anchor_to": "left_middle", "offset": [4, 0]}},
+      {
+        "label": {
+          "type": "label",
+          "text": "#form_button_text",
+          "color": [1.0, 1.0, 1.0],
+          "bindings": [{"binding_name": "#form_button_text", "binding_type": "collection", "binding_collection_name": "form_buttons"}],
+          "size": ["100% - 34px", "default"],
+          "anchor_from": "left_middle",
+          "anchor_to": "left_middle",
+          "offset": [30, 0],
+          "layer": 2
+        }
+      }
+    ]
   },
 
-  // ---- The map menu's quick icons, tool grid and Save ----------------------------------------
+  "plus_slot": {
+    "type": "panel",
+    "size": [30, 24],
+    "visible": false,
+    "bindings": [
+      {"binding_name": "#form_button_text", "binding_type": "collection", "binding_collection_name": "form_buttons"},
+      {
+        "binding_type": "view",
+        "source_property_name": "(not ((#form_button_text - '§s§p§r') = #form_button_text))",
+        "target_property_name": "#visible"
+      }
+    ],
+    "controls": [{"button@editor_forms.step_button": {"size": [20, 20]}}]
+  },
+
+  // A square icon button with no tooltip (a nudge row's minus or plus: the row says what it does).
+  "step_button@common.button": {
+    "$pressed_button_name": "button.form_button_click",
+    "anchor_from": "center",
+    "anchor_to": "center",
+    "bindings": [{"binding_type": "collection_details", "binding_collection_name": "form_buttons"}],
+    "controls": [
+      {"default@editor_forms.icon_face": {"$face_texture": "textures/minecade/editor/button_default"}},
+      {"hover@editor_forms.icon_face": {"$face_texture": "textures/minecade/editor/button_hover"}},
+      {"pressed@editor_forms.icon_face": {"$face_texture": "textures/minecade/editor/button_pressed"}}
+    ]
+  },
+
+  // The button pinned under the list (§b§t§r): Back to Lobby, or green (§g§o§r) to save what the menu
+  // sets up.
+  "bottom_strip": {
+    "type": "stack_panel",
+    "orientation": "vertical",
+    "size": ["100%", "100%c"],
+    "collection_name": "form_buttons",
+    "factory": {"name": "buttons", "control_ids": {"button": "@editor_forms.bottom_slot"}},
+    "bindings": [{"binding_name": "#form_button_contents", "binding_name_override": "#collection_length"}]
+  },
+
+  "bottom_slot": {
+    "type": "panel",
+    "size": ["100%", 30],
+    "visible": false,
+    "bindings": [
+      {"binding_name": "#form_button_text", "binding_type": "collection", "binding_collection_name": "form_buttons"},
+      {
+        "binding_type": "view",
+        "source_property_name": "(not ((#form_button_text - '§b§t§r') = #form_button_text))",
+        "target_property_name": "#visible"
+      }
+    ],
+    "controls": [
+      {
+        "button@common.button": {
+          "$pressed_button_name": "button.form_button_click",
+          "size": ["100% - 8px", 24],
+          "anchor_from": "bottom_middle",
+          "anchor_to": "bottom_middle",
+          "offset": [0, -2],
+          "bindings": [{"binding_type": "collection_details", "binding_collection_name": "form_buttons"}],
+          "controls": [
+            {
+              "default@editor_forms.short_face": {
+                "$face_texture": "textures/minecade/editor/button_default",
+                "$danger_texture": "textures/minecade/editor/danger_default",
+                "$go_texture": "textures/minecade/editor/save_default"
+              }
+            },
+            {
+              "hover@editor_forms.short_face": {
+                "$face_texture": "textures/minecade/editor/button_hover",
+                "$danger_texture": "textures/minecade/editor/danger_hover",
+                "$go_texture": "textures/minecade/editor/save_hover",
+                "$tooltip": true
+              }
+            },
+            {
+              "pressed@editor_forms.short_face": {
+                "$face_texture": "textures/minecade/editor/button_pressed",
+                "$danger_texture": "textures/minecade/editor/danger_pressed",
+                "$go_texture": "textures/minecade/editor/save_pressed"
+              }
+            }
+          ]
+        }
+      }
+    ]
+  },
 
   // The button's own picture (its icon path).
   "button_icon": {
@@ -795,7 +1434,12 @@
     "bilinear": false,
     "layer": 2,
     "bindings": [
-      { "binding_name": "#form_button_texture", "binding_name_override": "#texture", "binding_type": "collection", "binding_collection_name": "form_buttons" },
+      {
+        "binding_name": "#form_button_texture",
+        "binding_name_override": "#texture",
+        "binding_type": "collection",
+        "binding_collection_name": "form_buttons"
+      },
       {
         "binding_name": "#form_button_texture_file_system",
         "binding_name_override": "#texture_file_system",
@@ -813,7 +1457,14 @@
     "allow_clipping": false,
     "layer": 30,
     "size": ["100%", "100%"],
-    "bindings": [{ "binding_name": "#form_button_text", "binding_name_override": "#hover_text", "binding_type": "collection", "binding_collection_name": "form_buttons" }]
+    "bindings": [
+      {
+        "binding_name": "#form_button_text",
+        "binding_name_override": "#hover_text",
+        "binding_type": "collection",
+        "binding_collection_name": "form_buttons"
+      }
+    ]
   },
 
   // A square icon button's face: gray, the icon in the middle (faded with §d§m§r), outlined while
@@ -824,20 +1475,25 @@
     "$icon_size|default": [16, 16],
     "$tooltip|default": false,
     "controls": [
-      { "face": { "type": "image", "texture": "$face_texture", "size": ["100%", "100%"], "keep_ratio": false } },
+      {"face": {"type": "image", "texture": "$face_texture", "size": ["100%", "100%"], "keep_ratio": false}},
       {
         "icon@editor_forms.button_icon": {
           "size": "$icon_size",
           "visible": false,
           "bindings": [
-            { "binding_name": "#form_button_texture", "binding_name_override": "#texture", "binding_type": "collection", "binding_collection_name": "form_buttons" },
+            {
+              "binding_name": "#form_button_texture",
+              "binding_name_override": "#texture",
+              "binding_type": "collection",
+              "binding_collection_name": "form_buttons"
+            },
             {
               "binding_name": "#form_button_texture_file_system",
               "binding_name_override": "#texture_file_system",
               "binding_type": "collection",
               "binding_collection_name": "form_buttons"
             },
-            { "binding_name": "#form_button_text", "binding_type": "collection", "binding_collection_name": "form_buttons" },
+            {"binding_name": "#form_button_text", "binding_type": "collection", "binding_collection_name": "form_buttons"},
             {
               "binding_type": "view",
               "source_property_name": "((#form_button_text - '§d§m§r') = #form_button_text)",
@@ -852,14 +1508,19 @@
           "alpha": 0.35,
           "visible": false,
           "bindings": [
-            { "binding_name": "#form_button_texture", "binding_name_override": "#texture", "binding_type": "collection", "binding_collection_name": "form_buttons" },
+            {
+              "binding_name": "#form_button_texture",
+              "binding_name_override": "#texture",
+              "binding_type": "collection",
+              "binding_collection_name": "form_buttons"
+            },
             {
               "binding_name": "#form_button_texture_file_system",
               "binding_name_override": "#texture_file_system",
               "binding_type": "collection",
               "binding_collection_name": "form_buttons"
             },
-            { "binding_name": "#form_button_text", "binding_type": "collection", "binding_collection_name": "form_buttons" },
+            {"binding_name": "#form_button_text", "binding_type": "collection", "binding_collection_name": "form_buttons"},
             {
               "binding_type": "view",
               "source_property_name": "(not ((#form_button_text - '§d§m§r') = #form_button_text))",
@@ -873,7 +1534,7 @@
           "texture": "textures/minecade/editor/picked",
           "layer": 3,
           "bindings": [
-            { "binding_name": "#form_button_text", "binding_type": "collection", "binding_collection_name": "form_buttons" },
+            {"binding_name": "#form_button_text", "binding_type": "collection", "binding_collection_name": "form_buttons"},
             {
               "binding_type": "view",
               "source_property_name": "(not ((#form_button_text - '§o§n§r') = #form_button_text))",
@@ -882,7 +1543,7 @@
           ]
         }
       },
-      { "tooltip@editor_forms.tooltip": { "visible": "$tooltip" } }
+      {"tooltip@editor_forms.tooltip": {"visible": "$tooltip"}}
     ]
   },
 
@@ -891,11 +1552,11 @@
     "$pressed_button_name": "button.form_button_click",
     "anchor_from": "center",
     "anchor_to": "center",
-    "bindings": [{ "binding_type": "collection_details", "binding_collection_name": "form_buttons" }],
+    "bindings": [{"binding_type": "collection_details", "binding_collection_name": "form_buttons"}],
     "controls": [
-      { "default@editor_forms.icon_face": { "$face_texture": "textures/minecade/editor/button_default" } },
-      { "hover@editor_forms.icon_face": { "$face_texture": "textures/minecade/editor/button_hover", "$tooltip": true } },
-      { "pressed@editor_forms.icon_face": { "$face_texture": "textures/minecade/editor/button_pressed" } }
+      {"default@editor_forms.icon_face": {"$face_texture": "textures/minecade/editor/button_default"}},
+      {"hover@editor_forms.icon_face": {"$face_texture": "textures/minecade/editor/button_hover", "$tooltip": true}},
+      {"pressed@editor_forms.icon_face": {"$face_texture": "textures/minecade/editor/button_pressed"}}
     ]
   },
 
@@ -906,8 +1567,8 @@
     "orientation": "horizontal",
     "size": ["100%c", 24],
     "collection_name": "form_buttons",
-    "factory": { "name": "buttons", "control_ids": { "button": "@editor_forms.pill_slot" } },
-    "bindings": [{ "binding_name": "#form_button_contents", "binding_name_override": "#collection_length" }]
+    "factory": {"name": "buttons", "control_ids": {"button": "@editor_forms.pill_slot"}},
+    "bindings": [{"binding_name": "#form_button_contents", "binding_name_override": "#collection_length"}]
   },
 
   "pill_slot": {
@@ -915,7 +1576,7 @@
     "size": [62, 24],
     "visible": false,
     "bindings": [
-      { "binding_name": "#form_button_text", "binding_type": "collection", "binding_collection_name": "form_buttons" },
+      {"binding_name": "#form_button_text", "binding_type": "collection", "binding_collection_name": "form_buttons"},
       {
         "binding_type": "view",
         "source_property_name": "(not ((#form_button_text - '§q§p§r') = #form_button_text))",
@@ -929,11 +1590,11 @@
           "size": [58, 22],
           "anchor_from": "left_middle",
           "anchor_to": "left_middle",
-          "bindings": [{ "binding_type": "collection_details", "binding_collection_name": "form_buttons" }],
+          "bindings": [{"binding_type": "collection_details", "binding_collection_name": "form_buttons"}],
           "controls": [
-            { "default@editor_forms.pill_face": { "$face_texture": "textures/minecade/editor/button_default" } },
-            { "hover@editor_forms.pill_face": { "$face_texture": "textures/minecade/editor/button_hover", "$tooltip": true } },
-            { "pressed@editor_forms.pill_face": { "$face_texture": "textures/minecade/editor/button_pressed" } }
+            {"default@editor_forms.pill_face": {"$face_texture": "textures/minecade/editor/button_default"}},
+            {"hover@editor_forms.pill_face": {"$face_texture": "textures/minecade/editor/button_hover", "$tooltip": true}},
+            {"pressed@editor_forms.pill_face": {"$face_texture": "textures/minecade/editor/button_pressed"}}
           ]
         }
       }
@@ -945,10 +1606,9 @@
     "size": ["100%", "100%"],
     "$tooltip|default": false,
     "controls": [
-      { "face": { "type": "image", "texture": "$face_texture", "size": ["100%", "100%"], "keep_ratio": false } },
-      { "icon@editor_forms.button_icon": { "size": [14, 14], "anchor_from": "left_middle", "anchor_to": "left_middle", "offset": [5, 0] } },
+      {"face": {"type": "image", "texture": "$face_texture", "size": ["100%", "100%"], "keep_ratio": false}},
+      {"icon@editor_forms.button_icon": {"size": [14, 14], "anchor_from": "left_middle", "anchor_to": "left_middle", "offset": [5, 0]}},
       {
-        // Only the first line shows: the rest is clipped (and is in the tooltip).
         "count": {
           "type": "panel",
           "size": [34, 10],
@@ -962,30 +1622,28 @@
               "label": {
                 "type": "label",
                 "text": "#form_button_text",
-                "font_type": "MinecraftTen",
                 "color": [1.0, 1.0, 1.0],
+                "bindings": [{"binding_name": "#form_button_text", "binding_type": "collection", "binding_collection_name": "form_buttons"}],
                 "size": ["default", "default"],
                 "anchor_from": "top_left",
-                "anchor_to": "top_left",
-                "bindings": [{ "binding_name": "#form_button_text", "binding_type": "collection", "binding_collection_name": "form_buttons" }]
+                "anchor_to": "top_left"
               }
             }
           ]
         }
       },
-      { "tooltip@editor_forms.tooltip": { "visible": "$tooltip" } }
+      {"tooltip@editor_forms.tooltip": {"visible": "$tooltip"}}
     ]
   },
 
-  // Undo, Redo, Boundaries, Preview and Map settings (§q§i§r): 25 wide each, so five fit beside the
-  // pill. In the editor lobby's row: Open a map and New map.
+  // The icons (§q§i§r): 25 wide each, so the map menu's five fit beside the pill.
   "quick_strip": {
     "type": "stack_panel",
     "orientation": "horizontal",
     "size": ["100%c", 24],
     "collection_name": "form_buttons",
-    "factory": { "name": "buttons", "control_ids": { "button": "@editor_forms.quick_slot" } },
-    "bindings": [{ "binding_name": "#form_button_contents", "binding_name_override": "#collection_length" }]
+    "factory": {"name": "buttons", "control_ids": {"button": "@editor_forms.quick_slot"}},
+    "bindings": [{"binding_name": "#form_button_contents", "binding_name_override": "#collection_length"}]
   },
 
   "quick_slot": {
@@ -993,45 +1651,39 @@
     "size": [25, 24],
     "visible": false,
     "bindings": [
-      { "binding_name": "#form_button_text", "binding_type": "collection", "binding_collection_name": "form_buttons" },
+      {"binding_name": "#form_button_text", "binding_type": "collection", "binding_collection_name": "form_buttons"},
       {
         "binding_type": "view",
         "source_property_name": "(not ((#form_button_text - '§q§i§r') = #form_button_text))",
         "target_property_name": "#visible"
       }
     ],
-    "controls": [{ "button@editor_forms.icon_button": { "size": [22, 22] } }]
+    "controls": [{"button@editor_forms.icon_button": {"size": [22, 22]}}]
   },
 
-  // The editor lobby's Recent filters (§q§f§r) and Leave (§q§e§r): quick icons in strips of their own.
-  "filter_strip@editor_forms.quick_strip": {
-    "factory": { "name": "buttons", "control_ids": { "button": "@editor_forms.filter_slot" } }
+  // Leave (§q§e§r), at the right end of the editor lobby's row.
+  "end_strip": {
+    "type": "stack_panel",
+    "orientation": "horizontal",
+    "size": ["100%c", 24],
+    "collection_name": "form_buttons",
+    "factory": {"name": "buttons", "control_ids": {"button": "@editor_forms.end_slot"}},
+    "bindings": [{"binding_name": "#form_button_contents", "binding_name_override": "#collection_length"}]
   },
 
-  "filter_slot@editor_forms.quick_slot": {
+  "end_slot": {
+    "type": "panel",
+    "size": [25, 24],
+    "visible": false,
     "bindings": [
-      { "binding_name": "#form_button_text", "binding_type": "collection", "binding_collection_name": "form_buttons" },
-      {
-        "binding_type": "view",
-        "source_property_name": "(not ((#form_button_text - '§q§f§r') = #form_button_text))",
-        "target_property_name": "#visible"
-      }
-    ]
-  },
-
-  "end_strip@editor_forms.quick_strip": {
-    "factory": { "name": "buttons", "control_ids": { "button": "@editor_forms.end_slot" } }
-  },
-
-  "end_slot@editor_forms.quick_slot": {
-    "bindings": [
-      { "binding_name": "#form_button_text", "binding_type": "collection", "binding_collection_name": "form_buttons" },
+      {"binding_name": "#form_button_text", "binding_type": "collection", "binding_collection_name": "form_buttons"},
       {
         "binding_type": "view",
         "source_property_name": "(not ((#form_button_text - '§q§e§r') = #form_button_text))",
         "target_property_name": "#visible"
       }
-    ]
+    ],
+    "controls": [{"button@editor_forms.icon_button": {"size": [22, 22]}}]
   },
 
   // The tool grid: five columns, each showing the tools marked for it (§t§l§r and §c§0§r to
@@ -1041,11 +1693,11 @@
     "orientation": "horizontal",
     "size": ["100%c", "100%cm"],
     "controls": [
-      { "column_0@editor_forms.tool_column": { "factory": { "name": "buttons", "control_ids": { "button": "@editor_forms.tool_slot_0" } } } },
-      { "column_1@editor_forms.tool_column": { "factory": { "name": "buttons", "control_ids": { "button": "@editor_forms.tool_slot_1" } } } },
-      { "column_2@editor_forms.tool_column": { "factory": { "name": "buttons", "control_ids": { "button": "@editor_forms.tool_slot_2" } } } },
-      { "column_3@editor_forms.tool_column": { "factory": { "name": "buttons", "control_ids": { "button": "@editor_forms.tool_slot_3" } } } },
-      { "column_4@editor_forms.tool_column": { "factory": { "name": "buttons", "control_ids": { "button": "@editor_forms.tool_slot_4" } } } }
+      {"column_0@editor_forms.tool_column": {"factory": {"name": "buttons", "control_ids": {"button": "@editor_forms.tool_slot_0"}}}},
+      {"column_1@editor_forms.tool_column": {"factory": {"name": "buttons", "control_ids": {"button": "@editor_forms.tool_slot_1"}}}},
+      {"column_2@editor_forms.tool_column": {"factory": {"name": "buttons", "control_ids": {"button": "@editor_forms.tool_slot_2"}}}},
+      {"column_3@editor_forms.tool_column": {"factory": {"name": "buttons", "control_ids": {"button": "@editor_forms.tool_slot_3"}}}},
+      {"column_4@editor_forms.tool_column": {"factory": {"name": "buttons", "control_ids": {"button": "@editor_forms.tool_slot_4"}}}}
     ]
   },
 
@@ -1054,19 +1706,14 @@
     "orientation": "vertical",
     "size": [36, "100%c"],
     "collection_name": "form_buttons",
-    "bindings": [{ "binding_name": "#form_button_contents", "binding_name_override": "#collection_length" }]
+    "bindings": [{"binding_name": "#form_button_contents", "binding_name_override": "#collection_length"}]
   },
 
-  "tool_slot": {
-    "type": "panel",
-    "size": [36, 36],
-    "visible": false,
-    "controls": [{ "button@editor_forms.icon_button": { "size": [32, 32], "$icon_size": [24, 24] } }]
-  },
+  "tool_slot": {"type": "panel", "size": [36, 36], "visible": false, "controls": [{"button@editor_forms.icon_button": {"size": [32, 32], "$icon_size": [24, 24]}}]},
 
   "tool_slot_0@editor_forms.tool_slot": {
     "bindings": [
-      { "binding_name": "#form_button_text", "binding_type": "collection", "binding_collection_name": "form_buttons" },
+      {"binding_name": "#form_button_text", "binding_type": "collection", "binding_collection_name": "form_buttons"},
       {
         "binding_type": "view",
         "source_property_name": "((not ((#form_button_text - '§t§l§r') = #form_button_text)) and (not ((#form_button_text - '§c§0§r') = #form_button_text)))",
@@ -1077,7 +1724,7 @@
 
   "tool_slot_1@editor_forms.tool_slot": {
     "bindings": [
-      { "binding_name": "#form_button_text", "binding_type": "collection", "binding_collection_name": "form_buttons" },
+      {"binding_name": "#form_button_text", "binding_type": "collection", "binding_collection_name": "form_buttons"},
       {
         "binding_type": "view",
         "source_property_name": "((not ((#form_button_text - '§t§l§r') = #form_button_text)) and (not ((#form_button_text - '§c§1§r') = #form_button_text)))",
@@ -1088,7 +1735,7 @@
 
   "tool_slot_2@editor_forms.tool_slot": {
     "bindings": [
-      { "binding_name": "#form_button_text", "binding_type": "collection", "binding_collection_name": "form_buttons" },
+      {"binding_name": "#form_button_text", "binding_type": "collection", "binding_collection_name": "form_buttons"},
       {
         "binding_type": "view",
         "source_property_name": "((not ((#form_button_text - '§t§l§r') = #form_button_text)) and (not ((#form_button_text - '§c§2§r') = #form_button_text)))",
@@ -1099,7 +1746,7 @@
 
   "tool_slot_3@editor_forms.tool_slot": {
     "bindings": [
-      { "binding_name": "#form_button_text", "binding_type": "collection", "binding_collection_name": "form_buttons" },
+      {"binding_name": "#form_button_text", "binding_type": "collection", "binding_collection_name": "form_buttons"},
       {
         "binding_type": "view",
         "source_property_name": "((not ((#form_button_text - '§t§l§r') = #form_button_text)) and (not ((#form_button_text - '§c§3§r') = #form_button_text)))",
@@ -1110,7 +1757,7 @@
 
   "tool_slot_4@editor_forms.tool_slot": {
     "bindings": [
-      { "binding_name": "#form_button_text", "binding_type": "collection", "binding_collection_name": "form_buttons" },
+      {"binding_name": "#form_button_text", "binding_type": "collection", "binding_collection_name": "form_buttons"},
       {
         "binding_type": "view",
         "source_property_name": "((not ((#form_button_text - '§t§l§r') = #form_button_text)) and (not ((#form_button_text - '§c§4§r') = #form_button_text)))",
@@ -1119,22 +1766,23 @@
     ]
   },
 
-  // Save (§s§v§r): a green bar under the scrolling settings, so it never scrolls away.
+  // Save (§s§v§r): a green bar under the scrolling settings, so it never scrolls away. Its first line
+  // shows; the rest (whether blocks changed) is its tooltip.
   "save_strip": {
     "type": "stack_panel",
     "orientation": "vertical",
     "size": ["100%", "100%c"],
     "collection_name": "form_buttons",
-    "factory": { "name": "buttons", "control_ids": { "button": "@editor_forms.save_slot" } },
-    "bindings": [{ "binding_name": "#form_button_contents", "binding_name_override": "#collection_length" }]
+    "factory": {"name": "buttons", "control_ids": {"button": "@editor_forms.save_slot"}},
+    "bindings": [{"binding_name": "#form_button_contents", "binding_name_override": "#collection_length"}]
   },
 
   "save_slot": {
     "type": "panel",
-    "size": ["100%", 40],
+    "size": ["100%", 30],
     "visible": false,
     "bindings": [
-      { "binding_name": "#form_button_text", "binding_type": "collection", "binding_collection_name": "form_buttons" },
+      {"binding_name": "#form_button_text", "binding_type": "collection", "binding_collection_name": "form_buttons"},
       {
         "binding_type": "view",
         "source_property_name": "(not ((#form_button_text - '§s§v§r') = #form_button_text))",
@@ -1145,15 +1793,15 @@
       {
         "button@common.button": {
           "$pressed_button_name": "button.form_button_click",
-          "size": ["100% - 8px", 34],
+          "size": ["100% - 8px", 24],
           "anchor_from": "bottom_middle",
           "anchor_to": "bottom_middle",
           "offset": [0, -2],
-          "bindings": [{ "binding_type": "collection_details", "binding_collection_name": "form_buttons" }],
+          "bindings": [{"binding_type": "collection_details", "binding_collection_name": "form_buttons"}],
           "controls": [
-            { "default@editor_forms.save_face": { "$face_texture": "textures/minecade/editor/save_default" } },
-            { "hover@editor_forms.save_face": { "$face_texture": "textures/minecade/editor/save_hover" } },
-            { "pressed@editor_forms.save_face": { "$face_texture": "textures/minecade/editor/save_pressed" } }
+            {"default@editor_forms.save_face": {"$face_texture": "textures/minecade/editor/save_default"}},
+            {"hover@editor_forms.save_face": {"$face_texture": "textures/minecade/editor/save_hover", "$tooltip": true}},
+            {"pressed@editor_forms.save_face": {"$face_texture": "textures/minecade/editor/save_pressed"}}
           ]
         }
       }
@@ -1161,22 +1809,121 @@
   },
 
   "save_face": {
-    "type": "image",
-    "texture": "$face_texture",
+    "type": "panel",
     "size": ["100%", "100%"],
-    "keep_ratio": false,
+    "$tooltip|default": false,
     "controls": [
+      {"face": {"type": "image", "texture": "$face_texture", "size": ["100%", "100%"], "keep_ratio": false}},
+      {
+        "text": {
+          "type": "panel",
+          "size": ["100% - 8px", 10],
+          "clips_children": true,
+          "offset": [0, 1],
+          "layer": 2,
+          "controls": [
+            {
+              "label": {
+                "type": "label",
+                "text": "#form_button_text",
+                "color": [1.0, 1.0, 1.0],
+                "bindings": [{"binding_name": "#form_button_text", "binding_type": "collection", "binding_collection_name": "form_buttons"}],
+                "size": ["100%", "default"],
+                "anchor_from": "top_left",
+                "anchor_to": "top_left",
+                "shadow": true,
+                "text_alignment": "center"
+              }
+            }
+          ]
+        }
+      },
+      {"tooltip@editor_forms.tooltip": {"visible": "$tooltip"}}
+    ]
+  },
+
+  // Forms with fields (text boxes, switches, sliders, lists) titled with the side mark: the same dark
+  // panel down the right side, the game's own fields scrolling, and the green submit button pinned at
+  // the bottom. ui/server_form.json hides the game's form for them.
+  "custom_form": {"type": "panel", "size": ["100%", "100%"], "controls": [{"side_form@editor_forms.custom_side": {}}]},
+
+  "custom_side": {
+    "type": "panel",
+    "size": [200, "100%"],
+    "anchor_from": "right_middle",
+    "anchor_to": "right_middle",
+    "layer": 2,
+    "visible": false,
+    "bindings": [
+      {"binding_name": "#title_text"},
+      {"binding_type": "view", "source_property_name": "(not ((#title_text - '§s§i§d§e') = #title_text))", "target_property_name": "#visible"}
+    ],
+    "controls": [
+      {"frame@editor_forms.frame": {}},
+      {
+        "parts": {
+          "type": "stack_panel",
+          "orientation": "vertical",
+          "size": ["100% - 8px", "100% - 35px"],
+          "anchor_from": "top_middle",
+          "anchor_to": "top_middle",
+          "offset": [0, 31],
+          "layer": 3,
+          "controls": [
+            {"fields@editor_forms.scroll": {"size": ["100%", "fill"], "$scrolling_content": "editor_forms.custom_fields"}},
+            {"submit@editor_forms.submit_strip": {}}
+          ]
+        }
+      }
+    ]
+  },
+
+  "custom_fields": {
+    "type": "stack_panel",
+    "orientation": "vertical",
+    "size": ["100% - 6px", "100%c"],
+    "offset": [2, 0],
+    "anchor_from": "top_left",
+    "anchor_to": "top_left",
+    "controls": [{"fields@server_form.generated_contents": {}}]
+  },
+
+  "submit_strip": {
+    "type": "panel",
+    "size": ["100%", 30],
+    "controls": [
+      {
+        "button@common.button": {
+          "$pressed_button_name": "button.submit_custom_form",
+          "size": ["100% - 8px", 24],
+          "anchor_from": "bottom_middle",
+          "anchor_to": "bottom_middle",
+          "offset": [0, -2],
+          "controls": [
+            {"default@editor_forms.submit_face": {"$face_texture": "textures/minecade/editor/save_default"}},
+            {"hover@editor_forms.submit_face": {"$face_texture": "textures/minecade/editor/save_hover"}},
+            {"pressed@editor_forms.submit_face": {"$face_texture": "textures/minecade/editor/save_pressed"}}
+          ]
+        }
+      }
+    ]
+  },
+
+  "submit_face": {
+    "type": "panel",
+    "size": ["100%", "100%"],
+    "controls": [
+      {"face": {"type": "image", "texture": "$face_texture", "size": ["100%", "100%"], "keep_ratio": false}},
       {
         "label": {
           "type": "label",
-          "text": "#form_button_text",
-          "font_type": "MinecraftTen",
+          "text": "#submit_text",
           "color": [1.0, 1.0, 1.0],
           "shadow": true,
           "text_alignment": "center",
           "size": ["100% - 8px", "default"],
           "layer": 2,
-          "bindings": [{ "binding_name": "#form_button_text", "binding_type": "collection", "binding_collection_name": "form_buttons" }]
+          "bindings": [{"binding_name": "#submit_text", "binding_type": "global"}]
         }
       }
     ]

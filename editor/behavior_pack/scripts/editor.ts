@@ -35,8 +35,11 @@ import {
   type HostMessage,
   type MapConfig,
   type MapEdit,
+  type Facing,
   type MapPosition,
   type Scope,
+  chatMapName,
+  playChime,
 } from "@minecade/minigame-core";
 import { goto } from "./goto.ts";
 import { keepModeLine, modeLine } from "./hud.ts";
@@ -48,7 +51,8 @@ import { CameraTool } from "./camera-tool.ts";
 import { cameraMarkers, type CameraMarker } from "./cameras.ts";
 import { RegionTool } from "./region-tool.ts";
 import { actionBar, heldTool, hintBar, notice, type ToolHost } from "./tool-host.ts";
-import { REACH, nudgePreview } from "./box-picker.ts";
+import { REACH, nudgePreview, showPreview } from "./box-picker.ts";
+import { blockBox, facingOf, type Point } from "./boxes.ts";
 import { aimedPoint, compass, entryPosition, markerSpecs, snapFacing, SNAPS, spawnLists, type AimedFace, type MarkerSpec, type SpawnList } from "./lists.ts";
 import { MapState } from "./map-state.ts";
 import { PlayersMenu } from "./players.ts";
@@ -59,13 +63,13 @@ import {
   boundaryEntries,
   gearEntries,
   checklistBody,
-  mapMenuBody,
+  entryScreenEntries,
   mapMenuEntries,
+  POINT_STEPS,
   parseCountdown,
   parseSetting,
   publishBody,
   publishText,
-  queueActions,
   rowText,
   type MenuAction,
   type SpawnSettings,
@@ -89,13 +93,14 @@ const HINT_TICKS = 10;
 const CHANGED_TICKS = 100;
 /** How far below a block side the Spawn tool looks for the floor to stand an entry on. */
 const FLOOR_REACH = 8;
+/** How often the facing line goes back on the action bar while a spawn's screen is open. */
+const FACING_TICKS = 20;
 /** Undo and Redo open the map menu again once the host answers, or after this long. */
 const REOPEN_TICKS = 40;
 
 /** No boundary switched on. */
 const NONE_SHOWN: ReadonlySet<string> = new Set();
 
-type MarkerAction = "move" | "face" | "unface" | "queueMode" | "queueCountdown" | "list" | "number" | "delete";
 
 export class Editor {
   private readonly scope: Scope;
@@ -110,6 +115,8 @@ export class Editor {
   private readonly dimension: Dimension;
   private readonly settings = new Map<string, SpawnSettings>();
   private readonly formOpen = new Set<string>();
+  /** Players with the map menu open and the Region or Kill Y tool picked: the outlines show for them. */
+  private readonly menuTool = new Set<string>();
   /** Players whose map menu opens again when the host answers (after Undo or Redo). */
   private readonly reopen = new Set<string>();
   /** Each player's Boundaries switches, by lower-case name (kept by the host between maps). */
@@ -164,6 +171,9 @@ export class Editor {
         },
         shown: (player) => this.shown.get(player.name.toLowerCase()) ?? NONE_SHOWN,
         hidden: (player) => this.cameraTool.isLooking(player),
+        // With the Region or Kill Y tool picked, every boundary shows while the map menu is open.
+        showing: (player) => this.menuTool.has(player.name.toLowerCase()),
+        killYOver: () => boundsAround(this.state.current),
       },
       ["region", "killY"],
     );
@@ -197,8 +207,8 @@ export class Editor {
       if (itemStack.typeId === MAP_MENU) void this.mapMenu(source);
       else if (tool === "spawn") this.spawnTool(source);
       else if (tool === "region") void this.regionTool.use(source);
-      else if (tool === "killY") this.killYTool.use(source);
-      else if (tool === "camera") this.cameraTool.use(source);
+      else if (tool === "killY") void this.killYTool.use(source);
+      else if (tool === "camera") void this.cameraTool.use(source);
     });
     scope.subscribe(world.afterEvents.entityHitEntity, ({ damagingEntity, hitEntity }) => {
       if (hitEntity.typeId !== MARKER || damagingEntity.typeId !== "minecraft:player") return;
@@ -312,7 +322,7 @@ export class Editor {
     if (!player.isValid) return;
     // Saved player data in the world could hold another game mode.
     player.setGameMode(GameMode.Creative);
-    const where = `${this.state.current.name}, ${this.info.targetName}.`;
+    const where = `${chatMapName(this.info.targetName, this.state.current.name)}.`;
     const menu = new ItemStack(MAP_MENU, 1);
     menu.lockMode = ItemLockMode.slot;
     menu.keepOnDeath = true;
@@ -405,15 +415,22 @@ export class Editor {
       region: { selection: this.regionTool.menuSelection(player), entries: tool === "region" ? this.regionTool.entries() : [] },
       camera: { kind: this.cameraTool.kindOf(player) },
     });
-    const form = new ActionFormData().title(mapTitle("Map menu")).body(mapMenuBody(this.info.targetName, this.info.map, config, tool));
+    // The map and game are in the mode box top center, and how to use the tool is behind Help.
+    const form = new ActionFormData().title(mapTitle("Map menu"));
     for (const entry of entries) form.button(entry.text, entry.icon);
-    const response = await this.show(player, form);
+    const key = player.name.toLowerCase();
+    if (tool === "region" || tool === "killY") this.menuTool.add(key);
+    let response;
+    try {
+      response = await this.show(player, form);
+    } finally {
+      this.menuTool.delete(key);
+    }
     const entry = response?.selection === undefined ? undefined : entries[response.selection];
     if (entry && player.isValid) await this.menuAction(player, entry.action);
   }
 
   private async menuAction(player: Player, action: MenuAction): Promise<void> {
-    const settings = this.settingsOf(player);
     switch (action.kind) {
       case "checklist":
         return this.checklistMenu(player);
@@ -445,24 +462,27 @@ export class Editor {
         return this.mapMenu(player);
       case "none":
         return this.mapMenu(player);
-      case "list":
-        settings.list = action.key;
+      case "help": {
+        // How to use the tool, in chat, with a chime.
+        const tool = EDITOR_TOOLS.find((candidate) => candidate.id === this.toolOut(player));
+        if (tool) {
+          tell(player, `§f${tool.label}: ${tool.howTo}`);
+          playChime(player, "go");
+        }
         return this.mapMenu(player);
-      case "center":
-        settings.center = !settings.center;
-        return this.mapMenu(player);
-      case "keepFacing":
-        settings.keepFacing = !settings.keepFacing;
-        return this.mapMenu(player);
-      case "snap":
-        settings.snap = SNAPS[(SNAPS.findIndex((snap) => snap.snap === settings.snap) + 1) % SNAPS.length].snap;
-        return this.mapMenu(player);
+      }
+      case "entry": {
+        const spec = markerSpecs(this.state.current, this.lists()).find((candidate) => candidate.key === action.key);
+        if (spec) return this.markerMenu(player, spec);
+        tell(player, "That entry changed since the menu opened. Open the map menu again.");
+        return;
+      }
       case "selection":
         return this.regionTool.selectionAction(player, action.action);
       case "box":
         return this.regionTool.boxMenu(player, action.key);
-      case "typeKillY":
-        return this.killYTool.typeHeight(player);
+      case "killY":
+        return this.killYTool.screen(player);
       case "removeKillY":
         this.killYTool.remove(player);
         return;
@@ -608,7 +628,7 @@ export class Editor {
 
   /** The gear: Players in its icon row, the map's settings, Back to Select, the red ones, and Back to Lobby at the bottom. */
   private async settingsMenu(player: Player): Promise<void> {
-    const entries = gearEntries({ from: this.info.from, build: this.state.current.build !== undefined });
+    const entries = gearEntries({ build: this.state.current.build !== undefined });
     const form = new ActionFormData().title(iconsTitle("Map settings")).body(`${this.state.current.name} (${this.info.map}), ${this.info.targetName}`);
     for (const entry of entries) form.button(entry.text, entry.icon);
     const response = await this.show(player, form);
@@ -618,7 +638,7 @@ export class Editor {
     if (action === "dropBuild") return this.dropBuild(player);
     if (action === "delete") return this.deleteMap(player);
     if (action === "players") return this.players.open(player);
-    this.link.send({ t: "open", by: player.name, request: action === "select" ? { to: "select" } : { to: "home" } });
+    this.link.send({ t: "open", by: player.name, request: { to: "home" } });
   }
 
   /**
@@ -644,7 +664,7 @@ export class Editor {
     const extras = Object.entries(config).filter(
       (entry): entry is [string, string | number | boolean] => !isMapKey(entry[0]) && ["string", "number", "boolean"].includes(typeof entry[1]),
     );
-    const form = new ModalFormData().title("Map settings").textField("Name", "The map's name", { defaultValue: config.name });
+    const form = new ModalFormData().title(sideTitle("Map settings")).textField("Name", "The map's name", { defaultValue: config.name });
     for (const [key, value] of extras) form.textField(`${key} (${typeof value})`, String(value), { defaultValue: String(value) });
     form.submitButton("Save");
     const response = await this.show(player, form);
@@ -690,106 +710,179 @@ export class Editor {
     }
   }
 
-  /** Places an entry where the player aims, into the list picked in the map menu. */
-  private spawnTool(player: Player): void {
-    const view = player.getRotation();
+  /** The Spawn tool: a new entry's screen, where the player aims, in the list they placed into last. */
+  private spawnTool(player: Player): Promise<void> {
     const list = this.spawnList(player);
     if (!list) {
       tell(player, "This map's game has no spawns or points to place.");
-      return;
+      return Promise.resolve();
     }
     const settings = this.settingsOf(player);
+    const view = player.getRotation();
     const facing = settings.keepFacing ? snapFacing({ yaw: view.y, pitch: view.x }, settings.snap) : undefined;
-    const position = entryPosition(this.aimedAt(player), settings.center, facing);
-    const count = listOf(this.state.current, list.target).length;
-    const replace = list.single && count > 0;
-    const edit: MapEdit = replace ? { op: "set", target: list.target, index: 0, at: position } : { op: "add", target: list.target, at: position };
-    const name = list.single ? list.entry : `${list.entry} ${count + 1}`;
-    const done = `${name} ${replace ? "moved" : "placed"} at ${positionText(position)}${facing ? `, facing ${compass(facing.yaw)}` : ""}`;
-    if (this.edit(player, edit, `${done}.`)) actionBar(player, done);
+    return this.entryScreen(player, { list, at: pointOf(entryPosition(this.aimedAt(player), settings.center)), facing });
   }
 
-  private async markerMenu(player: Player, spec: MarkerSpec): Promise<void> {
-    const { list, index } = spec;
-    const entries = listOf(this.state.current, list.target);
-    const position = entries[index];
-    if (!position) return;
-    const name = list.single ? list.entry : `${list.entry} ${index + 1}`;
-    const actions: { action: MarkerAction; text: string }[] = [
-      { action: "move", text: "Move here" },
-      { action: "face", text: "Take my facing" },
-      ...(spec.facing ? [{ action: "unface" as const, text: "Clear facing\n§7face the middle again" }] : []),
-      ...(list.key === "queueSpawn" ? queueActions(this.state.current) : []),
-      { action: "list", text: "Change list" },
-      ...(entries.length > 1 ? [{ action: "number" as const, text: "Renumber" }] : []),
-      { action: "delete", text: dangerText("Delete") },
-    ];
-    const facing = spec.facing ? `facing ${compass(spec.facing.yaw)} (yaw ${spec.facing.yaw}, pitch ${spec.facing.pitch})` : "facing the middle of the map";
-    const form = new ActionFormData().title(sideTitle(name)).body(`At ${positionText(position)}, ${facing}.`);
-    for (const { text } of actions) form.button(text);
-    const response = await this.show(player, form);
-    const action = response?.selection === undefined ? undefined : actions[response.selection]?.action;
-    if (!action || !player.isValid || !this.unchanged(player, spec, position, name)) return;
-    const target = list.target;
-    switch (action) {
-      case "move": {
-        const at = positionXyz(entryPosition(player.location, this.settingsOf(player).center));
-        this.edit(player, { op: "move", target, index, at }, `${name} moved to ${positionText(at)}.`);
-        return;
+  /** A marker's screen (it was hit, or picked in the map menu). */
+  private markerMenu(player: Player, spec: MarkerSpec): Promise<void> {
+    const position = listOf(this.state.current, spec.list.target)[spec.index];
+    if (!position) return Promise.resolve();
+    return this.entryScreen(player, { list: spec.list, at: pointOf(position), facing: spec.facing, existing: { index: spec.index, position } });
+  }
+
+  /**
+   * A spawn or point's screen: which list (a toggle), its position (typed, here, centered, or nudged
+   * an axis at a time) and facing, the queue's settings for the queue spawn, Renumber and Delete for
+   * one the map has, and Place or Save at the bottom. Nothing changes until then; the block it's in
+   * is outlined meanwhile.
+   */
+  private async entryScreen(player: Player, start: { list: SpawnList; at: Point; facing?: Facing; existing?: { index: number; position: MapPosition } }): Promise<void> {
+    const settings = this.settingsOf(player);
+    let listKey = start.list.key;
+    let at = start.at;
+    let facing = start.facing;
+    let step: number = POINT_STEPS[0];
+    const name = start.existing ? (start.list.single ? start.list.entry : `${start.list.entry} ${start.existing.index + 1}`) : undefined;
+    const facingBar = () => player.isValid && actionBar(player, `Facing ${titleCase(facingOf(player.getRotation().y))}   X+ is east, Z+ is south`);
+    facingBar();
+    const bar = system.runInterval(facingBar, FACING_TICKS);
+    try {
+      for (;;) {
+        const lists = this.lists();
+        const list = lists.find((candidate) => candidate.key === listKey) ?? lists[0];
+        if (!list) return;
+        showPreview(player, blockBox([Math.floor(at.x), Math.floor(at.y), Math.floor(at.z)]));
+        const existing = start.existing && { index: start.existing.index, count: listOf(this.state.current, start.list.target).length };
+        const entries = entryScreenEntries({
+          lists,
+          list: list.key,
+          at,
+          facing,
+          snap: settings.snap,
+          center: settings.center,
+          step,
+          existing,
+          ...(list.key === "queueSpawn" ? { queue: queueSettings(this.state.current) } : {}),
+        });
+        const form = new ActionFormData().title(sideTitle(name ?? `New ${list.entry.toLowerCase()}`));
+        for (const entry of entries) form.button(entry.text);
+        const response = await this.show(player, form);
+        const action = response?.selection === undefined ? undefined : entries[response.selection]?.action;
+        if (!action || !player.isValid) return;
+        if (start.existing && name && !this.unchanged(player, { list: start.list, index: start.existing.index }, start.existing.position, name)) return;
+        switch (action.kind) {
+          case "list":
+            listKey = action.key;
+            settings.list = action.key;
+            break;
+          case "type":
+            at = (await this.typedPosition(player, at)) ?? at;
+            break;
+          case "here":
+            at = pointOf(entryPosition(player.location, settings.center));
+            break;
+          case "center":
+            settings.center = !settings.center;
+            if (settings.center) at = pointOf(entryPosition(at, true));
+            break;
+          case "face": {
+            const view = player.getRotation();
+            facing = snapFacing({ yaw: view.y, pitch: view.x }, settings.snap);
+            settings.keepFacing = true;
+            break;
+          }
+          case "unface":
+            facing = undefined;
+            settings.keepFacing = false;
+            break;
+          case "snap":
+            settings.snap = SNAPS[(SNAPS.findIndex((snap) => snap.snap === settings.snap) + 1) % SNAPS.length].snap;
+            if (facing) facing = snapFacing(facing, settings.snap);
+            break;
+          case "axis": {
+            const moved = [at.x, at.y, at.z];
+            moved[action.axis] = Math.round((moved[action.axis] + action.by * step) * 100) / 100;
+            at = { x: moved[0], y: moved[1], z: moved[2] };
+            break;
+          }
+          case "step":
+            step = POINT_STEPS[((POINT_STEPS as readonly number[]).indexOf(step) + 1) % POINT_STEPS.length];
+            break;
+          case "queueMode": {
+            const mode = queueSettings(this.state.current).mode === "lock" ? "free" : "lock";
+            this.edit(player, { op: "queue", mode }, mode === "lock" ? "Queue: lock in. Players wait on the spot, invisible." : "Queue: free. Players roam until they're put at their spawns.");
+            break;
+          }
+          case "queueCountdown":
+            await this.queueCountdown(player);
+            break;
+          case "renumber":
+            if (start.existing && name) await this.renumber(player, { list: start.list, index: start.existing.index }, listOf(this.state.current, start.list.target).length, name);
+            return;
+          case "delete":
+            if (start.existing && name) this.edit(player, { op: "remove", target: start.list.target, index: start.existing.index }, `${name} deleted.`);
+            return;
+          case "save":
+            this.saveEntry(player, list, at, facing, start.existing && name ? { list: start.list, index: start.existing.index, name } : undefined);
+            return;
+        }
       }
-      case "face": {
-        const view = player.getRotation();
-        const facing = snapFacing({ yaw: view.y, pitch: view.x }, this.settingsOf(player).snap);
-        this.edit(player, { op: "face", target, index, facing }, `${name} faces ${compass(facing.yaw)}.`);
-        return;
-      }
-      case "unface":
-        this.edit(player, { op: "face", target, index }, `${name} faces the middle of the map.`);
-        return;
-      case "queueMode": {
-        const mode = queueSettings(this.state.current).mode === "lock" ? "free" : "lock";
-        this.edit(player, { op: "queue", mode }, mode === "lock" ? "Queue: lock in. Players wait on the spot, invisible." : "Queue: free. Players roam until they're put at their spawns.");
-        return;
-      }
-      case "queueCountdown":
-        return this.queueCountdown(player);
-      case "list":
-        return this.changeList(player, spec, position, name);
-      case "number":
-        return this.renumber(player, spec, entries.length, name);
-      case "delete":
-        this.edit(player, { op: "remove", target, index }, `${name} deleted.`);
-        return;
+    } finally {
+      showPreview(player, undefined);
+      system.clearRun(bar);
     }
+  }
+
+  /** Writes a spawn or point from its screen: a new one into `list`, or one the map has (moved, turned, or into another list). */
+  private saveEntry(player: Player, list: SpawnList, at: Point, facing: Facing | undefined, existing?: { list: SpawnList; index: number; name: string }): void {
+    const position = entryPosition(at, false, facing);
+    const where = `${positionText(position)}${facing ? `, facing ${compass(facing.yaw)}` : ""}`;
+    const count = listOf(this.state.current, list.target).length;
+    const into = (): MapEdit => (list.single && count > 0 ? { op: "set", target: list.target, index: 0, at: position } : { op: "add", target: list.target, at: position });
+    if (!existing) {
+      const name = list.single ? list.entry : `${list.entry} ${count + 1}`;
+      const done = `${name} ${list.single && count > 0 ? "moved" : "placed"} at ${where}`;
+      if (this.edit(player, into(), `${done}.`)) actionBar(player, done);
+      return;
+    }
+    const { target, index } = { target: existing.list.target, index: existing.index };
+    if (existing.list.key === list.key) {
+      const edits: MapEdit[] = [
+        { op: "move", target, index, at: positionXyz(position) },
+        facing ? { op: "face", target, index, facing } : { op: "face", target, index },
+      ];
+      this.edit(player, { op: "batch", edits }, `${existing.name} saved at ${where}.`);
+      return;
+    }
+    this.edit(player, { op: "batch", edits: [{ op: "remove", target, index }, into()] }, `${existing.name} is now in ${list.label}, at ${where}.`);
+  }
+
+  /** A position typed in a side form ("x y z"); undefined (and why) when it isn't one. */
+  private async typedPosition(player: Player, at: Point): Promise<Point | undefined> {
+    const now = [at.x, at.y, at.z].join(" ");
+    const form = new ModalFormData().title(sideTitle("Position")).textField("x y z (decimals are fine)", now, { defaultValue: now }).submitButton("Done");
+    const response = await this.show(player, form);
+    if (!response?.formValues || !player.isValid) return undefined;
+    const values = String(response.formValues[0] ?? "").trim().split(/[\s,]+/).map(Number);
+    if (values.length !== 3 || !values.every(Number.isFinite)) {
+      tell(player, "§cA position is three numbers: x y z.");
+      return undefined;
+    }
+    return { x: values[0], y: values[1], z: values[2] };
   }
 
   /** False (and a message) when the marker's entry changed while a form was open. */
-  private unchanged(player: Player, spec: MarkerSpec, position: MapPosition, name: string): boolean {
+  private unchanged(player: Player, spec: Pick<MarkerSpec, "list" | "index">, position: MapPosition, name: string): boolean {
     const now = listOf(this.state.current, spec.list.target)[spec.index];
     if (JSON.stringify(now) === JSON.stringify(position)) return true;
     tell(player, `${name} changed while the menu was open. Hit its marker again.`);
     return false;
   }
 
-  private async changeList(player: Player, spec: MarkerSpec, position: MapPosition, name: string): Promise<void> {
-    const lists = this.lists().filter((list) => list.key !== spec.list.key);
-    const form = new ModalFormData()
-      .title(`Move ${name}`)
-      .dropdown("To the list", lists.map((list) => list.label))
-      .submitButton("Move");
-    const response = await this.show(player, form);
-    if (!response?.formValues || !player.isValid || !this.unchanged(player, spec, position, name)) return;
-    const list = lists[response.formValues[0] as number];
-    if (!list) return;
-    const taken = list.single && listOf(this.state.current, list.target).length > 0;
-    const add: MapEdit = taken ? { op: "set", target: list.target, index: 0, at: position } : { op: "add", target: list.target, at: position };
-    this.edit(player, { op: "batch", edits: [{ op: "remove", target: spec.list.target, index: spec.index }, add] }, `${name} is now in ${list.label}.`);
-  }
-
   private async queueCountdown(player: Player): Promise<void> {
     const now = queueSettings(this.state.current).countdown;
     const form = new ModalFormData()
-      .title("Queue countdown")
+      .title(sideTitle("Queue countdown"))
       .textField(`Seconds (${QUEUE_COUNTDOWN.min} to ${QUEUE_COUNTDOWN.max}), once everyone's in, before the spawns`, String(now), { defaultValue: String(now) })
       .submitButton("Save");
     const response = await this.show(player, form);
@@ -802,9 +895,9 @@ export class Editor {
     if (countdown !== now) this.edit(player, { op: "queue", countdown }, `Queue countdown: ${countdown} s.`);
   }
 
-  private async renumber(player: Player, spec: MarkerSpec, count: number, name: string): Promise<void> {
+  private async renumber(player: Player, spec: Pick<MarkerSpec, "list" | "index">, count: number, name: string): Promise<void> {
     const form = new ModalFormData()
-      .title(`Renumber ${name}`)
+      .title(sideTitle(`Renumber ${name}`))
       .dropdown("New number", Array.from({ length: count }, (_, i) => String(i + 1)), { defaultValueIndex: spec.index })
       .submitButton("Renumber");
     const response = await this.show(player, form);
@@ -818,6 +911,15 @@ export class Editor {
 
 function tell(player: Player, text: string): void {
   player.sendMessage(`${PREFIX}${text}`);
+}
+
+/** A point from a map position (its x, y and z). */
+function pointOf(position: MapPosition): Point {
+  return { x: position[0], y: position[1], z: position[2] };
+}
+
+function titleCase(text: string): string {
+  return `${text[0].toUpperCase()}${text.slice(1)}`;
 }
 
 function inventoryOf(player: Player): Container | undefined {

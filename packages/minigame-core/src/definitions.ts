@@ -58,6 +58,7 @@ export {
   EDIT_LOG_MARKER,
   EDIT_SCRIPT_EVENT_ID,
   PartsAssembler,
+  chatMapName,
   extractEditPayload,
   mapHash,
   openKey,

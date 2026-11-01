@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { mapChecklist, stripColors, type HomeState, type MapConfig } from "@minecade/minigame-core/config";
 import { spawnLists } from "../behavior_pack/scripts/lists.ts";
-import { COLUMNS, LAYOUT, LOADING, MARK, dangerText, goText, headingText, homeTitle, iconsTitle, loadingTitle, mapTitle, sideTitle, switchText } from "../behavior_pack/scripts/marks.ts";
+import { COLUMNS, LAYOUT, LOADING, MARK, SEGMENT_COLUMNS, dangerText, goText, headingText, homeTitle, iconsTitle, linkText, loadingTitle, mapTitle, saveBarText, segmentText, sideTitle, switchText } from "../behavior_pack/scripts/marks.ts";
 import {
   ICONS,
   LOBBY_TEXT,
@@ -18,18 +18,20 @@ import {
   selectionFormEntries,
   guestEntries,
   guestWaitText,
+  cameraScreenEntries,
   checklistBody,
+  entryScreenEntries,
+  killYScreenEntries,
+  regionScreenEntries,
   homeEntries,
   mapActions,
   mapEntries,
   mapIdFrom,
   killYSettings,
-  mapMenuBody,
   mapMenuEntries,
   parseCountdown,
   publishBody,
   publishText,
-  queueActions,
   parseSetting,
   regionSettings,
   rowText,
@@ -66,7 +68,7 @@ describe("map menu", () => {
     expect(entries[3]).toEqual({ action: { kind: "boundaries" }, text: `${MARK.quick}Boundaries\n§7see the bounds and regions you pick`, icon: ICONS.boundaries });
     expect(entries[0].text).toBe(`${MARK.pill}0/1\n§7Checklist: 1 problem`);
     expect(entries[0].icon).toBe(ICONS.check);
-    expect(entries.at(-1)?.text).toBe(`${MARK.save}Save\nthe map and the world`);
+    expect(entries.at(-1)?.text).toBe(`${MARK.save}Save\n§7saves the map and the world`);
   });
 
   it("dims Undo and Redo when there's nothing to undo or redo", () => {
@@ -82,22 +84,19 @@ describe("map menu", () => {
     expect(tools[1].text).toBe(`${MARK.tool}${COLUMNS[1]}${MARK.on}Region tool\n§7bounds, regions, kill regions`);
   });
 
-  it("shows the tool out's settings between the tools and Save", () => {
+  it("shows the tool out's settings, after a Help link, between the tools and Save", () => {
     const kinds = (tool: MapMenuView["tool"]) => mapMenuEntries(view({ ...draft, killY: 50 }, { tool })).map((entry) => entry.action.kind).slice(9, -1);
-    expect(kinds("spawn")).toEqual(["none", "list", "list", "list", "none", "center", "none", "keepFacing", "snap"]);
-    expect(kinds("region")).toEqual(["none", "box"]);
-    expect(kinds("killY")).toEqual(["none", "typeKillY", "removeKillY"]);
+    // Spawn: Help, then each list with its entries (Spawns has one, the spectator and queue spawns none).
+    expect(kinds("spawn")).toEqual(["help", "none", "entry", "none", "none"]);
+    expect(kinds("region")).toEqual(["help", "none", "box"]);
+    expect(kinds("killY")).toEqual(["help", "none", "killY", "removeKillY"]);
     expect(kinds(undefined)).toEqual([]);
+    expect(mapMenuEntries(view(draft, { tool: "spawn" }))[9].text).toBe(linkText("Help"));
   });
 
-  it("says how to use the tool out, under the map", () => {
-    expect(mapMenuBody("Sumo", "arena_1", draft, undefined)).toBe("Arena (arena_1), Sumo, draft\n\n§fPick a tool above. Hit a marker to change it.");
-    expect(mapMenuBody("Sumo", "arena_1", draft, "region")).toContain("Hit a block to start a box.");
-  });
-
-  it("says when blocks changed since the last save, and while saving", () => {
-    expect(mapMenuEntries(view(draft, { unsaved: true })).at(-1)?.text).toBe(`${MARK.save}Save\nunsaved block changes`);
-    expect(mapMenuEntries(view(draft, { saving: true })).at(-1)?.text).toBe(`${MARK.save}Saving...\nthe map and the world`);
+  it("keeps whether blocks changed in Save's tooltip, and says when it's saving", () => {
+    expect(mapMenuEntries(view(draft, { unsaved: true })).at(-1)?.text).toBe(`${MARK.save}Save\n§7blocks changed since the last save`);
+    expect(mapMenuEntries(view(draft, { saving: true })).at(-1)?.text).toBe(`${MARK.save}Saving...\n§7the map and the world`);
   });
 
   it("knows each tool by its item", () => {
@@ -113,10 +112,10 @@ describe("the Players menu", () => {
   it("has Invite, then each guest and where they are", () => {
     expect(guestEntries([{ name: "Friend", on: "select" }, { name: "Pal" }, { name: "Mate", on: "home" }, { name: "Bud", on: "preview" }])).toEqual([
       { text: "Invite a player...\n§7by gamertag" },
-      { name: "Friend", text: "Friend\n§7on Select" },
-      { name: "Pal", text: "Pal\n§7not on" },
-      { name: "Mate", text: "Mate\n§7waiting in the editor lobby" },
-      { name: "Bud", text: "Bud\n§7in the preview" },
+      { name: "Friend", text: `${MARK.twoLine}Friend\n§7on Select` },
+      { name: "Pal", text: `${MARK.twoLine}Pal\n§7not on` },
+      { name: "Mate", text: `${MARK.twoLine}Mate\n§7waiting in the editor lobby` },
+      { name: "Bud", text: `${MARK.twoLine}Bud\n§7in the preview` },
     ]);
     expect(PLAYERS_TEXT).toBe(`${MARK.quick}Players\n§7invite friends to Select and previews`);
   });
@@ -146,42 +145,37 @@ describe("the Boundaries view", () => {
 });
 
 describe("tool settings", () => {
-  it("lists the spawn tool's lists with counts, the picked one marked, then facing", () => {
-    const entries = spawnSettings(draft, mapChecklist(draft, rules), spawnLists(draft, rules), { list: "spectatorSpawn", center: true, keepFacing: true, snap: "45" });
+  it("lists every spawn and point the map has, by list (each opens its screen)", () => {
+    const config: MapConfig = { ...draft, spawns: [[0, 65, 0], [3.5, 65, -2]], spectatorSpawn: [0, 80, 0] };
+    const entries = spawnSettings(config, spawnLists(config, rules));
     expect(entries.map((entry) => entry.text)).toEqual([
-      headingText("Place into"),
-      "Spawns\n§71 of 2",
-      `${MARK.picked}Spectator spawn\n§70`,
-      "Queue spawn\n§70",
-      headingText("Position"),
-      switchText("Center on block", "the middle of the block", true),
-      headingText("Facing"),
-      switchText("Save my facing", "the way you look", true),
-      "Snap: 45 degrees\n§7tap for Exact or 90 degrees",
+      headingText("Spawns (2)"),
+      "Spawn 1\n§70 65 0",
+      "Spawn 2\n§73.5 65 -2",
+      headingText("Spectator spawn"),
+      "Spectator spawn\n§70 80 0",
+      headingText("Queue spawn: none yet"),
     ]);
+    expect(entries[2].action).toEqual({ kind: "entry", key: "spawns#1" });
   });
 
-  it("offers the selection's actions, then the map's boxes", () => {
+  it("offers saving or clearing the selection, then the map's boxes", () => {
     const boxes = regionEntries(draft, rules);
-    const entries = regionSettings({ box: { min: [0, 60, 0], max: [11, 64, 29] }, editing: "Bounds", steps: 1 }, boxes, 58);
+    const entries = regionSettings({ box: { min: [0, 60, 0], max: [11, 64, 29] }, editing: "Bounds", steps: 1 }, boxes);
     expect(entries.map((entry) => entry.text)).toEqual([
       headingText("Selection: 12 x 5 x 30"),
-      "Save changes\n§7to Bounds",
-      "Save as...\n§7bounds, a region or a kill region",
-      "Nudge sides",
-      "Floor at kill Y\n§7bottom at y 58",
-      "Back one step",
+      goText("Save Bounds"),
       dangerText("Clear selection"),
       headingText("Bounds and regions (1)"),
       "Bounds\n§711 x 11 x 11: edit, nudge, go to, delete",
     ]);
     expect(entries.at(-1)?.action).toEqual({ kind: "box", key: "bounds#0" });
-    expect(regionSettings(undefined, [], undefined).map((entry) => entry.text)).toEqual([headingText("No bounds or regions yet")]);
+    expect(regionSettings(undefined, []).map((entry) => entry.text)).toEqual([headingText("No bounds or regions yet")]);
   });
 
   it("offers removing kill Y only when it's set", () => {
-    expect(killYSettings(undefined).map((entry) => entry.text)).toEqual([headingText("Kill Y: not set"), "Type a height"]);
-    expect(killYSettings(58).map((entry) => entry.text)).toEqual([headingText("Kill Y: 58"), "Type a height", dangerText("Remove kill Y")]);
+    expect(killYSettings(undefined).map((entry) => entry.text)).toEqual([headingText("Kill Y: not set"), goText("Set kill Y")]);
+    expect(killYSettings(58).map((entry) => entry.text)).toEqual([headingText("Kill Y: 58"), goText("Set kill Y"), dangerText("Remove kill Y")]);
   });
 });
 
@@ -225,7 +219,7 @@ describe("layouts", () => {
       expect(pack("server_form.json")).toContain(`'${mark}'`);
       expect(pack("editor_forms.json")).toContain(`'${mark}'`);
     }
-    for (const mark of [...Object.values(MARK), ...COLUMNS]) {
+    for (const mark of [...Object.values(MARK), ...COLUMNS, ...SEGMENT_COLUMNS]) {
       expect(stripColors(mark)).toBe("");
       expect(pack("editor_forms.json")).toContain(`'${mark}'`);
     }
@@ -240,7 +234,7 @@ describe("layouts", () => {
   });
 
   it("never lets one mark read as another", () => {
-    const marks = [...Object.values(MARK), ...COLUMNS];
+    const marks = [...Object.values(MARK), ...COLUMNS, ...SEGMENT_COLUMNS];
     for (const mark of marks) for (const other of marks) if (mark !== other) expect(other.includes(mark)).toBe(false);
     const titles = [...Object.values(LAYOUT), LOADING];
     for (const mark of titles) for (const other of titles) if (mark !== other) expect(other.includes(mark)).toBe(false);
@@ -248,7 +242,6 @@ describe("layouts", () => {
 
   it("has every icon the menus use in the pack", () => {
     for (const icon of Object.values(ICONS)) expect(readFileSync(new URL(`../resource_pack/${icon}.png`, import.meta.url)).length).toBeGreaterThan(0);
-    expect(pack("editor_forms.json")).toContain("textures/minecade/editor/icon_filter");
     expect(pack("editor_forms.json")).toContain("textures/minecade/editor/loading_dots");
   });
 });
@@ -281,7 +274,7 @@ describe("Select mode's map menu", () => {
     expect(entries[4].text).toBe(goText("Export to Map"));
     // A ready map is just its name; one that isn't says how it's going.
     expect(entries[8]).toEqual({ action: { kind: "map", target: "sumo", map: "castle" }, text: `${MARK.card}Castle (castle)`, icon: ICONS.edit });
-    expect(entries[9].text).toBe(`${MARK.card}Keep (keep)\n§cfailed: tap for why`);
+    expect(entries[9].text).toBe(`${MARK.card}${MARK.twoLine}Keep (keep)\n§cfailed: tap for why`);
     expect(entries.at(-1)?.text).toBe(LOBBY_TEXT);
     expect(LOBBY_TEXT).toBe(`${MARK.bottom}Back to Lobby`);
     const none = selectMenuEntries({ maps: [] });
@@ -345,7 +338,7 @@ describe("Nudge sides", () => {
     ]);
     expect(plus.map((entry) => entry.action)).toEqual(minus.map((entry) => ({ ...entry.action, by: 1 })));
     expect(minus.every((entry) => entry.icon === ICONS.minus) && plus.every((entry) => entry.icon === ICONS.new)).toBe(true);
-    expect(entries.slice(12).map((entry) => entry.text)).toEqual(["Step: 1 block", "Reset", goText("Nudge")]);
+    expect(entries.slice(12).map((entry) => entry.text)).toEqual(["Step: 1 block\n§7how far a minus or plus moves a side", "Reset\n§7put every side back", saveBarText("Nudge")]);
   });
 
   it("says where each side is from the way the player faces, and leaves Reset out with nothing moved", () => {
@@ -353,17 +346,16 @@ describe("Nudge sides", () => {
     const entries = nudgeEntries({ sides: unmoved, step: 5, facing: "east" });
     expect(entries[0].text).toBe(`${MARK.minus}North (left): 0`);
     expect(entries[6].text).toBe(`${MARK.minus}East (ahead): 0`);
-    expect(entries.slice(12).map((entry) => entry.text)).toEqual(["Step: 5 blocks", goText("Nudge")]);
+    expect(entries.slice(12).map((entry) => entry.text)).toEqual(["Step: 5 blocks\n§7how far a minus or plus moves a side", saveBarText("Nudge")]);
     expect(facingLine("west")).toBe("Facing West   + moves a side out, - moves it in");
   });
 });
 
 describe("Edit's gear", () => {
   it("has Players as an icon, the settings, the red ones, and Back to Lobby at the bottom", () => {
-    expect(gearEntries({ from: "Arenas", build: true })).toEqual([
+    expect(gearEntries({ build: true })).toEqual([
       { action: "players", text: PLAYERS_TEXT, icon: ICONS.players },
       { action: "settings", text: "Name and game settings" },
-      { action: "select", text: "Back to Select" },
       { action: "dropBuild", text: dangerText("Drop build commands") },
       { action: "delete", text: dangerText("Delete map") },
       { action: "lobby", text: LOBBY_TEXT },
@@ -419,7 +411,9 @@ describe("the editor lobby's menu", () => {
     expect(entries[1].icon).toBe(ICONS.new);
     expect(entries[2]).toEqual({ action: { kind: "players" }, text: PLAYERS_TEXT, icon: ICONS.players });
     expect(entries.slice(3, 6).map((entry) => entry.icon)).toEqual([ICONS.edit, ICONS.select, ICONS.play]);
-    expect(entries.slice(3, 6).every((entry) => entry.text.startsWith(MARK.filter) && !entry.text.includes(MARK.on))).toBe(true);
+    // The filters are a toggle of icon tiles, none on.
+    expect(entries.slice(3, 6).map((entry) => entry.text.slice(0, 12))).toEqual(SEGMENT_COLUMNS.map((column) => `${MARK.segment}${column}`));
+    expect(entries.slice(3, 6).every((entry) => entry.text.includes(MARK.iconOnly) && !entry.text.includes(MARK.on))).toBe(true);
     expect(entries[6]).toEqual({ action: { kind: "leave" }, text: `${MARK.end}Leave\n§7disconnect from the map editor`, icon: ICONS.leave });
     expect(entries.slice(7).map((entry) => entry.text)).toEqual([headingText("Recent"), headingText("§8Nothing opened yet")]);
   });
@@ -434,7 +428,7 @@ describe("the editor lobby's menu", () => {
       { kind: "open", request: datapacking },
       { kind: "open", request: { to: "edit", target: "lobby", map: "spaceship" } },
     ]);
-    expect(entries[1]).toEqual({ action: { kind: "open", request: arena }, text: `${MARK.card}Sumo: Arena (arena_1)\n§7open: Friend`, icon: ICONS.edit });
+    expect(entries[1]).toEqual({ action: { kind: "open", request: arena }, text: `${MARK.card}${MARK.twoLine}Sumo: Arena (arena_1)\n§7open: Friend`, icon: ICONS.edit });
     expect(entries.slice(3, 6).map((entry) => [entry.text, entry.icon])).toEqual([
       [`${MARK.card}Sumo: Arena (arena_1)`, ICONS.play],
       [`${MARK.card}Datapacking (imported)`, ICONS.select],
@@ -446,11 +440,11 @@ describe("the editor lobby's menu", () => {
     const entries = homeEntries(withRecent, "preview");
     const filters = entries.filter((entry) => entry.action.kind === "filter");
     expect(filters.map((entry) => entry.text.includes(MARK.on))).toEqual([false, false, true]);
-    expect(filters[2].text).toBe(`${MARK.filter}${MARK.on}Recent: Preview only\n§7on: tap again to show everything`);
+    expect(filters[2].text).toBe(segmentText("Recent: Preview only\n§7on: tap again to show everything", 2, true, true));
     const recent = entries.slice(entries.findIndex((entry) => entry.text === headingText("Recent: Preview only")));
     expect(recent.map((entry) => entry.action)).toEqual([{ kind: "none" }, { kind: "open", request: arenaPreview }]);
     // What's open stays listed; an empty kind says so.
-    expect(homeEntries(withRecent, "select").some((entry) => entry.text === `${MARK.card}Sumo: Arena (arena_1)\n§7open: Friend`)).toBe(true);
+    expect(homeEntries(withRecent, "select").some((entry) => entry.text === `${MARK.card}${MARK.twoLine}Sumo: Arena (arena_1)\n§7open: Friend`)).toBe(true);
     expect(homeEntries(empty, "preview").map((entry) => entry.text)).toContain(headingText("§8No previews yet"));
     expect(RECENT_KINDS.map((kind) => kind.kind)).toEqual(["edit", "select", "preview"]);
   });
@@ -490,15 +484,62 @@ describe("the editor lobby's menu", () => {
   });
 });
 
-describe("the queue spawn's marker", () => {
-  it("adds Lock in and the countdown to its form", () => {
-    expect(queueActions({ name: "M", spawns: [], queueSpawn: [0, 80, 30] })).toEqual([
-      { action: "queueMode", text: switchText("Lock in", "look around, can't move, invisible", true) },
-      { action: "queueCountdown", text: "Countdown: 5 s\n§7once everyone's in, before the spawns" },
+describe("tool screens", () => {
+  const lists = spawnLists(draft, rules);
+  const at = { x: 3.25, y: 65, z: -2 };
+
+  it("opens a spawn with the list toggle first, then position and facing, nudge rows, and Place at the bottom", () => {
+    const entries = entryScreenEntries({ lists, list: "spawns", at, snap: "exact", center: false, step: 1 });
+    expect(entries.slice(0, 3).map((entry) => entry.text)).toEqual([segmentText("Spawn", 0, true), segmentText("Spectator", 1, false), segmentText("Queue", 2, false)]);
+    const lead = entries.filter((entry) => entry.text.startsWith(MARK.lead)).map((entry) => entry.text.slice(MARK.lead.length));
+    expect(lead).toEqual([
+      headingText("Position"),
+      "3.25 65 -2\n§7tap to type a position",
+      "Move here\n§7where you stand",
+      switchText("Center on block", "the middle of the block, not the exact spot", false),
+      headingText("Facing: the middle of the map"),
+      "Take my facing\n§7the way you look now",
+      "Snap: Exact\n§7tap for 45 degrees or 90 degrees",
     ]);
-    expect(queueActions({ name: "M", spawns: [], queueSpawn: [0, 80, 30], queue: { mode: "free", countdown: 12 } })[0].text).toBe(
-      switchText("Lock in", "off: free to roam", false),
-    );
+    const rows = entries.filter((entry) => entry.text.startsWith(MARK.minus)).map((entry) => entry.text.slice(MARK.minus.length));
+    expect(rows).toEqual(["X (east +): 3.25", "Y (up +): 65", "Z (south +): -2"]);
+    expect(entries.at(-1)?.text).toBe(saveBarText("Place Spawn"));
+    expect(entries.some((entry) => entry.action.kind === "delete")).toBe(false);
+  });
+
+  it("offers the queue's settings, Renumber and Delete on one the map has, and Save at the bottom", () => {
+    const entries = entryScreenEntries({ lists, list: "queueSpawn", at, facing: { yaw: 180, pitch: 0 }, snap: "90", center: true, step: 0.5, existing: { index: 0, count: 2 }, queue: { mode: "lock", countdown: 5 } });
+    const kinds = entries.map((entry) => entry.action.kind);
+    expect(kinds).toContain("unface");
+    expect(kinds).toContain("queueMode");
+    expect(kinds.slice(-4)).toEqual(["step", "renumber", "delete", "save"]);
+    expect(entries.find((entry) => entry.action.kind === "step")?.text).toBe("Step: 0.5 blocks\n§7how far a minus or plus moves it");
+    expect(entries.at(-1)?.text).toBe(saveBarText("Save"));
+  });
+
+  it("saves a selection as a target picked on a toggle, with a name for a new region", () => {
+    const targets = [
+      { key: "bounds", label: "Bounds", kind: "bounds" as const },
+      { key: "regions.kill", label: "Kill region", kind: "region" as const, name: "kill" },
+      { key: "new", label: "New region...", kind: "new" as const },
+    ];
+    const box = { min: [0, 60, 0] as [number, number, number], max: [11, 64, 29] as [number, number, number] };
+    const fresh = regionScreenEntries({ targets, target: "new", name: "", box, steps: 0, killY: 58, step: 1 });
+    expect(fresh.slice(0, 3).map((entry) => entry.text)).toEqual([segmentText("Bounds", 0, false), segmentText("Kill region", 1, false), segmentText("New region", 2, true)]);
+    expect(fresh.filter((entry) => entry.text.startsWith(MARK.lead)).map((entry) => entry.action.kind)).toEqual(["none", "name", "floor"]);
+    expect(fresh.at(-1)?.text).toBe(saveBarText("Save"));
+    const editing = regionScreenEntries({ targets, target: "editing", editing: "Bounds", name: "", box, steps: 2, step: 1 });
+    expect(editing[0].text).toBe(segmentText("This box", 0, true));
+    expect(editing.at(-1)?.text).toBe(saveBarText("Save Bounds"));
+    expect(editing.filter((entry) => entry.text.startsWith(MARK.minus))).toHaveLength(6);
+  });
+
+  it("sets kill Y and places a camera from their own screens", () => {
+    expect(killYScreenEntries({ y: 57, set: true, step: 1 }).map((entry) => entry.action.kind)).toEqual(["none", "type", "height", "height", "step", "remove", "save"]);
+    expect(killYScreenEntries({ y: 57, set: false, step: 1 }).at(-1)?.text).toBe(saveBarText("Set kill Y"));
+    const camera = cameraScreenEntries({ kind: "game", at: "Game picture at 0 70 0" });
+    expect(camera.slice(0, 2).map((entry) => entry.text)).toEqual([segmentText("Map preview", 0, false), segmentText("Game picture", 1, true)]);
+    expect(camera.at(-1)?.text).toBe(saveBarText("Place camera"));
   });
 
   it("reads a typed countdown as whole seconds within the limits", () => {

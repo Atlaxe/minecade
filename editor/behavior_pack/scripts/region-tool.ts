@@ -1,15 +1,17 @@
 // The region tool. Hit a block to start a selection there (that one block), then use the tool on
 // blocks, up to REACH away, to grow the selection to them, so any box can be picked without placing
-// blocks. Using it at the air opens the region form: save the box as the bounds, a region or a kill
-// region, nudge its sides, or put its bottom at kill Y. With the tool picked, the map menu offers
-// the same, and lists the map's boxes to edit, nudge, visit or delete.
+// blocks. Using it at the air opens the selection's screen: what to save it as (the bounds, a
+// region, a kill region, a new region), its sides nudged with the outline following, Floor at kill
+// Y and Back one step, and Save at the bottom. With the tool picked, the map menu opens the same
+// screen, and lists the map's boxes to edit, nudge, visit or delete.
 import { world, type Block, type Player } from "@minecraft/server";
 import { ActionFormData, ModalFormData } from "@minecraft/server-ui";
 import type { Box, MapEdit, Scope } from "@minecade/minigame-core";
 import { blockInView, change, keyOf, nudgeMenu, xyz, type Picking } from "./box-picker.ts";
-import { blockBox, describeBox, floorAt, growBox, sameBox, sizeText, topCenter } from "./boxes.ts";
+import { blockBox, describeBox, floorAt, growBox, nudgeBox, sameBox, sizeText, topCenter } from "./boxes.ts";
 import { dangerText, sideTitle } from "./marks.ts";
-import { entryBox, regionEntries, regionLabel, regionName, regionTargets, selectionActions, type RegionEntry, type SelectionAction } from "./regions.ts";
+import { NUDGE_STEPS, regionScreenEntries } from "./menu.ts";
+import { entryBox, regionEntries, regionLabel, regionName, regionTargets, type RegionEntry, type RegionTarget, type SelectionAction } from "./regions.ts";
 import { actionBar, heldTool, type ToolHost } from "./tool-host.ts";
 
 interface Selection extends Picking {
@@ -24,6 +26,8 @@ export class RegionTool {
   private readonly selections = new Map<string, Selection>();
   /** The Save as target each player last chose (or a checklist row picked), by its key. */
   private readonly targets = new Map<string, string>();
+  /** A new region's name, as each player typed it. */
+  private readonly names = new Map<string, string>();
 
   constructor(scope: Scope, host: ToolHost) {
     this.host = host;
@@ -89,20 +93,80 @@ export class RegionTool {
     actionBar(player, `Selection: ${describeBox(box)}`);
   }
 
-  /** The region form: save the selection, nudge it, floor it at kill Y, step back, or clear it. */
+  /**
+   * The selection's screen: what to save it as (a toggle, the box it came from first), a new
+   * region's name, Floor at kill Y and Back one step, nudge rows for each side (the outline follows),
+   * Step, Clear (red), and Save at the bottom.
+   */
   async selectionForm(player: Player): Promise<void> {
-    const selection = this.selections.get(keyOf(player));
-    if (!selection) {
-      this.host.tell(player, "No selection yet: hit a block with the region tool to start one.");
-      return;
+    const key = keyOf(player);
+    let step: number = NUDGE_STEPS[0];
+    for (;;) {
+      const selection = this.selections.get(key);
+      if (!selection) {
+        this.host.tell(player, "No selection yet: hit a block with the region tool to start one.");
+        return;
+      }
+      const editing = selection.editing && this.current(selection.editing) ? selection.editing : undefined;
+      const targets = regionTargets(this.host.map(), this.host.rules);
+      let target = this.targets.get(key) ?? (editing ? "editing" : targets[0].key);
+      if (target === "editing" ? !editing : !targets.some((candidate) => candidate.key === target)) target = editing ? "editing" : targets[0].key;
+      const killY = this.host.map().killY;
+      const entries = regionScreenEntries({ targets, target, editing: editing?.label, name: this.names.get(key) ?? "", box: selection.box, steps: selection.history.length, killY, step });
+      const form = new ActionFormData().title(sideTitle("Selection"));
+      for (const entry of entries) form.button(entry.text);
+      const response = await this.host.show(player, form);
+      const action = response?.selection === undefined ? undefined : entries[response.selection]?.action;
+      if (!action || !player.isValid || this.selections.get(key) !== selection) return;
+      switch (action.kind) {
+        case "target":
+          this.targets.set(key, action.key);
+          break;
+        case "name": {
+          const name = await this.typedName(player, this.names.get(key) ?? "");
+          if (name !== undefined) this.names.set(key, name);
+          break;
+        }
+        case "floor": {
+          const box = killY === undefined ? undefined : floorAt(selection.box, killY);
+          if (box) change(selection, box);
+          else this.host.tell(player, `§cKill Y (${killY}) is above the selection.`);
+          break;
+        }
+        case "back": {
+          const box = selection.history.pop();
+          if (box) selection.box = box;
+          break;
+        }
+        case "side": {
+          const box = nudgeBox(selection.box, { west: 0, east: 0, down: 0, up: 0, north: 0, south: 0, [action.side]: action.by * step });
+          if (box) change(selection, box);
+          else this.host.tell(player, "§cThat would turn the box inside out: a side can't pass the one across from it.");
+          break;
+        }
+        case "step":
+          step = NUDGE_STEPS[((NUDGE_STEPS as readonly number[]).indexOf(step) + 1) % NUDGE_STEPS.length];
+          break;
+        case "clear":
+          this.selections.delete(key);
+          this.host.tell(player, "Selection cleared.");
+          return;
+        case "save":
+          if (target === "editing") this.saveChanges(player, selection);
+          else {
+            const picked = targets.find((candidate) => candidate.key === target);
+            if (picked) this.saveAs(player, selection, picked, this.names.get(key) ?? "");
+          }
+          return;
+      }
     }
-    const editing = selection.editing && this.current(selection.editing) ? selection.editing : undefined;
-    const actions = selectionActions(editing?.label, selection.history.length, this.host.map().killY);
-    const form = new ActionFormData().title(sideTitle("Selection")).body(`${describeBox(selection.box)}${editing ? `\nEditing ${editing.label}.` : ""}`);
-    for (const { text } of actions) form.button(text);
+  }
+
+  /** A new region's name, typed in a side form; undefined when closed. */
+  private async typedName(player: Player, name: string): Promise<string | undefined> {
+    const form = new ModalFormData().title(sideTitle("New region")).textField("Name (letters, digits and _, starting with a letter)", "buy_zone", { defaultValue: name }).submitButton("Done");
     const response = await this.host.show(player, form);
-    const action = response?.selection === undefined ? undefined : actions[response.selection]?.action;
-    if (action && player.isValid && this.selections.get(keyOf(player)) === selection) await this.selectionAction(player, action);
+    return response?.formValues ? String(response.formValues[0] ?? "").trim() : undefined;
   }
 
   /** Does one of the selection's actions (from the region form or the map menu). */
@@ -118,7 +182,7 @@ export class RegionTool {
         this.saveChanges(player, selection);
         return;
       case "saveAs":
-        return this.saveAs(player, selection);
+        return this.selectionForm(player);
       case "nudge": {
         const box = await nudgeMenu(this.host, player, selection.box, "Nudge sides");
         if (!box || sameBox(box, selection.box) || this.selections.get(keyOf(player)) !== selection) return;
@@ -219,19 +283,8 @@ export class RegionTool {
     if (this.host.edit(player, saveEdit(entry, box), `${entry.label} saved: ${describeBox(box)}.`)) selection.editing = { ...entry, box };
   }
 
-  private async saveAs(player: Player, selection: Selection): Promise<void> {
-    const targets = regionTargets(this.host.map(), this.host.rules);
-    const last = this.targets.get(keyOf(player));
-    const form = new ModalFormData()
-      .title("Save the selection")
-      .dropdown("Save as", targets.map((target) => target.label), { defaultValueIndex: Math.max(0, targets.findIndex((target) => target.key === last)) })
-      .textField("Name, for a new region", "letters, digits and _", { defaultValue: "" })
-      .submitButton("Save");
-    const response = await this.host.show(player, form);
-    if (!response?.formValues || !player.isValid || this.selections.get(keyOf(player)) !== selection) return;
-    const target = targets[response.formValues[0] as number];
-    if (!target) return;
-    this.targets.set(keyOf(player), target.key);
+  /** Saves the selection as `target` (the bounds, another bounds box, a region, or a new region named `typed`). */
+  private saveAs(player: Player, selection: Selection, target: RegionTarget, typed: string): void {
     const box = selection.box;
     if (target.kind === "bounds") {
       const done = `Bounds ${this.host.map().bounds ? "replaced" : "set"}: ${describeBox(box)}.`;
@@ -246,7 +299,7 @@ export class RegionTool {
       }
       return;
     }
-    const name = target.kind === "new" ? regionName(String(response.formValues[1] ?? "")) : target.name;
+    const name = target.kind === "new" ? regionName(typed) : target.name;
     if (!name) {
       this.host.tell(player, "§cA new region needs a name: letters, digits and _, starting with a letter.");
       return;

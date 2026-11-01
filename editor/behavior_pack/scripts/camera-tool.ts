@@ -10,6 +10,7 @@ import { ActionFormData } from "@minecraft/server-ui";
 import { describeError } from "@minecade/minigame-core";
 import { CAMERA_KINDS, cameraActions, cameraAt, cameraText, nextCameraName, type CameraKind } from "./cameras.ts";
 import { sideTitle } from "./marks.ts";
+import { cameraScreenEntries } from "./menu.ts";
 import type { ToolHost } from "./tool-host.ts";
 
 /** Long enough to last any look through. */
@@ -51,15 +52,32 @@ export class CameraTool {
     return this.looking.size > 0;
   }
 
-  /** A use: places a camera here, or brings a player looking through one back. */
-  use(player: Player): void {
+  /** A use: the new camera's screen (at the player's eyes), or brings a player looking through one back. */
+  async use(player: Player): Promise<void> {
     if (this.isLooking(player)) {
       this.stop(player);
       return;
     }
-    const name = nextCameraName(this.host.map());
-    const camera = cameraAt(player.getHeadLocation(), player.getRotation(), this.kindOf(player));
-    this.host.edit(player, { op: "camera", name, camera }, `${name} placed: ${cameraText(camera)}. Hit its marker to look through it.`);
+    let kind = this.kindOf(player);
+    let camera = cameraAt(player.getHeadLocation(), player.getRotation(), kind);
+    for (;;) {
+      const name = nextCameraName(this.host.map());
+      const entries = cameraScreenEntries({ kind, at: cameraText(camera) });
+      const form = new ActionFormData().title(sideTitle(`New camera: ${name}`));
+      for (const entry of entries) form.button(entry.text);
+      const response = await this.host.show(player, form);
+      const action = response?.selection === undefined ? undefined : entries[response.selection]?.action;
+      if (!action || !player.isValid) return;
+      if (action.kind === "save") {
+        this.host.edit(player, { op: "camera", name, camera }, `${name} placed: ${cameraText(camera)}. Hit its marker to look through it.`);
+        return;
+      }
+      if (action.kind === "kind") {
+        kind = action.camera;
+        this.kinds.set(player.name.toLowerCase(), kind);
+        camera = { ...camera, kind };
+      } else if (action.kind === "aim") camera = cameraAt(player.getHeadLocation(), player.getRotation(), kind);
+    }
   }
 
   /** The action bar line while the tool is held. */

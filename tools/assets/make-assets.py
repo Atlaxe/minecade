@@ -15,6 +15,7 @@ Outputs:
     editor/resource_pack/textures/particle/outline.png                        the editor's outline dot (white, dark rim)
     editor/resource_pack/textures/items/select_tool.png                       Select mode's tool (a crop mark)
     editor/resource_pack/textures/entity/editor_marker_facing.png            the red facing line on markers
+    editor/resource_pack/textures/entity/editor_marker*.png                  markers, a color per kind
     games/<id>/icon.png                                                      16:9 game pictures (Probe, Sumo, One in the Quiver)
 
 Fonts come from Windows (Bahnschrift, else Consolas Bold); they only matter when regenerating.
@@ -485,7 +486,7 @@ def editor_icon(kind: str, color: tuple[int, int, int] = (255, 255, 255)) -> Ima
     The map menu's quick icons, 16x16 (drawn at 64x64 and scaled down): a check mark, Undo and
     Redo (a U-turn arrow, Redo mirrored), and a gear for the map settings. And the editor lobby's: a
     pencil (Open a map, and maps opened in Edit), a plus (New map), a crop mark (worlds opened in
-    Select), a funnel before the Recent filters, and a door with an arrow going out (Leave). And
+    Select), and a door with an arrow going out (Leave). And
     for every icon row: a person (Players), a question mark (a how-to in its tooltip), and a
     minus (Nudge sides; its plus is New map's).
     """
@@ -525,8 +526,6 @@ def editor_icon(kind: str, color: tuple[int, int, int] = (255, 255, 255)) -> Ima
         draw.rectangle((14, 43, 60, 50), fill=fill)
         draw.rectangle((4, 14, 50, 21), fill=fill)
         draw.rectangle((43, 14, 50, 60), fill=fill)
-    elif kind == "funnel":
-        draw.polygon([(10, 12), (54, 12), (37, 32), (37, 52), (27, 58), (27, 32)], fill=fill)
     elif kind == "leave":
         # A door frame open on the right, and an arrow going out through it.
         draw.line([(36, 16), (36, 8), (10, 8), (10, 56), (36, 56), (36, 48)], fill=fill, width=6, joint="curve")
@@ -690,7 +689,7 @@ def main() -> None:
     for kind, name in (("check", "check"), ("undo", "undo"), ("redo", "redo"), ("gear", "settings")):
         save(editor_icon(kind), EDITOR_TEXTURES / "minecade" / "editor" / f"icon_{name}.png")
     save(editor_icon("check", (110, 220, 90)), EDITOR_TEXTURES / "minecade" / "editor" / "icon_check_done.png")
-    for kind, name in (("pencil", "edit"), ("plus", "new"), ("crop", "select"), ("funnel", "filter"), ("leave", "leave"), ("players", "players"), ("help", "help"), ("minus", "minus")):
+    for kind, name in (("pencil", "edit"), ("plus", "new"), ("crop", "select"), ("leave", "leave"), ("players", "players"), ("help", "help"), ("minus", "minus")):
         save(editor_icon(kind), EDITOR_TEXTURES / "minecade" / "editor" / f"icon_{name}.png")
     save(loading_dots(), EDITOR_TEXTURES / "minecade" / "editor" / "loading_dots.png")
     save(outline_dot(), EDITOR_TEXTURES / "particle" / "outline.png")
@@ -700,6 +699,10 @@ def main() -> None:
     for state, color in (("default", (255, 255, 255)), ("hover", (235, 64, 64)), ("pressed", (160, 30, 30))):
         save(nav_icon("close", color), EDITOR_TEXTURES / "minecade" / "editor" / f"close_{state}.png")
     save(Image.new("RGB", (16, 16), (255, 40, 40)), EDITOR_TEXTURES / "entity" / "editor_marker_facing.png")
+    # Markers by kind (lists.ts MARKER_KINDS): spawns orange, the spectator spawn gray, the queue spawn
+    # aqua, team spawns green, points yellow, cameras magenta.
+    for kind, color in (("", (255, 170, 30)), ("_spectator", (175, 185, 205)), ("_queue", (60, 200, 255)), ("_team", (90, 220, 90)), ("_point", (255, 230, 60)), ("_camera", (230, 80, 230))):
+        save(Image.new("RGB", (16, 16), color), EDITOR_TEXTURES / "entity" / f"editor_marker{kind}.png")
 
     save(picture("PROBE", (60, 70, 90), (25, 30, 40)), ROOT / "games" / "probe" / "icon.png")
     save(picture("SUMO", (190, 60, 60), (70, 20, 20)), ROOT / "games" / "sumo" / "icon.png")

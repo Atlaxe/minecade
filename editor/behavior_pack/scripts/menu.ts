@@ -8,8 +8,10 @@ import {
   QUEUE_COUNTDOWN,
   listOf,
   openKey,
+  positionText,
   queueSettings,
   type Box,
+  type Facing,
   type Catalog,
   type Checklist,
   type ChecklistRow,
@@ -21,10 +23,10 @@ import {
   type ServerInfo,
 } from "@minecade/minigame-core/config";
 import { relativeSide, sizeText, type Cardinal, type Sides } from "./boxes.ts";
-import { SNAPS, type Snap, type SpawnList } from "./lists.ts";
-import { COLUMNS, MARK, dangerText, goText, headingText, switchText } from "./marks.ts";
+import { SNAPS, compass, type Snap, type SpawnList } from "./lists.ts";
+import { COLUMNS, MARK, dangerText, goText, headingText, linkText, saveBarText, segmentText, switchText } from "./marks.ts";
 import { CAMERA_KINDS, camerasOf, type CameraKind } from "./cameras.ts";
-import { ALL_BOUNDARIES, outlineShown, selectionActions, type BoundaryRow, type RegionEntry, type SelectionAction } from "./regions.ts";
+import { ALL_BOUNDARIES, outlineShown, type BoundaryRow, type RegionEntry, type RegionTarget, type SelectionAction } from "./regions.ts";
 import { EDITOR_TOOLS, SELECT_TOOL, type ToolId } from "./tools.ts";
 
 /** The quick icons' pictures (editor/resource_pack/textures/minecade/editor/). */
@@ -59,13 +61,14 @@ export type MenuAction =
   | { kind: "tool"; tool: ToolId }
   /** A heading: nothing happens but the menu opening again. */
   | { kind: "none" }
-  | { kind: "list"; key: string }
-  | { kind: "keepFacing" }
-  | { kind: "center" }
-  | { kind: "snap" }
+  /** The picked tool's how-to, in chat. */
+  | { kind: "help" }
+  /** The spawn tool: an entry's screen, by "<list key>#<index>". */
+  | { kind: "entry"; key: string }
   | { kind: "selection"; action: SelectionAction }
   | { kind: "box"; key: string }
-  | { kind: "typeKillY" }
+  /** The Kill Y tool's screen. */
+  | { kind: "killY" }
   | { kind: "removeKillY" }
   /** The camera tool: the kind of new cameras, and a camera's form. */
   | { kind: "cameraKind" }
@@ -142,8 +145,10 @@ export function mapMenuEntries(view: MapMenuView): MenuEntry[] {
     const picked = tool.id === view.tool ? MARK.on : "";
     entries.push({ action: { kind: "tool", tool: tool.id }, text: `${MARK.tool}${COLUMNS[i % COLUMNS.length]}${picked}${tool.label}\n§7${tool.hint}`, icon: tool.icon });
   });
-  if (view.tool === "spawn") entries.push(...spawnSettings(view.config, view.checklist, view.spawn.lists, view.spawn.settings));
-  else if (view.tool === "region") entries.push(...regionSettings(view.region.selection, view.region.entries, view.config.killY));
+  // How to use the tool is a link: it goes to chat.
+  if (view.tool) entries.push({ action: { kind: "help" }, text: linkText("Help") });
+  if (view.tool === "spawn") entries.push(...spawnSettings(view.config, view.spawn.lists));
+  else if (view.tool === "region") entries.push(...regionSettings(view.region.selection, view.region.entries));
   else if (view.tool === "killY") entries.push(...killYSettings(view.config.killY));
   else if (view.tool === "camera") entries.push(...cameraSettings(view.config, view.camera?.kind ?? "map"));
   entries.push({ action: { kind: "save" }, text: `${MARK.save}${saveText(view)}` });
@@ -173,56 +178,225 @@ export function boundaryEntries(rows: BoundaryRow[], shown: ReadonlySet<string>)
   ];
 }
 
-/** The text over the settings: the map, then how to use the picked tool. */
-export function mapMenuBody(targetName: string, mapId: string, config: MapConfig, tool: ToolId | undefined): string {
-  const howTo = EDITOR_TOOLS.find((candidate) => candidate.id === tool)?.howTo ?? "Pick a tool above. Hit a marker to change it.";
-  return `${menuBody(targetName, mapId, config)}\n\n§f${howTo}`;
-}
-
-/** The spawn tool's settings: the list it places into, and how it saves your facing. */
-export function spawnSettings(config: MapConfig, checklist: Checklist, lists: SpawnList[], settings: SpawnSettings): MenuEntry[] {
-  const entries: MenuEntry[] = [{ action: { kind: "none" }, text: headingText("Place into") }];
+/** The spawn tool's settings: every spawn and point the map has, by list (tap one for its screen). */
+export function spawnSettings(config: MapConfig, lists: SpawnList[]): MenuEntry[] {
+  const entries: MenuEntry[] = [];
   for (const list of lists) {
-    const row = checklist.rows.find((candidate) => candidate.key === list.key);
-    const have = row?.have ?? listOf(config, list.target).length;
-    const count = row ? `${have} of ${row.need}` : `${have}`;
-    entries.push({ action: { kind: "list", key: list.key }, text: `${list.key === settings.list ? MARK.picked : ""}${list.label}\n§7${count}` });
+    const positions = listOf(config, list.target);
+    entries.push({ action: { kind: "none" }, text: headingText(positions.length === 0 ? `${list.label}: none yet` : list.single ? list.label : `${list.label} (${positions.length})`) });
+    positions.forEach((position, index) => {
+      const name = list.single ? list.entry : `${list.entry} ${index + 1}`;
+      entries.push({ action: { kind: "entry", key: `${list.key}#${index}` }, text: `${name}\n§7${positionText(position)}` });
+    });
   }
-  const snap = SNAPS.find((candidate) => candidate.snap === settings.snap)?.label ?? "Exact";
-  entries.push(
-    { action: { kind: "none" }, text: headingText("Position") },
-    { action: { kind: "center" }, text: switchText("Center on block", settings.center ? "the middle of the block" : "off: exactly where you aim", settings.center) },
-    { action: { kind: "none" }, text: headingText("Facing") },
-    { action: { kind: "keepFacing" }, text: switchText("Save my facing", settings.keepFacing ? "the way you look" : "off: it faces the middle of the map", settings.keepFacing) },
-    { action: { kind: "snap" }, text: `Snap: ${snap}\n§7tap for ${SNAPS.filter((candidate) => candidate.label !== snap).map((candidate) => candidate.label).join(" or ")}` },
-  );
   return entries;
 }
 
-/** The region tool's settings: the selection's actions, then the map's bounds and regions. */
-export function regionSettings(selection: MapMenuView["region"]["selection"], boxes: RegionEntry[], killY: number | undefined): MenuEntry[] {
+/** The region tool's settings: the selection (Save opens its screen), then the map's bounds and regions. */
+export function regionSettings(selection: MapMenuView["region"]["selection"], boxes: RegionEntry[]): MenuEntry[] {
   const entries: MenuEntry[] = [];
   if (selection) {
-    entries.push({ action: { kind: "none" }, text: headingText(`Selection: ${sizeText(selection.box)}`) });
-    for (const { action, text } of selectionActions(selection.editing, selection.steps, killY)) entries.push({ action: { kind: "selection", action }, text });
+    entries.push(
+      { action: { kind: "none" }, text: headingText(`Selection: ${sizeText(selection.box)}`) },
+      { action: { kind: "selection", action: "saveAs" }, text: goText(selection.editing ? `Save ${selection.editing}` : "Save the selection") },
+      { action: { kind: "selection", action: "clear" }, text: dangerText("Clear selection") },
+    );
   }
   entries.push({ action: { kind: "none" }, text: headingText(boxes.length > 0 ? `Bounds and regions (${boxes.length})` : "No bounds or regions yet") });
   for (const box of boxes) entries.push({ action: { kind: "box", key: box.key }, text: `${box.label}\n§7${sizeText(box.box)}: edit, nudge, go to, delete` });
   return entries;
 }
 
-/** The Kill Y tool's settings: the height now, typing one, and removing it. */
+/** The Kill Y tool's settings: the height now, its screen, and removing it. */
 export function killYSettings(killY: number | undefined): MenuEntry[] {
   return [
     { action: { kind: "none" }, text: headingText(killY === undefined ? "Kill Y: not set" : `Kill Y: ${killY}`) },
-    { action: { kind: "typeKillY" }, text: "Type a height" },
+    { action: { kind: "killY" }, text: goText("Set kill Y") },
     ...(killY === undefined ? [] : [{ action: { kind: "removeKillY" } as const, text: dangerText("Remove kill Y") }]),
   ];
 }
 
+/** Save: just "Save" (or "Saving..."); whether blocks changed is its tooltip. */
 function saveText(view: MapMenuView): string {
-  if (view.saving) return "Saving...\nthe map and the world";
-  return `Save\n${view.unsaved ? "unsaved block changes" : "the map and the world"}`;
+  if (view.saving) return "Saving...\n§7the map and the world";
+  return `Save\n§7${view.unsaved ? "blocks changed since the last save" : "saves the map and the world"}`;
+}
+
+// ---- Tool screens -------------------------------------------------------------------------------
+// What a tool sets up opens in its own side screen: a toggle first, then its settings, nudge rows,
+// and a green button pinned at the bottom that saves it. Closing the screen keeps nothing.
+
+/** How far each nudge of a spawn or point moves it: Step cycles through these. */
+export const POINT_STEPS = [1, 0.5, 5] as const;
+
+/** A spawn or point's screen: new (placed with the Spawn tool) or one the map has (its marker hit). */
+export interface EntryScreenView {
+  lists: SpawnList[];
+  /** The picked list's key. */
+  list: string;
+  at: { x: number; y: number; z: number };
+  facing?: Facing;
+  snap: Snap;
+  center: boolean;
+  step: number;
+  /** One the map has: its number in its list, and how many the list holds. */
+  existing?: { index: number; count: number };
+  /** The queue spawn's settings, when that's the list. */
+  queue?: { mode: "lock" | "free"; countdown: number };
+}
+
+export type EntryScreenAction =
+  | { kind: "list"; key: string }
+  | { kind: "type" }
+  | { kind: "here" }
+  | { kind: "center" }
+  | { kind: "face" }
+  | { kind: "unface" }
+  | { kind: "snap" }
+  | { kind: "axis"; axis: 0 | 1 | 2; by: 1 | -1 }
+  | { kind: "step" }
+  | { kind: "queueMode" }
+  | { kind: "queueCountdown" }
+  | { kind: "renumber" }
+  | { kind: "delete" }
+  | { kind: "save" }
+  | { kind: "none" };
+
+const AXES = [
+  { axis: 0, name: "X", plus: "east" },
+  { axis: 1, name: "Y", plus: "up" },
+  { axis: 2, name: "Z", plus: "south" },
+] as const;
+
+/** A number as a position shows it: up to two decimals. */
+function coordinate(value: number): string {
+  return String(Math.round(value * 100) / 100);
+}
+
+/** A list's name on its toggle tile: "Spawn", "Spectator", "Queue", "Red", "Bomb site A". */
+export function shortListName(list: SpawnList): string {
+  return list.entry.replace(/ spawn$/, "");
+}
+
+/**
+ * A spawn or point's screen: which list (a toggle), its position and facing, the queue's settings
+ * for the queue spawn, nudge rows for each axis, Step, Renumber and Delete (one the map has), and
+ * Place or Save, green, at the bottom.
+ */
+export function entryScreenEntries(view: EntryScreenView): { action: EntryScreenAction; text: string }[] {
+  const entries: { action: EntryScreenAction; text: string }[] = view.lists.map((list, i) => ({ action: { kind: "list", key: list.key }, text: segmentText(shortListName(list), i, list.key === view.list) }));
+  const lead = (action: EntryScreenAction, text: string) => entries.push({ action, text: `${MARK.lead}${text}` });
+  const snap = SNAPS.find((candidate) => candidate.snap === view.snap)?.label ?? "Exact";
+  lead({ kind: "none" }, headingText("Position"));
+  lead({ kind: "type" }, `${[view.at.x, view.at.y, view.at.z].map(coordinate).join(" ")}\n§7tap to type a position`);
+  lead({ kind: "here" }, "Move here\n§7where you stand");
+  lead({ kind: "center" }, switchText("Center on block", "the middle of the block, not the exact spot", view.center));
+  lead({ kind: "none" }, headingText(`Facing: ${view.facing ? compass(view.facing.yaw) : "the middle of the map"}`));
+  lead({ kind: "face" }, "Take my facing\n§7the way you look now");
+  if (view.facing) lead({ kind: "unface" }, "Clear facing\n§7face the middle of the map");
+  lead({ kind: "snap" }, `Snap: ${snap}\n§7tap for ${SNAPS.filter((candidate) => candidate.label !== snap).map((candidate) => candidate.label).join(" or ")}`);
+  if (view.queue) {
+    lead({ kind: "none" }, headingText("Queue"));
+    lead({ kind: "queueMode" }, switchText("Lock in", "players look around but don't move, invisible", view.queue.mode === "lock"));
+    lead({ kind: "queueCountdown" }, `Countdown: ${view.queue.countdown} s\n§7once everyone's in, before the spawns; tap to type it`);
+  }
+  for (const { axis, name, plus } of AXES) {
+    const value = [view.at.x, view.at.y, view.at.z][axis];
+    entries.push(
+      { action: { kind: "axis", axis, by: -1 }, text: `${MARK.minus}${name} (${plus} +): ${coordinate(value)}` },
+      { action: { kind: "axis", axis, by: 1 }, text: `${MARK.plus}${name} ${plus}` },
+    );
+  }
+  entries.push({ action: { kind: "step" }, text: `Step: ${view.step} block${view.step === 1 ? "" : "s"}\n§7how far a minus or plus moves it` });
+  if (view.existing && view.existing.count > 1) entries.push({ action: { kind: "renumber" }, text: "Renumber" });
+  if (view.existing) entries.push({ action: { kind: "delete" }, text: dangerText("Delete") });
+  const list = view.lists.find((candidate) => candidate.key === view.list);
+  entries.push({ action: { kind: "save" }, text: saveBarText(view.existing ? "Save" : `Place ${list?.entry ?? "it"}`) });
+  return entries;
+}
+
+/** The selection's screen (the Region tool used at the sky). */
+export interface RegionScreenView {
+  targets: RegionTarget[];
+  /** The picked target's key; "editing" saves over the box the selection came from. */
+  target: string;
+  /** The saved box the selection came from, by its label. */
+  editing?: string;
+  /** A new region's name, as typed so far. */
+  name: string;
+  box: Box;
+  steps: number;
+  killY?: number;
+  step: number;
+}
+
+export type RegionScreenAction =
+  | { kind: "target"; key: string }
+  | { kind: "name" }
+  | { kind: "floor" }
+  | { kind: "back" }
+  | { kind: "side"; side: keyof Sides; by: 1 | -1 }
+  | { kind: "step" }
+  | { kind: "clear" }
+  | { kind: "save" }
+  | { kind: "none" };
+
+/** A region target's name on its toggle tile. */
+function targetTile(target: RegionTarget): string {
+  if (target.kind === "addBounds") return "Add bounds";
+  if (target.kind === "new") return "New region";
+  return target.kind === "bounds" ? "Bounds" : target.label;
+}
+
+/**
+ * The selection's screen: what to save it as (a toggle, with the box it came from first), a new
+ * region's name, Floor at kill Y and Back one step, nudge rows for each side, Step, Clear (red), and
+ * Save, green, at the bottom.
+ */
+export function regionScreenEntries(view: RegionScreenView): { action: RegionScreenAction; text: string }[] {
+  const tiles = [...(view.editing ? [{ key: "editing", text: "This box" }] : []), ...view.targets.map((target) => ({ key: target.key, text: targetTile(target) }))];
+  const entries: { action: RegionScreenAction; text: string }[] = tiles.map((tile, i) => ({ action: { kind: "target", key: tile.key }, text: segmentText(tile.text, i, tile.key === view.target) }));
+  const lead = (action: RegionScreenAction, text: string) => entries.push({ action, text: `${MARK.lead}${text}` });
+  lead({ kind: "none" }, headingText(`Selection: ${sizeText(view.box)}${view.target === "editing" && view.editing ? `, ${view.editing}` : ""}`));
+  if (view.target === "new") lead({ kind: "name" }, `Name: ${view.name || "§8none yet"}\n§7letters, digits and _, starting with a letter`);
+  if (view.killY !== undefined) lead({ kind: "floor" }, `Floor at kill Y\n§7put the bottom at ${view.killY}`);
+  if (view.steps > 0) lead({ kind: "back" }, "Back one step\n§7undo the last change to the selection");
+  for (const { side, name } of NUDGE_SIDES) {
+    entries.push(
+      { action: { kind: "side", side, by: -1 }, text: `${MARK.minus}${name}` },
+      { action: { kind: "side", side, by: 1 }, text: `${MARK.plus}${name} out` },
+    );
+  }
+  entries.push({ action: { kind: "step" }, text: `Step: ${view.step} block${view.step === 1 ? "" : "s"}\n§7how far a minus or plus moves a side` }, { action: { kind: "clear" }, text: dangerText("Clear selection") });
+  entries.push({ action: { kind: "save" }, text: saveBarText(view.target === "editing" && view.editing ? `Save ${view.editing}` : "Save") });
+  return entries;
+}
+
+export type KillYScreenAction = { kind: "type" } | { kind: "height"; by: 1 | -1 } | { kind: "step" } | { kind: "remove" } | { kind: "save" } | { kind: "none" };
+
+/** The Kill Y tool's screen: the height (typed, or nudged), Step, Remove (red, once it's set), and Set kill Y, green, at the bottom. */
+export function killYScreenEntries(view: { y: number; set: boolean; step: number }): { action: KillYScreenAction; text: string }[] {
+  return [
+    { action: { kind: "none" }, text: `${MARK.lead}${headingText(`Kill Y: ${view.y}`)}` },
+    { action: { kind: "type" }, text: `${MARK.lead}Type a height\n§7from -64 to 319` },
+    { action: { kind: "height", by: -1 }, text: `${MARK.minus}Height: ${view.y}` },
+    { action: { kind: "height", by: 1 }, text: `${MARK.plus}Height up` },
+    { action: { kind: "step" }, text: `Step: ${view.step} block${view.step === 1 ? "" : "s"}\n§7how far a minus or plus moves it` },
+    ...(view.set ? [{ action: { kind: "remove" } as const, text: dangerText("Remove kill Y") }] : []),
+    { action: { kind: "save" }, text: saveBarText("Set kill Y") },
+  ];
+}
+
+export type CameraScreenAction = { kind: "kind"; camera: CameraKind } | { kind: "aim" } | { kind: "save" } | { kind: "none" };
+
+/** A new camera's screen: its kind (a toggle), Aim from my view, and Place camera, green, at the bottom. */
+export function cameraScreenEntries(view: { kind: CameraKind; at: string }): { action: CameraScreenAction; text: string }[] {
+  return [
+    ...(["map", "game"] as const).map((kind, i) => ({ action: { kind: "kind", camera: kind } as const, text: segmentText(CAMERA_KINDS[kind].label, i, kind === view.kind) })),
+    { action: { kind: "none" }, text: `${MARK.lead}${headingText(view.at)}` },
+    { action: { kind: "aim" }, text: `${MARK.lead}Aim from my view\n§7move it to your eyes, looking your way` },
+    { action: { kind: "save" }, text: saveBarText("Place camera") },
+  ];
 }
 
 /** The menu's first line: the map, the game, and whether it's a draft. */
@@ -240,16 +414,6 @@ export function checklistBody(checklist: Checklist): string {
   if (checklist.ready && checklist.warnings.length === 0) return "§aNothing missing. Tap an entry for its tool.";
   const lines = [...checklist.problems.map((problem) => `§c- ${problem}`), ...checklist.warnings.map((warning) => `§e- ${warning}`)];
   return `${lines.join("\n")}\n§rTap an entry for its tool.`;
-}
-
-/** What the queue spawn's marker adds to its form: Lock in (a switch) and the countdown. */
-export function queueActions(config: MapConfig): { action: "queueMode" | "queueCountdown"; text: string }[] {
-  const queue = queueSettings(config);
-  const lock = queue.mode === "lock";
-  return [
-    { action: "queueMode", text: switchText("Lock in", lock ? "look around, can't move, invisible" : "off: free to roam", lock) },
-    { action: "queueCountdown", text: `Countdown: ${queue.countdown} s\n§7once everyone's in, before the spawns` },
-  ];
 }
 
 /** The queue countdown typed in its form: whole seconds within the limits, else undefined. */
@@ -315,8 +479,9 @@ export function selectMenuEntries(view: SelectMenuView): MenuEntry[] {
   entries.push({ action: { kind: "none" }, text: headingText(view.maps.length > 0 ? `Maps from this world (${view.maps.length})` : "No maps from this world yet") });
   for (const map of view.maps) {
     // A ready one is just its name: tapping it asks whether to edit it.
-    const status = map.status === "ready" ? "" : `\n${statusLine(map)}`;
-    entries.push({ action: { kind: "map", target: map.target, map: map.map }, text: `${MARK.card}${map.name} (${map.map})${status}`, icon: ICONS.edit });
+    const status = map.status === "ready" ? "" : `${MARK.twoLine}`;
+    const line = map.status === "ready" ? "" : `\n${statusLine(map)}`;
+    entries.push({ action: { kind: "map", target: map.target, map: map.map }, text: `${MARK.card}${status}${map.name} (${map.map})${line}`, icon: ICONS.edit });
   }
   entries.push({ action: { kind: "lobby" }, text: LOBBY_TEXT });
   return entries;
@@ -355,14 +520,13 @@ export const PLAYERS_TEXT = `${MARK.quick}Players\n§7invite friends to Select a
 const PLAYERS_ENTRY: MenuEntry = { action: { kind: "players" }, text: PLAYERS_TEXT, icon: ICONS.players };
 
 /** Edit's gear: the Players icon, then the map's settings, Back to Select, the red ones, and Back to Lobby. */
-export type GearAction = "settings" | "select" | "players" | "dropBuild" | "delete" | "lobby";
+export type GearAction = "settings" | "players" | "dropBuild" | "delete" | "lobby";
 
-export function gearEntries(view: { from?: string; build: boolean }): { action: GearAction; text: string; icon?: string }[] {
+export function gearEntries(view: { build: boolean }): { action: GearAction; text: string; icon?: string }[] {
   const entries: { action: GearAction; text: string; icon?: string }[] = [
     { action: "players", text: PLAYERS_TEXT, icon: ICONS.players },
     { action: "settings", text: "Name and game settings" },
   ];
-  if (view.from) entries.push({ action: "select", text: "Back to Select" });
   if (view.build) entries.push({ action: "dropBuild", text: dangerText("Drop build commands") });
   entries.push({ action: "delete", text: dangerText("Delete map") }, { action: "lobby", text: LOBBY_TEXT });
   return entries;
@@ -419,9 +583,9 @@ export function nudgeEntries(view: { sides: Sides; step: number; facing: Cardina
       { action: { kind: "side", side, by: 1 }, text: `${MARK.plus}${name} out`, icon: ICONS.new },
     );
   }
-  entries.push({ action: { kind: "step" }, text: `Step: ${view.step} block${view.step === 1 ? "" : "s"}` });
-  if (Object.values(view.sides).some((value) => value !== 0)) entries.push({ action: { kind: "reset" }, text: "Reset" });
-  entries.push({ action: { kind: "nudge" }, text: goText("Nudge") });
+  entries.push({ action: { kind: "step" }, text: `Step: ${view.step} block${view.step === 1 ? "" : "s"}\n§7how far a minus or plus moves a side` });
+  if (Object.values(view.sides).some((value) => value !== 0)) entries.push({ action: { kind: "reset" }, text: "Reset\n§7put every side back" });
+  entries.push({ action: { kind: "nudge" }, text: saveBarText("Nudge") });
   return entries;
 }
 
@@ -450,7 +614,7 @@ export function guestWhere(guest: GuestInfo): string {
 
 /** The Players menu: Invite, then each guest (tap to remove). */
 export function guestEntries(guests: GuestInfo[]): { name?: string; text: string }[] {
-  return [{ text: "Invite a player...\n§7by gamertag" }, ...guests.map((guest) => ({ name: guest.name, text: `${guest.name}\n§7${guestWhere(guest)}` }))];
+  return [{ text: "Invite a player...\n§7by gamertag" }, ...guests.map((guest) => ({ name: guest.name, text: `${MARK.twoLine}${guest.name}\n§7${guestWhere(guest)}` }))];
 }
 
 /** How a map's extraction is going, in a few words. */
@@ -545,17 +709,17 @@ export function homeEntries(state: HomeState, filter?: RecentKind): HomeEntry[] 
     { action: { kind: "new" }, text: `${MARK.quick}New map\n§7copy builds from one of your worlds, or start from an empty one`, icon: ICONS.new },
     { action: { kind: "players" }, text: PLAYERS_TEXT, icon: ICONS.players },
   ];
-  for (const { kind, name, hint, icon } of RECENT_KINDS) {
+  RECENT_KINDS.forEach(({ kind, name, hint, icon }, i) => {
     const on = filter === kind;
-    entries.push({ action: { kind: "filter", filter: kind }, text: `${MARK.filter}${on ? MARK.on : ""}Recent: ${name} only\n§7${on ? "on: tap again to show everything" : hint}`, icon });
-  }
+    entries.push({ action: { kind: "filter", filter: kind }, text: segmentText(`Recent: ${name} only\n§7${on ? "on: tap again to show everything" : hint}`, i, on, true), icon });
+  });
   entries.push({ action: { kind: "leave" }, text: `${MARK.end}Leave\n§7disconnect from the map editor`, icon: ICONS.leave });
   const open: [RecentKind, ServerInfo][] = [];
   if (state.servers.edit) open.push(["edit", state.servers.edit]);
   if (state.servers.select) open.push(["select", state.servers.select]);
   if (open.length > 0) {
     entries.push({ action: { kind: "none" }, text: headingText("Open now") });
-    for (const [kind, info] of open) entries.push({ action: { kind: "open", request: info.request }, text: `${MARK.card}${info.label}\n§7${serverLine(info)}`, icon: kindIcon(kind) });
+    for (const [kind, info] of open) entries.push({ action: { kind: "open", request: info.request }, text: `${MARK.card}${MARK.twoLine}${info.label}\n§7${serverLine(info)}`, icon: kindIcon(kind) });
   }
   const openKeys = new Set(open.map(([, info]) => openKey(info.request)));
   const shown = RECENT_KINDS.find((candidate) => candidate.kind === filter);

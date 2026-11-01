@@ -277,7 +277,7 @@ export class Home {
   private async emptyWorld(player: Player): Promise<void> {
     const targets = this.state.catalog.targets;
     const form = new ModalFormData()
-      .title("Empty world")
+      .title(sideTitle("Empty world"))
       .dropdown("For", targets.map((target) => target.name))
       .textField("Name", "Castle", { defaultValue: "" })
       .textField("Map id (empty: from the name)", "castle", { defaultValue: "" })

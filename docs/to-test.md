@@ -51,17 +51,52 @@ In Edit, on a copy of Sumo's Arena:
   about as big on screen as near ones and staying on their edges as you fly or turn. A selection
   grown across the whole map stays smooth.
 
+Every editor menu (after the editor's next boot):
+
+- Buttons are in the game's regular font (only titles are Minecraft Ten), one line and about 22
+  pixels tall: the Leave menu's Leave and Cancel, the Recent cards, everything. Point at a button
+  with a second line (most of them): its tooltip shows it.
+- Cards with a status (Open now's "open: Friend", a failed export) are taller and show both lines.
+- Forms with fields (Name and game settings in Edit's gear, typing a position or a height, Invite a
+  player, Export's Name) are side panels with a green button at the bottom, not a box in the middle.
+  If one still shows in the middle, or its labels are hard to read on the dark panel, say so.
+- Chat names a map as [Sumo : Arena], Sumo gold and Arena orange: opening a map, publishing,
+  deleting, exporting, "ready" notices.
+
+Edit's map menu (after the editor's next boot):
+
+- No text under the tools any more. With a tool picked, the first thing is an aqua Help link: tap
+  it, and the tool's how-to goes into chat with a chime.
+- Save is just "Save"; its tooltip says whether blocks changed.
+- Spawn tool picked: every spawn, the spectator spawn and the queue spawn, by list, each tappable.
+- Markers have a color per kind: spawns orange, spectator gray, queue aqua, team spawns green,
+  points yellow, cameras magenta.
+- Use the Spawn tool: a "New spawn" screen opens: the Spawn / Spectator / Queue tiles first (the
+  picked one green), then the position (tap to type), Move here, Center on block, the facing rows,
+  then X, Y and Z rows with a minus and a plus. The block it goes in is outlined; nudge it and the
+  outline moves. Place (green, at the bottom) places it; the X places nothing.
+- Hit a marker: the same screen, with Renumber, Delete (red) and Save. Pick another list's tile and
+  Save: it moves to that list.
+- Region tool picked: every boundary is outlined while the map menu is open.
+- Use the Region tool at the sky: the selection's screen: what to save it as (tiles), New region's
+  Name, Floor at kill Y, Back one step, a minus and a plus for each side (the outline follows),
+  Clear (red) and Save (green).
+- Use the Kill Y tool: its screen; nudge the height and the red plane moves; Set kill Y saves it.
+- Use the Camera tool: the new camera's screen (Map preview or Game picture tiles, Aim from my
+  view, Place camera).
+- The gear: no Back to Select; Name and game settings opens down the right side.
+
 The editor lobby's menu (after the editor's next boot):
 
-- The top row: a pencil, a plus, a person (Players), a thin divider, a funnel, three filter icons (a
-  pencil, a crop mark, a play icon) and a door at the right end, none cut off or overlapping. The
-  menu is a little wider than the others. Pointing at each
+- The top row: a pencil, a plus, a person (Players) and a door at the right end. Under it, the
+  Recent filter: three touching tiles (a pencil, a crop mark, a play icon); tap one and it turns
+  green. Pointing at each
   shows its name in a tooltip box. The pencil opens Open a map and the plus New map, as before;
   the list has no Maps section any more.
 - Open now and Recent are cards: an icon on the left (pencil for Edit, crop mark for Select, play
   for a preview) and the name beside it. Open now's cards also say who is on them.
-- Tap the crop mark filter: it's outlined, the heading reads "Recent: Select only" and only worlds
-  are listed. Tap it again: everything. A kind with nothing yet says so ("No previews yet").
+- Tap the crop mark tile: it's green, the heading reads "Recent: Select only" and only worlds are
+  listed. Tap it again: everything. A kind with nothing yet says so ("No previews yet").
 - Preview a map from Edit, then go to the editor lobby: Recent has it with the play icon. Tap it:
   "Loading the preview of ...", about 30 seconds later you're in the preview, and when it ends
   you're back in the editor lobby, with chat saying how it ended. Edit stayed open meanwhile.

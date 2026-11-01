@@ -8,7 +8,7 @@
 // be broken or placed, and the host never saves it. Maps are changed and deleted in Edit.
 import { EntityComponentTypes, GameMode, ItemLockMode, ItemStack, system, world, type Block, type Container, type Player } from "@minecraft/server";
 import { ActionFormData, ModalFormData } from "@minecraft/server-ui";
-import { describeError, log, showForm, type Scope, type SelectInfo, type SelectionInfo } from "@minecade/minigame-core";
+import { chatMapName, describeError, log, showForm, type Scope, type SelectInfo, type SelectionInfo } from "@minecade/minigame-core";
 import type { HostMessage } from "@minecade/minigame-core/config";
 import { blockInView, change, keyOf, nudgeMenu, nudgePreview, xyz, type Picking } from "./box-picker.ts";
 import { blockBox, describeBox, growBox, sameBox, sizeText } from "./boxes.ts";
@@ -321,7 +321,7 @@ export class Selector {
 
   /** A small text box for one field; the text typed (trimmed), or undefined when closed. */
   private async typed(player: Player, label: string, placeholder: string, value: string): Promise<string | undefined> {
-    const form = new ModalFormData().title(label).textField(label, placeholder, { defaultValue: value }).submitButton("Done");
+    const form = new ModalFormData().title(sideTitle(label)).textField(label, placeholder, { defaultValue: value }).submitButton("Done");
     const response = await this.show(player, form);
     return response?.formValues ? String(response.formValues[0] ?? "").trim() : undefined;
   }
@@ -347,7 +347,7 @@ export class Selector {
     this.selections.delete(keyOf(player));
     // The next export starts empty, for the same target.
     this.drafts.set(keyOf(player), { name: "", target: target.id });
-    tell(player, `${draft.name} (${map}) for ${target.name}: ${sizeText(selection.box)} blocks, exporting.`);
+    tell(player, `${chatMapName(target.name, draft.name)}: ${sizeText(selection.box)} blocks, exporting.`);
     return true;
   }
 

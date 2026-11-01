@@ -583,6 +583,11 @@ start, which builds from the checkout.
   on. Select's world can't be changed (no breaking or placing), Update from this world and Forget
   are gone, and a map is deleted from Edit's gear (Delete map), which also takes it off Select's
   lists. A new map has no spawns: its spectator spawn goes 10 blocks above its highest block.)
+- (Then the menu rules in `docs/ui.md` ("The map editor's menus"), on 2026-10-31: buttons in the
+  regular font, one line, help in tooltips; side panels for forms with fields too; toggles as
+  green-when-on tiles; each tool's own screen (a spawn, a selection, kill Y, a camera) with nudge
+  rows and a green save pinned at the bottom; a Help link per tool; markers colored by kind; and
+  `[Game : Map]` in chat.)
 - Item icons; marker models with numbers and list colors (the facing line came in 10.3).
 - (Boundary blocks, the Layers form and inspect mode were dropped on 2026-10-31: the particle
   outlines stay.)

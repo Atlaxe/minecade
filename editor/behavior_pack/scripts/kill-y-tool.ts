@@ -1,10 +1,13 @@
-// The Kill Y tool. Players below kill Y are out; a use sets it one block below your feet at once.
-// With the tool picked, the map menu offers typing a height and removing it. While it's held, the
-// plane shows in red (outlines.ts).
+// The Kill Y tool. Players below kill Y are out. A use opens its screen at one block below your
+// feet: type a height or nudge it, with the plane drawn at it (outlines.ts), and Set kill Y saves it.
+// With the tool picked, the map menu opens the same screen, and removes kill Y.
 import type { Player } from "@minecraft/server";
-import { ModalFormData } from "@minecraft/server-ui";
+import { ActionFormData, ModalFormData } from "@minecraft/server-ui";
+import { showKillY } from "./box-picker.ts";
 import { MAX_HEIGHT, MIN_HEIGHT, parseHeight } from "./boxes.ts";
 import { blockPosition } from "./lists.ts";
+import { sideTitle } from "./marks.ts";
+import { NUDGE_STEPS, killYScreenEntries } from "./menu.ts";
 import type { ToolHost } from "./tool-host.ts";
 
 export class KillYTool {
@@ -17,32 +20,56 @@ export class KillYTool {
   /** Puts the tool in hand, for the checklist's Kill Y row. */
   equip(player: Player): void {
     this.host.equip(player, "killY");
-    this.host.tell(player, "Kill Y tool: use it to set the height players are out below, one block below your feet. While you hold it, the plane shows in red.");
+    this.host.tell(player, "Kill Y tool: use it to set the height players are out below, starting one block below your feet. While you hold it, the plane shows in red.");
   }
 
-  /** A use: kill Y one block below the player's feet. */
-  use(player: Player): void {
-    this.set(player, below(player));
+  /** A use: the screen, at one block below the player's feet. */
+  use(player: Player): Promise<void> {
+    return this.screen(player, below(player));
+  }
+
+  /** The screen: the height (typed or nudged, the plane drawn there), Remove, and Set kill Y at the bottom. */
+  async screen(player: Player, start = this.host.map().killY ?? below(player)): Promise<void> {
+    let y = start;
+    let step: number = NUDGE_STEPS[0];
+    try {
+      for (;;) {
+        showKillY(player, y);
+        const set = this.host.map().killY !== undefined;
+        const entries = killYScreenEntries({ y, set, step });
+        const form = new ActionFormData().title(sideTitle("Kill Y"));
+        for (const entry of entries) form.button(entry.text);
+        const response = await this.host.show(player, form);
+        const action = response?.selection === undefined ? undefined : entries[response.selection]?.action;
+        if (!action || !player.isValid) return;
+        if (action.kind === "save") return this.set(player, y);
+        if (action.kind === "remove") return this.remove(player);
+        if (action.kind === "type") y = (await this.typeHeight(player, y)) ?? y;
+        else if (action.kind === "height") y = Math.min(MAX_HEIGHT, Math.max(MIN_HEIGHT, y + action.by * step));
+        else if (action.kind === "step") step = NUDGE_STEPS[((NUDGE_STEPS as readonly number[]).indexOf(step) + 1) % NUDGE_STEPS.length];
+      }
+    } finally {
+      showKillY(player, undefined);
+    }
   }
 
   /** The action bar line while the tool is held: what a use does. */
   hint(player: Player): string {
     const now = this.host.map().killY;
-    return `Use: kill Y to ${below(player)}, one below your feet   Now: ${now === undefined ? "not set" : now}`;
+    return `Use: set kill Y, from one below your feet (${below(player)})   Now: ${now === undefined ? "not set" : now}`;
   }
 
-  /** Asks for a height (from the map menu). */
-  async typeHeight(player: Player): Promise<void> {
-    const start = this.host.map().killY ?? below(player);
+  /** A height typed into a side form; undefined (and why) when it isn't one. */
+  private async typeHeight(player: Player, start: number): Promise<number | undefined> {
     const form = new ModalFormData()
-      .title("Kill Y")
+      .title(sideTitle("Kill Y"))
       .textField(`Height (a whole number from ${MIN_HEIGHT} to ${MAX_HEIGHT})`, String(start), { defaultValue: String(start) })
-      .submitButton("Set");
+      .submitButton("Done");
     const response = await this.host.show(player, form);
-    if (!response?.formValues || !player.isValid) return;
+    if (!response?.formValues || !player.isValid) return undefined;
     const y = parseHeight(String(response.formValues[0] ?? ""));
     if (y === undefined) this.host.tell(player, `§cKill Y must be a whole number from ${MIN_HEIGHT} to ${MAX_HEIGHT}.`);
-    else this.set(player, y);
+    return y;
   }
 
   /** Removes kill Y (from the map menu). */

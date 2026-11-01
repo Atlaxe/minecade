@@ -11,7 +11,7 @@ import { MolangVariableMap, world, type Player } from "@minecraft/server";
 import type { Box, Scope } from "@minecade/minigame-core";
 import { nearDots, planePoints, rectDots, viewDots, type Dot, type View } from "./boxes.ts";
 import { ALL_BOUNDARIES, KILL_COLOR, KILL_Y_GROUP, SELECTION_COLOR, outlineShown, type OutlineBox, type Rgb } from "./regions.ts";
-import { nudgePreview } from "./box-picker.ts";
+import { killYPreview, nudgePreview } from "./box-picker.ts";
 import { heldTool } from "./tool-host.ts";
 import type { ToolId } from "./tools.ts";
 
@@ -34,10 +34,14 @@ export interface OutlineSource {
   boxes(): OutlineBox[];
   /** The kill Y plane, if there is one, and the box it's drawn over (the bounds). */
   killY?(): { y: number; over?: Box } | undefined;
+  /** The box a kill Y plane is drawn over, for one being set when the map has none. */
+  killYOver?(): Box | undefined;
   /** The boundary groups this player switched on (regions.ts outlineShown), shown whatever they hold. */
   shown?(player: Player): ReadonlySet<string>;
   /** True while this player sees none (looking through a camera). */
   hidden?(player: Player): boolean;
+  /** True while this player sees everything as if holding a tool (the map menu open with the Region or Kill Y tool picked). */
+  showing?(player: Player): boolean;
 }
 
 /** Everything: what a player holding one of the tools sees. */
@@ -58,7 +62,7 @@ export class Outlines {
     const viewers: [Player, ReadonlySet<string>, boolean][] = [];
     for (const player of world.getAllPlayers()) {
       if (this.source.hidden?.(player)) continue;
-      const holding = this.tools.has(heldTool(player)) || nudgePreview(player) !== undefined;
+      const holding = this.tools.has(heldTool(player)) || nudgePreview(player) !== undefined || killYPreview(player) !== undefined || this.source.showing?.(player) === true;
       const shown = holding ? EVERYTHING : this.source.shown?.(player);
       if (shown && shown.size > 0) viewers.push([player, shown, holding]);
     }
@@ -73,7 +77,9 @@ export class Outlines {
       const shown = boxes.filter((outline) => outline.key !== selection?.editing && outlineShown(outline.group, groups));
       const each = Math.max(BOX_BUDGET, Math.floor(BOXES_BUDGET / Math.max(1, shown.length)));
       for (const outline of shown) dots(player, viewDots(outline.box, view, each), outline.color);
-      const plane = killY && outlineShown(KILL_Y_GROUP, groups) ? killY : undefined;
+      // The Kill Y tool's screen draws the height being set.
+      const setting = killYPreview(player);
+      const plane = setting !== undefined ? { y: setting, over: killY?.over ?? this.source.killYOver?.() } : killY && outlineShown(KILL_Y_GROUP, groups) ? killY : undefined;
       if (plane) {
         const { y, over } = plane;
         dots(player, nearDots(planePoints(y, over, view.eye, PLANE_RADIUS, PLANE_SPACING), view), KILL_COLOR);

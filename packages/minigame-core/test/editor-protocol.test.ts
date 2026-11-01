@@ -4,6 +4,7 @@ import {
   PartsAssembler,
   extractEditPayload,
   mapHash,
+  chatMapName,
   openKey,
   parseEditorEvent,
   parseHostMessage,
@@ -72,6 +73,7 @@ describe("editor protocol", () => {
     expect(openKey({ to: "select", world: "abc=" })).toBe("select:abc=");
     expect(openKey({ to: "home" })).toBe("home");
     expect(openKey({ to: "preview", target: "sumo", map: "arena_1" })).toBe("preview:sumo/arena_1");
+    expect(chatMapName("Sumo", "Arena")).toBe("§f[§gSumo§f : §6Arena§f]§r");
   });
 
   it("fingerprints a map by its content and key order", () => {

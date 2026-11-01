@@ -21,9 +21,27 @@ const UNMOVED: Sides = { west: 0, east: 0, down: 0, up: 0, north: 0, south: 0 };
 /** The box each player is nudging, as it would be now: the outlines show it instead of their selection. */
 const nudging = new Map<string, Box>();
 
-/** The box this player is nudging, moved as far as they've gone so far. */
+/** The box this player is nudging, moved as far as they've gone so far (or what a tool screen shows). */
 export function nudgePreview(player: Player): Box | undefined {
   return nudging.get(keyOf(player));
+}
+
+/** Shows a box as this player's selection while a tool screen is open (a spawn's block, say); none stops. */
+export function showPreview(player: Player, box: Box | undefined): void {
+  if (box) nudging.set(keyOf(player), box);
+  else nudging.delete(keyOf(player));
+}
+
+/** The kill Y each player is setting in the Kill Y tool's screen, drawn instead of the map's. */
+const killYs = new Map<string, number>();
+
+export function killYPreview(player: Player): number | undefined {
+  return killYs.get(keyOf(player));
+}
+
+export function showKillY(player: Player, y: number | undefined): void {
+  if (y === undefined) killYs.delete(keyOf(player));
+  else killYs.set(keyOf(player), y);
 }
 
 /** A box being picked, with its earlier boxes for Back one step. */

@@ -69,6 +69,9 @@ function pointList(name: string, label: string, color: string): SpawnList {
   return { target, key: listKey(target), label, entry: label, color, single: false };
 }
 
+/** A marker's color, by what it marks (its texture in the resource pack's render controller). */
+export const MARKER_KINDS = { spawns: 0, spectatorSpawn: 1, queueSpawn: 2, teamSpawns: 3, points: 4, camera: 5 } as const;
+
 /** What every marker has (markers.ts draws these): an entry's, or a camera's (cameras.ts). */
 export interface MarkerShape {
   /** Stored on the marker entity: "<list key>#<index>", or "camera:<name>". */
@@ -78,6 +81,8 @@ export interface MarkerShape {
   /** Where the marker stands: the entry's exact point, or the middle of its block. */
   at: { x: number; y: number; z: number };
   facing?: Facing;
+  /** Its color (MARKER_KINDS); spawns' when absent. */
+  kind?: number;
 }
 
 /** An entry's marker. */
@@ -99,6 +104,7 @@ export function markerSpecs(config: MapConfig, lists: SpawnList[]): MarkerSpec[]
         index,
         label: facing ? `${name}\n§7faces ${compass(facing.yaw)}` : name,
         at: worldPoint(position),
+        kind: MARKER_KINDS[list.target.list],
         ...(facing ? { facing } : {}),
       };
     }),

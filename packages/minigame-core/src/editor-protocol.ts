@@ -225,6 +225,14 @@ function parseTyped(json: string, types: Set<string>): { t: string } | undefined
   }
 }
 
+/**
+ * A map named in the editor's chat: "[Sumo : Arena]", the game in gold and the map in orange, then
+ * the text's color reset. Only chat uses it; menus name maps as "Sumo: Arena (arena_1)".
+ */
+export function chatMapName(game: string, map: string): string {
+  return `§f[§g${game}§f : §6${map}§f]§r`;
+}
+
 /** What a request opens, as one string: the same map or world gives the same key. */
 export function openKey(request: OpenRequest): string {
   if (request.to === "edit") return `edit:${request.target}/${request.map}`;

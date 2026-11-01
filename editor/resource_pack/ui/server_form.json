@@ -2,8 +2,9 @@
   "namespace": "server_form",
 
   // The map editor's menus. Forms whose title starts with a layout mark (formatting codes that never
-  // render, see editor/behavior_pack/scripts/marks.ts) get a layout in editor_forms.json; every
-  // other form stays vanilla. Merged into the vanilla file, so updates to it still apply.
+  // render, see editor/behavior_pack/scripts/marks.ts) get a layout in editor_forms.json, button
+  // forms and forms with fields alike; every other form stays vanilla. Merged into the vanilla file,
+  // so updates to it still apply.
   //
   // Vanilla sizes this panel [0, 0] (its forms are fixed sizes centered on it), which makes every
   // percentage size inside it zero. Filling the screen lets the side menu take the screen's full
@@ -21,7 +22,8 @@
             "factory": {
               "name": "server_form_factory",
               "control_ids": {
-                "long_form": "@editor_forms.long_form"
+                "long_form": "@editor_forms.long_form",
+                "custom_form": "@editor_forms.custom_form"
               }
             }
           }
@@ -47,6 +49,20 @@
             "target_property_name": "#visible"
           }
         ]
+      }
+    ]
+  },
+
+  // The vanilla form with fields hides itself for a title with the side mark: editor_forms.json
+  // draws those down the right side. Starts hidden, as above.
+  "custom_form": {
+    "visible": false,
+    "bindings": [
+      { "binding_name": "#title_text" },
+      {
+        "binding_type": "view",
+        "source_property_name": "((#title_text - '§s§i§d§e') = #title_text)",
+        "target_property_name": "#visible"
       }
     ]
   }

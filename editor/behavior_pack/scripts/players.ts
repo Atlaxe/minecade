@@ -46,7 +46,7 @@ export class PlayersMenu {
   }
 
   private async invite(player: Player): Promise<void> {
-    const form = new ModalFormData().title("Invite a player").textField("Gamertag", "Steve", { defaultValue: "" }).submitButton("Invite");
+    const form = new ModalFormData().title(sideTitle("Invite a player")).textField("Gamertag", "Steve", { defaultValue: "" }).submitButton("Invite");
     const response = await this.show(player, form);
     const name = String(response?.formValues?.[0] ?? "").trim();
     if (!name || !player.isValid) return;

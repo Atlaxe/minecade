@@ -17,6 +17,8 @@ const YAW_PROPERTY = "minecade:yaw";
 /** Entity properties the client draws the facing line from (editor_marker.json). */
 const FACED_PROPERTY = "minecade:faced";
 const PITCH_PROPERTY = "minecade:pitch";
+/** Which texture the marker gets (lists.ts MARKER_KINDS). */
+const KIND_PROPERTY = "minecade:kind";
 /** On the world: the chunks markers were in, as JSON ["x,z", ...]. */
 const CHUNKS_PROPERTY = "minecade:markerChunks";
 const SYNC_TICKS = 20;
@@ -165,6 +167,8 @@ function showFacing(entity: Entity, spec: MarkerShape): void {
   const pitch = markerPitch(spec.facing);
   if (entity.getProperty(FACED_PROPERTY) !== faced) entity.setProperty(FACED_PROPERTY, faced);
   if (entity.getProperty(PITCH_PROPERTY) !== pitch) entity.setProperty(PITCH_PROPERTY, pitch);
+  const kind = spec.kind ?? 0;
+  if (entity.getProperty(KIND_PROPERTY) !== kind) entity.setProperty(KIND_PROPERTY, kind);
 }
 
 function distance(a: Vector3, b: Vector3): number {

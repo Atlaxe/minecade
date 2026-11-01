@@ -26,6 +26,10 @@ say.info(`${nameOf("Alex")} is starting Sumo.`)
 
 `stripColors(text)` removes the codes, for logs and tests (tests compare what players see).
 
+**The map editor's chat** names a map as `[Game : Map]`, the game in gold (§g) and the map in
+orange (§6): `chatMapName(game, map)` in minigame-core's editor protocol. Only chat does this; the
+editor's menus name a map as "Sumo: Arena (arena_1)".
+
 ## Kill feed
 
 When a player goes down, the game broadcasts one line:
@@ -346,6 +350,29 @@ render, `LAYOUT` in `scripts/menus.ts`) gets Minecade's layout from the lobby re
 `ui/server_form.json` merges a second form factory into the vanilla screen and hides the vanilla
 form for marked titles, and `ui/minecade_forms.json` holds the layouts. Without the pack, marked
 forms are plain forms with a readable title. A test checks the marks match the pack.
+
+## The map editor's menus
+
+The rules every editor menu follows (the user's, from 2026-10-31):
+
+- **Side menus.** Almost every menu is a dark panel down the right side, the world in view on the
+  left: button menus and forms with fields alike (a title with the side mark draws a form with
+  fields there too, the game's own fields with a green submit pinned at the bottom).
+- **No redundant or helper text.** Help that isn't needed once you know it goes in a tooltip: a
+  button's second line (§7) shows only as its hover tooltip; an icon's tooltip; a question-mark
+  icon. A tool's how-to is a **Help** link that puts it in chat, with a chime. What the mode box top
+  center already shows (the map, the game) isn't repeated. Status that changes (a card's "open:
+  Friend", "failed") stays visible, on a taller button (`MARK.twoLine`).
+- **Buttons** use the game's regular font (only titles use Minecraft Ten), one line, 22 pixels tall.
+- **Icon rows** for actions that fit an icon (Players, Back one step, Open a map), with tooltips.
+- **Toggles** (one choice of several: the lobby's Recent filter, a spawn's list, what a selection
+  is saved as) are tiles touching in a row, the one that's on green.
+- **Tool screens:** what a tool sets up (a spawn, a selection, kill Y, a camera) opens in its own
+  side screen, the way hitting a marker does: a toggle first, then its settings, nudge rows (a
+  minus and a plus each), and a green button pinned at the bottom that saves it. Closing it keeps
+  nothing.
+- **Back to Lobby** is pinned at the bottom of every menu that can leave for the editor lobby.
+- The step that finishes something is green; deleting or removing is red.
 
 ## How the hologram looks the way it does
 

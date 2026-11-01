@@ -76,8 +76,8 @@ closes. Its top row is icons (point at one for its name):
   **Empty world** at the bottom makes a draft map on a glass pad in the void instead: pick what
   it's for, its name and its map id.
 - **Players** (the person): invite friends (see "Who can join").
-- **The Recent filters** (after the funnel): Edit, Select and Preview show only that kind in
-  Recent, outlined while on. Tap the one that's on to show everything again.
+- **The Recent filter:** a row of three tiles under the icons (Edit, Select, Preview), the one
+  that's on green; it shows only that kind in Recent. Tap it again to show everything.
 - **Leave** (the door, at the right end): disconnects you, after a confirm. Select and Edit keep
   running; join again to come back.
 
@@ -196,9 +196,12 @@ would fly you down.
 The map menu, the checklist, a marker's form and the region tool's menus open as a dark panel down
 the right side of the screen, full height, so the world stays in view on the left. Esc or the X
 closes them. Buttons that delete or remove something are red, and the step that finishes something
-(Export to Map, Nudge, Edit) is green. Help you only need the first time is a tooltip on a question
-mark or an icon, not text in the menu. The forms with fields (Map settings, Change list, Renumber,
-Save as, a typed kill Y, a name or map id) are the game's own, in the middle of the screen.
+(Export to Map, Nudge, Place, Save) is green. Help you only need the first time is a tooltip (point
+at a button or an icon), not text in the menu; a tool's how-to is its **Help** link, which puts it
+in chat. Forms with fields (the map's name and settings, a typed position or height, a gamertag)
+are side menus too, the game's own fields with a green button at the bottom. The rules every menu
+follows are in `docs/ui.md` ("The map editor's menus"). In chat, a map is named `[Game : Map]`, the
+game in gold and the map in orange.
 
 **The map menu** (slot 9, locked), top down:
 
@@ -216,41 +219,46 @@ Save as, a typed kill Y, a name or map id) are the game's own, in the middle of 
    - **The play icon** (Preview, game maps only): see "Preview".
    - **The gear** (map settings): **Players** in its icon row (see "Who can join"); **Name and game
      settings** (the map's name and the game's own settings in `map.json`, such as a number a game
-     reads, as text fields); **Back to Select** (for a map from a world on this PC); **Drop build
-     commands** (red, maps made by `npm run bake`), which keeps the world as you change it;
-     **Delete map** (red, see "Deleting a map"); and **Back to Lobby** pinned at the bottom.
+     reads, as text fields); **Drop build commands** (red, maps made by `npm run bake`), which keeps
+     the world as you change it; **Delete map** (red, see "Deleting a map"); and **Back to Lobby**
+     pinned at the bottom (Select is in the editor lobby's Open now).
 2. **Tools:** a grid of the tools' icons (the Spawn tool, the Region tool, the Kill Y tool and the
    Camera tool), with
    their names as tooltips. Tap one to put it in slot 1 and in your hand; the menu opens again with
    that tool's settings. Tap it again to put it away. The one you have out is outlined. One tool is
    out at a time: picking one puts any other away. The tool isn't locked, so you can move it;
    whatever was in slot 1 moves to a free slot.
-3. **The tool's settings** (they scroll): the map's name and game, how to use the tool, then:
-   - **Spawn tool:** **Place into**, each list (spawns, the spectator spawn, the queue spawn, each
-     team's spawns, and every point the game asks for) with its count, the one in use outlined; **Save my facing** (off
-     means the entry faces the middle of the map); and **Snap** (exact, 45 or 90 degrees), changed
-     by tapping it.
-   - **Region tool:** your selection's size, then its actions (the same as the region form below),
-     then **Bounds and regions**: every box the map has. Tap one to **Edit** it (it becomes your
-     selection, then Save changes writes it back), **Nudge** its sides (saved at once), **Go to** it
-     (on top, over its middle), or **Delete** it.
-   - **Kill Y tool:** kill Y now, **Type a height** (from -64 to 319), and **Remove kill Y**.
+3. **The tool's settings** (they scroll): a **Help** link (the tool's how-to, in chat, with a
+   chime), then:
+   - **Spawn tool:** every spawn and point the map has, by list (spawns, the spectator spawn, the
+     queue spawn, each team's spawns, and every point the game asks for). Tap one for its screen.
+   - **Region tool:** your selection's size, **Save the selection** (its screen) and Clear, then
+     **Bounds and regions**: every box the map has. Tap one to **Edit** it (it becomes your
+     selection), **Nudge** its sides, **Go to** it (on top, over its middle), or **Delete** it.
+     While the map menu is open, every boundary is outlined.
+   - **Kill Y tool:** kill Y now, **Set kill Y** (its screen), and **Remove kill Y**.
 4. **Save:** a green bar at the bottom, outside the scrolling part. It saves the world into the map
-   now (see Saving), and says when there are unsaved block changes.
+   now (see Saving); its tooltip says whether blocks changed since the last save.
 
-**The tools act at once.** While you hold one, the line above the hotbar says what a use does.
+**Each tool opens its own screen.** Using a tool opens a side screen for what it sets up: a toggle
+first, then its settings and nudge rows (a minus and a plus each, **Step** cycling how far), and a
+green button pinned at the bottom that saves it. Closing the screen keeps nothing. While you hold a
+tool, the line above the hotbar says what a use does.
 
-- **Spawn tool:** aim at where an entry goes and use it, within 64 blocks. On top of a block, it
-  goes exactly where you aim (to a hundredth of a block, like an entity), not the block's middle; at
-  a block's side, just in front of that spot, on the floor below it; at the sky, where you stand.
-  It goes into the list picked in the map menu, with your facing when Save my facing is on.
-  **Center on block** (in the tool's settings, off at first) puts it in the middle of the block
-  instead, the old way, for symmetric arenas.
+- **Spawn tool:** aim at where an entry goes and use it, within 64 blocks. On top of a block, the
+  spot is exactly where you aim (to a hundredth of a block, like an entity); at a block's side, just
+  in front of that spot, on the floor below it; at the sky, where you stand. Its screen: which list
+  (Spawn, Spectator, Queue, each team, each point), the position (tap it to type one, **Move here**,
+  **Center on block**), the facing (**Take my facing**, **Clear facing**, **Snap**), the queue's
+  Lock in and Countdown for the queue spawn, and X, Y and Z nudge rows; the block it's in is
+  outlined while the screen is open. **Place** (green) adds it.
 - **Markers:** every entry shows as a marker with a name tag: its list, its number, and the way it
-  faces when that's saved. An entry with a saved facing also has a glowing red line, 2 blocks long,
-  from the top of its marker toward the facing, tilted up or down with the saved pitch. **Hit a
-  marker** to move it exactly to where you stand, give it your facing, clear its facing, move it to
-  another list, renumber it, or delete it.
+  faces when that's saved. Markers are colored by kind: spawns orange, the spectator spawn gray, the
+  queue spawn aqua, team spawns green, points yellow, cameras magenta. An entry with a saved facing
+  also has a glowing red line, 2 blocks long, from the top of its marker toward the facing, tilted
+  up or down with the saved pitch. **Hit a marker** for the same screen as placing one, with
+  **Renumber** and **Delete** (red); **Save** (green) writes the changes, including moving it to
+  another list.
 - **Queue spawn:** where players wait for everyone to join, before the game puts them at their
   spawns (see "The queue spawn" in `docs/maps.md`). Its marker reads "Queue spawn (lock in, 5 s)".
   Hit it for two more buttons: **Lock in** (on: players can look around but not move, and are
@@ -262,19 +270,20 @@ Save as, a typed kill Y, a name or map id) are the game's own, in the middle of 
   - **Use the tool on a block**, up to 64 blocks away, to grow the selection to it, on every axis.
     Any box can be picked without placing blocks: hit one corner, then use the tool on the blocks
     at the far edges.
-  - **Use the tool at the sky** (no block within 64 blocks) to open the region form:
-    - **Save changes** (when the selection came from Edit, or was saved already): writes it back.
-    - **Save as:** the bounds (replacing every bounds box), **Add to bounds** (another bounds box,
+  - **Use the tool at the sky** (no block within 64 blocks) for the selection's screen:
+    - **What to save it as** (a toggle): **This box** (when the selection came from a saved box:
+      writes it back), **Bounds** (replacing every bounds box), **Add bounds** (another bounds box,
       once the map has one), a kill region, a region the game asks for (one per team when it asks
-      for that), a region the map already has, or a new region you name (letters, digits and `_`).
-      A region holds a list of boxes, and each save adds one.
-    - **Nudge sides:** a minus and a plus for each side, with the moved box outlined at once (see
-      "Select mode"); **Nudge** keeps it.
-    - **Floor at kill Y:** puts the bottom of the box at kill Y.
-    - **Back one step** undoes the last change to the selection; **Clear selection**.
+      for that), a region the map already has, or **New region**, with its **Name** (letters,
+      digits and `_`). A region holds a list of boxes, and each save adds one.
+    - **Floor at kill Y** (the bottom of the box at kill Y), **Back one step**, and a minus and a
+      plus for each side, the outline following at once.
+    - **Clear selection** (red), and **Save** (green) at the bottom.
   - The checklist's bounds and region rows give you the tool already set to that row.
-- **Kill Y tool:** players below kill Y are out. Use it to set kill Y one block below your feet.
-- **Camera tool:** pictures for the lobby (see "Pictures").
+- **Kill Y tool:** players below kill Y are out. Use it for its screen, starting one block below
+  your feet: type a height or nudge it (the plane is drawn at it), and **Set kill Y** (green).
+- **Camera tool:** pictures for the lobby (see "Pictures"). Using it opens the new camera's
+  screen: Map preview or Game picture (a toggle), **Aim from my view**, and **Place camera**.
 - **Outlines:** while you hold the region tool or the Kill Y tool, dots outline your selection
   (yellow), the bounds (white), kill regions (red), each other region in its own color (a team's
   region in the team's color), and the kill Y plane (red: a grid near you, and the edge of the box

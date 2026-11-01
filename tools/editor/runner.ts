@@ -10,6 +10,7 @@ import { existsSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import { join, relative } from "node:path";
 import {
+  chatMapName,
   mapChecklist,
   openKey,
   type GuestInfo,
@@ -53,6 +54,8 @@ type Opened = { request: Extract<OpenRequest, { to: "edit" | "select" }>; label:
 interface Launch extends Opened {
   slot: WorkSlot;
   make(): ServerSession;
+  /** How chat names it: "[Sumo : Arena]" for a map (chatMapName), the world's name for Select. */
+  chat: string;
 }
 
 /** What a preview plays, the Recent entry it leaves, and where it was started (where everyone comes back to). */
@@ -304,7 +307,7 @@ export class EditorRunner {
     }
     if (by !== "this PC") {
       this.waiting.set(by.toLowerCase(), { name: by, slot: launch.slot, label: launch.label });
-      if (this.whereIs(by) !== this.home) void this.tell(by, `Opening ${launch.label}: you'll be moved there when it's ready.`);
+      if (this.whereIs(by) !== this.home) void this.tell(by, `Opening ${launch.chat}: you'll be moved there when it's ready.`);
     }
     this.log(`${by}: open ${launch.label}`);
     this.homeChanged();
@@ -329,6 +332,7 @@ export class EditorRunner {
       slot: "edit",
       request: { to: "edit", target: request.target, map: request.map },
       label: mapLabel(target.name, name, request.map),
+      chat: chatMapName(target.name, name),
       make: () => new EditorSession({ slot: this.slots.edit, verbose: this.verbose, note: (text) => this.log(text), target, mapId: request.map, fresh: request.fresh, git: this.git }),
     };
   }
@@ -349,6 +353,7 @@ export class EditorRunner {
       slot: "select",
       request: { to: "select", world: client ? worldId(world) : world.path },
       label: world.name,
+      chat: world.name,
       make: () => new SelectSession({ slot: this.slots.select, verbose: this.verbose, note: (text) => this.log(text), world, selections: this.selections, guests: () => this.guests }),
     };
   }
@@ -367,7 +372,7 @@ export class EditorRunner {
     if (current) {
       for (const name of plan.evict) this.waiting.set(name.toLowerCase(), { name, slot, label: launch.label });
       if (plan.evict.length > 0) {
-        await current.say(`${by === "this PC" ? "This PC" : by} is opening ${launch.label} here: wait in the editor lobby, and you'll be back when it's ready.`);
+        await current.say(`${by === "this PC" ? "This PC" : by} is opening ${launch.chat} here: wait in the editor lobby, and you'll be back when it's ready.`);
         await current.goto(plan.evict, this.slots.home.port, "the editor lobby");
         await delay(LEAVE_MS);
       }
@@ -400,7 +405,7 @@ export class EditorRunner {
       for (const [key, entry] of this.waiting) {
         if (entry.slot !== slot) continue;
         this.waiting.delete(key);
-        void this.tell(entry.name, `§cCould not open ${launch.label}: ${message(error)}`);
+        void this.tell(entry.name, `§cCould not open ${launch.chat}§c: ${message(error)}`);
       }
       this.homeChanged();
       return;
@@ -425,12 +430,13 @@ export class EditorRunner {
     }
     const { target, targetName, map, mapName } = edit.status();
     const label = mapLabel(targetName, mapName, map);
+    const chat = chatMapName(targetName, mapName);
     this.log(`${by}: delete ${label}`);
     this.queues.edit = this.queues.edit
       .then(async () => {
         if (this.work.edit !== edit) return;
         const players = edit.online();
-        await edit.say(`${by} is deleting ${label}: everyone here goes to the editor lobby.`);
+        await edit.say(`${by} is deleting ${chat}: everyone here goes to the editor lobby.`);
         if (players.length > 0) {
           await edit.goto(players, this.slots.home.port, "the editor lobby");
           await delay(LEAVE_MS);
@@ -444,15 +450,15 @@ export class EditorRunner {
         await this.selections.removeMap(target, map);
         await forgetRecent(this.root, (entry) => entry.request.to !== "select" && entry.request.target === target && entry.request.map === map);
         this.homeChanged();
-        let text = `Deleted ${label}.`;
+        let text = `Deleted ${chat}.`;
         if (result.published && result.outcome === "pushed") text += ` Its removal is pushed${result.commit ? ` (${result.commit})` : ""}: it leaves the lobby at the network's next start.`;
         else if (result.published && result.outcome === "failed") text += ` §cIts removal wasn't pushed: ${result.error}.`;
-        this.log(text.replace(/§./g, ""));
+        this.log(`Deleted ${label}.${text.slice(`Deleted ${chat}.`.length).replace(/§./g, "")}`);
         void this.tell(by, text);
       })
       .catch((error: unknown) => {
         this.log(`Deleting ${label} went wrong: ${message(error)}`);
-        void this.tell(by, `§cDeleting ${label} went wrong: ${message(error)}`);
+        void this.tell(by, `§cDeleting ${chat}§c went wrong: ${message(error)}`);
       });
   }
 
@@ -483,7 +489,7 @@ export class EditorRunner {
     const source = edit.previewSource();
     const status = edit.status();
     this.log(`${by}: preview ${source.label}`);
-    await edit.say(`${by === "this PC" ? "This PC" : by} is starting a preview of ${source.label}: everyone here goes as soon as it's ready (about 30 seconds).`);
+    await edit.say(`${by === "this PC" ? "This PC" : by} is starting a preview of ${chatMapName(status.targetName, status.mapName)}: everyone here goes as soon as it's ready (about 30 seconds).`);
     await edit.send({ t: "notice", text: `§dStarting the preview of ${source.label}` });
     if (status.unsaved && !(await edit.save(by))) {
       await edit.say("§cThe preview didn't start: the world didn't save.");
@@ -821,7 +827,7 @@ export class EditorRunner {
    * chat, and above the hotbar), or, on Select with that world open, that it failed.
    */
   private async announce(world: string, info: SelectionInfo): Promise<void> {
-    const name = `${info.name} (${info.map})`;
+    const name = chatMapName(info.targetName, info.name);
     for (const session of [this.work.select, this.work.edit]) {
       if (!session || session.status().state !== "ready") continue;
       const status = session.status();

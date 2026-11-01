@@ -2,7 +2,7 @@
 // form's buttons, so they can be tested without a server. A camera is saved in map.json's
 // "cameras" (editor-only: servers never get it) as { at: [x, y, z, yaw, pitch], kind }.
 import type { MapCamera, MapConfig } from "@minecade/minigame-core/config";
-import { compass, type MarkerShape } from "./lists.ts";
+import { MARKER_KINDS, compass, type MarkerShape } from "./lists.ts";
 import { dangerText, switchText } from "./marks.ts";
 
 export type CameraKind = MapCamera["kind"];
@@ -50,7 +50,7 @@ export function cameraAt(eye: { x: number; y: number; z: number }, rotation: { x
 export function cameraMarkers(config: MapConfig): CameraMarker[] {
   return camerasOf(config).map(([name, camera]) => {
     const [x, y, z, yaw, pitch] = camera.at;
-    return { key: `camera:${name}`, camera: name, label: `§d${name}\n§7${CAMERA_KINDS[camera.kind].label}`, at: { x, y: y - 1, z }, facing: { yaw, pitch } };
+    return { key: `camera:${name}`, camera: name, label: `§d${name}\n§7${CAMERA_KINDS[camera.kind].label}`, at: { x, y: y - 1, z }, facing: { yaw, pitch }, kind: MARKER_KINDS.camera };
   });
 }
 

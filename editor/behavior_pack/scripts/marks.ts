@@ -39,8 +39,6 @@ export const MARK = {
   dim: "§d§m§r",
   /** The map menu's green Save bar, under the scrolling settings. */
   save: "§s§v§r",
-  /** A Recent filter in the editor lobby's icon row, after the funnel (outlined while on, with `on`). */
-  filter: "§q§f§r",
   /** A square icon at the right end of the editor lobby's icon row (Leave). */
   end: "§q§e§r",
   /** A full-width button with its icon on the left and its text beside it (the editor lobby's Open now and Recent). */
@@ -53,7 +51,20 @@ export const MARK = {
   minus: "§s§m§r",
   /** A nudge row's plus button, on the right. */
   plus: "§s§p§r",
+  /** Taller, showing both lines (a card's status); other buttons show their first line, the second in a tooltip. */
+  twoLine: "§t§w§r",
+  /** Before the nudge rows, after the toggle (a tool screen's position and facing). */
+  lead: "§l§d§r",
+  /** A toggle's tile (with one of SEGMENT_COLUMNS): tiles touch, and the one that's on is green. */
+  segment: "§s§g§r",
+  /** A toggle's tile showing its icon (and its text as a tooltip) instead of its text. */
+  iconOnly: "§i§o§r",
+  /** A link: aqua text with no face (Help). */
+  link: "§h§l§r",
 } as const;
+
+/** A toggle's columns: tile n goes in column n % 3, so the tiles fill rows of three. */
+export const SEGMENT_COLUMNS = ["§g§0§r", "§g§1§r", "§g§2§r"] as const;
 
 /** The tool grid's columns, left to right: tool n goes in column n % COLUMNS.length. */
 export const COLUMNS = ["§c§0§r", "§c§1§r", "§c§2§r", "§c§3§r", "§c§4§r"] as const;
@@ -96,6 +107,21 @@ export function switchText(label: string, hint: string, on: boolean): string {
 /** A red button's text. */
 export function dangerText(text: string): string {
   return `${MARK.danger}${text}`;
+}
+
+/** A toggle's tile `index`, green while `on`. */
+export function segmentText(text: string, index: number, on: boolean, iconOnly = false): string {
+  return `${MARK.segment}${SEGMENT_COLUMNS[index % SEGMENT_COLUMNS.length]}${iconOnly ? MARK.iconOnly : ""}${on ? MARK.on : ""}${text}`;
+}
+
+/** A link's text: aqua. */
+export function linkText(text: string): string {
+  return `${MARK.link}§b${text}`;
+}
+
+/** The green button pinned at the bottom: what saves a tool screen. */
+export function saveBarText(text: string): string {
+  return `${MARK.bottom}${MARK.go}${text}`;
 }
 
 /** Plain text between buttons. */

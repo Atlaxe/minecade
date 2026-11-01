@@ -7,7 +7,8 @@
       "is_summonable": true,
       "properties": {
         "minecade:faced": { "type": "bool", "default": false, "client_sync": true },
-        "minecade:pitch": { "type": "int", "range": [-90, 90], "default": 0, "client_sync": true }
+        "minecade:pitch": { "type": "int", "range": [-90, 90], "default": 0, "client_sync": true },
+        "minecade:kind": { "type": "int", "range": [0, 5], "default": 0, "client_sync": true }
       }
     },
     "components": {
