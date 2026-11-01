@@ -2,16 +2,9 @@
 
 Tests still to run by hand. Delete a line once it passes.
 
-## Friends tab broadcast (Panel)
-
-- Turn off stops it, and the row reads "Off". Turn on again: no new sign-in is asked for.
-
 ## Needs a second player
 
-- Sumo feel test: about 10 minutes of real knockback.
-- A real match is recorded and shows on the stats screens (demo stats are off).
 - Team picks with real players: the team form and the hologram's team lists.
-- Another player's skin shows in the stats screens after the next build.
 
 ## One in the Quiver
 
@@ -40,219 +33,108 @@ With a second player (a preview with an invited guest, or the network once the m
 
 ## Map editor
 
-First, once: close every Panel window, wait about 20 seconds, and open the Panel again (the running
-one predates the map editor, so its editor buttons fail with "not found"). From then on the Panel
-offers Restart Panel itself when its code changes.
+In Edit, on a copy of Sumo's Arena:
 
-Booting (the editor lobby, after the rework of 2026-10-31):
+- Pointing at a quick icon or a tool shows its name in a tooltip box.
+- Exact placing: aim at a spot near a block's corner and use the Spawn tool. The marker stands
+  exactly there, and chat gives the spot with decimals ("3.27 65 -1.84"). Aimed at a wall, it
+  stands on the floor just in front; aimed at the sky, where you stand. Center on block puts it in
+  the block's middle again. Hit a marker, Move here: it moves exactly to where you stand.
+- Save my facing: the marker's red line points about 2 blocks the way you faced, tilted down if you
+  looked down. If it points backward or tilts the wrong way, say so. Take my facing turns it, and
+  Clear facing removes it.
+- Region tool: Save as a kill region, then as a new region named `plot`. Each outline has its own
+  color, and Undo removes the last. With the tool picked, the map menu's selection actions (Nudge
+  sides, Floor at kill Y, Back one step, Clear) work, and Bounds and regions lists each box with
+  Edit, Nudge, Go to and Delete.
+- Outlines: fly 100 or more blocks from the bounds. The whole outline still shows, its far dots
+  about as big on screen as near ones and staying on their edges as you fly or turn. A selection
+  grown across the whole map stays smooth.
 
-- The Map editor page says an older map editor is running: Restart the editor. It confirms that the
-  network stops, then the old editor saves and stops, the network stops, and the new one boots.
-- The page shows the join address on port 19132, and rows for the editor lobby, Select and Edit.
-- Join `LAN_HOST:19132`: no trust prompt (the lobby's identity). It's black, you can't move or look
-  around, there's no HUD, and the Map editor menu is open down the right side. If anything of the
-  world shows, or the menu doesn't open, say so.
-- Close the menu (Esc, or the X): it opens again at once. Open the pause menu and close it: the
-  menu comes back.
-- Open a map, Sumo, Arena: the menu says "Loading Sumo: Arena (arena_1)...", and after about 20
-  seconds you're moved to Edit on port 19134 (no trust prompt), where everything below works.
-- In Edit, rejoining (leave and join 19132 again, then Go to Edit) makes you an operator again with
-  no "Could not op" lines in the editor's log.
-- The gear: Editor lobby. You're back in the dark menu, which now lists Edit (Arena, with you gone
-  from its players) under Open now, and Arena under Recent if you open something else.
-- New map: the list shows your worlds by name, "Datapacking (imported)" among them, and Empty world
-  last. Pick Datapacking: you're moved to Select on port 19133 (no trust prompt) once the copy is
-  up. Edit stays open meanwhile (the Panel shows both).
-- Empty world: Sumo, a name, an empty id. Edit switches to it (a glass pad in the void); a second
-  player in Edit at that moment is asked about first, waits in the lobby, and comes back with you.
-- Shut down on the Panel: everyone is disconnected, all three servers go, the page offers Start the
-  network, and that brings the lobby back.
-- `npm run editor -- status` while it runs lists the three servers.
+Select (New map from one of your worlds):
 
-On Sumo's `arena_1` in Edit:
+- The box top center reads "Select" (aqua) and the world's name.
+- Save a box as a map. When it's ready: a chime, and "<name> is ready to load in Edit" in green
+  above the hotbar for about 6 seconds, even while you hold the Select tool. If you've gone to Edit
+  by then, the notice comes there.
+- Box a second build while the first is being cut out: both end up ready.
+- Update from this world (red, with a confirm) on a ready map redoes its blocks and keeps its
+  spawns and `map.json`.
+- The editor lobby's New map, Empty world: Sumo, a name and an empty id. Edit opens it, a glass pad
+  in the void.
 
-- The map menu down the right side: "Map menu" and the X, a row of icons (the checklist pill with a
-  check and "1/1", Undo, Redo, a gear), the tool icons, the settings, and a green Save bar at the
-  bottom that stays put while the settings scroll. The checklist and a marker's form are still dark
-  side menus that scroll.
-- Pointing at a quick icon or a tool shows its name in a tooltip box. If none shows, say so.
-- The pill shows only its count; its tooltip says "Checklist: ready" or the problems. Tap it: the
-  checklist, with Publish at the bottom.
-- Undo and Redo are faded with nothing to undo or redo. After placing a spawn, Undo removes it and
-  the menu opens again.
-- The gear opens Map settings: Name and game settings (the old form). Drop build commands shows,
-  red, only on a map with build commands.
-- Tap a tool icon: the tool goes in slot 1, in your hand (whatever was there moves), and the menu
-  opens again with the icon outlined and its settings under the grid. Tap it again: it's put away.
-  With no tool out, the settings say "Pick a tool above".
-- Delete (a marker's form, a box's menu), Clear selection and Remove kill Y are red, white text.
-- Spawn tool: in the menu, Place into lists each list with its count, the one in use outlined; tap
-  another to switch. Save my facing is a switch; Snap cycles Exact, 45 and 90 degrees. Holding the
-  tool, the line above the hotbar says what a use will place. A use places at once, no form.
-- Exact placing (after the editor's next boot): aim at a spot near a block's corner and use the
-  Spawn tool: the marker stands exactly there, not in the block's middle, and chat gives the spot
-  with decimals ("3.27 65 -1.84"). Aim at a wall: it stands on the floor just in front of where you
-  aimed. Aim at the sky: it goes where you stand. Turn on Center on block: it goes in the block's
-  middle again. Hit a marker, Move here: it moves exactly to where you stand.
-- A spawn placed with "Save my facing" shows a glowing red line from the top of its marker, about 2
-  blocks toward where you faced. Placed while looking down, it tilts down. If it points backward or
-  tilts the wrong way, say so: it's one sign to flip.
-- Take my facing on a marker turns its line; Clear facing removes it.
-- Save: tap it. Chat says it's saving, the markers vanish for a moment and come back, then "Saved
-  the map and the world". Place a block and open the menu: the bar says "unsaved block changes".
-  The Panel's Save does the same; Stop saves the block changes since.
-- Publish (after the editor's next boot; it really commits and pushes, so use a map you mean to
-  publish): on a draft with a done checklist, the pill's tooltip says "Checklist: ready to publish",
-  and the checklist's last button reads "Publish / put it in the lobby: commit and push". With
-  problems, it says "finish the checklist first", and tapping it lists them.
-- Tap Publish: a "Publish?" side menu says what happens; Cancel does nothing. Publish: chat says
-  it's publishing, the markers blink while the world saves, then a chime, "<map> is published" above
-  the hotbar, and chat gives the commit. The map menu's top line no longer says "draft".
-- On GitHub, the newest commit is "Automated Map Build : Sumo <map> <date> <time>" (your time) and
-  holds only that map's folder. Other uncommitted changes in the checkout are still uncommitted.
-- Publish again: the button now reads "Publish changes"; with nothing changed, chat says the map has
-  no changes since it was last published.
-- The Panel: the Edit row has Publish beside Save (grayed while the checklist has problems). It
-  asks first, then reads "Publishing..." while it runs.
-- Shut down, then Start the network: the map is in Sumo's map list on the lobby terminal.
-- Region tool:
-  - Holding it, the line above the hotbar says what a hit and a use do, and the selection's size.
-  - Hitting a block starts a one-block selection (yellow dots) and doesn't break the block.
-  - Using the tool on blocks grows the selection to them.
-  - Using it at the sky opens the region form. Save as a kill region, then as a new region named
-    `plot`: `map.json` gets both, and each outline shows in its own color. Undo removes the last.
-  - Save as Bounds replaces Sumo's bounds; the white outline moves. Undo puts them back.
-  - In the map menu with the region tool picked: the selection's actions (Nudge sides, Floor at
-    kill Y, Back one step, Clear) work like the form's, and Bounds and regions lists each box: Edit,
-    then grow it and Save changes; Nudge; Go to; Delete.
-- Kill Y tool: a use sets kill Y one below your feet at once. In the map menu: Type a height, Remove
-  kill Y. The red dots move.
-- Outlines:
-  - Each dot has a dark rim, and the yellow selection is easy to see against the sky and bright
-    blocks.
-  - Fly 100 or more blocks from the bounds: the whole outline still shows where its edges are, with
-    dots about as big on screen as near ones.
-  - Flying or turning, far dots stay close to their edges (they're redrawn twice a second).
-  - Only while holding the region or Kill Y tool, and smooth with a big selection (grow one across
-    the whole map).
-  - If no dots show at all, the custom particle didn't load: say so.
+Preview and the queue spawn, on a copy of Sumo's Arena:
 
-The mode box (top center, after the editor's next boot):
+- Spawn tool, Place into: Queue spawn, on a floor a little away from the arena. The marker reads
+  "Queue spawn (lock in, 5 s)". Hit it and set Countdown to 8: the marker says 8 s.
+- The map menu's play icon is faded while the checklist has problems. Tap it with the checklist
+  done: about 30 seconds later you're moved to port 19133, and the box top center reads "Preview"
+  and "Sumo: <map>".
+- You start at the queue spawn, able to look around but not walk, with your body and name tag
+  hidden. The countdown ("Spawning in") runs, then you're at a spawn, visible, for the usual 3-2-1
+  and "Go!". The Preview box comes back after "Go!", never over the countdown.
+- Fall off: the match ends and you're back in Edit, with chat saying how the preview ended.
+- The Panel's End preview (on the Preview row) brings you back to Edit at once, and Select, if it
+  was open, comes back on its world.
+- With Lock in off (Free), you can walk around the queue area; falling below kill Y or leaving the
+  bounds puts you back at the queue spawn.
+- A map without a queue spawn previews with you waiting at a spawn.
 
-- In Select: a small dark box top center reads "Select" (aqua) and the world's name (gray), styled
-  like a game's clock box. It stays up the whole time, through forms and after respawning.
-- In Edit: "Edit" (green) and "Sumo: Arena".
-- No big title flashes in the middle of the screen when you arrive on a server. If the mode shows
-  as a big title in the middle instead of the box, say so.
-- The editor lobby shows no box (its HUD is hidden).
+Several bounds and the Boundaries view, on a copy of Sumo's Arena:
 
-The Camera tool (after the editor's next boot), on a copy of Sumo's Arena:
-
-- The tool grid has a fourth tool, a camera icon. Pick it: the action bar says a use places
-  Camera 1. Use it looking over the arena: a magenta marker "Camera 1, Map preview" floats at your
-  eye height, its red line pointing where you looked. `map.json` has `cameras`.
-- Hit the marker, Look through: your view jumps to the camera, with no HUD, no hotbar, no markers
-  and no outlines. Look around with the mouse: the view stays put. Take a screenshot with
-  Win+Alt+PrtScn. Right click: you're back, with the HUD, and asked whether to use the screenshot.
-  Use it: chat says it saved the map's preview; `games/sumo/maps/<map>/preview.png` is 320x180 and
-  shows the shot.
-- Switch the camera to Game picture, Look through again: you're visible this time; walk into the
-  shot. Use it: `games/sumo/icon.png` is replaced (don't publish that one unless you mean to).
-- Aim from my view moves the marker to your eyes. Delete removes it. The Panel's "Newest screenshot
-  as: Map preview" does the same as the form.
-
-Guests (after the editor's next boot; needs a second account that isn't in LAN_PLAYERS):
-
-- Edit's gear, Players: Invite a player, type their gamertag. Chat says they're invited and the
-  address to join. The Panel's Guests card lists them.
-- With nothing open on Select, the guest joins this PC's address (port 19132): a dark screen that
-  says it's waiting for Select or a preview, and no editor menu.
-- Open a world in Select: the guest is moved there, in creative, with no tools. They can fly and
-  break or place blocks. They can't join Edit (19134 refuses them).
-- Start a preview from Edit: the guest goes to the editor lobby while Select closes, then both of
-  you go into the preview. When it ends, you're back in Edit and they're in the editor lobby, then
-  on Select once it reopens.
-- Players, tap the guest, Remove: they're disconnected with "You're no longer invited to the map
-  editor", and can't rejoin.
-
-Several bounds and the Boundaries view (after the editor's next boot), on a copy of Sumo's Arena:
-
-- The map menu's top row has five icons beside the checklist pill (Undo, Redo, an eye, the play
-  icon, the gear), none cut off or overlapping.
-- The eye opens Boundaries: Show all, then Bounds, and Kill Y or regions when the map has them.
-  Switch Bounds on, close the menu and put the tool away: the white outline stays. Switch it off:
-  it goes. Show all, then tap Bounds: every other boundary stays on.
-- Holding the Region tool still shows everything. Reopen the map (or boot again): your switches
-  are as you left them.
-- Region tool: box a second area beside the arena, use it at the sky, Save as "Add to bounds
-  (another box)". "Bounds and regions" lists Bounds 1 and Bounds 2; Boundaries says 2 boxes.
-  `map.json` has `"bounds": [ ... ]` with both.
-- Preview it: walking from one box into the other is fine; stepping off into the gap between them
+- The map menu's top row: the checklist pill, then Undo, Redo, an eye, the play icon and the gear,
+  none cut off or overlapping.
+- The eye opens Boundaries: Show all, then Bounds, and Kill Y or regions when the map has them. A
+  boundary switched on stays shown with no tool in hand; switched off, it goes. Show all, then
+  tapping Bounds, leaves the others on. Reopen the map (or boot again): your switches are as you
+  left them.
+- Region tool, Save as "Add to bounds (another box)" on an area beside the arena: Bounds and
+  regions lists Bounds 1 and Bounds 2, Boundaries says 2 boxes, and `map.json` has
+  `"bounds": [ ... ]` with both. Save as Bounds replaces them all with the one box, and Undo puts
+  them back.
+- Preview it: walking from one box into the other is fine, and stepping into the gap between them
   puts you out. Delete Bounds 2: `map.json` is back to one box, as an object.
 
-Preview and the queue spawn (pass 10.6, after the editor's next boot), on a copy of Sumo's Arena:
+The Camera tool, on a copy of Sumo's Arena:
 
-- Spawn tool, Place into: Queue spawn. Place it on a spot with a floor, a little away from the
-  arena. Its marker reads "Queue spawn (lock in, 5 s)". Hit it: Lock in (a switch, on) and
-  Countdown: 5 s. Set the countdown to 8: the marker says 8 s.
-- The map menu's top row has a play icon (Preview), faded with a checklist problem (its tooltip
-  says to finish the checklist first). Tap it with the checklist done: chat says the preview is
-  starting, and about 30 seconds later you're moved to port 19133.
-- In the preview: the box top center reads "Preview" and "Sumo: <map>". You're at the queue spawn,
-  unable to walk but able to look around; your own body and name tag are hidden from others. The
-  queue countdown (8, 7, ... with "Spawning in") runs, then you're at a spawn, visible, frozen for
-  the usual 3-2-1, then "Go!". The "Preview" box comes back after "Go!", never over the countdown.
-- Fall off: the match ends, and you're back in Edit, with chat saying how the preview ended.
-- Preview again and press the Panel's End preview (on the Preview row, where Select's row was):
-  you're back in Edit at once. Select (if it was open) comes back on its world.
-- Turn Lock in off (Free) and preview: you can walk around the queue area; falling below kill Y
-  or leaving the bounds puts you back at the queue spawn.
-- A map without a queue spawn previews as before: you wait at a spawn.
+- The tool grid's fourth tool is a camera. A use places Camera 1: a magenta marker "Camera 1, Map
+  preview" at your eye height, its red line pointing where you looked. `map.json` has `cameras`.
+- Hit it, Look through: your view jumps to the camera, with no HUD, hotbar, markers or outlines, and
+  stays put as you move the mouse. Take a screenshot (Win+Alt+PrtScn), then right click: you're
+  back and asked whether to use it. Use it: chat says it saved the map's preview, and
+  `games/sumo/maps/<map>/preview.png` is 320x180 and shows the shot.
+- Switch it to Game picture and Look through again: you're visible, so you can walk into the shot.
+  Using it replaces `games/sumo/icon.png` (don't publish that unless you mean to).
+- Aim from my view moves the marker to your eyes, and Delete removes it. The Panel's "Newest
+  screenshot as: Map preview" does what the form does.
 
-Select mode (pass 10.5), opened from the editor lobby's New map:
+Guests (needs a second account that isn't in LAN_PLAYERS):
 
-- On Datapacking you get the Select tool in slot 1 and the map menu in slot 9, and the world is the
-  one you converted (flying past its edge grows nothing).
-- Box a build: hit a block, use the tool on the far corners. The line above the hotbar shows the
-  size and what a hit and a use do; the yellow outline follows.
-- Stand inside the box, use the tool at the sky, Save as map: for Sumo, a name, and an empty map id
-  (it's made from the name). Chat says it's queued; the box turns white, then green when ready (about
-  20 seconds), and chat says so. Standing outside the box is refused.
-- When it's ready: a chime, and "<name> is ready to load in Edit" in green above the hotbar for about
-  6 seconds, even while you hold the Select tool (its hint comes back after). Hitting a block meanwhile
-  replaces it at once. Chat says to use Edit <map> in the map menu.
-- Save another map, and before it's ready, go to Edit (Edit <map> on the first one): the same notice
-  and chime come in Edit, and chat says to open it from the editor lobby.
-- Box a second build while the first is being cut out: both end up ready.
-- The map menu lists both with their status (so does the Panel). On a ready one: Edit <map>. Chat
-  says it's opening; you're moved to Edit once it's ready, at the spawn where you stood, centered at
-  x 0, z 0, with nothing from the neighboring builds.
-- In Edit, the gear: Back to Select. You're back in Select at once (it kept running), and the list
-  still has both maps.
-- Select's map menu: Editor lobby, then New map and another world: Select switches to it.
-- Update from this world (red, with a confirm) on a ready map: its blocks are redone, its spawns and
-  map.json stay.
-- `git status` shows the new maps (`games/sumo/maps/<id>/`) and nothing else; delete the ones you
-  don't keep.
+- Edit's gear, Players, Invite a player: chat says they're invited and gives the address to join.
+  The Panel's Guests card lists them.
+- With nothing open on Select, the guest who joins port 19132 sees a dark screen saying it's
+  waiting for Select or a preview, and no editor menu.
+- Open a world in Select: the guest is moved there in creative with no tools, and can fly, break
+  and place blocks. Edit (port 19134) refuses them.
+- Start a preview from Edit: the guest waits in the editor lobby while Select closes, then you both
+  go into the preview. When it ends, you're back in Edit and they're in the editor lobby, then on
+  Select once it reopens.
+- Players, tap the guest, Remove: they're disconnected with "You're no longer invited to the map
+  editor", and can't rejoin.
+- With a second map editor (another LAN_PLAYERS account) in Edit, opening another map asks about
+  them first; they wait in the editor lobby and come back with you.
 
 ## Block pack (Java mod)
 
-The custom blocks mod (built from the private block-pack project) in a 26.2 Fabric profile, in the
-Minecade Showroom world. The headless server already checked every state change and click; these
-need a real client:
+The custom blocks mod in a 26.2 Fabric profile, in the Minecade Showroom world. Everything else
+passed on 2026-10-31; connected glass is left:
 
-- Sitting: right-click a stool, you sit on it; sneak to get up. If you sit too high or sink into it,
-  say so.
-- Connected textures: the 3x3 walls in the Connections area (framed glass, windows, their panes,
-  layered stone) and the pillars join with no lines inside. A small seam where three framed glass
-  blocks meet in an inside corner is expected.
-- Globes: the globe sits on the stand's arm, tilted with it; right-click turns it a quarter.
-- Chests: the latch shows on every wood, including acacia, birch, cherry, crimson and warped.
-- Flags show a cloth of their dye color, pointing the way they face.
-- Jars: water and the 16 dye colors show as a liquid inside the glass.
-- Hitboxes: paper lanterns and stools are outlined around the model, not a full block.
-- Placing: a sconce goes on the floor or a wall depending on where you click, like a torch;
-  buntings go on a ceiling or a wall. A candle holder held against one adds a candle.
+- Connected glass (framed glass and the windows, as blocks and panes, in the Connections area): the
+  textures join across neighbors, but where a glass block meets another, its top and bottom
+  textures still show through the glass. It passes when a 3x3 wall or a stack looks like one sheet,
+  with no faces between the blocks. A small seam where three framed glass blocks meet in an inside
+  corner is expected. Likely cause: the mod draws every face of these blocks, even against the same
+  block, where vanilla glass skips those faces.
 
 ## Block pack (Bedrock)
 
