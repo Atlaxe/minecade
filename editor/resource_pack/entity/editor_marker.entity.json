@@ -3,7 +3,10 @@
   "minecraft:client_entity": {
     "description": {
       "identifier": "minecade:editor_marker",
-      "materials": { "default": "entity_alphatest", "facing": "entity_beam_additive" },
+      "materials": {
+        "default": "entity_alphatest",
+        "facing": "entity_beam_additive"
+      },
       "textures": {
         "default": "textures/entity/editor_marker",
         "spectator": "textures/entity/editor_marker_spectator",
@@ -13,10 +16,23 @@
         "camera": "textures/entity/editor_marker_camera",
         "facing": "textures/entity/editor_marker_facing"
       },
-      "geometry": { "default": "geometry.minecade.editor_marker" },
-      "animations": { "pitch": "animation.minecade.editor_marker.pitch" },
-      "scripts": { "animate": ["pitch"] },
-      "render_controllers": ["controller.render.minecade.editor_marker", "controller.render.minecade.editor_marker_facing"]
+      "geometry": {
+        "default": "geometry.minecade.editor_mannequin",
+        "line": "geometry.minecade.editor_marker_line",
+        "camera": "geometry.minecade.editor_camera_head"
+      },
+      "animations": {
+        "pitch": "animation.minecade.editor_marker.pitch"
+      },
+      "scripts": {
+        "animate": [
+          "pitch"
+        ]
+      },
+      "render_controllers": [
+        "controller.render.minecade.editor_marker",
+        "controller.render.minecade.editor_marker_facing"
+      ]
     }
   }
 }

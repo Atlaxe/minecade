@@ -4,19 +4,89 @@
     "controller.render.minecade.editor_marker": {
       "arrays": {
         "textures": {
-          "Array.kinds": ["Texture.default", "Texture.spectator", "Texture.queue", "Texture.team", "Texture.point", "Texture.camera"]
+          "Array.kinds": [
+            "Texture.default",
+            "Texture.spectator",
+            "Texture.queue",
+            "Texture.team",
+            "Texture.point",
+            "Texture.camera"
+          ]
+        },
+        "geometries": {
+          "Array.shapes": [
+            "Geometry.default",
+            "Geometry.default",
+            "Geometry.default",
+            "Geometry.default",
+            "Geometry.default",
+            "Geometry.camera"
+          ]
         }
       },
-      "geometry": "Geometry.default",
-      "materials": [{ "*": "Material.default" }],
-      "textures": ["Array.kinds[query.property('minecade:kind')]"],
-      "part_visibility": [{ "*": true }, { "facing": false }]
+      "geometry": "Array.shapes[query.property('minecade:kind')]",
+      "materials": [
+        {
+          "*": "Material.default"
+        }
+      ],
+      "textures": [
+        "Array.kinds[query.property('minecade:kind')]"
+      ]
     },
     "controller.render.minecade.editor_marker_facing": {
-      "geometry": "Geometry.default",
-      "materials": [{ "*": "Material.facing" }],
-      "textures": ["Texture.facing"],
-      "part_visibility": [{ "*": false }, { "root": true }, { "facing": "query.property('minecade:faced')" }],
+      "geometry": "Geometry.line",
+      "materials": [
+        {
+          "*": "Material.facing"
+        }
+      ],
+      "textures": [
+        "Texture.facing"
+      ],
+      "part_visibility": [
+        {
+          "*": false
+        },
+        {
+          "root": true
+        },
+        {
+          "facing": "query.property('minecade:faced') && query.property('minecade:kind') != 5"
+        }
+      ],
+      "ignore_lighting": true
+    },
+    "controller.render.minecade.editor_cursor": {
+      "arrays": {
+        "geometries": {
+          "Array.shapes": [
+            "Geometry.block",
+            "Geometry.point"
+          ]
+        },
+        "textures": {
+          "Array.looks": [
+            "Texture.block",
+            "Texture.point"
+          ]
+        },
+        "materials": {
+          "Array.finishes": [
+            "Material.glow",
+            "Material.ghost"
+          ]
+        }
+      },
+      "geometry": "Array.shapes[query.property('minecade:mode')]",
+      "materials": [
+        {
+          "*": "Array.finishes[query.property('minecade:mode')]"
+        }
+      ],
+      "textures": [
+        "Array.looks[query.property('minecade:mode')]"
+      ],
       "ignore_lighting": true
     }
   }

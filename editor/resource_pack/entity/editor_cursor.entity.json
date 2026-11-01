@@ -1,0 +1,23 @@
+{
+  "format_version": "1.10.0",
+  "minecraft:client_entity": {
+    "description": {
+      "identifier": "minecade:editor_cursor",
+      "materials": {
+        "glow": "entity_beam_additive",
+        "ghost": "entity_alphablend"
+      },
+      "textures": {
+        "block": "textures/entity/editor_cursor_block",
+        "point": "textures/entity/editor_cursor_point"
+      },
+      "geometry": {
+        "block": "geometry.minecade.editor_cursor_block",
+        "point": "geometry.minecade.editor_mannequin"
+      },
+      "render_controllers": [
+        "controller.render.minecade.editor_cursor"
+      ]
+    }
+  }
+}

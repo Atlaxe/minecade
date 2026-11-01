@@ -19,6 +19,7 @@ import { goto } from "./goto.ts";
 import { keepModeLine, modeLine } from "./hud.ts";
 import { HostLink } from "./link.ts";
 import { LoadingScreens } from "./loading.ts";
+import { Cursors } from "./cursor.ts";
 import { iconsTitle, sideTitle } from "./marks.ts";
 import {
   SELECT_HELP,
@@ -27,7 +28,6 @@ import {
   mapActions,
   mapIdFrom,
   selectMenuEntries,
-  selectionFormEntries,
   statusLine,
   type ExportDraft,
   type MapAction,
@@ -37,7 +37,7 @@ import {
 } from "./menu.ts";
 import { Outlines } from "./outlines.ts";
 import { PlayersMenu, isMapEditor } from "./players.ts";
-import { onReset } from "./reset.ts";
+import { onReset } from "./commands.ts";
 import { BOUNDS_COLOR, KILL_COLOR, type Rgb } from "./regions.ts";
 import { actionBar, heldTool, hintBar, notice } from "./tool-host.ts";
 import { SELECT_TOOL } from "./tools.ts";
@@ -77,6 +77,12 @@ export class Selector {
     this.link = new HostLink(scope, { config: () => {}, message: (message) => this.receive(message) });
     this.players = new PlayersMenu(this.link, (player, form) => this.show(player, form));
     this.loading = new LoadingScreens(scope, (player, form) => this.show(player, form));
+    // Where a use of the Select tool would grow the box to: the block's outline.
+    new Cursors(scope, world.getDimension("overworld"), (player) => {
+      if (heldTool(player) !== "select" || !isMapEditor(player)) return undefined;
+      const block = blockInView(player);
+      return block ? { kind: "block", at: block.location } : undefined;
+    });
     new Outlines(
       scope,
       {
@@ -108,7 +114,7 @@ export class Selector {
     scope.subscribe(world.afterEvents.itemUse, ({ source, itemStack }) => {
       if (!ITEMS.has(itemStack.typeId) || !isMapEditor(source)) return;
       if (itemStack.typeId === MAP_MENU) void this.menu(source);
-      else void this.use(source);
+      else this.use(source);
     });
     scope.subscribe(world.afterEvents.entityHitBlock, ({ damagingEntity, hitBlock }) => {
       if (damagingEntity.typeId !== "minecraft:player") return;
@@ -255,13 +261,12 @@ export class Selector {
     actionBar(player, `New selection at ${at.join(" ")}: use the tool on blocks to grow it`);
   }
 
-  /** A use: grows the selection to the block in view, or opens the selection's form at the sky. */
-  private async use(player: Player): Promise<void> {
+  /** A use: grows the selection to the block in view. Exporting it is in the map menu. */
+  private use(player: Player): void {
     const block = blockInView(player);
     const selection = this.selections.get(keyOf(player));
     if (!block) {
-      if (selection) await this.selectionForm(player);
-      else tell(player, "No selection yet: hit a block with the Select tool to start one.");
+      actionBar(player, selection ? "Export it from the map menu (slot 9)" : "No selection yet: hit a block with the Select tool to start one");
       return;
     }
     if (!selection) {
@@ -277,37 +282,13 @@ export class Selector {
     actionBar(player, `Selection: ${describeBox(box)}`);
   }
 
-  /** The selection's form: Back one step in its icon row, then Export to Map, Nudge sides and Clear. */
-  private async selectionForm(player: Player): Promise<void> {
-    const selection = this.selections.get(keyOf(player));
-    if (!selection) return;
-    const entries = selectionFormEntries({ box: selection.box, steps: selection.history.length });
-    const form = new ActionFormData().title(iconsTitle("Selection"));
-    for (const entry of entries) form.button(entry.text, entry.icon);
-    const response = await this.show(player, form);
-    const action = response?.selection === undefined ? undefined : entries[response.selection]?.action;
-    if (!action || !player.isValid) return;
-    if (action.kind === "pick") {
-      await this.pick(player, action.action, "selection");
-      if (action.action === "back") await this.selectionForm(player);
-    } else if (action.kind === "help") {
-      this.help(player);
-      await this.selectionForm(player);
-    } else if (action.kind === "none") await this.selectionForm(player);
-  }
-
   /** How to box a map, in chat, with a chime. */
   private help(player: Player): void {
     tell(player, `§f${SELECT_HELP}`);
     playChime(player, "go");
   }
 
-  /** The menu a sub-menu's back arrow goes back to. */
-  private back(player: Player, from: "menu" | "selection"): Promise<void> {
-    return from === "menu" ? this.menu(player) : this.selectionForm(player);
-  }
-
-  private async pick(player: Player, action: PickAction, from: "menu" | "selection"): Promise<void> {
+  private async pick(player: Player, action: PickAction): Promise<void> {
     const selection = this.selections.get(keyOf(player));
     if (!selection) {
       tell(player, "No selection yet: hit a block with the Select tool to start one.");
@@ -315,10 +296,10 @@ export class Selector {
     }
     switch (action) {
       case "saveMap":
-        return this.exportMenu(player, selection, from);
+        return this.exportMenu(player, selection);
       case "nudge": {
         const box = await nudgeMenu({ show: (who, form) => this.show(who, form), tell }, player, selection.box, "Nudge sides");
-        if (box === "back") return this.back(player, from);
+        if (box === "back") return this.menu(player);
         if (!box || sameBox(box, selection.box) || this.selections.get(keyOf(player)) !== selection) return;
         change(selection, box);
         actionBar(player, `Selection: ${describeBox(box)}`);
@@ -340,7 +321,7 @@ export class Selector {
   // ---- Export to Map ------------------------------------------------------------------------
 
   /** Export to Map: Name, Map id, what it's for, then Export (green). Each pick reopens it; the back arrow goes back. */
-  private async exportMenu(player: Player, selection: Picking, from: "menu" | "selection"): Promise<void> {
+  private async exportMenu(player: Player, selection: Picking): Promise<void> {
     const key = keyOf(player);
     const targets = this.info.targets;
     const draft = this.drafts.get(key) ?? { name: "", target: targets[0]?.id ?? "lobby" };
@@ -366,14 +347,14 @@ export class Selector {
         draft.target = action.target;
         break;
       case "back":
-        return this.back(player, from);
+        return this.menu(player);
       case "export": {
         const exported = this.export(player, selection, draft);
         if (exported) return this.waitForExport(player, exported.target, exported.map);
         break;
       }
     }
-    return this.exportMenu(player, selection, from);
+    return this.exportMenu(player, selection);
   }
 
   /** A small text box for one field; the text typed (trimmed), or undefined when closed. */
@@ -450,7 +431,7 @@ export class Selector {
         this.help(player);
         return this.menu(player);
       case "pick":
-        await this.pick(player, action.action, "menu");
+        await this.pick(player, action.action);
         // Back one step is an icon: the menu stays open.
         if (action.action === "back") return this.menu(player);
         return;
@@ -460,7 +441,7 @@ export class Selector {
         this.link.send({ t: "open", by: player.name, request: { to: "home" } });
         return;
       case "players":
-        return this.players.open(player);
+        return this.players.open(player, () => this.menu(player));
       default:
         return;
     }
@@ -488,8 +469,9 @@ export class Selector {
   private async mapAction(player: Player, map: SelectionInfo, action: MapAction): Promise<void> {
     if (action === "cancel") return this.menu(player);
     if (action === "edit") {
-      // The host shows the loading screen until the player is moved.
+      // The loading screen takes over at once; the host keeps it up until the player is moved.
       this.link.send({ t: "open", by: player.name, request: { to: "edit", target: map.target, map: map.map } });
+      void this.loading.wait(player, `${map.targetName}: ${map.name} (${map.map})`);
       return;
     }
     this.link.send({ t: "mapAction", by: player.name, action, target: map.target, map: map.map });

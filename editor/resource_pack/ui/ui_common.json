@@ -1,0 +1,12 @@
+{
+  "namespace": "common",
+
+  // The map editor's items are locked in their slots (the map menu, Select's tool). Vanilla says so
+  // with a red corner on the slot (textures/ui/item_lock_red, blank in this pack) and "Can't move
+  // item" above the hotbar when one is moved: this hides that line. Merged into the vanilla file,
+  // and only on the editor's servers.
+  "item_lock_notification": {
+    "visible": false,
+    "size": [0, 0]
+  }
+}

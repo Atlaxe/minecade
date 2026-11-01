@@ -575,6 +575,27 @@ def select_tool_icon() -> Image.Image:
     return image
 
 
+def camera_head() -> Image.Image:
+    """
+    A camera marker's texture (32x16, an 8x8x8 head's box layout): a dark gray body, a lens on the
+    front (north) face, a viewfinder on top, and a red pixel at 0,0 for its facing line.
+    """
+    image = Image.new("RGBA", (32, 16), (0, 0, 0, 0))
+    draw = ImageDraw.Draw(image)
+    body, edge = (64, 68, 78, 255), (44, 46, 54, 255)
+    for x0, y0 in ((8, 0), (16, 0), (0, 8), (8, 8), (16, 8), (24, 8)):
+        draw.rectangle((x0, y0, x0 + 7, y0 + 7), fill=body, outline=edge)
+    # The lens, on the front face.
+    draw.rectangle((9, 9, 14, 14), fill=(200, 205, 215, 255))
+    draw.rectangle((10, 10, 13, 13), fill=(40, 120, 200, 255))
+    draw.rectangle((11, 11, 12, 12), fill=(110, 200, 255, 255))
+    # A viewfinder bump and a red light on top.
+    draw.rectangle((10, 2, 13, 4), fill=(150, 152, 160, 255))
+    image.putpixel((14, 1), (230, 50, 50, 255))
+    image.putpixel((0, 0), (255, 40, 40, 255))
+    return image
+
+
 def outline_dot() -> Image.Image:
     """The editor's outline dot, 4x4: a white middle (the particle tints it) and a black rim that tinting leaves black."""
     image = Image.new("RGBA", (4, 4), (0, 0, 0, 255))
@@ -702,10 +723,17 @@ def main() -> None:
     for state, color in (("default", (255, 255, 255)), ("hover", (235, 64, 64)), ("pressed", (160, 30, 30))):
         save(nav_icon("close", color), EDITOR_TEXTURES / "minecade" / "editor" / f"close_{state}.png")
     save(Image.new("RGB", (16, 16), (255, 40, 40)), EDITOR_TEXTURES / "entity" / "editor_marker_facing.png")
+    # Locked items show no red or yellow corner in the editor (the map menu and Select's tool are locked).
+    for name in ("item_lock_red", "item_lock_yellow"):
+        save(Image.new("RGBA", (16, 16), (0, 0, 0, 0)), EDITOR_TEXTURES / "ui" / f"{name}.png")
     # Markers by kind (lists.ts MARKER_KINDS): spawns orange, the spectator spawn gray, the queue spawn
     # aqua, team spawns green, points yellow, cameras magenta.
-    for kind, color in (("", (255, 170, 30)), ("_spectator", (175, 185, 205)), ("_queue", (60, 200, 255)), ("_team", (90, 220, 90)), ("_point", (255, 230, 60)), ("_camera", (230, 80, 230))):
+    for kind, color in (("", (255, 170, 30)), ("_spectator", (175, 185, 205)), ("_queue", (60, 200, 255)), ("_team", (90, 220, 90)), ("_point", (255, 230, 60))):
         save(Image.new("RGB", (16, 16), color), EDITOR_TEXTURES / "entity" / f"editor_marker{kind}.png")
+    save(camera_head(), EDITOR_TEXTURES / "entity" / "editor_marker_camera.png")
+    # The aim cursor: a glowing yellow block outline, or a see-through mannequin where a spawn would go.
+    save(Image.new("RGB", (16, 16), (255, 225, 90)), EDITOR_TEXTURES / "entity" / "editor_cursor_block.png")
+    save(Image.new("RGBA", (16, 16), (230, 240, 255, 110)), EDITOR_TEXTURES / "entity" / "editor_cursor_point.png")
 
     save(picture("PROBE", (60, 70, 90), (25, 30, 40)), ROOT / "games" / "probe" / "icon.png")
     save(picture("SUMO", (190, 60, 60), (70, 20, 20)), ROOT / "games" / "sumo" / "icon.png")

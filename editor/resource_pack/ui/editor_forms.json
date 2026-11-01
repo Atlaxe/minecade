@@ -328,7 +328,7 @@
   "rule_row": {
     "type": "panel",
     "size": ["100%", 5],
-    "controls": [{"line": {"type": "image", "texture": "textures/minecade/editor/rule", "size": ["100% - 8px", 1]}}]
+    "controls": [{"line": {"type": "image", "texture": "textures/minecade/editor/rule", "size": ["100% - 8px", 1], "keep_ratio": false}}]
   },
 
   // A scroll area like the vanilla form's.
@@ -354,6 +354,11 @@
         "body": {
           "type": "panel",
           "size": ["100%", "100%c + 6px"],
+          "visible": false,
+          "bindings": [
+            {"binding_name": "#form_text"},
+            {"binding_type": "view", "source_property_name": "(not (#form_text = ''))", "target_property_name": "#visible"}
+          ],
           "controls": [
             {
               "label": {
@@ -561,7 +566,55 @@
             {"binding_name": "#form_button_text", "binding_type": "collection", "binding_collection_name": "form_buttons"},
             {
               "binding_type": "view",
-              "source_property_name": "((#form_button_text - '§i§o§r') = #form_button_text)",
+              "source_property_name": "(((#form_button_text - '§i§o§r') = #form_button_text) and ((#form_button_text - '§w§d§r') = #form_button_text))",
+              "target_property_name": "#visible"
+            }
+          ],
+          "controls": [
+            {
+              "button@common.button": {
+                "$pressed_button_name": "button.form_button_click",
+                "size": ["100%", "100%"],
+                "bindings": [{"binding_type": "collection_details", "binding_collection_name": "form_buttons"}],
+                "controls": [
+                  {
+                    "default@editor_forms.segment_text_face": {
+                      "$face_texture": "textures/minecade/editor/button_default",
+                      "$danger_texture": "textures/minecade/editor/danger_default",
+                      "$go_texture": "textures/minecade/editor/save_default"
+                    }
+                  },
+                  {
+                    "hover@editor_forms.segment_text_face": {
+                      "$face_texture": "textures/minecade/editor/button_hover",
+                      "$danger_texture": "textures/minecade/editor/danger_hover",
+                      "$go_texture": "textures/minecade/editor/save_hover",
+                      "$tooltip": true
+                    }
+                  },
+                  {
+                    "pressed@editor_forms.segment_text_face": {
+                      "$face_texture": "textures/minecade/editor/button_pressed",
+                      "$danger_texture": "textures/minecade/editor/danger_pressed",
+                      "$go_texture": "textures/minecade/editor/save_pressed"
+                    }
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      },
+      {
+        "wide_tile": {
+          "type": "panel",
+          "size": [92, 22],
+          "visible": false,
+          "bindings": [
+            {"binding_name": "#form_button_text", "binding_type": "collection", "binding_collection_name": "form_buttons"},
+            {
+              "binding_type": "view",
+              "source_property_name": "(not ((#form_button_text - '§w§d§r') = #form_button_text))",
               "target_property_name": "#visible"
             }
           ],
@@ -688,7 +741,7 @@
           "type": "panel",
           "size": ["100% - 4px", 10],
           "clips_children": true,
-          "offset": [0, 1],
+          "offset": [0, 0],
           "layer": 2,
           "controls": [
             {
@@ -821,9 +874,10 @@
     ]
   },
 
+  // A heading (§h§d§r): gray text, as tall as it needs to be.
   "heading_row": {
     "type": "panel",
-    "size": ["100%", 16],
+    "size": ["100%", "100%c + 7px"],
     "visible": false,
     "bindings": [
       {"binding_name": "#form_button_text", "binding_type": "collection", "binding_collection_name": "form_buttons"},
@@ -1108,7 +1162,7 @@
           "clips_children": true,
           "anchor_from": "left_middle",
           "anchor_to": "left_middle",
-          "offset": [9, 1],
+          "offset": [9, 0],
           "layer": 2,
           "visible": false,
           "bindings": [
@@ -1141,7 +1195,7 @@
           "clips_children": true,
           "anchor_from": "left_middle",
           "anchor_to": "left_middle",
-          "offset": [30, 1],
+          "offset": [30, 0],
           "layer": 2,
           "visible": false,
           "bindings": [
@@ -1325,7 +1379,7 @@
           "size": ["100% - 46px", "default"],
           "anchor_from": "left_middle",
           "anchor_to": "left_middle",
-          "offset": [9, 0],
+          "offset": [9, -1],
           "layer": 2,
           "visible": false
         }
@@ -1346,7 +1400,7 @@
           "size": ["100% - 40px", "default"],
           "anchor_from": "left_middle",
           "anchor_to": "left_middle",
-          "offset": [30, 0],
+          "offset": [30, -1],
           "layer": 2,
           "visible": false
         }
@@ -1976,7 +2030,7 @@
           "type": "panel",
           "size": ["100% - 8px", 10],
           "clips_children": true,
-          "offset": [0, 1],
+          "offset": [0, 0],
           "layer": 2,
           "controls": [
             {

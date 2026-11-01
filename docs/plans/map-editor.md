@@ -595,6 +595,11 @@ start, which builds from the checkout.
   Export's fields fixed with only its list scrolling; Select's outlines while a menu is open.
   No-collision flying in creative isn't possible on Bedrock (only spectator mode has it, and
   spectators can't use items).)
+- (Then, 2026-11-01: an aim cursor entity for the reach tools (block outline, or a ghost mannequin
+  for spawns), spawn markers as player mannequins with an always-on facing line and cameras as
+  camera heads, back arrows on every sub-menu, /zoom (a camera field of view; keys can't be read),
+  no lock corner or "Can't move item" for the editor's items, text centered on buttons. Outlines as
+  entity models instead of particles is the next experiment: the cursor is its first piece.)
 - Item icons; marker models with numbers and list colors (the facing line came in 10.3).
 - (Boundary blocks, the Layers form and inspect mode were dropped on 2026-10-31: the particle
   outlines stay.)

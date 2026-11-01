@@ -16,7 +16,6 @@ import {
   facingLine,
   gearEntries,
   nudgeEntries,
-  selectionFormEntries,
   guestEntries,
   guestWaitText,
   cameraScreenEntries,
@@ -284,19 +283,6 @@ describe("Select mode's map menu", () => {
     expect(SELECT_HELP).not.toMatch(/stand inside/i);
   });
 
-  it("has the selection's form: Back one step as an icon, Help, then Export (green), Nudge and Clear (red)", () => {
-    const entries = selectionFormEntries({ box, steps: 0 });
-    expect(entries.map((entry) => entry.action)).toEqual([
-      { kind: "pick", action: "back" },
-      { kind: "help" },
-      { kind: "none" },
-      { kind: "pick", action: "saveMap" },
-      { kind: "pick", action: "nudge" },
-      { kind: "pick", action: "clear" },
-    ]);
-    expect(entries.at(-1)?.text).toBe(dangerText("Clear selection"));
-  });
-
   it("asks before editing a ready map; a failed one can be tried again or taken off the list", () => {
     expect(statusLine({ ...ready, status: "extracting" })).toBe("§ebeing cut out...");
     expect(mapActions(ready)).toEqual([
@@ -367,13 +353,14 @@ describe("Nudge sides", () => {
 describe("Edit's gear", () => {
   it("has Players and Back to Lobby (right end) in its icon row, then the settings and the red ones", () => {
     expect(gearEntries({ build: true })).toEqual([
+      { action: "back", text: BACK_TEXT, icon: ICONS.back },
       { action: "players", text: PLAYERS_TEXT, icon: ICONS.players },
       { action: "lobby", text: LOBBY_TEXT, icon: ICONS.lobby },
       { action: "settings", text: "Name and game settings" },
       { action: "dropBuild", text: dangerText("Drop build commands") },
       { action: "delete", text: dangerText("Delete map") },
     ]);
-    expect(gearEntries({ build: false }).map((entry) => entry.action)).toEqual(["players", "lobby", "settings", "delete"]);
+    expect(gearEntries({ build: false }).map((entry) => entry.action)).toEqual(["back", "players", "lobby", "settings", "delete"]);
   });
 });
 
@@ -441,7 +428,8 @@ describe("the editor lobby's menu", () => {
       { kind: "open", request: datapacking },
       { kind: "open", request: { to: "edit", target: "lobby", map: "spaceship" } },
     ]);
-    expect(entries[1]).toEqual({ action: { kind: "open", request: arena }, text: `${MARK.card}${MARK.twoLine}Sumo: Arena (arena_1)\n§7open: Friend`, icon: ICONS.edit });
+    // Open now says only that it's loading or closing: not who's on it.
+    expect(entries[1]).toEqual({ action: { kind: "open", request: arena }, text: `${MARK.card}Sumo: Arena (arena_1)`, icon: ICONS.edit });
     expect(entries.slice(3, 6).map((entry) => [entry.text, entry.icon])).toEqual([
       [`${MARK.card}Sumo: Arena (arena_1)`, ICONS.play],
       [`${MARK.card}Datapacking (imported)`, ICONS.select],
@@ -457,7 +445,7 @@ describe("the editor lobby's menu", () => {
     const recent = entries.slice(entries.findIndex((entry) => entry.text === headingText("Recent: Preview only")));
     expect(recent.map((entry) => entry.action)).toEqual([{ kind: "none" }, { kind: "open", request: arenaPreview }]);
     // What's open stays listed; an empty kind says so.
-    expect(homeEntries(withRecent, "select").some((entry) => entry.text === `${MARK.card}${MARK.twoLine}Sumo: Arena (arena_1)\n§7open: Friend`)).toBe(true);
+    expect(homeEntries(withRecent, "select").some((entry) => entry.text === `${MARK.card}Sumo: Arena (arena_1)`)).toBe(true);
     expect(homeEntries(empty, "preview").map((entry) => entry.text)).toContain(headingText("§8No previews yet"));
     expect(RECENT_KINDS.map((kind) => kind.kind)).toEqual(["edit", "select", "preview"]);
   });
@@ -550,8 +538,10 @@ describe("tool screens", () => {
   it("sets kill Y and places a camera from their own screens", () => {
     expect(killYScreenEntries({ y: 57, set: true, step: 1 }).map((entry) => entry.action.kind)).toEqual(["none", "type", "height", "height", "step", "step", "step", "remove", "save"]);
     expect(killYScreenEntries({ y: 57, set: false, step: 1 }).at(-1)?.text).toBe(saveBarText("Set kill Y"));
-    const camera = cameraScreenEntries({ kind: "game", at: "Game picture at 0 70 0" });
-    expect(camera.slice(0, 2).map((entry) => entry.text)).toEqual([segmentText("Map preview", 0, false), segmentText("Game picture", 1, true)]);
+    const camera = cameraScreenEntries({ kind: "game", at: "At 0 70 0", looks: "Looking north, level" });
+    // Two wide tiles, then where it is and looks on two short lines.
+    expect(camera.slice(0, 2).map((entry) => entry.text)).toEqual([segmentText("Map preview", 0, false, false, true), segmentText("Game picture", 1, true, false, true)]);
+    expect(camera.slice(2, 4).map((entry) => entry.text)).toEqual([`${MARK.lead}${headingText("At 0 70 0")}`, `${MARK.lead}${headingText("Looking north, level")}`]);
     expect(camera.at(-1)?.text).toBe(saveBarText("Place camera"));
   });
 

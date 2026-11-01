@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { EditorRules, MapConfig } from "@minecade/minigame-core/config";
-import { aimedPoint, blockPosition, compass, entryPosition, markerPitch, markerSpecs, queueText, sameYaw, snapFacing, spawnLists } from "../behavior_pack/scripts/lists.ts";
+import { MARKER_KINDS, aimedPoint, blockPosition, compass, entryPosition, lookAt, markerPitch, markerSpecs, queueText, sameYaw, snapFacing, spawnLists } from "../behavior_pack/scripts/lists.ts";
 
 const rules: EditorRules = {
   kind: "game",
@@ -122,5 +122,18 @@ describe("facing", () => {
 
   it("puts a player's feet in a block, even a hair under the top of the one below", () => {
     expect(blockPosition({ x: -0.3, y: 64.99999, z: 7.9 })).toEqual([-1, 65, 7]);
+  });
+});
+
+describe("markers", () => {
+  it("colors each kind, and turns one with no saved facing toward the middle of the map", () => {
+    const config: MapConfig = { name: "M", spawns: [[10, 65, 0], [0, 65, 0, 90, 0]], spectatorSpawn: [0, 80, 0], bounds: { min: [-20, 60, -20], max: [19, 90, 19] } };
+    const specs = markerSpecs(config, spawnLists(config, { kind: "game", maxPlayers: 2 }));
+    expect(specs.map((spec) => spec.kind)).toEqual([MARKER_KINDS.spawns, MARKER_KINDS.spawns, MARKER_KINDS.spectatorSpawn]);
+    // East of the middle (the spawn is the middle of its block, 10.5 0.5), so it looks about west; a saved facing needs no look.
+    expect(specs[0].look).toEqual({ yaw: 93, pitch: 0 });
+    expect(specs[1].look).toBeUndefined();
+    expect(lookAt({ x: 0, y: 0, z: -5 }, { x: 0, y: 0, z: 0 })).toEqual({ yaw: 0, pitch: 0 });
+    expect(lookAt({ x: 0, y: 0, z: 5 }, { x: 0, y: 0, z: 0 }).yaw).toBe(180);
   });
 });

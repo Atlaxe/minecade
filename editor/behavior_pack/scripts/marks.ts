@@ -67,6 +67,8 @@ export const MARK = {
   stepTile: "§s§t§r",
   /** The back arrow left of the title, opposite the X: back to the menu this one came from. */
   back: "§b§c§r",
+  /** A wider toggle tile, for a toggle of two (with segment). */
+  wide: "§w§d§r",
 } as const;
 
 /** A toggle's columns: tile n goes in column n % 3, so the tiles fill rows of three. */
@@ -116,8 +118,8 @@ export function dangerText(text: string): string {
 }
 
 /** A toggle's tile `index`, green while `on`. */
-export function segmentText(text: string, index: number, on: boolean, iconOnly = false): string {
-  return `${MARK.segment}${SEGMENT_COLUMNS[index % SEGMENT_COLUMNS.length]}${iconOnly ? MARK.iconOnly : ""}${on ? MARK.on : ""}${text}`;
+export function segmentText(text: string, index: number, on: boolean, iconOnly = false, wide = false): string {
+  return `${MARK.segment}${SEGMENT_COLUMNS[index % SEGMENT_COLUMNS.length]}${iconOnly ? MARK.iconOnly : ""}${wide ? MARK.wide : ""}${on ? MARK.on : ""}${text}`;
 }
 
 /** A Step toggle tile `index`, green while `on`. */

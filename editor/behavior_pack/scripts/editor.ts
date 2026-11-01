@@ -45,7 +45,7 @@ import { goto } from "./goto.ts";
 import { keepModeLine, modeLine } from "./hud.ts";
 import { KillYTool } from "./kill-y-tool.ts";
 import { LoadingScreens } from "./loading.ts";
-import { onReset } from "./reset.ts";
+import { onReset } from "./commands.ts";
 import { HostLink } from "./link.ts";
 import { Outlines } from "./outlines.ts";
 import { boundaryRows, boundsAround, outlineBoxes, toggleBoundary } from "./regions.ts";
@@ -53,15 +53,18 @@ import { CameraTool } from "./camera-tool.ts";
 import { cameraMarkers, type CameraMarker } from "./cameras.ts";
 import { RegionTool } from "./region-tool.ts";
 import { actionBar, heldTool, hintBar, notice, type ToolHost } from "./tool-host.ts";
-import { REACH, nudgePreview, showPreview } from "./box-picker.ts";
-import { blockBox, facingOf, type Point } from "./boxes.ts";
-import { aimedPoint, compass, entryPosition, markerSpecs, snapFacing, SNAPS, spawnLists, type AimedFace, type MarkerSpec, type SpawnList } from "./lists.ts";
+import { REACH, blockInView, nudgePreview } from "./box-picker.ts";
+import { facingOf, type Point } from "./boxes.ts";
+import { Cursors, type CursorAim } from "./cursor.ts";
+import { aimedPoint, compass, entryPosition, lookAt, mapMiddle, markerSpecs, snapFacing, SNAPS, spawnLists, type AimedFace, type MarkerSpec, type SpawnList } from "./lists.ts";
 import { MapState } from "./map-state.ts";
 import { PlayersMenu } from "./players.ts";
 import { MARKER, Markers } from "./markers.ts";
 import { dangerText, iconsTitle, mapTitle, sideTitle } from "./marks.ts";
 import {
+  BACK_TEXT,
   BOUNDARIES_BODY,
+  ICONS,
   boundaryEntries,
   gearEntries,
   checklistBody,
@@ -117,6 +120,9 @@ export class Editor {
   private readonly cameraTool: CameraTool;
   private readonly players: PlayersMenu;
   private readonly loading: LoadingScreens;
+  private readonly cursors: Cursors;
+  /** The spawn or point each player's screen is setting up: the cursor shows it there. */
+  private readonly entryPreview = new Map<string, { at: Point; yaw: number }>();
   private readonly dimension: Dimension;
   private readonly settings = new Map<string, SpawnSettings>();
   private readonly formOpen = new Set<string>();
@@ -160,6 +166,7 @@ export class Editor {
     this.regionTool = new RegionTool(scope, host);
     this.killYTool = new KillYTool(host);
     this.loading = new LoadingScreens(scope, (player, form) => this.show(player, form));
+    this.cursors = new Cursors(scope, this.dimension, (player) => this.cursorAim(player));
     this.cameraTool = new CameraTool({
       ...host,
       targetName: info.targetName,
@@ -294,6 +301,8 @@ export class Editor {
         for (const player of world.getAllPlayers()) if (message.players.includes(player.name)) this.loading.stop(player);
         return;
       case "cleanup":
+        // The aim cursors aren't saved with the world either.
+        this.cursors.pause();
         void this.markers.clear().then(
           (left) => this.link.send({ t: "clean", id: message.id, left }),
           (error: unknown) => this.link.send({ t: "clean", id: message.id, left: -1, error: describeError(error) }),
@@ -301,6 +310,7 @@ export class Editor {
         return;
       case "resume":
         this.markers.resume();
+        this.cursors.resume();
         return;
     }
   }
@@ -510,16 +520,16 @@ export class Editor {
       }
       case "entry": {
         const spec = markerSpecs(this.state.current, this.lists()).find((candidate) => candidate.key === action.key);
-        if (spec) return this.markerMenu(player, spec);
+        if (spec) return this.markerMenu(player, spec, () => this.mapMenu(player));
         tell(player, "That entry changed since the menu opened. Open the map menu again.");
         return;
       }
       case "selection":
-        return this.regionTool.selectionAction(player, action.action);
+        return this.regionTool.selectionAction(player, action.action, () => this.mapMenu(player));
       case "box":
-        return this.regionTool.boxMenu(player, action.key);
+        return this.regionTool.boxMenu(player, action.key, () => this.mapMenu(player));
       case "killY":
-        return this.killYTool.screen(player);
+        return this.killYTool.screen(player, undefined, () => this.mapMenu(player));
       case "removeKillY":
         this.killYTool.remove(player);
         return;
@@ -527,7 +537,7 @@ export class Editor {
         this.cameraTool.toggleKind(player);
         return this.mapMenu(player);
       case "camera":
-        return this.cameraTool.menu(player, action.name);
+        return this.cameraTool.menu(player, action.name, () => this.mapMenu(player));
       case "save":
         this.save(player);
         return;
@@ -559,13 +569,14 @@ export class Editor {
 
   private async checklistMenu(player: Player): Promise<void> {
     const checklist = mapChecklist(this.state.current, this.info.rules);
-    const form = new ActionFormData().title(sideTitle("Checklist")).body(checklistBody(checklist));
+    const form = new ActionFormData().title(sideTitle("Checklist")).body(checklistBody(checklist)).button(BACK_TEXT, ICONS.back);
     for (const row of checklist.rows) form.button(rowText(row));
     form.button(publishText(checklist, this.state.current.draft === true, this.status.publishing === true));
     const response = await this.show(player, form);
     if (response?.selection === undefined || !player.isValid) return;
-    if (response.selection === checklist.rows.length) return this.publish(player);
-    const row = checklist.rows[response.selection];
+    if (response.selection === 0) return this.mapMenu(player);
+    if (response.selection === checklist.rows.length + 1) return this.publish(player);
+    const row = checklist.rows[response.selection - 1];
     if (!row) return;
     if (row.field === "bounds" || row.field === "regions") {
       this.regionTool.equip(player, row.key);
@@ -648,10 +659,11 @@ export class Editor {
     const rows = boundaryRows(this.state.current, this.info.rules);
     const entries = boundaryEntries(rows, this.shown.get(key) ?? NONE_SHOWN);
     const body = rows.length > 0 ? BOUNDARIES_BODY : `${BOUNDARIES_BODY}\n\nThis map has no boundaries yet: the Region tool and the Kill Y tool make them.`;
-    const form = new ActionFormData().title(sideTitle("Boundaries")).body(body);
+    const form = new ActionFormData().title(sideTitle("Boundaries")).body(body).button(BACK_TEXT, ICONS.back);
     for (const entry of entries) form.button(entry.text);
     const response = await this.show(player, form);
-    const picked = response?.selection === undefined ? undefined : entries[response.selection];
+    if (response?.selection === 0 && player.isValid) return this.mapMenu(player);
+    const picked = response?.selection === undefined ? undefined : entries[response.selection - 1];
     if (!picked || !player.isValid) return;
     const next = toggleBoundary(
       this.shown.get(key) ?? NONE_SHOWN,
@@ -671,10 +683,11 @@ export class Editor {
     const response = await this.show(player, form);
     const action = response?.selection === undefined ? undefined : entries[response.selection]?.action;
     if (!action || !player.isValid) return;
+    if (action === "back") return this.mapMenu(player);
     if (action === "settings") return this.settingsForm(player);
     if (action === "dropBuild") return this.dropBuild(player);
     if (action === "delete") return this.deleteMap(player);
-    if (action === "players") return this.players.open(player);
+    if (action === "players") return this.players.open(player, () => this.settingsMenu(player));
     this.link.send({ t: "open", by: player.name, request: { to: "home" } });
   }
 
@@ -756,15 +769,42 @@ export class Editor {
     }
     const settings = this.settingsOf(player);
     const view = player.getRotation();
+    // Sneaking: where the player stands, the way they look.
+    if (player.isSneaking) {
+      return this.entryScreen(player, { list, at: pointOf(entryPosition(player.location, settings.center)), facing: snapFacing({ yaw: view.y, pitch: view.x }, settings.snap) });
+    }
     const facing = settings.keepFacing ? snapFacing({ yaw: view.y, pitch: view.x }, settings.snap) : undefined;
     return this.entryScreen(player, { list, at: pointOf(entryPosition(this.aimedAt(player), settings.center)), facing });
   }
 
-  /** A marker's screen (it was hit, or picked in the map menu). */
-  private markerMenu(player: Player, spec: MarkerSpec): Promise<void> {
+  /** A marker's screen (it was hit, or picked in the map menu, which `back` opens again). */
+  private markerMenu(player: Player, spec: MarkerSpec, back?: () => Promise<void>): Promise<void> {
     const position = listOf(this.state.current, spec.list.target)[spec.index];
     if (!position) return Promise.resolve();
-    return this.entryScreen(player, { list: spec.list, at: pointOf(position), facing: spec.facing, existing: { index: spec.index, position } });
+    return this.entryScreen(player, { list: spec.list, at: pointOf(position), facing: spec.facing, existing: { index: spec.index, position } }, back);
+  }
+
+  /**
+   * Where a player's aim cursor goes: the spawn their screen sets up; else, holding the Spawn tool,
+   * where a use would place one (sneaking: where they stand); holding the Region tool, the block a
+   * use would grow the selection to. None while anyone looks through a camera.
+   */
+  private cursorAim(player: Player): CursorAim | undefined {
+    if (this.cameraTool.anyoneLooking()) return undefined;
+    const preview = this.entryPreview.get(player.name.toLowerCase());
+    if (preview) return { kind: "point", at: preview.at, yaw: preview.yaw };
+    const tool = heldTool(player);
+    if (tool === "spawn") {
+      const settings = this.settingsOf(player);
+      const at = pointOf(entryPosition(player.isSneaking ? player.location : this.aimedAt(player), settings.center));
+      const yaw = player.isSneaking || settings.keepFacing ? player.getRotation().y : lookAt(at, mapMiddle(this.state.current)).yaw;
+      return { kind: "point", at, yaw };
+    }
+    if (tool === "region") {
+      const block = blockInView(player);
+      return block ? { kind: "block", at: block.location } : undefined;
+    }
+    return undefined;
   }
 
   /**
@@ -773,7 +813,7 @@ export class Editor {
    * one the map has, and Place or Save at the bottom. Nothing changes until then; the block it's in
    * is outlined meanwhile.
    */
-  private async entryScreen(player: Player, start: { list: SpawnList; at: Point; facing?: Facing; existing?: { index: number; position: MapPosition } }): Promise<void> {
+  private async entryScreen(player: Player, start: { list: SpawnList; at: Point; facing?: Facing; existing?: { index: number; position: MapPosition } }, back?: () => Promise<void>): Promise<void> {
     const settings = this.settingsOf(player);
     let listKey = start.list.key;
     let at = start.at;
@@ -788,7 +828,8 @@ export class Editor {
         const lists = this.lists();
         const list = lists.find((candidate) => candidate.key === listKey) ?? lists[0];
         if (!list) return;
-        showPreview(player, blockBox([Math.floor(at.x), Math.floor(at.y), Math.floor(at.z)]));
+        // The cursor shows it where it will go, turned the way it will face.
+        this.entryPreview.set(player.name.toLowerCase(), { at, yaw: (facing ?? lookAt(at, mapMiddle(this.state.current))).yaw });
         const existing = start.existing && { index: start.existing.index, count: listOf(this.state.current, start.list.target).length };
         const entries = entryScreenEntries({
           lists,
@@ -798,14 +839,16 @@ export class Editor {
           snap: settings.snap,
           center: settings.center,
           step,
+          back: back !== undefined,
           existing,
           ...(list.key === "queueSpawn" ? { queue: queueSettings(this.state.current) } : {}),
         });
         const form = new ActionFormData().title(sideTitle(name ?? `New ${list.entry.toLowerCase()}`));
-        for (const entry of entries) form.button(entry.text);
+        for (const entry of entries) form.button(entry.text, entry.icon);
         const response = await this.show(player, form);
         const action = response?.selection === undefined ? undefined : entries[response.selection]?.action;
         if (!action || !player.isValid) return;
+        if (action.kind === "back" && back) return back();
         if (start.existing && name && !this.unchanged(player, { list: start.list, index: start.existing.index }, start.existing.position, name)) return;
         switch (action.kind) {
           case "list":
@@ -865,7 +908,7 @@ export class Editor {
         }
       }
     } finally {
-      showPreview(player, undefined);
+      this.entryPreview.delete(player.name.toLowerCase());
       system.clearRun(bar);
     }
   }

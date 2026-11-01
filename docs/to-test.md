@@ -105,6 +105,31 @@ The editor lobby's menu (after the editor's next boot):
 - The door: a "Leave?" menu. Cancel goes back; Leave disconnects you with "You left the map editor.
   Join again to come back." Joining again brings you back to the menu.
 
+The cursor, mannequins and the last round of fixes (after the editor's next boot):
+
+- Button text sits in the middle of the button (it was a little low). A long heading wraps instead
+  of running into the row under it.
+- The map menu and the Select tool are still locked, but show no red corner, and moving them shows
+  no "Can't move item".
+- Holding the Region tool or Select's tool: the block you aim at has a glowing yellow outline, up to
+  64 blocks away, hidden behind blocks in front of it. Holding the Spawn tool: a see-through
+  mannequin where a use would place one, turned the way it would face.
+- Spawn markers are player mannequins in their colors, each with its red line at eye height (toward
+  the middle of the map when it has no facing). Cameras are camera heads, tilted with their pitch.
+- Use the Spawn tool: the screen's X, Y and Z rows have minus and plus icons; the see-through
+  mannequin shows where it goes, and no boundaries show. Sneak and use: the spawn starts where you
+  stand, facing your way.
+- The tool screens: no gap between the tool icons and the Help link; the line between parts goes
+  across.
+- The Camera tool's screen: Map preview and Game picture fit their tiles; where it is and where it
+  looks are two short lines.
+- Back arrows: the gear, the checklist, Boundaries, Players, a camera's or a box's menu, and a tool
+  screen opened from the map menu go back to the menu they came from.
+- /zoom zooms in (holding anything), /zoom again zooms out.
+- Editor lobby: Open now cards are just the name ("loading..." while one starts).
+- Select: using the tool at the sky only says to export from the map menu. Tapping Edit on a map
+  goes straight to the loading screen.
+
 Loading, /reset and Select's latest changes (after the editor's next boot):
 
 - Every move between servers shows the loading screen (the dots), not only in the editor lobby:

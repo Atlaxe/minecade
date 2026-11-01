@@ -46,19 +46,25 @@ export function cameraAt(eye: { x: number; y: number; z: number }, rotation: { x
   return { at: [fix(eye.x), fix(eye.y), fix(eye.z), fix(yaw), fix(pitch)], kind };
 }
 
-/** A marker for every camera, magenta, with its kind under the name and its line where it looks. */
+/** A marker for every camera: a camera head centered on its lens, tilted, its line where it looks. */
 export function cameraMarkers(config: MapConfig): CameraMarker[] {
   return camerasOf(config).map(([name, camera]) => {
     const [x, y, z, yaw, pitch] = camera.at;
-    return { key: `camera:${name}`, camera: name, label: `§d${name}\n§7${CAMERA_KINDS[camera.kind].label}`, at: { x, y: y - 1, z }, facing: { yaw, pitch }, kind: MARKER_KINDS.camera };
+    return { key: `camera:${name}`, camera: name, label: `§d${name}\n§7${CAMERA_KINDS[camera.kind].label}`, at: { x, y: y - 0.25, z }, facing: { yaw, pitch }, kind: MARKER_KINDS.camera };
   });
 }
 
 /** A camera in a few words: "Map preview at 3.2 70.6 -14, looking north, 25 degrees down". */
 export function cameraText(camera: MapCamera): string {
+  const { at, looks } = cameraPlace(camera);
+  return `${CAMERA_KINDS[camera.kind].label} at ${at}, looking ${looks}`;
+}
+
+/** Where a camera is ("3.3 70.6 -14") and how it looks ("north, 25 degrees down"). */
+export function cameraPlace(camera: MapCamera): { at: string; looks: string } {
   const [x, y, z, yaw, pitch] = camera.at;
   const tilt = Math.round(pitch) === 0 ? "level" : `${Math.abs(Math.round(pitch))} degrees ${pitch > 0 ? "down" : "up"}`;
-  return `${CAMERA_KINDS[camera.kind].label} at ${[x, y, z].map((value) => Math.round(value * 10) / 10).join(" ")}, looking ${compass(yaw)}, ${tilt}`;
+  return { at: [x, y, z].map((value) => Math.round(value * 10) / 10).join(" "), looks: `${compass(yaw)}, ${tilt}` };
 }
 
 export type CameraAction = "look" | "picture" | "aim" | "kind" | "delete";

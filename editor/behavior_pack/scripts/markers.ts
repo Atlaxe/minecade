@@ -158,13 +158,15 @@ export class Markers<Spec extends MarkerShape = MarkerShape> {
 
 /** The way a marker is turned: its entry's yaw, or south without a facing. */
 function yawOf(spec: MarkerShape): number {
-  return spec.facing?.yaw ?? 0;
+  return (spec.facing ?? spec.look)?.yaw ?? 0;
 }
 
 /** Shows or hides the facing line and sets its tilt. */
 function showFacing(entity: Entity, spec: MarkerShape): void {
-  const faced = spec.facing !== undefined;
-  const pitch = markerPitch(spec.facing);
+  // Every marker shows its line: its saved facing, or where it looks without one.
+  const facing = spec.facing ?? spec.look;
+  const faced = facing !== undefined;
+  const pitch = markerPitch(facing);
   if (entity.getProperty(FACED_PROPERTY) !== faced) entity.setProperty(FACED_PROPERTY, faced);
   if (entity.getProperty(PITCH_PROPERTY) !== pitch) entity.setProperty(PITCH_PROPERTY, pitch);
   const kind = spec.kind ?? 0;

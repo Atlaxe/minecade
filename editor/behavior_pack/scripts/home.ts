@@ -223,7 +223,7 @@ export class Home {
     if (action.kind === "open") await this.open(player, action.request);
     else if (action.kind === "maps") await this.pickMap(player);
     else if (action.kind === "new") await this.pickWorld(player);
-    else if (action.kind === "players") await this.players.open(player);
+    else if (action.kind === "players") await this.players.open(player, () => this.menu(player));
     else if (action.kind === "leave") await this.leave(player);
     else if (action.kind === "filter") {
       // The menu opens again at once with the filter on, or off again when it was on.

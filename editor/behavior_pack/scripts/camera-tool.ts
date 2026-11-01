@@ -8,9 +8,9 @@
 import { HudVisibility, type Player } from "@minecraft/server";
 import { ActionFormData } from "@minecraft/server-ui";
 import { describeError } from "@minecade/minigame-core";
-import { CAMERA_KINDS, cameraActions, cameraAt, cameraText, nextCameraName, type CameraKind } from "./cameras.ts";
+import { CAMERA_KINDS, cameraActions, cameraAt, cameraPlace, cameraText, nextCameraName, type CameraKind } from "./cameras.ts";
 import { sideTitle } from "./marks.ts";
-import { cameraScreenEntries } from "./menu.ts";
+import { BACK_TEXT, ICONS, cameraScreenEntries } from "./menu.ts";
 import type { ToolHost } from "./tool-host.ts";
 
 /** Long enough to last any look through. */
@@ -62,7 +62,8 @@ export class CameraTool {
     let camera = cameraAt(player.getHeadLocation(), player.getRotation(), kind);
     for (;;) {
       const name = nextCameraName(this.host.map());
-      const entries = cameraScreenEntries({ kind, at: cameraText(camera) });
+      const place = cameraPlace(camera);
+      const entries = cameraScreenEntries({ kind, at: `At ${place.at}`, looks: `Looking ${place.looks}` });
       const form = new ActionFormData().title(sideTitle(`New camera: ${name}`));
       for (const entry of entries) form.button(entry.text);
       const response = await this.host.show(player, form);
@@ -86,16 +87,19 @@ export class CameraTool {
   }
 
   /** A camera's form, from its marker or the tool's settings. */
-  async menu(player: Player, name: string): Promise<void> {
+  async menu(player: Player, name: string, back?: () => Promise<void>): Promise<void> {
     const camera = this.host.map().cameras?.[name];
     if (!camera) return;
     const lobby = this.host.rules.kind === "lobby";
     const actions = cameraActions(camera, lobby);
     const body = `${cameraText(camera)}.\n\nLook through, then take your screenshot (Windows: Win+Alt+PrtScn, or Win+PrtScn) and use the Camera tool to come back.${lobby ? "" : " Then Use my newest screenshot saves it as the picture."}`;
     const form = new ActionFormData().title(sideTitle(name)).body(body);
+    const offset = back ? 1 : 0;
+    if (back) form.button(BACK_TEXT, ICONS.back);
     for (const { text } of actions) form.button(text);
     const response = await this.host.show(player, form);
-    const action = response?.selection === undefined ? undefined : actions[response.selection]?.action;
+    if (back && response?.selection === 0 && player.isValid) return back();
+    const action = response?.selection === undefined ? undefined : actions[response.selection - offset]?.action;
     if (!action || !player.isValid) return;
     const now = this.host.map().cameras?.[name];
     if (!now) {

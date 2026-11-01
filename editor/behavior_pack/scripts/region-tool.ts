@@ -10,7 +10,7 @@ import type { Box, MapEdit, Scope } from "@minecade/minigame-core";
 import { blockInView, change, keyOf, nudgeMenu, xyz, type Picking } from "./box-picker.ts";
 import { blockBox, describeBox, floorAt, growBox, nudgeBox, sameBox, sizeText, topCenter } from "./boxes.ts";
 import { dangerText, sideTitle } from "./marks.ts";
-import { NUDGE_STEPS, regionScreenEntries } from "./menu.ts";
+import { BACK_TEXT, ICONS, NUDGE_STEPS, regionScreenEntries } from "./menu.ts";
 import { entryBox, regionEntries, regionLabel, regionName, regionTargets, type RegionEntry, type RegionTarget, type SelectionAction } from "./regions.ts";
 import { actionBar, heldTool, type ToolHost } from "./tool-host.ts";
 
@@ -98,7 +98,7 @@ export class RegionTool {
    * region's name, Floor at kill Y and Back one step, nudge rows for each side (the outline follows),
    * Step, Clear (red), and Save at the bottom.
    */
-  async selectionForm(player: Player): Promise<void> {
+  async selectionForm(player: Player, back?: () => Promise<void>): Promise<void> {
     const key = keyOf(player);
     let step: number = NUDGE_STEPS[0];
     for (;;) {
@@ -112,13 +112,15 @@ export class RegionTool {
       let target = this.targets.get(key) ?? (editing ? "editing" : targets[0].key);
       if (target === "editing" ? !editing : !targets.some((candidate) => candidate.key === target)) target = editing ? "editing" : targets[0].key;
       const killY = this.host.map().killY;
-      const entries = regionScreenEntries({ targets, target, editing: editing?.label, name: this.names.get(key) ?? "", box: selection.box, steps: selection.history.length, killY, step });
+      const entries = regionScreenEntries({ targets, target, editing: editing?.label, name: this.names.get(key) ?? "", box: selection.box, steps: selection.history.length, killY, step, back: back !== undefined });
       const form = new ActionFormData().title(sideTitle("Selection"));
-      for (const entry of entries) form.button(entry.text);
+      for (const entry of entries) form.button(entry.text, entry.icon);
       const response = await this.host.show(player, form);
       const action = response?.selection === undefined ? undefined : entries[response.selection]?.action;
       if (!action || !player.isValid || this.selections.get(key) !== selection) return;
       switch (action.kind) {
+        case "back":
+          return back?.();
         case "target":
           this.targets.set(key, action.key);
           break;
@@ -170,7 +172,7 @@ export class RegionTool {
   }
 
   /** Does one of the selection's actions (from the region form or the map menu). */
-  async selectionAction(player: Player, action: SelectionAction): Promise<void> {
+  async selectionAction(player: Player, action: SelectionAction, back?: () => Promise<void>): Promise<void> {
     const selection = this.selections.get(keyOf(player));
     if (!selection) {
       this.host.tell(player, "No selection yet: hit a block with the region tool to start one.");
@@ -182,7 +184,7 @@ export class RegionTool {
         this.saveChanges(player, selection);
         return;
       case "saveAs":
-        return this.selectionForm(player);
+        return this.selectionForm(player, back);
       case "nudge": {
         const box = await nudgeMenu(this.host, player, selection.box, "Nudge sides");
         if (box === "back") return this.selectionForm(player);
@@ -220,23 +222,25 @@ export class RegionTool {
   }
 
   /** A box's menu (edit, nudge, go to, delete), by its key, from the map menu. */
-  async boxMenu(player: Player, key: string): Promise<void> {
+  async boxMenu(player: Player, key: string, back?: () => Promise<void>): Promise<void> {
     const entry = this.entries().find((candidate) => candidate.key === key);
-    if (entry) await this.entryMenu(player, entry);
+    if (entry) await this.entryMenu(player, entry, back);
     else this.host.tell(player, "That box changed since the menu opened. Open the map menu again.");
   }
 
-  private async entryMenu(player: Player, entry: RegionEntry): Promise<void> {
-    const actions: { action: EntryAction; text: string }[] = [
+  private async entryMenu(player: Player, entry: RegionEntry, back?: () => Promise<void>): Promise<void> {
+    const actions: { action: EntryAction | "back"; text: string; icon?: string }[] = [
+      ...(back ? [{ action: "back" as const, text: BACK_TEXT, icon: ICONS.back }] : []),
       { action: "edit", text: "Edit\n§7load it into your selection" },
       { action: "nudge", text: "Nudge sides" },
       { action: "goTo", text: "Go to\n§7on top, over its middle" },
       { action: "delete", text: dangerText("Delete") },
     ];
     const form = new ActionFormData().title(sideTitle(entry.label)).body(describeBox(entry.box));
-    for (const { text } of actions) form.button(text);
+    for (const { text, icon } of actions) form.button(text, icon);
     const response = await this.host.show(player, form);
     const action = response?.selection === undefined ? undefined : actions[response.selection]?.action;
+    if (action === "back") return back?.();
     if (!action || !player.isValid || !this.unchanged(player, entry)) return;
     switch (action) {
       case "edit":

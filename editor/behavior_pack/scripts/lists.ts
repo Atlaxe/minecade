@@ -1,6 +1,7 @@
 // The lists the spawn tool places entries into, and the markers that show every entry: pure
 // functions of the map and its rules, so they can be tested without a server.
 import {
+  boundsBox,
   exactPosition,
   facingOf,
   listKey,
@@ -69,6 +70,23 @@ function pointList(name: string, label: string, color: string): SpawnList {
   return { target, key: listKey(target), label, entry: label, color, single: false };
 }
 
+/** The middle of a map's bounds, at floor level (where an entry without a facing looks). */
+export function mapMiddle(config: MapConfig): Point {
+  const box = boundsBox(config);
+  if (!box) return { x: 0, y: 0, z: 0 };
+  return { x: (box.min[0] + box.max[0] + 1) / 2, y: box.min[1], z: (box.min[2] + box.max[2] + 1) / 2 };
+}
+
+/** The level facing from `from` toward `to` (yaw 0 is south, 90 west). */
+export function lookAt(from: Point, to: Point): Facing {
+  const dx = to.x - from.x;
+  const dz = to.z - from.z;
+  if (Math.abs(dx) < 0.01 && Math.abs(dz) < 0.01) return { yaw: 0, pitch: 0 };
+  const yaw = Math.round((Math.atan2(-dx, dz) * 180) / Math.PI);
+  // North is 180, not -180; + 0 turns -0 into 0.
+  return { yaw: yaw === -180 ? 180 : yaw + 0, pitch: 0 };
+}
+
 /** A marker's color, by what it marks (its texture in the resource pack's render controller). */
 export const MARKER_KINDS = { spawns: 0, spectatorSpawn: 1, queueSpawn: 2, teamSpawns: 3, points: 4, camera: 5 } as const;
 
@@ -83,6 +101,8 @@ export interface MarkerShape {
   facing?: Facing;
   /** Its color (MARKER_KINDS); spawns' when absent. */
   kind?: number;
+  /** Where its line points when it has no saved facing: the middle of the map. */
+  look?: Facing;
 }
 
 /** An entry's marker. */
@@ -93,6 +113,7 @@ export interface MarkerSpec extends MarkerShape {
 
 /** A marker for every entry of every list. */
 export function markerSpecs(config: MapConfig, lists: SpawnList[]): MarkerSpec[] {
+  const middle = mapMiddle(config);
   return lists.flatMap((list) =>
     listOf(config, list.target).map((position, index) => {
       const facing = facingOf(position);
@@ -105,6 +126,7 @@ export function markerSpecs(config: MapConfig, lists: SpawnList[]): MarkerSpec[]
         label: facing ? `${name}\n§7faces ${compass(facing.yaw)}` : name,
         at: worldPoint(position),
         kind: MARKER_KINDS[list.target.list],
+        ...(facing ? {} : { look: lookAt(worldPoint(position), middle) }),
         ...(facing ? { facing } : {}),
       };
     }),

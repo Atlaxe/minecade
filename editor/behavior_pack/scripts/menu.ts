@@ -244,6 +244,8 @@ export interface EntryScreenView {
   existing?: { index: number; count: number };
   /** The queue spawn's settings, when that's the list. */
   queue?: { mode: "lock" | "free"; countdown: number };
+  /** Opened from the map menu: the back arrow goes back to it. */
+  back?: boolean;
 }
 
 export type EntryScreenAction =
@@ -261,6 +263,7 @@ export type EntryScreenAction =
   | { kind: "renumber" }
   | { kind: "delete" }
   | { kind: "save" }
+  | { kind: "back" }
   | { kind: "none" };
 
 const AXES = [
@@ -284,8 +287,9 @@ export function shortListName(list: SpawnList): string {
  * for the queue spawn, nudge rows for each axis, Step, Renumber and Delete (one the map has), and
  * Place or Save, green, at the bottom.
  */
-export function entryScreenEntries(view: EntryScreenView): { action: EntryScreenAction; text: string }[] {
-  const entries: { action: EntryScreenAction; text: string }[] = view.lists.map((list, i) => ({ action: { kind: "list", key: list.key }, text: segmentText(shortListName(list), i, list.key === view.list) }));
+export function entryScreenEntries(view: EntryScreenView): { action: EntryScreenAction; text: string; icon?: string }[] {
+  const entries: { action: EntryScreenAction; text: string; icon?: string }[] = view.back ? [{ action: { kind: "back" }, text: BACK_TEXT, icon: ICONS.back }] : [];
+  view.lists.forEach((list, i) => entries.push({ action: { kind: "list", key: list.key }, text: segmentText(shortListName(list), i, list.key === view.list) }));
   const lead = (action: EntryScreenAction, text: string) => entries.push({ action, text: `${MARK.lead}${text}` });
   const snap = SNAPS.find((candidate) => candidate.snap === view.snap)?.label ?? "Exact";
   lead({ kind: "none" }, headingText("Position"));
@@ -304,8 +308,8 @@ export function entryScreenEntries(view: EntryScreenView): { action: EntryScreen
   for (const { axis, name, plus } of AXES) {
     const value = [view.at.x, view.at.y, view.at.z][axis];
     entries.push(
-      { action: { kind: "axis", axis, by: -1 }, text: `${MARK.minus}${name} (${plus} +): ${coordinate(value)}` },
-      { action: { kind: "axis", axis, by: 1 }, text: `${MARK.plus}${name} ${plus}` },
+      { action: { kind: "axis", axis, by: -1 }, text: `${MARK.minus}${name} (${plus} +): ${coordinate(value)}`, icon: ICONS.minus },
+      { action: { kind: "axis", axis, by: 1 }, text: `${MARK.plus}${name} ${plus}`, icon: ICONS.new },
     );
   }
   entries.push(...stepEntries(POINT_STEPS, view.step));
@@ -329,6 +333,8 @@ export interface RegionScreenView {
   steps: number;
   killY?: number;
   step: number;
+  /** Opened from the map menu: the back arrow goes back to it. */
+  back?: boolean;
 }
 
 export type RegionScreenAction =
@@ -340,6 +346,7 @@ export type RegionScreenAction =
   | { kind: "step"; step: number }
   | { kind: "clear" }
   | { kind: "save" }
+  | { kind: "back" }
   | { kind: "none" };
 
 /** A region target's name on its toggle tile. */
@@ -354,9 +361,10 @@ function targetTile(target: RegionTarget): string {
  * region's name, Floor at kill Y and Back one step, nudge rows for each side, Step, Clear (red), and
  * Save, green, at the bottom.
  */
-export function regionScreenEntries(view: RegionScreenView): { action: RegionScreenAction; text: string }[] {
+export function regionScreenEntries(view: RegionScreenView): { action: RegionScreenAction; text: string; icon?: string }[] {
   const tiles = [...(view.editing ? [{ key: "editing", text: "This box" }] : []), ...view.targets.map((target) => ({ key: target.key, text: targetTile(target) }))];
-  const entries: { action: RegionScreenAction; text: string }[] = tiles.map((tile, i) => ({ action: { kind: "target", key: tile.key }, text: segmentText(tile.text, i, tile.key === view.target) }));
+  const entries: { action: RegionScreenAction; text: string; icon?: string }[] = view.back ? [{ action: { kind: "back" }, text: BACK_TEXT, icon: ICONS.back }] : [];
+  tiles.forEach((tile, i) => entries.push({ action: { kind: "target", key: tile.key }, text: segmentText(tile.text, i, tile.key === view.target) }));
   const lead = (action: RegionScreenAction, text: string) => entries.push({ action, text: `${MARK.lead}${text}` });
   lead({ kind: "none" }, headingText(`Selection: ${sizeText(view.box)}${view.target === "editing" && view.editing ? `, ${view.editing}` : ""}`));
   if (view.target === "new") lead({ kind: "name" }, `Name: ${view.name || "§8none yet"}\n§7letters, digits and _, starting with a letter`);
@@ -364,8 +372,8 @@ export function regionScreenEntries(view: RegionScreenView): { action: RegionScr
   if (view.steps > 0) lead({ kind: "back" }, "Back one step\n§7undo the last change to the selection");
   for (const { side, name } of NUDGE_SIDES) {
     entries.push(
-      { action: { kind: "side", side, by: -1 }, text: `${MARK.minus}${name}` },
-      { action: { kind: "side", side, by: 1 }, text: `${MARK.plus}${name} out` },
+      { action: { kind: "side", side, by: -1 }, text: `${MARK.minus}${name}`, icon: ICONS.minus },
+      { action: { kind: "side", side, by: 1 }, text: `${MARK.plus}${name} out`, icon: ICONS.new },
     );
   }
   entries.push(...stepEntries(NUDGE_STEPS, view.step), { action: { kind: "clear" }, text: dangerText("Clear selection") });
@@ -373,15 +381,16 @@ export function regionScreenEntries(view: RegionScreenView): { action: RegionScr
   return entries;
 }
 
-export type KillYScreenAction = { kind: "type" } | { kind: "height"; by: 1 | -1 } | { kind: "step"; step: number } | { kind: "remove" } | { kind: "save" } | { kind: "none" };
+export type KillYScreenAction = { kind: "type" } | { kind: "height"; by: 1 | -1 } | { kind: "step"; step: number } | { kind: "remove" } | { kind: "save" } | { kind: "back" } | { kind: "none" };
 
 /** The Kill Y tool's screen: the height (typed, or nudged), Step, Remove (red, once it's set), and Set kill Y, green, at the bottom. */
-export function killYScreenEntries(view: { y: number; set: boolean; step: number }): { action: KillYScreenAction; text: string }[] {
+export function killYScreenEntries(view: { y: number; set: boolean; step: number; back?: boolean }): { action: KillYScreenAction; text: string; icon?: string }[] {
   return [
+    ...(view.back ? [{ action: { kind: "back" } as const, text: BACK_TEXT, icon: ICONS.back }] : []),
     { action: { kind: "none" }, text: `${MARK.lead}${headingText(`Kill Y: ${view.y}`)}` },
     { action: { kind: "type" }, text: `${MARK.lead}Type a height\n§7from -64 to 319` },
-    { action: { kind: "height", by: -1 }, text: `${MARK.minus}Height: ${view.y}` },
-    { action: { kind: "height", by: 1 }, text: `${MARK.plus}Height up` },
+    { action: { kind: "height", by: -1 }, text: `${MARK.minus}Height: ${view.y}`, icon: ICONS.minus },
+    { action: { kind: "height", by: 1 }, text: `${MARK.plus}Height up`, icon: ICONS.new },
     ...stepEntries(NUDGE_STEPS, view.step),
     ...(view.set ? [{ action: { kind: "remove" } as const, text: dangerText("Remove kill Y") }] : []),
     { action: { kind: "save" }, text: saveBarText("Set kill Y") },
@@ -390,11 +399,12 @@ export function killYScreenEntries(view: { y: number; set: boolean; step: number
 
 export type CameraScreenAction = { kind: "kind"; camera: CameraKind } | { kind: "aim" } | { kind: "save" } | { kind: "none" };
 
-/** A new camera's screen: its kind (a toggle), Aim from my view, and Place camera, green, at the bottom. */
-export function cameraScreenEntries(view: { kind: CameraKind; at: string }): { action: CameraScreenAction; text: string }[] {
+/** A new camera's screen: its kind (a toggle of two wide tiles), where it is and looks, Aim from my view, and Place camera, green, at the bottom. */
+export function cameraScreenEntries(view: { kind: CameraKind; at: string; looks: string }): { action: CameraScreenAction; text: string }[] {
   return [
-    ...(["map", "game"] as const).map((kind, i) => ({ action: { kind: "kind", camera: kind } as const, text: segmentText(CAMERA_KINDS[kind].label, i, kind === view.kind) })),
+    ...(["map", "game"] as const).map((kind, i) => ({ action: { kind: "kind", camera: kind } as const, text: segmentText(CAMERA_KINDS[kind].label, i, kind === view.kind, false, true) })),
     { action: { kind: "none" }, text: `${MARK.lead}${headingText(view.at)}` },
+    { action: { kind: "none" }, text: `${MARK.lead}${headingText(view.looks)}` },
     { action: { kind: "aim" }, text: `${MARK.lead}Aim from my view\n§7move it to your eyes, looking your way` },
     { action: { kind: "save" }, text: saveBarText("Place camera") },
   ];
@@ -487,11 +497,6 @@ export function selectMenuEntries(view: SelectMenuView): MenuEntry[] {
   return entries;
 }
 
-/** The selection's form (the Select tool used at the sky): Back one step in the icon row, Help, then the selection's actions. */
-export function selectionFormEntries(selection: { box: Box; steps: number }): MenuEntry[] {
-  return [backEntry(selection.steps), HELP_ENTRY, ...selectionEntries(selection.box)];
-}
-
 /** The selection's size, then Export to Map (green), Nudge sides and Clear selection (red). */
 function selectionEntries(box: Box): MenuEntry[] {
   return [
@@ -519,10 +524,11 @@ export const PLAYERS_TEXT = `${MARK.quick}Players\n§7invite friends to Select a
 const PLAYERS_ENTRY: MenuEntry = { action: { kind: "players" }, text: PLAYERS_TEXT, icon: ICONS.players };
 
 /** Edit's gear: Players and Back to Lobby (right end) in the icon row, then the map's settings and the red ones. */
-export type GearAction = "settings" | "players" | "dropBuild" | "delete" | "lobby";
+export type GearAction = "settings" | "players" | "dropBuild" | "delete" | "lobby" | "back";
 
 export function gearEntries(view: { build: boolean }): { action: GearAction; text: string; icon?: string }[] {
   const entries: { action: GearAction; text: string; icon?: string }[] = [
+    { action: "back", text: BACK_TEXT, icon: ICONS.back },
     { action: "players", text: PLAYERS_TEXT, icon: ICONS.players },
     { action: "lobby", text: LOBBY_TEXT, icon: ICONS.lobby },
     { action: "settings", text: "Name and game settings" },
@@ -732,7 +738,10 @@ export function homeEntries(state: HomeState, filter?: RecentKind): HomeEntry[] 
   if (state.servers.select) open.push(["select", state.servers.select]);
   if (open.length > 0) {
     entries.push({ action: { kind: "none" }, text: headingText("Open now") });
-    for (const [kind, info] of open) entries.push({ action: { kind: "open", request: info.request }, text: `${MARK.card}${MARK.twoLine}${info.label}\n§7${serverLine(info)}`, icon: kindIcon(kind) });
+    for (const [kind, info] of open) {
+      const line = serverLine(info);
+      entries.push({ action: { kind: "open", request: info.request }, text: line ? `${MARK.card}${MARK.twoLine}${info.label}\n${line}` : `${MARK.card}${info.label}`, icon: kindIcon(kind) });
+    }
   }
   const openKeys = new Set(open.map(([, info]) => openKey(info.request)));
   const shown = RECENT_KINDS.find((candidate) => candidate.kind === filter);
@@ -751,10 +760,10 @@ function kindIcon(kind: RecentKind): string {
 }
 
 /** How an open server is doing, in a few words. */
-export function serverLine(info: ServerInfo): string {
+export function serverLine(info: ServerInfo): string | undefined {
   if (info.state === "starting") return "§eloading...";
   if (info.state === "stopping") return "§eclosing...";
-  return info.players.length === 0 ? "open, nobody on it" : `open: ${info.players.join(", ")}`;
+  return undefined;
 }
 
 /** Open a map: the lobby and each game, with how many maps each has. */

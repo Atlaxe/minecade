@@ -29,19 +29,20 @@ export class KillYTool {
   }
 
   /** The screen: the height (typed or nudged, the plane drawn there), Remove, and Set kill Y at the bottom. */
-  async screen(player: Player, start = this.host.map().killY ?? below(player)): Promise<void> {
+  async screen(player: Player, start = this.host.map().killY ?? below(player), back?: () => Promise<void>): Promise<void> {
     let y = start;
     let step: number = NUDGE_STEPS[0];
     try {
       for (;;) {
         showKillY(player, y);
         const set = this.host.map().killY !== undefined;
-        const entries = killYScreenEntries({ y, set, step });
+        const entries = killYScreenEntries({ y, set, step, back: back !== undefined });
         const form = new ActionFormData().title(sideTitle("Kill Y"));
-        for (const entry of entries) form.button(entry.text);
+        for (const entry of entries) form.button(entry.text, entry.icon);
         const response = await this.host.show(player, form);
         const action = response?.selection === undefined ? undefined : entries[response.selection]?.action;
         if (!action || !player.isValid) return;
+        if (action.kind === "back") return back?.();
         if (action.kind === "save") return this.set(player, y);
         if (action.kind === "remove") return this.remove(player);
         if (action.kind === "type") y = (await this.typeHeight(player, y)) ?? y;

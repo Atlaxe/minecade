@@ -7,7 +7,7 @@ import { ActionFormData, ModalFormData } from "@minecraft/server-ui";
 import { readServerVars, type GuestInfo } from "@minecade/minigame-core";
 import type { HostLink } from "./link.ts";
 import { dangerText, sideTitle } from "./marks.ts";
-import { PLAYERS_BODY, guestEntries, guestWhere } from "./menu.ts";
+import { BACK_TEXT, ICONS, PLAYERS_BODY, guestEntries, guestWhere } from "./menu.ts";
 
 let editors: Set<string> | undefined;
 
@@ -34,12 +34,15 @@ export class PlayersMenu {
     this.guests = guests;
   }
 
-  async open(player: Player): Promise<void> {
+  /** The Players menu; `back` (the back arrow) opens the menu it came from. */
+  async open(player: Player, back?: () => Promise<void>): Promise<void> {
     const entries = guestEntries(this.guests);
     const form = new ActionFormData().title(sideTitle("Players")).body(PLAYERS_BODY);
+    if (back) form.button(BACK_TEXT, ICONS.back);
     for (const entry of entries) form.button(entry.text);
     const response = await this.show(player, form);
-    const picked = response?.selection === undefined ? undefined : entries[response.selection];
+    if (back && response?.selection === 0 && player.isValid) return back();
+    const picked = response?.selection === undefined ? undefined : entries[response.selection - (back ? 1 : 0)];
     if (!picked || !player.isValid) return;
     if (picked.name === undefined) return this.invite(player);
     return this.remove(player, picked.name);

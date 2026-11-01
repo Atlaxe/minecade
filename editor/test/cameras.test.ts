@@ -32,12 +32,12 @@ describe("cameras", () => {
     expect(cameraAt({ x: 0, y: 64, z: 0 }, { x: -95, y: -180 }, "game")).toEqual({ at: [0, 64, 0, 180, -90], kind: "game" });
   });
 
-  it("puts each camera's marker a block below the lens, its line where it looks", () => {
+  it("puts each camera's head on its lens, its line where it looks", () => {
     expect(cameraMarkers(map)[0]).toEqual({
       key: "camera:Camera 2",
       camera: "Camera 2",
       label: "§dCamera 2\n§7Map preview",
-      at: { x: 3.25, y: 69.62, z: -14 },
+      at: { x: 3.25, y: 70.37, z: -14 },
       facing: { yaw: 0, pitch: 25 },
       kind: MARKER_KINDS.camera,
     });

@@ -114,12 +114,13 @@ in Edit.
 **In game,** map editors get the **Select tool** (slot 1, locked there) and the map menu (slot 9).
 Some worlds have command blocks that clear inventories: every 10 seconds, a map editor missing
 either gets it back, and **/reset** (`/minecade:reset`) brings both back at once, with creative
-mode (in Edit, the map menu):
+mode (in Edit, the map menu). **/zoom** zooms the view in like a spyglass, whatever you hold; again
+to zoom out (scripts can't see keys other than jump and sneak, so it can't be on a key):
 
 - **Hit a block** to start a box there. **Use the tool on blocks** (up to 64 away) to grow the box
-  to them. **Use it at the sky** for the selection's form: **Export to Map** (green), Nudge sides
-  and Clear selection (red), with Back one step in its icon row. The line above the hotbar says what
-  a hit and a use do, and the box's size.
+  to them; the block you aim at is outlined. The map menu has **Export to Map** (green), Nudge
+  sides and Clear selection (red). The line above the hotbar says what a hit and a use do, and the
+  box's size.
 - **Nudge sides:** a minus (in) and a plus (out) for each side; **Step** (1, 5 or 10 blocks) is a
   toggle above them. Each side says where it is from you (ahead, behind, left or right) and how far
   it moved, and the line above the hotbar says which way you face. The outline shows the moved box
@@ -139,7 +140,7 @@ mode (in Edit, the map menu):
 - **The map menu:** an icon row (**Back one step**, faded with nothing to step back; **Players**;
   and **Back to Lobby**, a house, at the right end), a **Help** link (how to box a map, in chat),
   your selection's actions, and the maps from this world. While any of Select's menus is open, the
-  outlines show.
+  outlines show. Using the tool at the sky does nothing: exporting is in the map menu.
   - **A ready map** is a card with its name. Tap it: **Edit** (green) or Cancel. Edit opens it on
     the Edit server, the loading screen shows (with the loading dots), and you're moved there once
     it's ready; Select keeps running. Every move between servers shows the loading screen, in Edit
@@ -252,18 +253,23 @@ first, then its settings and nudge rows (a minus and a plus each, **Step** cycli
 green button pinned at the bottom that saves it. Closing the screen keeps nothing. While you hold a
 tool, the line above the hotbar says what a use does.
 
+- **The aim cursor:** holding the Spawn tool, the Region tool or Select's tool, an entity shows
+  where a use lands, up to 64 blocks out: a glowing outline around the block for the box tools, a
+  see-through mannequin at the exact spot (turned the way it will face) for spawns. It's an entity,
+  so it follows the aim at once and hides behind blocks.
 - **Spawn tool:** aim at where an entry goes and use it, within 64 blocks. On top of a block, the
   spot is exactly where you aim (to a hundredth of a block, like an entity); at a block's side, just
-  in front of that spot, on the floor below it; at the sky, where you stand. Its screen: which list
+  in front of that spot, on the floor below it; at the sky, where you stand. **Sneak and use** it
+  for where you stand, facing the way you look. Its screen: which list
   (Spawn, Spectator, Queue, each team, each point), the position (tap it to type one, **Move here**,
   **Center on block**), the facing (**Take my facing**, **Clear facing**, **Snap**), the queue's
-  Lock in and Countdown for the queue spawn, and X, Y and Z nudge rows; the block it's in is
-  outlined while the screen is open. **Place** (green) adds it.
-- **Markers:** every entry shows as a marker with a name tag: its list, its number, and the way it
-  faces when that's saved. Markers are colored by kind: spawns orange, the spectator spawn gray, the
-  queue spawn aqua, team spawns green, points yellow, cameras magenta. An entry with a saved facing
-  also has a glowing red line, 2 blocks long, from the top of its marker toward the facing, tilted
-  up or down with the saved pitch. **Hit a marker** for the same screen as placing one, with
+  Lock in and Countdown for the queue spawn, and X, Y and Z nudge rows; the see-through mannequin
+  shows it while the screen is open. **Place** (green) adds it.
+- **Markers:** every entry shows as a player mannequin with a name tag: its list, its number, and
+  the way it faces when that's saved. Mannequins are colored by kind: spawns orange, the spectator
+  spawn gray, the queue spawn aqua, team spawns green, points yellow; a camera is a camera head. Each
+  has a glowing red line, 2 blocks long, from eye height the way it faces (the saved facing, tilted
+  with its pitch, or toward the middle of the map), and the whole mannequin turns that way. **Hit a marker** for the same screen as placing one, with
   **Renumber** and **Delete** (red); **Save** (green) writes the changes, including moving it to
   another list.
 - **Queue spawn:** where players wait for everyone to join, before the game puts them at their

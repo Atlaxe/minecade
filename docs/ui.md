@@ -378,6 +378,12 @@ The rules every editor menu follows (the user's, from 2026-10-31):
 - **Loading:** whoever waits for another server sees the loading screen (the dots) until they're
   moved, wherever they are: the host tells the server (`loading`, `loaded`).
 - **A side menu open shows the outlines** (Select), as holding the tool does.
+- **Text sits in the middle of its button** (lifted a pixel: the face's dark bottom edge makes the
+  middle look lower). Headings wrap rather than overlap.
+- **Locked items** (the map menu, Select's tool) show no red corner and no "Can't move item": the
+  editor's resource pack blanks `textures/ui/item_lock_red` and hides `common.item_lock_notification`.
+- **Every sub-menu** (the gear, the checklist, Boundaries, a tool screen opened from the map menu, a
+  camera's or a box's menu, Players) has the back arrow.
 - The step that finishes something is green; deleting or removing is red.
 
 ## How the hologram looks the way it does
