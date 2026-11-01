@@ -1,22 +1,35 @@
-// Select mode in game: map editors box maps in a copy of a converted world. The Select tool picks a
-// box the way the region tool does (hit a block to start, use on blocks to grow, use at the sky for
-// its form), and Save as map sends it to the host (tools/editor/select-session.ts), which cuts it
-// out and moves it to the middle in the background. The maps from this world and how each is going
-// arrive as "selection" messages; the map menu lists them, and a ready one can be edited (it opens
-// on the Edit server, and the host moves the player there). Nothing here changes the world: the
-// host never saves it.
-import { EntityComponentTypes, GameMode, ItemLockMode, ItemStack, world, type Block, type Container, type Player } from "@minecraft/server";
+// Select mode in game: map editors box maps in a copy of a converted world. The Select tool (always
+// in slot 1) picks a box the way the region tool does (hit a block to start, use on blocks to grow,
+// use at the sky for its form), and Export to Map sends it to the host
+// (tools/editor/select-session.ts), which cuts it out and moves it to the middle in the background.
+// The maps from this world and how each is going arrive as "selection" messages; the map menu
+// lists them, and a ready one can be edited (it opens on the Edit server, and the host moves the
+// player there while the menu says it's loading). The world can't be changed here: blocks can't
+// be broken or placed, and the host never saves it. Maps are changed and deleted in Edit.
+import { EntityComponentTypes, GameMode, ItemLockMode, ItemStack, system, world, type Block, type Container, type Player } from "@minecraft/server";
 import { ActionFormData, ModalFormData } from "@minecraft/server-ui";
 import { describeError, log, showForm, type Scope, type SelectInfo, type SelectionInfo } from "@minecade/minigame-core";
 import type { HostMessage } from "@minecade/minigame-core/config";
-import { blockInView, change, keyOf, nudgeForm, xyz, type Picking } from "./box-picker.ts";
+import { blockInView, change, keyOf, nudgeMenu, nudgePreview, xyz, type Picking } from "./box-picker.ts";
 import { blockBox, describeBox, growBox, sameBox, sizeText } from "./boxes.ts";
 import { goto } from "./goto.ts";
 import { keepModeLine, modeLine } from "./hud.ts";
 import { HostLink } from "./link.ts";
-import { blockPosition } from "./lists.ts";
-import { dangerText, mapTitle, sideTitle } from "./marks.ts";
-import { mapActions, mapIdFrom, selectMenuBody, selectMenuEntries, statusLine, type MapAction, type MenuAction, type PickAction } from "./menu.ts";
+import { headingText, iconsTitle, loadingTitle, sideTitle } from "./marks.ts";
+import {
+  editBody,
+  exportEntries,
+  mapActions,
+  mapIdFrom,
+  selectMenuEntries,
+  selectionFormEntries,
+  statusLine,
+  type ExportDraft,
+  type MapAction,
+  type MenuAction,
+  type MenuEntry,
+  type PickAction,
+} from "./menu.ts";
 import { Outlines } from "./outlines.ts";
 import { PlayersMenu, isMapEditor } from "./players.ts";
 import { BOUNDS_COLOR, KILL_COLOR, type Rgb } from "./regions.ts";
@@ -27,13 +40,17 @@ const MAP_MENU = "minecade:map_menu";
 const ITEMS = new Set([MAP_MENU, SELECT_TOOL.item]);
 /** The map menu's hotbar slot (0-based): the last one, slot 9 on screen. */
 const MENU_SLOT = 8;
-/** The Select tool's: slot 1 on screen, never locked. */
+/** The Select tool's: slot 1 on screen, locked there (Select mode has no other tool). */
 const TOOL_SLOT = 0;
 const PREFIX = "§b[Editor]§r ";
 /** How often the held tool's hint is put back on the action bar (it fades otherwise). */
 const HINT_TICKS = 10;
 /** A ready map's outline. Queued and running ones are white, failed ones red. */
 const READY_COLOR: Rgb = { red: 0x55 / 255, green: 1, blue: 0x55 / 255 };
+/** The loading menu opens again this soon after it closes, while the map is still loading. */
+const REOPEN_TICKS = 5;
+/** How long the loading menu waits for the move before giving up (the host says when it fails). */
+const LOADING_TICKS = 20 * 120;
 
 export class Selector {
   private readonly scope: Scope;
@@ -42,8 +59,10 @@ export class Selector {
   private readonly players: PlayersMenu;
   private readonly selections = new Map<string, Picking>();
   private readonly formOpen = new Set<string>();
-  /** The target each player last saved a map for. */
-  private readonly lastTarget = new Map<string, string>();
+  /** Export to Map as each player left it: the name, the map id, and the target (kept after an export). */
+  private readonly drafts = new Map<string, ExportDraft>();
+  /** What each player is waiting to load in Edit, until they're moved (or it fails). */
+  private readonly loading = new Map<string, { label: string; until: number }>();
   private maps: SelectionInfo[];
 
   constructor(scope: Scope, info: SelectInfo) {
@@ -76,7 +95,8 @@ export class Selector {
       const key = playerName.toLowerCase();
       this.selections.delete(key);
       this.formOpen.delete(key);
-      this.lastTarget.delete(key);
+      this.drafts.delete(key);
+      this.loading.delete(key);
     });
     scope.subscribe(world.afterEvents.itemUse, ({ source, itemStack }) => {
       if (!ITEMS.has(itemStack.typeId) || !isMapEditor(source)) return;
@@ -88,9 +108,13 @@ export class Selector {
       const player = damagingEntity as Player;
       if (heldTool(player) === "select" && isMapEditor(player)) this.begin(player, hitBlock);
     });
-    // The Select tool never breaks the block it hits, which creative mode would.
+    // The world can't be changed here: maps are changed in Edit. No block breaks (a hit with the
+    // Select tool starts a box instead), and nothing is placed or used on blocks but the tools.
     scope.subscribeBefore(world.beforeEvents.playerBreakBlock, (event) => {
-      if (event.itemStack && ITEMS.has(event.itemStack.typeId)) event.cancel = true;
+      event.cancel = true;
+    });
+    scope.subscribeBefore(world.beforeEvents.playerInteractWithBlock, (event) => {
+      if (!event.itemStack || !ITEMS.has(event.itemStack.typeId)) event.cancel = true;
     });
     scope.interval(() => this.hints(), HINT_TICKS);
     keepModeLine(scope, () => modeLine("select", this.info.world));
@@ -108,7 +132,12 @@ export class Selector {
         this.maps = this.maps.filter((map) => !(map.target === message.target && map.map === message.map));
         return;
       case "say":
-        for (const player of world.getAllPlayers()) if (!message.to || player.name === message.to) tell(player, message.text);
+        for (const player of world.getAllPlayers()) {
+          if (message.to && player.name !== message.to) continue;
+          tell(player, message.text);
+          // The host says what went wrong with an open: stop waiting for it.
+          if (message.to && message.text.startsWith("§c")) this.loading.delete(keyOf(player));
+        }
         return;
       case "notice":
         for (const player of world.getAllPlayers()) notice(this.scope, player, message.text);
@@ -130,8 +159,8 @@ export class Selector {
     if (!player.isValid) return;
     player.setGameMode(GameMode.Creative);
     if (!isMapEditor(player)) {
-      // A guest: look around and build (Select's world is a copy, never saved), with no tools.
-      tell(player, `Welcome to "${this.info.world}" in the map editor's Select mode. Fly around and build as you like: this is a copy, and nothing here is kept.`);
+      // A guest: look around, with no tools.
+      tell(player, `Welcome to "${this.info.world}" in the map editor's Select mode. Fly around and look: this is a copy, and it can't be changed here.`);
       return;
     }
     const inventory = inventoryOf(player);
@@ -143,11 +172,13 @@ export class Selector {
     tell(player, `Select mode on "${this.info.world}". ${SELECT_TOOL.howTo} The map menu in slot 9 lists the maps from this world.`);
   }
 
+  /** The Select tool, locked in slot 1. */
   private giveTool(player: Player): void {
     const inventory = inventoryOf(player);
     if (!inventory || holds(inventory, SELECT_TOOL.item)) return;
     const old = inventory.getItem(TOOL_SLOT);
     const tool = new ItemStack(SELECT_TOOL.item, 1);
+    tool.lockMode = ItemLockMode.slot;
     tool.keepOnDeath = true;
     inventory.setItem(TOOL_SLOT, tool);
     if (old) inventory.addItem(old);
@@ -156,12 +187,13 @@ export class Selector {
 
   private hints(): void {
     for (const player of world.getAllPlayers()) {
-      if (heldTool(player) !== "select") continue;
+      // Nudge sides puts the way the player faces there instead.
+      if (heldTool(player) !== "select" || nudgePreview(player)) continue;
       const selection = this.selections.get(keyOf(player));
       hintBar(
         player,
         selection
-          ? `Selection ${sizeText(selection.box)}   Use on a block: grow   Use at the sky: save as a map   Hit: new box`
+          ? `Selection ${sizeText(selection.box)}   Use on a block: grow   Use at the sky: export   Hit: new box`
           : "Select tool: hit a block to start a box around a map",
       );
     }
@@ -209,17 +241,18 @@ export class Selector {
     actionBar(player, `Selection: ${describeBox(box)}`);
   }
 
+  /** The selection's form: Back one step in its icon row, then Export to Map, Nudge sides and Clear. */
   private async selectionForm(player: Player): Promise<void> {
     const selection = this.selections.get(keyOf(player));
     if (!selection) return;
-    const entries = selectMenuEntries({ world: this.info.world, toolOut: true, selection: { box: selection.box, steps: selection.history.length }, maps: [] }).filter(
-      (entry): entry is { action: Extract<MenuAction, { kind: "pick" }>; text: string } => entry.action.kind === "pick",
-    );
-    const form = new ActionFormData().title(sideTitle("Selection")).body(describeBox(selection.box));
-    for (const { text } of entries) form.button(text);
+    const entries = selectionFormEntries({ box: selection.box, steps: selection.history.length });
+    const form = new ActionFormData().title(iconsTitle("Selection"));
+    for (const entry of entries) form.button(entry.text, entry.icon);
     const response = await this.show(player, form);
-    const entry = response?.selection === undefined ? undefined : entries[response.selection];
-    if (entry && player.isValid) await this.pick(player, entry.action.action);
+    const action = response?.selection === undefined ? undefined : entries[response.selection]?.action;
+    if (!action || !player.isValid) return;
+    if (action.kind === "pick") await this.pick(player, action.action);
+    else if (action.kind === "none") await this.selectionForm(player);
   }
 
   private async pick(player: Player, action: PickAction): Promise<void> {
@@ -230,9 +263,9 @@ export class Selector {
     }
     switch (action) {
       case "saveMap":
-        return this.saveMapForm(player, selection);
+        return this.exportMenu(player, selection);
       case "nudge": {
-        const box = await nudgeForm({ show: (who, form) => this.show(who, form), tell }, player, selection.box, "Nudge the selection");
+        const box = await nudgeMenu({ show: (who, form) => this.show(who, form), tell }, player, selection.box, "Nudge sides");
         if (!box || sameBox(box, selection.box) || this.selections.get(keyOf(player)) !== selection) return;
         change(selection, box);
         actionBar(player, `Selection: ${describeBox(box)}`);
@@ -241,7 +274,7 @@ export class Selector {
       case "back": {
         const box = selection.history.pop();
         if (box) selection.box = box;
-        actionBar(player, `Selection: ${describeBox(selection.box)}`);
+        actionBar(player, box ? `Selection: ${describeBox(selection.box)}` : "Nothing to step back");
         return;
       }
       case "clear":
@@ -251,62 +284,82 @@ export class Selector {
     }
   }
 
-  /** Save as map: the target, the name and the map id. The first spawn is where the player stands. */
-  private async saveMapForm(player: Player, selection: Picking): Promise<void> {
-    const spawn = blockPosition(player.location);
-    const box = selection.box;
-    if (!spawn.every((value, axis) => value >= box.min[axis] && value <= box.max[axis])) {
-      tell(player, "§cStand inside the box when you save it: where you stand becomes the map's first spawn.");
-      return;
-    }
+  // ---- Export to Map ------------------------------------------------------------------------
+
+  /** Export to Map: Name, Map id, what it's for, then Export (green). Each pick reopens it. */
+  private async exportMenu(player: Player, selection: Picking): Promise<void> {
+    const key = keyOf(player);
     const targets = this.info.targets;
-    const last = this.lastTarget.get(keyOf(player));
-    const form = new ModalFormData()
-      .title("Save as map")
-      .dropdown("For", targets.map((target) => target.name), { defaultValueIndex: Math.max(0, targets.findIndex((target) => target.id === last)) })
-      .textField("Name", "Castle", { defaultValue: "" })
-      .textField("Map id (empty: from the name)", "castle", { defaultValue: "" })
-      .submitButton("Save as map");
+    const draft = this.drafts.get(key) ?? { name: "", target: targets[0]?.id ?? "lobby" };
+    this.drafts.set(key, draft);
+    const entries = exportEntries(draft, targets);
+    const form = new ActionFormData().title(sideTitle("Export to Map")).body(`${sizeText(selection.box)} blocks`);
+    for (const entry of entries) form.button(entry.text);
     const response = await this.show(player, form);
-    if (!response?.formValues || !player.isValid || this.selections.get(keyOf(player)) !== selection) return;
-    const target = targets[response.formValues[0] as number];
-    const name = String(response.formValues[1] ?? "").trim();
-    const map = String(response.formValues[2] ?? "").trim() || mapIdFrom(name);
-    if (!target) return;
-    this.lastTarget.set(keyOf(player), target.id);
-    if (!name) {
+    const action = response?.selection === undefined ? undefined : entries[response.selection]?.action;
+    if (!action || !player.isValid || this.selections.get(key) !== selection) return;
+    switch (action.kind) {
+      case "name": {
+        const name = await this.typed(player, "Name", "Castle", draft.name);
+        if (name !== undefined) draft.name = name;
+        break;
+      }
+      case "id": {
+        const id = await this.typed(player, "Map id (empty: from the name)", mapIdFrom(draft.name) || "castle", draft.map ?? "");
+        if (id !== undefined) draft.map = id || undefined;
+        break;
+      }
+      case "target":
+        draft.target = action.target;
+        break;
+      case "export":
+        if (this.export(player, selection, draft)) return;
+        break;
+    }
+    return this.exportMenu(player, selection);
+  }
+
+  /** A small text box for one field; the text typed (trimmed), or undefined when closed. */
+  private async typed(player: Player, label: string, placeholder: string, value: string): Promise<string | undefined> {
+    const form = new ModalFormData().title(label).textField(label, placeholder, { defaultValue: value }).submitButton("Done");
+    const response = await this.show(player, form);
+    return response?.formValues ? String(response.formValues[0] ?? "").trim() : undefined;
+  }
+
+  /** Sends the export to the host; false (and why) when it can't go yet. */
+  private export(player: Player, selection: Picking, draft: ExportDraft): boolean {
+    const target = this.info.targets.find((candidate) => candidate.id === draft.target);
+    const map = draft.map ?? mapIdFrom(draft.name);
+    if (!target) return false;
+    if (!draft.name) {
       tell(player, "§cThe map needs a name.");
-      return;
+      return false;
     }
     if (!/^[a-z0-9][a-z0-9_-]{0,47}$/.test(map)) {
       tell(player, `§c"${map}" is not a map id: use lower case letters, digits, _ and -.`);
-      return;
+      return false;
     }
     if (target.maps.includes(map) || this.maps.some((candidate) => candidate.target === target.id && candidate.map === map)) {
       tell(player, `§c${target.name} has a map "${map}" already: pick another id.`);
-      return;
+      return false;
     }
-    this.link.send({ t: "saveMap", by: player.name, box, target: target.id, map, name, spawn });
+    this.link.send({ t: "saveMap", by: player.name, box: selection.box, target: target.id, map, name: draft.name });
     this.selections.delete(keyOf(player));
-    tell(player, `${name} (${map}) for ${target.name}: ${sizeText(box)} blocks, sent to be cut out.`);
+    // The next export starts empty, for the same target.
+    this.drafts.set(keyOf(player), { name: "", target: target.id });
+    tell(player, `${draft.name} (${map}) for ${target.name}: ${sizeText(selection.box)} blocks, exporting.`);
+    return true;
   }
 
   // ---- The map menu -------------------------------------------------------------------------
 
   private async menu(player: Player): Promise<void> {
-    const inventory = inventoryOf(player);
-    const toolOut = inventory !== undefined && holds(inventory, SELECT_TOOL.item);
     const selection = this.selections.get(keyOf(player));
-    const entries = selectMenuEntries({
-      world: this.info.world,
-      toolOut,
-      selection: selection && { box: selection.box, steps: selection.history.length },
-      maps: this.maps,
-    });
-    const form = new ActionFormData().title(mapTitle("Map menu")).body(selectMenuBody(this.info.world, toolOut));
+    const entries = selectMenuEntries({ selection: selection && { box: selection.box, steps: selection.history.length }, maps: this.maps });
+    const form = new ActionFormData().title(iconsTitle("Map menu"));
     for (const entry of entries) form.button(entry.text, entry.icon);
     const response = await this.show(player, form);
-    const entry = response?.selection === undefined ? undefined : entries[response.selection];
+    const entry: MenuEntry | undefined = response?.selection === undefined ? undefined : entries[response.selection];
     if (!entry || !player.isValid) return;
     try {
       await this.menuAction(player, entry.action);
@@ -317,21 +370,13 @@ export class Selector {
 
   private async menuAction(player: Player, action: MenuAction): Promise<void> {
     switch (action.kind) {
-      case "tool": {
-        const inventory = inventoryOf(player);
-        if (inventory && holds(inventory, SELECT_TOOL.item)) {
-          removeItems(inventory, new Set([SELECT_TOOL.item]));
-          actionBar(player, `${SELECT_TOOL.label} put away`);
-        } else {
-          this.giveTool(player);
-          actionBar(player, `${SELECT_TOOL.label} in slot 1`);
-        }
-        return this.menu(player);
-      }
       case "none":
         return this.menu(player);
       case "pick":
-        return this.pick(player, action.action);
+        await this.pick(player, action.action);
+        // Back one step is an icon: the menu stays open.
+        if (action.action === "back") return this.menu(player);
+        return;
       case "map":
         return this.mapMenu(player, action.target, action.map);
       case "lobby":
@@ -344,13 +389,18 @@ export class Selector {
     }
   }
 
-  /** A map from this world: edit it, update it, try again or forget it, by its status. */
+  /** A map from this world: edit it (after asking), or try a failed export again. */
   private async mapMenu(player: Player, target: string, id: string): Promise<void> {
     const map = this.maps.find((candidate) => candidate.target === target && candidate.map === id);
     if (!map) return;
     const actions = mapActions(map);
-    const body = `${map.name} (${map.map}) for ${map.targetName}: ${statusLine(map)}§r${map.error ? `\n§c${map.error}` : ""}\n§7${sizeText(map.box)} blocks, from ${map.box.min.join(" ")}.`;
-    const form = new ActionFormData().title(sideTitle(map.name)).body(body);
+    if (actions.length === 0) {
+      tell(player, `${map.name} (${map.map}) is ${statusLine(map)}§r: it can be edited once it's ready.`);
+      return this.menu(player);
+    }
+    const ready = map.status === "ready";
+    const body = ready ? editBody(map) : `${map.name} (${map.map}) for ${map.targetName}: ${statusLine(map)}§r${map.error ? `\n§c${map.error}` : ""}`;
+    const form = new ActionFormData().title(sideTitle(ready ? `Edit ${map.name}?` : map.name)).body(body);
     for (const { text } of actions) form.button(text);
     const response = await this.show(player, form);
     const action = response?.selection === undefined ? undefined : actions[response.selection]?.action;
@@ -359,20 +409,30 @@ export class Selector {
   }
 
   private async mapAction(player: Player, map: SelectionInfo, action: MapAction): Promise<void> {
+    if (action === "cancel") return this.menu(player);
     if (action === "edit") {
       this.link.send({ t: "open", by: player.name, request: { to: "edit", target: map.target, map: map.map } });
+      await this.waitToLoad(player, `${map.targetName}: ${map.name} (${map.map})`);
       return;
     }
-    if (action === "update") {
-      const form = new ActionFormData()
-        .title(sideTitle(`Update ${map.name}`))
-        .body(`This cuts ${map.map} out of this world again and replaces its blocks. Spawns, regions and the rest of map.json stay. Block changes made in Edit mode are lost.`)
-        .button(dangerText("Update it"))
-        .button("Cancel");
-      const response = await this.show(player, form);
-      if (response?.selection !== 0 || !player.isValid) return;
-    }
     this.link.send({ t: "mapAction", by: player.name, action, target: map.target, map: map.map });
+  }
+
+  /** The loading menu, as in the editor lobby: open (and opened again) until the player is moved, or the host says it failed. */
+  private async waitToLoad(player: Player, label: string): Promise<void> {
+    const key = keyOf(player);
+    this.loading.set(key, { label, until: system.currentTick + LOADING_TICKS });
+    while (player.isValid) {
+      const waiting = this.loading.get(key);
+      if (!waiting || system.currentTick > waiting.until) break;
+      const form = new ActionFormData()
+        .title(loadingTitle("Loading"))
+        .body(`Loading ${waiting.label}...\n\nYou'll be moved there as soon as it's ready: that takes about 20 seconds.`)
+        .button(headingText("Please wait"));
+      await this.show(player, form);
+      await this.scope.wait(REOPEN_TICKS);
+    }
+    this.loading.delete(key);
   }
 }
 
@@ -393,11 +453,4 @@ function inventoryOf(player: Player): Container | undefined {
 function holds(inventory: Container, typeId: string): boolean {
   for (let slot = 0; slot < inventory.size; slot++) if (inventory.getItem(slot)?.typeId === typeId) return true;
   return false;
-}
-
-function removeItems(inventory: Container, typeIds: Set<string>): void {
-  for (let slot = 0; slot < inventory.size; slot++) {
-    const item = inventory.getItem(slot);
-    if (item && typeIds.has(item.typeId)) inventory.setItem(slot, undefined);
-  }
 }

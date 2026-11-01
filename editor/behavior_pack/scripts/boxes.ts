@@ -19,6 +19,24 @@ export interface Sides {
   south: number;
 }
 
+/** A compass direction a player faces, or a box's side faces. */
+export type Cardinal = "north" | "east" | "south" | "west";
+
+/** Clockwise from north: the next one is to the right. */
+const CLOCKWISE: Cardinal[] = ["north", "east", "south", "west"];
+
+/** The direction a player faces, from their yaw (0 is south, 90 west, 180 north, -90 east). */
+export function facingOf(yaw: number): Cardinal {
+  const turned = (((Math.round(yaw / 90) % 4) + 4) % 4) as 0 | 1 | 2 | 3;
+  return (["south", "west", "north", "east"] as const)[turned];
+}
+
+/** Where a side is from a player facing `facing`. */
+export function relativeSide(facing: Cardinal, side: Cardinal): "ahead" | "right" | "behind" | "left" {
+  const turn = (CLOCKWISE.indexOf(side) - CLOCKWISE.indexOf(facing) + 4) % 4;
+  return (["ahead", "right", "behind", "left"] as const)[turn];
+}
+
 /** Bedrock's overworld heights, the range kill Y can take. */
 export const MIN_HEIGHT = -64;
 export const MAX_HEIGHT = 319;

@@ -8,8 +8,10 @@ export const LAYOUT = {
   side: "§s§i§d§e",
   /** The map menu: the quick icons, the tool grid, the tool's settings (scrolling) and Save. */
   map: "§m§a§p",
-  /** The editor lobby's menu: a row of icons (Open a map, New map, the Recent filters, Leave), then the list scrolling. */
+  /** The editor lobby's menu: a row of icons (Open a map, New map, Players, the Recent filters, Leave), then the list scrolling. */
   home: "§h§o§m§e",
+  /** A row of icons (with their tooltips), the list scrolling, and a button pinned at the bottom (Back to Lobby). */
+  icons: "§i§c§o§n",
 } as const;
 
 /** Added to a side layout's title: five dots after it light up one at a time, while something loads. */
@@ -43,6 +45,14 @@ export const MARK = {
   end: "§q§e§r",
   /** A full-width button with its icon on the left and its text beside it (the editor lobby's Open now and Recent). */
   card: "§i§c§r",
+  /** Green, with white text: the step that finishes something (Export to Map, Nudge, Edit). */
+  go: "§g§o§r",
+  /** Pinned under the scrolling list, so it's always at the bottom (Back to Lobby). */
+  bottom: "§b§t§r",
+  /** A nudge row: the minus button with the side's name and how far it moved beside it. */
+  minus: "§s§m§r",
+  /** A nudge row's plus button, on the right. */
+  plus: "§s§p§r",
 } as const;
 
 /** The tool grid's columns, left to right: tool n goes in column n % COLUMNS.length. */
@@ -61,6 +71,16 @@ export function mapTitle(title: string): string {
 /** A title that gets the editor lobby's layout. */
 export function homeTitle(title: string): string {
   return `${LAYOUT.home}§r${title}`;
+}
+
+/** A title that gets the icon row layout. */
+export function iconsTitle(title: string): string {
+  return `${LAYOUT.icons}§r${title}`;
+}
+
+/** A green button's text. */
+export function goText(text: string): string {
+  return `${MARK.go}${text}`;
 }
 
 /** A side layout's title with the loading dots after it. */

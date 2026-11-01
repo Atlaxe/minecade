@@ -30,8 +30,8 @@
     ]
   },
 
-  // The vanilla action form hides itself for marked titles (the side mark, the map menu's or the
-  // editor lobby's). Like every control a binding shows, it starts hidden, so a new form's first
+  // The vanilla action form hides itself for marked titles (the side mark, the map menu's, the icon
+  // row layout's or the editor lobby's). Like every control a binding shows, it starts hidden, so a new form's first
   // frame (before the bindings) has nothing stale to click.
   "long_form": {
     "visible": false,
@@ -43,7 +43,7 @@
           { "binding_name": "#title_text" },
           {
             "binding_type": "view",
-            "source_property_name": "(((#title_text - '§s§i§d§e') = #title_text) and ((#title_text - '§m§a§p') = #title_text) and ((#title_text - '§h§o§m§e') = #title_text))",
+            "source_property_name": "(((#title_text - '§s§i§d§e') = #title_text) and ((#title_text - '§m§a§p') = #title_text) and ((#title_text - '§h§o§m§e') = #title_text) and ((#title_text - '§i§c§o§n') = #title_text))",
             "target_property_name": "#visible"
           }
         ]

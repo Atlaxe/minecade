@@ -8,7 +8,7 @@
 // soon as it's ready. Extractions (selections.ts) run in the background and outlive the servers.
 import { existsSync } from "node:fs";
 import { readFile } from "node:fs/promises";
-import { join } from "node:path";
+import { join, relative } from "node:path";
 import {
   mapChecklist,
   openKey,
@@ -22,18 +22,18 @@ import {
 } from "@minecade/minigame-core/config";
 import { connectDocker } from "../build/docker-util.ts";
 import { readEnv } from "../control-panel/core.ts";
-import { buildCatalog, mapLabel, noteRecent, requestedWorld, worldId } from "./catalog.ts";
+import { buildCatalog, forgetRecent, mapLabel, noteRecent, requestedWorld, worldId } from "./catalog.ts";
 import { SLOTS, editorPlayers, isMapId, planOpen, portHolders, type EditorStatus, type Slot, type SlotId } from "./editor-core.ts";
 import { addGuest, readGuests, removeGuest, writeGuests } from "./guests.ts";
 import { HomeSession } from "./home-session.ts";
 import { PreviewSession } from "./preview-session.ts";
 import type { PreviewMap } from "./preview-template.ts";
-import type { Git } from "./publish.ts";
+import { deleteMapFolder, deleteMessage, gitIn, type Git } from "./publish.ts";
 import { SelectSession } from "./select-session.ts";
 import { Selections } from "./selections.ts";
 import { delay, message, type ServerSession } from "./server-session.ts";
 import { EditorSession } from "./session.ts";
-import { loadTarget } from "./targets.ts";
+import { loadTarget, targetDir } from "./targets.ts";
 import { clientWorlds } from "./worlds.ts";
 
 const LOG_KEPT = 300;
@@ -380,7 +380,10 @@ export class EditorRunner {
     this.opened.set(slot, { request: launch.request, label: launch.label });
     session.onOpen = (request, who) => void this.request(who, request);
     session.onInvite = (name, on, who) => void this.invite(who, name, on);
-    if (session instanceof EditorSession) session.onPreview = (who) => void this.preview(who);
+    if (session instanceof EditorSession) {
+      session.onPreview = (who) => void this.preview(who);
+      session.onDelete = (who) => this.deleteMap(who, session);
+    }
     session.onPlayer = (name, kind) => this.joined(session, name, kind);
     session.onEnd = (ok) => {
       if (this.work[slot] !== session) return;
@@ -405,6 +408,52 @@ export class EditorRunner {
     await noteRecent(this.root, { request: launch.request, label: launch.label }).catch((error: unknown) => this.log(`Could not note it as recent: ${message(error)}`));
     this.homeChanged();
     await this.deliver(slot);
+  }
+
+  // ---- Deleting ---------------------------------------------------------------------------------
+
+  /**
+   * Deletes the map open in Edit (its gear's Delete map): everyone there waits in the editor lobby,
+   * Edit stops without saving, the map's folder goes (its removal committed and pushed when it was
+   * published), and it leaves its world's list in Select and Recent.
+   */
+  private deleteMap(by: string, edit: EditorSession): void {
+    if (this.isGuest(by) || this.work.edit !== edit) return;
+    if (this.previewing || this.previewAsked) {
+      void this.tell(by, "§cEnd the preview first: it may be playing this map.");
+      return;
+    }
+    const { target, targetName, map, mapName } = edit.status();
+    const label = mapLabel(targetName, mapName, map);
+    this.log(`${by}: delete ${label}`);
+    this.queues.edit = this.queues.edit
+      .then(async () => {
+        if (this.work.edit !== edit) return;
+        const players = edit.online();
+        await edit.say(`${by} is deleting ${label}: everyone here goes to the editor lobby.`);
+        if (players.length > 0) {
+          await edit.goto(players, this.slots.home.port, "the editor lobby");
+          await delay(LEAVE_MS);
+        }
+        this.setWork("edit", undefined);
+        this.opened.delete("edit");
+        this.homeChanged();
+        await edit.forceStop();
+        const path = relative(this.root, join(targetDir(this.root, target), "maps", map)).replaceAll("\\", "/");
+        const result = await deleteMapFolder(this.git ?? gitIn(this.root), this.root, path, deleteMessage(targetName, mapName, new Date()));
+        await this.selections.removeMap(target, map);
+        await forgetRecent(this.root, (entry) => entry.request.to !== "select" && entry.request.target === target && entry.request.map === map);
+        this.homeChanged();
+        let text = `Deleted ${label}.`;
+        if (result.published && result.outcome === "pushed") text += ` Its removal is pushed${result.commit ? ` (${result.commit})` : ""}: it leaves the lobby at the network's next start.`;
+        else if (result.published && result.outcome === "failed") text += ` §cIts removal wasn't pushed: ${result.error}.`;
+        this.log(text.replace(/§./g, ""));
+        void this.tell(by, text);
+      })
+      .catch((error: unknown) => {
+        this.log(`Deleting ${label} went wrong: ${message(error)}`);
+        void this.tell(by, `§cDeleting ${label} went wrong: ${message(error)}`);
+      });
   }
 
   // ---- Preview --------------------------------------------------------------------------------

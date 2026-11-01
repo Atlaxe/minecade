@@ -2,8 +2,9 @@
 // middle. On "extract", it captures the box in 64x64 columns (structures can't be bigger), clears
 // every chunk the box touches (whatever spills in from neighboring builds goes too), places the
 // columns at the offset twice (a block attached to a column not placed yet pops off the first
-// time; entities only once), removes dropped items, and answers "extracted". The host saves by
-// stopping the server. Proved on the user's world in the spike (docs/spike-results.md, "Map editor").
+// time; entities only once), removes dropped items, measures the highest block (the map's
+// spectator spawn goes above it), and answers "extracted". The host saves by stopping the server.
+// Proved on the user's world in the spike (docs/spike-results.md, "Map editor").
 //
 // Chunks are loaded with script ticking areas, a whole phase at once (the source, then the
 // destination) when that fits the ticking limit, otherwise one 64x64 region at a time. After
@@ -24,6 +25,8 @@ const MAX_Y = 319;
 const LOAD_TICKS = 1200;
 /** The wait after removing ticking areas, for their chunks to finish unloading. */
 const SETTLE_TICKS = 40;
+/** At most this many columns are looked at for the highest block (a big box looks at every few). */
+const TOP_COLUMNS = 20_000;
 
 /** An area of blocks, both corners inside. */
 interface Region {
@@ -70,7 +73,7 @@ export class Extractor {
     }
   }
 
-  private async move(box: Box, offset: Vec3): Promise<{ tiles: number; drops: number }> {
+  private async move(box: Box, offset: Vec3): Promise<{ tiles: number; drops: number; top?: number }> {
     const manager = world.structureManager;
     const tiles: Tile[] = [];
     for (let x = box.min[0]; x <= box.max[0]; x += TILE) {
@@ -120,17 +123,32 @@ export class Extractor {
         drops++;
       }
     };
+    // The highest block in the moved box: every column, or every few in a big box.
+    let top: number | undefined;
+    const columns = (box.max[0] - box.min[0] + 1) * (box.max[2] - box.min[2] + 1);
+    const stride = Math.max(1, Math.ceil(Math.sqrt(columns / TOP_COLUMNS)));
+    const measure = (tile: Tile) => {
+      const { from, to } = moved(tile);
+      for (let x = from.x; x <= to.x; x += stride) {
+        for (let z = from.z; z <= to.z; z += stride) {
+          const y = this.dimension.getTopmostBlock({ x, z })?.location.y;
+          if (y !== undefined && y >= from.y && (top === undefined || y > top)) top = Math.min(y, to.y);
+        }
+      }
+    };
     const destination = tiles.map(moved);
     if (!(await this.whole(destination, () => {
       for (const pass of [0, 1]) for (const tile of tiles) place(tile, pass);
       for (const tile of tiles) removeDrops(tile);
+      for (const tile of tiles) measure(tile);
     }))) {
       for (const pass of [0, 1]) for (const tile of tiles) await this.inRegion(moved(tile), () => place(tile, pass));
       for (const tile of tiles) await this.inRegion(moved(tile), () => removeDrops(tile));
+      for (const tile of tiles) await this.inRegion(moved(tile), () => measure(tile));
     }
     for (const tile of tiles) manager.delete(tile.name);
-    log.info(`extract: placed ${tiles.length} columns twice, removed ${drops} dropped items`);
-    return { tiles: tiles.length, drops };
+    log.info(`extract: placed ${tiles.length} columns twice, removed ${drops} dropped items, highest block ${top ?? "none"}`);
+    return { tiles: tiles.length, drops, ...(top !== undefined ? { top } : {}) };
   }
 
   /** Empties a loaded region: its entities (never players), then air in 32-block cubes. */

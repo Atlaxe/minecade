@@ -1,11 +1,12 @@
-// Cuts one map out of a converted world (Select mode's extraction, also Update from world):
+// Cuts one map out of a converted world (Select mode's export):
 //   1. Chunker prunes a copy of the world to the box's chunks.
 //   2. A throwaway BDS (minecade-extract: no ports, no players) runs the editor pack in extract mode,
 //      with the shared block pack, so custom blocks survive. It moves the box so its middle sits
 //      at x 0, z 0, clearing everything else in those chunks (neighbors spill in at chunk edges).
 //   3. Chunker prunes to the moved box's chunks.
-//   4. The bake settings go into level.dat, and the world replaces the map's world/ (map.json too,
-//      for a new map).
+//   4. The bake settings go into level.dat, and the world becomes the map's world/, with its
+//      map.json: a draft whose spectator spawn is 10 blocks above the build's highest block (the
+//      pack measures it), where everyone arrives in Edit until spawns are placed.
 // The spike proved each step on the user's world (docs/spike-results.md, "Map editor").
 import { existsSync } from "node:fs";
 import { cp, mkdir, mkdtemp, rename, rm, writeFile } from "node:fs/promises";
@@ -31,7 +32,7 @@ import { BASE_IMAGE } from "../build/base-image.ts";
 import { attachConsole, copyDirFromContainer, findContainerByName, type ServerConsole } from "../build/docker-util.ts";
 import { enableBetaApis, patchLevelDat } from "../build/leveldat.ts";
 import { prune } from "./chunker.ts";
-import { chunkRange, moveBox } from "./select-core.ts";
+import { chunkRange, moveBox, withSpectatorSpawn } from "./select-core.ts";
 import { buildEditorTemplate } from "./template.ts";
 
 const root = fileURLToPath(new URL("../../", import.meta.url));
@@ -50,12 +51,10 @@ export interface ExtractJob {
   offset: Vec3;
   /** The map's folder: its world/ is replaced. */
   mapDir: string;
-  /** A new map's map.json, written with the world. Update leaves map.json alone. */
-  config?: MapConfig;
+  /** The new map's map.json, written with the world once its spectator spawn is known (withSpectatorSpawn). */
+  config: MapConfig;
   /** The map's name, for levelname.txt when the map has none yet. */
   name: string;
-  /** The map's first spawn (moved), for the world spawn in level.dat. */
-  spawn: Vec3;
 }
 
 export interface ExtractOptions {
@@ -65,6 +64,8 @@ export interface ExtractOptions {
   verbose: boolean;
   /** Progress, one line at a time. */
   note(text: string): void;
+  /** The throwaway server's container name (a headless test passes its own). */
+  container?: string;
 }
 
 /** Runs one extraction to the end; throws with the reason when a step fails. */
@@ -84,12 +85,15 @@ export async function extract(job: ExtractJob, options: ExtractOptions): Promise
     options.note("moving it to the middle...");
     const result = await moveInServer(pruned, job, moved, options);
     options.note(`moved ${result.tiles} columns${result.drops ? `, ${result.drops} dropped items removed` : ""}.`);
+    // Everyone arrives at the spectator spawn, above the build, until spawns are placed in Edit.
+    const config = withSpectatorSpawn(job.config, result.top);
+    const spawn = (config.spectatorSpawn?.slice(0, 3) ?? middleTop(moveBox(job.box, job.offset))) as Vec3;
 
     const final = join(scratch, "final");
     options.note("cutting it down to the moved box's chunks...");
     await prune(options.docker, moved, chunkRange(moveBox(job.box, job.offset)), final);
     for (const file of RUNTIME_FILES) await rm(join(final, file), { force: true });
-    await patchLevelDat(join(final, "level.dat"), (dat) => bakeSettings(dat, { name: job.name, spawns: [job.spawn] }));
+    await patchLevelDat(join(final, "level.dat"), (dat) => bakeSettings(dat, { name: job.name, spawns: [spawn] }));
     const nameFile = join(job.mapDir, "world", "levelname.txt");
     if (existsSync(nameFile)) await cp(nameFile, join(final, "levelname.txt"));
     else await writeFile(join(final, "levelname.txt"), job.name);
@@ -102,7 +106,7 @@ export async function extract(job: ExtractJob, options: ExtractOptions): Promise
     // Retries cover Windows file watchers (VS Code) briefly holding files in the old world.
     await rm(worldDir, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
     await rename(fresh, worldDir);
-    if (job.config) await writeFile(join(job.mapDir, "map.json"), formatMapConfig(job.config));
+    await writeFile(join(job.mapDir, "map.json"), formatMapConfig(config));
   } finally {
     await rm(scratch, { recursive: true, force: true });
   }
@@ -114,9 +118,9 @@ function middleTop(box: Box): Vec3 {
 }
 
 /** Runs the throwaway server on `world`, has the pack move the box, stops it (saving) and copies the world to `out`. */
-async function moveInServer(world: string, job: ExtractJob, out: string, options: ExtractOptions): Promise<{ tiles: number; drops: number }> {
+async function moveInServer(world: string, job: ExtractJob, out: string, options: ExtractOptions): Promise<{ tiles: number; drops: number; top?: number }> {
   const { docker } = options;
-  const stale = await findContainerByName(docker, NAME);
+  const stale = await findContainerByName(docker, options.container ?? NAME);
   if (stale) await stale.remove({ force: true });
   const staging = await mkdtemp(join(tmpdir(), "minecade-extract-server-"));
   let container: Docker.Container | undefined;
@@ -129,7 +133,7 @@ async function moveInServer(world: string, job: ExtractJob, out: string, options
     const info: ExtractInfo = { mode: "extract" };
     await writeFile(join(dir, "editor.json"), JSON.stringify(info));
     await cp(join(root, "docker", "bds", "entrypoint.sh"), join(dir, "entrypoint.sh"));
-    container = await docker.createContainer(containerOptions(options.env));
+    container = await docker.createContainer(containerOptions(options.env, options.container ?? NAME));
     await container.putArchive(tar.c({ cwd: staging, portable: true }, ["templates", "editor"]) as unknown as NodeJS.ReadableStream, { path: "/" });
 
     serverConsole = await attachConsole(container, options.verbose);
@@ -161,7 +165,7 @@ async function moveInServer(world: string, job: ExtractJob, out: string, options
     stopped.catch(() => {});
     await rm(out, { recursive: true, force: true });
     await copyDirFromContainer(container, "/bds/worlds/active", out);
-    return { tiles: result.tiles ?? 0, drops: result.drops ?? 0 };
+    return { tiles: result.tiles ?? 0, drops: result.drops ?? 0, ...(result.top !== undefined ? { top: result.top } : {}) };
   } finally {
     serverConsole?.close();
     await container?.remove({ force: true }).catch(() => {});
@@ -169,7 +173,7 @@ async function moveInServer(world: string, job: ExtractJob, out: string, options
   }
 }
 
-function containerOptions(env: Record<string, string>): Docker.ContainerCreateOptions {
+function containerOptions(env: Record<string, string>, name: string): Docker.ContainerCreateOptions {
   const vars: Record<string, string> = {
     GAME: "editor",
     MAP: "extract",
@@ -183,7 +187,7 @@ function containerOptions(env: Record<string, string>): Docker.ContainerCreateOp
     PUBLIC_HOST: env.LAN_HOST ?? "127.0.0.1",
   };
   return {
-    name: NAME,
+    name,
     Image: BASE_IMAGE,
     Entrypoint: ["/bin/bash", "/editor/entrypoint.sh"],
     Env: Object.entries(vars).map(([key, value]) => `${key}=${value}`),

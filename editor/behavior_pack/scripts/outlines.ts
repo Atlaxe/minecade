@@ -2,7 +2,8 @@
 // Select, the Select tool): their selection (yellow), and the boxes the source gives with their
 // colors (in Edit: the bounds white, kill regions and the kill Y plane red, every other region in
 // its own color). Only that player sees them. In Edit, the boundaries a player switched on in the
-// Boundaries view also show to them whatever they hold. Every edge shows from any distance:
+// Boundaries view also show to them whatever they hold. A box being nudged shows as the selection,
+// moved as far as it's gone, whatever the player holds. Every edge shows from any distance:
 // far dots are drawn closer in on the same line of sight, sized and spaced by distance
 // (boxes.ts viewDots), so they look alike near and far. Each dot has a dark rim, so it shows on
 // bright and dark backgrounds alike. A budget per refresh keeps a big map as cheap as a small one.
@@ -10,6 +11,7 @@ import { MolangVariableMap, world, type Player } from "@minecraft/server";
 import type { Box, Scope } from "@minecade/minigame-core";
 import { nearDots, planePoints, rectDots, viewDots, type Dot, type View } from "./boxes.ts";
 import { ALL_BOUNDARIES, KILL_COLOR, KILL_Y_GROUP, SELECTION_COLOR, outlineShown, type OutlineBox, type Rgb } from "./regions.ts";
+import { nudgePreview } from "./box-picker.ts";
 import { heldTool } from "./tool-host.ts";
 import type { ToolId } from "./tools.ts";
 
@@ -56,7 +58,7 @@ export class Outlines {
     const viewers: [Player, ReadonlySet<string>, boolean][] = [];
     for (const player of world.getAllPlayers()) {
       if (this.source.hidden?.(player)) continue;
-      const holding = this.tools.has(heldTool(player));
+      const holding = this.tools.has(heldTool(player)) || nudgePreview(player) !== undefined;
       const shown = holding ? EVERYTHING : this.source.shown?.(player);
       if (shown && shown.size > 0) viewers.push([player, shown, holding]);
     }
@@ -65,7 +67,8 @@ export class Outlines {
     const killY = this.source.killY?.();
     for (const [player, groups, holding] of viewers) {
       const view: View = { eye: player.getHeadLocation(), look: player.getViewDirection() };
-      const selection = holding ? this.source.selection(player) : undefined;
+      const nudged = nudgePreview(player);
+      const selection = nudged ? { box: nudged, editing: undefined } : holding ? this.source.selection(player) : undefined;
       if (selection) dots(player, viewDots(selection.box, view, SELECTION_BUDGET), SELECTION_COLOR);
       const shown = boxes.filter((outline) => outline.key !== selection?.editing && outlineShown(outline.group, groups));
       const each = Math.max(BOX_BUDGET, Math.floor(BOXES_BUDGET / Math.max(1, shown.length)));

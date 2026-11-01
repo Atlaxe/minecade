@@ -59,7 +59,7 @@ export const SELECT_TOOL: EditorTool = {
   icon: "textures/items/select_tool",
   label: "Select tool",
   hint: "box a map to cut out",
-  howTo: "Hit a block to start a box around a map. Use the tool on blocks (up to 64 away) to grow the box to them. Use it at the sky to save the box as a map.",
+  howTo: "Hit a block to start a box around a map. Use the tool on blocks (up to 64 away) to grow the box to them. Use it at the sky to export the box as a map.",
 };
 
 /** The tool an item is, if it is one (in either mode). */

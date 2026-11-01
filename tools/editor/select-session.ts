@@ -8,7 +8,7 @@ import type { EditorEvent, SelectInfo, SelectionInfo } from "@minecade/minigame-
 import { voidGenerator } from "../build/bake-core.ts";
 import { enableBetaApis, patchLevelDat } from "../build/leveldat.ts";
 import type { SelectStatus } from "./editor-core.ts";
-import { centerOffset, insideBox, mapIdProblem } from "./select-core.ts";
+import { centerOffset, mapIdProblem } from "./select-core.ts";
 import type { Selections } from "./selections.ts";
 import { RUNTIME_FILES, ServerSession, root, type SessionBase } from "./server-session.ts";
 import { listTargets, type EditorTarget } from "./targets.ts";
@@ -31,8 +31,8 @@ export class SelectSession extends ServerSession {
     return { ...this.common(), mode: "select", world: this.world.name, worldPath: this.world.path, selections: this.infos };
   }
 
-  /** A map in the list, from the Panel or the pack: retry, forget or update. Why not, when it can't. */
-  async mapAction(by: string, action: "retry" | "forget" | "update", target: string, map: string): Promise<string | undefined> {
+  /** A map in the list, from the Panel or the pack: retry a failed one, or forget it. Why not, when it can't. */
+  async mapAction(by: string, action: "retry" | "forget", target: string, map: string): Promise<string | undefined> {
     const problem = await this.selections.act(this.world.name, action, target, map);
     if (problem) this.note(`${by}: can't ${action} ${target}/${map}: ${problem}`);
     else this.note(`${by}: ${action} ${target}/${map}`);
@@ -96,20 +96,14 @@ export class SelectSession extends ServerSession {
     const target = this.targets.find((candidate) => candidate.id === event.target);
     const name = event.name.trim();
     const file = await this.selections.open(this.world);
-    const problem = !target
-      ? `there is no target "${event.target}"`
-      : !name
-        ? "the map needs a name"
-        : !insideBox(event.box, event.spawn)
-          ? "stand inside the box when you save it: that's where the first spawn goes"
-          : mapIdProblem(event.map, target.maps, file.selections, target.id);
+    const problem = !target ? `there is no target "${event.target}"` : !name ? "the map needs a name" : mapIdProblem(event.map, target.maps, file.selections, target.id);
     if (problem || !target) {
       void this.say(`§c${problem}`, event.by);
       return;
     }
-    await this.selections.add(this.world.name, { target: target.id, map: event.map, name, box: event.box, offset: centerOffset(event.box), spawn: event.spawn });
+    await this.selections.add(this.world.name, { target: target.id, map: event.map, name, box: event.box, offset: centerOffset(event.box) });
     this.note(`${event.by}: ${target.name}, ${name} (${event.map}) queued for extraction.`);
-    void this.say(`${name} (${event.map}) is queued: it's cut out and moved to the middle in the background. You can box the next map meanwhile.`, event.by);
+    void this.say(`${name} (${event.map}) is exporting: it's cut out and moved to the middle in the background. You can box the next map meanwhile.`, event.by);
   }
 
   protected async afterReady(): Promise<void> {

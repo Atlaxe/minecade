@@ -48,6 +48,8 @@ export interface SessionOptions extends SessionBase {
 export class EditorSession extends ServerSession {
   /** Preview in the map menu (set by the runner, which runs it). */
   onPreview: ((by: string) => void) | undefined;
+  /** A map editor asked to delete this map (the gear's Delete map): the runner closes Edit and deletes it. */
+  onDelete: ((by: string) => void) | undefined;
   private readonly target: EditorTarget;
   private readonly mapId: string;
   private readonly fresh: { name: string } | undefined;
@@ -243,6 +245,9 @@ export class EditorSession extends ServerSession {
         return;
       case "preview":
         this.onPreview?.(event.by);
+        return;
+      case "deleteMap":
+        this.onDelete?.(event.by);
         return;
       case "changed":
         this.blocksChanged(event.by);
@@ -551,7 +556,12 @@ export class EditorSession extends ServerSession {
   }
 }
 
-/** bakeSettings puts the world spawn at the first spawn; a map without one gets the pad's. */
+/**
+ * bakeSettings puts the world spawn at the first spawn; a map without one (a new export) gets its
+ * spectator spawn, above the build, or else the pad's.
+ */
 function withSpawn(config: MapConfig): MapConfig {
-  return config.spawns?.length > 0 ? config : { ...config, spawns: [[0, 65, 0]] };
+  if (config.spawns?.length > 0) return config;
+  const spectator = config.spectatorSpawn;
+  return { ...config, spawns: [spectator ? [spectator[0], spectator[1], spectator[2]] : [0, 65, 0]] };
 }

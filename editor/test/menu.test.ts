@@ -2,13 +2,20 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { mapChecklist, stripColors, type HomeState, type MapConfig } from "@minecade/minigame-core/config";
 import { spawnLists } from "../behavior_pack/scripts/lists.ts";
-import { COLUMNS, LAYOUT, LOADING, MARK, dangerText, headingText, homeTitle, loadingTitle, mapTitle, sideTitle, switchText } from "../behavior_pack/scripts/marks.ts";
+import { COLUMNS, LAYOUT, LOADING, MARK, dangerText, goText, headingText, homeTitle, iconsTitle, loadingTitle, mapTitle, sideTitle, switchText } from "../behavior_pack/scripts/marks.ts";
 import {
   ICONS,
   LOBBY_TEXT,
   PLAYERS_TEXT,
   RECENT_KINDS,
+  SELECT_HELP,
   boundaryEntries,
+  editBody,
+  exportEntries,
+  facingLine,
+  gearEntries,
+  nudgeEntries,
+  selectionFormEntries,
   guestEntries,
   guestWaitText,
   checklistBody,
@@ -26,7 +33,6 @@ import {
   parseSetting,
   regionSettings,
   rowText,
-  selectMenuBody,
   selectMenuEntries,
   spawnSettings,
   statusLine,
@@ -112,7 +118,7 @@ describe("the Players menu", () => {
       { name: "Mate", text: "Mate\n§7waiting in the editor lobby" },
       { name: "Bud", text: "Bud\n§7in the preview" },
     ]);
-    expect(PLAYERS_TEXT).toBe("Players\n§7invite friends to Select and previews");
+    expect(PLAYERS_TEXT).toBe(`${MARK.quick}Players\n§7invite friends to Select and previews`);
   });
 
   it("tells a guest in the editor lobby what they wait for", () => {
@@ -228,6 +234,7 @@ describe("layouts", () => {
     expect(stripColors(sideTitle("Checklist"))).toBe("Checklist");
     expect(stripColors(mapTitle("Map menu"))).toBe("Map menu");
     expect(stripColors(homeTitle("Map editor"))).toBe("Map editor");
+    expect(stripColors(iconsTitle("Map menu"))).toBe("Map menu");
     expect(stripColors(loadingTitle("Loading"))).toBe("Loading");
     expect(loadingTitle("Loading").startsWith(LAYOUT.side)).toBe(true);
   });
@@ -251,41 +258,117 @@ describe("Select mode's map menu", () => {
   const ready = { target: "sumo", targetName: "Sumo", map: "castle", name: "Castle", box, status: "ready" as const };
   const failed = { ...ready, map: "keep", name: "Keep", status: "failed" as const, error: "Chunker stopped" };
 
-  it("has the Select tool, the selection's actions, then the maps from the world", () => {
-    const entries = selectMenuEntries({ world: "Arenas", toolOut: true, selection: { box, steps: 1 }, maps: [ready, failed] });
+  it("has the icon row (Back one step, Players, how-to), the selection, the maps, and Back to Lobby at the bottom", () => {
+    const entries = selectMenuEntries({ selection: { box, steps: 1 }, maps: [ready, failed] });
     expect(entries.map((entry) => entry.action)).toEqual([
-      { kind: "tool", tool: "select" },
+      { kind: "pick", action: "back" },
+      { kind: "players" },
+      { kind: "none" },
       { kind: "none" },
       { kind: "pick", action: "saveMap" },
       { kind: "pick", action: "nudge" },
-      { kind: "pick", action: "back" },
       { kind: "pick", action: "clear" },
       { kind: "none" },
       { kind: "map", target: "sumo", map: "castle" },
       { kind: "map", target: "sumo", map: "keep" },
-      { kind: "none" },
-      { kind: "players" },
       { kind: "lobby" },
     ]);
-    expect(entries[0].text).toBe(`${MARK.tool}${COLUMNS[0]}${MARK.on}Select tool\n§7box a map to cut out`);
-    expect(entries[1].text).toBe(headingText("Selection: 112 x 65 x 128"));
-    expect(entries.at(-5)?.text).toBe("Castle (castle)\n§7Sumo: §aready: tap to edit it");
-    expect(selectMenuEntries({ world: "Arenas", toolOut: false, maps: [] }).map((entry) => entry.text)).toEqual([
-      `${MARK.tool}${COLUMNS[0]}Select tool\n§7box a map to cut out`,
-      headingText("No maps from this world yet"),
-      headingText("Elsewhere"),
-      PLAYERS_TEXT,
-      LOBBY_TEXT,
-    ]);
+    expect(entries.slice(0, 3).map((entry) => entry.icon)).toEqual([ICONS.undo, ICONS.players, ICONS.help]);
+    expect(entries.slice(0, 3).every((entry) => entry.text.startsWith(MARK.quick))).toBe(true);
+    expect(entries[0].text).toBe(`${MARK.quick}Back one step\n§7undo the selection's last change`);
+    expect(entries[2].text).toBe(`${MARK.quick}How to box a map\n§7${SELECT_HELP}`);
+    expect(entries[3].text).toBe(headingText("Selection: 112 x 65 x 128"));
+    expect(entries[4].text).toBe(goText("Export to Map"));
+    // A ready map is just its name; one that isn't says how it's going.
+    expect(entries[8]).toEqual({ action: { kind: "map", target: "sumo", map: "castle" }, text: `${MARK.card}Castle (castle)`, icon: ICONS.edit });
+    expect(entries[9].text).toBe(`${MARK.card}Keep (keep)\n§cfailed: tap for why`);
+    expect(entries.at(-1)?.text).toBe(LOBBY_TEXT);
+    expect(LOBBY_TEXT).toBe(`${MARK.bottom}Back to Lobby`);
+    const none = selectMenuEntries({ maps: [] });
+    expect(none[0].text).toBe(`${MARK.quick}${MARK.dim}Back one step\n§7nothing to step back`);
+    expect(none.slice(3).map((entry) => entry.text)).toEqual([headingText("No selection yet"), headingText("No maps from this world yet"), LOBBY_TEXT]);
+    expect(SELECT_HELP).not.toMatch(/stand inside/i);
   });
 
-  it("says how each extraction is going, and offers what fits", () => {
+  it("has the selection's form: Back one step and how-to as icons, then Export (green), Nudge and Clear (red)", () => {
+    const entries = selectionFormEntries({ box, steps: 0 });
+    expect(entries.map((entry) => entry.action)).toEqual([
+      { kind: "pick", action: "back" },
+      { kind: "none" },
+      { kind: "none" },
+      { kind: "pick", action: "saveMap" },
+      { kind: "pick", action: "nudge" },
+      { kind: "pick", action: "clear" },
+    ]);
+    expect(entries.at(-1)?.text).toBe(dangerText("Clear selection"));
+  });
+
+  it("asks before editing a ready map; a failed one can be tried again or taken off the list", () => {
     expect(statusLine({ ...ready, status: "extracting" })).toBe("§ebeing cut out...");
-    expect(mapActions(ready).map((entry) => entry.action)).toEqual(["edit", "update", "forget"]);
-    expect(mapActions(ready)[1].text).toContain(MARK.danger);
-    expect(mapActions(failed).map((entry) => entry.action)).toEqual(["retry", "forget"]);
+    expect(mapActions(ready)).toEqual([
+      { action: "edit", text: goText("Edit") },
+      { action: "cancel", text: "Cancel" },
+    ]);
+    expect(editBody(ready)).toBe("Castle (castle), a Sumo map, 112 x 65 x 128 blocks. It opens on the Edit server, and you're moved there.");
+    expect(mapActions(failed).map((entry) => entry.action)).toEqual(["retry", "forget", "cancel"]);
+    expect(mapActions(failed)[1].text).toContain(MARK.danger);
     expect(mapActions({ ...ready, status: "queued" })).toEqual([]);
-    expect(selectMenuBody("Arenas", false)).toBe('Select mode on "Arenas"\n\n§fPick the Select tool above.');
+  });
+
+  it("exports with Name, then Map id, then the targets (titles only, the picked one outlined), then Export (green)", () => {
+    const targets = [
+      { id: "lobby", name: "Lobby" },
+      { id: "sumo", name: "Sumo" },
+    ];
+    const blank = exportEntries({ name: "", target: "sumo" }, targets);
+    expect(blank.map((entry) => entry.text)).toEqual(["Name: §8none yet", "Map id: §8from the name", headingText("For"), "Lobby", `${MARK.picked}Sumo`, goText("Export to Map")]);
+    expect(blank.map((entry) => entry.action.kind)).toEqual(["name", "id", "none", "target", "target", "export"]);
+    expect(exportEntries({ name: "Castle Keep", target: "lobby" }, targets).slice(0, 2).map((entry) => entry.text)).toEqual(["Name: Castle Keep", "Map id: §7castle_keep"]);
+    expect(exportEntries({ name: "Castle Keep", map: "keep", target: "lobby" }, targets)[1].text).toBe("Map id: keep");
+  });
+});
+
+describe("Nudge sides", () => {
+  const sides = { west: 0, east: 2, down: 0, up: -1, north: 0, south: 0 };
+
+  it("has a minus and a plus per side, the minus saying where the side is and how far it moved", () => {
+    const entries = nudgeEntries({ sides, step: 1, facing: "north" });
+    const minus = entries.filter((entry) => entry.text.startsWith(MARK.minus));
+    const plus = entries.filter((entry) => entry.text.startsWith(MARK.plus));
+    expect(minus.map((entry) => entry.text.slice(MARK.minus.length))).toEqual([
+      "North (ahead): 0",
+      "South (behind): 0",
+      "West (left): 0",
+      "East (right): +2",
+      "Top: -1",
+      "Bottom: 0",
+    ]);
+    expect(plus.map((entry) => entry.action)).toEqual(minus.map((entry) => ({ ...entry.action, by: 1 })));
+    expect(minus.every((entry) => entry.icon === ICONS.minus) && plus.every((entry) => entry.icon === ICONS.new)).toBe(true);
+    expect(entries.slice(12).map((entry) => entry.text)).toEqual(["Step: 1 block", "Reset", goText("Nudge")]);
+  });
+
+  it("says where each side is from the way the player faces, and leaves Reset out with nothing moved", () => {
+    const unmoved = { west: 0, east: 0, down: 0, up: 0, north: 0, south: 0 };
+    const entries = nudgeEntries({ sides: unmoved, step: 5, facing: "east" });
+    expect(entries[0].text).toBe(`${MARK.minus}North (left): 0`);
+    expect(entries[6].text).toBe(`${MARK.minus}East (ahead): 0`);
+    expect(entries.slice(12).map((entry) => entry.text)).toEqual(["Step: 5 blocks", goText("Nudge")]);
+    expect(facingLine("west")).toBe("Facing West   + moves a side out, - moves it in");
+  });
+});
+
+describe("Edit's gear", () => {
+  it("has Players as an icon, the settings, the red ones, and Back to Lobby at the bottom", () => {
+    expect(gearEntries({ from: "Arenas", build: true })).toEqual([
+      { action: "players", text: PLAYERS_TEXT, icon: ICONS.players },
+      { action: "settings", text: "Name and game settings" },
+      { action: "select", text: "Back to Select" },
+      { action: "dropBuild", text: dangerText("Drop build commands") },
+      { action: "delete", text: dangerText("Delete map") },
+      { action: "lobby", text: LOBBY_TEXT },
+    ]);
+    expect(gearEntries({ build: false }).map((entry) => entry.action)).toEqual(["players", "settings", "delete", "lobby"]);
   });
 });
 
@@ -310,6 +393,7 @@ describe("the editor lobby's menu", () => {
   const iconRow = [
     { kind: "maps" },
     { kind: "new" },
+    { kind: "players" },
     { kind: "filter", filter: "edit" },
     { kind: "filter", filter: "select" },
     { kind: "filter", filter: "preview" },
@@ -328,19 +412,20 @@ describe("the editor lobby's menu", () => {
     servers: { edit: { request: arena, label: "Sumo: Arena (arena_1)", state: "ready", players: ["Friend"] }, waiting: [] },
   };
 
-  it("starts with the icon row: Open a map, New map, the Recent filters and Leave", () => {
+  it("starts with the icon row: Open a map, New map, Players, the Recent filters and Leave", () => {
     const entries = homeEntries(empty);
-    expect(entries.slice(0, 6).map((entry) => entry.action)).toEqual(iconRow);
+    expect(entries.slice(0, 7).map((entry) => entry.action)).toEqual(iconRow);
     expect(entries[0]).toEqual({ action: { kind: "maps" }, text: `${MARK.quick}Open a map\n§7the lobby's and every game's maps`, icon: ICONS.edit });
     expect(entries[1].icon).toBe(ICONS.new);
-    expect(entries.slice(2, 5).map((entry) => entry.icon)).toEqual([ICONS.edit, ICONS.select, ICONS.play]);
-    expect(entries.slice(2, 5).every((entry) => entry.text.startsWith(MARK.filter) && !entry.text.includes(MARK.on))).toBe(true);
-    expect(entries[5]).toEqual({ action: { kind: "leave" }, text: `${MARK.end}Leave\n§7disconnect from the map editor`, icon: ICONS.leave });
-    expect(entries.slice(6).map((entry) => entry.text)).toEqual([headingText("Recent"), headingText("§8Nothing opened yet"), headingText("Friends"), PLAYERS_TEXT]);
+    expect(entries[2]).toEqual({ action: { kind: "players" }, text: PLAYERS_TEXT, icon: ICONS.players });
+    expect(entries.slice(3, 6).map((entry) => entry.icon)).toEqual([ICONS.edit, ICONS.select, ICONS.play]);
+    expect(entries.slice(3, 6).every((entry) => entry.text.startsWith(MARK.filter) && !entry.text.includes(MARK.on))).toBe(true);
+    expect(entries[6]).toEqual({ action: { kind: "leave" }, text: `${MARK.end}Leave\n§7disconnect from the map editor`, icon: ICONS.leave });
+    expect(entries.slice(7).map((entry) => entry.text)).toEqual([headingText("Recent"), headingText("§8Nothing opened yet")]);
   });
 
   it("puts what's open first, then Recent as cards with an icon for their kind", () => {
-    const entries = homeEntries(withRecent).slice(6);
+    const entries = homeEntries(withRecent).slice(7);
     expect(entries.map((entry) => entry.action)).toEqual([
       { kind: "none" },
       { kind: "open", request: arena },
@@ -348,8 +433,6 @@ describe("the editor lobby's menu", () => {
       { kind: "open", request: arenaPreview },
       { kind: "open", request: datapacking },
       { kind: "open", request: { to: "edit", target: "lobby", map: "spaceship" } },
-      { kind: "none" },
-      { kind: "players" },
     ]);
     expect(entries[1]).toEqual({ action: { kind: "open", request: arena }, text: `${MARK.card}Sumo: Arena (arena_1)\n§7open: Friend`, icon: ICONS.edit });
     expect(entries.slice(3, 6).map((entry) => [entry.text, entry.icon])).toEqual([
@@ -365,7 +448,7 @@ describe("the editor lobby's menu", () => {
     expect(filters.map((entry) => entry.text.includes(MARK.on))).toEqual([false, false, true]);
     expect(filters[2].text).toBe(`${MARK.filter}${MARK.on}Recent: Preview only\n§7on: tap again to show everything`);
     const recent = entries.slice(entries.findIndex((entry) => entry.text === headingText("Recent: Preview only")));
-    expect(recent.map((entry) => entry.action)).toEqual([{ kind: "none" }, { kind: "open", request: arenaPreview }, { kind: "none" }, { kind: "players" }]);
+    expect(recent.map((entry) => entry.action)).toEqual([{ kind: "none" }, { kind: "open", request: arenaPreview }]);
     // What's open stays listed; an empty kind says so.
     expect(homeEntries(withRecent, "select").some((entry) => entry.text === `${MARK.card}Sumo: Arena (arena_1)\n§7open: Friend`)).toBe(true);
     expect(homeEntries(empty, "preview").map((entry) => entry.text)).toContain(headingText("§8No previews yet"));

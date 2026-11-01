@@ -48,17 +48,16 @@ import { CameraTool } from "./camera-tool.ts";
 import { cameraMarkers, type CameraMarker } from "./cameras.ts";
 import { RegionTool } from "./region-tool.ts";
 import { actionBar, heldTool, hintBar, notice, type ToolHost } from "./tool-host.ts";
-import { REACH } from "./box-picker.ts";
+import { REACH, nudgePreview } from "./box-picker.ts";
 import { aimedPoint, compass, entryPosition, markerSpecs, snapFacing, SNAPS, spawnLists, type AimedFace, type MarkerSpec, type SpawnList } from "./lists.ts";
 import { MapState } from "./map-state.ts";
 import { PlayersMenu } from "./players.ts";
 import { MARKER, Markers } from "./markers.ts";
-import { dangerText, mapTitle, sideTitle } from "./marks.ts";
+import { dangerText, iconsTitle, mapTitle, sideTitle } from "./marks.ts";
 import {
   BOUNDARIES_BODY,
-  LOBBY_TEXT,
-  PLAYERS_TEXT,
   boundaryEntries,
+  gearEntries,
   checklistBody,
   mapMenuBody,
   mapMenuEntries,
@@ -362,7 +361,8 @@ export class Editor {
   private hints(): void {
     for (const player of world.getAllPlayers()) {
       const tool = heldTool(player);
-      if (!tool || this.cameraTool.isLooking(player)) continue;
+      // Nudge sides puts the way the player faces there instead.
+      if (!tool || this.cameraTool.isLooking(player) || nudgePreview(player)) continue;
       if (tool === "spawn") hintBar(player, this.spawnHint(player));
       else if (tool === "region") hintBar(player, this.regionTool.hint(player));
       else if (tool === "killY") hintBar(player, this.killYTool.hint(player));
@@ -585,7 +585,6 @@ export class Editor {
     this.link.send({ t: "publish", by: player.name });
   }
 
-  /** The gear: the map's name and game settings, Back to Select, the editor lobby, and dropping build commands. */
   /** A switch per boundary the map has: switched on, it shows to this player whatever they hold. */
   private async boundariesMenu(player: Player): Promise<void> {
     const key = player.name.toLowerCase();
@@ -607,31 +606,36 @@ export class Editor {
     return this.boundariesMenu(player);
   }
 
+  /** The gear: Players in its icon row, the map's settings, Back to Select, the red ones, and Back to Lobby at the bottom. */
   private async settingsMenu(player: Player): Promise<void> {
-    const actions: ("settings" | "select" | "lobby" | "players" | "dropBuild")[] = ["settings"];
-    const form = new ActionFormData()
-      .title(sideTitle("Map settings"))
-      .body(`${this.state.current.name} (${this.info.map}), ${this.info.targetName}`)
-      .button("Name and game settings\n§7the map's name, and the game's own settings");
-    if (this.info.from) {
-      actions.push("select");
-      form.button(`Back to Select\n§7box more maps in "${this.info.from}"`);
-    }
-    actions.push("players");
-    form.button(PLAYERS_TEXT);
-    actions.push("lobby");
-    form.button(LOBBY_TEXT);
-    if (this.state.current.build !== undefined) {
-      actions.push("dropBuild");
-      form.button(dangerText("Drop build commands\n§7keep block changes made here"));
-    }
+    const entries = gearEntries({ from: this.info.from, build: this.state.current.build !== undefined });
+    const form = new ActionFormData().title(iconsTitle("Map settings")).body(`${this.state.current.name} (${this.info.map}), ${this.info.targetName}`);
+    for (const entry of entries) form.button(entry.text, entry.icon);
     const response = await this.show(player, form);
-    const action = response?.selection === undefined ? undefined : actions[response.selection];
+    const action = response?.selection === undefined ? undefined : entries[response.selection]?.action;
     if (!action || !player.isValid) return;
     if (action === "settings") return this.settingsForm(player);
     if (action === "dropBuild") return this.dropBuild(player);
+    if (action === "delete") return this.deleteMap(player);
     if (action === "players") return this.players.open(player);
     this.link.send({ t: "open", by: player.name, request: action === "select" ? { to: "select" } : { to: "home" } });
+  }
+
+  /**
+   * Delete map, after a confirm: the host closes Edit, deletes the map's folder (and pushes its
+   * removal when it was published), and takes it off its world's list in Select.
+   */
+  private async deleteMap(player: Player): Promise<void> {
+    const config = this.state.current;
+    const published = config.draft !== true;
+    const body =
+      `${config.name} (${this.info.map}) and its world are deleted from this PC, and it leaves its world's list in Select.` +
+      (published ? " It's published, so its removal is committed and pushed too: it leaves the lobby at the network's next start." : "") +
+      " Everyone in Edit goes to the editor lobby.";
+    const form = new ActionFormData().title(sideTitle(`Delete ${config.name}?`)).body(body).button(dangerText("Delete it")).button("Cancel");
+    const response = await this.show(player, form);
+    if (response?.selection !== 0 || !player.isValid) return;
+    this.link.send({ t: "deleteMap", by: player.name });
   }
 
   private async settingsForm(player: Player): Promise<void> {

@@ -53,8 +53,9 @@ In Edit, on a copy of Sumo's Arena:
 
 The editor lobby's menu (after the editor's next boot):
 
-- The top row: a pencil, a plus, a thin divider, a funnel, three filter icons (a pencil, a crop
-  mark, a play icon) and a door at the right end, none cut off or overlapping. Pointing at each
+- The top row: a pencil, a plus, a person (Players), a thin divider, a funnel, three filter icons (a
+  pencil, a crop mark, a play icon) and a door at the right end, none cut off or overlapping. The
+  menu is a little wider than the others. Pointing at each
   shows its name in a tooltip box. The pencil opens Open a map and the plus New map, as before;
   the list has no Maps section any more.
 - Open now and Recent are cards: an icon on the left (pencil for Edit, crop mark for Select, play
@@ -69,17 +70,39 @@ The editor lobby's menu (after the editor's next boot):
 - The door: a "Leave?" menu. Cancel goes back; Leave disconnects you with "You left the map editor.
   Join again to come back." Joining again brings you back to the menu.
 
-Select (New map from one of your worlds):
+Select (New map from one of your worlds; after the editor's next boot):
 
 - The box top center reads "Select" (aqua) and the world's name.
-- Save a box as a map. When it's ready: a chime, and "<name> is ready to load in Edit" in green
-  above the hotbar for about 6 seconds, even while you hold the Select tool. If you've gone to Edit
-  by then, the notice comes there.
+- You can't break or place blocks (with or without the tool), and doors and buttons don't work.
+  The Select tool stays in slot 1 (it can't be moved or dropped).
+- The map menu: no crop icon and no empty space at the top. Its icon row has Back one step (faded
+  with nothing to step back), Players (a person) and a question mark whose tooltip says how to box
+  a map. Back to Lobby is pinned at the bottom, and the list scrolls above it.
+- With a selection: "Selection: <size>", Export to Map (green), Nudge sides, Clear selection (red).
+  Back one step in the row undoes the last grow and the menu stays open.
+- Nudge sides: a side menu with a minus and a plus for each side; each side says ahead, behind,
+  left or right, and the line above the hotbar says which way you face. Tap plus on the side ahead:
+  the outline moves out at once. Step cycles 1, 5 and 10. Nudge (green) keeps it; the X puts the box
+  back. If the minus and plus don't line up with their side, say so.
+- Export to Map: a side menu: Name, Map id, then the games (titles only, the picked one outlined),
+  then Export to Map (green). Tap Name: a small text box. Leave Map id: it shows the one made from
+  the name in gray. You don't have to stand inside the box.
+- When it's ready: a chime, and "<name> is ready to load in Edit" in green above the hotbar for
+  about 6 seconds. Its card in the map menu is just its name.
+- Tap it: "Edit <name>?" with Edit (green) and Cancel. Edit: the Loading menu with the dots, then
+  you're in Edit, arriving high over the middle of the map (its spectator spawn, 10 blocks above
+  its highest block). `map.json` has no spawns and a spectator spawn; the checklist asks for spawns.
 - Box a second build while the first is being cut out: both end up ready.
-- Update from this world (red, with a confirm) on a ready map redoes its blocks and keeps its
-  spawns and `map.json`.
 - The editor lobby's New map, Empty world: Sumo, a name and an empty id. Edit opens it, a glass pad
   in the void.
+
+Edit's gear (after the editor's next boot):
+
+- Players is an icon at the top; Back to Lobby is pinned at the bottom.
+- Delete map (red): "Delete <name>?" says what happens. Delete it: you're moved to the editor lobby,
+  chat says it's deleted, the map is gone from `games/<game>/maps/`, from its world's list in
+  Select and from Recent. Try it on a draft first; a published map's removal is also committed and
+  pushed.
 
 Preview and the queue spawn, on a copy of Sumo's Arena:
 
@@ -132,8 +155,8 @@ Guests (needs a second account that isn't in LAN_PLAYERS):
   The Panel's Guests card lists them.
 - With nothing open on Select, the guest who joins port 19132 sees a dark screen saying it's
   waiting for Select or a preview, and no editor menu.
-- Open a world in Select: the guest is moved there in creative with no tools, and can fly, break
-  and place blocks. Edit (port 19134) refuses them.
+- Open a world in Select: the guest is moved there in creative with no tools, and can fly around
+  but not break or place blocks. Edit (port 19134) refuses them.
 - Start a preview from Edit: the guest waits in the editor lobby while Select closes, then you both
   go into the preview. When it ends, you're back in Edit and they're in the editor lobby, then on
   Select once it reopens.

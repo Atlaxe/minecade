@@ -75,6 +75,7 @@ closes. Its top row is icons (point at one for its name):
   folder, by the name the game shows, with how many maps came from each. A copy opens in Select.
   **Empty world** at the bottom makes a draft map on a glass pad in the void instead: pick what
   it's for, its name and its map id.
+- **Players** (the person): invite friends (see "Who can join").
 - **The Recent filters** (after the funnel): Edit, Select and Preview show only that kind in
   Recent, outlined while on. Tap the one that's on to show everything again.
 - **Leave** (the door, at the right end): disconnects you, after a confirm. Select and Edit keep
@@ -87,8 +88,6 @@ a world in Select, the play icon for a preview):
   go there.
 - **Recent:** the last 5 maps, worlds and previews (10 of one kind with a filter on), kept in
   `work/editor/recent.json`. A preview card plays that map again (see "Preview").
-- **Players:** invite friends (see "Who can join").
-
 While the server you picked loads (about 20 seconds; a big world takes longer to copy), the menu
 says so, with five dots after its title lighting up one at a time, and you're moved there once
 it's ready. Opening something else on a server others are on asks first: they wait in the editor
@@ -109,35 +108,48 @@ Build maps in Java, convert the world to Bedrock with Chunker (as before), then 
 mode. The editor runs on a copy, so your world is never changed. The copy gets the void generator,
 so flying past the converted area grows no new land.
 
-**In game,** map editors get the **Select tool** (slot 1) and the map menu (slot 9):
+**The world can't be changed in Select:** nobody can break or place blocks there. Maps are changed
+in Edit.
+
+**In game,** map editors get the **Select tool** (slot 1, locked there) and the map menu (slot 9):
 
 - **Hit a block** to start a box there. **Use the tool on blocks** (up to 64 away) to grow the box
-  to them. **Use it at the sky** for the selection's form: **Save as map...**, Nudge sides, Back one
-  step, and Clear (red). The line above the hotbar says what a hit and a use do, and the box's size.
-- **Save as map:** stand inside the box (where you stand becomes the map's first spawn), then pick
-  what the map is for (the lobby or a game), its name, and its map id (left empty, it's made from the
-  name: "Castle Keep" is `castle_keep`). An id the game has already is refused.
+  to them. **Use it at the sky** for the selection's form: **Export to Map** (green), Nudge sides
+  and Clear selection (red), with Back one step in its icon row. The line above the hotbar says what
+  a hit and a use do, and the box's size.
+- **Nudge sides:** a minus (in) and a plus (out) for each side, one step at a time (**Step** cycles
+  1, 5 and 10 blocks). Each side says where it is from you (ahead, behind, left or right) and how
+  far it moved, and the line above the hotbar says which way you face. The outline shows the moved
+  box at once; **Nudge** (green) keeps it, and the X puts the box back.
+- **Export to Map:** a side menu: **Name** and **Map id** (tap either for a small text box; an
+  empty map id is made from the name: "Castle Keep" is `castle_keep`), then what the map is for (the
+  lobby or a game, the picked one outlined), then **Export to Map** (green). An id the game has
+  already is refused.
 - **The map is cut out in the background,** one at a time, so you can box the next map meanwhile.
   It takes about 20 seconds for a 112 x 65 x 128 build. When it's ready, map editors on Select and
   Edit hear a chime and see "<name> is ready to load in Edit" above the hotbar for a few seconds,
-  and chat says where to open it: Edit <map> in Select's map menu, or Open a map in the editor lobby.
+  and chat says where to open it: its card in Select's map menu, or Open a map in the editor lobby.
 - **Outlines** (while you hold the Select tool): your box in yellow, and every map from this world,
   green once it's ready, white while it's queued or being cut out, red when it failed.
-- **The map menu** lists the maps from this world with how each is going:
-  - **Ready:** **Edit <map>** (it opens in Edit, and you're moved there once it's ready; Select
-    keeps running), **Update from this world** (red: cuts it out again and replaces its blocks;
-    spawns, regions and the rest of `map.json` stay, and block changes made in Edit are lost), and
-    **Forget** (takes it off this list; the map stays).
-  - **Failed:** why, then **Try again** or **Forget**.
+- **The map menu:** an icon row (**Back one step**, faded with nothing to step back; **Players**;
+  and a question mark whose tooltip says how to box a map), your selection's actions, the maps from
+  this world, and **Back to Lobby** pinned at the bottom.
+  - **A ready map** is a card with its name. Tap it: **Edit** (green) or Cancel. Edit opens it on
+    the Edit server, the menu says it's loading (with the loading dots), and you're moved there once
+    it's ready; Select keeps running.
+  - **A failed one** says so. Tap it for why, then **Try again** or **Remove from this list**.
+  - A map is deleted only from Edit (its gear's **Delete map**), which also takes it off this list.
   - The Panel lists them too, with how each is going.
 
 **What a new map gets:**
 
 - `maps/<id>/world`: the box moved so its middle sits at x 0, z 0 (heights stay), and nothing else.
   Neighboring builds that spill into the same chunks are cleared.
-- A draft `map.json` with its name, `"draft": true`, the first spawn (where you stood, moved with
-  the map), the bounds (the moved box) and `source` (the world, the box and the offset). Drafts are
-  left out of the build until they're marked ready, so the build keeps passing.
+- A draft `map.json` with its name, `"draft": true`, no spawns yet (they're placed in Edit), a
+  **spectator spawn** over the middle, 10 blocks above the highest block of the build (everyone
+  arrives there in Edit), the bounds (the moved box, reaching up past the spectator spawn) and
+  `source` (the world, the box and the offset). Drafts are left out of the build until they're
+  published, so the build keeps passing.
 
 **Back to Select:** in Edit mode, the map menu's gear has **Back to Select** for a map that came
 from a world on this PC, so you can go back and box more. It's instant when Select has that world
@@ -169,8 +181,8 @@ send Xbox invites: a guest adds this PC's address on port 19132 (the network's a
 **Where guests go:**
 - Joining, they land in the editor lobby (a dark screen with no menu) and are moved straight on to
   Select or the preview, whichever is open; if neither is, they wait there until one is.
-- On Select they're in creative with no tools: they can fly around and build. Select's world is a
-  copy that's never saved, so nothing they do reaches the maps you cut out.
+- On Select they're in creative with no tools: they can fly around and look. Nobody can break or
+  place blocks there.
 - **Preview:** guests on Select (or waiting) come along into the game with everyone in Edit. When
   it ends, map editors go back to Edit and guests to the editor lobby, then on to Select when it
   reopens.
@@ -183,9 +195,10 @@ would fly you down.
 
 The map menu, the checklist, a marker's form and the region tool's menus open as a dark panel down
 the right side of the screen, full height, so the world stays in view on the left. Esc or the X
-closes them. Buttons that delete or remove something are red. The forms with fields (Map settings,
-Change list, Renumber, Save as, Nudge sides, a typed kill Y) are the game's own, in the middle of the
-screen.
+closes them. Buttons that delete or remove something are red, and the step that finishes something
+(Export to Map, Nudge, Edit) is green. Help you only need the first time is a tooltip on a question
+mark or an icon, not text in the menu. The forms with fields (Map settings, Change list, Renumber,
+Save as, a typed kill Y, a name or map id) are the game's own, in the middle of the screen.
 
 **The map menu** (slot 9, locked), top down:
 
@@ -201,9 +214,11 @@ screen.
      time, whatever you hold (see "Outlines" below). Your switches are kept for your next map and
      the next boot (`work/editor/view.json`).
    - **The play icon** (Preview, game maps only): see "Preview".
-   - **The gear** (map settings): the map's name and the game's own settings in `map.json` (such as
-     a number a game reads), as text fields; **Players** (see "Who can join"); and **Drop build
-     commands** (maps made by `npm run bake`), which keeps the world as you change it.
+   - **The gear** (map settings): **Players** in its icon row (see "Who can join"); **Name and game
+     settings** (the map's name and the game's own settings in `map.json`, such as a number a game
+     reads, as text fields); **Back to Select** (for a map from a world on this PC); **Drop build
+     commands** (red, maps made by `npm run bake`), which keeps the world as you change it;
+     **Delete map** (red, see "Deleting a map"); and **Back to Lobby** pinned at the bottom.
 2. **Tools:** a grid of the tools' icons (the Spawn tool, the Region tool, the Kill Y tool and the
    Camera tool), with
    their names as tooltips. Tap one to put it in slot 1 and in your hand; the menu opens again with
@@ -253,7 +268,8 @@ screen.
       once the map has one), a kill region, a region the game asks for (one per team when it asks
       for that), a region the map already has, or a new region you name (letters, digits and `_`).
       A region holds a list of boxes, and each save adds one.
-    - **Nudge sides:** moves each side up to 16 blocks out (above 0) or in (below 0).
+    - **Nudge sides:** a minus and a plus for each side, with the moved box outlined at once (see
+      "Select mode"); **Nudge** keeps it.
     - **Floor at kill Y:** puts the bottom of the box at kill Y.
     - **Back one step** undoes the last change to the selection; **Clear selection**.
   - The checklist's bounds and region rows give you the tool already set to that row.
@@ -362,6 +378,19 @@ or GitHub has commits that clash with local changes), the commit stays here, cha
 publishing again pushes it. The commit goes on the branch of the checkout the editor runs from
 (the Panel's, normally `main`).
 
+## Deleting a map
+
+**Delete map** (red, in Edit's gear) asks first, then:
+
+1. everyone in Edit goes to the editor lobby, and Edit stops without saving;
+2. the map's folder is deleted (`games/<game>/maps/<id>/`, or `lobby/maps/<id>/`);
+3. a published map (one git tracks) has its removal committed as `Automated Map Delete : <Game>
+   <Map> <date> <time>` and pushed, the way Publish does, so it leaves the lobby at the network's
+   next start; a draft is only deleted;
+4. it leaves its world's list in Select (every world's, open or not) and Recent.
+
+Chat in the editor lobby says when it's done. A preview has to end first.
+
 ## How it works
 
 - `npm run editor` (`tools/editor/`) starts the containers `minecade-editor-lobby` (19132),
@@ -409,11 +438,14 @@ publishing again pushes it. The commit goes on the branch of the checkout the ed
 - **The menus** are classic forms themed by the editor's resource pack, like the lobby's menus
   (`docs/ui.md`). A title starting with a layout mark (`LAYOUT` in
   `editor/behavior_pack/scripts/marks.ts`) gets a layout in `editor/resource_pack/ui/editor_forms.json`:
-  `side` for the side menus, `map` for the map menu. A form's buttons are one list, and each part
-  of the map menu shows the buttons with its mark (`MARK`): the pill and the quick icons, the tools
-  (with a column mark, `COLUMNS`, so they fill a 5-wide grid), and Save; everything else is a
-  setting. Other marks draw a button red (`danger`), outline it (`picked`, and `on` for the tool in
-  hand), fade an icon (`dim`), make it a switch (`toggle`), or plain text (`heading`). The tooltips
+  `side` for the side menus, `map` for the map menu, `icons` for menus with an icon row (Select's map
+  menu, the selection's form, Edit's gear) and `home` for the editor lobby's. A form's buttons are
+  one list, and each part of a layout shows the buttons with its mark (`MARK`): the pill and the
+  quick icons, the tools (with a column mark, `COLUMNS`, so they fill a 5-wide grid), Save, the
+  button pinned at the bottom (`bottom`), and Nudge sides' rows (`minus` and `plus`, two columns
+  that line up); everything else is a setting. Other marks draw a button red (`danger`) or green
+  (`go`), outline it (`picked`, and `on` for the tool in hand), fade an icon (`dim`), make it a
+  switch (`toggle`), give it an icon on its left (`card`), or make it plain text (`heading`). The tooltips
   are the game's own (`hover_text_renderer`), fed the button's text: the server can't see the
   pointer, so the form draws them. `scripts/menu.ts` builds the map menu's buttons as plain data,
   and the tools are listed in `scripts/tools.ts`: a new tool adds a row there (its item, icon and
@@ -429,9 +461,11 @@ publishing again pushes it. The commit goes on the branch of the checkout the ed
      mode (`scripts/extractor.ts`). It captures the box in 64x64 columns (the biggest structure
      allowed), clears every chunk the box touches, places the columns at the offset twice (a block
      attached to a column not yet placed pops off the first time; entities only once), and removes
-     dropped items. Stopping the server saves it.
+     dropped items, then finds the highest block (`getTopmostBlock` over the moved box's columns).
+     Stopping the server saves it.
   3. Chunker prunes to the moved box's chunks, and the bake settings go into level.dat.
-  4. The world is swapped into `maps/<id>/world`, and a new map's `map.json` written.
+  4. The world is swapped into `maps/<id>/world`, and the new map's `map.json` written, with its
+     spectator spawn 10 blocks above the highest block, which the pack measures after placing.
 
   Chunks are loaded with script ticking areas, a whole phase at once (the source, then the
   destination) when that fits the ticking limit (300 chunks), otherwise a 64x64 region at a time.

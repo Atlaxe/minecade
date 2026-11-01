@@ -20,9 +20,9 @@ import {
   type SelectionInfo,
   type ServerInfo,
 } from "@minecade/minigame-core/config";
-import { sizeText } from "./boxes.ts";
+import { relativeSide, sizeText, type Cardinal, type Sides } from "./boxes.ts";
 import { SNAPS, type Snap, type SpawnList } from "./lists.ts";
-import { COLUMNS, MARK, dangerText, headingText, switchText } from "./marks.ts";
+import { COLUMNS, MARK, dangerText, goText, headingText, switchText } from "./marks.ts";
 import { CAMERA_KINDS, camerasOf, type CameraKind } from "./cameras.ts";
 import { ALL_BOUNDARIES, outlineShown, selectionActions, type BoundaryRow, type RegionEntry, type SelectionAction } from "./regions.ts";
 import { EDITOR_TOOLS, SELECT_TOOL, type ToolId } from "./tools.ts";
@@ -41,6 +41,10 @@ export const ICONS = {
   new: "textures/minecade/editor/icon_new",
   select: "textures/minecade/editor/icon_select",
   leave: "textures/minecade/editor/icon_leave",
+  /** Players (every icon row), a question mark whose tooltip is a how-to, and a nudge row's minus (its plus is `new`). */
+  players: "textures/minecade/editor/icon_players",
+  help: "textures/minecade/editor/icon_help",
+  minus: "textures/minecade/editor/icon_minus",
 } as const;
 
 export type MenuAction =
@@ -296,44 +300,135 @@ function problemCount(checklist: Checklist): string {
 // ---- Select mode ------------------------------------------------------------------------------
 
 export interface SelectMenuView {
-  world: string;
-  /** The Select tool is out. */
-  toolOut: boolean;
   selection?: { box: Box; steps: number };
   maps: SelectionInfo[];
 }
 
-/** Select mode's map menu: the Select tool, the selection's actions, then the maps from this world. */
+/** How to box a map, in the question mark's tooltip (Select's menus). */
+export const SELECT_HELP = `${SELECT_TOOL.howTo} Spawns are placed in Edit.`;
+
+/** Select mode's map menu: the icon row (Back one step, Players, how-to), the selection's actions, the maps from this world, and Back to Lobby. */
 export function selectMenuEntries(view: SelectMenuView): MenuEntry[] {
-  const entries: MenuEntry[] = [
-    {
-      action: { kind: "tool", tool: SELECT_TOOL.id },
-      text: `${MARK.tool}${COLUMNS[0]}${view.toolOut ? MARK.on : ""}${SELECT_TOOL.label}\n§7${SELECT_TOOL.hint}`,
-      icon: SELECT_TOOL.icon,
-    },
-  ];
-  if (view.selection) {
-    entries.push(
-      { action: { kind: "none" }, text: headingText(`Selection: ${sizeText(view.selection.box)}`) },
-      { action: { kind: "pick", action: "saveMap" }, text: "Save as map...\n§7cut it out as a new map" },
-      { action: { kind: "pick", action: "nudge" }, text: "Nudge sides" },
-    );
-    if (view.selection.steps > 0) entries.push({ action: { kind: "pick", action: "back" }, text: "Back one step" });
-    entries.push({ action: { kind: "pick", action: "clear" }, text: dangerText("Clear selection") });
-  }
+  const entries: MenuEntry[] = [backEntry(view.selection?.steps ?? 0), PLAYERS_ENTRY, helpEntry("How to box a map", SELECT_HELP)];
+  if (view.selection) entries.push(...selectionEntries(view.selection.box));
+  else entries.push({ action: { kind: "none" }, text: headingText("No selection yet") });
   entries.push({ action: { kind: "none" }, text: headingText(view.maps.length > 0 ? `Maps from this world (${view.maps.length})` : "No maps from this world yet") });
   for (const map of view.maps) {
-    entries.push({ action: { kind: "map", target: map.target, map: map.map }, text: `${map.name} (${map.map})\n§7${map.targetName}: ${statusLine(map)}` });
+    // A ready one is just its name: tapping it asks whether to edit it.
+    const status = map.status === "ready" ? "" : `\n${statusLine(map)}`;
+    entries.push({ action: { kind: "map", target: map.target, map: map.map }, text: `${MARK.card}${map.name} (${map.map})${status}`, icon: ICONS.edit });
   }
-  entries.push({ action: { kind: "none" }, text: headingText("Elsewhere") }, { action: { kind: "players" }, text: PLAYERS_TEXT }, { action: { kind: "lobby" }, text: LOBBY_TEXT });
+  entries.push({ action: { kind: "lobby" }, text: LOBBY_TEXT });
   return entries;
 }
 
-/** The button that goes to the editor lobby (Select's map menu, Edit's gear). */
-export const LOBBY_TEXT = "Editor lobby\n§7open another map or world";
+/** The selection's form (the Select tool used at the sky): Back one step and how-to in the icon row, then the selection's actions. */
+export function selectionFormEntries(selection: { box: Box; steps: number }): MenuEntry[] {
+  return [backEntry(selection.steps), helpEntry("How to box a map", SELECT_HELP), ...selectionEntries(selection.box)];
+}
 
-/** The button that opens the Players menu (Select's map menu, Edit's gear, the editor lobby's menu). */
-export const PLAYERS_TEXT = "Players\n§7invite friends to Select and previews";
+/** The selection's size, then Export to Map (green), Nudge sides and Clear selection (red). */
+function selectionEntries(box: Box): MenuEntry[] {
+  return [
+    { action: { kind: "none" }, text: headingText(`Selection: ${sizeText(box)}`) },
+    { action: { kind: "pick", action: "saveMap" }, text: goText("Export to Map") },
+    { action: { kind: "pick", action: "nudge" }, text: "Nudge sides" },
+    { action: { kind: "pick", action: "clear" }, text: dangerText("Clear selection") },
+  ];
+}
+
+/** Back one step, an icon (faded with nothing to step back). */
+function backEntry(steps: number): MenuEntry {
+  return { action: { kind: "pick", action: "back" }, text: `${MARK.quick}${steps > 0 ? "" : MARK.dim}Back one step\n§7${steps > 0 ? "undo the selection's last change" : "nothing to step back"}`, icon: ICONS.undo };
+}
+
+/** A question mark whose tooltip says how something works; tapping it does nothing. */
+function helpEntry(title: string, text: string): MenuEntry {
+  return { action: { kind: "none" }, text: `${MARK.quick}${title}\n§7${text}`, icon: ICONS.help };
+}
+
+/** The button that goes to the editor lobby, pinned at the bottom (Select's map menu, Edit's gear). */
+export const LOBBY_TEXT = `${MARK.bottom}Back to Lobby`;
+
+/** The Players icon (Select's map menu, Edit's gear, the editor lobby's menu): its tooltip says what it's for. */
+export const PLAYERS_TEXT = `${MARK.quick}Players\n§7invite friends to Select and previews`;
+const PLAYERS_ENTRY: MenuEntry = { action: { kind: "players" }, text: PLAYERS_TEXT, icon: ICONS.players };
+
+/** Edit's gear: the Players icon, then the map's settings, Back to Select, the red ones, and Back to Lobby. */
+export type GearAction = "settings" | "select" | "players" | "dropBuild" | "delete" | "lobby";
+
+export function gearEntries(view: { from?: string; build: boolean }): { action: GearAction; text: string; icon?: string }[] {
+  const entries: { action: GearAction; text: string; icon?: string }[] = [
+    { action: "players", text: PLAYERS_TEXT, icon: ICONS.players },
+    { action: "settings", text: "Name and game settings" },
+  ];
+  if (view.from) entries.push({ action: "select", text: "Back to Select" });
+  if (view.build) entries.push({ action: "dropBuild", text: dangerText("Drop build commands") });
+  entries.push({ action: "delete", text: dangerText("Delete map") }, { action: "lobby", text: LOBBY_TEXT });
+  return entries;
+}
+
+/** What Export to Map has so far: the name, the map id when typed (else it comes from the name), and the target. */
+export interface ExportDraft {
+  name: string;
+  map?: string;
+  target: string;
+}
+
+export type ExportAction = { kind: "name" } | { kind: "id" } | { kind: "target"; target: string } | { kind: "export" } | { kind: "none" };
+
+/** Export to Map: Name, then Map id, then the targets to pick from (the picked one outlined), then Export to Map (green). */
+export function exportEntries(draft: ExportDraft, targets: { id: string; name: string }[]): { action: ExportAction; text: string }[] {
+  const id = draft.map ?? mapIdFrom(draft.name);
+  return [
+    { action: { kind: "name" }, text: `Name: ${draft.name || "§8none yet"}` },
+    { action: { kind: "id" }, text: `Map id: ${id ? `${draft.map ? "" : "§7"}${id}` : "§8from the name"}` },
+    { action: { kind: "none" }, text: headingText("For") },
+    ...targets.map((target) => ({ action: { kind: "target" as const, target: target.id }, text: `${target.id === draft.target ? MARK.picked : ""}${target.name}` })),
+    { action: { kind: "export" }, text: goText("Export to Map") },
+  ];
+}
+
+/** How far each tap moves a side: Step cycles through these. */
+export const NUDGE_STEPS = [1, 5, 10] as const;
+
+export type NudgeAction = { kind: "side"; side: keyof Sides; by: 1 | -1 } | { kind: "step" } | { kind: "reset" } | { kind: "nudge" } | { kind: "none" };
+
+/** The sides in Nudge's order, with their names and, for the four around, their compass direction. */
+const NUDGE_SIDES: { side: keyof Sides; name: string; compass?: Cardinal }[] = [
+  { side: "north", name: "North", compass: "north" },
+  { side: "south", name: "South", compass: "south" },
+  { side: "west", name: "West", compass: "west" },
+  { side: "east", name: "East", compass: "east" },
+  { side: "up", name: "Top" },
+  { side: "down", name: "Bottom" },
+];
+
+/**
+ * Nudge sides: for each side a minus (in) and a plus (out), the minus showing the side's name,
+ * where it is from the player, and how far it moved; then Step, Reset (once something moved) and
+ * Nudge (green), which keeps it.
+ */
+export function nudgeEntries(view: { sides: Sides; step: number; facing: Cardinal }): { action: NudgeAction; text: string; icon?: string }[] {
+  const entries: { action: NudgeAction; text: string; icon?: string }[] = [];
+  for (const { side, name, compass } of NUDGE_SIDES) {
+    const where = compass ? ` (${relativeSide(view.facing, compass)})` : "";
+    const moved = view.sides[side];
+    entries.push(
+      { action: { kind: "side", side, by: -1 }, text: `${MARK.minus}${name}${where}: ${moved > 0 ? `+${moved}` : moved}`, icon: ICONS.minus },
+      { action: { kind: "side", side, by: 1 }, text: `${MARK.plus}${name} out`, icon: ICONS.new },
+    );
+  }
+  entries.push({ action: { kind: "step" }, text: `Step: ${view.step} block${view.step === 1 ? "" : "s"}` });
+  if (Object.values(view.sides).some((value) => value !== 0)) entries.push({ action: { kind: "reset" }, text: "Reset" });
+  entries.push({ action: { kind: "nudge" }, text: goText("Nudge") });
+  return entries;
+}
+
+/** The action bar while Nudge sides is open: the way the player faces. */
+export function facingLine(facing: Cardinal): string {
+  return `Facing ${facing[0].toUpperCase()}${facing.slice(1)}   + moves a side out, - moves it in`;
+}
 
 /** The Players menu's text: who guests are, and where they can go. */
 export const PLAYERS_BODY =
@@ -358,11 +453,6 @@ export function guestEntries(guests: GuestInfo[]): { name?: string; text: string
   return [{ text: "Invite a player...\n§7by gamertag" }, ...guests.map((guest) => ({ name: guest.name, text: `${guest.name}\n§7${guestWhere(guest)}` }))];
 }
 
-/** The text over Select mode's settings: the world, then how to use the Select tool. */
-export function selectMenuBody(world: string, toolOut: boolean): string {
-  return `Select mode on "${world}"\n\n§f${toolOut ? SELECT_TOOL.howTo : "Pick the Select tool above."}`;
-}
-
 /** How a map's extraction is going, in a few words. */
 export function statusLine(map: SelectionInfo): string {
   switch (map.status) {
@@ -373,30 +463,28 @@ export function statusLine(map: SelectionInfo): string {
     case "updating":
       return "§ebeing updated...";
     case "ready":
-      return "§aready: tap to edit it";
+      return "§aready";
     case "failed":
       return "§cfailed: tap for why";
   }
 }
 
-export type MapAction = "edit" | "update" | "retry" | "forget";
+export type MapAction = "edit" | "retry" | "forget" | "cancel";
 
-/** What a map from this world offers in its own menu, by its status. */
+/**
+ * What tapping a map from this world offers: Edit (green) or Cancel when it's ready; Try again, or
+ * taking it off the list, when its export failed (there's no map to delete in Edit then). A ready
+ * map is deleted from Edit only.
+ */
 export function mapActions(map: SelectionInfo): { action: MapAction; text: string }[] {
-  if (map.status === "ready") {
-    return [
-      { action: "edit", text: `Edit ${map.map}\n§7open it on the Edit server: you're moved there` },
-      { action: "update", text: dangerText("Update from this world\n§7redo its blocks; changes made in Edit are lost") },
-      { action: "forget", text: "Forget\n§7take it off this list; the map stays" },
-    ];
-  }
-  if (map.status === "failed") {
-    return [
-      { action: "retry", text: "Try again" },
-      { action: "forget", text: dangerText("Forget\n§7take it off this list") },
-    ];
-  }
+  if (map.status === "ready") return [{ action: "edit", text: goText("Edit") }, { action: "cancel", text: "Cancel" }];
+  if (map.status === "failed") return [{ action: "retry", text: "Try again" }, { action: "forget", text: dangerText("Remove from this list") }, { action: "cancel", text: "Cancel" }];
   return [];
+}
+
+/** The question before editing a map from this world. */
+export function editBody(map: SelectionInfo): string {
+  return `${map.name} (${map.map}), a ${map.targetName} map, ${sizeText(map.box)} blocks. It opens on the Edit server, and you're moved there.`;
 }
 
 // ---- The editor lobby ---------------------------------------------------------------------------
@@ -448,13 +536,14 @@ export interface HomeEntry {
 }
 
 /**
- * The editor lobby's menu: the icon row (Open a map, New map, a filter for each kind of Recent
- * entry, Leave), then what's open now and Recent as cards with an icon for their kind, then Players.
+ * The editor lobby's menu: the icon row (Open a map, New map, Players, a filter for each kind of
+ * Recent entry, Leave), then what's open now and Recent as cards with an icon for their kind.
  */
 export function homeEntries(state: HomeState, filter?: RecentKind): HomeEntry[] {
   const entries: HomeEntry[] = [
     { action: { kind: "maps" }, text: `${MARK.quick}Open a map\n§7the lobby's and every game's maps`, icon: ICONS.edit },
     { action: { kind: "new" }, text: `${MARK.quick}New map\n§7copy builds from one of your worlds, or start from an empty one`, icon: ICONS.new },
+    { action: { kind: "players" }, text: PLAYERS_TEXT, icon: ICONS.players },
   ];
   for (const { kind, name, hint, icon } of RECENT_KINDS) {
     const on = filter === kind;
@@ -476,7 +565,6 @@ export function homeEntries(state: HomeState, filter?: RecentKind): HomeEntry[] 
   entries.push({ action: { kind: "none" }, text: headingText(shown ? `Recent: ${shown.name} only` : "Recent") });
   if (recent.length === 0) entries.push({ action: { kind: "none" }, text: headingText(`§8${shown?.none ?? "Nothing opened yet"}`) });
   for (const entry of recent) entries.push({ action: { kind: "open", request: entry.request }, text: `${MARK.card}${entry.label}`, icon: kindIcon(entry.request.to) });
-  entries.push({ action: { kind: "none" }, text: headingText("Friends") }, { action: { kind: "players" }, text: PLAYERS_TEXT });
   return entries;
 }
 

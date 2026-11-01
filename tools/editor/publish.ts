@@ -1,8 +1,11 @@
 // Publish: commits one map's folder and pushes it. Start the network builds from this checkout, so a
 // published map (no longer a draft) is in the lobby's game list from the network's next start, and
 // every other clone gets it from GitHub. Only the map's folder goes into the commit, whatever else
-// is changed or staged in the checkout.
+// is changed or staged in the checkout. Deleting a map (Edit's Delete map) removes its folder, and
+// for a published one commits and pushes the removal the same way.
 import { execFile } from "node:child_process";
+import { rm } from "node:fs/promises";
+import { join } from "node:path";
 
 /** Fetching and pushing can wait on the network (or a sign-in window), the rest is local. */
 const LOCAL_MS = 30_000;
@@ -21,9 +24,29 @@ export type PublishResult =
 
 /** "Automated Map Build : Sumo Sewer 2026-10-31 18:42", the time in this PC's time zone. */
 export function publishMessage(gameName: string, mapName: string, at: Date): string {
+  return `Automated Map Build : ${gameName} ${mapName} ${localTime(at)}`;
+}
+
+/** "Automated Map Delete : Sumo Sewer 2026-10-31 18:42". */
+export function deleteMessage(gameName: string, mapName: string, at: Date): string {
+  return `Automated Map Delete : ${gameName} ${mapName} ${localTime(at)}`;
+}
+
+function localTime(at: Date): string {
   const two = (value: number) => String(value).padStart(2, "0");
-  const time = `${at.getFullYear()}-${two(at.getMonth() + 1)}-${two(at.getDate())} ${two(at.getHours())}:${two(at.getMinutes())}`;
-  return `Automated Map Build : ${gameName} ${mapName} ${time}`;
+  return `${at.getFullYear()}-${two(at.getMonth() + 1)}-${two(at.getDate())} ${two(at.getHours())}:${two(at.getMinutes())}`;
+}
+
+/**
+ * Deletes a map's folder (`path`, relative to the checkout at `root`). A published map (one git
+ * tracks) has its removal committed and pushed as Publish does; a draft is only deleted.
+ */
+export async function deleteMapFolder(git: Git, root: string, path: string, message: string): Promise<{ published: false } | ({ published: true } & PublishResult)> {
+  const tracked = await git(["ls-files", "--", path], LOCAL_MS);
+  // Retries cover Windows file watchers (VS Code) briefly holding files in the world.
+  await rm(join(root, path), { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
+  if (tracked.code !== 0 || !tracked.out) return { published: false };
+  return { published: true, ...(await publishMap(git, path, message)) };
 }
 
 /** git in `cwd`, never asking for anything on the console. */

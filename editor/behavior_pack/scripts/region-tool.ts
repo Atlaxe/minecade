@@ -6,7 +6,7 @@
 import { world, type Block, type Player } from "@minecraft/server";
 import { ActionFormData, ModalFormData } from "@minecraft/server-ui";
 import type { Box, MapEdit, Scope } from "@minecade/minigame-core";
-import { blockInView, change, keyOf, nudgeForm, xyz, type Picking } from "./box-picker.ts";
+import { blockInView, change, keyOf, nudgeMenu, xyz, type Picking } from "./box-picker.ts";
 import { blockBox, describeBox, floorAt, growBox, sameBox, sizeText, topCenter } from "./boxes.ts";
 import { dangerText, sideTitle } from "./marks.ts";
 import { entryBox, regionEntries, regionLabel, regionName, regionTargets, selectionActions, type RegionEntry, type SelectionAction } from "./regions.ts";
@@ -120,7 +120,7 @@ export class RegionTool {
       case "saveAs":
         return this.saveAs(player, selection);
       case "nudge": {
-        const box = await nudgeForm(this.host, player, selection.box, "Nudge the selection");
+        const box = await nudgeMenu(this.host, player, selection.box, "Nudge sides");
         if (!box || sameBox(box, selection.box) || this.selections.get(keyOf(player)) !== selection) return;
         change(selection, box);
         actionBar(player, `Selection: ${describeBox(box)}`);
@@ -180,7 +180,7 @@ export class RegionTool {
         this.host.tell(player, `${entry.label} is in your selection. Change it with the region tool, then use the tool at the air and choose Save changes.`);
         return;
       case "nudge": {
-        const box = await nudgeForm(this.host, player, entry.box, `Nudge ${entry.label}`);
+        const box = await nudgeMenu(this.host, player, entry.box, `Nudge ${entry.label}`);
         if (!box || sameBox(box, entry.box) || !player.isValid || !this.unchanged(player, entry)) return;
         if (!this.host.edit(player, saveEdit(entry, box), `${entry.label} nudged: ${describeBox(box)}.`)) return;
         // Their own selection of this box follows it.

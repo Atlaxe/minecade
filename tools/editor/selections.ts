@@ -3,14 +3,14 @@
 // one at a time in this process (extract.ts) and carry on across mode switches; the runner waits
 // for them before it exits.
 import { existsSync } from "node:fs";
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { mkdir, readFile, readdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
-import type { MapConfig, SelectionInfo, Vec3 } from "@minecade/minigame-core/config";
+import type { MapConfig, SelectionInfo } from "@minecade/minigame-core/config";
 import { connectDocker } from "../build/docker-util.ts";
 import { readEnv } from "../control-panel/core.ts";
 import { buildChunkerImage } from "./chunker.ts";
 import { extract } from "./extract.ts";
-import { add, draftMap, parseSelectFile, worldSlug, type SelectFile, type Selection } from "./select-core.ts";
+import { draftMap, parseSelectFile, worldSlug, type SelectFile, type Selection } from "./select-core.ts";
 import { listTargets, loadTarget, targetDir } from "./targets.ts";
 import { clientWorlds, pickWorld, type World } from "./worlds.ts";
 
@@ -101,11 +101,11 @@ export class Selections {
     const file = this.mustFile(world);
     file.selections.push({ ...selection, status: "queued" });
     await this.changed(file, file.selections.at(-1)!);
-    this.enqueue(file, file.selections.at(-1)!, "extract");
+    this.enqueue(file, file.selections.at(-1)!);
   }
 
-  /** Retry a failed extraction, forget a map in the list (its map stays in the repo), or redo a map's world. */
-  async act(world: string, action: "retry" | "forget" | "update", target: string, map: string): Promise<string | undefined> {
+  /** Retry a failed extraction, or forget a map in the list (its map, if any, stays in the repo). */
+  async act(world: string, action: "retry" | "forget", target: string, map: string): Promise<string | undefined> {
     const file = this.mustFile(world);
     const selection = file.selections.find((candidate) => candidate.target === target && candidate.map === map);
     if (!selection) return `${map} isn't in ${world}'s list`;
@@ -117,40 +117,55 @@ export class Selections {
       for (const listener of this.listeners) listener(file.world, info, true);
       return undefined;
     }
-    if (action === "retry") {
-      if (selection.status !== "failed") return `${map} hasn't failed`;
-      const exists = existsSync(join(targetDir(this.root, target), "maps", map, "map.json"));
-      selection.status = exists ? "updating" : "queued";
-      selection.error = undefined;
-      await this.changed(file, selection);
-      this.enqueue(file, selection, exists ? "update" : "extract");
-      return undefined;
-    }
-    if (selection.status !== "ready") return `${map} isn't ready: it can be updated once it is`;
-    selection.status = "updating";
+    if (selection.status !== "failed") return `${map} hasn't failed`;
+    selection.status = "queued";
+    selection.error = undefined;
     await this.changed(file, selection);
-    this.enqueue(file, selection, "update");
+    this.enqueue(file, selection);
     return undefined;
   }
 
-  private enqueue(file: SelectFile, selection: Selection, kind: "extract" | "update"): void {
+  /**
+   * Takes a map off every world's list (it was deleted in Edit): the open lists, and the files of
+   * worlds not open now.
+   */
+  async removeMap(target: string, map: string): Promise<void> {
+    const same = (selection: Selection) => selection.target === target && selection.map === map;
+    for (const file of this.files.values()) {
+      const selection = file.selections.find(same);
+      if (!selection) continue;
+      file.selections.splice(file.selections.indexOf(selection), 1);
+      await this.save(file);
+      const info = await this.info(selection);
+      for (const listener of this.listeners) listener(file.world, info, true);
+    }
+    if (!existsSync(this.dir)) return;
+    for (const name of await readdir(this.dir)) {
+      if (!name.endsWith(".json")) continue;
+      const path = join(this.dir, name);
+      const file = parseSelectFile(await readFile(path, "utf8"));
+      if (!file || this.files.has(file.world) || !file.selections.some(same)) continue;
+      file.selections = file.selections.filter((selection) => !same(selection));
+      await writeFile(path, `${JSON.stringify(file, null, 2)}\n`);
+    }
+  }
+
+  private enqueue(file: SelectFile, selection: Selection): void {
     this.pending++;
     this.queue = this.queue
-      .then(() => this.run(file, selection, kind))
+      .then(() => this.run(file, selection))
       .finally(() => {
         this.pending--;
       });
   }
 
-  private async run(file: SelectFile, selection: Selection, kind: "extract" | "update"): Promise<void> {
+  private async run(file: SelectFile, selection: Selection): Promise<void> {
     if (!file.selections.includes(selection)) return;
     const mapDir = join(targetDir(this.root, selection.target), "maps", selection.map);
     const label = `${selection.target}/${selection.map}`;
     try {
-      if (kind === "extract") {
-        if (existsSync(join(mapDir, "map.json"))) throw new Error(`there is a map ${label} already`);
-        selection.status = "extracting";
-      }
+      if (existsSync(join(mapDir, "map.json"))) throw new Error(`there is a map ${label} already`);
+      selection.status = "extracting";
       await this.changed(file, selection);
       if (!this.chunkerReady) {
         buildChunkerImage(this.root, this.verbose);
@@ -158,17 +173,14 @@ export class Selections {
       }
       const env = readEnv(await readFile(join(this.root, ".env"), "utf8"));
       this.note(`Extracting ${label} from ${file.world}...`);
-      // Update keeps map.json: its stored box and offset say where the world goes.
-      const config = kind === "update" ? (JSON.parse(await readFile(join(mapDir, "map.json"), "utf8")) as MapConfig) : draftMap(selection, file.world);
-      const source = config.source ?? { box: selection.box, offset: selection.offset };
-      const spawn = (config.spawns?.[0]?.slice(0, 3) as Vec3 | undefined) ?? add(selection.spawn, selection.offset);
+      const config = draftMap(selection, file.world);
       await extract(
-        { world: file.path, box: source.box, offset: source.offset, mapDir, config: kind === "extract" ? config : undefined, name: config.name, spawn },
+        { world: file.path, box: selection.box, offset: selection.offset, mapDir, config, name: config.name },
         { docker: connectDocker(), env, verbose: this.verbose, note: (text) => this.note(`${label}: ${text}`) },
       );
       selection.status = "ready";
       selection.error = undefined;
-      this.note(`${label} is ready: ${kind === "extract" ? "a draft map, centered at x 0, z 0" : "its world was redone from " + file.world}.`);
+      this.note(`${label} is ready: a draft map, centered at x 0, z 0, its spectator spawn above it.`);
     } catch (error) {
       selection.status = "failed";
       selection.error = error instanceof Error ? error.message : String(error);
@@ -190,16 +202,7 @@ export class Selections {
         }
         const source = config.source;
         if (!source || source.world !== file.world) continue;
-        const spawn = (config.spawns?.[0]?.slice(0, 3) as Vec3 | undefined) ?? [0, 0, 0];
-        file.selections.push({
-          target: target.id,
-          map,
-          name: config.name,
-          box: source.box,
-          offset: source.offset,
-          spawn: [spawn[0] - source.offset[0], spawn[1] - source.offset[1], spawn[2] - source.offset[2]],
-          status: "ready",
-        });
+        file.selections.push({ target: target.id, map, name: config.name, box: source.box, offset: source.offset, status: "ready" });
       }
     }
   }

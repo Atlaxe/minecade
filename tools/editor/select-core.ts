@@ -1,6 +1,6 @@
 // Select mode's host logic with no I/O, kept apart so it can be unit-tested: where an extracted map
 // goes (the offset that puts its middle at x 0, z 0), the chunks Chunker keeps, a new map's draft
-// map.json, and the list of maps boxed in a world (work/select/<world>.json).
+// map.json and its spectator spawn, and the list of maps boxed in a world (work/select/<world>.json).
 import type { Box, MapConfig, Vec3 } from "@minecade/minigame-core/config";
 
 /** Chunks, inclusive, the way Chunker's pruning file takes them. */
@@ -20,8 +20,8 @@ export interface Selection {
   box: Box;
   /** What moves the box to the middle. */
   offset: Vec3;
-  /** Where the player stood when they saved it, in the world's coordinates: the first spawn. */
-  spawn: Vec3;
+  /** Where the player stood when they saved it (lists from before spawns moved to Edit; unused). */
+  spawn?: Vec3;
   status: "queued" | "extracting" | "ready" | "failed" | "updating";
   error?: string;
 }
@@ -57,19 +57,43 @@ export function add(a: Vec3, b: Vec3): Vec3 {
   return [a[0] + b[0], a[1] + b[1], a[2] + b[2]];
 }
 
-/** True when the block `at` is inside the box. */
-export function insideBox(box: Box, at: Vec3): boolean {
-  return at.every((value, axis) => value >= box.min[axis] && value <= box.max[axis]);
-}
-
-/** A new map's map.json: a draft, its first spawn where the player stood, the bounds around it, and where it came from. */
-export function draftMap(selection: Pick<Selection, "name" | "box" | "offset" | "spawn">, world: string): MapConfig {
+/**
+ * A new map's map.json: a draft with no spawns yet (they're placed in Edit), the bounds around it,
+ * and where it came from. withSpectatorSpawn adds its spectator spawn once it's moved.
+ */
+export function draftMap(selection: Pick<Selection, "name" | "box" | "offset">, world: string): MapConfig {
   return {
     name: selection.name,
     draft: true,
-    spawns: [add(selection.spawn, selection.offset)],
+    spawns: [],
     bounds: moveBox(selection.box, selection.offset),
     source: { world, box: selection.box, offset: selection.offset },
+  };
+}
+
+/** How far above a new map's highest block its spectator spawn goes. */
+export const SPECTATOR_ABOVE = 10;
+/** The world's highest block. */
+const TOP_Y = 319;
+
+/**
+ * A new map with its spectator spawn over the middle of its bounds, SPECTATOR_ABOVE blocks above
+ * its highest block (`top`; the bounds' top when the box held nothing), where everyone arrives in
+ * Edit. The bounds reach up past it, since every spawn must be inside them.
+ */
+export function withSpectatorSpawn(config: MapConfig, top: number | undefined): MapConfig {
+  const bounds = moveBox(config.source?.box ?? { min: [0, 0, 0], max: [0, 0, 0] }, config.source?.offset ?? [0, 0, 0]);
+  const middle = (axis: 0 | 2) => Math.floor((bounds.min[axis] + bounds.max[axis] + 1) / 2) + 0;
+  const y = Math.min((top ?? bounds.max[1]) + SPECTATOR_ABOVE, TOP_Y - 2);
+  // Right after the spawns in map.json.
+  const { name, draft, spawns, ...rest } = config;
+  return {
+    name,
+    ...(draft !== undefined ? { draft } : {}),
+    spawns,
+    spectatorSpawn: [middle(0), y, middle(2)],
+    ...rest,
+    bounds: { min: bounds.min, max: [bounds.max[0], Math.max(bounds.max[1], y + 2), bounds.max[2]] },
   };
 }
 

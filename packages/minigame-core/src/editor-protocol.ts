@@ -150,18 +150,20 @@ export type EditorEvent =
   | { t: "picture"; by: string; kind: "map" | "game" }
   /** The answer to "cleanup": how many markers are still in the world (the world is saved only at 0). */
   | { t: "clean"; id: number; left: number; error?: string }
-  /** Select mode: extract this box as a new map. `spawn` (where the player stood) becomes its first spawn. */
-  | { t: "saveMap"; by: string; box: Box; target: string; map: string; name: string; spawn: Vec3 }
-  /** Select mode: try a failed extraction again, forget a map in the list, or redo a map's world from this world. */
-  | { t: "mapAction"; by: string; action: "retry" | "forget" | "update"; target: string; map: string }
+  /** Select mode: export this box as a new map (its spectator spawn goes above it; spawns are placed in Edit). */
+  | { t: "saveMap"; by: string; box: Box; target: string; map: string; name: string }
+  /** Select mode: try a failed extraction again, or take a failed one off the list. */
+  | { t: "mapAction"; by: string; action: "retry" | "forget"; target: string; map: string }
+  /** Edit: delete the map open here (its folder, its place in Select's list, and its removal pushed when it was published). */
+  | { t: "deleteMap"; by: string }
   /** Open a map or a world (on its server), or go to the editor lobby. */
   | { t: "open"; by: string; request: OpenRequest }
   /** Invite a player (on), or take the invitation back (the Players menu). */
   | { t: "invite"; by: string; name: string; on: boolean }
   /** The editor lobby's Leave: disconnect this player. */
   | { t: "leave"; by: string }
-  /** Extract mode: the box was moved (or why not). */
-  | { t: "extracted"; ok: boolean; error?: string; tiles?: number; drops?: number };
+  /** Extract mode: the box was moved (or why not), and the height of its highest block (none when it held nothing). */
+  | { t: "extracted"; ok: boolean; error?: string; tiles?: number; drops?: number; top?: number };
 
 /** What the host tells the pack. */
 export type HostMessage =
@@ -192,7 +194,7 @@ export type HostMessage =
   /** Extract mode: move `box` by `offset`, clearing the box's chunks around it, then answer with "extracted". */
   | { t: "extract"; box: Box; offset: Vec3 };
 
-const EVENT_TYPES = new Set(["ready", "edit", "undo", "redo", "resync", "save", "publish", "preview", "changed", "view", "picture", "clean", "saveMap", "mapAction", "open", "invite", "leave", "extracted"]);
+const EVENT_TYPES = new Set(["ready", "edit", "undo", "redo", "resync", "save", "publish", "preview", "changed", "view", "picture", "clean", "saveMap", "mapAction", "deleteMap", "open", "invite", "leave", "extracted"]);
 const MESSAGE_TYPES = new Set(["config", "home", "ack", "status", "say", "notice", "cleanup", "resume", "selection", "forgotten", "goto", "guests", "extract"]);
 
 // BDS prints script console output as "[<time> <LEVEL>] [Scripting] <text>". Requiring that prefix

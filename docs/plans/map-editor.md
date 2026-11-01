@@ -575,6 +575,14 @@ start, which builds from the checkout.
   Leave), Open now and Recent as cards with an icon for their kind, previews in Recent (a card
   plays the map again and comes back to the editor lobby), and loading dots after the Loading
   title.)
+- (Select's menus came early too, on 2026-10-31, at the user's request: an icon row (Back one
+  step, Players, a how-to tooltip), Export to Map (green) as a side menu (Name, Map id, then the
+  targets), Nudge sides as a side menu of minus and plus buttons with the box outlined as it moves,
+  map cards that ask before Edit and show the loading dots, and Back to Lobby pinned at the bottom
+  of Select's map menu and Edit's gear. Help needed only the first time goes in tooltips from now
+  on. Select's world can't be changed (no breaking or placing), Update from this world and Forget
+  are gone, and a map is deleted from Edit's gear (Delete map), which also takes it off Select's
+  lists. A new map has no spawns: its spectator spawn goes 10 blocks above its highest block.)
 - Item icons; marker models with numbers and list colors (the facing line came in 10.3).
 - (Boundary blocks, the Layers form and inspect mode were dropped on 2026-10-31: the particle
   outlines stay.)

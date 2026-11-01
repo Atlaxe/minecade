@@ -485,7 +485,9 @@ def editor_icon(kind: str, color: tuple[int, int, int] = (255, 255, 255)) -> Ima
     The map menu's quick icons, 16x16 (drawn at 64x64 and scaled down): a check mark, Undo and
     Redo (a U-turn arrow, Redo mirrored), and a gear for the map settings. And the editor lobby's: a
     pencil (Open a map, and maps opened in Edit), a plus (New map), a crop mark (worlds opened in
-    Select), a funnel before the Recent filters, and a door with an arrow going out (Leave).
+    Select), a funnel before the Recent filters, and a door with an arrow going out (Leave). And
+    for every icon row: a person (Players), a question mark (a how-to in its tooltip), and a
+    minus (Nudge sides; its plus is New map's).
     """
     size = 64
     image = Image.new("RGBA", (size, size), (0, 0, 0, 0))
@@ -530,6 +532,16 @@ def editor_icon(kind: str, color: tuple[int, int, int] = (255, 255, 255)) -> Ima
         draw.line([(36, 16), (36, 8), (10, 8), (10, 56), (36, 56), (36, 48)], fill=fill, width=6, joint="curve")
         draw.line([(22, 32), (48, 32)], fill=fill, width=7)
         draw.polygon([(60, 32), (45, 19), (45, 45)], fill=fill)
+    elif kind == "players":
+        # A head and shoulders.
+        draw.ellipse((21, 6, 43, 28), fill=fill)
+        draw.pieslice((8, 34, 56, 82), start=180, end=360, fill=fill)
+    elif kind == "help":
+        draw.arc((16, 4, 48, 34), start=180, end=60, fill=fill, width=8)
+        draw.line([(41, 29), (32, 37), (32, 44)], fill=fill, width=8, joint="curve")
+        draw.rectangle((28, 51, 36, 59), fill=fill)
+    elif kind == "minus":
+        draw.rectangle((8, 27, 55, 36), fill=fill)
     return image.resize((16, 16), Image.Resampling.LANCZOS)
 
 
@@ -678,7 +690,7 @@ def main() -> None:
     for kind, name in (("check", "check"), ("undo", "undo"), ("redo", "redo"), ("gear", "settings")):
         save(editor_icon(kind), EDITOR_TEXTURES / "minecade" / "editor" / f"icon_{name}.png")
     save(editor_icon("check", (110, 220, 90)), EDITOR_TEXTURES / "minecade" / "editor" / "icon_check_done.png")
-    for kind, name in (("pencil", "edit"), ("plus", "new"), ("crop", "select"), ("funnel", "filter"), ("leave", "leave")):
+    for kind, name in (("pencil", "edit"), ("plus", "new"), ("crop", "select"), ("funnel", "filter"), ("leave", "leave"), ("players", "players"), ("help", "help"), ("minus", "minus")):
         save(editor_icon(kind), EDITOR_TEXTURES / "minecade" / "editor" / f"icon_{name}.png")
     save(loading_dots(), EDITOR_TEXTURES / "minecade" / "editor" / "loading_dots.png")
     save(outline_dot(), EDITOR_TEXTURES / "particle" / "outline.png")

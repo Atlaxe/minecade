@@ -4,6 +4,7 @@ import {
   blockBox,
   DOTS,
   describeBox,
+  facingOf,
   floorAt,
   growBox,
   nearDots,
@@ -11,6 +12,7 @@ import {
   parseHeight,
   planePoints,
   rectDots,
+  relativeSide,
   sameBox,
   sizeText,
   topCenter,
@@ -20,6 +22,17 @@ import {
 } from "../behavior_pack/scripts/boxes.ts";
 
 const none = { west: 0, east: 0, down: 0, up: 0, north: 0, south: 0 };
+
+describe("facing", () => {
+  it("reads the compass direction from a yaw", () => {
+    expect([0, 90, 180, -180, -90, 44, 46, 270, -270].map(facingOf)).toEqual(["south", "west", "north", "north", "east", "south", "west", "east", "west"]);
+  });
+
+  it("says where a side is from the way a player faces", () => {
+    expect((["north", "east", "south", "west"] as const).map((side) => relativeSide("north", side))).toEqual(["ahead", "right", "behind", "left"]);
+    expect((["north", "east", "south", "west"] as const).map((side) => relativeSide("west", side))).toEqual(["right", "behind", "left", "ahead"]);
+  });
+});
 
 describe("selection boxes", () => {
   it("starts at one block and grows to each block used on, on every axis", () => {

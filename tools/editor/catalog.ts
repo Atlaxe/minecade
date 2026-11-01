@@ -48,6 +48,13 @@ export async function readRecent(root: string): Promise<RecentEntry[]> {
   return existsSync(path) ? parseRecent(await readFile(path, "utf8")) : [];
 }
 
+/** Takes entries off the recent list (a deleted map's). */
+export async function forgetRecent(root: string, gone: (entry: RecentEntry) => boolean): Promise<void> {
+  const list = await readRecent(root);
+  const kept = list.filter((entry) => !gone(entry));
+  if (kept.length !== list.length) await writeFile(recentPath(root), `${JSON.stringify(kept, null, 2)}\n`);
+}
+
 /** Puts `entry` first in the recent list. */
 export async function noteRecent(root: string, entry: RecentEntry): Promise<void> {
   const list = addRecent(await readRecent(root), entry);
