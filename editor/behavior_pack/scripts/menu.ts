@@ -341,7 +341,7 @@ export type RegionScreenAction =
   | { kind: "target"; key: string }
   | { kind: "name" }
   | { kind: "floor" }
-  | { kind: "back" }
+  | { kind: "undo" }
   | { kind: "side"; side: keyof Sides; by: 1 | -1 }
   | { kind: "step"; step: number }
   | { kind: "clear" }
@@ -369,7 +369,7 @@ export function regionScreenEntries(view: RegionScreenView): { action: RegionScr
   lead({ kind: "none" }, headingText(`Selection: ${sizeText(view.box)}${view.target === "editing" && view.editing ? `, ${view.editing}` : ""}`));
   if (view.target === "new") lead({ kind: "name" }, `Name: ${view.name || "§8none yet"}\n§7letters, digits and _, starting with a letter`);
   if (view.killY !== undefined) lead({ kind: "floor" }, `Floor at kill Y\n§7put the bottom at ${view.killY}`);
-  if (view.steps > 0) lead({ kind: "back" }, "Back one step\n§7undo the last change to the selection");
+  if (view.steps > 0) lead({ kind: "undo" }, "Back one step\n§7undo the last change to the selection");
   for (const { side, name } of NUDGE_SIDES) {
     entries.push(
       { action: { kind: "side", side, by: -1 }, text: `${MARK.minus}${name}`, icon: ICONS.minus },

@@ -15,7 +15,8 @@ Its first map (needs the map editor, after the editor's next boot):
 - Preview it alone. You spawn with a stone sword in slot 1, a bow in slot 2 and one arrow in slot 9;
   Q drops none of them. Draw the bow and shoot at a wall: the arrow leaves slot 9 (if the bow
   won't shoot the locked arrow, say so), and it's gone from the wall, nothing to pick up.
-- The sidebar says Kills, and chat says "First to 15 kills wins...".
+- No sidebar: top right, a box with a skull and 0 sits left of the clock's box, each with its own
+  background. Chat says "First to 15 kills wins...".
 
 With a second player (a preview with an invited guest, or the network once the map is published):
 
@@ -104,6 +105,21 @@ The editor lobby's menu (after the editor's next boot):
   left to right. If they don't move, or sit too high or low beside the word, say so.
 - The door: a "Leave?" menu. Cancel goes back; Leave disconnects you with "You left the map editor.
   Join again to come back." Joining again brings you back to the menu.
+
+One in the Quiver's kills box and the respawn title (after the editor's next boot):
+
+- Preview a Quiver map with `/fake 2`. Top right: a box with a skull and 0, then a small gap,
+  then the clock's box. Both boxes are the same height and darkness, and the scoreboard sidebar
+  is gone.
+- Kill a fake: the skull box says 1, and "+1 arrow" shows after the clock for 2 seconds. At 10
+  kills it's two digits wide, with no gap between the 1 and the 0 (if a number shows with gaps,
+  or shows every digit, say so: the digits rely on JSON UI's "ignored").
+- Fall below kill Y (or let a second player kill you): the middle of the screen shows a big 2 over
+  "Respawning in", then 1, and it's gone as you respawn. Nothing about respawning shows top right.
+- Sumo and the lobby look as before: no skull box, the clock alone.
+- Edit, Region tool: box a selection, change it twice, then open it from the map menu (its own
+  screen, with the back arrow). Back one step undoes the last change and keeps the screen open;
+  the back arrow goes back to the map menu. (Back one step used to act like the back arrow.)
 
 Locked items, marker styles and a preview's fake players (after the editor's next boot):
 

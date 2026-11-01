@@ -539,6 +539,10 @@ describe("tool screens", () => {
     expect(editing[0].text).toBe(segmentText("This box", 0, true));
     expect(editing.at(-1)?.text).toBe(saveBarText("Save Bounds"));
     expect(editing.filter((entry) => entry.text.startsWith(MARK.minus))).toHaveLength(6);
+    // Back one step undoes, and the back arrow (opened from the map menu) leaves: two different actions.
+    const fromMenu = regionScreenEntries({ targets, target: "editing", editing: "Bounds", name: "", box, steps: 2, step: 1, back: true });
+    expect(fromMenu[0].action.kind).toBe("back");
+    expect(fromMenu.find((entry) => entry.text.includes("Back one step"))?.action.kind).toBe("undo");
   });
 
   it("sets kill Y and places a camera from their own screens", () => {

@@ -135,7 +135,7 @@ export class RegionTool {
           else this.host.tell(player, `§cKill Y (${killY}) is above the selection.`);
           break;
         }
-        case "back": {
+        case "undo": {
           const box = selection.history.pop();
           if (box) selection.box = box;
           break;
