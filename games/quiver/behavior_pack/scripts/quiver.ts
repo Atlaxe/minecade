@@ -54,16 +54,18 @@ export class Quiver extends Minigame<typeof config> {
         log.warn(`quiver: could not remove an arrow: ${describeError(error)}`);
       }
     });
-    // An arrow that reaches a player kills even when no damage event comes: a hit during the
-    // victim's hit cooldown (just after a sword hit) fires none when it's weaker (measured on BDS).
-    // When the damage event did come first, its down is already under way and this does nothing.
+    // An arrow that reaches a player (or a preview's fake player) kills even when no damage event
+    // comes: a hit during the victim's hit cooldown (just after a sword hit) fires none when it's
+    // weaker (measured on BDS). When the damage event did come first, its down is already under way
+    // and this does nothing.
     this.scope.subscribe(world.afterEvents.projectileHitEntity, (event) => {
       try {
         const victim = event.getEntityHit().entity;
         const shooter = event.source;
-        if (event.projectile.typeId !== ARROW || victim?.typeId !== "minecraft:player" || shooter?.typeId !== "minecraft:player") return;
+        const name = this.whoIs(victim);
+        if (event.projectile.typeId !== ARROW || !victim || name === undefined || shooter?.typeId !== "minecraft:player") return;
         const from = (shooter as Player).name;
-        if (from.toLowerCase() !== (victim as Player).name.toLowerCase()) this.combat.hit(victim as Player, from, "lethal", "projectile");
+        if (from.toLowerCase() !== name.toLowerCase()) this.combat.hit(victim, from, "lethal", "projectile");
       } catch (error) {
         log.warn(`quiver: could not handle an arrow hit: ${describeError(error)}`);
       }
@@ -127,7 +129,7 @@ export class Quiver extends Minigame<typeof config> {
     const enemies = this.roster
       .inState("alive")
       .filter((participant) => participant.name.toLowerCase() !== key)
-      .map((participant) => this.player(participant.name)?.location)
+      .map((participant) => this.body(participant.name)?.location)
       .filter((location): location is Vector3 => location !== undefined);
     return pickSpawn(this.map.spawns, enemies, this.ctx.random) ?? super.spawnPoint(name, why);
   }
@@ -142,8 +144,8 @@ export class Quiver extends Minigame<typeof config> {
 
   /** Whole blocks between the killer and the victim, while both are here. */
   private shotDistance(victim: string, killer: string): number | undefined {
-    const from = this.player(killer)?.location;
-    const to = this.player(victim)?.location;
+    const from = this.body(killer)?.location;
+    const to = this.body(victim)?.location;
     return from && to ? Math.round(Math.hypot(to.x - from.x, to.y - from.y, to.z - from.z)) : undefined;
   }
 }

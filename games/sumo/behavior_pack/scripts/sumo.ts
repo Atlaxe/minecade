@@ -25,17 +25,17 @@ export class Sumo extends Minigame<typeof config> {
     scope.subscribe(
       world.afterEvents.entityHitEntity,
       ({ damagingEntity, hitEntity }) => {
-        if (hitEntity.typeId !== "minecraft:player") return;
         const attacker = damagingEntity as Player;
-        const victim = hitEntity as Player;
-        if (this.roster.get(attacker.name)?.state !== "alive" || this.roster.get(victim.name)?.state !== "alive") return;
-        const key = victim.name.toLowerCase();
+        // A player, or a preview's fake player.
+        const victim = this.whoIs(hitEntity);
+        if (victim === undefined || this.roster.get(attacker.name)?.state !== "alive" || this.roster.get(victim)?.state !== "alive") return;
+        const key = victim.toLowerCase();
         if (system.currentTick - (lastPush.get(key) ?? Number.NEGATIVE_INFINITY) < cooldownTicks) return;
         lastPush.set(key, system.currentTick);
         const { horizontal, vertical } = this.pushStrength(attacker.isSprinting);
-        const { x, z } = pushDirection(attacker.location, victim.location, attacker.getViewDirection());
-        victim.applyKnockback({ x: x * horizontal, z: z * horizontal }, vertical);
-        this.credit.hit(victim.name, attacker.name, system.currentTick);
+        const { x, z } = pushDirection(attacker.location, hitEntity.location, attacker.getViewDirection());
+        hitEntity.applyKnockback({ x: x * horizontal, z: z * horizontal }, vertical);
+        this.credit.hit(victim, attacker.name, system.currentTick);
       },
       { entityTypes: ["minecraft:player"] },
     );

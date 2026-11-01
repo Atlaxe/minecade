@@ -26,8 +26,10 @@ import { showForm } from "../ui.ts";
 import { homePort } from "../vars.ts";
 import { Combat, type CombatHost, type Hit } from "./combat.ts";
 import { KillCredit } from "./credit.ts";
+import { FAKE_PLAYER, FakePlayers } from "./fakes.ts";
 import { Kits } from "./kits.ts";
 import { MapView } from "./map-view.ts";
+import { DANGER_BUTTON, SIDE_TITLE } from "./preview.ts";
 import { aborted, draw, lastStanding, type Result } from "./results.ts";
 import { Roster, type Participant } from "./roster.ts";
 import { Score } from "./score.ts";
@@ -97,6 +99,8 @@ export abstract class Minigame<C extends GameConfig = GameConfig> {
   readonly stats: StatsRecorder;
   readonly credit: KillCredit;
   readonly combat: Combat;
+  /** A preview's fake players (/fake), who play like everyone else; undefined outside previews. */
+  readonly fakes: FakePlayers | undefined;
   /** The game mode players spawn in. Build games can switch to creative. */
   protected gameMode: GameMode = GameMode.Adventure;
 
@@ -125,6 +129,8 @@ export abstract class Minigame<C extends GameConfig = GameConfig> {
   private startTick = 0;
   private sidebar: Sidebar | undefined;
   private sidebarVersion = -1;
+  /** Players with a fake player's kill confirm open. */
+  private readonly confirmOpen = new Set<string>();
 
   constructor(ctx: GameContext, config: C) {
     this.ctx = ctx;
@@ -135,6 +141,7 @@ export abstract class Minigame<C extends GameConfig = GameConfig> {
     this.stats = new StatsRecorder(config.stats);
     this.credit = new KillCredit((config.combat?.killCreditSeconds ?? 8) * 20);
     this.combat = new Combat(this.combatHost(), config.combat ?? {}, this.stats, this.credit);
+    this.fakes = ctx.vars.preview ? new FakePlayers(world.getDimension("overworld")) : undefined;
     this.finished = new Promise((resolve) => (this.settle = resolve));
   }
 
@@ -277,6 +284,7 @@ export abstract class Minigame<C extends GameConfig = GameConfig> {
     });
     this.scope.subscribe(world.afterEvents.playerLeave, ({ playerName }) => this.departed(playerName));
     this.combat.attach(this.scope);
+    if (this.fakes) this.watchFakes(this.fakes);
     try {
       this.setup();
     } catch (error) {
@@ -460,6 +468,10 @@ export abstract class Minigame<C extends GameConfig = GameConfig> {
   }
 
   spectate(name: string): void {
+    if (this.fakes?.has(name)) {
+      this.fakes.hide(name); // back at its next spawn
+      return;
+    }
     const player = this.player(name);
     if (!player) return;
     player.setGameMode(GameMode.Spectator);
@@ -487,6 +499,21 @@ export abstract class Minigame<C extends GameConfig = GameConfig> {
   player(name: string): Player | undefined {
     const key = name.toLowerCase();
     return world.getAllPlayers().find((player) => player.name.toLowerCase() === key);
+  }
+
+  /** A participant's body in the world: their player, or a preview's fake player. */
+  body(name: string): Entity | undefined {
+    return this.player(name) ?? this.fakes?.body(name);
+  }
+
+  /** Who an entity is in the match: a player's name, or a fake player's; undefined for anything else. */
+  whoIs(entity: Entity | undefined): string | undefined {
+    try {
+      if (entity?.typeId === "minecraft:player") return (entity as Player).name;
+      return entity?.typeId === FAKE_PLAYER ? this.fakes?.nameOf(entity) : undefined;
+    } catch {
+      return undefined; // gone
+    }
   }
 
   teamOf(name: string): TeamDef | undefined {
@@ -524,6 +551,12 @@ export abstract class Minigame<C extends GameConfig = GameConfig> {
     participant.state = "alive";
     this.combat.settled(name);
     this.credit.clear(name);
+    const protect = this.config.respawn?.protectSeconds;
+    if (why === "respawn" && protect) this.protectedUntil.set(name.toLowerCase(), system.currentTick + protect * 20);
+    if (this.fakes?.has(name)) {
+      this.placeFake(name, this.spawnPoint(name, why), true);
+      return;
+    }
     const player = this.player(name);
     if (!player) return;
     normalizePlayer(player, this.gameMode);
@@ -531,8 +564,6 @@ export abstract class Minigame<C extends GameConfig = GameConfig> {
     if (team) player.nameTag = `${team.color}${player.name}`;
     this.place(player, this.spawnPoint(name, why), true);
     this.kits.give(player, team?.color);
-    const protect = this.config.respawn?.protectSeconds;
-    if (why === "respawn" && protect) this.protectedUntil.set(name.toLowerCase(), system.currentTick + protect * 20);
     try {
       this.onSpawn(player, why);
     } catch (error) {
@@ -664,6 +695,7 @@ export abstract class Minigame<C extends GameConfig = GameConfig> {
   }
 
   private hasPicked(name: string): boolean {
+    if (this.fakes?.has(name)) return true;
     return (!this.teamPicking || this.teamPicks.has(name.toLowerCase())) && (!this.kits.pick || this.kits.hasChosen(name));
   }
 
@@ -671,8 +703,9 @@ export abstract class Minigame<C extends GameConfig = GameConfig> {
     return this.ctx.vars.devMinPlayers ?? this.config.minPlayers;
   }
 
+  /** Everyone in the game: the players, then a preview's fake players. */
   private online(): string[] {
-    return world.getAllPlayers().map((player) => player.name);
+    return [...world.getAllPlayers().map((player) => player.name), ...(this.fakes?.all ?? [])];
   }
 
   private openPregame(scope: Scope): void {
@@ -687,6 +720,11 @@ export abstract class Minigame<C extends GameConfig = GameConfig> {
     scope.interval(() => {
       for (const player of world.getAllPlayers()) {
         if (this.map.outOfBounds(player.location) || this.offQueueSpot(player)) this.placeWaiting(player);
+      }
+      for (const name of this.fakes?.all ?? []) {
+        if (this.fakes?.isPlacing(name)) continue;
+        const body = this.fakes?.body(name);
+        if (!body || this.map.outOfBounds(body.location)) this.placeWaitingFake(name);
       }
     }, 10);
   }
@@ -758,8 +796,29 @@ export abstract class Minigame<C extends GameConfig = GameConfig> {
       }
       return;
     }
-    const index = Math.max(0, this.online().indexOf(player.name));
-    this.place(player, this.map.spawns[index % Math.max(1, this.map.spawns.length)] ?? [0, 65, 0]);
+    this.place(player, this.waitingSpawn(player.name));
+  }
+
+  /** A fake player waits at a spawn of its own (never in the queue). */
+  private placeWaitingFake(name: string): void {
+    this.placeFake(name, this.waitingSpawn(name));
+  }
+
+  private waitingSpawn(name: string): MapPosition {
+    const index = Math.max(0, this.online().indexOf(name));
+    return this.map.spawns[index % Math.max(1, this.map.spawns.length)] ?? [0, 65, 0];
+  }
+
+  /** Puts a fake player at a map position (in its team's color), with a body again if it had none, once its chunk is ticking. */
+  private placeFake(name: string, position: MapPosition, faceCenter = false): void {
+    const team = this.teamOf(name);
+    void this.fakes?.place(name, worldPoint(position), team ? `${team.color}${name}` : name).then((body) => {
+      try {
+        if (body?.isValid) this.place(body, position, faceCenter);
+      } catch (error) {
+        log.warn(`could not turn ${name}: ${describeError(error)}`);
+      }
+    });
   }
 
   /**
@@ -767,17 +826,17 @@ export abstract class Minigame<C extends GameConfig = GameConfig> {
    * facing. Without one, spawns face the middle of the map at eye level, so nobody starts looking
    * at the sky or the floor; other places keep the player's own facing.
    */
-  private place(player: Player, position: MapPosition, faceCenter = false): void {
+  private place(entity: Entity, position: MapPosition, faceCenter = false): void {
     const location = worldPoint(position);
     const y = location.y;
     const facing = facingOf(position);
     if (facing) {
-      player.teleport(location, { rotation: { x: facing.pitch, y: facing.yaw } });
+      entity.teleport(location, { rotation: { x: facing.pitch, y: facing.yaw } });
     } else if (faceCenter) {
       const [cx, , cz] = this.map.center();
-      player.teleport(location, { facingLocation: { x: cx + 0.5, y: y + 1.62, z: cz + 0.5 } });
+      entity.teleport(location, { facingLocation: { x: cx + 0.5, y: y + 1.62, z: cz + 0.5 } });
     } else {
-      player.teleport(location);
+      entity.teleport(location);
     }
   }
 
@@ -952,8 +1011,8 @@ export abstract class Minigame<C extends GameConfig = GameConfig> {
   private watchBounds(): void {
     if ((this.config.combat?.outOfBounds ?? "down") === "ignore") return;
     for (const participant of this.roster.inState("alive")) {
-      const player = this.player(participant.name);
-      if (player && this.map.outOfBounds(player.location)) this.down(participant.name, "void");
+      const body = this.body(participant.name);
+      if (body && this.map.outOfBounds(body.location)) this.down(participant.name, "void");
     }
     // Spectators fly through walls: keep them over the map (kill regions and the gaps between
     // bounds boxes don't apply to them).
@@ -1080,6 +1139,79 @@ export abstract class Minigame<C extends GameConfig = GameConfig> {
     });
   }
 
+  // ---- Previews: fake players and /exit (preview.ts) ---------------------------------------
+
+  /** /fake: adds fake players, who wait with everyone or join a running match as late joiners. Returns what happened. */
+  addFakes(count: number): string {
+    const fakes = this.fakes;
+    if (!fakes) return say.minor("Fake players are only for previews.");
+    if (this.currentPhase === "ending" || this.currentPhase === "done") return say.minor("The match is over.");
+    const playing = this.currentPhase === "playing";
+    if (playing && (this.config.lateJoin ?? "spectate") !== "join") {
+      return say.minor(`${this.config.name} lets nobody in once it has started: add fake players before the countdown ends.`);
+    }
+    const added: string[] = [];
+    while (added.length < count && this.online().length < this.config.maxPlayers) {
+      const name = fakes.add();
+      added.push(name);
+      if (!playing) {
+        this.placeWaitingFake(name);
+        continue;
+      }
+      const joined = this.roster.add(name, this.config.respawn?.lives ?? 1, this.smallestTeam());
+      this.stats.join(name, system.currentTick, joined.team);
+      if (this.config.scoring?.per === "player" && !this.score.entries().some(([id]) => id === name)) this.score.set(name, 0);
+      this.spawn(name, "join");
+    }
+    if (added.length === 0) return say.minor(`${this.config.name} is full: ${this.config.maxPlayers} players.`);
+    return say.info(`Added ${added.join(", ")}. Right click one to kill it.`);
+  }
+
+  /** A fake player's confirmed kill: it goes down, credited to `by` when they're its enemy in the match. Returns why not, if it can't. */
+  killFake(name: string, by: string): string | undefined {
+    if (this.currentPhase !== "playing") return say.minor("The match hasn't started.");
+    if (this.roster.get(name)?.state !== "alive") return say.minor(`${name} isn't in play right now.`);
+    if (this.roster.get(by)?.state === "alive" && !this.areTeammates(by, name)) this.credit.hit(name, by, system.currentTick);
+    this.down(name, "entityAttack");
+    return undefined;
+  }
+
+  /** /exit: a map editor ends the preview for everyone (back to Edit); anyone else leaves alone. */
+  exitPreview(player: Player): void {
+    if (!player.isValid) return;
+    const editor = this.ctx.vars.lanPlayers.some((name) => name.toLowerCase() === player.name.toLowerCase());
+    if (editor && this.currentPhase !== "ending" && this.currentPhase !== "done") {
+      this.broadcast(say.info(`${player.name} ended the preview.`));
+      this.abort("aborted");
+      return;
+    }
+    this.ctx.transfer.transfer(player, homePort(this.ctx.vars, player.name));
+  }
+
+  /** Right clicking a fake player asks, in the side panel, whether to kill it. */
+  private watchFakes(fakes: FakePlayers): void {
+    this.scope.add(() => fakes.clear());
+    this.scope.subscribe(world.afterEvents.playerInteractWithEntity, ({ player, target }) => {
+      const name = this.whoIs(target);
+      if (name !== undefined && fakes.has(name)) void this.confirmKill(player, name);
+    });
+  }
+
+  private async confirmKill(player: Player, name: string): Promise<void> {
+    const key = player.name.toLowerCase();
+    if (this.confirmOpen.has(key)) return;
+    this.confirmOpen.add(key);
+    try {
+      const form = new ActionFormData().title(`${SIDE_TITLE}${name}`).button(`${DANGER_BUTTON}Kill ${name}`).button("Cancel");
+      const answer = await showForm(this.scope, player, form);
+      if (answer?.selection !== 0) return;
+      const why = this.killFake(name, player.name);
+      if (why && player.isValid) player.sendMessage(why);
+    } finally {
+      this.confirmOpen.delete(key);
+    }
+  }
+
   // ---- Small helpers ----------------------------------------------------------------------
 
   private combatHost(): CombatHost {
@@ -1088,6 +1220,7 @@ export abstract class Minigame<C extends GameConfig = GameConfig> {
       get playing() {
         return game.currentPhase === "playing";
       },
+      nameOf: (entity) => this.whoIs(entity),
       canFight: (name) => this.roster.get(name)?.state === "alive",
       isProtected: (name) => (this.protectedUntil.get(name.toLowerCase()) ?? 0) > system.currentTick,
       areAllies: (a, b) => this.areTeammates(a, b) && !this.config.teams?.friendlyFire,

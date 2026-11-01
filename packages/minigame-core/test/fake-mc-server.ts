@@ -425,6 +425,98 @@ export class FakeEntity {
   }
 }
 
+/** A mob spawned with dimension.spawnEntity (a preview's fake player): health, a name tag, a place. */
+export class FakeMob {
+  readonly typeId: string;
+  readonly id: string;
+  isValid = true;
+  nameTag = "";
+  location: Vector3;
+  readonly teleports: Vector3[] = [];
+  readonly knockbacks: { x: number; z: number; vertical: number }[] = [];
+  readonly health = makeAttribute(20, "health");
+
+  constructor(typeId: string, location: Vector3) {
+    this.typeId = typeId;
+    this.id = String(nextEntityId++);
+    this.location = { ...location };
+  }
+
+  getComponent(id: string): unknown {
+    return id === EntityComponentTypes.Health ? this.health : undefined;
+  }
+
+  getEffect(): undefined {
+    return undefined;
+  }
+
+  teleport(location: Vector3, _options: unknown = {}): void {
+    writable("Entity::teleport");
+    this.location = { ...location };
+    this.teleports.push({ ...location });
+  }
+
+  clearVelocity(): void {
+    writable("Entity::clearVelocity");
+  }
+
+  applyKnockback(horizontalForce: { x: number; z: number }, verticalStrength: number): void {
+    writable("Entity::applyKnockback");
+    this.knockbacks.push({ x: horizontalForce.x, z: horizontalForce.z, vertical: verticalStrength });
+  }
+
+  remove(): void {
+    writable("Entity::remove");
+    this.isValid = false;
+  }
+}
+
+class FakeDimension {
+  /** Every entity spawnEntity made, oldest first (removed ones too: check isValid). */
+  readonly spawned: FakeMob[] = [];
+
+  spawnEntity(typeId: string, location: Vector3): FakeMob {
+    writable("Dimension::spawnEntity");
+    const mob = new FakeMob(typeId, location);
+    this.spawned.push(mob);
+    return mob;
+  }
+
+  reset(): void {
+    this.spawned.length = 0;
+  }
+}
+
+/** Ticking areas by id: each loads at once (the promise resolves on the next microtask). */
+class FakeTickingAreas {
+  readonly areas = new Set<string>();
+  readonly maxChunkCount = 100;
+
+  get chunkCount(): number {
+    return this.areas.size;
+  }
+
+  hasCapacity(): boolean {
+    return this.areas.size < this.maxChunkCount;
+  }
+
+  createTickingArea(id: string): Promise<void> {
+    writable("TickingAreaManager::createTickingArea");
+    if (this.areas.has(id)) throw new Error(`ticking area ${id} exists already`);
+    this.areas.add(id);
+    return Promise.resolve();
+  }
+
+  hasTickingArea(id: string): boolean {
+    return this.areas.has(id);
+  }
+
+  removeTickingArea(id: string): void {
+    writable("TickingAreaManager::removeTickingArea");
+    this.areas.delete(id);
+  }
+}
+
 function makeAttribute(max: number, what: string) {
   return {
     currentValue: max,
@@ -516,7 +608,7 @@ interface DamageSource {
 }
 
 interface HurtBeforeEvent {
-  hurtEntity: FakePlayer;
+  hurtEntity: FakePlayer | FakeMob;
   damage: number;
   damageSource: DamageSource;
   cancel: boolean;
@@ -528,13 +620,14 @@ class FakeWorld {
     playerJoin: new FakeSignal<{ playerId: string; playerName: string }>(),
     playerSpawn: new FakeSignal<{ player: FakePlayer; initialSpawn: boolean }>(),
     playerLeave: new FakeSignal<{ playerId: string; playerName: string }>(),
-    entityHurt: new FakeSignal<{ hurtEntity: FakePlayer; damage: number; damageSource: DamageSource }, unknown>(),
-    entityDie: new FakeSignal<{ deadEntity: FakePlayer; damageSource: DamageSource }, unknown>(),
-    entityHitEntity: new FakeSignal<{ damagingEntity: FakePlayer; hitEntity: FakePlayer }, unknown>(),
+    entityHurt: new FakeSignal<{ hurtEntity: FakePlayer | FakeMob; damage: number; damageSource: DamageSource }, unknown>(),
+    entityDie: new FakeSignal<{ deadEntity: FakePlayer | FakeMob; damageSource: DamageSource }, unknown>(),
+    entityHitEntity: new FakeSignal<{ damagingEntity: FakePlayer; hitEntity: FakePlayer | FakeMob }, unknown>(),
     itemUse: new FakeSignal<{ source: FakePlayer; itemStack: ItemStack }>(),
     playerInteractWithBlock: new FakeSignal<{ player: FakePlayer; itemStack?: ItemStack; isFirstEvent: boolean }>(),
     projectileHitBlock: new FakeSignal<{ projectile: FakeEntity; source?: FakePlayer }>(),
-    projectileHitEntity: new FakeSignal<{ projectile: FakeEntity; source?: FakePlayer; getEntityHit(): { entity?: FakePlayer } }>(),
+    projectileHitEntity: new FakeSignal<{ projectile: FakeEntity; source?: FakePlayer; getEntityHit(): { entity?: FakePlayer | FakeMob } }>(),
+    playerInteractWithEntity: new FakeSignal<{ player: FakePlayer; target: FakePlayer | FakeMob }>(),
   };
   readonly beforeEvents = {
     entityHurt: new FakeSignal<HurtBeforeEvent, unknown>(true),
@@ -543,10 +636,16 @@ class FakeWorld {
   readonly gameRules: Record<string, boolean | number> = {};
   readonly scoreboard = new FakeScoreboard();
   readonly chat: string[] = [];
+  readonly overworld = new FakeDimension();
+  readonly tickingAreaManager = new FakeTickingAreas();
   private players: FakePlayer[] = [];
 
   getAllPlayers(): FakePlayer[] {
     return [...this.players];
+  }
+
+  getDimension(_id: string): FakeDimension {
+    return this.overworld;
   }
 
   getPlayers(options?: { name?: string }): FakePlayer[] {
@@ -585,7 +684,7 @@ class FakeWorld {
 
   /** Damages a player the way BDS does (see the file header). */
   /** `cooldown`: the victim is in their 10-tick hit cooldown, so BDS fires the before-event and then drops the hit. */
-  hurt(victim: FakePlayer, damage: number, cause: string, from?: { attacker?: FakePlayer; projectile?: string; cooldown?: boolean }): void {
+  hurt(victim: FakePlayer | FakeMob, damage: number, cause: string, from?: { attacker?: FakePlayer; projectile?: string; cooldown?: boolean }): void {
     const damageSource: DamageSource = {
       cause,
       damagingEntity: from?.attacker ?? (from?.projectile ? { typeId: from.projectile, id: "projectile" } : undefined),
@@ -605,7 +704,7 @@ class FakeWorld {
   }
 
   /** A melee hit: the swing (entityHitEntity, even when the damage is canceled), then its damage. */
-  melee(attacker: FakePlayer, victim: FakePlayer, damage = 1, cooldown = false): void {
+  melee(attacker: FakePlayer, victim: FakePlayer | FakeMob, damage = 1, cooldown = false): void {
     this.hurt(victim, damage, "entityAttack", { attacker, cooldown });
     this.afterEvents.entityHitEntity.emit({ damagingEntity: attacker, hitEntity: victim }, acceptsEntity(attacker));
   }
@@ -618,7 +717,7 @@ class FakeWorld {
   }
 
   /** A projectile (an arrow by default) reaches a player. Its damage, if any, is a separate hurt(). */
-  projectileHits(victim: FakePlayer, source?: FakePlayer, typeId = "minecraft:arrow"): void {
+  projectileHits(victim: FakePlayer | FakeMob, source?: FakePlayer, typeId = "minecraft:arrow"): void {
     const projectile = new FakeEntity(typeId);
     this.afterEvents.projectileHitEntity.emit({ projectile, source, getEntityHit: () => ({ entity: victim }) });
   }
@@ -628,8 +727,12 @@ class FakeWorld {
     this.hurt(victim, victim.health.currentValue, "selfDestruct");
   }
 
-  private die(victim: FakePlayer, damageSource: DamageSource): void {
+  private die(victim: FakePlayer | FakeMob, damageSource: DamageSource): void {
     this.afterEvents.entityDie.emit({ deadEntity: victim, damageSource }, acceptsEntity(victim));
+    if (victim instanceof FakeMob) {
+      victim.isValid = false;
+      return;
+    }
     if (this.gameRules.doImmediateRespawn) {
       victim.health.currentValue = 20;
       this.afterEvents.playerSpawn.emit({ player: victim, initialSpawn: false });
@@ -652,6 +755,8 @@ class FakeWorld {
     this.scoreboard.objectives.clear();
     this.scoreboard.sidebar = undefined;
     this.chat.length = 0;
+    this.overworld.reset();
+    this.tickingAreaManager.areas.clear();
   }
 }
 

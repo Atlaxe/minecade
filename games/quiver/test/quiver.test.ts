@@ -228,6 +228,33 @@ describe("One in the Quiver", () => {
 describe("respawn points", () => {
   const line: MapPosition[] = [[0, 65, 0], [10, 65, 0], [20, 65, 0], [30, 65, 0]];
 
+  it("in a preview, an arrow kills a fake player in one hit and pays the shooter", async () => {
+    const a = world.join("A");
+    const baseline = snapshot(harness.root);
+    const context = harness.context(["A"], RANGE, { target: "1" });
+    context.vars.preview = "One in the Quiver: Range";
+    const previewed = new Quiver(context, config);
+    const result = await playToEnd(previewed, harness.root, baseline, async () => {
+      await ticks(1);
+      previewed.addFakes(1);
+      await ticks(20 + COUNTDOWN_TICKS);
+      expect(previewed.phase).toBe("playing");
+      const fake = world.overworld.spawned.find((mob) => mob.isValid && mob.nameTag === "Fake 1");
+      expect(fake).toBeDefined();
+      at(a, 0.5, 0.5);
+      fake!.location = { x: 10.5, y: 65, z: 0.5 };
+      a.inventory.setItem(ARROW_SLOT, undefined);
+      world.projectileHits(fake!, a);
+      await ticks(2);
+      expect(fake!.isValid).toBe(false);
+      expect(arrowsOf(a)).toBe(1);
+    });
+    expect(result).toMatchObject({ kind: "win", players: ["A"], reason: "first to 1 kills" });
+    expect(stripColors(world.chat.find((line) => /Fake 1 was/.test(stripColors(line))) ?? "")).toMatch(/^Fake 1 was .* by A \(10 blocks\)$/);
+    expectBaseline(harness.root, baseline);
+    everyoneLeaves();
+  });
+
   it("ranks spawns by their distance to the nearest enemy, map order breaking ties", () => {
     expect(rankSpawns(line, [{ x: 0.5, y: 65, z: 0.5 }])).toEqual([[30, 65, 0], [20, 65, 0], [10, 65, 0], [0, 65, 0]]);
     expect(rankSpawns(line, [{ x: 0.5, y: 65, z: 0.5 }, { x: 30.5, y: 65, z: 0.5 }])).toEqual([[10, 65, 0], [20, 65, 0], [0, 65, 0], [30, 65, 0]]);

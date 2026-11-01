@@ -1,0 +1,17 @@
+{
+  "format_version": 2,
+  "header": {
+    "name": "Minecade preview",
+    "description": "A map editor preview: the mode box top center, the side panel, fake players",
+    "uuid": "5d7c2e1a-9b4f-4a63-8e2d-1f6b3c9a7e40",
+    "version": [0, 1, 0],
+    "min_engine_version": [1, 26, 60]
+  },
+  "modules": [
+    {
+      "type": "resources",
+      "uuid": "c8a41f3e-2d7b-4e95-b061-7f3e9d2c5a18",
+      "version": [0, 1, 0]
+    }
+  ]
+}

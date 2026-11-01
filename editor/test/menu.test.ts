@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { mapChecklist, stripColors, type HomeState, type MapConfig } from "@minecade/minigame-core/config";
+import { DANGER_BUTTON, SIDE_TITLE } from "../../packages/minigame-core/src/game/preview.ts";
 import { spawnLists } from "../behavior_pack/scripts/lists.ts";
 import { COLUMNS, LAYOUT, LOADING, MARK, SEGMENT_COLUMNS, dangerText, goText, headingText, homeTitle, iconsTitle, linkText, loadingTitle, mapTitle, saveBarText, segmentText, sideTitle, stepTileText, switchText } from "../behavior_pack/scripts/marks.ts";
 import {
@@ -231,6 +232,11 @@ describe("layouts", () => {
     expect(stripColors(iconsTitle("Map menu"))).toBe("Map menu");
     expect(stripColors(loadingTitle("Loading"))).toBe("Loading");
     expect(loadingTitle("Loading").startsWith(LAYOUT.side)).toBe(true);
+  });
+
+  it("gives a preview's fake player confirm the side panel and a red button", () => {
+    expect(SIDE_TITLE).toBe(LAYOUT.side);
+    expect(DANGER_BUTTON).toBe(MARK.danger);
   });
 
   it("never lets one mark read as another", () => {

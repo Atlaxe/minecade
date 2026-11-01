@@ -1,6 +1,7 @@
 // Damage rules and deaths. Lethal damage is canceled and turned into a "down" that the game
 // handles (respawn, elimination), so players never see the vanilla death screen. Before-event
-// handlers may only decide: the down itself runs on the next tick.
+// handlers may only decide: the down itself runs on the next tick. A preview's fake players
+// (fakes.ts) go through the same rules as players.
 import {
   EntityComponentTypes,
   system,
@@ -11,6 +12,7 @@ import {
   type EntityHurtBeforeEvent,
   type Player,
 } from "@minecraft/server";
+import { FAKE_PLAYER } from "./fakes.ts";
 import type { CombatConfig } from "../config.ts";
 import type { Scope } from "../scope.ts";
 import type { KillCredit } from "./credit.ts";
@@ -28,6 +30,8 @@ export interface Hit {
 /** What combat needs from the game. */
 export interface CombatHost {
   readonly playing: boolean;
+  /** The participant an entity is: a player's name, or a fake player's. */
+  nameOf(entity: Entity): string | undefined;
   /** An alive participant: may deal and take damage. */
   canFight(name: string): boolean;
   /** Spawn protection. */
@@ -58,11 +62,11 @@ export class Combat {
   }
 
   attach(scope: Scope): void {
-    scope.subscribeBefore(world.beforeEvents.entityHurt, (event) => this.beforeHurt(event, scope), {
-      entityFilter: { type: "minecraft:player" },
-    });
-    scope.subscribe(world.afterEvents.entityHurt, (event) => this.afterHurt(event), { entityTypes: ["minecraft:player"] });
-    scope.subscribe(world.afterEvents.entityDie, (event) => this.died(event, scope), { entityTypes: ["minecraft:player"] });
+    for (const type of ["minecraft:player", FAKE_PLAYER]) {
+      scope.subscribeBefore(world.beforeEvents.entityHurt, (event) => this.beforeHurt(event, scope), { entityFilter: { type } });
+    }
+    scope.subscribe(world.afterEvents.entityHurt, (event) => this.afterHurt(event), { entityTypes: ["minecraft:player", FAKE_PLAYER] });
+    scope.subscribe(world.afterEvents.entityDie, (event) => this.died(event, scope), { entityTypes: ["minecraft:player", FAKE_PLAYER] });
   }
 
   /** Clears the "dying" mark once the player is back (respawned) or out. */
@@ -74,8 +78,9 @@ export class Combat {
    * A game-made hit, such as a paintball or a one-shot arrow, under the same rules as real
    * damage. A lethal one downs the victim with `cause`. Call it outside before-events.
    */
-  hit(victim: Player, attacker: string | undefined, amount: number | "lethal", cause = "entityAttack"): void {
-    const name = victim.name;
+  hit(victim: Entity, attacker: string | undefined, amount: number | "lethal", cause = "entityAttack"): void {
+    const name = this.host.nameOf(victim);
+    if (name === undefined) return;
     if (!this.host.playing || this.dying.has(name.toLowerCase()) || !this.host.canFight(name) || this.host.isProtected(name)) return;
     if (attacker && (!this.host.canFight(attacker) || this.host.areAllies(attacker, name))) return;
     if (attacker) this.credit.hit(name, attacker, system.currentTick);
@@ -90,11 +95,11 @@ export class Combat {
   }
 
   private beforeHurt(event: EntityHurtBeforeEvent, scope: Scope): void {
-    const victim = event.hurtEntity as Player;
-    const name = victim.name;
+    const victim = event.hurtEntity;
+    const name = this.host.nameOf(victim);
     const attacker = playerName(event.damageSource.damagingEntity);
     const cause = event.damageSource.cause;
-    if (!this.host.playing || this.dying.has(name.toLowerCase()) || !this.host.canFight(name) || this.host.isProtected(name)) {
+    if (name === undefined || !this.host.playing || this.dying.has(name.toLowerCase()) || !this.host.canFight(name) || this.host.isProtected(name)) {
       event.cancel = true;
       return;
     }
@@ -134,7 +139,8 @@ export class Combat {
    */
   private afterHurt(event: EntityHurtAfterEvent): void {
     if (!this.host.playing) return;
-    const victim = (event.hurtEntity as Player).name;
+    const victim = this.host.nameOf(event.hurtEntity);
+    if (victim === undefined) return;
     const attacker = playerName(event.damageSource.damagingEntity);
     if (attacker !== undefined) this.credit.hit(victim, attacker, system.currentTick);
     this.stats.damage(victim, Math.min(event.damage, MAX_HEALTH), attacker);
@@ -142,8 +148,8 @@ export class Combat {
 
   /** A death we couldn't intercept (/kill, or damage set straight to zero). */
   private died(event: EntityDieAfterEvent, scope: Scope): void {
-    const name = (event.deadEntity as Player).name;
-    if (!this.host.playing || this.dying.has(name.toLowerCase()) || !this.host.canFight(name)) return;
+    const name = this.host.nameOf(event.deadEntity);
+    if (name === undefined || !this.host.playing || this.dying.has(name.toLowerCase()) || !this.host.canFight(name)) return;
     this.dying.add(name.toLowerCase());
     // doImmediateRespawn brings them straight back; handle them once they are.
     scope.timeout(() => this.host.down(name, event.damageSource.cause), BACKSTOP_DELAY_TICKS);

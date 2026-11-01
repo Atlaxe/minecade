@@ -600,6 +600,10 @@ start, which builds from the checkout.
   camera heads, back arrows on every sub-menu, /zoom (a camera field of view; keys can't be read),
   no lock corner or "Can't move item" for the editor's items, text centered on buttons. Outlines as
   entity models instead of particles is the next experiment: the cursor is its first piece.)
+- (Then, also 2026-11-01: locked items look like any other item on every server (the core pack
+  blanks vanilla's lock lines); marker styles per list in a game's config (a mannequin, a post, or
+  the game's own model); a preview's fake players (/fake, right click to kill after a confirm) and
+  /exit.)
 - Item icons; marker models with numbers and list colors (the facing line came in 10.3).
 - (Boundary blocks, the Layers form and inspect mode were dropped on 2026-10-31: the particle
   outlines stay.)

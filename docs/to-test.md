@@ -105,6 +105,24 @@ The editor lobby's menu (after the editor's next boot):
 - The door: a "Leave?" menu. Cancel goes back; Leave disconnects you with "You left the map editor.
   Join again to come back." Joining again brings you back to the menu.
 
+Locked items, marker styles and a preview's fake players (after the editor's next boot):
+
+- Select the map menu (slot 9): above the hotbar it says only "Map menu", with no "Can't Move
+  Items..." or "This item is not lost on death" under it, in Edit and in Select. The same in a
+  game: Quiver's sword, bow and arrows show only their names.
+- Edit a lobby map: the terminal is a yellow post (a thin post with a square head), its red line
+  out of the head; spawns are still mannequins. With the Spawn tool on Terminal, the see-through
+  marker is a post too.
+- Preview a Quiver map: `/fake` puts Fake 1 (Steve, with a name tag) at a spawn; `/fake 3` adds
+  three more; the match starts with you and them.
+- Shoot a fake: it goes down at once, the kill feed says "Fake 1 was shot by you (N blocks)", you
+  get an arrow back, and it comes back at a spawn 2 seconds later. A sword kill works too.
+- Right click a fake: the side panel opens with "Kill Fake 2" (red) and Cancel. Cancel leaves it;
+  Kill takes it down, credited to you (your kill count goes up).
+- Preview Sumo: `/fake` before the countdown ends adds one; push it off and it's out (you win as
+  the last one standing). `/fake` once Sumo has started says Sumo lets nobody in.
+- `/exit` in a preview: chat says you ended it, and everyone is back in Edit.
+
 The cursor, mannequins and the last round of fixes (after the editor's next boot):
 
 - Button text sits in the middle of the button (it was a little low). A long heading wraps instead

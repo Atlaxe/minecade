@@ -344,8 +344,20 @@ previewed yet), **Preview** on the Panel's Edit row, or `npm run editor -- previ
    soon as you're all in, even alone (a preview needs one player). The mode box top center reads
    **Preview** and the map.
 4. When the match ends (a win, everyone out, or the time limit), the game sends everyone back to
-   Edit, as the network's games send players to the lobby. **End preview** (the Panel's Preview
-   row, or `npm run editor -- preview end`) ends it at any time.
+   Edit, as the network's games send players to the lobby. **/exit** (`/minecade:exit`) ends it at
+   any time and sends everyone back (for an invited guest, it only sends them home to the editor
+   lobby), and so does **End preview** (the Panel's Preview row, or `npm run editor -- preview end`).
+
+**Fake players:** **/fake** (`/minecade:fake`) adds a fake player to the match, `/fake 3` three,
+up to the game's player limit. A fake player looks like a player (Steve) with a name tag, "Fake 1",
+"Fake 2" and so on, and the game treats it as one: before the match it waits at a spawn of its own
+and counts toward the players needed to start; it gets a team in team games, spawns, respawns and
+is eliminated by the game's rules; it's on the sidebar, and its downs show in the kill feed. It
+doesn't move or fight back. Hit it, shoot it or knock it off like a player (a game's own weapons
+work on it too: One in the Quiver's arrow kills it). **Right click** one for a side panel that asks
+first: **Kill Fake 1** (red) takes it down, credited to you, and **Cancel** leaves it. Once the
+match has started, /fake only works in games that let late joiners in (One in the Quiver; not
+Sumo). The packs for this live in `editor/preview/` and only previews get them.
 
 **From the editor lobby:** a preview card in Recent (every preview leaves one) plays that map
 again from its folder as it is, without opening it in Edit (Edit saves first when it has that map

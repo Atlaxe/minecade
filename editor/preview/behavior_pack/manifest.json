@@ -1,0 +1,17 @@
+{
+  "format_version": 2,
+  "header": {
+    "name": "Minecade preview",
+    "description": "A map editor preview's fake players",
+    "uuid": "35cc4602-dda4-4029-80fc-112af6598ef5",
+    "version": [0, 1, 0],
+    "min_engine_version": [1, 26, 60]
+  },
+  "modules": [
+    {
+      "type": "data",
+      "uuid": "74633fab-5f7e-427b-afcd-305fa1531bf1",
+      "version": [0, 1, 0]
+    }
+  ]
+}

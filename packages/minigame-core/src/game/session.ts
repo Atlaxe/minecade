@@ -8,6 +8,7 @@ import { homePort } from "../vars.ts";
 import type { EndReason } from "../protocol/index.ts";
 import type { Scope, ScopeCounts } from "../scope.ts";
 import type { GameContext, Minigame } from "./minigame.ts";
+import { registerPreviewCommands } from "./preview.ts";
 import { draw, endReason } from "./results.ts";
 import { removeLeftoverObjectives } from "./sidebar.ts";
 
@@ -15,6 +16,8 @@ import { removeLeftoverObjectives } from "./sidebar.ts";
 const EMPTY_WAIT_SECONDS = 10;
 
 export function runGameServer(factory: (ctx: GameContext) => Minigame): void {
+  let game: Minigame | undefined;
+  registerPreviewCommands(() => game);
   bootServer((server) => {
     const { root, transport, vars } = server;
     removeLeftoverObjectives();
@@ -25,7 +28,6 @@ export function runGameServer(factory: (ctx: GameContext) => Minigame): void {
     });
     root.subscribe(world.afterEvents.playerLeave, () => root.defer(report));
 
-    let game: Minigame | undefined;
     root.add(
       transport.onMessage((message) => {
         if (message.t === "return_all") game?.abort("aborted");
