@@ -137,6 +137,14 @@ export function defineGame<C extends GameConfig>(config: C): C {
   return config;
 }
 
+/**
+ * How the map editor draws a list's entries: "player", a mannequin (the default for spawns);
+ * "post", a thin post with a square head (the default for points, such as the lobby's terminal);
+ * or `{ model }`, the game's own model: `markers/<model>.geo.json` and `markers/<model>.png` in the
+ * game's folder (the lobby's: `lobby/markers/`).
+ */
+export type MarkerStyle = "player" | "post" | { model: string };
+
 /** A named point or region a map needs. */
 export interface MapEntryRequirement {
   /** Shown in the map editor's checklist. Default: the name. */
@@ -145,6 +153,8 @@ export interface MapEntryRequirement {
   count?: number;
   /** One per team ("<name>.<team>" keys), for every team the game can have. */
   perTeam?: boolean;
+  /** Points only: how the map editor draws them. Default "post". */
+  marker?: MarkerStyle;
 }
 
 /**
@@ -153,12 +163,12 @@ export interface MapEntryRequirement {
  */
 export interface MapRequirementsConfig {
   /** Spawns needed: a number, or "maxPlayers" (the default for games; the lobby needs 1). */
-  spawns?: { min?: number | "maxPlayers" };
+  spawns?: { min?: number | "maxPlayers"; marker?: MarkerStyle };
   /** Spawns per team: true for at least 1 each, or how many each team needs. */
-  teamSpawns?: boolean | { perTeam?: number };
-  spectatorSpawn?: boolean;
+  teamSpawns?: boolean | { perTeam?: number; marker?: MarkerStyle };
+  spectatorSpawn?: boolean | { marker?: MarkerStyle };
   /** Where players wait for everyone to join before they're put at their spawns (map.json "queueSpawn"). */
-  queueSpawn?: boolean;
+  queueSpawn?: boolean | { marker?: MarkerStyle };
   killY?: boolean;
   bounds?: boolean;
   points?: string[] | Record<string, MapEntryRequirement>;

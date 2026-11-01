@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { MapConfig } from "@minecade/minigame-core/config";
 import { cameraActions, cameraAt, cameraMarkers, camerasOf, cameraText, nextCameraName } from "../behavior_pack/scripts/cameras.ts";
-import { MARKER_KINDS } from "../behavior_pack/scripts/lists.ts";
+import { MARKER_KINDS, MARKER_STYLES } from "../behavior_pack/scripts/lists.ts";
 import { MARK, dangerText } from "../behavior_pack/scripts/marks.ts";
 import { cameraSettings } from "../behavior_pack/scripts/menu.ts";
 
@@ -40,6 +40,7 @@ describe("cameras", () => {
       at: { x: 3.25, y: 70.37, z: -14 },
       facing: { yaw: 0, pitch: 25 },
       kind: MARKER_KINDS.camera,
+      style: MARKER_STYLES.camera,
     });
   });
 

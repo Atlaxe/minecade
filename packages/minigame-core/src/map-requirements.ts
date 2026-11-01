@@ -1,6 +1,6 @@
 // What a game's (or the lobby's) maps need, from the `map` block of its config, as one flat list:
 // the build checks every map against it, and the map editor shows it as a checklist.
-import type { MapEntryRequirement, MapRequirementsConfig } from "./config.ts";
+import type { MapEntryRequirement, MapRequirementsConfig, MarkerStyle } from "./config.ts";
 import { teamKey } from "./map-config.ts";
 
 export type MapField = "spawns" | "spectatorSpawn" | "queueSpawn" | "bounds" | "killY" | "points" | "regions" | "teamSpawns";
@@ -17,6 +17,8 @@ export interface MapRequirement {
   min: number;
   /** Spawns only: the minimum is one per player slot. */
   perPlayer?: boolean;
+  /** Points only: how the map editor draws them, when the config says. */
+  marker?: MarkerStyle;
 }
 
 export interface RequirementOptions {
@@ -48,13 +50,14 @@ export function mapRequirements(map: MapRequirementsConfig | undefined, options:
     for (const [name, entry] of entriesOf(map?.[field])) {
       const label = entry.label ?? name;
       const min = entry.count ?? 1;
+      const marker = field === "points" && entry.marker !== undefined ? { marker: entry.marker } : {};
       if (entry.perTeam && teams.length > 0) {
         for (const team of teams) {
           const key = teamKey(name, team.id);
-          list.push({ key: `${field}.${key}`, label: `${label} (${team.name})`, field, name: key, team: team.id, min });
+          list.push({ key: `${field}.${key}`, label: `${label} (${team.name})`, field, name: key, team: team.id, min, ...marker });
         }
       } else {
-        list.push({ key: `${field}.${name}`, label, field, name, min });
+        list.push({ key: `${field}.${name}`, label, field, name, min, ...marker });
       }
     }
   }

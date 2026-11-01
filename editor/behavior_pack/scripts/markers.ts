@@ -19,6 +19,8 @@ const FACED_PROPERTY = "minecade:faced";
 const PITCH_PROPERTY = "minecade:pitch";
 /** Which texture the marker gets (lists.ts MARKER_KINDS). */
 const KIND_PROPERTY = "minecade:kind";
+/** Which shape it gets (lists.ts MARKER_STYLES, or a game's model). */
+const STYLE_PROPERTY = "minecade:style";
 /** On the world: the chunks markers were in, as JSON ["x,z", ...]. */
 const CHUNKS_PROPERTY = "minecade:markerChunks";
 const SYNC_TICKS = 20;
@@ -171,6 +173,8 @@ function showFacing(entity: Entity, spec: MarkerShape): void {
   if (entity.getProperty(PITCH_PROPERTY) !== pitch) entity.setProperty(PITCH_PROPERTY, pitch);
   const kind = spec.kind ?? 0;
   if (entity.getProperty(KIND_PROPERTY) !== kind) entity.setProperty(KIND_PROPERTY, kind);
+  const style = spec.style ?? 0;
+  if (entity.getProperty(STYLE_PROPERTY) !== style) entity.setProperty(STYLE_PROPERTY, style);
 }
 
 function distance(a: Vector3, b: Vector3): number {

@@ -14,6 +14,7 @@ import {
   type MapConfig,
   type MapList,
   type MapPosition,
+  type MarkerStyle,
 } from "@minecade/minigame-core/config";
 
 export interface SpawnList {
@@ -28,46 +29,66 @@ export interface SpawnList {
   color: string;
   /** Holds at most one entry (the spectator and queue spawns): a new one replaces it. */
   single: boolean;
+  /** How its markers are drawn (MARKER_STYLES, or a game's own model). */
+  style: number;
 }
 
 /** Spawns, the spectator and queue spawns (games), each team's spawns, then the points the rules ask for and any others the map has. */
 export function spawnLists(config: MapConfig, rules: EditorRules): SpawnList[] {
   const lists: SpawnList[] = [];
   const lobby = rules.kind === "lobby";
-  lists.push({ target: { list: "spawns" }, key: "spawns", label: lobby ? "Spawn" : "Spawns", entry: "Spawn", color: "§f", single: false });
+  const requires = rules.requires;
+  const player = (marker: MarkerStyle | undefined) => markerStyle(marker, MARKER_STYLES.player, rules);
+  lists.push({ target: { list: "spawns" }, key: "spawns", label: lobby ? "Spawn" : "Spawns", entry: "Spawn", color: "§f", single: false, style: player(requires?.spawns?.marker) });
   if (!lobby) {
-    lists.push({ target: { list: "spectatorSpawn" }, key: "spectatorSpawn", label: "Spectator spawn", entry: "Spectator spawn", color: "§7", single: true });
-    lists.push({ target: { list: "queueSpawn" }, key: "queueSpawn", label: "Queue spawn", entry: "Queue spawn", color: "§b", single: true });
+    const spectator = player(markerOf(requires?.spectatorSpawn));
+    const queue = player(markerOf(requires?.queueSpawn));
+    lists.push({ target: { list: "spectatorSpawn" }, key: "spectatorSpawn", label: "Spectator spawn", entry: "Spectator spawn", color: "§7", single: true, style: spectator });
+    lists.push({ target: { list: "queueSpawn" }, key: "queueSpawn", label: "Queue spawn", entry: "Queue spawn", color: "§b", single: true, style: queue });
   }
   const teams = rules.teams ?? [];
   const teamIds = new Set(teams.map((team) => team.id));
+  const teamStyle = player(markerOf(requires?.teamSpawns));
   for (const team of teams) {
     const target: MapList = { list: "teamSpawns", team: team.id };
-    lists.push({ target, key: listKey(target), label: `${team.name} spawns`, entry: `${team.name} spawn`, color: team.color, single: false });
+    lists.push({ target, key: listKey(target), label: `${team.name} spawns`, entry: `${team.name} spawn`, color: team.color, single: false, style: teamStyle });
   }
   // Team spawns a map already has for a team the game no longer lists, so they can be moved or removed.
   for (const team of Object.keys(config.teamSpawns ?? {})) {
     if (teamIds.has(team)) continue;
     const target: MapList = { list: "teamSpawns", team };
-    lists.push({ target, key: listKey(target), label: `${team} spawns`, entry: `${team} spawn`, color: "§f", single: false });
+    lists.push({ target, key: listKey(target), label: `${team} spawns`, entry: `${team} spawn`, color: "§f", single: false, style: teamStyle });
   }
   const named = new Set<string>();
-  const requirements = mapRequirements(rules.requires, { kind: rules.kind, maxPlayers: rules.maxPlayers, teams });
+  const requirements = mapRequirements(requires, { kind: rules.kind, maxPlayers: rules.maxPlayers, teams });
   for (const requirement of requirements) {
     if (requirement.field !== "points" || requirement.name === undefined) continue;
     named.add(requirement.name);
     const color = teams.find((team) => team.id === requirement.team)?.color ?? "§e";
-    lists.push(pointList(requirement.name, requirement.label, color));
+    lists.push(pointList(requirement.name, requirement.label, color, markerStyle(requirement.marker, MARKER_STYLES.post, rules)));
   }
   for (const name of Object.keys(config.points ?? {})) {
-    if (!named.has(name)) lists.push(pointList(name, name, "§e"));
+    if (!named.has(name)) lists.push(pointList(name, name, "§e", MARKER_STYLES.post));
   }
   return lists;
 }
 
-function pointList(name: string, label: string, color: string): SpawnList {
+function pointList(name: string, label: string, color: string, style: number): SpawnList {
   const target: MapList = { list: "points", name };
-  return { target, key: listKey(target), label, entry: label, color, single: false };
+  return { target, key: listKey(target), label, entry: label, color, single: false, style };
+}
+
+/** The `marker` of `spectatorSpawn: { marker }` and the like (`true` has none). */
+function markerOf(requirement: boolean | { marker?: MarkerStyle } | undefined): MarkerStyle | undefined {
+  return typeof requirement === "object" ? requirement.marker : undefined;
+}
+
+/** A marker style's number: the list's default without one, a post for a model the editor doesn't have. */
+export function markerStyle(marker: MarkerStyle | undefined, fallback: number, rules: Pick<EditorRules, "markerModels">): number {
+  if (marker === undefined) return fallback;
+  if (marker === "player") return MARKER_STYLES.player;
+  if (marker === "post") return MARKER_STYLES.post;
+  return rules.markerModels?.[marker.model] ?? MARKER_STYLES.post;
 }
 
 /** The middle of a map's bounds, at floor level (where an entry without a facing looks). */
@@ -90,6 +111,13 @@ export function lookAt(from: Point, to: Point): Facing {
 /** A marker's color, by what it marks (its texture in the resource pack's render controller). */
 export const MARKER_KINDS = { spawns: 0, spectatorSpawn: 1, queueSpawn: 2, teamSpawns: 3, points: 4, camera: 5 } as const;
 
+/**
+ * A marker's shape (the render controller's Array.shapes): a mannequin, a post, a camera head. A
+ * game's own models come after these, numbered when the editor's template is built
+ * (tools/editor/marker-models.ts), and get their own texture instead of the kind's color.
+ */
+export const MARKER_STYLES = { player: 0, post: 1, camera: 2 } as const;
+
 /** What every marker has (markers.ts draws these): an entry's, or a camera's (cameras.ts). */
 export interface MarkerShape {
   /** Stored on the marker entity: "<list key>#<index>", or "camera:<name>". */
@@ -101,6 +129,8 @@ export interface MarkerShape {
   facing?: Facing;
   /** Its color (MARKER_KINDS); spawns' when absent. */
   kind?: number;
+  /** Its shape (MARKER_STYLES, or a game's model); a mannequin when absent. */
+  style?: number;
   /** Where its line points when it has no saved facing: the middle of the map. */
   look?: Facing;
 }
@@ -126,6 +156,7 @@ export function markerSpecs(config: MapConfig, lists: SpawnList[]): MarkerSpec[]
         label: facing ? `${name}\n§7faces ${compass(facing.yaw)}` : name,
         at: worldPoint(position),
         kind: MARKER_KINDS[list.target.list],
+        style: list.style,
         ...(facing ? {} : { look: lookAt(worldPoint(position), middle) }),
         ...(facing ? { facing } : {}),
       };

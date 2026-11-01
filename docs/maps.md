@@ -92,6 +92,17 @@ map: {
 `"buyZone.blue"`). The short forms still work: `points: ["bombA", "bombB"]`,
 `regions: ["floor"]`, `teamSpawns: true`. With `teamSpawns`, the plain `spawns` need only one.
 
+**Markers:** `marker` says how the map editor draws a list's entries: `"player"`, a mannequin (the
+default for every kind of spawn); `"post"`, a thin post with a square head (the default for points,
+such as the lobby's terminal); or `{ model: "<name>" }`, the game's own model. It goes on a point
+(`points: { terminal: { marker: { model: "terminal" } } }`), on `spawns: { marker }`,
+`teamSpawns: { marker }`, and on `spectatorSpawn` and `queueSpawn` as `{ marker }` instead of
+`true`. A model is two files in the game's folder (the lobby's: `lobby/markers/`):
+`markers/<name>.geo.json` (a Bedrock entity geometry, its feet at the entry's spot and its front
+facing the entry's facing) and `markers/<name>.png`, its texture. Names are lowercase letters,
+digits and `_`. The map editor adds every game's models to its resource pack when it starts, and
+draws a model it doesn't have as a post.
+
 **The lobby** declares its own in `lobby/lobby.config.ts`: one spawn and the `terminal` point
 (the middle block of the terminal's 3x3 console; the hologram floats above it). `LOBBY_MAP` in
 `.env` picks which of `lobby/maps/` is the live lobby (default `spaceship`), and the Panel has a

@@ -13,7 +13,8 @@
       },
       "geometry": {
         "block": "geometry.minecade.editor_cursor_block",
-        "point": "geometry.minecade.editor_mannequin"
+        "point": "geometry.minecade.editor_mannequin",
+        "post": "geometry.minecade.editor_post"
       },
       "render_controllers": [
         "controller.render.minecade.editor_cursor"

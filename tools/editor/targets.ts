@@ -1,10 +1,11 @@
 // What the editor can open: the lobby or a game, with the rules its maps are checked against (the
-// same ones the build uses).
+// same ones the build uses), and the numbers of its own marker models (marker-models.ts).
 import { existsSync } from "node:fs";
 import { readdir } from "node:fs/promises";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 import { possibleTeams, type EditorRules, type GameConfig, type LobbyConfig } from "@minecade/minigame-core/config";
+import { listMarkerModels, markerStyles } from "./marker-models.ts";
 
 export interface EditorTarget {
   /** "lobby", or a game id. */
@@ -16,17 +17,19 @@ export interface EditorTarget {
 }
 
 export async function loadTarget(root: string, id: string): Promise<EditorTarget> {
+  const models = markerStyles(await listMarkerModels(root), id);
+  const markerModels = Object.keys(models).length > 0 ? { markerModels: models } : {};
   if (id === "lobby") {
     const configPath = join(root, "lobby", "lobby.config.ts");
     const config: LobbyConfig = existsSync(configPath) ? (await import(pathToFileURL(configPath).href)).default : {};
-    return { id, name: "Lobby", dir: join(root, "lobby"), rules: { kind: "lobby", requires: config.map } };
+    return { id, name: "Lobby", dir: join(root, "lobby"), rules: { kind: "lobby", requires: config.map, ...markerModels } };
   }
   const dir = join(root, "games", id);
   const configPath = join(dir, "game.config.ts");
   if (!/^[a-z0-9_-]+$/.test(id) || !existsSync(configPath)) throw new Error(`there is no game "${id}" (games/${id}/game.config.ts): use lobby or a game id`);
   const config = (await import(pathToFileURL(configPath).href)).default as GameConfig;
   const teams = config.teams ? possibleTeams(config.teams).map(({ id: team, name, color }) => ({ id: team, name, color })) : undefined;
-  return { id, name: config.name, dir, rules: { kind: "game", maxPlayers: config.maxPlayers, requires: config.map, ...(teams ? { teams } : {}) } };
+  return { id, name: config.name, dir, rules: { kind: "game", maxPlayers: config.maxPlayers, requires: config.map, ...(teams ? { teams } : {}), ...markerModels } };
 }
 
 /** The lobby and every game, with the map ids each has, for Select mode's save-as-map form. */

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { EditorRules, MapConfig } from "@minecade/minigame-core/config";
-import { MARKER_KINDS, aimedPoint, blockPosition, compass, entryPosition, lookAt, markerPitch, markerSpecs, queueText, sameYaw, snapFacing, spawnLists } from "../behavior_pack/scripts/lists.ts";
+import { MARKER_KINDS, MARKER_STYLES, aimedPoint, blockPosition, compass, entryPosition, lookAt, markerPitch, markerSpecs, queueText, sameYaw, snapFacing, spawnLists } from "../behavior_pack/scripts/lists.ts";
 
 const rules: EditorRules = {
   kind: "game",
@@ -58,6 +58,37 @@ describe("spawn tool lists", () => {
     const specs = markerSpecs(queued, spawnLists(queued, { kind: "game", maxPlayers: 2 }));
     expect(specs.map((spec) => spec.label)).toEqual(["§bQueue spawn (free, 10 s)"]);
     expect(queueText({ name: "M", spawns: [], queueSpawn: [0, 80, 30] })).toBe("lock in, 5 s");
+  });
+
+  it("draws spawns as mannequins and points as posts, unless the game's config says otherwise", () => {
+    const styles = (config: MapConfig, editorRules: EditorRules) => Object.fromEntries(spawnLists(config, editorRules).map((list) => [list.key, list.style]));
+    const { player, post } = MARKER_STYLES;
+    expect(styles(map, rules)).toEqual({
+      spawns: player,
+      spectatorSpawn: player,
+      queueSpawn: player,
+      "teamSpawns.red": player,
+      "teamSpawns.blue": player,
+      "teamSpawns.green": player,
+      "points.bomb": post,
+      "points.flag.red": post,
+      "points.flag.blue": post,
+      "points.extra": post,
+    });
+    // The game's own model (numbered by the editor's template build); one it doesn't have is a post.
+    const custom: EditorRules = {
+      kind: "game",
+      maxPlayers: 2,
+      markerModels: { terminal: 3 },
+      requires: {
+        spawns: { marker: "post" },
+        spectatorSpawn: { marker: "post" },
+        points: { terminal: { marker: { model: "terminal" } }, hostage: { marker: "player" }, crate: { marker: { model: "crate" } } },
+      },
+    };
+    expect(styles({ name: "M", spawns: [] }, custom)).toEqual({ spawns: post, spectatorSpawn: post, queueSpawn: player, "points.terminal": 3, "points.hostage": player, "points.crate": post });
+    const specs = markerSpecs({ name: "M", spawns: [[0, 64, 0]], points: { terminal: [[1, 64, 1]] } }, spawnLists({ name: "M", spawns: [] }, custom));
+    expect(specs.map((spec) => spec.style)).toEqual([post, 3]);
   });
 
   it("stands a marker on an exact position where it is, not in its block's middle", () => {

@@ -13,8 +13,11 @@ import { MAX_MESSAGE_CHARS } from "./protocol/messages.ts";
 export const EDIT_SCRIPT_EVENT_ID = "minecade:edit";
 export const EDIT_LOG_MARKER = "[EDIT] ";
 
-/** The rules a map is checked against, with each team's § color for its markers. */
-export type EditorRules = Omit<MapRules, "teams"> & { teams?: { id: string; name: string; color: string }[] };
+/**
+ * The rules a map is checked against, with each team's § color for its markers, and the marker
+ * style number (the editor's resource pack) of each of the game's own marker models.
+ */
+export type EditorRules = Omit<MapRules, "teams"> & { teams?: { id: string; name: string; color: string }[]; markerModels?: Record<string, number> };
 
 /** What the host tells the pack at start: editor.json, passed in as the "editor" server variable. */
 export type EditorInfo = HomeInfo | EditInfo | SelectInfo | ExtractInfo;

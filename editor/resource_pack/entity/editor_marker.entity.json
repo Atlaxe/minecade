@@ -18,8 +18,10 @@
       },
       "geometry": {
         "default": "geometry.minecade.editor_mannequin",
+        "post": "geometry.minecade.editor_post",
+        "camera": "geometry.minecade.editor_camera_head",
         "line": "geometry.minecade.editor_marker_line",
-        "camera": "geometry.minecade.editor_camera_head"
+        "line_low": "geometry.minecade.editor_marker_line_low"
       },
       "animations": {
         "pitch": "animation.minecade.editor_marker.pitch"

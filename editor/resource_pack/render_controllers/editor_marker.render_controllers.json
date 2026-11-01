@@ -16,26 +16,31 @@
         "geometries": {
           "Array.shapes": [
             "Geometry.default",
-            "Geometry.default",
-            "Geometry.default",
-            "Geometry.default",
-            "Geometry.default",
+            "Geometry.post",
             "Geometry.camera"
           ]
         }
       },
-      "geometry": "Array.shapes[query.property('minecade:kind')]",
+      "geometry": "Array.shapes[query.property('minecade:style')]",
       "materials": [
         {
           "*": "Material.default"
         }
       ],
       "textures": [
-        "Array.kinds[query.property('minecade:kind')]"
+        "Array.kinds[query.property('minecade:style') >= 3 ? query.property('minecade:style') + 3 : query.property('minecade:kind')]"
       ]
     },
     "controller.render.minecade.editor_marker_facing": {
-      "geometry": "Geometry.line",
+      "arrays": {
+        "geometries": {
+          "Array.lines": [
+            "Geometry.line_low",
+            "Geometry.line"
+          ]
+        }
+      },
+      "geometry": "Array.lines[query.property('minecade:style') == 0]",
       "materials": [
         {
           "*": "Material.facing"
@@ -52,7 +57,7 @@
           "root": true
         },
         {
-          "facing": "query.property('minecade:faced') && query.property('minecade:kind') != 5"
+          "facing": "query.property('minecade:faced') && query.property('minecade:style') != 2"
         }
       ],
       "ignore_lighting": true
@@ -62,7 +67,8 @@
         "geometries": {
           "Array.shapes": [
             "Geometry.block",
-            "Geometry.point"
+            "Geometry.point",
+            "Geometry.post"
           ]
         },
         "textures": {
@@ -78,7 +84,7 @@
           ]
         }
       },
-      "geometry": "Array.shapes[query.property('minecade:mode')]",
+      "geometry": "Array.shapes[query.property('minecade:mode') == 0 ? 0 : 1 + query.property('minecade:style')]",
       "materials": [
         {
           "*": "Array.finishes[query.property('minecade:mode')]"

@@ -255,21 +255,26 @@ tool, the line above the hotbar says what a use does.
 
 - **The aim cursor:** holding the Spawn tool, the Region tool or Select's tool, an entity shows
   where a use lands, up to 64 blocks out: a glowing outline around the block for the box tools, a
-  see-through mannequin at the exact spot (turned the way it will face) for spawns. It's an entity,
-  so it follows the aim at once and hides behind blocks.
+  see-through marker at the exact spot (turned the way it will face) for spawns and points: a
+  mannequin or a post, like the list's markers (a game's own models show as a post). It's an
+  entity, so it follows the aim at once and hides behind blocks.
 - **Spawn tool:** aim at where an entry goes and use it, within 64 blocks. On top of a block, the
   spot is exactly where you aim (to a hundredth of a block, like an entity); at a block's side, just
   in front of that spot, on the floor below it; at the sky, where you stand. **Sneak and use** it
   for where you stand, facing the way you look. Its screen: which list
   (Spawn, Spectator, Queue, each team, each point), the position (tap it to type one, **Move here**,
   **Center on block**), the facing (**Take my facing**, **Clear facing**, **Snap**), the queue's
-  Lock in and Countdown for the queue spawn, and X, Y and Z nudge rows; the see-through mannequin
+  Lock in and Countdown for the queue spawn, and X, Y and Z nudge rows; the see-through marker
   shows it while the screen is open. **Place** (green) adds it.
-- **Markers:** every entry shows as a player mannequin with a name tag: its list, its number, and
-  the way it faces when that's saved. Mannequins are colored by kind: spawns orange, the spectator
-  spawn gray, the queue spawn aqua, team spawns green, points yellow; a camera is a camera head. Each
-  has a glowing red line, 2 blocks long, from eye height the way it faces (the saved facing, tilted
-  with its pitch, or toward the middle of the map), and the whole mannequin turns that way. **Hit a marker** for the same screen as placing one, with
+- **Markers:** every entry shows as a marker with a name tag: its list, its number, and the way it
+  faces when that's saved. Spawns are player mannequins and points are posts (a thin post with a
+  square head, such as the lobby's terminal), unless the game's config picks another style or a
+  model of its own (`marker`, see "What a game's maps need" in `docs/maps.md`); a camera is a
+  camera head. Markers are colored by kind: spawns orange, the spectator spawn gray, the queue spawn
+  aqua, team spawns green, points yellow (a game's own model keeps its texture). Each has a glowing
+  red line, 2 blocks long, the way it faces (the saved facing, tilted with its pitch, or toward the
+  middle of the map), from a mannequin's eyes or a post's head, and the whole marker turns that
+  way. **Hit a marker** for the same screen as placing one, with
   **Renumber** and **Delete** (red); **Save** (green) writes the changes, including moving it to
   another list.
 - **Queue spawn:** where players wait for everyone to join, before the game puts them at their

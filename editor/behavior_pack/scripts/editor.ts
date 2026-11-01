@@ -122,7 +122,7 @@ export class Editor {
   private readonly loading: LoadingScreens;
   private readonly cursors: Cursors;
   /** The spawn or point each player's screen is setting up: the cursor shows it there. */
-  private readonly entryPreview = new Map<string, { at: Point; yaw: number }>();
+  private readonly entryPreview = new Map<string, { at: Point; yaw: number; style: number }>();
   private readonly dimension: Dimension;
   private readonly settings = new Map<string, SpawnSettings>();
   private readonly formOpen = new Set<string>();
@@ -792,13 +792,13 @@ export class Editor {
   private cursorAim(player: Player): CursorAim | undefined {
     if (this.cameraTool.anyoneLooking()) return undefined;
     const preview = this.entryPreview.get(player.name.toLowerCase());
-    if (preview) return { kind: "point", at: preview.at, yaw: preview.yaw };
+    if (preview) return { kind: "point", at: preview.at, yaw: preview.yaw, style: preview.style };
     const tool = heldTool(player);
     if (tool === "spawn") {
       const settings = this.settingsOf(player);
       const at = pointOf(entryPosition(player.isSneaking ? player.location : this.aimedAt(player), settings.center));
       const yaw = player.isSneaking || settings.keepFacing ? player.getRotation().y : lookAt(at, mapMiddle(this.state.current)).yaw;
-      return { kind: "point", at, yaw };
+      return { kind: "point", at, yaw, style: this.spawnList(player)?.style ?? 0 };
     }
     if (tool === "region") {
       const block = blockInView(player);
@@ -829,7 +829,7 @@ export class Editor {
         const list = lists.find((candidate) => candidate.key === listKey) ?? lists[0];
         if (!list) return;
         // The cursor shows it where it will go, turned the way it will face.
-        this.entryPreview.set(player.name.toLowerCase(), { at, yaw: (facing ?? lookAt(at, mapMiddle(this.state.current))).yaw });
+        this.entryPreview.set(player.name.toLowerCase(), { at, yaw: (facing ?? lookAt(at, mapMiddle(this.state.current))).yaw, style: list.style });
         const existing = start.existing && { index: start.existing.index, count: listOf(this.state.current, start.list.target).length };
         const entries = entryScreenEntries({
           lists,

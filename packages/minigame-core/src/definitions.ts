@@ -11,6 +11,7 @@ export {
   type LobbyConfig,
   type MapEntryRequirement,
   type MapRequirementsConfig,
+  type MarkerStyle,
   type RespawnConfig,
   type ScoringConfig,
   type StatsConfig,

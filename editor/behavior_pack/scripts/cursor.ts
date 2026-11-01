@@ -1,7 +1,7 @@
 // The aim cursor: while a map editor holds a tool that reaches past their own reach (the Spawn,
 // Region and Select tools), an entity shows where a use would land: a glowing outline around the
-// block for the box tools, or a see-through mannequin at the exact spot (and turned the way it would
-// face) for spawns. A spawn's screen shows the spawn being set up the same way. It's an entity, so it
+// block for the box tools, or a see-through marker at the exact spot (and turned the way it would
+// face) for spawns and points: a mannequin, or a post (a game's own marker models show as posts). A spawn's screen shows the spawn being set up the same way. It's an entity, so it
 // moves with the aim, hides behind blocks, and shows as far out as the tools reach. Cursors are
 // removed before the world is saved (pause), and swept up when the server starts.
 import { type Dimension, type Entity, type Player, type Vector3 } from "@minecraft/server";
@@ -9,11 +9,13 @@ import { describeError, log, type Scope } from "@minecade/minigame-core";
 
 export const CURSOR = "minecade:editor_cursor";
 const MODE_PROPERTY = "minecade:mode";
+/** A point's shape: lists.ts MARKER_STYLES (a game's own models show as a post). */
+const STYLE_PROPERTY = "minecade:style";
 /** How often cursors follow the aim. */
 const FOLLOW_TICKS = 2;
 
-/** Where a player's cursor goes: a block (its outline) or a point (a mannequin, turned to `yaw`). */
-export type CursorAim = { kind: "block"; at: Vector3 } | { kind: "point"; at: Vector3; yaw: number };
+/** Where a player's cursor goes: a block (its outline) or a point (a marker of `style`, turned to `yaw`). */
+export type CursorAim = { kind: "block"; at: Vector3 } | { kind: "point"; at: Vector3; yaw: number; style: number };
 
 export class Cursors {
   private readonly dimension: Dimension;
@@ -53,6 +55,8 @@ export class Cursors {
       const at = aim.kind === "block" ? { x: aim.at.x + 0.5, y: aim.at.y, z: aim.at.z + 0.5 } : aim.at;
       const yaw = aim.kind === "point" ? aim.yaw : 0;
       const mode = aim.kind === "block" ? 0 : 1;
+      // A ghost is a mannequin (MARKER_STYLES.player) or a post: the game's models are only on markers.
+      const style = aim.kind === "point" && aim.style !== 0 ? 1 : 0;
       let cursor = this.cursors.get(key);
       try {
         if (!cursor?.isValid) {
@@ -62,6 +66,7 @@ export class Cursors {
           cursor.teleport(at, { rotation: { x: 0, y: yaw } });
         }
         if (cursor.getProperty(MODE_PROPERTY) !== mode) cursor.setProperty(MODE_PROPERTY, mode);
+        if (cursor.getProperty(STYLE_PROPERTY) !== style) cursor.setProperty(STYLE_PROPERTY, style);
       } catch {
         // Out of loaded chunks: try again next time.
       }
