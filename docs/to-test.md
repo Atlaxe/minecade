@@ -13,6 +13,31 @@ Tests still to run by hand. Delete a line once it passes.
 - Team picks with real players: the team form and the hologram's team lists.
 - Another player's skin shows in the stats screens after the next build.
 
+## One in the Quiver
+
+Its first map (needs the map editor, after the editor's next boot):
+
+- New map from one of your worlds, box an arena in Select, and Save as map for One in the Quiver.
+  In Edit, the checklist asks for 10 spawns, a spectator spawn and kill Y. Place them and Save.
+- Preview it alone. You spawn with a stone sword in slot 1, a bow in slot 2 and one arrow in slot 9;
+  Q drops none of them. Draw the bow and shoot at a wall: the arrow leaves slot 9 (if the bow
+  won't shoot the locked arrow, say so), and it's gone from the wall, nothing to pick up.
+- The sidebar says Kills, and chat says "First to 15 kills wins...".
+
+With a second player (a preview with an invited guest, or the network once the map is published):
+
+- An arrow hit kills at once: the kill feed says "B was shot by A (N blocks)" (or sniped,
+  skewered...), and A gets "+1 arrow" on the action bar, a chime and an arrow in slot 9.
+- B watches from the spectator spawn for 2 seconds, then respawns away from A with one arrow, and
+  can't be hurt for 2 seconds.
+- A sword hit then an arrow right after (within half a second) still kills. A sword kill earns an
+  arrow too. An arrow shot straight up that comes down on its shooter does nothing.
+- 5 kills in a row: chat says "A is on a 5 kill streak!".
+- The first to the target wins. On the lobby's game screen, First to cycles 15, 20, 25 and 10 kills.
+- After a published match, the stats screen's One in the Quiver tab shows Bow kills and Longest shot.
+- Published: the game is in the lobby's game grid with the green QUIVER picture (a Game picture
+  from the Camera tool replaces it).
+
 ## Map editor
 
 First, once: close every Panel window, wait about 20 seconds, and open the Panel again (the running

@@ -716,7 +716,7 @@ These are the map inputs each planned game probably needs. Confirming them when 
 | Arena | free-for-all or team spawns, item points | Are respawn points separate from start spawns? |
 | Search and Destroy | attacker and defender spawns, bomb sites A and B (regions), buy zones per team | Bomb sites as regions, or points with a radius? |
 | Paintball | team spawns, ammo or power-up points | Can paint mark any surface, or only inside a region? |
-| One in the Quiver | more respawn points than players, killY | Respawn at the point farthest from enemies? |
+| One in the Quiver | more respawn points than players, killY | Settled 2026-10-31 (milestone 11): yes, a random one of the spawns farthest from everyone alive; maps need 10 spawns, a spectator spawn (respawning players watch from it) and kill Y. |
 | Microbattles | several small arenas (a region plus spawns each) | One arena per round, or several at once? |
 | Build Battle | one plot per player (a region plus its spawn), build height | Plot count equal to max players? A judging route? |
 | Prophunt | hider spawn, seeker spawn, seeker holding area | Props from blocks in the map or a fixed list? (A block picker tool would come then.) |

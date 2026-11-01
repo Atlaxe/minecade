@@ -214,8 +214,11 @@ export abstract class Minigame<C extends GameConfig = GameConfig> {
     return draw("time ran out");
   }
 
-  /** Team spawns for team games, otherwise the map's spawns in roster order. */
-  protected spawnPoint(name: string): MapPosition {
+  /**
+   * Team spawns for team games, otherwise the map's spawns in roster order. `why` lets a game
+   * choose differently for respawns (One in the Quiver: away from everyone else).
+   */
+  protected spawnPoint(name: string, _why: SpawnReason = "start"): MapPosition {
     const participant = this.roster.get(name);
     const key = name.toLowerCase();
     if (participant?.team) {
@@ -526,7 +529,7 @@ export abstract class Minigame<C extends GameConfig = GameConfig> {
     normalizePlayer(player, this.gameMode);
     const team = this.teamOf(name);
     if (team) player.nameTag = `${team.color}${player.name}`;
-    this.place(player, this.spawnPoint(name), true);
+    this.place(player, this.spawnPoint(name, why), true);
     this.kits.give(player, team?.color);
     const protect = this.config.respawn?.protectSeconds;
     if (why === "respawn" && protect) this.protectedUntil.set(name.toLowerCase(), system.currentTick + protect * 20);

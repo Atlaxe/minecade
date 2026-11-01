@@ -3,7 +3,8 @@
 // (games/<id>/ with a game.config.ts), or the map editor (editor/, packs only). Everything is
 // validated first, and all problems are reported together. Packs are built by packs.ts, and every
 // server gets the shared packs (the core resource pack and the shared blocks pack). Draft maps (the
-// map editor's unfinished ones) are skipped with a warning, and so is a game with no finished map.
+// map editor's unfinished ones) are skipped with a warning, and so is a game with no finished map
+// (none yet, or only drafts).
 import { existsSync } from "node:fs";
 import { cp, mkdir, readdir, readFile, rm, writeFile } from "node:fs/promises";
 import { dirname, join, relative } from "node:path";
@@ -138,8 +139,9 @@ async function loadTarget(id: string, dir: string, configPath?: string): Promise
     const preview = join(mapDir, "preview.png");
     target.maps.push({ id: mapId, dir: mapDir, config: config as MapConfig, ...(existsSync(preview) ? { preview } : {}) });
   }
-  if (target.maps.length === 0 && drafts > 0 && kind === "game") {
-    warn(dir, ["every map is a draft, so the game is skipped"]);
+  if (target.maps.length === 0 && kind === "game") {
+    // A new game's first map is made in the map editor, which reads games/ itself.
+    warn(dir, [drafts > 0 ? "every map is a draft, so the game is skipped" : "no maps yet, so the game is skipped (make one in the map editor)"]);
     target.skip = true;
   } else if (target.maps.length === 0) {
     report(dir, [drafts > 0 ? "needs at least one finished map (the others are drafts)" : "needs at least one map in maps/<id>/"]);

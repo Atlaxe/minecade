@@ -72,9 +72,9 @@ export class Combat {
 
   /**
    * A game-made hit, such as a paintball or a one-shot arrow, under the same rules as real
-   * damage. Call it outside before-events.
+   * damage. A lethal one downs the victim with `cause`. Call it outside before-events.
    */
-  hit(victim: Player, attacker: string | undefined, amount: number | "lethal"): void {
+  hit(victim: Player, attacker: string | undefined, amount: number | "lethal", cause = "entityAttack"): void {
     const name = victim.name;
     if (!this.host.playing || this.dying.has(name.toLowerCase()) || !this.host.canFight(name) || this.host.isProtected(name)) return;
     if (attacker && (!this.host.canFight(attacker) || this.host.areAllies(attacker, name))) return;
@@ -83,7 +83,7 @@ export class Combat {
     if (amount === "lethal" || amount >= health) {
       this.dying.add(name.toLowerCase());
       this.stats.damage(name, health, attacker);
-      this.host.down(name, "entityAttack");
+      this.host.down(name, cause);
     } else {
       victim.applyDamage(amount);
     }

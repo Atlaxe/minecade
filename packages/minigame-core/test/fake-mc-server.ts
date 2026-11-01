@@ -408,6 +408,23 @@ export class FakePlayer {
   }
 }
 
+/** An entity that isn't a player, such as a stuck arrow. */
+export class FakeEntity {
+  readonly typeId: string;
+  readonly id: string;
+  isValid = true;
+
+  constructor(typeId: string) {
+    this.typeId = typeId;
+    this.id = String(nextEntityId++);
+  }
+
+  remove(): void {
+    writable("Entity::remove");
+    this.isValid = false;
+  }
+}
+
 function makeAttribute(max: number, what: string) {
   return {
     currentValue: max,
@@ -516,6 +533,8 @@ class FakeWorld {
     entityHitEntity: new FakeSignal<{ damagingEntity: FakePlayer; hitEntity: FakePlayer }, unknown>(),
     itemUse: new FakeSignal<{ source: FakePlayer; itemStack: ItemStack }>(),
     playerInteractWithBlock: new FakeSignal<{ player: FakePlayer; itemStack?: ItemStack; isFirstEvent: boolean }>(),
+    projectileHitBlock: new FakeSignal<{ projectile: FakeEntity; source?: FakePlayer }>(),
+    projectileHitEntity: new FakeSignal<{ projectile: FakeEntity; source?: FakePlayer; getEntityHit(): { entity?: FakePlayer } }>(),
   };
   readonly beforeEvents = {
     entityHurt: new FakeSignal<HurtBeforeEvent, unknown>(true),
@@ -589,6 +608,19 @@ class FakeWorld {
   melee(attacker: FakePlayer, victim: FakePlayer, damage = 1, cooldown = false): void {
     this.hurt(victim, damage, "entityAttack", { attacker, cooldown });
     this.afterEvents.entityHitEntity.emit({ damagingEntity: attacker, hitEntity: victim }, acceptsEntity(attacker));
+  }
+
+  /** A projectile (an arrow by default) sticks in a block: returns it, so a test can see whether it was removed. */
+  projectileLands(source?: FakePlayer, typeId = "minecraft:arrow"): FakeEntity {
+    const projectile = new FakeEntity(typeId);
+    this.afterEvents.projectileHitBlock.emit({ projectile, source });
+    return projectile;
+  }
+
+  /** A projectile (an arrow by default) reaches a player. Its damage, if any, is a separate hurt(). */
+  projectileHits(victim: FakePlayer, source?: FakePlayer, typeId = "minecraft:arrow"): void {
+    const projectile = new FakeEntity(typeId);
+    this.afterEvents.projectileHitEntity.emit({ projectile, source, getEntityHit: () => ({ entity: victim }) });
   }
 
   /** /kill: lethal, cause selfDestruct. */

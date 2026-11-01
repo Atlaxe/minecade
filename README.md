@@ -24,10 +24,11 @@ Everything runs on the official Bedrock Dedicated Server (BDS) with TypeScript b
 | Game | Players | What it is |
 |---|---|---|
 | Sumo | 2-6 | Hits only push. Knock everyone off the platform; last one standing wins. |
+| One in the Quiver | 2-8 | A sword, a bow and one arrow. An arrow kills in one hit, and every kill earns another; respawns are unlimited. First to 15 kills wins (the lobby's First to setting: 10 to 25). It shows in the lobby once it has a map: make its first one in the [map editor](docs/editor.md). |
 | Probe | 2-8 | A short test game on two teams that exercises the whole flow, team picks in the lobby included. Set `DEV_MIN_PLAYERS=1` to play it alone. |
 
-More games are planned (Arena, Search and Destroy, Paintball, One in the Quiver, Microbattles,
-Build Battle, Prophunt, Zombies, Hide and Seek, Block Drop). See [Adding a game](#adding-a-game).
+More games are planned (Arena, Search and Destroy, Paintball, Microbattles, Build Battle,
+Prophunt, Zombies, Hide and Seek, Block Drop). See [Adding a game](#adding-a-game).
 
 ## Requirements
 
@@ -293,7 +294,9 @@ docs/                     map format (maps.md), the map editor (editor.md), meas
    what's different. The framework already handles waiting, the countdown, teams, deaths without
    a death screen, kill credit, respawns, win checks, the sidebar, stats and cleanup. Hooks and
    helpers are documented in `packages/minigame-core/src/game/minigame.ts`.
-4. Add a map under `maps/<map-id>/` and bake it. An optional `preview.png` there (16:9, such
+4. Make its maps in the map editor ([docs/editor.md](docs/editor.md)), or add one under
+   `maps/<map-id>/` and bake it. Until the game has a finished map, the build skips it with a
+   warning, so the network still builds. An optional `preview.png` in a map's folder (16:9, such
    as a screenshot) shows on its map tile.
 5. Test it with the fake world in `test/` (see `games/sumo/test/sumo.test.ts` and
    `packages/minigame-core/test/game-harness.ts`), then `npm run check`, `npm run build` and

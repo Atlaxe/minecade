@@ -15,7 +15,7 @@ Outputs:
     editor/resource_pack/textures/particle/outline.png                        the editor's outline dot (white, dark rim)
     editor/resource_pack/textures/items/select_tool.png                       Select mode's tool (a crop mark)
     editor/resource_pack/textures/entity/editor_marker_facing.png            the red facing line on markers
-    games/<id>/icon.png                                                      16:9 game pictures (Probe, Sumo)
+    games/<id>/icon.png                                                      16:9 game pictures (Probe, Sumo, One in the Quiver)
 
 Fonts come from Windows (Bahnschrift, else Consolas Bold); they only matter when regenerating.
 The logo source is tools/assets/source/minecade-title.png (the orange original).
@@ -649,6 +649,7 @@ def main() -> None:
 
     save(picture("PROBE", (60, 70, 90), (25, 30, 40)), ROOT / "games" / "probe" / "icon.png")
     save(picture("SUMO", (190, 60, 60), (70, 20, 20)), ROOT / "games" / "sumo" / "icon.png")
+    save(picture("QUIVER", (60, 140, 90), (20, 55, 35)), ROOT / "games" / "quiver" / "icon.png")
 
 
 if __name__ == "__main__":
