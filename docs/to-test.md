@@ -223,24 +223,27 @@ Guests (needs a second account that isn't in LAN_PLAYERS):
 ## Block pack (Java mod)
 
 The custom blocks mod in a 26.2 Fabric profile. Take the new mod jar from the private block-pack
-project's `out/mods` folder and the new `minecade-showroom-java.zip` from `out`. Everything else
-passed on 2026-10-31:
+project's `out/mods` folder (the project is now `C:\dev\minecade\workshop\block-pack`) and the new
+`minecade-showroom-java.zip` from `out`. Planters passed on 2026-11-01, everything else before:
 
-- Connected glass (framed glass and the windows, in the Connections area): a 3x3 wall or a stack
-  looks like one sheet, with no faces between the blocks. The mod now skips them, as vanilla glass
-  does. A small seam where three framed glass blocks meet in an inside corner is expected.
-- Planters: right-click a planter's top with any flower. One-block flowers sit on it, and tall ones
-  (sunflower, lilac, rose bush, peony, pitcher plant) stand two blocks high. Breaking the planter or
-  either half takes the flower and drops it once (nothing in creative). The Connections area has a
-  planter with every flower.
+- Connected glass (framed glass and the windows, blocks and panes, in the Connections area): a 3x3
+  wall or a stack looks like one sheet, with no faces between the blocks. The mod's self-test asks
+  the game's own face check for every glass block and pane, stacked and side by side, and all of
+  them skip those faces. A small seam where three framed glass blocks meet in an inside corner is
+  expected. If faces still show, note which block and which side.
+- Inside Mushroom Block, last in the Plants tab: the inside of a mushroom on all six faces.
 
 ## Block pack (Bedrock)
 
 Open the new `minecade-showroom.mcworld` from the private block-pack project's `out` folder.
-Everything else passed on 2026-10-31. BDS already put flowers on planters from a simulated
-player's clicks and broke them again, and every showroom block came through a Chunker conversion
-and a map editor cut exactly. This needs a real client:
+Planters passed on 2026-11-01, everything else before. A probe world already dropped items beside
+vanilla fences and panes next to the pack's blocks, and the fences' arms (which catch the items)
+came out only where Java joins them. This needs a real client:
 
-- Planters: right-click a planter's top with any flower. It stands there and looks like that flower
-  does anywhere else, not thinner or darker. Tall flowers take two blocks. Blocks still go against
-  a planter's sides without sneaking. The Connections area has a planter with every flower.
+- Connections: vanilla fences, walls, panes and iron bars don't join posts, lanterns, candle
+  holders, chests or other decor any more. They still join full blocks, the backs of stairs,
+  double slabs and the pack's walls, panes and bars, and fences join the pack's gates only at a
+  gate's ends. The pack's own panes, bars and walls follow the same rules: a pane beside a post or
+  a wall bunting stays a lone post.
+- Inside Mushroom Block, in Construction's "Mushroom blocks" group: the inside of a mushroom on
+  all six faces.
