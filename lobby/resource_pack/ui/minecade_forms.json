@@ -469,8 +469,8 @@
   },
 
   // ---- Play: one game's screen -----------------------------------------------------------------
-  // Left: the game's name and info, the Random map switch, its settings, and Start pinned to the
-  // bottom. Right: two scrolling columns of map tiles (dimmed while Random is on).
+  // Left: the game's name and info, then the Random map switch, its settings and Start scrolling
+  // under them. Right: two scrolling columns of map tiles (dimmed while Random is on).
   "game_menu": {
     "type": "panel",
     "visible": false,
@@ -496,10 +496,10 @@
           "layer": 3,
           "controls": [
             {
-              "top": {
+              "column": {
                 "type": "stack_panel",
                 "orientation": "vertical",
-                "size": ["100%", "100%c"],
+                "size": ["100%", "100%"],
                 "anchor_from": "top_left",
                 "anchor_to": "top_left",
                 "controls": [
@@ -524,12 +524,10 @@
                     }
                   },
                   { "gap_settings": { "type": "panel", "size": ["100%", 8] } },
-                  { "random@minecade_forms.toggle_column": {} },
-                  { "settings@minecade_forms.settings_column": {} }
+                  { "options@minecade_forms.scroll": { "size": ["100%", "fill"], "$scrolling_content": "minecade_forms.game_options" } }
                 ]
               }
-            },
-            { "start@minecade_forms.start_column": { "size": ["100%", 32], "anchor_from": "bottom_left", "anchor_to": "bottom_left" } }
+            }
           ]
         }
       },
@@ -566,6 +564,21 @@
       },
       { "back@minecade_forms.back_arrow": {} },
       { "close@minecade_forms.close_x": {} }
+    ]
+  },
+
+  // The game screen's scrolling part: the Random map switch, the settings, then Start.
+  "game_options": {
+    "type": "stack_panel",
+    "orientation": "vertical",
+    "size": ["100%", "100%c"],
+    "anchor_from": "top_left",
+    "anchor_to": "top_left",
+    "controls": [
+      { "random@minecade_forms.toggle_column": {} },
+      { "settings@minecade_forms.settings_column": {} },
+      { "gap_start": { "type": "panel", "size": ["100%", 6] } },
+      { "start@minecade_forms.start_column": {} }
     ]
   },
 
@@ -645,7 +658,7 @@
   },
 
   // The Random map switch, the settings (as many as the game has) and Start: full-width buttons
-  // in their own columns. Start's column is one button tall, so it stays pinned to the bottom.
+  // in their own columns, one after another in the game screen's scrolling part.
   "toggle_column@minecade_forms.button_column": { "size": ["100%", "100%c"], "factory": { "name": "buttons", "control_ids": { "button": "@minecade_forms.toggle_slot" } } },
   "settings_column@minecade_forms.button_column": { "size": ["100%", "100%c"], "factory": { "name": "buttons", "control_ids": { "button": "@minecade_forms.setting_slot" } } },
   "start_column@minecade_forms.button_column": { "size": ["100%", "100%c"], "factory": { "name": "buttons", "control_ids": { "button": "@minecade_forms.start_slot" } } },

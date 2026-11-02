@@ -17,6 +17,7 @@ import {
 import { validateGameConfig } from "../../../tools/build/validate.ts";
 import config from "../game.config.ts";
 import { countCodes } from "../../../packages/minigame-core/src/hud.ts";
+import { heartsText } from "../../../packages/minigame-core/src/game/fakes.ts";
 import { ARROW_SLOT, ARROW_VERBS, Quiver, giveArrows, pickSpawn, rankSpawns } from "../behavior_pack/scripts/quiver.ts";
 
 const ARROW = "minecraft:arrow";
@@ -256,10 +257,10 @@ describe("respawn points", () => {
       previewed.addFakes(1);
       await ticks(20 + COUNTDOWN_TICKS);
       expect(previewed.phase).toBe("playing");
-      // Its name tag is hidden during the match, as players' are: the game says which body it is.
+      // Its name is hidden during the match, as players' are (it shows its hearts only): the game says which body it is.
       const fake = previewed.body("Fake 1") as FakeMob | undefined;
       expect(fake).toBeDefined();
-      expect(fake?.nameTag).toBe("");
+      expect(fake?.nameTag).toBe(heartsText(20, 20));
       at(a, 0.5, 0.5);
       fake!.location = { x: 10.5, y: 65, z: 0.5 };
       a.inventory.setItem(ARROW_SLOT, undefined);

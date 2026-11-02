@@ -2,14 +2,14 @@
   "format_version": "1.10.0",
   "render_controllers": {
     "controller.render.minecade.star_box": {
-      "geometry": "Geometry.default",
+      "geometry": "Geometry.stars",
       "materials": [
         {
-          "*": "Material.default"
+          "*": "Material.stars"
         }
       ],
       "textures": [
-        "Texture.default"
+        "Texture.stars"
       ],
       "ignore_lighting": true,
       "part_visibility": [
@@ -17,26 +17,26 @@
           "*": false
         },
         {
-          "floor": true
+          "floor": "query.property('minecade:stars')"
         }
       ]
     },
     "controller.render.minecade.star_box_moving": {
-      "geometry": "Geometry.default",
+      "geometry": "Geometry.stars",
       "materials": [
         {
-          "*": "Material.moving"
+          "*": "Material.stars_moving"
         }
       ],
       "textures": [
-        "Texture.default"
+        "Texture.stars"
       ],
       "part_visibility": [
         {
           "*": false
         },
         {
-          "moving": true
+          "moving": "query.property('minecade:stars')"
         }
       ],
       "uv_anim": {
@@ -66,10 +66,10 @@
           ]
         }
       },
-      "geometry": "Geometry.default",
+      "geometry": "Geometry.stars",
       "materials": [
         {
-          "*": "Material.moving"
+          "*": "Material.stars_moving"
         }
       ],
       "textures": [
@@ -80,7 +80,7 @@
           "*": false
         },
         {
-          "north_0": true
+          "north_0": "query.property('minecade:stars')"
         }
       ],
       "uv_anim": {
@@ -110,10 +110,10 @@
           ]
         }
       },
-      "geometry": "Geometry.default",
+      "geometry": "Geometry.stars",
       "materials": [
         {
-          "*": "Material.moving"
+          "*": "Material.stars_moving"
         }
       ],
       "textures": [
@@ -124,7 +124,7 @@
           "*": false
         },
         {
-          "north_1": true
+          "north_1": "query.property('minecade:stars')"
         }
       ],
       "uv_anim": {
@@ -154,10 +154,10 @@
           ]
         }
       },
-      "geometry": "Geometry.default",
+      "geometry": "Geometry.stars",
       "materials": [
         {
-          "*": "Material.moving"
+          "*": "Material.stars_moving"
         }
       ],
       "textures": [
@@ -168,7 +168,7 @@
           "*": false
         },
         {
-          "north_2": true
+          "north_2": "query.property('minecade:stars')"
         }
       ],
       "uv_anim": {
@@ -198,10 +198,10 @@
           ]
         }
       },
-      "geometry": "Geometry.default",
+      "geometry": "Geometry.stars",
       "materials": [
         {
-          "*": "Material.moving"
+          "*": "Material.stars_moving"
         }
       ],
       "textures": [
@@ -212,7 +212,7 @@
           "*": false
         },
         {
-          "south_0": true
+          "south_0": "query.property('minecade:stars')"
         }
       ],
       "uv_anim": {
@@ -242,10 +242,10 @@
           ]
         }
       },
-      "geometry": "Geometry.default",
+      "geometry": "Geometry.stars",
       "materials": [
         {
-          "*": "Material.moving"
+          "*": "Material.stars_moving"
         }
       ],
       "textures": [
@@ -256,7 +256,7 @@
           "*": false
         },
         {
-          "south_1": true
+          "south_1": "query.property('minecade:stars')"
         }
       ],
       "uv_anim": {
@@ -286,10 +286,10 @@
           ]
         }
       },
-      "geometry": "Geometry.default",
+      "geometry": "Geometry.stars",
       "materials": [
         {
-          "*": "Material.moving"
+          "*": "Material.stars_moving"
         }
       ],
       "textures": [
@@ -300,7 +300,7 @@
           "*": false
         },
         {
-          "south_2": true
+          "south_2": "query.property('minecade:stars')"
         }
       ],
       "uv_anim": {
@@ -330,10 +330,10 @@
           ]
         }
       },
-      "geometry": "Geometry.default",
+      "geometry": "Geometry.stars",
       "materials": [
         {
-          "*": "Material.moving"
+          "*": "Material.stars_moving"
         }
       ],
       "textures": [
@@ -344,7 +344,7 @@
           "*": false
         },
         {
-          "north_3": true
+          "north_3": "query.property('minecade:stars')"
         }
       ],
       "uv_anim": {
@@ -374,10 +374,10 @@
           ]
         }
       },
-      "geometry": "Geometry.default",
+      "geometry": "Geometry.stars",
       "materials": [
         {
-          "*": "Material.moving"
+          "*": "Material.stars_moving"
         }
       ],
       "textures": [
@@ -388,7 +388,7 @@
           "*": false
         },
         {
-          "south_3": true
+          "south_3": "query.property('minecade:stars')"
         }
       ],
       "uv_anim": {

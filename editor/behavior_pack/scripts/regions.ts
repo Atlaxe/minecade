@@ -2,7 +2,6 @@
 // colors their outlines are drawn in: pure functions of the map and its rules, so they can be
 // tested without a server.
 import { KILL_REGION, enclosingBox, mapRequirements, type Box, type EditorRules, type MapConfig, type MapRequirement } from "@minecade/minigame-core/config";
-import { dangerText } from "./marks.ts";
 
 /** An outline color, each part from 0 to 1 (the script API's RGB). */
 export interface Rgb {
@@ -48,35 +47,45 @@ export interface RegionTarget {
   kind: "bounds" | "addBounds" | "region" | "new";
   /** The region's name, for kind "region". */
   name?: string;
+  /**
+   * What it is, whatever the team: "bounds", "addBounds", "regions.kill", "regions.<name>" (a team's
+   * region by the name before its team), or "new". A screen picks this first, then the team.
+   */
+  group: string;
+  /** Its group's name there: "Bounds", "Kill region", "Spawn guard", "New region". */
+  groupLabel: string;
+  /** Its name in the Team list, for a team's region. */
+  teamLabel?: string;
+  /** A tile (the bounds and the kill region), else an option in the Region list (the game's regions, the map's others, New region). */
+  tile: boolean;
 }
 
-export type SelectionAction = "saveChanges" | "saveAs" | "nudge" | "floor" | "back" | "clear";
-
-/**
- * What a selection offers, in the region form and the map menu: Save changes while it edits a
- * saved box (`editing` is that box's label), Floor at kill Y when the map has one, and Back one
- * step after `steps` changes.
- */
-export function selectionActions(editing: string | undefined, steps: number, killY: number | undefined): { action: SelectionAction; text: string }[] {
-  return [
-    ...(editing ? [{ action: "saveChanges" as const, text: `Save changes\n§7to ${editing}` }] : []),
-    { action: "saveAs", text: "Save as...\n§7bounds, a region or a kill region" },
-    { action: "nudge", text: "Nudge sides" },
-    ...(killY === undefined ? [] : [{ action: "floor" as const, text: `Floor at kill Y\n§7bottom at y ${killY}` }]),
-    ...(steps > 0 ? [{ action: "back" as const, text: "Back one step" }] : []),
-    { action: "clear", text: dangerText("Clear selection") },
-  ];
-}
+export type SelectionAction = "saveAs" | "clear";
 
 /** The bounds (and another bounds box), the kill region, the regions the rules ask for, any others the map has, then a new one. */
 export function regionTargets(config: MapConfig, rules: EditorRules): RegionTarget[] {
   const bounds = boundsEntries(config).length;
+  const regions = regionNames(config, rules).map((name): RegionTarget => {
+    const label = regionLabel(name, rules);
+    if (name === KILL_REGION) return { key: `regions.${name}`, label, kind: "region", name, group: `regions.${name}`, groupLabel: label, tile: true };
+    const team = teamOf(name, rules);
+    if (!team) return { key: `regions.${name}`, label, kind: "region", name, group: `regions.${name}`, groupLabel: label, tile: false };
+    // A team's region: "spawnGuard.red", labeled "Spawn guard (Red)".
+    const suffix = ` (${team.name})`;
+    const groupLabel = label.endsWith(suffix) ? label.slice(0, -suffix.length) : label;
+    return { key: `regions.${name}`, label, kind: "region", name, group: `regions.${name.slice(0, name.lastIndexOf("."))}`, groupLabel, teamLabel: team.name, tile: false };
+  });
   return [
-    { key: "bounds", label: bounds > 1 ? `Bounds (replaces all ${bounds} boxes)` : "Bounds", kind: "bounds" },
-    ...(bounds > 0 ? [{ key: "addBounds", label: "Add to bounds (another box)", kind: "addBounds" } as const] : []),
-    ...regionNames(config, rules).map((name): RegionTarget => ({ key: `regions.${name}`, label: regionLabel(name, rules), kind: "region", name })),
-    { key: "new", label: "New region...", kind: "new" },
+    { key: "bounds", label: bounds > 1 ? `Bounds (replaces all ${bounds} boxes)` : "Bounds", kind: "bounds", group: "bounds", groupLabel: "Bounds", tile: true },
+    ...(bounds > 0 ? [{ key: "addBounds", label: "Add to bounds (another box)", kind: "addBounds", group: "addBounds", groupLabel: "Add bounds", tile: true } as const] : []),
+    ...regions,
+    { key: "new", label: "New region...", kind: "new", group: "new", groupLabel: "New region", tile: false },
   ];
+}
+
+/** Where a box the map has is saved now: "bounds", or its region's key. */
+export function targetKeyOf(entry: RegionEntry): string {
+  return entry.region ? `regions.${entry.region.name}` : "bounds";
 }
 
 /** A box the map has: a bounds box, or entry `index` of the region `name`. */

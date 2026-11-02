@@ -125,8 +125,10 @@ such as the lobby's terminal); or `{ model: "<name>" }`, the game's own model. I
 `true`. A model is two files in the game's folder (the lobby's: `lobby/markers/`):
 `markers/<name>.geo.json` (a Bedrock entity geometry, its feet at the entry's spot and its front
 facing the entry's facing) and `markers/<name>.png`, its texture. Names are lowercase letters,
-digits and `_`. The map editor adds every game's models to its resource pack when it starts, and
-draws a model it doesn't have as a post.
+digits and `_`. The map editor adds every game's models to its resource pack when it starts, draws
+them on the markers and on the aim cursor while one is placed, and draws a model it doesn't have
+as a post. A team's markers take the team's color on the model's bones named `tint` (Bridges' hole
+colors its rim); the rest keeps the texture's colors.
 
 **Building games** (a `build` block in `game.config.ts`, Bridges) play in survival mode. Players
 place blocks only inside a `bounds` box (above `killY`, outside kill regions), never inside a region

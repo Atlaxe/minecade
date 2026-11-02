@@ -209,7 +209,7 @@ at a time; a public hologram above it shows everyone what they're doing.
 | Idle | nothing | The logo frame, "Tap the terminal", until someone first uses the terminal. After that, the last screen stays up between sessions, and the main screen after a game starts |
 | Main | The themed menu: logo, Play and Stats side by side | The logo frame, Play and Stats, the chosen one lit |
 | Play | A scrolling grid of game tiles, 4 across, 80% of the screen's height, laid out like the game screen's map tiles: the game's 16:9 picture in a frame, its name over a dark fade at the bottom, and under the name, smaller and darker gray, a player icon and the players needed (red when there aren't enough) | "Choose a game" and the game names, dimmed when there aren't enough players |
-| Game | Left: the game's name and info, a red warning when there aren't enough players, the Random map switch (on at first), the settings (Teams: Pick or Random for team games, then the game's own options), Start at the bottom. Right: scrolling map tiles, 2 across, each a 16:9 preview with the name over it; dimmed while Random is on, the chosen one outlined when it's off. Clicking a tile turns Random off and picks that map | Across the top, as wide as the frame allows: the chosen map's preview (or the "No preview" placeholder), or the game's picture while the map is random. Under it, two columns starting at the same height: the game's name and the players it needs on the left, and a table of "Map:" and each setting (up to 3) in white with the answers in yellow on the right. No map list or Start (only the terminal's user picks those) |
+| Game | Left: the game's name and info, a red warning when there aren't enough players, the Random map switch (on at first), the settings (Teams: Pick or Random for team games, then the game's own options) and Start, scrolling under the name and info. Right: scrolling map tiles, 2 across, each a 16:9 preview with the name over it; dimmed while Random is on, the chosen one outlined when it's off. Clicking a tile turns Random off and picks that map | Across the top, as wide as the frame allows: the chosen map's preview (or the "No preview" placeholder), or the game's picture while the map is random. Under it, two columns starting at the same height: the game's name and the players it needs on the left, and a table of "Map:" and each setting (up to 3) in white with the answers in yellow on the right. No map list or Start (only the terminal's user picks those) |
 | Teams | After Start on a team game set to Pick, **every player in the match** gets a live team form (see below) | The game's name, each team and its players in the team's color, who's still random, and when teams lock |
 | Starting | Nothing on screen (a chat message says who started what); the countdown chimes play for the players in the match | Centered: "Starting Sumo", the map and "Getting the server ready" while its server boots (after the team picks, for team games), then "Starting Sumo in", the seconds left in big yellow numbers, and the map |
 | Stats list | A scrolling list of everyone with stats, each with their letter badge; you first, marked "(me)", even with no stats yet | "Stats" and the players' names, the viewer first but without "(me)", up to 7, then "+N more" |
@@ -459,11 +459,14 @@ The rules every editor menu follows (the user's, from 2026-10-31):
 - **Buttons** use the game's regular font (only titles use Minecraft Ten), one line, 22 pixels tall.
 - **Icon rows** for actions that fit an icon (Players, Back one step, New map), with tooltips.
 - **Toggles** (one choice of several: a spawn's list, what a selection is saved as, how many fake
-  players) are tiles touching in a row, the one that's on green.
-- **Lists** (a choice of many, or of teams: the Game marker tool's Marker, a Team) are a row with
-  "Label: value" and an arrow (`MARK.dropdown`, `dropdownText`); tapped, the form opens again with
-  the options under it as plain rows, the one picked outlined (`optionText`), and picking one closes
-  it. In a form with fields, a real list (Export's For) opens about five options tall.
+  players) are tiles touching in a row, the one that's on green. Each tile is a third of the row,
+  so a row of three lines up with the buttons under it.
+- **Lists** (a choice of many, or of teams: the Game marker tool's Marker, the region screen's
+  Region, a Team) are a row with "Label: value" and an arrow (`MARK.dropdown`, `dropdownText`);
+  tapped, the form opens again with the options under it as plain rows, the one picked outlined
+  (`optionText`), and picking one closes it. An action form sends any tap back to the script, so a
+  pick always opens the form again. In a form with fields, a real list (Export's For) opens about
+  five options tall.
 - **Tool screens:** what a tool sets up (a spawn, a selection, kill Y) opens in its own side screen,
   the way hitting a marker does: a toggle first, then its settings, nudge rows (a minus and a plus
   each), and a green button pinned at the bottom that saves it. Closing it keeps nothing.
@@ -477,7 +480,7 @@ The rules every editor menu follows (the user's, from 2026-10-31):
   The title isn't a button. Built like the tool grid: a column of titles (`MARK.cardTitle`) and one column per icon
   (`MARK.cardIcon` with `CARD_COLUMNS`), a card's buttons one after another so the rows line up.
   A heading row over them (`MARK.cardHead`) can carry a link with an icon on its right
-  (`MARK.cardLink`: Search).
+  (`MARK.cardLink`: Search), white, with no face and no change while hovered.
 - **Picture tiles** (the thumbnail menus): two to a row (`MARK.picture`), the button's icon as a
   16:9 picture with its name under it, outlined green (`picked_green`) while it's the one in use.
   The pictures are in the editor's pack (`tools/editor/pictures.ts`), so new ones show from the next
@@ -528,7 +531,7 @@ panels, is drawn first (its render controller is first in the list) and the back
 (black at about 60% was tried first) dims a bright sky instead; more opacity makes either stronger.
 
 **The star box** (lobby map.json `"stars": true`) uses the same additive trick at a much larger
-size: `minecade:star_box`, one entity at the terminal whose model is four walls, a floor and a
+size: a model at the terminal (`geometry.minecade.star_box`) that is four walls, a floor and a
 ceiling, each 96 blocks wide (48 blocks out from the middle), facing inward, each covered by
 `stars.png`. Black adds nothing, so the real night sky shows through and only the stars add light;
 the sky keeps its own stars and moon behind them (the north and south walls use the warp
@@ -558,7 +561,13 @@ The fade switches between `warp_1.png` to `warp_7.png` (the field at 7 brightnes
 works out each layer's life, brightness and zoom. At the edges, the stars move about as fast as
 the side walls'.
 
-The lobby script keeps one box placed, like the hologram (`star-box.ts`). It
+The box is drawn by the hologram's own entity (`minecade:holo_display`, its `stars` geometry), when
+the map asks for it (the `minecade:stars` property, set by `hologram.ts`): its render controllers
+come first in the entity's list, so the stars are drawn before the hologram's panels. Every one of
+the hologram's materials keeps depth, so stars drawn after them were hidden behind the panels when
+the box was an entity of its own (the order two entities draw in isn't the pack's to pick). The
+entity faces south, and its model's bounds are as big as the box's, so it isn't culled when the
+terminal is out of view. It
 only looks right at night (`"time": "midnight"`), since in daylight the dim stars disappear into the
 bright sky. On a very short render distance, fog can fade the walls 48 blocks out.
 

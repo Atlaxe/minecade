@@ -335,7 +335,7 @@ export class Selector {
     const form = new ModalFormData().title(sideTitle("Export to Map")).textField("Name", "Castle", { defaultValue: draft.name });
     if (named) form.label(`Map id: ${this.exportId(draft)}`);
     form.dropdown("For", targets.map((target) => target.name), { defaultValueIndex: Math.max(0, targets.findIndex((target) => target.id === draft.target)) });
-    form.toggle("Open in Edit", { defaultValue: draft.edit, tooltip: "once it's cut out, without asking" });
+    form.toggle("Open in Edit", { defaultValue: draft.edit });
     form.submitButton(named ? "Export to Map" : "Next");
     const response = await this.show(player, form);
     if (!response?.formValues || !player.isValid || this.selections.get(key) !== selection) return;

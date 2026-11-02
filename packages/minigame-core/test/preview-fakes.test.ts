@@ -4,9 +4,9 @@
 import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import type { GameConfig } from "../src/config.ts";
 import type { MapConfig } from "../src/map-config.ts";
-import { FAKE_PLAYER, FakePlayers } from "../src/game/fakes.ts";
+import { FAKE_PLAYER, FakePlayers, HEARTS, heartsText } from "../src/game/fakes.ts";
 import { Minigame } from "../src/game/minigame.ts";
-import { DANGER_BUTTON, PREVIEW_NEXT, SIDE_TITLE, endPreview } from "../src/game/preview.ts";
+import { DANGER_BUTTON, GO_BUTTON, PREVIEW_NEXT, SIDE_TITLE, endPreview } from "../src/game/preview.ts";
 import { stripColors } from "../src/text.ts";
 import { transfers } from "./fake-mc-server-admin.ts";
 import { world, type FakeMob } from "./fake-mc-server.ts";
@@ -64,9 +64,12 @@ describe("fake players in a preview", () => {
       await ticks(20 + COUNTDOWN_TICKS);
       expect(game.phase).toBe("playing");
       expect(game.roster.all().map((participant) => participant.name)).toEqual(["A", "Fake 1", "Fake 2"]);
-      // Name tags are hidden during a match (the game doesn't ask for them), fakes' as well as players'.
-      expect(bodyOf("Fake 2")?.nameTag).toBe("");
+      // Name tags are hidden during a match (the game doesn't ask for them), fakes' as well as
+      // players': a fake shows its hearts only, and they follow its health.
+      expect(bodyOf("Fake 2")?.nameTag).toBe(heartsText(20, 20));
       expect(players[0].nameTag).toBe("");
+      world.hurt(bodyOf("Fake 2")!, 5, "entityAttack", { attacker: a });
+      expect(bodyOf("Fake 2")?.nameTag).toBe(heartsText(15, 20));
 
       // A sword kill: the hit is intercepted like a player's, and the fake is out (no respawns). It
       // watches from the spectator spawn, floating there, nameless (seen, unlike a player).
@@ -156,6 +159,27 @@ describe("fake players in a preview", () => {
     expectBaseline(harness.root, baseline);
   });
 
+  it("win a best-of round for their team when asked: right click, then the green button", async () => {
+    const config: GameConfig = { ...FFA, teams: { count: 2 }, bestOf: { rounds: 3 }, respawn: { mode: "unlimited", delaySeconds: 1 }, timeLimitSeconds: 0 };
+    const { players, baseline, game } = preview(["A"], config);
+    const [a] = players;
+    game.ctx.vars.previewFakes = 1;
+    await playToEnd(game, harness.root, baseline, async () => {
+      for (let tick = 0; tick < 600 && !game.roundInPlay; tick++) await ticks(1);
+      expect([game.phase, game.roundInPlay]).toEqual(["playing", true]);
+      const team = game.teamOf("Fake 1")!;
+      queueFormResponses({ canceled: false, selection: 0 });
+      world.afterEvents.playerInteractWithEntity.emit({ player: a, target: bodyOf("Fake 1")! });
+      await ticks(2);
+      expect(shownForms.at(-1)?.buttons).toEqual([`${GO_BUTTON}Fake 1 wins the round\n§7for ${team.name}`, `${DANGER_BUTTON}Fake 1 kills you`, "Cancel"]);
+      expect(game.bestOf?.history).toEqual([team.id]);
+      // Between rounds there's none to win.
+      expect(stripColors(game.fakeWinsRound("Fake 1") ?? "")).toBe("There's no round being played.");
+      game.abort();
+    });
+    expectBaseline(harness.root, baseline);
+  });
+
   it("wait in the queue with the players, play from the spawns, and watch from the queue spawn when out", async () => {
     const { spectatorSpawn: _none, ...arena } = ARENA;
     const map = { ...arena, queueSpawn: [0, 70, 10], queue: { mode: "free", countdown: 1 } } as MapConfig;
@@ -231,6 +255,15 @@ describe("fake players in a preview", () => {
     const game = new TestGame(harness.context(["A"]), FFA);
     expect(game.fakes).toBeUndefined();
     expect(stripColors(game.addFakes(1))).toBe("Fake players are only for previews.");
+  });
+});
+
+describe("a fake player's hearts", () => {
+  it("show its health like the HUD: a heart per 2, a half one for an odd point, the rest empty", () => {
+    expect(heartsText(20, 20)).toBe(`§f${HEARTS.full.repeat(10)}`);
+    expect(heartsText(13, 20)).toBe(`§f${HEARTS.full.repeat(6)}${HEARTS.half}${HEARTS.empty.repeat(3)}`);
+    expect(heartsText(0.4, 20)).toBe(`§f${HEARTS.half}${HEARTS.empty.repeat(9)}`);
+    expect(heartsText(0, 20)).toBe(`§f${HEARTS.empty.repeat(10)}`);
   });
 });
 

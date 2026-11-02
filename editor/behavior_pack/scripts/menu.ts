@@ -141,7 +141,7 @@ export interface MapMenuView {
   /** For the spawn tool's settings. */
   spawn: { lists: SpawnList[]; settings: SpawnSettings };
   /** For the region tool's settings: the player's selection, and the map's boxes. */
-  region: { selection?: { box: Box; editing?: string; steps: number }; entries: RegionEntry[] };
+  region: { selection?: { box: Box; steps: number }; entries: RegionEntry[] };
   /** For the camera tool's settings: the kind new cameras get. */
   camera?: { kind: CameraKind };
 }
@@ -232,18 +232,18 @@ export function spawnSettings(config: MapConfig, lists: SpawnList[]): MenuEntry[
   return entries;
 }
 
-/** The region tool's settings: the selection (Save opens its screen), then the map's bounds and regions. */
+/** The region tool's settings: the selection (Save opens its screen), then the map's bounds and regions (tap one for its screen). */
 export function regionSettings(selection: MapMenuView["region"]["selection"], boxes: RegionEntry[]): MenuEntry[] {
   const entries: MenuEntry[] = [];
   if (selection) {
     entries.push(
       { action: { kind: "none" }, text: headingText(`Selection: ${sizeText(selection.box)}`) },
-      { action: { kind: "selection", action: "saveAs" }, text: goText(selection.editing ? `Save ${selection.editing}` : "Save the selection") },
+      { action: { kind: "selection", action: "saveAs" }, text: goText("Save the selection") },
       { action: { kind: "selection", action: "clear" }, text: dangerText("Clear selection") },
     );
   }
   entries.push({ action: { kind: "none" }, text: headingText(boxes.length > 0 ? `Bounds and regions (${boxes.length})` : "No bounds or regions yet") });
-  for (const box of boxes) entries.push({ action: { kind: "box", key: box.key }, text: `${box.label}\n§7${sizeText(box.box)}: edit, nudge, go to, delete` });
+  for (const box of boxes) entries.push({ action: { kind: "box", key: box.key }, text: `${box.label}\n§7${sizeText(box.box)}` });
   return entries;
 }
 
@@ -320,6 +320,16 @@ function coordinate(value: number): string {
   return String(Math.round(value * 100) / 100);
 }
 
+/**
+ * A list's row ("Label: value" with its arrow, `open` or not) and, while it's open, its options
+ * under it, the one in use outlined. `none` is the value when no option is in use.
+ */
+function listRows<A>(open: boolean, toggle: A, label: string, options: { action: A; label: string; on: boolean }[], none = ""): { action: A; text: string }[] {
+  const rows = [{ action: toggle, text: `${MARK.lead}${dropdownText(label, options.find((option) => option.on)?.label ?? none, open)}` }];
+  if (open) for (const option of options) rows.push({ action: option.action, text: `${MARK.lead}${optionText(option.label, option.on)}` });
+  return rows;
+}
+
 /** Each group among `lists` once (its first list), in order: the Spawn tool's tiles, the Game marker tool's Marker list. */
 export function groupsOf(lists: SpawnList[]): SpawnList[] {
   const seen = new Set<string>();
@@ -346,9 +356,8 @@ export function entryScreenEntries(view: EntryScreenView): { action: EntryScreen
   const pick = (group: string) => listInGroup(view.lists, group, current?.teamLabel)?.key ?? view.list;
   const lead = (action: EntryScreenAction, text: string) => entries.push({ action, text: `${MARK.lead}${text}` });
   const dropdown = (which: "group" | "team", label: string, options: { key: string; label: string; on: boolean }[]) => {
-    const open = view.open === which;
-    lead({ kind: "open", which }, dropdownText(label, options.find((option) => option.on)?.label ?? "", open));
-    if (open) for (const option of options) lead({ kind: "list", key: option.key }, optionText(option.label, option.on));
+    const choices = options.map((option) => ({ action: { kind: "list", key: option.key } as const, label: option.label, on: option.on }));
+    entries.push(...listRows<EntryScreenAction>(view.open === which, { kind: "open", which }, label, choices));
   };
   if (current?.tool === "marker") {
     dropdown("group", "Marker", groups.map((group) => ({ key: pick(group.group), label: group.groupLabel, on: group.group === current.group })));
@@ -388,13 +397,15 @@ export function entryScreenEntries(view: EntryScreenView): { action: EntryScreen
   return entries;
 }
 
-/** The selection's screen (Save the selection, in the map menu). */
+/** The region tool's screen: the selection (Save the selection, in the map menu), or a box the map has (tapped in the map menu). */
 export interface RegionScreenView {
   targets: RegionTarget[];
-  /** The picked target's key; "editing" saves over the box the selection came from. */
+  /** The picked target's key. */
   target: string;
-  /** The saved box the selection came from, by its label. */
-  editing?: string;
+  /** A list that's open: the Region list, or the Team list. */
+  open?: "group" | "team";
+  /** A box the map has, by its label: Go to and Delete instead of Add bounds and Clear selection. */
+  existing?: string;
   /** A new region's name, as typed so far. */
   name: string;
   box: Box;
@@ -407,45 +418,62 @@ export interface RegionScreenView {
 
 export type RegionScreenAction =
   | { kind: "target"; key: string }
+  | { kind: "open"; which: "group" | "team" }
   | { kind: "name" }
   | { kind: "floor" }
   | { kind: "undo" }
+  | { kind: "goTo" }
   | { kind: "side"; side: keyof Sides; by: 1 | -1 }
   | { kind: "step"; step: number }
   | { kind: "clear" }
+  | { kind: "delete" }
   | { kind: "save" }
   | { kind: "back" }
   | { kind: "none" };
 
-/** A region target's name on its toggle tile. */
-function targetTile(target: RegionTarget): string {
-  if (target.kind === "addBounds") return "Add bounds";
-  if (target.kind === "new") return "New region";
-  return target.kind === "bounds" ? "Bounds" : target.label;
-}
-
 /**
- * The selection's screen: what to save it as (a toggle, with the box it came from first), a new
- * region's name, Floor at kill Y and Back one step, nudge rows for each side, Step, Clear (red), and
- * Save, green, at the bottom.
+ * The region tool's screen: what the box is (tiles for the bounds and the kill region; a Region list
+ * for the game's own regions, the map's others and a new one; a Team list for a team's region), a
+ * new region's name, Floor at kill Y and Back one step (and Go to, for a box the map has), nudge rows
+ * for each side, Step, Clear selection or Delete (red), and Save, green, at the bottom. A list opens
+ * under its row, the one in use outlined, and closes once one is picked. A box the map has isn't
+ * added to the bounds: its Bounds tile makes it one of them.
  */
 export function regionScreenEntries(view: RegionScreenView): { action: RegionScreenAction; text: string; icon?: string }[] {
-  const tiles = [...(view.editing ? [{ key: "editing", text: "This box" }] : []), ...view.targets.map((target) => ({ key: target.key, text: targetTile(target) }))];
+  const targets = view.existing ? view.targets.filter((target) => target.kind !== "addBounds") : view.targets;
+  const current = targets.find((target) => target.key === view.target) ?? targets[0];
   const entries: { action: RegionScreenAction; text: string; icon?: string }[] = view.back ? [{ action: { kind: "back" }, text: BACK_TEXT, icon: ICONS.back }] : [];
-  tiles.forEach((tile, i) => entries.push({ action: { kind: "target", key: tile.key }, text: segmentText(tile.text, i, tile.key === view.target) }));
+  targets
+    .filter((target) => target.tile)
+    .forEach((target, i) => entries.push({ action: { kind: "target", key: target.key }, text: segmentText(target.groupLabel, i, target.key === current?.key) }));
+  const listed = targets.filter((target) => !target.tile);
+  if (listed.length > 0) {
+    // A group's option keeps the team in use: from Spawn guard (Red), another region goes to its Red one.
+    const member = (group: string) => listed.find((target) => target.group === group && target.teamLabel !== undefined && target.teamLabel === current?.teamLabel) ?? listed.find((target) => target.group === group);
+    const groups = listed.filter((target, i) => listed.findIndex((other) => other.group === target.group) === i);
+    const options = groups.map((group) => ({ action: { kind: "target", key: member(group.group)?.key ?? group.key } as const, label: group.groupLabel, on: current?.tile === false && group.group === current.group }));
+    entries.push(...listRows<RegionScreenAction>(view.open === "group", { kind: "open", which: "group" }, "Region", options, "none"));
+  }
+  const teams = listed.filter((target) => target.group === current?.group && target.teamLabel !== undefined);
+  if (current?.teamLabel !== undefined && teams.length > 0) {
+    const options = teams.map((target) => ({ action: { kind: "target", key: target.key } as const, label: target.teamLabel ?? "", on: target.key === current.key }));
+    entries.push(...listRows<RegionScreenAction>(view.open === "team", { kind: "open", which: "team" }, "Team", options));
+  }
   const lead = (action: RegionScreenAction, text: string) => entries.push({ action, text: `${MARK.lead}${text}` });
-  lead({ kind: "none" }, headingText(`Selection: ${sizeText(view.box)}${view.target === "editing" && view.editing ? `, ${view.editing}` : ""}`));
-  if (view.target === "new") lead({ kind: "name" }, `Name: ${view.name || "§8none yet"}\n§7letters, digits and _, starting with a letter`);
+  lead({ kind: "none" }, headingText(`${view.existing ?? "Selection"}: ${sizeText(view.box)}`));
+  if (current?.kind === "new") lead({ kind: "name" }, `Name: ${view.name || "§8none yet"}\n§7letters, digits and _, starting with a letter`);
   if (view.killY !== undefined) lead({ kind: "floor" }, `Floor at kill Y\n§7put the bottom at ${view.killY}`);
-  if (view.steps > 0) lead({ kind: "undo" }, "Back one step\n§7undo the last change to the selection");
+  if (view.steps > 0) lead({ kind: "undo" }, "Back one step\n§7undo the last change to the box");
+  if (view.existing) lead({ kind: "goTo" }, "Go to\n§7on top, over its middle");
   for (const { side, name } of NUDGE_SIDES) {
     entries.push(
       { action: { kind: "side", side, by: -1 }, text: `${MARK.minus}${name}`, icon: ICONS.minus },
       { action: { kind: "side", side, by: 1 }, text: `${MARK.plus}${name} out`, icon: ICONS.new },
     );
   }
-  entries.push(...stepEntries(NUDGE_STEPS, view.step), { action: { kind: "clear" }, text: dangerText("Clear selection") });
-  entries.push({ action: { kind: "save" }, text: saveBarText(view.target === "editing" && view.editing ? `Save ${view.editing}` : "Save") });
+  entries.push(...stepEntries(NUDGE_STEPS, view.step));
+  entries.push(view.existing ? { action: { kind: "delete" }, text: dangerText("Delete") } : { action: { kind: "clear" }, text: dangerText("Clear selection") });
+  entries.push({ action: { kind: "save" }, text: saveBarText("Save") });
   return entries;
 }
 

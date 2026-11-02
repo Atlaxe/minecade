@@ -51,7 +51,7 @@ import {
   worldEntries,
   type MapMenuView,
 } from "../behavior_pack/scripts/menu.ts";
-import { regionEntries } from "../behavior_pack/scripts/regions.ts";
+import { regionEntries, regionTargets } from "../behavior_pack/scripts/regions.ts";
 import { EDITOR_TOOLS, toolOf } from "../behavior_pack/scripts/tools.ts";
 
 const rules = { kind: "game" as const, maxPlayers: 2 };
@@ -181,13 +181,13 @@ describe("tool settings", () => {
 
   it("offers saving or clearing the selection, then the map's boxes", () => {
     const boxes = regionEntries(draft, rules);
-    const entries = regionSettings({ box: { min: [0, 60, 0], max: [11, 64, 29] }, editing: "Bounds", steps: 1 }, boxes);
+    const entries = regionSettings({ box: { min: [0, 60, 0], max: [11, 64, 29] }, steps: 1 }, boxes);
     expect(entries.map((entry) => entry.text)).toEqual([
       headingText("Selection: 12 x 5 x 30"),
-      goText("Save Bounds"),
+      goText("Save the selection"),
       dangerText("Clear selection"),
       headingText("Bounds and regions (1)"),
-      "Bounds\n§711 x 11 x 11: edit, nudge, go to, delete",
+      "Bounds\n§711 x 11 x 11",
     ]);
     expect(entries.at(-1)?.action).toEqual({ kind: "box", key: "bounds#0" });
     expect(regionSettings(undefined, []).map((entry) => entry.text)).toEqual([headingText("No bounds or regions yet")]);
@@ -610,25 +610,42 @@ describe("tool screens", () => {
     expect(entries.at(-1)?.text).toBe(saveBarText("Save"));
   });
 
-  it("saves a selection as a target picked on a toggle, with a name for a new region", () => {
-    const targets = [
-      { key: "bounds", label: "Bounds", kind: "bounds" as const },
-      { key: "regions.kill", label: "Kill region", kind: "region" as const, name: "kill" },
-      { key: "new", label: "New region...", kind: "new" as const },
-    ];
+  it("saves a selection as a tile or a Region list's pick, with a Team list for a team's region and a name for a new one", () => {
+    const targets = regionTargets({ ...draft, bounds: { min: [0, 60, 0], max: [10, 70, 10] } }, { ...rules, teams: [{ id: "red", name: "Red", color: "§c" }, { id: "blue", name: "Blue", color: "§9" }], requires: { regions: { guard: { label: "Spawn guard", perTeam: true } } } });
     const box = { min: [0, 60, 0] as [number, number, number], max: [11, 64, 29] as [number, number, number] };
     const fresh = regionScreenEntries({ targets, target: "new", name: "", box, steps: 0, killY: 58, step: 1 });
-    expect(fresh.slice(0, 3).map((entry) => entry.text)).toEqual([segmentText("Bounds", 0, false), segmentText("Kill region", 1, false), segmentText("New region", 2, true)]);
-    expect(fresh.filter((entry) => entry.text.startsWith(MARK.lead)).map((entry) => entry.action.kind)).toEqual(["none", "name", "floor"]);
+    expect(fresh.slice(0, 4).map((entry) => entry.text)).toEqual([
+      segmentText("Bounds", 0, false),
+      segmentText("Add bounds", 1, false),
+      segmentText("Kill region", 2, false),
+      `${MARK.lead}${dropdownText("Region", "New region", false)}`,
+    ]);
+    expect(fresh.filter((entry) => entry.text.startsWith(MARK.lead)).map((entry) => entry.action.kind)).toEqual(["open", "none", "name", "floor"]);
+    expect(fresh.at(-2)?.text).toBe(dangerText("Clear selection"));
     expect(fresh.at(-1)?.text).toBe(saveBarText("Save"));
-    const editing = regionScreenEntries({ targets, target: "editing", editing: "Bounds", name: "", box, steps: 2, step: 1 });
-    expect(editing[0].text).toBe(segmentText("This box", 0, true));
-    expect(editing.at(-1)?.text).toBe(saveBarText("Save Bounds"));
-    expect(editing.filter((entry) => entry.text.startsWith(MARK.minus))).toHaveLength(6);
+    // A tile in use leaves the Region list at none; open, it lists each group once, the team kept.
+    const bounds = regionScreenEntries({ targets, target: "bounds", open: "group", name: "", box, steps: 0, step: 1 });
+    expect(bounds[0].text).toBe(segmentText("Bounds", 0, true));
+    expect(bounds.slice(3, 6).map((entry) => entry.text)).toEqual([`${MARK.lead}${dropdownText("Region", "none", true)}`, `${MARK.lead}${optionText("Spawn guard", false)}`, `${MARK.lead}${optionText("New region", false)}`]);
+    expect(bounds[4].action).toEqual({ kind: "target", key: "regions.guard.red" });
+    const guard = regionScreenEntries({ targets, target: "regions.guard.blue", name: "", box, steps: 2, step: 1 });
+    expect(guard.slice(3, 5).map((entry) => entry.text)).toEqual([`${MARK.lead}${dropdownText("Region", "Spawn guard", false)}`, `${MARK.lead}${dropdownText("Team", "Blue", false)}`]);
+    expect(guard.filter((entry) => entry.text.startsWith(MARK.minus))).toHaveLength(6);
     // Back one step undoes, and the back arrow (opened from the map menu) leaves: two different actions.
-    const fromMenu = regionScreenEntries({ targets, target: "editing", editing: "Bounds", name: "", box, steps: 2, step: 1, back: true });
+    const fromMenu = regionScreenEntries({ targets, target: "bounds", name: "", box, steps: 2, step: 1, back: true });
     expect(fromMenu[0].action.kind).toBe("back");
     expect(fromMenu.find((entry) => entry.text.includes("Back one step"))?.action.kind).toBe("undo");
+  });
+
+  it("opens a box the map has in the same screen: no Add bounds, Go to, and Delete instead of Clear", () => {
+    const targets = regionTargets({ ...draft, bounds: { min: [0, 60, 0], max: [10, 70, 10] } }, rules);
+    const box = { min: [0, 60, 0] as [number, number, number], max: [10, 70, 10] as [number, number, number] };
+    const entries = regionScreenEntries({ targets, target: "bounds", existing: "Bounds", name: "", box, steps: 0, step: 1, back: true });
+    expect(entries.filter((entry) => entry.action.kind === "target").map((entry) => entry.text)).toEqual([segmentText("Bounds", 0, true), segmentText("Kill region", 1, false)]);
+    expect(entries.map((entry) => entry.text)).toContain(`${MARK.lead}${headingText("Bounds: 11 x 11 x 11")}`);
+    expect(entries.map((entry) => entry.action.kind)).toContain("goTo");
+    expect(entries.at(-2)?.text).toBe(dangerText("Delete"));
+    expect(entries.at(-1)?.text).toBe(saveBarText("Save"));
   });
 
   it("sets kill Y from its own screen", () => {

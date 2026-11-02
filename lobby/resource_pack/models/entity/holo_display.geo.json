@@ -6,8 +6,8 @@
         "identifier": "geometry.minecade.holo_display",
         "texture_width": 48,
         "texture_height": 48,
-        "visible_bounds_width": 5,
-        "visible_bounds_height": 6,
+        "visible_bounds_width": 110,
+        "visible_bounds_height": 110,
         "visible_bounds_offset": [
           0,
           0,

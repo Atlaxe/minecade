@@ -10,6 +10,8 @@ Outputs:
     packages/minigame-core/resource_pack/textures/minecade/hud/skull.png   HUD own score icon (kills)
     packages/minigame-core/resource_pack/textures/minecade/hud/round_*.png the best-of rounds circles
     games/bridges/resource_pack/textures/minecade/bridges/hole_*.png        Bridges' holes, a ring per team
+    games/bridges/markers/hole.png                                           the hole's marker in the map editor
+    editor/preview/resource_pack/font/glyph_E4.png                           hearts over a preview's fake players
     packages/minigame-core/resource_pack/textures/ui/item_lock_*.png         blank: locked items show no lock corner
     lobby/resource_pack/textures/minecade/ui/...                             holographic menu art
     lobby/resource_pack/textures/minecade/holo/...                           hologram frames, beam
@@ -215,6 +217,12 @@ def hole_texture(ring: tuple[int, int, int]) -> Image.Image:
         color = tuple(min(255, round(part * shade)) for part in ring) + (255,)
         draw.rectangle((left + step, step, left + 47 - step, 47 - step), outline=color)
     return image
+
+
+def hole_marker_texture() -> Image.Image:
+    """The hole's marker in the map editor (96x48, laid out like hole_texture): the same black walls and
+    bottom, and a white rim the marker colors with the hole's team (its "tint" bone)."""
+    return hole_texture((255, 255, 255))
 
 
 # ---- Logo -----------------------------------------------------------------------------------
@@ -501,6 +509,43 @@ def glyphs() -> Image.Image:
     draw.rectangle((5, 7, 9, 9), fill=white)  # body
     draw.rectangle((16 + 1, 12, 16 + 11, 13), fill=(*BRIGHT, 255))  # bar, chosen
     draw.rectangle((32 + 1, 12, 32 + 11, 13), fill=(50, 80, 110, 255))  # bar, not chosen
+    return image
+
+
+# A heart like the HUD's (9x9): k the dark outline, r red, s its shade, w the shine.
+HEART = [
+    ".kk...kk.",
+    "krrk.kwrk",
+    "krwrkrrrk",
+    "krrrrrrsk",
+    "krrrrrrsk",
+    ".krrrrsk.",
+    "..krrsk..",
+    "...ksk...",
+    "....k....",
+]
+HEART_COLORS = {"k": (20, 20, 20, 255), "r": (230, 30, 30, 255), "s": (160, 10, 10, 255), "w": (255, 200, 200, 255)}
+# An empty heart's inside, and a half heart's right half.
+HEART_EMPTY = (60, 60, 60, 255)
+
+
+def hearts() -> Image.Image:
+    """
+    Hearts drawn inside text, for the name tags over a preview's fake players (minigame-core
+    fakes.ts HEARTS): a 256x256 page of 16x16 cells, character U+E400 onward. Cell 0 is a full
+    heart, cell 1 a half one (red on the left), cell 2 an empty one. Each is 9 rows, in rows 2 to 10,
+    centered on a line's digits (rows 4 to 9, see glyphs()).
+    """
+    image = Image.new("RGBA", (256, 256), (0, 0, 0, 0))
+    for cell, fill in enumerate(("full", "half", "empty")):
+        for y, row in enumerate(HEART):
+            for x, key in enumerate(row):
+                if key == ".":
+                    continue
+                color = HEART_COLORS[key]
+                if key != "k" and (fill == "empty" or (fill == "half" and x > 4)):
+                    color = HEART_EMPTY
+                image.putpixel((cell * 16 + 3 + x, 2 + y), color)
     return image
 
 
@@ -821,6 +866,8 @@ def main() -> None:
     # Bridges: the hole in each team's color.
     for dye, ring in HOLE_DYES.items():
         save(hole_texture(ring), ROOT / "games" / "bridges" / "resource_pack" / "textures" / "minecade" / "bridges" / f"hole_{dye}.png")
+    save(hole_marker_texture(), ROOT / "games" / "bridges" / "markers" / "hole.png")
+    save(hearts(), ROOT / "editor" / "preview" / "resource_pack" / "font" / "glyph_E4.png")
 
     logo = blue_logo()
     # The core pack: the lobby's menus and every server's loading screen and pause menu use it.

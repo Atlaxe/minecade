@@ -18,17 +18,25 @@ const HISTORY = 50;
 const FACING_TICKS = 20;
 const UNMOVED: Sides = { west: 0, east: 0, down: 0, up: 0, north: 0, south: 0 };
 
-/** The box each player is nudging, as it would be now: the outlines show it instead of their selection. */
-const nudging = new Map<string, Box>();
+/**
+ * The box each player is nudging, as it would be now: the outlines show it instead of their
+ * selection, with every boundary. `editing` is the key of the saved box it changes (left out).
+ */
+const nudging = new Map<string, { box: Box; editing?: string }>();
 
 /** The box this player is nudging, moved as far as they've gone so far (or what a tool screen shows). */
 export function nudgePreview(player: Player): Box | undefined {
-  return nudging.get(keyOf(player));
+  return nudging.get(keyOf(player))?.box;
 }
 
-/** Shows a box as this player's selection while a tool screen is open (a spawn's block, say); none stops. */
-export function showPreview(player: Player, box: Box | undefined): void {
-  if (box) nudging.set(keyOf(player), box);
+/** The key of the saved box this player's nudged box changes, if it's one. */
+export function previewEditing(player: Player): string | undefined {
+  return nudging.get(keyOf(player))?.editing;
+}
+
+/** Shows a box as this player's selection while a tool screen is open (the region tool's), in place of the saved box `editing`; none stops. */
+export function showPreview(player: Player, box: Box | undefined, editing?: string): void {
+  if (box) nudging.set(keyOf(player), { box, ...(editing === undefined ? {} : { editing }) });
   else nudging.delete(keyOf(player));
 }
 
@@ -79,7 +87,7 @@ export async function nudgeMenu(host: Pick<ToolHost, "show" | "tell">, player: P
   try {
     for (;;) {
       const moved = nudgeBox(box, sides) ?? box;
-      nudging.set(key, moved);
+      nudging.set(key, { box: moved });
       showFacing();
       const entries = nudgeEntries({ sides, step, facing: facing() });
       const form = new ActionFormData().title(sideTitle(title)).body(`${sizeText(moved)} blocks`);

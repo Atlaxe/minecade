@@ -1,16 +1,19 @@
 // The aim cursor: while a map editor holds a tool that reaches past their own reach (the Spawn,
 // Region and Select tools), an entity shows where a use would land: a glowing outline around the
 // block for the box tools, or a see-through marker at the exact spot (and turned the way it would
-// face) for spawns and points: a mannequin, or a post (a game's own marker models show as posts). A spawn's screen shows the spawn being set up the same way. It's an entity, so it
-// moves with the aim, hides behind blocks, and shows as far out as the tools reach. Cursors are
-// removed before the world is saved (pause), and swept up when the server starts.
+// face) for spawns and points: a mannequin, a post, or a game's own marker model (Bridges' hole). A
+// spawn's screen shows the spawn being set up the same way. It's an entity, so it moves with the
+// aim, hides behind blocks, and shows as far out as the tools reach. Cursors are removed before the
+// world is saved (pause), and swept up when the server starts.
 import { type Dimension, type Entity, type Player, type Vector3 } from "@minecraft/server";
 import { describeError, log, type Scope } from "@minecade/minigame-core";
 
 export const CURSOR = "minecade:editor_cursor";
 const MODE_PROPERTY = "minecade:mode";
-/** A point's shape: lists.ts MARKER_STYLES (a game's own models show as a post). */
+/** A point's shape: lists.ts MARKER_STYLES, or a game's own model (tools/editor/marker-models.ts). */
 const STYLE_PROPERTY = "minecade:style";
+/** The camera head's style, which a cursor never takes (a post instead). */
+const CAMERA_STYLE = 2;
 /** How often cursors follow the aim. */
 const FOLLOW_TICKS = 2;
 
@@ -55,8 +58,8 @@ export class Cursors {
       const at = aim.kind === "block" ? { x: aim.at.x + 0.5, y: aim.at.y, z: aim.at.z + 0.5 } : aim.at;
       const yaw = aim.kind === "point" ? aim.yaw : 0;
       const mode = aim.kind === "block" ? 0 : 1;
-      // A ghost is a mannequin (MARKER_STYLES.player) or a post: the game's models are only on markers.
-      const style = aim.kind === "point" && aim.style !== 0 ? 1 : 0;
+      // A ghost has the marker's shape: a mannequin, a post, or the game's model.
+      const style = aim.kind === "point" ? (aim.style === CAMERA_STYLE ? 1 : aim.style) : 0;
       let cursor = this.cursors.get(key);
       try {
         if (!cursor?.isValid) {

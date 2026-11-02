@@ -34,7 +34,7 @@ import { KitForm, type KitCard, type KitFormContent } from "./kit-form.ts";
 import { KitPicker } from "./kit-picker.ts";
 import { Kits } from "./kits.ts";
 import { MapView } from "./map-view.ts";
-import { DANGER_BUTTON, SIDE_TITLE } from "./preview.ts";
+import { DANGER_BUTTON, GO_BUTTON, SIDE_TITLE } from "./preview.ts";
 import { aborted, draw, lastStanding, type Result } from "./results.ts";
 import { Roster, type Participant } from "./roster.ts";
 import { Score } from "./score.ts";
@@ -640,7 +640,7 @@ export abstract class Minigame<C extends GameConfig = GameConfig> {
     this.respawnAt.delete(name.toLowerCase());
     this.respawnShown.delete(name.toLowerCase());
     if (this.fakes?.has(name)) {
-      this.placeFake(name, this.spawnPoint(name, why), { faceCenter: true, tagged: this.config.nameTags === true });
+      this.placeFake(name, this.spawnPoint(name, why), { faceCenter: true, tagged: this.config.nameTags === true, hearts: true });
       return;
     }
     const player = this.player(name);
@@ -1019,13 +1019,14 @@ export abstract class Minigame<C extends GameConfig = GameConfig> {
   /**
    * Puts a fake player at a map position, with a body again if it had none, once its chunk is
    * ticking. Its name shows in its team's color unless `tagged` is false (a match without name
-   * tags, a spectator); `unseen` makes it invisible (a locked queue), and `floating` keeps it in the
-   * air, passing through everything (a spectator).
+   * tags, a spectator), and its health as hearts with `hearts` (in play); `unseen` makes it
+   * invisible (a locked queue), and `floating` keeps it in the air, passing through everything (a
+   * spectator).
    */
-  private placeFake(name: string, position: MapPosition, how: { faceCenter?: boolean; tagged?: boolean; unseen?: boolean; floating?: boolean } = {}): void {
+  private placeFake(name: string, position: MapPosition, how: { faceCenter?: boolean; tagged?: boolean; hearts?: boolean; unseen?: boolean; floating?: boolean } = {}): void {
     const team = this.teamOf(name);
     const tag = how.tagged === false ? "" : team ? `${team.color}${name}` : name;
-    void this.fakes?.place(name, worldPoint(position), tag, how.floating === true).then((body) => {
+    void this.fakes?.place(name, worldPoint(position), tag, how.floating === true, how.hearts === true).then((body) => {
       try {
         if (!body?.isValid) return;
         this.place(body, position, how.faceCenter);
@@ -1522,6 +1523,24 @@ export abstract class Minigame<C extends GameConfig = GameConfig> {
     return undefined;
   }
 
+  /**
+   * A fake player wins the best-of round being played, for its team in team games (a map editor
+   * asked: right click, then pick it). Returns why not, if it can't.
+   */
+  fakeWinsRound(name: string): string | undefined {
+    const side = this.roundSideOf(name);
+    if (side === undefined) return say.minor("There's no round being played.");
+    this.endRound(this.sideWins(side, `${name} took it in the preview`));
+    return undefined;
+  }
+
+  /** The side a fake player would win the round being played for: its team in team games, else itself. */
+  private roundSideOf(name: string): string | undefined {
+    const participant = this.roster.get(name);
+    if (!this.config.bestOf || !this.roundInPlay || this.currentPhase !== "playing" || !participant || participant.state === "left") return undefined;
+    return this.teams.length > 0 ? participant.team : name;
+  }
+
   /** /exit: a map editor ends the preview for everyone (back to Edit); anyone else leaves alone. */
   exitPreview(player: Player): void {
     if (!player.isValid) return;
@@ -1534,12 +1553,18 @@ export abstract class Minigame<C extends GameConfig = GameConfig> {
     this.ctx.transfer.transfer(player, homePort(this.ctx.vars, player.name));
   }
 
-  /** Right clicking a fake player asks, in the side panel, whether it should kill you. */
+  /**
+   * Right clicking a fake player asks, in the side panel, whether it should kill you (or, in a
+   * best-of round, win it). Its hearts follow its health.
+   */
   private watchFakes(fakes: FakePlayers): void {
     this.scope.add(() => fakes.clear());
     this.scope.subscribe(world.afterEvents.playerInteractWithEntity, ({ player, target }) => {
       const name = this.whoIs(target);
       if (name !== undefined && fakes.has(name)) void this.confirmKill(player, name);
+    });
+    this.scope.subscribe(world.afterEvents.entityHurt, ({ hurtEntity }) => {
+      if (hurtEntity.typeId === FAKE_PLAYER) fakes.showHealth(hurtEntity);
     });
   }
 
@@ -1548,10 +1573,18 @@ export abstract class Minigame<C extends GameConfig = GameConfig> {
     if (this.confirmOpen.has(key)) return;
     this.confirmOpen.add(key);
     try {
-      const form = new ActionFormData().title(`${SIDE_TITLE}${name}`).button(`${DANGER_BUTTON}${name} kills you`).button("Cancel");
+      const choices: { text: string; act?: () => string | undefined }[] = [];
+      const side = this.roundSideOf(name);
+      if (side !== undefined) {
+        const team = this.teams.find((def) => def.id === side);
+        choices.push({ text: `${GO_BUTTON}${name} wins the round${team ? `\n§7for ${team.name}` : ""}`, act: () => this.fakeWinsRound(name) });
+      }
+      choices.push({ text: `${DANGER_BUTTON}${name} kills you`, act: () => this.fakeKills(name, player.name) }, { text: "Cancel" });
+      const form = new ActionFormData().title(`${SIDE_TITLE}${name}`);
+      for (const choice of choices) form.button(choice.text);
       const answer = await showForm(this.scope, player, form);
-      if (answer?.selection !== 0) return;
-      const why = this.fakeKills(name, player.name);
+      const choice = answer?.selection === undefined ? undefined : choices[answer.selection];
+      const why = choice?.act?.();
       if (why && player.isValid) player.sendMessage(why);
     } finally {
       this.confirmOpen.delete(key);

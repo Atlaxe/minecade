@@ -1,6 +1,7 @@
 // What a game gets only while previewed from the map editor (the "preview" server variable):
 // - /fake [count] (minecade:fake): adds fake players to the match (fakes.ts), who wait, spawn and
-//   go down like players. Right click one to kill it (after a confirm in the side panel).
+//   go down like players, their hearts over them in play. Right click one for the side panel: it
+//   kills you, or wins the best-of round being played.
 // - /exit (minecade:exit): a map editor ends the preview for everyone, back to Edit; an invited
 //   guest just leaves, for the editor lobby.
 // - Once the match is over, each player picks what's next (endPreview): Replay, Edit or Lobby.

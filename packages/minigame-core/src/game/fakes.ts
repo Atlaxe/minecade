@@ -5,6 +5,9 @@
 // pushed around) or floats in place passing through everything (a spectator): the entity's
 // "minecade:walk" and "minecade:float" events.
 //
+// While it's in play, its name tag shows its health as hearts, like the HUD's (a font page of heart
+// glyphs in the preview's resource pack), under its name when names show.
+//
 // Entities can only be placed in chunks that are loaded and ticking, which only chunks near a player
 // are (the servers' tick distance is 4 chunks). So a fake's body gets a one-chunk ticking area
 // where it stands, made before it's placed there and dropped once it moves on or is removed.
@@ -15,6 +18,18 @@ export const FAKE_PLAYER = "minecade:fake_player";
 const WALK_EVENT = "minecade:walk";
 const FLOAT_EVENT = "minecade:float";
 
+/** The hearts (editor/preview/resource_pack/font/glyph_E4.png, U+E400 on): full, half and empty. */
+export const HEARTS = { full: "\uE400", half: "\uE401", empty: "\uE402" } as const;
+
+/** Health as a row of hearts like the HUD's: one per 2 of `max`, a half one for an odd point, the rest empty. White, so the glyphs keep their colors. */
+export function heartsText(health: number, max: number): string {
+  const total = Math.max(1, Math.ceil(max / 2));
+  const points = Math.max(0, Math.min(total * 2, Math.ceil(health)));
+  const full = Math.floor(points / 2);
+  const half = points % 2;
+  return `§f${HEARTS.full.repeat(full)}${HEARTS.half.repeat(half)}${HEARTS.empty.repeat(total - full - half)}`;
+}
+
 export class FakePlayers {
   private readonly dimension: Dimension;
   /** By lowercase name, in the order they were added. */
@@ -24,6 +39,8 @@ export class FakePlayers {
   private readonly ids = new Map<string, string>();
   /** Each one's ticking area, by lowercase name. */
   private readonly areas = new Map<string, string>();
+  /** Each one's name tag without its hearts, and whether its hearts show, by lowercase name. */
+  private readonly tags = new Map<string, { tag: string; hearts: boolean }>();
   /** Each one's latest place() or hide(): an older place() that finishes late does nothing. */
   private readonly turns = new Map<string, number>();
   /** Being placed now (waiting for its chunk). */
@@ -76,10 +93,10 @@ export class FakePlayers {
 
   /**
    * Puts it at `location` with full health, with a new body if it has none, once its chunk is
-   * ticking, walking or `floating`. Resolves with the body, or undefined when it couldn't be placed
-   * or was hidden meanwhile.
+   * ticking, walking or `floating`, its health as hearts under `nameTag` when `hearts` (in play).
+   * Resolves with the body, or undefined when it couldn't be placed or was hidden meanwhile.
    */
-  async place(name: string, location: Vector3, nameTag: string, floating = false): Promise<Entity | undefined> {
+  async place(name: string, location: Vector3, nameTag: string, floating = false, hearts = false): Promise<Entity | undefined> {
     const key = name.toLowerCase();
     if (!this.names.has(key)) return undefined;
     const turn = this.turn(key);
@@ -103,9 +120,10 @@ export class FakePlayers {
       } else {
         body.teleport(location);
       }
-      body.nameTag = nameTag;
       body.triggerEvent(floating ? FLOAT_EVENT : WALK_EVENT);
       body.getComponent(EntityComponentTypes.Health)?.resetToMaxValue();
+      this.tags.set(key, { tag: nameTag, hearts });
+      body.nameTag = this.tagOf(key, body);
       body.clearVelocity();
       this.dropArea(this.areas.get(key));
       if (area) this.areas.set(key, area);
@@ -120,11 +138,22 @@ export class FakePlayers {
     }
   }
 
+  /** Its name tag again, with its hearts as its health is now: after it's hurt. */
+  showHealth(entity: Entity): void {
+    try {
+      const key = this.ids.get(entity.id);
+      if (key !== undefined && entity.isValid) entity.nameTag = this.tagOf(key, entity);
+    } catch {
+      // gone
+    }
+  }
+
   /** Takes its body out of the world (it's down, or out): place() brings it back. */
   hide(name: string): void {
     const key = name.toLowerCase();
     this.turn(key);
     this.placing.delete(key);
+    this.tags.delete(key);
     const body = this.bodies.get(key);
     this.bodies.delete(key);
     for (const [id, owner] of this.ids) if (owner === key) this.ids.delete(id);
@@ -141,6 +170,15 @@ export class FakePlayers {
   clear(): void {
     for (const name of this.all) this.hide(name);
     this.names.clear();
+  }
+
+  /** Its name tag, with its hearts under it while they show. */
+  private tagOf(key: string, body: Entity): string {
+    const tag = this.tags.get(key);
+    const health = tag?.hearts ? body.getComponent(EntityComponentTypes.Health) : undefined;
+    if (!tag || !health) return tag?.tag ?? "";
+    const hearts = heartsText(health.currentValue, health.effectiveMax);
+    return tag.tag ? `${tag.tag}\n${hearts}` : hearts;
   }
 
   private turn(key: string): number {

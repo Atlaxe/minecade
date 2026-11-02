@@ -387,9 +387,10 @@
     ]
   },
 
-  // A toggle: tiles side by side (three to a row, by their column mark §g§0§r to §g§2§r), touching, so
-  // their edges make one rectangle; the one that's on (§o§n§r) is green. A tile shows its text, or
-  // with §i§o§r its icon and a tooltip.
+  // A toggle: tiles side by side (three to a row, by their column mark §g§0§r to §g§2§r, a third of the
+  // row each, so the row lines up with the buttons under it), touching, so their edges make one
+  // rectangle; the one that's on (§o§n§r) is green. A tile shows its text, or with §i§o§r its icon and
+  // a tooltip.
   "segment_grid": {
     "type": "panel",
     "size": ["100%", "100%c"],
@@ -398,16 +399,15 @@
         "grid": {
           "type": "stack_panel",
           "orientation": "horizontal",
-          "size": ["100%c", "100%cm"],
+          "size": ["100%", "100%cm"],
           "anchor_from": "top_left",
           "anchor_to": "top_left",
-          "offset": [4, 0],
           "controls": [
             {
               "column_0": {
                 "type": "stack_panel",
                 "orientation": "vertical",
-                "size": ["100%cm", "100%c"],
+                "size": ["33.333%", "100%c"],
                 "collection_name": "form_buttons",
                 "factory": {"name": "buttons", "control_ids": {"button": "@editor_forms.segment_slot_0"}},
                 "bindings": [{"binding_name": "#form_button_contents", "binding_name_override": "#collection_length"}]
@@ -417,7 +417,7 @@
               "column_1": {
                 "type": "stack_panel",
                 "orientation": "vertical",
-                "size": ["100%cm", "100%c"],
+                "size": ["33.333%", "100%c"],
                 "collection_name": "form_buttons",
                 "factory": {"name": "buttons", "control_ids": {"button": "@editor_forms.segment_slot_1"}},
                 "bindings": [{"binding_name": "#form_button_contents", "binding_name_override": "#collection_length"}]
@@ -427,7 +427,7 @@
               "column_2": {
                 "type": "stack_panel",
                 "orientation": "vertical",
-                "size": ["100%cm", "100%c"],
+                "size": ["fill", "100%c"],
                 "collection_name": "form_buttons",
                 "factory": {"name": "buttons", "control_ids": {"button": "@editor_forms.segment_slot_2"}},
                 "bindings": [{"binding_name": "#form_button_contents", "binding_name_override": "#collection_length"}]
@@ -481,16 +481,15 @@
         "grid": {
           "type": "stack_panel",
           "orientation": "horizontal",
-          "size": ["100%c", "100%cm"],
+          "size": ["100%", "100%cm"],
           "anchor_from": "top_left",
           "anchor_to": "top_left",
-          "offset": [4, 0],
           "controls": [
             {
               "column_0": {
                 "type": "stack_panel",
                 "orientation": "vertical",
-                "size": ["100%cm", "100%c"],
+                "size": ["33.333%", "100%c"],
                 "collection_name": "form_buttons",
                 "factory": {"name": "buttons", "control_ids": {"button": "@editor_forms.step_slot_0"}},
                 "bindings": [{"binding_name": "#form_button_contents", "binding_name_override": "#collection_length"}]
@@ -500,7 +499,7 @@
               "column_1": {
                 "type": "stack_panel",
                 "orientation": "vertical",
-                "size": ["100%cm", "100%c"],
+                "size": ["33.333%", "100%c"],
                 "collection_name": "form_buttons",
                 "factory": {"name": "buttons", "control_ids": {"button": "@editor_forms.step_slot_1"}},
                 "bindings": [{"binding_name": "#form_button_contents", "binding_name_override": "#collection_length"}]
@@ -510,7 +509,7 @@
               "column_2": {
                 "type": "stack_panel",
                 "orientation": "vertical",
-                "size": ["100%cm", "100%c"],
+                "size": ["fill", "100%c"],
                 "collection_name": "form_buttons",
                 "factory": {"name": "buttons", "control_ids": {"button": "@editor_forms.step_slot_2"}},
                 "bindings": [{"binding_name": "#form_button_contents", "binding_name_override": "#collection_length"}]
@@ -558,13 +557,13 @@
   "segment_slot": {
     "type": "stack_panel",
     "orientation": "horizontal",
-    "size": ["100%c", 22],
+    "size": ["100%", 22],
     "visible": false,
     "controls": [
       {
         "text_tile": {
           "type": "panel",
-          "size": [62, 22],
+          "size": ["100%", 22],
           "visible": false,
           "bindings": [
             {"binding_name": "#form_button_text", "binding_type": "collection", "binding_collection_name": "form_buttons"},
@@ -844,8 +843,8 @@
     ]
   },
 
-  // A link with its icon (§s§c§r): aqua text with the button's icon on its left and no face; the
-  // row lights up while hovered.
+  // A link with its icon (§s§c§r): white text with the button's icon on its left, no face, and no
+  // change while hovered.
   "card_link_slot": {
     "type": "panel",
     "size": [64, 20],
@@ -868,9 +867,9 @@
           "offset": [-2, -2],
           "bindings": [{"binding_type": "collection_details", "binding_collection_name": "form_buttons"}],
           "controls": [
-            {"default@editor_forms.card_link_face": {"$lit": false}},
-            {"hover@editor_forms.card_link_face": {"$lit": true}},
-            {"pressed@editor_forms.card_link_face": {"$lit": true}}
+            {"default@editor_forms.card_link_face": {}},
+            {"hover@editor_forms.card_link_face": {}},
+            {"pressed@editor_forms.card_link_face": {}}
           ]
         }
       }
@@ -880,18 +879,7 @@
   "card_link_face": {
     "type": "panel",
     "size": ["100%", "100%"],
-    "$lit|default": false,
     "controls": [
-      {
-        "lit": {
-          "type": "image",
-          "texture": "textures/minecade/editor/button_hover",
-          "size": ["100%", "100%"],
-          "keep_ratio": false,
-          "alpha": 0.5,
-          "visible": "$lit"
-        }
-      },
       {
         "row": {
           "type": "stack_panel",
@@ -908,7 +896,7 @@
               "label": {
                 "type": "label",
                 "text": "#form_button_text",
-                "color": [0.33, 1.0, 1.0],
+                "color": [1.0, 1.0, 1.0],
                 "size": ["default", 10],
                 "bindings": [{"binding_name": "#form_button_text", "binding_type": "collection", "binding_collection_name": "form_buttons"}]
               }

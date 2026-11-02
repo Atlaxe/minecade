@@ -13,9 +13,8 @@ import {
   regionLabel,
   regionName,
   regionTargets,
-  selectionActions,
+  targetKeyOf,
 } from "../behavior_pack/scripts/regions.ts";
-import { dangerText } from "../behavior_pack/scripts/marks.ts";
 
 const rules: EditorRules = {
   kind: "game",
@@ -53,6 +52,18 @@ describe("region tool targets", () => {
       ["regions.plot", "plot"],
       ["new", "New region..."],
     ]);
+  });
+
+  it("makes the bounds and the kill region tiles, and groups a team's regions for the Team list", () => {
+    const targets = regionTargets(map, rules);
+    expect(targets.filter((target) => target.tile).map((target) => target.groupLabel)).toEqual(["Bounds", "Add bounds", "Kill region"]);
+    const red = targets.find((target) => target.key === "regions.buyZone.red");
+    expect(red).toMatchObject({ group: "regions.buyZone", groupLabel: "Buy zone", teamLabel: "Red", tile: false });
+    expect(targets.find((target) => target.key === "regions.plot")).toMatchObject({ group: "regions.plot", groupLabel: "plot", tile: false });
+    expect(targets.at(-1)).toMatchObject({ key: "new", groupLabel: "New region", tile: false });
+    // A box the map has is saved where its target's key says.
+    const entries = regionEntries(map, rules);
+    expect(entries.map(targetKeyOf)).toEqual(["bounds", "regions.kill", "regions.kill", "regions.buyZone.red", "regions.plot"]);
   });
 
   it("keys targets the way the checklist keys its rows", () => {
@@ -157,13 +168,5 @@ describe("the Boundaries view", () => {
     expect([...toggleBoundary(new Set(["bounds"]), "all", groups)]).toEqual(["all"]);
     expect([...toggleBoundary(new Set(["all"]), "all", groups)]).toEqual([]);
     expect([...toggleBoundary(new Set(["all"]), "killY", groups)]).toEqual(["bounds", "regions.kill"]);
-  });
-});
-
-describe("selection actions", () => {
-  it("offers Save changes only while editing, Floor only with kill Y, Back only after a change, Clear in red", () => {
-    expect(selectionActions(undefined, 0, undefined).map((entry) => entry.action)).toEqual(["saveAs", "nudge", "clear"]);
-    expect(selectionActions("Bounds", 2, 58).map((entry) => entry.action)).toEqual(["saveChanges", "saveAs", "nudge", "floor", "back", "clear"]);
-    expect(selectionActions(undefined, 0, undefined).at(-1)?.text).toBe(dangerText("Clear selection"));
   });
 });

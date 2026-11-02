@@ -3,8 +3,11 @@
 // a 16:9 picture (a game's or a map's) picked by "minecade:picture" (in the corner or across the
 // top, by "minecade:picture_spot") and a square portrait (a player's badge) picked by
 // "minecade:portrait"; everything else is text placed on each of its four
-// sides, some with a box behind it for a button (holo-content.ts says what and where). Everything
-// is (re)built at boot; the area may not be loaded yet, so placing retries until it works.
+// sides, some with a box behind it for a button (holo-content.ts says what and where). With the
+// map's "stars", the same entity draws the star box around the lobby too ("minecade:stars"): its
+// render controllers come first, so the stars are drawn before the hologram's panels, whose
+// materials keep depth and would hide stars drawn after them. Everything is (re)built at boot; the
+// area may not be loaded yet, so placing retries until it works.
 import { BlockPermutation, TextPrimitive, world, type Dimension, type Entity, type RGBA, type Vector3 } from "@minecraft/server";
 import { describeError, log } from "@minecade/minigame-core";
 import { MAX_ELEMENTS, type Box, type Frame, type HoloContent, type HoloElement, type PictureSpot, type Tone } from "./holo-content.ts";
@@ -85,12 +88,15 @@ export class Hologram {
   private content: HoloContent = { frame: "logo", elements: [] };
   private waitingLogged = false;
   private readyLogged = false;
+  /** Draws the star box (map.json "stars"). */
+  private readonly stars: boolean;
 
-  constructor(dimension: Dimension, point: Vector3, pictures: string[], portraits: string[]) {
+  constructor(dimension: Dimension, point: Vector3, pictures: string[], portraits: string[], stars = false) {
     this.dimension = dimension;
     this.point = point;
     this.pictures = pictures;
     this.portraits = portraits;
+    this.stars = stars;
   }
 
   /** The top center of the terminal: where the projection starts. */
@@ -141,7 +147,9 @@ export class Hologram {
 
   private spawnDisplay(): void {
     for (const old of this.dimension.getEntities({ type: DISPLAY })) old.remove();
-    this.display = this.dimension.spawnEntity(DISPLAY, this.middle);
+    // Facing south: the star box's walls drift north to south.
+    this.display = this.dimension.spawnEntity(DISPLAY, this.middle, { initialRotation: 0 });
+    this.display.setProperty("minecade:stars", this.stars);
     // Text shapes live in the world, not the entity; this is the only text the lobby draws.
     world.primitiveShapesManager.removeAll();
     this.sides = SIDES.map((side) => Array.from({ length: MAX_ELEMENTS }, () => this.text(side)));

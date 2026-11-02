@@ -560,8 +560,9 @@ export class Editor {
         return this.previewMenu(player);
       }
       case "tool":
+        // The menu stays closed: the tool is in hand (or put away).
         this.pickTool(player, action.tool);
-        return this.mapMenu(player);
+        return;
       case "none":
         return this.mapMenu(player);
       case "help": {
@@ -1092,6 +1093,8 @@ export class Editor {
             return;
           case "save":
             this.saveEntry(player, list, at, facing, start.existing && name ? { list: start.list, index: start.existing.index, name } : undefined);
+            // Placed: the next new one starts over, from the first choices.
+            if (!start.existing) this.settings.delete(player.name.toLowerCase());
             return;
         }
       }

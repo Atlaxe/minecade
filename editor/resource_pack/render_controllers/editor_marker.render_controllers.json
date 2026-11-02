@@ -30,6 +30,58 @@
       "textures": [
         "Array.kinds[query.property('minecade:style') >= 3 ? query.property('minecade:style') + 3 : query.property('minecade:kind')]"
       ],
+      "part_visibility": [
+        {
+          "*": true
+        },
+        {
+          "tint": false
+        }
+      ],
+      "overlay_color": {
+        "r": "math.mod(math.floor((query.property('minecade:tint') - 1) / 65536), 256) / 255",
+        "g": "math.mod(math.floor((query.property('minecade:tint') - 1) / 256), 256) / 255",
+        "b": "math.mod(query.property('minecade:tint') - 1, 256) / 255",
+        "a": "query.property('minecade:tint') > 0 && query.property('minecade:style') < 3 ? 0.9 : 0.0"
+      }
+    },
+    "controller.render.minecade.editor_marker_tint": {
+      "arrays": {
+        "textures": {
+          "Array.kinds": [
+            "Texture.default",
+            "Texture.spectator",
+            "Texture.queue",
+            "Texture.team",
+            "Texture.point",
+            "Texture.camera"
+          ]
+        },
+        "geometries": {
+          "Array.shapes": [
+            "Geometry.default",
+            "Geometry.post",
+            "Geometry.camera"
+          ]
+        }
+      },
+      "geometry": "Array.shapes[query.property('minecade:style')]",
+      "materials": [
+        {
+          "*": "Material.default"
+        }
+      ],
+      "textures": [
+        "Array.kinds[query.property('minecade:style') >= 3 ? query.property('minecade:style') + 3 : query.property('minecade:kind')]"
+      ],
+      "part_visibility": [
+        {
+          "*": false
+        },
+        {
+          "tint": true
+        }
+      ],
       "overlay_color": {
         "r": "math.mod(math.floor((query.property('minecade:tint') - 1) / 65536), 256) / 255",
         "g": "math.mod(math.floor((query.property('minecade:tint') - 1) / 256), 256) / 255",
@@ -74,6 +126,7 @@
           "Array.shapes": [
             "Geometry.block",
             "Geometry.point",
+            "Geometry.post",
             "Geometry.post"
           ]
         },
@@ -97,7 +150,7 @@
         }
       ],
       "textures": [
-        "Array.looks[query.property('minecade:mode')]"
+        "Array.looks[query.property('minecade:mode') == 0 ? 0 : (query.property('minecade:style') >= 3 ? query.property('minecade:style') - 1 : 1)]"
       ],
       "ignore_lighting": true
     }

@@ -47,10 +47,19 @@ describe("a game's own marker models", () => {
     const entity = JSON.parse(await readFile(join(pack, "entity", "editor_marker.entity.json"), "utf8"))["minecraft:client_entity"].description;
     expect(entity.geometry.model_4).toBe("geometry.minecade.marker.alpha_bomb");
     expect(entity.textures.model_4).toBe("textures/entity/markers/alpha_bomb");
-    const marker = JSON.parse(await readFile(join(pack, "render_controllers", "editor_marker.render_controllers.json"), "utf8")).render_controllers["controller.render.minecade.editor_marker"];
-    // Style n is shape n; its texture comes after the six kinds' colors (n + 3).
-    expect(marker.arrays.geometries["Array.shapes"].indexOf("Geometry.model_4")).toBe(4);
-    expect(marker.arrays.textures["Array.kinds"].indexOf("Texture.model_4")).toBe(4 + 3);
+    const controllers = JSON.parse(await readFile(join(pack, "render_controllers", "editor_marker.render_controllers.json"), "utf8")).render_controllers;
+    // Style n is shape n; its texture comes after the six kinds' colors (n + 3). The tint pass draws the same.
+    for (const name of ["controller.render.minecade.editor_marker", "controller.render.minecade.editor_marker_tint"]) {
+      expect(controllers[name].arrays.geometries["Array.shapes"].indexOf("Geometry.model_4")).toBe(4);
+      expect(controllers[name].arrays.textures["Array.kinds"].indexOf("Texture.model_4")).toBe(4 + 3);
+    }
+    // The aim cursor: style n is shape n + 1 (after the box outline), its texture n - 1 (after the outline's and the ghost's).
+    const cursor = controllers["controller.render.minecade.editor_cursor"];
+    expect(cursor.arrays.geometries["Array.shapes"].indexOf("Geometry.model_4")).toBe(4 + 1);
+    expect(cursor.arrays.textures["Array.looks"].indexOf("Texture.model_4")).toBe(4 - 1);
+    const cursorEntity = JSON.parse(await readFile(join(pack, "entity", "editor_cursor.entity.json"), "utf8"))["minecraft:client_entity"].description;
+    expect(cursorEntity.geometry.model_4).toBe("geometry.minecade.marker.alpha_bomb");
+    expect(cursorEntity.textures.model_4).toBe("textures/entity/markers/alpha_bomb");
     const geo = JSON.parse(await readFile(join(pack, "models", "entity", "markers", "alpha_bomb.geo.json"), "utf8"));
     expect(geo["minecraft:geometry"][0].description.identifier).toBe("geometry.minecade.marker.alpha_bomb");
     expect(await readFile(join(pack, "textures", "entity", "markers", "zeta_crate.png"), "utf8")).toBe("png");

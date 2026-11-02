@@ -41,6 +41,11 @@
           ],
           "default": 0,
           "client_sync": true
+        },
+        "minecade:stars": {
+          "type": "bool",
+          "default": false,
+          "client_sync": true
         }
       }
     },

@@ -2,8 +2,9 @@
 // Select, the Select tool): their selection (yellow), and the boxes the source gives with their
 // colors (in Edit: the bounds white, kill regions and the kill Y plane red, every other region in
 // its own color). Only that player sees them. In Edit, the boundaries a player switched on in the
-// Boundaries view also show to them whatever they hold. A box being nudged shows as the selection,
-// moved as far as it's gone, whatever the player holds. Every edge shows from any distance:
+// Boundaries view also show to them whatever they hold. A box being nudged, or set up in the region
+// tool's screen, shows as the selection, moved as far as it's gone, with every boundary, whatever the
+// player holds. Every edge shows from any distance:
 // far dots are drawn closer in on the same line of sight, sized and spaced by distance
 // (boxes.ts viewDots), so they look alike near and far. Each dot has a dark rim, so it shows on
 // bright and dark backgrounds alike. A budget per refresh keeps a big map as cheap as a small one.
@@ -11,7 +12,7 @@ import { MolangVariableMap, world, type Player } from "@minecraft/server";
 import type { Box, Scope } from "@minecade/minigame-core";
 import { nearDots, planePoints, rectDots, viewDots, type Dot, type View } from "./boxes.ts";
 import { ALL_BOUNDARIES, KILL_COLOR, KILL_Y_GROUP, SELECTION_COLOR, outlineShown, type OutlineBox, type Rgb } from "./regions.ts";
-import { killYPreview, nudgePreview } from "./box-picker.ts";
+import { killYPreview, nudgePreview, previewEditing } from "./box-picker.ts";
 import { heldTool } from "./tool-host.ts";
 import type { ToolId } from "./tools.ts";
 
@@ -28,8 +29,8 @@ const PLANE_SPACING = 3;
 const PLANE_EDGE_BUDGET = 120;
 
 export interface OutlineSource {
-  /** The player's selection, and the key of the saved box it edits (drawn as the selection only). */
-  selection(player: Player): { box: Box; editing?: string } | undefined;
+  /** The player's selection. */
+  selection(player: Player): { box: Box } | undefined;
   /** Every box to outline, each in its color. */
   boxes(): OutlineBox[];
   /** The kill Y plane, if there is one, and the box it's drawn over (the bounds). */
@@ -72,9 +73,11 @@ export class Outlines {
     for (const [player, groups, holding] of viewers) {
       const view: View = { eye: player.getHeadLocation(), look: player.getViewDirection() };
       const nudged = nudgePreview(player);
-      const selection = nudged ? { box: nudged, editing: undefined } : holding ? this.source.selection(player) : undefined;
+      const selection = nudged ? { box: nudged } : holding ? this.source.selection(player) : undefined;
       if (selection) dots(player, viewDots(selection.box, view, SELECTION_BUDGET), SELECTION_COLOR);
-      const shown = boxes.filter((outline) => outline.key !== selection?.editing && outlineShown(outline.group, groups));
+      // A saved box being changed shows only as the selection.
+      const editing = nudged ? previewEditing(player) : undefined;
+      const shown = boxes.filter((outline) => outline.key !== editing && outlineShown(outline.group, groups));
       const each = Math.max(BOX_BUDGET, Math.floor(BOXES_BUDGET / Math.max(1, shown.length)));
       for (const outline of shown) dots(player, viewDots(outline.box, view, each), outline.color);
       // The Kill Y tool's screen draws the height being set.

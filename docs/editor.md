@@ -118,6 +118,8 @@ in Edit.
 Command blocks don't run anywhere a map is opened (Select, Edit, previews and every server of the
 network). Every 10 seconds, a map editor missing either item gets it back, and **/reset**
 (`/minecade:reset`) brings both back at once, with creative mode (in Edit, the map menu).
+**/zoom** (`/minecade:zoom`) zooms the view in like a spyglass, whatever you hold; again to zoom
+back out.
 
 - **Hit a block** to start a box there. **Use the tool on blocks** (up to 64 away) to grow the box
   to them; the block you aim at is outlined. The map menu has **Export to Map** (green), Nudge
@@ -239,10 +241,10 @@ game in gold and the map in orange.
      too, see "Publishing"); and **Delete map** (red, see "Deleting a map").
 2. **Tools:** a grid of the tools' icons (the Spawn tool, the Game marker tool when the game has
    markers of its own, the Region tool, the Kill Y tool, the Camera tool and the Snapshot tool), with
-   their names as tooltips. Tap one to put it in slot 1 and in your hand; the menu opens again with
-   that tool's settings. Tap it again to put it away. The one you have out is outlined. One tool is
-   out at a time: picking one puts any other away. The tool isn't locked, so you can move it;
-   whatever was in slot 1 moves to a free slot.
+   their names as tooltips. Tap one to put it in slot 1 and in your hand; the menu closes (open it
+   again for the tool's settings). Tap it again to put it away. The one you have out is outlined.
+   One tool is out at a time: picking one puts any other away. The tool isn't locked, so you can
+   move it; whatever was in slot 1 moves to a free slot.
 3. **The tool's settings** (they scroll): a **Help** link (the tool's how-to, in chat, with a
    chime), then:
    - **Spawn tool:** every spawn the map has, by list (spawns, each team's spawns, the spectator
@@ -250,9 +252,8 @@ game in gold and the map in orange.
    - **Game marker tool:** every marker the map has, by list (each point the game asks for, each
      team's for a per-team one). Tap one for its screen.
    - **Region tool:** your selection's size, **Save the selection** (its screen) and Clear, then
-     **Bounds and regions**: every box the map has. Tap one to **Edit** it (it becomes your
-     selection), **Nudge** its sides, **Go to** it (on top, over its middle), or **Delete** it.
-     While the map menu is open, every boundary is outlined.
+     **Bounds and regions**: every box the map has. Tap one for its screen (see "Region tool"
+     below). While the map menu is open, every boundary is outlined.
    - **Kill Y tool:** kill Y now, **Set kill Y** (its screen), and **Remove kill Y**.
 4. **Save:** a green bar at the bottom, outside the scrolling part. It saves the world into the map
    now (see Saving); its tooltip says whether blocks changed since the last save.
@@ -263,14 +264,16 @@ the Spawn tool opens an entry's screen only aimed at a block, the Region tool on
 at once. The Snapshot tool is the one exception: a use lists the cameras. A screen for what a tool
 sets up has a toggle first, then its settings and nudge rows (a
 minus and a plus each, **Step** cycling how far), and a green button pinned at the bottom that saves
-it; closing it keeps nothing. While you hold a tool, the line above the hotbar says what a use does.
+it; closing it keeps nothing. Once a new spawn, marker or box is saved, the next new one's screen
+starts over from the first choices (the first tile and list option, Center on block off, no
+facing, Snap Exact). While you hold a tool, the line above the hotbar says what a use does.
 Blocks break as usual with an empty hand or anything but the editor's items (in creative: Edit puts
 you back in creative at every spawn).
 
 - **The aim cursor:** holding the Spawn tool, the Region tool or Select's tool, an entity shows
   where a use lands, up to 64 blocks out: a glowing outline around the block for the box tools, a
   see-through marker at the exact spot (turned the way it will face) for spawns and points: a
-  mannequin or a post, like the list's markers (a game's own models show as a post). It's an
+  mannequin, a post or the game's own model (Bridges' hole), like the list's markers. It's an
   entity, so it follows the aim at once and hides behind blocks.
 - **Spawn tool:** aim at where an entry goes and use it, within 64 blocks. On top of a block, the
   spot is exactly where you aim (to a hundredth of a block, like an entity); at a block's side, just
@@ -293,7 +296,8 @@ you back in creative at every spawn).
   model of its own (`marker`, see "What a game's maps need" in `docs/maps.md`); a camera is a
   camera head. Markers are colored by kind: spawns orange, the spectator spawn gray, the queue spawn
   aqua, points yellow (a game's own model keeps its texture), and a team's spawns and markers in
-  the team's color (a red team's spawn is a red mannequin). Each has a glowing
+  the team's color (a red team's spawn is a red mannequin; a game's model takes it on its bones
+  named `tint`, such as the rim of Bridges' hole). Each has a glowing
   red line, 2 blocks long, the way it faces (the saved facing, tilted with its pitch, or toward the
   middle of the map), from a mannequin's eyes or a post's head, and the whole marker turns that
   way. **Hit a marker** for the same screen as placing one, with
@@ -311,15 +315,22 @@ you back in creative at every spawn).
     Any box can be picked without placing blocks: hit one corner, then use the tool on the blocks
     at the far edges.
   - **Save the selection** in the map menu (the tool's settings) opens the selection's screen (used
-    at the sky, the tool does nothing):
-    - **What to save it as** (a toggle): **This box** (when the selection came from a saved box:
-      writes it back), **Bounds** (replacing every bounds box), **Add bounds** (another bounds box,
-      once the map has one), a kill region, a region the game asks for (one per team when it asks
-      for that), a region the map already has, or **New region**, with its **Name** (letters,
-      digits and `_`). A region holds a list of boxes, and each save adds one.
+    at the sky, the tool does nothing). While it's open, the box shows as your selection with every
+    boundary, whatever you hold:
+    - **What to save it as:** tiles for **Bounds** (replacing every bounds box), **Add bounds**
+      (another bounds box, once the map has one) and **Kill region**; then a **Region** list for
+      the rest (the regions the game asks for, any others the map has, and **New region**, with its
+      **Name**: letters, digits and `_`), and a **Team** list for a team's region (Bridges' Spawn
+      guard). A region holds a list of boxes, and each save adds one.
     - **Floor at kill Y** (the bottom of the box at kill Y), **Back one step**, and a minus and a
       plus for each side, the outline following at once.
-    - **Clear selection** (red), and **Save** (green) at the bottom.
+    - **Clear selection** (red), and **Save** (green) at the bottom. Saving clears the selection:
+      the box is the map's now.
+  - **A box the map has:** tap it under Bounds and regions in the map menu for the same screen, set
+    to what it is: change its sides with the nudge rows (the outline shows them in place of the
+    saved box), make it something else (the tiles and lists; **Bounds** makes it another bounds
+    box), **Go to** it (on top, over its middle), **Delete** it (red), and **Save** (green). To
+    change it more, delete it and box it again.
   - The checklist's bounds and region rows give you the tool already set to that row.
 - **Kill Y tool:** players below kill Y are out. Use it to set kill Y one block below your feet at
   once (Undo takes it back). **Set kill Y** in the map menu opens its screen: type a height or nudge
@@ -329,8 +340,9 @@ you back in creative at every spawn).
   camera to look through it (as the Snapshot tool does); right click it for its kind and Delete.
 - **Snapshot tool:** takes a camera's picture (see "Pictures"). Using it lists the cameras; its
   settings in the map menu list them too.
-- **Outlines:** while you hold the region tool or the Kill Y tool, dots outline your selection
-  (yellow), the bounds (white), kill regions (red), each other region in its own color (a team's
+- **Outlines:** while you hold the region tool or the Kill Y tool, or have one of their screens
+  open, dots outline your selection (yellow), the bounds (white), kill regions (red), each other
+  region in its own color (a team's
   region in the team's color), and the kill Y plane (red: a grid near you, and the edge of the box
   around the bounds at that height). The boundaries you switched on in the Boundaries view (the
   map menu's eye) show whatever you hold. Only you see them. Every edge shows however far away it
@@ -383,8 +395,9 @@ everyone going, at most 7), then **Start preview** (green).
 **Fake players:** the ones picked before the preview loads wait with you from the start (the game
 reads `PREVIEW_FAKES`), and **/fake** (`/minecade:fake`) adds more, `/fake 3` three, up to the
 game's player limit. A fake player looks like a player (Steve) with a name tag, "Fake 1", "Fake 2"
-and so on (hidden during the match, like players' unless the game shows name tags), and the game
-treats it as one: before the match it waits where you do (at the queue spawn, unseen and nameless
+and so on (hidden during the match, like players' unless the game shows name tags). In play, its
+name tag shows its health as hearts like the HUD's (under its name when names show), and they drop
+as it's hurt. The game treats it as one: before the match it waits where you do (at the queue spawn, unseen and nameless
 when the queue locks you in, or else at a spawn of its own) and counts toward the players needed to
 start; it gets a team in team games, spawns, respawns and is eliminated by the game's rules; it has
 a score like anyone, and its downs show in the kill feed. Down or out, it watches from where a player
@@ -392,8 +405,10 @@ would, nameless: on foot at the queue spawn when the map has no spectator spawn,
 the spectator spawn (seen there, unlike a player, so you can tell where it went). It doesn't move
 or fight back. Hit it, shoot it or knock it off like a player (a game's own weapons
 work on it too: One in the Quiver's arrow kills it). **Right click** one for a side panel that asks
-first: **Fake 1 kills you** (red) takes you down, credited to the fake (it plays out what the game
-does when a player kills you), and **Cancel** leaves things be. Once the
+first: in a best-of game while a round is being played, **Fake 1 wins the round** (green: the round
+goes to it, or to its team in team games), then **Fake 1 kills you** (red) takes you down,
+credited to the fake (it plays out what the game does when a player kills you), and **Cancel**
+leaves things be. Once the
 match has started, /fake only works in games that let late joiners in (One in the Quiver; not
 Sumo). The packs for this live in `editor/preview/` and only previews get them.
 
