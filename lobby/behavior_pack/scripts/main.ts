@@ -7,6 +7,7 @@ import { MapView, blockOf, describeError, facingOf, holoPictures, holoPortraits,
 import { bootServer } from "@minecade/minigame-core/bootstrap";
 import registry from "#registry";
 import skins from "#skins";
+import pack from "../../resource_pack/manifest.json";
 import { demoGames } from "./demo-games.ts";
 import { countdownContent, teamsContent } from "./holo-content.ts";
 import { Hologram } from "./hologram.ts";
@@ -114,7 +115,7 @@ bootServer(({ vars, transport, transfer, root }) => {
           open?.close();
           const player = playerNamed(name);
           if (!player) return;
-          const form = new TeamPickForm(player, view, (team) => lobby.pickTeam(name, team));
+          const form = new TeamPickForm(player, view, pack.header.uuid, (team) => lobby.pickTeam(name, team));
           teamForms.set(name, form);
           void form.show();
         },

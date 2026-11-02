@@ -36,6 +36,20 @@ export function possibleTeams(cfg: TeamsConfig): TeamDef[] {
   return defs.slice(0, Math.max(1, Math.min(count, defs.length)));
 }
 
+/** A button on the lobby's team form: Join, the player's own team (or Random, while they have no pick), or full. */
+export type TeamButtonState = "join" | "on" | "full";
+
+/** The lobby pack's pictures of the team form's buttons (the build draws them: tools/build/team-buttons.ts). */
+export const TEAM_BUTTONS = "textures/minecade/team_buttons";
+
+/** A team form button's picture in the lobby pack, by its team's color and name; no team is Random team. */
+export function teamButtonPath(team: { name: string; color: string } | undefined, state: TeamButtonState): string {
+  if (!team) return `${TEAM_BUTTONS}/random_${state}`;
+  const color = team.color.replace("§", "").toLowerCase();
+  const name = team.name.toLowerCase().replace(/[^a-z0-9]+/g, "_");
+  return `${TEAM_BUTTONS}/${color}_${name}_${state}`;
+}
+
 /** Returns player -> team id for every player. */
 export function assignTeams(
   players: string[],

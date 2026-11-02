@@ -343,6 +343,14 @@ players pick in the lobby while the game server boots, so no time is lost on the
   Ore UI, so the resource pack can't theme it.
 - **On it:** each team with its players and count ("2/3"), a Join button per team (disabled when
   the team is full), a Random team button, and a status line.
+- **Buttons as pictures:** Ore UI's buttons can't take a color, and their text shows color codes
+  as they are. So each button is a clickable picture the full width of the form, lined up with the
+  text above it: the team's color with white text ("Join Red"), framed in white on the player's own
+  team ("On Red"), dimmed when full ("Red is full"), and a gray Random team (framed while the player
+  has no pick). The build draws them into the lobby pack for every team any game can have
+  (`tools/build/team-buttons.ts`, a pixel font drawn after Minecraft's; `teamButtonPath()` names
+  them). A picture can't be disabled, so a tap on your own or a full team does nothing. If a form
+  with pictures can't show, it's shown again with Ore UI's plain buttons.
 - **Rules:** the teams and caps are the game's own (`activeTeams`, and `ceil(players / teams)`
   per team, as `assignTeams` honors), worked out in `scripts/team-picks.ts`. A player who leaves
   the lobby loses their pick. Someone who closed the form gets it back by tapping the terminal.

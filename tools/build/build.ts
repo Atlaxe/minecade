@@ -28,6 +28,7 @@ import { encodePng } from "../skins/png.ts";
 import { RENDERS, renderSkinSet } from "../skins/skin-set.ts";
 import { readSkins } from "../skins/store.ts";
 import { addGameKitPictures } from "./kit-pictures.ts";
+import { addTeamButtons } from "./team-buttons.ts";
 import { enableBetaApis, patchLevelDat } from "./leveldat.ts";
 import { pinManifest, type Manifest } from "./mc-versions.ts";
 import { addSharedPacks, buildBehaviorPack, buildResourcePack, hasContent, sharedPacks, type SharedPack } from "./packs.ts";
@@ -190,10 +191,11 @@ async function renderPlayerSkins(): Promise<{ list: PlayerSkin[]; files: Map<str
 
 /**
  * The lobby pack gets every game's picture and map preview (for the Play menus), the players' skin
- * renders, and the hologram's picture and portrait lists from holoPictures() and holoPortraits(),
- * which the lobby's Hologram numbers the same way.
+ * renders, the team form's buttons (team-buttons.ts), and the hologram's picture and portrait lists
+ * from holoPictures() and holoPortraits(), which the lobby's Hologram numbers the same way.
  */
 async function addGameIcons(out: string): Promise<void> {
+  await addTeamButtons(out, registry);
   for (const [path, png] of playerSkins.files) {
     await mkdir(dirname(join(out, path)), { recursive: true });
     await writeFile(join(out, path), png);

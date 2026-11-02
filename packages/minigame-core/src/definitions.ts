@@ -128,7 +128,7 @@ export {
   type SkinRender,
 } from "./registry.ts";
 export { killDeathRatio, winRate } from "./stats-math.ts";
-export { DEFAULT_TEAMS, activeTeams, assignTeams, possibleTeams } from "./game/teams.ts";
+export { DEFAULT_TEAMS, TEAM_BUTTONS, activeTeams, assignTeams, possibleTeams, teamButtonPath, type TeamButtonState } from "./game/teams.ts";
 export {
   COLOR,
   KILL_VERBS,
