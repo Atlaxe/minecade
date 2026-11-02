@@ -1,7 +1,8 @@
 // Edit's boundaries as plane blocks (sheets.ts): what every map editor here sees drawn, together,
 // since blocks are the world's (Select mode keeps its particle outlines, outlines.ts). Each sheet is
 // painted a border part and a chunk column at a time, into air only, once its chunk is loaded; a
-// sheet no one sees any more is erased (later, for a chunk that isn't loaded then). A fill into air
+// sheet no one sees any more is erased (later, once its chunk is loaded again, for one that isn't:
+// on a big map, the far parts a player still sees but the server doesn't run). A fill into air
 // skips a 16-block slice of a chunk that holds no blocks at all (the void around a map, open sky:
 // seen as walls missing there), so one plane is set by hand in each slice first. Breaking a block where a sheet runs
 // paints it there, and every so often the loaded sheets are painted again, for blocks taken away
@@ -34,11 +35,14 @@ export interface OverlaySource {
   hidden(): boolean;
 }
 
-/** A sheet's piece in one chunk column, and whether it's painted. */
+/** A sheet's piece in one chunk column. */
 interface Piece {
   sheet: Sheet;
   chunk: string;
+  /** Painted, and nothing changed there since. */
   painted: boolean;
+  /** Painted at some point and not erased since, so its planes may be in the world. */
+  placed: boolean;
 }
 
 export class Overlay {
@@ -94,6 +98,7 @@ export class Overlay {
     for (const pieces of this.shown.values()) for (const piece of pieces) piece.painted = false;
     this.stale = [];
     await sweepChunks(this.dimension, [...this.chunks], () => this.clearLoaded());
+    for (const pieces of this.shown.values()) for (const piece of pieces) piece.placed = this.chunks.has(piece.chunk);
     this.remember();
     return this.chunks.size;
   }
@@ -130,14 +135,14 @@ export class Overlay {
     for (const [key, pieces] of this.shown) {
       if (wanted.has(key)) continue;
       for (const piece of pieces) {
-        if (!piece.painted) continue;
+        if (!piece.placed) continue;
         touched.add(piece.chunk);
         if (!this.erase(piece)) this.stale.push(piece);
       }
     }
     const next = new Map<string, Piece[]>();
     for (const [key, sheet] of wanted) {
-      next.set(key, this.shown.get(key) ?? borderTiles(sheet).flatMap(chunkPieces).map((piece) => ({ sheet: piece, chunk: chunkKey(piece), painted: false })));
+      next.set(key, this.shown.get(key) ?? borderTiles(sheet).flatMap(chunkPieces).map((piece) => ({ sheet: piece, chunk: chunkKey(piece), painted: false, placed: false })));
     }
     this.shown = next;
     // A sheet erased where another wanted the same blocks: the other paints them again.
@@ -152,6 +157,7 @@ export class Overlay {
         try {
           const permutation = this.permutation(piece.sheet);
           this.startSlices(piece.sheet, permutation);
+          piece.placed = true;
           this.dimension.fillBlocks(volumeOf(piece.sheet), permutation, { blockFilter: { includeTypes: [AIR] }, ignoreChunkBoundErrors: true });
           piece.painted = true;
           changed = this.note(piece) || changed;
@@ -184,6 +190,7 @@ export class Overlay {
     } catch (error) {
       log.warn(`could not erase a boundary: ${describeError(error)}`);
     }
+    piece.placed = false;
     return true;
   }
 
@@ -193,7 +200,7 @@ export class Overlay {
     this.hidden = true;
     for (const pieces of this.shown.values()) {
       for (const piece of pieces) {
-        if (piece.painted && !this.erase(piece)) this.stale.push(piece);
+        if (piece.placed && !this.erase(piece)) this.stale.push(piece);
         piece.painted = false;
       }
     }
