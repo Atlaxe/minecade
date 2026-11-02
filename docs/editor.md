@@ -304,7 +304,7 @@ you back in creative at every spawn).
   camera head. Markers are colored by kind: spawns orange, the spectator spawn gray, the queue spawn
   aqua, points yellow (a game's own model keeps its texture), and a team's spawns and markers in
   the team's color (a red team's spawn is a red mannequin; a game's model takes it on its bones
-  named `tint`, such as the rim of Bridges' hole). Each has a glowing
+  named `tint`, such as the rim of Bridges' hole, and draws them fully lit). Each has a glowing
   red line, 2 blocks long, the way it faces (the saved facing, tilted with its pitch, or toward the
   middle of the map), from a mannequin's eyes or a post's head, and the whole marker turns that
   way. **Hit a marker** for the same screen as placing one, with

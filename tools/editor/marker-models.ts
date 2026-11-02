@@ -3,9 +3,9 @@
 // build adds every one to the editor's resource pack, numbered after the built-in marker styles
 // (editor/behavior_pack/scripts/lists.ts MARKER_STYLES), and each target's rules carry its models'
 // numbers so the pack can draw them: on the markers, and on the aim cursor while one is placed. A
-// model's bones named "tint" take a team's color (the rim of Bridges' hole); the rest keep their
-// texture's. The editor's behavior pack gets a hitbox for each, the size of the model, so a hit
-// anywhere on it opens the marker's screen (markers.ts switches it on).
+// model's bones named "tint" take a team's color (the rim of Bridges' hole), fully lit; the rest
+// keep their texture's. The editor's behavior pack gets a hitbox for each, the size of the model,
+// so a hit anywhere on it opens the marker's screen (markers.ts switches it on).
 import { existsSync } from "node:fs";
 import { copyFile, mkdir, readdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";

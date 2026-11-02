@@ -133,7 +133,9 @@ digits and `_`. The map editor adds every game's models to its resource pack whe
 them on the markers and on the aim cursor while one is placed, and draws a model it doesn't have
 as a post. Its markers can be hit anywhere on the model: the editor's behavior pack gets a hitbox
 for each, sized from its cubes. A team's markers take the team's color on the model's bones named `tint` (Bridges' hole
-colors its rim); the rest keeps the texture's colors.
+colors its rim), drawn fully lit so they show in the dark; the rest keeps the texture's colors.
+Markers draw both sides of every face, so a flat cube (a size of 0) needs only one face: two
+faces on the same plane flicker over each other.
 
 **Building games** (a `build` block in `game.config.ts`, Bridges) play in survival mode. Players
 place blocks only inside a `bounds` box (above `killY`, outside kill regions, within the map's
@@ -147,8 +149,9 @@ the Boundaries view.
 **Bridges** needs team spawns, bounds, kill Y, a spectator or queue spawn, and per team:
 - a `hole.<team>` point at the **middle of the hole's floor**, in the pit the map has for it. The
   game stands the hole there: 3 blocks square and 3 tall, black inside, its rim a ring in the
-  team's color, drawn fully lit so it looks the same in the dark as in daylight. Nobody can build in
-  the hole or anywhere above it. The editor draws the point as a post.
+  team's color, drawn fully lit so it looks the same in the dark as in daylight. Each of its sides,
+  its floor and its rim is one flat face, drawn from both sides. Nobody can build in the hole or
+  anywhere above it. The editor draws the point as the same hole, its rim in the team's color.
 - a `spawnGuard.<team>` region around the team's spawn (and its hole), where nobody builds.
 
 **The lobby** declares its own in `lobby/lobby.config.ts`: one spawn and the `terminal` point
