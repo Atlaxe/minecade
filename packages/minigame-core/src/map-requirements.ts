@@ -22,6 +22,17 @@ export interface MapRequirement {
   marker?: MarkerStyle;
 }
 
+/**
+ * Whether a map has plain spawns (map.json "spawns"): always for the lobby; for a game unless its
+ * config says spawns: false, or asks for team spawns without naming spawns (players then wait and
+ * play at their team's spawns).
+ */
+export function usesPlainSpawns(map: MapRequirementsConfig | undefined, kind: "lobby" | "game"): boolean {
+  if (kind === "lobby") return true;
+  if (map?.spawns === false) return false;
+  return !(map?.teamSpawns && map.spawns === undefined);
+}
+
 export interface RequirementOptions {
   kind: "lobby" | "game";
   maxPlayers?: number;
@@ -33,9 +44,11 @@ export interface RequirementOptions {
 export function mapRequirements(map: MapRequirementsConfig | undefined, options: RequirementOptions): MapRequirement[] {
   const list: MapRequirement[] = [];
   const teams = options.teams ?? [];
-  const asked = map?.spawns?.min;
+  const asked = map?.spawns ? map.spawns.min : undefined;
   if (options.kind === "lobby") {
     list.push({ key: "spawns", label: "Spawn", field: "spawns", min: typeof asked === "number" ? asked : 1 });
+  } else if (!usesPlainSpawns(map, options.kind)) {
+    // Team spawns only.
   } else if (typeof asked === "number") {
     list.push({ key: "spawns", label: "Spawns", field: "spawns", min: asked });
   } else {

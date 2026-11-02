@@ -181,6 +181,11 @@ name above the hotbar (`hud.item_name_text_root` in `ui/hud_screen.json`) shows 
 too, so the box stays one line tall whatever the lines say. A game never needs to do anything for
 this: lock items as usual (`lockMode`, `keepOnDeath`).
 
+**Effect icons are hidden on every server** (the core pack's `ui/hud_screen.json` removes
+`mob_effects_renderer` from the HUD). A lock-in queue makes players invisible with an effect, and
+the HUD draws every effect's icon as one piece, so the invisibility one can't be hidden alone. A
+kit's effects don't show either.
+
 ## The lobby terminal
 
 The lobby's menus live on a terminal in the middle of the lobby, not on items. One player uses it
@@ -442,6 +447,10 @@ The rules every editor menu follows (the user's, from 2026-10-31):
 - **Icon rows** for actions that fit an icon (Players, Back one step, New map), with tooltips.
 - **Toggles** (one choice of several: a spawn's list, what a selection is saved as, how many fake
   players) are tiles touching in a row, the one that's on green.
+- **Lists** (a choice of many, or of teams: the Game marker tool's Marker, a Team) are a row with
+  "Label: value" and an arrow (`MARK.dropdown`, `dropdownText`); tapped, the form opens again with
+  the options under it as plain rows, the one picked outlined (`optionText`), and picking one closes
+  it. In a form with fields, a real list (Export's For) opens about five options tall.
 - **Tool screens:** what a tool sets up (a spawn, a selection, kill Y) opens in its own side screen,
   the way hitting a marker does: a toggle first, then its settings, nudge rows (a minus and a plus
   each), and a green button pinned at the bottom that saves it. Closing it keeps nothing.
@@ -449,11 +458,10 @@ The rules every editor menu follows (the user's, from 2026-10-31):
   (the Spawn tool). A tool used at the sky does nothing, or acts at once (the Kill Y tool sets kill
   Y, the Camera tool places a camera). The Snapshot tool is the exception the user asked for: a use
   lists the cameras.
-- **Cards** (the editor lobby's maps): two lines on the left, what it is (the game, gray) beside a
-  row of icons on the right, then its name (white) under them across the card, so a long name isn't
-  cut off. Each icon has a tooltip and no face of its own on the card's (only a faint one while
-  hovered, like the Search link), faded (`MARK.dim`) when that step isn't done yet. The title isn't
-  a button. Built like the tool grid: a column of titles (`MARK.cardTitle`) and one column per icon
+- **Cards** (the editor lobby's maps): two lines on the left, what it is (the game, gray) and its
+  name (white) under it, with a row of icons on the right, centered on the two lines. Each icon has
+  a tooltip and no face at all, not even hovered, faded (`MARK.dim`) when that step isn't done yet.
+  The title isn't a button. Built like the tool grid: a column of titles (`MARK.cardTitle`) and one column per icon
   (`MARK.cardIcon` with `CARD_COLUMNS`), a card's buttons one after another so the rows line up.
   A heading row over them (`MARK.cardHead`) can carry a link with an icon on its right
   (`MARK.cardLink`: Search).

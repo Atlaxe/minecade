@@ -33,8 +33,9 @@ export function validateMapConfig(raw: unknown, rules: MapRules): string[] {
   spawns.forEach((spawn, i) => checkPosition(spawn, `spawns[${i}]`, problems));
   const hasTeamSpawns = isRecord(map.teamSpawns) && Object.keys(map.teamSpawns).length > 0;
   const spawnRule = requirements.find((requirement) => requirement.field === "spawns");
-  // A map with team spawns only needs one plain spawn, for players waiting before the start.
-  const needed = hasTeamSpawns ? 1 : (spawnRule?.min ?? 1);
+  // A map with team spawns only needs one plain spawn, for players waiting before the start; a game
+  // without plain spawns needs none (they wait at their team's spawns).
+  const needed = !spawnRule ? 0 : hasTeamSpawns ? 1 : spawnRule.min;
   if (spawns.length < needed) {
     const perSlot = spawnRule?.perPlayer && needed > 1 ? " (one per player slot)" : "";
     problems.push(`needs at least ${needed} spawn${needed === 1 ? "" : "s"}${perSlot}, has ${spawns.length}`);

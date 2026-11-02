@@ -251,8 +251,12 @@ export interface MapEntryRequirement {
  * as lists of names, `teamSpawns: true`.
  */
 export interface MapRequirementsConfig {
-  /** Spawns needed: a number, or "maxPlayers" (the default for games; the lobby needs 1). */
-  spawns?: { min?: number | "maxPlayers"; marker?: MarkerStyle };
+  /**
+   * Spawns needed: a number, or "maxPlayers" (the default for games; the lobby needs 1). false: the
+   * game uses no plain spawns, only team spawns (and the spectator and queue spawns). A game that
+   * asks for team spawns and doesn't name this has them off; naming it turns them back on.
+   */
+  spawns?: false | { min?: number | "maxPlayers"; marker?: MarkerStyle };
   /** Spawns per team: true for at least 1 each, or how many each team needs. */
   teamSpawns?: boolean | { perTeam?: number; marker?: MarkerStyle };
   /**

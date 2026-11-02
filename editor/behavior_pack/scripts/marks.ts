@@ -79,6 +79,8 @@ export const MARK = {
   cardLink: "§s§c§r",
   /** A picture tile (with one of SEGMENT_COLUMNS' first two): the picture, its name under it, and a green outline while on. */
   picture: "§p§c§r",
+  /** A list's row (the Game marker tool's Marker, a Team): "Label: value" and an arrow, up while it's open (with on). */
+  dropdown: "§d§d§r",
 } as const;
 
 /** A card's icon columns, left to right: a card has one icon in each. */
@@ -118,6 +120,16 @@ export function goText(text: string): string {
 /** A picture tile `index` (two to a row), outlined green while `on` (the picture in use). */
 export function pictureText(text: string, index: number, on: boolean): string {
   return `${MARK.picture}${SEGMENT_COLUMNS[index % 2]}${on ? MARK.on : ""}${text}`;
+}
+
+/** A list's row: its label and what's picked, its arrow up while `open` (the options follow it). */
+export function dropdownText(label: string, value: string, open: boolean): string {
+  return `${MARK.dropdown}${open ? MARK.on : ""}${label}: ${value}`;
+}
+
+/** One of an open list's options, outlined while it's the one picked. */
+export function optionText(label: string, on: boolean): string {
+  return `${on ? MARK.picked : ""}${label}`;
 }
 
 /** A card's title: what it is (the game, gray), then its name under it. */

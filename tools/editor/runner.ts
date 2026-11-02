@@ -111,7 +111,11 @@ export class EditorRunner {
   private previewAsked = false;
   /** Where the running preview was started, and by whom: it comes back there. */
   private previewFrom: { from: PreviewPlan["from"]; by: string } | undefined;
+  /** What the running preview plays, for a Replay. */
+  private previewPlan: PreviewPlan | undefined;
   private selectBefore: Opened | undefined;
+  /** Exports to open in Edit once they're cut out ("<target>/<map>"), and who exported each. */
+  private readonly editAfterExport = new Map<string, string>();
   /** Called once everything has stopped: true when it went well. */
   onExit: (ok: boolean) => void = () => {};
 
@@ -126,6 +130,14 @@ export class EditorRunner {
       if (gone || (info.status !== "ready" && info.status !== "failed")) return;
       // A map that's ready shows in the lobby's lists.
       if (info.status === "ready") this.homeChanged();
+      // Exported with Open in Edit: it opens there, and whoever exported it is moved there.
+      const key = `${info.target}/${info.map}`;
+      const by = this.editAfterExport.get(key);
+      this.editAfterExport.delete(key);
+      if (by !== undefined && info.status === "ready") {
+        void this.request(by, { to: "edit", target: info.target, map: info.map });
+        return;
+      }
       void this.announce(world, info).catch((error: unknown) => this.log(`Could not announce ${info.target}/${info.map}: ${message(error)}`));
     });
   }
@@ -395,6 +407,7 @@ export class EditorRunner {
       session.onDelete = (who) => this.deleteMap(who, session);
       session.onRename = (who, map) => this.renameMap(who, session, map);
     }
+    if (session instanceof SelectSession) session.onExportEdit = (who, target, map) => this.exportEdit(who, target, map);
     session.onPlayer = (name, kind) => this.joined(session, name, kind);
     session.onEnd = (ok) => {
       if (this.work[slot] !== session) return;
@@ -420,6 +433,24 @@ export class EditorRunner {
     await noteRecent(this.root, { request: launch.request, label: launch.label }).catch((error: unknown) => this.log(`Could not note it as recent: ${message(error)}`));
     this.homeChanged();
     await this.deliver(slot);
+  }
+
+  /**
+   * An export to open in Edit once it's cut out. Meanwhile an Edit server nobody is on (or waiting
+   * for) stops, saving first, so the new map's server starts as soon as the map is ready.
+   */
+  private exportEdit(by: string, target: string, map: string): void {
+    this.editAfterExport.set(`${target}/${map}`, by);
+    const edit = this.work.edit;
+    const idle = () => this.work.edit === edit && edit?.status().state === "ready" && edit.online().length === 0 && ![...this.waiting.values()].some((entry) => entry.slot === "edit");
+    if (!edit || !idle()) return;
+    this.queues.edit = this.queues.edit
+      .then(async () => {
+        if (!idle()) return;
+        this.log(`${by}: stopping Edit while ${target}/${map} is cut out, to open it there next.`);
+        await edit.stop();
+      })
+      .catch((error: unknown) => this.log(`Stopping Edit went wrong: ${message(error)}`));
   }
 
   // ---- Deleting ---------------------------------------------------------------------------------
@@ -625,14 +656,15 @@ export class EditorRunner {
 
   /**
    * Closes Select, starts the game on its port, and moves its players there: everyone in Edit, or
-   * whoever asked from the editor lobby. Guests on Select, or waiting in the lobby, come along.
+   * whoever asked from the editor lobby. Guests on Select, or waiting in the lobby, come along. A
+   * Replay names its players (`replay`: they wait in the editor lobby), guests among them.
    */
-  private async playPreview(by: string, plan: PreviewPlan): Promise<void> {
+  private async playPreview(by: string, plan: PreviewPlan, replay?: string[]): Promise<void> {
     const { source, from } = plan;
-    const guests = [...(this.home?.online() ?? []), ...(this.work.select?.online() ?? [])].filter((name) => this.isGuest(name));
+    const guests = replay ? [] : [...(this.home?.online() ?? []), ...(this.work.select?.online() ?? [])].filter((name) => this.isGuest(name));
     await this.closeSelect(by);
     const env = readEnv(await readFile(join(this.root, ".env"), "utf8"));
-    const asked = from === "home" ? (this.home?.online() ?? []).filter((name) => this.waiting.get(name.toLowerCase())?.slot === "preview") : [];
+    const asked = replay ?? (from === "home" ? (this.home?.online() ?? []).filter((name) => this.waiting.get(name.toLowerCase())?.slot === "preview") : []);
     const session = new PreviewSession({
       port: this.slots.select.port,
       container: `${this.slots.select.container.replace(/-select$/, "")}-preview`,
@@ -642,7 +674,7 @@ export class EditorRunner {
       map: source.map,
       label: source.label,
       maxPlayers: source.maxPlayers + 1,
-      players: [...(from === "edit" ? (this.work.edit?.online() ?? []) : asked), ...guests],
+      players: [...(from === "edit" && !replay ? (this.work.edit?.online() ?? []) : asked), ...guests],
       fakes: plan.fakes,
       env,
       verbose: this.verbose,
@@ -650,6 +682,7 @@ export class EditorRunner {
     });
     this.previewing = session;
     this.previewFrom = { from, by };
+    this.previewPlan = plan;
     this.homeChanged();
     try {
       await session.start();
@@ -662,15 +695,19 @@ export class EditorRunner {
       this.dropPreviewWaiting(`§cThe preview didn't start: ${message(error)}`);
       this.previewing = undefined;
       this.previewFrom = undefined;
+      this.previewPlan = undefined;
       this.homeChanged();
       this.reopenSelect();
       return;
     }
-    session.onEnd = (why) => void this.previewEnded(session, why);
+    session.onEnd = (why, next) => void this.previewEnded(session, why, next);
     session.onPlayer = () => this.homeChanged();
     await noteRecent(this.root, plan.recent).catch((error: unknown) => this.log(`Could not note it as recent: ${message(error)}`));
     const label = `the preview of ${source.label}`;
-    if (from === "edit") {
+    if (replay) {
+      const names = (this.home?.online() ?? []).filter((name) => replay.some((player) => player.toLowerCase() === name.toLowerCase()));
+      if (names.length > 0) await this.home?.goto(names, this.slots.select.port, label);
+    } else if (from === "edit") {
       const players = this.work.edit?.online() ?? [];
       if (players.length > 0) await this.work.edit?.goto(players, this.slots.select.port, label);
     } else {
@@ -711,17 +748,43 @@ export class EditorRunner {
     await select.stop();
   }
 
-  private async previewEnded(session: PreviewSession, why: string): Promise<void> {
+  /**
+   * The preview ended: its server stops. Players who picked Edit after a preview from the editor
+   * lobby get the map opened there; players who picked Replay wait in the editor lobby while it
+   * starts again (Select stays closed until that one ends).
+   */
+  private async previewEnded(session: PreviewSession, why: string, next: { replay: string[]; edit: string[] } = { replay: [], edit: [] }): Promise<void> {
     if (this.previewing !== session) return;
     this.log(`The preview is over: ${why}.`);
     await session.stop();
     this.previewing = undefined;
     const back = this.previewFrom;
+    const plan = this.previewPlan;
     this.previewFrom = undefined;
+    this.previewPlan = undefined;
     this.homeChanged();
+    const { target, map } = plan?.recent.request.to === "preview" ? plan.recent.request : { target: undefined, map: undefined };
+    if (target !== undefined && map !== undefined) for (const name of next.edit) void this.request(name, { to: "edit", target, map });
+    if (plan && back && next.replay.length > 0 && this.state === "ready") {
+      this.replay(back.by, plan, next.replay);
+      return;
+    }
     const text = `Back from the preview: ${why}.`;
     setTimeout(() => void (back?.from === "home" ? this.tell(back.by, text) : this.work.edit?.say(text)), BACK_MS);
     this.reopenSelect();
+  }
+
+  /** Replay: the same preview again (the map as it was, the same fake players) for `players`, who wait in the editor lobby meanwhile. */
+  private replay(by: string, plan: PreviewPlan, players: string[]): void {
+    const label = `the preview of ${plan.source.label}`;
+    for (const name of players) this.waiting.set(name.toLowerCase(), { name, slot: "preview", label });
+    this.previewAsked = true;
+    this.log(`${players.join(", ")}: replay ${plan.source.label}`);
+    this.homeChanged();
+    this.queues.select = this.queues.select
+      .then(() => this.playPreview(by, plan, players))
+      .catch((error: unknown) => this.log(`The replay went wrong: ${message(error)}`))
+      .finally(() => (this.previewAsked = false));
   }
 
   /** Opens again what Select had open before a preview took its port. */

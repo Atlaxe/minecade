@@ -6,7 +6,7 @@ import type { GameConfig } from "../src/config.ts";
 import type { MapConfig } from "../src/map-config.ts";
 import { FAKE_PLAYER, FakePlayers } from "../src/game/fakes.ts";
 import { Minigame } from "../src/game/minigame.ts";
-import { DANGER_BUTTON, SIDE_TITLE } from "../src/game/preview.ts";
+import { DANGER_BUTTON, PREVIEW_NEXT, SIDE_TITLE, endPreview } from "../src/game/preview.ts";
 import { stripColors } from "../src/text.ts";
 import { transfers } from "./fake-mc-server-admin.ts";
 import { world, type FakeMob } from "./fake-mc-server.ts";
@@ -231,5 +231,35 @@ describe("fake players in a preview", () => {
     const game = new TestGame(harness.context(["A"]), FFA);
     expect(game.fakes).toBeUndefined();
     expect(stripColors(game.addFakes(1))).toBe("Fake players are only for previews.");
+  });
+});
+
+describe("the end of a preview's match", () => {
+  const vars = (lobbyPort: number) => ({ ...harness.context(["A", "Guest"]).vars, preview: "FFA: Arena", lanPlayers: ["A"], lobbyPort, guestLobbyPort: 19132 });
+
+  it("asks each player what's next (Edit for map editors only) and sends them there", async () => {
+    world.join("A");
+    world.join("Guest");
+    const sent: [string, number][] = [];
+    const shown = shownForms.length;
+    queueFormResponses({ canceled: false, selection: 1 }, { canceled: false, selection: 0 });
+    const next = await endPreview(harness.root, vars(19134), (player, port) => sent.push([player.name, port]));
+    expect(shownForms.slice(shown).map((form) => [form.titleText, form.buttons])).toEqual([
+      [`${SIDE_TITLE}Preview over`, PREVIEW_NEXT.map((option) => option.text)],
+      [`${SIDE_TITLE}Preview over`, PREVIEW_NEXT.filter((option) => option.choice !== "edit").map((option) => option.text)],
+    ]);
+    // From Edit: Edit is its port; Replay waits in the editor lobby.
+    expect(sent).toEqual([["A", 19134], ["Guest", 19132]]);
+    expect(next).toEqual({ replay: ["Guest"], edit: [] });
+  });
+
+  it("sends Edit through the editor lobby for a preview started there, and anyone who closes it home", async () => {
+    world.join("A");
+    world.join("Guest");
+    const sent: [string, number][] = [];
+    queueFormResponses({ canceled: false, selection: 1 }, { canceled: true });
+    const next = await endPreview(harness.root, vars(19132), (player, port) => sent.push([player.name, port]));
+    expect(sent).toEqual([["A", 19132], ["Guest", 19132]]);
+    expect(next).toEqual({ replay: [], edit: ["A"] });
   });
 });

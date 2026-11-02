@@ -28,7 +28,7 @@ The map editor sets spawns and points in game and writes `map.json` for you; see
 |---|---|---|
 | `name` | yes | Shown in the game selector. |
 | `draft` | no | `true` for an unfinished map: the build skips it with a warning (and skips a game whose maps are all drafts). The map editor's Publish removes it, then commits and pushes the map. |
-| `spawns` | yes | Positions (see below). The lobby needs one; a game needs one per player slot (at least `maxPlayers`). The first is also the world spawn. |
+| `spawns` | yes | Positions (see below). The lobby needs one; a game needs one per player slot (at least `maxPlayers`), and a game with team spawns none (unless its config asks for them; then `[]` is fine). The first is also the world spawn (else the first team spawn). |
 | `spectatorSpawn` | no | Where players watch from when they're out or waiting to respawn, flying in spectator mode. A map without one has them watch from its `queueSpawn` instead (see below). A game needs one or the other unless its config says otherwise. |
 | `queueSpawn` | no | Where players wait for everyone to join before the game puts them at their spawns (see "The queue spawn" below). |
 | `queue` | no | How they wait there: `{ "mode": "lock" \| "free", "countdown": 5 }`. `lock` (the default) keeps everyone on the spot, looking around but unable to move, and invisible with no name tags, so nobody sees the others; `free` lets them roam. `countdown` is whole seconds (1 to 60, default 5). |
@@ -36,7 +36,7 @@ The map editor sets spawns and points in game and writes `map.json` for you; see
 | `killY` | no | Anyone below this height is out (knocked off, fell into the void). Within -64 to 319. |
 | `time` | no | A fixed time of day: the daylight cycle stops there when the server starts. `day`, `noon`, `sunset`, `night`, `midnight` or `sunrise`, or ticks from 0 to 23999. |
 | `stars` | no | The lobby only: `true` puts a star box around the map, so stars show in every direction, below the horizon too (Bedrock's own sky has stars only above it). Use it with a night `time`. See "The star box" in `docs/ui.md`. |
-| `teamSpawns` | no | `{ "<team or role id>": [positions] }`. Team games spawn each team at its own points. With these, `spawns` may have fewer than `maxPlayers` entries. The keys must be the game's team ids. |
+| `teamSpawns` | no | `{ "<team or role id>": [positions] }`. Team games spawn each team at its own points; before teams are dealt, players wait at every team's spawns in turn (or the plain spawns, when the map has them). The keys must be the game's team ids. |
 | `points` | no | `{ "<name>": [positions] }`: named positions a game uses, such as bomb sites or mob spawns. `"<name>.<team>"` is one team's (`"flag.red"`). |
 | `regions` | no | `{ "<name>": [{ "min": [x, y, z], "max": [x, y, z] }, ...] }`: named boxes, such as build plots or a floor that falls away. `"<name>.<team>"` is one team's. The name `kill` is reserved: anyone inside a `kill` box is out, the same as falling below `killY` (spectators fly over them). |
 | `kits` | no | Games only: kits of the map's own, for a game whose players pick kits. `{ "mode": "append", "list": [kits] }` adds them after the game's (a kit with the same `id` as one of the game's takes its place); `"mode": "replace"` uses only the map's. A `base` replaces the game's base kit either way. Each kit is written as in `game.config.ts`: `{ "id": "ice", "name": "Ice", "refill": "round", "items": [{ "item": "minecraft:snowball", "count": 16 }] }`. The map editor keeps it as written; there's no screen for it yet. |
@@ -103,7 +103,13 @@ map: {
 
 `perTeam` entries are needed once for every team the game can have (`"buyZone.red"`,
 `"buyZone.blue"`). The short forms still work: `points: ["bombA", "bombB"]`,
-`regions: ["floor"]`, `teamSpawns: true`. With `teamSpawns`, the plain `spawns` need only one.
+`regions: ["floor"]`, `teamSpawns: true`.
+
+**Plain spawns in team games:** a game that asks for `teamSpawns` and doesn't name `spawns` has no
+plain spawns: its maps need none, and the map editor's Spawn tool only places team spawns (its Team
+list), the spectator spawn and the queue spawn. Naming `spawns` (`spawns: {}` for one, used while
+players wait) turns them back on, with **No team** in that list. `spawns: false` turns them off in
+any game. The `points` a game names are placed with the map editor's Game marker tool.
 
 **Where players watch from:** a game that names neither `spectatorSpawn` nor `queueSpawn` needs one
 or the other (the checklist's "Spectator or queue spawn" row): a map with only a queue spawn passes

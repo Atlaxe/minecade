@@ -1,6 +1,6 @@
 // Map baking logic with no I/O, kept apart from bake.ts so it can be unit-tested.
 import nbt from "prismarine-nbt";
-import type { MapConfig } from "@minecade/minigame-core/config";
+import { worldSpawnOf, type MapConfig } from "@minecade/minigame-core/config";
 import { getTag, setTag, type LevelDat } from "./leveldat.ts";
 
 type Tag = Parameters<typeof setTag>[2];
@@ -14,14 +14,14 @@ const FLAT_GENERATOR = 2;
 
 /**
  * The level.dat settings of a baked map: a void world, fixed noon, no weather, mobs or fire
- * spread, and the world spawn at the first spawn point. Beta APIs are left to the build.
+ * spread, and the world spawn at the first spawn point (worldSpawnOf). Beta APIs are left to the build.
  */
 export function bakeSettings(dat: LevelDat, map: MapConfig): void {
   voidGenerator(dat);
   for (const rule of GAMERULES_OFF) setTag(dat, rule, nbt.byte(0) as Tag);
   setTag(dat, "spawnradius", nbt.int(0) as Tag);
   setTag(dat, "Time", nbt.long([0, BAKE_TIME]) as Tag);
-  const [x, y, z] = map.spawns[0];
+  const [x, y, z] = worldSpawnOf(map);
   setTag(dat, "SpawnX", nbt.int(Math.floor(x)) as Tag);
   setTag(dat, "SpawnY", nbt.int(Math.floor(y)) as Tag);
   setTag(dat, "SpawnZ", nbt.int(Math.floor(z)) as Tag);
@@ -37,7 +37,7 @@ export function voidGenerator(dat: LevelDat): void {
 
 /** Names the bake settings that BDS changed while the world was running. Empty if none. */
 export function checkBakeSettings(dat: LevelDat, map: MapConfig): string[] {
-  const [x, y, z] = map.spawns[0].map(Math.floor);
+  const [x, y, z] = worldSpawnOf(map).map(Math.floor);
   const expected: Record<string, number> = { Generator: FLAT_GENERATOR, spawnradius: 0, SpawnX: x, SpawnY: y, SpawnZ: z };
   const changed: string[] = [];
   for (const [key, value] of Object.entries(expected)) {

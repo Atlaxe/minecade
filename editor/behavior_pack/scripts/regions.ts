@@ -255,8 +255,13 @@ function isBox(value: unknown): value is Box {
 
 /** A § color code's color ("§c" is red), or undefined. */
 function codeColor(code: string): Rgb | undefined {
-  const value = CODE_COLORS[code.replace("§", "").toLowerCase()];
+  const value = codeTint(code);
   return value === undefined ? undefined : rgb(value);
+}
+
+/** A § color code's color as 0xRRGGBB ("§c" is 0xff5555), or undefined: a team's markers take it. */
+export function codeTint(code: string): number | undefined {
+  return CODE_COLORS[code.replace("§", "").toLowerCase()];
 }
 
 function rgb(hex: number): Rgb {

@@ -7,8 +7,10 @@
 // sneaking while flying flies down.
 import {
   BlockVolume,
+  ButtonState,
   EntityComponentTypes,
   GameMode,
+  InputButton,
   ItemLockMode,
   ItemStack,
   system,
@@ -46,7 +48,7 @@ import { goto } from "./goto.ts";
 import { keepModeLine, modeLine } from "./hud.ts";
 import { KillYTool } from "./kill-y-tool.ts";
 import { LoadingScreens } from "./loading.ts";
-import { giveZoom, onReset, ZOOM_ITEM, zoomWhileHeld } from "./commands.ts";
+import { onReset } from "./commands.ts";
 import { HostLink } from "./link.ts";
 import { Outlines } from "./outlines.ts";
 import { boundaryRows, boundsAround, outlineBoxes, toggleBoundary } from "./regions.ts";
@@ -57,7 +59,7 @@ import { actionBar, heldTool, hintBar, notice, type ToolHost } from "./tool-host
 import { REACH, blockInView, nudgePreview } from "./box-picker.ts";
 import { facingOf, type Point } from "./boxes.ts";
 import { Cursors, type CursorAim } from "./cursor.ts";
-import { aimedPoint, compass, entryPosition, lookAt, mapMiddle, markerSpecs, snapFacing, SNAPS, spawnLists, type AimedFace, type MarkerSpec, type SpawnList } from "./lists.ts";
+import { aimedPoint, compass, entryPosition, lookAt, mapMiddle, markerSpecs, snapFacing, SNAPS, spawnLists, toolLists, type AimedFace, type MarkerSpec, type PlaceTool, type SpawnList } from "./lists.ts";
 import { MapState } from "./map-state.ts";
 import { PlayersMenu } from "./players.ts";
 import { MARKER, Markers } from "./markers.ts";
@@ -240,19 +242,27 @@ export class Editor {
       }
       const tool = toolOf(itemStack.typeId)?.id;
       if (itemStack.typeId === MAP_MENU) void this.mapMenu(source);
-      else if (tool === "spawn") void this.spawnTool(source);
+      else if (tool === "spawn" || tool === "marker") void this.spawnTool(source, tool);
       else if (tool === "region") this.regionTool.use(source);
       else if (tool === "killY") this.killYTool.use(source);
       else if (tool === "camera") this.cameraTool.use(source);
       else if (tool === "snapshot") void this.cameraTool.snapshot(source);
     });
-    zoomWhileHeld(scope);
     scope.subscribe(world.afterEvents.entityHitEntity, ({ damagingEntity, hitEntity }) => {
       if (hitEntity.typeId !== MARKER || damagingEntity.typeId !== "minecraft:player") return;
       const player = damagingEntity as Player;
       const spec = this.markers.specOf(hitEntity);
       if (spec) void ("camera" in spec ? this.cameraTool.snapshotOf(player, spec.camera) : this.markerMenu(player, spec));
     });
+    // Shift brings a player looking through a camera back to their own view (the button, so it works
+    // while flying, where shift doesn't sneak).
+    scope.subscribe(
+      world.afterEvents.playerButtonInput,
+      ({ player }) => {
+        if (this.cameraTool.isLooking(player)) this.cameraTool.stop(player);
+      },
+      { buttons: [InputButton.Sneak], state: ButtonState.Pressed },
+    );
     // A right click on a camera's marker: its kind and Delete (only cameras' markers can be right clicked).
     scope.subscribe(world.afterEvents.playerInteractWithEntity, ({ player, target }) => {
       if (target.typeId !== MARKER) return;
@@ -363,12 +373,14 @@ export class Editor {
     return settings;
   }
 
-  /** The list the spawn tool places into: the one picked, or the first when that one is gone. */
-  private spawnList(player: Player): SpawnList | undefined {
-    const lists = this.lists();
+  /** The list the Spawn tool (or the Game marker tool) places into: the one picked, or the first when that one is gone. */
+  private spawnList(player: Player, tool: PlaceTool = "spawn"): SpawnList | undefined {
+    const lists = toolLists(this.lists(), tool);
     const settings = this.settingsOf(player);
-    const list = lists.find((candidate) => candidate.key === settings.list) ?? lists[0];
-    if (list) settings.list = list.key;
+    const picked = tool === "spawn" ? settings.list : settings.marker;
+    const list = lists.find((candidate) => candidate.key === picked) ?? lists[0];
+    if (list && tool === "spawn") settings.list = list.key;
+    else if (list) settings.marker = list.key;
     return list;
   }
 
@@ -380,7 +392,7 @@ export class Editor {
     this.scope.timeout(() => this.creative(player), CREATIVE_AGAIN_TICKS);
     const where = `${chatMapName(this.info.targetName, this.state.current.name)}.`;
     this.giveItems(player);
-    tell(player, `${where} The map menu in slot 9 has the checklist, the tools and Save. Hit a marker to change it. Hold right click with the Zoom in slot 8 to zoom.`);
+    tell(player, `${where} The map menu in slot 9 has the checklist, the tools and Save. Hit a marker to change it.`);
   }
 
   private creative(player: Player): void {
@@ -391,7 +403,7 @@ export class Editor {
     }
   }
 
-  /** The map menu (slot 9) and the Zoom (slot 8), locked in place, for a player missing them. */
+  /** The map menu (slot 9), locked in place, for a player missing it. */
   private giveItems(player: Player): void {
     const inventory = inventoryOf(player);
     if (!inventory) return;
@@ -401,10 +413,9 @@ export class Editor {
       menu.keepOnDeath = true;
       inventory.setItem(MENU_SLOT, menu);
     }
-    giveZoom(inventory);
   }
 
-  /** /reset: creative mode, the map menu and the Zoom, at once. */
+  /** /reset: creative mode and the map menu, at once. */
   private reset(player: Player): void {
     if (!player.isValid) return;
     player.setGameMode(GameMode.Creative);
@@ -412,11 +423,11 @@ export class Editor {
     tell(player, "Reset: creative mode, and your map editor items.");
   }
 
-  /** Players missing the map menu or the Zoom get them back (a command block may have cleared them). */
+  /** Players missing the map menu get it back (a command block may have cleared it). */
   private checkItems(): void {
     for (const player of world.getAllPlayers()) {
       const inventory = inventoryOf(player);
-      if (!inventory || (holds(inventory, MAP_MENU) && holds(inventory, ZOOM_ITEM))) continue;
+      if (!inventory || holds(inventory, MAP_MENU)) continue;
       this.giveItems(player);
       tell(player, "Your map editor items were gone: they're back. /reset also brings back creative mode.");
     }
@@ -465,7 +476,7 @@ export class Editor {
       const tool = heldTool(player);
       // Nudge sides puts the way the player faces there instead.
       if (!tool || this.cameraTool.isLooking(player) || nudgePreview(player)) continue;
-      if (tool === "spawn") hintBar(player, this.spawnHint(player));
+      if (tool === "spawn" || tool === "marker") hintBar(player, this.spawnHint(player, tool));
       else if (tool === "region") hintBar(player, this.regionTool.hint(player));
       else if (tool === "killY") hintBar(player, this.killYTool.hint(player));
       else if (tool === "camera") hintBar(player, this.cameraTool.hint(player));
@@ -473,8 +484,8 @@ export class Editor {
     }
   }
 
-  private spawnHint(player: Player): string {
-    const list = this.spawnList(player);
+  private spawnHint(player: Player, tool: PlaceTool): string {
+    const list = this.spawnList(player, tool);
     if (!list) return "There's nothing to place on this map";
     const settings = this.settingsOf(player);
     const count = listOf(this.state.current, list.target).length;
@@ -497,7 +508,7 @@ export class Editor {
   private async mapMenu(player: Player): Promise<void> {
     const config = this.state.current;
     const tool = this.toolOut(player);
-    if (tool === "spawn") this.spawnList(player);
+    if (tool === "spawn" || tool === "marker") this.spawnList(player, tool);
     const entries = mapMenuEntries({
       config,
       checklist: mapChecklist(config, this.info.rules),
@@ -656,10 +667,12 @@ export class Editor {
       tell(player, `There's no tool for ${row.label} yet: set it in map.json, and the editor picks up the change.`);
       return;
     }
-    this.settingsOf(player).list = list.key;
-    const tool = EDITOR_TOOLS.find((candidate) => candidate.id === "spawn");
+    const settings = this.settingsOf(player);
+    if (list.tool === "spawn") settings.list = list.key;
+    else settings.marker = list.key;
+    const tool = EDITOR_TOOLS.find((candidate) => candidate.id === list.tool);
     if (tool) this.equipTool(player, tool);
-    tell(player, `Spawn tool set to ${list.label}: use it where the entry goes.`);
+    tell(player, `${tool?.label ?? "Spawn tool"} set to ${list.label}: use it where the entry goes.`);
   }
 
   /** A tool's icon in the map menu: puts the tool away when it's out, else puts it in hand. */
@@ -757,6 +770,7 @@ export class Editor {
     if (action === "back") return this.mapMenu(player);
     if (action === "settings") return this.settingsForm(player);
     if (action === "dropBuild") return this.dropBuild(player);
+    if (action === "publish") return this.publish(player);
     if (action === "delete") return this.deleteMap(player);
     if (action === "mapThumbnail") return this.thumbnailMenu(player, "map");
     if (action === "gameThumbnail") return this.thumbnailMenu(player, "game");
@@ -919,11 +933,11 @@ export class Editor {
     }
   }
 
-  /** The Spawn tool: a new entry's screen, where the player aims, in the list they placed into last. */
-  private spawnTool(player: Player): Promise<void> {
-    const list = this.spawnList(player);
+  /** The Spawn tool or the Game marker tool: a new entry's screen, where the player aims, in the list they placed into last. */
+  private spawnTool(player: Player, tool: PlaceTool): Promise<void> {
+    const list = this.spawnList(player, tool);
     if (!list) {
-      tell(player, "This map's game has no spawns or points to place.");
+      tell(player, tool === "spawn" ? "This map's game has no spawns to place." : "This map's game has no markers of its own.");
       return Promise.resolve();
     }
     const settings = this.settingsOf(player);
@@ -958,13 +972,13 @@ export class Editor {
     const preview = this.entryPreview.get(player.name.toLowerCase());
     if (preview) return { kind: "point", at: preview.at, yaw: preview.yaw, style: preview.style };
     const tool = heldTool(player);
-    if (tool === "spawn") {
+    if (tool === "spawn" || tool === "marker") {
       const settings = this.settingsOf(player);
       const aimed = player.isSneaking ? player.location : this.aimedAt(player);
       if (!aimed) return undefined;
       const at = pointOf(entryPosition(aimed, settings.center));
       const yaw = player.isSneaking || settings.keepFacing ? player.getRotation().y : lookAt(at, mapMiddle(this.state.current)).yaw;
-      return { kind: "point", at, yaw, style: this.spawnList(player)?.style ?? 0 };
+      return { kind: "point", at, yaw, style: this.spawnList(player, tool)?.style ?? 0 };
     }
     if (tool === "region") {
       const block = blockInView(player);
@@ -981,7 +995,9 @@ export class Editor {
    */
   private async entryScreen(player: Player, start: { list: SpawnList; at: Point; facing?: Facing; existing?: { index: number; position: MapPosition } }, back?: () => Promise<void>): Promise<void> {
     const settings = this.settingsOf(player);
+    const tool = start.list.tool;
     let listKey = start.list.key;
+    let open: "group" | "team" | undefined;
     let at = start.at;
     let facing = start.facing;
     let step: number = POINT_STEPS[0];
@@ -991,7 +1007,7 @@ export class Editor {
     const bar = system.runInterval(facingBar, FACING_TICKS);
     try {
       for (;;) {
-        const lists = this.lists();
+        const lists = toolLists(this.lists(), tool);
         const list = lists.find((candidate) => candidate.key === listKey) ?? lists[0];
         if (!list) return;
         // The cursor shows it where it will go, turned the way it will face.
@@ -1000,6 +1016,7 @@ export class Editor {
         const entries = entryScreenEntries({
           lists,
           list: list.key,
+          ...(open ? { open } : {}),
           at,
           facing,
           snap: settings.snap,
@@ -1019,7 +1036,12 @@ export class Editor {
         switch (action.kind) {
           case "list":
             listKey = action.key;
-            settings.list = action.key;
+            if (tool === "spawn") settings.list = action.key;
+            else settings.marker = action.key;
+            open = undefined;
+            break;
+          case "open":
+            open = open === action.which ? undefined : action.which;
             break;
           case "type":
             at = (await this.typedPosition(player, at)) ?? at;

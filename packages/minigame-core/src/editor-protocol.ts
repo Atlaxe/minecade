@@ -188,8 +188,11 @@ export type EditorEvent =
   | { t: "renameMap"; by: string; map: string }
   /** The answer to "cleanup": how many markers are still in the world (the world is saved only at 0). */
   | { t: "clean"; id: number; left: number; error?: string }
-  /** Select mode: export this box as a new map (its spectator spawn goes above it; spawns are placed in Edit). */
-  | { t: "saveMap"; by: string; box: Box; target: string; map: string; name: string }
+  /**
+   * Select mode: export this box as a new map (its spectator spawn goes above it; spawns are placed
+   * in Edit). With `edit`, the host opens it in Edit once it's cut out, and moves `by` there.
+   */
+  | { t: "saveMap"; by: string; box: Box; target: string; map: string; name: string; edit?: boolean }
   /** Select mode: try a failed extraction again, or take a failed one off the list. */
   | { t: "mapAction"; by: string; action: "retry" | "forget"; target: string; map: string }
   /** Edit: delete the map open here (its folder, its place in Select's list, and its removal pushed when it was published). */

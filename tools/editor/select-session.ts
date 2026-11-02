@@ -1,7 +1,8 @@
 // The Select server: a copy of a converted world (with the void generator, so flying past it grows
 // nothing; the world itself is never opened), where map editors box maps. Saving a box as a map
 // queues its extraction (selections.ts); the list and how each extraction is going reach the pack,
-// which shows them in the map menu. Nothing in Select mode is saved: stopping just stops.
+// which shows them in the map menu. An export with Open in Edit goes to the runner (onExportEdit),
+// which opens it in Edit once it's cut out. Nothing in Select mode is saved: stopping just stops.
 import { cp, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { chatMapName, type EditorEvent, type SelectInfo, type SelectionInfo } from "@minecade/minigame-core/config";
@@ -20,6 +21,8 @@ export class SelectSession extends ServerSession {
   private targets: (EditorTarget & { maps: string[] })[] = [];
   private infos: SelectionInfo[] = [];
   private offChange: (() => void) | undefined;
+  /** An export asked to open in Edit once it's cut out (the runner sees to it). */
+  onExportEdit: (by: string, target: string, map: string) => void = () => {};
 
   constructor(options: SessionBase & { world: World; selections: Selections }) {
     super(options);
@@ -101,9 +104,10 @@ export class SelectSession extends ServerSession {
       void this.say(`§c${problem}`, event.by);
       return;
     }
+    if (event.edit) this.onExportEdit(event.by, target.id, event.map);
     await this.selections.add(this.world.name, { target: target.id, map: event.map, name, box: event.box, offset: centerOffset(event.box) });
-    this.note(`${event.by}: ${target.name}, ${name} (${event.map}) queued for extraction.`);
-    void this.say(`${chatMapName(target.name, name)} is exporting: it's cut out and moved to the middle in the background. You can box the next map meanwhile.`, event.by);
+    this.note(`${event.by}: ${target.name}, ${name} (${event.map}) queued for extraction${event.edit ? ", to open in Edit" : ""}.`);
+    if (!event.edit) void this.say(`${chatMapName(target.name, name)} is exporting: it's cut out and moved to the middle in the background. You can box the next map meanwhile.`, event.by);
   }
 
   protected async afterReady(): Promise<void> {

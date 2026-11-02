@@ -53,6 +53,33 @@
     ]
   },
 
+  // A list in a form with fields (Export to Map's For) opens about five options tall before it
+  // scrolls, not vanilla's three (its list is sized against the 30 pixel field: 200% there). The
+  // rest is vanilla's, copied, since a child's own variables can't be changed from outside.
+  "custom_dropdown": {
+    "controls": [
+      {
+        "dropdown@settings_common.option_dropdown": {
+          "$option_label": "#custom_text",
+          "$dropdown_content": "server_form.custom_dropdown_content",
+          "$dropdown_area": "inside_header_panel",
+          "$dropdown_name": "custom_dropdown",
+          "$toggle_binding_type": "collection",
+          "$toggle_grid_collection_name": "custom_form",
+          "$options_dropdown_toggle_label_binding": "#dropdown_option_text",
+          "$options_dropdown_toggle_label_binding_type": "collection",
+          "$options_dropdown_toggle_label_binding_collection_name": "custom_form",
+          "$option_tooltip_binding_type": "collection",
+          "$option_tooltip_collection_name": "custom_form",
+          "$option_tooltip_text_binding_name": "#custom_tooltip_text",
+          "$option_tooltip_area": "inside_header_panel",
+          "$dropdown_scroll_content_size": ["100%", "333%"],
+          "$label_bindings": [{"binding_name": "#custom_text", "binding_type": "collection", "binding_collection_name": "custom_form"}]
+        }
+      }
+    ]
+  },
+
   // The vanilla form with fields hides itself for a title with the side mark: editor_forms.json
   // draws those down the right side. Starts hidden, as above.
   "custom_form": {

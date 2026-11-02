@@ -8,7 +8,7 @@
 // the HUD, markers and outlines hidden and a 16:9 frame showing what a picture keeps; nudge it,
 // take the screenshot with Minecraft's own keys (F1 hides everything, F2 takes it), then use the
 // tool again for Use latest screenshot, which has the host save it as the picture
-// (tools/editor/shots.ts).
+// (tools/editor/shots.ts). Shift (or Back to my view) brings the player's own view back.
 import { HudVisibility, type Player } from "@minecraft/server";
 import { ActionFormData } from "@minecraft/server-ui";
 import { describeError } from "@minecade/minigame-core";
@@ -24,6 +24,8 @@ const LOOK_TICKS = 1_000_000;
 const FRAME_TICKS = 20 * 60 * 10;
 /** What the frame says once Take a screenshot is picked. */
 const SHOOT_LINE = "§fF1 hides everything, F2 takes the screenshot, F1 brings it back. Then use the Snapshot tool again.";
+/** What the frame says otherwise. */
+const FRAME_LINE = "§7Shift: back to your view";
 
 export interface CameraHost extends ToolHost {
   /** "Sumo", or "Lobby" (a lobby map has no picture). */
@@ -248,7 +250,7 @@ export class CameraTool {
   }
 
   /** The 16:9 frame (hud.ts FRAME_MARK), with a line at its top. */
-  private frame(player: Player, line = ""): void {
+  private frame(player: Player, line = FRAME_LINE): void {
     try {
       player.onScreenDisplay.setTitle(frameLine(line), { fadeInDuration: 0, stayDuration: FRAME_TICKS, fadeOutDuration: 0 });
     } catch {

@@ -4,7 +4,8 @@
 // way it talks to the orchestrator: it says server_ready once it can take players, and end_game
 // once it has sent everyone back: map editors to LOBBY_PORT, which is Edit's (or the editor
 // lobby's, for a preview started there), and invited guests to GUEST_LOBBY_PORT, the editor
-// lobby's. The runner (runner.ts) moves the players there and back.
+// lobby's. A match that's over asks each player what's next first; end_game then says who picked
+// Replay and Edit. The runner (runner.ts) moves the players there and back.
 import { cp, mkdir, mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -55,8 +56,8 @@ export interface PreviewOptions {
 export class PreviewSession {
   state: PreviewState = "starting";
   error: string | undefined;
-  /** The game ended (or stopped on its own): the reason, in a few words. Called once. */
-  onEnd: ((why: string) => void) | undefined;
+  /** The game ended (or stopped on its own): the reason, in a few words, and who picked Replay and Edit. Called once. */
+  onEnd: ((why: string, next: { replay: string[]; edit: string[] }) => void) | undefined;
   /** A player joined or left the game. */
   onPlayer: () => void = () => {};
   private readonly options: PreviewOptions;
@@ -194,14 +195,14 @@ export class PreviewSession {
     if (event?.t === "server_ready") this.serverReady?.();
     else if (event?.t === "end_game") {
       this.options.note(`Preview: the game ended (${event.reason}).`);
-      this.finish(event.reason === "finished" ? "the match is over" : `the game ended (${event.reason})`);
+      this.finish(event.reason === "finished" ? "the match is over" : `the game ended (${event.reason})`, { replay: event.replay ?? [], edit: event.edit ?? [] });
     }
   }
 
-  private finish(why: string): void {
+  private finish(why: string, next = { replay: [] as string[], edit: [] as string[] }): void {
     if (this.ended) return;
     this.ended = true;
-    this.onEnd?.(why);
+    this.onEnd?.(why, next);
   }
 
   private send(message: Parameters<typeof encodeMessage>[0]): void {

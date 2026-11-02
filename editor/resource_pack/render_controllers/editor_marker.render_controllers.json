@@ -29,7 +29,13 @@
       ],
       "textures": [
         "Array.kinds[query.property('minecade:style') >= 3 ? query.property('minecade:style') + 3 : query.property('minecade:kind')]"
-      ]
+      ],
+      "overlay_color": {
+        "r": "math.mod(math.floor((query.property('minecade:tint') - 1) / 65536), 256) / 255",
+        "g": "math.mod(math.floor((query.property('minecade:tint') - 1) / 256), 256) / 255",
+        "b": "math.mod(query.property('minecade:tint') - 1, 256) / 255",
+        "a": "query.property('minecade:tint') > 0 ? 0.9 : 0.0"
+      }
     },
     "controller.render.minecade.editor_marker_facing": {
       "arrays": {

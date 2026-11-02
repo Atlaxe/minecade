@@ -25,8 +25,8 @@ import {
   type ServerInfo,
 } from "@minecade/minigame-core/config";
 import { relativeSide, sizeText, type Cardinal, type Sides } from "./boxes.ts";
-import { SNAPS, compass, type Snap, type SpawnList } from "./lists.ts";
-import { COLUMNS, MARK, cardIconText, cardTitleText, dangerText, goText, headingText, linkText, pictureText, saveBarText, segmentText, stepTileText, switchText } from "./marks.ts";
+import { SNAPS, compass, toolLists, type Snap, type SpawnList } from "./lists.ts";
+import { COLUMNS, MARK, cardIconText, cardTitleText, dangerText, dropdownText, goText, headingText, linkText, optionText, pictureText, saveBarText, segmentText, stepTileText, switchText } from "./marks.ts";
 import { CAMERA_KINDS, cameraPlace, camerasOf, type CameraKind } from "./cameras.ts";
 import { ALL_BOUNDARIES, outlineShown, type BoundaryRow, type RegionEntry, type RegionTarget, type SelectionAction } from "./regions.ts";
 import { EDITOR_TOOLS, SELECT_TOOL, type ToolId } from "./tools.ts";
@@ -113,9 +113,12 @@ export interface MenuEntry {
   icon?: string;
 }
 
-/** The spawn tool's settings, as a map editor last picked them. */
+/** The Spawn tool's and the Game marker tool's settings, as a map editor last picked them. */
 export interface SpawnSettings {
+  /** The list the Spawn tool places into. */
   list: string;
+  /** The list the Game marker tool places into. */
+  marker?: string;
   /** Whole blocks (the middle of the block), not exactly where the player aims. */
   center: boolean;
   keepFacing: boolean;
@@ -161,19 +164,26 @@ export function mapMenuEntries(view: MapMenuView): MenuEntry[] {
     entries.push({ action: { kind: "preview" }, text: `${MARK.quick}${ready ? "" : MARK.dim}Preview\n§7${ready ? `play it as ${view.game}, then come back` : "finish the checklist first"}`, icon: ICONS.play });
   }
   entries.push({ action: { kind: "settings" }, text: `${MARK.quick}Map settings\n§7name, game settings, build commands`, icon: ICONS.settings });
-  EDITOR_TOOLS.forEach((tool, i) => {
+  editorTools(view.spawn.lists).forEach((tool, i) => {
     const picked = tool.id === view.tool ? MARK.on : "";
     entries.push({ action: { kind: "tool", tool: tool.id }, text: `${MARK.tool}${COLUMNS[i % COLUMNS.length]}${picked}${tool.label}\n§7${tool.hint}`, icon: tool.icon });
   });
   // How to use the tool is a link: it goes to chat.
   if (view.tool) entries.push({ action: { kind: "help" }, text: linkText("Help") });
-  if (view.tool === "spawn") entries.push(...spawnSettings(view.config, view.spawn.lists));
+  if (view.tool === "spawn") entries.push(...spawnSettings(view.config, toolLists(view.spawn.lists, "spawn")));
+  else if (view.tool === "marker") entries.push(...spawnSettings(view.config, toolLists(view.spawn.lists, "marker")));
   else if (view.tool === "region") entries.push(...regionSettings(view.region.selection, view.region.entries));
   else if (view.tool === "killY") entries.push(...killYSettings(view.config.killY));
   else if (view.tool === "camera") entries.push(...cameraSettings(view.config, view.camera?.kind ?? "map"));
   else if (view.tool === "snapshot") entries.push(...snapshotSettings(view.config));
   entries.push({ action: { kind: "save" }, text: `${MARK.save}${saveText(view)}` });
   return entries;
+}
+
+/** The tools in the map menu's grid: the Game marker tool only when the game has markers of its own. */
+export function editorTools(lists: SpawnList[]): typeof EDITOR_TOOLS {
+  const markers = lists.some((list) => list.tool === "marker");
+  return EDITOR_TOOLS.filter((tool) => tool.id !== "marker" || markers);
 }
 
 /** The camera tool's settings: the kind of new cameras, then the map's cameras (tap one for its form). */
@@ -261,9 +271,12 @@ export const POINT_STEPS = [1, 0.5, 5] as const;
 
 /** A spawn or point's screen: new (placed with the Spawn tool) or one the map has (its marker hit). */
 export interface EntryScreenView {
+  /** The tool's lists (the Spawn tool's, or the Game marker tool's). */
   lists: SpawnList[];
   /** The picked list's key. */
   list: string;
+  /** A list that's open: the Game marker tool's Marker list, or the Team list. */
+  open?: "group" | "team";
   at: { x: number; y: number; z: number };
   facing?: Facing;
   snap: Snap;
@@ -279,6 +292,7 @@ export interface EntryScreenView {
 
 export type EntryScreenAction =
   | { kind: "list"; key: string }
+  | { kind: "open"; which: "group" | "team" }
   | { kind: "type" }
   | { kind: "here" }
   | { kind: "center" }
@@ -306,20 +320,45 @@ function coordinate(value: number): string {
   return String(Math.round(value * 100) / 100);
 }
 
-/** A list's name on its toggle tile: "Spawn", "Spectator", "Queue", "Red", "Bomb site A". */
-export function shortListName(list: SpawnList): string {
-  return list.entry.replace(/ spawn$/, "");
+/** Each group among `lists` once (its first list), in order: the Spawn tool's tiles, the Game marker tool's Marker list. */
+export function groupsOf(lists: SpawnList[]): SpawnList[] {
+  const seen = new Set<string>();
+  return lists.filter((list) => !seen.has(list.group) && seen.add(list.group));
+}
+
+/** In `group`, the list for the team called `team` (a teamLabel) when it has one, else its first. */
+export function listInGroup(lists: SpawnList[], group: string, team?: string): SpawnList | undefined {
+  const members = lists.filter((list) => list.group === group);
+  return members.find((list) => list.teamLabel !== undefined && list.teamLabel === team) ?? members[0];
 }
 
 /**
- * A spawn or point's screen: which list (a toggle), its position and facing, the queue's settings
- * for the queue spawn, nudge rows for each axis, Step, Renumber and Delete (one the map has), and
- * Place or Save, green, at the bottom.
+ * A spawn or marker's screen: what it is (the Spawn tool's tiles: Spawn, Spectator, Queue; the Game
+ * marker tool's Marker list) and its team (a Team list, for a team's spawns or markers), its
+ * position and facing, the queue's settings for the queue spawn, nudge rows for each axis, Step,
+ * Renumber and Delete (one the map has), and Place or Save, green, at the bottom. A list opens
+ * under its row, the one in use outlined, and closes once one is picked.
  */
 export function entryScreenEntries(view: EntryScreenView): { action: EntryScreenAction; text: string; icon?: string }[] {
   const entries: { action: EntryScreenAction; text: string; icon?: string }[] = view.back ? [{ action: { kind: "back" }, text: BACK_TEXT, icon: ICONS.back }] : [];
-  view.lists.forEach((list, i) => entries.push({ action: { kind: "list", key: list.key }, text: segmentText(shortListName(list), i, list.key === view.list) }));
+  const current = view.lists.find((list) => list.key === view.list) ?? view.lists[0];
+  const groups = groupsOf(view.lists);
+  const pick = (group: string) => listInGroup(view.lists, group, current?.teamLabel)?.key ?? view.list;
   const lead = (action: EntryScreenAction, text: string) => entries.push({ action, text: `${MARK.lead}${text}` });
+  const dropdown = (which: "group" | "team", label: string, options: { key: string; label: string; on: boolean }[]) => {
+    const open = view.open === which;
+    lead({ kind: "open", which }, dropdownText(label, options.find((option) => option.on)?.label ?? "", open));
+    if (open) for (const option of options) lead({ kind: "list", key: option.key }, optionText(option.label, option.on));
+  };
+  if (current?.tool === "marker") {
+    dropdown("group", "Marker", groups.map((group) => ({ key: pick(group.group), label: group.groupLabel, on: group.group === current.group })));
+  } else {
+    groups.forEach((group, i) => entries.push({ action: { kind: "list", key: pick(group.group) }, text: segmentText(group.groupLabel, i, group.group === current?.group) }));
+  }
+  const teams = view.lists.filter((list) => list.group === current?.group && list.teamLabel !== undefined);
+  if (current?.teamLabel !== undefined && teams.length > 0) {
+    dropdown("team", "Team", teams.map((list) => ({ key: list.key, label: list.teamLabel ?? "", on: list.key === current.key })));
+  }
   const snap = SNAPS.find((candidate) => candidate.snap === view.snap)?.label ?? "Exact";
   lead({ kind: "none" }, headingText("Position"));
   lead({ kind: "type" }, `${[view.at.x, view.at.y, view.at.z].map(coordinate).join(" ")}\n§7tap to type a position`);
@@ -666,9 +705,9 @@ export const PLAYERS_TEXT = `${MARK.quick}Players\n§7invite friends to Select a
 const PLAYERS_ENTRY: MenuEntry = { action: { kind: "players" }, text: PLAYERS_TEXT, icon: ICONS.players };
 
 /** Edit's gear: Players and Back to Lobby (right end) in the icon row, then the map's settings and the red ones. */
-export type GearAction = "settings" | "players" | "dropBuild" | "delete" | "lobby" | "back" | "mapThumbnail" | "gameThumbnail";
+export type GearAction = "settings" | "players" | "dropBuild" | "publish" | "delete" | "lobby" | "back" | "mapThumbnail" | "gameThumbnail";
 
-/** Edit's gear: the icon row, Name and game settings, the thumbnails (a game's map), then the red ones. */
+/** Edit's gear: the icon row, Name and game settings, the thumbnails (a game's map), then Publish (green) and the red ones. */
 export function gearEntries(view: { build: boolean; game: boolean }): { action: GearAction; text: string; icon?: string }[] {
   const entries: { action: GearAction; text: string; icon?: string }[] = [
     { action: "back", text: BACK_TEXT, icon: ICONS.back },
@@ -678,15 +717,16 @@ export function gearEntries(view: { build: boolean; game: boolean }): { action: 
   ];
   if (view.game) entries.push({ action: "mapThumbnail", text: "Edit Map Thumbnail" }, { action: "gameThumbnail", text: "Edit Minigame Thumbnail" });
   if (view.build) entries.push({ action: "dropBuild", text: dangerText("Drop build commands") });
-  entries.push({ action: "delete", text: dangerText("Delete map") });
+  // Publish is in the checklist too.
+  entries.push({ action: "publish", text: goText("Publish") }, { action: "delete", text: dangerText("Delete map") });
   return entries;
 }
 
-/** What Export to Map has so far: the name, the map id when typed (else it comes from the name), and the target. */
+/** What Export to Map has so far: the name (the map id comes from it), the target, and whether it opens in Edit once it's cut out. */
 export interface ExportDraft {
   name: string;
-  map?: string;
   target: string;
+  edit: boolean;
 }
 
 /** The back arrow left of a sub-menu's title. */
@@ -806,6 +846,14 @@ export function mapIdFrom(name: string): string {
     .slice(0, 48);
 }
 
+/** A map id from a name, made unique: "castle", else "castle_2", "castle_3" and on when `taken` has it ("map" for a name with no letters or digits). */
+export function uniqueMapId(name: string, taken: string[]): string {
+  const base = (mapIdFrom(name) || "map").replace(/^[_-]+/, "").slice(0, 44) || "map";
+  const used = new Set(taken);
+  if (!used.has(base)) return base;
+  for (let n = 2; ; n++) if (!used.has(`${base}_${n}`)) return `${base}_${n}`;
+}
+
 /** How many cards the editor lobby's menu shows. */
 const CARDS_SHOWN = 8;
 
@@ -873,7 +921,7 @@ export function homeEntries(state: HomeState): HomeEntry[] {
     { action: { kind: "players" }, text: PLAYERS_TEXT, icon: ICONS.players },
     { action: { kind: "leave" }, text: `${MARK.end}Leave\n§7disconnect from the map editor`, icon: ICONS.leave },
     { action: { kind: "none" }, text: `${MARK.cardHead}${headingText("Recent")}` },
-    { action: { kind: "maps" }, text: `${MARK.cardLink}Search\n§7the lobby's and every game's maps`, icon: ICONS.search },
+    { action: { kind: "maps" }, text: `${MARK.cardLink}Search`, icon: ICONS.search },
   ];
   const cards = homeCards(state.catalog);
   if (cards.length === 0) entries.push({ action: { kind: "none" }, text: headingText("§8Nothing opened yet") });

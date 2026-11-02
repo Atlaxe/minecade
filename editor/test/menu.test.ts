@@ -2,8 +2,8 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { mapChecklist, stripColors, type HomeState, type MapCamera, type MapConfig } from "@minecade/minigame-core/config";
 import { DANGER_BUTTON, SIDE_TITLE } from "../../packages/minigame-core/src/game/preview.ts";
-import { spawnLists } from "../behavior_pack/scripts/lists.ts";
-import { CARD_COLUMNS, COLUMNS, LAYOUT, LOADING, MARK, SEGMENT_COLUMNS, cardIconText, cardTitleText, dangerText, goText, headingText, homeTitle, iconsTitle, linkText, loadingTitle, mapTitle, pictureText, saveBarText, segmentText, sideTitle, stepTileText, switchText } from "../behavior_pack/scripts/marks.ts";
+import { spawnLists, toolLists } from "../behavior_pack/scripts/lists.ts";
+import { CARD_COLUMNS, COLUMNS, LAYOUT, LOADING, MARK, SEGMENT_COLUMNS, cardIconText, cardTitleText, dangerText, dropdownText, goText, headingText, homeTitle, iconsTitle, linkText, loadingTitle, mapTitle, optionText, pictureText, saveBarText, segmentText, sideTitle, stepTileText, switchText } from "../behavior_pack/scripts/marks.ts";
 import {
   BACK_TEXT,
   ICONS,
@@ -21,6 +21,8 @@ import {
   homeCards,
   importMapEntries,
   importTargetEntries,
+  uniqueMapId,
+  editorTools,
   previewEntries,
   snapshotEntries,
   snapshotListEntries,
@@ -83,12 +85,18 @@ describe("map menu", () => {
     expect(redo.text).toBe(`${MARK.quick}${MARK.dim}Redo\n§7nothing to redo`);
   });
 
-  it("puts each tool in a grid column with its icon, the one out marked", () => {
+  it("puts each tool in a grid column with its icon, the one out marked, the Game marker tool only for a game with markers", () => {
     const tools = mapMenuEntries(view(draft, { tool: "region" })).filter((entry) => entry.action.kind === "tool");
-    expect(tools.map((entry) => entry.icon)).toEqual(EDITOR_TOOLS.map((tool) => tool.icon));
-    expect(tools[0].text).toBe(`${MARK.tool}${COLUMNS[0]}Spawn tool\n§7spawns and points`);
+    expect(tools.map((entry) => entry.icon)).toEqual(EDITOR_TOOLS.filter((tool) => tool.id !== "marker").map((tool) => tool.icon));
+    expect(tools[0].text).toBe(`${MARK.tool}${COLUMNS[0]}Spawn tool\n§7spawns, spectator and queue spawns`);
     expect(tools[1].text).toBe(`${MARK.tool}${COLUMNS[1]}${MARK.on}Region tool\n§7bounds, regions, kill regions`);
     expect(tools[4].text).toBe(`${MARK.tool}${COLUMNS[4]}Snapshot tool\n§7take a camera's picture`);
+    const withMarkers = spawnLists(draft, { ...rules, requires: { points: { hole: { label: "Hole" } } } });
+    expect(editorTools(withMarkers).map((tool) => tool.id)).toEqual(["spawn", "marker", "region", "killY", "camera", "snapshot"]);
+    // Its settings list the game's markers, and the Spawn tool's leave them out.
+    const settings = (tool: "spawn" | "marker") => mapMenuEntries({ ...view(draft, { tool }), spawn: { lists: withMarkers, settings: { list: "spawns", center: false, keepFacing: false, snap: "exact" } } }).map((entry) => entry.text);
+    expect(settings("marker")).toContain(headingText("Hole: none yet"));
+    expect(settings("spawn")).not.toContain(headingText("Hole: none yet"));
   });
 
   it("shows the tool out's settings, after a Help link, between the tools and Save", () => {
@@ -357,10 +365,11 @@ describe("Edit's gear", () => {
       { action: "mapThumbnail", text: "Edit Map Thumbnail" },
       { action: "gameThumbnail", text: "Edit Minigame Thumbnail" },
       { action: "dropBuild", text: dangerText("Drop build commands") },
+      { action: "publish", text: goText("Publish") },
       { action: "delete", text: dangerText("Delete map") },
     ]);
     // A lobby map has no thumbnails.
-    expect(gearEntries({ build: false, game: false }).map((entry) => entry.action)).toEqual(["back", "players", "lobby", "settings", "delete"]);
+    expect(gearEntries({ build: false, game: false }).map((entry) => entry.action)).toEqual(["back", "players", "lobby", "settings", "publish", "delete"]);
   });
 });
 
@@ -456,7 +465,7 @@ describe("the editor lobby's menu", () => {
     expect(entries[1]).toEqual({ action: { kind: "players" }, text: PLAYERS_TEXT, icon: ICONS.players });
     expect(entries[2]).toEqual({ action: { kind: "leave" }, text: `${MARK.end}Leave\n§7disconnect from the map editor`, icon: ICONS.leave });
     expect(entries[3].text).toBe(`${MARK.cardHead}${headingText("Recent")}`);
-    expect(entries[4]).toEqual({ action: { kind: "maps" }, text: `${MARK.cardLink}Search\n§7the lobby's and every game's maps`, icon: ICONS.search });
+    expect(entries[4]).toEqual({ action: { kind: "maps" }, text: `${MARK.cardLink}Search`, icon: ICONS.search });
     expect(entries.slice(5).map((entry) => entry.text)).toEqual([headingText("§8Nothing opened yet")]);
   });
 
@@ -527,8 +536,11 @@ describe("the editor lobby's menu", () => {
     expect(switchWarning({ ...busy, servers: { edit: { ...busy.servers.edit!, players: [] }, waiting: [] } }, { to: "edit", target: "sumo", map: "castle" })).toBeUndefined();
   });
 
-  it("makes map ids from names", () => {
+  it("makes map ids from names, unique among the ones taken", () => {
     expect(mapIdFrom("Castle Keep!")).toBe("castle_keep");
+    expect(uniqueMapId("Castle Keep!", [])).toBe("castle_keep");
+    expect(uniqueMapId("Castle Keep!", ["castle_keep", "castle_keep_2"])).toBe("castle_keep_3");
+    expect(uniqueMapId("!!!", [])).toBe("map");
   });
 });
 
@@ -553,6 +565,39 @@ describe("tool screens", () => {
     expect(rows).toEqual(["X (east +): 3.25", "Y (up +): 65", "Z (south +): -2"]);
     expect(entries.at(-1)?.text).toBe(saveBarText("Place Spawn"));
     expect(entries.some((entry) => entry.action.kind === "delete")).toBe(false);
+  });
+
+  it("picks a team spawn's team in a Team list under the toggle, open or closed", () => {
+    const teamRules = { kind: "game" as const, maxPlayers: 4, teams: [{ id: "red", name: "Red", color: "§c" }, { id: "blue", name: "Blue", color: "§9" }], requires: { teamSpawns: true } };
+    const teamLists = toolLists(spawnLists({ ...draft, spawns: [] }, teamRules), "spawn");
+    const closed = entryScreenEntries({ lists: teamLists, list: "teamSpawns.blue", at, snap: "exact", center: false, step: 1 });
+    // Spawn, Spectator and Queue are the tiles; the team is a list.
+    expect(closed.slice(0, 3).map((entry) => entry.text)).toEqual([segmentText("Spawn", 0, true), segmentText("Spectator", 1, false), segmentText("Queue", 2, false)]);
+    expect(closed[3]).toEqual({ action: { kind: "open", which: "team" }, text: `${MARK.lead}${dropdownText("Team", "Blue", false)}` });
+    const open = entryScreenEntries({ lists: teamLists, list: "teamSpawns.blue", open: "team", at, snap: "exact", center: false, step: 1 });
+    expect(open.slice(3, 6)).toEqual([
+      { action: { kind: "open", which: "team" }, text: `${MARK.lead}${dropdownText("Team", "Blue", true)}` },
+      { action: { kind: "list", key: "teamSpawns.red" }, text: `${MARK.lead}${optionText("Red", false)}` },
+      { action: { kind: "list", key: "teamSpawns.blue" }, text: `${MARK.lead}${optionText("Blue", true)}` },
+    ]);
+    // The spectator spawn has no team.
+    const spectator = entryScreenEntries({ lists: teamLists, list: "spectatorSpawn", at, snap: "exact", center: false, step: 1 });
+    expect(spectator.some((entry) => entry.action.kind === "open")).toBe(false);
+    expect(spectator[0].action).toEqual({ kind: "list", key: "teamSpawns.red" });
+  });
+
+  it("picks a game marker in a Marker list, then its team when it has one", () => {
+    const markerRules = { kind: "game" as const, maxPlayers: 4, teams: [{ id: "red", name: "Red", color: "§c" }, { id: "blue", name: "Blue", color: "§9" }], requires: { teamSpawns: true, points: { hole: { label: "Hole", perTeam: true }, flag: { label: "Flag" } } } };
+    const markers = toolLists(spawnLists({ ...draft, spawns: [] }, markerRules), "marker");
+    const entries = entryScreenEntries({ lists: markers, list: "points.hole.blue", open: "group", at, snap: "exact", center: false, step: 1 });
+    expect(entries.some((entry) => entry.text.startsWith(MARK.segment))).toBe(false);
+    expect(entries.slice(0, 4)).toEqual([
+      { action: { kind: "open", which: "group" }, text: `${MARK.lead}${dropdownText("Marker", "Hole", true)}` },
+      { action: { kind: "list", key: "points.hole.blue" }, text: `${MARK.lead}${optionText("Hole", true)}` },
+      { action: { kind: "list", key: "points.flag" }, text: `${MARK.lead}${optionText("Flag", false)}` },
+      { action: { kind: "open", which: "team" }, text: `${MARK.lead}${dropdownText("Team", "Blue", false)}` },
+    ]);
+    expect(entries.at(-1)?.text).toBe(saveBarText("Place Hole (Blue)"));
   });
 
   it("offers the queue's settings, Renumber and Delete on one the map has, and Save at the bottom", () => {

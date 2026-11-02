@@ -1,8 +1,9 @@
 // The map editor's tools, as plain data. Each is an item a map editor picks from the map menu's
 // tool grid: it goes in hotbar slot 1, unlocked, and only one tool is out at a time. A new tool
-// adds a row here and gets its icon in the grid.
+// adds a row here and gets its icon in the grid. The Game marker tool is only there for a game (or
+// the lobby) whose config asks for points.
 
-export type ToolId = "spawn" | "region" | "killY" | "camera" | "snapshot" | "select";
+export type ToolId = "spawn" | "marker" | "region" | "killY" | "camera" | "snapshot" | "select";
 
 export interface EditorTool {
   id: ToolId;
@@ -23,8 +24,16 @@ export const EDITOR_TOOLS: EditorTool[] = [
     item: "minecade:spawn_tool",
     icon: "textures/items/spawn_tool",
     label: "Spawn tool",
-    hint: "spawns and points",
-    howTo: "Use it on a block to place an entry exactly where you aim, into the list picked below. Hit a marker to change it.",
+    hint: "spawns, spectator and queue spawns",
+    howTo: "Use it on a block to place a spawn exactly where you aim: a spawn (with its team, in a team game), the spectator spawn or the queue spawn. Hit a marker to change it.",
+  },
+  {
+    id: "marker",
+    item: "minecade:marker_tool",
+    icon: "textures/items/marker_tool",
+    label: "Game marker tool",
+    hint: "the game's own markers",
+    howTo: "Use it on a block to place one of the game's markers (picked in its screen's Marker list, with its team when it has one) exactly where you aim. Hit a marker to change it.",
   },
   {
     id: "region",

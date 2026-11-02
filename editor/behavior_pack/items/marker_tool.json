@@ -1,0 +1,15 @@
+{
+  "format_version": "1.21.60",
+  "minecraft:item": {
+    "description": {
+      "identifier": "minecade:marker_tool",
+      "menu_category": { "category": "none" }
+    },
+    "components": {
+      "minecraft:icon": { "textures": { "default": "minecade_marker_tool" } },
+      "minecraft:display_name": { "value": "Game marker tool" },
+      "minecraft:max_stack_size": 1,
+      "minecraft:can_destroy_in_creative": false
+    }
+  }
+}

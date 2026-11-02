@@ -21,6 +21,8 @@ const PITCH_PROPERTY = "minecade:pitch";
 const KIND_PROPERTY = "minecade:kind";
 /** Which shape it gets (lists.ts MARKER_STYLES, or a game's model). */
 const STYLE_PROPERTY = "minecade:style";
+/** A team's color over the kind's: 0xRRGGBB + 1, or 0 for none (the render controller's overlay). */
+const TINT_PROPERTY = "minecade:tint";
 /** On the world: the chunks markers were in, as JSON ["x,z", ...]. */
 const CHUNKS_PROPERTY = "minecade:markerChunks";
 const SYNC_TICKS = 20;
@@ -175,6 +177,8 @@ function showFacing(entity: Entity, spec: MarkerShape): void {
   if (entity.getProperty(KIND_PROPERTY) !== kind) entity.setProperty(KIND_PROPERTY, kind);
   const style = spec.style ?? 0;
   if (entity.getProperty(STYLE_PROPERTY) !== style) entity.setProperty(STYLE_PROPERTY, style);
+  const tint = spec.tint === undefined ? 0 : spec.tint + 1;
+  if (entity.getProperty(TINT_PROPERTY) !== tint) entity.setProperty(TINT_PROPERTY, tint);
 }
 
 function distance(a: Vector3, b: Vector3): number {

@@ -296,5 +296,14 @@
         }
       }
     ]
+  },
+
+  // Effect icons (the right side of the screen) are hidden on every server: a locked queue makes
+  // players invisible with an effect, and the HUD draws every icon as one piece, so the invisibility
+  // one can't be hidden alone. Games don't show effects otherwise (only a kit can give one).
+  "root_panel": {
+    "modifications": [
+      { "array_name": "controls", "operation": "remove", "control_name": "mob_effects_renderer" }
+    ]
   }
 }

@@ -20,7 +20,7 @@ Outputs:
     editor/resource_pack/textures/particle/outline.png                        the editor's outline dot (white, dark rim)
     editor/resource_pack/textures/items/select_tool.png                       Select mode's tool (a crop mark)
     editor/resource_pack/textures/items/snapshot.png                          the Snapshot tool (a photo)
-    editor/resource_pack/textures/items/zoom.png                              the Zoom item (a magnifying glass)
+    editor/resource_pack/textures/items/marker_tool.png                       the Game marker tool (a flag)
     editor/resource_pack/textures/entity/editor_marker_facing.png            the red facing line on markers
     editor/resource_pack/textures/entity/editor_marker*.png                  markers, a color per kind
     games/<id>/icon.png                                                      16:9 game pictures (Probe, Sumo, One in the Quiver)
@@ -777,6 +777,10 @@ def editor_icon(kind: str, color: tuple[int, int, int] = (255, 255, 255)) -> Ima
         # A magnifying glass: a ring, and its handle down and right.
         draw.ellipse((6, 6, 42, 42), outline=fill, width=8)
         draw.line([(37, 37), (56, 56)], fill=fill, width=11)
+    elif kind in ("chevron_down", "chevron_up"):
+        # A dropdown's arrow: a V pointing down (closed) or up (open).
+        points = [(12, 22), (32, 42), (52, 22)] if kind == "chevron_down" else [(12, 42), (32, 22), (52, 42)]
+        draw.line(points, fill=fill, width=9, joint="curve")
     return image.resize((16, 16), Image.Resampling.LANCZOS)
 
 
@@ -791,14 +795,13 @@ def snapshot_icon() -> Image.Image:
     return image
 
 
-def zoom_icon() -> Image.Image:
-    """The Zoom item's icon, 16x16 like the other editor items: a magnifying glass, its handle to the bottom right."""
+def marker_tool_icon() -> Image.Image:
+    """The Game marker tool's item icon, 16x16 like the other editor items: a red flag on a pole."""
     image = Image.new("RGBA", (16, 16), (0, 0, 0, 0))
     draw = ImageDraw.Draw(image)
-    draw.line([(9, 9), (14, 14)], fill=(110, 70, 40, 255), width=3)
-    draw.ellipse((1, 1, 11, 11), fill=(60, 64, 72, 255))
-    draw.ellipse((3, 3, 9, 9), fill=(150, 210, 245, 255))
-    draw.point([(4, 5), (5, 4)], fill=(240, 250, 255, 255))
+    draw.rectangle((4, 1, 5, 14), fill=(200, 200, 205, 255))
+    draw.polygon([(6, 1), (14, 4), (6, 8)], fill=(235, 60, 60, 255))
+    draw.rectangle((2, 14, 7, 15), fill=(120, 120, 128, 255))
     return image
 
 
@@ -1015,7 +1018,10 @@ def main() -> None:
     # The editor lobby's Search link, the Snapshot item, its 16:9 frame, and the current thumbnail's outline.
     save(editor_icon("search"), EDITOR_TEXTURES / "minecade" / "editor" / "icon_search.png")
     save(snapshot_icon(), EDITOR_TEXTURES / "items" / "snapshot.png")
-    save(zoom_icon(), EDITOR_TEXTURES / "items" / "zoom.png")
+    save(marker_tool_icon(), EDITOR_TEXTURES / "items" / "marker_tool.png")
+    # A dropdown's arrow (the Game marker tool's Marker list, a Team list), closed and open.
+    for kind in ("chevron_down", "chevron_up"):
+        save(editor_icon(kind), EDITOR_TEXTURES / "minecade" / "editor" / f"icon_{kind}.png")
     save_nineslice(snapshot_frame(), EDITOR_TEXTURES / "minecade" / "editor" / "snapshot_frame.png", 8)
     save_nineslice(editor_picked_green(), EDITOR_TEXTURES / "minecade" / "editor" / "picked_green.png", 4)
     save(Image.new("RGB", (16, 16), (255, 40, 40)), EDITOR_TEXTURES / "entity" / "editor_marker_facing.png")

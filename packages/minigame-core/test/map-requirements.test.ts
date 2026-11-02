@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { possibleTeams } from "../src/game/teams.ts";
-import { mapRequirements } from "../src/map-requirements.ts";
+import { MapView } from "../src/game/map-view.ts";
+import { worldSpawnOf, type MapConfig } from "../src/map-config.ts";
+import { mapRequirements, usesPlainSpawns } from "../src/map-requirements.ts";
+import { validateMapConfig, type MapRules } from "../src/map-validate.ts";
 
 const TEAMS = [
   { id: "red", name: "Red" },
@@ -16,8 +19,8 @@ describe("mapRequirements", () => {
   });
 
   it("reads the short forms", () => {
+    // A team spawn game has no plain spawns unless it asks for them.
     expect(mapRequirements({ points: ["flag"], regions: ["floor"], teamSpawns: true }, { kind: "game", maxPlayers: 4 })).toEqual([
-      { key: "spawns", label: "Spawns", field: "spawns", min: 1, perPlayer: false },
       { key: "spectatorOrQueue", label: "Spectator or queue spawn", field: "spectatorOrQueue", min: 1 },
       { key: "points.flag", label: "flag", field: "points", name: "flag", min: 1 },
       { key: "regions.floor", label: "floor", field: "regions", name: "floor", min: 1 },
@@ -38,7 +41,6 @@ describe("mapRequirements", () => {
       { kind: "game", maxPlayers: 10, teams: TEAMS },
     );
     expect(list.map((requirement) => [requirement.key, requirement.label, requirement.min])).toEqual([
-      ["spawns", "Spawns", 1],
       ["spectatorSpawn", "Spectator spawn", 1],
       ["bounds", "Bounds", 1],
       ["killY", "Kill Y", 1],
@@ -80,5 +82,34 @@ describe("possibleTeams", () => {
       { id: "hider", name: "Hider", color: "§a", size: "rest" as const },
     ];
     expect(possibleTeams({ count: 2, defs: roles }).map((team) => team.id)).toEqual(["seeker", "hider"]);
+  });
+});
+
+describe("plain spawns", () => {
+  it("are on for the lobby and most games, off for a team spawn game unless it names them, and off when a game says false", () => {
+    expect(usesPlainSpawns(undefined, "lobby")).toBe(true);
+    expect(usesPlainSpawns(undefined, "game")).toBe(true);
+    expect(usesPlainSpawns({ teamSpawns: true }, "game")).toBe(false);
+    expect(usesPlainSpawns({ teamSpawns: true, spawns: { min: 2 } }, "game")).toBe(true);
+    expect(usesPlainSpawns({ spawns: false }, "game")).toBe(false);
+    expect(mapRequirements({ teamSpawns: true, spawns: { min: 2 } }, { kind: "game", maxPlayers: 4 })[0]).toEqual({ key: "spawns", label: "Spawns", field: "spawns", min: 2 });
+    expect(mapRequirements({ spawns: false, spectatorSpawn: true }, { kind: "game", maxPlayers: 4 }).map((requirement) => requirement.key)).toEqual(["spectatorSpawn"]);
+  });
+});
+
+describe("a map without plain spawns", () => {
+  const map: MapConfig = { name: "Bridges", spawns: [], spectatorSpawn: [0, 90, 0], teamSpawns: { red: [[-10, 64, 0], [-10, 64, 2]], blue: [[10, 64, 0]] } };
+
+  it("waits at every team's spawns in turn, and bakes its world spawn at the first team spawn", () => {
+    expect(new MapView(map).waitingSpots).toEqual([[-10, 64, 0], [10, 64, 0], [-10, 64, 2]]);
+    expect(new MapView({ ...map, spawns: [[1, 64, 1]] }).waitingSpots).toEqual([[1, 64, 1]]);
+    expect(worldSpawnOf(map)).toEqual([-10, 64, 0]);
+    expect(worldSpawnOf({ spawns: [], queueSpawn: [0, 70, 0] })).toEqual([0, 70, 0]);
+  });
+
+  it("passes validation for a team spawn game", () => {
+    const rules: MapRules = { kind: "game", maxPlayers: 4, teams: TEAMS, requires: { teamSpawns: true } };
+    expect(validateMapConfig(map, rules)).toEqual([]);
+    expect(validateMapConfig(map, { ...rules, requires: { teamSpawns: true, spawns: {} } })).toEqual(["needs at least 1 spawn, has 0"]);
   });
 });

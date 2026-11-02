@@ -1,5 +1,7 @@
 // Runs a game on a game server: boots the script side, plays the match, then sends everyone back
-// to the lobby and tells the orchestrator. Party mode will run several factories in a row here.
+// to the lobby and tells the orchestrator. A preview's match that's over asks each player what's
+// next instead (preview.ts endPreview), and the end_game says who picked Replay and Edit. Party
+// mode will run several factories in a row here.
 import { ScriptEventSource, system, world } from "@minecraft/server";
 import { bootServer } from "../bootstrap.ts";
 import { describeError, log } from "../log.ts";
@@ -8,7 +10,7 @@ import { homePort } from "../vars.ts";
 import type { EndReason } from "../protocol/index.ts";
 import type { Scope, ScopeCounts } from "../scope.ts";
 import type { GameContext, Minigame } from "./minigame.ts";
-import { registerPreviewCommands } from "./preview.ts";
+import { endPreview, registerPreviewCommands } from "./preview.ts";
 import { draw, endReason } from "./results.ts";
 import { removeLeftoverObjectives } from "./sidebar.ts";
 
@@ -50,12 +52,15 @@ export function runGameServer(factory: (ctx: GameContext) => Minigame): void {
     const baseline = root.live();
     game = factory({ ...server, random: Math.random, match: 1 });
     void playSession(game, server.root, baseline, async (reason) => {
-      for (const player of world.getAllPlayers()) {
+      const next = vars.preview && reason === "finished" ? await endPreview(root, vars, (player, port) => server.transfer.transfer(player, port)) : undefined;
+      // After the preview's menu everyone is on their way already, where they picked.
+      for (const player of next ? [] : world.getAllPlayers()) {
         normalizePlayer(player);
         server.transfer.transfer(player, homePort(vars, player.name));
       }
       for (let second = 0; second < EMPTY_WAIT_SECONDS && world.getAllPlayers().length > 0; second++) await root.wait(20);
-      transport.send({ t: "end_game", sessionId: vars.sessionId, reason });
+      const picks = { ...(next?.replay.length ? { replay: next.replay } : {}), ...(next?.edit.length ? { edit: next.edit } : {}) };
+      transport.send({ t: "end_game", sessionId: vars.sessionId, reason, ...picks });
     });
   });
 }

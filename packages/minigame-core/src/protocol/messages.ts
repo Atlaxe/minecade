@@ -109,6 +109,10 @@ export interface EndGame {
   t: "end_game";
   sessionId: string;
   reason: EndReason;
+  /** A preview's players who picked Replay (the map editor plays it again for them). */
+  replay?: string[];
+  /** A preview's players who picked Edit when it came from the editor lobby (the map editor opens the map for them). */
+  edit?: string[];
 }
 
 /** The lobby asks for a player's stats (overall, or for one game), or with kind "players" for who has stats. */

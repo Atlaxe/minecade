@@ -61,6 +61,7 @@ export {
   queueSettings,
   runtimeMapConfig,
   teamKey,
+  worldSpawnOf,
   worldPoint,
   type Box,
   type Facing,
@@ -75,7 +76,7 @@ export {
 export { MapEditError, applyEdit, describeEdit, isMapKey, listKey, listOf, type MapEdit, type MapList } from "./map-edit.ts";
 export { mapChecklist, type Checklist, type ChecklistRow } from "./map-checklist.ts";
 export { formatMapConfig } from "./map-format.ts";
-export { mapRequirements, type MapField, type MapRequirement, type RequirementOptions } from "./map-requirements.ts";
+export { mapRequirements, usesPlainSpawns, type MapField, type MapRequirement, type RequirementOptions } from "./map-requirements.ts";
 export { mapWarnings, validateMapConfig, type MapRules } from "./map-validate.ts";
 export {
   ConfigAssembler,

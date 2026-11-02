@@ -25,7 +25,7 @@ import {
   SELECT_HELP,
   editBody,
   mapActions,
-  mapIdFrom,
+  uniqueMapId,
   selectMenuEntries,
   statusLine,
   type ExportDraft,
@@ -36,13 +36,13 @@ import {
 } from "./menu.ts";
 import { Outlines } from "./outlines.ts";
 import { PlayersMenu, isMapEditor } from "./players.ts";
-import { giveZoom, onReset, ZOOM_ITEM, zoomWhileHeld } from "./commands.ts";
+import { onReset } from "./commands.ts";
 import { BOUNDS_COLOR, KILL_COLOR, type Rgb } from "./regions.ts";
 import { actionBar, heldTool, hintBar, notice } from "./tool-host.ts";
 import { SELECT_TOOL } from "./tools.ts";
 
 const MAP_MENU = "minecade:map_menu";
-const ITEMS = new Set([MAP_MENU, SELECT_TOOL.item, ZOOM_ITEM]);
+const ITEMS = new Set([MAP_MENU, SELECT_TOOL.item]);
 /** The map menu's hotbar slot (0-based): the last one, slot 9 on screen. */
 const MENU_SLOT = 8;
 /** The Select tool's: slot 1 on screen, locked there (Select mode has no other tool). */
@@ -130,7 +130,6 @@ export class Selector {
     scope.subscribeBefore(world.beforeEvents.playerInteractWithBlock, (event) => {
       if (!event.itemStack || !ITEMS.has(event.itemStack.typeId)) event.cancel = true;
     });
-    zoomWhileHeld(scope);
     scope.interval(() => this.hints(), HINT_TICKS);
     scope.interval(() => this.checkItems(), ITEMS_TICKS);
     onReset((player) => this.reset(player));
@@ -184,7 +183,7 @@ export class Selector {
       return;
     }
     this.giveItems(player);
-    tell(player, `Select mode on "${this.info.world}". The map menu in slot 9 has Help, and lists the maps from this world. Hold right click with the Zoom in slot 8 to zoom.`);
+    tell(player, `Select mode on "${this.info.world}". The map menu in slot 9 has Help, and lists the maps from this world.`);
   }
 
   /** /reset: the map menu, the Select tool and creative mode, at once. */
@@ -195,11 +194,11 @@ export class Selector {
     tell(player, "Reset: creative mode, and your map editor items.");
   }
 
-  /** Map editors missing the map menu, the Select tool or the Zoom get them back (a command block may have cleared them). */
+  /** Map editors missing the map menu or the Select tool get them back (a command block may have cleared them). */
   private checkItems(): void {
     for (const player of world.getAllPlayers()) {
       const inventory = inventoryOf(player);
-      if (!inventory || !isMapEditor(player) || [MAP_MENU, SELECT_TOOL.item, ZOOM_ITEM].every((item) => holds(inventory, item))) continue;
+      if (!inventory || !isMapEditor(player) || [MAP_MENU, SELECT_TOOL.item].every((item) => holds(inventory, item))) continue;
       this.giveItems(player);
       tell(player, "Your map editor items were gone: they're back. /reset also brings back creative mode.");
     }
@@ -213,7 +212,6 @@ export class Selector {
       menu.keepOnDeath = true;
       inventory.setItem(MENU_SLOT, menu);
     }
-    if (inventory) giveZoom(inventory);
     this.giveTool(player);
   }
 
@@ -324,73 +322,72 @@ export class Selector {
   // ---- Export to Map ------------------------------------------------------------------------
 
   /**
-   * Export to Map, in the side panel: the Name box, the Map id box once there's a name (filled in
-   * from it), what it's for, and Export to Map (green). A first name opens it again with the Map id,
-   * which follows the name until it's typed over.
+   * Export to Map, in the side panel: the Name box, the Map id once there's a name (made from it,
+   * not typed), what it's for, Open in Edit, and Export to Map (green). A first name opens it again
+   * with the Map id.
    */
   private async exportMenu(player: Player, selection: Picking): Promise<void> {
     const key = keyOf(player);
     const targets = this.info.targets;
-    const draft = this.drafts.get(key) ?? { name: "", target: targets[0]?.id ?? "lobby" };
+    const draft = this.drafts.get(key) ?? { name: "", target: targets[0]?.id ?? "lobby", edit: true };
     this.drafts.set(key, draft);
     const named = draft.name !== "";
-    const shownId = draft.map ?? mapIdFrom(draft.name);
     const form = new ModalFormData().title(sideTitle("Export to Map")).textField("Name", "Castle", { defaultValue: draft.name });
-    if (named) form.textField("Map id", "castle", { defaultValue: shownId });
+    if (named) form.label(`Map id: ${this.exportId(draft)}`);
     form.dropdown("For", targets.map((target) => target.name), { defaultValueIndex: Math.max(0, targets.findIndex((target) => target.id === draft.target)) });
+    form.toggle("Open in Edit", { defaultValue: draft.edit, tooltip: "once it's cut out, without asking" });
     form.submitButton(named ? "Export to Map" : "Next");
     const response = await this.show(player, form);
     if (!response?.formValues || !player.isValid || this.selections.get(key) !== selection) return;
-    const values = response.formValues;
-    const name = String(values[0] ?? "").trim();
-    const typedId = named ? String(values[1] ?? "").trim() : "";
-    draft.target = targets[Number(values[named ? 2 : 1])]?.id ?? draft.target;
-    // Left as it was shown (or emptied), the id is still the name's.
-    draft.map = typedId === "" || (typedId === shownId && draft.map === undefined) ? undefined : typedId;
+    // A label has no value (or an empty one, depending on the game's version): only the fields count.
+    const [typed, forIndex, edit] = response.formValues.filter((value) => value !== undefined);
+    const name = String(typed ?? "").trim();
+    draft.target = targets[Number(forIndex)]?.id ?? draft.target;
+    draft.edit = edit !== false;
     draft.name = name;
     if (!name) tell(player, "§cThe map needs a name.");
     if (!name || !named) return this.exportMenu(player, selection);
     const exported = this.export(player, selection, draft);
-    if (exported) return this.waitForExport(player, exported.target, exported.map);
+    if (exported) return this.waitForExport(player, exported.target, exported.map, draft.edit);
     return this.exportMenu(player, selection);
+  }
+
+  /** The map id an export gets: its name's, made unique among the target's maps (and this world's list). */
+  private exportId(draft: ExportDraft): string {
+    const target = this.info.targets.find((candidate) => candidate.id === draft.target);
+    const taken = [...(target?.maps ?? []), ...this.maps.filter((candidate) => candidate.target === draft.target).map((candidate) => candidate.map)];
+    return uniqueMapId(draft.name, taken);
   }
 
   /** Sends the export to the host; what it exported, or undefined (and why) when it can't go yet. */
   private export(player: Player, selection: Picking, draft: ExportDraft): { target: string; map: string } | undefined {
     const target = this.info.targets.find((candidate) => candidate.id === draft.target);
-    const map = draft.map ?? mapIdFrom(draft.name);
+    const map = this.exportId(draft);
     if (!target) return undefined;
     if (!draft.name) {
       tell(player, "§cThe map needs a name.");
       return undefined;
     }
-    if (!/^[a-z0-9][a-z0-9_-]{0,47}$/.test(map)) {
-      tell(player, `§c"${map}" is not a map id: use lower case letters, digits, _ and -.`);
-      return undefined;
-    }
-    if (target.maps.includes(map) || this.maps.some((candidate) => candidate.target === target.id && candidate.map === map)) {
-      tell(player, `§c${target.name} has a map "${map}" already: pick another id.`);
-      return undefined;
-    }
-    this.link.send({ t: "saveMap", by: player.name, box: selection.box, target: target.id, map, name: draft.name });
+    this.link.send({ t: "saveMap", by: player.name, box: selection.box, target: target.id, map, name: draft.name, ...(draft.edit ? { edit: true } : {}) });
     this.selections.delete(keyOf(player));
-    // The next export starts empty, for the same target.
-    this.drafts.set(keyOf(player), { name: "", target: target.id });
-    tell(player, `${chatMapName(target.name, draft.name)}: ${sizeText(selection.box)} blocks, exporting.`);
+    // The next export starts empty, for the same target, opening in Edit or not as this one did.
+    this.drafts.set(keyOf(player), { name: "", target: target.id, edit: draft.edit });
+    tell(player, `${chatMapName(target.name, draft.name)} (${map}): ${sizeText(selection.box)} blocks, exporting${draft.edit ? ", then opening in Edit" : ""}.`);
     return { target: target.id, map };
   }
 
-  /** The loading screen while an export is cut out; then, ready, whether to edit it (or, failed, why). */
-  private async waitForExport(player: Player, target: string, id: string): Promise<void> {
-    const find = () => this.maps.find((candidate) => candidate.target === target && candidate.map === id);
-    const finished = () => {
-      const status = find()?.status;
-      return status === "ready" || status === "failed";
-    };
+  /**
+   * The loading screen while an export is cut out. Then, ready: with `edit`, the host opens it in
+   * Edit and moves the player there (its own loading screen carries on); without, whether to edit
+   * it. Failed: why.
+   */
+  private async waitForExport(player: Player, target: string, id: string, edit: boolean): Promise<void> {
+    const status = () => this.maps.find((candidate) => candidate.target === target && candidate.map === id)?.status;
+    const finished = () => status() === "failed" || (!edit && status() === "ready");
     const name = this.info.targets.find((candidate) => candidate.id === target)?.name ?? target;
     await this.loading.wait(player, id, {
       title: "Exporting",
-      body: `Exporting ${name}: ${id}...\n\nIt's cut out and moved to the middle: about 20 seconds for a mid-size build.`,
+      body: `Exporting ${name}: ${id}...\n\nIt's cut out and moved to the middle: about 20 seconds for a mid-size build.${edit ? " Then it opens in Edit, and you're moved there." : ""}`,
       done: finished,
       ticks: EXPORT_TICKS,
     });

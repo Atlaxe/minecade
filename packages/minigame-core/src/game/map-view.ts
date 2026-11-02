@@ -13,11 +13,25 @@ export class MapView {
     return this.config.spawns;
   }
 
+  /**
+   * Where players wait at spawns of their own before the match: the plain spawns, or, for a map
+   * without them (a team game), every team's spawns taking turns (the first of each team, then the
+   * second of each, and on).
+   */
+  get waitingSpots(): MapPosition[] {
+    const spawns = this.config.spawns ?? [];
+    if (spawns.length > 0) return spawns;
+    const teams = Object.values(this.config.teamSpawns ?? {});
+    const spots: MapPosition[] = [];
+    for (let i = 0; teams.some((list) => i < list.length); i++) for (const list of teams) if (i < list.length) spots.push(list[i]);
+    return spots;
+  }
+
   /** Where spectators go: the spectator spawn, else the queue spawn (see watchesFromQueue), else above the first spawn. */
   get spectatorSpawn(): MapPosition {
     const spawn = this.config.spectatorSpawn ?? this.config.queueSpawn;
     if (spawn) return [...spawn] as MapPosition;
-    const [x, y, z] = this.config.spawns[0] ?? [0, 70, 0];
+    const [x, y, z] = this.waitingSpots[0] ?? [0, 70, 0];
     return [x, y + 5, z];
   }
 
@@ -76,7 +90,8 @@ export class MapView {
   /** The middle of the bounds (or the first spawn), which spawns face. */
   center(): Vec3 {
     const bounds = this.bounds;
-    if (!bounds) return this.config.spawns[0] ? positionXyz(this.config.spawns[0]) : [0, 64, 0];
+    const first = this.waitingSpots[0];
+    if (!bounds) return first ? positionXyz(first) : [0, 64, 0];
     return [0, 1, 2].map((axis) => (bounds.min[axis] + bounds.max[axis]) / 2) as Vec3;
   }
 

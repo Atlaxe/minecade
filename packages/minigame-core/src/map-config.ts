@@ -25,6 +25,15 @@ export interface Box {
 /** The region name whose boxes put a player out, the same as falling below killY. */
 export const KILL_REGION = "kill";
 
+/**
+ * Where a baked world's spawn goes: the first spawn, or for a map without plain spawns (a team
+ * game) the first team spawn, else the spectator or queue spawn.
+ */
+export function worldSpawnOf(config: Pick<MapConfig, "spawns" | "teamSpawns" | "spectatorSpawn" | "queueSpawn">): MapPosition {
+  const team = Object.values(config.teamSpawns ?? {}).find((list) => list.length > 0)?.[0];
+  return config.spawns?.[0] ?? team ?? config.spectatorSpawn ?? config.queueSpawn ?? [0, 64, 0];
+}
+
 /** Per-team entries in points and regions are keyed "<name>.<team>", such as "buyZone.red". */
 export function teamKey(name: string, team?: string): string {
   return team ? `${name}.${team}` : name;

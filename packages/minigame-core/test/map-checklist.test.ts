@@ -28,14 +28,16 @@ describe("mapChecklist", () => {
     expect(list.warnings).toEqual([]);
   });
 
-  it("needs one plain spawn once a map has team spawns", () => {
-    const map: MapConfig = { name: "Arena", spawns: [[0, 65, 0]], queueSpawn: [0, 70, 20], teamSpawns: { red: [[1, 65, 0]], blue: [[-1, 65, 0]] } };
+  it("needs no plain spawns for a team spawn game, unless it asks for them (then one, for waiting)", () => {
+    const map: MapConfig = { name: "Arena", spawns: [], queueSpawn: [0, 70, 20], teamSpawns: { red: [[1, 65, 0]], blue: [[-1, 65, 0]] } };
     const list = mapChecklist(map, { kind: "game", maxPlayers: 8, teams, requires: { teamSpawns: true } });
-    expect(list.rows[0]).toMatchObject({ key: "spawns", have: 1, need: 1, done: true });
+    expect(list.rows.some((row) => row.key === "spawns")).toBe(false);
     expect(list.rows.filter((row) => row.field === "teamSpawns").every((row) => row.done)).toBe(true);
     // Its queue spawn is where players watch from too.
-    expect(list.rows[1]).toMatchObject({ key: "spectatorOrQueue", have: 1, need: 1, done: true });
+    expect(list.rows[0]).toMatchObject({ key: "spectatorOrQueue", have: 1, need: 1, done: true });
     expect(list.ready).toBe(true);
+    const asked = mapChecklist({ ...map, spawns: [[0, 65, 0]] }, { kind: "game", maxPlayers: 8, teams, requires: { teamSpawns: true, spawns: {} } });
+    expect(asked.rows[0]).toMatchObject({ key: "spawns", have: 1, need: 1, done: true });
   });
 
   it("warns about two entries on the same block once nothing is missing", () => {

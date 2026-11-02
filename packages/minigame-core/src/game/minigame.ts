@@ -290,7 +290,7 @@ export abstract class Minigame<C extends GameConfig = GameConfig> {
       if (spawns.length > 0) return spawns[Math.max(0, members.indexOf(key)) % spawns.length];
     }
     const everyone = this.roster.all().map((member) => member.name.toLowerCase());
-    const spawns = this.map.spawns;
+    const spawns = this.map.waitingSpots;
     return spawns[Math.max(0, everyone.indexOf(key)) % Math.max(1, spawns.length)] ?? [0, 65, 0];
   }
 
@@ -912,7 +912,8 @@ export abstract class Minigame<C extends GameConfig = GameConfig> {
       return teamSpawns[Math.max(0, members.indexOf(name.toLowerCase())) % teamSpawns.length];
     }
     const index = Math.max(0, this.online().indexOf(name));
-    return this.map.spawns[index % Math.max(1, this.map.spawns.length)] ?? [0, 65, 0];
+    const spots = this.map.waitingSpots;
+    return spots[index % Math.max(1, spots.length)] ?? [0, 65, 0];
   }
 
   /**

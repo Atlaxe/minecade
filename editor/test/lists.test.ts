@@ -21,22 +21,33 @@ const map: MapConfig = {
 };
 
 describe("spawn tool lists", () => {
-  it("offers spawns, the spectator and queue spawns, team spawns and the points, required ones first", () => {
+  it("offers spawns and team spawns, the spectator and queue spawns (the Spawn tool's), then the points (the Game marker tool's)", () => {
     const lists = spawnLists(map, rules);
-    expect(lists.map((list) => [list.key, list.label])).toEqual([
-      ["spawns", "Spawns"],
-      ["spectatorSpawn", "Spectator spawn"],
-      ["queueSpawn", "Queue spawn"],
-      ["teamSpawns.red", "Red spawns"],
-      ["teamSpawns.blue", "Blue spawns"],
-      ["teamSpawns.green", "green spawns"],
-      ["points.bomb", "Bomb site"],
-      ["points.flag.red", "Flag (Red)"],
-      ["points.flag.blue", "Flag (Blue)"],
-      ["points.extra", "extra"],
+    expect(lists.map((list) => [list.key, list.label, list.tool, list.group, list.groupLabel, list.teamLabel])).toEqual([
+      ["spawns", "Spawns", "spawn", "spawns", "Spawn", "No team"],
+      ["teamSpawns.red", "Red spawns", "spawn", "spawns", "Spawn", "Red"],
+      ["teamSpawns.blue", "Blue spawns", "spawn", "spawns", "Spawn", "Blue"],
+      ["teamSpawns.green", "green spawns", "spawn", "spawns", "Spawn", "green"],
+      ["spectatorSpawn", "Spectator spawn", "spawn", "spectatorSpawn", "Spectator", undefined],
+      ["queueSpawn", "Queue spawn", "spawn", "queueSpawn", "Queue", undefined],
+      ["points.bomb", "Bomb site", "marker", "points.bomb", "Bomb site", undefined],
+      ["points.flag.red", "Flag (Red)", "marker", "points.flag", "Flag", "Red"],
+      ["points.flag.blue", "Flag (Blue)", "marker", "points.flag", "Flag", "Blue"],
+      ["points.extra", "extra", "marker", "points.extra", "extra", undefined],
     ]);
     expect(lists.find((list) => list.key === "points.flag.blue")?.color).toBe("§9");
+    // A team's spawns and markers take its color.
+    expect(lists.find((list) => list.key === "teamSpawns.red")?.tint).toBe(0xff5555);
+    expect(lists.find((list) => list.key === "points.flag.blue")?.tint).toBe(0x5555ff);
+    expect(lists.find((list) => list.key === "spawns")?.tint).toBeUndefined();
     expect(spawnLists({ name: "Hall", spawns: [] }, { kind: "lobby", requires: { points: { terminal: { label: "Terminal" } } } }).map((list) => list.label)).toEqual(["Spawn", "Terminal"]);
+  });
+
+  it("leaves out plain spawns for a team spawn game, unless the map has some", () => {
+    const teamGame: EditorRules = { ...rules, requires: { teamSpawns: true } };
+    const keys = (config: MapConfig) => spawnLists(config, teamGame).map((list) => list.key);
+    expect(keys({ ...map, spawns: [] })).toEqual(["teamSpawns.red", "teamSpawns.blue", "teamSpawns.green", "spectatorSpawn", "queueSpawn", "points.bomb", "points.extra"]);
+    expect(keys(map)[0]).toBe("spawns");
   });
 
   it("numbers a marker for every entry, with its facing", () => {
@@ -44,13 +55,16 @@ describe("spawn tool lists", () => {
     expect(specs.map((spec) => [spec.key, spec.label])).toEqual([
       ["spawns#0", "§fSpawn 1"],
       ["spawns#1", "§fSpawn 2\n§7faces west"],
-      ["spectatorSpawn#0", "§7Spectator spawn"],
       ["teamSpawns.red#0", "§cRed spawn 1"],
       ["teamSpawns.green#0", "§fgreen spawn 1"],
+      ["spectatorSpawn#0", "§7Spectator spawn"],
       ["points.bomb#0", "§eBomb site 1"],
       ["points.extra#0", "§eextra 1"],
     ]);
     expect(specs[1]).toMatchObject({ at: { x: -4.5, y: 65, z: 0.5 }, facing: { yaw: 90, pitch: 0 } });
+    // A team's marker takes its color.
+    expect(specs[2].tint).toBe(0xff5555);
+    expect(specs[0].tint).toBeUndefined();
   });
 
   it("names the queue spawn's marker with how players wait there", () => {
