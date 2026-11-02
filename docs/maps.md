@@ -75,7 +75,9 @@ tool (Queue spawn, in Place into); hit its marker for Lock in and the countdown.
 who are out (or waiting to respawn), late joiners who spectate, and players past the game's limit
 wait at the queue spawn instead: on foot in adventure mode, with empty hands, seen by others but
 without a name tag (whatever `queue.mode` says). A fall below `killY` or a step out of `bounds` puts
-them back there.
+them back there. A preview's fake players go where players would: in the queue while waiting, at
+their spawns in the match, and when out at the queue spawn on foot, or floating at the spectator
+spawn (seen there, unlike a player).
 
 **Name tags:** while players wait (at their spawns, or in a free queue) their gamertags show. During
 the match they're hidden, players' and a preview's fake players' alike, unless the game's config has

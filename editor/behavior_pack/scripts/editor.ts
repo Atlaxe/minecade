@@ -46,7 +46,7 @@ import { goto } from "./goto.ts";
 import { keepModeLine, modeLine } from "./hud.ts";
 import { KillYTool } from "./kill-y-tool.ts";
 import { LoadingScreens } from "./loading.ts";
-import { onReset, zoomOnEmptyHand } from "./commands.ts";
+import { giveZoom, onReset, ZOOM_ITEM, zoomWhileHeld } from "./commands.ts";
 import { HostLink } from "./link.ts";
 import { Outlines } from "./outlines.ts";
 import { boundaryRows, boundsAround, outlineBoxes, toggleBoundary } from "./regions.ts";
@@ -90,11 +90,8 @@ import {
 import { EDITOR_TOOLS, SELECT_TOOL, toolOf, type EditorTool, type ToolId } from "./tools.ts";
 
 const MAP_MENU = "minecade:map_menu";
-/** The Camera tool's Snapshot: it comes and goes with the tool, in slot 2. */
-const SNAPSHOT = "minecade:snapshot";
-const SNAPSHOT_SLOT = 1;
 /** Every editor item: none breaks the block it hits. */
-const TOOLS = new Set([MAP_MENU, SNAPSHOT, ...EDITOR_TOOLS.map((tool) => tool.item), SELECT_TOOL.item]);
+const TOOLS = new Set([MAP_MENU, ...EDITOR_TOOLS.map((tool) => tool.item), SELECT_TOOL.item]);
 /** The map menu's hotbar slot (0-based): the last one, slot 9 on screen. */
 const MENU_SLOT = 8;
 /** Where a tool goes when it's picked: slot 1 on screen, never locked. */
@@ -188,6 +185,10 @@ export class Editor {
       targetName: info.targetName,
       picture: (player, kind) => this.link.send({ t: "picture", by: player.name, kind }),
       lookChanged: () => (this.cameraTool.anyoneLooking() ? this.markers.hide() : this.markers.unhide()),
+      holdSnapshot: (player) => {
+        const tool = EDITOR_TOOLS.find((candidate) => candidate.id === "snapshot");
+        if (tool && heldTool(player) !== "snapshot") this.equipTool(player, tool);
+      },
     });
     new Outlines(
       scope,
@@ -232,13 +233,9 @@ export class Editor {
     });
     scope.subscribe(world.afterEvents.itemUse, ({ source, itemStack }) => {
       if (!TOOLS.has(itemStack.typeId)) return;
-      if (itemStack.typeId === SNAPSHOT) {
-        void this.cameraTool.snapshot(source);
-        return;
-      }
-      // Looking through a camera, any other use comes back first.
+      // Looking through a camera, any use brings the Snapshot menu back (Back to my view is in it).
       if (this.cameraTool.isLooking(source)) {
-        this.cameraTool.stop(source);
+        void this.cameraTool.snapshot(source);
         return;
       }
       const tool = toolOf(itemStack.typeId)?.id;
@@ -247,13 +244,20 @@ export class Editor {
       else if (tool === "region") this.regionTool.use(source);
       else if (tool === "killY") this.killYTool.use(source);
       else if (tool === "camera") this.cameraTool.use(source);
+      else if (tool === "snapshot") void this.cameraTool.snapshot(source);
     });
-    zoomOnEmptyHand(scope);
+    zoomWhileHeld(scope);
     scope.subscribe(world.afterEvents.entityHitEntity, ({ damagingEntity, hitEntity }) => {
       if (hitEntity.typeId !== MARKER || damagingEntity.typeId !== "minecraft:player") return;
       const player = damagingEntity as Player;
       const spec = this.markers.specOf(hitEntity);
-      if (spec) void ("camera" in spec ? this.cameraTool.menu(player, spec.camera) : this.markerMenu(player, spec));
+      if (spec) void ("camera" in spec ? this.cameraTool.snapshotOf(player, spec.camera) : this.markerMenu(player, spec));
+    });
+    // A right click on a camera's marker: its kind and Delete (only cameras' markers can be right clicked).
+    scope.subscribe(world.afterEvents.playerInteractWithEntity, ({ player, target }) => {
+      if (target.typeId !== MARKER) return;
+      const spec = this.markers.specOf(target);
+      if (spec && "camera" in spec) void this.cameraTool.menu(player, spec.camera);
     });
     // A tool never breaks the block it hits, which creative mode would.
     scope.subscribeBefore(world.beforeEvents.playerBreakBlock, (event) => {
@@ -375,8 +379,8 @@ export class Editor {
     this.creative(player);
     this.scope.timeout(() => this.creative(player), CREATIVE_AGAIN_TICKS);
     const where = `${chatMapName(this.info.targetName, this.state.current.name)}.`;
-    this.giveMenu(player);
-    tell(player, `${where} The map menu in slot 9 has the checklist, the tools and Save. Hit a marker to change it.`);
+    this.giveItems(player);
+    tell(player, `${where} The map menu in slot 9 has the checklist, the tools and Save. Hit a marker to change it. Hold right click with the Zoom in slot 8 to zoom.`);
   }
 
   private creative(player: Player): void {
@@ -387,29 +391,34 @@ export class Editor {
     }
   }
 
-  private giveMenu(player: Player): void {
-    const menu = new ItemStack(MAP_MENU, 1);
-    menu.lockMode = ItemLockMode.slot;
-    menu.keepOnDeath = true;
-    inventoryOf(player)?.setItem(MENU_SLOT, menu);
+  /** The map menu (slot 9) and the Zoom (slot 8), locked in place, for a player missing them. */
+  private giveItems(player: Player): void {
+    const inventory = inventoryOf(player);
+    if (!inventory) return;
+    if (!holds(inventory, MAP_MENU)) {
+      const menu = new ItemStack(MAP_MENU, 1);
+      menu.lockMode = ItemLockMode.slot;
+      menu.keepOnDeath = true;
+      inventory.setItem(MENU_SLOT, menu);
+    }
+    giveZoom(inventory);
   }
 
-  /** /reset: creative mode and the map menu, at once. */
+  /** /reset: creative mode, the map menu and the Zoom, at once. */
   private reset(player: Player): void {
     if (!player.isValid) return;
     player.setGameMode(GameMode.Creative);
-    const inventory = inventoryOf(player);
-    if (inventory && !holds(inventory, MAP_MENU)) this.giveMenu(player);
-    tell(player, "Reset: creative mode, and your map menu.");
+    this.giveItems(player);
+    tell(player, "Reset: creative mode, and your map editor items.");
   }
 
-  /** Players missing the map menu get it back (a command block may have cleared it). */
+  /** Players missing the map menu or the Zoom get them back (a command block may have cleared them). */
   private checkItems(): void {
     for (const player of world.getAllPlayers()) {
       const inventory = inventoryOf(player);
-      if (!inventory || holds(inventory, MAP_MENU)) continue;
-      this.giveMenu(player);
-      tell(player, "Your map menu was gone: it's back. /reset also brings back creative mode.");
+      if (!inventory || (holds(inventory, MAP_MENU) && holds(inventory, ZOOM_ITEM))) continue;
+      this.giveItems(player);
+      tell(player, "Your map editor items were gone: they're back. /reset also brings back creative mode.");
     }
   }
 
@@ -453,10 +462,6 @@ export class Editor {
   /** The held tool's hint on the action bar: what a use will do. */
   private hints(): void {
     for (const player of world.getAllPlayers()) {
-      if (!this.cameraTool.isLooking(player) && heldItem(player) === SNAPSHOT) {
-        hintBar(player, "Use: pick a camera, frame its picture, then take it");
-        continue;
-      }
       const tool = heldTool(player);
       // Nudge sides puts the way the player faces there instead.
       if (!tool || this.cameraTool.isLooking(player) || nudgePreview(player)) continue;
@@ -464,6 +469,7 @@ export class Editor {
       else if (tool === "region") hintBar(player, this.regionTool.hint(player));
       else if (tool === "killY") hintBar(player, this.killYTool.hint(player));
       else if (tool === "camera") hintBar(player, this.cameraTool.hint(player));
+      else if (tool === "snapshot") hintBar(player, "Use: pick a camera to take its picture   Hit a camera: the same");
     }
   }
 
@@ -576,6 +582,8 @@ export class Editor {
         return this.mapMenu(player);
       case "camera":
         return this.cameraTool.menu(player, action.name, () => this.mapMenu(player));
+      case "snapshot":
+        return this.cameraTool.snapshotOf(player, action.name);
       case "save":
         this.save(player);
         return;
@@ -660,31 +668,27 @@ export class Editor {
     const inventory = inventoryOf(player);
     if (!tool || !inventory) return;
     if (holds(inventory, tool.item)) {
-      removeItems(inventory, new Set(tool.id === "camera" ? [tool.item, SNAPSHOT] : [tool.item]));
-      if (tool.id === "camera") this.cameraTool.stop(player);
+      removeItems(inventory, new Set([tool.item]));
+      if (tool.id === "snapshot") this.cameraTool.stop(player);
       actionBar(player, `${tool.label} put away`);
       return;
     }
     this.equipTool(player, tool);
-    actionBar(player, tool.id === "camera" ? `${tool.label} in slot 1, the Snapshot in slot 2` : `${tool.label} in slot 1`);
+    actionBar(player, `${tool.label} in slot 1`);
   }
 
   /**
    * Puts a tool in slot 1, unlocked, and selects it. Only one tool is out at a time: the others go
    * away, and whatever else was in slot 1 moves to a free slot (creative mode has more if there's none).
-   * The Camera tool brings the Snapshot into slot 2 the same way.
    */
   private equipTool(player: Player, tool: EditorTool): void {
     const inventory = inventoryOf(player);
     if (!inventory) return;
-    const keepSnapshot = tool.id === "camera";
     for (let slot = 0; slot < inventory.size; slot++) {
-      const id = inventory.getItem(slot)?.typeId ?? "";
-      if (slot !== TOOL_SLOT && (toolOf(id) || (id === SNAPSHOT && !(keepSnapshot && slot === SNAPSHOT_SLOT)))) inventory.setItem(slot, undefined);
+      if (slot !== TOOL_SLOT && toolOf(inventory.getItem(slot)?.typeId ?? "")) inventory.setItem(slot, undefined);
     }
-    if (!keepSnapshot) this.cameraTool.stop(player);
+    if (tool.id !== "snapshot") this.cameraTool.stop(player);
     this.putItem(inventory, TOOL_SLOT, tool.item);
-    if (keepSnapshot) this.putItem(inventory, SNAPSHOT_SLOT, SNAPSHOT);
     player.selectedSlotIndex = TOOL_SLOT;
   }
 
@@ -695,7 +699,7 @@ export class Editor {
     const item = new ItemStack(typeId, 1);
     item.keepOnDeath = true;
     inventory.setItem(slot, item);
-    if (old && !toolOf(old.typeId) && old.typeId !== SNAPSHOT) inventory.addItem(old);
+    if (old && !toolOf(old.typeId)) inventory.addItem(old);
   }
 
   /** Publish, after a confirm: the host saves, then commits and pushes the map's folder. */
@@ -1166,15 +1170,6 @@ function titleCase(text: string): string {
 
 function inventoryOf(player: Player): Container | undefined {
   return player.getComponent(EntityComponentTypes.Inventory)?.container;
-}
-
-/** The item in the player's hand, if any. */
-function heldItem(player: Player): string | undefined {
-  try {
-    return inventoryOf(player)?.getItem(player.selectedSlotIndex)?.typeId;
-  } catch {
-    return undefined;
-  }
 }
 
 function holds(inventory: Container, typeId: string): boolean {

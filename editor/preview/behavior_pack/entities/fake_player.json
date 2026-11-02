@@ -10,8 +10,6 @@
       "minecraft:type_family": { "family": ["fake_player"] },
       "minecraft:collision_box": { "width": 0.6, "height": 1.8 },
       "minecraft:health": { "value": 20, "max": 20 },
-      "minecraft:physics": {},
-      "minecraft:pushable": { "is_pushable": true, "is_pushable_by_piston": true },
       "minecraft:knockback_resistance": { "value": 0 },
       "minecraft:movement": { "value": 0.1 },
       "minecraft:movement.basic": {},
@@ -28,7 +26,20 @@
         ]
       }
     },
+    "component_groups": {
+      "minecade:walking": {
+        "minecraft:physics": {},
+        "minecraft:pushable": { "is_pushable": true, "is_pushable_by_piston": true }
+      },
+      "minecade:floating": {
+        "minecraft:physics": { "has_gravity": false, "has_collision": false },
+        "minecraft:pushable": { "is_pushable": false, "is_pushable_by_piston": false }
+      }
+    },
     "events": {
+      "minecraft:entity_spawned": { "add": { "component_groups": ["minecade:walking"] } },
+      "minecade:walk": { "remove": { "component_groups": ["minecade:floating"] }, "add": { "component_groups": ["minecade:walking"] } },
+      "minecade:float": { "remove": { "component_groups": ["minecade:walking"] }, "add": { "component_groups": ["minecade:floating"] } },
       "minecade:poked": {}
     }
   }

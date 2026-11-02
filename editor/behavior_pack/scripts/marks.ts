@@ -120,9 +120,9 @@ export function pictureText(text: string, index: number, on: boolean): string {
   return `${MARK.picture}${SEGMENT_COLUMNS[index % 2]}${on ? MARK.on : ""}${text}`;
 }
 
-/** A card's title. */
-export function cardTitleText(text: string): string {
-  return `${MARK.cardTitle}${text}`;
+/** A card's title: what it is (the game, gray), then its name under it. */
+export function cardTitleText(kind: string, name: string): string {
+  return `${MARK.cardTitle}§7${kind}\n§f${name}`;
 }
 
 /** A card's icon in column `index`, faded (its step isn't done) unless `on`. */

@@ -36,13 +36,13 @@ import {
 } from "./menu.ts";
 import { Outlines } from "./outlines.ts";
 import { PlayersMenu, isMapEditor } from "./players.ts";
-import { onReset, zoomOnEmptyHand } from "./commands.ts";
+import { giveZoom, onReset, ZOOM_ITEM, zoomWhileHeld } from "./commands.ts";
 import { BOUNDS_COLOR, KILL_COLOR, type Rgb } from "./regions.ts";
 import { actionBar, heldTool, hintBar, notice } from "./tool-host.ts";
 import { SELECT_TOOL } from "./tools.ts";
 
 const MAP_MENU = "minecade:map_menu";
-const ITEMS = new Set([MAP_MENU, SELECT_TOOL.item]);
+const ITEMS = new Set([MAP_MENU, SELECT_TOOL.item, ZOOM_ITEM]);
 /** The map menu's hotbar slot (0-based): the last one, slot 9 on screen. */
 const MENU_SLOT = 8;
 /** The Select tool's: slot 1 on screen, locked there (Select mode has no other tool). */
@@ -130,7 +130,7 @@ export class Selector {
     scope.subscribeBefore(world.beforeEvents.playerInteractWithBlock, (event) => {
       if (!event.itemStack || !ITEMS.has(event.itemStack.typeId)) event.cancel = true;
     });
-    zoomOnEmptyHand(scope);
+    zoomWhileHeld(scope);
     scope.interval(() => this.hints(), HINT_TICKS);
     scope.interval(() => this.checkItems(), ITEMS_TICKS);
     onReset((player) => this.reset(player));
@@ -184,7 +184,7 @@ export class Selector {
       return;
     }
     this.giveItems(player);
-    tell(player, `Select mode on "${this.info.world}". The map menu in slot 9 has Help, and lists the maps from this world.`);
+    tell(player, `Select mode on "${this.info.world}". The map menu in slot 9 has Help, and lists the maps from this world. Hold right click with the Zoom in slot 8 to zoom.`);
   }
 
   /** /reset: the map menu, the Select tool and creative mode, at once. */
@@ -195,11 +195,11 @@ export class Selector {
     tell(player, "Reset: creative mode, and your map editor items.");
   }
 
-  /** Map editors missing the map menu or the Select tool get them back (a command block may have cleared them). */
+  /** Map editors missing the map menu, the Select tool or the Zoom get them back (a command block may have cleared them). */
   private checkItems(): void {
     for (const player of world.getAllPlayers()) {
       const inventory = inventoryOf(player);
-      if (!inventory || !isMapEditor(player) || (holds(inventory, MAP_MENU) && holds(inventory, SELECT_TOOL.item))) continue;
+      if (!inventory || !isMapEditor(player) || [MAP_MENU, SELECT_TOOL.item, ZOOM_ITEM].every((item) => holds(inventory, item))) continue;
       this.giveItems(player);
       tell(player, "Your map editor items were gone: they're back. /reset also brings back creative mode.");
     }
@@ -213,6 +213,7 @@ export class Selector {
       menu.keepOnDeath = true;
       inventory.setItem(MENU_SLOT, menu);
     }
+    if (inventory) giveZoom(inventory);
     this.giveTool(player);
   }
 

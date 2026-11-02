@@ -19,7 +19,8 @@ Outputs:
     editor/resource_pack/textures/minecade/editor/...                        the map editor's dark side menus and icons
     editor/resource_pack/textures/particle/outline.png                        the editor's outline dot (white, dark rim)
     editor/resource_pack/textures/items/select_tool.png                       Select mode's tool (a crop mark)
-    editor/resource_pack/textures/items/snapshot.png                          the Camera tool's Snapshot (a photo)
+    editor/resource_pack/textures/items/snapshot.png                          the Snapshot tool (a photo)
+    editor/resource_pack/textures/items/zoom.png                              the Zoom item (a magnifying glass)
     editor/resource_pack/textures/entity/editor_marker_facing.png            the red facing line on markers
     editor/resource_pack/textures/entity/editor_marker*.png                  markers, a color per kind
     games/<id>/icon.png                                                      16:9 game pictures (Probe, Sumo, One in the Quiver)
@@ -790,6 +791,17 @@ def snapshot_icon() -> Image.Image:
     return image
 
 
+def zoom_icon() -> Image.Image:
+    """The Zoom item's icon, 16x16 like the other editor items: a magnifying glass, its handle to the bottom right."""
+    image = Image.new("RGBA", (16, 16), (0, 0, 0, 0))
+    draw = ImageDraw.Draw(image)
+    draw.line([(9, 9), (14, 14)], fill=(110, 70, 40, 255), width=3)
+    draw.ellipse((1, 1, 11, 11), fill=(60, 64, 72, 255))
+    draw.ellipse((3, 3, 9, 9), fill=(150, 210, 245, 255))
+    draw.point([(4, 5), (5, 4)], fill=(240, 250, 255, 255))
+    return image
+
+
 def snapshot_frame() -> Image.Image:
     """
     The Snapshot view's 16:9 frame, 24x24 at 1x, nine-slice (8 pixel slices): a white L in each
@@ -1003,6 +1015,7 @@ def main() -> None:
     # The editor lobby's Search link, the Snapshot item, its 16:9 frame, and the current thumbnail's outline.
     save(editor_icon("search"), EDITOR_TEXTURES / "minecade" / "editor" / "icon_search.png")
     save(snapshot_icon(), EDITOR_TEXTURES / "items" / "snapshot.png")
+    save(zoom_icon(), EDITOR_TEXTURES / "items" / "zoom.png")
     save_nineslice(snapshot_frame(), EDITOR_TEXTURES / "minecade" / "editor" / "snapshot_frame.png", 8)
     save_nineslice(editor_picked_green(), EDITOR_TEXTURES / "minecade" / "editor" / "picked_green.png", 4)
     save(Image.new("RGB", (16, 16), (255, 40, 40)), EDITOR_TEXTURES / "entity" / "editor_marker_facing.png")

@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { mapChecklist, stripColors, type HomeState, type MapConfig } from "@minecade/minigame-core/config";
+import { mapChecklist, stripColors, type HomeState, type MapCamera, type MapConfig } from "@minecade/minigame-core/config";
 import { DANGER_BUTTON, SIDE_TITLE } from "../../packages/minigame-core/src/game/preview.ts";
 import { spawnLists } from "../behavior_pack/scripts/lists.ts";
 import { CARD_COLUMNS, COLUMNS, LAYOUT, LOADING, MARK, SEGMENT_COLUMNS, cardIconText, cardTitleText, dangerText, goText, headingText, homeTitle, iconsTitle, linkText, loadingTitle, mapTitle, pictureText, saveBarText, segmentText, sideTitle, stepTileText, switchText } from "../behavior_pack/scripts/marks.ts";
@@ -70,7 +70,7 @@ function view(config: MapConfig, extra: Partial<MapMenuView> = {}): MapMenuView 
 describe("map menu", () => {
   it("has the quick icons, then the tools, then Save, with no tool out", () => {
     const entries = mapMenuEntries(view(draft));
-    expect(entries.map((entry) => entry.action.kind)).toEqual(["checklist", "undo", "redo", "boundaries", "settings", "tool", "tool", "tool", "tool", "save"]);
+    expect(entries.map((entry) => entry.action.kind)).toEqual(["checklist", "undo", "redo", "boundaries", "settings", "tool", "tool", "tool", "tool", "tool", "save"]);
     expect(entries[3]).toEqual({ action: { kind: "boundaries" }, text: `${MARK.quick}Boundaries\n§7see the bounds and regions you pick`, icon: ICONS.boundaries });
     expect(entries[0].text).toBe(`${MARK.pill}1/2\n§7Checklist: 1 problem`);
     expect(entries[0].icon).toBe(ICONS.check);
@@ -88,16 +88,21 @@ describe("map menu", () => {
     expect(tools.map((entry) => entry.icon)).toEqual(EDITOR_TOOLS.map((tool) => tool.icon));
     expect(tools[0].text).toBe(`${MARK.tool}${COLUMNS[0]}Spawn tool\n§7spawns and points`);
     expect(tools[1].text).toBe(`${MARK.tool}${COLUMNS[1]}${MARK.on}Region tool\n§7bounds, regions, kill regions`);
+    expect(tools[4].text).toBe(`${MARK.tool}${COLUMNS[4]}Snapshot tool\n§7take a camera's picture`);
   });
 
   it("shows the tool out's settings, after a Help link, between the tools and Save", () => {
-    const kinds = (tool: MapMenuView["tool"]) => mapMenuEntries(view({ ...draft, killY: 50 }, { tool })).map((entry) => entry.action.kind).slice(9, -1);
+    const cameras: Record<string, MapCamera> = { "Camera 1": { at: [0, 70, 0, 0, 0], kind: "game" } };
+    const kinds = (tool: MapMenuView["tool"]) => mapMenuEntries(view({ ...draft, killY: 50, cameras }, { tool })).map((entry) => entry.action.kind).slice(10, -1);
     // Spawn: Help, then each list with its entries (Spawns and the spectator spawn have one, the queue spawn none).
     expect(kinds("spawn")).toEqual(["help", "none", "entry", "none", "entry", "none"]);
     expect(kinds("region")).toEqual(["help", "none", "box"]);
     expect(kinds("killY")).toEqual(["help", "none", "killY", "removeKillY"]);
+    // The Snapshot tool: the cameras, each one to look through.
+    expect(kinds("snapshot")).toEqual(["help", "none", "snapshot"]);
+    expect(mapMenuEntries(view({ ...draft, cameras }, { tool: "snapshot" })).at(-2)).toEqual({ action: { kind: "snapshot", name: "Camera 1" }, text: "Camera 1\n§7Game picture" });
     expect(kinds(undefined)).toEqual([]);
-    expect(mapMenuEntries(view(draft, { tool: "spawn" }))[9].text).toBe(linkText("Help"));
+    expect(mapMenuEntries(view(draft, { tool: "spawn" }))[10].text).toBe(linkText("Help"));
   });
 
   it("keeps whether blocks changed in Save's tooltip, and says when it's saving", () => {
@@ -110,6 +115,7 @@ describe("map menu", () => {
     expect(toolOf("minecade:region_tool")?.id).toBe("region");
     expect(toolOf("minecade:kill_y_tool")?.id).toBe("killY");
     expect(toolOf("minecade:camera_tool")?.id).toBe("camera");
+    expect(toolOf("minecade:snapshot")?.id).toBe("snapshot");
     expect(toolOf("minecade:map_menu")).toBeUndefined();
   });
 });
@@ -385,7 +391,7 @@ describe("thumbnails", () => {
     const game = thumbnailEntries({ kind: "game", pictures, own: "textures/minecade/games/quiver" });
     expect(game.map((entry) => entry.action.kind)).toEqual(["back", "none", "shot", "shot"]);
     expect(game[1]).toEqual({ action: { kind: "none" }, text: pictureText("In use now\n§7in use", 0, true), icon: "textures/minecade/games/quiver" });
-    expect(thumbnailEntries({ kind: "game", pictures: { shots: [], current: {}, maps: [] } }).at(-1)?.text).toBe(headingText("No pictures yet: the Camera tool's Snapshot takes them"));
+    expect(thumbnailEntries({ kind: "game", pictures: { shots: [], current: {}, maps: [] } }).at(-1)?.text).toBe(headingText("No pictures yet: the Snapshot tool takes them"));
   });
 
   it("imports from another game's maps with a picture, as picture cards", () => {
@@ -461,7 +467,7 @@ describe("the editor lobby's menu", () => {
     const entries = homeEntries(withRecent).slice(5);
     expect(entries).toHaveLength(16);
     const [title, select, edit, preview] = entries;
-    expect(title).toEqual({ action: { kind: "none" }, text: cardTitleText("Sumo: Arena") });
+    expect(title).toEqual({ action: { kind: "none" }, text: cardTitleText("Sumo", "Arena") });
     expect(select).toEqual({ action: { kind: "open", request: datapacking }, text: cardIconText("Select\n§7box more maps in Datapacking (imported)", 0, true), icon: ICONS.select });
     expect(edit).toEqual({ action: { kind: "open", request: arena }, text: cardIconText("Edit\n§7arena_1", 1, true), icon: ICONS.edit });
     expect(preview).toEqual({ action: { kind: "preview", target: "sumo", map: "arena_1" }, text: cardIconText("Preview\n§7play it, with fake players if you like", 2, true), icon: ICONS.play });

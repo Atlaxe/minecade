@@ -79,8 +79,8 @@ closes. Its top row is icons (point at one for its name):
 
 Under them, **Recent**, with a **Search** link (a magnifying glass) on its right: the lobby or a
 game, then one of its maps (drafts are marked), which opens in Edit. Then a card for each map
-opened lately (up to 8, from `work/editor/recent.json`, newest first): its game and name, and three
-icons on the right, each with a tooltip:
+opened lately (up to 8, from `work/editor/recent.json`, newest first): its game with three icons on
+its right, each with a tooltip, and the map's name under them, across the card:
 
 - **Select** (the crop mark): opens the world the map came from, to box more maps. Faded when that
   world isn't on this PC.
@@ -116,11 +116,13 @@ in Edit.
 
 **In game,** map editors get the **Select tool** (slot 1, locked there) and the map menu (slot 9).
 Command blocks don't run anywhere a map is opened (Select, Edit, previews and every server of the
-network). Every 10 seconds, a map editor missing either item gets it back, and **/reset**
-(`/minecade:reset`) brings both back at once, with creative mode (in Edit, the map menu). **/zoom**
-zooms the view in like a spyglass, whatever you hold; again to zoom out. A **right click with an
-empty hand** does the same, but only aimed at a block or a mob within reach: scripts see no key but
-jump and sneak, and a click at the sky reaches no script.
+network). Select and Edit also give the **Zoom** (slot 8, locked there): hold right click with it,
+anywhere, to zoom in like a spyglass, and let go to zoom back out. Every 10 seconds, a map editor
+missing one of these items gets it back, and **/reset** (`/minecade:reset`) brings them all back
+at once, with creative mode (in Edit, the map menu and the Zoom). **/zoom** zooms in whatever you
+hold; again to zoom out. Zooming takes an item: scripts see no key but jump and sneak, no right
+click with an empty hand unless it lands on a block or a mob within reach, and nothing used from
+the off-hand.
 
 - **Hit a block** to start a box there. **Use the tool on blocks** (up to 64 away) to grow the box
   to them; the block you aim at is outlined. The map menu has **Export to Map** (green), Nudge
@@ -258,7 +260,8 @@ game in gold and the map in orange.
 **Tools set things; menus are in the map menu.** No tool opens a menu when you use it at the sky:
 the Spawn tool opens an entry's screen only aimed at a block, the Region tool only grows its box
 (save it from the map menu), the Kill Y tool sets kill Y at once, and the Camera tool places a camera
-at once. A screen for what a tool sets up has a toggle first, then its settings and nudge rows (a
+at once. The Snapshot tool is the one exception: a use lists the cameras. A screen for what a tool
+sets up has a toggle first, then its settings and nudge rows (a
 minus and a plus each, **Step** cycling how far), and a green button pinned at the bottom that saves
 it; closing it keeps nothing. While you hold a tool, the line above the hotbar says what a use does.
 Blocks break as usual with an empty hand or anything but the editor's items (in creative: Edit puts
@@ -314,8 +317,10 @@ you back in creative at every spawn).
   once (Undo takes it back). **Set kill Y** in the map menu opens its screen: type a height or nudge
   it (the plane is drawn at it), and **Set kill Y** (green).
 - **Camera tool:** pictures for the lobby (see "Pictures"). Using it places a camera at your eyes at
-  once, looking your way, of the kind the tool's settings say (**Game picture** off or on). It comes
-  with the **Snapshot** in slot 2.
+  once, looking your way, of the kind the tool's settings say (**Game picture** off or on). Hit a
+  camera to look through it (as the Snapshot tool does); right click it for its kind and Delete.
+- **Snapshot tool:** takes a camera's picture (see "Pictures"). Using it lists the cameras; its
+  settings in the map menu list them too.
 - **Outlines:** while you hold the region tool or the Kill Y tool, dots outline your selection
   (yellow), the bounds (white), kill regions (red), each other region in its own color (a team's
   region in the team's color), and the kill Y plane (red: a grid near you, and the edge of the box
@@ -368,10 +373,13 @@ everyone going, at most 7), then **Start preview** (green).
 reads `PREVIEW_FAKES`), and **/fake** (`/minecade:fake`) adds more, `/fake 3` three, up to the
 game's player limit. A fake player looks like a player (Steve) with a name tag, "Fake 1", "Fake 2"
 and so on (hidden during the match, like players' unless the game shows name tags), and the game
-treats it as one: before the match it waits at a spawn of its own
-and counts toward the players needed to start; it gets a team in team games, spawns, respawns and
-is eliminated by the game's rules; it has a score like anyone, and its downs show in the kill feed. It
-doesn't move or fight back. Hit it, shoot it or knock it off like a player (a game's own weapons
+treats it as one: before the match it waits where you do (at the queue spawn, unseen and nameless
+when the queue locks you in, or else at a spawn of its own) and counts toward the players needed to
+start; it gets a team in team games, spawns, respawns and is eliminated by the game's rules; it has
+a score like anyone, and its downs show in the kill feed. Down or out, it watches from where a player
+would, nameless: on foot at the queue spawn when the map has no spectator spawn, else floating at
+the spectator spawn (seen there, unlike a player, so you can tell where it went). It doesn't move
+or fight back. Hit it, shoot it or knock it off like a player (a game's own weapons
 work on it too: One in the Quiver's arrow kills it). **Right click** one for a side panel that asks
 first: **Fake 1 kills you** (red) takes you down, credited to the fake (it plays out what the game
 does when a player kills you), and **Cancel** leaves things be. Once the
@@ -397,21 +405,22 @@ screenshot as the picture.
    - **Map preview** (Game picture off): the map's thumbnail, with nobody in the shot (you're made
      invisible while you look through);
    - **Game picture** (on): the minigame's thumbnail, where you can walk into the shot.
-   A new angle is a new camera: a camera keeps its place, but the Snapshot can nudge it.
-2. **Snapshot** (slot 2 while the Camera tool is out): use it and pick a camera. Your view moves
-   to it with the HUD, the markers and the outlines hidden, and corner marks frame the 16:9 middle
-   of the screen, which is what a picture keeps. Its side menu: **Take a screenshot**, **Back to my
-   view**, **Game picture**, nudge rows to move it along X, Y and Z, **Turn** it and **Tilt** it
-   (**Step**: small, medium or large), and **Use latest screenshot** (green). The back arrow goes
-   to the cameras.
+   A new angle is a new camera: a camera keeps its place, but the Snapshot tool can nudge it.
+2. **Snapshot:** use the Snapshot tool and pick a camera, or hit a camera with anything (the
+   Snapshot tool goes in your hand). Your view moves to it with the HUD, the markers and the
+   outlines hidden, and corner marks frame the 16:9 middle of the screen, which is what a picture
+   keeps. Its side menu: **Take a screenshot**, **Back to my view**, **Game picture**, nudge rows to
+   move it along X, Y and Z, **Turn** it and **Tilt** it (**Step**: small, medium or large), and
+   **Use latest screenshot** (green). The back arrow goes to the cameras.
 3. **Take the screenshot:** Take a screenshot closes the menu and says how, at the frame's top:
    **F1** hides everything (the frame too), **F2** takes Minecraft's own screenshot, **F1** brings
    it back. Scripts can't take one. The Xbox Game Bar (Win+Alt+PrtScn) and Windows (Win+PrtScn) work
    too.
-4. **Use it:** use the Snapshot again, then **Use latest screenshot**: your newest screenshot (taken
-   in the last 10 minutes, a JPEG from Minecraft's `com.mojang\Screenshots` or a PNG) has its middle
-   16:9 scaled to 320x180, kept with the others (`work/editor/shots/`, listed with where each was used
-   in `work/editor/shots.json`), and saved as the map's `preview.png` or the game's `icon.png`. Your
+4. **Use it:** use the Snapshot tool again (any editor item does, while you look through a camera),
+   then **Use latest screenshot**: your newest screenshot (taken in the last 10 minutes, a JPEG
+   from Minecraft's `com.mojang\Screenshots` or a PNG) has its middle 16:9 scaled to 320x180, kept
+   with the others (`work/editor/shots/`, listed with where each was used in
+   `work/editor/shots.json`), and saved as the map's `preview.png` or the game's `icon.png`. Your
    view comes back. The Panel's checklist card ("Newest screenshot as") and `npm run editor --
    picture [game]` do the same. Publish commits both.
 
@@ -423,9 +432,9 @@ of its maps with a picture (cards with the picture and the name); it asks first,
 then asks **Import map name?**: **Import name** gives this map that map's name and map id too (see
 "A new map id"), **Keep mine** doesn't. It's for a map you're reusing in another game.
 
-Hit a camera for its form: **Game picture** (switches its kind) and Delete. The tool's settings list
-every camera too. Lobby maps can have cameras (the Snapshot only nudges them there), but the lobby
-shows no picture of its own map.
+Right click a camera for its form: **Game picture** (switches its kind) and Delete. The Camera tool's
+settings list every camera too. Lobby maps can have cameras (the Snapshot only nudges them there),
+but the lobby shows no picture of its own map.
 
 ## A new map id
 

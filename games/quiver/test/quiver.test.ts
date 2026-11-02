@@ -265,7 +265,8 @@ describe("respawn points", () => {
       a.inventory.setItem(ARROW_SLOT, undefined);
       world.projectileHits(fake!, a);
       await ticks(2);
-      expect(fake!.isValid).toBe(false);
+      // Down: it watches from the spectator spawn.
+      expect(fake!.location).toEqual({ x: 0.5, y: 80, z: 0.5 });
       expect(arrowsOf(a)).toBe(1);
     });
     expect(result).toMatchObject({ kind: "win", players: ["A"], reason: "first to 1 kills" });

@@ -20,7 +20,28 @@
       "minecraft:health": { "value": 1, "max": 1 },
       "minecraft:knockback_resistance": { "value": 1 },
       "minecraft:nameable": { "always_show": true, "allow_name_tag_renaming": false },
-      "minecraft:fire_immune": true
+      "minecraft:fire_immune": true,
+      "minecraft:interact": {
+        "interactions": [
+          {
+            "interact_text": "Settings",
+            "swing": true,
+            "on_interact": {
+              "filters": {
+                "all_of": [
+                  { "test": "is_family", "subject": "other", "value": "player" },
+                  { "test": "int_property", "subject": "self", "domain": "minecade:kind", "operator": "==", "value": 5 }
+                ]
+              },
+              "event": "minecade:settings",
+              "target": "self"
+            }
+          }
+        ]
+      }
+    },
+    "events": {
+      "minecade:settings": {}
     }
   }
 }

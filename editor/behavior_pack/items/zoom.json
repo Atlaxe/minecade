@@ -1,0 +1,16 @@
+{
+  "format_version": "1.21.60",
+  "minecraft:item": {
+    "description": {
+      "identifier": "minecade:zoom",
+      "menu_category": { "category": "none" }
+    },
+    "components": {
+      "minecraft:icon": { "textures": { "default": "minecade_zoom" } },
+      "minecraft:display_name": { "value": "Zoom" },
+      "minecraft:max_stack_size": 1,
+      "minecraft:can_destroy_in_creative": false,
+      "minecraft:use_modifiers": { "use_duration": 3600, "movement_modifier": 1.0 }
+    }
+  }
+}

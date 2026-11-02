@@ -1,8 +1,9 @@
-// A game previewed from the map editor: fake players (/fake) wait, spawn and go down like players,
-// right clicking one asks whether it should kill you, and /exit ends the preview for a map editor (a guest just
-// leaves). Outside previews there are no fake players.
+// A game previewed from the map editor: fake players (/fake) wait, spawn, go down and watch like
+// players, right clicking one asks whether it should kill you, and /exit ends the preview for a map
+// editor (a guest just leaves). Outside previews there are no fake players.
 import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import type { GameConfig } from "../src/config.ts";
+import type { MapConfig } from "../src/map-config.ts";
 import { FAKE_PLAYER, FakePlayers } from "../src/game/fakes.ts";
 import { Minigame } from "../src/game/minigame.ts";
 import { DANGER_BUTTON, SIDE_TITLE } from "../src/game/preview.ts";
@@ -29,10 +30,10 @@ afterEach(() => {
 });
 
 /** A preview of `config` with `names` (all map editors unless `guests` says otherwise). */
-function preview(names: string[], config: GameConfig, guests: string[] = []) {
+function preview(names: string[], config: GameConfig, guests: string[] = [], map: MapConfig = ARENA) {
   const players = names.map((name) => world.join(name));
   const baseline = snapshot(harness.root);
-  const context = harness.context(names);
+  const context = harness.context(names, map);
   context.vars.preview = "FFA: Arena";
   context.vars.lanPlayers = names.filter((name) => !guests.includes(name));
   current = new TestGame(context, config);
@@ -67,13 +68,17 @@ describe("fake players in a preview", () => {
       expect(bodyOf("Fake 2")?.nameTag).toBe("");
       expect(players[0].nameTag).toBe("");
 
-      // A sword kill: the hit is intercepted like a player's, and the fake is out (no respawns).
+      // A sword kill: the hit is intercepted like a player's, and the fake is out (no respawns). It
+      // watches from the spectator spawn, floating there, nameless (seen, unlike a player).
       const fake1 = bodyOf("Fake 1");
       world.hurt(fake1!, 25, "entityAttack", { attacker: a });
       expect(fake1!.health.currentValue).toBe(20);
       await ticks(1);
-      expect(fake1!.isValid).toBe(false);
       expect(game.roster.get("Fake 1")?.state).toBe("out");
+      expect(fake1!.isValid).toBe(true);
+      expect(fake1!.location).toEqual({ x: 0.5, y: 75, z: 0.5 });
+      expect(fake1!.events.at(-1)).toBe("minecade:float");
+      expect(fake1!.nameTag).toBe("");
       expect(stripColors(world.chat.at(-1) ?? "")).toMatch(/^Fake 1 .* A$/);
 
       // Right click: the side panel asks first. Cancel leaves everyone be; confirming lets the fake
@@ -109,13 +114,14 @@ describe("fake players in a preview", () => {
       await ticks(1);
       expect(game.roster.get("Fake 2")?.state).toBe("alive");
       expect(bodyOf("Fake 2")).toBeDefined();
-      // Down and back at a spawn after the respawn delay.
+      // Down, at the spectator spawn for the respawn delay, then back at a spawn.
       world.hurt(bodyOf("Fake 2")!, 30, "entityAttack", { attacker: a });
       await ticks(1);
-      expect(bodyOf("Fake 2")).toBeUndefined();
+      expect(bodyOf("Fake 2")?.location).toEqual({ x: 0.5, y: 75, z: 0.5 });
       await ticks(25);
       expect(game.roster.get("Fake 2")?.state).toBe("alive");
-      expect(bodyOf("Fake 2")).toBeDefined();
+      expect(bodyOf("Fake 2")?.location.y).toBe(65);
+      expect(bodyOf("Fake 2")?.events.at(-1)).toBe("minecade:walk");
       game.exitPreview(a as never);
     });
     expect(result).toMatchObject({ kind: "aborted" });
@@ -145,6 +151,59 @@ describe("fake players in a preview", () => {
       // FFA takes 4 and the preview expects A and B: room for 2 of the 5.
       expect(game.roster.all().length === 0 && ["Fake 1", "Fake 2"].every((name) => bodyOf(name) !== undefined)).toBe(true);
       expect(bodyOf("Fake 3")).toBeUndefined();
+      game.abort();
+    });
+    expectBaseline(harness.root, baseline);
+  });
+
+  it("wait in the queue with the players, play from the spawns, and watch from the queue spawn when out", async () => {
+    const { spectatorSpawn: _none, ...arena } = ARENA;
+    const map = { ...arena, queueSpawn: [0, 70, 10], queue: { mode: "free", countdown: 1 } } as MapConfig;
+    const { baseline, game } = preview(["A"], { ...FFA, win: "custom", timeLimitSeconds: 0 }, [], map);
+    game.ctx.vars.previewFakes = 2;
+    await playToEnd(game, harness.root, baseline, async () => {
+      await ticks(2);
+      // A free queue: at the queue spawn with everyone, named.
+      for (const name of ["Fake 1", "Fake 2"]) {
+        expect(bodyOf(name)?.location).toEqual({ x: 0.5, y: 70, z: 10.5 });
+        expect(stripColors(bodyOf(name)?.nameTag ?? "")).toBe(name);
+      }
+      // The queue's countdown, then out of the queue to spawns of their own like the player.
+      await ticks(20 + 10);
+      expect(game.phase).toBe("countdown");
+      expect(bodyOf("Fake 1")?.location).toEqual({ x: 4.5, y: 65, z: 0.5 });
+      expect(bodyOf("Fake 2")?.location).toEqual({ x: -3.5, y: 65, z: 0.5 });
+      await ticks(COUNTDOWN_TICKS);
+      expect(game.phase).toBe("playing");
+      // Out: back at the queue spawn on foot, nameless.
+      const fake1 = bodyOf("Fake 1");
+      world.hurt(fake1!, 30, "entityAttack", { attacker: game.player("A") as never });
+      await ticks(1);
+      expect(game.roster.get("Fake 1")?.state).toBe("out");
+      expect(fake1!.location).toEqual({ x: 0.5, y: 70, z: 10.5 });
+      expect(fake1!.events.at(-1)).toBe("minecade:walk");
+      expect(fake1!.nameTag).toBe("");
+      // A fall puts it back there.
+      fake1!.location = { x: 0, y: 45, z: 10 };
+      await ticks(4);
+      expect(fake1!.location).toEqual({ x: 0.5, y: 70, z: 10.5 });
+      game.abort();
+    });
+    expectBaseline(harness.root, baseline);
+  });
+
+  it("wait unseen and nameless in a locked queue, like the players", async () => {
+    const map = { ...ARENA, queueSpawn: [0, 70, 10], queue: { mode: "lock", countdown: 1 } } as MapConfig;
+    const { baseline, game } = preview(["A"], { ...FFA, win: "custom", timeLimitSeconds: 0 }, [], map);
+    game.ctx.vars.previewFakes = 1;
+    await playToEnd(game, harness.root, baseline, async () => {
+      await ticks(2);
+      expect(bodyOf("Fake 1")?.location).toEqual({ x: 0.5, y: 70, z: 10.5 });
+      expect(bodyOf("Fake 1")?.effects.has("invisibility")).toBe(true);
+      expect(bodyOf("Fake 1")?.nameTag).toBe("");
+      await ticks(20 + 10);
+      expect(bodyOf("Fake 1")?.effects.has("invisibility")).toBe(false);
+      expect(stripColors(bodyOf("Fake 1")?.nameTag ?? "")).toBe("Fake 1");
       game.abort();
     });
     expectBaseline(harness.root, baseline);

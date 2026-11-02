@@ -447,10 +447,13 @@ The rules every editor menu follows (the user's, from 2026-10-31):
   each), and a green button pinned at the bottom that saves it. Closing it keeps nothing.
 - **No tool opens a menu at the sky:** menus open from the map menu, or from a tool aimed at a block
   (the Spawn tool). A tool used at the sky does nothing, or acts at once (the Kill Y tool sets kill
-  Y, the Camera tool places a camera).
-- **Cards** (the editor lobby's maps): the title on the left and a row of icons on the right, each
-  with a tooltip, faded (`MARK.dim`) when that step isn't done yet. The title isn't a button. Built
-  like the tool grid: a column of titles (`MARK.cardTitle`) and one column per icon
+  Y, the Camera tool places a camera). The Snapshot tool is the exception the user asked for: a use
+  lists the cameras.
+- **Cards** (the editor lobby's maps): two lines on the left, what it is (the game, gray) beside a
+  row of icons on the right, then its name (white) under them across the card, so a long name isn't
+  cut off. Each icon has a tooltip and no face of its own on the card's (only a faint one while
+  hovered, like the Search link), faded (`MARK.dim`) when that step isn't done yet. The title isn't
+  a button. Built like the tool grid: a column of titles (`MARK.cardTitle`) and one column per icon
   (`MARK.cardIcon` with `CARD_COLUMNS`), a card's buttons one after another so the rows line up.
   A heading row over them (`MARK.cardHead`) can carry a link with an icon on its right
   (`MARK.cardLink`: Search).

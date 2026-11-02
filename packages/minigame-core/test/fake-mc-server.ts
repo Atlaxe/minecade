@@ -457,6 +457,9 @@ export class FakeMob {
   readonly knockbacks: { x: number; z: number; vertical: number }[] = [];
   readonly health = makeAttribute(20, "health");
   readonly properties = new Map<string, number | boolean | string>();
+  /** Every event triggered on it, oldest first ("minecade:float", ...). */
+  readonly events: string[] = [];
+  readonly effects = new Set<string>();
 
   constructor(typeId: string, location: Vector3) {
     this.typeId = typeId;
@@ -473,8 +476,23 @@ export class FakeMob {
     this.properties.set(id, value);
   }
 
-  getEffect(): undefined {
-    return undefined;
+  getEffect(typeId: string): { typeId: string } | undefined {
+    return this.effects.has(typeId) ? { typeId } : undefined;
+  }
+
+  addEffect(typeId: string): void {
+    writable("Entity::addEffect");
+    this.effects.add(typeId);
+  }
+
+  removeEffect(typeId: string): boolean {
+    writable("Entity::removeEffect");
+    return this.effects.delete(typeId);
+  }
+
+  triggerEvent(eventName: string): void {
+    writable("Entity::triggerEvent");
+    this.events.push(eventName);
   }
 
   teleport(location: Vector3, _options: unknown = {}): void {

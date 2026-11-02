@@ -91,6 +91,8 @@ export type MenuAction =
   /** The camera tool: the kind of new cameras, and a camera's form. */
   | { kind: "cameraKind" }
   | { kind: "camera"; name: string }
+  /** The Snapshot tool: look through a camera to take its picture. */
+  | { kind: "snapshot"; name: string }
   | { kind: "save" }
   /** Select mode: something to do with the selection. */
   | { kind: "pick"; action: PickAction }
@@ -169,6 +171,7 @@ export function mapMenuEntries(view: MapMenuView): MenuEntry[] {
   else if (view.tool === "region") entries.push(...regionSettings(view.region.selection, view.region.entries));
   else if (view.tool === "killY") entries.push(...killYSettings(view.config.killY));
   else if (view.tool === "camera") entries.push(...cameraSettings(view.config, view.camera?.kind ?? "map"));
+  else if (view.tool === "snapshot") entries.push(...snapshotSettings(view.config));
   entries.push({ action: { kind: "save" }, text: `${MARK.save}${saveText(view)}` });
   return entries;
 }
@@ -181,6 +184,15 @@ export function cameraSettings(config: MapConfig, kind: CameraKind): MenuEntry[]
     { action: { kind: "cameraKind" }, text: switchText("Game picture", kind === "game" ? CAMERA_KINDS.game.hint : `off: a map preview, ${CAMERA_KINDS.map.hint.split(", ")[1]}`, kind === "game") },
     { action: { kind: "none" }, text: headingText(cameras.length > 0 ? `Cameras (${cameras.length})` : "No cameras yet") },
     ...cameras.map(([name, camera]): MenuEntry => ({ action: { kind: "camera", name }, text: `${name}\n§7${CAMERA_KINDS[camera.kind].label}` })),
+  ];
+}
+
+/** The Snapshot tool's settings: the map's cameras (tap one to look through it). */
+export function snapshotSettings(config: MapConfig): MenuEntry[] {
+  const cameras = camerasOf(config);
+  return [
+    { action: { kind: "none" }, text: headingText(cameras.length > 0 ? `Cameras (${cameras.length})` : "No cameras yet: place one with the Camera tool") },
+    ...cameras.map(([name, camera]): MenuEntry => ({ action: { kind: "snapshot", name }, text: `${name}\n§7${CAMERA_KINDS[camera.kind].label}` })),
   ];
 }
 
@@ -415,8 +427,8 @@ export function killYScreenEntries(view: { y: number; set: boolean; step: number
 }
 
 // ---- Snapshot ---------------------------------------------------------------------------------
-// The Camera tool's Snapshot (slot 2): pick a camera, look through it with the 16:9 frame, nudge it,
-// then take the screenshot with Minecraft's own keys and use it.
+// The Snapshot tool: pick a camera, look through it with the 16:9 frame, nudge it, then take the
+// screenshot with Minecraft's own keys and use it.
 
 /** How far each nudge moves a camera and turns or tilts it: Step's tiles. */
 export const SNAPSHOT_STEPS = [
@@ -491,7 +503,7 @@ export function thumbnailEntries(view: { kind: "map" | "game"; pictures: Picture
   const tiles: { action: ThumbnailAction; label: string; icon: string; on: boolean }[] = [];
   if (current === "own" && view.own) tiles.push({ action: { kind: "none" }, label: "In use now", icon: view.own, on: true });
   for (const shot of view.pictures.shots) tiles.push({ action: { kind: "shot", id: shot.id }, label: shot.label, icon: shotTexture(shot.id), on: shot.id === current });
-  if (tiles.length === 0) entries.push({ action: { kind: "none" }, text: headingText("No pictures yet: the Camera tool's Snapshot takes them") });
+  if (tiles.length === 0) entries.push({ action: { kind: "none" }, text: headingText("No pictures yet: the Snapshot tool takes them") });
   tiles.forEach((tile, i) => entries.push({ action: tile.action, text: pictureText(`${tile.label}${tile.on ? "\n§7in use" : ""}`, i, tile.on), icon: tile.icon }));
   return entries;
 }
@@ -851,9 +863,9 @@ export function homeCards(catalog: Catalog): HomeCard[] {
 
 /**
  * The editor lobby's menu: the icon row (New map, Players, and Leave at the right end), then Recent
- * with Search on its right, and the cards: each map's title, with Select (the world it came from),
- * Edit and Preview icons on its right, faded when that step isn't done. A world with no map yet
- * has Select only.
+ * with Search on its right, and the cards: each map's game, with Select (the world it came from),
+ * Edit and Preview icons on its right, faded when that step isn't done, and the map's name under
+ * them. A world with no map yet has Select only.
  */
 export function homeEntries(state: HomeState): HomeEntry[] {
   const entries: HomeEntry[] = [
@@ -874,7 +886,7 @@ function cardEntries(card: HomeCard, catalog: Catalog): HomeEntry[] {
   if (card.kind === "world") {
     const { world } = card;
     return [
-      { action: { kind: "none" }, text: cardTitleText(world.name) },
+      { action: { kind: "none" }, text: cardTitleText("World", world.name) },
       { action: { kind: "open", request: { to: "select", world: world.id } }, text: cardIconText(`Select\n§7box maps in ${world.name}`, 0, true), icon: ICONS.select },
       { action: { kind: "off", why: "Box a map in Select and export it first." }, text: cardIconText("Edit\n§7box a map and export it first", 1, false), icon: ICONS.edit },
       { action: { kind: "off", why: "Export a map, then finish its checklist in Edit." }, text: cardIconText("Preview\n§7export a map and finish its checklist first", 2, false), icon: ICONS.play },
@@ -885,7 +897,7 @@ function cardEntries(card: HomeCard, catalog: Catalog): HomeEntry[] {
   const lobby = target.id === "lobby";
   const why = lobby ? "A lobby map can't be previewed yet: publish it, then start the network." : "Open it in Edit and finish its checklist first.";
   return [
-    { action: { kind: "none" }, text: cardTitleText(`${target.name}: ${map.name}`) },
+    { action: { kind: "none" }, text: cardTitleText(target.name, map.name) },
     world
       ? { action: { kind: "open", request: { to: "select", world: world.id } }, text: cardIconText(`Select\n§7box more maps in ${world.name}`, 0, true), icon: ICONS.select }
       : { action: { kind: "off", why: "This map didn't come from a world on this PC." }, text: cardIconText("Select\n§7its world isn't on this PC", 0, false), icon: ICONS.select },

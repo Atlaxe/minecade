@@ -1,15 +1,19 @@
 // Fake players, for previews from the map editor: a player-shaped entity (minecade:fake_player,
 // in the preview's own packs: editor/preview/) that joins the match like a player, by name ("Fake
 // 1"). The game spawns, respawns and downs it like anyone else, and it can be hit, shot or knocked
-// off. Only its body lives here: Minigame decides where it goes and when.
+// off. Only its body lives here: Minigame decides where it goes and when. A body walks (gravity,
+// pushed around) or floats in place passing through everything (a spectator): the entity's
+// "minecade:walk" and "minecade:float" events.
 //
 // Entities can only be placed in chunks that are loaded and ticking, which only chunks near a player
 // are (the servers' tick distance is 4 chunks). So a fake's body gets a one-chunk ticking area
-// where it stands, made before it's placed there and dropped once it moves on or goes down.
+// where it stands, made before it's placed there and dropped once it moves on or is removed.
 import { EntityComponentTypes, world, type Dimension, type Entity, type Vector3 } from "@minecraft/server";
 import { describeError, log } from "../log.ts";
 
 export const FAKE_PLAYER = "minecade:fake_player";
+const WALK_EVENT = "minecade:walk";
+const FLOAT_EVENT = "minecade:float";
 
 export class FakePlayers {
   private readonly dimension: Dimension;
@@ -72,9 +76,10 @@ export class FakePlayers {
 
   /**
    * Puts it at `location` with full health, with a new body if it has none, once its chunk is
-   * ticking. Resolves with the body, or undefined when it couldn't be placed or was hidden meanwhile.
+   * ticking, walking or `floating`. Resolves with the body, or undefined when it couldn't be placed
+   * or was hidden meanwhile.
    */
-  async place(name: string, location: Vector3, nameTag: string): Promise<Entity | undefined> {
+  async place(name: string, location: Vector3, nameTag: string, floating = false): Promise<Entity | undefined> {
     const key = name.toLowerCase();
     if (!this.names.has(key)) return undefined;
     const turn = this.turn(key);
@@ -99,6 +104,7 @@ export class FakePlayers {
         body.teleport(location);
       }
       body.nameTag = nameTag;
+      body.triggerEvent(floating ? FLOAT_EVENT : WALK_EVENT);
       body.getComponent(EntityComponentTypes.Health)?.resetToMaxValue();
       body.clearVelocity();
       this.dropArea(this.areas.get(key));

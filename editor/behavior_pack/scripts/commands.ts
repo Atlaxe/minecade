@@ -3,15 +3,23 @@
 //   the Select tool) and creative mode, for worlds whose command blocks clear inventories or change
 //   game modes. Select and Edit say what resetting does.
 // - /zoom (minecade:zoom): zooms the view in, like a spyglass, whatever you hold; again to zoom
-//   back out. A key can't do it: scripts only see the jump and sneak buttons. A right click with an
-//   empty hand does the same (zoomOnEmptyHand), on any platform, but only aimed at a block or a
-//   mob within reach: a right click at the sky reaches no script.
-import { CommandPermissionLevel, CustomCommandStatus, system, world, type Player } from "@minecraft/server";
+//   back out.
+// The Zoom item (slot 8 in Select and Edit) zooms in while right click is held with it, anywhere,
+// and back out once it's let go (zoomWhileHeld). It takes an item: scripts see no keys but jump and
+// sneak, no right click with an empty hand unless it lands on a block or mob in reach, and nothing
+// used from the off-hand.
+import { CommandPermissionLevel, CustomCommandStatus, ItemLockMode, ItemStack, system, world, type Container, type Player } from "@minecraft/server";
 import type { Scope } from "@minecade/minigame-core";
 
+export const ZOOM_ITEM = "minecade:zoom";
+/** Slot 8, beside the map menu. */
+const ZOOM_SLOT = 7;
 /** The field of view while zoomed in (Minecraft's default is about 70). */
 const ZOOM_FOV = 30;
 const zoomed = new Set<string>();
+/** Who holds right click with the Zoom item now, and the tick each last started or stopped. */
+const holding = new Set<string>();
+const heldAt = new Map<string, number>();
 
 let handler: ((player: Player) => void) | undefined;
 
@@ -36,29 +44,65 @@ system.beforeEvents.startup.subscribe(({ customCommandRegistry }) => {
     (origin) => {
       const player = origin.sourceEntity;
       if (player?.typeId !== "minecraft:player") return { status: CustomCommandStatus.Failure, message: "Only a player can zoom." };
-      system.run(() => toggleZoom(player as Player));
+      system.run(() => setZoom(player as Player, !zoomed.has(keyOf(player as Player))));
       return { status: CustomCommandStatus.Success };
     },
   );
 });
 
-/** A right click with an empty hand on a block (once per click, not while held) or on a mob zooms in or back out. */
-export function zoomOnEmptyHand(scope: Scope): void {
-  scope.subscribeBefore(world.beforeEvents.playerInteractWithBlock, ({ player, itemStack, isFirstEvent }) => {
-    if (!itemStack && isFirstEvent) system.run(() => toggleZoom(player));
+/** Holding right click with the Zoom item zooms in until it's let go. */
+export function zoomWhileHeld(scope: Scope): void {
+  scope.subscribe(world.afterEvents.itemStartUse, ({ source, itemStack }) => {
+    if (itemStack.typeId !== ZOOM_ITEM) return;
+    holding.add(keyOf(source));
+    heldAt.set(keyOf(source), system.currentTick);
+    setZoom(source, true);
   });
-  scope.subscribe(world.afterEvents.playerInteractWithEntity, ({ player, itemStack }) => {
-    if (!itemStack) toggleZoom(player);
+  const letGo = ({ source }: { source: Player }) => {
+    if (!holding.delete(keyOf(source))) return;
+    heldAt.set(keyOf(source), system.currentTick);
+    setZoom(source, false);
+  };
+  scope.subscribe(world.afterEvents.itemStopUse, letGo);
+  scope.subscribe(world.afterEvents.itemReleaseUse, letGo);
+  scope.subscribe(world.afterEvents.itemCompleteUse, letGo);
+  // A use that never starts holding (in case the game doesn't treat the item as held) zooms in or
+  // back out per click instead.
+  scope.subscribe(world.afterEvents.itemUse, ({ source, itemStack }) => {
+    if (itemStack.typeId !== ZOOM_ITEM) return;
+    const key = keyOf(source);
+    const at = system.currentTick;
+    system.runTimeout(() => {
+      if (!holding.has(key) && (heldAt.get(key) ?? -10) < at - 2) setZoom(source, !zoomed.has(key));
+    }, 3);
   });
 }
 
-function toggleZoom(player: Player): void {
+/** The Zoom item, locked in slot 8, unless the player has it already. Whatever was in slot 8 moves to a free slot. */
+export function giveZoom(inventory: Container): void {
+  for (let slot = 0; slot < inventory.size; slot++) if (inventory.getItem(slot)?.typeId === ZOOM_ITEM) return;
+  const old = inventory.getItem(ZOOM_SLOT);
+  const zoom = new ItemStack(ZOOM_ITEM, 1);
+  zoom.lockMode = ItemLockMode.slot;
+  zoom.keepOnDeath = true;
+  inventory.setItem(ZOOM_SLOT, zoom);
+  if (old) inventory.addItem(old);
+}
+
+function setZoom(player: Player, on: boolean): void {
   if (!player.isValid) return;
-  const key = player.name.toLowerCase();
+  const key = keyOf(player);
+  if (zoomed.has(key) === on) return;
   const easeOptions = { easeTime: 0.2 };
-  if (zoomed.delete(key)) player.camera.setFov({ easeOptions });
-  else {
+  if (on) {
     zoomed.add(key);
     player.camera.setFov({ fov: ZOOM_FOV, easeOptions });
+  } else {
+    zoomed.delete(key);
+    player.camera.setFov({ easeOptions });
   }
+}
+
+function keyOf(player: Player): string {
+  return player.name.toLowerCase();
 }

@@ -2,7 +2,7 @@
 // tool grid: it goes in hotbar slot 1, unlocked, and only one tool is out at a time. A new tool
 // adds a row here and gets its icon in the grid.
 
-export type ToolId = "spawn" | "region" | "killY" | "camera" | "select";
+export type ToolId = "spawn" | "region" | "killY" | "camera" | "snapshot" | "select";
 
 export interface EditorTool {
   id: ToolId;
@@ -48,7 +48,15 @@ export const EDITOR_TOOLS: EditorTool[] = [
     icon: "textures/items/camera_tool",
     label: "Camera tool",
     hint: "pictures for the lobby",
-    howTo: "Use it to place a camera at your eyes, looking where you look. The Snapshot in slot 2 takes its picture: pick a camera, frame it, then F1 and F2.",
+    howTo: "Use it to place a camera at your eyes, looking where you look. Hit a camera to look through it and take its picture; right click it to change its kind or delete it.",
+  },
+  {
+    id: "snapshot",
+    item: "minecade:snapshot",
+    icon: "textures/items/snapshot",
+    label: "Snapshot tool",
+    hint: "take a camera's picture",
+    howTo: "Use it to pick a camera (or hit one with anything) and look through it. Frame the picture, take the screenshot (F1, F2, F1), use the tool again, then Use latest screenshot.",
   },
 ];
 

@@ -544,7 +544,9 @@ export abstract class Minigame<C extends GameConfig = GameConfig> {
 
   spectate(name: string): void {
     if (this.fakes?.has(name)) {
-      this.fakes.hide(name); // back at its next spawn
+      // Where a player would watch from: on foot at the queue spawn, or floating at the spectator
+      // spawn. Seen there, unlike a player (so a preview shows where they went), and nameless.
+      this.placeFake(name, this.map.spectatorSpawn, { tagged: false, floating: !this.map.watchesFromQueue });
       return;
     }
     const player = this.player(name);
@@ -638,7 +640,7 @@ export abstract class Minigame<C extends GameConfig = GameConfig> {
     this.respawnAt.delete(name.toLowerCase());
     this.respawnShown.delete(name.toLowerCase());
     if (this.fakes?.has(name)) {
-      this.placeFake(name, this.spawnPoint(name, why), true, this.config.nameTags === true);
+      this.placeFake(name, this.spawnPoint(name, why), { faceCenter: true, tagged: this.config.nameTags === true });
       return;
     }
     const player = this.player(name);
@@ -846,6 +848,7 @@ export abstract class Minigame<C extends GameConfig = GameConfig> {
   private requeue(on: boolean): void {
     this.queued = on;
     for (const player of world.getAllPlayers()) this.prepareWaiting(player);
+    for (const name of this.fakes?.all ?? []) this.placeWaitingFake(name);
   }
 
   /** A locked-in player more than a block from the queue spawn (pushed, or lagging). */
@@ -889,8 +892,14 @@ export abstract class Minigame<C extends GameConfig = GameConfig> {
     this.place(player, this.waitingSpawn(player.name));
   }
 
-  /** A fake player waits at a spawn of its own (never in the queue). */
+  /** A fake player waits where a player would: in the queue (unseen and nameless when it locks), else at a spawn of its own. */
   private placeWaitingFake(name: string): void {
+    const queueSpawn = this.map.queueSpawn;
+    if (this.queued && queueSpawn) {
+      const locked = this.map.queue.mode === "lock";
+      this.placeFake(name, queueSpawn, { tagged: !locked, unseen: locked });
+      return;
+    }
     this.placeFake(name, this.waitingSpawn(name));
   }
 
@@ -1009,14 +1018,19 @@ export abstract class Minigame<C extends GameConfig = GameConfig> {
 
   /**
    * Puts a fake player at a map position, with a body again if it had none, once its chunk is
-   * ticking. Its name shows in its team's color, unless `tagged` is false (a match without name tags).
+   * ticking. Its name shows in its team's color unless `tagged` is false (a match without name
+   * tags, a spectator); `unseen` makes it invisible (a locked queue), and `floating` keeps it in the
+   * air, passing through everything (a spectator).
    */
-  private placeFake(name: string, position: MapPosition, faceCenter = false, tagged = true): void {
+  private placeFake(name: string, position: MapPosition, how: { faceCenter?: boolean; tagged?: boolean; unseen?: boolean; floating?: boolean } = {}): void {
     const team = this.teamOf(name);
-    const tag = !tagged ? "" : team ? `${team.color}${name}` : name;
-    void this.fakes?.place(name, worldPoint(position), tag).then((body) => {
+    const tag = how.tagged === false ? "" : team ? `${team.color}${name}` : name;
+    void this.fakes?.place(name, worldPoint(position), tag, how.floating === true).then((body) => {
       try {
-        if (body?.isValid) this.place(body, position, faceCenter);
+        if (!body?.isValid) return;
+        this.place(body, position, how.faceCenter);
+        if (how.unseen) body.addEffect("invisibility", QUEUE_EFFECT_TICKS, { amplifier: 0, showParticles: false });
+        else body.removeEffect("invisibility");
       } catch (error) {
         log.warn(`could not turn ${name}: ${describeError(error)}`);
       }
@@ -1323,6 +1337,11 @@ export abstract class Minigame<C extends GameConfig = GameConfig> {
       for (const player of world.getAllPlayers()) {
         const state = this.roster.get(player.name)?.state;
         if ((state === undefined || state === "out" || state === "respawning") && this.map.outOfBounds(player.location)) this.place(player, this.map.spectatorSpawn);
+      }
+      for (const name of this.fakes?.all ?? []) {
+        const state = this.roster.get(name)?.state;
+        const body = this.fakes?.body(name);
+        if ((state === "out" || state === "respawning") && body && !this.fakes?.isPlacing(name) && this.map.outOfBounds(body.location)) this.place(body, this.map.spectatorSpawn);
       }
       return;
     }

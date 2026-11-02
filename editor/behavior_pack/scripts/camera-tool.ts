@@ -1,11 +1,14 @@
 // The Camera tool: preview pictures. A use places a camera at your eyes at once, looking where you
 // look ("Camera 1", "Camera 2" and on), of the kind set in the tool's settings: a map preview (the
 // map's tile and hologram picture in the lobby, nobody in the shot) or a game picture (the game's
-// picture, where you can walk into the shot). Hit a camera's marker for its form (its kind, Delete).
-// The tool comes with the Snapshot in slot 2: pick a camera and your view moves to it, with the HUD,
-// markers and outlines hidden and a 16:9 frame showing what a picture keeps; nudge it, take the
-// screenshot with Minecraft's own keys (F1 hides everything, F2 takes it), then Use latest
-// screenshot has the host save it as the picture (tools/editor/shots.ts).
+// picture, where you can walk into the shot). Right click a camera's marker for its form (its
+// kind, Delete).
+// The Snapshot tool takes the pictures: a use lists the cameras, and hitting a camera's marker
+// (with anything) picks it and puts the Snapshot tool in hand. Your view moves to the camera, with
+// the HUD, markers and outlines hidden and a 16:9 frame showing what a picture keeps; nudge it,
+// take the screenshot with Minecraft's own keys (F1 hides everything, F2 takes it), then use the
+// tool again for Use latest screenshot, which has the host save it as the picture
+// (tools/editor/shots.ts).
 import { HudVisibility, type Player } from "@minecraft/server";
 import { ActionFormData } from "@minecraft/server-ui";
 import { describeError } from "@minecade/minigame-core";
@@ -20,7 +23,7 @@ const LOOK_TICKS = 1_000_000;
 /** The frame's title stays up this long (it's sent again after every change). */
 const FRAME_TICKS = 20 * 60 * 10;
 /** What the frame says once Take a screenshot is picked. */
-const SHOOT_LINE = "§fF1 hides everything, F2 takes the screenshot, F1 brings it back. Then use the Snapshot again.";
+const SHOOT_LINE = "§fF1 hides everything, F2 takes the screenshot, F1 brings it back. Then use the Snapshot tool again.";
 
 export interface CameraHost extends ToolHost {
   /** "Sumo", or "Lobby" (a lobby map has no picture). */
@@ -29,6 +32,8 @@ export interface CameraHost extends ToolHost {
   picture(player: Player, kind: CameraKind): void;
   /** Someone started or stopped looking through a camera: markers and outlines hide while anyone does. */
   lookChanged(): void;
+  /** Puts the Snapshot tool in the player's hand (a camera's marker was hit with something else). */
+  holdSnapshot(player: Player): void;
 }
 
 export class CameraTool {
@@ -64,15 +69,15 @@ export class CameraTool {
     const kind = this.kindOf(player);
     const name = nextCameraName(this.host.map());
     const camera = cameraAt(player.getHeadLocation(), player.getRotation(), kind);
-    if (this.host.edit(player, { op: "camera", name, camera })) actionBar(player, `${name} placed (${CAMERA_KINDS[kind].label.toLowerCase()}): the Snapshot takes its picture`);
+    if (this.host.edit(player, { op: "camera", name, camera })) actionBar(player, `${name} placed (${CAMERA_KINDS[kind].label.toLowerCase()}): hit it to take its picture`);
   }
 
   /** The action bar line while the tool is held. */
   hint(player: Player): string {
-    return `Use: place ${nextCameraName(this.host.map())} at your eyes (${CAMERA_KINDS[this.kindOf(player)].label})   Snapshot: slot 2`;
+    return `Use: place ${nextCameraName(this.host.map())} at your eyes (${CAMERA_KINDS[this.kindOf(player)].label})   Hit a camera: its picture   Right click: settings`;
   }
 
-  /** A camera's form, from its marker or the tool's settings: its kind, and Delete. */
+  /** A camera's form, from a right click on its marker or the tool's settings: its kind, and Delete. */
   async menu(player: Player, name: string, back?: () => Promise<void>): Promise<void> {
     const camera = this.host.map().cameras?.[name];
     if (!camera) return;
@@ -102,14 +107,21 @@ export class CameraTool {
     this.host.edit(player, { op: "camera", name }, `${name} deleted.`);
   }
 
-  // ---- The Snapshot ---------------------------------------------------------------------------
+  // ---- The Snapshot tool ----------------------------------------------------------------------
 
-  /** A use of the Snapshot: its menu for the camera the player looks through, else the cameras to pick from. */
+  /** A use of the Snapshot tool: its menu for the camera the player looks through, else the cameras to pick from. */
   async snapshot(player: Player): Promise<void> {
     const looking = this.looking.get(player.name.toLowerCase());
     if (looking && this.host.map().cameras?.[looking.name]) return this.snapshotMenu(player, looking.name);
     if (looking) this.stop(player);
     return this.pickCamera(player);
+  }
+
+  /** A camera picked from its marker or the map menu: the Snapshot tool in hand, the view through it, and its menu. */
+  async snapshotOf(player: Player, name: string): Promise<void> {
+    this.host.holdSnapshot(player);
+    if (!this.look(player, name)) return;
+    return this.snapshotMenu(player, name);
   }
 
   /** The cameras: tap one to look through it. */
