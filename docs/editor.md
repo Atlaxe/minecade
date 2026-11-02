@@ -206,7 +206,8 @@ send Xbox invites: a guest adds this PC's address on port 19132 (the network's a
 ## In game
 
 Every control is a hit (left click), a use (right click) or a form. None needs sneaking, which
-would fly you down.
+would fly you down (sneaking and right clicking a mannequin is only a shortcut for what its screen
+does).
 
 The map menu, the checklist, a marker's form and the region tool's menus open as a dark panel down
 the right side of the screen, full height, so the world stays in view on the left. Esc or the X
@@ -229,7 +230,7 @@ game in gold and the map in orange.
      change). The menu opens again afterward, so you can undo several steps.
    - **The eye** (Boundaries): a switch for every boundary the map has (the bounds, kill Y, kill
      regions, and each other region), and **Show all**. A boundary switched on shows to you all the
-     time, whatever you hold (see "Outlines" below). Your switches are kept for your next map and
+     time, whatever you hold (see "Boundaries" below). Your switches are kept for your next map and
      the next boot (`work/editor/view.json`).
    - **The play icon** (Preview, game maps only): see "Preview".
    - **The gear** (map settings): **Players** and **Back to Lobby** (a house, at the right end) in its
@@ -240,13 +241,13 @@ game in gold and the map in orange.
      `npm run bake`), which keeps the world as you change it; **Publish** (green, the checklist's
      too, see "Publishing"); and **Delete map** (red, see "Deleting a map").
 2. **Tools:** a grid of the tools' icons (the Spawn tool, the Game marker tool when the game has
-   markers of its own, the Region tool, the Kill Y tool, the Camera tool, the Snapshot tool, and the
-   Mannequin tool on a game's map), with their names as tooltips. Tap one to put it in slot 1 and in your hand; the menu closes (open it
+   markers of its own, the Region tool, the Kill Y tool, the Camera tool, the Snapshot tool, the
+   Mannequin tool on a game's map, and the Time tool), with their names as tooltips. Tap one to put it in slot 1 and in your hand; the menu closes (open it
    again for the tool's settings). Tap it again to put it away. The one you have out is outlined.
    One tool is out at a time: picking one puts any other away. The tool isn't locked, so you can
    move it; whatever was in slot 1 moves to a free slot.
 3. **The tool's settings** (they scroll): a **Help** link (the tool's how-to, in chat, with a
-   chime), then:
+   chime; the menu stays closed so you can read it), then:
    - **Spawn tool:** every spawn the map has, by list (spawns, each team's spawns, the spectator
      spawn and the queue spawn). Tap one for its screen.
    - **Game marker tool:** every marker the map has, by list (each point the game asks for, each
@@ -254,15 +255,18 @@ game in gold and the map in orange.
    - **Region tool:** your selection's size, **Save the selection** (its screen) and Clear, then
      **Bounds and regions**: every box the map has. Tap one for its screen (see "Region tool"
      below). While the map menu is open, every boundary is outlined.
-   - **Kill Y tool:** kill Y now, **Set kill Y** (its screen), and **Remove kill Y**; on a game's
-     map, the build limit now and **Set build limit** (the same screen, on the side still to set).
+   - **Kill Y tool:** **Kill Y** and, on a game's map, **Build limit above** and **Build limit
+     below**, each with its height ("not set" until it is), listed like the spawns. Tap one for its
+     screen.
+   - **Time tool:** the map's time of day. Tap it for its screen.
 4. **Save:** a green bar at the bottom, outside the scrolling part. It saves the world into the map
    now (see Saving); its tooltip says whether blocks changed since the last save.
 
 **Tools set things; menus are in the map menu.** No tool opens a menu when you use it at the sky:
 the Spawn tool opens an entry's screen only aimed at a block, the Region tool only grows its box
-(save it from the map menu), the Kill Y tool sets kill Y at once, and the Camera tool places a camera
-at once. The Snapshot tool is the one exception: a use lists the cameras. A screen for what a tool
+(save it from the map menu), and the Camera tool places a camera at once. The exceptions set one
+thing that isn't anywhere: a use of the Snapshot tool lists the cameras, and a use of the Kill Y
+tool or the Time tool opens its screen (with the back arrow to the map menu). A screen for what a tool
 sets up has a toggle first, then its settings and nudge rows (a
 minus and a plus each, **Step** cycling how far), and a green button pinned at the bottom that saves
 it; closing it keeps nothing. Once a new spawn, marker or box is saved, the next new one's screen
@@ -335,13 +339,16 @@ you back in creative at every spawn).
     box), **Go to** it (on top, over its middle), **Delete** it (red), and **Save** (green). To
     change it more, delete it and box it again.
   - The checklist's bounds and region rows give you the tool already set to that row.
-- **Kill Y tool:** players below kill Y are out. Use it to set kill Y one block below your feet at
-  once (Undo takes it back). **Set kill Y** in the map menu opens its screen: type a height or nudge
-  it (the plane is drawn at it), and **Set kill Y** (green).
+- **Kill Y tool:** players below kill Y are out. Use it, or tap Kill Y in the map menu, for its
+  screen: type a height or nudge it (starting one block below your feet until kill Y is set), with
+  only that plane drawn, at the height you're setting; **Set kill Y** (green) saves it, and
+  **Remove kill Y** (red) removes it. Holding the tool, you see the heights' planes and no other
+  boundary.
   - **Build limit:** on a game's map, the screen's tiles pick **Kill Y**, **Limit above** (no block
     above that height) or **Limit below** (none below it), each a height of its own (`buildLimit` in
-    map.json; building games keep blocks between them). A use sets the one picked last: a build
-    limit at your feet. Its planes are orange. The top must stay over the bottom.
+    map.json; building games keep blocks between them), and the map menu lists all three. A use
+    opens the screen on the one picked last (a build limit starts at your feet). Its planes are
+    orange. The top must stay over the bottom.
   - The checklist's Kill Y and build limit rows give you the tool already set to that row.
 - **Camera tool:** pictures for the lobby (see "Pictures"). Using it places a camera at your eyes at
   once, looking your way, of the kind the tool's settings say (**Game picture** off or on). Hit a
@@ -350,16 +357,31 @@ you back in creative at every spawn).
   settings in the map menu list them too.
 - **Mannequin tool** (a game's maps): stand-ins for players in the game's picture (see "Pictures").
   Use it on a block to place a mannequin there at once, facing you; hit or right click one for its
-  screen. Its settings in the map menu list them.
-- **Outlines:** while you hold the region tool or the Kill Y tool, or have one of their screens
-  open, dots outline your selection (yellow), the bounds (white), kill regions (red), each other
-  region in its own color (a team's
-  region in the team's color), the kill Y plane (red: a grid near you, and the edge of the box
-  around the bounds at that height), and the build limit's planes (orange). The boundaries you switched on in the Boundaries view (the
-  map menu's eye) show whatever you hold. Only you see them. Every edge shows however far away it
-  is: dots past 40 blocks are drawn 40 blocks out, on the same line of sight, so they sit where the
-  edge is on screen. Dots are spaced and sized by distance, so a line looks the same near and far,
-  and each has a dark rim so it shows on bright and dark backgrounds.
+  screen, or sneak and right click it for its next pose. Its settings in the map menu list them.
+- **Time tool:** the map's time of day (`time` in map.json), where its servers stop the daylight
+  cycle. Use it, or tap Time in the map menu, for its screen: the **Time** list (**Noon**, **Dusk**,
+  **Midnight**, **Dawn** or **Custom**); for Custom, **Type a time** (hours and minutes on the
+  24-hour clock, such as 14:30) and a nudge row that moves it an hour earlier or later. The world
+  shows the time you pick while the screen is open; **Set time** (green) saves it, and **Remove
+  time** (red) leaves the map without one (the editor shows noon).
+- **Boundaries** are drawn as see-through colored sheets, the way Axiom and Litematica show a
+  selection: plane blocks, each a 16x16 square one pixel thick, on every side of a box and across
+  the bounds at each height. Holding the region tool, or with the map menu open on it, you see your
+  selection (yellow), the bounds (white), kill regions (red), each other region in its own color (a
+  team's region in the team's color), kill Y (red) and the build limit (orange). Holding the Kill Y
+  tool, or with the map menu open on it, you see kill Y and the build limit only; while you set one
+  in its screen, only that one, where you're setting it. A box being changed in its screen shows as
+  the selection, with every other boundary. The boundaries you switched on in the Boundaries view
+  (the map menu's eye) show whatever you hold. The planes are blocks, so everyone in Edit sees what
+  anyone sees. They only go where there's air (a box's side through the ground shows where the
+  ground is open), a block you place goes in their place, and your aim and clicks pass through
+  them. While anyone looks through a camera they're taken away, and they're taken out of the world
+  before every save.
+- **Replace mode:** **/replace** (`/minecade:replace`) turns it on or off for you. While it's on, a
+  right click on a block puts the block in your hand in its place, keeping what both blocks have
+  (a stair's facing, a log's direction); with nothing in hand, or an item that isn't a block, a
+  right click does what it always does. The block a right click would replace is outlined, and the
+  box top right (where games show their clock) says **Replace mode** while no tool is in hand.
 
 ## Saving
 
@@ -428,10 +450,8 @@ round is being played, **Fake 1 wins the round** (green: the round goes to it, o
 team games), then **Fake 1 kills you** (red: you go down, credited to the fake, as the game plays
 out a player killing you). Either one closes the panel.
 
-**Its pose:** **sneak and right click** a fake player for its next pose (Standing, Walking, Running,
-Swinging, Aiming a bow, Placing a block, Falling, Cheering, then Standing again), named above the
-hotbar. It keeps its pose from one life to the next. How a stand-in looks and where it stands for a
-picture is Edit's Mannequin tool (see "Pictures").
+How a stand-in looks, its pose and where it stands for a picture is Edit's Mannequin tool (see
+"Pictures").
 
 **/switch** (`/minecade:switch`) trades places with a fake player while the match is being played:
 `/switch 2` with Fake 2, else the one you look at, else the nearest. You swap where you stand and
@@ -490,16 +510,18 @@ then asks **Import map name?**: **Import name** gives this map that map's name a
 **Mannequins** stand in for players in a game picture. With the Mannequin tool, use it on a block:
 "Mannequin 1" stands there at once, facing you, a plain red figure (a see-through mannequin shows
 where it'll go while you hold the tool). Hit or right click one for its screen, where every tap
-changes it at once (Undo takes it back):
+changes it at once (Undo takes it back); **sneak and right click** one for its next pose (named above
+the hotbar, the first again after the last):
 
-- **Display:** **Skin** (**Color**, then Minecraft's own Steve, Alex, Ari, Efe, Kai, Makena, Noor,
-  Sunny and Zuri), **Color** under it while the skin is Color (Red, Blue, Green and Yellow as teams
-  show them, White, Black and Gray), **Hold** (Nothing, or any item from the game's kits, such as
-  Bridges' wool in the mannequin's color) and **Pose** (Standing, Walking, Running, Swinging, Aiming a
-  bow, Placing a block, Falling, Cheering). Each is a list that opens under its row.
-- **Position:** **Move here** (where you stand, facing your way), X, Y and Z nudge rows, **Turn**
-  (15 degrees a tap, right is +) and **Step** (1, 0.5 or 5 blocks). Mannequins float where they're
-  put and can't be hurt or pushed.
+- **Display:** **Skin** (**Color**, then Minecraft's Steve and Alex, then the players' skins the
+  lobby's watcher saved, by gamertag), **Color** under it while the skin is Color (Red, Blue, Green
+  and Yellow, White, Black and Gray, each as dark as its concrete), **Hold** (Nothing, or any item
+  from the game's kits, such as Bridges' wool in the mannequin's color) and **Pose** (Standing,
+  Walking, Running, Swinging, Aiming a bow, Placing a block, Falling, Cheering). Each is a list that
+  opens under its row.
+- **Position:** **Move here** (where you stand, facing your way), **Take my facing** (where it
+  stands, facing your way), X, Y and Z nudge rows, **Turn** (15 degrees a tap, right is +) and
+  **Step** (1, 0.5 or 5 blocks). Mannequins float where they're put and can't be hurt or pushed.
 - **Delete** (red).
 
 They're saved in `map.json`'s `mannequins` and have no name tag. Looking through a Game picture
@@ -507,7 +529,12 @@ camera, they stay in the shot (the markers hide); through a Map preview camera, 
 (nobody's in a map preview). Game servers never get them, and they're taken out of the world before every save,
 so a published world never has them. Minecraft's skins are Mojang's, so they never go in git: the
 editor copies them from the Minecraft install on this PC (its vanilla skin pack) each time it
-builds its packs (`tools/editor/fake-player.ts`); one this PC lacks shows as Steve or Alex.
+builds its packs (`tools/editor/fake-player.ts`); one this PC lacks shows as the client's own Steve
+or Alex. The players' skins come from `skins/` (see `docs/skins.md`) at the same time: classic
+skins only (wide, slim, or an old 64x32 one made 64x64), since a character creator skin needs a
+model of its own. `map.json` names one by a hash of the player's xuid, never the player, and a
+skin this PC hasn't saved shows as Color. A skin the watcher saves shows after the editor's next
+start.
 
 Right click a camera for its form: **Game picture** (switches its kind) and Delete. The Camera tool's
 settings list every camera too. Lobby maps can have cameras (the Snapshot only nudges them there),
@@ -643,10 +670,19 @@ Chat in the editor lobby says when it's done. A preview has to end first.
   unloading never finishes loading (found on the test world). The spike proved the rest
   (`docs/spike-results.md`, "Map editor"), and on build B of "Datapacking (imported)" the extracted
   map's block fingerprint matches the original exactly.
-- **The outlines** are particles (`editor/resource_pack/particles/outline.json`) sent to the holder
-  only. `viewDots` in `scripts/boxes.ts` works out where each dot goes and how big it is for that
-  player (tune `DOTS` there), and each refresh has a budget, so a big map costs no more than a
-  small one.
+- **The boundaries** are a plane block (`minecade:plane`, written with its 48 geometries and 16
+  textures by `tools/assets/plane-block.ts`: rerun it after changing the colors in
+  `scripts/sheets.ts`). Its states are the axis it lies across, the pixel it sits on along it (0 to
+  15) and its color (Minecraft's 16 dye colors). `scripts/sheets.ts` turns boxes and heights into
+  sheets (a box's sides in the blocks just outside it, so the sides never share a block) and works
+  out who sees what; `scripts/planes.ts` paints them a chunk column at a time with fills into air,
+  erases the ones nobody sees, remembers every chunk it painted (`minecade:planeChunks`), and sweeps
+  them before every save like the markers. Block geometry mirrors x, so a plane `n` pixels from a
+  block's west side sits at `7 - n` in it.
+- **Select's outlines** are particles (`editor/resource_pack/particles/outline.json`) sent to the
+  holder only: Select works in a converted world that gets exported, so it puts no blocks in it.
+  `viewDots` in `scripts/boxes.ts` works out where each dot goes and how big it is for that player
+  (tune `DOTS` there), and each refresh has a budget, so a big map costs no more than a small one.
 
 ## Shared blocks pack
 

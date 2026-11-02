@@ -4,10 +4,10 @@
     "controller.render.minecade.fake_player": {
       "arrays": {
         "textures": {
-          "Array.skins": ["Texture.color", "Texture.steve", "Texture.alex", "Texture.ari", "Texture.efe", "Texture.kai", "Texture.makena", "Texture.noor", "Texture.sunny", "Texture.zuri"]
+          "Array.skins": ["Texture.color", "Texture.steve", "Texture.alex"]
         },
         "geometries": {
-          "Array.models": ["Geometry.default", "Geometry.default", "Geometry.slim", "Geometry.default", "Geometry.slim", "Geometry.default", "Geometry.slim", "Geometry.slim", "Geometry.slim", "Geometry.default"]
+          "Array.models": ["Geometry.default", "Geometry.default", "Geometry.slim"]
         }
       },
       "geometry": "Array.models[query.property('minecade:skin')]",

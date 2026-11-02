@@ -8,10 +8,16 @@ import { validateMapConfig } from "../src/map-validate.ts";
 const preview = (path: string) => JSON.parse(readFileSync(new URL(`../../../editor/preview/${path}`, import.meta.url), "utf8"));
 
 describe("fake player looks", () => {
-  it("tints only the plain color skin, in its color", () => {
-    expect(lookProperties({ skin: 0, color: 1, pose: 2 })).toEqual({ skin: 0, tint: 0x5555ff + 1, pose: 2 });
+  it("tints only the plain color skin, in its color, as dark as its concrete", () => {
+    expect(lookProperties({ skin: 0, color: 1, pose: 2 })).toEqual({ skin: 0, tint: 0x2d2f8f + 1, pose: 2 });
     expect(lookProperties({ skin: 2, color: 1, pose: 0 })).toEqual({ skin: 2, tint: 0, pose: 0 });
     expect(lookProperties({ skin: 99, color: 99, pose: 99 })).toEqual({ skin: 0, tint: FAKE_COLORS[0].tint + 1, pose: 0 });
+    // A skin from a longer list (Edit's, with the players' skins).
+    const skins = [...FAKE_SKINS, { id: "p0123456789", label: "Sam", slim: false }];
+    expect(lookProperties({ skin: 3, color: 0, pose: 0 }, skins).skin).toBe(3);
+    expect(lookIds({ skin: 3, color: 0, pose: 0 }, skins).skin).toBe("p0123456789");
+    expect(lookFromIds({ skin: "p0123456789", pose: "standing" }, skins).skin).toBe(3);
+    expect(lookText({ skin: 3, color: 0, pose: 0 }, undefined, skins)).toBe("Sam, Standing");
   });
 
   it("keeps a look in map.json by ids, the color only for the plain color", () => {

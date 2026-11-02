@@ -1,9 +1,10 @@
 // The Mannequin tool (Edit, on a game's map): stand-ins for players in the game's picture. A use on
 // a block places a mannequin there at once ("Mannequin 1", "Mannequin 2" and on), facing you, in the
 // first choices (a plain red, standing, holding nothing). Hit or right click one for its screen
-// (menu.ts mannequinScreenEntries): its skin (a plain color or one of Minecraft's), what it holds
-// (the game's kit items), its pose, and where it stands; each tap changes it at once (Undo takes it
-// back). The tool's settings in the map menu list them.
+// (menu.ts mannequinScreenEntries): its skin (a plain color, Steve or Alex, or a player's), what it
+// holds (the game's kit items), its pose, and where it stands; each tap changes it at once (Undo
+// takes it back). Sneaking, a right click gives it its next pose instead (the first again after the
+// last). The tool's settings in the map menu list them.
 //
 // A mannequin is the preview's fake player (minecade:fake_player, its "minecade:mannequin" group:
 // no gravity, can't be hurt or pushed), without a name tag, and it stays in a game picture's shot
@@ -11,8 +12,8 @@
 // in is remembered, and clear() removes them all before the world is saved.
 import { world, type Dimension, type Entity, type Player, type Vector3 } from "@minecraft/server";
 import { ActionFormData } from "@minecraft/server-ui";
-import { FAKE_PLAYER, NEW_MANNEQUIN_LOOK, describeError, dressFake, log, type MapMannequin, type Scope } from "@minecade/minigame-core";
-import { itemColorOf, mannequinAt, mannequinLook, mannequinsOf, nextMannequinName, nudgeMannequin, withLook } from "./mannequins.ts";
+import { FAKE_PLAYER, FAKE_POSES, NEW_MANNEQUIN_LOOK, describeError, dressFake, log, nextPose, type MapMannequin, type Scope } from "@minecade/minigame-core";
+import { facingMannequin, itemColorOf, mannequinAt, mannequinLook, mannequinSkins, mannequinsOf, nextMannequinName, nudgeMannequin, withLook } from "./mannequins.ts";
 import { chunkOf, sweepChunks } from "./markers.ts";
 import { sideTitle } from "./marks.ts";
 import { MANNEQUIN_TURN, POINT_STEPS, mannequinScreenEntries, type MannequinList } from "./menu.ts";
@@ -140,7 +141,7 @@ export class MannequinBodies {
     if (before && JSON.stringify(before) === JSON.stringify(mannequin)) return;
     const look = mannequinLook(mannequin);
     const holding = !before || before.hold !== mannequin.hold || (look.hold !== undefined && itemColorOf(mannequinLook(before)) !== itemColorOf(look));
-    dressFake(entity, look, holding, itemColorOf(look));
+    dressFake(entity, look, holding, itemColorOf(look), mannequinSkins());
     entity.setDynamicProperty(SHOWN_PROPERTY, JSON.stringify(mannequin));
   }
 
@@ -178,7 +179,17 @@ export class MannequinTool {
 
   /** The action bar line while the tool is held. */
   hint(): string {
-    return "Use: place a mannequin where you aim, facing you   Hit a mannequin: change it";
+    return "Use: place a mannequin where you aim, facing you   Hit a mannequin: change it   Sneak and right click: next pose";
+  }
+
+  /** A sneaking right click: the mannequin's next pose, the first again after the last, at once. */
+  nextPose(player: Player, name: string): void {
+    const mannequin = mannequinsOf(this.host.map()).find(([other]) => other === name)?.[1];
+    if (!mannequin) return;
+    const look = mannequinLook(mannequin);
+    const pose = nextPose(look.pose);
+    this.host.edit(player, { op: "mannequin", name, mannequin: withLook(mannequin, { ...look, pose }) });
+    actionBar(player, `${name}: ${FAKE_POSES[pose].label}`);
   }
 
   /**
@@ -214,6 +225,7 @@ export class MannequinTool {
       else if (action.kind === "move") next = nudgeMannequin(mannequin, { axis: action.axis, by: action.by * step });
       else if (action.kind === "turn") next = nudgeMannequin(mannequin, { turn: action.by * MANNEQUIN_TURN });
       else if (action.kind === "here") next = mannequinAt(player.location, player.getRotation().y + 180, look);
+      else if (action.kind === "facing") next = facingMannequin(mannequin, player.getRotation().y);
       else if (action.kind === "step") this.steps.set(key, action.step);
       if (next && JSON.stringify(next) !== JSON.stringify(mannequin)) this.host.edit(player, { op: "mannequin", name, mannequin: next });
     }

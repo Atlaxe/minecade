@@ -86,6 +86,11 @@ What JSON UI allowed here, found in-game on 26.60:
   string". That's why the mark is invisible formatting codes instead of being cut off.
 - View bindings need a `#property`: one whose expression only uses `$atext` fails with "Must
   define a source property name in the binding!".
+- A pack's control is merged into vanilla's of the same name, property by property, so it keeps
+  vanilla's type: vanilla's `hud_actionbar_text` is an image (ours has a clear texture,
+  `textures/minecade/hud/clear`) and its `hud_title_text` a vertical stack panel (the editor's holds
+  one full-screen panel). Another type logs vanilla's leftover properties (`texture`,
+  `orientation`) as unknown in the content log.
 
 **Own score:** a game whose `scoring` has `display: "own"` (One in the Quiver) has no sidebar.
 Each player sees only their own score (their team's in team games) in a second box left of the

@@ -2,33 +2,38 @@
 // game pictures) are the same player-shaped entity (minecade:fake_player, editor/preview/). Pure,
 // so map.json (a mannequin's look, by these ids), the editor and the tests share it.
 
+/** A skin a fake player can wear, on the slim model or the wide one. */
+export interface FakeSkin {
+  id: string;
+  label: string;
+  slim: boolean;
+}
+
 /**
  * Its skins, in the render controller's order: a plain color (the white skin tinted, see
- * FAKE_COLORS), then Minecraft's own default skins, on the slim model where Minecraft has them so.
- * The build copies those from the Minecraft install (tools/editor/fake-player.ts).
+ * FAKE_COLORS), then Minecraft's Steve and Alex, which the build copies from the Minecraft install
+ * (tools/editor/fake-player.ts). Edit's pack adds the players' skins the lobby's watcher saved
+ * after these (classic ones only), for its mannequins.
  */
-export const FAKE_SKINS = [
+export const FAKE_SKINS: readonly FakeSkin[] = [
   { id: "color", label: "Color", slim: false },
   { id: "steve", label: "Steve", slim: false },
   { id: "alex", label: "Alex", slim: true },
-  { id: "ari", label: "Ari", slim: false },
-  { id: "efe", label: "Efe", slim: true },
-  { id: "kai", label: "Kai", slim: false },
-  { id: "makena", label: "Makena", slim: true },
-  { id: "noor", label: "Noor", slim: true },
-  { id: "sunny", label: "Sunny", slim: true },
-  { id: "zuri", label: "Zuri", slim: false },
-] as const;
+];
 
-/** The plain colors: the team colors (Red, Blue, Green, Yellow as teams show them), then White, Black and Gray. `code` is the § color whose dye its held items take. */
+/**
+ * The plain colors: the team colors (Red, Blue, Green, Yellow), then White, Black and Gray, each as
+ * dark as its concrete (Green is lime's, the dye a green team's items take). `code` is the § color
+ * whose dye its held items take.
+ */
 export const FAKE_COLORS = [
-  { id: "red", label: "Red", tint: 0xff5555, code: "§c" },
-  { id: "blue", label: "Blue", tint: 0x5555ff, code: "§9" },
-  { id: "green", label: "Green", tint: 0x55ff55, code: "§a" },
-  { id: "yellow", label: "Yellow", tint: 0xffff55, code: "§e" },
-  { id: "white", label: "White", tint: 0xffffff, code: "§f" },
-  { id: "black", label: "Black", tint: 0x1d1d21, code: "§0" },
-  { id: "gray", label: "Gray", tint: 0x808080, code: "§8" },
+  { id: "red", label: "Red", tint: 0x8e2121, code: "§c" },
+  { id: "blue", label: "Blue", tint: 0x2d2f8f, code: "§9" },
+  { id: "green", label: "Green", tint: 0x5ea918, code: "§a" },
+  { id: "yellow", label: "Yellow", tint: 0xf1af15, code: "§e" },
+  { id: "white", label: "White", tint: 0xcfd5d6, code: "§f" },
+  { id: "black", label: "Black", tint: 0x080a0f, code: "§0" },
+  { id: "gray", label: "Gray", tint: 0x373a3e, code: "§8" },
 ] as const;
 
 /** Its poses, in the client entity's order (editor/preview/resource_pack/animations/fake_player.animation.json). */
@@ -43,7 +48,7 @@ export const FAKE_POSES = [
   { id: "cheering", label: "Cheering" },
 ] as const;
 
-/** How a fake player looks: FAKE_SKINS', FAKE_COLORS' and FAKE_POSES' index, and what it holds (an item id, "{color}" filled in with its color's dye). */
+/** How a fake player looks: its skin list's (FAKE_SKINS'), FAKE_COLORS' and FAKE_POSES' index, and what it holds (an item id, "{color}" filled in with its color's dye). */
 export interface FakeLook {
   skin: number;
   color: number;
@@ -63,15 +68,15 @@ export function nextPose(pose: number): number {
 }
 
 /** The skin property's value and the tint the pack draws it with (0xRRGGBB + 1, 0 for none: only the plain color is tinted). */
-export function lookProperties(look: FakeLook): { skin: number; tint: number; pose: number } {
-  const skin = FAKE_SKINS[look.skin] ? look.skin : 0;
+export function lookProperties(look: FakeLook, skins: readonly FakeSkin[] = FAKE_SKINS): { skin: number; tint: number; pose: number } {
+  const skin = skins[look.skin] ? look.skin : 0;
   const color = FAKE_COLORS[look.color] ?? FAKE_COLORS[0];
   return { skin, tint: skin === 0 ? color.tint + 1 : 0, pose: FAKE_POSES[look.pose] ? look.pose : 0 };
 }
 
 /** A look as map.json keeps a mannequin's: by ids, the color only for the plain color skin. */
-export function lookIds(look: FakeLook): { skin: string; color?: string; pose: string; hold?: string } {
-  const skin = FAKE_SKINS[look.skin] ?? FAKE_SKINS[0];
+export function lookIds(look: FakeLook, skins: readonly FakeSkin[] = FAKE_SKINS): { skin: string; color?: string; pose: string; hold?: string } {
+  const skin = skins[look.skin] ?? FAKE_SKINS[0];
   return {
     skin: skin.id,
     ...(skin.id === "color" ? { color: (FAKE_COLORS[look.color] ?? FAKE_COLORS[0]).id } : {}),
@@ -81,10 +86,10 @@ export function lookIds(look: FakeLook): { skin: string; color?: string; pose: s
 }
 
 /** A look from map.json's ids; ones it doesn't know are the first choices. */
-export function lookFromIds(ids: { skin?: unknown; color?: unknown; pose?: unknown; hold?: unknown }): FakeLook {
+export function lookFromIds(ids: { skin?: unknown; color?: unknown; pose?: unknown; hold?: unknown }, skins: readonly FakeSkin[] = FAKE_SKINS): FakeLook {
   const index = (list: readonly { id: string }[], id: unknown) => Math.max(0, list.findIndex((entry) => entry.id === id));
   return {
-    skin: index(FAKE_SKINS, ids.skin),
+    skin: index(skins, ids.skin),
     color: index(FAKE_COLORS, ids.color),
     pose: index(FAKE_POSES, ids.pose),
     ...(typeof ids.hold === "string" && ids.hold !== "" ? { hold: ids.hold } : {}),
@@ -92,8 +97,8 @@ export function lookFromIds(ids: { skin?: unknown; color?: unknown; pose?: unkno
 }
 
 /** A look in a few words: "Red, Standing", "Alex, Running, holding Bow". */
-export function lookText(look: FakeLook, holdLabel?: string): string {
-  const skin = FAKE_SKINS[look.skin] ?? FAKE_SKINS[0];
+export function lookText(look: FakeLook, holdLabel?: string, skins: readonly FakeSkin[] = FAKE_SKINS): string {
+  const skin = skins[look.skin] ?? FAKE_SKINS[0];
   const parts: string[] = [skin.id === "color" ? (FAKE_COLORS[look.color] ?? FAKE_COLORS[0]).label : skin.label, (FAKE_POSES[look.pose] ?? FAKE_POSES[0]).label];
   if (look.hold !== undefined) parts.push(`holding ${holdLabel ?? look.hold}`);
   return parts.join(", ");

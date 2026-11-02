@@ -39,9 +39,13 @@ account you don't mind losing.
 `holo.png` and `holo-head.png` as the lobby has them, and `portrait.png` and `head.png` in color),
 and `npm run skins -- <skin.png> [slim]` renders one skin file.
 
-**Not done yet:** a 3D model of each player in the world (for showing players in games). The
-lobby pack would need a figure entity with each player's texture (and a character creator
-skin's own model).
+**In the map editor:** Edit's mannequins (stand-ins for players in game pictures) can wear the
+saved classic skins (wide, slim, or an old 64x32 one made 64x64): the editor's pack gets them each
+time the editor starts (`tools/editor/fake-player.ts`, see `docs/editor.md`, "Pictures"). A
+character creator skin is left out: it needs its own model.
+
+**Not done yet:** a 3D model of each player in the lobby or a game. The pack would need a figure
+entity with each player's texture (and a character creator skin's own model).
 
 ## Why it takes a bot
 

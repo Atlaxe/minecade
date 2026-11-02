@@ -7,11 +7,8 @@ import {
   facingOf,
   floorAt,
   growBox,
-  nearDots,
   nudgeBox,
   parseHeight,
-  planePoints,
-  rectDots,
   relativeSide,
   sameBox,
   sizeText,
@@ -117,7 +114,6 @@ describe("outline dots", () => {
 
   it("leaves out what's behind the player", () => {
     expect(viewDots(blockBox([0, 0, -20]), viewFrom(0, 0, 0), 1000)).toEqual([]);
-    expect(nearDots([{ x: 0, y: 0, z: -5 }, { x: 0, y: 0, z: 5 }], viewFrom(0, 0, 0)).map(key)).toEqual(["0,0,5"]);
   });
 
   it("widens the gaps to stay within the budget", () => {
@@ -127,20 +123,4 @@ describe("outline dots", () => {
     expect(dots.length).toBeGreaterThan(30);
   });
 
-  it("outlines the kill Y plane's rectangle", () => {
-    const keys = new Set(rectDots(-5, 5, 5, 15, 58, viewFrom(0, 60, 0), 1000).map(key));
-    for (const corner of ["-5,58,5", "5,58,5", "-5,58,15", "5,58,15"]) expect(keys.has(corner)).toBe(true);
-  });
-
-  it("dots the kill Y plane near the player, inside the bounds", () => {
-    const bounds: Box = { min: [-5, 50, -5], max: [4, 90, 4] };
-    const points = planePoints(58, bounds, { x: 0, y: 60, z: 0 }, 24, 3);
-    expect(points.length).toBeGreaterThan(0);
-    expect(points.every((point) => point.y === 58 && point.x >= -5 && point.x <= 5 && point.z >= -5 && point.z <= 5)).toBe(true);
-    expect(points.every((point) => point.x % 3 === 0 && point.z % 3 === 0)).toBe(true);
-    expect(planePoints(58, bounds, { x: 0, y: 90, z: 0 }, 24, 3)).toEqual([]);
-    const open = planePoints(58, undefined, { x: 100, y: 58, z: 100 }, 6, 3);
-    expect(open.every((point) => Math.hypot(point.x - 100, point.z - 100) <= 6)).toBe(true);
-    expect(open.length).toBeGreaterThan(5);
-  });
 });

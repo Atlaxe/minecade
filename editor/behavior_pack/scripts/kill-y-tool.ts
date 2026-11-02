@@ -1,9 +1,9 @@
 // The Kill Y tool. Players below kill Y are out. On a game's map it also sets the build limit, one
-// side at a time: no blocks above one height, none below another. A use sets the one picked in its
-// screen at once (kill Y one block below your feet, a build limit at your feet; no tool opens a menu
-// where it's aimed). With the tool picked, the map menu opens its screen: tiles for kill Y and the
-// build limit's sides, then type a height or nudge it, with its plane drawn there (outlines.ts), and
-// Set saves it; and it removes it.
+// side at a time: no blocks above one height, none below another. With the tool picked, the map menu
+// lists them like the spawns, each with its height; tapping one opens its screen, and so does a use
+// (the one picked last): tiles for kill Y and the build limit's sides, then type a height or nudge it
+// (starting one block below your feet for kill Y, at them for a build limit), with only its plane
+// drawn there (planes.ts), Set to save it, and Remove.
 import type { Player } from "@minecraft/server";
 import { ActionFormData, ModalFormData } from "@minecraft/server-ui";
 import type { BuildLimitSide } from "@minecade/minigame-core";
@@ -31,14 +31,13 @@ export class KillYTool {
   equip(player: Player, line: HeightLine = "killY"): void {
     this.lines.set(key(player), line);
     this.host.equip(player, "killY");
-    if (line === "killY") this.host.tell(player, "Kill Y tool: use it to set the height players are out below to one block below your feet; fine-tune it in the map menu. While you hold it, the plane shows in red.");
-    else this.host.tell(player, `Kill Y tool, set to the build limit ${line}: use it to put it at your feet (no blocks ${line} it); fine-tune it in the map menu. While you hold it, the planes show in orange.`);
+    if (line === "killY") this.host.tell(player, "Kill Y tool: use it to set the height players are out below. While you hold it, the plane shows in red.");
+    else this.host.tell(player, `Kill Y tool, set to the build limit ${line}: use it to set it (no blocks ${line} it). While you hold it, the planes show in orange.`);
   }
 
-  /** A use: the line picked in the screen, at once (Undo takes it back). */
-  use(player: Player): void {
-    const line = this.lineOf(player);
-    this.set(player, line, start(player, line));
+  /** A use: the screen, for the line picked last (`back` opens the map menu). */
+  use(player: Player, back?: () => Promise<void>): Promise<void> {
+    return this.screen(player, undefined, back);
   }
 
   /** The screen: what it sets (on a game's map), the height (typed or nudged, the plane drawn there), Remove, and Set at the bottom. */
@@ -77,9 +76,7 @@ export class KillYTool {
   hint(player: Player): string {
     const line = this.lineOf(player);
     const now = this.heightOf(line);
-    const at = start(player, line);
-    const does = line === "killY" ? `set kill Y to ${at}, one below your feet` : `set the build limit ${line} to ${at}, at your feet`;
-    return `Use: ${does}   Now: ${now === undefined ? "not set" : now}`;
+    return `Use: set ${nameOf(line)}   Now: ${now === undefined ? "not set" : now}`;
   }
 
   /** Removes kill Y (from the map menu), or a side of the build limit. */

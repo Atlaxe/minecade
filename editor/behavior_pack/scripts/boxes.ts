@@ -148,30 +148,6 @@ export function viewDots(box: Box, view: View, budget: number): Dot[] {
   return segmentDots(segments, view, budget);
 }
 
-/** Dots along the rectangle at height `y` from (x0, z0) to (x1, z1): the kill Y plane's edge. */
-export function rectDots(x0: number, z0: number, x1: number, z1: number, y: number, view: View, budget: number): Dot[] {
-  return segmentDots(
-    [
-      { start: [x0, y, z0], axis: 0, length: x1 - x0, ends: true },
-      { start: [x0, y, z1], axis: 0, length: x1 - x0, ends: true },
-      { start: [x0, y, z0], axis: 2, length: z1 - z0, ends: false },
-      { start: [x1, y, z0], axis: 2, length: z1 - z0, ends: false },
-    ],
-    view,
-    budget,
-  );
-}
-
-/** Points near the player as dots: the ones in front, sized by their distance. */
-export function nearDots(points: Point[], view: View): Dot[] {
-  const dots: Dot[] = [];
-  for (const point of points) {
-    const dot = place([point.x, point.y, point.z], view);
-    if (dot) dots.push(dot);
-  }
-  return dots;
-}
-
 /** A straight run of dots from `start`, `length` blocks along `axis`, with dots at its two ends when `ends`. */
 interface Segment {
   start: Vec3;
@@ -239,28 +215,3 @@ function distance(point: Vec3, eye: Point): number {
   return Math.hypot(point[0] - eye.x, point[1] - eye.y, point[2] - eye.z);
 }
 
-/**
- * Dots on the plane at height `y`, every `spacing` blocks, within `radius` of `near` and, when
- * given, over the box `extent` (the map's bounds). None when the player is farther than `radius`
- * from the plane.
- */
-export function planePoints(y: number, extent: Box | undefined, near: Point, radius: number, spacing: number): Point[] {
-  const dy = near.y - y;
-  if (Math.abs(dy) > radius) return [];
-  const reach = Math.sqrt(radius * radius - dy * dy);
-  let [x0, x1, z0, z1] = [near.x - reach, near.x + reach, near.z - reach, near.z + reach];
-  if (extent) {
-    x0 = Math.max(x0, extent.min[0]);
-    x1 = Math.min(x1, extent.max[0] + 1);
-    z0 = Math.max(z0, extent.min[2]);
-    z1 = Math.min(z1, extent.max[2] + 1);
-  }
-  const points: Point[] = [];
-  // + 0 turns -0 into 0.
-  for (let x = Math.ceil(x0 / spacing) * spacing + 0; x <= x1; x += spacing) {
-    for (let z = Math.ceil(z0 / spacing) * spacing + 0; z <= z1; z += spacing) {
-      if ((x - near.x) ** 2 + (z - near.z) ** 2 <= reach * reach) points.push({ x, y, z });
-    }
-  }
-  return points;
-}

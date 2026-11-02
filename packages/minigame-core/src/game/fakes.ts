@@ -17,25 +17,25 @@
 // are (the servers' tick distance is 4 chunks). So a fake's body gets a one-chunk ticking area
 // where it stands, made before it's placed there and dropped once it moves on or is removed.
 import { EntityComponentTypes, world, type Dimension, type Entity, type Vector3 } from "@minecraft/server";
-import { DEFAULT_FAKE_LOOK, lookProperties, type FakeLook } from "../fake-looks.ts";
+import { DEFAULT_FAKE_LOOK, FAKE_SKINS, lookProperties, type FakeLook, type FakeSkin } from "../fake-looks.ts";
 import { kitItemId } from "../kit-defs.ts";
 import { describeError, log } from "../log.ts";
 
 export const FAKE_PLAYER = "minecade:fake_player";
 const WALK_EVENT = "minecade:walk";
 const FLOAT_EVENT = "minecade:float";
-/** Its look, for the pack (editor/preview/): FAKE_SKINS' and FAKE_POSES' index, and a plain color's tint as 0xRRGGBB + 1, 0 for none. */
+/** Its look, for the pack (editor/preview/): its skin list's and FAKE_POSES' index, and a plain color's tint as 0xRRGGBB + 1, 0 for none. */
 const SKIN_PROPERTY = "minecade:skin";
 const POSE_PROPERTY = "minecade:pose";
 const TINT_PROPERTY = "minecade:tint";
 
 /**
- * Puts a look on a fake player's body: the skin, the plain color's tint and the pose for the pack to
- * draw, and the item in its hand when `holding` (it holds one, or that changed), "{color}" in
- * `itemColor`'s dye (a § color).
+ * Puts a look on a fake player's body: the skin (from `skins`, the pack's list), the plain color's
+ * tint and the pose for the pack to draw, and the item in its hand when `holding` (it holds one, or
+ * that changed), "{color}" in `itemColor`'s dye (a § color).
  */
-export function dressFake(body: Entity, look: FakeLook, holding: boolean, itemColor?: string): void {
-  const { skin, tint, pose } = lookProperties(look);
+export function dressFake(body: Entity, look: FakeLook, holding: boolean, itemColor?: string, skins: readonly FakeSkin[] = FAKE_SKINS): void {
+  const { skin, tint, pose } = lookProperties(look, skins);
   try {
     if (body.getProperty(SKIN_PROPERTY) !== skin) body.setProperty(SKIN_PROPERTY, skin);
     if (body.getProperty(POSE_PROPERTY) !== pose) body.setProperty(POSE_PROPERTY, pose);

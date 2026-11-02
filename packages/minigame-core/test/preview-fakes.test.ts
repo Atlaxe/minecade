@@ -5,7 +5,6 @@
 import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import type { GameConfig } from "../src/config.ts";
 import type { MapConfig } from "../src/map-config.ts";
-import { FAKE_POSES } from "../src/fake-looks.ts";
 import { FAKE_PLAYER, FakePlayers, HEARTS, heartsText } from "../src/game/fakes.ts";
 import { Minigame } from "../src/game/minigame.ts";
 import { DANGER_BUTTON, GO_BUTTON, PREVIEW_NEXT, SIDE_TITLE, endPreview, replayAll } from "../src/game/preview.ts";
@@ -259,7 +258,7 @@ describe("fake players in a preview", () => {
     expectBaseline(harness.root, baseline);
   });
 
-  it("take their next pose when a player sneaks and right clicks them, the first again after the last, and keep it", async () => {
+  it("open their panel on a right click, sneaking too, and keep their pose (the editor's mannequins change poses)", async () => {
     const { players, baseline, game } = preview(["A"], { ...FFA, teams: { count: 2 }, win: "custom", timeLimitSeconds: 0 });
     const [a] = players;
     game.ctx.vars.previewFakes = 1;
@@ -269,29 +268,18 @@ describe("fake players in a preview", () => {
       const body = bodyOf("Fake 1")!;
       // Steve, standing: the preview's look.
       expect([body.properties.get("minecade:skin"), body.properties.get("minecade:tint"), body.properties.get("minecade:pose")]).toEqual([1, 0, 0]);
-      const forms = shownForms.length;
       a.isSneaking = true;
-      for (let pose = 1; pose < FAKE_POSES.length; pose++) {
-        world.afterEvents.playerInteractWithEntity.emit({ player: a, target: body });
-        expect(body.properties.get("minecade:pose")).toBe(pose);
-      }
-      expect(a.actionBar).toBe(`Fake 1: ${FAKE_POSES.at(-1)?.label}`);
-      world.afterEvents.playerInteractWithEntity.emit({ player: a, target: body });
-      expect(body.properties.get("minecade:pose")).toBe(0);
       world.afterEvents.playerInteractWithEntity.emit({ player: a, target: body });
       await ticks(2);
-      // Sneaking never opens the panel; without it, the panel only wins or kills.
-      expect(shownForms.length).toBe(forms);
-      a.isSneaking = false;
-      world.afterEvents.playerInteractWithEntity.emit({ player: a, target: body });
-      await ticks(2);
+      // The panel only wins or kills; the pose stays.
       expect(shownForms.at(-1)?.buttons.map(stripColors)).toEqual(["Fake 1 kills you", "Cancel"]);
+      expect(body.properties.get("minecade:pose")).toBe(0);
       openForms.pop()!.respond({ canceled: true });
       await ticks(2);
-      // Its pose stays with it into its next body.
+      a.isSneaking = false;
       game.respawnAll();
       await ticks(2);
-      expect(bodyOf("Fake 1")?.properties.get("minecade:pose")).toBe(1);
+      expect(bodyOf("Fake 1")?.properties.get("minecade:pose")).toBe(0);
       game.abort();
     });
     expectBaseline(harness.root, baseline);

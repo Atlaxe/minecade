@@ -5,13 +5,18 @@
 // moves one map to the middle).
 import { world } from "@minecraft/server";
 import { Scope, describeError, log } from "@minecade/minigame-core";
+import skins from "#skins";
 import { Editor } from "./editor.ts";
 import { Extractor } from "./extractor.ts";
 import { Home } from "./home.ts";
+import { useMannequinSkins } from "./mannequins.ts";
 // Registers /reset as the script loads (Select and Edit say what resetting does).
 import "./commands.ts";
 import { Selector } from "./selector.ts";
 import { readEditorVars } from "./vars.ts";
+
+// The players' skins the build put in Edit's pack, for the mannequins.
+useMannequinSkins(skins);
 
 const loaded = world.afterEvents.worldLoad.subscribe(() => {
   world.afterEvents.worldLoad.unsubscribe(loaded);

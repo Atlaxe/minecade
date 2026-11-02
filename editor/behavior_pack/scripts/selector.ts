@@ -416,8 +416,9 @@ export class Selector {
       case "none":
         return this.menu(player);
       case "help":
+        // The menu stays closed so the chat can be read.
         this.help(player);
-        return this.menu(player);
+        return;
       case "pick":
         await this.pick(player, action.action);
         // Back one step is an icon: the menu stays open.

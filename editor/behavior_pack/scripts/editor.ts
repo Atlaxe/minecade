@@ -36,6 +36,7 @@ import {
   showForm,
   type EditInfo,
   type HostMessage,
+  type Box,
   type MapConfig,
   type MapEdit,
   type Facing,
@@ -49,17 +50,20 @@ import { goto } from "./goto.ts";
 import { keepModeLine, modeLine } from "./hud.ts";
 import { KillYTool } from "./kill-y-tool.ts";
 import { LoadingScreens } from "./loading.ts";
-import { onReset } from "./commands.ts";
+import { onReplace, onReset } from "./commands.ts";
 import { HostLink } from "./link.ts";
-import { Outlines } from "./outlines.ts";
+import { Overlay } from "./planes.ts";
+import { PLANE_BLOCK } from "./sheets.ts";
 import { boundaryRows, boundsAround, heightPlanes, outlineBoxes, toggleBoundary } from "./regions.ts";
 import { CameraTool } from "./camera-tool.ts";
 import { cameraMarkers, type CameraMarker } from "./cameras.ts";
 import { MannequinBodies, MannequinTool } from "./mannequin-tool.ts";
 import { mannequinsOf } from "./mannequins.ts";
 import { RegionTool } from "./region-tool.ts";
+import { REPLACE_LINE, ReplaceMode } from "./replace-mode.ts";
+import { NOON, TimeTool } from "./time-tool.ts";
 import { actionBar, heldTool, hintBar, notice, type ToolHost } from "./tool-host.ts";
-import { REACH, blockInView, nudgePreview } from "./box-picker.ts";
+import { REACH, blockInView, heightPreview, nudgePreview, previewEditing } from "./box-picker.ts";
 import { facingOf, type Point } from "./boxes.ts";
 import { Cursors, type CursorAim } from "./cursor.ts";
 import { MARKER_STYLES, aimedPoint, compass, entryPosition, lookAt, mapMiddle, markerSpecs, snapFacing, SNAPS, spawnLists, toolLists, type AimedFace, type MarkerSpec, type PlaceTool, type SpawnList } from "./lists.ts";
@@ -102,7 +106,6 @@ const MENU_SLOT = 8;
 /** Where a tool goes when it's picked: slot 1 on screen, never locked. */
 const TOOL_SLOT = 0;
 const PREFIX = "§b[Editor]§r ";
-const NOON = 6000;
 /** A new map's glass pad reaches this far from its first spawn, one block below it. */
 const PAD_RADIUS = 4;
 /** How often the held tool's hint is put back on the action bar (it fades otherwise). */
@@ -122,6 +125,8 @@ const CREATIVE_AGAIN_TICKS = 20;
 
 /** No boundary switched on. */
 const NONE_SHOWN: ReadonlySet<string> = new Set();
+/** How far the heights' planes reach around the first spawn on a map without bounds. */
+const HEIGHT_REACH = 24;
 
 
 export class Editor {
@@ -133,18 +138,22 @@ export class Editor {
   private readonly mannequins: MannequinBodies;
   private readonly regionTool: RegionTool;
   private readonly killYTool: KillYTool;
+  private readonly timeTool: TimeTool;
   private readonly cameraTool: CameraTool;
   private readonly mannequinTool: MannequinTool;
   private readonly players: PlayersMenu;
   private readonly loading: LoadingScreens;
   private readonly cursors: Cursors;
+  /** The boundaries, as plane blocks. */
+  private readonly overlay: Overlay;
+  private readonly replaceMode: ReplaceMode;
   /** The spawn or point each player's screen is setting up: the cursor shows it there. */
   private readonly entryPreview = new Map<string, { at: Point; yaw: number; style: number }>();
   private readonly dimension: Dimension;
   private readonly settings = new Map<string, SpawnSettings>();
   private readonly formOpen = new Set<string>();
-  /** Players with the map menu open and the Region or Kill Y tool picked: the outlines show for them. */
-  private readonly menuTool = new Set<string>();
+  /** Players with the map menu open and the Region or Kill Y tool picked, and which: the boundaries show as if they held it. */
+  private readonly menuTool = new Map<string, ToolId>();
   /** Players whose map menu opens again when the host answers (after Undo or Redo). */
   private readonly reopen = new Set<string>();
   /** Each player's Boundaries switches, by lower-case name (kept by the host between maps). */
@@ -152,6 +161,8 @@ export class Editor {
   /** The pictures in the pack for the thumbnail menus, with which ones the map and game use now. */
   private readonly pictures: PictureInfo;
   private status: { undo?: string; redo?: string; unsaved: boolean; saving: boolean; publishing?: boolean };
+  /** The time of day the world shows: the map's. */
+  private shownTime?: number;
   /** When block changes were last reported to the host, in ticks. */
   private changedAt = -CHANGED_TICKS;
 
@@ -186,6 +197,7 @@ export class Editor {
     };
     this.regionTool = new RegionTool(scope, host);
     this.killYTool = new KillYTool(host);
+    this.timeTool = new TimeTool(host);
     this.mannequinTool = new MannequinTool({ ...host, aimedAt: (player) => this.aimedAt(player) });
     this.loading = new LoadingScreens(scope, (player, form) => this.show(player, form));
     this.cursors = new Cursors(scope, this.dimension, (player) => this.cursorAim(player));
@@ -204,20 +216,32 @@ export class Editor {
         if (tool && heldTool(player) !== "snapshot") this.equipTool(player, tool);
       },
     });
-    new Outlines(
-      scope,
-      {
-        selection: (player) => this.regionTool.selectionOf(player),
-        boxes: () => outlineBoxes(this.state.current, info.rules),
-        planes: () => heightPlanes(this.state.current),
-        shown: (player) => this.shown.get(player.name.toLowerCase()) ?? NONE_SHOWN,
-        hidden: (player) => this.cameraTool.isLooking(player),
-        // With the Region or Kill Y tool picked, every boundary shows while the map menu is open.
-        showing: (player) => this.menuTool.has(player.name.toLowerCase()),
-        planesOver: () => boundsAround(this.state.current),
-      },
-      ["region", "killY"],
-    );
+    this.replaceMode = new ReplaceMode(scope, TOOLS, (player, block) => {
+      this.blocksChanged(player.name);
+      this.overlay.blockChanged([block.location.x, block.location.y, block.location.z]);
+    });
+    this.overlay = new Overlay(this.dimension, scope, {
+      views: () =>
+        world.getAllPlayers().map((player) => {
+          const key = player.name.toLowerCase();
+          const nudged = nudgePreview(player);
+          const height = heightPreview(player);
+          const selection = this.regionTool.selectionOf(player)?.box;
+          // With the Region or Kill Y tool picked, the map menu shows what holding it would.
+          const tool = heldTool(player) ?? this.menuTool.get(key);
+          return {
+            shown: this.shown.get(key) ?? NONE_SHOWN,
+            ...(tool ? { tool } : {}),
+            ...(selection ? { selection } : {}),
+            ...(nudged ? { nudged: { box: nudged, editing: previewEditing(player) } } : {}),
+            ...(height ? { height } : {}),
+          };
+        }),
+      boxes: () => outlineBoxes(this.state.current, info.rules),
+      heights: () => heightPlanes(this.state.current),
+      over: () => boundsAround(this.state.current) ?? aroundSpawn(this.state.current),
+      hidden: () => this.cameraTool.anyoneLooking(),
+    });
   }
 
   start(): void {
@@ -253,7 +277,8 @@ export class Editor {
       if (itemStack.typeId === MAP_MENU) void this.mapMenu(source);
       else if (tool === "spawn" || tool === "marker") void this.spawnTool(source, tool);
       else if (tool === "region") this.regionTool.use(source);
-      else if (tool === "killY") this.killYTool.use(source);
+      else if (tool === "killY") void this.killYTool.use(source, () => this.mapMenu(source));
+      else if (tool === "time") void this.timeTool.use(source, () => this.mapMenu(source));
       else if (tool === "camera") this.cameraTool.use(source);
       else if (tool === "snapshot") void this.cameraTool.snapshot(source);
       else if (tool === "mannequin") this.mannequinTool.use(source);
@@ -278,10 +303,10 @@ export class Editor {
       { buttons: [InputButton.Sneak], state: ButtonState.Pressed },
     );
     // A right click on a camera's marker: its kind and Delete (only cameras' markers can be right
-    // clicked); on a mannequin, its screen.
+    // clicked); on a mannequin, its screen, or sneaking, its next pose.
     scope.subscribe(world.afterEvents.playerInteractWithEntity, ({ player, target }) => {
       const mannequin = this.mannequins.nameOf(target);
-      if (mannequin) return void this.mannequinTool.screen(player, mannequin);
+      if (mannequin) return void (player.isSneaking ? this.mannequinTool.nextPose(player, mannequin) : this.mannequinTool.screen(player, mannequin));
       if (target.typeId !== MARKER) return;
       const spec = this.markers.specOf(target);
       if (spec && "camera" in spec) void this.cameraTool.menu(player, spec.camera);
@@ -291,28 +316,36 @@ export class Editor {
       if (event.itemStack && TOOLS.has(event.itemStack.typeId)) event.cancel = true;
     });
     scope.subscribe(world.afterEvents.playerPlaceBlock, ({ player }) => this.blocksChanged(player.name));
-    scope.subscribe(world.afterEvents.playerBreakBlock, ({ player }) => this.blocksChanged(player.name));
+    scope.subscribe(world.afterEvents.playerBreakBlock, ({ player, block }) => {
+      this.blocksChanged(player.name);
+      // A boundary through that block shows there again.
+      this.overlay.blockChanged([block.location.x, block.location.y, block.location.z]);
+    });
     scope.interval(() => this.hints(), HINT_TICKS);
     scope.interval(() => this.checkItems(), ITEMS_TICKS);
     onReset((player) => this.reset(player));
+    onReplace((player) => this.replaceMode.toggle(player));
     keepModeLine(scope, () => modeLine("edit", `${this.info.targetName}: ${this.state.current.name}`), (player) => this.cameraTool.isLooking(player));
     this.refresh();
     void this.prepareWorld();
   }
 
-  /** Sweeps up markers and mannequins an earlier run left, lays a new map's pad, then tells the host the editor is ready. */
+  /** Sweeps up markers, mannequins and boundary planes an earlier run left, lays a new map's pad, then tells the host the editor is ready. */
   private async prepareWorld(): Promise<void> {
     try {
       const left = await this.markers.clear();
       if (left > 0) log.warn(`${left} markers from an earlier run could not be removed`);
       const bodies = await this.mannequins.clear();
       if (bodies > 0) log.warn(`${bodies} mannequins from an earlier run could not be removed`);
+      const planes = await this.overlay.clear();
+      if (planes > 0) log.warn(`boundary planes from an earlier run could not be removed in ${planes} chunks`);
       if (this.info.fresh) await this.layPad();
     } catch (error) {
       log.error(`preparing the world failed: ${describeError(error)}`);
     }
     this.markers.resume();
     this.mannequins.resume();
+    this.overlay.resume();
     this.link.send({ t: "ready" });
   }
 
@@ -361,16 +394,22 @@ export class Editor {
         for (const player of world.getAllPlayers()) if (message.players.includes(player.name)) this.loading.stop(player);
         return;
       case "cleanup":
-        // The aim cursors and mannequins aren't saved with the world either.
+        // The aim cursors, mannequins and boundary planes aren't saved with the world either.
         this.cursors.pause();
-        void Promise.all([this.markers.clear(), this.mannequins.clear()]).then(
-          ([markers, mannequins]) => this.link.send({ t: "clean", id: message.id, left: markers + mannequins }),
+        // One after the other: each loads chunks with ticking areas, which share one budget.
+        void this.markers
+          .clear()
+          .then(async (markers) => markers + (await this.mannequins.clear()))
+          .then(async (left) => left + (await this.overlay.clear()))
+          .then(
+          (left) => this.link.send({ t: "clean", id: message.id, left }),
           (error: unknown) => this.link.send({ t: "clean", id: message.id, left: -1, error: describeError(error) }),
         );
         return;
       case "resume":
         this.markers.resume();
         this.mannequins.resume();
+        this.overlay.resume();
         this.cursors.resume();
         return;
     }
@@ -379,6 +418,12 @@ export class Editor {
   private refresh(): void {
     this.markers.show([...markerSpecs(this.state.current, this.lists()), ...cameraMarkers(this.state.current)]);
     this.mannequins.show(mannequinsOf(this.state.current));
+    // The map's time, when it changed (the Time tool, Undo).
+    const time = mapTimeTicks(this.state.current.time) ?? NOON;
+    if (time !== this.shownTime) {
+      this.shownTime = time;
+      world.setTimeOfDay(time);
+    }
   }
 
   private lists(): SpawnList[] {
@@ -496,11 +541,14 @@ export class Editor {
   private hints(): void {
     for (const player of world.getAllPlayers()) {
       const tool = heldTool(player);
+      // Replace mode's box top right, while no tool's hint is up.
+      if (!tool && this.replaceMode.has(player) && !this.cameraTool.isLooking(player)) hintBar(player, REPLACE_LINE);
       // Nudge sides puts the way the player faces there instead.
       if (!tool || this.cameraTool.isLooking(player) || nudgePreview(player)) continue;
       if (tool === "spawn" || tool === "marker") hintBar(player, this.spawnHint(player, tool));
       else if (tool === "region") hintBar(player, this.regionTool.hint(player));
       else if (tool === "killY") hintBar(player, this.killYTool.hint(player));
+      else if (tool === "time") hintBar(player, this.timeTool.hint());
       else if (tool === "camera") hintBar(player, this.cameraTool.hint(player));
       else if (tool === "mannequin") hintBar(player, this.mannequinTool.hint());
       else if (tool === "snapshot") hintBar(player, "Use: pick a camera to take its picture   Hit a camera: the same");
@@ -547,7 +595,7 @@ export class Editor {
     const form = new ActionFormData().title(mapTitle("Map menu"));
     for (const entry of entries) form.button(entry.text, entry.icon);
     const key = player.name.toLowerCase();
-    if (tool === "region" || tool === "killY") this.menuTool.add(key);
+    if (tool === "region" || tool === "killY") this.menuTool.set(key, tool);
     let response;
     try {
       response = await this.show(player, form);
@@ -590,13 +638,13 @@ export class Editor {
       case "none":
         return this.mapMenu(player);
       case "help": {
-        // How to use the tool, in chat, with a chime.
+        // How to use the tool, in chat, with a chime; the menu stays closed so the chat can be read.
         const tool = EDITOR_TOOLS.find((candidate) => candidate.id === this.toolOut(player));
         if (tool) {
           tell(player, `§f${tool.label}: ${tool.howTo}`);
           playChime(player, "go");
         }
-        return this.mapMenu(player);
+        return;
       }
       case "entry": {
         const spec = markerSpecs(this.state.current, this.lists()).find((candidate) => candidate.key === action.key);
@@ -610,9 +658,8 @@ export class Editor {
         return this.regionTool.boxMenu(player, action.key, () => this.mapMenu(player));
       case "killY":
         return this.killYTool.screen(player, action.line, () => this.mapMenu(player));
-      case "removeKillY":
-        this.killYTool.remove(player);
-        return;
+      case "time":
+        return this.timeTool.screen(player, () => this.mapMenu(player));
       case "cameraKind":
         this.cameraTool.toggleKind(player);
         return this.mapMenu(player);
@@ -948,12 +995,12 @@ export class Editor {
    * in front of that spot on the floor below it; at the sky, nowhere (no tool opens a menu there).
    */
   private aimedAt(player: Player): { x: number; y: number; z: number } | undefined {
-    const hit = player.getBlockFromViewDirection({ maxDistance: REACH, includeLiquidBlocks: true, includePassableBlocks: true });
+    const hit = player.getBlockFromViewDirection({ maxDistance: REACH, includeLiquidBlocks: true, includePassableBlocks: true, excludeTypes: [PLANE_BLOCK] });
     if (!hit) return undefined;
     const { point, onTop } = aimedPoint({ block: hit.block.location, face: hit.face as AimedFace["face"], faceLocation: hit.faceLocation });
     if (onTop) return point;
     try {
-      const floor = this.dimension.getBlockBelow({ x: point.x, y: point.y + 0.5, z: point.z }, { maxDistance: FLOOR_REACH });
+      const floor = this.dimension.getBlockBelow({ x: point.x, y: point.y + 0.5, z: point.z }, { maxDistance: FLOOR_REACH, excludeTypes: [PLANE_BLOCK] });
       return floor ? { ...point, y: floor.location.y + 1 } : point;
     } catch {
       return point;
@@ -1015,6 +1062,12 @@ export class Editor {
       // A see-through mannequin where a use would place one, facing the player.
       const aimed = this.aimedAt(player);
       return aimed ? { kind: "point", at: aimed, yaw: player.getRotation().y + 180, style: MARKER_STYLES.player } : undefined;
+    }
+    // Replace mode, a block in hand: the block a right click would replace.
+    const held = this.replaceMode.has(player) ? inventoryOf(player)?.getItem(player.selectedSlotIndex)?.typeId : undefined;
+    if (held && this.replaceMode.isBlock(held)) {
+      const block = blockInView(player);
+      return block ? { kind: "block", at: block.location } : undefined;
     }
     return undefined;
   }
@@ -1209,6 +1262,12 @@ export class Editor {
     if (to === spec.index || !position || !this.unchanged(player, spec, position, name)) return;
     this.edit(player, { op: "renumber", target: spec.list.target, from: spec.index, to }, `${name} is now number ${to + 1}.`);
   }
+}
+
+/** Where the heights stretch on a map without bounds: around its first spawn. */
+function aroundSpawn(config: MapConfig): Box {
+  const [x, y, z] = (config.spawns[0] ?? [0, 64, 0]).map(Math.floor);
+  return { min: [x - HEIGHT_REACH, y, z - HEIGHT_REACH], max: [x + HEIGHT_REACH, y, z + HEIGHT_REACH] };
 }
 
 function tell(player: Player, text: string): void {

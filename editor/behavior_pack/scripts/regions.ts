@@ -14,8 +14,12 @@ export const SELECTION_COLOR = rgb(0xffff55);
 export const BOUNDS_COLOR = rgb(0xffffff);
 /** A deeper red than any team's (§c is 0xff5555), so a red team's region doesn't read as a kill region. */
 export const KILL_COLOR = rgb(0xd00000);
-/** Regions without a team take these in turn. White, red and yellow are kept for the bounds, kill and the selection. */
-const PALETTE = [0x55ffff, 0x55ff55, 0xff55ff, 0x5555ff, 0xffaa00, 0x00aaaa, 0x00aa00, 0xaa00aa].map(rgb);
+/**
+ * Regions without a team take these in turn, plane colors (sheets.ts PLANE_COLORS: light blue, lime,
+ * magenta, blue, pink, cyan, green, purple). White, red, yellow and orange are kept for the bounds,
+ * kill, the selection and the build limit.
+ */
+const PALETTE = [0x3ab3da, 0x80c71f, 0xc74ebd, 0x3c44aa, 0xf38baa, 0x169c9c, 0x5e7c16, 0x8932b8].map(rgb);
 /**
  * Where the region tool can save a box: the bounds (replacing them all), another bounds box, a
  * region (as a new entry in its list), or a region named in the form.
@@ -181,11 +185,6 @@ export function heightPlanes(config: MapConfig): HeightPlane[] {
 /** A height line's plane color. */
 export function heightColor(line: HeightLine): Rgb {
   return line === "killY" ? KILL_COLOR : BUILD_LIMIT_COLOR;
-}
-
-/** The build limit in a few words: "above 80, below 60", with "not set" for a side it lacks. */
-export function buildLimitText(config: MapConfig): string {
-  return BUILD_LIMIT_SIDES.map((side) => `${side} ${config.buildLimit?.[side] ?? "not set"}`).join(", ");
 }
 
 /** A row of the Boundaries view: one switch per boundary the map has. */

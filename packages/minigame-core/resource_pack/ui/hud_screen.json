@@ -20,10 +20,15 @@
   //     into the control's own variable ("$atext": "$actionbar_text");
   //   - string subtraction works in "visible" checks, but doesn't produce text;
   //   - view bindings need a #property, so they can't read $atext alone.
+  // A pack's def is merged into vanilla's, so it keeps vanilla's type (an image) and its texture
+  // property, here a clear one; another type logs vanilla's texture as unknown.
   "hud_actionbar_text": {
-    "type": "panel",
+    "type": "image",
+    "texture": "textures/minecade/hud/clear",
     "size": [ "100%", "100%" ],
     "offset": [ 0, 0 ],
+    "alpha": 1.0,
+    "propagate_alpha": false,
     "controls": [
       { "mc_actionbar_plain@hud.mc_actionbar_plain": {} },
       { "mc_hud_row@hud.mc_hud_row": {} }

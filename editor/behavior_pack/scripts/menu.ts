@@ -7,7 +7,6 @@
 import {
   FAKE_COLORS,
   FAKE_POSES,
-  FAKE_SKINS,
   QUEUE_COUNTDOWN,
   listOf,
   lookText,
@@ -33,8 +32,9 @@ import { relativeSide, sizeText, type Cardinal, type Sides } from "./boxes.ts";
 import { SNAPS, compass, toolLists, type Snap, type SpawnList } from "./lists.ts";
 import { COLUMNS, MARK, cardIconText, cardTitleText, dangerText, dropdownText, goText, headingText, linkText, optionText, pictureText, saveBarText, segmentText, stepTileText, switchText } from "./marks.ts";
 import { CAMERA_KINDS, cameraPlace, camerasOf, type CameraKind } from "./cameras.ts";
-import { mannequinLook, mannequinsOf } from "./mannequins.ts";
-import { ALL_BOUNDARIES, buildLimitText, outlineShown, type BoundaryRow, type HeightLine, type RegionEntry, type RegionTarget, type SelectionAction } from "./regions.ts";
+import { mannequinLook, mannequinSkins, mannequinsOf } from "./mannequins.ts";
+import { ALL_BOUNDARIES, outlineShown, type BoundaryRow, type HeightLine, type RegionEntry, type RegionTarget, type SelectionAction } from "./regions.ts";
+import { TIME_PRESETS, clockText, timeText, type TimePreset } from "./time-of-day.ts";
 import { EDITOR_TOOLS, SELECT_TOOL, type ToolId } from "./tools.ts";
 
 /** The quick icons' pictures (editor/resource_pack/textures/minecade/editor/). */
@@ -93,7 +93,8 @@ export type MenuAction =
   | { kind: "box"; key: string }
   /** The Kill Y tool's screen, on kill Y or a side of the build limit. */
   | { kind: "killY"; line?: HeightLine }
-  | { kind: "removeKillY" }
+  /** The Time tool's screen. */
+  | { kind: "time" }
   /** The camera tool: the kind of new cameras, and a camera's form. */
   | { kind: "cameraKind" }
   | { kind: "camera"; name: string }
@@ -187,6 +188,7 @@ export function mapMenuEntries(view: MapMenuView): MenuEntry[] {
   else if (view.tool === "camera") entries.push(...cameraSettings(view.config, view.camera?.kind ?? "map"));
   else if (view.tool === "snapshot") entries.push(...snapshotSettings(view.config));
   else if (view.tool === "mannequin") entries.push(...mannequinSettings(view.config, view.items ?? []));
+  else if (view.tool === "time") entries.push(...timeSettings(view.config));
   entries.push({ action: { kind: "save" }, text: `${MARK.save}${saveText(view)}` });
   return entries;
 }
@@ -204,7 +206,7 @@ export function mannequinSettings(config: MapConfig, items: { item: string; labe
     { action: { kind: "none" }, text: headingText(mannequins.length > 0 ? `Mannequins (${mannequins.length})` : "No mannequins yet") },
     ...mannequins.map(([name, mannequin]): MenuEntry => {
       const look = mannequinLook(mannequin);
-      return { action: { kind: "mannequin", name }, text: `${name}\n§7${lookText(look, items.find((entry) => entry.item === look.hold)?.label)}` };
+      return { action: { kind: "mannequin", name }, text: `${name}\n§7${lookText(look, items.find((entry) => entry.item === look.hold)?.label, mannequinSkins())}` };
     }),
   ];
 }
@@ -231,7 +233,7 @@ export function snapshotSettings(config: MapConfig): MenuEntry[] {
 
 /** The Boundaries view's text: what a switch does. */
 export const BOUNDARIES_BODY =
-  "A boundary switched on shows to you all the time, whatever you hold. Holding the Region or Kill Y tool shows every one, as always.";
+  "A boundary switched on shows all the time, whatever you hold. Holding the Region tool shows every one; holding the Kill Y tool, kill Y and the build limit.";
 
 /** The Boundaries view's switches: Show all, then one per boundary the map has. */
 export function boundaryEntries(rows: BoundaryRow[], shown: ReadonlySet<string>): { group: string; text: string }[] {
@@ -271,22 +273,17 @@ export function regionSettings(selection: MapMenuView["region"]["selection"], bo
 }
 
 /**
- * The Kill Y tool's settings: kill Y now, its screen, and removing it; on a game's map, the build
- * limit now and its screen too.
+ * The Kill Y tool's settings, listed like the spawns: kill Y and, on a game's map, each side of the
+ * build limit, with its height (tap one for its screen, where it's set, nudged or removed).
  */
 export function killYSettings(config: MapConfig, buildLimit: boolean): MenuEntry[] {
-  const killY = config.killY;
-  const side: HeightLine = config.buildLimit?.above !== undefined && config.buildLimit.below === undefined ? "below" : "above";
+  const lines = buildLimit ? HEIGHT_LINES : HEIGHT_LINES.filter((line) => line.line === "killY");
   return [
-    { action: { kind: "none" }, text: headingText(killY === undefined ? "Kill Y: not set" : `Kill Y: ${killY}`) },
-    { action: { kind: "killY", line: "killY" }, text: goText("Set kill Y") },
-    ...(killY === undefined ? [] : [{ action: { kind: "removeKillY" } as const, text: dangerText("Remove kill Y") }]),
-    ...(buildLimit
-      ? [
-          { action: { kind: "none" } as const, text: headingText(`Build limit: ${buildLimitText(config)}`) },
-          { action: { kind: "killY", line: side } as const, text: goText("Set build limit") },
-        ]
-      : []),
+    { action: { kind: "none" }, text: headingText(buildLimit ? "Kill Y and build limit" : "Kill Y") },
+    ...lines.map(({ line, name }): MenuEntry => {
+      const y = line === "killY" ? config.killY : config.buildLimit?.[line];
+      return { action: { kind: "killY", line }, text: `${name}\n§7${y === undefined ? "not set" : `y ${y}`}` };
+    }),
   ];
 }
 
@@ -549,6 +546,54 @@ export function killYScreenEntries(view: { line: HeightLine; buildLimit?: boolea
   ];
 }
 
+// ---- Time ---------------------------------------------------------------------------------------
+// The Time tool: the map's time of day, where its servers stop the daylight cycle.
+
+/** The Time tool's settings: the map's time (tap it for the screen). */
+export function timeSettings(config: MapConfig): MenuEntry[] {
+  return [
+    { action: { kind: "none" }, text: headingText("Time of day") },
+    { action: { kind: "time" }, text: `Time\n§7${timeText(config.time)}` },
+  ];
+}
+
+export type TimeScreenAction =
+  | { kind: "back" }
+  | { kind: "open" }
+  | { kind: "preset"; preset: TimePreset }
+  | { kind: "custom" }
+  | { kind: "type" }
+  | { kind: "hour"; by: 1 | -1 }
+  | { kind: "remove" }
+  | { kind: "save" }
+  | { kind: "none" };
+
+/**
+ * The Time tool's screen: the Time list (Noon, Dusk, Midnight, Dawn, Custom); for Custom, a typed
+ * time on the 24-hour clock and an hour's nudge either way; Remove (red, once the map has a time),
+ * and Set time, green, at the bottom.
+ */
+export function timeScreenEntries(view: { preset?: TimePreset; ticks: number; open: boolean; set: boolean; back?: boolean }): { action: TimeScreenAction; text: string; icon?: string }[] {
+  const clock = clockText(view.ticks);
+  const options = [
+    ...TIME_PRESETS.map((preset) => ({ action: { kind: "preset", preset: preset.id } as const, label: preset.label, on: view.preset === preset.id })),
+    { action: { kind: "custom" } as const, label: "Custom", on: view.preset === undefined },
+  ];
+  return [
+    ...(view.back ? [{ action: { kind: "back" } as const, text: BACK_TEXT, icon: ICONS.back }] : []),
+    ...listRows<TimeScreenAction>(view.open, { kind: "open" }, "Time", options),
+    ...(view.preset === undefined
+      ? [
+          { action: { kind: "type" } as const, text: `${MARK.lead}Type a time: ${clock}\n§7hours and minutes, 00:00 to 23:59` },
+          { action: { kind: "hour", by: -1 } as const, text: `${MARK.minus}Time: ${clock}`, icon: ICONS.minus },
+          { action: { kind: "hour", by: 1 } as const, text: `${MARK.plus}An hour later`, icon: ICONS.new },
+        ]
+      : []),
+    ...(view.set ? [{ action: { kind: "remove" } as const, text: dangerText("Remove time") }] : []),
+    { action: { kind: "save" }, text: saveBarText("Set time") },
+  ];
+}
+
 // ---- Mannequins ---------------------------------------------------------------------------------
 // The Mannequin tool: stand-ins for players in a game's picture. A mannequin's screen changes it at
 // once (each tap is an edit Undo takes back) and opens again, until it's closed.
@@ -577,6 +622,7 @@ export type MannequinAction =
   | { kind: "hold"; item?: string }
   | { kind: "pose"; pose: number }
   | { kind: "here" }
+  | { kind: "facing" }
   | { kind: "move"; axis: 0 | 1 | 2; by: 1 | -1 }
   | { kind: "turn"; by: 1 | -1 }
   | { kind: "step"; step: number }
@@ -585,8 +631,8 @@ export type MannequinAction =
 
 /**
  * A mannequin's screen: Display (the Skin list, Color for the plain color skin, Hold for the game's
- * kit items, and Pose, each opening under its row), Position (Move here, nudge rows for each axis and
- * a turn, and Step), and Delete (red).
+ * kit items, and Pose, each opening under its row), Position (Move here, Take my facing, nudge rows
+ * for each axis and a turn, and Step), and Delete (red).
  */
 export function mannequinScreenEntries(view: MannequinScreenView): { action: MannequinAction; text: string; icon?: string }[] {
   const entries: { action: MannequinAction; text: string; icon?: string }[] = view.back ? [{ action: { kind: "back" }, text: BACK_TEXT, icon: ICONS.back }] : [];
@@ -594,8 +640,9 @@ export function mannequinScreenEntries(view: MannequinScreenView): { action: Man
   const list = (which: MannequinList, label: string, options: { action: MannequinAction; label: string; on: boolean }[]) =>
     entries.push(...listRows<MannequinAction>(view.open === which, { kind: "open", which }, label, options));
   lead({ kind: "none" }, headingText("Display"));
-  list("skin", "Skin", FAKE_SKINS.map((skin, i) => ({ action: { kind: "skin", skin: i }, label: skin.label, on: view.look.skin === i })));
-  if (FAKE_SKINS[view.look.skin]?.id === "color") {
+  const skins = mannequinSkins();
+  list("skin", "Skin", skins.map((skin, i) => ({ action: { kind: "skin", skin: i }, label: skin.label, on: view.look.skin === i })));
+  if (skins[view.look.skin]?.id === "color") {
     list("color", "Color", FAKE_COLORS.map((color, i) => ({ action: { kind: "color", color: i }, label: color.label, on: view.look.color === i })));
   }
   if (view.items.length > 0) {
@@ -605,6 +652,7 @@ export function mannequinScreenEntries(view: MannequinScreenView): { action: Man
   list("pose", "Pose", FAKE_POSES.map((pose, i) => ({ action: { kind: "pose", pose: i }, label: pose.label, on: view.look.pose === i })));
   lead({ kind: "none" }, headingText("Position"));
   lead({ kind: "here" }, "Move here\n§7where you stand, facing your way");
+  lead({ kind: "facing" }, "Take my facing\n§7where it stands, facing your way");
   for (const { axis, name, plus } of AXES) {
     entries.push(
       { action: { kind: "move", axis, by: -1 }, text: `${MARK.minus}${name} (${plus} +): ${coordinate(view.at[axis])}`, icon: ICONS.minus },

@@ -9,18 +9,11 @@
       "textures": {
         "color": "textures/minecade/fake/white",
         "steve": "textures/minecade/fake/skins/steve",
-        "alex": "textures/minecade/fake/skins/alex",
-        "ari": "textures/minecade/fake/skins/ari",
-        "efe": "textures/minecade/fake/skins/efe",
-        "kai": "textures/minecade/fake/skins/kai",
-        "makena": "textures/minecade/fake/skins/makena",
-        "noor": "textures/minecade/fake/skins/noor",
-        "sunny": "textures/minecade/fake/skins/sunny",
-        "zuri": "textures/minecade/fake/skins/zuri"
+        "alex": "textures/minecade/fake/skins/alex"
       },
       "geometry": {
-        "default": "geometry.humanoid.custom",
-        "slim": "geometry.humanoid.customSlim"
+        "default": "geometry.minecade.fake_player",
+        "slim": "geometry.minecade.fake_player_slim"
       },
       "animations": {
         "walking": "animation.minecade.fake_player.walking",

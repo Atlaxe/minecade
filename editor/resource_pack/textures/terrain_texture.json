@@ -1,0 +1,56 @@
+{
+  "resource_pack_name": "minecade_editor",
+  "texture_name": "atlas.terrain",
+  "padding": 8,
+  "num_mip_levels": 4,
+  "texture_data": {
+    "minecade_plane_white": {
+      "textures": "textures/minecade/planes/white"
+    },
+    "minecade_plane_orange": {
+      "textures": "textures/minecade/planes/orange"
+    },
+    "minecade_plane_magenta": {
+      "textures": "textures/minecade/planes/magenta"
+    },
+    "minecade_plane_light_blue": {
+      "textures": "textures/minecade/planes/light_blue"
+    },
+    "minecade_plane_yellow": {
+      "textures": "textures/minecade/planes/yellow"
+    },
+    "minecade_plane_lime": {
+      "textures": "textures/minecade/planes/lime"
+    },
+    "minecade_plane_pink": {
+      "textures": "textures/minecade/planes/pink"
+    },
+    "minecade_plane_gray": {
+      "textures": "textures/minecade/planes/gray"
+    },
+    "minecade_plane_light_gray": {
+      "textures": "textures/minecade/planes/light_gray"
+    },
+    "minecade_plane_cyan": {
+      "textures": "textures/minecade/planes/cyan"
+    },
+    "minecade_plane_purple": {
+      "textures": "textures/minecade/planes/purple"
+    },
+    "minecade_plane_blue": {
+      "textures": "textures/minecade/planes/blue"
+    },
+    "minecade_plane_brown": {
+      "textures": "textures/minecade/planes/brown"
+    },
+    "minecade_plane_green": {
+      "textures": "textures/minecade/planes/green"
+    },
+    "minecade_plane_red": {
+      "textures": "textures/minecade/planes/red"
+    },
+    "minecade_plane_black": {
+      "textures": "textures/minecade/planes/black"
+    }
+  }
+}

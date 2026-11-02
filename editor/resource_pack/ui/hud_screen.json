@@ -8,17 +8,28 @@
   // becomes a full-screen panel: marked titles show in a small box top center, and anything else
   // shows exactly like the vanilla title (mc_title_plain is vanilla's hud_title_text from 26.60).
   // Only the editor's servers load this pack; games send titles of their own (the countdown).
+  // A pack's def is merged into vanilla's, so it stays a vertical stack panel (another type logs
+  // vanilla's orientation as unknown), holding one full-screen panel with the three in it.
   "hud_title_text": {
-    "type": "panel",
+    "type": "stack_panel",
+    "orientation": "vertical",
     "size": [ "100%", "100%" ],
     "offset": [ 0, 0 ],
     "layer": 1,
     "alpha": 1.0,
     "propagate_alpha": false,
     "controls": [
-      { "mc_title_plain@hud.mc_title_plain": {} },
-      { "mc_mode_box@hud.mc_mode_box": {} },
-      { "mc_snapshot_frame@hud.mc_snapshot_frame": {} }
+      {
+        "mc_title_layers": {
+          "type": "panel",
+          "size": [ "100%", "100%" ],
+          "controls": [
+            { "mc_title_plain@hud.mc_title_plain": {} },
+            { "mc_mode_box@hud.mc_mode_box": {} },
+            { "mc_snapshot_frame@hud.mc_snapshot_frame": {} }
+          ]
+        }
+      }
     ]
   },
 

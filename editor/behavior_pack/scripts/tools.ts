@@ -3,7 +3,7 @@
 // adds a row here and gets its icon in the grid. The Game marker tool is only there for a game (or
 // the lobby) whose config asks for points, and the Mannequin tool only on a game's maps.
 
-export type ToolId = "spawn" | "marker" | "region" | "killY" | "camera" | "snapshot" | "mannequin" | "select";
+export type ToolId = "spawn" | "marker" | "region" | "killY" | "camera" | "snapshot" | "mannequin" | "time" | "select";
 
 export interface EditorTool {
   id: ToolId;
@@ -49,7 +49,7 @@ export const EDITOR_TOOLS: EditorTool[] = [
     icon: "textures/items/kill_y_tool",
     label: "Kill Y tool",
     hint: "kill Y and the build limit",
-    howTo: "Players below kill Y are out. Use the tool to set it one block below your feet; Set kill Y here fine-tunes it. On a game's map, its screen's tiles also set the build limit (no blocks above one height, none below another); a use then sets the one picked, at your feet.",
+    howTo: "Players below kill Y are out. Use the tool, or tap Kill Y here, to set it: type a height or nudge it, then Set. On a game's map, the build limit is here too (no blocks above one height, none below another); its tiles in the screen pick which one you set.",
   },
   {
     id: "camera",
@@ -73,7 +73,15 @@ export const EDITOR_TOOLS: EditorTool[] = [
     icon: "textures/items/mannequin_tool",
     label: "Mannequin tool",
     hint: "stand-ins for game pictures",
-    howTo: "Use it on a block to place a mannequin there, facing you: a stand-in for players in the game's picture. Hit or right click a mannequin to change its skin, what it holds, its pose and where it stands, or to delete it. Game servers never get them.",
+    howTo: "Use it on a block to place a mannequin there, facing you: a stand-in for players in the game's picture. Hit or right click a mannequin to change its skin, what it holds, its pose and where it stands, or to delete it; sneak and right click it for its next pose. Game servers never get them.",
+  },
+  {
+    id: "time",
+    item: "minecade:time_tool",
+    icon: "textures/items/time_tool",
+    label: "Time tool",
+    hint: "the map's time of day",
+    howTo: "Use it, or tap Time here, to set the map's time of day, where its servers stop the daylight cycle: Noon, Dusk, Midnight or Dawn, or Custom (type a time on the 24-hour clock, or nudge it an hour at a time). The world shows the time you pick; Set time saves it.",
   },
 ];
 

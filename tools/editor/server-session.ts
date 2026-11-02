@@ -375,7 +375,7 @@ export abstract class ServerSession {
     }
   }
 
-  /** Asks the pack to remove every marker before a save. True when none are left; otherwise says why. */
+  /** Asks the pack to remove every marker, mannequin and boundary plane before a save. True when none are left; otherwise says why. */
   protected async removeMarkers(): Promise<boolean> {
     this.note("Removing the markers before saving the world...");
     const id = ++this.cleanupId;
@@ -383,7 +383,7 @@ export abstract class ServerSession {
     await this.send({ t: "cleanup", id });
     const event = (await answer) as Extract<EditorEvent, { t: "clean" }> | undefined;
     if (event?.left === 0) return true;
-    const why = !event ? "the pack didn't answer" : (event.error ?? `${event.left} markers are still in it`);
+    const why = !event ? "the pack didn't answer" : (event.error ?? `${event.left} markers, mannequins or chunks with boundary planes are still in it`);
     this.note(`The world was NOT saved (${why}). map.json has every change.`);
     return false;
   }

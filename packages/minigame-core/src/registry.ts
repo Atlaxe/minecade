@@ -63,6 +63,8 @@ export function badgeFor(name: string): string {
 export interface PlayerSkin {
   name: string;
   key: string;
+  /** On the slim model (Edit's mannequins; the lobby's renders don't need it). */
+  slim?: boolean;
 }
 
 /**

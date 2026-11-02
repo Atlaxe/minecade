@@ -7,6 +7,7 @@ import { ActionFormData } from "@minecraft/server-ui";
 import type { Box, Vec3 } from "@minecade/minigame-core/config";
 import { facingOf, nudgeBox, sizeText, type Sides } from "./boxes.ts";
 import { sideTitle } from "./marks.ts";
+import { PLANE_BLOCK } from "./sheets.ts";
 import { NUDGE_STEPS, facingLine, nudgeEntries } from "./menu.ts";
 import type { HeightLine } from "./regions.ts";
 import { actionBar, type ToolHost } from "./tool-host.ts";
@@ -62,7 +63,8 @@ export interface Picking {
 
 /** The block a use is aimed at, within reach, or undefined (the sky). */
 export function blockInView(player: Player): Block | undefined {
-  return player.getBlockFromViewDirection({ maxDistance: REACH, includeLiquidBlocks: true, includePassableBlocks: true })?.block;
+  // Through Edit's boundary planes, to the block behind.
+  return player.getBlockFromViewDirection({ maxDistance: REACH, includeLiquidBlocks: true, includePassableBlocks: true, excludeTypes: [PLANE_BLOCK] })?.block;
 }
 
 /** Moves a selection to a new box, keeping the old one for Back one step. */

@@ -145,6 +145,7 @@ export {
   lookText,
   nextPose,
   type FakeLook,
+  type FakeSkin,
 } from "./fake-looks.ts";
 export { DEFAULT_TEAMS, TEAM_BUTTONS, activeTeams, assignTeams, possibleTeams, teamButtonPath, type TeamButtonState } from "./game/teams.ts";
 export {

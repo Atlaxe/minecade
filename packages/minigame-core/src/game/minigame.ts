@@ -30,7 +30,6 @@ import { BestOf, bestOfDisplay, bestOfRounds } from "./best-of.ts";
 import { BuildRules, type BuildHost } from "./build.ts";
 import { Combat, type CombatHost, type Hit } from "./combat.ts";
 import { KillCredit } from "./credit.ts";
-import { FAKE_POSES, nextPose } from "../fake-looks.ts";
 import { fakePanelEntries } from "./fake-panel.ts";
 import { FAKE_PLAYER, FakePlayers } from "./fakes.ts";
 import { KitForm, type KitCard, type KitFormContent } from "./kit-form.ts";
@@ -1681,20 +1680,12 @@ export abstract class Minigame<C extends GameConfig = GameConfig> {
     this.abort("aborted");
   }
 
-  /**
-   * Right clicking a fake player opens its side panel (fake-panel.ts); sneaking, it takes its next
-   * pose instead (the first again after the last), named above the hotbar. Its hearts follow its
-   * health.
-   */
+  /** Right clicking a fake player opens its side panel (fake-panel.ts). Its hearts follow its health. */
   private watchFakes(fakes: FakePlayers): void {
     this.scope.add(() => fakes.clear());
     this.scope.subscribe(world.afterEvents.playerInteractWithEntity, ({ player, target }) => {
       const name = this.whoIs(target);
-      if (name === undefined || !fakes.has(name)) return;
-      if (!player.isSneaking) return void this.fakePanel(player, name, fakes);
-      const pose = nextPose(fakes.lookOf(name).pose);
-      fakes.setLook(name, { pose });
-      player.onScreenDisplay.setActionBar(`${name}: ${FAKE_POSES[pose].label}`);
+      if (name !== undefined && fakes.has(name)) void this.fakePanel(player, name, fakes);
     });
     this.scope.subscribe(world.afterEvents.entityHurt, ({ hurtEntity }) => {
       if (hurtEntity.typeId === FAKE_PLAYER) fakes.showHealth(hurtEntity);

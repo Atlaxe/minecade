@@ -17,6 +17,7 @@ export {
   COUNT_PLACES,
   HUD_MARK,
   MODE_MARK,
+  NO_CLOCK,
   bestOfCodes,
   countCodes,
   countdownChime,

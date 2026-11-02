@@ -1,0 +1,511 @@
+{
+  "format_version": "1.21.100",
+  "minecraft:block": {
+    "description": {
+      "identifier": "minecade:plane",
+      "menu_category": {
+        "category": "none"
+      },
+      "states": {
+        "minecade:axis": {
+          "values": {
+            "min": 0,
+            "max": 2
+          }
+        },
+        "minecade:offset": {
+          "values": {
+            "min": 0,
+            "max": 15
+          }
+        },
+        "minecade:color": {
+          "values": {
+            "min": 0,
+            "max": 15
+          }
+        }
+      }
+    },
+    "components": {
+      "minecraft:geometry": "geometry.minecade.plane_1_0",
+      "minecraft:material_instances": {
+        "*": {
+          "texture": "minecade_plane_white",
+          "render_method": "blend"
+        }
+      },
+      "minecraft:collision_box": false,
+      "minecraft:selection_box": false,
+      "minecraft:light_dampening": 0,
+      "minecraft:replaceable": {},
+      "minecraft:destructible_by_explosion": false
+    },
+    "permutations": [
+      {
+        "condition": "q.block_state('minecade:axis') == 0 && q.block_state('minecade:offset') == 0",
+        "components": {
+          "minecraft:geometry": "geometry.minecade.plane_0_0"
+        }
+      },
+      {
+        "condition": "q.block_state('minecade:axis') == 0 && q.block_state('minecade:offset') == 1",
+        "components": {
+          "minecraft:geometry": "geometry.minecade.plane_0_1"
+        }
+      },
+      {
+        "condition": "q.block_state('minecade:axis') == 0 && q.block_state('minecade:offset') == 2",
+        "components": {
+          "minecraft:geometry": "geometry.minecade.plane_0_2"
+        }
+      },
+      {
+        "condition": "q.block_state('minecade:axis') == 0 && q.block_state('minecade:offset') == 3",
+        "components": {
+          "minecraft:geometry": "geometry.minecade.plane_0_3"
+        }
+      },
+      {
+        "condition": "q.block_state('minecade:axis') == 0 && q.block_state('minecade:offset') == 4",
+        "components": {
+          "minecraft:geometry": "geometry.minecade.plane_0_4"
+        }
+      },
+      {
+        "condition": "q.block_state('minecade:axis') == 0 && q.block_state('minecade:offset') == 5",
+        "components": {
+          "minecraft:geometry": "geometry.minecade.plane_0_5"
+        }
+      },
+      {
+        "condition": "q.block_state('minecade:axis') == 0 && q.block_state('minecade:offset') == 6",
+        "components": {
+          "minecraft:geometry": "geometry.minecade.plane_0_6"
+        }
+      },
+      {
+        "condition": "q.block_state('minecade:axis') == 0 && q.block_state('minecade:offset') == 7",
+        "components": {
+          "minecraft:geometry": "geometry.minecade.plane_0_7"
+        }
+      },
+      {
+        "condition": "q.block_state('minecade:axis') == 0 && q.block_state('minecade:offset') == 8",
+        "components": {
+          "minecraft:geometry": "geometry.minecade.plane_0_8"
+        }
+      },
+      {
+        "condition": "q.block_state('minecade:axis') == 0 && q.block_state('minecade:offset') == 9",
+        "components": {
+          "minecraft:geometry": "geometry.minecade.plane_0_9"
+        }
+      },
+      {
+        "condition": "q.block_state('minecade:axis') == 0 && q.block_state('minecade:offset') == 10",
+        "components": {
+          "minecraft:geometry": "geometry.minecade.plane_0_10"
+        }
+      },
+      {
+        "condition": "q.block_state('minecade:axis') == 0 && q.block_state('minecade:offset') == 11",
+        "components": {
+          "minecraft:geometry": "geometry.minecade.plane_0_11"
+        }
+      },
+      {
+        "condition": "q.block_state('minecade:axis') == 0 && q.block_state('minecade:offset') == 12",
+        "components": {
+          "minecraft:geometry": "geometry.minecade.plane_0_12"
+        }
+      },
+      {
+        "condition": "q.block_state('minecade:axis') == 0 && q.block_state('minecade:offset') == 13",
+        "components": {
+          "minecraft:geometry": "geometry.minecade.plane_0_13"
+        }
+      },
+      {
+        "condition": "q.block_state('minecade:axis') == 0 && q.block_state('minecade:offset') == 14",
+        "components": {
+          "minecraft:geometry": "geometry.minecade.plane_0_14"
+        }
+      },
+      {
+        "condition": "q.block_state('minecade:axis') == 0 && q.block_state('minecade:offset') == 15",
+        "components": {
+          "minecraft:geometry": "geometry.minecade.plane_0_15"
+        }
+      },
+      {
+        "condition": "q.block_state('minecade:axis') == 1 && q.block_state('minecade:offset') == 0",
+        "components": {
+          "minecraft:geometry": "geometry.minecade.plane_1_0"
+        }
+      },
+      {
+        "condition": "q.block_state('minecade:axis') == 1 && q.block_state('minecade:offset') == 1",
+        "components": {
+          "minecraft:geometry": "geometry.minecade.plane_1_1"
+        }
+      },
+      {
+        "condition": "q.block_state('minecade:axis') == 1 && q.block_state('minecade:offset') == 2",
+        "components": {
+          "minecraft:geometry": "geometry.minecade.plane_1_2"
+        }
+      },
+      {
+        "condition": "q.block_state('minecade:axis') == 1 && q.block_state('minecade:offset') == 3",
+        "components": {
+          "minecraft:geometry": "geometry.minecade.plane_1_3"
+        }
+      },
+      {
+        "condition": "q.block_state('minecade:axis') == 1 && q.block_state('minecade:offset') == 4",
+        "components": {
+          "minecraft:geometry": "geometry.minecade.plane_1_4"
+        }
+      },
+      {
+        "condition": "q.block_state('minecade:axis') == 1 && q.block_state('minecade:offset') == 5",
+        "components": {
+          "minecraft:geometry": "geometry.minecade.plane_1_5"
+        }
+      },
+      {
+        "condition": "q.block_state('minecade:axis') == 1 && q.block_state('minecade:offset') == 6",
+        "components": {
+          "minecraft:geometry": "geometry.minecade.plane_1_6"
+        }
+      },
+      {
+        "condition": "q.block_state('minecade:axis') == 1 && q.block_state('minecade:offset') == 7",
+        "components": {
+          "minecraft:geometry": "geometry.minecade.plane_1_7"
+        }
+      },
+      {
+        "condition": "q.block_state('minecade:axis') == 1 && q.block_state('minecade:offset') == 8",
+        "components": {
+          "minecraft:geometry": "geometry.minecade.plane_1_8"
+        }
+      },
+      {
+        "condition": "q.block_state('minecade:axis') == 1 && q.block_state('minecade:offset') == 9",
+        "components": {
+          "minecraft:geometry": "geometry.minecade.plane_1_9"
+        }
+      },
+      {
+        "condition": "q.block_state('minecade:axis') == 1 && q.block_state('minecade:offset') == 10",
+        "components": {
+          "minecraft:geometry": "geometry.minecade.plane_1_10"
+        }
+      },
+      {
+        "condition": "q.block_state('minecade:axis') == 1 && q.block_state('minecade:offset') == 11",
+        "components": {
+          "minecraft:geometry": "geometry.minecade.plane_1_11"
+        }
+      },
+      {
+        "condition": "q.block_state('minecade:axis') == 1 && q.block_state('minecade:offset') == 12",
+        "components": {
+          "minecraft:geometry": "geometry.minecade.plane_1_12"
+        }
+      },
+      {
+        "condition": "q.block_state('minecade:axis') == 1 && q.block_state('minecade:offset') == 13",
+        "components": {
+          "minecraft:geometry": "geometry.minecade.plane_1_13"
+        }
+      },
+      {
+        "condition": "q.block_state('minecade:axis') == 1 && q.block_state('minecade:offset') == 14",
+        "components": {
+          "minecraft:geometry": "geometry.minecade.plane_1_14"
+        }
+      },
+      {
+        "condition": "q.block_state('minecade:axis') == 1 && q.block_state('minecade:offset') == 15",
+        "components": {
+          "minecraft:geometry": "geometry.minecade.plane_1_15"
+        }
+      },
+      {
+        "condition": "q.block_state('minecade:axis') == 2 && q.block_state('minecade:offset') == 0",
+        "components": {
+          "minecraft:geometry": "geometry.minecade.plane_2_0"
+        }
+      },
+      {
+        "condition": "q.block_state('minecade:axis') == 2 && q.block_state('minecade:offset') == 1",
+        "components": {
+          "minecraft:geometry": "geometry.minecade.plane_2_1"
+        }
+      },
+      {
+        "condition": "q.block_state('minecade:axis') == 2 && q.block_state('minecade:offset') == 2",
+        "components": {
+          "minecraft:geometry": "geometry.minecade.plane_2_2"
+        }
+      },
+      {
+        "condition": "q.block_state('minecade:axis') == 2 && q.block_state('minecade:offset') == 3",
+        "components": {
+          "minecraft:geometry": "geometry.minecade.plane_2_3"
+        }
+      },
+      {
+        "condition": "q.block_state('minecade:axis') == 2 && q.block_state('minecade:offset') == 4",
+        "components": {
+          "minecraft:geometry": "geometry.minecade.plane_2_4"
+        }
+      },
+      {
+        "condition": "q.block_state('minecade:axis') == 2 && q.block_state('minecade:offset') == 5",
+        "components": {
+          "minecraft:geometry": "geometry.minecade.plane_2_5"
+        }
+      },
+      {
+        "condition": "q.block_state('minecade:axis') == 2 && q.block_state('minecade:offset') == 6",
+        "components": {
+          "minecraft:geometry": "geometry.minecade.plane_2_6"
+        }
+      },
+      {
+        "condition": "q.block_state('minecade:axis') == 2 && q.block_state('minecade:offset') == 7",
+        "components": {
+          "minecraft:geometry": "geometry.minecade.plane_2_7"
+        }
+      },
+      {
+        "condition": "q.block_state('minecade:axis') == 2 && q.block_state('minecade:offset') == 8",
+        "components": {
+          "minecraft:geometry": "geometry.minecade.plane_2_8"
+        }
+      },
+      {
+        "condition": "q.block_state('minecade:axis') == 2 && q.block_state('minecade:offset') == 9",
+        "components": {
+          "minecraft:geometry": "geometry.minecade.plane_2_9"
+        }
+      },
+      {
+        "condition": "q.block_state('minecade:axis') == 2 && q.block_state('minecade:offset') == 10",
+        "components": {
+          "minecraft:geometry": "geometry.minecade.plane_2_10"
+        }
+      },
+      {
+        "condition": "q.block_state('minecade:axis') == 2 && q.block_state('minecade:offset') == 11",
+        "components": {
+          "minecraft:geometry": "geometry.minecade.plane_2_11"
+        }
+      },
+      {
+        "condition": "q.block_state('minecade:axis') == 2 && q.block_state('minecade:offset') == 12",
+        "components": {
+          "minecraft:geometry": "geometry.minecade.plane_2_12"
+        }
+      },
+      {
+        "condition": "q.block_state('minecade:axis') == 2 && q.block_state('minecade:offset') == 13",
+        "components": {
+          "minecraft:geometry": "geometry.minecade.plane_2_13"
+        }
+      },
+      {
+        "condition": "q.block_state('minecade:axis') == 2 && q.block_state('minecade:offset') == 14",
+        "components": {
+          "minecraft:geometry": "geometry.minecade.plane_2_14"
+        }
+      },
+      {
+        "condition": "q.block_state('minecade:axis') == 2 && q.block_state('minecade:offset') == 15",
+        "components": {
+          "minecraft:geometry": "geometry.minecade.plane_2_15"
+        }
+      },
+      {
+        "condition": "q.block_state('minecade:color') == 0",
+        "components": {
+          "minecraft:material_instances": {
+            "*": {
+              "texture": "minecade_plane_white",
+              "render_method": "blend"
+            }
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('minecade:color') == 1",
+        "components": {
+          "minecraft:material_instances": {
+            "*": {
+              "texture": "minecade_plane_orange",
+              "render_method": "blend"
+            }
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('minecade:color') == 2",
+        "components": {
+          "minecraft:material_instances": {
+            "*": {
+              "texture": "minecade_plane_magenta",
+              "render_method": "blend"
+            }
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('minecade:color') == 3",
+        "components": {
+          "minecraft:material_instances": {
+            "*": {
+              "texture": "minecade_plane_light_blue",
+              "render_method": "blend"
+            }
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('minecade:color') == 4",
+        "components": {
+          "minecraft:material_instances": {
+            "*": {
+              "texture": "minecade_plane_yellow",
+              "render_method": "blend"
+            }
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('minecade:color') == 5",
+        "components": {
+          "minecraft:material_instances": {
+            "*": {
+              "texture": "minecade_plane_lime",
+              "render_method": "blend"
+            }
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('minecade:color') == 6",
+        "components": {
+          "minecraft:material_instances": {
+            "*": {
+              "texture": "minecade_plane_pink",
+              "render_method": "blend"
+            }
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('minecade:color') == 7",
+        "components": {
+          "minecraft:material_instances": {
+            "*": {
+              "texture": "minecade_plane_gray",
+              "render_method": "blend"
+            }
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('minecade:color') == 8",
+        "components": {
+          "minecraft:material_instances": {
+            "*": {
+              "texture": "minecade_plane_light_gray",
+              "render_method": "blend"
+            }
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('minecade:color') == 9",
+        "components": {
+          "minecraft:material_instances": {
+            "*": {
+              "texture": "minecade_plane_cyan",
+              "render_method": "blend"
+            }
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('minecade:color') == 10",
+        "components": {
+          "minecraft:material_instances": {
+            "*": {
+              "texture": "minecade_plane_purple",
+              "render_method": "blend"
+            }
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('minecade:color') == 11",
+        "components": {
+          "minecraft:material_instances": {
+            "*": {
+              "texture": "minecade_plane_blue",
+              "render_method": "blend"
+            }
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('minecade:color') == 12",
+        "components": {
+          "minecraft:material_instances": {
+            "*": {
+              "texture": "minecade_plane_brown",
+              "render_method": "blend"
+            }
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('minecade:color') == 13",
+        "components": {
+          "minecraft:material_instances": {
+            "*": {
+              "texture": "minecade_plane_green",
+              "render_method": "blend"
+            }
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('minecade:color') == 14",
+        "components": {
+          "minecraft:material_instances": {
+            "*": {
+              "texture": "minecade_plane_red",
+              "render_method": "blend"
+            }
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('minecade:color') == 15",
+        "components": {
+          "minecraft:material_instances": {
+            "*": {
+              "texture": "minecade_plane_black",
+              "render_method": "blend"
+            }
+          }
+        }
+      }
+    ]
+  }
+}

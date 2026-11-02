@@ -4,6 +4,8 @@
 //   game modes. Select and Edit say what resetting does.
 // - /zoom (minecade:zoom): zooms the view in, like a spyglass, whatever you hold; again to zoom
 //   back out.
+// - /replace (minecade:replace): in Edit, turns replace mode on or off (replace-mode.ts): a right
+//   click on a block puts the block in hand in its place.
 import { CommandPermissionLevel, CustomCommandStatus, system, type Player } from "@minecraft/server";
 
 /** The field of view while zoomed in (Minecraft's default is about 70). */
@@ -12,10 +14,16 @@ const ZOOM_FOV = 30;
 const zoomed = new Set<string>();
 
 let handler: ((player: Player) => void) | undefined;
+let replaceHandler: ((player: Player) => void) | undefined;
 
 /** What /reset does on this server. */
 export function onReset(fn: (player: Player) => void): void {
   handler = fn;
+}
+
+/** What /replace does: only Edit has replace mode. */
+export function onReplace(fn: (player: Player) => void): void {
+  replaceHandler = fn;
 }
 
 system.beforeEvents.startup.subscribe(({ customCommandRegistry }) => {
@@ -26,6 +34,16 @@ system.beforeEvents.startup.subscribe(({ customCommandRegistry }) => {
       if (player?.typeId !== "minecraft:player") return { status: CustomCommandStatus.Failure, message: "Only a player can reset." };
       // Commands run where the world can't be changed: the reset happens next tick.
       system.run(() => handler?.(player as Player));
+      return { status: CustomCommandStatus.Success };
+    },
+  );
+  customCommandRegistry.registerCommand(
+    { name: "minecade:replace", description: "Turn replace mode on or off: a right click on a block puts the block in your hand in its place", permissionLevel: CommandPermissionLevel.Any, cheatsRequired: false },
+    (origin) => {
+      const player = origin.sourceEntity;
+      if (player?.typeId !== "minecraft:player") return { status: CustomCommandStatus.Failure, message: "Only a player can replace blocks." };
+      if (!replaceHandler) return { status: CustomCommandStatus.Failure, message: "Replace mode is for editing a map." };
+      system.run(() => replaceHandler?.(player as Player));
       return { status: CustomCommandStatus.Success };
     },
   );

@@ -72,7 +72,7 @@ function view(config: MapConfig, extra: Partial<MapMenuView> = {}): MapMenuView 
 describe("map menu", () => {
   it("has the quick icons, then the tools, then Save, with no tool out", () => {
     const entries = mapMenuEntries(view(draft));
-    expect(entries.map((entry) => entry.action.kind)).toEqual(["checklist", "undo", "redo", "boundaries", "settings", "tool", "tool", "tool", "tool", "tool", "save"]);
+    expect(entries.map((entry) => entry.action.kind)).toEqual(["checklist", "undo", "redo", "boundaries", "settings", "tool", "tool", "tool", "tool", "tool", "tool", "save"]);
     expect(entries[3]).toEqual({ action: { kind: "boundaries" }, text: `${MARK.quick}Boundaries\n§7see the bounds and regions you pick`, icon: ICONS.boundaries });
     expect(entries[0].text).toBe(`${MARK.pill}1/2\n§7Checklist: 1 problem`);
     expect(entries[0].icon).toBe(ICONS.check);
@@ -92,7 +92,7 @@ describe("map menu", () => {
     expect(tools[1].text).toBe(`${MARK.tool}${COLUMNS[1]}${MARK.on}Region tool\n§7bounds, regions, kill regions`);
     expect(tools[4].text).toBe(`${MARK.tool}${COLUMNS[4]}Snapshot tool\n§7take a camera's picture`);
     const withMarkers = spawnLists(draft, { ...rules, requires: { points: { hole: { label: "Hole" } } } });
-    expect(editorTools(withMarkers, true).map((tool) => tool.id)).toEqual(["spawn", "marker", "region", "killY", "camera", "snapshot", "mannequin"]);
+    expect(editorTools(withMarkers, true).map((tool) => tool.id)).toEqual(["spawn", "marker", "region", "killY", "camera", "snapshot", "mannequin", "time"]);
     expect(editorTools(withMarkers, false).map((tool) => tool.id)).not.toContain("mannequin");
     // Its settings list the game's markers, and the Spawn tool's leave them out.
     const settings = (tool: "spawn" | "marker") => mapMenuEntries({ ...view(draft, { tool }), spawn: { lists: withMarkers, settings: { list: "spawns", center: false, keepFacing: false, snap: "exact" } } }).map((entry) => entry.text);
@@ -102,16 +102,18 @@ describe("map menu", () => {
 
   it("shows the tool out's settings, after a Help link, between the tools and Save", () => {
     const cameras: Record<string, MapCamera> = { "Camera 1": { at: [0, 70, 0, 0, 0], kind: "game" } };
-    const kinds = (tool: MapMenuView["tool"]) => mapMenuEntries(view({ ...draft, killY: 50, cameras }, { tool })).map((entry) => entry.action.kind).slice(10, -1);
+    const kinds = (tool: MapMenuView["tool"]) => mapMenuEntries(view({ ...draft, killY: 50, cameras }, { tool })).map((entry) => entry.action.kind).slice(11, -1);
     // Spawn: Help, then each list with its entries (Spawns and the spectator spawn have one, the queue spawn none).
     expect(kinds("spawn")).toEqual(["help", "none", "entry", "none", "entry", "none"]);
     expect(kinds("region")).toEqual(["help", "none", "box"]);
-    expect(kinds("killY")).toEqual(["help", "none", "killY", "removeKillY"]);
+    expect(kinds("killY")).toEqual(["help", "none", "killY"]);
     // The Snapshot tool: the cameras, each one to look through.
     expect(kinds("snapshot")).toEqual(["help", "none", "snapshot"]);
     expect(mapMenuEntries(view({ ...draft, cameras }, { tool: "snapshot" })).at(-2)).toEqual({ action: { kind: "snapshot", name: "Camera 1" }, text: "Camera 1\n§7Game picture" });
     expect(kinds(undefined)).toEqual([]);
-    expect(mapMenuEntries(view(draft, { tool: "spawn" }))[10].text).toBe(linkText("Help"));
+    expect(mapMenuEntries(view(draft, { tool: "spawn" }))[11].text).toBe(linkText("Help"));
+    // The Time tool: the map's time, to open its screen.
+    expect(kinds("time")).toEqual(["help", "none", "time"]);
   });
 
   it("keeps whether blocks changed in Save's tooltip, and says when it's saving", () => {
@@ -194,18 +196,23 @@ describe("tool settings", () => {
     expect(regionSettings(undefined, []).map((entry) => entry.text)).toEqual([headingText("No bounds or regions yet")]);
   });
 
-  it("offers removing kill Y only when it's set", () => {
+  it("lists kill Y with its height, like the spawns, each opening its screen", () => {
     const map = { name: "M", spawns: [] } as MapConfig;
-    expect(killYSettings(map, false).map((entry) => entry.text)).toEqual([headingText("Kill Y: not set"), goText("Set kill Y")]);
-    expect(killYSettings({ ...map, killY: 58 }, false).map((entry) => entry.text)).toEqual([headingText("Kill Y: 58"), goText("Set kill Y"), dangerText("Remove kill Y")]);
+    expect(killYSettings(map, false).map((entry) => entry.text)).toEqual([headingText("Kill Y"), "Kill Y\n§7not set"]);
+    const entries = killYSettings({ ...map, killY: 58 }, false);
+    expect(entries.map((entry) => entry.text)).toEqual([headingText("Kill Y"), "Kill Y\n§7y 58"]);
+    expect(entries[1].action).toEqual({ kind: "killY", line: "killY" });
   });
 
-  it("shows the build limit on a game's map, its button opening the side still to set", () => {
-    const map = { name: "M", spawns: [], buildLimit: { above: 80 } } as MapConfig;
+  it("lists each side of the build limit too on a game's map", () => {
+    const map = { name: "M", spawns: [], killY: 40, buildLimit: { above: 80 } } as MapConfig;
     const entries = killYSettings(map, true);
-    expect(entries.map((entry) => entry.text)).toEqual([headingText("Kill Y: not set"), goText("Set kill Y"), headingText("Build limit: above 80, below not set"), goText("Set build limit")]);
-    expect(entries.at(-1)?.action).toEqual({ kind: "killY", line: "below" });
-    expect(killYSettings({ ...map, buildLimit: undefined }, true).at(-1)?.action).toEqual({ kind: "killY", line: "above" });
+    expect(entries.map((entry) => entry.text)).toEqual([headingText("Kill Y and build limit"), "Kill Y\n§7y 40", "Build limit above\n§7y 80", "Build limit below\n§7not set"]);
+    expect(entries.slice(1).map((entry) => entry.action)).toEqual([
+      { kind: "killY", line: "killY" },
+      { kind: "killY", line: "above" },
+      { kind: "killY", line: "below" },
+    ]);
   });
 });
 

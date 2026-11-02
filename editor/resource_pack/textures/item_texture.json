@@ -9,6 +9,7 @@
     "minecade_kill_y_tool": { "textures": "textures/items/kill_y_tool" },
     "minecade_camera_tool": { "textures": "textures/items/camera_tool" },
     "minecade_mannequin_tool": { "textures": "textures/items/mannequin_tool" },
+    "minecade_time_tool": { "textures": "textures/items/time_tool" },
     "minecade_snapshot": { "textures": "textures/items/snapshot" },
     "minecade_select_tool": { "textures": "textures/items/select_tool" }
   }

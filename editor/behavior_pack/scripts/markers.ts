@@ -35,6 +35,8 @@ const CHUNKS_PROPERTY = "minecade:markerChunks";
 const SYNC_TICKS = 20;
 /** Ticking areas loaded at once while clearing; the pack's limit may be lower. */
 const SWEEP_BATCH = 16;
+/** Counts sweeps, so each names its own ticking areas. */
+let sweeps = 0;
 
 export class Markers<Spec extends MarkerShape = MarkerShape> {
   private readonly dimension: Dimension;
@@ -179,12 +181,14 @@ function showFacing(entity: Entity, spec: MarkerShape): void {
 export async function sweepChunks(dimension: Dimension, chunks: string[], remove: () => void): Promise<void> {
   const manager = world.tickingAreaManager;
   const batch = Math.max(1, Math.min(SWEEP_BATCH, manager.maxChunkCount - manager.chunkCount));
+  const sweep = sweeps++;
   for (let start = 0; start < chunks.length; start += batch) {
     const created: string[] = [];
     try {
       const loading = chunks.slice(start, start + batch).map((chunk, i) => {
         const [x, z] = chunk.split(",").map(Number);
-        const id = `minecade:sweep${i}`;
+        const id = `minecade:sweep${sweep}_${i}`;
+        if (manager.hasTickingArea(id)) manager.removeTickingArea(id);
         const loaded = manager.createTickingArea(id, { dimension, from: { x: x * 16, y: 0, z: z * 16 }, to: { x: x * 16 + 15, y: 0, z: z * 16 + 15 } });
         created.push(id);
         return loaded;
