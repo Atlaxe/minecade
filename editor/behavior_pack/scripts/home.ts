@@ -2,10 +2,9 @@
 // adventure, unable to move or look around, with no HUD), and get the Map editor form, which opens
 // again whenever it closes: a card for each map opened lately (Select its world, Edit it, or
 // Preview it after picking how many fake players), Search for any map, copy builds from one of the
-// client's worlds in Select (New map), invite friends (Players), or leave. The host
-// (tools/editor/runner.ts) starts what's picked and moves the player there once it's ready;
-// meanwhile the form says what's loading. Invited guests never get the menu: they wait here for
-// Select or a preview.
+// client's worlds in Select (New map), or leave. The host (tools/editor/runner.ts) starts what's
+// picked and moves the player there once it's ready; meanwhile the form says what's loading. Guests
+// (set on the Panel) never get the menu: they wait here for Select or a preview.
 import {
   BlockVolume,
   GameMode,
@@ -23,7 +22,7 @@ import { goto } from "./goto.ts";
 import { HostLink } from "./link.ts";
 import { dangerText, headingText, homeTitle, loadingTitle, sideTitle } from "./marks.ts";
 import { guestWaitText, homeEntries, mapEntries, mapIdFrom, previewEntries, switchWarning, targetEntries, worldEntries } from "./menu.ts";
-import { PlayersMenu, isMapEditor } from "./players.ts";
+import { isMapEditor } from "./players.ts";
 
 const PREFIX = "§b[Editor]§r ";
 /** Where players stand: the world's spawn, inside the cell. */
@@ -52,7 +51,6 @@ export class Home {
   /** What each player picked last, shown as loading until the host's state takes over. */
   private readonly pending = new Map<string, { label: string; until: number }>();
   private readonly formOpen = new Set<string>();
-  private readonly players: PlayersMenu;
 
   constructor(scope: Scope, info: HomeInfo) {
     this.scope = scope;
@@ -66,7 +64,6 @@ export class Home {
       },
       message: (message) => this.receive(message),
     });
-    this.players = new PlayersMenu(this.link, (player, form) => this.show(player, form));
   }
 
   start(): void {
@@ -112,9 +109,6 @@ export class Home {
         return;
       case "goto":
         goto(message.players, message.port, message.label, tell);
-        return;
-      case "guests":
-        this.players.update(message.guests);
         return;
       case "cleanup":
         // The editor lobby has no markers.
@@ -220,7 +214,6 @@ export class Home {
     else if (action.kind === "preview") await this.previewMenu(player, action.target, action.map);
     else if (action.kind === "maps") await this.pickMap(player);
     else if (action.kind === "new") await this.pickWorld(player);
-    else if (action.kind === "players") await this.players.open(player, () => this.menu(player));
     else if (action.kind === "leave") await this.leave(player);
     else if (action.kind === "off") tell(player, action.why);
   }

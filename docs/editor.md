@@ -39,8 +39,6 @@ npm run editor -- status                  what each of its servers is doing
 npm run editor -- save                    save the map open in Edit now
 npm run editor -- publish                 publish the map open in Edit (see "Publishing")
 npm run editor -- preview [end]           play the map open in Edit as its game, or end that (see "Preview")
-npm run editor -- invite "<gamertag>"     let a friend join Select and previews (see "Who can join")
-npm run editor -- uninvite "<gamertag>"   take that back, and disconnect them
 npm run editor -- picture [game]          your newest screenshot as the map's preview (or the game's picture)
 npm run editor -- stop                    shut it down (Edit saves first)
 ```
@@ -73,7 +71,6 @@ closes. Its top row is icons (point at one for its name):
   folder, by the name the game shows, with how many maps came from each. A copy opens in Select.
   **Empty world** at the bottom makes a draft map on a glass pad in the void instead: pick what
   it's for, its name and its map id.
-- **Players** (the person): invite friends (see "Who can join").
 - **Leave** (the door, at the right end): disconnects you, after a confirm. Select and Edit keep
   running; join again to come back.
 
@@ -146,8 +143,8 @@ back out.
   and chat says where to open it: its card in Select's map menu, or Search in the editor lobby.
 - **Outlines** (while you hold the Select tool): your box in yellow, and every map from this world,
   green once it's ready, white while it's queued or being cut out, red when it failed.
-- **The map menu:** an icon row (**Back one step**, faded with nothing to step back; **Players**;
-  and **Back to Lobby**, a house, at the right end), a **Help** link (how to box a map, in chat),
+- **The map menu:** an icon row (**Back one step**, faded with nothing to step back; and **Back to
+  Lobby**, a house, at the right end), a **Help** link (how to box a map, in chat),
   your selection's actions, and the maps from this world. While any of Select's menus is open, the
   outlines show. Using the tool at the sky does nothing: exporting is in the map menu.
   - **A ready map** is a card with its name. Tap it: **Edit** (green) or Cancel. Edit opens it on
@@ -184,16 +181,26 @@ with the real blocks once they're in `packs/blocks/`.
 
 - **Map editors:** the gamertags in `LAN_PLAYERS` (in `.env`). They get the tools, and operator for
   commands, on every server. A change applies at the editor's next boot.
-- **Guests:** friends a map editor invites by gamertag. They may be in the editor lobby and on
-  whatever runs on port 19133, **Select or a preview** (only one runs at a time), but **never Edit**.
-  Everyone else is refused.
+- **Guests:** the gamertags on the Panel's Map editor page (**Who can join**). They may be in the
+  editor lobby and on whatever runs on port 19133, **Select or a preview** (only one runs at a
+  time), but **never Edit**. Everyone else is refused.
 
-**Inviting:** **Players** in the editor lobby's menu, in Select's map menu, or in Edit's gear;
-the Panel's Guests card; or `npm run editor -- invite "<gamertag>"`. The list is kept in
-`work/editor/guests.json` until you remove someone (tap them in Players, Remove on the Panel, or
-`npm run editor -- uninvite "<gamertag>"`), which also disconnects them. A dedicated server can't
-send Xbox invites: a guest adds this PC's address on port 19132 (the network's address,
-`PUBLIC_HOST`) and joins it.
+**Guests** are set only on the Panel: type a gamertag and press **Add**, or **Remove** one. That
+works with the editor off too. The list is kept in `work/editor/guests.json`. Removing a guest
+while the editor runs also disconnects them.
+
+**How guests join:**
+- **Console friends:** with **Friends tab** on (the same switch as the network's, `BROADCAST`, on
+  the Map editor page and the Servers page), the editor runs the network's bot while it's up. Its
+  friends see **Minecade map editor** in their Friends tab and join from there, the way they join
+  the network (see the README's "Friends tab broadcast"; the sign-in is shared). Anyone can add
+  the bot as a friend, but only guests get past the editor lobby.
+- **Everyone else:** a guest adds this PC's public address on port 19132 (the network's address,
+  `PUBLIC_HOST`) and joins it. A dedicated server can't send Xbox invites.
+- **Back to the editor lobby** (when Select restarts, or a preview ends), guests go through its
+  second entrance, TCP 19135, as players coming back from a game reach the network's lobby through
+  19134: a PS5 sent to 19132 by address never got there. Forward TCP 19135 on the router (see the
+  README).
 
 **Where guests go:**
 - Joining, they land in the editor lobby (a dark screen with no menu) and are moved straight on to
@@ -203,7 +210,7 @@ send Xbox invites: a guest adds this PC's address on port 19132 (the network's a
 - **Preview:** guests on Select (or waiting) come along into the game with everyone in Edit. When
   it ends, map editors go back to Edit and guests to the editor lobby, then on to Select when it
   reopens.
-- Only map editors can open maps or worlds, start a preview or invite players.
+- Only map editors can open maps or worlds, or start a preview.
 
 ## In game
 
@@ -235,8 +242,7 @@ game in gold and the map in orange.
      time, whatever you hold (see "Boundaries" below). Your switches are kept for your next map and
      the next boot (`work/editor/view.json`).
    - **The play icon** (Preview, game maps only): see "Preview".
-   - **The gear** (map settings): **Players** and **Back to Lobby** (a house, at the right end) in its
-     icon row (Select is on the map's card in the editor lobby); **Name and game settings** (the
+   - **The gear** (map settings): **Back to Lobby** (a house, at the right end) in its icon row (Select is on the map's card in the editor lobby); **Name and game settings** (the
      map's name, its **Map id** once it has a name, and the game's own settings in `map.json`, such
      as a number a game reads, as text fields; see "A new map id"); **Edit Map Thumbnail** and **Edit
      Minigame Thumbnail** (a game's maps, see "Pictures"); **Drop build commands** (red, maps made by
@@ -427,7 +433,7 @@ everyone going, at most 7), then **Start preview** (green).
    the same fake players, starts again), **Edit** (map editors: back to editing the map) and
    **Lobby** (the editor lobby). Closing it, or not picking within a minute, sends you back where
    the preview came from. **/exit** (`/minecade:exit`) ends it at any time with no menu and sends
-   everyone back (for an invited guest, it only sends them home to the editor lobby), and so does
+   everyone back (for a guest, it only sends them home to the editor lobby), and so does
    **End preview** (the Panel's Preview row, or `npm run editor -- preview end`). **/restart**
    (`/minecade:restart`, map editors only) plays it again from the start for everyone, as if they
    all picked Replay: you wait in the editor lobby while it starts again. It can't restart on the
@@ -467,7 +473,7 @@ their own name, score and kill credit. Both have to be in play (not down or out)
 **From the editor lobby:** a map card's Preview icon (lit once its checklist is done) asks how many
 fake players, then plays that map from its folder as it is, without opening it in Edit (Edit saves
 first when it has that map open, and keeps running). You wait in the editor lobby while it starts,
-it's just you and any invited guests, and the game sends you back to the editor lobby (**Edit** in
+it's just you and any guests, and the game sends you back to the editor lobby (**Edit** in
 its menu opens the map in Edit).
 
 A preview never counts toward stats.
@@ -609,8 +615,17 @@ Chat in the editor lobby says when it's done. A preview has to end first.
   the time, and Select (`select-session.ts`) and Edit (`session.ts`) once something is opened, all on
   `ServerSession` (`server-session.ts`: the server, the console, opping map editors, the live allow
   list for guests, and `goto`). Guests (`guests.ts`) are on the lobby's and Select's allow lists
-  (`EDITOR_GUESTS`) and a preview's, never Edit's; a preview sends them home to the editor lobby
-  (`GUEST_LOBBY_PORT`).
+  (`EDITOR_GUESTS`) and a preview's, never Edit's; they're sent home to the editor lobby through its
+  second entrance (the lobby container also publishes TCP 19135 to its 19132), by the runner's
+  `goto` and by a preview (`GUEST_LOBBY_PORT`). The Panel edits `work/editor/guests.json` itself
+  while the editor is off.
+- **The Friends tab** (`tools/editor/broadcast.ts`): with `BROADCAST=1`, the runner starts
+  `minecade-editor-broadcaster` once the editor lobby is ready, from the network's bot image
+  (`minecade/broadcaster:local`, built from `broadcaster/` when missing) and its sign-in volume
+  (`minecade-broadcaster`), with `WORLD_NAME` "Minecade map editor" and joins relayed to
+  `LAN_HOST:19132`. It follows the bot's log (the Panel's `BroadcastLog`) into the editor's log
+  and status, and stops it at shutdown. The Panel's Friends tab switch writes `BROADCAST` and then
+  asks the running editor (`POST /broadcast`) to start or stop it.
   Opening a map or a world on a server that has something else open moves its players to the editor
   lobby (a `goto` message: the pack transfers them, LAN or public by `LAN_PLAYERS`), stops it (Edit
   saves), and starts it on the new one; then everyone waiting for it is moved there, from whichever
@@ -647,7 +662,7 @@ Chat in the editor lobby says when it's done. A preview has to end first.
   it `return_all` on the console. `LOBBY_PORT` is Edit's port, so the game's own trip home lands
   there. A small resource pack carries the editor's mode box, and the `preview` server variable
   makes the game keep "Preview" in it (never over its own titles).
-- The host answers on `127.0.0.1:8097` (`GET /status`, `POST /save`, `POST /publish`, `POST /preview`, `POST /preview/end`, `POST /guests`, `POST /picture`, `POST /open`, `POST /stop`),
+- The host answers on `127.0.0.1:8097` (`GET /status`, `POST /save`, `POST /publish`, `POST /preview`, `POST /preview/end`, `POST /guests`, `POST /broadcast`, `POST /picture`, `POST /open`, `POST /stop`),
   which the Panel and `npm run editor -- status | save | stop | <target> <map>` use. When the Panel
   boots the editor, its output goes to `work/editor/editor.log`.
 - **The menus** are classic forms themed by the editor's resource pack, like the lobby's menus
@@ -717,7 +732,7 @@ isn't committed; see its README.
 
 ## Troubleshooting
 
-- **"The editor's ports are in use":** the network (or something else) holds 19132-19134. Stop it
+- **"The editor's ports are in use":** the network (or something else) holds 19132-19135. Stop it
   first: the Panel does that for you when you boot from there.
 - **"An older map editor is running":** one from before the editor lobby. The Panel's **Restart
   the editor** shuts it down (it saves first) and boots the new one; from a terminal,
@@ -725,7 +740,9 @@ isn't committed; see its README.
 - **Can't join:** first check that the editor is running (the Panel's Map editor page, or
   `npm run editor -- status`): with none running, nothing answers on port 19132 and the join
   fails. If the Panel's buttons do nothing, restart the Panel (see Restarting above). Then check
-  that your gamertag is in `LAN_PLAYERS`, and, from outside this network,
-  that ports 19132-19134 are forwarded (see the README).
+  that your gamertag is in `LAN_PLAYERS` (or a guest's on the Map editor page), and, from outside
+  this network, that ports 19132-19135 are forwarded (see the README).
+- **A console guest is stuck coming back to the editor lobby:** TCP 19135 isn't forwarded, or the
+  firewall rule still stops at 19134 (see the README).
 - **The world wasn't saved:** the editor's log says why (markers it couldn't remove, the server not
   getting its files ready, or no block changes at stop). `map.json` still has every change.

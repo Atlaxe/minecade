@@ -1,10 +1,11 @@
 // The running editor's control port on this PC (127.0.0.1:8097), for the Panel and
-// `npm run editor -- status | save | publish | preview | invite | stop | <target> <map> | select "<world>"`:
+// `npm run editor -- status | save | publish | preview | stop | <target> <map> | select "<world>"`:
 //   GET /status              what each of its servers is doing
 //   POST /save               save the map open in Edit now
 //   POST /publish            publish the map open in Edit (saved, then committed and pushed)
 //   POST /preview            play the map open in Edit as its game; POST /preview/end ends it
-//   POST /guests {name, on}  invite a player to Select and previews, or take the invitation back
+//   POST /guests {name, on}  add a guest (the editor lobby, Select and previews), or remove one
+//   POST /broadcast {on}     start or stop the Friends tab bot (the Panel's switch, BROADCAST)
 //   POST /picture {kind}     the newest screenshot as the map's preview ("map") or the game's picture ("game")
 //   POST /open {request}     open a map in Edit or a world in Select (an OpenRequest)
 //   POST /stop               shut it down (Edit saves first)
@@ -28,7 +29,9 @@ export interface ControlHandlers {
   /** False when no preview runs. */
   endPreview(): boolean;
   /** Undefined when it's done, or why not. */
-  invite(name: string, on: boolean): Promise<string | undefined>;
+  guest(name: string, on: boolean): Promise<string | undefined>;
+  /** Undefined when it's under way, or why not. */
+  broadcast(on: boolean): string | undefined;
   /** Undefined when it's saved, or why not. */
   picture(kind: "map" | "game"): Promise<string | undefined>;
   stop(): void;
@@ -80,8 +83,13 @@ export function serveControl(handlers: ControlHandlers): Promise<Server> {
         }
         if (method === "POST" && path === "/guests") {
           if (typeof body.name !== "string" || typeof body.on !== "boolean") return reply(400, { error: "expected {name: gamertag, on: true|false}" });
-          const problem = await handlers.invite(body.name, body.on);
+          const problem = await handlers.guest(body.name, body.on);
           return problem ? reply(409, { error: problem }) : reply(200, { ok: true });
+        }
+        if (method === "POST" && path === "/broadcast") {
+          if (typeof body.on !== "boolean") return reply(400, { error: "expected {on: true|false}" });
+          const problem = handlers.broadcast(body.on);
+          return problem ? reply(409, { error: problem }) : reply(202, { ok: true });
         }
         if (method === "POST" && path === "/stop") {
           handlers.stop();
@@ -150,9 +158,14 @@ export function endPreviewEditor(): Promise<{ ok: boolean; error?: string }> {
   return post("/preview/end");
 }
 
-/** Asks the running editor to invite a player (on), or take the invitation back; the error when it can't (or none answers). */
-export function inviteEditor(name: string, on: boolean): Promise<{ ok: boolean; error?: string }> {
+/** Asks the running editor to add a guest (on), or remove one; the error when it can't (or none answers). */
+export function guestEditor(name: string, on: boolean): Promise<{ ok: boolean; error?: string }> {
   return post("/guests", { name, on });
+}
+
+/** Asks the running editor to start (on) or stop its Friends tab bot; the error when it can't (or none answers). */
+export function broadcastEditor(on: boolean): Promise<{ ok: boolean; error?: string }> {
+  return post("/broadcast", { on });
 }
 
 /** Asks the running editor to save the newest screenshot as the map's preview or the game's picture; the error when it can't. */

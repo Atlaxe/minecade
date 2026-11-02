@@ -35,7 +35,7 @@ import {
   type PickAction,
 } from "./menu.ts";
 import { Outlines } from "./outlines.ts";
-import { PlayersMenu, isMapEditor } from "./players.ts";
+import { isMapEditor } from "./players.ts";
 import { onReset } from "./commands.ts";
 import { BOUNDS_COLOR, KILL_COLOR, type Rgb } from "./regions.ts";
 import { actionBar, heldTool, hintBar, notice } from "./tool-host.ts";
@@ -61,7 +61,6 @@ export class Selector {
   private readonly scope: Scope;
   private readonly info: SelectInfo;
   private readonly link: HostLink;
-  private readonly players: PlayersMenu;
   private readonly selections = new Map<string, Picking>();
   private readonly formOpen = new Set<string>();
   /** Export to Map as each player left it: the name, the map id, and the target (kept after an export). */
@@ -74,7 +73,6 @@ export class Selector {
     this.info = info;
     this.maps = [...info.selections];
     this.link = new HostLink(scope, { config: () => {}, message: (message) => this.receive(message) });
-    this.players = new PlayersMenu(this.link, (player, form) => this.show(player, form));
     this.loading = new LoadingScreens(scope, (player, form) => this.show(player, form));
     // Where a use of the Select tool would grow the box to: the block's outline.
     new Cursors(scope, world.getDimension("overworld"), (player) => {
@@ -163,9 +161,6 @@ export class Selector {
         return;
       case "goto":
         goto(message.players, message.port, message.label, tell);
-        return;
-      case "guests":
-        this.players.update(message.guests);
         return;
       case "cleanup":
         // Select mode has no markers.
@@ -429,8 +424,6 @@ export class Selector {
       case "lobby":
         this.link.send({ t: "open", by: player.name, request: { to: "home" } });
         return;
-      case "players":
-        return this.players.open(player, () => this.menu(player));
       default:
         return;
     }

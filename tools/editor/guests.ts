@@ -1,7 +1,8 @@
-// The players the map editor invited (work/editor/guests.json, kept until someone removes them).
-// Guests may join the editor lobby and whatever runs on Select's port (Select, or a preview), never
-// Edit; the runner opens those servers' allow lists to them. Map editors (LAN_PLAYERS) are never
-// guests. Kept apart from the runner so the rules can be unit-tested.
+// The map editor's guests (work/editor/guests.json, set on the Panel's Map editor page and kept until
+// someone removes them). Guests may join the editor lobby and whatever runs on Select's port
+// (Select, or a preview), never Edit; the runner opens those servers' allow lists to them, and the
+// Panel edits the file itself while the editor is off. Map editors (LAN_PLAYERS) are never guests.
+// Kept apart from the runner so the rules can be unit-tested.
 import { existsSync } from "node:fs";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
@@ -13,19 +14,19 @@ export function isGamertag(name: string): boolean {
   return GAMERTAG.test(name) && !name.includes("  ");
 }
 
-/** The list with `name` added, or why it can't be: not a gamertag, a map editor already, or invited already. */
+/** The list with `name` added, or why it can't be: not a gamertag, a map editor already, or a guest already. */
 export function addGuest(guests: string[], name: string, editors: string[]): string[] | string {
   const tag = name.trim();
   if (!isGamertag(tag)) return `"${tag}" is not a gamertag: letters, digits and single spaces, up to 20`;
   if (editors.some((editor) => same(editor, tag))) return `${tag} is a map editor already (LAN_PLAYERS)`;
-  if (guests.some((guest) => same(guest, tag))) return `${tag} is invited already`;
+  if (guests.some((guest) => same(guest, tag))) return `${tag} is a guest already`;
   return [...guests, tag];
 }
 
-/** The list without `name`, or why not (not invited). */
+/** The list without `name`, or why not (not a guest). */
 export function removeGuest(guests: string[], name: string): string[] | string {
   const tag = name.trim();
-  if (!guests.some((guest) => same(guest, tag))) return `${tag} isn't invited`;
+  if (!guests.some((guest) => same(guest, tag))) return `${tag} isn't a guest`;
   return guests.filter((guest) => !same(guest, tag));
 }
 

@@ -34,8 +34,8 @@ export interface ServerVars {
   /** A preview's fake players to add as it starts (picked before the preview loads); 0 for none. */
   previewFakes: number;
   /**
-   * A preview's guests (players outside LAN_PLAYERS, invited by the map editor) go home here, the
-   * editor lobby, since Edit (lobbyPort) is only for map editors; undefined everywhere else.
+   * A preview's guests (players outside LAN_PLAYERS, set on the Panel) go home here, the editor
+   * lobby's second entrance, since Edit (lobbyPort) is only for map editors; undefined everywhere else.
    */
   guestLobbyPort: number | undefined;
   /** The skin watcher's gamertag (WATCHER_GAMERTAG), which the lobby keeps invisible and out of games; empty when there's none. */

@@ -3,8 +3,8 @@
 // editor itself while the network is down. The game talks over the console (the log transport) the
 // way it talks to the orchestrator: it says server_ready once it can take players, and end_game
 // once it has sent everyone back: map editors to LOBBY_PORT, which is Edit's (or the editor
-// lobby's, for a preview started there), and invited guests to GUEST_LOBBY_PORT, the editor
-// lobby's. A match that's over asks each player what's next first; end_game then says who picked
+// lobby's, for a preview started there), and guests to GUEST_LOBBY_PORT, the editor lobby's
+// second entrance. A match that's over asks each player what's next first; end_game then says who picked
 // Replay and Edit. The runner (runner.ts) moves the players there and back.
 import { cp, mkdir, mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -35,9 +35,9 @@ export interface PreviewOptions {
   container: string;
   /** Where the game sends map editors when it ends: Edit's port, or the editor lobby's for a preview started there. */
   returnPort: number;
-  /** Where it sends invited guests: the editor lobby's port. */
+  /** Where it sends guests: the editor lobby's second entrance. */
   guestPort: number;
-  /** The invited players it lets in, besides LAN_PLAYERS. */
+  /** The guests it lets in, besides LAN_PLAYERS. */
   guests: string[];
   map: PreviewMap;
   /** "Sumo: Arena", for the mode box and messages. */
@@ -156,7 +156,7 @@ export class PreviewSession {
     return this.players.players ?? [];
   }
 
-  /** Lets an invited player in (on), or no longer, while the game runs. */
+  /** Lets a guest in (on), or no longer, while the game runs. */
   async allow(name: string, on: boolean): Promise<void> {
     if (this.state === "ready") await this.command(`allowlist ${on ? "add" : "remove"} "${name}"`, ALLOW_REPLY);
   }

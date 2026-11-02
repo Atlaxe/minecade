@@ -106,7 +106,8 @@ services:
   # friends' Friends tab, so console players can join without a phone app. It relays their join
   # to the lobby, and they connect straight to the public address. Off (it exits) unless BROADCAST
   # is 1; the Panel turns it on and off without restarting the network. The first start asks for a
-  # sign-in in its log (docker logs minecade-broadcaster, or the Panel).
+  # sign-in in its log (docker logs minecade-broadcaster, or the Panel). The map editor runs the same
+  # image and sign-in itself while the network is down (tools/editor/broadcast.ts).
   broadcaster:
     image: minecade/broadcaster:local
     build: ./broadcaster

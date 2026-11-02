@@ -19,7 +19,6 @@ import {
   type Catalog,
   type Checklist,
   type ChecklistRow,
-  type GuestInfo,
   type HomeState,
   type MapCamera,
   type MapConfig,
@@ -51,8 +50,7 @@ export const ICONS = {
   new: "textures/minecade/editor/icon_new",
   select: "textures/minecade/editor/icon_select",
   leave: "textures/minecade/editor/icon_leave",
-  /** Players (every icon row), a nudge row's minus (its plus is `new`), Back to Lobby (a house), and the back arrow. */
-  players: "textures/minecade/editor/icon_players",
+  /** A nudge row's minus (its plus is `new`), Back to Lobby (a house), and the back arrow. */
   minus: "textures/minecade/editor/icon_minus",
   lobby: "textures/minecade/editor/icon_lobby",
   back: "textures/minecade/editor/icon_back",
@@ -109,9 +107,7 @@ export type MenuAction =
   /** Select mode: a map from this world (its own menu). */
   | { kind: "map"; target: string; map: string }
   /** Go to the editor lobby, to open another map or world. */
-  | { kind: "lobby" }
-  /** The Players menu: invite friends to Select and previews. */
-  | { kind: "players" };
+  | { kind: "lobby" };
 
 /** What Select mode's selection offers. */
 export type PickAction = "saveMap" | "nudge" | "back" | "clear";
@@ -877,9 +873,9 @@ export interface SelectMenuView {
 /** How to box a map: Select's Help link puts it in chat. */
 export const SELECT_HELP = `${SELECT_TOOL.howTo} Spawns are placed in Edit.`;
 
-/** Select mode's map menu: the icon row (Back one step, Players, Back to Lobby at the right end), Help, the selection's actions, and the maps from this world. */
+/** Select mode's map menu: the icon row (Back one step, Back to Lobby at the right end), Help, the selection's actions, and the maps from this world. */
 export function selectMenuEntries(view: SelectMenuView): MenuEntry[] {
-  const entries: MenuEntry[] = [backEntry(view.selection?.steps ?? 0), PLAYERS_ENTRY, LOBBY_ENTRY, HELP_ENTRY];
+  const entries: MenuEntry[] = [backEntry(view.selection?.steps ?? 0), LOBBY_ENTRY, HELP_ENTRY];
   if (view.selection) entries.push(...selectionEntries(view.selection.box));
   else entries.push({ action: { kind: "none" }, text: headingText("No selection yet") });
   entries.push({ action: { kind: "none" }, text: headingText(view.maps.length > 0 ? `Maps from this world (${view.maps.length})` : "No maps from this world yet") });
@@ -914,18 +910,13 @@ const HELP_ENTRY: MenuEntry = { action: { kind: "help" }, text: linkText("Help")
 export const LOBBY_TEXT = `${MARK.end}Back to Lobby`;
 const LOBBY_ENTRY: MenuEntry = { action: { kind: "lobby" }, text: LOBBY_TEXT, icon: ICONS.lobby };
 
-/** The Players icon (Select's map menu, Edit's gear, the editor lobby's menu): its tooltip says what it's for. */
-export const PLAYERS_TEXT = `${MARK.quick}Players\n§7invite friends to Select and previews`;
-const PLAYERS_ENTRY: MenuEntry = { action: { kind: "players" }, text: PLAYERS_TEXT, icon: ICONS.players };
-
-/** Edit's gear: Players and Back to Lobby (right end) in the icon row, then the map's settings and the red ones. */
-export type GearAction = "settings" | "players" | "dropBuild" | "publish" | "delete" | "lobby" | "back" | "mapThumbnail" | "gameThumbnail";
+/** Edit's gear: Back to Lobby (right end) in the icon row, then the map's settings and the red ones. */
+export type GearAction = "settings" | "dropBuild" | "publish" | "delete" | "lobby" | "back" | "mapThumbnail" | "gameThumbnail";
 
 /** Edit's gear: the icon row, Name and game settings, the thumbnails (a game's map), then Publish (green) and the red ones. */
 export function gearEntries(view: { build: boolean; game: boolean }): { action: GearAction; text: string; icon?: string }[] {
   const entries: { action: GearAction; text: string; icon?: string }[] = [
     { action: "back", text: BACK_TEXT, icon: ICONS.back },
-    { action: "players", text: PLAYERS_TEXT, icon: ICONS.players },
     { action: "lobby", text: LOBBY_TEXT, icon: ICONS.lobby },
     { action: "settings", text: "Name and game settings" },
   ];
@@ -990,29 +981,6 @@ export function nudgeEntries(view: { sides: Sides; step: number; facing: Cardina
 /** The action bar while Nudge sides is open: the way the player faces. */
 export function facingLine(facing: Cardinal): string {
   return `Facing ${facing[0].toUpperCase()}${facing.slice(1)}   + moves a side out, - moves it in`;
-}
-
-/** The Players menu's text: who guests are, and where they can go. */
-export const PLAYERS_BODY =
-  "Invite friends by gamertag. They join this PC's address on port 19132, as for the network, and go to Select or the preview, whichever is open (they wait in the editor lobby when neither is). Edit stays yours. Tap a guest to remove them.";
-
-/** Where a guest is, in a few words. */
-export function guestWhere(guest: GuestInfo): string {
-  switch (guest.on) {
-    case "home":
-      return "waiting in the editor lobby";
-    case "select":
-      return "on Select";
-    case "preview":
-      return "in the preview";
-    default:
-      return "not on";
-  }
-}
-
-/** The Players menu: Invite, then each guest (tap to remove). */
-export function guestEntries(guests: GuestInfo[]): { name?: string; text: string }[] {
-  return [{ text: "Invite a player...\n§7by gamertag" }, ...guests.map((guest) => ({ name: guest.name, text: `${MARK.twoLine}${guest.name}\n§7${guestWhere(guest)}` }))];
 }
 
 /** How a map's extraction is going, in a few words. */
@@ -1082,8 +1050,6 @@ export type HomeAction =
   | { kind: "new" }
   /** Disconnect from the map editor (after a confirm). */
   | { kind: "leave" }
-  /** The Players menu: invite friends to Select and previews. */
-  | { kind: "players" }
   /** A faded icon: its step isn't done, so it only says why. */
   | { kind: "off"; why: string }
   /** A heading or a card's title: nothing happens but the menu opening again. */
@@ -1124,7 +1090,7 @@ export function homeCards(catalog: Catalog): HomeCard[] {
 }
 
 /**
- * The editor lobby's menu: the icon row (New map, Players, and Leave at the right end), then Recent
+ * The editor lobby's menu: the icon row (New map, and Leave at the right end), then Recent
  * with Search on its right, and the cards: each map's game, with Select (the world it came from),
  * Edit and Preview icons on its right, faded when that step isn't done, and the map's name under
  * them. A world with no map yet has Select only.
@@ -1132,7 +1098,6 @@ export function homeCards(catalog: Catalog): HomeCard[] {
 export function homeEntries(state: HomeState): HomeEntry[] {
   const entries: HomeEntry[] = [
     { action: { kind: "new" }, text: `${MARK.quick}New map\n§7copy builds from one of your worlds, or start from an empty one`, icon: ICONS.new },
-    { action: { kind: "players" }, text: PLAYERS_TEXT, icon: ICONS.players },
     { action: { kind: "leave" }, text: `${MARK.end}Leave\n§7disconnect from the map editor`, icon: ICONS.leave },
     { action: { kind: "none" }, text: `${MARK.cardHead}${headingText("Recent")}` },
     { action: { kind: "maps" }, text: `${MARK.cardLink}Search`, icon: ICONS.search },

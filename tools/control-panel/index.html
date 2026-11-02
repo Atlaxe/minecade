@@ -217,7 +217,11 @@
 <section id="page-editor" class="page" hidden>
   <div class="page-head"><h1>Map editor</h1><p>Boot it, then join the editor lobby (port 19132), which asks what to open: a map in Edit (port 19134), or a copy of one of your worlds in Select (port 19133), to cut new maps out of. Every change goes straight into map.json. The network is stopped while the editor runs: they use the same ports.</p></div>
   <div id="editor-server"></div>
-  <div id="editor-guests"></div>
+  <div class="card">
+    <div class="card-head"><h2>Who can join</h2><span class="muted small">Guests are saved to work/editor/guests.json</span></div>
+    <div id="editor-friends"></div>
+    <div id="editor-guests"></div>
+  </div>
   <div id="editor-checklist"></div>
   <div id="editor-select"></div>
   <div class="card">
@@ -468,21 +472,34 @@ function lobbyMapRow() {
 function broadcastRow(running) {
   const b = state.broadcast;
   if (state.env.missing || !b) return null;
-  const toggle = el("button", { onclick: () => post("/api/broadcast", { on: !b.on }) }, b.on ? "Turn off" : "Turn on");
-  toggle.disabled = Boolean(state.busy);
-  const parts = [el("span", {}, "Friends tab"), el("span", { className: "mono muted" }, "BROADCAST"), toggle];
-  const say = (text, className = "muted small") => el("span", { className }, text);
-  if (!b.on) parts.push(say("Off. Console friends can't see the lobby in their Friends tab."));
-  else if (!running || !b.container) parts.push(say("On. It starts with the network."));
-  else if (b.container !== "running") parts.push(say("On, but it isn't running. Its log (Containers, minecade-broadcaster) says why.", "error"));
-  else if (b.phase === "sign-in" && b.signIn) {
-    parts.push(say("Sign in with the spare account at"), el("a", { href: b.signIn.url, target: "_blank" }, b.signIn.url),
-      say("with the code"), el("span", { className: "mono strong" }, b.signIn.code), el("button", { className: "small", onclick: () => copy(b.signIn.code) }, "Copy"));
-  } else if (b.phase === "live") {
-    parts.push(say(`On. Friends who add ${b.account} in Minecraft see the lobby in their Friends tab.${b.lastJoin ? ` Last join: ${b.lastJoin}.` : ""}`));
-  } else parts.push(say(b.phase === "signed-in" ? `Signed in as ${b.account}. Starting...` : "Starting..."));
-  if (b.on && b.lastError && b.phase !== "live") parts.push(say(b.lastError, "error"));
+  const parts = [el("span", {}, "Friends tab"), el("span", { className: "mono muted" }, "BROADCAST"), broadcastToggle(b.on)];
+  if (!b.on) parts.push(rowText("Off. Console friends can't see the lobby in their Friends tab."));
+  else if (!running || !b.container) parts.push(rowText("On. It starts with the network."));
+  else if (b.container !== "running") parts.push(rowText("On, but it isn't running. Its log (Containers, minecade-broadcaster) says why.", "error"));
+  else parts.push(...broadcastProgress(b, `On. Friends who add ${b.account} in Minecraft see the lobby in their Friends tab.${b.lastJoin ? ` Last join: ${b.lastJoin}.` : ""}`));
+  if (b.on && b.lastError && b.phase !== "live") parts.push(rowText(b.lastError, "error"));
   return el("div", { className: "row" }, parts);
+}
+
+function rowText(text, className = "muted small") {
+  return el("span", { className }, text);
+}
+
+/** The Friends tab switch: BROADCAST in .env, for the network and the map editor alike. */
+function broadcastToggle(on) {
+  const toggle = el("button", { onclick: () => post("/api/broadcast", { on: !on }) }, on ? "Turn off" : "Turn on");
+  toggle.disabled = Boolean(state.busy);
+  return toggle;
+}
+
+/** How far a running friends broadcast `b` got: the sign-in it asks for, starting, or `live` once friends see it. */
+function broadcastProgress(b, live) {
+  if (b.phase === "sign-in" && b.signIn) {
+    return [rowText("Sign in with the spare account at"), el("a", { href: b.signIn.url, target: "_blank" }, b.signIn.url),
+      rowText("with the code"), el("span", { className: "mono strong" }, b.signIn.code), el("button", { className: "small", onclick: () => copy(b.signIn.code) }, "Copy")];
+  }
+  if (b.phase === "live") return [rowText(live)];
+  return [rowText(b.phase === "signed-in" ? `Signed in as ${b.account}. Starting...` : "Starting...")];
 }
 
 // The game picker is rebuilt when the game status changes, so remember the choice across renders.
@@ -718,7 +735,7 @@ function editorTone(editor) {
 }
 
 function renderEditor() {
-  const editor = state.editor ?? { status: null, old: false, stale: false, launching: false, restarting: false, log: [] };
+  const editor = state.editor ?? { status: null, old: false, stale: false, launching: false, restarting: false, log: [], guests: [] };
   // An editor from before the editor lobby reports another shape: only its log is shown.
   const status = editor.status?.booted ? editor.status : null;
   const [tone, text] = editorTone(editor);
@@ -729,7 +746,8 @@ function renderEditor() {
   patch($("editor-server"), [tone, text, editor.old, editor.stale, editor.launching, state.docker, state.busy, state.networkRunning, state.connection.lanHost, facts], () => editorCard(editor, status));
   patch($("editor-checklist"), status?.edit && [status.edit.checklist, status.edit.undo, status.edit.redo, status.edit.unsaved, status.edit.saving, status.edit.publishing, status.edit.draft, status.edit.mapName, status.edit.target], () => status?.edit && checklistCard(status.edit));
   patch($("editor-select"), status?.select && [status.select.world, status.select.selections], () => status?.select && selectionsCard(status.select));
-  patch($("editor-guests"), status?.state === "ready" && [status.guests], () => status?.state === "ready" && guestsCard(status.guests ?? []));
+  patch($("editor-friends"), [state.env.missing, state.broadcast?.on, state.busy, status?.state, status?.broadcast], () => editorFriendsRow(status));
+  patch($("editor-guests"), [editor.guests, Boolean(status)], () => guestsList(editor.guests ?? [], Boolean(status)));
   const pre = $("editor-log");
   const lines = editor.log.join("\n");
   if (pre.textContent !== lines) {
@@ -841,25 +859,51 @@ function endPreviewButton(preview) {
   return button;
 }
 
-/** Invited players: they may join Select and previews (never Edit), at the network's address. */
-function guestsCard(guests) {
+/**
+ * The Friends tab on the Map editor page: the same switch as the network's (BROADCAST), shown with
+ * the editor's own bot, which puts "Minecade map editor" in friends' Friends tab.
+ */
+function editorFriendsRow(status) {
+  const on = state.broadcast?.on;
+  if (state.env.missing || !state.broadcast) return null;
+  // An editor from before its Friends tab reports none.
+  const b = status?.broadcast;
+  const parts = [el("span", {}, "Friends tab"), el("span", { className: "mono muted" }, "BROADCAST"), broadcastToggle(on)];
+  if (!on) parts.push(rowText("Off. Console friends can't see the map editor in their Friends tab."));
+  else if (!status) parts.push(rowText("On. It starts with the map editor."));
+  else if (!b) parts.push(rowText("On, but this editor is older than its Friends tab: restart it.", "error"));
+  else if (b.container === null) parts.push(b.lastError ? rowText(`On, but it didn't start: ${b.lastError}`, "error") : rowText(status.state === "ready" ? "Starting..." : "On. It starts once the editor lobby is ready."));
+  else if (b.container !== "running") parts.push(rowText("On, but it stopped. The editor log says why; Turn off, then Turn on, restarts it.", "error"));
+  else parts.push(...broadcastProgress(b, `On. Friends who add ${b.account} in Minecraft see "Minecade map editor" in their Friends tab.${b.lastJoin ? ` Last join: ${b.lastJoin}.` : ""}`));
+  if (on && b?.container && b.lastError && b.phase !== "live") parts.push(rowText(b.lastError, "error"));
+  return el("div", { className: "row" }, parts);
+}
+
+/**
+ * The map editor's guests (work/editor/guests.json), who may join besides map editors: the editor
+ * lobby, Select and previews, never Edit. Editable while the editor is off too; `running` adds where
+ * each one is.
+ */
+function guestsList(guests, running) {
   const where = { home: "waiting in the editor lobby", select: "on Select", preview: "in the preview" };
-  const input = el("input", { type: "text", placeholder: "Gamertag", maxLength: 20, className: "mono" });
-  const invite = () => {
+  const input = el("input", { type: "text", placeholder: "Gamertag", maxLength: 20, className: "mono", style: "flex:1;width:auto" });
+  const add = () => {
     const name = input.value.trim();
     if (name) post("/api/editor/guests", { name, on: true });
   };
-  input.addEventListener("keydown", (event) => event.key === "Enter" && invite());
+  input.addEventListener("keydown", (event) => event.key === "Enter" && add());
   const rows = guests.map((guest) =>
     el("tr", {},
       el("td", {}, guest.name),
-      el("td", { className: "muted" }, guest.on ? where[guest.on] : "not on"),
-      el("td", {}, el("button", { className: "small danger", onclick: () => post("/api/editor/guests", { name: guest.name, on: false }) }, "Remove"))));
-  return el("div", { className: "card" },
-    el("div", { className: "card-head" }, el("h2", {}, "Guests"), el("span", { className: "muted small" }, "Select and Preview only")),
-    guests.length > 0 && el("div", { className: "table-wrap" }, el("table", {}, el("tbody", {}, rows))),
-    el("div", { className: "actions" }, input, el("button", { onclick: invite }, "Invite")),
-    el("p", { className: "hint" }, "Invited friends join this PC's address on port 19132, as for the network, and go to Select or the preview, whichever is open. Edit stays for map editors (LAN_PLAYERS). Remove disconnects them."));
+      el("td", { className: "muted" }, running ? (guest.on ? where[guest.on] : "not on") : ""),
+      el("td", { className: "end" }, el("button", { className: "small danger", onclick: () => post("/api/editor/guests", { name: guest.name, on: false }) }, "Remove"))));
+  return [
+    guests.length > 0
+      ? el("div", { className: "table-wrap", style: "margin-top:12px" }, el("table", {}, el("tbody", {}, rows)))
+      : el("p", { className: "hint" }, "No guests yet: only map editors (LAN_PLAYERS) can join."),
+    el("div", { className: "row", style: "margin-top:12px" }, input, el("button", { onclick: add }, "Add")),
+    el("p", { className: "hint" }, "Besides map editors (LAN_PLAYERS), only the gamertags here get in: to the editor lobby, Select and previews, never Edit. Console friends join from the Friends tab; anyone else adds this PC's public address, port 19132. Remove disconnects them if they're on."),
+  ];
 }
 
 /** The maps cut out of the world open in Select, and how each extraction is going. */

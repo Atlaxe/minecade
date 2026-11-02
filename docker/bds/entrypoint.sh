@@ -12,12 +12,12 @@
 #   PREVIEW         set by the map editor's Preview (tools/editor/preview-session.ts): the map's label,
 #                   shown in the game's mode box top center.
 #   PREVIEW_FAKES   set by Preview too: how many fake players the match starts with.
-#   GUEST_LOBBY_PORT  set by Preview too: where players outside LAN_PLAYERS (the editor's invited
-#                   guests) go home, the editor lobby, since LOBBY_PORT there is Edit's.
+#   GUEST_LOBBY_PORT  set by Preview too: where players outside LAN_PLAYERS (the editor's guests)
+#                   go home, the editor lobby's second entrance, since LOBBY_PORT there is Edit's.
 #   EDITOR_MODE     set by the map editor (tools/editor): its host stages the map being edited in
 #                   /editor (world/, map.json, editor.json). Players get creative mode, and the allow
-#                   list is always on: LAN_PLAYERS, plus EDITOR_GUESTS (the players the editor
-#                   invited, passed to the editor lobby and Select only, never Edit).
+#                   list is always on: LAN_PLAYERS, plus EDITOR_GUESTS (the guests set on the
+#                   Panel, passed to the editor lobby and Select only, never Edit).
 set -euo pipefail
 cd /bds
 

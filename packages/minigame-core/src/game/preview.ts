@@ -5,8 +5,8 @@
 //   for its next pose (and after the last, the first again).
 // - /switch [number] (minecade:switch): you and a fake player trade places in the match (Fake
 //   <number>, else the one you look at, else the nearest).
-// - /exit (minecade:exit): a map editor ends the preview for everyone, back to Edit; an invited
-//   guest just leaves, for the editor lobby.
+// - /exit (minecade:exit): a map editor ends the preview for everyone, back to Edit; a guest just
+//   leaves, for the editor lobby.
 // - /restart (minecade:restart): a map editor plays the preview again from the start, for everyone,
 //   as if they all picked Replay: they wait in the editor lobby while it starts again (a new server
 //   on a fresh copy of the map, since a match changes the world).

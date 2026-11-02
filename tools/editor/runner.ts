@@ -3,9 +3,11 @@
 // to box maps in; Edit on 19134, one map. Opening something starts its server (or restarts it on
 // the new map or world). Players move between the servers by transfer, never by rejoining: whoever
 // asked waits where they are, and anyone on a server that restarts waits in the editor lobby, until
-// the server is ready. Players a map editor invited (guests.ts) may be on the editor lobby and on
+// the server is ready. The guests set on the Panel (guests.ts) may be on the editor lobby and on
 // whatever runs on Select's port (Select, or a preview), never Edit: they're moved on to that as
-// soon as it's ready. Extractions (selections.ts) run in the background and outlive the servers.
+// soon as it's ready, and come back to the editor lobby through its second entrance (19135). With
+// BROADCAST on, the Friends tab bot (broadcast.ts) relays console friends' joins to the editor lobby.
+// Extractions (selections.ts) run in the background and outlive the servers.
 import { existsSync } from "node:fs";
 import { readFile, rename } from "node:fs/promises";
 import { join, relative } from "node:path";
@@ -23,6 +25,7 @@ import {
 } from "@minecade/minigame-core/config";
 import { connectDocker } from "../build/docker-util.ts";
 import { readEnv } from "../control-panel/core.ts";
+import { EditorBroadcast } from "./broadcast.ts";
 import { buildCatalog, forgetRecent, mapLabel, noteRecent, renameRecent, requestedWorld, worldId } from "./catalog.ts";
 import { SLOTS, editorPlayers, isMapId, planOpen, portHolders, type EditorStatus, type Slot, type SlotId } from "./editor-core.ts";
 import { addGuest, readGuests, removeGuest, writeGuests } from "./guests.ts";
@@ -89,12 +92,12 @@ export class EditorRunner {
   private state: EditorStatus["state"] = "starting";
   private error: string | undefined;
   private env: Record<string, string> = {};
-  /** Map editors (LAN_PLAYERS): everyone else on the servers is an invited guest. */
+  /** Map editors (LAN_PLAYERS): everyone else on the servers is a guest. */
   private players: string[] = [];
-  /** The invited players (work/editor/guests.json). */
+  /** The guests (work/editor/guests.json). */
   private guests: string[] = [];
-  /** The guest list each server heard last, so it hears only of changes. */
-  private readonly guestsSent = new WeakMap<ServerSession, string>();
+  /** The Friends tab bot, while BROADCAST is on. */
+  private readonly broadcast: EditorBroadcast;
   private home: HomeSession | undefined;
   private readonly work: { select?: SelectSession; edit?: EditorSession } = {};
   /** What each work server has open. */
@@ -125,6 +128,7 @@ export class EditorRunner {
     this.slots = options.slots ?? SLOTS;
     this.git = options.git;
     this.selections = new Selections(this.root, { verbose: this.verbose, note: (text) => this.log(`Extract: ${text}`) });
+    this.broadcast = new EditorBroadcast({ root: this.root, note: (text) => this.log(text) });
     this.selections.onChange((world, info, gone) => {
       // Forget takes a map off a list as it is, ready or failed.
       if (gone || (info.status !== "ready" && info.status !== "failed")) return;
@@ -149,7 +153,8 @@ export class EditorRunner {
     this.players = editorPlayers(this.env);
     this.guests = await readGuests(this.root);
     const docker = connectDocker();
-    const holders = portHolders(await docker.listContainers(), Object.values(this.slots).map((slot) => slot.port));
+    const ports = Object.values(this.slots).flatMap((slot) => (slot.entrance ? [slot.port, slot.entrance] : [slot.port]));
+    const holders = portHolders(await docker.listContainers(), ports);
     if (holders.length > 0) {
       throw new Error(`the editor's ports are in use by ${holders.join(", ")}. Stop the network first (the Panel's Servers page, or docker compose down).`);
     }
@@ -160,7 +165,6 @@ export class EditorRunner {
     const home = new HomeSession({ slot: this.slots.home, verbose: this.verbose, note: (text) => this.log(text), home: () => this.homeState(), guests: () => this.guests });
     this.home = home;
     home.onOpen = (request, by) => void this.request(by, request);
-    home.onInvite = (name, on, by) => void this.invite(by, name, on);
     home.onLeave = (by) => void home.kick(by, "You left the map editor. Join again to come back.").catch((error: unknown) => this.log(`Could not let ${by} leave: ${message(error)}`));
     home.onPlayer = (name, kind) => this.joined(home, name, kind);
     home.onEnd = () => {
@@ -177,7 +181,8 @@ export class EditorRunner {
       throw error;
     }
     this.state = "ready";
-    this.log(`Ready: join ${home.status().join}. Map editors: ${this.players.join(", ") || "nobody (set LAN_PLAYERS)"}.${this.guests.length > 0 ? ` Invited: ${this.guests.join(", ")}.` : ""}`);
+    this.log(`Ready: join ${home.status().join}. Map editors: ${this.players.join(", ") || "nobody (set LAN_PLAYERS)"}.${this.guests.length > 0 ? ` Guests: ${this.guests.join(", ")}.` : ""}`);
+    if (this.env.BROADCAST === "1") this.setBroadcast(true);
   }
 
   status(): EditorStatus {
@@ -194,7 +199,19 @@ export class EditorRunner {
       ...(this.previewing ? { preview: this.previewing.status() } : {}),
       waiting: [...this.waiting.values()].map(({ name, label }) => ({ name, label })),
       guests: this.guestInfo(),
+      broadcast: this.broadcast.status(),
     };
+  }
+
+  /**
+   * Starts the Friends tab bot (on), relaying joins to the editor lobby, or stops it: BROADCAST in
+   * .env at boot, and the Panel's Friends tab switch. Undefined when it's under way, or why not.
+   */
+  setBroadcast(on: boolean): string | undefined {
+    if (this.state !== "ready") return this.state === "stopping" ? "the editor is shutting down" : "the editor is still starting";
+    if (on && !this.env.LAN_HOST) return "set LAN_HOST in .env";
+    void (on ? this.broadcast.start(this.env.LAN_HOST, this.slots.home.port) : this.broadcast.stop());
+    return undefined;
   }
 
   /** Saves the map open in Edit now. False when none is. */
@@ -262,16 +279,13 @@ export class EditorRunner {
   }
 
   /**
-   * Invites a player (on), or takes the invitation back, from a map editor in game or this PC.
-   * Guests may join the editor lobby and whatever runs on Select's port, never Edit; taking an
-   * invitation back disconnects them. Undefined when it's done, or why it can't be.
+   * Adds a guest (on), or removes one, from the Panel. Guests may join the editor lobby and
+   * whatever runs on Select's port, never Edit; removing one disconnects them. Undefined when it's
+   * done, or why it can't be.
    */
-  async invite(by: string, name: string, on: boolean): Promise<string | undefined> {
-    const problem = await this.tryInvite(by, name.trim(), on);
-    if (problem) {
-      this.log(`${by}: can't ${on ? "invite" : "remove"} ${name}: ${problem}`);
-      void this.tell(by, `§c${problem}`);
-    }
+  async setGuest(name: string, on: boolean): Promise<string | undefined> {
+    const problem = await this.trySetGuest(name.trim(), on);
+    if (problem) this.log(`Can't ${on ? "add" : "remove"} the guest ${name}: ${problem}`);
     return problem;
   }
 
@@ -281,6 +295,7 @@ export class EditorRunner {
       this.state = "stopping";
       this.log(force ? "Shutting down without saving the world..." : "Shutting down (Edit saves first)...");
       const stop = (session: ServerSession | undefined) => (session ? (force ? session.forceStop() : session.stop()) : Promise.resolve());
+      await this.broadcast.stop();
       await this.previewing?.stop();
       await Promise.all([stop(this.work.edit), stop(this.work.select)]);
       await stop(this.home);
@@ -309,7 +324,7 @@ export class EditorRunner {
     if (this.isGuest(by)) return "only map editors can open maps and worlds";
     if (request.to === "home") {
       const on = this.whereIs(by);
-      if (on && on !== this.home) await on.goto([by], this.slots.home.port, "the editor lobby");
+      if (on && on !== this.home) await this.sendHome(on, [by]);
       return undefined;
     }
     if (request.to === "preview") return this.previewFromLobby(by, request);
@@ -390,7 +405,7 @@ export class EditorRunner {
       for (const name of plan.evict) this.waiting.set(name.toLowerCase(), { name, slot, label: launch.label });
       if (plan.evict.length > 0) {
         await current.say(`${by === "this PC" ? "This PC" : by} is opening ${launch.chat} here: wait in the editor lobby, and you'll be back when it's ready.`);
-        await current.goto(plan.evict, this.slots.home.port, "the editor lobby");
+        await this.sendHome(current, plan.evict);
         await delay(LEAVE_MS);
       }
       this.homeChanged();
@@ -401,7 +416,6 @@ export class EditorRunner {
     this.setWork(slot, session);
     this.opened.set(slot, { request: launch.request, label: launch.label });
     session.onOpen = (request, who) => void this.request(who, request);
-    session.onInvite = (name, on, who) => void this.invite(who, name, on);
     if (session instanceof EditorSession) {
       session.onPreview = (who, fakes) => void this.preview(who, fakes);
       session.onDelete = (who) => this.deleteMap(who, session);
@@ -476,7 +490,7 @@ export class EditorRunner {
         const players = edit.online();
         await edit.say(`${by} is deleting ${chat}: everyone here goes to the editor lobby.`);
         if (players.length > 0) {
-          await edit.goto(players, this.slots.home.port, "the editor lobby");
+          await this.sendHome(edit, players);
           await delay(LEAVE_MS);
         }
         this.setWork("edit", undefined);
@@ -536,7 +550,7 @@ export class EditorRunner {
         for (const name of players) this.waiting.set(name.toLowerCase(), { name, slot: "edit", label });
         await edit.say(`${by} is giving ${chatMapName(targetName, mapName)} the map id ${to}: wait in the editor lobby, and you'll be back when it's ready.`);
         if (players.length > 0) {
-          await edit.goto(players, this.slots.home.port, "the editor lobby");
+          await this.sendHome(edit, players);
           await delay(LEAVE_MS);
         }
         this.setWork("edit", undefined);
@@ -669,7 +683,7 @@ export class EditorRunner {
       port: this.slots.select.port,
       container: `${this.slots.select.container.replace(/-select$/, "")}-preview`,
       returnPort: from === "edit" ? this.slots.edit.port : this.slots.home.port,
-      guestPort: this.slots.home.port,
+      guestPort: this.slots.home.entrance ?? this.slots.home.port,
       guests: this.guests,
       map: source.map,
       label: source.label,
@@ -739,7 +753,7 @@ export class EditorRunner {
     const players = select.online();
     if (players.length > 0) {
       await select.say(`${by === "this PC" ? "This PC" : by} started a preview on this port: Select closes until it ends, and opens again after.`);
-      await select.goto(players, this.slots.home.port, "the editor lobby");
+      await this.sendHome(select, players);
       await delay(LEAVE_MS);
     }
     this.setWork("select", undefined);
@@ -859,15 +873,13 @@ export class EditorRunner {
     this.homeTimer = setTimeout(() => {
       this.homeTimer = undefined;
       void this.home?.update().catch((error: unknown) => this.log(`Could not update the editor lobby: ${message(error)}`));
-      void this.sendGuestLists().catch((error: unknown) => this.log(`Could not send the guest list: ${message(error)}`));
     }, HOME_UPDATE_MS);
   }
 
   // ---- Guests -----------------------------------------------------------------------------
 
-  private async tryInvite(by: string, name: string, on: boolean): Promise<string | undefined> {
+  private async trySetGuest(name: string, on: boolean): Promise<string | undefined> {
     if (this.state !== "ready") return this.state === "stopping" ? "the editor is shutting down" : "the editor is still starting";
-    if (this.isGuest(by)) return "only map editors can invite players";
     const result = on ? addGuest(this.guests, name, this.players) : removeGuest(this.guests, name);
     if (typeof result === "string") return result;
     const tag = on ? result[result.length - 1] : (this.guests.find((guest) => guest.toLowerCase() === name.toLowerCase()) ?? name);
@@ -875,24 +887,31 @@ export class EditorRunner {
     await writeGuests(this.root, this.guests);
     for (const server of this.guestServers()) await server.allow(tag, on);
     if (on) {
-      this.log(`${by}: invited ${tag}.`);
-      const where = this.guestTarget() ? "they go straight to what's open on Select's port" : "they wait in the editor lobby until you open Select or start a preview";
-      void this.tell(by, `Invited ${tag}: they join ${this.guestAddress()}, as for the network, and ${where}. Edit stays yours.`);
+      this.log(`${tag} is a guest now: they may join the editor lobby, Select and previews.`);
     } else {
-      this.log(`${by}: ${tag} is no longer invited.`);
-      for (const server of this.guestServers()) await server.kick(tag, "You're no longer invited to the map editor.");
-      void this.tell(by, `${tag} is no longer invited.`);
+      this.log(`${tag} is no longer a guest.`);
+      for (const server of this.guestServers()) await server.kick(tag, "You're no longer a guest of the map editor.");
     }
     this.homeChanged();
     return undefined;
   }
 
-  /** Anyone who isn't a map editor (LAN_PLAYERS) is an invited guest ("this PC" is the host itself). */
+  /** Anyone who isn't a map editor (LAN_PLAYERS) is a guest ("this PC" is the host itself). */
   private isGuest(name: string): boolean {
     return name !== "this PC" && !this.players.some((player) => player.toLowerCase() === name.toLowerCase());
   }
 
-  /** The invited players, and where each one is. */
+  /**
+   * Sends players on `server` to the editor lobby: map editors to its port, and guests through its
+   * second entrance (a console sent back to 19132 by address never got there).
+   */
+  private async sendHome(server: ServerSession, players: string[]): Promise<void> {
+    const guests = players.filter((name) => this.isGuest(name));
+    await server.goto(players.filter((name) => !this.isGuest(name)), this.slots.home.port, "the editor lobby");
+    await server.goto(guests, this.slots.home.entrance ?? this.slots.home.port, "the editor lobby");
+  }
+
+  /** The guests, and where each one is. */
   private guestInfo(): GuestInfo[] {
     const on = (name: string, players: string[] | undefined) => players?.some((player) => player.toLowerCase() === name.toLowerCase()) === true;
     return this.guests.map((name): GuestInfo => {
@@ -925,23 +944,6 @@ export class EditorRunner {
     if (!target || !home) return;
     const names = home.online().filter((name) => this.isGuest(name));
     if (names.length > 0) await home.goto(names, target.port, target.label);
-  }
-
-  /** Tells every server that changed its view of the guests (for the Players menu). */
-  private async sendGuestLists(): Promise<void> {
-    const guests = this.guestInfo();
-    const text = JSON.stringify(guests);
-    for (const server of this.servers()) {
-      if (server.status().state !== "ready" || this.guestsSent.get(server) === text) continue;
-      this.guestsSent.set(server, text);
-      await server.send({ t: "guests", guests });
-    }
-  }
-
-  /** The address guests join: the network's public one, on the editor lobby's port. */
-  private guestAddress(): string {
-    const host = this.env.PUBLIC_HOST && this.env.PUBLIC_HOST !== "auto" ? this.env.PUBLIC_HOST : "this PC's public address";
-    return `${host}:${this.slots.home.port}`;
   }
 
   // ---- Players ----------------------------------------------------------------------------

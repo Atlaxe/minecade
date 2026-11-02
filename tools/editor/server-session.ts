@@ -1,8 +1,8 @@
 // What every editor server shares, the editor lobby (home-session.ts), Select (select-session.ts)
 // or Edit (session.ts): starting its server (on its slot's port, with the editor's packs built from
 // this checkout and a folder staged at /editor), talking to the pack over the console, opping map
-// editors as they join, letting invited guests in (the lobby and Select only), sending players on,
-// and stopping. The runner (runner.ts) runs all three.
+// editors as they join, letting guests in (the lobby and Select only), sending players on, and
+// stopping. The runner (runner.ts) runs all three.
 import { existsSync } from "node:fs";
 import { cp, mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -36,7 +36,7 @@ export interface SessionBase {
   verbose: boolean;
   /** Where the session's log lines go (the runner's log). */
   note(text: string): void;
-  /** The invited players this server lets in too, at start (the editor lobby and Select; never Edit). */
+  /** The guests this server lets in too, at start (the editor lobby and Select; never Edit). */
   guests?: () => string[];
 }
 
@@ -65,8 +65,6 @@ export abstract class ServerSession {
   onOpen: (request: OpenRequest, by: string) => void = () => {};
   /** A player joined or left this server. */
   onPlayer: (name: string, kind: "connected" | "disconnected") => void = () => {};
-  /** A map editor invited a player (on), or took the invitation back, from the Players menu. */
-  onInvite: (name: string, on: boolean, by: string) => void = () => {};
   /** A player asked to leave (the editor lobby's Leave). */
   onLeave: (by: string) => void = () => {};
 
@@ -132,7 +130,7 @@ export abstract class ServerSession {
     if (players.length > 0 && this.state === "ready") await this.send({ t: "goto", players, port, label });
   }
 
-  /** Lets an invited player in (on), or no longer, while the server runs (its allow list). */
+  /** Lets a guest in (on), or no longer, while the server runs (its allow list). */
   async allow(name: string, on: boolean): Promise<void> {
     if (this.state === "ready") await this.command(`allowlist ${on ? "add" : "remove"} "${name}"`, ALLOW_REPLY);
   }
@@ -241,7 +239,12 @@ export abstract class ServerSession {
       Tty: false,
       ExposedPorts: { [`${port}/tcp`]: {}, [`${port}/udp`]: {} },
       HostConfig: {
-        PortBindings: { [`${port}/tcp`]: [{ HostPort: port }], [`${port}/udp`]: [{ HostPort: port }] },
+        // A second entrance (the editor lobby's) is TCP only, like the network lobby's: only the join
+        // handshake is TCP, and the game traffic still uses the UDP port.
+        PortBindings: {
+          [`${port}/tcp`]: [{ HostPort: port }, ...(this.slot.entrance ? [{ HostPort: String(this.slot.entrance) }] : [])],
+          [`${port}/udp`]: [{ HostPort: port }],
+        },
         // The saved identities, so players accept each server's trust once.
         Binds: ["minecade-keys:/keys"],
       },
@@ -260,7 +263,6 @@ export abstract class ServerSession {
       else if (event.t === "ready") this.resolve("ready", event);
       else if (event.t === "clean") this.resolve(`clean:${event.id}`, event);
       else if (event.t === "open") this.onOpen(event.request, event.by);
-      else if (event.t === "invite") this.onInvite(event.name, event.on, event.by);
       else if (event.t === "leave") this.onLeave(event.by);
       else this.onEvent(event);
       return;
@@ -271,7 +273,7 @@ export abstract class ServerSession {
     const joined = playerEvent(line);
     if (joined) {
       this.note(`${joined.name} ${joined.kind === "connected" ? "joined" : "left"}.`);
-      // Map editors only: invited guests stay members.
+      // Map editors only: guests stay members.
       if (joined.kind === "connected" && this.isEditor(joined.name)) void this.op(joined.name);
       this.onPlayer(joined.name, joined.kind);
       return;

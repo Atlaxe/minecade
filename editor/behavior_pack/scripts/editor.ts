@@ -68,7 +68,6 @@ import { facingOf, type Point } from "./boxes.ts";
 import { Cursors, type CursorAim } from "./cursor.ts";
 import { MARKER_STYLES, aimedPoint, compass, entryPosition, lookAt, mapMiddle, markerSpecs, snapFacing, SNAPS, spawnLists, toolLists, type AimedFace, type MarkerSpec, type PlaceTool, type SpawnList } from "./lists.ts";
 import { MapState } from "./map-state.ts";
-import { PlayersMenu } from "./players.ts";
 import { MARKER, Markers } from "./markers.ts";
 import { dangerText, goText, iconsTitle, mapTitle, sideTitle } from "./marks.ts";
 import {
@@ -143,7 +142,6 @@ export class Editor {
   private readonly timeTool: TimeTool;
   private readonly cameraTool: CameraTool;
   private readonly mannequinTool: MannequinTool;
-  private readonly players: PlayersMenu;
   private readonly loading: LoadingScreens;
   private readonly cursors: Cursors;
   /** The boundaries, as plane blocks. */
@@ -185,7 +183,6 @@ export class Editor {
       },
       message: (message) => this.receive(message),
     });
-    this.players = new PlayersMenu(this.link, (player, form) => this.show(player, form));
     const host: ToolHost = {
       map: () => this.state.current,
       rules: info.rules,
@@ -393,9 +390,6 @@ export class Editor {
         return;
       case "goto":
         goto(message.players, message.port, message.label, tell);
-        return;
-      case "guests":
-        this.players.update(message.guests);
         return;
       case "loading":
         for (const player of world.getAllPlayers()) if (message.players.includes(player.name)) void this.loading.wait(player, message.label);
@@ -853,7 +847,7 @@ export class Editor {
     return this.boundariesMenu(player);
   }
 
-  /** The gear: Players and Back to Lobby in its icon row, Name and game settings, the thumbnails (a game's map), then the red ones. */
+  /** The gear: Back to Lobby in its icon row, Name and game settings, the thumbnails (a game's map), then the red ones. */
   private async settingsMenu(player: Player): Promise<void> {
     const entries = gearEntries({ build: this.state.current.build !== undefined, game: this.info.rules.kind === "game" });
     const form = new ActionFormData().title(iconsTitle("Map settings")).body(`${this.state.current.name} (${this.info.map}), ${this.info.targetName}`);
@@ -868,7 +862,6 @@ export class Editor {
     if (action === "delete") return this.deleteMap(player);
     if (action === "mapThumbnail") return this.thumbnailMenu(player, "map");
     if (action === "gameThumbnail") return this.thumbnailMenu(player, "game");
-    if (action === "players") return this.players.open(player, () => this.settingsMenu(player));
     this.link.send({ t: "open", by: player.name, request: { to: "home" } });
   }
 

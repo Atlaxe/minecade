@@ -93,11 +93,11 @@ describe("editor protocol", () => {
     expect(parseEditorEvent('{"t":"save","by":"a"}')).toEqual({ t: "save", by: "a" });
     expect(parseEditorEvent('{"t":"publish","by":"a"}')).toEqual({ t: "publish", by: "a" });
     expect(parseEditorEvent('{"t":"preview","by":"a"}')).toEqual({ t: "preview", by: "a" });
-    expect(parseEditorEvent('{"t":"invite","by":"a","name":"Friend","on":true}')).toEqual({ t: "invite", by: "a", name: "Friend", on: true });
+    // Guests are set on the Panel, never in game.
+    expect(parseEditorEvent('{"t":"invite","by":"a","name":"Friend","on":true}')).toBeUndefined();
     expect(parseEditorEvent('{"t":"leave","by":"a"}')).toEqual({ t: "leave", by: "a" });
     expect(parseEditorEvent('{"t":"view","by":"a","shown":["bounds"]}')).toEqual({ t: "view", by: "a", shown: ["bounds"] });
     expect(parseEditorEvent('{"t":"picture","by":"a","kind":"map"}')).toEqual({ t: "picture", by: "a", kind: "map" });
-    expect(parseHostMessage('{"t":"guests","guests":[{"name":"Friend","on":"select"}]}')).toEqual({ t: "guests", guests: [{ name: "Friend", on: "select" }] });
     expect(parseHostMessage('{"t":"loading","players":["Alex"],"label":"Sumo: Arena (arena_1)"}')).toEqual({ t: "loading", players: ["Alex"], label: "Sumo: Arena (arena_1)" });
     expect(parseHostMessage('{"t":"loaded","players":["Alex"]}')).toEqual({ t: "loaded", players: ["Alex"] });
     expect(parseEditorEvent('{"t":"saveWorld","by":"a","save":true}')).toBeUndefined();

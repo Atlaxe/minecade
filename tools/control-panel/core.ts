@@ -30,8 +30,16 @@ export function stackOf(container: ContainerLike): StackId | undefined {
   if (project) return STACKS.find((stack) => stack.project === project)?.id;
   // Game servers are created by the orchestrator, and the map editor by its host tool, not by compose.
   if (container.Names.some((name) => name.startsWith("/minecade-game-"))) return "main";
-  if (container.Labels?.["minecade.role"] === "editor") return "main";
+  if (isEditorContainer(container)) return "main";
   return undefined;
+}
+
+/**
+ * One of the map editor's containers: its servers (role "editor"), or its Friends tab broadcast
+ * (role "broadcaster", like the network's). They're listed with the network but aren't it.
+ */
+export function isEditorContainer(container: { Labels?: Record<string, string> }): boolean {
+  return container.Labels?.["minecade.role"] === "editor" || container.Labels?.["minecade.editor"] !== undefined;
 }
 
 export interface PortLike {
@@ -133,6 +141,8 @@ export class BroadcastLog {
   signIn: { url: string; code: string } | null = null;
   /** The last player whose join it relayed to the lobby. */
   lastJoin = "";
+  /** How many joins it relayed (the same player joining again counts again). */
+  joins = 0;
   /** The last error since it last went live. */
   lastError = "";
 
@@ -140,7 +150,7 @@ export class BroadcastLog {
     const text = line.replace(COLOR_CODE, "").trimEnd();
     if (BROADCAST_STARTED.test(text)) {
       // A restarted container replays its earlier runs first.
-      Object.assign(this, { phase: "starting", account: "", signIn: null, lastJoin: "", lastError: "" });
+      Object.assign(this, { phase: "starting", account: "", signIn: null, lastJoin: "", joins: 0, lastError: "" });
       return;
     }
     const signIn = BROADCAST_SIGN_IN.exec(text);
@@ -159,6 +169,7 @@ export class BroadcastLog {
       this.lastError = "";
     } else if (relayed) {
       this.lastJoin = relayed[1];
+      this.joins++;
     } else if (error) {
       // Without the "[Primary Session] " tag.
       this.lastError = error[1].replace(/^\[[^\]]*\] /, "");

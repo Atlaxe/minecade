@@ -9,7 +9,7 @@ PlayStation, PC and phone can all join.
 - **Game server** (port 19133): one game at a time, started from a fresh copy of its map and
   removed when the game ends.
 - **Orchestrator:** starts and stops game servers, routes players, and stores player stats.
-- **Map editor** (ports 19132-19134, while the network is stopped): an editor lobby where you pick
+- **Map editor** (ports 19132-19135, while the network is stopped): an editor lobby where you pick
   a map to edit or one of your worlds to cut new maps out of, then servers where you place a map's
   spawns and other data in game, written straight to its `map.json` (see [docs/editor.md](docs/editor.md)).
 - **Friends tab broadcast** (optional): a spare Microsoft account that shows the lobby in its
@@ -83,21 +83,25 @@ Forward these ports on your router to your PC's LAN IP (`LAN_HOST`):
 
 | Name | External port | Internal port | Protocol |
 |---|---|---|---|
-| Minecade TCP | 19132-19134 | 19132-19134 | TCP |
+| Minecade TCP | 19132-19135 | 19132-19135 | TCP |
 | Minecade UDP | 19132-19134 | 19132-19134 | UDP |
 
 Each server uses one TCP port and the UDP port with the same number: the lobby 19132 and games
 19133. Players coming back from a game reach the lobby through a second TCP entrance on 19134 (a
 PS5 sent back to 19132 never got there). The map editor takes all three while it runs (its editor
-lobby 19132, Select 19133 and Edit 19134), with the network stopped.
+lobby 19132, Select 19133 and Edit 19134), with the network stopped, and gives its editor lobby a
+second TCP entrance on 19135 for guests coming back to it.
 
 If friends can't connect even though the forwards are in place, allow the ports in Windows
 Firewall (PowerShell as administrator):
 
 ```
-New-NetFirewallRule -DisplayName "Minecade TCP" -Direction Inbound -Protocol TCP -LocalPort 19132-19134 -Action Allow
+New-NetFirewallRule -DisplayName "Minecade TCP" -Direction Inbound -Protocol TCP -LocalPort 19132-19135 -Action Allow
 New-NetFirewallRule -DisplayName "Minecade UDP" -Direction Inbound -Protocol UDP -LocalPort 19132-19134 -Action Allow
 ```
+
+A rule made earlier for TCP 19132-19134 can be widened instead:
+`Set-NetFirewallRule -DisplayName "Minecade TCP" -LocalPort 19132-19135`.
 
 **CGNAT check:** compare the WAN IP your router shows with the IP from
 [api.ipify.org](https://api.ipify.org). If they differ, your provider shares one public IP
@@ -142,6 +146,11 @@ the join on to the lobby, and their console connects straight to your public add
 
 **Turn off** stops it. Without the Panel: `BROADCAST=1` in `.env`, then start or restart the
 network; `docker logs minecade-broadcaster` shows the sign-in code.
+
+**The map editor** uses the same switch (the Panel shows it on the Map editor page too): while the
+editor runs, the same account shows "Minecade map editor" instead, and passes joins to the editor
+lobby. Only the editor's guests (set on the Map editor page) and map editors get in; see "Who can
+join" in [docs/editor.md](docs/editor.md).
 
 - **The account:** MCXboxBroadcast acts like a game client on Xbox Live, which may break
   Microsoft's terms, so the account could be banned. Use a spare one.

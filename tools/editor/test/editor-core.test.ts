@@ -35,9 +35,8 @@ describe("parseArgs", () => {
     expect(parseArgs(["publish"])).toEqual({ command: "publish" });
     expect(parseArgs(["preview"])).toEqual({ command: "preview" });
     expect(parseArgs(["preview", "end"])).toEqual({ command: "endPreview" });
-    expect(parseArgs(["invite", "Some", "Friend"])).toEqual({ command: "invite", name: "Some Friend", on: true });
-    expect(parseArgs(["uninvite", "Pal"])).toEqual({ command: "invite", name: "Pal", on: false });
-    expect(parseArgs(["invite"])).toEqual({ command: "help", error: "invite needs a gamertag" });
+    // Guests are set on the Panel only.
+    expect(parseArgs(["invite", "Pal"])).toEqual({ command: "help", error: "guests are set on the Panel's Map editor page" });
     expect(parseArgs(["picture"])).toEqual({ command: "picture", kind: "map" });
     expect(parseArgs(["picture", "game"])).toEqual({ command: "picture", kind: "game" });
     expect(parseArgs(["picture", "hat"]).command).toBe("help");
@@ -60,6 +59,8 @@ describe("the three servers", () => {
       [19133, "game"],
       [19134, "editor"],
     ]);
+    // Guests come back to the editor lobby through a second entrance, as to the network's lobby.
+    expect(Object.values(SLOTS).map((slot) => slot.entrance)).toEqual([19135, undefined, undefined]);
   });
 
   it("move players to what's open already, and restart for anything else", () => {

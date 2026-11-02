@@ -153,8 +153,8 @@ export interface ServersInfo {
 }
 
 /**
- * A player a map editor invited: guests may join the editor lobby and whatever runs on Select's
- * port (Select, or a preview), never Edit. `on` is where they are now, if anywhere.
+ * A guest (set on the Panel's Map editor page): guests may join the editor lobby and whatever runs
+ * on Select's port (Select, or a preview), never Edit. `on` is where they are now, if anywhere.
  */
 export interface GuestInfo {
   name: string;
@@ -214,8 +214,6 @@ export type EditorEvent =
   | { t: "deleteMap"; by: string }
   /** Open a map or a world (on its server), or go to the editor lobby. */
   | { t: "open"; by: string; request: OpenRequest }
-  /** Invite a player (on), or take the invitation back (the Players menu). */
-  | { t: "invite"; by: string; name: string; on: boolean }
   /** The editor lobby's Leave: disconnect this player. */
   | { t: "leave"; by: string }
   /** Extract mode: the box was moved (or why not), and the height of its highest block (none when it held nothing). */
@@ -249,8 +247,6 @@ export type HostMessage =
   | { t: "forgotten"; target: string; map: string }
   /** Send these players to the editor server on `port` (`label` says what's there). */
   | { t: "goto"; players: string[]; port: number; label: string }
-  /** The invited players, and where each is (for the Players menu). */
-  | { t: "guests"; guests: GuestInfo[] }
   /** These players wait here for another server (`label` says what): the pack shows the loading screen until they're moved. */
   | { t: "loading"; players: string[]; label: string }
   /** What these players waited for didn't start: the loading screen closes. */
@@ -258,8 +254,8 @@ export type HostMessage =
   /** Extract mode: move `box` by `offset`, clearing the box's chunks around it, then answer with "extracted". */
   | { t: "extract"; box: Box; offset: Vec3 };
 
-const EVENT_TYPES = new Set(["ready", "edit", "undo", "redo", "resync", "save", "publish", "preview", "changed", "view", "picture", "thumbnail", "importPicture", "renameMap", "clean", "saveMap", "mapAction", "deleteMap", "open", "invite", "leave", "extracted"]);
-const MESSAGE_TYPES = new Set(["config", "home", "ack", "status", "say", "notice", "cleanup", "resume", "selection", "forgotten", "goto", "guests", "loading", "loaded", "extract"]);
+const EVENT_TYPES = new Set(["ready", "edit", "undo", "redo", "resync", "save", "publish", "preview", "changed", "view", "picture", "thumbnail", "importPicture", "renameMap", "clean", "saveMap", "mapAction", "deleteMap", "open", "leave", "extracted"]);
+const MESSAGE_TYPES = new Set(["config", "home", "ack", "status", "say", "notice", "cleanup", "resume", "selection", "forgotten", "goto", "loading", "loaded", "extract"]);
 
 // BDS prints script console output as "[<time> <LEVEL>] [Scripting] <text>". Requiring that prefix
 // means "[EDIT]" anywhere else in the log (a player's chat, a command) is never taken for an event.

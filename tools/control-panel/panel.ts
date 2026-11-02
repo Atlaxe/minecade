@@ -14,14 +14,17 @@ import { dirname, join } from "node:path";
 import { createInterface } from "node:readline";
 import { fileURLToPath } from "node:url";
 import type Docker from "dockerode";
-import { editorStatus, endPreviewEditor, inviteEditor, pictureEditor, previewEditor, publishEditor, saveEditor, stopEditor } from "../editor/control.ts";
-import type { EditorStatus } from "../editor/editor-core.ts";
+import type { GuestInfo } from "@minecade/minigame-core/config";
+import { broadcastEditor, editorStatus, endPreviewEditor, guestEditor, pictureEditor, previewEditor, publishEditor, saveEditor, stopEditor } from "../editor/control.ts";
+import { editorPlayers, type EditorStatus } from "../editor/editor-core.ts";
+import { addGuest, readGuests, removeGuest, writeGuests } from "../editor/guests.ts";
 import { cacheVanillaTextures } from "../build/vanilla-textures.ts";
 import {
   BroadcastLog,
   checkLobbyMap,
   checkRequest,
   formatPorts,
+  isEditorContainer,
   isStale,
   lobbyMapChoices,
   normalizeNames,
@@ -55,7 +58,7 @@ const EDITOR_LAUNCH_MS = 30_000;
 /** How long a restarting editor may take to shut down (Edit saves first) before the Panel stops waiting. */
 const EDITOR_STOP_MS = 5 * 60_000;
 /** The Panel's own code: when one of these changes, the page offers Restart Panel. */
-const PANEL_SOURCES = ["tools/control-panel/panel.ts", "tools/control-panel/core.ts", "tools/editor/control.ts", "tools/editor/editor-core.ts"];
+const PANEL_SOURCES = ["tools/control-panel/panel.ts", "tools/control-panel/core.ts", "tools/editor/control.ts", "tools/editor/editor-core.ts", "tools/editor/guests.ts"];
 /** The map editor's code (the host tool, its packs, the shared core and the server entrypoint). */
 const EDITOR_SOURCES = ["tools/editor", "tools/build", "editor", "packages/minigame-core/src", "docker/bds/entrypoint.sh"];
 /** Source times are read again at most this often. */
@@ -234,19 +237,21 @@ let editorRestart = false;
 /**
  * The running editor's status, a boot in progress, or the last run's log when none is running.
  * `old` is an editor from before the editor lobby (its status has another shape), and `stale` one
- * started before its code last changed: either should be restarted.
+ * started before its code last changed: either should be restarted. `guests` are the running
+ * editor's (with where each one is), or work/editor/guests.json's while it's off.
  */
-async function editorState(): Promise<{ status: EditorStatus | null; old: boolean; stale: boolean; launching: boolean; restarting: boolean; log: string[] }> {
+async function editorState(): Promise<{ status: EditorStatus | null; old: boolean; stale: boolean; launching: boolean; restarting: boolean; log: string[]; guests: GuestInfo[] }> {
   const status = (await editorStatus(500)) ?? null;
   if (status || (editorLaunch && Date.now() - editorLaunch.at > EDITOR_LAUNCH_MS)) editorLaunch = null;
   if (status) {
     const old = status.booted !== true;
     const stale = old || isStale(Date.parse(status.startedAt), await sourceTimes(EDITOR_SOURCES));
-    return { status, old, stale, launching: false, restarting: editorRestart, log: Array.isArray(status.log) ? status.log : [] };
+    return { status, old, stale, launching: false, restarting: editorRestart, log: Array.isArray(status.log) ? status.log : [], guests: status.guests ?? [] };
   }
   const text = existsSync(editorLogPath) ? await readFile(editorLogPath, "utf8") : "";
   const log = text.split(/\r?\n/).filter(Boolean).slice(-EDITOR_LOG_LINES);
-  return { status: null, old: false, stale: false, launching: editorLaunch !== null || editorRestart, restarting: editorRestart, log };
+  const guests = (await readGuests(repoRoot)).map((name) => ({ name }));
+  return { status: null, old: false, stale: false, launching: editorLaunch !== null || editorRestart, restarting: editorRestart, log, guests };
 }
 
 const sourceTimeCache = new Map<string, { at: number; times: number[] }>();
@@ -275,12 +280,12 @@ async function sourceTimes(paths: string[]): Promise<number[]> {
 
 /** Whether the network (the lobby, the orchestrator or a game) is running: the map editor needs its ports. */
 function networkRunning(): boolean {
-  return containers.some((info) => info.State === "running" && stackOf(info) === "main" && info.Labels["minecade.role"] !== "editor");
+  return containers.some((info) => info.State === "running" && stackOf(info) === "main" && !isEditorContainer(info));
 }
 
-/** The main stack's container with this role, if it has one. */
+/** The main stack's container with this role, if it has one (never one of the map editor's). */
 function mainContainer(role: string): Docker.ContainerInfo | undefined {
-  return containers.find((info) => stackOf(info) === "main" && info.Labels["minecade.role"] === role);
+  return containers.find((info) => stackOf(info) === "main" && !isEditorContainer(info) && info.Labels["minecade.role"] === role);
 }
 
 /**
@@ -319,8 +324,8 @@ async function buildState() {
   const envChangedAt = envText === undefined ? 0 : settingsChangedAt();
   const stacks = STACKS.map((stack) => {
     const members = containers.filter((info) => stackOf(info) === stack.id);
-    // The map editor's servers are listed with the network but aren't it (they run while it's stopped).
-    const servers = members.filter((info) => info.Labels["minecade.role"] !== "editor");
+    // The map editor's containers are listed with the network but aren't it (they run while it's stopped).
+    const servers = members.filter((info) => !isEditorContainer(info));
     const settingsStale = servers.some((info) => info.State === "running" && info.Created * 1000 < envChangedAt);
     const missing = [stack.file, ...stack.requires].filter((file) => !existsSync(join(repoRoot, file)));
     return {
@@ -501,9 +506,10 @@ async function saveEnv(body: Record<string, unknown>): Promise<{ status: number;
 }
 
 /**
- * Turns the friends broadcast on or off (BROADCAST in .env). With the lobby running, only the
- * broadcast's container is recreated, so nobody is disconnected; otherwise it applies at the next
- * Start.
+ * Turns the friends broadcast on or off (BROADCAST in .env), for the network and the map editor
+ * alike. With the lobby running, only the broadcast's container is recreated, so nobody is
+ * disconnected; with the map editor running, it starts or stops its own; otherwise it applies at
+ * the next start of either.
  */
 async function setBroadcast(on: boolean): Promise<{ status: number; body: unknown }> {
   if (!existsSync(envPath)) return { status: 409, body: { error: "No .env file. Copy .env.example to .env first." } };
@@ -515,11 +521,31 @@ async function setBroadcast(on: boolean): Promise<{ status: number; body: unknow
     await writeFile(envPath, after);
     broadcastWrite = { mtime: statSync(envPath).mtimeMs, settingsAt };
   }
-  const apply = dockerState === "running" && mainContainer("lobby")?.State === "running";
+  let apply = dockerState === "running" && mainContainer("lobby")?.State === "running";
   if (apply) runCompose(STACKS.find((stack) => stack.id === "main")!, "broadcast");
-  else note(`Friends broadcast ${on ? "on: it starts" : "off: it stays off"} with the network.`);
+  else if (await editorStatus(500)) {
+    const result = await broadcastEditor(on);
+    apply = result.ok;
+    note(result.ok ? `Map editor: Friends tab ${on ? "starting" : "off"}.` : `Map editor: could not turn the Friends tab ${on ? "on" : "off"}: ${result.error}.`);
+  } else note(`Friends broadcast ${on ? "on: it starts" : "off: it stays off"} with the network or the map editor.`);
   void refresh();
   return { status: 200, body: { changed: after !== before, applied: apply } };
+}
+
+/**
+ * Adds a map editor guest (on), or removes one: through the running editor, which lets them in or
+ * disconnects them at once, or straight in work/editor/guests.json while it's off.
+ */
+async function setEditorGuest(name: string, on: boolean): Promise<{ ok: boolean; error?: string }> {
+  if (await editorStatus(500)) return guestEditor(name, on);
+  // A booting editor reads the file once, and would miss the change.
+  if (editorLaunch || editorRestart) return { ok: false, error: "the map editor is booting: try again once it's ready" };
+  const env = existsSync(envPath) ? readEnv(await readFile(envPath, "utf8")) : {};
+  const guests = await readGuests(repoRoot);
+  const result = on ? addGuest(guests, name, editorPlayers(env)) : removeGuest(guests, name);
+  if (typeof result === "string") return { ok: false, error: result };
+  await writeGuests(repoRoot, result);
+  return { ok: true };
 }
 
 // ---- HTTP --------------------------------------------------------------------------------
@@ -659,9 +685,9 @@ async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> 
   }
   if (path === "/api/editor/guests") {
     if (typeof body.name !== "string" || typeof body.on !== "boolean") return sendJson(res, 400, { error: "expected {name, on: true|false}" });
-    const result = await inviteEditor(body.name, body.on);
+    const result = await setEditorGuest(body.name, body.on);
     if (!result.ok) return sendJson(res, 409, { error: result.error ?? "no map editor is running" });
-    note(body.on ? `Map editor: invited ${body.name}.` : `Map editor: ${body.name} is no longer invited.`);
+    note(body.on ? `Map editor: ${body.name.trim()} is a guest now.` : `Map editor: ${body.name.trim()} is no longer a guest.`);
     void refresh();
     return sendJson(res, 200, { ok: true });
   }

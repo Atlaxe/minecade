@@ -5,6 +5,7 @@ import {
   checkLobbyMap,
   checkRequest,
   formatPorts,
+  isEditorContainer,
   isStale,
   lobbyMapChoices,
   normalizeNames,
@@ -89,12 +90,14 @@ describe("BroadcastLog", () => {
   it("follows it to signed in and live, with the account and the last join", () => {
     expect(feedBroadcast(broadcastLines.slice(0, 4))).toMatchObject({ phase: "signed-in", account: "Spare Bot 42", signIn: null });
     const log = feedBroadcast(broadcastLines);
-    expect(log).toMatchObject({ phase: "live", account: "Spare Bot 42", lastJoin: "Steve Builder", lastError: "" });
+    expect(log).toMatchObject({ phase: "live", account: "Spare Bot 42", lastJoin: "Steve Builder", joins: 1, lastError: "" });
+    // The same player joining again counts again.
+    expect(feedBroadcast([...broadcastLines, broadcastLines[7]]).joins).toBe(2);
   });
 
   it("starts fresh when a restarted container replays an earlier run", () => {
     const log = feedBroadcast([...broadcastLines, broadcastLines[0]]);
-    expect(log).toMatchObject({ phase: "starting", account: "", lastJoin: "" });
+    expect(log).toMatchObject({ phase: "starting", account: "", lastJoin: "", joins: 0 });
   });
 
   it("ignores lines it doesn't know", () => {
@@ -149,6 +152,14 @@ describe("stackOf", () => {
     expect(stackOf({ Names: ["/minecade-lobby"], Labels: project("minecade") })).toBe("main");
     expect(stackOf({ Names: ["/minecade-game-abc"], Labels: { "minecade.role": "game" } })).toBe("main");
     expect(stackOf({ Names: ["/minecade-editor"], Labels: { "minecade.role": "editor" } })).toBe("main");
+    expect(stackOf({ Names: ["/minecade-editor-broadcaster"], Labels: { "minecade.role": "broadcaster", "minecade.editor": "Friends tab" } })).toBe("main");
+  });
+
+  it("tells the map editor's containers from the network's", () => {
+    expect(isEditorContainer({ Labels: { "minecade.role": "editor", "minecade.editor": "home: the editor lobby" } })).toBe(true);
+    expect(isEditorContainer({ Labels: { "minecade.role": "broadcaster", "minecade.editor": "Friends tab" } })).toBe(true);
+    expect(isEditorContainer({ Labels: { ...project("minecade"), "minecade.role": "broadcaster" } })).toBe(false);
+    expect(isEditorContainer({ Labels: { "minecade.role": "game" } })).toBe(false);
   });
 
   it("ignores every other container on the engine, including the spike diagnostic", () => {
