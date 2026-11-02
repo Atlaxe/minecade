@@ -5,6 +5,7 @@
 import { world } from "@minecraft/server";
 import { createTransport, kind } from "#transport";
 import type { ServerContext } from "./context.ts";
+import { describeError, log } from "./log.ts";
 import { mapTimeTicks } from "./map-config.ts";
 import { PROTOCOL_VERSION } from "./protocol/index.ts";
 import { Scope } from "./scope.ts";
@@ -22,6 +23,15 @@ export function bootServer(onReady: (ctx: ServerContext) => void): void {
     world.gameRules.commandBlocksEnabled = false;
     // No "new recipe unlocked" popups when players pick up wool, logs and the like.
     world.gameRules.showRecipeMessages = false;
+    // Games show no players on the locator bar (the dots over the hotbar that point to the others).
+    // The rule takes a word, which world.gameRules has no field for, so it's set by command.
+    if (vars.role === "game") {
+      try {
+        world.getDimension("overworld").runCommand("gamerule playerwaypoints off");
+      } catch (error) {
+        log.warn(`could not take players off the locator bar: ${describeError(error)}`);
+      }
+    }
     // map.json "time": the sky stays at that time of day.
     const ticks = mapTimeTicks(vars.mapConfig.time);
     if (ticks !== undefined) {
