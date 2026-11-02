@@ -201,10 +201,12 @@ export class LobbyController {
     this.ports.notify("all", say.important(`${nameOf(starter)} is starting ${game.name} on ${mapName}.`));
     // Team games set to Pick: the players pick here while the game server boots (the only place
     // teams are picked; the game deals out the rest). The team view owns the hologram until then;
-    // otherwise it shows the countdown screen while the server boots.
-    const picking = lobbyPicksTeams(game, settings) && this.ports.teamPicks !== undefined;
+    // otherwise it shows the countdown screen while the server boots. Two players have nothing to
+    // pick: the game puts them on teams of their own at random.
+    const choose = lobbyPicksTeams(game, settings);
+    const picking = choose && players.length > PICK_AFTER && this.ports.teamPicks !== undefined;
     if (!picking) this.ports.countdown?.({ game: game.name, map: mapName });
-    const sent = picking ? { ...settings, teams: "pick" } : settings;
+    const sent = picking ? { ...settings, teams: "pick" } : choose ? { ...settings, teams: "random" } : settings;
     this.ports.send({ t: "start_game", requestId: pending.requestId, game: game.id, map: mapId, players, settings: sent });
     if (picking && game.teams && this.ports.teamPicks) {
       pending.teamPick = new TeamPickController(this.ports.teamPicks, pending.scope.child("teams"), {
@@ -256,6 +258,9 @@ export class LobbyController {
 export function lobbyPicksTeams(game: RegistryGame, settings: Record<string, string>): boolean {
   return settingsFor(game).some((setting) => setting.id === "teams") && settings.teams !== "random";
 }
+
+/** Up to this many players, a team game set to Pick deals teams at random instead. */
+const PICK_AFTER = 2;
 
 function randomId(): string {
   return Math.random().toString(36).slice(2, 10);

@@ -1,4 +1,4 @@
-import { defineGame } from "@minecade/minigame-core/config";
+import { WAYPOINTS_OPTION, defineGame } from "@minecade/minigame-core/config";
 
 /** The lobby's First to setting: the kills that win the match. The first is the default. */
 const KILL_TARGETS = [15, 20, 25, 10];
@@ -33,7 +33,8 @@ export default defineGame({
       },
     ],
   },
-  options: [{ id: "target", label: "First to", values: KILL_TARGETS.map((kills) => ({ value: String(kills), label: `${kills} kills` })) }],
+  // Waypoints: On shows everyone on the locator bar over the hotbar (Off at first).
+  options: [{ id: "target", label: "First to", values: KILL_TARGETS.map((kills) => ({ value: String(kills), label: `${kills} kills` })) }, WAYPOINTS_OPTION],
   // More spawns than players, so a respawn can always land away from everyone. Respawning players
   // watch from the spectator spawn for the 2 second delay, or from the queue spawn when the map has
   // no spectator spawn (core's default: one or the other).

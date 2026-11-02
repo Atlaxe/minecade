@@ -33,6 +33,24 @@ export interface GameOptionConfig {
   values: { value: string; label: string }[];
 }
 
+/**
+ * A Waypoints setting for a game's `options`: On shows the other players on the locator bar (the
+ * dots over the hotbar), Off (the default, as in every game without it) shows nobody there.
+ */
+export const WAYPOINTS_OPTION: GameOptionConfig = {
+  id: "waypoints",
+  label: "Waypoints",
+  values: [
+    { value: "off", label: "Off" },
+    { value: "on", label: "On" },
+  ],
+};
+
+/** The playerWaypoints game rule a game server starts with, from the game screen's settings. */
+export function playerWaypoints(settings: Record<string, string>): "everyone" | "off" {
+  return settings[WAYPOINTS_OPTION.id] === "on" ? "everyone" : "off";
+}
+
 export interface RespawnConfig {
   mode: "none" | "lives" | "unlimited" | "stage";
   lives?: number;

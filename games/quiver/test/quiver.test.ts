@@ -2,7 +2,7 @@
 // kill earns an arrow, missed arrows are removed, respawns land away from everyone, and the first to
 // the lobby's kill target wins.
 import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
-import { runtimeMapConfig, stripColors, validateMapConfig, type MapConfig, type MapPosition } from "@minecade/minigame-core/config";
+import { playerWaypoints, runtimeMapConfig, stripColors, validateMapConfig, type MapConfig, type MapPosition } from "@minecade/minigame-core/config";
 import { FakePlayer, ItemStack, world, type FakeMob } from "../../../packages/minigame-core/test/fake-mc-server.ts";
 import {
   createHarness,
@@ -75,6 +75,14 @@ describe("One in the Quiver", () => {
     expect(problems).toMatch(/spawn/i);
     expect(problems).toMatch(/spectator/i);
     expect(problems).toMatch(/kill ?y/i);
+  });
+
+  it("offers Waypoints on the game screen, Off at first: players show on the locator bar only when it's On", () => {
+    const waypoints = config.options.find((option) => option.id === "waypoints");
+    expect(waypoints?.values.map((value) => value.label)).toEqual(["Off", "On"]);
+    expect(playerWaypoints({ target: "15", waypoints: "off" })).toBe("off");
+    expect(playerWaypoints({ target: "15", waypoints: "on" })).toBe("everyone");
+    expect(playerWaypoints({})).toBe("off");
   });
 
   it("an arrow kills in one hit and earns the shooter another; a missed arrow is removed; first to the target wins", async () => {

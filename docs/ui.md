@@ -229,7 +229,7 @@ at a time; a public hologram above it shows everyone what they're doing.
 | Main | The themed menu: logo, Play and Stats side by side | The logo frame, Play and Stats, the chosen one lit |
 | Play | A scrolling grid of game tiles, 4 across, 80% of the screen's height, laid out like the game screen's map tiles: the game's 16:9 picture in a frame, its name over a dark fade at the bottom, and under the name, smaller and darker gray, a player icon and the players needed (red when there aren't enough) | "Choose a game" and the game names, dimmed when there aren't enough players |
 | Game | Left: the game's name and info, a red warning when there aren't enough players, the Random map switch (on at first), the settings (Teams: Pick or Random for team games, then the game's own options) and Start, scrolling under the name and info. Right: scrolling map tiles, 2 across, each a 16:9 preview with the name over it; dimmed while Random is on, the chosen one outlined when it's off. Clicking a tile turns Random off and picks that map | Across the top, as wide as the frame allows: the chosen map's preview (or the "No preview" placeholder), or the game's picture while the map is random. Under it, two columns starting at the same height: the game's name and the players it needs on the left, and a table of "Map:" and each setting (up to 3) in white with the answers in yellow on the right. No map list or Start (only the terminal's user picks those) |
-| Teams | After Start on a team game set to Pick, **every player in the match** gets a live team form (see below) | The game's name, each team and its players in the team's color, who's still random, and when teams lock |
+| Teams | After Start on a team game set to Pick, with more than two players, **every player in the match** gets a live team form (see below) | The game's name, each team and its players in the team's color, who's still random, and when teams lock |
 | Starting | Nothing on screen (a chat message says who started what); the countdown chimes play for the players in the match | Centered: "Starting Sumo", the map and "Getting the server ready" while its server boots (after the team picks, for team games), then "Starting Sumo in", the seconds left in big yellow numbers, and the map |
 | Stats list | A scrolling list of everyone with stats, each with their letter badge; you first, marked "(me)", even with no stats yet | "Stats" and the players' names, the viewer first but without "(me)", up to 7, then "+N more" |
 | Player stats | Left: the player's badge (where their 3D skin goes later, see `docs/skins.md`) and a tab per view: Global, then each game they've played. Right: their name, their rank in the open view, and their stats as tiles in three columns: Results, Combat, More | A grid. Top row: the badge on the left; beside it the open tab's name (yellow), the player's name and their rank. Below: the open tab's stats as a table across the panel, the same three columns of value over label |
@@ -342,6 +342,9 @@ from `ctx.vars.settings`.
 
 **Team picks in the lobby:** for team games where players pick (Teams: Pick on the game screen),
 players pick in the lobby while the game server boots, so no time is lost on the game server.
+- **Two players don't pick:** with only two players going, there's nothing to choose, so nobody
+  gets the form: the lobby sends the start as Random, and the game puts them on teams of their own
+  at random.
 - **The form:** right after Start, every player in the match gets a live team form. It's a
   data-driven `CustomForm` from `@minecraft/server-ui` (`scripts/team-pick-form.ts`), the newer
   kind of form whose text updates while it's open and whose buttons don't close it. It renders in
@@ -421,6 +424,12 @@ options: [
   { id: "round", label: "Round", values: [{ value: "15", label: "15 s" }, { value: "30", label: "30 s" }] },
 ],
 ```
+
+**Waypoints:** every game server starts with nobody on the locator bar (the dots over the hotbar
+that point to the other players: the `playerWaypoints` game rule set to `off`). A game can let the
+game screen choose, with `WAYPOINTS_OPTION` from `@minecade/minigame-core/config` in its `options`:
+a Waypoints setting, Off at first, where On shows everyone there (`everyone`). One in the Quiver
+has it. The lobby keeps the locator bar as it is.
 
 **Demo games:** to test the menus with more games than exist, set `DEV_DEMO_GAMES` in `.env` (up
 to 12). The lobby lists that many made-up games (`scripts/demo-games.ts`) after the real ones,

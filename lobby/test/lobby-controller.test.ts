@@ -253,23 +253,26 @@ describe("LobbyController: team picks", () => {
     games: [{ id: "paint", name: "Paint", minPlayers: 2, maxPlayers: 4, teams: { count: 2 }, maps: [{ id: "yard", name: "Yard" }] }],
   };
   const ready = { t: "game_ready", requestId: "r1", sessionId: "s1", game: "paint", map: "yard", port: 19133, hosts: { public: "x", lan: "y" } } as const;
+  /** Picking needs more than two players. */
+  const trio = ["Steve", "Alex", "Notch"];
 
   it("lets everyone pick a team while the game server boots, then sends the picks before the players", async () => {
-    const t = setup(["Steve", "Alex"], { registry: teamGame });
+    const t = setup(trio, { registry: teamGame });
     expect(t.lobby.request("Steve", "paint", "yard", { teams: "pick" })).toBeUndefined();
-    expect(t.sent).toEqual([{ t: "start_game", requestId: "r1", game: "paint", map: "yard", players: ["Steve", "Alex"], settings: { teams: "pick" } }]);
-    expect(t.teamForms).toEqual(["Steve", "Alex"]);
+    expect(t.sent).toEqual([{ t: "start_game", requestId: "r1", game: "paint", map: "yard", players: trio, settings: { teams: "pick" } }]);
+    expect(t.teamForms).toEqual(trio);
     t.say({ t: "game_starting", requestId: "r1", sessionId: "s1", game: "paint", map: "yard" });
     t.lobby.pickTeam("Steve", "blue");
     t.lobby.pickTeam("Alex", "red");
+    t.lobby.pickTeam("Notch", "red");
     expect(t.lobby.reopenTeamPick("Steve")).toBe(true);
     t.say(ready);
     expect(t.transfers).toEqual([]); // picking lasts at least 5 s
     expect(t.countdowns).toEqual([]); // the team view owns the hologram while picking
     system.advanceTicks(100);
-    expect(t.sent.at(-1)).toEqual({ t: "team_picks", sessionId: "s1", picks: { Steve: "blue", Alex: "red" } });
+    expect(t.sent.at(-1)).toEqual({ t: "team_picks", sessionId: "s1", picks: { Steve: "blue", Alex: "red", Notch: "red" } });
     expect(t.countdowns).toEqual([{ game: "Paint", map: "Yard", left: 3 }]);
-    expect(t.teamFormsClosed).toEqual(["Steve", "Alex"]);
+    expect(t.teamFormsClosed).toEqual(trio);
     expect(t.lobby.reopenTeamPick("Steve")).toBe(false);
     for (let second = 0; second < 3; second++) {
       system.advanceTicks(20);
@@ -278,16 +281,28 @@ describe("LobbyController: team picks", () => {
     expect(t.transfers).toEqual([
       ["Steve", 19133],
       ["Alex", 19133],
+      ["Notch", 19133],
     ]);
     expect(t.startsEnded).toEqual([true]);
   });
 
-  it("skips picking when the game screen chose random teams, or the game has no teams", () => {
+  it("deals two players' teams at random, with no team form", () => {
     const t = setup(["Steve", "Alex"], { registry: teamGame });
+    t.lobby.request("Steve", "paint", "yard", { teams: "pick" });
+    expect(t.sent).toEqual([{ t: "start_game", requestId: "r1", game: "paint", map: "yard", players: ["Steve", "Alex"], settings: { teams: "random" } }]);
+    expect(t.teamForms).toEqual([]);
+    expect(t.countdowns).toEqual([{ game: "Paint", map: "Yard" }]);
+    t.say(ready);
+    expect(t.closed).toEqual(["Steve", "Alex"]); // straight to the countdown
+    expect(t.sent.some((event) => event.t === "team_picks")).toBe(false);
+  });
+
+  it("skips picking when the game screen chose random teams, or the game has no teams", () => {
+    const t = setup(trio, { registry: teamGame });
     t.lobby.request("Steve", "paint", "yard", { teams: "random" });
     expect(t.teamForms).toEqual([]);
     t.say(ready);
-    expect(t.closed).toEqual(["Steve", "Alex"]); // straight to the countdown
+    expect(t.closed).toEqual(trio); // straight to the countdown
     expect(t.sent.some((event) => event.t === "team_picks")).toBe(false);
 
     const sumo = setup();
@@ -296,25 +311,26 @@ describe("LobbyController: team picks", () => {
   });
 
   it("closes the team forms when the start fails", () => {
-    const t = setup(["Steve", "Alex"], { registry: teamGame });
+    const t = setup(trio, { registry: teamGame });
     t.lobby.request("Steve", "paint", "yard", { teams: "pick" });
     t.say({ t: "game_failed", requestId: "r1", reason: "no room" });
-    expect(t.teamFormsClosed).toEqual(["Steve", "Alex"]);
+    expect(t.teamFormsClosed).toEqual(trio);
     expect(t.lobby.starting).toBe(false);
     expect(t.startsEnded).toEqual([false]);
     expect(t.root.live()).toEqual({ scopes: 1, subscriptions: 0, runs: 0 });
   });
 
   it("drops the pick of a player who leaves the lobby", () => {
-    const t = setup(["Steve", "Alex"], { registry: teamGame });
+    const t = setup(trio, { registry: teamGame });
     t.lobby.request("Steve", "paint", "yard", { teams: "pick" });
     t.say({ t: "game_starting", requestId: "r1", sessionId: "s1", game: "paint", map: "yard" });
     t.lobby.pickTeam("Steve", "red");
     t.lobby.pickTeam("Alex", "blue");
+    t.lobby.pickTeam("Notch", "blue");
     t.players.splice(t.players.indexOf("Alex"), 1);
     t.lobby.onPlayerLeft("Alex");
     t.say(ready);
     system.advanceTicks(100);
-    expect(t.sent.at(-1)).toEqual({ t: "team_picks", sessionId: "s1", picks: { Steve: "red" } });
+    expect(t.sent.at(-1)).toEqual({ t: "team_picks", sessionId: "s1", picks: { Steve: "red", Notch: "blue" } });
   });
 });

@@ -1,8 +1,10 @@
 // Plain definitions with no Minecraft imports, safe to load under Node: game.config.ts files
 // (which the build runs) and the orchestrator import from "@minecade/minigame-core/config".
 export {
+  WAYPOINTS_OPTION,
   defineGame,
   defineLobby,
+  playerWaypoints,
   type BestOfConfig,
   type BuildConfig,
   type CombatConfig,
