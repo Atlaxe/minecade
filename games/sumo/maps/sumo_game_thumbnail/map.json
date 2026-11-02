@@ -1,0 +1,44 @@
+{
+  "name": "Sumo Game Thumbnail",
+  "spawns": [
+    [-5.58, -53, 0.02], [5.51, -53, -0.01], [3.09, -53, -5.13],
+    [-3.14, -53, -5.16], [-3.18, -53, 5.16], [3.12, -53, 5.13]
+  ],
+  "spectatorSpawn": [12.68, -45.56, 13.1, 137, 28],
+  "bounds": { "min": [-18, -54, -18], "max": [17, -32, 17] },
+  "killY": -58,
+  "time": "noon",
+  "cameras": {
+    "Camera 1": { "at": [2.09, -49.68, 7.11, 158.8, 16.6], "kind": "game" },
+    "Camera 2": { "at": [12.12, -45.24, 12.04, 134.8, 26.6], "kind": "map" }
+  },
+  "mannequins": {
+    "Mannequin 1": {
+      "at": [
+        -2.03,
+        -52.47,
+        0.08,
+        -88
+      ],
+      "skin": "color",
+      "color": "blue",
+      "pose": "walking"
+    },
+    "Mannequin 2": {
+      "at": [
+        1.21,
+        -53,
+        -0.03,
+        89
+      ],
+      "skin": "color",
+      "color": "red",
+      "pose": "walking"
+    }
+  },
+  "source": {
+    "world": "Datapacking (imported)",
+    "box": { "min": [872, -54, -28], "max": [887, -54, -13] },
+    "offset": [-880, 0, 20]
+  }
+}
