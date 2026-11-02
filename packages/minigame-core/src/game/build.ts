@@ -29,10 +29,13 @@ const FACE_OFFSETS: Record<Direction, Vec3> = {
 
 /**
  * Whether a block may go at `block` (whole block coordinates): inside a bounds box (and above killY,
- * outside kill regions), and in none of the no-build boxes.
+ * outside kill regions), within the map's build limit, and in none of the no-build boxes.
  */
 export function buildAllowed(block: Vec3, map: MapView, noBuild: readonly Box[]): boolean {
   const middle = { x: block[0] + 0.5, y: block[1] + 0.5, z: block[2] + 0.5 };
+  const limit = map.config.buildLimit;
+  if (limit?.above !== undefined && middle.y > limit.above) return false;
+  if (limit?.below !== undefined && middle.y < limit.below) return false;
   return !map.outOfBounds(middle) && !noBuild.some((box) => inside(middle, box));
 }
 

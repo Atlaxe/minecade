@@ -2,7 +2,7 @@
 // once) and its host tool (which applies the same change and writes the file). Each edit returns a
 // new config and never changes the old one; undo keeps the old configs. New keys go where a person
 // would write them (spawns near the top, build last), and lists or names left empty are removed.
-import { QUEUE_COUNTDOWN, boundsBoxes, queueSettings, type Box, type MapCamera, type Facing, type MapConfig, type MapPosition, type QueueSettings, type Vec3 } from "./map-config.ts";
+import { QUEUE_COUNTDOWN, boundsBoxes, queueSettings, type Box, type BuildLimitSide, type MapCamera, type Facing, type MapConfig, type MapPosition, type QueueSettings, type Vec3 } from "./map-config.ts";
 
 /** A list of positions in map.json. The spectator and queue spawns are lists of at most one. */
 export type MapList =
@@ -30,6 +30,8 @@ export type MapEdit =
   | { op: "setBounds"; index: number; box: Box }
   | { op: "removeBounds"; index: number }
   | { op: "killY"; y?: number }
+  /** Sets (or, with no height, removes) one side of the build limit. */
+  | { op: "buildLimit"; side: BuildLimitSide; y?: number }
   | { op: "addRegion"; name: string; box: Box }
   | { op: "setRegion"; name: string; index: number; box: Box }
   | { op: "removeRegion"; name: string; index: number }
@@ -54,7 +56,7 @@ export function isMapKey(key: string): boolean {
 }
 
 /** Where new keys go, the order map.json files are written in. Unknown keys stay where they are. */
-const KEY_ORDER: readonly string[] = ["name", "draft", "spawns", "spectatorSpawn", "queueSpawn", "queue", "bounds", "killY", "teamSpawns", "points", "regions", "time", "stars", "cameras", "source", "build"];
+const KEY_ORDER: readonly string[] = ["name", "draft", "spawns", "spectatorSpawn", "queueSpawn", "queue", "bounds", "killY", "buildLimit", "teamSpawns", "points", "regions", "time", "stars", "cameras", "source", "build"];
 
 export function applyEdit(config: MapConfig, edit: MapEdit): MapConfig {
   switch (edit.op) {
@@ -95,6 +97,11 @@ export function applyEdit(config: MapConfig, edit: MapEdit): MapConfig {
     }
     case "killY":
       return withKey(config, "killY", edit.y);
+    case "buildLimit": {
+      const limit = { ...config.buildLimit, [edit.side]: edit.y };
+      const kept = Object.fromEntries((["above", "below"] as const).filter((side) => limit[side] !== undefined).map((side) => [side, limit[side]]));
+      return withKey(config, "buildLimit", Object.keys(kept).length > 0 ? kept : undefined);
+    }
     case "addRegion":
       return setRegion(config, edit.name, [...(config.regions?.[edit.name] ?? []), edit.box]);
     case "setRegion": {
@@ -174,6 +181,8 @@ export function describeEdit(edit: MapEdit): string {
     case "bounds":
     case "killY":
       return `${edit.op === "bounds" ? (edit.box ? "set" : "clear") : edit.y === undefined ? "clear" : "set"} ${edit.op}`;
+    case "buildLimit":
+      return `${edit.y === undefined ? "clear" : "set"} build limit ${edit.side}`;
     case "addBounds":
       return "add bounds";
     case "setBounds":

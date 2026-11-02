@@ -8,6 +8,7 @@ import type { Box, Vec3 } from "@minecade/minigame-core/config";
 import { facingOf, nudgeBox, sizeText, type Sides } from "./boxes.ts";
 import { sideTitle } from "./marks.ts";
 import { NUDGE_STEPS, facingLine, nudgeEntries } from "./menu.ts";
+import type { HeightLine } from "./regions.ts";
 import { actionBar, type ToolHost } from "./tool-host.ts";
 
 /** How far a use reaches to grow the box, in blocks. */
@@ -40,16 +41,16 @@ export function showPreview(player: Player, box: Box | undefined, editing?: stri
   else nudging.delete(keyOf(player));
 }
 
-/** The kill Y each player is setting in the Kill Y tool's screen, drawn instead of the map's. */
-const killYs = new Map<string, number>();
+/** The height each player is setting in the Kill Y tool's screen (kill Y or a build limit side), drawn instead of the map's. */
+const heights = new Map<string, { line: HeightLine; y: number }>();
 
-export function killYPreview(player: Player): number | undefined {
-  return killYs.get(keyOf(player));
+export function heightPreview(player: Player): { line: HeightLine; y: number } | undefined {
+  return heights.get(keyOf(player));
 }
 
-export function showKillY(player: Player, y: number | undefined): void {
-  if (y === undefined) killYs.delete(keyOf(player));
-  else killYs.set(keyOf(player), y);
+export function showHeight(player: Player, height: { line: HeightLine; y: number } | undefined): void {
+  if (height === undefined) heights.delete(keyOf(player));
+  else heights.set(keyOf(player), height);
 }
 
 /** A box being picked, with its earlier boxes for Back one step. */

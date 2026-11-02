@@ -268,6 +268,8 @@ export interface MapRequirementsConfig {
   /** Where players wait for everyone to join before they're put at their spawns (map.json "queueSpawn"). */
   queueSpawn?: boolean | { marker?: MarkerStyle };
   killY?: boolean;
+  /** Heights nobody builds past (map.json "buildLimit"): true for both sides, or the sides needed. Set with the Kill Y tool. */
+  buildLimit?: boolean | { above?: boolean; below?: boolean };
   bounds?: boolean;
   points?: string[] | Record<string, MapEntryRequirement>;
   regions?: string[] | Record<string, MapEntryRequirement>;

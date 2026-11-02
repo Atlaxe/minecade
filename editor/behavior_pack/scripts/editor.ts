@@ -51,7 +51,7 @@ import { LoadingScreens } from "./loading.ts";
 import { onReset } from "./commands.ts";
 import { HostLink } from "./link.ts";
 import { Outlines } from "./outlines.ts";
-import { boundaryRows, boundsAround, outlineBoxes, toggleBoundary } from "./regions.ts";
+import { boundaryRows, boundsAround, heightPlanes, outlineBoxes, toggleBoundary } from "./regions.ts";
 import { CameraTool } from "./camera-tool.ts";
 import { cameraMarkers, type CameraMarker } from "./cameras.ts";
 import { RegionTool } from "./region-tool.ts";
@@ -197,15 +197,12 @@ export class Editor {
       {
         selection: (player) => this.regionTool.selectionOf(player),
         boxes: () => outlineBoxes(this.state.current, info.rules),
-        killY: () => {
-          const y = this.state.current.killY;
-          return typeof y === "number" ? { y, over: boundsAround(this.state.current) } : undefined;
-        },
+        planes: () => heightPlanes(this.state.current),
         shown: (player) => this.shown.get(player.name.toLowerCase()) ?? NONE_SHOWN,
         hidden: (player) => this.cameraTool.isLooking(player),
         // With the Region or Kill Y tool picked, every boundary shows while the map menu is open.
         showing: (player) => this.menuTool.has(player.name.toLowerCase()),
-        killYOver: () => boundsAround(this.state.current),
+        planesOver: () => boundsAround(this.state.current),
       },
       ["region", "killY"],
     );
@@ -585,7 +582,7 @@ export class Editor {
       case "box":
         return this.regionTool.boxMenu(player, action.key, () => this.mapMenu(player));
       case "killY":
-        return this.killYTool.screen(player, undefined, () => this.mapMenu(player));
+        return this.killYTool.screen(player, action.line, () => this.mapMenu(player));
       case "removeKillY":
         this.killYTool.remove(player);
         return;
@@ -659,8 +656,8 @@ export class Editor {
       this.regionTool.equip(player, row.key);
       return;
     }
-    if (row.field === "killY") {
-      this.killYTool.equip(player);
+    if (row.field === "killY" || row.field === "buildLimit") {
+      this.killYTool.equip(player, row.field === "buildLimit" && (row.name === "above" || row.name === "below") ? row.name : "killY");
       return;
     }
     const list = this.lists().find((candidate) => candidate.key === row.key);

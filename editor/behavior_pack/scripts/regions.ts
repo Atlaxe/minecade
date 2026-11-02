@@ -1,7 +1,7 @@
 // The boxes a map has (its bounds and regions), where the region tool can save a box, and the
 // colors their outlines are drawn in: pure functions of the map and its rules, so they can be
 // tested without a server.
-import { KILL_REGION, codeTint, enclosingBox, mapRequirements, type Box, type EditorRules, type MapConfig, type MapRequirement } from "@minecade/minigame-core/config";
+import { BUILD_LIMIT_SIDES, KILL_REGION, codeTint, enclosingBox, mapRequirements, type Box, type BuildLimitSide, type EditorRules, type MapConfig, type MapRequirement } from "@minecade/minigame-core/config";
 
 /** An outline color, each part from 0 to 1 (the script API's RGB). */
 export interface Rgb {
@@ -151,6 +151,42 @@ export interface OutlineBox {
 export const ALL_BOUNDARIES = "all";
 /** The Boundaries view's switch for the kill Y plane. */
 export const KILL_Y_GROUP = "killY";
+/** The Boundaries view's switch for the build limit's planes. */
+export const BUILD_LIMIT_GROUP = "buildLimit";
+/** The build limit's planes: orange, apart from kill Y's red. */
+export const BUILD_LIMIT_COLOR = rgb(0xff8c1a);
+
+/** A height the Kill Y tool sets: kill Y, or a side of the build limit. */
+export type HeightLine = "killY" | BuildLimitSide;
+
+/** A height the map has, as a plane: which one, its height, and its color and Boundaries switch. */
+export interface HeightPlane {
+  line: HeightLine;
+  y: number;
+  color: Rgb;
+  group: string;
+}
+
+/** The map's kill Y and build limit, as planes. */
+export function heightPlanes(config: MapConfig): HeightPlane[] {
+  const planes: HeightPlane[] = [];
+  if (typeof config.killY === "number") planes.push({ line: "killY", y: config.killY, color: KILL_COLOR, group: KILL_Y_GROUP });
+  for (const side of BUILD_LIMIT_SIDES) {
+    const y = config.buildLimit?.[side];
+    if (typeof y === "number") planes.push({ line: side, y, color: BUILD_LIMIT_COLOR, group: BUILD_LIMIT_GROUP });
+  }
+  return planes;
+}
+
+/** A height line's plane color. */
+export function heightColor(line: HeightLine): Rgb {
+  return line === "killY" ? KILL_COLOR : BUILD_LIMIT_COLOR;
+}
+
+/** The build limit in a few words: "above 80, below 60", with "not set" for a side it lacks. */
+export function buildLimitText(config: MapConfig): string {
+  return BUILD_LIMIT_SIDES.map((side) => `${side} ${config.buildLimit?.[side] ?? "not set"}`).join(", ");
+}
 
 /** A row of the Boundaries view: one switch per boundary the map has. */
 export interface BoundaryRow {
@@ -167,6 +203,8 @@ export function boundaryRows(config: MapConfig, rules: EditorRules): BoundaryRow
   const bounds = boundsEntries(config).length;
   if (bounds > 0) rows.push({ group: "bounds", label: "Bounds", detail: `white, ${boxes(bounds)}` });
   if (typeof config.killY === "number") rows.push({ group: KILL_Y_GROUP, label: "Kill Y", detail: `red plane, y ${config.killY}` });
+  const limits = BUILD_LIMIT_SIDES.filter((side) => typeof config.buildLimit?.[side] === "number");
+  if (limits.length > 0) rows.push({ group: BUILD_LIMIT_GROUP, label: "Build limit", detail: `orange, ${limits.map((side) => `${side} ${config.buildLimit?.[side]}`).join(", ")}` });
   const regions = regionsOf(config);
   for (const name of regionNames(config, rules)) {
     const count = Array.isArray(regions[name]) ? regions[name].filter(isBox).length : 0;

@@ -254,7 +254,8 @@ game in gold and the map in orange.
    - **Region tool:** your selection's size, **Save the selection** (its screen) and Clear, then
      **Bounds and regions**: every box the map has. Tap one for its screen (see "Region tool"
      below). While the map menu is open, every boundary is outlined.
-   - **Kill Y tool:** kill Y now, **Set kill Y** (its screen), and **Remove kill Y**.
+   - **Kill Y tool:** kill Y now, **Set kill Y** (its screen), and **Remove kill Y**; on a game's
+     map, the build limit now and **Set build limit** (the same screen, on the side still to set).
 4. **Save:** a green bar at the bottom, outside the scrolling part. It saves the world into the map
    now (see Saving); its tooltip says whether blocks changed since the last save.
 
@@ -337,6 +338,11 @@ you back in creative at every spawn).
 - **Kill Y tool:** players below kill Y are out. Use it to set kill Y one block below your feet at
   once (Undo takes it back). **Set kill Y** in the map menu opens its screen: type a height or nudge
   it (the plane is drawn at it), and **Set kill Y** (green).
+  - **Build limit:** on a game's map, the screen's tiles pick **Kill Y**, **Limit above** (no block
+    above that height) or **Limit below** (none below it), each a height of its own (`buildLimit` in
+    map.json; building games keep blocks between them). A use sets the one picked last: a build
+    limit at your feet. Its planes are orange. The top must stay over the bottom.
+  - The checklist's Kill Y and build limit rows give you the tool already set to that row.
 - **Camera tool:** pictures for the lobby (see "Pictures"). Using it places a camera at your eyes at
   once, looking your way, of the kind the tool's settings say (**Game picture** off or on). Hit a
   camera to look through it (as the Snapshot tool does); right click it for its kind and Delete.
@@ -345,8 +351,8 @@ you back in creative at every spawn).
 - **Outlines:** while you hold the region tool or the Kill Y tool, or have one of their screens
   open, dots outline your selection (yellow), the bounds (white), kill regions (red), each other
   region in its own color (a team's
-  region in the team's color), and the kill Y plane (red: a grid near you, and the edge of the box
-  around the bounds at that height). The boundaries you switched on in the Boundaries view (the
+  region in the team's color), the kill Y plane (red: a grid near you, and the edge of the box
+  around the bounds at that height), and the build limit's planes (orange). The boundaries you switched on in the Boundaries view (the
   map menu's eye) show whatever you hold. Only you see them. Every edge shows however far away it
   is: dots past 40 blocks are drawn 40 blocks out, on the same line of sight, so they sit where the
   edge is on screen. Dots are spaced and sized by distance, so a line looks the same near and far,

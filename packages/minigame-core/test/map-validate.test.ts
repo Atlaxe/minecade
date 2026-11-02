@@ -36,6 +36,16 @@ describe("validateMapConfig: map format v2", () => {
     ]);
   });
 
+  it("keeps the build limit's heights whole, in the world, and the top over the bottom", () => {
+    const map = { name: "M", spawns: [[0, 65, 0]] };
+    expect(validateMapConfig({ ...map, buildLimit: { above: 320, below: -64 } }, { kind: "lobby" })).toEqual([]);
+    expect(validateMapConfig({ ...map, buildLimit: { above: 70.5 } }, { kind: "lobby" })).toEqual(['"buildLimit.above" must be a whole number']);
+    expect(validateMapConfig({ ...map, buildLimit: { below: -80 } }, { kind: "lobby" })).toEqual(['"buildLimit.below" must be within -64 to 320']);
+    expect(validateMapConfig({ ...map, buildLimit: { above: 60, below: 60 } }, { kind: "lobby" })).toEqual(['"buildLimit.above" (60) must be over "buildLimit.below" (60), or nothing can be built']);
+    expect(validateMapConfig({ ...map, buildLimit: 70 }, { kind: "lobby" })).toEqual(['"buildLimit" must be { "above": height, "below": height }, either or both']);
+    expect(validateMapConfig({ ...map, buildLimit: { top: 70 } }, { kind: "lobby" })).toEqual(['"buildLimit" must be { "above": height, "below": height }, either or both']);
+  });
+
   it("keeps killY in the world, and region boxes the right way round", () => {
     expect(validateMapConfig({ name: "M", spawns: [[0, 65, 0]], killY: -100 }, { kind: "lobby" })).toEqual(['"killY" must be within -64 to 319']);
     expect(validateMapConfig({ name: "M", spawns: [[0, 65, 0]], regions: { kill: [{ min: [5, 40, 0], max: [0, 50, 5] }] } }, { kind: "lobby" })).toEqual([

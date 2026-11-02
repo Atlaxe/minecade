@@ -1,7 +1,7 @@
 // A map's checklist in the map editor: each thing its game (or the lobby) needs, with how many the
 // map has, plus every problem the build would report. The editor pack shows it in game, the host
 // logs it, and the Panel mirrors it.
-import type { MapConfig } from "./map-config.ts";
+import type { BuildLimitSide, MapConfig } from "./map-config.ts";
 import { mapRequirements, type MapRequirement } from "./map-requirements.ts";
 import { mapWarnings, validateMapConfig, type MapRules } from "./map-validate.ts";
 
@@ -43,6 +43,8 @@ function count(config: MapConfig, requirement: MapRequirement): number {
     case "queueSpawn":
     case "killY":
       return config[requirement.field] === undefined ? 0 : 1;
+    case "buildLimit":
+      return isRecord(config.buildLimit) && config.buildLimit[requirement.name as BuildLimitSide] !== undefined ? 1 : 0;
     case "spectatorOrQueue":
       return config.spectatorSpawn === undefined && config.queueSpawn === undefined ? 0 : 1;
     case "bounds":

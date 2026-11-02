@@ -34,6 +34,7 @@ The map editor sets spawns and points in game and writes `map.json` for you; see
 | `queue` | no | How they wait there: `{ "mode": "lock" \| "free", "countdown": 5 }`. `lock` (the default) keeps everyone on the spot, looking around but unable to move, and invisible with no name tags, so nobody sees the others; `free` lets them roam. `countdown` is whole seconds (1 to 60, default 5). |
 | `bounds` | when `build` is used | The playable area, in whole blocks (inclusive): one box, or a list of boxes for an area of another shape (an L-shaped arena, two islands). Players outside every box are out (in games with `combat.outOfBounds: "down"`), and in the lobby go back to spawn. Spectators are kept inside the box around them all, flying over the gaps. Spawns must be inside a box, and y must stay within -64 to 319. Baking works inside the box around them all. |
 | `killY` | no | Anyone below this height is out (knocked off, fell into the void). Within -64 to 319. |
+| `buildLimit` | no | `{ "above": y, "below": y }`, either or both: in a building game, no block goes above the `above` height or below the `below` one (each a plane, like `killY`: with `"above": 80` the highest block is at 79, with `"below": 60` the lowest is at 60). Whole numbers from -64 to 320, `above` over `below`. Set with the map editor's Kill Y tool. |
 | `time` | no | A fixed time of day: the daylight cycle stops there when the server starts. `day`, `noon`, `sunset`, `night`, `midnight` or `sunrise`, or ticks from 0 to 23999. |
 | `stars` | no | The lobby only: `true` puts a star box around the map, so stars show in every direction, below the horizon too (Bedrock's own sky has stars only above it). Use it with a night `time`. See "The star box" in `docs/ui.md`. |
 | `teamSpawns` | no | `{ "<team or role id>": [positions] }`. Team games spawn each team at its own points; before teams are dealt, players wait at every team's spawns in turn (or the plain spawns, when the map has them). The keys must be the game's team ids. |
@@ -97,6 +98,7 @@ map: {
   spectatorSpawn: true,
   queueSpawn: true,                // only when every map must have one
   killY: true,
+  buildLimit: true,                // both sides; or { above: true } for one
   bounds: true,
   points: { bombA: { label: "Bomb site A" }, bombB: { label: "Bomb site B", count: 1 } },
   regions: { buyZone: { label: "Buy zone", perTeam: true } },
@@ -134,7 +136,8 @@ for each, sized from its cubes. A team's markers take the team's color on the mo
 colors its rim); the rest keeps the texture's colors.
 
 **Building games** (a `build` block in `game.config.ts`, Bridges) play in survival mode. Players
-place blocks only inside a `bounds` box (above `killY`, outside kill regions), never inside a region
+place blocks only inside a `bounds` box (above `killY`, outside kill regions, within the map's
+`buildLimit`), never inside a region
 the game names in `build.noBuild`, and break only blocks placed during the match (nothing drops).
 A name there covers its per-team lists too, so `noBuild: ["spawnGuard"]` closes `spawnGuard.red`
 and `spawnGuard.blue` to everyone. Draw those regions with the map editor's region tool (Save as,

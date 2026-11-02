@@ -194,8 +194,17 @@ describe("tool settings", () => {
   });
 
   it("offers removing kill Y only when it's set", () => {
-    expect(killYSettings(undefined).map((entry) => entry.text)).toEqual([headingText("Kill Y: not set"), goText("Set kill Y")]);
-    expect(killYSettings(58).map((entry) => entry.text)).toEqual([headingText("Kill Y: 58"), goText("Set kill Y"), dangerText("Remove kill Y")]);
+    const map = { name: "M", spawns: [] } as MapConfig;
+    expect(killYSettings(map, false).map((entry) => entry.text)).toEqual([headingText("Kill Y: not set"), goText("Set kill Y")]);
+    expect(killYSettings({ ...map, killY: 58 }, false).map((entry) => entry.text)).toEqual([headingText("Kill Y: 58"), goText("Set kill Y"), dangerText("Remove kill Y")]);
+  });
+
+  it("shows the build limit on a game's map, its button opening the side still to set", () => {
+    const map = { name: "M", spawns: [], buildLimit: { above: 80 } } as MapConfig;
+    const entries = killYSettings(map, true);
+    expect(entries.map((entry) => entry.text)).toEqual([headingText("Kill Y: not set"), goText("Set kill Y"), headingText("Build limit: above 80, below not set"), goText("Set build limit")]);
+    expect(entries.at(-1)?.action).toEqual({ kind: "killY", line: "below" });
+    expect(killYSettings({ ...map, buildLimit: undefined }, true).at(-1)?.action).toEqual({ kind: "killY", line: "above" });
   });
 });
 
@@ -653,8 +662,22 @@ describe("tool screens", () => {
   });
 
   it("sets kill Y from its own screen", () => {
-    expect(killYScreenEntries({ y: 57, set: true, step: 1 }).map((entry) => entry.action.kind)).toEqual(["none", "type", "height", "height", "step", "step", "step", "remove", "save"]);
-    expect(killYScreenEntries({ y: 57, set: false, step: 1 }).at(-1)?.text).toBe(saveBarText("Set kill Y"));
+    expect(killYScreenEntries({ line: "killY", y: 57, set: true, step: 1 }).map((entry) => entry.action.kind)).toEqual(["none", "type", "height", "height", "step", "step", "step", "remove", "save"]);
+    expect(killYScreenEntries({ line: "killY", y: 57, set: false, step: 1 }).at(-1)?.text).toBe(saveBarText("Set kill Y"));
+  });
+
+  it("sets a side of the build limit from the same screen, picked in its tiles", () => {
+    const entries = killYScreenEntries({ line: "below", buildLimit: true, y: 60, set: true, step: 1 });
+    expect(entries.slice(0, 3).map((entry) => entry.text)).toEqual([segmentText("Kill Y", 0, false), segmentText("Limit above", 1, false), segmentText("Limit below", 2, true)]);
+    expect(entries.slice(0, 3).map((entry) => entry.action)).toEqual([
+      { kind: "line", line: "killY" },
+      { kind: "line", line: "above" },
+      { kind: "line", line: "below" },
+    ]);
+    expect(entries[3].text).toBe(`${MARK.lead}${headingText("Build limit below: 60")}`);
+    expect(entries.at(-2)?.text).toBe(dangerText("Remove build limit below"));
+    expect(entries.at(-1)?.text).toBe(saveBarText("Set build limit"));
+    expect(killYScreenEntries({ line: "killY", buildLimit: true, y: 57, set: false, step: 1 })[0].text).toBe(segmentText("Kill Y", 0, true));
   });
 
   it("has the Snapshot: the cameras to pick, then nudge rows, Step, and Use latest screenshot at the bottom", () => {

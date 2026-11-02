@@ -46,6 +46,7 @@ export {
 } from "./kit-defs.ts";
 export { MAX_ROUND_ICONS, MAX_SCORE_SIDES, MIN_BEST_OF } from "./game/best-of.ts";
 export {
+  BUILD_LIMIT_SIDES,
   EDITOR_ONLY_KEYS,
   KILL_REGION,
   MAP_TIMES,
@@ -67,6 +68,8 @@ export {
   worldSpawnOf,
   worldPoint,
   type Box,
+  type BuildLimit,
+  type BuildLimitSide,
   type Facing,
   type MapCamera,
   type MapConfig,

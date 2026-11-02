@@ -129,6 +129,19 @@ export interface MapSource {
   offset: Vec3;
 }
 
+/**
+ * A building game's limits on how high and low blocks go: each is a plane at that height, like kill
+ * Y. With `above: 80`, no block goes above y 80 (79 is the highest block); with `below: 60`, none
+ * goes below it (60 is the lowest).
+ */
+export interface BuildLimit {
+  above?: number;
+  below?: number;
+}
+
+export type BuildLimitSide = keyof BuildLimit;
+export const BUILD_LIMIT_SIDES: readonly BuildLimitSide[] = ["above", "below"];
+
 /** A preview camera placed in the map editor: where the screenshot is taken from. */
 export interface MapCamera {
   at: [x: number, y: number, z: number, yaw: number, pitch: number];
@@ -154,6 +167,8 @@ export interface MapConfig {
   bounds?: Box | Box[];
   /** Below this height a player is out (void games). */
   killY?: number;
+  /** Heights nobody builds past in a building game (see BuildLimit). */
+  buildLimit?: BuildLimit;
   /** Spawns per team, role or side, keyed by its id. */
   teamSpawns?: Record<string, MapPosition[]>;
   /** Named positions, such as bomb sites or mob spawns; "<name>.<team>" for one team's. */

@@ -85,12 +85,12 @@ export function topCenter(box: Box): Point {
   return { x: (box.min[0] + box.max[0] + 1) / 2, y: box.max[1] + 1, z: (box.min[2] + box.max[2] + 1) / 2 };
 }
 
-/** A height typed into a form: a whole number within the world's heights, or undefined. */
-export function parseHeight(text: string): number | undefined {
+/** A height typed into a form: a whole number within the world's heights (up to `max`), or undefined. */
+export function parseHeight(text: string, max = MAX_HEIGHT): number | undefined {
   const trimmed = text.trim();
   if (!/^-?\d+$/.test(trimmed)) return undefined;
   const y = Number(trimmed);
-  return y >= MIN_HEIGHT && y <= MAX_HEIGHT ? y : undefined;
+  return y >= MIN_HEIGHT && y <= max ? y : undefined;
 }
 
 /** Where a dot is drawn for one player, and how big (its size grows with distance, so it looks the same near and far). */

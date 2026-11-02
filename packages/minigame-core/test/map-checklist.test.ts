@@ -8,6 +8,18 @@ const teams = [
 ];
 
 describe("mapChecklist", () => {
+  it("asks for each side of the build limit a game needs", () => {
+    const rules = { kind: "game" as const, maxPlayers: 2, requires: { spectatorSpawn: true, buildLimit: true } };
+    const map: MapConfig = { name: "Bridge", spawns: [[0, 65, 0], [1, 65, 0]], spectatorSpawn: [0, 80, 0], buildLimit: { above: 90 } };
+    const checklist = mapChecklist(map, rules);
+    expect(checklist.rows.filter((row) => row.field === "buildLimit").map((row) => [row.label, row.done])).toEqual([
+      ["Build limit above", true],
+      ["Build limit below", false],
+    ]);
+    expect(checklist.problems).toEqual(['this game needs "buildLimit.below"']);
+    expect(mapChecklist({ ...map, buildLimit: { above: 90, below: 60 } }, rules).ready).toBe(true);
+  });
+
   it("counts each requirement and lists the build's problems", () => {
     const map: MapConfig = { name: "Arena", draft: true, spawns: [[0, 65, 0], [1, 65, 0]], points: { "flag.red": [[2, 65, 0]] } };
     const list = mapChecklist(map, {

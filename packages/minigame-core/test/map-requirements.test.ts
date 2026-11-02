@@ -54,6 +54,13 @@ describe("mapRequirements", () => {
     expect(list.find((requirement) => requirement.key === "regions.buyZone.blue")).toMatchObject({ field: "regions", name: "buyZone.blue", team: "blue" });
   });
 
+  it("asks for both sides of the build limit, or just the ones named, after kill Y", () => {
+    const keys = (map: Parameters<typeof mapRequirements>[0]) => mapRequirements(map, { kind: "game", maxPlayers: 2 }).map((requirement) => requirement.key);
+    expect(keys({ spectatorSpawn: true, killY: true, buildLimit: true })).toEqual(["spawns", "spectatorSpawn", "killY", "buildLimit.above", "buildLimit.below"]);
+    expect(keys({ spectatorSpawn: true, buildLimit: { above: true } })).toEqual(["spawns", "spectatorSpawn", "buildLimit.above"]);
+    expect(mapRequirements({ buildLimit: true }, { kind: "game", maxPlayers: 2 }).find((requirement) => requirement.key === "buildLimit.below")).toMatchObject({ label: "Build limit below", field: "buildLimit", name: "below", min: 1 });
+  });
+
   it("asks for exactly the spectator and queue spawns a game names, or neither when it says false", () => {
     const keys = (map: Parameters<typeof mapRequirements>[0]) => mapRequirements(map, { kind: "game", maxPlayers: 2 }).map((requirement) => requirement.key);
     expect(keys({ queueSpawn: true })).toEqual(["spawns", "queueSpawn"]);

@@ -57,11 +57,13 @@ export default defineGame({
   ],
   // A hole is a point at the middle of its floor: the hole (3 blocks square, 3 tall) stands there,
   // in the pit the map has for it, and the map editor draws it there (markers/hole.geo.json, its rim
-  // in the team's color). Players watch from the spectator or queue spawn (core's default).
+  // in the team's color). Players watch from the spectator or queue spawn (core's default). Blocks go
+  // between the build limit's two heights (set with the Kill Y tool).
   map: {
     teamSpawns: true,
     bounds: true,
     killY: true,
+    buildLimit: true,
     points: { hole: { label: "Hole", perTeam: true, marker: { model: "hole" } } },
     regions: { spawnGuard: { label: "Spawn guard", perTeam: true } },
   },

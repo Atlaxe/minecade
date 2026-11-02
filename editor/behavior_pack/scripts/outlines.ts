@@ -1,7 +1,7 @@
 // Particle outlines for a map editor holding a box tool (in Edit, the region and Kill Y tools; in
 // Select, the Select tool): their selection (yellow), and the boxes the source gives with their
-// colors (in Edit: the bounds white, kill regions and the kill Y plane red, every other region in
-// its own color). Only that player sees them. In Edit, the boundaries a player switched on in the
+// colors (in Edit: the bounds white, kill regions and the kill Y plane red, the build limit's planes
+// orange, every other region in its own color). Only that player sees them. In Edit, the boundaries a player switched on in the
 // Boundaries view also show to them whatever they hold. A box being nudged, or set up in the region
 // tool's screen, shows as the selection, moved as far as it's gone, with every boundary, whatever the
 // player holds. Every edge shows from any distance:
@@ -11,8 +11,8 @@
 import { MolangVariableMap, world, type Player } from "@minecraft/server";
 import type { Box, Scope } from "@minecade/minigame-core";
 import { nearDots, planePoints, rectDots, viewDots, type Dot, type View } from "./boxes.ts";
-import { ALL_BOUNDARIES, KILL_COLOR, KILL_Y_GROUP, SELECTION_COLOR, outlineShown, type OutlineBox, type Rgb } from "./regions.ts";
-import { killYPreview, nudgePreview, previewEditing } from "./box-picker.ts";
+import { ALL_BOUNDARIES, SELECTION_COLOR, heightColor, outlineShown, type HeightPlane, type OutlineBox, type Rgb } from "./regions.ts";
+import { heightPreview, nudgePreview, previewEditing } from "./box-picker.ts";
 import { heldTool } from "./tool-host.ts";
 import type { ToolId } from "./tools.ts";
 
@@ -23,7 +23,7 @@ const SELECTION_BUDGET = 300;
 /** Dots for the map's boxes, shared between them, with at least BOX_BUDGET each. */
 const BOXES_BUDGET = 450;
 const BOX_BUDGET = 60;
-/** The kill Y plane: a grid near the player, and the bounds' edge at that height. */
+/** A height's plane (kill Y, the build limit): a grid near the player, and the bounds' edge at that height. */
 const PLANE_RADIUS = 24;
 const PLANE_SPACING = 3;
 const PLANE_EDGE_BUDGET = 120;
@@ -33,10 +33,10 @@ export interface OutlineSource {
   selection(player: Player): { box: Box } | undefined;
   /** Every box to outline, each in its color. */
   boxes(): OutlineBox[];
-  /** The kill Y plane, if there is one, and the box it's drawn over (the bounds). */
-  killY?(): { y: number; over?: Box } | undefined;
-  /** The box a kill Y plane is drawn over, for one being set when the map has none. */
-  killYOver?(): Box | undefined;
+  /** The map's heights as planes (kill Y, the build limit). */
+  planes?(): HeightPlane[];
+  /** The box the planes are drawn over (the bounds). */
+  planesOver?(): Box | undefined;
   /** The boundary groups this player switched on (regions.ts outlineShown), shown whatever they hold. */
   shown?(player: Player): ReadonlySet<string>;
   /** True while this player sees none (looking through a camera). */
@@ -63,13 +63,14 @@ export class Outlines {
     const viewers: [Player, ReadonlySet<string>, boolean][] = [];
     for (const player of world.getAllPlayers()) {
       if (this.source.hidden?.(player)) continue;
-      const holding = this.tools.has(heldTool(player)) || nudgePreview(player) !== undefined || killYPreview(player) !== undefined || this.source.showing?.(player) === true;
+      const holding = this.tools.has(heldTool(player)) || nudgePreview(player) !== undefined || heightPreview(player) !== undefined || this.source.showing?.(player) === true;
       const shown = holding ? EVERYTHING : this.source.shown?.(player);
       if (shown && shown.size > 0) viewers.push([player, shown, holding]);
     }
     if (viewers.length === 0) return;
     const boxes = this.source.boxes();
-    const killY = this.source.killY?.();
+    const planes = this.source.planes?.() ?? [];
+    const over = planes.length > 0 || viewers.some(([player]) => heightPreview(player)) ? this.source.planesOver?.() : undefined;
     for (const [player, groups, holding] of viewers) {
       const view: View = { eye: player.getHeadLocation(), look: player.getViewDirection() };
       const nudged = nudgePreview(player);
@@ -80,13 +81,13 @@ export class Outlines {
       const shown = boxes.filter((outline) => outline.key !== editing && outlineShown(outline.group, groups));
       const each = Math.max(BOX_BUDGET, Math.floor(BOXES_BUDGET / Math.max(1, shown.length)));
       for (const outline of shown) dots(player, viewDots(outline.box, view, each), outline.color);
-      // The Kill Y tool's screen draws the height being set.
-      const setting = killYPreview(player);
-      const plane = setting !== undefined ? { y: setting, over: killY?.over ?? this.source.killYOver?.() } : killY && outlineShown(KILL_Y_GROUP, groups) ? killY : undefined;
-      if (plane) {
-        const { y, over } = plane;
-        dots(player, nearDots(planePoints(y, over, view.eye, PLANE_RADIUS, PLANE_SPACING), view), KILL_COLOR);
-        if (over) dots(player, rectDots(over.min[0], over.min[2], over.max[0] + 1, over.max[2] + 1, y, view, PLANE_EDGE_BUDGET), KILL_COLOR);
+      // The Kill Y tool's screen draws the height being set in place of the map's.
+      const setting = heightPreview(player);
+      const drawn = planes.filter((plane) => plane.line !== setting?.line && outlineShown(plane.group, groups)).map(({ y, color }) => ({ y, color }));
+      if (setting) drawn.push({ y: setting.y, color: heightColor(setting.line) });
+      for (const { y, color } of drawn) {
+        dots(player, nearDots(planePoints(y, over, view.eye, PLANE_RADIUS, PLANE_SPACING), view), color);
+        if (over) dots(player, rectDots(over.min[0], over.min[2], over.max[0] + 1, over.max[2] + 1, y, view, PLANE_EDGE_BUDGET), color);
       }
     }
   }

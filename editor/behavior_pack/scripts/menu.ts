@@ -28,7 +28,7 @@ import { relativeSide, sizeText, type Cardinal, type Sides } from "./boxes.ts";
 import { SNAPS, compass, toolLists, type Snap, type SpawnList } from "./lists.ts";
 import { COLUMNS, MARK, cardIconText, cardTitleText, dangerText, dropdownText, goText, headingText, linkText, optionText, pictureText, saveBarText, segmentText, stepTileText, switchText } from "./marks.ts";
 import { CAMERA_KINDS, cameraPlace, camerasOf, type CameraKind } from "./cameras.ts";
-import { ALL_BOUNDARIES, outlineShown, type BoundaryRow, type RegionEntry, type RegionTarget, type SelectionAction } from "./regions.ts";
+import { ALL_BOUNDARIES, buildLimitText, outlineShown, type BoundaryRow, type HeightLine, type RegionEntry, type RegionTarget, type SelectionAction } from "./regions.ts";
 import { EDITOR_TOOLS, SELECT_TOOL, type ToolId } from "./tools.ts";
 
 /** The quick icons' pictures (editor/resource_pack/textures/minecade/editor/). */
@@ -85,8 +85,8 @@ export type MenuAction =
   | { kind: "entry"; key: string }
   | { kind: "selection"; action: SelectionAction }
   | { kind: "box"; key: string }
-  /** The Kill Y tool's screen. */
-  | { kind: "killY" }
+  /** The Kill Y tool's screen, on kill Y or a side of the build limit. */
+  | { kind: "killY"; line?: HeightLine }
   | { kind: "removeKillY" }
   /** The camera tool: the kind of new cameras, and a camera's form. */
   | { kind: "cameraKind" }
@@ -173,7 +173,7 @@ export function mapMenuEntries(view: MapMenuView): MenuEntry[] {
   if (view.tool === "spawn") entries.push(...spawnSettings(view.config, toolLists(view.spawn.lists, "spawn")));
   else if (view.tool === "marker") entries.push(...spawnSettings(view.config, toolLists(view.spawn.lists, "marker")));
   else if (view.tool === "region") entries.push(...regionSettings(view.region.selection, view.region.entries));
-  else if (view.tool === "killY") entries.push(...killYSettings(view.config.killY));
+  else if (view.tool === "killY") entries.push(...killYSettings(view.config, view.game !== undefined));
   else if (view.tool === "camera") entries.push(...cameraSettings(view.config, view.camera?.kind ?? "map"));
   else if (view.tool === "snapshot") entries.push(...snapshotSettings(view.config));
   entries.push({ action: { kind: "save" }, text: `${MARK.save}${saveText(view)}` });
@@ -247,12 +247,23 @@ export function regionSettings(selection: MapMenuView["region"]["selection"], bo
   return entries;
 }
 
-/** The Kill Y tool's settings: the height now, its screen, and removing it. */
-export function killYSettings(killY: number | undefined): MenuEntry[] {
+/**
+ * The Kill Y tool's settings: kill Y now, its screen, and removing it; on a game's map, the build
+ * limit now and its screen too.
+ */
+export function killYSettings(config: MapConfig, buildLimit: boolean): MenuEntry[] {
+  const killY = config.killY;
+  const side: HeightLine = config.buildLimit?.above !== undefined && config.buildLimit.below === undefined ? "below" : "above";
   return [
     { action: { kind: "none" }, text: headingText(killY === undefined ? "Kill Y: not set" : `Kill Y: ${killY}`) },
-    { action: { kind: "killY" }, text: goText("Set kill Y") },
+    { action: { kind: "killY", line: "killY" }, text: goText("Set kill Y") },
     ...(killY === undefined ? [] : [{ action: { kind: "removeKillY" } as const, text: dangerText("Remove kill Y") }]),
+    ...(buildLimit
+      ? [
+          { action: { kind: "none" } as const, text: headingText(`Build limit: ${buildLimitText(config)}`) },
+          { action: { kind: "killY", line: side } as const, text: goText("Set build limit") },
+        ]
+      : []),
   ];
 }
 
@@ -477,19 +488,41 @@ export function regionScreenEntries(view: RegionScreenView): { action: RegionScr
   return entries;
 }
 
-export type KillYScreenAction = { kind: "type" } | { kind: "height"; by: 1 | -1 } | { kind: "step"; step: number } | { kind: "remove" } | { kind: "save" } | { kind: "back" } | { kind: "none" };
+export type KillYScreenAction =
+  | { kind: "line"; line: HeightLine }
+  | { kind: "type" }
+  | { kind: "height"; by: 1 | -1 }
+  | { kind: "step"; step: number }
+  | { kind: "remove" }
+  | { kind: "save" }
+  | { kind: "back" }
+  | { kind: "none" };
 
-/** The Kill Y tool's screen: the height (typed, or nudged), Step, Remove (red, once it's set), and Set kill Y, green, at the bottom. */
-export function killYScreenEntries(view: { y: number; set: boolean; step: number; back?: boolean }): { action: KillYScreenAction; text: string; icon?: string }[] {
+/** The Kill Y tool's tiles, in order: kill Y, then each side of the build limit. */
+export const HEIGHT_LINES: readonly { line: HeightLine; tile: string; name: string }[] = [
+  { line: "killY", tile: "Kill Y", name: "Kill Y" },
+  { line: "above", tile: "Limit above", name: "Build limit above" },
+  { line: "below", tile: "Limit below", name: "Build limit below" },
+];
+
+/**
+ * The Kill Y tool's screen: on a game's map, tiles for what it sets (kill Y, or a side of the build
+ * limit: no blocks above it, or none below it); the height (typed, or nudged), Step, Remove (red,
+ * once it's set), and Set, green, at the bottom.
+ */
+export function killYScreenEntries(view: { line: HeightLine; buildLimit?: boolean; y: number; set: boolean; step: number; back?: boolean }): { action: KillYScreenAction; text: string; icon?: string }[] {
+  const line = HEIGHT_LINES.find((candidate) => candidate.line === view.line) ?? HEIGHT_LINES[0];
+  const killY = line.line === "killY";
   return [
     ...(view.back ? [{ action: { kind: "back" } as const, text: BACK_TEXT, icon: ICONS.back }] : []),
-    { action: { kind: "none" }, text: `${MARK.lead}${headingText(`Kill Y: ${view.y}`)}` },
-    { action: { kind: "type" }, text: `${MARK.lead}Type a height\n§7from -64 to 319` },
+    ...(view.buildLimit ? HEIGHT_LINES.map((tile, i) => ({ action: { kind: "line", line: tile.line } as const, text: segmentText(tile.tile, i, tile.line === line.line) })) : []),
+    { action: { kind: "none" }, text: `${MARK.lead}${headingText(`${line.name}: ${view.y}`)}` },
+    { action: { kind: "type" }, text: `${MARK.lead}Type a height\n§7from -64 to ${killY ? 319 : 320}` },
     { action: { kind: "height", by: -1 }, text: `${MARK.minus}Height: ${view.y}`, icon: ICONS.minus },
     { action: { kind: "height", by: 1 }, text: `${MARK.plus}Height up`, icon: ICONS.new },
     ...stepEntries(NUDGE_STEPS, view.step),
-    ...(view.set ? [{ action: { kind: "remove" } as const, text: dangerText("Remove kill Y") }] : []),
-    { action: { kind: "save" }, text: saveBarText("Set kill Y") },
+    ...(view.set ? [{ action: { kind: "remove" } as const, text: dangerText(`Remove ${killY ? "kill Y" : line.name.toLowerCase()}`) }] : []),
+    { action: { kind: "save" }, text: saveBarText(killY ? "Set kill Y" : "Set build limit") },
   ];
 }
 

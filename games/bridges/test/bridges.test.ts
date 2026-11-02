@@ -19,6 +19,7 @@ const GAP: MapConfig = runtimeMapConfig({
   teamSpawns: { red: [[-20, 65, 0]], blue: [[20, 65, 0]] },
   bounds: { min: [-30, 40, -10], max: [30, 100, 10] },
   killY: 50,
+  buildLimit: { above: 95, below: 55 },
   points: { "hole.red": [[-25, 62, 0]], "hole.blue": [[25, 62, 0]] },
   regions: {
     "spawnGuard.red": [{ min: [-29, 60, -4], max: [-17, 75, 4] }],
@@ -67,7 +68,7 @@ function byTeam(game: Bridges, a: FakePlayer, b: FakePlayer): [FakePlayer, FakeP
 const ids = (player: FakePlayer) => player.inventory.items().map((item) => `${item.amount} ${item.typeId.replace("minecraft:", "")}`);
 
 describe("Bridges' config and map", () => {
-  it("passes the build's checks, and its map needs holes, spawn guards, bounds and kill Y", () => {
+  it("passes the build's checks, and its map needs holes, spawn guards, bounds, kill Y and both sides of the build limit", () => {
     expect(validateGameConfig(config, "bridges")).toEqual([]);
     const rules = { kind: "game" as const, maxPlayers: config.maxPlayers, requires: config.map, teams: [{ id: "red", name: "Red" }, { id: "blue", name: "Blue" }] };
     expect(validateMapConfig(GAP, rules)).toEqual([]);
@@ -77,6 +78,7 @@ describe("Bridges' config and map", () => {
       'this game needs a "regions.spawnGuard.red" entry',
       'this game needs a "regions.spawnGuard.blue" entry',
     ]);
+    expect(validateMapConfig({ ...GAP, buildLimit: { above: 95 } }, rules)).toEqual(['this game needs "buildLimit.below"']);
   });
 
   it("finds the holes, and touches them from inside their sides below the rim", () => {
@@ -219,6 +221,8 @@ describe("a match of Bridges", () => {
         expect(world.placeBlock(red, { x: 0, y: 64, z: 0 }, "Up", wool)).toBe(true);
         expect(world.placeBlock(red, { x: -20, y: 64, z: 0 }, "Up", wool)).toBe(false); // red's own spawn guard
         expect(world.placeBlock(blue, { x: 25, y: 90, z: 0 }, "Up", wool)).toBe(false); // above blue's hole
+        expect(world.placeBlock(red, { x: 0, y: 94, z: 0 }, "Up", wool)).toBe(false); // over the build limit
+        expect(world.placeBlock(red, { x: 0, y: 55, z: 0 }, "Down", wool)).toBe(false); // under it
         red.location = { ...BLUE_HOLE, y: 63 };
         await ticks(3);
         expect(world.overworld.blocks.has("0,65,0")).toBe(kept);

@@ -32,6 +32,19 @@ describe("applyEdit", () => {
     expect(base.spawns).toHaveLength(2);
   });
 
+  it("sets and clears each side of the build limit, after kill Y, dropping it once both are gone", () => {
+    let map = applyEdit(base, { op: "killY", y: 40 });
+    map = applyEdit(map, { op: "buildLimit", side: "below", y: 50 });
+    map = applyEdit(map, { op: "buildLimit", side: "above", y: 90 });
+    expect(map.buildLimit).toEqual({ above: 90, below: 50 });
+    expect(Object.keys(map).indexOf("buildLimit")).toBe(Object.keys(map).indexOf("killY") + 1);
+    map = applyEdit(map, { op: "buildLimit", side: "above" });
+    expect(map.buildLimit).toEqual({ below: 50 });
+    map = applyEdit(map, { op: "buildLimit", side: "below" });
+    expect("buildLimit" in map).toBe(false);
+    expect(describeEdit({ op: "buildLimit", side: "above", y: 3 })).toBe("set build limit above");
+  });
+
   it("puts new keys where they're written by hand, and drops lists left empty", () => {
     let map = applyEdit(base, { op: "add", target: { list: "teamSpawns", team: "red" }, at: [-10, 65, 0] });
     map = applyEdit(map, { op: "killY", y: 58 });

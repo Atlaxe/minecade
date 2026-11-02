@@ -1,10 +1,10 @@
 // What a game's (or the lobby's) maps need, from the `map` block of its config, as one flat list:
 // the build checks every map against it, and the map editor shows it as a checklist.
 import type { MapEntryRequirement, MapRequirementsConfig, MarkerStyle } from "./config.ts";
-import { teamKey } from "./map-config.ts";
+import { BUILD_LIMIT_SIDES, teamKey, type BuildLimitSide } from "./map-config.ts";
 
 /** "spectatorOrQueue": a spectator spawn or a queue spawn, either one (games that name neither). */
-export type MapField = "spawns" | "spectatorSpawn" | "queueSpawn" | "spectatorOrQueue" | "bounds" | "killY" | "points" | "regions" | "teamSpawns";
+export type MapField = "spawns" | "spectatorSpawn" | "queueSpawn" | "spectatorOrQueue" | "bounds" | "killY" | "buildLimit" | "points" | "regions" | "teamSpawns";
 
 export interface MapRequirement {
   /** Where it lives in map.json, and a unique id: "spawns", "points.bombA", "regions.buyZone.red", "teamSpawns.red". */
@@ -14,7 +14,7 @@ export interface MapRequirement {
   /** The point or region key (with ".<team>" for one team's), or the team id for team spawns. */
   name?: string;
   team?: string;
-  /** Entries needed; for the spectator and queue spawns, bounds and killY, 1 means "set". */
+  /** Entries needed; for the spectator and queue spawns, bounds, killY and a build limit side, 1 means "set". */
   min: number;
   /** Spawns only: the minimum is one per player slot. */
   perPlayer?: boolean;
@@ -40,7 +40,7 @@ export interface RequirementOptions {
   teams?: { id: string; name: string }[];
 }
 
-/** The requirements in checklist order: spawns, spectator or queue spawn, spectator spawn, queue spawn, bounds, killY, points, regions, team spawns. */
+/** The requirements in checklist order: spawns, spectator or queue spawn, spectator spawn, queue spawn, bounds, killY, the build limit, points, regions, team spawns. */
 export function mapRequirements(map: MapRequirementsConfig | undefined, options: RequirementOptions): MapRequirement[] {
   const list: MapRequirement[] = [];
   const teams = options.teams ?? [];
@@ -65,6 +65,9 @@ export function mapRequirements(map: MapRequirementsConfig | undefined, options:
   if (map?.queueSpawn) list.push({ key: "queueSpawn", label: "Queue spawn", field: "queueSpawn", min: 1 });
   if (map?.bounds) list.push({ key: "bounds", label: "Bounds", field: "bounds", min: 1 });
   if (map?.killY) list.push({ key: "killY", label: "Kill Y", field: "killY", min: 1 });
+  for (const side of buildLimitSides(map?.buildLimit)) {
+    list.push({ key: `buildLimit.${side}`, label: `Build limit ${side}`, field: "buildLimit", name: side, min: 1 });
+  }
   for (const field of ["points", "regions"] as const) {
     for (const [name, entry] of entriesOf(map?.[field])) {
       const label = entry.label ?? name;
@@ -89,6 +92,12 @@ export function mapRequirements(map: MapRequirementsConfig | undefined, options:
     }
   }
   return list;
+}
+
+/** The build limit's sides a config asks for: true is both. */
+function buildLimitSides(value: MapRequirementsConfig["buildLimit"]): BuildLimitSide[] {
+  if (!value) return [];
+  return value === true ? [...BUILD_LIMIT_SIDES] : BUILD_LIMIT_SIDES.filter((side) => value[side]);
 }
 
 function entriesOf(value: string[] | Record<string, MapEntryRequirement> | undefined): [string, MapEntryRequirement][] {

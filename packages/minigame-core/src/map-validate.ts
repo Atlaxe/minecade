@@ -2,7 +2,7 @@
 // problems live). validateMapConfig returns a list of problems (empty when valid) so everything
 // is reported at once; mapWarnings lists things worth a look that don't stop a build.
 import type { MapRequirementsConfig } from "./config.ts";
-import { MAP_TIMES, QUEUE_COUNTDOWN, QUEUE_MODES, enclosingBox, mapTimeTicks, type Box, type MapConfig, type MapPosition, type Vec3 } from "./map-config.ts";
+import { BUILD_LIMIT_SIDES, MAP_TIMES, QUEUE_COUNTDOWN, QUEUE_MODES, enclosingBox, mapTimeTicks, type Box, type BuildLimitSide, type MapConfig, type MapPosition, type Vec3 } from "./map-config.ts";
 import { mapRequirements, type MapRequirement } from "./map-requirements.ts";
 
 /** Bedrock overworld height limits. */
@@ -58,6 +58,7 @@ export function validateMapConfig(raw: unknown, rules: MapRules): string[] {
     if (typeof map.killY !== "number" || !Number.isFinite(map.killY)) problems.push('"killY" must be a number');
     else if (map.killY < MIN_Y || map.killY > MAX_Y) problems.push(`"killY" must be within ${MIN_Y} to ${MAX_Y}`);
   }
+  if (map.buildLimit !== undefined) problems.push(...buildLimitProblems(map.buildLimit));
   if (map.time !== undefined && mapTimeTicks(map.time) === undefined) {
     problems.push(`"time" must be one of ${Object.keys(MAP_TIMES).join(", ")}, or ticks from 0 to 23999`);
   }
@@ -192,6 +193,8 @@ function missing(requirement: MapRequirement, map: Partial<MapConfig>, who: stri
       return map.bounds === undefined ? [`${who} needs "bounds"`] : [];
     case "killY":
       return map.killY === undefined ? [`${who} needs "killY"`] : [];
+    case "buildLimit":
+      return isRecord(map.buildLimit) && map.buildLimit[name as BuildLimitSide] !== undefined ? [] : [`${who} needs "buildLimit.${name}"`];
     case "teamSpawns":
       if (name === undefined) return hasTeamSpawns ? [] : [`${who} needs "teamSpawns"`];
       return count(`teamSpawns.${name}`, listLength(map.teamSpawns, name), min, who);
@@ -290,6 +293,25 @@ function checkPosition(value: unknown, name: string, problems: string[], quoted 
     }
   }
   return true;
+}
+
+/** "buildLimit": { "above"?: height, "below"?: height }, the top over the bottom when it has both. */
+function buildLimitProblems(value: unknown): string[] {
+  if (!isRecord(value) || Object.keys(value).some((key) => !(BUILD_LIMIT_SIDES as readonly string[]).includes(key))) {
+    return ['"buildLimit" must be { "above": height, "below": height }, either or both'];
+  }
+  const problems: string[] = [];
+  for (const side of BUILD_LIMIT_SIDES) {
+    const y = value[side];
+    if (y === undefined) continue;
+    if (typeof y !== "number" || !Number.isInteger(y)) problems.push(`"buildLimit.${side}" must be a whole number`);
+    else if (y < MIN_Y || y > MAX_Y + 1) problems.push(`"buildLimit.${side}" must be within ${MIN_Y} to ${MAX_Y + 1}`);
+  }
+  const { above, below } = value;
+  if (problems.length === 0 && typeof above === "number" && typeof below === "number" && above <= below) {
+    problems.push(`"buildLimit.above" (${above}) must be over "buildLimit.below" (${below}), or nothing can be built`);
+  }
+  return problems;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

@@ -48,8 +48,8 @@ export const EDITOR_TOOLS: EditorTool[] = [
     item: "minecade:kill_y_tool",
     icon: "textures/items/kill_y_tool",
     label: "Kill Y tool",
-    hint: "the height players are out below",
-    howTo: "Players below kill Y are out. Use the tool to set it one block below your feet; Set kill Y here fine-tunes it.",
+    hint: "kill Y and the build limit",
+    howTo: "Players below kill Y are out. Use the tool to set it one block below your feet; Set kill Y here fine-tunes it. On a game's map, its screen's tiles also set the build limit (no blocks above one height, none below another); a use then sets the one picked, at your feet.",
   },
   {
     id: "camera",
