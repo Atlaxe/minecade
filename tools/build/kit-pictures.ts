@@ -1,16 +1,29 @@
-// Each kit's picture for the kit form (packages/minigame-core/src/game/kit-form.ts): its items in a
-// row of hotbar slots, left to right, nine to a row, each with its count in the corner the way the
-// hotbar draws a stack. The icons are Minecraft's own textures (vanilla-textures.ts), a block's as a
-// cube. The build draws them into the resource pack of every game whose players pick kits, for the
-// game's kits and each map's own, one picture per team dye for a kit with items in team colors.
+// Each kit's picture for the kit form (packages/minigame-core/src/game/kit-form.ts): a hotbar of
+// nine slots, the kit's items filling them from the left, each with its count in the corner the way
+// the hotbar draws a stack, and the kit's armor in the last slot. The icons are Minecraft's own
+// textures (vanilla-textures.ts), a block's as a cube, leather dyed. The build draws them into the
+// resource pack of every game whose players pick kits, for the game's kits and each map's own, one
+// picture per team dye for a kit with items or leather armor in team colors.
 import { mkdir, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
-import { kitItemId, kitPicturePath, pictureDyes, possibleTeams, teamColored, type GameConfig, type KitDef, type MapConfig } from "@minecade/minigame-core/config";
-import { blankImage, decodePng, encodePng, type Image } from "../skins/png.ts";
+import {
+  ARMOR_PIECES,
+  TEAM_ARMOR_COLORS,
+  isLeather,
+  kitItemId,
+  kitPicturePath,
+  pictureDyes,
+  possibleTeams,
+  teamColored,
+  type GameConfig,
+  type KitDef,
+  type MapConfig,
+} from "@minecade/minigame-core/config";
+import { blankImage, encodePng, type Image } from "../skins/png.ts";
 import { VanillaTextures, type VanillaTexture } from "./vanilla-textures.ts";
 
-/** Slots in a row, as on the hotbar. A picture is always a full row wide, so its items start at the left. */
-export const ROW_SLOTS = 9;
+/** Slots on the hotbar. The items fill them from the left; a kit with armor shows it in the last one. */
+export const HOTBAR_SLOTS = 9;
 /** A slot is 20 pixels square (its 1 pixel frame included), the icon 16 square inside it, as on the hotbar. */
 const SLOT = 20;
 const ICON = 16;
@@ -23,6 +36,19 @@ const WHITE = [255, 255, 255, 255];
 const SHADOW = [63, 63, 63, 255];
 /** A cube's faces: the top as it is, the left and right darker, as Minecraft draws blocks in the hotbar. */
 const SHADES = { top: 1, left: 0.8, right: 0.6 };
+/** Leather's own brown, for leather that isn't in a team's color. */
+const LEATHER_BROWN = { red: 160 / 255, green: 101 / 255, blue: 64 / 255 };
+/**
+ * Where armor goes in the last slot's icon square (picture pixels), by how many pieces there are:
+ * one fills it, more share it at half size, head to feet.
+ */
+const ARMOR_LAYOUTS: { x: number; y: number; size: number }[][] = [
+  [],
+  [{ x: 0, y: 0, size: 16 }],
+  [{ x: 0, y: 4, size: 8 }, { x: 8, y: 4, size: 8 }],
+  [{ x: 0, y: 0, size: 8 }, { x: 8, y: 0, size: 8 }, { x: 4, y: 8, size: 8 }],
+  [{ x: 0, y: 0, size: 8 }, { x: 8, y: 0, size: 8 }, { x: 0, y: 8, size: 8 }, { x: 8, y: 8, size: 8 }],
+];
 /** Digits in Minecraft's font: 5x7 pixels, a space after each. */
 const DIGITS = [
   [".###.", "#...#", "#..##", "#.#.#", "##..#", "#...#", ".###."],
@@ -44,9 +70,16 @@ export interface PictureItem {
   count: number;
 }
 
-/** A kit's items for a player of this team dye, in the kit's order. */
+/** A kit's items for a player of this team dye, in the kit's order, then what it puts in the off hand. */
 export function pictureItems(kit: KitDef, teamColor: string | undefined): PictureItem[] {
-  return kit.items.map((item) => ({ item: kitItemId(item, teamColor), count: item.count ?? 1 }));
+  const items = kit.items.map((item) => ({ item: kitItemId(item, teamColor), count: item.count ?? 1 }));
+  const offhand = kit.armor?.offhand;
+  return offhand === undefined ? items : [...items, { item: offhand, count: 1 }];
+}
+
+/** A kit's armor, head to feet. */
+export function pictureArmor(kit: KitDef): string[] {
+  return ARMOR_PIECES.map((piece) => kit.armor?.[piece]).filter((item): item is string => item !== undefined);
 }
 
 /** An icon to draw: an item's picture, or a block's face (drawn as a cube). */
@@ -56,19 +89,44 @@ export interface PictureIcon {
   count: number;
 }
 
-/** Draws a kit's picture: a slot per item, left to right in rows of nine, counts over 1 in the corner. */
-export function drawKitPicture(items: PictureIcon[]): Image {
-  const rows = Math.max(1, Math.ceil(items.length / ROW_SLOTS));
-  const picture = blankImage(ROW_SLOTS * SLOT * SCALE, rows * SLOT * SCALE);
-  items.forEach((item, index) => {
-    const left = (index % ROW_SLOTS) * SLOT;
-    const top = Math.floor(index / ROW_SLOTS) * SLOT;
-    drawSlot(picture, left, top);
-    const icon = item.kind === "block" ? blockIcon(item.image) : item.image;
-    drawIcon(picture, icon, left + ICON_OFFSET, top + ICON_OFFSET);
-    if (item.count > 1) drawCount(picture, String(item.count), left + SLOT - 2, top + SLOT - 3);
+/**
+ * Draws a kit's picture: the nine hotbar slots, its items in them from the left with counts over 1
+ * in the corner, and its armor (if any) in the last slot. Items past the slots are left out.
+ */
+export function drawKitPicture(items: PictureIcon[], armor: PictureIcon[] = []): Image {
+  const picture = blankImage(HOTBAR_SLOTS * SLOT * SCALE, SLOT * SCALE);
+  for (let slot = 0; slot < HOTBAR_SLOTS; slot++) drawSlot(picture, slot * SLOT, 0);
+  items.slice(0, armor.length > 0 ? HOTBAR_SLOTS - 1 : HOTBAR_SLOTS).forEach((item, index) => {
+    const left = index * SLOT;
+    drawIcon(picture, iconImage(item), left + ICON_OFFSET, ICON_OFFSET, ICON);
+    if (item.count > 1) drawCount(picture, String(item.count), left + SLOT - 2, SLOT - 3);
+  });
+  const pieces = armor.slice(0, ARMOR_LAYOUTS.length - 1);
+  const last = (HOTBAR_SLOTS - 1) * SLOT + ICON_OFFSET;
+  pieces.forEach((piece, index) => {
+    const spot = ARMOR_LAYOUTS[pieces.length][index];
+    drawIcon(picture, iconImage(piece), last + spot.x, ICON_OFFSET + spot.y, spot.size);
   });
   return picture;
+}
+
+/**
+ * Leather in a dye. Minecraft's leather textures are gray, tinted in the game; the pixels a texture
+ * marks as keeping their own color (nearly see-through in it) are drawn as they are, solid.
+ */
+export function dyeLeather(image: Image, color: { red: number; green: number; blue: number }): Image {
+  const dyed = { width: image.width, height: image.height, data: new Uint8Array(image.data) };
+  for (let at = 0; at < dyed.data.length; at += 4) {
+    const alpha = dyed.data[at + 3];
+    if (alpha === 0) continue;
+    if (alpha === 255) {
+      dyed.data[at] = Math.round(dyed.data[at] * color.red);
+      dyed.data[at + 1] = Math.round(dyed.data[at + 1] * color.green);
+      dyed.data[at + 2] = Math.round(dyed.data[at + 2] * color.blue);
+    }
+    dyed.data[at + 3] = 255;
+  }
+  return dyed;
 }
 
 let vanilla: VanillaTextures | undefined | null = null;
@@ -100,19 +158,24 @@ export async function addKitPictures(out: string, kits: { kit: KitDef; map?: str
     const colored = teamColored(kit);
     const colors: (string | undefined)[] = colored && teamColors.length > 0 ? dyeColors(teamColors) : [undefined];
     for (const teamColor of colors) {
-      const icons: PictureIcon[] = [];
-      for (const { item, count } of pictureItems(kit, teamColor)) {
-        const texture = textures.item(item);
-        if (texture) icons.push({ kind: texture.kind, image: decodePng(texture.png), count });
-      }
-      if (icons.length === 0) continue;
+      const armorDye = (kit.teamArmor && teamColor !== undefined && TEAM_ARMOR_COLORS[teamColor]) || LEATHER_BROWN;
+      const items = pictureItems(kit, teamColor).flatMap(({ item, count }) => pictureIcon(textures, item, count, LEATHER_BROWN));
+      const armor = pictureArmor(kit).flatMap((item) => pictureIcon(textures, item, 1, armorDye));
+      if (items.length === 0 && armor.length === 0) continue;
       const path = join(out, `${kitPicturePath(kit.id, { map, teamColor, colored })}.png`);
       await mkdir(dirname(path), { recursive: true });
-      await writeFile(path, encodePng(drawKitPicture(icons)));
+      await writeFile(path, encodePng(drawKitPicture(items, armor)));
       written++;
     }
   }
   return written;
+}
+
+/** An item's icon, leather in `dye`; none when Minecraft has no texture for it (it's left out). */
+function pictureIcon(textures: VanillaTextures, item: string, count: number, dye: { red: number; green: number; blue: number }): PictureIcon[] {
+  const texture = textures.item(item);
+  if (!texture) return [];
+  return [{ kind: texture.kind, image: isLeather(item) ? dyeLeather(texture.image, dye) : texture.image, count }];
 }
 
 /** One team color per dye (two colors can share a dye, such as §c and §4). */
@@ -131,12 +194,17 @@ function drawSlot(picture: Image, left: number, top: number): void {
   }
 }
 
-/** An icon (16x16, or a block's already drawn at SCALE) stretched over 16 picture pixels at (left, top), its see-through pixels left alone. */
-function drawIcon(picture: Image, icon: Image, left: number, top: number): void {
-  const size = ICON * SCALE;
-  for (let y = 0; y < size; y++) {
-    for (let x = 0; x < size; x++) {
-      const from = (Math.floor((y * icon.height) / size) * icon.width + Math.floor((x * icon.width) / size)) * 4;
+/** The image an icon draws: an item's as it is, a block's as a cube. */
+function iconImage(icon: PictureIcon): Image {
+  return icon.kind === "block" ? blockIcon(icon.image) : icon.image;
+}
+
+/** An icon stretched over `size` picture pixels square at (left, top), its see-through pixels left alone. */
+function drawIcon(picture: Image, icon: Image, left: number, top: number, size: number): void {
+  const pixels = size * SCALE;
+  for (let y = 0; y < pixels; y++) {
+    for (let x = 0; x < pixels; x++) {
+      const from = (Math.floor((y * icon.height) / pixels) * icon.width + Math.floor((x * icon.width) / pixels)) * 4;
       if (icon.data[from + 3] > 0) put(picture, left * SCALE + x, top * SCALE + y, icon.data.subarray(from, from + 4), 1);
     }
   }

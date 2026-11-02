@@ -21,6 +21,10 @@ describe("kit items", () => {
     expect(dyeName("§x")).toBe("white");
     expect(teamColored(BASE)).toBe(true);
     expect(teamColored(SNOW)).toBe(false);
+    const leather = { id: "scout", name: "Scout", items: [], armor: { chest: "minecraft:leather_chestplate" } };
+    expect(teamColored({ ...leather, teamArmor: true })).toBe(true); // leather in the team's dye
+    expect(teamColored(leather)).toBe(false);
+    expect(teamColored({ ...leather, armor: { chest: "minecraft:iron_chestplate" }, teamArmor: true })).toBe(false);
   });
 
   it("names items for the kit form, with counts", () => {
@@ -113,9 +117,13 @@ describe("KitPicker", () => {
     expect(port.log).toEqual(["show A", "show B"]);
     expect(port.views.get("A")?.status).toBe("Waiting for §cA§r and §cB§r: 30 s");
     picker.pick("A", "leap");
-    expect(port.views.get("B")).toMatchObject({ pickedBy: { snow: [], leap: ["§cA"] }, picks: { A: "leap" } });
+    // The picks, for each form to mark its own player's; nothing says who picked what.
+    expect(port.views.get("B")).toEqual({ status: "Waiting for §cB§r: 30 s", picks: { A: "leap" } });
     picker.tick();
     expect(port.log.slice(2)).toEqual(["show A", "show B"]); // a closed form comes back each second
+    expect(picker.reopen("B")).toBe(true); // or at once, with the star
+    expect(picker.reopen("C")).toBe(false); // not picking here
+    expect(port.log.slice(4)).toEqual(["show B"]);
     expect(port.views.get("A")?.status).toBe("Waiting for §cB§r: 29 s");
     picker.pick("A", "snow"); // changing your mind is fine
     expect(kits.chosen.get("A")).toBe("snow");

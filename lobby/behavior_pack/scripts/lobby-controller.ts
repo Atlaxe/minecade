@@ -199,9 +199,9 @@ export class LobbyController {
       this.ports.send({ t: "status_request" });
     }, this.startTimeoutTicks);
     this.ports.notify("all", say.important(`${nameOf(starter)} is starting ${game.name} on ${mapName}.`));
-    // Team games set to Pick: the players pick here while the game server boots ("pick" tells the
-    // game to wait for these picks instead of handing out its own picker). The team view owns the
-    // hologram until then; otherwise it shows the countdown screen while the server boots.
+    // Team games set to Pick: the players pick here while the game server boots (the only place
+    // teams are picked; the game deals out the rest). The team view owns the hologram until then;
+    // otherwise it shows the countdown screen while the server boots.
     const picking = lobbyPicksTeams(game, settings) && this.ports.teamPicks !== undefined;
     if (!picking) this.ports.countdown?.({ game: game.name, map: mapName });
     const sent = picking ? { ...settings, teams: "pick" } : settings;

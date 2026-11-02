@@ -37,9 +37,30 @@ export function kitItemId(item: KitItem, teamColor?: string): string {
   return item.item.replaceAll(COLOR_SLOT, dyeName(teamColor));
 }
 
-/** True when a kit has items in the team's color, so its picture differs by team. */
+/** The color leather armor takes on a team (teamArmor), by its § color code. */
+export const TEAM_ARMOR_COLORS: Record<string, { red: number; green: number; blue: number }> = {
+  "§c": { red: 0.85, green: 0.15, blue: 0.15 },
+  "§9": { red: 0.2, green: 0.35, blue: 0.9 },
+  "§a": { red: 0.3, green: 0.8, blue: 0.25 },
+  "§e": { red: 0.95, green: 0.85, blue: 0.2 },
+  "§6": { red: 0.95, green: 0.55, blue: 0.1 },
+  "§d": { red: 0.85, green: 0.35, blue: 0.85 },
+  "§b": { red: 0.3, green: 0.85, blue: 0.9 },
+  "§f": { red: 0.95, green: 0.95, blue: 0.95 },
+};
+
+/** The armor a kit puts on, in the order the kit form's picture shows it (not the off hand). */
+export const ARMOR_PIECES = ["head", "chest", "legs", "feet"] as const;
+
+/** Leather armor, which takes a dye. */
+export function isLeather(itemId: string): boolean {
+  return /^minecraft:leather_(helmet|chestplate|leggings|boots)$/.test(itemId);
+}
+
+/** True when a kit has items in the team's color, or leather armor it dyes, so its picture differs by team. */
 export function teamColored(kit: KitDef): boolean {
-  return kit.items.some((item) => item.item.includes(COLOR_SLOT));
+  if (kit.items.some((item) => item.item.includes(COLOR_SLOT))) return true;
+  return kit.teamArmor === true && ARMOR_PIECES.some((piece) => isLeather(kit.armor?.[piece] ?? ""));
 }
 
 /** The kits a match on one map uses: the game's, with the map's added or in their place. */

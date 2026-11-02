@@ -117,9 +117,9 @@ only the rest of the line without the clock icon (`§k§o`).
 
 ## The kit form
 
-A game whose `kits` have `select` (Bridges) has players pick a kit in a live form, the same kind as
-the lobby's team form (a data-driven `CustomForm`: it updates while open and its buttons don't
-close it; `packages/minigame-core/src/game/kit-form.ts`, its logic in `kit-picker.ts`).
+A game whose `kits` have `select` (Bridges, Probe) has players pick a kit in a live form, the same
+kind as the lobby's team form (a data-driven `CustomForm`: it updates while open and its buttons
+don't close it; `packages/minigame-core/src/game/kit-form.ts`, its logic in `kit-picker.ts`).
 
 - **When:** `select: "match"` once before the match, `select: "round"` before every best-of round
   (round 1's pick is the match's, and players wait frozen at their spawns). Kit changes in the middle
@@ -130,21 +130,29 @@ close it; `packages/minigame-core/src/game/kit-form.ts`, its logic in `kit-picke
   a second. Players can change their pick until the last one picks; then every form closes and the
   usual countdown runs (Bridges' 5 seconds), or the round's. After `pickSeconds` (30 by default),
   whoever hasn't picked gets the first kit.
-- **On it:** styled like the lobby's team form, with the player's team color where the team form
-  has each team's (white in a game without teams): a status line (who's still picking, and the
-  seconds left), then each kit: its picture, its name in that color over who picked it (in their
-  team colors), and a Pick button, green "Picked" on yours. The base kit everyone gets isn't shown.
+- **The star:** before the match, players hold a nether star named "Change kit" (the last hotbar
+  slot). It brings up the kit form: while kits are being picked, the same form at once; before or
+  after that (waiting, the countdown), a form of its own with no status line, where a pick changes
+  their kit until the match starts. The forms close when it does. Teams aren't picked here: that's
+  the lobby's job.
+- **On it:** a status line (who's still picking, in their team colors, and the seconds left), then
+  each kit: its picture over a button with the kit's name, green on the player's own pick, like
+  the team form's. Nobody sees what the others picked. The base kit everyone gets isn't shown.
 - **Looks:** a live form renders in Minecraft's Ore UI, whose panel, buttons and fonts no resource
   pack or script can change (the layout is the client's `script_ui` pack, `ddui/root/custom_form.json`,
   and the script API has no style option). What's ours is the text, its color codes, and the pictures.
 - **Pictures:** the build draws each kit's picture into the game's resource pack
-  (`tools/build/kit-pictures.ts`): its items left to right in hotbar slots (a gray frame around a
-  dark see-through square), nine to a row, each with its count over 1 in the corner the way the
-  hotbar draws a stack, all four times as large. A picture is always a full row wide, so its items
-  start at the left. One picture per team dye for a kit with items in team colors. The icons are
-  Minecraft's own textures, a block's (wool) drawn as a cube; an item Minecraft has no texture for
-  is left out. The form needs the pack's UUID, so the game passes it (Bridges' `main.ts` reads its
-  resource pack manifest), and it worked in game. If a form with pictures can't show, it's shown
+  (`tools/build/kit-pictures.ts`): a hotbar of nine slots (a gray frame around a dark see-through
+  square), all four times as large. The kit's items fill it from the left (then what it puts in
+  the off hand), each with its count over 1 in the corner the way the hotbar draws a stack. A kit
+  with armor shows it in the last slot: one piece fills it, more share it at half size (head, chest,
+  legs, feet), and only eight items fit beside it. Without armor, nine items fit. Items past the
+  slots are left out. One picture per team dye for a kit with items in team colors or leather it
+  dyes (`teamArmor`). The icons are Minecraft's own textures, a block's (wool) drawn as a cube,
+  leather tinted (its own brown, or the team's color); an item Minecraft has no texture for is left
+  out. The form needs the pack's UUID, so the game passes it (Bridges' and Probe's `main.ts` read
+  their resource pack manifests), and it worked in game. A game whose players pick kits ships its
+  resource pack even when it holds nothing else. If a form with pictures can't show, it's shown
   again without them, with each kit's items as text ("8x Snowball").
 - **Minecraft's textures** (`tools/build/vanilla-textures.ts`) are Mojang's, so they never go in
   git. The build reads them from the vanilla resource pack of the Minecraft install on this PC
@@ -338,10 +346,10 @@ players pick in the lobby while the game server boots, so no time is lost on the
   server, and the usual countdown and transfer run.
 - **On the game server:** `Minigame.setTeamPicks()` keeps the picks for when the match begins.
   Players without a pick are dealt out randomly, and picks over a team's cap move to another team.
-  With Teams: Pick, the game doesn't hand out its own picker (the nether star); with Random, nobody
-  picks. The star is only for starts that don't come from the lobby's game screen (the debug API),
-  and only picks teams (kits have their own form). Otherwise teams are dealt as soon as everyone
-  is in, before the kit form and the countdown, so players wait at their own team's spawns.
+  With Random, nobody picks. Teams are only picked in the lobby: a start that doesn't come from
+  the lobby's game screen (the debug API, a preview) deals them all at random. Either way they're
+  dealt as soon as everyone is in, before the kit form and the countdown, so players wait at their
+  own team's spawns. (The game's nether star is for kits now, not teams: see the kit form.)
 - **The hologram:** while teams are picked it shows them, and it stays on the starting game until
   the players are sent; then it shows the main screen.
 - **Why a live form here, unlike the other menus:** a classic form (the themed menus) closes on
@@ -384,7 +392,9 @@ ports):
 included. Each setting's button shows its value and, under it, a bar per value with the chosen one
 bright (`settingBars()` in `scripts/menus.ts`, drawn with font glyphs). Probe is the test game for
 all of this: it has two teams (so Teams: Pick or Random, and the team form) and a Round setting
-that really sets its stage length. It needs 2 players, so set `DEV_MIN_PLAYERS=1` to test alone.
+that really sets its stage length. Its three kits test the kit form's pictures: Soldier (nine items
+and iron armor: eight items, then the armor), Builder (nine items, no armor) and Scout (three items
+and leather in the team's color). It needs 2 players, so set `DEV_MIN_PLAYERS=1` to test alone.
 When the match starts, Probe says the settings it got and who is on which team.
 
 ```ts

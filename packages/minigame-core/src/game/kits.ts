@@ -9,10 +9,9 @@ import {
   ItemLockMode,
   ItemStack,
   type Player,
-  type RGB,
 } from "@minecraft/server";
 import type { KitDef, KitSelect, KitsConfig, MapKitsConfig } from "../config.ts";
-import { kitItemId, matchKits, refillOnSpawn, type KitSpawn } from "../kit-defs.ts";
+import { TEAM_ARMOR_COLORS, kitItemId, matchKits, refillOnSpawn, type KitSpawn } from "../kit-defs.ts";
 import { describeError, log } from "../log.ts";
 
 const ARMOR_SLOTS = {
@@ -22,18 +21,6 @@ const ARMOR_SLOTS = {
   feet: EquipmentSlot.Feet,
   offhand: EquipmentSlot.Offhand,
 } as const;
-
-/** Leather armor colors for the § color codes teams use. */
-const TEAM_COLORS: Record<string, RGB> = {
-  "§c": { red: 0.85, green: 0.15, blue: 0.15 },
-  "§9": { red: 0.2, green: 0.35, blue: 0.9 },
-  "§a": { red: 0.3, green: 0.8, blue: 0.25 },
-  "§e": { red: 0.95, green: 0.85, blue: 0.2 },
-  "§6": { red: 0.95, green: 0.55, blue: 0.1 },
-  "§d": { red: 0.85, green: 0.35, blue: 0.85 },
-  "§b": { red: 0.3, green: 0.85, blue: 0.9 },
-  "§f": { red: 0.95, green: 0.95, blue: 0.95 },
-};
 
 /** Effects meant to last the whole life last this long (about 11 hours). */
 const FOREVER_TICKS = 20 * 60 * 60 * 11;
@@ -122,7 +109,7 @@ export class Kits {
         swapped.lockMode = stack.lockMode;
         inventory?.setItem(slot, swapped);
       }
-      const color = to ? TEAM_COLORS[to] : undefined;
+      const color = to ? TEAM_ARMOR_COLORS[to] : undefined;
       const equipment = player.getComponent(EntityComponentTypes.Equippable);
       for (const kit of kits) {
         if (!kit.teamArmor || !color) continue;
@@ -181,7 +168,7 @@ export class Kits {
       for (const [slot, item] of Object.entries(kit.armor ?? {}) as [keyof typeof ARMOR_SLOTS, string][]) {
         const stack = new ItemStack(item, 1);
         stack.lockMode = ItemLockMode.slot;
-        const color = kit.teamArmor && teamColor ? TEAM_COLORS[teamColor] : undefined;
+        const color = kit.teamArmor && teamColor ? TEAM_ARMOR_COLORS[teamColor] : undefined;
         const dyeable = color ? stack.getComponent(ItemComponentTypes.Dyeable) : undefined;
         if (dyeable && color) dyeable.color = color;
         equipment?.setEquipment(ARMOR_SLOTS[slot], stack);

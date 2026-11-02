@@ -1,0 +1,17 @@
+{
+  "format_version": 2,
+  "header": {
+    "name": "Minecade Probe",
+    "description": "The kit form's pictures for Probe's test kits",
+    "uuid": "c84ce30f-4629-4ffc-843a-28f80bce20a5",
+    "version": [1, 0, 0],
+    "min_engine_version": [1, 26, 60]
+  },
+  "modules": [
+    {
+      "type": "resources",
+      "uuid": "1f2906c2-95e0-49b9-858a-401d7a233390",
+      "version": [1, 0, 0]
+    }
+  ]
+}

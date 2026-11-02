@@ -1,10 +1,10 @@
-// The live kit form: the Minecraft side of kit-picker.ts. Like the lobby's team form, it's a
-// data-driven CustomForm, one per player, built once with observable text that updates as players
-// pick; its buttons don't close it. It's styled like the team form, with the player's team color
-// where the team form has each team's: each kit shows its picture (its items in hotbar slots with
-// their counts, drawn into the game's resource pack by the build), its name in the team's color
-// (white without a team) over who picked it, and a Pick button, green once picked. Not unit-tested;
-// the logic it shows is.
+// The live kit form: the Minecraft side of kit-picker.ts, and what the star brings up before the
+// match to change kits (minigame.ts). Like the lobby's team form, it's a data-driven CustomForm, one
+// per player, built once with observable text that updates; its buttons don't close it. Under a
+// status line (who's still picking, while kits are being picked), each kit shows its picture (a
+// hotbar of its items with their counts and its armor in the last slot, drawn into the game's
+// resource pack by the build) over a button with its name, green once it's the player's. Nobody
+// sees the others' picks. Not unit-tested; the logic it shows is.
 import { system, type Player } from "@minecraft/server";
 import { CustomForm, DataDrivenScreenClosedReason, ObservableBoolean, ObservableString } from "@minecraft/server-ui";
 import { describeError, log } from "../log.ts";
@@ -12,7 +12,7 @@ import type { KitPickView } from "./kit-picker.ts";
 
 /** Tries while the player is busy with another screen, 10 ticks apart (like showForm). */
 const BUSY_RETRIES = 10;
-/** A picture's width, as a share of the form's: all of it, a full row of hotbar slots, so its items start at the left. */
+/** A picture's width, as a share of the form's: all of it, a full hotbar. */
 const PICTURE_WIDTH = 1;
 
 /** One kit as the form shows it, for this player (team colors resolved). */
@@ -27,15 +27,12 @@ export interface KitCard {
 
 export interface KitFormContent {
   title: string;
-  /** The player's team color, for the kit names (white without a team). */
-  accent?: string;
   kits: KitCard[];
   /** The resource pack the pictures are in (its UUID), or undefined for no pictures. */
   pack?: string;
 }
 
 interface KitRow {
-  label: ObservableString;
   button: ObservableString;
   disabled: ObservableBoolean;
 }
@@ -54,11 +51,12 @@ export class KitForm {
   private showingNow = false;
   private closed = false;
 
+  /** A view with no status (the star's form, when nobody is waiting on picks) gets no status line. */
   constructor(player: Player, content: KitFormContent, view: KitPickView, onPick: (kitId: string) => void) {
     this.player = player;
     this.content = content;
     this.onPick = onPick;
-    this.rows = content.kits.map(() => ({ label: new ObservableString(""), button: new ObservableString(""), disabled: new ObservableBoolean(false) }));
+    this.rows = content.kits.map(() => ({ button: new ObservableString(""), disabled: new ObservableBoolean(false) }));
     this.pictures = content.pack !== undefined && !KitForm.noPictures;
     this.view = view;
     this.form = this.build();
@@ -84,16 +82,10 @@ export class KitForm {
   update(view: KitPickView): void {
     this.view = view;
     const mine = view.picks[this.player.name];
-    const accent = this.content.accent ?? "§f";
     this.status.setData(view.status);
     this.content.kits.forEach((kit, index) => {
       const row = this.rows[index];
-      const pickers = view.pickedBy[kit.id] ?? [];
-      const lines = [`${accent}${kit.name}`];
-      if (!this.pictures || kit.picture === undefined) lines.push(`§7${kit.lines.join("§7, ")}`);
-      if (pickers.length > 0) lines.push(`§7${pickers.join("§7, ")}`);
-      row.label.setData(lines.join("\n"));
-      row.button.setData(kit.id === mine ? `§aPicked ${kit.name}` : `Pick ${kit.name}`);
+      row.button.setData(kit.id === mine ? `§a${kit.name}` : kit.name);
       row.disabled.setData(kit.id === mine);
     });
   }
@@ -130,12 +122,14 @@ export class KitForm {
 
   private build(): CustomForm {
     const { kits, pack } = this.content;
-    const form = new CustomForm(this.player, this.content.title).label(this.status);
+    const form = new CustomForm(this.player, this.content.title);
+    const status = this.view.status !== "";
+    if (status) form.label(this.status);
     kits.forEach((kit, index) => {
       const row = this.rows[index];
-      form.divider();
+      if (status || index > 0) form.divider();
       if (this.pictures && pack !== undefined && kit.picture !== undefined) form.image(kit.picture, pack, { width: PICTURE_WIDTH });
-      form.label(row.label);
+      else if (kit.lines.length > 0) form.label(`§7${kit.lines.join("§7, ")}`);
       form.button(row.button, () => this.onPick(kit.id), { disabled: row.disabled });
     });
     return form;

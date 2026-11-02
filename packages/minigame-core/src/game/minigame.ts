@@ -33,7 +33,7 @@ import { KillCredit } from "./credit.ts";
 import { FAKE_STEPS, FAKE_TURN, fakePanelEntries, nudgeOffset, type FakeList, type FakePanelView } from "./fake-panel.ts";
 import { FAKE_PLAYER, FakePlayers } from "./fakes.ts";
 import { KitForm, type KitCard, type KitFormContent } from "./kit-form.ts";
-import { KitPicker } from "./kit-picker.ts";
+import { KitPicker, type KitPickView } from "./kit-picker.ts";
 import { Kits } from "./kits.ts";
 import { MapView } from "./map-view.ts";
 import { SIDE_TITLE } from "./preview.ts";
@@ -78,8 +78,9 @@ export interface StageResult<T = unknown> {
 
 /** Every match has a clock unless its config says otherwise (timeLimitSeconds: 0 for none). */
 export const DEFAULT_TIME_LIMIT_SECONDS = 5 * 60;
-const PICKER_ITEM = "minecraft:nether_star";
-const PICKER_SLOT = 8;
+/** The star: before the match, in a game whose players pick kits, it brings up the kit form to change kits. */
+const KIT_STAR = "minecraft:nether_star";
+const KIT_STAR_SLOT = 8;
 /** How often a preview's mode line is checked, and sent again when a title replaced it or it's due. */
 const PREVIEW_CHECK_TICKS = 20;
 const PREVIEW_REFRESH_TICKS = 100;
@@ -155,7 +156,10 @@ export abstract class Minigame<C extends GameConfig = GameConfig> {
    */
   private teamPlan: Map<string, string> | undefined;
   private readonly teamPicks = new Map<string, string>();
-  private readonly pickerOpen = new Set<string>();
+  /** Each player's kit form while one is up: the picker's, or the star's before the match. */
+  private readonly kitForms = new Map<string, KitForm>();
+  /** The kit picking under way, if any. */
+  private kitPicker: KitPicker | undefined;
   private readonly protectedUntil = new Map<string, number>();
   /** When each respawning player comes back (tick), for their countdown. */
   private readonly respawnAt = new Map<string, number>();
@@ -772,7 +776,6 @@ export abstract class Minigame<C extends GameConfig = GameConfig> {
 
   private departed(name: string): void {
     this.teamPicks.delete(name.toLowerCase());
-    this.pickerOpen.delete(name.toLowerCase());
     if (this.currentPhase !== "playing") return;
     const participant = this.roster.get(name);
     if (!participant || participant.state === "left") return;
@@ -783,26 +786,6 @@ export abstract class Minigame<C extends GameConfig = GameConfig> {
   }
 
   // ---- Pregame ----------------------------------------------------------------------------
-
-  /**
-   * Players pick teams here (with the star) only for starts that didn't come from the lobby's game
-   * screen: there, "pick" means the lobby collects the picks (setTeamPicks) and "random" means none.
-   */
-  private get teamPicking(): boolean {
-    const teams = this.config.teams;
-    return teams !== undefined && teams.pick !== false && this.ctx.vars.settings?.teams === undefined;
-  }
-
-  /** The star, for team picks on starts that didn't come from the lobby (kits have their own form). */
-  private get picksOpen(): boolean {
-    const roles = (this.config.teams?.defs ?? []).some((team) => team.size !== undefined);
-    return this.teamPicking && !roles;
-  }
-
-  private hasPicked(name: string): boolean {
-    if (this.fakes?.has(name)) return true;
-    return !this.teamPicking || this.teamPicks.has(name.toLowerCase());
-  }
 
   private get minPlayers(): number {
     return this.ctx.vars.devMinPlayers ?? this.config.minPlayers;
@@ -816,10 +799,11 @@ export abstract class Minigame<C extends GameConfig = GameConfig> {
   private openPregame(scope: Scope): void {
     scope.add(() => this.releaseQueueFloor());
     for (const player of world.getAllPlayers()) this.prepareWaiting(player);
-    if (this.picksOpen) {
+    if (this.kits.picking) {
       scope.subscribe(world.afterEvents.itemUse, ({ source, itemStack }) => {
-        if (itemStack.typeId === PICKER_ITEM) void this.openPicker(source, scope);
+        if (itemStack.typeId === KIT_STAR) this.openKitForm(source);
       });
+      scope.add(() => this.closeKitForms());
     }
     // Nobody can be hurt before the match (combat ignores non-participants); fallers come back,
     // and so does anyone pushed off a locked queue spawn.
@@ -878,11 +862,11 @@ export abstract class Minigame<C extends GameConfig = GameConfig> {
   private prepareWaiting(player: Player): void {
     normalizePlayer(player, this.gameMode);
     this.placeWaiting(player);
-    if (this.picksOpen) {
-      const picker = new ItemStack(PICKER_ITEM, 1);
-      picker.nameTag = "Pick a team";
-      picker.lockMode = ItemLockMode.slot;
-      player.getComponent(EntityComponentTypes.Inventory)?.container.setItem(PICKER_SLOT, picker);
+    if (this.kits.picking) {
+      const star = new ItemStack(KIT_STAR, 1);
+      star.nameTag = "Change kit";
+      star.lockMode = ItemLockMode.slot;
+      player.getComponent(EntityComponentTypes.Inventory)?.container.setItem(KIT_STAR_SLOT, star);
     }
   }
 
@@ -966,12 +950,13 @@ export abstract class Minigame<C extends GameConfig = GameConfig> {
   }
 
   /**
-   * Deals out teams once everyone is in, by the lobby's picks, so players wait at their own team's
-   * spawns while they pick kits and count down. Not while players pick teams with the star.
+   * Deals out teams once everyone is in, by the lobby's picks (the rest at random), so players wait
+   * at their own team's spawns while they pick kits and count down. Teams are only picked in the
+   * lobby: a start from anywhere else deals them all at random.
    */
   private planTeams(): void {
     const teams = this.config.teams;
-    if (!teams || this.teamPicking) return;
+    if (!teams) return;
     const names = this.online().slice(0, this.config.maxPlayers);
     const picks = new Map<string, string>();
     for (const name of names) {
@@ -1010,7 +995,8 @@ export abstract class Minigame<C extends GameConfig = GameConfig> {
     const picking = scope.child("kit-picks");
     if (pregame && !this.queued) this.freeze(names, picking);
     const teamOf = (name: string) => (pregame ? this.plannedTeam(name) : this.teamOf(name));
-    const forms = new Map<string, KitForm>();
+    this.closeKitForms(); // the star's: the picker brings up its own
+    const forms = this.kitForms;
     const picker: KitPicker = new KitPicker(
       {
         show: (name, view) => {
@@ -1037,6 +1023,7 @@ export abstract class Minigame<C extends GameConfig = GameConfig> {
         display: (name) => nameOf(name, teamOf(name)?.color),
       },
     );
+    this.kitPicker = picker;
     try {
       for (let waited = 0; ; waited += PICK_CHECK_TICKS) {
         if (this.outcome) return false;
@@ -1050,8 +1037,36 @@ export abstract class Minigame<C extends GameConfig = GameConfig> {
       }
     } finally {
       picker.cancel();
+      this.kitPicker = undefined;
       picking.dispose();
     }
+  }
+
+  /**
+   * The star: brings up the player's kit form. While kits are being picked it's the picker's (back
+   * at once if they closed it); otherwise a form of its own, with no status line, where a pick
+   * changes their kit for the match.
+   */
+  private openKitForm(player: Player): void {
+    const name = player.name;
+    if (this.kitPicker?.reopen(name)) return;
+    const open = this.kitForms.get(name);
+    if (open?.showingTo(player)) return;
+    open?.close();
+    const view = (): KitPickView => {
+      const kit = this.kits.chosenId(name);
+      return { status: "", picks: kit === undefined ? {} : { [name]: kit } };
+    };
+    const form: KitForm = new KitForm(player, this.kitFormContent(this.plannedTeam(name)?.color), view(), (kitId) => {
+      if (this.kits.choose(name, kitId)) form.update(view());
+    });
+    this.kitForms.set(name, form);
+    form.show();
+  }
+
+  private closeKitForms(): void {
+    for (const form of this.kitForms.values()) form.close();
+    this.kitForms.clear();
   }
 
   /** The kit form's content for a player of this team color: each kit, with its picture, in the team's color. */
@@ -1062,7 +1077,7 @@ export abstract class Minigame<C extends GameConfig = GameConfig> {
       lines: kitLines(kit, teamColor),
       picture: `${kitPicturePath(kit.id, { map: this.kits.fromMap.has(kit.id) ? this.ctx.vars.map : undefined, teamColor, colored: teamColored(kit) })}.png`,
     });
-    return { title: `${this.config.name}: pick a kit`, accent: teamColor, kits: this.kits.list.map(card), pack: this.kitPicturePack };
+    return { title: `${this.config.name}: pick a kit`, kits: this.kits.list.map(card), pack: this.kitPicturePack };
   }
 
   /**
@@ -1103,27 +1118,6 @@ export abstract class Minigame<C extends GameConfig = GameConfig> {
       entity.teleport(location, { facingLocation: { x: cx + 0.5, y: y + 1.62, z: cz + 0.5 } });
     } else {
       entity.teleport(location);
-    }
-  }
-
-  private async openPicker(player: Player, scope: Scope): Promise<void> {
-    const key = player.name.toLowerCase();
-    if (this.pickerOpen.has(key)) return;
-    this.pickerOpen.add(key);
-    try {
-      const teams = this.config.teams;
-      if (teams && this.teamPicking) {
-        const options = activeTeams(this.online().length, teams);
-        const form = new ActionFormData().title("Pick a team");
-        for (const team of options) {
-          const picked = [...this.teamPicks.values()].filter((id) => id === team.id).length;
-          form.button(`${team.color}${team.name}§r (${picked})`);
-        }
-        const answer = await showForm(scope, player, form);
-        if (answer?.selection !== undefined) this.teamPicks.set(key, options[answer.selection].id);
-      }
-    } finally {
-      this.pickerOpen.delete(key);
     }
   }
 
@@ -1168,9 +1162,7 @@ export abstract class Minigame<C extends GameConfig = GameConfig> {
     const scope = this.scope.child("countdown");
     this.countdownScope = scope;
     try {
-      const picks = this.picksOpen;
-      const base = this.config.countdownSeconds ?? 5;
-      let left = picks ? Math.max(base, 15) : base;
+      let left = this.config.countdownSeconds ?? 5;
       this.freeze(this.online(), scope);
       while (left > 0) {
         if (this.outcome) return false;
@@ -1179,8 +1171,7 @@ export abstract class Minigame<C extends GameConfig = GameConfig> {
           this.broadcast(say.warn("Not enough players. Waiting again."));
           return false;
         }
-        if (picks && left > 3 && online.every((name) => this.hasPicked(name))) left = 3;
-        this.title(`${COLOR.highlight}${left}`, say.minor(picks ? "Use the star to pick" : `${this.config.name} is starting`));
+        this.title(`${COLOR.highlight}${left}`, say.minor(`${this.config.name} is starting`));
         this.chime(countdownChime(left));
         await scope.wait(20);
         left--;

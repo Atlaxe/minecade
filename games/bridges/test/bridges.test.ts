@@ -53,8 +53,8 @@ async function begin(settings: Record<string, string> = {}, kits: [string, strin
 async function pickAndStart(game: Bridges, kits: [string, string]): Promise<void> {
   await ticks(2);
   expect(game.phase).toBe("picking");
-  openLiveForm("A")!.click(`Pick ${kits[0]}`);
-  openLiveForm("B")!.click(`Pick ${kits[1]}`);
+  openLiveForm("A")!.click(kits[0]);
+  openLiveForm("B")!.click(kits[1]);
   await ticks(6 + COUNTDOWN_TICKS);
   expect(game.phase).toBe("playing");
 }

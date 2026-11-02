@@ -71,14 +71,14 @@ describe("a best-of team game with kits every round and building", () => {
       const [aWool, aColor] = aRed ? ["minecraft:red_wool", "c"] : ["minecraft:blue_wool", "9"];
       expect([a.location.x, b.location.x]).toEqual(aRed ? [-9.5, 10.5] : [10.5, -9.5]);
       expect(a.unlocked).toBe(false);
-      // Each kit's name in the team's color, its items as text (this game has no pictures), and not
+      // Each kit's items as text (this game has no pictures) over a button with its name, and not
       // the base kit everyone gets.
       const texts = openLiveForm("A")!.texts();
-      expect(texts).toEqual(expect.arrayContaining([`§${aColor}Snowballs\n§78x Snowball`, "Pick Snowballs", "Pick Leap"]));
+      expect(texts).toEqual(expect.arrayContaining(["§78x Snowball", "Snowballs", "Leap"]));
       expect(texts.join("\n")).not.toContain("Wool");
 
-      openLiveForm("A")!.click("Pick Snowballs");
-      openLiveForm("B")!.click("Pick Leap");
+      openLiveForm("A")!.click("Snowballs");
+      openLiveForm("B")!.click("Leap");
       await ticks(6);
       expect(game.phase).toBe("countdown");
       await ticks(3 * 20 + 5);
@@ -115,8 +115,8 @@ describe("a best-of team game with kits every round and building", () => {
       await ticks(41);
       expect(openLiveForm("A")).toBeDefined();
       expect(items(a)).toEqual([`64 ${aWool}`]); // the round's kit comes with the pick
-      openLiveForm("A")!.click("Pick Leap");
-      openLiveForm("B")!.click("Pick Snowballs");
+      openLiveForm("A")!.click("Leap");
+      openLiveForm("B")!.click("Snowballs");
       await ticks(6);
       expect(items(a)).toEqual([`64 ${aWool}`, "1 minecraft:feather"]);
       expect(items(b)).toContain("8 minecraft:snowball");

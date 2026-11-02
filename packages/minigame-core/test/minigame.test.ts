@@ -25,6 +25,8 @@ const snapshot = () => snapshotOf(harness.root);
 const playToEnd = (game: Minigame, baseline: Baseline, act: () => Promise<void>) => playToEndOn(game, harness.root, baseline, act);
 const expectBaseline = (baseline: Baseline) => expectBaselineOf(harness.root, baseline);
 const statsOf = (from: number) => statsRows(harness.sent, from);
+/** Holds the star, which brings up the kit form before the match. */
+const star = (player: FakePlayer) => player.inventory.items().some((item) => item.typeId === "minecraft:nether_star");
 
 beforeAll(() => {
   harness = createHarness();
@@ -56,22 +58,34 @@ describe("three games in a row on one server", () => {
       await ticks(2);
       expect(game.phase).toBe("picking");
       expect(a.unlocked).toBe(false); // frozen while picking
-      // A picks the bow; B closes the kit form, and it comes back; C and D never pick.
-      openLiveForm("A")!.click("Pick Bow");
-      expect(openLiveForm("A")!.texts()).toContain("§aPicked Bow");
+      // A picks the bow, and only A's form shows it; B closes the kit form, and it comes back; C
+      // closes it and brings it back at once with the star; C and D never pick.
+      expect(star(a)).toBe(true);
+      openLiveForm("A")!.click("Bow");
+      expect(openLiveForm("A")!.texts()).toContain("§aBow");
       openLiveForm("B")!.dismiss();
+      openLiveForm("C")!.dismiss();
       await ticks(1);
       expect(openLiveForm("B")).toBeUndefined();
+      world.afterEvents.itemUse.emit({ source: c, itemStack: new ItemStack("minecraft:nether_star") });
+      expect(openLiveForm("C")!.texts()).toContain("Bow");
       await ticks(20);
-      expect(openLiveForm("B")!.texts().join("\n")).toContain("A§r");
+      // Its items as text (this game has no pictures) over a button with its name.
+      expect(openLiveForm("B")!.texts()).toEqual([expect.stringContaining("Waiting for"), "§7Iron Sword", "Sword", "§7Bow", "Bow"]);
       // After 30 seconds the rest get the first kit, and the countdown runs.
       await ticks(29 * 20);
       expect(game.phase).toBe("countdown");
       expect(["A", "B", "C", "D"].map(openLiveForm)).toEqual([undefined, undefined, undefined, undefined]);
+      // The star brings up the kit form until the match starts (no status line): A changes to the sword.
+      world.afterEvents.itemUse.emit({ source: a, itemStack: new ItemStack("minecraft:nether_star") });
+      expect(openLiveForm("A")!.texts()).toEqual(["§7Iron Sword", "Sword", "§7Bow", "§aBow"]);
+      openLiveForm("A")!.click("Sword");
+      expect(openLiveForm("A")!.texts()).toEqual(["§7Iron Sword", "§aSword", "§7Bow", "Bow"]);
       await ticks(3 * 20 + 5);
       expect(game.phase).toBe("playing");
+      expect(openLiveForm("A")).toBeUndefined();
       expect(a.unlocked).toBe(true);
-      expect(a.inventory.items().map((item) => item.typeId)).toEqual(["minecraft:bow"]);
+      expect(a.inventory.items().map((item) => item.typeId)).toEqual(["minecraft:iron_sword"]);
       expect(c.inventory.items().map((item) => item.typeId)).toEqual(["minecraft:iron_sword"]);
 
       world.hurt(c, 25, "entityAttack", { attacker: a }); // lethal: intercepted, no vanilla death
@@ -253,17 +267,14 @@ describe("Minigame details", () => {
     everyoneLeaves();
   });
 
-  it("uses the lobby's team picks instead of handing out its own picker, and ignores late ones", async () => {
+  it("uses the lobby's team picks, and ignores late ones", async () => {
     const config: GameConfig = { id: "pick", name: "Pick", minPlayers: 2, maxPlayers: 4, countdownSeconds: 3, endDelaySeconds: 1, teams: { count: 2 } };
-    const star = (player: FakePlayer) => player.inventory.items().some((item) => item.typeId === "minecraft:nether_star");
-    const [a] = ["A", "B"].map((name) => world.join(name));
+    ["A", "B"].map((name) => world.join(name));
     const baseline = snapshot();
     const game = new TestGame(harness.context(["A", "B"], undefined, { teams: "pick" }), config);
     game.setTeamPicks({ A: "blue", b: "blue" });
     await playToEnd(game, baseline, async () => {
-      await ticks(3);
-      expect(star(a)).toBe(false);
-      await ticks(3 * 20 + 5); // the plain countdown: no 15 s for picking
+      await ticks(3 * 20 + 8);
       expect(game.phase).toBe("playing");
       // Both picked blue, but a team holds ceil(2 / 2) = 1: A (first) keeps it.
       expect(game.roster.get("A")?.team).toBe("blue");
@@ -277,17 +288,16 @@ describe("Minigame details", () => {
     everyoneLeaves();
   });
 
-  it("hands out the team picker for starts outside the lobby, unless the lobby's game screen chose random teams", async () => {
+  it("deals teams at random for starts outside the lobby, as for Random teams, with no picker of its own", async () => {
     const config: GameConfig = { id: "pick", name: "Pick", minPlayers: 2, maxPlayers: 4, countdownSeconds: 3, endDelaySeconds: 1, teams: { count: 2 } };
-    const star = (player: FakePlayer) => player.inventory.items().some((item) => item.typeId === "minecraft:nether_star");
     for (const settings of [{}, { teams: "random" }] as Record<string, string>[]) {
       const [a, b] = ["A", "B"].map((name) => world.join(name));
       const baseline = snapshot();
       const game = new TestGame(harness.context(["A", "B"], undefined, settings), config);
       await playToEnd(game, baseline, async () => {
         await ticks(3);
-        expect(star(a)).toBe(settings.teams !== "random");
-        await ticks(15 * 20 + 5);
+        expect(star(a)).toBe(false);
+        await ticks(3 * 20 + 5);
         expect(game.phase).toBe("playing");
         expect(new Set([game.roster.get("A")?.team, game.roster.get("B")?.team]).size).toBe(2);
         game.finish({ kind: "draw", reason: "test over" });

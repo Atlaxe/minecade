@@ -107,7 +107,9 @@ async function loadTarget(id: string, dir: string, configPath?: string): Promise
   }
   if (existsSync(join(dir, "behavior_pack", "manifest.json"))) target.behaviorPack = await loadManifest(join(dir, "behavior_pack"));
   const rpDir = join(dir, "resource_pack");
-  if (existsSync(join(rpDir, "manifest.json")) && (await hasContent(rpDir))) target.resourcePack = await loadManifest(rpDir);
+  // A game whose players pick kits ships its pack even with nothing else in it: the build draws the kit pictures into it.
+  const pictures = target.game?.kits?.select !== undefined;
+  if (existsSync(join(rpDir, "manifest.json")) && (pictures || (await hasContent(rpDir)))) target.resourcePack = await loadManifest(rpDir);
   if (target.game) {
     if (existsSync(join(dir, "icon.png"))) target.icon = join(dir, "icon.png");
     else report(dir, ["icon.png is missing: the lobby's game picker and hologram show it (a 16:9 PNG, such as 320x180)"]);

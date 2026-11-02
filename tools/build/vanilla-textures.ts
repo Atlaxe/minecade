@@ -6,37 +6,48 @@
 import { copyFileSync, existsSync, mkdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { decodePng, type Image } from "../skins/png.ts";
 
 /** The copies of the archives (git-ignored). */
 export const VANILLA_CACHE = fileURLToPath(new URL("../assets/vanilla/", import.meta.url));
 /** Minecraft's vanilla resource pack (the Windows client's); MINECRAFT_VANILLA points elsewhere. */
 export const VANILLA_PACK = process.env.MINECRAFT_VANILLA ?? "C:\\XboxGames\\Minecraft for Windows\\Content\\data\\resource_packs\\vanilla";
-/** The archives, in the pack's __brarchive/textures folder: items/<name>.png and blocks/<name>.png. */
+/** The archives, in the pack's __brarchive/textures folder: items/<name>.png and blocks/<name>.png (a few .tga). */
 const ARCHIVES = ["items", "blocks"] as const;
 type Folder = (typeof ARCHIVES)[number];
 
-/** Item ids whose texture has another name, without "minecraft:". The rest are items/<id>. */
+/**
+ * Item ids whose texture has another name, without "minecraft:". Wooden and golden tools and armor
+ * are wood_ and gold_ (wood_sword, gold_helmet); the rest are items/<id>, else blocks/<id>.
+ */
 const ITEM_TEXTURES: Record<string, string> = {
-  wooden_sword: "wood_sword",
-  golden_sword: "gold_sword",
-  wooden_axe: "wood_axe",
-  golden_axe: "gold_axe",
-  wooden_pickaxe: "wood_pickaxe",
-  golden_pickaxe: "gold_pickaxe",
-  wooden_shovel: "wood_shovel",
-  golden_shovel: "gold_shovel",
   bow: "bow_standby",
   crossbow: "crossbow_standby",
   golden_apple: "apple_golden",
+  golden_carrot: "carrot_golden",
   fishing_rod: "fishing_rod_uncast",
+  cooked_beef: "beef_cooked",
+  cooked_chicken: "chicken_cooked",
+  cooked_porkchop: "porkchop_cooked",
+  baked_potato: "potato_baked",
+  bucket: "bucket_empty",
+  water_bucket: "bucket_water",
+  lava_bucket: "bucket_lava",
+  compass: "compass_item",
+  clock: "clock_item",
+  totem_of_undying: "totem",
+  fire_charge: "fireball",
 };
+/** Block ids whose texture has another name. */
+const BLOCK_TEXTURES: Record<string, string> = { oak_planks: "planks_oak", bricks: "brick" };
+const TOOLS_AND_ARMOR = /^(wooden|golden)_(sword|axe|pickaxe|shovel|hoe|helmet|chestplate|leggings|boots)$/;
 /** Dye names whose wool texture has another name. */
 const WOOL_DYES: Record<string, string> = { light_gray: "silver" };
 
 /** A texture to draw: an item's flat picture, or a block's face (drawn as a cube). */
 export interface VanillaTexture {
   kind: "item" | "block";
-  png: Uint8Array;
+  image: Image;
 }
 
 /**
@@ -98,12 +109,63 @@ export class VanillaTextures {
   item(itemId: string): VanillaTexture | undefined {
     const name = itemId.replace(/^minecraft:/, "");
     const wool = /^(\w+)_wool$/.exec(name);
-    if (wool) return this.png("blocks", `wool_colored_${WOOL_DYES[wool[1]] ?? wool[1]}`, "block");
-    return this.png("items", ITEM_TEXTURES[name] ?? name, "item") ?? this.png("blocks", name, "block");
+    if (wool) return this.texture("blocks", `wool_colored_${WOOL_DYES[wool[1]] ?? wool[1]}`, "block");
+    const tool = TOOLS_AND_ARMOR.exec(name);
+    const itemName = ITEM_TEXTURES[name] ?? (tool ? `${tool[1] === "wooden" ? "wood" : "gold"}_${tool[2]}` : name);
+    return this.texture("items", itemName, "item") ?? this.texture("blocks", BLOCK_TEXTURES[name] ?? name, "block");
   }
 
-  private png(folder: Folder, name: string, kind: VanillaTexture["kind"]): VanillaTexture | undefined {
+  /** A texture as a PNG, else a TGA (leather armor's are). */
+  private texture(folder: Folder, name: string, kind: VanillaTexture["kind"]): VanillaTexture | undefined {
     const png = this.folders[folder].get(`${name}.png`);
-    return png && png[0] === 0x89 ? { kind, png } : undefined;
+    const tga = this.folders[folder].get(`${name}.tga`);
+    try {
+      const image = png && png[0] === 0x89 ? decodePng(png) : tga ? decodeTga(tga) : undefined;
+      return image ? { kind, image } : undefined;
+    } catch {
+      return undefined; // a kind of PNG the decoder doesn't read: left out like a missing one
+    }
   }
+}
+
+/**
+ * A TGA image: true color (24 or 32 bits a pixel), plain or run-length encoded, as Minecraft keeps
+ * a few textures. Undefined for any other kind.
+ */
+export function decodeTga(bytes: Uint8Array): Image | undefined {
+  // An 18-byte head: the id's length, a color map flag, the image type (2 plain, 10 run-length),
+  // the color map's spec, the origin, the width and height, the bits a pixel and a descriptor (bit
+  // 5 set when the first row is the top). Then the id, then the pixels in BGR(A).
+  if (bytes.length < 18 || bytes[1] !== 0 || (bytes[2] !== 2 && bytes[2] !== 10)) return undefined;
+  const width = bytes[12] | (bytes[13] << 8);
+  const height = bytes[14] | (bytes[15] << 8);
+  const size = bytes[16] / 8;
+  if ((size !== 3 && size !== 4) || width === 0 || height === 0) return undefined;
+  const topFirst = (bytes[17] & 0x20) !== 0;
+  const data = new Uint8Array(width * height * 4);
+  let at = 18 + bytes[0];
+  const pixel = (index: number, from: number) => {
+    const row = Math.floor(index / width);
+    const to = ((topFirst ? row : height - 1 - row) * width + (index % width)) * 4;
+    data.set([bytes[from + 2], bytes[from + 1], bytes[from], size === 4 ? bytes[from + 3] : 255], to);
+  };
+  for (let index = 0; index < width * height; ) {
+    if (bytes[2] === 2) {
+      if (at + size > bytes.length) return undefined;
+      pixel(index++, at);
+      at += size;
+      continue;
+    }
+    const head = bytes[at++];
+    const count = (head & 0x7f) + 1;
+    if (head & 0x80) {
+      if (at + size > bytes.length) return undefined;
+      for (let step = 0; step < count && index < width * height; step++) pixel(index++, at);
+      at += size;
+    } else {
+      if (at + count * size > bytes.length) return undefined;
+      for (let step = 0; step < count && index < width * height; step++, at += size) pixel(index++, at);
+    }
+  }
+  return { width, height, data };
 }

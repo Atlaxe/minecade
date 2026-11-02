@@ -17,7 +17,7 @@ export interface TeamsConfig {
   count: number | [min: number, max: number];
   /** Smallest useful team; decides how many teams a range opens. Default 1. */
   minPerTeam?: number;
-  /** Let players pick a team before the match; the rest are spread randomly. Default true. */
+  /** Let players pick a team in the lobby before the match; the rest are spread randomly. Default true. */
   pick?: boolean;
   friendlyFire?: boolean;
   /** Team names and colors. Default: Red, Blue, Green, Yellow. */

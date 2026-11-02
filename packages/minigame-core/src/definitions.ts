@@ -26,10 +26,13 @@ export {
   type TeamsConfig,
 } from "./config.ts";
 export {
+  ARMOR_PIECES,
   COLOR_SLOT,
   DEFAULT_PICK_SECONDS,
   KIT_PICTURES,
+  TEAM_ARMOR_COLORS,
   dyeName,
+  isLeather,
   itemLabel,
   kitItemId,
   kitLines,

@@ -1,14 +1,13 @@
 // Picking kits, as plain logic: every player gets a live kit form (kit-form.ts) that stays open,
 // coming back if they close it, until everyone has picked. Then the forms close and the match (or
-// the round) counts down. Whoever hasn't picked when the time runs out gets the first kit. The
-// Minigame passes in ports for the forms, so this file is unit-tested with plain data.
+// the round) counts down. Whoever hasn't picked when the time runs out gets the first kit. A form
+// shows who's still picking, never what the others picked. The Minigame passes in ports for the
+// forms, so this file is unit-tested with plain data.
 
 export interface KitPickView {
-  /** "Waiting for Alex and Sam: 24 s", or "Everyone's ready". */
+  /** "Waiting for Alex and Sam: 24 s", or "Everyone's ready"; empty for no status line. */
   status: string;
-  /** Who picked each kit, by kit id: names in their team colors. */
-  pickedBy: Record<string, string[]>;
-  /** Each player's pick, by name. */
+  /** Each player's pick, by name: a form shows only its own player's. */
   picks: Record<string, string>;
 }
 
@@ -69,6 +68,13 @@ export class KitPicker {
     }
   }
 
+  /** Brings a player's form back now if they closed it (the star), rather than at the next tick. False when they aren't picking here. */
+  reopen(name: string): boolean {
+    if (this.done || !this.here().includes(name)) return false;
+    this.ports.show(name, this.view());
+    return true;
+  }
+
   pick(name: string, kitId: string): void {
     if (this.done || !this.options.players.includes(name) || !this.options.kits.choose(name, kitId)) return;
     if (!this.check()) this.refresh();
@@ -107,21 +113,16 @@ export class KitPicker {
   }
 
   private view(): KitPickView {
-    const pickedBy: Record<string, string[]> = Object.fromEntries(this.options.kits.list.map((kit) => [kit.id, []]));
     const picks: Record<string, string> = {};
     const waiting: string[] = [];
     for (const name of this.here()) {
       const id = this.options.kits.chosenId(name);
-      if (id === undefined) {
-        waiting.push(name);
-        continue;
-      }
-      picks[name] = id;
-      pickedBy[id]?.push(this.options.display(name));
+      if (id === undefined) waiting.push(name);
+      else picks[name] = id;
     }
     const left = Math.max(1, this.options.seconds - this.elapsed);
     const status = waiting.length === 0 ? "§aEveryone's ready" : `Waiting for ${listNames(waiting.map((name) => this.options.display(name)))}§r: ${left} s`;
-    return { status, pickedBy, picks };
+    return { status, picks };
   }
 
   /** The players picking who are still here. */
