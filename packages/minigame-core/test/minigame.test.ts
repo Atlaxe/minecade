@@ -62,7 +62,7 @@ describe("three games in a row on one server", () => {
       // closes it and brings it back at once with the star; C and D never pick.
       expect(star(a)).toBe(true);
       openLiveForm("A")!.click("Bow");
-      expect(openLiveForm("A")!.texts()).toContain("§aBow");
+      expect(openLiveForm("A")!.disabledButtons()).toEqual(["Bow"]);
       openLiveForm("B")!.dismiss();
       openLiveForm("C")!.dismiss();
       await ticks(1);
@@ -78,9 +78,10 @@ describe("three games in a row on one server", () => {
       expect(["A", "B", "C", "D"].map(openLiveForm)).toEqual([undefined, undefined, undefined, undefined]);
       // The star brings up the kit form until the match starts (no status line): A changes to the sword.
       world.afterEvents.itemUse.emit({ source: a, itemStack: new ItemStack("minecraft:nether_star") });
-      expect(openLiveForm("A")!.texts()).toEqual(["§7Iron Sword", "Sword", "§7Bow", "§aBow"]);
+      expect(openLiveForm("A")!.texts()).toEqual(["§7Iron Sword", "Sword", "§7Bow", "Bow"]);
+      expect(openLiveForm("A")!.disabledButtons()).toEqual(["Bow"]);
       openLiveForm("A")!.click("Sword");
-      expect(openLiveForm("A")!.texts()).toEqual(["§7Iron Sword", "§aSword", "§7Bow", "Bow"]);
+      expect(openLiveForm("A")!.disabledButtons()).toEqual(["Sword"]);
       await ticks(3 * 20 + 5);
       expect(game.phase).toBe("playing");
       expect(openLiveForm("A")).toBeUndefined();

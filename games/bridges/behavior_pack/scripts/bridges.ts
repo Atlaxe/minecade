@@ -71,10 +71,16 @@ export function holeColumn(hole: Hole, halfWidth: number, top: number): Box {
   return { min: [low(hole.at.x), floor, low(hole.at.z)], max: [high(hole.at.x), Math.max(floor, top), high(hole.at.z)] };
 }
 
-/** The Leap's push: the way the player looks, flat, at `strength`. */
-export function leapPush(view: Vector3, strength: number): { x: number; z: number } {
-  const flat = Math.hypot(view.x, view.z);
-  return flat < 0.0001 ? { x: 0, z: 0 } : { x: (view.x / flat) * strength, z: (view.z / flat) * strength };
+/**
+ * The Leap's push, the way the player looks: on a level look, `forward` along the ground and `lift`
+ * up (so it leaves the ground); looking up, less forward and more up, to `up` straight up; looking
+ * down, less lift, to none straight down.
+ */
+export function leapPush(view: Vector3, leap: { forward: number; lift: number; up: number }): { x: number; z: number; vertical: number } {
+  const length = Math.hypot(view.x, view.y, view.z) || 1;
+  const [x, y, z] = [view.x / length, view.y / length, view.z / length];
+  const vertical = y >= 0 ? leap.lift + y * (leap.up - leap.lift) : leap.lift * (1 + y);
+  return { x: x * leap.forward, z: z * leap.forward, vertical };
 }
 
 export class Bridges extends Minigame<typeof config> {
@@ -233,12 +239,12 @@ export class Bridges extends Minigame<typeof config> {
     }
   }
 
-  /** The Leap: a push forward and up, once (the feather is used up). Only while a round is played. */
+  /** The Leap: a push the way the player looks, once (the feather is used up). Only while a round is played. */
   private leap(player: Player): void {
     if (!this.roundInPlay || this.roster.get(player.name)?.state !== "alive" || countItem(player, LEAP) === 0) return;
-    const { horizontal, vertical } = this.config.leap;
     try {
-      player.applyKnockback(leapPush(player.getViewDirection(), horizontal), vertical);
+      const push = leapPush(player.getViewDirection(), this.config.leap);
+      player.applyKnockback({ x: push.x, z: push.z }, push.vertical);
       useOne(player, LEAP);
       player.playSound("mob.enderdragon.flap", { pitch: 1.6, volume: 0.6 });
     } catch (error) {

@@ -92,8 +92,14 @@ describe("Bridges' config and map", () => {
     expect(inHole({ x: -22.8, y: 63, z: 0.5 }, holes[0], size)).toBe(true); // 3 blocks wide
     expect(inHole({ x: -22.5, y: 63, z: 0.5 }, holes[0], size)).toBe(false);
     expect(holeColumn(holes[0], size.halfWidth, 100)).toEqual({ min: [-26, 62, -1], max: [-24, 100, 1] });
-    expect(leapPush({ x: 0, y: -1, z: 0 }, 1.6)).toEqual({ x: 0, z: 0 });
-    expect(leapPush({ x: 3, y: 5, z: 4 }, 2)).toEqual({ x: 1.2, z: 1.6 });
+    // The Leap goes the way you look: level is forward with the lift, straight up is all up,
+    // halfway up is some of each, and straight down is nothing.
+    const leap = { forward: 3, lift: 0.5, up: 1 };
+    expect(leapPush({ x: 1, y: 0, z: 0 }, leap)).toEqual({ x: 3, z: 0, vertical: 0.5 });
+    expect(leapPush({ x: 0, y: 1, z: 0 }, leap)).toEqual({ x: 0, z: 0, vertical: 1 });
+    const halfway = leapPush({ x: 0, y: Math.SQRT1_2, z: Math.SQRT1_2 }, leap);
+    expect([halfway.x, halfway.z, halfway.vertical].map((part) => Math.round(part * 1000) / 1000)).toEqual([0, 2.121, 0.854]);
+    expect(leapPush({ x: 0, y: -1, z: 0 }, leap)).toEqual({ x: 0, z: 0, vertical: 0 });
   });
 });
 
@@ -190,7 +196,7 @@ describe("a match of Bridges", () => {
       b.viewDirection = { x: 1, y: 0, z: 0 };
       b.selectedSlotIndex = 3;
       world.afterEvents.itemUse.emit({ source: b, itemStack: new ItemStack("minecraft:feather") });
-      expect(b.knockbacks).toEqual([{ x: config.leap.horizontal, z: 0, vertical: config.leap.vertical }]);
+      expect(b.knockbacks).toEqual([{ x: config.leap.forward, z: 0, vertical: config.leap.lift }]);
       expect(ids(b)).not.toContain("1 feather");
       world.afterEvents.itemUse.emit({ source: b, itemStack: new ItemStack("minecraft:feather") });
       expect(b.knockbacks).toHaveLength(1);

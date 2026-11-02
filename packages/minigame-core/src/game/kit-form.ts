@@ -3,8 +3,9 @@
 // per player, built once with observable text that updates; its buttons don't close it. Under a
 // status line (who's still picking, while kits are being picked), each kit shows its picture (a
 // hotbar of its items with their counts and its armor in the last slot, drawn into the game's
-// resource pack by the build) over a button with its name, green once it's the player's. Nobody
-// sees the others' picks. Not unit-tested; the logic it shows is.
+// resource pack by the build) over a button with its name, disabled once it's the player's (the
+// form ignores color codes on buttons, so it can't turn green). Nobody sees the others' picks. Not
+// unit-tested; the logic it shows is.
 import { system, type Player } from "@minecraft/server";
 import { CustomForm, DataDrivenScreenClosedReason, ObservableBoolean, ObservableString } from "@minecraft/server-ui";
 import { describeError, log } from "../log.ts";
@@ -85,7 +86,7 @@ export class KitForm {
     this.status.setData(view.status);
     this.content.kits.forEach((kit, index) => {
       const row = this.rows[index];
-      row.button.setData(kit.id === mine ? `§a${kit.name}` : kit.name);
+      row.button.setData(kit.name);
       row.disabled.setData(kit.id === mine);
     });
   }

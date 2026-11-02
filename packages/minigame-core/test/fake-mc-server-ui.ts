@@ -111,6 +111,8 @@ interface LivePart {
   pack?: string;
 }
 
+const isDisabled = (part: LivePart) => (typeof part.disabled === "object" ? part.disabled.getData() : part.disabled) === true;
+
 /** Every live form made, oldest first. */
 export const liveForms: CustomForm[] = [];
 /** When true, show() rejects for a form with an image, as a client that can't show it might. */
@@ -181,12 +183,16 @@ export class CustomForm {
     return this.parts.filter((part) => part.text !== undefined).map((part) => read(part.text!));
   }
 
+  /** The texts of the buttons disabled now. */
+  disabledButtons(): string[] {
+    return this.parts.filter((part) => part.kind === "button" && isDisabled(part)).map((part) => read(part.text!));
+  }
+
   /** Clicks the button whose text includes `text` (enabled ones only). */
   click(text: string): void {
     const button = this.parts.find((part) => part.kind === "button" && read(part.text!).includes(text));
     if (!button) throw new Error(`no button "${text}" on the form: ${this.texts().join(" | ")}`);
-    const disabled = typeof button.disabled === "object" ? button.disabled.getData() : button.disabled;
-    if (!disabled) button.onClick?.();
+    if (!isDisabled(button)) button.onClick?.();
   }
 
   private end(reason: DataDrivenScreenClosedReason): void {

@@ -68,8 +68,11 @@ export default defineGame({
   stats: { mode: "team", pvp: true, extras: [{ key: "goals", label: "Goals", agg: "sum" }] },
   /** The arrow: at most `max`, and one back `regenSeconds` after the last is gone (a kill gives one at once). */
   arrow: { max: 1, regenSeconds: 10 },
-  /** The Leap feather: how hard it throws you forward and up. */
-  leap: { horizontal: 3.2, vertical: 0.55 },
+  /**
+   * The Leap feather throws you the way you look: on a level look, `forward` along the ground and
+   * `lift` up; looking up, less forward and more up, to `up` straight up.
+   */
+  leap: { forward: 3.2, lift: 0.55, up: 1 },
   /** The hole: half its width and its height, in blocks. */
   hole: { halfWidth: 1.5, height: 3 },
 });

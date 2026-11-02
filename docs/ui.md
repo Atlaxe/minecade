@@ -136,11 +136,17 @@ don't close it; `packages/minigame-core/src/game/kit-form.ts`, its logic in `kit
   their kit until the match starts. The forms close when it does. Teams aren't picked here: that's
   the lobby's job.
 - **On it:** a status line (who's still picking, in their team colors, and the seconds left), then
-  each kit: its picture over a button with the kit's name, green on the player's own pick, like
-  the team form's. Nobody sees what the others picked. The base kit everyone gets isn't shown.
+  each kit: its picture over a button with the kit's name, disabled on the player's own pick (it
+  can't turn green: see Looks). Nobody sees what the others picked. The base kit everyone gets isn't
+  shown.
 - **Looks:** a live form renders in Minecraft's Ore UI, whose panel, buttons and fonts no resource
   pack or script can change (the layout is the client's `script_ui` pack, `ddui/root/custom_form.json`,
-  and the script API has no style option). What's ours is the text, its color codes, and the pictures.
+  and the script API has no style option). What's ours is the text, the color codes in labels, and
+  the pictures.
+- **Buttons take no color:** a live form ignores color codes in a button's text (a `§a` doesn't turn
+  it green), so a button's text is always the form's own color. Take that as a given for now. An
+  image button (`imageDetails` in the button's options) is likely the only way to color one; not
+  tried yet. The team form's green "On Red" is plain text too.
 - **Pictures:** the build draws each kit's picture into the game's resource pack
   (`tools/build/kit-pictures.ts`): a hotbar of nine slots (a gray frame around a dark see-through
   square), all four times as large. The kit's items fill it from the left (then what it puts in
