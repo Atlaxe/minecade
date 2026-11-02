@@ -13,7 +13,7 @@ Tests still to run by hand. Delete a line once it passes.
 
 ## One in the Quiver
 
-With a second player (a preview with an invited guest, or the network once the map is published):
+With a second player (a preview with a guest, or the network once the map is published):
 
 - After a published match, the stats screen's One in the Quiver tab shows Bow kills and Longest shot.
 - Published: the game is in the lobby's game grid with the green QUIVER picture (a Game picture
@@ -38,8 +38,11 @@ Several bounds and the Boundaries view, on a copy of Sumo's Arena:
 
 Guests (needs a second account that isn't in LAN_PLAYERS):
 
-- Edit's gear, Players, Invite a player: chat says they're invited and gives the address to join.
-  The Panel's Guests card lists them.
+- The Panel's Map editor page, Who can join: Add their gamertag. They're listed, with where they
+  are once the editor runs. The in-game icon rows (editor lobby, Select's map menu, Edit's gear)
+  have no Players icon, and the rest still line up.
+- With the editor shut down, Add and Remove a guest: the list keeps the change, and the next boot
+  lets them in.
 - With nothing open on Select, the guest who joins port 19132 sees a dark screen saying it's
   waiting for Select or a preview, and no editor menu.
 - Open a world in Select: the guest is moved there in creative with no tools, and can fly around
@@ -49,10 +52,26 @@ Guests (needs a second account that isn't in LAN_PLAYERS):
   Select once it reopens.
 - In a preview, the guest types `/exit`: only they go home to the editor lobby, and the preview
   goes on for you.
-- Players, tap the guest, Remove: they're disconnected with "You're no longer invited to the map
-  editor", and can't rejoin.
+- On the Panel, Remove the guest while they're on: they're disconnected with "You're no longer a
+  guest of the map editor", and can't rejoin.
 - With a second map editor (another LAN_PLAYERS account) in Edit, opening another map asks about
   them first; they wait in the editor lobby and come back with you.
+
+Friends tab in the map editor (first forward TCP 19135 on the router and widen the firewall rule to
+TCP 19132-19135; a console friend on the guest list):
+
+- Boot (or Restart) the editor with Friends tab on: the Map editor page's Friends tab row goes from
+  Starting to "On. Friends who add (account) ...", with no sign-in asked if the network's sign-in
+  carried over. The editor log says the same.
+- The console friend sees "Minecade map editor" in their Friends tab, joins, and is moved to
+  Select (or waits in the editor lobby until Select or a preview opens).
+- A console friend not on the guest list is refused.
+- Start a preview with the console guest in it: when it ends, they land back in the editor lobby
+  (through 19135) instead of getting stuck.
+- Open another world in Select while the console guest is on it: they wait in the editor lobby and
+  come back to the new Select.
+- Turn off, then Turn on, on the Map editor page while the editor runs: the bot stops and starts
+  again, and the editor log says so. The Servers page's Friends tab row shows the same switch.
 
 Previews:
 
