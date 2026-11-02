@@ -24,11 +24,12 @@ function pixel(picture: Picture, x: number, y: number): number[] {
 
 describe("PNG", () => {
   it("reads PNGs another encoder wrote, RGB and RGBA", () => {
-    const icon = decodePng(readFileSync(join(root, "games/sumo/icon.png")));
+    // Pillow's (tools/assets/make-assets.py): a game's icon.png can be replaced by a screenshot, this can't.
+    const icon = decodePng(readFileSync(join(root, "lobby/resource_pack/textures/minecade/ui/map_placeholder.png")));
     expect([icon.width, icon.height]).toEqual([320, 180]);
-    expect(pixel(icon, 0, 0)).toEqual([190, 60, 60, 255]);
-    expect(pixel(icon, 160, 90)).toEqual([161, 94, 94, 255]);
-    expect(pixel(icon, 319, 179)).toEqual([70, 20, 20, 255]);
+    expect(pixel(icon, 0, 0)).toEqual([40, 52, 70, 255]);
+    expect(pixel(icon, 160, 90)).toEqual([29, 38, 52, 255]);
+    expect(pixel(icon, 319, 179)).toEqual([18, 24, 34, 255]);
     const play = decodePng(readFileSync(join(root, "lobby/resource_pack/textures/minecade/ui/icon_play.png")));
     expect(pixel(play, 32, 32)).toEqual([190, 240, 255, 255]);
     expect(pixel(play, 0, 0)[3]).toBe(0);
