@@ -54,11 +54,11 @@ export function previewForm(): ActionFormData {
   return form;
 }
 
-/** A card per game, three columns across: its 16:9 picture, its name, and a player icon with the players it needs (red when short). */
+/** A tile per game, four columns across: its 16:9 picture, its name, and under it a player icon with the players it needs (the layout's gray, red when short). */
 export function gamesForm(choices: GameChoice[]): ActionFormData {
   const form = themedForm(`${LAYOUT.games}§rPlay`);
   choices.forEach(({ game, playable }, index) => {
-    form.button(`${MARK.games[index % 3]}${game.name}\n${playable ? "§7" : "§c"}${GLYPH.player} ${playerCount(game)}`, gamePicture(game));
+    form.button(`${MARK.games[index % MARK.games.length]}${game.name}\n${playable ? "" : "§c"}${GLYPH.player} ${playerCount(game)}`, gamePicture(game));
   });
   return form;
 }

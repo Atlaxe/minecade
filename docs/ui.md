@@ -195,7 +195,7 @@ at a time; a public hologram above it shows everyone what they're doing.
 |---|---|---|
 | Idle | nothing | The logo frame, "Tap the terminal", until someone first uses the terminal. After that, the last screen stays up between sessions, and the main screen after a game starts |
 | Main | The themed menu: logo, Play and Stats side by side | The logo frame, Play and Stats, the chosen one lit |
-| Play | A scrolling grid of game cards, 3 across, 80% of the screen's height: the game's 16:9 picture, its name, a player icon and the players needed (red when there aren't enough) | "Choose a game" and the game names, dimmed when there aren't enough players |
+| Play | A scrolling grid of game tiles, 4 across, 80% of the screen's height, laid out like the game screen's map tiles: the game's 16:9 picture in a frame, its name over a dark fade at the bottom, and under the name, smaller and darker gray, a player icon and the players needed (red when there aren't enough) | "Choose a game" and the game names, dimmed when there aren't enough players |
 | Game | Left: the game's name and info, a red warning when there aren't enough players, the Random map switch (on at first), the settings (Teams: Pick or Random for team games, then the game's own options), Start at the bottom. Right: scrolling map tiles, 2 across, each a 16:9 preview with the name over it; dimmed while Random is on, the chosen one outlined when it's off. Clicking a tile turns Random off and picks that map | Across the top, as wide as the frame allows: the chosen map's preview (or the "No preview" placeholder), or the game's picture while the map is random. Under it, two columns starting at the same height: the game's name and the players it needs on the left, and a table of "Map:" and each setting (up to 3) in white with the answers in yellow on the right. No map list or Start (only the terminal's user picks those) |
 | Teams | After Start on a team game set to Pick, **every player in the match** gets a live team form (see below) | The game's name, each team and its players in the team's color, who's still random, and when teams lock |
 | Starting | Nothing on screen (a chat message says who started what); the countdown chimes play for the players in the match | Centered: "Starting Sumo", the map and "Getting the server ready" while its server boots (after the team picks, for team games), then "Starting Sumo in", the seconds left in big yellow numbers, and the map |
@@ -299,7 +299,7 @@ the main menu.
 columns by a mark at the start of each button's text (`MARK` in `scripts/game-screen.ts`,
 formatting codes ending in `§r`, so they never render). In `ui/minecade_forms.json`, each column
 is a stack panel that makes an item for every button and shows only the items with its mark; a
-hidden item takes no space. The game grid alternates its cards between three columns. The game
+hidden item takes no space. The game grid alternates its tiles between four columns. The game
 screen's buttons come in this order: the Random map switch (`MARK.toggle`, plus `MARK.on` while
 it's on, which swaps its switch picture), the settings, the maps (alternating between the two map
 columns; `MARK.dim` darkens them while Random is on, and `MARK.selected` outlines the chosen
@@ -572,16 +572,16 @@ middle, and the tiled scanlines, which repeat.
 | `packages/minigame-core/resource_pack/textures/minecade/hud/clock.png` | HUD clock icon, 10x10 | 16x16 |
 | `packages/minigame-core/resource_pack/textures/minecade/hud/skull.png` | HUD own score icon (kills), 10x10 | 16x16 |
 | `packages/minigame-core/resource_pack/textures/minecade/ui/logo.png` | Main menu logo, 232x50; the logo on every server's loading screen and pause menu | 1072x240, transparent background |
-| `lobby/resource_pack/textures/minecade/ui/holo_panel.png` | Every menu's background (main menu 300x116, game grid 430 wide by 80% of the screen, game screen 460x250) | 64x64 at 1x, nine-slice (`holo_panel.json`): the outer 24 pixels hold the border and corner brackets and keep their size, the middle stretches; partly transparent |
+| `lobby/resource_pack/textures/minecade/ui/holo_panel.png` | Every menu's background (main menu 300x116, game grid 460 wide by 80% of the screen, game screen 460x250) | 64x64 at 1x, nine-slice (`holo_panel.json`): the outer 24 pixels hold the border and corner brackets and keep their size, the middle stretches; partly transparent |
 | `lobby/resource_pack/textures/minecade/ui/holo_scanlines.png` | Scanlines over every menu's background, tiled (repeated at 1 pixel per pixel) | 4x3, one faint line on top, the rest transparent |
 | `lobby/resource_pack/textures/minecade/ui/icon_play.png`, `icon_stats.png` | Button icons, 20x20 | 64x64 |
-| `lobby/resource_pack/textures/minecade/ui/tile_map_default.png`, `_hover`, `_pressed` | Map tile frames, drawn over the map's preview, 104x58; the preview sits inside the 2 pixel border (100x54) | 16x16 at 1x, nine-slice (4 pixel slices): a 2 pixel square outline, transparent middle (a light tint on hover and press) |
+| `lobby/resource_pack/textures/minecade/ui/tile_map_default.png`, `_hover`, `_pressed` | Map and game tile frames, drawn over the preview or the game's picture, 104x58; the picture sits inside the 2 pixel border (100x54) | 16x16 at 1x, nine-slice (4 pixel slices): a 2 pixel square outline, transparent middle (a light tint on hover and press) |
 | `lobby/resource_pack/textures/minecade/ui/tile_map_selected.png` | Drawn over the chosen map's tile, 104x58 | 16x16 at 1x, nine-slice: a white 2 pixel outline, transparent middle |
 | `lobby/resource_pack/textures/minecade/ui/tile_dim.png` | Darkens the map tiles while Random is on, 100x54 | 8x8, black, partly transparent |
 | `lobby/resource_pack/textures/minecade/ui/fade_bottom.png` | The dark fade under a map's name, stretched over the tile's lower half | 8x64, black, transparent at the top |
 | `lobby/resource_pack/textures/minecade/ui/map_placeholder.png` | The preview of a map without its own (on its tile and the hologram) | 320x180 (16:9) |
 | `lobby/resource_pack/textures/minecade/ui/game_placeholder.png` | The picture of a game without its own (demo games) | 320x180 (16:9) |
-| `lobby/resource_pack/textures/minecade/ui/button_default.png`, `_hover`, `_pressed` | Every button: main menu tiles (136x34), game cards (132x44), the Random switch, settings and Start (210x28), player rows, tabs | 16x16 at 1x, nine-slice (4 pixel slices): navy, a 2 pixel cyan line down the left and right edges, square corners |
+| `lobby/resource_pack/textures/minecade/ui/button_default.png`, `_hover`, `_pressed` | Every button: main menu tiles (136x34), the Random switch, settings and Start (210x28), player rows, tabs | 16x16 at 1x, nine-slice (4 pixel slices): navy, a 2 pixel cyan line down the left and right edges, square corners |
 | `lobby/resource_pack/textures/minecade/ui/back_default.png`, `_hover`, `_pressed` | Every menu's back arrow, top left, 15x15 | 15x15, a white arrow (light blue on hover) |
 | `lobby/resource_pack/textures/minecade/ui/close_default.png`, `_hover`, `_pressed` | Every menu's X, top right, 15x15 | 15x15, a white X (red on hover, dark red pressed) |
 | `lobby/resource_pack/textures/minecade/ui/toggle_on.png`, `toggle_off.png` | The Random map switch, 26x13 | 52x26, a square track with a square knob |

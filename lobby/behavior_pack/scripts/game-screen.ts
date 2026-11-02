@@ -10,8 +10,8 @@ import { PLACEHOLDER_PICTURES, type GameOptionConfig, type RegistryGame } from "
 
 /** Column and state markers. Each must match minecade_forms.json (a test checks), and none may contain another. */
 export const MARK = {
-  /** The game grid's three columns. */
-  games: ["§q§1§r", "§q§2§r", "§q§3§r"],
+  /** The game grid's four columns. */
+  games: ["§q§1§r", "§q§2§r", "§q§3§r", "§q§4§r"],
   /** The game screen's two map columns. */
   maps: ["§m§1§r", "§m§2§r"],
   /** The Random map switch. */

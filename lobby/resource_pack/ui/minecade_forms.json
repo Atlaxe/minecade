@@ -310,12 +310,13 @@
   },
 
   // ---- Play: the game grid ---------------------------------------------------------------------
-  // Three columns of wide cards (16:9 picture left, name and player count right), scrolling.
-  // 80% of the screen's height; the background is a nine-slice, so its border keeps its size.
+  // Four columns of game tiles, scrolling: laid out like the game screen's map tiles, with the
+  // players it needs under the name. 80% of the screen's height; the background is a nine-slice,
+  // so its border keeps its size.
   "games_menu": {
     "type": "panel",
     "visible": false,
-    "size": [430, "80%"],
+    "size": [460, "80%"],
     "layer": 2,
     "bindings": [
       { "binding_name": "#title_text" },
@@ -363,23 +364,30 @@
     "controls": [
       { "column_1@minecade_forms.games_column_1": {} },
       { "column_2@minecade_forms.games_column_2": {} },
-      { "column_3@minecade_forms.games_column_3": {} }
+      { "column_3@minecade_forms.games_column_3": {} },
+      { "column_4@minecade_forms.games_column_4": {} }
     ]
   },
 
-  "games_column_1@minecade_forms.button_column": { "size": [136, "100%c"], "factory": { "name": "buttons", "control_ids": { "button": "@minecade_forms.game_card_1" } } },
-  "games_column_2@minecade_forms.button_column": { "size": [136, "100%c"], "factory": { "name": "buttons", "control_ids": { "button": "@minecade_forms.game_card_2" } } },
-  "games_column_3@minecade_forms.button_column": { "size": [136, "100%c"], "factory": { "name": "buttons", "control_ids": { "button": "@minecade_forms.game_card_3" } } },
+  "games_column_1@minecade_forms.button_column": { "size": [108, "100%c"], "factory": { "name": "buttons", "control_ids": { "button": "@minecade_forms.game_card_1" } } },
+  "games_column_2@minecade_forms.button_column": { "size": [108, "100%c"], "factory": { "name": "buttons", "control_ids": { "button": "@minecade_forms.game_card_2" } } },
+  "games_column_3@minecade_forms.button_column": { "size": [108, "100%c"], "factory": { "name": "buttons", "control_ids": { "button": "@minecade_forms.game_card_3" } } },
+  "games_column_4@minecade_forms.button_column": { "size": [108, "100%c"], "factory": { "name": "buttons", "control_ids": { "button": "@minecade_forms.game_card_4" } } },
 
   "game_card_1@minecade_forms.game_card": { "$card_mark": "§q§1§r" },
   "game_card_2@minecade_forms.game_card": { "$card_mark": "§q§2§r" },
   "game_card_3@minecade_forms.game_card": { "$card_mark": "§q§3§r" },
+  "game_card_4@minecade_forms.game_card": { "$card_mark": "§q§4§r" },
 
-  // The label is the name and, on the second line, the player icon (a font glyph) and count.
+  // A game's tile, like a map tile: its 16:9 picture inside the frame's 2 pixel border, a dark fade
+  // with the white name over it, under that the player icon (a font glyph) and the players it needs,
+  // smaller and darker (red when there aren't enough), and on top a transparent button whose states
+  // draw only the frame. The text is "name\nplayers": each label shows all of it, clipped to one
+  // line, the name's from the top and the players' from the bottom.
   "game_card": {
     "type": "panel",
     "visible": false,
-    "size": [136, 48],
+    "size": [108, 62],
     "$card_mark|default": "",
     "bindings": [
       { "binding_name": "#form_button_text", "binding_type": "collection", "binding_collection_name": "form_buttons" },
@@ -390,35 +398,71 @@
       }
     ],
     "controls": [
+      { "picture@minecade_forms.button_picture": { "size": [100, 54], "layer": 1 } },
       {
-        "button@common.button": {
-          "$pressed_button_name": "button.form_button_click",
-          "size": [132, 44],
-          "bindings": [{ "binding_type": "collection_details", "binding_collection_name": "form_buttons" }],
+        "shade": {
+          "type": "image",
+          "texture": "textures/minecade/ui/fade_bottom",
+          "size": [100, 32],
+          "anchor_from": "bottom_middle",
+          "anchor_to": "bottom_middle",
+          "offset": [0, -4],
+          "keep_ratio": false,
+          "layer": 2
+        }
+      },
+      {
+        "name": {
+          "type": "panel",
+          "size": [92, 9],
+          "clips_children": true,
+          "anchor_from": "bottom_left",
+          "anchor_to": "bottom_left",
+          "offset": [8, -16],
+          "layer": 3,
           "controls": [
-            { "default@minecade_forms.face": { "$tile_texture": "textures/minecade/ui/button_default" } },
-            { "hover@minecade_forms.face": { "$tile_texture": "textures/minecade/ui/button_hover" } },
-            { "pressed@minecade_forms.face": { "$tile_texture": "textures/minecade/ui/button_pressed" } }
+            {
+              "label@minecade_forms.button_label": {
+                "color": [1.0, 1.0, 1.0],
+                "anchor_from": "top_left",
+                "anchor_to": "top_left"
+              }
+            }
           ]
         }
       },
       {
-        "picture@minecade_forms.button_picture": {
-          "size": [60, 34],
-          "anchor_from": "left_middle",
-          "anchor_to": "left_middle",
-          "offset": [7, 0],
-          "layer": 4
+        "players": {
+          "type": "panel",
+          "size": [92, 8],
+          "clips_children": true,
+          "anchor_from": "bottom_left",
+          "anchor_to": "bottom_left",
+          "offset": [8, -7],
+          "layer": 3,
+          "controls": [
+            {
+              "label@minecade_forms.button_label": {
+                "color": [0.55, 0.6, 0.66],
+                "font_scale_factor": 0.8,
+                "anchor_from": "bottom_left",
+                "anchor_to": "bottom_left"
+              }
+            }
+          ]
         }
       },
       {
-        "label@minecade_forms.button_label": {
-          "size": [58, "default"],
-          "font_scale_factor": 0.85,
-          "anchor_from": "left_middle",
-          "anchor_to": "left_middle",
-          "offset": [72, 0],
-          "layer": 4
+        "button@common.button": {
+          "$pressed_button_name": "button.form_button_click",
+          "size": [104, 58],
+          "layer": 5,
+          "bindings": [{ "binding_type": "collection_details", "binding_collection_name": "form_buttons" }],
+          "controls": [
+            { "default@minecade_forms.face": { "$tile_texture": "textures/minecade/ui/tile_map_default" } },
+            { "hover@minecade_forms.face": { "$tile_texture": "textures/minecade/ui/tile_map_hover" } },
+            { "pressed@minecade_forms.face": { "$tile_texture": "textures/minecade/ui/tile_map_pressed" } }
+          ]
         }
       }
     ]

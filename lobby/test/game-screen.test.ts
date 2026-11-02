@@ -102,20 +102,22 @@ describe("the game screen model", () => {
 });
 
 describe("the Play forms", () => {
-  it("shows a card per game with a player icon and count, red when there aren't enough, across three columns", () => {
+  it("shows a tile per game with its name, then a player icon and count (red when there aren't enough), across four columns", () => {
     const form = gamesForm([
       { game: sumo, playable: true },
       { game: teams, playable: false, reason: "needs at least 2 players" },
       { game: roles, playable: true },
       { game: probe, playable: true },
+      { game: sumo, playable: true },
     ]) as unknown as { buttons: string[]; titleText: string };
     expect(stripColors(form.titleText)).toBe("Play");
     expect(form.buttons).toEqual([
       CLOSE_BUTTON,
-      `${MARK.games[0]}Sumo\n§7${GLYPH.player} 2-6`,
+      `${MARK.games[0]}Sumo\n${GLYPH.player} 2-6`,
       `${MARK.games[1]}Paintball\n§c${GLYPH.player} 2-6`,
-      `${MARK.games[2]}Hide and Seek\n§7${GLYPH.player} 2-6`,
-      `${MARK.games[0]}Probe\n§7${GLYPH.player} 2-6`,
+      `${MARK.games[2]}Hide and Seek\n${GLYPH.player} 2-6`,
+      `${MARK.games[3]}Probe\n${GLYPH.player} 2-6`,
+      `${MARK.games[0]}Sumo\n${GLYPH.player} 2-6`,
     ]);
   });
 
