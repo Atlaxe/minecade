@@ -1,0 +1,12 @@
+{
+  "name": "Apocalypse",
+  "draft": true,
+  "spawns": [],
+  "spectatorSpawn": [0, 59, 0],
+  "bounds": { "min": [-21, 21, -31], "max": [21, 61, 30] },
+  "source": {
+    "world": "Bikini Bottom Export",
+    "box": { "min": [22, 21, 4], "max": [64, 49, 65] },
+    "offset": [-43, 0, -35]
+  }
+}
