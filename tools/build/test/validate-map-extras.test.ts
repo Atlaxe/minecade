@@ -223,3 +223,68 @@ describe("validateGameConfig: teams, kits, stats and respawn", () => {
     ]);
   });
 });
+
+describe("validateGameConfig: kit picking, best-of rounds and building", () => {
+  const base: GameConfig = { id: "bridges", name: "Bridges", minPlayers: 2, maxPlayers: 8, teams: { count: 2 } };
+  const snow = { id: "snow", name: "Snowballs", items: [{ item: "minecraft:snowball", count: 8 }] };
+  const leap = { id: "leap", name: "Leap", items: [{ item: "minecraft:feather" }] };
+  const kitBase = { id: "bridges", name: "Bridges", items: [{ item: "minecraft:{color}_wool", count: 64 }] };
+  const bestOfOption = { id: "bestOf", label: "Best of", values: [{ value: "5", label: "5" }, { value: "3", label: "3" }, { value: "7", label: "7" }] };
+
+  it("accepts Bridges' setup", () => {
+    const config: GameConfig = {
+      ...base,
+      options: [bestOfOption],
+      kits: { select: "match", base: kitBase, list: [snow, leap] },
+      bestOf: { rounds: 5, display: "icons", option: "bestOf" },
+      build: { noBuild: ["spawnGuard"] },
+    };
+    expect(validateGameConfig(config, "bridges")).toEqual([]);
+    expect(validateGameConfig({ ...base, bestOf: { firstTo: 10, display: "score" } }, "bridges")).toEqual([]);
+  });
+
+  it("needs a best-of game for kits picked every round, and kit ids unique with the base's", () => {
+    expect(validateGameConfig({ ...base, kits: { select: "round", list: [snow, leap] } }, "bridges")).toEqual(['kits.select "round" needs bestOf: kits are picked before each best-of round']);
+    expect(validateGameConfig({ ...base, kits: { base: { ...kitBase, id: "snow" }, list: [snow] } }, "bridges")).toEqual(["kit ids must be unique"]);
+    expect(validateGameConfig({ ...base, kits: { select: "match", pickSeconds: 2, list: [snow] } }, "bridges")).toEqual(["kits.pickSeconds must be whole seconds from 5 to 120"]);
+  });
+
+  it("needs at least 3 rounds, and a display with room for them", () => {
+    expect(validateGameConfig({ ...base, bestOf: { rounds: 1 } }, "bridges")).toEqual(["bestOf.rounds must be a whole number of at least 3"]);
+    expect(validateGameConfig({ ...base, bestOf: { rounds: 3, firstTo: 2 } }, "bridges")).toEqual(["bestOf takes rounds or firstTo, not both"]);
+    expect(validateGameConfig({ ...base, bestOf: { rounds: 9, display: "icons" } }, "bridges")).toEqual(['bestOf.display "icons" shows up to 7 rounds']);
+    expect(validateGameConfig({ ...base, teams: { count: [2, 4] }, minPlayers: 2, bestOf: { rounds: 5, display: "icons" } }, "bridges")).toEqual([
+      'bestOf.display "icons" is for two sides (two teams, or two players)',
+    ]);
+    const badOption = { ...bestOfOption, values: [{ value: "5", label: "5" }, { value: "2", label: "2" }] };
+    expect(validateGameConfig({ ...base, options: [badOption], bestOf: { rounds: 5, option: "bestOf" } }, "bridges")).toEqual([
+      'bestOf.option "bestOf": every value must be a round count of at least 3',
+    ]);
+    expect(validateGameConfig({ ...base, bestOf: { rounds: 5, option: "rounds" } }, "bridges")).toEqual(['bestOf.option "rounds" must be one of the game\'s options']);
+  });
+
+  it("needs region names for no-build regions", () => {
+    expect(validateGameConfig({ ...base, build: { noBuild: ["spawn guard"] } }, "bridges")).toEqual(['build.noBuild "spawn guard" must be a region name: letters, digits and _, starting with a letter']);
+  });
+});
+
+describe("validateMapConfig: a map's own kits", () => {
+  const kit = { id: "ice", name: "Ice", items: [{ item: "minecraft:ice", count: 16 }] };
+
+  it("accepts kits added to the game's or in their place", () => {
+    expect(validateMapConfig({ name: "Glacier", spawns, kits: { list: [kit] } }, game)).toEqual([]);
+    expect(validateMapConfig({ name: "Glacier", spawns, kits: { mode: "replace", base: { ...kit, id: "base" }, list: [kit] } }, game)).toEqual([]);
+  });
+
+  it("checks their shape", () => {
+    const kits = { mode: "swap", list: [kit, { id: "Ice", name: "", items: [{ item: "minecraft:ice", count: 99 }] }, kit] };
+    expect(validateMapConfig({ name: "Glacier", spawns, kits }, game)).toEqual([
+      '"kits.mode" must be "append" or "replace"',
+      "kits.list[1].id must be lowercase letters, digits and _, starting with a letter",
+      "kits.list[1].name is required",
+      "kits.list[1].items[0].count must be from 1 to 64",
+      '"kits" ids must be unique',
+    ]);
+    expect(validateMapConfig({ name: "Hub", spawns: [[0, 64, 0]], kits: { list: [kit] } }, { kind: "lobby" })).toEqual(['"kits" is only for game maps']);
+  });
+});

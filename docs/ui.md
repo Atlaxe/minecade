@@ -97,6 +97,56 @@ place, and keeps only the ones whose codes are in the line (`"ignored"`, so a 5 
 It shows 0 to 999. A test checks the codes match the pack. With no clock (a time limit of 0), the
 score is plain action bar text ("Kills: 5").
 
+**Best-of rounds:** a game with a `bestOf` config (Bridges) shows its rounds in a third box, left of
+the others, in one of two ways (`bestOf.display`):
+
+- **Icons** (two sides, best of up to 7): a white circle per round. Each round's winner colors the
+  next circle, left to right, in their team color; a drawn round is gray. Bridges' best of 5 starts
+  as five white circles.
+- **Score** (up to 4 sides, any number of rounds): each side's round wins in its color, separated
+  by gray bars, "2 | 1", or "R | Y | G | B" for four teams. A first-to-10 game uses this one.
+
+Without `display`, icons are used when they fit and the score otherwise. It rides on the action
+bar like the own score: `bestOfCodes()` in `hud.ts` adds codes for the number of circles and each
+won circle's color (`§k§i`, `§k§j`), or each side's color and its wins' tens and units (`§k§q`,
+`§k§m`, `§k§s`). The box's controls are generated, since there's one per code it can find:
+`tools/assets/rounds-hud.ts` writes `ui/minecade_rounds.json` (listed in the core pack's
+`ui/_ui_defs.json`), and a test fails if the committed file is out of date. A best-of game's clock
+is the match's, over all the rounds; with no clock at all, the clock's box goes (`§k§v`), or keeps
+only the rest of the line without the clock icon (`§k§o`).
+
+## The kit form
+
+A game whose `kits` have `select` (Bridges) has players pick a kit in a live form, the same kind as
+the lobby's team form (a data-driven `CustomForm`: it updates while open and its buttons don't
+close it; `packages/minigame-core/src/game/kit-form.ts`, its logic in `kit-picker.ts`).
+
+- **When:** `select: "match"` once before the match, `select: "round"` before every best-of round
+  (round 1's pick is the match's, and players wait frozen at their spawns). Kit changes in the middle
+  of a round aren't built yet.
+- **Where:** once everyone is in, teams are dealt first (by the lobby's picks), so players wait at
+  their own team's spawns, frozen; on a map with a queue spawn, they pick in the queue.
+- **Staying open:** the form stays open until everyone has picked. Closing it brings it back within
+  a second. Players can change their pick until the last one picks; then every form closes and the
+  usual countdown runs (Bridges' 5 seconds), or the round's. After `pickSeconds` (30 by default),
+  whoever hasn't picked gets the first kit.
+- **On it:** a status line (who's still picking, and the seconds left), "Everyone gets" with the
+  base kit, then each kit: its picture, its name and items ("8x Snowball"), a Pick button (green
+  "Picked" on yours), and who picked it, in their team colors.
+- **Pictures:** the build draws each kit's picture into the game's resource pack
+  (`tools/build/kit-pictures.ts`): its items' icons in a row, four times as large, with counts over
+  1 in the corner the way Minecraft draws a stack, one picture per team dye for a kit with items in
+  team colors. Icons are `tools/assets/items/<item>.png` (from `make-assets.py`; an item without one
+  is left out). The form needs the pack's UUID, so the game passes it (Bridges' `main.ts` reads its
+  resource pack manifest). What DDUI's `image()` wants as its pack argument isn't documented; the
+  UUID is the guess. If a form with pictures can't show, it's shown again without them.
+
+Kits themselves: `base` is what everyone gets on top of their pick. Each kit's `refill` says when
+it comes back: `"life"` on every spawn (the default), `"round"` at the start of the match and of
+every round, with what's left kept through a respawn (Bridges' snowballs and Leap), or `"match"`
+once. An item id with `{color}` takes the team's dye: `minecraft:{color}_wool` is red wool on Red.
+A map can add kits of its own or replace the game's (`kits` in `map.json`, see `docs/maps.md`).
+
 ## Countdown sounds
 
 Every countdown (the match start, each round, and the lobby's countdown before sending players) plays a tick
@@ -271,7 +321,9 @@ players pick in the lobby while the game server boots, so no time is lost on the
 - **On the game server:** `Minigame.setTeamPicks()` keeps the picks for when the match begins.
   Players without a pick are dealt out randomly, and picks over a team's cap move to another team.
   With Teams: Pick, the game doesn't hand out its own picker (the nether star); with Random, nobody
-  picks. The star is only for starts that don't come from the lobby's game screen (the debug API).
+  picks. The star is only for starts that don't come from the lobby's game screen (the debug API),
+  and only picks teams (kits have their own form). Otherwise teams are dealt as soon as everyone
+  is in, before the kit form and the countdown, so players wait at their own team's spawns.
 - **The hologram:** while teams are picked it shows them, and it stays on the starting game until
   the players are sent; then it shows the main screen.
 - **Why a live form here, unlike the other menus:** a classic form (the themed menus) closes on
@@ -528,6 +580,9 @@ middle, and the tiled scanlines, which repeat.
 | `lobby/resource_pack/textures/minecade/badges/a.png` to `z.png`, `0.png` to `9.png`, `other.png` | Player badges: 20x20 in the stats list, 88x88 as the portrait on a player's stats and about 0.9 blocks on the hologram (where their skin goes later) | 64x64, a square |
 | `lobby/resource_pack/font/glyph_E3.png` | Icons inside text, about the height of a letter: cell 0 (U+E300) is the player icon on the game cards; cells 1 and 2 (U+E301, U+E302) are a setting's bars under its label, bright for the chosen value and dim for the others | 256x256, 16x16 cells, on transparent |
 | `games/<id>/icon.png` | The game's picture: on its card (60x34) and on the hologram (2 blocks wide) while the map is random | 320x180 (16:9), required for every game |
+| `packages/minigame-core/resource_pack/textures/minecade/hud/round_open.png`, `round_<code>.png` | The best-of rounds circles, 8x8 top right: white for a round to play, then the winner's color (`c`, `9`, `a`, `e`, `6`, `d`, `b`, `f`; `7` gray for a drawn round) | 32x32, a filled circle with a darker rim |
+| `tools/assets/items/<item>.png` | Item icons the build puts together into each kit's picture (not shipped as they are); wool comes in each team dye | 16x16 pixel art, on transparent |
+| `games/bridges/resource_pack/textures/minecade/bridges/hole_<dye>.png` | Bridges' hole: black walls and floor (left), the rim's ring in the team's color (right) | 96x48; the ring's middle is clear |
 | `games/<id>/maps/<map>/preview.png` | A map's preview on its tile (100x54) and on the hologram when it's chosen (optional) | 320x180 (16:9), such as a screenshot |
 | `lobby/resource_pack/textures/minecade/holo/frame_logo.png`, `frame_panel.png` | Hologram frames, 3x3 blocks on all four sides, with live text over them; `frame_logo` has the logo up top | 512x512 (square), additive |
 | `lobby/resource_pack/textures/minecade/holo/backdrop.png` | Behind the hologram's panels, tinting the sky behind them | 16x16, light blue (28, 185, 244) at about 14% (alpha 35), alpha-blended |

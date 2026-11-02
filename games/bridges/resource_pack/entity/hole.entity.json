@@ -1,0 +1,23 @@
+{
+  "format_version": "1.10.0",
+  "minecraft:client_entity": {
+    "description": {
+      "identifier": "minecade:bridges_hole",
+      "materials": {
+        "default": "entity_alphatest"
+      },
+      "textures": {
+        "red": "textures/minecade/bridges/hole_red",
+        "blue": "textures/minecade/bridges/hole_blue",
+        "lime": "textures/minecade/bridges/hole_lime",
+        "yellow": "textures/minecade/bridges/hole_yellow"
+      },
+      "geometry": {
+        "default": "geometry.minecade.bridges_hole"
+      },
+      "render_controllers": [
+        "controller.render.minecade.bridges_hole"
+      ]
+    }
+  }
+}

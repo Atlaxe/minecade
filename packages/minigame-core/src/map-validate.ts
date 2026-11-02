@@ -60,6 +60,7 @@ export function validateMapConfig(raw: unknown, rules: MapRules): string[] {
   if (map.time !== undefined && mapTimeTicks(map.time) === undefined) {
     problems.push(`"time" must be one of ${Object.keys(MAP_TIMES).join(", ")}, or ticks from 0 to 23999`);
   }
+  if (map.kits !== undefined) problems.push(...mapKitProblems(map.kits, rules.kind));
   if (map.stars !== undefined && typeof map.stars !== "boolean") problems.push('"stars" must be true or false');
   if (map.stars === true && rules.kind !== "lobby") problems.push('"stars" is only for the lobby map');
 
@@ -239,6 +240,42 @@ function editorKeyProblems(map: Partial<MapConfig>): string[] {
 }
 
 /** Reports a bad position; true when it's a usable one. */
+const KIT_ID = /^[a-z][a-z0-9_]*$/;
+const KIT_REFILLS: readonly unknown[] = ["life", "round", "match"];
+
+/** A map's own kits: { "mode": "append" | "replace", "base": kit, "list": [kits] }, with unique ids. */
+function mapKitProblems(kits: unknown, kind: MapRules["kind"]): string[] {
+  if (kind === "lobby") return ['"kits" is only for game maps'];
+  if (!isRecord(kits)) return ['"kits" must be { "mode": "append" | "replace", "base": kit, "list": [kits] }'];
+  const problems: string[] = [];
+  if (kits.mode !== undefined && kits.mode !== "append" && kits.mode !== "replace") problems.push('"kits.mode" must be "append" or "replace"');
+  if (kits.list !== undefined && !Array.isArray(kits.list)) problems.push('"kits.list" must be a list of kits');
+  const entries: [string, unknown][] = [...(kits.base !== undefined ? [["kits.base", kits.base] as [string, unknown]] : []), ...(Array.isArray(kits.list) ? kits.list.map((kit, i): [string, unknown] => [`kits.list[${i}]`, kit]) : [])];
+  const ids: string[] = [];
+  for (const [name, kit] of entries) {
+    if (!isRecord(kit)) {
+      problems.push(`${name} must be { "id", "name", "items": [...] }`);
+      continue;
+    }
+    if (typeof kit.id !== "string" || !KIT_ID.test(kit.id)) problems.push(`${name}.id must be lowercase letters, digits and _, starting with a letter`);
+    else ids.push(kit.id);
+    if (typeof kit.name !== "string" || !kit.name) problems.push(`${name}.name is required`);
+    if (kit.refill !== undefined && !KIT_REFILLS.includes(kit.refill)) problems.push(`${name}.refill must be "life", "round" or "match"`);
+    if (!Array.isArray(kit.items) || kit.items.length === 0) {
+      problems.push(`${name}.items must be a non-empty list of { "item", "count" }`);
+      continue;
+    }
+    kit.items.forEach((item: unknown, i) => {
+      const where = `${name}.items[${i}]`;
+      if (!isRecord(item) || typeof item.item !== "string" || !item.item) problems.push(`${where} must have an "item" id`);
+      else if (item.count !== undefined && !(Number.isInteger(item.count) && (item.count as number) >= 1 && (item.count as number) <= 64)) problems.push(`${where}.count must be from 1 to 64`);
+      else if (item.slot !== undefined && !(Number.isInteger(item.slot) && (item.slot as number) >= 0 && (item.slot as number) <= 35)) problems.push(`${where}.slot must be from 0 to 35`);
+    });
+  }
+  if (new Set(ids).size !== ids.length) problems.push('"kits" ids must be unique');
+  return problems;
+}
+
 function checkPosition(value: unknown, name: string, problems: string[], quoted = name): boolean {
   if (!isPosition(value)) {
     problems.push(`${quoted} must be [x, y, z]`);

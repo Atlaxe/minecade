@@ -8,7 +8,7 @@ import { MODE_MARK, previewLine } from "../src/hud.ts";
 import { removeLeftoverObjectives } from "../src/game/sidebar.ts";
 import type { Result } from "../src/game/results.ts";
 import { ItemStack, world, type FakePlayer } from "./fake-mc-server.ts";
-import { closedFor, queueFormResponses } from "./fake-mc-server-ui.ts";
+import { closedFor, openLiveForm, queueFormResponses } from "./fake-mc-server-ui.ts";
 import { ARENA, createHarness, everyoneLeaves, expectBaseline as expectBaselineOf, playToEnd as playToEndOn, snapshot as snapshotOf, statsRows, ticks, type Baseline, type Harness } from "./game-harness.ts";
 
 class TestGame extends Minigame {
@@ -43,7 +43,7 @@ describe("three games in a row on one server", () => {
       maxPlayers: 4,
       countdownSeconds: 3,
       endDelaySeconds: 1,
-      kits: { pick: true, list: [{ id: "sword", name: "Sword", items: [{ item: "minecraft:iron_sword" }] }, { id: "bow", name: "Bow", items: [{ item: "minecraft:bow" }] }] },
+      kits: { select: "match", list: [{ id: "sword", name: "Sword", items: [{ item: "minecraft:iron_sword" }] }, { id: "bow", name: "Bow", items: [{ item: "minecraft:bow" }] }] },
       stats: { mode: "solo", pvp: true },
     };
     const players = ["A", "B", "C", "D"].map((name) => world.join(name));
@@ -54,15 +54,22 @@ describe("three games in a row on one server", () => {
 
     const result = await playToEnd(game, baseline, async () => {
       await ticks(2);
+      expect(game.phase).toBe("picking");
+      expect(a.unlocked).toBe(false); // frozen while picking
+      // A picks the bow; B closes the kit form, and it comes back; C and D never pick.
+      openLiveForm("A")!.click("Pick Bow");
+      expect(openLiveForm("A")!.texts()).toContain("§aPicked Bow");
+      openLiveForm("B")!.dismiss();
+      await ticks(1);
+      expect(openLiveForm("B")).toBeUndefined();
+      await ticks(20);
+      expect(openLiveForm("B")!.texts().join("\n")).toContain("A§r");
+      // After 30 seconds the rest get the first kit, and the countdown runs.
+      await ticks(29 * 20);
       expect(game.phase).toBe("countdown");
-      expect(a.unlocked).toBe(false); // frozen during the countdown
-      // A picks the bow; B opens the picker and never answers.
-      queueFormResponses({ canceled: false, selection: 1 });
-      world.afterEvents.itemUse.emit({ source: a, itemStack: new ItemStack("minecraft:nether_star") });
-      world.afterEvents.itemUse.emit({ source: b, itemStack: new ItemStack("minecraft:nether_star") });
-      await ticks(15 * 20 + 5);
+      expect(["A", "B", "C", "D"].map(openLiveForm)).toEqual([undefined, undefined, undefined, undefined]);
+      await ticks(3 * 20 + 5);
       expect(game.phase).toBe("playing");
-      expect(closedFor).toContain("B"); // the open picker closed with the pregame
       expect(a.unlocked).toBe(true);
       expect(a.inventory.items().map((item) => item.typeId)).toEqual(["minecraft:bow"]);
       expect(c.inventory.items().map((item) => item.typeId)).toEqual(["minecraft:iron_sword"]);

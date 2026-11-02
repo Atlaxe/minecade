@@ -287,13 +287,13 @@ docs/                     map format (maps.md), the map editor (editor.md), meas
    build rejects duplicates). Replace `icon.png` (the game's 16:9 picture, such as 320x180,
    in the lobby's game grid and on the hologram; every game needs one).
 2. Edit `game.config.ts`: name, player counts, timers, teams, respawns, combat, win rule,
-   scoring, kits, which stats to record, and any `options` for the lobby's game screen (see
-   `docs/ui.md`). The fields are documented in
+   scoring, kits (and when players pick them), best-of rounds, building, which stats to record,
+   and any `options` for the lobby's game screen (see `docs/ui.md`). The fields are documented in
    `packages/minigame-core/src/config.ts`, and the build validates them.
 3. Write the game in `behavior_pack/scripts/`: a class extending `Minigame` that overrides only
-   what's different. The framework already handles waiting, the countdown, teams, deaths without
-   a death screen, kill credit, respawns, win checks, scores (the sidebar, or each player's own
-   beside the clock), stats and cleanup. Hooks and
+   what's different. The framework already handles waiting, the kit form, the countdown, teams,
+   deaths without a death screen, kill credit, respawns, win checks, best-of rounds, building
+   rules, scores (the sidebar, or each player's own beside the clock), stats and cleanup. Hooks and
    helpers are documented in `packages/minigame-core/src/game/minigame.ts`.
 4. Make its maps in the map editor ([docs/editor.md](docs/editor.md)), or add one under
    `maps/<map-id>/` and bake it. Until the game has a finished map, the build skips it with a

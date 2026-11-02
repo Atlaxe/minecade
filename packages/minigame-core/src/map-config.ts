@@ -1,6 +1,7 @@
 // A map's map.json. The build validates it, `npm run bake` builds the world from it, the map
 // editor writes it, and the runtime receives it (without the editor-only keys) as the mapConfig
 // server variable.
+import type { MapKitsConfig } from "./config.ts";
 
 export type Vec3 = [x: number, y: number, z: number];
 
@@ -154,6 +155,8 @@ export interface MapConfig {
   time?: MapTime;
   /** The lobby only: a star box around the map, so stars show in every direction, below the horizon too. */
   stars?: boolean;
+  /** Kits of the map's own, added to the game's or in place of them (see MapKitsConfig). */
+  kits?: MapKitsConfig;
   /** Console commands (without "/") that `npm run bake` runs once to build the world. */
   build?: { commands: string[] };
   /** The map editor only (stripped from servers' copies). */

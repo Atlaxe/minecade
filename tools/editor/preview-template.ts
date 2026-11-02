@@ -7,8 +7,9 @@
 import { existsSync } from "node:fs";
 import { cp, writeFile } from "node:fs/promises";
 import { join } from "node:path";
-import { fileURLToPath } from "node:url";
-import { runtimeMapConfig, type MapConfig } from "@minecade/minigame-core/config";
+import { fileURLToPath, pathToFileURL } from "node:url";
+import { runtimeMapConfig, type GameConfig, type MapConfig } from "@minecade/minigame-core/config";
+import { addGameKitPictures } from "../build/kit-pictures.ts";
 import { enableBetaApis, patchLevelDat } from "../build/leveldat.ts";
 import { addSharedPacks, buildBehaviorPack, buildResourcePack, readPinnedManifest, sharedPacks } from "../build/packs.ts";
 
@@ -35,7 +36,13 @@ export async function buildPreviewTemplate(map: PreviewMap, out: string): Promis
   for (const pack of await sharedPacks()) shared.push({ pack, manifest: await readPinnedManifest(pack.dir) });
   await addSharedPacks(out, shared);
   const rp = join(gameDir, "resource_pack");
-  if (existsSync(join(rp, "manifest.json"))) await buildResourcePack(rp, join(out, "resource_packs", `${map.game}_rp`), await readPinnedManifest(rp));
+  if (existsSync(join(rp, "manifest.json"))) {
+    // With the kit form's pictures, for a game whose players pick kits.
+    const game = (await import(pathToFileURL(join(gameDir, "game.config.ts")).href)).default as GameConfig;
+    await buildResourcePack(rp, join(out, "resource_packs", `${map.game}_rp`), await readPinnedManifest(rp), async (pack) => {
+      await addGameKitPictures(pack, game, [{ id: map.mapId, config: map.config }]);
+    });
+  }
   await buildPreviewPacks(out);
 
   const mapOut = join(out, "maps", map.mapId);

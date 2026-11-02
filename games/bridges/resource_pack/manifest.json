@@ -1,0 +1,17 @@
+{
+  "format_version": 2,
+  "header": {
+    "name": "Minecade Bridges",
+    "description": "Bridges' holes in each team's color, and the kit form's pictures",
+    "uuid": "114a2279-e6bd-460c-9160-4a3b89cb309a",
+    "version": [1, 0, 0],
+    "min_engine_version": [1, 26, 60]
+  },
+  "modules": [
+    {
+      "type": "resources",
+      "uuid": "33c7964c-2ad0-4a3d-9a1b-61de9499d7ad",
+      "version": [1, 0, 0]
+    }
+  ]
+}

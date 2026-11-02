@@ -12,7 +12,20 @@ export { TransferService } from "./transfer.ts";
 export { showForm } from "./ui.ts";
 export { normalizePlayer } from "./player.ts";
 export { killDeathRatio, winRate } from "./stats-math.ts";
-export { CHIMES, COUNT_PLACES, HUD_MARK, MODE_MARK, countCodes, countdownChime, hudLine, playChime, previewLine, type Chime } from "./hud.ts";
+export {
+  CHIMES,
+  COUNT_PLACES,
+  HUD_MARK,
+  MODE_MARK,
+  bestOfCodes,
+  countCodes,
+  countdownChime,
+  hudLine,
+  playChime,
+  previewLine,
+  type BestOfHud,
+  type Chime,
+} from "./hud.ts";
 export {
   COLOR,
   KILL_VERBS,

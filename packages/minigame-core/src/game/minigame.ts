@@ -1,7 +1,7 @@
-// The Minigame base class. A game subclasses it, sets its config, and writes play() from stages
-// and rounds. Core runs the outer lifecycle: waiting for players, a countdown with team and kit
-// picks, the match, and the results (stats, the winner). Everything a match sets up hangs off
-// this.scope, so nothing survives into the next game.
+// The Minigame base class. A game subclasses it, sets its config, and writes play() from stages,
+// or plays best-of rounds by config. Core runs the outer lifecycle: waiting for players, the kit
+// form, a countdown, the match, and the results (stats, the winner). Everything a match sets up
+// hangs off this.scope, so nothing survives into the next game.
 import {
   EntityComponentTypes,
   GameMode,
@@ -15,18 +15,23 @@ import {
 } from "@minecraft/server";
 import { ActionFormData } from "@minecraft/server-ui";
 import type { ServerContext } from "../context.ts";
-import type { GameConfig, TeamDef } from "../config.ts";
-import { countdownChime, hudLine, playChime, previewLine, type Chime } from "../hud.ts";
+import type { BestOfConfig, GameConfig, KitDef, TeamDef } from "../config.ts";
+import { bestOfCodes, countdownChime, hudLine, playChime, previewLine, type Chime } from "../hud.ts";
+import { kitLines, kitPicturePath, teamColored } from "../kit-defs.ts";
 import { describeError, log } from "../log.ts";
-import { facingOf, worldPoint, type MapPosition } from "../map-config.ts";
+import { facingOf, worldPoint, type Box, type MapPosition } from "../map-config.ts";
 import { normalizePlayer } from "../player.ts";
 import type { Scope } from "../scope.ts";
 import { COLOR, deathMessage as formatDeath, nameOf, say, stripColors } from "../text.ts";
 import { showForm } from "../ui.ts";
 import { homePort } from "../vars.ts";
+import { BestOf, bestOfDisplay, bestOfRounds } from "./best-of.ts";
+import { BuildRules, type BuildHost } from "./build.ts";
 import { Combat, type CombatHost, type Hit } from "./combat.ts";
 import { KillCredit } from "./credit.ts";
 import { FAKE_PLAYER, FakePlayers } from "./fakes.ts";
+import { KitForm, type KitCard, type KitFormContent } from "./kit-form.ts";
+import { KitPicker } from "./kit-picker.ts";
 import { Kits } from "./kits.ts";
 import { MapView } from "./map-view.ts";
 import { DANGER_BUTTON, SIDE_TITLE } from "./preview.ts";
@@ -43,7 +48,8 @@ export interface GameContext extends ServerContext {
   match: number;
 }
 
-export type Phase = "waiting" | "countdown" | "playing" | "ending" | "done";
+/** "picking": everyone is in, and picking kits before the countdown. */
+export type Phase = "waiting" | "picking" | "countdown" | "playing" | "ending" | "done";
 export type SpawnReason = "start" | "round" | "respawn" | "join";
 /** What happens to a downed player: out for good, back after a delay, back at the next round or wave, or the game took care of it. */
 export type DownDecision = "eliminate" | "respawn" | "wait" | "handled";
@@ -80,6 +86,14 @@ const TITLE_TICKS = 40;
 const TITLE_FADE_TICKS = 10;
 /** Invisibility in a locked queue lasts until normalizePlayer clears it at the spawn. */
 const QUEUE_EFFECT_TICKS = 1_000_000;
+/** After a best-of round is decided, everyone stays put this long before going back to their spawns. */
+const ROUND_BREAK_TICKS = 40;
+/** How often the kit form's picks are checked, in ticks; its clock moves every second. */
+const PICK_CHECK_TICKS = 5;
+/** Survival games (building): hunger is topped up this often, so nobody starves. */
+const FEED_TICKS = 100;
+/** Sides without a team color (best-of free-for-alls) take these in turn on the rounds display. */
+const SIDE_COLORS = ["§c", "§9", "§a", "§e"];
 /** Rules every game gets unless it says otherwise: deaths are handled by core, invisibly. */
 const DEFAULT_GAME_RULES: Record<string, boolean | number> = {
   showDeathMessages: false,
@@ -102,8 +116,15 @@ export abstract class Minigame<C extends GameConfig = GameConfig> {
   readonly combat: Combat;
   /** A preview's fake players (/fake), who play like everyone else; undefined outside previews. */
   readonly fakes: FakePlayers | undefined;
-  /** The game mode players spawn in. Build games can switch to creative. */
+  /** Building rules, for games with a `build` config. */
+  readonly build: BuildRules | undefined;
+  /** The game mode players spawn in: survival for build games. Others can switch to creative. */
   protected gameMode: GameMode = GameMode.Adventure;
+  /**
+   * The resource pack (its UUID) that holds the kit pictures the build draws, so the kit form shows
+   * them; undefined for none. A game with a resource pack sets it from its manifest.
+   */
+  protected kitPicturePack: string | undefined;
 
   private currentPhase: Phase = "waiting";
   private playingScope: Scope | undefined;
@@ -119,8 +140,16 @@ export abstract class Minigame<C extends GameConfig = GameConfig> {
   private contest: ((result: Result) => void) | undefined;
   private contestSides = 0;
   private currentStage: Stage | undefined;
-  private roundWins: Score | undefined;
+  /** The best-of series, once it starts. */
+  private series: BestOf | undefined;
+  /** Seconds left on the clock over all best-of rounds (timeLimitSeconds), when there is one. */
+  private matchSecondsLeft: number | undefined;
   private teams: TeamDef[] = [];
+  /**
+   * Teams dealt out once everyone is in, before the kits and the countdown, so players wait at
+   * their own team's spawns (lowercase name to team id). The match keeps them where it can.
+   */
+  private teamPlan: Map<string, string> | undefined;
   private readonly teamPicks = new Map<string, string>();
   private readonly pickerOpen = new Set<string>();
   private readonly protectedUntil = new Map<string, number>();
@@ -140,11 +169,13 @@ export abstract class Minigame<C extends GameConfig = GameConfig> {
     this.config = config;
     this.scope = ctx.root.child(`game:${config.id}`);
     this.map = new MapView(ctx.vars.mapConfig);
-    this.kits = new Kits(config.kits);
+    this.kits = new Kits(config.kits, ctx.vars.mapConfig.kits);
     this.stats = new StatsRecorder(config.stats);
     this.credit = new KillCredit((config.combat?.killCreditSeconds ?? 8) * 20);
     this.combat = new Combat(this.combatHost(), config.combat ?? {}, this.stats, this.credit);
     this.fakes = ctx.vars.preview ? new FakePlayers(world.getDimension("overworld")) : undefined;
+    this.build = config.build ? new BuildRules(this.buildHost(), config.build, this.map) : undefined;
+    if (config.build) this.gameMode = GameMode.Survival;
     this.finished = new Promise((resolve) => (this.settle = resolve));
   }
 
@@ -170,12 +201,29 @@ export abstract class Minigame<C extends GameConfig = GameConfig> {
 
   /**
    * The match itself. The default is one stage of timeLimitSeconds (5 minutes unless set; 0 for
-   * no limit), or until a win check ends it. Return a result, or nothing for a draw. finish()
-   * ends it from anywhere.
+   * no limit), or until a win check ends it; or, with a `bestOf` config, best-of rounds
+   * (playBestOf). Return a result, or nothing for a draw. finish() ends it from anywhere.
    */
   protected async play(): Promise<Result | void> {
+    if (this.config.bestOf) return this.playBestOf(this.config.bestOf);
     const { timedOut } = await this.stage("Match", { seconds: this.timeLimit });
     if (timedOut) return this.onTimeUp();
+  }
+
+  /** As a best-of round starts (after its countdown; round 1 at "Go!"). */
+  protected onRoundStart(_round: number): void {}
+
+  /** Once a best-of round is decided, before the next (or the end of the match). */
+  protected onRoundEnd(_round: number, _result: Result): void {}
+
+  /** A best-of round ran out of time (bestOf.roundSeconds): a drawn round unless the game says otherwise. */
+  protected onRoundTimeUp(_round: number): Result {
+    return draw("time ran out");
+  }
+
+  /** Boxes where nobody can build, on top of the map's no-build regions (Bridges: its holes). */
+  protected noBuildBoxes(): Box[] {
+    return [];
   }
 
   /** The match length in seconds, or undefined for no limit. */
@@ -214,6 +262,11 @@ export abstract class Minigame<C extends GameConfig = GameConfig> {
   }
 
   protected onTimeUp(): Result {
+    if (this.series) {
+      // Best-of rounds: the most round wins when time runs out.
+      const leader = this.series.leader(this.seriesSides());
+      return leader !== undefined ? this.sideWins(leader, "the most rounds when time ran out") : draw("time ran out");
+    }
     const rule = this.config.timeUp ?? "highestScore";
     if (typeof rule === "object") return this.teamWins(rule.team, "time ran out");
     if ((this.config.win ?? "last") === "coop") return { kind: "coop", won: true, reason: "survived" };
@@ -282,6 +335,7 @@ export abstract class Minigame<C extends GameConfig = GameConfig> {
     });
     this.scope.subscribe(world.afterEvents.playerLeave, ({ playerName }) => this.departed(playerName));
     this.combat.attach(this.scope);
+    this.build?.attach(this.scope);
     if (this.fakes) this.watchFakes(this.fakes);
     try {
       this.setup();
@@ -299,17 +353,29 @@ export abstract class Minigame<C extends GameConfig = GameConfig> {
     // leaving room for everyone the preview expects.
     const room = this.config.maxPlayers - this.ctx.vars.expectedPlayers.length;
     if (this.fakes && this.ctx.vars.previewFakes > 0 && room > 0) log.info(stripColors(this.addFakes(Math.min(this.ctx.vars.previewFakes, room))));
+    // Once everyone's in, teams are dealt (players wait at their team's spawns), then everyone picks
+    // a kit where they wait (the queue spawn or their spawn), then the countdown. A countdown or a
+    // kit form that loses players goes back to waiting; picks already made are kept.
     for (;;) {
       if (this.map.queueSpawn && !this.queued) this.requeue(true);
       if (!(await this.waitForPlayers())) {
         pregame.dispose();
         return this.conclude(this.outcome ?? aborted("not_enough_players"));
       }
+      this.planTeams();
+      if (this.kits.picking && !(await this.pickKits(this.online(), pregame, true))) {
+        this.unplanTeams();
+        continue;
+      }
       if (this.queued) {
-        if (!(await this.queueCountdown(this.map.queue.countdown))) continue;
+        if (!(await this.queueCountdown(this.map.queue.countdown))) {
+          this.unplanTeams();
+          continue;
+        }
         this.requeue(false);
       }
       if (await this.countdown()) break;
+      this.unplanTeams();
     }
     pregame.dispose();
     if (this.outcome) return this.conclude(this.outcome);
@@ -341,7 +407,7 @@ export abstract class Minigame<C extends GameConfig = GameConfig> {
    * ignored.
    */
   setTeamPicks(picks: Record<string, string>): void {
-    if (this.currentPhase !== "waiting" && this.currentPhase !== "countdown") {
+    if (this.currentPhase !== "waiting" && this.currentPhase !== "picking" && this.currentPhase !== "countdown") {
       log.warn(`${this.config.id}: team picks arrived after the match began; ignored`);
       return;
     }
@@ -397,43 +463,50 @@ export abstract class Minigame<C extends GameConfig = GameConfig> {
   }
 
   /**
-   * Best-of rounds: each round respawns everyone, runs a short frozen countdown, then a stage
-   * that the win check (or time) ends. The first player or team to `firstTo` round wins takes
-   * the match.
+   * Best-of rounds (not turn-based rounds, a separate system still to come). Round 1 starts at
+   * "Go!"; each round runs until the win check or endRound() decides it (or bestOf.roundSeconds run
+   * out). Then everyone goes back to their spawns, picks a kit again when kits are picked every round,
+   * and gets a short frozen countdown. The first side to win more than half the rounds (or to
+   * `firstTo`) takes the match; timeLimitSeconds is a clock over all of them. The rounds show top
+   * right (hud.ts bestOfCodes).
    */
-  protected async rounds(options: {
-    firstTo: number;
-    seconds?: number;
-    countdownSeconds?: number;
-    before?: (round: number) => void | Promise<void>;
-  }): Promise<Result> {
-    const wins = new Score();
-    this.roundWins = wins;
-    for (let round = 1; ; round++) {
-      await options.before?.(round);
-      this.respawnAll("round");
-      await this.frozenCountdown(options.countdownSeconds ?? 3, `Round ${round}`);
-      const result = await (this.playingScope ?? this.scope).guard(
-        new Promise<Result>((resolve) => {
-          this.contest = resolve;
-          this.contestSides = this.roster.standingSides().length;
-          void this.stage(`Round ${round}`, { seconds: options.seconds }).then(({ timedOut }) => {
-            if (timedOut) resolve(this.onTimeUp());
-          });
-        }),
-      );
-      this.contest = undefined;
-      this.currentStage?.end();
+  protected async playBestOf(config: BestOfConfig): Promise<Result> {
+    const series = new BestOf(bestOfRounds(config, this.ctx.vars.settings));
+    this.series = series;
+    this.startMatchClock();
+    for (;;) {
+      const round = series.round;
+      if (round > 1) await this.nextRound(round, config);
+      this.safely("onRoundStart", () => this.onRoundStart(round));
+      const result = await this.playRound(round, config);
       if (result.kind === "aborted") return result;
-      if (result.kind === "win") {
-        const side = result.team ?? result.players[0];
-        const total = wins.add(side);
-        this.broadcast(say.important(`${this.sideName(side)} wins round ${round}!`));
-        if (total >= options.firstTo) return this.sideWins(side, `won ${options.firstTo} rounds`);
-      } else {
-        this.broadcast(say.minor(`Round ${round}: ${result.reason}.`));
+      const side = result.kind === "win" ? (result.team ?? result.players[0]) : undefined;
+      series.record(side);
+      this.announceRound(round, side, result.reason);
+      this.safely("onRoundEnd", () => this.onRoundEnd(round, result));
+      const outcome = series.outcome(this.seriesSides());
+      if (outcome.over) {
+        if (outcome.winner === undefined) return draw("the rounds were tied");
+        const wins = series.wins(outcome.winner);
+        return this.sideWins(outcome.winner, `won ${wins} round${wins === 1 ? "" : "s"}`);
       }
+      await this.roundBreak();
     }
+  }
+
+  /** Decides the best-of round being played with `result` (Bridges: a goal). Nothing between rounds. */
+  endRound(result: Result): void {
+    this.contest?.(result);
+  }
+
+  /** True while a best-of round is being played (not during its countdown or the break after it). */
+  get roundInPlay(): boolean {
+    return this.contest !== undefined;
+  }
+
+  /** The best-of series: the round being played and each round's winner; undefined outside best-of games. */
+  get bestOf(): BestOf | undefined {
+    return this.series;
   }
 
   /** Brings every remaining participant back (next round or wave), with full lives. */
@@ -574,7 +647,8 @@ export abstract class Minigame<C extends GameConfig = GameConfig> {
     const team = this.teamOf(name);
     player.nameTag = this.config.nameTags !== true ? "" : team ? `${team.color}${player.name}` : player.name;
     this.place(player, this.spawnPoint(name, why), true);
-    this.kits.give(player, team?.color);
+    // Kits picked every round come once the round's pick is made (nextRound).
+    this.kits.give(player, why, team?.color, { chosen: !(why === "round" && this.kits.select === "round" && this.kits.picking) });
     try {
       this.onSpawn(player, why);
     } catch (error) {
@@ -593,6 +667,9 @@ export abstract class Minigame<C extends GameConfig = GameConfig> {
     const killer = credited !== undefined && !this.areTeammates(credited, name) ? credited : undefined;
     this.credit.clear(name);
     this.stats.death(name);
+    // What's left of kits that aren't refilled on every spawn comes back at the respawn.
+    const body = this.player(name);
+    if (body) this.kits.stash(body, this.teamOf(name)?.color);
     if (killer) {
       this.stats.kill(killer);
       const perKill = this.config.scoring?.perKill;
@@ -654,7 +731,7 @@ export abstract class Minigame<C extends GameConfig = GameConfig> {
   private arrived(name: string): void {
     const player = this.player(name);
     if (!player) return;
-    if (this.currentPhase === "waiting" || this.currentPhase === "countdown") {
+    if (this.currentPhase === "waiting" || this.currentPhase === "picking" || this.currentPhase === "countdown") {
       this.prepareWaiting(player);
       if (this.countdownScope) this.freeze([name], this.countdownScope);
       return;
@@ -701,14 +778,15 @@ export abstract class Minigame<C extends GameConfig = GameConfig> {
     return teams !== undefined && teams.pick !== false && this.ctx.vars.settings?.teams === undefined;
   }
 
+  /** The star, for team picks on starts that didn't come from the lobby (kits have their own form). */
   private get picksOpen(): boolean {
     const roles = (this.config.teams?.defs ?? []).some((team) => team.size !== undefined);
-    return (this.teamPicking && !roles) || this.kits.pick;
+    return this.teamPicking && !roles;
   }
 
   private hasPicked(name: string): boolean {
     if (this.fakes?.has(name)) return true;
-    return (!this.teamPicking || this.teamPicks.has(name.toLowerCase())) && (!this.kits.pick || this.kits.hasChosen(name));
+    return !this.teamPicking || this.teamPicks.has(name.toLowerCase());
   }
 
   private get minPlayers(): number {
@@ -783,7 +861,7 @@ export abstract class Minigame<C extends GameConfig = GameConfig> {
     this.placeWaiting(player);
     if (this.picksOpen) {
       const picker = new ItemStack(PICKER_ITEM, 1);
-      picker.nameTag = this.config.teams ? "Pick team and kit" : "Pick a kit";
+      picker.nameTag = "Pick a team";
       picker.lockMode = ItemLockMode.slot;
       player.getComponent(EntityComponentTypes.Inventory)?.container.setItem(PICKER_SLOT, picker);
     }
@@ -816,9 +894,117 @@ export abstract class Minigame<C extends GameConfig = GameConfig> {
     this.placeFake(name, this.waitingSpawn(name));
   }
 
+  /** A spawn of the player's planned team when teams are dealt (and the map has team spawns), else a plain spawn of their own. */
   private waitingSpawn(name: string): MapPosition {
+    const team = this.teamPlan?.get(name.toLowerCase());
+    const teamSpawns = team !== undefined ? this.map.teamSpawns(team) : [];
+    if (team !== undefined && teamSpawns.length > 0) {
+      const members = [...this.teamPlan!].filter(([, id]) => id === team).map(([member]) => member);
+      return teamSpawns[Math.max(0, members.indexOf(name.toLowerCase())) % teamSpawns.length];
+    }
     const index = Math.max(0, this.online().indexOf(name));
     return this.map.spawns[index % Math.max(1, this.map.spawns.length)] ?? [0, 65, 0];
+  }
+
+  /**
+   * Deals out teams once everyone is in, by the lobby's picks, so players wait at their own team's
+   * spawns while they pick kits and count down. Not while players pick teams with the star.
+   */
+  private planTeams(): void {
+    const teams = this.config.teams;
+    if (!teams || this.teamPicking) return;
+    const names = this.online().slice(0, this.config.maxPlayers);
+    const picks = new Map<string, string>();
+    for (const name of names) {
+      const pick = this.teamPicks.get(name.toLowerCase());
+      if (pick) picks.set(name, pick);
+    }
+    const plan = assignTeams(names, picks, teams, this.ctx.random);
+    this.teamPlan = new Map([...plan].map(([name, team]) => [name.toLowerCase(), team]));
+    this.teams = activeTeams(names.length, teams);
+    if (!this.queued) {
+      for (const player of world.getAllPlayers()) this.placeWaiting(player);
+      for (const name of this.fakes?.all ?? []) this.placeWaitingFake(name);
+    }
+  }
+
+  /** Back to waiting: teams are dealt again once everyone is in. */
+  private unplanTeams(): void {
+    this.teamPlan = undefined;
+    this.teams = [];
+  }
+
+  /** A player's team before the match: the planned one. */
+  private plannedTeam(name: string): TeamDef | undefined {
+    const team = this.teamPlan?.get(name.toLowerCase());
+    return this.teams.find((def) => def.id === team);
+  }
+
+  /**
+   * The kit form for `names`: a live form each, kept open (it comes back when closed) until
+   * everyone has picked or the time is up, when whoever hasn't gets the first kit. Before the match
+   * (`pregame`), players wait frozen at their spawns (or in the queue), and it's false when players
+   * drop below the minimum; the picks made so far are kept.
+   */
+  private async pickKits(names: string[], scope: Scope, pregame: boolean): Promise<boolean> {
+    if (pregame) this.currentPhase = "picking";
+    const picking = scope.child("kit-picks");
+    if (pregame && !this.queued) this.freeze(names, picking);
+    const teamOf = (name: string) => (pregame ? this.plannedTeam(name) : this.teamOf(name));
+    const forms = new Map<string, KitForm>();
+    const picker: KitPicker = new KitPicker(
+      {
+        show: (name, view) => {
+          const player = this.player(name);
+          if (!player) return;
+          const open = forms.get(name);
+          if (open?.showingTo(player)) return;
+          open?.close();
+          const form = new KitForm(player, this.kitFormContent(teamOf(name)?.color), view, (kitId) => picker.pick(name, kitId));
+          forms.set(name, form);
+          form.show();
+        },
+        update: (name, view) => forms.get(name)?.update(view),
+        close: (name) => {
+          forms.get(name)?.close();
+          forms.delete(name);
+        },
+      },
+      {
+        players: names.filter((name) => !this.fakes?.has(name)),
+        kits: this.kits,
+        seconds: this.kits.pickSeconds,
+        online: () => this.online(),
+        display: (name) => nameOf(name, teamOf(name)?.color),
+      },
+    );
+    try {
+      for (let waited = 0; ; waited += PICK_CHECK_TICKS) {
+        if (this.outcome) return false;
+        if (pregame && this.online().length < this.minPlayers) {
+          this.broadcast(say.warn("Not enough players. Waiting again."));
+          return false;
+        }
+        if (picker.finished) return true;
+        await picking.wait(PICK_CHECK_TICKS);
+        if ((waited + PICK_CHECK_TICKS) % 20 === 0) picker.tick();
+      }
+    } finally {
+      picker.cancel();
+      picking.dispose();
+    }
+  }
+
+  /** The kit form's content for a player of this team color: the base kit, then each kit, with their pictures. */
+  private kitFormContent(teamColor: string | undefined): KitFormContent {
+    const card = (kit: KitDef): KitCard => ({
+      id: kit.id,
+      name: kit.name,
+      lines: kitLines(kit, teamColor),
+      picture: `${kitPicturePath(kit.id, { map: this.kits.fromMap.has(kit.id) ? this.ctx.vars.map : undefined, teamColor, colored: teamColored(kit) })}.png`,
+    });
+    const base = this.kits.base;
+    return { title: "Pick a kit", base: base ? { ...card(base), name: "Everyone gets" } : undefined, kits: this.kits.list.map(card), pack: this.kitPicturePack };
   }
 
   /**
@@ -871,12 +1057,6 @@ export abstract class Minigame<C extends GameConfig = GameConfig> {
         }
         const answer = await showForm(scope, player, form);
         if (answer?.selection !== undefined) this.teamPicks.set(key, options[answer.selection].id);
-      }
-      if (this.kits.pick) {
-        const form = new ActionFormData().title("Pick a kit");
-        for (const kit of this.kits.list) form.button(kit.name, kit.icon);
-        const answer = await showForm(scope, player, form);
-        if (answer?.selection !== undefined) this.kits.choose(player.name, this.kits.list[answer.selection].id);
       }
     } finally {
       this.pickerOpen.delete(key);
@@ -961,6 +1141,111 @@ export abstract class Minigame<C extends GameConfig = GameConfig> {
     this.chime("go");
   }
 
+  /** Plays one best-of round: until the win check, endRound() or its clock decides it. */
+  private async playRound(round: number, config: BestOfConfig): Promise<Result> {
+    const result = await (this.playingScope ?? this.scope).guard(
+      new Promise<Result>((resolve) => {
+        this.contest = (decided) => {
+          this.contest = undefined;
+          resolve(decided);
+        };
+        this.contestSides = this.roster.standingSides().length;
+        void this.stage(`Round ${round}`, { seconds: config.roundSeconds }).then(({ timedOut }) => {
+          if (timedOut) this.contest?.(this.onRoundTimeUp(round));
+        });
+      }),
+    );
+    this.currentStage?.end();
+    return result;
+  }
+
+  /** Before every round after the first: everyone back at their spawns, their kits (picked again, when they're picked every round), the countdown. */
+  private async nextRound(round: number, config: BestOfConfig): Promise<void> {
+    this.respawnAll("round");
+    if (this.kits.select === "round" && this.kits.picking) {
+      const names = this.roster.inState("alive").map((participant) => participant.name);
+      const scope = (this.playingScope ?? this.scope).child("round-kits");
+      this.freeze(names, scope);
+      this.kits.clearChoices();
+      await this.pickKits(names, scope, false);
+      scope.dispose();
+      for (const name of names) {
+        const player = this.player(name);
+        if (player && this.roster.get(name)?.state === "alive") this.kits.giveChosen(player, this.teamOf(name)?.color);
+      }
+    }
+    await this.frozenCountdown(config.countdownSeconds ?? 3, `Round ${round}`);
+  }
+
+  /** A moment after a round is decided, everyone holding still, so its title can be read. */
+  private async roundBreak(): Promise<void> {
+    const scope = (this.playingScope ?? this.scope).child("round-break");
+    this.freeze(this.roster.inState("alive").map((participant) => participant.name), scope);
+    await scope.wait(ROUND_BREAK_TICKS);
+    scope.dispose();
+  }
+
+  private announceRound(round: number, side: string | undefined, reason: string): void {
+    if (side === undefined) {
+      this.title(say.highlight(`Round ${round} is a draw`), say.minor(reason));
+      this.broadcast(say.minor(`Round ${round} is a draw (${reason}).`));
+      return;
+    }
+    this.title(`${this.sideName(side)} ${COLOR.highlight}wins round ${round}`, say.minor(reason));
+    this.broadcast(`${say.important(`${this.sideName(side)} wins round ${round}!`)} ${say.minor(`(${reason})`)}`);
+  }
+
+  /** The clock over all best-of rounds, when the match has a time limit: when it runs out, onTimeUp decides. */
+  private startMatchClock(): void {
+    const limit = this.timeLimit;
+    if (limit === undefined) return;
+    this.matchSecondsLeft = limit;
+    (this.playingScope ?? this.scope).interval(() => {
+      if (this.matchSecondsLeft === undefined || this.outcome) return;
+      this.matchSecondsLeft = Math.max(0, this.matchSecondsLeft - 1);
+      if (this.matchSecondsLeft === 0) this.finish(this.onTimeUp());
+    }, 20);
+  }
+
+  /** The sides of a best-of series: the teams in team games, else every player who joined. */
+  private seriesSides(): string[] {
+    if (this.teams.length > 0) return this.teams.map((team) => team.id);
+    return this.roster.all().map((participant) => participant.name);
+  }
+
+  /** The best-of rounds as HUD codes (empty outside best-of games): circles colored by winner, or each side's wins. */
+  private roundsCodes(): string {
+    const series = this.series;
+    const config = this.config.bestOf;
+    if (!series || !config) return "";
+    const sides = this.seriesSides();
+    const colorOf = (side: string) => this.teams.find((team) => team.id === side)?.color ?? SIDE_COLORS[sides.indexOf(side) % SIDE_COLORS.length];
+    if (bestOfDisplay(config, series, sides.length) === "icons") {
+      return bestOfCodes({ display: "icons", rounds: series.rounds ?? series.round, winners: series.history.map((side) => (side === undefined ? undefined : colorOf(side))) });
+    }
+    return bestOfCodes({ display: "score", sides: sides.map((side) => ({ color: colorOf(side), wins: series.wins(side) })) });
+  }
+
+  /** Survival games: hunger stays full (saturation still runs down, so healing stays natural). */
+  private feed(): void {
+    for (const participant of this.roster.inState("alive")) {
+      try {
+        this.player(participant.name)?.getComponent(EntityComponentTypes.Hunger)?.resetToMaxValue();
+      } catch {
+        // left
+      }
+    }
+  }
+
+  /** Runs a game hook, logging (not throwing) what goes wrong. */
+  private safely(hook: string, run: () => void): void {
+    try {
+      run();
+    } catch (error) {
+      log.error(`${this.config.id}: ${hook} failed: ${describeError(error)}`);
+    }
+  }
+
   // ---- The match --------------------------------------------------------------------------
 
   private begin(): void {
@@ -971,9 +1256,10 @@ export abstract class Minigame<C extends GameConfig = GameConfig> {
     const names = this.online().slice(0, this.config.maxPlayers);
     let assignment: Map<string, string> | undefined;
     if (this.config.teams) {
+      // The teams dealt before the countdown stand (they count as picks), as far as each team's cap allows.
       const picks = new Map<string, string>();
       for (const name of names) {
-        const pick = this.teamPicks.get(name.toLowerCase());
+        const pick = this.teamPlan?.get(name.toLowerCase()) ?? this.teamPicks.get(name.toLowerCase());
         if (pick) picks.set(name, pick);
       }
       assignment = assignTeams(names, picks, this.config.teams, this.ctx.random);
@@ -993,6 +1279,7 @@ export abstract class Minigame<C extends GameConfig = GameConfig> {
 
     playing.interval(() => this.watchBounds(), 2);
     playing.interval(() => this.refreshDisplays(), 10);
+    if (this.gameMode === GameMode.Survival) playing.interval(() => this.feed(), FEED_TICKS);
     playing.interval(() => {
       if (world.getAllPlayers().length === 0) this.abort("empty");
       else this.runWinCheck();
@@ -1051,24 +1338,26 @@ export abstract class Minigame<C extends GameConfig = GameConfig> {
   }
 
   private refreshDisplays(): void {
-    const secondsLeft = this.currentStage?.secondsLeft;
+    // A round's own clock, else the match's (a stage's, or the one over all best-of rounds).
+    const secondsLeft = this.currentStage?.secondsLeft ?? this.matchSecondsLeft;
     const scoring = this.config.scoring;
     const own = scoring?.display === "own";
+    const rounds = this.roundsCodes();
     for (const player of world.getAllPlayers()) {
       const rest = this.hud(player.name) ?? "";
       const count = own ? this.ownScore(player.name) : undefined;
-      // With no clock there's no box to put the score beside: it goes on the action bar as text.
+      // With no clock (and no rounds) there's no box to put the score beside: it goes on the action bar as text.
       const text =
-        secondsLeft === undefined && count !== undefined
+        secondsLeft === undefined && count !== undefined && !rounds
           ? [say.info(`${scoring?.title ?? "Score"}: ${count}`), rest].filter(Boolean).join("   ")
-          : hudLine(secondsLeft, rest, count);
+          : hudLine(secondsLeft, rest, count, rounds);
       if (text) player.onScreenDisplay.setActionBar(text);
     }
     this.respawnTitles();
-    const board = this.roundWins ?? (scoring && !own ? this.score : undefined);
+    const board = scoring && !own ? this.score : undefined;
     if (!board) return;
     if (!this.sidebar) {
-      this.sidebar = new Sidebar(this.playingScope ?? this.scope, `${this.ctx.vars.sessionId}`.slice(0, 12), this.config.scoring?.title ?? (this.roundWins ? "Rounds" : "Score"));
+      this.sidebar = new Sidebar(this.playingScope ?? this.scope, `${this.ctx.vars.sessionId}`.slice(0, 12), this.config.scoring?.title ?? "Score");
     }
     if (board.changes === this.sidebarVersion) return;
     this.sidebarVersion = board.changes;
@@ -1251,6 +1540,17 @@ export abstract class Minigame<C extends GameConfig = GameConfig> {
   }
 
   // ---- Small helpers ----------------------------------------------------------------------
+
+  private buildHost(): BuildHost {
+    const game = this;
+    return {
+      get playing() {
+        return game.currentPhase === "playing";
+      },
+      canBuild: (name) => this.roster.get(name)?.state === "alive",
+      noBuild: () => this.noBuildBoxes(),
+    };
+  }
 
   private combatHost(): CombatHost {
     const game = this;

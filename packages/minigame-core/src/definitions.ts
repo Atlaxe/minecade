@@ -3,12 +3,18 @@
 export {
   defineGame,
   defineLobby,
+  type BestOfConfig,
+  type BuildConfig,
   type CombatConfig,
   type GameConfig,
   type GameOptionConfig,
   type KitDef,
   type KitItem,
+  type KitRefill,
+  type KitSelect,
+  type KitsConfig,
   type LobbyConfig,
+  type MapKitsConfig,
   type MapEntryRequirement,
   type MapRequirementsConfig,
   type MarkerStyle,
@@ -19,6 +25,23 @@ export {
   type TeamDef,
   type TeamsConfig,
 } from "./config.ts";
+export {
+  COLOR_SLOT,
+  DEFAULT_PICK_SECONDS,
+  KIT_PICTURES,
+  dyeName,
+  itemLabel,
+  kitItemId,
+  kitLines,
+  kitPicturePath,
+  matchKits,
+  pictureDyes,
+  refillOnSpawn,
+  teamColored,
+  type KitSpawn,
+  type MatchKits,
+} from "./kit-defs.ts";
+export { MAX_ROUND_ICONS, MAX_SCORE_SIDES, MIN_BEST_OF } from "./game/best-of.ts";
 export {
   EDITOR_ONLY_KEYS,
   KILL_REGION,

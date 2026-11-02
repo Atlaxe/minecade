@@ -10,6 +10,11 @@
 // own left of the clock, with a skull. JSON UI can't cut text out of the action bar, so the number
 // rides at the end of the line as formatting codes too (countCodes), and the pack shows the digit
 // whose code it finds in each place.
+//
+// Best-of rounds: a game played in best-of rounds shows them in a box of their own, left of the
+// others, the same way (bestOfCodes): a circle per round colored by its winner, or each side's round
+// wins in its color ("R | B"). The pack's controls for them are generated from these codes
+// (tools/assets/rounds-hud.ts writes ui/minecade_rounds.json).
 import type { Player } from "@minecraft/server";
 
 /** Starts every action bar line that carries the clock. Must match the core pack's hud_screen.json. */
@@ -33,15 +38,66 @@ export const COUNT_PLACES = ["§k§h", "§k§t", "§k§u"] as const;
 /** The highest own score the HUD shows. */
 export const MAX_COUNT = 999;
 
+/** With no clock, the clock's box drops its icon (and shows the rest of the line) or, with nothing to show, goes. Must match hud_screen.json. */
+export const NO_CLOCK = "§k§o";
+export const EMPTY_CLOCK_BOX = "§k§v";
+
 /**
  * The action bar text for a stage clock (white, red in the last 30 seconds) plus the usual line,
- * and the player's own score when `count` is given (the pack shows it in its own box).
+ * the player's own score when `count` is given, and best-of rounds when `rounds` (bestOfCodes) is
+ * (the pack shows each in its own box). Without a clock, it's just the line, unless there are
+ * rounds to show.
  */
-export function hudLine(secondsLeft: number | undefined, rest = "", count?: number): string {
-  if (secondsLeft === undefined) return rest;
+export function hudLine(secondsLeft: number | undefined, rest = "", count?: number, rounds = ""): string {
+  const codes = `${count === undefined ? "" : countCodes(count)}${rounds}`;
+  if (secondsLeft === undefined) {
+    if (!rounds) return rest;
+    return `${HUD_MARK}${rest ? `§f${rest}${NO_CLOCK}` : EMPTY_CLOCK_BOX}${codes}`;
+  }
   const whole = Math.max(0, Math.ceil(secondsLeft));
   const clock = `${Math.floor(whole / 60)}:${String(whole % 60).padStart(2, "0")}`;
-  return `${HUD_MARK}${whole <= URGENT_SECONDS ? "§c" : "§f"}${clock}${rest ? `§7   ${rest}` : ""}${count === undefined ? "" : countCodes(count)}`;
+  return `${HUD_MARK}${whole <= URGENT_SECONDS ? "§c" : "§f"}${clock}${rest ? `§7   ${rest}` : ""}${codes}`;
+}
+
+/** Icons display: the number of circles (3 to 7), then each won circle's place (1 to 7) and its winner's color. */
+export const ROUND_COUNT = "§k§i";
+export const ROUND_WON = "§k§j";
+/** Score display: each side's place (1 to 4) and its color, then the tens (from 10) and units of its round wins. */
+export const SIDE_COLOR = "§k§q";
+export const SIDE_TENS = "§k§m";
+export const SIDE_UNITS = "§k§s";
+/**
+ * The colors the rounds display can draw (the codes after "§"): the team colors, white, and gray for
+ * a drawn round. Any other team color shows white. Must match the pack.
+ */
+export const ROUND_COLORS = ["c", "9", "a", "e", "6", "d", "b", "f", "7"] as const;
+const DRAWN_ROUND = "7";
+
+/** What the rounds box shows, with colors as § codes ("§c"). */
+export type BestOfHud =
+  | { display: "icons"; rounds: number; winners: readonly (string | undefined)[] }
+  | { display: "score"; sides: readonly { color: string; wins: number }[] };
+
+/** Best-of rounds as formatting codes for the end of the HUD line (see the file header), ending with §r. */
+export function bestOfCodes(hud: BestOfHud): string {
+  if (hud.display === "icons") {
+    const rounds = Math.min(7, Math.max(3, Math.round(hud.rounds)));
+    const won = hud.winners.slice(0, rounds).map((color, index) => `${ROUND_WON}§${index + 1}§${color === undefined ? DRAWN_ROUND : roundColor(color)}`);
+    return `${ROUND_COUNT}§${rounds}${won.join("")}§r`;
+  }
+  const sides = hud.sides.slice(0, 4).map((side, index) => {
+    const place = index + 1;
+    const wins = Math.min(99, Math.max(0, Math.round(side.wins)));
+    const tens = wins >= 10 ? `${SIDE_TENS}§${place}§${Math.floor(wins / 10)}` : "";
+    return `${SIDE_COLOR}§${place}§${roundColor(side.color)}${tens}${SIDE_UNITS}§${place}§${wins % 10}`;
+  });
+  return `${sides.join("")}§r`;
+}
+
+/** A team's § color as one of ROUND_COLORS, white when it isn't one. */
+function roundColor(color: string): string {
+  const code = color.replace("§", "");
+  return (ROUND_COLORS as readonly string[]).includes(code) ? code : "f";
 }
 
 /**

@@ -32,6 +32,15 @@ export const EntityComponentTypes = {
   Saturation: "minecraft:player.saturation",
 } as const;
 export const ItemComponentTypes = { Dyeable: "minecraft:dyeable" } as const;
+export const Direction = { Down: "Down", East: "East", North: "North", South: "South", Up: "Up", West: "West" } as const;
+export type Direction = (typeof Direction)[keyof typeof Direction];
+
+/** Block types: anything that reads as a block id (wool, concrete, stone, planks, glass). */
+export const BlockTypes = {
+  get(typeId: string): { id: string } | undefined {
+    return /(_wool|_concrete|stone|_planks|glass)$/.test(typeId) ? { id: typeId } : undefined;
+  },
+};
 
 // ---- Restricted execution (before-events) ------------------------------------------------
 
@@ -203,6 +212,10 @@ export class ItemStack {
 
 class FakeContainer {
   readonly slots: (ItemStack | undefined)[] = Array(36).fill(undefined);
+
+  get size(): number {
+    return this.slots.length;
+  }
 
   setItem(slot: number, item?: ItemStack): void {
     writable("Container::setItem");
@@ -397,6 +410,12 @@ export class FakePlayer {
     this.level = 0;
   }
 
+  addLevels(amount: number): number {
+    writable("Player::addLevels");
+    this.level += amount;
+    return this.level;
+  }
+
   applyDamage(amount: number): boolean {
     writable("Entity::applyDamage");
     world.hurt(this, amount, "entityAttack");
@@ -437,6 +456,7 @@ export class FakeMob {
   readonly teleports: Vector3[] = [];
   readonly knockbacks: { x: number; z: number; vertical: number }[] = [];
   readonly health = makeAttribute(20, "health");
+  readonly properties = new Map<string, number | boolean | string>();
 
   constructor(typeId: string, location: Vector3) {
     this.typeId = typeId;
@@ -446,6 +466,11 @@ export class FakeMob {
 
   getComponent(id: string): unknown {
     return id === EntityComponentTypes.Health ? this.health : undefined;
+  }
+
+  setProperty(id: string, value: number | boolean | string): void {
+    writable("Entity::setProperty");
+    this.properties.set(id, value);
   }
 
   getEffect(): undefined {
@@ -473,9 +498,44 @@ export class FakeMob {
   }
 }
 
+/** A block in the fake world: its place and type. */
+export class FakeBlock {
+  readonly location: Vector3;
+  private readonly blocks: Map<string, string>;
+
+  constructor(location: Vector3, blocks: Map<string, string>) {
+    this.location = { x: Math.floor(location.x), y: Math.floor(location.y), z: Math.floor(location.z) };
+    this.blocks = blocks;
+  }
+
+  get typeId(): string {
+    return this.blocks.get(blockKey(this.location)) ?? "minecraft:air";
+  }
+
+  setType(typeId: string): void {
+    writable("Block::setType");
+    if (typeId === "minecraft:air") this.blocks.delete(blockKey(this.location));
+    else this.blocks.set(blockKey(this.location), typeId);
+  }
+
+  getItemStack(amount = 1): ItemStack | undefined {
+    return this.typeId === "minecraft:air" ? undefined : new ItemStack(this.typeId, amount);
+  }
+}
+
+function blockKey(location: Vector3): string {
+  return `${Math.floor(location.x)},${Math.floor(location.y)},${Math.floor(location.z)}`;
+}
+
 class FakeDimension {
   /** Every entity spawnEntity made, oldest first (removed ones too: check isValid). */
   readonly spawned: FakeMob[] = [];
+  /** Blocks that aren't air, by "x,y,z". */
+  readonly blocks = new Map<string, string>();
+
+  getBlock(location: Vector3): FakeBlock {
+    return new FakeBlock(location, this.blocks);
+  }
 
   spawnEntity(typeId: string, location: Vector3): FakeMob {
     writable("Dimension::spawnEntity");
@@ -486,6 +546,7 @@ class FakeDimension {
 
   reset(): void {
     this.spawned.length = 0;
+    this.blocks.clear();
   }
 }
 
@@ -630,10 +691,13 @@ class FakeWorld {
     projectileHitBlock: new FakeSignal<{ projectile: FakeEntity; source?: FakePlayer }>(),
     projectileHitEntity: new FakeSignal<{ projectile: FakeEntity; source?: FakePlayer; getEntityHit(): { entity?: FakePlayer | FakeMob } }>(),
     playerInteractWithEntity: new FakeSignal<{ player: FakePlayer; target: FakePlayer | FakeMob }>(),
+    playerPlaceBlock: new FakeSignal<{ player: FakePlayer; block: FakeBlock }>(),
   };
   readonly beforeEvents = {
     entityHurt: new FakeSignal<HurtBeforeEvent, unknown>(true),
     playerLeave: new FakeSignal<{ player: FakePlayer }>(true),
+    playerInteractWithBlock: new FakeSignal<{ player: FakePlayer; block: FakeBlock; blockFace: Direction; itemStack?: ItemStack; cancel: boolean }>(true),
+    playerBreakBlock: new FakeSignal<{ player: FakePlayer; block: FakeBlock; cancel: boolean }>(true),
   };
   readonly gameRules: Record<string, boolean | number> = {};
   readonly scoreboard = new FakeScoreboard();
@@ -722,6 +786,38 @@ class FakeWorld {
   projectileHits(victim: FakePlayer | FakeMob, source?: FakePlayer, typeId = "minecraft:arrow"): void {
     const projectile = new FakeEntity(typeId);
     this.afterEvents.projectileHitEntity.emit({ projectile, source, getEntityHit: () => ({ entity: victim }) });
+  }
+
+  /**
+   * A player uses a block item on the face of the block at `against`: the before-event, then (unless
+   * canceled) the block is placed beside it and the after-event fires. Returns whether it was placed.
+   */
+  placeBlock(player: FakePlayer, against: Vector3, face: Direction, typeId: string): boolean {
+    const offsets: Record<Direction, Vector3> = {
+      Down: { x: 0, y: -1, z: 0 },
+      Up: { x: 0, y: 1, z: 0 },
+      North: { x: 0, y: 0, z: -1 },
+      South: { x: 0, y: 0, z: 1 },
+      West: { x: -1, y: 0, z: 0 },
+      East: { x: 1, y: 0, z: 0 },
+    };
+    const event = { player, block: this.overworld.getBlock(against), blockFace: face, itemStack: new ItemStack(typeId), cancel: false };
+    this.beforeEvents.playerInteractWithBlock.emit(event);
+    if (event.cancel) return false;
+    const at = { x: against.x + offsets[face].x, y: against.y + offsets[face].y, z: against.z + offsets[face].z };
+    const block = this.overworld.getBlock(at);
+    block.setType(typeId);
+    this.afterEvents.playerPlaceBlock.emit({ player, block });
+    return true;
+  }
+
+  /** A player finishes breaking the block at `at`: the before-event, then (unless canceled) it's gone. Returns whether it broke. */
+  breakBlock(player: FakePlayer, at: Vector3): boolean {
+    const event = { player, block: this.overworld.getBlock(at), cancel: false };
+    this.beforeEvents.playerBreakBlock.emit(event);
+    if (event.cancel) return false;
+    event.block.setType("minecraft:air");
+    return true;
   }
 
   /** /kill: lethal, cause selfDestruct. */

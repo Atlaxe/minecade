@@ -27,6 +27,7 @@ import {
 import { encodePng } from "../skins/png.ts";
 import { RENDERS, renderSkinSet } from "../skins/skin-set.ts";
 import { readSkins } from "../skins/store.ts";
+import { addGameKitPictures } from "./kit-pictures.ts";
 import { enableBetaApis, patchLevelDat } from "./leveldat.ts";
 import { pinManifest, type Manifest } from "./mc-versions.ts";
 import { addSharedPacks, buildBehaviorPack, buildResourcePack, hasContent, sharedPacks, type SharedPack } from "./packs.ts";
@@ -313,7 +314,8 @@ for (const target of targets) {
   }
   await addSharedPacks(out, shared);
   if (target.resourcePack) {
-    const extra = target.id === "lobby" ? addGameIcons : undefined;
+    const game = target.game;
+    const extra = target.id === "lobby" ? addGameIcons : game?.kits?.select ? (pack: string) => addGameKitPictures(pack, game, target.maps).then(() => {}) : undefined;
     await buildResourcePack(join(target.dir, "resource_pack"), join(out, "resource_packs", `${target.id}_rp`), target.resourcePack, extra);
   }
   const maps = await buildMaps(target, out);

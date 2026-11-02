@@ -69,23 +69,99 @@ export interface ScoringConfig {
 }
 
 export interface KitItem {
+  /**
+   * The item id. "{color}" stands for the player's team color as a dye name, for blocks in the
+   * team's color: "minecraft:{color}_wool" is red_wool on Red, white_wool without a team.
+   */
   item: string;
   count?: number;
   /** Hotbar or inventory slot; next free slot when omitted. */
   slot?: number;
+  /** The item's name in the hotbar (a feather named "Leap"); the kit form shows it too. */
   name?: string;
 }
+
+/**
+ * When a kit's items come back: "life" on every spawn (the default); "round" at the start of the
+ * match and of every best-of round, with what's left kept through a respawn; "match" once, with
+ * what's left kept through every respawn and round.
+ */
+export type KitRefill = "life" | "round" | "match";
 
 export interface KitDef {
   id: string;
   name: string;
-  /** Icon texture path for the picker button. */
+  /** Icon texture path, for the button of a classic form. */
   icon?: string;
   items: KitItem[];
   armor?: Partial<Record<"head" | "chest" | "legs" | "feet" | "offhand", string>>;
   effects?: { id: string; amplifier?: number; seconds?: number }[];
   /** Dye leather armor in the player's team color. */
   teamArmor?: boolean;
+  refill?: KitRefill;
+}
+
+/**
+ * When players pick their kit, in a live form that stays open until everyone has picked: "match",
+ * once before the match starts; "round", before every best-of round (round 1's pick is the
+ * match's). Kit changes in the middle of a round are still to come.
+ */
+export type KitSelect = "match" | "round";
+
+export interface KitsConfig {
+  /** What everyone gets on top of the kit they pick (Bridges: the sword, bow, wool and arrow). */
+  base?: KitDef;
+  /** The kits. Without `select`, everyone gets the first. */
+  list: KitDef[];
+  select?: KitSelect;
+  /** Seconds to pick, after which whoever hasn't gets the first kit. Default 30. */
+  pickSeconds?: number;
+}
+
+/**
+ * A map's own kits (map.json "kits"): added after the game's ("append", the default), or in place of
+ * them ("replace"). A `base` replaces the game's base in either mode.
+ */
+export interface MapKitsConfig {
+  mode?: "append" | "replace";
+  base?: KitDef;
+  list?: KitDef[];
+}
+
+/**
+ * Best-of rounds: the match is a series of rounds, each won by one player or team, and the first to
+ * win more than half of them takes it. (Turn-based rounds, where sides take turns, are a separate
+ * system still to come.) The rounds show top right, in the HUD.
+ */
+export interface BestOfConfig {
+  /** Best of this many rounds, at least 3: the first side to win more than half takes the match. */
+  rounds?: number;
+  /** Instead of `rounds`: the first side to this many round wins, however many rounds it takes. */
+  firstTo?: number;
+  /**
+   * How the HUD shows them: "icons", a circle per round, white until someone wins it, then in the
+   * winner's color, left to right (two sides, best of up to 7); "score", each side's round wins in
+   * its color, "R | B" (up to 4 sides). Default: icons when they fit, else the score.
+   */
+  display?: "icons" | "score";
+  /** The frozen countdown before every round after the first, in seconds. Default 3. */
+  countdownSeconds?: number;
+  /** Each round's time limit in seconds; onRoundTimeUp decides it (a drawn round by default). None by default. */
+  roundSeconds?: number;
+  /** A lobby option (one of `options`) whose value replaces `rounds`, such as Bridges' "Best of". */
+  option?: string;
+}
+
+/**
+ * Games where players build (Bridges): they play in survival mode and place blocks inside the
+ * bounds, and break only the blocks placed during the match (nothing drops).
+ */
+export interface BuildConfig {
+  /**
+   * Regions (map.json "regions") where nobody can place a block. A name counts its per-team lists
+   * too: "spawnGuard" covers "spawnGuard.red" and "spawnGuard.blue".
+   */
+  noBuild?: string[];
 }
 
 export interface StatsExtra {
@@ -131,7 +207,10 @@ export interface GameConfig {
   scoring?: ScoringConfig;
   /** Who wins when time runs out. Default: the highest score, else a draw. */
   timeUp?: "highestScore" | "draw" | { team: string };
-  kits?: { pick?: boolean; list: KitDef[] };
+  kits?: KitsConfig;
+  /** A match of best-of rounds instead of one long stage (see BestOfConfig). */
+  bestOf?: BestOfConfig;
+  build?: BuildConfig;
   /** Game rules for the match (world.gameRules keys). Restored afterwards. */
   gameRules?: Record<string, boolean | number>;
   /** Map entries this game needs. The build checks every map has them, and the map editor lists them. */

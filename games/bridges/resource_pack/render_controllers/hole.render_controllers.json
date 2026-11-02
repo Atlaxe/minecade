@@ -1,0 +1,26 @@
+{
+  "format_version": "1.10.0",
+  "render_controllers": {
+    "controller.render.minecade.bridges_hole": {
+      "arrays": {
+        "textures": {
+          "Array.teams": [
+            "Texture.red",
+            "Texture.blue",
+            "Texture.lime",
+            "Texture.yellow"
+          ]
+        }
+      },
+      "geometry": "Geometry.default",
+      "materials": [
+        {
+          "*": "Material.default"
+        }
+      ],
+      "textures": [
+        "Array.teams[query.property('minecade:team')]"
+      ]
+    }
+  }
+}

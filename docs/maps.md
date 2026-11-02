@@ -39,6 +39,7 @@ The map editor sets spawns and points in game and writes `map.json` for you; see
 | `teamSpawns` | no | `{ "<team or role id>": [positions] }`. Team games spawn each team at its own points. With these, `spawns` may have fewer than `maxPlayers` entries. The keys must be the game's team ids. |
 | `points` | no | `{ "<name>": [positions] }`: named positions a game uses, such as bomb sites or mob spawns. `"<name>.<team>"` is one team's (`"flag.red"`). |
 | `regions` | no | `{ "<name>": [{ "min": [x, y, z], "max": [x, y, z] }, ...] }`: named boxes, such as build plots or a floor that falls away. `"<name>.<team>"` is one team's. The name `kill` is reserved: anyone inside a `kill` box is out, the same as falling below `killY` (spectators fly over them). |
+| `kits` | no | Games only: kits of the map's own, for a game whose players pick kits. `{ "mode": "append", "list": [kits] }` adds them after the game's (a kit with the same `id` as one of the game's takes its place); `"mode": "replace"` uses only the map's. A `base` replaces the game's base kit either way. Each kit is written as in `game.config.ts`: `{ "id": "ice", "name": "Ice", "refill": "round", "items": [{ "item": "minecraft:snowball", "count": 16 }] }`. The map editor keeps it as written; there's no screen for it yet. |
 | `build.commands` | no | Console commands (no leading `/`) that build the world, run once by `npm run bake`. |
 | `source`, `cameras` | no | Written by the map editor: where the map was cut from, and its preview cameras (`{ "Camera 1": { "at": [x, y, z, yaw, pitch], "kind": "map" \| "game" } }`, the eye point and view the Camera tool saved). Servers never get them. |
 | anything else | no | Game-specific settings the game reads itself. |
@@ -118,6 +119,21 @@ such as the lobby's terminal); or `{ model: "<name>" }`, the game's own model. I
 facing the entry's facing) and `markers/<name>.png`, its texture. Names are lowercase letters,
 digits and `_`. The map editor adds every game's models to its resource pack when it starts, and
 draws a model it doesn't have as a post.
+
+**Building games** (a `build` block in `game.config.ts`, Bridges) play in survival mode. Players
+place blocks only inside a `bounds` box (above `killY`, outside kill regions), never inside a region
+the game names in `build.noBuild`, and break only blocks placed during the match (nothing drops).
+A name there covers its per-team lists too, so `noBuild: ["spawnGuard"]` closes `spawnGuard.red`
+and `spawnGuard.blue` to everyone. Draw those regions with the map editor's region tool (Save as,
+then the region from the list, such as Spawn guard (Red)); they show in each team's color, and in
+the Boundaries view.
+
+**Bridges** needs team spawns, bounds, kill Y, a spectator or queue spawn, and per team:
+- a `hole.<team>` point at the **middle of the hole's floor**, in the pit the map has for it. The
+  game stands the hole there: 2.5 blocks square and 3 tall, black inside, its rim a ring in the
+  team's color. Nobody can build in the hole or anywhere above it. The editor draws the point as a
+  post.
+- a `spawnGuard.<team>` region around the team's spawn (and its hole), where nobody builds.
 
 **The lobby** declares its own in `lobby/lobby.config.ts`: one spawn and the `terminal` point
 (the middle block of the terminal's 3x3 console; the hologram floats above it). `LOBBY_MAP` in
