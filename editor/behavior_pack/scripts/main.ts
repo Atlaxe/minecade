@@ -20,6 +20,8 @@ useMannequinSkins(skins);
 
 const loaded = world.afterEvents.worldLoad.subscribe(() => {
   world.afterEvents.worldLoad.unsubscribe(loaded);
+  // No "new recipe unlocked" popups in any mode, as on the lobby and game servers.
+  world.gameRules.showRecipeMessages = false;
   const vars = readEditorVars();
   if (!vars) return;
   const { info, map } = vars;

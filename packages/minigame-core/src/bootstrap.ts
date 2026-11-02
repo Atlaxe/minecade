@@ -20,6 +20,8 @@ export function bootServer(onReady: (ctx: ServerContext) => void): void {
     // Maps come from worlds built in Java and converted: command blocks left in them could clear
     // inventories or change game modes, so none run on any server.
     world.gameRules.commandBlocksEnabled = false;
+    // No "new recipe unlocked" popups when players pick up wool, logs and the like.
+    world.gameRules.showRecipeMessages = false;
     // map.json "time": the sky stays at that time of day.
     const ticks = mapTimeTicks(vars.mapConfig.time);
     if (ticks !== undefined) {
