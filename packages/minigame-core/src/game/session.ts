@@ -1,8 +1,8 @@
 // Runs a game on a game server: boots the script side, plays the match, then sends everyone back
 // to the lobby and tells the orchestrator. A preview's match that's over asks each player what's
-// next instead (preview.ts endPreview), and the end_game says who picked Replay and Edit. Party
-// mode will run several factories in a row here.
-import { ScriptEventSource, system, world } from "@minecraft/server";
+// next instead (preview.ts endPreview), and the end_game says who picked Replay and Edit (after a
+// /restart, everyone). Party mode will run several factories in a row here.
+import { ScriptEventSource, system, world, type Player } from "@minecraft/server";
 import { bootServer } from "../bootstrap.ts";
 import { describeError, log } from "../log.ts";
 import { normalizePlayer } from "../player.ts";
@@ -10,7 +10,7 @@ import { homePort } from "../vars.ts";
 import type { EndReason } from "../protocol/index.ts";
 import type { Scope, ScopeCounts } from "../scope.ts";
 import type { GameContext, Minigame } from "./minigame.ts";
-import { endPreview, registerPreviewCommands } from "./preview.ts";
+import { endPreview, registerPreviewCommands, replayAll } from "./preview.ts";
 import { draw, endReason } from "./results.ts";
 import { removeLeftoverObjectives } from "./sidebar.ts";
 
@@ -50,9 +50,11 @@ export function runGameServer(factory: (ctx: GameContext) => Minigame): void {
     );
 
     const baseline = root.live();
-    game = factory({ ...server, random: Math.random, match: 1 });
-    void playSession(game, server.root, baseline, async (reason) => {
-      const next = vars.preview && reason === "finished" ? await endPreview(root, vars, (player, port) => server.transfer.transfer(player, port)) : undefined;
+    const match = factory({ ...server, random: Math.random, match: 1 });
+    game = match;
+    void playSession(match, server.root, baseline, async (reason) => {
+      const transfer = (player: Player, port: number) => server.transfer.transfer(player, port);
+      const next = !vars.preview ? undefined : match.restarting ? replayAll(vars, transfer) : reason === "finished" ? await endPreview(root, vars, transfer) : undefined;
       // After the preview's menu everyone is on their way already, where they picked.
       for (const player of next ? [] : world.getAllPlayers()) {
         normalizePlayer(player);

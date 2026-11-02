@@ -1,12 +1,13 @@
 // A game previewed from the map editor: fake players (/fake) wait, spawn, go down and watch like
-// players, right clicking one asks whether it should kill you, and /exit ends the preview for a map
-// editor (a guest just leaves). Outside previews there are no fake players.
+// players, right clicking one asks whether it should kill you, /exit ends the preview for a map
+// editor (a guest just leaves), and /restart plays it again for everyone. Outside previews there are
+// no fake players.
 import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import type { GameConfig } from "../src/config.ts";
 import type { MapConfig } from "../src/map-config.ts";
 import { FAKE_PLAYER, FakePlayers, HEARTS, heartsText } from "../src/game/fakes.ts";
 import { Minigame } from "../src/game/minigame.ts";
-import { DANGER_BUTTON, GO_BUTTON, PREVIEW_NEXT, SIDE_TITLE, endPreview } from "../src/game/preview.ts";
+import { DANGER_BUTTON, GO_BUTTON, PREVIEW_NEXT, SIDE_TITLE, endPreview, replayAll } from "../src/game/preview.ts";
 import { stripColors } from "../src/text.ts";
 import { transfers } from "./fake-mc-server-admin.ts";
 import { world, type FakeMob } from "./fake-mc-server.ts";
@@ -132,6 +133,23 @@ describe("fake players in a preview", () => {
     expectBaseline(harness.root, baseline);
   });
 
+  it("restart for everyone after a map editor's /restart; a guest can't restart it", async () => {
+    const { players, baseline, game } = preview(["A", "Guest"], { ...FFA, win: "custom", timeLimitSeconds: 0 }, ["Guest"]);
+    const [a, guest] = players;
+    const result = await playToEnd(game, harness.root, baseline, async () => {
+      await ticks(COUNTDOWN_TICKS);
+      game.restartPreview(guest as never);
+      expect(stripColors(guest.messages.at(-1) ?? "")).toBe("Only a map editor can restart the preview.");
+      expect(game.restarting).toBe(false);
+      expect(game.phase).toBe("playing");
+      game.restartPreview(a as never);
+      expect(game.restarting).toBe(true);
+    });
+    expect(result).toMatchObject({ kind: "aborted" });
+    expect(world.chat.map(stripColors)).toContain("A restarted the preview.");
+    expectBaseline(harness.root, baseline);
+  });
+
   it("can't join a running match that lets nobody in; a guest's /exit only sends them home", async () => {
     transfers.length = 0;
     const { players, baseline, game } = preview(["A", "Guest"], { ...FFA, lateJoin: "spectate", win: "custom", timeLimitSeconds: 2 }, ["Guest"]);
@@ -222,10 +240,13 @@ describe("fake players in a preview", () => {
     game.ctx.vars.previewFakes = 1;
     await playToEnd(game, harness.root, baseline, async () => {
       await ticks(2);
+      // Floating: a crowd at the one spot can't push each other off it.
       expect(bodyOf("Fake 1")?.location).toEqual({ x: 0.5, y: 70, z: 10.5 });
+      expect(bodyOf("Fake 1")?.events.at(-1)).toBe("minecade:float");
       expect(bodyOf("Fake 1")?.effects.has("invisibility")).toBe(true);
       expect(bodyOf("Fake 1")?.nameTag).toBe("");
       await ticks(20 + 10);
+      expect(bodyOf("Fake 1")?.events.at(-1)).toBe("minecade:walk");
       expect(bodyOf("Fake 1")?.effects.has("invisibility")).toBe(false);
       expect(stripColors(bodyOf("Fake 1")?.nameTag ?? "")).toBe("Fake 1");
       game.abort();
@@ -284,6 +305,14 @@ describe("the end of a preview's match", () => {
     // From Edit: Edit is its port; Replay waits in the editor lobby.
     expect(sent).toEqual([["A", 19134], ["Guest", 19132]]);
     expect(next).toEqual({ replay: ["Guest"], edit: [] });
+  });
+
+  it("sends everyone to the editor lobby to play it again after a /restart", () => {
+    world.join("A");
+    world.join("Guest");
+    const sent: [string, number][] = [];
+    expect(replayAll(vars(19134), (player, port) => sent.push([player.name, port]))).toEqual({ replay: ["A", "Guest"], edit: [] });
+    expect(sent).toEqual([["A", 19132], ["Guest", 19132]]);
   });
 
   it("sends Edit through the editor lobby for a preview started there, and anyone who closes it home", async () => {

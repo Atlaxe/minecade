@@ -302,11 +302,13 @@ you back in creative at every spawn).
   middle of the map), from a mannequin's eyes or a post's head, and the whole marker turns that
   way. **Hit a marker** for the same screen as placing one, with
   **Renumber** and **Delete** (red); **Save** (green) writes the changes, including moving it to
-  another list.
+  another list. A game's own model can be hit anywhere on it: its hitbox is the model's size
+  (square around the marker, from its lowest part to its highest), which also means it's in the way
+  of hitting or using the blocks inside it.
 - **Queue spawn:** where players wait for everyone to join, before the game puts them at their
   spawns (see "The queue spawn" in `docs/maps.md`). Its marker reads "Queue spawn (lock in, 5 s)".
   Hit it for two more buttons: **Lock in** (on: players can look around but not move, and are
-  invisible to each other; off: they roam free) and **Countdown** (the seconds, once everyone's
+  invisible to each other, held up in the air if it's there; off: they roam free) and **Countdown** (the seconds, once everyone's
   in, before they go to their spawns; 5 at first).
 - **Region tool:** picks a box, for the bounds, a region or a kill region (anyone inside a kill
   region is out). The bounds can be several boxes: a player inside any of them is in.
@@ -390,15 +392,19 @@ everyone going, at most 7), then **Start preview** (green).
    **Lobby** (the editor lobby). Closing it, or not picking within a minute, sends you back where
    the preview came from. **/exit** (`/minecade:exit`) ends it at any time with no menu and sends
    everyone back (for an invited guest, it only sends them home to the editor lobby), and so does
-   **End preview** (the Panel's Preview row, or `npm run editor -- preview end`).
+   **End preview** (the Panel's Preview row, or `npm run editor -- preview end`). **/restart**
+   (`/minecade:restart`, map editors only) plays it again from the start for everyone, as if they
+   all picked Replay: you wait in the editor lobby while it starts again. It can't restart on the
+   same server, since a match changes the world (Bridges' blocks) and a preview starts from a fresh
+   copy of the map.
 
 **Fake players:** the ones picked before the preview loads wait with you from the start (the game
 reads `PREVIEW_FAKES`), and **/fake** (`/minecade:fake`) adds more, `/fake 3` three, up to the
 game's player limit. A fake player looks like a player (Steve) with a name tag, "Fake 1", "Fake 2"
 and so on (hidden during the match, like players' unless the game shows name tags). In play, its
 name tag shows its health as hearts like the HUD's (under its name when names show), and they drop
-as it's hurt. The game treats it as one: before the match it waits where you do (at the queue spawn, unseen and nameless
-when the queue locks you in, or else at a spawn of its own) and counts toward the players needed to
+as it's hurt. The game treats it as one: before the match it waits where you do (at the queue spawn, unseen, nameless and
+floating when the queue locks you in, or else at a spawn of its own) and counts toward the players needed to
 start; it gets a team in team games, spawns, respawns and is eliminated by the game's rules; it has
 a score like anyone, and its downs show in the kill feed. Down or out, it watches from where a player
 would, nameless: on foot at the queue spawn when the map has no spectator spawn, else floating at

@@ -319,8 +319,10 @@ describe("the queue spawn", () => {
     const game = new TestGame(harness.context(["A"], map), config);
     await playToEnd(game, baseline, async () => {
       await ticks(2);
-      // Both are in the queue: on the spot, locked in, invisible, without a name tag.
+      // Both are in the queue: on the spot, locked in, invisible, without a name tag, and held up by
+      // a barrier under it (it's in the air).
       expect([at(a), at(b)]).toEqual([[10.25, 70, -3.5], [10.25, 70, -3.5]]);
+      expect(world.overworld.blocks.get("10,69,-4")).toBe("minecraft:barrier");
       expect(a.unlocked).toBe(false);
       expect(a.effects.has("invisibility")).toBe(true);
       expect(a.nameTag).toBe("");
@@ -338,6 +340,7 @@ describe("the queue spawn", () => {
       expect(a.effects.has("invisibility")).toBe(false);
       expect(a.nameTag).toBe("A");
       expect(a.unlocked).toBe(false);
+      expect(world.overworld.blocks.has("10,69,-4")).toBe(false);
       await ticks(2 * 20 + 5);
       expect(game.phase).toBe("playing");
       expect(a.unlocked).toBe(true);

@@ -4,7 +4,8 @@
 // (editor/behavior_pack/scripts/lists.ts MARKER_STYLES), and each target's rules carry its models'
 // numbers so the pack can draw them: on the markers, and on the aim cursor while one is placed. A
 // model's bones named "tint" take a team's color (the rim of Bridges' hole); the rest keep their
-// texture's.
+// texture's. The editor's behavior pack gets a hitbox for each, the size of the model, so a hit
+// anywhere on it opens the marker's screen (markers.ts switches it on).
 import { existsSync } from "node:fs";
 import { copyFile, mkdir, readdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
@@ -21,6 +22,11 @@ const CURSOR_SHAPES = FIRST_MODEL_STYLE + 1;
 const CURSOR_LOOKS = 2;
 /** The marker's render controllers that draw its shape (its tinted bones are drawn by the second). */
 const MARKER_CONTROLLERS = ["controller.render.minecade.editor_marker", "controller.render.minecade.editor_marker_tint"];
+/** The marker's event that takes a model's hitbox away (markers.ts), and the one that gives style n its own. */
+export const NO_MODEL_EVENT = "minecade:no_model";
+export const modelEvent = (style: number) => `minecade:model_${style}`;
+/** The smallest side a model's hitbox gets, in blocks (a flat model still gets one to hit). */
+const MIN_HITBOX = 0.25;
 const NAME = /^[a-z0-9_]+$/;
 
 export interface MarkerModel {
@@ -105,4 +111,43 @@ export async function addMarkerModels(pack: string, models: MarkerModel[]): Prom
   await writeFile(entityPath, JSON.stringify(entity, null, 2));
   await writeFile(cursorPath, JSON.stringify(cursorEntity, null, 2));
   await writeFile(controllerPath, JSON.stringify(controllers, null, 2));
+}
+
+/**
+ * Gives a built copy of the editor's behavior pack a hitbox for each model, the size of the model:
+ * a component group per model, an event that switches a marker to it (modelEvent), and one that
+ * goes back to the marker's own collision box (NO_MODEL_EVENT).
+ */
+export async function addMarkerHitboxes(pack: string, models: MarkerModel[]): Promise<void> {
+  const entityPath = join(pack, "entities", "editor_marker.json");
+  const file = JSON.parse(await readFile(entityPath, "utf8"));
+  const entity = file["minecraft:entity"];
+  const groups = models.map((model) => `minecade:model_${model.style}`);
+  entity.component_groups ??= {};
+  for (const [index, model] of models.entries()) {
+    const box = modelHitbox(JSON.parse(await readFile(model.geometry, "utf8")));
+    entity.component_groups[groups[index]] = { "minecraft:custom_hit_test": { hitboxes: [box] } };
+    const others = groups.filter((group) => group !== groups[index]);
+    entity.events[modelEvent(model.style)] = { ...(others.length > 0 ? { remove: { component_groups: others } } : {}), add: { component_groups: [groups[index]] } };
+  }
+  entity.events[NO_MODEL_EVENT] = groups.length > 0 ? { remove: { component_groups: groups } } : {};
+  await writeFile(entityPath, JSON.stringify(file, null, 2));
+}
+
+/**
+ * A model's hitbox, in blocks: from its lowest cube to its highest, and square around the marker,
+ * as far out as its cubes reach, so it covers the model whichever way the marker is turned.
+ */
+export function modelHitbox(geo: { "minecraft:geometry"?: { bones?: { cubes?: { origin: number[]; size: number[]; inflate?: number }[] }[] }[] }): { width: number; height: number; pivot: number[] } {
+  const cubes = (geo["minecraft:geometry"]?.[0]?.bones ?? []).flatMap((bone) => bone.cubes ?? []);
+  let reach = 0;
+  let low = cubes.length > 0 ? Infinity : 0;
+  let high = cubes.length > 0 ? -Infinity : 0;
+  for (const { origin: [x, y, z], size: [width, height, depth], inflate = 0 } of cubes) {
+    reach = Math.max(reach, Math.abs(x - inflate), Math.abs(x + width + inflate), Math.abs(z - inflate), Math.abs(z + depth + inflate));
+    low = Math.min(low, y - inflate);
+    high = Math.max(high, y + height + inflate);
+  }
+  const blocks = (pixels: number) => Math.round((pixels / 16) * 1000) / 1000;
+  return { width: Math.max(MIN_HITBOX, blocks(2 * reach)), height: Math.max(MIN_HITBOX, blocks(high - low)), pivot: [0, blocks((low + high) / 2), 0] };
 }

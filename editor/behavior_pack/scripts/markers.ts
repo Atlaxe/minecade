@@ -7,7 +7,7 @@
 // server crashes), and clear() loads them all and removes every marker before the world is saved.
 import { world, type Dimension, type Entity, type Vector3 } from "@minecraft/server";
 import { describeError, log, type Scope } from "@minecade/minigame-core";
-import { markerPitch, sameYaw, type MarkerShape } from "./lists.ts";
+import { MARKER_STYLES, markerPitch, sameYaw, type MarkerShape } from "./lists.ts";
 
 export const MARKER = "minecade:editor_marker";
 /** On each marker: its MarkerSpec key. */
@@ -21,6 +21,13 @@ const PITCH_PROPERTY = "minecade:pitch";
 const KIND_PROPERTY = "minecade:kind";
 /** Which shape it gets (lists.ts MARKER_STYLES, or a game's model). */
 const STYLE_PROPERTY = "minecade:style";
+/**
+ * The events that give a marker its game model's hitbox (the model's size, so a hit anywhere on it
+ * counts) or take it back to the marker's own: the editor's template build adds them
+ * (tools/editor/marker-models.ts addMarkerHitboxes).
+ */
+const NO_MODEL_EVENT = "minecade:no_model";
+const FIRST_MODEL_STYLE = MARKER_STYLES.camera + 1;
 /** A team's color over the kind's: 0xRRGGBB + 1, or 0 for none (the render controller's overlay). */
 const TINT_PROPERTY = "minecade:tint";
 /** On the world: the chunks markers were in, as JSON ["x,z", ...]. */
@@ -176,7 +183,10 @@ function showFacing(entity: Entity, spec: MarkerShape): void {
   const kind = spec.kind ?? 0;
   if (entity.getProperty(KIND_PROPERTY) !== kind) entity.setProperty(KIND_PROPERTY, kind);
   const style = spec.style ?? 0;
-  if (entity.getProperty(STYLE_PROPERTY) !== style) entity.setProperty(STYLE_PROPERTY, style);
+  if (entity.getProperty(STYLE_PROPERTY) !== style) {
+    entity.setProperty(STYLE_PROPERTY, style);
+    entity.triggerEvent(style >= FIRST_MODEL_STYLE ? `minecade:model_${style}` : NO_MODEL_EVENT);
+  }
   const tint = spec.tint === undefined ? 0 : spec.tint + 1;
   if (entity.getProperty(TINT_PROPERTY) !== tint) entity.setProperty(TINT_PROPERTY, tint);
 }

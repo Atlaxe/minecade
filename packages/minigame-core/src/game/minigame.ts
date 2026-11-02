@@ -12,6 +12,7 @@ import {
   world,
   type Entity,
   type Player,
+  type Vector3,
 } from "@minecraft/server";
 import { ActionFormData } from "@minecraft/server-ui";
 import type { ServerContext } from "../context.ts";
@@ -86,6 +87,8 @@ const TITLE_TICKS = 40;
 const TITLE_FADE_TICKS = 10;
 /** Invisibility in a locked queue lasts until normalizePlayer clears it at the spawn. */
 const QUEUE_EFFECT_TICKS = 1_000_000;
+/** What holds players up at a locked queue spawn in the air: solid, and players don't see it. */
+const QUEUE_FLOOR = "minecraft:barrier";
 /** After a best-of round is decided, everyone stays put this long before going back to their spawns. */
 const ROUND_BREAK_TICKS = 40;
 /** How often the kit form's picks are checked, in ticks; its clock moves every second. */
@@ -163,6 +166,10 @@ export abstract class Minigame<C extends GameConfig = GameConfig> {
   private sidebarVersion = -1;
   /** Players with a fake player's kill confirm open. */
   private readonly confirmOpen = new Set<string>();
+  /** A map editor's /restart ended the preview: everyone plays it again. */
+  private restartAsked = false;
+  /** The block under a locked queue spawn the game made a barrier while players wait there. */
+  private queueFloor: Vector3 | undefined;
 
   constructor(ctx: GameContext, config: C) {
     this.ctx = ctx;
@@ -177,6 +184,11 @@ export abstract class Minigame<C extends GameConfig = GameConfig> {
     this.build = config.build ? new BuildRules(this.buildHost(), config.build, this.map) : undefined;
     if (config.build) this.gameMode = GameMode.Survival;
     this.finished = new Promise((resolve) => (this.settle = resolve));
+  }
+
+  /** Whether a map editor ended the preview with /restart, so everyone plays it again (session.ts). */
+  get restarting(): boolean {
+    return this.restartAsked;
   }
 
   get phase(): Phase {
@@ -801,6 +813,7 @@ export abstract class Minigame<C extends GameConfig = GameConfig> {
   }
 
   private openPregame(scope: Scope): void {
+    scope.add(() => this.releaseQueueFloor());
     for (const player of world.getAllPlayers()) this.prepareWaiting(player);
     if (this.picksOpen) {
       scope.subscribe(world.afterEvents.itemUse, ({ source, itemStack }) => {
@@ -810,6 +823,7 @@ export abstract class Minigame<C extends GameConfig = GameConfig> {
     // Nobody can be hurt before the match (combat ignores non-participants); fallers come back,
     // and so does anyone pushed off a locked queue spawn.
     scope.interval(() => {
+      this.holdQueueFloor();
       for (const player of world.getAllPlayers()) {
         if (this.map.outOfBounds(player.location) || this.offQueueSpot(player)) this.placeWaiting(player);
       }
@@ -847,6 +861,7 @@ export abstract class Minigame<C extends GameConfig = GameConfig> {
   /** Everyone into the queue (`on`), or out of it to their waiting spawns. */
   private requeue(on: boolean): void {
     this.queued = on;
+    if (!on) this.releaseQueueFloor();
     for (const player of world.getAllPlayers()) this.prepareWaiting(player);
     for (const name of this.fakes?.all ?? []) this.placeWaitingFake(name);
   }
@@ -871,13 +886,14 @@ export abstract class Minigame<C extends GameConfig = GameConfig> {
   }
 
   /**
-   * At the queue spawn while queued (locked in: unable to move but free to look around, and
-   * invisible without a name tag, so nobody sees the others), else at a spawn of their own.
-   * normalizePlayer, at every spawn, undoes the queue's lock.
+   * At the queue spawn while queued (locked in: unable to move but free to look around, held up
+   * there, and invisible without a name tag, so nobody sees the others), else at a spawn of their
+   * own. normalizePlayer, at every spawn, undoes the queue's lock.
    */
   private placeWaiting(player: Player): void {
     const queueSpawn = this.map.queueSpawn;
     if (this.queued && queueSpawn) {
+      this.holdQueueFloor();
       this.place(player, queueSpawn);
       if (this.map.queue.mode !== "lock") return;
       try {
@@ -892,15 +908,47 @@ export abstract class Minigame<C extends GameConfig = GameConfig> {
     this.place(player, this.waitingSpawn(player.name));
   }
 
-  /** A fake player waits where a player would: in the queue (unseen and nameless when it locks), else at a spawn of its own. */
+  /** A fake player waits where a player would: in the queue (unseen, nameless and floating when it locks), else at a spawn of its own. */
   private placeWaitingFake(name: string): void {
     const queueSpawn = this.map.queueSpawn;
     if (this.queued && queueSpawn) {
       const locked = this.map.queue.mode === "lock";
-      this.placeFake(name, queueSpawn, { tagged: !locked, unseen: locked });
+      this.placeFake(name, queueSpawn, { tagged: !locked, unseen: locked, floating: locked });
       return;
     }
     this.placeFake(name, this.waitingSpawn(name));
+  }
+
+  /**
+   * Locking players in can't stop them falling, so a locked queue spawn in the air gets a floor
+   * while they wait there: a barrier in the block under it (only in place of air), taken away
+   * once they leave the queue. Until its chunk loads, the pregame's check tries again.
+   */
+  private holdQueueFloor(): void {
+    const spawn = this.map.queueSpawn;
+    if (this.queueFloor || !this.queued || !spawn || this.map.queue.mode !== "lock") return;
+    const at = worldPoint(spawn);
+    const below = { x: Math.floor(at.x), y: Math.floor(at.y) - 1, z: Math.floor(at.z) };
+    try {
+      const block = world.getDimension("overworld").getBlock(below);
+      if (block?.typeId !== "minecraft:air") return;
+      block.setType(QUEUE_FLOOR);
+      this.queueFloor = below;
+    } catch (error) {
+      log.warn(`could not put a floor under the queue spawn: ${describeError(error)}`);
+    }
+  }
+
+  private releaseQueueFloor(): void {
+    const at = this.queueFloor;
+    this.queueFloor = undefined;
+    if (!at) return;
+    try {
+      const block = world.getDimension("overworld").getBlock(at);
+      if (block?.typeId === QUEUE_FLOOR) block.setType("minecraft:air");
+    } catch (error) {
+      log.warn(`could not take the queue spawn's floor away: ${describeError(error)}`);
+    }
   }
 
   /** A spawn of the player's planned team when teams are dealt (and the map has team spawns), else a plain spawn of their own. */
@@ -1551,6 +1599,22 @@ export abstract class Minigame<C extends GameConfig = GameConfig> {
       return;
     }
     this.ctx.transfer.transfer(player, homePort(this.ctx.vars, player.name));
+  }
+
+  /** /restart: a map editor ends the preview for everyone, who all play it again (as if they all picked Replay). */
+  restartPreview(player: Player): void {
+    if (!player.isValid) return;
+    if (!this.ctx.vars.lanPlayers.some((name) => name.toLowerCase() === player.name.toLowerCase())) {
+      player.sendMessage(say.warn("Only a map editor can restart the preview."));
+      return;
+    }
+    if (this.currentPhase === "ending" || this.currentPhase === "done") {
+      player.sendMessage(say.info("The match is over: pick Replay to play it again."));
+      return;
+    }
+    this.restartAsked = true;
+    this.broadcast(say.info(`${player.name} restarted the preview.`));
+    this.abort("aborted");
   }
 
   /**

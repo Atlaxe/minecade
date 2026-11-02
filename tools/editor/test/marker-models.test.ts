@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { addMarkerModels, listMarkerModels, markerStyles } from "../marker-models.ts";
+import { NO_MODEL_EVENT, addMarkerHitboxes, addMarkerModels, listMarkerModels, markerStyles, modelEvent, modelHitbox } from "../marker-models.ts";
 
 const repo = fileURLToPath(new URL("../../../", import.meta.url));
 const GEO = { format_version: "1.12.0", "minecraft:geometry": [{ description: { identifier: "geometry.anything", texture_width: 16, texture_height: 16 }, bones: [] }] };
@@ -63,5 +63,24 @@ describe("a game's own marker models", () => {
     const geo = JSON.parse(await readFile(join(pack, "models", "entity", "markers", "alpha_bomb.geo.json"), "utf8"));
     expect(geo["minecraft:geometry"][0].description.identifier).toBe("geometry.minecade.marker.alpha_bomb");
     expect(await readFile(join(pack, "textures", "entity", "markers", "zeta_crate.png"), "utf8")).toBe("png");
+  });
+
+  it("gives each one a hitbox in a built copy of the editor's behavior pack, and events to switch to it and back", async () => {
+    const pack = join(root, "bp");
+    await cp(join(repo, "editor", "behavior_pack", "entities"), join(pack, "entities"), { recursive: true });
+    await addMarkerHitboxes(pack, await listMarkerModels(root));
+    const entity = JSON.parse(await readFile(join(pack, "entities", "editor_marker.json"), "utf8"))["minecraft:entity"];
+    // These models have no cubes: the smallest hitbox.
+    expect(entity.component_groups["minecade:model_4"]).toEqual({ "minecraft:custom_hit_test": { hitboxes: [{ width: 0.25, height: 0.25, pivot: [0, 0, 0] }] } });
+    expect(entity.events[modelEvent(4)]).toEqual({ remove: { component_groups: ["minecade:model_3", "minecade:model_5", "minecade:model_6"] }, add: { component_groups: ["minecade:model_4"] } });
+    expect(entity.events[NO_MODEL_EVENT]).toEqual({ remove: { component_groups: ["minecade:model_3", "minecade:model_4", "minecade:model_5", "minecade:model_6"] } });
+    expect(entity.events["minecade:settings"]).toEqual({});
+  });
+
+  it("sizes a hitbox from the model's cubes: bottom to top, and square around the marker as far as they reach", async () => {
+    const hole = JSON.parse(await readFile(join(repo, "games", "bridges", "markers", "hole.geo.json"), "utf8"));
+    expect(modelHitbox(hole)).toEqual({ width: 3, height: 3, pivot: [0, 1.5, 0] });
+    const offCenter = { "minecraft:geometry": [{ bones: [{ cubes: [{ origin: [2, -8, -4], size: [6, 16, 2] }] }] }] };
+    expect(modelHitbox(offCenter)).toEqual({ width: 1, height: 1, pivot: [0, 0, 0] });
   });
 });

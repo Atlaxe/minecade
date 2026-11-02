@@ -63,6 +63,8 @@ With a `queueSpawn`, the start of a game goes:
 
 1. Everyone who joins waits at the queue spawn (locked in or free, by `queue.mode`). Anyone who
    falls below `killY` or leaves `bounds` (or, locked in, gets pushed off the spot) is put back.
+   Locked in, they can't fall either: a queue spawn in the air gets a barrier under it (in the
+   block below, if that's air) while anyone waits there, taken away once they go to their spawns.
 2. Once everyone expected is in (or the wait runs out with enough players), a countdown of
    `queue.countdown` seconds runs there ("Spawning in").
 3. Everyone moves to their spawns, visible again, for the game's usual frozen countdown, then "Go!".
@@ -127,7 +129,8 @@ such as the lobby's terminal); or `{ model: "<name>" }`, the game's own model. I
 facing the entry's facing) and `markers/<name>.png`, its texture. Names are lowercase letters,
 digits and `_`. The map editor adds every game's models to its resource pack when it starts, draws
 them on the markers and on the aim cursor while one is placed, and draws a model it doesn't have
-as a post. A team's markers take the team's color on the model's bones named `tint` (Bridges' hole
+as a post. Its markers can be hit anywhere on the model: the editor's behavior pack gets a hitbox
+for each, sized from its cubes. A team's markers take the team's color on the model's bones named `tint` (Bridges' hole
 colors its rim); the rest keeps the texture's colors.
 
 **Building games** (a `build` block in `game.config.ts`, Bridges) play in survival mode. Players

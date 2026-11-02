@@ -4,6 +4,9 @@
 //   kills you, or wins the best-of round being played.
 // - /exit (minecade:exit): a map editor ends the preview for everyone, back to Edit; an invited
 //   guest just leaves, for the editor lobby.
+// - /restart (minecade:restart): a map editor plays the preview again from the start, for everyone,
+//   as if they all picked Replay: they wait in the editor lobby while it starts again (a new server
+//   on a fresh copy of the map, since a match changes the world).
 // - Once the match is over, each player picks what's next (endPreview): Replay, Edit or Lobby.
 // The preview's resource pack carries the map editor's form UI, so the confirm draws in its side
 // panel (editor/resource_pack/ui/editor_forms.json).
@@ -76,7 +79,19 @@ export async function endPreview(root: Scope, vars: ServerVars, transfer: (playe
   return next;
 }
 
-/** Registers /fake and /exit on a preview's game server; does nothing anywhere else. */
+/** After /restart: everyone waits in the editor lobby while the preview starts again, as if they all picked Replay. */
+export function replayAll(vars: ServerVars, transfer: (player: Player, port: number) => void): PreviewNext {
+  const lobby = vars.guestLobbyPort ?? vars.lobbyPort;
+  const replay: string[] = [];
+  for (const player of world.getAllPlayers()) {
+    replay.push(player.name);
+    normalizePlayer(player);
+    transfer(player, lobby);
+  }
+  return { replay, edit: [] };
+}
+
+/** Registers /fake, /exit and /restart on a preview's game server; does nothing anywhere else. */
 export function registerPreviewCommands(game: () => Minigame | undefined): void {
   system.beforeEvents.startup.subscribe(({ customCommandRegistry }) => {
     if (!String(variables.get("preview") ?? "").trim()) return;
@@ -101,6 +116,15 @@ export function registerPreviewCommands(game: () => Minigame | undefined): void 
         const player = origin.sourceEntity;
         if (player?.typeId !== "minecraft:player") return { status: CustomCommandStatus.Failure, message: "Only a player can leave." };
         system.run(() => game()?.exitPreview(player as Player));
+        return { status: CustomCommandStatus.Success };
+      },
+    );
+    customCommandRegistry.registerCommand(
+      { name: "minecade:restart", description: "Play the preview again from the start", permissionLevel: CommandPermissionLevel.Any, cheatsRequired: false },
+      (origin) => {
+        const player = origin.sourceEntity;
+        if (player?.typeId !== "minecraft:player") return { status: CustomCommandStatus.Failure, message: "Only a player can restart the preview." };
+        system.run(() => game()?.restartPreview(player as Player));
         return { status: CustomCommandStatus.Success };
       },
     );
