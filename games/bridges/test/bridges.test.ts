@@ -89,6 +89,7 @@ describe("Bridges' config and map", () => {
     expect(inHole({ x: -24.5, y: 64.9, z: 0.5 }, holes[0], size)).toBe(true);
     expect(inHole({ x: -23, y: 63, z: 2 }, holes[0], size)).toBe(true); // a shoulder over the side
     expect(inHole({ x: -24.5, y: 65, z: 0.5 }, holes[0], size)).toBe(false); // on the rim
+    expect(inHole({ x: -22.8, y: 63, z: 0.5 }, holes[0], size)).toBe(true); // 3 blocks wide
     expect(inHole({ x: -22.5, y: 63, z: 0.5 }, holes[0], size)).toBe(false);
     expect(holeColumn(holes[0], size.halfWidth, 100)).toEqual({ min: [-26, 62, -1], max: [-24, 100, 1] });
     expect(leapPush({ x: 0, y: -1, z: 0 }, 1.6)).toEqual({ x: 0, z: 0 });
@@ -164,21 +165,26 @@ describe("a match of Bridges", () => {
       await ticks(config.respawn.delaySeconds * 20 + 2);
       expect(game.roster.get(red.name)?.state).toBe("alive");
 
-      // A shoots: the arrow comes back in 10 seconds, the level counting down.
+      // A shoots: the arrow comes back in 10 seconds, the level counting down with no level-up
+      // chime (never raised onto a multiple of 5), and a pop as it's back.
       a.inventory.setItem(8, undefined);
       await ticks(10);
       expect(a.level).toBe(10);
+      expect(a.sounds.map((sound) => sound.id)).not.toContain("random.pop");
       await ticks(5 * 20);
       expect(a.level).toBeLessThanOrEqual(5);
       await ticks(5 * 20);
       expect(ids(a)).toContain("1 arrow");
       expect(a.level).toBe(0);
+      expect(a.levelsGained.filter((level) => level % 5 === 0)).toEqual([]);
+      expect(a.sounds.filter((sound) => sound.id === "random.pop")).toHaveLength(1);
 
-      // B shoots, then kills A: the arrow is back at once.
+      // B shoots, then kills A: the arrow is back at once, with the pop.
       b.inventory.setItem(8, undefined);
       world.hurt(a, 25, "entityAttack", { attacker: b });
       await ticks(1);
       expect(ids(b)).toContain("1 arrow");
+      expect(b.sounds.map((sound) => sound.id)).toContain("random.pop");
 
       // B leaps: a push the way they look, and the feather is gone. A respawned A keeps their snowballs (all 8 here).
       b.viewDirection = { x: 1, y: 0, z: 0 };

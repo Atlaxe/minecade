@@ -16,6 +16,7 @@ import { fileURLToPath } from "node:url";
 import type Docker from "dockerode";
 import { editorStatus, endPreviewEditor, inviteEditor, pictureEditor, previewEditor, publishEditor, saveEditor, stopEditor } from "../editor/control.ts";
 import type { EditorStatus } from "../editor/editor-core.ts";
+import { cacheVanillaTextures } from "../build/vanilla-textures.ts";
 import {
   BroadcastLog,
   checkLobbyMap,
@@ -433,6 +434,15 @@ const COMPOSE_ACTIONS: Record<string, string[]> = {
 
 function runCompose(stack: StackDef, action: string, done?: (ok: boolean) => void): void {
   busy = `${stack.label}: ${action}`;
+  // The Docker build draws kit pictures from Minecraft's textures, which it can only get from this
+  // checkout's copy of them (tools/build/vanilla-textures.ts).
+  if (action === "up" || action === "restart") {
+    try {
+      if (!cacheVanillaTextures()) note("Minecraft's textures aren't on this PC: kit forms will list items as text.");
+    } catch (error) {
+      note(`Could not copy Minecraft's textures: ${error instanceof Error ? error.message : String(error)}`);
+    }
+  }
   const args = ["compose", "--ansi", "never", "--progress", "plain", "-f", join(repoRoot, stack.file), "--env-file", envPath];
   note(`${stack.label}: ${action}...`);
   const child = spawn(dockerExe(), [...args, ...COMPOSE_ACTIONS[action]], { cwd: repoRoot, windowsHide: true });

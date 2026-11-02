@@ -271,6 +271,8 @@ export class FakePlayer {
   readonly knockbacks: { x: number; z: number; vertical: number }[] = [];
   /** Every sound played to this player, in order. */
   readonly sounds: { id: string; pitch?: number; volume?: number }[] = [];
+  /** The level after each addLevels that raised it: Minecraft chimes when one ends on a multiple of 5. */
+  readonly levelsGained: number[] = [];
   readonly messages: string[] = [];
   readonly titles: string[] = [];
   actionBar = "";
@@ -413,6 +415,7 @@ export class FakePlayer {
   addLevels(amount: number): number {
     writable("Player::addLevels");
     this.level += amount;
+    if (amount > 0) this.levelsGained.push(this.level);
     return this.level;
   }
 

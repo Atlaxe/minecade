@@ -15,3 +15,6 @@ spike/skins/out/
 # publish (see packs/blocks/README.md).
 packs/blocks/behavior_pack/
 packs/blocks/resource_pack/
+# Minecraft's own textures, copied from the game on this PC for kit pictures (tools/build/vanilla-textures.ts);
+# they're Mojang's, not ours to publish.
+tools/assets/vanilla/

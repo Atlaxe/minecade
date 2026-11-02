@@ -1005,7 +1005,7 @@ export abstract class Minigame<C extends GameConfig = GameConfig> {
     }
   }
 
-  /** The kit form's content for a player of this team color: the base kit, then each kit, with their pictures. */
+  /** The kit form's content for a player of this team color: each kit, with its picture, in the team's color. */
   private kitFormContent(teamColor: string | undefined): KitFormContent {
     const card = (kit: KitDef): KitCard => ({
       id: kit.id,
@@ -1013,8 +1013,7 @@ export abstract class Minigame<C extends GameConfig = GameConfig> {
       lines: kitLines(kit, teamColor),
       picture: `${kitPicturePath(kit.id, { map: this.kits.fromMap.has(kit.id) ? this.ctx.vars.map : undefined, teamColor, colored: teamColored(kit) })}.png`,
     });
-    const base = this.kits.base;
-    return { title: "Pick a kit", base: base ? { ...card(base), name: "Everyone gets" } : undefined, kits: this.kits.list.map(card), pack: this.kitPicturePack };
+    return { title: `${this.config.name}: pick a kit`, accent: teamColor, kits: this.kits.list.map(card), pack: this.kitPicturePack };
   }
 
   /**

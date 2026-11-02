@@ -6,7 +6,7 @@
         "identifier": "geometry.minecade.bridges_hole",
         "texture_width": 96,
         "texture_height": 48,
-        "visible_bounds_width": 4,
+        "visible_bounds_width": 5,
         "visible_bounds_height": 4,
         "visible_bounds_offset": [0, 1.5, 0]
       },
@@ -15,12 +15,12 @@
           "name": "hole",
           "pivot": [0, 0, 0],
           "cubes": [
-            { "origin": [-20, 0, -20], "size": [40, 0, 40], "uv": { "up": { "uv": [0, 0], "uv_size": [40, 40] }, "down": { "uv": [0, 0], "uv_size": [40, 40] } } },
-            { "origin": [-20, 0, -20], "size": [40, 48, 0], "uv": { "north": { "uv": [0, 0], "uv_size": [40, 48] }, "south": { "uv": [0, 0], "uv_size": [40, 48] } } },
-            { "origin": [-20, 0, 20], "size": [40, 48, 0], "uv": { "north": { "uv": [0, 0], "uv_size": [40, 48] }, "south": { "uv": [0, 0], "uv_size": [40, 48] } } },
-            { "origin": [-20, 0, -20], "size": [0, 48, 40], "uv": { "east": { "uv": [0, 0], "uv_size": [40, 48] }, "west": { "uv": [0, 0], "uv_size": [40, 48] } } },
-            { "origin": [20, 0, -20], "size": [0, 48, 40], "uv": { "east": { "uv": [0, 0], "uv_size": [40, 48] }, "west": { "uv": [0, 0], "uv_size": [40, 48] } } },
-            { "origin": [-20, 48, -20], "size": [40, 0, 40], "uv": { "up": { "uv": [48, 0], "uv_size": [40, 40] }, "down": { "uv": [48, 0], "uv_size": [40, 40] } } }
+            { "origin": [-24, 0, -24], "size": [48, 0, 48], "uv": { "up": { "uv": [0, 0], "uv_size": [48, 48] }, "down": { "uv": [0, 0], "uv_size": [48, 48] } } },
+            { "origin": [-24, 0, -24], "size": [48, 48, 0], "uv": { "north": { "uv": [0, 0], "uv_size": [48, 48] }, "south": { "uv": [0, 0], "uv_size": [48, 48] } } },
+            { "origin": [-24, 0, 24], "size": [48, 48, 0], "uv": { "north": { "uv": [0, 0], "uv_size": [48, 48] }, "south": { "uv": [0, 0], "uv_size": [48, 48] } } },
+            { "origin": [-24, 0, -24], "size": [0, 48, 48], "uv": { "east": { "uv": [0, 0], "uv_size": [48, 48] }, "west": { "uv": [0, 0], "uv_size": [48, 48] } } },
+            { "origin": [24, 0, -24], "size": [0, 48, 48], "uv": { "east": { "uv": [0, 0], "uv_size": [48, 48] }, "west": { "uv": [0, 0], "uv_size": [48, 48] } } },
+            { "origin": [-24, 48, -24], "size": [48, 0, 48], "uv": { "up": { "uv": [48, 0], "uv_size": [48, 48] }, "down": { "uv": [48, 0], "uv_size": [48, 48] } } }
           ]
         }
       ]

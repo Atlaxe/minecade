@@ -13,7 +13,7 @@ export default defineGame({
   name: "Bridges",
   description: "Build across, jump into the other team's hole, and guard your own. Best of 5 rounds.",
   minPlayers: 2,
-  maxPlayers: 8,
+  maxPlayers: 4,
   countdownSeconds: 5,
   // A clock over all the rounds: when it runs out, the team with the most rounds wins (a tie draws).
   timeLimitSeconds: 900,
@@ -55,7 +55,7 @@ export default defineGame({
       ],
     },
   ],
-  // A hole is a point at the middle of its floor: the hole (2.5 blocks square, 3 tall) stands there,
+  // A hole is a point at the middle of its floor: the hole (3 blocks square, 3 tall) stands there,
   // in the pit the map has for it. Players watch from the spectator or queue spawn (core's default).
   map: {
     teamSpawns: true,
@@ -68,7 +68,7 @@ export default defineGame({
   /** The arrow: at most `max`, and one back `regenSeconds` after the last is gone (a kill gives one at once). */
   arrow: { max: 1, regenSeconds: 10 },
   /** The Leap feather: how hard it throws you forward and up. */
-  leap: { horizontal: 1.6, vertical: 0.55 },
+  leap: { horizontal: 3.2, vertical: 0.55 },
   /** The hole: half its width and its height, in blocks. */
-  hole: { halfWidth: 1.25, height: 3 },
+  hole: { halfWidth: 1.5, height: 3 },
 });

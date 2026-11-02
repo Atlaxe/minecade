@@ -71,7 +71,11 @@ describe("a best-of team game with kits every round and building", () => {
       const [aWool, aColor] = aRed ? ["minecraft:red_wool", "c"] : ["minecraft:blue_wool", "9"];
       expect([a.location.x, b.location.x]).toEqual(aRed ? [-9.5, 10.5] : [10.5, -9.5]);
       expect(a.unlocked).toBe(false);
-      expect(openLiveForm("A")!.texts()).toEqual(expect.arrayContaining(["Everyone gets\n§764x " + (aRed ? "Red" : "Blue") + " Wool", "Pick Snowballs", "Pick Leap"]));
+      // Each kit's name in the team's color, its items as text (this game has no pictures), and not
+      // the base kit everyone gets.
+      const texts = openLiveForm("A")!.texts();
+      expect(texts).toEqual(expect.arrayContaining([`§${aColor}Snowballs\n§78x Snowball`, "Pick Snowballs", "Pick Leap"]));
+      expect(texts.join("\n")).not.toContain("Wool");
 
       openLiveForm("A")!.click("Pick Snowballs");
       openLiveForm("B")!.click("Pick Leap");

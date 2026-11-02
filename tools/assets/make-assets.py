@@ -10,7 +10,6 @@ Outputs:
     packages/minigame-core/resource_pack/textures/minecade/hud/skull.png   HUD own score icon (kills)
     packages/minigame-core/resource_pack/textures/minecade/hud/round_*.png the best-of rounds circles
     games/bridges/resource_pack/textures/minecade/bridges/hole_*.png        Bridges' holes, a ring per team
-    tools/assets/items/*.png                                                 item icons for kit pictures (the build)
     packages/minigame-core/resource_pack/textures/ui/item_lock_*.png         blank: locked items show no lock corner
     lobby/resource_pack/textures/minecade/ui/...                             holographic menu art
     lobby/resource_pack/textures/minecade/holo/...                           hologram frames, beam
@@ -160,15 +159,36 @@ ROUND_FILLS = {
 }
 
 
+# A 16x16 pixel circle: "#" its rim, "o" its fill.
+ROUND_SHAPE = (
+    ".....######.....",
+    "...##oooooo##...",
+    "..#oooooooooo#..",
+    ".#oooooooooooo#.",
+    ".#oooooooooooo#.",
+    "#oooooooooooooo#",
+    "#oooooooooooooo#",
+    "#oooooooooooooo#",
+    "#oooooooooooooo#",
+    "#oooooooooooooo#",
+    "#oooooooooooooo#",
+    ".#oooooooooooo#.",
+    ".#oooooooooooo#.",
+    "..#oooooooooo#..",
+    "...##oooooo##...",
+    ".....######.....",
+)
+
+
 def round_circle(fill: tuple[int, int, int]) -> Image.Image:
-    """A 32x32 filled circle with a darker rim, drawn 4x and shrunk so its edge is smooth."""
-    big = 128
-    image = Image.new("RGBA", (big, big), (0, 0, 0, 0))
-    draw = ImageDraw.Draw(image)
+    """A 16x16 pixel circle in the fill color with a darker rim."""
+    image = Image.new("RGBA", (16, 16), (0, 0, 0, 0))
     rim = tuple(round(part * 0.45) for part in fill) + (255,)
-    draw.ellipse((4, 4, big - 5, big - 5), fill=rim)
-    draw.ellipse((18, 18, big - 19, big - 19), fill=fill + (255,))
-    return image.resize((32, 32), Image.LANCZOS)
+    for y, row in enumerate(ROUND_SHAPE):
+        for x, cell in enumerate(row):
+            if cell != ".":
+                image.putpixel((x, y), rim if cell == "#" else fill + (255,))
+    return image
 
 
 # ---- Bridges ----------------------------------------------------------------------------------
@@ -184,153 +204,16 @@ HOLE_DYES = {
 
 
 def hole_texture(ring: tuple[int, int, int]) -> Image.Image:
-    """The hole's texture (96x48): black walls and bottom on the left, its rim on the right, a ring of
-    the team's color around a clear middle, brighter at the outer edge."""
+    """The hole's texture (96x48, 16 pixels a block): black walls and bottom on the left (3 blocks
+    square), its rim on the right, a ring of the team's color around a clear middle, brighter at the
+    outer edge."""
     image = Image.new("RGBA", (96, 48), (0, 0, 0, 0))
     draw = ImageDraw.Draw(image)
-    draw.rectangle((0, 0, 39, 47), fill=(0, 0, 0, 255))
+    draw.rectangle((0, 0, 47, 47), fill=(0, 0, 0, 255))
     left = 48
     for step, shade in enumerate((1.0, 0.85, 0.7)):
         color = tuple(min(255, round(part * shade)) for part in ring) + (255,)
-        draw.rectangle((left + step, step, left + 39 - step, 39 - step), outline=color)
-    return image
-
-
-# Kit item icons (16x16), which the build puts together into each kit's picture
-# (tools/build/kit-pictures.ts). Named by item id without "minecraft:"; wool comes in each team dye.
-ITEM_ART = {
-    "wooden_sword": (
-        "................",
-        ".............kk.",
-        "............klwk",
-        "...........klwk.",
-        "..........klwk..",
-        ".........klwk...",
-        "........klwk....",
-        ".......klwk.....",
-        "..kk..klwk......",
-        "..khkklwk.......",
-        "...khhwk........",
-        "....khk.........",
-        "...khkhk........",
-        "..khk.kk........",
-        ".khk............",
-        ".kk.............",
-    ),
-    "bow": (
-        "................",
-        "........kkkkk...",
-        "......kkwwwwsk..",
-        ".....kwwkkk.s...",
-        "....kwk....s....",
-        "...kwk....s.....",
-        "...kwk...s......",
-        "..kwk...s.......",
-        "..kwk..s........",
-        "..kwk.s.........",
-        ".kwk.s..........",
-        ".kwks...........",
-        ".kws............",
-        ".kss............",
-        ".kk.............",
-        "................",
-    ),
-    "arrow": (
-        "................",
-        "...........kkk..",
-        "..........kggk..",
-        "...........kggk.",
-        "..........kwkgk.",
-        ".........kwk.k..",
-        "........kwk.....",
-        ".......kwk......",
-        "......kwk.......",
-        ".....kwk........",
-        "..f.kwk.........",
-        "..ffwk..........",
-        "...fff..........",
-        "..fff.f.........",
-        ".ff..f..........",
-        "................",
-    ),
-    "snowball": (
-        "................",
-        "................",
-        "................",
-        "......kkkk......",
-        ".....kffffk.....",
-        "....kfffffpk....",
-        "...kffffffppk...",
-        "...kfffffpppk...",
-        "...kffffppppk...",
-        "...kfffpppppk...",
-        "....kpppppbk....",
-        ".....kppbbk.....",
-        "......kkkk......",
-        "................",
-        "................",
-        "................",
-    ),
-    "feather": (
-        "................",
-        "............kk..",
-        "..........kkffk.",
-        ".........kfffpk.",
-        "........kfffpk..",
-        ".......kfffpk...",
-        "......kfffpk....",
-        ".....kfffpk.....",
-        "....kfffpk......",
-        "....kffpk.......",
-        "...kffpk........",
-        "...kfpk.........",
-        "..kgkk..........",
-        ".kgk............",
-        ".kk.............",
-        "................",
-    ),
-}
-ITEM_COLORS = {
-    "k": (40, 28, 12, 255),      # outline
-    "w": (160, 115, 55, 255),    # wood
-    "l": (200, 160, 100, 255),   # light wood
-    "h": (95, 65, 30, 255),      # handle
-    "s": (225, 225, 225, 255),   # bowstring
-    "g": (130, 130, 135, 255),   # gray: arrowhead, quill
-    "f": (250, 250, 250, 255),   # white
-    "p": (200, 220, 240, 255),   # pale blue shade
-    "b": (150, 175, 210, 255),   # blue shade
-}
-WOOL_DYES = {
-    "red": (190, 45, 40),
-    "blue": (55, 65, 170),
-    "lime": (110, 185, 30),
-    "yellow": (245, 200, 40),
-    "orange": (240, 120, 25),
-    "magenta": (190, 70, 180),
-    "light_blue": (60, 175, 220),
-    "white": (235, 235, 235),
-}
-
-
-def item_icon(rows: tuple[str, ...]) -> Image.Image:
-    image = Image.new("RGBA", (16, 16), (0, 0, 0, 0))
-    for y, row in enumerate(rows):
-        for x, cell in enumerate(row):
-            if cell in ITEM_COLORS:
-                image.putpixel((x, y), ITEM_COLORS[cell])
-    return image
-
-
-def wool_icon(dye: tuple[int, int, int]) -> Image.Image:
-    """A wool block seen from the front: the dye, a darker edge and a woolly speckle."""
-    image = Image.new("RGBA", (16, 16), (0, 0, 0, 0))
-    rng = random.Random(7)
-    for y in range(1, 15):
-        for x in range(1, 15):
-            edge = x in (1, 14) or y in (1, 14)
-            shade = 0.7 if edge else rng.choice((0.9, 1.0, 1.0, 1.08))
-            image.putpixel((x, y), tuple(min(255, round(part * shade)) for part in dye) + (255,))
+        draw.rectangle((left + step, step, left + 47 - step, 47 - step), outline=color)
     return image
 
 
@@ -935,13 +818,9 @@ def main() -> None:
     for name, fill in ROUND_FILLS.items():
         save(round_circle(fill), CORE_TEXTURES / "hud" / f"round_{name}.png")
 
-    # Bridges: the hole in each team's color, and the item icons kit pictures are made from.
+    # Bridges: the hole in each team's color.
     for dye, ring in HOLE_DYES.items():
         save(hole_texture(ring), ROOT / "games" / "bridges" / "resource_pack" / "textures" / "minecade" / "bridges" / f"hole_{dye}.png")
-    for name, rows in ITEM_ART.items():
-        save(item_icon(rows), ROOT / "tools" / "assets" / "items" / f"{name}.png")
-    for dye, color in WOOL_DYES.items():
-        save(wool_icon(color), ROOT / "tools" / "assets" / "items" / f"{dye}_wool.png")
 
     logo = blue_logo()
     # The core pack: the lobby's menus and every server's loading screen and pause menu use it.

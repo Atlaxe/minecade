@@ -35,6 +35,8 @@ const HOLE_POINT = "hole";
 const PLAYER_HALF_WIDTH = 0.3;
 /** The arrow's slot, as in the kit. */
 const ARROW_SLOT = 8;
+/** What a player hears when their arrow comes back: Minecraft's pop for picking up an item. */
+const ARROW_BACK_SOUND = "random.pop";
 /** A down from jumping into your own hole. */
 export const OWN_HOLE = "ownHole";
 const HOLE_CHECK_TICKS = 2;
@@ -146,7 +148,6 @@ export class Bridges extends Minigame<typeof config> {
     if (!shooter || countItem(shooter, ARROW) >= this.config.arrow.max) return;
     giveArrow(shooter);
     this.arrowGoneAt.delete(killer.toLowerCase());
-    shooter.playSound("random.orb", { pitch: 1.4, volume: 0.7 });
   }
 
   protected override deathMessage(victim: string, down: Down): string | undefined {
@@ -208,12 +209,25 @@ export class Bridges extends Minigame<typeof config> {
     }
   }
 
+  /**
+   * Shows the seconds as the player's level, without Minecraft's level-up chime: it plays when a
+   * level goes up onto a multiple of 5, so going from 0 to 10 sounded on every shot. Once set, the
+   * level only goes down, and it goes up to 11 and down one rather than up to 10.
+   */
   private showSeconds(player: Player, key: string, seconds: number): void {
-    if (this.shownSeconds.get(key) === seconds) return;
+    const shown = this.shownSeconds.get(key);
+    if (shown === seconds) return;
     this.shownSeconds.set(key, seconds);
     try {
+      if (shown !== undefined && seconds < shown) {
+        player.addLevels(seconds - shown);
+        return;
+      }
       player.resetLevel();
-      if (seconds > 0) player.addLevels(seconds);
+      if (seconds === 0) return;
+      const chime = seconds % 5 === 0;
+      player.addLevels(chime ? seconds + 1 : seconds);
+      if (chime) player.addLevels(-1);
     } catch {
       // left
     }
@@ -267,6 +281,7 @@ function countItem(player: Player, typeId: string): number {
 }
 
 /** One arrow in the arrow slot (anywhere free if something else is there), locked like kit items. */
+/** An arrow back, with the pop of picking one up. */
 function giveArrow(player: Player): void {
   try {
     const inventory = player.getComponent(EntityComponentTypes.Inventory)?.container;
@@ -275,6 +290,7 @@ function giveArrow(player: Player): void {
     stack.lockMode = ItemLockMode.inventory;
     if (inventory.getItem(ARROW_SLOT) === undefined) inventory.setItem(ARROW_SLOT, stack);
     else inventory.addItem(stack);
+    player.playSound(ARROW_BACK_SOUND, { pitch: 1.6, volume: 0.6 });
   } catch (error) {
     log.warn(`bridges: could not give ${player.name} an arrow: ${describeError(error)}`);
   }

@@ -130,16 +130,29 @@ close it; `packages/minigame-core/src/game/kit-form.ts`, its logic in `kit-picke
   a second. Players can change their pick until the last one picks; then every form closes and the
   usual countdown runs (Bridges' 5 seconds), or the round's. After `pickSeconds` (30 by default),
   whoever hasn't picked gets the first kit.
-- **On it:** a status line (who's still picking, and the seconds left), "Everyone gets" with the
-  base kit, then each kit: its picture, its name and items ("8x Snowball"), a Pick button (green
-  "Picked" on yours), and who picked it, in their team colors.
+- **On it:** styled like the lobby's team form, with the player's team color where the team form
+  has each team's (white in a game without teams): a status line (who's still picking, and the
+  seconds left), then each kit: its picture, its name in that color over who picked it (in their
+  team colors), and a Pick button, green "Picked" on yours. The base kit everyone gets isn't shown.
+- **Looks:** a live form renders in Minecraft's Ore UI, whose panel, buttons and fonts no resource
+  pack or script can change (the layout is the client's `script_ui` pack, `ddui/root/custom_form.json`,
+  and the script API has no style option). What's ours is the text, its color codes, and the pictures.
 - **Pictures:** the build draws each kit's picture into the game's resource pack
-  (`tools/build/kit-pictures.ts`): its items' icons in a row, four times as large, with counts over
-  1 in the corner the way Minecraft draws a stack, one picture per team dye for a kit with items in
-  team colors. Icons are `tools/assets/items/<item>.png` (from `make-assets.py`; an item without one
-  is left out). The form needs the pack's UUID, so the game passes it (Bridges' `main.ts` reads its
-  resource pack manifest). What DDUI's `image()` wants as its pack argument isn't documented; the
-  UUID is the guess. If a form with pictures can't show, it's shown again without them.
+  (`tools/build/kit-pictures.ts`): its items left to right in hotbar slots (a gray frame around a
+  dark see-through square), nine to a row, each with its count over 1 in the corner the way the
+  hotbar draws a stack, all four times as large. A picture is always a full row wide, so its items
+  start at the left. One picture per team dye for a kit with items in team colors. The icons are
+  Minecraft's own textures, a block's (wool) drawn as a cube; an item Minecraft has no texture for
+  is left out. The form needs the pack's UUID, so the game passes it (Bridges' `main.ts` reads its
+  resource pack manifest), and it worked in game. If a form with pictures can't show, it's shown
+  again without them, with each kit's items as text ("8x Snowball").
+- **Minecraft's textures** (`tools/build/vanilla-textures.ts`) are Mojang's, so they never go in
+  git. The build reads them from the vanilla resource pack of the Minecraft install on this PC
+  (`MINECRAFT_VANILLA` points elsewhere), which keeps them in two archives
+  (`__brarchive/textures/items.brarchive` and `blocks.brarchive`), and copies those into
+  `tools/assets/vanilla/` (git-ignored). The Docker build has no Minecraft, but it gets that folder
+  with the rest of the checkout, and the Panel refreshes it before every start. Without either, the
+  build warns and the kit form lists items as text.
 
 Kits themselves: `base` is what everyone gets on top of their pick. Each kit's `refill` says when
 it comes back: `"life"` on every spawn (the default), `"round"` at the start of the match and of
@@ -591,9 +604,8 @@ middle, and the tiled scanlines, which repeat.
 | `lobby/resource_pack/textures/minecade/badges/a.png` to `z.png`, `0.png` to `9.png`, `other.png` | Player badges: 20x20 in the stats list, 88x88 as the portrait on a player's stats and about 0.9 blocks on the hologram (where their skin goes later) | 64x64, a square |
 | `lobby/resource_pack/font/glyph_E3.png` | Icons inside text, about the height of a letter: cell 0 (U+E300) is the player icon on the game cards; cells 1 and 2 (U+E301, U+E302) are a setting's bars under its label, bright for the chosen value and dim for the others | 256x256, 16x16 cells, on transparent |
 | `games/<id>/icon.png` | The game's picture: on its card (60x34) and on the hologram (2 blocks wide) while the map is random | 320x180 (16:9), required for every game |
-| `packages/minigame-core/resource_pack/textures/minecade/hud/round_open.png`, `round_<code>.png` | The best-of rounds circles, 8x8 top right: white for a round to play, then the winner's color (`c`, `9`, `a`, `e`, `6`, `d`, `b`, `f`; `7` gray for a drawn round) | 32x32, a filled circle with a darker rim |
-| `tools/assets/items/<item>.png` | Item icons the build puts together into each kit's picture (not shipped as they are); wool comes in each team dye | 16x16 pixel art, on transparent |
-| `games/bridges/resource_pack/textures/minecade/bridges/hole_<dye>.png` | Bridges' hole: black walls and floor (left), the rim's ring in the team's color (right) | 96x48; the ring's middle is clear |
+| `packages/minigame-core/resource_pack/textures/minecade/hud/round_open.png`, `round_<code>.png` | The best-of rounds circles, 8x8 top right: white for a round to play, then the winner's color (`c`, `9`, `a`, `e`, `6`, `d`, `b`, `f`; `7` gray for a drawn round) | 16x16 pixel art, a filled circle with a darker rim |
+| `games/bridges/resource_pack/textures/minecade/bridges/hole_<dye>.png` | Bridges' hole (3 blocks square): black walls and floor (left half), the rim's ring in the team's color (right half) | 96x48, 16 pixels a block; the ring's middle is clear |
 | `games/<id>/maps/<map>/preview.png` | A map's preview on its tile (100x54) and on the hologram when it's chosen (optional) | 320x180 (16:9), such as a screenshot |
 | `lobby/resource_pack/textures/minecade/holo/frame_logo.png`, `frame_panel.png` | Hologram frames, 3x3 blocks on all four sides, with live text over them; `frame_logo` has the logo up top | 512x512 (square), additive |
 | `lobby/resource_pack/textures/minecade/holo/backdrop.png` | Behind the hologram's panels, tinting the sky behind them | 16x16, light blue (28, 185, 244) at about 14% (alpha 35), alpha-blended |
