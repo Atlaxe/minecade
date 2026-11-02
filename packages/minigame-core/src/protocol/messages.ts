@@ -1,7 +1,7 @@
 // Wire protocol between the servers' behavior packs and the orchestrator. Pure TypeScript with
 // no runtime imports: bundled into packs by esbuild and imported by the orchestrator under Node.
 
-export const PROTOCOL_VERSION = 6;
+export const PROTOCOL_VERSION = 7;
 
 /**
  * Upper bound for one encoded message, in either direction and over either transport, so no
@@ -132,7 +132,39 @@ export interface LobbyTeamPicks {
   picks: Record<string, string>;
 }
 
-export type OutboundEvent = ServerReady | StartGame | StatusRequest | PlayerCount | MatchStats | EndGame | StatsQuery | LobbyTeamPicks;
+/**
+ * A kind of prompt in the prompt bank (the orchestrator's prompts.db): "starter", something to build
+ * (Build Swap's first round; a future Pictionary's words), or "twist", a change to make to someone
+ * else's build (Build Swap's second round).
+ */
+export type PromptKind = "starter" | "twist";
+
+/** Prompts a player wrote before a match (Build Swap's prompt form), for the prompt bank. */
+export interface PromptSubmit {
+  t: "prompt_submit";
+  sessionId: string;
+  game: string;
+  /** Who wrote them: nobody is ever dealt a prompt of their own. */
+  by: string;
+  prompts: { kind: PromptKind; text: string }[];
+}
+
+/** A game asks the prompt bank for prompts to deal: up to this many of each kind, the newest first. */
+export interface PromptRequest {
+  t: "prompt_request";
+  requestId: string;
+  sessionId: string;
+  counts: Partial<Record<PromptKind, number>>;
+}
+
+/** The bank's prompts a game dealt, so the bank deals the less used ones first next time. */
+export interface PromptUsed {
+  t: "prompt_used";
+  sessionId: string;
+  ids: number[];
+}
+
+export type OutboundEvent = ServerReady | StartGame | StatusRequest | PlayerCount | MatchStats | EndGame | StatsQuery | LobbyTeamPicks | PromptSubmit | PromptRequest | PromptUsed;
 
 // ---- Orchestrator -> server ----------------------------------------------------------------
 
@@ -229,7 +261,26 @@ export interface TeamPicks {
   picks: Record<string, string>;
 }
 
-export type InboundMessage = StartRejected | GameStarting | GameReady | GameFailed | GameEnded | Status | ReturnAll | StatsReply | TeamPicks;
+/** One prompt from the bank. Short keys keep a reply part under MAX_MESSAGE_CHARS. */
+export interface BankPrompt {
+  id: number;
+  k: PromptKind;
+  /** The prompt. */
+  x: string;
+  /** Who wrote it (lowercase), or "" for nobody here. */
+  by: string;
+}
+
+/** The prompt bank's answer to a prompt_request, possibly in several parts (each fits the size limit). */
+export interface PromptReply {
+  t: "prompt_reply";
+  requestId: string;
+  part: number;
+  parts: number;
+  prompts: BankPrompt[];
+}
+
+export type InboundMessage = StartRejected | GameStarting | GameReady | GameFailed | GameEnded | Status | ReturnAll | StatsReply | TeamPicks | PromptReply;
 
 // ---- Encoding --------------------------------------------------------------------------------
 
@@ -242,6 +293,9 @@ const OUTBOUND_TYPES: ReadonlySet<string> = new Set<OutboundEvent["t"]>([
   "end_game",
   "stats_query",
   "team_picks",
+  "prompt_submit",
+  "prompt_request",
+  "prompt_used",
 ]);
 
 const INBOUND_TYPES: ReadonlySet<string> = new Set<InboundMessage["t"]>([
@@ -254,6 +308,7 @@ const INBOUND_TYPES: ReadonlySet<string> = new Set<InboundMessage["t"]>([
   "return_all",
   "stats_reply",
   "team_picks",
+  "prompt_reply",
 ]);
 
 export class MessageTooLargeError extends Error {

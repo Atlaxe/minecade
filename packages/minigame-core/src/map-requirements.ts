@@ -1,7 +1,7 @@
 // What a game's (or the lobby's) maps need, from the `map` block of its config, as one flat list:
 // the build checks every map against it, and the map editor shows it as a checklist.
 import type { MapEntryRequirement, MapRequirementsConfig, MarkerStyle } from "./config.ts";
-import { BUILD_LIMIT_SIDES, teamKey, type BuildLimitSide } from "./map-config.ts";
+import { BUILD_LIMIT_SIDES, teamKey, type Box, type BuildLimitSide, type Vec3 } from "./map-config.ts";
 
 /** "spectatorOrQueue": a spectator spawn or a queue spawn, either one (games that name neither). */
 export type MapField = "spawns" | "spectatorSpawn" | "queueSpawn" | "spectatorOrQueue" | "bounds" | "killY" | "buildLimit" | "points" | "regions" | "teamSpawns";
@@ -20,6 +20,26 @@ export interface MapRequirement {
   perPlayer?: boolean;
   /** Points only: how the map editor draws them, when the config says. */
   marker?: MarkerStyle;
+  /** Regions only: the fewest blocks each box spans along every side; smaller boxes don't count. */
+  minSize?: number;
+}
+
+/** How many blocks a box spans along each side (its corners are whole blocks, both inside). */
+export function boxSize(box: Box): Vec3 {
+  return [0, 1, 2].map((axis) => box.max[axis] - box.min[axis] + 1) as Vec3;
+}
+
+/** Whether a box is big enough for a requirement's `minSize` (any box is without one). */
+export function bigEnough(box: Box, minSize: number | undefined): boolean {
+  return minSize === undefined || boxSize(box).every((side) => side >= minSize);
+}
+
+/** The `minSize` a game asks of a region's boxes (`name` may be one team's "<name>.<team>"), if any. */
+export function regionMinSize(map: MapRequirementsConfig | undefined, name: string): number | undefined {
+  for (const [region, entry] of entriesOf(map?.regions)) {
+    if (name === region || name.startsWith(`${region}.`)) return entry.minSize;
+  }
+  return undefined;
 }
 
 /**
@@ -73,13 +93,14 @@ export function mapRequirements(map: MapRequirementsConfig | undefined, options:
       const label = entry.label ?? name;
       const min = entry.count ?? 1;
       const marker = field === "points" && entry.marker !== undefined ? { marker: entry.marker } : {};
+      const size = field === "regions" && entry.minSize !== undefined ? { minSize: entry.minSize } : {};
       if (entry.perTeam && teams.length > 0) {
         for (const team of teams) {
           const key = teamKey(name, team.id);
-          list.push({ key: `${field}.${key}`, label: `${label} (${team.name})`, field, name: key, team: team.id, min, ...marker });
+          list.push({ key: `${field}.${key}`, label: `${label} (${team.name})`, field, name: key, team: team.id, min, ...marker, ...size });
         }
       } else {
-        list.push({ key: `${field}.${name}`, label, field, name, min, ...marker });
+        list.push({ key: `${field}.${name}`, label, field, name, min, ...marker, ...size });
       }
     }
   }

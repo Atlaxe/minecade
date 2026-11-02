@@ -33,6 +33,8 @@ export const EntityComponentTypes = {
 } as const;
 export const ItemComponentTypes = { Dyeable: "minecraft:dyeable" } as const;
 export const Direction = { Down: "Down", East: "East", North: "North", South: "South", Up: "Up", West: "West" } as const;
+export const EntityInitializationCause = { Born: "Born", Event: "Event", Loaded: "Loaded", Spawned: "Spawned", Transformed: "Transformed" } as const;
+export const StructureSaveMode = { Memory: "Memory", World: "World" } as const;
 export type Direction = (typeof Direction)[keyof typeof Direction];
 
 /** Block types: anything that reads as a block id (wool, concrete, stone, planks, glass). */
@@ -570,8 +572,66 @@ export class FakeBlock {
   }
 }
 
+function within(at: Vector3, from: Vector3, to: Vector3): boolean {
+  const inRange = (value: number, a: number, b: number) => value >= Math.min(a, b) && value <= Math.max(a, b);
+  return inRange(at.x, from.x, to.x) && inRange(at.y, from.y, to.y) && inRange(at.z, from.z, to.z);
+}
+
+/** Structures saved in memory: each a copy of the blocks in its box, relative to its low corner. */
+class FakeStructures {
+  readonly saved = new Map<string, { size: Vector3; blocks: Map<string, string> }>();
+
+  createFromWorld(id: string, dimension: FakeDimension, from: Vector3, to: Vector3): void {
+    writable("StructureManager::createFromWorld");
+    if (this.saved.has(id)) throw new Error(`structure ${id} exists already`);
+    const low = { x: Math.min(from.x, to.x), y: Math.min(from.y, to.y), z: Math.min(from.z, to.z) };
+    const size = { x: Math.abs(to.x - from.x) + 1, y: Math.abs(to.y - from.y) + 1, z: Math.abs(to.z - from.z) + 1 };
+    if (size.x > 64 || size.y > 384 || size.z > 64) throw new Error("the structure bounds exceed the maximum size");
+    dimension.getBlocks(new BlockVolume(from, to), {});
+    const blocks = new Map<string, string>();
+    for (const [key, typeId] of dimension.blocks) {
+      const [x, y, z] = key.split(",").map(Number);
+      if (within({ x, y, z }, from, to)) blocks.set(`${x - low.x},${y - low.y},${z - low.z}`, typeId);
+    }
+    this.saved.set(id, { size, blocks });
+  }
+
+  /** Places it with its low corner at `location`: every block of its box, air included. */
+  place(id: string, dimension: FakeDimension, location: Vector3): void {
+    writable("StructureManager::place");
+    const structure = this.saved.get(id);
+    if (!structure) throw new Error(`no structure ${id}`);
+    for (let x = 0; x < structure.size.x; x++) {
+      for (let y = 0; y < structure.size.y; y++) {
+        for (let z = 0; z < structure.size.z; z++) {
+          const typeId = structure.blocks.get(`${x},${y},${z}`);
+          const key = blockKey({ x: location.x + x, y: location.y + y, z: location.z + z });
+          if (typeId === undefined) dimension.blocks.delete(key);
+          else dimension.blocks.set(key, typeId);
+        }
+      }
+    }
+  }
+
+  delete(id: string): boolean {
+    writable("StructureManager::delete");
+    return this.saved.delete(id);
+  }
+}
+
 function blockKey(location: Vector3): string {
   return `${Math.floor(location.x)},${Math.floor(location.y)},${Math.floor(location.z)}`;
+}
+
+/** A box of blocks between two corners (both inside), as the real BlockVolume. */
+export class BlockVolume {
+  readonly from: Vector3;
+  readonly to: Vector3;
+
+  constructor(from: Vector3, to: Vector3) {
+    this.from = from;
+    this.to = to;
+  }
 }
 
 class FakeDimension {
@@ -579,9 +639,27 @@ class FakeDimension {
   readonly spawned: FakeMob[] = [];
   /** Blocks that aren't air, by "x,y,z". */
   readonly blocks = new Map<string, string>();
+  /** Box corners whose blocks can't be read or saved (an unloaded chunk), as "x,y,z" of any block inside. */
+  readonly unloaded = new Set<string>();
 
   getBlock(location: Vector3): FakeBlock {
     return new FakeBlock(location, this.blocks);
+  }
+
+  /** The blocks in a volume of the given types (only includeTypes is supported). */
+  getBlocks(volume: BlockVolume, options: { includeTypes?: string[] }): { getBlockLocationIterator(): Iterable<Vector3> } {
+    const found: Vector3[] = [];
+    for (const [key, typeId] of this.blocks) {
+      const [x, y, z] = key.split(",").map(Number);
+      if (!within({ x, y, z }, volume.from, volume.to)) continue;
+      if (options.includeTypes && !options.includeTypes.includes(typeId)) continue;
+      found.push({ x, y, z });
+    }
+    if ([...this.unloaded].some((key) => {
+      const [x, y, z] = key.split(",").map(Number);
+      return within({ x, y, z }, volume.from, volume.to);
+    })) throw new Error("UnloadedChunksError");
+    return { getBlockLocationIterator: () => found };
   }
 
   spawnEntity(typeId: string, location: Vector3): FakeMob {
@@ -594,6 +672,7 @@ class FakeDimension {
   reset(): void {
     this.spawned.length = 0;
     this.blocks.clear();
+    this.unloaded.clear();
   }
 }
 
@@ -739,6 +818,7 @@ class FakeWorld {
     projectileHitEntity: new FakeSignal<{ projectile: FakeEntity; source?: FakePlayer; getEntityHit(): { entity?: FakePlayer | FakeMob } }>(),
     playerInteractWithEntity: new FakeSignal<{ player: FakePlayer; target: FakePlayer | FakeMob }>(),
     playerPlaceBlock: new FakeSignal<{ player: FakePlayer; block: FakeBlock }>(),
+    entitySpawn: new FakeSignal<{ entity: FakeMob | FakeEntity; cause: string }>(),
   };
   readonly beforeEvents = {
     entityHurt: new FakeSignal<HurtBeforeEvent, unknown>(true),
@@ -751,6 +831,7 @@ class FakeWorld {
   readonly chat: string[] = [];
   readonly overworld = new FakeDimension();
   readonly tickingAreaManager = new FakeTickingAreas();
+  readonly structureManager = new FakeStructures();
   private players: FakePlayer[] = [];
 
   getAllPlayers(): FakePlayer[] {
@@ -902,6 +983,7 @@ class FakeWorld {
     this.chat.length = 0;
     this.overworld.reset();
     this.tickingAreaManager.areas.clear();
+    this.structureManager.saved.clear();
   }
 }
 

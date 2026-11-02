@@ -7,6 +7,9 @@ import {
   type InboundMessage,
   type MatchStats,
   type OutboundEvent,
+  type PromptRequest,
+  type PromptSubmit,
+  type PromptUsed,
   type StartGame,
   type StatusSnapshot,
 } from "@minecade/minigame-core/protocol";
@@ -41,6 +44,8 @@ export interface SessionDeps {
   publicIp(): Promise<string>;
   /** A stats part from the running game. `xuids` maps lowercase gamertags to Xbox account ids. */
   onMatchStats?(part: MatchStats, context: { game: RegistryGame; xuids: ReadonlyMap<string, string> }): void;
+  /** A prompt bank message from the running game (Build Swap's prompts): returns the replies to send it. */
+  onPrompts?(event: PromptSubmit | PromptRequest | PromptUsed, context: { game: RegistryGame }): InboundMessage[];
   newSessionId?: () => string;
   random?: () => number;
 }
@@ -330,6 +335,15 @@ export class SessionManager {
           this.deps.onMatchStats?.(event, { game: session.game, xuids: session.xuids });
         } catch (error) {
           log.error(`session ${session.id}: could not store stats: ${describeError(error)}`);
+        }
+        return;
+      case "prompt_submit":
+      case "prompt_request":
+      case "prompt_used":
+        try {
+          for (const reply of this.deps.onPrompts?.(event, { game: session.game }) ?? []) session.link?.send(reply);
+        } catch (error) {
+          log.error(`session ${session.id}: could not answer "${event.t}": ${describeError(error)}`);
         }
         return;
       case "end_game":

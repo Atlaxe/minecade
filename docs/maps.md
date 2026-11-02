@@ -105,6 +105,10 @@ map: {
 }
 ```
 
+A region can ask for big enough boxes: `minSize: 24` means every box spans at least 24 blocks along
+each side (Build Swap's building boundaries). A smaller box doesn't count toward the region's
+`count`, the build names it as a problem, and the map editor's region tool won't save one.
+
 `perTeam` entries are needed once for every team the game can have (`"buyZone.red"`,
 `"buyZone.blue"`). The short forms still work: `points: ["bombA", "bombB"]`,
 `regions: ["floor"]`, `teamSpawns: true`.
@@ -153,6 +157,15 @@ the Boundaries view.
   its floor and its rim is one flat face, drawn from both sides. Nobody can build in the hole or
   anywhere above it. The editor draws the point as the same hole, its rim in the team's color.
 - a `spawnGuard.<team>` region around the team's spawn (and its hole), where nobody builds.
+
+**Build Swap** needs 8 spawns, a spectator or queue spawn, and 8 boxes in the `plot` region
+(Build boundary in the map editor's Region list), each at least 24 blocks on every side. A box is
+where one player builds; put one spawn in each (the game pairs each spawn with the box it stands
+in, or the nearest one left), facing the build if you like, since players also stand there to
+vote on that build. Put a floor under each box rather than inside it: players can change every
+block inside their box, and nothing outside it. Leave space between boxes (liquids that run out of
+a box are cleared from the block-thick shell around it, and a shell that cuts into another box is
+skipped). A box bigger than 64 blocks on a side works: the game saves it in 64-block pieces.
 
 **The lobby** declares its own in `lobby/lobby.config.ts`: one spawn and the `terminal` point
 (the middle block of the terminal's 3x3 console; the hologram floats above it). `LOBBY_MAP` in

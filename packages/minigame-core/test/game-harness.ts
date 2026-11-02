@@ -8,7 +8,7 @@ import type { Result } from "../src/game/results.ts";
 import { playSession } from "../src/game/session.ts";
 import type { MapConfig } from "../src/map-config.ts";
 import { normalizePlayer } from "../src/player.ts";
-import type { MatchStats, OutboundEvent, StatsRow } from "../src/protocol/index.ts";
+import type { InboundMessage, MatchStats, OutboundEvent, StatsRow } from "../src/protocol/index.ts";
 import { Scope } from "../src/scope.ts";
 import { TransferService } from "../src/transfer.ts";
 import type { ServerVars } from "../src/vars.ts";
@@ -41,6 +41,8 @@ export interface Harness {
   root: Scope;
   /** Everything the games sent to the orchestrator. */
   sent: OutboundEvent[];
+  /** A message from the orchestrator, to every handler the games registered. */
+  deliver(message: InboundMessage): void;
   context(expectedPlayers: string[], mapConfig?: MapConfig, settings?: Record<string, string>): GameContext;
 }
 
@@ -54,9 +56,13 @@ export function createHarness(): Harness {
   for (const level of ["info", "warn", "error", "log"] as const) vi.spyOn(console, level).mockImplementation(() => {});
   const root = new Scope("server");
   const sent: OutboundEvent[] = [];
+  const handlers = new Set<(message: InboundMessage) => void>();
   return {
     root,
     sent,
+    deliver(message) {
+      for (const handler of [...handlers]) handler(message);
+    },
     context(expectedPlayers, mapConfig = ARENA, settings = {}) {
       const vars: ServerVars = {
         serverId: "s1",
@@ -84,7 +90,15 @@ export function createHarness(): Harness {
       };
       const server: ServerContext = {
         vars,
-        transport: { kind: "log", send: (event) => sent.push(event), onMessage: () => () => {}, dispose: () => {} },
+        transport: {
+          kind: "log",
+          send: (event) => sent.push(event),
+          onMessage: (handler) => {
+            handlers.add(handler);
+            return () => handlers.delete(handler);
+          },
+          dispose: () => {},
+        },
         transfer: new TransferService(vars),
         root,
       };

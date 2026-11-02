@@ -3,7 +3,7 @@
 // is reported at once; mapWarnings lists things worth a look that don't stop a build.
 import type { MapRequirementsConfig } from "./config.ts";
 import { BUILD_LIMIT_SIDES, MAP_TIMES, QUEUE_COUNTDOWN, QUEUE_MODES, enclosingBox, mapTimeTicks, type Box, type BuildLimitSide, type MapConfig, type MapPosition, type Vec3 } from "./map-config.ts";
-import { mapRequirements, type MapRequirement } from "./map-requirements.ts";
+import { bigEnough, boxSize, mapRequirements, type MapRequirement } from "./map-requirements.ts";
 
 /** Bedrock overworld height limits. */
 const MIN_Y = -64;
@@ -199,8 +199,13 @@ function missing(requirement: MapRequirement, map: Partial<MapConfig>, who: stri
       if (name === undefined) return hasTeamSpawns ? [] : [`${who} needs "teamSpawns"`];
       return count(`teamSpawns.${name}`, listLength(map.teamSpawns, name), min, who);
     case "points":
-    case "regions":
       return count(`${field}.${name}`, listLength(map[field], name!), min, who);
+    case "regions": {
+      // A box smaller than the game asks for doesn't count, and says so.
+      const boxes = isRecord(map.regions) && Array.isArray(map.regions[name!]) ? map.regions[name!] : [];
+      const small = boxes.flatMap((box, i) => (isBox(box) && !bigEnough(box, requirement.minSize) ? [`regions.${name}[${i}] is ${boxSize(box).join("x")}, smaller than ${requirement.minSize} on a side`] : []));
+      return [...small, ...count(`${field}.${name}`, boxes.length - small.length, min, who)];
+    }
   }
 }
 

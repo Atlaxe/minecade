@@ -25,6 +25,7 @@ Everything runs on the official Bedrock Dedicated Server (BDS) with TypeScript b
 |---|---|---|
 | Sumo | 2-6 | Hits only push. Knock everyone off the platform; last one standing wins. |
 | One in the Quiver | 2-8 | A sword, a bow and one arrow. An arrow kills in one hit, and every kill earns another; respawns are unlimited. First to 15 kills wins (the lobby's First to setting: 10 to 25), and its Waypoints setting can show everyone on the locator bar. It shows in the lobby once it has a map: make its first one in the [map editor](docs/editor.md). |
+| Build Swap | 3-8 | Everyone writes a prompt and a twist before the match (or skips). Build the prompt you're dealt in your own area (the lobby's Build time: 5 or 10 minutes), then swap and add a twist to someone else's build (5 minutes). Everyone votes 1 to 5 on every build, as it was and then with its twist; your build's points and your twist's add up, and the most points wins. Builders stay anonymous until the end. It shows in the lobby once it has a map. |
 | Probe | 2-8 | A short test game on two teams that exercises the whole flow, team picks in the lobby included. Set `DEV_MIN_PLAYERS=1` to play it alone. |
 
 More games are planned (Arena, Search and Destroy, Paintball, Microbattles, Build Battle,
@@ -220,6 +221,16 @@ Xbox account, so stats survive a gamertag change.
   `http://127.0.0.1:8080/v1/stats` and `http://127.0.0.1:8080/v1/stats/<gamertag>` on the PC.
 - **Reset everything:** stop the stack, then `docker volume rm minecade-data`. This also
   deletes the backups.
+
+## The prompt bank
+
+Prompts players write before a match of Build Swap go into `prompts.db`, beside `stats.db` in the
+`minecade-data` volume, for later matches (and future games like Pictionary). Each kind (prompts to
+build, and twists) keeps the newest 500; a game is dealt from the 50 newest of each kind, the least
+used first, so new prompts come up before old ones. Nobody is ever dealt a prompt they wrote. What's
+typed goes through Minecraft's text filter when the writer's settings allow. Until the bank has
+enough, Build Swap deals from its own list (`games/buildswap/behavior_pack/scripts/default-prompts.ts`),
+and so does a preview from the map editor, which keeps nothing.
 
 ## Player skins
 

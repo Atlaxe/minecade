@@ -8,7 +8,7 @@
 // one over, from the first choices.
 import { world, type Block, type Player } from "@minecraft/server";
 import { ActionFormData, ModalFormData } from "@minecraft/server-ui";
-import type { Box, MapEdit, Scope } from "@minecade/minigame-core";
+import { bigEnough, regionMinSize, type Box, type MapEdit, type Scope } from "@minecade/minigame-core";
 import { blockInView, change, keyOf, showPreview, xyz, type Picking } from "./box-picker.ts";
 import { blockBox, describeBox, floorAt, growBox, nudgeBox, sameBox, sizeText, topCenter } from "./boxes.ts";
 import { sideTitle } from "./marks.ts";
@@ -238,6 +238,7 @@ export class RegionTool {
   private saveBox(player: Player, entry: RegionEntry, box: Box, target: RegionTarget, typed: string): void {
     if (!this.unchanged(player, entry)) return;
     if (target.key === targetKeyOf(entry)) {
+      if (entry.region && !this.bigEnough(player, entry.region.name, box)) return;
       if (!sameBox(box, entry.box)) this.host.edit(player, saveEdit(entry, box), `${entry.label} saved: ${describeBox(box)}.`);
       return;
     }
@@ -257,9 +258,18 @@ export class RegionTool {
       this.host.tell(player, "§cA new region needs a name: letters, digits and _, starting with a letter.");
       return undefined;
     }
+    if (!this.bigEnough(player, name, box)) return undefined;
     const list: unknown = this.host.map().regions?.[name];
     const index = Array.isArray(list) ? list.length : 0;
     return { edit: { op: "addRegion", name, box }, label: `${regionLabel(name, this.host.rules)} ${index + 1}` };
+  }
+
+  /** False (and why) when the game asks for bigger boxes in this region (Build Swap's building boundaries). */
+  private bigEnough(player: Player, name: string, box: Box): boolean {
+    const minSize = regionMinSize(this.host.rules.requires, name);
+    if (bigEnough(box, minSize)) return true;
+    this.host.tell(player, `§c${regionLabel(name, this.host.rules)} needs at least ${minSize} blocks on every side. This box is ${sizeText(box)}.`);
+    return false;
   }
 
   private deleteBox(player: Player, entry: RegionEntry): void {

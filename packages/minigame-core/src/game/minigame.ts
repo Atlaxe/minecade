@@ -201,6 +201,11 @@ export abstract class Minigame<C extends GameConfig = GameConfig> {
     return this.currentPhase;
   }
 
+  /** True once the match's result is known (finish() or abort() was called): a game's own steps stop there. */
+  protected get decided(): boolean {
+    return this.outcome !== undefined;
+  }
+
   get teamDefs(): readonly TeamDef[] {
     return this.teams;
   }
@@ -216,6 +221,15 @@ export abstract class Minigame<C extends GameConfig = GameConfig> {
 
   /** After everyone has spawned for the first time. */
   protected onStart(): void {}
+
+  /**
+   * Once everyone's in (and has picked a kit), before the countdown: a game's own step, such as
+   * Build Swap's prompt form, with the phase "picking". Resolve true to go on to the countdown, or
+   * false to go back to waiting (when fewer than minPlayers are online()). `scope` lasts until the
+   * match begins. The step runs again whenever a countdown falls through, so it keeps what it got.
+   * Games without one leave it out.
+   */
+  protected beforeCountdown?(names: string[], scope: Scope): Promise<boolean>;
 
   /**
    * The match itself. The default is one stage of timeLimitSeconds (5 minutes unless set; 0 for
@@ -387,6 +401,13 @@ export abstract class Minigame<C extends GameConfig = GameConfig> {
       if (this.kits.picking && !(await this.pickKits(this.online(), pregame, true))) {
         this.unplanTeams();
         continue;
+      }
+      if (this.beforeCountdown) {
+        this.currentPhase = "picking";
+        if (!(await this.beforeCountdown(this.online(), pregame))) {
+          this.unplanTeams();
+          continue;
+        }
       }
       if (this.queued) {
         if (!(await this.queueCountdown(this.map.queue.countdown))) {
@@ -791,12 +812,12 @@ export abstract class Minigame<C extends GameConfig = GameConfig> {
 
   // ---- Pregame ----------------------------------------------------------------------------
 
-  private get minPlayers(): number {
+  protected get minPlayers(): number {
     return this.ctx.vars.devMinPlayers ?? this.config.minPlayers;
   }
 
   /** Everyone in the game: the players, then a preview's fake players. */
-  private online(): string[] {
+  protected online(): string[] {
     return [...world.getAllPlayers().map((player) => player.name), ...(this.fakes?.all ?? [])];
   }
 

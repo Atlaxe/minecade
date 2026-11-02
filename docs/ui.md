@@ -179,6 +179,23 @@ every round, with what's left kept through a respawn (Bridges' snowballs and Lea
 once. An item id with `{color}` takes the team's dye: `minecraft:{color}_wool` is red wool on Red.
 A map can add kits of its own or replace the game's (`kits` in `map.json`, see `docs/maps.md`).
 
+## The prompt form
+
+Build Swap has every player write prompts before the countdown, in a live form like the kit form
+(`games/buildswap/behavior_pack/scripts/prompt-form.ts`):
+
+- **On it:** a status line (who's still writing, or how many, and the time left), two text boxes
+  (Build prompt and Twist prompt, each with a short example under its label), a line for what's
+  wrong with an answer, then Submit and Skip.
+- **Answers:** Submit takes either box or both, each up to 50 characters (color codes are taken
+  out); with both empty it asks for a prompt or a skip. Skip takes nothing. Either one closes the
+  form for good, and the player sees "Waiting for N players" on the action bar.
+- **Staying open:** closing the form brings it back within half a second, until the player submits
+  or skips. After 2 minutes (`promptSeconds`), whoever hasn't answered is skipped and the countdown
+  starts. A preview's fake players get no form.
+- **Text filter:** what's typed goes through Minecraft's filter for the writer (`getFilteredText`),
+  and is taken as typed when the filter is off or doesn't answer within 3 seconds.
+
 ## Countdown sounds
 
 Every countdown (the match start, each round, and the lobby's countdown before sending players) plays a tick

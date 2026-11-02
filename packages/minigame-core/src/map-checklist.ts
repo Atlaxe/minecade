@@ -1,8 +1,8 @@
 // A map's checklist in the map editor: each thing its game (or the lobby) needs, with how many the
 // map has, plus every problem the build would report. The editor pack shows it in game, the host
 // logs it, and the Panel mirrors it.
-import type { BuildLimitSide, MapConfig } from "./map-config.ts";
-import { mapRequirements, type MapRequirement } from "./map-requirements.ts";
+import type { Box, BuildLimitSide, MapConfig } from "./map-config.ts";
+import { bigEnough, mapRequirements, type MapRequirement } from "./map-requirements.ts";
 import { mapWarnings, validateMapConfig, type MapRules } from "./map-validate.ts";
 
 export interface ChecklistRow extends MapRequirement {
@@ -53,9 +53,17 @@ function count(config: MapConfig, requirement: MapRequirement): number {
       if (requirement.name === undefined) return isRecord(config.teamSpawns) ? Object.keys(config.teamSpawns).length : 0;
       return lengthOf(config.teamSpawns, requirement.name);
     case "points":
-    case "regions":
-      return lengthOf(config[requirement.field], requirement.name ?? "");
+      return lengthOf(config.points, requirement.name ?? "");
+    case "regions": {
+      // Only boxes as big as the game asks for count (the problems name the others).
+      const list: unknown = isRecord(config.regions) ? config.regions[requirement.name ?? ""] : undefined;
+      return Array.isArray(list) ? list.filter((box) => isBoxLike(box) && bigEnough(box, requirement.minSize)).length : 0;
+    }
   }
+}
+
+function isBoxLike(value: unknown): value is Box {
+  return isRecord(value) && Array.isArray(value.min) && Array.isArray(value.max);
 }
 
 function lengthOf(entries: unknown, name: string): number {

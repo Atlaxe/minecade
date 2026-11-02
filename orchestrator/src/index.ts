@@ -9,6 +9,7 @@ import { HttpLinkHub } from "./links/http-link.ts";
 import { LogStdinServerLink } from "./links/logstdin-link.ts";
 import { LobbyChannel } from "./lobby.ts";
 import { describeError, log } from "./log.ts";
+import { PromptStore, promptEvent } from "./prompts/store.ts";
 import { loadRegistry } from "./registry.ts";
 import { SessionManager } from "./session-manager.ts";
 import { seedDemoStats } from "./stats/demo.ts";
@@ -27,6 +28,7 @@ async function main(): Promise<void> {
   const hub = new HttpLinkHub();
   const publicIp = publicIpResolver(config.publicHost);
   const stats = config.devDemoStats ? openDemoStats(registry, config.lanPlayers) : openStats(config.dataDir, registry);
+  const prompts = openPrompts(config.dataDir);
 
   // The lobby channel is created after the session manager, which only calls toLobby later.
   let lobby: LobbyChannel | undefined;
@@ -49,6 +51,7 @@ async function main(): Promise<void> {
       const result = stats.record(checked.part, xuids);
       log.info(`stats ${part.matchId} part ${part.part}/${part.parts}: ${result} (${checked.part.rows.length} players)`);
     },
+    onPrompts: (event, { game }) => promptEvent(prompts, event, game.id),
   });
   lobby = new LobbyChannel({
     transport: config.transport,
@@ -84,6 +87,7 @@ async function main(): Promise<void> {
     lobby?.stop();
     server.close();
     stats?.close();
+    prompts?.close();
     process.exit(0);
   };
   process.on("SIGTERM", () => void shutdown("SIGTERM"));
@@ -114,6 +118,19 @@ function openStats(dataDir: string, registry: ReturnType<typeof loadRegistry>): 
   setInterval(backup, BACKUP_INTERVAL_MS).unref();
   log.info(`stats stored in ${dataDir}`);
   return store;
+}
+
+/** Opens the prompt bank. Without it, games deal from their own prompt lists and keep nothing. */
+function openPrompts(dataDir: string): PromptStore | undefined {
+  if (!dataDir) return undefined;
+  try {
+    const store = PromptStore.open(dataDir);
+    log.info(`prompt bank: ${store.count()} prompts in ${dataDir}`);
+    return store;
+  } catch (error) {
+    log.error(`the prompt bank is off: could not open ${dataDir}: ${describeError(error)}`);
+    return undefined;
+  }
 }
 
 /** DEV_DEMO_STATS: made-up stats in memory. Nothing is read from or written to the stats database. */

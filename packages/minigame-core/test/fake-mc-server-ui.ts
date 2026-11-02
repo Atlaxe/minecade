@@ -81,9 +81,12 @@ export type DataDrivenScreenClosedReason = (typeof DataDrivenScreenClosedReason)
 
 class Observable<T> {
   private data: T;
+  /** Whether the player's side may write it (a text box's). */
+  readonly clientWritable: boolean;
 
-  constructor(data: T) {
+  constructor(data: T, options?: { clientWritable: boolean }) {
     this.data = data;
+    this.clientWritable = options?.clientWritable ?? false;
   }
 
   getData(): T {
@@ -95,7 +98,12 @@ class Observable<T> {
   }
 }
 
-export class ObservableString extends Observable<string> {}
+export class ObservableString extends Observable<string> {
+  /** What Minecraft's text filter makes of it: in tests, a "filtered" word comes back as asterisks. */
+  getFilteredText(_player: unknown): Promise<string> {
+    return Promise.resolve(this.getData().replace(/filtered/gi, "********"));
+  }
+}
 export class ObservableBoolean extends Observable<boolean> {}
 export class ObservableNumber extends Observable<number> {}
 
@@ -103,8 +111,11 @@ type Text = string | ObservableString;
 const read = (text: Text) => (typeof text === "string" ? text : text.getData());
 
 interface LivePart {
-  kind: "label" | "header" | "divider" | "button" | "image";
+  kind: "label" | "header" | "divider" | "button" | "image" | "textField";
   text?: Text;
+  /** A text box's label, and what's typed in it. */
+  label?: string;
+  field?: ObservableString;
   onClick?: () => void;
   disabled?: boolean | ObservableBoolean;
   src?: string;
@@ -151,6 +162,12 @@ export class CustomForm {
     return this;
   }
 
+  textField(label: string, text: ObservableString): this {
+    if (!text.clientWritable) throw new Error(`the text box "${label}" needs a client-writable ObservableString`);
+    this.parts.push({ kind: "textField", label, field: text });
+    return this;
+  }
+
   button(text: Text, onClick: () => void, options: { disabled?: boolean | ObservableBoolean } = {}): this {
     this.parts.push({ kind: "button", text, onClick, disabled: options.disabled });
     return this;
@@ -186,6 +203,13 @@ export class CustomForm {
   /** The texts of the buttons disabled now. */
   disabledButtons(): string[] {
     return this.parts.filter((part) => part.kind === "button" && isDisabled(part)).map((part) => read(part.text!));
+  }
+
+  /** The player types `value` into the text box labeled `label` (replacing what was there). */
+  type(label: string, value: string): void {
+    const box = this.parts.find((part) => part.kind === "textField" && part.label === label);
+    if (!box?.field) throw new Error(`no text box "${label}" on the form`);
+    box.field.setData(value);
   }
 
   /** Clicks the button whose text includes `text` (enabled ones only). */

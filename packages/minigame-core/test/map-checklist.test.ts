@@ -20,6 +20,17 @@ describe("mapChecklist", () => {
     expect(mapChecklist({ ...map, buildLimit: { above: 90, below: 60 } }, rules).ready).toBe(true);
   });
 
+  it("counts only the boxes of a region as big as the game asks for", () => {
+    const rules = { kind: "game" as const, maxPlayers: 2, requires: { spectatorSpawn: true, regions: { plot: { label: "Build boundary", count: 2, minSize: 24 } } } };
+    const big = { min: [0, 64, 0] as [number, number, number], max: [23, 87, 23] as [number, number, number] };
+    const small = { min: [40, 64, 0] as [number, number, number], max: [63, 80, 23] as [number, number, number] };
+    const map: MapConfig = { name: "Row", spawns: [[0, 65, 0], [1, 65, 0]], spectatorSpawn: [0, 90, 0], regions: { plot: [big, small] } };
+    const checklist = mapChecklist(map, rules);
+    expect(checklist.rows.filter((row) => row.field === "regions").map((row) => [row.label, row.have, row.need, row.done, row.minSize])).toEqual([["Build boundary", 1, 2, false, 24]]);
+    expect(checklist.problems).toEqual(["regions.plot[1] is 24x17x24, smaller than 24 on a side", 'this game needs 2 "regions.plot" entries, has 1']);
+    expect(mapChecklist({ ...map, regions: { plot: [big, { ...small, max: [63, 87, 23] }] } }, rules).ready).toBe(true);
+  });
+
   it("counts each requirement and lists the build's problems", () => {
     const map: MapConfig = { name: "Arena", draft: true, spawns: [[0, 65, 0], [1, 65, 0]], points: { "flag.red": [[2, 65, 0]] } };
     const list = mapChecklist(map, {

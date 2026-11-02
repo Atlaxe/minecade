@@ -87,8 +87,9 @@ export {
 export { MapEditError, applyEdit, describeEdit, isMapKey, listKey, listOf, type MapEdit, type MapList } from "./map-edit.ts";
 export { mapChecklist, type Checklist, type ChecklistRow } from "./map-checklist.ts";
 export { formatMapConfig } from "./map-format.ts";
-export { mapRequirements, usesPlainSpawns, type MapField, type MapRequirement, type RequirementOptions } from "./map-requirements.ts";
+export { bigEnough, boxSize, mapRequirements, regionMinSize, usesPlainSpawns, type MapField, type MapRequirement, type RequirementOptions } from "./map-requirements.ts";
 export { mapWarnings, validateMapConfig, type MapRules } from "./map-validate.ts";
+export { PROMPT_MAX_CHARS, cleanPrompt, dealPrompts, promptKey, promptReplyParts, type DealablePrompt } from "./prompts.ts";
 export {
   ConfigAssembler,
   EDIT_LOG_MARKER,

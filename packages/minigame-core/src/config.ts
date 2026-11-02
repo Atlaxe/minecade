@@ -262,6 +262,8 @@ export interface MapEntryRequirement {
   perTeam?: boolean;
   /** Points only: how the map editor draws them. Default "post". */
   marker?: MarkerStyle;
+  /** Regions only: the fewest blocks each box spans along every side (Build Swap's 24 for 24x24x24 building boundaries). */
+  minSize?: number;
 }
 
 /**
