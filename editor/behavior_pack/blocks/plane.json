@@ -24,15 +24,54 @@
             "min": 0,
             "max": 15
           }
-        }
+        },
+        "minecade:u_low": [
+          "false",
+          "true"
+        ],
+        "minecade:u_high": [
+          "false",
+          "true"
+        ],
+        "minecade:v_low": [
+          "false",
+          "true"
+        ],
+        "minecade:v_high": [
+          "false",
+          "true"
+        ]
       }
     },
     "components": {
-      "minecraft:geometry": "geometry.minecade.plane_1_0",
+      "minecraft:geometry": {
+        "identifier": "geometry.minecade.plane_1_0",
+        "bone_visibility": {
+          "fill": true,
+          "edge_0_0": "q.block_state('minecade:u_low') == 'true' || q.block_state('minecade:v_low') == 'true'",
+          "fill_0_0": "q.block_state('minecade:u_low') == 'false' && q.block_state('minecade:v_low') == 'false'",
+          "edge_0_1": "q.block_state('minecade:u_low') == 'true'",
+          "fill_0_1": "q.block_state('minecade:u_low') == 'false'",
+          "edge_0_2": "q.block_state('minecade:u_low') == 'true' || q.block_state('minecade:v_high') == 'true'",
+          "fill_0_2": "q.block_state('minecade:u_low') == 'false' && q.block_state('minecade:v_high') == 'false'",
+          "edge_1_0": "q.block_state('minecade:v_low') == 'true'",
+          "fill_1_0": "q.block_state('minecade:v_low') == 'false'",
+          "edge_1_2": "q.block_state('minecade:v_high') == 'true'",
+          "fill_1_2": "q.block_state('minecade:v_high') == 'false'",
+          "edge_2_0": "q.block_state('minecade:u_high') == 'true' || q.block_state('minecade:v_low') == 'true'",
+          "fill_2_0": "q.block_state('minecade:u_high') == 'false' && q.block_state('minecade:v_low') == 'false'",
+          "edge_2_1": "q.block_state('minecade:u_high') == 'true'",
+          "fill_2_1": "q.block_state('minecade:u_high') == 'false'",
+          "edge_2_2": "q.block_state('minecade:u_high') == 'true' || q.block_state('minecade:v_high') == 'true'",
+          "fill_2_2": "q.block_state('minecade:u_high') == 'false' && q.block_state('minecade:v_high') == 'false'"
+        }
+      },
       "minecraft:material_instances": {
         "*": {
           "texture": "minecade_plane_white",
-          "render_method": "blend"
+          "render_method": "blend",
+          "face_dimming": false,
+          "ambient_occlusion": false
         }
       },
       "minecraft:collision_box": false,
@@ -45,289 +84,1297 @@
       {
         "condition": "q.block_state('minecade:axis') == 0 && q.block_state('minecade:offset') == 0",
         "components": {
-          "minecraft:geometry": "geometry.minecade.plane_0_0"
+          "minecraft:geometry": {
+            "identifier": "geometry.minecade.plane_0_0",
+            "bone_visibility": {
+              "fill": true,
+              "edge_0_0": "q.block_state('minecade:u_low') == 'true' || q.block_state('minecade:v_low') == 'true'",
+              "fill_0_0": "q.block_state('minecade:u_low') == 'false' && q.block_state('minecade:v_low') == 'false'",
+              "edge_0_1": "q.block_state('minecade:u_low') == 'true'",
+              "fill_0_1": "q.block_state('minecade:u_low') == 'false'",
+              "edge_0_2": "q.block_state('minecade:u_low') == 'true' || q.block_state('minecade:v_high') == 'true'",
+              "fill_0_2": "q.block_state('minecade:u_low') == 'false' && q.block_state('minecade:v_high') == 'false'",
+              "edge_1_0": "q.block_state('minecade:v_low') == 'true'",
+              "fill_1_0": "q.block_state('minecade:v_low') == 'false'",
+              "edge_1_2": "q.block_state('minecade:v_high') == 'true'",
+              "fill_1_2": "q.block_state('minecade:v_high') == 'false'",
+              "edge_2_0": "q.block_state('minecade:u_high') == 'true' || q.block_state('minecade:v_low') == 'true'",
+              "fill_2_0": "q.block_state('minecade:u_high') == 'false' && q.block_state('minecade:v_low') == 'false'",
+              "edge_2_1": "q.block_state('minecade:u_high') == 'true'",
+              "fill_2_1": "q.block_state('minecade:u_high') == 'false'",
+              "edge_2_2": "q.block_state('minecade:u_high') == 'true' || q.block_state('minecade:v_high') == 'true'",
+              "fill_2_2": "q.block_state('minecade:u_high') == 'false' && q.block_state('minecade:v_high') == 'false'"
+            }
+          }
         }
       },
       {
         "condition": "q.block_state('minecade:axis') == 0 && q.block_state('minecade:offset') == 1",
         "components": {
-          "minecraft:geometry": "geometry.minecade.plane_0_1"
+          "minecraft:geometry": {
+            "identifier": "geometry.minecade.plane_0_1",
+            "bone_visibility": {
+              "fill": true,
+              "edge_0_0": "q.block_state('minecade:u_low') == 'true' || q.block_state('minecade:v_low') == 'true'",
+              "fill_0_0": "q.block_state('minecade:u_low') == 'false' && q.block_state('minecade:v_low') == 'false'",
+              "edge_0_1": "q.block_state('minecade:u_low') == 'true'",
+              "fill_0_1": "q.block_state('minecade:u_low') == 'false'",
+              "edge_0_2": "q.block_state('minecade:u_low') == 'true' || q.block_state('minecade:v_high') == 'true'",
+              "fill_0_2": "q.block_state('minecade:u_low') == 'false' && q.block_state('minecade:v_high') == 'false'",
+              "edge_1_0": "q.block_state('minecade:v_low') == 'true'",
+              "fill_1_0": "q.block_state('minecade:v_low') == 'false'",
+              "edge_1_2": "q.block_state('minecade:v_high') == 'true'",
+              "fill_1_2": "q.block_state('minecade:v_high') == 'false'",
+              "edge_2_0": "q.block_state('minecade:u_high') == 'true' || q.block_state('minecade:v_low') == 'true'",
+              "fill_2_0": "q.block_state('minecade:u_high') == 'false' && q.block_state('minecade:v_low') == 'false'",
+              "edge_2_1": "q.block_state('minecade:u_high') == 'true'",
+              "fill_2_1": "q.block_state('minecade:u_high') == 'false'",
+              "edge_2_2": "q.block_state('minecade:u_high') == 'true' || q.block_state('minecade:v_high') == 'true'",
+              "fill_2_2": "q.block_state('minecade:u_high') == 'false' && q.block_state('minecade:v_high') == 'false'"
+            }
+          }
         }
       },
       {
         "condition": "q.block_state('minecade:axis') == 0 && q.block_state('minecade:offset') == 2",
         "components": {
-          "minecraft:geometry": "geometry.minecade.plane_0_2"
+          "minecraft:geometry": {
+            "identifier": "geometry.minecade.plane_0_2",
+            "bone_visibility": {
+              "fill": true,
+              "edge_0_0": "q.block_state('minecade:u_low') == 'true' || q.block_state('minecade:v_low') == 'true'",
+              "fill_0_0": "q.block_state('minecade:u_low') == 'false' && q.block_state('minecade:v_low') == 'false'",
+              "edge_0_1": "q.block_state('minecade:u_low') == 'true'",
+              "fill_0_1": "q.block_state('minecade:u_low') == 'false'",
+              "edge_0_2": "q.block_state('minecade:u_low') == 'true' || q.block_state('minecade:v_high') == 'true'",
+              "fill_0_2": "q.block_state('minecade:u_low') == 'false' && q.block_state('minecade:v_high') == 'false'",
+              "edge_1_0": "q.block_state('minecade:v_low') == 'true'",
+              "fill_1_0": "q.block_state('minecade:v_low') == 'false'",
+              "edge_1_2": "q.block_state('minecade:v_high') == 'true'",
+              "fill_1_2": "q.block_state('minecade:v_high') == 'false'",
+              "edge_2_0": "q.block_state('minecade:u_high') == 'true' || q.block_state('minecade:v_low') == 'true'",
+              "fill_2_0": "q.block_state('minecade:u_high') == 'false' && q.block_state('minecade:v_low') == 'false'",
+              "edge_2_1": "q.block_state('minecade:u_high') == 'true'",
+              "fill_2_1": "q.block_state('minecade:u_high') == 'false'",
+              "edge_2_2": "q.block_state('minecade:u_high') == 'true' || q.block_state('minecade:v_high') == 'true'",
+              "fill_2_2": "q.block_state('minecade:u_high') == 'false' && q.block_state('minecade:v_high') == 'false'"
+            }
+          }
         }
       },
       {
         "condition": "q.block_state('minecade:axis') == 0 && q.block_state('minecade:offset') == 3",
         "components": {
-          "minecraft:geometry": "geometry.minecade.plane_0_3"
+          "minecraft:geometry": {
+            "identifier": "geometry.minecade.plane_0_3",
+            "bone_visibility": {
+              "fill": true,
+              "edge_0_0": "q.block_state('minecade:u_low') == 'true' || q.block_state('minecade:v_low') == 'true'",
+              "fill_0_0": "q.block_state('minecade:u_low') == 'false' && q.block_state('minecade:v_low') == 'false'",
+              "edge_0_1": "q.block_state('minecade:u_low') == 'true'",
+              "fill_0_1": "q.block_state('minecade:u_low') == 'false'",
+              "edge_0_2": "q.block_state('minecade:u_low') == 'true' || q.block_state('minecade:v_high') == 'true'",
+              "fill_0_2": "q.block_state('minecade:u_low') == 'false' && q.block_state('minecade:v_high') == 'false'",
+              "edge_1_0": "q.block_state('minecade:v_low') == 'true'",
+              "fill_1_0": "q.block_state('minecade:v_low') == 'false'",
+              "edge_1_2": "q.block_state('minecade:v_high') == 'true'",
+              "fill_1_2": "q.block_state('minecade:v_high') == 'false'",
+              "edge_2_0": "q.block_state('minecade:u_high') == 'true' || q.block_state('minecade:v_low') == 'true'",
+              "fill_2_0": "q.block_state('minecade:u_high') == 'false' && q.block_state('minecade:v_low') == 'false'",
+              "edge_2_1": "q.block_state('minecade:u_high') == 'true'",
+              "fill_2_1": "q.block_state('minecade:u_high') == 'false'",
+              "edge_2_2": "q.block_state('minecade:u_high') == 'true' || q.block_state('minecade:v_high') == 'true'",
+              "fill_2_2": "q.block_state('minecade:u_high') == 'false' && q.block_state('minecade:v_high') == 'false'"
+            }
+          }
         }
       },
       {
         "condition": "q.block_state('minecade:axis') == 0 && q.block_state('minecade:offset') == 4",
         "components": {
-          "minecraft:geometry": "geometry.minecade.plane_0_4"
+          "minecraft:geometry": {
+            "identifier": "geometry.minecade.plane_0_4",
+            "bone_visibility": {
+              "fill": true,
+              "edge_0_0": "q.block_state('minecade:u_low') == 'true' || q.block_state('minecade:v_low') == 'true'",
+              "fill_0_0": "q.block_state('minecade:u_low') == 'false' && q.block_state('minecade:v_low') == 'false'",
+              "edge_0_1": "q.block_state('minecade:u_low') == 'true'",
+              "fill_0_1": "q.block_state('minecade:u_low') == 'false'",
+              "edge_0_2": "q.block_state('minecade:u_low') == 'true' || q.block_state('minecade:v_high') == 'true'",
+              "fill_0_2": "q.block_state('minecade:u_low') == 'false' && q.block_state('minecade:v_high') == 'false'",
+              "edge_1_0": "q.block_state('minecade:v_low') == 'true'",
+              "fill_1_0": "q.block_state('minecade:v_low') == 'false'",
+              "edge_1_2": "q.block_state('minecade:v_high') == 'true'",
+              "fill_1_2": "q.block_state('minecade:v_high') == 'false'",
+              "edge_2_0": "q.block_state('minecade:u_high') == 'true' || q.block_state('minecade:v_low') == 'true'",
+              "fill_2_0": "q.block_state('minecade:u_high') == 'false' && q.block_state('minecade:v_low') == 'false'",
+              "edge_2_1": "q.block_state('minecade:u_high') == 'true'",
+              "fill_2_1": "q.block_state('minecade:u_high') == 'false'",
+              "edge_2_2": "q.block_state('minecade:u_high') == 'true' || q.block_state('minecade:v_high') == 'true'",
+              "fill_2_2": "q.block_state('minecade:u_high') == 'false' && q.block_state('minecade:v_high') == 'false'"
+            }
+          }
         }
       },
       {
         "condition": "q.block_state('minecade:axis') == 0 && q.block_state('minecade:offset') == 5",
         "components": {
-          "minecraft:geometry": "geometry.minecade.plane_0_5"
+          "minecraft:geometry": {
+            "identifier": "geometry.minecade.plane_0_5",
+            "bone_visibility": {
+              "fill": true,
+              "edge_0_0": "q.block_state('minecade:u_low') == 'true' || q.block_state('minecade:v_low') == 'true'",
+              "fill_0_0": "q.block_state('minecade:u_low') == 'false' && q.block_state('minecade:v_low') == 'false'",
+              "edge_0_1": "q.block_state('minecade:u_low') == 'true'",
+              "fill_0_1": "q.block_state('minecade:u_low') == 'false'",
+              "edge_0_2": "q.block_state('minecade:u_low') == 'true' || q.block_state('minecade:v_high') == 'true'",
+              "fill_0_2": "q.block_state('minecade:u_low') == 'false' && q.block_state('minecade:v_high') == 'false'",
+              "edge_1_0": "q.block_state('minecade:v_low') == 'true'",
+              "fill_1_0": "q.block_state('minecade:v_low') == 'false'",
+              "edge_1_2": "q.block_state('minecade:v_high') == 'true'",
+              "fill_1_2": "q.block_state('minecade:v_high') == 'false'",
+              "edge_2_0": "q.block_state('minecade:u_high') == 'true' || q.block_state('minecade:v_low') == 'true'",
+              "fill_2_0": "q.block_state('minecade:u_high') == 'false' && q.block_state('minecade:v_low') == 'false'",
+              "edge_2_1": "q.block_state('minecade:u_high') == 'true'",
+              "fill_2_1": "q.block_state('minecade:u_high') == 'false'",
+              "edge_2_2": "q.block_state('minecade:u_high') == 'true' || q.block_state('minecade:v_high') == 'true'",
+              "fill_2_2": "q.block_state('minecade:u_high') == 'false' && q.block_state('minecade:v_high') == 'false'"
+            }
+          }
         }
       },
       {
         "condition": "q.block_state('minecade:axis') == 0 && q.block_state('minecade:offset') == 6",
         "components": {
-          "minecraft:geometry": "geometry.minecade.plane_0_6"
+          "minecraft:geometry": {
+            "identifier": "geometry.minecade.plane_0_6",
+            "bone_visibility": {
+              "fill": true,
+              "edge_0_0": "q.block_state('minecade:u_low') == 'true' || q.block_state('minecade:v_low') == 'true'",
+              "fill_0_0": "q.block_state('minecade:u_low') == 'false' && q.block_state('minecade:v_low') == 'false'",
+              "edge_0_1": "q.block_state('minecade:u_low') == 'true'",
+              "fill_0_1": "q.block_state('minecade:u_low') == 'false'",
+              "edge_0_2": "q.block_state('minecade:u_low') == 'true' || q.block_state('minecade:v_high') == 'true'",
+              "fill_0_2": "q.block_state('minecade:u_low') == 'false' && q.block_state('minecade:v_high') == 'false'",
+              "edge_1_0": "q.block_state('minecade:v_low') == 'true'",
+              "fill_1_0": "q.block_state('minecade:v_low') == 'false'",
+              "edge_1_2": "q.block_state('minecade:v_high') == 'true'",
+              "fill_1_2": "q.block_state('minecade:v_high') == 'false'",
+              "edge_2_0": "q.block_state('minecade:u_high') == 'true' || q.block_state('minecade:v_low') == 'true'",
+              "fill_2_0": "q.block_state('minecade:u_high') == 'false' && q.block_state('minecade:v_low') == 'false'",
+              "edge_2_1": "q.block_state('minecade:u_high') == 'true'",
+              "fill_2_1": "q.block_state('minecade:u_high') == 'false'",
+              "edge_2_2": "q.block_state('minecade:u_high') == 'true' || q.block_state('minecade:v_high') == 'true'",
+              "fill_2_2": "q.block_state('minecade:u_high') == 'false' && q.block_state('minecade:v_high') == 'false'"
+            }
+          }
         }
       },
       {
         "condition": "q.block_state('minecade:axis') == 0 && q.block_state('minecade:offset') == 7",
         "components": {
-          "minecraft:geometry": "geometry.minecade.plane_0_7"
+          "minecraft:geometry": {
+            "identifier": "geometry.minecade.plane_0_7",
+            "bone_visibility": {
+              "fill": true,
+              "edge_0_0": "q.block_state('minecade:u_low') == 'true' || q.block_state('minecade:v_low') == 'true'",
+              "fill_0_0": "q.block_state('minecade:u_low') == 'false' && q.block_state('minecade:v_low') == 'false'",
+              "edge_0_1": "q.block_state('minecade:u_low') == 'true'",
+              "fill_0_1": "q.block_state('minecade:u_low') == 'false'",
+              "edge_0_2": "q.block_state('minecade:u_low') == 'true' || q.block_state('minecade:v_high') == 'true'",
+              "fill_0_2": "q.block_state('minecade:u_low') == 'false' && q.block_state('minecade:v_high') == 'false'",
+              "edge_1_0": "q.block_state('minecade:v_low') == 'true'",
+              "fill_1_0": "q.block_state('minecade:v_low') == 'false'",
+              "edge_1_2": "q.block_state('minecade:v_high') == 'true'",
+              "fill_1_2": "q.block_state('minecade:v_high') == 'false'",
+              "edge_2_0": "q.block_state('minecade:u_high') == 'true' || q.block_state('minecade:v_low') == 'true'",
+              "fill_2_0": "q.block_state('minecade:u_high') == 'false' && q.block_state('minecade:v_low') == 'false'",
+              "edge_2_1": "q.block_state('minecade:u_high') == 'true'",
+              "fill_2_1": "q.block_state('minecade:u_high') == 'false'",
+              "edge_2_2": "q.block_state('minecade:u_high') == 'true' || q.block_state('minecade:v_high') == 'true'",
+              "fill_2_2": "q.block_state('minecade:u_high') == 'false' && q.block_state('minecade:v_high') == 'false'"
+            }
+          }
         }
       },
       {
         "condition": "q.block_state('minecade:axis') == 0 && q.block_state('minecade:offset') == 8",
         "components": {
-          "minecraft:geometry": "geometry.minecade.plane_0_8"
+          "minecraft:geometry": {
+            "identifier": "geometry.minecade.plane_0_8",
+            "bone_visibility": {
+              "fill": true,
+              "edge_0_0": "q.block_state('minecade:u_low') == 'true' || q.block_state('minecade:v_low') == 'true'",
+              "fill_0_0": "q.block_state('minecade:u_low') == 'false' && q.block_state('minecade:v_low') == 'false'",
+              "edge_0_1": "q.block_state('minecade:u_low') == 'true'",
+              "fill_0_1": "q.block_state('minecade:u_low') == 'false'",
+              "edge_0_2": "q.block_state('minecade:u_low') == 'true' || q.block_state('minecade:v_high') == 'true'",
+              "fill_0_2": "q.block_state('minecade:u_low') == 'false' && q.block_state('minecade:v_high') == 'false'",
+              "edge_1_0": "q.block_state('minecade:v_low') == 'true'",
+              "fill_1_0": "q.block_state('minecade:v_low') == 'false'",
+              "edge_1_2": "q.block_state('minecade:v_high') == 'true'",
+              "fill_1_2": "q.block_state('minecade:v_high') == 'false'",
+              "edge_2_0": "q.block_state('minecade:u_high') == 'true' || q.block_state('minecade:v_low') == 'true'",
+              "fill_2_0": "q.block_state('minecade:u_high') == 'false' && q.block_state('minecade:v_low') == 'false'",
+              "edge_2_1": "q.block_state('minecade:u_high') == 'true'",
+              "fill_2_1": "q.block_state('minecade:u_high') == 'false'",
+              "edge_2_2": "q.block_state('minecade:u_high') == 'true' || q.block_state('minecade:v_high') == 'true'",
+              "fill_2_2": "q.block_state('minecade:u_high') == 'false' && q.block_state('minecade:v_high') == 'false'"
+            }
+          }
         }
       },
       {
         "condition": "q.block_state('minecade:axis') == 0 && q.block_state('minecade:offset') == 9",
         "components": {
-          "minecraft:geometry": "geometry.minecade.plane_0_9"
+          "minecraft:geometry": {
+            "identifier": "geometry.minecade.plane_0_9",
+            "bone_visibility": {
+              "fill": true,
+              "edge_0_0": "q.block_state('minecade:u_low') == 'true' || q.block_state('minecade:v_low') == 'true'",
+              "fill_0_0": "q.block_state('minecade:u_low') == 'false' && q.block_state('minecade:v_low') == 'false'",
+              "edge_0_1": "q.block_state('minecade:u_low') == 'true'",
+              "fill_0_1": "q.block_state('minecade:u_low') == 'false'",
+              "edge_0_2": "q.block_state('minecade:u_low') == 'true' || q.block_state('minecade:v_high') == 'true'",
+              "fill_0_2": "q.block_state('minecade:u_low') == 'false' && q.block_state('minecade:v_high') == 'false'",
+              "edge_1_0": "q.block_state('minecade:v_low') == 'true'",
+              "fill_1_0": "q.block_state('minecade:v_low') == 'false'",
+              "edge_1_2": "q.block_state('minecade:v_high') == 'true'",
+              "fill_1_2": "q.block_state('minecade:v_high') == 'false'",
+              "edge_2_0": "q.block_state('minecade:u_high') == 'true' || q.block_state('minecade:v_low') == 'true'",
+              "fill_2_0": "q.block_state('minecade:u_high') == 'false' && q.block_state('minecade:v_low') == 'false'",
+              "edge_2_1": "q.block_state('minecade:u_high') == 'true'",
+              "fill_2_1": "q.block_state('minecade:u_high') == 'false'",
+              "edge_2_2": "q.block_state('minecade:u_high') == 'true' || q.block_state('minecade:v_high') == 'true'",
+              "fill_2_2": "q.block_state('minecade:u_high') == 'false' && q.block_state('minecade:v_high') == 'false'"
+            }
+          }
         }
       },
       {
         "condition": "q.block_state('minecade:axis') == 0 && q.block_state('minecade:offset') == 10",
         "components": {
-          "minecraft:geometry": "geometry.minecade.plane_0_10"
+          "minecraft:geometry": {
+            "identifier": "geometry.minecade.plane_0_10",
+            "bone_visibility": {
+              "fill": true,
+              "edge_0_0": "q.block_state('minecade:u_low') == 'true' || q.block_state('minecade:v_low') == 'true'",
+              "fill_0_0": "q.block_state('minecade:u_low') == 'false' && q.block_state('minecade:v_low') == 'false'",
+              "edge_0_1": "q.block_state('minecade:u_low') == 'true'",
+              "fill_0_1": "q.block_state('minecade:u_low') == 'false'",
+              "edge_0_2": "q.block_state('minecade:u_low') == 'true' || q.block_state('minecade:v_high') == 'true'",
+              "fill_0_2": "q.block_state('minecade:u_low') == 'false' && q.block_state('minecade:v_high') == 'false'",
+              "edge_1_0": "q.block_state('minecade:v_low') == 'true'",
+              "fill_1_0": "q.block_state('minecade:v_low') == 'false'",
+              "edge_1_2": "q.block_state('minecade:v_high') == 'true'",
+              "fill_1_2": "q.block_state('minecade:v_high') == 'false'",
+              "edge_2_0": "q.block_state('minecade:u_high') == 'true' || q.block_state('minecade:v_low') == 'true'",
+              "fill_2_0": "q.block_state('minecade:u_high') == 'false' && q.block_state('minecade:v_low') == 'false'",
+              "edge_2_1": "q.block_state('minecade:u_high') == 'true'",
+              "fill_2_1": "q.block_state('minecade:u_high') == 'false'",
+              "edge_2_2": "q.block_state('minecade:u_high') == 'true' || q.block_state('minecade:v_high') == 'true'",
+              "fill_2_2": "q.block_state('minecade:u_high') == 'false' && q.block_state('minecade:v_high') == 'false'"
+            }
+          }
         }
       },
       {
         "condition": "q.block_state('minecade:axis') == 0 && q.block_state('minecade:offset') == 11",
         "components": {
-          "minecraft:geometry": "geometry.minecade.plane_0_11"
+          "minecraft:geometry": {
+            "identifier": "geometry.minecade.plane_0_11",
+            "bone_visibility": {
+              "fill": true,
+              "edge_0_0": "q.block_state('minecade:u_low') == 'true' || q.block_state('minecade:v_low') == 'true'",
+              "fill_0_0": "q.block_state('minecade:u_low') == 'false' && q.block_state('minecade:v_low') == 'false'",
+              "edge_0_1": "q.block_state('minecade:u_low') == 'true'",
+              "fill_0_1": "q.block_state('minecade:u_low') == 'false'",
+              "edge_0_2": "q.block_state('minecade:u_low') == 'true' || q.block_state('minecade:v_high') == 'true'",
+              "fill_0_2": "q.block_state('minecade:u_low') == 'false' && q.block_state('minecade:v_high') == 'false'",
+              "edge_1_0": "q.block_state('minecade:v_low') == 'true'",
+              "fill_1_0": "q.block_state('minecade:v_low') == 'false'",
+              "edge_1_2": "q.block_state('minecade:v_high') == 'true'",
+              "fill_1_2": "q.block_state('minecade:v_high') == 'false'",
+              "edge_2_0": "q.block_state('minecade:u_high') == 'true' || q.block_state('minecade:v_low') == 'true'",
+              "fill_2_0": "q.block_state('minecade:u_high') == 'false' && q.block_state('minecade:v_low') == 'false'",
+              "edge_2_1": "q.block_state('minecade:u_high') == 'true'",
+              "fill_2_1": "q.block_state('minecade:u_high') == 'false'",
+              "edge_2_2": "q.block_state('minecade:u_high') == 'true' || q.block_state('minecade:v_high') == 'true'",
+              "fill_2_2": "q.block_state('minecade:u_high') == 'false' && q.block_state('minecade:v_high') == 'false'"
+            }
+          }
         }
       },
       {
         "condition": "q.block_state('minecade:axis') == 0 && q.block_state('minecade:offset') == 12",
         "components": {
-          "minecraft:geometry": "geometry.minecade.plane_0_12"
+          "minecraft:geometry": {
+            "identifier": "geometry.minecade.plane_0_12",
+            "bone_visibility": {
+              "fill": true,
+              "edge_0_0": "q.block_state('minecade:u_low') == 'true' || q.block_state('minecade:v_low') == 'true'",
+              "fill_0_0": "q.block_state('minecade:u_low') == 'false' && q.block_state('minecade:v_low') == 'false'",
+              "edge_0_1": "q.block_state('minecade:u_low') == 'true'",
+              "fill_0_1": "q.block_state('minecade:u_low') == 'false'",
+              "edge_0_2": "q.block_state('minecade:u_low') == 'true' || q.block_state('minecade:v_high') == 'true'",
+              "fill_0_2": "q.block_state('minecade:u_low') == 'false' && q.block_state('minecade:v_high') == 'false'",
+              "edge_1_0": "q.block_state('minecade:v_low') == 'true'",
+              "fill_1_0": "q.block_state('minecade:v_low') == 'false'",
+              "edge_1_2": "q.block_state('minecade:v_high') == 'true'",
+              "fill_1_2": "q.block_state('minecade:v_high') == 'false'",
+              "edge_2_0": "q.block_state('minecade:u_high') == 'true' || q.block_state('minecade:v_low') == 'true'",
+              "fill_2_0": "q.block_state('minecade:u_high') == 'false' && q.block_state('minecade:v_low') == 'false'",
+              "edge_2_1": "q.block_state('minecade:u_high') == 'true'",
+              "fill_2_1": "q.block_state('minecade:u_high') == 'false'",
+              "edge_2_2": "q.block_state('minecade:u_high') == 'true' || q.block_state('minecade:v_high') == 'true'",
+              "fill_2_2": "q.block_state('minecade:u_high') == 'false' && q.block_state('minecade:v_high') == 'false'"
+            }
+          }
         }
       },
       {
         "condition": "q.block_state('minecade:axis') == 0 && q.block_state('minecade:offset') == 13",
         "components": {
-          "minecraft:geometry": "geometry.minecade.plane_0_13"
+          "minecraft:geometry": {
+            "identifier": "geometry.minecade.plane_0_13",
+            "bone_visibility": {
+              "fill": true,
+              "edge_0_0": "q.block_state('minecade:u_low') == 'true' || q.block_state('minecade:v_low') == 'true'",
+              "fill_0_0": "q.block_state('minecade:u_low') == 'false' && q.block_state('minecade:v_low') == 'false'",
+              "edge_0_1": "q.block_state('minecade:u_low') == 'true'",
+              "fill_0_1": "q.block_state('minecade:u_low') == 'false'",
+              "edge_0_2": "q.block_state('minecade:u_low') == 'true' || q.block_state('minecade:v_high') == 'true'",
+              "fill_0_2": "q.block_state('minecade:u_low') == 'false' && q.block_state('minecade:v_high') == 'false'",
+              "edge_1_0": "q.block_state('minecade:v_low') == 'true'",
+              "fill_1_0": "q.block_state('minecade:v_low') == 'false'",
+              "edge_1_2": "q.block_state('minecade:v_high') == 'true'",
+              "fill_1_2": "q.block_state('minecade:v_high') == 'false'",
+              "edge_2_0": "q.block_state('minecade:u_high') == 'true' || q.block_state('minecade:v_low') == 'true'",
+              "fill_2_0": "q.block_state('minecade:u_high') == 'false' && q.block_state('minecade:v_low') == 'false'",
+              "edge_2_1": "q.block_state('minecade:u_high') == 'true'",
+              "fill_2_1": "q.block_state('minecade:u_high') == 'false'",
+              "edge_2_2": "q.block_state('minecade:u_high') == 'true' || q.block_state('minecade:v_high') == 'true'",
+              "fill_2_2": "q.block_state('minecade:u_high') == 'false' && q.block_state('minecade:v_high') == 'false'"
+            }
+          }
         }
       },
       {
         "condition": "q.block_state('minecade:axis') == 0 && q.block_state('minecade:offset') == 14",
         "components": {
-          "minecraft:geometry": "geometry.minecade.plane_0_14"
+          "minecraft:geometry": {
+            "identifier": "geometry.minecade.plane_0_14",
+            "bone_visibility": {
+              "fill": true,
+              "edge_0_0": "q.block_state('minecade:u_low') == 'true' || q.block_state('minecade:v_low') == 'true'",
+              "fill_0_0": "q.block_state('minecade:u_low') == 'false' && q.block_state('minecade:v_low') == 'false'",
+              "edge_0_1": "q.block_state('minecade:u_low') == 'true'",
+              "fill_0_1": "q.block_state('minecade:u_low') == 'false'",
+              "edge_0_2": "q.block_state('minecade:u_low') == 'true' || q.block_state('minecade:v_high') == 'true'",
+              "fill_0_2": "q.block_state('minecade:u_low') == 'false' && q.block_state('minecade:v_high') == 'false'",
+              "edge_1_0": "q.block_state('minecade:v_low') == 'true'",
+              "fill_1_0": "q.block_state('minecade:v_low') == 'false'",
+              "edge_1_2": "q.block_state('minecade:v_high') == 'true'",
+              "fill_1_2": "q.block_state('minecade:v_high') == 'false'",
+              "edge_2_0": "q.block_state('minecade:u_high') == 'true' || q.block_state('minecade:v_low') == 'true'",
+              "fill_2_0": "q.block_state('minecade:u_high') == 'false' && q.block_state('minecade:v_low') == 'false'",
+              "edge_2_1": "q.block_state('minecade:u_high') == 'true'",
+              "fill_2_1": "q.block_state('minecade:u_high') == 'false'",
+              "edge_2_2": "q.block_state('minecade:u_high') == 'true' || q.block_state('minecade:v_high') == 'true'",
+              "fill_2_2": "q.block_state('minecade:u_high') == 'false' && q.block_state('minecade:v_high') == 'false'"
+            }
+          }
         }
       },
       {
         "condition": "q.block_state('minecade:axis') == 0 && q.block_state('minecade:offset') == 15",
         "components": {
-          "minecraft:geometry": "geometry.minecade.plane_0_15"
+          "minecraft:geometry": {
+            "identifier": "geometry.minecade.plane_0_15",
+            "bone_visibility": {
+              "fill": true,
+              "edge_0_0": "q.block_state('minecade:u_low') == 'true' || q.block_state('minecade:v_low') == 'true'",
+              "fill_0_0": "q.block_state('minecade:u_low') == 'false' && q.block_state('minecade:v_low') == 'false'",
+              "edge_0_1": "q.block_state('minecade:u_low') == 'true'",
+              "fill_0_1": "q.block_state('minecade:u_low') == 'false'",
+              "edge_0_2": "q.block_state('minecade:u_low') == 'true' || q.block_state('minecade:v_high') == 'true'",
+              "fill_0_2": "q.block_state('minecade:u_low') == 'false' && q.block_state('minecade:v_high') == 'false'",
+              "edge_1_0": "q.block_state('minecade:v_low') == 'true'",
+              "fill_1_0": "q.block_state('minecade:v_low') == 'false'",
+              "edge_1_2": "q.block_state('minecade:v_high') == 'true'",
+              "fill_1_2": "q.block_state('minecade:v_high') == 'false'",
+              "edge_2_0": "q.block_state('minecade:u_high') == 'true' || q.block_state('minecade:v_low') == 'true'",
+              "fill_2_0": "q.block_state('minecade:u_high') == 'false' && q.block_state('minecade:v_low') == 'false'",
+              "edge_2_1": "q.block_state('minecade:u_high') == 'true'",
+              "fill_2_1": "q.block_state('minecade:u_high') == 'false'",
+              "edge_2_2": "q.block_state('minecade:u_high') == 'true' || q.block_state('minecade:v_high') == 'true'",
+              "fill_2_2": "q.block_state('minecade:u_high') == 'false' && q.block_state('minecade:v_high') == 'false'"
+            }
+          }
         }
       },
       {
         "condition": "q.block_state('minecade:axis') == 1 && q.block_state('minecade:offset') == 0",
         "components": {
-          "minecraft:geometry": "geometry.minecade.plane_1_0"
+          "minecraft:geometry": {
+            "identifier": "geometry.minecade.plane_1_0",
+            "bone_visibility": {
+              "fill": true,
+              "edge_0_0": "q.block_state('minecade:u_low') == 'true' || q.block_state('minecade:v_low') == 'true'",
+              "fill_0_0": "q.block_state('minecade:u_low') == 'false' && q.block_state('minecade:v_low') == 'false'",
+              "edge_0_1": "q.block_state('minecade:u_low') == 'true'",
+              "fill_0_1": "q.block_state('minecade:u_low') == 'false'",
+              "edge_0_2": "q.block_state('minecade:u_low') == 'true' || q.block_state('minecade:v_high') == 'true'",
+              "fill_0_2": "q.block_state('minecade:u_low') == 'false' && q.block_state('minecade:v_high') == 'false'",
+              "edge_1_0": "q.block_state('minecade:v_low') == 'true'",
+              "fill_1_0": "q.block_state('minecade:v_low') == 'false'",
+              "edge_1_2": "q.block_state('minecade:v_high') == 'true'",
+              "fill_1_2": "q.block_state('minecade:v_high') == 'false'",
+              "edge_2_0": "q.block_state('minecade:u_high') == 'true' || q.block_state('minecade:v_low') == 'true'",
+              "fill_2_0": "q.block_state('minecade:u_high') == 'false' && q.block_state('minecade:v_low') == 'false'",
+              "edge_2_1": "q.block_state('minecade:u_high') == 'true'",
+              "fill_2_1": "q.block_state('minecade:u_high') == 'false'",
+              "edge_2_2": "q.block_state('minecade:u_high') == 'true' || q.block_state('minecade:v_high') == 'true'",
+              "fill_2_2": "q.block_state('minecade:u_high') == 'false' && q.block_state('minecade:v_high') == 'false'"
+            }
+          }
         }
       },
       {
         "condition": "q.block_state('minecade:axis') == 1 && q.block_state('minecade:offset') == 1",
         "components": {
-          "minecraft:geometry": "geometry.minecade.plane_1_1"
+          "minecraft:geometry": {
+            "identifier": "geometry.minecade.plane_1_1",
+            "bone_visibility": {
+              "fill": true,
+              "edge_0_0": "q.block_state('minecade:u_low') == 'true' || q.block_state('minecade:v_low') == 'true'",
+              "fill_0_0": "q.block_state('minecade:u_low') == 'false' && q.block_state('minecade:v_low') == 'false'",
+              "edge_0_1": "q.block_state('minecade:u_low') == 'true'",
+              "fill_0_1": "q.block_state('minecade:u_low') == 'false'",
+              "edge_0_2": "q.block_state('minecade:u_low') == 'true' || q.block_state('minecade:v_high') == 'true'",
+              "fill_0_2": "q.block_state('minecade:u_low') == 'false' && q.block_state('minecade:v_high') == 'false'",
+              "edge_1_0": "q.block_state('minecade:v_low') == 'true'",
+              "fill_1_0": "q.block_state('minecade:v_low') == 'false'",
+              "edge_1_2": "q.block_state('minecade:v_high') == 'true'",
+              "fill_1_2": "q.block_state('minecade:v_high') == 'false'",
+              "edge_2_0": "q.block_state('minecade:u_high') == 'true' || q.block_state('minecade:v_low') == 'true'",
+              "fill_2_0": "q.block_state('minecade:u_high') == 'false' && q.block_state('minecade:v_low') == 'false'",
+              "edge_2_1": "q.block_state('minecade:u_high') == 'true'",
+              "fill_2_1": "q.block_state('minecade:u_high') == 'false'",
+              "edge_2_2": "q.block_state('minecade:u_high') == 'true' || q.block_state('minecade:v_high') == 'true'",
+              "fill_2_2": "q.block_state('minecade:u_high') == 'false' && q.block_state('minecade:v_high') == 'false'"
+            }
+          }
         }
       },
       {
         "condition": "q.block_state('minecade:axis') == 1 && q.block_state('minecade:offset') == 2",
         "components": {
-          "minecraft:geometry": "geometry.minecade.plane_1_2"
+          "minecraft:geometry": {
+            "identifier": "geometry.minecade.plane_1_2",
+            "bone_visibility": {
+              "fill": true,
+              "edge_0_0": "q.block_state('minecade:u_low') == 'true' || q.block_state('minecade:v_low') == 'true'",
+              "fill_0_0": "q.block_state('minecade:u_low') == 'false' && q.block_state('minecade:v_low') == 'false'",
+              "edge_0_1": "q.block_state('minecade:u_low') == 'true'",
+              "fill_0_1": "q.block_state('minecade:u_low') == 'false'",
+              "edge_0_2": "q.block_state('minecade:u_low') == 'true' || q.block_state('minecade:v_high') == 'true'",
+              "fill_0_2": "q.block_state('minecade:u_low') == 'false' && q.block_state('minecade:v_high') == 'false'",
+              "edge_1_0": "q.block_state('minecade:v_low') == 'true'",
+              "fill_1_0": "q.block_state('minecade:v_low') == 'false'",
+              "edge_1_2": "q.block_state('minecade:v_high') == 'true'",
+              "fill_1_2": "q.block_state('minecade:v_high') == 'false'",
+              "edge_2_0": "q.block_state('minecade:u_high') == 'true' || q.block_state('minecade:v_low') == 'true'",
+              "fill_2_0": "q.block_state('minecade:u_high') == 'false' && q.block_state('minecade:v_low') == 'false'",
+              "edge_2_1": "q.block_state('minecade:u_high') == 'true'",
+              "fill_2_1": "q.block_state('minecade:u_high') == 'false'",
+              "edge_2_2": "q.block_state('minecade:u_high') == 'true' || q.block_state('minecade:v_high') == 'true'",
+              "fill_2_2": "q.block_state('minecade:u_high') == 'false' && q.block_state('minecade:v_high') == 'false'"
+            }
+          }
         }
       },
       {
         "condition": "q.block_state('minecade:axis') == 1 && q.block_state('minecade:offset') == 3",
         "components": {
-          "minecraft:geometry": "geometry.minecade.plane_1_3"
+          "minecraft:geometry": {
+            "identifier": "geometry.minecade.plane_1_3",
+            "bone_visibility": {
+              "fill": true,
+              "edge_0_0": "q.block_state('minecade:u_low') == 'true' || q.block_state('minecade:v_low') == 'true'",
+              "fill_0_0": "q.block_state('minecade:u_low') == 'false' && q.block_state('minecade:v_low') == 'false'",
+              "edge_0_1": "q.block_state('minecade:u_low') == 'true'",
+              "fill_0_1": "q.block_state('minecade:u_low') == 'false'",
+              "edge_0_2": "q.block_state('minecade:u_low') == 'true' || q.block_state('minecade:v_high') == 'true'",
+              "fill_0_2": "q.block_state('minecade:u_low') == 'false' && q.block_state('minecade:v_high') == 'false'",
+              "edge_1_0": "q.block_state('minecade:v_low') == 'true'",
+              "fill_1_0": "q.block_state('minecade:v_low') == 'false'",
+              "edge_1_2": "q.block_state('minecade:v_high') == 'true'",
+              "fill_1_2": "q.block_state('minecade:v_high') == 'false'",
+              "edge_2_0": "q.block_state('minecade:u_high') == 'true' || q.block_state('minecade:v_low') == 'true'",
+              "fill_2_0": "q.block_state('minecade:u_high') == 'false' && q.block_state('minecade:v_low') == 'false'",
+              "edge_2_1": "q.block_state('minecade:u_high') == 'true'",
+              "fill_2_1": "q.block_state('minecade:u_high') == 'false'",
+              "edge_2_2": "q.block_state('minecade:u_high') == 'true' || q.block_state('minecade:v_high') == 'true'",
+              "fill_2_2": "q.block_state('minecade:u_high') == 'false' && q.block_state('minecade:v_high') == 'false'"
+            }
+          }
         }
       },
       {
         "condition": "q.block_state('minecade:axis') == 1 && q.block_state('minecade:offset') == 4",
         "components": {
-          "minecraft:geometry": "geometry.minecade.plane_1_4"
+          "minecraft:geometry": {
+            "identifier": "geometry.minecade.plane_1_4",
+            "bone_visibility": {
+              "fill": true,
+              "edge_0_0": "q.block_state('minecade:u_low') == 'true' || q.block_state('minecade:v_low') == 'true'",
+              "fill_0_0": "q.block_state('minecade:u_low') == 'false' && q.block_state('minecade:v_low') == 'false'",
+              "edge_0_1": "q.block_state('minecade:u_low') == 'true'",
+              "fill_0_1": "q.block_state('minecade:u_low') == 'false'",
+              "edge_0_2": "q.block_state('minecade:u_low') == 'true' || q.block_state('minecade:v_high') == 'true'",
+              "fill_0_2": "q.block_state('minecade:u_low') == 'false' && q.block_state('minecade:v_high') == 'false'",
+              "edge_1_0": "q.block_state('minecade:v_low') == 'true'",
+              "fill_1_0": "q.block_state('minecade:v_low') == 'false'",
+              "edge_1_2": "q.block_state('minecade:v_high') == 'true'",
+              "fill_1_2": "q.block_state('minecade:v_high') == 'false'",
+              "edge_2_0": "q.block_state('minecade:u_high') == 'true' || q.block_state('minecade:v_low') == 'true'",
+              "fill_2_0": "q.block_state('minecade:u_high') == 'false' && q.block_state('minecade:v_low') == 'false'",
+              "edge_2_1": "q.block_state('minecade:u_high') == 'true'",
+              "fill_2_1": "q.block_state('minecade:u_high') == 'false'",
+              "edge_2_2": "q.block_state('minecade:u_high') == 'true' || q.block_state('minecade:v_high') == 'true'",
+              "fill_2_2": "q.block_state('minecade:u_high') == 'false' && q.block_state('minecade:v_high') == 'false'"
+            }
+          }
         }
       },
       {
         "condition": "q.block_state('minecade:axis') == 1 && q.block_state('minecade:offset') == 5",
         "components": {
-          "minecraft:geometry": "geometry.minecade.plane_1_5"
+          "minecraft:geometry": {
+            "identifier": "geometry.minecade.plane_1_5",
+            "bone_visibility": {
+              "fill": true,
+              "edge_0_0": "q.block_state('minecade:u_low') == 'true' || q.block_state('minecade:v_low') == 'true'",
+              "fill_0_0": "q.block_state('minecade:u_low') == 'false' && q.block_state('minecade:v_low') == 'false'",
+              "edge_0_1": "q.block_state('minecade:u_low') == 'true'",
+              "fill_0_1": "q.block_state('minecade:u_low') == 'false'",
+              "edge_0_2": "q.block_state('minecade:u_low') == 'true' || q.block_state('minecade:v_high') == 'true'",
+              "fill_0_2": "q.block_state('minecade:u_low') == 'false' && q.block_state('minecade:v_high') == 'false'",
+              "edge_1_0": "q.block_state('minecade:v_low') == 'true'",
+              "fill_1_0": "q.block_state('minecade:v_low') == 'false'",
+              "edge_1_2": "q.block_state('minecade:v_high') == 'true'",
+              "fill_1_2": "q.block_state('minecade:v_high') == 'false'",
+              "edge_2_0": "q.block_state('minecade:u_high') == 'true' || q.block_state('minecade:v_low') == 'true'",
+              "fill_2_0": "q.block_state('minecade:u_high') == 'false' && q.block_state('minecade:v_low') == 'false'",
+              "edge_2_1": "q.block_state('minecade:u_high') == 'true'",
+              "fill_2_1": "q.block_state('minecade:u_high') == 'false'",
+              "edge_2_2": "q.block_state('minecade:u_high') == 'true' || q.block_state('minecade:v_high') == 'true'",
+              "fill_2_2": "q.block_state('minecade:u_high') == 'false' && q.block_state('minecade:v_high') == 'false'"
+            }
+          }
         }
       },
       {
         "condition": "q.block_state('minecade:axis') == 1 && q.block_state('minecade:offset') == 6",
         "components": {
-          "minecraft:geometry": "geometry.minecade.plane_1_6"
+          "minecraft:geometry": {
+            "identifier": "geometry.minecade.plane_1_6",
+            "bone_visibility": {
+              "fill": true,
+              "edge_0_0": "q.block_state('minecade:u_low') == 'true' || q.block_state('minecade:v_low') == 'true'",
+              "fill_0_0": "q.block_state('minecade:u_low') == 'false' && q.block_state('minecade:v_low') == 'false'",
+              "edge_0_1": "q.block_state('minecade:u_low') == 'true'",
+              "fill_0_1": "q.block_state('minecade:u_low') == 'false'",
+              "edge_0_2": "q.block_state('minecade:u_low') == 'true' || q.block_state('minecade:v_high') == 'true'",
+              "fill_0_2": "q.block_state('minecade:u_low') == 'false' && q.block_state('minecade:v_high') == 'false'",
+              "edge_1_0": "q.block_state('minecade:v_low') == 'true'",
+              "fill_1_0": "q.block_state('minecade:v_low') == 'false'",
+              "edge_1_2": "q.block_state('minecade:v_high') == 'true'",
+              "fill_1_2": "q.block_state('minecade:v_high') == 'false'",
+              "edge_2_0": "q.block_state('minecade:u_high') == 'true' || q.block_state('minecade:v_low') == 'true'",
+              "fill_2_0": "q.block_state('minecade:u_high') == 'false' && q.block_state('minecade:v_low') == 'false'",
+              "edge_2_1": "q.block_state('minecade:u_high') == 'true'",
+              "fill_2_1": "q.block_state('minecade:u_high') == 'false'",
+              "edge_2_2": "q.block_state('minecade:u_high') == 'true' || q.block_state('minecade:v_high') == 'true'",
+              "fill_2_2": "q.block_state('minecade:u_high') == 'false' && q.block_state('minecade:v_high') == 'false'"
+            }
+          }
         }
       },
       {
         "condition": "q.block_state('minecade:axis') == 1 && q.block_state('minecade:offset') == 7",
         "components": {
-          "minecraft:geometry": "geometry.minecade.plane_1_7"
+          "minecraft:geometry": {
+            "identifier": "geometry.minecade.plane_1_7",
+            "bone_visibility": {
+              "fill": true,
+              "edge_0_0": "q.block_state('minecade:u_low') == 'true' || q.block_state('minecade:v_low') == 'true'",
+              "fill_0_0": "q.block_state('minecade:u_low') == 'false' && q.block_state('minecade:v_low') == 'false'",
+              "edge_0_1": "q.block_state('minecade:u_low') == 'true'",
+              "fill_0_1": "q.block_state('minecade:u_low') == 'false'",
+              "edge_0_2": "q.block_state('minecade:u_low') == 'true' || q.block_state('minecade:v_high') == 'true'",
+              "fill_0_2": "q.block_state('minecade:u_low') == 'false' && q.block_state('minecade:v_high') == 'false'",
+              "edge_1_0": "q.block_state('minecade:v_low') == 'true'",
+              "fill_1_0": "q.block_state('minecade:v_low') == 'false'",
+              "edge_1_2": "q.block_state('minecade:v_high') == 'true'",
+              "fill_1_2": "q.block_state('minecade:v_high') == 'false'",
+              "edge_2_0": "q.block_state('minecade:u_high') == 'true' || q.block_state('minecade:v_low') == 'true'",
+              "fill_2_0": "q.block_state('minecade:u_high') == 'false' && q.block_state('minecade:v_low') == 'false'",
+              "edge_2_1": "q.block_state('minecade:u_high') == 'true'",
+              "fill_2_1": "q.block_state('minecade:u_high') == 'false'",
+              "edge_2_2": "q.block_state('minecade:u_high') == 'true' || q.block_state('minecade:v_high') == 'true'",
+              "fill_2_2": "q.block_state('minecade:u_high') == 'false' && q.block_state('minecade:v_high') == 'false'"
+            }
+          }
         }
       },
       {
         "condition": "q.block_state('minecade:axis') == 1 && q.block_state('minecade:offset') == 8",
         "components": {
-          "minecraft:geometry": "geometry.minecade.plane_1_8"
+          "minecraft:geometry": {
+            "identifier": "geometry.minecade.plane_1_8",
+            "bone_visibility": {
+              "fill": true,
+              "edge_0_0": "q.block_state('minecade:u_low') == 'true' || q.block_state('minecade:v_low') == 'true'",
+              "fill_0_0": "q.block_state('minecade:u_low') == 'false' && q.block_state('minecade:v_low') == 'false'",
+              "edge_0_1": "q.block_state('minecade:u_low') == 'true'",
+              "fill_0_1": "q.block_state('minecade:u_low') == 'false'",
+              "edge_0_2": "q.block_state('minecade:u_low') == 'true' || q.block_state('minecade:v_high') == 'true'",
+              "fill_0_2": "q.block_state('minecade:u_low') == 'false' && q.block_state('minecade:v_high') == 'false'",
+              "edge_1_0": "q.block_state('minecade:v_low') == 'true'",
+              "fill_1_0": "q.block_state('minecade:v_low') == 'false'",
+              "edge_1_2": "q.block_state('minecade:v_high') == 'true'",
+              "fill_1_2": "q.block_state('minecade:v_high') == 'false'",
+              "edge_2_0": "q.block_state('minecade:u_high') == 'true' || q.block_state('minecade:v_low') == 'true'",
+              "fill_2_0": "q.block_state('minecade:u_high') == 'false' && q.block_state('minecade:v_low') == 'false'",
+              "edge_2_1": "q.block_state('minecade:u_high') == 'true'",
+              "fill_2_1": "q.block_state('minecade:u_high') == 'false'",
+              "edge_2_2": "q.block_state('minecade:u_high') == 'true' || q.block_state('minecade:v_high') == 'true'",
+              "fill_2_2": "q.block_state('minecade:u_high') == 'false' && q.block_state('minecade:v_high') == 'false'"
+            }
+          }
         }
       },
       {
         "condition": "q.block_state('minecade:axis') == 1 && q.block_state('minecade:offset') == 9",
         "components": {
-          "minecraft:geometry": "geometry.minecade.plane_1_9"
+          "minecraft:geometry": {
+            "identifier": "geometry.minecade.plane_1_9",
+            "bone_visibility": {
+              "fill": true,
+              "edge_0_0": "q.block_state('minecade:u_low') == 'true' || q.block_state('minecade:v_low') == 'true'",
+              "fill_0_0": "q.block_state('minecade:u_low') == 'false' && q.block_state('minecade:v_low') == 'false'",
+              "edge_0_1": "q.block_state('minecade:u_low') == 'true'",
+              "fill_0_1": "q.block_state('minecade:u_low') == 'false'",
+              "edge_0_2": "q.block_state('minecade:u_low') == 'true' || q.block_state('minecade:v_high') == 'true'",
+              "fill_0_2": "q.block_state('minecade:u_low') == 'false' && q.block_state('minecade:v_high') == 'false'",
+              "edge_1_0": "q.block_state('minecade:v_low') == 'true'",
+              "fill_1_0": "q.block_state('minecade:v_low') == 'false'",
+              "edge_1_2": "q.block_state('minecade:v_high') == 'true'",
+              "fill_1_2": "q.block_state('minecade:v_high') == 'false'",
+              "edge_2_0": "q.block_state('minecade:u_high') == 'true' || q.block_state('minecade:v_low') == 'true'",
+              "fill_2_0": "q.block_state('minecade:u_high') == 'false' && q.block_state('minecade:v_low') == 'false'",
+              "edge_2_1": "q.block_state('minecade:u_high') == 'true'",
+              "fill_2_1": "q.block_state('minecade:u_high') == 'false'",
+              "edge_2_2": "q.block_state('minecade:u_high') == 'true' || q.block_state('minecade:v_high') == 'true'",
+              "fill_2_2": "q.block_state('minecade:u_high') == 'false' && q.block_state('minecade:v_high') == 'false'"
+            }
+          }
         }
       },
       {
         "condition": "q.block_state('minecade:axis') == 1 && q.block_state('minecade:offset') == 10",
         "components": {
-          "minecraft:geometry": "geometry.minecade.plane_1_10"
+          "minecraft:geometry": {
+            "identifier": "geometry.minecade.plane_1_10",
+            "bone_visibility": {
+              "fill": true,
+              "edge_0_0": "q.block_state('minecade:u_low') == 'true' || q.block_state('minecade:v_low') == 'true'",
+              "fill_0_0": "q.block_state('minecade:u_low') == 'false' && q.block_state('minecade:v_low') == 'false'",
+              "edge_0_1": "q.block_state('minecade:u_low') == 'true'",
+              "fill_0_1": "q.block_state('minecade:u_low') == 'false'",
+              "edge_0_2": "q.block_state('minecade:u_low') == 'true' || q.block_state('minecade:v_high') == 'true'",
+              "fill_0_2": "q.block_state('minecade:u_low') == 'false' && q.block_state('minecade:v_high') == 'false'",
+              "edge_1_0": "q.block_state('minecade:v_low') == 'true'",
+              "fill_1_0": "q.block_state('minecade:v_low') == 'false'",
+              "edge_1_2": "q.block_state('minecade:v_high') == 'true'",
+              "fill_1_2": "q.block_state('minecade:v_high') == 'false'",
+              "edge_2_0": "q.block_state('minecade:u_high') == 'true' || q.block_state('minecade:v_low') == 'true'",
+              "fill_2_0": "q.block_state('minecade:u_high') == 'false' && q.block_state('minecade:v_low') == 'false'",
+              "edge_2_1": "q.block_state('minecade:u_high') == 'true'",
+              "fill_2_1": "q.block_state('minecade:u_high') == 'false'",
+              "edge_2_2": "q.block_state('minecade:u_high') == 'true' || q.block_state('minecade:v_high') == 'true'",
+              "fill_2_2": "q.block_state('minecade:u_high') == 'false' && q.block_state('minecade:v_high') == 'false'"
+            }
+          }
         }
       },
       {
         "condition": "q.block_state('minecade:axis') == 1 && q.block_state('minecade:offset') == 11",
         "components": {
-          "minecraft:geometry": "geometry.minecade.plane_1_11"
+          "minecraft:geometry": {
+            "identifier": "geometry.minecade.plane_1_11",
+            "bone_visibility": {
+              "fill": true,
+              "edge_0_0": "q.block_state('minecade:u_low') == 'true' || q.block_state('minecade:v_low') == 'true'",
+              "fill_0_0": "q.block_state('minecade:u_low') == 'false' && q.block_state('minecade:v_low') == 'false'",
+              "edge_0_1": "q.block_state('minecade:u_low') == 'true'",
+              "fill_0_1": "q.block_state('minecade:u_low') == 'false'",
+              "edge_0_2": "q.block_state('minecade:u_low') == 'true' || q.block_state('minecade:v_high') == 'true'",
+              "fill_0_2": "q.block_state('minecade:u_low') == 'false' && q.block_state('minecade:v_high') == 'false'",
+              "edge_1_0": "q.block_state('minecade:v_low') == 'true'",
+              "fill_1_0": "q.block_state('minecade:v_low') == 'false'",
+              "edge_1_2": "q.block_state('minecade:v_high') == 'true'",
+              "fill_1_2": "q.block_state('minecade:v_high') == 'false'",
+              "edge_2_0": "q.block_state('minecade:u_high') == 'true' || q.block_state('minecade:v_low') == 'true'",
+              "fill_2_0": "q.block_state('minecade:u_high') == 'false' && q.block_state('minecade:v_low') == 'false'",
+              "edge_2_1": "q.block_state('minecade:u_high') == 'true'",
+              "fill_2_1": "q.block_state('minecade:u_high') == 'false'",
+              "edge_2_2": "q.block_state('minecade:u_high') == 'true' || q.block_state('minecade:v_high') == 'true'",
+              "fill_2_2": "q.block_state('minecade:u_high') == 'false' && q.block_state('minecade:v_high') == 'false'"
+            }
+          }
         }
       },
       {
         "condition": "q.block_state('minecade:axis') == 1 && q.block_state('minecade:offset') == 12",
         "components": {
-          "minecraft:geometry": "geometry.minecade.plane_1_12"
+          "minecraft:geometry": {
+            "identifier": "geometry.minecade.plane_1_12",
+            "bone_visibility": {
+              "fill": true,
+              "edge_0_0": "q.block_state('minecade:u_low') == 'true' || q.block_state('minecade:v_low') == 'true'",
+              "fill_0_0": "q.block_state('minecade:u_low') == 'false' && q.block_state('minecade:v_low') == 'false'",
+              "edge_0_1": "q.block_state('minecade:u_low') == 'true'",
+              "fill_0_1": "q.block_state('minecade:u_low') == 'false'",
+              "edge_0_2": "q.block_state('minecade:u_low') == 'true' || q.block_state('minecade:v_high') == 'true'",
+              "fill_0_2": "q.block_state('minecade:u_low') == 'false' && q.block_state('minecade:v_high') == 'false'",
+              "edge_1_0": "q.block_state('minecade:v_low') == 'true'",
+              "fill_1_0": "q.block_state('minecade:v_low') == 'false'",
+              "edge_1_2": "q.block_state('minecade:v_high') == 'true'",
+              "fill_1_2": "q.block_state('minecade:v_high') == 'false'",
+              "edge_2_0": "q.block_state('minecade:u_high') == 'true' || q.block_state('minecade:v_low') == 'true'",
+              "fill_2_0": "q.block_state('minecade:u_high') == 'false' && q.block_state('minecade:v_low') == 'false'",
+              "edge_2_1": "q.block_state('minecade:u_high') == 'true'",
+              "fill_2_1": "q.block_state('minecade:u_high') == 'false'",
+              "edge_2_2": "q.block_state('minecade:u_high') == 'true' || q.block_state('minecade:v_high') == 'true'",
+              "fill_2_2": "q.block_state('minecade:u_high') == 'false' && q.block_state('minecade:v_high') == 'false'"
+            }
+          }
         }
       },
       {
         "condition": "q.block_state('minecade:axis') == 1 && q.block_state('minecade:offset') == 13",
         "components": {
-          "minecraft:geometry": "geometry.minecade.plane_1_13"
+          "minecraft:geometry": {
+            "identifier": "geometry.minecade.plane_1_13",
+            "bone_visibility": {
+              "fill": true,
+              "edge_0_0": "q.block_state('minecade:u_low') == 'true' || q.block_state('minecade:v_low') == 'true'",
+              "fill_0_0": "q.block_state('minecade:u_low') == 'false' && q.block_state('minecade:v_low') == 'false'",
+              "edge_0_1": "q.block_state('minecade:u_low') == 'true'",
+              "fill_0_1": "q.block_state('minecade:u_low') == 'false'",
+              "edge_0_2": "q.block_state('minecade:u_low') == 'true' || q.block_state('minecade:v_high') == 'true'",
+              "fill_0_2": "q.block_state('minecade:u_low') == 'false' && q.block_state('minecade:v_high') == 'false'",
+              "edge_1_0": "q.block_state('minecade:v_low') == 'true'",
+              "fill_1_0": "q.block_state('minecade:v_low') == 'false'",
+              "edge_1_2": "q.block_state('minecade:v_high') == 'true'",
+              "fill_1_2": "q.block_state('minecade:v_high') == 'false'",
+              "edge_2_0": "q.block_state('minecade:u_high') == 'true' || q.block_state('minecade:v_low') == 'true'",
+              "fill_2_0": "q.block_state('minecade:u_high') == 'false' && q.block_state('minecade:v_low') == 'false'",
+              "edge_2_1": "q.block_state('minecade:u_high') == 'true'",
+              "fill_2_1": "q.block_state('minecade:u_high') == 'false'",
+              "edge_2_2": "q.block_state('minecade:u_high') == 'true' || q.block_state('minecade:v_high') == 'true'",
+              "fill_2_2": "q.block_state('minecade:u_high') == 'false' && q.block_state('minecade:v_high') == 'false'"
+            }
+          }
         }
       },
       {
         "condition": "q.block_state('minecade:axis') == 1 && q.block_state('minecade:offset') == 14",
         "components": {
-          "minecraft:geometry": "geometry.minecade.plane_1_14"
+          "minecraft:geometry": {
+            "identifier": "geometry.minecade.plane_1_14",
+            "bone_visibility": {
+              "fill": true,
+              "edge_0_0": "q.block_state('minecade:u_low') == 'true' || q.block_state('minecade:v_low') == 'true'",
+              "fill_0_0": "q.block_state('minecade:u_low') == 'false' && q.block_state('minecade:v_low') == 'false'",
+              "edge_0_1": "q.block_state('minecade:u_low') == 'true'",
+              "fill_0_1": "q.block_state('minecade:u_low') == 'false'",
+              "edge_0_2": "q.block_state('minecade:u_low') == 'true' || q.block_state('minecade:v_high') == 'true'",
+              "fill_0_2": "q.block_state('minecade:u_low') == 'false' && q.block_state('minecade:v_high') == 'false'",
+              "edge_1_0": "q.block_state('minecade:v_low') == 'true'",
+              "fill_1_0": "q.block_state('minecade:v_low') == 'false'",
+              "edge_1_2": "q.block_state('minecade:v_high') == 'true'",
+              "fill_1_2": "q.block_state('minecade:v_high') == 'false'",
+              "edge_2_0": "q.block_state('minecade:u_high') == 'true' || q.block_state('minecade:v_low') == 'true'",
+              "fill_2_0": "q.block_state('minecade:u_high') == 'false' && q.block_state('minecade:v_low') == 'false'",
+              "edge_2_1": "q.block_state('minecade:u_high') == 'true'",
+              "fill_2_1": "q.block_state('minecade:u_high') == 'false'",
+              "edge_2_2": "q.block_state('minecade:u_high') == 'true' || q.block_state('minecade:v_high') == 'true'",
+              "fill_2_2": "q.block_state('minecade:u_high') == 'false' && q.block_state('minecade:v_high') == 'false'"
+            }
+          }
         }
       },
       {
         "condition": "q.block_state('minecade:axis') == 1 && q.block_state('minecade:offset') == 15",
         "components": {
-          "minecraft:geometry": "geometry.minecade.plane_1_15"
+          "minecraft:geometry": {
+            "identifier": "geometry.minecade.plane_1_15",
+            "bone_visibility": {
+              "fill": true,
+              "edge_0_0": "q.block_state('minecade:u_low') == 'true' || q.block_state('minecade:v_low') == 'true'",
+              "fill_0_0": "q.block_state('minecade:u_low') == 'false' && q.block_state('minecade:v_low') == 'false'",
+              "edge_0_1": "q.block_state('minecade:u_low') == 'true'",
+              "fill_0_1": "q.block_state('minecade:u_low') == 'false'",
+              "edge_0_2": "q.block_state('minecade:u_low') == 'true' || q.block_state('minecade:v_high') == 'true'",
+              "fill_0_2": "q.block_state('minecade:u_low') == 'false' && q.block_state('minecade:v_high') == 'false'",
+              "edge_1_0": "q.block_state('minecade:v_low') == 'true'",
+              "fill_1_0": "q.block_state('minecade:v_low') == 'false'",
+              "edge_1_2": "q.block_state('minecade:v_high') == 'true'",
+              "fill_1_2": "q.block_state('minecade:v_high') == 'false'",
+              "edge_2_0": "q.block_state('minecade:u_high') == 'true' || q.block_state('minecade:v_low') == 'true'",
+              "fill_2_0": "q.block_state('minecade:u_high') == 'false' && q.block_state('minecade:v_low') == 'false'",
+              "edge_2_1": "q.block_state('minecade:u_high') == 'true'",
+              "fill_2_1": "q.block_state('minecade:u_high') == 'false'",
+              "edge_2_2": "q.block_state('minecade:u_high') == 'true' || q.block_state('minecade:v_high') == 'true'",
+              "fill_2_2": "q.block_state('minecade:u_high') == 'false' && q.block_state('minecade:v_high') == 'false'"
+            }
+          }
         }
       },
       {
         "condition": "q.block_state('minecade:axis') == 2 && q.block_state('minecade:offset') == 0",
         "components": {
-          "minecraft:geometry": "geometry.minecade.plane_2_0"
+          "minecraft:geometry": {
+            "identifier": "geometry.minecade.plane_2_0",
+            "bone_visibility": {
+              "fill": true,
+              "edge_0_0": "q.block_state('minecade:u_low') == 'true' || q.block_state('minecade:v_low') == 'true'",
+              "fill_0_0": "q.block_state('minecade:u_low') == 'false' && q.block_state('minecade:v_low') == 'false'",
+              "edge_0_1": "q.block_state('minecade:u_low') == 'true'",
+              "fill_0_1": "q.block_state('minecade:u_low') == 'false'",
+              "edge_0_2": "q.block_state('minecade:u_low') == 'true' || q.block_state('minecade:v_high') == 'true'",
+              "fill_0_2": "q.block_state('minecade:u_low') == 'false' && q.block_state('minecade:v_high') == 'false'",
+              "edge_1_0": "q.block_state('minecade:v_low') == 'true'",
+              "fill_1_0": "q.block_state('minecade:v_low') == 'false'",
+              "edge_1_2": "q.block_state('minecade:v_high') == 'true'",
+              "fill_1_2": "q.block_state('minecade:v_high') == 'false'",
+              "edge_2_0": "q.block_state('minecade:u_high') == 'true' || q.block_state('minecade:v_low') == 'true'",
+              "fill_2_0": "q.block_state('minecade:u_high') == 'false' && q.block_state('minecade:v_low') == 'false'",
+              "edge_2_1": "q.block_state('minecade:u_high') == 'true'",
+              "fill_2_1": "q.block_state('minecade:u_high') == 'false'",
+              "edge_2_2": "q.block_state('minecade:u_high') == 'true' || q.block_state('minecade:v_high') == 'true'",
+              "fill_2_2": "q.block_state('minecade:u_high') == 'false' && q.block_state('minecade:v_high') == 'false'"
+            }
+          }
         }
       },
       {
         "condition": "q.block_state('minecade:axis') == 2 && q.block_state('minecade:offset') == 1",
         "components": {
-          "minecraft:geometry": "geometry.minecade.plane_2_1"
+          "minecraft:geometry": {
+            "identifier": "geometry.minecade.plane_2_1",
+            "bone_visibility": {
+              "fill": true,
+              "edge_0_0": "q.block_state('minecade:u_low') == 'true' || q.block_state('minecade:v_low') == 'true'",
+              "fill_0_0": "q.block_state('minecade:u_low') == 'false' && q.block_state('minecade:v_low') == 'false'",
+              "edge_0_1": "q.block_state('minecade:u_low') == 'true'",
+              "fill_0_1": "q.block_state('minecade:u_low') == 'false'",
+              "edge_0_2": "q.block_state('minecade:u_low') == 'true' || q.block_state('minecade:v_high') == 'true'",
+              "fill_0_2": "q.block_state('minecade:u_low') == 'false' && q.block_state('minecade:v_high') == 'false'",
+              "edge_1_0": "q.block_state('minecade:v_low') == 'true'",
+              "fill_1_0": "q.block_state('minecade:v_low') == 'false'",
+              "edge_1_2": "q.block_state('minecade:v_high') == 'true'",
+              "fill_1_2": "q.block_state('minecade:v_high') == 'false'",
+              "edge_2_0": "q.block_state('minecade:u_high') == 'true' || q.block_state('minecade:v_low') == 'true'",
+              "fill_2_0": "q.block_state('minecade:u_high') == 'false' && q.block_state('minecade:v_low') == 'false'",
+              "edge_2_1": "q.block_state('minecade:u_high') == 'true'",
+              "fill_2_1": "q.block_state('minecade:u_high') == 'false'",
+              "edge_2_2": "q.block_state('minecade:u_high') == 'true' || q.block_state('minecade:v_high') == 'true'",
+              "fill_2_2": "q.block_state('minecade:u_high') == 'false' && q.block_state('minecade:v_high') == 'false'"
+            }
+          }
         }
       },
       {
         "condition": "q.block_state('minecade:axis') == 2 && q.block_state('minecade:offset') == 2",
         "components": {
-          "minecraft:geometry": "geometry.minecade.plane_2_2"
+          "minecraft:geometry": {
+            "identifier": "geometry.minecade.plane_2_2",
+            "bone_visibility": {
+              "fill": true,
+              "edge_0_0": "q.block_state('minecade:u_low') == 'true' || q.block_state('minecade:v_low') == 'true'",
+              "fill_0_0": "q.block_state('minecade:u_low') == 'false' && q.block_state('minecade:v_low') == 'false'",
+              "edge_0_1": "q.block_state('minecade:u_low') == 'true'",
+              "fill_0_1": "q.block_state('minecade:u_low') == 'false'",
+              "edge_0_2": "q.block_state('minecade:u_low') == 'true' || q.block_state('minecade:v_high') == 'true'",
+              "fill_0_2": "q.block_state('minecade:u_low') == 'false' && q.block_state('minecade:v_high') == 'false'",
+              "edge_1_0": "q.block_state('minecade:v_low') == 'true'",
+              "fill_1_0": "q.block_state('minecade:v_low') == 'false'",
+              "edge_1_2": "q.block_state('minecade:v_high') == 'true'",
+              "fill_1_2": "q.block_state('minecade:v_high') == 'false'",
+              "edge_2_0": "q.block_state('minecade:u_high') == 'true' || q.block_state('minecade:v_low') == 'true'",
+              "fill_2_0": "q.block_state('minecade:u_high') == 'false' && q.block_state('minecade:v_low') == 'false'",
+              "edge_2_1": "q.block_state('minecade:u_high') == 'true'",
+              "fill_2_1": "q.block_state('minecade:u_high') == 'false'",
+              "edge_2_2": "q.block_state('minecade:u_high') == 'true' || q.block_state('minecade:v_high') == 'true'",
+              "fill_2_2": "q.block_state('minecade:u_high') == 'false' && q.block_state('minecade:v_high') == 'false'"
+            }
+          }
         }
       },
       {
         "condition": "q.block_state('minecade:axis') == 2 && q.block_state('minecade:offset') == 3",
         "components": {
-          "minecraft:geometry": "geometry.minecade.plane_2_3"
+          "minecraft:geometry": {
+            "identifier": "geometry.minecade.plane_2_3",
+            "bone_visibility": {
+              "fill": true,
+              "edge_0_0": "q.block_state('minecade:u_low') == 'true' || q.block_state('minecade:v_low') == 'true'",
+              "fill_0_0": "q.block_state('minecade:u_low') == 'false' && q.block_state('minecade:v_low') == 'false'",
+              "edge_0_1": "q.block_state('minecade:u_low') == 'true'",
+              "fill_0_1": "q.block_state('minecade:u_low') == 'false'",
+              "edge_0_2": "q.block_state('minecade:u_low') == 'true' || q.block_state('minecade:v_high') == 'true'",
+              "fill_0_2": "q.block_state('minecade:u_low') == 'false' && q.block_state('minecade:v_high') == 'false'",
+              "edge_1_0": "q.block_state('minecade:v_low') == 'true'",
+              "fill_1_0": "q.block_state('minecade:v_low') == 'false'",
+              "edge_1_2": "q.block_state('minecade:v_high') == 'true'",
+              "fill_1_2": "q.block_state('minecade:v_high') == 'false'",
+              "edge_2_0": "q.block_state('minecade:u_high') == 'true' || q.block_state('minecade:v_low') == 'true'",
+              "fill_2_0": "q.block_state('minecade:u_high') == 'false' && q.block_state('minecade:v_low') == 'false'",
+              "edge_2_1": "q.block_state('minecade:u_high') == 'true'",
+              "fill_2_1": "q.block_state('minecade:u_high') == 'false'",
+              "edge_2_2": "q.block_state('minecade:u_high') == 'true' || q.block_state('minecade:v_high') == 'true'",
+              "fill_2_2": "q.block_state('minecade:u_high') == 'false' && q.block_state('minecade:v_high') == 'false'"
+            }
+          }
         }
       },
       {
         "condition": "q.block_state('minecade:axis') == 2 && q.block_state('minecade:offset') == 4",
         "components": {
-          "minecraft:geometry": "geometry.minecade.plane_2_4"
+          "minecraft:geometry": {
+            "identifier": "geometry.minecade.plane_2_4",
+            "bone_visibility": {
+              "fill": true,
+              "edge_0_0": "q.block_state('minecade:u_low') == 'true' || q.block_state('minecade:v_low') == 'true'",
+              "fill_0_0": "q.block_state('minecade:u_low') == 'false' && q.block_state('minecade:v_low') == 'false'",
+              "edge_0_1": "q.block_state('minecade:u_low') == 'true'",
+              "fill_0_1": "q.block_state('minecade:u_low') == 'false'",
+              "edge_0_2": "q.block_state('minecade:u_low') == 'true' || q.block_state('minecade:v_high') == 'true'",
+              "fill_0_2": "q.block_state('minecade:u_low') == 'false' && q.block_state('minecade:v_high') == 'false'",
+              "edge_1_0": "q.block_state('minecade:v_low') == 'true'",
+              "fill_1_0": "q.block_state('minecade:v_low') == 'false'",
+              "edge_1_2": "q.block_state('minecade:v_high') == 'true'",
+              "fill_1_2": "q.block_state('minecade:v_high') == 'false'",
+              "edge_2_0": "q.block_state('minecade:u_high') == 'true' || q.block_state('minecade:v_low') == 'true'",
+              "fill_2_0": "q.block_state('minecade:u_high') == 'false' && q.block_state('minecade:v_low') == 'false'",
+              "edge_2_1": "q.block_state('minecade:u_high') == 'true'",
+              "fill_2_1": "q.block_state('minecade:u_high') == 'false'",
+              "edge_2_2": "q.block_state('minecade:u_high') == 'true' || q.block_state('minecade:v_high') == 'true'",
+              "fill_2_2": "q.block_state('minecade:u_high') == 'false' && q.block_state('minecade:v_high') == 'false'"
+            }
+          }
         }
       },
       {
         "condition": "q.block_state('minecade:axis') == 2 && q.block_state('minecade:offset') == 5",
         "components": {
-          "minecraft:geometry": "geometry.minecade.plane_2_5"
+          "minecraft:geometry": {
+            "identifier": "geometry.minecade.plane_2_5",
+            "bone_visibility": {
+              "fill": true,
+              "edge_0_0": "q.block_state('minecade:u_low') == 'true' || q.block_state('minecade:v_low') == 'true'",
+              "fill_0_0": "q.block_state('minecade:u_low') == 'false' && q.block_state('minecade:v_low') == 'false'",
+              "edge_0_1": "q.block_state('minecade:u_low') == 'true'",
+              "fill_0_1": "q.block_state('minecade:u_low') == 'false'",
+              "edge_0_2": "q.block_state('minecade:u_low') == 'true' || q.block_state('minecade:v_high') == 'true'",
+              "fill_0_2": "q.block_state('minecade:u_low') == 'false' && q.block_state('minecade:v_high') == 'false'",
+              "edge_1_0": "q.block_state('minecade:v_low') == 'true'",
+              "fill_1_0": "q.block_state('minecade:v_low') == 'false'",
+              "edge_1_2": "q.block_state('minecade:v_high') == 'true'",
+              "fill_1_2": "q.block_state('minecade:v_high') == 'false'",
+              "edge_2_0": "q.block_state('minecade:u_high') == 'true' || q.block_state('minecade:v_low') == 'true'",
+              "fill_2_0": "q.block_state('minecade:u_high') == 'false' && q.block_state('minecade:v_low') == 'false'",
+              "edge_2_1": "q.block_state('minecade:u_high') == 'true'",
+              "fill_2_1": "q.block_state('minecade:u_high') == 'false'",
+              "edge_2_2": "q.block_state('minecade:u_high') == 'true' || q.block_state('minecade:v_high') == 'true'",
+              "fill_2_2": "q.block_state('minecade:u_high') == 'false' && q.block_state('minecade:v_high') == 'false'"
+            }
+          }
         }
       },
       {
         "condition": "q.block_state('minecade:axis') == 2 && q.block_state('minecade:offset') == 6",
         "components": {
-          "minecraft:geometry": "geometry.minecade.plane_2_6"
+          "minecraft:geometry": {
+            "identifier": "geometry.minecade.plane_2_6",
+            "bone_visibility": {
+              "fill": true,
+              "edge_0_0": "q.block_state('minecade:u_low') == 'true' || q.block_state('minecade:v_low') == 'true'",
+              "fill_0_0": "q.block_state('minecade:u_low') == 'false' && q.block_state('minecade:v_low') == 'false'",
+              "edge_0_1": "q.block_state('minecade:u_low') == 'true'",
+              "fill_0_1": "q.block_state('minecade:u_low') == 'false'",
+              "edge_0_2": "q.block_state('minecade:u_low') == 'true' || q.block_state('minecade:v_high') == 'true'",
+              "fill_0_2": "q.block_state('minecade:u_low') == 'false' && q.block_state('minecade:v_high') == 'false'",
+              "edge_1_0": "q.block_state('minecade:v_low') == 'true'",
+              "fill_1_0": "q.block_state('minecade:v_low') == 'false'",
+              "edge_1_2": "q.block_state('minecade:v_high') == 'true'",
+              "fill_1_2": "q.block_state('minecade:v_high') == 'false'",
+              "edge_2_0": "q.block_state('minecade:u_high') == 'true' || q.block_state('minecade:v_low') == 'true'",
+              "fill_2_0": "q.block_state('minecade:u_high') == 'false' && q.block_state('minecade:v_low') == 'false'",
+              "edge_2_1": "q.block_state('minecade:u_high') == 'true'",
+              "fill_2_1": "q.block_state('minecade:u_high') == 'false'",
+              "edge_2_2": "q.block_state('minecade:u_high') == 'true' || q.block_state('minecade:v_high') == 'true'",
+              "fill_2_2": "q.block_state('minecade:u_high') == 'false' && q.block_state('minecade:v_high') == 'false'"
+            }
+          }
         }
       },
       {
         "condition": "q.block_state('minecade:axis') == 2 && q.block_state('minecade:offset') == 7",
         "components": {
-          "minecraft:geometry": "geometry.minecade.plane_2_7"
+          "minecraft:geometry": {
+            "identifier": "geometry.minecade.plane_2_7",
+            "bone_visibility": {
+              "fill": true,
+              "edge_0_0": "q.block_state('minecade:u_low') == 'true' || q.block_state('minecade:v_low') == 'true'",
+              "fill_0_0": "q.block_state('minecade:u_low') == 'false' && q.block_state('minecade:v_low') == 'false'",
+              "edge_0_1": "q.block_state('minecade:u_low') == 'true'",
+              "fill_0_1": "q.block_state('minecade:u_low') == 'false'",
+              "edge_0_2": "q.block_state('minecade:u_low') == 'true' || q.block_state('minecade:v_high') == 'true'",
+              "fill_0_2": "q.block_state('minecade:u_low') == 'false' && q.block_state('minecade:v_high') == 'false'",
+              "edge_1_0": "q.block_state('minecade:v_low') == 'true'",
+              "fill_1_0": "q.block_state('minecade:v_low') == 'false'",
+              "edge_1_2": "q.block_state('minecade:v_high') == 'true'",
+              "fill_1_2": "q.block_state('minecade:v_high') == 'false'",
+              "edge_2_0": "q.block_state('minecade:u_high') == 'true' || q.block_state('minecade:v_low') == 'true'",
+              "fill_2_0": "q.block_state('minecade:u_high') == 'false' && q.block_state('minecade:v_low') == 'false'",
+              "edge_2_1": "q.block_state('minecade:u_high') == 'true'",
+              "fill_2_1": "q.block_state('minecade:u_high') == 'false'",
+              "edge_2_2": "q.block_state('minecade:u_high') == 'true' || q.block_state('minecade:v_high') == 'true'",
+              "fill_2_2": "q.block_state('minecade:u_high') == 'false' && q.block_state('minecade:v_high') == 'false'"
+            }
+          }
         }
       },
       {
         "condition": "q.block_state('minecade:axis') == 2 && q.block_state('minecade:offset') == 8",
         "components": {
-          "minecraft:geometry": "geometry.minecade.plane_2_8"
+          "minecraft:geometry": {
+            "identifier": "geometry.minecade.plane_2_8",
+            "bone_visibility": {
+              "fill": true,
+              "edge_0_0": "q.block_state('minecade:u_low') == 'true' || q.block_state('minecade:v_low') == 'true'",
+              "fill_0_0": "q.block_state('minecade:u_low') == 'false' && q.block_state('minecade:v_low') == 'false'",
+              "edge_0_1": "q.block_state('minecade:u_low') == 'true'",
+              "fill_0_1": "q.block_state('minecade:u_low') == 'false'",
+              "edge_0_2": "q.block_state('minecade:u_low') == 'true' || q.block_state('minecade:v_high') == 'true'",
+              "fill_0_2": "q.block_state('minecade:u_low') == 'false' && q.block_state('minecade:v_high') == 'false'",
+              "edge_1_0": "q.block_state('minecade:v_low') == 'true'",
+              "fill_1_0": "q.block_state('minecade:v_low') == 'false'",
+              "edge_1_2": "q.block_state('minecade:v_high') == 'true'",
+              "fill_1_2": "q.block_state('minecade:v_high') == 'false'",
+              "edge_2_0": "q.block_state('minecade:u_high') == 'true' || q.block_state('minecade:v_low') == 'true'",
+              "fill_2_0": "q.block_state('minecade:u_high') == 'false' && q.block_state('minecade:v_low') == 'false'",
+              "edge_2_1": "q.block_state('minecade:u_high') == 'true'",
+              "fill_2_1": "q.block_state('minecade:u_high') == 'false'",
+              "edge_2_2": "q.block_state('minecade:u_high') == 'true' || q.block_state('minecade:v_high') == 'true'",
+              "fill_2_2": "q.block_state('minecade:u_high') == 'false' && q.block_state('minecade:v_high') == 'false'"
+            }
+          }
         }
       },
       {
         "condition": "q.block_state('minecade:axis') == 2 && q.block_state('minecade:offset') == 9",
         "components": {
-          "minecraft:geometry": "geometry.minecade.plane_2_9"
+          "minecraft:geometry": {
+            "identifier": "geometry.minecade.plane_2_9",
+            "bone_visibility": {
+              "fill": true,
+              "edge_0_0": "q.block_state('minecade:u_low') == 'true' || q.block_state('minecade:v_low') == 'true'",
+              "fill_0_0": "q.block_state('minecade:u_low') == 'false' && q.block_state('minecade:v_low') == 'false'",
+              "edge_0_1": "q.block_state('minecade:u_low') == 'true'",
+              "fill_0_1": "q.block_state('minecade:u_low') == 'false'",
+              "edge_0_2": "q.block_state('minecade:u_low') == 'true' || q.block_state('minecade:v_high') == 'true'",
+              "fill_0_2": "q.block_state('minecade:u_low') == 'false' && q.block_state('minecade:v_high') == 'false'",
+              "edge_1_0": "q.block_state('minecade:v_low') == 'true'",
+              "fill_1_0": "q.block_state('minecade:v_low') == 'false'",
+              "edge_1_2": "q.block_state('minecade:v_high') == 'true'",
+              "fill_1_2": "q.block_state('minecade:v_high') == 'false'",
+              "edge_2_0": "q.block_state('minecade:u_high') == 'true' || q.block_state('minecade:v_low') == 'true'",
+              "fill_2_0": "q.block_state('minecade:u_high') == 'false' && q.block_state('minecade:v_low') == 'false'",
+              "edge_2_1": "q.block_state('minecade:u_high') == 'true'",
+              "fill_2_1": "q.block_state('minecade:u_high') == 'false'",
+              "edge_2_2": "q.block_state('minecade:u_high') == 'true' || q.block_state('minecade:v_high') == 'true'",
+              "fill_2_2": "q.block_state('minecade:u_high') == 'false' && q.block_state('minecade:v_high') == 'false'"
+            }
+          }
         }
       },
       {
         "condition": "q.block_state('minecade:axis') == 2 && q.block_state('minecade:offset') == 10",
         "components": {
-          "minecraft:geometry": "geometry.minecade.plane_2_10"
+          "minecraft:geometry": {
+            "identifier": "geometry.minecade.plane_2_10",
+            "bone_visibility": {
+              "fill": true,
+              "edge_0_0": "q.block_state('minecade:u_low') == 'true' || q.block_state('minecade:v_low') == 'true'",
+              "fill_0_0": "q.block_state('minecade:u_low') == 'false' && q.block_state('minecade:v_low') == 'false'",
+              "edge_0_1": "q.block_state('minecade:u_low') == 'true'",
+              "fill_0_1": "q.block_state('minecade:u_low') == 'false'",
+              "edge_0_2": "q.block_state('minecade:u_low') == 'true' || q.block_state('minecade:v_high') == 'true'",
+              "fill_0_2": "q.block_state('minecade:u_low') == 'false' && q.block_state('minecade:v_high') == 'false'",
+              "edge_1_0": "q.block_state('minecade:v_low') == 'true'",
+              "fill_1_0": "q.block_state('minecade:v_low') == 'false'",
+              "edge_1_2": "q.block_state('minecade:v_high') == 'true'",
+              "fill_1_2": "q.block_state('minecade:v_high') == 'false'",
+              "edge_2_0": "q.block_state('minecade:u_high') == 'true' || q.block_state('minecade:v_low') == 'true'",
+              "fill_2_0": "q.block_state('minecade:u_high') == 'false' && q.block_state('minecade:v_low') == 'false'",
+              "edge_2_1": "q.block_state('minecade:u_high') == 'true'",
+              "fill_2_1": "q.block_state('minecade:u_high') == 'false'",
+              "edge_2_2": "q.block_state('minecade:u_high') == 'true' || q.block_state('minecade:v_high') == 'true'",
+              "fill_2_2": "q.block_state('minecade:u_high') == 'false' && q.block_state('minecade:v_high') == 'false'"
+            }
+          }
         }
       },
       {
         "condition": "q.block_state('minecade:axis') == 2 && q.block_state('minecade:offset') == 11",
         "components": {
-          "minecraft:geometry": "geometry.minecade.plane_2_11"
+          "minecraft:geometry": {
+            "identifier": "geometry.minecade.plane_2_11",
+            "bone_visibility": {
+              "fill": true,
+              "edge_0_0": "q.block_state('minecade:u_low') == 'true' || q.block_state('minecade:v_low') == 'true'",
+              "fill_0_0": "q.block_state('minecade:u_low') == 'false' && q.block_state('minecade:v_low') == 'false'",
+              "edge_0_1": "q.block_state('minecade:u_low') == 'true'",
+              "fill_0_1": "q.block_state('minecade:u_low') == 'false'",
+              "edge_0_2": "q.block_state('minecade:u_low') == 'true' || q.block_state('minecade:v_high') == 'true'",
+              "fill_0_2": "q.block_state('minecade:u_low') == 'false' && q.block_state('minecade:v_high') == 'false'",
+              "edge_1_0": "q.block_state('minecade:v_low') == 'true'",
+              "fill_1_0": "q.block_state('minecade:v_low') == 'false'",
+              "edge_1_2": "q.block_state('minecade:v_high') == 'true'",
+              "fill_1_2": "q.block_state('minecade:v_high') == 'false'",
+              "edge_2_0": "q.block_state('minecade:u_high') == 'true' || q.block_state('minecade:v_low') == 'true'",
+              "fill_2_0": "q.block_state('minecade:u_high') == 'false' && q.block_state('minecade:v_low') == 'false'",
+              "edge_2_1": "q.block_state('minecade:u_high') == 'true'",
+              "fill_2_1": "q.block_state('minecade:u_high') == 'false'",
+              "edge_2_2": "q.block_state('minecade:u_high') == 'true' || q.block_state('minecade:v_high') == 'true'",
+              "fill_2_2": "q.block_state('minecade:u_high') == 'false' && q.block_state('minecade:v_high') == 'false'"
+            }
+          }
         }
       },
       {
         "condition": "q.block_state('minecade:axis') == 2 && q.block_state('minecade:offset') == 12",
         "components": {
-          "minecraft:geometry": "geometry.minecade.plane_2_12"
+          "minecraft:geometry": {
+            "identifier": "geometry.minecade.plane_2_12",
+            "bone_visibility": {
+              "fill": true,
+              "edge_0_0": "q.block_state('minecade:u_low') == 'true' || q.block_state('minecade:v_low') == 'true'",
+              "fill_0_0": "q.block_state('minecade:u_low') == 'false' && q.block_state('minecade:v_low') == 'false'",
+              "edge_0_1": "q.block_state('minecade:u_low') == 'true'",
+              "fill_0_1": "q.block_state('minecade:u_low') == 'false'",
+              "edge_0_2": "q.block_state('minecade:u_low') == 'true' || q.block_state('minecade:v_high') == 'true'",
+              "fill_0_2": "q.block_state('minecade:u_low') == 'false' && q.block_state('minecade:v_high') == 'false'",
+              "edge_1_0": "q.block_state('minecade:v_low') == 'true'",
+              "fill_1_0": "q.block_state('minecade:v_low') == 'false'",
+              "edge_1_2": "q.block_state('minecade:v_high') == 'true'",
+              "fill_1_2": "q.block_state('minecade:v_high') == 'false'",
+              "edge_2_0": "q.block_state('minecade:u_high') == 'true' || q.block_state('minecade:v_low') == 'true'",
+              "fill_2_0": "q.block_state('minecade:u_high') == 'false' && q.block_state('minecade:v_low') == 'false'",
+              "edge_2_1": "q.block_state('minecade:u_high') == 'true'",
+              "fill_2_1": "q.block_state('minecade:u_high') == 'false'",
+              "edge_2_2": "q.block_state('minecade:u_high') == 'true' || q.block_state('minecade:v_high') == 'true'",
+              "fill_2_2": "q.block_state('minecade:u_high') == 'false' && q.block_state('minecade:v_high') == 'false'"
+            }
+          }
         }
       },
       {
         "condition": "q.block_state('minecade:axis') == 2 && q.block_state('minecade:offset') == 13",
         "components": {
-          "minecraft:geometry": "geometry.minecade.plane_2_13"
+          "minecraft:geometry": {
+            "identifier": "geometry.minecade.plane_2_13",
+            "bone_visibility": {
+              "fill": true,
+              "edge_0_0": "q.block_state('minecade:u_low') == 'true' || q.block_state('minecade:v_low') == 'true'",
+              "fill_0_0": "q.block_state('minecade:u_low') == 'false' && q.block_state('minecade:v_low') == 'false'",
+              "edge_0_1": "q.block_state('minecade:u_low') == 'true'",
+              "fill_0_1": "q.block_state('minecade:u_low') == 'false'",
+              "edge_0_2": "q.block_state('minecade:u_low') == 'true' || q.block_state('minecade:v_high') == 'true'",
+              "fill_0_2": "q.block_state('minecade:u_low') == 'false' && q.block_state('minecade:v_high') == 'false'",
+              "edge_1_0": "q.block_state('minecade:v_low') == 'true'",
+              "fill_1_0": "q.block_state('minecade:v_low') == 'false'",
+              "edge_1_2": "q.block_state('minecade:v_high') == 'true'",
+              "fill_1_2": "q.block_state('minecade:v_high') == 'false'",
+              "edge_2_0": "q.block_state('minecade:u_high') == 'true' || q.block_state('minecade:v_low') == 'true'",
+              "fill_2_0": "q.block_state('minecade:u_high') == 'false' && q.block_state('minecade:v_low') == 'false'",
+              "edge_2_1": "q.block_state('minecade:u_high') == 'true'",
+              "fill_2_1": "q.block_state('minecade:u_high') == 'false'",
+              "edge_2_2": "q.block_state('minecade:u_high') == 'true' || q.block_state('minecade:v_high') == 'true'",
+              "fill_2_2": "q.block_state('minecade:u_high') == 'false' && q.block_state('minecade:v_high') == 'false'"
+            }
+          }
         }
       },
       {
         "condition": "q.block_state('minecade:axis') == 2 && q.block_state('minecade:offset') == 14",
         "components": {
-          "minecraft:geometry": "geometry.minecade.plane_2_14"
+          "minecraft:geometry": {
+            "identifier": "geometry.minecade.plane_2_14",
+            "bone_visibility": {
+              "fill": true,
+              "edge_0_0": "q.block_state('minecade:u_low') == 'true' || q.block_state('minecade:v_low') == 'true'",
+              "fill_0_0": "q.block_state('minecade:u_low') == 'false' && q.block_state('minecade:v_low') == 'false'",
+              "edge_0_1": "q.block_state('minecade:u_low') == 'true'",
+              "fill_0_1": "q.block_state('minecade:u_low') == 'false'",
+              "edge_0_2": "q.block_state('minecade:u_low') == 'true' || q.block_state('minecade:v_high') == 'true'",
+              "fill_0_2": "q.block_state('minecade:u_low') == 'false' && q.block_state('minecade:v_high') == 'false'",
+              "edge_1_0": "q.block_state('minecade:v_low') == 'true'",
+              "fill_1_0": "q.block_state('minecade:v_low') == 'false'",
+              "edge_1_2": "q.block_state('minecade:v_high') == 'true'",
+              "fill_1_2": "q.block_state('minecade:v_high') == 'false'",
+              "edge_2_0": "q.block_state('minecade:u_high') == 'true' || q.block_state('minecade:v_low') == 'true'",
+              "fill_2_0": "q.block_state('minecade:u_high') == 'false' && q.block_state('minecade:v_low') == 'false'",
+              "edge_2_1": "q.block_state('minecade:u_high') == 'true'",
+              "fill_2_1": "q.block_state('minecade:u_high') == 'false'",
+              "edge_2_2": "q.block_state('minecade:u_high') == 'true' || q.block_state('minecade:v_high') == 'true'",
+              "fill_2_2": "q.block_state('minecade:u_high') == 'false' && q.block_state('minecade:v_high') == 'false'"
+            }
+          }
         }
       },
       {
         "condition": "q.block_state('minecade:axis') == 2 && q.block_state('minecade:offset') == 15",
         "components": {
-          "minecraft:geometry": "geometry.minecade.plane_2_15"
+          "minecraft:geometry": {
+            "identifier": "geometry.minecade.plane_2_15",
+            "bone_visibility": {
+              "fill": true,
+              "edge_0_0": "q.block_state('minecade:u_low') == 'true' || q.block_state('minecade:v_low') == 'true'",
+              "fill_0_0": "q.block_state('minecade:u_low') == 'false' && q.block_state('minecade:v_low') == 'false'",
+              "edge_0_1": "q.block_state('minecade:u_low') == 'true'",
+              "fill_0_1": "q.block_state('minecade:u_low') == 'false'",
+              "edge_0_2": "q.block_state('minecade:u_low') == 'true' || q.block_state('minecade:v_high') == 'true'",
+              "fill_0_2": "q.block_state('minecade:u_low') == 'false' && q.block_state('minecade:v_high') == 'false'",
+              "edge_1_0": "q.block_state('minecade:v_low') == 'true'",
+              "fill_1_0": "q.block_state('minecade:v_low') == 'false'",
+              "edge_1_2": "q.block_state('minecade:v_high') == 'true'",
+              "fill_1_2": "q.block_state('minecade:v_high') == 'false'",
+              "edge_2_0": "q.block_state('minecade:u_high') == 'true' || q.block_state('minecade:v_low') == 'true'",
+              "fill_2_0": "q.block_state('minecade:u_high') == 'false' && q.block_state('minecade:v_low') == 'false'",
+              "edge_2_1": "q.block_state('minecade:u_high') == 'true'",
+              "fill_2_1": "q.block_state('minecade:u_high') == 'false'",
+              "edge_2_2": "q.block_state('minecade:u_high') == 'true' || q.block_state('minecade:v_high') == 'true'",
+              "fill_2_2": "q.block_state('minecade:u_high') == 'false' && q.block_state('minecade:v_high') == 'false'"
+            }
+          }
         }
       },
       {
@@ -336,7 +1383,9 @@
           "minecraft:material_instances": {
             "*": {
               "texture": "minecade_plane_white",
-              "render_method": "blend"
+              "render_method": "blend",
+              "face_dimming": false,
+              "ambient_occlusion": false
             }
           }
         }
@@ -347,7 +1396,9 @@
           "minecraft:material_instances": {
             "*": {
               "texture": "minecade_plane_orange",
-              "render_method": "blend"
+              "render_method": "blend",
+              "face_dimming": false,
+              "ambient_occlusion": false
             }
           }
         }
@@ -358,7 +1409,9 @@
           "minecraft:material_instances": {
             "*": {
               "texture": "minecade_plane_magenta",
-              "render_method": "blend"
+              "render_method": "blend",
+              "face_dimming": false,
+              "ambient_occlusion": false
             }
           }
         }
@@ -369,7 +1422,9 @@
           "minecraft:material_instances": {
             "*": {
               "texture": "minecade_plane_light_blue",
-              "render_method": "blend"
+              "render_method": "blend",
+              "face_dimming": false,
+              "ambient_occlusion": false
             }
           }
         }
@@ -380,7 +1435,9 @@
           "minecraft:material_instances": {
             "*": {
               "texture": "minecade_plane_yellow",
-              "render_method": "blend"
+              "render_method": "blend",
+              "face_dimming": false,
+              "ambient_occlusion": false
             }
           }
         }
@@ -391,7 +1448,9 @@
           "minecraft:material_instances": {
             "*": {
               "texture": "minecade_plane_lime",
-              "render_method": "blend"
+              "render_method": "blend",
+              "face_dimming": false,
+              "ambient_occlusion": false
             }
           }
         }
@@ -402,7 +1461,9 @@
           "minecraft:material_instances": {
             "*": {
               "texture": "minecade_plane_pink",
-              "render_method": "blend"
+              "render_method": "blend",
+              "face_dimming": false,
+              "ambient_occlusion": false
             }
           }
         }
@@ -413,7 +1474,9 @@
           "minecraft:material_instances": {
             "*": {
               "texture": "minecade_plane_gray",
-              "render_method": "blend"
+              "render_method": "blend",
+              "face_dimming": false,
+              "ambient_occlusion": false
             }
           }
         }
@@ -424,7 +1487,9 @@
           "minecraft:material_instances": {
             "*": {
               "texture": "minecade_plane_light_gray",
-              "render_method": "blend"
+              "render_method": "blend",
+              "face_dimming": false,
+              "ambient_occlusion": false
             }
           }
         }
@@ -435,7 +1500,9 @@
           "minecraft:material_instances": {
             "*": {
               "texture": "minecade_plane_cyan",
-              "render_method": "blend"
+              "render_method": "blend",
+              "face_dimming": false,
+              "ambient_occlusion": false
             }
           }
         }
@@ -446,7 +1513,9 @@
           "minecraft:material_instances": {
             "*": {
               "texture": "minecade_plane_purple",
-              "render_method": "blend"
+              "render_method": "blend",
+              "face_dimming": false,
+              "ambient_occlusion": false
             }
           }
         }
@@ -457,7 +1526,9 @@
           "minecraft:material_instances": {
             "*": {
               "texture": "minecade_plane_blue",
-              "render_method": "blend"
+              "render_method": "blend",
+              "face_dimming": false,
+              "ambient_occlusion": false
             }
           }
         }
@@ -468,7 +1539,9 @@
           "minecraft:material_instances": {
             "*": {
               "texture": "minecade_plane_brown",
-              "render_method": "blend"
+              "render_method": "blend",
+              "face_dimming": false,
+              "ambient_occlusion": false
             }
           }
         }
@@ -479,7 +1552,9 @@
           "minecraft:material_instances": {
             "*": {
               "texture": "minecade_plane_green",
-              "render_method": "blend"
+              "render_method": "blend",
+              "face_dimming": false,
+              "ambient_occlusion": false
             }
           }
         }
@@ -490,7 +1565,9 @@
           "minecraft:material_instances": {
             "*": {
               "texture": "minecade_plane_red",
-              "render_method": "blend"
+              "render_method": "blend",
+              "face_dimming": false,
+              "ambient_occlusion": false
             }
           }
         }
@@ -501,7 +1578,9 @@
           "minecraft:material_instances": {
             "*": {
               "texture": "minecade_plane_black",
-              "render_method": "blend"
+              "render_method": "blend",
+              "face_dimming": false,
+              "ambient_occlusion": false
             }
           }
         }

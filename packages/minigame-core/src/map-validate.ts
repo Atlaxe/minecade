@@ -224,7 +224,7 @@ function checkTeamKey(field: string, key: string, teamIds: string[] | undefined,
   problems.push(`${field}.${key}: "${team}" must be ${known}`);
 }
 
-/** The map editor's keys: where the map was cut from, its preview cameras, and its mannequins. */
+/** The map editor's keys: where the map was cut from, its preview cameras, and its mannequins (and whether previews show them). */
 function editorKeyProblems(map: Partial<MapConfig>): string[] {
   const problems: string[] = [];
   const source = map.source;
@@ -249,6 +249,7 @@ function editorKeyProblems(map: Partial<MapConfig>): string[] {
       }
     }
   }
+  if (map.mannequinsInPreview !== undefined && typeof map.mannequinsInPreview !== "boolean") problems.push('"mannequinsInPreview" must be true or false');
   return problems;
 }
 

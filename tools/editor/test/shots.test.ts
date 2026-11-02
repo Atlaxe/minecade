@@ -9,7 +9,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { decodePng, encodePng } from "../png.ts";
 import { forgetRenames, noteRename, renamedFrom } from "../renames.ts";
 import { minecraftScreenshotFolders } from "../screenshot.ts";
-import { keepNewestScreenshot, readShots, shotFile, shotLabel, shotOf, useShot } from "../shots.ts";
+import { keepNewestScreenshot, readShots, shotFile, shotOf, shotUses, useShot } from "../shots.ts";
 
 // A 24x8 gray JPEG (Pillow), as Minecraft's screenshot key saves them (baseline).
 const JPEG = "/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAMCAgMCAgMDAwMEAwMEBQgFBQQEBQoHBwYIDAoMDAsKCwsNDhIQDQ4RDgsLEBYQERMUFRUVDA8XGBYUGBIUFRT/wAALCAAIABgBAREA/8QAFAABAAAAAAAAAAAAAAAAAAAACf/EABQQAQAAAAAAAAAAAAAAAAAAAAD/2gAIAQEAAD8AKohRW3//2Q==";
@@ -68,11 +68,11 @@ describe("the shots kept to use again", () => {
     const [shot] = await readShots(root);
     const preview = join(dir, "preview.png");
     const use = { target: "sumo", targetName: "Sumo", map: "arena_1", mapName: "Arena", kind: "map" as const, at: 1 };
-    expect(shotLabel(shot)).toBe("not used yet");
+    expect(shotUses(shot)).toEqual({});
     expect(await useShot(root, shot.id, preview, use)).toBeUndefined();
     expect(existsSync(preview)).toBe(true);
     const [used] = await readShots(root);
-    expect(shotLabel(used)).toBe("Sumo: Arena");
+    expect(shotUses(used)).toEqual({ map: "Arena" });
     expect(await shotOf(root, preview, [used])).toBe(shot.id);
     await writeFile(preview, encodePng({ width: 2, height: 2, data: new Uint8Array(16) }));
     expect(await shotOf(root, preview, [used])).toBeUndefined();
@@ -81,7 +81,7 @@ describe("the shots kept to use again", () => {
     await useShot(root, shot.id, join(dir, "icon.png"), { ...use, kind: "game", at: 3 });
     const [twice] = await readShots(root);
     expect(twice.uses.map((entry) => [entry.kind, entry.at])).toEqual([["game", 3], ["map", 2]]);
-    expect(shotLabel(twice)).toBe("Sumo's picture");
+    expect(shotUses(twice)).toEqual({ map: "Arena", game: "Sumo" });
     expect(await useShot(root, "s_gone", preview, use)).toBe("that picture is gone");
   });
 });

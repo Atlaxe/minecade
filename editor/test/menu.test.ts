@@ -394,8 +394,10 @@ describe("Edit's gear", () => {
 describe("thumbnails", () => {
   const pictures = {
     shots: [
-      { id: "s1", label: "Sumo: Arena" },
-      { id: "s2", label: "not used yet" },
+      { id: "s1", map: "Arena" },
+      { id: "s2" },
+      { id: "s3", game: "Sumo" },
+      { id: "s4", map: "Pit", game: "Sumo" },
     ],
     current: { map: "s2", game: "own" },
     maps: [
@@ -410,14 +412,17 @@ describe("thumbnails", () => {
     const map = thumbnailEntries({ kind: "map", pictures, own: "textures/minecade/maps/quiver/mansion" });
     expect(map[0]).toEqual({ action: { kind: "back" }, text: BACK_TEXT, icon: ICONS.back });
     expect(map[1]).toEqual({ action: { kind: "import" }, text: `${MARK.fixed}${linkText("Import from another minigame")}` });
+    // The maps' thumbnails by map name (not a game's picture), and one not used yet.
     expect(map.slice(2)).toEqual([
-      { action: { kind: "shot", id: "s1" }, text: pictureText("Sumo: Arena", 0, false), icon: "textures/minecade/shots/s1" },
+      { action: { kind: "shot", id: "s1" }, text: pictureText("Arena", 0, false), icon: "textures/minecade/shots/s1" },
       { action: { kind: "shot", id: "s2" }, text: pictureText("not used yet\n§7in use", 1, true), icon: "textures/minecade/shots/s2" },
+      { action: { kind: "shot", id: "s4" }, text: pictureText("Pit", 2, false), icon: "textures/minecade/shots/s4" },
     ]);
-    // A game's picture that isn't one of them comes first, in use; no Import.
+    // A game's picture that isn't one of them comes first, in use; then the games' pictures by game, no Import.
     const game = thumbnailEntries({ kind: "game", pictures, own: "textures/minecade/games/quiver" });
-    expect(game.map((entry) => entry.action.kind)).toEqual(["back", "none", "shot", "shot"]);
+    expect(game.map((entry) => entry.action.kind)).toEqual(["back", "none", "shot", "shot", "shot"]);
     expect(game[1]).toEqual({ action: { kind: "none" }, text: pictureText("In use now\n§7in use", 0, true), icon: "textures/minecade/games/quiver" });
+    expect(game.slice(2).map((entry) => entry.text)).toEqual([pictureText("not used yet", 1, false), pictureText("Sumo", 2, false), pictureText("Sumo", 3, false)]);
     expect(thumbnailEntries({ kind: "game", pictures: { shots: [], current: {}, maps: [] } }).at(-1)?.text).toBe(headingText("No pictures yet: the Snapshot tool takes them"));
   });
 
@@ -444,7 +449,7 @@ describe("the editor lobby's menu", () => {
           maxPlayers: 6,
           maps: [
             { id: "arena_1", name: "Arena", draft: false, ready: true, world: "abc=" },
-            { id: "pit", name: "Pit", draft: true, ready: false },
+            { id: "pit", name: "Pit", draft: true, ready: false, unpublished: true },
           ],
         },
       ],
@@ -509,6 +514,10 @@ describe("the editor lobby's menu", () => {
       ["off", true],
     ]);
     expect(entries[10].text).toBe(cardIconText("Edit\n§7pit, a draft", 1, true));
+    // Unpublished changes: the title is marked, its tooltip saying so under the two lines.
+    expect(entries[8].text).toBe(cardTitleText("Sumo", "Pit", true));
+    expect(entries[8].text).toBe(`${MARK.cardTitle}${MARK.unpublished}§7Sumo\n§fPit\n§eUnpublished changes`);
+    expect(title.text).not.toContain(MARK.unpublished);
     // A lobby map can't be previewed yet.
     expect(entries[15].action).toEqual({ kind: "off", why: "A lobby map can't be previewed yet: publish it, then start the network." });
   });
@@ -702,10 +711,12 @@ describe("tool screens", () => {
       `${MARK.minus}Tilt (down +): 10`,
     ]);
     expect(entries.filter((entry) => entry.action.kind === "step").map((entry) => entry.text)).toEqual(SNAPSHOT_STEPS.map((step, i) => stepTileText(step.label, i, i === 1)));
+    expect(entries.at(-2)).toEqual({ action: { kind: "delete" }, text: dangerText("Delete camera") });
     expect(entries.at(-1)).toEqual({ action: { kind: "use" }, text: saveBarText("Use latest screenshot\n§7as the map's thumbnail") });
     // A lobby map has no picture: only the nudges.
     const lobby = snapshotEntries({ camera: { at: [1, 70, -2, 90, 10], kind: "map" }, step: 0, lobby: true });
     expect(lobby.some((entry) => entry.action.kind === "shoot" || entry.action.kind === "use")).toBe(false);
+    expect(lobby.at(-1)?.action).toEqual({ kind: "delete" });
   });
 
   it("reads a typed countdown as whole seconds within the limits", () => {

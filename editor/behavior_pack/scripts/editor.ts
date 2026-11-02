@@ -125,6 +125,8 @@ const CREATIVE_AGAIN_TICKS = 20;
 
 /** No boundary switched on. */
 const NONE_SHOWN: ReadonlySet<string> = new Set();
+/** On the world: the token of the save under way, for the host to find in the world's files. */
+const SAVE_TOKEN = "minecade:saveToken";
 /** How far the heights' planes reach around the first spawn on a map without bounds. */
 const HEIGHT_REACH = 24;
 
@@ -330,15 +332,23 @@ export class Editor {
     void this.prepareWorld();
   }
 
-  /** Sweeps up markers, mannequins and boundary planes an earlier run left, lays a new map's pad, then tells the host the editor is ready. */
+  /**
+   * Sweeps up markers, mannequins and boundary planes an earlier run left (in the world, so it needs
+   * a save without them), lays a new map's pad, then tells the host the editor is ready.
+   */
   private async prepareWorld(): Promise<void> {
     try {
+      const leftovers = this.markers.remembered || this.mannequins.remembered || this.overlay.remembered;
       const left = await this.markers.clear();
       if (left > 0) log.warn(`${left} markers from an earlier run could not be removed`);
       const bodies = await this.mannequins.clear();
       if (bodies > 0) log.warn(`${bodies} mannequins from an earlier run could not be removed`);
       const planes = await this.overlay.clear();
       if (planes > 0) log.warn(`boundary planes from an earlier run could not be removed in ${planes} chunks`);
+      if (leftovers) {
+        this.status = { ...this.status, unsaved: true };
+        this.link.send({ t: "changed", by: "the editor", leftovers: true });
+      }
       if (this.info.fresh) await this.layPad();
     } catch (error) {
       log.error(`preparing the world failed: ${describeError(error)}`);
@@ -402,11 +412,16 @@ export class Editor {
           .then(async (markers) => markers + (await this.mannequins.clear()))
           .then(async (left) => left + (await this.overlay.clear()))
           .then(
-          (left) => this.link.send({ t: "clean", id: message.id, left }),
+          (left) => {
+            // The host copies the world once the save's write has the token (tools/editor/world-log.ts).
+            if (message.token) world.setDynamicProperty(SAVE_TOKEN, message.token);
+            this.link.send({ t: "clean", id: message.id, left });
+          },
           (error: unknown) => this.link.send({ t: "clean", id: message.id, left: -1, error: describeError(error) }),
         );
         return;
       case "resume":
+        world.setDynamicProperty(SAVE_TOKEN, undefined);
         this.markers.resume();
         this.mannequins.resume();
         this.overlay.resume();
@@ -669,6 +684,11 @@ export class Editor {
         return this.cameraTool.snapshotOf(player, action.name);
       case "mannequin":
         return this.mannequinTool.screen(player, action.name, () => this.mapMenu(player));
+      case "mannequinsInPreview": {
+        const on = this.state.current.mannequinsInPreview !== true;
+        this.edit(player, { op: "mannequinsInPreview", on }, on ? "Mannequins stand in this map's previews now." : "Previews of this map have no mannequins now.");
+        return this.mapMenu(player);
+      }
       case "save":
         this.save(player);
         return;

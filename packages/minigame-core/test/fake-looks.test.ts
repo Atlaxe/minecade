@@ -66,6 +66,18 @@ describe("mannequins in map.json", () => {
     expect(describeEdit({ op: "mannequin", name: "Mannequin 1", mannequin })).toBe("set mannequin Mannequin 1");
   });
 
+  it("stand in previews only once that's switched on, a key servers never get", () => {
+    let map = applyEdit(base, { op: "mannequin", name: "Mannequin 1", mannequin });
+    map = applyEdit(map, { op: "mannequinsInPreview", on: true });
+    expect(map.mannequinsInPreview).toBe(true);
+    expect(Object.keys(map)).toEqual(["name", "spawns", "mannequins", "mannequinsInPreview"]);
+    expect(validateMapConfig(map, { kind: "lobby" })).toEqual([]);
+    expect(runtimeMapConfig(map).mannequinsInPreview).toBeUndefined();
+    expect(describeEdit({ op: "mannequinsInPreview", on: true })).toBe("show mannequins in previews");
+    expect(applyEdit(map, { op: "mannequinsInPreview", on: false }).mannequinsInPreview).toBeUndefined();
+    expect(validateMapConfig({ ...base, mannequinsInPreview: "yes" } as unknown as MapConfig, { kind: "lobby" })).toEqual(['"mannequinsInPreview" must be true or false']);
+  });
+
   it("must have a place, a skin and a pose", () => {
     expect(validateMapConfig({ ...base, mannequins: { M: { ...mannequin, at: [1, 2, 3] } } }, { kind: "lobby" })).toEqual(['mannequins.M must be { "at": [x, y, z, yaw], "skin", "pose" }']);
   });

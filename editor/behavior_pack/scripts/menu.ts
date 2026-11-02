@@ -100,8 +100,9 @@ export type MenuAction =
   | { kind: "camera"; name: string }
   /** The Snapshot tool: look through a camera to take its picture. */
   | { kind: "snapshot"; name: string }
-  /** The Mannequin tool: a mannequin's screen. */
+  /** The Mannequin tool: a mannequin's screen, and whether previews show them. */
   | { kind: "mannequin"; name: string }
+  | { kind: "mannequinsInPreview" }
   | { kind: "save" }
   /** Select mode: something to do with the selection. */
   | { kind: "pick"; action: PickAction }
@@ -199,10 +200,12 @@ export function editorTools(lists: SpawnList[], game: boolean): typeof EDITOR_TO
   return EDITOR_TOOLS.filter((tool) => (tool.id !== "marker" || markers) && (tool.id !== "mannequin" || game));
 }
 
-/** The Mannequin tool's settings: the map's mannequins (tap one for its screen). */
+/** The Mannequin tool's settings: whether previews show them (off unless switched on), then the map's mannequins (tap one for its screen). */
 export function mannequinSettings(config: MapConfig, items: { item: string; label: string }[]): MenuEntry[] {
   const mannequins = mannequinsOf(config);
+  const shown = config.mannequinsInPreview === true;
   return [
+    { action: { kind: "mannequinsInPreview" }, text: switchText("Show in previews", shown ? "they stand in this map's previews" : "off: previews have no mannequins", shown) },
     { action: { kind: "none" }, text: headingText(mannequins.length > 0 ? `Mannequins (${mannequins.length})` : "No mannequins yet") },
     ...mannequins.map(([name, mannequin]): MenuEntry => {
       const look = mannequinLook(mannequin);
@@ -689,6 +692,7 @@ export type SnapshotAction =
   | { kind: "turn"; by: 1 | -1 }
   | { kind: "tilt"; by: 1 | -1 }
   | { kind: "step"; step: number }
+  | { kind: "delete" }
   | { kind: "none" };
 
 /** The Snapshot's list of cameras: tap one to look through it. */
@@ -724,6 +728,7 @@ export function snapshotEntries(view: { camera: MapCamera; step: number; lobby: 
     entries.push({ action: minus, text: `${MARK.minus}${label}`, icon: ICONS.minus }, { action: plus, text: `${MARK.plus}${more}`, icon: ICONS.new });
   }
   SNAPSHOT_STEPS.forEach((step, i) => entries.push({ action: { kind: "step", step: i }, text: stepTileText(step.label, i, i === view.step) }));
+  entries.push({ action: { kind: "delete" }, text: dangerText("Delete camera") });
   if (!view.lobby) entries.push({ action: { kind: "use" }, text: saveBarText(`Use latest screenshot\n§7as ${view.camera.kind === "map" ? "the map's thumbnail" : "the game's thumbnail"}`) });
   return entries;
 }
@@ -734,9 +739,10 @@ export type ThumbnailAction = { kind: "back" } | { kind: "import" } | { kind: "s
 
 /**
  * A thumbnail menu (Map settings' Edit Map Thumbnail or Edit Minigame Thumbnail): the back arrow,
- * Import from another minigame for a map's (it stays put), then every picture used before, two to a
- * row, the one in use outlined green. A picture that isn't one of them (made before they were kept)
- * comes first when it's the one in use.
+ * Import from another minigame for a map's (it stays put), then the pictures used before for that
+ * kind (a map's: the maps' thumbnails, by map name; a game's: the games' pictures, by game) and
+ * ones not used yet, two to a row, the one in use outlined green. A picture that isn't one of them
+ * (made before they were kept) comes first when it's the one in use.
  */
 export function thumbnailEntries(view: { kind: "map" | "game"; pictures: PictureInfo; own?: string }): { action: ThumbnailAction; text: string; icon?: string }[] {
   const entries: { action: ThumbnailAction; text: string; icon?: string }[] = [{ action: { kind: "back" }, text: BACK_TEXT, icon: ICONS.back }];
@@ -744,7 +750,12 @@ export function thumbnailEntries(view: { kind: "map" | "game"; pictures: Picture
   const current = view.pictures.current[view.kind];
   const tiles: { action: ThumbnailAction; label: string; icon: string; on: boolean }[] = [];
   if (current === "own" && view.own) tiles.push({ action: { kind: "none" }, label: "In use now", icon: view.own, on: true });
-  for (const shot of view.pictures.shots) tiles.push({ action: { kind: "shot", id: shot.id }, label: shot.label, icon: shotTexture(shot.id), on: shot.id === current });
+  // A map's thumbnail comes from the maps' ones (named by the map), a game's from the games' (named by the game).
+  for (const shot of view.pictures.shots) {
+    const label = shot[view.kind] ?? (shot.map === undefined && shot.game === undefined ? "not used yet" : undefined);
+    if (label === undefined && shot.id !== current) continue;
+    tiles.push({ action: { kind: "shot", id: shot.id }, label: label ?? "In use now", icon: shotTexture(shot.id), on: shot.id === current });
+  }
   if (tiles.length === 0) entries.push({ action: { kind: "none" }, text: headingText("No pictures yet: the Snapshot tool takes them") });
   tiles.forEach((tile, i) => entries.push({ action: tile.action, text: pictureText(`${tile.label}${tile.on ? "\n§7in use" : ""}`, i, tile.on), icon: tile.icon }));
   return entries;
@@ -1148,7 +1159,7 @@ function cardEntries(card: HomeCard, catalog: Catalog): HomeEntry[] {
   const lobby = target.id === "lobby";
   const why = lobby ? "A lobby map can't be previewed yet: publish it, then start the network." : "Open it in Edit and finish its checklist first.";
   return [
-    { action: { kind: "none" }, text: cardTitleText(target.name, map.name) },
+    { action: { kind: "none" }, text: cardTitleText(target.name, map.name, map.unpublished === true) },
     world
       ? { action: { kind: "open", request: { to: "select", world: world.id } }, text: cardIconText(`Select\n§7box more maps in ${world.name}`, 0, true), icon: ICONS.select }
       : { action: { kind: "off", why: "This map didn't come from a world on this PC." }, text: cardIconText("Select\n§7its world isn't on this PC", 0, false), icon: ICONS.select },

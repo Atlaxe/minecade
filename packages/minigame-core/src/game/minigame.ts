@@ -32,6 +32,7 @@ import { Combat, type CombatHost, type Hit } from "./combat.ts";
 import { KillCredit } from "./credit.ts";
 import { fakePanelEntries } from "./fake-panel.ts";
 import { FAKE_PLAYER, FakePlayers } from "./fakes.ts";
+import { PreviewMannequins } from "./preview-mannequins.ts";
 import { KitForm, type KitCard, type KitFormContent } from "./kit-form.ts";
 import { KitPicker, type KitPickView } from "./kit-picker.ts";
 import { Kits } from "./kits.ts";
@@ -345,6 +346,9 @@ export abstract class Minigame<C extends GameConfig = GameConfig> {
   async run(): Promise<Result> {
     this.applyGameRules();
     if (this.ctx.vars.preview) this.keepPreviewLine(this.ctx.vars.preview);
+    // The map editor's mannequins, when its preview build kept them in.
+    const mannequins = this.ctx.vars.mapConfig.previewMannequins;
+    if (this.ctx.vars.preview && Array.isArray(mannequins) && mannequins.length > 0) new PreviewMannequins(this.scope, mannequins);
     this.scope.subscribe(world.afterEvents.playerSpawn, ({ player, initialSpawn }) => {
       if (!initialSpawn) return;
       const name = player.name;

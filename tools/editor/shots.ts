@@ -106,11 +106,11 @@ export async function shotOf(root: string, file: string, shots: Shot[]): Promise
   return undefined;
 }
 
-/** Where a shot was used last, in a few words: "Sumo: Sewer", "Sumo's picture", or "not used yet". */
-export function shotLabel(shot: Shot): string {
-  const last = shot.uses[0];
-  if (!last) return "not used yet";
-  return last.kind === "game" ? `${last.targetName}'s picture` : `${last.targetName}: ${last.mapName}`;
+/** Where a shot was used last: the map whose thumbnail it was, and the game whose picture it was (neither when it hasn't been used). */
+export function shotUses(shot: Shot): { map?: string; game?: string } {
+  const map = shot.uses.find((use) => use.kind === "map")?.mapName;
+  const game = shot.uses.find((use) => use.kind === "game")?.targetName;
+  return { ...(map === undefined ? {} : { map }), ...(game === undefined ? {} : { game }) };
 }
 
 function hashOf(data: Buffer): string {

@@ -61,6 +61,11 @@ export class Markers<Spec extends MarkerShape = MarkerShape> {
     scope.interval(() => this.sync(), SYNC_TICKS);
   }
 
+  /** Whether markers were placed and never cleared (by an earlier run whose save missed them, until clear()). */
+  get remembered(): boolean {
+    return this.chunks.size > 0;
+  }
+
   /** Shows these markers, and only these, wherever their chunks are loaded. */
   show(specs: Spec[]): void {
     this.specs = new Map(specs.map((spec) => [spec.key, spec]));

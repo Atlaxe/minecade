@@ -56,6 +56,11 @@ export class MannequinBodies {
     scope.interval(() => this.sync(), SYNC_TICKS);
   }
 
+  /** Whether bodies were placed and never cleared (by an earlier run whose save missed them, until clear()). */
+  get remembered(): boolean {
+    return this.chunks.size > 0;
+  }
+
   /** Shows these mannequins, and only these. */
   show(mannequins: [string, MapMannequin][]): void {
     this.mannequins = new Map(mannequins);

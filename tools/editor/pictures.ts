@@ -7,7 +7,7 @@ import { existsSync } from "node:fs";
 import { copyFile, mkdir, readFile } from "node:fs/promises";
 import { join } from "node:path";
 import type { MapConfig, PictureInfo } from "@minecade/minigame-core/config";
-import { readShots, shotFile, shotLabel, shotOf } from "./shots.ts";
+import { readShots, shotFile, shotOf, shotUses } from "./shots.ts";
 import { listTargets } from "./targets.ts";
 
 /** Copies the pictures into a resource pack being built at `pack`. */
@@ -52,7 +52,7 @@ export async function pictureInfo(root: string, targetId: string, mapId: string)
       maps.push({ target: other.id, targetName: other.name, map, name: (await mapName(join(other.dir, "maps", map, "map.json"))) ?? map });
     }
   }
-  return { shots: shots.map((shot) => ({ id: shot.id, label: shotLabel(shot) })), current, maps };
+  return { shots: shots.map((shot) => ({ id: shot.id, ...shotUses(shot) })), current, maps };
 }
 
 async function mapName(path: string): Promise<string | undefined> {

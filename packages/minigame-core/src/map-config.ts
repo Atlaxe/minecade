@@ -155,6 +155,19 @@ export interface MapMannequin {
   hold?: string;
 }
 
+/**
+ * A mannequin as a preview's server gets it (map.json's previewMannequins, written by the map
+ * editor's preview build only): where it stands, and its look as the fake player's properties in
+ * the preview's pack, with the item in its hand as an item id.
+ */
+export interface PreviewMannequin {
+  at: [x: number, y: number, z: number, yaw: number];
+  skin: number;
+  tint: number;
+  pose: number;
+  hold?: string;
+}
+
 /** A preview camera placed in the map editor: where the screenshot is taken from. */
 export interface MapCamera {
   at: [x: number, y: number, z: number, yaw: number, pitch: number];
@@ -201,6 +214,10 @@ export interface MapConfig {
   cameras?: Record<string, MapCamera>;
   /** The map editor only: stand-ins for game pictures, by name. */
   mannequins?: Record<string, MapMannequin>;
+  /** The map editor only: the mannequins stand in this map's previews too. */
+  mannequinsInPreview?: boolean;
+  /** A preview's server only: the mannequins to stand in it (see PreviewMannequin). */
+  previewMannequins?: PreviewMannequin[];
   /** Game-specific values, such as Sumo's eliminationY. */
   [key: string]: unknown;
 }
@@ -228,7 +245,7 @@ export function queueSettings(config: Pick<MapConfig, "queue">): QueueSettings {
 }
 
 /** Keys only the build and the map editor use; servers get the map without them. */
-export const EDITOR_ONLY_KEYS = ["build", "source", "cameras", "mannequins", "draft"] as const;
+export const EDITOR_ONLY_KEYS = ["build", "source", "cameras", "mannequins", "mannequinsInPreview", "draft"] as const;
 
 /** The map as servers get it: without the editor-only keys. */
 export function runtimeMapConfig(config: MapConfig): MapConfig {

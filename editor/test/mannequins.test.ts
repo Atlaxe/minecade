@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it } from "vitest";
 import { NEW_MANNEQUIN_LOOK, stripColors, type MapConfig, type MapMannequin } from "@minecade/minigame-core/config";
 import { facingMannequin, itemColorOf, mannequinAt, mannequinLook, mannequinSkins, mannequinsOf, nextMannequinName, nudgeMannequin, useMannequinSkins, withLook } from "../behavior_pack/scripts/mannequins.ts";
-import { MARK, dangerText, headingText } from "../behavior_pack/scripts/marks.ts";
+import { MARK, dangerText, headingText, switchText } from "../behavior_pack/scripts/marks.ts";
 import { mannequinScreenEntries, mannequinSettings } from "../behavior_pack/scripts/menu.ts";
 
 const red: MapMannequin = { at: [1.5, 65, -2.25, 180], skin: "color", color: "red", pose: "standing" };
@@ -58,9 +58,16 @@ describe("the Mannequin tool's menus", () => {
   const items = [{ item: "minecraft:bow", label: "Bow" }];
 
   it("lists the mannequins in its settings, each with its look", () => {
-    expect(mannequinSettings(map, items).map((entry) => entry.text)).toEqual([headingText("Mannequins (2)"), "Mannequin 1\n§7Red, Standing", "Mannequin 2\n§7Alex, Running, holding Bow"]);
-    expect(mannequinSettings(map, items)[1].action).toEqual({ kind: "mannequin", name: "Mannequin 1" });
-    expect(mannequinSettings({ name: "Empty", spawns: [] }, [])).toEqual([{ action: { kind: "none" }, text: headingText("No mannequins yet") }]);
+    const off = switchText("Show in previews", "off: previews have no mannequins", false);
+    expect(mannequinSettings(map, items).map((entry) => entry.text)).toEqual([off, headingText("Mannequins (2)"), "Mannequin 1\n§7Red, Standing", "Mannequin 2\n§7Alex, Running, holding Bow"]);
+    expect(mannequinSettings(map, items)[0].action).toEqual({ kind: "mannequinsInPreview" });
+    expect(mannequinSettings(map, items)[2].action).toEqual({ kind: "mannequin", name: "Mannequin 1" });
+    expect(mannequinSettings({ name: "Empty", spawns: [] }, [])).toEqual([
+      { action: { kind: "mannequinsInPreview" }, text: off },
+      { action: { kind: "none" }, text: headingText("No mannequins yet") },
+    ]);
+    // Switched on: previews show them.
+    expect(mannequinSettings({ ...map, mannequinsInPreview: true }, items)[0].text).toBe(switchText("Show in previews", "they stand in this map's previews", true));
   });
 
   it("has Skin first, Color under it only for the plain color, Hold for the kit items, Pose, then Position and Delete", () => {

@@ -912,7 +912,8 @@
   // (§d§m§r) when that step isn't done, with a tooltip saying what each does. A card's buttons come
   // one after another, so the columns' rows line up. The title's face reaches under the icons, and
   // its text has two lines left of them: the game, then the map's name. The icons sit centered on
-  // the two lines.
+  // the two lines. A title marked §u§p§r (a map with unpublished changes) shows its whole text, the
+  // lines past those two saying so, as a tooltip while hovered.
   "card_grid": {
     "type": "stack_panel",
     "orientation": "horizontal",
@@ -988,7 +989,31 @@
             }
           ]
         }
+      },
+      {"unpublished@editor_forms.card_title_hover": {}}
+    ]
+  },
+
+  // Over a marked title (§u§p§r), its own column only: nothing to see or press, the tooltip while
+  // hovered. Its press goes to a button name no screen answers, so it does nothing.
+  "card_title_hover@common.button": {
+    "$pressed_button_name": "button.minecade_card_title",
+    "size": ["100%", 28],
+    "anchor_from": "top_left",
+    "anchor_to": "top_left",
+    "visible": false,
+    "bindings": [
+      {"binding_name": "#form_button_text", "binding_type": "collection", "binding_collection_name": "form_buttons"},
+      {
+        "binding_type": "view",
+        "source_property_name": "(not ((#form_button_text - '§u§p§r') = #form_button_text))",
+        "target_property_name": "#visible"
       }
+    ],
+    "controls": [
+      {"default": {"type": "panel"}},
+      {"hover": {"type": "panel", "controls": [{"tooltip@editor_forms.tooltip": {}}]}},
+      {"pressed": {"type": "panel"}}
     ]
   },
 

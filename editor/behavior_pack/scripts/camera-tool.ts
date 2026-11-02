@@ -8,7 +8,8 @@
 // the HUD, markers and outlines hidden and a 16:9 frame showing what a picture keeps; nudge it,
 // take the screenshot with Minecraft's own keys (F1 hides everything, F2 takes it), then use the
 // tool again for Use latest screenshot, which has the host save it as the picture
-// (tools/editor/shots.ts). Shift (or Back to my view) brings the player's own view back.
+// (tools/editor/shots.ts). Shift (or Back to my view) brings the player's own view back, and
+// Delete camera brings it back and deletes the camera.
 import { HudVisibility, type Player } from "@minecraft/server";
 import { ActionFormData } from "@minecraft/server-ui";
 import { describeError } from "@minecade/minigame-core";
@@ -174,6 +175,9 @@ export class CameraTool {
         case "step":
           this.steps.set(key, action.step);
           continue;
+        case "delete":
+          if (this.deleteFromSnapshot(player, name)) return;
+          continue;
         case "kind": {
           const kind = camera.kind === "map" ? "game" : "map";
           this.host.edit(player, { op: "camera", name, camera: { ...camera, kind } });
@@ -192,6 +196,18 @@ export class CameraTool {
         }
       }
     }
+  }
+
+  /** Delete camera, while looking through it: the player's view comes back and it's deleted (Undo brings it back). False when someone else looks through it. */
+  private deleteFromSnapshot(player: Player, name: string): boolean {
+    const others = [...this.looking].some(([key, looking]) => looking.name === name && key !== player.name.toLowerCase());
+    if (others) {
+      this.host.tell(player, `Someone else is looking through ${name}: it can't be deleted now.`);
+      return false;
+    }
+    this.stop(player);
+    this.host.edit(player, { op: "camera", name }, `${name} deleted.`);
+    return true;
   }
 
   /** Moves the player's view to the camera, with the HUD (and, for a map preview, the player) hidden, and the frame shown. False when it couldn't. */

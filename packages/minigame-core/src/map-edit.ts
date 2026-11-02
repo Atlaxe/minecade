@@ -45,6 +45,8 @@ export type MapEdit =
   | { op: "mannequin"; name: string; mannequin?: MapMannequin }
   /** Sets the map's time of day (the map editor's Time tool: a name, or ticks), or with none removes it. */
   | { op: "time"; time?: MapTime }
+  /** Whether the mannequins stand in the map's previews too. */
+  | { op: "mannequinsInPreview"; on: boolean }
   /** Sets (or, with no value, removes) a game-specific key, such as Sumo's eliminationY. */
   | { op: "extra"; key: string; value?: string | number | boolean }
   /** Removes "build", so `npm run bake` no longer rebuilds the world (world edits are kept). */
@@ -60,7 +62,7 @@ export function isMapKey(key: string): boolean {
 }
 
 /** Where new keys go, the order map.json files are written in. Unknown keys stay where they are. */
-const KEY_ORDER: readonly string[] = ["name", "draft", "spawns", "spectatorSpawn", "queueSpawn", "queue", "bounds", "killY", "buildLimit", "teamSpawns", "points", "regions", "time", "stars", "cameras", "mannequins", "source", "build"];
+const KEY_ORDER: readonly string[] = ["name", "draft", "spawns", "spectatorSpawn", "queueSpawn", "queue", "bounds", "killY", "buildLimit", "teamSpawns", "points", "regions", "time", "stars", "cameras", "mannequins", "mannequinsInPreview", "source", "build"];
 
 export function applyEdit(config: MapConfig, edit: MapEdit): MapConfig {
   switch (edit.op) {
@@ -156,6 +158,8 @@ export function applyEdit(config: MapConfig, edit: MapEdit): MapConfig {
     case "time":
       if (edit.time !== undefined && mapTimeTicks(edit.time) === undefined) throw new MapEditError(`"${edit.time}" is not a time of day`);
       return withKey(config, "time", edit.time);
+    case "mannequinsInPreview":
+      return withKey(config, "mannequinsInPreview", edit.on ? true : undefined);
     case "dropBuild":
       return withKey(config, "build", undefined);
     case "batch":
@@ -218,6 +222,8 @@ export function describeEdit(edit: MapEdit): string {
       return `set ${edit.key}`;
     case "time":
       return edit.time === undefined ? "clear time" : `set time ${edit.time}`;
+    case "mannequinsInPreview":
+      return edit.on ? "show mannequins in previews" : "keep mannequins out of previews";
     case "dropBuild":
       return "drop build";
     case "batch":

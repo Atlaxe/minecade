@@ -75,6 +75,7 @@ export {
   type MapCamera,
   type MapMannequin,
   type MapConfig,
+  type PreviewMannequin,
   type MapPosition,
   type MapSource,
   type MapTime,

@@ -71,6 +71,8 @@ export const MARK = {
   wide: "§w§d§r",
   /** A card's title, on the left of its row (the editor lobby's maps): plain, not a button. */
   cardTitle: "§c§t§r",
+  /** Added to a card's title for a map with unpublished changes: its text past the two lines shows as a tooltip. */
+  unpublished: "§u§p§r",
   /** One of a card's icons, right of its title (with one of CARD_COLUMNS); faded with dim. */
   cardIcon: "§c§n§r",
   /** The heading over the cards, on the left of its row (Recent). */
@@ -133,9 +135,12 @@ export function optionText(label: string, on: boolean): string {
 }
 
 /** A card's title: what it is (the game, gray), then its name under it. */
-export function cardTitleText(kind: string, name: string): string {
-  return `${MARK.cardTitle}§7${kind}\n§f${name}`;
+export function cardTitleText(kind: string, name: string, unpublished = false): string {
+  return unpublished ? `${MARK.cardTitle}${MARK.unpublished}§7${kind}\n§f${name}\n${UNPUBLISHED_LINE}` : `${MARK.cardTitle}§7${kind}\n§f${name}`;
 }
+
+/** A card's tooltip line for a map with unpublished changes. */
+export const UNPUBLISHED_LINE = "§eUnpublished changes";
 
 /** A card's icon in column `index`, faded (its step isn't done) unless `on`. */
 export function cardIconText(text: string, index: number, on: boolean): string {

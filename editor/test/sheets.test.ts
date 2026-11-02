@@ -3,7 +3,7 @@ import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import type { Box } from "@minecade/minigame-core/config";
 import { BOUNDS_COLOR, BUILD_LIMIT_COLOR, KILL_COLOR, SELECTION_COLOR, type HeightPlane, type OutlineBox, type Rgb } from "../behavior_pack/scripts/regions.ts";
-import { PLANE_COLORS, boxSheets, chunkPieces, heightSheet, overlaySheets, planeColor, sheetHas, uniqueSheets, type Sheet } from "../behavior_pack/scripts/sheets.ts";
+import { EDGE_STATES, PLANE_COLORS, borderTiles, boxSheets, chunkPieces, heightSheet, overlaySheets, planeColor, planeStates, sheetHas, uniqueSheets, type Sheet } from "../behavior_pack/scripts/sheets.ts";
 import { planeBlockFiles } from "../../tools/assets/plane-block.ts";
 
 const color = (id: (typeof PLANE_COLORS)[number]["id"]) => PLANE_COLORS.findIndex((candidate) => candidate.id === id);
@@ -66,6 +66,36 @@ describe("plane sheets", () => {
     const tall = chunkPieces({ min: [0, -64, 0], max: [15, 319, 0], axis: 2, offset: 0, color: 0 });
     expect(tall).toHaveLength(1);
     expect(blocks(tall[0])).toBeLessThanOrEqual(32768);
+  });
+
+  it("draw the edge line only on their border, on the outer sides", () => {
+    // A floor 10 by 5: x is its first axis (u), z its second (v).
+    const sheet: Sheet = { min: [0, 40, 0], max: [9, 40, 4], axis: 1, offset: 15, color: 0 };
+    const tiles = borderTiles(sheet);
+    expect(tiles).toHaveLength(9);
+    expect(tiles.reduce((sum, tile) => sum + blocks(tile), 0)).toBe(blocks(sheet));
+    const edgesAt = (x: number, z: number) => tiles.find((tile) => sheetHas(tile, [x, 40, z]))?.edges;
+    expect(edgesAt(5, 2)).toBe(0);
+    expect(edgesAt(0, 2)).toBe(1);
+    expect(edgesAt(9, 2)).toBe(2);
+    expect(edgesAt(5, 0)).toBe(4);
+    expect(edgesAt(5, 4)).toBe(8);
+    expect(edgesAt(0, 0)).toBe(1 | 4);
+    expect(edgesAt(9, 4)).toBe(2 | 8);
+    // One block wide: both sides along that axis on every block.
+    const strip = borderTiles({ min: [3, 0, 7], max: [3, 5, 7], axis: 2, offset: 0, color: 0 });
+    expect(strip.map((tile) => tile.edges)).toEqual([1 | 2 | 4, 1 | 2, 1 | 2 | 8]);
+    expect(borderTiles({ ...sheet, max: [0, 40, 0] }).map((tile) => tile.edges)).toEqual([15]);
+    // The block's states: a "true" edge state per side with the line.
+    expect(planeStates({ axis: 0, offset: 3, color: 2, edges: 1 | 8 })).toEqual({
+      "minecade:axis": 0,
+      "minecade:offset": 3,
+      "minecade:color": 2,
+      [EDGE_STATES[0]]: "true",
+      [EDGE_STATES[1]]: "false",
+      [EDGE_STATES[2]]: "false",
+      [EDGE_STATES[3]]: "true",
+    });
   });
 
   it("take the plane color nearest each outline color", () => {
@@ -156,11 +186,22 @@ describe("the plane block's files", () => {
   it("has a geometry for every axis and pixel, and a texture for every color", () => {
     const block = JSON.parse(planeBlockFiles()["behavior_pack/blocks/plane.json"] as string)["minecraft:block"];
     expect(block.permutations).toHaveLength(3 * 16 + PLANE_COLORS.length);
+    expect(Object.keys(block.description.states)).toEqual(["minecade:axis", "minecade:offset", "minecade:color", ...EDGE_STATES]);
     const geometry = JSON.parse(planeBlockFiles()["resource_pack/models/blocks/plane.geo.json"] as string)["minecraft:geometry"];
+    type Bone = { name: string; cubes: { origin: number[]; size: number[] }[] };
+    const bones = (id: string): Bone[] => geometry.find((entry: { description: { identifier: string } }) => entry.description.identifier === id).bones;
+    const bone = (id: string, name: string) => bones(id).find((candidate) => candidate.name === name)!.cubes[0];
     // A floor's plane at pixel 15 is the block's top pixel; a wall across x at pixel 0 is its west pixel (x mirrored).
-    const cube = (id: string) => geometry.find((entry: { description: { identifier: string } }) => entry.description.identifier === id).bones[0].cubes[0];
-    expect(cube("geometry.minecade.plane_1_15").origin).toEqual([-8, 15, -8]);
-    expect(cube("geometry.minecade.plane_0_0").origin).toEqual([7, 0, -8]);
-    expect(cube("geometry.minecade.plane_2_15").origin).toEqual([-8, 0, 7]);
+    expect(bone("geometry.minecade.plane_1_15", "fill").origin).toEqual([-7, 15, -7]);
+    expect(bone("geometry.minecade.plane_0_0", "fill").origin).toEqual([7, 1, -7]);
+    expect(bone("geometry.minecade.plane_2_15", "fill").origin).toEqual([-7, 1, 7]);
+    // The rim: a pixel wide, each piece as an edge and as a fill.
+    expect(bone("geometry.minecade.plane_1_0", "edge_0_1").origin).toEqual([7, 0, -7]);
+    expect(bone("geometry.minecade.plane_1_0", "edge_0_1").size).toEqual([1, 1, 14]);
+    expect(bones("geometry.minecade.plane_1_0")).toHaveLength(1 + 8 * 2);
+    // Every piece's bone is shown by the edge states (the middle always).
+    const visibility = block.components["minecraft:geometry"].bone_visibility;
+    expect(Object.keys(visibility).sort()).toEqual(bones("geometry.minecade.plane_1_0").map((candidate) => candidate.name).sort());
+    expect(visibility.edge_2_2).toBe(`q.block_state('${EDGE_STATES[1]}') == 'true' || q.block_state('${EDGE_STATES[3]}') == 'true'`);
   });
 });

@@ -128,6 +128,15 @@ export async function addFakePlayer(bp: string, rp: string, players: MannequinSk
   for (const path of ENTITY_FILES.bp) await cp(join(PREVIEW, "behavior_pack", path), join(bp, path), { recursive: true });
   for (const path of ENTITY_FILES.rp) await cp(join(PREVIEW, "resource_pack", path), join(rp, path), { recursive: true });
   await addFakeSkins(rp);
+  await addPlayerSkins(bp, rp, players);
+}
+
+/**
+ * Adds the players' skins to packs that have the fake player (with its own skins in already): after
+ * its own, in the render controller's lists and the skin property's range, so the skin property
+ * counts them in this order.
+ */
+export async function addPlayerSkins(bp: string, rp: string, players: MannequinSkin[]): Promise<void> {
   if (players.length === 0) return;
   const entityPath = join(rp, ENTITY);
   const entity = JSON.parse(await readFile(entityPath, "utf8"));

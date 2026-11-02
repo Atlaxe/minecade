@@ -2,9 +2,10 @@
 // the way Axiom and Litematica show a selection: a see-through colored sheet on each side of a box,
 // and one across the bounds at each height (kill Y, the build limit). A plane is a 16x16 square one
 // pixel thick, in one of 16 colors (Minecraft's dye colors), across any axis at any of the 16 pixels
-// of its block, so a sheet sits exactly on a box's side. The block only goes where there's air, and
-// never into a map: the editor takes every plane out before the world is saved (planes.ts). Pure
-// functions, so they can be tested without a server.
+// of its block, so a sheet sits exactly on a box's side. A sheet reads as one piece: only the planes
+// on its border draw a line, on their outer sides (four edge states, see borderTiles). The block only
+// goes where there's air, and never into a map: the editor takes every plane out before the world
+// is saved (planes.ts). Pure functions, so they can be tested without a server.
 import type { Box, Vec3 } from "@minecade/minigame-core/config";
 import { SELECTION_COLOR, heightColor, outlineShown, type HeightLine, type HeightPlane, type OutlineBox, type Rgb } from "./regions.ts";
 import type { ToolId } from "./tools.ts";
@@ -41,15 +42,56 @@ export interface Sheet {
   axis: Axis;
   offset: number;
   color: number;
+  /** Which sides of each plane in it draw the edge line, as EDGE_STATES' bits; none on a whole sheet (borderTiles adds them). */
+  edges?: number;
+}
+
+/**
+ * The plane's edge states, one per side of its square, by bit: the low and the high side along the
+ * first axis the plane lies along (u), then along the second (v), x before y before z. A side that's
+ * "true" draws a line; the rest of the square is the fill.
+ */
+export const EDGE_STATES = ["minecade:u_low", "minecade:u_high", "minecade:v_low", "minecade:v_high"] as const;
+
+/** The two axes a plane lies along (u, then v). */
+export function inPlane(axis: Axis): [Axis, Axis] {
+  return axis === 0 ? [1, 2] : axis === 1 ? [0, 2] : [0, 1];
 }
 
 /** The block's states for a sheet. */
-export function planeStates(sheet: Pick<Sheet, "axis" | "offset" | "color">): Record<string, number> {
-  return { "minecade:axis": sheet.axis, "minecade:offset": sheet.offset, "minecade:color": sheet.color };
+export function planeStates(sheet: Pick<Sheet, "axis" | "offset" | "color" | "edges">): Record<string, number | string> {
+  const states: Record<string, number | string> = { "minecade:axis": sheet.axis, "minecade:offset": sheet.offset, "minecade:color": sheet.color };
+  EDGE_STATES.forEach((state, bit) => (states[state] = ((sheet.edges ?? 0) >> bit) & 1 ? "true" : "false"));
+  return states;
 }
 
 export function sheetKey(sheet: Sheet): string {
-  return `${sheet.axis}/${sheet.offset}/${sheet.color}/${sheet.min.join(",")}/${sheet.max.join(",")}`;
+  return `${sheet.axis}/${sheet.offset}/${sheet.color}/${sheet.edges ?? 0}/${sheet.min.join(",")}/${sheet.max.join(",")}`;
+}
+
+/**
+ * A whole sheet in up to nine parts, by where its blocks are: those on its border draw the line on
+ * their outer sides (a corner on two), the rest none, so the sheet shows as one square however many
+ * blocks it spans.
+ */
+export function borderTiles(sheet: Sheet): Sheet[] {
+  const [u, v] = inPlane(sheet.axis);
+  const spans = (axis: Axis, low: number, high: number) => {
+    const from = sheet.min[axis];
+    const to = sheet.max[axis];
+    if (from === to) return [{ from, to, bits: low | high }];
+    return [{ from, to: from, bits: low }, ...(to - from > 1 ? [{ from: from + 1, to: to - 1, bits: 0 }] : []), { from: to, to, bits: high }];
+  };
+  const tiles: Sheet[] = [];
+  for (const a of spans(u, 1, 2)) {
+    for (const b of spans(v, 4, 8)) {
+      const min: Vec3 = [...sheet.min];
+      const max: Vec3 = [...sheet.max];
+      [min[u], max[u], min[v], max[v]] = [a.from, a.to, b.from, b.to];
+      tiles.push({ ...sheet, min, max, edges: a.bits | b.bits });
+    }
+  }
+  return tiles;
 }
 
 /** Bedrock's overworld: the lowest block and the highest. */

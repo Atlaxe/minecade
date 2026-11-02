@@ -4,6 +4,7 @@
 // runs, with save hold), and on stop when blocks changed since the last save. Publish saves too, then
 // commits the map's folder and pushes it (publish.ts). The server itself (starting, the console,
 // opping map editors) is ServerSession's.
+import { randomUUID } from "node:crypto";
 import { existsSync, unwatchFile, watchFile } from "node:fs";
 import { cp, mkdir, readFile, rename, rm, writeFile } from "node:fs/promises";
 import { basename, join, relative } from "node:path";
@@ -26,6 +27,7 @@ import { History, isMapId, newMapConfig, withLineEndings, type EditStatus } from
 import type { PreviewMap } from "./preview-template.ts";
 import { gitIn, publishMap, publishMessage, type Git } from "./publish.ts";
 import { findWorld } from "./selections.ts";
+import { savedWith } from "./world-log.ts";
 import { RUNTIME_FILES, ServerSession, delay, message, root, type SessionBase } from "./server-session.ts";
 import { targetDir, type EditorTarget } from "./targets.ts";
 import { pictureInfo } from "./pictures.ts";
@@ -38,6 +40,8 @@ import type { World } from "./worlds.ts";
 const BASE_LEVEL_DAT = join(root, "tools", "build", "fixtures", "base-level.dat");
 /** How many times a held save is asked whether its files are ready, half a second apart. */
 const SAVE_QUERY_ATTEMPTS = 20;
+/** How many times the held world is copied, half a second apart, until the save's own write is in it. */
+const SAVE_WRITE_ATTEMPTS = 40;
 
 export interface SessionOptions extends SessionBase {
   target: EditorTarget;
@@ -256,7 +260,11 @@ export class EditorSession extends ServerSession {
         this.onDelete?.(event.by);
         return;
       case "changed":
-        this.blocksChanged(event.by);
+        if (event.leftovers) {
+          this.note("The world had markers, mannequins or boundary planes in it that an earlier save missed. They're gone now: Save, or stopping, saves the world without them.");
+          this.unsaved = true;
+          void this.sendStatus();
+        } else this.blocksChanged(event.by);
         return;
       case "view":
         void saveView(root, event.by, event.shown).catch((error: unknown) => this.note(`Could not keep ${event.by}'s Boundaries switches: ${message(error)}`));
@@ -402,8 +410,9 @@ export class EditorSession extends ServerSession {
 
   /**
    * Save while the server runs: map.json is already written, so this saves the world. The markers
-   * come out, `save hold` makes BDS write the world and keep its files still, the world is copied
-   * once `save query` says it's ready, and `save resume` lets it carry on.
+   * come out (and a new token goes in a world property), `save hold` makes BDS write the world and
+   * keep its files still, the world is copied once that write (with the token) is in its files, and
+   * `save resume` lets it carry on.
    */
   private async hotSave(by: string): Promise<boolean> {
     // Waiting first also lets save() note this run, so the status below says a save is running.
@@ -417,9 +426,10 @@ export class EditorSession extends ServerSession {
     void this.sendStatus();
     let saved = false;
     try {
-      const clean = await this.removeMarkers();
+      const token = randomUUID();
+      const clean = await this.removeMarkers(token);
       try {
-        if (clean) saved = await this.saveWorldFiles((dest) => this.copyHeldWorld(dest));
+        if (clean) saved = await this.saveWorldFiles((dest) => this.copyHeldWorld(dest, token));
       } finally {
         await this.send({ t: "resume" });
       }
@@ -556,8 +566,11 @@ export class EditorSession extends ServerSession {
    * whole: `save query` also lists a length for each, but on BDS 1.26 a log's listed length is from
    * before the save wrote the chunks (tested: a copy cut to it lost the blocks placed before the
    * save). Held, the server deletes nothing, and LevelDB drops a half-written record at a log's end.
+   * `save query` can also say the files are ready before the save's write is in them at all (seen:
+   * Temples saved with the boundary planes and a mannequin the cleanup had just taken out), so the
+   * world is copied again until its logs have that write, with `token` (world-log.ts).
    */
-  private async copyHeldWorld(dest: string): Promise<void> {
+  private async copyHeldWorld(dest: string, token: string): Promise<void> {
     const held = await this.command("save hold", /Saving|already|not been completed/i);
     if (held === undefined) throw new Error("the server didn't answer save hold");
     try {
@@ -568,7 +581,13 @@ export class EditorSession extends ServerSession {
         if (!ready) await delay(500);
       }
       if (!ready) throw new Error("the server didn't get its files ready to copy (save query)");
-      await copyDirFromContainer(this.container!, "/bds/worlds/active", dest);
+      for (let attempt = 1; ; attempt++) {
+        await rm(dest, { recursive: true, force: true });
+        await copyDirFromContainer(this.container!, "/bds/worlds/active", dest);
+        if (await savedWith(join(dest, "db"), token)) break;
+        if (attempt >= SAVE_WRITE_ATTEMPTS) throw new Error("the server's save never reached its files");
+        await delay(500);
+      }
     } finally {
       await this.command("save resume", /resumed|not been|Changes to the (level|world)/i);
     }

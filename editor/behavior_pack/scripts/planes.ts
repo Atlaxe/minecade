@@ -1,7 +1,9 @@
 // Edit's boundaries as plane blocks (sheets.ts): what every map editor here sees drawn, together,
 // since blocks are the world's (Select mode keeps its particle outlines, outlines.ts). Each sheet is
-// painted a chunk column at a time, into air only, once its chunk is loaded; a sheet no one sees any
-// more is erased (later, for a chunk that isn't loaded then). Breaking a block where a sheet runs
+// painted a border part and a chunk column at a time, into air only, once its chunk is loaded; a
+// sheet no one sees any more is erased (later, for a chunk that isn't loaded then). A fill into air
+// skips a 16-block slice of a chunk that holds no blocks at all (the void around a map, open sky:
+// seen as walls missing there), so one plane is set by hand in each slice first. Breaking a block where a sheet runs
 // paints it there, and every so often the loaded sheets are painted again, for blocks taken away
 // some other way. While anyone looks through a camera they're all taken away, out of the picture.
 // Like the markers, planes never stay in the world: every chunk one was painted in is remembered,
@@ -10,7 +12,7 @@ import { BlockPermutation, BlockVolume, world, type Dimension } from "@minecraft
 import { describeError, log, type Box, type Scope, type Vec3 } from "@minecade/minigame-core";
 import { sweepChunks } from "./markers.ts";
 import type { HeightPlane, OutlineBox } from "./regions.ts";
-import { PLANE_BLOCK, chunkPieces, overlaySheets, planeStates, sheetHas, sheetKey, uniqueSheets, type OverlayView, type Sheet } from "./sheets.ts";
+import { PLANE_BLOCK, borderTiles, chunkPieces, overlaySheets, planeStates, sheetHas, sheetKey, uniqueSheets, type OverlayView, type Sheet } from "./sheets.ts";
 
 /** On the world: the chunks planes were painted in and the heights they reached, as JSON. */
 const CHUNKS_PROPERTY = "minecade:planeChunks";
@@ -73,6 +75,11 @@ export class Overlay {
     scope.interval(() => this.refresh(), REFRESH_TICKS);
   }
 
+  /** Whether planes were painted and never cleared (by an earlier run whose save missed them, until clear()). */
+  get remembered(): boolean {
+    return this.chunks.size > 0;
+  }
+
   /** A block changed (broken or placed): paints the sheets through it there again. */
   blockChanged(at: Vec3): void {
     for (const pieces of this.shown.values()) for (const piece of pieces) if (sheetHas(piece.sheet, at)) piece.painted = false;
@@ -129,7 +136,9 @@ export class Overlay {
       }
     }
     const next = new Map<string, Piece[]>();
-    for (const [key, sheet] of wanted) next.set(key, this.shown.get(key) ?? chunkPieces(sheet).map((piece) => ({ sheet: piece, chunk: chunkKey(piece), painted: false })));
+    for (const [key, sheet] of wanted) {
+      next.set(key, this.shown.get(key) ?? borderTiles(sheet).flatMap(chunkPieces).map((piece) => ({ sheet: piece, chunk: chunkKey(piece), painted: false })));
+    }
     this.shown = next;
     // A sheet erased where another wanted the same blocks: the other paints them again.
     if (touched.size > 0) for (const pieces of next.values()) for (const piece of pieces) if (touched.has(piece.chunk)) piece.painted = false;
@@ -141,7 +150,9 @@ export class Overlay {
       for (const piece of pieces) {
         if (piece.painted || !this.loaded(piece)) continue;
         try {
-          this.dimension.fillBlocks(volumeOf(piece.sheet), this.permutation(piece.sheet), { blockFilter: { includeTypes: [AIR] }, ignoreChunkBoundErrors: true });
+          const permutation = this.permutation(piece.sheet);
+          this.startSlices(piece.sheet, permutation);
+          this.dimension.fillBlocks(volumeOf(piece.sheet), permutation, { blockFilter: { includeTypes: [AIR] }, ignoreChunkBoundErrors: true });
           piece.painted = true;
           changed = this.note(piece) || changed;
         } catch (error) {
@@ -151,6 +162,18 @@ export class Overlay {
       }
     }
     if (changed) this.remember();
+  }
+
+  /**
+   * Sets the piece's first block in each 16-block slice it crosses, where that's air, so a slice that
+   * held nothing has a block for the fill to go on from.
+   */
+  private startSlices(sheet: Sheet, permutation: BlockPermutation): void {
+    const [x, bottom, z] = sheet.min;
+    for (let y = bottom; y <= sheet.max[1]; y = (Math.floor(y / 16) + 1) * 16) {
+      const block = this.dimension.getBlock({ x, y, z });
+      if (block?.isAir) block.setPermutation(permutation);
+    }
   }
 
   /** Erases a piece's planes; false when its chunk isn't loaded. */
@@ -218,7 +241,7 @@ export class Overlay {
   }
 
   private permutation(sheet: Sheet): BlockPermutation {
-    const key = `${sheet.axis}/${sheet.offset}/${sheet.color}`;
+    const key = `${sheet.axis}/${sheet.offset}/${sheet.color}/${sheet.edges ?? 0}`;
     let permutation = this.permutations.get(key);
     if (!permutation) {
       permutation = BlockPermutation.resolve(PLANE_BLOCK, planeStates(sheet));

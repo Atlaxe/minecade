@@ -89,7 +89,9 @@ its right, each with a tooltip, and the map's name under them, across the card:
   (see "Preview"). Faded until its checklist is done, and on lobby maps.
 
 A world opened in Select with no map card of its own gets a card too: Select lights up, Edit and
-Preview are faded. Tapping a faded icon says in chat what's missing.
+Preview are faded. Tapping a faded icon says in chat what's missing. A map whose folder has changes
+that aren't on GitHub yet (saved but not published, or a publish whose push failed: git status and
+unpushed commits) says **Unpublished changes** in a tooltip on its card's title.
 
 While the server you picked loads (about 20 seconds; a big world takes longer to copy), the menu
 says so, with five dots after its title lighting up one at a time, and you're moved there once
@@ -372,11 +374,13 @@ you back in creative at every spawn).
   tool, or with the map menu open on it, you see kill Y and the build limit only; while you set one
   in its screen, only that one, where you're setting it. A box being changed in its screen shows as
   the selection, with every other boundary. The boundaries you switched on in the Boundaries view
-  (the map menu's eye) show whatever you hold. The planes are blocks, so everyone in Edit sees what
-  anyone sees. They only go where there's air (a box's side through the ground shows where the
-  ground is open), a block you place goes in their place, and your aim and clicks pass through
-  them. While anyone looks through a camera they're taken away, and they're taken out of the world
-  before every save.
+  (the map menu's eye) show whatever you hold. Each sheet reads as one piece: a light fill, with a
+  stronger line only around its border, evenly lit on both faces (no shading; a block can't glow
+  without lighting what's around it, so they're as dark as where they are at night or in a cave).
+  The planes are blocks, so everyone in Edit sees what anyone sees. They only go where there's air
+  (a box's side through the ground shows where the ground is open), a block you place goes in their
+  place, and your aim and clicks pass through them. While anyone looks through a camera they're
+  taken away, and they're taken out of the world before every save.
 - **Replace mode:** **/replace** (`/minecade:replace`) turns it on or off for you. While it's on, a
   right click on a block puts the block in your hand in its place, keeping what both blocks have
   (a stair's facing, a log's direction); with nothing in hand, or an item that isn't a block, a
@@ -410,7 +414,8 @@ first how many **fake players** the match starts with (a toggle from 0 up to wha
 everyone going, at most 7), then **Start preview** (green).
 
 1. The editor saves the world (when blocks changed) and builds the game from this checkout, with
-   the map as it is now, draft or not.
+   the map as it is now, draft or not. Its mannequins stand in it only when the Mannequin tool's
+   **Show in previews** is on (see "Pictures").
 2. The game runs on port 19133, Select's port (the network's game port, so no trust prompt). Select
    closes meanwhile; anyone on it waits in the editor lobby, and it opens again on the same world
    afterward.
@@ -484,7 +489,8 @@ screenshot as the picture.
    Snapshot tool goes in your hand). Your view moves to it with the HUD, the markers and the
    outlines hidden, and corner marks frame the 16:9 middle of the screen, which is what a picture
    keeps. Its side menu: **Take a screenshot**, **Back to my view**, **Game picture**, nudge rows to
-   move it along X, Y and Z, **Turn** it and **Tilt** it (**Step**: small, medium or large), and
+   move it along X, Y and Z, **Turn** it and **Tilt** it (**Step**: small, medium or large),
+   **Delete camera** (red: your view comes back and the camera goes; Undo brings it back), and
    **Use latest screenshot** (green). The back arrow goes to the cameras. **Shift** brings your own
    view back at any time (the frame's top line says so).
 3. **Take the screenshot:** Take a screenshot closes the menu and says how, at the frame's top:
@@ -499,9 +505,10 @@ screenshot as the picture.
    view comes back. The Panel's checklist card ("Newest screenshot as") and `npm run editor --
    picture [game]` do the same. Publish commits both.
 
-**Edit Map Thumbnail** and **Edit Minigame Thumbnail** (the gear) show every picture kept so far,
-two to a row, the one in use outlined green, each named for where it was used last; tap one to use
-it. Pictures saved after Edit opened show from the next time a map opens there (the editor's pack
+**Edit Map Thumbnail** and **Edit Minigame Thumbnail** (the gear) show the pictures kept so far for
+their kind, two to a row, the one in use outlined green; tap one to use it. A map's shows the maps'
+thumbnails, each named by its map, and a game's the games' pictures, each named by its game (a
+picture not used yet shows in both). Pictures saved after Edit opened show from the next time a map opens there (the editor's pack
 carries them). Edit Map Thumbnail also has **Import from another minigame**: pick a game, then one
 of its maps with a picture (cards with the picture and the name); it asks first, uses that picture,
 then asks **Import map name?**: **Import name** gives this map that map's name and map id too (see
@@ -527,7 +534,10 @@ the hotbar, the first again after the last):
 They're saved in `map.json`'s `mannequins` and have no name tag. Looking through a Game picture
 camera, they stay in the shot (the markers hide); through a Map preview camera, they hide too
 (nobody's in a map preview). Game servers never get them, and they're taken out of the world before every save,
-so a published world never has them. Minecraft's skins are Mojang's, so they never go in git: the
+so a published world never has them. **Show in previews**, a switch at the top of the Mannequin
+tool's settings in the map menu (off until you switch it on, `mannequinsInPreview` in `map.json`),
+stands them in this map's previews too, where they are in Edit, looking the same; the game doesn't
+count them. Minecraft's skins are Mojang's, so they never go in git: the
 editor copies them from the Minecraft install on this PC (its vanilla skin pack) each time it
 builds its packs (`tools/editor/fake-player.ts`); one this PC lacks shows as the client's own Steve
 or Alex. The players' skins come from `skins/` (see `docs/skins.md`) at the same time: classic
@@ -612,13 +622,21 @@ Chat in the editor lobby says when it's done. A preview has to end first.
   `map.json`, keeps undo and redo, and answers with `scriptevent minecade:edit {json}` on the
   console. If the two copies ever differ, the host sends the whole map again.
 - **Save while running** (`hotSave` in `tools/editor/session.ts`): the pack removes the markers,
-  then `save hold` makes the server write the world and keep its files still, and once `save
-  query` says they're ready, the host copies the world out of the container whole, and `save
-  resume` lets the server carry on. Then the markers come back, and the copy gets the same baked
-  settings as a save at stop. `save query` also lists a length for each file, meant for cutting
-  the copies down, but on BDS 1.26 a log's listed length is from before the save wrote the chunks:
-  a copy cut to it lost the blocks placed before the save, while the whole copy kept them (and
-  not ones placed after `save resume`).
+  mannequins and planes and puts a new token in a world property (`minecade:saveToken`), then
+  `save hold` makes the server write the world and keep its files still, and once `save query`
+  says they're ready, the host copies the world out of the container whole, and `save resume` lets
+  the server carry on. Then the markers come back, and the copy gets the same baked settings as a
+  save at stop. `save query` also lists a length for each file, meant for cutting the copies down,
+  but on BDS 1.26 a log's listed length is from before the save wrote the chunks: a copy cut to it
+  lost the blocks placed before the save, while the whole copy kept them (and not ones placed after
+  `save resume`). It can also say the files are ready before the save's write is in them at all:
+  saved worlds had the planes, mannequins and markers the cleanup had just taken out (the copy was
+  BDS's own last write, from a few seconds before). So the host reads the copy's LevelDB logs
+  (`tools/editor/world-log.ts`) and copies again, every half second for up to 20 seconds, until it
+  has a full save (the write with the level's scoreboard, mob events and biome data) with the
+  token. A world opened in Edit that still has markers, mannequins or planes from an earlier run
+  (their remembered chunks are in its properties) gets them swept out and counts as changed, so the
+  next Save writes it without them.
 - **Publish** (`tools/editor/publish.ts`) runs git in the checkout: `fetch` and `merge --ff-only`
   (skipped quietly when local changes are in the way), `add --all` and `commit` naming the map's
   folder (so nothing else staged goes in), then `push`. It never asks on the console
@@ -673,12 +691,19 @@ Chat in the editor lobby says when it's done. A preview has to end first.
 - **The boundaries** are a plane block (`minecade:plane`, written with its 48 geometries and 16
   textures by `tools/assets/plane-block.ts`: rerun it after changing the colors in
   `scripts/sheets.ts`). Its states are the axis it lies across, the pixel it sits on along it (0 to
-  15) and its color (Minecraft's 16 dye colors). `scripts/sheets.ts` turns boxes and heights into
-  sheets (a box's sides in the blocks just outside it, so the sides never share a block) and works
-  out who sees what; `scripts/planes.ts` paints them a chunk column at a time with fills into air,
-  erases the ones nobody sees, remembers every chunk it painted (`minecade:planeChunks`), and sweeps
-  them before every save like the markers. Block geometry mirrors x, so a plane `n` pixels from a
-  block's west side sits at `7 - n` in it.
+  15), its color (Minecraft's 16 dye colors), and four edge states, one per side of its square
+  (`minecade:u_low` and on: the two axes it lies along, x before y before z). A plane's square is a
+  3x3 grid of pieces, a one-pixel rim around the middle, and `bone_visibility` shows each rim
+  piece as the edge line or as the fill by those states (the block pack's hedges do the same).
+  `scripts/sheets.ts` turns boxes and heights into sheets (a box's sides in the blocks just outside
+  it, so the sides never share a block), cuts each into up to nine parts by which of its sides a
+  block is on (`borderTiles`), and works out who sees what; `scripts/planes.ts` paints them a chunk
+  column at a time with fills into air, erases the ones nobody sees, remembers every chunk it
+  painted (`minecade:planeChunks`), and sweeps them before every save like the markers. A fill into
+  air skips a 16-block slice of a chunk that has no blocks at all (seen in saved worlds: walls in
+  the void around a map and sheets in open sky were never painted), so each piece sets its first
+  block by hand in every slice it crosses first. Block geometry mirrors x, so a plane `n` pixels
+  from a block's west side sits at `7 - n` in it.
 - **Select's outlines** are particles (`editor/resource_pack/particles/outline.json`) sent to the
   holder only: Select works in a converted world that gets exported, so it puts no blocks in it.
   `viewDots` in `scripts/boxes.ts` works out where each dot goes and how big it is for that player

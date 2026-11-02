@@ -59,8 +59,12 @@ export interface EditInfo {
  * importing one from another game.
  */
 export interface PictureInfo {
-  /** Newest first. `label` says where it was used: "Sumo: Sewer", or "not used yet". */
-  shots: { id: string; label: string }[];
+  /**
+   * Newest first, with where each was used last: `map`, the map whose thumbnail it was ("Sewer"),
+   * and `game`, the game whose picture it was ("Sumo"); neither when it hasn't been used yet. A
+   * map's thumbnail menu offers the maps' ones, a game's the games'.
+   */
+  shots: { id: string; map?: string; game?: string }[];
   /** The shot this map's preview and its game's picture are, or "own" for a picture that isn't one of them; none without a picture. */
   current: { map?: string; game?: string };
   maps: { target: string; targetName: string; map: string; name: string }[];
@@ -115,8 +119,9 @@ export interface HomeState {
 export interface Catalog {
   /**
    * The lobby and each game, with their maps: whether a map's checklist is done (it can be
-   * previewed), the client world it came from (its id in `worlds`, when that world is there), and
-   * whether it has a picture. A game says how many players it takes.
+   * previewed), the client world it came from (its id in `worlds`, when that world is there),
+   * whether it has a picture, and whether its folder has changes not on GitHub yet. A game says how
+   * many players it takes.
    */
   targets: { id: string; name: string; maxPlayers?: number; maps: CatalogMap[] }[];
   /** The client's worlds: `id` is the world's folder name, and `maps` how many maps came from it. */
@@ -132,6 +137,8 @@ export interface CatalogMap {
   ready: boolean;
   world?: string;
   picture?: boolean;
+  /** Its folder has changes that weren't published (pushed) yet. */
+  unpublished?: boolean;
 }
 
 /** Something opened or previewed lately: the lobby's Recent shows it with an icon for its kind. */
@@ -179,8 +186,11 @@ export type EditorEvent =
   | { t: "publish"; by: string }
   /** Play the map as the real game on Select's port, then come back (the map menu's Preview), with this many fake players. */
   | { t: "preview"; by: string; fakes?: number }
-  /** Blocks changed, so the world has changes to save. Sent at most every few seconds. */
-  | { t: "changed"; by: string }
+  /**
+   * Blocks changed, so the world has changes to save. Sent at most every few seconds; with
+   * `leftovers`, at start: markers, mannequins or boundary planes an earlier save missed were taken out.
+   */
+  | { t: "changed"; by: string; leftovers?: boolean }
   /** A map editor's Boundaries switches changed (kept for their next map). */
   | { t: "view"; by: string; shown: string[] }
   /** Save the newest screenshot on the host's PC as the map's preview ("map") or the game's picture ("game"), keeping it with the others used before. */
@@ -225,8 +235,12 @@ export type HostMessage =
   | { t: "say"; to?: string; text: string }
   /** A line above the hotbar for everyone here, with a chime: news such as a map that's ready. */
   | { t: "notice"; text: string }
-  /** Remove every marker (the world is about to be saved), then answer with "clean". */
-  | { t: "cleanup"; id: number }
+  /**
+   * Remove every marker (the world is about to be saved), then answer with "clean". With `token`
+   * (a save while the server runs), put it in a world property first: the host copies the world
+   * once the save's write has it (tools/editor/world-log.ts).
+   */
+  | { t: "cleanup"; id: number; token?: string }
   /** A save while running is done: show the markers again. */
   | { t: "resume" }
   /** Select mode: a map in the list is new or changed (one at a time, so a long list never outgrows a message). */
