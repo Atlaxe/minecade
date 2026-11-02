@@ -147,8 +147,8 @@ the Boundaries view.
 **Bridges** needs team spawns, bounds, kill Y, a spectator or queue spawn, and per team:
 - a `hole.<team>` point at the **middle of the hole's floor**, in the pit the map has for it. The
   game stands the hole there: 3 blocks square and 3 tall, black inside, its rim a ring in the
-  team's color. Nobody can build in the hole or anywhere above it. The editor draws the point as a
-  post.
+  team's color, drawn fully lit so it looks the same in the dark as in daylight. Nobody can build in
+  the hole or anywhere above it. The editor draws the point as a post.
 - a `spawnGuard.<team>` region around the team's spawn (and its hole), where nobody builds.
 
 **The lobby** declares its own in `lobby/lobby.config.ts`: one spawn and the `terminal` point

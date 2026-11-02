@@ -20,7 +20,8 @@
       ],
       "textures": [
         "Array.teams[query.property('minecade:team')]"
-      ]
+      ],
+      "ignore_lighting": true
     }
   }
 }
