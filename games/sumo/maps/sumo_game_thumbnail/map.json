@@ -12,30 +12,6 @@
     "Camera 1": { "at": [2.09, -49.68, 7.11, 158.8, 16.6], "kind": "game" },
     "Camera 2": { "at": [12.12, -45.24, 12.04, 134.8, 26.6], "kind": "map" }
   },
-  "mannequins": {
-    "Mannequin 1": {
-      "at": [
-        -2.03,
-        -52.47,
-        0.08,
-        -88
-      ],
-      "skin": "color",
-      "color": "blue",
-      "pose": "walking"
-    },
-    "Mannequin 2": {
-      "at": [
-        1.21,
-        -53,
-        -0.03,
-        89
-      ],
-      "skin": "color",
-      "color": "red",
-      "pose": "walking"
-    }
-  },
   "source": {
     "world": "Datapacking (imported)",
     "box": { "min": [872, -54, -28], "max": [887, -54, -13] },
