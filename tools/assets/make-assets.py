@@ -12,7 +12,7 @@ Outputs:
     games/bridges/resource_pack/textures/minecade/bridges/hole_*.png        Bridges' holes, a ring per team
     games/bridges/markers/hole.png                                           the hole's marker in the map editor
     editor/preview/resource_pack/font/glyph_E4.png                           hearts over a preview's fake players
-    editor/preview/resource_pack/textures/minecade/fake/*.png                a fake player's plain skins (white, black)
+    editor/preview/resource_pack/textures/minecade/fake/white.png            a fake player's plain skin (tinted to each color)
     packages/minigame-core/resource_pack/textures/ui/item_lock_*.png         blank: locked items show no lock corner
     lobby/resource_pack/textures/minecade/ui/...                             holographic menu art
     lobby/resource_pack/textures/minecade/holo/...                           hologram frames, beam
@@ -23,6 +23,7 @@ Outputs:
     editor/resource_pack/textures/items/select_tool.png                       Select mode's tool (a crop mark)
     editor/resource_pack/textures/items/snapshot.png                          the Snapshot tool (a photo)
     editor/resource_pack/textures/items/marker_tool.png                       the Game marker tool (a flag)
+    editor/resource_pack/textures/items/mannequin_tool.png                    the Mannequin tool (a figure on a stand)
     editor/resource_pack/textures/entity/editor_marker_facing.png            the red facing line on markers
     editor/resource_pack/textures/entity/editor_marker*.png                  markers, a color per kind
     games/<id>/icon.png                                                      16:9 game pictures (Probe, Sumo, One in the Quiver)
@@ -558,8 +559,8 @@ SKIN_BASE = [(0, 0, 32, 16), (0, 16, 56, 32), (16, 48, 48, 64)]
 
 def plain_skin(color: tuple[int, int, int]) -> Image.Image:
     """
-    A fake player's plain skin (minigame-core fakes.ts FAKE_SKINS): the figure in one color. The
-    team color skin is the white one, tinted by the render controller.
+    A fake player's plain skin (minigame-core fake-looks.ts FAKE_SKINS): the figure in one color.
+    Every plain color (FAKE_COLORS) is the white one, tinted by the render controller.
     """
     image = Image.new("RGBA", (64, 64), (0, 0, 0, 0))
     draw = ImageDraw.Draw(image)
@@ -752,6 +753,22 @@ def marker_tool_icon() -> Image.Image:
     return image
 
 
+def mannequin_tool_icon() -> Image.Image:
+    """The Mannequin tool's item icon, 16x16 like the other editor items: a tan figure on a stand."""
+    image = Image.new("RGBA", (16, 16), (0, 0, 0, 0))
+    draw = ImageDraw.Draw(image)
+    body, shade, stand = (226, 190, 140, 255), (180, 145, 100, 255), (120, 120, 128, 255)
+    draw.rectangle((6, 0, 9, 3), fill=body)  # head
+    draw.rectangle((5, 4, 10, 8), fill=body)  # chest
+    draw.rectangle((3, 4, 4, 8), fill=shade)  # arms
+    draw.rectangle((11, 4, 12, 8), fill=shade)
+    draw.rectangle((5, 9, 7, 12), fill=shade)  # legs
+    draw.rectangle((8, 9, 10, 12), fill=body)
+    draw.rectangle((7, 13, 8, 13), fill=stand)  # pole and base
+    draw.rectangle((4, 14, 11, 15), fill=stand)
+    return image
+
+
 def snapshot_frame() -> Image.Image:
     """
     The Snapshot view's 16:9 frame, 24x24 at 1x, nine-slice (8 pixel slices): a white L in each
@@ -888,7 +905,6 @@ def main() -> None:
     save(hole_marker_texture(), ROOT / "games" / "bridges" / "markers" / "hole.png")
     save(hearts(), ROOT / "editor" / "preview" / "resource_pack" / "font" / "glyph_E4.png")
     save(plain_skin((255, 255, 255)), ROOT / "editor" / "preview" / "resource_pack" / "textures" / "minecade" / "fake" / "white.png")
-    save(plain_skin((28, 28, 28)), ROOT / "editor" / "preview" / "resource_pack" / "textures" / "minecade" / "fake" / "black.png")
 
     logo = blue_logo()
     # The core pack: the lobby's menus and every server's loading screen and pause menu use it.
@@ -966,6 +982,7 @@ def main() -> None:
     save(editor_icon("search"), EDITOR_TEXTURES / "minecade" / "editor" / "icon_search.png")
     save(snapshot_icon(), EDITOR_TEXTURES / "items" / "snapshot.png")
     save(marker_tool_icon(), EDITOR_TEXTURES / "items" / "marker_tool.png")
+    save(mannequin_tool_icon(), EDITOR_TEXTURES / "items" / "mannequin_tool.png")
     # A dropdown's arrow (the Game marker tool's Marker list, a Team list), closed and open.
     for kind in ("chevron_down", "chevron_up"):
         save(editor_icon(kind), EDITOR_TEXTURES / "minecade" / "editor" / f"icon_{kind}.png")

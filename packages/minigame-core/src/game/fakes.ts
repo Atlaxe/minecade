@@ -8,36 +8,42 @@
 // While it's in play, its name tag shows its health as hearts, like the HUD's (a font page of heart
 // glyphs in the preview's resource pack), under its name when names show.
 //
-// Its look (the side panel's Display) stays with it from body to body: a skin (Steve, plain white or
-// black, or its team's color), something from the game's kits in its hand, and a pose for pictures.
-// The skin and pose are client-synced properties the preview's resource pack draws from.
+// Its look stays with it from body to body: Steve, and a pose that sneaking and right clicking it
+// cycles through (fake-looks.ts; the map editor's mannequins are the same entity, with every look
+// to pick from). The skin and pose are client-synced properties the preview's resource pack draws
+// from.
 //
 // Entities can only be placed in chunks that are loaded and ticking, which only chunks near a player
 // are (the servers' tick distance is 4 chunks). So a fake's body gets a one-chunk ticking area
 // where it stands, made before it's placed there and dropped once it moves on or is removed.
 import { EntityComponentTypes, world, type Dimension, type Entity, type Vector3 } from "@minecraft/server";
+import { DEFAULT_FAKE_LOOK, lookProperties, type FakeLook } from "../fake-looks.ts";
 import { kitItemId } from "../kit-defs.ts";
 import { describeError, log } from "../log.ts";
-import { codeTint } from "../text.ts";
 
 export const FAKE_PLAYER = "minecade:fake_player";
 const WALK_EVENT = "minecade:walk";
 const FLOAT_EVENT = "minecade:float";
-/** Its look, for the preview's resource pack (editor/preview/): FAKE_SKINS' and FAKE_POSES' index, and the team's color as 0xRRGGBB + 1, 0 for none. */
+/** Its look, for the pack (editor/preview/): FAKE_SKINS' and FAKE_POSES' index, and a plain color's tint as 0xRRGGBB + 1, 0 for none. */
 const SKIN_PROPERTY = "minecade:skin";
 const POSE_PROPERTY = "minecade:pose";
 const TINT_PROPERTY = "minecade:tint";
 
-/** The skins a fake player can have, in the render controller's order (the team color one is the white one, tinted). */
-export const FAKE_SKINS = ["Steve", "White", "Black", "Team color"] as const;
-/** Its poses, in the client entity's order (editor/preview/resource_pack/animations/fake_player.animation.json). */
-export const FAKE_POSES = ["Standing", "Walking", "Running", "Swinging", "Aiming a bow", "Placing a block", "Falling", "Cheering"] as const;
-
-/** How a fake player looks: FAKE_SKINS' and FAKE_POSES' index, and what it holds (a kit item's id as the config has it, its team's color filled in when held). */
-export interface FakeLook {
-  skin: number;
-  pose: number;
-  hold?: string;
+/**
+ * Puts a look on a fake player's body: the skin, the plain color's tint and the pose for the pack to
+ * draw, and the item in its hand when `holding` (it holds one, or that changed), "{color}" in
+ * `itemColor`'s dye (a § color).
+ */
+export function dressFake(body: Entity, look: FakeLook, holding: boolean, itemColor?: string): void {
+  const { skin, tint, pose } = lookProperties(look);
+  try {
+    if (body.getProperty(SKIN_PROPERTY) !== skin) body.setProperty(SKIN_PROPERTY, skin);
+    if (body.getProperty(POSE_PROPERTY) !== pose) body.setProperty(POSE_PROPERTY, pose);
+    if (body.getProperty(TINT_PROPERTY) !== tint) body.setProperty(TINT_PROPERTY, tint);
+    if (holding) body.runCommand(`replaceitem entity @s slot.weapon.mainhand 0 ${look.hold === undefined ? "air" : kitItemId({ item: look.hold }, itemColor)}`);
+  } catch (error) {
+    log.warn(`could not dress a fake player: ${describeError(error)}`);
+  }
 }
 
 /** The hearts (editor/preview/resource_pack/font/glyph_E4.png, U+E400 on): full, half and empty. */
@@ -118,7 +124,7 @@ export class FakePlayers {
   /**
    * Puts it at `location` with full health, with a new body if it has none, once its chunk is
    * ticking, walking or `floating`, its health as hearts under `nameTag` when `hearts` (in play), in
-   * its look, with `teamColor` (its team's § code) for the team color skin and items.
+   * its look, with `teamColor` (its team's § code) for its items.
    * Resolves with the body, or undefined when it couldn't be placed or was hidden meanwhile.
    */
   async place(name: string, location: Vector3, nameTag: string, how: { floating?: boolean; hearts?: boolean; teamColor?: string } = {}): Promise<Entity | undefined> {
@@ -188,7 +194,7 @@ export class FakePlayers {
   }
 
   lookOf(name: string): FakeLook {
-    return { ...(this.looks.get(name.toLowerCase()) ?? { skin: 0, pose: 0 }) };
+    return { ...(this.looks.get(name.toLowerCase()) ?? DEFAULT_FAKE_LOOK) };
   }
 
   /** Changes its look, now and for its next bodies. */
@@ -258,22 +264,9 @@ export class FakePlayers {
     this.looks.clear();
   }
 
-  /**
-   * Puts its look on a body: the skin, the pose and its team's color for the pack to draw, and the
-   * item in its hand when `holding` (it holds one, or that changed).
-   */
+  /** Puts its look on a body, its items in its team's color. */
   private dress(key: string, body: Entity, holding: boolean): void {
-    const look = this.looks.get(key) ?? { skin: 0, pose: 0 };
-    const color = this.tags.get(key)?.color;
-    const tint = color === undefined ? 0 : (codeTint(color) ?? -1) + 1;
-    try {
-      if (body.getProperty(SKIN_PROPERTY) !== look.skin) body.setProperty(SKIN_PROPERTY, look.skin);
-      if (body.getProperty(POSE_PROPERTY) !== look.pose) body.setProperty(POSE_PROPERTY, look.pose);
-      if (body.getProperty(TINT_PROPERTY) !== tint) body.setProperty(TINT_PROPERTY, tint);
-      if (holding) body.runCommand(`replaceitem entity @s slot.weapon.mainhand 0 ${look.hold === undefined ? "air" : kitItemId({ item: look.hold }, color)}`);
-    } catch (error) {
-      log.warn(`could not dress a fake player: ${describeError(error)}`);
-    }
+    dressFake(body, this.looks.get(key) ?? DEFAULT_FAKE_LOOK, holding, this.tags.get(key)?.color);
   }
 
   /** Its name tag, with its hearts under it while they show. */

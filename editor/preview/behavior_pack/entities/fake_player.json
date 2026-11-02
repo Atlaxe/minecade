@@ -6,7 +6,7 @@
       "is_spawnable": false,
       "is_summonable": true,
       "properties": {
-        "minecade:skin": {"type": "int", "range": [0, 3], "default": 0, "client_sync": true},
+        "minecade:skin": {"type": "int", "range": [0, 15], "default": 1, "client_sync": true},
         "minecade:pose": {"type": "int", "range": [0, 15], "default": 0, "client_sync": true},
         "minecade:tint": {"type": "int", "range": [0, 16777216], "default": 0, "client_sync": true}
       }
@@ -39,12 +39,20 @@
       "minecade:floating": {
         "minecraft:physics": { "has_gravity": false, "has_collision": false },
         "minecraft:pushable": { "is_pushable": false, "is_pushable_by_piston": false }
+      },
+      "minecade:mannequin": {
+        "minecraft:physics": { "has_gravity": false, "has_collision": false },
+        "minecraft:pushable": { "is_pushable": false, "is_pushable_by_piston": false },
+        "minecraft:damage_sensor": { "triggers": [{ "cause": "all", "deals_damage": "no" }] },
+        "minecraft:knockback_resistance": { "value": 1 },
+        "minecraft:fire_immune": true
       }
     },
     "events": {
       "minecraft:entity_spawned": { "add": { "component_groups": ["minecade:walking"] } },
       "minecade:walk": { "remove": { "component_groups": ["minecade:floating"] }, "add": { "component_groups": ["minecade:walking"] } },
       "minecade:float": { "remove": { "component_groups": ["minecade:walking"] }, "add": { "component_groups": ["minecade:floating"] } },
+      "minecade:mannequin": { "remove": { "component_groups": ["minecade:walking", "minecade:floating"] }, "add": { "component_groups": ["minecade:mannequin"] } },
       "minecade:poked": {}
     }
   }

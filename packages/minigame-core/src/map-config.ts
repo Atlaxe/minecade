@@ -142,6 +142,19 @@ export interface BuildLimit {
 export type BuildLimitSide = keyof BuildLimit;
 export const BUILD_LIMIT_SIDES: readonly BuildLimitSide[] = ["above", "below"];
 
+/**
+ * A mannequin placed in the map editor: a player-shaped stand-in for game pictures, standing (or
+ * floating) at `at`, turned to `yaw`, in a look of fake-looks.ts's ids (`color` for the plain color
+ * skin; `hold` an item id, "{color}" in its color's dye).
+ */
+export interface MapMannequin {
+  at: [x: number, y: number, z: number, yaw: number];
+  skin: string;
+  color?: string;
+  pose: string;
+  hold?: string;
+}
+
 /** A preview camera placed in the map editor: where the screenshot is taken from. */
 export interface MapCamera {
   at: [x: number, y: number, z: number, yaw: number, pitch: number];
@@ -186,6 +199,8 @@ export interface MapConfig {
   /** The map editor only (stripped from servers' copies). */
   source?: MapSource;
   cameras?: Record<string, MapCamera>;
+  /** The map editor only: stand-ins for game pictures, by name. */
+  mannequins?: Record<string, MapMannequin>;
   /** Game-specific values, such as Sumo's eliminationY. */
   [key: string]: unknown;
 }
@@ -213,7 +228,7 @@ export function queueSettings(config: Pick<MapConfig, "queue">): QueueSettings {
 }
 
 /** Keys only the build and the map editor use; servers get the map without them. */
-export const EDITOR_ONLY_KEYS = ["build", "source", "cameras", "draft"] as const;
+export const EDITOR_ONLY_KEYS = ["build", "source", "cameras", "mannequins", "draft"] as const;
 
 /** The map as servers get it: without the editor-only keys. */
 export function runtimeMapConfig(config: MapConfig): MapConfig {

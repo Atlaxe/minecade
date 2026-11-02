@@ -42,7 +42,7 @@ The map editor sets spawns and points in game and writes `map.json` for you; see
 | `regions` | no | `{ "<name>": [{ "min": [x, y, z], "max": [x, y, z] }, ...] }`: named boxes, such as build plots or a floor that falls away. `"<name>.<team>"` is one team's. The name `kill` is reserved: anyone inside a `kill` box is out, the same as falling below `killY` (spectators fly over them). |
 | `kits` | no | Games only: kits of the map's own, for a game whose players pick kits. `{ "mode": "append", "list": [kits] }` adds them after the game's (a kit with the same `id` as one of the game's takes its place); `"mode": "replace"` uses only the map's. A `base` replaces the game's base kit either way. Each kit is written as in `game.config.ts`: `{ "id": "ice", "name": "Ice", "refill": "round", "items": [{ "item": "minecraft:snowball", "count": 16 }] }`. The map editor keeps it as written; there's no screen for it yet. |
 | `build.commands` | no | Console commands (no leading `/`) that build the world, run once by `npm run bake`. |
-| `source`, `cameras` | no | Written by the map editor: where the map was cut from, and its preview cameras (`{ "Camera 1": { "at": [x, y, z, yaw, pitch], "kind": "map" \| "game" } }`, the eye point and view the Camera tool saved). Servers never get them. |
+| `source`, `cameras`, `mannequins` | no | Written by the map editor: where the map was cut from, its preview cameras (`{ "Camera 1": { "at": [x, y, z, yaw, pitch], "kind": "map" \| "game" } }`, the eye point and view the Camera tool saved), and its mannequins, stand-ins for game pictures (`{ "Mannequin 1": { "at": [x, y, z, yaw], "skin": "color", "color": "red", "pose": "standing", "hold": "minecraft:bow" } }`, the Mannequin tool's; ids from minigame-core's `fake-looks.ts`). Servers never get them. |
 | anything else | no | Game-specific settings the game reads itself. |
 
 **Positions** are `[x, y, z]`, or `[x, y, z, yaw, pitch]` with a fixed facing in degrees (yaw -180
@@ -54,7 +54,7 @@ and points must be inside a `bounds` box, and regions inside the box around them
 inside a max of 12). The lobby's
 `terminal` point is always a block.
 
-Servers get `map.json` without `build`, `source`, `cameras` and `draft`. `npm run build` reports
+Servers get `map.json` without `build`, `source`, `cameras`, `mannequins` and `draft`. `npm run build` reports
 every problem in every map at once, and warns (without stopping) about two entries of a list in
 the same block.
 

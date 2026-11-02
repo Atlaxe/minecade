@@ -4,17 +4,20 @@
     "controller.render.minecade.fake_player": {
       "arrays": {
         "textures": {
-          "Array.skins": ["Texture.default", "Texture.white", "Texture.black", "Texture.white"]
+          "Array.skins": ["Texture.color", "Texture.steve", "Texture.alex", "Texture.ari", "Texture.efe", "Texture.kai", "Texture.makena", "Texture.noor", "Texture.sunny", "Texture.zuri"]
+        },
+        "geometries": {
+          "Array.models": ["Geometry.default", "Geometry.default", "Geometry.slim", "Geometry.default", "Geometry.slim", "Geometry.default", "Geometry.slim", "Geometry.slim", "Geometry.slim", "Geometry.default"]
         }
       },
-      "geometry": "Geometry.default",
+      "geometry": "Array.models[query.property('minecade:skin')]",
       "materials": [{ "*": "Material.default" }],
       "textures": ["Array.skins[query.property('minecade:skin')]"],
       "overlay_color": {
         "r": "math.mod(math.floor((query.property('minecade:tint') - 1) / 65536), 256) / 255",
         "g": "math.mod(math.floor((query.property('minecade:tint') - 1) / 256), 256) / 255",
         "b": "math.mod(query.property('minecade:tint') - 1, 256) / 255",
-        "a": "query.property('minecade:skin') == 3 && query.property('minecade:tint') > 0 ? 1.0 : 0.0"
+        "a": "query.property('minecade:skin') == 0 && query.property('minecade:tint') > 0 ? 1.0 : 0.0"
       }
     }
   }

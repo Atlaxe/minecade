@@ -35,6 +35,7 @@ export {
   isLeather,
   itemLabel,
   kitItemId,
+  kitItems,
   kitLines,
   kitPicturePath,
   matchKits,
@@ -72,6 +73,7 @@ export {
   type BuildLimitSide,
   type Facing,
   type MapCamera,
+  type MapMannequin,
   type MapConfig,
   type MapPosition,
   type MapSource,
@@ -131,6 +133,19 @@ export {
   type SkinRender,
 } from "./registry.ts";
 export { killDeathRatio, winRate } from "./stats-math.ts";
+export {
+  DEFAULT_FAKE_LOOK,
+  FAKE_COLORS,
+  FAKE_POSES,
+  FAKE_SKINS,
+  NEW_MANNEQUIN_LOOK,
+  lookFromIds,
+  lookIds,
+  lookProperties,
+  lookText,
+  nextPose,
+  type FakeLook,
+} from "./fake-looks.ts";
 export { DEFAULT_TEAMS, TEAM_BUTTONS, activeTeams, assignTeams, possibleTeams, teamButtonPath, type TeamButtonState } from "./game/teams.ts";
 export {
   COLOR,

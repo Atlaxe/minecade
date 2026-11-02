@@ -110,26 +110,7 @@ export class Markers<Spec extends MarkerShape = MarkerShape> {
    */
   async clear(): Promise<number> {
     this.paused = true;
-    const manager = world.tickingAreaManager;
-    const chunks = [...this.chunks];
-    const batch = Math.max(1, Math.min(SWEEP_BATCH, manager.maxChunkCount - manager.chunkCount));
-    for (let start = 0; start < chunks.length; start += batch) {
-      const created: string[] = [];
-      try {
-        const loading = chunks.slice(start, start + batch).map((chunk, i) => {
-          const [x, z] = chunk.split(",").map(Number);
-          const id = `minecade:sweep${i}`;
-          const loaded = manager.createTickingArea(id, { dimension: this.dimension, from: { x: x * 16, y: 0, z: z * 16 }, to: { x: x * 16 + 15, y: 0, z: z * 16 + 15 } });
-          created.push(id);
-          return loaded;
-        });
-        await Promise.all(loading);
-        this.removeAll();
-      } finally {
-        for (const id of created) if (manager.hasTickingArea(id)) manager.removeTickingArea(id);
-      }
-    }
-    this.removeAll();
+    await sweepChunks(this.dimension, [...this.chunks], () => this.removeAll());
     const left = this.dimension.getEntities({ type: MARKER }).length;
     if (left === 0) {
       this.chunks.clear();
@@ -160,7 +141,7 @@ export class Markers<Spec extends MarkerShape = MarkerShape> {
   }
 
   private remember(at: Vector3): void {
-    const chunk = `${Math.floor(at.x / 16)},${Math.floor(at.z / 16)}`;
+    const chunk = chunkOf(at);
     if (this.chunks.has(chunk)) return;
     this.chunks.add(chunk);
     world.setDynamicProperty(CHUNKS_PROPERTY, JSON.stringify([...this.chunks]));
@@ -189,6 +170,37 @@ function showFacing(entity: Entity, spec: MarkerShape): void {
   }
   const tint = spec.tint === undefined ? 0 : spec.tint + 1;
   if (entity.getProperty(TINT_PROPERTY) !== tint) entity.setProperty(TINT_PROPERTY, tint);
+}
+
+/**
+ * Loads `chunks` ("x,z") a batch at a time, calling `remove` once each batch is loaded and once
+ * more at the end: to take entities out of every chunk they were ever in before the world is saved.
+ */
+export async function sweepChunks(dimension: Dimension, chunks: string[], remove: () => void): Promise<void> {
+  const manager = world.tickingAreaManager;
+  const batch = Math.max(1, Math.min(SWEEP_BATCH, manager.maxChunkCount - manager.chunkCount));
+  for (let start = 0; start < chunks.length; start += batch) {
+    const created: string[] = [];
+    try {
+      const loading = chunks.slice(start, start + batch).map((chunk, i) => {
+        const [x, z] = chunk.split(",").map(Number);
+        const id = `minecade:sweep${i}`;
+        const loaded = manager.createTickingArea(id, { dimension, from: { x: x * 16, y: 0, z: z * 16 }, to: { x: x * 16 + 15, y: 0, z: z * 16 + 15 } });
+        created.push(id);
+        return loaded;
+      });
+      await Promise.all(loading);
+      remove();
+    } finally {
+      for (const id of created) if (manager.hasTickingArea(id)) manager.removeTickingArea(id);
+    }
+  }
+  remove();
+}
+
+/** The chunk a spot is in, as sweepChunks takes it. */
+export function chunkOf(at: Vector3): string {
+  return `${Math.floor(at.x / 16)},${Math.floor(at.z / 16)}`;
 }
 
 function distance(a: Vector3, b: Vector3): number {

@@ -12,6 +12,7 @@ import { runtimeMapConfig, type GameConfig, type MapConfig } from "@minecade/min
 import { addGameKitPictures } from "../build/kit-pictures.ts";
 import { enableBetaApis, patchLevelDat } from "../build/leveldat.ts";
 import { addSharedPacks, buildBehaviorPack, buildResourcePack, readPinnedManifest, sharedPacks } from "../build/packs.ts";
+import { addFakeSkins } from "./fake-player.ts";
 
 const root = fileURLToPath(new URL("../../", import.meta.url));
 /** What the preview's resource pack takes from the editor's: the mode box, the side panel forms and their art. */
@@ -52,7 +53,7 @@ export async function buildPreviewTemplate(map: PreviewMap, out: string): Promis
   await writeFile(join(mapOut, "map.json"), JSON.stringify(runtimeMapConfig(map.config), null, 2));
 }
 
-/** editor/preview/'s packs: the fake player's entity, and its look with the editor's UI added. */
+/** editor/preview/'s packs: the fake player's entity, and its look (Minecraft's skins copied in) with the editor's UI added. */
 async function buildPreviewPacks(out: string): Promise<void> {
   const bp = join(root, "editor", "preview", "behavior_pack");
   const bpOut = join(out, "behavior_packs", "preview_bp");
@@ -62,5 +63,6 @@ async function buildPreviewPacks(out: string): Promise<void> {
   const editorRp = join(root, "editor", "resource_pack");
   await buildResourcePack(rp, join(out, "resource_packs", "preview_rp"), await readPinnedManifest(rp), async (pack) => {
     for (const path of EDITOR_UI) await cp(join(editorRp, path), join(pack, path), { recursive: true });
+    await addFakeSkins(pack);
   });
 }

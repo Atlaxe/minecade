@@ -2,7 +2,7 @@
 // once) and its host tool (which applies the same change and writes the file). Each edit returns a
 // new config and never changes the old one; undo keeps the old configs. New keys go where a person
 // would write them (spawns near the top, build last), and lists or names left empty are removed.
-import { QUEUE_COUNTDOWN, boundsBoxes, queueSettings, type Box, type BuildLimitSide, type MapCamera, type Facing, type MapConfig, type MapPosition, type QueueSettings, type Vec3 } from "./map-config.ts";
+import { QUEUE_COUNTDOWN, boundsBoxes, queueSettings, type Box, type BuildLimitSide, type MapCamera, type MapMannequin, type Facing, type MapConfig, type MapPosition, type QueueSettings, type Vec3 } from "./map-config.ts";
 
 /** A list of positions in map.json. The spectator and queue spawns are lists of at most one. */
 export type MapList =
@@ -41,6 +41,8 @@ export type MapEdit =
   | { op: "queue"; mode?: QueueSettings["mode"]; countdown?: number }
   /** Places or changes a preview camera (the map editor's Camera tool), or with none removes it. */
   | { op: "camera"; name: string; camera?: MapCamera }
+  /** Places or changes a mannequin (the map editor's Mannequin tool), or with none removes it. */
+  | { op: "mannequin"; name: string; mannequin?: MapMannequin }
   /** Sets (or, with no value, removes) a game-specific key, such as Sumo's eliminationY. */
   | { op: "extra"; key: string; value?: string | number | boolean }
   /** Removes "build", so `npm run bake` no longer rebuilds the world (world edits are kept). */
@@ -56,7 +58,7 @@ export function isMapKey(key: string): boolean {
 }
 
 /** Where new keys go, the order map.json files are written in. Unknown keys stay where they are. */
-const KEY_ORDER: readonly string[] = ["name", "draft", "spawns", "spectatorSpawn", "queueSpawn", "queue", "bounds", "killY", "buildLimit", "teamSpawns", "points", "regions", "time", "stars", "cameras", "source", "build"];
+const KEY_ORDER: readonly string[] = ["name", "draft", "spawns", "spectatorSpawn", "queueSpawn", "queue", "bounds", "killY", "buildLimit", "teamSpawns", "points", "regions", "time", "stars", "cameras", "mannequins", "source", "build"];
 
 export function applyEdit(config: MapConfig, edit: MapEdit): MapConfig {
   switch (edit.op) {
@@ -137,6 +139,15 @@ export function applyEdit(config: MapConfig, edit: MapEdit): MapConfig {
       else delete cameras[name];
       return withKey(config, "cameras", Object.keys(cameras).length > 0 ? cameras : undefined);
     }
+    case "mannequin": {
+      const name = edit.name.trim();
+      if (!name) throw new MapEditError("a mannequin needs a name");
+      const mannequins: Record<string, MapMannequin> = { ...config.mannequins };
+      if (edit.mannequin) mannequins[name] = edit.mannequin;
+      else if (!(name in mannequins)) throw new MapEditError(`there is no mannequin "${name}"`);
+      else delete mannequins[name];
+      return withKey(config, "mannequins", Object.keys(mannequins).length > 0 ? mannequins : undefined);
+    }
     case "extra":
       if (isMapKey(edit.key) || !/^[A-Za-z][A-Za-z0-9_]*$/.test(edit.key)) throw new MapEditError(`"${edit.key}" is not a game setting`);
       return withKey(config, edit.key, edit.value);
@@ -196,6 +207,8 @@ export function describeEdit(edit: MapEdit): string {
       return ["queue:", edit.mode && (edit.mode === "lock" ? "lock in" : "free"), edit.countdown !== undefined && `${edit.countdown} s countdown`].filter(Boolean).join(" ");
     case "camera":
       return `${edit.camera ? "set" : "remove"} camera ${edit.name}`;
+    case "mannequin":
+      return `${edit.mannequin ? "set" : "remove"} mannequin ${edit.name}`;
     case "extra":
       return `set ${edit.key}`;
     case "dropBuild":

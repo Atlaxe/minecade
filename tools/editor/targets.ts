@@ -1,10 +1,11 @@
 // What the editor can open: the lobby or a game, with the rules its maps are checked against (the
-// same ones the build uses), and the numbers of its own marker models (marker-models.ts).
+// same ones the build uses), the numbers of its own marker models (marker-models.ts), and the items
+// its mannequins can hold.
 import { existsSync } from "node:fs";
 import { readdir } from "node:fs/promises";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
-import { possibleTeams, type EditorRules, type GameConfig, type LobbyConfig } from "@minecade/minigame-core/config";
+import { kitItems, possibleTeams, type EditorRules, type GameConfig, type LobbyConfig } from "@minecade/minigame-core/config";
 import { listMarkerModels, markerStyles } from "./marker-models.ts";
 
 export interface EditorTarget {
@@ -29,7 +30,8 @@ export async function loadTarget(root: string, id: string): Promise<EditorTarget
   if (!/^[a-z0-9_-]+$/.test(id) || !existsSync(configPath)) throw new Error(`there is no game "${id}" (games/${id}/game.config.ts): use lobby or a game id`);
   const config = (await import(pathToFileURL(configPath).href)).default as GameConfig;
   const teams = config.teams ? possibleTeams(config.teams).map(({ id: team, name, color }) => ({ id: team, name, color })) : undefined;
-  return { id, name: config.name, dir, rules: { kind: "game", maxPlayers: config.maxPlayers, requires: config.map, ...(teams ? { teams } : {}), ...markerModels } };
+  const items = kitItems(config.kits);
+  return { id, name: config.name, dir, rules: { kind: "game", maxPlayers: config.maxPlayers, requires: config.map, ...(teams ? { teams } : {}), ...markerModels, ...(items.length > 0 ? { items } : {}) } };
 }
 
 /** The lobby and every game, with the map ids each has, for Select mode's save-as-map form. */

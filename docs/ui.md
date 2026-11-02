@@ -526,9 +526,8 @@ The rules every editor menu follows (the user's, from 2026-10-31):
 - **Every sub-menu** (the gear, the checklist, Boundaries, a tool screen opened from the map menu, a
   camera's or a box's menu, Players) has the back arrow.
 - **Previews** get the side panel too (`editor/preview/` adds the editor's form UI to a preview's
-  resource pack), for a fake player's panel with Edit's lists, nudge rows, Step and switches
-  (`SIDE_TITLE`, the buttons' marks and the nudge icons in
-  `packages/minigame-core/src/game/preview.ts` match the editor's; a test checks).
+  resource pack), for a fake player's panel and Preview over (`SIDE_TITLE` and the green and red
+  buttons' marks in `packages/minigame-core/src/game/preview.ts` match the editor's; a test checks).
 - The step that finishes something is green; deleting or removing is red.
 
 ## How the hologram looks the way it does

@@ -1,8 +1,8 @@
 // What a game gets only while previewed from the map editor (the "preview" server variable):
 // - /fake [count] (minecade:fake): adds fake players to the match (fakes.ts), who wait, spawn and
 //   go down like players, their hearts over them in play. Right click one for its side panel
-//   (fake-panel.ts): it kills you, or wins the best-of round being played, and its Display (skin,
-//   what it holds, pose) and Position (nudges, Gravity).
+//   (fake-panel.ts): it kills you, or wins the best-of round being played; sneak and right click it
+//   for its next pose (and after the last, the first again).
 // - /switch [number] (minecade:switch): you and a fake player trade places in the match (Fake
 //   <number>, else the one you look at, else the nearest).
 // - /exit (minecade:exit): a map editor ends the preview for everyone, back to Edit; an invited
@@ -27,21 +27,6 @@ import type { Minigame } from "./minigame.ts";
 export const SIDE_TITLE = "§s§i§d§e";
 export const DANGER_BUTTON = "§d§g§r";
 export const GO_BUTTON = "§g§o§r";
-/** The rest of the map editor's button marks a fake player's panel uses (marks.ts MARK, and SEGMENT_COLUMNS). */
-export const FORM_MARKS = {
-  lead: "§l§d§r",
-  dropdown: "§d§d§r",
-  on: "§o§n§r",
-  picked: "§p§k§r",
-  heading: "§h§d§r",
-  minus: "§s§m§r",
-  plus: "§s§p§r",
-  stepTile: "§s§t§r",
-  toggle: "§t§g§r",
-} as const;
-export const SEGMENT_COLUMNS = ["§g§0§r", "§g§1§r", "§g§2§r"] as const;
-/** A nudge row's icons, from the map editor's pack (editor/behavior_pack/scripts/menu.ts ICONS.minus and ICONS.new). */
-export const NUDGE_ICONS = { minus: "textures/minecade/editor/icon_minus", plus: "textures/minecade/editor/icon_new" } as const;
 /** The most fake players one /fake adds. */
 const MAX_FAKES = 16;
 /** How long players get to pick what's next once the match is over. */

@@ -21,6 +21,7 @@ import {
 } from "@minecraft/server";
 import { ActionFormData, ModalFormData } from "@minecraft/server-ui";
 import {
+  FAKE_PLAYER,
   MapEditError,
   describeError,
   isMapKey,
@@ -54,12 +55,14 @@ import { Outlines } from "./outlines.ts";
 import { boundaryRows, boundsAround, heightPlanes, outlineBoxes, toggleBoundary } from "./regions.ts";
 import { CameraTool } from "./camera-tool.ts";
 import { cameraMarkers, type CameraMarker } from "./cameras.ts";
+import { MannequinBodies, MannequinTool } from "./mannequin-tool.ts";
+import { mannequinsOf } from "./mannequins.ts";
 import { RegionTool } from "./region-tool.ts";
 import { actionBar, heldTool, hintBar, notice, type ToolHost } from "./tool-host.ts";
 import { REACH, blockInView, nudgePreview } from "./box-picker.ts";
 import { facingOf, type Point } from "./boxes.ts";
 import { Cursors, type CursorAim } from "./cursor.ts";
-import { aimedPoint, compass, entryPosition, lookAt, mapMiddle, markerSpecs, snapFacing, SNAPS, spawnLists, toolLists, type AimedFace, type MarkerSpec, type PlaceTool, type SpawnList } from "./lists.ts";
+import { MARKER_STYLES, aimedPoint, compass, entryPosition, lookAt, mapMiddle, markerSpecs, snapFacing, SNAPS, spawnLists, toolLists, type AimedFace, type MarkerSpec, type PlaceTool, type SpawnList } from "./lists.ts";
 import { MapState } from "./map-state.ts";
 import { PlayersMenu } from "./players.ts";
 import { MARKER, Markers } from "./markers.ts";
@@ -127,9 +130,11 @@ export class Editor {
   private readonly state: MapState;
   private readonly link: HostLink;
   private readonly markers: Markers<MarkerSpec | CameraMarker>;
+  private readonly mannequins: MannequinBodies;
   private readonly regionTool: RegionTool;
   private readonly killYTool: KillYTool;
   private readonly cameraTool: CameraTool;
+  private readonly mannequinTool: MannequinTool;
   private readonly players: PlayersMenu;
   private readonly loading: LoadingScreens;
   private readonly cursors: Cursors;
@@ -159,6 +164,7 @@ export class Editor {
     for (const [name, groups] of Object.entries(info.view ?? {})) this.shown.set(name.toLowerCase(), new Set(groups));
     this.pictures = JSON.parse(JSON.stringify(info.pictures ?? { shots: [], current: {}, maps: [] })) as PictureInfo;
     this.markers = new Markers<MarkerSpec | CameraMarker>(this.dimension, scope);
+    this.mannequins = new MannequinBodies(this.dimension, scope);
     this.link = new HostLink(scope, {
       config: (config, seq) => {
         this.state.replace(config, seq);
@@ -180,13 +186,19 @@ export class Editor {
     };
     this.regionTool = new RegionTool(scope, host);
     this.killYTool = new KillYTool(host);
+    this.mannequinTool = new MannequinTool({ ...host, aimedAt: (player) => this.aimedAt(player) });
     this.loading = new LoadingScreens(scope, (player, form) => this.show(player, form));
     this.cursors = new Cursors(scope, this.dimension, (player) => this.cursorAim(player));
     this.cameraTool = new CameraTool({
       ...host,
       targetName: info.targetName,
       picture: (player, kind) => this.link.send({ t: "picture", by: player.name, kind }),
-      lookChanged: () => (this.cameraTool.anyoneLooking() ? this.markers.hide() : this.markers.unhide()),
+      lookChanged: () => {
+        if (this.cameraTool.anyoneLooking()) this.markers.hide();
+        else this.markers.unhide();
+        if (this.cameraTool.anyoneLookingAt("map")) this.mannequins.hide();
+        else this.mannequins.unhide();
+      },
       holdSnapshot: (player) => {
         const tool = EDITOR_TOOLS.find((candidate) => candidate.id === "snapshot");
         if (tool && heldTool(player) !== "snapshot") this.equipTool(player, tool);
@@ -244,10 +256,15 @@ export class Editor {
       else if (tool === "killY") this.killYTool.use(source);
       else if (tool === "camera") this.cameraTool.use(source);
       else if (tool === "snapshot") void this.cameraTool.snapshot(source);
+      else if (tool === "mannequin") this.mannequinTool.use(source);
     });
     scope.subscribe(world.afterEvents.entityHitEntity, ({ damagingEntity, hitEntity }) => {
-      if (hitEntity.typeId !== MARKER || damagingEntity.typeId !== "minecraft:player") return;
+      if (damagingEntity.typeId !== "minecraft:player") return;
       const player = damagingEntity as Player;
+      // A mannequin, hit with anything: its screen.
+      const mannequin = this.mannequins.nameOf(hitEntity);
+      if (mannequin) return void this.mannequinTool.screen(player, mannequin);
+      if (hitEntity.typeId !== MARKER) return;
       const spec = this.markers.specOf(hitEntity);
       if (spec) void ("camera" in spec ? this.cameraTool.snapshotOf(player, spec.camera) : this.markerMenu(player, spec));
     });
@@ -260,8 +277,11 @@ export class Editor {
       },
       { buttons: [InputButton.Sneak], state: ButtonState.Pressed },
     );
-    // A right click on a camera's marker: its kind and Delete (only cameras' markers can be right clicked).
+    // A right click on a camera's marker: its kind and Delete (only cameras' markers can be right
+    // clicked); on a mannequin, its screen.
     scope.subscribe(world.afterEvents.playerInteractWithEntity, ({ player, target }) => {
+      const mannequin = this.mannequins.nameOf(target);
+      if (mannequin) return void this.mannequinTool.screen(player, mannequin);
       if (target.typeId !== MARKER) return;
       const spec = this.markers.specOf(target);
       if (spec && "camera" in spec) void this.cameraTool.menu(player, spec.camera);
@@ -280,16 +300,19 @@ export class Editor {
     void this.prepareWorld();
   }
 
-  /** Sweeps up markers an earlier run left, lays a new map's pad, then tells the host the editor is ready. */
+  /** Sweeps up markers and mannequins an earlier run left, lays a new map's pad, then tells the host the editor is ready. */
   private async prepareWorld(): Promise<void> {
     try {
       const left = await this.markers.clear();
       if (left > 0) log.warn(`${left} markers from an earlier run could not be removed`);
+      const bodies = await this.mannequins.clear();
+      if (bodies > 0) log.warn(`${bodies} mannequins from an earlier run could not be removed`);
       if (this.info.fresh) await this.layPad();
     } catch (error) {
       log.error(`preparing the world failed: ${describeError(error)}`);
     }
     this.markers.resume();
+    this.mannequins.resume();
     this.link.send({ t: "ready" });
   }
 
@@ -338,15 +361,16 @@ export class Editor {
         for (const player of world.getAllPlayers()) if (message.players.includes(player.name)) this.loading.stop(player);
         return;
       case "cleanup":
-        // The aim cursors aren't saved with the world either.
+        // The aim cursors and mannequins aren't saved with the world either.
         this.cursors.pause();
-        void this.markers.clear().then(
-          (left) => this.link.send({ t: "clean", id: message.id, left }),
+        void Promise.all([this.markers.clear(), this.mannequins.clear()]).then(
+          ([markers, mannequins]) => this.link.send({ t: "clean", id: message.id, left: markers + mannequins }),
           (error: unknown) => this.link.send({ t: "clean", id: message.id, left: -1, error: describeError(error) }),
         );
         return;
       case "resume":
         this.markers.resume();
+        this.mannequins.resume();
         this.cursors.resume();
         return;
     }
@@ -354,6 +378,7 @@ export class Editor {
 
   private refresh(): void {
     this.markers.show([...markerSpecs(this.state.current, this.lists()), ...cameraMarkers(this.state.current)]);
+    this.mannequins.show(mannequinsOf(this.state.current));
   }
 
   private lists(): SpawnList[] {
@@ -477,6 +502,7 @@ export class Editor {
       else if (tool === "region") hintBar(player, this.regionTool.hint(player));
       else if (tool === "killY") hintBar(player, this.killYTool.hint(player));
       else if (tool === "camera") hintBar(player, this.cameraTool.hint(player));
+      else if (tool === "mannequin") hintBar(player, this.mannequinTool.hint());
       else if (tool === "snapshot") hintBar(player, "Use: pick a camera to take its picture   Hit a camera: the same");
     }
   }
@@ -515,6 +541,7 @@ export class Editor {
       spawn: { lists: this.lists(), settings: this.settingsOf(player) },
       region: { selection: this.regionTool.menuSelection(player), entries: tool === "region" ? this.regionTool.entries() : [] },
       camera: { kind: this.cameraTool.kindOf(player) },
+      items: this.info.rules.items ?? [],
     });
     // The map and game are in the mode box top center, and how to use the tool is behind Help.
     const form = new ActionFormData().title(mapTitle("Map menu"));
@@ -593,6 +620,8 @@ export class Editor {
         return this.cameraTool.menu(player, action.name, () => this.mapMenu(player));
       case "snapshot":
         return this.cameraTool.snapshotOf(player, action.name);
+      case "mannequin":
+        return this.mannequinTool.screen(player, action.name, () => this.mapMenu(player));
       case "save":
         this.save(player);
         return;
@@ -981,6 +1010,11 @@ export class Editor {
     if (tool === "region") {
       const block = blockInView(player);
       return block ? { kind: "block", at: block.location } : undefined;
+    }
+    if (tool === "mannequin") {
+      // A see-through mannequin where a use would place one, facing the player.
+      const aimed = this.aimedAt(player);
+      return aimed ? { kind: "point", at: aimed, yaw: player.getRotation().y + 180, style: MARKER_STYLES.player } : undefined;
     }
     return undefined;
   }

@@ -18,7 +18,7 @@ import { ActionFormData } from "@minecraft/server-ui";
 import type { ServerContext } from "../context.ts";
 import type { BestOfConfig, GameConfig, KitDef, TeamDef } from "../config.ts";
 import { bestOfCodes, countdownChime, hudLine, playChime, previewLine, type Chime } from "../hud.ts";
-import { itemLabel, kitLines, kitPicturePath, teamColored } from "../kit-defs.ts";
+import { kitLines, kitPicturePath, teamColored } from "../kit-defs.ts";
 import { describeError, log } from "../log.ts";
 import { facingOf, worldPoint, type Box, type MapPosition } from "../map-config.ts";
 import { normalizePlayer } from "../player.ts";
@@ -30,7 +30,8 @@ import { BestOf, bestOfDisplay, bestOfRounds } from "./best-of.ts";
 import { BuildRules, type BuildHost } from "./build.ts";
 import { Combat, type CombatHost, type Hit } from "./combat.ts";
 import { KillCredit } from "./credit.ts";
-import { FAKE_STEPS, FAKE_TURN, fakePanelEntries, nudgeOffset, type FakeList, type FakePanelView } from "./fake-panel.ts";
+import { FAKE_POSES, nextPose } from "../fake-looks.ts";
+import { fakePanelEntries } from "./fake-panel.ts";
 import { FAKE_PLAYER, FakePlayers } from "./fakes.ts";
 import { KitForm, type KitCard, type KitFormContent } from "./kit-form.ts";
 import { KitPicker, type KitPickView } from "./kit-picker.ts";
@@ -1680,74 +1681,44 @@ export abstract class Minigame<C extends GameConfig = GameConfig> {
     this.abort("aborted");
   }
 
-  /** Right clicking a fake player opens its side panel (fake-panel.ts). Its hearts follow its health. */
+  /**
+   * Right clicking a fake player opens its side panel (fake-panel.ts); sneaking, it takes its next
+   * pose instead (the first again after the last), named above the hotbar. Its hearts follow its
+   * health.
+   */
   private watchFakes(fakes: FakePlayers): void {
     this.scope.add(() => fakes.clear());
     this.scope.subscribe(world.afterEvents.playerInteractWithEntity, ({ player, target }) => {
       const name = this.whoIs(target);
-      if (name !== undefined && fakes.has(name)) void this.fakePanel(player, name, fakes);
+      if (name === undefined || !fakes.has(name)) return;
+      if (!player.isSneaking) return void this.fakePanel(player, name, fakes);
+      const pose = nextPose(fakes.lookOf(name).pose);
+      fakes.setLook(name, { pose });
+      player.onScreenDisplay.setActionBar(`${name}: ${FAKE_POSES[pose].label}`);
     });
     this.scope.subscribe(world.afterEvents.entityHurt, ({ hurtEntity }) => {
       if (hurtEntity.typeId === FAKE_PLAYER) fakes.showHealth(hurtEntity);
     });
   }
 
-  /**
-   * A fake player's side panel: "wins the round" and "kills you" close it once tapped; everything
-   * else changes the fake at once and opens it again, until it's closed.
-   */
+  /** A fake player's side panel: "wins the round" or "kills you", or Cancel. */
   private async fakePanel(player: Player, name: string, fakes: FakePlayers): Promise<void> {
     const key = player.name.toLowerCase();
     if (this.panelOpen.has(key)) return;
     this.panelOpen.add(key);
-    let step: number = FAKE_STEPS[0];
-    let open: FakeList | undefined;
     try {
-      while (player.isValid && fakes.has(name)) {
-        const side = this.roundSideOf(name);
-        const body = fakes.body(name);
-        const view: FakePanelView = {
-          name,
-          ...(side !== undefined ? { round: { team: this.teams.find((def) => def.id === side)?.name } } : {}),
-          look: fakes.lookOf(name),
-          items: this.holdables(),
-          ...(body ? { body: { at: body.location, yaw: body.getRotation().y, floating: fakes.isFloating(name) } } : {}),
-          step,
-          ...(open ? { open } : {}),
-        };
-        const entries = fakePanelEntries(view);
-        const form = new ActionFormData().title(`${SIDE_TITLE}${name}`);
-        for (const entry of entries) form.button(entry.text, entry.icon);
-        const answer = await showForm(this.scope, player, form);
-        const action = answer?.selection === undefined ? undefined : entries[answer.selection]?.action;
-        if (!action || action.kind === "cancel") return;
-        if (action.kind === "win" || action.kind === "kill") {
-          const why = action.kind === "win" ? this.fakeWinsRound(name) : this.fakeKills(name, player.name);
-          if (why && player.isValid) player.sendMessage(why);
-          return;
-        }
-        if (action.kind === "open") open = open === action.which ? undefined : action.which;
-        else if (action.kind === "skin" || action.kind === "pose" || action.kind === "hold") open = undefined;
-        if (action.kind === "skin") fakes.setLook(name, { skin: action.skin });
-        else if (action.kind === "pose") fakes.setLook(name, { pose: action.pose });
-        else if (action.kind === "hold") fakes.setLook(name, { hold: action.item });
-        else if (action.kind === "move") fakes.nudge(name, nudgeOffset(action.axis, action.by, step));
-        else if (action.kind === "turn") fakes.nudge(name, { x: 0, y: 0, z: 0 }, action.by * FAKE_TURN);
-        else if (action.kind === "step") step = action.step;
-        else if (action.kind === "gravity") fakes.setFloating(name, !fakes.isFloating(name));
-      }
+      const side = this.roundSideOf(name);
+      const entries = fakePanelEntries({ name, ...(side !== undefined ? { round: { team: this.teams.find((def) => def.id === side)?.name } } : {}) });
+      const form = new ActionFormData().title(`${SIDE_TITLE}${name}`);
+      for (const entry of entries) form.button(entry.text);
+      const answer = await showForm(this.scope, player, form);
+      const action = answer?.selection === undefined ? undefined : entries[answer.selection]?.action;
+      if (!action || action.kind === "cancel" || !fakes.has(name)) return;
+      const why = action.kind === "win" ? this.fakeWinsRound(name) : this.fakeKills(name, player.name);
+      if (why && player.isValid) player.sendMessage(why);
     } finally {
       this.panelOpen.delete(key);
     }
-  }
-
-  /** What a fake player can hold: every item in the game's kits, once each. */
-  private holdables(): { item: string; label: string }[] {
-    const items = new Map<string, string>();
-    for (const kit of [this.kits.base, ...this.kits.list]) {
-      for (const entry of kit?.items ?? []) if (!items.has(entry.item)) items.set(entry.item, itemLabel(entry));
-    }
-    return [...items].map(([item, label]) => ({ item, label }));
   }
 
   // ---- Small helpers ----------------------------------------------------------------------

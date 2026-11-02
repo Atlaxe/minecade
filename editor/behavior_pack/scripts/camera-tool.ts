@@ -32,7 +32,7 @@ export interface CameraHost extends ToolHost {
   readonly targetName: string;
   /** Asks the host to save the newest screenshot on its PC as the map's thumbnail or the game's. */
   picture(player: Player, kind: CameraKind): void;
-  /** Someone started or stopped looking through a camera: markers and outlines hide while anyone does. */
+  /** Someone started or stopped looking through a camera, or its kind changed: markers and outlines hide while anyone does, mannequins while anyone looks through a map preview. */
   lookChanged(): void;
   /** Puts the Snapshot tool in the player's hand (a camera's marker was hit with something else). */
   holdSnapshot(player: Player): void;
@@ -64,6 +64,11 @@ export class CameraTool {
 
   anyoneLooking(): boolean {
     return this.looking.size > 0;
+  }
+
+  /** Whether anyone looks through a camera of this kind (a map preview keeps mannequins out of the shot). */
+  anyoneLookingAt(kind: CameraKind): boolean {
+    return [...this.looking.values()].some((looking) => looking.kind === kind);
   }
 
   /** A use: a new camera at the player's eyes, looking their way, of the kind in the tool's settings. */
@@ -247,6 +252,7 @@ export class CameraTool {
     } catch {
       // left meanwhile
     }
+    this.host.lookChanged();
   }
 
   /** The 16:9 frame (hud.ts FRAME_MARK), with a line at its top. */

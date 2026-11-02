@@ -5,13 +5,18 @@
 // menu (LAYOUT.home): a row of icons, then what's open and Recent as cards with an icon each. Each
 // button's mark (marks.ts) says where it goes.
 import {
+  FAKE_COLORS,
+  FAKE_POSES,
+  FAKE_SKINS,
   QUEUE_COUNTDOWN,
   listOf,
+  lookText,
   openKey,
   positionText,
   queueSettings,
   type Box,
   type Facing,
+  type FakeLook,
   type Catalog,
   type Checklist,
   type ChecklistRow,
@@ -28,6 +33,7 @@ import { relativeSide, sizeText, type Cardinal, type Sides } from "./boxes.ts";
 import { SNAPS, compass, toolLists, type Snap, type SpawnList } from "./lists.ts";
 import { COLUMNS, MARK, cardIconText, cardTitleText, dangerText, dropdownText, goText, headingText, linkText, optionText, pictureText, saveBarText, segmentText, stepTileText, switchText } from "./marks.ts";
 import { CAMERA_KINDS, cameraPlace, camerasOf, type CameraKind } from "./cameras.ts";
+import { mannequinLook, mannequinsOf } from "./mannequins.ts";
 import { ALL_BOUNDARIES, buildLimitText, outlineShown, type BoundaryRow, type HeightLine, type RegionEntry, type RegionTarget, type SelectionAction } from "./regions.ts";
 import { EDITOR_TOOLS, SELECT_TOOL, type ToolId } from "./tools.ts";
 
@@ -93,6 +99,8 @@ export type MenuAction =
   | { kind: "camera"; name: string }
   /** The Snapshot tool: look through a camera to take its picture. */
   | { kind: "snapshot"; name: string }
+  /** The Mannequin tool: a mannequin's screen. */
+  | { kind: "mannequin"; name: string }
   | { kind: "save" }
   /** Select mode: something to do with the selection. */
   | { kind: "pick"; action: PickAction }
@@ -144,6 +152,8 @@ export interface MapMenuView {
   region: { selection?: { box: Box; steps: number }; entries: RegionEntry[] };
   /** For the camera tool's settings: the kind new cameras get. */
   camera?: { kind: CameraKind };
+  /** What the game's mannequins can hold (every item in its kits), for their names in the Mannequin tool's settings. */
+  items?: { item: string; label: string }[];
 }
 
 /** The map menu's buttons: the quick icons, the tools, the picked tool's settings, then Save. */
@@ -164,7 +174,7 @@ export function mapMenuEntries(view: MapMenuView): MenuEntry[] {
     entries.push({ action: { kind: "preview" }, text: `${MARK.quick}${ready ? "" : MARK.dim}Preview\n§7${ready ? `play it as ${view.game}, then come back` : "finish the checklist first"}`, icon: ICONS.play });
   }
   entries.push({ action: { kind: "settings" }, text: `${MARK.quick}Map settings\n§7name, game settings, build commands`, icon: ICONS.settings });
-  editorTools(view.spawn.lists).forEach((tool, i) => {
+  editorTools(view.spawn.lists, view.game !== undefined).forEach((tool, i) => {
     const picked = tool.id === view.tool ? MARK.on : "";
     entries.push({ action: { kind: "tool", tool: tool.id }, text: `${MARK.tool}${COLUMNS[i % COLUMNS.length]}${picked}${tool.label}\n§7${tool.hint}`, icon: tool.icon });
   });
@@ -176,14 +186,27 @@ export function mapMenuEntries(view: MapMenuView): MenuEntry[] {
   else if (view.tool === "killY") entries.push(...killYSettings(view.config, view.game !== undefined));
   else if (view.tool === "camera") entries.push(...cameraSettings(view.config, view.camera?.kind ?? "map"));
   else if (view.tool === "snapshot") entries.push(...snapshotSettings(view.config));
+  else if (view.tool === "mannequin") entries.push(...mannequinSettings(view.config, view.items ?? []));
   entries.push({ action: { kind: "save" }, text: `${MARK.save}${saveText(view)}` });
   return entries;
 }
 
-/** The tools in the map menu's grid: the Game marker tool only when the game has markers of its own. */
-export function editorTools(lists: SpawnList[]): typeof EDITOR_TOOLS {
+/** The tools in the map menu's grid: the Game marker tool only when the game has markers of its own, the Mannequin tool only on a game's map. */
+export function editorTools(lists: SpawnList[], game: boolean): typeof EDITOR_TOOLS {
   const markers = lists.some((list) => list.tool === "marker");
-  return EDITOR_TOOLS.filter((tool) => tool.id !== "marker" || markers);
+  return EDITOR_TOOLS.filter((tool) => (tool.id !== "marker" || markers) && (tool.id !== "mannequin" || game));
+}
+
+/** The Mannequin tool's settings: the map's mannequins (tap one for its screen). */
+export function mannequinSettings(config: MapConfig, items: { item: string; label: string }[]): MenuEntry[] {
+  const mannequins = mannequinsOf(config);
+  return [
+    { action: { kind: "none" }, text: headingText(mannequins.length > 0 ? `Mannequins (${mannequins.length})` : "No mannequins yet") },
+    ...mannequins.map(([name, mannequin]): MenuEntry => {
+      const look = mannequinLook(mannequin);
+      return { action: { kind: "mannequin", name }, text: `${name}\n§7${lookText(look, items.find((entry) => entry.item === look.hold)?.label)}` };
+    }),
+  ];
 }
 
 /** The camera tool's settings: the kind of new cameras, then the map's cameras (tap one for its form). */
@@ -335,7 +358,7 @@ function coordinate(value: number): string {
  * A list's row ("Label: value" with its arrow, `open` or not) and, while it's open, its options
  * under it, the one in use outlined. `none` is the value when no option is in use.
  */
-function listRows<A>(open: boolean, toggle: A, label: string, options: { action: A; label: string; on: boolean }[], none = ""): { action: A; text: string }[] {
+export function listRows<A>(open: boolean, toggle: A, label: string, options: { action: A; label: string; on: boolean }[], none = ""): { action: A; text: string }[] {
   const rows = [{ action: toggle, text: `${MARK.lead}${dropdownText(label, options.find((option) => option.on)?.label ?? none, open)}` }];
   if (open) for (const option of options) rows.push({ action: option.action, text: `${MARK.lead}${optionText(option.label, option.on)}` });
   return rows;
@@ -524,6 +547,77 @@ export function killYScreenEntries(view: { line: HeightLine; buildLimit?: boolea
     ...(view.set ? [{ action: { kind: "remove" } as const, text: dangerText(`Remove ${killY ? "kill Y" : line.name.toLowerCase()}`) }] : []),
     { action: { kind: "save" }, text: saveBarText(killY ? "Set kill Y" : "Set build limit") },
   ];
+}
+
+// ---- Mannequins ---------------------------------------------------------------------------------
+// The Mannequin tool: stand-ins for players in a game's picture. A mannequin's screen changes it at
+// once (each tap is an edit Undo takes back) and opens again, until it's closed.
+
+/** How far a turn turns a mannequin, in degrees. */
+export const MANNEQUIN_TURN = 15;
+
+export type MannequinList = "skin" | "color" | "hold" | "pose";
+
+export interface MannequinScreenView {
+  look: FakeLook;
+  /** What it can hold: the game's kit items. */
+  items: { item: string; label: string }[];
+  at: [x: number, y: number, z: number, yaw: number];
+  step: number;
+  open?: MannequinList;
+  /** Opened from the map menu: the back arrow goes back to it. */
+  back?: boolean;
+}
+
+export type MannequinAction =
+  | { kind: "back" }
+  | { kind: "open"; which: MannequinList }
+  | { kind: "skin"; skin: number }
+  | { kind: "color"; color: number }
+  | { kind: "hold"; item?: string }
+  | { kind: "pose"; pose: number }
+  | { kind: "here" }
+  | { kind: "move"; axis: 0 | 1 | 2; by: 1 | -1 }
+  | { kind: "turn"; by: 1 | -1 }
+  | { kind: "step"; step: number }
+  | { kind: "delete" }
+  | { kind: "none" };
+
+/**
+ * A mannequin's screen: Display (the Skin list, Color for the plain color skin, Hold for the game's
+ * kit items, and Pose, each opening under its row), Position (Move here, nudge rows for each axis and
+ * a turn, and Step), and Delete (red).
+ */
+export function mannequinScreenEntries(view: MannequinScreenView): { action: MannequinAction; text: string; icon?: string }[] {
+  const entries: { action: MannequinAction; text: string; icon?: string }[] = view.back ? [{ action: { kind: "back" }, text: BACK_TEXT, icon: ICONS.back }] : [];
+  const lead = (action: MannequinAction, text: string) => entries.push({ action, text: `${MARK.lead}${text}` });
+  const list = (which: MannequinList, label: string, options: { action: MannequinAction; label: string; on: boolean }[]) =>
+    entries.push(...listRows<MannequinAction>(view.open === which, { kind: "open", which }, label, options));
+  lead({ kind: "none" }, headingText("Display"));
+  list("skin", "Skin", FAKE_SKINS.map((skin, i) => ({ action: { kind: "skin", skin: i }, label: skin.label, on: view.look.skin === i })));
+  if (FAKE_SKINS[view.look.skin]?.id === "color") {
+    list("color", "Color", FAKE_COLORS.map((color, i) => ({ action: { kind: "color", color: i }, label: color.label, on: view.look.color === i })));
+  }
+  if (view.items.length > 0) {
+    const items = view.items.map(({ item, label }) => ({ action: { kind: "hold", item } as const, label, on: view.look.hold === item }));
+    list("hold", "Hold", [{ action: { kind: "hold" }, label: "Nothing", on: view.look.hold === undefined }, ...items]);
+  }
+  list("pose", "Pose", FAKE_POSES.map((pose, i) => ({ action: { kind: "pose", pose: i }, label: pose.label, on: view.look.pose === i })));
+  lead({ kind: "none" }, headingText("Position"));
+  lead({ kind: "here" }, "Move here\n§7where you stand, facing your way");
+  for (const { axis, name, plus } of AXES) {
+    entries.push(
+      { action: { kind: "move", axis, by: -1 }, text: `${MARK.minus}${name} (${plus} +): ${coordinate(view.at[axis])}`, icon: ICONS.minus },
+      { action: { kind: "move", axis, by: 1 }, text: `${MARK.plus}${name} ${plus}`, icon: ICONS.new },
+    );
+  }
+  entries.push(
+    { action: { kind: "turn", by: -1 }, text: `${MARK.minus}Turn (right +): ${Math.round(((view.at[3] % 360) + 360) % 360)}°`, icon: ICONS.minus },
+    { action: { kind: "turn", by: 1 }, text: `${MARK.plus}Turn right`, icon: ICONS.new },
+  );
+  entries.push(...stepEntries(POINT_STEPS, view.step));
+  entries.push({ action: { kind: "delete" }, text: dangerText("Delete") });
+  return entries;
 }
 
 // ---- Snapshot ---------------------------------------------------------------------------------

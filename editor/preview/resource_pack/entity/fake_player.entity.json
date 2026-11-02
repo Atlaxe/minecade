@@ -3,13 +3,25 @@
   "minecraft:client_entity": {
     "description": {
       "identifier": "minecade:fake_player",
-      "materials": { "default": "entity_alphatest" },
-      "textures": {
-        "default": "textures/entity/steve",
-        "white": "textures/minecade/fake/white",
-        "black": "textures/minecade/fake/black"
+      "materials": {
+        "default": "entity_alphatest"
       },
-      "geometry": { "default": "geometry.humanoid.custom" },
+      "textures": {
+        "color": "textures/minecade/fake/white",
+        "steve": "textures/minecade/fake/skins/steve",
+        "alex": "textures/minecade/fake/skins/alex",
+        "ari": "textures/minecade/fake/skins/ari",
+        "efe": "textures/minecade/fake/skins/efe",
+        "kai": "textures/minecade/fake/skins/kai",
+        "makena": "textures/minecade/fake/skins/makena",
+        "noor": "textures/minecade/fake/skins/noor",
+        "sunny": "textures/minecade/fake/skins/sunny",
+        "zuri": "textures/minecade/fake/skins/zuri"
+      },
+      "geometry": {
+        "default": "geometry.humanoid.custom",
+        "slim": "geometry.humanoid.customSlim"
+      },
       "animations": {
         "walking": "animation.minecade.fake_player.walking",
         "running": "animation.minecade.fake_player.running",
@@ -21,17 +33,33 @@
       },
       "scripts": {
         "animate": [
-          { "walking": "query.property('minecade:pose') == 1" },
-          { "running": "query.property('minecade:pose') == 2" },
-          { "swinging": "query.property('minecade:pose') == 3" },
-          { "aiming": "query.property('minecade:pose') == 4" },
-          { "placing": "query.property('minecade:pose') == 5" },
-          { "falling": "query.property('minecade:pose') == 6" },
-          { "cheering": "query.property('minecade:pose') == 7" }
+          {
+            "walking": "query.property('minecade:pose') == 1"
+          },
+          {
+            "running": "query.property('minecade:pose') == 2"
+          },
+          {
+            "swinging": "query.property('minecade:pose') == 3"
+          },
+          {
+            "aiming": "query.property('minecade:pose') == 4"
+          },
+          {
+            "placing": "query.property('minecade:pose') == 5"
+          },
+          {
+            "falling": "query.property('minecade:pose') == 6"
+          },
+          {
+            "cheering": "query.property('minecade:pose') == 7"
+          }
         ]
       },
       "enable_attachables": true,
-      "render_controllers": ["controller.render.minecade.fake_player"]
+      "render_controllers": [
+        "controller.render.minecade.fake_player"
+      ]
     }
   }
 }

@@ -263,6 +263,7 @@ export class FakePlayer {
   location: Vector3 = { x: 0, y: 65, z: 0 };
   viewDirection: Vector3 = { x: 0, y: 0, z: 1 };
   isSprinting = false;
+  isSneaking = false;
   selectedSlotIndex = 0;
   readonly teleports: Vector3[] = [];
   /** Its facing: x pitch, y yaw (set by a teleport with a rotation). */

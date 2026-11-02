@@ -1,9 +1,9 @@
 // The map editor's tools, as plain data. Each is an item a map editor picks from the map menu's
 // tool grid: it goes in hotbar slot 1, unlocked, and only one tool is out at a time. A new tool
 // adds a row here and gets its icon in the grid. The Game marker tool is only there for a game (or
-// the lobby) whose config asks for points.
+// the lobby) whose config asks for points, and the Mannequin tool only on a game's maps.
 
-export type ToolId = "spawn" | "marker" | "region" | "killY" | "camera" | "snapshot" | "select";
+export type ToolId = "spawn" | "marker" | "region" | "killY" | "camera" | "snapshot" | "mannequin" | "select";
 
 export interface EditorTool {
   id: ToolId;
@@ -66,6 +66,14 @@ export const EDITOR_TOOLS: EditorTool[] = [
     label: "Snapshot tool",
     hint: "take a camera's picture",
     howTo: "Use it to pick a camera (or hit one with anything) and look through it. Frame the picture, take the screenshot (F1, F2, F1), use the tool again, then Use latest screenshot.",
+  },
+  {
+    id: "mannequin",
+    item: "minecade:mannequin_tool",
+    icon: "textures/items/mannequin_tool",
+    label: "Mannequin tool",
+    hint: "stand-ins for game pictures",
+    howTo: "Use it on a block to place a mannequin there, facing you: a stand-in for players in the game's picture. Hit or right click a mannequin to change its skin, what it holds, its pose and where it stands, or to delete it. Game servers never get them.",
   },
 ];
 

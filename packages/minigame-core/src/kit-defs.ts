@@ -113,6 +113,15 @@ export function itemLabel(item: KitItem, teamColor?: string): string {
     .join(" ");
 }
 
+/** Every item in a game's kits, once each, with its name: what the map editor's mannequins can hold. */
+export function kitItems(kits: KitsConfig | undefined): { item: string; label: string }[] {
+  const items = new Map<string, string>();
+  for (const kit of [kits?.base, ...(kits?.list ?? [])]) {
+    for (const entry of kit?.items ?? []) if (!items.has(entry.item)) items.set(entry.item, itemLabel(entry));
+  }
+  return [...items].map(([item, label]) => ({ item, label }));
+}
+
 /** A kit's items as the kit form lists them: "Wooden Sword", "64x Red Wool". */
 export function kitLines(kit: KitDef, teamColor?: string): string[] {
   return kit.items.map((item) => ((item.count ?? 1) > 1 ? `${item.count}x ${itemLabel(item, teamColor)}` : itemLabel(item, teamColor)));

@@ -240,8 +240,8 @@ game in gold and the map in orange.
      `npm run bake`), which keeps the world as you change it; **Publish** (green, the checklist's
      too, see "Publishing"); and **Delete map** (red, see "Deleting a map").
 2. **Tools:** a grid of the tools' icons (the Spawn tool, the Game marker tool when the game has
-   markers of its own, the Region tool, the Kill Y tool, the Camera tool and the Snapshot tool), with
-   their names as tooltips. Tap one to put it in slot 1 and in your hand; the menu closes (open it
+   markers of its own, the Region tool, the Kill Y tool, the Camera tool, the Snapshot tool, and the
+   Mannequin tool on a game's map), with their names as tooltips. Tap one to put it in slot 1 and in your hand; the menu closes (open it
    again for the tool's settings). Tap it again to put it away. The one you have out is outlined.
    One tool is out at a time: picking one puts any other away. The tool isn't locked, so you can
    move it; whatever was in slot 1 moves to a free slot.
@@ -348,6 +348,9 @@ you back in creative at every spawn).
   camera to look through it (as the Snapshot tool does); right click it for its kind and Delete.
 - **Snapshot tool:** takes a camera's picture (see "Pictures"). Using it lists the cameras; its
   settings in the map menu list them too.
+- **Mannequin tool** (a game's maps): stand-ins for players in the game's picture (see "Pictures").
+  Use it on a block to place a mannequin there at once, facing you; hit or right click one for its
+  screen. Its settings in the map menu list them.
 - **Outlines:** while you hold the region tool or the Kill Y tool, or have one of their screens
   open, dots outline your selection (yellow), the bounds (white), kill regions (red), each other
   region in its own color (a team's
@@ -423,17 +426,12 @@ in games that let late joiners in (One in the Quiver; not Sumo). The packs for t
 **A fake player's panel:** **right click** one for its side panel. On top, in a best-of game while a
 round is being played, **Fake 1 wins the round** (green: the round goes to it, or to its team in
 team games), then **Fake 1 kills you** (red: you go down, credited to the fake, as the game plays
-out a player killing you). Either one closes the panel. Under them, everything changes the fake at
-once and the panel stays open, as in Edit's screens:
+out a player killing you). Either one closes the panel.
 
-- **Display** (kept from one life to the next): **Skin** (Steve, plain **White** or **Black**, or
-  **Team color**), **Hold** (Nothing, or any item from the game's kits, such as Bridges' sword, bow
-  and wool, in the fake's team color) and **Pose**, for pictures: Standing, Walking, Running,
-  Swinging, Aiming a bow, Placing a block, Falling and Cheering. Each is a list that opens under its
-  row.
-- **Position** (while it's in the world, until the game moves it, as at a respawn): X, Y and Z nudge
-  rows, **Turn** (15 degrees a tap, right is +), **Step** (1, 0.5 or 5 blocks) and **Gravity**
-  (off: it floats where you put it, so nudging it up keeps it up).
+**Its pose:** **sneak and right click** a fake player for its next pose (Standing, Walking, Running,
+Swinging, Aiming a bow, Placing a block, Falling, Cheering, then Standing again), named above the
+hotbar. It keeps its pose from one life to the next. How a stand-in looks and where it stands for a
+picture is Edit's Mannequin tool (see "Pictures").
 
 **/switch** (`/minecade:switch`) trades places with a fake player while the match is being played:
 `/switch 2` with Fake 2, else the one you look at, else the nearest. You swap where you stand and
@@ -488,6 +486,28 @@ carries them). Edit Map Thumbnail also has **Import from another minigame**: pic
 of its maps with a picture (cards with the picture and the name); it asks first, uses that picture,
 then asks **Import map name?**: **Import name** gives this map that map's name and map id too (see
 "A new map id"), **Keep mine** doesn't. It's for a map you're reusing in another game.
+
+**Mannequins** stand in for players in a game picture. With the Mannequin tool, use it on a block:
+"Mannequin 1" stands there at once, facing you, a plain red figure (a see-through mannequin shows
+where it'll go while you hold the tool). Hit or right click one for its screen, where every tap
+changes it at once (Undo takes it back):
+
+- **Display:** **Skin** (**Color**, then Minecraft's own Steve, Alex, Ari, Efe, Kai, Makena, Noor,
+  Sunny and Zuri), **Color** under it while the skin is Color (Red, Blue, Green and Yellow as teams
+  show them, White, Black and Gray), **Hold** (Nothing, or any item from the game's kits, such as
+  Bridges' wool in the mannequin's color) and **Pose** (Standing, Walking, Running, Swinging, Aiming a
+  bow, Placing a block, Falling, Cheering). Each is a list that opens under its row.
+- **Position:** **Move here** (where you stand, facing your way), X, Y and Z nudge rows, **Turn**
+  (15 degrees a tap, right is +) and **Step** (1, 0.5 or 5 blocks). Mannequins float where they're
+  put and can't be hurt or pushed.
+- **Delete** (red).
+
+They're saved in `map.json`'s `mannequins` and have no name tag. Looking through a Game picture
+camera, they stay in the shot (the markers hide); through a Map preview camera, they hide too
+(nobody's in a map preview). Game servers never get them, and they're taken out of the world before every save,
+so a published world never has them. Minecraft's skins are Mojang's, so they never go in git: the
+editor copies them from the Minecraft install on this PC (its vanilla skin pack) each time it
+builds its packs (`tools/editor/fake-player.ts`); one this PC lacks shows as Steve or Alex.
 
 Right click a camera for its form: **Game picture** (switches its kind) and Delete. The Camera tool's
 settings list every camera too. Lobby maps can have cameras (the Snapshot only nudges them there),

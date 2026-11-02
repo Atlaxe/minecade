@@ -224,7 +224,7 @@ function checkTeamKey(field: string, key: string, teamIds: string[] | undefined,
   problems.push(`${field}.${key}: "${team}" must be ${known}`);
 }
 
-/** The map editor's keys: where the map was cut from, and its preview cameras. */
+/** The map editor's keys: where the map was cut from, its preview cameras, and its mannequins. */
 function editorKeyProblems(map: Partial<MapConfig>): string[] {
   const problems: string[] = [];
   const source = map.source;
@@ -237,6 +237,15 @@ function editorKeyProblems(map: Partial<MapConfig>): string[] {
       for (const [name, camera] of Object.entries(map.cameras)) {
         const ok = isRecord(camera) && isPosition(camera.at) && camera.at.length === 5 && (camera.kind === "map" || camera.kind === "game");
         if (!ok) problems.push(`cameras.${name} must be { "at": [x, y, z, yaw, pitch], "kind": "map" or "game" }`);
+      }
+    }
+  }
+  if (map.mannequins !== undefined) {
+    if (!isRecord(map.mannequins)) problems.push('"mannequins" must map names to { "at": [x, y, z, yaw], "skin", "pose" }');
+    else {
+      for (const [name, mannequin] of Object.entries(map.mannequins)) {
+        const ok = isRecord(mannequin) && isNumberList(mannequin.at, [4]) && typeof mannequin.skin === "string" && typeof mannequin.pose === "string";
+        if (!ok) problems.push(`mannequins.${name} must be { "at": [x, y, z, yaw], "skin", "pose" }`);
       }
     }
   }

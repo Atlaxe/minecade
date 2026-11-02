@@ -2,10 +2,12 @@
 // so the editor always runs the code checked out here, whatever the network's images hold. Unlike
 // npm run build, it doesn't check the maps: a map being fixed may well have problems. The games'
 // own marker models go into the editor's resource pack (marker-models.ts), their hitboxes into its
-// behavior pack, and so do the pictures Edit's thumbnail menus show (pictures.ts).
+// behavior pack, and so do the pictures Edit's thumbnail menus show (pictures.ts) and the fake
+// player its mannequins are (fake-player.ts).
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { addSharedPacks, buildBehaviorPack, buildResourcePack, readPinnedManifest, sharedPacks } from "../build/packs.ts";
+import { addFakePlayer } from "./fake-player.ts";
 import { addMarkerHitboxes, addMarkerModels, listMarkerModels } from "./marker-models.ts";
 import { addPictures } from "./pictures.ts";
 
@@ -26,4 +28,5 @@ export async function buildEditorTemplate(out: string): Promise<void> {
     await addMarkerModels(pack, models);
     await addPictures(pack, root);
   });
+  await addFakePlayer(join(out, "behavior_packs", "editor_bp"), join(out, "resource_packs", "editor_rp"));
 }

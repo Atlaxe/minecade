@@ -53,4 +53,5 @@ export type { Hit } from "./game/combat.ts";
 export { aborted, draw, type Result } from "./game/results.ts";
 export { Score } from "./game/score.ts";
 export { MapView, inside } from "./game/map-view.ts";
+export { FAKE_PLAYER, dressFake } from "./game/fakes.ts";
 export type { Participant, ParticipantState } from "./game/roster.ts";

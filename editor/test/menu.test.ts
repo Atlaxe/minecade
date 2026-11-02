@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { mapChecklist, stripColors, type HomeState, type MapCamera, type MapConfig } from "@minecade/minigame-core/config";
-import { DANGER_BUTTON, FORM_MARKS, GO_BUTTON, NUDGE_ICONS, SEGMENT_COLUMNS as PREVIEW_COLUMNS, SIDE_TITLE } from "../../packages/minigame-core/src/game/preview.ts";
+import { DANGER_BUTTON, GO_BUTTON, SIDE_TITLE } from "../../packages/minigame-core/src/game/preview.ts";
 import { spawnLists, toolLists } from "../behavior_pack/scripts/lists.ts";
 import { CARD_COLUMNS, COLUMNS, LAYOUT, LOADING, MARK, SEGMENT_COLUMNS, cardIconText, cardTitleText, dangerText, dropdownText, goText, headingText, homeTitle, iconsTitle, linkText, loadingTitle, mapTitle, optionText, pictureText, saveBarText, segmentText, sideTitle, stepTileText, switchText } from "../behavior_pack/scripts/marks.ts";
 import {
@@ -85,14 +85,15 @@ describe("map menu", () => {
     expect(redo.text).toBe(`${MARK.quick}${MARK.dim}Redo\n§7nothing to redo`);
   });
 
-  it("puts each tool in a grid column with its icon, the one out marked, the Game marker tool only for a game with markers", () => {
+  it("puts each tool in a grid column with its icon, the one out marked, the Game marker tool only for a game with markers, the Mannequin tool only on a game's map", () => {
     const tools = mapMenuEntries(view(draft, { tool: "region" })).filter((entry) => entry.action.kind === "tool");
-    expect(tools.map((entry) => entry.icon)).toEqual(EDITOR_TOOLS.filter((tool) => tool.id !== "marker").map((tool) => tool.icon));
+    expect(tools.map((entry) => entry.icon)).toEqual(EDITOR_TOOLS.filter((tool) => tool.id !== "marker" && tool.id !== "mannequin").map((tool) => tool.icon));
     expect(tools[0].text).toBe(`${MARK.tool}${COLUMNS[0]}Spawn tool\n§7spawns, spectator and queue spawns`);
     expect(tools[1].text).toBe(`${MARK.tool}${COLUMNS[1]}${MARK.on}Region tool\n§7bounds, regions, kill regions`);
     expect(tools[4].text).toBe(`${MARK.tool}${COLUMNS[4]}Snapshot tool\n§7take a camera's picture`);
     const withMarkers = spawnLists(draft, { ...rules, requires: { points: { hole: { label: "Hole" } } } });
-    expect(editorTools(withMarkers).map((tool) => tool.id)).toEqual(["spawn", "marker", "region", "killY", "camera", "snapshot"]);
+    expect(editorTools(withMarkers, true).map((tool) => tool.id)).toEqual(["spawn", "marker", "region", "killY", "camera", "snapshot", "mannequin"]);
+    expect(editorTools(withMarkers, false).map((tool) => tool.id)).not.toContain("mannequin");
     // Its settings list the game's markers, and the Spawn tool's leave them out.
     const settings = (tool: "spawn" | "marker") => mapMenuEntries({ ...view(draft, { tool }), spawn: { lists: withMarkers, settings: { list: "spawns", center: false, keepFacing: false, snap: "exact" } } }).map((entry) => entry.text);
     expect(settings("marker")).toContain(headingText("Hole: none yet"));
@@ -262,13 +263,10 @@ describe("layouts", () => {
     expect(loadingTitle("Loading").startsWith(LAYOUT.side)).toBe(true);
   });
 
-  it("gives a preview's fake player panel the side panel and the editor's own marks and icons", () => {
+  it("gives a preview's fake player panel the side panel and the editor's own marks", () => {
     expect(SIDE_TITLE).toBe(LAYOUT.side);
     expect(DANGER_BUTTON).toBe(MARK.danger);
     expect(GO_BUTTON).toBe(MARK.go);
-    for (const [name, mark] of Object.entries(FORM_MARKS)) expect(mark, name).toBe(MARK[name as keyof typeof FORM_MARKS]);
-    expect(PREVIEW_COLUMNS).toEqual(SEGMENT_COLUMNS);
-    expect(NUDGE_ICONS).toEqual({ minus: ICONS.minus, plus: ICONS.new });
   });
 
   it("never lets one mark read as another", () => {
