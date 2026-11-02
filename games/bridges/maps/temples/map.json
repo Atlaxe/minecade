@@ -1,0 +1,18 @@
+{
+  "name": "Temples",
+  "spawns": [],
+  "spectatorSpawn": [0, 21, 0],
+  "bounds": { "min": [-63, -55, -92], "max": [63, 23, 91] },
+  "killY": -39,
+  "teamSpawns": { "blue": [[0.49, -26, 37.55]], "red": [[0.49, -26, -21.5]] },
+  "points": { "hole.red": [[0.5, -34, -33.5]], "hole.blue": [[0.5, -34, 49.5]] },
+  "regions": {
+    "spawnGuard.blue": [{ "min": [-3, -29, 36], "max": [3, -26, 38] }],
+    "spawnGuard.red": [{ "min": [-3, -29, -23], "max": [3, -22, -21] }]
+  },
+  "source": {
+    "world": "Datapacking (imported)",
+    "box": { "min": [829, -55, 213], "max": [955, 19, 396] },
+    "offset": [-892, 0, -305]
+  }
+}
