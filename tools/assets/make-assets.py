@@ -12,6 +12,7 @@ Outputs:
     games/bridges/resource_pack/textures/minecade/bridges/hole_*.png        Bridges' holes, a ring per team
     games/bridges/markers/hole.png                                           the hole's marker in the map editor
     editor/preview/resource_pack/font/glyph_E4.png                           hearts over a preview's fake players
+    editor/preview/resource_pack/textures/minecade/fake/*.png                a fake player's plain skins (white, black)
     packages/minigame-core/resource_pack/textures/ui/item_lock_*.png         blank: locked items show no lock corner
     lobby/resource_pack/textures/minecade/ui/...                             holographic menu art
     lobby/resource_pack/textures/minecade/holo/...                           hologram frames, beam
@@ -549,6 +550,24 @@ def hearts() -> Image.Image:
     return image
 
 
+# A 64x64 skin's base layer (head, then the right leg, body and right arm, then the left leg and
+# arm), as boxes of (left, top, right, bottom). The outer layer (hat, jacket, sleeves, pants) is
+# left clear, so a plain skin is just the figure.
+SKIN_BASE = [(0, 0, 32, 16), (0, 16, 56, 32), (16, 48, 48, 64)]
+
+
+def plain_skin(color: tuple[int, int, int]) -> Image.Image:
+    """
+    A fake player's plain skin (minigame-core fakes.ts FAKE_SKINS): the figure in one color. The
+    team color skin is the white one, tinted by the render controller.
+    """
+    image = Image.new("RGBA", (64, 64), (0, 0, 0, 0))
+    draw = ImageDraw.Draw(image)
+    for left, top, right, bottom in SKIN_BASE:
+        draw.rectangle((left, top, right - 1, bottom - 1), fill=(*color, 255))
+    return image
+
+
 # The back arrow, pixel by pixel (diagonal lines this small come out uneven).
 BACK_ARROW = [
     "...............",
@@ -868,6 +887,8 @@ def main() -> None:
         save(hole_texture(ring), ROOT / "games" / "bridges" / "resource_pack" / "textures" / "minecade" / "bridges" / f"hole_{dye}.png")
     save(hole_marker_texture(), ROOT / "games" / "bridges" / "markers" / "hole.png")
     save(hearts(), ROOT / "editor" / "preview" / "resource_pack" / "font" / "glyph_E4.png")
+    save(plain_skin((255, 255, 255)), ROOT / "editor" / "preview" / "resource_pack" / "textures" / "minecade" / "fake" / "white.png")
+    save(plain_skin((28, 28, 28)), ROOT / "editor" / "preview" / "resource_pack" / "textures" / "minecade" / "fake" / "black.png")
 
     logo = blue_logo()
     # The core pack: the lobby's menus and every server's loading screen and pause menu use it.

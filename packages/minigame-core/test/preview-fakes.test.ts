@@ -1,17 +1,18 @@
 // A game previewed from the map editor: fake players (/fake) wait, spawn, go down and watch like
-// players, right clicking one asks whether it should kill you, /exit ends the preview for a map
-// editor (a guest just leaves), and /restart plays it again for everyone. Outside previews there are
-// no fake players.
+// players, right clicking one opens its panel (it kills you, its look, its position), /switch trades
+// places with one, /exit ends the preview for a map editor (a guest just leaves), and /restart plays
+// it again for everyone. Outside previews there are no fake players.
 import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import type { GameConfig } from "../src/config.ts";
 import type { MapConfig } from "../src/map-config.ts";
-import { FAKE_PLAYER, FakePlayers, HEARTS, heartsText } from "../src/game/fakes.ts";
+import { FAKE_PLAYER, FAKE_POSES, FAKE_SKINS, FakePlayers, HEARTS, heartsText } from "../src/game/fakes.ts";
+import { FORM_MARKS } from "../src/game/preview.ts";
 import { Minigame } from "../src/game/minigame.ts";
 import { DANGER_BUTTON, GO_BUTTON, PREVIEW_NEXT, SIDE_TITLE, endPreview, replayAll } from "../src/game/preview.ts";
 import { stripColors } from "../src/text.ts";
 import { transfers } from "./fake-mc-server-admin.ts";
 import { world, type FakeMob } from "./fake-mc-server.ts";
-import { queueFormResponses, shownForms } from "./fake-mc-server-ui.ts";
+import { openForms, queueFormResponses, shownForms } from "./fake-mc-server-ui.ts";
 import { ARENA, createHarness, everyoneLeaves, expectBaseline, playToEnd, snapshot, ticks, type Harness } from "./game-harness.ts";
 
 class TestGame extends Minigame {}
@@ -43,6 +44,14 @@ function preview(names: string[], config: GameConfig, guests: string[] = [], map
 
 /** The game the test is previewing. */
 let current: Minigame | undefined;
+
+/** The dye names of the team colors the tests' teams use (kit-defs.ts). */
+const DYE: Record<string, string> = { "§c": "red", "§9": "blue", "§a": "lime", "§e": "yellow" };
+
+/** A § color code as 0xRRGGBB, as the fake's team color skin takes it. */
+function codeTintOf(code: string): number {
+  return { "§c": 0xff5555, "§9": 0x5555ff, "§a": 0x55ff55, "§e": 0xffff55 }[code] ?? 0;
+}
 
 /** A fake player's body now (its name tag is hidden during a match, so the game says which it is). */
 function bodyOf(name: string): FakeMob | undefined {
@@ -85,13 +94,14 @@ describe("fake players in a preview", () => {
       expect(fake1!.nameTag).toBe("");
       expect(stripColors(world.chat.at(-1) ?? "")).toMatch(/^Fake 1 .* A$/);
 
-      // Right click: the side panel asks first. Cancel leaves everyone be; confirming lets the fake
-      // kill the player, credited to it.
-      queueFormResponses({ canceled: false, selection: 1 });
+      // Right click: the side panel asks first. Closing it leaves everyone be; the red button lets
+      // the fake kill the player, credited to it.
+      queueFormResponses({ canceled: true });
       world.afterEvents.playerInteractWithEntity.emit({ player: a, target: bodyOf("Fake 2")! });
       await ticks(2);
       expect(shownForms.at(-1)?.titleText).toBe(`${SIDE_TITLE}Fake 2`);
-      expect(shownForms.at(-1)?.buttons).toEqual([`${DANGER_BUTTON}Fake 2 kills you`, "Cancel"]);
+      expect(shownForms.at(-1)?.buttons[0]).toBe(`${DANGER_BUTTON}Fake 2 kills you`);
+      expect(shownForms.at(-1)?.buttons.at(-1)).toBe("Cancel");
       expect(game.roster.get("A")?.state).toBe("alive");
       queueFormResponses({ canceled: false, selection: 0 });
       world.afterEvents.playerInteractWithEntity.emit({ player: a, target: bodyOf("Fake 2")! });
@@ -189,7 +199,7 @@ describe("fake players in a preview", () => {
       queueFormResponses({ canceled: false, selection: 0 });
       world.afterEvents.playerInteractWithEntity.emit({ player: a, target: bodyOf("Fake 1")! });
       await ticks(2);
-      expect(shownForms.at(-1)?.buttons).toEqual([`${GO_BUTTON}Fake 1 wins the round\n§7for ${team.name}`, `${DANGER_BUTTON}Fake 1 kills you`, "Cancel"]);
+      expect(shownForms.at(-1)?.buttons.slice(0, 2)).toEqual([`${GO_BUTTON}Fake 1 wins the round\n§7for ${team.name}`, `${DANGER_BUTTON}Fake 1 kills you`]);
       expect(game.bestOf?.history).toEqual([team.id]);
       // Between rounds there's none to win.
       expect(stripColors(game.fakeWinsRound("Fake 1") ?? "")).toBe("There's no round being played.");
@@ -249,6 +259,93 @@ describe("fake players in a preview", () => {
       expect(bodyOf("Fake 1")?.events.at(-1)).toBe("minecade:walk");
       expect(bodyOf("Fake 1")?.effects.has("invisibility")).toBe(false);
       expect(stripColors(bodyOf("Fake 1")?.nameTag ?? "")).toBe("Fake 1");
+      game.abort();
+    });
+    expectBaseline(harness.root, baseline);
+  });
+
+  it("change their look and place from their panel: skin, what they hold, pose, nudges and gravity", async () => {
+    const kits = { list: [{ id: "builder", name: "Builder", items: [{ item: "minecraft:{color}_wool", count: 8 }, { item: "minecraft:bow" }] }] };
+    const { players, baseline, game } = preview(["A"], { ...FFA, teams: { count: 2 }, kits, win: "custom", timeLimitSeconds: 0 });
+    const [a] = players;
+    game.ctx.vars.previewFakes = 1;
+    await playToEnd(game, harness.root, baseline, async () => {
+      for (let tick = 0; tick < 600 && game.phase !== "playing"; tick++) await ticks(1);
+      expect(game.phase).toBe("playing");
+      const body = bodyOf("Fake 1")!;
+      const team = game.teamOf("Fake 1")!;
+      // Each tap changes it and opens the panel again: the button with `text`, in the panel open now.
+      const tap = async (text: string) => {
+        const panel = openForms.pop()!;
+        const buttons = panel.form.buttons;
+        const selection = buttons.findIndex((button) => stripColors(button).startsWith(text));
+        expect(selection, `${text} in ${buttons.map(stripColors).join(" | ")}`).toBeGreaterThanOrEqual(0);
+        panel.respond({ canceled: false, selection });
+        await ticks(2);
+      };
+      queueFormResponses({ canceled: false, selection: 2 }); // Skin: opens its list
+      world.afterEvents.playerInteractWithEntity.emit({ player: a, target: body });
+      await ticks(2);
+      expect(shownForms.at(-1)?.buttons.map(stripColors).slice(1, 8)).toEqual(["Display", "Skin: Steve", ...FAKE_SKINS, "Hold: Nothing"]);
+      expect(shownForms.at(-1)?.buttons[2]).toBe(`${FORM_MARKS.lead}${FORM_MARKS.dropdown}${FORM_MARKS.on}Skin: Steve`);
+      await tap("Team color");
+      expect([body.properties.get("minecade:skin"), body.properties.get("minecade:tint")]).toEqual([3, codeTintOf(team.color) + 1]);
+      await tap("Hold: Nothing");
+      await tap("Wool");
+      expect(body.commands.at(-1)).toBe(`replaceitem entity @s slot.weapon.mainhand 0 minecraft:${DYE[team.color]}_wool`);
+      await tap("Pose: Standing");
+      await tap(FAKE_POSES[4]);
+      expect(body.properties.get("minecade:pose")).toBe(4);
+      // Position: Step 0.5, up twice, gravity off, a turn right.
+      const { x, y, z } = body.location;
+      await tap("0.5 blocks");
+      await tap("Y up");
+      await tap("Y up");
+      expect(body.location).toEqual({ x, y: y + 1, z });
+      await tap("Gravity");
+      expect(body.events.at(-1)).toBe("minecade:float");
+      expect(shownForms.at(-1)?.buttons.some((button) => button.includes(`${FORM_MARKS.toggle}Gravity`))).toBe(true);
+      const yaw = body.rotation.y;
+      await tap("Turn right");
+      expect(body.rotation.y).toBe(yaw + 15);
+      // Closed: its look stays with it into its next body.
+      openForms.pop()!.respond({ canceled: true });
+      await ticks(2);
+      game.respawnAll();
+      await ticks(2);
+      const next = bodyOf("Fake 1")!;
+      expect([next.properties.get("minecade:skin"), next.properties.get("minecade:pose")]).toEqual([3, 4]);
+      expect(next.commands.at(-1)).toBe(`replaceitem entity @s slot.weapon.mainhand 0 minecraft:${DYE[team.color]}_wool`);
+      expect(next.events.at(-1)).toBe("minecade:walk");
+      game.abort();
+    });
+    expectBaseline(harness.root, baseline);
+  });
+
+  it("trade places with a player who switches: spots, teams, lives, health, and the kit's team color", async () => {
+    const kits = { list: [{ id: "builder", name: "Builder", items: [{ item: "minecraft:{color}_wool", count: 8, slot: 2 }] }] };
+    const { players, baseline, game } = preview(["A"], { ...FFA, teams: { count: 2 }, kits, nameTags: true, win: "custom", timeLimitSeconds: 0 });
+    const [a] = players;
+    game.ctx.vars.previewFakes = 1;
+    await playToEnd(game, harness.root, baseline, async () => {
+      expect(stripColors(game.switchWithFake(a as never))).toBe("Switch once the match has started.");
+      for (let tick = 0; tick < 600 && game.phase !== "playing"; tick++) await ticks(1);
+      await ticks(2);
+      const body = bodyOf("Fake 1")!;
+      const [mine, theirs] = [game.teamOf("A")!, game.teamOf("Fake 1")!];
+      expect(mine.id).not.toBe(theirs.id);
+      a.location = { x: 3, y: 65, z: 3 };
+      body.location = { x: -3, y: 70, z: -3 };
+      body.health.currentValue = 7;
+      expect(stripColors(game.switchWithFake(a as never, 9))).toBe("There's no Fake 9.");
+      expect(stripColors(game.switchWithFake(a as never))).toBe(`You traded places with Fake 1: you're on ${theirs.name} now.`);
+      expect([a.location, body.location]).toEqual([{ x: -3, y: 70, z: -3 }, { x: 3, y: 65, z: 3 }]);
+      expect([game.teamOf("A")?.id, game.teamOf("Fake 1")?.id]).toEqual([theirs.id, mine.id]);
+      expect([a.health.currentValue, body.health.currentValue]).toEqual([7, 20]);
+      expect(a.inventory.getItem(2)?.typeId).toBe(`minecraft:${DYE[theirs.color]}_wool`);
+      expect(a.nameTag).toBe(`${theirs.color}A`);
+      expect(stripColors(body.nameTag).split("\n")[0]).toBe("Fake 1");
+      expect(body.nameTag.startsWith(mine.color)).toBe(true);
       game.abort();
     });
     expectBaseline(harness.root, baseline);

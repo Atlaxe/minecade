@@ -104,6 +104,42 @@ export class Kits {
   }
 
   /**
+   * The player changed teams (a preview's /switch): their kits' items in the old team's color
+   * become the new team's, the same counts in the same slots, and their team armor takes its dye.
+   */
+  recolor(player: Player, from?: string, to?: string): void {
+    const kits = [this.base, this.kitFor(player.name)].filter((kit): kit is KitDef => kit !== undefined);
+    const swaps = new Map<string, string>();
+    for (const kit of kits) for (const item of kit.items) swaps.set(kitItemId(item, from), kitItemId(item, to));
+    try {
+      const inventory = player.getComponent(EntityComponentTypes.Inventory)?.container;
+      for (let slot = 0; slot < (inventory?.size ?? 0); slot++) {
+        const stack = inventory?.getItem(slot);
+        const id = stack ? swaps.get(stack.typeId) : undefined;
+        if (!stack || id === undefined || id === stack.typeId) continue;
+        const swapped = new ItemStack(id, stack.amount);
+        swapped.nameTag = stack.nameTag;
+        swapped.lockMode = stack.lockMode;
+        inventory?.setItem(slot, swapped);
+      }
+      const color = to ? TEAM_COLORS[to] : undefined;
+      const equipment = player.getComponent(EntityComponentTypes.Equippable);
+      for (const kit of kits) {
+        if (!kit.teamArmor || !color) continue;
+        for (const slot of Object.keys(kit.armor ?? {}) as (keyof typeof ARMOR_SLOTS)[]) {
+          const stack = equipment?.getEquipment(ARMOR_SLOTS[slot]);
+          const dyeable = stack?.getComponent(ItemComponentTypes.Dyeable);
+          if (!stack || !dyeable) continue;
+          dyeable.color = color;
+          equipment?.setEquipment(ARMOR_SLOTS[slot], stack);
+        }
+      }
+    } catch (error) {
+      log.warn(`could not put ${player.name}'s kit in their new team's color: ${describeError(error)}`);
+    }
+  }
+
+  /**
    * Remembers what the player has left of each kit that isn't refilled on every spawn, for their
    * next spawn. Call it as they go down, while their inventory still holds it.
    */

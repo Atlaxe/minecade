@@ -18,7 +18,7 @@ import { ActionFormData } from "@minecraft/server-ui";
 import type { ServerContext } from "../context.ts";
 import type { BestOfConfig, GameConfig, KitDef, TeamDef } from "../config.ts";
 import { bestOfCodes, countdownChime, hudLine, playChime, previewLine, type Chime } from "../hud.ts";
-import { kitLines, kitPicturePath, teamColored } from "../kit-defs.ts";
+import { itemLabel, kitLines, kitPicturePath, teamColored } from "../kit-defs.ts";
 import { describeError, log } from "../log.ts";
 import { facingOf, worldPoint, type Box, type MapPosition } from "../map-config.ts";
 import { normalizePlayer } from "../player.ts";
@@ -30,12 +30,13 @@ import { BestOf, bestOfDisplay, bestOfRounds } from "./best-of.ts";
 import { BuildRules, type BuildHost } from "./build.ts";
 import { Combat, type CombatHost, type Hit } from "./combat.ts";
 import { KillCredit } from "./credit.ts";
+import { FAKE_STEPS, FAKE_TURN, fakePanelEntries, nudgeOffset, type FakeList, type FakePanelView } from "./fake-panel.ts";
 import { FAKE_PLAYER, FakePlayers } from "./fakes.ts";
 import { KitForm, type KitCard, type KitFormContent } from "./kit-form.ts";
 import { KitPicker } from "./kit-picker.ts";
 import { Kits } from "./kits.ts";
 import { MapView } from "./map-view.ts";
-import { DANGER_BUTTON, GO_BUTTON, SIDE_TITLE } from "./preview.ts";
+import { SIDE_TITLE } from "./preview.ts";
 import { aborted, draw, lastStanding, type Result } from "./results.ts";
 import { Roster, type Participant } from "./roster.ts";
 import { Score } from "./score.ts";
@@ -164,8 +165,8 @@ export abstract class Minigame<C extends GameConfig = GameConfig> {
   private startTick = 0;
   private sidebar: Sidebar | undefined;
   private sidebarVersion = -1;
-  /** Players with a fake player's kill confirm open. */
-  private readonly confirmOpen = new Set<string>();
+  /** Players with a fake player's side panel open. */
+  private readonly panelOpen = new Set<string>();
   /** A map editor's /restart ended the preview: everyone plays it again. */
   private restartAsked = false;
   /** The block under a locked queue spawn the game made a barrier while players wait there. */
@@ -1074,7 +1075,7 @@ export abstract class Minigame<C extends GameConfig = GameConfig> {
   private placeFake(name: string, position: MapPosition, how: { faceCenter?: boolean; tagged?: boolean; hearts?: boolean; unseen?: boolean; floating?: boolean } = {}): void {
     const team = this.teamOf(name);
     const tag = how.tagged === false ? "" : team ? `${team.color}${name}` : name;
-    void this.fakes?.place(name, worldPoint(position), tag, how.floating === true, how.hearts === true).then((body) => {
+    void this.fakes?.place(name, worldPoint(position), tag, { floating: how.floating, hearts: how.hearts, teamColor: team?.color }).then((body) => {
       try {
         if (!body?.isValid) return;
         this.place(body, position, how.faceCenter);
@@ -1555,11 +1556,11 @@ export abstract class Minigame<C extends GameConfig = GameConfig> {
       this.spawn(name, "join");
     }
     if (added.length === 0) return say.minor(`${this.config.name} is full: ${this.config.maxPlayers} players.`);
-    return say.info(`Added ${added.join(", ")}. Right click one to be killed by it.`);
+    return say.info(`Added ${added.join(", ")}. Right click one for its panel.`);
   }
 
   /**
-   * A fake player kills `victim`, a real player who asked (right click, then confirm): they go
+   * A fake player kills `victim`, a real player who asked (its panel's red button): they go
    * down, credited to the fake when it's their enemy in the match. Returns why not, if it can't.
    */
   fakeKills(name: string, victim: string): string | undefined {
@@ -1587,6 +1588,77 @@ export abstract class Minigame<C extends GameConfig = GameConfig> {
     const participant = this.roster.get(name);
     if (!this.config.bestOf || !this.roundInPlay || this.currentPhase !== "playing" || !participant || participant.state === "left") return undefined;
     return this.teams.length > 0 ? participant.team : name;
+  }
+
+  /**
+   * /switch: the player and a fake player trade places in the match: where they stand and look,
+   * their teams, lives and health. The player's kit items in their team's color take their new
+   * team's. `number` picks Fake <number>; without it, the fake they look at, else the nearest one in
+   * play. Returns what happened.
+   */
+  switchWithFake(player: Player, number?: number): string {
+    const fakes = this.fakes;
+    if (!fakes) return say.minor("Fake players are only for previews.");
+    if (this.currentPhase !== "playing") return say.minor("Switch once the match has started.");
+    const me = this.roster.get(player.name);
+    if (!me || me.state === "left" || me.state === "out") return say.minor("You aren't playing in this match.");
+    if (me.state !== "alive") return say.minor("You're down: switch once you're back in play.");
+    const name = number !== undefined ? `Fake ${Math.trunc(number)}` : (this.fakeInView(player) ?? this.nearestFake(player));
+    if (name === undefined) return say.minor("There are no fake players in play.");
+    if (!fakes.has(name)) return say.minor(`There's no ${name}.`);
+    const fake = this.roster.get(name);
+    const body = fakes.body(name);
+    if (fake?.state !== "alive" || !body) return say.minor(`${name} isn't in play right now.`);
+    try {
+      const mine = { at: player.location, rotation: player.getRotation(), health: healthOf(player) };
+      const theirs = { at: body.location, rotation: body.getRotation(), health: healthOf(body) };
+      player.teleport(theirs.at, { rotation: theirs.rotation });
+      body.teleport(mine.at, { rotation: { x: 0, y: mine.rotation.y } });
+      setHealth(player, theirs.health);
+      setHealth(body, mine.health);
+    } catch (error) {
+      log.warn(`could not switch ${player.name} with ${name}: ${describeError(error)}`);
+      return say.minor("That didn't work: try again.");
+    }
+    [me.lives, fake.lives] = [fake.lives, me.lives];
+    this.credit.clear(player.name);
+    this.credit.clear(name);
+    if (me.team === fake.team) return say.info(`You traded places with ${name}.`);
+    const before = this.teamOf(player.name);
+    [me.team, fake.team] = [fake.team, me.team];
+    const team = this.teamOf(player.name);
+    this.kits.recolor(player, before?.color, team?.color);
+    const tagged = this.config.nameTags === true;
+    player.nameTag = !tagged ? "" : team ? `${team.color}${player.name}` : player.name;
+    fakes.retag(name, !tagged ? "" : before ? `${before.color}${name}` : name, before?.color);
+    this.queueWinCheck();
+    return say.info(`You traded places with ${name}: you're on ${team?.name ?? "its team"} now.`);
+  }
+
+  /** The fake player in play a player looks at, if any (up to 64 blocks away). */
+  private fakeInView(player: Player): string | undefined {
+    try {
+      for (const { entity } of player.getEntitiesFromViewDirection({ maxDistance: 64 })) {
+        const name = entity.typeId === FAKE_PLAYER ? this.whoIs(entity) : undefined;
+        if (name !== undefined && this.roster.get(name)?.state === "alive") return name;
+      }
+    } catch {
+      // nothing in view
+    }
+    return undefined;
+  }
+
+  /** The nearest fake player in play. */
+  private nearestFake(player: Player): string | undefined {
+    let nearest: { name: string; distance: number } | undefined;
+    for (const name of this.fakes?.all ?? []) {
+      const body = this.fakes?.body(name);
+      if (!body || this.roster.get(name)?.state !== "alive") continue;
+      const { x, y, z } = body.location;
+      const distance = Math.hypot(x - player.location.x, y - player.location.y, z - player.location.z);
+      if (!nearest || distance < nearest.distance) nearest = { name, distance };
+    }
+    return nearest?.name;
   }
 
   /** /exit: a map editor ends the preview for everyone (back to Edit); anyone else leaves alone. */
@@ -1617,42 +1689,74 @@ export abstract class Minigame<C extends GameConfig = GameConfig> {
     this.abort("aborted");
   }
 
-  /**
-   * Right clicking a fake player asks, in the side panel, whether it should kill you (or, in a
-   * best-of round, win it). Its hearts follow its health.
-   */
+  /** Right clicking a fake player opens its side panel (fake-panel.ts). Its hearts follow its health. */
   private watchFakes(fakes: FakePlayers): void {
     this.scope.add(() => fakes.clear());
     this.scope.subscribe(world.afterEvents.playerInteractWithEntity, ({ player, target }) => {
       const name = this.whoIs(target);
-      if (name !== undefined && fakes.has(name)) void this.confirmKill(player, name);
+      if (name !== undefined && fakes.has(name)) void this.fakePanel(player, name, fakes);
     });
     this.scope.subscribe(world.afterEvents.entityHurt, ({ hurtEntity }) => {
       if (hurtEntity.typeId === FAKE_PLAYER) fakes.showHealth(hurtEntity);
     });
   }
 
-  private async confirmKill(player: Player, name: string): Promise<void> {
+  /**
+   * A fake player's side panel: "wins the round" and "kills you" close it once tapped; everything
+   * else changes the fake at once and opens it again, until it's closed.
+   */
+  private async fakePanel(player: Player, name: string, fakes: FakePlayers): Promise<void> {
     const key = player.name.toLowerCase();
-    if (this.confirmOpen.has(key)) return;
-    this.confirmOpen.add(key);
+    if (this.panelOpen.has(key)) return;
+    this.panelOpen.add(key);
+    let step: number = FAKE_STEPS[0];
+    let open: FakeList | undefined;
     try {
-      const choices: { text: string; act?: () => string | undefined }[] = [];
-      const side = this.roundSideOf(name);
-      if (side !== undefined) {
-        const team = this.teams.find((def) => def.id === side);
-        choices.push({ text: `${GO_BUTTON}${name} wins the round${team ? `\n§7for ${team.name}` : ""}`, act: () => this.fakeWinsRound(name) });
+      while (player.isValid && fakes.has(name)) {
+        const side = this.roundSideOf(name);
+        const body = fakes.body(name);
+        const view: FakePanelView = {
+          name,
+          ...(side !== undefined ? { round: { team: this.teams.find((def) => def.id === side)?.name } } : {}),
+          look: fakes.lookOf(name),
+          items: this.holdables(),
+          ...(body ? { body: { at: body.location, yaw: body.getRotation().y, floating: fakes.isFloating(name) } } : {}),
+          step,
+          ...(open ? { open } : {}),
+        };
+        const entries = fakePanelEntries(view);
+        const form = new ActionFormData().title(`${SIDE_TITLE}${name}`);
+        for (const entry of entries) form.button(entry.text, entry.icon);
+        const answer = await showForm(this.scope, player, form);
+        const action = answer?.selection === undefined ? undefined : entries[answer.selection]?.action;
+        if (!action || action.kind === "cancel") return;
+        if (action.kind === "win" || action.kind === "kill") {
+          const why = action.kind === "win" ? this.fakeWinsRound(name) : this.fakeKills(name, player.name);
+          if (why && player.isValid) player.sendMessage(why);
+          return;
+        }
+        if (action.kind === "open") open = open === action.which ? undefined : action.which;
+        else if (action.kind === "skin" || action.kind === "pose" || action.kind === "hold") open = undefined;
+        if (action.kind === "skin") fakes.setLook(name, { skin: action.skin });
+        else if (action.kind === "pose") fakes.setLook(name, { pose: action.pose });
+        else if (action.kind === "hold") fakes.setLook(name, { hold: action.item });
+        else if (action.kind === "move") fakes.nudge(name, nudgeOffset(action.axis, action.by, step));
+        else if (action.kind === "turn") fakes.nudge(name, { x: 0, y: 0, z: 0 }, action.by * FAKE_TURN);
+        else if (action.kind === "step") step = action.step;
+        else if (action.kind === "gravity") fakes.setFloating(name, !fakes.isFloating(name));
       }
-      choices.push({ text: `${DANGER_BUTTON}${name} kills you`, act: () => this.fakeKills(name, player.name) }, { text: "Cancel" });
-      const form = new ActionFormData().title(`${SIDE_TITLE}${name}`);
-      for (const choice of choices) form.button(choice.text);
-      const answer = await showForm(this.scope, player, form);
-      const choice = answer?.selection === undefined ? undefined : choices[answer.selection];
-      const why = choice?.act?.();
-      if (why && player.isValid) player.sendMessage(why);
     } finally {
-      this.confirmOpen.delete(key);
+      this.panelOpen.delete(key);
     }
+  }
+
+  /** What a fake player can hold: every item in the game's kits, once each. */
+  private holdables(): { item: string; label: string }[] {
+    const items = new Map<string, string>();
+    for (const kit of [this.kits.base, ...this.kits.list]) {
+      for (const entry of kit?.items ?? []) if (!items.has(entry.item)) items.set(entry.item, itemLabel(entry));
+    }
+    return [...items].map(([item, label]) => ({ item, label }));
   }
 
   // ---- Small helpers ----------------------------------------------------------------------
@@ -1728,3 +1832,11 @@ export abstract class Minigame<C extends GameConfig = GameConfig> {
   }
 }
 
+/** An entity's health now (a player's, or a fake player's body). */
+function healthOf(entity: Entity): number {
+  return entity.getComponent(EntityComponentTypes.Health)?.currentValue ?? 20;
+}
+
+function setHealth(entity: Entity, value: number): void {
+  entity.getComponent(EntityComponentTypes.Health)?.setCurrentValue(Math.max(1, value));
+}

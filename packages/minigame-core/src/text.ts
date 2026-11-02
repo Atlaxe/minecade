@@ -119,3 +119,28 @@ export function ordinal(place: number): string {
   const suffix = ["th", "st", "nd", "rd"][place % 10] ?? "th";
   return `${place}${suffix}`;
 }
+
+/** The colors of the § color codes teams use, as 0xRRGGBB. */
+const CODE_COLORS: Record<string, number> = {
+  "0": 0x000000,
+  "1": 0x0000aa,
+  "2": 0x00aa00,
+  "3": 0x00aaaa,
+  "4": 0xaa0000,
+  "5": 0xaa00aa,
+  "6": 0xffaa00,
+  "7": 0xaaaaaa,
+  "8": 0x555555,
+  "9": 0x5555ff,
+  a: 0x55ff55,
+  b: 0x55ffff,
+  c: 0xff5555,
+  d: 0xff55ff,
+  e: 0xffff55,
+  f: 0xffffff,
+};
+
+/** A § color code's color as 0xRRGGBB ("§c" is 0xff5555), or undefined: a team's markers and a fake player's team color skin take it. */
+export function codeTint(code: string): number | undefined {
+  return CODE_COLORS[code.replace("§", "").toLowerCase()];
+}

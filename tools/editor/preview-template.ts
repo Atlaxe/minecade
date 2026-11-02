@@ -2,7 +2,7 @@
 // the way npm run build builds a game (template.ts does the same for the editor's own servers).
 // It adds the preview's own packs (editor/preview/): the fake players (/fake), and a resource pack
 // that also carries the editor's mode box (editor/resource_pack/ui/hud_screen.json, so "Preview"
-// shows top center) and its side panel forms (the fake player's kill confirm). Drafts are fine: a
+// shows top center) and its side panel forms (the fake player's panel). Drafts are fine: a
 // preview is how a map gets checked before it's published.
 import { existsSync } from "node:fs";
 import { cp, writeFile } from "node:fs/promises";

@@ -265,6 +265,8 @@ export class FakePlayer {
   isSprinting = false;
   selectedSlotIndex = 0;
   readonly teleports: Vector3[] = [];
+  /** Its facing: x pitch, y yaw (set by a teleport with a rotation). */
+  rotation = { x: 0, y: 0 };
   /** The facing of each teleport, in order: a rotation (x pitch, y yaw), a point to face, or none. */
   readonly teleportFacings: ({ rotation: { x: number; y: number } } | { facingLocation: Vector3 } | undefined)[] = [];
   /** Every applyKnockback call, in order. */
@@ -349,9 +351,14 @@ export class FakePlayer {
     writable("Entity::teleport");
     this.location = { ...location };
     this.teleports.push({ ...location });
+    if (options.rotation) this.rotation = { ...options.rotation };
     if (options.rotation) this.teleportFacings.push({ rotation: { ...options.rotation } });
     else if (options.facingLocation) this.teleportFacings.push({ facingLocation: { ...options.facingLocation } });
     else this.teleportFacings.push(undefined);
+  }
+
+  getRotation(): { x: number; y: number } {
+    return { ...this.rotation };
   }
 
   playSound(id: string, options: { pitch?: number; volume?: number } = {}): void {
@@ -463,6 +470,9 @@ export class FakeMob {
   /** Every event triggered on it, oldest first ("minecade:float", ...). */
   readonly events: string[] = [];
   readonly effects = new Set<string>();
+  /** Every command it ran, oldest first. */
+  readonly commands: string[] = [];
+  rotation = { x: 0, y: 0 };
 
   constructor(typeId: string, location: Vector3) {
     this.typeId = typeId;
@@ -477,6 +487,20 @@ export class FakeMob {
   setProperty(id: string, value: number | boolean | string): void {
     writable("Entity::setProperty");
     this.properties.set(id, value);
+  }
+
+  getProperty(id: string): number | boolean | string | undefined {
+    return this.properties.get(id);
+  }
+
+  getRotation(): { x: number; y: number } {
+    return { ...this.rotation };
+  }
+
+  runCommand(command: string): { successCount: number } {
+    writable("Entity::runCommand");
+    this.commands.push(command);
+    return { successCount: 1 };
   }
 
   getEffect(typeId: string): { typeId: string } | undefined {
@@ -498,10 +522,11 @@ export class FakeMob {
     this.events.push(eventName);
   }
 
-  teleport(location: Vector3, _options: unknown = {}): void {
+  teleport(location: Vector3, options: { rotation?: { x: number; y: number } } = {}): void {
     writable("Entity::teleport");
     this.location = { ...location };
     this.teleports.push({ ...location });
+    if (options.rotation) this.rotation = { ...options.rotation };
   }
 
   clearVelocity(): void {

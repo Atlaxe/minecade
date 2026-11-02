@@ -4,7 +4,12 @@
     "description": {
       "identifier": "minecade:fake_player",
       "is_spawnable": false,
-      "is_summonable": true
+      "is_summonable": true,
+      "properties": {
+        "minecade:skin": {"type": "int", "range": [0, 3], "default": 0, "client_sync": true},
+        "minecade:pose": {"type": "int", "range": [0, 15], "default": 0, "client_sync": true},
+        "minecade:tint": {"type": "int", "range": [0, 16777216], "default": 0, "client_sync": true}
+      }
     },
     "components": {
       "minecraft:type_family": { "family": ["fake_player"] },

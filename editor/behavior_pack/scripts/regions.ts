@@ -1,7 +1,7 @@
 // The boxes a map has (its bounds and regions), where the region tool can save a box, and the
 // colors their outlines are drawn in: pure functions of the map and its rules, so they can be
 // tested without a server.
-import { KILL_REGION, enclosingBox, mapRequirements, type Box, type EditorRules, type MapConfig, type MapRequirement } from "@minecade/minigame-core/config";
+import { KILL_REGION, codeTint, enclosingBox, mapRequirements, type Box, type EditorRules, type MapConfig, type MapRequirement } from "@minecade/minigame-core/config";
 
 /** An outline color, each part from 0 to 1 (the script API's RGB). */
 export interface Rgb {
@@ -16,26 +16,6 @@ export const BOUNDS_COLOR = rgb(0xffffff);
 export const KILL_COLOR = rgb(0xd00000);
 /** Regions without a team take these in turn. White, red and yellow are kept for the bounds, kill and the selection. */
 const PALETTE = [0x55ffff, 0x55ff55, 0xff55ff, 0x5555ff, 0xffaa00, 0x00aaaa, 0x00aa00, 0xaa00aa].map(rgb);
-/** The colors of the § color codes teams use. */
-const CODE_COLORS: Record<string, number> = {
-  "0": 0x000000,
-  "1": 0x0000aa,
-  "2": 0x00aa00,
-  "3": 0x00aaaa,
-  "4": 0xaa0000,
-  "5": 0xaa00aa,
-  "6": 0xffaa00,
-  "7": 0xaaaaaa,
-  "8": 0x555555,
-  "9": 0x5555ff,
-  a: 0x55ff55,
-  b: 0x55ffff,
-  c: 0xff5555,
-  d: 0xff55ff,
-  e: 0xffff55,
-  f: 0xffffff,
-};
-
 /**
  * Where the region tool can save a box: the bounds (replacing them all), another bounds box, a
  * region (as a new entry in its list), or a region named in the form.
@@ -266,11 +246,6 @@ function isBox(value: unknown): value is Box {
 function codeColor(code: string): Rgb | undefined {
   const value = codeTint(code);
   return value === undefined ? undefined : rgb(value);
-}
-
-/** A § color code's color as 0xRRGGBB ("§c" is 0xff5555), or undefined: a team's markers take it. */
-export function codeTint(code: string): number | undefined {
-  return CODE_COLORS[code.replace("§", "").toLowerCase()];
 }
 
 function rgb(hex: number): Rgb {

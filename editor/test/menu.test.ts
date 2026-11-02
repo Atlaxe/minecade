@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { mapChecklist, stripColors, type HomeState, type MapCamera, type MapConfig } from "@minecade/minigame-core/config";
-import { DANGER_BUTTON, SIDE_TITLE } from "../../packages/minigame-core/src/game/preview.ts";
+import { DANGER_BUTTON, FORM_MARKS, GO_BUTTON, NUDGE_ICONS, SEGMENT_COLUMNS as PREVIEW_COLUMNS, SIDE_TITLE } from "../../packages/minigame-core/src/game/preview.ts";
 import { spawnLists, toolLists } from "../behavior_pack/scripts/lists.ts";
 import { CARD_COLUMNS, COLUMNS, LAYOUT, LOADING, MARK, SEGMENT_COLUMNS, cardIconText, cardTitleText, dangerText, dropdownText, goText, headingText, homeTitle, iconsTitle, linkText, loadingTitle, mapTitle, optionText, pictureText, saveBarText, segmentText, sideTitle, stepTileText, switchText } from "../behavior_pack/scripts/marks.ts";
 import {
@@ -253,9 +253,13 @@ describe("layouts", () => {
     expect(loadingTitle("Loading").startsWith(LAYOUT.side)).toBe(true);
   });
 
-  it("gives a preview's fake player confirm the side panel and a red button", () => {
+  it("gives a preview's fake player panel the side panel and the editor's own marks and icons", () => {
     expect(SIDE_TITLE).toBe(LAYOUT.side);
     expect(DANGER_BUTTON).toBe(MARK.danger);
+    expect(GO_BUTTON).toBe(MARK.go);
+    for (const [name, mark] of Object.entries(FORM_MARKS)) expect(mark, name).toBe(MARK[name as keyof typeof FORM_MARKS]);
+    expect(PREVIEW_COLUMNS).toEqual(SEGMENT_COLUMNS);
+    expect(NUDGE_ICONS).toEqual({ minus: ICONS.minus, plus: ICONS.new });
   });
 
   it("never lets one mark read as another", () => {

@@ -1,0 +1,59 @@
+{
+  "format_version": "1.8.0",
+  "animations": {
+    "animation.minecade.fake_player.walking": {
+      "loop": true,
+      "bones": {
+        "rightarm": { "rotation": [-30, 0, 0] },
+        "leftarm": { "rotation": [30, 0, 0] },
+        "rightleg": { "rotation": [30, 0, 0] },
+        "leftleg": { "rotation": [-30, 0, 0] }
+      }
+    },
+    "animation.minecade.fake_player.running": {
+      "loop": true,
+      "bones": {
+        "rightarm": { "rotation": [-70, 0, 0] },
+        "leftarm": { "rotation": [60, 0, 0] },
+        "rightleg": { "rotation": [55, 0, 0] },
+        "leftleg": { "rotation": [-55, 0, 0] }
+      }
+    },
+    "animation.minecade.fake_player.swinging": {
+      "loop": true,
+      "bones": {
+        "rightarm": { "rotation": [-115, 0, 0] },
+        "leftarm": { "rotation": [15, 0, 0] }
+      }
+    },
+    "animation.minecade.fake_player.aiming": {
+      "loop": true,
+      "bones": {
+        "rightarm": { "rotation": [-90, -5.73, 0] },
+        "leftarm": { "rotation": [-90, 28.65, 0] }
+      }
+    },
+    "animation.minecade.fake_player.placing": {
+      "loop": true,
+      "bones": {
+        "head": { "rotation": [45, 0, 0] },
+        "rightarm": { "rotation": [-50, 0, 0] }
+      }
+    },
+    "animation.minecade.fake_player.falling": {
+      "loop": true,
+      "bones": {
+        "rightarm": { "rotation": [-165, 0, 0] },
+        "leftarm": { "rotation": [-165, 0, 0] },
+        "rightleg": { "rotation": [15, 0, 0] },
+        "leftleg": { "rotation": [-15, 0, 0] }
+      }
+    },
+    "animation.minecade.fake_player.cheering": {
+      "loop": true,
+      "bones": {
+        "rightarm": { "rotation": [-170, 0, 0] }
+      }
+    }
+  }
+}

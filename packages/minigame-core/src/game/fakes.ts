@@ -8,15 +8,37 @@
 // While it's in play, its name tag shows its health as hearts, like the HUD's (a font page of heart
 // glyphs in the preview's resource pack), under its name when names show.
 //
+// Its look (the side panel's Display) stays with it from body to body: a skin (Steve, plain white or
+// black, or its team's color), something from the game's kits in its hand, and a pose for pictures.
+// The skin and pose are client-synced properties the preview's resource pack draws from.
+//
 // Entities can only be placed in chunks that are loaded and ticking, which only chunks near a player
 // are (the servers' tick distance is 4 chunks). So a fake's body gets a one-chunk ticking area
 // where it stands, made before it's placed there and dropped once it moves on or is removed.
 import { EntityComponentTypes, world, type Dimension, type Entity, type Vector3 } from "@minecraft/server";
+import { kitItemId } from "../kit-defs.ts";
 import { describeError, log } from "../log.ts";
+import { codeTint } from "../text.ts";
 
 export const FAKE_PLAYER = "minecade:fake_player";
 const WALK_EVENT = "minecade:walk";
 const FLOAT_EVENT = "minecade:float";
+/** Its look, for the preview's resource pack (editor/preview/): FAKE_SKINS' and FAKE_POSES' index, and the team's color as 0xRRGGBB + 1, 0 for none. */
+const SKIN_PROPERTY = "minecade:skin";
+const POSE_PROPERTY = "minecade:pose";
+const TINT_PROPERTY = "minecade:tint";
+
+/** The skins a fake player can have, in the render controller's order (the team color one is the white one, tinted). */
+export const FAKE_SKINS = ["Steve", "White", "Black", "Team color"] as const;
+/** Its poses, in the client entity's order (editor/preview/resource_pack/animations/fake_player.animation.json). */
+export const FAKE_POSES = ["Standing", "Walking", "Running", "Swinging", "Aiming a bow", "Placing a block", "Falling", "Cheering"] as const;
+
+/** How a fake player looks: FAKE_SKINS' and FAKE_POSES' index, and what it holds (a kit item's id as the config has it, its team's color filled in when held). */
+export interface FakeLook {
+  skin: number;
+  pose: number;
+  hold?: string;
+}
 
 /** The hearts (editor/preview/resource_pack/font/glyph_E4.png, U+E400 on): full, half and empty. */
 export const HEARTS = { full: "\uE400", half: "\uE401", empty: "\uE402" } as const;
@@ -39,8 +61,10 @@ export class FakePlayers {
   private readonly ids = new Map<string, string>();
   /** Each one's ticking area, by lowercase name. */
   private readonly areas = new Map<string, string>();
-  /** Each one's name tag without its hearts, and whether its hearts show, by lowercase name. */
-  private readonly tags = new Map<string, { tag: string; hearts: boolean }>();
+  /** Each body's name tag without its hearts, whether its hearts show, its team's color and whether it floats, by lowercase name. */
+  private readonly tags = new Map<string, { tag: string; hearts: boolean; color?: string; floating: boolean }>();
+  /** Each one's look, kept from body to body, by lowercase name. */
+  private readonly looks = new Map<string, FakeLook>();
   /** Each one's latest place() or hide(): an older place() that finishes late does nothing. */
   private readonly turns = new Map<string, number>();
   /** Being placed now (waiting for its chunk). */
@@ -93,10 +117,12 @@ export class FakePlayers {
 
   /**
    * Puts it at `location` with full health, with a new body if it has none, once its chunk is
-   * ticking, walking or `floating`, its health as hearts under `nameTag` when `hearts` (in play).
+   * ticking, walking or `floating`, its health as hearts under `nameTag` when `hearts` (in play), in
+   * its look, with `teamColor` (its team's § code) for the team color skin and items.
    * Resolves with the body, or undefined when it couldn't be placed or was hidden meanwhile.
    */
-  async place(name: string, location: Vector3, nameTag: string, floating = false, hearts = false): Promise<Entity | undefined> {
+  async place(name: string, location: Vector3, nameTag: string, how: { floating?: boolean; hearts?: boolean; teamColor?: string } = {}): Promise<Entity | undefined> {
+    const floating = how.floating === true;
     const key = name.toLowerCase();
     if (!this.names.has(key)) return undefined;
     const turn = this.turn(key);
@@ -122,8 +148,9 @@ export class FakePlayers {
       }
       body.triggerEvent(floating ? FLOAT_EVENT : WALK_EVENT);
       body.getComponent(EntityComponentTypes.Health)?.resetToMaxValue();
-      this.tags.set(key, { tag: nameTag, hearts });
+      this.tags.set(key, { tag: nameTag, hearts: how.hearts === true, color: how.teamColor, floating });
       body.nameTag = this.tagOf(key, body);
+      this.dress(key, body, this.looks.get(key)?.hold !== undefined);
       body.clearVelocity();
       this.dropArea(this.areas.get(key));
       if (area) this.areas.set(key, area);
@@ -145,6 +172,64 @@ export class FakePlayers {
       if (key !== undefined && entity.isValid) entity.nameTag = this.tagOf(key, entity);
     } catch {
       // gone
+    }
+  }
+
+  /** Its name tag and team color now (it changed teams), keeping its hearts. */
+  retag(name: string, nameTag: string, teamColor: string | undefined): void {
+    const key = name.toLowerCase();
+    const tag = this.tags.get(key);
+    const body = this.body(name);
+    if (!tag || !body) return;
+    tag.tag = nameTag;
+    tag.color = teamColor;
+    body.nameTag = this.tagOf(key, body);
+    this.dress(key, body, this.looks.get(key)?.hold !== undefined);
+  }
+
+  lookOf(name: string): FakeLook {
+    return { ...(this.looks.get(name.toLowerCase()) ?? { skin: 0, pose: 0 }) };
+  }
+
+  /** Changes its look, now and for its next bodies. */
+  setLook(name: string, change: Partial<FakeLook>): void {
+    const key = name.toLowerCase();
+    const before = this.lookOf(name);
+    this.looks.set(key, { ...before, ...change });
+    const body = this.body(name);
+    if (body) this.dress(key, body, "hold" in change && change.hold !== before.hold);
+  }
+
+  /** Whether its body floats in place (no gravity) rather than walks. */
+  isFloating(name: string): boolean {
+    return this.tags.get(name.toLowerCase())?.floating === true;
+  }
+
+  /** Its body floats in place, or walks again (until the game places it somewhere). */
+  setFloating(name: string, floating: boolean): void {
+    const tag = this.tags.get(name.toLowerCase());
+    const body = this.body(name);
+    if (!tag || !body) return;
+    try {
+      body.triggerEvent(floating ? FLOAT_EVENT : WALK_EVENT);
+      if (floating) body.clearVelocity();
+      tag.floating = floating;
+    } catch (error) {
+      log.warn(`could not change how ${name} moves: ${describeError(error)}`);
+    }
+  }
+
+  /** Moves its body by `offset` and turns it `turn` degrees (+ is to its right). */
+  nudge(name: string, offset: Vector3, turn = 0): void {
+    const body = this.body(name);
+    if (!body) return;
+    try {
+      const { x, y, z } = body.location;
+      const rotation = body.getRotation();
+      body.teleport({ x: x + offset.x, y: y + offset.y, z: z + offset.z }, { rotation: { x: rotation.x, y: rotation.y + turn } });
+      if (this.isFloating(name)) body.clearVelocity();
+    } catch (error) {
+      log.warn(`could not move ${name}: ${describeError(error)}`);
     }
   }
 
@@ -170,6 +255,25 @@ export class FakePlayers {
   clear(): void {
     for (const name of this.all) this.hide(name);
     this.names.clear();
+    this.looks.clear();
+  }
+
+  /**
+   * Puts its look on a body: the skin, the pose and its team's color for the pack to draw, and the
+   * item in its hand when `holding` (it holds one, or that changed).
+   */
+  private dress(key: string, body: Entity, holding: boolean): void {
+    const look = this.looks.get(key) ?? { skin: 0, pose: 0 };
+    const color = this.tags.get(key)?.color;
+    const tint = color === undefined ? 0 : (codeTint(color) ?? -1) + 1;
+    try {
+      if (body.getProperty(SKIN_PROPERTY) !== look.skin) body.setProperty(SKIN_PROPERTY, look.skin);
+      if (body.getProperty(POSE_PROPERTY) !== look.pose) body.setProperty(POSE_PROPERTY, look.pose);
+      if (body.getProperty(TINT_PROPERTY) !== tint) body.setProperty(TINT_PROPERTY, tint);
+      if (holding) body.runCommand(`replaceitem entity @s slot.weapon.mainhand 0 ${look.hold === undefined ? "air" : kitItemId({ item: look.hold }, color)}`);
+    } catch (error) {
+      log.warn(`could not dress a fake player: ${describeError(error)}`);
+    }
   }
 
   /** Its name tag, with its hearts under it while they show. */

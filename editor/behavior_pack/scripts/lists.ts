@@ -2,6 +2,7 @@
 // every entry: pure functions of the map and its rules, so they can be tested without a server.
 import {
   boundsBox,
+  codeTint,
   exactPosition,
   facingOf,
   listKey,
@@ -17,7 +18,6 @@ import {
   type MapPosition,
   type MarkerStyle,
 } from "@minecade/minigame-core/config";
-import { codeTint } from "./regions.ts";
 
 /** The tool that places a list's entries. */
 export type PlaceTool = "spawn" | "marker";

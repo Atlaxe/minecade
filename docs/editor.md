@@ -410,13 +410,30 @@ a score like anyone, and its downs show in the kill feed. Down or out, it watche
 would, nameless: on foot at the queue spawn when the map has no spectator spawn, else floating at
 the spectator spawn (seen there, unlike a player, so you can tell where it went). It doesn't move
 or fight back. Hit it, shoot it or knock it off like a player (a game's own weapons
-work on it too: One in the Quiver's arrow kills it). **Right click** one for a side panel that asks
-first: in a best-of game while a round is being played, **Fake 1 wins the round** (green: the round
-goes to it, or to its team in team games), then **Fake 1 kills you** (red) takes you down,
-credited to the fake (it plays out what the game does when a player kills you), and **Cancel**
-leaves things be. Once the
-match has started, /fake only works in games that let late joiners in (One in the Quiver; not
-Sumo). The packs for this live in `editor/preview/` and only previews get them.
+work on it too: One in the Quiver's arrow kills it). Once the match has started, /fake only works
+in games that let late joiners in (One in the Quiver; not Sumo). The packs for this live in
+`editor/preview/` and only previews get them.
+
+**A fake player's panel:** **right click** one for its side panel. On top, in a best-of game while a
+round is being played, **Fake 1 wins the round** (green: the round goes to it, or to its team in
+team games), then **Fake 1 kills you** (red: you go down, credited to the fake, as the game plays
+out a player killing you). Either one closes the panel. Under them, everything changes the fake at
+once and the panel stays open, as in Edit's screens:
+
+- **Display** (kept from one life to the next): **Skin** (Steve, plain **White** or **Black**, or
+  **Team color**), **Hold** (Nothing, or any item from the game's kits, such as Bridges' sword, bow
+  and wool, in the fake's team color) and **Pose**, for pictures: Standing, Walking, Running,
+  Swinging, Aiming a bow, Placing a block, Falling and Cheering. Each is a list that opens under its
+  row.
+- **Position** (while it's in the world, until the game moves it, as at a respawn): X, Y and Z nudge
+  rows, **Turn** (15 degrees a tap, right is +), **Step** (1, 0.5 or 5 blocks) and **Gravity**
+  (off: it floats where you put it, so nudging it up keeps it up).
+
+**/switch** (`/minecade:switch`) trades places with a fake player while the match is being played:
+`/switch 2` with Fake 2, else the one you look at, else the nearest. You swap where you stand and
+look, your teams, lives and health; your kit's items in your team's color (Bridges' wool) take your
+new team's color, the same counts in the same slots, and the fake goes where you were. Each keeps
+their own name, score and kill credit. Both have to be in play (not down or out).
 
 **From the editor lobby:** a map card's Preview icon (lit once its checklist is done) asks how many
 fake players, then plays that map from its folder as it is, without opening it in Edit (Edit saves

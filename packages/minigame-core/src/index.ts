@@ -30,6 +30,7 @@ export {
   COLOR,
   KILL_VERBS,
   NO_KILLER_LINES,
+  codeTint,
   deathMessage,
   nameOf,
   ordinal,

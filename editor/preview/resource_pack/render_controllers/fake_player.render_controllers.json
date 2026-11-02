@@ -2,9 +2,20 @@
   "format_version": "1.8.0",
   "render_controllers": {
     "controller.render.minecade.fake_player": {
+      "arrays": {
+        "textures": {
+          "Array.skins": ["Texture.default", "Texture.white", "Texture.black", "Texture.white"]
+        }
+      },
       "geometry": "Geometry.default",
       "materials": [{ "*": "Material.default" }],
-      "textures": ["Texture.default"]
+      "textures": ["Array.skins[query.property('minecade:skin')]"],
+      "overlay_color": {
+        "r": "math.mod(math.floor((query.property('minecade:tint') - 1) / 65536), 256) / 255",
+        "g": "math.mod(math.floor((query.property('minecade:tint') - 1) / 256), 256) / 255",
+        "b": "math.mod(query.property('minecade:tint') - 1, 256) / 255",
+        "a": "query.property('minecade:skin') == 3 && query.property('minecade:tint') > 0 ? 1.0 : 0.0"
+      }
     }
   }
 }
