@@ -14,7 +14,7 @@
   "bounds": { "min": [-38, 14, -60], "max": [38, 53, 59] },
   "killY": 13,
   "regions": { "kill": [{ "min": [5, 14, -53], "max": [25, 16, -43] }] },
-  "cameras": { "Camera 1": { "at": [17.8, 31.71, 25.34, 151.7, 9.2], "kind": "map" } },
+  "cameras": { "Camera 1": { "at": [2.79, 21.48, 49.54, 178.5, -2.8], "kind": "map" } },
   "source": {
     "world": "Bikini Bottom Export",
     "box": { "min": [-253, 14, 464], "max": [-177, 41, 583] },
