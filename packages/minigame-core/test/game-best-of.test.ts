@@ -135,4 +135,28 @@ describe("a best-of team game with kits every round and building", () => {
     expectBaseline(harness.root, baseline);
     everyoneLeaves();
   });
+  it("plays elimination rounds: the last team standing takes a round, and the match goes on to the next", async () => {
+    const [a, b] = [world.join("A"), world.join("B")];
+    const baseline = snapshot(harness.root);
+    const config: GameConfig = { ...CONFIG, respawn: { mode: "none" }, kits: undefined, build: undefined };
+    const game = new TestGame(harness.context(["A", "B"], DUEL, { teams: "random" }), config);
+    const result = await playToEnd(game, harness.root, baseline, async () => {
+      await ticks(2 + 3 * 20 + 5);
+      expect(game.roundInPlay).toBe(true);
+      world.hurt(b, 25, "entityAttack", { attacker: a });
+      await ticks(2);
+      expect(game.roster.get("B")?.state).toBe("out");
+      expect(game.roundInPlay).toBe(false);
+      // The break, with B still out: once-a-second win checks don't end the match.
+      await ticks(40 + 3 * 20 + 5);
+      expect(game.bestOf?.history).toHaveLength(1);
+      expect(game.roundInPlay).toBe(true);
+      expect(game.roster.get("B")?.state).toBe("alive");
+      world.hurt(b, 25, "entityAttack", { attacker: a });
+      await ticks(2);
+    });
+    expect(result).toMatchObject({ kind: "win", team: game.teamOf("A")?.id, reason: "won 2 rounds" });
+    expectBaseline(harness.root, baseline);
+    everyoneLeaves();
+  });
 });

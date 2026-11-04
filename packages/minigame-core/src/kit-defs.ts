@@ -73,7 +73,9 @@ export interface MatchKits {
   fromMap: Set<string>;
 }
 
-export function matchKits(game: KitsConfig | undefined, map: MapKitsConfig | undefined): MatchKits {
+export function matchKits(game: KitsConfig | undefined, ownKits: MapKitsConfig | undefined): MatchKits {
+  // A game whose kits are the same on every map never takes a map's.
+  const map = game?.mapKits === false ? undefined : ownKits;
   const fromMap = new Set<string>();
   const mapList = map?.list ?? [];
   for (const kit of mapList) fromMap.add(kit.id);

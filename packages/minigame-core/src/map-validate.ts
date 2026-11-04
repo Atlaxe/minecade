@@ -17,6 +17,8 @@ export interface MapRules {
   requires?: MapRequirementsConfig;
   /** Every team the game can have. When given, team spawn keys and "<name>.<team>" keys must be one of them. */
   teams?: { id: string; name: string }[];
+  /** false: the game's kits are the same on every map (its `kits.mapKits`), so a map can't have its own. */
+  mapKits?: boolean;
 }
 
 export function validateMapConfig(raw: unknown, rules: MapRules): string[] {
@@ -62,7 +64,8 @@ export function validateMapConfig(raw: unknown, rules: MapRules): string[] {
   if (map.time !== undefined && mapTimeTicks(map.time) === undefined) {
     problems.push(`"time" must be one of ${Object.keys(MAP_TIMES).join(", ")}, or ticks from 0 to 23999`);
   }
-  if (map.kits !== undefined) problems.push(...mapKitProblems(map.kits, rules.kind));
+  if (map.kits !== undefined && rules.mapKits === false) problems.push(`"kits": ${who}'s kits are the same on every map`);
+  else if (map.kits !== undefined) problems.push(...mapKitProblems(map.kits, rules.kind));
   if (map.stars !== undefined && typeof map.stars !== "boolean") problems.push('"stars" must be true or false');
   if (map.stars === true && rules.kind !== "lobby") problems.push('"stars" is only for the lobby map');
 

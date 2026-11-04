@@ -122,7 +122,7 @@ only the rest of the line without the clock icon (`§k§o`).
 
 ## The kit form
 
-A game whose `kits` have `select` (Bridges, Probe) has players pick a kit in a live form, the same
+A game whose `kits` have `select` (Bridges, Siege, Probe) has players pick a kit in a live form, the same
 kind as the lobby's team form (a data-driven `CustomForm`: it updates while open and its buttons
 don't close it; `packages/minigame-core/src/game/kit-form.ts`, its logic in `kit-picker.ts`).
 
@@ -177,7 +177,39 @@ Kits themselves: `base` is what everyone gets on top of their pick. Each kit's `
 it comes back: `"life"` on every spawn (the default), `"round"` at the start of the match and of
 every round, with what's left kept through a respawn (Bridges' snowballs and Leap), or `"match"`
 once. An item id with `{color}` takes the team's dye: `minecraft:{color}_wool` is red wool on Red.
-A map can add kits of its own or replace the game's (`kits` in `map.json`, see `docs/maps.md`).
+A kit's `enchantments` list puts enchantments on its items and armor by item id (Siege's Seaman:
+Loyalty III on the trident, Depth Strider III on the boots); the pictures don't show them.
+A map can add kits of its own or replace the game's (`kits` in `map.json`, see `docs/maps.md`),
+unless the game's `kits.mapKits` is false (Siege's classes are the same on every map).
+
+**Seconds over the hotbar:** Bridges' arrow and Siege's abilities count down on the player's level
+(`LevelSeconds` in `packages/minigame-core/src/game/level-seconds.ts`), never going up onto a
+multiple of 5, where Minecraft plays its level-up chime.
+
+## Siege's classes
+
+Siege's seven classes are its kits, picked before every round in the kit form (the class form) and
+the same on every map. Each has its gear and an ability: the item in the last hotbar slot, used like
+Bridges' Leap feather. The level over the hotbar counts the seconds until it's ready again, with a
+chime once it is, and a low note when it's used too soon. Each player is told in chat what their
+class's ability does the first round they play it. Numbers are in `games/siege/game.config.ts`
+(`abilities`, `water`).
+
+| Class | Gear | Ability (cooldown) |
+|---|---|---|
+| Soldier | Iron sword, iron armor | Rally (blaze powder, 25 s): Strength I and Speed I for 6 s, for them and teammates within 8 blocks. |
+| Archer | Bow (Power I), wooden sword, 32 arrows, leather and chainmail | Volley (flint, 15 s): 5 arrows at once in a fan where they look. |
+| Seaman | Trident (Loyalty III), turtle helmet, leather and chainmail, Depth Strider III boots | Tidal Wave (heart of the sea, 20 s): enemies within 6 blocks are pushed away, slowed, and soaked for 3 s (water hurts them wherever they are). Water never hurts a Seaman, who has Speed II in it and Water Breathing; a trident that doesn't come back in 5 s is replaced. |
+| Tank | Stone sword, diamond and iron armor, Slowness I | Fortify (shulker shell, 25 s): Resistance II for 6 s, and no hit pushes them. |
+| Medic | Wooden sword, leather and chainmail | Heal (glistering melon slice, 20 s): 4 hearts back for them and teammates within 8 blocks. |
+| Scout | Stone sword, leather armor, Speed I, no fall damage | Leap (feather, 8 s): a push the way they look, as Bridges' Leap. |
+| Assassin | Diamond sword, leather armor | Vanish (ink sac, 25 s): invisible for 6 s with no armor and no name over their head, until they hit someone or someone hits them. |
+
+Leather armor is in the team's color, and names show over heads in the team's color
+(`nameTags: true`). Health comes back only from a Medic (the `naturalRegeneration` game rule is off
+for the match), and hunger stays full (a Saturation effect in the base kit). A Fortified Tank's hits
+are canceled and their damage taken off the next tick instead, since a canceled hit pushes nobody;
+Minecraft's half second between hits is kept by hand.
 
 ## The prompt form
 

@@ -37,6 +37,9 @@ const ITEM_TEXTURES: Record<string, string> = {
   clock: "clock_item",
   totem_of_undying: "totem",
   fire_charge: "fireball",
+  heart_of_the_sea: "heartofthesea_closed",
+  glistering_melon_slice: "melon_speckled",
+  ink_sac: "dye_powder_black",
 };
 /** Block ids whose texture has another name. */
 const BLOCK_TEXTURES: Record<string, string> = { oak_planks: "planks_oak", bricks: "brick" };

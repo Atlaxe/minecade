@@ -3,13 +3,13 @@
 // back after 10 seconds or with a kill, the Leap leaps once, and placed blocks stay or go between
 // rounds by the lobby's setting.
 import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
-import { runtimeMapConfig, stripColors, validateMapConfig, type MapConfig } from "@minecade/minigame-core/config";
+import { leapPush, runtimeMapConfig, stripColors, validateMapConfig, type MapConfig } from "@minecade/minigame-core/config";
 import { ItemStack, world, type FakePlayer } from "../../../packages/minigame-core/test/fake-mc-server.ts";
 import { openLiveForm } from "../../../packages/minigame-core/test/fake-mc-server-ui.ts";
 import { createHarness, everyoneLeaves, expectBaseline, playToEnd, snapshot, statsRows, ticks, type Harness } from "../../../packages/minigame-core/test/game-harness.ts";
 import { validateGameConfig } from "../../../tools/build/validate.ts";
 import config from "../game.config.ts";
-import { Bridges, HOLE, OWN_HOLE, holeColumn, holesOf, inHole, leapPush } from "../behavior_pack/scripts/bridges.ts";
+import { Bridges, HOLE, OWN_HOLE, holeColumn, holesOf, inHole } from "../behavior_pack/scripts/bridges.ts";
 import { MapView } from "../../../packages/minigame-core/src/game/map-view.ts";
 
 const GAP: MapConfig = runtimeMapConfig({

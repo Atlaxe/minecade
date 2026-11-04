@@ -11,6 +11,7 @@ export {
   type GameConfig,
   type GameOptionConfig,
   type KitDef,
+  type KitEnchantment,
   type KitItem,
   type KitRefill,
   type KitSelect,
@@ -48,6 +49,7 @@ export {
   type MatchKits,
 } from "./kit-defs.ts";
 export { MAX_ROUND_ICONS, MAX_SCORE_SIDES, MIN_BEST_OF } from "./game/best-of.ts";
+export { leapPush, type LeapConfig } from "./leap.ts";
 export {
   BUILD_LIMIT_SIDES,
   EDITOR_ONLY_KEYS,

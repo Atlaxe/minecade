@@ -29,9 +29,10 @@ export const EntityComponentTypes = {
   Health: "minecraft:health",
   Hunger: "minecraft:player.hunger",
   Inventory: "minecraft:inventory",
+  Projectile: "minecraft:projectile",
   Saturation: "minecraft:player.saturation",
 } as const;
-export const ItemComponentTypes = { Dyeable: "minecraft:dyeable" } as const;
+export const ItemComponentTypes = { Dyeable: "minecraft:dyeable", Enchantable: "minecraft:enchantable" } as const;
 export const Direction = { Down: "Down", East: "East", North: "North", South: "South", Up: "Up", West: "West" } as const;
 export const EntityInitializationCause = { Born: "Born", Event: "Event", Loaded: "Loaded", Spawned: "Spawned", Transformed: "Transformed" } as const;
 export const StructureSaveMode = { Memory: "Memory", World: "World" } as const;
@@ -193,13 +194,28 @@ export const system = new FakeSystem();
 
 // ---- Items -------------------------------------------------------------------------------
 
+export class EnchantmentType {
+  readonly id: string;
+
+  constructor(id: string) {
+    this.id = id;
+  }
+}
+
 export class ItemStack {
   readonly typeId: string;
   amount: number;
   nameTag?: string;
   lockMode: string = ItemLockMode.none;
   keepOnDeath = false;
+  /** Its enchantments, as "<id> <level>" ("minecraft:loyalty 3"). */
+  readonly enchantments: string[] = [];
   private readonly dyeable: { color?: { red: number; green: number; blue: number } } | undefined;
+  private readonly enchantable = {
+    addEnchantment: ({ type, level }: { type: EnchantmentType; level: number }) => {
+      this.enchantments.push(`${type.id} ${level}`);
+    },
+  };
 
   constructor(typeId: string, amount = 1) {
     this.typeId = typeId.includes(":") ? typeId : `minecraft:${typeId}`;
@@ -208,6 +224,7 @@ export class ItemStack {
   }
 
   getComponent(id: string) {
+    if (id === ItemComponentTypes.Enchantable) return this.enchantable;
     return id === ItemComponentTypes.Dyeable ? this.dyeable : undefined;
   }
 }
@@ -266,6 +283,7 @@ export class FakePlayer {
   viewDirection: Vector3 = { x: 0, y: 0, z: 1 };
   isSprinting = false;
   isSneaking = false;
+  isInWater = false;
   selectedSlotIndex = 0;
   readonly teleports: Vector3[] = [];
   /** Its facing: x pitch, y yaw (set by a teleport with a rotation). */
@@ -373,6 +391,11 @@ export class FakePlayer {
     return { ...this.viewDirection };
   }
 
+  /** Eye height over the feet, as a standing player's. */
+  getHeadLocation(): Vector3 {
+    return { x: this.location.x, y: this.location.y + 1.62, z: this.location.z };
+  }
+
   applyKnockback(horizontalForce: { x: number; z: number }, verticalStrength: number): void {
     writable("Entity::applyKnockback");
     this.knockbacks.push({ x: horizontalForce.x, z: horizontalForce.z, vertical: verticalStrength });
@@ -476,6 +499,14 @@ export class FakeMob {
   /** Every command it ran, oldest first. */
   readonly commands: string[] = [];
   rotation = { x: 0, y: 0 };
+  isInWater = false;
+  /** As a projectile (an arrow): who shot it, and the velocity it was shot at. */
+  readonly projectile: { owner?: unknown; shot?: Vector3; shoot(velocity: Vector3): void } = {
+    shoot: (velocity: Vector3) => {
+      writable("EntityProjectileComponent::shoot");
+      this.projectile.shot = { ...velocity };
+    },
+  };
 
   constructor(typeId: string, location: Vector3) {
     this.typeId = typeId;
@@ -484,6 +515,7 @@ export class FakeMob {
   }
 
   getComponent(id: string): unknown {
+    if (id === EntityComponentTypes.Projectile) return this.projectile;
     return id === EntityComponentTypes.Health ? this.health : undefined;
   }
 
@@ -641,6 +673,19 @@ class FakeDimension {
   readonly blocks = new Map<string, string>();
   /** Box corners whose blocks can't be read or saved (an unloaded chunk), as "x,y,z" of any block inside. */
   readonly unloaded = new Set<string>();
+  /** Every particle and sound played in the world, oldest first. */
+  readonly particles: { id: string; location: Vector3 }[] = [];
+  readonly sounds: { id: string; location: Vector3; volume?: number }[] = [];
+
+  spawnParticle(id: string, location: Vector3): void {
+    writable("Dimension::spawnParticle");
+    this.particles.push({ id, location: { ...location } });
+  }
+
+  playSound(id: string, location: Vector3, options: { volume?: number } = {}): void {
+    writable("Dimension::playSound");
+    this.sounds.push({ id, location: { ...location }, ...options });
+  }
 
   getBlock(location: Vector3): FakeBlock {
     return new FakeBlock(location, this.blocks);
@@ -673,6 +718,8 @@ class FakeDimension {
     this.spawned.length = 0;
     this.blocks.clear();
     this.unloaded.clear();
+    this.particles.length = 0;
+    this.sounds.length = 0;
   }
 }
 

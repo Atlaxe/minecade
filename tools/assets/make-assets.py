@@ -27,7 +27,7 @@ Outputs:
     editor/resource_pack/textures/items/time_tool.png                         the Time tool (a clock)
     editor/resource_pack/textures/entity/editor_marker_facing.png            the red facing line on markers
     editor/resource_pack/textures/entity/editor_marker*.png                  markers, a color per kind
-    games/<id>/icon.png                                                      16:9 game pictures (Probe, Sumo, One in the Quiver)
+    games/<id>/icon.png                                                      16:9 game pictures (Probe, Sumo, One in the Quiver, Bridges, Siege)
 
 Fonts come from Windows (Bahnschrift, else Consolas Bold); they only matter when regenerating.
 The logo source is tools/assets/source/minecade-title.png (the orange original).
@@ -1018,6 +1018,7 @@ def main() -> None:
     save(picture("SUMO", (190, 60, 60), (70, 20, 20)), ROOT / "games" / "sumo" / "icon.png")
     save(picture("QUIVER", (60, 140, 90), (20, 55, 35)), ROOT / "games" / "quiver" / "icon.png")
     save(picture("BRIDGES", (70, 90, 200), (150, 35, 40)), ROOT / "games" / "bridges" / "icon.png")
+    save(picture("SIEGE", (110, 115, 130), (120, 30, 35)), ROOT / "games" / "siege" / "icon.png")
 
 
 if __name__ == "__main__":

@@ -40,7 +40,7 @@ The map editor sets spawns and points in game and writes `map.json` for you; see
 | `teamSpawns` | no | `{ "<team or role id>": [positions] }`. Team games spawn each team at its own points; before teams are dealt, players wait at every team's spawns in turn (or the plain spawns, when the map has them). The keys must be the game's team ids. |
 | `points` | no | `{ "<name>": [positions] }`: named positions a game uses, such as bomb sites or mob spawns. `"<name>.<team>"` is one team's (`"flag.red"`). |
 | `regions` | no | `{ "<name>": [{ "min": [x, y, z], "max": [x, y, z] }, ...] }`: named boxes, such as build plots or a floor that falls away. `"<name>.<team>"` is one team's. The name `kill` is reserved: anyone inside a `kill` box is out, the same as falling below `killY` (spectators fly over them). |
-| `kits` | no | Games only: kits of the map's own, for a game whose players pick kits. `{ "mode": "append", "list": [kits] }` adds them after the game's (a kit with the same `id` as one of the game's takes its place); `"mode": "replace"` uses only the map's. A `base` replaces the game's base kit either way. Each kit is written as in `game.config.ts`: `{ "id": "ice", "name": "Ice", "refill": "round", "items": [{ "item": "minecraft:snowball", "count": 16 }] }`. The map editor keeps it as written; there's no screen for it yet. |
+| `kits` | no | Games only: kits of the map's own, for a game whose players pick kits. `{ "mode": "append", "list": [kits] }` adds them after the game's (a kit with the same `id` as one of the game's takes its place); `"mode": "replace"` uses only the map's. A `base` replaces the game's base kit either way. Each kit is written as in `game.config.ts`: `{ "id": "ice", "name": "Ice", "refill": "round", "items": [{ "item": "minecraft:snowball", "count": 16 }] }`. The map editor keeps it as written; there's no screen for it yet. A game whose kits are the same on every map (`kits.mapKits: false`, Siege) refuses a map's own. |
 | `build.commands` | no | Console commands (no leading `/`) that build the world, run once by `npm run bake`. |
 | `source`, `cameras`, `mannequins`, `mannequinsInPreview` | no | Written by the map editor: where the map was cut from, its preview cameras (`{ "Camera 1": { "at": [x, y, z, yaw, pitch], "kind": "map" \| "game" } }`, the eye point and view the Camera tool saved), and its mannequins, stand-ins for game pictures (`{ "Mannequin 1": { "at": [x, y, z, yaw], "skin": "color", "color": "red", "pose": "standing", "hold": "minecraft:bow" } }`, the Mannequin tool's; ids from minigame-core's `fake-looks.ts`, or for a player's saved skin "p" and a hash of their xuid), and whether the mannequins stand in its previews (`true`, the Mannequin tool's Show in previews; a preview's server then gets them as `previewMannequins`, each look worked out for its pack). Servers never get them. |
 | anything else | no | Game-specific settings the game reads itself. |
@@ -157,6 +157,12 @@ the Boundaries view.
   its floor and its rim is one flat face, drawn from both sides. Nobody can build in the hole or
   anywhere above it. The editor draws the point as the same hole, its rim in the team's color.
 - a `spawnGuard.<team>` region around the team's spawn (and its hole), where nobody builds.
+
+**Siege** needs team spawns (one per team at least; up to four players share a team's spawns, so
+give each team a few), bounds, and a spectator or queue spawn. Players who are out watch from there
+until the next round. Water anywhere on the map hurts every class but the Seaman, a heart a second,
+so a moat or a pool is part of the map's design. Its classes are the same on every map: a Siege map
+can't have `kits` of its own (the build and the editor's checklist refuse them).
 
 **Build Swap** needs 8 spawns, a spectator or queue spawn, and 8 boxes in the `plot` region
 (Build boundary in the map editor's Region list), each at least 24 blocks on every side. A box is

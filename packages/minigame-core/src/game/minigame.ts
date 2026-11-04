@@ -1460,6 +1460,9 @@ export abstract class Minigame<C extends GameConfig = GameConfig> {
 
   private runWinCheck(): void {
     if (this.currentPhase !== "playing" || this.outcome) return;
+    // Best-of rounds: a win check decides the round being played. Between rounds there's nothing to
+    // decide (the series ends the match), even with a team still out from the last round.
+    if (this.series && !this.contest) return;
     let result: Result | undefined;
     try {
       result = this.checkWin();

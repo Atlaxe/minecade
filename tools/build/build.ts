@@ -128,7 +128,7 @@ async function loadTarget(id: string, dir: string, configPath?: string): Promise
     }
     const config = await readJson(mapJson);
     if (config === undefined) continue;
-    const found = validateMapConfig(config, { kind, maxPlayers: target.game?.maxPlayers, requires: (target.game ?? target.lobby)?.map, teams: target.teams });
+    const found = validateMapConfig(config, { kind, maxPlayers: target.game?.maxPlayers, requires: (target.game ?? target.lobby)?.map, teams: target.teams, mapKits: target.game?.kits?.mapKits });
     if ((config as MapConfig).draft === true) {
       // Unfinished: never shipped, and its problems are the map editor's checklist, not build failures.
       warn(mapJson, [`draft map, skipped${found.length > 0 ? ` (still to do: ${found.join("; ")})` : ""}`]);

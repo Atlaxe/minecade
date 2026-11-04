@@ -3,6 +3,7 @@
 // unless they picked another in the kit form (kit-picker.ts). Each kit comes back by its refill
 // rule: on every spawn, or each round or once, keeping what's left through a respawn.
 import {
+  EnchantmentType,
   EntityComponentTypes,
   EquipmentSlot,
   ItemComponentTypes,
@@ -10,7 +11,7 @@ import {
   ItemStack,
   type Player,
 } from "@minecraft/server";
-import type { KitDef, KitSelect, KitsConfig, MapKitsConfig } from "../config.ts";
+import type { KitDef, KitItem, KitSelect, KitsConfig, MapKitsConfig } from "../config.ts";
 import { TEAM_ARMOR_COLORS, kitItemId, matchKits, refillOnSpawn, type KitSpawn } from "../kit-defs.ts";
 import { describeError, log } from "../log.ts";
 
@@ -154,13 +155,10 @@ export class Kits {
     try {
       const inventory = player.getComponent(EntityComponentTypes.Inventory)?.container;
       for (const entry of kit.items) {
-        const id = kitItemId(entry, teamColor);
         const full = entry.count ?? 1;
-        const count = kept ? Math.min(full, kept.get(id) ?? 0) : full;
+        const count = kept ? Math.min(full, kept.get(kitItemId(entry, teamColor)) ?? 0) : full;
         if (count <= 0) continue;
-        const stack = new ItemStack(id, count);
-        if (entry.name) stack.nameTag = entry.name;
-        stack.lockMode = ItemLockMode.inventory;
+        const stack = kitStack(kit, entry, teamColor, count);
         if (entry.slot !== undefined) inventory?.setItem(entry.slot, stack);
         else inventory?.addItem(stack);
       }
@@ -168,6 +166,7 @@ export class Kits {
       for (const [slot, item] of Object.entries(kit.armor ?? {}) as [keyof typeof ARMOR_SLOTS, string][]) {
         const stack = new ItemStack(item, 1);
         stack.lockMode = ItemLockMode.slot;
+        enchant(stack, kit, item);
         const color = kit.teamArmor && teamColor ? TEAM_ARMOR_COLORS[teamColor] : undefined;
         const dyeable = color ? stack.getComponent(ItemComponentTypes.Dyeable) : undefined;
         if (dyeable && color) dyeable.color = color;
@@ -179,6 +178,31 @@ export class Kits {
       }
     } catch (error) {
       log.warn(`could not give kit "${kit.id}" to ${player.name}: ${describeError(error)}`);
+    }
+  }
+}
+
+/**
+ * One of a kit's items as the kit gives it: in the team's color, named, enchanted, and locked in the
+ * inventory (it can't be dropped). A game hands one back with it (Siege's trident).
+ */
+export function kitStack(kit: KitDef, entry: KitItem, teamColor?: string, count = entry.count ?? 1): ItemStack {
+  const stack = new ItemStack(kitItemId(entry, teamColor), count);
+  if (entry.name) stack.nameTag = entry.name;
+  stack.lockMode = ItemLockMode.inventory;
+  enchant(stack, kit, entry.item);
+  return stack;
+}
+
+/** Puts the kit's enchantments for this item (as the kit writes its id) on it; one Minecraft refuses is skipped. */
+function enchant(stack: ItemStack, kit: KitDef, item: string): void {
+  const enchantments = (kit.enchantments ?? []).filter((entry) => entry.item === item);
+  const enchantable = enchantments.length > 0 ? stack.getComponent(ItemComponentTypes.Enchantable) : undefined;
+  for (const { enchantment, level } of enchantments) {
+    try {
+      enchantable?.addEnchantment({ type: new EnchantmentType(enchantment), level });
+    } catch (error) {
+      log.warn(`could not enchant ${stack.typeId} with ${enchantment} ${level}: ${describeError(error)}`);
     }
   }
 }

@@ -106,6 +106,16 @@ export interface KitItem {
  */
 export type KitRefill = "life" | "round" | "match";
 
+/**
+ * An enchantment on a kit's item or armor: the item id as the kit writes it, the enchantment and its
+ * level, such as `{ item: "minecraft:trident", enchantment: "minecraft:loyalty", level: 3 }`.
+ */
+export interface KitEnchantment {
+  item: string;
+  enchantment: string;
+  level: number;
+}
+
 export interface KitDef {
   id: string;
   name: string;
@@ -116,6 +126,8 @@ export interface KitDef {
   effects?: { id: string; amplifier?: number; seconds?: number }[];
   /** Dye leather armor in the player's team color. */
   teamArmor?: boolean;
+  /** Enchantments on the kit's items and armor. */
+  enchantments?: KitEnchantment[];
   refill?: KitRefill;
 }
 
@@ -134,6 +146,11 @@ export interface KitsConfig {
   select?: KitSelect;
   /** Seconds to pick, after which whoever hasn't gets the first kit. Default 30. */
   pickSeconds?: number;
+  /**
+   * false: the kits are the same on every map (Siege's classes). A map's own `kits` are refused by
+   * the build and the map editor's checklist, and never used. Default true.
+   */
+  mapKits?: boolean;
 }
 
 /**

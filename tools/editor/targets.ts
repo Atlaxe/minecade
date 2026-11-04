@@ -31,7 +31,8 @@ export async function loadTarget(root: string, id: string): Promise<EditorTarget
   const config = (await import(pathToFileURL(configPath).href)).default as GameConfig;
   const teams = config.teams ? possibleTeams(config.teams).map(({ id: team, name, color }) => ({ id: team, name, color })) : undefined;
   const items = kitItems(config.kits);
-  return { id, name: config.name, dir, rules: { kind: "game", maxPlayers: config.maxPlayers, requires: config.map, ...(teams ? { teams } : {}), ...markerModels, ...(items.length > 0 ? { items } : {}) } };
+  const mapKits = config.kits?.mapKits === false ? { mapKits: false } : {};
+  return { id, name: config.name, dir, rules: { kind: "game", maxPlayers: config.maxPlayers, requires: config.map, ...(teams ? { teams } : {}), ...markerModels, ...(items.length > 0 ? { items } : {}), ...mapKits } };
 }
 
 /** The lobby and every game, with the map ids each has, for Select mode's save-as-map form. */

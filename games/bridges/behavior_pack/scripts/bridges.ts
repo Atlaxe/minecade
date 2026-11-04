@@ -6,9 +6,11 @@
 // feather leap, and clears placed blocks between rounds when the lobby's setting says so.
 import { EntityComponentTypes, ItemLockMode, ItemStack, system, world, type Player, type Vector3 } from "@minecraft/server";
 import {
+  LevelSeconds,
   Minigame,
   describeError,
   dyeName,
+  leapPush,
   log,
   nameOf,
   say,
@@ -71,24 +73,12 @@ export function holeColumn(hole: Hole, halfWidth: number, top: number): Box {
   return { min: [low(hole.at.x), floor, low(hole.at.z)], max: [high(hole.at.x), Math.max(floor, top), high(hole.at.z)] };
 }
 
-/**
- * The Leap's push, the way the player looks: on a level look, `forward` along the ground and `lift`
- * up (so it leaves the ground); looking up, less forward and more up, to `up` straight up; looking
- * down, less lift, to none straight down.
- */
-export function leapPush(view: Vector3, leap: { forward: number; lift: number; up: number }): { x: number; z: number; vertical: number } {
-  const length = Math.hypot(view.x, view.y, view.z) || 1;
-  const [x, y, z] = [view.x / length, view.y / length, view.z / length];
-  const vertical = y >= 0 ? leap.lift + y * (leap.up - leap.lift) : leap.lift * (1 + y);
-  return { x: x * leap.forward, z: z * leap.forward, vertical };
-}
-
 export class Bridges extends Minigame<typeof config> {
   private holes: Hole[] = [];
   /** When each player's last arrow went (tick), for the next one. */
   private readonly arrowGoneAt = new Map<string, number>();
-  /** The seconds each player's level shows (until their arrow is back), so it's set only when it changes. */
-  private readonly shownSeconds = new Map<string, number>();
+  /** Each player's level counts down the seconds until their arrow is back. */
+  private readonly levels = new LevelSeconds();
 
   /** `picturePack`: the game's resource pack UUID, where the build draws the kit form's pictures. */
   constructor(ctx: GameContext, gameConfig: typeof config, picturePack?: string) {
@@ -143,7 +133,7 @@ export class Bridges extends Minigame<typeof config> {
   protected override onSpawn(player: Player): void {
     const key = player.name.toLowerCase();
     this.arrowGoneAt.delete(key);
-    this.shownSeconds.delete(key);
+    this.levels.forget(player.name);
   }
 
   /** A kill brings the killer's arrow back at once (up to the most they can hold). */
@@ -211,31 +201,7 @@ export class Bridges extends Minigame<typeof config> {
           seconds = Math.ceil(left / 20);
         }
       }
-      this.showSeconds(player, key, seconds);
-    }
-  }
-
-  /**
-   * Shows the seconds as the player's level, without Minecraft's level-up chime: it plays when a
-   * level goes up onto a multiple of 5, so going from 0 to 10 sounded on every shot. Once set, the
-   * level only goes down, and it goes up to 11 and down one rather than up to 10.
-   */
-  private showSeconds(player: Player, key: string, seconds: number): void {
-    const shown = this.shownSeconds.get(key);
-    if (shown === seconds) return;
-    this.shownSeconds.set(key, seconds);
-    try {
-      if (shown !== undefined && seconds < shown) {
-        player.addLevels(seconds - shown);
-        return;
-      }
-      player.resetLevel();
-      if (seconds === 0) return;
-      const chime = seconds % 5 === 0;
-      player.addLevels(chime ? seconds + 1 : seconds);
-      if (chime) player.addLevels(-1);
-    } catch {
-      // left
+      this.levels.show(player, seconds);
     }
   }
 
