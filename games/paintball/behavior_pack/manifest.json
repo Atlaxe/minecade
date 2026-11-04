@@ -1,0 +1,29 @@
+{
+  "format_version": 2,
+  "header": {
+    "name": "Minecade Paintball",
+    "description": "Paintball: two to four teams with paint guns, painted blocks and armor, power-ups, first team to 10 kills",
+    "uuid": "bdf39dfe-56aa-49c7-bbb8-7adbaf52185e",
+    "version": [0, 1, 0],
+    "min_engine_version": [1, 26, 60]
+  },
+  "modules": [
+    {
+      "type": "data",
+      "uuid": "6f0e2a61-9b1d-4c47-a3e5-2d8c71f4b0a9",
+      "version": [0, 1, 0]
+    },
+    {
+      "type": "script",
+      "language": "javascript",
+      "uuid": "d3d85c57-b149-447a-9b65-a73bcaa1a2f5",
+      "version": [0, 1, 0],
+      "entry": "scripts/main.js"
+    }
+  ],
+  "dependencies": [
+    { "module_name": "@minecraft/server", "version": "2.11.0" },
+    { "module_name": "@minecraft/server-ui", "version": "2.3.0" },
+    { "module_name": "@minecraft/server-admin", "version": "1.0.0-beta" }
+  ]
+}

@@ -49,6 +49,40 @@ export const BlockTypes = {
   },
 };
 
+/** A block's states, by name. */
+export type BlockStates = Record<string, string | number | boolean>;
+
+/** A block type with its states, as the real BlockPermutation (resolve, getState, getAllStates, withState). */
+export class BlockPermutation {
+  readonly type: { id: string };
+  private readonly states: BlockStates;
+
+  private constructor(typeId: string, states: BlockStates) {
+    this.type = { id: typeId };
+    this.states = { ...states };
+  }
+
+  static resolve(typeId: string, states: BlockStates = {}): BlockPermutation {
+    return new BlockPermutation(typeId.includes(":") ? typeId : `minecraft:${typeId}`, states);
+  }
+
+  getState(name: string): string | number | boolean | undefined {
+    return this.states[name];
+  }
+
+  getAllStates(): BlockStates {
+    return { ...this.states };
+  }
+
+  withState(name: string, value: string | number | boolean): BlockPermutation {
+    return new BlockPermutation(this.type.id, { ...this.states, [name]: value });
+  }
+
+  matches(typeId: string, states: BlockStates = {}): boolean {
+    return typeId === this.type.id && Object.entries(states).every(([name, value]) => this.states[name] === value);
+  }
+}
+
 // ---- Restricted execution (before-events) ------------------------------------------------
 
 let restricted = false;
@@ -603,24 +637,45 @@ export class FakeMob {
   }
 }
 
-/** A block in the fake world: its place and type. */
+/** A block in the fake world: its place, type and states. */
 export class FakeBlock {
   readonly location: Vector3;
   private readonly blocks: Map<string, string>;
+  private readonly states: Map<string, BlockStates>;
 
-  constructor(location: Vector3, blocks: Map<string, string>) {
+  constructor(location: Vector3, blocks: Map<string, string>, states: Map<string, BlockStates>) {
     this.location = { x: Math.floor(location.x), y: Math.floor(location.y), z: Math.floor(location.z) };
     this.blocks = blocks;
+    this.states = states;
   }
 
   get typeId(): string {
     return this.blocks.get(blockKey(this.location)) ?? "minecraft:air";
   }
 
+  get isAir(): boolean {
+    return this.typeId === "minecraft:air";
+  }
+
+  get isLiquid(): boolean {
+    return /(^|:)(flowing_)?(water|lava)$/.test(this.typeId);
+  }
+
+  get permutation(): BlockPermutation {
+    return BlockPermutation.resolve(this.typeId, this.states.get(blockKey(this.location)) ?? {});
+  }
+
   setType(typeId: string): void {
     writable("Block::setType");
+    this.states.delete(blockKey(this.location));
     if (typeId === "minecraft:air") this.blocks.delete(blockKey(this.location));
     else this.blocks.set(blockKey(this.location), typeId);
+  }
+
+  setPermutation(permutation: BlockPermutation): void {
+    this.setType(permutation.type.id);
+    const states = permutation.getAllStates();
+    if (Object.keys(states).length > 0 && !this.isAir) this.states.set(blockKey(this.location), states);
   }
 
   getItemStack(amount = 1): ItemStack | undefined {
@@ -708,6 +763,8 @@ class FakeDimension {
   readonly spawned: FakeMob[] = [];
   /** Blocks that aren't air, by "x,y,z". */
   readonly blocks = new Map<string, string>();
+  /** The states of blocks that have any (set with setPermutation or setBlockPermutation), by "x,y,z". */
+  readonly blockStates = new Map<string, BlockStates>();
   /** Box corners whose blocks can't be read or saved (an unloaded chunk), as "x,y,z" of any block inside. */
   readonly unloaded = new Set<string>();
   /** Every particle and sound played in the world, oldest first. */
@@ -725,7 +782,11 @@ class FakeDimension {
   }
 
   getBlock(location: Vector3): FakeBlock {
-    return new FakeBlock(location, this.blocks);
+    return new FakeBlock(location, this.blocks, this.blockStates);
+  }
+
+  setBlockPermutation(location: Vector3, permutation: BlockPermutation): void {
+    this.getBlock(location).setPermutation(permutation);
   }
 
   /** The blocks in a volume of the given types (only includeTypes is supported). */
@@ -754,6 +815,7 @@ class FakeDimension {
   reset(): void {
     this.spawned.length = 0;
     this.blocks.clear();
+    this.blockStates.clear();
     this.unloaded.clear();
     this.particles.length = 0;
     this.sounds.length = 0;

@@ -15,7 +15,7 @@ import { ROUND_COLORS, ROUND_COUNT, ROUND_WON, SIDE_COLOR, SIDE_TENS, SIDE_UNITS
 export const ROUNDS_HUD_FILE = fileURLToPath(new URL("../../packages/minigame-core/resource_pack/ui/minecade_rounds.json", import.meta.url));
 
 /** The colors of the § codes, as JSON UI colors (0 to 1). */
-const RGB: Record<(typeof ROUND_COLORS)[number], number> = { c: 0xff5555, "9": 0x5555ff, a: 0x55ff55, e: 0xffff55, "6": 0xffaa00, d: 0xff55ff, b: 0x55ffff, f: 0xffffff, "7": 0xaaaaaa };
+const RGB: Record<(typeof ROUND_COLORS)[number], number> = { c: 0xff5555, "9": 0x5555ff, a: 0x55ff55, e: 0xffff55, "6": 0xffaa00, d: 0xff55ff, b: 0x55ffff, "2": 0x00aa00, f: 0xffffff, "7": 0xaaaaaa };
 const MAX_CIRCLES = 7;
 const MIN_CIRCLES = 3;
 const SIDES = 4;

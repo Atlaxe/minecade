@@ -1,0 +1,91 @@
+{
+  "format_version": [
+    1,
+    1,
+    0
+  ],
+  "minecade:paint_red_wall": {
+    "sound": "stone"
+  },
+  "minecade:paint_blue_wall": {
+    "sound": "stone"
+  },
+  "minecade:paint_yellow_wall": {
+    "sound": "stone"
+  },
+  "minecade:paint_green_wall": {
+    "sound": "stone"
+  },
+  "minecade:paint_red_fence": {
+    "sound": "stone"
+  },
+  "minecade:paint_blue_fence": {
+    "sound": "stone"
+  },
+  "minecade:paint_yellow_fence": {
+    "sound": "stone"
+  },
+  "minecade:paint_green_fence": {
+    "sound": "stone"
+  },
+  "minecade:paint_red_fence_gate": {
+    "sound": "stone"
+  },
+  "minecade:paint_blue_fence_gate": {
+    "sound": "stone"
+  },
+  "minecade:paint_yellow_fence_gate": {
+    "sound": "stone"
+  },
+  "minecade:paint_green_fence_gate": {
+    "sound": "stone"
+  },
+  "minecade:paint_red_pane": {
+    "sound": "stone"
+  },
+  "minecade:paint_blue_pane": {
+    "sound": "stone"
+  },
+  "minecade:paint_yellow_pane": {
+    "sound": "stone"
+  },
+  "minecade:paint_green_pane": {
+    "sound": "stone"
+  },
+  "minecade:paint_red_trapdoor": {
+    "sound": "stone"
+  },
+  "minecade:paint_blue_trapdoor": {
+    "sound": "stone"
+  },
+  "minecade:paint_yellow_trapdoor": {
+    "sound": "stone"
+  },
+  "minecade:paint_green_trapdoor": {
+    "sound": "stone"
+  },
+  "minecade:paint_red_door": {
+    "sound": "stone"
+  },
+  "minecade:paint_blue_door": {
+    "sound": "stone"
+  },
+  "minecade:paint_yellow_door": {
+    "sound": "stone"
+  },
+  "minecade:paint_green_door": {
+    "sound": "stone"
+  },
+  "minecade:paint_red_vertical_slab": {
+    "sound": "stone"
+  },
+  "minecade:paint_blue_vertical_slab": {
+    "sound": "stone"
+  },
+  "minecade:paint_yellow_vertical_slab": {
+    "sound": "stone"
+  },
+  "minecade:paint_green_vertical_slab": {
+    "sound": "stone"
+  }
+}

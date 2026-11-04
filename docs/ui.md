@@ -120,6 +120,12 @@ won circle's color (`§k§i`, `§k§j`), or each side's color and its wins' tens
 is the match's, over all the rounds; with no clock at all, the clock's box goes (`§k§v`), or keeps
 only the rest of the line without the clock icon (`§k§o`).
 
+**Team scores as sides:** a game whose `scoring` has `display: "sides"` (Paintball) has no sidebar:
+every team's score shows in the rounds box, as the best-of score does, each in its team's color with
+gray bars between ("3 | 1 | 0 | 2", up to 99). It's for team scores (`per: "team"`) of up to four
+teams, in a game without best-of rounds, which would need the same box (the build checks). Dark
+green (§2, Paintball's Green) has its own color there, as the other team colors do.
+
 ## The kit form
 
 A game whose `kits` have `select` (Bridges, Siege, Probe) has players pick a kit in a live form, the same
@@ -334,6 +340,54 @@ Bedrock ignores it and the armor stays brown.
   (`tools/assets/vanilla/`, which the Panel fills before a start). On a PC with neither, the build
   warns and leaves `packs/armor` as it was. It's git-ignored: never commit it, and add a dye or a
   piece in `tools/assets/armor.ts` and minigame-core's `kit-defs.ts`, not by hand.
+
+## Paintball
+
+Paintball (`games/paintball`) is two to four teams with the shared guns: first team to 10 kills, a
+10 minute clock, unlimited respawns after 3 seconds. Its numbers are in
+`games/paintball/game.config.ts` (`hitsToOut`, `powerUps`, `grenade`, `splash`).
+
+- **Team count:** the lobby's game screen has Team count (2, 3 or 4; 2 at first). A match has that
+  many teams, Red, Blue, Yellow, then Green, or fewer when the players can't fill them (three players
+  never make four teams), and the lobby's team form offers the same ones. Any team game can have
+  one: `teams.option` names one of its `options`, whose values are team counts inside `teams.count`
+  (`teamLimit` in minigame-core; the build checks them).
+- **Hits:** a ball that hits an enemy colors the leather piece it hit (by how high: head, chest,
+  legs or feet), or the nearest piece not yet colored, in the piece's color mixed with the
+  shooter's: by Minecraft's dye recipe when there is one (red and blue make purple, red and yellow
+  orange, blue and green cyan), else the nearest of the 16 dyes to the two mixed as leather mixes
+  them (red and green make brown, yellow and green lime). Health shows the hits left, a quarter
+  each; the fourth puts the player out and scores for the shooter's team. Balls from teammates, and
+  any during the 2 seconds of protection after a respawn, do nothing. Nothing else hurts (melee,
+  falls); leaving the bounds or falling below kill Y still puts a player out. Names show over heads
+  in the team's color.
+- **Power-ups:** two float on the map's Power-up spots at a time, each on its own timer (every 26
+  and every 34 seconds). Both appear at Go, and each time its timer comes round, taken or not, it
+  appears again on a free spot at random, as a rifle, a shotgun or a paint grenade. Walking onto one
+  takes it. A rifle or shotgun takes the pistol's place for 30 seconds (the number over the hotbar
+  counts them down), then the pistol comes back; nobody can take a gun while they have one. A
+  grenade goes in the second slot, one at a time: it paints a ball of blocks 4 blocks around where
+  it bursts, and hits every enemy within 3 blocks twice.
+- **Paint:** every ball paints where it lands, in the shooter's team's color: the block it hit and
+  touching blocks of the same open surface, 3 to 5 in all, never outside the map's bounds. Full
+  blocks (glass and leaves too) become concrete; stairs and slabs vanilla's concrete stairs and
+  slabs; carpets the color's carpet; walls, fences, panes and bars, fence gates, doors, trapdoors
+  and vertical slabs Paintball's painted blocks of the same shape, which keep their facing, their
+  connections and whether they're open, and open and shut with a right click. Small things stay
+  as they are: plants, torches, rails, signs, buttons, plates, ladders, chests, beds, heads,
+  lanterns and chains. Nothing painted drops an item (the `doTileDrops` rule is off for the match:
+  painting a door's half breaks the other for a moment). Blocks from the shared blocks pack are
+  painted by their shape, read at build time from the installed pack's own table (`#mod-blocks`,
+  `tools/build/mod-blocks.ts`); a build without the pack paints only vanilla blocks.
+- **Painted blocks** (`minecade:paint_<dye>_<shape>`, in each team's dye) are in Paintball's own
+  packs, so only its servers and previews have them. `tools/assets/paint-blocks.ts` writes them from
+  `games/paintball/behavior_pack/scripts/shapes.ts` (rerun it and commit after changing either; a
+  test checks the committed files match): vanilla's own concrete textures, and each shape drawn
+  from boxes in Java's block coordinates, a box showing for the states that use it, so nothing is
+  turned. `spike/paint/run.ts` checks them on a throwaway server: every state loads, and every
+  vanilla door, gate and trapdoor state paints to the same shape (a door's `cardinal_direction` is
+  a quarter turn from Java's facing).
+- **Stats:** kills, deaths and wins, plus Blocks painted.
 
 ## The prompt form
 
@@ -824,10 +878,11 @@ middle, and the tiled scanlines, which repeat.
 | `lobby/resource_pack/textures/minecade/badges/a.png` to `z.png`, `0.png` to `9.png`, `other.png` | Player badges: 20x20 in the stats list, 88x88 as the portrait on a player's stats and about 0.9 blocks on the hologram (where their skin goes later) | 64x64, a square |
 | `lobby/resource_pack/font/glyph_E3.png` | Icons inside text, about the height of a letter: cell 0 (U+E300) is the player icon on the game cards; cells 1 and 2 (U+E301, U+E302) are a setting's bars under its label, bright for the chosen value and dim for the others | 256x256, 16x16 cells, on transparent |
 | `games/<id>/icon.png` | The game's picture: on its card (60x34) and on the hologram (2 blocks wide) while the map is random | 320x180 (16:9), required for every game |
-| `packages/minigame-core/resource_pack/textures/minecade/hud/round_open.png`, `round_<code>.png` | The best-of rounds circles, 8x8 top right: white for a round to play, then the winner's color (`c`, `9`, `a`, `e`, `6`, `d`, `b`, `f`; `7` gray for a drawn round) | 16x16 pixel art, a filled circle with a darker rim |
+| `packages/minigame-core/resource_pack/textures/minecade/hud/round_open.png`, `round_<code>.png` | The best-of rounds circles, 8x8 top right: white for a round to play, then the winner's color (`c`, `9`, `a`, `e`, `6`, `d`, `b`, `2`, `f`; `7` gray for a drawn round) | 16x16 pixel art, a filled circle with a darker rim |
 | `packs/guns/resource_pack/textures/minecade/guns/<kind>/<dye>.png` | A gun's or the grenade's model texture in one paint color: in hand, thrown and landed (the grenade), and white floating as a pickup | 64 wide, box UV; written by `tools/assets/guns.ts` (not make-assets.py), which overwrites it: redraw the model there, or stop generating it first |
 | `packs/guns/icons/<item>.png` | A gun's or the grenade's slot in a kit picture (the hotbar draws the model itself) | 128x128, the model drawn in 3D as a block is; written by `tools/assets/guns.ts`, outside the packs |
 | `packs/guns/resource_pack/textures/minecade/guns/balls/<dye>.png`, `splash.png` | A paint ball in flight (a sprite like the snowball's), in each of the 16 dyes; the splash's drop, tinted by the particle | 16x16 and 8x8; written by `tools/assets/guns.ts` |
+| `games/paintball/markers/powerup.png` | The map editor's Power-up spot marker, the floating white rifle (`powerup.geo.json`) | 64 wide, box UV; written by `tools/assets/paint-blocks.ts` (not make-assets.py) from the guns pack's white rifle, which overwrites it |
 | `games/bridges/resource_pack/textures/minecade/bridges/hole_<dye>.png` | Bridges' hole (3 blocks square): black walls and floor (left half), the rim's ring in the team's color (right half) | 96x48, 16 pixels a block; the ring's middle is clear |
 | `games/<id>/maps/<map>/preview.png` | A map's preview on its tile (100x54) and on the hologram when it's chosen (optional) | 320x180 (16:9), such as a screenshot |
 | `lobby/resource_pack/textures/minecade/holo/frame_logo.png`, `frame_panel.png` | Hologram frames, 3x3 blocks on all four sides, with live text over them; `frame_logo` has the logo up top | 512x512 (square), additive |

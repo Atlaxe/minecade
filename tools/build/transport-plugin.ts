@@ -5,6 +5,7 @@ import { fileURLToPath } from "node:url";
 import type { Plugin } from "esbuild";
 import type { PlayerSkin, Registry } from "@minecade/minigame-core/config";
 import type { TransportKind } from "@minecade/minigame-core/protocol";
+import { readModBlockShapes } from "./mod-blocks.ts";
 
 const transportDir = fileURLToPath(new URL("../../packages/minigame-core/src/transport/", import.meta.url));
 
@@ -32,6 +33,20 @@ export function registryPlugin(registry: Registry): Plugin {
     setup(build) {
       build.onResolve({ filter: /^#registry$/ }, () => ({ path: "registry", namespace: "minecade-registry" }));
       build.onLoad({ filter: /.*/, namespace: "minecade-registry" }, () => ({ contents: JSON.stringify(registry), loader: "json" }));
+    },
+  };
+}
+
+/**
+ * Resolves "#mod-blocks" to the shapes of the shared blocks pack's repaintable blocks
+ * ({ "minecade:andesite_bricks_stairs": "stairs", ... }, mod-blocks.ts), inlined as JSON.
+ */
+export function modBlocksPlugin(): Plugin {
+  return {
+    name: "minecade-mod-blocks",
+    setup(build) {
+      build.onResolve({ filter: /^#mod-blocks$/ }, () => ({ path: "mod-blocks", namespace: "minecade-mod-blocks" }));
+      build.onLoad({ filter: /.*/, namespace: "minecade-mod-blocks" }, async () => ({ contents: JSON.stringify(await readModBlockShapes()), loader: "json" }));
     },
   };
 }

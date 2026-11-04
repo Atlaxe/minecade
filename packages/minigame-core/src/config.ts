@@ -22,6 +22,11 @@ export interface TeamsConfig {
   friendlyFire?: boolean;
   /** Team names and colors. Default: Red, Blue, Green, Yellow. */
   defs?: TeamDef[];
+  /**
+   * A lobby option (one of `options`) whose value is the most teams a match has, such as
+   * Paintball's "Team count" (2, 3 or 4). A range still opens no more teams than the players fill.
+   */
+  option?: string;
 }
 
 /** A choice on the lobby's game screen. The game reads the picked value from ctx.vars.settings[id]. */
@@ -81,9 +86,11 @@ export interface ScoringConfig {
   title?: string;
   /**
    * Who sees which scores: "sidebar" (the default) lists everyone's; "own" shows each player only
-   * theirs (their team's in team games), top right in a box with a skull, left of the clock.
+   * theirs (their team's in team games), top right in a box with a skull, left of the clock;
+   * "sides" shows every team's score in its color, "R | B | Y | G", in the box best-of rounds use
+   * (team scores, up to four teams, in games without best-of rounds).
    */
-  display?: "sidebar" | "own";
+  display?: "sidebar" | "own" | "sides";
 }
 
 export interface KitItem {

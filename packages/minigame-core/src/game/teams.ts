@@ -1,6 +1,6 @@
 // Team assignment, as pure functions. Players may pick a team; everyone else is shuffled and
 // dealt to the smallest team, so teams stay balanced and the fill is random.
-import type { TeamDef, TeamsConfig } from "../config.ts";
+import type { GameConfig, TeamDef, TeamsConfig } from "../config.ts";
 
 export const DEFAULT_TEAMS: TeamDef[] = [
   { id: "red", name: "Red", color: "§c" },
@@ -14,16 +14,27 @@ function isRoleSetup(defs: TeamDef[]): boolean {
   return defs.some((team) => team.size !== undefined);
 }
 
-/** The teams a match with `players` players uses. */
-export function activeTeams(players: number, cfg: TeamsConfig): TeamDef[] {
+/**
+ * The most teams the lobby's setting allows, for a game whose teams name one (TeamsConfig.option):
+ * the picked value, else the setting's first (its default). Undefined for other games.
+ */
+export function teamLimit(config: Pick<GameConfig, "teams" | "options">, settings?: Readonly<Record<string, string>>): number | undefined {
+  const id = config.teams?.option;
+  if (id === undefined) return undefined;
+  const picked = Number(settings?.[id] ?? config.options?.find((option) => option.id === id)?.values[0]?.value);
+  return Number.isInteger(picked) && picked > 0 ? picked : undefined;
+}
+
+/** The teams a match with `players` players uses, at most `limit` of them (teamLimit). */
+export function activeTeams(players: number, cfg: TeamsConfig, limit?: number): TeamDef[] {
   const defs = cfg.defs ?? DEFAULT_TEAMS;
   if (isRoleSetup(defs)) return defs;
   let count: number;
   if (typeof cfg.count === "number") {
-    count = cfg.count;
+    count = Math.min(cfg.count, limit ?? cfg.count);
   } else {
     const [min, max] = cfg.count;
-    count = Math.max(min, Math.min(max, Math.floor(players / Math.max(1, cfg.minPerTeam ?? 1))));
+    count = Math.max(min, Math.min(max, limit ?? max, Math.floor(players / Math.max(1, cfg.minPerTeam ?? 1))));
   }
   return defs.slice(0, Math.max(1, Math.min(count, defs.length)));
 }
@@ -50,14 +61,15 @@ export function teamButtonPath(team: { name: string; color: string } | undefined
   return `${TEAM_BUTTONS}/${color}_${name}_${state}`;
 }
 
-/** Returns player -> team id for every player. */
+/** Returns player -> team id for every player, on at most `limit` teams (teamLimit). */
 export function assignTeams(
   players: string[],
   picks: ReadonlyMap<string, string>,
   cfg: TeamsConfig,
   random: () => number,
+  limit?: number,
 ): Map<string, string> {
-  const teams = activeTeams(players.length, cfg);
+  const teams = activeTeams(players.length, cfg, limit);
   const roles = isRoleSetup(teams);
   const even = Math.ceil(players.length / teams.length);
   // In a role setup the "rest" teams share what the fixed sizes leave, so picks can't empty a role.

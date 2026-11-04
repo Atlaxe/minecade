@@ -45,6 +45,7 @@
           { "won_6": {"type":"image","texture":"textures/minecade/hud/round_6","size":[8,8],"layer":32,"$atext":"$actionbar_text","ignored":"(($atext - '§k§j§1§6') = $atext)","visible":"(not (($atext - '§k§j§1§6') = $atext))"} },
           { "won_d": {"type":"image","texture":"textures/minecade/hud/round_d","size":[8,8],"layer":32,"$atext":"$actionbar_text","ignored":"(($atext - '§k§j§1§d') = $atext)","visible":"(not (($atext - '§k§j§1§d') = $atext))"} },
           { "won_b": {"type":"image","texture":"textures/minecade/hud/round_b","size":[8,8],"layer":32,"$atext":"$actionbar_text","ignored":"(($atext - '§k§j§1§b') = $atext)","visible":"(not (($atext - '§k§j§1§b') = $atext))"} },
+          { "won_2": {"type":"image","texture":"textures/minecade/hud/round_2","size":[8,8],"layer":32,"$atext":"$actionbar_text","ignored":"(($atext - '§k§j§1§2') = $atext)","visible":"(not (($atext - '§k§j§1§2') = $atext))"} },
           { "won_f": {"type":"image","texture":"textures/minecade/hud/round_f","size":[8,8],"layer":32,"$atext":"$actionbar_text","ignored":"(($atext - '§k§j§1§f') = $atext)","visible":"(not (($atext - '§k§j§1§f') = $atext))"} },
           { "won_7": {"type":"image","texture":"textures/minecade/hud/round_7","size":[8,8],"layer":32,"$atext":"$actionbar_text","ignored":"(($atext - '§k§j§1§7') = $atext)","visible":"(not (($atext - '§k§j§1§7') = $atext))"} }
         ]
@@ -63,6 +64,7 @@
           { "won_6": {"type":"image","texture":"textures/minecade/hud/round_6","size":[8,8],"layer":32,"$atext":"$actionbar_text","ignored":"(($atext - '§k§j§2§6') = $atext)","visible":"(not (($atext - '§k§j§2§6') = $atext))"} },
           { "won_d": {"type":"image","texture":"textures/minecade/hud/round_d","size":[8,8],"layer":32,"$atext":"$actionbar_text","ignored":"(($atext - '§k§j§2§d') = $atext)","visible":"(not (($atext - '§k§j§2§d') = $atext))"} },
           { "won_b": {"type":"image","texture":"textures/minecade/hud/round_b","size":[8,8],"layer":32,"$atext":"$actionbar_text","ignored":"(($atext - '§k§j§2§b') = $atext)","visible":"(not (($atext - '§k§j§2§b') = $atext))"} },
+          { "won_2": {"type":"image","texture":"textures/minecade/hud/round_2","size":[8,8],"layer":32,"$atext":"$actionbar_text","ignored":"(($atext - '§k§j§2§2') = $atext)","visible":"(not (($atext - '§k§j§2§2') = $atext))"} },
           { "won_f": {"type":"image","texture":"textures/minecade/hud/round_f","size":[8,8],"layer":32,"$atext":"$actionbar_text","ignored":"(($atext - '§k§j§2§f') = $atext)","visible":"(not (($atext - '§k§j§2§f') = $atext))"} },
           { "won_7": {"type":"image","texture":"textures/minecade/hud/round_7","size":[8,8],"layer":32,"$atext":"$actionbar_text","ignored":"(($atext - '§k§j§2§7') = $atext)","visible":"(not (($atext - '§k§j§2§7') = $atext))"} }
         ]
@@ -81,6 +83,7 @@
           { "won_6": {"type":"image","texture":"textures/minecade/hud/round_6","size":[8,8],"layer":32,"$atext":"$actionbar_text","ignored":"(($atext - '§k§j§3§6') = $atext)","visible":"(not (($atext - '§k§j§3§6') = $atext))"} },
           { "won_d": {"type":"image","texture":"textures/minecade/hud/round_d","size":[8,8],"layer":32,"$atext":"$actionbar_text","ignored":"(($atext - '§k§j§3§d') = $atext)","visible":"(not (($atext - '§k§j§3§d') = $atext))"} },
           { "won_b": {"type":"image","texture":"textures/minecade/hud/round_b","size":[8,8],"layer":32,"$atext":"$actionbar_text","ignored":"(($atext - '§k§j§3§b') = $atext)","visible":"(not (($atext - '§k§j§3§b') = $atext))"} },
+          { "won_2": {"type":"image","texture":"textures/minecade/hud/round_2","size":[8,8],"layer":32,"$atext":"$actionbar_text","ignored":"(($atext - '§k§j§3§2') = $atext)","visible":"(not (($atext - '§k§j§3§2') = $atext))"} },
           { "won_f": {"type":"image","texture":"textures/minecade/hud/round_f","size":[8,8],"layer":32,"$atext":"$actionbar_text","ignored":"(($atext - '§k§j§3§f') = $atext)","visible":"(not (($atext - '§k§j§3§f') = $atext))"} },
           { "won_7": {"type":"image","texture":"textures/minecade/hud/round_7","size":[8,8],"layer":32,"$atext":"$actionbar_text","ignored":"(($atext - '§k§j§3§7') = $atext)","visible":"(not (($atext - '§k§j§3§7') = $atext))"} }
         ]
@@ -99,6 +102,7 @@
           { "won_6": {"type":"image","texture":"textures/minecade/hud/round_6","size":[8,8],"layer":32,"$atext":"$actionbar_text","ignored":"(($atext - '§k§j§4§6') = $atext)","visible":"(not (($atext - '§k§j§4§6') = $atext))"} },
           { "won_d": {"type":"image","texture":"textures/minecade/hud/round_d","size":[8,8],"layer":32,"$atext":"$actionbar_text","ignored":"(($atext - '§k§j§4§d') = $atext)","visible":"(not (($atext - '§k§j§4§d') = $atext))"} },
           { "won_b": {"type":"image","texture":"textures/minecade/hud/round_b","size":[8,8],"layer":32,"$atext":"$actionbar_text","ignored":"(($atext - '§k§j§4§b') = $atext)","visible":"(not (($atext - '§k§j§4§b') = $atext))"} },
+          { "won_2": {"type":"image","texture":"textures/minecade/hud/round_2","size":[8,8],"layer":32,"$atext":"$actionbar_text","ignored":"(($atext - '§k§j§4§2') = $atext)","visible":"(not (($atext - '§k§j§4§2') = $atext))"} },
           { "won_f": {"type":"image","texture":"textures/minecade/hud/round_f","size":[8,8],"layer":32,"$atext":"$actionbar_text","ignored":"(($atext - '§k§j§4§f') = $atext)","visible":"(not (($atext - '§k§j§4§f') = $atext))"} },
           { "won_7": {"type":"image","texture":"textures/minecade/hud/round_7","size":[8,8],"layer":32,"$atext":"$actionbar_text","ignored":"(($atext - '§k§j§4§7') = $atext)","visible":"(not (($atext - '§k§j§4§7') = $atext))"} }
         ],
@@ -118,6 +122,7 @@
           { "won_6": {"type":"image","texture":"textures/minecade/hud/round_6","size":[8,8],"layer":32,"$atext":"$actionbar_text","ignored":"(($atext - '§k§j§5§6') = $atext)","visible":"(not (($atext - '§k§j§5§6') = $atext))"} },
           { "won_d": {"type":"image","texture":"textures/minecade/hud/round_d","size":[8,8],"layer":32,"$atext":"$actionbar_text","ignored":"(($atext - '§k§j§5§d') = $atext)","visible":"(not (($atext - '§k§j§5§d') = $atext))"} },
           { "won_b": {"type":"image","texture":"textures/minecade/hud/round_b","size":[8,8],"layer":32,"$atext":"$actionbar_text","ignored":"(($atext - '§k§j§5§b') = $atext)","visible":"(not (($atext - '§k§j§5§b') = $atext))"} },
+          { "won_2": {"type":"image","texture":"textures/minecade/hud/round_2","size":[8,8],"layer":32,"$atext":"$actionbar_text","ignored":"(($atext - '§k§j§5§2') = $atext)","visible":"(not (($atext - '§k§j§5§2') = $atext))"} },
           { "won_f": {"type":"image","texture":"textures/minecade/hud/round_f","size":[8,8],"layer":32,"$atext":"$actionbar_text","ignored":"(($atext - '§k§j§5§f') = $atext)","visible":"(not (($atext - '§k§j§5§f') = $atext))"} },
           { "won_7": {"type":"image","texture":"textures/minecade/hud/round_7","size":[8,8],"layer":32,"$atext":"$actionbar_text","ignored":"(($atext - '§k§j§5§7') = $atext)","visible":"(not (($atext - '§k§j§5§7') = $atext))"} }
         ],
@@ -137,6 +142,7 @@
           { "won_6": {"type":"image","texture":"textures/minecade/hud/round_6","size":[8,8],"layer":32,"$atext":"$actionbar_text","ignored":"(($atext - '§k§j§6§6') = $atext)","visible":"(not (($atext - '§k§j§6§6') = $atext))"} },
           { "won_d": {"type":"image","texture":"textures/minecade/hud/round_d","size":[8,8],"layer":32,"$atext":"$actionbar_text","ignored":"(($atext - '§k§j§6§d') = $atext)","visible":"(not (($atext - '§k§j§6§d') = $atext))"} },
           { "won_b": {"type":"image","texture":"textures/minecade/hud/round_b","size":[8,8],"layer":32,"$atext":"$actionbar_text","ignored":"(($atext - '§k§j§6§b') = $atext)","visible":"(not (($atext - '§k§j§6§b') = $atext))"} },
+          { "won_2": {"type":"image","texture":"textures/minecade/hud/round_2","size":[8,8],"layer":32,"$atext":"$actionbar_text","ignored":"(($atext - '§k§j§6§2') = $atext)","visible":"(not (($atext - '§k§j§6§2') = $atext))"} },
           { "won_f": {"type":"image","texture":"textures/minecade/hud/round_f","size":[8,8],"layer":32,"$atext":"$actionbar_text","ignored":"(($atext - '§k§j§6§f') = $atext)","visible":"(not (($atext - '§k§j§6§f') = $atext))"} },
           { "won_7": {"type":"image","texture":"textures/minecade/hud/round_7","size":[8,8],"layer":32,"$atext":"$actionbar_text","ignored":"(($atext - '§k§j§6§7') = $atext)","visible":"(not (($atext - '§k§j§6§7') = $atext))"} }
         ],
@@ -156,6 +162,7 @@
           { "won_6": {"type":"image","texture":"textures/minecade/hud/round_6","size":[8,8],"layer":32,"$atext":"$actionbar_text","ignored":"(($atext - '§k§j§7§6') = $atext)","visible":"(not (($atext - '§k§j§7§6') = $atext))"} },
           { "won_d": {"type":"image","texture":"textures/minecade/hud/round_d","size":[8,8],"layer":32,"$atext":"$actionbar_text","ignored":"(($atext - '§k§j§7§d') = $atext)","visible":"(not (($atext - '§k§j§7§d') = $atext))"} },
           { "won_b": {"type":"image","texture":"textures/minecade/hud/round_b","size":[8,8],"layer":32,"$atext":"$actionbar_text","ignored":"(($atext - '§k§j§7§b') = $atext)","visible":"(not (($atext - '§k§j§7§b') = $atext))"} },
+          { "won_2": {"type":"image","texture":"textures/minecade/hud/round_2","size":[8,8],"layer":32,"$atext":"$actionbar_text","ignored":"(($atext - '§k§j§7§2') = $atext)","visible":"(not (($atext - '§k§j§7§2') = $atext))"} },
           { "won_f": {"type":"image","texture":"textures/minecade/hud/round_f","size":[8,8],"layer":32,"$atext":"$actionbar_text","ignored":"(($atext - '§k§j§7§f') = $atext)","visible":"(not (($atext - '§k§j§7§f') = $atext))"} },
           { "won_7": {"type":"image","texture":"textures/minecade/hud/round_7","size":[8,8],"layer":32,"$atext":"$actionbar_text","ignored":"(($atext - '§k§j§7§7') = $atext)","visible":"(not (($atext - '§k§j§7§7') = $atext))"} }
         ],
@@ -382,6 +389,35 @@
               { "u7@minecade_rounds.digit": {"text":"7","color":[0.333,1,1],"ignored":"(($atext - '§k§s§1§7') = $atext)","visible":"(not (($atext - '§k§s§1§7') = $atext))"} },
               { "u8@minecade_rounds.digit": {"text":"8","color":[0.333,1,1],"ignored":"(($atext - '§k§s§1§8') = $atext)","visible":"(not (($atext - '§k§s§1§8') = $atext))"} },
               { "u9@minecade_rounds.digit": {"text":"9","color":[0.333,1,1],"ignored":"(($atext - '§k§s§1§9') = $atext)","visible":"(not (($atext - '§k§s§1§9') = $atext))"} }
+            ]
+          } },
+          { "in_2": {
+            "type": "stack_panel",
+            "orientation": "horizontal",
+            "size": ["100%c",10],
+            "$atext": "$actionbar_text",
+            "ignored": "(($atext - '§k§q§1§2') = $atext)",
+            "visible": "(not (($atext - '§k§q§1§2') = $atext))",
+            "controls": [
+              { "t1@minecade_rounds.digit": {"text":"1","color":[0,0.667,0],"ignored":"(($atext - '§k§m§1§1') = $atext)","visible":"(not (($atext - '§k§m§1§1') = $atext))"} },
+              { "t2@minecade_rounds.digit": {"text":"2","color":[0,0.667,0],"ignored":"(($atext - '§k§m§1§2') = $atext)","visible":"(not (($atext - '§k§m§1§2') = $atext))"} },
+              { "t3@minecade_rounds.digit": {"text":"3","color":[0,0.667,0],"ignored":"(($atext - '§k§m§1§3') = $atext)","visible":"(not (($atext - '§k§m§1§3') = $atext))"} },
+              { "t4@minecade_rounds.digit": {"text":"4","color":[0,0.667,0],"ignored":"(($atext - '§k§m§1§4') = $atext)","visible":"(not (($atext - '§k§m§1§4') = $atext))"} },
+              { "t5@minecade_rounds.digit": {"text":"5","color":[0,0.667,0],"ignored":"(($atext - '§k§m§1§5') = $atext)","visible":"(not (($atext - '§k§m§1§5') = $atext))"} },
+              { "t6@minecade_rounds.digit": {"text":"6","color":[0,0.667,0],"ignored":"(($atext - '§k§m§1§6') = $atext)","visible":"(not (($atext - '§k§m§1§6') = $atext))"} },
+              { "t7@minecade_rounds.digit": {"text":"7","color":[0,0.667,0],"ignored":"(($atext - '§k§m§1§7') = $atext)","visible":"(not (($atext - '§k§m§1§7') = $atext))"} },
+              { "t8@minecade_rounds.digit": {"text":"8","color":[0,0.667,0],"ignored":"(($atext - '§k§m§1§8') = $atext)","visible":"(not (($atext - '§k§m§1§8') = $atext))"} },
+              { "t9@minecade_rounds.digit": {"text":"9","color":[0,0.667,0],"ignored":"(($atext - '§k§m§1§9') = $atext)","visible":"(not (($atext - '§k§m§1§9') = $atext))"} },
+              { "u0@minecade_rounds.digit": {"text":"0","color":[0,0.667,0],"ignored":"(($atext - '§k§s§1§0') = $atext)","visible":"(not (($atext - '§k§s§1§0') = $atext))"} },
+              { "u1@minecade_rounds.digit": {"text":"1","color":[0,0.667,0],"ignored":"(($atext - '§k§s§1§1') = $atext)","visible":"(not (($atext - '§k§s§1§1') = $atext))"} },
+              { "u2@minecade_rounds.digit": {"text":"2","color":[0,0.667,0],"ignored":"(($atext - '§k§s§1§2') = $atext)","visible":"(not (($atext - '§k§s§1§2') = $atext))"} },
+              { "u3@minecade_rounds.digit": {"text":"3","color":[0,0.667,0],"ignored":"(($atext - '§k§s§1§3') = $atext)","visible":"(not (($atext - '§k§s§1§3') = $atext))"} },
+              { "u4@minecade_rounds.digit": {"text":"4","color":[0,0.667,0],"ignored":"(($atext - '§k§s§1§4') = $atext)","visible":"(not (($atext - '§k§s§1§4') = $atext))"} },
+              { "u5@minecade_rounds.digit": {"text":"5","color":[0,0.667,0],"ignored":"(($atext - '§k§s§1§5') = $atext)","visible":"(not (($atext - '§k§s§1§5') = $atext))"} },
+              { "u6@minecade_rounds.digit": {"text":"6","color":[0,0.667,0],"ignored":"(($atext - '§k§s§1§6') = $atext)","visible":"(not (($atext - '§k§s§1§6') = $atext))"} },
+              { "u7@minecade_rounds.digit": {"text":"7","color":[0,0.667,0],"ignored":"(($atext - '§k§s§1§7') = $atext)","visible":"(not (($atext - '§k§s§1§7') = $atext))"} },
+              { "u8@minecade_rounds.digit": {"text":"8","color":[0,0.667,0],"ignored":"(($atext - '§k§s§1§8') = $atext)","visible":"(not (($atext - '§k§s§1§8') = $atext))"} },
+              { "u9@minecade_rounds.digit": {"text":"9","color":[0,0.667,0],"ignored":"(($atext - '§k§s§1§9') = $atext)","visible":"(not (($atext - '§k§s§1§9') = $atext))"} }
             ]
           } },
           { "in_f": {
@@ -656,6 +692,35 @@
               { "u9@minecade_rounds.digit": {"text":"9","color":[0.333,1,1],"ignored":"(($atext - '§k§s§2§9') = $atext)","visible":"(not (($atext - '§k§s§2§9') = $atext))"} }
             ]
           } },
+          { "in_2": {
+            "type": "stack_panel",
+            "orientation": "horizontal",
+            "size": ["100%c",10],
+            "$atext": "$actionbar_text",
+            "ignored": "(($atext - '§k§q§2§2') = $atext)",
+            "visible": "(not (($atext - '§k§q§2§2') = $atext))",
+            "controls": [
+              { "t1@minecade_rounds.digit": {"text":"1","color":[0,0.667,0],"ignored":"(($atext - '§k§m§2§1') = $atext)","visible":"(not (($atext - '§k§m§2§1') = $atext))"} },
+              { "t2@minecade_rounds.digit": {"text":"2","color":[0,0.667,0],"ignored":"(($atext - '§k§m§2§2') = $atext)","visible":"(not (($atext - '§k§m§2§2') = $atext))"} },
+              { "t3@minecade_rounds.digit": {"text":"3","color":[0,0.667,0],"ignored":"(($atext - '§k§m§2§3') = $atext)","visible":"(not (($atext - '§k§m§2§3') = $atext))"} },
+              { "t4@minecade_rounds.digit": {"text":"4","color":[0,0.667,0],"ignored":"(($atext - '§k§m§2§4') = $atext)","visible":"(not (($atext - '§k§m§2§4') = $atext))"} },
+              { "t5@minecade_rounds.digit": {"text":"5","color":[0,0.667,0],"ignored":"(($atext - '§k§m§2§5') = $atext)","visible":"(not (($atext - '§k§m§2§5') = $atext))"} },
+              { "t6@minecade_rounds.digit": {"text":"6","color":[0,0.667,0],"ignored":"(($atext - '§k§m§2§6') = $atext)","visible":"(not (($atext - '§k§m§2§6') = $atext))"} },
+              { "t7@minecade_rounds.digit": {"text":"7","color":[0,0.667,0],"ignored":"(($atext - '§k§m§2§7') = $atext)","visible":"(not (($atext - '§k§m§2§7') = $atext))"} },
+              { "t8@minecade_rounds.digit": {"text":"8","color":[0,0.667,0],"ignored":"(($atext - '§k§m§2§8') = $atext)","visible":"(not (($atext - '§k§m§2§8') = $atext))"} },
+              { "t9@minecade_rounds.digit": {"text":"9","color":[0,0.667,0],"ignored":"(($atext - '§k§m§2§9') = $atext)","visible":"(not (($atext - '§k§m§2§9') = $atext))"} },
+              { "u0@minecade_rounds.digit": {"text":"0","color":[0,0.667,0],"ignored":"(($atext - '§k§s§2§0') = $atext)","visible":"(not (($atext - '§k§s§2§0') = $atext))"} },
+              { "u1@minecade_rounds.digit": {"text":"1","color":[0,0.667,0],"ignored":"(($atext - '§k§s§2§1') = $atext)","visible":"(not (($atext - '§k§s§2§1') = $atext))"} },
+              { "u2@minecade_rounds.digit": {"text":"2","color":[0,0.667,0],"ignored":"(($atext - '§k§s§2§2') = $atext)","visible":"(not (($atext - '§k§s§2§2') = $atext))"} },
+              { "u3@minecade_rounds.digit": {"text":"3","color":[0,0.667,0],"ignored":"(($atext - '§k§s§2§3') = $atext)","visible":"(not (($atext - '§k§s§2§3') = $atext))"} },
+              { "u4@minecade_rounds.digit": {"text":"4","color":[0,0.667,0],"ignored":"(($atext - '§k§s§2§4') = $atext)","visible":"(not (($atext - '§k§s§2§4') = $atext))"} },
+              { "u5@minecade_rounds.digit": {"text":"5","color":[0,0.667,0],"ignored":"(($atext - '§k§s§2§5') = $atext)","visible":"(not (($atext - '§k§s§2§5') = $atext))"} },
+              { "u6@minecade_rounds.digit": {"text":"6","color":[0,0.667,0],"ignored":"(($atext - '§k§s§2§6') = $atext)","visible":"(not (($atext - '§k§s§2§6') = $atext))"} },
+              { "u7@minecade_rounds.digit": {"text":"7","color":[0,0.667,0],"ignored":"(($atext - '§k§s§2§7') = $atext)","visible":"(not (($atext - '§k§s§2§7') = $atext))"} },
+              { "u8@minecade_rounds.digit": {"text":"8","color":[0,0.667,0],"ignored":"(($atext - '§k§s§2§8') = $atext)","visible":"(not (($atext - '§k§s§2§8') = $atext))"} },
+              { "u9@minecade_rounds.digit": {"text":"9","color":[0,0.667,0],"ignored":"(($atext - '§k§s§2§9') = $atext)","visible":"(not (($atext - '§k§s§2§9') = $atext))"} }
+            ]
+          } },
           { "in_f": {
             "type": "stack_panel",
             "orientation": "horizontal",
@@ -928,6 +993,35 @@
               { "u9@minecade_rounds.digit": {"text":"9","color":[0.333,1,1],"ignored":"(($atext - '§k§s§3§9') = $atext)","visible":"(not (($atext - '§k§s§3§9') = $atext))"} }
             ]
           } },
+          { "in_2": {
+            "type": "stack_panel",
+            "orientation": "horizontal",
+            "size": ["100%c",10],
+            "$atext": "$actionbar_text",
+            "ignored": "(($atext - '§k§q§3§2') = $atext)",
+            "visible": "(not (($atext - '§k§q§3§2') = $atext))",
+            "controls": [
+              { "t1@minecade_rounds.digit": {"text":"1","color":[0,0.667,0],"ignored":"(($atext - '§k§m§3§1') = $atext)","visible":"(not (($atext - '§k§m§3§1') = $atext))"} },
+              { "t2@minecade_rounds.digit": {"text":"2","color":[0,0.667,0],"ignored":"(($atext - '§k§m§3§2') = $atext)","visible":"(not (($atext - '§k§m§3§2') = $atext))"} },
+              { "t3@minecade_rounds.digit": {"text":"3","color":[0,0.667,0],"ignored":"(($atext - '§k§m§3§3') = $atext)","visible":"(not (($atext - '§k§m§3§3') = $atext))"} },
+              { "t4@minecade_rounds.digit": {"text":"4","color":[0,0.667,0],"ignored":"(($atext - '§k§m§3§4') = $atext)","visible":"(not (($atext - '§k§m§3§4') = $atext))"} },
+              { "t5@minecade_rounds.digit": {"text":"5","color":[0,0.667,0],"ignored":"(($atext - '§k§m§3§5') = $atext)","visible":"(not (($atext - '§k§m§3§5') = $atext))"} },
+              { "t6@minecade_rounds.digit": {"text":"6","color":[0,0.667,0],"ignored":"(($atext - '§k§m§3§6') = $atext)","visible":"(not (($atext - '§k§m§3§6') = $atext))"} },
+              { "t7@minecade_rounds.digit": {"text":"7","color":[0,0.667,0],"ignored":"(($atext - '§k§m§3§7') = $atext)","visible":"(not (($atext - '§k§m§3§7') = $atext))"} },
+              { "t8@minecade_rounds.digit": {"text":"8","color":[0,0.667,0],"ignored":"(($atext - '§k§m§3§8') = $atext)","visible":"(not (($atext - '§k§m§3§8') = $atext))"} },
+              { "t9@minecade_rounds.digit": {"text":"9","color":[0,0.667,0],"ignored":"(($atext - '§k§m§3§9') = $atext)","visible":"(not (($atext - '§k§m§3§9') = $atext))"} },
+              { "u0@minecade_rounds.digit": {"text":"0","color":[0,0.667,0],"ignored":"(($atext - '§k§s§3§0') = $atext)","visible":"(not (($atext - '§k§s§3§0') = $atext))"} },
+              { "u1@minecade_rounds.digit": {"text":"1","color":[0,0.667,0],"ignored":"(($atext - '§k§s§3§1') = $atext)","visible":"(not (($atext - '§k§s§3§1') = $atext))"} },
+              { "u2@minecade_rounds.digit": {"text":"2","color":[0,0.667,0],"ignored":"(($atext - '§k§s§3§2') = $atext)","visible":"(not (($atext - '§k§s§3§2') = $atext))"} },
+              { "u3@minecade_rounds.digit": {"text":"3","color":[0,0.667,0],"ignored":"(($atext - '§k§s§3§3') = $atext)","visible":"(not (($atext - '§k§s§3§3') = $atext))"} },
+              { "u4@minecade_rounds.digit": {"text":"4","color":[0,0.667,0],"ignored":"(($atext - '§k§s§3§4') = $atext)","visible":"(not (($atext - '§k§s§3§4') = $atext))"} },
+              { "u5@minecade_rounds.digit": {"text":"5","color":[0,0.667,0],"ignored":"(($atext - '§k§s§3§5') = $atext)","visible":"(not (($atext - '§k§s§3§5') = $atext))"} },
+              { "u6@minecade_rounds.digit": {"text":"6","color":[0,0.667,0],"ignored":"(($atext - '§k§s§3§6') = $atext)","visible":"(not (($atext - '§k§s§3§6') = $atext))"} },
+              { "u7@minecade_rounds.digit": {"text":"7","color":[0,0.667,0],"ignored":"(($atext - '§k§s§3§7') = $atext)","visible":"(not (($atext - '§k§s§3§7') = $atext))"} },
+              { "u8@minecade_rounds.digit": {"text":"8","color":[0,0.667,0],"ignored":"(($atext - '§k§s§3§8') = $atext)","visible":"(not (($atext - '§k§s§3§8') = $atext))"} },
+              { "u9@minecade_rounds.digit": {"text":"9","color":[0,0.667,0],"ignored":"(($atext - '§k§s§3§9') = $atext)","visible":"(not (($atext - '§k§s§3§9') = $atext))"} }
+            ]
+          } },
           { "in_f": {
             "type": "stack_panel",
             "orientation": "horizontal",
@@ -1198,6 +1292,35 @@
               { "u7@minecade_rounds.digit": {"text":"7","color":[0.333,1,1],"ignored":"(($atext - '§k§s§4§7') = $atext)","visible":"(not (($atext - '§k§s§4§7') = $atext))"} },
               { "u8@minecade_rounds.digit": {"text":"8","color":[0.333,1,1],"ignored":"(($atext - '§k§s§4§8') = $atext)","visible":"(not (($atext - '§k§s§4§8') = $atext))"} },
               { "u9@minecade_rounds.digit": {"text":"9","color":[0.333,1,1],"ignored":"(($atext - '§k§s§4§9') = $atext)","visible":"(not (($atext - '§k§s§4§9') = $atext))"} }
+            ]
+          } },
+          { "in_2": {
+            "type": "stack_panel",
+            "orientation": "horizontal",
+            "size": ["100%c",10],
+            "$atext": "$actionbar_text",
+            "ignored": "(($atext - '§k§q§4§2') = $atext)",
+            "visible": "(not (($atext - '§k§q§4§2') = $atext))",
+            "controls": [
+              { "t1@minecade_rounds.digit": {"text":"1","color":[0,0.667,0],"ignored":"(($atext - '§k§m§4§1') = $atext)","visible":"(not (($atext - '§k§m§4§1') = $atext))"} },
+              { "t2@minecade_rounds.digit": {"text":"2","color":[0,0.667,0],"ignored":"(($atext - '§k§m§4§2') = $atext)","visible":"(not (($atext - '§k§m§4§2') = $atext))"} },
+              { "t3@minecade_rounds.digit": {"text":"3","color":[0,0.667,0],"ignored":"(($atext - '§k§m§4§3') = $atext)","visible":"(not (($atext - '§k§m§4§3') = $atext))"} },
+              { "t4@minecade_rounds.digit": {"text":"4","color":[0,0.667,0],"ignored":"(($atext - '§k§m§4§4') = $atext)","visible":"(not (($atext - '§k§m§4§4') = $atext))"} },
+              { "t5@minecade_rounds.digit": {"text":"5","color":[0,0.667,0],"ignored":"(($atext - '§k§m§4§5') = $atext)","visible":"(not (($atext - '§k§m§4§5') = $atext))"} },
+              { "t6@minecade_rounds.digit": {"text":"6","color":[0,0.667,0],"ignored":"(($atext - '§k§m§4§6') = $atext)","visible":"(not (($atext - '§k§m§4§6') = $atext))"} },
+              { "t7@minecade_rounds.digit": {"text":"7","color":[0,0.667,0],"ignored":"(($atext - '§k§m§4§7') = $atext)","visible":"(not (($atext - '§k§m§4§7') = $atext))"} },
+              { "t8@minecade_rounds.digit": {"text":"8","color":[0,0.667,0],"ignored":"(($atext - '§k§m§4§8') = $atext)","visible":"(not (($atext - '§k§m§4§8') = $atext))"} },
+              { "t9@minecade_rounds.digit": {"text":"9","color":[0,0.667,0],"ignored":"(($atext - '§k§m§4§9') = $atext)","visible":"(not (($atext - '§k§m§4§9') = $atext))"} },
+              { "u0@minecade_rounds.digit": {"text":"0","color":[0,0.667,0],"ignored":"(($atext - '§k§s§4§0') = $atext)","visible":"(not (($atext - '§k§s§4§0') = $atext))"} },
+              { "u1@minecade_rounds.digit": {"text":"1","color":[0,0.667,0],"ignored":"(($atext - '§k§s§4§1') = $atext)","visible":"(not (($atext - '§k§s§4§1') = $atext))"} },
+              { "u2@minecade_rounds.digit": {"text":"2","color":[0,0.667,0],"ignored":"(($atext - '§k§s§4§2') = $atext)","visible":"(not (($atext - '§k§s§4§2') = $atext))"} },
+              { "u3@minecade_rounds.digit": {"text":"3","color":[0,0.667,0],"ignored":"(($atext - '§k§s§4§3') = $atext)","visible":"(not (($atext - '§k§s§4§3') = $atext))"} },
+              { "u4@minecade_rounds.digit": {"text":"4","color":[0,0.667,0],"ignored":"(($atext - '§k§s§4§4') = $atext)","visible":"(not (($atext - '§k§s§4§4') = $atext))"} },
+              { "u5@minecade_rounds.digit": {"text":"5","color":[0,0.667,0],"ignored":"(($atext - '§k§s§4§5') = $atext)","visible":"(not (($atext - '§k§s§4§5') = $atext))"} },
+              { "u6@minecade_rounds.digit": {"text":"6","color":[0,0.667,0],"ignored":"(($atext - '§k§s§4§6') = $atext)","visible":"(not (($atext - '§k§s§4§6') = $atext))"} },
+              { "u7@minecade_rounds.digit": {"text":"7","color":[0,0.667,0],"ignored":"(($atext - '§k§s§4§7') = $atext)","visible":"(not (($atext - '§k§s§4§7') = $atext))"} },
+              { "u8@minecade_rounds.digit": {"text":"8","color":[0,0.667,0],"ignored":"(($atext - '§k§s§4§8') = $atext)","visible":"(not (($atext - '§k§s§4§8') = $atext))"} },
+              { "u9@minecade_rounds.digit": {"text":"9","color":[0,0.667,0],"ignored":"(($atext - '§k§s§4§9') = $atext)","visible":"(not (($atext - '§k§s§4§9') = $atext))"} }
             ]
           } },
           { "in_f": {

@@ -43,7 +43,7 @@ import { Roster, type Participant } from "./roster.ts";
 import { Score } from "./score.ts";
 import { Sidebar } from "./sidebar.ts";
 import { packStatsParts, StatsRecorder } from "./stats.ts";
-import { activeTeams, assignTeams } from "./teams.ts";
+import { activeTeams, assignTeams, teamLimit } from "./teams.ts";
 
 export interface GameContext extends ServerContext {
   random(): number;
@@ -642,6 +642,11 @@ export abstract class Minigame<C extends GameConfig = GameConfig> {
     }
   }
 
+  /** Whether a player is still protected after a respawn (respawn.protectSeconds): no hit counts on them. */
+  isProtected(name: string): boolean {
+    return (this.protectedUntil.get(name.toLowerCase()) ?? 0) > system.currentTick;
+  }
+
   teamOf(name: string): TeamDef | undefined {
     const team = this.roster.get(name)?.team;
     return this.teams.find((def) => def.id === team);
@@ -988,9 +993,10 @@ export abstract class Minigame<C extends GameConfig = GameConfig> {
       const pick = this.teamPicks.get(name.toLowerCase());
       if (pick) picks.set(name, pick);
     }
-    const plan = assignTeams(names, picks, teams, this.ctx.random);
+    const limit = teamLimit(this.config, this.ctx.vars.settings);
+    const plan = assignTeams(names, picks, teams, this.ctx.random, limit);
     this.teamPlan = new Map([...plan].map(([name, team]) => [name.toLowerCase(), team]));
-    this.teams = activeTeams(names.length, teams);
+    this.teams = activeTeams(names.length, teams, limit);
     if (!this.queued) {
       for (const player of world.getAllPlayers()) this.placeWaiting(player);
       for (const name of this.fakes?.all ?? []) this.placeWaitingFake(name);
@@ -1293,8 +1299,15 @@ export abstract class Minigame<C extends GameConfig = GameConfig> {
     return this.roster.all().map((participant) => participant.name);
   }
 
-  /** The best-of rounds as HUD codes (empty outside best-of games): circles colored by winner, or each side's wins. */
+  /**
+   * The best-of rounds as HUD codes (empty outside best-of games): circles colored by winner, or each
+   * side's wins. A game whose scoring shows "sides" puts each team's score there instead.
+   */
   private roundsCodes(): string {
+    if (this.config.scoring?.display === "sides") {
+      if (this.teams.length === 0) return "";
+      return bestOfCodes({ display: "score", sides: this.teams.map((team) => ({ color: team.color, wins: this.score.get(team.id) })) });
+    }
     const series = this.series;
     const config = this.config.bestOf;
     if (!series || !config) return "";
@@ -1342,8 +1355,9 @@ export abstract class Minigame<C extends GameConfig = GameConfig> {
         const pick = this.teamPlan?.get(name.toLowerCase()) ?? this.teamPicks.get(name.toLowerCase());
         if (pick) picks.set(name, pick);
       }
-      assignment = assignTeams(names, picks, this.config.teams, this.ctx.random);
-      this.teams = activeTeams(names.length, this.config.teams);
+      const limit = teamLimit(this.config, this.ctx.vars.settings);
+      assignment = assignTeams(names, picks, this.config.teams, this.ctx.random, limit);
+      this.teams = activeTeams(names.length, this.config.teams, limit);
     }
     const lives = this.config.respawn?.mode === "lives" ? (this.config.respawn.lives ?? 3) : 1;
     for (const name of names) {
@@ -1427,6 +1441,7 @@ export abstract class Minigame<C extends GameConfig = GameConfig> {
     const secondsLeft = this.currentStage?.secondsLeft ?? this.matchSecondsLeft;
     const scoring = this.config.scoring;
     const own = scoring?.display === "own";
+    const sides = scoring?.display === "sides";
     const rounds = this.roundsCodes();
     for (const player of world.getAllPlayers()) {
       const rest = this.hud(player.name) ?? "";
@@ -1439,7 +1454,8 @@ export abstract class Minigame<C extends GameConfig = GameConfig> {
       if (text) player.onScreenDisplay.setActionBar(text);
     }
     this.respawnTitles();
-    const board = scoring && !own ? this.score : undefined;
+    // "own" and "sides" show the scores in the HUD's boxes, not on the sidebar.
+    const board = scoring && !own && !sides ? this.score : undefined;
     if (!board) return;
     if (!this.sidebar) {
       this.sidebar = new Sidebar(this.playingScope ?? this.scope, `${this.ctx.vars.sessionId}`.slice(0, 12), this.config.scoring?.title ?? "Score");
@@ -1761,7 +1777,7 @@ export abstract class Minigame<C extends GameConfig = GameConfig> {
       },
       nameOf: (entity) => this.whoIs(entity),
       canFight: (name) => this.roster.get(name)?.state === "alive",
-      isProtected: (name) => (this.protectedUntil.get(name.toLowerCase()) ?? 0) > system.currentTick,
+      isProtected: (name) => this.isProtected(name),
       areAllies: (a, b) => this.areTeammates(a, b) && !this.config.teams?.friendlyFire,
       onDamage: (hit) => this.onDamage(hit),
       down: (name, cause) => this.down(name, cause),

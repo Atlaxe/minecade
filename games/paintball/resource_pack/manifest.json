@@ -1,0 +1,17 @@
+{
+  "format_version": 2,
+  "header": {
+    "name": "Minecade Paintball",
+    "description": "Paintball's painted blocks",
+    "uuid": "c62ded3c-bfb5-45f0-9bf9-fd090f88f59f",
+    "version": [1, 0, 0],
+    "min_engine_version": [1, 26, 60]
+  },
+  "modules": [
+    {
+      "type": "resources",
+      "uuid": "0748cbe4-00c9-459f-b7a8-0c8d0de8a6e8",
+      "version": [1, 0, 0]
+    }
+  ]
+}

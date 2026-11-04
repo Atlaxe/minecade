@@ -163,6 +163,20 @@ Paintball's painted blocks. No experiments on (the worlds have only Beta APIs).
 | Other states seen | `minecraft:cardinal_direction` values are `south`, `west`, `north`, `east`; carpets have `color`; logs `pillar_axis`; leaves have the `minecraft:leaves` tag. |
 | The guns pack | Its items and entities (`packs/guns`) load with no content log errors. |
 
+## Painted shapes (BDS 1.26.60.6, @minecraft/server 2.11.0, checked 2026-11-04)
+
+`npx tsx spike/paint/run.ts` boots a throwaway server (`minecade-paintcheck`, no published ports)
+with Paintball's painted blocks and places each vanilla door, fence gate and trapdoor in every state
+beside the painted block Paintball makes of it, then casts rays at both from every side.
+
+| Check | Finding |
+|---|---|
+| Painted blocks | All 28 load with no content log errors, and Bedrock takes every one of their 1,048 states. A block that names a custom component (`minecade:paint_use`) fails to load unless a script registers it at startup. |
+| Doors | `minecraft:cardinal_direction` is a quarter turn from Java's `facing`: a shut door whose cardinal direction is `south` stands on the west side of its block, as a Java door facing east (`west` is Java's south, `north` west, `east` north). `door_hinge_bit` true is Java's right hinge. Facing and open come from the lower half, the hinge from the upper. |
+| Gates | `minecraft:cardinal_direction` is Java's `facing`. |
+| Trapdoors | `direction` 0 to 3 is Java's east, west, south, north (as stairs' `weirdo_direction`); `upside_down_bit` is the top half. |
+| Shapes | With those, all 40 vanilla states (16 doors, 8 gates, 16 trapdoors) paint to blocks hit in the same places from every side. Custom blocks' collision and selection boxes mirror x as their geometry does (x 0 to 3 in Java's coordinates is origin 5 to 8). A ray hitting a custom block's face on its east, south or top edge reports it at 0, where vanilla's says 1. |
+
 ## Held guns: where a held model sits, aiming and left clicks (2026-11-04)
 
 What the guns' second pass is built on (`tools/assets/guns.ts`, `packages/guns`). Only the content

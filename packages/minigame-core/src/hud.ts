@@ -70,7 +70,7 @@ export const SIDE_UNITS = "§k§s";
  * The colors the rounds display can draw (the codes after "§"): the team colors, white, and gray for
  * a drawn round. Any other team color shows white. Must match the pack.
  */
-export const ROUND_COLORS = ["c", "9", "a", "e", "6", "d", "b", "f", "7"] as const;
+export const ROUND_COLORS = ["c", "9", "a", "e", "6", "d", "b", "2", "f", "7"] as const;
 const DRAWN_ROUND = "7";
 
 /** What the rounds box shows, with colors as § codes ("§c"). */

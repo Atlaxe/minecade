@@ -1,0 +1,245 @@
+{
+  "format_version": "1.26.0",
+  "minecraft:block": {
+    "description": {
+      "identifier": "minecade:paint_red_trapdoor",
+      "menu_category": {
+        "category": "none"
+      },
+      "states": {
+        "minecade:facing": [
+          "north",
+          "east",
+          "south",
+          "west"
+        ],
+        "minecade:half": [
+          "bottom",
+          "top"
+        ],
+        "minecade:open": [
+          "false",
+          "true"
+        ]
+      }
+    },
+    "components": {
+      "minecraft:geometry": {
+        "identifier": "geometry.minecade.paint_trapdoor",
+        "bone_visibility": {
+          "bottom": "q.block_state('minecade:open') == 'false' && q.block_state('minecade:half') == 'bottom'",
+          "top": "q.block_state('minecade:open') == 'false' && q.block_state('minecade:half') == 'top'",
+          "open_north": "q.block_state('minecade:open') == 'true' && q.block_state('minecade:facing') == 'north'",
+          "open_east": "q.block_state('minecade:open') == 'true' && q.block_state('minecade:facing') == 'east'",
+          "open_south": "q.block_state('minecade:open') == 'true' && q.block_state('minecade:facing') == 'south'",
+          "open_west": "q.block_state('minecade:open') == 'true' && q.block_state('minecade:facing') == 'west'"
+        }
+      },
+      "minecraft:material_instances": {
+        "*": {
+          "texture": "minecade_paint_red",
+          "render_method": "opaque"
+        }
+      },
+      "minecraft:light_dampening": 0,
+      "minecraft:destructible_by_mining": {
+        "seconds_to_destroy": 1.8
+      },
+      "minecraft:destructible_by_explosion": {
+        "explosion_resistance": 1.8
+      },
+      "minecraft:connection_rule": {
+        "accepts_connections_from": "none"
+      },
+      "minecade:paint_use": {}
+    },
+    "permutations": [
+      {
+        "condition": "q.block_state('minecade:open') == 'true' && q.block_state('minecade:facing') == 'west'",
+        "components": {
+          "minecraft:collision_box": [
+            {
+              "origin": [
+                -8,
+                0,
+                -8
+              ],
+              "size": [
+                3,
+                16,
+                16
+              ]
+            }
+          ],
+          "minecraft:selection_box": {
+            "origin": [
+              -8,
+              0,
+              -8
+            ],
+            "size": [
+              3,
+              16,
+              16
+            ]
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('minecade:open') == 'true' && q.block_state('minecade:facing') == 'south'",
+        "components": {
+          "minecraft:collision_box": [
+            {
+              "origin": [
+                -8,
+                0,
+                -8
+              ],
+              "size": [
+                16,
+                16,
+                3
+              ]
+            }
+          ],
+          "minecraft:selection_box": {
+            "origin": [
+              -8,
+              0,
+              -8
+            ],
+            "size": [
+              16,
+              16,
+              3
+            ]
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('minecade:open') == 'true' && q.block_state('minecade:facing') == 'east'",
+        "components": {
+          "minecraft:collision_box": [
+            {
+              "origin": [
+                5,
+                0,
+                -8
+              ],
+              "size": [
+                3,
+                16,
+                16
+              ]
+            }
+          ],
+          "minecraft:selection_box": {
+            "origin": [
+              5,
+              0,
+              -8
+            ],
+            "size": [
+              3,
+              16,
+              16
+            ]
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('minecade:open') == 'true' && q.block_state('minecade:facing') == 'north'",
+        "components": {
+          "minecraft:collision_box": [
+            {
+              "origin": [
+                -8,
+                0,
+                5
+              ],
+              "size": [
+                16,
+                16,
+                3
+              ]
+            }
+          ],
+          "minecraft:selection_box": {
+            "origin": [
+              -8,
+              0,
+              5
+            ],
+            "size": [
+              16,
+              16,
+              3
+            ]
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('minecade:open') == 'false' && q.block_state('minecade:half') == 'top'",
+        "components": {
+          "minecraft:collision_box": [
+            {
+              "origin": [
+                -8,
+                13,
+                -8
+              ],
+              "size": [
+                16,
+                3,
+                16
+              ]
+            }
+          ],
+          "minecraft:selection_box": {
+            "origin": [
+              -8,
+              13,
+              -8
+            ],
+            "size": [
+              16,
+              3,
+              16
+            ]
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('minecade:open') == 'false' && q.block_state('minecade:half') == 'bottom'",
+        "components": {
+          "minecraft:collision_box": [
+            {
+              "origin": [
+                -8,
+                0,
+                -8
+              ],
+              "size": [
+                16,
+                3,
+                16
+              ]
+            }
+          ],
+          "minecraft:selection_box": {
+            "origin": [
+              -8,
+              0,
+              -8
+            ],
+            "size": [
+              16,
+              3,
+              16
+            ]
+          }
+        }
+      }
+    ]
+  }
+}

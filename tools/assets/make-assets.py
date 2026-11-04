@@ -27,7 +27,7 @@ Outputs:
     editor/resource_pack/textures/items/time_tool.png                         the Time tool (a clock)
     editor/resource_pack/textures/entity/editor_marker_facing.png            the red facing line on markers
     editor/resource_pack/textures/entity/editor_marker*.png                  markers, a color per kind
-    games/<id>/icon.png                                                      16:9 game pictures (Probe, Sumo, One in the Quiver, Bridges, Siege)
+    games/<id>/icon.png                                                      16:9 game pictures (Probe, Sumo, One in the Quiver, Bridges, Siege, Paintball)
 
 Fonts come from Windows (Bahnschrift, else Consolas Bold); they only matter when regenerating.
 The logo source is tools/assets/source/minecade-title.png (the orange original).
@@ -154,6 +154,7 @@ ROUND_FILLS = {
     "open": (245, 245, 245),
     "c": (255, 85, 85),
     "9": (85, 85, 255),
+    "2": (0, 170, 0),
     "a": (85, 255, 85),
     "e": (255, 255, 85),
     "6": (255, 170, 0),
@@ -1019,6 +1020,7 @@ def main() -> None:
     save(picture("QUIVER", (60, 140, 90), (20, 55, 35)), ROOT / "games" / "quiver" / "icon.png")
     save(picture("BRIDGES", (70, 90, 200), (150, 35, 40)), ROOT / "games" / "bridges" / "icon.png")
     save(picture("SIEGE", (110, 115, 130), (120, 30, 35)), ROOT / "games" / "siege" / "icon.png")
+    save(picture("PAINTBALL", (220, 70, 140), (40, 60, 160)), ROOT / "games" / "paintball" / "icon.png")
 
 
 if __name__ == "__main__":

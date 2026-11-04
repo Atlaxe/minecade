@@ -173,6 +173,15 @@ block inside their box, and nothing outside it. Leave space between boxes (liqui
 a box are cleared from the block-thick shell around it, and a shell that cuts into another box is
 skipped). A box bigger than 64 blocks on a side works: the game saves it in 64-block pieces.
 
+**Paintball** needs team spawns for all four teams (Red, Blue, Yellow and Green, at least 2 each,
+since a match can have any of 2 to 4 teams), bounds, at least 8 Power-up spots (the Game marker
+tool's Power-up spot list, drawn as the floating white rifle players see), and a spectator or queue
+spawn, where players wait out their 3 second respawn. Two power-ups are out at a time, never on the
+same spot, so spread the spots around the arena. Balls paint everything inside the bounds in the
+teams' colors (full blocks become concrete; see "Paintball" in [ui.md](ui.md)), so build the arena
+from blocks that look good painted. The map itself never changes: every match starts from a fresh
+copy.
+
 **The lobby** declares its own in `lobby/lobby.config.ts`: one spawn and the `terminal` point
 (the middle block of the terminal's 3x3 console; the hologram floats above it). `LOBBY_MAP` in
 `.env` picks which of `lobby/maps/` is the live lobby (default `spaceship`), and the Panel has a

@@ -54,6 +54,22 @@ describe("validateGameConfig", () => {
     const many = Array.from({ length: 8 }, (_, i) => ({ ...round, id: `option${i}` }));
     expect(validateGameConfig({ ...game, teams: { count: 2 }, minPlayers: 2, options: many }, "sumo")).toEqual(["a game can have at most 8 settings, Teams included"]);
   });
+
+  it("checks a Team count setting names one of the options, with team counts the range allows", () => {
+    const teamCount = (values: string[]) => ({ id: "teamCount", label: "Team count", values: values.map((value) => ({ value, label: value })) });
+    const teams = { count: [2, 4] as [number, number], option: "teamCount" };
+    expect(validateGameConfig({ ...game, maxPlayers: 8, teams, options: [teamCount(["2", "3", "4"])] }, "sumo")).toEqual([]);
+    expect(validateGameConfig({ ...game, maxPlayers: 8, teams, options: [teamCount(["2", "5"])] }, "sumo")).toEqual(['teams.option "teamCount": every value must be a team count from 2 to 4']);
+    expect(validateGameConfig({ ...game, maxPlayers: 8, teams, options: [] }, "sumo")).toEqual([`teams.option "teamCount" must be one of the game's options`]);
+  });
+
+  it("shows scores as sides only for team scores of up to four teams, without best-of rounds", () => {
+    const teams = { count: [2, 4] as [number, number] };
+    expect(validateGameConfig({ ...game, maxPlayers: 8, teams, scoring: { per: "team", display: "sides" } }, "sumo")).toEqual([]);
+    expect(validateGameConfig({ ...game, scoring: { per: "player", display: "sides" } }, "sumo")).toEqual(['scoring.display "sides" is for team scores (per: "team")']);
+    const five = { count: 5, defs: ["a", "b", "c", "d", "e"].map((id) => ({ id, name: id, color: "§f" })) };
+    expect(validateGameConfig({ ...game, minPlayers: 5, maxPlayers: 8, teams: five, scoring: { per: "team", display: "sides" } }, "sumo")).toEqual(['scoring.display "sides" shows up to 4 teams']);
+  });
 });
 
 describe("validateMapConfig", () => {

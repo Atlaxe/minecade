@@ -24,9 +24,10 @@ export class TeamPicks {
   private players: string[];
   private readonly chosen = new Map<string, string>();
 
-  constructor(players: string[], cfg: TeamsConfig) {
+  /** `limit`: the most teams the game screen's setting allows (teamLimit), for games with one. */
+  constructor(players: string[], cfg: TeamsConfig, limit?: number) {
     this.players = [...players];
-    this.teams = activeTeams(players.length, cfg);
+    this.teams = activeTeams(players.length, cfg, limit);
   }
 
   /** How many players a team may hold; it shrinks when players leave, as it would on the game server. */

@@ -23,8 +23,18 @@ export function validateGameConfig(config: GameConfig, folder: string): string[]
       problems.push(`minPlayers must be at least ${teams.count * (teams.minPerTeam ?? 1)} to fill ${teams.count} teams`);
     }
     if (Array.isArray(teams.count) && teams.count[0] > teams.count[1]) problems.push("teams.count range must be [min, max]");
+    if (teams.option !== undefined) {
+      const option = config.options?.find((candidate) => candidate.id === teams.option);
+      if (!option) problems.push(`teams.option "${teams.option}" must be one of the game's options`);
+      const [min, max] = typeof teams.count === "number" ? [1, teams.count] : teams.count;
+      for (const { value } of option?.values ?? []) {
+        const most = Number(value);
+        if (!Number.isInteger(most) || most < min || most > max) problems.push(`teams.option "${teams.option}": every value must be a team count from ${min} to ${max}`);
+      }
+    }
   }
   problems.push(...validateOptions(config));
+  problems.push(...validateScoring(config));
   const kits = config.kits;
   const kitIds = [...(kits?.base ? [kits.base.id] : []), ...(kits?.list.map((kit) => kit.id) ?? [])];
   if (new Set(kitIds).size !== kitIds.length) problems.push("kit ids must be unique");
@@ -77,6 +87,17 @@ function validateBestOf(config: GameConfig): string[] {
   } else if (bestOf.display === "score" && config.teams && possibleTeams(config.teams).length > MAX_SCORE_SIDES) {
     problems.push(`bestOf.display "score" shows up to ${MAX_SCORE_SIDES} teams`);
   }
+  return problems;
+}
+
+/** Scores shown as "sides" (each team's in its color, in the rounds box): team scores, up to four teams, and not beside best-of rounds. */
+function validateScoring(config: GameConfig): string[] {
+  const scoring = config.scoring;
+  if (scoring?.display !== "sides") return [];
+  const problems: string[] = [];
+  if (scoring.per !== "team" || !config.teams) problems.push('scoring.display "sides" is for team scores (per: "team")');
+  else if (possibleTeams(config.teams).length > MAX_SCORE_SIDES) problems.push(`scoring.display "sides" shows up to ${MAX_SCORE_SIDES} teams`);
+  if (config.bestOf) problems.push('scoring.display "sides" shares its box with best-of rounds: use one or the other');
   return problems;
 }
 

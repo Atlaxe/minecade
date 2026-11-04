@@ -12,7 +12,7 @@ import type { PlayerSkin, Registry } from "@minecade/minigame-core/config";
 import type { TransportKind } from "@minecade/minigame-core/protocol";
 import { MODULE_VERSIONS, pinManifest, type Manifest } from "./mc-versions.ts";
 import { contentHash, withPatchVersion } from "./pack-version.ts";
-import { registryPlugin, skinsPlugin, transportPlugin } from "./transport-plugin.ts";
+import { modBlocksPlugin, registryPlugin, skinsPlugin, transportPlugin } from "./transport-plugin.ts";
 
 const root = fileURLToPath(new URL("../../", import.meta.url));
 const TRANSPORTS: TransportKind[] = ["http", "log"];
@@ -83,7 +83,7 @@ export async function buildBehaviorPack(src: string, out: string, manifest: Mani
       platform: "neutral",
       target: "es2022",
       external: ["@minecraft/*"],
-      plugins: [transportPlugin(kind), registryPlugin(registry), skinsPlugin(skins)],
+      plugins: [transportPlugin(kind), registryPlugin(registry), skinsPlugin(skins), modBlocksPlugin()],
       logLevel: "warning",
     });
     const variant = structuredClone(manifest);

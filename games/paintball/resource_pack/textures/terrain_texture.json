@@ -1,0 +1,20 @@
+{
+  "resource_pack_name": "minecade_paintball",
+  "texture_name": "atlas.terrain",
+  "padding": 8,
+  "num_mip_levels": 4,
+  "texture_data": {
+    "minecade_paint_red": {
+      "textures": "textures/blocks/concrete_red"
+    },
+    "minecade_paint_blue": {
+      "textures": "textures/blocks/concrete_blue"
+    },
+    "minecade_paint_yellow": {
+      "textures": "textures/blocks/concrete_yellow"
+    },
+    "minecade_paint_green": {
+      "textures": "textures/blocks/concrete_green"
+    }
+  }
+}

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { TeamDef, TeamsConfig } from "../src/config.ts";
-import { activeTeams, assignTeams, DEFAULT_TEAMS, shuffle } from "../src/game/teams.ts";
+import { activeTeams, assignTeams, DEFAULT_TEAMS, shuffle, teamLimit } from "../src/game/teams.ts";
 
 /** A small LCG so "random" fills are repeatable. */
 function seeded(seed: number): () => number {
@@ -31,6 +31,23 @@ const roles: TeamDef[] = [
   { id: "hiders", name: "Hiders", color: "§a", size: "rest" },
 ];
 
+describe("teamLimit", () => {
+  const options = [{ id: "teamCount", label: "Team count", values: ["2", "3", "4"].map((value) => ({ value, label: value })) }];
+
+  it("reads the lobby's setting the teams name, else the setting's first value", () => {
+    const config = { teams: { count: [2, 4] as [number, number], option: "teamCount" }, options };
+    expect(teamLimit(config, { teamCount: "3" })).toBe(3);
+    expect(teamLimit(config, {})).toBe(2);
+    expect(teamLimit(config, undefined)).toBe(2);
+    expect(teamLimit(config, { teamCount: "lots" })).toBeUndefined();
+  });
+
+  it("is undefined for games whose teams name no setting", () => {
+    expect(teamLimit({ teams: { count: 2 }, options }, { teamCount: "3" })).toBeUndefined();
+    expect(teamLimit({ options }, {})).toBeUndefined();
+  });
+});
+
 describe("activeTeams", () => {
   it("uses an exact count, capped at the defined teams", () => {
     expect(activeTeams(5, { count: 2 }).map((team) => team.id)).toEqual(["red", "blue"]);
@@ -54,6 +71,17 @@ describe("activeTeams", () => {
       { id: "owls", name: "Owls", color: "§7" },
     ];
     expect(activeTeams(6, { count: 2, defs }).map((team) => team.id)).toEqual(["cats", "dogs"]);
+  });
+
+  it("opens no more teams than a limit (the lobby's Team count), and never fewer than the range's least", () => {
+    const cfg: TeamsConfig = { count: [2, 4] };
+    expect(activeTeams(8, cfg, 2).map((team) => team.id)).toEqual(["red", "blue"]);
+    expect(activeTeams(8, cfg, 3)).toHaveLength(3);
+    expect(activeTeams(8, cfg, 4)).toHaveLength(4);
+    // The players still decide: three can't fill four teams.
+    expect(activeTeams(3, cfg, 4)).toHaveLength(3);
+    expect(activeTeams(2, cfg, 4)).toHaveLength(2);
+    expect(activeTeams(8, { count: 3 }, 2)).toHaveLength(2);
   });
 
   it("uses every def in a role setup, whatever the count", () => {

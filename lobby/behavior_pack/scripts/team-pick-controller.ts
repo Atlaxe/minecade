@@ -26,6 +26,8 @@ export interface TeamPickOptions {
   game: string;
   players: string[];
   teams: TeamsConfig;
+  /** The most teams the game screen's setting allows (teamLimit), for games with one. */
+  teamLimit?: number;
   online(): string[];
   /** The picks, once picking ends. */
   done(picks: Record<string, string>): void;
@@ -48,7 +50,7 @@ export class TeamPickController {
   constructor(ports: TeamPickPorts, scope: Scope, options: TeamPickOptions) {
     this.ports = ports;
     this.options = options;
-    this.picks = new TeamPicks(options.players, options.teams);
+    this.picks = new TeamPicks(options.players, options.teams, options.teamLimit);
     this.minTicks = options.minTicks ?? 5 * 20;
     this.maxTicks = options.maxTicks ?? 20 * 20;
     // A failed start disposes the scope: the forms close.

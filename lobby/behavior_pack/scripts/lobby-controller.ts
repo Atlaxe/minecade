@@ -7,7 +7,7 @@
 //            never triggers transfers.
 //   pending  this lobby's own start request. Replies for any other requestId are ignored, which
 //            also covers stale messages queued from before a lobby restart.
-import { Scope, nameOf, say, type Chime, type InboundMessage, type OutboundEvent, type Registry, type RegistryGame, type StatusSnapshot } from "@minecade/minigame-core";
+import { Scope, nameOf, say, teamLimit, type Chime, type InboundMessage, type OutboundEvent, type Registry, type RegistryGame, type StatusSnapshot } from "@minecade/minigame-core";
 import { isDemoGame } from "./demo-games.ts";
 import { settingsFor } from "./game-screen.ts";
 import { TeamPickController, type TeamPickPorts } from "./team-pick-controller.ts";
@@ -213,6 +213,7 @@ export class LobbyController {
         game: game.name,
         players,
         teams: game.teams,
+        teamLimit: teamLimit(game, settings),
         online: () => this.ports.onlinePlayers(),
         done: (picks) => this.picksDone(pending, picks),
       });
