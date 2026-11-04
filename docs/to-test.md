@@ -25,6 +25,49 @@ Alone, in a preview with fake players:
 - A missed arrow stays where it lands, then disappears about 5 seconds after it stops (or as soon
   as someone walks within 2.5 blocks of it).
 
+## Siege
+
+Needs a map first: team spawns, bounds, a spectator or queue spawn, and some water. Alone, in a
+preview with fake players to make up 4:
+
+- The class form comes up before the countdown with all seven classes, each picture showing its
+  gear (leather in your team's color). Pick one: its items are in your hotbar, the ability item in
+  the last slot, and chat says what the ability does.
+- Down everyone on the other team: your team takes the round, the circles top right color in, and
+  after a short break the class form comes back. The match goes on to round 2.
+- Pick a different class for round 2: chat tells you about the new one (not again about a class
+  you've already played).
+- Let a round run its 3 minutes: it goes to the team with more players standing, then the one with
+  more health, else it's a draw.
+- Names over heads show in team colors. Health doesn't come back on its own, and hunger stays full
+  while sprinting.
+
+Abilities (the item in the last hotbar slot):
+
+- Any of them: the number over the hotbar counts down from its cooldown, with a chime when it's
+  back to 0, and a low note if it's used too soon.
+- Soldier, Rally: a horn sounds, and you and teammates within 8 blocks hit harder and run faster
+  for 6 seconds.
+- Archer, Volley: 5 arrows fly in a fan where you look. One that hits an enemy hurts them and
+  counts as your hit (a kill is yours). Arrows that land disappear.
+- Seaman: the trident has Loyalty and comes back after a throw; one thrown into the void is
+  replaced within about 5 seconds. It can't be dropped. In water you're faster than on land and
+  don't drown.
+- Seaman, Tidal Wave: enemies within 6 blocks are pushed away, slowed, and lose a heart a second
+  for 3 seconds, out of water too.
+- Water: every other class loses a heart a second in it. Going down there with nobody to blame
+  says "was washed away".
+- Tank: slower than the rest. Fortify: for 6 seconds hits don't knock you back and do about half
+  damage, with the hurt sound still playing.
+- Medic, Heal: you and teammates within 8 blocks get 4 hearts back, with hearts floating up.
+- Scout: faster than the rest. Leap throws you the way you look, and a long fall does no damage.
+- Assassin, Vanish: invisible for 6 seconds, armor and name too. Hitting someone or being hit
+  brings it all back at once; otherwise it comes back when the time is up.
+
+Bridges, since its Leap and arrow countdown moved into core with Siege:
+
+- The Leap and the arrow coming back (the number over the hotbar, the pop) work as before.
+
 ## Map editor
 Several bounds and the Boundaries view, on a copy of Sumo's Arena:
 
