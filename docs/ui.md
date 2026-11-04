@@ -300,6 +300,41 @@ are: the build tints Minecraft's own leather textures by the dye's leather color
 same multiply the game does) and writes the pack, git-ignored, from the textures on this PC or
 their cache (`tools/assets/armor.ts`). Kit pictures draw them the same way.
 
+### Team armor in a new game
+
+Any game whose teams should wear their color uses these pieces. Never dye leather from a script:
+Bedrock ignores it and the armor stays brown.
+
+- **In a kit (the usual way):** list vanilla leather in the kit's `armor` and set `teamArmor: true`.
+  Each player gets the armor pack's pieces in their team's dye, and the kit form's picture shows
+  them. Leather can sit beside other armor: only the leather pieces change. Enchantments are
+  written against the vanilla id and carry over.
+
+  ```ts
+  armor: { head: "minecraft:leather_helmet", chest: "minecraft:iron_chestplate", feet: "minecraft:leather_boots" },
+  teamArmor: true,
+  enchantments: [{ item: "minecraft:leather_boots", enchantment: "minecraft:feather_falling", level: 2 }],
+  ```
+
+- **The team's dye** comes from its color code (`dyeName`): `§c` and `§4` red, `§9` and `§1` blue,
+  `§e` yellow, `§a` lime, `§2` green, `§6` orange, `§d` magenta, `§b` light blue, `§3` cyan, `§5`
+  purple, `§f` white, `§7` light gray, `§8` gray, `§0` black. Core's default green team is `§a`, so
+  it wears lime; a game that wants dark green gives its team `§2`. Pink and brown have no color code,
+  so only a script can hand them out.
+- **From a script** (armor that changes in play, such as Paintball's hits, or a color that isn't the
+  team's): put on `dyedLeather(piece, dye)` from `@minecade/minigame-core` as an ordinary item,
+  where `piece` is `"helmet"`, `"chestplate"`, `"leggings"` or `"boots"` and `dye` one of
+  `LEATHER_DYES`' 16 names. `parseDyedLeather(id)` says which piece and dye a worn item is,
+  `teamArmorItem(id, teamColor)` turns a vanilla leather id into the team's piece, and
+  `leatherColor(dye)` gives a dye's color. Only those 16 colors exist, so a mixed color (`mixDyes`)
+  has to be matched to the nearest of `LEATHER_DYES`.
+- **In tests,** the fake world's worn armor is the pack's id, such as
+  `minecade:blue_leather_chestplate` (Siege's tests check it).
+- **The pack** is written by every build from Minecraft's textures on this PC or their cache
+  (`tools/assets/vanilla/`, which the Panel fills before a start). On a PC with neither, the build
+  warns and leaves `packs/armor` as it was. It's git-ignored: never commit it, and add a dye or a
+  piece in `tools/assets/armor.ts` and minigame-core's `kit-defs.ts`, not by hand.
+
 ## The prompt form
 
 Build Swap has every player write prompts before the countdown, in a live form like the kit form

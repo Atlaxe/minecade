@@ -313,7 +313,10 @@ docs/                     map format (maps.md), the map editor (editor.md), meas
 2. Edit `game.config.ts`: name, player counts, timers, teams, respawns, combat, win rule,
    scoring, kits (and when players pick them), best-of rounds, building, which stats to record,
    and any `options` for the lobby's game screen (see `docs/ui.md`). The fields are documented in
-   `packages/minigame-core/src/config.ts`, and the build validates them.
+   `packages/minigame-core/src/config.ts`, and the build validates them. For armor in team colors,
+   list vanilla leather in a kit's `armor` and set `teamArmor: true`: players get the shared armor
+   pack's leather in their team's dye (`docs/ui.md`, "Team armor in a new game"). Don't dye
+   leather from a script; Bedrock ignores it.
 3. Write the game in `behavior_pack/scripts/`: a class extending `Minigame` that overrides only
    what's different. The framework already handles waiting, the kit form, the countdown, teams,
    deaths without a death screen, kill credit, respawns, win checks, best-of rounds, building

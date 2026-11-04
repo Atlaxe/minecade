@@ -7,7 +7,8 @@ to every server, the same way it adds `packs/guns`.
 
 Bedrock's scripts can't dye vanilla leather, so team armor uses these instead: a kit with
 `teamArmor` puts on the piece in the team's dye in place of the vanilla leather it lists, and a
-preview's team switch swaps it. Any game can also hand one out by name.
+preview's team switch swaps it. Any game can also hand one out by name. How a new game uses them:
+`docs/ui.md`, "Team armor in a new game".
 
 - `behavior_pack/`: the 64 items.
 - `resource_pack/`: how they look worn (attachables like vanilla leather's, for players and for
