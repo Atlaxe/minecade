@@ -8,10 +8,11 @@
       }
     },
     "components": {
-      "minecraft:icon": {
-        "textures": {
-          "default": "minecade_gun_rifle_blue"
-        }
+      "minecraft:block_placer": {
+        "block": "minecade:blue_paintball_rifle_model",
+        "use_on": [
+          "minecade:blue_paintball_rifle_model"
+        ]
       },
       "minecraft:display_name": {
         "value": "Paintball Rifle"
@@ -22,9 +23,9 @@
       "minecraft:swing_duration": {
         "value": 0.05
       },
-      "minecraft:use_modifiers": {
-        "use_duration": 3600,
-        "movement_modifier": 1
+      "minecraft:cooldown": {
+        "category": "minecade_rifle",
+        "duration": 0.2
       }
     }
   }

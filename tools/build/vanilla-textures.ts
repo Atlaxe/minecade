@@ -1,5 +1,5 @@
-// Minecraft's own item and block textures, for pictures the build draws (the kit form's, in
-// kit-pictures.ts). They're Mojang's, not ours to publish, so they never go in git: the build reads
+// Minecraft's own item, block and armor textures, for pictures the build draws (the kit form's, in
+// kit-pictures.ts) and the dyed leather armor pack (tools/assets/armor.ts). They're Mojang's, not ours to publish, so they never go in git: the build reads
 // them from Minecraft's vanilla resource pack on this PC, which keeps them in two archives, and
 // copies those into tools/assets/vanilla/ (git-ignored). The Docker build has no Minecraft install,
 // but it gets that folder with the rest of the checkout, so the Panel fills it before a start.
@@ -14,7 +14,9 @@ export const VANILLA_CACHE = fileURLToPath(new URL("../assets/vanilla/", import.
 export const VANILLA_PACK = process.env.MINECRAFT_VANILLA ?? "C:\\XboxGames\\Minecraft for Windows\\Content\\data\\resource_packs\\vanilla";
 /** The archives, in the pack's __brarchive/textures folder: items/<name>.png and blocks/<name>.png (a few .tga). */
 const ARCHIVES = ["items", "blocks"] as const;
-type Folder = (typeof ARCHIVES)[number];
+/** Archives the pictures can do without: the armor models' textures (models/armor.brarchive: leather_1.tga). */
+const OPTIONAL_ARCHIVES = { armor: "models/armor" } as const;
+type Folder = (typeof ARCHIVES)[number] | keyof typeof OPTIONAL_ARCHIVES;
 
 /**
  * Item ids whose texture has another name, without "minecraft:". Wooden and golden tools and armor
@@ -59,8 +61,8 @@ export interface VanillaTexture {
  */
 export function cacheVanillaTextures(pack = VANILLA_PACK, cache = VANILLA_CACHE): boolean {
   let ready = true;
-  for (const name of ARCHIVES) {
-    const from = join(pack, "__brarchive", "textures", `${name}.brarchive`);
+  for (const [name, path] of [...ARCHIVES.map((name) => [name, name]), ...Object.entries(OPTIONAL_ARCHIVES)]) {
+    const from = join(pack, "__brarchive", "textures", `${path}.brarchive`);
     const to = join(cache, `${name}.brarchive`);
     if (existsSync(from)) {
       const source = statSync(from);
@@ -69,7 +71,7 @@ export function cacheVanillaTextures(pack = VANILLA_PACK, cache = VANILLA_CACHE)
         mkdirSync(cache, { recursive: true });
         copyFileSync(from, to);
       }
-    } else if (!existsSync(to)) {
+    } else if (!existsSync(to) && (ARCHIVES as readonly string[]).includes(name)) {
       ready = false;
     }
   }
@@ -97,15 +99,23 @@ export function readArchive(bytes: Uint8Array): Map<string, Uint8Array> {
 export class VanillaTextures {
   private readonly folders: Record<Folder, Map<string, Uint8Array>>;
 
-  constructor(folders: Record<Folder, Map<string, Uint8Array>>) {
-    this.folders = folders;
+  constructor(folders: Record<(typeof ARCHIVES)[number], Map<string, Uint8Array>> & Partial<Record<Folder, Map<string, Uint8Array>>>) {
+    this.folders = { armor: new Map(), ...folders };
   }
 
   /** Minecraft's textures, cached first if Minecraft is here; undefined when there are none to read. */
   static load(pack = VANILLA_PACK, cache = VANILLA_CACHE): VanillaTextures | undefined {
     if (!cacheVanillaTextures(pack, cache)) return undefined;
-    const read = (name: Folder) => readArchive(new Uint8Array(readFileSync(join(cache, `${name}.brarchive`))));
-    return new VanillaTextures({ items: read("items"), blocks: read("blocks") });
+    const read = (name: Folder) => {
+      const path = join(cache, `${name}.brarchive`);
+      return existsSync(path) ? readArchive(new Uint8Array(readFileSync(path))) : new Map<string, Uint8Array>();
+    };
+    return new VanillaTextures({ items: read("items"), blocks: read("blocks"), armor: read("armor") });
+  }
+
+  /** An armor model's texture ("leather_1"), if Minecraft has it. */
+  armor(name: string): Image | undefined {
+    return this.texture("armor", name, "item")?.image;
   }
 
   /** The picture of an item id ("minecraft:snowball", "minecraft:red_wool"), if Minecraft has one. */

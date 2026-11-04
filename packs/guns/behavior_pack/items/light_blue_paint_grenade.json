@@ -8,10 +8,11 @@
       }
     },
     "components": {
-      "minecraft:icon": {
-        "textures": {
-          "default": "minecade_gun_grenade_light_blue"
-        }
+      "minecraft:block_placer": {
+        "block": "minecade:light_blue_paint_grenade_model",
+        "use_on": [
+          "minecade:light_blue_paint_grenade_model"
+        ]
       },
       "minecraft:display_name": {
         "value": "Paint Grenade"

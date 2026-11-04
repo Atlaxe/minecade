@@ -163,9 +163,9 @@ describe("kit pictures", () => {
       "scout_red.png",
       "soldier.png",
     ]);
-    // The scout's chestplate and boots share the last slot, in red: 200 gray times red's 0.85, 0.15, 0.15.
+    // The scout's chestplate and boots share the last slot, in red leather: 200 gray times red dye's 0xb02e26.
     const scout = decodePng(await readFile(join(folder, "scout_red.png")));
-    expect(pixel(scout, 8 * 80 + 8 + 16, 40)).toEqual([170, 30, 30, 255]);
+    expect(pixel(scout, 8 * 80 + 8 + 16, 40)).toEqual([138, 36, 30, 255]);
     // The painter's guns are the guns pack's own items: their hotbar icons fill the first four slots.
     const painter = decodePng(await readFile(join(folder, "painter_red.png")));
     const drawn = (slot: number) => {

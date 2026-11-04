@@ -1,8 +1,10 @@
 // Guns any game can hand out (the shared guns pack, packs/guns). Left click fires: a tap gun one
 // shot a click, a held gun again and again while the button stays down (Bedrock repeats the
-// swing). Holding right click aims: the camera zooms, the shots stray less, and the held model
-// comes up to the middle of the screen. A grenade is thrown with either click, lands, swells for
-// its fuse and bursts. A shot's balls fly as PAINTBALL entities in the shooter's paint color, from
+// swing). Right click raises the gun to aim and lowers it again (a toggle: Bedrock sends no left
+// click while right click is held): the camera zooms, the shots stray less, and the held model
+// comes up to the middle of the screen. Each shot shades the gun's hotbar slot for its fire rate
+// (the item's own cooldown). A grenade is thrown with either click, lands, swells for its fuse and
+// bursts. A shot's balls fly as PAINTBALL entities in the shooter's paint color, from
 // where they look, spread in a cone; the game hears where each lands (a player, a mob, a block's
 // face) and decides what that does. A gun with an AmmoDef has a magazine that reloads by itself
 // when it runs dry. The guns' numbers are defs.ts's.
@@ -30,6 +32,7 @@ import {
   PAINTBALL,
   PAINT_RGB,
   PAINT_SPLASH,
+  AIM_MARKER,
   dyeIndex,
   parseGunItem,
   shotMarker,
@@ -123,6 +126,13 @@ const THROW_LIFT = 0.15;
 const LAND_OFF_FACE = 0.2;
 /** The zoom's ease in and out, in seconds. */
 const AIM_EASE = 0.15;
+/** Ticks between restarts of the aim marker's cooldown (it lasts 6), which keeps the held model up. */
+const AIM_REFRESH_TICKS = 2;
+/**
+ * Right click events closer together than this are one press: holding the button can repeat
+ * them, and a press can bring both a use and a block interaction.
+ */
+const PRESS_GAP_TICKS = 5;
 /** Left clicks that fire. A right click's own swings (using, placing, interacting) and a drop don't. */
 const FIRE_SWINGS = new Set<string>([EntitySwingSource.Attack, EntitySwingSource.Mine, EntitySwingSource.None]);
 const RELOAD_START: Sound = { id: "crossbow.loading.start", pitch: 1.2, volume: 0.8 };
@@ -151,8 +161,10 @@ export class Guns {
   private readonly readyAt = new Map<string, number>();
   /** Players holding the attack button on a held gun: until when the last swing keeps it firing. */
   private readonly triggers = new Map<string, { player: Player; gun: GunDef; until: number }>();
-  /** Players holding right click on a gun. */
+  /** Players aiming a gun (right click toggles it). */
   private readonly aiming = new Map<string, { player: Player; gun: GunDef }>();
+  /** When each player's last right click event came, to tell one press from the next. */
+  private readonly lastPress = new Map<string, number>();
   /** Each player's magazines, by gun, for guns with ammo. */
   private readonly magazines = new Map<string, Map<GunKind, Magazine>>();
   private nextShot = 1;
@@ -165,17 +177,16 @@ export class Guns {
     scope.subscribe(world.afterEvents.playerSwingStart, ({ player, heldItemStack, swingSource }) => {
       if (heldItemStack && FIRE_SWINGS.has(swingSource)) this.pull(player, heldItemStack.typeId);
     });
-    // A grenade is thrown with a right click too, like a snowball. A gun's right click aims.
+    // A grenade is thrown with a right click too, like a snowball. A gun's right click raises or
+    // lowers it, at the sky (a use) or at a block (an interaction).
     scope.subscribe(world.afterEvents.itemUse, ({ source, itemStack }) => {
       const throwable = this.throwableOf(itemStack.typeId);
-      if (throwable) this.tryThrow(source, throwable, itemStack.typeId);
+      if (throwable) return void this.tryThrow(source, throwable, itemStack.typeId);
+      this.rightClick(source, itemStack.typeId);
     });
-    scope.subscribe(world.afterEvents.itemStartUse, ({ source, itemStack }) => {
-      const gun = this.gunOf(itemStack.typeId);
-      if (gun) this.aim(source, gun);
+    scope.subscribe(world.afterEvents.playerInteractWithBlock, ({ player, itemStack, isFirstEvent }) => {
+      if (isFirstEvent && itemStack) this.rightClick(player, itemStack.typeId);
     });
-    scope.subscribe(world.afterEvents.itemStopUse, ({ source }) => this.stopAiming(source.name.toLowerCase()));
-    scope.subscribe(world.afterEvents.itemReleaseUse, ({ source }) => this.stopAiming(source.name.toLowerCase()));
     scope.subscribe(world.afterEvents.projectileHitEntity, (event) => {
       const flying = this.landed(event.projectile);
       if (!flying) return;
@@ -204,6 +215,7 @@ export class Guns {
     this.triggers.delete(key);
     this.stopAiming(key);
     this.readyAt.delete(key);
+    this.lastPress.delete(key);
   }
 
   /** Fills every magazine a player has, spare rounds too (a respawn). */
@@ -225,7 +237,7 @@ export class Guns {
     return gun && magazine ? this.ammoState(gun, magazine) : undefined;
   }
 
-  /** Whether a player is holding right click on a gun. */
+  /** Whether a player has a gun raised to aim. */
   isAiming(name: string): boolean {
     return this.aiming.has(name.toLowerCase());
   }
@@ -260,9 +272,23 @@ export class Guns {
     this.tryFire(player, gun, typeId);
   }
 
+  /** A right click with `typeId` in hand: a gun's raises or lowers it, once a press. */
+  private rightClick(player: Player, typeId: string): void {
+    const gun = this.gunOf(typeId);
+    if (!gun) return;
+    const key = player.name.toLowerCase();
+    const now = system.currentTick;
+    const last = this.lastPress.get(key);
+    this.lastPress.set(key, now);
+    if (last !== undefined && now - last < PRESS_GAP_TICKS) return;
+    if (this.aiming.has(key)) this.stopAiming(key);
+    else this.aim(player, gun);
+  }
+
   private aim(player: Player, gun: GunDef): void {
     this.aiming.set(player.name.toLowerCase(), { player, gun });
     this.setFov(player, gun.aimFov);
+    startCooldown(player, AIM_MARKER.item);
   }
 
   private stopAiming(key: string): void {
@@ -319,12 +345,10 @@ export class Guns {
       this.launch(dimension, PAINTBALL, player, shot, from, velocity, { lifeTicks: gun.lifeTicks, maxHits: gun.maxHitsPerShot });
     }
     playAt(dimension, gun.sound, head);
-    // The held model's recoil runs off this cooldown (the pack's attachables read its category).
-    try {
-      new ItemStack(shotMarker(gun.id).item).getComponent(ItemComponentTypes.Cooldown)?.startCooldown(player);
-    } catch (error) {
-      log.warn(`guns: no recoil for ${gun.id}: ${describeError(error)}`);
-    }
+    // The gun's own cooldown shades its hotbar slot until it can fire again; the held model's
+    // recoil runs off its shot marker's (the pack's attachables read that category).
+    startCooldown(player, typeId);
+    startCooldown(player, shotMarker(gun.id).item);
     this.notify(() => this.options.onFire?.(player, shot));
   }
 
@@ -477,10 +501,11 @@ export class Guns {
       }
       this.tryFire(trigger.player, trigger.gun, held.typeId);
     }
-    // Switching away from the gun ends the aim, in case the stop event doesn't come.
+    // Switching away from the gun lowers it; while it's up, the aim marker keeps the model up.
     for (const [key, { player, gun }] of [...this.aiming]) {
       const held = player.isValid ? heldItem(player) : undefined;
       if (!held || this.gunOf(held.typeId) !== gun) this.stopAiming(key);
+      else if (now % AIM_REFRESH_TICKS === 0) startCooldown(player, AIM_MARKER.item);
     }
     for (const [key, byGun] of this.magazines) {
       for (const [kind, magazine] of byGun) {
@@ -515,6 +540,7 @@ export class Guns {
     this.shots.clear();
     this.triggers.clear();
     this.readyAt.clear();
+    this.lastPress.clear();
     this.magazines.clear();
   }
 
@@ -547,6 +573,15 @@ export function paintSplash(location: Vector3, color: number, bursts = 1): void 
 /** The item in a player's selected hotbar slot. */
 export function heldItem(player: Player): ItemStack | undefined {
   return player.getComponent(EntityComponentTypes.Inventory)?.container?.getItem(player.selectedSlotIndex);
+}
+
+/** Starts a player's cooldown of an item's category (a gun's own, or a hidden marker's). */
+function startCooldown(player: Player, item: string): void {
+  try {
+    new ItemStack(item).getComponent(ItemComponentTypes.Cooldown)?.startCooldown(player);
+  } catch (error) {
+    log.warn(`guns: no cooldown for ${item}: ${describeError(error)}`);
+  }
 }
 
 function playAt(dimension: Dimension, sound: Sound, location: Vector3): void {

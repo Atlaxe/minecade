@@ -18,3 +18,6 @@ packs/blocks/resource_pack/
 # Minecraft's own textures, copied from the game on this PC for kit pictures (tools/build/vanilla-textures.ts);
 # they're Mojang's, not ours to publish.
 tools/assets/vanilla/
+# The dyed leather armor pack is Minecraft's leather tinted: the build writes it (tools/assets/armor.ts).
+packs/armor/behavior_pack/
+packs/armor/resource_pack/

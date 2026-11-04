@@ -1,7 +1,24 @@
 import { describe, expect, it } from "vitest";
 import type { KitDef } from "../src/config.ts";
 import { KitPicker, listNames, type KitPickView } from "../src/game/kit-picker.ts";
-import { dyeName, itemLabel, kitItemId, kitLines, kitPicturePath, matchKits, mixDyes, pictureDyes, refillOnSpawn, teamColored } from "../src/kit-defs.ts";
+import { Kits } from "../src/game/kits.ts";
+import {
+  dyeName,
+  dyedLeather,
+  itemLabel,
+  kitItemId,
+  kitLines,
+  kitPicturePath,
+  leatherColor,
+  matchKits,
+  mixDyes,
+  parseDyedLeather,
+  pictureDyes,
+  refillOnSpawn,
+  teamArmorItem,
+  teamColored,
+} from "../src/kit-defs.ts";
+import { world, type FakePlayer } from "./fake-mc-server.ts";
 
 const SNOW: KitDef = { id: "snow", name: "Snowballs", refill: "round", items: [{ item: "minecraft:snowball", count: 8 }] };
 const LEAP: KitDef = { id: "leap", name: "Leap", refill: "round", items: [{ item: "minecraft:feather", name: "Leap" }] };
@@ -189,5 +206,40 @@ describe("mixDyes", () => {
     const mix = mixDyes([red, blue]);
     expect(Math.max(mix.red, mix.green, mix.blue)).toBeCloseTo((0.85 + 0.9) / 2, 6);
     expect(mixDyes([red])).toEqual(red);
+  });
+});
+
+describe("team leather", () => {
+  const SCOUT: KitDef = {
+    id: "scout",
+    name: "Scout",
+    items: [],
+    armor: { head: "minecraft:leather_helmet", chest: "minecraft:iron_chestplate", feet: "minecraft:leather_boots" },
+    teamArmor: true,
+    enchantments: [{ item: "minecraft:leather_boots", enchantment: "minecraft:feather_falling", level: 2 }],
+  };
+  const worn = (player: FakePlayer) => ["Head", "Chest", "Feet"].map((slot) => player.equipment.get(slot)?.typeId);
+
+  it("names the armor pack's dyed pieces and reads them back", () => {
+    expect(dyedLeather("chestplate", "light_blue")).toBe("minecade:light_blue_leather_chestplate");
+    expect(parseDyedLeather("minecade:light_blue_leather_chestplate")).toEqual({ piece: "chestplate", dye: "light_blue" });
+    expect(parseDyedLeather("minecade:teal_leather_boots")).toBeUndefined();
+    expect(parseDyedLeather("minecraft:leather_boots")).toBeUndefined();
+    expect(teamArmorItem("minecraft:leather_leggings", "§2")).toBe("minecade:green_leather_leggings");
+    expect(teamArmorItem("minecraft:leather_leggings")).toBe("minecraft:leather_leggings");
+    expect(teamArmorItem("minecraft:iron_leggings", "§c")).toBe("minecraft:iron_leggings");
+    expect(leatherColor("red")).toEqual({ red: 0xb0 / 255, green: 0x2e / 255, blue: 0x26 / 255 });
+  });
+
+  it("puts on leather in the team's dye, enchanted as the kit says, and swaps it on a team switch", () => {
+    world.reset();
+    const player = world.join("Ann");
+    const kits = new Kits({ list: [SCOUT] });
+    kits.give(player as never, "start", "§c");
+    expect(worn(player)).toEqual(["minecade:red_leather_helmet", "minecraft:iron_chestplate", "minecade:red_leather_boots"]);
+    expect(player.equipment.get("Feet")?.enchantments).toEqual(["minecraft:feather_falling 2"]);
+    kits.recolor(player as never, "§c", "§9");
+    expect(worn(player)).toEqual(["minecade:blue_leather_helmet", "minecraft:iron_chestplate", "minecade:blue_leather_boots"]);
+    expect(player.equipment.get("Feet")?.enchantments).toEqual(["minecraft:feather_falling 2"]);
   });
 });

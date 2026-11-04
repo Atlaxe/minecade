@@ -27,6 +27,7 @@ import {
 import { encodePng } from "../skins/png.ts";
 import { RENDERS, renderSkinSet } from "../skins/skin-set.ts";
 import { readSkins } from "../skins/store.ts";
+import { writeArmorPack } from "../assets/armor.ts";
 import { addGameKitPictures } from "./kit-pictures.ts";
 import { addTeamButtons } from "./team-buttons.ts";
 import { enableBetaApis, patchLevelDat } from "./leveldat.ts";
@@ -269,6 +270,9 @@ async function buildOrchestrator(): Promise<void> {
 }
 
 const targets = await discoverTargets();
+// The dyed leather armor pack is Minecraft's leather tinted, so it's written here from the textures
+// on this PC (or their cache) rather than kept in git.
+if (!writeArmorPack()) warnings.push("packs/armor: Minecraft's leather textures aren't here, so the armor pack stays as it was (see tools/build/vanilla-textures.ts)");
 if (warnings.length > 0) console.warn(`${warnings.length} warning${warnings.length === 1 ? "" : "s"}:\n  ${warnings.join("\n  ")}`);
 // Every server gets the shared packs (the core resource pack, the shared blocks pack), before its own.
 const shared: { pack: SharedPack; manifest: Manifest }[] = [];

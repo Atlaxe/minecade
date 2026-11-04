@@ -292,6 +292,7 @@ lobby/                    the lobby's behavior pack and map
 editor/                   the map editor's packs (its server is started by tools/editor/)
 packs/blocks/             the shared blocks pack every server loads (custom blocks)
 packs/guns/               the shared guns pack every server loads (guns, paint balls, pickups)
+packs/armor/              the shared armor pack every server loads (leather in 16 dyes; the build writes it)
 games/<id>/               one folder per game: game.config.ts, behavior_pack/, maps/, test/
 orchestrator/             the session manager, transport links, stats store, debug API
 watcher/                  the skin watcher (a bot in the lobby that saves players' skins)

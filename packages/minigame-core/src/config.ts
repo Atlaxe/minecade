@@ -124,7 +124,10 @@ export interface KitDef {
   items: KitItem[];
   armor?: Partial<Record<"head" | "chest" | "legs" | "feet" | "offhand", string>>;
   effects?: { id: string; amplifier?: number; seconds?: number }[];
-  /** Dye leather armor in the player's team color. */
+  /**
+   * Leather armor in the player's team color: the shared armor pack's piece in the team's dye
+   * (minecade:red_leather_helmet) in place of vanilla leather, which scripts can't dye.
+   */
   teamArmor?: boolean;
   /** Enchantments on the kit's items and armor. */
   enchantments?: KitEnchantment[];

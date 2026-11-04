@@ -1,0 +1,200 @@
+{
+  "resource_pack_name": "minecade_guns",
+  "texture_name": "atlas.terrain",
+  "padding": 8,
+  "num_mip_levels": 4,
+  "texture_data": {
+    "minecade_gun_pistol_white": {
+      "textures": "textures/minecade/guns/pistol/white"
+    },
+    "minecade_gun_pistol_orange": {
+      "textures": "textures/minecade/guns/pistol/orange"
+    },
+    "minecade_gun_pistol_magenta": {
+      "textures": "textures/minecade/guns/pistol/magenta"
+    },
+    "minecade_gun_pistol_light_blue": {
+      "textures": "textures/minecade/guns/pistol/light_blue"
+    },
+    "minecade_gun_pistol_yellow": {
+      "textures": "textures/minecade/guns/pistol/yellow"
+    },
+    "minecade_gun_pistol_lime": {
+      "textures": "textures/minecade/guns/pistol/lime"
+    },
+    "minecade_gun_pistol_pink": {
+      "textures": "textures/minecade/guns/pistol/pink"
+    },
+    "minecade_gun_pistol_gray": {
+      "textures": "textures/minecade/guns/pistol/gray"
+    },
+    "minecade_gun_pistol_light_gray": {
+      "textures": "textures/minecade/guns/pistol/light_gray"
+    },
+    "minecade_gun_pistol_cyan": {
+      "textures": "textures/minecade/guns/pistol/cyan"
+    },
+    "minecade_gun_pistol_purple": {
+      "textures": "textures/minecade/guns/pistol/purple"
+    },
+    "minecade_gun_pistol_blue": {
+      "textures": "textures/minecade/guns/pistol/blue"
+    },
+    "minecade_gun_pistol_brown": {
+      "textures": "textures/minecade/guns/pistol/brown"
+    },
+    "minecade_gun_pistol_green": {
+      "textures": "textures/minecade/guns/pistol/green"
+    },
+    "minecade_gun_pistol_red": {
+      "textures": "textures/minecade/guns/pistol/red"
+    },
+    "minecade_gun_pistol_black": {
+      "textures": "textures/minecade/guns/pistol/black"
+    },
+    "minecade_gun_rifle_white": {
+      "textures": "textures/minecade/guns/rifle/white"
+    },
+    "minecade_gun_rifle_orange": {
+      "textures": "textures/minecade/guns/rifle/orange"
+    },
+    "minecade_gun_rifle_magenta": {
+      "textures": "textures/minecade/guns/rifle/magenta"
+    },
+    "minecade_gun_rifle_light_blue": {
+      "textures": "textures/minecade/guns/rifle/light_blue"
+    },
+    "minecade_gun_rifle_yellow": {
+      "textures": "textures/minecade/guns/rifle/yellow"
+    },
+    "minecade_gun_rifle_lime": {
+      "textures": "textures/minecade/guns/rifle/lime"
+    },
+    "minecade_gun_rifle_pink": {
+      "textures": "textures/minecade/guns/rifle/pink"
+    },
+    "minecade_gun_rifle_gray": {
+      "textures": "textures/minecade/guns/rifle/gray"
+    },
+    "minecade_gun_rifle_light_gray": {
+      "textures": "textures/minecade/guns/rifle/light_gray"
+    },
+    "minecade_gun_rifle_cyan": {
+      "textures": "textures/minecade/guns/rifle/cyan"
+    },
+    "minecade_gun_rifle_purple": {
+      "textures": "textures/minecade/guns/rifle/purple"
+    },
+    "minecade_gun_rifle_blue": {
+      "textures": "textures/minecade/guns/rifle/blue"
+    },
+    "minecade_gun_rifle_brown": {
+      "textures": "textures/minecade/guns/rifle/brown"
+    },
+    "minecade_gun_rifle_green": {
+      "textures": "textures/minecade/guns/rifle/green"
+    },
+    "minecade_gun_rifle_red": {
+      "textures": "textures/minecade/guns/rifle/red"
+    },
+    "minecade_gun_rifle_black": {
+      "textures": "textures/minecade/guns/rifle/black"
+    },
+    "minecade_gun_shotgun_white": {
+      "textures": "textures/minecade/guns/shotgun/white"
+    },
+    "minecade_gun_shotgun_orange": {
+      "textures": "textures/minecade/guns/shotgun/orange"
+    },
+    "minecade_gun_shotgun_magenta": {
+      "textures": "textures/minecade/guns/shotgun/magenta"
+    },
+    "minecade_gun_shotgun_light_blue": {
+      "textures": "textures/minecade/guns/shotgun/light_blue"
+    },
+    "minecade_gun_shotgun_yellow": {
+      "textures": "textures/minecade/guns/shotgun/yellow"
+    },
+    "minecade_gun_shotgun_lime": {
+      "textures": "textures/minecade/guns/shotgun/lime"
+    },
+    "minecade_gun_shotgun_pink": {
+      "textures": "textures/minecade/guns/shotgun/pink"
+    },
+    "minecade_gun_shotgun_gray": {
+      "textures": "textures/minecade/guns/shotgun/gray"
+    },
+    "minecade_gun_shotgun_light_gray": {
+      "textures": "textures/minecade/guns/shotgun/light_gray"
+    },
+    "minecade_gun_shotgun_cyan": {
+      "textures": "textures/minecade/guns/shotgun/cyan"
+    },
+    "minecade_gun_shotgun_purple": {
+      "textures": "textures/minecade/guns/shotgun/purple"
+    },
+    "minecade_gun_shotgun_blue": {
+      "textures": "textures/minecade/guns/shotgun/blue"
+    },
+    "minecade_gun_shotgun_brown": {
+      "textures": "textures/minecade/guns/shotgun/brown"
+    },
+    "minecade_gun_shotgun_green": {
+      "textures": "textures/minecade/guns/shotgun/green"
+    },
+    "minecade_gun_shotgun_red": {
+      "textures": "textures/minecade/guns/shotgun/red"
+    },
+    "minecade_gun_shotgun_black": {
+      "textures": "textures/minecade/guns/shotgun/black"
+    },
+    "minecade_gun_grenade_white": {
+      "textures": "textures/minecade/guns/grenade/white"
+    },
+    "minecade_gun_grenade_orange": {
+      "textures": "textures/minecade/guns/grenade/orange"
+    },
+    "minecade_gun_grenade_magenta": {
+      "textures": "textures/minecade/guns/grenade/magenta"
+    },
+    "minecade_gun_grenade_light_blue": {
+      "textures": "textures/minecade/guns/grenade/light_blue"
+    },
+    "minecade_gun_grenade_yellow": {
+      "textures": "textures/minecade/guns/grenade/yellow"
+    },
+    "minecade_gun_grenade_lime": {
+      "textures": "textures/minecade/guns/grenade/lime"
+    },
+    "minecade_gun_grenade_pink": {
+      "textures": "textures/minecade/guns/grenade/pink"
+    },
+    "minecade_gun_grenade_gray": {
+      "textures": "textures/minecade/guns/grenade/gray"
+    },
+    "minecade_gun_grenade_light_gray": {
+      "textures": "textures/minecade/guns/grenade/light_gray"
+    },
+    "minecade_gun_grenade_cyan": {
+      "textures": "textures/minecade/guns/grenade/cyan"
+    },
+    "minecade_gun_grenade_purple": {
+      "textures": "textures/minecade/guns/grenade/purple"
+    },
+    "minecade_gun_grenade_blue": {
+      "textures": "textures/minecade/guns/grenade/blue"
+    },
+    "minecade_gun_grenade_brown": {
+      "textures": "textures/minecade/guns/grenade/brown"
+    },
+    "minecade_gun_grenade_green": {
+      "textures": "textures/minecade/guns/grenade/green"
+    },
+    "minecade_gun_grenade_red": {
+      "textures": "textures/minecade/guns/grenade/red"
+    },
+    "minecade_gun_grenade_black": {
+      "textures": "textures/minecade/guns/grenade/black"
+    }
+  }
+}

@@ -7,10 +7,12 @@ paint splash particle. The build adds this pack to every server (the lobby, ever
 editor), the same way it adds the core resource pack and `packs/blocks`, so any game can give the
 guns as kit items and mannequins can hold them in the editor.
 
-- `behavior_pack/`: the items (and the hidden shot markers whose cooldowns time the recoil) and
-  the ball, grenade and pickup entities.
-- `resource_pack/`: the held models (attachables), their animations, textures and icons per paint
-  color, the ball sprites and the splash particle.
+- `behavior_pack/`: the items (and the hidden markers whose cooldowns time the recoil and the aim),
+  the hidden blocks whose models the hotbar shows as the items' icons, and the ball, grenade and
+  pickup entities.
+- `resource_pack/`: the held models (attachables), their animations, textures per paint color, the
+  ball sprites and the splash particle.
+- `icons/`: the kit pictures' icons (the build reads them; they aren't in either pack).
 
 Unlike `packs/blocks`, this pack is committed: everything in it is drawn by
 `tools/assets/guns.ts` from the boxes listed there and the names and numbers in
@@ -18,6 +20,7 @@ Unlike `packs/blocks`, this pack is committed: everything in it is drawn by
 
     npx tsx tools/assets/guns.ts
 
-A test checks the committed files match (`tools/build/test/guns-pack.test.ts`). The manifests are
-the only hand-written files. A game fires the guns with `Guns` from `@minecade/guns`
+A test checks the committed files match (`tools/build/test/guns-pack.test.ts`). The manifests and
+`resource_pack/animations/guns_hold.animation.json` (where the guns sit in the hand, edited in
+Blockbench: docs/ui.md, "Editing where the guns sit") are the only hand-written files. A game fires the guns with `Guns` from `@minecade/guns`
 (`packages/guns`); see docs/ui.md, "The guns".

@@ -31,8 +31,8 @@ export interface SharedPack {
 
 /**
  * The shared packs that exist and have content: the shared blocks pack (packs/blocks/, generated
- * and git-ignored), the core resource pack, and the shared guns pack (packs/guns/, any game can
- * hand its guns out).
+ * and git-ignored), the core resource pack, the shared guns pack (packs/guns/, any game can hand
+ * its guns out), and the dyed leather armor pack (packs/armor/, written by the build, git-ignored).
  */
 export async function sharedPacks(): Promise<SharedPack[]> {
   const candidates: SharedPack[] = [
@@ -41,6 +41,8 @@ export async function sharedPacks(): Promise<SharedPack[]> {
     { kind: "resource", name: "core_rp", dir: join(root, "packages", "minigame-core", "resource_pack") },
     { kind: "behavior", name: "guns_bp", dir: join(root, "packs", "guns", "behavior_pack") },
     { kind: "resource", name: "guns_rp", dir: join(root, "packs", "guns", "resource_pack") },
+    { kind: "behavior", name: "armor_bp", dir: join(root, "packs", "armor", "behavior_pack") },
+    { kind: "resource", name: "armor_rp", dir: join(root, "packs", "armor", "resource_pack") },
   ];
   const found: SharedPack[] = [];
   for (const pack of candidates) {

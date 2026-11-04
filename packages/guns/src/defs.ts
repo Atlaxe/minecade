@@ -48,7 +48,7 @@ export interface GunDef {
   triggerTicks: number;
   /** Balls a shot fires, spread in a cone. */
   pellets: number;
-  /** The cone's half angle, aiming (use held) and from the hip: how far a ball can stray from where the player looks. */
+  /** The cone's half angle, aiming and from the hip: how far a ball can stray from where the player looks. */
   aimSpreadDegrees: number;
   hipSpreadDegrees: number;
   /** The camera's field of view while aiming. */
@@ -236,10 +236,28 @@ export function gunItems(): string[] {
 }
 
 /**
+ * The hidden block a gun's or grenade's item shows as its icon: the game draws the model in 3D in
+ * the inventory, the way it draws a wall or a banner. It's never placed.
+ */
+export function gunModelBlock(kind: PickupKind, dye: Dye): string {
+  return `${gunItem(kind, dye)}_model`;
+}
+
+/** A gun's own cooldown category: its fire rate, which Minecraft shades over its hotbar slot. */
+export function gunCooldown(kind: GunKind): string {
+  return `minecade_${kind}`;
+}
+
+/**
  * The hidden item whose cooldown a gun's shot starts, and that cooldown's category: the held
- * model's recoil reads q.cooldown_time_remaining of the category. It isn't the gun's own
- * cooldown, which would also stop the gun being used (aimed).
+ * model's recoil reads q.cooldown_time_remaining of the category, so it keeps its own timing.
  */
 export function shotMarker(kind: GunKind): { item: string; category: string } {
   return { item: `minecade:${kind}_shot`, category: `minecade_${kind}_shot` };
 }
+
+/**
+ * The hidden item whose cooldown says a player is aiming: the script restarts it while they aim,
+ * and the held model, which reads its category, stays up until it runs out.
+ */
+export const AIM_MARKER = { item: "minecade:aim_marker", category: "minecade_aim" } as const;

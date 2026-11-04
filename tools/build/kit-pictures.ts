@@ -11,12 +11,14 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
   ARMOR_PIECES,
-  TEAM_ARMOR_COLORS,
   isLeather,
   kitItemId,
   kitPicturePath,
   pictureDyes,
+  leatherColor,
+  parseDyedLeather,
   possibleTeams,
+  teamArmorColor,
   teamColored,
   type GameConfig,
   type KitDef,
@@ -161,7 +163,7 @@ export async function addKitPictures(out: string, kits: { kit: KitDef; map?: str
     const colored = teamColored(kit);
     const colors: (string | undefined)[] = colored && teamColors.length > 0 ? dyeColors(teamColors) : [undefined];
     for (const teamColor of colors) {
-      const armorDye = (kit.teamArmor && teamColor !== undefined && TEAM_ARMOR_COLORS[teamColor]) || LEATHER_BROWN;
+      const armorDye = kit.teamArmor && teamColor !== undefined ? teamArmorColor(teamColor) : LEATHER_BROWN;
       const items = pictureItems(kit, teamColor).flatMap(({ item, count }) => pictureIcon(textures, item, count, LEATHER_BROWN));
       const armor = pictureArmor(kit).flatMap((item) => pictureIcon(textures, item, 1, armorDye));
       if (items.length === 0 && armor.length === 0) continue;
@@ -174,8 +176,13 @@ export async function addKitPictures(out: string, kits: { kit: KitDef; map?: str
   return written;
 }
 
-/** An item's icon, leather in `dye`; none when neither Minecraft nor a shared pack has a texture for it (it's left out). */
+/**
+ * An item's icon, leather in `dye` (the armor pack's dyed leather in its own); none when neither
+ * Minecraft nor a shared pack has a texture for it (it's left out).
+ */
 function pictureIcon(textures: VanillaTextures, item: string, count: number, dye: { red: number; green: number; blue: number }): PictureIcon[] {
+  const dyed = parseDyedLeather(item);
+  if (dyed) return pictureIcon(textures, `minecraft:leather_${dyed.piece}`, count, leatherColor(dyed.dye));
   const texture = textures.item(item) ?? sharedPackIcons().get(item);
   if (!texture) return [];
   return [{ kind: texture.kind, image: isLeather(item) ? dyeLeather(texture.image, dye) : texture.image, count }];
@@ -185,7 +192,11 @@ function pictureIcon(textures: VanillaTextures, item: string, count: number, dye
 const ICON_PACKS = ["guns"];
 let sharedIcons: Map<string, VanillaTexture> | undefined;
 
-/** The hotbar icons of the shared packs' items, by item id: each item's icon key, through the pack's item_texture.json. */
+/**
+ * The hotbar icons of the shared packs' items, by item id: each item's icon key, through the pack's
+ * item_texture.json; an item drawn as its block's model (no icon key) has a picture in the pack's
+ * icons folder, named after it.
+ */
 function sharedPackIcons(): Map<string, VanillaTexture> {
   if (sharedIcons) return sharedIcons;
   sharedIcons = new Map();
@@ -198,7 +209,7 @@ function sharedPackIcons(): Map<string, VanillaTexture> {
     for (const file of readdirSync(items).filter((entry) => entry.endsWith(".json"))) {
       const definition = JSON.parse(readFileSync(join(items, file), "utf8"))["minecraft:item"];
       const path = paths[definition?.components?.["minecraft:icon"]?.textures?.default]?.textures;
-      const png = path && join(packs, "resource_pack", `${path}.png`);
+      const png = path ? join(packs, "resource_pack", `${path}.png`) : join(packs, "icons", file.replace(/\.json$/, ".png"));
       if (png && existsSync(png)) sharedIcons.set(definition.description.identifier, { kind: "item", image: decodePng(readFileSync(png)) });
     }
   }

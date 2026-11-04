@@ -218,7 +218,7 @@ items and fire them with `Guns` from the guns package (`packages/guns`, imported
 `@minecade/guns`). The names and numbers are in `packages/guns/src/defs.ts`, which the pack's
 generator reads too.
 
-| Gun | Fires (left click) | Rate | Balls | Spread aiming / from the hip | Zoom | Range |
+| Gun | Fires (left click) | Rate (its hotbar slot shades) | Balls | Spread aiming / from the hip | Zoom | Range |
 |---|---|---|---|---|---|---|
 | Paintball Pistol | One shot a click | 6 ticks | 1 | 0.5 / 2.5 degrees | 60 | 2 s of flight |
 | Paintball Rifle | Again and again while the button is down | 4 ticks | 1 | 2 / 5 degrees | 50 | 2 s of flight |
@@ -231,19 +231,27 @@ generator reads too.
   A kit asks for the team's with `teamGunItem(kind)` ("minecade:{color}_paintball_pistol"); white is
   the pickups' look. A shot paints in its gun's color unless the game's `colorOf` says otherwise.
 - **Controls:** left click fires (Bedrock repeats the swing while the button is down, so the rifle
-  keeps firing until a moment after the last swing). Holding right click aims: the camera zooms to
-  the gun's field of view (`camera.setFov`), the shots stray less, and the held model eases up to the
-  middle of the screen; letting go or switching slots zooms back. Guns keep their left click swing
-  to 0.05 s (`minecraft:swing_duration`) so firing from the hip barely moves the hand.
-- **Held models:** each gun is a 3D model (an attachable) held low on the right from the hip,
-  centered under the crosshair while aiming (`q.is_using_item` eases `v.aim`), and in the fist,
-  barrel ahead, in third person. Each shot kicks it back and tips the muzzle up: the script starts
-  the cooldown of a hidden item per gun (`minecade:<gun>_shot`), and the model reads its category
-  (`q.cooldown_time_remaining('minecade_<gun>_shot')`). It isn't the gun's own cooldown, which would
-  also stop the gun being aimed.
+  keeps firing until a moment after the last swing). A right click raises the gun to aim and the
+  next lowers it: Bedrock sends no left click while right click is held, so aiming is a toggle. While
+  it's up, the camera zooms to the gun's field of view (`camera.setFov`), the shots stray less, and
+  the held model eases up to the middle of the screen; switching slots lowers it. Guns keep their
+  left click swing to 0.05 s (`minecraft:swing_duration`) so a shot barely moves the hand.
+- **Hotbar:** each shot starts the gun's own cooldown (`minecade_<gun>`, its fire rate), which
+  Minecraft shades over the slot until the gun can fire again. While it shades, a right click
+  doesn't raise or lower the gun (a cooling item can't be used). The icon is the model itself,
+  drawn by the game the way it draws a wall or a banner: each item places a hidden block holding the
+  model (`minecade:<dye>_paintball_<gun>_model`, only placeable on itself, so never placed), and an
+  item that places a block with no icon of its own shows the block.
+- **Held models:** each gun is a 3D model (an attachable). Its poses are plain animations of the
+  bound `gun` bone in a hand-edited file (see "Editing where the guns sit"): from the hip and aiming
+  in first person, blended by `v.aim`, and third person. `v.aim` eases toward 1 while the aim
+  marker's cooldown runs (`minecade:aim_marker`, restarted every 2 ticks while the player aims), and
+  each shot kicks the `body` bone back and tips the muzzle up off the gun's shot marker
+  (`minecade:<gun>_shot`, `q.cooldown_time_remaining('minecade_<gun>_shot')`): hidden items whose
+  cooldown categories only the models read.
 - **Grenades:** a thrown grenade (`minecade:paint_grenade_thrown`) that hits something becomes
   `minecade:paint_grenade_primed` where it landed: it falls to the ground, swells to nearly twice
-  its size and flashes white faster and faster for its 1 second fuse (with the fuse sound), then
+  its size and flashes white, slowly and then faster, for its 1 second fuse (with the fuse sound), then
   bursts (`onBurst`, and a splat sound).
 - **Ammo:** a `GunDef` can have an `ammo` (magazine, reload ticks, spare rounds). The gun then fires
   its magazine and reloads by itself when it's empty (crossbow loading sounds, a dry click with no
@@ -255,11 +263,42 @@ generator reads too.
 - `minecade:gun_pickup` floats, spins and bobs a white gun or grenade (the `minecade:kind`
   property: pistol, rifle, shotgun, grenade) for games with pickups.
 - The models are boxes listed in `tools/assets/guns.ts`, which writes their geometry (box UV,
-  Blockbench-ready), a texture and a hotbar icon per paint color (the icon is the model drawn in
-  3D), and the hold and recoil animations. Where a model sits is a table of places there (`HOLD`:
-  how far from the fist, how far under the crosshair), which a solver turns into the attachables'
-  rotations and positions using Blockbench's attachable preview setup and the vanilla arm poses.
-  After changing either file, rerun `npx tsx tools/assets/guns.ts` and commit what it writes.
+  Blockbench-ready), a texture per paint color, the model blocks, the recoil animations and the kit
+  pictures' icons (`packs/guns/icons`, not in the packs). After changing it or `defs.ts`, rerun
+  `npx tsx tools/assets/guns.ts` and commit what it writes.
+
+### Editing where the guns sit
+
+The poses are in `packs/guns/resource_pack/animations/guns_hold.animation.json`, the one file the
+generator leaves alone (it writes it only when it's missing, from a solver's first guesses: delete
+it and rerun to start over). Each gun has three animations, each a single pose of the `gun` bone:
+`animation.minecade.gun_<gun>.first_person_hip`, `.first_person_aim` and `.third_person` (the
+grenade has no aim). To change one in Blockbench (5.1 or later, which previews attachables):
+
+1. File > Open Model: `packs/guns/resource_pack/models/entity/guns.geo.json`, and pick the held
+   model, `geometry.minecade.gun_<gun>` (not `_display` or `_icon`). Drag in a texture, such as
+   `packs/guns/resource_pack/textures/minecade/guns/pistol/red.png`.
+2. In the Animate tab, import `guns_hold.animation.json` (the Animations panel's import button).
+3. Set the Bedrock animation mode on the toolbar: Attachable First Person for the hip and aim
+   poses, Attachable Third Person for `third_person`.
+4. Pick the animation, select the `gun` bone, and move, turn or scale it at time 0.
+5. Save the animation file (not the model: the generator owns `guns.geo.json`).
+
+Keep to the `gun` bone (the `body` bone carries the recoil), keep the animation names, and leave
+`guns.animation.json` alone (it's generated). Blockbench's preview is approximate: check in game.
+`npm run check` confirms every pose the guns name is still in the file.
+
+## Dyed leather armor
+
+Bedrock's scripts can't dye vanilla leather (setting `ItemDyeableComponent.color` on it does
+nothing), so the shared armor pack (`packs/armor`) has leather in each of the 16 dyes as its own
+items: `minecade:<dye>_leather_helmet`, `_chestplate`, `_leggings`, `_boots` (`dyedLeather(piece,
+dye)`), named, protecting and wearing out like vanilla leather. A kit with `teamArmor` puts on the
+piece in the team's dye in place of the vanilla leather it lists (`teamArmorItem`), and a preview's
+team switch swaps it; any game can hand one out by name. They look like dyed leather because they
+are: the build tints Minecraft's own leather textures by the dye's leather color (`LEATHER_DYES`, the
+same multiply the game does) and writes the pack, git-ignored, from the textures on this PC or
+their cache (`tools/assets/armor.ts`). Kit pictures draw them the same way.
 
 ## The prompt form
 
@@ -752,7 +791,7 @@ middle, and the tiled scanlines, which repeat.
 | `games/<id>/icon.png` | The game's picture: on its card (60x34) and on the hologram (2 blocks wide) while the map is random | 320x180 (16:9), required for every game |
 | `packages/minigame-core/resource_pack/textures/minecade/hud/round_open.png`, `round_<code>.png` | The best-of rounds circles, 8x8 top right: white for a round to play, then the winner's color (`c`, `9`, `a`, `e`, `6`, `d`, `b`, `f`; `7` gray for a drawn round) | 16x16 pixel art, a filled circle with a darker rim |
 | `packs/guns/resource_pack/textures/minecade/guns/<kind>/<dye>.png` | A gun's or the grenade's model texture in one paint color: in hand, thrown and landed (the grenade), and white floating as a pickup | 64 wide, box UV; written by `tools/assets/guns.ts` (not make-assets.py), which overwrites it: redraw the model there, or stop generating it first |
-| `packs/guns/resource_pack/textures/minecade/guns/icons/<kind>_<dye>.png` | A gun's or the grenade's hotbar icon in one paint color, and its slot in a kit picture | 128x128, the model drawn in 3D; written by `tools/assets/guns.ts` |
+| `packs/guns/icons/<item>.png` | A gun's or the grenade's slot in a kit picture (the hotbar draws the model itself) | 128x128, the model drawn in 3D as a block is; written by `tools/assets/guns.ts`, outside the packs |
 | `packs/guns/resource_pack/textures/minecade/guns/balls/<dye>.png`, `splash.png` | A paint ball in flight (a sprite like the snowball's), in each of the 16 dyes; the splash's drop, tinted by the particle | 16x16 and 8x8; written by `tools/assets/guns.ts` |
 | `games/bridges/resource_pack/textures/minecade/bridges/hole_<dye>.png` | Bridges' hole (3 blocks square): black walls and floor (left half), the rim's ring in the team's color (right half) | 96x48, 16 pixels a block; the ring's middle is clear |
 | `games/<id>/maps/<map>/preview.png` | A map's preview on its tile (100x54) and on the hologram when it's chosen (optional) | 320x180 (16:9), such as a screenshot |

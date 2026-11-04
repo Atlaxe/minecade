@@ -37,20 +37,63 @@ export function kitItemId(item: KitItem, teamColor?: string): string {
   return item.item.replaceAll(COLOR_SLOT, dyeName(teamColor));
 }
 
-/** The color leather armor takes on a team (teamArmor), by its § color code. */
-export const TEAM_ARMOR_COLORS: Record<string, { red: number; green: number; blue: number }> = {
-  "§c": { red: 0.85, green: 0.15, blue: 0.15 },
-  "§9": { red: 0.2, green: 0.35, blue: 0.9 },
-  "§a": { red: 0.3, green: 0.8, blue: 0.25 },
-  "§e": { red: 0.95, green: 0.85, blue: 0.2 },
-  "§6": { red: 0.95, green: 0.55, blue: 0.1 },
-  "§d": { red: 0.85, green: 0.35, blue: 0.85 },
-  "§b": { red: 0.3, green: 0.85, blue: 0.9 },
-  "§f": { red: 0.95, green: 0.95, blue: 0.95 },
-};
-
 /** A color as leather armor takes it, each channel 0 to 1. */
 export type DyeColor = { red: number; green: number; blue: number };
+
+/** The color each of the 16 dyes gives leather (Minecraft's own, 0xRRGGBB), in Minecraft's dye order. */
+export const LEATHER_DYES: Record<string, number> = {
+  white: 0xf9fffe,
+  orange: 0xf9801d,
+  magenta: 0xc74ebd,
+  light_blue: 0x3ab3da,
+  yellow: 0xfed83d,
+  lime: 0x80c71f,
+  pink: 0xf38baa,
+  gray: 0x474f52,
+  light_gray: 0x9d9d97,
+  cyan: 0x169c9c,
+  purple: 0x8932b8,
+  blue: 0x3c44aa,
+  brown: 0x835432,
+  green: 0x5e7c16,
+  red: 0xb02e26,
+  black: 0x1d1d21,
+};
+
+/** A dye's leather color (white's for a name that isn't a dye). */
+export function leatherColor(dye: string): DyeColor {
+  const rgb = LEATHER_DYES[dye] ?? LEATHER_DYES.white;
+  return { red: (rgb >> 16) / 255, green: ((rgb >> 8) & 0xff) / 255, blue: (rgb & 0xff) / 255 };
+}
+
+/** The color a team's leather armor takes (teamArmor): its dye's, by the team's § color code. */
+export function teamArmorColor(teamColor: string): DyeColor {
+  return leatherColor(dyeName(teamColor));
+}
+
+/** The four leather pieces. */
+export const LEATHER_PIECES = ["helmet", "chestplate", "leggings", "boots"] as const;
+export type LeatherPiece = (typeof LEATHER_PIECES)[number];
+
+/**
+ * A leather piece in a dye, from the shared armor pack (packs/armor): minecade:red_leather_helmet.
+ * Bedrock's scripts can't dye vanilla leather, so team armor is these items instead.
+ */
+export function dyedLeather(piece: LeatherPiece, dye: string): string {
+  return `minecade:${dye}_leather_${piece}`;
+}
+
+/** Which leather piece in which dye an item id is (the armor pack's); undefined for anything else. */
+export function parseDyedLeather(itemId: string): { piece: LeatherPiece; dye: string } | undefined {
+  const match = /^minecade:(\w+)_leather_(helmet|chestplate|leggings|boots)$/.exec(itemId);
+  return match && match[1] in LEATHER_DYES ? { piece: match[2] as LeatherPiece, dye: match[1] } : undefined;
+}
+
+/** The armor a kit gives a team player: vanilla leather becomes the armor pack's in the team's dye (teamArmor). */
+export function teamArmorItem(itemId: string, teamColor?: string): string {
+  const leather = /^minecraft:leather_(helmet|chestplate|leggings|boots)$/.exec(itemId);
+  return leather && teamColor ? dyedLeather(leather[1] as LeatherPiece, dyeName(teamColor)) : itemId;
+}
 
 /**
  * Colors mixed the way Minecraft dyes leather: the average of each channel, scaled back up so the

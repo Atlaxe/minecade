@@ -15,8 +15,9 @@
         "default": "geometry.minecade.gun_pistol"
       },
       "animations": {
-        "first_person": "animation.minecade.gun_pistol.hold_first_person",
-        "third_person": "animation.minecade.gun_pistol.hold_third_person",
+        "first_person_hip": "animation.minecade.gun_pistol.first_person_hip",
+        "first_person_aim": "animation.minecade.gun_pistol.first_person_aim",
+        "third_person": "animation.minecade.gun_pistol.third_person",
         "recoil": "animation.minecade.gun_pistol.recoil"
       },
       "scripts": {
@@ -25,13 +26,16 @@
           "v.kick = 0;"
         ],
         "pre_animation": [
-          "v.aim = math.lerp(v.aim, q.is_using_item, math.min(q.delta_time * 14, 1));",
+          "v.aim = math.lerp(v.aim, q.cooldown_time_remaining('minecade_aim') > 0, math.min(q.delta_time * 12, 1));",
           "v.kick_left = math.clamp(q.cooldown_time_remaining('minecade_pistol_shot') / 0.15, 0, 1);",
           "v.kick = v.kick_left > 0.75 ? (1 - v.kick_left) * 4 : v.kick_left / 0.75;"
         ],
         "animate": [
           {
-            "first_person": "c.is_first_person"
+            "first_person_hip": "c.is_first_person * (1 - v.aim)"
+          },
+          {
+            "first_person_aim": "c.is_first_person * v.aim"
           },
           {
             "third_person": "!c.is_first_person"

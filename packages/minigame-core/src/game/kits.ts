@@ -12,7 +12,7 @@ import {
   type Player,
 } from "@minecraft/server";
 import type { KitDef, KitItem, KitSelect, KitsConfig, MapKitsConfig } from "../config.ts";
-import { TEAM_ARMOR_COLORS, kitItemId, matchKits, refillOnSpawn, type KitSpawn } from "../kit-defs.ts";
+import { kitItemId, matchKits, refillOnSpawn, teamArmorItem, type KitSpawn } from "../kit-defs.ts";
 import { describeError, log } from "../log.ts";
 
 const ARMOR_SLOTS = {
@@ -93,7 +93,7 @@ export class Kits {
 
   /**
    * The player changed teams (a preview's /switch): their kits' items in the old team's color
-   * become the new team's, the same counts in the same slots, and their team armor takes its dye.
+   * become the new team's, the same counts in the same slots, and their team armor its dye's.
    */
   recolor(player: Player, from?: string, to?: string): void {
     const kits = [this.base, this.kitFor(player.name)].filter((kit): kit is KitDef => kit !== undefined);
@@ -110,16 +110,13 @@ export class Kits {
         swapped.lockMode = stack.lockMode;
         inventory?.setItem(slot, swapped);
       }
-      const color = to ? TEAM_ARMOR_COLORS[to] : undefined;
       const equipment = player.getComponent(EntityComponentTypes.Equippable);
       for (const kit of kits) {
-        if (!kit.teamArmor || !color) continue;
-        for (const slot of Object.keys(kit.armor ?? {}) as (keyof typeof ARMOR_SLOTS)[]) {
-          const stack = equipment?.getEquipment(ARMOR_SLOTS[slot]);
-          const dyeable = stack?.getComponent(ItemComponentTypes.Dyeable);
-          if (!stack || !dyeable) continue;
-          dyeable.color = color;
-          equipment?.setEquipment(ARMOR_SLOTS[slot], stack);
+        if (!kit.teamArmor) continue;
+        for (const [slot, item] of Object.entries(kit.armor ?? {}) as [keyof typeof ARMOR_SLOTS, string][]) {
+          const worn = equipment?.getEquipment(ARMOR_SLOTS[slot]);
+          if (worn?.typeId !== teamArmorItem(item, from) || teamArmorItem(item, to) === worn.typeId) continue;
+          equipment?.setEquipment(ARMOR_SLOTS[slot], armorStack(kit, item, to));
         }
       }
     } catch (error) {
@@ -164,13 +161,7 @@ export class Kits {
       }
       const equipment = player.getComponent(EntityComponentTypes.Equippable);
       for (const [slot, item] of Object.entries(kit.armor ?? {}) as [keyof typeof ARMOR_SLOTS, string][]) {
-        const stack = new ItemStack(item, 1);
-        stack.lockMode = ItemLockMode.slot;
-        enchant(stack, kit, item);
-        const color = kit.teamArmor && teamColor ? TEAM_ARMOR_COLORS[teamColor] : undefined;
-        const dyeable = color ? stack.getComponent(ItemComponentTypes.Dyeable) : undefined;
-        if (dyeable && color) dyeable.color = color;
-        equipment?.setEquipment(ARMOR_SLOTS[slot], stack);
+        equipment?.setEquipment(ARMOR_SLOTS[slot], armorStack(kit, item, teamColor));
       }
       for (const effect of kit.effects ?? []) {
         const ticks = effect.seconds ? effect.seconds * 20 : FOREVER_TICKS;
@@ -191,6 +182,17 @@ export function kitStack(kit: KitDef, entry: KitItem, teamColor?: string, count 
   if (entry.name) stack.nameTag = entry.name;
   stack.lockMode = ItemLockMode.inventory;
   enchant(stack, kit, entry.item);
+  return stack;
+}
+
+/**
+ * One of a kit's armor pieces as the kit puts it on: locked in its slot, enchanted, and with
+ * teamArmor, leather in the team's dye (the armor pack's piece, since scripts can't dye leather).
+ */
+function armorStack(kit: KitDef, item: string, teamColor?: string): ItemStack {
+  const stack = new ItemStack(kit.teamArmor ? teamArmorItem(item, teamColor) : item, 1);
+  stack.lockMode = ItemLockMode.slot;
+  enchant(stack, kit, item);
   return stack;
 }
 

@@ -10,7 +10,7 @@
     "components": {
       "minecraft:icon": {
         "textures": {
-          "default": "minecade_gun_rifle_white"
+          "default": "minecade_gun_marker"
         }
       },
       "minecraft:cooldown": {

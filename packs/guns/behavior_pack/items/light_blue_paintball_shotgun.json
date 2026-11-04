@@ -8,10 +8,11 @@
       }
     },
     "components": {
-      "minecraft:icon": {
-        "textures": {
-          "default": "minecade_gun_shotgun_light_blue"
-        }
+      "minecraft:block_placer": {
+        "block": "minecade:light_blue_paintball_shotgun_model",
+        "use_on": [
+          "minecade:light_blue_paintball_shotgun_model"
+        ]
       },
       "minecraft:display_name": {
         "value": "Paintball Shotgun"
@@ -22,9 +23,9 @@
       "minecraft:swing_duration": {
         "value": 0.05
       },
-      "minecraft:use_modifiers": {
-        "use_duration": 3600,
-        "movement_modifier": 1
+      "minecraft:cooldown": {
+        "category": "minecade_shotgun",
+        "duration": 1
       }
     }
   }

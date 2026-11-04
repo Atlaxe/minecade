@@ -117,7 +117,8 @@ describe("a match of Siege", () => {
       expect(ids(c)).toEqual(["1 trident", "1 heart_of_the_sea"]);
       expect(c.inventory.getItem(0)?.enchantments).toEqual(["minecraft:loyalty 3"]);
       expect(c.equipment.get("Feet")?.enchantments).toEqual(["minecraft:depth_strider 3"]);
-      expect(armor(c)).toEqual(["turtle_helmet", "leather_chestplate", "chainmail_leggings", "leather_boots"]);
+      // Leather in the team's dye: the armor pack's blue pieces.
+      expect(armor(c)).toEqual(["turtle_helmet", "minecade:blue_leather_chestplate", "chainmail_leggings", "minecade:blue_leather_boots"]);
       expect([...c.effects.keys()].sort()).toEqual(["saturation", "water_breathing"]);
       expect([...d.effects.keys()].sort()).toEqual(["saturation", "slowness"]);
       // Names show over heads in the team's color, and everyone hears what their class does.
@@ -273,7 +274,7 @@ describe("a match of Siege", () => {
       world.hurt(d, 1, "fall");
       expect(c.nameTag).toBe("");
       world.hurt(b, 2, "entityAttack", { attacker: c });
-      expect(armor(c)).toEqual(["leather_helmet", "leather_chestplate", "leather_leggings", "leather_boots"]);
+      expect(armor(c)).toEqual(["helmet", "chestplate", "leggings", "boots"].map((piece) => `minecade:blue_leather_${piece}`));
       expect(c.nameTag).toBe("§9C");
       expect(c.effects.has("invisibility")).toBe(false);
       // Next time it runs out by itself.
@@ -281,7 +282,7 @@ describe("a match of Siege", () => {
       use(c, "minecraft:ink_sac");
       await ticks(config.abilities.assassin.seconds * 20 + 5);
       expect(c.nameTag).toBe("§9C");
-      expect(armor(c)[0]).toBe("leather_helmet");
+      expect(armor(c)[0]).toBe("minecade:blue_leather_helmet");
 
       // Water with nobody to credit washes a player away.
       d.health.currentValue = 1;

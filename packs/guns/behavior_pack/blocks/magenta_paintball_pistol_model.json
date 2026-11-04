@@ -1,0 +1,20 @@
+{
+  "format_version": "1.21.60",
+  "minecraft:block": {
+    "description": {
+      "identifier": "minecade:magenta_paintball_pistol_model",
+      "menu_category": {
+        "category": "none"
+      }
+    },
+    "components": {
+      "minecraft:geometry": "geometry.minecade.gun_pistol_icon",
+      "minecraft:material_instances": {
+        "*": {
+          "texture": "minecade_gun_pistol_magenta",
+          "render_method": "alpha_test"
+        }
+      }
+    }
+  }
+}

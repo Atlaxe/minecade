@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Scope } from "@minecade/minigame-core";
-import { GRENADE, GUNS, PAINTBALL, PRIMED_GRENADE, THROWN_GRENADE, dyeIndex, gunItem, shotMarker, type GunDef } from "../src/defs.ts";
+import { AIM_MARKER, GRENADE, GUNS, PAINTBALL, PRIMED_GRENADE, THROWN_GRENADE, dyeIndex, gunItem, shotMarker, type GunDef } from "../src/defs.ts";
 import { Guns, ammoText, coneDirections, type AmmoState, type GunsOptions, type Shot } from "../src/guns.ts";
 import { Direction, EntitySwingSource, ItemStack, system, world, type FakeMob, type FakePlayer } from "../../minigame-core/test/fake-mc-server.ts";
 
@@ -44,13 +44,13 @@ function setup(options: Partial<GunsOptions> = {}) {
 /** A left click: the swing Bedrock reports for an attack. */
 const click = (player: FakePlayer, swingSource: string = EntitySwingSource.Attack) =>
   world.afterEvents.playerSwingStart.emit({ player, heldItemStack: player.inventory.slots[player.selectedSlotIndex], swingSource });
-const startUse = (player: FakePlayer) => world.afterEvents.itemStartUse.emit({ source: player, itemStack: player.inventory.slots[0]!, useDuration: 0 });
-const stopUse = (player: FakePlayer) => world.afterEvents.itemStopUse.emit({ source: player, itemStack: player.inventory.slots[0], useDuration: 10 });
+/** A right click at the sky. */
 const use = (player: FakePlayer) => world.afterEvents.itemUse.emit({ source: player, itemStack: player.inventory.slots[0]! });
+const markers = (player: FakePlayer) => player.cooldownsStarted.filter((id) => id === AIM_MARKER.item).length;
 const angleOf = (velocity: { x: number; y: number; z: number }) => (Math.acos(velocity.z / Math.hypot(velocity.x, velocity.y, velocity.z)) * 180) / Math.PI;
 
 describe("Guns", () => {
-  it("fires a tap gun once per left click, at its fire rate, in the gun's paint, and kicks its held model", () => {
+  it("fires a tap gun once per left click, at its fire rate, in the gun's paint, shading its slot and kicking its held model", () => {
     const { balls } = setup();
     const player = holding("Ann", gunItem("pistol", "red"));
     click(player);
@@ -62,9 +62,8 @@ describe("Guns", () => {
     // Fired the way the player looks (south), at the pistol's speed.
     expect(ball.projectile.shot!.z).toBeCloseTo(GUNS.pistol.speed, 1);
     expect(world.overworld.sounds.map((sound) => sound.id)).toEqual([GUNS.pistol.sound.id]);
-    // The recoil runs off the shot marker's cooldown, not the gun's own.
-    expect(player.cooldownsStarted).toEqual([shotMarker("pistol").item]);
-    expect(player.inventory.slots[0]!.cooldownsStarted).toBe(0);
+    // The gun's own cooldown shades its slot; the recoil runs off the shot marker's.
+    expect(player.cooldownsStarted).toEqual([gunItem("pistol", "red"), shotMarker("pistol").item]);
     system.advanceTicks(GUNS.pistol.everyTicks);
     click(player);
     expect(balls()).toHaveLength(2);
@@ -107,22 +106,35 @@ describe("Guns", () => {
     expect(balls()).toHaveLength(fired + 1);
   });
 
-  it("aims while right click is held: the camera zooms, shots stray less, and letting go or putting the gun away zooms back", () => {
+  it("raises a gun to aim with a right click and lowers it with the next: the camera zooms, shots stray less, and the held model stays up", () => {
     // random 1: every ball strays the gun's whole spread.
     const { guns, balls } = setup({ random: () => 1 });
     const player = holding("Ann", gunItem("pistol", "red"));
     click(player);
     expect(angleOf(balls()[0].projectile.shot!)).toBeCloseTo(GUNS.pistol.hipSpreadDegrees, 3);
-    startUse(player);
+    use(player);
     expect(guns.isAiming("Ann")).toBe(true);
     expect(player.camera.fovs).toEqual([GUNS.pistol.aimFov]);
-    system.advanceTicks(GUNS.pistol.everyTicks);
+    expect(markers(player)).toBe(1);
+    // Holding the button repeats the use: still one press.
+    system.advanceTicks(2);
+    use(player);
+    expect(guns.isAiming("Ann")).toBe(true);
+    // While it's up, the aim marker keeps being restarted, so the held model stays up.
+    system.advanceTicks(6);
+    expect(markers(player)).toBeGreaterThan(2);
     click(player);
     expect(angleOf(balls()[1].projectile.shot!)).toBeCloseTo(GUNS.pistol.aimSpreadDegrees, 3);
-    stopUse(player);
+    system.advanceTicks(10);
+    use(player);
     expect(guns.isAiming("Ann")).toBe(false);
     expect(player.camera.fovs).toEqual([GUNS.pistol.aimFov, undefined]);
-    startUse(player);
+    const lowered = markers(player);
+    system.advanceTicks(10);
+    expect(markers(player)).toBe(lowered);
+    // A right click at a block raises it too (its first event; held, it repeats), and switching away lowers it.
+    world.afterEvents.playerInteractWithBlock.emit({ player, itemStack: player.inventory.slots[0], isFirstEvent: true });
+    expect(guns.isAiming("Ann")).toBe(true);
     player.selectedSlotIndex = 1;
     system.advanceTicks(1);
     expect(guns.isAiming("Ann")).toBe(false);
@@ -208,7 +220,7 @@ describe("Guns", () => {
     const { scope, balls, spawned } = setup();
     const player = holding("Ann", gunItem("pistol"));
     click(player);
-    startUse(player);
+    use(player);
     const thrower = holding("Bo", gunItem("grenade"));
     use(thrower);
     world.projectileHitsBlock(spawned(THROWN_GRENADE)[0], { x: 0, y: 64, z: 5 }, Direction.Up, thrower);

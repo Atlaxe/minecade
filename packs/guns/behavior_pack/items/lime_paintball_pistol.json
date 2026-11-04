@@ -8,10 +8,11 @@
       }
     },
     "components": {
-      "minecraft:icon": {
-        "textures": {
-          "default": "minecade_gun_pistol_lime"
-        }
+      "minecraft:block_placer": {
+        "block": "minecade:lime_paintball_pistol_model",
+        "use_on": [
+          "minecade:lime_paintball_pistol_model"
+        ]
       },
       "minecraft:display_name": {
         "value": "Paintball Pistol"
@@ -22,9 +23,9 @@
       "minecraft:swing_duration": {
         "value": 0.05
       },
-      "minecraft:use_modifiers": {
-        "use_duration": 3600,
-        "movement_modifier": 1
+      "minecraft:cooldown": {
+        "category": "minecade_pistol",
+        "duration": 0.3
       }
     }
   }
