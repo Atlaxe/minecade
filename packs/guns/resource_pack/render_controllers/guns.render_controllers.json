@@ -1,0 +1,68 @@
+{
+  "format_version": "1.10.0",
+  "render_controllers": {
+    "controller.render.minecade.paintball": {
+      "arrays": {
+        "textures": {
+          "Array.dyes": [
+            "Texture.white",
+            "Texture.orange",
+            "Texture.magenta",
+            "Texture.light_blue",
+            "Texture.yellow",
+            "Texture.lime",
+            "Texture.pink",
+            "Texture.gray",
+            "Texture.light_gray",
+            "Texture.cyan",
+            "Texture.purple",
+            "Texture.blue",
+            "Texture.brown",
+            "Texture.green",
+            "Texture.red",
+            "Texture.black"
+          ]
+        }
+      },
+      "geometry": "Geometry.default",
+      "materials": [
+        {
+          "*": "Material.default"
+        }
+      ],
+      "textures": [
+        "Array.dyes[q.property('minecade:color')]"
+      ]
+    },
+    "controller.render.minecade.gun_pickup": {
+      "arrays": {
+        "textures": {
+          "Array.kinds": [
+            "Texture.pistol",
+            "Texture.rifle",
+            "Texture.shotgun",
+            "Texture.grenade"
+          ]
+        },
+        "geometries": {
+          "Array.kinds": [
+            "Geometry.pistol",
+            "Geometry.rifle",
+            "Geometry.shotgun",
+            "Geometry.grenade"
+          ]
+        }
+      },
+      "geometry": "Array.kinds[q.property('minecade:kind')]",
+      "materials": [
+        {
+          "*": "Material.default"
+        }
+      ],
+      "textures": [
+        "Array.kinds[q.property('minecade:kind')]"
+      ],
+      "ignore_lighting": true
+    }
+  }
+}

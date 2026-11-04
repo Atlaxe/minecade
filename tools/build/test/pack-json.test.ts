@@ -16,7 +16,9 @@ function packDirs(): string[] {
   for (const game of readdirSync(join(ROOT, "games"))) {
     for (const kind of ["resource_pack", "behavior_pack"]) dirs.push(`games/${game}/${kind}`);
   }
-  for (const kind of ["resource_pack", "behavior_pack"]) dirs.push(`packs/blocks/${kind}`);
+  for (const shared of ["blocks", "guns"]) {
+    for (const kind of ["resource_pack", "behavior_pack"]) dirs.push(`packs/${shared}/${kind}`);
+  }
   return dirs.map((dir) => join(ROOT, dir)).filter((dir) => existsSync(dir));
 }
 

@@ -1,0 +1,28 @@
+{
+  "format_version": "1.10.0",
+  "minecraft:client_entity": {
+    "description": {
+      "identifier": "minecade:paint_grenade_thrown",
+      "materials": {
+        "default": "entity_alphatest"
+      },
+      "textures": {
+        "default": "textures/minecade/guns/grenade"
+      },
+      "geometry": {
+        "default": "geometry.minecade.gun_grenade_display"
+      },
+      "render_controllers": [
+        "controller.render.default"
+      ],
+      "animations": {
+        "tumble": "animation.minecade.paint_grenade.tumble"
+      },
+      "scripts": {
+        "animate": [
+          "tumble"
+        ]
+      }
+    }
+  }
+}

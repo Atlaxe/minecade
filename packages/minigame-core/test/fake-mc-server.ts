@@ -32,7 +32,7 @@ export const EntityComponentTypes = {
   Projectile: "minecraft:projectile",
   Saturation: "minecraft:player.saturation",
 } as const;
-export const ItemComponentTypes = { Dyeable: "minecraft:dyeable", Enchantable: "minecraft:enchantable" } as const;
+export const ItemComponentTypes = { Cooldown: "minecraft:cooldown", Dyeable: "minecraft:dyeable", Enchantable: "minecraft:enchantable" } as const;
 export const Direction = { Down: "Down", East: "East", North: "North", South: "South", Up: "Up", West: "West" } as const;
 export const EntityInitializationCause = { Born: "Born", Event: "Event", Loaded: "Loaded", Spawned: "Spawned", Transformed: "Transformed" } as const;
 export const StructureSaveMode = { Memory: "Memory", World: "World" } as const;
@@ -211,6 +211,14 @@ export class ItemStack {
   /** Its enchantments, as "<id> <level>" ("minecraft:loyalty 3"). */
   readonly enchantments: string[] = [];
   private readonly dyeable: { color?: { red: number; green: number; blue: number } } | undefined;
+  /** How many times a script started this item's cooldown (only items outside minecraft: have one here). */
+  cooldownsStarted = 0;
+  private readonly cooldown = {
+    startCooldown: () => {
+      writable("ItemCooldownComponent::startCooldown");
+      this.cooldownsStarted++;
+    },
+  };
   private readonly enchantable = {
     addEnchantment: ({ type, level }: { type: EnchantmentType; level: number }) => {
       this.enchantments.push(`${type.id} ${level}`);
@@ -225,6 +233,7 @@ export class ItemStack {
 
   getComponent(id: string) {
     if (id === ItemComponentTypes.Enchantable) return this.enchantable;
+    if (id === ItemComponentTypes.Cooldown) return this.typeId.startsWith("minecraft:") ? undefined : this.cooldown;
     return id === ItemComponentTypes.Dyeable ? this.dyeable : undefined;
   }
 }
@@ -655,6 +664,19 @@ function blockKey(location: Vector3): string {
   return `${Math.floor(location.x)},${Math.floor(location.y)},${Math.floor(location.z)}`;
 }
 
+/** Values a particle reads (a paint splash's color). */
+export class MolangVariableMap {
+  readonly values = new Map<string, unknown>();
+
+  setColorRGB(name: string, color: { red: number; green: number; blue: number }): void {
+    this.values.set(name, { ...color });
+  }
+
+  setFloat(name: string, value: number): void {
+    this.values.set(name, value);
+  }
+}
+
 /** A box of blocks between two corners (both inside), as the real BlockVolume. */
 export class BlockVolume {
   readonly from: Vector3;
@@ -674,15 +696,15 @@ class FakeDimension {
   /** Box corners whose blocks can't be read or saved (an unloaded chunk), as "x,y,z" of any block inside. */
   readonly unloaded = new Set<string>();
   /** Every particle and sound played in the world, oldest first. */
-  readonly particles: { id: string; location: Vector3 }[] = [];
-  readonly sounds: { id: string; location: Vector3; volume?: number }[] = [];
+  readonly particles: { id: string; location: Vector3; variables?: MolangVariableMap }[] = [];
+  readonly sounds: { id: string; location: Vector3; volume?: number; pitch?: number }[] = [];
 
-  spawnParticle(id: string, location: Vector3): void {
+  spawnParticle(id: string, location: Vector3, variables?: MolangVariableMap): void {
     writable("Dimension::spawnParticle");
-    this.particles.push({ id, location: { ...location } });
+    this.particles.push({ id, location: { ...location }, variables });
   }
 
-  playSound(id: string, location: Vector3, options: { volume?: number } = {}): void {
+  playSound(id: string, location: Vector3, options: { volume?: number; pitch?: number } = {}): void {
     writable("Dimension::playSound");
     this.sounds.push({ id, location: { ...location }, ...options });
   }
@@ -860,9 +882,22 @@ class FakeWorld {
     entityDie: new FakeSignal<{ deadEntity: FakePlayer | FakeMob; damageSource: DamageSource }, unknown>(),
     entityHitEntity: new FakeSignal<{ damagingEntity: FakePlayer; hitEntity: FakePlayer | FakeMob }, unknown>(),
     itemUse: new FakeSignal<{ source: FakePlayer; itemStack: ItemStack }>(),
+    itemStartUse: new FakeSignal<{ source: FakePlayer; itemStack: ItemStack; useDuration: number }>(),
+    itemStopUse: new FakeSignal<{ source: FakePlayer; itemStack?: ItemStack; useDuration: number }>(),
+    itemReleaseUse: new FakeSignal<{ source: FakePlayer; itemStack?: ItemStack; useDuration: number }>(),
     playerInteractWithBlock: new FakeSignal<{ player: FakePlayer; itemStack?: ItemStack; isFirstEvent: boolean }>(),
-    projectileHitBlock: new FakeSignal<{ projectile: FakeEntity; source?: FakePlayer }>(),
-    projectileHitEntity: new FakeSignal<{ projectile: FakeEntity; source?: FakePlayer; getEntityHit(): { entity?: FakePlayer | FakeMob } }>(),
+    projectileHitBlock: new FakeSignal<{
+      projectile: FakeEntity | FakeMob;
+      source?: FakePlayer;
+      location?: Vector3;
+      getBlockHit?(): { block: FakeBlock; face: Direction };
+    }>(),
+    projectileHitEntity: new FakeSignal<{
+      projectile: FakeEntity | FakeMob;
+      source?: FakePlayer;
+      location?: Vector3;
+      getEntityHit(): { entity?: FakePlayer | FakeMob };
+    }>(),
     playerInteractWithEntity: new FakeSignal<{ player: FakePlayer; target: FakePlayer | FakeMob }>(),
     playerPlaceBlock: new FakeSignal<{ player: FakePlayer; block: FakeBlock }>(),
     entitySpawn: new FakeSignal<{ entity: FakeMob | FakeEntity; cause: string }>(),
@@ -961,6 +996,18 @@ class FakeWorld {
   projectileHits(victim: FakePlayer | FakeMob, source?: FakePlayer, typeId = "minecraft:arrow"): void {
     const projectile = new FakeEntity(typeId);
     this.afterEvents.projectileHitEntity.emit({ projectile, source, getEntityHit: () => ({ entity: victim }) });
+  }
+
+  /** A spawned projectile (a gun's ball) hits the `face` of the block at `at`, as BDS reports it. */
+  projectileHitsBlock(projectile: FakeMob, at: Vector3, face: Direction, source?: FakePlayer): void {
+    const block = this.overworld.getBlock(at);
+    this.afterEvents.projectileHitBlock.emit({ projectile, source, location: { ...projectile.location }, getBlockHit: () => ({ block, face }) });
+  }
+
+  /** A spawned projectile (a gun's ball) reaches a player or mob at `location` (its middle by default). */
+  projectileHitsEntity(projectile: FakeMob, victim: FakePlayer | FakeMob, location?: Vector3, source?: FakePlayer): void {
+    const at = location ?? { x: victim.location.x, y: victim.location.y + 1, z: victim.location.z };
+    this.afterEvents.projectileHitEntity.emit({ projectile, source, location: at, getEntityHit: () => ({ entity: victim }) });
   }
 
   /**

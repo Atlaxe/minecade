@@ -1,0 +1,17 @@
+{
+  "format_version": 2,
+  "header": {
+    "name": "Minecade Guns",
+    "description": "Shared guns any game can hand out: the pistol, rifle, shotgun and paint grenade, their balls and pickups",
+    "uuid": "e1900088-b84a-49b4-bf3b-ec99d7eaed86",
+    "version": [0, 1, 0],
+    "min_engine_version": [1, 26, 60]
+  },
+  "modules": [
+    {
+      "type": "data",
+      "uuid": "65d13380-702a-4764-91de-92bc811e383e",
+      "version": [0, 1, 0]
+    }
+  ]
+}

@@ -1,11 +1,14 @@
 // Each kit's picture for the kit form (packages/minigame-core/src/game/kit-form.ts): a hotbar of
 // nine slots, the kit's items filling them from the left, each with its count in the corner the way
 // the hotbar draws a stack, and the kit's armor in the last slot. The icons are Minecraft's own
-// textures (vanilla-textures.ts), a block's as a cube, leather dyed. The build draws them into the
+// textures (vanilla-textures.ts), a block's as a cube, leather dyed, or for a shared pack's own items
+// (the guns pack's) that pack's hotbar icon. The build draws them into the
 // resource pack of every game whose players pick kits, for the game's kits and each map's own, one
 // picture per team dye for a kit with items or leather armor in team colors.
+import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { mkdir, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import {
   ARMOR_PIECES,
   TEAM_ARMOR_COLORS,
@@ -19,7 +22,7 @@ import {
   type KitDef,
   type MapConfig,
 } from "@minecade/minigame-core/config";
-import { blankImage, encodePng, type Image } from "../skins/png.ts";
+import { blankImage, decodePng, encodePng, type Image } from "../skins/png.ts";
 import { VanillaTextures, type VanillaTexture } from "./vanilla-textures.ts";
 
 /** Slots on the hotbar. The items fill them from the left; a kit with armor shows it in the last one. */
@@ -171,11 +174,35 @@ export async function addKitPictures(out: string, kits: { kit: KitDef; map?: str
   return written;
 }
 
-/** An item's icon, leather in `dye`; none when Minecraft has no texture for it (it's left out). */
+/** An item's icon, leather in `dye`; none when neither Minecraft nor a shared pack has a texture for it (it's left out). */
 function pictureIcon(textures: VanillaTextures, item: string, count: number, dye: { red: number; green: number; blue: number }): PictureIcon[] {
-  const texture = textures.item(item);
+  const texture = textures.item(item) ?? sharedPackIcons().get(item);
   if (!texture) return [];
   return [{ kind: texture.kind, image: isLeather(item) ? dyeLeather(texture.image, dye) : texture.image, count }];
+}
+
+/** The shared packs whose own items a kit can give (packs/<name>, committed: their icons are ours). */
+const ICON_PACKS = ["guns"];
+let sharedIcons: Map<string, VanillaTexture> | undefined;
+
+/** The hotbar icons of the shared packs' items, by item id: each item's icon key, through the pack's item_texture.json. */
+function sharedPackIcons(): Map<string, VanillaTexture> {
+  if (sharedIcons) return sharedIcons;
+  sharedIcons = new Map();
+  for (const name of ICON_PACKS) {
+    const packs = fileURLToPath(new URL(`../../packs/${name}/`, import.meta.url));
+    const items = join(packs, "behavior_pack", "items");
+    const atlas = join(packs, "resource_pack", "textures", "item_texture.json");
+    if (!existsSync(items) || !existsSync(atlas)) continue;
+    const paths = (JSON.parse(readFileSync(atlas, "utf8")) as { texture_data: Record<string, { textures: string }> }).texture_data;
+    for (const file of readdirSync(items).filter((entry) => entry.endsWith(".json"))) {
+      const definition = JSON.parse(readFileSync(join(items, file), "utf8"))["minecraft:item"];
+      const path = paths[definition?.components?.["minecraft:icon"]?.textures?.default]?.textures;
+      const png = path && join(packs, "resource_pack", `${path}.png`);
+      if (png && existsSync(png)) sharedIcons.set(definition.description.identifier, { kind: "item", image: decodePng(readFileSync(png)) });
+    }
+  }
+  return sharedIcons;
 }
 
 /** One team color per dye (two colors can share a dye, such as §c and §4). */

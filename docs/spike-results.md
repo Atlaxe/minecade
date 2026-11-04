@@ -146,3 +146,19 @@ player, checked by fingerprints, file listings and container output.
 | `op` from the console | Not settled: the test world was a copy of the user's own world, which already saved them as an operator. Pass 10.3 checks it on a fresh map world. |
 | Sneaking | The user's note: **you can't sneak while flying** in creative (sneaking flies you down), so editor controls never use sneak combinations (`docs/plans/map-editor.md`, "Controls"). |
 | Bind mounts for Preview | **Work.** A container created through the Docker socket from inside the orchestrator container can mount `dist/templates` from this PC with any of `C:\dev\...`, `C:/dev/...`, `/c/dev/...` or `/run/desktop/mnt/host/c/dev/...` (Docker Desktop translates them). Preview can mount the local build directly. |
+
+## Vanilla block shapes for painting (BDS 1.26.60.6, @minecraft/server 2.11.0, checked 2026-11-03)
+
+Read from a throwaway game server's script (`BlockTypes`, `BlockStates`, `BlockPermutation`), for
+Paintball's painted blocks. No experiments on (the worlds have only Beta APIs).
+
+| Check | Finding |
+|---|---|
+| Concrete shapes | **Concrete stairs, slabs and double slabs exist** in every color (`minecraft:red_concrete_stairs`, `minecraft:green_concrete_slab`, `minecraft:blue_concrete_double_slab`). There are no concrete walls. |
+| Stairs | States `minecraft:corner` (`none`, `inner_left`, `inner_right`, `outer_left`, `outer_right`: the corner is stored, not worked out by the client), `weirdo_direction` (0 to 3), `upside_down_bit`. Concrete stairs have the same states as oak stairs, and every stair has the `minecraft:cornerable_stairs` tag. |
+| Slabs | `minecraft:vertical_half` (`bottom`, `top`); a wooden slab also has `top_slot_bit` and `wood_type`, concrete slabs only the half. |
+| Walls | `wall_connection_type_north`, `_east`, `_south`, `_west` (`none`, `short`, `tall`), `wall_post_bit`, plus `wall_block_type`. |
+| Fences, panes, iron bars | Their sides are stored: `minecraft:connection_north`, `_east`, `_south`, `_west` (booleans); a stained pane also has `color`, a wooden fence `wood_type`. |
+| Gates, doors, trapdoors | Oak's are still `minecraft:fence_gate`, `minecraft:wooden_door` and `minecraft:trapdoor` (`minecraft:oak_fence_gate` doesn't resolve). Gates: `minecraft:cardinal_direction`, `open_bit`, `in_wall_bit`. Doors: `minecraft:cardinal_direction`, `open_bit`, `upper_block_bit`, `door_hinge_bit`. Trapdoors: `direction` (0 to 3), `open_bit`, `upside_down_bit`. |
+| Other states seen | `minecraft:cardinal_direction` values are `south`, `west`, `north`, `east`; carpets have `color`; logs `pillar_axis`; leaves have the `minecraft:leaves` tag. |
+| The guns pack | Its items and entities (`packs/guns`) load with no content log errors. |

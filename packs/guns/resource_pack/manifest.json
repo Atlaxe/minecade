@@ -1,0 +1,17 @@
+{
+  "format_version": 2,
+  "header": {
+    "name": "Minecade Guns",
+    "description": "The guns' models, recoil, icons, paint balls and splashes",
+    "uuid": "e9b3c6a1-09d7-4b65-b420-fb7b39ed15b3",
+    "version": [1, 0, 0],
+    "min_engine_version": [1, 26, 60]
+  },
+  "modules": [
+    {
+      "type": "resources",
+      "uuid": "a435922b-2807-4ce5-96c6-c2f55e7bcd1a",
+      "version": [1, 0, 0]
+    }
+  ]
+}

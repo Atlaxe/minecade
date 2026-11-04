@@ -1,0 +1,18 @@
+{
+  "resource_pack_name": "minecade_guns",
+  "texture_name": "atlas.items",
+  "texture_data": {
+    "minecade_gun_pistol": {
+      "textures": "textures/minecade/guns/pistol_icon"
+    },
+    "minecade_gun_rifle": {
+      "textures": "textures/minecade/guns/rifle_icon"
+    },
+    "minecade_gun_shotgun": {
+      "textures": "textures/minecade/guns/shotgun_icon"
+    },
+    "minecade_gun_grenade": {
+      "textures": "textures/minecade/guns/grenade_icon"
+    }
+  }
+}

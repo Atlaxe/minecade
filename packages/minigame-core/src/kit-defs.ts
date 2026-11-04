@@ -49,6 +49,23 @@ export const TEAM_ARMOR_COLORS: Record<string, { red: number; green: number; blu
   "§f": { red: 0.95, green: 0.95, blue: 0.95 },
 };
 
+/** A color as leather armor takes it, each channel 0 to 1. */
+export type DyeColor = { red: number; green: number; blue: number };
+
+/**
+ * Colors mixed the way Minecraft dyes leather: the average of each channel, scaled back up so the
+ * mix is as bright as its colors were on average. Red and yellow make orange, red and blue purple.
+ */
+export function mixDyes(colors: readonly DyeColor[]): DyeColor {
+  if (colors.length === 0) return { red: 1, green: 1, blue: 1 };
+  const average = (pick: (color: DyeColor) => number) => colors.reduce((sum, color) => sum + pick(color), 0) / colors.length;
+  const [red, green, blue] = [average((color) => color.red), average((color) => color.green), average((color) => color.blue)];
+  const brightest = Math.max(red, green, blue);
+  if (brightest === 0) return { red: 0, green: 0, blue: 0 };
+  const scale = average((color) => Math.max(color.red, color.green, color.blue)) / brightest;
+  return { red: red * scale, green: green * scale, blue: blue * scale };
+}
+
 /** The armor a kit puts on, in the order the kit form's picture shows it (not the off hand). */
 export const ARMOR_PIECES = ["head", "chest", "legs", "feet"] as const;
 

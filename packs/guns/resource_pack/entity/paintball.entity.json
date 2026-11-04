@@ -1,0 +1,43 @@
+{
+  "format_version": "1.10.0",
+  "minecraft:client_entity": {
+    "description": {
+      "identifier": "minecade:paintball",
+      "materials": {
+        "default": "snowball"
+      },
+      "textures": {
+        "white": "textures/minecade/guns/balls/white",
+        "orange": "textures/minecade/guns/balls/orange",
+        "magenta": "textures/minecade/guns/balls/magenta",
+        "light_blue": "textures/minecade/guns/balls/light_blue",
+        "yellow": "textures/minecade/guns/balls/yellow",
+        "lime": "textures/minecade/guns/balls/lime",
+        "pink": "textures/minecade/guns/balls/pink",
+        "gray": "textures/minecade/guns/balls/gray",
+        "light_gray": "textures/minecade/guns/balls/light_gray",
+        "cyan": "textures/minecade/guns/balls/cyan",
+        "purple": "textures/minecade/guns/balls/purple",
+        "blue": "textures/minecade/guns/balls/blue",
+        "brown": "textures/minecade/guns/balls/brown",
+        "green": "textures/minecade/guns/balls/green",
+        "red": "textures/minecade/guns/balls/red",
+        "black": "textures/minecade/guns/balls/black"
+      },
+      "geometry": {
+        "default": "geometry.item_sprite"
+      },
+      "render_controllers": [
+        "controller.render.minecade.paintball"
+      ],
+      "animations": {
+        "flying": "animation.actor.billboard"
+      },
+      "scripts": {
+        "animate": [
+          "flying"
+        ]
+      }
+    }
+  }
+}

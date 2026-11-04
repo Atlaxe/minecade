@@ -1,0 +1,34 @@
+{
+  "format_version": "1.10.0",
+  "minecraft:client_entity": {
+    "description": {
+      "identifier": "minecade:gun_pickup",
+      "materials": {
+        "default": "entity_alphatest"
+      },
+      "textures": {
+        "pistol": "textures/minecade/guns/pistol",
+        "rifle": "textures/minecade/guns/rifle",
+        "shotgun": "textures/minecade/guns/shotgun",
+        "grenade": "textures/minecade/guns/grenade"
+      },
+      "geometry": {
+        "pistol": "geometry.minecade.gun_pistol_display",
+        "rifle": "geometry.minecade.gun_rifle_display",
+        "shotgun": "geometry.minecade.gun_shotgun_display",
+        "grenade": "geometry.minecade.gun_grenade_display"
+      },
+      "render_controllers": [
+        "controller.render.minecade.gun_pickup"
+      ],
+      "animations": {
+        "float": "animation.minecade.gun_pickup.float"
+      },
+      "scripts": {
+        "animate": [
+          "float"
+        ]
+      }
+    }
+  }
+}

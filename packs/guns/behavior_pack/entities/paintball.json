@@ -1,0 +1,58 @@
+{
+  "format_version": "1.21.100",
+  "minecraft:entity": {
+    "description": {
+      "identifier": "minecade:paintball",
+      "is_spawnable": false,
+      "is_summonable": true,
+      "properties": {
+        "minecade:color": {
+          "type": "int",
+          "range": [
+            0,
+            15
+          ],
+          "default": 0,
+          "client_sync": true
+        }
+      }
+    },
+    "components": {
+      "minecraft:collision_box": {
+        "width": 0.25,
+        "height": 0.25
+      },
+      "minecraft:projectile": {
+        "on_hit": {
+          "impact_damage": {
+            "damage": 0,
+            "knockback": true,
+            "destroy_on_hit": true
+          },
+          "remove_on_hit": {}
+        },
+        "power": 1.5,
+        "gravity": 0.03,
+        "anchor": 1,
+        "offset": [
+          0,
+          -0.1,
+          0
+        ],
+        "angle_offset": 0
+      },
+      "minecraft:physics": {},
+      "minecraft:pushable": {
+        "is_pushable": false,
+        "is_pushable_by_piston": false
+      },
+      "minecraft:conditional_bandwidth_optimization": {
+        "default_values": {
+          "max_optimized_distance": 80,
+          "max_dropped_ticks": 5,
+          "use_motion_prediction_hints": true
+        }
+      }
+    }
+  }
+}

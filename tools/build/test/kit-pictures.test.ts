@@ -150,14 +150,31 @@ describe("kit pictures", () => {
     const game = { ...bridges, kits: { ...bridges.kits, list: [{ id: "wool", name: "Wool", items: [{ item: "minecraft:{color}_wool", count: 16 }] }] } };
     expect(await addGameKitPictures(out, game, [], TEXTURES)).toBe(2);
     expect((await readdir(join(out, "textures", "minecade", "kits"))).sort()).toEqual(["wool_blue.png", "wool_red.png"]);
-    // Probe's: soldier (no team colors), builder (team wool) and scout (team leather) for red and blue.
+    // Probe's: soldier (no team colors), builder (team wool), scout and painter (team leather) for red and blue.
     const probeOut = await tempDir();
-    expect(await addGameKitPictures(probeOut, probe, [], TEXTURES)).toBe(5);
+    expect(await addGameKitPictures(probeOut, probe, [], TEXTURES)).toBe(7);
     const folder = join(probeOut, "textures", "minecade", "kits");
-    expect((await readdir(folder)).sort()).toEqual(["builder_blue.png", "builder_red.png", "scout_blue.png", "scout_red.png", "soldier.png"]);
+    expect((await readdir(folder)).sort()).toEqual([
+      "builder_blue.png",
+      "builder_red.png",
+      "painter_blue.png",
+      "painter_red.png",
+      "scout_blue.png",
+      "scout_red.png",
+      "soldier.png",
+    ]);
     // The scout's chestplate and boots share the last slot, in red: 200 gray times red's 0.85, 0.15, 0.15.
     const scout = decodePng(await readFile(join(folder, "scout_red.png")));
     expect(pixel(scout, 8 * 80 + 8 + 16, 40)).toEqual([170, 30, 30, 255]);
+    // The painter's guns are the guns pack's own items: their hotbar icons fill the first four slots.
+    const painter = decodePng(await readFile(join(folder, "painter_red.png")));
+    const drawn = (slot: number) => {
+      let solid = 0;
+      for (let y = 8; y < 72; y++) for (let x = slot * 80 + 8; x < slot * 80 + 72; x++) if (pixel(painter, x, y)[3] === 255) solid++;
+      return solid;
+    };
+    for (const slot of [0, 1, 2, 3]) expect(drawn(slot), `slot ${slot}`).toBeGreaterThan(200);
+    expect(drawn(4)).toBe(0);
   });
 });
 

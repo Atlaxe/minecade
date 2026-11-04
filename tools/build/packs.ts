@@ -30,14 +30,17 @@ export interface SharedPack {
 }
 
 /**
- * The shared packs that exist and have content: the core resource pack, and the shared blocks pack
- * (packs/blocks/, which stays empty until the custom blocks land).
+ * The shared packs that exist and have content: the shared blocks pack (packs/blocks/, generated
+ * and git-ignored), the core resource pack, and the shared guns pack (packs/guns/, any game can
+ * hand its guns out).
  */
 export async function sharedPacks(): Promise<SharedPack[]> {
   const candidates: SharedPack[] = [
     { kind: "behavior", name: "blocks_bp", dir: join(root, "packs", "blocks", "behavior_pack") },
     { kind: "resource", name: "blocks_rp", dir: join(root, "packs", "blocks", "resource_pack") },
     { kind: "resource", name: "core_rp", dir: join(root, "packages", "minigame-core", "resource_pack") },
+    { kind: "behavior", name: "guns_bp", dir: join(root, "packs", "guns", "behavior_pack") },
+    { kind: "resource", name: "guns_rp", dir: join(root, "packs", "guns", "resource_pack") },
   ];
   const found: SharedPack[] = [];
   for (const pack of candidates) {

@@ -4,8 +4,8 @@ import { defineGame } from "@minecade/minigame-core/config";
 // back to the lobby. Exercises the whole framework lifecycle without game rules of its own. It has
 // two teams and a Round setting to test the lobby's game screen and team picking, and three kits to
 // test the kit form's pictures (a full hotbar with armor, a full hotbar without, a few items with
-// leather in the team's color): set DEV_MIN_PLAYERS=1 to play it alone. Probe says what it got in
-// chat when the match starts.
+// leather in the team's color), plus a Painter kit to try the shared guns: set DEV_MIN_PLAYERS=1 to
+// play it alone. Probe says what it got in chat when the match starts.
 export default defineGame({
   id: "probe",
   name: "Probe",
@@ -61,6 +61,19 @@ export default defineGame({
         id: "scout",
         name: "Scout",
         items: [{ item: "minecraft:stone_sword" }, { item: "minecraft:bow" }, { item: "minecraft:arrow", count: 16 }],
+        armor: { head: "minecraft:leather_helmet", chest: "minecraft:leather_chestplate", legs: "minecraft:leather_leggings", feet: "minecraft:leather_boots" },
+        teamArmor: true,
+      },
+      // The shared guns pack's guns and grenades (packs/guns): their balls splash in the team's color.
+      {
+        id: "painter",
+        name: "Painter",
+        items: [
+          { item: "minecade:paintball_pistol" },
+          { item: "minecade:paintball_rifle" },
+          { item: "minecade:paintball_shotgun" },
+          { item: "minecade:paint_grenade", count: 16 },
+        ],
         armor: { head: "minecraft:leather_helmet", chest: "minecraft:leather_chestplate", legs: "minecraft:leather_leggings", feet: "minecraft:leather_boots" },
         teamArmor: true,
       },
