@@ -46,6 +46,11 @@ export function pairPlots(spawns: readonly MapPosition[], boxes: readonly Box[])
   });
 }
 
+/** The bottom layer of a box: what /floor lays. */
+export function floorOf(box: Box): Box {
+  return { min: [...box.min] as Vec3, max: [box.max[0], box.min[1], box.max[2]] };
+}
+
 /** A box grown by `by` blocks on every side. */
 export function grow(box: Box, by: number): Box {
   return { min: box.min.map((value) => value - by) as Vec3, max: box.max.map((value) => value + by) as Vec3 };

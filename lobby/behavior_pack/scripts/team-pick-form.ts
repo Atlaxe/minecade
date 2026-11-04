@@ -9,7 +9,7 @@
 // own team, dimmed when full. If a form with pictures can't show, it's shown again with plain buttons.
 import { system, type Player } from "@minecraft/server";
 import { CustomForm, DataDrivenScreenClosedReason, ObservableBoolean, ObservableString } from "@minecraft/server-ui";
-import { describeError, log, teamButtonPath, type TeamButtonState } from "@minecade/minigame-core";
+import { describeError, log, stripColors, teamButtonPath, type TeamButtonState } from "@minecade/minigame-core";
 import type { TeamPickView } from "./team-pick-controller.ts";
 
 /** Tries while the player is busy with another screen, 10 ticks apart (like showForm). */
@@ -80,13 +80,14 @@ export class TeamPickForm {
   update(view: TeamPickView): void {
     this.view = view;
     const mine = this.mine();
-    this.status.setData(view.status);
+    // Live forms show color codes as typed (docs/ui.md), so none go in.
+    this.status.setData(stripColors(view.status));
     view.teams.forEach((team, index) => {
       const row = this.rows[index];
       if (!row) return;
       const members = team.members.length > 0 ? team.members.join(", ") : "Nobody yet";
       const state: TeamButtonState = team.id === mine ? "on" : team.full ? "full" : "join";
-      row.label.setData(`${team.color}${team.name}§r  ${team.members.length}/${team.cap}\n§7${members}`);
+      row.label.setData(`${team.name}  ${team.members.length}/${team.cap}\n${members}`);
       row.button.setData(state === "on" ? `On ${team.name}` : state === "full" ? `${team.name} is full` : `Join ${team.name}`);
       row.picture.setData(teamButtonPath(team, state));
       row.disabled.setData(state !== "join");
@@ -94,7 +95,7 @@ export class TeamPickForm {
     this.random.setData("Random team");
     this.randomPicture.setData(teamButtonPath(undefined, mine === undefined ? "on" : "join"));
     this.randomDisabled.setData(mine === undefined);
-    this.unpicked.setData(view.unpicked.length > 0 ? `§7Random: ${view.unpicked.join(", ")}` : "");
+    this.unpicked.setData(view.unpicked.length > 0 ? `Random: ${view.unpicked.join(", ")}` : "");
   }
 
   close(): void {

@@ -1,14 +1,14 @@
-// Sumo against the fake world, on its real arena map: hits never hurt, a knock-off below the
-// platform is a kill for the last hitter, and the last player standing wins.
-import { readFileSync } from "node:fs";
+// Sumo against the fake world, on the arena map it first shipped with: hits never hurt, a knock-off
+// below the platform is a kill for the last hitter, and the last player standing wins.
 import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
-import { runtimeMapConfig, stripColors, type MapConfig } from "@minecade/minigame-core/config";
+import { runtimeMapConfig, stripColors } from "@minecade/minigame-core/config";
 import { transfers } from "../../../packages/minigame-core/test/fake-mc-server-admin.ts";
 import { world, type FakePlayer } from "../../../packages/minigame-core/test/fake-mc-server.ts";
 import {
   createHarness,
   everyoneLeaves,
   expectBaseline,
+  hudClock,
   playToEnd,
   snapshot,
   statsRows,
@@ -18,7 +18,17 @@ import {
 import config from "../game.config.ts";
 import { Sumo, pushDirection } from "../behavior_pack/scripts/sumo.ts";
 
-const arena = runtimeMapConfig(JSON.parse(readFileSync(new URL("../maps/arena_1/map.json", import.meta.url), "utf8")) as MapConfig);
+/** The Arena map's map.json (its world was deleted from the game's maps on 2026-11-04). */
+const arena = runtimeMapConfig({
+  name: "Arena",
+  spawns: [
+    [5, 65, 0], [3, 65, 4], [-3, 65, 4],
+    [-5, 65, 0], [-3, 65, -4], [3, 65, -4],
+  ],
+  spectatorSpawn: [0, 71, 0, -100, 90],
+  bounds: { min: [-20, 50, -20], max: [20, 90, 20] },
+  killY: 58,
+});
 const COUNTDOWN_TICKS = config.countdownSeconds * 20 + 5;
 
 let harness: Harness;
@@ -59,7 +69,7 @@ describe("Sumo", () => {
       expect(a.sounds.map((sound) => sound.id)).toEqual(["note.hat", "note.hat", "note.bell", "note.bell", "note.bell", "random.levelup"]);
       expect(a.titles.map(stripColors).at(-1)).toBe("Go! | Sumo");
       await ticks(10);
-      expect(stripColors(a.actionBar)).toMatch(/^(3:00|2:\d\d)$/); // Sumo's 3 minutes, drawn top right by the core pack
+      expect(hudClock(a.actionBar)).toMatch(/^(3:00|2:\d\d)$/); // Sumo's 3 minutes, drawn top right by the core pack
 
       world.melee(a, b, 5);
       expect(b.health.currentValue).toBe(20); // the hit landed with 0 damage
@@ -93,7 +103,7 @@ describe("Sumo", () => {
     const [a, b] = players;
     await playToEnd(game, harness.root, baseline, async () => {
       await ticks(COUNTDOWN_TICKS + 10);
-      expect(stripColors(a.actionBar)).toMatch(/^(5:00|4:5\d)$/);
+      expect(hudClock(a.actionBar)).toMatch(/^(5:00|4:5\d)$/);
       knockOff(b);
       await ticks(3);
     });

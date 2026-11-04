@@ -3,7 +3,7 @@
 // is reported at once; mapWarnings lists things worth a look that don't stop a build.
 import type { MapRequirementsConfig } from "./config.ts";
 import { BUILD_LIMIT_SIDES, MAP_TIMES, QUEUE_COUNTDOWN, QUEUE_MODES, enclosingBox, mapTimeTicks, type Box, type BuildLimitSide, type MapConfig, type MapPosition, type Vec3 } from "./map-config.ts";
-import { bigEnough, boxSize, mapRequirements, type MapRequirement } from "./map-requirements.ts";
+import { bigEnough, boxSize, mapRequirements, mapSettings, settingFits, type MapRequirement } from "./map-requirements.ts";
 
 /** Bedrock overworld height limits. */
 const MIN_Y = -64;
@@ -153,6 +153,11 @@ export function validateMapConfig(raw: unknown, rules: MapRules): string[] {
       });
     }
     if (bounds === undefined) problems.push('"bounds" is required when "build" is present (baking works inside it)');
+  }
+  // The game's settings are optional (a map without one gets the default), but must fit when set.
+  for (const setting of mapSettings(rules.requires)) {
+    const value = (raw as Record<string, unknown>)[setting.key];
+    if (value !== undefined && !settingFits(setting, value)) problems.push(`"${setting.key}" must be a whole number from ${setting.min} to ${setting.max}`);
   }
   problems.push(...editorKeyProblems(map));
   return problems;

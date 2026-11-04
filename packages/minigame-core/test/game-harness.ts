@@ -6,6 +6,7 @@ import type { ServerContext } from "../src/context.ts";
 import type { GameContext, Minigame } from "../src/game/minigame.ts";
 import type { Result } from "../src/game/results.ts";
 import { playSession } from "../src/game/session.ts";
+import { CLOCK_PLACES } from "../src/hud.ts";
 import type { MapConfig } from "../src/map-config.ts";
 import { normalizePlayer } from "../src/player.ts";
 import type { InboundMessage, MatchStats, OutboundEvent, StatsRow } from "../src/protocol/index.ts";
@@ -160,6 +161,13 @@ export function expectBaseline(root: Scope, baseline: Baseline): void {
     expect(player.health.currentValue).toBe(20);
   }
   expect(vi.mocked(console.warn).mock.calls.flat().join("\n")).not.toMatch(/left resources behind|cleanup failed/);
+}
+
+/** The clock a HUD line shows top right ("2:53"), read from its codes (hud.ts clockCodes); "" without one. */
+export function hudClock(line: string): string {
+  const digit = (place: string) => line.match(new RegExp(`${place}§(\\d)`))?.[1] ?? "";
+  const [minuteTens, minuteUnits, secondTens, secondUnits] = CLOCK_PLACES.map(digit);
+  return minuteUnits ? `${minuteTens}${minuteUnits}:${secondTens}${secondUnits}` : "";
 }
 
 /** The stats rows sent since `from` (an index into `sent`). */

@@ -154,6 +154,23 @@ describe("fake players in a preview", () => {
     expectBaseline(harness.root, baseline);
   });
 
+  it("skip the stage under way after a map editor's /skip; a guest can't skip", async () => {
+    const { players, baseline, game } = preview(["A", "Guest"], { ...FFA, win: "custom", timeLimitSeconds: 600 }, ["Guest"]);
+    const [a, guest] = players;
+    const result = await playToEnd(game, harness.root, baseline, async () => {
+      await ticks(1);
+      expect(stripColors(game.skipPreview(a as never) ?? "")).toContain("There's nothing to skip right now");
+      await ticks(COUNTDOWN_TICKS);
+      expect(stripColors(game.skipPreview(guest as never) ?? "")).toBe("Only a map editor can skip.");
+      expect(game.activeStage?.name).toBe("Match");
+      // The match's one stage: skipping it is time running out early.
+      expect(game.skipPreview(a as never)).toBeUndefined();
+    });
+    expect(result).toMatchObject({ kind: "draw" });
+    expect(world.chat.map(stripColors)).toContain("A skipped Match.");
+    expectBaseline(harness.root, baseline);
+  });
+
   it("can't join a running match that lets nobody in; a guest's /exit only sends them home", async () => {
     transfers.length = 0;
     const { players, baseline, game } = preview(["A", "Guest"], { ...FFA, lateJoin: "spectate", win: "custom", timeLimitSeconds: 2 }, ["Guest"]);

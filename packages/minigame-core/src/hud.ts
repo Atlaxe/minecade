@@ -1,24 +1,32 @@
 // The HUD timer and countdown sounds, shared by games and the lobby.
 //
-// Timer: Bedrock has no script API for placing text on the HUD, so the clock rides on the action
-// bar. A game sends HUD_MARK plus the clock and anything else ("Lives: 2"), and the core resource
-// pack (packages/minigame-core/resource_pack/ui/hud_screen.json) shows marked lines in a box top
-// right with a clock icon. The mark is formatting codes, which never render, so the box shows the
-// line as is, and without the pack the action bar simply reads "2:53   Lives: 2".
+// The HUD top right: Bedrock has no script API for placing text on the HUD, so everything there
+// rides on the action bar. A line starting with HUD_MARK (formatting codes, which never render)
+// shows top right instead of above the hotbar (the core resource pack's ui/hud_screen.json), each
+// thing in a bubble of its own: the clock's, the own score's and the rounds' side by side, and the
+// line's text ("Lives: 2", Build Swap's prompt) in one above them. A new thing there always gets
+// its own bubble (docs/ui.md).
 //
-// Own score: a game whose scoring shows "own" also shows each player their score in a box of its
-// own left of the clock, with a skull. JSON UI can't cut text out of the action bar, so the number
-// rides at the end of the line as formatting codes too (countCodes), and the pack shows the digit
-// whose code it finds in each place.
-//
-// Best-of rounds: a game played in best-of rounds shows them in a box of their own, left of the
-// others, the same way (bestOfCodes): a circle per round colored by its winner, or each side's round
-// wins in its color ("R | B"). The pack's controls for them are generated from these codes
-// (tools/assets/rounds-hud.ts writes ui/minecade_rounds.json).
+// JSON UI can't cut text out of the action bar, so only the text is visible; everything else rides
+// at the end of the line as more formatting codes, and the pack shows the digit or picture whose
+// code it finds in each place:
+// - Clock: each place's digit (clockCodes), red in the last 30 seconds, after a clock icon.
+// - Own score: a game whose scoring shows "own" shows each player their score with a skull
+//   (countCodes).
+// - Best-of rounds: a circle per round colored by its winner, or each side's round wins in its color
+//   ("R | B") (bestOfCodes).
+// The pack's controls for the clock and the rounds are generated from these codes
+// (tools/assets/clock-hud.ts and rounds-hud.ts write ui/minecade_clock.json and minecade_rounds.json).
 import type { Player } from "@minecraft/server";
 
-/** Starts every action bar line that carries the clock. Must match the core pack's hud_screen.json. */
+/** Starts every action bar line shown top right. Must match the core pack's hud_screen.json. */
 export const HUD_MARK = "§r§m§c§r";
+/** After a line's text: the pack shows it in its own bubble, above the others. */
+export const TEXT_MARK = "§k§c";
+/** The clock's places (minutes' tens, minutes, seconds' tens, seconds), each before its digit as a code. Must match minecade_clock.json. */
+export const CLOCK_PLACES = ["§k§g", "§k§n", "§k§p", "§k§a"] as const;
+/** The clock in red: the last 30 seconds. */
+export const CLOCK_URGENT = "§k§b";
 
 /**
  * Starts a title that shows in the map editor's mode box top center instead of as a title: the
@@ -38,25 +46,39 @@ export const COUNT_PLACES = ["§k§h", "§k§t", "§k§u"] as const;
 /** The highest own score the HUD shows. */
 export const MAX_COUNT = 999;
 
-/** With no clock, the clock's box drops its icon (and shows the rest of the line) or, with nothing to show, goes. Must match hud_screen.json. */
-export const NO_CLOCK = "§k§o";
-export const EMPTY_CLOCK_BOX = "§k§v";
+/** The most minutes the clock shows (99:59). */
+const MAX_MINUTES = 99;
 
 /**
- * The action bar text for a stage clock (white, red in the last 30 seconds) plus the usual line,
- * the player's own score when `count` is given, and best-of rounds when `rounds` (bestOfCodes) is
- * (the pack shows each in its own box). Without a clock, it's just the line, unless there are
- * rounds to show.
+ * The action bar text for the HUD top right: the line's text (`rest`, its own bubble), a stage
+ * clock (red in the last 30 seconds), the player's own score when `count` is given, and best-of
+ * rounds when `rounds` (bestOfCodes) is, each in its own bubble. Without a clock or rounds it's just
+ * the text, shown above the hotbar like the vanilla action bar.
  */
 export function hudLine(secondsLeft: number | undefined, rest = "", count?: number, rounds = ""): string {
-  const codes = `${count === undefined ? "" : countCodes(count)}${rounds}`;
-  if (secondsLeft === undefined) {
-    if (!rounds) return rest;
-    return `${HUD_MARK}${rest ? `§f${rest}${NO_CLOCK}` : EMPTY_CLOCK_BOX}${codes}`;
-  }
-  const whole = Math.max(0, Math.ceil(secondsLeft));
-  const clock = `${Math.floor(whole / 60)}:${String(whole % 60).padStart(2, "0")}`;
-  return `${HUD_MARK}${whole <= URGENT_SECONDS ? "§c" : "§f"}${clock}${rest ? `§7   ${rest}` : ""}${codes}`;
+  if (secondsLeft === undefined && !rounds) return rest;
+  const text = rest ? `${rest}§r${TEXT_MARK}§r` : "";
+  const clock = secondsLeft === undefined ? "" : clockCodes(secondsLeft);
+  return `${HUD_MARK}${text}${clock}${count === undefined ? "" : countCodes(count)}${rounds}`;
+}
+
+/** Text alone top right, in its own bubble (the map editor's Replace mode). */
+export function hudText(text: string): string {
+  return `${HUD_MARK}${text}§r${TEXT_MARK}§r`;
+}
+
+/**
+ * The clock as formatting codes that never render: each place's codes, then its digit as a code
+ * ("§k§n§2§k§p§5§k§a§3§r" is 2:53), the minutes' tens only from 10, and CLOCK_URGENT first in the
+ * last 30 seconds. Partial seconds round up; 99:59 at most.
+ */
+export function clockCodes(secondsLeft: number): string {
+  const whole = Math.min(MAX_MINUTES * 60 + 59, Math.max(0, Math.ceil(secondsLeft)));
+  const minutes = Math.floor(whole / 60);
+  const seconds = whole % 60;
+  const [minuteTens, minuteUnits, secondTens, secondUnits] = CLOCK_PLACES;
+  const tens = minutes >= 10 ? `${minuteTens}§${Math.floor(minutes / 10)}` : "";
+  return `${whole <= URGENT_SECONDS ? CLOCK_URGENT : ""}${tens}${minuteUnits}§${minutes % 10}${secondTens}§${Math.floor(seconds / 10)}${secondUnits}§${seconds % 10}§r`;
 }
 
 /** Icons display: the number of circles (3 to 7), then each won circle's place (1 to 7) and its winner's color. */

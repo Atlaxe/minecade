@@ -43,7 +43,7 @@ The map editor sets spawns and points in game and writes `map.json` for you; see
 | `kits` | no | Games only: kits of the map's own, for a game whose players pick kits. `{ "mode": "append", "list": [kits] }` adds them after the game's (a kit with the same `id` as one of the game's takes its place); `"mode": "replace"` uses only the map's. A `base` replaces the game's base kit either way. Each kit is written as in `game.config.ts`: `{ "id": "ice", "name": "Ice", "refill": "round", "items": [{ "item": "minecraft:snowball", "count": 16 }] }`. The map editor keeps it as written; there's no screen for it yet. A game whose kits are the same on every map (`kits.mapKits: false`, Siege) refuses a map's own. |
 | `build.commands` | no | Console commands (no leading `/`) that build the world, run once by `npm run bake`. |
 | `source`, `cameras`, `mannequins`, `mannequinsInPreview` | no | Written by the map editor: where the map was cut from, its preview cameras (`{ "Camera 1": { "at": [x, y, z, yaw, pitch], "kind": "map" \| "game" } }`, the eye point and view the Camera tool saved), and its mannequins, stand-ins for game pictures (`{ "Mannequin 1": { "at": [x, y, z, yaw], "skin": "color", "color": "red", "pose": "standing", "hold": "minecraft:bow" } }`, the Mannequin tool's; ids from minigame-core's `fake-looks.ts`, or for a player's saved skin "p" and a hash of their xuid), and whether the mannequins stand in its previews (`true`, the Mannequin tool's Show in previews; a preview's server then gets them as `previewMannequins`, each look worked out for its pack). Servers never get them. |
-| anything else | no | Game-specific settings the game reads itself. |
+| anything else | no | Game-specific settings the game reads itself: the settings its config names (`map.settings`, below, set with the map editor's Game settings tool), each a whole number under its key (`"buildPadding": 4`), the default when it's left out. |
 
 **Positions** are `[x, y, z]`, or `[x, y, z, yaw, pitch]` with a fixed facing in degrees (yaw -180
 to 180, 0 faces south; pitch -90 up to 90 down). Whole x and z mean the middle of that block
@@ -109,6 +109,17 @@ A region can ask for big enough boxes: `minSize: 24` means every box spans at le
 each side (Build Swap's building boundaries). A smaller box doesn't count toward the region's
 `count`, the build names it as a problem, and the map editor's region tool won't save one.
 
+**Per-map settings:** `settings` names numbers the game reads from each map, which the map
+editor's Game settings tool sets (a game never needs a tool of its own for them):
+
+```ts
+settings: { buildPadding: { label: "Build padding", hint: "how far builders can go past their boundary", default: 2, min: 0, max: 32, unit: "blocks" } },
+```
+
+Each is a whole number from `min` to `max`, kept in `map.json` under its key; a map that leaves it
+out plays with `default`. The game reads it with `this.mapSetting("buildPadding")`. The build
+checks a map's value fits, and a setting's key can't be one `map.json` already has.
+
 `perTeam` entries are needed once for every team the game can have (`"buyZone.red"`,
 `"buyZone.blue"`). The short forms still work: `points: ["bombA", "bombB"]`,
 `regions: ["floor"]`, `teamSpawns: true`.
@@ -169,9 +180,12 @@ can't have `kits` of its own (the build and the editor's checklist refuse them).
 where one player builds; put one spawn in each (the game pairs each spawn with the box it stands
 in, or the nearest one left), facing the build if you like, since players also stand there to
 vote on that build. Put a floor under each box rather than inside it: players can change every
-block inside their box, and nothing outside it. Leave space between boxes (liquids that run out of
-a box are cleared from the block-thick shell around it, and a shell that cuts into another box is
-skipped). A box bigger than 64 blocks on a side works: the game saves it in 64-block pieces.
+block inside their box, and nothing outside it (`/floor` lays the block in hand across the box's
+bottom layer). Leave space between boxes (liquids that run out of a box are cleared from the
+block-thick shell around it, and a shell that cuts into another box is skipped). A box bigger than
+64 blocks on a side works: the game saves it in 64-block pieces. Builders are kept within 2 blocks
+of their box unless the map sets its own **Build padding** (`"buildPadding"`, 0 to 32, with the map
+editor's Game settings tool).
 
 **Paintball** needs team spawns for all four teams (Red, Blue, Yellow and Green, at least 2 each,
 since a match can have any of 2 to 4 teams), bounds, at least 8 Power-up spots (the Game marker

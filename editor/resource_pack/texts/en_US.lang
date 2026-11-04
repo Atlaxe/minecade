@@ -6,6 +6,7 @@ item.minecade:kill_y_tool=Kill Y tool
 item.minecade:camera_tool=Camera tool
 item.minecade:mannequin_tool=Mannequin tool
 item.minecade:time_tool=Time tool
+item.minecade:game_settings_tool=Game settings tool
 item.minecade:snapshot=Snapshot tool
 item.minecade:select_tool=Select tool
 entity.minecade:editor_marker.name=Marker

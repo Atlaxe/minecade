@@ -25,6 +25,7 @@ Outputs:
     editor/resource_pack/textures/items/marker_tool.png                       the Game marker tool (a flag)
     editor/resource_pack/textures/items/mannequin_tool.png                    the Mannequin tool (a figure on a stand)
     editor/resource_pack/textures/items/time_tool.png                         the Time tool (a clock)
+    editor/resource_pack/textures/items/game_settings_tool.png                the Game settings tool (sliders)
     editor/resource_pack/textures/entity/editor_marker_facing.png            the red facing line on markers
     editor/resource_pack/textures/entity/editor_marker*.png                  markers, a color per kind
     games/<id>/icon.png                                                      16:9 game pictures (Probe, Sumo, One in the Quiver, Bridges, Siege, Paintball)
@@ -782,6 +783,17 @@ def time_tool_icon() -> Image.Image:
     return image
 
 
+def game_settings_tool_icon() -> Image.Image:
+    """The Game settings tool's item icon, 16x16 like the other editor items: three sliders, each with its knob."""
+    image = Image.new("RGBA", (16, 16), (0, 0, 0, 0))
+    draw = ImageDraw.Draw(image)
+    track, knob, rim = (150, 150, 160, 255), (90, 200, 120, 255), (40, 110, 60, 255)
+    for y, x in ((2, 9), (7, 4), (12, 11)):
+        draw.rectangle((1, y, 14, y + 1), fill=track)
+        draw.rectangle((x - 2, y - 2, x + 1, y + 3), fill=knob, outline=rim)
+    return image
+
+
 def snapshot_frame() -> Image.Image:
     """
     The Snapshot view's 16:9 frame, 24x24 at 1x, nine-slice (8 pixel slices): a white L in each
@@ -997,6 +1009,7 @@ def main() -> None:
     save(marker_tool_icon(), EDITOR_TEXTURES / "items" / "marker_tool.png")
     save(mannequin_tool_icon(), EDITOR_TEXTURES / "items" / "mannequin_tool.png")
     save(time_tool_icon(), EDITOR_TEXTURES / "items" / "time_tool.png")
+    save(game_settings_tool_icon(), EDITOR_TEXTURES / "items" / "game_settings_tool.png")
     # A dropdown's arrow (the Game marker tool's Marker list, a Team list), closed and open.
     for kind in ("chevron_down", "chevron_up"):
         save(editor_icon(kind), EDITOR_TEXTURES / "minecade" / "editor" / f"icon_{kind}.png")

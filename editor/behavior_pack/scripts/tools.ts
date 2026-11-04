@@ -1,9 +1,10 @@
 // The map editor's tools, as plain data. Each is an item a map editor picks from the map menu's
 // tool grid: it goes in hotbar slot 1, unlocked, and only one tool is out at a time. A new tool
 // adds a row here and gets its icon in the grid. The Game marker tool is only there for a game (or
-// the lobby) whose config asks for points, and the Mannequin tool only on a game's maps.
+// the lobby) whose config asks for points, the Mannequin tool only on a game's maps, and the Game
+// settings tool only for a game with settings of its own (its config's map.settings).
 
-export type ToolId = "spawn" | "marker" | "region" | "killY" | "camera" | "snapshot" | "mannequin" | "time" | "select";
+export type ToolId = "spawn" | "marker" | "region" | "killY" | "camera" | "snapshot" | "mannequin" | "time" | "gameSettings" | "select";
 
 export interface EditorTool {
   id: ToolId;
@@ -82,6 +83,14 @@ export const EDITOR_TOOLS: EditorTool[] = [
     label: "Time tool",
     hint: "the map's time of day",
     howTo: "Use it, or tap Time here, to set the map's time of day, where its servers stop the daylight cycle: Noon, Dusk, Midnight or Dawn, or Custom (type a time on the 24-hour clock, or nudge it an hour at a time). The world shows the time you pick; Set time saves it.",
+  },
+  {
+    id: "gameSettings",
+    item: "minecade:game_settings_tool",
+    icon: "textures/items/game_settings_tool",
+    label: "Game settings tool",
+    hint: "the game's settings for this map",
+    howTo: "Use it, tap a setting here, or type /gamesettings, to change the game's own settings for this map (Build Swap's build padding): type a number or nudge it, then Set. A map that doesn't set one plays with its default.",
   },
 ];
 

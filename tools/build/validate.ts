@@ -1,7 +1,7 @@
 // Checks for game configs and map.json files. Each function returns a list of problems (empty
 // when valid) so the build can report everything at once instead of stopping at the first. The
 // map checks live in minigame-core, so the map editor shows the same problems live.
-import { MAX_ROUND_ICONS, MAX_SCORE_SIDES, MIN_BEST_OF, possibleTeams, type GameConfig } from "@minecade/minigame-core/config";
+import { MAX_ROUND_ICONS, MAX_SCORE_SIDES, MIN_BEST_OF, isMapKey, mapSettings, possibleTeams, settingFits, type GameConfig } from "@minecade/minigame-core/config";
 
 export { mapWarnings, validateMapConfig, type MapRules } from "@minecade/minigame-core/config";
 
@@ -52,11 +52,25 @@ export function validateGameConfig(config: GameConfig, folder: string): string[]
   if (config.respawn?.mode === "lives" && !(Number.isInteger(config.respawn.lives) && config.respawn.lives! >= 1)) {
     problems.push('respawn.lives must be at least 1 when respawn.mode is "lives"');
   }
+  problems.push(...validateMapSettings(config));
   return problems;
 }
 
 const KIT_SELECTS: readonly string[] = ["match", "round"];
 const REGION_NAME = /^[A-Za-z][A-Za-z0-9_]*$/;
+
+/** Per-map settings: a key of the game's own in map.json, whole numbers, and a default in range. */
+function validateMapSettings(config: GameConfig): string[] {
+  const problems: string[] = [];
+  for (const setting of mapSettings(config.map)) {
+    const where = `map.settings.${setting.key}`;
+    if (!REGION_NAME.test(setting.key) || isMapKey(setting.key)) problems.push(`${where}: the key must be letters, digits and _, starting with a letter, and not one map.json has`);
+    if (!setting.label) problems.push(`${where} needs a label`);
+    if (![setting.min, setting.max, setting.default].every(Number.isInteger) || setting.min > setting.max) problems.push(`${where}: min and max must be whole numbers, min no more than max`);
+    else if (!settingFits(setting, setting.default)) problems.push(`${where}: the default must be from ${setting.min} to ${setting.max}`);
+  }
+  return problems;
+}
 
 /** Best-of rounds: at least 3 rounds (or a first-to), and a display with room for them. */
 function validateBestOf(config: GameConfig): string[] {

@@ -1,7 +1,7 @@
 // What a game's (or the lobby's) maps need, from the `map` block of its config, as one flat list:
 // the build checks every map against it, and the map editor shows it as a checklist.
-import type { MapEntryRequirement, MapRequirementsConfig, MarkerStyle } from "./config.ts";
-import { BUILD_LIMIT_SIDES, teamKey, type Box, type BuildLimitSide, type Vec3 } from "./map-config.ts";
+import type { MapEntryRequirement, MapRequirementsConfig, MapSettingConfig, MarkerStyle } from "./config.ts";
+import { BUILD_LIMIT_SIDES, teamKey, type Box, type BuildLimitSide, type MapConfig, type Vec3 } from "./map-config.ts";
 
 /** "spectatorOrQueue": a spectator spawn or a queue spawn, either one (games that name neither). */
 export type MapField = "spawns" | "spectatorSpawn" | "queueSpawn" | "spectatorOrQueue" | "bounds" | "killY" | "buildLimit" | "points" | "regions" | "teamSpawns";
@@ -119,6 +119,28 @@ export function mapRequirements(map: MapRequirementsConfig | undefined, options:
 function buildLimitSides(value: MapRequirementsConfig["buildLimit"]): BuildLimitSide[] {
   if (!value) return [];
   return value === true ? [...BUILD_LIMIT_SIDES] : BUILD_LIMIT_SIDES.filter((side) => value[side]);
+}
+
+/** A game's per-map settings (its config's `map.settings`), in config order, each with its map.json key. */
+export function mapSettings(map: MapRequirementsConfig | undefined): (MapSettingConfig & { key: string })[] {
+  return Object.entries(map?.settings ?? {}).map(([key, setting]) => ({ key, ...setting }));
+}
+
+/** Whether `value` is something a setting can be: a whole number from its min to its max. */
+export function settingFits(setting: MapSettingConfig, value: unknown): value is number {
+  return typeof value === "number" && Number.isInteger(value) && value >= setting.min && value <= setting.max;
+}
+
+/** A setting's value on a map: the map's own when it fits, else the default. */
+export function mapSettingValue(setting: MapSettingConfig, map: MapConfig, key: string): number {
+  const value = map[key];
+  return settingFits(setting, value) ? value : setting.default;
+}
+
+/** "2 blocks", "1 block", "5". */
+export function settingText(setting: MapSettingConfig, value: number): string {
+  if (!setting.unit) return String(value);
+  return `${value} ${value === 1 && setting.unit.endsWith("s") ? setting.unit.slice(0, -1) : setting.unit}`;
 }
 
 function entriesOf(value: string[] | Record<string, MapEntryRequirement> | undefined): [string, MapEntryRequirement][] {

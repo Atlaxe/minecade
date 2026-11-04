@@ -2,11 +2,12 @@
 // form and the lobby's team form) with a status line (who's still writing, and the time left), two
 // text boxes (a prompt to build and a twist), a line for what's wrong with an answer, then Submit
 // and Skip. It comes back when closed until the player submits or skips; then it's closed for good.
-// What's typed goes through Minecraft's text filter when it can (the writer's own settings), since
-// prompts are shown to other players later. The rules around it are the game's, tested there.
+// Live forms show color codes as typed, so nothing on it has any (docs/ui.md). What's typed goes
+// through Minecraft's text filter when it can (the writer's own settings), since prompts are shown
+// to other players later. The rules around it are the game's, tested there.
 import { system, type Player } from "@minecraft/server";
 import { CustomForm, DataDrivenScreenClosedReason, ObservableString } from "@minecraft/server-ui";
-import { describeError, log } from "@minecade/minigame-core";
+import { describeError, log, stripColors } from "@minecade/minigame-core";
 
 /** Tries while the player is busy with another screen, 10 ticks apart (like the kit form). */
 const BUSY_RETRIES = 10;
@@ -41,7 +42,7 @@ export class PromptForm {
     this.player = player;
     this.title = title;
     this.handlers = handlers;
-    this.status.setData(status);
+    this.status.setData(stripColors(status));
   }
 
   /** True while it's up (or about to be) for this player; a rejoining player is a new Player, with a new form. */
@@ -57,7 +58,7 @@ export class PromptForm {
   }
 
   update(status: string): void {
-    this.status.setData(status);
+    this.status.setData(stripColors(status));
   }
 
   close(): void {
@@ -86,8 +87,8 @@ export class PromptForm {
     return new CustomForm(this.player, this.title)
       .label(this.status)
       .divider()
-      .textField("Build prompt", this.starter, { description: "§7Something to build: a pirate ship" })
-      .textField("Twist prompt", this.twist, { description: "§7Something to add or change: it's on fire" })
+      .textField("Build prompt", this.starter, { description: "Something to build: a pirate ship" })
+      .textField("Twist prompt", this.twist, { description: "Something to add or change: it's on fire" })
       .label(this.note)
       .button("Submit", () => void this.submit())
       .button("Skip", () => {
@@ -101,7 +102,7 @@ export class PromptForm {
     try {
       const [starter, twist] = await Promise.all([filtered(this.starter, this.player), filtered(this.twist, this.player)]);
       if (this.closed) return;
-      this.note.setData(this.handlers.submit({ starter, twist }) ?? "");
+      this.note.setData(stripColors(this.handlers.submit({ starter, twist }) ?? ""));
     } finally {
       this.busy = false;
     }

@@ -21,6 +21,7 @@ import { bestOfCodes, countdownChime, hudLine, playChime, previewLine, type Chim
 import { kitLines, kitPicturePath, teamColored } from "../kit-defs.ts";
 import { describeError, log } from "../log.ts";
 import { facingOf, worldPoint, type Box, type MapPosition } from "../map-config.ts";
+import { mapSettingValue } from "../map-requirements.ts";
 import { normalizePlayer } from "../player.ts";
 import type { Scope } from "../scope.ts";
 import { COLOR, deathMessage as formatDeath, nameOf, say, stripColors } from "../text.ts";
@@ -231,6 +232,9 @@ export abstract class Minigame<C extends GameConfig = GameConfig> {
    */
   protected beforeCountdown?(names: string[], scope: Scope): Promise<boolean>;
 
+  /** A preview's /skip during beforeCountdown: end the game's step now. True when there was one to end. */
+  protected skipPicking?(): boolean;
+
   /**
    * The match itself. The default is one stage of timeLimitSeconds (5 minutes unless set; 0 for
    * no limit), or until a win check ends it; or, with a `bestOf` config, best-of rounds
@@ -256,6 +260,16 @@ export abstract class Minigame<C extends GameConfig = GameConfig> {
   /** Boxes where nobody can build, on top of the map's no-build regions (Bridges: its holes). */
   protected noBuildBoxes(): Box[] {
     return [];
+  }
+
+  /**
+   * One of the game's per-map settings (its config's `map.settings`): this map's value, set with the
+   * map editor's Game settings tool, or the setting's default.
+   */
+  protected mapSetting(key: string): number {
+    const setting = this.config.map?.settings?.[key];
+    if (!setting) throw new Error(`${this.config.id} has no map setting "${key}"`);
+    return mapSettingValue(setting, this.map.config, key);
   }
 
   /** The match length in seconds, or undefined for no limit. */
@@ -1706,6 +1720,24 @@ export abstract class Minigame<C extends GameConfig = GameConfig> {
       return;
     }
     this.ctx.transfer.transfer(player, homePort(this.ctx.vars, player.name));
+  }
+
+  /**
+   * /skip: a map editor moves a preview on without waiting: the stage under way ends now (a round's
+   * clock, a vote, a break between rounds), or before the countdown, the game's own step does
+   * (skipPicking: Build Swap's prompts). Returns what to tell them, if anything.
+   */
+  skipPreview(player: Player): string | undefined {
+    if (!this.ctx.vars.lanPlayers.some((name) => name.toLowerCase() === player.name.toLowerCase())) return say.warn("Only a map editor can skip.");
+    if (this.currentPhase === "picking" && this.skipPicking?.()) {
+      this.broadcast(say.info(`${player.name} skipped ahead.`));
+      return undefined;
+    }
+    const stage = this.currentStage;
+    if (this.currentPhase !== "playing" || !stage) return say.minor("There's nothing to skip right now: try again once the match is under way.");
+    this.broadcast(say.info(`${player.name} skipped ${stage.name}.`));
+    stage.end();
+    return undefined;
   }
 
   /** /restart: a map editor ends the preview for everyone, who all play it again (as if they all picked Replay). */

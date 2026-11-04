@@ -242,15 +242,17 @@ game in gold and the map in orange.
      time, whatever you hold (see "Boundaries" below). Your switches are kept for your next map and
      the next boot (`work/editor/view.json`).
    - **The play icon** (Preview, game maps only): see "Preview".
-   - **The gear** (map settings): **Back to Lobby** (a house, at the right end) in its icon row (Select is on the map's card in the editor lobby); **Name and game settings** (the
-     map's name, its **Map id** once it has a name, and the game's own settings in `map.json`, such
-     as a number a game reads, as text fields; see "A new map id"); **Edit Map Thumbnail** and **Edit
+   - **The gear** (map settings): **Back to Lobby** (a house, at the right end) in its icon row (Select is on the map's card in the editor lobby); **Name and map id** (the
+     map's name, its **Map id** once it has a name, and any other key of the game's own in
+     `map.json` with a plain value, as text fields; the settings a game's config names are the Game
+     settings tool's; see "A new map id"); **Edit Map Thumbnail** and **Edit
      Minigame Thumbnail** (a game's maps, see "Pictures"); **Drop build commands** (red, maps made by
      `npm run bake`), which keeps the world as you change it; **Publish** (green, the checklist's
      too, see "Publishing"); and **Delete map** (red, see "Deleting a map").
 2. **Tools:** a grid of the tools' icons (the Spawn tool, the Game marker tool when the game has
    markers of its own, the Region tool, the Kill Y tool, the Camera tool, the Snapshot tool, the
-   Mannequin tool on a game's map, and the Time tool), with their names as tooltips. Tap one to put it in slot 1 and in your hand; the menu closes (open it
+   Mannequin tool on a game's map, the Time tool, and the Game settings tool when the game has
+   settings of its own), with their names as tooltips. Tap one to put it in slot 1 and in your hand; the menu closes (open it
    again for the tool's settings). Tap it again to put it away. The one you have out is outlined.
    One tool is out at a time: picking one puts any other away. The tool isn't locked, so you can
    move it; whatever was in slot 1 moves to a free slot.
@@ -267,6 +269,8 @@ game in gold and the map in orange.
      below**, each with its height ("not set" until it is), listed like the spawns. Tap one for its
      screen.
    - **Time tool:** the map's time of day. Tap it for its screen.
+   - **Game settings tool:** each of the game's own settings for this map (Build Swap's **Build
+     padding**), with its value, "(default)" while the map doesn't set it. Tap one for its screen.
 4. **Save:** a green bar at the bottom, outside the scrolling part. It saves the world into the map
    now (see Saving); its tooltip says whether blocks changed since the last save.
 
@@ -274,7 +278,8 @@ game in gold and the map in orange.
 the Spawn tool opens an entry's screen only aimed at a block, the Region tool only grows its box
 (save it from the map menu), and the Camera tool places a camera at once. The exceptions set one
 thing that isn't anywhere: a use of the Snapshot tool lists the cameras, and a use of the Kill Y
-tool or the Time tool opens its screen (with the back arrow to the map menu). A screen for what a tool
+tool, the Time tool or the Game settings tool opens its screen (with the back arrow to the map
+menu). A screen for what a tool
 sets up has a toggle first, then its settings and nudge rows (a
 minus and a plus each, **Step** cycling how far), and a green button pinned at the bottom that saves
 it; closing it keeps nothing. Once a new spawn, marker or box is saved, the next new one's screen
@@ -390,8 +395,17 @@ you back in creative at every spawn).
 - **Replace mode:** **/replace** (`/minecade:replace`) turns it on or off for you. While it's on, a
   right click on a block puts the block in your hand in its place, keeping what both blocks have
   (a stair's facing, a log's direction); with nothing in hand, or an item that isn't a block, a
-  right click does what it always does. The block a right click would replace is outlined, and the
-  box top right (where games show their clock) says **Replace mode** while no tool is in hand.
+  right click does what it always does. The block a right click would replace is outlined, and a
+  bubble top right (where games show their clock) says **Replace mode** while no tool is in hand.
+- **Game settings tool:** a game's own settings for each of its maps, set here instead of in a
+  tool of the game's own: the settings its config names (`map.settings` in `game.config.ts`, see
+  `docs/maps.md`). Build Swap has one, **Build padding**: how far past their building boundary
+  builders can go before they're put back (2 blocks unless the map says). A use of the tool,
+  tapping a setting in its settings, or **/gamesettings** (`/minecade:gamesettings`, with or without
+  the tool) opens its screen: the **Setting** list when the game has more than one, the value
+  (**Type a number**, or the minus and plus a step at a time), **Use the default** (red, once the
+  map sets its own), and **Set <setting>** (green) at the bottom. The map keeps the value in
+  `map.json` under the setting's key (`"buildPadding": 4`); Undo takes it back like any change.
 
 ## Saving
 
@@ -438,7 +452,10 @@ everyone going, at most 7), then **Start preview** (green).
    (`/minecade:restart`, map editors only) plays it again from the start for everyone, as if they
    all picked Replay: you wait in the editor lobby while it starts again. It can't restart on the
    same server, since a match changes the world (Bridges' blocks) and a preview starts from a fresh
-   copy of the map.
+   copy of the map. **/skip** (`/minecade:skip`, map editors only) skips ahead without waiting: the
+   stage under way ends now (a building round's clock, a vote, the break after one, a best-of
+   round; a game with one long stage ends), and before the countdown the game's own step does
+   (Build Swap's prompts: whoever hasn't written is skipped). Chat says who skipped what.
 
 **Fake players:** the ones picked before the preview loads wait with you from the start (the game
 reads `PREVIEW_FAKES`), and **/fake** (`/minecade:fake`) adds more, `/fake 3` three, up to the
@@ -558,7 +575,7 @@ but the lobby shows no picture of its own map.
 
 ## A new map id
 
-**Map id** in Name and game settings (it shows once the map has a name), or an imported name, gives
+**Map id** in Name and map id (it shows once the map has a name), or an imported name, gives
 the map open in Edit another id: everyone in Edit waits in the editor lobby, Edit saves and stops,
 the folder moves to `maps/<new id>/`, its world's list in Select and Recent follow, and it opens
 again under the new id with everyone back. An id the game has already is refused. A published map's

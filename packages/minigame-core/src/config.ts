@@ -322,6 +322,25 @@ export interface MapRequirementsConfig {
   bounds?: boolean;
   points?: string[] | Record<string, MapEntryRequirement>;
   regions?: string[] | Record<string, MapEntryRequirement>;
+  /**
+   * Settings the game reads from each map (map.json keys of its own), by key: Build Swap's
+   * buildPadding. The map editor's Game settings tool sets them; a map without one has its default.
+   */
+  settings?: Record<string, MapSettingConfig>;
+}
+
+/** A whole number a game reads from each of its maps (minigame.mapSetting), set in the map editor. */
+export interface MapSettingConfig {
+  /** Its name in the map editor: "Build padding". */
+  label: string;
+  /** What it changes, under its name in the map editor's Game settings tool. */
+  hint?: string;
+  /** What a map that doesn't set it gets. */
+  default: number;
+  min: number;
+  max: number;
+  /** What the number counts, after it: "blocks". */
+  unit?: string;
 }
 
 /** The lobby's definition, exported from lobby/lobby.config.ts: what its maps need. */

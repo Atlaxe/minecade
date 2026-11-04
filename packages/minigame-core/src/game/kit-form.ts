@@ -4,11 +4,12 @@
 // status line (who's still picking, while kits are being picked), each kit shows its picture (a
 // hotbar of its items with their counts and its armor in the last slot, drawn into the game's
 // resource pack by the build) over a button with its name, disabled once it's the player's (the
-// form ignores color codes on buttons, so it can't turn green). Nobody sees the others' picks. Not
-// unit-tested; the logic it shows is.
+// form shows color codes as typed, so nothing on it has any, and it can't turn green). Nobody sees
+// the others' picks. Not unit-tested; the logic it shows is.
 import { system, type Player } from "@minecraft/server";
 import { CustomForm, DataDrivenScreenClosedReason, ObservableBoolean, ObservableString } from "@minecraft/server-ui";
 import { describeError, log } from "../log.ts";
+import { stripColors } from "../text.ts";
 import type { KitPickView } from "./kit-picker.ts";
 
 /** Tries while the player is busy with another screen, 10 ticks apart (like showForm). */
@@ -83,10 +84,11 @@ export class KitForm {
   update(view: KitPickView): void {
     this.view = view;
     const mine = view.picks[this.player.name];
-    this.status.setData(view.status);
+    // Live forms show color codes as typed (docs/ui.md), so none go in.
+    this.status.setData(stripColors(view.status));
     this.content.kits.forEach((kit, index) => {
       const row = this.rows[index];
-      row.button.setData(kit.name);
+      row.button.setData(stripColors(kit.name));
       row.disabled.setData(kit.id === mine);
     });
   }
@@ -130,7 +132,7 @@ export class KitForm {
       const row = this.rows[index];
       if (status || index > 0) form.divider();
       if (this.pictures && pack !== undefined && kit.picture !== undefined) form.image(kit.picture, pack, { width: PICTURE_WIDTH });
-      else if (kit.lines.length > 0) form.label(`§7${kit.lines.join("§7, ")}`);
+      else if (kit.lines.length > 0) form.label(kit.lines.join(", "));
       form.button(row.button, () => this.onPick(kit.id), { disabled: row.disabled });
     });
     return form;

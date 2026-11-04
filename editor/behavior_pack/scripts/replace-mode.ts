@@ -1,13 +1,13 @@
 // Replace mode (/replace, in Edit): while it's on, a right click on a block puts the block in your
 // hand in its place, instead of next to it, keeping the states both blocks have (a stair's facing,
 // a log's axis). With nothing in hand, or an item that isn't a block, a right click does what it
-// always does. The aim cursor outlines the block a right click would replace, and the HUD's box top
-// right says the mode is on.
+// always does. The aim cursor outlines the block a right click would replace, and a bubble top right
+// says the mode is on.
 import { BlockPermutation, BlockTypes, system, world, type Block, type Player } from "@minecraft/server";
-import { HUD_MARK, NO_CLOCK, describeError, log, playChime, type Scope } from "@minecade/minigame-core";
+import { describeError, hudText, log, playChime, type Scope } from "@minecade/minigame-core";
 
-/** The HUD's line while replace mode is on: the box top right, without the clock's icon. */
-export const REPLACE_LINE = `${HUD_MARK}§eReplace mode${NO_CLOCK}`;
+/** The HUD's line while replace mode is on: a bubble of its own top right. */
+export const REPLACE_LINE = hudText("§eReplace mode");
 
 export class ReplaceMode {
   /** Who has it on, by lower-case name. */

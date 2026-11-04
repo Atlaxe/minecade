@@ -6,7 +6,7 @@ import { Minigame } from "../src/game/minigame.ts";
 import type { MapConfig } from "../src/map-config.ts";
 import { world, type FakePlayer } from "./fake-mc-server.ts";
 import { liveForms, openLiveForm } from "./fake-mc-server-ui.ts";
-import { createHarness, everyoneLeaves, expectBaseline, playToEnd, snapshot, ticks, type Harness } from "./game-harness.ts";
+import { createHarness, everyoneLeaves, expectBaseline, hudClock, playToEnd, snapshot, ticks, type Harness } from "./game-harness.ts";
 
 class TestGame extends Minigame {}
 
@@ -74,7 +74,7 @@ describe("a best-of team game with kits every round and building", () => {
       // Each kit's items as text (this game has no pictures) over a button with its name, and not
       // the base kit everyone gets.
       const texts = openLiveForm("A")!.texts();
-      expect(texts).toEqual(expect.arrayContaining(["§78x Snowball", "Snowballs", "Leap"]));
+      expect(texts).toEqual(expect.arrayContaining(["8x Snowball", "Snowballs", "Leap"]));
       expect(texts.join("\n")).not.toContain("Wool");
 
       openLiveForm("A")!.click("Snowballs");
@@ -89,7 +89,7 @@ describe("a best-of team game with kits every round and building", () => {
       expect(b.inventory.items()[1].nameTag).toBe("Leap");
       await ticks(10);
       expect(a.actionBar).toContain("§k§i§3§r"); // three white circles
-      expect(a.actionBar).toMatch(/^§r§m§c§r§f(10:00|9:5\d)/); // the clock over all the rounds
+      expect(hudClock(a.actionBar)).toMatch(/^(10:00|9:5\d)$/); // the clock over all the rounds
 
       // A throws three snowballs, then goes down: they come back with five, and their wool.
       a.inventory.slots[1]!.amount = 5;

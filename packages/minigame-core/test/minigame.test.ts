@@ -71,14 +71,14 @@ describe("three games in a row on one server", () => {
       expect(openLiveForm("C")!.texts()).toContain("Bow");
       await ticks(20);
       // Its items as text (this game has no pictures) over a button with its name.
-      expect(openLiveForm("B")!.texts()).toEqual([expect.stringContaining("Waiting for"), "§7Iron Sword", "Sword", "§7Bow", "Bow"]);
+      expect(openLiveForm("B")!.texts()).toEqual([expect.stringContaining("Waiting for"), "Iron Sword", "Sword", "Bow", "Bow"]);
       // After 30 seconds the rest get the first kit, and the countdown runs.
       await ticks(29 * 20);
       expect(game.phase).toBe("countdown");
       expect(["A", "B", "C", "D"].map(openLiveForm)).toEqual([undefined, undefined, undefined, undefined]);
       // The star brings up the kit form until the match starts (no status line): A changes to the sword.
       world.afterEvents.itemUse.emit({ source: a, itemStack: new ItemStack("minecraft:nether_star") });
-      expect(openLiveForm("A")!.texts()).toEqual(["§7Iron Sword", "Sword", "§7Bow", "Bow"]);
+      expect(openLiveForm("A")!.texts()).toEqual(["Iron Sword", "Sword", "Bow", "Bow"]);
       expect(openLiveForm("A")!.disabledButtons()).toEqual(["Bow"]);
       openLiveForm("A")!.click("Sword");
       expect(openLiveForm("A")!.disabledButtons()).toEqual(["Sword"]);

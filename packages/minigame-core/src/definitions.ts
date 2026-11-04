@@ -20,6 +20,7 @@ export {
   type MapKitsConfig,
   type MapEntryRequirement,
   type MapRequirementsConfig,
+  type MapSettingConfig,
   type MarkerStyle,
   type RespawnConfig,
   type ScoringConfig,
@@ -98,7 +99,7 @@ export {
 export { MapEditError, applyEdit, describeEdit, isMapKey, listKey, listOf, type MapEdit, type MapList } from "./map-edit.ts";
 export { mapChecklist, type Checklist, type ChecklistRow } from "./map-checklist.ts";
 export { formatMapConfig } from "./map-format.ts";
-export { bigEnough, boxSize, mapRequirements, regionMinSize, usesPlainSpawns, type MapField, type MapRequirement, type RequirementOptions } from "./map-requirements.ts";
+export { bigEnough, boxSize, mapRequirements, mapSettings, mapSettingValue, regionMinSize, settingFits, settingText, usesPlainSpawns, type MapField, type MapRequirement, type RequirementOptions } from "./map-requirements.ts";
 export { mapWarnings, validateMapConfig, type MapRules } from "./map-validate.ts";
 export { PROMPT_MAX_CHARS, cleanPrompt, dealPrompts, promptKey, promptReplyParts, type DealablePrompt } from "./prompts.ts";
 export {

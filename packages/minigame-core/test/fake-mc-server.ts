@@ -789,6 +789,19 @@ class FakeDimension {
     this.getBlock(location).setPermutation(permutation);
   }
 
+  /** Every block in a volume to one permutation, as the real fillBlocks (32,768 blocks at most). */
+  fillBlocks(volume: BlockVolume, block: BlockPermutation): void {
+    writable("Dimension::fillBlocks");
+    const [from, to] = [volume.from, volume.to];
+    const size = (Math.abs(to.x - from.x) + 1) * (Math.abs(to.y - from.y) + 1) * (Math.abs(to.z - from.z) + 1);
+    if (size > 32768) throw new Error("fillBlocks: the volume is over 32,768 blocks");
+    for (let x = Math.min(from.x, to.x); x <= Math.max(from.x, to.x); x++) {
+      for (let y = Math.min(from.y, to.y); y <= Math.max(from.y, to.y); y++) {
+        for (let z = Math.min(from.z, to.z); z <= Math.max(from.z, to.z); z++) this.setBlockPermutation({ x, y, z }, block);
+      }
+    }
+  }
+
   /** The blocks in a volume of the given types (only includeTypes is supported). */
   getBlocks(volume: BlockVolume, options: { includeTypes?: string[] }): { getBlockLocationIterator(): Iterable<Vector3> } {
     const found: Vector3[] = [];

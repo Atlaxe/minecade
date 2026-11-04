@@ -5,18 +5,25 @@
 // it. Builders stay anonymous until the winner is shown, with everyone's builds and points in chat.
 //
 // Players build in creative mode, only inside the building area they're working on (they can
-// change any block there), and are kept near it. Nothing spawned (mobs, items, armor stands) stays,
-// TNT and fire do nothing, and liquids that run out of an area are cleared.
+// change any block there, and /floor lays the block in hand across its bottom), and are kept
+// within the map's build padding of it. Out of their building time they're still in creative (so
+// voters can fly; adventure mode can't), but keep nothing from creative's inventory: a voter only
+// their vote blocks. Nothing spawned (mobs, items, armor stands) stays, TNT and fire do nothing, and
+// liquids that run out of an area are cleared.
 import {
+  BlockPermutation,
+  BlockVolume,
   Direction,
   EntityComponentTypes,
   EntityInitializationCause,
+  EquipmentSlot,
   GameMode,
   ItemLockMode,
   ItemStack,
   system,
   world,
   type Entity,
+  type Player,
   type Vector3,
 } from "@minecraft/server";
 import {
@@ -26,9 +33,11 @@ import {
   cleanPrompt,
   countdownChime,
   dealPrompts,
+  describeError,
   draw,
   facingOf,
   inside,
+  log,
   nameOf,
   ordinal,
   PROMPT_MAX_CHARS,
@@ -45,7 +54,7 @@ import {
 import type config from "../../game.config.ts";
 import { DEFAULT_STARTERS, DEFAULT_TWISTS } from "./default-prompts.ts";
 import { PromptForm, type PromptAnswer } from "./prompt-form.ts";
-import { LiquidGuard, PLOT_REGION, Snapshots, blockInside, clampInto, grow, pairPlots, swapPlots, type Plot } from "./plots.ts";
+import { LiquidGuard, PLOT_REGION, Snapshots, blockInside, clampInto, floorOf, grow, pairPlots, swapPlots, tiles, type Plot } from "./plots.ts";
 import { Ballot, VOTES, votePoints, voteText } from "./votes.ts";
 
 /** How often the prompt form's status and the players near their areas are checked, in ticks. */
@@ -62,6 +71,10 @@ const FAKE_VOTE_TICKS = [20, 80];
 const VOTE_SOUND = "random.orb";
 /** Dealt when every prompt is used up, which a full game list makes rare. */
 const FALLBACK = { starter: "Anything you like", twist: "Make it bigger" };
+/** The map setting (game.config.ts map.settings) for how far builders may go past their area. */
+const BUILD_PADDING = "buildPadding";
+/** Where armor and the off hand go: emptied with the inventory out of building time. */
+const WORN = [EquipmentSlot.Head, EquipmentSlot.Chest, EquipmentSlot.Legs, EquipmentSlot.Feet, EquipmentSlot.Offhand];
 
 const FACE_OFFSETS: Record<Direction, Vector3> = {
   [Direction.Down]: { x: 0, y: -1, z: 0 },
@@ -93,6 +106,7 @@ interface Scored {
 type Answer = PromptAnswer | "skip";
 
 const keyOf = (name: string) => name.toLowerCase();
+const corner = (at: readonly number[]): Vector3 => ({ x: at[0], y: at[1], z: at[2] });
 
 /** A shuffled copy. */
 export function shuffled<T>(list: readonly T[], random: () => number): T[] {
@@ -140,6 +154,8 @@ export class BuildSwap extends Minigame<typeof config> {
   private readonly scored: Scored[] = [];
   /** How many took part when the match began: one left of several wins. */
   private startedWith = 0;
+  /** A preview's /skip ended the prompt form's wait. */
+  private promptsSkipped = false;
 
   constructor(ctx: GameContext, gameConfig: typeof config) {
     super(ctx, gameConfig);
@@ -214,7 +230,10 @@ export class BuildSwap extends Minigame<typeof config> {
       this.removeSpawned(entity);
     });
     this.scope.subscribe(world.afterEvents.playerLeave, ({ playerName }) => this.ballot?.remove(playerName));
-    this.scope.interval(() => this.keepNear(), CHECK_TICKS);
+    this.scope.interval(() => {
+      this.keepNear();
+      this.keepHandsEmpty();
+    }, CHECK_TICKS);
   }
 
   // ---- The prompt form ----------------------------------------------------------------------
@@ -227,6 +246,7 @@ export class BuildSwap extends Minigame<typeof config> {
   protected override async beforeCountdown(_names: string[], scope: Scope): Promise<boolean> {
     const step = scope.child("prompts");
     step.add(() => this.closeForms());
+    this.promptsSkipped = false;
     try {
       for (let left = this.config.promptSeconds * 20; ; left -= CHECK_TICKS) {
         if (this.decided) return false;
@@ -235,7 +255,7 @@ export class BuildSwap extends Minigame<typeof config> {
           return false;
         }
         const waiting = this.writers().filter((name) => !this.answers.has(keyOf(name)));
-        if (waiting.length === 0 || left <= 0) break;
+        if (waiting.length === 0 || left <= 0 || this.promptsSkipped) break;
         this.showForms(waiting, left / 20);
         await step.wait(CHECK_TICKS);
       }
@@ -245,6 +265,13 @@ export class BuildSwap extends Minigame<typeof config> {
     for (const name of this.writers()) if (!this.answers.has(keyOf(name))) this.answers.set(keyOf(name), "skip");
     const players = Math.min(this.config.maxPlayers, this.online().length);
     this.bank.request({ starter: players * BANK_PER_PLAYER, twist: players * BANK_PER_PLAYER });
+    return true;
+  }
+
+  /** A preview's /skip while the prompt form is up: whoever hasn't answered is skipped, as when time runs out. */
+  protected override skipPicking(): boolean {
+    if (this.writers().every((name) => this.answers.has(keyOf(name)))) return false;
+    this.promptsSkipped = true;
     return true;
   }
 
@@ -389,7 +416,7 @@ export class BuildSwap extends Minigame<typeof config> {
       const worker = kind === "starter" ? build.builder : build.twister;
       if (!this.present(worker)) continue;
       this.working.set(keyOf(worker!), build);
-      this.keepIn.set(keyOf(worker!), { name: worker!, box: grow(build.plot.box, this.config.margin.build), plot: build.plot });
+      this.keepIn.set(keyOf(worker!), { name: worker!, box: grow(build.plot.box, this.mapSetting(BUILD_PADDING)), plot: build.plot });
       this.lines.set(keyOf(worker!), kind === "starter" ? `${COLOR.minor}Build: §f${build.starter}` : `${COLOR.minor}Twist: §f${build.twist}${COLOR.minor} on §f${build.starter}`);
       this.clearInventory(worker!);
       this.goTo(worker!, build.plot);
@@ -451,7 +478,7 @@ export class BuildSwap extends Minigame<typeof config> {
   /** Everyone to a build's spawn, kept near it. */
   private gather(plot: Plot): void {
     this.keepIn.clear();
-    const box = grow(plot.box, this.config.margin.vote);
+    const box = grow(plot.box, this.config.voteMargin);
     for (const name of this.online()) {
       if (this.roster.get(name)) this.keepIn.set(keyOf(name), { name, box, plot });
       this.goTo(name, plot);
@@ -591,7 +618,59 @@ export class BuildSwap extends Minigame<typeof config> {
     return undefined;
   }
 
+  // ---- /floor -------------------------------------------------------------------------------
+
+  /**
+   * /floor: the block in the player's hand becomes the floor of the area they're building in, the
+   * bottom layer of its boundary, whatever was there. Returns what happened.
+   */
+  floor(player: Player): string {
+    const box = this.workBox(player.name);
+    if (!box) return say.minor("Lay a floor while you're building.");
+    const item = player.getComponent(EntityComponentTypes.Inventory)?.container.getItem(player.selectedSlotIndex);
+    if (!item) return say.minor("Hold the block for the floor, then /floor.");
+    let block: BlockPermutation;
+    try {
+      block = BlockPermutation.resolve(item.typeId);
+    } catch {
+      return say.minor("That isn't a block: hold the block for the floor.");
+    }
+    const dimension = world.getDimension("overworld");
+    try {
+      for (const tile of tiles(floorOf(box))) dimension.fillBlocks(new BlockVolume(corner(tile.min), corner(tile.max)), block);
+    } catch (error) {
+      log.warn(`buildswap: could not lay ${player.name}'s floor: ${describeError(error)}`);
+      return say.warn("The floor didn't go down: try again.");
+    }
+    return say.success("Floor laid.");
+  }
+
   // ---- Helpers ------------------------------------------------------------------------------
+
+  /**
+   * Creative's inventory hands out any item, so outside their own building time players keep only
+   * what the game gave them: a voter their vote blocks in their slots, everyone else nothing (worn
+   * or held on the cursor either).
+   */
+  private keepHandsEmpty(): void {
+    if (this.phase !== "playing") return;
+    for (const player of world.getAllPlayers()) {
+      if (this.workBox(player.name)) continue;
+      const voter = this.ballot?.isVoter(player.name) === true;
+      try {
+        const container = player.getComponent(EntityComponentTypes.Inventory)?.container;
+        for (let slot = 0; container && slot < container.size; slot++) {
+          const item = container.getItem(slot);
+          if (item && !(voter && VOTES[slot]?.item === item.typeId)) container.setItem(slot);
+        }
+        const equipment = player.getComponent(EntityComponentTypes.Equippable);
+        for (const slot of WORN) if (equipment?.getEquipment(slot)) equipment.setEquipment(slot);
+        player.getComponent(EntityComponentTypes.CursorInventory)?.clear();
+      } catch {
+        // gone
+      }
+    }
+  }
 
   /** The area `name` may build in now: theirs to work on, while building is on. */
   private workBox(name: string): Plot["box"] | undefined {

@@ -50,7 +50,8 @@ import { goto } from "./goto.ts";
 import { keepModeLine, modeLine } from "./hud.ts";
 import { KillYTool } from "./kill-y-tool.ts";
 import { LoadingScreens } from "./loading.ts";
-import { onReplace, onReset } from "./commands.ts";
+import { onGameSettings, onReplace, onReset } from "./commands.ts";
+import { GameSettingsTool } from "./game-settings-tool.ts";
 import { HostLink } from "./link.ts";
 import { Overlay } from "./planes.ts";
 import { PLANE_BLOCK } from "./sheets.ts";
@@ -140,6 +141,7 @@ export class Editor {
   private readonly regionTool: RegionTool;
   private readonly killYTool: KillYTool;
   private readonly timeTool: TimeTool;
+  private readonly gameSettingsTool: GameSettingsTool;
   private readonly cameraTool: CameraTool;
   private readonly mannequinTool: MannequinTool;
   private readonly loading: LoadingScreens;
@@ -197,6 +199,7 @@ export class Editor {
     this.regionTool = new RegionTool(scope, host);
     this.killYTool = new KillYTool(host);
     this.timeTool = new TimeTool(host);
+    this.gameSettingsTool = new GameSettingsTool(host);
     this.mannequinTool = new MannequinTool({ ...host, aimedAt: (player) => this.aimedAt(player) });
     this.loading = new LoadingScreens(scope, (player, form) => this.show(player, form));
     this.cursors = new Cursors(scope, this.dimension, (player) => this.cursorAim(player));
@@ -278,6 +281,7 @@ export class Editor {
       else if (tool === "region") this.regionTool.use(source);
       else if (tool === "killY") void this.killYTool.use(source, () => this.mapMenu(source));
       else if (tool === "time") void this.timeTool.use(source, () => this.mapMenu(source));
+      else if (tool === "gameSettings") void this.gameSettingsTool.use(source, () => this.mapMenu(source));
       else if (tool === "camera") this.cameraTool.use(source);
       else if (tool === "snapshot") void this.cameraTool.snapshot(source);
       else if (tool === "mannequin") this.mannequinTool.use(source);
@@ -324,6 +328,7 @@ export class Editor {
     scope.interval(() => this.checkItems(), ITEMS_TICKS);
     onReset((player) => this.reset(player));
     onReplace((player) => this.replaceMode.toggle(player));
+    onGameSettings((player) => void this.gameSettingsTool.screen(player));
     keepModeLine(scope, () => modeLine("edit", `${this.info.targetName}: ${this.state.current.name}`), (player) => this.cameraTool.isLooking(player));
     this.refresh();
     void this.prepareWorld();
@@ -558,6 +563,7 @@ export class Editor {
       else if (tool === "region") hintBar(player, this.regionTool.hint(player));
       else if (tool === "killY") hintBar(player, this.killYTool.hint(player));
       else if (tool === "time") hintBar(player, this.timeTool.hint());
+      else if (tool === "gameSettings") hintBar(player, this.gameSettingsTool.hint(player));
       else if (tool === "camera") hintBar(player, this.cameraTool.hint(player));
       else if (tool === "mannequin") hintBar(player, this.mannequinTool.hint());
       else if (tool === "snapshot") hintBar(player, "Use: pick a camera to take its picture   Hit a camera: the same");
@@ -599,6 +605,7 @@ export class Editor {
       region: { selection: this.regionTool.menuSelection(player), entries: tool === "region" ? this.regionTool.entries() : [] },
       camera: { kind: this.cameraTool.kindOf(player) },
       items: this.info.rules.items ?? [],
+      gameSettings: this.gameSettingsTool.settings,
     });
     // The map and game are in the mode box top center, and how to use the tool is behind Help.
     const form = new ActionFormData().title(mapTitle("Map menu"));
@@ -669,6 +676,8 @@ export class Editor {
         return this.killYTool.screen(player, action.line, () => this.mapMenu(player));
       case "time":
         return this.timeTool.screen(player, () => this.mapMenu(player));
+      case "gameSetting":
+        return this.gameSettingsTool.screen(player, action.key, () => this.mapMenu(player));
       case "cameraKind":
         this.cameraTool.toggleKind(player);
         return this.mapMenu(player);
@@ -847,7 +856,7 @@ export class Editor {
     return this.boundariesMenu(player);
   }
 
-  /** The gear: Back to Lobby in its icon row, Name and game settings, the thumbnails (a game's map), then the red ones. */
+  /** The gear: Back to Lobby in its icon row, Name and map id, the thumbnails (a game's map), then the red ones. */
   private async settingsMenu(player: Player): Promise<void> {
     const entries = gearEntries({ build: this.state.current.build !== undefined, game: this.info.rules.kind === "game" });
     const form = new ActionFormData().title(iconsTitle("Map settings")).body(`${this.state.current.name} (${this.info.map}), ${this.info.targetName}`);
@@ -884,9 +893,11 @@ export class Editor {
 
   private async settingsForm(player: Player): Promise<void> {
     const config = this.state.current;
-    // Game settings are a game's own top-level keys with a plain value, such as Sumo's eliminationY.
+    // Other keys of a game's own with a plain value, as text: the settings its config names are the
+    // Game settings tool's.
+    const declared = new Set(this.gameSettingsTool.settings.map((setting) => setting.key));
     const extras = Object.entries(config).filter(
-      (entry): entry is [string, string | number | boolean] => !isMapKey(entry[0]) && ["string", "number", "boolean"].includes(typeof entry[1]),
+      (entry): entry is [string, string | number | boolean] => !isMapKey(entry[0]) && !declared.has(entry[0]) && ["string", "number", "boolean"].includes(typeof entry[1]),
     );
     // The map id shows once the map has a name: the form opens again with it after a first name.
     const named = config.name.trim() !== "";

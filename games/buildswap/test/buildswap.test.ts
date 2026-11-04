@@ -34,11 +34,16 @@ afterEach(() => {
   vi.mocked(console.warn).mockClear();
 });
 
-function start(names: string[], overrides: Partial<typeof config> = {}, settings: Record<string, string> = {}) {
+function start(names: string[], overrides: Partial<typeof config> = {}, settings: Record<string, string> = {}, map: MapConfig = ROW, editors: string[] = []) {
   const players = names.map((name) => world.join(name));
   const baseline = snapshot(harness.root);
   const from = harness.sent.length;
-  const game = new BuildSwap(harness.context(names, ROW, settings), { ...config, ...overrides });
+  const context = harness.context(names, map, settings);
+  if (editors.length > 0) {
+    context.vars.preview = "Build Swap: Row";
+    context.vars.lanPlayers = editors;
+  }
+  const game = new BuildSwap(context, { ...config, ...overrides });
   return { players, baseline, from, game };
 }
 
@@ -82,6 +87,10 @@ describe("Build Swap's config and map", () => {
       'this game needs 8 "regions.plot" entries, has 7',
     ]);
     expect(validateMapConfig({ ...ROW, spawns: SPAWNS.slice(0, 7) }, rules)[0]).toContain("8");
+    // The build padding is each map's own (the map editor's Game settings tool), 2 when it doesn't say.
+    expect(validateMapConfig({ ...ROW, buildPadding: 6 }, rules)).toEqual([]);
+    expect(validateMapConfig({ ...ROW, buildPadding: 99 }, rules)).toEqual(['"buildPadding" must be a whole number from 0 to 32']);
+    expect(config.map.settings.buildPadding.default).toBe(2);
   });
 
   it("pairs each spawn with the area it's in, or the nearest one left", () => {
@@ -155,7 +164,7 @@ describe("a match of Build Swap", () => {
       // Everyone must submit or skip: A writes both, B only a twist with a filtered word, C skips.
       openLiveForm("B")!.click("Submit");
       await ticks(1);
-      expect(openLiveForm("B")!.texts()).toContain("§cWrite a prompt, or skip.§r");
+      expect(openLiveForm("B")!.texts()).toContain("Write a prompt, or skip.");
       await write("A", "  A tiny §ahouse ", "Make it pink");
       await write("B", "", "Add a filtered dragon");
       openLiveForm("C")!.click("Skip");
@@ -280,7 +289,7 @@ describe("a match of Build Swap", () => {
       await ticks(11);
       expect(openLiveForm("A")).toBeDefined();
       await ticks(40);
-      expect(openLiveForm("A")).toBeUndefined();
+      expect([openLiveForm("A"), openLiveForm("B"), openLiveForm("C")]).toEqual([undefined, undefined, undefined]);
       answerBank(from, []);
       await ticks(COUNTDOWN_TICKS + 2);
       builds = game.allBuilds;
@@ -292,6 +301,71 @@ describe("a match of Build Swap", () => {
     expect(builds.map((build) => build.starter).every((starter) => starter.length > 0)).toBe(true);
     expect(result).toEqual({ kind: "win", players: ["A"], reason: "everyone else left" });
     expectBaseline(harness.root, baseline);
+    for (const player of players) world.leave(player.name);
+  });
+
+  it("lays a /floor of the block in hand, keeps builders within the map's padding, and takes creative's items away out of building time", async () => {
+    // A preview, with A its map editor: /skip moves it along.
+    const { players, baseline, from, game } = start(["A", "B", "C"], {}, {}, { ...ROW, buildPadding: 6 }, ["A"]);
+    const [a, b] = players;
+    const give = (player: FakePlayer, slot: number, item: string) => player.inventory.setItem(slot, new ItemStack(item));
+    const result = await playToEnd(game, harness.root, baseline, async () => {
+      await ticks(2);
+      expect(game.phase).toBe("picking");
+      expect(stripColors(game.skipPreview(b as never) ?? "")).toBe("Only a map editor can skip.");
+      expect(game.skipPreview(a as never)).toBeUndefined();
+      await ticks(12);
+      expect(openLiveForm("A")).toBeUndefined();
+      answerBank(from, []);
+      await ticks(COUNTDOWN_TICKS + 2);
+      expect(game.activeStage?.name).toBe("Get ready");
+      // Nothing from creative's inventory stays while reading the prompt, and no floor yet.
+      give(a, 0, "minecraft:stone");
+      expect(stripColors(game.floor(a as never))).toBe("Lay a floor while you're building.");
+      await ticks(11);
+      expect(a.inventory.items()).toHaveLength(0);
+      game.skipStage();
+      await ticks(2);
+
+      // Building: what's taken stays, /floor lays the block in hand across the area's bottom layer.
+      give(a, 0, "minecraft:stone");
+      a.selectedSlotIndex = 1;
+      expect(stripColors(game.floor(a as never))).toBe("Hold the block for the floor, then /floor.");
+      a.selectedSlotIndex = 0;
+      expect(stripColors(game.floor(a as never))).toBe("Floor laid.");
+      for (const at of ["0,64,0", "23,64,23", "12,64,7"]) expect(world.overworld.blocks.get(at)).toBe("minecraft:stone");
+      expect(world.overworld.blocks.has("12,65,7")).toBe(false);
+      expect(world.overworld.blocks.has("24,64,0")).toBe(false);
+      // This map's padding is 6 blocks: 4 past the area is fine, 17 past it isn't.
+      a.location = { x: 27, y: 70, z: 12 };
+      await ticks(11);
+      expect(a.location.x).toBe(27);
+      expect(a.inventory.items().map((item) => item.typeId)).toEqual(["minecraft:stone"]);
+      a.location = { x: 40, y: 70, z: 12 };
+      await ticks(11);
+      expect(a.location.x).toBe(29.5);
+      for (let skip = 0; skip < 3; skip++) {
+        game.skipPreview(a as never);
+        await ticks(2);
+      }
+
+      // Voting: a voter keeps their vote blocks and nothing else, worn or held; the builder keeps nothing.
+      expect(game.activeStage?.name).toBe("Vote");
+      const builder = players.find((player) => player.name === game.voting!.builder)!;
+      const voter = players.find((player) => player !== builder)!;
+      give(voter, 6, "minecraft:diamond_block");
+      voter.equipment.set("Head", new ItemStack("minecraft:diamond_helmet"));
+      give(builder, 0, "minecraft:stone");
+      await ticks(11);
+      expect(voter.inventory.items().map((item) => item.typeId)).toEqual(VOTES.map((vote) => vote.item));
+      expect(voter.equipment.get("Head")).toBeUndefined();
+      expect(builder.inventory.items()).toHaveLength(0);
+      game.exitPreview(a as never);
+    });
+    expect(result).toMatchObject({ kind: "aborted" });
+    expect(stripColors(world.chat.join("\n"))).toContain("A skipped ahead.");
+    expectBaseline(harness.root, baseline);
+    world.overworld.reset();
     for (const player of players) world.leave(player.name);
   });
 });

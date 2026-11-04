@@ -10,9 +10,11 @@ import {
   QUEUE_COUNTDOWN,
   listOf,
   lookText,
+  mapSettingValue,
   openKey,
   positionText,
   queueSettings,
+  settingText,
   type Box,
   type Facing,
   type FakeLook,
@@ -22,6 +24,7 @@ import {
   type HomeState,
   type MapCamera,
   type MapConfig,
+  type MapSettingConfig,
   type PictureInfo,
   type RecentEntry,
   type SelectionInfo,
@@ -93,6 +96,8 @@ export type MenuAction =
   | { kind: "killY"; line?: HeightLine }
   /** The Time tool's screen. */
   | { kind: "time" }
+  /** The Game settings tool's screen, on one of the game's settings (by its map.json key). */
+  | { kind: "gameSetting"; key: string }
   /** The camera tool: the kind of new cameras, and a camera's form. */
   | { kind: "cameraKind" }
   | { kind: "camera"; name: string }
@@ -152,7 +157,12 @@ export interface MapMenuView {
   camera?: { kind: CameraKind };
   /** What the game's mannequins can hold (every item in its kits), for their names in the Mannequin tool's settings. */
   items?: { item: string; label: string }[];
+  /** The game's per-map settings (its config's map.settings), for the Game settings tool. */
+  gameSettings?: GameSetting[];
 }
+
+/** One of the game's per-map settings, with its map.json key. */
+export type GameSetting = MapSettingConfig & { key: string };
 
 /** The map menu's buttons: the quick icons, the tools, the picked tool's settings, then Save. */
 export function mapMenuEntries(view: MapMenuView): MenuEntry[] {
@@ -171,8 +181,8 @@ export function mapMenuEntries(view: MapMenuView): MenuEntry[] {
     const ready = view.checklist.ready;
     entries.push({ action: { kind: "preview" }, text: `${MARK.quick}${ready ? "" : MARK.dim}Preview\n§7${ready ? `play it as ${view.game}, then come back` : "finish the checklist first"}`, icon: ICONS.play });
   }
-  entries.push({ action: { kind: "settings" }, text: `${MARK.quick}Map settings\n§7name, game settings, build commands`, icon: ICONS.settings });
-  editorTools(view.spawn.lists, view.game !== undefined).forEach((tool, i) => {
+  entries.push({ action: { kind: "settings" }, text: `${MARK.quick}Map settings\n§7name, thumbnails, build commands`, icon: ICONS.settings });
+  editorTools(view.spawn.lists, view.game !== undefined, (view.gameSettings ?? []).length > 0).forEach((tool, i) => {
     const picked = tool.id === view.tool ? MARK.on : "";
     entries.push({ action: { kind: "tool", tool: tool.id }, text: `${MARK.tool}${COLUMNS[i % COLUMNS.length]}${picked}${tool.label}\n§7${tool.hint}`, icon: tool.icon });
   });
@@ -186,14 +196,18 @@ export function mapMenuEntries(view: MapMenuView): MenuEntry[] {
   else if (view.tool === "snapshot") entries.push(...snapshotSettings(view.config));
   else if (view.tool === "mannequin") entries.push(...mannequinSettings(view.config, view.items ?? []));
   else if (view.tool === "time") entries.push(...timeSettings(view.config));
+  else if (view.tool === "gameSettings") entries.push(...gameSettingsSettings(view.config, view.gameSettings ?? []));
   entries.push({ action: { kind: "save" }, text: `${MARK.save}${saveText(view)}` });
   return entries;
 }
 
-/** The tools in the map menu's grid: the Game marker tool only when the game has markers of its own, the Mannequin tool only on a game's map. */
-export function editorTools(lists: SpawnList[], game: boolean): typeof EDITOR_TOOLS {
+/**
+ * The tools in the map menu's grid: the Game marker tool only when the game has markers of its own,
+ * the Mannequin tool only on a game's map, and the Game settings tool only when the game has settings.
+ */
+export function editorTools(lists: SpawnList[], game: boolean, settings = false): typeof EDITOR_TOOLS {
   const markers = lists.some((list) => list.tool === "marker");
-  return EDITOR_TOOLS.filter((tool) => (tool.id !== "marker" || markers) && (tool.id !== "mannequin" || game));
+  return EDITOR_TOOLS.filter((tool) => (tool.id !== "marker" || markers) && (tool.id !== "mannequin" || game) && (tool.id !== "gameSettings" || settings));
 }
 
 /** The Mannequin tool's settings: whether previews show them (off unless switched on), then the map's mannequins (tap one for its screen). */
@@ -593,6 +607,54 @@ export function timeScreenEntries(view: { preset?: TimePreset; ticks: number; op
   ];
 }
 
+// ---- Game settings ------------------------------------------------------------------------------
+// The Game settings tool: the game's own settings for this map (its config's map.settings, such as
+// Build Swap's build padding), each a whole number in map.json, or the default when the map has none.
+
+/** The Game settings tool's settings: each of the game's settings with its value on this map (tap one for its screen). */
+export function gameSettingsSettings(config: MapConfig, settings: GameSetting[]): MenuEntry[] {
+  return [
+    { action: { kind: "none" }, text: headingText("Game settings") },
+    ...settings.map((setting): MenuEntry => ({ action: { kind: "gameSetting", key: setting.key }, text: `${setting.label}\n§7${settingValueText(config, setting)}` })),
+  ];
+}
+
+/** "3 blocks", or "2 blocks (default)" on a map that doesn't set it. */
+export function settingValueText(config: MapConfig, setting: GameSetting): string {
+  const value = mapSettingValue(setting, config, setting.key);
+  return config[setting.key] === undefined ? `${settingText(setting, value)} (default)` : settingText(setting, value);
+}
+
+export type GameSettingAction =
+  | { kind: "back" }
+  | { kind: "open" }
+  | { kind: "setting"; key: string }
+  | { kind: "type" }
+  | { kind: "nudge"; by: 1 | -1 }
+  | { kind: "default" }
+  | { kind: "save" }
+  | { kind: "none" };
+
+/**
+ * The Game settings tool's screen: the Setting list when the game has more than one; the setting's
+ * value (typed, or nudged one at a time); Use the default (red, once the map sets its own), and Set,
+ * green, at the bottom.
+ */
+export function gameSettingScreenEntries(view: { settings: GameSetting[]; key: string; value: number; set: boolean; open: boolean; back?: boolean }): { action: GameSettingAction; text: string; icon?: string }[] {
+  const setting = view.settings.find((candidate) => candidate.key === view.key) ?? view.settings[0];
+  const options = view.settings.map((candidate) => ({ action: { kind: "setting", key: candidate.key } as const, label: candidate.label, on: candidate.key === setting.key }));
+  return [
+    ...(view.back ? [{ action: { kind: "back" } as const, text: BACK_TEXT, icon: ICONS.back }] : []),
+    ...(view.settings.length > 1 ? listRows<GameSettingAction>(view.open, { kind: "open" }, "Setting", options) : []),
+    { action: { kind: "none" }, text: `${MARK.lead}${headingText(`${setting.label}: ${settingText(setting, view.value)}`)}` },
+    { action: { kind: "type" }, text: `${MARK.lead}Type a number\n§7from ${setting.min} to ${setting.max}${setting.hint ? `: ${setting.hint}` : ""}` },
+    { action: { kind: "nudge", by: -1 }, text: `${MARK.minus}${setting.label}: ${view.value}`, icon: ICONS.minus },
+    { action: { kind: "nudge", by: 1 }, text: `${MARK.plus}One more`, icon: ICONS.new },
+    ...(view.set ? [{ action: { kind: "default" } as const, text: dangerText(`Use the default (${settingText(setting, setting.default)})`) }] : []),
+    { action: { kind: "save" }, text: saveBarText(`Set ${setting.label.toLowerCase()}`) },
+  ];
+}
+
 // ---- Mannequins ---------------------------------------------------------------------------------
 // The Mannequin tool: stand-ins for players in a game's picture. A mannequin's screen changes it at
 // once (each tap is an edit Undo takes back) and opens again, until it's closed.
@@ -913,12 +975,12 @@ const LOBBY_ENTRY: MenuEntry = { action: { kind: "lobby" }, text: LOBBY_TEXT, ic
 /** Edit's gear: Back to Lobby (right end) in the icon row, then the map's settings and the red ones. */
 export type GearAction = "settings" | "dropBuild" | "publish" | "delete" | "lobby" | "back" | "mapThumbnail" | "gameThumbnail";
 
-/** Edit's gear: the icon row, Name and game settings, the thumbnails (a game's map), then Publish (green) and the red ones. */
+/** Edit's gear: the icon row, Name and map id, the thumbnails (a game's map), then Publish (green) and the red ones. */
 export function gearEntries(view: { build: boolean; game: boolean }): { action: GearAction; text: string; icon?: string }[] {
   const entries: { action: GearAction; text: string; icon?: string }[] = [
     { action: "back", text: BACK_TEXT, icon: ICONS.back },
     { action: "lobby", text: LOBBY_TEXT, icon: ICONS.lobby },
-    { action: "settings", text: "Name and game settings" },
+    { action: "settings", text: "Name and map id" },
   ];
   if (view.game) entries.push({ action: "mapThumbnail", text: "Edit Map Thumbnail" }, { action: "gameThumbnail", text: "Edit Minigame Thumbnail" });
   if (view.build) entries.push({ action: "dropBuild", text: dangerText("Drop build commands") });
