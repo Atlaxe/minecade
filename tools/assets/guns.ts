@@ -1,10 +1,12 @@
-// Writes the shared guns pack (packs/guns): the pistol, rifle, shotgun and paint grenade as items
-// held as 3D models (attachables) with a recoil when they fire, the ball and thrown grenade
-// entities, the pickup that floats over a map spot, and the splash particle. The models are lists
-// of boxes below; the generator turns each into a Blockbench-ready geometry (box UV), a shaded
-// texture from the box colors, and a side-view icon for the hotbar, so any of it can be redrawn by
-// hand later. The guns' numbers come from packages/minigame-core/src/gun-defs.ts, which the games'
-// scripts read too. Rerun after changing either, and commit the files:
+// Writes the shared guns pack (packs/guns): the pistol, rifle, shotgun and paint grenade as items in
+// each of the 16 paint colors, held as 3D models (attachables) that come up to the middle of the
+// screen while aiming and kick back when they fire; the ball, thrown grenade and landed grenade
+// entities; the pickup that floats over a map spot; and the splash particle. The models are lists of
+// boxes below; the generator turns each into a Blockbench-ready geometry (box UV), a shaded texture
+// per paint color (a box painted "paint" takes the color), and a hotbar icon drawn from the model in
+// 3D, so any of it can be redrawn by hand later. The guns' names and numbers come from
+// packages/guns/src/defs.ts, which the games' scripts read too. Rerun after changing either, and
+// commit the files:
 //
 //     npx tsx tools/assets/guns.ts
 //
@@ -17,51 +19,56 @@ import {
   DYES,
   GRENADE,
   GUNS,
+  GUN_KINDS,
   GUN_PICKUP,
   KIND_PROPERTY,
   PAINTBALL,
   PAINT_RGB,
   PAINT_SPLASH,
   PICKUP_KINDS,
+  PRIMED_GRENADE,
   THROWN_GRENADE,
-  type GunDef,
+  gunItem,
+  shotMarker,
+  type Dye,
+  type GunKind,
   type PickupKind,
-} from "../../packages/minigame-core/src/gun-defs.ts";
-import { blankImage, encodePng, type Image } from "../skins/png.ts";
+} from "../../packages/guns/src/defs.ts";
+import { blankImage, encodePng } from "../skins/png.ts";
 
 const pack = (path: string) => fileURLToPath(new URL(`../../packs/guns/${path}`, import.meta.url));
 
-/** The models' colors (0xRRGGBB). Every team holds the same guns: the paint carries the team color. */
+/** The models' fixed colors (0xRRGGBB). A box painted "paint" takes the item's paint color instead. */
 const PALETTE = {
   body: 0x3b4047,
   metal: 0x9aa3ab,
   grip: 0x232427,
-  hopper: 0xe4e6e8,
   tank: 0x55636f,
   wood: 0x6b4a2b,
   accent: 0xc9a227,
 } as const;
-type Paint = keyof typeof PALETTE;
+type Paint = keyof typeof PALETTE | "paint";
 
 /** A box in pixels (16 to a block): its low corner, its size, its color. */
 interface Box {
-  from: [number, number, number];
-  size: [number, number, number];
+  from: Vec3;
+  size: Vec3;
   paint: Paint;
 }
+type Vec3 = [number, number, number];
 
-const box = (from: [number, number, number], size: [number, number, number], paint: Paint): Box => ({ from, size, paint });
+const box = (from: Vec3, size: Vec3, paint: Paint): Box => ({ from, size, paint });
 
 /**
- * The models, built facing north (-z, the way a model faces in Bedrock), top up, with the hand at
- * the origin: the grip runs down from it, the barrel points north.
+ * The models, built facing north (-z, the way a model faces in Bedrock), top up, with the top of the
+ * grip at the origin: the grip runs down from it, the barrel points north.
  */
 const MODELS: Record<PickupKind, Box[]> = {
   pistol: [
     box([-1, -6, -1], [2, 6, 3], "grip"),
     box([-1.5, 0, -7], [3, 3, 10], "body"),
     box([-1, 0.5, -12], [2, 2, 5], "metal"),
-    box([-1.5, 3, -5], [3, 4, 4], "hopper"),
+    box([-1.5, 3, -5], [3, 4, 4], "paint"),
     box([-0.5, -2, -4], [1, 1, 3], "grip"),
     box([-0.5, -1, -3], [1, 1, 1], "accent"),
     box([-0.5, 3, 1], [1, 1, 1], "metal"),
@@ -71,7 +78,7 @@ const MODELS: Record<PickupKind, Box[]> = {
     box([-1.5, 0, -11], [3, 4, 17], "body"),
     box([-1, 1, -23], [2, 2, 12], "metal"),
     box([-1.5, 0.5, -15], [3, 3, 4], "body"),
-    box([-2, 4, -8], [4, 6, 6], "hopper"),
+    box([-2, 4, -8], [4, 6, 6], "paint"),
     box([-1, -4, -9], [2, 4, 2], "grip"),
     box([-0.5, -2, -4], [1, 1, 4], "grip"),
     box([-0.5, -1, -2], [1, 1, 1], "accent"),
@@ -84,14 +91,14 @@ const MODELS: Record<PickupKind, Box[]> = {
     box([-2, 1, -20], [2, 2, 12], "metal"),
     box([0, 1, -20], [2, 2, 12], "metal"),
     box([-2, -1, -17], [4, 2, 6], "wood"),
-    box([-1.5, 4, -5], [3, 4, 4], "hopper"),
+    box([-1.5, 4, -5], [3, 4, 4], "paint"),
     box([-0.5, -2, -3], [1, 1, 4], "grip"),
     box([-0.5, -1, -1], [1, 1, 1], "accent"),
     box([-1.5, -1, 6], [3, 4, 8], "wood"),
     box([-1.5, -3, 14], [3, 7, 1], "grip"),
   ],
   grenade: [
-    box([-2, -3, -2], [4, 5, 4], "hopper"),
+    box([-2, -3, -2], [4, 5, 4], "paint"),
     box([-2.5, -1, -2.5], [5, 1, 5], "tank"),
     box([-1, 2, -1], [2, 1, 2], "metal"),
     box([2, -1, -0.5], [1, 3, 1], "grip"),
@@ -99,40 +106,52 @@ const MODELS: Record<PickupKind, Box[]> = {
   ],
 };
 
-/**
- * Where a held model sits, in degrees and pixels, on the "gun" bone the hand carries. Third person:
- * the arm hangs, so a model facing north already points ahead. First person turns it the way the
- * trident's first-person wield turns its pole (vanilla animation.trident.wield_first_person).
- * Tuning numbers: change, regenerate, look.
- */
-const HOLD: Record<PickupKind, { firstPerson: Transform; thirdPerson: Transform }> = {
-  pistol: { firstPerson: { rotation: [65, 0, 0], position: [-4, -10, -2] }, thirdPerson: { rotation: [0, 0, 0], position: [0, 0, 0] } },
-  rifle: { firstPerson: { rotation: [65, 0, 0], position: [-4, -10, 0] }, thirdPerson: { rotation: [0, 0, 0], position: [0, 0, 0] } },
-  shotgun: { firstPerson: { rotation: [65, 0, 0], position: [-4, -10, 0] }, thirdPerson: { rotation: [0, 0, 0], position: [0, 0, 0] } },
-  grenade: { firstPerson: { rotation: [20, 0, 0], position: [-4, -10, -2] }, thirdPerson: { rotation: [0, 0, 0], position: [0, -1, 0] } },
-};
-
-interface Transform {
-  rotation: [number, number, number];
-  position: [number, number, number];
-}
-
-/** A shot's kick on the "body" bone: back toward the player and the muzzle up, then home. */
-const RECOIL: Record<keyof typeof GUNS, { seconds: number; back: number; lift: number }> = {
+/** A shot's kick on the "body" bone: back toward the player and the muzzle up, then home, over `seconds`. */
+const RECOIL: Record<GunKind, { seconds: number; back: number; lift: number }> = {
   pistol: { seconds: 0.15, back: 1.5, lift: 8 },
-  rifle: { seconds: GUNS.rifle.everyTicks / 20, back: 1, lift: 4 },
+  // Just under the rifle's 4 ticks between shots, so each shot's kick starts fresh.
+  rifle: { seconds: 0.18, back: 1, lift: 4 },
   shotgun: { seconds: 0.3, back: 2.5, lift: 14 },
 };
 
-const ICON_SIZE = 32;
+/**
+ * Where each model sits in the hand, as places on the screen and around the fist (the solver below
+ * turns them into the attachables' rotations and positions). Pixels, degrees.
+ * - scale: its size in first person.
+ * - hip: the grip's top this far from the fist (right, up, ahead), the barrel turned in toward the
+ *   crosshair and tipped up, so the stock drops out of view.
+ * - aim (right click held): centered, its top `under` the crosshair (a fraction of half the
+ *   screen's height), the grip's top `depth` pixels ahead of the eye.
+ * - third: third person, the grip's top this far from the fist (right, up, ahead), level.
+ */
+const HOLD: Record<PickupKind, { scale: number; hip: Place; aim?: { under: number; depth: number }; third: Vec3 }> = {
+  pistol: { scale: 1.35, hip: { fromFist: [-1, 6, 4], turnIn: 4, tipUp: 10 }, aim: { under: 0.07, depth: 15 }, third: [0, 4.5, 1] },
+  rifle: { scale: 1.1, hip: { fromFist: [-1, 5, 4], turnIn: 4, tipUp: 10 }, aim: { under: 0.07, depth: 19 }, third: [0, 4.5, 1] },
+  shotgun: { scale: 1.15, hip: { fromFist: [-1, 5.2, 4], turnIn: 4, tipUp: 10 }, aim: { under: 0.07, depth: 18 }, third: [0, 4.5, 1] },
+  grenade: { scale: 1.3, hip: { fromFist: [0, 3.2, 2], turnIn: 20, tipUp: 10 }, third: [0, 1.5, 1] },
+};
+
+interface Place {
+  fromFist: Vec3;
+  turnIn: number;
+  tipUp: number;
+}
+
+const ICON_SIZE = 128;
+/** Each icon pixel is the average of this many samples squared, for smooth edges. */
+const ICON_SAMPLES = 3;
 const TEXTURE_WIDTH = 64;
 const BALL_SIZE = 16;
+/** A gun's swing on a left click, which fires it: short enough to barely show. */
+const GUN_SWING_SECONDS = 0.05;
 const GUN_TEXTURES = "textures/minecade/guns";
 
 const heldGeometry = (kind: PickupKind) => `geometry.minecade.gun_${kind}`;
 const displayGeometry = (kind: PickupKind) => `geometry.minecade.gun_${kind}_display`;
-const iconKey = (kind: PickupKind) => `minecade_gun_${kind}`;
-const gunOf = (kind: PickupKind): GunDef | undefined => (kind === "grenade" ? undefined : GUNS[kind as keyof typeof GUNS]);
+const modelTexturePath = (kind: PickupKind, dye: Dye) => `${GUN_TEXTURES}/${kind}/${dye}`;
+const iconKey = (kind: PickupKind, dye: Dye) => `minecade_gun_${kind}_${dye}`;
+const itemFile = (identifier: string) => identifier.replace("minecade:", "");
+const isGun = (kind: PickupKind): kind is GunKind => kind !== "grenade";
 
 // ---- Textures --------------------------------------------------------------------------------
 
@@ -153,90 +172,187 @@ function uvLayout(boxes: Box[]): { uvs: [number, number][]; height: number } {
   return { uvs, height };
 }
 
-const clamp = (value: number) => Math.max(0, Math.min(255, Math.round(value)));
-
-/** Sets a pixel to `rgb` scaled by `light`, with a little fixed grain so faces don't look flat. */
-function paintPixel(image: Image, x: number, y: number, rgb: number, light: number): void {
-  const grain = 1 + (((x * 73 + y * 151) % 17) - 8) / 220;
-  const [r, g, b] = [rgb >> 16, (rgb >> 8) & 0xff, rgb & 0xff].map((channel) => clamp(channel * light * grain));
-  image.data.set([r, g, b, 255], (y * image.width + x) * 4);
+/** A box's six faces: where each sits in its net (box UV), how lit the texture paints it, and its corner and edges in the model. */
+function boxFaces({ from, size }: Box, [u, v]: [number, number]): { rect: [number, number, number, number]; light: number; corner: Vec3; across: Vec3; down: Vec3; normal: Vec3 }[] {
+  const [w, h, d] = size;
+  const [x0, y0, z0] = from;
+  const [x1, y1, z1] = [x0 + w, y0 + h, z0 + d];
+  return [
+    { rect: [u + d, v, w, d], light: 1.18, corner: [x1, y1, z1], across: [-w, 0, 0], down: [0, 0, -d], normal: [0, 1, 0] },
+    { rect: [u + d + w, v, w, d], light: 0.66, corner: [x1, y0, z0], across: [-w, 0, 0], down: [0, 0, d], normal: [0, -1, 0] },
+    { rect: [u, v + d, d, h], light: 0.86, corner: [x1, y1, z1], across: [0, 0, -d], down: [0, -h, 0], normal: [1, 0, 0] },
+    { rect: [u + d, v + d, w, h], light: 1, corner: [x1, y1, z0], across: [-w, 0, 0], down: [0, -h, 0], normal: [0, 0, -1] },
+    { rect: [u + d + w, v + d, d, h], light: 0.86, corner: [x0, y1, z0], across: [0, 0, d], down: [0, -h, 0], normal: [-1, 0, 0] },
+    { rect: [u + 2 * d + w, v + d, w, h], light: 0.92, corner: [x0, y1, z1], across: [w, 0, 0], down: [0, -h, 0], normal: [0, 0, 1] },
+  ];
 }
 
-/** Fills one face of a box's net, its rim a shade darker so edges read. */
-function paintFace(image: Image, [x0, y0, w, h]: [number, number, number, number], rgb: number, light: number): void {
-  for (let y = y0; y < y0 + h; y++) {
-    for (let x = x0; x < x0 + w; x++) {
-      const rim = x === x0 || y === y0 || x === x0 + w - 1 || y === y0 + h - 1;
-      paintPixel(image, x, y, rgb, light * (rim && w > 2 && h > 2 ? 0.82 : 1));
-    }
-  }
+/** A model's texture before it's colored: each pixel's paint and light (its face's, a darker rim, a little grain). */
+interface TextureLayers {
+  width: number;
+  height: number;
+  paint: (Paint | undefined)[];
+  light: Float32Array;
 }
 
-/** The model's texture: each box's net in its color, the top lit, the bottom in shade. */
-function modelTexture(boxes: Box[]): Buffer {
+function textureLayers(boxes: Box[]): TextureLayers {
   const { uvs, height } = uvLayout(boxes);
-  const image = blankImage(TEXTURE_WIDTH, height);
-  boxes.forEach(({ size: [w, h, d], paint }, i) => {
-    const [u, v] = uvs[i];
-    const rgb = PALETTE[paint];
-    paintFace(image, [u + d, v, w, d], rgb, 1.18); // top
-    paintFace(image, [u + d + w, v, w, d], rgb, 0.66); // bottom
-    paintFace(image, [u, v + d, d, h], rgb, 0.86); // east
-    paintFace(image, [u + d, v + d, w, h], rgb, 1); // north
-    paintFace(image, [u + d + w, v + d, d, h], rgb, 0.86); // west
-    paintFace(image, [u + 2 * d + w, v + d, w, h], rgb, 0.92); // south
-  });
-  return encodePng(image);
-}
-
-/** How far a gun's icon turns up from level, barrel up and to the right like a sword's. */
-const ICON_TILT_DEGREES = 40;
-
-/**
- * The hotbar icon: the model seen from its right side (east), barrel to the right, tilted up so a
- * long gun fills the slot's diagonal, drawn nearest box last, with a dark outline.
- */
-function modelIcon(boxes: Box[], tiltDegrees: number): Buffer {
-  const image = blankImage(ICON_SIZE, ICON_SIZE);
-  const [, yMiddle, zMiddle] = middleOf(boxes);
-  const [cos, sin] = [Math.cos((tiltDegrees * Math.PI) / 180), Math.sin((tiltDegrees * Math.PI) / 180)];
-  // Along the barrel (north) and up, around the model's middle, turned onto the screen.
-  const toScreen = (z: number, y: number) => {
-    const [along, up] = [zMiddle - z, y - yMiddle];
-    return [along * cos - up * sin, along * sin + up * cos];
-  };
-  const corners = boxes.flatMap(({ from, size }) =>
-    [from[2], from[2] + size[2]].flatMap((z) => [from[1], from[1] + size[1]].map((y) => toScreen(z, y))),
-  );
-  const scale = (ICON_SIZE - 3) / (2 * Math.max(...corners.flat().map(Math.abs)));
-  const nearestLast = [...boxes].sort((a, b) => a.from[0] + a.size[0] - (b.from[0] + b.size[0]));
-  for (let py = 0; py < ICON_SIZE; py++) {
-    for (let px = 0; px < ICON_SIZE; px++) {
-      // Screen right and up, back onto the model's side.
-      const [right, up] = [(px + 0.5 - ICON_SIZE / 2) / scale, (ICON_SIZE / 2 - py - 0.5) / scale];
-      const z = zMiddle - (right * cos + up * sin);
-      const y = yMiddle + (-right * sin + up * cos);
-      for (const { from, size, paint } of nearestLast) {
-        if (z < from[2] || z > from[2] + size[2] || y < from[1] || y > from[1] + size[1]) continue;
-        const nearTop = y > from[1] + size[1] - 1 / scale;
-        paintPixel(image, px, py, PALETTE[paint], nearTop ? 1.2 : 0.95);
+  const layers: TextureLayers = { width: TEXTURE_WIDTH, height, paint: Array(TEXTURE_WIDTH * height).fill(undefined), light: new Float32Array(TEXTURE_WIDTH * height) };
+  boxes.forEach((piece, i) => {
+    for (const { rect: [x0, y0, w, h], light } of boxFaces(piece, uvs[i])) {
+      for (let y = y0; y < y0 + h; y++) {
+        for (let x = x0; x < x0 + w; x++) {
+          const rim = (x === x0 || y === y0 || x === x0 + w - 1 || y === y0 + h - 1) && w > 2 && h > 2;
+          const grain = 1 + (((x * 73 + y * 151) % 17) - 8) / 220;
+          layers.paint[y * TEXTURE_WIDTH + x] = piece.paint;
+          layers.light[y * TEXTURE_WIDTH + x] = light * (rim ? 0.82 : 1) * grain;
+        }
       }
     }
+  });
+  return layers;
+}
+
+const clamp = (value: number) => Math.max(0, Math.min(255, Math.round(value)));
+const rgbOf = (paint: Paint, dye: Dye) => (paint === "paint" ? PAINT_RGB[dye] : PALETTE[paint]);
+
+/** The color of texture pixel `at` in a paint color, as [r, g, b] (0 to 255), or undefined where no box is. */
+function texel(layers: TextureLayers, at: number, dye: Dye): [number, number, number] | undefined {
+  const paint = layers.paint[at];
+  if (!paint) return undefined;
+  const rgb = rgbOf(paint, dye);
+  const light = layers.light[at];
+  return [(rgb >> 16) * light, ((rgb >> 8) & 0xff) * light, (rgb & 0xff) * light];
+}
+
+function modelTexture(layers: TextureLayers, dye: Dye): Buffer {
+  const image = blankImage(layers.width, layers.height);
+  for (let at = 0; at < layers.paint.length; at++) {
+    const color = texel(layers, at, dye);
+    if (color) image.data.set([...color.map(clamp), 255], at * 4);
   }
-  outline(image);
   return encodePng(image);
 }
 
-/** Darkens every drawn pixel that touches an empty one, so the shape reads on any slot. */
-function outline(image: Image): void {
-  const alpha = (x: number, y: number) => (x < 0 || y < 0 || x >= image.width || y >= image.height ? 0 : image.data[(y * image.width + x) * 4 + 3]);
-  const edges: number[] = [];
-  for (let y = 0; y < image.height; y++) {
-    for (let x = 0; x < image.width; x++) {
-      if (alpha(x, y) && (!alpha(x - 1, y) || !alpha(x + 1, y) || !alpha(x, y - 1) || !alpha(x, y + 1))) edges.push((y * image.width + x) * 4);
+// ---- Icons: the model drawn in 3D --------------------------------------------------------------
+
+type Matrix = [Vec3, Vec3, Vec3];
+
+const radians = (degrees: number) => (degrees * Math.PI) / 180;
+const rotX = (degrees: number): Matrix => {
+  const [c, s] = [Math.cos(radians(degrees)), Math.sin(radians(degrees))];
+  return [[1, 0, 0], [0, c, -s], [0, s, c]];
+};
+const rotY = (degrees: number): Matrix => {
+  const [c, s] = [Math.cos(radians(degrees)), Math.sin(radians(degrees))];
+  return [[c, 0, s], [0, 1, 0], [-s, 0, c]];
+};
+const rotZ = (degrees: number): Matrix => {
+  const [c, s] = [Math.cos(radians(degrees)), Math.sin(radians(degrees))];
+  return [[c, -s, 0], [s, c, 0], [0, 0, 1]];
+};
+const times = (a: Matrix, b: Matrix): Matrix =>
+  [0, 1, 2].map((i) => [0, 1, 2].map((j) => a[i][0] * b[0][j] + a[i][1] * b[1][j] + a[i][2] * b[2][j])) as Matrix;
+const apply = (m: Matrix, [x, y, z]: Vec3): Vec3 => [m[0][0] * x + m[0][1] * y + m[0][2] * z, m[1][0] * x + m[1][1] * y + m[1][2] * z, m[2][0] * x + m[2][1] * y + m[2][2] * z];
+const transpose = (m: Matrix): Matrix => [0, 1, 2].map((i) => [m[0][i], m[1][i], m[2][i]]) as Matrix;
+const add = (a: Vec3, b: Vec3): Vec3 => [a[0] + b[0], a[1] + b[1], a[2] + b[2]];
+const minus = (a: Vec3, b: Vec3): Vec3 => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
+
+/**
+ * How an icon sees its model: a gun from its side, barrel up to the right like a held tool's,
+ * turned so its top and muzzle show; the grenade from above a front corner, like a block.
+ */
+const ICON_VIEW: Record<PickupKind, Matrix> = {
+  pistol: times(times(times(rotY(-25), rotX(20)), rotZ(35)), rotY(-90)),
+  rifle: times(times(times(rotY(-25), rotX(20)), rotZ(35)), rotY(-90)),
+  shotgun: times(times(times(rotY(-25), rotX(20)), rotZ(35)), rotY(-90)),
+  grenade: times(rotX(25), rotY(-35)),
+};
+/** The icons' light: from the upper left, in front. */
+const ICON_LIGHT: Vec3 = [-0.45, 0.75, 0.5];
+
+/** Where each icon sample landed on the model (a texture pixel, -1 for none) and how much light it takes there. */
+interface IconSamples {
+  texel: Int32Array;
+  light: Float32Array;
+}
+
+/** Draws the model's faces into ICON_SIZE * ICON_SAMPLES samples a side, nearest face wins (seen from +z, orthographic). */
+function iconSamples(boxes: Box[], view: Matrix): IconSamples {
+  const size = ICON_SIZE * ICON_SAMPLES;
+  const { uvs } = uvLayout(boxes);
+  const samples: IconSamples = { texel: new Int32Array(size * size).fill(-1), light: new Float32Array(size * size) };
+  const depth = new Float32Array(size * size).fill(-Infinity);
+  const corners = boxes.flatMap(({ from, size: [w, h, d] }) =>
+    [0, w].flatMap((dx) => [0, h].flatMap((dy) => [0, d].map((dz) => apply(view, [from[0] + dx, from[1] + dy, from[2] + dz])))),
+  );
+  const [minX, maxX] = [Math.min(...corners.map((c) => c[0])), Math.max(...corners.map((c) => c[0]))];
+  const [minY, maxY] = [Math.min(...corners.map((c) => c[1])), Math.max(...corners.map((c) => c[1]))];
+  const margin = 3 * ICON_SAMPLES;
+  const scale = (size - 2 * margin) / Math.max(maxX - minX, maxY - minY);
+  const toSample = ([x, y, z]: Vec3): Vec3 => [size / 2 + (x - (minX + maxX) / 2) * scale, size / 2 - (y - (minY + maxY) / 2) * scale, z];
+  const lightLength = Math.hypot(...ICON_LIGHT);
+  boxes.forEach((piece, i) => {
+    for (const face of boxFaces(piece, uvs[i])) {
+      const normal = apply(view, face.normal);
+      if (normal[2] <= 1e-6) continue;
+      const facing = Math.max(0, (normal[0] * ICON_LIGHT[0] + normal[1] * ICON_LIGHT[1] + normal[2] * ICON_LIGHT[2]) / lightLength);
+      const light = 0.7 + 0.45 * facing;
+      const at = (a: number, b: number): Vec3 => toSample(apply(view, add(face.corner, add(face.across.map((c) => c * a) as Vec3, face.down.map((c) => c * b) as Vec3))));
+      const quad = [at(0, 0), at(1, 0), at(1, 1), at(0, 1)];
+      const params: [number, number][] = [[0, 0], [1, 0], [1, 1], [0, 1]];
+      for (const [p, q, r] of [[0, 1, 2], [0, 2, 3]]) {
+        const [a, b, c] = [quad[p], quad[q], quad[r]];
+        const area = (b[0] - a[0]) * (c[1] - a[1]) - (c[0] - a[0]) * (b[1] - a[1]);
+        if (Math.abs(area) < 1e-9) continue;
+        const [left, right] = [Math.max(0, Math.floor(Math.min(a[0], b[0], c[0]))), Math.min(size - 1, Math.ceil(Math.max(a[0], b[0], c[0])))];
+        const [top, bottom] = [Math.max(0, Math.floor(Math.min(a[1], b[1], c[1]))), Math.min(size - 1, Math.ceil(Math.max(a[1], b[1], c[1])))];
+        for (let sy = top; sy <= bottom; sy++) {
+          for (let sx = left; sx <= right; sx++) {
+            const [px, py] = [sx + 0.5, sy + 0.5];
+            const wa = ((b[0] - px) * (c[1] - py) - (c[0] - px) * (b[1] - py)) / area;
+            const wb = ((c[0] - px) * (a[1] - py) - (a[0] - px) * (c[1] - py)) / area;
+            const wc = 1 - wa - wb;
+            if (wa < 0 || wb < 0 || wc < 0) continue;
+            const z = wa * a[2] + wb * b[2] + wc * c[2];
+            const sample = sy * size + sx;
+            if (z <= depth[sample]) continue;
+            depth[sample] = z;
+            const s = wa * params[p][0] + wb * params[q][0] + wc * params[r][0];
+            const t = wa * params[p][1] + wb * params[q][1] + wc * params[r][1];
+            const [rx, ry, rw, rh] = face.rect;
+            const tx = Math.min(rx + rw - 1, Math.floor(rx + s * rw));
+            const ty = Math.min(ry + rh - 1, Math.floor(ry + t * rh));
+            samples.texel[sample] = ty * TEXTURE_WIDTH + tx;
+            samples.light[sample] = light;
+          }
+        }
+      }
+    }
+  });
+  return samples;
+}
+
+/** The icon in a paint color: each pixel the average of its samples, see-through where the model isn't. */
+function modelIcon(samples: IconSamples, layers: TextureLayers, dye: Dye): Buffer {
+  const image = blankImage(ICON_SIZE, ICON_SIZE);
+  const size = ICON_SIZE * ICON_SAMPLES;
+  for (let y = 0; y < ICON_SIZE; y++) {
+    for (let x = 0; x < ICON_SIZE; x++) {
+      let [r, g, b, covered] = [0, 0, 0, 0];
+      for (let dy = 0; dy < ICON_SAMPLES; dy++) {
+        for (let dx = 0; dx < ICON_SAMPLES; dx++) {
+          const sample = (y * ICON_SAMPLES + dy) * size + x * ICON_SAMPLES + dx;
+          const color = samples.texel[sample] >= 0 ? texel(layers, samples.texel[sample], dye) : undefined;
+          if (!color) continue;
+          const light = samples.light[sample];
+          [r, g, b, covered] = [r + color[0] * light, g + color[1] * light, b + color[2] * light, covered + 1];
+        }
+      }
+      if (covered) image.data.set([clamp(r / covered), clamp(g / covered), clamp(b / covered), clamp((255 * covered) / ICON_SAMPLES ** 2)], (y * ICON_SIZE + x) * 4);
     }
   }
-  for (const at of edges) for (let c = 0; c < 3; c++) image.data[at + c] = Math.round(image.data[at + c] * 0.45);
+  return encodePng(image);
 }
 
 /** A ball: a round blob in the paint color, lit from the top left, like the snowball. */
@@ -250,7 +366,8 @@ function ballTexture(rgb: number): Buffer {
       const rim = distance > radius - 1;
       const shine = Math.hypot(x - (cx - 1.6), y - (cy - 1.6)) < 1.3;
       const light = rim ? 0.62 : shine ? 1.55 : 1.1 - ((x - cx + (y - cy)) / radius) * 0.18;
-      paintPixel(image, x, y, rgb, light);
+      const grain = 1 + (((x * 73 + y * 151) % 17) - 8) / 220;
+      image.data.set([...[rgb >> 16, (rgb >> 8) & 0xff, rgb & 0xff].map((channel) => clamp(channel * light * grain)), 255], (y * BALL_SIZE + x) * 4);
     }
   }
   return encodePng(image);
@@ -267,6 +384,75 @@ function splashTexture(): Buffer {
     }
   }
   return encodePng(image);
+}
+
+// ---- Where a held model sits ------------------------------------------------------------------
+//
+// A held model's root bone is bound to the hand (q.item_slot_to_bone_name), and Bedrock draws a
+// bound model 24 pixels lower than its coordinates say. The math here works in Blockbench's space
+// (a Bedrock file's x mirrored; rotations (-x, -y, z), turned z after y after x), using the setup
+// Blockbench's attachable preview draws (js/formats/bedrock/attachable_preview.js) and the vanilla
+// arm poses: a bound model's point p lands at SHOULDER + ARM * (p + BIND_OFFSET), the arm turned
+// as vanilla's animations turn it. In first person the camera looks along +z; in third person the
+// player faces -z with their right hand on +x.
+
+/** From the shoulder to a bound model's origin, before the arm turns: the 24-pixel drop and the hand's place on the arm. */
+const BIND_OFFSET: Vec3 = [1, -31, -1];
+/** The middle of the fist, the arm's end. */
+const FIST: Vec3 = [6, 12.5, 0];
+const SHOULDER: Vec3 = [5, 22, 0];
+/** First person: vanilla's animation.player.first_person.empty_hand turns the arm (95, -45, 115) and moves it (13.5, -10, 12). */
+const FIRST_PERSON = { arm: times(times(rotZ(115), rotY(45)), rotX(-95)), shoulder: add(SHOULDER, [-13.5, -10, 12]) };
+/** Third person: vanilla's animation.player.holding raises the arm 18 degrees. */
+const THIRD_PERSON = { arm: rotX(18), shoulder: SHOULDER };
+/** Blockbench's first-person camera: at the eyes, looking along +z, a 70.25 degree field of view on a 16:9 screen. */
+const EYE: Vec3 = [0, 27.41, 0];
+const VIEW_SLOPE = Math.tan(radians(70.25 / 2));
+const ASPECT = 16 / 9;
+
+interface Transform {
+  rotation: Vec3;
+  position: Vec3;
+}
+
+/** The bone rotation and position (a Bedrock file's, pivot at the origin) that put the model at `place` (a turn, then a point) on `chain`'s arm. */
+function solve(turn: Matrix, point: Vec3, chain: { arm: Matrix; shoulder: Vec3 }): Transform {
+  const back = transpose(chain.arm);
+  const bone = times(back, turn);
+  const offset = minus(apply(back, minus(point, chain.shoulder)), BIND_OFFSET);
+  // bone = rotZ(c) * rotY(b) * rotX(a)
+  const b = Math.asin(Math.max(-1, Math.min(1, -bone[2][0])));
+  const a = Math.atan2(bone[2][1], bone[2][2]);
+  const c = Math.atan2(bone[1][0], bone[0][0]);
+  const round = (value: number) => Math.round(value * 100) / 100 + 0;
+  return {
+    rotation: [round((-a * 180) / Math.PI), round((-b * 180) / Math.PI), round((c * 180) / Math.PI)],
+    position: [round(-offset[0]), round(offset[1]), round(offset[2])],
+  };
+}
+
+const fistIn = (chain: { arm: Matrix; shoulder: Vec3 }) => add(chain.shoulder, apply(chain.arm, minus(FIST, SHOULDER)));
+
+/** First person from the hip: by the fist, the model turned to face away from the camera, in and up a little. */
+function hipHold(kind: PickupKind): Transform {
+  const { hip } = HOLD[kind];
+  const [right, up, ahead] = hip.fromFist;
+  return solve(times(rotY(180 - hip.turnIn), rotX(hip.tipUp)), add(fistIn(FIRST_PERSON), [-right, up, ahead]), FIRST_PERSON);
+}
+
+/** First person aiming: in the middle, straight ahead, its top just under the crosshair. */
+function aimHold(kind: PickupKind): Transform | undefined {
+  const { aim, scale } = HOLD[kind];
+  if (!aim) return undefined;
+  const top = Math.max(...MODELS[kind].map(({ from, size }) => from[1] + size[1])) * scale;
+  const point: Vec3 = add(EYE, [0, -aim.under * VIEW_SLOPE * aim.depth - top, aim.depth]);
+  return solve(rotY(180), point, FIRST_PERSON);
+}
+
+/** Third person: in the fist, barrel ahead and level. */
+function thirdHold(kind: PickupKind): Transform {
+  const [right, up, ahead] = HOLD[kind].third;
+  return solve(rotX(0), add(fistIn(THIRD_PERSON), [right, up, -ahead]), THIRD_PERSON);
 }
 
 // ---- Geometry and animations -----------------------------------------------------------------
@@ -298,7 +484,7 @@ function geometries(): unknown {
         { name: "body", parent: "gun", pivot: [0, 0, 0], cubes },
       ],
     });
-    // Floating or flying on its own: turns around its middle.
+    // Floating, flying or sitting on its own: turns and swells around its middle.
     const middle = middleOf(boxes);
     all.push({
       description: description(displayGeometry(kind)),
@@ -311,92 +497,94 @@ function geometries(): unknown {
   return { format_version: "1.16.0", "minecraft:geometry": all };
 }
 
-function middleOf(boxes: Box[]): [number, number, number] {
+function middleOf(boxes: Box[]): Vec3 {
   return [0, 1, 2].map((axis) => {
     const low = Math.min(...boxes.map((piece) => piece.from[axis]));
     const high = Math.max(...boxes.map((piece) => piece.from[axis] + piece.size[axis]));
     return (low + high) / 2;
-  }) as [number, number, number];
+  }) as Vec3;
 }
 
 const holdAnimation = (kind: PickupKind, view: "first_person" | "third_person") => `animation.minecade.gun_${kind}.hold_${view}`;
-const recoilAnimation = (kind: PickupKind) => `animation.minecade.gun_${kind}.recoil`;
+const recoilAnimation = (kind: GunKind) => `animation.minecade.gun_${kind}.recoil`;
 const PICKUP_ANIMATION = "animation.minecade.gun_pickup.float";
 const TUMBLE_ANIMATION = "animation.minecade.paint_grenade.tumble";
-/** A tap gun's item cooldown runs from each shot (the script starts it), so it times the kick. */
-const TAP_CONTROLLER = "controller.animation.minecade.gun.fire_tap";
-/** A held gun fires while use is held. */
-const HOLD_CONTROLLER = "controller.animation.minecade.gun.fire_hold";
-const COOLING = "q.cooldown_time_remaining('slot.weapon.mainhand') > 0";
+const SWELL_ANIMATION = "animation.minecade.paint_grenade.swell";
+/** How much bigger a landed grenade gets by the end of its fuse. */
+const SWELL = 0.8;
+
+const fixed = (value: number) => Number(value.toFixed(2));
 
 function animations(): unknown {
   const all: Record<string, unknown> = {};
   for (const kind of PICKUP_KINDS) {
-    const hold = HOLD[kind];
-    all[holdAnimation(kind, "first_person")] = { loop: true, bones: { gun: hold.firstPerson } };
-    all[holdAnimation(kind, "third_person")] = { loop: true, bones: { gun: hold.thirdPerson } };
-    const gun = gunOf(kind);
-    if (!gun) continue;
-    const { seconds, back, lift } = RECOIL[gun.id as keyof typeof GUNS];
-    const peak = Math.round(seconds * 0.25 * 100) / 100;
-    all[recoilAnimation(kind)] = {
-      loop: gun.fire === "hold",
-      animation_length: seconds,
-      bones: {
-        body: {
-          position: { "0.0": [0, 0, 0], [peak.toFixed(2)]: [0, 0, back], [seconds.toFixed(2)]: [0, 0, 0] },
-          rotation: { "0.0": [0, 0, 0], [peak.toFixed(2)]: [-lift, 0, 0], [seconds.toFixed(2)]: [0, 0, 0] },
-        },
-      },
-    };
+    const hip = hipHold(kind);
+    const aim = aimHold(kind);
+    // Aiming eases v.aim from 0 to 1 (the attachable's script), and the hold eases with it.
+    const between = (from: number, to: number) => (from === to ? from : `math.lerp(${from}, ${to}, v.aim)`);
+    const first = aim
+      ? { rotation: hip.rotation.map((value, i) => between(value, aim.rotation[i])), position: hip.position.map((value, i) => between(value, aim.position[i])) }
+      : hip;
+    all[holdAnimation(kind, "first_person")] = { loop: true, bones: { gun: { ...first, scale: HOLD[kind].scale } } };
+    all[holdAnimation(kind, "third_person")] = { loop: true, bones: { gun: thirdHold(kind) } };
+    if (!isGun(kind)) continue;
+    const { back, lift } = RECOIL[kind];
+    all[recoilAnimation(kind)] = { loop: true, bones: { body: { position: [0, 0, `v.kick * ${back}`], rotation: [`v.kick * ${-lift}`, 0, 0] } } };
   }
   all[PICKUP_ANIMATION] = {
     loop: true,
     bones: { display: { rotation: [0, "q.life_time * 120", 0], position: [0, "10 + math.sin(q.life_time * 150) * 1.5", 0], scale: 1.6 } },
   };
   all[TUMBLE_ANIMATION] = { loop: true, bones: { display: { rotation: ["q.life_time * 600", 0, "q.life_time * 300"] } } };
+  // Sits on the ground as it swells, wobbling harder as the fuse runs out.
+  const grenade = MODELS.grenade;
+  const [, middle] = middleOf(grenade);
+  const below = middle - Math.min(...grenade.map(({ from }) => from[1]));
+  all[SWELL_ANIMATION] = {
+    loop: true,
+    bones: {
+      display: {
+        scale: "v.swell",
+        position: [0, `v.swell * ${fixed(below)} - ${fixed(middle)}`, 0],
+        rotation: [0, 0, "math.sin(q.life_time * 1600) * 8 * (v.swell - 1)"],
+      },
+    },
+  };
   return { format_version: "1.8.0", animations: all };
 }
 
-function animationControllers(): unknown {
-  const controller = (start: string, stop: string) => ({
-    initial_state: "default",
-    states: {
-      default: { transitions: [{ fire: start }] },
-      fire: { animations: ["recoil"], transitions: [{ default: stop }] },
-    },
-  });
+/** The attachable's script: v.aim eases toward aiming; v.kick rises fast and falls back over a shot's recoil cooldown. */
+function attachableScripts(kind: PickupKind): Record<string, unknown> {
+  const animate: unknown[] = [{ first_person: "c.is_first_person" }, { third_person: "!c.is_first_person" }];
+  if (!isGun(kind)) return { animate };
+  const { seconds } = RECOIL[kind];
   return {
-    format_version: "1.10.0",
-    animation_controllers: {
-      [TAP_CONTROLLER]: controller(COOLING, `!(${COOLING})`),
-      [HOLD_CONTROLLER]: controller("q.is_using_item", "!q.is_using_item"),
-    },
+    initialize: ["v.aim = 0;", "v.kick = 0;"],
+    pre_animation: [
+      "v.aim = math.lerp(v.aim, q.is_using_item, math.min(q.delta_time * 14, 1));",
+      `v.kick_left = math.clamp(q.cooldown_time_remaining('${shotMarker(kind).category}') / ${seconds}, 0, 1);`,
+      "v.kick = v.kick_left > 0.75 ? (1 - v.kick_left) * 4 : v.kick_left / 0.75;",
+    ],
+    animate: [...animate, "recoil"],
   };
 }
 
-function attachable(kind: PickupKind, item: string): unknown {
-  const gun = gunOf(kind);
+function attachable(kind: PickupKind, dye: Dye): unknown {
   const animationsOf: Record<string, string> = {
     first_person: holdAnimation(kind, "first_person"),
     third_person: holdAnimation(kind, "third_person"),
   };
-  const animate: unknown[] = [{ first_person: "c.is_first_person" }, { third_person: "!c.is_first_person" }];
-  if (gun) {
-    animationsOf.recoil = recoilAnimation(kind);
-    animationsOf.fire = gun.fire === "hold" ? HOLD_CONTROLLER : TAP_CONTROLLER;
-    animate.push("fire");
-  }
+  if (isGun(kind)) animationsOf.recoil = recoilAnimation(kind);
   return {
     format_version: "1.10.0",
     "minecraft:attachable": {
       description: {
-        identifier: item,
+        identifier: gunItem(kind, dye),
         materials: { default: "entity_alphatest", enchanted: "entity_alphatest_glint" },
-        textures: { default: `${GUN_TEXTURES}/${kind}`, enchanted: "textures/misc/enchanted_item_glint" },
+        textures: { default: modelTexturePath(kind, dye), enchanted: "textures/misc/enchanted_item_glint" },
         geometry: { default: heldGeometry(kind) },
         animations: animationsOf,
-        scripts: { animate },
+        scripts: attachableScripts(kind),
         render_controllers: ["controller.render.item_default"],
       },
     },
@@ -405,35 +593,54 @@ function attachable(kind: PickupKind, item: string): unknown {
 
 // ---- Behavior pack -----------------------------------------------------------------------------
 
-function item(kind: PickupKind, identifier: string, name: string): unknown {
-  const gun = gunOf(kind);
+const ITEM_FORMAT = "1.21.120";
+
+function item(kind: PickupKind, dye: Dye): unknown {
   const components: Record<string, unknown> = {
-    "minecraft:icon": { textures: { default: iconKey(kind) } },
-    "minecraft:display_name": { value: name },
-    "minecraft:max_stack_size": gun ? 1 : 16,
+    "minecraft:icon": { textures: { default: iconKey(kind, dye) } },
+    "minecraft:display_name": { value: isGun(kind) ? GUNS[kind].name : GRENADE.name },
+    "minecraft:max_stack_size": isGun(kind) ? 1 : 16,
     "minecraft:hand_equipped": true,
     "minecraft:can_destroy_in_creative": false,
   };
-  if (!gun) components["minecraft:cooldown"] = { category: `minecade:${kind}`, duration: 0.5 };
-  else if (gun.fire === "tap") components["minecraft:cooldown"] = { category: `minecade:${kind}`, duration: gun.everyTicks / 20 };
-  // Held guns are "used" while use is held, so the script hears it start and stop.
-  else components["minecraft:use_modifiers"] = { use_duration: 3600, movement_modifier: 1 };
+  if (isGun(kind)) {
+    // A left click fires (a swing), so the swing is kept short; right click is held to aim.
+    components["minecraft:swing_duration"] = { value: GUN_SWING_SECONDS };
+    components["minecraft:use_modifiers"] = { use_duration: 3600, movement_modifier: 1 };
+  }
+  return { format_version: ITEM_FORMAT, "minecraft:item": { description: { identifier: gunItem(kind, dye), menu_category: { category: "none" } }, components } };
+}
+
+/** The hidden item a shot starts the cooldown of: its category times the held model's recoil. */
+function shotMarkerItem(kind: GunKind): unknown {
+  const marker = shotMarker(kind);
   return {
-    format_version: "1.21.60",
-    "minecraft:item": { description: { identifier, menu_category: { category: "none" } }, components },
+    format_version: ITEM_FORMAT,
+    "minecraft:item": {
+      description: { identifier: marker.item, menu_category: { category: "none" } },
+      components: {
+        "minecraft:icon": { textures: { default: iconKey(kind, "white") } },
+        "minecraft:cooldown": { category: marker.category, duration: RECOIL[kind].seconds },
+      },
+    },
   };
 }
+
+const colorProperty = { [COLOR_PROPERTY]: { type: "int", range: [0, DYES.length - 1], default: 0, client_sync: true } };
+/** Nothing hurts, pushes or burns these: the script places and removes them. */
+const UNTOUCHABLE = {
+  "minecraft:pushable": { is_pushable: false, is_pushable_by_piston: false },
+  "minecraft:damage_sensor": { triggers: [{ cause: "all", deals_damage: "no" }] },
+  "minecraft:health": { value: 1, max: 1 },
+  "minecraft:knockback_resistance": { value: 1 },
+  "minecraft:fire_immune": true,
+};
 
 function projectileEntity(identifier: string, size: number, gravity: number, knockback: boolean): unknown {
   return {
     format_version: "1.21.100",
     "minecraft:entity": {
-      description: {
-        identifier,
-        is_spawnable: false,
-        is_summonable: true,
-        properties: { [COLOR_PROPERTY]: { type: "int", range: [0, DYES.length - 1], default: 0, client_sync: true } },
-      },
+      description: { identifier, is_spawnable: false, is_summonable: true, properties: colorProperty },
       components: {
         "minecraft:collision_box": { width: size, height: size },
         // The script decides what a hit does; a ball only pushes, like a snowball.
@@ -455,6 +662,17 @@ function projectileEntity(identifier: string, size: number, gravity: number, kno
   };
 }
 
+/** A grenade that landed: it falls to the ground and sits there until the script bursts it. */
+function primedGrenadeEntity(): unknown {
+  return {
+    format_version: "1.21.100",
+    "minecraft:entity": {
+      description: { identifier: PRIMED_GRENADE, is_spawnable: false, is_summonable: true, properties: colorProperty },
+      components: { "minecraft:collision_box": { width: 0.3, height: 0.3 }, "minecraft:physics": {}, ...UNTOUCHABLE },
+    },
+  };
+}
+
 function pickupEntity(): unknown {
   return {
     format_version: "1.21.100",
@@ -468,11 +686,7 @@ function pickupEntity(): unknown {
       components: {
         "minecraft:collision_box": { width: 0.01, height: 0.01 },
         "minecraft:physics": { has_gravity: false, has_collision: false },
-        "minecraft:pushable": { is_pushable: false, is_pushable_by_piston: false },
-        "minecraft:damage_sensor": { triggers: [{ cause: "all", deals_damage: "no" }] },
-        "minecraft:health": { value: 1, max: 1 },
-        "minecraft:knockback_resistance": { value: 1 },
-        "minecraft:fire_immune": true,
+        ...UNTOUCHABLE,
       },
     },
   };
@@ -482,6 +696,7 @@ function pickupEntity(): unknown {
 
 function clientEntities(): Record<string, unknown> {
   const client = (description: Record<string, unknown>) => ({ format_version: "1.10.0", "minecraft:client_entity": { description } });
+  const grenadeTextures = Object.fromEntries(DYES.map((dye) => [dye, modelTexturePath("grenade", dye)]));
   return {
     "resource_pack/entity/paintball.entity.json": client({
       identifier: PAINTBALL,
@@ -496,16 +711,28 @@ function clientEntities(): Record<string, unknown> {
     "resource_pack/entity/paint_grenade.entity.json": client({
       identifier: THROWN_GRENADE,
       materials: { default: "entity_alphatest" },
-      textures: { default: `${GUN_TEXTURES}/grenade` },
+      textures: grenadeTextures,
       geometry: { default: displayGeometry("grenade") },
-      render_controllers: ["controller.render.default"],
+      render_controllers: ["controller.render.minecade.paint_grenade"],
       animations: { tumble: TUMBLE_ANIMATION },
       scripts: { animate: ["tumble"] },
+    }),
+    "resource_pack/entity/paint_grenade_primed.entity.json": client({
+      identifier: PRIMED_GRENADE,
+      materials: { default: "entity_alphatest" },
+      textures: grenadeTextures,
+      geometry: { default: displayGeometry("grenade") },
+      render_controllers: ["controller.render.minecade.paint_grenade_primed"],
+      animations: { swell: SWELL_ANIMATION },
+      scripts: {
+        pre_animation: [`v.swell = 1 + math.min(q.life_time / ${GRENADE.fuseTicks / 20}, 1) * ${SWELL};`],
+        animate: ["swell"],
+      },
     }),
     "resource_pack/entity/gun_pickup.entity.json": client({
       identifier: GUN_PICKUP,
       materials: { default: "entity_alphatest" },
-      textures: Object.fromEntries(PICKUP_KINDS.map((kind) => [kind, `${GUN_TEXTURES}/${kind}`])),
+      textures: Object.fromEntries(PICKUP_KINDS.map((kind) => [kind, modelTexturePath(kind, "white")])),
       geometry: Object.fromEntries(PICKUP_KINDS.map((kind) => [kind, displayGeometry(kind)])),
       render_controllers: ["controller.render.minecade.gun_pickup"],
       animations: { float: PICKUP_ANIMATION },
@@ -516,14 +743,16 @@ function clientEntities(): Record<string, unknown> {
 
 function renderControllers(): unknown {
   const pick = (array: string, property: string) => `${array}[q.property('${property}')]`;
+  const byColor = { arrays: { textures: { "Array.dyes": DYES.map((dye) => `Texture.${dye}`) } }, geometry: "Geometry.default", materials: [{ "*": "Material.default" }], textures: [pick("Array.dyes", COLOR_PROPERTY)] };
   return {
     format_version: "1.10.0",
     render_controllers: {
-      "controller.render.minecade.paintball": {
-        arrays: { textures: { "Array.dyes": DYES.map((dye) => `Texture.${dye}`) } },
-        geometry: "Geometry.default",
-        materials: [{ "*": "Material.default" }],
-        textures: [pick("Array.dyes", COLOR_PROPERTY)],
+      "controller.render.minecade.paintball": byColor,
+      "controller.render.minecade.paint_grenade": byColor,
+      // Flashes white faster and faster, like lit TNT.
+      "controller.render.minecade.paint_grenade_primed": {
+        ...byColor,
+        overlay_color: { r: 1, g: 1, b: 1, a: "math.mod(q.life_time * (4 + q.life_time * 10), 1) > 0.5 ? 0.55 : 0" },
       },
       "controller.render.minecade.gun_pickup": {
         arrays: {
@@ -573,35 +802,36 @@ function splashParticle(): unknown {
 /** Every generated file, by path under packs/guns (the manifests are hand-written). */
 export function gunsPackFiles(): Record<string, string | Buffer> {
   const json = (value: unknown) => `${JSON.stringify(value, null, 2)}\n`;
-  const items: [PickupKind, string, string][] = [
-    ...Object.values(GUNS).map((gun): [PickupKind, string, string] => [gun.id, gun.item, gun.name]),
-    ["grenade", GRENADE.item, GRENADE.name],
-  ];
   const files: Record<string, string | Buffer> = {
     "behavior_pack/entities/paintball.json": json(projectileEntity(PAINTBALL, 0.25, 0.03, true)),
     "behavior_pack/entities/paint_grenade.json": json(projectileEntity(THROWN_GRENADE, 0.3, 0.05, false)),
+    "behavior_pack/entities/paint_grenade_primed.json": json(primedGrenadeEntity()),
     "behavior_pack/entities/gun_pickup.json": json(pickupEntity()),
     "resource_pack/models/entity/guns.geo.json": json(geometries()),
     "resource_pack/animations/guns.animation.json": json(animations()),
-    "resource_pack/animation_controllers/guns.animation_controllers.json": json(animationControllers()),
     "resource_pack/render_controllers/guns.render_controllers.json": json(renderControllers()),
     "resource_pack/particles/paint_splash.json": json(splashParticle()),
     "resource_pack/textures/item_texture.json": json({
       resource_pack_name: "minecade_guns",
       texture_name: "atlas.items",
-      texture_data: Object.fromEntries(PICKUP_KINDS.map((kind) => [iconKey(kind), { textures: `${GUN_TEXTURES}/${kind}_icon` }])),
+      texture_data: Object.fromEntries(
+        PICKUP_KINDS.flatMap((kind) => DYES.map((dye) => [iconKey(kind, dye), { textures: `${GUN_TEXTURES}/icons/${kind}_${dye}` }])),
+      ),
     }),
     [`resource_pack/${GUN_TEXTURES}/splash.png`]: splashTexture(),
     ...Object.fromEntries(Object.entries(clientEntities()).map(([path, value]) => [path, json(value)])),
   };
-  for (const [kind, identifier, name] of items) {
-    const file = identifier.replace("minecade:", "");
-    files[`behavior_pack/items/${file}.json`] = json(item(kind, identifier, name));
-    files[`resource_pack/attachables/${file}.json`] = json(attachable(kind, identifier));
-  }
+  for (const kind of GUN_KINDS) files[`behavior_pack/items/${itemFile(shotMarker(kind).item)}.json`] = json(shotMarkerItem(kind));
   for (const kind of PICKUP_KINDS) {
-    files[`resource_pack/${GUN_TEXTURES}/${kind}.png`] = modelTexture(MODELS[kind]);
-    files[`resource_pack/${GUN_TEXTURES}/${kind}_icon.png`] = modelIcon(MODELS[kind], kind === "grenade" ? 0 : ICON_TILT_DEGREES);
+    const layers = textureLayers(MODELS[kind]);
+    const samples = iconSamples(MODELS[kind], ICON_VIEW[kind]);
+    for (const dye of DYES) {
+      const file = itemFile(gunItem(kind, dye));
+      files[`behavior_pack/items/${file}.json`] = json(item(kind, dye));
+      files[`resource_pack/attachables/${file}.json`] = json(attachable(kind, dye));
+      files[`resource_pack/${modelTexturePath(kind, dye)}.png`] = modelTexture(layers, dye);
+      files[`resource_pack/${GUN_TEXTURES}/icons/${kind}_${dye}.png`] = modelIcon(samples, layers, dye);
+    }
   }
   for (const dye of DYES) files[`resource_pack/${GUN_TEXTURES}/balls/${dye}.png`] = ballTexture(PAINT_RGB[dye]);
   return files;

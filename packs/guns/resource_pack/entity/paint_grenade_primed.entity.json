@@ -1,0 +1,46 @@
+{
+  "format_version": "1.10.0",
+  "minecraft:client_entity": {
+    "description": {
+      "identifier": "minecade:paint_grenade_primed",
+      "materials": {
+        "default": "entity_alphatest"
+      },
+      "textures": {
+        "white": "textures/minecade/guns/grenade/white",
+        "orange": "textures/minecade/guns/grenade/orange",
+        "magenta": "textures/minecade/guns/grenade/magenta",
+        "light_blue": "textures/minecade/guns/grenade/light_blue",
+        "yellow": "textures/minecade/guns/grenade/yellow",
+        "lime": "textures/minecade/guns/grenade/lime",
+        "pink": "textures/minecade/guns/grenade/pink",
+        "gray": "textures/minecade/guns/grenade/gray",
+        "light_gray": "textures/minecade/guns/grenade/light_gray",
+        "cyan": "textures/minecade/guns/grenade/cyan",
+        "purple": "textures/minecade/guns/grenade/purple",
+        "blue": "textures/minecade/guns/grenade/blue",
+        "brown": "textures/minecade/guns/grenade/brown",
+        "green": "textures/minecade/guns/grenade/green",
+        "red": "textures/minecade/guns/grenade/red",
+        "black": "textures/minecade/guns/grenade/black"
+      },
+      "geometry": {
+        "default": "geometry.minecade.gun_grenade_display"
+      },
+      "render_controllers": [
+        "controller.render.minecade.paint_grenade_primed"
+      ],
+      "animations": {
+        "swell": "animation.minecade.paint_grenade.swell"
+      },
+      "scripts": {
+        "pre_animation": [
+          "v.swell = 1 + math.min(q.life_time / 1, 1) * 0.8;"
+        ],
+        "animate": [
+          "swell"
+        ]
+      }
+    }
+  }
+}

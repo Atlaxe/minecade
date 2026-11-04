@@ -2,22 +2,11 @@
 // timeLimit; when it runs out the match ends as a draw and everyone goes back. The lobby's Round
 // setting picks the stage length, and the match starts by saying which settings arrived and who is
 // on which team (picked in the lobby, or dealt out). Its kits are there for the kit form; the
-// Painter's guns fire paint balls that splash in the team's color and hurt nobody, and a row of the
-// guns' pickups floats in front of the first player.
+// Painter's guns, in the team's paint, fire balls that splash in it and hurt nobody, and a row of
+// the guns' pickups floats in front of the first player.
 import { world, type Vector3 } from "@minecraft/server";
-import {
-  GUN_PICKUP,
-  Guns,
-  KIND_PROPERTY,
-  Minigame,
-  PICKUP_KINDS,
-  dyeIndex,
-  dyeName,
-  nameOf,
-  paintSplash,
-  say,
-  type GameContext,
-} from "@minecade/minigame-core";
+import { GUN_PICKUP, Guns, KIND_PROPERTY, PICKUP_KINDS, paintSplash } from "@minecade/guns";
+import { Minigame, nameOf, say, type GameContext } from "@minecade/minigame-core";
 import { runGameServer } from "@minecade/minigame-core/game";
 import pack from "../../resource_pack/manifest.json";
 import config from "../../game.config.ts";
@@ -31,7 +20,6 @@ class Probe extends Minigame<typeof config> {
   protected override setup(): void {
     new Guns(this.scope, {
       canFire: (player) => this.roster.get(player.name)?.state === "alive",
-      colorOf: (player) => dyeIndex(dyeName(this.teamOf(player.name)?.color)),
       onHitBlock: (shot, _hit, location) => paintSplash(location, shot.color),
       onHitEntity: (shot, _entity, location) => paintSplash(location, shot.color),
       onBurst: (shot, location) => paintSplash(location, shot.color, 3),

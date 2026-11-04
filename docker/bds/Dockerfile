@@ -11,6 +11,7 @@ FROM node:22-bookworm-slim AS build
 WORKDIR /src
 COPY package.json package-lock.json ./
 COPY packages/minigame-core/package.json packages/minigame-core/
+COPY packages/guns/package.json packages/guns/
 COPY orchestrator/package.json orchestrator/
 RUN npm ci --no-audit --no-fund
 COPY . .

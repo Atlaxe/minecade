@@ -57,6 +57,5 @@ export { MapView, inside } from "./game/map-view.ts";
 export { PromptBank } from "./game/prompt-bank.ts";
 export { kitStack } from "./game/kits.ts";
 export { LevelSeconds } from "./game/level-seconds.ts";
-export { Guns, coneDirections, heldItem, paintSplash, type BlockHit, type GunsOptions, type Shot } from "./game/guns.ts";
 export { FAKE_PLAYER, dressFake } from "./game/fakes.ts";
 export type { Participant, ParticipantState } from "./game/roster.ts";

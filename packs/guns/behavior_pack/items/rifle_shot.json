@@ -1,0 +1,22 @@
+{
+  "format_version": "1.21.120",
+  "minecraft:item": {
+    "description": {
+      "identifier": "minecade:rifle_shot",
+      "menu_category": {
+        "category": "none"
+      }
+    },
+    "components": {
+      "minecraft:icon": {
+        "textures": {
+          "default": "minecade_gun_rifle_white"
+        }
+      },
+      "minecraft:cooldown": {
+        "category": "minecade_rifle_shot",
+        "duration": 0.18
+      }
+    }
+  }
+}

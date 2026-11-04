@@ -50,27 +50,6 @@ export {
   type KitSpawn,
   type MatchKits,
 } from "./kit-defs.ts";
-export {
-  COLOR_PROPERTY,
-  DYES,
-  GRENADE,
-  GUNS,
-  GUN_PICKUP,
-  KIND_PROPERTY,
-  PAINTBALL,
-  PAINT_RGB,
-  PAINT_SPLASH,
-  PICKUP_KINDS,
-  THROWN_GRENADE,
-  dyeIndex,
-  gunItems,
-  type Dye,
-  type FireMode,
-  type GunDef,
-  type GunId,
-  type PickupKind,
-  type ThrowableDef,
-} from "./gun-defs.ts";
 export { MAX_ROUND_ICONS, MAX_SCORE_SIDES, MIN_BEST_OF } from "./game/best-of.ts";
 export { leapPush, type LeapConfig } from "./leap.ts";
 export {

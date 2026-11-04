@@ -7,10 +7,10 @@
         "default": "entity_alphatest"
       },
       "textures": {
-        "pistol": "textures/minecade/guns/pistol",
-        "rifle": "textures/minecade/guns/rifle",
-        "shotgun": "textures/minecade/guns/shotgun",
-        "grenade": "textures/minecade/guns/grenade"
+        "pistol": "textures/minecade/guns/pistol/white",
+        "rifle": "textures/minecade/guns/rifle/white",
+        "shotgun": "textures/minecade/guns/shotgun/white",
+        "grenade": "textures/minecade/guns/grenade/white"
       },
       "geometry": {
         "pistol": "geometry.minecade.gun_pistol_display",

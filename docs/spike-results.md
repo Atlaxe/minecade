@@ -162,3 +162,18 @@ Paintball's painted blocks. No experiments on (the worlds have only Beta APIs).
 | Gates, doors, trapdoors | Oak's are still `minecraft:fence_gate`, `minecraft:wooden_door` and `minecraft:trapdoor` (`minecraft:oak_fence_gate` doesn't resolve). Gates: `minecraft:cardinal_direction`, `open_bit`, `in_wall_bit`. Doors: `minecraft:cardinal_direction`, `open_bit`, `upper_block_bit`, `door_hinge_bit`. Trapdoors: `direction` (0 to 3), `open_bit`, `upside_down_bit`. |
 | Other states seen | `minecraft:cardinal_direction` values are `south`, `west`, `north`, `east`; carpets have `color`; logs `pillar_axis`; leaves have the `minecraft:leaves` tag. |
 | The guns pack | Its items and entities (`packs/guns`) load with no content log errors. |
+
+## Held guns: where a held model sits, aiming and left clicks (2026-11-04)
+
+What the guns' second pass is built on (`tools/assets/guns.ts`, `packages/guns`). Only the content
+log was checked on a server; the rest waits on a look in game.
+
+| Check | Finding |
+|---|---|
+| Where a bound model sits | Bedrock draws a model bound to the hand (`q.item_slot_to_bone_name`) 24 pixels lower than its coordinates say: the Bedrock Wiki's attachable guide moves `rightItem` by (-6, -9, -1) to match it, and Mcblend's docs give the same 1.5 block drop. The first pass ignored it, so the guns sat a block and a half off the hand. |
+| First person | Blockbench's attachable preview (`js/formats/bedrock/attachable_preview.js`) draws first person with the camera at (0, 27.41, 0) looking along +z, a 70.25 degree field of view, and the arm in vanilla's `animation.player.first_person.empty_hand` pose (turned (95, -45, 115), moved (13.5, -10, 12)). A small simulator built on that drew the vanilla trident where the game draws it (low right, leaning up and left), then placed the guns. |
+| Vanilla arm poses | `animation.player.holding` raises a held item's arm 18 degrees in third person. The first-person swing (`first_person_attack_rotation_item`) and the third-person one only play while no item is in use (`variable.item_use_normalized <= 0`), so a shot fired while aiming doesn't swing. |
+| Left click | `world.afterEvents.playerSwingStart` is in @minecraft/server 2.11.0 stable, with `swingSource` (Attack, Mine, Build, Interact, UseItem, DropItem, ThrowItem, Event, None). Unseen in game: which source a click at the sky reports, whether a held button repeats the swing, and whether a swing comes while right click is held. |
+| Short swing | `minecraft:swing_duration` (item format 1.21.120 or later, `{ "value": seconds }`) loads with no content log errors. |
+| Recoil off a cooldown category | Microsoft's Molang docs say `q.cooldown_time_remaining` takes a cooldown category as well as a slot. The guns start a hidden item's cooldown per shot (`minecade:<gun>_shot`) and the held model reads its category, so the gun itself has no cooldown that could stop it being aimed. Unseen in game. |
+| The guns pack | Its 64 items, 3 shot markers and the landed grenade entity load with no content log errors. |

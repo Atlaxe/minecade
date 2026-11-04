@@ -1,0 +1,47 @@
+{
+  "format_version": "1.10.0",
+  "minecraft:attachable": {
+    "description": {
+      "identifier": "minecade:white_paintball_rifle",
+      "materials": {
+        "default": "entity_alphatest",
+        "enchanted": "entity_alphatest_glint"
+      },
+      "textures": {
+        "default": "textures/minecade/guns/rifle/white",
+        "enchanted": "textures/misc/enchanted_item_glint"
+      },
+      "geometry": {
+        "default": "geometry.minecade.gun_rifle"
+      },
+      "animations": {
+        "first_person": "animation.minecade.gun_rifle.hold_first_person",
+        "third_person": "animation.minecade.gun_rifle.hold_third_person",
+        "recoil": "animation.minecade.gun_rifle.recoil"
+      },
+      "scripts": {
+        "initialize": [
+          "v.aim = 0;",
+          "v.kick = 0;"
+        ],
+        "pre_animation": [
+          "v.aim = math.lerp(v.aim, q.is_using_item, math.min(q.delta_time * 14, 1));",
+          "v.kick_left = math.clamp(q.cooldown_time_remaining('minecade_rifle_shot') / 0.18, 0, 1);",
+          "v.kick = v.kick_left > 0.75 ? (1 - v.kick_left) * 4 : v.kick_left / 0.75;"
+        ],
+        "animate": [
+          {
+            "first_person": "c.is_first_person"
+          },
+          {
+            "third_person": "!c.is_first_person"
+          },
+          "recoil"
+        ]
+      },
+      "render_controllers": [
+        "controller.render.item_default"
+      ]
+    }
+  }
+}

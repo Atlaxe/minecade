@@ -1,0 +1,22 @@
+{
+  "format_version": "1.21.120",
+  "minecraft:item": {
+    "description": {
+      "identifier": "minecade:shotgun_shot",
+      "menu_category": {
+        "category": "none"
+      }
+    },
+    "components": {
+      "minecraft:icon": {
+        "textures": {
+          "default": "minecade_gun_shotgun_white"
+        }
+      },
+      "minecraft:cooldown": {
+        "category": "minecade_shotgun_shot",
+        "duration": 0.3
+      }
+    }
+  }
+}

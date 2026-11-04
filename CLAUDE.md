@@ -19,11 +19,12 @@ worktree sits next to it.
    Do all edits, builds and tests there. Never run `git checkout` or `git switch` in the main
    checkout: that moves the branch under the other session.
 3. **Link the tools.** A new worktree has no `node_modules`. Link the main checkout's entries one
-   by one instead of installing, and point the two workspace packages at the worktree's own copies.
+   by one instead of installing, and point the workspace packages at the worktree's own copies.
    Don't link the whole `node_modules` folder with one junction: inside it,
-   `@minecade/minigame-core` and `@minecade/orchestrator` are links to the main checkout's
-   `packages/minigame-core` and `orchestrator`, so the worktree would typecheck, test and build
-   against main's copy of them, not its own changes. Run this from the main checkout (PowerShell):
+   `@minecade/minigame-core`, `@minecade/guns` and `@minecade/orchestrator` are links to the main
+   checkout's `packages/minigame-core`, `packages/guns` and `orchestrator`, so the worktree would
+   typecheck, test and build against main's copy of them, not its own changes. Run this from the
+   main checkout (PowerShell):
    ```
    $wt = (Resolve-Path ..\network-<topic>).Path
    New-Item -ItemType Directory "$wt\node_modules\@minecade" | Out-Null
@@ -32,6 +33,7 @@ worktree sits next to it.
      else { Copy-Item $_.FullName "$wt\node_modules\" }
    }
    New-Item -ItemType Junction -Path "$wt\node_modules\@minecade\minigame-core" -Target "$wt\packages\minigame-core" | Out-Null
+   New-Item -ItemType Junction -Path "$wt\node_modules\@minecade\guns" -Target "$wt\packages\guns" | Out-Null
    New-Item -ItemType Junction -Path "$wt\node_modules\@minecade\orchestrator" -Target "$wt\orchestrator" | Out-Null
    ```
    Never run `npm install` in a worktree: it writes through the links into the main checkout's

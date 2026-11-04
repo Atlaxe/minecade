@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { KitDef } from "../src/config.ts";
 import { KitPicker, listNames, type KitPickView } from "../src/game/kit-picker.ts";
-import { dyeName, itemLabel, kitItemId, kitLines, kitPicturePath, matchKits, pictureDyes, refillOnSpawn, teamColored } from "../src/kit-defs.ts";
+import { dyeName, itemLabel, kitItemId, kitLines, kitPicturePath, matchKits, mixDyes, pictureDyes, refillOnSpawn, teamColored } from "../src/kit-defs.ts";
 
 const SNOW: KitDef = { id: "snow", name: "Snowballs", refill: "round", items: [{ item: "minecraft:snowball", count: 8 }] };
 const LEAP: KitDef = { id: "leap", name: "Leap", refill: "round", items: [{ item: "minecraft:feather", name: "Leap" }] };
@@ -167,5 +167,27 @@ describe("KitPicker", () => {
     expect(listNames(["A"])).toBe("A");
     expect(listNames(["A", "B", "C"])).toBe("A§r, B§r and C");
     expect(listNames(["A", "B", "C", "D", "E"])).toBe("A§r, B§r and 3 more");
+  });
+});
+
+describe("mixDyes", () => {
+  const red = { red: 0.85, green: 0.15, blue: 0.15 };
+  const yellow = { red: 0.95, green: 0.85, blue: 0.2 };
+  const blue = { red: 0.2, green: 0.35, blue: 0.9 };
+
+  it("mixes red and yellow into orange, red and blue into purple", () => {
+    const orange = mixDyes([red, yellow]);
+    expect(orange.red).toBeGreaterThan(orange.green);
+    expect(orange.green).toBeGreaterThan(orange.blue);
+    expect(orange.green).toBeGreaterThan(0.4);
+    const purple = mixDyes([red, blue]);
+    expect(purple.red).toBeGreaterThan(purple.green * 1.5);
+    expect(purple.blue).toBeGreaterThan(purple.green * 1.5);
+  });
+
+  it("keeps a mix as bright as its colors", () => {
+    const mix = mixDyes([red, blue]);
+    expect(Math.max(mix.red, mix.green, mix.blue)).toBeCloseTo((0.85 + 0.9) / 2, 6);
+    expect(mixDyes([red])).toEqual(red);
   });
 });

@@ -34,6 +34,10 @@ export const EntityComponentTypes = {
 } as const;
 export const ItemComponentTypes = { Cooldown: "minecraft:cooldown", Dyeable: "minecraft:dyeable", Enchantable: "minecraft:enchantable" } as const;
 export const Direction = { Down: "Down", East: "East", North: "North", South: "South", Up: "Up", West: "West" } as const;
+export const EntitySwingSource = {
+  Attack: "Attack", Build: "Build", DropItem: "DropItem", Event: "Event", Interact: "Interact",
+  Mine: "Mine", None: "None", ThrowItem: "ThrowItem", UseItem: "UseItem",
+} as const;
 export const EntityInitializationCause = { Born: "Born", Event: "Event", Loaded: "Loaded", Spawned: "Spawned", Transformed: "Transformed" } as const;
 export const StructureSaveMode = { Memory: "Memory", World: "World" } as const;
 export type Direction = (typeof Direction)[keyof typeof Direction];
@@ -214,9 +218,10 @@ export class ItemStack {
   /** How many times a script started this item's cooldown (only items outside minecraft: have one here). */
   cooldownsStarted = 0;
   private readonly cooldown = {
-    startCooldown: () => {
+    startCooldown: (player?: FakePlayer) => {
       writable("ItemCooldownComponent::startCooldown");
       this.cooldownsStarted++;
+      player?.cooldownsStarted.push(this.typeId);
     },
   };
   private readonly enchantable = {
@@ -294,6 +299,16 @@ export class FakePlayer {
   isSneaking = false;
   isInWater = false;
   selectedSlotIndex = 0;
+  /** The item ids whose cooldowns a script started for this player, oldest first. */
+  readonly cooldownsStarted: string[] = [];
+  /** Its camera: each setFov's field of view, oldest first (undefined puts the player's own back). */
+  readonly camera = {
+    fovs: [] as (number | undefined)[],
+    setFov: (options: { fov?: number; easeOptions?: { easeTime?: number } } = {}) => {
+      writable("Camera::setFov");
+      this.camera.fovs.push(options.fov);
+    },
+  };
   readonly teleports: Vector3[] = [];
   /** Its facing: x pitch, y yaw (set by a teleport with a rotation). */
   rotation = { x: 0, y: 0 };
@@ -885,6 +900,7 @@ class FakeWorld {
     itemStartUse: new FakeSignal<{ source: FakePlayer; itemStack: ItemStack; useDuration: number }>(),
     itemStopUse: new FakeSignal<{ source: FakePlayer; itemStack?: ItemStack; useDuration: number }>(),
     itemReleaseUse: new FakeSignal<{ source: FakePlayer; itemStack?: ItemStack; useDuration: number }>(),
+    playerSwingStart: new FakeSignal<{ player: FakePlayer; heldItemStack?: ItemStack; swingSource: string }>(),
     playerInteractWithBlock: new FakeSignal<{ player: FakePlayer; itemStack?: ItemStack; isFirstEvent: boolean }>(),
     projectileHitBlock: new FakeSignal<{
       projectile: FakeEntity | FakeMob;

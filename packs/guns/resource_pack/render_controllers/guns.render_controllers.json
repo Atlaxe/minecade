@@ -34,6 +34,78 @@
         "Array.dyes[q.property('minecade:color')]"
       ]
     },
+    "controller.render.minecade.paint_grenade": {
+      "arrays": {
+        "textures": {
+          "Array.dyes": [
+            "Texture.white",
+            "Texture.orange",
+            "Texture.magenta",
+            "Texture.light_blue",
+            "Texture.yellow",
+            "Texture.lime",
+            "Texture.pink",
+            "Texture.gray",
+            "Texture.light_gray",
+            "Texture.cyan",
+            "Texture.purple",
+            "Texture.blue",
+            "Texture.brown",
+            "Texture.green",
+            "Texture.red",
+            "Texture.black"
+          ]
+        }
+      },
+      "geometry": "Geometry.default",
+      "materials": [
+        {
+          "*": "Material.default"
+        }
+      ],
+      "textures": [
+        "Array.dyes[q.property('minecade:color')]"
+      ]
+    },
+    "controller.render.minecade.paint_grenade_primed": {
+      "arrays": {
+        "textures": {
+          "Array.dyes": [
+            "Texture.white",
+            "Texture.orange",
+            "Texture.magenta",
+            "Texture.light_blue",
+            "Texture.yellow",
+            "Texture.lime",
+            "Texture.pink",
+            "Texture.gray",
+            "Texture.light_gray",
+            "Texture.cyan",
+            "Texture.purple",
+            "Texture.blue",
+            "Texture.brown",
+            "Texture.green",
+            "Texture.red",
+            "Texture.black"
+          ]
+        }
+      },
+      "geometry": "Geometry.default",
+      "materials": [
+        {
+          "*": "Material.default"
+        }
+      ],
+      "textures": [
+        "Array.dyes[q.property('minecade:color')]"
+      ],
+      "overlay_color": {
+        "r": 1,
+        "g": 1,
+        "b": 1,
+        "a": "math.mod(q.life_time * (4 + q.life_time * 10), 1) > 0.5 ? 0.55 : 0"
+      }
+    },
     "controller.render.minecade.gun_pickup": {
       "arrays": {
         "textures": {

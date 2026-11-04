@@ -1,3 +1,4 @@
+import { teamGunItem } from "@minecade/guns/defs";
 import { defineGame } from "@minecade/minigame-core/config";
 
 // The test game: everyone waits, counts down, plays one short stage with no damage, and is sent
@@ -64,15 +65,15 @@ export default defineGame({
         armor: { head: "minecraft:leather_helmet", chest: "minecraft:leather_chestplate", legs: "minecraft:leather_leggings", feet: "minecraft:leather_boots" },
         teamArmor: true,
       },
-      // The shared guns pack's guns and grenades (packs/guns): their balls splash in the team's color.
+      // The shared guns pack's guns and grenades (packs/guns) in the team's paint: their balls splash in it.
       {
         id: "painter",
         name: "Painter",
         items: [
-          { item: "minecade:paintball_pistol" },
-          { item: "minecade:paintball_rifle" },
-          { item: "minecade:paintball_shotgun" },
-          { item: "minecade:paint_grenade", count: 16 },
+          { item: teamGunItem("pistol") },
+          { item: teamGunItem("rifle") },
+          { item: teamGunItem("shotgun") },
+          { item: teamGunItem("grenade"), count: 16 },
         ],
         armor: { head: "minecraft:leather_helmet", chest: "minecraft:leather_chestplate", legs: "minecraft:leather_leggings", feet: "minecraft:leather_boots" },
         teamArmor: true,

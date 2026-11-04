@@ -287,6 +287,7 @@ orchestrator's log.
 
 ```
 packages/minigame-core/   shared runtime: scopes, transfers, forms, the minigame framework, protocol
+packages/guns/            the guns any game can hand out: firing, aiming, ammo, grenades (with packs/guns)
 lobby/                    the lobby's behavior pack and map
 editor/                   the map editor's packs (its server is started by tools/editor/)
 packs/blocks/             the shared blocks pack every server loads (custom blocks)

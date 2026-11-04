@@ -214,31 +214,52 @@ Minecraft's half second between hits is kept by hand.
 ## The guns
 
 Every server loads the shared guns pack (`packs/guns`), so any game can hand out its guns as kit
-items and fire them with core's `Guns` (`packages/minigame-core/src/game/guns.ts`). The numbers are
-in `packages/minigame-core/src/gun-defs.ts`, which the pack's generator reads too.
+items and fire them with `Guns` from the guns package (`packages/guns`, imported as
+`@minecade/guns`). The names and numbers are in `packages/guns/src/defs.ts`, which the pack's
+generator reads too.
 
-| Gun | Item | Fires | Rate | Balls | Spread | Range |
+| Gun | Fires (left click) | Rate | Balls | Spread aiming / from the hip | Zoom | Range |
 |---|---|---|---|---|---|---|
-| Pistol | `minecade:paintball_pistol` | One shot each use | 6 ticks | 1 | 0.5 degrees | 2 s of flight |
-| Rifle | `minecade:paintball_rifle` | Again and again while use is held | 4 ticks | 1 | 2 degrees | 2 s of flight |
-| Shotgun | `minecade:paintball_shotgun` | One spray each use | 20 ticks | 6 | 9 degrees | Half a second of flight; at most 2 of a spray count on one target |
-| Paint grenade | `minecade:paint_grenade` | Thrown, used up, bursts where it hits | Half a second | | | 10 s |
+| Paintball Pistol | One shot a click | 6 ticks | 1 | 0.5 / 2.5 degrees | 60 | 2 s of flight |
+| Paintball Rifle | Again and again while the button is down | 4 ticks | 1 | 2 / 5 degrees | 50 | 2 s of flight |
+| Paintball Shotgun | One spray a click | 20 ticks | 6 | 9 / 12 degrees | 60 | Half a second of flight; at most 2 of a spray count on one target |
+| Paint Grenade | Thrown with either click, used up; lands, swells for a second, bursts | Half a second | | | | 10 s |
 
-- Each gun is held as a 3D model (an attachable) that kicks back and tips up with each shot. A tap
-  gun's item cooldown is its fire rate: the script starts it with each shot, it greys the slot until
-  the next, and the model's recoil plays while it runs (`q.cooldown_time_remaining`). The rifle's
-  recoil loops while use is held (`q.is_using_item`).
+- **Items in every paint:** each gun and the grenade is an item in each of the 16 dyes, its paint
+  parts (the hopper, the grenade's shell) in that color: `minecade:<dye>_paintball_pistol`,
+  `_paintball_rifle`, `_paintball_shotgun`, `minecade:<dye>_paint_grenade` (`gunItem(kind, dye)`).
+  A kit asks for the team's with `teamGunItem(kind)` ("minecade:{color}_paintball_pistol"); white is
+  the pickups' look. A shot paints in its gun's color unless the game's `colorOf` says otherwise.
+- **Controls:** left click fires (Bedrock repeats the swing while the button is down, so the rifle
+  keeps firing until a moment after the last swing). Holding right click aims: the camera zooms to
+  the gun's field of view (`camera.setFov`), the shots stray less, and the held model eases up to the
+  middle of the screen; letting go or switching slots zooms back. Guns keep their left click swing
+  to 0.05 s (`minecraft:swing_duration`) so firing from the hip barely moves the hand.
+- **Held models:** each gun is a 3D model (an attachable) held low on the right from the hip,
+  centered under the crosshair while aiming (`q.is_using_item` eases `v.aim`), and in the fist,
+  barrel ahead, in third person. Each shot kicks it back and tips the muzzle up: the script starts
+  the cooldown of a hidden item per gun (`minecade:<gun>_shot`), and the model reads its category
+  (`q.cooldown_time_remaining('minecade_<gun>_shot')`). It isn't the gun's own cooldown, which would
+  also stop the gun being aimed.
+- **Grenades:** a thrown grenade (`minecade:paint_grenade_thrown`) that hits something becomes
+  `minecade:paint_grenade_primed` where it landed: it falls to the ground, swells to nearly twice
+  its size and flashes white faster and faster for its 1 second fuse (with the fuse sound), then
+  bursts (`onBurst`, and a splat sound).
+- **Ammo:** a `GunDef` can have an `ammo` (magazine, reload ticks, spare rounds). The gun then fires
+  its magazine and reloads by itself when it's empty (crossbow loading sounds, a dry click with no
+  spare rounds left); `reload`, `refill` and `ammoOf` let a game reload, fill up on a respawn and
+  show it (`onAmmo`, `ammoText` for the HUD). Paintball's guns have none: they never run dry.
 - Balls fly as `minecade:paintball`, a sprite like the snowball's, in one of 16 paint colors (the
-  `minecade:color` property, Minecraft's dye order). Where a ball or grenade lands, the game decides
-  what happens; `paintSplash` throws the pack's splash particle in its color.
-- `minecade:gun_pickup` floats, spins and bobs a gun or grenade (the `minecade:kind` property:
-  pistol, rifle, shotgun, grenade) for games with pickups.
-- Everyone holds the same guns: the balls and splashes carry the team's color. A kit picture draws
-  the guns' own hotbar icons.
+  `minecade:color` property, Minecraft's dye order). Where a ball lands, the game decides what
+  happens; `paintSplash` throws the pack's splash particle in its color.
+- `minecade:gun_pickup` floats, spins and bobs a white gun or grenade (the `minecade:kind`
+  property: pistol, rifle, shotgun, grenade) for games with pickups.
 - The models are boxes listed in `tools/assets/guns.ts`, which writes their geometry (box UV,
-  Blockbench-ready), textures, icons, and the hold and recoil animations. Where a model sits in the
-  hand is a table of numbers there (`HOLD`); after changing either file, rerun
-  `npx tsx tools/assets/guns.ts` and commit what it writes.
+  Blockbench-ready), a texture and a hotbar icon per paint color (the icon is the model drawn in
+  3D), and the hold and recoil animations. Where a model sits is a table of places there (`HOLD`:
+  how far from the fist, how far under the crosshair), which a solver turns into the attachables'
+  rotations and positions using Blockbench's attachable preview setup and the vanilla arm poses.
+  After changing either file, rerun `npx tsx tools/assets/guns.ts` and commit what it writes.
 
 ## The prompt form
 
@@ -730,8 +751,8 @@ middle, and the tiled scanlines, which repeat.
 | `lobby/resource_pack/font/glyph_E3.png` | Icons inside text, about the height of a letter: cell 0 (U+E300) is the player icon on the game cards; cells 1 and 2 (U+E301, U+E302) are a setting's bars under its label, bright for the chosen value and dim for the others | 256x256, 16x16 cells, on transparent |
 | `games/<id>/icon.png` | The game's picture: on its card (60x34) and on the hologram (2 blocks wide) while the map is random | 320x180 (16:9), required for every game |
 | `packages/minigame-core/resource_pack/textures/minecade/hud/round_open.png`, `round_<code>.png` | The best-of rounds circles, 8x8 top right: white for a round to play, then the winner's color (`c`, `9`, `a`, `e`, `6`, `d`, `b`, `f`; `7` gray for a drawn round) | 16x16 pixel art, a filled circle with a darker rim |
-| `packs/guns/resource_pack/textures/minecade/guns/<gun>.png` | A gun's or the grenade's model texture, in hand, floating as a pickup, and thrown | 64 wide, box UV; written by `tools/assets/guns.ts` (not make-assets.py), which overwrites it: redraw the model there, or stop generating it first |
-| `packs/guns/resource_pack/textures/minecade/guns/<gun>_icon.png` | A gun's or the grenade's hotbar icon, and its slot in a kit picture | 32x32, the model's side, tilted; written by `tools/assets/guns.ts` |
+| `packs/guns/resource_pack/textures/minecade/guns/<kind>/<dye>.png` | A gun's or the grenade's model texture in one paint color: in hand, thrown and landed (the grenade), and white floating as a pickup | 64 wide, box UV; written by `tools/assets/guns.ts` (not make-assets.py), which overwrites it: redraw the model there, or stop generating it first |
+| `packs/guns/resource_pack/textures/minecade/guns/icons/<kind>_<dye>.png` | A gun's or the grenade's hotbar icon in one paint color, and its slot in a kit picture | 128x128, the model drawn in 3D; written by `tools/assets/guns.ts` |
 | `packs/guns/resource_pack/textures/minecade/guns/balls/<dye>.png`, `splash.png` | A paint ball in flight (a sprite like the snowball's), in each of the 16 dyes; the splash's drop, tinted by the particle | 16x16 and 8x8; written by `tools/assets/guns.ts` |
 | `games/bridges/resource_pack/textures/minecade/bridges/hole_<dye>.png` | Bridges' hole (3 blocks square): black walls and floor (left half), the rim's ring in the team's color (right half) | 96x48, 16 pixels a block; the ring's middle is clear |
 | `games/<id>/maps/<map>/preview.png` | A map's preview on its tile (100x54) and on the hologram when it's chosen (optional) | 320x180 (16:9), such as a screenshot |
