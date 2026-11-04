@@ -27,6 +27,8 @@ export interface ServerVars {
   devMinPlayers: number | undefined;
   /** The lobby adds this many made-up games to its menus (menu testing); 0 for none. */
   devDemoGames: number;
+  /** The lobby lists test games (Probe), which it hides otherwise. */
+  devTestGames: boolean;
   /** The lobby terminal's main menu gets a Preview button for the hologram's screens (layout tuning). */
   devHoloPreview: boolean;
   /** A game previewed from the map editor: the map's label ("Sumo: Arena"), shown in its mode box; empty otherwise. */
@@ -64,6 +66,7 @@ export function readServerVars(): ServerVars {
     mapConfig: json("mapConfig", { name: "", spawns: [] }),
     devMinPlayers: Number.isInteger(devMinPlayers) && devMinPlayers > 0 ? devMinPlayers : undefined,
     devDemoGames: Number.isInteger(devDemoGames) && devDemoGames > 0 ? devDemoGames : 0,
+    devTestGames: ["1", "true", "yes"].includes(text("devTestGames").toLowerCase()),
     devHoloPreview: ["1", "true", "yes"].includes(text("devHoloPreview").toLowerCase()),
     preview: text("preview").trim(),
     previewFakes: Math.max(0, Math.trunc(Number(text("previewFakes")) || 0)),

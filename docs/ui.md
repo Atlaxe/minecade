@@ -643,7 +643,8 @@ bright (`settingBars()` in `scripts/menus.ts`, drawn with font glyphs). Probe is
 all of this: it has two teams (so Teams: Pick or Random, and the team form) and a Round setting
 that really sets its stage length. Its three kits test the kit form's pictures: Soldier (nine items
 and iron armor: eight items, then the armor), Builder (nine items, no armor) and Scout (three items
-and leather in the team's color). It needs 2 players, so set `DEV_MIN_PLAYERS=1` to test alone.
+and leather in the team's color). The lobby lists it only while `DEV_TEST_GAMES=1` (its config has
+`test: true`). It needs 2 players, so set `DEV_MIN_PLAYERS=1` to test alone.
 When the match starts, Probe says the settings it got and who is on which team.
 
 ```ts

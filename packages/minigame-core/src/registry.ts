@@ -17,6 +17,8 @@ export interface RegistryGame {
   description?: string;
   minPlayers: number;
   maxPlayers: number;
+  /** A test game, which the lobby lists only while DEV_TEST_GAMES is 1. */
+  test?: boolean;
   maps: RegistryMap[];
   /** Texture path of the game's 16:9 picture in the lobby resource pack. */
   icon?: string;

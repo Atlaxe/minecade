@@ -32,6 +32,7 @@ services:
       SERVER_PORT: "19132"
       SERVER_NAME: Minecade lobby
       DEV_DEMO_GAMES: ${DEV_DEMO_GAMES:-}
+      DEV_TEST_GAMES: ${DEV_TEST_GAMES:-}
       DEV_HOLO_PREVIEW: ${DEV_HOLO_PREVIEW:-}
       WATCHER_GAMERTAG: ${WATCHER_GAMERTAG:-}
       ORCH_URL: http://orchestrator:8080

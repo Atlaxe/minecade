@@ -6,13 +6,15 @@ import { defineGame } from "@minecade/minigame-core/config";
 // two teams and a Round setting to test the lobby's game screen and team picking, and three kits to
 // test the kit form's pictures (a full hotbar with armor, a full hotbar without, a few items with
 // leather in the team's color), plus a Painter kit to try the shared guns: set DEV_MIN_PLAYERS=1 to
-// play it alone. Probe says what it got in chat when the match starts.
+// play it alone. Probe says what it got in chat when the match starts. The lobby lists it only
+// while DEV_TEST_GAMES is 1.
 export default defineGame({
   id: "probe",
   name: "Probe",
   description: "Test game: a short round on two teams, then everyone goes back to the lobby.",
   minPlayers: 2,
   maxPlayers: 8,
+  test: true,
   waitForPlayersSeconds: 20,
   countdownSeconds: 3,
   timeLimitSeconds: 15,

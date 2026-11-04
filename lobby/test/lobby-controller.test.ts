@@ -107,6 +107,17 @@ describe("LobbyController: starting a game", () => {
     expect(solo.lobby.choices().every((choice) => choice.playable)).toBe(true);
   });
 
+  it("hides test games unless they're turned on", () => {
+    const tests: Registry = { games: [{ ...registry.games[0], test: true }, registry.games[1]] };
+    const t = setup(["Steve", "Alex"], { registry: tests });
+    expect(t.lobby.choices().map(({ game }) => game.id)).toEqual(["sumo"]);
+    expect(plain(t.lobby.request("Steve", "probe", "default"))).toBe("There's no game called probe.");
+    expect(t.sent).toEqual([]);
+
+    const dev = setup(["Steve", "Alex"], { registry: tests, testGames: true });
+    expect(dev.lobby.choices().map(({ game }) => game.id)).toEqual(["probe", "sumo"]);
+  });
+
   it("lists demo games after the real ones, but never starts them", () => {
     const t = setup(["Steve", "Alex"], { demoGames: demoGames(2) });
     expect(t.lobby.choices().map(({ game }) => game.id)).toEqual(["probe", "sumo", "demo_paintball", "demo_block_drop"]);

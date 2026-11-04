@@ -7,8 +7,8 @@
 #   TRANSPORT       http | log (must match the orchestrator)
 #   IDENTITY        name of this server's saved identity key in /keys (default: SERVER_ID)
 #   ORCH_URL, LAN_HOST, PUBLIC_HOST, LAN_PLAYERS, ALLOW_LIST, LOBBY_PORT, SESSION_ID,
-#   EXPECTED_PLAYERS, MAX_PLAYERS, SERVER_NAME, DEV_MIN_PLAYERS, DEV_DEMO_GAMES, DEV_HOLO_PREVIEW,
-#   WATCHER_GAMERTAG, GAME_SETTINGS
+#   EXPECTED_PLAYERS, MAX_PLAYERS, SERVER_NAME, DEV_MIN_PLAYERS, DEV_DEMO_GAMES, DEV_TEST_GAMES,
+#   DEV_HOLO_PREVIEW, WATCHER_GAMERTAG, GAME_SETTINGS
 #   PREVIEW         set by the map editor's Preview (tools/editor/preview-session.ts): the map's label,
 #                   shown in the game's mode box top center.
 #   PREVIEW_FAKES   set by Preview too: how many fake players the match starts with.
@@ -200,6 +200,7 @@ jq -n \
   --arg mapConfig "$map_config" \
   --arg devMinPlayers "${DEV_MIN_PLAYERS:-}" \
   --arg devDemoGames "${DEV_DEMO_GAMES:-}" \
+  --arg devTestGames "${DEV_TEST_GAMES:-}" \
   --arg devHoloPreview "${DEV_HOLO_PREVIEW:-}" \
   --arg preview "${PREVIEW:-}" \
   --arg previewFakes "${PREVIEW_FAKES:-}" \

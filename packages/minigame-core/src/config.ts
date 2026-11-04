@@ -230,6 +230,8 @@ export interface GameConfig {
   description?: string;
   minPlayers: number;
   maxPlayers: number;
+  /** A test game (Probe): the lobby lists it only while DEV_TEST_GAMES is 1. The map editor always does. */
+  test?: boolean;
 
   waitForPlayersSeconds?: number;
   countdownSeconds?: number;

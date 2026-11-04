@@ -139,7 +139,7 @@ bootServer(({ vars, transport, transfer, root }) => {
       },
     },
     root,
-    { registry, devMinPlayers: vars.devMinPlayers, demoGames: demoGames(vars.devDemoGames) },
+    { registry, devMinPlayers: vars.devMinPlayers, testGames: vars.devTestGames, demoGames: demoGames(vars.devDemoGames) },
   );
   /** The live team forms while players pick teams for a game that's starting, by player name. */
   const teamForms = new Map<string, TeamPickForm>();

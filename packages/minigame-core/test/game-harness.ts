@@ -81,6 +81,7 @@ export function createHarness(): Harness {
         mapConfig,
         devMinPlayers: undefined,
         devDemoGames: 0,
+        devTestGames: false,
         devHoloPreview: false,
         preview: "",
         previewFakes: 0,

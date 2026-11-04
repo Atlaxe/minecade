@@ -46,6 +46,8 @@ export interface LobbyOptions {
   registry: Registry;
   /** Replaces every game's minimum player count when set (solo testing). */
   devMinPlayers?: number;
+  /** Lists the registry's test games (Probe), which are hidden otherwise (DEV_TEST_GAMES). */
+  testGames?: boolean;
   /** Made-up games listed after the real ones (menu testing); they can't start. See demo-games.ts. */
   demoGames?: RegistryGame[];
   newRequestId?: () => string;
@@ -82,7 +84,8 @@ export class LobbyController {
   constructor(ports: LobbyPorts, scope: Scope, options: LobbyOptions) {
     this.ports = ports;
     this.scope = scope;
-    this.games = [...options.registry.games, ...(options.demoGames ?? [])];
+    const real = options.registry.games.filter((game) => options.testGames || !game.test);
+    this.games = [...real, ...(options.demoGames ?? [])];
     this.devMinPlayers = options.devMinPlayers;
     this.newRequestId = options.newRequestId ?? randomId;
     this.startTimeoutTicks = options.startTimeoutTicks ?? 150 * 20;

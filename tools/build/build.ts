@@ -241,13 +241,14 @@ async function buildMaps(target: Target, out: string): Promise<{ id: string; nam
   return target.maps.map((map) => ({ id: map.id, name: map.config.name }));
 }
 
-function pick({ id, name, description, minPlayers, maxPlayers, teams, options, stats }: GameConfig): Omit<RegistryGame, "maps"> {
+function pick({ id, name, description, minPlayers, maxPlayers, test, teams, options, stats }: GameConfig): Omit<RegistryGame, "maps"> {
   return {
     id,
     name,
     description,
     minPlayers,
     maxPlayers,
+    ...(test ? { test } : {}),
     icon: `textures/minecade/games/${id}`,
     ...(teams ? { teams } : {}),
     ...(options ? { options } : {}),
