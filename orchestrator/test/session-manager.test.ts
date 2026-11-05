@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { PROTOCOL_VERSION, type OutboundEvent } from "@minecade/minigame-core/protocol";
-import { cleanPicks, cleanSettings } from "../src/session-manager.ts";
+import { cleanPicks, cleanSettings, PREPARED_MS } from "../src/session-manager.ts";
 import { SERVER_STARTED_LINE, setupSessions } from "./fakes.ts";
 
 const ready: OutboundEvent = { t: "server_ready", protocol: PROTOCOL_VERSION, role: "game", transport: "http", sessionId: "s1" };
@@ -349,6 +349,109 @@ describe("SessionManager: running", () => {
       "[orchestrator] session s1: timings: public ip 0.0 s, created 0.0 s, started 0.0 s, server started 0.0 s, server_ready 0.0 s, ready 0.0 s, " +
         "players sent 3.0 s, Steve in 7.0 s, Eve in 7.0 s, all in 7.0 s",
     ]);
+  });
+});
+
+describe("SessionManager: booting a game ahead", () => {
+  const prepare = async (t: ReturnType<typeof setupSessions>, map = "other") => {
+    t.sessions.onLobbyEvent({ t: "prepare_game", game: "probe", map });
+    await vi.advanceTimersByTimeAsync(0);
+  };
+
+  it("boots without a word to the lobby, then the start for that map adopts it", async () => {
+    vi.setSystemTime(1_800_000_000_000);
+    const t = setupSessions();
+    await prepare(t);
+    expect(t.docker.specs).toHaveLength(1);
+    expect(t.docker.specs[0].env).toMatchObject({ MAP: "other", AWAIT_START: "1", EXPECTED_PLAYERS: "", GAME_SETTINGS: "{}" });
+    expect(t.lobby).toEqual([]);
+    expect(t.sessions.status()).toEqual({ state: "idle", players: [] });
+    await vi.advanceTimersByTimeAsync(5000);
+    t.docker.handles[0].console.emit(SERVER_STARTED_LINE);
+    t.links[0].emit(ready);
+    expect(t.links[0].sent).toEqual([]);
+
+    await vi.advanceTimersByTimeAsync(1000);
+    expect(await t.sessions.start({ ...startRequest, map: "other", settings: { teams: "random" } })).toEqual({ ok: true, sessionId: "s1" });
+    expect(t.docker.specs).toHaveLength(1);
+    expect(types(t)).toEqual(["game_starting", "status"]);
+    expect(t.links[0].sent).toEqual([{ t: "configure", settings: { teams: "random" }, players: ["Steve", "Alex"] }]);
+    expect(t.sessions.status().state).toBe("starting");
+    await vi.advanceTimersByTimeAsync(500);
+    t.links[0].emit({ t: "configured", sessionId: "s1" });
+    expect(t.sessions.status().state).toBe("running");
+    expect(t.lobby.find((message) => message.t === "game_ready")).toMatchObject({ requestId: "r1", map: "other" });
+    t.links[0].emit({ t: "end_game", sessionId: "s1", reason: "aborted" });
+    await vi.advanceTimersByTimeAsync(0);
+    const logged = vi.mocked(console.log).mock.calls.map(([line]) => String(line));
+    // Counted from the start: the boot that came before it shows as negative times.
+    expect(logged.filter((line) => line.includes("timings"))).toEqual([
+      "[orchestrator] session s1: timings: booted ahead -6.0 s, public ip -6.0 s, created -6.0 s, started -6.0 s, server started -1.0 s, " +
+        "server_ready -1.0 s, configure sent 0.0 s, configured 0.5 s, ready 0.5 s",
+    ]);
+  });
+
+  it("configures it as soon as its pack is up when the start comes first", async () => {
+    const t = setupSessions();
+    await prepare(t);
+    await t.sessions.start({ ...startRequest, map: "other" });
+    expect(t.links[0].sent).toEqual([]);
+    t.links[0].emit(ready);
+    expect(t.links[0].sent).toEqual([{ t: "configure", settings: {}, players: ["Steve", "Alex"] }]);
+    t.links[0].emit({ t: "configured", sessionId: "s1" });
+    expect(t.sessions.status().state).toBe("starting"); // BDS hasn't said Server started.
+    t.docker.handles[0].console.emit(SERVER_STARTED_LINE);
+    expect(t.sessions.status().state).toBe("running");
+  });
+
+  it("is replaced for another map, and removed at once for a start on another map", async () => {
+    const t = setupSessions();
+    await prepare(t, "default");
+    await prepare(t, "default"); // the same map again: nothing new
+    await prepare(t, "other");
+    expect(t.docker.specs.map((spec) => spec.env.MAP)).toEqual(["default", "other"]);
+    expect(t.docker.handles[0].discard).toHaveBeenCalled();
+    expect(await t.sessions.start({ ...startRequest, map: "default" })).toMatchObject({ ok: true });
+    expect(t.docker.handles[1].discard).toHaveBeenCalled();
+    expect(t.docker.specs.map((spec) => [spec.env.MAP, spec.env.AWAIT_START])).toEqual([
+      ["default", "1"],
+      ["other", "1"],
+      ["default", ""],
+    ]);
+    expect(t.docker.handles[0].remove).not.toHaveBeenCalled();
+  });
+
+  it("goes when the player leaves the screen, when nobody starts it, or when its server stops", async () => {
+    const t = setupSessions();
+    await prepare(t);
+    t.sessions.onLobbyEvent({ t: "cancel_prepare" });
+    await vi.advanceTimersByTimeAsync(0);
+    expect(t.docker.handles[0].discard).toHaveBeenCalled();
+
+    await prepare(t);
+    await vi.advanceTimersByTimeAsync(PREPARED_MS - 1);
+    expect(t.docker.handles[1].discard).not.toHaveBeenCalled();
+    await vi.advanceTimersByTimeAsync(1);
+    expect(t.docker.handles[1].discard).toHaveBeenCalled();
+
+    await prepare(t);
+    t.docker.handles[2].exit(1);
+    await vi.advanceTimersByTimeAsync(0);
+    expect(t.docker.handles[2].discard).toHaveBeenCalled();
+    await prepare(t);
+    expect(t.docker.specs).toHaveLength(4);
+    expect(t.lobby).toEqual([]);
+  });
+
+  it("boots nothing ahead while a game is on, nor a map that isn't published", async () => {
+    const t = setupSessions();
+    await startAndReady(t);
+    await prepare(t);
+    expect(t.docker.specs).toHaveLength(1);
+
+    const unpublished = setupSessions({}, { publishedMaps: () => ({ probe: { default: 1 } }) });
+    await prepare(unpublished, "other");
+    expect(unpublished.docker.specs).toEqual([]);
   });
 });
 

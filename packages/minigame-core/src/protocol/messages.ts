@@ -1,7 +1,7 @@
 // Wire protocol between the servers' behavior packs and the orchestrator. Pure TypeScript with
 // no runtime imports: bundled into packs by esbuild and imported by the orchestrator under Node.
 
-export const PROTOCOL_VERSION = 8;
+export const PROTOCOL_VERSION = 9;
 
 /**
  * Upper bound for one encoded message, in either direction and over either transport, so no
@@ -53,6 +53,28 @@ export interface StartGame {
 
 export interface StatusRequest {
   t: "status_request";
+}
+
+/**
+ * The lobby boots a game ahead on a map (a concrete id, Random's pick included) while a player
+ * looks at its screen. A start_game for the same game and map adopts it; the orchestrator removes
+ * it for another map, a cancel_prepare, or when it goes unused.
+ */
+export interface PrepareGame {
+  t: "prepare_game";
+  game: string;
+  map: string;
+}
+
+/** The player left the game screen without starting: what was booted ahead goes. */
+export interface CancelPrepare {
+  t: "cancel_prepare";
+}
+
+/** A game booted ahead took its configure and built its match: it can take players now. */
+export interface Configured {
+  t: "configured";
+  sessionId: string;
 }
 
 export interface PlayerCount {
@@ -174,7 +196,7 @@ export interface PromptUsed {
   ids: number[];
 }
 
-export type OutboundEvent = ServerReady | StartGame | StatusRequest | PlayerCount | MatchStats | EndGame | StatsQuery | LobbyTeamPicks | PlayersSent | PromptSubmit | PromptRequest | PromptUsed;
+export type OutboundEvent = ServerReady | StartGame | StatusRequest | PrepareGame | CancelPrepare | Configured | PlayerCount | MatchStats | EndGame | StatsQuery | LobbyTeamPicks | PlayersSent | PromptSubmit | PromptRequest | PromptUsed;
 
 // ---- Orchestrator -> server ----------------------------------------------------------------
 
@@ -271,6 +293,16 @@ export interface TeamPicks {
   picks: Record<string, string>;
 }
 
+/**
+ * The start for a game booted ahead (AWAIT_START): the game screen's settings and the lobby's
+ * players. The game builds its match only now, and says configured.
+ */
+export interface Configure {
+  t: "configure";
+  settings: Record<string, string>;
+  players: string[];
+}
+
 /** The players the lobby sent (its players_sent), forwarded to their game: the ones it waits for. */
 export interface ExpectedPlayers {
   t: "expected_players";
@@ -296,7 +328,7 @@ export interface PromptReply {
   prompts: BankPrompt[];
 }
 
-export type InboundMessage = StartRejected | GameStarting | GameReady | GameFailed | GameEnded | Status | ReturnAll | StatsReply | TeamPicks | ExpectedPlayers | PromptReply;
+export type InboundMessage = StartRejected | GameStarting | GameReady | GameFailed | GameEnded | Status | ReturnAll | StatsReply | TeamPicks | Configure | ExpectedPlayers | PromptReply;
 
 // ---- Encoding --------------------------------------------------------------------------------
 
@@ -304,6 +336,9 @@ const OUTBOUND_TYPES: ReadonlySet<string> = new Set<OutboundEvent["t"]>([
   "server_ready",
   "start_game",
   "status_request",
+  "prepare_game",
+  "cancel_prepare",
+  "configured",
   "player_count",
   "match_stats",
   "end_game",
@@ -325,6 +360,7 @@ const INBOUND_TYPES: ReadonlySet<string> = new Set<InboundMessage["t"]>([
   "return_all",
   "stats_reply",
   "team_picks",
+  "configure",
   "expected_players",
   "prompt_reply",
 ]);

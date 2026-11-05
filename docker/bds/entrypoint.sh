@@ -13,6 +13,8 @@
 #   ORCH_URL, LAN_HOST, PUBLIC_HOST, LAN_PLAYERS, ALLOW_LIST, LOBBY_PORT, SESSION_ID,
 #   EXPECTED_PLAYERS, MAX_PLAYERS, SERVER_NAME, DEV_MIN_PLAYERS, DEV_DEMO_GAMES, DEV_TEST_GAMES,
 #   DEV_HOLO_PREVIEW, WATCHER_GAMERTAG, GAME_SETTINGS
+#   AWAIT_START     set by the orchestrator for a game booted ahead (while a player looks at its
+#                   screen): the game builds its match once the start's settings and players come.
 #   PREVIEW         set by the map editor's Preview (tools/editor/preview-session.ts): the map's label,
 #                   shown in the game's mode box top center.
 #   PREVIEW_FAKES   set by Preview too: how many fake players the match starts with.
@@ -240,6 +242,7 @@ jq -n \
   --arg guestLobbyPort "${GUEST_LOBBY_PORT:-}" \
   --arg watcher "${WATCHER_GAMERTAG:-}" \
   --arg settings "$game_settings" \
+  --arg awaitStart "${AWAIT_START:-}" \
   --arg editor "$editor_info" \
   '$ARGS.named' > config/default/variables.json
 

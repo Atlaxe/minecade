@@ -1,9 +1,11 @@
 // Runs a game on a game server: boots the script side, plays the match, then sends everyone back
-// to the lobby and tells the orchestrator. A preview's match that's over asks each player what's
+// to the lobby and tells the orchestrator. A server booted ahead (AWAIT_START, while a player
+// looked at the game's screen) builds its match only once the orchestrator's configure brings the
+// start's settings and players. A preview's match that's over asks each player what's
 // next instead (preview.ts endPreview), and the end_game says who picked Replay and Edit (after a
 // /restart, everyone). Party mode will run several factories in a row here.
 import { ScriptEventSource, system, world, type Player } from "@minecraft/server";
-import { bootServer } from "../bootstrap.ts";
+import { applySettingsRules, bootServer } from "../bootstrap.ts";
 import { describeError, log } from "../log.ts";
 import { normalizePlayer } from "../player.ts";
 import { homePort } from "../vars.ts";
@@ -30,11 +32,36 @@ export function runGameServer(factory: (ctx: GameContext) => Minigame): void {
     });
     root.subscribe(world.afterEvents.playerLeave, () => root.defer(report));
 
+    const begin = () => {
+      const baseline = root.live();
+      const match = factory({ ...server, random: Math.random, match: 1 });
+      game = match;
+      void playSession(match, server.root, baseline, async (reason) => {
+        const transfer = (player: Player, port: number) => server.transfer.transfer(player, port);
+        const next = !vars.preview ? undefined : match.restarting ? replayAll(vars, transfer) : reason === "finished" ? await endPreview(root, vars, transfer) : undefined;
+        // After the preview's menu everyone is on their way already, where they picked.
+        for (const player of next ? [] : world.getAllPlayers()) {
+          normalizePlayer(player);
+          server.transfer.transfer(player, homePort(vars, player.name));
+        }
+        for (let second = 0; second < EMPTY_WAIT_SECONDS && world.getAllPlayers().length > 0; second++) await root.wait(20);
+        const picks = { ...(next?.replay.length ? { replay: next.replay } : {}), ...(next?.edit.length ? { edit: next.edit } : {}) };
+        transport.send({ t: "end_game", sessionId: vars.sessionId, reason, ...picks });
+      });
+    };
+
     root.add(
       transport.onMessage((message) => {
         if (message.t === "return_all") game?.abort("aborted");
         else if (message.t === "team_picks") game?.setTeamPicks(message.picks);
         else if (message.t === "expected_players") game?.setExpectedPlayers(message.players);
+        else if (message.t === "configure" && vars.awaitStart && !game) {
+          vars.settings = message.settings;
+          vars.expectedPlayers = message.players;
+          applySettingsRules(vars);
+          begin();
+          transport.send({ t: "configured", sessionId: vars.sessionId });
+        }
       }),
     );
     root.subscribe(
@@ -50,21 +77,7 @@ export function runGameServer(factory: (ctx: GameContext) => Minigame): void {
       { namespaces: ["minecade"] },
     );
 
-    const baseline = root.live();
-    const match = factory({ ...server, random: Math.random, match: 1 });
-    game = match;
-    void playSession(match, server.root, baseline, async (reason) => {
-      const transfer = (player: Player, port: number) => server.transfer.transfer(player, port);
-      const next = !vars.preview ? undefined : match.restarting ? replayAll(vars, transfer) : reason === "finished" ? await endPreview(root, vars, transfer) : undefined;
-      // After the preview's menu everyone is on their way already, where they picked.
-      for (const player of next ? [] : world.getAllPlayers()) {
-        normalizePlayer(player);
-        server.transfer.transfer(player, homePort(vars, player.name));
-      }
-      for (let second = 0; second < EMPTY_WAIT_SECONDS && world.getAllPlayers().length > 0; second++) await root.wait(20);
-      const picks = { ...(next?.replay.length ? { replay: next.replay } : {}), ...(next?.edit.length ? { edit: next.edit } : {}) };
-      transport.send({ t: "end_game", sessionId: vars.sessionId, reason, ...picks });
-    });
+    if (!vars.awaitStart) begin();
   });
 }
 

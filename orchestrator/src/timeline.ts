@@ -6,11 +6,19 @@
 const STEP_LINE = /^\[minecade\] step ([a-z_]+) (\d{13})$/;
 
 export class Timeline {
-  private readonly startedAt: number;
+  private startedAt: number;
   private readonly marks: { name: string; at: number }[] = [];
 
   constructor(startedAt = Date.now()) {
     this.startedAt = startedAt;
+  }
+
+  /**
+   * Counts from `at` from now on: a game booted ahead counts from its start request, so the steps
+   * that came before it show as negative times.
+   */
+  startAt(at: number): void {
+    this.startedAt = at;
   }
 
   /** Notes a step, once: a step seen again keeps its first time. */

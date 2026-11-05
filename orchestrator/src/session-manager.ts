@@ -1,6 +1,8 @@
 // Runs one game session at a time: idle -> starting -> running -> stopping -> idle. It starts the
 // game container, waits until the game is ready, tells the lobby, relays the game's events, and
-// removes the container when the game ends, fails or crashes.
+// removes the container when the game ends, fails or crashes. Beside it, one game can be booted
+// ahead while a player looks at its screen in the lobby (prepare_game): a start for that game and
+// map adopts it, so its players skip some or all of the boot.
 import { randomBytes } from "node:crypto";
 import {
   PROTOCOL_VERSION,
@@ -17,7 +19,7 @@ import type { Config } from "./config.ts";
 import { LABELS, MANAGED_BY, type DockerAdapter, type GameSpec, type ServerHandle } from "./docker.ts";
 import type { ServerLink } from "./links/server-link.ts";
 import { describeError, log } from "./log.ts";
-import { resolveGameMap, type Registry, type RegistryGame, type RegistryMap } from "./registry.ts";
+import { resolveGameMap, type Registry, type RegistryGame, type RegistryMap, type Resolved } from "./registry.ts";
 import { Timeline } from "./timeline.ts";
 import type { WarmPool } from "./warm-pool.ts";
 
@@ -31,6 +33,8 @@ const EMPTY_CHECK_MS = 10_000;
 const RETURN_ALL_WAIT_MS = 10_000;
 /** Leftover games may still be backing off from the orchestrator being down (up to 10 s). */
 const LEFTOVER_WAIT_MS = 15_000;
+/** A game booted ahead that nobody starts goes after this long (the terminal's own idle limit is 2 minutes). */
+export const PREPARED_MS = 3 * 60_000;
 
 export interface SessionDeps {
   config: Config;
@@ -66,7 +70,8 @@ interface Session {
   requestId: string;
   game: RegistryGame;
   map: RegistryMap;
-  state: "starting" | "running" | "stopping";
+  /** "prepared": booted ahead, waiting for a start (never in status). */
+  state: "prepared" | "starting" | "running" | "stopping";
   publicIp: string;
   players: string[];
   /** Lowercase gamertag to xuid, from the game's console. */
@@ -85,11 +90,21 @@ interface Session {
   /** Everyone who has been on the game server, lowercase. */
   arrived: Set<string>;
   timingsLogged: boolean;
+  /** Booted ahead: its game waits for configure, with the start's settings and players. */
+  awaitStart: boolean;
+  settings: Record<string, string>;
+  startPlayers: string[];
+  configureSent: boolean;
+  configured: boolean;
+  /** A game booted ahead: resolves once its container has started (undefined if it couldn't). */
+  launched?: Promise<ServerHandle | undefined>;
 }
 
 export class SessionManager {
   private readonly deps: SessionDeps;
   private session: Session | undefined;
+  /** A game booted ahead, until a start adopts it or it goes. */
+  private prepared: Session | undefined;
   private idleWaiters: (() => void)[] = [];
   /** True while leftover games from an earlier run are being removed: they still hold the game port. */
   private cleaningUp = false;
@@ -100,7 +115,8 @@ export class SessionManager {
 
   status(): StatusSnapshot {
     const session = this.session;
-    if (!session) return { state: "idle", players: [] };
+    // A game booted ahead is never the session, so it never shows here.
+    if (!session || session.state === "prepared") return { state: "idle", players: [] };
     return { state: session.state, sessionId: session.id, game: session.game.id, map: session.map.id, players: [...session.players] };
   }
 
@@ -110,6 +126,8 @@ export class SessionManager {
 
   onLobbyEvent(event: OutboundEvent): void {
     if (event.t === "start_game") void this.start(event);
+    else if (event.t === "prepare_game") void this.prepare(String(event.game), String(event.map));
+    else if (event.t === "cancel_prepare") void (this.prepared && this.dropPrepared(this.prepared, "the player left the game screen"));
     else if (event.t === "status_request" || event.t === "server_ready") this.pushStatus();
     else if (event.t === "team_picks") this.forwardTeamPicks(event.sessionId, event.picks);
     else if (event.t === "players_sent") this.forwardPlayers(event.sessionId, event.players);
@@ -146,22 +164,21 @@ export class SessionManager {
     log.info(`session ${session.id}: team picks ${JSON.stringify(clean)}`);
   }
 
-  async start(request: StartRequest): Promise<StartResult> {
-    if (this.cleaningUp) return this.reject(request.requestId, "the network is still starting up; try again in a few seconds");
-    if (this.session) return this.reject(request.requestId, `busy: ${this.session.game.name} is ${this.session.state}`);
+  /** The game and map asked for, among the maps that are in the published maps. */
+  private resolve(gameId: string, mapId: string): Resolved {
     const index = this.deps.publishedMaps ? this.deps.publishedMaps() : undefined;
-    if (this.deps.publishedMaps && !index) return this.reject(request.requestId, `the published maps aren't at ${this.deps.config.mapsDir}; restart the network`);
-    const published = index ? (map: string) => index[request.game]?.[map] !== undefined : undefined;
-    const resolved = resolveGameMap(this.deps.registry, request.game, request.map, this.deps.random, published);
-    if (!resolved.ok) return this.reject(request.requestId, resolved.reason);
+    if (this.deps.publishedMaps && !index) return { ok: false, reason: `the published maps aren't at ${this.deps.config.mapsDir}; restart the network` };
+    const published = index ? (map: string) => index[gameId]?.[map] !== undefined : undefined;
+    return resolveGameMap(this.deps.registry, gameId, mapId, this.deps.random, published);
+  }
 
-    const timeline = new Timeline();
-    const session: Session = {
+  private newSession(game: RegistryGame, map: RegistryMap, requestId: string, state: "prepared" | "starting"): Session {
+    return {
       id: this.deps.newSessionId?.() ?? randomBytes(6).toString("hex"),
-      requestId: request.requestId,
-      game: resolved.game,
-      map: resolved.map,
-      state: "starting",
+      requestId,
+      game,
+      map,
+      state,
       publicIp: "",
       players: [],
       xuids: new Map(),
@@ -170,11 +187,38 @@ export class SessionManager {
       lastPlayersAt: Date.now(),
       timers: [],
       cleanup: [],
-      timeline,
-      expected: request.players.map((name) => name.toLowerCase()),
+      timeline: new Timeline(),
+      expected: [],
       arrived: new Set(),
       timingsLogged: false,
+      awaitStart: state === "prepared",
+      settings: {},
+      startPlayers: [],
+      configureSent: false,
+      configured: false,
     };
+  }
+
+  async start(request: StartRequest): Promise<StartResult> {
+    if (this.cleaningUp) return this.reject(request.requestId, "the network is still starting up; try again in a few seconds");
+    if (this.session) return this.reject(request.requestId, `busy: ${this.session.game.name} is ${this.session.state}`);
+    const resolved = this.resolve(request.game, request.map);
+    if (!resolved.ok) return this.reject(request.requestId, resolved.reason);
+    const prepared = this.prepared;
+    if (prepared && prepared.game.id === resolved.game.id && prepared.map.id === resolved.map.id) return this.adopt(prepared, request);
+    if (prepared) {
+      // Booted ahead for another map: it goes first, so the game port is free.
+      await this.dropPrepared(prepared, "the start was for another game or map");
+      // Another start may have come meanwhile.
+      const other = this.session as Session | undefined;
+      if (other) return this.reject(request.requestId, `busy: ${other.game.name} is ${other.state}`);
+    }
+
+    const session = this.newSession(resolved.game, resolved.map, request.requestId, "starting");
+    const timeline = session.timeline;
+    session.expected = request.players.map((name) => name.toLowerCase());
+    session.settings = cleanSettings(request.settings);
+    session.startPlayers = request.players;
     this.session = session;
     log.info(`session ${session.id}: starting ${session.game.id} on ${session.map.id} for [${request.players.join(", ")}]`);
     this.deps.toLobby({ t: "game_starting", requestId: session.requestId, sessionId: session.id, game: session.game.id, map: session.map.id });
@@ -186,7 +230,7 @@ export class SessionManager {
     try {
       session.publicIp = await this.deps.publicIp();
       timeline.mark("public ip");
-      const handle = await this.launch(this.gameSpec(session, request.players, cleanSettings(request.settings)), timeline);
+      const handle = await this.launch(this.gameSpec(session), timeline);
       timeline.mark("started");
       if (this.session !== session || session.state === "stopping") {
         // The session ended (aborted or timed out) while the container was starting.
@@ -201,6 +245,112 @@ export class SessionManager {
       await this.finish(session, reason);
       return { ok: false, reason };
     }
+  }
+
+  /**
+   * Boots a game ahead on a map while a player looks at its screen in the lobby: its container
+   * starts with AWAIT_START, so its game waits for configure. A start for the same game and map
+   * adopts it (adopt); another map replaces it, and a cancel, or PREPARED_MS unused, removes it.
+   * Nothing is booted ahead while a game is on.
+   */
+  async prepare(gameId: string, mapId: string): Promise<void> {
+    if (this.cleaningUp || this.session) return;
+    const resolved = this.resolve(gameId, mapId);
+    if (!resolved.ok) {
+      log.warn(`prepare_game ignored: ${resolved.reason}`);
+      return;
+    }
+    const current = this.prepared;
+    if (current && current.game.id === resolved.game.id && current.map.id === resolved.map.id) return;
+    if (current) await this.dropPrepared(current, "another map was picked");
+    if (this.session || this.prepared) return;
+    const session = this.newSession(resolved.game, resolved.map, "", "prepared");
+    this.prepared = session;
+    session.timeline.mark("booted ahead");
+    session.timers.push(setTimeout(() => void this.dropPrepared(session, "nobody started it"), PREPARED_MS));
+    log.info(`session ${session.id}: booting ${session.game.id} on ${session.map.id} ahead`);
+    session.launched = this.launchAhead(session);
+    await session.launched;
+  }
+
+  private async launchAhead(session: Session): Promise<ServerHandle | undefined> {
+    try {
+      session.publicIp = await this.deps.publicIp();
+      session.timeline.mark("public ip");
+      const handle = await this.launch(this.gameSpec(session), session.timeline);
+      session.timeline.mark("started");
+      if (!this.isLive(session)) {
+        await handle.discard();
+        return undefined;
+      }
+      session.handle = handle;
+      this.watch(session, handle);
+      return handle;
+    } catch (error) {
+      const reason = `could not start the game server: ${describeError(error)}`;
+      if (this.prepared === session) {
+        log.warn(`session ${session.id}: ${reason}`);
+        this.prepared = undefined;
+        for (const timer of session.timers) clearTimeout(timer);
+      } else if (this.session === session) await this.finish(session, reason);
+      return undefined;
+    }
+  }
+
+  /**
+   * The start for the game booted ahead: it becomes the session, as if it had just been started,
+   * and gets its configure as soon as its pack is up (it may still be booting).
+   */
+  private adopt(session: Session, request: StartRequest): StartResult {
+    this.prepared = undefined;
+    for (const timer of session.timers) clearTimeout(timer);
+    session.timers = [];
+    session.state = "starting";
+    session.requestId = request.requestId;
+    session.settings = cleanSettings(request.settings);
+    session.startPlayers = request.players;
+    session.expected = request.players.map((name) => name.toLowerCase());
+    session.timeline.startAt(Date.now());
+    this.session = session;
+    log.info(`session ${session.id}: starting ${session.game.id} on ${session.map.id} for [${request.players.join(", ")}], booted ahead`);
+    this.deps.toLobby({ t: "game_starting", requestId: session.requestId, sessionId: session.id, game: session.game.id, map: session.map.id });
+    this.pushStatus();
+    session.timers.push(
+      setTimeout(() => void this.finish(session, "the game server did not become ready in time"), this.deps.config.readyTimeoutMs),
+    );
+    this.sendConfigure(session);
+    return { ok: true, sessionId: session.id };
+  }
+
+  /** Removes the game booted ahead, at once (nobody is on it). */
+  private async dropPrepared(session: Session, reason: string): Promise<void> {
+    if (this.prepared !== session) return;
+    this.prepared = undefined;
+    session.state = "stopping";
+    for (const timer of session.timers) clearTimeout(timer);
+    for (const off of session.cleanup) off();
+    log.info(`session ${session.id}: removing the game booted ahead (${reason})`);
+    session.link?.close();
+    const handle = session.handle ?? (await session.launched);
+    try {
+      await handle?.discard();
+    } catch (error) {
+      log.error(`session ${session.id}: could not remove the container: ${describeError(error)}`);
+    }
+    handle?.console.close();
+  }
+
+  /** A game booted ahead gets the start's settings and players, once it's started and its pack is up. */
+  private sendConfigure(session: Session): void {
+    if (session.state !== "starting" || !session.awaitStart || session.configureSent || !session.packReady || !session.link) return;
+    session.configureSent = true;
+    session.link.send({ t: "configure", settings: session.settings, players: session.startPlayers });
+    session.timeline.mark("configure sent");
+  }
+
+  /** The session, or the game booted ahead, and not on its way out. */
+  private isLive(session: Session): boolean {
+    return (this.session === session || this.prepared === session) && session.state !== "stopping";
   }
 
   /** Ends the current session. Returns false if there is none. */
@@ -246,6 +396,7 @@ export class SessionManager {
 
   /** SIGTERM: sends the players of a running game home, then removes the container. */
   async shutdown(): Promise<void> {
+    if (this.prepared) await this.dropPrepared(this.prepared, "the orchestrator is shutting down");
     const session = this.session;
     if (!session) return;
     if (session.link && session.state !== "stopping") {
@@ -267,7 +418,7 @@ export class SessionManager {
     return { ok: false, reason };
   }
 
-  private gameSpec(session: Session, players: string[], settings: Record<string, string>): GameSpec {
+  private gameSpec(session: Session): GameSpec {
     const config = this.deps.config;
     return {
       name: `minecade-game-${session.id}`,
@@ -290,8 +441,10 @@ export class SessionManager {
         LAN_PLAYERS: config.lanPlayers,
         ALLOW_LIST: config.allowList,
         DEV_MIN_PLAYERS: config.devMinPlayers,
-        EXPECTED_PLAYERS: players.join(","),
-        GAME_SETTINGS: JSON.stringify(settings),
+        EXPECTED_PLAYERS: session.startPlayers.join(","),
+        GAME_SETTINGS: JSON.stringify(session.settings),
+        // Booted ahead: the settings and players come in configure.
+        AWAIT_START: session.awaitStart ? "1" : "",
         MAX_PLAYERS: String(session.game.maxPlayers + 2),
         SERVER_NAME: `Minecade ${session.game.name}`,
       },
@@ -339,14 +492,18 @@ export class SessionManager {
       }),
     );
     void handle.exited.then((code) => {
-      if (this.session !== session || session.state === "stopping") return;
+      if (!this.isLive(session)) return;
+      if (this.prepared === session) {
+        void this.dropPrepared(session, `its server stopped (exit code ${code})`);
+        return;
+      }
       const reason = session.state === "running" ? "crashed" : `the game server crashed while starting (exit code ${code})`;
       void this.finish(session, reason);
     });
   }
 
   private onGameEvent(session: Session, event: OutboundEvent): void {
-    if (this.session !== session || session.state === "stopping") return;
+    if (!this.isLive(session)) return;
     switch (event.t) {
       case "server_ready": {
         const problem =
@@ -356,11 +513,20 @@ export class SessionManager {
               ? `the game uses the ${event.transport} transport, the orchestrator ${this.deps.config.transport}`
               : undefined;
         if (problem) {
-          void this.finish(session, problem);
+          if (this.prepared === session) void this.dropPrepared(session, problem);
+          else void this.finish(session, problem);
           return;
         }
         session.timeline.mark("server_ready");
         session.packReady = true;
+        this.sendConfigure(session);
+        this.checkReady(session);
+        return;
+      }
+      case "configured": {
+        if (event.sessionId !== session.id || !session.configureSent) return;
+        session.timeline.mark("configured");
+        session.configured = true;
         this.checkReady(session);
         return;
       }
@@ -403,9 +569,9 @@ export class SessionManager {
     }
   }
 
-  /** Ready means both the pack's server_ready and the BDS "Server started." line. */
+  /** Ready means both the pack's server_ready and the BDS "Server started." line, and for a game booted ahead its configured. */
   private checkReady(session: Session): void {
-    if (session.state !== "starting" || !session.packReady || !session.logReady) return;
+    if (session.state !== "starting" || !session.packReady || !session.logReady || (session.awaitStart && !session.configured)) return;
     session.state = "running";
     session.lastPlayersAt = Date.now();
     for (const timer of session.timers) clearTimeout(timer);

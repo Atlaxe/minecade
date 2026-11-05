@@ -598,9 +598,22 @@ screen's buttons come in this order: the Random map switch (`MARK.toggle`, plus 
 it's on, which swaps its switch picture), the settings, the maps (alternating between the two map
 columns; `MARK.dim` darkens them while Random is on, and `MARK.selected` outlines the chosen
 one), then Start. `gameButtons()` says what each one does, so the terminal knows what was pressed
-from its place in the list. Start sends `start_game` with the map (or "random") and the settings,
-the orchestrator passes the settings to the game server as `GAME_SETTINGS`, and a game reads them
-from `ctx.vars.settings`.
+from its place in the list. Start sends `start_game` with the map (Random's pick when Random is on;
+everyone still hears "a random map") and the settings, the orchestrator passes the settings to the
+game server, and a game reads them from `ctx.vars.settings`.
+
+**Booting ahead:** while the game screen is open, its game's server boots on the map in effect,
+so Start is quicker. Random picks its map when the screen opens (or when Random is turned back
+on) and keeps it. Once the map has stayed put for a second (`PREPARE_TICKS` in
+`terminal-controller.ts`; tapping through maps boots only the last), the lobby sends
+`prepare_game`, and the orchestrator starts the game's container with `AWAIT_START`: its script
+boots and waits. Start for that game and map adopts it: the orchestrator sends the game
+`configure` (the settings and players) as soon as its pack is up, the game builds its match and
+answers `configured`, and the lobby hears `game_ready`. Another map replaces it; leaving the
+screen any way but Start (back, the X, walking away, timing out) sends `cancel_prepare`, and it
+also goes after 3 minutes unused. It's removed at once (nobody is on it), and it never shows in the
+orchestrator's status. A game that can't start (too few players, one already on) boots nothing
+ahead. The start's timings show the boot that came before Start as negative times.
 
 **Team picks in the lobby:** for team games where players pick (Teams: Pick on the game screen),
 players pick in the lobby while the game server boots, so no time is lost on the game server.

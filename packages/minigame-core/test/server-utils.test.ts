@@ -127,6 +127,7 @@ describe("readServerVars", () => {
       guestLobbyPort: "19132",
       watcher: " MinecadeServer ",
       settings: '{"teams":"random"}',
+      awaitStart: "1",
     });
     expect(readServerVars()).toMatchObject({
       serverId: "ab12",
@@ -146,6 +147,7 @@ describe("readServerVars", () => {
       guestLobbyPort: 19132,
       watcher: "MinecadeServer",
       settings: { teams: "random" },
+      awaitStart: true,
     });
   });
 
@@ -173,6 +175,7 @@ describe("readServerVars", () => {
       previewFakes: 0,
       guestLobbyPort: undefined,
       watcher: "",
+      awaitStart: false,
       settings: {},
     });
     expect(console.warn).toHaveBeenCalledWith(expect.stringContaining('"lanPlayers" is not valid JSON'));

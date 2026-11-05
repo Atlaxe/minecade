@@ -40,6 +40,7 @@ export class FakeHandle implements ServerHandle {
   readonly console = new FakeConsole();
   readonly exited: Promise<number>;
   readonly remove = vi.fn(async () => {});
+  readonly discard = vi.fn(async () => {});
   exit!: (code: number) => void;
 
   constructor(id: string) {

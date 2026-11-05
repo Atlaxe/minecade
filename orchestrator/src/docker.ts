@@ -35,6 +35,8 @@ export interface ServerHandle {
   readonly exited: Promise<number>;
   /** Stops the container (5 s grace) and removes it. Safe to call more than once. */
   remove(): Promise<void>;
+  /** Removes the container at once, for a server nobody is on (a game booted ahead). */
+  discard(): Promise<void>;
 }
 
 export interface ContainerSummary {
@@ -146,12 +148,21 @@ export class DockerodeAdapter implements DockerAdapter {
         () => -1,
       ),
       remove: () => (removal ??= removeQuietly(container)),
+      discard: () => (removal ??= removeNow(container)),
     };
   }
 }
 
 async function removeQuietly(container: Docker.Container): Promise<void> {
   await container.stop({ t: 5 }).catch(() => {});
+  try {
+    await container.remove({ force: true });
+  } catch (error) {
+    if ((error as { statusCode?: number }).statusCode !== 404) throw error;
+  }
+}
+
+async function removeNow(container: Docker.Container): Promise<void> {
   try {
     await container.remove({ force: true });
   } catch (error) {

@@ -1,5 +1,5 @@
 // The orchestrator's HTTP server. Transport links (/v1/servers/...) serve the lobby and game
-// servers on the compose network. The debug API (/v1/status, /v1/start, /v1/end, /v1/stats) is for the
+// servers on the compose network. The debug API (/v1/status, /v1/start, /v1/prepare, /v1/end, /v1/stats) is for the
 // control panel and curl on this PC: compose publishes the port on 127.0.0.1 only, and the
 // checks below refuse requests addressed to "orchestrator:8080" or sent by a web page.
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
@@ -56,6 +56,12 @@ export function createOrchestratorServer(deps: ServerDeps): Server {
         settings: cleanSettings(body.settings),
       });
       return result.ok ? sendJson(res, 202, result) : sendJson(res, 409, { error: result.reason });
+    }
+    if (path === "/v1/prepare") {
+      // What the lobby's game screen does (prepare_game): boots a game ahead for a /v1/start of the same map.
+      if (typeof body.game !== "string" || typeof body.map !== "string") return sendJson(res, 400, { error: '"game" and "map" are required' });
+      void deps.sessions.prepare(body.game, body.map);
+      return sendJson(res, 202, { ok: true });
     }
     if (path === "/v1/end") {
       return deps.sessions.end("ended from the debug API")

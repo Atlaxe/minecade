@@ -141,6 +141,32 @@ describe("LobbyController: starting a game", () => {
     expect(starting.sent).toHaveLength(1);
   });
 
+  it("boots a game ahead once per map, only while it could start, and cancels it", () => {
+    const t = setup(["Steve"]);
+    t.lobby.prepare("sumo", "arena_1"); // needs 2 players
+    t.lobby.cancelPrepare(); // nothing booted ahead: nothing to cancel
+    expect(t.sent).toEqual([]);
+    t.lobby.prepare("probe", "default");
+    t.lobby.prepare("probe", "default");
+    t.lobby.cancelPrepare();
+    t.lobby.cancelPrepare();
+    expect(t.sent).toEqual([{ t: "prepare_game", game: "probe", map: "default" }, { t: "cancel_prepare" }]);
+  });
+
+  it("starts the map booted ahead, saying a random map for Random's pick", () => {
+    const t = setup();
+    t.lobby.prepare("sumo", "arena_2");
+    expect(t.lobby.request("Steve", "sumo", "arena_2", {}, true)).toBeUndefined();
+    t.lobby.cancelPrepare(); // the start took it over
+    expect(t.sent).toEqual([
+      { t: "prepare_game", game: "sumo", map: "arena_2" },
+      { t: "start_game", requestId: "r1", game: "sumo", map: "arena_2", players: ["Steve", "Alex"], settings: {} },
+    ]);
+    expect(t.notesTo("all")).toEqual(["Steve is starting Sumo on a random map."]);
+    t.lobby.prepare("sumo", "arena_1"); // a game is starting: nothing more boots ahead
+    expect(t.sent).toHaveLength(2);
+  });
+
   it("tells a player who joins mid-game what's going on", () => {
     const t = setup();
     t.lobby.onPlayerJoined("Eve");

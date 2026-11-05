@@ -80,6 +80,8 @@ export class LobbyController {
   private readonly countdownSeconds: number;
   private status: StatusSnapshot = { state: "idle", players: [] };
   private pending: Pending | undefined;
+  /** The game and map booted ahead for a player's game screen (prepare_game), until a start or a cancel. */
+  private prepared: { game: string; map: string } | undefined;
 
   constructor(ports: LobbyPorts, scope: Scope, options: LobbyOptions) {
     this.ports = ports;
@@ -155,17 +157,38 @@ export class LobbyController {
   }
 
   /**
+   * Has the orchestrator boot a game ahead on a map (an id: Random's pick is made on the game
+   * screen) while a player looks at its screen, so Start is quicker. Only for a game that could
+   * start now; a start for the same game and map takes it over.
+   */
+  prepare(gameId: string, mapId: string): void {
+    if (this.busy() || isDemoGame(gameId)) return;
+    if (!this.choices().find((candidate) => candidate.game.id === gameId)?.playable) return;
+    if (this.prepared?.game === gameId && this.prepared.map === mapId) return;
+    this.prepared = { game: gameId, map: mapId };
+    this.ports.send({ t: "prepare_game", game: gameId, map: mapId });
+  }
+
+  /** The player left the game screen without starting: what was booted ahead goes. */
+  cancelPrepare(): void {
+    if (!this.prepared) return;
+    this.prepared = undefined;
+    this.ports.send({ t: "cancel_prepare" });
+  }
+
+  /**
    * Starts a game for everyone in the lobby. Checks again first, since someone else may have
    * started a game, or players may have left, while the menus were open. Returns why not, if so.
+   * `random`: the map is Random's pick, and everyone hears "a random map".
    */
-  request(starter: string, gameId: string, mapId: string, settings: Record<string, string> = {}): string | undefined {
+  request(starter: string, gameId: string, mapId: string, settings: Record<string, string> = {}, random = false): string | undefined {
     const busy = this.busy();
     if (busy) return busy;
     const picked = this.choices().find((candidate) => candidate.game.id === gameId);
     if (!picked) return say.error(`There's no game called ${gameId}.`);
     if (!picked.playable) return say.warn(`${picked.game.name} ${picked.reason}.`);
     if (isDemoGame(gameId)) return say.warn(`${picked.game.name} is a demo game, so it can't start.`);
-    this.start(starter, picked.game, mapId, settings);
+    this.start(starter, picked.game, mapId, settings, random);
     return undefined;
   }
 
@@ -193,9 +216,11 @@ export class LobbyController {
     return this.pending?.teamPick?.reopen(name) ?? false;
   }
 
-  private start(starter: string, game: RegistryGame, mapId: string, settings: Record<string, string>): void {
+  private start(starter: string, game: RegistryGame, mapId: string, settings: Record<string, string>, random: boolean): void {
     const players = this.ports.onlinePlayers().slice(0, game.maxPlayers);
-    const mapName = mapId === "random" ? "a random map" : (game.maps.find((map) => map.id === mapId)?.name ?? mapId);
+    const mapName = random || mapId === "random" ? "a random map" : (game.maps.find((map) => map.id === mapId)?.name ?? mapId);
+    // A game booted ahead for this map is taken over by the start; one for another map goes.
+    this.prepared = undefined;
     const pending: Pending = { requestId: this.newRequestId(), game, mapName, players, scope: this.scope.child("pending") };
     this.pending = pending;
     // No answer at all (orchestrator down): ask for the real state instead of guessing.

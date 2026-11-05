@@ -46,8 +46,12 @@ export interface TerminalPorts {
   starting(): boolean;
   /** Brings back a player's team form while teams are being picked; false if there's none for them. */
   reopenTeamPick(name: string): boolean;
-  /** Starts a game; returns why not, if it can't. */
-  request(name: string, game: string, map: string, settings: Record<string, string>): string | undefined;
+  /** Starts a game; returns why not, if it can't. `random`: the map is Random's pick. */
+  request(name: string, game: string, map: string, settings: Record<string, string>, random: boolean): string | undefined;
+  /** Boots a game ahead on a map while its screen is open, so Start is quicker. */
+  prepare(game: string, map: string): void;
+  /** The game screen closed without a start: what was booted ahead goes. */
+  cancelPrepare(): void;
   notify(name: string, text: string): void;
   closeForms(name: string): void;
   /** Blocks from the player to the terminal, or undefined if they're not here. */
@@ -61,7 +65,12 @@ export interface TerminalOptions {
   /** A session with no new screen for this long ends. */
   idleTicks?: number;
   now(): number;
+  /** Random's pick of a map (tests pass their own). */
+  random?: () => number;
 }
+
+/** A game screen boots its game ahead once its map stays put this long (a player tapping through maps boots only the last). */
+const PREPARE_TICKS = 20;
 
 /** A game screen's choices: the Random switch, the chosen map and the settings. */
 type GamePicks = Pick<GameView, "random" | "map" | "settings">;
@@ -82,6 +91,7 @@ export class TerminalController {
   private readonly maxDistance: number;
   private readonly idleTicks: number;
   private readonly now: () => number;
+  private readonly random: () => number;
   private user: string | undefined;
   private session: Scope | undefined;
   /** The last screen the terminal showed (or a previewed one). It stays on the hologram after a session ends, until the next tap. */
@@ -95,6 +105,7 @@ export class TerminalController {
     this.maxDistance = options.maxDistance ?? 8;
     this.idleTicks = options.idleTicks ?? 120 * 20;
     this.now = options.now;
+    this.random = options.random ?? Math.random;
   }
 
   /** Who is using the terminal, if anyone. */
@@ -210,34 +221,63 @@ export class TerminalController {
    * One game's screen: Random map or a chosen one, the settings, then Start. Resolves true when the
    * session is over: the game is starting, or the player pressed the X. Picking a map tile turns
    * Random off. The player's choices are kept for their next visit.
+   *
+   * While the screen is open, its game boots ahead on the map in effect (once it stays put for
+   * PREPARE_TICKS), so Start is quicker: Random picks its map when the screen opens (or when Random
+   * is turned on), and keeps it. Leaving the screen any way but Start (back, the X, walking away,
+   * timing out) cancels it.
    */
   private async gameScreen(name: string, scope: Scope, gameId: string, memory: Memory): Promise<boolean> {
     memory.screen = "game";
     memory.game = gameId;
-    for (;;) {
-      // Look the game up each time: players may have joined or left since.
-      const choice = this.ports.choices().find((candidate) => candidate.game.id === gameId);
-      if (!choice) return false;
-      const picks = picksFor(memory, choice.game);
-      const view = { choice, ...picks };
-      this.show(gameContent(view));
-      const selection = await this.ports.gameMenu(name, scope, view);
-      if (selection === undefined) return false;
-      if (selection === CLOSE) return true;
-      const action = gameAction(choice.game, selection);
-      if (action?.kind === "random") picks.random = !picks.random;
-      else if (action?.kind === "map") {
-        picks.random = false;
-        picks.map = action.map;
-      } else if (action?.kind === "setting") {
-        const setting = settingsFor(choice.game).find((candidate) => candidate.id === action.id);
-        if (setting) picks.settings = { ...picks.settings, [setting.id]: nextSetting(setting, picks.settings[setting.id]) };
-      } else if (action?.kind === "start") {
-        const refusal = this.ports.request(name, gameId, picks.random ? "random" : picks.map, picks.settings);
-        if (refusal === undefined) return true;
-        this.ports.notify(name, refusal);
-        if (this.ports.busy()) return false;
+    const screen = scope.child("game-screen");
+    let started = false;
+    screen.add(() => {
+      if (!started) this.ports.cancelPrepare();
+    });
+    let randomMap: string | undefined;
+    let ahead: { map: string; timer: Scope } | undefined;
+    try {
+      for (;;) {
+        // Look the game up each time: players may have joined or left since.
+        const choice = this.ports.choices().find((candidate) => candidate.game.id === gameId);
+        if (!choice) return false;
+        const picks = picksFor(memory, choice.game);
+        randomMap ??= pickMap(choice.game, this.random);
+        const map = picks.random ? randomMap : picks.map;
+        if (choice.playable && ahead?.map !== map) {
+          ahead?.timer.dispose();
+          const timer = screen.child("prepare");
+          timer.timeout(() => this.ports.prepare(gameId, map), PREPARE_TICKS);
+          ahead = { map, timer };
+        }
+        const view = { choice, ...picks };
+        this.show(gameContent(view));
+        const selection = await this.ports.gameMenu(name, scope, view);
+        if (selection === undefined) return false;
+        if (selection === CLOSE) return true;
+        const action = gameAction(choice.game, selection);
+        if (action?.kind === "random") {
+          picks.random = !picks.random;
+          if (picks.random) randomMap = pickMap(choice.game, this.random);
+        } else if (action?.kind === "map") {
+          picks.random = false;
+          picks.map = action.map;
+        } else if (action?.kind === "setting") {
+          const setting = settingsFor(choice.game).find((candidate) => candidate.id === action.id);
+          if (setting) picks.settings = { ...picks.settings, [setting.id]: nextSetting(setting, picks.settings[setting.id]) };
+        } else if (action?.kind === "start") {
+          const refusal = this.ports.request(name, gameId, map, picks.settings, picks.random);
+          if (refusal === undefined) {
+            started = true;
+            return true;
+          }
+          this.ports.notify(name, refusal);
+          if (this.ports.busy()) return false;
+        }
       }
+    } finally {
+      screen.dispose();
     }
   }
 
@@ -267,6 +307,11 @@ export class TerminalController {
     }
     this.session?.dispose();
   }
+}
+
+/** Random's pick among a game's maps ("random" for a game with none, which the orchestrator refuses). */
+function pickMap(game: RegistryGame, random: () => number): string {
+  return game.maps[Math.floor(random() * game.maps.length)]?.id ?? "random";
 }
 
 /** A player's choices on a game's screen: the ones they made last time, or Random on, the first map and the default settings. */

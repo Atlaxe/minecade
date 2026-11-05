@@ -50,6 +50,9 @@ function setup() {
   const closed: string[] = [];
   const holo: HoloContent[] = [];
   const requests: [string, string, string, Record<string, string>][] = [];
+  /** Each request's random flag, and what the game screens booted ahead (prepare) or cancelled. */
+  const randoms: boolean[] = [];
+  const ahead: string[] = [];
   const distances = new Map<string, number | undefined>();
   let finishStats: ((closed: boolean) => void) | undefined;
   let statsShow: ((content: HoloContent) => void) | undefined;
@@ -79,8 +82,9 @@ function setup() {
       reopened.push(name);
       return true;
     },
-    request: (name, game, map, settings) => {
+    request: (name, game, map, settings, random) => {
       requests.push([name, game, map, settings]);
+      randoms.push(random);
       if (refusal === undefined) starting = true;
       return refusal;
     },
@@ -88,9 +92,12 @@ function setup() {
     closeForms: (name) => closed.push(name),
     distance: (name) => (distances.has(name) ? distances.get(name) : 2),
     hologram: (view) => holo.push(view),
+    prepare: (game, map) => ahead.push(`prepare ${game} ${map}`),
+    cancelPrepare: () => ahead.push("cancel"),
   };
   const root = new Scope("lobby");
-  const terminal = new TerminalController(ports, root, { now: () => system.currentTick, idleTicks: 200 });
+  // Random always picks a game's last map.
+  const terminal = new TerminalController(ports, root, { now: () => system.currentTick, idleTicks: 200, random: () => 0.99 });
   return {
     mains,
     previews,
@@ -100,6 +107,8 @@ function setup() {
     closed,
     holo,
     requests,
+    randoms,
+    ahead,
     distances,
     picking,
     reopened,
@@ -224,7 +233,7 @@ describe("TerminalController: Play", () => {
     expect(t.root.live()).toEqual({ scopes: 1, subscriptions: 0, runs: 0 });
   });
 
-  it("switches Random map off and on; with it on, Start sends random", async () => {
+  it("switches Random map off and on; with it on, Start sends Random's pick", async () => {
     const t = setup();
     void t.terminal.tap("Steve");
     t.mains[0].answer("play");
@@ -240,7 +249,67 @@ describe("TerminalController: Play", () => {
     expect(t.screens[2].view).toMatchObject({ random: true, map: "arena_1" });
     t.screens[2].answer(SUMO_START);
     await flushPromises();
-    expect(t.requests).toEqual([["Steve", "sumo", "random", {}]]);
+    expect(t.requests).toEqual([["Steve", "sumo", "pit", {}]]);
+    expect(t.randoms).toEqual([true]);
+  });
+
+  it("boots the game ahead once the map stays put, and again when it changes", async () => {
+    const t = setup();
+    void t.terminal.tap("Steve");
+    t.mains[0].answer("play");
+    await flushPromises();
+    t.grids[0].answer(0);
+    await flushPromises();
+    expect(t.ahead).toEqual([]);
+    system.advanceTicks(20);
+    expect(t.ahead).toEqual(["prepare sumo pit"]); // Random's pick
+    t.screens[0].answer(SUMO_ARENA);
+    await flushPromises();
+    system.advanceTicks(10);
+    t.screens[1].answer(SUMO_PIT); // tapping through maps: only the one that stays put boots
+    await flushPromises();
+    system.advanceTicks(10);
+    expect(t.ahead).toEqual(["prepare sumo pit"]);
+    system.advanceTicks(10);
+    expect(t.ahead).toEqual(["prepare sumo pit", "prepare sumo pit"]);
+    t.screens[2].answer(SUMO_START);
+    await flushPromises();
+    expect(t.requests).toEqual([["Steve", "sumo", "pit", {}]]);
+    expect(t.randoms).toEqual([false]);
+    expect(t.ahead.at(-1)).toBe("prepare sumo pit"); // the start takes it over: no cancel
+  });
+
+  it("cancels what it booted ahead when the player leaves the game screen without starting", async () => {
+    const t = setup();
+    void t.terminal.tap("Steve");
+    t.mains[0].answer("play");
+    await flushPromises();
+    t.grids[0].answer(0);
+    await flushPromises();
+    system.advanceTicks(20);
+    t.screens[0].answer(undefined); // back to the grid
+    await flushPromises();
+    expect(t.ahead).toEqual(["prepare sumo pit", "cancel"]);
+    t.grids[1].answer(0);
+    await flushPromises();
+    system.advanceTicks(20);
+    t.distances.set("Steve", 30); // walked away
+    system.advanceTicks(10);
+    await flushPromises();
+    expect(t.terminal.current).toBeUndefined();
+    expect(t.ahead).toEqual(["prepare sumo pit", "cancel", "prepare sumo pit", "cancel"]);
+  });
+
+  it("boots nothing ahead for a game that can't start now", async () => {
+    const t = setup();
+    t.setChoices([{ game: sumo, playable: false, reason: "needs at least 2 players" }]);
+    void t.terminal.tap("Steve");
+    t.mains[0].answer("play");
+    await flushPromises();
+    t.grids[0].answer(0);
+    await flushPromises();
+    system.advanceTicks(40);
+    expect(t.ahead).toEqual([]);
   });
 
   it("switches a team game's teams between Pick and Random, and sends the choice", async () => {
@@ -259,7 +328,7 @@ describe("TerminalController: Play", () => {
     expect(shown.find((element) => element !== teams && element.y === teams?.y)?.text).toBe("Random");
     t.screens[1].answer(PAINTBALL_START);
     await flushPromises();
-    expect(t.requests).toEqual([["Steve", "paintball", "random", { teams: "random" }]]);
+    expect(t.requests).toEqual([["Steve", "paintball", "yard", { teams: "random" }]]);
   });
 
   it("goes back one step when a menu is closed", async () => {
@@ -373,7 +442,7 @@ describe("TerminalController: Play", () => {
     expect(t.screens[7].view.settings).toEqual({ teams: "random" });
     t.screens[7].answer(PAINTBALL_START);
     await flushPromises();
-    expect(t.requests).toEqual([["Steve", "paintball", "random", { teams: "random" }]]);
+    expect(t.requests).toEqual([["Steve", "paintball", "yard", { teams: "random" }]]);
     expect(t.terminal.current).toBeUndefined();
 
     t.setStarting(false); // the start failed: everything is kept
@@ -395,7 +464,8 @@ describe("TerminalController: Play", () => {
     t.grids[4].answer(1); // Paintball, with its first choices again
     await flushPromises();
     expect(t.screens[9].view).toMatchObject({ random: true, map: "yard", settings: { teams: "pick" } });
-    expect(t.root.live()).toMatchObject({ scopes: 2 });
+    // The terminal session, and its game screen with the timer that boots the game ahead.
+    expect(t.root.live()).toMatchObject({ scopes: 4 });
   });
 
   it("opens the main menu instead of a remembered game while a game is running", async () => {

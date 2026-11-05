@@ -279,8 +279,9 @@ Clients refuse to join a server on a different version. When Minecraft updates:
 | `npm run panel` | Run the Minecade Panel from the terminal. |
 
 **Debug API** (this PC only, `127.0.0.1:8080`): `GET /v1/status`, `POST /v1/start`
-(`{"game": "sumo", "map": "random"}`), `POST /v1/end`, `GET /v1/stats`,
-`GET /v1/stats/<gamertag>`.
+(`{"game": "sumo", "map": "random"}`), `POST /v1/prepare` (`{"game": "sumo", "map": "sewer"}`:
+boots a game ahead, as the lobby's game screen does, for a start of that map), `POST /v1/end`,
+`GET /v1/stats`, `GET /v1/stats/<gamertag>`.
 
 **Logs:** `docker compose logs -f orchestrator` shows sessions, game script output and stats.
 Game servers are deleted when their game ends, so their script lines are copied into the

@@ -44,6 +44,11 @@ export interface ServerVars {
   watcher: string;
   /** Choices from the lobby's game screen, such as { teams: "random" }. */
   settings: Record<string, string>;
+  /**
+   * Booted ahead while a player looked at the game's screen (AWAIT_START): the settings and the
+   * players come later, in the orchestrator's configure, and the match is built then.
+   */
+  awaitStart: boolean;
 }
 
 export function readServerVars(): ServerVars {
@@ -73,6 +78,7 @@ export function readServerVars(): ServerVars {
     guestLobbyPort: Number(text("guestLobbyPort")) || undefined,
     watcher: text("watcher").trim(),
     settings: json("settings", {}),
+    awaitStart: ["1", "true", "yes"].includes(text("awaitStart").toLowerCase()),
   };
 }
 
