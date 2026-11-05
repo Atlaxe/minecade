@@ -1,15 +1,18 @@
-// Build Swap on the minigame framework. Core runs the waiting, the countdown, the clock top right
+// Build Swap on the minigame framework. Core runs the waiting, the clock top right
 // (each round's own), the result and the stats. This class adds the prompt form before the
-// countdown, the two building rounds (your own prompt in your own building area, then a twist on
-// someone else's build), and voting on every build, first as it was before its twist and then with
-// it. Builders stay anonymous until the winner is shown, with everyone's builds and points in chat.
+// match (no countdown: the first round's prompt shows at once), the two building rounds (your own
+// prompt in your own building area, then a twist on someone else's build), and voting on every
+// build, first as it was before its twist and then with it, its prompt (and then its twist) top
+// left. Builders stay anonymous until the end: the standings in chat, and each player's own points
+// for their prompt and their twist, to them alone.
 //
 // Players build in creative mode, only inside the building area they're working on (they can
 // change any block there, and /floor lays the block in hand across its bottom), and are kept
-// within the map's build padding of it. Out of their building time they're still in creative (so
-// voters can fly; adventure mode can't), but keep nothing from creative's inventory: a voter only
-// their vote blocks. Nothing spawned (mobs, items, armor stands) stays, TNT and fire do nothing, and
-// liquids that run out of an area are cleared.
+// within the map's build padding of it (put back once they've been past it for the map's return
+// delay). In a round's prep time they can take blocks from creative's inventory, but not build yet.
+// Out of their rounds they're still in creative (so voters can fly; adventure mode can't), but keep
+// nothing from creative's inventory: a voter only their vote blocks. Nothing spawned (mobs, items,
+// armor stands) stays, TNT and fire do nothing, and liquids that run out of an area are cleared.
 import {
   BlockPermutation,
   BlockVolume,
@@ -29,6 +32,7 @@ import {
 import {
   COLOR,
   Minigame,
+  Notes,
   PromptBank,
   cleanPrompt,
   countdownChime,
@@ -73,6 +77,8 @@ const VOTE_SOUND = "random.orb";
 const FALLBACK = { starter: "Anything you like", twist: "Make it bigger" };
 /** The map setting (game.config.ts map.settings) for how far builders may go past their area. */
 const BUILD_PADDING = "buildPadding";
+/** The map setting for how long (seconds) builders may stay past the padding before they're put back. */
+const RETURN_DELAY = "returnDelay";
 /** Where armor and the off hand go: emptied with the inventory out of building time. */
 const WORN = [EquipmentSlot.Head, EquipmentSlot.Chest, EquipmentSlot.Legs, EquipmentSlot.Feet, EquipmentSlot.Offhand];
 
@@ -100,6 +106,16 @@ interface Scored {
   kind: PromptKind;
   builder: string;
   points: number;
+}
+
+/** Where a participant must stay, and since when (tick) they've been out of it. */
+interface KeepIn {
+  name: string;
+  box: Plot["box"];
+  plot: Plot;
+  /** How long they may stay out before they're put back, in ticks. */
+  graceTicks: number;
+  outSince?: number;
 }
 
 /** What a player wrote before the match, or that they skipped (or ran out of time). */
@@ -143,7 +159,7 @@ export class BuildSwap extends Minigame<typeof config> {
   /** Who's building where right now (only while building is on). */
   private readonly working = new Map<string, Build>();
   /** Where each participant must stay: their area while building, the one being voted on while voting. */
-  private readonly keepIn = new Map<string, { name: string; box: Plot["box"]; plot: Plot }>();
+  private readonly keepIn = new Map<string, KeepIn>();
   private building = false;
   /** Each player's line after the clock, while it isn't the vote's. */
   private readonly lines = new Map<string, string>();
@@ -240,7 +256,7 @@ export class BuildSwap extends Minigame<typeof config> {
 
   /**
    * Everyone writes a prompt to build and a twist, or skips: each player's form stays up until they
-   * do. Once everyone has, or promptSeconds are up (whoever hasn't is skipped), the countdown starts.
+   * do. Once everyone has, or promptSeconds are up (whoever hasn't is skipped), the match starts.
    * What they wrote goes to the prompt bank at once, and the bank is asked for prompts to deal.
    */
   protected override async beforeCountdown(_names: string[], scope: Scope): Promise<boolean> {
@@ -408,7 +424,10 @@ export class BuildSwap extends Minigame<typeof config> {
     return new Map([...dealt].map(([name, prompt]) => [name, prompt.text]));
   }
 
-  /** A building round: everyone to the area they work on, prepSeconds to read the prompt and look, then `seconds` to build. */
+  /**
+   * A building round: everyone to the area they work on, prepSeconds to read the prompt, look and
+   * take blocks from creative's inventory, then `seconds` to build.
+   */
   private async round(kind: PromptKind, seconds: number): Promise<void> {
     this.keepIn.clear();
     this.working.clear();
@@ -416,10 +435,13 @@ export class BuildSwap extends Minigame<typeof config> {
       const worker = kind === "starter" ? build.builder : build.twister;
       if (!this.present(worker)) continue;
       this.working.set(keyOf(worker!), build);
-      this.keepIn.set(keyOf(worker!), { name: worker!, box: grow(build.plot.box, this.mapSetting(BUILD_PADDING)), plot: build.plot });
+      const box = grow(build.plot.box, this.mapSetting(BUILD_PADDING));
+      this.keepIn.set(keyOf(worker!), { name: worker!, box, plot: build.plot, graceTicks: this.mapSetting(RETURN_DELAY) * 20 });
       this.lines.set(keyOf(worker!), kind === "starter" ? `${COLOR.minor}Build: §f${build.starter}` : `${COLOR.minor}Twist: §f${build.twist}${COLOR.minor} on §f${build.starter}`);
       this.clearInventory(worker!);
-      this.goTo(worker!, build.plot);
+      // The match starts everyone at their own area's spawn: no second move there.
+      const at = this.body(worker!)?.location;
+      if (kind === "twist" || !at || !inside(at, build.plot.box)) this.goTo(worker!, build.plot);
       if (kind === "starter") this.title(say.highlight("Your prompt"), `§f${build.starter}`, worker!, 80);
       else {
         this.title(say.highlight("Your twist"), `§f${build.twist}`, worker!, 80);
@@ -453,9 +475,11 @@ export class BuildSwap extends Minigame<typeof config> {
 
   // ---- Voting -------------------------------------------------------------------------------
 
-  /** Every build in turn, in a random order: as it was before its twist, then with it. */
+  /** Every build in turn, in a random order: as it was before its twist, then with it, its prompt (and its twist) top left. */
   private async voteAll(): Promise<void> {
     this.lines.clear();
+    const notesScope = this.scope.child("notes");
+    const notes = new Notes(notesScope);
     for (const player of world.getAllPlayers()) this.clearInventory(player.name);
     const order = shuffled(
       [...this.builds.values()].filter((build) => this.present(build.builder) || this.present(build.twister)),
@@ -464,14 +488,18 @@ export class BuildSwap extends Minigame<typeof config> {
     for (const [i, build] of order.entries()) {
       this.gather(build.plot);
       this.snapshots.restore(`p${build.plot.index}_starter`, build.plot.box);
+      const prompt = `${COLOR.minor}Prompt: §f${build.starter}`;
+      notes.show([prompt]);
       this.title(say.highlight(`Build ${i + 1} of ${order.length}`), `§f${build.starter}`, undefined, 60);
       await this.votePart(build, "starter");
       if (build.twister !== undefined) {
         this.snapshots.restore(`p${build.plot.index}_final`, build.plot.box);
+        notes.show([prompt, `${COLOR.minor}Twist: §f${build.twist}`]);
         this.title(say.highlight("The twist"), `§f${build.twist}`, undefined, 60);
         await this.votePart(build, "twist");
       }
     }
+    notesScope.dispose();
     this.keepIn.clear();
   }
 
@@ -480,7 +508,7 @@ export class BuildSwap extends Minigame<typeof config> {
     this.keepIn.clear();
     const box = grow(plot.box, this.config.voteMargin);
     for (const name of this.online()) {
-      if (this.roster.get(name)) this.keepIn.set(keyOf(name), { name, box, plot });
+      if (this.roster.get(name)) this.keepIn.set(keyOf(name), { name, box, plot, graceTicks: 0 });
       this.goTo(name, plot);
     }
   }
@@ -572,7 +600,7 @@ export class BuildSwap extends Minigame<typeof config> {
 
   // ---- The end ------------------------------------------------------------------------------
 
-  /** Everyone's builds and points in chat, the winner's build on show, and the result. */
+  /** The standings in chat, each player's own points to them, the winner's build on show, and the result. */
   private winner(): Result {
     const everyone = this.roster.all().map((participant) => participant.name);
     for (const name of everyone) {
@@ -593,22 +621,35 @@ export class BuildSwap extends Minigame<typeof config> {
     return winners.length === 1 ? this.playerWins(winners[0], reason) : { kind: "win", players: winners, reason: `${reason} each` };
   }
 
-  /** Who built what, and the standings. */
+  /** The standings, then each player's own parts and their points, to them alone. */
   private reveal(everyone: string[]): void {
-    this.broadcast(say.highlight("The builds:"));
-    const seen = new Set<Build>();
-    for (const { build } of this.scored) {
-      if (seen.has(build)) continue;
-      seen.add(build);
-      const part = (kind: PromptKind) => this.scored.find((entry) => entry.build === build && entry.kind === kind);
-      const first = `§f${build.starter}${COLOR.minor} by ${nameOf(build.builder)}${COLOR.minor}: ${say.highlight(String(part("starter")?.points ?? 0))}`;
-      const twist = build.twister !== undefined ? `${COLOR.minor}, twist §f${build.twist}${COLOR.minor} by ${nameOf(build.twister)}${COLOR.minor}: ${say.highlight(String(part("twist")?.points ?? 0))}` : "";
-      this.broadcast(`${first}${twist}`);
-    }
     for (const row of standings(this.points, everyone)) {
       const gone = this.present(row.name) ? "" : say.minor(" (left)");
       this.broadcast(`${say.highlight(ordinal(row.place))} ${nameOf(row.name)}${COLOR.minor}: ${row.points} points${gone}`);
     }
+    for (const name of everyone) {
+      const player = this.player(name);
+      if (!player) continue;
+      try {
+        for (const line of this.ownParts(name)) player.sendMessage(line);
+      } catch {
+        // gone
+      }
+    }
+  }
+
+  /** What `name` built (their prompt, then their twist on another's build) and what each part earned. */
+  ownParts(name: string): string[] {
+    const lines: string[] = [];
+    const earned = (build: Build, kind: PromptKind) => {
+      const part = this.scored.find((entry) => entry.build === build && entry.kind === kind);
+      return part ? say.highlight(part.points === 1 ? "1 point" : `${part.points} points`) : say.minor("not voted on");
+    };
+    const own = this.builds.get(keyOf(name));
+    if (own) lines.push(`${COLOR.minor}Your prompt §f${own.starter}${COLOR.minor}: ${earned(own, "starter")}`);
+    const twisted = [...this.builds.values()].find((build) => build.twister !== undefined && keyOf(build.twister) === keyOf(name));
+    if (twisted) lines.push(`${COLOR.minor}Your twist §f${twisted.twist}${COLOR.minor} on §f${twisted.starter}${COLOR.minor}: ${earned(twisted, "twist")}`);
+    return lines;
   }
 
   protected override checkWin(): Result | undefined {
@@ -648,14 +689,14 @@ export class BuildSwap extends Minigame<typeof config> {
   // ---- Helpers ------------------------------------------------------------------------------
 
   /**
-   * Creative's inventory hands out any item, so outside their own building time players keep only
-   * what the game gave them: a voter their vote blocks in their slots, everyone else nothing (worn
-   * or held on the cursor either).
+   * Creative's inventory hands out any item, so outside their own round (its prep time and building
+   * time) players keep only what the game gave them: a voter their vote blocks in their slots,
+   * everyone else nothing (worn or held on the cursor either).
    */
   private keepHandsEmpty(): void {
     if (this.phase !== "playing") return;
     for (const player of world.getAllPlayers()) {
-      if (this.workBox(player.name)) continue;
+      if (this.working.has(keyOf(player.name))) continue;
       const voter = this.ballot?.isVoter(player.name) === true;
       try {
         const container = player.getComponent(EntityComponentTypes.Inventory)?.container;
@@ -677,12 +718,20 @@ export class BuildSwap extends Minigame<typeof config> {
     return this.building ? this.working.get(keyOf(name))?.plot.box : undefined;
   }
 
-  /** Players who wander off are put back inside the box they must stay in. */
+  /** Players who wander off are put back inside the box they must stay in, once they've been out for its grace time. */
   private keepNear(): void {
-    for (const { name, box } of this.keepIn.values()) {
+    const now = system.currentTick;
+    for (const keep of this.keepIn.values()) {
+      const { name, box } = keep;
       if (this.fakes?.has(name)) continue;
       const player = this.player(name);
-      if (!player || inside(player.location, box)) continue;
+      if (!player || inside(player.location, box)) {
+        keep.outSince = undefined;
+        continue;
+      }
+      keep.outSince ??= now;
+      if (now - keep.outSince < keep.graceTicks) continue;
+      keep.outSince = undefined;
       try {
         player.teleport(clampInto(player.location, box));
       } catch {

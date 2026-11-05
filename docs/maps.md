@@ -184,8 +184,9 @@ block inside their box, and nothing outside it (`/floor` lays the block in hand 
 bottom layer). Leave space between boxes (liquids that run out of a box are cleared from the
 block-thick shell around it, and a shell that cuts into another box is skipped). A box bigger than
 64 blocks on a side works: the game saves it in 64-block pieces. Builders are kept within 2 blocks
-of their box unless the map sets its own **Build padding** (`"buildPadding"`, 0 to 32, with the map
-editor's Game settings tool).
+of their box unless the map sets its own **Build padding** (`"buildPadding"`, 0 to 32), and put back
+as soon as they're past it unless the map sets a **Return delay** (`"returnDelay"`, 0 to 30
+seconds); both with the map editor's Game settings tool.
 
 **Paintball** needs team spawns for all four teams (Red, Blue, Yellow and Green, at least 2 each,
 since a match can have any of 2 to 4 teams), bounds, at least 8 Power-up spots (the Game marker

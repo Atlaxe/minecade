@@ -19,6 +19,7 @@ export {
   COUNT_PLACES,
   HUD_MARK,
   MODE_MARK,
+  NOTES_MARK,
   TEXT_MARK,
   bestOfCodes,
   clockCodes,
@@ -57,6 +58,7 @@ export {
 export type { Hit } from "./game/combat.ts";
 export { aborted, draw, type Result } from "./game/results.ts";
 export { Score } from "./game/score.ts";
+export { Notes } from "./game/sidebar.ts";
 export { MapView, inside } from "./game/map-view.ts";
 export { PromptBank } from "./game/prompt-bank.ts";
 export { kitStack } from "./game/kits.ts";

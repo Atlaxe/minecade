@@ -14,7 +14,9 @@ export default defineGame({
   description: "Build a prompt, then swap and add a twist to someone else's build. Everyone votes; the most points wins.",
   minPlayers: 3,
   maxPlayers: 8,
-  countdownSeconds: 5,
+  // No frozen countdown at the spawns: everyone is already in their own building area, so the
+  // first round's prompt and its prep time start at once.
+  countdownSeconds: 0,
   // The rounds keep their own clocks (and voting has none), so the match has no clock over them.
   timeLimitSeconds: 0,
   // Long enough to look over the winner's build.
@@ -43,9 +45,12 @@ export default defineGame({
   map: {
     spawns: { min: "maxPlayers" },
     regions: { plot: { label: "Build boundary", count: 8, minSize: 24 } },
-    // How far builders may go past their building boundary before they're put back, per map (the
-    // map editor's Game settings tool).
-    settings: { buildPadding: { label: "Build padding", hint: "how far builders can go past their boundary", default: 2, min: 0, max: 32, unit: "blocks" } },
+    // Per map (the map editor's Game settings tool): how far builders may go past their building
+    // boundary, and how long they may stay out there before they're put back.
+    settings: {
+      buildPadding: { label: "Build padding", hint: "how far builders can go past their boundary", default: 2, min: 0, max: 32, unit: "blocks" },
+      returnDelay: { label: "Return delay", hint: "how long builders can stay past the padding before they're put back", default: 0, min: 0, max: 30, unit: "seconds" },
+    },
   },
   stats: {
     mode: "solo",

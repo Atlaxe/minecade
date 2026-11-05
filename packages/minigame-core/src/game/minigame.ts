@@ -1208,7 +1208,7 @@ export abstract class Minigame<C extends GameConfig = GameConfig> {
     this.countdownScope = scope;
     try {
       let left = this.config.countdownSeconds ?? 5;
-      this.freeze(this.online(), scope);
+      if (left > 0) this.freeze(this.online(), scope);
       while (left > 0) {
         if (this.outcome) return false;
         const online = this.online();

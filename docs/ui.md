@@ -106,6 +106,18 @@ What JSON UI allowed here, found in-game on 26.60:
   one full-screen panel). Another type logs vanilla's leftover properties (`texture`,
   `orientation`) as unknown in the content log.
 
+**Notes top left:** lines for everyone on the server, each in a bubble of its own, top left
+above the chat (Build Swap's prompt while a build is voted on, and its twist under it). The action
+bar and the title are taken (the HUD top right, a preview's mode line), so notes ride on the
+scoreboard sidebar: `Notes` (`packages/minigame-core/src/game/sidebar.ts`) shows a sidebar whose
+title is `NOTES_MARK` (`§r§m§n§r`), with its lines as participants scored from the top down. The
+core pack's `ui/scoreboards.json` hides a marked sidebar, and `ui/hud_screen.json` swaps vanilla's
+column top left (`chat_stack`, copied from 26.60 as `mc_chat_stack`) for one with the notes
+(`mc_notes`, an `mc_note` bubble per line) between the HUD's padding and the coordinates, so the
+chat moves down under them. Notes are the same for everyone (the sidebar is the world's), and a game
+shows notes or sidebar scores, never both. Without the pack they'd show as a plain sidebar on the
+right with a blank title.
+
 **Own score:** a game whose `scoring` has `display: "own"` (One in the Quiver) has no sidebar.
 Each player sees only their own score (their team's in team games) in a box left of the clock's,
 with a skull and the number. It rides on the same action bar line: `countCodes()` in `hud.ts` adds
@@ -405,7 +417,7 @@ Paintball (`games/paintball`) is two to four teams with the shared guns: first t
 
 ## The prompt form
 
-Build Swap has every player write prompts before the countdown, in a live form like the kit form
+Build Swap has every player write prompts before the match, in a live form like the kit form
 (`games/buildswap/behavior_pack/scripts/prompt-form.ts`):
 
 - **On it:** a status line (who's still writing, or how many, and the time left), two text boxes
@@ -415,13 +427,15 @@ Build Swap has every player write prompts before the countdown, in a live form l
   out); with both empty it asks for a prompt or a skip. Skip takes nothing. Either one closes the
   form for good, and the player sees "Waiting for N players" on the action bar.
 - **Staying open:** closing the form brings it back within half a second, until the player submits
-  or skips. After 2 minutes (`promptSeconds`), whoever hasn't answered is skipped and the countdown
+  or skips. After 2 minutes (`promptSeconds`), whoever hasn't answered is skipped and the match
   starts. A preview's fake players get no form.
 - **Text filter:** what's typed goes through Minecraft's filter for the writer (`getFilteredText`),
   and is taken as typed when the filter is off or doesn't answer within 3 seconds.
 
 ## Countdown sounds
 
+A game's frozen countdown at the spawns is `countdownSeconds` (5 unless it says; Build Swap has none,
+since everyone already starts in their own area and the first prompt shows at once).
 Every countdown (the match start, each round, and the lobby's countdown before sending players) plays a tick
 for each second, a bell for 3, 2 and 1, and a flourish with "Go!" (`CHIMES` and `countdownChime()`
 in `hud.ts`). Games can play them too with `this.chime("bell")`.

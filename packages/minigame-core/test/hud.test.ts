@@ -8,6 +8,7 @@ import {
   CLOCK_URGENT,
   COUNT_PLACES,
   HUD_MARK,
+  NOTES_MARK,
   ROUND_COLORS,
   TEXT_MARK,
   bestOfCodes,
@@ -18,6 +19,8 @@ import {
   hudText,
   playChime,
 } from "../src/hud.ts";
+import { Notes } from "../src/game/sidebar.ts";
+import { Scope } from "../src/scope.ts";
 import { stripColors } from "../src/text.ts";
 import { world } from "./fake-mc-server.ts";
 
@@ -147,6 +150,35 @@ describe("countCodes", () => {
       }
     });
     expect(hud).toContain(`"ignored": "(($atext - '${COUNT_PLACES[2]}') = $atext)"`);
+  });
+});
+
+describe("notes top left", () => {
+  it("ride on a sidebar titled with the mark the core pack looks for", () => {
+    expect(stripColors(NOTES_MARK)).toBe("");
+    const hud = readFileSync(new URL("../resource_pack/ui/hud_screen.json", import.meta.url), "utf8");
+    const board = readFileSync(new URL("../resource_pack/ui/scoreboards.json", import.meta.url), "utf8");
+    expect(hud).toContain(`"source_property_name": "(not ((#objective_sidebar_name - '${NOTES_MARK}') = #objective_sidebar_name))"`);
+    expect(board).toContain(`"source_property_name": "((#objective_sidebar_name - '${NOTES_MARK}') = #objective_sidebar_name)"`);
+  });
+
+  it("shows the lines top to bottom, changes them, and goes with its scope", () => {
+    world.reset();
+    const scope = new Scope();
+    const notes = new Notes(scope);
+    const sidebar = () => world.scoreboard.sidebar;
+    expect(sidebar()?.displayName).toBe(NOTES_MARK);
+    expect([...(sidebar()?.scores ?? [])]).toEqual([]);
+    notes.show(["Prompt: a boat"]);
+    expect([...(sidebar()?.scores ?? [])]).toEqual([["Prompt: a boat", 1]]);
+    notes.show(["Prompt: a boat", "Twist: make it fly"]);
+    // The sidebar sorts highest first, so the first line has the highest score.
+    expect(Object.fromEntries(sidebar()?.scores ?? [])).toEqual({ "Prompt: a boat": 2, "Twist: make it fly": 1 });
+    notes.show([]);
+    expect([...(sidebar()?.scores ?? [])]).toEqual([]);
+    scope.dispose();
+    expect(sidebar()).toBeUndefined();
+    expect(world.scoreboard.getObjectives()).toEqual([]);
   });
 });
 

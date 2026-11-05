@@ -234,6 +234,7 @@ export interface GameConfig {
   test?: boolean;
 
   waitForPlayersSeconds?: number;
+  /** The frozen countdown at the spawns before the match, in seconds; 0 for none. Default 5. */
   countdownSeconds?: number;
   timeLimitSeconds?: number;
   endDelaySeconds?: number;

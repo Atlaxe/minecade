@@ -2,7 +2,7 @@
 // same ones the build uses), the numbers of its own marker models (marker-models.ts), and the items
 // its mannequins can hold.
 import { existsSync } from "node:fs";
-import { readdir } from "node:fs/promises";
+import { readdir, stat } from "node:fs/promises";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 import { kitItems, possibleTeams, type EditorRules, type GameConfig, type LobbyConfig } from "@minecade/minigame-core/config";
@@ -22,17 +22,27 @@ export async function loadTarget(root: string, id: string): Promise<EditorTarget
   const markerModels = Object.keys(models).length > 0 ? { markerModels: models } : {};
   if (id === "lobby") {
     const configPath = join(root, "lobby", "lobby.config.ts");
-    const config: LobbyConfig = existsSync(configPath) ? (await import(pathToFileURL(configPath).href)).default : {};
+    const config: LobbyConfig = existsSync(configPath) ? await importConfig(configPath) : {};
     return { id, name: "Lobby", dir: join(root, "lobby"), rules: { kind: "lobby", requires: config.map, ...markerModels } };
   }
   const dir = join(root, "games", id);
   const configPath = join(dir, "game.config.ts");
   if (!/^[a-z0-9_-]+$/.test(id) || !existsSync(configPath)) throw new Error(`there is no game "${id}" (games/${id}/game.config.ts): use lobby or a game id`);
-  const config = (await import(pathToFileURL(configPath).href)).default as GameConfig;
+  const config = await importConfig<GameConfig>(configPath);
   const teams = config.teams ? possibleTeams(config.teams).map(({ id: team, name, color }) => ({ id: team, name, color })) : undefined;
   const items = kitItems(config.kits);
   const mapKits = config.kits?.mapKits === false ? { mapKits: false } : {};
   return { id, name: config.name, dir, rules: { kind: "game", maxPlayers: config.maxPlayers, requires: config.map, ...(teams ? { teams } : {}), ...markerModels, ...(items.length > 0 ? { items } : {}), ...mapKits } };
+}
+
+/**
+ * A config file's default export, as the file is now. The editor runs for days, and Node keeps a
+ * module it imported for the life of the process, so a config changed since (a new map setting, say)
+ * is imported again under its modified time. Files the config imports itself stay as first read.
+ */
+async function importConfig<T>(path: string): Promise<T> {
+  const { mtimeMs } = await stat(path);
+  return (await import(`${pathToFileURL(path).href}?mtime=${Math.floor(mtimeMs)}`)).default as T;
 }
 
 /** The lobby and every game, with the map ids each has, for Select mode's save-as-map form. */

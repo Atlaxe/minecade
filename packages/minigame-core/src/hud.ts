@@ -35,6 +35,13 @@ export const CLOCK_URGENT = "§k§b";
  */
 export const MODE_MARK = "§r§m§o§r";
 
+/**
+ * The title of a sidebar shown as notes top left instead of as the vanilla sidebar: each line in a
+ * bubble of its own, above the chat (Notes, game/sidebar.ts). Must match the core pack's
+ * ui/hud_screen.json and ui/scoreboards.json.
+ */
+export const NOTES_MARK = "§r§m§n§r";
+
 /** The mode box's line in a game previewed from the map editor: "Preview   Sumo: Arena". */
 export function previewLine(label: string): string {
   return `${MODE_MARK}§dPreview${label ? `§7   ${label}` : ""}`;

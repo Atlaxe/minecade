@@ -77,5 +77,8 @@ worktree sits next to it.
   checkout, after merging, and only when nobody is online. Every checkout uses the same compose
   project (`name: minecade`), so starting the stack from a worktree replaces the live network with
   that worktree's build.
+- **Thumbnails are the user's.** Never add, make or replace a map's thumbnail or a game's picture
+  (the lobby's map and game pictures, the editor's shots), not even a placeholder: the user takes
+  them in the map editor (docs/editor.md, "Pictures"). A new game or map ships without one.
 - **Long milestones:** keep one worktree for the whole milestone and merge after each part, so
   `main` always has the finished parts.

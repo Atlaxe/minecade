@@ -270,7 +270,8 @@ game in gold and the map in orange.
      screen.
    - **Time tool:** the map's time of day. Tap it for its screen.
    - **Game settings tool:** each of the game's own settings for this map (Build Swap's **Build
-     padding**), with its value, "(default)" while the map doesn't set it. Tap one for its screen.
+     padding** and **Return delay**), with its value, "(default)" while the map doesn't set it. Tap
+     one for its screen.
 4. **Save:** a green bar at the bottom, outside the scrolling part. It saves the world into the map
    now (see Saving); its tooltip says whether blocks changed since the last save.
 
@@ -399,13 +400,16 @@ you back in creative at every spawn).
   bubble top right (where games show their clock) says **Replace mode** while no tool is in hand.
 - **Game settings tool:** a game's own settings for each of its maps, set here instead of in a
   tool of the game's own: the settings its config names (`map.settings` in `game.config.ts`, see
-  `docs/maps.md`). Build Swap has one, **Build padding**: how far past their building boundary
-  builders can go before they're put back (2 blocks unless the map says). A use of the tool,
+  `docs/maps.md`). Build Swap has two: **Build padding**, how far past their building boundary
+  builders can go (2 blocks unless the map says), and **Return delay**, how long they can stay past
+  that before they're put back (0 seconds, at once, unless the map says). A use of the tool,
   tapping a setting in its settings, or **/gamesettings** (`/minecade:gamesettings`, with or without
   the tool) opens its screen: the **Setting** list when the game has more than one, the value
   (**Type a number**, or the minus and plus a step at a time), **Use the default** (red, once the
   map sets its own), and **Set <setting>** (green) at the bottom. The map keeps the value in
   `map.json` under the setting's key (`"buildPadding": 4`); Undo takes it back like any change.
+  The editor reads a game's config again whenever it changes, so a setting added to a game shows
+  without restarting the editor.
 
 ## Saving
 

@@ -6,6 +6,7 @@ import { dealPrompts, promptReplyParts, runtimeMapConfig, stripColors, validateM
 import { encodeMessage, type PromptRequest } from "@minecade/minigame-core/protocol";
 import { Direction, ItemStack, world, type FakePlayer } from "../../../packages/minigame-core/test/fake-mc-server.ts";
 import { openLiveForm } from "../../../packages/minigame-core/test/fake-mc-server-ui.ts";
+import { NOTES_MARK } from "../../../packages/minigame-core/src/hud.ts";
 import { createHarness, expectBaseline, playToEnd, snapshot, statsRows, ticks, type Harness } from "../../../packages/minigame-core/test/game-harness.ts";
 import { validateGameConfig } from "../../../tools/build/validate.ts";
 import config from "../game.config.ts";
@@ -249,6 +250,10 @@ describe("a match of Build Swap", () => {
           expect(world.overworld.blocks.get("45,64,5")).toBe(voting.kind === "starter" ? "minecraft:stone" : undefined);
           expect(world.overworld.blocks.get("46,64,6")).toBe(voting.kind === "starter" ? undefined : "minecraft:stone");
         }
+        // Its prompt top left, and its twist under it once that's voted on.
+        const notes = [`Prompt: ${voting.build.starter}`, ...(voting.kind === "twist" ? [`Twist: ${voting.build.twist}`] : [])];
+        expect(world.scoreboard.sidebar?.displayName).toBe(NOTES_MARK);
+        expect([...world.scoreboard.sidebar!.scores].sort((x, y) => y[1] - x[1]).map(([line]) => stripColors(line))).toEqual(notes);
         const builder = players.find((player) => player.name === voting.builder)!;
         await ticks(11); // the action bar's next refresh
         expect(stripColors(builder.actionBar)).toContain("Your build");
@@ -266,9 +271,16 @@ describe("a match of Build Swap", () => {
     expect(result).toEqual({ kind: "win", players: ["A"], reason: "20 points" });
     expect(game.pointsOf("B")).toBe(4);
     const chat = stripColors(world.chat.join("\n"));
-    expect(chat).toContain("The builds:");
-    expect(chat).toMatch(/by A: 10/);
+    // Only the standings in chat; each player hears what their own prompt and twist earned.
+    expect(chat).not.toContain("The builds:");
     expect(chat).toContain("1st A: 20 points");
+    const ownA = game.allBuilds.find((build) => build.builder === "A")!;
+    const twistedByA = game.allBuilds.find((build) => build.twister === "A")!;
+    const toA = stripColors(a.messages.join("\n"));
+    expect(toA).toContain(`Your prompt ${ownA.starter}: 10 points`);
+    expect(toA).toContain(`Your twist ${twistedByA.twist} on ${twistedByA.starter}: 10 points`);
+    expect(stripColors(b.messages.join("\n"))).toMatch(/Your prompt .+: 2 points/);
+    expect(world.scoreboard.sidebar).toBeUndefined();
     expect(stripColors(c.messages.join("\n"))).toContain("You skipped the prompts.");
     const rows = statsRows(harness.sent, from);
     expect(rows.find((row) => row.n === "A")).toMatchObject({ r: "w", x: { points: 20, bestScore: 20 } });
@@ -304,9 +316,9 @@ describe("a match of Build Swap", () => {
     for (const player of players) world.leave(player.name);
   });
 
-  it("lays a /floor of the block in hand, keeps builders within the map's padding, and takes creative's items away out of building time", async () => {
+  it("lays a /floor of the block in hand, keeps builders within the map's padding and return delay, and takes creative's items away out of their rounds", async () => {
     // A preview, with A its map editor: /skip moves it along.
-    const { players, baseline, from, game } = start(["A", "B", "C"], {}, {}, { ...ROW, buildPadding: 6 }, ["A"]);
+    const { players, baseline, from, game } = start(["A", "B", "C"], {}, {}, { ...ROW, buildPadding: 6, returnDelay: 2 }, ["A"]);
     const [a, b] = players;
     const give = (player: FakePlayer, slot: number, item: string) => player.inventory.setItem(slot, new ItemStack(item));
     const result = await playToEnd(game, harness.root, baseline, async () => {
@@ -319,16 +331,15 @@ describe("a match of Build Swap", () => {
       answerBank(from, []);
       await ticks(COUNTDOWN_TICKS + 2);
       expect(game.activeStage?.name).toBe("Get ready");
-      // Nothing from creative's inventory stays while reading the prompt, and no floor yet.
+      // While reading the prompt, blocks can be taken from creative's inventory, but not placed, and no floor yet.
       give(a, 0, "minecraft:stone");
       expect(stripColors(game.floor(a as never))).toBe("Lay a floor while you're building.");
       await ticks(11);
-      expect(a.inventory.items()).toHaveLength(0);
+      expect(a.inventory.items().map((item) => item.typeId)).toEqual(["minecraft:stone"]);
       game.skipStage();
       await ticks(2);
 
       // Building: what's taken stays, /floor lays the block in hand across the area's bottom layer.
-      give(a, 0, "minecraft:stone");
       a.selectedSlotIndex = 1;
       expect(stripColors(game.floor(a as never))).toBe("Hold the block for the floor, then /floor.");
       a.selectedSlotIndex = 0;
@@ -341,8 +352,11 @@ describe("a match of Build Swap", () => {
       await ticks(11);
       expect(a.location.x).toBe(27);
       expect(a.inventory.items().map((item) => item.typeId)).toEqual(["minecraft:stone"]);
+      // Past it, the map's return delay (2 seconds) comes first.
       a.location = { x: 40, y: 70, z: 12 };
-      await ticks(11);
+      await ticks(21);
+      expect(a.location.x).toBe(40);
+      await ticks(30);
       expect(a.location.x).toBe(29.5);
       for (let skip = 0; skip < 3; skip++) {
         game.skipPreview(a as never);

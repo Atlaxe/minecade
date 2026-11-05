@@ -351,9 +351,126 @@
   // Effect icons (the right side of the screen) are hidden on every server: a locked queue makes
   // players invisible with an effect, and the HUD draws every icon as one piece, so the invisibility
   // one can't be hidden alone. Games don't show effects otherwise (only a kit can give one).
+  // The column top left (vanilla's chat_stack) becomes mc_chat_stack, with the notes above the chat.
   "root_panel": {
     "modifications": [
-      { "array_name": "controls", "operation": "remove", "control_name": "mob_effects_renderer" }
+      { "array_name": "controls", "operation": "remove", "control_name": "mob_effects_renderer" },
+      { "array_name": "controls", "operation": "remove", "control_name": "chat_stack" },
+      {
+        "array_name": "controls",
+        "operation": "insert_after",
+        "control_name": "progress_rend",
+        "value": [ { "chat_stack@hud.mc_chat_stack": {} } ]
+      }
+    ]
+  },
+
+  // Vanilla's chat_stack from 26.60 (the paper doll's and the HUD's padding, the coordinates, the
+  // days played, tips and the chat), with the notes after the padding.
+  "mc_chat_stack": {
+    "type": "stack_panel",
+    "orientation": "vertical",
+    "size": [ "40%", "100%" ],
+    "anchor_from": "top_left",
+    "anchor_to": "top_left",
+    "bindings": [
+      { "binding_name": "#editor_chat_offset", "binding_name_override": "#offset", "binding_condition": "always" }
+    ],
+    "controls": [
+      {
+        "paper_doll_padding": {
+          "type": "panel",
+          "size": [ "100%", 50 ],
+          "visible": false,
+          "bindings": [
+            { "binding_name": "#paper_doll_visible" },
+            { "binding_name": "#editor_chat_layout_active", "binding_condition": "always" },
+            { "binding_type": "view", "source_property_name": "(#paper_doll_visible and not #editor_chat_layout_active)", "target_property_name": "#visible" }
+          ]
+        }
+      },
+      {
+        "non_centered_gui_padding": {
+          "type": "panel",
+          "size": [ "100%", 32 ],
+          "visible": false,
+          "bindings": [
+            { "binding_name": "#hud_visible_not_centered", "binding_type": "global" },
+            { "binding_name": "#editor_chat_layout_active", "binding_condition": "always" },
+            { "binding_type": "view", "source_property_name": "(#hud_visible_not_centered and not #editor_chat_layout_active)", "target_property_name": "#visible" }
+          ]
+        }
+      },
+      { "mc_notes@hud.mc_notes": {} },
+      { "player_position@hud.player_position": {} },
+      { "number_of_days_played@hud.number_of_days_played": {} },
+      { "game_tip@game_tip.game_tip_chat_stack_factory": { "size": [ "100%", "100%c" ] } },
+      {
+        "chat_panel@hud.chat_panel": {
+          "bindings": [ { "binding_name": "#editor_chat_visible", "binding_name_override": "#visible", "binding_condition": "always" } ]
+        }
+      }
+    ]
+  },
+
+  // Notes top left (Notes in packages/minigame-core/src/game/sidebar.ts): a sidebar whose title is
+  // the notes mark ('§r§m§n§r', NOTES_MARK in hud.ts) shows here instead of as the vanilla sidebar
+  // (ui/scoreboards.json hides that), each of its lines in a bubble of its own, top to bottom,
+  // wrapping when it's long. The lines are the sidebar's participants, in its order; scores aren't
+  // shown.
+  "mc_notes": {
+    "type": "stack_panel",
+    "orientation": "vertical",
+    "size": [ "100%", "100%c" ],
+    "visible": false,
+    "collection_name": "scoreboard_players",
+    "factory": { "name": "player_list_factory", "control_name": "hud.mc_note" },
+    "bindings": [
+      { "binding_name": "#scoreboard_sidebar_size", "binding_type": "global", "binding_name_override": "#collection_length" },
+      { "binding_name": "#objective_sidebar_name", "binding_type": "global" },
+      {
+        "binding_type": "view",
+        "source_property_name": "(not ((#objective_sidebar_name - '§r§m§n§r') = #objective_sidebar_name))",
+        "target_property_name": "#visible"
+      }
+    ]
+  },
+
+  // One note: its bubble against the left edge, 2 pixels under the one above.
+  "mc_note": {
+    "type": "panel",
+    "size": [ "100%", "100%c + 2px" ],
+    "controls": [
+      {
+        "mc_note_box": {
+          "type": "image",
+          "texture": "textures/ui/hud_tip_text_background",
+          "anchor_from": "bottom_left",
+          "anchor_to": "bottom_left",
+          "offset": [ 4, 0 ],
+          "size": [ "100%c + 8px", "100%c + 4px" ],
+          "layer": 30,
+          "alpha": 0.6,
+          "controls": [
+            {
+              "mc_note_label": {
+                "type": "label",
+                "anchor_from": "center",
+                "anchor_to": "center",
+                "max_size": [ 200, "default" ],
+                "color": [ 1.0, 1.0, 1.0 ],
+                "layer": 31,
+                "text": "#player_name_sidebar",
+                "shadow": true,
+                "localize": false,
+                "bindings": [
+                  { "binding_name": "#player_name_sidebar", "binding_type": "collection", "binding_collection_name": "scoreboard_players" }
+                ]
+              }
+            }
+          ]
+        }
+      }
     ]
   }
 }
