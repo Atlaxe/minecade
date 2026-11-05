@@ -476,8 +476,8 @@ export type RegionScreenAction =
   | { kind: "none" };
 
 /**
- * The region tool's screen: what the box is (tiles for the bounds and the kill region; a Region list
- * for the game's own regions, the map's others and a new one; a Team list for a team's region), a
+ * The region tool's screen: what the box is (tiles for the bounds, the kill region and the spectator
+ * bounds; a Region list for the game's own regions, the map's others and a new one; a Team list for a team's region), a
  * new region's name, Floor at kill Y and Back one step (and Go to, for a box the map has), nudge rows
  * for each side, Step, Clear selection or Delete (red), and Save, green, at the bottom. A list opens
  * under its row, the one in use outlined, and closes once one is picked. A box the map has isn't

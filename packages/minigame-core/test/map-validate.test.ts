@@ -141,6 +141,33 @@ describe("several bounds boxes", () => {
   });
 });
 
+describe("spectator bounds", () => {
+  const rules: MapRules = { kind: "game", maxPlayers: 1 };
+  const bounds = { min: [-10, 40, -10], max: [10, 80, 10] } as MapConfig["bounds"];
+  const stand = { min: [30, 60, -5], max: [40, 70, 5] } as MapConfig["bounds"] & object;
+
+  it("puts the queue and spectator spawns in them, and everything else in the bounds", () => {
+    expect(validateMapConfig({ name: "M", spawns: [[0, 65, 0]], queueSpawn: [35, 61, 0], bounds, spectatorBounds: stand }, rules)).toEqual([]);
+    expect(validateMapConfig({ name: "M", spawns: [[0, 65, 0]], queueSpawn: [35, 61, 0], bounds }, rules)).toEqual(['queueSpawn [35,61,0] is outside "bounds"']);
+    expect(validateMapConfig({ name: "M", spawns: [[0, 65, 0]], spectatorSpawn: [0, 70, 0], queueSpawn: [35, 61, 0], bounds, spectatorBounds: stand }, rules)).toEqual([
+      'spectatorSpawn [0,70,0] is outside "spectatorBounds"',
+    ]);
+    expect(validateMapConfig({ name: "M", spawns: [[35, 61, 0]], queueSpawn: [35, 61, 0], bounds, spectatorBounds: [stand, bounds as MapConfig["bounds"] & object] }, rules)).toEqual([
+      'spawns[0] [35,61,0] is outside "bounds"',
+    ]);
+  });
+
+  it("needs a spectator or queue spawn, and the same shape as the bounds", () => {
+    expect(validateMapConfig({ name: "M", spawns: [[0, 65, 0]], bounds, spectatorBounds: stand }, { kind: "game", maxPlayers: 1, requires: { spectatorSpawn: false } })).toEqual([
+      '"spectatorBounds" needs a "spectatorSpawn" or a "queueSpawn" inside it',
+    ]);
+    expect(validateMapConfig({ name: "M", spawns: [[0, 65, 0]], queueSpawn: [0, 65, 0], bounds, spectatorBounds: [stand, { min: [0, 0] }] } as unknown as MapConfig, rules)).toEqual([
+      '"spectatorBounds[1]" must be { "min": [x, y, z], "max": [x, y, z] }',
+    ]);
+    expect(validateMapConfig({ name: "M", spawns: [[0, 65, 0]], queueSpawn: [0, 65, 0], bounds, spectatorBounds: [] }, rules)).toEqual(['"spectatorBounds" must be a box, or a list of boxes']);
+  });
+});
+
 describe("the queue spawn", () => {
   const rules: MapRules = { kind: "game", maxPlayers: 1 };
 

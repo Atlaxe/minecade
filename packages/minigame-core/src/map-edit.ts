@@ -2,7 +2,7 @@
 // once) and its host tool (which applies the same change and writes the file). Each edit returns a
 // new config and never changes the old one; undo keeps the old configs. New keys go where a person
 // would write them (spawns near the top, build last), and lists or names left empty are removed.
-import { QUEUE_COUNTDOWN, boundsBoxes, mapTimeTicks, queueSettings, type Box, type BuildLimitSide, type MapCamera, type MapMannequin, type Facing, type MapConfig, type MapPosition, type MapTime, type QueueSettings, type Vec3 } from "./map-config.ts";
+import { QUEUE_COUNTDOWN, boundsBoxes, mapTimeTicks, queueSettings, spectatorBoundsBoxes, type Box, type BuildLimitSide, type MapCamera, type MapMannequin, type Facing, type MapConfig, type MapPosition, type MapTime, type QueueSettings, type Vec3 } from "./map-config.ts";
 
 /** A list of positions in map.json. The spectator and queue spawns are lists of at most one. */
 export type MapList =
@@ -24,11 +24,11 @@ export type MapEdit =
   /** Moves entry `from` to place `to`; the others shift. */
   | { op: "renumber"; target: MapList; from: number; to: number }
   /** Replaces every bounds box with this one, or (with none) removes the bounds. */
-  | { op: "bounds"; box?: Box }
-  /** Another bounds box: a player inside any of them is in. */
-  | { op: "addBounds"; box: Box }
-  | { op: "setBounds"; index: number; box: Box }
-  | { op: "removeBounds"; index: number }
+  | { op: "bounds"; box?: Box; spectators?: boolean }
+  /** Another bounds box: a player inside any of them is in. `spectators`: the spectator bounds' boxes instead. */
+  | { op: "addBounds"; box: Box; spectators?: boolean }
+  | { op: "setBounds"; index: number; box: Box; spectators?: boolean }
+  | { op: "removeBounds"; index: number; spectators?: boolean }
   | { op: "killY"; y?: number }
   /** Sets (or, with no height, removes) one side of the build limit. */
   | { op: "buildLimit"; side: BuildLimitSide; y?: number }
@@ -62,7 +62,7 @@ export function isMapKey(key: string): boolean {
 }
 
 /** Where new keys go, the order map.json files are written in. Unknown keys stay where they are. */
-const KEY_ORDER: readonly string[] = ["name", "draft", "spawns", "spectatorSpawn", "queueSpawn", "queue", "bounds", "killY", "buildLimit", "teamSpawns", "points", "regions", "time", "stars", "cameras", "mannequins", "mannequinsInPreview", "source", "build"];
+const KEY_ORDER: readonly string[] = ["name", "draft", "spawns", "spectatorSpawn", "queueSpawn", "queue", "bounds", "spectatorBounds", "killY", "buildLimit", "teamSpawns", "points", "regions", "time", "stars", "cameras", "mannequins", "mannequinsInPreview", "source", "build"];
 
 export function applyEdit(config: MapConfig, edit: MapEdit): MapConfig {
   switch (edit.op) {
@@ -88,18 +88,18 @@ export function applyEdit(config: MapConfig, edit: MapEdit): MapConfig {
       return setList(config, edit.target, list);
     }
     case "bounds":
-      return withKey(config, "bounds", edit.box);
+      return withKey(config, boundsKey(edit), edit.box);
     case "addBounds":
-      return setBounds(config, [...boundsBoxes(config), edit.box]);
+      return setBounds(config, edit, [...boxesOf(config, edit), edit.box]);
     case "setBounds": {
-      const boxes = boundsBoxes(config);
+      const boxes = boxesOf(config, edit);
       checkIndex(boxes, edit.index);
-      return setBounds(config, boxes.map((box, i) => (i === edit.index ? edit.box : box)));
+      return setBounds(config, edit, boxes.map((box, i) => (i === edit.index ? edit.box : box)));
     }
     case "removeBounds": {
-      const boxes = boundsBoxes(config);
+      const boxes = boxesOf(config, edit);
       checkIndex(boxes, edit.index);
-      return setBounds(config, boxes.filter((_, i) => i !== edit.index));
+      return setBounds(config, edit, boxes.filter((_, i) => i !== edit.index));
     }
     case "killY":
       return withKey(config, "killY", edit.y);
@@ -199,15 +199,16 @@ export function describeEdit(edit: MapEdit): string {
     case "removeRegion":
       return `${edit.op === "setRegion" ? "set" : "remove"} regions.${edit.name} ${edit.index + 1}`;
     case "bounds":
+      return `${edit.box ? "set" : "clear"} ${edit.spectators ? "spectator bounds" : "bounds"}`;
     case "killY":
-      return `${edit.op === "bounds" ? (edit.box ? "set" : "clear") : edit.y === undefined ? "clear" : "set"} ${edit.op}`;
+      return `${edit.y === undefined ? "clear" : "set"} killY`;
     case "buildLimit":
       return `${edit.y === undefined ? "clear" : "set"} build limit ${edit.side}`;
     case "addBounds":
-      return "add bounds";
+      return `add ${edit.spectators ? "spectator bounds" : "bounds"}`;
     case "setBounds":
     case "removeBounds":
-      return `${edit.op === "setBounds" ? "set" : "remove"} bounds ${edit.index + 1}`;
+      return `${edit.op === "setBounds" ? "set" : "remove"} ${edit.spectators ? "spectator bounds" : "bounds"} ${edit.index + 1}`;
     case "name":
       return `rename to "${edit.name}"`;
     case "draft":
@@ -265,9 +266,18 @@ function setList(config: MapConfig, target: MapList, list: MapPosition[]): MapCo
   }
 }
 
+/** Which boxes a bounds edit changes: the bounds, or the spectator bounds. */
+function boundsKey(edit: { spectators?: boolean }): "bounds" | "spectatorBounds" {
+  return edit.spectators ? "spectatorBounds" : "bounds";
+}
+
+function boxesOf(config: MapConfig, edit: { spectators?: boolean }): Box[] {
+  return edit.spectators ? spectatorBoundsBoxes(config) : boundsBoxes(config);
+}
+
 /** One box is written as a box (as every map before several bounds), more as a list, none removes the key. */
-function setBounds(config: MapConfig, boxes: Box[]): MapConfig {
-  return withKey(config, "bounds", boxes.length === 0 ? undefined : boxes.length === 1 ? boxes[0] : boxes);
+function setBounds(config: MapConfig, edit: { spectators?: boolean }, boxes: Box[]): MapConfig {
+  return withKey(config, boundsKey(edit), boxes.length === 0 ? undefined : boxes.length === 1 ? boxes[0] : boxes);
 }
 
 function setRegion(config: MapConfig, name: string, boxes: Box[]): MapConfig {

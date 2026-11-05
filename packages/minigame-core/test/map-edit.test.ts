@@ -97,6 +97,29 @@ describe("applyEdit", () => {
     );
   });
 
+  it("keeps the spectator bounds apart from the bounds, right after them", () => {
+    const stand: Box = { min: [30, 60, -5], max: [40, 70, 5] };
+    let map = applyEdit(base, { op: "addBounds", box: stand, spectators: true });
+    expect(map.spectatorBounds).toEqual(stand);
+    expect(map.bounds).toEqual(base.bounds);
+    expect(Object.keys(map)).toEqual(["name", "spawns", "bounds", "spectatorBounds", "points", "build"]);
+    map = applyEdit(map, { op: "addBounds", box, spectators: true });
+    expect(map.spectatorBounds).toEqual([stand, box]);
+    map = applyEdit(map, { op: "setBounds", index: 0, box, spectators: true });
+    expect(map.spectatorBounds).toEqual([box, box]);
+    map = applyEdit(map, { op: "removeBounds", index: 1, spectators: true });
+    expect(map.spectatorBounds).toEqual(box);
+    expect(applyEdit(map, { op: "removeBounds", index: 0, spectators: true }).spectatorBounds).toBeUndefined();
+    expect(applyEdit(map, { op: "bounds", spectators: true }).spectatorBounds).toBeUndefined();
+    expect(applyEdit(map, { op: "bounds", spectators: true }).bounds).toEqual(base.bounds);
+    expect(() => applyEdit(base, { op: "removeBounds", index: 0, spectators: true })).toThrow("there is no entry 1 (the list has 0)");
+    expect(describeEdit({ op: "addBounds", box, spectators: true })).toBe("add spectator bounds");
+    expect(describeEdit({ op: "removeBounds", index: 1, spectators: true })).toBe("remove spectator bounds 2");
+    expect(describeEdit({ op: "bounds", box, spectators: true })).toBe("set spectator bounds");
+    expect(describeEdit({ op: "bounds" })).toBe("clear bounds");
+    expect(describeEdit({ op: "killY", y: 40 })).toBe("set killY");
+  });
+
   it("places, changes and removes preview cameras", () => {
     const camera = { at: [0, 80, -20, 0, 20] as [number, number, number, number, number], kind: "map" as const };
     let map = applyEdit(base, { op: "camera", name: "Camera 1", camera });

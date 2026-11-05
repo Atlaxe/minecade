@@ -1,5 +1,5 @@
 // Read-only access to the running map's map.json, with the geometry helpers games need.
-import { KILL_REGION, boundsBox, boundsBoxes, positionXyz, queueSettings, teamKey, type Box, type MapConfig, type MapPosition, type QueueSettings, type Vec3 } from "../map-config.ts";
+import { KILL_REGION, boundsBox, boundsBoxes, enclosingBox, positionXyz, queueSettings, spectatorBoundsBoxes, teamKey, type Box, type MapConfig, type MapPosition, type QueueSettings, type Vec3 } from "../map-config.ts";
 
 export class MapView {
   readonly config: MapConfig;
@@ -64,6 +64,16 @@ export class MapView {
     return boundsBoxes(this.config);
   }
 
+  /** The spectator bounds' boxes (none when the map keeps spectators in the bounds). */
+  get spectatorBoundsBoxes(): Box[] {
+    return spectatorBoundsBoxes(this.config);
+  }
+
+  /** Where spectators fly: the box around the spectator bounds, else around the bounds. */
+  get spectatorArea(): Box | undefined {
+    return enclosingBox(this.spectatorBoundsBoxes) ?? this.bounds;
+  }
+
   get killY(): number | undefined {
     return this.config.killY;
   }
@@ -98,9 +108,16 @@ export class MapView {
   /**
    * True below killY, outside every bounds box, or inside a kill region. Bounds are inclusive
    * blocks: x 12.7 is inside a max of 12. Spectators are checked without kill regions and against
-   * the box around all the bounds boxes (`enclosing`), since they fly over the gaps.
+   * the box around all the bounds boxes (`enclosing`), since they fly over the gaps. On a map with
+   * spectator bounds, anyone who isn't playing (`spectating`) is out only outside those: kill Y and
+   * kill regions are for the players.
    */
-  outOfBounds(position: { x: number; y: number; z: number }, options: { killRegions?: boolean; enclosing?: boolean } = {}): boolean {
+  outOfBounds(position: { x: number; y: number; z: number }, options: { killRegions?: boolean; enclosing?: boolean; spectating?: boolean } = {}): boolean {
+    const watching = options.spectating ? this.spectatorBoundsBoxes : [];
+    if (watching.length > 0) {
+      const boxes = options.enclosing ? [enclosingBox(watching)!] : watching;
+      return !boxes.some((box) => inside(position, box));
+    }
     if (this.config.killY !== undefined && position.y < this.config.killY) return true;
     if ((options.killRegions ?? true) && this.killRegions.some((box) => inside(position, box))) return true;
     const boxes = options.enclosing ? [this.bounds].filter((box) => box !== undefined) : this.boundsBoxes;

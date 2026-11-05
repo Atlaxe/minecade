@@ -626,10 +626,11 @@ describe("tool screens", () => {
     const targets = regionTargets({ ...draft, bounds: { min: [0, 60, 0], max: [10, 70, 10] } }, { ...rules, teams: [{ id: "red", name: "Red", color: "§c" }, { id: "blue", name: "Blue", color: "§9" }], requires: { regions: { guard: { label: "Spawn guard", perTeam: true } } } });
     const box = { min: [0, 60, 0] as [number, number, number], max: [11, 64, 29] as [number, number, number] };
     const fresh = regionScreenEntries({ targets, target: "new", name: "", box, steps: 0, killY: 58, step: 1 });
-    expect(fresh.slice(0, 4).map((entry) => entry.text)).toEqual([
+    expect(fresh.slice(0, 5).map((entry) => entry.text)).toEqual([
       segmentText("Bounds", 0, false),
       segmentText("Add bounds", 1, false),
       segmentText("Kill region", 2, false),
+      segmentText("Spectators", 3, false),
       `${MARK.lead}${dropdownText("Region", "New region", false)}`,
     ]);
     expect(fresh.filter((entry) => entry.text.startsWith(MARK.lead)).map((entry) => entry.action.kind)).toEqual(["open", "none", "name", "floor"]);
@@ -638,10 +639,10 @@ describe("tool screens", () => {
     // A tile in use leaves the Region list at none; open, it lists each group once, the team kept.
     const bounds = regionScreenEntries({ targets, target: "bounds", open: "group", name: "", box, steps: 0, step: 1 });
     expect(bounds[0].text).toBe(segmentText("Bounds", 0, true));
-    expect(bounds.slice(3, 6).map((entry) => entry.text)).toEqual([`${MARK.lead}${dropdownText("Region", "none", true)}`, `${MARK.lead}${optionText("Spawn guard", false)}`, `${MARK.lead}${optionText("New region", false)}`]);
-    expect(bounds[4].action).toEqual({ kind: "target", key: "regions.guard.red" });
+    expect(bounds.slice(4, 7).map((entry) => entry.text)).toEqual([`${MARK.lead}${dropdownText("Region", "none", true)}`, `${MARK.lead}${optionText("Spawn guard", false)}`, `${MARK.lead}${optionText("New region", false)}`]);
+    expect(bounds[5].action).toEqual({ kind: "target", key: "regions.guard.red" });
     const guard = regionScreenEntries({ targets, target: "regions.guard.blue", name: "", box, steps: 2, step: 1 });
-    expect(guard.slice(3, 5).map((entry) => entry.text)).toEqual([`${MARK.lead}${dropdownText("Region", "Spawn guard", false)}`, `${MARK.lead}${dropdownText("Team", "Blue", false)}`]);
+    expect(guard.slice(4, 6).map((entry) => entry.text)).toEqual([`${MARK.lead}${dropdownText("Region", "Spawn guard", false)}`, `${MARK.lead}${dropdownText("Team", "Blue", false)}`]);
     expect(guard.filter((entry) => entry.text.startsWith(MARK.minus))).toHaveLength(6);
     // Back one step undoes, and the back arrow (opened from the map menu) leaves: two different actions.
     const fromMenu = regionScreenEntries({ targets, target: "bounds", name: "", box, steps: 2, step: 1, back: true });
@@ -653,7 +654,7 @@ describe("tool screens", () => {
     const targets = regionTargets({ ...draft, bounds: { min: [0, 60, 0], max: [10, 70, 10] } }, rules);
     const box = { min: [0, 60, 0] as [number, number, number], max: [10, 70, 10] as [number, number, number] };
     const entries = regionScreenEntries({ targets, target: "bounds", existing: "Bounds", name: "", box, steps: 0, step: 1, back: true });
-    expect(entries.filter((entry) => entry.action.kind === "target").map((entry) => entry.text)).toEqual([segmentText("Bounds", 0, true), segmentText("Kill region", 1, false)]);
+    expect(entries.filter((entry) => entry.action.kind === "target").map((entry) => entry.text)).toEqual([segmentText("Bounds", 0, true), segmentText("Kill region", 1, false), segmentText("Spectators", 2, false)]);
     expect(entries.map((entry) => entry.text)).toContain(`${MARK.lead}${headingText("Bounds: 11 x 11 x 11")}`);
     expect(entries.map((entry) => entry.action.kind)).toContain("goTo");
     expect(entries.at(-2)?.text).toBe(dangerText("Delete"));

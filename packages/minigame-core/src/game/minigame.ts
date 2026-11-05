@@ -850,16 +850,18 @@ export abstract class Minigame<C extends GameConfig = GameConfig> {
       scope.add(() => this.closeKitForms());
     }
     // Nobody can be hurt before the match (combat ignores non-participants); fallers come back,
-    // and so does anyone pushed off a locked queue spawn.
+    // and so does anyone pushed off a locked queue spawn. The queue is the spectators' place: its
+    // waiters are kept in the spectator bounds, when the map has them.
     scope.interval(() => {
       this.holdQueueFloor();
+      const spectating = this.queued;
       for (const player of world.getAllPlayers()) {
-        if (this.map.outOfBounds(player.location) || this.offQueueSpot(player)) this.placeWaiting(player);
+        if (this.map.outOfBounds(player.location, { spectating }) || this.offQueueSpot(player)) this.placeWaiting(player);
       }
       for (const name of this.fakes?.all ?? []) {
         if (this.fakes?.isPlacing(name)) continue;
         const body = this.fakes?.body(name);
-        if (!body || this.map.outOfBounds(body.location)) this.placeWaitingFake(name);
+        if (!body || this.map.outOfBounds(body.location, { spectating })) this.placeWaitingFake(name);
       }
     }, 10);
   }
@@ -1425,26 +1427,27 @@ export abstract class Minigame<C extends GameConfig = GameConfig> {
       const body = this.body(participant.name);
       if (body && this.map.outOfBounds(body.location)) this.down(participant.name, "void");
     }
-    // Spectators at the queue spawn are on foot: a fall or a walk out of bounds puts them back. Anyone
-    // here who isn't playing counts (late joiners and extras watch too).
+    // Spectators at the queue spawn are on foot: a fall or a walk out of bounds (the spectator
+    // bounds, when the map has them) puts them back. Anyone here who isn't playing counts (late
+    // joiners and extras watch too).
     if (this.map.watchesFromQueue) {
       for (const player of world.getAllPlayers()) {
         const state = this.roster.get(player.name)?.state;
-        if ((state === undefined || state === "out" || state === "respawning") && this.map.outOfBounds(player.location)) this.place(player, this.map.spectatorSpawn);
+        if ((state === undefined || state === "out" || state === "respawning") && this.map.outOfBounds(player.location, { spectating: true })) this.place(player, this.map.spectatorSpawn);
       }
       for (const name of this.fakes?.all ?? []) {
         const state = this.roster.get(name)?.state;
         const body = this.fakes?.body(name);
-        if ((state === "out" || state === "respawning") && body && !this.fakes?.isPlacing(name) && this.map.outOfBounds(body.location)) this.place(body, this.map.spectatorSpawn);
+        if ((state === "out" || state === "respawning") && body && !this.fakes?.isPlacing(name) && this.map.outOfBounds(body.location, { spectating: true })) this.place(body, this.map.spectatorSpawn);
       }
       return;
     }
-    // Spectators fly through walls: keep them over the map (kill regions and the gaps between
-    // bounds boxes don't apply to them).
+    // Spectators fly through walls: keep them over the map, or in the spectator bounds (kill regions
+    // and the gaps between boxes don't apply to them).
     for (const participant of this.roster.inState("out", "respawning")) {
       const player = this.player(participant.name);
-      const bounds = this.map.bounds;
-      if (player && bounds && this.map.outOfBounds({ ...player.location, y: Math.max(player.location.y, bounds.min[1]) }, { killRegions: false, enclosing: true })) {
+      const area = this.map.spectatorArea;
+      if (player && area && this.map.outOfBounds({ ...player.location, y: Math.max(player.location.y, area.min[1]) }, { killRegions: false, enclosing: true, spectating: true })) {
         this.place(player, this.map.spectatorSpawn);
       }
     }

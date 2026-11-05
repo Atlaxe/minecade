@@ -250,6 +250,27 @@ describe("MapView", () => {
     expect(view.outOfBounds({ x: 0, y: 65, z: 9 }, { killRegions: false, enclosing: true })).toBe(true);
   });
 
+  it("keeps spectators in the spectator bounds, without kill Y or kill regions, and players in the bounds", () => {
+    const stand: Box = { min: [30, 60, -5], max: [40, 70, 5] };
+    const pit: Box = { min: [32, 60, -1], max: [34, 62, 1] };
+    const view = new MapView({ ...base, killY: 65, bounds: { min: [-10, 50, -10], max: [10, 90, 10] }, spectatorBounds: [stand, { min: [50, 60, -5], max: [60, 70, 5] }], regions: { kill: [pit] } });
+    expect(view.spectatorBoundsBoxes).toHaveLength(2);
+    expect(view.spectatorArea).toEqual({ min: [30, 60, -5], max: [60, 70, 5] });
+    const spectating = { spectating: true };
+    expect(view.outOfBounds({ x: 35, y: 61, z: 0 }, spectating)).toBe(false); // below kill Y
+    expect(view.outOfBounds({ x: 33, y: 61, z: 0 }, spectating)).toBe(false); // in a kill region
+    expect(view.outOfBounds({ x: 0, y: 70, z: 0 }, spectating)).toBe(true); // the players' bounds
+    expect(view.outOfBounds({ x: 45, y: 65, z: 0 }, spectating)).toBe(true); // between the boxes
+    expect(view.outOfBounds({ x: 45, y: 65, z: 0 }, { ...spectating, enclosing: true })).toBe(false);
+    expect(view.outOfBounds({ x: 35, y: 61, z: 0 })).toBe(true);
+    expect(view.outOfBounds({ x: 0, y: 70, z: 0 })).toBe(false);
+    // Without spectator bounds, spectators go by the bounds as before.
+    const plain = new MapView({ ...base, killY: 65, bounds: { min: [-10, 50, -10], max: [10, 90, 10] } });
+    expect(plain.spectatorArea).toEqual(plain.bounds);
+    expect(plain.outOfBounds({ x: 0, y: 60, z: 0 }, spectating)).toBe(true);
+    expect(plain.outOfBounds({ x: 0, y: 70, z: 0 }, spectating)).toBe(false);
+  });
+
   it("checks killY and bounds together, and nothing without either", () => {
     const view = new MapView({ ...base, killY: 60, bounds: { min: [-10, 50, -10], max: [10, 90, 10] } });
     expect(view.outOfBounds({ x: 0, y: 55, z: 0 })).toBe(true);

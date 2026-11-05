@@ -422,6 +422,43 @@ describe("the queue spawn", () => {
     everyoneLeaves();
   });
 
+  it("keeps everyone at a queue spawn outside the bounds in the spectator bounds instead", async () => {
+    const players = ["A", "B", "C"].map((name) => world.join(name));
+    const [a, b] = players;
+    const baseline = snapshot();
+    const { spectatorSpawn: _none, killY: _killY, ...arena } = ARENA;
+    const map = { ...arena, queueSpawn: [40, 70, 0], spectatorBounds: { min: [35, 69, -5], max: [45, 80, 5] }, queue: { mode: "free", countdown: 3 } } as typeof ARENA;
+    const game = new TestGame(harness.context(["A", "B", "C"], map), { ...config, maxPlayers: 3, minPlayers: 3, timeLimitSeconds: 0 });
+    await playToEnd(game, baseline, async () => {
+      await ticks(2);
+      expect(at(a)).toEqual([40.5, 70, 0.5]);
+      // Waiting, they roam the spectator bounds (outside the players' bounds), and come back from past them.
+      a.location = { x: 43, y: 70, z: 3 };
+      await ticks(10);
+      expect(at(a)).toEqual([43, 70, 3]);
+      a.location = { x: 50, y: 70, z: 0 };
+      await ticks(10);
+      expect(at(a)).toEqual([40.5, 70, 0.5]);
+      await ticks(3 * 20 + 2 * 20);
+      expect(game.phase).toBe("playing");
+      world.hurt(a, 30, "entityAttack", { attacker: b });
+      await ticks(2);
+      expect(game.roster.get("A")?.state).toBe("out");
+      expect(at(a)).toEqual([40.5, 70, 0.5]);
+      // Out, the same: free in the spectator bounds, back from a fall out of them.
+      a.location = { x: 36, y: 72, z: -4 };
+      await ticks(10);
+      expect(at(a)).toEqual([36, 72, -4]);
+      a.location = { x: 40, y: 60, z: 0 };
+      await ticks(10);
+      expect(at(a)).toEqual([40.5, 70, 0.5]);
+      game.finish({ kind: "draw", reason: "test over" });
+      await ticks(2);
+    });
+    expectBaseline(baseline);
+    everyoneLeaves();
+  });
+
   it("shows name tags during the match for a game that asks for them", async () => {
     const players = ["A", "B"].map((name) => world.join(name));
     const baseline = snapshot();

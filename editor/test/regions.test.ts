@@ -3,6 +3,7 @@ import type { EditorRules, MapConfig } from "@minecade/minigame-core/config";
 import {
   BOUNDS_COLOR,
   KILL_COLOR,
+  SPECTATOR_BOUNDS_COLOR,
   boundaryRows,
   boundsAround,
   outlineShown,
@@ -41,7 +42,7 @@ const map: MapConfig = {
 };
 
 describe("region tool targets", () => {
-  it("offers the bounds, the kill region, required regions, the map's others, then a new one", () => {
+  it("offers the bounds, the kill region, required regions, the map's others, the spectator bounds, then a new one", () => {
     expect(regionTargets(map, rules).map((target) => [target.key, target.label])).toEqual([
       ["bounds", "Bounds"],
       ["addBounds", "Add to bounds (another box)"],
@@ -50,13 +51,17 @@ describe("region tool targets", () => {
       ["regions.buyZone.red", "Buy zone (Red)"],
       ["regions.buyZone.blue", "Buy zone (Blue)"],
       ["regions.plot", "plot"],
+      ["spectatorBounds", "Spectator bounds"],
       ["new", "New region..."],
     ]);
+    // Once the map has spectator bounds, their tile adds another box.
+    const watched = { ...map, spectatorBounds: { min: [40, 60, 0], max: [50, 70, 10] } } as MapConfig;
+    expect(regionTargets(watched, rules).find((target) => target.kind === "spectatorBounds")?.label).toBe("Add to spectator bounds (another box)");
   });
 
-  it("makes the bounds and the kill region tiles, and groups a team's regions for the Team list", () => {
+  it("makes the bounds, the kill region and the spectator bounds tiles, and groups a team's regions for the Team list", () => {
     const targets = regionTargets(map, rules);
-    expect(targets.filter((target) => target.tile).map((target) => target.groupLabel)).toEqual(["Bounds", "Add bounds", "Kill region"]);
+    expect(targets.filter((target) => target.tile).map((target) => target.groupLabel)).toEqual(["Bounds", "Add bounds", "Kill region", "Spectators"]);
     const red = targets.find((target) => target.key === "regions.buyZone.red");
     expect(red).toMatchObject({ group: "regions.buyZone", groupLabel: "Buy zone", teamLabel: "Red", tile: false });
     expect(targets.find((target) => target.key === "regions.plot")).toMatchObject({ group: "regions.plot", groupLabel: "plot", tile: false });
@@ -115,6 +120,31 @@ describe("the map's boxes", () => {
     expect(entryBox(several, entries[1])).toEqual(second);
     expect(boundsAround(several)).toEqual({ min: [-20, 50, -20], max: [40, 90, 20] });
     expect(boundsAround({ name: "Empty", spawns: [] })).toBeUndefined();
+  });
+
+  it("lists the spectator bounds after the bounds, light gray, with a switch of their own", () => {
+    const stand = { min: [40, 60, 0], max: [50, 70, 10] } as const;
+    const watched = { ...map, spectatorBounds: stand } as MapConfig;
+    const entries = regionEntries(watched, rules);
+    expect(entries.slice(0, 2).map((entry) => [entry.key, entry.label, targetKeyOf(entry)])).toEqual([
+      ["bounds#0", "Bounds", "bounds"],
+      ["spectatorBounds#0", "Spectator bounds", "spectatorBounds"],
+    ]);
+    expect(entryBox(watched, entries[1])).toEqual(stand);
+    expect(entryBox(map, entries[1])).toBeUndefined();
+    const two = regionEntries({ ...map, spectatorBounds: [stand, map.bounds] } as MapConfig, rules).filter((entry) => entry.spectators);
+    expect(two.map((entry) => [entry.label, entry.bounds])).toEqual([
+      ["Spectator bounds 1", 0],
+      ["Spectator bounds 2", 1],
+    ]);
+    const outline = outlineBoxes(watched, rules).find((candidate) => candidate.key === "spectatorBounds#0");
+    expect(outline).toMatchObject({ group: "spectatorBounds", color: SPECTATOR_BOUNDS_COLOR });
+    expect(boundaryRows(watched, rules).slice(0, 2).map((row) => [row.group, row.label, row.detail])).toEqual([
+      ["bounds", "Bounds", "white, 1 box"],
+      ["spectatorBounds", "Spectator bounds", "light gray, 1 box"],
+    ]);
+    // Kill Y is drawn over the players' bounds only.
+    expect(boundsAround(watched)).toEqual(map.bounds);
   });
 
   it("finds an entry's box in the map as it is now", () => {

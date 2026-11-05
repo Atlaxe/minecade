@@ -1,11 +1,11 @@
 // The region tool. Hit a block to start a selection there (that one block), then use the tool on
 // blocks, up to REACH away, to grow the selection to them, so any box can be picked without placing
 // blocks. The tool only sets the box: used at the sky it does nothing. With the tool picked, the
-// map menu opens the selection's screen (what to save it as: the bounds, the kill region, one of the
-// game's regions and its team, a new region; its sides nudged with the outline following, Floor at
-// kill Y and Back one step, and Save at the bottom), and lists the map's boxes: tapping one opens
-// the same screen for it (what it is, its sides, Go to, Delete). Saving a selection starts the next
-// one over, from the first choices.
+// map menu opens the selection's screen (what to save it as: the bounds, the kill region, the
+// spectator bounds, one of the game's regions and its team, a new region; its sides nudged with the
+// outline following, Floor at kill Y and Back one step, and Save at the bottom), and lists the map's
+// boxes: tapping one opens the same screen for it (what it is, its sides, Go to, Delete). Saving a
+// selection starts the next one over, from the first choices.
 import { world, type Block, type Player } from "@minecraft/server";
 import { ActionFormData, ModalFormData } from "@minecraft/server-ui";
 import { bigEnough, regionMinSize, type Box, type MapEdit, type Scope } from "@minecade/minigame-core";
@@ -111,8 +111,8 @@ export class RegionTool {
 
   /**
    * The region tool's screen, for the player's selection or for a box the map has (`existing`,
-   * changed on a copy until Save): what it is (tiles for the bounds and the kill region, a Region
-   * list for the rest, a Team list for a team's region), a new region's name, Floor at kill Y and
+   * changed on a copy until Save): what it is (tiles for the bounds, the kill region and the
+   * spectator bounds, a Region list for the rest, a Team list for a team's region), a new region's name, Floor at kill Y and
    * Back one step (Go to, for a box the map has), nudge rows for each side, Step, Clear selection or
    * Delete (red), and Save at the bottom. The box shows as the selection meanwhile, with every
    * boundary.
@@ -227,7 +227,7 @@ export class RegionTool {
     actionBar(player, `New selection at ${at.join(" ")}: use the tool on blocks to grow it`);
   }
 
-  /** Saves the selection as `target` (the bounds, another bounds box, a region, or a new region named `typed`). False when it couldn't be. */
+  /** Saves the selection as `target` (the bounds, another bounds box, a spectator bounds box, a region, or a new region named `typed`). False when it couldn't be. */
   private saveAs(player: Player, box: Box, target: RegionTarget, typed: string): boolean {
     if (target.kind === "bounds") return this.host.edit(player, { op: "bounds", box }, `Bounds ${this.host.map().bounds ? "replaced" : "set"}: ${describeBox(box)}.`);
     const into = this.into(player, target, box, typed);
@@ -247,11 +247,13 @@ export class RegionTool {
     this.host.edit(player, { op: "batch", edits: [removeEdit(entry), into.edit] }, `${entry.label} is now ${into.label}: ${describeBox(box)}.`);
   }
 
-  /** The edit that adds `box` to another bounds box or a region (a new one named `typed`), with the entry's label; undefined (and why) without a name. */
+  /** The edit that adds `box` to another bounds box, the spectator bounds or a region (a new one named `typed`), with the entry's label; undefined (and why) without a name. */
   private into(player: Player, target: RegionTarget, box: Box, typed: string): { edit: MapEdit; label: string } | undefined {
-    if (target.kind === "addBounds") {
-      const index = regionEntries(this.host.map(), this.host.rules).filter((entry) => entry.bounds !== undefined).length;
-      return { edit: { op: "addBounds", box }, label: `Bounds ${index + 1}` };
+    if (target.kind === "addBounds" || target.kind === "spectatorBounds") {
+      const spectators = target.kind === "spectatorBounds";
+      const index = regionEntries(this.host.map(), this.host.rules).filter((entry) => entry.bounds !== undefined && entry.spectators === spectators).length;
+      const name = spectators ? "Spectator bounds" : "Bounds";
+      return { edit: { op: "addBounds", box, ...(spectators ? { spectators } : {}) }, label: index === 0 ? name : `${name} ${index + 1}` };
     }
     const name = target.kind === "new" ? regionName(typed) : target.name;
     if (!name) {
@@ -287,10 +289,15 @@ export class RegionTool {
 
 /** The edit that writes `box` over a saved entry. */
 function saveEdit(entry: RegionEntry, box: Box): MapEdit {
-  return entry.region ? { op: "setRegion", name: entry.region.name, index: entry.region.index, box } : { op: "setBounds", index: entry.bounds ?? 0, box };
+  return entry.region ? { op: "setRegion", name: entry.region.name, index: entry.region.index, box } : { op: "setBounds", index: entry.bounds ?? 0, box, ...spectatorsOf(entry) };
 }
 
 /** The edit that removes a saved entry. */
 function removeEdit(entry: RegionEntry): MapEdit {
-  return entry.region ? { op: "removeRegion", name: entry.region.name, index: entry.region.index } : { op: "removeBounds", index: entry.bounds ?? 0 };
+  return entry.region ? { op: "removeRegion", name: entry.region.name, index: entry.region.index } : { op: "removeBounds", index: entry.bounds ?? 0, ...spectatorsOf(entry) };
+}
+
+/** A bounds edit's `spectators` for a spectator bounds box (nothing for a bounds box). */
+function spectatorsOf(entry: RegionEntry): { spectators?: true } {
+  return entry.spectators ? { spectators: true } : {};
 }

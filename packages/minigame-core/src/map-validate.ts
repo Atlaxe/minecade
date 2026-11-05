@@ -113,32 +113,23 @@ export function validateMapConfig(raw: unknown, rules: MapRules): string[] {
   }
 
   // One box, or several: every position must be inside one of them, every region inside the box
-  // around them all.
+  // around them all. With spectator bounds, the spectator and queue spawns go by those instead.
   const bounds = map.bounds;
-  if (bounds !== undefined) {
-    const several = Array.isArray(bounds);
-    const entries: unknown[] = several ? bounds : [bounds];
-    const shaped: Box[] = [];
-    if (entries.length === 0) problems.push('"bounds" must be a box, or a list of boxes');
-    entries.forEach((box, i) => {
-      const label = several ? `"bounds[${i}]"` : '"bounds"';
-      if (!isBox(box)) {
-        problems.push(`${label} must be { "min": [x, y, z], "max": [x, y, z] }`);
-        return;
-      }
-      if (box.min.some((value, axis) => value > box.max[axis])) problems.push(`${label} min must not be larger than max`);
-      if (box.min[1] < MIN_Y || box.max[1] > MAX_Y) problems.push(`${label} y must stay within ${MIN_Y} to ${MAX_Y}`);
-      shaped.push(box);
-    });
-    const around = shaped.length === entries.length ? enclosingBox(shaped) : undefined;
-    if (around) {
-      for (const [name, point] of points) {
-        if (!shaped.some((box) => inside(point, box.min, box.max))) problems.push(`${name} ${JSON.stringify(point)} is outside "bounds"`);
-      }
-      for (const [name, box] of boxes) {
-        if (!inside(box.min, around.min, around.max) || !inside(box.max, around.min, around.max)) problems.push(`${name} is outside "bounds"`);
-      }
+  const playing = bounds === undefined ? undefined : boxList(bounds, "bounds", problems);
+  const watching = map.spectatorBounds === undefined ? undefined : boxList(map.spectatorBounds, "spectatorBounds", problems);
+  for (const [name, point] of points) {
+    const watch = map.spectatorBounds !== undefined && (name === "spectatorSpawn" || name === "queueSpawn");
+    const shaped = watch ? watching : playing;
+    if (shaped && !shaped.some((box) => inside(point, box.min, box.max))) problems.push(`${name} ${JSON.stringify(point)} is outside "${watch ? "spectatorBounds" : "bounds"}"`);
+  }
+  const around = playing && enclosingBox(playing);
+  if (around) {
+    for (const [name, box] of boxes) {
+      if (!inside(box.min, around.min, around.max) || !inside(box.max, around.min, around.max)) problems.push(`${name} is outside "bounds"`);
     }
+  }
+  if (map.spectatorBounds !== undefined && map.spectatorSpawn === undefined && map.queueSpawn === undefined) {
+    problems.push('"spectatorBounds" needs a "spectatorSpawn" or a "queueSpawn" inside it');
   }
 
   for (const requirement of requirements) problems.push(...missing(requirement, map, who, hasTeamSpawns));
@@ -264,6 +255,28 @@ function editorKeyProblems(map: Partial<MapConfig>): string[] {
   }
   if (map.mannequinsInPreview !== undefined && typeof map.mannequinsInPreview !== "boolean") problems.push('"mannequinsInPreview" must be true or false');
   return problems;
+}
+
+/**
+ * "bounds" or "spectatorBounds": one box, or a list of them. Reports the problems; the boxes when
+ * every one is a box, else undefined.
+ */
+function boxList(value: unknown, key: string, problems: string[]): Box[] | undefined {
+  const several = Array.isArray(value);
+  const entries: unknown[] = several ? value : [value];
+  const shaped: Box[] = [];
+  if (entries.length === 0) problems.push(`"${key}" must be a box, or a list of boxes`);
+  entries.forEach((box, i) => {
+    const label = several ? `"${key}[${i}]"` : `"${key}"`;
+    if (!isBox(box)) {
+      problems.push(`${label} must be { "min": [x, y, z], "max": [x, y, z] }`);
+      return;
+    }
+    if (box.min.some((value, axis) => value > box.max[axis])) problems.push(`${label} min must not be larger than max`);
+    if (box.min[1] < MIN_Y || box.max[1] > MAX_Y) problems.push(`${label} y must stay within ${MIN_Y} to ${MAX_Y}`);
+    shaped.push(box);
+  });
+  return shaped.length > 0 && shaped.length === entries.length ? shaped : undefined;
 }
 
 /** Reports a bad position; true when it's a usable one. */

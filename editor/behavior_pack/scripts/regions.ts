@@ -1,4 +1,4 @@
-// The boxes a map has (its bounds and regions), where the region tool can save a box, and the
+// The boxes a map has (its bounds, spectator bounds and regions), where the region tool can save a box, and the
 // colors their outlines are drawn in: pure functions of the map and its rules, so they can be
 // tested without a server.
 import { BUILD_LIMIT_SIDES, KILL_REGION, codeTint, enclosingBox, mapRequirements, type Box, type BuildLimitSide, type EditorRules, type MapConfig, type MapRequirement } from "@minecade/minigame-core/config";
@@ -12,43 +12,52 @@ export interface Rgb {
 
 export const SELECTION_COLOR = rgb(0xffff55);
 export const BOUNDS_COLOR = rgb(0xffffff);
+/** The spectator bounds: light gray (its plane color), beside the players' white. */
+export const SPECTATOR_BOUNDS_COLOR = rgb(0x9d9d97);
 /** A deeper red than any team's (§c is 0xff5555), so a red team's region doesn't read as a kill region. */
 export const KILL_COLOR = rgb(0xd00000);
 /**
  * Regions without a team take these in turn, plane colors (sheets.ts PLANE_COLORS: light blue, lime,
- * magenta, blue, pink, cyan, green, purple). White, red, yellow and orange are kept for the bounds,
- * kill, the selection and the build limit.
+ * magenta, blue, pink, cyan, green, purple). White, light gray, red, yellow and orange are kept for
+ * the bounds, the spectator bounds, kill, the selection and the build limit.
  */
 const PALETTE = [0x3ab3da, 0x80c71f, 0xc74ebd, 0x3c44aa, 0xf38baa, 0x169c9c, 0x5e7c16, 0x8932b8].map(rgb);
 /**
  * Where the region tool can save a box: the bounds (replacing them all), another bounds box, a
- * region (as a new entry in its list), or a region named in the form.
+ * spectator bounds box (added to any there are), a region (as a new entry in its list), or a
+ * region named in the form.
  */
 export interface RegionTarget {
-  /** "bounds", "addBounds", "regions.<name>" (the checklist's key for it), or "new". */
+  /** "bounds", "addBounds", "spectatorBounds", "regions.<name>" (the checklist's key for it), or "new". */
   key: string;
   label: string;
-  kind: "bounds" | "addBounds" | "region" | "new";
+  kind: "bounds" | "addBounds" | "spectatorBounds" | "region" | "new";
   /** The region's name, for kind "region". */
   name?: string;
   /**
-   * What it is, whatever the team: "bounds", "addBounds", "regions.kill", "regions.<name>" (a team's
-   * region by the name before its team), or "new". A screen picks this first, then the team.
+   * What it is, whatever the team: "bounds", "addBounds", "spectatorBounds", "regions.kill",
+   * "regions.<name>" (a team's region by the name before its team), or "new". A screen picks this
+   * first, then the team.
    */
   group: string;
-  /** Its group's name there: "Bounds", "Kill region", "Spawn guard", "New region". */
+  /** Its group's name there: "Bounds", "Kill region", "Spectators", "Spawn guard", "New region". */
   groupLabel: string;
   /** Its name in the Team list, for a team's region. */
   teamLabel?: string;
-  /** A tile (the bounds and the kill region), else an option in the Region list (the game's regions, the map's others, New region). */
+  /** A tile (the bounds, the kill region and the spectator bounds), else an option in the Region list (the game's regions, the map's others, New region). */
   tile: boolean;
 }
 
 export type SelectionAction = "saveAs" | "clear";
 
-/** The bounds (and another bounds box), the kill region, the regions the rules ask for, any others the map has, then a new one. */
+/**
+ * The bounds (and another bounds box), the kill region, the regions the rules ask for, any others
+ * the map has, the spectator bounds (a tile after the kill region's, which adds a box to any there
+ * are), then a new region.
+ */
 export function regionTargets(config: MapConfig, rules: EditorRules): RegionTarget[] {
   const bounds = boundsEntries(config).length;
+  const spectators = spectatorEntries(config).length;
   const regions = regionNames(config, rules).map((name): RegionTarget => {
     const label = regionLabel(name, rules);
     if (name === KILL_REGION) return { key: `regions.${name}`, label, kind: "region", name, group: `regions.${name}`, groupLabel: label, tile: true };
@@ -63,31 +72,34 @@ export function regionTargets(config: MapConfig, rules: EditorRules): RegionTarg
     { key: "bounds", label: bounds > 1 ? `Bounds (replaces all ${bounds} boxes)` : "Bounds", kind: "bounds", group: "bounds", groupLabel: "Bounds", tile: true },
     ...(bounds > 0 ? [{ key: "addBounds", label: "Add to bounds (another box)", kind: "addBounds", group: "addBounds", groupLabel: "Add bounds", tile: true } as const] : []),
     ...regions,
+    { key: "spectatorBounds", label: spectators > 0 ? "Add to spectator bounds (another box)" : "Spectator bounds", kind: "spectatorBounds", group: "spectatorBounds", groupLabel: "Spectators", tile: true },
     { key: "new", label: "New region...", kind: "new", group: "new", groupLabel: "New region", tile: false },
   ];
 }
 
-/** Where a box the map has is saved now: "bounds", or its region's key. */
+/** Where a box the map has is saved now: "bounds", "spectatorBounds", or its region's key. */
 export function targetKeyOf(entry: RegionEntry): string {
-  return entry.region ? `regions.${entry.region.name}` : "bounds";
+  return entry.region ? `regions.${entry.region.name}` : entry.spectators ? "spectatorBounds" : "bounds";
 }
 
-/** A box the map has: a bounds box, or entry `index` of the region `name`. */
+/** A box the map has: a bounds box, a spectator bounds box, or entry `index` of the region `name`. */
 export interface RegionEntry {
-  /** "bounds#<index>", or "regions.<name>#<index>". */
+  /** "bounds#<index>", "spectatorBounds#<index>", or "regions.<name>#<index>". */
   key: string;
-  /** "Bounds", "Bounds 2", "Kill region 2", "Buy zone (Red) 1". */
+  /** "Bounds", "Bounds 2", "Spectator bounds", "Kill region 2", "Buy zone (Red) 1". */
   label: string;
   box: Box;
   /** Undefined for a bounds box. */
   region?: { name: string; index: number };
-  /** A bounds box's place among them. */
+  /** A bounds box's place among them (among the spectator bounds' boxes, with `spectators`). */
   bounds?: number;
+  /** A spectator bounds box. */
+  spectators?: boolean;
 }
 
-/** Every box the map has: the bounds boxes first, then each region's boxes, in regionTargets' order. */
+/** Every box the map has: the bounds boxes first, then the spectator bounds', then each region's boxes. */
 export function regionEntries(config: MapConfig, rules: EditorRules): RegionEntry[] {
-  const entries: RegionEntry[] = boundsEntries(config);
+  const entries: RegionEntry[] = [...boundsEntries(config), ...spectatorEntries(config)];
   const regions = regionsOf(config);
   for (const name of regionNames(config, rules)) {
     const list = regions[name];
@@ -102,7 +114,7 @@ export function regionEntries(config: MapConfig, rules: EditorRules): RegionEntr
 
 /** The box at an entry's place in the map now, if there is one. */
 export function entryBox(config: MapConfig, entry: RegionEntry): Box | undefined {
-  const box: unknown = entry.region ? regionsOf(config)[entry.region.name]?.[entry.region.index] : boundsOf(config)[entry.bounds ?? 0];
+  const box: unknown = entry.region ? regionsOf(config)[entry.region.name]?.[entry.region.index] : boxesOf(config, entry.spectators ? "spectatorBounds" : "bounds")[entry.bounds ?? 0];
   return isBox(box) ? box : undefined;
 }
 
@@ -113,7 +125,7 @@ export function boundsAround(config: MapConfig): Box | undefined {
 
 /** The bounds boxes: "Bounds" when there's one, "Bounds 1", "Bounds 2" when there are several. */
 function boundsEntries(config: MapConfig): RegionEntry[] {
-  const list = boundsOf(config);
+  const list = boxesOf(config, "bounds");
   const entries: RegionEntry[] = [];
   list.forEach((box, index) => {
     if (isBox(box)) entries.push({ key: `bounds#${index}`, label: list.length > 1 ? `Bounds ${index + 1}` : "Bounds", box, bounds: index });
@@ -121,9 +133,19 @@ function boundsEntries(config: MapConfig): RegionEntry[] {
   return entries;
 }
 
-/** "bounds" as a list, whether the map has one box or several. */
-function boundsOf(config: MapConfig): unknown[] {
-  const bounds: unknown = config.bounds;
+/** The spectator bounds boxes: "Spectator bounds" when there's one, "Spectator bounds 1", "Spectator bounds 2" when there are several. */
+function spectatorEntries(config: MapConfig): RegionEntry[] {
+  const list = boxesOf(config, "spectatorBounds");
+  const entries: RegionEntry[] = [];
+  list.forEach((box, index) => {
+    if (isBox(box)) entries.push({ key: `spectatorBounds#${index}`, label: list.length > 1 ? `Spectator bounds ${index + 1}` : "Spectator bounds", box, bounds: index, spectators: true });
+  });
+  return entries;
+}
+
+/** "bounds" or "spectatorBounds" as a list, whether the map has one box or several. */
+function boxesOf(config: MapConfig, key: "bounds" | "spectatorBounds"): unknown[] {
+  const bounds: unknown = config[key];
   return bounds === undefined ? [] : Array.isArray(bounds) ? bounds : [bounds];
 }
 
@@ -145,7 +167,7 @@ export function regionName(text: string): string | undefined {
 export interface OutlineBox {
   /** The entry's key, so the box being edited can be left out. */
   key: string;
-  /** The Boundaries view's switch it shows with: "bounds", or "regions.<name>". */
+  /** The Boundaries view's switch it shows with: "bounds", "spectatorBounds", or "regions.<name>". */
   group: string;
   box: Box;
   color: Rgb;
@@ -195,12 +217,14 @@ export interface BoundaryRow {
   detail: string;
 }
 
-/** The map's boundaries, in outline order: the bounds, kill Y, kill regions, then each other region. */
+/** The map's boundaries, in outline order: the bounds, the spectator bounds, kill Y, kill regions, then each other region. */
 export function boundaryRows(config: MapConfig, rules: EditorRules): BoundaryRow[] {
   const rows: BoundaryRow[] = [];
   const boxes = (count: number) => `${count} box${count === 1 ? "" : "es"}`;
   const bounds = boundsEntries(config).length;
   if (bounds > 0) rows.push({ group: "bounds", label: "Bounds", detail: `white, ${boxes(bounds)}` });
+  const spectators = spectatorEntries(config).length;
+  if (spectators > 0) rows.push({ group: "spectatorBounds", label: "Spectator bounds", detail: `light gray, ${boxes(spectators)}` });
   if (typeof config.killY === "number") rows.push({ group: KILL_Y_GROUP, label: "Kill Y", detail: `red plane, y ${config.killY}` });
   const limits = BUILD_LIMIT_SIDES.filter((side) => typeof config.buildLimit?.[side] === "number");
   if (limits.length > 0) rows.push({ group: BUILD_LIMIT_GROUP, label: "Build limit", detail: `orange, ${limits.map((side) => `${side} ${config.buildLimit?.[side]}`).join(", ")}` });
@@ -232,7 +256,7 @@ export function toggleBoundary(shown: ReadonlySet<string>, group: string, groups
   return next;
 }
 
-/** Every box the map has, with its outline color: bounds white, kill red, team regions in the team's color. */
+/** Every box the map has, with its outline color: bounds white, spectator bounds light gray, kill red, team regions in the team's color. */
 export function outlineBoxes(config: MapConfig, rules: EditorRules): OutlineBox[] {
   const colors = new Map<string, Rgb>();
   let next = 0;
@@ -243,9 +267,9 @@ export function outlineBoxes(config: MapConfig, rules: EditorRules): OutlineBox[
   }
   return regionEntries(config, rules).map((entry) => ({
     key: entry.key,
-    group: entry.region ? `regions.${entry.region.name}` : "bounds",
+    group: targetKeyOf(entry),
     box: entry.box,
-    color: entry.region ? (colors.get(entry.region.name) ?? BOUNDS_COLOR) : BOUNDS_COLOR,
+    color: entry.region ? (colors.get(entry.region.name) ?? BOUNDS_COLOR) : entry.spectators ? SPECTATOR_BOUNDS_COLOR : BOUNDS_COLOR,
   }));
 }
 

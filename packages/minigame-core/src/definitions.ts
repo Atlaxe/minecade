@@ -79,6 +79,7 @@ export {
   positionXyz,
   queueSettings,
   runtimeMapConfig,
+  spectatorBoundsBoxes,
   teamKey,
   worldSpawnOf,
   worldPoint,

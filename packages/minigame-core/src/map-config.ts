@@ -94,6 +94,12 @@ export function boundsBox(config: Pick<MapConfig, "bounds">): Box | undefined {
   return enclosingBox(boundsBoxes(config));
 }
 
+/** A map's spectator bounds boxes: none, its one box, or each of several. */
+export function spectatorBoundsBoxes(config: Pick<MapConfig, "spectatorBounds">): Box[] {
+  const bounds = config.spectatorBounds;
+  return bounds === undefined ? [] : Array.isArray(bounds) ? [...bounds] : [bounds];
+}
+
 /** The smallest box holding all of these, or undefined for none. */
 export function enclosingBox(boxes: Box[]): Box | undefined {
   if (boxes.length === 0) return undefined;
@@ -191,6 +197,11 @@ export interface MapConfig {
    * baking, which builds and checks inside the box around them all (boundsBox).
    */
   bounds?: Box | Box[];
+  /**
+   * Where everyone who isn't playing is kept (waiting at the queue spawn, out, or watching): one
+   * box, or several. Without it, they're kept in the bounds like the players.
+   */
+  spectatorBounds?: Box | Box[];
   /** Below this height a player is out (void games). */
   killY?: number;
   /** Heights nobody builds past in a building game (see BuildLimit). */

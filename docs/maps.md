@@ -32,7 +32,8 @@ The map editor sets spawns and points in game and writes `map.json` for you; see
 | `spectatorSpawn` | no | Where players watch from when they're out or waiting to respawn, flying in spectator mode. A map without one has them watch from its `queueSpawn` instead (see below). A game needs one or the other unless its config says otherwise. |
 | `queueSpawn` | no | Where players wait for everyone to join before the game puts them at their spawns (see "The queue spawn" below). |
 | `queue` | no | How they wait there: `{ "mode": "lock" \| "free", "countdown": 5 }`. `lock` (the default) keeps everyone on the spot, looking around but unable to move, and invisible with no name tags, so nobody sees the others; `free` lets them roam. `countdown` is whole seconds (1 to 60, default 5). |
-| `bounds` | when `build` is used | The playable area, in whole blocks (inclusive): one box, or a list of boxes for an area of another shape (an L-shaped arena, two islands). Players outside every box are out (in games with `combat.outOfBounds: "down"`), and in the lobby go back to spawn. Spectators are kept inside the box around them all, flying over the gaps. Spawns must be inside a box, and y must stay within -64 to 319. Baking works inside the box around them all. |
+| `bounds` | when `build` is used | The playable area, in whole blocks (inclusive): one box, or a list of boxes for an area of another shape (an L-shaped arena, two islands). Players outside every box are out (in games with `combat.outOfBounds: "down"`), and in the lobby go back to spawn. Spectators are kept inside the box around them all, flying over the gaps (unless the map has `spectatorBounds`). Spawns must be inside a box, and y must stay within -64 to 319. Baking works inside the box around them all. |
+| `spectatorBounds` | no | Where everyone who isn't playing is kept, written like `bounds` (one box, or a list): players waiting at the queue spawn, and players who are out, waiting to respawn or watching. With it, the `spectatorSpawn` and `queueSpawn` go inside it instead of inside `bounds`, so they can stand apart from the arena (a stand beside it, a platform over the void), and a map with it needs one of the two. Someone not playing who leaves every box goes back to the spectator (or queue) spawn; `killY` and kill regions don't apply to them. Spectators who fly are kept inside the box around them all. Players in the match still go by `bounds`. Without it, everyone is kept in `bounds`. |
 | `killY` | no | Anyone below this height is out (knocked off, fell into the void). Within -64 to 319. |
 | `buildLimit` | no | `{ "above": y, "below": y }`, either or both: in a building game, no block goes above the `above` height or below the `below` one (each a plane, like `killY`: with `"above": 80` the highest block is at 79, with `"below": 60` the lowest is at 60). Whole numbers from -64 to 320, `above` over `below`. Set with the map editor's Kill Y tool. |
 | `time` | no | A fixed time of day: the daylight cycle stops there when the server starts. `day`, `noon`, `sunset`, `night`, `midnight` or `sunrise`, or ticks from 0 to 23999. The map editor's Time tool sets it (Noon, Dusk, Midnight and Dawn are `noon`, `sunset`, `midnight` and `sunrise`; a custom time is ticks). |
@@ -64,6 +65,7 @@ With a `queueSpawn`, the start of a game goes:
 
 1. Everyone who joins waits at the queue spawn (locked in or free, by `queue.mode`). Anyone who
    falls below `killY` or leaves `bounds` (or, locked in, gets pushed off the spot) is put back.
+   On a map with `spectatorBounds`, leaving those is what puts them back instead.
    Locked in, they can't fall either: a queue spawn in the air gets a barrier under it (in the
    block below, if that's air) while anyone waits there, taken away once they go to their spawns.
 2. Once everyone expected is in (or the wait runs out with enough players), a countdown of
@@ -78,7 +80,7 @@ tool (Queue spawn, in Place into); hit its marker for Lock in and the countdown.
 who are out (or waiting to respawn), late joiners who spectate, and players past the game's limit
 wait at the queue spawn instead: on foot in adventure mode, with empty hands, seen by others but
 without a name tag (whatever `queue.mode` says). A fall below `killY` or a step out of `bounds` puts
-them back there. A preview's fake players go where players would: in the queue while waiting, at
+them back there (on a map with `spectatorBounds`, a step out of those). A preview's fake players go where players would: in the queue while waiting, at
 their spawns in the match, and when out at the queue spawn on foot, or floating at the spectator
 spawn (seen there, unlike a player).
 
@@ -161,7 +163,10 @@ and `spawnGuard.blue` to everyone. Draw those regions with the map editor's regi
 then the region from the list, such as Spawn guard (Red)); they show in each team's color, and in
 the Boundaries view.
 
-**Bridges** needs team spawns, bounds, kill Y, a spectator or queue spawn, and per team:
+**Bridges** needs team spawns, bounds, a build limit, a spectator or queue spawn, and per team the
+two entries below. A fall out of the bounds is a fall into the void, so kill Y is optional; a
+queue spawn on a stand beside the arena goes in `spectatorBounds` (the Region tool's Spectators).
+Per team:
 - a `hole.<team>` point at the **middle of the hole's floor**, in the pit the map has for it. The
   game stands the hole there: 3 blocks square and 3 tall, black inside, its rim a ring in the
   team's color, drawn fully lit so it looks the same in the dark as in daylight. Each of its sides,

@@ -237,8 +237,8 @@ game in gold and the map in orange.
      is missing, it puts the map in the lobby (see "Publishing").
    - **Undo** and **Redo** (faded when there's nothing to undo or redo; the tooltip says what they'd
      change). The menu opens again afterward, so you can undo several steps.
-   - **The eye** (Boundaries): a switch for every boundary the map has (the bounds, kill Y, kill
-     regions, and each other region), and **Show all**. A boundary switched on shows to you all the
+   - **The eye** (Boundaries): a switch for every boundary the map has (the bounds, the spectator
+     bounds, kill Y, kill regions, and each other region), and **Show all**. A boundary switched on shows to you all the
      time, whatever you hold (see "Boundaries" below). Your switches are kept for your next map and
      the next boot (`work/editor/view.json`).
    - **The play icon** (Preview, game maps only): see "Preview".
@@ -329,8 +329,12 @@ you back in creative at every spawn).
   Hit it for two more buttons: **Lock in** (on: players can look around but not move, and are
   invisible to each other, held up in the air if it's there; off: they roam free) and **Countdown** (the seconds, once everyone's
   in, before they go to their spawns; 5 at first).
-- **Region tool:** picks a box, for the bounds, a region or a kill region (anyone inside a kill
-  region is out). The bounds can be several boxes: a player inside any of them is in.
+- **Region tool:** picks a box, for the bounds, the spectator bounds, a region or a kill region
+  (anyone inside a kill region is out). The bounds can be several boxes: a player inside any of
+  them is in. The spectator bounds (also one box or several) keep everyone who isn't playing:
+  players waiting at the queue spawn and players who are out or watching. With them, the
+  spectator and queue spawns go inside them, not inside the bounds, so a stand beside the arena
+  works (see `spectatorBounds` in `docs/maps.md`).
   - **Hit a block** to start a new selection: that one block.
   - **Use the tool on a block**, up to 64 blocks away, to grow the selection to it, on every axis.
     Any box can be picked without placing blocks: hit one corner, then use the tool on the blocks
@@ -339,7 +343,8 @@ you back in creative at every spawn).
     at the sky, the tool does nothing). While it's open, the box shows as your selection with every
     boundary, whatever you hold:
     - **What to save it as:** tiles for **Bounds** (replacing every bounds box), **Add bounds**
-      (another bounds box, once the map has one) and **Kill region**; then a **Region** list for
+      (another bounds box, once the map has one), **Kill region** and **Spectators** (a spectator
+      bounds box, added to any the map has; delete one to replace it); then a **Region** list for
       the rest (the regions the game asks for, any others the map has, and **New region**, with its
       **Name**: letters, digits and `_`), and a **Team** list for a team's region (Bridges' Spawn
       guard). A region holds a list of boxes, and each save adds one.
@@ -381,7 +386,7 @@ you back in creative at every spawn).
 - **Boundaries** are drawn as see-through colored sheets, the way Axiom and Litematica show a
   selection: plane blocks, each a 16x16 square one pixel thick, on every side of a box and across
   the bounds at each height. Holding the region tool, or with the map menu open on it, you see your
-  selection (yellow), the bounds (white), kill regions (red), each other region in its own color (a
+  selection (yellow), the bounds (white), the spectator bounds (light gray), kill regions (red), each other region in its own color (a
   team's region in the team's color), kill Y (red) and the build limit (orange). Holding the Kill Y
   tool, or with the map menu open on it, you see kill Y and the build limit only; while you set one
   in its screen, only that one, where you're setting it. A box being changed in its screen shows as
