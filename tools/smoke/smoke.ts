@@ -1,13 +1,16 @@
-// End-to-end smoke test that needs no players: (re)builds and starts the stack, starts a Probe
-// session through the debug API, checks the game container and its port bindings, lets the
-// game give up waiting for players, then checks the session ended cleanly, the container is
-// gone and stats storage answers. Probe is the test game: the lobby doesn't list it, and its
-// map stays put while the real games' maps come and go.
-//   npm run smoke                 rebuild and start the stack first (docker compose up -d --build)
+// End-to-end smoke test that needs no players: writes the published maps from the map store,
+// (re)builds and starts the stack, starts a Probe session through the debug API, checks the game
+// container and its port bindings, lets the game give up waiting for players, then checks the
+// session ended cleanly, the container is gone and stats storage answers. Probe is the test game:
+// the lobby doesn't list it, and its map stays put while the real games' maps come and go.
+//   npm run smoke                 write the published maps, then rebuild and start the stack first
+//                                 (docker compose up -d --build), as the Panel's Start does
 //   npm run smoke -- --no-build   use the stack that is already running
 import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { connectDocker, findContainerByName } from "../build/docker-util.ts";
+import { storeDir } from "../maps/paths.ts";
+import { MapStore } from "../maps/store.ts";
 
 const API = "http://127.0.0.1:8080";
 const GAME = "probe";
@@ -71,6 +74,18 @@ function orchestratorLog(since: Date): string {
 console.log("Minecade smoke test\n");
 
 if (!process.argv.includes("--no-build")) {
+  // The build takes the maps' cards from the map store's published catalog, and the servers their
+  // worlds from its published worlds: written from its database first, as the Panel's Start does.
+  try {
+    const store = MapStore.open(storeDir());
+    try {
+      pass(`${store.exportPublished().maps} published maps written from the map store`);
+    } finally {
+      store.close();
+    }
+  } catch (error) {
+    stop(`could not write the published maps: ${error instanceof Error ? error.message : String(error)}`);
+  }
   console.log("Building and starting the stack (docker compose up -d --build)...");
   const up = spawnSync("docker", ["compose", "--env-file", ".env", "up", "-d", "--build"], { cwd: root, stdio: "inherit" });
   if (up.status !== 0) stop("docker compose up failed");

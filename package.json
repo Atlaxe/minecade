@@ -24,7 +24,7 @@
     "spike:skins:down": "docker compose -f spike/docker-compose.skins.yml --env-file .env down",
     "skins": "tsx tools/skins/render-all.ts",
     "cmd": "tsx tools/build/send-command.ts",
-    "smoke": "tsx tools/smoke/smoke.ts",
+    "smoke": "tsx --disable-warning=ExperimentalWarning tools/smoke/smoke.ts",
     "panel": "node --disable-warning=ExperimentalWarning tools/control-panel/panel.ts",
     "panel:shortcut": "node --disable-warning=ExperimentalWarning tools/control-panel/shortcut.ts",
     "typecheck": "tsc -p tsconfig.node.json && tsc -p tsconfig.packs.json"
