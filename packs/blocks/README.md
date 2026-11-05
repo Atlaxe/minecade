@@ -2,7 +2,8 @@
 
 Custom blocks that maps can use. The build adds this pack to every server (the lobby, every game
 and the map editor), the same way it adds the core resource pack, so any server can load a map
-that uses these blocks.
+that uses these blocks. The network's image holds it once, in BDS's own pack folders, with the
+other shared packs (`dist/shared/`), and every server's world lists it.
 
 - `behavior_pack/`: the block definitions (`manifest.json`, `blocks/`, and so on), two invisible
   entities (a stool's seat and a chest's storage), and a script that gives the blocks their

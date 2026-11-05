@@ -25,7 +25,7 @@ import {
 } from "@minecade/minigame-core/config";
 import { addGameKitPictures } from "../build/kit-pictures.ts";
 import { enableBetaApis, patchLevelDat } from "../build/leveldat.ts";
-import { addSharedPacks, buildBehaviorPack, buildResourcePack, readPinnedManifest, sharedPacks } from "../build/packs.ts";
+import { addSharedPacks, buildBehaviorPack, buildResourcePack, readPinnedManifest, sharedPacks, writePackLists } from "../build/packs.ts";
 import { addFakeSkins, addPlayerSkins, mannequinSkins, type MannequinSkin } from "./fake-player.ts";
 
 const root = fileURLToPath(new URL("../../", import.meta.url));
@@ -60,6 +60,7 @@ export async function buildPreviewTemplate(map: PreviewMap, out: string): Promis
   }
   const players = map.config.mannequinsInPreview === true ? await mannequinSkins() : [];
   await buildPreviewPacks(out, players);
+  await writePackLists(out);
 
   const mapOut = join(out, "maps", map.mapId);
   await cp(join(map.mapDir, "world"), join(mapOut, "world"), { recursive: true });

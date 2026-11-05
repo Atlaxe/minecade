@@ -2,7 +2,9 @@
 // and bundles the orchestrator into dist/orchestrator/. A target is the lobby (lobby/), a game
 // (games/<id>/ with a game.config.ts), or the map editor (editor/, packs only). Everything is
 // validated first, and all problems are reported together. Packs are built by packs.ts, and every
-// server gets the shared packs (the core resource pack and the shared blocks pack). The maps and the
+// server gets the shared packs (the core resource pack, the shared blocks pack and the rest): they're
+// built once into dist/shared/, which the image copies into BDS's own pack folders, and each
+// template gets the world's pack lists with them in. The maps and the
 // games' pictures are the published ones in the map store (tools/maps: the store's published\, or
 // MAPS_PUBLISHED, which the Docker build sets), laid out <target>/<map>/ and <game>/icon.png. Draft
 // maps are skipped with a warning, and so is a game with no published map.
@@ -34,7 +36,7 @@ import { addGameKitPictures } from "./kit-pictures.ts";
 import { addTeamButtons } from "./team-buttons.ts";
 import { enableBetaApis, patchLevelDat } from "./leveldat.ts";
 import { pinManifest, type Manifest } from "./mc-versions.ts";
-import { addSharedPacks, buildBehaviorPack, buildResourcePack, hasContent, sharedPacks, type SharedPack } from "./packs.ts";
+import { addSharedPacks, buildBehaviorPack, buildResourcePack, hasContent, PACK_PREFIX, sharedPacks, writePackLists, type SharedPack } from "./packs.ts";
 import { mapWarnings, validateGameConfig, validateMapConfig } from "./validate.ts";
 
 const root = fileURLToPath(new URL("../../", import.meta.url));
@@ -280,7 +282,7 @@ const targets = await discoverTargets();
 // on this PC (or their cache) rather than kept in git.
 if (!writeArmorPack()) warnings.push("packs/armor: Minecraft's leather textures aren't here, so the armor pack stays as it was (see tools/build/vanilla-textures.ts)");
 if (warnings.length > 0) console.warn(`${warnings.length} warning${warnings.length === 1 ? "" : "s"}:\n  ${warnings.join("\n  ")}`);
-// Every server gets the shared packs (the core resource pack, the shared blocks pack), before its own.
+// Every server gets the shared packs (the core resource pack, the shared blocks pack and the rest).
 const shared: { pack: SharedPack; manifest: Manifest }[] = [];
 for (const pack of await sharedPacks()) {
   const manifest = await loadManifest(pack.dir);
@@ -320,18 +322,21 @@ const registry: Registry = {
 const playerSkins = await renderPlayerSkins();
 
 await rm(dist, { recursive: true, force: true });
+// Once for every server (the image puts them in BDS's own pack folders), named as in the container.
+const sharedOut = join(dist, "shared");
+await addSharedPacks(sharedOut, shared, PACK_PREFIX);
 for (const target of targets) {
   const out = join(dist, "templates", "servers", target.id);
   await mkdir(out, { recursive: true });
   if (target.behaviorPack) {
     await buildBehaviorPack(join(target.dir, "behavior_pack"), join(out, "behavior_packs", `${target.id}_bp`), target.behaviorPack, registry, playerSkins.list);
   }
-  await addSharedPacks(out, shared);
   if (target.resourcePack) {
     const game = target.game;
     const extra = target.id === "lobby" ? addGameIcons : game?.kits?.select ? (pack: string) => addGameKitPictures(pack, game, target.maps).then(() => {}) : undefined;
     await buildResourcePack(join(target.dir, "resource_pack"), join(out, "resource_packs", `${target.id}_rp`), target.resourcePack, extra);
   }
+  await writePackLists(out, sharedOut);
   const maps = await buildMaps(target, out);
   const parts = [...(maps.length > 0 ? [`maps: ${maps.map((map) => map.id).join(", ")}`] : []), ...(target.resourcePack ? ["resource pack"] : [])];
   console.log(`built ${target.id}${parts.length > 0 ? ` (${parts.join(", ")})` : ""}`);

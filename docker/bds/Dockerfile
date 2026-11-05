@@ -53,9 +53,14 @@ RUN curl -fsSL --retry 3 \
 ENV LD_LIBRARY_PATH=/bds
 
 # ---------------------------------------------------------------------------
-# server: BDS + the built templates + the entrypoint that picks GAME and MAP.
+# server: BDS + the shared packs + the built templates + the entrypoint that
+# picks GAME and MAP.
 # ---------------------------------------------------------------------------
 FROM bds AS server
+# The packs every server loads (blocks, core, guns, armor), once, in BDS's own pack folders
+# (dist/shared/<behavior|resource>_packs/minecade_<name>). This layer is reused while they don't
+# change, whatever else the build changed.
+COPY --from=build /src/dist/shared/ /bds/
 COPY --from=build /src/dist/templates /templates
 COPY docker/bds/entrypoint.sh /usr/local/bin/minecade-entrypoint
 RUN chmod +x /usr/local/bin/minecade-entrypoint

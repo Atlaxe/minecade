@@ -7,7 +7,7 @@
 // scripts get their list as "#skins").
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { addSharedPacks, buildBehaviorPack, buildResourcePack, readPinnedManifest, sharedPacks } from "../build/packs.ts";
+import { addSharedPacks, buildBehaviorPack, buildResourcePack, readPinnedManifest, sharedPacks, writePackLists } from "../build/packs.ts";
 import { addFakePlayer, mannequinSkins } from "./fake-player.ts";
 import { addMarkerHitboxes, addMarkerModels, listMarkerModels } from "./marker-models.ts";
 import { addPictures } from "./pictures.ts";
@@ -31,4 +31,5 @@ export async function buildEditorTemplate(out: string): Promise<void> {
     await addPictures(pack, root);
   });
   await addFakePlayer(join(out, "behavior_packs", "editor_bp"), join(out, "resource_packs", "editor_rp"), players);
+  await writePackLists(out);
 }

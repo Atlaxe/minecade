@@ -127,6 +127,11 @@ cp -r "$MAP_DIR/world" worlds/active
 step world
 
 # --- Packs: keep the manifest and script built for TRANSPORT -------------------------------
+# The network's image has the shared packs (blocks, core, guns, armor) in BDS's own pack folders
+# already; a template holds only its server's own packs (the map editor's carry the shared ones
+# too), copied in here. The world's pack lists come with the template (the build writes them,
+# shared packs included, tools/build/packs.ts writePackLists); a template without them gets them
+# made here from what it holds.
 pack_ref() { # manifest.json -> one world pack list entry
   jq -c '{pack_id: .header.uuid, version: .header.version}' "$1"
 }
@@ -145,13 +150,17 @@ if [[ -d "$TEMPLATE/behavior_packs" ]]; then
       rm -f "$dest"/manifest.*.json
       find "$dest/scripts" -name 'main.*.js' ! -name "main.${TRANSPORT}.js" -delete
     fi
-    packs="$(jq -c --argjson ref "$(pack_ref "$dest/manifest.json")" '. + [$ref]' <<< "$packs")"
+    [[ -f "$TEMPLATE/world_behavior_packs.json" ]] || packs="$(jq -c --argjson ref "$(pack_ref "$dest/manifest.json")" '. + [$ref]' <<< "$packs")"
   done
 fi
-echo "$packs" > worlds/active/world_behavior_packs.json
+if [[ -f "$TEMPLATE/world_behavior_packs.json" ]]; then
+  cp "$TEMPLATE/world_behavior_packs.json" worlds/active/world_behavior_packs.json
+else
+  echo "$packs" > worlds/active/world_behavior_packs.json
+fi
 
-# Resource packs exist in a template only when they have content (the build skips empty ones),
-# and players are asked to download them, so require them only when there are any.
+# Resource packs exist only when they have content (the build skips empty ones), and players are
+# asked to download them, so require them only when there are any.
 rpacks='[]'
 if [[ -d "$TEMPLATE/resource_packs" ]]; then
   for src in "$TEMPLATE"/resource_packs/*/; do
@@ -159,11 +168,15 @@ if [[ -d "$TEMPLATE/resource_packs" ]]; then
     dest="resource_packs/minecade_$(basename "$src")"
     rm -rf "$dest"
     cp -r "$src" "$dest"
-    rpacks="$(jq -c --argjson ref "$(pack_ref "$dest/manifest.json")" '. + [$ref]' <<< "$rpacks")"
+    [[ -f "$TEMPLATE/world_resource_packs.json" ]] || rpacks="$(jq -c --argjson ref "$(pack_ref "$dest/manifest.json")" '. + [$ref]' <<< "$rpacks")"
   done
 fi
-echo "$rpacks" > worlds/active/world_resource_packs.json
-set_prop texturepack-required "$([[ "$rpacks" != "[]" ]] && echo true || echo false)"
+if [[ -f "$TEMPLATE/world_resource_packs.json" ]]; then
+  cp "$TEMPLATE/world_resource_packs.json" worlds/active/world_resource_packs.json
+else
+  echo "$rpacks" > worlds/active/world_resource_packs.json
+fi
+set_prop texturepack-required "$([[ "$(jq length worlds/active/world_resource_packs.json)" -gt 0 ]] && echo true || echo false)"
 step packs
 
 # --- Script config ---------------------------------------------------------------------------

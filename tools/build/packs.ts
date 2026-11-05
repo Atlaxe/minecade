@@ -3,6 +3,8 @@
 // bundled once per transport, and the container entrypoint keeps the pair that matches TRANSPORT.
 // Resource packs are versioned by their content. Every server also gets the shared packs: the core
 // resource pack (the HUD timer and other shared UI) and the shared blocks pack (custom blocks).
+// The build puts those in the image once (dist/shared/, copied into BDS's own pack folders), and
+// each template gets the world's pack lists with them in (writePackLists).
 import { existsSync } from "node:fs";
 import { cp, readdir, readFile, writeFile } from "node:fs/promises";
 import { join, relative } from "node:path";
@@ -20,6 +22,8 @@ const TRANSPORTS: TransportKind[] = ["http", "log"];
 const SERVER_NET = { module_name: "@minecraft/server-net", version: MODULE_VERSIONS["@minecraft/server-net"] };
 /** A pack holding only these files has no content, and clients shouldn't download it. */
 const PACK_BOILERPLATE = new Set(["manifest.json", "pack_icon.png"]);
+/** What a pack folder is called in the container: the entrypoint copies a template's <name> to minecade_<name>. */
+export const PACK_PREFIX = "minecade_";
 
 /** A pack every server gets, and its folder name in a template. */
 export interface SharedPack {
@@ -111,15 +115,62 @@ export async function buildResourcePack(src: string, out: string, manifest: Mani
   await writeFile(join(out, "manifest.json"), JSON.stringify(stamped, null, 2));
 }
 
-/** Adds the shared packs to a template: behavior packs without scripts as they are, resource packs versioned by content. */
-export async function addSharedPacks(out: string, packs: { pack: SharedPack; manifest: Manifest }[]): Promise<void> {
+/**
+ * Adds the shared packs to a template, or (with `prefix`, PACK_PREFIX) to the image's shared folder,
+ * named as in the container: behavior packs without scripts as they are, resource packs versioned
+ * by content.
+ */
+export async function addSharedPacks(out: string, packs: { pack: SharedPack; manifest: Manifest }[], prefix = ""): Promise<void> {
   for (const { pack, manifest } of packs) {
     if (pack.kind === "resource") {
-      await buildResourcePack(pack.dir, join(out, "resource_packs", pack.name), manifest);
+      await buildResourcePack(pack.dir, join(out, "resource_packs", `${prefix}${pack.name}`), manifest);
     } else {
-      const dest = join(out, "behavior_packs", pack.name);
+      const dest = join(out, "behavior_packs", `${prefix}${pack.name}`);
       await cp(pack.dir, dest, { recursive: true, filter: (path) => !path.endsWith(".ts") && path !== join(pack.dir, "manifest.json") });
       await writeFile(join(dest, "manifest.json"), JSON.stringify(manifest, null, 2));
     }
   }
+}
+
+/** One entry of a world's pack list: world_behavior_packs.json, world_resource_packs.json. */
+interface PackRef {
+  pack_id: string;
+  version: number[] | undefined;
+}
+
+/**
+ * Writes a template's world pack lists, which the entrypoint puts in the world: the template's own
+ * packs, and the shared ones in `shared` (the image's dist/shared/, already named as in the
+ * container) when they aren't in the template itself. They're in order of their folder names in
+ * the container, the order the entrypoint always made them in: packs that change the same UI
+ * files (the core pack's, the lobby's, the editor's) depend on it.
+ */
+export async function writePackLists(template: string, shared?: string): Promise<void> {
+  for (const kind of ["behavior", "resource"] as const) {
+    const entries: { name: string; ref: PackRef }[] = [];
+    const sources: [string, string][] = [[template, PACK_PREFIX], ...(shared ? [[shared, ""] as [string, string]] : [])];
+    for (const [dir, prefix] of sources) {
+      const folder = join(dir, `${kind}_packs`);
+      if (!existsSync(folder)) continue;
+      for (const entry of await readdir(folder, { withFileTypes: true })) {
+        if (entry.isDirectory()) entries.push({ name: `${prefix}${entry.name}`, ref: await packRef(join(folder, entry.name)) });
+      }
+    }
+    entries.sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0));
+    await writeFile(join(template, `world_${kind}_packs.json`), JSON.stringify(entries.map((entry) => entry.ref)));
+  }
+}
+
+/** A built pack's entry in a world pack list. A pack built per transport names the same pack in each manifest. */
+async function packRef(dir: string): Promise<PackRef> {
+  const names = existsSync(join(dir, "manifest.json")) ? ["manifest.json"] : TRANSPORTS.map((kind) => `manifest.${kind}.json`);
+  const refs: PackRef[] = [];
+  for (const name of names) {
+    const manifest = JSON.parse(await readFile(join(dir, name), "utf8")) as Manifest;
+    refs.push({ pack_id: manifest.header.uuid, version: manifest.header.version });
+  }
+  if (refs.some((ref) => JSON.stringify(ref) !== JSON.stringify(refs[0]))) {
+    throw new Error(`${relative(root, dir)}: its transports' manifests name different packs`);
+  }
+  return refs[0];
 }

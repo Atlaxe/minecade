@@ -4,3 +4,5 @@
 .env
 spike
 docs
+# The map editor's logs, shots and staging: never a build input, and they change with every editor run.
+work
