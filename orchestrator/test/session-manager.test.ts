@@ -129,6 +129,42 @@ describe("SessionManager: starting", () => {
     ]);
   });
 
+  it("logs how long each step of the start took, once everyone expected is in", async () => {
+    vi.setSystemTime(1_800_000_000_000);
+    const t = setupSessions();
+    await t.sessions.start(startRequest);
+    const handle = t.docker.handles[0];
+    handle.console.emit("[minecade] step entrypoint 1800000000400");
+    handle.console.emit("[minecade] step world 1800000000900");
+    await vi.advanceTimersByTimeAsync(9000);
+    handle.console.emit(SERVER_STARTED_LINE);
+    t.links[0].emit(ready);
+    await vi.advanceTimersByTimeAsync(6000);
+    t.links[0].emit({ t: "player_count", sessionId: "s1", players: ["Steve"] });
+    await vi.advanceTimersByTimeAsync(2000);
+    t.links[0].emit({ t: "player_count", sessionId: "s1", players: ["Steve", "Alex"] });
+    t.links[0].emit({ t: "end_game", sessionId: "s1", reason: "finished" });
+    await vi.advanceTimersByTimeAsync(0);
+    const logged = vi.mocked(console.log).mock.calls.map(([line]) => String(line));
+    expect(logged.filter((line) => line.includes("timings"))).toEqual([
+      "[orchestrator] session s1: timings: public ip 0.0 s, created 0.0 s, started 0.0 s, entrypoint 0.4 s, world 0.9 s, " +
+        "server started 9.0 s, server_ready 9.0 s, ready 9.0 s, Steve in 15.0 s, Alex in 17.0 s, all in 17.0 s",
+    ]);
+  });
+
+  it("logs the timings when the game ends before everyone expected is in", async () => {
+    vi.setSystemTime(1_800_000_000_000);
+    const t = setupSessions();
+    const { link } = await startAndReady(t);
+    link.emit({ t: "player_count", sessionId: "s1", players: ["Steve"] });
+    link.emit({ t: "end_game", sessionId: "s1", reason: "aborted" });
+    await vi.advanceTimersByTimeAsync(0);
+    const logged = vi.mocked(console.log).mock.calls.map(([line]) => String(line));
+    expect(logged.filter((line) => line.includes("timings"))).toEqual([
+      "[orchestrator] session s1: timings: public ip 0.0 s, created 0.0 s, started 0.0 s, server started 0.0 s, server_ready 0.0 s, ready 0.0 s, Steve in 0.0 s",
+    ]);
+  });
+
   it("picks one of the game's maps for 'random'", async () => {
     const t = setupSessions();
     await t.sessions.start({ ...startRequest, map: "random" });

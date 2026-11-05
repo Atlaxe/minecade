@@ -42,8 +42,11 @@ export interface ContainerSummary {
 }
 
 export interface DockerAdapter {
-  /** Creates, attaches and starts a game server. Removes the container again if starting fails. */
-  startGame(spec: GameSpec): Promise<ServerHandle>;
+  /**
+   * Creates, attaches and starts a game server, calling `onCreated` between creating and starting
+   * it (for the start's timings). Removes the container again if starting fails.
+   */
+  startGame(spec: GameSpec, onCreated?: () => void): Promise<ServerHandle>;
   /** Game containers created by an orchestrator, in any state. */
   listGames(): Promise<ContainerSummary[]>;
   /** The running lobby container of the main stack, if any. */
@@ -65,7 +68,7 @@ export class DockerodeAdapter implements DockerAdapter {
     this.docker = docker;
   }
 
-  async startGame(spec: GameSpec): Promise<ServerHandle> {
+  async startGame(spec: GameSpec, onCreated?: () => void): Promise<ServerHandle> {
     const tcp = `${spec.port}/tcp`;
     const udp = `${spec.port}/udp`;
     const container = await this.docker.createContainer({
@@ -84,6 +87,7 @@ export class DockerodeAdapter implements DockerAdapter {
         PortBindings: { [tcp]: [{ HostPort: String(spec.port) }], [udp]: [{ HostPort: String(spec.port) }] },
       },
     });
+    onCreated?.();
     try {
       const serverConsole = replaying(await attachConsole(container));
       await container.start();

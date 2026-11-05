@@ -21,6 +21,10 @@
 set -euo pipefail
 cd /bds
 
+# Each step's time for the start's timings (the orchestrator reads these lines: timeline.ts).
+step() { echo "[minecade] step $1 $(date +%s%3N)"; }
+step entrypoint
+
 : "${GAME:?GAME is required}"
 : "${MAP:?MAP is required}"
 : "${SERVER_ID:?SERVER_ID is required}"
@@ -114,11 +118,13 @@ if [[ -d /keys ]]; then
 else
   echo "[minecade] no /keys volume: this server gets a new identity at every start" >&2
 fi
+step settings
 
 # --- World: a fresh copy of the template ---------------------------------------------------
 rm -rf worlds/active
 mkdir -p worlds
 cp -r "$MAP_DIR/world" worlds/active
+step world
 
 # --- Packs: keep the manifest and script built for TRANSPORT -------------------------------
 pack_ref() { # manifest.json -> one world pack list entry
@@ -158,6 +164,7 @@ if [[ -d "$TEMPLATE/resource_packs" ]]; then
 fi
 echo "$rpacks" > worlds/active/world_resource_packs.json
 set_prop texturepack-required "$([[ "$rpacks" != "[]" ]] && echo true || echo false)"
+step packs
 
 # --- Script config ---------------------------------------------------------------------------
 mkdir -p config/default
@@ -211,4 +218,5 @@ jq -n \
   '$ARGS.named' > config/default/variables.json
 
 echo "[minecade] ${SERVER_ID}: ${GAME}/${MAP} on port ${SERVER_PORT}, transport ${TRANSPORT}, public ${PUBLIC_IP}, allow-list $([[ -n "${ALLOW_LIST:-}" ]] && echo on || echo off)"
+step bds
 exec ./bedrock_server

@@ -283,6 +283,14 @@ Clients refuse to join a server on a different version. When Minecraft updates:
 Game servers are deleted when their game ends, so their script lines are copied into the
 orchestrator's log.
 
+**Start timings:** each game logs one `session <id>: timings:` line once every player the lobby
+sent is in (or when it ends first). Each step is counted from the lobby's start request: the
+public IP lookup, the container created and started, the entrypoint's steps (`entrypoint` began,
+`settings`, `world` and `packs` done, `bds` launched), BDS's `server started`, the pack's
+`server_ready`, `ready` (the lobby told to send players), then each player's arrival and `all in`.
+The time from `ready` to a player's arrival includes the lobby's countdown and the client loading
+the game, which no log shows on its own: time a transfer on a console by hand to see that part.
+
 **Transports:** `TRANSPORT=http` (default) has packs talk to the orchestrator over HTTP;
 `TRANSPORT=log` uses console log lines and stdin instead. Both are fully supported.
 

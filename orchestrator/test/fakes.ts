@@ -89,10 +89,11 @@ export class FakeDocker implements DockerAdapter {
   readonly attached = new Map<string, FakeHandle>();
   readonly removeContainer = vi.fn(async (_id: string) => {});
 
-  async startGame(spec: GameSpec): Promise<ServerHandle> {
+  async startGame(spec: GameSpec, onCreated?: () => void): Promise<ServerHandle> {
     this.specs.push(spec);
     const error = this.startErrors.shift();
     if (error) throw error;
+    onCreated?.();
     const handle = new FakeHandle(`container-${this.handles.length + 1}`);
     this.handles.push(handle);
     return handle;

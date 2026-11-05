@@ -18,6 +18,7 @@ import { LABELS, MANAGED_BY, type DockerAdapter, type GameSpec, type ServerHandl
 import type { ServerLink } from "./links/server-link.ts";
 import { describeError, log } from "./log.ts";
 import { resolveGameMap, type Registry, type RegistryGame, type RegistryMap } from "./registry.ts";
+import { Timeline } from "./timeline.ts";
 import type { WarmPool } from "./warm-pool.ts";
 
 const SERVER_STARTED = /^\[[^\]]*\] Server started\./;
@@ -70,6 +71,13 @@ interface Session {
   lastPlayersAt: number;
   timers: NodeJS.Timeout[];
   cleanup: (() => void)[];
+  /** The start's timings, logged once everyone expected is in (or when the session ends). */
+  timeline: Timeline;
+  /** The players the lobby is sending, lowercase. */
+  expected: string[];
+  /** Everyone who has been on the game server, lowercase. */
+  arrived: Set<string>;
+  timingsLogged: boolean;
 }
 
 export class SessionManager {
@@ -118,6 +126,7 @@ export class SessionManager {
     const resolved = resolveGameMap(this.deps.registry, request.game, request.map, this.deps.random);
     if (!resolved.ok) return this.reject(request.requestId, resolved.reason);
 
+    const timeline = new Timeline();
     const session: Session = {
       id: this.deps.newSessionId?.() ?? randomBytes(6).toString("hex"),
       requestId: request.requestId,
@@ -132,6 +141,10 @@ export class SessionManager {
       lastPlayersAt: Date.now(),
       timers: [],
       cleanup: [],
+      timeline,
+      expected: request.players.map((name) => name.toLowerCase()),
+      arrived: new Set(),
+      timingsLogged: false,
     };
     this.session = session;
     log.info(`session ${session.id}: starting ${session.game.id} on ${session.map.id} for [${request.players.join(", ")}]`);
@@ -143,7 +156,9 @@ export class SessionManager {
 
     try {
       session.publicIp = await this.deps.publicIp();
-      const handle = await this.launch(this.gameSpec(session, request.players, cleanSettings(request.settings)));
+      timeline.mark("public ip");
+      const handle = await this.launch(this.gameSpec(session, request.players, cleanSettings(request.settings)), timeline);
+      timeline.mark("started");
       if (this.session !== session || session.state === "stopping") {
         // The session ended (aborted or timed out) while the container was starting.
         await handle.remove();
@@ -261,12 +276,12 @@ export class SessionManager {
     };
   }
 
-  private async launch(spec: GameSpec): Promise<ServerHandle> {
+  private async launch(spec: GameSpec, timeline: Timeline): Promise<ServerHandle> {
     const warm = await this.deps.warmPool.take(spec.env.GAME, spec.env.MAP);
     if (warm) return warm;
     for (let attempt = 1; ; attempt++) {
       try {
-        return await this.deps.docker.startGame(spec);
+        return await this.deps.docker.startGame(spec, () => timeline.mark("created"));
       } catch (error) {
         // Docker Desktop can hold a port for a moment after the previous container is removed.
         if (attempt >= START_ATTEMPTS || !isPortBusy(error)) throw error;
@@ -284,9 +299,11 @@ export class SessionManager {
       handle.console.onLine((line) => {
         // Game containers are deleted when the session ends, so keep their script output here.
         if (SCRIPT_LINE.test(line) && !line.includes("[NET]")) log.info(`game ${session.id}: ${line}`);
+        if (session.timeline.markStep(line)) return;
         const connected = PLAYER_CONNECTED.exec(line);
         if (connected) session.xuids.set(connected[1].toLowerCase(), connected[2]);
         if (session.logReady || !SERVER_STARTED.test(line)) return;
+        session.timeline.mark("server started");
         session.logReady = true;
         this.checkReady(session);
       }),
@@ -312,6 +329,7 @@ export class SessionManager {
           void this.finish(session, problem);
           return;
         }
+        session.timeline.mark("server_ready");
         session.packReady = true;
         this.checkReady(session);
         return;
@@ -321,6 +339,7 @@ export class SessionManager {
         // Someone was online until now, so the empty clock starts here.
         if (session.players.length > 0 || players.length > 0) session.lastPlayersAt = Date.now();
         session.players = players;
+        this.noteArrivals(session, players);
         this.pushStatus();
         return;
       }
@@ -361,6 +380,7 @@ export class SessionManager {
     session.lastPlayersAt = Date.now();
     for (const timer of session.timers) clearTimeout(timer);
     session.timers = [setInterval(() => this.checkEmpty(session), EMPTY_CHECK_MS)];
+    session.timeline.mark("ready");
     log.info(`session ${session.id}: ready`);
     this.deps.toLobby({
       t: "game_ready",
@@ -372,6 +392,24 @@ export class SessionManager {
       hosts: { public: session.publicIp, lan: this.deps.config.lanHost },
     });
     this.pushStatus();
+  }
+
+  /** Marks each player's first arrival, and logs the timings once everyone expected is in. */
+  private noteArrivals(session: Session, players: string[]): void {
+    for (const name of players) {
+      if (session.arrived.has(name.toLowerCase())) continue;
+      session.arrived.add(name.toLowerCase());
+      session.timeline.mark(`${name} in`);
+    }
+    if (session.expected.length === 0 || !session.expected.every((name) => session.arrived.has(name))) return;
+    session.timeline.mark("all in");
+    this.logTimings(session);
+  }
+
+  private logTimings(session: Session): void {
+    if (session.timingsLogged) return;
+    session.timingsLogged = true;
+    log.info(`session ${session.id}: timings: ${session.timeline.summary()}`);
   }
 
   /** Backstop only: games end themselves when empty. This catches a game that doesn't. */
@@ -394,6 +432,7 @@ export class SessionManager {
     for (const timer of session.timers) clearTimeout(timer);
     for (const off of session.cleanup) off();
     log.info(`session ${session.id}: ending (${reason})`);
+    this.logTimings(session);
     this.pushStatus();
     session.link?.close();
     try {
