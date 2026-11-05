@@ -19,10 +19,11 @@ services:
       context: .
       dockerfile: docker/bds/Dockerfile
       target: server
-      # The published maps (the map store's published folder, tools/maps). The Panel's Start writes
-      # it first; by hand, run npm run maps -- export before docker compose up --build.
+      # The published maps' cards and pictures (the map store's published\catalog\, tools/maps).
+      # The Panel's Start writes it first; by hand, run npm run maps -- export before
+      # docker compose up --build.
       additional_contexts:
-        maps: ${MAP_STORE:-../maps}/published
+        maps: ${MAP_STORE:-../maps}/published/catalog
       args:
         EULA: ${EULA:-}
         BDS_VERSION: ${BDS_VERSION:-1.26.60.6}
@@ -50,6 +51,8 @@ services:
       - "19134:19132/tcp"
     volumes:
       - keys:/keys
+      # The published maps' worlds, one folder per version (the map store's published\worlds\).
+      - ${MAP_STORE:-../maps}/published/worlds:/maps:ro
     stdin_open: true
     labels:
       minecade.role: lobby
@@ -62,7 +65,7 @@ services:
       dockerfile: docker/bds/Dockerfile
       target: orchestrator
       additional_contexts:
-        maps: ${MAP_STORE:-../maps}/published
+        maps: ${MAP_STORE:-../maps}/published/catalog
     container_name: minecade-orchestrator
     environment:
       <<: *server-env
@@ -78,6 +81,9 @@ services:
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
       - data:/data
+      # The published maps' worlds: the orchestrator checks a map is there before starting it, and
+      # gives every game container this same folder at /maps.
+      - ${MAP_STORE:-../maps}/published/worlds:/maps:ro
     ports:
       # The debug API stays on this PC; servers reach the orchestrator over the network.
       - "127.0.0.1:8080:8080"

@@ -137,7 +137,7 @@ describe("kit pictures", () => {
   it("draws Bridges' kits (not the base kit everyone gets), and a map's own", async () => {
     const out = await tempDir();
     const kit = { id: "ice", name: "Ice", items: [{ item: "minecraft:snowball", count: 16 }] };
-    expect(await addGameKitPictures(out, bridges, [{ id: "glacier", config: { name: "Glacier", spawns: [], kits: { list: [kit] } } }], TEXTURES)).toBe(3);
+    expect(await addGameKitPictures(out, bridges, [{ id: "glacier", config: { kits: { list: [kit] } } }], TEXTURES)).toBe(3);
     const folder = join(out, "textures", "minecade", "kits");
     expect((await readdir(folder)).sort()).toEqual(["glacier", "leap.png", "snowballs.png"]);
     expect(await readdir(join(folder, "glacier"))).toEqual(["ice.png"]);

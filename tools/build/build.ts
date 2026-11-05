@@ -4,10 +4,12 @@
 // validated first, and all problems are reported together. Packs are built by packs.ts, and every
 // server gets the shared packs (the core resource pack, the shared blocks pack and the rest): they're
 // built once into dist/shared/, which the image copies into BDS's own pack folders, and each
-// template gets the world's pack lists with them in. The maps and the
-// games' pictures are the published ones in the map store (tools/maps: the store's published\, or
-// MAPS_PUBLISHED, which the Docker build sets), laid out <target>/<map>/ and <game>/icon.png. Draft
-// maps are skipped with a warning, and so is a game with no published map.
+// template gets the world's pack lists with them in. The maps are the published ones in the map
+// store (tools/maps), as their catalog has them: each map's card (<target>/<map>.json: its name and
+// kits) and preview (<target>/<map>.png), and each game's picture (<game>/icon.png), in the store's
+// published\catalog\, or MAPS_CATALOG, which the Docker build sets. Their worlds aren't built in:
+// servers read them from the store's published\worlds\, mounted at /maps. A game with no
+// published map is skipped with a warning.
 import { existsSync } from "node:fs";
 import { cp, mkdir, readdir, readFile, rm, writeFile } from "node:fs/promises";
 import { dirname, join, relative } from "node:path";
@@ -18,11 +20,9 @@ import {
   holoPortraits,
   mapRequirements,
   possibleTeams,
-  runtimeMapConfig,
   skinTexture,
   type GameConfig,
   type LobbyConfig,
-  type MapConfig,
   type PlayerSkin,
   type Registry,
   type RegistryGame,
@@ -31,17 +31,17 @@ import { encodePng } from "../skins/png.ts";
 import { RENDERS, renderSkinSet } from "../skins/skin-set.ts";
 import { readSkins } from "../skins/store.ts";
 import { writeArmorPack } from "../assets/armor.ts";
-import { publishedDir } from "../maps/paths.ts";
+import { catalogDir } from "../maps/paths.ts";
+import type { MapCard } from "../maps/store.ts";
 import { addGameKitPictures } from "./kit-pictures.ts";
 import { addTeamButtons } from "./team-buttons.ts";
-import { enableBetaApis, patchLevelDat } from "./leveldat.ts";
 import { pinManifest, type Manifest } from "./mc-versions.ts";
 import { addSharedPacks, buildBehaviorPack, buildResourcePack, hasContent, PACK_PREFIX, sharedPacks, writePackLists, type SharedPack } from "./packs.ts";
-import { mapWarnings, validateGameConfig, validateMapConfig } from "./validate.ts";
+import { validateGameConfig } from "./validate.ts";
 
 const root = fileURLToPath(new URL("../../", import.meta.url));
 const dist = join(root, "dist");
-const published = publishedDir(root);
+const catalog = catalogDir(root);
 /** The map editor's target: packs only, no maps (tools/editor stages the map it edits). */
 const EDITOR = "editor";
 
@@ -59,7 +59,8 @@ interface Target {
   resourcePack?: Manifest;
   /** The game's 16:9 icon.png (required for games). */
   icon?: string;
-  maps: { id: string; dir: string; config: MapConfig; preview?: string }[];
+  /** The published maps, by their cards in the catalog. */
+  maps: { id: string; card: MapCard; preview?: string }[];
 }
 
 const problems: string[] = [];
@@ -119,39 +120,28 @@ async function loadTarget(id: string, dir: string, configPath?: string): Promise
   if (existsSync(join(rpDir, "manifest.json")) && (pictures || (await hasContent(rpDir)))) target.resourcePack = await loadManifest(rpDir);
   if (id === EDITOR) return target;
 
-  const mapsDir = join(published, id);
-  let drafts = 0;
+  // Every map in the catalog was checked when it was published (the map editor's checklist is the
+  // map rules the build used to check), so only its card is read here.
+  const mapsDir = join(catalog, id);
   const entries = existsSync(mapsDir) ? await readdir(mapsDir, { withFileTypes: true }) : [];
-  for (const mapId of entries.filter((entry) => entry.isDirectory()).map((entry) => entry.name).sort()) {
-    const mapDir = join(mapsDir, mapId);
-    const mapJson = join(mapDir, "map.json");
-    if (!existsSync(mapJson)) {
-      report(mapDir, ["map.json is missing"]);
+  for (const file of entries.filter((entry) => entry.isFile() && entry.name.endsWith(".json")).map((entry) => entry.name).sort()) {
+    const mapId = file.slice(0, -".json".length);
+    const cardPath = join(mapsDir, file);
+    const card = (await readJson(cardPath)) as MapCard | undefined;
+    if (card === undefined) continue;
+    if (typeof card.name !== "string" || card.name.trim() === "") {
+      report(cardPath, ["has no name"]);
       continue;
     }
-    const config = await readJson(mapJson);
-    if (config === undefined) continue;
-    const found = validateMapConfig(config, { kind, maxPlayers: target.game?.maxPlayers, requires: (target.game ?? target.lobby)?.map, teams: target.teams, mapKits: target.game?.kits?.mapKits });
-    if ((config as MapConfig).draft === true) {
-      // Unfinished: never shipped, and its problems are the map editor's checklist, not build failures.
-      warn(mapJson, [`draft map, skipped${found.length > 0 ? ` (still to do: ${found.join("; ")})` : ""}`]);
-      drafts++;
-      continue;
-    }
-    report(mapJson, found);
-    if (found.length === 0) warn(mapJson, mapWarnings(config as MapConfig));
-    if (!existsSync(join(mapDir, "world", "level.dat"))) {
-      report(mapDir, ["world/level.dat is missing: run npm run bake, or drop in a world built in the client"]);
-    }
-    const preview = join(mapDir, "preview.png");
-    target.maps.push({ id: mapId, dir: mapDir, config: config as MapConfig, ...(existsSync(preview) ? { preview } : {}) });
+    const preview = join(mapsDir, `${mapId}.png`);
+    target.maps.push({ id: mapId, card, ...(existsSync(preview) ? { preview } : {}) });
   }
   if (target.maps.length === 0 && kind === "game") {
     // A new game's first map is made in the map editor, which reads games/ itself.
-    warn(dir, [drafts > 0 ? "every map is a draft, so the game is skipped" : "no published maps yet, so the game is skipped (make one in the map editor)"]);
+    warn(dir, ["no published maps yet, so the game is skipped (make one in the map editor)"]);
     target.skip = true;
   } else if (target.maps.length === 0) {
-    report(dir, [drafts > 0 ? "needs at least one finished map (the others are drafts)" : `needs at least one published map (none in ${mapsDir}: publish one in the map editor, or npm run maps -- export)`]);
+    report(dir, [`needs at least one published map (none in ${mapsDir}: publish one in the map editor, or npm run maps -- export)`]);
   }
   if (target.game && !target.skip) {
     const icon = join(mapsDir, "icon.png");
@@ -237,17 +227,6 @@ async function addGameIcons(out: string): Promise<void> {
   await writeFile(controllersPath, JSON.stringify(controllers, null, 2));
 }
 
-async function buildMaps(target: Target, out: string): Promise<{ id: string; name: string }[]> {
-  for (const map of target.maps) {
-    const mapOut = join(out, "maps", map.id);
-    await cp(join(map.dir, "world"), join(mapOut, "world"), { recursive: true });
-    // Worlds built by hand in the client usually lack Beta APIs, which every pack needs.
-    await patchLevelDat(join(mapOut, "world", "level.dat"), enableBetaApis);
-    await writeFile(join(mapOut, "map.json"), JSON.stringify(runtimeMapConfig(map.config), null, 2));
-  }
-  return target.maps.map((map) => ({ id: map.id, name: map.config.name }));
-}
-
 function pick({ id, name, description, minPlayers, maxPlayers, test, teams, options, stats }: GameConfig): Omit<RegistryGame, "maps"> {
   return {
     id,
@@ -304,7 +283,7 @@ const registry: Registry = {
             ...pick(game),
             maps: maps.map((map) => ({
               id: map.id,
-              name: map.config.name,
+              name: map.card.name,
               ...(map.preview ? { preview: `textures/minecade/maps/${game.id}/${map.id}` } : {}),
             })),
             mapRequirements: mapRequirements(game.map, { kind: "game", maxPlayers: game.maxPlayers, teams }),
@@ -313,7 +292,7 @@ const registry: Registry = {
       : [],
   ),
   lobby: {
-    maps: lobbyTarget.maps.map((map) => ({ id: map.id, name: map.config.name })),
+    maps: lobbyTarget.maps.map((map) => ({ id: map.id, name: map.card.name })),
     mapRequirements: mapRequirements(lobbyTarget.lobby?.map, { kind: "lobby" }),
   },
 };
@@ -333,12 +312,12 @@ for (const target of targets) {
   }
   if (target.resourcePack) {
     const game = target.game;
-    const extra = target.id === "lobby" ? addGameIcons : game?.kits?.select ? (pack: string) => addGameKitPictures(pack, game, target.maps).then(() => {}) : undefined;
+    const maps = target.maps.map((map) => ({ id: map.id, config: map.card }));
+    const extra = target.id === "lobby" ? addGameIcons : game?.kits?.select ? (pack: string) => addGameKitPictures(pack, game, maps).then(() => {}) : undefined;
     await buildResourcePack(join(target.dir, "resource_pack"), join(out, "resource_packs", `${target.id}_rp`), target.resourcePack, extra);
   }
   await writePackLists(out, sharedOut);
-  const maps = await buildMaps(target, out);
-  const parts = [...(maps.length > 0 ? [`maps: ${maps.map((map) => map.id).join(", ")}`] : []), ...(target.resourcePack ? ["resource pack"] : [])];
+  const parts = [...(target.maps.length > 0 ? [`maps: ${target.maps.map((map) => map.id).join(", ")}`] : []), ...(target.resourcePack ? ["resource pack"] : [])];
   console.log(`built ${target.id}${parts.length > 0 ? ` (${parts.join(", ")})` : ""}`);
 }
 await writeFile(join(dist, "registry.json"), JSON.stringify(registry, null, 2));

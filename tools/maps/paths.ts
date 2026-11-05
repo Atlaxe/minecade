@@ -13,9 +13,17 @@ export function storeDir(root = repoRoot): string {
   return fromEnv ? resolve(root, fromEnv) : resolve(root, "..", "maps");
 }
 
-/** The published maps as the build reads them: MAPS_PUBLISHED (the Docker build sets it), else the store's published\. */
+/** The published maps, as the store's export writes them: catalog\ and worlds\ (store.ts exportPublished). */
 export function publishedDir(root = repoRoot): string {
-  return process.env.MAPS_PUBLISHED ? resolve(process.env.MAPS_PUBLISHED) : join(storeDir(root), "published");
+  return join(storeDir(root), "published");
+}
+
+/**
+ * What the network's build reads of the published maps (their cards and pictures): MAPS_CATALOG
+ * (the Docker build sets it), else the store's published\catalog\.
+ */
+export function catalogDir(root = repoRoot): string {
+  return process.env.MAPS_CATALOG ? resolve(process.env.MAPS_CATALOG) : join(publishedDir(root), "catalog");
 }
 
 /** Where a target's maps are worked on: working\lobby\, or working\<game>\. */

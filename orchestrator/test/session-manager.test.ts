@@ -110,6 +110,19 @@ describe("SessionManager: starting", () => {
     expect(t.docker.specs).toHaveLength(1);
   });
 
+  it("gives every game the published maps' folder, and starts only maps that are in it", async () => {
+    const t = setupSessions({}, { publishedMaps: () => ({ probe: { default: 3 } }), mapsSource: "C:\\dev\\minecade\\maps\\published\\worlds" });
+    expect(await t.sessions.start({ ...startRequest, map: "random" })).toMatchObject({ ok: true });
+    expect(t.docker.specs[0].env.MAP).toBe("default");
+    expect(t.docker.specs[0].binds).toEqual({ "C:\\dev\\minecade\\maps\\published\\worlds": "/maps" });
+
+    const other = setupSessions({}, { publishedMaps: () => ({ probe: { default: 3 } }) });
+    expect(await other.sessions.start({ ...startRequest, map: "other" })).toEqual({ ok: false, reason: "Probe's Other isn't in the published maps; restart the network" });
+    const none = setupSessions({}, { publishedMaps: () => undefined });
+    expect(await none.sessions.start(startRequest)).toEqual({ ok: false, reason: "the published maps aren't at /maps; restart the network" });
+    expect([...other.docker.specs, ...none.docker.specs]).toEqual([]);
+  });
+
   it("mounts the identity key volume so every game keeps one server identity", async () => {
     const t = setupSessions({ keysVolume: "minecade-keys" });
     await t.sessions.start(startRequest);

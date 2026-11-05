@@ -163,8 +163,8 @@ back out.
 - A draft `map.json` with its name, `"draft": true`, no spawns yet (they're placed in Edit), a
   **spectator spawn** over the middle, 10 blocks above the highest block of the build (everyone
   arrives there in Edit), the bounds (the moved box, reaching up past the spectator spawn) and
-  `source` (the world, the box and the offset). Drafts are left out of the build until they're
-  published, so the build keeps passing.
+  `source` (the world, the box and the offset). Drafts stay out of the network until they're
+  published.
 
 **Back to Select:** in Edit mode, the map menu's gear has **Back to Select** for a map that came
 from a world on this PC, so you can go back and box more. It's instant when Select has that world
@@ -606,18 +606,20 @@ editors), **Publish** on the Panel's Edit row, or `npm run editor -- publish`. I
 Panel it asks first. Then it:
 
 1. checks the checklist: a map with problems isn't published;
-2. removes `"draft"`, so the build includes the map (an undo step, like any change);
+2. removes `"draft"` (an undo step, like any change);
 3. saves the world into the map, when blocks changed since the last save;
 4. keeps the map's folder as a version in the map store and points the map's publish at it, with
    the game's picture when it changed (a map given another id since its last Publish moves to the
    new id here);
-5. copies the store's database into its `backups\` and writes the store's `published\`, which the
-   network's build reads.
+5. copies the store's database into its `backups\` and writes the store's `published\`: the
+   catalog the network's build reads and the worlds its servers read (see "The map store" in
+   [maps.md](maps.md)).
 
 Nothing goes to git or GitHub. Chat says when it's done, with the version, and map editors hear a
 chime and see "Sewer is published" above the hotbar. The lobby lists the map from the network's
-next start: **Shut down** the editor, then **Start the network**. A lobby map shows in the Panel's
-lobby map picker instead.
+next start: **Shut down** the editor, then **Start the network**. A changed world or `map.json`
+needs no rebuild (the start's build is all cache); a new map, a new name, kits or picture does,
+and Start runs it. A lobby map shows in the Panel's lobby map picker instead.
 
 Publish again after more changes (the button then reads **Publish changes**): it publishes the new
 version. With nothing changed, it says so.
@@ -690,8 +692,9 @@ Chat in the editor lobby says when it's done. A preview has to end first.
   next Save writes it without them.
 - **The map store** (`tools/maps/store.ts`) keeps each version as the list of the map folder's
   files by content hash, in `maps.db` (node:sqlite), with each file's bytes stored once, so a save
-  that changed one LevelDB log adds just that log. Publish points the map at a version; the build
-  never reads `maps.db`, only `published\`, which `exportPublished` writes whole from it. A map's
+  that changed one LevelDB log adds just that log. Publish points the map at a version; neither the
+  build nor the servers read `maps.db`, only `published\` (its `catalog\` and `worlds\`), which
+  `exportPublished` writes from it, only what changed. A map's
   unpublished check compares its folder's hash with the published version's (cached while the
   files' sizes and times stay the same).
 - **Preview** (`tools/editor/preview-session.ts`, `preview-template.ts`) runs the game the way the

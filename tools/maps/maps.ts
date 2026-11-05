@@ -40,8 +40,8 @@ try {
       break;
     }
     case "export": {
-      const { maps, icons } = store.exportPublished();
-      console.log(`Wrote ${maps} published maps and ${icons} game pictures to ${resolve(store.dir, "published")}.`);
+      const { maps, icons, written } = store.exportPublished();
+      console.log(`${maps} published maps and ${icons} game pictures are in ${resolve(store.dir, "published")} (${written} new version folder${written === 1 ? "" : "s"} written).`);
       break;
     }
     case "backup": {

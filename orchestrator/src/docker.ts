@@ -1,5 +1,6 @@
 // The Docker operations the orchestrator needs, behind an interface so the session logic can be
 // tested without Docker. DockerodeAdapter is the real implementation.
+import { hostname } from "node:os";
 import type Docker from "dockerode";
 import { attachConsole, connectDocker } from "../../tools/build/docker-util.ts";
 import type { LineConsole } from "./links/logstdin-link.ts";
@@ -22,6 +23,8 @@ export interface GameSpec {
   labels: Record<string, string>;
   /** Named Docker volumes to mount, as { volume name: path in the container }. */
   volumes: Record<string, string>;
+  /** Folders of the host to mount read-only, as { host path: path in the container }. */
+  binds?: Record<string, string>;
 }
 
 export interface ServerHandle {
@@ -54,6 +57,8 @@ export interface DockerAdapter {
   /** Attaches to a running container. Only output from now on is seen. */
   attach(id: string): Promise<ServerHandle>;
   removeContainer(id: string): Promise<void>;
+  /** The host folder mounted at `path` in the orchestrator's own container, if any. */
+  ownMount(path: string): Promise<string | undefined>;
 }
 
 /** Lines kept for replay: enough to cover a server's whole startup. */
@@ -82,7 +87,10 @@ export class DockerodeAdapter implements DockerAdapter {
       ExposedPorts: { [tcp]: {}, [udp]: {} },
       HostConfig: {
         NetworkMode: spec.network,
-        Mounts: Object.entries(spec.volumes).map(([source, target]) => ({ Type: "volume" as const, Source: source, Target: target })),
+        Mounts: [
+          ...Object.entries(spec.volumes).map(([source, target]) => ({ Type: "volume" as const, Source: source, Target: target })),
+          ...Object.entries(spec.binds ?? {}).map(([source, target]) => ({ Type: "bind" as const, Source: source, Target: target, ReadOnly: true })),
+        ],
         // The Engine API takes one entry per port; there are no ranges.
         PortBindings: { [tcp]: [{ HostPort: String(spec.port) }], [udp]: [{ HostPort: String(spec.port) }] },
       },
@@ -120,6 +128,12 @@ export class DockerodeAdapter implements DockerAdapter {
 
   async removeContainer(id: string): Promise<void> {
     await removeQuietly(this.docker.getContainer(id));
+  }
+
+  async ownMount(path: string): Promise<string | undefined> {
+    // A container's hostname is its id, unless compose names it otherwise.
+    const info = await this.docker.getContainer(hostname()).inspect();
+    return info.Mounts.find((mount) => mount.Destination === path)?.Source;
   }
 
   private handle(container: Docker.Container, serverConsole: LineConsole): ServerHandle {

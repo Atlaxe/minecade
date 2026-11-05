@@ -5,8 +5,9 @@
 #   --target editor        minecade/bds-editor:local  the map editor's servers (tools/editor/editor-image.ts)
 
 # ---------------------------------------------------------------------------
-# build: compiles the packs and templates (dist/templates, with the published
-# maps), the registry and the orchestrator bundle.
+# build: compiles the packs and templates (dist/templates), the registry and
+# the orchestrator bundle. The maps' worlds aren't built in: servers read them
+# from the map store's published\worlds\, mounted at /maps.
 # ---------------------------------------------------------------------------
 FROM node:22-bookworm-slim AS build
 WORKDIR /src
@@ -16,10 +17,11 @@ COPY packages/guns/package.json packages/guns/
 COPY orchestrator/package.json orchestrator/
 RUN npm ci --no-audit --no-fund
 COPY . .
-# The published maps and game pictures: the map store's published folder, a second build
-# context ("maps" in docker-compose.yml; tools/maps).
-COPY --from=maps / /published-maps/
-ENV MAPS_PUBLISHED=/published-maps
+# The published maps' cards (names, kits) and pictures, and the games' pictures: the map store's
+# published\catalog\, a second build context ("maps" in docker-compose.yml; tools/maps). It
+# changes only when a map's name, kits or pictures do, or a map comes or goes.
+COPY --from=maps / /maps-catalog/
+ENV MAPS_CATALOG=/maps-catalog
 RUN npm run build
 
 # ---------------------------------------------------------------------------

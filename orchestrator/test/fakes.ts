@@ -112,6 +112,13 @@ export class FakeDocker implements DockerAdapter {
     this.attached.set(id, handle);
     return handle;
   }
+
+  /** The orchestrator container's own mounts, as { path in the container: host folder }. */
+  mounts: Record<string, string> = {};
+
+  async ownMount(path: string): Promise<string | undefined> {
+    return this.mounts[path];
+  }
 }
 
 export const registry: Registry = {

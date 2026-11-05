@@ -1,13 +1,18 @@
 // The map store: versions of a map's working folder (kept once each, files shared by content),
-// publishing, renames, deletes, restores, backups, the published folder the build reads, and the
-// import out of a git checkout.
+// publishing, renames, deletes, restores, backups, the published folder (the catalog the build
+// reads, and the worlds servers read), and the import out of a git checkout.
 import { execFileSync } from "node:child_process";
-import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, renameSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import nbt from "prismarine-nbt";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { encodeLevelDat, isBetaApisEnabled, readLevelDat } from "../../build/leveldat.ts";
 import { importCheckout } from "../import.ts";
 import { KEEP_SAVES, MapStore } from "../store.ts";
+
+/** A world's level.dat without Beta APIs, which the export turns on. */
+const LEVEL_DAT = encodeLevelDat({ storageVersion: 10, root: { ...nbt.comp({ LevelName: nbt.string("Test") }), name: "" } as nbt.NBT });
 
 let dir: string;
 let store: MapStore;
@@ -29,10 +34,13 @@ function writeMap(target: string, map: string, name: string, log = "log 1"): str
   const folder = store.folder(target, map);
   mkdirSync(join(folder, "world", "db"), { recursive: true });
   writeFileSync(join(folder, "map.json"), `{ "name": "${name}" }\n`);
-  writeFileSync(join(folder, "world", "level.dat"), "level");
+  writeFileSync(join(folder, "world", "level.dat"), LEVEL_DAT);
   writeFileSync(join(folder, "world", "db", "000001.log"), log);
   return folder;
 }
+
+const published = (...path: string[]) => join(store.dir, "published", ...path);
+const index = () => JSON.parse(readFileSync(published("worlds", "index.json"), "utf8"));
 
 describe("a map's versions", () => {
   it("are kept when the folder changed, and share the files that didn't", () => {
@@ -72,7 +80,7 @@ describe("a map's versions", () => {
     expect(versions).toHaveLength(KEEP_SAVES + 1);
     expect(versions.at(-1)).toMatchObject({ n: 1, kind: "publish", published: true });
     store.exportPublished();
-    expect(readFileSync(join(store.dir, "published", "sumo", "pit", "world", "db", "000001.log"), "utf8")).toBe("log 1");
+    expect(readFileSync(published("worlds", "sumo", "pit", "1", "world", "db", "000001.log"), "utf8")).toBe("log 1");
   });
 });
 
@@ -96,7 +104,7 @@ describe("publishing", () => {
     expect(store.publish("sumo", "pit").outcome).toBe("published");
     expect(store.publish("sumo", "pit").outcome).toBe("unchanged");
     store.exportPublished();
-    expect(readFileSync(join(store.dir, "published", "sumo", "icon.png"), "utf8")).toBe("picture 1");
+    expect(readFileSync(published("catalog", "sumo", "icon.png"), "utf8")).toBe("picture 1");
   });
 
   it("backs up the database each time, keeping the newest", () => {
@@ -109,19 +117,50 @@ describe("publishing", () => {
     expect(backups.every((name) => /^maps-20261105-1200\d\d\.db$/.test(name))).toBe(true);
   });
 
-  it("writes the published folder whole, without drafts nobody published", () => {
-    writeMap("sumo", "pit", "Pit");
+  it("writes the catalog and each published version's world, without drafts nobody published", async () => {
+    const pit = writeMap("sumo", "pit", "Pit");
+    writeFileSync(join(pit, "map.json"), '{ "name": "Pit", "spawns": [[0, 64, 0]], "kits": { "list": [] }, "cameras": [] }\n');
+    writeFileSync(join(pit, "preview.png"), "preview");
     writeMap("sumo", "draft", "Draft");
     writeMap("lobby", "spaceship", "Spaceship");
     store.publish("sumo", "pit");
     store.publish("lobby", "spaceship");
     store.saveVersion("sumo", "draft", "save");
-    mkdirSync(join(store.dir, "published", "stale"), { recursive: true });
-    expect(store.exportPublished()).toEqual({ maps: 2, icons: 0 });
-    const published = join(store.dir, "published");
-    expect(readdirSync(published).sort()).toEqual(["lobby", "sumo"]);
-    expect(readdirSync(join(published, "sumo"))).toEqual(["pit"]);
-    expect(readFileSync(join(published, "sumo", "pit", "map.json"), "utf8")).toBe('{ "name": "Pit" }\n');
+    mkdirSync(published("sumo", "old-layout"), { recursive: true });
+    expect(store.exportPublished()).toEqual({ maps: 2, icons: 0, written: 2 });
+    expect(readdirSync(published()).sort()).toEqual(["catalog", "worlds"]);
+    // The catalog: each map's name and kits, and its preview.
+    expect(readdirSync(published("catalog", "sumo")).sort()).toEqual(["pit.json", "pit.png"]);
+    expect(JSON.parse(readFileSync(published("catalog", "sumo", "pit.json"), "utf8"))).toEqual({ name: "Pit", kits: { list: [] } });
+    expect(JSON.parse(readFileSync(published("catalog", "lobby", "spaceship.json"), "utf8"))).toEqual({ name: "Spaceship" });
+    // The worlds: the published versions, the index, map.json as servers read it, Beta APIs on.
+    expect(index()).toEqual({ lobby: { spaceship: 1 }, sumo: { pit: 1 } });
+    expect(readdirSync(published("worlds", "sumo", "pit", "1")).sort()).toEqual(["map.json", "world"]);
+    expect(JSON.parse(readFileSync(published("worlds", "sumo", "pit", "1", "map.json"), "utf8"))).toEqual({ name: "Pit", spawns: [[0, 64, 0]], kits: { list: [] } });
+    expect(isBetaApisEnabled(await readLevelDat(published("worlds", "sumo", "pit", "1", "world", "level.dat")))).toBe(true);
+  });
+
+  it("writes only what changed, keeps the version before the published one, and drops what's no longer published", () => {
+    const folder = writeMap("sumo", "pit", "Pit");
+    store.publish("sumo", "pit");
+    expect(store.exportPublished().written).toBe(1);
+    const card = published("catalog", "sumo", "pit.json");
+    const cardTime = statSync(card).mtimeMs;
+    expect(store.exportPublished().written).toBe(0);
+    for (const log of ["log 2", "log 3"]) {
+      writeFileSync(join(folder, "world", "db", "000001.log"), log);
+      store.publish("sumo", "pit");
+      expect(store.exportPublished().written).toBe(1);
+    }
+    expect(index()).toEqual({ sumo: { pit: 3 } });
+    expect(readdirSync(published("worlds", "sumo", "pit")).sort()).toEqual(["2", "3"]);
+    // The world changed, the card didn't: the build's input stays as it was.
+    expect(statSync(card).mtimeMs).toBe(cardTime);
+    store.remove("sumo", "pit");
+    store.exportPublished();
+    expect(index()).toEqual({});
+    expect(readdirSync(published("worlds"))).toEqual(["index.json"]);
+    expect(readdirSync(published("catalog"))).toEqual([]);
   });
 });
 
@@ -147,7 +186,7 @@ describe("a map given another id", () => {
     store.publish("sumo", "pit");
     expect(store.published()).toEqual([{ target: "sumo", map: "pit", version: 1 }]);
     store.exportPublished();
-    expect(readFileSync(join(store.dir, "published", "sumo", "pit", "map.json"), "utf8")).toContain("New pit");
+    expect(readFileSync(published("catalog", "sumo", "pit.json"), "utf8")).toContain("New pit");
   });
 });
 
@@ -189,11 +228,12 @@ describe("importing a git checkout", () => {
   it("publishes what HEAD has and keeps the working copy, drafts and changed pictures too", async () => {
     const checkout = join(dir, "checkout");
     mkdirSync(join(checkout, "lobby", "maps", "spaceship", "world"), { recursive: true });
-    mkdirSync(join(checkout, "games", "sumo", "maps", "pit", "world"), { recursive: true });
+    mkdirSync(join(checkout, "games", "sumo", "maps", "pit", "world", "db"), { recursive: true });
     writeFileSync(join(checkout, "lobby", "maps", "spaceship", "map.json"), '{ "name": "Spaceship" }\r\n');
-    writeFileSync(join(checkout, "lobby", "maps", "spaceship", "world", "level.dat"), "lobby");
+    writeFileSync(join(checkout, "lobby", "maps", "spaceship", "world", "level.dat"), LEVEL_DAT);
     writeFileSync(join(checkout, "games", "sumo", "maps", "pit", "map.json"), '{ "name": "Pit" }\n');
-    writeFileSync(join(checkout, "games", "sumo", "maps", "pit", "world", "level.dat"), "pit");
+    writeFileSync(join(checkout, "games", "sumo", "maps", "pit", "world", "level.dat"), LEVEL_DAT);
+    writeFileSync(join(checkout, "games", "sumo", "maps", "pit", "world", "db", "000001.log"), "pit");
     writeFileSync(join(checkout, "games", "sumo", "icon.png"), "picture 1");
     git(dir, "init", "--quiet", "-b", "main", checkout);
     git(checkout, "-c", "core.autocrlf=false", "add", "--all");
@@ -201,7 +241,7 @@ describe("importing a git checkout", () => {
     // Not committed: a draft, a changed world and a new picture.
     mkdirSync(join(checkout, "games", "sumo", "maps", "draft"), { recursive: true });
     writeFileSync(join(checkout, "games", "sumo", "maps", "draft", "map.json"), '{ "name": "Draft", "draft": true }\n');
-    writeFileSync(join(checkout, "games", "sumo", "maps", "pit", "world", "level.dat"), "pit, changed");
+    writeFileSync(join(checkout, "games", "sumo", "maps", "pit", "world", "db", "000001.log"), "pit, changed");
     writeFileSync(join(checkout, "games", "sumo", "icon.png"), "picture 2");
 
     const result = await importCheckout(store, checkout);
@@ -210,13 +250,13 @@ describe("importing a git checkout", () => {
     expect(store.isUnpublished("lobby", "spaceship")).toBe(false);
     expect(store.isUnpublished("sumo", "pit")).toBe(true);
     expect(store.isUnpublished("sumo", "draft")).toBe(true);
-    expect(readFileSync(join(store.folder("sumo", "pit"), "world", "level.dat"), "utf8")).toBe("pit, changed");
+    expect(readFileSync(join(store.folder("sumo", "pit"), "world", "db", "000001.log"), "utf8")).toBe("pit, changed");
     expect(readFileSync(store.icon("sumo"), "utf8")).toBe("picture 2");
     store.exportPublished();
-    const published = join(store.dir, "published");
-    expect(readFileSync(join(published, "sumo", "pit", "world", "level.dat"), "utf8")).toBe("pit");
-    expect(readFileSync(join(published, "sumo", "icon.png"), "utf8")).toBe("picture 1");
-    expect(readFileSync(join(published, "lobby", "spaceship", "map.json"), "utf8")).toBe('{ "name": "Spaceship" }\r\n');
+    const pit = index().sumo.pit;
+    expect(readFileSync(published("worlds", "sumo", "pit", String(pit), "world", "db", "000001.log"), "utf8")).toBe("pit");
+    expect(readFileSync(published("catalog", "sumo", "icon.png"), "utf8")).toBe("picture 1");
+    expect(JSON.parse(readFileSync(published("catalog", "lobby", "spaceship.json"), "utf8"))).toEqual({ name: "Spaceship" });
 
     const again = await importCheckout(store, checkout);
     expect(again.maps).toEqual([]);

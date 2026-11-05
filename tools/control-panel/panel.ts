@@ -19,7 +19,7 @@ import { broadcastEditor, editorStatus, endPreviewEditor, guestEditor, pictureEd
 import { editorPlayers, type EditorStatus } from "../editor/editor-core.ts";
 import { addGuest, readGuests, removeGuest, writeGuests } from "../editor/guests.ts";
 import { cacheVanillaTextures } from "../build/vanilla-textures.ts";
-import { publishedDir, storeDir } from "../maps/paths.ts";
+import { catalogDir, storeDir } from "../maps/paths.ts";
 import { MapStore } from "../maps/store.ts";
 import {
   BroadcastLog,
@@ -219,14 +219,13 @@ async function orchestratorStatus(): Promise<unknown> {
   }
 }
 
-/** The published lobby maps (the map store's published folder), for the LOBBY_MAP picker. */
+/** The published lobby maps (their cards in the map store's published catalog), for the LOBBY_MAP picker. */
 async function lobbyMaps() {
-  const dir = join(publishedDir(repoRoot), "lobby");
+  const dir = join(catalogDir(repoRoot), "lobby");
   if (!existsSync(dir)) return [];
   const entries: { id: string; json: string }[] = [];
-  for (const id of (await readdir(dir)).sort()) {
-    const path = join(dir, id, "map.json");
-    if (existsSync(path)) entries.push({ id, json: await readFile(path, "utf8") });
+  for (const file of (await readdir(dir)).filter((name) => name.endsWith(".json")).sort()) {
+    entries.push({ id: file.slice(0, -".json".length), json: await readFile(join(dir, file), "utf8") });
   }
   return lobbyMapChoices(entries);
 }
@@ -449,8 +448,9 @@ function runCompose(stack: StackDef, action: string, done?: (ok: boolean) => voi
     } catch (error) {
       note(`Could not copy Minecraft's textures: ${error instanceof Error ? error.message : String(error)}`);
     }
-    // The build takes the maps from the map store's published folder, written again here from its
-    // database so it's what was published, whatever happened to the folder since.
+    // The build takes the maps' cards and pictures from the map store's published catalog, and the
+    // servers their worlds from its published worlds: written again here from its database so it's
+    // what was published, whatever happened to the folder since (only what changed is written).
     try {
       const store = MapStore.open(storeDir(repoRoot));
       try {

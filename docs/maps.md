@@ -2,9 +2,10 @@
 
 Every server target (the lobby, and each game under `games/<id>/`) has one or more maps. A map
 is a `map.json` plus a `world/` folder (and a `preview.png`, the lobby's picture of it). Maps
-aren't in git: they live in the map store beside the checkout (see "The map store" below). The
-build checks every published map and copies it into the server templates. Each game server starts
-from a fresh copy of its world.
+aren't in git: they live in the map store beside the checkout (see "The map store" below). A map
+is checked when it's published (the map editor's checklist). Servers read the published worlds
+from the store, mounted into their containers; the network's build only takes each map's name,
+kits and pictures, for the lobby. Each game server starts from a fresh copy of its world.
 
 The map editor sets spawns and points in game and writes `map.json` for you; see
 [editor.md](editor.md).
@@ -221,7 +222,8 @@ never go to GitHub. It's `..\maps` from the repo root, so the main checkout and 
 | `working\<target>\<map>\` | The map the map editor works on: `map.json`, `preview.png`, `world\`. `<target>` is `lobby` or a game id. |
 | `working\<game>\icon.png` | The game's picture, taken with the editor's Camera tool. |
 | `maps.db` | Every map's versions and which one is published (node:sqlite). A version is the map's folder as it was; files that didn't change are stored once. |
-| `published\` | The published maps and pictures as the build reads them, written from `maps.db` on every Publish and every Panel Start. |
+| `published\catalog\` | What the network's build reads: each published map's card (`<target>\<map>.json`, its name and kits), its preview (`<target>\<map>.png`), and each game's picture (`<game>\icon.png`). |
+| `published\worlds\` | What the servers read, mounted at `/maps` in the lobby, the orchestrator and every game: each published version in a folder of its own (`<target>\<map>\<version>\`, the world with Beta APIs on and `map.json` as servers read it), and `index.json`, which names each map's published version. |
 | `backups\` | A copy of `maps.db` after every publish and delete, the newest 30. |
 
 The map editor keeps a version each time it saves the world and each time it stops, and Publish
@@ -232,12 +234,28 @@ others of each map. A deleted map keeps its versions too.
 npm run maps -- list                          the published maps
 npm run maps -- versions <target> <map>       a map's versions, the newest first
 npm run maps -- restore <target> <map> <n>    put version n back (close the map in the editor first), then Publish it
-npm run maps -- export                        write published\ again
-npm run maps -- backup                        copy maps.db into backupsnpm run maps -- import [<checkout>]           take the maps out of a git checkout (HEAD's come in published)
+npm run maps -- export                        write published\ again (only what changed)
+npm run maps -- backup                        copy maps.db into backups\
+npm run maps -- import [<checkout>]           take the maps out of a git checkout (HEAD's come in published)
 ```
 
-The Docker build gets `published\` as a second build context (`maps` in `docker-compose.yml`).
-The Panel's Start writes it first; before a `docker compose up --build` by hand, run
+`published\` is written from `maps.db` on every Publish, every Delete and every Panel Start, and
+only what changed is written: a version's folder never changes once it's there, and a catalog file
+is rewritten only when its bytes do. A server that starts while the index changes reads the old
+one or the new one, and both versions are there (the one before the published one stays; older
+ones go).
+
+The Docker build gets `published\catalog\` as a second build context (`maps` in
+`docker-compose.yml`), and compose mounts `published\worlds\` read-only at `/maps` in the lobby
+and the orchestrator, which gives every game container the same folder. So what a Publish needs
+before the lobby shows it:
+
+| Changed | Start the network |
+| --- | --- |
+| The world, or anything else in `map.json` (spawns, bounds, regions, settings) | The build is all cache and finishes in seconds; the next game runs the new version, and the lobby its own from its next start. |
+| A new map, a map's id, name or kits, a picture, or a deleted map | The build runs again for the lobby's lists and pictures. |
+
+The Panel's Start writes `published\` first; before a `docker compose up --build` by hand, run
 `npm run maps -- export`. A fresh clone has no maps: restore `maps.db` from a backup into the
 store and run the export.
 

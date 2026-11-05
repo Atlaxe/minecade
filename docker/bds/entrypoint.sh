@@ -1,7 +1,11 @@
 #!/usr/bin/env bash
 # Server entrypoint: prepares one BDS instance from the built templates, then execs BDS so it
-# owns stdin. Every start copies the world template fresh; resetting a server means a new container.
-#   GAME, MAP       template to run: /templates/servers/$GAME/maps/$MAP
+# owns stdin. Every start copies the world fresh; resetting a server means a new container.
+#   GAME, MAP       what to run: the packs in /templates/servers/$GAME, and the map's published
+#                   version from /maps (the map store's published\worlds\, mounted read-only:
+#                   /maps/index.json names each map's version, in /maps/$GAME/$MAP/<version>). A
+#                   template holding the map itself (/templates/servers/$GAME/maps/$MAP, a map
+#                   editor's preview) runs that instead.
 #   SERVER_ID       how the orchestrator knows this server ("lobby", or the session id)
 #   SERVER_PORT     TCP signaling and UDP game port (the same number inside and outside)
 #   TRANSPORT       http | log (must match the orchestrator)
@@ -32,9 +36,18 @@ SERVER_PORT="${SERVER_PORT:-19132}"
 TRANSPORT="${TRANSPORT:-http}"
 ORCH_URL="${ORCH_URL:-http://orchestrator:8080}"
 TEMPLATE="/templates/servers/${GAME}"
-if [[ -n "${EDITOR_MODE:-}" ]]; then MAP_DIR=/editor; else MAP_DIR="${TEMPLATE}/maps/${MAP}"; fi
 
 fail() { echo "[minecade] $*" >&2; exit 1; }
+if [[ -n "${EDITOR_MODE:-}" ]]; then
+  MAP_DIR=/editor
+elif [[ -d "${TEMPLATE}/maps/${MAP}" ]]; then
+  MAP_DIR="${TEMPLATE}/maps/${MAP}"
+else
+  [[ -f /maps/index.json ]] || fail "no published maps at /maps (the map store's published\\worlds\\ isn't mounted)"
+  version="$(jq -r --arg game "$GAME" --arg map "$MAP" '.[$game][$map] // empty' /maps/index.json)"
+  [[ -n "$version" ]] || fail "${GAME}/${MAP} isn't published (not in /maps/index.json): publish it in the map editor"
+  MAP_DIR="/maps/${GAME}/${MAP}/${version}"
+fi
 [[ "$TRANSPORT" == "http" || "$TRANSPORT" == "log" ]] || fail "TRANSPORT must be http or log, got: $TRANSPORT"
 [[ -f "$MAP_DIR/world/level.dat" ]] || fail "no world template at $MAP_DIR/world"
 

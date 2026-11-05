@@ -4,7 +4,8 @@
 //                             and working\<game>\icon.png, the game's picture
 //   maps.db                   node:sqlite: each map's versions (its folder's files, stored once
 //                             each by content), and what's published
-//   published\                the published maps as the build reads them (exportPublished)
+//   published\                the published maps (exportPublished): catalog\, what the network's
+//                             build reads, and worlds\, what its servers read (mounted at /maps)
 //   backups\                  a copy of maps.db after every publish and delete, the newest 30
 // A map is known here from its first version; a working folder alone (a map just made) is a draft
 // nobody saved yet. Publishing points the map at a version (its newest), and a map given another
@@ -13,6 +14,8 @@ import { createHash } from "node:crypto";
 import { existsSync, mkdirSync, readdirSync, readFileSync, renameSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
+import { runtimeMapConfig, type MapConfig } from "@minecade/minigame-core/config";
+import { enableBetaApis, patchLevelDatSync } from "../build/leveldat.ts";
 import { workingDir } from "./paths.ts";
 
 /** Saves kept per map besides its publishes, the newest first. */
@@ -87,6 +90,19 @@ export interface PublishedMap {
 }
 
 export type PublishResult = { outcome: "published"; version: number } | { outcome: "unchanged"; version: number };
+
+/**
+ * What the network's build needs of a published map (published\catalog\<target>\<map>.json): its
+ * name for the lobby's lists, and its own kits for the kit form's pictures. Everything else in its
+ * map.json only matters to its server, which reads it from published\worlds\.
+ */
+export interface MapCard {
+  name: string;
+  kits?: MapConfig["kits"];
+}
+
+/** published\worlds\index.json: each published map's version, by target and map id. */
+export type WorldsIndex = Record<string, Record<string, number>>;
 
 interface MapRow {
   key: number;
@@ -276,22 +292,60 @@ export class MapStore {
   }
 
   /**
-   * Writes the published maps to `dest` (the store's published\ unless given), laid out as the build
-   * reads them: <target>\<map>\ (map.json, preview.png, world\) and <game>\icon.png. The folder is
-   * replaced whole.
+   * Writes the published maps to `dest` (the store's published\ unless given), in two halves:
+   * - catalog\: what the network's build reads (the Docker build's "maps" context): each map's card
+   *   (<target>\<map>.json, MapCard) and preview (<target>\<map>.png), and each game's picture
+   *   (<game>\icon.png). A file is written only when its bytes change, so the build stays cached
+   *   while no map's name, kits or pictures did.
+   * - worlds\: what the servers read (mounted at /maps): each published version in a folder of its
+   *   own, <target>\<map>\<version>\ (world\ with Beta APIs on, and map.json as servers read it),
+   *   written once and never changed, and index.json naming each map's published version, swapped
+   *   in whole. A server starting meanwhile reads the old index or the new one, and both versions'
+   *   folders are there: the one before the published one stays, older ones go.
+   * Anything else in `dest` (the layout before) goes. `written` is how many version folders were new.
    */
-  exportPublished(dest = join(this.dir, "published")): { maps: number; icons: number } {
+  exportPublished(dest = join(this.dir, "published")): { maps: number; icons: number; written: number } {
     const maps = this.db.prepare("SELECT key, target, published_id, published_version FROM maps WHERE deleted_at IS NULL AND published_version IS NOT NULL").all() as unknown as MapRow[];
     const icons = this.db.prepare("SELECT target, sha256 FROM icons").all() as { target: string; sha256: string }[];
-    replaceFolder(dest, (fresh) => {
-      mkdirSync(fresh, { recursive: true });
-      for (const row of maps) this.checkout(row.key, row.published_version!, join(fresh, row.target, row.published_id!));
-      for (const icon of icons) {
-        mkdirSync(join(fresh, icon.target), { recursive: true });
-        writeFileSync(join(fresh, icon.target, "icon.png"), this.blob(icon.sha256));
+    const catalog = join(dest, "catalog");
+    const worlds = join(dest, "worlds");
+    mkdirSync(catalog, { recursive: true });
+    mkdirSync(worlds, { recursive: true });
+    for (const entry of readdirSync(dest)) {
+      if (entry !== "catalog" && entry !== "worlds") removeTree(join(dest, entry));
+    }
+    const index: WorldsIndex = {};
+    const kept = new Set<string>();
+    const keep = (path: string, data: string | Uint8Array) => {
+      writeIfChanged(path, data);
+      kept.add(path);
+    };
+    let written = 0;
+    for (const row of maps) {
+      const map = row.published_id!;
+      const n = row.published_version!;
+      (index[row.target] ??= {})[map] = n;
+      const folder = join(worlds, row.target, map, String(n));
+      if (!existsSync(join(folder, "map.json"))) {
+        this.writeWorld(row.key, n, folder);
+        written++;
       }
-    });
-    return { maps: maps.length, icons: icons.length };
+      const config = JSON.parse(Buffer.from(this.file(row.key, n, "map.json")!).toString("utf8")) as MapConfig;
+      const card: MapCard = { name: config.name, ...(config.kits ? { kits: config.kits } : {}) };
+      keep(join(catalog, row.target, `${map}.json`), JSON.stringify(card, null, 2));
+      const preview = this.file(row.key, n, "preview.png");
+      if (preview) keep(join(catalog, row.target, `${map}.png`), preview);
+    }
+    for (const icon of icons) keep(join(catalog, icon.target, "icon.png"), this.blob(icon.sha256));
+    removeOthers(catalog, kept);
+    const indexPath = join(worlds, "index.json");
+    const indexJson = JSON.stringify(index, null, 2);
+    if (!existsSync(indexPath) || readFileSync(indexPath, "utf8") !== indexJson) {
+      writeFileSync(`${indexPath}.new`, indexJson);
+      renameSync(`${indexPath}.new`, indexPath);
+    }
+    pruneWorlds(worlds, index);
+    return { maps: maps.length, icons: icons.length, written };
   }
 
   /** Copies maps.db into backups\ and keeps the newest KEEP_BACKUPS. Returns the copy's path. */
@@ -335,6 +389,34 @@ export class MapStore {
       mkdirSync(dirname(out), { recursive: true });
       writeFileSync(out, file.data);
     }
+  }
+
+  /** A version's folder as a server reads it: the world with Beta APIs on (which every pack needs), and the runtime map.json. */
+  private writeWorld(key: number, n: number, folder: string): void {
+    const fresh = `${folder}.new`;
+    removeTree(fresh);
+    try {
+      this.checkout(key, n, fresh);
+      rmSync(join(fresh, "preview.png"), { force: true });
+      const config = JSON.parse(readFileSync(join(fresh, "map.json"), "utf8")) as MapConfig;
+      writeFileSync(join(fresh, "map.json"), JSON.stringify(runtimeMapConfig(config), null, 2));
+      // Worlds built by hand in the client usually lack Beta APIs.
+      const levelDat = join(fresh, "world", "level.dat");
+      if (existsSync(levelDat)) patchLevelDatSync(levelDat, enableBetaApis);
+      removeTree(folder);
+      renameSync(fresh, folder);
+    } catch (error) {
+      removeTree(fresh);
+      throw error;
+    }
+  }
+
+  /** One file of a version, or undefined when it has none by that path. */
+  private file(key: number, n: number, path: string): Uint8Array | undefined {
+    const row = this.db.prepare("SELECT b.data FROM files f JOIN blobs b ON b.sha256 = f.sha256 WHERE f.map_key = ? AND f.n = ? AND f.path = ?").get(key, n, path) as
+      | { data: Uint8Array }
+      | undefined;
+    return row?.data;
   }
 
   private blob(sha256: string): Uint8Array {
@@ -441,6 +523,56 @@ function digestOf(files: { path: string; sha256: string }[]): string {
 
 function sha(data: Uint8Array): string {
   return createHash("sha256").update(data).digest("hex");
+}
+
+/** Deletes a file or folder, if it's there. Retries cover Windows file watchers (VS Code) briefly holding files. */
+function removeTree(path: string): void {
+  rmSync(path, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
+}
+
+/** Writes a file unless it already holds exactly `data`, so its time (and Docker's build cache) stays. */
+function writeIfChanged(path: string, data: string | Uint8Array): void {
+  const bytes = typeof data === "string" ? Buffer.from(data, "utf8") : Buffer.from(data);
+  if (existsSync(path) && readFileSync(path).equals(bytes)) return;
+  mkdirSync(dirname(path), { recursive: true });
+  writeFileSync(path, bytes);
+}
+
+/** Deletes every file under `dir` that isn't in `kept`, and the folders left empty. */
+function removeOthers(dir: string, kept: Set<string>): void {
+  for (const entry of readdirSync(dir, { withFileTypes: true })) {
+    const path = join(dir, entry.name);
+    if (entry.isDirectory()) {
+      removeOthers(path, kept);
+      if (readdirSync(path).length === 0) removeTree(path);
+    } else if (!kept.has(path)) rmSync(path, { force: true });
+  }
+}
+
+/**
+ * Keeps, for each map in the index, its published version's folder and the newest one before it
+ * (a server may have read the index just before it changed); every other folder under `worlds`
+ * goes, with the maps and targets no longer published.
+ */
+function pruneWorlds(worlds: string, index: WorldsIndex): void {
+  for (const target of readdirSync(worlds, { withFileTypes: true })) {
+    if (!target.isDirectory()) continue;
+    const targetDir = join(worlds, target.name);
+    for (const map of readdirSync(targetDir, { withFileTypes: true })) {
+      const mapDir = join(targetDir, map.name);
+      const published = index[target.name]?.[map.name];
+      if (!map.isDirectory() || published === undefined) {
+        removeTree(mapDir);
+        continue;
+      }
+      const versions = readdirSync(mapDir).filter((name) => /^[0-9]+$/.test(name)).map(Number);
+      const before = Math.max(-1, ...versions.filter((n) => n < published));
+      for (const name of readdirSync(mapDir)) {
+        if (name !== String(published) && name !== String(before)) removeTree(join(mapDir, name));
+      }
+    }
+    if (readdirSync(targetDir).length === 0) removeTree(targetDir);
+  }
 }
 
 /** Fills a new folder beside `dest` with `fill`, then swaps it in for `dest` whole. */

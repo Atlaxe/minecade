@@ -43,6 +43,13 @@ export interface SessionDeps {
   toLobby(message: InboundMessage): void;
   /** The public address players are sent to, resolved from PUBLIC_HOST. */
   publicIp(): Promise<string>;
+  /**
+   * The published maps' index (target to map id to version), read at each start, or undefined when
+   * the maps aren't there. Without this, every registry map counts as published (tests).
+   */
+  publishedMaps?(): Record<string, Record<string, number>> | undefined;
+  /** The host folder holding the published maps' worlds, mounted at config.mapsDir in every game. */
+  mapsSource?: string;
   /** A stats part from the running game. `xuids` maps lowercase gamertags to Xbox account ids. */
   onMatchStats?(part: MatchStats, context: { game: RegistryGame; xuids: ReadonlyMap<string, string> }): void;
   /** A prompt bank message from the running game (Build Swap's prompts): returns the replies to send it. */
@@ -142,7 +149,10 @@ export class SessionManager {
   async start(request: StartRequest): Promise<StartResult> {
     if (this.cleaningUp) return this.reject(request.requestId, "the network is still starting up; try again in a few seconds");
     if (this.session) return this.reject(request.requestId, `busy: ${this.session.game.name} is ${this.session.state}`);
-    const resolved = resolveGameMap(this.deps.registry, request.game, request.map, this.deps.random);
+    const index = this.deps.publishedMaps ? this.deps.publishedMaps() : undefined;
+    if (this.deps.publishedMaps && !index) return this.reject(request.requestId, `the published maps aren't at ${this.deps.config.mapsDir}; restart the network`);
+    const published = index ? (map: string) => index[request.game]?.[map] !== undefined : undefined;
+    const resolved = resolveGameMap(this.deps.registry, request.game, request.map, this.deps.random, published);
     if (!resolved.ok) return this.reject(request.requestId, resolved.reason);
 
     const timeline = new Timeline();
@@ -292,6 +302,7 @@ export class SessionManager {
         [LABELS.managedBy]: MANAGED_BY,
       },
       volumes: config.keysVolume ? { [config.keysVolume]: "/keys" } : {},
+      binds: this.deps.mapsSource ? { [this.deps.mapsSource]: config.mapsDir } : {},
     };
   }
 

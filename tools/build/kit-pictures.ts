@@ -149,7 +149,7 @@ function vanillaTextures(): VanillaTextures | undefined {
  * Writes the kit form's pictures into a game's built resource pack at `out`, for a game whose
  * players pick kits: the game's kits, then each of these maps' own. Returns how many it wrote.
  */
-export async function addGameKitPictures(out: string, game: GameConfig, maps: { id: string; config: MapConfig }[], textures = vanillaTextures()): Promise<number> {
+export async function addGameKitPictures(out: string, game: GameConfig, maps: { id: string; config: Pick<MapConfig, "kits"> }[], textures = vanillaTextures()): Promise<number> {
   if (!game.kits?.select || !textures) return 0;
   const kits: { kit: KitDef; map?: string }[] = game.kits.list.map((kit) => ({ kit }));
   for (const map of maps) for (const kit of map.config.kits?.list ?? []) kits.push({ kit, map: map.id });

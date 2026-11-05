@@ -1,6 +1,8 @@
 // Orchestrator entry point: wires the config, registry, stats store, Docker, transport links,
 // lobby channel, session manager and HTTP server, then handles startup cleanup and shutdown.
+import { readFileSync } from "node:fs";
 import { lookup } from "node:dns/promises";
+import { join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import { loadConfig } from "./config.ts";
 import { DockerodeAdapter } from "./docker.ts";
@@ -21,6 +23,15 @@ import { NoopWarmPool } from "./warm-pool.ts";
 const PUBLIC_IP_CACHE_MS = 10 * 60_000;
 const BACKUP_INTERVAL_MS = 24 * 60 * 60_000;
 
+/** The published maps' index.json (the map store's export), or undefined when it can't be read. */
+function readPublishedMaps(dir: string): Record<string, Record<string, number>> | undefined {
+  try {
+    return JSON.parse(readFileSync(join(dir, "index.json"), "utf8")) as Record<string, Record<string, number>>;
+  } catch {
+    return undefined;
+  }
+}
+
 async function main(): Promise<void> {
   const config = loadConfig();
   const registry = loadRegistry(config.registryPath);
@@ -29,6 +40,13 @@ async function main(): Promise<void> {
   const publicIp = publicIpResolver(config.publicHost);
   const stats = config.devDemoStats ? openDemoStats(registry, config.lanPlayers) : openStats(config.dataDir, registry);
   const prompts = openPrompts(config.dataDir);
+  // Game containers get the published maps the way this container has them (docker-compose.yml).
+  const mapsSource = await docker.ownMount(config.mapsDir).catch((error: unknown) => {
+    log.warn(`could not look up this container's mounts: ${describeError(error)}`);
+    return undefined;
+  });
+  if (mapsSource) log.info(`published maps: ${mapsSource}, at ${config.mapsDir} in every game`);
+  else log.warn(`the published maps aren't mounted at ${config.mapsDir}: games can't start`);
 
   // The lobby channel is created after the session manager, which only calls toLobby later.
   let lobby: LobbyChannel | undefined;
@@ -41,6 +59,8 @@ async function main(): Promise<void> {
       config.transport === "http" ? hub.open(serverId) : new LogStdinServerLink(serverId, handle.console),
     toLobby: (message) => lobby?.send(message),
     publicIp,
+    publishedMaps: () => readPublishedMaps(config.mapsDir),
+    mapsSource,
     onMatchStats: (part, { game, xuids }) => {
       if (!stats) return;
       const checked = checkMatchStats(part, game);

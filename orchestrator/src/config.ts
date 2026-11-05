@@ -31,6 +31,11 @@ export interface Config {
   registryPath: string;
   /** Where player stats are stored (the minecade-data volume), or "" for no storage. */
   dataDir: string;
+  /**
+   * Where the published maps' worlds are mounted (the map store's published\worlds\), here and in
+   * every game container: index.json and <target>/<map>/<version>/.
+   */
+  mapsDir: string;
 }
 
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
@@ -58,6 +63,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     emptyBackstopMs: integer(env.EMPTY_BACKSTOP_S, 180) * 1000,
     registryPath: env.REGISTRY_PATH || "/app/registry.json",
     dataDir: env.DATA_DIR ?? "",
+    mapsDir: env.MAPS_DIR || "/maps",
   };
 }
 
