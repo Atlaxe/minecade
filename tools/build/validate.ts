@@ -53,6 +53,7 @@ export function validateGameConfig(config: GameConfig, folder: string): string[]
     problems.push('respawn.lives must be at least 1 when respawn.mode is "lives"');
   }
   problems.push(...validateMapSettings(config));
+  if (config.blocks !== undefined && config.blocks !== "full") problems.push('blocks must be "full" or left out');
   return problems;
 }
 

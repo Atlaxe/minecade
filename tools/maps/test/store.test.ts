@@ -131,13 +131,25 @@ describe("publishing", () => {
     expect(readdirSync(published()).sort()).toEqual(["catalog", "worlds"]);
     // The catalog: each map's name and kits, and its preview.
     expect(readdirSync(published("catalog", "sumo")).sort()).toEqual(["pit.json", "pit.png"]);
-    expect(JSON.parse(readFileSync(published("catalog", "sumo", "pit.json"), "utf8"))).toEqual({ name: "Pit", kits: { list: [] } });
-    expect(JSON.parse(readFileSync(published("catalog", "lobby", "spaceship.json"), "utf8"))).toEqual({ name: "Spaceship" });
+    expect(JSON.parse(readFileSync(published("catalog", "sumo", "pit.json"), "utf8"))).toEqual({ name: "Pit", kits: { list: [] }, customNames: [] });
+    expect(JSON.parse(readFileSync(published("catalog", "lobby", "spaceship.json"), "utf8"))).toEqual({ name: "Spaceship", customNames: [] });
     // The worlds: the published versions, the index, map.json as servers read it, Beta APIs on.
     expect(index()).toEqual({ lobby: { spaceship: 1 }, sumo: { pit: 1 } });
-    expect(readdirSync(published("worlds", "sumo", "pit", "1")).sort()).toEqual(["map.json", "world"]);
+    // names.json: the custom blocks the world uses, worked out once (blocks.ts).
+    expect(readdirSync(published("worlds", "sumo", "pit", "1")).sort()).toEqual(["map.json", "names.json", "world"]);
     expect(JSON.parse(readFileSync(published("worlds", "sumo", "pit", "1", "map.json"), "utf8"))).toEqual({ name: "Pit", spawns: [[0, 64, 0]], kits: { list: [] } });
     expect(isBetaApisEnabled(await readLevelDat(published("worlds", "sumo", "pit", "1", "world", "level.dat")))).toBe(true);
+  });
+
+  it("lists the custom blocks each published world uses in its card", () => {
+    const folder = writeMap("sumo", "pit", "Pit", "palette: minecade:oak_chair, minecraft:stone, minecade:red_lamp");
+    store.publish("sumo", "pit");
+    store.exportPublished();
+    expect(JSON.parse(readFileSync(published("catalog", "sumo", "pit.json"), "utf8")).customNames).toEqual(["minecade:oak_chair", "minecade:red_lamp"]);
+    writeFileSync(join(folder, "world", "db", "000001.log"), "palette: minecade:oak_chair");
+    store.publish("sumo", "pit");
+    store.exportPublished();
+    expect(JSON.parse(readFileSync(published("catalog", "sumo", "pit.json"), "utf8")).customNames).toEqual(["minecade:oak_chair"]);
   });
 
   it("writes only what changed, keeps the version before the published one, and drops what's no longer published", () => {
@@ -256,7 +268,7 @@ describe("importing a git checkout", () => {
     const pit = index().sumo.pit;
     expect(readFileSync(published("worlds", "sumo", "pit", String(pit), "world", "db", "000001.log"), "utf8")).toBe("pit");
     expect(readFileSync(published("catalog", "sumo", "icon.png"), "utf8")).toBe("picture 1");
-    expect(JSON.parse(readFileSync(published("catalog", "lobby", "spaceship.json"), "utf8"))).toEqual({ name: "Spaceship" });
+    expect(JSON.parse(readFileSync(published("catalog", "lobby", "spaceship.json"), "utf8"))).toEqual({ name: "Spaceship", customNames: [] });
 
     const again = await importCheckout(store, checkout);
     expect(again.maps).toEqual([]);

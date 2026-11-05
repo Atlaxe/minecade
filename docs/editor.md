@@ -619,7 +619,7 @@ Nothing goes to git or GitHub. Chat says when it's done, with the version, and m
 chime and see "Sewer is published" above the hotbar. The lobby lists the map from the network's
 next start: **Shut down** the editor, then **Start the network**. A changed world or `map.json`
 needs no rebuild (the start's build is all cache); a new map, a new name, kits or picture does,
-and Start runs it. A lobby map shows in the Panel's lobby map picker instead.
+and so does a world using a custom block no published map used before, and Start runs it. A lobby map shows in the Panel's lobby map picker instead.
 
 Publish again after more changes (the button then reads **Publish changes**): it publishes the new
 version. With nothing changed, it says so.

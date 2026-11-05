@@ -4,7 +4,9 @@
 // validated first, and all problems are reported together. Packs are built by packs.ts, and every
 // server gets the shared packs (the core resource pack, the shared blocks pack and the rest): they're
 // built once into dist/shared/, which the image copies into BDS's own pack folders, and each
-// template gets the world's pack lists with them in. The maps are the published ones in the map
+// template gets the world's pack lists with them in. The blocks pack comes twice: whole, and the
+// network's cut of it, only the blocks the published maps use (blocks-cut.ts), which every server
+// loads but a game whose config asks for every block (blocks: "full"). The maps are the published ones in the map
 // store (tools/maps), as their catalog has them: each map's card (<target>/<map>.json: its name and
 // kits) and preview (<target>/<map>.png), and each game's picture (<game>/icon.png), in the store's
 // published\catalog\, or MAPS_CATALOG, which the Docker build sets. Their worlds aren't built in:
@@ -33,6 +35,7 @@ import { readSkins } from "../skins/store.ts";
 import { writeArmorPack } from "../assets/armor.ts";
 import { catalogDir } from "../maps/paths.ts";
 import type { MapCard } from "../maps/store.ts";
+import { cutBlocksPack } from "./blocks-cut.ts";
 import { addGameKitPictures } from "./kit-pictures.ts";
 import { addTeamButtons } from "./team-buttons.ts";
 import { pinManifest, type Manifest } from "./mc-versions.ts";
@@ -242,6 +245,35 @@ function pick({ id, name, description, minPlayers, maxPlayers, test, teams, opti
   };
 }
 
+/** The blocks pack's folders in the container, whole and cut. */
+const FULL_NAMES = [`${PACK_PREFIX}blocks_bp`, `${PACK_PREFIX}blocks_rp`];
+const CUT_NAMES = [`${PACK_PREFIX}blocks_cut_bp`, `${PACK_PREFIX}blocks_cut_rp`];
+
+/**
+ * Cuts the blocks pack down to the blocks the published maps use (into dist/blocks-cut/), and adds
+ * the cut to the shared packs. False when there's nothing to cut, or a map's card doesn't say which
+ * blocks it uses: every server gets the whole pack then.
+ */
+async function cutBlocks(): Promise<boolean> {
+  const whole = shared.filter(({ pack }) => pack.name === "blocks_bp" || pack.name === "blocks_rp");
+  if (whole.length !== 2) return false;
+  const cards = targets.flatMap((target) => target.maps.map((map) => map.card));
+  if (cards.some((card) => !Array.isArray(card.customNames))) {
+    console.warn("the map catalog doesn't say which blocks the maps use (npm run maps -- export writes it again), so every server gets the whole blocks pack");
+    return false;
+  }
+  const out = join(dist, "blocks-cut");
+  const result = await cutBlocksPack(join(root, "packs", "blocks"), out, cards.flatMap((card) => card.customNames));
+  for (const [kind, name] of [["behavior", "blocks_cut_bp"], ["resource", "blocks_cut_rp"]] as const) {
+    const dir = join(out, `${kind}_pack`);
+    const manifest = await loadManifest(dir);
+    if (!manifest) throw new Error(`the cut blocks pack's ${kind} manifest: ${problems.join("; ")}`);
+    shared.push({ pack: { kind, name, dir }, manifest });
+  }
+  console.log(`cut the blocks pack to the ${result.kept} blocks the published maps use (of ${result.of})`);
+  return true;
+}
+
 async function buildOrchestrator(): Promise<void> {
   await build({
     entryPoints: [join(root, "orchestrator", "src", "index.ts")],
@@ -301,6 +333,7 @@ const registry: Registry = {
 const playerSkins = await renderPlayerSkins();
 
 await rm(dist, { recursive: true, force: true });
+const cut = await cutBlocks();
 // Once for every server (the image puts them in BDS's own pack folders), named as in the container.
 const sharedOut = join(dist, "shared");
 await addSharedPacks(sharedOut, shared, PACK_PREFIX);
@@ -316,7 +349,9 @@ for (const target of targets) {
     const extra = target.id === "lobby" ? addGameIcons : game?.kits?.select ? (pack: string) => addGameKitPictures(pack, game, maps).then(() => {}) : undefined;
     await buildResourcePack(join(target.dir, "resource_pack"), join(out, "resource_packs", `${target.id}_rp`), target.resourcePack, extra);
   }
-  await writePackLists(out, sharedOut);
+  // Each server loads one blocks pack: the cut, or the whole one for a game that asks (and the editor).
+  const full = target.game?.blocks === "full" || target.id === EDITOR;
+  await writePackLists(out, sharedOut, (name) => cut && (full ? CUT_NAMES.includes(name) : FULL_NAMES.includes(name)));
   const parts = [...(target.maps.length > 0 ? [`maps: ${target.maps.map((map) => map.id).join(", ")}`] : []), ...(target.resourcePack ? ["resource pack"] : [])];
   console.log(`built ${target.id}${parts.length > 0 ? ` (${parts.join(", ")})` : ""}`);
 }

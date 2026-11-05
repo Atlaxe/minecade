@@ -141,11 +141,12 @@ interface PackRef {
 /**
  * Writes a template's world pack lists, which the entrypoint puts in the world: the template's own
  * packs, and the shared ones in `shared` (the image's dist/shared/, already named as in the
- * container) when they aren't in the template itself. They're in order of their folder names in
+ * container) when they aren't in the template itself, except those `skip` names (the blocks pack a
+ * server doesn't load: the full one or the network's cut). They're in order of their folder names in
  * the container, the order the entrypoint always made them in: packs that change the same UI
  * files (the core pack's, the lobby's, the editor's) depend on it.
  */
-export async function writePackLists(template: string, shared?: string): Promise<void> {
+export async function writePackLists(template: string, shared?: string, skip: (name: string) => boolean = () => false): Promise<void> {
   for (const kind of ["behavior", "resource"] as const) {
     const entries: { name: string; ref: PackRef }[] = [];
     const sources: [string, string][] = [[template, PACK_PREFIX], ...(shared ? [[shared, ""] as [string, string]] : [])];
@@ -153,7 +154,8 @@ export async function writePackLists(template: string, shared?: string): Promise
       const folder = join(dir, `${kind}_packs`);
       if (!existsSync(folder)) continue;
       for (const entry of await readdir(folder, { withFileTypes: true })) {
-        if (entry.isDirectory()) entries.push({ name: `${prefix}${entry.name}`, ref: await packRef(join(folder, entry.name)) });
+        const name = `${prefix}${entry.name}`;
+        if (entry.isDirectory() && !skip(name)) entries.push({ name, ref: await packRef(join(folder, entry.name)) });
       }
     }
     entries.sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0));

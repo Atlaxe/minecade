@@ -5,6 +5,15 @@ and the map editor), the same way it adds the core resource pack, so any server 
 that uses these blocks. The network's image holds it once, in BDS's own pack folders, with the
 other shared packs (`dist/shared/`), and every server's world lists it.
 
+**The network's cut.** The network's servers load a cut of this pack instead: only the blocks the
+published maps use (each map's card in the map store's catalog lists them), and what those blocks
+need (`tools/build/blocks-cut.ts`). That's about 170 of its 1,500 blocks, 1,700 files instead of
+12,000, so a game server boots in about 4 s instead of 10, and players download and load far less
+on every transfer. The cut has uuids of its own, so a client keeps the two apart. A game whose
+players build from creative's menu sets `blocks: "full"` in its `game.config.ts` (Build Swap does)
+and loads the whole pack; so does the map editor. A map that starts using a block no other
+published map used gets it at the network's next Start, which rebuilds the cut.
+
 - `behavior_pack/`: the block definitions (`manifest.json`, `blocks/`, and so on), two invisible
   entities (a stool's seat and a chest's storage), and a script that gives the blocks their
   placement rules, neighbor connections and right-click actions.

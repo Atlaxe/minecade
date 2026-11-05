@@ -15,6 +15,11 @@ describe("validateGameConfig", () => {
     expect(validateGameConfig(game, "sumo")).toEqual([]);
   });
 
+  it("takes the whole blocks pack, or the network's cut when blocks is left out", () => {
+    expect(validateGameConfig({ ...game, blocks: "full" }, "sumo")).toEqual([]);
+    expect(validateGameConfig({ ...game, blocks: "all" as "full" }, "sumo")).toEqual(['blocks must be "full" or left out']);
+  });
+
   it("reports every problem at once", () => {
     expect(validateGameConfig({ ...game, id: "other", minPlayers: 0, maxPlayers: -1 }, "sumo")).toEqual([
       'id "other" must match the folder name "sumo"',

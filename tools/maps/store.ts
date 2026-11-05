@@ -16,6 +16,7 @@ import { dirname, join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import { runtimeMapConfig, type MapConfig } from "@minecade/minigame-core/config";
 import { enableBetaApis, patchLevelDatSync } from "../build/leveldat.ts";
+import { worldNames } from "./blocks.ts";
 import { workingDir } from "./paths.ts";
 
 /** Saves kept per map besides its publishes, the newest first. */
@@ -93,13 +94,19 @@ export type PublishResult = { outcome: "published"; version: number } | { outcom
 
 /**
  * What the network's build needs of a published map (published\catalog\<target>\<map>.json): its
- * name for the lobby's lists, and its own kits for the kit form's pictures. Everything else in its
- * map.json only matters to its server, which reads it from published\worlds\.
+ * name for the lobby's lists, its own kits for the kit form's pictures, and the custom blocks its
+ * world uses, for the network's cut of the blocks pack. Everything else in its map.json only
+ * matters to its server, which reads it from published\worlds\.
  */
 export interface MapCard {
   name: string;
   kits?: MapConfig["kits"];
+  /** Every "minecade:" name in its world (blocks.ts): the build keeps the ones that are blocks. */
+  customNames: string[];
 }
+
+/** A version folder's cached world names (worldNames: its world never changes). */
+const NAMES_FILE = "names.json";
 
 /** published\worlds\index.json: each published map's version, by target and map id. */
 export type WorldsIndex = Record<string, Record<string, number>>;
@@ -331,7 +338,7 @@ export class MapStore {
         written++;
       }
       const config = JSON.parse(Buffer.from(this.file(row.key, n, "map.json")!).toString("utf8")) as MapConfig;
-      const card: MapCard = { name: config.name, ...(config.kits ? { kits: config.kits } : {}) };
+      const card: MapCard = { name: config.name, ...(config.kits ? { kits: config.kits } : {}), customNames: versionNames(folder) };
       keep(join(catalog, row.target, `${map}.json`), JSON.stringify(card, null, 2));
       const preview = this.file(row.key, n, "preview.png");
       if (preview) keep(join(catalog, row.target, `${map}.png`), preview);
@@ -523,6 +530,15 @@ function digestOf(files: { path: string; sha256: string }[]): string {
 
 function sha(data: Uint8Array): string {
   return createHash("sha256").update(data).digest("hex");
+}
+
+/** The world names of a version's folder, worked out once and kept beside its world. */
+function versionNames(folder: string): string[] {
+  const path = join(folder, NAMES_FILE);
+  if (existsSync(path)) return JSON.parse(readFileSync(path, "utf8")) as string[];
+  const names = worldNames(join(folder, "world"));
+  writeFileSync(path, JSON.stringify(names));
+  return names;
 }
 
 /** Deletes a file or folder, if it's there. Retries cover Windows file watchers (VS Code) briefly holding files. */

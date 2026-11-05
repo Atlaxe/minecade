@@ -23,6 +23,9 @@ export default defineGame({
   endDelaySeconds: 15,
   lateJoin: "spectate",
   nameTags: true,
+  // Builders take blocks from creative's menu, so they get every custom block, not just the ones
+  // the published maps use.
+  blocks: "full",
   // Nobody can hurt anybody, and leaving a building area brings you back to it (the game's own
   // check), so core's bounds never put anyone down.
   combat: { damage: "none", fall: false, outOfBounds: "ignore" },

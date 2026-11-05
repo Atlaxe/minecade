@@ -259,6 +259,12 @@ export interface GameConfig {
   /** A match of best-of rounds instead of one long stage (see BestOfConfig). */
   bestOf?: BestOfConfig;
   build?: BuildConfig;
+  /**
+   * The shared blocks pack this game's servers load: the network's cut of it, only the blocks the
+   * published maps use (the default), or "full", every block, for a game whose players build from
+   * creative's menu (Build Swap). Only its players load the bigger pack.
+   */
+  blocks?: "full";
   /** Game rules for the match (world.gameRules keys). Restored afterwards. */
   gameRules?: Record<string, boolean | number>;
   /** Map entries this game needs. The build checks every map has them, and the map editor lists them. */

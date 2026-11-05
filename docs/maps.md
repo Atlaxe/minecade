@@ -222,7 +222,7 @@ never go to GitHub. It's `..\maps` from the repo root, so the main checkout and 
 | `working\<target>\<map>\` | The map the map editor works on: `map.json`, `preview.png`, `world\`. `<target>` is `lobby` or a game id. |
 | `working\<game>\icon.png` | The game's picture, taken with the editor's Camera tool. |
 | `maps.db` | Every map's versions and which one is published (node:sqlite). A version is the map's folder as it was; files that didn't change are stored once. |
-| `published\catalog\` | What the network's build reads: each published map's card (`<target>\<map>.json`, its name and kits), its preview (`<target>\<map>.png`), and each game's picture (`<game>\icon.png`). |
+| `published\catalog\` | What the network's build reads: each published map's card (`<target>\<map>.json`: its name, its kits, and the custom blocks its world uses, for the network's cut of the blocks pack), its preview (`<target>\<map>.png`), and each game's picture (`<game>\icon.png`). |
 | `published\worlds\` | What the servers read, mounted at `/maps` in the lobby, the orchestrator and every game: each published version in a folder of its own (`<target>\<map>\<version>\`, the world with Beta APIs on and `map.json` as servers read it), and `index.json`, which names each map's published version. |
 | `backups\` | A copy of `maps.db` after every publish and delete, the newest 30. |
 
@@ -253,7 +253,7 @@ before the lobby shows it:
 | Changed | Start the network |
 | --- | --- |
 | The world, or anything else in `map.json` (spawns, bounds, regions, settings) | The build is all cache and finishes in seconds; the next game runs the new version, and the lobby its own from its next start. |
-| A new map, a map's id, name or kits, a picture, or a deleted map | The build runs again for the lobby's lists and pictures. |
+| A new map, a map's id, name or kits, a picture, a deleted map, or a world that now uses a custom block it didn't | The build runs again: for the lobby's lists and pictures, or the network's cut of the blocks pack (`packs/blocks/README.md`). |
 
 The Panel's Start writes `published\` first; before a `docker compose up --build` by hand, run
 `npm run maps -- export`. A fresh clone has no maps: restore `maps.db` from a backup into the
