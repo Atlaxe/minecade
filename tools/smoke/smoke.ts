@@ -1,7 +1,8 @@
-// End-to-end smoke test that needs no players: (re)builds and starts the stack, starts a Sumo
+// End-to-end smoke test that needs no players: (re)builds and starts the stack, starts a Probe
 // session through the debug API, checks the game container and its port bindings, lets the
 // game give up waiting for players, then checks the session ended cleanly, the container is
-// gone and stats storage answers.
+// gone and stats storage answers. Probe is the test game: the lobby doesn't list it, and its
+// map stays put while the real games' maps come and go.
 //   npm run smoke                 rebuild and start the stack first (docker compose up -d --build)
 //   npm run smoke -- --no-build   use the stack that is already running
 import { spawnSync } from "node:child_process";
@@ -9,8 +10,8 @@ import { fileURLToPath } from "node:url";
 import { connectDocker, findContainerByName } from "../build/docker-util.ts";
 
 const API = "http://127.0.0.1:8080";
-const GAME = "sumo";
-const MAP = "arena_1";
+const GAME = "probe";
+const MAP = "default";
 const GAME_PORT = 19133;
 const root = fileURLToPath(new URL("../../", import.meta.url));
 const docker = connectDocker();
@@ -119,7 +120,7 @@ if (!info?.State.Running) {
   }
 }
 
-console.log("  ....  waiting for the game to give up on players (about 40 s)");
+console.log("  ....  waiting for the game to give up on players (about 30 s)");
 const idle = await waitUntil(150, async () => ((await status())?.state === "idle" ? true : undefined));
 if (!idle) stop("the session didn't end within 150 s");
 const log = orchestratorLog(startedAt);

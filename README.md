@@ -274,7 +274,7 @@ Clients refuse to join a server on a different version. When Minecraft updates:
 | `npm run build` | Validate every game, and bundle the packs, the registry (the published maps from the map store's catalog) and the orchestrator into `dist/`. The Docker build runs this too. Maps' worlds aren't built in: servers read them from the store. |
 | `npm run bake -- <target> <map>` | Build a map's world from its `map.json` (see [docs/maps.md](docs/maps.md)). |
 | `npm run editor` | Boot the map editor, then join its editor lobby on port 19132 (`-- <target> <map>` opens a map right away; `status`, `save` and `stop` too). See [docs/editor.md](docs/editor.md). |
-| `npm run smoke` | End-to-end test with no players: rebuild, start Sumo, check the container and ports, let it end, check cleanup. Add `-- --no-build` to skip the rebuild. |
+| `npm run smoke` | End-to-end test with no players: rebuild, start Probe, check the container and ports, let it end, check cleanup. Add `-- --no-build` to skip the rebuild. |
 | `npm run cmd -- <container> <command>` | Send a console command to a running server, for example `npm run cmd -- minecade-lobby list`. |
 | `npm run panel` | Run the Minecade Panel from the terminal. |
 
