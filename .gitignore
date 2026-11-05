@@ -11,6 +11,10 @@ spike/skins/out/
 /skins/
 *.tsbuildinfo
 **/world.new/
+# The maps and the games' pictures are in the map store beside the checkout (tools/maps), not in git.
+/lobby/maps/
+/games/*/maps/
+/games/*/icon.png
 # The shared blocks pack is generated from a private project and holds mod art that isn't ours to
 # publish (see packs/blocks/README.md).
 packs/blocks/behavior_pack/

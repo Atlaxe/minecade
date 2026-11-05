@@ -1,11 +1,13 @@
 // What the editor can open: the lobby or a game, with the rules its maps are checked against (the
 // same ones the build uses), the numbers of its own marker models (marker-models.ts), and the items
-// its mannequins can hold.
+// its mannequins can hold. Its code is in the checkout (lobby/, games/<id>/); its maps and its
+// picture are in the map store's working folder for it (tools/maps).
 import { existsSync } from "node:fs";
 import { readdir, stat } from "node:fs/promises";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 import { kitItems, possibleTeams, type EditorRules, type GameConfig, type LobbyConfig } from "@minecade/minigame-core/config";
+import { storeDir, workingDir } from "../maps/paths.ts";
 import { listMarkerModels, markerStyles } from "./marker-models.ts";
 
 export interface EditorTarget {
@@ -13,17 +15,24 @@ export interface EditorTarget {
   id: string;
   /** "Lobby", or the game's name. */
   name: string;
+  /** Its code: lobby/, or games/<id>/. */
   dir: string;
+  /** Where its maps are, a folder each (the map store's working\<id>\). */
+  mapsDir: string;
+  /** The game's picture, icon.png beside its maps (the lobby has none). */
+  icon: string;
   rules: EditorRules;
 }
 
 export async function loadTarget(root: string, id: string): Promise<EditorTarget> {
   const models = markerStyles(await listMarkerModels(root), id);
   const markerModels = Object.keys(models).length > 0 ? { markerModels: models } : {};
+  const mapsDir = mapsDirOf(root, id);
+  const icon = join(mapsDir, "icon.png");
   if (id === "lobby") {
     const configPath = join(root, "lobby", "lobby.config.ts");
     const config: LobbyConfig = existsSync(configPath) ? await importConfig(configPath) : {};
-    return { id, name: "Lobby", dir: join(root, "lobby"), rules: { kind: "lobby", requires: config.map, ...markerModels } };
+    return { id, name: "Lobby", dir: join(root, "lobby"), mapsDir, icon, rules: { kind: "lobby", requires: config.map, ...markerModels } };
   }
   const dir = join(root, "games", id);
   const configPath = join(dir, "game.config.ts");
@@ -32,7 +41,7 @@ export async function loadTarget(root: string, id: string): Promise<EditorTarget
   const teams = config.teams ? possibleTeams(config.teams).map(({ id: team, name, color }) => ({ id: team, name, color })) : undefined;
   const items = kitItems(config.kits);
   const mapKits = config.kits?.mapKits === false ? { mapKits: false } : {};
-  return { id, name: config.name, dir, rules: { kind: "game", maxPlayers: config.maxPlayers, requires: config.map, ...(teams ? { teams } : {}), ...markerModels, ...(items.length > 0 ? { items } : {}), ...mapKits } };
+  return { id, name: config.name, dir, mapsDir, icon, rules: { kind: "game", maxPlayers: config.maxPlayers, requires: config.map, ...(teams ? { teams } : {}), ...markerModels, ...(items.length > 0 ? { items } : {}), ...mapKits } };
 }
 
 /**
@@ -51,19 +60,18 @@ export async function listTargets(root: string): Promise<(EditorTarget & { maps:
   const targets: (EditorTarget & { maps: string[] })[] = [];
   for (const id of ids) {
     const target = await loadTarget(root, id);
-    targets.push({ ...target, maps: await mapIds(target.dir) });
+    targets.push({ ...target, maps: await mapIds(target.mapsDir) });
   }
   return targets;
 }
 
-/** The maps a target has: folders in maps/ with a map.json. */
-export async function mapIds(dir: string): Promise<string[]> {
-  const maps = join(dir, "maps");
-  if (!existsSync(maps)) return [];
-  return (await readdir(maps)).filter((id) => existsSync(join(maps, id, "map.json"))).sort();
+/** The maps in a target's maps folder: its folders with a map.json. */
+export async function mapIds(mapsDir: string): Promise<string[]> {
+  if (!existsSync(mapsDir)) return [];
+  return (await readdir(mapsDir)).filter((id) => existsSync(join(mapsDir, id, "map.json"))).sort();
 }
 
-/** A target's folder: lobby/, or games/<id>/. */
-export function targetDir(root: string, target: string): string {
-  return target === "lobby" ? join(root, "lobby") : join(root, "games", target);
+/** Where a target's maps are, a folder each: the map store's working folder for it. */
+export function mapsDirOf(root: string, target: string): string {
+  return workingDir(target, storeDir(root));
 }

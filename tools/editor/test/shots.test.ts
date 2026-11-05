@@ -1,13 +1,11 @@
-// The Snapshot's pictures on the host: Minecraft's own screenshot folders (JPEGs), the shots kept
-// to use again and where each was used, and map folders given another id, whose old folder goes
-// with the next Publish.
+// The Snapshot's pictures on the host: Minecraft's own screenshot folders (JPEGs), and the shots
+// kept to use again and where each was used.
 import { existsSync } from "node:fs";
 import { mkdir, mkdtemp, readFile, rm, utimes, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { decodePng, encodePng } from "../png.ts";
-import { forgetRenames, noteRename, renamedFrom } from "../renames.ts";
 import { minecraftScreenshotFolders } from "../screenshot.ts";
 import { keepNewestScreenshot, readShots, shotFile, shotOf, shotUses, useShot } from "../shots.ts";
 
@@ -83,20 +81,5 @@ describe("the shots kept to use again", () => {
     expect(twice.uses.map((entry) => [entry.kind, entry.at])).toEqual([["game", 3], ["map", 2]]);
     expect(shotUses(twice)).toEqual({ map: "Arena", game: "Sumo" });
     expect(await useShot(root, "s_gone", preview, use)).toBe("that picture is gone");
-  });
-});
-
-describe("renamed map folders", () => {
-  it("carry their old folders to the next Publish, through more than one rename", async () => {
-    const root = join(dir, "renames");
-    await noteRename(root, "games/sumo/maps/pit", "games/sumo/maps/sinkhole");
-    await noteRename(root, "games/sumo/maps/sinkhole", "games/sumo/maps/crater");
-    expect(await renamedFrom(root, "games/sumo/maps/crater")).toEqual(["games/sumo/maps/pit", "games/sumo/maps/sinkhole"]);
-    expect(await renamedFrom(root, "games/sumo/maps/sinkhole")).toEqual([]);
-    // Back to an old name: that folder isn't removed.
-    await noteRename(root, "games/sumo/maps/crater", "games/sumo/maps/pit");
-    expect(await renamedFrom(root, "games/sumo/maps/pit")).toEqual(["games/sumo/maps/sinkhole", "games/sumo/maps/crater"]);
-    await forgetRenames(root, "games/sumo/maps/pit");
-    expect(await renamedFrom(root, "games/sumo/maps/pit")).toEqual([]);
   });
 });

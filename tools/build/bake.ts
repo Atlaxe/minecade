@@ -1,15 +1,17 @@
 // Bakes a map's world from its map.json: boots BDS on an empty (void) world in a temporary
-// container, runs the map's build commands, and copies the result to <target>/maps/<map>/world.
+// container, runs the map's build commands, and copies the result to the map's world in the map
+// store's working folder (tools/maps). Publish it in the map editor to put it in the lobby.
 //   npm run bake -- <target> <map>     for example: npm run bake -- lobby main
 //   npm run bake -- --all              every map that has a "build" section
 //   add --verbose to echo the server console
 import { existsSync } from "node:fs";
 import { mkdir, mkdtemp, readdir, readFile, rename, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join, relative } from "node:path";
+import { join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import * as tar from "tar";
 import { boundsBox, type Box, type GameConfig, type MapConfig } from "@minecade/minigame-core/config";
+import { storeDir, workingDir } from "../maps/paths.ts";
 import { BASE_IMAGE, buildBaseImage } from "./base-image.ts";
 import { bakeSettings, checkBakeSettings, classifyResponse, stripLogPrefix } from "./bake-core.ts";
 import { attachConsole, connectDocker, copyDirFromContainer, findContainerByName, type ServerConsole } from "./docker-util.ts";
@@ -40,14 +42,16 @@ exec ./bedrock_server
 interface MapRef {
   target: string;
   mapId: string;
-  targetDir: string;
+  /** The map's folder in the map store. */
+  mapDir: string;
   map: MapConfig;
 }
 
 async function loadMap(target: string, mapId: string): Promise<MapRef> {
   const targetDir = target === "lobby" ? join(root, "lobby") : join(root, "games", target);
-  const mapJson = join(targetDir, "maps", mapId, "map.json");
-  if (!existsSync(mapJson)) throw new Error(`no map at ${relative(root, mapJson)}`);
+  const mapDir = join(workingDir(target, storeDir(root)), mapId);
+  const mapJson = join(mapDir, "map.json");
+  if (!existsSync(mapJson)) throw new Error(`no map at ${mapJson}`);
   const map = JSON.parse(await readFile(mapJson, "utf8")) as MapConfig;
   let maxPlayers: number | undefined;
   if (target !== "lobby") {
@@ -56,15 +60,15 @@ async function loadMap(target: string, mapId: string): Promise<MapRef> {
   }
   const problems = validateMapConfig(map, { kind: target === "lobby" ? "lobby" : "game", maxPlayers });
   if (!map.build) problems.push('has no "build" section, so there is nothing to bake');
-  if (problems.length > 0) throw new Error(`${relative(root, mapJson)}:\n  ${problems.join("\n  ")}`);
-  return { target, mapId, targetDir, map };
+  if (problems.length > 0) throw new Error(`${mapJson}:\n  ${problems.join("\n  ")}`);
+  return { target, mapId, mapDir, map };
 }
 
 async function findAllMaps(): Promise<MapRef[]> {
   const targets = ["lobby", ...(await readdir(join(root, "games"))).sort()];
   const refs: MapRef[] = [];
   for (const target of targets) {
-    const mapsDir = target === "lobby" ? join(root, "lobby", "maps") : join(root, "games", target, "maps");
+    const mapsDir = workingDir(target, storeDir(root));
     if (!existsSync(mapsDir)) continue;
     for (const mapId of (await readdir(mapsDir)).sort()) {
       const mapJson = join(mapsDir, mapId, "map.json");
@@ -164,7 +168,7 @@ async function bake(ref: MapRef): Promise<void> {
     await container.wait();
     serverConsole.close();
 
-    const worldDir = join(ref.targetDir, "maps", ref.mapId, "world");
+    const worldDir = join(ref.mapDir, "world");
     const fresh = `${worldDir}.new`;
     await rm(fresh, { recursive: true, force: true });
     await copyDirFromContainer(container, "/bds/worlds/bake", fresh);
@@ -174,7 +178,7 @@ async function bake(ref: MapRef): Promise<void> {
     // Retries cover Windows file watchers (VS Code) briefly holding files in the old world.
     await rm(worldDir, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
     await rename(fresh, worldDir);
-    console.log(`  wrote ${relative(root, worldDir)}`);
+    console.log(`  wrote ${worldDir}`);
   } finally {
     await container.remove({ force: true }).catch(() => {});
     await rm(staging, { recursive: true, force: true });
@@ -195,7 +199,7 @@ try {
   if (refs.length === 0) throw new Error('no map has a "build" section');
   buildBaseImage(root, verbose);
   for (const ref of refs) await bake(ref);
-  console.log(`Baked ${refs.length} map${refs.length === 1 ? "" : "s"}. Commit the world folders.`);
+  console.log(`Baked ${refs.length} map${refs.length === 1 ? "" : "s"}. Publish them in the map editor to put them in the lobby.`);
 } catch (error) {
   console.error(`Bake failed: ${error instanceof Error ? error.message : String(error)}`);
   process.exit(1);

@@ -86,9 +86,9 @@ its right, each with a tooltip, and the map's name under them, across the card:
   (see "Preview"). Faded until its checklist is done, and on lobby maps.
 
 A world opened in Select with no map card of its own gets a card too: Select lights up, Edit and
-Preview are faded. Tapping a faded icon says in chat what's missing. A map whose folder has changes
-that aren't on GitHub yet (saved but not published, or a publish whose push failed: git status and
-unpushed commits) says **Unpublished changes** in a tooltip on its card's title.
+Preview are faded. Tapping a faded icon says in chat what's missing. A map whose folder isn't what's
+published (never published, changed since, or given another id since) says **Unpublished changes**
+in a tooltip on its card's title.
 
 While the server you picked loads (about 20 seconds; a big world takes longer to copy), the menu
 says so, with five dots after its title lighting up one at a time, and you're moved there once
@@ -157,7 +157,8 @@ back out.
 
 **What a new map gets:**
 
-- `maps/<id>/world`: the box moved so its middle sits at x 0, z 0 (heights stay), and nothing else.
+- `world\` in the map's folder in the map store: the box moved so its middle sits at x 0, z 0
+  (heights stay), and nothing else.
   Neighboring builds that spill into the same chunks are cleared.
 - A draft `map.json` with its name, `"draft": true`, no spawns yet (they're placed in Edit), a
   **spectator spawn** over the middle, 10 blocks above the highest block of the build (everyone
@@ -419,13 +420,20 @@ you back in creative at every spawn).
 
 ## Saving
 
-- **`map.json`** is written on every change, in the same hand-written style, so `git diff` shows
-  just what changed, and a crash loses nothing. You can edit it in VS Code while the editor runs:
-  the editor picks the change up (as one undo step) and the markers move.
+Maps live in the map store beside the checkout (`C:\dev\minecade\maps\`; see "The map store" in
+[maps.md](maps.md)), never in git. The editor works on the map's folder there,
+`working\<target>\<id>\`.
+
+- **`map.json`** is written on every change, in the same hand-written style, and a crash loses
+  nothing. You can edit it in VS Code while the editor runs: the editor picks the change up (as one
+  undo step) and the markers move.
 - **Save** (the map menu's green bar, the Panel's Save, or `npm run editor -- save`) saves the
-  world into `maps/<id>/world` while the editor keeps running. The markers go away for a moment
+  world into the map's `world\` while the editor keeps running. The markers go away for a moment
   while it saves. Save always saves the world, so use it after changing blocks with commands,
   which the editor can't see.
+- **Versions:** each Save and each stop keeps the map's folder as a version in the store when it
+  changed (the log says "Kept the map as version 4."). `npm run maps -- versions <target> <id>`
+  lists them, and `npm run maps -- restore <target> <id> <n>` puts one back.
 - **Stopping** saves the world too, when blocks changed since the last save (someone placed or broke
   one, or a new map's glass pad). A session that only places spawns leaves the world files
   untouched.
@@ -534,9 +542,9 @@ screenshot as the picture.
    then **Use latest screenshot**: your newest screenshot (taken in the last 10 minutes, a JPEG
    from Minecraft's `com.mojang\Screenshots` or a PNG) has its middle 16:9 scaled to 320x180, kept
    with the others (`work/editor/shots/`, listed with where each was used in
-   `work/editor/shots.json`), and saved as the map's `preview.png` or the game's `icon.png`. Your
-   view comes back. The Panel's checklist card ("Newest screenshot as") and `npm run editor --
-   picture [game]` do the same. Publish commits both.
+   `work/editor/shots.json`), and saved as the map's `preview.png` or the game's `icon.png` (beside
+   its maps in the store). Your view comes back. The Panel's checklist card ("Newest screenshot
+   as") and `npm run editor -- picture [game]` do the same. Publish puts both in the lobby.
 
 **Edit Map Thumbnail** and **Edit Minigame Thumbnail** (the gear) show the pictures kept so far for
 their kind, two to a row, the one in use outlined green; tap one to use it. A map's shows the maps'
@@ -587,10 +595,9 @@ but the lobby shows no picture of its own map.
 
 **Map id** in Name and map id (it shows once the map has a name), or an imported name, gives
 the map open in Edit another id: everyone in Edit waits in the editor lobby, Edit saves and stops,
-the folder moves to `maps/<new id>/`, its world's list in Select and Recent follow, and it opens
-again under the new id with everyone back. An id the game has already is refused. A published map's
-old folder is still in git: its removal goes with the map's next Publish (noted in
-`work/editor/renames.json`).
+the folder moves to the new id and its versions follow, its world's list in Select and Recent
+follow, and it opens again under the new id with everyone back. An id the game has already is
+refused. A published map stays published under its old id until its next Publish.
 
 ## Publishing
 
@@ -601,33 +608,29 @@ Panel it asks first. Then it:
 1. checks the checklist: a map with problems isn't published;
 2. removes `"draft"`, so the build includes the map (an undo step, like any change);
 3. saves the world into the map, when blocks changed since the last save;
-4. commits only the map's folder (`games/<game>/maps/<id>/`, or `lobby/maps/<id>/`), whatever else
-   is changed in the checkout, as `Automated Map Build : <Game> <Map> <date> <time>`, for example
-   `Automated Map Build : Sumo Sewer 2026-10-31 18:42` (this PC's time);
-5. pushes it to GitHub, after catching up with commits pushed from elsewhere when nothing local is
-   in the way.
+4. keeps the map's folder as a version in the map store and points the map's publish at it, with
+   the game's picture when it changed (a map given another id since its last Publish moves to the
+   new id here);
+5. copies the store's database into its `backups\` and writes the store's `published\`, which the
+   network's build reads.
 
-Chat says when it's done, with the commit, and map editors hear a chime and see "Sewer is
-published" above the hotbar. The lobby lists the map from the network's next start: **Shut down**
-the editor, then **Start the network**, which builds from this checkout. A lobby map shows in the
-Panel's lobby map picker instead.
+Nothing goes to git or GitHub. Chat says when it's done, with the version, and map editors hear a
+chime and see "Sewer is published" above the hotbar. The lobby lists the map from the network's
+next start: **Shut down** the editor, then **Start the network**. A lobby map shows in the Panel's
+lobby map picker instead.
 
-Publish again after more changes (the button then reads **Publish changes**): it commits what
-changed. With nothing changed, it says so and commits nothing. When the push fails (no connection,
-or GitHub has commits that clash with local changes), the commit stays here, chat says why, and
-publishing again pushes it. The commit goes on the branch of the checkout the editor runs from
-(the Panel's, normally `main`).
+Publish again after more changes (the button then reads **Publish changes**): it publishes the new
+version. With nothing changed, it says so.
 
 ## Deleting a map
 
 **Delete map** (red, in Edit's gear) asks first, then:
 
 1. everyone in Edit goes to the editor lobby, and Edit stops without saving;
-2. the map's folder is deleted (`games/<game>/maps/<id>/`, or `lobby/maps/<id>/`);
-3. a published map (one git tracks) has its removal committed as `Automated Map Delete : <Game>
-   <Map> <date> <time>` and pushed, the way Publish does, so it leaves the lobby at the network's
-   next start; a draft is only deleted;
-4. it leaves its world's list in Select (every world's, open or not) and Recent.
+2. the map's folder is deleted from the map store, and a published map stops being published, so
+   it leaves the lobby at the network's next start (its versions are kept: the store can bring it
+   back);
+3. it leaves its world's list in Select (every world's, open or not) and Recent.
 
 Chat in the editor lobby says when it's done. A preview has to end first.
 
@@ -679,10 +682,12 @@ Chat in the editor lobby says when it's done. A preview has to end first.
   token. A world opened in Edit that still has markers, mannequins or planes from an earlier run
   (their remembered chunks are in its properties) gets them swept out and counts as changed, so the
   next Save writes it without them.
-- **Publish** (`tools/editor/publish.ts`) runs git in the checkout: `fetch` and `merge --ff-only`
-  (skipped quietly when local changes are in the way), `add --all` and `commit` naming the map's
-  folder (so nothing else staged goes in), then `push`. It never asks on the console
-  (`GIT_TERMINAL_PROMPT=0`), and gives the network steps two minutes, for a sign-in window.
+- **The map store** (`tools/maps/store.ts`) keeps each version as the list of the map folder's
+  files by content hash, in `maps.db` (node:sqlite), with each file's bytes stored once, so a save
+  that changed one LevelDB log adds just that log. Publish points the map at a version; the build
+  never reads `maps.db`, only `published\`, which `exportPublished` writes whole from it. A map's
+  unpublished check compares its folder's hash with the published version's (cached while the
+  files' sizes and times stay the same).
 - **Preview** (`tools/editor/preview-session.ts`, `preview-template.ts`) runs the game the way the
   editor runs its own servers (the base image, with the template and entrypoint put in), with the
   log transport: the game's `[NET]` lines say `server_ready` and `end_game`, and End preview sends
@@ -721,7 +726,7 @@ Chat in the editor lobby says when it's done. A preview has to end first.
      dropped items, then finds the highest block (`getTopmostBlock` over the moved box's columns).
      Stopping the server saves it.
   3. Chunker prunes to the moved box's chunks, and the bake settings go into level.dat.
-  4. The world is swapped into `maps/<id>/world`, and the new map's `map.json` written, with its
+  4. The world is swapped into the new map's `world\` in the store, and its `map.json` written, with its
      spectator spawn 10 blocks above the highest block, which the pack measures after placing.
 
   Chunks are loaded with script ticking areas, a whole phase at once (the source, then the

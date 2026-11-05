@@ -4,8 +4,8 @@
 #   --target orchestrator  minecade/orchestrator:local
 
 # ---------------------------------------------------------------------------
-# build: compiles the packs and templates (dist/templates), the registry and
-# the orchestrator bundle.
+# build: compiles the packs and templates (dist/templates, with the published
+# maps), the registry and the orchestrator bundle.
 # ---------------------------------------------------------------------------
 FROM node:22-bookworm-slim AS build
 WORKDIR /src
@@ -15,6 +15,10 @@ COPY packages/guns/package.json packages/guns/
 COPY orchestrator/package.json orchestrator/
 RUN npm ci --no-audit --no-fund
 COPY . .
+# The published maps and game pictures: the map store's published folder, a second build
+# context ("maps" in docker-compose.yml; tools/maps).
+COPY --from=maps / /published-maps/
+ENV MAPS_PUBLISHED=/published-maps
 RUN npm run build
 
 # ---------------------------------------------------------------------------

@@ -63,7 +63,8 @@ Prophunt, Zombies, Hide and Seek, Block Drop). See [Adding a game](#adding-a-gam
    | `PUBLIC_HOST` | `auto` (looks up your public IP at start) or a DDNS hostname. |
    | `WATCHER_GAMERTAG` | The gamertag of a spare Microsoft account that stays in the lobby to save players' skins (see [Player skins](#player-skins)). Empty turns it off, and players get letter badges. |
    | `BROADCAST` | Empty normally (off). `1` shows the lobby in the Friends tab of a spare account's friends, for console players (see [Friends tab broadcast](#friends-tab-broadcast)). The Panel's Servers page turns it on and off. |
-   | `LOBBY_MAP` | Empty normally (the `spaceship` lobby). The id of another map in `lobby/maps/` to use it as the lobby; the Panel has a picker on the Servers page. Restart the network to apply. |
+   | `LOBBY_MAP` | Empty normally (the `spaceship` lobby). The id of another published lobby map to use it as the lobby; the Panel has a picker on the Servers page. Restart the network to apply. |
+   | `MAP_STORE` | Empty normally: the maps are kept in `maps` beside the checkout (`C:\dev\minecade\maps`). A folder to keep them in instead (docs/maps.md, "The map store"). |
    | `DEV_MIN_PLAYERS` | Empty normally. `1` lets every game start with one player, for testing alone. |
    | `DEV_TEST_GAMES` | Empty normally, which hides the test game (Probe) from the lobby. `1` lists it. |
    | `DEV_HOLO_PREVIEW` | Empty normally. `1` adds a Preview button to the terminal's main menu: pick a hologram screen, and it stays up with sample data until you tap the terminal again, so you can look at it without a form in the way. |
@@ -295,7 +296,7 @@ editor/                   the map editor's packs (its server is started by tools
 packs/blocks/             the shared blocks pack every server loads (custom blocks)
 packs/guns/               the shared guns pack every server loads (guns, paint balls, pickups)
 packs/armor/              the shared armor pack every server loads (leather in 16 dyes; the build writes it)
-games/<id>/               one folder per game: game.config.ts, behavior_pack/, maps/, test/
+games/<id>/               one folder per game: game.config.ts, behavior_pack/, test/ (its maps are in the map store, docs/maps.md)
 orchestrator/             the session manager, transport links, stats store, debug API
 watcher/                  the skin watcher (a bot in the lobby that saves players' skins)
 tools/build/              build, bake and console tools
@@ -310,8 +311,8 @@ docs/                     map format (maps.md), the map editor (editor.md), meas
 ### Adding a game
 
 1. Copy `games/sumo` to `games/<id>` and give `behavior_pack/manifest.json` two new UUIDs (the
-   build rejects duplicates). Replace `icon.png` (the game's 16:9 picture, such as 320x180,
-   in the lobby's game grid and on the hologram; every game needs one).
+   build rejects duplicates). The game's 16:9 picture (in the lobby's game grid and on the
+   hologram) and its maps are made in the map editor and kept in the map store, not in git.
 2. Edit `game.config.ts`: name, player counts, timers, teams, respawns, combat, win rule,
    scoring, kits (and when players pick them), best-of rounds, building, which stats to record,
    and any `options` for the lobby's game screen (see `docs/ui.md`). The fields are documented in

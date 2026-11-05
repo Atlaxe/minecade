@@ -1,8 +1,10 @@
 # Maps
 
-Every server target (the lobby, and each game under `games/<id>/`) has one or more maps in
-`maps/<map-id>/`. A map is a `map.json` plus a `world/` folder. The build checks every map and
-copies it into the server templates. Each game server starts from a fresh copy of its world.
+Every server target (the lobby, and each game under `games/<id>/`) has one or more maps. A map
+is a `map.json` plus a `world/` folder (and a `preview.png`, the lobby's picture of it). Maps
+aren't in git: they live in the map store beside the checkout (see "The map store" below). The
+build checks every published map and copies it into the server templates. Each game server starts
+from a fresh copy of its world.
 
 The map editor sets spawns and points in game and writes `map.json` for you; see
 [editor.md](editor.md).
@@ -27,7 +29,7 @@ The map editor sets spawns and points in game and writes `map.json` for you; see
 | Field | Required | Meaning |
 |---|---|---|
 | `name` | yes | Shown in the game selector. |
-| `draft` | no | `true` for an unfinished map: the build skips it with a warning (and skips a game whose maps are all drafts). The map editor's Publish removes it, then commits and pushes the map. |
+| `draft` | no | `true` for an unfinished map: the build skips it with a warning (and skips a game whose maps are all drafts). The map editor's Publish removes it, then publishes the map. |
 | `spawns` | yes | Positions (see below). The lobby needs one; a game needs one per player slot (at least `maxPlayers`), and a game with team spawns none (unless its config asks for them; then `[]` is fine). The first is also the world spawn (else the first team spawn). |
 | `spectatorSpawn` | no | Where players watch from when they're out or waiting to respawn, flying in spectator mode. A map without one has them watch from its `queueSpawn` instead (see below). A game needs one or the other unless its config says otherwise. |
 | `queueSpawn` | no | Where players wait for everyone to join before the game puts them at their spawns (see "The queue spawn" below). |
@@ -205,8 +207,39 @@ copy.
 
 **The lobby** declares its own in `lobby/lobby.config.ts`: one spawn and the `terminal` point
 (the middle block of the terminal's 3x3 console; the hologram floats above it). `LOBBY_MAP` in
-`.env` picks which of `lobby/maps/` is the live lobby (default `spaceship`), and the Panel has a
+`.env` picks which published lobby map is the live lobby (default `spaceship`), and the Panel has a
 picker for it on the Servers page. A restart applies it.
+
+## The map store
+
+The maps and the games' pictures are kept in `C:\dev\minecade\maps\`, beside the checkouts, and
+never go to GitHub. It's `..\maps` from the repo root, so the main checkout and every
+`network-<topic>` worktree see the same one; `MAP_STORE` in `.env` puts it somewhere else.
+
+| In the store | What it is |
+| --- | --- |
+| `working\<target>\<map>\` | The map the map editor works on: `map.json`, `preview.png`, `world\`. `<target>` is `lobby` or a game id. |
+| `working\<game>\icon.png` | The game's picture, taken with the editor's Camera tool. |
+| `maps.db` | Every map's versions and which one is published (node:sqlite). A version is the map's folder as it was; files that didn't change are stored once. |
+| `published\` | The published maps and pictures as the build reads them, written from `maps.db` on every Publish and every Panel Start. |
+| `backups\` | A copy of `maps.db` after every publish and delete, the newest 30. |
+
+The map editor keeps a version each time it saves the world and each time it stops, and Publish
+points the map at its newest version. The store keeps every published version and the newest 20
+others of each map. A deleted map keeps its versions too.
+
+```
+npm run maps -- list                          the published maps
+npm run maps -- versions <target> <map>       a map's versions, the newest first
+npm run maps -- restore <target> <map> <n>    put version n back (close the map in the editor first), then Publish it
+npm run maps -- export                        write published\ again
+npm run maps -- backup                        copy maps.db into backupsnpm run maps -- import [<checkout>]           take the maps out of a git checkout (HEAD's come in published)
+```
+
+The Docker build gets `published\` as a second build context (`maps` in `docker-compose.yml`).
+The Panel's Start writes it first; before a `docker compose up --build` by hand, run
+`npm run maps -- export`. A fresh clone has no maps: restore `maps.db` from a backup into the
+store and run the export.
 
 ## Baking a map
 
@@ -216,9 +249,9 @@ npm run bake -- --all              every map with a "build" section
 ```
 
 Baking starts a temporary server (no ports published) on an empty void world, runs the
-`build.commands` inside `bounds`, and replaces `world/` with the result. Baked worlds are
-always noon, with no weather, mob spawning, fire spread or mob griefing. Each one is a few
-kilobytes, so commit it.
+`build.commands` inside `bounds`, and replaces the map's `world\` in the store with the result.
+Baked worlds are always noon, with no weather, mob spawning, fire spread or mob griefing. Publish
+the map in the map editor to put it in the lobby.
 
 The bake stops on any command error (bad syntax, unknown block, more than 32768 blocks in
 one `fill`) and quotes the server's message. Add `--verbose` to watch the server console.
@@ -228,8 +261,11 @@ one `fill`) and quotes the server's message. Add `--verbose` to watch the server
 You can build a map by hand in Minecraft instead:
 
 1. Build it in a creative world.
-2. Copy that world's folder (from `minecraftWorlds/`) to `<target>/maps/<map-id>/world/`.
-3. Write a `map.json` without a `build` section.
-4. Run `npm run build`.
+2. Copy that world's folder (from `minecraftWorlds/`) to the store's
+   `working\<target>\<map-id>\world\`.
+3. Write a `map.json` without a `build` section beside it.
+4. Open it in the map editor and Publish it.
+
+The map editor's Select mode does all of this for you from a box drawn around part of a world.
 
 The build turns on the Beta APIs experiment in the shipped copy, which every Minecade pack needs.

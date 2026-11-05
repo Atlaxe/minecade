@@ -63,7 +63,7 @@ your PC (host)                                     Docker
 - **Switching modes means switching worlds,** so the server restarts. Everyone waits in the lobby meanwhile and comes back automatically (see "Mode switches through the lobby").
   - Extraction runs in a separate temporary container, so you can keep selecting maps while earlier ones extract.
 - **What is saved when:**
-  - `map.json` is written to the repo on every change, and git is its history.
+  - `map.json` is written on every change. (Since 2026-11-05 maps live in the map store beside the checkout, not in git, and the store keeps their versions: docs/maps.md, "The map store".)
   - The world is saved on "Save world", when you switch modes, and when you stop.
 - **Messages:** the pack applies an edit at once (instant visuals) and sends the edit op. The host applies the same op with the same shared code, writes the file, and runs validation.
   - If the two copies disagree, the host sends a full resync.
@@ -378,8 +378,7 @@ Every change shows in `map.json` at once (watch it in VS Code), and undo is in t
 |---|---|---|
 | your client's `minecraftWorlds/` (or any folder) | your converted Bedrock worlds, never modified | no |
 | `work/` | Select copies, saved selections, extraction scratch | no |
-| `games/<game>/maps/<id>/` | `map.json`, `world/`, `preview.png` | yes |
-| `lobby/maps/<id>/` | the same, for lobbies | yes |
+| the map store's `working\<target>\<id>\` (`C:\dev\minecade\maps\`, since 2026-11-05; it was `games/<game>/maps/<id>/` and `lobby/maps/<id>/`) | `map.json`, `world/`, `preview.png` | no |
 
 ## Passes (stop and report after each, commit and push)
 

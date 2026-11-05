@@ -18,13 +18,13 @@ export async function addPictures(pack: string, root: string): Promise<void> {
     await copyFile(shotFile(root, shot.id), join(textures, "shots", `${shot.id}.png`));
   }
   for (const target of await listTargets(root)) {
-    const icon = join(target.dir, "icon.png");
+    const icon = target.icon;
     if (target.id !== "lobby" && existsSync(icon)) {
       await mkdir(join(textures, "games"), { recursive: true });
       await copyFile(icon, join(textures, "games", `${target.id}.png`));
     }
     for (const map of target.maps) {
-      const preview = join(target.dir, "maps", map, "preview.png");
+      const preview = join(target.mapsDir, map, "preview.png");
       if (!existsSync(preview)) continue;
       await mkdir(join(textures, "maps", target.id), { recursive: true });
       await copyFile(preview, join(textures, "maps", target.id, `${map}.png`));
@@ -39,17 +39,17 @@ export async function pictureInfo(root: string, targetId: string, mapId: string)
   const target = targets.find((candidate) => candidate.id === targetId);
   const current: PictureInfo["current"] = {};
   if (target) {
-    const preview = join(target.dir, "maps", mapId, "preview.png");
+    const preview = join(target.mapsDir, mapId, "preview.png");
     if (existsSync(preview)) current.map = (await shotOf(root, preview, shots)) ?? "own";
-    const icon = join(target.dir, "icon.png");
+    const icon = target.icon;
     if (target.id !== "lobby" && existsSync(icon)) current.game = (await shotOf(root, icon, shots)) ?? "own";
   }
   const maps: PictureInfo["maps"] = [];
   for (const other of targets) {
     for (const map of other.maps) {
       if (other.id === targetId && map === mapId) continue;
-      if (!existsSync(join(other.dir, "maps", map, "preview.png"))) continue;
-      maps.push({ target: other.id, targetName: other.name, map, name: (await mapName(join(other.dir, "maps", map, "map.json"))) ?? map });
+      if (!existsSync(join(other.mapsDir, map, "preview.png"))) continue;
+      maps.push({ target: other.id, targetName: other.name, map, name: (await mapName(join(other.mapsDir, map, "map.json"))) ?? map });
     }
   }
   return { shots: shots.map((shot) => ({ id: shot.id, ...shotUses(shot) })), current, maps };

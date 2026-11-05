@@ -19,6 +19,8 @@ import { broadcastEditor, editorStatus, endPreviewEditor, guestEditor, pictureEd
 import { editorPlayers, type EditorStatus } from "../editor/editor-core.ts";
 import { addGuest, readGuests, removeGuest, writeGuests } from "../editor/guests.ts";
 import { cacheVanillaTextures } from "../build/vanilla-textures.ts";
+import { publishedDir, storeDir } from "../maps/paths.ts";
+import { MapStore } from "../maps/store.ts";
 import {
   BroadcastLog,
   checkLobbyMap,
@@ -58,9 +60,9 @@ const EDITOR_LAUNCH_MS = 30_000;
 /** How long a restarting editor may take to shut down (Edit saves first) before the Panel stops waiting. */
 const EDITOR_STOP_MS = 5 * 60_000;
 /** The Panel's own code: when one of these changes, the page offers Restart Panel. */
-const PANEL_SOURCES = ["tools/control-panel/panel.ts", "tools/control-panel/core.ts", "tools/editor/control.ts", "tools/editor/editor-core.ts", "tools/editor/guests.ts"];
-/** The map editor's code (the host tool, its packs, the shared core and the server entrypoint). */
-const EDITOR_SOURCES = ["tools/editor", "tools/build", "editor", "packages/minigame-core/src", "docker/bds/entrypoint.sh"];
+const PANEL_SOURCES = ["tools/control-panel/panel.ts", "tools/control-panel/core.ts", "tools/editor/control.ts", "tools/editor/editor-core.ts", "tools/editor/guests.ts", "tools/maps"];
+/** The map editor's code (the host tool, its packs, the map store, the shared core and the server entrypoint). */
+const EDITOR_SOURCES = ["tools/editor", "tools/build", "tools/maps", "editor", "packages/minigame-core/src", "docker/bds/entrypoint.sh"];
 /** Source times are read again at most this often. */
 const SOURCE_TIMES_MS = 5000;
 const dataDir = join(process.env.LOCALAPPDATA ?? tmpdir(), "minecade-panel");
@@ -217,9 +219,9 @@ async function orchestratorStatus(): Promise<unknown> {
   }
 }
 
-/** The finished lobby maps, for the LOBBY_MAP picker. */
+/** The published lobby maps (the map store's published folder), for the LOBBY_MAP picker. */
 async function lobbyMaps() {
-  const dir = join(repoRoot, "lobby", "maps");
+  const dir = join(publishedDir(repoRoot), "lobby");
   if (!existsSync(dir)) return [];
   const entries: { id: string; json: string }[] = [];
   for (const id of (await readdir(dir)).sort()) {
@@ -446,6 +448,18 @@ function runCompose(stack: StackDef, action: string, done?: (ok: boolean) => voi
       if (!cacheVanillaTextures()) note("Minecraft's textures aren't on this PC: kit forms will list items as text, and the dyed leather armor pack can't be written.");
     } catch (error) {
       note(`Could not copy Minecraft's textures: ${error instanceof Error ? error.message : String(error)}`);
+    }
+    // The build takes the maps from the map store's published folder, written again here from its
+    // database so it's what was published, whatever happened to the folder since.
+    try {
+      const store = MapStore.open(storeDir(repoRoot));
+      try {
+        store.exportPublished();
+      } finally {
+        store.close();
+      }
+    } catch (error) {
+      note(`Could not write the published maps: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
   const args = ["compose", "--ansi", "never", "--progress", "plain", "-f", join(repoRoot, stack.file), "--env-file", envPath];
@@ -761,7 +775,8 @@ function launchEditor(): { status: number; body: unknown } {
   mkdirSync(dirname(editorLogPath), { recursive: true });
   const out = openSync(editorLogPath, "w");
   try {
-    const child = spawn(process.execPath, ["--import", "tsx", join("tools", "editor", "editor.ts")], {
+    // node:sqlite (the map store) is stable enough for us but still prints an experimental warning.
+    const child = spawn(process.execPath, ["--disable-warning=ExperimentalWarning", "--import", "tsx", join("tools", "editor", "editor.ts")], {
       cwd: repoRoot,
       detached: true,
       stdio: ["ignore", out, out],

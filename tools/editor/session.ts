@@ -1,9 +1,11 @@
 // The Edit server: one map. Stages the map in its server container, keeps map.json in step with the
 // game (it applies the pack's edits with the same code, writes the file, keeps undo and redo, and
 // sends hand edits of map.json into the game), saves the world back into the map on Save (while it
-// runs, with save hold), and on stop when blocks changed since the last save. Publish saves too, then
-// commits the map's folder and pushes it (publish.ts). The server itself (starting, the console,
-// opping map editors) is ServerSession's.
+// runs, with save hold), and on stop when blocks changed since the last save. The map's folder is
+// in the map store (tools/maps): each world save and each stop keeps it as a version there, and
+// Publish saves, then publishes it (and the game's picture) and writes the store's published\ for
+// the next network build. The server itself (starting, the console, opping map editors) is
+// ServerSession's.
 import { randomUUID } from "node:crypto";
 import { existsSync, unwatchFile, watchFile } from "node:fs";
 import { cp, mkdir, readFile, rename, rm, writeFile } from "node:fs/promises";
@@ -24,14 +26,13 @@ import { bakeSettings } from "../build/bake-core.ts";
 import { copyDirFromContainer } from "../build/docker-util.ts";
 import { enableBetaApis, patchLevelDat, readLevelDat, writeLevelDat } from "../build/leveldat.ts";
 import { History, isMapId, newMapConfig, withLineEndings, type EditStatus } from "./editor-core.ts";
+import type { MapStore, PublishResult } from "../maps/store.ts";
 import type { PreviewMap } from "./preview-template.ts";
-import { gitIn, publishMap, publishMessage, type Git } from "./publish.ts";
 import { findWorld } from "./selections.ts";
 import { savedWith } from "./world-log.ts";
 import { RUNTIME_FILES, ServerSession, delay, message, root, type SessionBase } from "./server-session.ts";
-import { targetDir, type EditorTarget } from "./targets.ts";
+import type { EditorTarget } from "./targets.ts";
 import { pictureInfo } from "./pictures.ts";
-import { forgetRenames, renamedFrom } from "./renames.ts";
 import { keepNewestScreenshot, useShot, type ShotKind } from "./shots.ts";
 import { readViews, saveView } from "./views.ts";
 import type { World } from "./worlds.ts";
@@ -48,8 +49,8 @@ export interface SessionOptions extends SessionBase {
   mapId: string;
   /** Make a new draft map (map.json and a void world with a glass pad), with this name. */
   fresh?: { name: string };
-  /** How Publish runs git: in this checkout, unless a test says otherwise. */
-  git?: Git;
+  /** The map store the map's folder is in. */
+  store: MapStore;
 }
 
 export class EditorSession extends ServerSession {
@@ -62,7 +63,7 @@ export class EditorSession extends ServerSession {
   private readonly target: EditorTarget;
   private readonly mapId: string;
   private readonly fresh: { name: string } | undefined;
-  private readonly git: Git;
+  private readonly store: MapStore;
   private readonly mapDir: string;
   private readonly mapPath: string;
   private config: MapConfig = { name: "", spawns: [] };
@@ -90,8 +91,8 @@ export class EditorSession extends ServerSession {
     this.target = options.target;
     this.mapId = options.mapId;
     this.fresh = options.fresh;
-    this.git = options.git ?? gitIn(root);
-    this.mapDir = join(options.target.dir, "maps", options.mapId);
+    this.store = options.store;
+    this.mapDir = options.store.folder(options.target.id, options.mapId);
     this.mapPath = join(this.mapDir, "map.json");
   }
 
@@ -170,7 +171,7 @@ export class EditorSession extends ServerSession {
   }
 
   protected async prepare(): Promise<void> {
-    const path = relative(root, this.mapPath);
+    const path = this.mapPath;
     if (this.fresh) {
       if (existsSync(this.mapPath)) throw new Error(`${path} already exists: leave out --new to edit it`);
       await mkdir(this.mapDir, { recursive: true });
@@ -398,13 +399,25 @@ export class EditorSession extends ServerSession {
       if (running) await this.stopServer();
       if (clean) await this.saveWorldFiles((dest) => copyDirFromContainer(this.container!, "/bds/worlds/active", dest));
       else if (!this.unsaved) this.note("No blocks changed since the last save, so the world was kept as it was.");
+      // map.json may have changed without the world.
+      if (existsSync(this.mapPath)) this.keepVersion();
     } catch (error) {
       this.note(`Stopping went wrong: ${message(error)}`);
     } finally {
       await this.endSession(failed, () => {
         this.noteChecklist();
-        this.note(`Stopped. See the changes with: git status ${relative(root, this.mapDir).replaceAll("\\", "/")}`);
+        this.note(`Stopped. The map is in ${this.mapDir}.`);
       });
+    }
+  }
+
+  /** Keeps the map's folder as its next version in the map store, when it changed since the newest. */
+  private keepVersion(by?: string): void {
+    try {
+      const { version, created } = this.store.saveVersion(this.target.id, this.mapId, "save", by);
+      if (created) this.note(`Kept the map as version ${version}.`);
+    } catch (error) {
+      this.note(`The map wasn't kept as a version: ${message(error)}`);
     }
   }
 
@@ -441,6 +454,7 @@ export class EditorSession extends ServerSession {
       return false;
     }
     this.unsaved = this.changedWhileSaving;
+    this.keepVersion(by);
     void this.say(`Saved the map and the world (${by}).`);
     return true;
   }
@@ -457,10 +471,10 @@ export class EditorSession extends ServerSession {
       return;
     }
     const name = this.config.name;
-    const path = relative(root, this.mapDir).replaceAll("\\", "/");
+    const path = `${this.target.id}/${this.mapId}`;
     this.note(`${by}: publishing ${path}...`);
     void this.sendStatus();
-    void this.say(`${by} is publishing ${chatMapName(this.target.name, name)}: saving, then commit and push...`);
+    void this.say(`${by} is publishing ${chatMapName(this.target.name, name)}: saving, then publishing...`);
     if (this.config.draft === true) {
       const edit = { op: "draft", draft: false } as const;
       this.history.record(this.config, `${describeEdit(edit)} (${by})`);
@@ -474,30 +488,31 @@ export class EditorSession extends ServerSession {
       return;
     }
     await this.writing;
-    // A game's picture (the camera's Game picture) goes along when it changed, and so does the
-    // removal of the folder this map had before it got another id.
-    const icon = join(this.target.dir, "icon.png");
-    const paths = this.target.id !== "lobby" && existsSync(icon) ? [path, relative(root, icon).replaceAll("\\", "/")] : [path];
-    const old = await renamedFrom(root, path);
-    const result = await publishMap(this.git, [...paths, ...old], publishMessage(this.target.name, name, new Date()));
-    if (result.outcome === "pushed" && old.length > 0) await forgetRenames(root, path);
-    if (result.outcome === "pushed") {
-      const commit = result.commit ? ` (commit ${result.commit})` : "";
-      const where = this.target.id === "lobby" ? "the Panel's lobby map picker has it" : `it's in ${this.target.name}'s map list in the lobby`;
-      this.note(`Published ${path}${commit}: committed and pushed.`);
-      void this.say(`${chatMapName(this.target.name, name)} §ais published${commit}: ${where} from the network's next start.`);
-      void this.send({ t: "notice", text: `§a${name} is published` });
-    } else if (result.outcome === "unchanged") {
-      this.note(`${path} has no changes since it was last published.`);
-      void this.say(`${chatMapName(this.target.name, name)} has no changes since it was last published.`, by);
-    } else {
-      this.note(`Publishing ${path} failed${result.commit ? ` after commit ${result.commit}` : ""}: ${result.error}`);
-      void this.say(
-        result.commit
-          ? `§c${name} is committed here (${result.commit}) but NOT pushed: ${result.error}. Publish again to push it.`
-          : `§c${name} was NOT published: ${result.error}.`,
-      );
+    // The game's picture (the camera's Game picture) goes along when it changed. A map given
+    // another id stops being published under its old one here.
+    let result: PublishResult;
+    try {
+      result = this.store.publish(this.target.id, this.mapId, by);
+    } catch (error) {
+      this.note(`Publishing ${path} failed: ${message(error)}`);
+      void this.say(`§c${name} was NOT published: ${message(error)}.`);
+      return;
     }
+    if (result.outcome === "unchanged") {
+      this.note(`${path} has no changes since it was last published (version ${result.version}).`);
+      void this.say(`${chatMapName(this.target.name, name)} has no changes since it was last published.`, by);
+      return;
+    }
+    try {
+      this.store.exportPublished();
+    } catch (error) {
+      // The Panel writes it again when it starts the network.
+      this.note(`The store's published folder wasn't written (${message(error)}): the Panel's Start writes it again.`);
+    }
+    const where = this.target.id === "lobby" ? "the Panel's lobby map picker has it" : `it's in ${this.target.name}'s map list in the lobby`;
+    this.note(`Published ${path} as version ${result.version}.`);
+    void this.say(`${chatMapName(this.target.name, name)} §ais published (version ${result.version}): ${where} from the network's next start.`);
+    void this.send({ t: "notice", text: `§a${name} is published` });
   }
 
   /**
@@ -523,7 +538,7 @@ export class EditorSession extends ServerSession {
   async thumbnail(by: string, kind: ShotKind, id: string, from = "from the pictures used before"): Promise<string | undefined> {
     const problem = this.pictureProblem(by);
     if (problem) return problem;
-    const out = kind === "map" ? join(this.mapDir, "preview.png") : join(this.target.dir, "icon.png");
+    const out = kind === "map" ? join(this.mapDir, "preview.png") : this.target.icon;
     const use = { target: this.target.id, targetName: this.target.name, map: this.mapId, mapName: this.config.name, kind, at: Date.now() };
     const failed = await useShot(root, id, out, use).catch((error: unknown) => message(error));
     if (failed) {
@@ -531,7 +546,7 @@ export class EditorSession extends ServerSession {
       return failed;
     }
     const what = kind === "map" ? `${this.config.name}'s thumbnail` : `${this.target.name}'s thumbnail`;
-    this.note(`${by}: saved ${relative(root, out).replaceAll("\\", "/")} (320x180) ${from}.`);
+    this.note(`${by}: saved ${out} (320x180) ${from}.`);
     this.tellOne(by, `§aSaved ${what} ${from}. Publish puts it in the lobby.`);
     return undefined;
   }
@@ -539,7 +554,7 @@ export class EditorSession extends ServerSession {
   /** Uses another map's preview picture as this map's (the thumbnail menu's import). */
   private async importPicture(by: string, targetId: string, mapId: string): Promise<void> {
     if (this.pictureProblem(by)) return;
-    const picture = join(targetDir(root, targetId), "maps", mapId, "preview.png");
+    const picture = join(this.store.folder(targetId, mapId), "preview.png");
     if (!isMapId(mapId) || !existsSync(picture)) {
       this.tellOne(by, "§cThat map has no picture any more.");
       return;
@@ -616,7 +631,7 @@ export class EditorSession extends ServerSession {
       await rm(fresh, { recursive: true, force: true }).catch(() => {});
       return false;
     }
-    this.note(`Saved the world to ${relative(root, worldDir)}.`);
+    this.note(`Saved the world to ${worldDir}.`);
     if (this.config.build) this.note("Note: npm run bake would replace these block changes. Drop the build commands in the map menu to keep them.");
     return true;
   }

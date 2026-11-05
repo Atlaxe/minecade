@@ -11,7 +11,7 @@ import { readEnv } from "../control-panel/core.ts";
 import { buildChunkerImage } from "./chunker.ts";
 import { extract } from "./extract.ts";
 import { draftMap, parseSelectFile, worldSlug, type SelectFile, type Selection } from "./select-core.ts";
-import { listTargets, loadTarget, targetDir } from "./targets.ts";
+import { listTargets, loadTarget, mapsDirOf } from "./targets.ts";
 import { clientWorlds, pickWorld, type World } from "./worlds.ts";
 
 /** A selection changed (or, with `gone`, left the list), in the world called `world`. */
@@ -187,7 +187,7 @@ export class Selections {
 
   private async run(file: SelectFile, selection: Selection): Promise<void> {
     if (!file.selections.includes(selection)) return;
-    const mapDir = join(targetDir(this.root, selection.target), "maps", selection.map);
+    const mapDir = join(mapsDirOf(this.root, selection.target), selection.map);
     const label = `${selection.target}/${selection.map}`;
     try {
       if (existsSync(join(mapDir, "map.json"))) throw new Error(`there is a map ${label} already`);
@@ -215,14 +215,14 @@ export class Selections {
     await this.changed(file, selection);
   }
 
-  /** Maps in the repo whose source is a world of this name join its list (after a fresh clone, say). */
+  /** Maps in the store whose source is a world of this name join its list (after a restore, say). */
   private async adoptMaps(file: SelectFile): Promise<void> {
     for (const target of await listTargets(this.root)) {
       for (const map of target.maps) {
         if (file.selections.some((selection) => selection.target === target.id && selection.map === map)) continue;
         let config: MapConfig;
         try {
-          config = JSON.parse(await readFile(join(target.dir, "maps", map, "map.json"), "utf8")) as MapConfig;
+          config = JSON.parse(await readFile(join(target.mapsDir, map, "map.json"), "utf8")) as MapConfig;
         } catch {
           continue;
         }

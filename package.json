@@ -9,8 +9,9 @@
   "scripts": {
     "test": "vitest run",
     "build": "tsx tools/build/build.ts",
-    "bake": "tsx tools/build/bake.ts",
-    "editor": "tsx tools/editor/editor.ts",
+    "bake": "tsx --disable-warning=ExperimentalWarning tools/build/bake.ts",
+    "editor": "tsx --disable-warning=ExperimentalWarning tools/editor/editor.ts",
+    "maps": "tsx --disable-warning=ExperimentalWarning tools/maps/maps.ts",
     "check": "npm run typecheck && npm test",
     "spike:build": "tsx spike/build-packs.ts",
     "spike:world": "tsx spike/make-world.ts",

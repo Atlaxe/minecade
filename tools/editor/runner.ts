@@ -10,7 +10,7 @@
 // Extractions (selections.ts) run in the background and outlive the servers.
 import { existsSync } from "node:fs";
 import { readFile, rename } from "node:fs/promises";
-import { join, relative } from "node:path";
+import { join } from "node:path";
 import {
   chatMapName,
   mapChecklist,
@@ -25,20 +25,20 @@ import {
 } from "@minecade/minigame-core/config";
 import { connectDocker } from "../build/docker-util.ts";
 import { readEnv } from "../control-panel/core.ts";
+import { storeDir } from "../maps/paths.ts";
+import { MapStore } from "../maps/store.ts";
 import { EditorBroadcast } from "./broadcast.ts";
 import { buildCatalog, forgetRecent, mapLabel, noteRecent, renameRecent, requestedWorld, worldId } from "./catalog.ts";
 import { SLOTS, editorPlayers, isMapId, planOpen, portHolders, type EditorStatus, type Slot, type SlotId } from "./editor-core.ts";
 import { addGuest, readGuests, removeGuest, writeGuests } from "./guests.ts";
 import { HomeSession } from "./home-session.ts";
 import { PreviewSession } from "./preview-session.ts";
-import { noteRename } from "./renames.ts";
 import type { PreviewMap } from "./preview-template.ts";
-import { deleteMapFolder, deleteMessage, gitIn, type Git } from "./publish.ts";
 import { SelectSession } from "./select-session.ts";
 import { Selections } from "./selections.ts";
 import { delay, message, type ServerSession } from "./server-session.ts";
 import { EditorSession } from "./session.ts";
-import { loadTarget, targetDir } from "./targets.ts";
+import { loadTarget, mapsDirOf } from "./targets.ts";
 import { clientWorlds } from "./worlds.ts";
 
 const LOG_KEPT = 300;
@@ -77,8 +77,8 @@ export interface RunnerOptions {
   verbose: boolean;
   /** The servers' ports and containers (a headless test passes its own). */
   slots?: Record<SlotId, Slot>;
-  /** How Publish runs git (a headless test passes one that never pushes to GitHub). */
-  git?: Git;
+  /** The map store (a headless test passes its own): maps\ beside the checkout, or MAP_STORE. */
+  store?: MapStore;
 }
 
 export class EditorRunner {
@@ -86,7 +86,7 @@ export class EditorRunner {
   private readonly root: string;
   private readonly verbose: boolean;
   private readonly slots: Record<SlotId, Slot>;
-  private readonly git: Git | undefined;
+  private readonly store: MapStore;
   private readonly lines: string[] = [];
   private readonly startedAt = new Date().toISOString();
   private state: EditorStatus["state"] = "starting";
@@ -126,7 +126,7 @@ export class EditorRunner {
     this.root = options.root;
     this.verbose = options.verbose;
     this.slots = options.slots ?? SLOTS;
-    this.git = options.git;
+    this.store = options.store ?? MapStore.open(storeDir(this.root));
     this.selections = new Selections(this.root, { verbose: this.verbose, note: (text) => this.log(`Extract: ${text}`) });
     this.broadcast = new EditorBroadcast({ root: this.root, note: (text) => this.log(text) });
     this.selections.onChange((world, info, gone) => {
@@ -304,6 +304,7 @@ export class EditorRunner {
         await this.selections.idle();
       }
       this.log("Shut down.");
+      this.store.close();
       this.onExit(this.error === undefined);
     })();
     return this.shutting;
@@ -350,7 +351,7 @@ export class EditorRunner {
   private async editLaunch(request: Extract<OpenRequest, { to: "edit" }>): Promise<Launch> {
     const target = await loadTarget(this.root, request.target);
     if (!isMapId(request.map)) throw new Error(`"${request.map}" is not a map id: use lower case letters, digits, _ and -`);
-    const path = join(target.dir, "maps", request.map, "map.json");
+    const path = join(target.mapsDir, request.map, "map.json");
     let name: string;
     if (request.fresh) {
       if (existsSync(path)) throw new Error(`${target.name} has a map "${request.map}" already`);
@@ -365,7 +366,7 @@ export class EditorRunner {
       request: { to: "edit", target: request.target, map: request.map },
       label: mapLabel(target.name, name, request.map),
       chat: chatMapName(target.name, name),
-      make: () => new EditorSession({ slot: this.slots.edit, verbose: this.verbose, note: (text) => this.log(text), target, mapId: request.map, fresh: request.fresh, git: this.git }),
+      make: () => new EditorSession({ slot: this.slots.edit, verbose: this.verbose, note: (text) => this.log(text), target, mapId: request.map, fresh: request.fresh, store: this.store }),
     };
   }
 
@@ -497,15 +498,15 @@ export class EditorRunner {
         this.opened.delete("edit");
         this.homeChanged();
         await edit.forceStop();
-        const path = relative(this.root, join(targetDir(this.root, target), "maps", map)).replaceAll("\\", "/");
-        const result = await deleteMapFolder(this.git ?? gitIn(this.root), this.root, path, deleteMessage(targetName, mapName, new Date()));
+        // Its versions stay in the map store: npm run maps -- restore brings it back.
+        const { published } = this.store.remove(target, map);
+        if (published) this.store.exportPublished();
         await this.selections.removeMap(target, map);
         await forgetRecent(this.root, (entry) => entry.request.to !== "select" && entry.request.target === target && entry.request.map === map);
         this.homeChanged();
         let text = `Deleted ${chat}.`;
-        if (result.published && result.outcome === "pushed") text += ` Its removal is pushed${result.commit ? ` (${result.commit})` : ""}: it leaves the lobby at the network's next start.`;
-        else if (result.published && result.outcome === "failed") text += ` §cIts removal wasn't pushed: ${result.error}.`;
-        this.log(`Deleted ${label}.${text.slice(`Deleted ${chat}.`.length).replace(/§./g, "")}`);
+        if (published) text += " It leaves the lobby at the network's next start.";
+        this.log(`Deleted ${label}.${text.slice(`Deleted ${chat}.`.length)}`);
         void this.tell(by, text);
       })
       .catch((error: unknown) => {
@@ -517,8 +518,9 @@ export class EditorRunner {
   /**
    * Gives the map open in Edit another map id (Map settings' Map id, or a picture imported with its
    * map's name): everyone there waits in the editor lobby, Edit saves and stops, the folder moves
-   * (a published map's old folder goes with its next Publish), Select's lists and Recent follow,
-   * and the map opens again under its new id with everyone back.
+   * and its history in the map store follows (a published map stays published under its old id
+   * until its next Publish), Select's lists and Recent follow, and the map opens again under its
+   * new id with everyone back.
    */
   private renameMap(by: string, edit: EditorSession, to: string): void {
     if (this.isGuest(by) || this.work.edit !== edit) return;
@@ -528,12 +530,12 @@ export class EditorRunner {
     }
     const { target, targetName, map, mapName } = edit.status();
     if (to === map) return;
-    const dir = targetDir(this.root, target);
+    const dir = mapsDirOf(this.root, target);
     if (!isMapId(to)) {
       void this.tell(by, `§c"${to}" is not a map id: use lower case letters, digits, _ and -.`);
       return;
     }
-    if (existsSync(join(dir, "maps", to))) {
+    if (existsSync(join(dir, to))) {
       void this.tell(by, `§c${targetName} has a map "${to}" already: pick another id.`);
       return;
     }
@@ -557,14 +559,12 @@ export class EditorRunner {
         this.opened.delete("edit");
         this.homeChanged();
         await edit.stop();
-        const from = relative(this.root, join(dir, "maps", map)).replaceAll("\\", "/");
-        const next = relative(this.root, join(dir, "maps", to)).replaceAll("\\", "/");
-        const tracked = await (this.git ?? gitIn(this.root))(["ls-files", "--", from], 30_000);
-        await rename(join(dir, "maps", map), join(dir, "maps", to));
-        if (tracked.code === 0 && tracked.out) await noteRename(this.root, from, next);
+        const published = this.store.published().some((entry) => entry.target === target && entry.map === map);
+        await rename(join(dir, map), join(dir, to));
+        this.store.rename(target, map, to);
         await this.selections.renameMap(target, map, to, mapName);
         await renameRecent(this.root, target, map, to);
-        this.log(`Moved ${from} to ${next}${tracked.out ? ": its next Publish removes the old folder" : ""}.`);
+        this.log(`Moved ${target}/${map} to ${target}/${to}${published ? `: it stays published as ${map} until its next Publish` : ""}.`);
         this.queues.edit = this.queues.edit.then(async () => this.launch(by, await this.editLaunch({ to: "edit", target, map: to })));
       })
       .catch((error: unknown) => {
@@ -652,7 +652,7 @@ export class EditorRunner {
     const target = await loadTarget(this.root, request.target);
     if (target.id === "lobby") throw new Error("a lobby map can't be previewed yet: publish it, then start the network");
     if (!isMapId(request.map)) throw new Error(`"${request.map}" is not a map id`);
-    const mapDir = join(target.dir, "maps", request.map);
+    const mapDir = join(target.mapsDir, request.map);
     const path = join(mapDir, "map.json");
     if (!existsSync(path)) throw new Error(`${target.name} has no map "${request.map}"`);
     if (this.selections.extracting(request.target, request.map)) throw new Error(`${request.map} is still being cut out: wait until it's ready`);
@@ -857,7 +857,7 @@ export class EditorRunner {
     const preview =
       this.previewing && (previewState === "starting" || previewState === "ready" || previewState === "stopping") ? { label: this.previewing.status().label, state: previewState } : undefined;
     return {
-      catalog: await buildCatalog(this.root),
+      catalog: await buildCatalog(this.root, this.store),
       servers: {
         ...(select ? { select } : {}),
         ...(edit ? { edit } : {}),

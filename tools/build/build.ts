@@ -2,9 +2,10 @@
 // and bundles the orchestrator into dist/orchestrator/. A target is the lobby (lobby/), a game
 // (games/<id>/ with a game.config.ts), or the map editor (editor/, packs only). Everything is
 // validated first, and all problems are reported together. Packs are built by packs.ts, and every
-// server gets the shared packs (the core resource pack and the shared blocks pack). Draft maps (the
-// map editor's unfinished ones) are skipped with a warning, and so is a game with no finished map
-// (none yet, or only drafts).
+// server gets the shared packs (the core resource pack and the shared blocks pack). The maps and the
+// games' pictures are the published ones in the map store (tools/maps: the store's published\, or
+// MAPS_PUBLISHED, which the Docker build sets), laid out <target>/<map>/ and <game>/icon.png. Draft
+// maps are skipped with a warning, and so is a game with no published map.
 import { existsSync } from "node:fs";
 import { cp, mkdir, readdir, readFile, rm, writeFile } from "node:fs/promises";
 import { dirname, join, relative } from "node:path";
@@ -28,6 +29,7 @@ import { encodePng } from "../skins/png.ts";
 import { RENDERS, renderSkinSet } from "../skins/skin-set.ts";
 import { readSkins } from "../skins/store.ts";
 import { writeArmorPack } from "../assets/armor.ts";
+import { publishedDir } from "../maps/paths.ts";
 import { addGameKitPictures } from "./kit-pictures.ts";
 import { addTeamButtons } from "./team-buttons.ts";
 import { enableBetaApis, patchLevelDat } from "./leveldat.ts";
@@ -37,6 +39,7 @@ import { mapWarnings, validateGameConfig, validateMapConfig } from "./validate.t
 
 const root = fileURLToPath(new URL("../../", import.meta.url));
 const dist = join(root, "dist");
+const published = publishedDir(root);
 /** The map editor's target: packs only, no maps (tools/editor stages the map it edits). */
 const EDITOR = "editor";
 
@@ -112,15 +115,12 @@ async function loadTarget(id: string, dir: string, configPath?: string): Promise
   // A game whose players pick kits ships its pack even with nothing else in it: the build draws the kit pictures into it.
   const pictures = target.game?.kits?.select !== undefined;
   if (existsSync(join(rpDir, "manifest.json")) && (pictures || (await hasContent(rpDir)))) target.resourcePack = await loadManifest(rpDir);
-  if (target.game) {
-    if (existsSync(join(dir, "icon.png"))) target.icon = join(dir, "icon.png");
-    else report(dir, ["icon.png is missing: the lobby's game picker and hologram show it (a 16:9 PNG, such as 320x180)"]);
-  }
   if (id === EDITOR) return target;
 
-  const mapsDir = join(dir, "maps");
+  const mapsDir = join(published, id);
   let drafts = 0;
-  for (const mapId of existsSync(mapsDir) ? (await readdir(mapsDir)).sort() : []) {
+  const entries = existsSync(mapsDir) ? await readdir(mapsDir, { withFileTypes: true }) : [];
+  for (const mapId of entries.filter((entry) => entry.isDirectory()).map((entry) => entry.name).sort()) {
     const mapDir = join(mapsDir, mapId);
     const mapJson = join(mapDir, "map.json");
     if (!existsSync(mapJson)) {
@@ -146,10 +146,15 @@ async function loadTarget(id: string, dir: string, configPath?: string): Promise
   }
   if (target.maps.length === 0 && kind === "game") {
     // A new game's first map is made in the map editor, which reads games/ itself.
-    warn(dir, [drafts > 0 ? "every map is a draft, so the game is skipped" : "no maps yet, so the game is skipped (make one in the map editor)"]);
+    warn(dir, [drafts > 0 ? "every map is a draft, so the game is skipped" : "no published maps yet, so the game is skipped (make one in the map editor)"]);
     target.skip = true;
   } else if (target.maps.length === 0) {
-    report(dir, [drafts > 0 ? "needs at least one finished map (the others are drafts)" : "needs at least one map in maps/<id>/"]);
+    report(dir, [drafts > 0 ? "needs at least one finished map (the others are drafts)" : `needs at least one published map (none in ${mapsDir}: publish one in the map editor, or npm run maps -- export)`]);
+  }
+  if (target.game && !target.skip) {
+    const icon = join(mapsDir, "icon.png");
+    if (existsSync(icon)) target.icon = icon;
+    else report(dir, ["has no published picture: the lobby's game picker and hologram show it (take one with the map editor's Camera tool, and publish a map)"]);
   }
   return target;
 }
