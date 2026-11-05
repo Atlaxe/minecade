@@ -110,7 +110,10 @@ export class LobbyController {
           pending.teamPick.ready();
           return;
         }
-        if (pending?.requestId === message.requestId) void this.sendPlayers(pending, message.port);
+        if (pending?.requestId === message.requestId) {
+          pending.sessionId = message.sessionId;
+          void this.sendPlayers(pending, message.port);
+        }
         return;
       case "start_rejected":
         if (pending?.requestId !== message.requestId) return;
@@ -230,21 +233,37 @@ export class LobbyController {
     void this.sendPlayers(pending, pending.port);
   }
 
+  /**
+   * Counts down, then sends whoever is going (sendList, looked up again at the end) and tells the
+   * game who they are first, so it waits for them rather than for the players from the start.
+   */
   private async sendPlayers(pending: Pending, port: number): Promise<void> {
-    const online = new Set(this.ports.onlinePlayers());
-    for (const name of pending.players) if (online.has(name)) this.ports.closeForms(name);
+    for (const name of this.sendList(pending)) this.ports.closeForms(name);
     for (let left = this.countdownSeconds; left > 0; left--) {
       this.ports.countdown?.({ game: pending.game.name, map: pending.mapName, left });
-      for (const name of pending.players) if (online.has(name)) this.ports.chime(name, left <= 3 ? "bell" : "tick");
+      for (const name of this.sendList(pending)) this.ports.chime(name, left <= 3 ? "bell" : "tick");
       await pending.scope.wait(20);
     }
-    // Look players up now: some may have left during the countdown.
-    const stillHere = new Set(this.ports.onlinePlayers());
-    for (const name of pending.players) if (stillHere.has(name)) this.ports.transfer(name, port);
-    for (const name of stillHere) {
-      if (!pending.players.includes(name)) this.ports.notify(name, say.minor(`${pending.game.name} started without you. You'll join the next round.`));
+    // Look players up now: some may have left during the countdown, and others joined.
+    const going = this.sendList(pending);
+    if (pending.sessionId !== undefined) this.ports.send({ t: "players_sent", sessionId: pending.sessionId, players: going });
+    for (const name of going) this.ports.transfer(name, port);
+    for (const name of this.ports.onlinePlayers()) {
+      if (!going.includes(name)) this.ports.notify(name, say.minor(`${pending.game.name} started without you. You'll join the next round.`));
     }
     if (this.pending === pending) this.clearPending(true);
+  }
+
+  /**
+   * Who goes to the game: the players from the start who are still here, in order, then anyone
+   * who joined since, up to the game's limit, so it's the latecomers who are left out.
+   */
+  private sendList(pending: Pending): string[] {
+    const online = this.ports.onlinePlayers();
+    const here = new Set(online);
+    const first = pending.players.filter((name) => here.has(name));
+    const later = online.filter((name) => !pending.players.includes(name));
+    return [...first, ...later].slice(0, pending.game.maxPlayers);
   }
 
   private clearPending(started = false): void {

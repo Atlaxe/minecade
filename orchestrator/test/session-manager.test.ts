@@ -319,6 +319,24 @@ describe("SessionManager: running", () => {
     t.sessions.onLobbyEvent({ t: "team_picks", sessionId: "s1", picks: { Steve: "red", Alex: "Not An Id", "": "blue" } });
     expect(link.sent).toEqual([{ t: "team_picks", picks: { Steve: "red" } }]);
   });
+
+  it("forwards the players the lobby sent to their game, and counts everyone in by that list", async () => {
+    vi.setSystemTime(1_800_000_000_000);
+    const t = setupSessions();
+    t.sessions.onLobbyEvent({ t: "players_sent", sessionId: "s1", players: ["Steve"] }); // no game yet: dropped
+    const { link } = await startAndReady(t);
+    t.sessions.onLobbyEvent({ t: "players_sent", sessionId: "other", players: ["Steve"] }); // another session: dropped
+    await vi.advanceTimersByTimeAsync(3000);
+    t.sessions.onLobbyEvent({ t: "players_sent", sessionId: "s1", players: ["Steve", "Eve", "", 7 as unknown as string] });
+    expect(link.sent).toEqual([{ t: "expected_players", players: ["Steve", "Eve"] }]);
+    await vi.advanceTimersByTimeAsync(4000);
+    link.emit({ t: "player_count", sessionId: "s1", players: ["Steve", "Eve"] }); // Alex, there at the start, wasn't sent
+    const logged = vi.mocked(console.log).mock.calls.map(([line]) => String(line));
+    expect(logged.filter((line) => line.includes("timings"))).toEqual([
+      "[orchestrator] session s1: timings: public ip 0.0 s, created 0.0 s, started 0.0 s, server started 0.0 s, server_ready 0.0 s, ready 0.0 s, " +
+        "players sent 3.0 s, Steve in 7.0 s, Eve in 7.0 s, all in 7.0 s",
+    ]);
+  });
 });
 
 describe("cleanPicks", () => {

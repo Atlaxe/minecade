@@ -470,6 +470,19 @@ export abstract class Minigame<C extends GameConfig = GameConfig> {
     for (const [name, team] of Object.entries(picks)) this.teamPicks.set(name.toLowerCase(), team);
   }
 
+  /**
+   * The players the lobby sent, as it sent them (forwarded by the orchestrator): the game waits for
+   * these instead of the players from the start, who may have left the lobby or been joined by
+   * others since. A list that comes after the match began is ignored.
+   */
+  setExpectedPlayers(players: string[]): void {
+    if (this.currentPhase !== "waiting" && this.currentPhase !== "picking" && this.currentPhase !== "countdown") {
+      log.warn(`${this.config.id}: the lobby's player list arrived after the match began; ignored`);
+      return;
+    }
+    this.ctx.vars.expectedPlayers = [...players];
+  }
+
   // ---- Helpers for play() -----------------------------------------------------------------
 
   /**
@@ -1170,10 +1183,11 @@ export abstract class Minigame<C extends GameConfig = GameConfig> {
 
   private async waitForPlayers(): Promise<boolean> {
     this.currentPhase = "waiting";
-    const expected = this.ctx.vars.expectedPlayers.map((name) => name.toLowerCase());
     const limit = this.config.waitForPlayersSeconds ?? 30;
     for (let second = 0; ; second++) {
       if (this.outcome) return false;
+      // Read each second: the lobby's final list replaces the start's when it arrives.
+      const expected = this.ctx.vars.expectedPlayers.map((name) => name.toLowerCase());
       const online = this.online();
       const here = new Set(online.map((name) => name.toLowerCase()));
       if (expected.length > 0 && expected.every((name) => here.has(name)) && online.length >= this.minPlayers) return true;

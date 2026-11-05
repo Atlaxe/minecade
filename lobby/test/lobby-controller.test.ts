@@ -186,6 +186,38 @@ describe("LobbyController: sending players", () => {
     expect(t.transfers).toEqual([["Steve", 19133]]);
   });
 
+  it("sends whoever is here as it sends them, and tells the game that list first", async () => {
+    const t = setup(["Steve", "Alex"]);
+    expect(t.lobby.request("Steve", "probe", "default")).toBeUndefined();
+    t.say({ t: "game_ready", requestId: "r1", sessionId: "s1", game: "probe", map: "default", port: 19133, hosts: { public: "x", lan: "y" } });
+    t.players.splice(t.players.indexOf("Alex"), 1); // left during the boot or the countdown
+    t.players.push("Eve"); // joined since Start
+    for (let second = 0; second < 3; second++) {
+      system.advanceTicks(20);
+      await flushPromises();
+    }
+    expect(t.sent.at(-1)).toEqual({ t: "players_sent", sessionId: "s1", players: ["Steve", "Eve"] });
+    expect(t.transfers).toEqual([
+      ["Steve", 19133],
+      ["Eve", 19133],
+    ]);
+  });
+
+  it("leaves out the latecomers when the game is full", async () => {
+    const t = setup(["Steve", "Alex"]);
+    startSumo(t);
+    t.say({ t: "game_starting", requestId: "r1", sessionId: "s1", game: "sumo", map: "arena_1" });
+    t.players.unshift("Eve"); // joined since Start, first in the server's list
+    t.say({ t: "game_ready", requestId: "r1", sessionId: "s1", game: "sumo", map: "arena_1", port: 19133, hosts: { public: "x", lan: "y" } });
+    for (let second = 0; second < 3; second++) {
+      system.advanceTicks(20);
+      await flushPromises();
+    }
+    expect(t.sent.at(-1)).toEqual({ t: "players_sent", sessionId: "s1", players: ["Steve", "Alex"] });
+    expect(t.transfers.map(([name]) => name)).toEqual(["Steve", "Alex"]);
+    expect(t.notesTo("Eve")).toEqual(["Sumo started without you. You'll join the next round."]);
+  });
+
   it("ignores replies to other requests, including stale ones from before a restart", async () => {
     const t = setup();
     startSumo(t);

@@ -105,7 +105,26 @@ export class SessionManager {
     if (event.t === "start_game") void this.start(event);
     else if (event.t === "status_request" || event.t === "server_ready") this.pushStatus();
     else if (event.t === "team_picks") this.forwardTeamPicks(event.sessionId, event.picks);
+    else if (event.t === "players_sent") this.forwardPlayers(event.sessionId, event.players);
     else log.warn(`lobby sent an unexpected "${event.t}"`);
+  }
+
+  /**
+   * Passes the players the lobby is sending on to their game, which waits for them instead of the
+   * list from the start (players may have joined or left the lobby since).
+   */
+  private forwardPlayers(sessionId: string, players: unknown): void {
+    const session = this.session;
+    if (!session || session.id !== sessionId || !session.link) {
+      log.warn(`players for session ${sessionId} dropped: that game server isn't up`);
+      return;
+    }
+    const clean = cleanPlayers(players);
+    session.link.send({ t: "expected_players", players: clean });
+    session.timeline.mark("players sent");
+    session.expected = clean.map((name) => name.toLowerCase());
+    log.info(`session ${session.id}: the lobby sent [${clean.join(", ")}]`);
+    this.noteArrivals(session, session.players);
   }
 
   /** Passes the lobby's team picks on to the game server they're for, once it's up. */
@@ -460,6 +479,12 @@ export function cleanSettings(settings: unknown): Record<string, string> {
     if (/^[a-z][a-zA-Z0-9_]{0,31}$/.test(key) && typeof value === "string" && value.length <= 32) clean[key] = value;
   }
   return clean;
+}
+
+/** At most 32 player names of 1 to 32 characters; anything else is dropped. */
+export function cleanPlayers(players: unknown): string[] {
+  if (!Array.isArray(players)) return [];
+  return players.filter((name): name is string => typeof name === "string" && name.length >= 1 && name.length <= 32).slice(0, 32);
 }
 
 /** At most 32 picks of player names (1 to 32 characters) to team ids; anything else is dropped. */

@@ -1,7 +1,7 @@
 // Wire protocol between the servers' behavior packs and the orchestrator. Pure TypeScript with
 // no runtime imports: bundled into packs by esbuild and imported by the orchestrator under Node.
 
-export const PROTOCOL_VERSION = 7;
+export const PROTOCOL_VERSION = 8;
 
 /**
  * Upper bound for one encoded message, in either direction and over either transport, so no
@@ -133,6 +133,16 @@ export interface LobbyTeamPicks {
 }
 
 /**
+ * The players the lobby is sending to a game it started, as it sends them (after its countdown):
+ * the start's players still in the lobby, then anyone who joined since, up to the game's limit.
+ */
+export interface PlayersSent {
+  t: "players_sent";
+  sessionId: string;
+  players: string[];
+}
+
+/**
  * A kind of prompt in the prompt bank (the orchestrator's prompts.db): "starter", something to build
  * (Build Swap's first round; a future Pictionary's words), or "twist", a change to make to someone
  * else's build (Build Swap's second round).
@@ -164,7 +174,7 @@ export interface PromptUsed {
   ids: number[];
 }
 
-export type OutboundEvent = ServerReady | StartGame | StatusRequest | PlayerCount | MatchStats | EndGame | StatsQuery | LobbyTeamPicks | PromptSubmit | PromptRequest | PromptUsed;
+export type OutboundEvent = ServerReady | StartGame | StatusRequest | PlayerCount | MatchStats | EndGame | StatsQuery | LobbyTeamPicks | PlayersSent | PromptSubmit | PromptRequest | PromptUsed;
 
 // ---- Orchestrator -> server ----------------------------------------------------------------
 
@@ -261,6 +271,12 @@ export interface TeamPicks {
   picks: Record<string, string>;
 }
 
+/** The players the lobby sent (its players_sent), forwarded to their game: the ones it waits for. */
+export interface ExpectedPlayers {
+  t: "expected_players";
+  players: string[];
+}
+
 /** One prompt from the bank. Short keys keep a reply part under MAX_MESSAGE_CHARS. */
 export interface BankPrompt {
   id: number;
@@ -280,7 +296,7 @@ export interface PromptReply {
   prompts: BankPrompt[];
 }
 
-export type InboundMessage = StartRejected | GameStarting | GameReady | GameFailed | GameEnded | Status | ReturnAll | StatsReply | TeamPicks | PromptReply;
+export type InboundMessage = StartRejected | GameStarting | GameReady | GameFailed | GameEnded | Status | ReturnAll | StatsReply | TeamPicks | ExpectedPlayers | PromptReply;
 
 // ---- Encoding --------------------------------------------------------------------------------
 
@@ -293,6 +309,7 @@ const OUTBOUND_TYPES: ReadonlySet<string> = new Set<OutboundEvent["t"]>([
   "end_game",
   "stats_query",
   "team_picks",
+  "players_sent",
   "prompt_submit",
   "prompt_request",
   "prompt_used",
@@ -308,6 +325,7 @@ const INBOUND_TYPES: ReadonlySet<string> = new Set<InboundMessage["t"]>([
   "return_all",
   "stats_reply",
   "team_picks",
+  "expected_players",
   "prompt_reply",
 ]);
 

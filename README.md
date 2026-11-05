@@ -203,13 +203,16 @@ Gamertags in `LAN_PLAYERS` are sent to `LAN_HOST` instead.
 
 - **The terminal** (the glowing 3x3 console in the middle of the lobby): tap it for the menu.
   One player uses it at a time, and the hologram above it shows everyone what they're doing.
-  - **Play:** pick a game, a map (or random), then confirm. Everyone in the lobby goes, up to the
-    game's player limit. Anyone who arrives while a game is running waits for the next one.
+  - **Play:** pick a game, a map (or random), then press Start. Everyone in the lobby when the
+    players are sent goes, up to the game's player limit: whoever was there at Start comes first,
+    so it's latecomers who miss out. Anyone who arrives while a game is running waits for the next
+    one.
   - **Stats:** your wins, kills, K/D and more, overall and per game.
 - After the game, everyone is sent back to the lobby automatically.
 
-Games wait up to 30 seconds for everyone to arrive, then count down with everyone frozen in
-place. If too few players show up, the game ends and everyone goes back.
+Games wait up to 30 seconds for everyone the lobby sent (it tells the game who, as it sends them),
+then count down with everyone frozen in place. If too few players show up, the game ends and
+everyone goes back.
 
 ## Player stats
 

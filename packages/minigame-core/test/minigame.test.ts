@@ -289,6 +289,27 @@ describe("Minigame details", () => {
     everyoneLeaves();
   });
 
+  it("waits for the players the lobby sent, whose list replaces the one from the start", async () => {
+    const config: GameConfig = { id: "wait", name: "Wait", minPlayers: 1, maxPlayers: 4, countdownSeconds: 3, endDelaySeconds: 1 };
+    world.join("A");
+    const baseline = snapshot();
+    const game = new TestGame(context(["A", "B"]), config);
+    await playToEnd(game, baseline, async () => {
+      await ticks(3 * 20);
+      expect(game.phase).toBe("waiting"); // B was in the lobby at the start, but wasn't sent
+      game.setExpectedPlayers(["A"]);
+      await ticks(25);
+      expect(game.phase).toBe("countdown");
+      await ticks(3 * 20 + 8);
+      expect(game.phase).toBe("playing");
+      game.setExpectedPlayers(["A", "C"]); // too late: ignored
+      game.finish({ kind: "draw", reason: "test over" });
+      await ticks(2);
+    });
+    expectBaseline(baseline);
+    everyoneLeaves();
+  });
+
   it("deals teams at random for starts outside the lobby, as for Random teams, with no picker of its own", async () => {
     const config: GameConfig = { id: "pick", name: "Pick", minPlayers: 2, maxPlayers: 4, countdownSeconds: 3, endDelaySeconds: 1, teams: { count: 2 } };
     for (const settings of [{}, { teams: "random" }] as Record<string, string>[]) {
