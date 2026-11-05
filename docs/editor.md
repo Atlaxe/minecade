@@ -637,10 +637,16 @@ Chat in the editor lobby says when it's done. A preview has to end first.
 ## How it works
 
 - `npm run editor` (`tools/editor/`) starts the containers `minecade-editor-lobby` (19132),
-  `minecade-editor-select` (19133) and `minecade-editor-edit` (19134) on the plain BDS image that
-  `npm run bake` uses, each with the editor's packs (`editor/`), the shared packs, a world and
-  `map.json` copied in. Their entrypoint is `docker/bds/entrypoint.sh` in editor mode, and each uses
-  the identity the network's server on that port has (`lobby`, `game`, `editor`).
+  `minecade-editor-select` (19133) and `minecade-editor-edit` (19134) on the editor image
+  (`minecade/bds-editor:local`: the plain BDS image `npm run bake` uses, with the shared packs in
+  BDS's own pack folders), each with the editor's packs (`editor/`), a world and `map.json` copied
+  in. Their entrypoint is `docker/bds/entrypoint.sh` in editor mode, and each uses the identity the
+  network's server on that port has (`lobby`, `game`, `editor`).
+- **The editor image** (`tools/editor/editor-image.ts`, the Dockerfile's `editor` stage) is built
+  only when the shared packs change: every server start (and every preview and extraction) checks
+  their files' sizes and times against the signature the image carries, so a pack edit shows from
+  the next start. The packs are staged for it in `work/editor/shared/`, which the templates' pack
+  lists name. The first build takes about a minute; after that a start's packs take about a second.
 - **The runner** (`tools/editor/runner.ts`) runs the three: the editor lobby (`home-session.ts`) all
   the time, and Select (`select-session.ts`) and Edit (`session.ts`) once something is opened, all on
   `ServerSession` (`server-session.ts`: the server, the console, opping map editors, the live allow

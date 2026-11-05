@@ -1,5 +1,6 @@
-// The editor server's template (editor/'s packs and the shared packs), built fresh at every start
-// so the editor always runs the code checked out here, whatever the network's images hold. Unlike
+// The editor server's template (editor/'s packs, and the world's pack lists with the shared packs,
+// which the editor image holds: editor-image.ts), built fresh at every start so the editor always
+// runs the code checked out here, whatever the network's images hold. Unlike
 // npm run build, it doesn't check the maps: a map being fixed may well have problems. The games'
 // own marker models go into the editor's resource pack (marker-models.ts), their hitboxes into its
 // behavior pack, and so do the pictures Edit's thumbnail menus show (pictures.ts) and the fake
@@ -7,7 +8,8 @@
 // scripts get their list as "#skins").
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { addSharedPacks, buildBehaviorPack, buildResourcePack, readPinnedManifest, sharedPacks, writePackLists } from "../build/packs.ts";
+import { buildBehaviorPack, buildResourcePack, readPinnedManifest, writePackLists } from "../build/packs.ts";
+import { EDITOR_SHARED } from "./editor-image.ts";
 import { addFakePlayer, mannequinSkins } from "./fake-player.ts";
 import { addMarkerHitboxes, addMarkerModels, listMarkerModels } from "./marker-models.ts";
 import { addPictures } from "./pictures.ts";
@@ -22,14 +24,11 @@ export async function buildEditorTemplate(out: string): Promise<void> {
   const players = await mannequinSkins();
   await buildBehaviorPack(bp, join(out, "behavior_packs", "editor_bp"), await readPinnedManifest(bp), { games: [] }, players.map(({ skin }) => skin));
   await addMarkerHitboxes(join(out, "behavior_packs", "editor_bp"), models);
-  const shared = [];
-  for (const pack of await sharedPacks()) shared.push({ pack, manifest: await readPinnedManifest(pack.dir) });
-  await addSharedPacks(out, shared);
   const rp = join(editor, "resource_pack");
   await buildResourcePack(rp, join(out, "resource_packs", "editor_rp"), await readPinnedManifest(rp), async (pack) => {
     await addMarkerModels(pack, models);
     await addPictures(pack, root);
   });
   await addFakePlayer(join(out, "behavior_packs", "editor_bp"), join(out, "resource_packs", "editor_rp"), players);
-  await writePackLists(out);
+  await writePackLists(out, EDITOR_SHARED);
 }

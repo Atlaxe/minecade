@@ -28,11 +28,11 @@ import {
   type Vec3,
 } from "@minecade/minigame-core/config";
 import { bakeSettings } from "../build/bake-core.ts";
-import { BASE_IMAGE } from "../build/base-image.ts";
 import { attachConsole, copyDirFromContainer, findContainerByName, type ServerConsole } from "../build/docker-util.ts";
 import { enableBetaApis, patchLevelDat } from "../build/leveldat.ts";
 import { prune } from "./chunker.ts";
 import { chunkRange, moveBox, withSpectatorSpawn } from "./select-core.ts";
+import { EDITOR_IMAGE, editorImage } from "./editor-image.ts";
 import { buildEditorTemplate } from "./template.ts";
 
 const root = fileURLToPath(new URL("../../", import.meta.url));
@@ -126,6 +126,7 @@ async function moveInServer(world: string, job: ExtractJob, out: string, options
   let container: Docker.Container | undefined;
   let serverConsole: ServerConsole | undefined;
   try {
+    await editorImage(options.note, options.verbose);
     await buildEditorTemplate(join(staging, "templates", "servers", "editor"));
     const dir = join(staging, "editor");
     await cp(world, join(dir, "world"), { recursive: true });
@@ -188,7 +189,7 @@ function containerOptions(env: Record<string, string>, name: string): Docker.Con
   };
   return {
     name,
-    Image: BASE_IMAGE,
+    Image: EDITOR_IMAGE,
     Entrypoint: ["/bin/bash", "/editor/entrypoint.sh"],
     Env: Object.entries(vars).map(([key, value]) => `${key}=${value}`),
     OpenStdin: true,

@@ -1,7 +1,8 @@
 # syntax=docker/dockerfile:1
-# One Dockerfile, two images:
+# One Dockerfile, three images:
 #   --target server        minecade/bds:local         the lobby and every game server
 #   --target orchestrator  minecade/orchestrator:local
+#   --target editor        minecade/bds-editor:local  the map editor's servers (tools/editor/editor-image.ts)
 
 # ---------------------------------------------------------------------------
 # build: compiles the packs and templates (dist/templates, with the published
@@ -51,6 +52,15 @@ RUN curl -fsSL --retry 3 \
  && echo "${BDS_VERSION}" > /bds/.bds-version
 
 ENV LD_LIBRARY_PATH=/bds
+
+# ---------------------------------------------------------------------------
+# editor: BDS + the shared packs, for the map editor's servers, previews and
+# extractions. The editor stages each server's own packs, world and this
+# checkout's entrypoint. Built with --build-context editorpacks=<the shared
+# packs, laid out as dist/shared/> (work/editor/shared/).
+# ---------------------------------------------------------------------------
+FROM bds AS editor
+COPY --from=editorpacks / /bds/
 
 # ---------------------------------------------------------------------------
 # server: BDS + the shared packs + the built templates + the entrypoint that

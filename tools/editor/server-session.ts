@@ -11,10 +11,10 @@ import { fileURLToPath } from "node:url";
 import type Docker from "dockerode";
 import * as tar from "tar";
 import { EDIT_SCRIPT_EVENT_ID, extractEditPayload, parseEditorEvent, type EditorEvent, type HostMessage, type OpenRequest } from "@minecade/minigame-core/config";
-import { BASE_IMAGE, buildBaseImage } from "../build/base-image.ts";
 import { attachConsole, connectDocker, findContainerByName, type ServerConsole } from "../build/docker-util.ts";
 import { PlayerLog, playerEvent, readEnv } from "../control-panel/core.ts";
 import { editorPlayers, type ServerState, type ServerStatus, type Slot } from "./editor-core.ts";
+import { EDITOR_IMAGE, editorImage } from "./editor-image.ts";
 import { buildEditorTemplate } from "./template.ts";
 
 export const root = fileURLToPath(new URL("../../", import.meta.url));
@@ -176,7 +176,7 @@ export abstract class ServerSession {
       if ((await old.inspect()).State.Running) throw new Error(`${this.slot.container} is already running: stop it first (npm run editor -- stop)`);
       await old.remove({ force: true });
     }
-    buildBaseImage(root, this.verbose);
+    await editorImage((text) => this.note(text), this.verbose);
     const staging = await mkdtemp(join(tmpdir(), "minecade-editor-"));
     try {
       this.note("Building the editor's packs...");
@@ -230,8 +230,8 @@ export abstract class ServerSession {
     };
     return {
       name: this.slot.container,
-      Image: BASE_IMAGE,
-      // The plain BDS image has no Minecade entrypoint: the staged copy is this checkout's.
+      Image: EDITOR_IMAGE,
+      // The editor image has no Minecade entrypoint: the staged copy is this checkout's.
       Entrypoint: ["/bin/bash", "/editor/entrypoint.sh"],
       Env: Object.entries(env).map(([key, value]) => `${key}=${value}`),
       OpenStdin: true,

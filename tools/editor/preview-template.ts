@@ -25,7 +25,8 @@ import {
 } from "@minecade/minigame-core/config";
 import { addGameKitPictures } from "../build/kit-pictures.ts";
 import { enableBetaApis, patchLevelDat } from "../build/leveldat.ts";
-import { addSharedPacks, buildBehaviorPack, buildResourcePack, readPinnedManifest, sharedPacks, writePackLists } from "../build/packs.ts";
+import { buildBehaviorPack, buildResourcePack, readPinnedManifest, writePackLists } from "../build/packs.ts";
+import { EDITOR_SHARED } from "./editor-image.ts";
 import { addFakeSkins, addPlayerSkins, mannequinSkins, type MannequinSkin } from "./fake-player.ts";
 
 const root = fileURLToPath(new URL("../../", import.meta.url));
@@ -47,9 +48,6 @@ export async function buildPreviewTemplate(map: PreviewMap, out: string): Promis
   const bp = join(gameDir, "behavior_pack");
   // A game's pack reads neither the registry nor the skins.
   await buildBehaviorPack(bp, join(out, "behavior_packs", `${map.game}_bp`), await readPinnedManifest(bp), { games: [] }, []);
-  const shared = [];
-  for (const pack of await sharedPacks()) shared.push({ pack, manifest: await readPinnedManifest(pack.dir) });
-  await addSharedPacks(out, shared);
   const rp = join(gameDir, "resource_pack");
   if (existsSync(join(rp, "manifest.json"))) {
     // With the kit form's pictures, for a game whose players pick kits.
@@ -60,7 +58,8 @@ export async function buildPreviewTemplate(map: PreviewMap, out: string): Promis
   }
   const players = map.config.mannequinsInPreview === true ? await mannequinSkins() : [];
   await buildPreviewPacks(out, players);
-  await writePackLists(out);
+  // The shared packs are the editor image's (editor-image.ts).
+  await writePackLists(out, EDITOR_SHARED);
 
   const mapOut = join(out, "maps", map.mapId);
   await cp(join(map.mapDir, "world"), join(mapOut, "world"), { recursive: true });

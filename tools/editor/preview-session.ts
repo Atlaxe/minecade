@@ -12,9 +12,9 @@ import { join } from "node:path";
 import type Docker from "dockerode";
 import * as tar from "tar";
 import { NET_SCRIPT_EVENT_ID, encodeMessage, parseOutboundEvent } from "@minecade/minigame-core/protocol";
-import { BASE_IMAGE, buildBaseImage } from "../build/base-image.ts";
 import { attachConsole, connectDocker, findContainerByName, type ServerConsole } from "../build/docker-util.ts";
 import { PlayerLog, playerEvent } from "../control-panel/core.ts";
+import { EDITOR_IMAGE, editorImage } from "./editor-image.ts";
 import { buildPreviewTemplate, type PreviewMap } from "./preview-template.ts";
 import { delay, message, root } from "./server-session.ts";
 
@@ -79,7 +79,7 @@ export class PreviewSession {
     const docker = connectDocker();
     const old = await findContainerByName(docker, options.container);
     if (old) await old.remove({ force: true });
-    buildBaseImage(root, options.verbose);
+    await editorImage(options.note, options.verbose);
     const staging = await mkdtemp(join(tmpdir(), "minecade-preview-"));
     try {
       options.note(`Preview: building ${options.label}...`);
@@ -236,8 +236,8 @@ export class PreviewSession {
     };
     return {
       name: options.container,
-      Image: BASE_IMAGE,
-      // The plain BDS image has no Minecade entrypoint: the staged copy is this checkout's.
+      Image: EDITOR_IMAGE,
+      // The editor image has no Minecade entrypoint: the staged copy is this checkout's.
       Entrypoint: ["/bin/bash", "/editor/entrypoint.sh"],
       Env: Object.entries(env).map(([key, value]) => `${key}=${value}`),
       OpenStdin: true,
