@@ -46,9 +46,10 @@ export default defineGame({
     spawns: { min: "maxPlayers" },
     regions: { plot: { label: "Build boundary", count: 8, minSize: 24 } },
     // Per map (the map editor's Game settings tool): how far builders may go past their building
-    // boundary, and how long they may stay out there before they're put back.
+    // boundary (and voters past the build being voted on), and how long builders may stay out there
+    // before they're put back (voters are put back at once).
     settings: {
-      buildPadding: { label: "Build padding", hint: "how far builders can go past their boundary", default: 2, min: 0, max: 32, unit: "blocks" },
+      buildPadding: { label: "Build padding", hint: "how far builders and voters can go past a boundary", default: 2, min: 0, max: 32, unit: "blocks" },
       returnDelay: { label: "Return delay", hint: "how long builders can stay past the padding before they're put back", default: 0, min: 0, max: 30, unit: "seconds" },
     },
   },
@@ -70,6 +71,4 @@ export default defineGame({
   voteGraceSeconds: 10,
   /** A build nobody can vote on (only its builders are here) shows this long. */
   showSeconds: 5,
-  /** How far (blocks) players may go past the building area being voted on (while building, the map's buildPadding). */
-  voteMargin: 16,
 });

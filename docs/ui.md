@@ -107,16 +107,23 @@ What JSON UI allowed here, found in-game on 26.60:
   `orientation`) as unknown in the content log.
 
 **Notes top left:** lines for everyone on the server, each in a bubble of its own, top left
-above the chat (Build Swap's prompt while a build is voted on, and its twist under it). The action
-bar and the title are taken (the HUD top right, a preview's mode line), so notes ride on the
-scoreboard sidebar: `Notes` (`packages/minigame-core/src/game/sidebar.ts`) shows a sidebar whose
-title is `NOTES_MARK` (`§r§m§n§r`), with its lines as participants scored from the top down. The
-core pack's `ui/scoreboards.json` hides a marked sidebar, and `ui/hud_screen.json` swaps vanilla's
-column top left (`chat_stack`, copied from 26.60 as `mc_chat_stack`) for one with the notes
-(`mc_notes`, an `mc_note` bubble per line) between the HUD's padding and the coordinates, so the
-chat moves down under them. Notes are the same for everyone (the sidebar is the world's), and a game
-shows notes or sidebar scores, never both. Without the pack they'd show as a plain sidebar on the
-right with a blank title.
+above the paper doll and the chat (Build Swap's prompt while a build is voted on, and its twist
+under it). The action bar and the title are taken (the HUD top right, a preview's mode line), so
+notes ride on the scoreboard sidebar: `Notes` (`packages/minigame-core/src/game/sidebar.ts`) shows
+a sidebar whose title is `NOTES_MARK` (`§r§m§n§r`), with its lines as participants scored from the
+top down. The core pack's `ui/hud_screen.json` does the rest:
+- It swaps vanilla's column top left (`chat_stack`, copied from 26.60 as `mc_chat_stack`) for one
+  with the notes (`mc_notes`, an `mc_note` bubble per line) first, under only the touch layout's
+  padding for its hearts, so the paper doll and the chat move down under them. The paper doll
+  moves into that column for it (`mc_paper_doll`, out of `centered_gui_elements` and
+  `not_centered_gui_elements`).
+- It puts vanilla's sidebar in again (`root_panel`'s `sidebar`), hidden while its title is the
+  mark. Hiding it in `ui/scoreboards.json` doesn't work: the HUD places the sidebar with its own
+  visibility binding, and an instance's bindings take the place of its def's.
+
+Notes are the same for everyone (the sidebar is the world's), and a game shows notes or sidebar
+scores, never both. Without the pack they'd show as a plain sidebar on the right with a blank
+title.
 
 **Own score:** a game whose `scoring` has `display: "own"` (One in the Quiver) has no sidebar.
 Each player sees only their own score (their team's in team games) in a box left of the clock's,

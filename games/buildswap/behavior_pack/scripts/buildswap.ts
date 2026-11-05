@@ -11,7 +11,8 @@
 // within the map's build padding of it (put back once they've been past it for the map's return
 // delay). In a round's prep time they can take blocks from creative's inventory, but not build yet.
 // Out of their rounds they're still in creative (so voters can fly; adventure mode can't), but keep
-// nothing from creative's inventory: a voter only their vote blocks. Nothing spawned (mobs, items,
+// nothing from creative's inventory: a voter only their vote blocks. Voters are kept within the
+// same padding of the build being voted on, put back at once. Nothing spawned (mobs, items,
 // armor stands) stays, TNT and fire do nothing, and liquids that run out of an area are cleared.
 import {
   BlockPermutation,
@@ -40,6 +41,7 @@ import {
   describeError,
   draw,
   facingOf,
+  hudText,
   inside,
   log,
   nameOf,
@@ -75,7 +77,7 @@ const FAKE_VOTE_TICKS = [20, 80];
 const VOTE_SOUND = "random.orb";
 /** Dealt when every prompt is used up, which a full game list makes rare. */
 const FALLBACK = { starter: "Anything you like", twist: "Make it bigger" };
-/** The map setting (game.config.ts map.settings) for how far builders may go past their area. */
+/** The map setting (game.config.ts map.settings) for how far builders, and voters, may go past an area. */
 const BUILD_PADDING = "buildPadding";
 /** The map setting for how long (seconds) builders may stay past the padding before they're put back. */
 const RETURN_DELAY = "returnDelay";
@@ -503,10 +505,10 @@ export class BuildSwap extends Minigame<typeof config> {
     this.keepIn.clear();
   }
 
-  /** Everyone to a build's spawn, kept near it. */
+  /** Everyone to a build's spawn, kept within the map's build padding of it (put back at once). */
   private gather(plot: Plot): void {
     this.keepIn.clear();
-    const box = grow(plot.box, this.config.voteMargin);
+    const box = grow(plot.box, this.mapSetting(BUILD_PADDING));
     for (const name of this.online()) {
       if (this.roster.get(name)) this.keepIn.set(keyOf(name), { name, box, plot, graceTicks: 0 });
       this.goTo(name, plot);
@@ -587,10 +589,19 @@ export class BuildSwap extends Minigame<typeof config> {
     }
   }
 
-  /** The line after the clock: the prompt while building, the vote while voting. */
+  /**
+   * The line top right, above the clock: the prompt while building, the vote while voting. A vote
+   * has no clock until everyone has voted, so its line goes top right on its own (hudText) until then.
+   */
   protected override hud(name: string): string | undefined {
     const ballot = this.ballot;
     if (!ballot) return this.lines.get(keyOf(name));
+    const line = this.voteLine(name, ballot);
+    return this.activeStage?.secondsLeft === undefined ? hudText(line) : line;
+  }
+
+  /** How many have voted, after "Your build" for its builder, and a voter's own vote once they've voted. */
+  private voteLine(name: string, ballot: Ballot): string {
     const count = `${COLOR.minor}${ballot.counted}/${ballot.needed} voted`;
     if (keyOf(name) === keyOf(ballot.builder)) return `${COLOR.minor}Your build   ${count}`;
     if (!ballot.isVoter(name)) return count;

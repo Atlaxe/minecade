@@ -37,8 +37,8 @@ export const MODE_MARK = "§r§m§o§r";
 
 /**
  * The title of a sidebar shown as notes top left instead of as the vanilla sidebar: each line in a
- * bubble of its own, above the chat (Notes, game/sidebar.ts). Must match the core pack's
- * ui/hud_screen.json and ui/scoreboards.json.
+ * bubble of its own, above the paper doll and the chat (Notes, game/sidebar.ts). Must match the core
+ * pack's ui/hud_screen.json (the notes, and the sidebar that hides for them).
  */
 export const NOTES_MARK = "§r§m§n§r";
 

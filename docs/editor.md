@@ -406,8 +406,9 @@ you back in creative at every spawn).
 - **Game settings tool:** a game's own settings for each of its maps, set here instead of in a
   tool of the game's own: the settings its config names (`map.settings` in `game.config.ts`, see
   `docs/maps.md`). Build Swap has two: **Build padding**, how far past their building boundary
-  builders can go (2 blocks unless the map says), and **Return delay**, how long they can stay past
-  that before they're put back (0 seconds, at once, unless the map says). A use of the tool,
+  builders can go, and voters past the build they're voting on (2 blocks unless the map says), and
+  **Return delay**, how long builders can stay past that before they're put back (0 seconds, at
+  once, unless the map says; voters are put back at once). A use of the tool,
   tapping a setting in its settings, or **/gamesettings** (`/minecade:gamesettings`, with or without
   the tool) opens its screen: the **Setting** list when the game has more than one, the value
   (**Type a number**, or the minus and plus a step at a time), **Use the default** (red, once the

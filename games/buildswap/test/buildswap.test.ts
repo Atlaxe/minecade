@@ -6,7 +6,7 @@ import { dealPrompts, promptReplyParts, runtimeMapConfig, stripColors, validateM
 import { encodeMessage, type PromptRequest } from "@minecade/minigame-core/protocol";
 import { Direction, ItemStack, world, type FakePlayer } from "../../../packages/minigame-core/test/fake-mc-server.ts";
 import { openLiveForm } from "../../../packages/minigame-core/test/fake-mc-server-ui.ts";
-import { NOTES_MARK } from "../../../packages/minigame-core/src/hud.ts";
+import { CLOCK_PLACES, HUD_MARK, NOTES_MARK } from "../../../packages/minigame-core/src/hud.ts";
 import { createHarness, expectBaseline, playToEnd, snapshot, statsRows, ticks, type Harness } from "../../../packages/minigame-core/test/game-harness.ts";
 import { validateGameConfig } from "../../../tools/build/validate.ts";
 import config from "../game.config.ts";
@@ -255,13 +255,21 @@ describe("a match of Build Swap", () => {
         expect(world.scoreboard.sidebar?.displayName).toBe(NOTES_MARK);
         expect([...world.scoreboard.sidebar!.scores].sort((x, y) => y[1] - x[1]).map(([line]) => stripColors(line))).toEqual(notes);
         const builder = players.find((player) => player.name === voting.builder)!;
+        const voter = players.find((player) => player.name !== voting.builder)!;
         await ticks(11); // the action bar's next refresh
+        // The vote's line is top right from the start, with no clock until everyone has voted.
         expect(stripColors(builder.actionBar)).toContain("Your build");
-        expect(stripColors(players.find((player) => player.name !== voting.builder)!.actionBar)).toContain("Vote with a number   0/2 voted");
+        expect(voter.actionBar.startsWith(HUD_MARK)).toBe(true);
+        expect(voter.actionBar).not.toContain(CLOCK_PLACES[3]);
+        expect(stripColors(voter.actionBar)).toContain("Vote with a number   0/2 voted");
         expect(builder.inventory.items()).toHaveLength(0);
-        expect(players.find((player) => player.name !== voting.builder)!.inventory.items().map((item) => item.nameTag)).toEqual(VOTES.map((vote) => vote.name));
+        expect(voter.inventory.items().map((item) => item.nameTag)).toEqual(VOTES.map((vote) => vote.name));
         await voteAll(game, players, (who) => (who === "A" ? 5 : 1));
         expect(game.activeStage?.name).toBe("Next build");
+        await ticks(11);
+        expect(voter.actionBar.startsWith(HUD_MARK)).toBe(true);
+        expect(voter.actionBar).toContain(CLOCK_PLACES[3]);
+        expect(stripColors(voter.actionBar)).toMatch(/Your vote: .+ {3}2\/2 voted/);
         game.skipStage();
         await ticks(2);
       }
@@ -316,7 +324,7 @@ describe("a match of Build Swap", () => {
     for (const player of players) world.leave(player.name);
   });
 
-  it("lays a /floor of the block in hand, keeps builders within the map's padding and return delay, and takes creative's items away out of their rounds", async () => {
+  it("lays a /floor of the block in hand, keeps builders within the map's padding and return delay (voters within the padding), and takes creative's items away out of their rounds", async () => {
     // A preview, with A its map editor: /skip moves it along.
     const { players, baseline, from, game } = start(["A", "B", "C"], {}, {}, { ...ROW, buildPadding: 6, returnDelay: 2 }, ["A"]);
     const [a, b] = players;
@@ -367,6 +375,15 @@ describe("a match of Build Swap", () => {
       expect(game.activeStage?.name).toBe("Vote");
       const builder = players.find((player) => player.name === game.voting!.builder)!;
       const voter = players.find((player) => player !== builder)!;
+      // Voters are kept within the same padding of the build, and put back at once (no return delay).
+      const { min, max } = game.voting!.build.plot.box;
+      const middle = (min[2] + max[2]) / 2;
+      voter.location = { x: max[0] + 4, y: 70, z: middle };
+      await ticks(11);
+      expect(voter.location.x).toBe(max[0] + 4);
+      voter.location = { x: max[0] + 12, y: 70, z: middle };
+      await ticks(11);
+      expect(voter.location.x).toBe(max[0] + 6.5);
       give(voter, 6, "minecraft:diamond_block");
       voter.equipment.set("Head", new ItemStack("minecraft:diamond_helmet"));
       give(builder, 0, "minecraft:stone");

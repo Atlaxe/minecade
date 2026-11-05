@@ -351,22 +351,56 @@
   // Effect icons (the right side of the screen) are hidden on every server: a locked queue makes
   // players invisible with an effect, and the HUD draws every icon as one piece, so the invisibility
   // one can't be hidden alone. Games don't show effects otherwise (only a kit can give one).
-  // The column top left (vanilla's chat_stack) becomes mc_chat_stack, with the notes above the chat.
+  // The column top left (vanilla's chat_stack) becomes mc_chat_stack, with the notes above the
+  // paper doll and the chat. The sidebar is put in again with its own visibility: hidden while it
+  // holds notes (an instance's bindings take the place of its def's, so scoreboards.json can't).
   "root_panel": {
     "modifications": [
       { "array_name": "controls", "operation": "remove", "control_name": "mob_effects_renderer" },
       { "array_name": "controls", "operation": "remove", "control_name": "chat_stack" },
+      { "array_name": "controls", "operation": "remove", "control_name": "sidebar" },
       {
         "array_name": "controls",
         "operation": "insert_after",
         "control_name": "progress_rend",
         "value": [ { "chat_stack@hud.mc_chat_stack": {} } ]
+      },
+      {
+        "array_name": "controls",
+        "operation": "insert_after",
+        "control_name": "game_tip",
+        "value": [
+          {
+            "sidebar@scoreboard.scoreboard_sidebar": {
+              "visible": false,
+              "bindings": [
+                { "binding_name": "#scoreboard_sidebar_visible", "binding_type": "global" },
+                { "binding_name": "#objective_sidebar_name", "binding_type": "global" },
+                {
+                  "binding_type": "view",
+                  "source_property_name": "(#scoreboard_sidebar_visible and ((#objective_sidebar_name - '§r§m§n§r') = #objective_sidebar_name))",
+                  "target_property_name": "#visible"
+                }
+              ]
+            }
+          }
+        ]
       }
     ]
   },
 
+  // The paper doll moves into mc_chat_stack (mc_paper_doll), so the notes can sit above it.
+  "centered_gui_elements": {
+    "modifications": [ { "array_name": "controls", "operation": "remove", "control_name": "hud_player_rend_desktop" } ]
+  },
+  "not_centered_gui_elements": {
+    "modifications": [ { "array_name": "controls", "operation": "remove", "control_name": "hud_player_rend_pocket" } ]
+  },
+
   // Vanilla's chat_stack from 26.60 (the paper doll's and the HUD's padding, the coordinates, the
-  // days played, tips and the chat), with the notes after the padding.
+  // days played, tips and the chat), reordered: the touch layout's padding for its hearts first,
+  // then the notes, then the paper doll in its own padding (where vanilla's desktop layout has it
+  // while there are no notes; the touch layout's is 7 pixels lower, under the hearts' padding).
   "mc_chat_stack": {
     "type": "stack_panel",
     "orientation": "vertical",
@@ -377,18 +411,6 @@
       { "binding_name": "#editor_chat_offset", "binding_name_override": "#offset", "binding_condition": "always" }
     ],
     "controls": [
-      {
-        "paper_doll_padding": {
-          "type": "panel",
-          "size": [ "100%", 50 ],
-          "visible": false,
-          "bindings": [
-            { "binding_name": "#paper_doll_visible" },
-            { "binding_name": "#editor_chat_layout_active", "binding_condition": "always" },
-            { "binding_type": "view", "source_property_name": "(#paper_doll_visible and not #editor_chat_layout_active)", "target_property_name": "#visible" }
-          ]
-        }
-      },
       {
         "non_centered_gui_padding": {
           "type": "panel",
@@ -402,6 +424,38 @@
         }
       },
       { "mc_notes@hud.mc_notes": {} },
+      {
+        "mc_paper_doll": {
+          "type": "panel",
+          "size": [ "100%", 50 ],
+          "visible": false,
+          "bindings": [
+            { "binding_name": "#paper_doll_visible" },
+            { "binding_name": "#editor_chat_layout_active", "binding_condition": "always" },
+            { "binding_type": "view", "source_property_name": "(#paper_doll_visible and not #editor_chat_layout_active)", "target_property_name": "#visible" }
+          ],
+          "controls": [
+            {
+              "centered@hud.hud_player_renderer": {
+                "offset": "$hud_player_rend_desktop_offset",
+                "anchor_from": "top_left",
+                "anchor_to": "top_left",
+                "visible": false,
+                "bindings": [ { "binding_name": "#hud_visible_centered_gui_elements", "binding_name_override": "#visible", "binding_type": "global" } ]
+              }
+            },
+            {
+              "not_centered@hud.hud_player_renderer": {
+                "offset": [ 15, 0 ],
+                "anchor_from": "top_left",
+                "anchor_to": "top_left",
+                "visible": false,
+                "bindings": [ { "binding_name": "#hud_visible_not_centered", "binding_name_override": "#visible", "binding_type": "global" } ]
+              }
+            }
+          ]
+        }
+      },
       { "player_position@hud.player_position": {} },
       { "number_of_days_played@hud.number_of_days_played": {} },
       { "game_tip@game_tip.game_tip_chat_stack_factory": { "size": [ "100%", "100%c" ] } },
@@ -415,7 +469,7 @@
 
   // Notes top left (Notes in packages/minigame-core/src/game/sidebar.ts): a sidebar whose title is
   // the notes mark ('§r§m§n§r', NOTES_MARK in hud.ts) shows here instead of as the vanilla sidebar
-  // (ui/scoreboards.json hides that), each of its lines in a bubble of its own, top to bottom,
+  // (root_panel's sidebar hides then), each of its lines in a bubble of its own, top to bottom,
   // wrapping when it's long. The lines are the sidebar's participants, in its order; scores aren't
   // shown.
   "mc_notes": {

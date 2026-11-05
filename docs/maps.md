@@ -115,7 +115,7 @@ each side (Build Swap's building boundaries). A smaller box doesn't count toward
 editor's Game settings tool sets (a game never needs a tool of its own for them):
 
 ```ts
-settings: { buildPadding: { label: "Build padding", hint: "how far builders can go past their boundary", default: 2, min: 0, max: 32, unit: "blocks" } },
+settings: { buildPadding: { label: "Build padding", hint: "how far builders and voters can go past a boundary", default: 2, min: 0, max: 32, unit: "blocks" } },
 ```
 
 Each is a whole number from `min` to `max`, kept in `map.json` under its key; a map that leaves it
@@ -191,7 +191,8 @@ block-thick shell around it, and a shell that cuts into another box is skipped).
 64 blocks on a side works: the game saves it in 64-block pieces. Builders are kept within 2 blocks
 of their box unless the map sets its own **Build padding** (`"buildPadding"`, 0 to 32), and put back
 as soon as they're past it unless the map sets a **Return delay** (`"returnDelay"`, 0 to 30
-seconds); both with the map editor's Game settings tool.
+seconds); both with the map editor's Game settings tool. Voters are kept within the same padding of
+the box being voted on, and always put back at once.
 
 **Paintball** needs team spawns for all four teams (Red, Blue, Yellow and Green, at least 2 each,
 since a match can have any of 2 to 4 teams), bounds, at least 8 Power-up spots (the Game marker

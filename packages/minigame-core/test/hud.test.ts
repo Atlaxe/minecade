@@ -157,9 +157,9 @@ describe("notes top left", () => {
   it("ride on a sidebar titled with the mark the core pack looks for", () => {
     expect(stripColors(NOTES_MARK)).toBe("");
     const hud = readFileSync(new URL("../resource_pack/ui/hud_screen.json", import.meta.url), "utf8");
-    const board = readFileSync(new URL("../resource_pack/ui/scoreboards.json", import.meta.url), "utf8");
     expect(hud).toContain(`"source_property_name": "(not ((#objective_sidebar_name - '${NOTES_MARK}') = #objective_sidebar_name))"`);
-    expect(board).toContain(`"source_property_name": "((#objective_sidebar_name - '${NOTES_MARK}') = #objective_sidebar_name)"`);
+    // Vanilla's sidebar is put in again, hidden while it holds notes.
+    expect(hud).toContain(`"source_property_name": "(#scoreboard_sidebar_visible and ((#objective_sidebar_name - '${NOTES_MARK}') = #objective_sidebar_name))"`);
   });
 
   it("shows the lines top to bottom, changes them, and goes with its scope", () => {
