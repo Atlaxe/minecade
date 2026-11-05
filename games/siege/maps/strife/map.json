@@ -1,0 +1,14 @@
+{
+  "name": "Strife",
+  "spawns": [],
+  "spectatorSpawn": [1.05, -2.85, 2.29, -71, 90],
+  "queueSpawn": [25.52, -55.61, -23.01, 39, -1],
+  "bounds": { "min": [-63, -60, -92], "max": [63, 18, 91] },
+  "teamSpawns": { "red": [[6.03, -49, 42.67]], "blue": [[4.97, -48, -37.61]] },
+  "cameras": { "Camera 1": { "at": [0.85, -45.46, 0.89, -173.4, 3.7], "kind": "map" } },
+  "source": {
+    "world": "Minecade Maps (imported)",
+    "box": { "min": [-346, -60, -84], "max": [-220, 14, 99] },
+    "offset": [283, 0, -8]
+  }
+}
