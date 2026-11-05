@@ -1,0 +1,27 @@
+{
+  "name": "Temples",
+  "spawns": [],
+  "queueSpawn": [-33.28, -26, 9.84, -94, 7],
+  "bounds": { "min": [-18, -48, -44], "max": [18, -22, 59] },
+  "spectatorBounds": { "min": [-63, -60, -92], "max": [63, 14, 91] },
+  "killY": -51,
+  "buildLimit": { "above": -26, "below": -43 },
+  "teamSpawns": { "blue": [[0.54, -31, 37.38]], "red": [[0.49, -31, -21.59]] },
+  "points": { "hole.red": [[0.5, -37, -40.5]], "hole.blue": [[0.5, -37, 56.5]] },
+  "regions": {
+    "spawnGuard.red": [
+      { "min": [-3, -34, -23], "max": [3, -22, -21] },
+      { "min": [-4, -35, -43], "max": [4, -29, -39] }
+    ],
+    "spawnGuard.blue": [
+      { "min": [-3, -34, 36], "max": [3, -22, 38] },
+      { "min": [-4, -35, 54], "max": [4, -29, 58] }
+    ]
+  },
+  "cameras": { "Camera 1": { "at": [-37.29, -13.28, 32.44, -115.4, 17.2], "kind": "map" } },
+  "source": {
+    "world": "Minecade Maps (imported)",
+    "box": { "min": [-202, -60, -84], "max": [-76, 14, 99] },
+    "offset": [139, 0, -8]
+  }
+}
