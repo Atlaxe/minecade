@@ -136,3 +136,19 @@ The Snapshot tool (the map menu's fifth tool; place a camera with the Camera too
   outlined green; tap another to switch. Same for Edit Minigame Thumbnail.
 - Edit Map Thumbnail, Import from another minigame: pick a game, then a map card, Use it, then
   Import name (the map takes that name and map id) or Keep mine.
+
+## Map store
+
+The maps and the games' pictures moved out of git into C:\dev\minecade\maps (docs/maps.md, "The
+map store"). Restart the Panel first, so it has the new code.
+
+- Start the editor: the editor lobby lists all 14 maps, and only the three drafts (Bridges
+  Thumbnail, Build Swap Thumbnail, Apocalypse) say Unpublished changes.
+- Open a map, change a block, Save: the editor log says "Kept the map as version 2." (or the next
+  number), and `npm run maps -- versions <target> <map>` lists it.
+- Publish it: chat says it's published with its version, and nothing new shows in `git status` or
+  `git log`.
+- Build Swap's new picture (taken before the move) shows in the lobby once a Build Swap map is
+  published again and the network restarts.
+- Start the network from the Panel: the lobby lists every game's maps with their pictures, and the
+  Panel's lobby map picker still offers spaceship.
