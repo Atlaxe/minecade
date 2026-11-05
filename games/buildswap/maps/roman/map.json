@@ -20,6 +20,7 @@
       { "min": [-75, -53, -33], "max": [-52, -30, -10] }
     ]
   },
+  "buildPadding": 8,
   "cameras": { "Camera 1": { "at": [7.01, -44.68, 35.06, -135.6, -4.9], "kind": "map" } },
   "source": {
     "world": "Minecade Maps (imported)",
