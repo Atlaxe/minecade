@@ -84,7 +84,8 @@ a second.
   or **Stop** in the tool panel turns it off.
 - **Center on block** (in the tool panel on the right, on at first and remembered) puts an entry at
   its block's middle; off, it goes exactly where you click, as game Edit's Spawn tool does when it's
-  off.
+  off. Switching it on with a marker picked that stands at an exact spot moves that marker to its
+  block's middle, at the same height and facing the same way, as game Edit's entry screen does.
 - **Drag a marker** to move it along the floor. It keeps its facing; one without a facing still
   looks at the map's middle.
 - **The facing knob:** the picked marker has a red knob on the floor in front of it. Drag it around

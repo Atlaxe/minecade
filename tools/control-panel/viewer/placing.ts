@@ -2,7 +2,7 @@
 // clicked, where it was clicked (or at the block's middle with Center on block); a click on a
 // block's side or underside goes just in front of it and drops to the floor below. Facings are
 // yaws in degrees (0 faces south, 90 west), snapped to steps. Plain TypeScript, tested.
-import type { Facing, MapPosition } from "@minecade/minigame-core/config";
+import { isExact, type Facing, type MapPosition } from "@minecade/minigame-core/config";
 import { entryPosition } from "../../../editor/behavior_pack/scripts/lists.ts";
 import { lookAtSpot, type Hit, type Volume } from "./volume.ts";
 
@@ -29,6 +29,16 @@ export function floorSpot(volume: Volume, hit: Pick<Hit, "block" | "normal" | "p
 /** An entry's position at a spot: the block's middle (whole numbers) with `center`, else the exact point. */
 export function placedPosition(spot: Spot, center: boolean, facing?: Facing): MapPosition {
   return entryPosition(spot, center, facing);
+}
+
+/**
+ * Where an entry at an exact point goes when Center on block is switched on (as game Edit's entry
+ * screen moves it): the middle of the block it stands in, at the same height. Undefined for an entry
+ * already in a block's middle.
+ */
+export function centeredSpot(position: MapPosition): [x: number, y: number, z: number] | undefined {
+  if (!isExact(position)) return undefined;
+  return [Math.floor(position[0]), position[1], Math.floor(position[2])];
 }
 
 /** A yaw from -180 (exclusive) to 180, never -0. */

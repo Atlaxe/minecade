@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { VIEW_FORMAT, type View } from "../../../viewer/view-format.ts";
-import { floorSpot, normalYaw, placedPosition, yawToward } from "../placing.ts";
+import { centeredSpot, floorSpot, normalYaw, placedPosition, yawToward } from "../placing.ts";
 import { buildVolume, type FaceColors } from "../volume.ts";
 
 const STONE: FaceColors = [[120, 120, 120, 255], [110, 110, 110, 255], [100, 100, 100, 255]];
@@ -65,5 +65,17 @@ describe("normalYaw", () => {
     expect(normalYaw(-180)).toBe(180);
     expect(normalYaw(270)).toBe(-90);
     expect(Object.is(normalYaw(-0), 0)).toBe(true);
+  });
+});
+
+describe("centeredSpot", () => {
+  it("moves an exact spot to its block's middle, at the same height", () => {
+    expect(centeredSpot([0.54, -31, 37.38])).toEqual([0, -31, 37]);
+    expect(centeredSpot([-0.2, 65.5, 38.16, 90, 0])).toEqual([-1, 65.5, 38]);
+  });
+
+  it("leaves an entry already in a block's middle", () => {
+    expect(centeredSpot([3, 64, -2])).toBeUndefined();
+    expect(centeredSpot([3, 64.5, -2, 180, 10])).toBeUndefined();
   });
 });

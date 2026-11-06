@@ -7,7 +7,7 @@
 // drawn from two corners and changed with their face handles; kill Y and the build limit are set by
 // a click and dragged by their handle. Each edit goes to the Panel (changes.ts), with undo and redo,
 // Save and Publish.
-import { bigEnough, worldPoint, type Box, type EditorRules, type MapConfig, type MapEdit, type MapPosition, type Vec3 } from "@minecade/minigame-core/config";
+import { bigEnough, listOf, worldPoint, type Box, type EditorRules, type MapConfig, type MapEdit, type MapPosition, type Vec3 } from "@minecade/minigame-core/config";
 import { lookAt, mapMiddle } from "../../../editor/behavior_pack/scripts/lists.ts";
 import { regionName, type HeightLine } from "../../../editor/behavior_pack/scripts/regions.ts";
 import { decodeView } from "../../viewer/view-format.ts";
@@ -15,7 +15,7 @@ import { addBoxEdit, boxFrom, faceToCut, facePlane, heightEdit, heightFromBlock,
 import { MapChangesClient } from "./changes.ts";
 import { buildMarkup, findEntry, type BoxMark, type Markup, type MarkupList, type PlaneMark, type PointMark } from "./markup.ts";
 import { Overlay, type MarkerAssets } from "./overlay.ts";
-import { floorSpot, placedPosition, yawToward, type Spot } from "./placing.ts";
+import { centeredSpot, floorSpot, placedPosition, yawToward, type Spot } from "./placing.ts";
 import { MapScene, type Cuts, type Toggles, type ViewName } from "./scene.ts";
 import { Sidebar, el } from "./sidebar.ts";
 import { buildVolume, type FaceColors } from "./volume.ts";
@@ -240,6 +240,19 @@ async function main(): Promise<void> {
     pickEntry(undefined);
   };
 
+  /**
+   * Center on block switched on: the picked point, when it's at an exact spot, moves to the middle
+   * of its block (its facing and height kept), as game Edit's entry screen does.
+   */
+  const centerPicked = () => {
+    const point = pointOf(picked);
+    const list = point && findEntry(markup, point.key)?.list;
+    if (!point || !list?.spawn) return;
+    const position = listOf(config, list.spawn.target)[point.index];
+    const at = position && centeredSpot(position);
+    if (at) edit({ op: "move", target: list.spawn.target, index: point.index, at });
+  };
+
   /** Saves a changed box, unless it's too small for its list. */
   const saveBox = (box: BoxMark, next: Box) => {
     if (next.min.every((v, axis) => v === box.box.min[axis]) && next.max.every((v, axis) => v === box.box.max[axis])) return;
@@ -277,7 +290,15 @@ async function main(): Promise<void> {
 
   /** The tool panel: what's armed and Center on block, then what can be done with the picked entry. */
   const renderTool = () => {
-    const center = el("input", { type: "checkbox", checked: settings.center, onchange: (event: Event) => ((settings = { ...settings, center: (event.target as HTMLInputElement).checked }), saveSettings(settings)) });
+    const center = el("input", {
+      type: "checkbox",
+      checked: settings.center,
+      onchange: (event: Event) => {
+        settings = { ...settings, center: (event.target as HTMLInputElement).checked };
+        saveSettings(settings);
+        if (settings.center) centerPicked();
+      },
+    });
     const doing = armed
       ? armed.kind === "points"
         ? "Placing"
