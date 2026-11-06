@@ -21,7 +21,7 @@ import { addGuest, readGuests, removeGuest, writeGuests } from "../editor/guests
 import { cacheVanillaTextures } from "../build/vanilla-textures.ts";
 import { catalogDir, storeDir } from "../maps/paths.ts";
 import { MapStore } from "../maps/store.ts";
-import { viewerMaps, viewerView } from "../viewer/routes.ts";
+import { VIEWER_PAGE, viewerColors, viewerMaps, viewerScripts, viewerView } from "../viewer/routes.ts";
 import {
   BroadcastLog,
   checkLobbyMap,
@@ -76,6 +76,7 @@ const PANEL_SOURCES = [
   "tools/editor/select-core.ts",
   "tools/editor/marker-models.ts",
   "tools/editor/world-log.ts",
+  "tools/build/vanilla-textures.ts",
   "packages/minigame-core/src/map-checklist.ts",
   "packages/minigame-core/src/map-validate.ts",
   "packages/minigame-core/src/map-requirements.ts",
@@ -639,6 +640,27 @@ async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> 
     if (path === "/api/stats") {
       const result = await fetchStats();
       return sendJson(res, result.status, result.body);
+    }
+    if (path === "/viewer") {
+      res.writeHead(200, { "content-type": "text/html; charset=utf-8", "cache-control": "no-store" });
+      res.end(await readFile(VIEWER_PAGE));
+      return;
+    }
+    if (path === "/viewer/app.js" || path === "/viewer/worker.js") {
+      try {
+        const script = (await viewerScripts()).get(path.slice("/viewer/".length));
+        if (!script) return sendJson(res, 404, { error: "not found" });
+        res.writeHead(200, { "content-type": "text/javascript; charset=utf-8", "cache-control": "no-store" });
+        res.end(script);
+      } catch (error) {
+        sendJson(res, 500, { error: `the viewer's scripts didn't build: ${error instanceof Error ? error.message : String(error)}` });
+      }
+      return;
+    }
+    if (path === "/api/viewer/colors") {
+      res.writeHead(200, { "content-type": "application/json", "content-encoding": "gzip", "cache-control": "no-store" });
+      res.end(viewerColors(repoRoot));
+      return;
     }
     if (path === "/api/viewer/maps") return sendJson(res, 200, await viewerMaps(repoRoot));
     if (path === "/api/viewer/view") {

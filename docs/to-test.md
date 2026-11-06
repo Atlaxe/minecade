@@ -152,3 +152,48 @@ map store"). Restart the Panel first, so it has the new code.
   published again and the network restarts.
 - Start the network from the Panel: the lobby lists every game's maps with their pictures, and the
   Panel's lobby map picker still offers spaceship.
+
+## Map viewer
+
+docs/viewer.md, docs/plans/map-viewer.md. Restart the Panel first, so it has the new code.
+
+The spike (V.1), from the main checkout; what it writes goes to work\viewer\spike\:
+
+- `npx tsx spike/viewer/colors.ts`, then open work\viewer\spike\swatches.html: in the third column
+  (the plan's color), each block looks like its texture; ores look like stone and glowstone dark
+  brown there (the viewer itself fixes both).
+- `npx tsx spike/viewer/decode.ts bridges/temples`, then `npx tsx spike/viewer/bds-check.ts
+  bridges/temples`: "784 of 784 spots: the same block and stored states".
+- `npx tsx spike/viewer/render/serve.ts temples`: an Edge window opens, draws Temples, cuts it,
+  fades it and closes on its own, about 20 s; its pictures are work\viewer\spike\shot-*.png.
+
+The world reader (V.2):
+
+- http://127.0.0.1:8099/api/viewer/maps in Edge lists every map under its game with ready, draft
+  and unpublished.
+- http://127.0.0.1:8099/api/viewer/view?target=bridges&map=temples downloads a file of about
+  135 KB; work\viewer\maps\bridges\temples\ then holds one .bin.gz file.
+- Save a map in game Edit, then open its view again: a new .bin.gz replaces the old one.
+
+The viewer (V.3), from the Panel's new Maps page:
+
+- The Maps page lists every map by game with Ready or Not ready, Draft and Unpublished changes.
+  View in 3D opens the map in a window of its own; a second map opens a second window.
+- The map shows in colors close to the game's (grass green on top and dirt on its sides, leaves,
+  water blue, stone gray), in a few seconds the first time.
+- Right drag turns, Shift + right drag and middle drag move sideways, the wheel zooms toward the
+  pointer, a double click centers on a block. Left drag does nothing.
+- Home shows the whole map; N, NE, E and the rest show it from each side; Top is a flat floor plan
+  with north up, and the red arrow points north in every view.
+- Height cut: the slider, Page Up and Page Down, `[` and `]`, Shift for five; Cut here then a click
+  puts it at that block's layer; No cut clears it. The cut layer shows its tops, with a faint grid
+  up close.
+- X and Z cuts with Flip and Off. With all three on, only the corner they keep is left.
+- Faded and Gone; both, and the three toggles (Corner darkening, Brightness variation, Darken
+  below the cut), are as you left them when the viewer opens again.
+- The status line names the block under the pointer, with its states and where it is, and never
+  a block past a cut.
+- A block set in work\viewer\looks\overrides.json (`{ "minecraft:stone": "#ff0000" }`) shows in
+  that color once the map is opened again.
+- With the viewer open and the Panel's own window closed, the Panel keeps running; once the viewer
+  closes too, it exits as before.

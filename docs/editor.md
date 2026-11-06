@@ -14,6 +14,9 @@ The map editor is three Bedrock servers, booted together on the network's ports:
 Players move between the three by transfer, so nobody rejoins by hand. The network (the lobby and
 games) is stopped while the editor runs: they use the same ports.
 
+To look at a map without a server, use the Panel's map viewer (`docs/viewer.md`): a 3D view of any
+map in the store, cut a layer at a time, which works while the network or the editor runs.
+
 ## Starting and stopping
 
 From the Panel: open **Map editor** and press **Boot up map editor**. If the network is running,

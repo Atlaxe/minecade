@@ -27,7 +27,7 @@
     "smoke": "tsx --disable-warning=ExperimentalWarning tools/smoke/smoke.ts",
     "panel": "node --disable-warning=ExperimentalWarning tools/control-panel/panel.ts",
     "panel:shortcut": "node --disable-warning=ExperimentalWarning tools/control-panel/shortcut.ts",
-    "typecheck": "tsc -p tsconfig.node.json && tsc -p tsconfig.packs.json"
+    "typecheck": "tsc -p tsconfig.node.json && tsc -p tsconfig.packs.json && tsc -p tsconfig.viewer.json"
   },
   "devDependencies": {
     "@minecraft/common": "1.3.0",
@@ -38,10 +38,12 @@
     "@minecraft/vanilla-data": "1.26.60",
     "@types/dockerode": "^4.0.2",
     "@types/node": "^26.6.6",
+    "@types/three": "0.186.0",
     "dockerode": "^5.0.1",
     "esbuild": "^0.28.2",
     "prismarine-nbt": "^2.8.0",
     "tar": "^7.5.22",
+    "three": "0.186.1",
     "tsx": "^4.23.15",
     "typescript": "^7.0.2",
     "vitest": "^5.0.5"

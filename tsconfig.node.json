@@ -12,5 +12,5 @@
     "vitest.config.ts",
     "types/transport-alias.d.ts"
   ],
-  "exclude": ["tools/build/test/fixtures/**"]
+  "exclude": ["tools/build/test/fixtures/**", "tools/control-panel/viewer/**"]
 }

@@ -77,6 +77,9 @@
   tbody td:first-child { border-radius: 7px 0 0 7px; }
   tbody td:last-child { border-radius: 0 7px 7px 0; }
   td.end { text-align: right; }
+  #maps table { table-layout: fixed; }
+  #maps th:first-child { width: 42%; }
+  #maps th:last-child { width: 120px; }
   td.nowrap { white-space: nowrap; }
 
   .pill, .status, .dot, .callout, .toast { --tone: var(--off); }
@@ -156,6 +159,10 @@
     <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 4 3 6.5V20l6-2.5 6 2.5 6-2.5V4l-6 2.5z"/><path d="M9 4v13.5M15 6.5V20"/></svg>
     <span>Map editor</span><span id="nav-editor" class="dot off"></span>
   </a>
+  <a class="nav-item" href="#maps" data-page="maps">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 3.5 7.5 12 12l8.5-4.5z"/><path d="M3.5 7.5v9L12 21l8.5-4.5v-9"/><path d="M12 12v9"/></svg>
+    <span>Maps</span>
+  </a>
   <a class="nav-item" href="#logs" data-page="logs">
     <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 8h8M8 12h8M8 16h5"/></svg>
     <span>Logs</span>
@@ -228,6 +235,12 @@
     <div class="card-head"><h2>Editor log</h2><span class="muted small">work/editor/editor.log</span></div>
     <pre id="editor-log" class="log"></pre>
   </div>
+</section>
+
+<section id="page-maps" class="page" hidden>
+  <div class="page-head"><h1>Maps</h1><p>Every map in the map store, by game. View one in 3D: turn it, look from any side, and cut through it a layer at a time. The viewer only reads the map, so it works while the network or the map editor runs.</p></div>
+  <div class="row" style="margin-bottom:14px"><button id="maps-refresh">Refresh</button><span id="maps-note" class="muted"></span></div>
+  <div id="maps"><p class="hint">Loading...</p></div>
 </section>
 
 <section id="page-logs" class="page" hidden>
@@ -312,7 +325,7 @@ async function copy(text) {
 
 // ---- Pages -------------------------------------------------------------------------------
 
-const PAGES = ["servers", "players", "editor", "logs"];
+const PAGES = ["servers", "players", "editor", "maps", "logs"];
 let page = "servers";
 
 function showPage(name) {
@@ -326,6 +339,7 @@ function showPage(name) {
   }
   if (location.hash !== `#${page}`) history.replaceState(null, "", `#${page}`);
   syncLogs();
+  if (page === "maps" && !maps) loadMaps();
 }
 window.onhashchange = () => showPage(location.hash.slice(1));
 
@@ -1044,6 +1058,55 @@ function addActivity(entry) {
       .replace(/: (up|down|restart|broadcast) failed (.*)$/, (_, action, rest) => `: ${ACTION_NAMES[action]} failed ${rest} The details are on the Logs page.`), tone);
   }
 }
+
+// ---- Maps --------------------------------------------------------------------------------
+
+/** The map store's maps by target (the editor's catalog), loaded when the Maps page opens. */
+let maps = null;
+
+async function loadMaps() {
+  $("maps-note").textContent = "Loading...";
+  const response = await fetch("/api/viewer/maps").catch(() => null);
+  const result = response ? await response.json().catch(() => ({})) : {};
+  $("maps-note").textContent = "";
+  if (!response?.ok) {
+    const error = !response ? "Could not reach the panel helper."
+      : response.status === 404 ? "The panel helper is out of date: Restart Panel, or close this window and open Minecade Panel again."
+      : result.error ?? `HTTP ${response.status}`;
+    $("maps").replaceChildren(el("p", { className: "error" }, error));
+    return;
+  }
+  maps = result;
+  renderMaps();
+}
+
+function renderMaps() {
+  const targets = maps.targets.filter((target) => target.maps.length > 0);
+  const empty = maps.targets.filter((target) => target.maps.length === 0).map((target) => target.name);
+  $("maps").replaceChildren(
+    ...targets.map((target) => el("div", { className: "card" },
+      el("div", { className: "card-head" }, el("h2", {}, target.name), el("span", { className: "muted small mono" }, target.id)),
+      el("div", { className: "table-wrap" }, el("table", {},
+        el("thead", {}, el("tr", {}, el("th", {}, "Map"), el("th", {}, "Checklist"), el("th", {}))),
+        el("tbody", {}, ...target.maps.map((map) => el("tr", {},
+          el("td", {}, el("span", { className: "strong" }, map.name), " ", el("span", { className: "muted mono" }, map.id)),
+          el("td", {},
+            el("span", { className: `pill ${map.ready ? "ok" : "warn"}` }, map.ready ? "Ready" : "Not ready"),
+            map.draft ? [" ", el("span", { className: "pill off" }, "Draft")] : null,
+            map.unpublished ? [" ", el("span", { className: "pill warn" }, "Unpublished changes")] : null),
+          el("td", { className: "end" }, el("button", { className: "small primary", onclick: () => openViewer(target, map) }, "View in 3D")),
+        ))))))),
+    empty.length > 0 ? el("p", { className: "hint" }, `No maps yet: ${empty.join(", ")}.`) : null,
+  );
+}
+
+/** Opens a map in the viewer, in a window of its own (one per map). */
+function openViewer(target, map) {
+  const query = new URLSearchParams({ target: target.id, map: map.id, name: map.name, game: target.name });
+  window.open(`/viewer?${query}`, `viewer-${target.id}-${map.id}`, "popup,width=1400,height=900");
+}
+
+$("maps-refresh").onclick = () => loadMaps();
 
 showPage(location.hash.slice(1));
 

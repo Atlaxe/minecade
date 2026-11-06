@@ -2,8 +2,9 @@
 
 **Status:** proposed 2026-11-05. V.1 (the spike) done 2026-11-05: its findings are in
 `docs/spike-results.md`, "Map viewer", and this plan is updated for them; its code in
-`spike/viewer/` (the looks, the mesher) is where V.3 starts. V.2 (the world reader) done
-2026-11-05, in `tools/viewer/`. Build it in the order of "Passes" below: each pass leans on the
+`spike/viewer/` (the looks, the mesher) is where V.3 started. V.2 (the world reader) and V.3 (the
+read-only viewer, `docs/viewer.md`) done 2026-11-05, in `tools/viewer/` and
+`tools/control-panel/viewer/`. Build it in the order of "Passes" below: each pass leans on the
 ones before it.
 
 **For the session that implements this:**
@@ -138,8 +139,13 @@ same faces, shapes, shading and tints. Only what fills a face changes.
 5. The face's color is the average of the pixels in that bucket. A see-through block (glass) keeps
    how opaque its texture is.
 
-A small overrides file (in `work\viewer\looks\`) sets the color of any block the method gets wrong,
-for example ores, which come out the color of stone, and glowstone, which comes out dark brown.
+Three rules (V.3, `tools/viewer/looks.ts`) fix what the method gets wrong, without a color in git:
+ores (`*_ore`) mix their stone half and half with their specks (the most common colored color well
+away from the stone); glowstone takes its whole texture's average (its most common color is its
+dark gaps); and a texture `terrain_texture.json` gives an `overlay_color` (a grass block's side)
+has its alpha ignored and no tint, since its alpha marks where the tint goes, not what's
+see-through. A small overrides file (`work\viewer\looks\overrides.json`) sets any block's color by
+hand, every face one `#rrggbb` (or `#rrggbbaa`).
 
 **Vanilla textures:** the textures themselves, 16x16 each, with nearest filtering so they stay
 crisp. Merged faces repeat the texture once per block. Leaves, plants and glass edges are cut out
@@ -148,8 +154,9 @@ them to its own page only.
 
 **Tints:** grass tops, leaves, vines, ferns, tall grass, lily pads and water are gray in their
 textures, and the client tints them by biome in code. The viewer uses one fixed tint for each:
-plains, taken from the client's colormaps (`colormap.brarchive`), and a fixed water blue. A small
-table names the tinted blocks and textures.
+plains, taken from the client's colormaps (`colormap.brarchive`: `grass.png` and `foliage.png`, and
+`evergreen.png` and `birch.png` for spruce and birch leaves), and a fixed water blue. A small table
+names the tinted textures.
 
 **Shading** (both looks): tops full, north and south faces 80%, east and west 60%, bottoms 50%
 (tuned in the pass), plus corner darkening where blocks meet (ambient occlusion, a toggle, on by
@@ -334,14 +341,22 @@ In-game Select stays as it is. This is the Panel's way to cut a map out of a wor
 - **The viewer:** the 3D view in the middle, the lists and checklist on one side, the picked tool
   and its settings on the other, and a top bar with Look (Average colors or Vanilla textures),
   Past the cut (Faded or Gone), Hidden blocks, the view buttons, Save, Publish and Open in game.
+  It opens in a window of its own, one per map (`/viewer?target=&map=`), which keeps an event
+  stream open so the Panel counts it as one of its windows. V.3 has the top bar's views, Past the
+  cut and its three toggles, and the cuts in a panel on the right; the lists come in V.4.
 
 ## Tech
 
-- **three.js** (a new dependency, `three`, exactly 0.186.1, the version the spike used), served to
-  the page from `node_modules` by `panel.ts`. The Panel works offline, so no CDN.
+- **three.js** (`three` 0.186.1 and `@types/three` 0.186.0, devDependencies at exact versions like
+  the rest), bundled into the page, so it works offline: no CDN.
 - **The viewer's code** is TypeScript in `tools/control-panel/viewer/`, bundled with esbuild
-  (already a dependency) when the Panel starts, so the page uses minigame-core's map code as it is
-  (`map-config.ts`, `map-edit.ts`, `map-checklist.ts`). The rest of the Panel stays hand-written.
+  (already a dependency) on its first use and again whenever one of its files changes (no Panel
+  restart for page changes), so the page uses shared code as it is (`tools/viewer/view-format.ts`
+  now; minigame-core's `map-config.ts`, `map-edit.ts`, `map-checklist.ts` from V.4). It has its own
+  typecheck, `tsconfig.viewer.json` (the browser's types), which `npm run typecheck` runs. The rest
+  of the Panel stays hand-written.
+- **Drawing on demand:** a frame is drawn only when something changes (the camera, a cut, a
+  toggle), so an open viewer costs nothing while nobody touches it.
 - **Meshing in web workers:** each 16x16x16 section meshed on its own (hidden faces left out,
   touching faces with the same look merged into rectangles; vertex colors for Average colors,
   texture array layers for Vanilla textures), then sections grouped into region meshes of 4x4x4
@@ -380,9 +395,12 @@ palettes, the blocks' box, the view file and its cache, with tests on small fixt
 list and a map's view file. Every map in the store makes a view (at most 104 ms, 150 KB gzipped),
 and V.1's spots checked against BDS read the same through the view file.
 
-**V.3 Read-only viewer.** The looks cache with Average colors, everything drawn as cubes, shading
-and corner darkening, the camera and its views, height, X and Z cuts with Faded and Gone, the Maps
-page.
+**V.3 Read-only viewer** (done 2026-11-05, `docs/viewer.md`). The looks cache with Average colors,
+everything drawn as cubes, shading and corner darkening, the camera and its views, height, X and Z
+cuts with Faded and Gone, the Maps page. Also: brightness variation and darkening below the cut as
+shader uniforms (toggling them re-meshes nothing), the block under the pointer in a status line,
+and Cut here for all three cuts. Temples meshes in about 150 ms (255k triangles: corner darkening
+keeps some faces from merging).
 
 **V.4 Markers shown.** Every list in the table above drawn, read-only, game markers in their
 list's style (the game's own models too); the side panel with the checklist; clicking an entry
@@ -415,22 +433,24 @@ lobby's stars (`map-edit.ts` has no op for `stars` yet: this pass adds one).
 **New**
 - `tools/viewer/`: the Panel server's side: `world-reader.ts` (keys and newest values),
   `subchunk.ts`, `view-format.ts` and `view-file.ts` (the view file and its cache), `routes.ts`
-  (all four from V.2), `looks.ts` (colors, textures, tints, the shape table), `image.ts` (PNGs of
-  every kind), `overview.ts` (Select's picture and the automatic height), and `test/`. The
-  spike's versions in `spike/viewer/` are the starting point.
-- `tools/control-panel/viewer/`: the page and its scripts (scene, camera, slicing, picking, mesh
-  worker, tools, lists).
+  (all four from V.2), `looks.ts` (colors, tints and the overrides from V.3; textures and the
+  shape table later), `png.ts` (PNGs of every kind, V.3), `overview.ts` (Select's picture and the
+  automatic height), and `test/`. The spike's versions in `spike/viewer/` are the starting point.
+- `tools/control-panel/viewer/`: the page and its scripts: `viewer.html`, `app.ts` (the page),
+  `scene.ts` (three.js, regions, the shader, cuts and caps, the camera), `volume.ts` (the grid,
+  face colors, picking), `mesher.ts` and `worker.ts`, and `test/` (V.3); tools and lists later.
 - `docs/viewer.md`: how to use it.
 
 **Changed**
-- `tools/control-panel/panel.ts` (routes, the bundle at start) and `index.html` (the Maps page).
+- `tools/control-panel/panel.ts` (routes, the bundle on first use) and `index.html` (the Maps page).
 - `tools/maps/blocks.ts`: its table reader shared with the world reader (`tableEntries`, V.2).
 - `tools/editor/world-log.ts`: batches with their sequence numbers (`logWrites`) and any log's
   records (`logRecords`, the MANIFEST's too) for the world reader (V.2).
 - `tools/editor/control.ts`, the runner and `session.ts`: `POST /edit` (pass V.5).
 - `packages/minigame-core/src/map-edit.ts`: a `stars` op (pass V.12).
-- `package.json`: `three`.
-- `docs/editor.md`: a line pointing to the viewer.
+- `package.json`: `three` and `@types/three`, and `typecheck` runs `tsconfig.viewer.json` too
+  (V.3); `tsconfig.node.json` leaves the page's folder to it.
+- `docs/editor.md`: a line pointing to the viewer (V.3).
 
 ## Reuse
 

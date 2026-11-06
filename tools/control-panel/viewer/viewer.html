@@ -1,0 +1,127 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Map viewer</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' rx='3' fill='%235ad2ff'/%3E%3Crect x='4' y='4' width='3' height='3' fill='%2304202d'/%3E%3Crect x='9' y='4' width='3' height='3' fill='%2304202d'/%3E%3Crect x='4' y='9' width='8' height='3' fill='%2304202d'/%3E%3C/svg%3E">
+<style>
+  /* The Panel's colors (index.html). */
+  :root {
+    color-scheme: dark;
+    --bg: #121922; --side: #0d131a; --card: #1c2530; --raised: #283342; --raised-hover: #324051; --inset: #141b24;
+    --text: #e2e9f1; --muted: #8b98a9; --accent: #5ad2ff; --accent-hover: #8adfff; --on-accent: #04202d;
+    --ok: #4fcf76; --warn: #e5ab3c; --bad: #ff6b61;
+  }
+  @media (prefers-color-scheme: light) {
+    :root {
+      color-scheme: light;
+      --bg: #edf1f6; --side: #e1e7ef; --card: #ffffff; --raised: #e5eaf1; --raised-hover: #d8dfe9; --inset: #f2f5f9;
+      --text: #17202b; --muted: #5b6878; --accent: #0a8bc2; --accent-hover: #0879a9; --on-accent: #ffffff;
+      --ok: #1d8a42; --warn: #a66900; --bad: #c9342b;
+    }
+  }
+  * { box-sizing: border-box; }
+  [hidden] { display: none !important; }
+  html, body { height: 100%; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 13px/1.4 "Segoe UI", system-ui, sans-serif; display: grid; grid-template-rows: auto 1fr auto; overflow: hidden; }
+
+  .bar { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; padding: 8px 12px; background: var(--side); }
+  .title { display: flex; flex-direction: column; min-width: 150px; margin-right: 6px; }
+  .title strong { font-size: 15px; }
+  .muted { color: var(--muted); }
+  .group { display: flex; align-items: center; gap: 4px; }
+  .group-label { color: var(--muted); margin-right: 4px; }
+  button { font: inherit; font-weight: 600; color: var(--text); background: var(--raised); border: 0; border-radius: 6px; padding: 5px 10px; cursor: pointer; }
+  button:hover:not(:disabled) { background: var(--raised-hover); }
+  button.on { background: var(--accent); color: var(--on-accent); }
+  button.on:hover:not(:disabled) { background: var(--accent-hover); }
+  button:disabled { opacity: .45; cursor: default; }
+  label.check { display: flex; align-items: center; gap: 5px; cursor: pointer; white-space: nowrap; }
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+  .compass { display: grid; grid-template-columns: repeat(3, 30px); gap: 2px; }
+  .compass button { padding: 2px 0; font-size: 11px; }
+  .needle { width: 36px; height: 36px; flex: none; }
+  .needle path { fill: var(--bad); } .needle .south { fill: var(--muted); }
+
+  .main { display: grid; grid-template-columns: 1fr auto; min-height: 0; }
+  .stage { position: relative; min-width: 0; min-height: 0; }
+  canvas, canvas:focus-visible { display: block; width: 100%; height: 100%; outline: none; }
+  canvas.arming { cursor: crosshair; }
+  .message { position: absolute; inset: 0; display: grid; place-content: center; text-align: center; gap: 8px; padding: 24px; color: var(--muted); font-size: 15px; }
+  .message.bad { color: var(--bad); }
+
+  .cuts { width: 210px; background: var(--card); padding: 12px; display: flex; flex-direction: column; gap: 14px; overflow-y: auto; }
+  .cut h2 { font-size: 13px; margin: 0 0 6px; display: flex; justify-content: space-between; align-items: baseline; }
+  .cut h2 span { color: var(--muted); font-weight: 400; }
+  .cut .row { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 6px; }
+  .height { display: flex; gap: 10px; align-items: stretch; }
+  .height input { writing-mode: vertical-lr; direction: rtl; height: 260px; }
+  .height .side { display: flex; flex-direction: column; gap: 6px; justify-content: flex-start; }
+  input[type=range] { accent-color: var(--accent); }
+  .axis input[type=range] { width: 100%; }
+
+  .status { display: flex; gap: 16px; padding: 5px 12px; background: var(--side); color: var(--muted); min-height: 26px; white-space: nowrap; overflow: hidden; }
+  .status #hover { color: var(--text); overflow: hidden; text-overflow: ellipsis; }
+  .status .spacer { flex: 1; }
+  .status .warn { color: var(--warn); }
+</style>
+</head>
+<body>
+<header class="bar">
+  <div class="title"><strong id="map-name">Map viewer</strong><span id="map-game" class="muted"></span></div>
+  <div class="group" aria-label="Views">
+    <button id="view-home" title="Home: the whole map (Home key)">Home</button>
+    <div class="compass">
+      <button data-view="northwest" title="From the northwest">NW</button><button data-view="north" title="From the north">N</button><button data-view="northeast" title="From the northeast">NE</button>
+      <button data-view="west" title="From the west">W</button><button data-view="top" title="Top: straight down, flat, north up">Top</button><button data-view="east" title="From the east">E</button>
+      <button data-view="southwest" title="From the southwest">SW</button><button data-view="south" title="From the south">S</button><button data-view="southeast" title="From the southeast">SE</button>
+    </div>
+    <svg class="needle" id="needle" viewBox="-18 -18 36 36" aria-label="North"><path d="M0 -15 L5 0 L-5 0 Z"/><path class="south" d="M0 15 L5 0 L-5 0 Z"/></svg>
+  </div>
+  <div class="group" aria-label="Past the cut">
+    <span class="group-label">Past the cut</span>
+    <button id="past-faded">Faded</button><button id="past-gone">Gone</button>
+  </div>
+  <div class="group">
+    <label class="check"><input type="checkbox" id="toggle-occlusion"> Corner darkening</label>
+    <label class="check"><input type="checkbox" id="toggle-variation"> Brightness variation</label>
+    <label class="check"><input type="checkbox" id="toggle-darken"> Darken below the cut</label>
+  </div>
+</header>
+<div class="main">
+  <div class="stage">
+    <canvas id="view" tabindex="0"></canvas>
+    <div id="message" class="message">Loading the map...</div>
+  </div>
+  <aside class="cuts" aria-label="Cuts">
+    <section class="cut">
+      <h2>Height <span id="top-label"></span></h2>
+      <div class="height">
+        <input type="range" id="top" step="1" aria-label="Top layer kept">
+        <div class="side">
+          <button id="top-here" title="Click a block next: the cut goes to its layer">Cut here</button>
+          <button id="top-off">No cut</button>
+          <span class="muted">Page Up and Page Down (or [ and ]) move it a layer, Shift five.</span>
+        </div>
+      </div>
+    </section>
+    <section class="cut axis" data-axis="x">
+      <h2>X <span id="x-label"></span></h2>
+      <input type="range" id="x" step="1" aria-label="X cut">
+      <div class="row"><button id="x-here">Cut here</button><button id="x-flip">Flip</button><button id="x-off">Off</button></div>
+    </section>
+    <section class="cut axis" data-axis="z">
+      <h2>Z <span id="z-label"></span></h2>
+      <input type="range" id="z" step="1" aria-label="Z cut">
+      <div class="row"><button id="z-here">Cut here</button><button id="z-flip">Flip</button><button id="z-off">Off</button></div>
+    </section>
+  </aside>
+</div>
+<footer class="status">
+  <span id="hover"></span><span class="spacer"></span><span id="note" class="warn"></span><span id="info"></span>
+</footer>
+<script type="module" src="/viewer/app.js"></script>
+</body>
+</html>
