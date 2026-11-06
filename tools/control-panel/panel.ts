@@ -21,6 +21,7 @@ import { addGuest, readGuests, removeGuest, writeGuests } from "../editor/guests
 import { cacheVanillaTextures } from "../build/vanilla-textures.ts";
 import { catalogDir, storeDir } from "../maps/paths.ts";
 import { MapStore } from "../maps/store.ts";
+import { viewerMaps, viewerView } from "../viewer/routes.ts";
 import {
   BroadcastLog,
   checkLobbyMap,
@@ -60,7 +61,26 @@ const EDITOR_LAUNCH_MS = 30_000;
 /** How long a restarting editor may take to shut down (Edit saves first) before the Panel stops waiting. */
 const EDITOR_STOP_MS = 5 * 60_000;
 /** The Panel's own code: when one of these changes, the page offers Restart Panel. */
-const PANEL_SOURCES = ["tools/control-panel/panel.ts", "tools/control-panel/core.ts", "tools/editor/control.ts", "tools/editor/editor-core.ts", "tools/editor/guests.ts", "tools/maps"];
+const PANEL_SOURCES = [
+  "tools/control-panel/panel.ts",
+  "tools/control-panel/core.ts",
+  "tools/editor/control.ts",
+  "tools/editor/editor-core.ts",
+  "tools/editor/guests.ts",
+  "tools/maps",
+  // The map viewer's routes, and the editor's catalog and checklist code they use.
+  "tools/viewer",
+  "tools/editor/catalog.ts",
+  "tools/editor/targets.ts",
+  "tools/editor/worlds.ts",
+  "tools/editor/select-core.ts",
+  "tools/editor/marker-models.ts",
+  "tools/editor/world-log.ts",
+  "packages/minigame-core/src/map-checklist.ts",
+  "packages/minigame-core/src/map-validate.ts",
+  "packages/minigame-core/src/map-requirements.ts",
+  "packages/minigame-core/src/map-config.ts",
+];
 /** The map editor's code (the host tool, its packs, the map store, the shared core and the server entrypoint). */
 const EDITOR_SOURCES = ["tools/editor", "tools/build", "tools/maps", "editor", "packages/minigame-core/src", "docker/bds/entrypoint.sh"];
 /** Source times are read again at most this often. */
@@ -619,6 +639,14 @@ async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> 
     if (path === "/api/stats") {
       const result = await fetchStats();
       return sendJson(res, result.status, result.body);
+    }
+    if (path === "/api/viewer/maps") return sendJson(res, 200, await viewerMaps(repoRoot));
+    if (path === "/api/viewer/view") {
+      const answer = viewerView(repoRoot, url.searchParams.get("target") ?? "", url.searchParams.get("map") ?? "");
+      if (answer.status !== 200) return sendJson(res, answer.status, { error: answer.error });
+      res.writeHead(200, { "content-type": "application/octet-stream", "content-encoding": "gzip", "cache-control": "no-store", "x-view-stamp": answer.stamp });
+      res.end(answer.gzipped);
+      return;
     }
     return sendJson(res, 404, { error: "not found" });
   }

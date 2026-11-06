@@ -8,7 +8,8 @@
 //
 // A log is 32 KiB blocks of records, each with a 7-byte header (checksum, length, type: whole,
 // first, middle or last part of a write batch). A batch is its sequence number, a count, then each
-// put (a key and a value) or delete (a key).
+// put (a key and a value) or delete (a key). The map viewer's world reader (tools/viewer) reads the
+// batches with their sequence numbers too, and the MANIFEST, a log of version edits.
 import { readdir, readFile } from "node:fs/promises";
 import { join } from "node:path";
 
@@ -30,9 +31,30 @@ export interface LogEntry {
   value?: Buffer;
 }
 
+export interface LogWrite {
+  /** The batch's first sequence number: entry i has seq + i. */
+  seq: number;
+  entries: LogEntry[];
+}
+
 /** Every whole write batch in a log, in order (a batch cut off at the end, still being written, is left out). */
 export function logBatches(data: Buffer): LogEntry[][] {
-  const batches: LogEntry[][] = [];
+  return logWrites(data).map((write) => write.entries);
+}
+
+/** Every whole write batch in a log with its sequence number (the map viewer's world reader takes the newest value of each key). */
+export function logWrites(data: Buffer): LogWrite[] {
+  const writes: LogWrite[] = [];
+  for (const record of logRecords(data)) {
+    const entries = readBatch(record);
+    if (entries) writes.push({ seq: record.readUInt32LE(4) * 2 ** 32 + record.readUInt32LE(0), entries });
+  }
+  return writes;
+}
+
+/** A log's whole records, in order: write batches in a world's logs, version edits in its MANIFEST. */
+export function logRecords(data: Buffer): Buffer[] {
+  const records: Buffer[] = [];
   let pending: Buffer[] = [];
   let at = 0;
   while (at + HEADER <= data.length) {
@@ -57,12 +79,11 @@ export function logBatches(data: Buffer): LogEntry[][] {
     else if (type === MIDDLE) pending.push(payload);
     if (type === FULL || type === LAST) {
       if (type === LAST) pending.push(payload);
-      const batch = readBatch(Buffer.concat(pending));
-      if (batch) batches.push(batch);
+      records.push(pending.length === 1 ? pending[0] : Buffer.concat(pending));
       pending = [];
     }
   }
-  return batches;
+  return records;
 }
 
 function readBatch(record: Buffer): LogEntry[] | undefined {

@@ -2,8 +2,9 @@
 
 **Status:** proposed 2026-11-05. V.1 (the spike) done 2026-11-05: its findings are in
 `docs/spike-results.md`, "Map viewer", and this plan is updated for them; its code in
-`spike/viewer/` (the world reader, the looks, the mesher) is where V.2 and V.3 start. Build it in
-the order of "Passes" below: each pass leans on the ones before it.
+`spike/viewer/` (the looks, the mesher) is where V.3 starts. V.2 (the world reader) done
+2026-11-05, in `tools/viewer/`. Build it in the order of "Passes" below: each pass leans on the
+ones before it.
 
 **For the session that implements this:**
 - Work in a worktree of your own (`CLAUDE.md`, "Branch and merge").
@@ -93,13 +94,16 @@ The viewer reads a map's `world\db\` in the store's working folder
   are almost all missing (the spike), so Select's picture finds each column's top itself.
 - **Older formats** (sub-chunk versions under 8) aren't expected from BDS 1.26 or Chunker. The
   reader refuses them with a clear message.
-- **The view file** sent to the page: the box the blocks fill (refused if wider than 256 on x or
-  z), a palette of looks (a block's name plus only the states that change how it's drawn), and
-  each 16x16x16 section as 16-bit indices into that palette (or one index when the section is all
-  one block), gzipped.
-- **Cache:** `work\viewer\maps\<target>\<map>\<stamp>.bin`, where the stamp is a hash of the
-  `db\` files' names, sizes and times. A map opens at once the second time, and a changed world
-  makes a new one (the old one is removed).
+- **The view file** sent to the page (`tools/viewer/view-format.ts` has the layout and a decoder
+  the page uses as it is): the box the blocks fill (refused if wider than 256 on x or z), a
+  palette of looks (a block's name plus only the states that change how it's drawn; a custom
+  block keeps all its states), and each 16x16x16 section as 16-bit indices into that palette (or
+  one index when the section is all one block), with layer 1 where it has any, gzipped. Only
+  looks some block uses: a sub-chunk's palette keeps entries whose blocks are gone (Temples'
+  palettes still list 259 states of the editor's plane blocks, though none is left).
+- **Cache:** `work\viewer\maps\<target>\<map>\<stamp>.bin.gz`, where the stamp is a hash of the
+  `db\` files' names, sizes and times, and the view format. A map opens at once the second time
+  (3 ms against 129 ms for Temples), and a changed world makes a new one (the old one is removed).
 
 ## How blocks look
 
@@ -270,7 +274,8 @@ pass.
   - Build Swap plots that overlap, or whose block-thick shell reaches another plot, and a spawn in
     no plot;
   - leftover editor blocks or entities in the world (`minecade:plane` blocks, the editor's marker
-    entities), as a bad save once left in Temples and others;
+    entities), as a bad save once left in Temples and others (counted from blocks, never from
+    palettes, which keep the planes' entries after the blocks go: no map has any left today);
   - blocks without a look.
 
 ## Saving, publishing and the in-game editor
@@ -350,7 +355,11 @@ In-game Select stays as it is. This is the Panel's way to cut a map out of a wor
   (127x79x184) and Sinkhole (64x163x64, the tallest).
 - **WebGL2**, in Edge (the Panel's window). Edge stops drawing a covered or minimized window, so
   nothing in the viewer may wait on a frame.
-- **Routes** go through `checkRequest` like every other Panel route.
+- **Routes** go through `checkRequest` like every other Panel route (`tools/viewer/routes.ts`):
+  `GET /api/viewer/maps` (the editor's catalog, `tools/editor/catalog.ts`: every map by target
+  with its checklist state, and the client's worlds for Select) and
+  `GET /api/viewer/view?target=<id>&map=<id>` (the view file, sent gzipped with
+  `content-encoding: gzip`, so the page gets it unzipped).
 
 ## Passes (the implementation order: stop and report after each, commit and push)
 
@@ -365,9 +374,11 @@ In-game Select stays as it is. This is the Panel's way to cut a map out of a wor
 5. Read only the height maps of a whole source world (the converted Datapacking world), and time
    it.
 
-**V.2 World reader.** Keys and newest values from logs and tables, sub-chunks and palettes, the
-blocks' box, the view file and its cache, with tests on small fixture worlds. Panel routes for the
-map list and a map's view file.
+**V.2 World reader** (done 2026-11-05). Keys and newest values from logs and tables, sub-chunks and
+palettes, the blocks' box, the view file and its cache, with tests on small fixture worlds
+(`tools/viewer/test/fixture-world.ts` writes them as LevelDB and BDS do). Panel routes for the map
+list and a map's view file. Every map in the store makes a view (at most 104 ms, 150 KB gzipped),
+and V.1's spots checked against BDS read the same through the view file.
 
 **V.3 Read-only viewer.** The looks cache with Average colors, everything drawn as cubes, shading
 and corner darkening, the camera and its views, height, X and Z cuts with Faded and Gone, the Maps
@@ -403,16 +414,19 @@ lobby's stars (`map-edit.ts` has no op for `stars` yet: this pass adds one).
 
 **New**
 - `tools/viewer/`: the Panel server's side: `world-reader.ts` (keys and newest values),
-  `subchunk.ts`, `view-file.ts`, `looks.ts` (colors, textures, tints, the shape table),
-  `brarchive.ts`, `image.ts` (PNG and TGA), `overview.ts` (Select's picture and the automatic
-  height), and `test/`. The spike's versions in `spike/viewer/` are the starting point.
+  `subchunk.ts`, `view-format.ts` and `view-file.ts` (the view file and its cache), `routes.ts`
+  (all four from V.2), `looks.ts` (colors, textures, tints, the shape table), `image.ts` (PNGs of
+  every kind), `overview.ts` (Select's picture and the automatic height), and `test/`. The
+  spike's versions in `spike/viewer/` are the starting point.
 - `tools/control-panel/viewer/`: the page and its scripts (scene, camera, slicing, picking, mesh
   worker, tools, lists).
 - `docs/viewer.md`: how to use it.
 
 **Changed**
 - `tools/control-panel/panel.ts` (routes, the bundle at start) and `index.html` (the Maps page).
-- `tools/maps/blocks.ts`: its table reader shared with the world reader.
+- `tools/maps/blocks.ts`: its table reader shared with the world reader (`tableEntries`, V.2).
+- `tools/editor/world-log.ts`: batches with their sequence numbers (`logWrites`) and any log's
+  records (`logRecords`, the MANIFEST's too) for the world reader (V.2).
 - `tools/editor/control.ts`, the runner and `session.ts`: `POST /edit` (pass V.5).
 - `packages/minigame-core/src/map-edit.ts`: a `stars` op (pass V.12).
 - `package.json`: `three`.
@@ -432,6 +446,10 @@ lobby's stars (`map-edit.ts` has no op for `stars` yet: this pass adds one).
 - `spike/viewer/`: the reader (`leveldb.ts`, `subchunk.ts`, `world.ts`), the looks (`looks.ts`,
   `brarchive.ts`, `image.ts`), the picture (`overview.ts`) and the mesher (`render/mesher.ts`).
 - `prismarine-nbt` for palettes.
+- `tools/build/vanilla-textures.ts` for the looks (V.3): it already reads `.brarchive` files
+  (`readArchive`) and TGA images (`decodeTga`) for the kit pictures. Its PNG reader
+  (`tools/skins/png.ts`) and `tools/editor/png.ts` read only 8-bit RGB(A) without interlacing, so
+  the viewer's PNG decoder comes from the spike's `image.ts`.
 - `games/paintball/behavior_pack/scripts/paint.ts` and `docs/spike-results.md` ("Vanilla block
   shapes for painting", "Painted shapes") for block states and door, gate and trapdoor boxes.
 

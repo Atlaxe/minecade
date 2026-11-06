@@ -27,8 +27,17 @@ function addNames(names: Set<string>, bytes: Buffer): void {
   for (const match of bytes.toString("latin1").matchAll(NAME)) names.add(match[0]);
 }
 
-/** Every value in a LevelDB table: the footer's index block names the data blocks. */
+/** Every value in a LevelDB table. */
 function tableValues(data: Buffer): Buffer[] {
+  return tableEntries(data).map((entry) => entry.value);
+}
+
+/**
+ * Every entry in a LevelDB table, in order: the footer's index block names the data blocks. A key
+ * is the internal one: the user's key, then 8 bytes of (sequence << 8) | type (1 a value, 0 a
+ * delete). The map viewer's world reader (tools/viewer) reads tables with this.
+ */
+export function tableEntries(data: Buffer): { key: Buffer; value: Buffer }[] {
   const footer = data.subarray(data.length - 48);
   let at = 0;
   // The metaindex block's handle comes first, then the index block's.
@@ -36,13 +45,13 @@ function tableValues(data: Buffer): Buffer[] {
   [, at] = varint(footer, at);
   const [indexOffset, afterOffset] = varint(footer, at);
   const [indexSize] = varint(footer, afterOffset);
-  const values: Buffer[] = [];
-  for (const handle of blockEntries(block(data, indexOffset, indexSize))) {
+  const entries: { key: Buffer; value: Buffer }[] = [];
+  for (const { value: handle } of blockEntries(block(data, indexOffset, indexSize))) {
     const [offset, next] = varint(handle, 0);
     const [size] = varint(handle, next);
-    values.push(...blockEntries(block(data, offset, size)));
+    entries.push(...blockEntries(block(data, offset, size)));
   }
-  return values;
+  return entries;
 }
 
 /** A table block's contents, decompressed by the type byte after it: 0 none, 2 zlib, 4 raw deflate (Bedrock's). */
@@ -55,23 +64,27 @@ function block(data: Buffer, offset: number, size: number): Buffer {
   throw new Error(`a LevelDB table block compressed with type ${kind}, which this can't read`);
 }
 
-/** A block's values: entries with prefix-compressed keys, then the restart points and their count. */
-function blockEntries(contents: Buffer): Buffer[] {
+/** A block's entries: keys sharing a prefix with the key before, then the restart points and their count. */
+function blockEntries(contents: Buffer): { key: Buffer; value: Buffer }[] {
   const restarts = contents.readUInt32LE(contents.length - 4);
   const end = contents.length - 4 - 4 * restarts;
-  const values: Buffer[] = [];
+  const entries: { key: Buffer; value: Buffer }[] = [];
+  let previous: Buffer = Buffer.alloc(0);
   let at = 0;
   while (at < end) {
-    [, at] = varint(contents, at);
+    let shared: number;
     let unshared: number;
     let size: number;
+    [shared, at] = varint(contents, at);
     [unshared, at] = varint(contents, at);
     [size, at] = varint(contents, at);
+    const key = shared === 0 ? contents.subarray(at, at + unshared) : Buffer.concat([previous.subarray(0, shared), contents.subarray(at, at + unshared)]);
     at += unshared;
-    values.push(contents.subarray(at, at + size));
+    entries.push({ key, value: contents.subarray(at, at + size) });
     at += size;
+    previous = key;
   }
-  return values;
+  return entries;
 }
 
 function varint(data: Buffer, start: number): [number, number] {
