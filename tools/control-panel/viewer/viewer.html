@@ -65,6 +65,14 @@
   .checklist .problems li, .checklist .warnings li { display: flex; gap: 8px; padding: 6px 8px; margin-top: 6px; border-radius: var(--radius); color: var(--bad); background: color-mix(in srgb, var(--bad) 10%, transparent); }
   .checklist .warnings li { color: var(--warn); background: color-mix(in srgb, var(--warn) 10%, transparent); }
   .count { color: var(--muted); }
+  .checks h3 { font-size: var(--fs-meta); color: var(--muted); text-transform: uppercase; letter-spacing: .06em; margin: 14px 4px 6px; }
+  .check-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
+  .check { display: flex; width: 100%; gap: 8px; align-items: flex-start; text-align: left; background: none; font-size: var(--fs-body); font-weight: 400; padding: 5px 6px; border: 0; color: var(--text); }
+  .check:hover:not(:disabled) { background: var(--raised); }
+  .check:disabled { cursor: default; }
+  .check .dot { width: 8px; height: 8px; background: var(--warn); flex: none; margin-top: 6px; }
+  .check .swatch { margin-top: 5px; }
+  .swatch.unknown { background: #ff00ff; }
   .overview h3 { font-size: var(--fs-meta); color: var(--muted); text-transform: uppercase; letter-spacing: .06em; margin: 14px 4px 6px; }
   .list { margin-bottom: 6px; }
   .list-head { display: flex; align-items: center; gap: 8px; font-weight: 700; padding: 4px; }
@@ -201,6 +209,7 @@
       <label><input type="checkbox" id="toggle-occlusion"> Corner darkening</label>
       <label><input type="checkbox" id="toggle-variation"> Brightness variation</label>
       <label><input type="checkbox" id="toggle-darken"> Darken below the Y cut</label>
+      <label><input type="checkbox" id="toggle-hidden"> Hidden blocks: outline barriers, invisible bedrock and light blocks</label>
     </fieldset>
     <fieldset>
       <legend>Past the cut</legend>

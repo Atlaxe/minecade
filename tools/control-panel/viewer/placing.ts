@@ -1,34 +1,47 @@
 // Where the viewer's clicks put things, as game Edit's tools do: a point lands on top of the block
-// clicked, where it was clicked (or at the block's middle with Center on block); a click on a
-// block's side or underside goes just in front of it and drops to the floor below. Facings are
-// yaws in degrees (0 faces south, 90 west), snapped to steps. Plain TypeScript, tested.
+// clicked, where it was clicked (or at the block's middle with Center on block), at the height of
+// its top (a slab's is half a block up, a carpet's a sixteenth); a click on a block's side or
+// underside goes just in front of it and drops to the floor below. Facings are yaws in degrees (0
+// faces south, 90 west), snapped to steps. Plain TypeScript, tested.
 import { isExact, type Facing, type MapPosition } from "@minecade/minigame-core/config";
 import { entryPosition } from "../../../editor/behavior_pack/scripts/lists.ts";
-import { lookAtSpot, type Hit, type Volume } from "./volume.ts";
+import { solidTop, type Hit, type Volume } from "./volume.ts";
 
 export type Spot = { x: number; y: number; z: number };
 
 /** How far in front of a block's side a spot goes, so a player standing there isn't in the wall (game Edit's). */
 const SIDE_GAP = 0.3;
 
+/** A height to the nearest sixteenth of a block (a shape's tops are in sixteenths). */
+const sixteenths = (value: number) => Math.round(value * 16) / 16;
+
 /**
  * Where a click on a block puts a point (world coordinates, y the feet): on its top where it was
- * clicked; in front of a side or under it, dropped to the first block below (undefined with none).
+ * clicked; in front of a side or under it, dropped to the first block below that a click can land
+ * on (undefined with none), on that block's top.
  */
 export function floorSpot(volume: Volume, hit: Pick<Hit, "block" | "normal" | "point">): Spot | undefined {
   const [ox, oy, oz] = volume.origin;
-  if (hit.normal[1] === 1) return { x: hit.point[0] + ox, y: hit.block[1] + 1 + oy, z: hit.point[2] + oz };
+  if (hit.normal[1] === 1) return { x: hit.point[0] + ox, y: sixteenths(hit.point[1]) + oy, z: hit.point[2] + oz };
   const p = hit.point.map((value, axis) => value + hit.normal[axis] * SIDE_GAP);
   const [gx, gz] = [Math.floor(p[0]), Math.floor(p[2])];
   for (let gy = Math.min(Math.floor(p[1]), volume.size[1] - 1); gy >= 0; gy--) {
-    if (volume.drawn[lookAtSpot(volume, gx, gy, gz)]) return { x: p[0] + ox, y: gy + 1 + oy, z: p[2] + oz };
+    const top = solidTop(volume, gx, gy, gz);
+    if (top !== undefined) return { x: p[0] + ox, y: gy + top + oy, z: p[2] + oz };
   }
   return undefined;
 }
 
-/** An entry's position at a spot: the block's middle (whole numbers) with `center`, else the exact point. */
+/**
+ * An entry's position at a spot: the block's middle (whole numbers) with `center`, else the exact
+ * point. A spot on something lower than a block (a slab, a carpet) keeps its height when centered,
+ * so the entry stands on it rather than in it.
+ */
 export function placedPosition(spot: Spot, center: boolean, facing?: Facing): MapPosition {
-  return entryPosition(spot, center, facing);
+  const position = entryPosition(spot, center, facing);
+  const y = Math.round(spot.y * 100) / 100;
+  if (center && !Number.isInteger(y)) position[1] = y;
+  return position;
 }
 
 /**

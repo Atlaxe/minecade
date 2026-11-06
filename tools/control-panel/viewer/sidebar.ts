@@ -1,6 +1,9 @@
 // The viewer's left panel under the tools: the game's checklist (what the map still needs, and
-// what the build would refuse it for), then the overview: every list game Edit's tools place into,
-// with its entries. Clicking an entry picks it (the page frames it in the view).
+// what the build would refuse it for), the checks a 3D view makes (warnings: checks.ts) with the
+// blocks that have no look, then the overview: every list game Edit's tools place into, with its
+// entries. Clicking an entry or a warning about one picks it (the page frames it in the view);
+// clicking a block's name shows the first of them.
+import type { MapWarning } from "./checks.ts";
 import type { Markup, MarkupList } from "./markup.ts";
 
 type Child = Node | string | null | undefined | false | Child[];
@@ -34,6 +37,14 @@ export function swatch(color: number): HTMLSpanElement {
 export interface SidebarHandlers {
   /** An entry was clicked. */
   pick(key: string): void;
+  /** A block's name was clicked. */
+  find(block: string): void;
+}
+
+export interface Checks {
+  warnings: MapWarning[];
+  /** Blocks with no look, by name, with how many there are. */
+  unknown: { name: string; count: number }[];
 }
 
 export class Sidebar {
@@ -44,8 +55,9 @@ export class Sidebar {
     private readonly handlers: SidebarHandlers,
   ) {}
 
-  render(markup: Markup): void {
+  render(markup: Markup, checks: Checks): void {
     const { checklist } = markup;
+    const found = checks.warnings.length + checks.unknown.length;
     const scroll = this.root.scrollTop;
     this.root.replaceChildren(
       el(
@@ -59,6 +71,49 @@ export class Sidebar {
         ),
         checklist.problems.length > 0 ? el("ul", { className: "problems" }, checklist.problems.map((problem) => el("li", {}, problem))) : null,
         checklist.warnings.length > 0 ? el("ul", { className: "warnings" }, checklist.warnings.map((warning) => el("li", {}, warning))) : null,
+      ),
+      el(
+        "section",
+        { className: "checks" },
+        el("h2", {}, "Checks", el("span", { className: `pill ${found > 0 ? "warn" : "ok"}` }, found > 0 ? String(found) : "None")),
+        checks.warnings.length > 0
+          ? el(
+              "ul",
+              { className: "check-list" },
+              checks.warnings.map((warning) =>
+                el(
+                  "li",
+                  {},
+                  el(
+                    "button",
+                    {
+                      className: "check",
+                      disabled: !warning.entry && !warning.block,
+                      onclick: () => (warning.entry ? this.handlers.pick(warning.entry) : warning.block ? this.handlers.find(warning.block) : undefined),
+                    },
+                    el("span", { className: "dot" }),
+                    el("span", { className: "grow" }, warning.text),
+                  ),
+                ),
+              ),
+            )
+          : null,
+        checks.unknown.length > 0
+          ? [
+              el("h3", {}, "Blocks without a look"),
+              el(
+                "ul",
+                { className: "check-list" },
+                checks.unknown.map((block) =>
+                  el(
+                    "li",
+                    {},
+                    el("button", { className: "check", title: `Show the first ${block.name}`, onclick: () => this.handlers.find(block.name) }, el("span", { className: "swatch unknown" }), el("span", { className: "grow" }, block.name), el("span", { className: "count" }, block.count.toLocaleString())),
+                  ),
+                ),
+              ),
+            ]
+          : null,
       ),
       el(
         "section",

@@ -34,6 +34,24 @@ describe("floorSpot", () => {
   it("finds no floor where there's nothing below", () => {
     expect(floorSpot(v, { block: [0, 0, 0], normal: [0, 0, 1], point: [0.5, 0.5, 1] })).toBeUndefined();
   });
+
+  it("stands a point on a slab's top, half a block up, and drops past a flower to the block under it", () => {
+    const blocks = new Uint16Array(4096);
+    const at = (x: number, y: number, z: number) => (x << 8) | (z << 4) | y;
+    blocks[at(0, 0, 0)] = 1;
+    blocks[at(1, 0, 0)] = 2;
+    blocks[at(2, 0, 0)] = 1;
+    blocks[at(2, 1, 0)] = 3;
+    blocks[at(3, 2, 0)] = 1;
+    const looks = [{ name: "minecraft:air" }, { name: "minecraft:stone" }, { name: "minecraft:stone_slab", states: { "minecraft:vertical_half": "bottom" } }, { name: "minecraft:poppy" }];
+    const view: View = { format: VIEW_FORMAT, stamp: "test", box: { min: [0, 64, 0], max: [3, 66, 0] }, looks, sections: 1, list: [{ x: 0, y: 4, z: 0, blocks }] };
+    const shaped = buildVolume(view, { "minecraft:stone": STONE, "minecraft:stone_slab": STONE, "minecraft:poppy": STONE });
+    expect(floorSpot(shaped, { block: [1, 0, 0], normal: [0, 1, 0], point: [1.5, 0.5, 0.5] })?.y).toBe(64.5);
+    // The wall at x 3's west side, in front of the flower at x 2: down onto the stone under it.
+    expect(floorSpot(shaped, { block: [3, 2, 0], normal: [-1, 0, 0], point: [3, 2.5, 0.5] })?.y).toBe(65);
+    // In front of the slab (from a block's side at x 2, y 0, facing west): onto the slab's top.
+    expect(floorSpot(shaped, { block: [2, 0, 0], normal: [-1, 0, 0], point: [2, 0.8, 0.5] })?.y).toBe(64.5);
+  });
 });
 
 describe("placedPosition", () => {
@@ -42,6 +60,11 @@ describe("placedPosition", () => {
     expect(placedPosition({ x: 1.25, y: 65, z: 0.75 }, false)).toEqual([1.25, 65, 0.75]);
     // Whole x and z would read as a block's middle: x moves by 0.01.
     expect(placedPosition({ x: 2, y: 65, z: 3 }, false)).toEqual([2.01, 65, 3]);
+  });
+
+  it("keeps a slab's height with Center on block, so the point stands on it", () => {
+    expect(placedPosition({ x: 1.25, y: 64.5, z: 0.75 }, true)).toEqual([1, 64.5, 0]);
+    expect(placedPosition({ x: 1.25, y: 64.0625, z: 0.75 }, true)).toEqual([1, 64.06, 0]);
   });
 });
 

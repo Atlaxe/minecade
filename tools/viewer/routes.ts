@@ -7,6 +7,8 @@
 //                                               with its checklist state, and the client's worlds
 //   GET /api/viewer/view?target=<id>&map=<id>   the map's view file (view-format.ts), gzipped
 //   GET /api/viewer/colors                      the blocks' Average colors (looks.ts), gzipped JSON
+//   GET /api/viewer/shapes?target=<id>&map=<id> the shapes of the custom blocks the map uses
+//                                               (custom-shapes.ts), by look
 //   GET /api/viewer/thumb?target=<id>&map=<id>  the map's thumbnail (preview.png), if it has one
 //   GET /api/viewer/map?target=<id>&map=<id>    the map's markup data (map-data.ts): map.json, its
 //                                               game's rules, marker shapes and models
@@ -18,6 +20,8 @@ import type { Catalog } from "@minecade/minigame-core/config";
 import { buildCatalog } from "../editor/catalog.ts";
 import { storeDir, workingDir } from "../maps/paths.ts";
 import { MapStore } from "../maps/store.ts";
+import type { CustomShape } from "../control-panel/viewer/shapes.ts";
+import { viewShapes } from "./custom-shapes.ts";
 import { colorTable } from "./looks.ts";
 import { cachedView, ViewError } from "./view-file.ts";
 
@@ -55,6 +59,13 @@ export function viewerView(root: string, target: string, map: string): ViewAnswe
     if (!(error instanceof ViewError)) throw error;
     return { status: error.message.startsWith("there's no world") ? 404 : 422, error: error.message };
   }
+}
+
+/** The shapes of the custom blocks a map uses, by look (shapes.ts lookKey). */
+export function viewerShapes(root: string, target: string, map: string): { status: 200; shapes: Record<string, CustomShape> } | { status: 400 | 404 | 422; error: string } {
+  const answer = viewerView(root, target, map);
+  if (answer.status !== 200) return answer;
+  return { status: 200, shapes: viewShapes(answer.gzipped, join(root, "packs", "blocks")) };
 }
 
 /** A map's thumbnail (its preview.png, taken in game Edit), or undefined when it has none. */

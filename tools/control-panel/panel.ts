@@ -23,7 +23,7 @@ import { catalogDir, storeDir } from "../maps/paths.ts";
 import { MapStore } from "../maps/store.ts";
 import { MapChanges } from "../viewer/map-changes.ts";
 import { viewerMap, viewerMapConfig, watchMap } from "../viewer/map-data.ts";
-import { VIEWER_PAGE, viewerColors, viewerMaps, viewerScripts, viewerThumbPath, viewerView } from "../viewer/routes.ts";
+import { VIEWER_PAGE, viewerColors, viewerMaps, viewerScripts, viewerShapes, viewerThumbPath, viewerView } from "../viewer/routes.ts";
 import {
   BroadcastLog,
   checkLobbyMap,
@@ -710,6 +710,10 @@ async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> 
     if (path === "/api/viewer/map") {
       const answer = await viewerMap(repoRoot, url.searchParams.get("target") ?? "", url.searchParams.get("map") ?? "");
       return answer.status === 200 ? sendJson(res, 200, answer.map) : sendJson(res, answer.status, { error: answer.error });
+    }
+    if (path === "/api/viewer/shapes") {
+      const answer = viewerShapes(repoRoot, url.searchParams.get("target") ?? "", url.searchParams.get("map") ?? "");
+      return answer.status === 200 ? sendJson(res, 200, { shapes: answer.shapes }) : sendJson(res, answer.status, { error: answer.error });
     }
     if (path === "/api/viewer/view") {
       const answer = viewerView(repoRoot, url.searchParams.get("target") ?? "", url.searchParams.get("map") ?? "");

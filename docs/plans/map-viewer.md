@@ -6,7 +6,7 @@
 read-only viewer, `docs/viewer.md`) done 2026-11-05, in `tools/viewer/` and
 `tools/control-panel/viewer/`. V.4 (markers shown), V.5 (points, Save and Publish) and V.6 (boxes
 and planes) done 2026-11-06. Before V.7, the same day, the user reworked the viewer's layout (see
-"Layout rework" below). Build it in the order of "Passes" below: each pass leans on the ones before
+"Layout rework" below). V.7 (shapes and see-through blocks) done 2026-11-06. Build it in the order of "Passes" below: each pass leans on the ones before
 it.
 
 **For the session that implements this:**
@@ -464,8 +464,23 @@ rules game Edit's tools keep (a region's `minSize`, kill Y and build limit range
 below) are `edit-check.ts`'s `markupProblem`, which the page and the Panel both apply, so a bad box
 or height is never written, whether or not game Edit has the map.
 
-**V.7 Shapes and see-through blocks.** The shape table, custom blocks' collision boxes, liquids,
-glass, clicks passing through plants, Hidden blocks, unknown blocks, and the checks from "Checks".
+**V.7 Shapes and see-through blocks** (done 2026-11-06). The shape table, custom blocks' collision
+boxes, liquids, glass, clicks passing through plants, Hidden blocks, unknown blocks, and the checks
+from "Checks". As built: the shape table is the page's `shapes.ts` (boxes in sixteenths, with the
+stairs' corners, walls' and fences' arms and doors, gates and trapdoors by Paintball's rules, and a
+few short blocks such as chests and farmland), and custom blocks' boxes come from the Panel's `GET
+/api/viewer/shapes` (`tools/viewer/custom-shapes.ts`): the blocks pack writes a box in the model's
+unturned frame and `minecraft:transformation` turns it, so the viewer turns it the same way (quarter
+turns about x, then y). A door's halves are joined into one look per half (facing and open from the
+lower one, the hinge from the upper). The mesher merges only cubes; other shapes are their boxes'
+faces, hidden where a neighbor covers them, and see-through blocks (glass, water, and custom blocks
+that blend) go in a second mesh per region drawn blended; positions are sixteenths. The cut's cap
+covers the parts of shapes a neighbor hid. Hidden blocks is a View settings switch. The checks
+(`checks.ts`) count barriers and invisible bedrock as floors, since players stand on them (Temples'
+queue spawn does), and follow Build Swap's own pairing of spawns with build boundaries (Roman puts
+each spawn just outside its boundary's corner, which the game pairs by distance), so they warn of a
+spawn paired with none or with one more than 3 blocks away instead of every spawn outside one. The
+editor's marker entities aren't counted: the world reader doesn't read entities.
 
 **V.8 Vanilla textures.** The Look toggle and the texture array.
 

@@ -1,8 +1,9 @@
 // The map viewer page (/viewer?target=<id>&map=<id>&name=<name>&game=<name>, opened from the
-// Panel's Maps page in the same window): a map's world in 3D. It loads the map's view file and the
-// blocks' colors from the Panel, meshes the blocks in workers, and draws them (scene.ts); over them
-// the map's markup (overlay.ts), and beside them the tools, the checklist and the overview
-// (sidebar.ts) on the left and the picked tool's or entry's settings, or the cuts, on the right.
+// Panel's Maps page in the same window): a map's world in 3D. It loads the map's view file, the
+// blocks' colors and its custom blocks' shapes from the Panel, meshes the blocks in workers, and
+// draws them (scene.ts); over them the map's markup (overlay.ts), and beside them the tools, the
+// checklist, the checks (checks.ts) and the overview (sidebar.ts) on the left and the picked tool's
+// or entry's settings, or the cuts, on the right.
 // Tools as game Edit has them: Select (pick, then move or resize with the gizmo, gizmo.ts, or type
 // the values), Spawn and Marker (place points), Region (draw boxes), Height (kill Y, the build
 // limit) and Cut. Each edit goes to the Panel (changes.ts), with undo and redo, Save and Publish.
@@ -17,11 +18,13 @@ import { FLY_SPEEDS, Fly, type FlySpeed } from "./fly.ts";
 import { Gizmo, type GizmoPart } from "./gizmo.ts";
 import { buildMarkup, findEntry, type BoxMark, type Markup, type MarkupList, type PlaneMark, type PointMark } from "./markup.ts";
 import { Overlay, type MarkerAssets } from "./overlay.ts";
+import { blocksWithoutLook, mapWarnings } from "./checks.ts";
 import { centeredSpot, floorSpot, normalYaw, placedPosition, yawToward, type Spot } from "./placing.ts";
 import { MapScene, type Cuts, type Toggles } from "./scene.ts";
 import { Sidebar, el, swatch } from "./sidebar.ts";
 import { ViewCube } from "./viewcube.ts";
-import { buildVolume, type FaceColors } from "./volume.ts";
+import type { CustomShape } from "./shapes.ts";
+import { buildVolume, spotsOf, type FaceColors } from "./volume.ts";
 
 const $ = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id) as T;
 const params = new URLSearchParams(location.search);
@@ -40,8 +43,10 @@ interface Settings extends Toggles {
   /** WASD flying, and how fast. */
   wasd: boolean;
   flySpeed: FlySpeed;
+  /** Outlines of the hidden blocks a game uses: barriers, invisible bedrock, light blocks. */
+  hidden: boolean;
 }
-const DEFAULTS: Settings = { occlusion: true, variation: true, darkenBelow: false, faded: true, names: true, center: true, wasd: false, flySpeed: "normal" };
+const DEFAULTS: Settings = { occlusion: true, variation: true, darkenBelow: false, faded: true, names: true, center: true, wasd: false, flySpeed: "normal", hidden: false };
 
 /** What the Panel sends for a map's markup (tools/viewer/map-data.ts). */
 interface MapData extends MarkerAssets {
@@ -127,7 +132,12 @@ async function main(): Promise<void> {
   // is open; naming the map also brings its map.json's changes.
   const events = new EventSource(`/api/events?${query}`);
 
-  const [viewResponse, colorsResponse, mapResponse] = await Promise.all([fetch(`/api/viewer/view?${query}`), fetch("/api/viewer/colors"), fetch(`/api/viewer/map?${query}`)]);
+  const [viewResponse, colorsResponse, mapResponse, shapesResponse] = await Promise.all([
+    fetch(`/api/viewer/view?${query}`),
+    fetch("/api/viewer/colors"),
+    fetch(`/api/viewer/map?${query}`),
+    fetch(`/api/viewer/shapes?${query}`),
+  ]);
   for (const response of [viewResponse, mapResponse]) {
     if (response.ok) continue;
     const answer = (await response.json().catch(() => ({}))) as { error?: string };
@@ -136,7 +146,10 @@ async function main(): Promise<void> {
   const data = (await mapResponse.json()) as MapData;
   const view = decodeView(new Uint8Array(await viewResponse.arrayBuffer()));
   const colors = (await colorsResponse.json()) as { blocks: Record<string, FaceColors>; note?: string };
-  const volume = buildVolume(view, colors.blocks);
+  // Custom blocks are drawn as cubes when their shapes can't be read.
+  const shapes = shapesResponse.ok ? ((await shapesResponse.json()) as { shapes: Record<string, CustomShape> }).shapes : {};
+  const volume = buildVolume(view, colors.blocks, shapes);
+  const unknown = blocksWithoutLook(volume);
   show("Meshing...");
 
   const canvas = $<HTMLCanvasElement>("view");
@@ -151,9 +164,7 @@ async function main(): Promise<void> {
   for (const look of volume.blocks) if (volume.drawn[look]) blocks++;
   const size = view.box.max.map((v, i) => v - view.box.min[i] + 1).join(" x ");
   $("info").textContent = `${size} blocks, ${blocks.toLocaleString()} drawn, ${(stats.quads * 2).toLocaleString()} triangles, made in ${Math.round(stats.ms)} ms`;
-  const notes = [colors.note, volume.unknown.length > 0 ? `${volume.unknown.length} kinds of block have no color (pink)` : undefined].filter(Boolean);
-  $("note").textContent = notes.join("; ");
-  $("note").title = volume.unknown.join("\n");
+  $("note").textContent = colors.note ?? "";
 
   let settings = loadSettings();
 
@@ -197,13 +208,20 @@ async function main(): Promise<void> {
       setTool("select");
       pickEntry(key, true);
     },
+    find: (block) => {
+      const spot = spotsOf(volume, (look) => volume.looks[look].name === block, 1)[0];
+      if (!spot) return notice(`There's no ${block} left in the world.`, true);
+      const at = spot.map((value, axis) => value + volume.origin[axis]);
+      scene.frame(new THREE.Vector3(at[0] + 0.5, at[1] + 0.5, at[2] + 0.5), 4);
+      notice(`${block} at ${at.join(" ")}`);
+    },
   });
   const redraw = () => {
     markup = buildMarkup(config, data.rules);
     if (picked && !findEntry(markup, picked)) picked = undefined;
     overlay.set(markup);
     overlay.pick(picked);
-    sidebar.render(markup);
+    sidebar.render(markup, { warnings: mapWarnings(volume, markup), unknown });
     sidebar.pick(picked);
     showPicked();
     document.title = `${config.name || name} (${data.targetName})`;
@@ -719,23 +737,26 @@ async function main(): Promise<void> {
     overlay.refresh();
     fly.setEnabled(settings.wasd);
     fly.speed = FLY_SPEEDS[settings.flySpeed] ?? FLY_SPEEDS.normal;
+    scene.setOutlines(settings.hidden);
     saveSettings(settings);
     $<HTMLInputElement>("toggle-occlusion").checked = settings.occlusion;
     $<HTMLInputElement>("toggle-variation").checked = settings.variation;
     $<HTMLInputElement>("toggle-darken").checked = settings.darkenBelow;
     $<HTMLInputElement>("toggle-names").checked = settings.names;
+    $<HTMLInputElement>("toggle-hidden").checked = settings.hidden;
     $<HTMLInputElement>("toggle-wasd").checked = settings.wasd;
     $<HTMLSelectElement>("fly-speed").value = settings.flySpeed;
     $<HTMLInputElement>("past-faded").checked = settings.faded;
     $<HTMLInputElement>("past-gone").checked = !settings.faded;
   };
-  const toggle = (id: string, key: "occlusion" | "variation" | "darkenBelow" | "names" | "wasd") => {
+  const toggle = (id: string, key: "occlusion" | "variation" | "darkenBelow" | "names" | "wasd" | "hidden") => {
     $(id).onchange = (event) => ((settings = { ...settings, [key]: (event.target as HTMLInputElement).checked }), applySettings());
   };
   toggle("toggle-occlusion", "occlusion");
   toggle("toggle-variation", "variation");
   toggle("toggle-darken", "darkenBelow");
   toggle("toggle-names", "names");
+  toggle("toggle-hidden", "hidden");
   toggle("toggle-wasd", "wasd");
   $("fly-speed").onchange = (event) => ((settings = { ...settings, flySpeed: (event.target as HTMLSelectElement).value as FlySpeed }), applySettings());
   $("past-faded").onchange = () => ((settings = { ...settings, faded: true }), applySettings());

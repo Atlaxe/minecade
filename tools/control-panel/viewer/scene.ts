@@ -1,14 +1,18 @@
 // The viewer page's 3D view: a map's blocks meshed in workers and grouped into region meshes
-// (4x4x4 sections each, so a whole map is about 100 draw calls), one shader for every block face
-// (shading baked in; corner darkening, brightness variation, darkening below the cut and the cut
-// layer's grid as uniforms, so toggling them costs nothing), cuts as clipping planes with a cap
-// of the cut layer (nothing is meshed again: docs/spike-results.md, "Map viewer"), Faded as the
-// same meshes drawn again see-through on the other side of the cuts, and the camera with its views.
-// Everything is placed in world coordinates (Minecraft's: +x east, +y up, +z south).
+// (4x4x4 sections each, so a whole map is about 100 draw calls, and as many again for see-through
+// blocks, drawn blended after the rest), one shader for every block face (shading baked in; corner
+// darkening, brightness variation, darkening below the cut and the cut layer's grid as uniforms, so
+// toggling them costs nothing), cuts as clipping planes with a cap of the cut layer (nothing is
+// meshed again: docs/spike-results.md, "Map viewer"), Faded as the same meshes drawn again
+// see-through on the other side of the cuts, outlines of hidden blocks (barriers, invisible
+// bedrock, light) when asked, and the camera with its views. Everything is placed in world
+// coordinates (Minecraft's: +x east, +y up, +z south); the meshes' positions are sixteenths of a
+// block, scaled down.
 import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
-import { paddedSection, SHADE, type SectionMesh } from "./mesher.ts";
-import { EAST, lookAtSpot, pick, UP, WEST, NORTH, SOUTH, type Hit, type Keep, type Volume } from "./volume.ts";
+import { paddedSection, paddedWater, prepareLooks, SHADE, type Looks, type MeshPart, type Prepared, type SectionMesh } from "./mesher.ts";
+import { covered, OPPOSITE, SEE_THROUGH, type Rect } from "./shapes.ts";
+import { EAST, lookAtSpot, OUTLINED, pick, spotsOf, UP, WEST, NORTH, SOUTH, type Hit, type Keep, type Volume } from "./volume.ts";
 
 /** Sections per region side. */
 const REGION = 4;
@@ -21,6 +25,12 @@ const FAR = 1e6;
 export const CLIP_NEAR = 1;
 /** How see-through Faded is. */
 const FADED_OPACITY = 0.15;
+/** Mesh positions are sixteenths of a block. */
+const UNIT = 1 / 16;
+/** The Hidden blocks outlines' colors: barriers, invisible bedrock, light blocks. */
+const OUTLINE_COLORS = [0xf0505a, 0xa078ff, 0xffd23c];
+/** The most hidden blocks outlined (a map walled in barriers has tens of thousands). */
+const MAX_OUTLINED = 300_000;
 
 const VERTEX = /* glsl */ `
 attribute vec4 tint;
@@ -47,6 +57,7 @@ uniform float cutTop;
 uniform float opacity;
 uniform float grid;
 uniform float clipNear;
+uniform float useAlpha;
 varying vec4 vTint;
 varying float vOcclusion;
 varying vec3 vWorld;
@@ -61,7 +72,7 @@ void main() {
   // The face's normal, turned toward the camera (out of its block), finds the block it belongs to.
   vec3 n = normalize(cross(dFdx(vWorld), dFdy(vWorld)));
   if (dot(n, cameraPosition - vWorld) < 0.0) n = -n;
-  vec3 block = floor(vWorld - n * 0.5);
+  vec3 block = floor(vWorld - n * 0.01);
   // A block the camera is in (or all but in) isn't drawn: flying through walls shows what's beyond.
   if (distance(block + 0.5, cameraPosition) < clipNear) discard;
   float light = mix(1.0, 0.5 + 0.5 * vOcclusion, aoStrength);
@@ -79,7 +90,7 @@ void main() {
     float strength = 1.0 - smoothstep(1.0 / 10.0, 1.0 / 5.0, size);
     light *= mix(1.0 - 0.22 * strength, 1.0, smoothstep(0.0, 1.2, edge));
   }
-  gl_FragColor = vec4(vTint.rgb * light, opacity);
+  gl_FragColor = vec4(vTint.rgb * light, useAlpha > 0.5 ? vTint.a * opacity : opacity);
 }`;
 
 export interface Toggles {
@@ -139,7 +150,11 @@ export class MapScene {
   private readonly planes = { top: new THREE.Plane(new THREE.Vector3(0, -1, 0), FAR), x: new THREE.Plane(new THREE.Vector3(-1, 0, 0), FAR), z: new THREE.Plane(new THREE.Vector3(0, 0, -1), FAR) };
   private readonly opposite = { top: new THREE.Plane(), x: new THREE.Plane(), z: new THREE.Plane() };
   private readonly solid: THREE.ShaderMaterial;
+  private readonly glass: THREE.ShaderMaterial;
   private readonly faded: THREE.ShaderMaterial;
+  private readonly fadedGlass: THREE.ShaderMaterial;
+  private readonly prepared: Prepared;
+  private outlines: THREE.Group | undefined;
   private readonly capMaterials: Record<"top" | "x" | "z", THREE.ShaderMaterial>;
   private readonly caps: Partial<Record<"top" | "x" | "z", THREE.Mesh>> = {};
   private readonly regions: THREE.Mesh[] = [];
@@ -164,20 +179,24 @@ export class MapScene {
     this.controls.zoomToCursor = true;
     this.controls.maxPolarAngle = Math.PI * 0.98;
     this.controls.addEventListener("change", () => this.requestRender());
-    const material = (opacity: number, planes: THREE.Plane[], grid = false) =>
+    this.prepared = prepareLooks(this.looks());
+    const material = (opacity: number, planes: THREE.Plane[], grid = false, alpha = false) =>
       new THREE.ShaderMaterial({
-        uniforms: { ...this.uniforms, opacity: { value: opacity }, grid: { value: grid ? 1 : 0 } },
+        uniforms: { ...this.uniforms, opacity: { value: opacity }, grid: { value: grid ? 1 : 0 }, useAlpha: { value: alpha ? 1 : 0 } },
         vertexShader: VERTEX,
         fragmentShader: FRAGMENT,
         clipping: true,
         clippingPlanes: planes,
-        transparent: opacity < 1,
-        depthWrite: opacity >= 1,
+        transparent: opacity < 1 || alpha,
+        depthWrite: opacity >= 1 && !alpha,
       });
     this.solid = material(1, [this.planes.top, this.planes.x, this.planes.z]);
+    this.glass = material(1, [this.planes.top, this.planes.x, this.planes.z], false, true);
     this.faded = material(FADED_OPACITY, [this.opposite.top, this.opposite.x, this.opposite.z]);
+    this.fadedGlass = material(FADED_OPACITY, [this.opposite.top, this.opposite.x, this.opposite.z], false, true);
     // Past any cut: everything the solid meshes leave out (kept only where every opposite plane clips).
     this.faded.clipIntersection = true;
+    this.fadedGlass.clipIntersection = true;
     this.capMaterials = {
       top: material(1, [this.planes.x, this.planes.z], true),
       x: material(1, [this.planes.top, this.planes.z], true),
@@ -188,19 +207,26 @@ export class MapScene {
     this.resize();
   }
 
+  /** What the mesher needs to know about the looks. */
+  private looks(): Looks {
+    return { drawn: this.volume.drawn, colors: this.volume.colors, table: this.volume.table };
+  }
+
   /** Meshes every section in the workers, then builds the region meshes. */
   async build(workers: Worker[]): Promise<MeshStats> {
     const started = performance.now();
     const { volume } = this;
-    const looks = { drawn: volume.drawn, colors: volume.colors };
+    const looks = this.looks();
     for (const worker of workers) worker.postMessage({ looks });
-    const jobs: { key: string; blocks: Uint16Array; offset: [number, number, number] }[] = [];
+    const jobs: MeshJob[] = [];
     const [nx, ny, nz] = volume.sections;
     for (let cx = 0; cx < nx; cx++) {
       for (let cy = 0; cy < ny; cy++) {
         for (let cz = 0; cz < nz; cz++) {
           const blocks = paddedSection(volume.blocks, volume.size, volume.drawn, cx, cy, cz);
-          if (blocks) jobs.push({ key: `${cx},${cy},${cz}`, blocks, offset: [(cx % REGION) * 16, (cy % REGION) * 16, (cz % REGION) * 16] });
+          if (!blocks) continue;
+          const water = volume.water.size > 0 ? paddedWater(volume.water, volume.sections, cx, cy, cz) : undefined;
+          jobs.push({ key: `${cx},${cy},${cz}`, blocks, water, offset: [(cx % REGION) * 16, (cy % REGION) * 16, (cz % REGION) * 16] });
         }
       }
     }
@@ -215,20 +241,30 @@ export class MapScene {
       if (!byRegion.has(region)) byRegion.set(region, []);
       byRegion.get(region)!.push(mesh);
     }
-    for (const [key, parts] of byRegion) {
+    for (const [key, sections] of byRegion) {
       const [rx, ry, rz] = key.split(",").map(Number);
-      const geometry = regionGeometry(parts);
-      const solid = new THREE.Mesh(geometry, this.solid);
-      const ghost = new THREE.Mesh(geometry, this.faded);
-      for (const mesh of [solid, ghost]) {
-        mesh.position.set(volume.origin[0] + rx * REGION * 16, volume.origin[1] + ry * REGION * 16, volume.origin[2] + rz * REGION * 16);
-        mesh.matrixAutoUpdate = false;
-        mesh.updateMatrix();
-        this.scene.add(mesh);
+      // Solid faces, then see-through ones drawn blended after them (the Faded copies after both).
+      for (const [part, material, faded, order] of [
+        ["solid", this.solid, this.faded, 0],
+        ["glass", this.glass, this.fadedGlass, 1],
+      ] as const) {
+        const parts = sections.map((section) => section[part]).filter((mesh) => mesh.indices.length > 0);
+        if (parts.length === 0) continue;
+        const geometry = regionGeometry(parts);
+        const mesh = new THREE.Mesh(geometry, material);
+        const ghost = new THREE.Mesh(geometry, faded);
+        for (const each of [mesh, ghost]) {
+          each.position.set(volume.origin[0] + rx * REGION * 16, volume.origin[1] + ry * REGION * 16, volume.origin[2] + rz * REGION * 16);
+          each.scale.setScalar(UNIT);
+          each.matrixAutoUpdate = false;
+          each.updateMatrix();
+          this.scene.add(each);
+        }
+        mesh.renderOrder = order;
+        ghost.renderOrder = 2 + order;
+        this.regions.push(mesh);
+        this.ghosts.push(ghost);
       }
-      ghost.renderOrder = 1;
-      this.regions.push(solid);
-      this.ghosts.push(ghost);
     }
     this.updateGhosts();
     this.view("home");
@@ -283,7 +319,8 @@ export class MapScene {
     }
     const { volume } = this;
     const [sx, sy, sz] = volume.size;
-    const at = (x: number, y: number, z: number) => volume.drawn[lookAtSpot(volume, x, y, z)];
+    const { cover, full, rects } = this.prepared;
+    const { shapeOf, flags } = volume.table;
     // The layer (in grid spots), the axis along it, the step to the hidden side, and the face drawn.
     let layer: number;
     let normalAxis: number;
@@ -304,7 +341,10 @@ export class MapScene {
     // The two axes across the layer, u then v.
     const [u, v] = [0, 1, 2].filter((a) => a !== normalAxis);
     const [nu, nv] = [volume.size[u], volume.size[v]];
+    // Cubes whose face the next layer hid are merged into rectangles (by look); other shapes add
+    // the parts of their side that a neighbor hid, as the mesher left them out.
     const mask = new Int32Array(nu * nv);
+    const pieces: { look: number; rect: Rect; i: number; j: number }[] = [];
     const p = [0, 0, 0];
     for (let j = 0; j < nv; j++) {
       for (let i = 0; i < nu; i++) {
@@ -312,16 +352,45 @@ export class MapScene {
         p[u] = i;
         p[v] = j;
         const look = lookAtSpot(volume, p[0], p[1], p[2]);
-        if (!volume.drawn[look]) continue;
+        if (!cover[look] || flags[look] & SEE_THROUGH) continue;
         p[normalAxis] += toward;
-        if (at(p[0], p[1], p[2])) mask[j * nu + i] = look;
+        const beyond = lookAtSpot(volume, p[0], p[1], p[2]);
+        if (shapeOf[look] === 0) {
+          if (full[beyond * 6 + OPPOSITE[face]]) mask[j * nu + i] = look;
+          continue;
+        }
+        if (!cover[beyond]) continue;
+        for (const rect of rects[shapeOf[look]][face]) if (covered(rects[shapeOf[beyond]][OPPOSITE[face]], rect)) pieces.push({ look, rect, i, j });
       }
     }
     const positions: number[] = [];
     const tints: number[] = [];
     const indices: number[] = [];
     const shade = SHADE[face];
-    const plane = layer + (toward > 0 ? 1 : 0);
+    const plane = (layer + (toward > 0 ? 1 : 0)) * 16;
+    // Facing toward the hidden side: counterclockwise seen from there. u x v points along +x
+    // (y, z) and +z (x, y), but along -y for the height cut's (x, z).
+    const forward = (normalAxis === 1 ? -1 : 1) * toward > 0;
+    const quad = (look: number, u0: number, v0: number, u1: number, v1: number) => {
+      const base = positions.length / 3;
+      for (const [du, dv] of [
+        [u0, v0],
+        [u1, v0],
+        [u1, v1],
+        [u0, v1],
+      ]) {
+        const c = [0, 0, 0];
+        c[normalAxis] = plane;
+        c[u] = du;
+        c[v] = dv;
+        positions.push(c[0], c[1], c[2]);
+        const color = look * 24 + face * 4;
+        tints.push(volume.colors[color] * shade, volume.colors[color + 1] * shade, volume.colors[color + 2] * shade, 255);
+      }
+      if (forward) indices.push(base, base + 1, base + 2, base, base + 2, base + 3);
+      else indices.push(base, base + 2, base + 1, base, base + 3, base + 2);
+    };
+    for (const { look, rect, i, j } of pieces) quad(look, i * 16 + rect[0], j * 16 + rect[1], i * 16 + rect[2], j * 16 + rect[3]);
     for (let j = 0; j < nv; j++) {
       for (let i = 0; i < nu; ) {
         const look = mask[j * nu + i];
@@ -337,26 +406,7 @@ export class MapScene {
           height++;
         }
         for (let h = 0; h < height; h++) for (let k = 0; k < width; k++) mask[(j + h) * nu + i + k] = 0;
-        const base = positions.length / 3;
-        for (const [du, dv] of [
-          [0, 0],
-          [width, 0],
-          [width, height],
-          [0, height],
-        ]) {
-          const c = [0, 0, 0];
-          c[normalAxis] = plane;
-          c[u] = i + du;
-          c[v] = j + dv;
-          positions.push(c[0], c[1], c[2]);
-          const color = look * 24 + face * 4;
-          tints.push(volume.colors[color] * shade, volume.colors[color + 1] * shade, volume.colors[color + 2] * shade, 255);
-        }
-        // Facing toward the hidden side: counterclockwise seen from there. u x v points along +x
-        // (y, z) and +z (x, y), but along -y for the height cut's (x, z).
-        const forward = (normalAxis === 1 ? -1 : 1) * toward > 0;
-        if (forward) indices.push(base, base + 1, base + 2, base, base + 2, base + 3);
-        else indices.push(base, base + 2, base + 1, base, base + 3, base + 2);
+        quad(look, i * 16, j * 16, (i + width) * 16, (j + height) * 16);
         i += width;
       }
     }
@@ -366,13 +416,98 @@ export class MapScene {
     geometry.setAttribute("tint", new THREE.BufferAttribute(Uint8Array.from(tints), 4, true));
     geometry.setAttribute("occlusion", new THREE.BufferAttribute(new Uint8Array(positions.length / 3).fill(255), 1, true));
     geometry.setIndex(positions.length / 3 < 65536 ? new THREE.BufferAttribute(Uint16Array.from(indices), 1) : new THREE.BufferAttribute(Uint32Array.from(indices), 1));
-    geometry.boundingSphere = new THREE.Sphere(new THREE.Vector3(sx / 2, sy / 2, sz / 2), Math.hypot(sx, sy, sz) / 2);
+    geometry.boundingSphere = new THREE.Sphere(new THREE.Vector3(sx * 8, sy * 8, sz * 8), Math.hypot(sx, sy, sz) * 8);
     const mesh = new THREE.Mesh(geometry, this.capMaterials[axis]);
     mesh.position.set(...volume.origin);
+    mesh.scale.setScalar(UNIT);
     mesh.updateMatrix();
     mesh.matrixAutoUpdate = false;
     this.caps[axis] = mesh;
     this.scene.add(mesh);
+  }
+
+  /** Shows or hides outlines of the hidden blocks a game uses: barriers, invisible bedrock, light blocks. */
+  setOutlines(on: boolean): void {
+    if (on && !this.outlines) this.outlines = this.buildOutlines();
+    if (this.outlines) this.outlines.visible = on;
+    this.requestRender();
+  }
+
+  /** How many hidden blocks the outlines show (after setOutlines(true)), and whether some were left out. */
+  get outlined(): { blocks: number; capped: boolean } {
+    return (this.outlines?.userData as { blocks: number; capped: boolean } | undefined) ?? { blocks: 0, capped: false };
+  }
+
+  /** Each outlined block's faces that don't touch another of its kind: a faint fill and its edges, in the kind's color. */
+  private buildOutlines(): THREE.Group {
+    const { volume } = this;
+    const kinds = volume.looks.map((look) => (!OUTLINED.test(look.name) ? -1 : look.name.includes("barrier") ? 0 : look.name.includes("bedrock") ? 1 : 2));
+    const spots = spotsOf(volume, (look) => kinds[look] >= 0, MAX_OUTLINED + 1);
+    const capped = spots.length > MAX_OUTLINED;
+    if (capped) spots.length = MAX_OUTLINED;
+    const fill: number[] = [];
+    const fillColors: number[] = [];
+    const lines: number[] = [];
+    const lineColors: number[] = [];
+    const color = new THREE.Color();
+    const [ox, oy, oz] = volume.origin;
+    const steps: [number, number, number][] = [
+      [0, 1, 0],
+      [0, -1, 0],
+      [0, 0, -1],
+      [0, 0, 1],
+      [-1, 0, 0],
+      [1, 0, 0],
+    ];
+    for (const [x, y, z] of spots) {
+      const kind = kinds[lookAtSpot(volume, x, y, z)];
+      color.setHex(OUTLINE_COLORS[kind]);
+      for (let face = 0; face < 6; face++) {
+        const [dx, dy, dz] = steps[face];
+        if (kinds[lookAtSpot(volume, x + dx, y + dy, z + dz)] === kind) continue;
+        const axis = dx !== 0 ? 0 : dy !== 0 ? 1 : 2;
+        const [u, v] = [0, 1, 2].filter((a) => a !== axis);
+        const corners = [
+          [0, 0],
+          [1, 0],
+          [1, 1],
+          [0, 1],
+        ].map(([cu, cv]) => {
+          const c = [x + ox, y + oy, z + oz];
+          c[axis] += steps[face][axis] > 0 ? 1 : 0;
+          c[u] += cu;
+          c[v] += cv;
+          return c;
+        });
+        for (const index of [0, 1, 2, 0, 2, 3]) {
+          fill.push(...corners[index]);
+          fillColors.push(color.r, color.g, color.b);
+        }
+        for (const [a, b] of [
+          [0, 1],
+          [1, 2],
+          [2, 3],
+          [3, 0],
+        ]) {
+          lines.push(...corners[a], ...corners[b]);
+          lineColors.push(color.r, color.g, color.b, color.r, color.g, color.b);
+        }
+      }
+    }
+    const group = new THREE.Group();
+    group.userData = { blocks: spots.length, capped };
+    const planes = this.cutPlanes;
+    const fillGeometry = new THREE.BufferGeometry();
+    fillGeometry.setAttribute("position", new THREE.Float32BufferAttribute(fill, 3));
+    fillGeometry.setAttribute("color", new THREE.Float32BufferAttribute(fillColors, 3));
+    group.add(new THREE.Mesh(fillGeometry, new THREE.MeshBasicMaterial({ vertexColors: true, transparent: true, opacity: 0.14, depthWrite: false, side: THREE.DoubleSide, clippingPlanes: planes })));
+    const lineGeometry = new THREE.BufferGeometry();
+    lineGeometry.setAttribute("position", new THREE.Float32BufferAttribute(lines, 3));
+    lineGeometry.setAttribute("color", new THREE.Float32BufferAttribute(lineColors, 3));
+    group.add(new THREE.LineSegments(lineGeometry, new THREE.LineBasicMaterial({ vertexColors: true, transparent: true, opacity: 0.8, clippingPlanes: planes })));
+    for (const child of group.children) child.renderOrder = 4;
+    this.scene.add(group);
+    return group;
   }
 
   /** The middle of the map's blocks, and the radius of a ball around them. */
@@ -609,11 +744,11 @@ export class MapScene {
   }
 }
 
-/** A region's mesh: its sections' meshes in one geometry (positions as bytes, 16-bit indices when they fit). */
-function regionGeometry(parts: SectionMesh[]): THREE.BufferGeometry {
+/** A region's mesh: its sections' meshes in one geometry (positions in sixteenths, 16-bit indices when they fit). */
+function regionGeometry(parts: MeshPart[]): THREE.BufferGeometry {
   const vertices = parts.reduce((sum, part) => sum + part.positions.length / 3, 0);
   const count = parts.reduce((sum, part) => sum + part.indices.length, 0);
-  const positions = new Uint8Array(vertices * 3);
+  const positions = new Uint16Array(vertices * 3);
   const tints = new Uint8Array(vertices * 4);
   const occlusion = new Uint8Array(vertices);
   const indices = vertices < 65536 ? new Uint16Array(count) : new Uint32Array(count);
@@ -632,13 +767,21 @@ function regionGeometry(parts: SectionMesh[]): THREE.BufferGeometry {
   geometry.setAttribute("tint", new THREE.BufferAttribute(tints, 4, true));
   geometry.setAttribute("occlusion", new THREE.BufferAttribute(occlusion, 1, true));
   geometry.setIndex(new THREE.BufferAttribute(indices, 1));
-  const half = (REGION * 16) / 2;
+  const half = (REGION * 16 * 16) / 2;
   geometry.boundingSphere = new THREE.Sphere(new THREE.Vector3(half, half, half), half * Math.sqrt(3));
   return geometry;
 }
 
+interface MeshJob {
+  key: string;
+  blocks: Uint16Array;
+  /** Layer 1 with its border, when there's any near. */
+  water: Uint16Array | undefined;
+  offset: [number, number, number];
+}
+
 /** Meshes sections in the workers, each kept busy until all are done. */
-function meshInWorkers(workers: Worker[], jobs: { key: string; blocks: Uint16Array; offset: [number, number, number] }[]): Promise<Map<string, SectionMesh>> {
+function meshInWorkers(workers: Worker[], jobs: MeshJob[]): Promise<Map<string, SectionMesh>> {
   const results = new Map<string, SectionMesh>();
   return new Promise((resolve) => {
     if (jobs.length === 0) return resolve(results);
@@ -647,7 +790,7 @@ function meshInWorkers(workers: Worker[], jobs: { key: string; blocks: Uint16Arr
     const feed = (worker: Worker) => {
       if (next >= jobs.length) return;
       const job = jobs[next];
-      worker.postMessage({ id: next++, blocks: job.blocks, offset: job.offset }, [job.blocks.buffer]);
+      worker.postMessage({ id: next++, blocks: job.blocks, water: job.water, offset: job.offset }, job.water ? [job.blocks.buffer, job.water.buffer] : [job.blocks.buffer]);
     };
     for (const worker of workers) {
       worker.onmessage = (event: MessageEvent) => {

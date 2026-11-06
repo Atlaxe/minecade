@@ -26,7 +26,8 @@ x or z, counting every block in its world, can't be shown: the viewer says how w
 - **The top bar:** the back arrow, the map's thumbnail, name and game; then Undo, Redo, View
   settings, **Save** and **Publish** on the right. "Open in game Edit" shows while game Edit has
   the map open.
-- **The left panel:** the tools, the game's checklist, and the **overview** of every list.
+- **The left panel:** the tools, the game's checklist, the **checks**, and the **overview** of
+  every list.
 - **The view**, with the view cube in its top right corner.
 - **The right panel:** what the tool or the picked entry can change; with nothing picked (and with
   the Cut tool), the cuts.
@@ -100,8 +101,21 @@ faintly through blocks. Markers past a cut are faded or gone with the blocks; a 
 past the cut when the block it stands on is, so cutting at a floor keeps the spawns on it.
 
 **The left panel** starts with the game's checklist (each thing the map needs, with how many it has,
-then what the build would refuse it for, in red, and warnings), then the **overview**: every list
-as game Edit's tools have them, under Spawns, Game markers and Boundaries.
+then what the build would refuse it for, in red, and warnings), then the **checks**, then the
+**overview**: every list as game Edit's tools have them, under Spawns, Game markers and Boundaries.
+
+**Checks** are what a look at the blocks finds, as warnings: Save and Publish still work. Click one
+to pick the entry it's about (or, for blocks, to look at the first of them).
+
+- A spawn or game marker whose feet or head are in a block.
+- A spawn (not the spectator spawn) with nothing to stand on within 3 blocks below it. Barriers and
+  invisible bedrock count, as players stand on them; so does water.
+- Build Swap's build boundaries that overlap, or whose shell (the block around each, where the game
+  clears liquids) reaches another; and a spawn the game pairs with no boundary (more spawns than
+  boundaries) or with one more than 3 blocks away. Each spawn goes with the boundary it stands in,
+  else the nearest free one, as the game pairs them.
+- Game Edit's boundary blocks (`minecade:plane`) left in the world, counted from the blocks.
+- **Blocks without a look:** blocks with no color (drawn bright pink), each with how many there are.
 
 When `map.json` changes (game Edit, a hand edit, another viewer), the viewer shows the change within
 a second.
@@ -192,14 +206,31 @@ rest:
 - **Corner darkening:** corners where blocks meet are darker.
 - **Brightness variation:** each block a little brighter or darker, so big floors don't look flat.
 - **Darken below the Y cut:** the deeper below it, the darker, so the cut layer stands out.
+- **Hidden blocks:** outlines barriers (red), invisible bedrock (purple) and light blocks (yellow),
+  which aren't drawn otherwise: the walls and floors a game has that nobody sees.
 - **Past the cut:** Faded or Gone. **Names** over the markers. **WASD flying** and its speed.
 
 The viewer remembers them in this browser.
 
-Everything is drawn as a whole block for now: slabs, stairs, fences, plants, glass and water get
-their own shapes in a later pass. Barriers, light blocks, structure voids and invisible bedrock
-aren't drawn. A block with no color at all is bright pink, and the status line counts them (hover
-it for their names).
+**Shapes.** Blocks are drawn in their shapes, so a click lands where a player would stand:
+
+| Blocks | Drawn as |
+|---|---|
+| Slabs | Their bottom or top half (double slabs are whole blocks) |
+| Stairs | A half slab and the step, with their corners |
+| Carpets, pressure plates, snow | A thin layer (snow by its height) |
+| Fences, walls, panes, iron bars, chains | A post, with arms to the sides they join |
+| Doors, fence gates, trapdoors | A thin panel where it is in game, shut or open (a door's two halves are read together, as the game reads them) |
+| Flowers, grass, saplings, crops, torches, buttons, rails, signs | Two crossed faces |
+| Water and lava | A block 14/16 high (full under more of the same); water is see-through, and so is the water around waterlogged blocks |
+| Glass, panes, ice, slime, honey | See-through |
+| A few others (chests, beds, farmland, enchanting tables, lanterns, heads, ...) | Their size |
+| Custom blocks | Their collision boxes from the blocks pack (turned as the block is), else the selection box, else a whole block; a custom block with no collision is drawn as a plant |
+
+Clicks pass through plants, water, lava and blocks that aren't drawn, so a click on a flower lands
+on the grass under it, and a spawn placed on a slab or a carpet stands on its top (with **Center on
+block**, at that height). Barriers, light blocks, structure voids and invisible bedrock aren't
+drawn (see Hidden blocks). A block with no color at all is bright pink, and listed under the checks.
 
 The status line also names the block under the pointer, its states and where it is.
 
