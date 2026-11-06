@@ -9,7 +9,7 @@ and planes) done 2026-11-06. Before V.7, the same day, the user reworked the vie
 "Layout rework" below). V.7 (shapes and see-through blocks), V.8 (Vanilla textures) and V.9 (speed
 tools) done 2026-11-06. After V.9 the user made Mirror a tool of its own and asked for a Keys tab in
 the settings (see "After V.9" below). V.10 (Select from above) done 2026-11-06. V.11 (with the in-game editor) done 2026-11-06, with the
-warm-up the user asked for. Build it in the order of "Passes" below: each pass leans on
+warm-up the user asked for. V.12 (map settings) done 2026-11-06: every pass is built. Build it in the order of "Passes" below: each pass leans on
 the ones before it.
 
 **For the session that implements this:**
@@ -573,7 +573,7 @@ unused, or when the Panel closes with nobody on it. The runner (`warm`, `warmPla
 asked for, no preview); a newer warm-up or a player's open calls off one still starting
 (`ServerSession.cancel`, `StartCanceled`). Edits to the map while Edit opens it go to map.json
 through the Panel, and Edit takes them once ready (`onReady`, "changed while Edit was opening
-it"); the Panel's undo covers them when Edit has nothing to undo. Open in game (`POST
+it", as one undo step; V.12 dropped a first try at undoing them from the Panel's history). Open in game (`POST
 /api/viewer/in-game`, `POST /open` with `bring`) boots the editor if needed (asking before
 stopping the network), opens the map, and sends map editors in the editor lobby, or joining in the
 next 10 minutes, to it (`BRING_MS`). The viewer's In game menu (`ingame.ts`) shows all this, with
@@ -581,8 +581,18 @@ Preview and the screenshot buttons the Map editor page had. The Panel watches ea
 world (`map-data.ts` `watchWorld`, a stamp steady twice in a row) and sends `world`; the page loads
 again, keeping the camera, cuts, tool and pick. Starting the network shuts the editor down first.
 
-**V.12 Map settings.** Forms for the name, time, queue mode and countdown, game settings and the
-lobby's stars (`map-edit.ts` has no op for `stars` yet: this pass adds one).
+**V.12 Map settings** (done 2026-11-06). Forms for the name, time, queue mode and countdown, game
+settings and the lobby's stars (`map-edit.ts` has no op for `stars` yet: this pass adds one). As
+built: the gear beside the map's name opens a Map settings dialog (`mapsettings.ts`) with the name
+(the map id stays game Edit's, as it moves the folder), the time (game Edit's presets from
+`time-of-day.ts`, or a custom clock time), the queue (once its spawn is placed), each of the game's
+`map.settings` with its range and Use the default, the lobby's star box (the new `stars` op), and
+the game's other plain keys as game Edit's Name and map id lists them. Each field's change is one
+edit. `edit-check.ts` takes `name`, `time`, `queue`, `extra` and `stars`, and `markupProblem`
+(now given the game's rules, kind too) keeps a setting in its range, another key to its kind of
+value, the star box to the lobby, and the queue to its spawn. Undo through game Edit no longer
+falls back to the Panel's history (that came back as a hand edit Edit's next undo took back): a
+change made before Edit read the map is where its history starts, and undo says so.
 
 ## Files
 

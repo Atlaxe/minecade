@@ -88,7 +88,9 @@ describe("MapChanges without game Edit", () => {
     lobbyMap("hub", '{ "name": "Hub", "spawns": [] }\n');
     const changes = new MapChanges(root, NO_EDITOR);
     expect(await changes.edit("lobby", "hub", { op: "remove", target: { list: "spawns" }, index: 0 })).toMatchObject({ status: 422, error: /no entry 1/, config: { name: "Hub" } });
-    expect(await changes.edit("lobby", "hub", { op: "name", name: "X" })).toMatchObject({ status: 400 });
+    expect(await changes.edit("lobby", "hub", { op: "camera", name: "X" })).toMatchObject({ status: 400 });
+    expect(await changes.edit("lobby", "hub", { op: "stars", on: true })).toMatchObject({ status: 200 });
+    expect(await changes.edit("lobby", "hub", { op: "queue", mode: "free" })).toMatchObject({ status: 422, error: /queue spawn first/ });
     expect(await changes.edit("lobby", "nowhere", { op: "killY", y: 1 })).toMatchObject({ status: 404 });
     expect(await changes.edit("..", "hub", { op: "killY", y: 1 })).toMatchObject({ status: 400 });
   });
@@ -155,22 +157,18 @@ describe("MapChanges with game Edit", () => {
     expect(await oldOther.edit("lobby", "hub", { op: "killY", y: 10 })).toMatchObject({ status: 200, via: "panel" });
   });
 
-  it("undoes its own changes, made before Edit had the map, once Edit has nothing to undo", async () => {
+  it("says why there's nothing to undo in game Edit when the change was made before Edit opened the map", async () => {
     const path = lobbyMap("hub", '{ "name": "Hub", "spawns": [] }\n');
     let open = false;
-    const link = editor({ target: "lobby", map: "hub" }, (route) =>
-      !open ? { status: 409, answer: { notOpen: true, error: "Edit doesn't have that map open" } } : { status: 422, answer: { error: `Nothing to ${route === "/undo" ? "undo" : "redo"}.` } },
+    const link = editor({ target: "lobby", map: "hub" }, () =>
+      !open ? { status: 409, answer: { notOpen: true, error: "Edit doesn't have that map open" } } : { status: 422, answer: { error: "Nothing to undo." } },
     );
     const changes = new MapChanges(root, link);
     // Edit is still opening the map: the Panel writes the change.
     expect(await changes.edit("lobby", "hub", { op: "killY", y: 10 })).toMatchObject({ status: 200, via: "panel" });
     open = true;
-    expect(await changes.step("lobby", "hub", "undo")).toMatchObject({ status: 200, via: "panel" });
-    expect(JSON.parse(readFileSync(path, "utf8")).killY).toBeUndefined();
-    expect(await changes.step("lobby", "hub", "redo")).toMatchObject({ status: 200, via: "panel" });
+    // It's Edit's starting point now: the Panel leaves it, and says so.
+    expect(await changes.step("lobby", "hub", "undo")).toMatchObject({ status: 422, error: /before it opened this map/ });
     expect(JSON.parse(readFileSync(path, "utf8")).killY).toBe(10);
-    // With nothing left on either side, Edit's answer stands.
-    await changes.step("lobby", "hub", "undo");
-    expect(await changes.step("lobby", "hub", "undo")).toMatchObject({ status: 422, error: "Nothing to undo." });
   });
 });

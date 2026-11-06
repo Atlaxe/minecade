@@ -15,6 +15,16 @@ const base: MapConfig = {
 };
 const box: Box = { min: [-2, 50, -2], max: [2, 55, 2] };
 
+describe("applyEdit's star box", () => {
+  it("turns the lobby's star box on and off, after the time", () => {
+    const on = applyEdit({ name: "Hub", spawns: [], time: "midnight" }, { op: "stars", on: true });
+    expect(Object.keys(on)).toEqual(["name", "spawns", "time", "stars"]);
+    expect(on.stars).toBe(true);
+    expect("stars" in applyEdit(on, { op: "stars", on: false })).toBe(false);
+    expect(describeEdit({ op: "stars", on: true })).toBe("star box on");
+  });
+});
+
 describe("applyEdit", () => {
   it("adds, moves, faces, removes and renumbers list entries, keeping facings", () => {
     let map = applyEdit(base, { op: "add", target: { list: "spawns" }, at: [0, 65, 5, 180, 10] });

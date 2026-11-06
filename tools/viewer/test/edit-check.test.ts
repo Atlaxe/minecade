@@ -23,9 +23,36 @@ describe("viewerEdit", () => {
     for (const edit of edits) expect(viewerEdit(edit)).toBe(edit);
   });
 
+  it("takes the map settings: the name, the time, the queue, game settings and the star box", () => {
+    const edits = [
+      { op: "name", name: "Castle Keep" },
+      { op: "time", time: "sunset" },
+      { op: "time", time: 18000 },
+      { op: "time" },
+      { op: "queue", mode: "free" },
+      { op: "queue", countdown: 10 },
+      { op: "extra", key: "buildPadding", value: 4 },
+      { op: "extra", key: "buildPadding" },
+      { op: "extra", key: "theme", value: "ice" },
+      { op: "stars", on: true },
+    ];
+    for (const edit of edits) expect(viewerEdit(edit)).toBe(edit);
+    expect(viewerEdit({ op: "name", name: "" })).toMatch(/1 to 48/);
+    expect(viewerEdit({ op: "name", name: " Padded" })).toMatch(/1 to 48/);
+    expect(viewerEdit({ op: "name", name: "\u00a7cRed" })).toMatch(/color codes/);
+    expect(viewerEdit({ op: "time", time: "teatime" })).toMatch(/time of day/);
+    expect(viewerEdit({ op: "time", time: 24000 })).toMatch(/time of day/);
+    expect(viewerEdit({ op: "queue" })).toMatch(/mode or its countdown/);
+    expect(viewerEdit({ op: "queue", countdown: 0 })).toMatch(/1 to 60/);
+    expect(viewerEdit({ op: "queue", mode: "wait" })).toMatch(/lock or free/);
+    expect(viewerEdit({ op: "extra", key: "spawns", value: 1 })).toMatch(/not one of map.json's own/);
+    expect(viewerEdit({ op: "extra", key: "x", value: [1] })).toMatch(/number, true or false, or text/);
+    expect(viewerEdit({ op: "stars", on: "yes" })).toMatch(/true or false/);
+  });
+
   it("refuses what the viewer doesn't change, and malformed edits", () => {
-    expect(viewerEdit({ op: "name", name: "X" })).toMatch(/doesn't make "name" edits/);
-    expect(viewerEdit({ op: "extra", key: "a", value: 1 })).toMatch(/doesn't make/);
+    expect(viewerEdit({ op: "camera", name: "X" })).toMatch(/doesn't make "camera" edits/);
+    expect(viewerEdit({ op: "dropBuild" })).toMatch(/doesn't make/);
     expect(viewerEdit("add")).toMatch(/object/);
     expect(viewerEdit({ op: "add", target: { list: "spawns" }, at: [0, null, 0] })).toMatch(/position/);
     expect(viewerEdit({ op: "add", target: { list: "spawns" }, at: [0, 1] })).toMatch(/position/);
@@ -44,20 +71,36 @@ describe("viewerEdit", () => {
 });
 
 describe("markupProblem", () => {
-  const requires = { regions: { plot: { label: "Build boundary", count: 8, minSize: 24 } } };
+  const requires = { regions: { plot: { label: "Build boundary", count: 8, minSize: 24 } }, settings: { buildPadding: { label: "Build padding", default: 2, min: 0, max: 8, unit: "blocks" } } };
+  const rules = { requires, kind: "game" };
   const config = { name: "M", spawns: [], buildLimit: { above: 80, below: 60 } };
 
   it("refuses a region box under the game's minSize, as game Edit does", () => {
     const small = { min: [0, 0, 0], max: [22, 30, 30] } as Box;
     const big = { min: [0, 0, 0], max: [23, 23, 23] } as Box;
-    expect(markupProblem(config, { op: "addRegion", name: "plot", box: small }, requires)).toMatch(/at least 24 blocks/);
-    expect(markupProblem(config, { op: "setRegion", name: "plot", index: 0, box: big }, requires)).toBeUndefined();
-    expect(markupProblem(config, { op: "addRegion", name: "kill", box: small }, requires)).toBeUndefined();
+    expect(markupProblem(config, { op: "addRegion", name: "plot", box: small }, rules)).toMatch(/at least 24 blocks/);
+    expect(markupProblem(config, { op: "setRegion", name: "plot", index: 0, box: big }, rules)).toBeUndefined();
+    expect(markupProblem(config, { op: "addRegion", name: "kill", box: small }, rules)).toBeUndefined();
   });
 
   it("keeps the build limit's sides apart", () => {
-    expect(markupProblem(config, { op: "buildLimit", side: "above", y: 60 }, requires)).toMatch(/over the build limit below/);
-    expect(markupProblem(config, { op: "buildLimit", side: "above" }, requires)).toBeUndefined();
-    expect(markupProblem(config, { op: "batch", edits: [{ op: "killY", y: 999 }] }, requires)).toMatch(/Kill Y/);
+    expect(markupProblem(config, { op: "buildLimit", side: "above", y: 60 }, rules)).toMatch(/over the build limit below/);
+    expect(markupProblem(config, { op: "buildLimit", side: "above" }, rules)).toBeUndefined();
+    expect(markupProblem(config, { op: "batch", edits: [{ op: "killY", y: 999 }] }, rules)).toMatch(/Kill Y/);
+  });
+
+  it("keeps a game setting in its range, other keys to their kind, the star box to the lobby, and the queue to its spawn", () => {
+    const withKeys = { ...config, theme: "ice", eliminationY: 40 };
+    expect(markupProblem(withKeys, { op: "extra", key: "buildPadding", value: 4 }, rules)).toBeUndefined();
+    expect(markupProblem(withKeys, { op: "extra", key: "buildPadding", value: 9 }, rules)).toMatch(/0 to 8/);
+    expect(markupProblem(withKeys, { op: "extra", key: "buildPadding" }, rules)).toBeUndefined();
+    expect(markupProblem(withKeys, { op: "extra", key: "theme", value: "lava" }, rules)).toBeUndefined();
+    expect(markupProblem(withKeys, { op: "extra", key: "eliminationY", value: "high" }, rules)).toMatch(/a number/);
+    expect(markupProblem(withKeys, { op: "extra", key: "newKey", value: 1 }, rules)).toMatch(/isn't one of this map's settings/);
+    expect(markupProblem(config, { op: "stars", on: true }, rules)).toMatch(/only for the lobby/);
+    expect(markupProblem(config, { op: "stars", on: true }, { kind: "lobby" })).toBeUndefined();
+    expect(markupProblem(config, { op: "stars", on: false }, rules)).toBeUndefined();
+    expect(markupProblem(config, { op: "queue", mode: "free" }, rules)).toMatch(/queue spawn first/);
+    expect(markupProblem({ ...config, queueSpawn: [0, 64, 0] }, { op: "queue", mode: "free" }, rules)).toBeUndefined();
   });
 });

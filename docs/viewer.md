@@ -5,7 +5,8 @@ files, so it needs no server and works while the network or the map editor runs.
 spawns, points, boundaries and regions as game Edit does, with the game's checklist beside them,
 and changes them with the mouse or by typing their values: spawns and game markers placed, moved,
 turned and deleted; bounds, spectator bounds and regions drawn from two corners, moved and resized;
-kill Y and the build limit set and moved; with undo, Save and Publish. It never changes a world's
+kill Y and the build limit set and moved; the map's settings (its name, time of day, queue, game
+settings and the lobby's star box); with undo, Save and Publish. It never changes a world's
 blocks. Its **Worlds** tab cuts new maps out of a world from a picture of it seen from above (see
 "Select from above"). The in-game editor (`docs/editor.md`) keeps every tool it has, and **In
 game** opens the map there (see "In game").
@@ -71,8 +72,9 @@ list; its map, if any, stays).
 
 ## The window
 
-- **The top bar:** the back arrow, the map's thumbnail, name and game; then Undo, Redo, Settings
-  (the sliders), **In game**, **Save** and **Publish** on the right. In game's square is green while
+- **The top bar:** the back arrow, the map's thumbnail, name and game, and the gear (**Map
+  settings**); then Undo, Redo, Settings (the sliders), **In game**, **Save** and **Publish** on
+  the right. In game's square is green while
   game Edit has the map open.
 - **The left panel:** the tools, then two tabs, **Checklist** (the game's checklist and the
   **checks**) and **Overview** (what the map has), each with its own search.
@@ -306,8 +308,9 @@ the map's changes, wherever the focus is (except in a box you're typing in).
 **With game Edit open on the same map** (In game's square is green), the viewer's changes go
 through the map editor: markers move in game at once, and undo and redo are game Edit's, shared
 with the players there. While game Edit is still opening the map, the Panel writes the changes, and
-game Edit takes them once it's ready ("map.json was changed while Edit was opening it"); undo then
-steps back through them too. An editor started before this viewer existed can't take them: the
+game Edit takes them once it's ready ("map.json was changed while Edit was opening it"), as one
+undo step. A change made before game Edit read the map is where its history starts: undo then says
+so instead of taking it back. An editor started before this viewer existed can't take them: the
 viewer says to restart it.
 
 - **Save** keeps the map as a version in the map store, as game Edit's Save does (with game Edit
@@ -317,6 +320,28 @@ viewer says to restart it.
   store's `published\`. Its message says what happens next: a changed `map.json` reaches the next
   game with no rebuild; a new map, or a new name, picture or block, needs the network's next Start.
   With game Edit open on the map, it's game Edit's Publish.
+
+## Map settings
+
+The gear beside the map's name opens **Map settings**: what game Edit sets in its map menu's gear,
+its Time tool and its Game settings tool. Each change is made when its field is done (Enter, or
+leaving it) or a choice is picked, as one undo step; Esc in a field puts its value back, and Esc
+again (or Done) closes it. A value that doesn't fit is put back, and the note over the view says why.
+
+- **Name:** the map's name, up to 48 characters. Its map id shows under it: game Edit's Name and
+  map id changes that, as the map's folder moves.
+- **Time of day:** where the map's servers stop the daylight cycle: **Not set** (the editor shows
+  noon), game Edit's **Noon**, **Dusk**, **Midnight** and **Dawn**, or **Custom**, a time typed on
+  the 24-hour clock (14:30).
+- **Queue** (once the queue spawn is placed): **Lock in** (players look around but don't move,
+  and can't see each other) or **Free**, and the **Countdown**, 1 to 60 seconds once everyone is in.
+- **Game settings** (a game whose config names some, `map.settings`): each with its range, its
+  unit and what it changes; the map's own value, or the default until one is typed. **Use the
+  default** takes the map's own away. Build Swap has **Build padding** and **Return delay**.
+- **Star box** (the lobby's maps only): stars all around the map, below the horizon too. Use it
+  with a night time.
+- **The game's other keys:** any other plain value of the game's own the map has (as game Edit's
+  Name and map id lists them), kept to its kind: a number stays a number, true or false a switch.
 
 ## In game
 

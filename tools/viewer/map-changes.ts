@@ -58,7 +58,7 @@ export class MapChanges {
     // The rules game Edit's tools keep (a region's size, the build limit's order), against the map as it is.
     const current = this.read(path);
     if ("error" in current) return current;
-    const problem = markupProblem(current.config, edit, (await loadTarget(this.root, target)).rules.requires);
+    const problem = markupProblem(current.config, edit, (await loadTarget(this.root, target)).rules);
     if (problem) return { status: 422, error: problem, config: current.config };
     const through = await this.throughEditor("/edit", { target, map, edit, by: VIEWER_BY }, target, map, path);
     if (through) return through;
@@ -69,15 +69,19 @@ export class MapChanges {
     const path = this.path(target, map);
     if (typeof path !== "string") return path;
     const through = await this.throughEditor(kind === "undo" ? "/undo" : "/redo", { target, map, by: VIEWER_BY }, target, map, path);
-    // Game Edit has nothing to undo, but the Panel may: changes made here before Edit had the map
-    // (while it was opening it). Written to map.json, Edit takes them as a change made elsewhere.
-    const editorHasNone = through?.status === 422 && through.error === `Nothing to ${kind}.`;
-    if (through && !editorHasNone) return through;
+    if (through) {
+      // Changes made here before game Edit read the map are where its history starts: undoing them
+      // here would come back as a change made elsewhere, which Edit's next undo takes back.
+      if (through.status === 422 && through.error === `Nothing to ${kind}.` && kind === "undo" && this.maps.get(path)?.history.undoLabel) {
+        return { ...through, error: "Nothing to undo in game Edit: changes made before it opened this map are where its history starts." };
+      }
+      return through;
+    }
     const read = this.read(path);
     if ("error" in read) return read;
     const state = this.state(path, read.text);
     const step = kind === "undo" ? state.history.undo(read.config) : state.history.redo(read.config);
-    if (!step) return editorHasNone && through ? through : { status: 409, error: `Nothing to ${kind}.`, config: read.config };
+    if (!step) return { status: 409, error: `Nothing to ${kind}.`, config: read.config };
     const text = this.write(path, step.config, read.text);
     return { status: 200, config: step.config, stamp: stampOf(text), ...this.labels(state), note: `${kind === "undo" ? "Undid" : "Redid"}: ${step.label}`, via: "panel" };
   }

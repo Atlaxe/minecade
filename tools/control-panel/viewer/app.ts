@@ -25,6 +25,7 @@ import { actionFor, keyText, keysText, readKeyMap, changedKeys, type ActionId, t
 import { KeysTab } from "./keys-tab.ts";
 import { buildMarkup, findEntry, type BoxMark, type Markup, type MarkupList, type PlaneMark, type PointMark } from "./markup.ts";
 import { InGame, type PanelState } from "./ingame.ts";
+import { MapSettings } from "./mapsettings.ts";
 import { Overlay, type MarkerAssets, type MirrorPlane } from "./overlay.ts";
 import { blocksWithoutLook, mapWarnings } from "./checks.ts";
 import { copyEdits, entryListKey, mirrorEdits, mirrorPlan, snapHalf, teamOf, type MirrorOptions, type MirrorTeam, type SpeedEntry } from "./speed.ts";
@@ -299,6 +300,7 @@ async function main(): Promise<void> {
     if (JSON.stringify(next) === JSON.stringify(config)) return;
     config = next;
     redraw();
+    mapSettings.update(config);
   };
 
   // ---- Changes: each edit shows at once, then goes to the Panel (through game Edit when it has the map open).
@@ -311,6 +313,9 @@ async function main(): Promise<void> {
     },
   });
   const edit = (change: MapEdit) => changes.edit(config, change);
+  // Map settings (the gear beside the name): the name, the time, the queue, the game's settings.
+  const mapSettings = new MapSettings($<HTMLDialogElement>("map-settings"), { map, rules: data.rules, edit, note: (text) => notice(text, true) });
+  $("open-map-settings").onclick = () => mapSettings.open(config);
   events.addEventListener("map", (event) => {
     const change = JSON.parse((event as MessageEvent<string>).data) as { stamp: string; config?: MapConfig };
     if (!change.config) return notice("map.json isn't valid JSON right now: the viewer shows it as it was.", true);
@@ -1225,7 +1230,7 @@ async function main(): Promise<void> {
   addEventListener(
     "keydown",
     (event) => {
-      if (settingsDialog.open || typing(event.target)) return;
+      if (settingsDialog.open || mapSettings.dialog.open || typing(event.target)) return;
       const action = actionFor(keys, event);
       if (!action) return;
       const step = event.shiftKey ? 5 : 1;

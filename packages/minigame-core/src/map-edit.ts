@@ -47,6 +47,8 @@ export type MapEdit =
   | { op: "time"; time?: MapTime }
   /** Whether the mannequins stand in the map's previews too. */
   | { op: "mannequinsInPreview"; on: boolean }
+  /** The lobby's star box (stars in every direction, below the horizon too), on or off. */
+  | { op: "stars"; on: boolean }
   /** Sets (or, with no value, removes) a game-specific key, such as Sumo's eliminationY. */
   | { op: "extra"; key: string; value?: string | number | boolean }
   /** Removes "build", so `npm run bake` no longer rebuilds the world (world edits are kept). */
@@ -160,6 +162,8 @@ export function applyEdit(config: MapConfig, edit: MapEdit): MapConfig {
       return withKey(config, "time", edit.time);
     case "mannequinsInPreview":
       return withKey(config, "mannequinsInPreview", edit.on ? true : undefined);
+    case "stars":
+      return withKey(config, "stars", edit.on ? true : undefined);
     case "dropBuild":
       return withKey(config, "build", undefined);
     case "batch":
@@ -225,6 +229,8 @@ export function describeEdit(edit: MapEdit): string {
       return edit.time === undefined ? "clear time" : `set time ${edit.time}`;
     case "mannequinsInPreview":
       return edit.on ? "show mannequins in previews" : "keep mannequins out of previews";
+    case "stars":
+      return edit.on ? "star box on" : "star box off";
     case "dropBuild":
       return "drop build";
     case "batch":
