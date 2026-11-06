@@ -72,6 +72,9 @@ export class Overlay {
   private readonly knob: THREE.Mesh;
   private ghost: { group: THREE.Group; materials: THREE.Material[] } | undefined;
   private picked: string | undefined;
+  /** Others picked with it (Shift + click, or a rectangle in Top view): no knob, just their rings. */
+  private also: ReadonlySet<string> = new Set();
+  private readonly rings: THREE.Mesh[] = [];
   private names = true;
   /** A box drawn or dragged: edges, faces and its size over it. */
   private readonly preview: { faces: THREE.Mesh<THREE.BufferGeometry, THREE.MeshBasicMaterial>; edges: THREE.LineSegments<THREE.BufferGeometry, THREE.LineBasicMaterial>; through: THREE.LineSegments<THREE.BufferGeometry, THREE.LineBasicMaterial> };
@@ -185,10 +188,16 @@ export class Overlay {
     this.refresh();
   }
 
-  /** Shows an entry as picked (or none): a ring around a point, brighter edges and faces on a box. */
-  pick(key: string | undefined): void {
+  /** Shows an entry as picked (or none): a ring around a point, brighter edges and faces on a box; and any others picked with it. */
+  pick(key: string | undefined, also: ReadonlySet<string> = new Set()): void {
     this.picked = key;
+    this.also = also;
     this.refresh();
+  }
+
+  /** Whether an entry is picked, alone or with others. */
+  private isPicked(key: string): boolean {
+    return key === this.picked || this.also.has(key);
   }
 
   /** Names over the points, or none. */
@@ -309,6 +318,18 @@ export class Overlay {
       }
       if (point.mark.key === this.picked && point.group.visible) ring = point;
     }
+    // The others picked: a ring each, from a pool.
+    const others = this.points.filter((point) => this.also.has(point.mark.key) && point.group.visible);
+    while (this.rings.length < others.length) {
+      const extra = new THREE.Mesh(this.ring.geometry, this.ring.material);
+      extra.renderOrder = 10;
+      this.rings.push(extra);
+      this.root.add(extra);
+    }
+    this.rings.forEach((extra, i) => {
+      extra.visible = i < others.length;
+      if (extra.visible) extra.position.set(others[i].mark.at.x, others[i].mark.at.y + 0.03, others[i].mark.at.z);
+    });
     this.ring.visible = ring !== undefined;
     this.knob.visible = ring !== undefined && this.scene.isKept(ring.mark.at);
     if (ring) {
@@ -318,7 +339,7 @@ export class Overlay {
       this.knob.position.set(x - Math.sin(yaw) * KNOB_DISTANCE, y + 0.15, z + Math.cos(yaw) * KNOB_DISTANCE);
     }
     for (const box of this.boxes) {
-      const picked = box.mark.key === this.picked;
+      const picked = this.isPicked(box.mark.key);
       for (const object of [box.faces, box.edges, box.through]) object.visible = box.mark.key !== this.editing;
       box.faces.material.opacity = picked ? 0.16 : 0.05;
       box.through.material.opacity = picked ? 0.85 : 0.22;
@@ -326,7 +347,7 @@ export class Overlay {
     }
     for (const plane of this.planes) {
       const kept = this.scene.isHeightKept(plane.mark.y);
-      const picked = plane.mark.key === this.picked;
+      const picked = this.isPicked(plane.mark.key);
       plane.sheet.visible = kept || faded || plane.mark.key === this.editing;
       plane.edge.visible = plane.sheet.visible;
       if (plane.mark.key !== this.editing) {
@@ -452,7 +473,7 @@ export class Overlay {
       spot.copy(point.anchor).project(camera);
       const onScreen = shown && spot.z < 1 && spot.z > -1 && Math.abs(spot.x) < 1.1 && Math.abs(spot.y) < 1.1;
       point.tag.hidden = !onScreen;
-      point.tag.classList.toggle("picked", point.mark.key === this.picked);
+      point.tag.classList.toggle("picked", this.isPicked(point.mark.key));
       if (onScreen) point.tag.style.transform = `translate(${((spot.x + 1) / 2) * width}px, ${((1 - spot.y) / 2) * height}px) translate(-50%, -100%)`;
     }
   }

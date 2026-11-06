@@ -5,20 +5,23 @@
 // checklist, the checks (checks.ts) and the overview (sidebar.ts) on the left and the picked tool's
 // or entry's settings, or the cuts, on the right.
 // Tools as game Edit has them: Select (pick, then move or resize with the gizmo, gizmo.ts, or type
-// the values), Spawn and Marker (place points), Region (draw boxes), Height (kill Y, the build
-// limit) and Cut. Each edit goes to the Panel (changes.ts), with undo and redo, Save and Publish.
+// the values; Shift + click or a rectangle in Top view picks several, to mirror, copy to another
+// team or delete together: speed.ts), Spawn and Marker (place points), Region (draw boxes), Height
+// (kill Y, the build limit) and Cut. Each edit goes to the Panel (changes.ts), with undo and redo,
+// Save and Publish.
 import * as THREE from "three";
 import { bigEnough, listOf, worldPoint, type Box, type EditorRules, type MapConfig, type MapEdit, type MapPosition, type Vec3 } from "@minecade/minigame-core/config";
 import { lookAt, mapMiddle } from "../../../editor/behavior_pack/scripts/lists.ts";
 import { regionName } from "../../../editor/behavior_pack/scripts/regions.ts";
 import { decodeView } from "../../viewer/view-format.ts";
-import { addBoxEdit, boxFrom, faceToCut, facePlane, heightEdit, heightFromBlock, heightProblem, moveFace, nearestOnAxis, nudgeFace, removeBoxEdit, setBoxEdit, sizeText, MAX_LIMIT, MIN_HEIGHT, type Face } from "./boxes.ts";
+import { addBoxEdit, boxFrom, faceToCut, facePlane, heightEdit, heightFromBlock, heightProblem, moveFace, nearestOnAxis, nudgeFace, removeBoxEdit, setBoxEdit, sizeText, MAX_LIMIT, MIN_HEIGHT, type BoxPlace, type Face } from "./boxes.ts";
 import { MapChangesClient } from "./changes.ts";
 import { FLY_SPEEDS, Fly, type FlySpeed } from "./fly.ts";
 import { Gizmo, type GizmoPart } from "./gizmo.ts";
 import { buildMarkup, findEntry, type BoxMark, type Markup, type MarkupList, type PlaneMark, type PointMark } from "./markup.ts";
 import { Overlay, type MarkerAssets } from "./overlay.ts";
 import { blocksWithoutLook, mapWarnings } from "./checks.ts";
+import { speedEdits, teamOf, type MirrorMode, type MirrorTeam, type SpeedEntry } from "./speed.ts";
 import { centeredSpot, floorSpot, normalYaw, placedPosition, yawToward, type Spot } from "./placing.ts";
 import { MapScene, type Cuts, type Toggles } from "./scene.ts";
 import { Sidebar, el, swatch } from "./sidebar.ts";
@@ -69,6 +72,8 @@ const DRAG_PIXELS = 4;
 const FACING_STEP = 15;
 /** A new region's color until it has a box (then it takes game Edit's). */
 const NEW_REGION_COLOR = 0xffffff;
+/** The most entries one change may add or remove (the Panel takes batches of up to 64 edits). */
+const MAX_TOGETHER = 64;
 const AXIS_VECTORS = [new THREE.Vector3(1, 0, 0), new THREE.Vector3(0, 1, 0), new THREE.Vector3(0, 0, 1)];
 
 function loadSettings(): Settings {
@@ -179,6 +184,10 @@ async function main(): Promise<void> {
   let config = data.config;
   let markup: Markup = buildMarkup(config, data.rules);
   let picked: string | undefined;
+  /** Entries picked with `picked` (Shift + click, or a rectangle in Top view). */
+  const also = new Set<string>();
+  /** Where mirrored team entries go. */
+  let mirrorTeam: MirrorTeam = { kind: "next" };
 
   // The tools' state: which is on, each placing tool's list, a new region's name, the box's first corner.
   let tool: ToolId = "select";
@@ -206,9 +215,10 @@ async function main(): Promise<void> {
   };
 
   const sidebar = new Sidebar($("sidebar"), {
-    pick: (key) => {
+    pick: (key, add) => {
       setTool("select");
-      pickEntry(key, true);
+      if (add) togglePick(key);
+      else pickEntry(key, true);
     },
     find: (block) => {
       const spot = spotsOf(volume, (look) => volume.looks[look].name === block, 1)[0];
@@ -221,10 +231,15 @@ async function main(): Promise<void> {
   const redraw = () => {
     markup = buildMarkup(config, data.rules);
     if (picked && !findEntry(markup, picked)) picked = undefined;
+    for (const key of [...also]) if (!findEntry(markup, key)) also.delete(key);
+    if (!picked && also.size > 0) {
+      picked = [...also][0];
+      also.delete(picked);
+    }
     overlay.set(markup);
-    overlay.pick(picked);
+    overlay.pick(picked, also);
     sidebar.render(markup, { warnings: mapWarnings(volume, markup), unknown });
-    sidebar.pick(picked);
+    sidebar.pick(picked, also);
     showPicked();
     document.title = `${config.name || name} (${data.targetName})`;
     $("map-name").textContent = config.name || name;
@@ -285,12 +300,13 @@ async function main(): Promise<void> {
     renderPanel();
     placeGizmo();
   };
-  /** Picks an entry (or none); from the overview, the view frames it, moving a Y cut that hides it. */
+  /** Picks an entry (or none), alone; from the overview, the view frames it, moving a Y cut that hides it. */
   const pickEntry = (key: string | undefined, frame = false) => {
     if (key !== picked) activeFace = undefined;
     picked = key;
-    overlay.pick(key);
-    sidebar.pick(key);
+    also.clear();
+    overlay.pick(key, also);
+    sidebar.pick(key, also);
     showPicked();
     if (!key || !frame) return;
     const extent = overlay.extent(key);
@@ -299,9 +315,43 @@ async function main(): Promise<void> {
     scene.frame(extent.center, extent.radius);
   };
 
+  /** Every picked entry, the first picked first. */
+  const pickedKeys = (): string[] => (picked ? [picked, ...also] : [...also]);
+  /** Shows the pick: several picked have no gizmo, and the right panel acts on them all. */
+  const showPick = () => {
+    overlay.pick(picked, also);
+    sidebar.pick(picked, also);
+    showPicked();
+  };
+  /** Adds an entry to the pick, or takes it out (Shift + click). */
+  const togglePick = (key: string) => {
+    activeFace = undefined;
+    if (key === picked) {
+      picked = [...also][0];
+      if (picked) also.delete(picked);
+    } else if (also.has(key)) also.delete(key);
+    else if (!picked) picked = key;
+    else also.add(key);
+    showPick();
+  };
+  /** Picks several entries at once (a rectangle), or adds them to the pick. */
+  const pickMany = (keys: string[], add: boolean) => {
+    if (!add) {
+      picked = undefined;
+      also.clear();
+    }
+    for (const key of keys) {
+      if (key === picked || also.has(key)) continue;
+      if (!picked) picked = key;
+      else also.add(key);
+    }
+    activeFace = undefined;
+    showPick();
+  };
+
   /** Where the picked entry's gizmo goes: a point's middle, a box's (or its faces), a height's sheet. */
   const placeGizmo = (preview?: { point?: Spot; box?: Box; y?: number }) => {
-    if (tool !== "select" || !picked) return gizmo.hide();
+    if (tool !== "select" || !picked || also.size > 0) return gizmo.hide();
     const point = pointOf(picked);
     const box = boxOf(picked);
     const height = heightMarkOf(picked);
@@ -320,8 +370,26 @@ async function main(): Promise<void> {
     gizmo.setActive(box && boxMode === "expand" && activeFace ? { kind: "face", face: activeFace } : undefined);
   };
 
-  /** Removes the picked entry: a point, a box, or a height. */
+  /** Removes the picked entry (a point, a box, or a height), or every picked entry as one change. */
   const removePicked = () => {
+    if (also.size > 0) {
+      const removals: { list: string; index: number; edit: MapEdit }[] = [];
+      for (const key of pickedKeys()) {
+        const point = pointOf(key);
+        const pointList = point && findEntry(markup, point.key)?.list;
+        const box = boxOf(key);
+        const height = heightMarkOf(key);
+        if (point && pointList?.spawn) removals.push({ list: point.list, index: point.index, edit: { op: "remove", target: pointList.spawn.target, index: point.index } });
+        else if (box) removals.push({ list: box.list, index: box.entry.region?.index ?? box.entry.bounds ?? 0, edit: removeBoxEdit(box.entry) });
+        else if (height) removals.push({ list: height.key, index: 0, edit: heightEdit(height.line) });
+      }
+      if (removals.length > MAX_TOGETHER) return notice(`Delete at most ${MAX_TOGETHER} entries at a time.`, true);
+      // In each list the last entries go first, so the others keep their places.
+      removals.sort((a, b) => (a.list < b.list ? -1 : a.list > b.list ? 1 : b.index - a.index));
+      if (removals.length > 0) edit({ op: "batch", edits: removals.map((removal) => removal.edit) });
+      pickEntry(undefined);
+      return;
+    }
     const point = pointOf(picked);
     const pointList = point && findEntry(markup, point.key)?.list;
     const box = boxOf(picked);
@@ -471,6 +539,85 @@ async function main(): Promise<void> {
     );
   const deleteButton = () => el("button", { className: "small danger", dataset: { tip: "Delete", key: "Del" }, onclick: removePicked }, "Delete");
 
+  // ---- The speed tools: mirror the picked entries across the map's middle, or copy them to another team.
+  const teams = data.rules.teams ?? [];
+  const teamIds = teams.map((team) => team.id);
+  const teamName = (id: string) => teams.find((team) => team.id === id)?.name ?? id;
+  /** The picked points and boxes as the speed tools take them (heights aren't mirrored). */
+  const speedEntries = (keys: string[]): SpeedEntry[] =>
+    keys.flatMap((key): SpeedEntry[] => {
+      const point = pointOf(key);
+      const list = point && findEntry(markup, point.key)?.list;
+      const position = point && positionOf(point);
+      if (point && list?.spawn && position) return [{ kind: "point", label: point.label, target: list.spawn.target, position, ...(list.spawn.single ? { single: true } : {}) }];
+      const box = boxOf(key);
+      if (!box) return [];
+      const place: BoxPlace = box.entry.region ? { kind: "region", name: box.entry.region.name } : box.entry.spectators ? { kind: "spectatorBounds" } : { kind: "bounds" };
+      return [{ kind: "box", label: box.label, place, box: box.box }];
+    });
+  /** Adds the mirrored or copied entries as one change, then picks them. */
+  const applySpeed = (options: { mirror: MirrorMode; mirrorTeam: MirrorTeam } | { copyTo: string }) => {
+    const { edits, skipped } = speedEdits(speedEntries(pickedKeys()), teamIds, "mirror" in options ? { ...options, middle: middle() } : options);
+    const left = skipped.length > 0 ? ` Left out: ${skipped.join("; ")}.` : "";
+    if (edits.length === 0) return notice(`Nothing to ${"copyTo" in options ? "copy" : "mirror"}.${left}`, true);
+    if (edits.length > MAX_TOGETHER) return notice(`Mirror or copy at most ${MAX_TOGETHER} entries at a time.`, true);
+    const before = new Set([...markup.points, ...markup.boxes].map((entry) => entry.key));
+    if (!edit(edits.length === 1 ? edits[0] : { op: "batch", edits })) return;
+    const added = [...markup.points, ...markup.boxes].map((entry) => entry.key).filter((key) => !before.has(key));
+    pickMany(added, false);
+    notice(`${"copyTo" in options ? `Copied to ${teamName(options.copyTo)}` : "Mirrored"}: ${edits.length} ${edits.length === 1 ? "entry" : "entries"}, now picked.${left}`);
+  };
+  /** Mirror and Copy for the picked entries, under their values (or alone, with several picked). */
+  const speedSection = (keys: string[]): HTMLElement | null => {
+    const entries = speedEntries(keys);
+    if (entries.length === 0) return null;
+    const teamed = entries.some((entry) => teamOf(entry, teamIds));
+    const mirror = (mode: MirrorMode, label: string, tip: string) => el("button", { className: "small", dataset: { tip }, onclick: () => applySpeed({ mirror: mode, mirrorTeam }) }, label);
+    const ruleValue = mirrorTeam.kind === "team" ? `team:${mirrorTeam.team}` : mirrorTeam.kind;
+    const mirrorTo = el(
+      "select",
+      {
+        onchange: (event: Event) => {
+          const value = (event.target as HTMLSelectElement).value;
+          mirrorTeam = value === "next" ? { kind: "next" } : value === "same" ? { kind: "same" } : { kind: "team", team: value.slice("team:".length) };
+        },
+      },
+      el("option", { value: "next", selected: ruleValue === "next" }, teams.length === 2 ? `The other team (${teams[0].name} to ${teams[1].name})` : `The next team (${teams[0]?.name ?? ""} to ${teams[1]?.name ?? ""})`),
+      el("option", { value: "same", selected: ruleValue === "same" }, "Their own team"),
+      teams.length > 2 ? teams.map((team) => el("option", { value: `team:${team.id}`, selected: ruleValue === `team:${team.id}` }, team.name)) : null,
+    );
+    return el(
+      "div",
+      { className: "speed" },
+      el("div", { className: "group-label" }, "Mirror across the map's middle"),
+      el(
+        "div",
+        { className: "modes three" },
+        mirror("x", "Left to right", "Add a copy mirrored across the middle's x"),
+        mirror("z", "Front to back", "Add a copy mirrored across the middle's z"),
+        mirror("turn", "Half turn", "Add a copy turned half around the map's middle"),
+      ),
+      teamed && teams.length > 1 ? el("label", { className: "field-row" }, el("span", { className: "group-label" }, "Team entries go to"), mirrorTo) : null,
+      teamed && teams.length > 1
+        ? [
+            el("div", { className: "group-label" }, "Copy to another team"),
+            el(
+              "div",
+              { className: "buttons" },
+              teams.map((team) => el("button", { className: "small", disabled: entries.every((entry) => teamOf(entry, teamIds) === team.id || !teamOf(entry, teamIds)), dataset: { tip: `Add a copy in ${team.name}'s list, in the same place` }, onclick: () => applySpeed({ copyTo: team.id }) }, team.name)),
+            ),
+          ]
+        : null,
+    );
+  };
+  /** Several picked: what they are, and what can be done to them all. */
+  const manyPanel = (): HTMLElement => {
+    const keys = pickedKeys();
+    const labels = keys.map((key) => findEntry(markup, key)?.entry.label).filter(Boolean) as string[];
+    const shown = labels.length > 6 ? `${labels.slice(0, 6).join(", ")} and ${labels.length - 6} more` : labels.join(", ");
+    return el("section", {}, el("h2", {}, `${keys.length} picked`), el("p", { className: "sub" }, shown), speedSection(keys), el("div", { className: "buttons" }, deleteButton()));
+  };
+
   const pointEditor = (point: PointMark): HTMLElement => {
     const position = positionOf(point);
     const list = findEntry(markup, point.key)?.list;
@@ -500,6 +647,7 @@ async function main(): Promise<void> {
         ? el("div", { className: "fields" }, numberField("Yaw", "", yaw, FACING_STEP, (value) => at({ yaw: value })), numberField("Pitch", "", pitch, 5, (value) => at({ pitch: value })))
         : el("p", { className: "sub" }, "It faces the map's middle."),
       centerBox(),
+      speedSection([point.key]),
       el("div", { className: "buttons" }, deleteButton()),
     );
   };
@@ -542,6 +690,7 @@ async function main(): Promise<void> {
               .map((axis) => el("button", { className: "small", dataset: { tip: `Move ${activeFace?.axis === axis ? "the picked face" : "the face nearer it"} onto the ${"XYZ"[axis]} cut` }, onclick: () => toCut(axis) }, `To ${"XYZ"[axis]} cut`)),
           )
         : null,
+      speedSection([box.key]),
       el("div", { className: "buttons" }, deleteButton()),
     );
   };
@@ -645,7 +794,7 @@ async function main(): Promise<void> {
     const box = boxOf(picked);
     const height = heightMarkOf(picked);
     let content: HTMLElement | null = null;
-    if (tool === "select") content = point ? pointEditor(point) : box ? boxEditor(box) : height ? heightEditor(height) : null;
+    if (tool === "select") content = also.size > 0 ? manyPanel() : point ? pointEditor(point) : box ? boxEditor(box) : height ? heightEditor(height) : null;
     else if (tool === "spawn" || tool === "marker") content = placeToolPanel(tool);
     else if (tool === "region") content = regionToolPanel();
     else if (tool === "height") content = heightToolPanel();
@@ -849,8 +998,8 @@ async function main(): Promise<void> {
       const ctrl = event.ctrlKey || event.metaKey;
       const step = event.shiftKey ? 5 : 1;
       const now = cuts.top ?? max[1];
-      const pickedBox = boxOf(picked);
-      const pickedHeight = heightMarkOf(picked);
+      const pickedBox = also.size === 0 ? boxOf(picked) : undefined;
+      const pickedHeight = also.size === 0 ? heightMarkOf(picked) : undefined;
       if (ctrl && event.code === "KeyZ" && !event.shiftKey) changes.undo();
       else if (ctrl && (event.code === "KeyY" || (event.code === "KeyZ" && event.shiftKey))) changes.redo();
       else if (ctrl || event.altKey) return;
@@ -881,10 +1030,12 @@ async function main(): Promise<void> {
   // on nothing, picks nothing). Other tools use the click. A double click centers the view.
   type Drag =
     | { kind: "move" | "face"; point: PointMark; moved: boolean; position?: MapPosition; yaw?: number }
+    | { kind: "marquee"; moved: boolean; add: boolean }
     | { kind: "gizmo"; part: GizmoPart; moved: boolean; origin: THREE.Vector3; start: THREE.Vector3; fine: boolean; result?: { point?: Vec3; box?: Box; y?: number } };
   let press: { x: number; y: number; drag?: Drag } | undefined;
   const cancelDrag = () => {
     press = undefined;
+    $("marquee").hidden = true;
     overlay.hideWhileEditing(undefined);
     overlay.showBox(undefined, 0);
     overlay.set(markup);
@@ -966,9 +1117,28 @@ async function main(): Promise<void> {
     gizmo.setActive(part);
   };
 
+  /**
+   * The entries whose spot is inside a rectangle on the canvas (client pixels): points by their
+   * feet, boxes by their middle, only what isn't past a cut.
+   */
+  const entriesIn = (x0: number, y0: number, x1: number, y1: number): string[] => {
+    const rect = canvas.getBoundingClientRect();
+    const [left, right, top, bottom] = [Math.min(x0, x1), Math.max(x0, x1), Math.min(y0, y1), Math.max(y0, y1)];
+    const inside = (spot: THREE.Vector3) => {
+      const p = spot.project(scene.activeCamera);
+      const x = rect.left + ((p.x + 1) / 2) * rect.width;
+      const y = rect.top + ((1 - p.y) / 2) * rect.height;
+      return p.z > -1 && p.z < 1 && x >= left && x <= right && y >= top && y <= bottom;
+    };
+    const points = markup.points.filter((point) => scene.isKept(point.at) && inside(new THREE.Vector3(point.at.x, point.at.y, point.at.z))).map((point) => point.key);
+    const boxes = markup.boxes.filter((box) => inside(new THREE.Vector3(...([0, 1, 2].map((axis) => (box.box.min[axis] + box.box.max[axis] + 1) / 2) as Vec3)))).map((box) => box.key);
+    return [...points, ...boxes];
+  };
+
   const finishDrag = (drag: Drag) => {
     overlay.hideWhileEditing(undefined);
     overlay.showBox(undefined, 0);
+    if (drag.kind === "marquee") return;
     if (drag.kind === "gizmo") {
       const result = drag.result;
       const point = pointOf(picked);
@@ -1010,8 +1180,10 @@ async function main(): Promise<void> {
       const knob = overlay.knobAt(event.clientX, event.clientY);
       const pickedPoint = pointOf(picked);
       const point = overlay.pointAt(event.clientX, event.clientY);
-      if (knob !== undefined && pickedPoint) press.drag = { kind: "face", point: pickedPoint, moved: false };
+      if (knob !== undefined && pickedPoint && also.size === 0) press.drag = { kind: "face", point: pickedPoint, moved: false };
       else if (point && (!block || point.distance <= block.distance + 0.01)) press.drag = { kind: "move", point: pointOf(point.key)!, moved: false };
+      // In Top view, a drag from anywhere else draws a rectangle that picks what's in it.
+      else if (scene.isTop) press.drag = { kind: "marquee", moved: false, add: event.shiftKey };
     }
     if (press.drag) canvas.setPointerCapture(event.pointerId);
   });
@@ -1022,6 +1194,19 @@ async function main(): Promise<void> {
       if (!drag.moved && Math.hypot(event.clientX - press.x, event.clientY - press.y) <= DRAG_PIXELS) return;
       drag.moved = true;
       if (drag.kind === "gizmo") return dragGizmo(drag, event.clientX, event.clientY, event.shiftKey);
+      if (drag.kind === "marquee") {
+        const box = $("marquee");
+        const stage = canvas.getBoundingClientRect();
+        Object.assign(box.style, {
+          left: `${Math.min(press.x, event.clientX) - stage.left}px`,
+          top: `${Math.min(press.y, event.clientY) - stage.top}px`,
+          width: `${Math.abs(event.clientX - press.x)}px`,
+          height: `${Math.abs(event.clientY - press.y)}px`,
+        });
+        box.hidden = false;
+        $("hover").textContent = `${entriesIn(press.x, press.y, event.clientX, event.clientY).length} in the rectangle`;
+        return;
+      }
       if (drag.kind === "move") {
         const spot = spotUnder(event.clientX, event.clientY);
         if (!spot) return;
@@ -1046,7 +1231,12 @@ async function main(): Promise<void> {
     if (event.button !== 0 || !press) return;
     const drag = press.drag;
     const click = Math.hypot(event.clientX - press.x, event.clientY - press.y) <= DRAG_PIXELS;
+    const from = press;
     press = undefined;
+    if (drag?.kind === "marquee" && drag.moved) {
+      $("marquee").hidden = true;
+      return pickMany(entriesIn(from.x, from.y, event.clientX, event.clientY), drag.add);
+    }
     if (drag?.moved) return finishDrag(drag);
     if (!click) return;
     if (arming) {
@@ -1067,8 +1257,10 @@ async function main(): Promise<void> {
       }
       return;
     }
-    // A marker in front of the blocks picks its entry; anywhere else picks nothing.
-    pickEntry(drag?.point.key);
+    // A marker in front of the blocks picks its entry (Shift: adds it to the pick, or takes it out); anywhere else picks nothing.
+    const clicked = drag && drag.kind !== "marquee" ? drag.point.key : undefined;
+    if (event.shiftKey && clicked) togglePick(clicked);
+    else if (!event.shiftKey) pickEntry(clicked);
   });
   canvas.addEventListener("dblclick", (event) => {
     const hit = scene.pickAt(event.clientX, event.clientY);

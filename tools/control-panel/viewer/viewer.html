@@ -48,6 +48,13 @@
 
   /* Names over the markers: a dark plate with the list's color as a square before the name. */
   .tags { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
+  /* The rectangle a drag in Top view picks with. */
+  #marquee { position: absolute; pointer-events: none; border: 1px solid var(--primary); background: color-mix(in srgb, var(--primary) 14%, transparent); z-index: 2; }
+  .speed .modes.three { grid-template-columns: 1fr 1fr; }
+  .speed .modes button:last-child { grid-column: span 2; }
+  .speed .field-row { display: grid; gap: 6px; cursor: default; }
+  .speed select { width: 100%; }
+  .speed .field-row .group-label { margin: 8px 0 0; }
   .tag { position: absolute; left: 0; top: 0; display: flex; align-items: center; gap: 6px; padding: 2px 7px; background: rgba(6, 12, 20, .78); color: #fff; font-size: var(--fs-meta); white-space: nowrap; }
   .tag::before { content: ""; width: 8px; height: 8px; background: var(--tag-color); flex: none; }
   .tag.picked { background: rgba(6, 12, 20, .92); outline: 1px solid #fff; z-index: 1; }
@@ -168,6 +175,7 @@
   <div class="stage">
     <canvas id="view" tabindex="0"></canvas>
     <div id="tags" class="tags"></div>
+    <div id="marquee" hidden></div>
     <div class="cube-wrap">
       <button id="view-home" class="icon" aria-label="Home" data-tip="Home: the whole map" data-key="Home"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 11 12 4l8 7"/><path d="M6 9.5V20h12V9.5"/><path d="M10 20v-5h4v5"/></svg></button>
       <canvas id="cube" aria-label="View cube: click a side to look from it"></canvas>

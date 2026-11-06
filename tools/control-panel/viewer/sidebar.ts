@@ -35,8 +35,8 @@ export function swatch(color: number): HTMLSpanElement {
 }
 
 export interface SidebarHandlers {
-  /** An entry was clicked. */
-  pick(key: string): void;
+  /** An entry was clicked (with Shift: added to the pick, or taken out of it). */
+  pick(key: string, add: boolean): void;
   /** A block's name was clicked. */
   find(block: string): void;
 }
@@ -49,6 +49,7 @@ export interface Checks {
 
 export class Sidebar {
   private picked: string | undefined;
+  private also: ReadonlySet<string> = new Set();
 
   constructor(
     private readonly root: HTMLElement,
@@ -89,7 +90,7 @@ export class Sidebar {
                     {
                       className: "check",
                       disabled: !warning.entry && !warning.block,
-                      onclick: () => (warning.entry ? this.handlers.pick(warning.entry) : warning.block ? this.handlers.find(warning.block) : undefined),
+                      onclick: () => (warning.entry ? this.handlers.pick(warning.entry, false) : warning.block ? this.handlers.find(warning.block) : undefined),
                     },
                     el("span", { className: "dot" }),
                     el("span", { className: "grow" }, warning.text),
@@ -126,9 +127,10 @@ export class Sidebar {
     this.mark();
   }
 
-  /** Shows an entry as picked (or none), and scrolls it into view. */
-  pick(key: string | undefined): void {
+  /** Shows an entry as picked (or none), with any others picked with it, and scrolls it into view. */
+  pick(key: string | undefined, also: ReadonlySet<string> = new Set()): void {
     this.picked = key;
+    this.also = also;
     this.mark();
     if (key) this.root.querySelector<HTMLElement>(`[data-key="${CSS.escape(key)}"]`)?.scrollIntoView({ block: "nearest" });
   }
@@ -144,7 +146,7 @@ export class Sidebar {
         : list.entries.map((entry) =>
             el(
               "button",
-              { className: "entry", dataset: { key: entry.key }, title: entry.detail, onclick: () => this.handlers.pick(entry.key) },
+              { className: "entry", dataset: { key: entry.key }, title: entry.detail, onclick: (event: MouseEvent) => this.handlers.pick(entry.key, event.shiftKey) },
               el("span", { className: "entry-label" }, entry.label),
               el("span", { className: "entry-detail" }, entry.detail),
             ),
@@ -153,6 +155,6 @@ export class Sidebar {
   }
 
   private mark(): void {
-    for (const entry of this.root.querySelectorAll<HTMLElement>(".entry")) entry.classList.toggle("on", entry.dataset.key === this.picked);
+    for (const entry of this.root.querySelectorAll<HTMLElement>(".entry")) entry.classList.toggle("on", entry.dataset.key === this.picked || this.also.has(entry.dataset.key ?? ""));
   }
 }

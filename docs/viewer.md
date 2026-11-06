@@ -177,6 +177,24 @@ a second.
   the one below, as in game: a height that breaks these isn't saved, and the viewer says why.
 - **Delete** removes it.
 
+## Picking several, mirroring and copying
+
+- **Pick several:** with Select, Shift + click markers in the view or entries in the overview to add
+  them to the pick (Shift + click a picked one to take it out). In Top view (the cube's top), drag a
+  rectangle from anywhere that isn't a marker: it picks every marker and box whose middle is inside
+  (Shift: adds them). Esc picks nothing.
+- With several picked, the right panel names them and acts on them all: **Delete** (the key too)
+  removes them as one change, which one undo brings back.
+- **Mirror** (for one picked entry, under its values; for several, in the panel): **Left to right**,
+  **Front to back** or **Half turn** adds a copy of each picked spawn, marker and box mirrored across
+  the map's middle (its bounds' middle, the point every marker faces without a facing of its own;
+  x 0 and z 0 for a map Select centered). Facings mirror too, and boxes stay whole blocks. A team's
+  entries go to **the other team** (Red to Blue; with more teams, the next one, or a team you pick,
+  or their own). The copies are picked afterward, and one undo takes them all back. The spectator and
+  queue spawns hold one entry each, so they aren't mirrored.
+- **Copy to another team:** adds a copy of each picked team entry (team spawns, a team's markers
+  and regions) to that team's list, in the same place.
+
 ## Undo, Save and Publish
 
 Every change is written to `map.json` at once, in the same style game Edit writes it, and the

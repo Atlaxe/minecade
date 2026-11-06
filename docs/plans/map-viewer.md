@@ -6,8 +6,8 @@
 read-only viewer, `docs/viewer.md`) done 2026-11-05, in `tools/viewer/` and
 `tools/control-panel/viewer/`. V.4 (markers shown), V.5 (points, Save and Publish) and V.6 (boxes
 and planes) done 2026-11-06. Before V.7, the same day, the user reworked the viewer's layout (see
-"Layout rework" below). V.7 (shapes and see-through blocks) and V.8 (Vanilla textures) done
-2026-11-06. Build it in the order of "Passes" below: each pass leans on the ones before
+"Layout rework" below). V.7 (shapes and see-through blocks), V.8 (Vanilla textures) and V.9 (speed
+tools) done 2026-11-06. Build it in the order of "Passes" below: each pass leans on the ones before
 it.
 
 **For the session that implements this:**
@@ -495,7 +495,15 @@ see-through texels show its Average color (leaves look like Minecraft's fast lea
 showing through to the sky, since their inner faces are left out), plants are cut out, and plants'
 crossed faces now run corner to corner and full height so their textures fill them.
 
-**V.9 Speed tools.** Mirror, copy to another team, pick several.
+**V.9 Speed tools** (done 2026-11-06). Mirror, copy to another team, pick several. As built
+(`speed.ts`): Mirror adds mirrored copies (the picked entries stay) across the map's middle, which
+is the bounds' middle game Edit already uses for facings rather than x 0 and z 0, since maps made
+before Select (Temples: z 8) aren't centered; whole x and z mirror to the block across it, exact
+points to the point, yaws turn, boxes stay whole blocks. Team entries go to the next team by
+default (the other one in a two-team game), their own team, or one picked. Copy adds team entries
+to another team's list where they are. Mirror, Copy and deleting several are each one `batch` edit
+(one undo step, up to 64 entries), and the copies are picked afterward. Pick several: Shift + click
+in the view or the overview, or a rectangle dragged in Top view (entries by their middle).
 
 **V.10 Select from above.** The Worlds tab: the picture, the box, the automatic height with its
 floor and ceiling handles, the 3D look, and Export through the extractor.
