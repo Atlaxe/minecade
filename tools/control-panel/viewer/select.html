@@ -1,0 +1,141 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Select from above</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' fill='%23103050'/%3E%3Cpath fill='%2348c0f0' d='M3 3h2v10H3zM11 3h2v10h-2zM5 4h2v3H5zM9 4h2v3H9zM7 6h2v3H7z'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="/theme.css">
+<script src="/tips.js" defer></script>
+<style>
+  /* Select from above: the picture (or the 3D look) on the left, the box, its height and Export on the right. */
+  html, body { height: 100%; }
+  body { display: grid; grid-template-rows: auto 1fr auto; overflow: hidden; }
+  svg.i { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+
+  .banner { display: flex; align-items: center; gap: 14px; padding: 10px 16px; background: var(--side); border-bottom: 1px solid var(--line); min-width: 0; }
+  .back { display: grid; place-items: center; width: 36px; height: 36px; flex: none; border-radius: var(--radius); color: var(--text); }
+  .back:hover { background: var(--raised); }
+  #world-icon { display: contents; }
+  .banner-thumb { width: 64px; aspect-ratio: 1; object-fit: cover; flex: none; border-radius: 2px; border: 1px solid var(--line); }
+  .banner-title { display: grid; min-width: 0; }
+  .banner-title h1 { font-size: 24px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+  .main { display: grid; grid-template-columns: 1fr 340px; min-height: 0; }
+  .stage { position: relative; min-width: 0; min-height: 0; background: var(--inset); }
+  canvas.fill { position: absolute; inset: 0; display: block; width: 100%; height: 100%; outline: none; }
+  #picture { cursor: crosshair; }
+  #picture.grab { cursor: grabbing; }
+  .stage-bar { position: absolute; top: 12px; left: 12px; display: flex; gap: 8px; z-index: 2; }
+  .tabs { display: flex; gap: 2px; padding: 2px; background: color-mix(in srgb, var(--surface) 88%, transparent); border: 1px solid var(--line); border-radius: var(--radius); }
+  .tabs [role=tab] { background: none; border: 1px solid transparent; color: var(--muted); padding: 5px 14px; }
+  .tabs [role=tab]:hover:not(:disabled) { color: var(--text); }
+  .tabs [role=tab][aria-selected=true] { background: var(--selected); color: var(--on-selected); border-color: color-mix(in srgb, var(--primary) 45%, transparent); }
+  .stage-bar button.icon { background: color-mix(in srgb, var(--surface) 88%, transparent); border: 1px solid var(--line); }
+  .cube-wrap { position: absolute; top: 12px; right: 12px; z-index: 2; }
+  #cube { width: 104px; height: 104px; display: block; }
+  .notice { position: absolute; top: 12px; left: 50%; transform: translateX(-50%); max-width: min(720px, 70%); padding: 10px 16px; border-radius: var(--radius); background: var(--surface); border: 1px solid var(--line-strong); box-shadow: var(--shadow); z-index: 3; }
+  .notice.bad { color: var(--bad); }
+  .message { position: absolute; inset: 0; display: grid; place-content: center; text-align: center; gap: 8px; padding: 24px; color: var(--muted); font-size: var(--fs-h3); }
+  .message.bad { color: var(--bad); }
+
+  .right { background: var(--surface); border-left: 1px solid var(--line); overflow-y: auto; min-height: 0; padding: 16px; display: flex; flex-direction: column; gap: 0; }
+  .right section + section { border-top: 1px solid var(--line); padding-top: 16px; margin-top: 18px; }
+  .right h2 { font-size: 18px; margin-bottom: 4px; }
+  .sub { color: var(--muted); font-size: var(--fs-meta); margin: 0 0 10px; }
+  .group-label { font-size: var(--fs-meta); color: var(--muted); margin: 12px 0 6px; }
+  .fields { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
+  .fields label { display: grid; gap: 3px; font-size: var(--fs-meta); color: var(--muted); }
+  .fields label b { font-weight: 700; }
+  .fields .x b { color: var(--axis-x); } .fields .y b { color: var(--axis-y); } .fields .z b { color: var(--axis-z); }
+  .fields input { width: 100%; font-variant-numeric: tabular-nums; padding: 5px 7px; }
+  .buttons { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 12px; }
+  .size { font-variant-numeric: tabular-nums; }
+  #side { display: block; width: 100%; height: 220px; background: var(--inset); border: 1px solid var(--line); border-radius: var(--radius); cursor: ns-resize; touch-action: none; }
+  .form { display: grid; gap: 10px; }
+  .form label { display: grid; gap: 4px; font-size: var(--fs-meta); color: var(--muted); }
+  .form label.check { display: flex; align-items: center; gap: 8px; font-size: var(--fs-body); color: var(--text); cursor: pointer; }
+  .form input[type=text], .form select { width: 100%; }
+  .problem { color: var(--bad); font-size: var(--fs-meta); margin: 0; }
+  #export { width: 100%; }
+  .maps { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
+  .map-row { display: grid; grid-template-columns: 1fr auto; gap: 2px 8px; padding: 8px 6px; border-radius: var(--radius); }
+  .map-row:hover { background: var(--raised); }
+  .map-row .name { font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .map-row .detail { grid-column: 1; color: var(--muted); font-size: var(--fs-meta); overflow: hidden; text-overflow: ellipsis; }
+  .map-row .error { grid-column: 1 / -1; color: var(--bad); font-size: var(--fs-meta); }
+  .map-row .row-buttons { grid-column: 1 / -1; display: flex; gap: 6px; }
+  .empty { color: var(--muted); font-size: var(--fs-meta); margin: 0; }
+
+  .status { display: flex; gap: 18px; padding: 6px 16px; background: var(--side); border-top: 1px solid var(--line); color: var(--muted); font-size: var(--fs-meta); min-height: 32px; white-space: nowrap; overflow: hidden; align-items: center; }
+  .status #hover { color: var(--text); overflow: hidden; text-overflow: ellipsis; }
+  .status .spacer { flex: 1; }
+</style>
+</head>
+<body>
+<header class="banner">
+  <a class="back" href="/#maps" aria-label="Back to Worlds" data-tip="Back to Worlds"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg></a>
+  <span id="world-icon"></span>
+  <div class="banner-title"><h1 id="world-name">Select from above</h1><span class="muted meta">Cut maps out of this world: draw a box, set its height, export it</span></div>
+</header>
+<div class="main">
+  <div class="stage">
+    <canvas id="picture" class="fill" tabindex="0" aria-label="The world from above: drag to draw a box"></canvas>
+    <canvas id="look" class="fill" hidden aria-label="The box in 3D"></canvas>
+    <div class="stage-bar">
+      <div class="tabs" role="tablist" aria-label="Look">
+        <button type="button" role="tab" id="tab-above" aria-selected="true">From above</button>
+        <button type="button" role="tab" id="tab-3d" aria-selected="false" disabled data-tip="The box's blocks in 3D, from its floor to its ceiling">3D</button>
+      </div>
+      <button id="fit" class="icon" aria-label="Fit" data-tip="See the whole world, or the box" data-key="Home"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5"/></svg></button>
+    </div>
+    <div class="cube-wrap" id="cube-wrap" hidden><canvas id="cube" aria-label="View cube: click a side to look from it"></canvas></div>
+    <div id="notice" class="notice" hidden></div>
+    <div id="message" class="message">Reading the world...</div>
+  </div>
+  <aside class="right" aria-label="The box, its height and Export">
+    <section>
+      <h2>Box</h2>
+      <p class="sub" id="box-hint">Drag on the picture to draw a box, up to 256 by 256 blocks. Drag its edges or its inside to change it.</p>
+      <div class="fields">
+        <label class="x"><b>From X</b><input type="number" id="x0" step="1"></label>
+        <label class="z"><b>From Z</b><input type="number" id="z0" step="1"></label>
+        <label class="x"><b>To X</b><input type="number" id="x1" step="1"></label>
+        <label class="z"><b>To Z</b><input type="number" id="z1" step="1"></label>
+      </div>
+      <p class="sub size" id="box-size" style="margin-top:8px"></p>
+    </section>
+    <section id="height-section" hidden>
+      <h2>Height</h2>
+      <p class="sub" id="trim-note"></p>
+      <canvas id="side" aria-label="The box from the south: drag the floor and the ceiling"></canvas>
+      <div class="fields" style="margin-top:10px">
+        <label class="y"><b>Floor Y</b><input type="number" id="floor" step="1" min="-64" max="319"></label>
+        <label class="y"><b>Ceiling Y</b><input type="number" id="ceiling" step="1" min="-64" max="319"></label>
+      </div>
+      <div class="buttons"><button id="trim" class="small" data-tip="Back to the lowest and highest block in the box">Trim to the blocks</button></div>
+    </section>
+    <section id="export-section" hidden>
+      <h2>Export to map</h2>
+      <p class="sub">A new draft map, moved so its middle is at x 0, z 0. It's cut out in the background: the network keeps running.</p>
+      <div class="form">
+        <label>Game<select id="game"></select></label>
+        <label>Name<input type="text" id="map-name" maxlength="48" spellcheck="false" autocomplete="off"></label>
+        <label>Map id<input type="text" id="map-id" maxlength="48" spellcheck="false" autocomplete="off"></label>
+        <p id="export-problem" class="problem" hidden></p>
+        <label class="check"><input type="checkbox" id="open-when-ready" checked> Open it in the viewer when it's ready</label>
+        <button id="export" class="primary">Export</button>
+      </div>
+    </section>
+    <section>
+      <h2>Maps from this world</h2>
+      <ul id="maps" class="maps"></ul>
+    </section>
+  </aside>
+</div>
+<footer class="status">
+  <span id="hover"></span><span class="spacer"></span><span id="info"></span>
+</footer>
+<script type="module" src="/viewer/select.js"></script>
+</body>
+</html>

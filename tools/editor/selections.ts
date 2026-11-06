@@ -1,7 +1,8 @@
 // The maps boxed in each world, and their extractions. Each world's list is kept in
 // work/select/<world>.json (ignored by git), so opening the world again shows it. Extractions run
 // one at a time in this process (extract.ts) and carry on across mode switches; the runner waits
-// for them before it exits.
+// for them before it exits. The Panel keeps one too, for Select from above (tools/viewer/select.ts),
+// with a throwaway server of its own name, so both can cut maps out at once.
 import { existsSync } from "node:fs";
 import { mkdir, readFile, readdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
@@ -28,11 +29,15 @@ export class Selections {
   private pending = 0;
   private chunkerReady = false;
 
-  constructor(root: string, options: { verbose: boolean; note(text: string): void }) {
+  /** The throwaway extraction server's container name (extract.ts's own when not given). */
+  private readonly container: string | undefined;
+
+  constructor(root: string, options: { verbose: boolean; note(text: string): void; container?: string }) {
     this.root = root;
     this.dir = join(root, "work", "select");
     this.verbose = options.verbose;
     this.note = options.note;
+    this.container = options.container;
   }
 
   /** Where a .mcworld is unzipped. */
@@ -194,7 +199,7 @@ export class Selections {
       selection.status = "extracting";
       await this.changed(file, selection);
       if (!this.chunkerReady) {
-        buildChunkerImage(this.root, this.verbose);
+        await buildChunkerImage(this.root, this.verbose);
         this.chunkerReady = true;
       }
       const env = readEnv(await readFile(join(this.root, ".env"), "utf8"));
@@ -202,7 +207,7 @@ export class Selections {
       const config = draftMap(selection, file.world);
       await extract(
         { world: file.path, box: selection.box, offset: selection.offset, mapDir, config, name: config.name },
-        { docker: connectDocker(), env, verbose: this.verbose, note: (text) => this.note(`${label}: ${text}`) },
+        { docker: connectDocker(), env, verbose: this.verbose, note: (text) => this.note(`${label}: ${text}`), ...(this.container ? { container: this.container } : {}) },
       );
       selection.status = "ready";
       selection.error = undefined;

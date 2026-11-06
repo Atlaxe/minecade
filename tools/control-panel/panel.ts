@@ -23,7 +23,8 @@ import { catalogDir, storeDir } from "../maps/paths.ts";
 import { MapStore } from "../maps/store.ts";
 import { MapChanges } from "../viewer/map-changes.ts";
 import { viewerMap, viewerMapConfig, watchMap } from "../viewer/map-data.ts";
-import { VIEWER_PAGE, viewerColors, viewerMaps, viewerScripts, viewerShapes, viewerTextures, viewerThumbPath, viewerView } from "../viewer/routes.ts";
+import { SELECT_PAGE, VIEWER_PAGE, viewerColors, viewerMaps, viewerScripts, viewerShapes, viewerTextures, viewerThumbPath, viewerView } from "../viewer/routes.ts";
+import { SelectFromAbove } from "../viewer/select.ts";
 import {
   BroadcastLog,
   checkLobbyMap,
@@ -58,6 +59,8 @@ const DOCKER_START_GRACE_MS = 3 * 60_000;
 
 const repoRoot = fileURLToPath(new URL("../../", import.meta.url));
 const envPath = join(repoRoot, ".env");
+/** Select from above: the worlds' pictures, and maps cut out of them in the background. */
+const selectFromAbove = new SelectFromAbove(repoRoot, (text) => note(`Select from above: ${text}`));
 /** The map viewer's edits, undo histories, Save and Publish. */
 const mapChanges = new MapChanges(repoRoot);
 /** Files both pages load, by URL path (paths from the repo root). */
@@ -679,7 +682,12 @@ async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> 
       res.end(await readFile(VIEWER_PAGE));
       return;
     }
-    if (path === "/viewer/app.js" || path === "/viewer/worker.js") {
+    if (path === "/viewer/select") {
+      res.writeHead(200, { "content-type": "text/html; charset=utf-8", "cache-control": "no-store" });
+      res.end(await readFile(SELECT_PAGE));
+      return;
+    }
+    if (path === "/viewer/app.js" || path === "/viewer/worker.js" || path === "/viewer/select.js") {
       try {
         const script = (await viewerScripts()).get(path.slice("/viewer/".length));
         if (!script) return sendJson(res, 404, { error: "not found" });
@@ -727,12 +735,45 @@ async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> 
       res.end(answer.gzipped);
       return;
     }
+    // Select from above (tools/viewer/select.ts).
+    const world = url.searchParams.get("world") ?? "";
+    if (path === "/api/viewer/worlds") return sendJson(res, 200, { worlds: await selectFromAbove.worldList() });
+    if (path === "/api/viewer/world-icon") {
+      const file = await selectFromAbove.iconPath(world);
+      if (!file) return sendJson(res, 404, { error: "no icon" });
+      res.writeHead(200, { "content-type": "image/jpeg", "cache-control": "no-store" });
+      res.end(await readFile(file));
+      return;
+    }
+    if (path === "/api/viewer/overview" || path === "/api/viewer/select/view") {
+      const answer = path === "/api/viewer/overview" ? await selectFromAbove.overview(world) : await selectFromAbove.view(world, url.searchParams.get("box") ?? "");
+      if (answer.status !== 200) return sendJson(res, answer.status, { error: answer.error });
+      res.writeHead(200, { "content-type": "application/octet-stream", "content-encoding": "gzip", "cache-control": "no-store" });
+      res.end(answer.gzipped);
+      return;
+    }
+    if (path === "/api/viewer/select/shapes") {
+      const answer = await selectFromAbove.shapes(world, url.searchParams.get("box") ?? "");
+      return answer.status === 200 ? sendJson(res, 200, { shapes: answer.shapes }) : sendJson(res, answer.status, { error: answer.error });
+    }
+    if (path === "/api/viewer/select/maps") {
+      const answer = await selectFromAbove.maps(world);
+      return answer.status === 200 ? sendJson(res, 200, { world: answer.world, selections: answer.selections }) : sendJson(res, answer.status, { error: answer.error });
+    }
     return sendJson(res, 404, { error: "not found" });
   }
 
   if (method !== "POST") return sendJson(res, 405, { error: "method not allowed" });
   const body = await readJson(req, 4096);
   if (!body) return sendJson(res, 400, { error: "expected a JSON object of at most 4 KB" });
+
+  // Select from above's exports (tools/viewer/select.ts).
+  const selectRoute = /^\/api\/viewer\/select\/(export|retry|forget)$/.exec(path);
+  if (selectRoute) {
+    const action = selectRoute[1];
+    const answer = action === "export" ? await selectFromAbove.export(body) : await selectFromAbove.act(action as "retry" | "forget", body);
+    return answer.status === 200 ? sendJson(res, 200, { ok: true, message: answer.message }) : sendJson(res, answer.status, { error: answer.error });
+  }
 
   // The map viewer's changes (map-changes.ts): through the map editor when game Edit has the map open.
   const viewerRoute = /^\/api\/viewer\/(edit|undo|redo|save|publish)$/.exec(path);
@@ -863,6 +904,7 @@ async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> 
     return sendJson(res, 202, { ok: true });
   }
   if (path === "/api/panel/restart") {
+    if (selectFromAbove.busy > 0) return sendJson(res, 409, { error: "a map is being cut out of a world (Select from above): restart once it's done" });
     sendJson(res, 202, { ok: true, pid: process.pid });
     setTimeout(restartPanel, 100);
     return;
@@ -1107,7 +1149,8 @@ server.listen(PORT, "127.0.0.1", () => {
   setInterval(() => void refresh(), 2000);
   setInterval(() => {
     if (stay) return;
-    if (shouldExit({ now: Date.now(), startedAt, windows: windows.size, lastWindowAt, busy: busy !== null })) {
+    // A map being cut out of a world keeps the Panel up until it's done.
+    if (shouldExit({ now: Date.now(), startedAt, windows: windows.size, lastWindowAt, busy: busy !== null || selectFromAbove.busy > 0 })) {
       log("no windows open; exiting");
       for (const follower of followers.values()) follower.stop();
       process.exit(0);

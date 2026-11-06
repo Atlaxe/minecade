@@ -116,6 +116,10 @@ so flying past the converted area grows no new land.
 **The world can't be changed in Select:** nobody can break or place blocks there. Maps are changed
 in Edit.
 
+**Or from the Panel:** the Maps page's Worlds tab cuts maps out of a world from a picture of it seen
+from above, with no server to boot, while the network runs (`docs/viewer.md`, "Select from
+above"). Both use the same extractor and the same list of maps per world.
+
 **In game,** map editors get the **Select tool** (slot 1, locked there) and the map menu (slot 9).
 Command blocks don't run anywhere a map is opened (Select, Edit, previews and every server of the
 network). Every 10 seconds, a map editor missing either item gets it back, and **/reset**

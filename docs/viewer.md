@@ -6,7 +6,8 @@ spawns, points, boundaries and regions as game Edit does, with the game's checkl
 and changes them with the mouse or by typing their values: spawns and game markers placed, moved,
 turned and deleted; bounds, spectator bounds and regions drawn from two corners, moved and resized;
 kill Y and the build limit set and moved; with undo, Save and Publish. It never changes a world's
-blocks. The in-game editor (`docs/editor.md`) keeps every tool it has.
+blocks. Its **Worlds** tab cuts new maps out of a world from a picture of it seen from above (see
+"Select from above"). The in-game editor (`docs/editor.md`) keeps every tool it has.
 
 ## Opening a map
 
@@ -20,6 +21,52 @@ top left returns to Maps, with the search and the pick as they were.
 The first time a map opens, its world is read and kept in `work\viewer\maps\` (Temples takes about
 0.1 s, then a few milliseconds); a world saved since is read again. A map wider than 256 blocks on
 x or z, counting every block in its world, can't be shown: the viewer says how wide it is.
+
+## Select from above
+
+A second way to cut maps out of a world, beside in-game Select (`docs/editor.md`, "Select mode"),
+which stays as it is. It needs no server to look, and exports run in the background while the
+network keeps running.
+
+**Opening a world:** in **Maps**, the **Worlds** tab lists this PC's Minecraft worlds (with their
+icons, and how many maps came from each) and worlds opened before from a folder. Click one, then
+**Select maps in (world)** (or double click it, or Enter); or type a world folder or a `.mcworld`
+file's path in the box at the top and **Open**. The back arrow returns to Worlds.
+
+**The picture** is the world from above, a pixel a block column: each column's top block in its
+color, brighter the higher it is, with the slopes shaded. Barriers, light blocks and other blocks
+nobody sees are looked through. The maps already cut from the world show as outlines with their
+names (green when ready, dashed while being cut out, red when that failed). The wheel zooms toward
+the pointer, a right or middle drag moves the picture, and **Fit** (Home) shows the whole world, or
+the box. Up close, the chunks' edges show. The status line names the block under the pointer and
+its height. The first look at a world reads it (about 1.5 s for Datapacking, 1808 by 1712 columns),
+then it's kept in `work\viewer\worlds\` until the world changes.
+
+**The box:** drag on the picture to draw one, up to 256 by 256 blocks (it stops growing there, and
+says so). Drag its edges or corners to resize it, or its inside to move it; or type its corners in
+the right panel.
+
+**The height** is trimmed to the lowest and highest block in the box, and shown from the south with
+a floor line and a ceiling line: drag them (or type Floor Y and Ceiling Y) to leave out what you
+don't want, such as the ground under a build, which the trim takes in at first. What's left out is
+dimmed. **Trim to the blocks** puts them back.
+
+**3D** (top left, beside From above) shows the box's blocks from the floor to the ceiling in the
+viewer's drawing, with the view cube: a look before exporting. It's read only.
+
+**Export to map** takes the same choices as in-game Select's Export to Map: the game (or the lobby),
+the map's name, and its id (made from the name until you type one; lower case letters, digits, _
+and -, and not one the game has or this world's list has). **Export** queues it: the Panel cuts the
+box out of a copy of the world and moves it to the middle with the same extractor in-game Select
+uses (Chunker, then a throwaway server with no ports and no players, `minecade-extract-panel`, so
+in-game Select can export at the same time), and the map appears in the store as a draft whose
+spectator spawn is 10 blocks over its highest block. **Open it in the viewer when it's ready** (on at
+first) opens it once it's done, if this page is still open. The Panel stays up until every export
+is done, and Restart Panel waits for them.
+
+**Maps from this world** lists them with how each is going: **Show** frames one on the picture,
+**Open** opens a ready one in the viewer, and a failed one has **Retry** and **Forget** (off the
+list; its map, if any, stays).
 
 ## The window
 

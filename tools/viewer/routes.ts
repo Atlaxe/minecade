@@ -1,7 +1,8 @@
 // The Panel's map viewer routes (panel.ts serves them). They only read the map store; the viewer's
 // changes are POST /api/viewer/edit, /undo, /redo, /save and /publish (map-changes.ts).
 //   GET /viewer                                 the viewer page (tools/control-panel/viewer/)
-//   GET /viewer/app.js, /viewer/worker.js       its scripts, bundled with esbuild on first use and
+//   GET /viewer/select                          Select from above's page (select.ts has its routes)
+//   GET /viewer/app.js, worker.js, select.js    the pages' scripts, bundled with esbuild on first use and
 //                                               again when one of their files changes
 //   GET /api/viewer/maps                        the editor's catalog (catalog.ts): every map by target
 //                                               with its checklist state, and the client's worlds
@@ -34,6 +35,7 @@ const PAGE_DIR = fileURLToPath(new URL("../control-panel/viewer/", import.meta.u
 const PAGE_SOURCES = [
   PAGE_DIR,
   fileURLToPath(new URL("./view-format.ts", import.meta.url)),
+  fileURLToPath(new URL("./overview-format.ts", import.meta.url)),
   fileURLToPath(new URL("./edit-check.ts", import.meta.url)),
   fileURLToPath(new URL("../../packages/minigame-core/src/", import.meta.url)),
   fileURLToPath(new URL("../../editor/behavior_pack/scripts/lists.ts", import.meta.url)),
@@ -100,14 +102,14 @@ export function viewerTextures(root: string): Buffer {
 
 let bundle: { newest: number; files: Promise<Map<string, Uint8Array>> } | undefined;
 
-/** The page's scripts by name (app.js, worker.js), bundled again when a source file is newer than the last bundle. */
+/** The page's scripts by name (app.js, worker.js, select.js), bundled again when a source file is newer than the last bundle. */
 export async function viewerScripts(): Promise<Map<string, Uint8Array>> {
   const newest = Math.max(...PAGE_SOURCES.map(newestTime));
   if (!bundle || newest > bundle.newest) {
     const files = (async () => {
       const { build } = await import("esbuild");
       const result = await build({
-        entryPoints: { app: join(PAGE_DIR, "app.ts"), worker: join(PAGE_DIR, "worker.ts") },
+        entryPoints: { app: join(PAGE_DIR, "app.ts"), worker: join(PAGE_DIR, "worker.ts"), select: join(PAGE_DIR, "select.ts") },
         bundle: true,
         format: "esm",
         target: "es2022",
@@ -137,3 +139,5 @@ function newestTime(path: string): number {
 
 /** The viewer page. */
 export const VIEWER_PAGE = join(PAGE_DIR, "viewer.html");
+/** Select from above's page (select.ts, pass V.10). */
+export const SELECT_PAGE = join(PAGE_DIR, "select.html");

@@ -69,15 +69,31 @@ export interface BuiltView {
 export function buildView(world: string, stamp = worldStamp(world)): BuiltView {
   const db = join(world, "db");
   if (!existsSync(db)) throw new ViewError(`there's no world at ${world}`);
+  return viewOf(readWorldDb(db, isOverworldSubChunk).values, stamp);
+}
+
+/** Blocks a view keeps (Select's box): x and z, and optionally y, each inclusive. */
+export interface ViewClip {
+  min: [x: number, y: number, z: number];
+  max: [x: number, y: number, z: number];
+}
+
+/**
+ * The view of a world's Overworld sub-chunks (keys as latin1, values as stored), every block, or
+ * with `clip` only the blocks in that box (the rest is air).
+ */
+export function viewOf(values: Map<string, Buffer>, stamp: string, clip?: ViewClip): BuiltView {
   const palette = new BlockPalette();
-  const { values } = readWorldDb(db, isOverworldSubChunk);
   const sections: { x: number; y: number; z: number; layers: Uint16Array[] }[] = [];
   for (const [text, value] of values) {
+    const key = chunkKey(Buffer.from(text, "latin1"))!;
+    if (clip && !sectionMeets(key.x, key.z, key.y!, clip)) continue;
     // All-air sub-chunks (a converted world keeps one for every empty section) are left out.
     if (allAir(value, palette)) continue;
-    const key = chunkKey(Buffer.from(text, "latin1"))!;
     const { y, layers } = decodeSubChunk(value, palette);
-    sections.push({ x: key.x, y: y ?? key.y!, z: key.z, layers });
+    const section = { x: key.x, y: y ?? key.y!, z: key.z, layers };
+    if (clip) clipSection(section, clip);
+    sections.push(section);
   }
   // Block palette ids to look ids, for the blocks in use only: a sub-chunk's palette keeps entries
   // after their blocks are gone (Temples' still list hundreds of the editor's plane blocks).
@@ -112,6 +128,24 @@ export function buildView(world: string, stamp = worldStamp(world)): BuiltView {
     list.push({ x: section.x, y: section.y, z: section.z, blocks, ...(water !== undefined && water !== 0 ? { water } : {}) });
   }
   return { header: { format: VIEW_FORMAT, stamp, box, looks, sections: list.length }, list };
+}
+
+/** Whether a section's blocks reach into a clip box at all. */
+function sectionMeets(sx: number, sz: number, sy: number, clip: ViewClip): boolean {
+  const meets = (s: number, axis: 0 | 1 | 2) => s * 16 + 15 >= clip.min[axis] && s * 16 <= clip.max[axis];
+  return meets(sx, 0) && meets(sy, 1) && meets(sz, 2);
+}
+
+/** Makes every block of a section outside a clip box air, in each layer. */
+function clipSection(section: { x: number; y: number; z: number; layers: Uint16Array[] }, clip: ViewClip): void {
+  const inside = (s: number, local: number, axis: 0 | 1 | 2) => {
+    const at = s * 16 + local;
+    return at >= clip.min[axis] && at <= clip.max[axis];
+  };
+  for (let i = 0; i < 4096; i++) {
+    if (inside(section.x, i >> 8, 0) && inside(section.z, (i >> 4) & 15, 2) && inside(section.y, i & 15, 1)) continue;
+    for (const layer of section.layers) layer[i] = 0;
+  }
 }
 
 /** A layer as look ids, or one look when it's all the same. */

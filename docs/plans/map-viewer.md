@@ -8,7 +8,7 @@ read-only viewer, `docs/viewer.md`) done 2026-11-05, in `tools/viewer/` and
 and planes) done 2026-11-06. Before V.7, the same day, the user reworked the viewer's layout (see
 "Layout rework" below). V.7 (shapes and see-through blocks), V.8 (Vanilla textures) and V.9 (speed
 tools) done 2026-11-06. After V.9 the user made Mirror a tool of its own and asked for a Keys tab in
-the settings (see "After V.9" below). Build it in the order of "Passes" below: each pass leans on
+the settings (see "After V.9" below). V.10 (Select from above) done 2026-11-06. Build it in the order of "Passes" below: each pass leans on
 the ones before it.
 
 **For the session that implements this:**
@@ -522,8 +522,21 @@ to another team's list where they are. Mirror, Copy and deleting several are eac
 (one undo step, up to 64 entries), and the copies are picked afterward. Pick several: Shift + click
 in the view or the overview, or a rectangle dragged in Top view (entries by their middle).
 
-**V.10 Select from above.** The Worlds tab: the picture, the box, the automatic height with its
-floor and ceiling handles, the 3D look, and Export through the extractor.
+**V.10 Select from above** (done 2026-11-06). The Worlds tab: the picture, the box, the automatic
+height with its floor and ceiling handles, the 3D look, and Export through the extractor. As built:
+the Maps page has Maps and Worlds tabs; Worlds lists the client's worlds with their icons and
+folders opened before (`GET /api/viewer/worlds`), and opens one in its own page
+(`/viewer/select?world=`, `select.html` and `select.ts`). The picture (`tools/viewer/overview.ts`,
+format `overview-format.ts`) is each column's top block and height, blocks nobody sees looked
+through, kept in `work\viewer\worlds\` by the world's stamp (Datapacking: 1.5 s, then 85 ms;
+184 KB). The box is drawn, moved and resized on it (`select-box.ts`); its blocks come as a view file
+clipped to the box (`view-file.ts` `viewOf` with a clip; the world's sub-chunks stay in memory for
+five minutes, so a box after the first takes about 0.2 s), whose blocks' box is the trim; the side
+picture and the 3D look (`MapScene` on the view cut to the floor and ceiling) are drawn from it.
+Exports run in the Panel (`tools/viewer/select.ts`) through `Selections` with its own extraction
+container, `minecade-extract-panel`, so in-game Select's can run at the same time; Chunker's image
+build no longer blocks the process. The Panel doesn't exit or restart while one runs. The page
+polls the world's list and opens the new map in the viewer when it's ready.
 
 **V.11 With the in-game editor.** Open in game, and reloading after the editor saves a world.
 

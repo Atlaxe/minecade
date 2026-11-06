@@ -136,7 +136,16 @@
   .map-pick img { width: 80px; aspect-ratio: 16 / 9; object-fit: cover; border-radius: 2px; border: 1px solid var(--line); }
   .map-pick-text { display: grid; flex: 1; min-width: 0; }
   .map-pick-text span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  #map-pick-edit { padding: 9px 18px; font-size: var(--fs-body); }
+  #map-pick-edit, #world-pick-open { padding: 9px 18px; font-size: var(--fs-body); }
+  /* Maps or Worlds: two tabs under the page's title. */
+  .page-tabs { display: inline-flex; gap: 2px; margin-top: 20px; padding: 2px; background: var(--inset); border: 1px solid var(--line); border-radius: var(--radius); }
+  .page-tabs [role=tab] { background: none; border: 1px solid transparent; color: var(--muted); padding: 6px 18px; font-size: var(--fs-body); }
+  .page-tabs [role=tab]:hover { color: var(--text); }
+  .page-tabs [role=tab][aria-selected=true] { background: var(--selected); color: var(--on-selected); border-color: color-mix(in srgb, var(--primary) 45%, transparent); }
+  .world-open { display: flex; gap: 8px; align-items: center; margin-top: 24px; }
+  .world-open input { flex: 1 1 320px; }
+  .world-card .map-thumb img { object-fit: cover; }
+  #world-pick-thumb:empty { display: none; }
 
   @media (max-width: 720px) {
     .app { grid-template-columns: 1fr; height: auto; }
@@ -224,7 +233,12 @@
 </section>
 
 <section id="page-maps" class="page page-wide" hidden>
-  <div class="page-head"><h1>Maps</h1><p>Every map in the map store. Pick one to edit its spawns, markers and boundaries in the 3D viewer.</p></div>
+  <div class="page-head"><h1>Maps</h1><p id="maps-head">Every map in the map store. Pick one to edit its spawns, markers and boundaries in the 3D viewer.</p></div>
+  <div class="page-tabs" role="tablist" aria-label="Maps or worlds">
+    <button type="button" role="tab" id="maps-tab-maps" aria-selected="true" aria-controls="maps-panel">Maps</button>
+    <button type="button" role="tab" id="maps-tab-worlds" aria-selected="false" aria-controls="worlds-panel">Worlds</button>
+  </div>
+  <div id="maps-panel" role="tabpanel" aria-labelledby="maps-tab-maps">
   <div class="map-search" role="search">
     <label class="search-box"><svg class="icon-svg" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="m16 16 4.5 4.5"/></svg><input id="maps-query" type="search" placeholder="Search maps by name or id" aria-label="Search maps" autocomplete="off" spellcheck="false"></label>
     <select id="maps-game" aria-label="Game"><option value="">All games</option></select>
@@ -245,6 +259,22 @@
     <div class="map-pick-text"><span id="map-pick-name" class="strong"></span><span id="map-pick-detail" class="muted meta"></span></div>
     <button id="map-pick-clear" class="small" data-tip="Pick nothing" data-key="Esc">Clear</button>
     <button id="map-pick-edit" class="primary" data-tip="Open it in the 3D viewer" data-key="Enter"></button>
+  </div>
+  </div>
+  <div id="worlds-panel" role="tabpanel" aria-labelledby="maps-tab-worlds" hidden>
+    <div class="world-open">
+      <input id="world-path" type="text" placeholder="Or a world folder or .mcworld file on this PC" aria-label="A world folder or .mcworld file" spellcheck="false" autocomplete="off">
+      <button id="world-path-open" data-tip="Open that world in Select from above">Open</button>
+      <button id="worlds-refresh" class="icon" data-tip="Look for worlds again" aria-label="Refresh"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11a8 8 0 1 0-2.3 5.7"/><path d="M20 4v7h-7"/></svg></button>
+    </div>
+    <p id="worlds-note" class="muted meta" aria-live="polite"></p>
+    <div id="worlds"><p class="hint">Loading...</p></div>
+    <div id="world-pick" class="map-pick" hidden>
+      <span id="world-pick-thumb"></span>
+      <div class="map-pick-text"><span id="world-pick-name" class="strong"></span><span id="world-pick-detail" class="muted meta"></span></div>
+      <button id="world-pick-clear" class="small" data-tip="Pick nothing" data-key="Esc">Clear</button>
+      <button id="world-pick-open" class="primary" data-tip="Draw boxes on it from above and export them as maps" data-key="Enter"></button>
+    </div>
   </div>
 </section>
 
@@ -344,7 +374,7 @@ function showPage(name) {
   }
   if (location.hash !== `#${page}`) history.replaceState(null, "", `#${page}`);
   syncLogs();
-  if (page === "maps" && !maps) loadMaps();
+  if (page === "maps") showMapsTab(mapsView.tab);
 }
 window.onhashchange = () => showPage(location.hash.slice(1));
 
@@ -1133,8 +1163,8 @@ let maps = null;
 /** The picked map, "<target>/<map>", and the filters: kept for this window, so coming back from the viewer finds them as they were. */
 const MAPS_STATE = "minecade-maps";
 let mapsView = (() => {
-  try { return { query: "", game: "", status: "", picked: "", ...JSON.parse(sessionStorage.getItem(MAPS_STATE) ?? "{}") }; }
-  catch { return { query: "", game: "", status: "", picked: "" }; }
+  try { return { query: "", game: "", status: "", picked: "", tab: "maps", world: "", ...JSON.parse(sessionStorage.getItem(MAPS_STATE) ?? "{}") }; }
+  catch { return { query: "", game: "", status: "", picked: "", tab: "maps", world: "" }; }
 })();
 function saveMapsView() {
   try { sessionStorage.setItem(MAPS_STATE, JSON.stringify(mapsView)); } catch { /* not kept */ }
@@ -1252,6 +1282,107 @@ function openViewer(target, map) {
 }
 
 $("maps-refresh").onclick = () => loadMaps();
+
+// ---- Worlds: Select from above (the viewer's select page) opens one to cut maps out of it.
+
+/** The client's worlds and folders opened before (GET /api/viewer/worlds), loaded when the Worlds tab opens. */
+let worlds = null;
+
+/** Maps or Worlds, kept for the window with the rest of the Maps page's view. */
+function showMapsTab(tab) {
+  mapsView.tab = tab === "worlds" ? "worlds" : "maps";
+  saveMapsView();
+  const onWorlds = mapsView.tab === "worlds";
+  $("maps-tab-maps").setAttribute("aria-selected", String(!onWorlds));
+  $("maps-tab-worlds").setAttribute("aria-selected", String(onWorlds));
+  $("maps-panel").hidden = onWorlds;
+  $("worlds-panel").hidden = !onWorlds;
+  $("maps-head").textContent = onWorlds
+    ? "Your Minecraft worlds. Pick one to cut new maps out of it from a picture seen from above, while the network keeps running."
+    : "Every map in the map store. Pick one to edit its spawns, markers and boundaries in the 3D viewer.";
+  if (onWorlds && !worlds) loadWorlds();
+  if (!onWorlds && !maps) loadMaps();
+}
+$("maps-tab-maps").onclick = () => showMapsTab("maps");
+$("maps-tab-worlds").onclick = () => showMapsTab("worlds");
+
+async function loadWorlds() {
+  $("worlds-note").textContent = "Looking for worlds...";
+  $("worlds-refresh").disabled = true;
+  const response = await fetch("/api/viewer/worlds").catch(() => null);
+  const result = response ? await response.json().catch(() => ({})) : {};
+  $("worlds-refresh").disabled = false;
+  if (!response?.ok) {
+    $("worlds-note").textContent = "";
+    $("worlds").replaceChildren(el("p", { className: "error" }, !response ? "Could not reach the panel helper." : response.status === 404 ? "The panel helper is out of date: Restart Panel." : result.error ?? `HTTP ${response.status}`));
+    return;
+  }
+  worlds = result.worlds;
+  $("worlds-note").textContent = worlds.length === 0 ? "" : `${worlds.length} ${worlds.length === 1 ? "world" : "worlds"}`;
+  if (!worlds.some((world) => world.id === mapsView.world)) mapsView.world = "";
+  $("worlds").replaceChildren(worlds.length === 0
+    ? el("p", { className: "map-empty" }, "No worlds in this PC's Minecraft. Open a world folder or a .mcworld file above.")
+    : el("div", { className: "map-grid" }, worlds.map(worldCard)));
+  showPickedWorld();
+}
+
+function worldIconUrl(world) {
+  return `/api/viewer/world-icon?${new URLSearchParams({ world: world.id })}`;
+}
+
+function worldCard(world) {
+  const thumb = el("div", { className: "map-thumb" });
+  if (world.icon) thumb.append(el("img", { src: worldIconUrl(world), alt: "", loading: "lazy" }));
+  else thumb.append("No picture");
+  const picked = mapsView.world === world.id;
+  const card = el("button", { className: `map-card world-card${picked ? " picked" : ""}`, "aria-pressed": String(picked), "data-world": world.id },
+    thumb,
+    el("div", { className: "map-body" },
+      el("div", { className: "map-title" }, el("span", { className: "strong" }, world.name)),
+      el("div", { className: "map-tags" },
+        el("span", { className: "muted meta" }, world.maps === 0 ? "No maps cut from it yet" : `${world.maps} ${world.maps === 1 ? "map" : "maps"} cut from it`),
+        world.client ? null : el("span", { className: "pill off" }, "Folder"))));
+  card.onclick = () => pickWorld(mapsView.world === world.id ? "" : world.id);
+  card.ondblclick = () => openSelect(world.id);
+  return card;
+}
+
+function pickWorld(id) {
+  mapsView.world = id;
+  saveMapsView();
+  for (const card of document.querySelectorAll(".world-card")) {
+    const on = card.dataset.world === id;
+    card.classList.toggle("picked", on);
+    card.setAttribute("aria-pressed", String(on));
+  }
+  showPickedWorld();
+}
+
+function showPickedWorld() {
+  const world = worlds?.find((candidate) => candidate.id === mapsView.world);
+  $("world-pick").hidden = !world;
+  if (!world) return;
+  $("world-pick-thumb").replaceChildren(...(world.icon ? [el("img", { src: worldIconUrl(world), alt: "" })] : []));
+  $("world-pick-name").textContent = world.name;
+  $("world-pick-detail").textContent = world.client ? "A world in this PC's Minecraft" : world.path;
+  $("world-pick-open").textContent = `Select maps in ${world.name}`;
+}
+
+/** Opens a world in Select from above, in this window: its back arrow returns here. */
+function openSelect(id) {
+  location.href = `/viewer/select?${new URLSearchParams({ world: id })}`;
+}
+
+$("worlds-refresh").onclick = () => loadWorlds();
+$("world-pick-clear").onclick = () => pickWorld("");
+$("world-pick-open").onclick = () => { if (mapsView.world) openSelect(mapsView.world); };
+$("world-path-open").onclick = () => {
+  const path = $("world-path").value.trim().replace(/^"|"$/g, "");
+  if (path) openSelect(path);
+};
+$("world-path").addEventListener("keydown", (event) => {
+  if (event.key === "Enter") $("world-path-open").click();
+});
 $("maps-query").oninput = (event) => { mapsView.query = event.target.value; saveMapsView(); renderMaps(); };
 $("maps-game").onchange = (event) => { mapsView.game = event.target.value; saveMapsView(); renderMaps(); };
 $("maps-status").onchange = (event) => { mapsView.status = event.target.value; saveMapsView(); renderMaps(); };
@@ -1263,6 +1394,17 @@ $("map-pick-edit").onclick = () => {
 // Esc picks nothing; Enter opens the picked map (on a card, that card's), other buttons keep their own Enter.
 addEventListener("keydown", (event) => {
   if (page !== "maps" || event.target instanceof HTMLInputElement || event.target instanceof HTMLSelectElement) return;
+  if (mapsView.tab === "worlds") {
+    if (event.key === "Escape" && mapsView.world) pickWorld("");
+    if (event.key !== "Enter") return;
+    const card = event.target instanceof Element ? event.target.closest(".world-card") : null;
+    if (!card && event.target instanceof HTMLButtonElement) return;
+    const id = card ? card.dataset.world : mapsView.world;
+    if (!id) return;
+    event.preventDefault();
+    openSelect(id);
+    return;
+  }
   if (event.key === "Escape" && mapsView.picked) pickMap("");
   if (event.key !== "Enter") return;
   const card = event.target instanceof Element ? event.target.closest(".map-card") : null;

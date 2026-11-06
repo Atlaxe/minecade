@@ -3,7 +3,7 @@
 // so the world is always copied into its container and the result copied out; no folder on this
 // PC is ever opened by it. Its level.dat loses the void layers, so callers put the bake settings
 // back afterward (docs/spike-results.md, "Map editor").
-import { spawnSync } from "node:child_process";
+import { spawn } from "node:child_process";
 import { cp, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -14,10 +14,16 @@ import type { ChunkRange } from "./select-core.ts";
 
 export const CHUNKER_IMAGE = "minecade/chunker:local";
 
-/** Builds the Chunker image (with the cache, a quick check when it's there already). */
-export function buildChunkerImage(root: string, verbose = false): void {
-  const result = spawnSync("docker", ["build", "-t", CHUNKER_IMAGE, "docker/chunker"], { cwd: root, encoding: "utf8", stdio: verbose ? "inherit" : "pipe" });
-  if (result.status !== 0) throw new Error(`building ${CHUNKER_IMAGE} failed:\n${result.stderr ?? result.error?.message ?? ""}`);
+/** Builds the Chunker image (with the cache, a quick check when it's there already), without holding up the process (the Panel serves meanwhile). */
+export function buildChunkerImage(root: string, verbose = false): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const child = spawn("docker", ["build", "-t", CHUNKER_IMAGE, "docker/chunker"], { cwd: root, stdio: verbose ? "inherit" : "pipe", windowsHide: true });
+    let errors = "";
+    child.stderr?.on("data", (chunk: Buffer) => (errors = (errors + chunk.toString("utf8")).slice(-4000)));
+    child.stdout?.resume();
+    child.on("error", (error) => reject(new Error(`building ${CHUNKER_IMAGE} failed: ${error.message}`)));
+    child.on("close", (code) => (code === 0 ? resolve() : reject(new Error(`building ${CHUNKER_IMAGE} failed:\n${errors}`))));
+  });
 }
 
 /** Writes the world at `world`, cut down to `chunks`, to `out` (replacing it). */
