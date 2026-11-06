@@ -193,3 +193,84 @@ log was checked on a server; the rest waits on a look in game.
 | The guns pack | Its 64 items, 3 shot markers and the landed grenade entity load with no content log errors. |
 | Icons drawn by the game | Microsoft's docs: an item with `minecraft:block_placer` and no `minecraft:icon` shows its block as its icon, in 3D, the way a wall or a banner shows. Each gun places a hidden block holding its model (a block's model must fit in 30 pixels, so the long guns are shrunk), only on itself, so it's never placed. The blocks and the guns with `block_placer` load with no content log errors; unseen in game. |
 | Dyeing leather | Setting `ItemDyeableComponent.color` on vanilla leather from a script left Probe's team armor brown in game. Mojira reports that a custom item's `minecraft:dyeable` `default_color` only tints the inventory icon, not held items or dropped ones. So team leather is 64 items of its own (`packs/armor`), Minecraft's leather textures tinted by the build; they load with no content log errors. |
+
+## Map viewer (pass V.1, BDS 1.26.60.6, client packs up to vanilla_1.26.62, checked 2026-11-05)
+
+The spike for `docs/plans/map-viewer.md`, in `spike/viewer/`. Everything it writes (colors,
+textures, screenshots, timings) goes to `work\viewer\spike\`, which git ignores, and it only reads
+the map store and the client's worlds. Timed on this PC: 16 cores, an RTX 3080 Ti, Edge 156, a
+1584x961 canvas.
+
+```
+npx tsx spike/viewer/decode.ts bridges/temples sumo/sinkhole     decode maps from the store; write spots for the check
+npx tsx spike/viewer/bds-check.ts bridges/temples               those spots against a throwaway BDS (minecade-viewercheck, no ports)
+npx tsx spike/viewer/colors.ts ["<world folder>" ...]          face colors, coverage of the maps' blocks, swatches.html
+npx tsx spike/viewer/overview.ts "<world folder>"               Select's picture of a whole world
+npx tsx spike/viewer/render/serve.ts [temples realistic worst]  draw in an Edge window of its own, and time it
+```
+
+### Reading worlds
+
+| Check | Finding |
+|---|---|
+| Against BDS | Temples, Sinkhole and Strife decoded in plain TypeScript match a server's `getBlock` at every spot checked: 784, 768 and 784 spots (sample columns' top blocks and the air above them, and 400 random spots through each box), name and every stored state. |
+| Speed | Temples: 19 ms to read the db, 51 ms to decode its 376 sub-chunks (mostly parsing its 547 palette entries once each); Sinkhole 4 and 3 ms; Strife 7 and 10 ms. A whole source world's 247k sub-chunks decode in 5.4 s. |
+| Newest wins | Temples has a table and a 3.9 MB log whose batches run past the table's last sequence number (16,420 against 16,042): the highest number per key gives what BDS has. The MANIFEST names the live tables (`newfile` and `deletefile` edits); none were left over in these worlds. |
+| Sub-chunks | Every one is version 9. Layer 1 (water in waterlogged blocks) is in 2 of Strife's 383 sub-chunks. Palette entries parse once each, cached by their raw bytes (an NBT skipper finds where each ends). |
+| Chunker writes every empty sub-chunk | A converted world stores all 24 sub-chunks of every chunk, the empty ones with 1 bit a block and a palette of air: 234k of Datapacking's 247k. Skip a sub-chunk whose palette is all air without unpacking it. |
+| Map worlds hold more than their bounds | Temples' world is the whole 127x75x184 island it was cut with (its bounds are 37x27x104); Strife was built from the same island. The view file's box should be the blocks' box, as the plan says, not the bounds. |
+| BDS's own answers | `getTopmostBlock` skips leaves and water (it gives the block under them). `getAllStates` adds old states worked out from the name (`color`, `wood_type`, `stone_type`, `top_slot_bit`, `stripped_bit`) that worlds don't store. A throwaway server sometimes garbles its first console line ("Unknown command: {."): send the first command again until it answers. |
+
+### How blocks look
+
+| Check | Finding |
+|---|---|
+| The texture archive | `textures\blocks.brarchive` is the format `ui.brarchive` uses. A folder inside is an archive of its own: `__brarchive\textures\blocks\deepslate.brarchive` holds `textures/blocks/deepslate/*` (also `candles` and `huge_fungus`). |
+| Layered packs | The client's vanilla pack has only 341 blocks, under old names (`grass`, `log`, `planks` picked by data value). It layers 57 vanilla packs on top (`vanilla`, `vanilla_1.14` up to `vanilla_1.26.62`), sorted by version: `blocks.json` merged entry by entry and field by field (a later layer gives `brown_terracotta` only a `sound`), `terrain_texture.json` entry by entry, block textures from 23 of them. In all: 1,352 vanilla blocks and 1,367 textures. |
+| Pack files | `blocks.json` and `terrain_texture.json` have `//` comments, also after code on a line. The vanilla manifests' version is always 0.0.1, so the looks cache has to key on the files' sizes and times. |
+| Image formats | Of the base pack's 703 block textures: 553 RGBA PNG, 90 RGB, 45 TGA (9 run-length coded), 13 interlaced, 2 palette (one 2-bit). `tools/editor/png.ts` reads only 8-bit RGB(A) without interlacing, so the viewer needs its own decoder (`spike/viewer/image.ts`). |
+| Renamed blocks | Three names worlds use aren't in any `blocks.json`: `grass_block` is `grass`, `sea_lantern` is `seaLantern`, `iron_chain` is `chain`. |
+| Coverage | With the above and the blocks pack's 1,541 blocks, every block in every map in the store has a look (Temples 90 kinds, Sinkhole 37, Strife 115, KGB 164, Roman 28, Spaceship 262), and every block in two source worlds but light blocks (hidden anyway). Building the looks: 3.7 s (most of it the custom textures), the colors 48 ms. |
+| The color method | Most-common-color (the plan's) next to whole-texture averages for 29 blocks (`work\viewer\spike\swatches.html`): cleaner, more saturated colors for dirt, bricks, planks, logs and cobblestone. Ores come out as stone, as expected (overrides). New for the overrides: glowstone comes out dark brown, its most common bucket being the dark gaps between the bright bits. |
+| Tints | Plains grass and foliage from `colormap.brarchive` (`grass.png`, `foliage.png` at temperature 0.8, downfall 0.4); spruce and birch leaves and water as fixed colors. Grass tops, leaves and water look right in the swatches and the views. |
+| Custom blocks | `material_instances` then the resource pack's `terrain_texture.json` work as the plan says. For V.7: a custom block's `collision_box` can be a list of boxes, and permutations change it. |
+
+### Drawing in Edge
+
+Three scenes, meshed per 16x16x16 section in 8 web workers (hidden faces left out, touching faces
+of the same block merged), vertex colors with the plan's shading, three.js 0.186.1 (WebGL2 through
+ANGLE on Direct3D 11). "Worst" is 256x384x256 of noise caves with each block one of 64 looks at
+random, so nothing merges; "realistic" is the 256x256 area with the most blocks in the converted
+Datapacking world (Temples' first island and its neighbors on a terracotta floor, 1.46 million
+blocks, 84 high).
+
+| | Temples (127x75x184) | Realistic (256x84x256) | Worst (256x384x256) |
+|---|---|---|---|
+| Sections with blocks | 355 | 780 | 5,966 |
+| Triangles | 199k | 303k | 6.0 million |
+| Meshing, in all (per section: average, slowest) | 61 ms (1.0, 6.1 ms) | 62 ms (0.2, 0.8 ms) | 0.51 s (0.3, 1.1 ms) |
+| A frame with one mesh per section (draw calls) | 1.8 ms (355) | 2.0 ms (780) | 17 ms (5,966): 68 fps |
+| A frame with sections grouped into 64-block region meshes | 1.3 ms (11) | 1.4 ms (29) | 1.8 ms (96) |
+| Faded on (everything past the cut drawn again, see-through) | 1.5 ms | 1.8 ms | 3.7 ms |
+| Geometry; JS heap; Edge's private memory (GPU process) | 4.6 MB; 25 MB; 406 MB (160) | 6.6 MB; 43 MB; 508 MB (203) | 149 MB; 500 MB; 2.0 GB (1.0 GB) |
+
+A frame here is one forced to finish (a pixel read back after it); with region meshes every scene
+stays at the display's refresh rate. Positions are bytes (0 to 255 inside a region), colors 4
+bytes, indices 32-bit where a region passes 65,535 vertices.
+
+| Check | Finding |
+|---|---|
+| Draw calls | One mesh per section is fine for real maps but costs 15 ms a frame of JavaScript alone at 6,000 sections. **Group sections into region meshes** (4x4x4 sections, 64 blocks a side): about 100 draw calls at the worst case, and building them is a copy (109 ms for the worst case). |
+| Height cut | **A clipping plane plus a cap** (the cut layer's tops that the layer above hid, one layer of the whole map, greedy merged) takes 2.9 ms a layer step on Temples, 3.6 ms on the realistic scene, 8.9 ms (at most 17) on the worst case, to a finished frame. Re-meshing the cut's row of sections instead takes 19, 35 and 55 ms (at most 90), over the 50 ms aim. The plane draws "Gone" exactly: only top faces were hidden by the blocks above. X and Z cuts work the same way. |
+| Faded | The same region meshes drawn again with a see-through material and the opposite plane: no frame rate cost in any scene. |
+| Memory | The worst case's 500 MB of JS heap is mostly the sections' meshes kept after building the regions; the viewer should keep only the regions (and re-mesh from the volume if a section ever changes). |
+| A covered window | Edge stops drawing a covered or minimized window (`requestAnimationFrame` pauses, once for 258 s): fine for the viewer, but nothing it does may wait on a frame. The spike turns that off with `--disable-backgrounding-occluded-windows` and friends. |
+| Screenshots | `work\viewer\spike\shot-*.png`: each scene, its cut and Faded. |
+
+### Select's picture of a whole world
+
+| Check | Finding |
+|---|---|
+| Height maps | Data3D's 256 heights are `[z * 16 + x]`, each the top block's y + 65. **They can't be used for the picture:** right in 99.5% of Temples' columns (saved by BDS), 89% of the Showroom's (a custom block on top is often left out), and almost none in converted worlds: Datapacking 24k of 2.6 million columns, Minecade Maps 0 of 155k, Bikini Bottom 15k of 698k. |
+| Top-down scan | Each chunk's sub-chunks from the highest down, all-air ones skipped by their palette, until all 256 columns have a top: right in every column of all four worlds checked. Datapacking (5.7 MB of db, 1808x1712 columns): 1.2 s, of which reading 0.75 s, decoding 12k of 247k sub-chunks. Minecade Maps (4.0 MB, 1424x1552): 1.0 s. Reading only the height maps would save little (0.5 s and 0.4 s), since reading the tables is most of it. |
+| Old names | Older converted worlds can hold old block names (Bikini Bottom's `minecraft:grass`, `concretePowder`), which the game upgrades when it loads them (not checked here). Map worlds have been through BDS, so mostly Select's picture meets them: an unknown name there gets a plain color. |

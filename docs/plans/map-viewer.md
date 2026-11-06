@@ -1,7 +1,9 @@
 # Map viewer in the Panel (plan)
 
-**Status:** proposed 2026-11-05, not started. Build it in the order of "Passes" below: each pass
-leans on the ones before it.
+**Status:** proposed 2026-11-05. V.1 (the spike) done 2026-11-05: its findings are in
+`docs/spike-results.md`, "Map viewer", and this plan is updated for them; its code in
+`spike/viewer/` (the world reader, the looks, the mesher) is where V.2 and V.3 start. Build it in
+the order of "Passes" below: each pass leans on the ones before it.
 
 **For the session that implements this:**
 - Work in a worktree of your own (`CLAUDE.md`, "Branch and merge").
@@ -74,16 +76,21 @@ The viewer reads a map's `world\db\` in the store's working folder
   The viewer needs keys too, and only the newest value of each key: every entry carries a sequence
   number (in a table, the 8 bytes after the key; in a log, the batch's first number plus the put's
   place in it), so the highest one wins, and a delete removes the key. That works whether or not a
-  world was compacted.
+  world was compacted. The MANIFEST says which tables are live; others are skipped
+  (`spike/viewer/leveldb.ts`).
 - **Chunk keys:** chunk x and z (32-bit little-endian), a dimension number for the Nether and the
   End only, a tag byte, and for a sub-chunk its y index (a signed byte).
 - **Sub-chunks** (tag 47) hold 16x16x16 blocks: a version byte (8 or 9), the number of storage
   layers, and in version 9 the y index; then each layer: a byte whose upper bits are the bits per
   block, packed 32-bit words of palette indices (y changes fastest, then z, then x), and the
   palette, each entry a little-endian NBT compound (`name`, `states`, `version`) that
-  `prismarine-nbt` (already a dependency) reads. Layer 0 is the blocks; layer 1 is mostly the water
-  in waterlogged blocks. The spike confirms the details against the format's write-up.
-- **Height maps** (tag 43, `Data3D`): 256 16-bit heights, then biomes. Select's picture uses them.
+  `prismarine-nbt` (already a dependency) reads, once per distinct entry (cached by its raw
+  bytes). Layer 0 is the blocks; layer 1 is mostly the water in waterlogged blocks. The spike
+  matched a server block for block (`spike/viewer/subchunk.ts`).
+- **Empty sub-chunks:** Chunker stores every empty one (1 bit a block, a palette of air). A
+  sub-chunk whose palette is all air is skipped without unpacking it.
+- **Height maps** (tag 43, `Data3D`): 256 16-bit heights, then biomes. Not used: converted worlds'
+  are almost all missing (the spike), so Select's picture finds each column's top itself.
 - **Older formats** (sub-chunk versions under 8) aren't expected from BDS 1.26 or Chunker. The
   reader refuses them with a clear message.
 - **The view file** sent to the page: the box the blocks fill (refused if wider than 256 on x or
@@ -100,17 +107,24 @@ The Look toggle switches between Average colors and Vanilla textures at any time
 same faces, shapes, shading and tints. Only what fills a face changes.
 
 **Where the looks come from:**
-- Vanilla blocks: `blocks.json` and `textures\terrain_texture.json` in the installed client's
-  vanilla pack, and the textures themselves, packed in that pack's
-  `__brarchive\textures\blocks.brarchive` (assumed to be the archive format `ui.brarchive` uses;
-  the spike checks). BDS has no block textures.
+- Vanilla blocks: the installed client's vanilla resource packs, layered in version order
+  (`vanilla`, then `vanilla_1.14` up to the newest, 57 today): each one's `blocks.json` merged
+  entry by entry and field by field, its `textures\terrain_texture.json` entry by entry, and its
+  block textures from `__brarchive\textures\blocks.brarchive` (the format `ui.brarchive` uses) and
+  `__brarchive\textures\blocks\<folder>.brarchive` (`deepslate`, `candles`, `huge_fungus`). Both
+  JSON files have `//` comments. A few blocks keep an older name in `blocks.json` (`grass_block`
+  is `grass`, `sea_lantern` is `seaLantern`, `iron_chain` is `chain`): a small table renames them.
+  BDS has no block textures.
 - Custom blocks: `packs\blocks\` (the whole pack, never the network's cut), each block's
   `minecraft:material_instances` in its behavior pack file, then its resource pack's
   `terrain_texture.json`.
 - `blocks.json` says which texture each face uses (up, down, side, or each side on its own), and
   some states turn faces (a log's `pillar_axis` puts its top texture on its sides).
-- Built on this PC when first needed, kept in `work\viewer\looks\` (git-ignored), and built again
-  when the client's vanilla pack version or `packs\blocks` changes.
+- Textures are PNG (also interlaced, palette and 2-bit ones) and TGA (also run-length coded), more
+  than `tools/editor/png.ts` reads, so the viewer has its own decoder (`spike/viewer/image.ts`).
+- Built on this PC when first needed (about 4 s), kept in `work\viewer\looks\` (git-ignored), and
+  built again when the vanilla packs' files or `packs\blocks` change (by their sizes and times: the
+  vanilla manifests' version is always 0.0.1).
 
 **Average colors:** for each face's texture:
 1. Use the first frame of an animated texture (the top square of the strip).
@@ -121,7 +135,7 @@ same faces, shapes, shading and tints. Only what fills a face changes.
    how opaque its texture is.
 
 A small overrides file (in `work\viewer\looks\`) sets the color of any block the method gets wrong,
-for example ores, which come out the color of stone.
+for example ores, which come out the color of stone, and glowstone, which comes out dark brown.
 
 **Vanilla textures:** the textures themselves, 16x16 each, with nearest filtering so they stay
 crisp. Merged faces repeat the texture once per block. Leaves, plants and glass edges are cut out
@@ -181,6 +195,10 @@ quickest way to place spawns inside buildings. A double click centers the view o
   the viewer remembers.
 - **The cut layer** shows solid tops with a faint block grid. Darkening the layers below by depth
   (a toggle) makes the current floor stand out.
+- **How a cut is drawn** (the spike): a clipping plane, plus a cap mesh of the cut layer's tops that
+  the layer above hid. Nothing is re-meshed, so a layer step takes 3 to 9 ms to a finished frame
+  even at 256x384x256 (re-meshing the cut's sections took up to 90 ms). Faded draws the same meshes
+  again, see-through, with the opposite plane, at no frame rate cost.
 
 **Picking.** A ray walked through the block grid from the camera (not through the meshes): the
 first block a click can hit that isn't past a cut, with its face and the exact point hit.
@@ -287,8 +305,9 @@ In-game Select stays as it is. This is the Panel's way to cut a map out of a wor
 - **Worlds:** the same ones in-game Select opens (`tools/editor/worlds.ts`: the client's worlds by
   name, any world folder, or a `.mcworld`).
 - **The picture:** one pixel per block column, the top block's average color shaded by its height
-  so builds stand out, from each chunk's height map, decoding only the top block of each column.
-  Pan and zoom. Maps already cut from the world (`work\select\<world>.json`) show as named
+  so builds stand out. Each column's top is found from the top down (each chunk's sub-chunks from
+  the highest, empty ones skipped), since converted worlds' height maps are missing: about 1 s for
+  a whole converted world (`spike/viewer/overview.ts`). Pan and zoom. Maps already cut from the world (`work\select\<world>.json`) show as named
   outlines.
 - **The box:** drag a rectangle, up to 256x256 (it stops growing there, and its size shows), with
   handles on its sides.
@@ -313,23 +332,29 @@ In-game Select stays as it is. This is the Panel's way to cut a map out of a wor
 
 ## Tech
 
-- **three.js** (a new dependency, `three`, at an exact version), served to the page from
-  `node_modules` by `panel.ts`. The Panel works offline, so no CDN.
+- **three.js** (a new dependency, `three`, exactly 0.186.1, the version the spike used), served to
+  the page from `node_modules` by `panel.ts`. The Panel works offline, so no CDN.
 - **The viewer's code** is TypeScript in `tools/control-panel/viewer/`, bundled with esbuild
   (already a dependency) when the Panel starts, so the page uses minigame-core's map code as it is
   (`map-config.ts`, `map-edit.ts`, `map-checklist.ts`). The rest of the Panel stays hand-written.
-- **Meshing in web workers:** one mesh per 16x16x16 section; hidden faces left out; touching faces
-  with the same look merged into rectangles; vertex colors (Average colors) or texture array layers
-  (Vanilla textures). A cut rebuilds only the sections it passes through.
-- **Memory:** the worst case is 25.2 million blocks, 50 MB as 16-bit indices. Today's maps are far
-  smaller: by their bounds in early November 2026, the biggest were Strife (127x79x184) and
-  Sinkhole (64x163x64, the tallest).
-- **WebGL2**, in Edge (the Panel's window).
+- **Meshing in web workers:** each 16x16x16 section meshed on its own (hidden faces left out,
+  touching faces with the same look merged into rectangles; vertex colors for Average colors,
+  texture array layers for Vanilla textures), then sections grouped into region meshes of 4x4x4
+  sections (64 blocks a side, positions as bytes). One mesh per section costs a draw call each:
+  15 ms a frame at 6,000 sections, against 0.2 ms for the 96 regions (the spike). A cut re-meshes
+  nothing (see "Slicing").
+- **Memory** (the spike, at 256x384x256 of caves with nothing merging): 48 MB of blocks, 149 MB of
+  geometry, 6 million triangles, Edge at 2.0 GB; real maps at 256x256 stay near 500 MB. Keep only
+  the region meshes, not the sections' (most of that case's 500 MB of JavaScript heap). Today's
+  maps are far smaller: by their bounds in early November 2026, the biggest were Strife
+  (127x79x184) and Sinkhole (64x163x64, the tallest).
+- **WebGL2**, in Edge (the Panel's window). Edge stops drawing a covered or minimized window, so
+  nothing in the viewer may wait on a frame.
 - **Routes** go through `checkRequest` like every other Panel route.
 
 ## Passes (the implementation order: stop and report after each, commit and push)
 
-**V.1 Spike.** Results go in `docs/spike-results.md` under "Map viewer".
+**V.1 Spike** (done 2026-11-05: `docs/spike-results.md`, "Map viewer"; `spike/viewer/`).
 1. Decode Temples and Sinkhole in plain TypeScript. Check the decoded top block of some columns
    against a throwaway BDS (`getTopmostBlock`), and time it.
 2. Unpack `blocks.brarchive`, work out the average colors, and lay them out as a swatch page next
@@ -379,7 +404,8 @@ lobby's stars (`map-edit.ts` has no op for `stars` yet: this pass adds one).
 **New**
 - `tools/viewer/`: the Panel server's side: `world-reader.ts` (keys and newest values),
   `subchunk.ts`, `view-file.ts`, `looks.ts` (colors, textures, tints, the shape table),
-  `brarchive.ts`, `overview.ts` (Select's picture and the automatic height), and `test/`.
+  `brarchive.ts`, `image.ts` (PNG and TGA), `overview.ts` (Select's picture and the automatic
+  height), and `test/`. The spike's versions in `spike/viewer/` are the starting point.
 - `tools/control-panel/viewer/`: the page and its scripts (scene, camera, slicing, picking, mesh
   worker, tools, lists).
 - `docs/viewer.md`: how to use it.
@@ -403,17 +429,26 @@ lobby's stars (`map-edit.ts` has no op for `stars` yet: this pass adds one).
   `tools/editor/targets.ts` for each target's maps and rules.
 - `tools/editor/control.ts` for Open in game and the editor's status.
 - `tools/editor/marker-models.ts` and each game's `markers/` for the game markers' models.
-- `tools/editor/png.ts` (`decodePng`) for textures; `prismarine-nbt` for palettes.
+- `spike/viewer/`: the reader (`leveldb.ts`, `subchunk.ts`, `world.ts`), the looks (`looks.ts`,
+  `brarchive.ts`, `image.ts`), the picture (`overview.ts`) and the mesher (`render/mesher.ts`).
+- `prismarine-nbt` for palettes.
 - `games/paintball/behavior_pack/scripts/paint.ts` and `docs/spike-results.md` ("Vanilla block
   shapes for painting", "Painted shapes") for block states and door, gate and trapdoor boxes.
 
-## Risks the spike settles
+## Risks
 
-- The sub-chunk and palette details, and newest-wins across logs and tables.
-- The texture archive's format, and whether the average color method looks right.
-- Frame rate and memory at 256x256x384 in Edge.
-- How quickly a cut rebuilds.
-- How long a big source world's picture takes.
+Settled by the spike (`docs/spike-results.md`, "Map viewer"):
+- The sub-chunk and palette details, and newest-wins across logs and tables: a server agrees
+  block for block.
+- The texture archive's format (as `ui.brarchive`, layered over 57 packs), and the color method
+  (it looks right; ores and glowstone need overrides).
+- Frame rate and memory at 256x256x384 in Edge: fine with region meshes.
+- How quickly a cut moves: 3 to 9 ms a layer with a clipping plane.
+- How long a big source world's picture takes: about 1 s (height maps can't be used).
+
+Still open:
+- **Slower PCs:** the spike ran on an RTX 3080 Ti. A plain laptop's numbers are unknown; the worst
+  case's 6 million triangles would be the first thing to suffer.
 - **Hosting later:** textures and colors come from the client installed on the same PC, and
   nothing from them ships. A hosted Panel without a client install would need the colors made on
   the customer's PC, or a hand-picked palette.
