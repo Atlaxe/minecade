@@ -2,7 +2,9 @@
 // mannequin or post in the list's color, or the game's own model with its "tint" bones in the
 // team's color) with a red facing line and its name over it; each box as edges (also faintly
 // through blocks) and see-through faces; kill Y and the build limit as sheets across the map.
-// Points past a cut are faded or gone with the blocks; box faces are cut with them.
+// Points past a cut are faded or gone with the blocks; box faces are cut with them. While a tool
+// works, a see-through ghost shows where a new point goes, a dragged point moves with the pointer,
+// and the picked point has a knob on the floor that turns its facing.
 import * as THREE from "three";
 import { geoHeight, parseGeo, type FaceName, type Geo, type GeoBone } from "./geo.ts";
 import { FACING_COLOR, type BoxMark, type Markup, type PlaneMark, type PointMark, type Shape } from "./markup.ts";
@@ -20,6 +22,10 @@ const FACE_SHADE: Record<FaceName, number> = { up: 1, down: 0.55, north: 0.85, s
 const LINE_HEIGHT = { player: 28 / 16, other: 14 / 16 };
 const LINE_LENGTH = 2;
 const FADED = 0.2;
+/** How see-through a point that's being placed is. */
+const GHOST = 0.45;
+/** How far from a picked point's feet its facing knob is, in blocks. */
+export const KNOB_DISTANCE = 1.6;
 /** How far box faces and edges stand off the blocks they enclose, so they don't flicker on them. */
 const BOX_GAP = 0.02;
 
@@ -59,6 +65,8 @@ export class Overlay {
   private boxes: BoxObject[] = [];
   private planes: PlaneObject[] = [];
   private readonly ring: THREE.Mesh;
+  private readonly knob: THREE.Mesh;
+  private ghost: { group: THREE.Group; materials: THREE.Material[] } | undefined;
   private picked: string | undefined;
   private names = true;
 
@@ -86,6 +94,11 @@ export class Overlay {
     this.ring.renderOrder = 10;
     this.ring.visible = false;
     this.root.add(this.ring);
+    // The picked point's facing knob: drag it around the point to turn it.
+    this.knob = new THREE.Mesh(new THREE.SphereGeometry(0.2, 16, 12), new THREE.MeshBasicMaterial({ color: FACING_COLOR, depthTest: false, transparent: true, opacity: 0.95 }));
+    this.knob.renderOrder = 11;
+    this.knob.visible = false;
+    this.root.add(this.knob);
     scene.addRenderListener(() => this.placeTags());
   }
 
@@ -123,6 +136,54 @@ export class Overlay {
     let object: THREE.Object3D | null = hit.object;
     while (object && object.userData.key === undefined) object = object.parent;
     return object ? { key: object.userData.key as string, distance: hit.distance } : undefined;
+  }
+
+  /** How far along the ray from a spot on the canvas the picked point's facing knob is, if the ray meets it. */
+  knobAt(clientX: number, clientY: number): number | undefined {
+    if (!this.knob.visible) return undefined;
+    const hit = this.scene.rayAt(clientX, clientY).intersectObject(this.knob)[0];
+    return hit?.distance;
+  }
+
+  /** Shows a see-through point where a new entry would go (or none). */
+  setGhost(mark: PointMark | undefined): void {
+    if (this.ghost) {
+      this.root.remove(this.ghost.group);
+      this.ghost.group.traverse((object) => (object as THREE.Mesh).geometry?.dispose());
+      for (const material of this.ghost.materials) material.dispose();
+      this.ghost = undefined;
+    }
+    if (mark) {
+      const built = this.buildPoint(mark);
+      for (const material of built.materials) Object.assign(material, { transparent: true, opacity: GHOST, depthWrite: false });
+      built.group.renderOrder = 5;
+      built.group.visible = false;
+      this.root.add(built.group);
+      this.ghost = { group: built.group, materials: built.materials };
+    }
+    this.scene.requestRender();
+  }
+
+  /** Puts the ghost at a spot, turned to a yaw, or hides it (undefined). */
+  moveGhost(at: { x: number; y: number; z: number } | undefined, yaw: number): void {
+    if (!this.ghost) return;
+    this.ghost.group.visible = at !== undefined;
+    if (at) {
+      this.ghost.group.position.set(at.x, at.y, at.z);
+      this.ghost.group.rotation.y = THREE.MathUtils.degToRad(-yaw);
+    }
+    this.scene.requestRender();
+  }
+
+  /** Draws a point somewhere else, or turned another way, while it's dragged (the map isn't changed). */
+  previewPoint(key: string, at: { x: number; y: number; z: number }, yaw: number): void {
+    const point = this.points.find((candidate) => candidate.mark.key === key);
+    if (!point) return;
+    point.group.position.set(at.x, at.y, at.z);
+    point.group.rotation.y = THREE.MathUtils.degToRad(-yaw);
+    point.anchor.set(at.x, at.y + point.anchor.y - point.mark.at.y, at.z);
+    point.mark = { ...point.mark, at: { ...at }, yaw };
+    this.refresh();
   }
 
   /** Where an entry is, to frame it: a middle and a radius. */
@@ -166,9 +227,12 @@ export class Overlay {
       if (point.mark.key === this.picked && point.group.visible) ring = point;
     }
     this.ring.visible = ring !== undefined;
+    this.knob.visible = ring !== undefined && this.scene.isKept(ring.mark.at);
     if (ring) {
       const { x, y, z } = ring.mark.at;
       this.ring.position.set(x, y + 0.03, z);
+      const yaw = THREE.MathUtils.degToRad(ring.mark.yaw);
+      this.knob.position.set(x - Math.sin(yaw) * KNOB_DISTANCE, y + 0.15, z + Math.cos(yaw) * KNOB_DISTANCE);
     }
     for (const box of this.boxes) {
       const picked = box.mark.key === this.picked;
@@ -214,6 +278,22 @@ export class Overlay {
   }
 
   private point(mark: PointMark): PointObject {
+    const { group, materials, height } = this.buildPoint(mark);
+    group.traverse((object) => {
+      if (object instanceof THREE.Mesh && object.userData.line !== true) object.userData.pickable = true;
+    });
+    this.root.add(group);
+    const tag = document.createElement("div");
+    tag.className = "tag";
+    tag.textContent = mark.label;
+    tag.style.setProperty("--tag-color", `#${mark.color.toString(16).padStart(6, "0")}`);
+    this.tags.append(tag);
+    const anchor = new THREE.Vector3(mark.at.x, mark.at.y + Math.max(height, 1) + 0.3, mark.at.z);
+    return { mark, group, materials, tag, anchor };
+  }
+
+  /** A point's marker: its shape turned to its yaw at its spot, and the facing line. */
+  private buildPoint(mark: PointMark): { group: THREE.Group; materials: THREE.Material[]; height: number } {
     const shape = this.shapeFor(mark.shape);
     const group = new THREE.Group();
     group.userData.key = mark.key;
@@ -235,18 +315,9 @@ export class Overlay {
     const line = new THREE.Mesh(new THREE.BoxGeometry(0.07, 0.07, LINE_LENGTH).translate(0, 0, LINE_LENGTH / 2), lineMaterial);
     line.position.y = mark.shape.kind === "player" ? LINE_HEIGHT.player : LINE_HEIGHT.other;
     line.rotation.x = THREE.MathUtils.degToRad(mark.pitch);
+    line.userData.line = true;
     group.add(line);
-    group.traverse((object) => {
-      if (object instanceof THREE.Mesh && object !== line) object.userData.pickable = true;
-    });
-    this.root.add(group);
-    const tag = document.createElement("div");
-    tag.className = "tag";
-    tag.textContent = mark.label;
-    tag.style.setProperty("--tag-color", `#${mark.color.toString(16).padStart(6, "0")}`);
-    this.tags.append(tag);
-    const anchor = new THREE.Vector3(mark.at.x, mark.at.y + Math.max(shape.height, 1) + 0.3, mark.at.z);
-    return { mark, group, materials, tag, anchor };
+    return { group, materials, height: shape.height };
   }
 
   private shapeFor(shape: Shape): ShapeModel {

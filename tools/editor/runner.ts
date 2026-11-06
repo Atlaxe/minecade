@@ -12,12 +12,14 @@ import { existsSync } from "node:fs";
 import { readFile, rename } from "node:fs/promises";
 import { join } from "node:path";
 import {
+  MapEditError,
   chatMapName,
   mapChecklist,
   openKey,
   type GuestInfo,
   type HomeState,
   type MapConfig,
+  type MapEdit,
   type OpenRequest,
   type RecentEntry,
   type SelectionInfo,
@@ -29,6 +31,7 @@ import { storeDir } from "../maps/paths.ts";
 import { MapStore } from "../maps/store.ts";
 import { EditorBroadcast } from "./broadcast.ts";
 import { buildCatalog, forgetRecent, mapLabel, noteRecent, renameRecent, requestedWorld, worldId } from "./catalog.ts";
+import type { OuterAnswer } from "./control.ts";
 import { SLOTS, editorPlayers, isMapId, planOpen, portHolders, type EditorStatus, type Slot, type SlotId } from "./editor-core.ts";
 import { addGuest, readGuests, removeGuest, writeGuests } from "./guests.ts";
 import { HomeSession } from "./home-session.ts";
@@ -212,6 +215,28 @@ export class EditorRunner {
     if (on && !this.env.LAN_HOST) return "set LAN_HOST in .env";
     void (on ? this.broadcast.start(this.env.LAN_HOST, this.slots.home.port) : this.broadcast.stop());
     return undefined;
+  }
+
+  /** A map viewer's edit to the map open in Edit (control.ts POST /edit). */
+  outerEdit(target: string, map: string, edit: MapEdit, by: string): OuterAnswer {
+    const session = this.work.edit;
+    if (!session || !session.isMap(target, map)) return { outcome: "notOpen" };
+    if (session.status().state !== "ready") return { outcome: "busy", error: "game Edit is still opening this map: try again in a moment" };
+    try {
+      return { outcome: "done", ...session.outerEdit(edit, by) };
+    } catch (error) {
+      if (error instanceof MapEditError) return { outcome: "refused", error: error.message };
+      throw error;
+    }
+  }
+
+  /** A map viewer's undo or redo on the map open in Edit (control.ts POST /undo and /redo). */
+  outerStep(target: string, map: string, kind: "undo" | "redo", by: string): OuterAnswer {
+    const session = this.work.edit;
+    if (!session || !session.isMap(target, map)) return { outcome: "notOpen" };
+    if (session.status().state !== "ready") return { outcome: "busy", error: "game Edit is still opening this map: try again in a moment" };
+    const done = session.outerStep(kind, by);
+    return done ? { outcome: "done", ...done } : { outcome: "refused", error: `Nothing to ${kind}.` };
   }
 
   /** Saves the map open in Edit now. False when none is. */

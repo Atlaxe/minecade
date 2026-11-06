@@ -1,4 +1,5 @@
-// The Panel's map viewer routes (panel.ts serves them). They only read the map store.
+// The Panel's map viewer routes (panel.ts serves them). They only read the map store; the viewer's
+// changes are POST /api/viewer/edit, /undo, /redo, /save and /publish (map-changes.ts).
 //   GET /viewer                                 the viewer page (tools/control-panel/viewer/)
 //   GET /viewer/app.js, /viewer/worker.js       its scripts, bundled with esbuild on first use and
 //                                               again when one of their files changes

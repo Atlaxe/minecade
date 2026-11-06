@@ -67,6 +67,19 @@ export async function viewerMap(root: string, target: string, map: string): Prom
   return { status: 200, map: { config, stamp: stampOf(text), targetName: loaded.name, rules: loaded.rules, shapes: await markerShapes(root), models } };
 }
 
+/** Only the map as it is now, and its stamp (the page reads it again after a change made elsewhere). */
+export async function viewerMapConfig(root: string, target: string, map: string): Promise<{ status: 200; config: MapConfig; stamp: string } | { status: 400 | 404 | 422; error: string }> {
+  const path = mapJsonPath(root, target, map);
+  if (!path) return { status: 400, error: "expected ?target=<id>&map=<id>" };
+  if (!existsSync(path)) return { status: 404, error: `there's no map ${target}/${map} in the map store` };
+  const text = await readFile(path, "utf8");
+  try {
+    return { status: 200, config: JSON.parse(text) as MapConfig, stamp: stampOf(text) };
+  } catch {
+    return { status: 422, error: "its map.json isn't valid JSON" };
+  }
+}
+
 /** Game Edit's mannequin and post, each as a geometry file of its own. */
 async function markerShapes(root: string): Promise<ViewerMap["shapes"]> {
   const file = JSON.parse(await readFile(join(root, SHAPES_FILE), "utf8")) as GeometryFile;

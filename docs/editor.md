@@ -706,8 +706,10 @@ Chat in the editor lobby says when it's done. A preview has to end first.
   it `return_all` on the console. `LOBBY_PORT` is Edit's port, so the game's own trip home lands
   there. A small resource pack carries the editor's mode box, and the `preview` server variable
   makes the game keep "Preview" in it (never over its own titles).
-- The host answers on `127.0.0.1:8097` (`GET /status`, `POST /save`, `POST /publish`, `POST /preview`, `POST /preview/end`, `POST /guests`, `POST /broadcast`, `POST /picture`, `POST /open`, `POST /stop`),
-  which the Panel and `npm run editor -- status | save | stop | <target> <map>` use. When the Panel
+- The host answers on `127.0.0.1:8097` (`GET /status`, `POST /save`, `POST /publish`, `POST /preview`, `POST /preview/end`, `POST /guests`, `POST /broadcast`, `POST /picture`, `POST /open`, `POST /edit`, `POST /undo`, `POST /redo`, `POST /stop`),
+  which the Panel and `npm run editor -- status | save | stop | <target> <map>` use. `POST /edit`,
+  `/undo` and `/redo` are the Panel's map viewer (`docs/viewer.md`) changing the map open in Edit:
+  each edit is one undo step like a player's, written to `map.json` and sent to the pack. When the Panel
   boots the editor, its output goes to `work/editor/editor.log`.
 - **The menus** are classic forms themed by the editor's resource pack, like the lobby's menus
   (`docs/ui.md`). A title starting with a layout mark (`LAYOUT` in

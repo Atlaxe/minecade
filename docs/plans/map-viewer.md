@@ -4,8 +4,8 @@
 `docs/spike-results.md`, "Map viewer", and this plan is updated for them; its code in
 `spike/viewer/` (the looks, the mesher) is where V.3 started. V.2 (the world reader) and V.3 (the
 read-only viewer, `docs/viewer.md`) done 2026-11-05, in `tools/viewer/` and
-`tools/control-panel/viewer/`. V.4 (markers shown) done 2026-11-06. Build it in the order of
-"Passes" below: each pass leans on the ones before it.
+`tools/control-panel/viewer/`. V.4 (markers shown) and V.5 (points, Save and Publish) done
+2026-11-06. Build it in the order of "Passes" below: each pass leans on the ones before it.
 
 **For the session that implements this:**
 - Work in a worktree of your own (`CLAUDE.md`, "Branch and merge").
@@ -412,9 +412,18 @@ gained `regionColors`), so both read the same; markers are built from game Edit'
 and the games' `markers/` (`geo.ts`, `overlay.ts`), served with `map.json` and the rules by
 `GET /api/viewer/map` (`tools/viewer/map-data.ts`).
 
-**V.5 Points, Save and Publish.** Placing, moving, facing and deleting every kind of spawn and game
-marker; undo and redo; Save and Publish; `POST /edit` on the editor's control port, so the map
-game Edit has open is edited through the editor.
+**V.5 Points, Save and Publish** (done 2026-11-06). Placing, moving, facing and deleting every kind
+of spawn and game marker; undo and redo; Save and Publish; `POST /edit` on the editor's control
+port, so the map game Edit has open is edited through the editor. As built: Place on a list's
+header arms it (a ghost follows the pointer), a marker drags along the floor, and the picked one
+has a facing knob on the floor (15 degree steps, Shift for whole degrees). The page applies each
+edit at once and sends it to the Panel in order (`changes.ts`); the Panel's `POST /api/viewer/edit`,
+`/undo`, `/redo`, `/save` and `/publish` (`tools/viewer/map-changes.ts`) try the editor first
+(`POST /edit`, `/undo`, `/redo` on its control port, refused with "not open" for another map) and
+otherwise write `map.json` themselves, with an undo history per map in which a change made
+elsewhere is one step. What the viewer may send is checked on both sides (`edit-check.ts`: only the
+markup ops and `draft`). The store's `exportPublished` now counts catalog files it changed, so
+Publish's message says whether the next Start must rebuild.
 
 **V.6 Boxes and planes.** Bounds (one box or several), spectator bounds, regions (the game's, the
 map's own, per team, kill), `minSize`; Kill Y and the build limits; handles, nudges, Set to cut.
@@ -452,7 +461,8 @@ lobby's stars (`map-edit.ts` has no op for `stars` yet: this pass adds one).
 - `tools/maps/blocks.ts`: its table reader shared with the world reader (`tableEntries`, V.2).
 - `tools/editor/world-log.ts`: batches with their sequence numbers (`logWrites`) and any log's
   records (`logRecords`, the MANIFEST's too) for the world reader (V.2).
-- `tools/editor/control.ts`, the runner and `session.ts`: `POST /edit` (pass V.5).
+- `tools/editor/control.ts`, the runner and `session.ts`: `POST /edit`, `/undo` and `/redo` (pass V.5).
+- `tools/maps/store.ts`: `exportPublished` says how many catalog files changed (V.5).
 - `packages/minigame-core/src/map-edit.ts`: a `stars` op (pass V.12).
 - `package.json`: `three` and `@types/three`, and `typecheck` runs `tsconfig.viewer.json` too
   (V.3); `tsconfig.node.json` leaves the page's folder to it.

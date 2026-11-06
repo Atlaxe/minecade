@@ -21,7 +21,8 @@ import { addGuest, readGuests, removeGuest, writeGuests } from "../editor/guests
 import { cacheVanillaTextures } from "../build/vanilla-textures.ts";
 import { catalogDir, storeDir } from "../maps/paths.ts";
 import { MapStore } from "../maps/store.ts";
-import { viewerMap, watchMap } from "../viewer/map-data.ts";
+import { MapChanges } from "../viewer/map-changes.ts";
+import { viewerMap, viewerMapConfig, watchMap } from "../viewer/map-data.ts";
 import { VIEWER_PAGE, viewerColors, viewerMaps, viewerScripts, viewerView } from "../viewer/routes.ts";
 import {
   BroadcastLog,
@@ -54,6 +55,8 @@ const DOCKER_START_GRACE_MS = 3 * 60_000;
 
 const repoRoot = fileURLToPath(new URL("../../", import.meta.url));
 const envPath = join(repoRoot, ".env");
+/** The map viewer's edits, undo histories, Save and Publish. */
+const mapChanges = new MapChanges(repoRoot);
 /** The map editor's output when the Panel starts it (it runs on after the Panel closes). */
 const editorLogPath = join(repoRoot, "work", "editor", "editor.log");
 const EDITOR_LOG_LINES = 150;
@@ -673,6 +676,10 @@ async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> 
       return;
     }
     if (path === "/api/viewer/maps") return sendJson(res, 200, await viewerMaps(repoRoot));
+    if (path === "/api/viewer/map" && url.searchParams.has("configOnly")) {
+      const answer = await viewerMapConfig(repoRoot, url.searchParams.get("target") ?? "", url.searchParams.get("map") ?? "");
+      return answer.status === 200 ? sendJson(res, 200, { config: answer.config, stamp: answer.stamp }) : sendJson(res, answer.status, { error: answer.error });
+    }
     if (path === "/api/viewer/map") {
       const answer = await viewerMap(repoRoot, url.searchParams.get("target") ?? "", url.searchParams.get("map") ?? "");
       return answer.status === 200 ? sendJson(res, 200, answer.map) : sendJson(res, answer.status, { error: answer.error });
@@ -690,6 +697,25 @@ async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> 
   if (method !== "POST") return sendJson(res, 405, { error: "method not allowed" });
   const body = await readJson(req, 4096);
   if (!body) return sendJson(res, 400, { error: "expected a JSON object of at most 4 KB" });
+
+  // The map viewer's changes (map-changes.ts): through the map editor when game Edit has the map open.
+  const viewerRoute = /^\/api\/viewer\/(edit|undo|redo|save|publish)$/.exec(path);
+  if (viewerRoute) {
+    const target = typeof body.target === "string" ? body.target : "";
+    const map = typeof body.map === "string" ? body.map : "";
+    const action = viewerRoute[1];
+    try {
+      if (action === "edit" || action === "undo" || action === "redo") {
+        const answer = action === "edit" ? await mapChanges.edit(target, map, body.edit) : await mapChanges.step(target, map, action);
+        return sendJson(res, answer.status, answer);
+      }
+      const answer = action === "save" ? await mapChanges.save(target, map) : await mapChanges.publish(target, map);
+      note(`Map viewer, ${target}/${map}: ${"message" in answer ? answer.message : answer.error}`);
+      return sendJson(res, answer.status, answer);
+    } catch (error) {
+      return sendJson(res, 500, { error: error instanceof Error ? error.message : String(error) });
+    }
+  }
 
   if (path === "/api/docker/start") {
     startDockerDesktop();

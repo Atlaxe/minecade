@@ -309,9 +309,11 @@ export class MapStore {
    *   written once and never changed, and index.json naming each map's published version, swapped
    *   in whole. A server starting meanwhile reads the old index or the new one, and both versions'
    *   folders are there: the one before the published one stays, older ones go.
-   * Anything else in `dest` (the layout before) goes. `written` is how many version folders were new.
+   * Anything else in `dest` (the layout before) goes. `written` is how many version folders were new,
+   * and `catalog` how many catalog files were written or removed: the network's next Start rebuilds
+   * the lobby's lists only when that's more than none.
    */
-  exportPublished(dest = join(this.dir, "published")): { maps: number; icons: number; written: number } {
+  exportPublished(dest = join(this.dir, "published")): { maps: number; icons: number; written: number; catalog: number } {
     const maps = this.db.prepare("SELECT key, target, published_id, published_version FROM maps WHERE deleted_at IS NULL AND published_version IS NOT NULL").all() as unknown as MapRow[];
     const icons = this.db.prepare("SELECT target, sha256 FROM icons").all() as { target: string; sha256: string }[];
     const catalog = join(dest, "catalog");
@@ -323,8 +325,9 @@ export class MapStore {
     }
     const index: WorldsIndex = {};
     const kept = new Set<string>();
+    let catalogChanges = 0;
     const keep = (path: string, data: string | Uint8Array) => {
-      writeIfChanged(path, data);
+      if (writeIfChanged(path, data)) catalogChanges++;
       kept.add(path);
     };
     let written = 0;
@@ -344,7 +347,7 @@ export class MapStore {
       if (preview) keep(join(catalog, row.target, `${map}.png`), preview);
     }
     for (const icon of icons) keep(join(catalog, icon.target, "icon.png"), this.blob(icon.sha256));
-    removeOthers(catalog, kept);
+    catalogChanges += removeOthers(catalog, kept);
     const indexPath = join(worlds, "index.json");
     const indexJson = JSON.stringify(index, null, 2);
     if (!existsSync(indexPath) || readFileSync(indexPath, "utf8") !== indexJson) {
@@ -352,7 +355,7 @@ export class MapStore {
       renameSync(`${indexPath}.new`, indexPath);
     }
     pruneWorlds(worlds, index);
-    return { maps: maps.length, icons: icons.length, written };
+    return { maps: maps.length, icons: icons.length, written, catalog: catalogChanges };
   }
 
   /** Copies maps.db into backups\ and keeps the newest KEEP_BACKUPS. Returns the copy's path. */
@@ -547,22 +550,29 @@ function removeTree(path: string): void {
 }
 
 /** Writes a file unless it already holds exactly `data`, so its time (and Docker's build cache) stays. */
-function writeIfChanged(path: string, data: string | Uint8Array): void {
+/** Writes a file unless it already holds these bytes. True when it wrote. */
+function writeIfChanged(path: string, data: string | Uint8Array): boolean {
   const bytes = typeof data === "string" ? Buffer.from(data, "utf8") : Buffer.from(data);
-  if (existsSync(path) && readFileSync(path).equals(bytes)) return;
+  if (existsSync(path) && readFileSync(path).equals(bytes)) return false;
   mkdirSync(dirname(path), { recursive: true });
   writeFileSync(path, bytes);
+  return true;
 }
 
-/** Deletes every file under `dir` that isn't in `kept`, and the folders left empty. */
-function removeOthers(dir: string, kept: Set<string>): void {
+/** Deletes every file under `dir` that isn't in `kept`, and the folders left empty. Returns how many files went. */
+function removeOthers(dir: string, kept: Set<string>): number {
+  let removed = 0;
   for (const entry of readdirSync(dir, { withFileTypes: true })) {
     const path = join(dir, entry.name);
     if (entry.isDirectory()) {
-      removeOthers(path, kept);
+      removed += removeOthers(path, kept);
       if (readdirSync(path).length === 0) removeTree(path);
-    } else if (!kept.has(path)) rmSync(path, { force: true });
+    } else if (!kept.has(path)) {
+      rmSync(path, { force: true });
+      removed++;
+    }
   }
+  return removed;
 }
 
 /**

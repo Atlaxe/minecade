@@ -127,7 +127,10 @@ describe("publishing", () => {
     store.publish("lobby", "spaceship");
     store.saveVersion("sumo", "draft", "save");
     mkdirSync(published("sumo", "old-layout"), { recursive: true });
-    expect(store.exportPublished()).toEqual({ maps: 2, icons: 0, written: 2 });
+    // Three catalog files: both cards and Pit's preview.
+    expect(store.exportPublished()).toEqual({ maps: 2, icons: 0, written: 2, catalog: 3 });
+    // Nothing changed since: the catalog is as it was.
+    expect(store.exportPublished().catalog).toBe(0);
     expect(readdirSync(published()).sort()).toEqual(["catalog", "worlds"]);
     // The catalog: each map's name and kits, and its preview.
     expect(readdirSync(published("catalog", "sumo")).sort()).toEqual(["pit.json", "pit.png"]);

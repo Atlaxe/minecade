@@ -2,9 +2,10 @@
 
 A 3D view of any map in the map store, in the Panel. It reads the map's world straight from its
 files, so it needs no server and works while the network or the map editor runs. It shows the map's
-spawns, points, boundaries and regions as game Edit does, with the game's checklist beside them.
-Placing them with the mouse comes in later passes (`docs/plans/map-viewer.md`). The in-game editor
-(`docs/editor.md`) keeps every tool it has.
+spawns, points, boundaries and regions as game Edit does, with the game's checklist beside them,
+and places, moves, turns and deletes spawns and game markers with the mouse, with undo, Save and
+Publish. Boxes and heights come in the next pass (`docs/plans/map-viewer.md`). It never changes a
+world's blocks. The in-game editor (`docs/editor.md`) keeps every tool it has.
 
 ## Opening a map
 
@@ -28,8 +29,8 @@ viewer says how wide it is.
 | **Top** | Straight down and flat (no perspective), north up: a floor plan |
 | **N**, **NE**, **E** ... | The whole map from that side or corner |
 
-Left click picks a marker, or does what a tool does (Cut here). The arrow beside the views points
-north.
+Left click picks a marker, drags it, or does what a tool does (Place, Cut here). The arrow beside
+the views points north.
 
 ## Cutting through
 
@@ -71,6 +72,43 @@ the view picks it too.
 
 When `map.json` changes (game Edit, a hand edit, another viewer), the viewer shows the change within
 a second.
+
+## Placing spawns and markers
+
+- **Place** beside a list (Spawns, a team's spawns, the spectator and queue spawns, each game
+  marker) turns placing on for it: a see-through marker follows the pointer, and each click on the
+  top of a block puts an entry there. A click on a block's side or underside puts it just in front
+  and drops it to the floor below, as game Edit does. A list that holds one entry (the spectator
+  and queue spawns) is replaced, and Place turns off; the others stay on for the next one. **Esc**
+  or **Stop** in the tool panel turns it off.
+- **Center on block** (in the tool panel on the right, on at first and remembered) puts an entry at
+  its block's middle; off, it goes exactly where you click, as game Edit's Spawn tool does when it's
+  off.
+- **Drag a marker** to move it along the floor. It keeps its facing; one without a facing still
+  looks at the map's middle.
+- **The facing knob:** the picked marker has a red knob on the floor in front of it. Drag it around
+  the marker to set its facing, in 15 degree steps (hold Shift for any whole degree). **Clear
+  facing** in the tool panel takes it away (the marker faces the map's middle again).
+- **Delete** (the key, or the button) removes the picked entry.
+- **Undo** and **Redo** (Ctrl+Z, and Ctrl+Y or Ctrl+Shift+Z) step through the map's changes.
+
+Every change is written to `map.json` at once, in the same style game Edit writes it. The map is
+checked as you go: the checklist on the left updates with each change.
+
+**With game Edit open on the same map** (the top bar says **Open in game Edit**), the viewer's
+changes go through the map editor: markers move in game at once, and undo and redo are game Edit's,
+shared with the players there. An editor started before this viewer existed can't take them: the
+viewer says to restart it.
+
+## Save and Publish
+
+- **Save** keeps the map as a version in the map store, as game Edit's Save does (with game Edit
+  open on the map, it's game Edit's Save, which saves the world too).
+- **Publish** asks first, then does what game Edit's Publish does: it's refused until the checklist
+  is done, takes away the draft mark (an undo step), keeps a version, publishes it, and writes the
+  store's `published\`. Its message says what happens next: a changed `map.json` reaches the next
+  game with no rebuild; a new map, or a new name, picture or block, needs the network's next Start.
+  With game Edit open on the map, it's game Edit's Publish.
 
 ## How it looks
 

@@ -48,7 +48,14 @@
   .main { display: grid; grid-template-columns: auto 1fr auto; min-height: 0; }
   .stage { position: relative; min-width: 0; min-height: 0; }
   canvas, canvas:focus-visible { display: block; width: 100%; height: 100%; outline: none; }
-  canvas.arming { cursor: crosshair; }
+  canvas.arming, canvas.placing { cursor: crosshair; }
+  button.small { padding: 2px 8px; font-size: 12px; }
+  button.danger { color: var(--bad); }
+  button.primary { background: var(--accent); color: var(--on-accent); }
+  button.primary:hover:not(:disabled) { background: var(--accent-hover); }
+  .badge { font-size: 12px; font-weight: 600; padding: 3px 9px; border-radius: 10px; background: color-mix(in srgb, var(--warn) 22%, transparent); color: var(--warn); }
+  .notice { position: absolute; top: 12px; left: 50%; transform: translateX(-50%); max-width: min(720px, 90%); padding: 8px 14px; border-radius: 8px; background: var(--card); color: var(--text); box-shadow: 0 4px 18px rgba(0, 0, 0, .35); z-index: 2; }
+  .notice.bad { color: var(--bad); }
   .message { position: absolute; inset: 0; display: grid; place-content: center; text-align: center; gap: 8px; padding: 24px; color: var(--muted); font-size: 15px; }
   .message.bad { color: var(--bad); }
 
@@ -83,6 +90,10 @@
   .entry.on .entry-detail { color: inherit; opacity: .8; }
 
   .cuts { width: 210px; background: var(--card); padding: 12px; display: flex; flex-direction: column; gap: 14px; overflow-y: auto; }
+  .tool { display: flex; flex-direction: column; gap: 8px; padding-bottom: 12px; border-bottom: 1px solid var(--raised); }
+  .tool h2 { font-size: 13px; margin: 0; }
+  .tool .row { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+  .tool .picked { display: flex; flex-direction: column; gap: 6px; }
   .cut h2 { font-size: 13px; margin: 0 0 6px; display: flex; justify-content: space-between; align-items: baseline; }
   .cut h2 span { color: var(--muted); font-weight: 400; }
   .cut .row { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 6px; }
@@ -115,6 +126,11 @@
     <span class="group-label">Past the cut</span>
     <button id="past-faded">Faded</button><button id="past-gone">Gone</button>
   </div>
+  <div class="group" aria-label="Changes">
+    <button id="undo" title="Undo (Ctrl+Z)">Undo</button><button id="redo" title="Redo (Ctrl+Y)">Redo</button>
+    <button id="save" title="Keep the map as a version in the map store">Save</button><button id="publish" class="primary">Publish</button>
+    <span id="in-edit" class="badge" hidden title="Game Edit has this map open: the viewer's changes go through it">Open in game Edit</span>
+  </div>
   <div class="group">
     <label class="check"><input type="checkbox" id="toggle-occlusion"> Corner darkening</label>
     <label class="check"><input type="checkbox" id="toggle-variation"> Brightness variation</label>
@@ -127,9 +143,11 @@
   <div class="stage">
     <canvas id="view" tabindex="0"></canvas>
     <div id="tags" class="tags"></div>
+    <div id="notice" class="notice" hidden></div>
     <div id="message" class="message">Loading the map...</div>
   </div>
-  <aside class="cuts" aria-label="Cuts">
+  <aside class="cuts" aria-label="Tool and cuts">
+    <section class="tool" id="tool"></section>
     <section class="cut">
       <h2>Height <span id="top-label"></span></h2>
       <div class="height">

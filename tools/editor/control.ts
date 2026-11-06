@@ -8,15 +8,29 @@
 //   POST /broadcast {on}     start or stop the Friends tab bot (the Panel's switch, BROADCAST)
 //   POST /picture {kind}     the newest screenshot as the map's preview ("map") or the game's picture ("game")
 //   POST /open {request}     open a map in Edit or a world in Select (an OpenRequest)
+//   POST /edit {target, map, edit, by}   the Panel's map viewer: a MapEdit to the map open in Edit
+//   POST /undo, /redo {target, map, by}  the same, undo and redo (game Edit's history)
 //   POST /stop               shut it down (Edit saves first)
 // Requests are checked the way the Panel checks its own, so a web page can't reach it.
 import { createServer, type Server } from "node:http";
-import type { OpenRequest } from "@minecade/minigame-core/config";
+import type { MapConfig, MapEdit, OpenRequest } from "@minecade/minigame-core/config";
 import { checkRequest } from "../control-panel/core.ts";
+import { viewerEdit } from "../viewer/edit-check.ts";
 import { CONTROL_PORT, type EditorStatus } from "./editor-core.ts";
 
 const ORIGIN = `http://127.0.0.1:${CONTROL_PORT}`;
 const MAX_BODY = 10_000;
+
+/**
+ * What the editor did with a map viewer's edit, undo or redo: done (the map after it), not open
+ * (Edit has another map or none: the Panel changes the map itself), busy (it's the map, but Edit
+ * isn't ready), or refused (the change doesn't fit the map).
+ */
+export type OuterAnswer =
+  | { outcome: "done"; config: MapConfig; undo?: string; redo?: string; note?: string }
+  | { outcome: "notOpen" }
+  | { outcome: "busy"; error: string }
+  | { outcome: "refused"; error: string };
 
 export interface ControlHandlers {
   status(): EditorStatus;
@@ -37,6 +51,10 @@ export interface ControlHandlers {
   stop(): void;
   /** Undefined when it's under way, or why not. */
   open(request: OpenRequest): Promise<string | undefined>;
+  /** A map viewer's edit to the map open in Edit. */
+  edit(target: string, map: string, edit: MapEdit, by: string): OuterAnswer;
+  /** A map viewer's undo or redo, on the map open in Edit. */
+  step(target: string, map: string, kind: "undo" | "redo", by: string): OuterAnswer;
 }
 
 /** Serves the control port. Fails when another editor already holds it. */
@@ -94,6 +112,21 @@ export function serveControl(handlers: ControlHandlers): Promise<Server> {
         if (method === "POST" && path === "/stop") {
           handlers.stop();
           return reply(202, { ok: true });
+        }
+        if (method === "POST" && (path === "/edit" || path === "/undo" || path === "/redo")) {
+          if (typeof body.target !== "string" || typeof body.map !== "string") return reply(400, { error: "expected {target, map}" });
+          const by = typeof body.by === "string" && body.by.trim() ? body.by.trim().slice(0, 40) : "this PC";
+          let answer: OuterAnswer;
+          if (path === "/edit") {
+            const edit = viewerEdit(body.edit);
+            if (typeof edit === "string") return reply(400, { error: edit });
+            answer = handlers.edit(body.target, body.map, edit, by);
+          } else {
+            answer = handlers.step(body.target, body.map, path === "/undo" ? "undo" : "redo", by);
+          }
+          if (answer.outcome === "done") return reply(200, { config: answer.config, undo: answer.undo, redo: answer.redo, note: answer.note });
+          if (answer.outcome === "notOpen") return reply(409, { notOpen: true, error: "Edit doesn't have that map open" });
+          return reply(answer.outcome === "busy" ? 409 : 422, { error: answer.error });
         }
         if (method === "POST" && path === "/open") {
           const request = requestOf(body.request);
@@ -176,6 +209,24 @@ export function pictureEditor(kind: "map" | "game"): Promise<{ ok: boolean; erro
 /** Asks the running editor to open a map or a world; the error when it can't (or none answers). */
 export function openInEditor(request: OpenRequest): Promise<{ ok: boolean; error?: string }> {
   return post("/open", { request });
+}
+
+/**
+ * Sends a map viewer's change to the running editor (POST /edit, /undo or /redo): its HTTP status
+ * and answer, or status 0 when no editor answers.
+ */
+export async function outerChange(path: "/edit" | "/undo" | "/redo", body: Record<string, unknown>): Promise<{ status: number; answer: Record<string, unknown> }> {
+  try {
+    const response = await fetch(`${ORIGIN}${path}`, {
+      method: "POST",
+      headers: { "x-minecade-panel": "1", "content-type": "application/json" },
+      body: JSON.stringify(body),
+      signal: AbortSignal.timeout(3000),
+    });
+    return { status: response.status, answer: (await response.json().catch(() => ({}))) as Record<string, unknown> };
+  } catch {
+    return { status: 0, answer: { error: "no map editor is running" } };
+  }
 }
 
 async function post(path: string, body?: unknown): Promise<{ ok: boolean; error?: string }> {

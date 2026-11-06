@@ -21,6 +21,7 @@ import {
   type EditInfo,
   type EditorEvent,
   type MapConfig,
+  type MapEdit,
 } from "@minecade/minigame-core/config";
 import { bakeSettings } from "../build/bake-core.ts";
 import { copyDirFromContainer } from "../build/docker-util.ts";
@@ -131,6 +132,35 @@ export class EditorSession extends ServerSession {
       label: `${this.target.name}: ${this.config.name}`,
       maxPlayers: this.target.rules.maxPlayers ?? 1,
     };
+  }
+
+  /** Whether this is the map open: the lobby's or a game's, by id. */
+  isMap(target: string, map: string): boolean {
+    return this.target.id === target && this.mapId === map;
+  }
+
+  /**
+   * An edit from outside the game (the Panel's map viewer, POST /edit): one undo step like a
+   * player's, written to map.json and sent to the pack, so markers move in game at once. Throws a
+   * MapEditError when it doesn't fit the map.
+   */
+  outerEdit(edit: MapEdit, by: string): { config: MapConfig; undo?: string; redo?: string } {
+    const what = describeEdit(edit);
+    const next = applyEdit(this.config, edit);
+    this.history.record(this.config, `${what} (${by})`);
+    this.config = next;
+    this.writeMap();
+    this.note(`${by}: ${what}`);
+    void this.sendConfig();
+    void this.sendStatus();
+    return { config: next, undo: this.history.undoLabel, redo: this.history.redoLabel };
+  }
+
+  /** Undo or redo from outside the game (POST /undo, /redo): the map after it, or undefined when there's nothing to do. */
+  outerStep(kind: "undo" | "redo", by: string): { config: MapConfig; undo?: string; redo?: string; note: string } | undefined {
+    const label = this.step(kind, by);
+    if (label === undefined) return undefined;
+    return { config: this.config, undo: this.history.undoLabel, redo: this.history.redoLabel, note: `${kind === "undo" ? "Undid" : "Redid"}: ${label}` };
   }
 
   /** The world for Back to Select, or why there's none. */
@@ -315,11 +345,12 @@ export class EditorSession extends ServerSession {
     void this.sendStatus();
   }
 
-  private step(kind: "undo" | "redo", by: string): void {
+  /** Undoes or redoes the last change; its label, or undefined when there was nothing to do. */
+  private step(kind: "undo" | "redo", by: string): string | undefined {
     const step = kind === "undo" ? this.history.undo(this.config) : this.history.redo(this.config);
     if (!step) {
       void this.say(`Nothing to ${kind}.`, by);
-      return;
+      return undefined;
     }
     this.config = step.config;
     this.writeMap();
@@ -327,6 +358,7 @@ export class EditorSession extends ServerSession {
     void this.sendConfig();
     void this.sendStatus();
     void this.say(`${by} ${kind === "undo" ? "undid" : "redid"}: ${step.label}`);
+    return step.label;
   }
 
   /** Writes map.json in the hand-written style and the file's own line endings, one write at a time. */

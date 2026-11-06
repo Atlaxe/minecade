@@ -123,6 +123,8 @@ const control = await serveControl({
   picture: (kind) => runner.picture(kind),
   stop: () => void runner.shutdown(),
   open: (request) => runner.request("this PC", request),
+  edit: (target, map, edit, by) => runner.outerEdit(target, map, edit, by),
+  step: (target, map, kind, by) => runner.outerStep(target, map, kind, by),
 }).catch((error: unknown) => {
   console.error(error instanceof Error ? error.message : String(error));
   process.exit(1);

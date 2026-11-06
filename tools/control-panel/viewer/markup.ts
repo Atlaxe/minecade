@@ -89,8 +89,9 @@ export interface MarkupList {
   kind: "points" | "boxes" | "plane";
   color: number;
   entries: MarkupEntry[];
-  /** Points: the list as game Edit's Spawn and Game marker tools have it. */
+  /** Points: the list as game Edit's Spawn and Game marker tools have it, and how its markers are drawn. */
   spawn?: SpawnList;
+  shape?: Shape;
   /** Boxes: where game Edit's Region tool saves a box. */
   region?: RegionTarget;
   /** Heights: which line. */
@@ -147,6 +148,7 @@ export function buildMarkup(config: MapConfig, rules: EditorRules): Markup {
     kind: "points",
     color: pointColor(list),
     spawn: list,
+    shape: shapeOf(list.style, models),
     entries: points.filter((point) => point.list === list.key).map((point) => ({ key: point.key, label: point.label, detail: pointDetail(config, list, point.index) ?? "" })),
     ...need(list.key),
   });
