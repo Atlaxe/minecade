@@ -8,7 +8,8 @@
 // the values; Shift + click or a rectangle in Top view picks several, to copy to another team or
 // delete together), Spawn and Marker (place points), Region (draw boxes), Height (kill Y, the build
 // limit), Mirror (place a mirror plane, pick entries, mirror them across it: speed.ts) and Cut.
-// Each edit goes to the Panel (changes.ts), with undo and redo, Save and Publish.
+// Each edit goes to the Panel (changes.ts), with undo and redo, Save and Publish. Every key is
+// in Settings, Keys, where it can be changed (keys.ts, keys-tab.ts).
 import * as THREE from "three";
 import { bigEnough, listOf, worldPoint, type Box, type EditorRules, type MapConfig, type MapEdit, type MapPosition, type Vec3 } from "@minecade/minigame-core/config";
 import { lookAt, mapMiddle } from "../../../editor/behavior_pack/scripts/lists.ts";
@@ -18,6 +19,8 @@ import { addBoxEdit, boxFrom, faceToCut, facePlane, heightEdit, heightFromBlock,
 import { MapChangesClient } from "./changes.ts";
 import { FLY_SPEEDS, Fly, type FlySpeed } from "./fly.ts";
 import { Gizmo, type GizmoPart } from "./gizmo.ts";
+import { actionFor, keyText, keysText, readKeyMap, changedKeys, type ActionId, type KeyMap } from "./keys.ts";
+import { KeysTab } from "./keys-tab.ts";
 import { buildMarkup, findEntry, type BoxMark, type Markup, type MarkupList, type PlaneMark, type PointMark } from "./markup.ts";
 import { Overlay, type MarkerAssets, type MirrorPlane } from "./overlay.ts";
 import { blocksWithoutLook, mapWarnings } from "./checks.ts";
@@ -63,8 +66,9 @@ interface MapData extends MarkerAssets {
 
 type ToolId = "select" | "spawn" | "marker" | "region" | "height" | "mirror" | "cut";
 type CutAxis = "x" | "y" | "z";
-/** Each tool's key (no modifier). W, A, S and D stay free for flying. */
-const TOOL_KEYS: Record<string, ToolId> = { KeyV: "select", KeyP: "spawn", KeyM: "marker", KeyB: "region", KeyH: "height", KeyI: "mirror", KeyC: "cut" };
+const TOOLS: readonly ToolId[] = ["select", "spawn", "marker", "region", "height", "mirror", "cut"];
+/** The keys changed in Settings, Keys, kept in this browser (keys.ts has the defaults). */
+const KEYS_STORE = "minecade-viewer-keys";
 
 /** How far the pointer moves before a press is a drag, in pixels. */
 const DRAG_PIXELS = 4;
@@ -81,6 +85,22 @@ function loadSettings(): Settings {
     return { ...DEFAULTS, ...(JSON.parse(localStorage.getItem(STORE_KEY) ?? "{}") as Partial<Settings>) };
   } catch {
     return { ...DEFAULTS };
+  }
+}
+
+function loadKeys(): KeyMap {
+  try {
+    return readKeyMap(JSON.parse(localStorage.getItem(KEYS_STORE) ?? "{}"));
+  } catch {
+    return readKeyMap(undefined);
+  }
+}
+
+function saveKeys(keys: KeyMap): void {
+  try {
+    localStorage.setItem(KEYS_STORE, JSON.stringify(changedKeys(keys)));
+  } catch {
+    // Not kept: the viewer starts with the default keys next time.
   }
 }
 
@@ -174,6 +194,9 @@ async function main(): Promise<void> {
   $("note").textContent = colors.note ?? "";
 
   let settings = loadSettings();
+  let keys = loadKeys();
+  /** An action's first key, for a tooltip ("" when it has none). */
+  const keyOf = (action: ActionId) => keyText(keys, action);
 
   // ---- The markup: drawn over the blocks, listed beside them, drawn again whenever the map changes.
   const overlay = new Overlay(scene, data, $("tags"));
@@ -559,7 +582,7 @@ async function main(): Promise<void> {
         ),
       ),
     );
-  const deleteButton = () => el("button", { className: "small danger", dataset: { tip: "Delete", key: "Del" }, onclick: removePicked }, "Delete");
+  const deleteButton = () => el("button", { className: "small danger", dataset: { tip: "Delete", key: keyOf("delete") }, onclick: removePicked }, "Delete");
 
   // ---- The speed tools: Mirror (a tool of its own) and copying team entries to another team.
   const teams = data.rules.teams ?? [];
@@ -714,15 +737,15 @@ async function main(): Promise<void> {
       corners[side][axis] = Math.round(value);
       saveBox(box, boxFrom(corners.min, corners.max));
     };
-    const mode = (which: "move" | "expand", label: string, key: string, tip: string) =>
-      el("button", { className: `small${boxMode === which ? " on" : ""}`, dataset: { tip, key }, onclick: () => setBoxMode(which) }, label);
+    const mode = (which: "move" | "expand", label: string, key: ActionId, tip: string) =>
+      el("button", { className: `small${boxMode === which ? " on" : ""}`, dataset: { tip, key: keyOf(key) }, onclick: () => setBoxMode(which) }, label);
     const cutOn = cuts.top !== undefined || cuts.x !== undefined || cuts.z !== undefined;
     return el(
       "section",
       {},
       el("h2", {}, box.label),
       el("p", { className: "sub" }, `${sizeText(box.box)} blocks${box.minSize !== undefined ? `, at least ${box.minSize} each way` : ""}`),
-      el("div", { className: "modes" }, mode("move", "Move", "G", "Move the whole box"), mode("expand", "Resize", "E", "Move its faces")),
+      el("div", { className: "modes" }, mode("move", "Move", "boxMove", "Move the whole box"), mode("expand", "Resize", "boxResize", "Move its faces")),
       el("div", { className: "group-label" }, "From (lowest corner block)"),
       el("div", { className: "fields" }, ...[0, 1, 2].map((axis) => numberField("XYZ"[axis], "xyz"[axis], min[axis], 1, (value) => setCorner("min", axis, value)))),
       el("div", { className: "group-label" }, "To (highest corner block)"),
@@ -732,8 +755,8 @@ async function main(): Promise<void> {
             "div",
             { className: "buttons" },
             el("span", { className: "sub grow" }, `Picked face: ${faceName(activeFace)}`),
-            el("button", { className: "small", dataset: { tip: "Move the face in", key: "Down" }, onclick: () => nudge(-1) }, "In"),
-            el("button", { className: "small", dataset: { tip: "Move the face out", key: "Up" }, onclick: () => nudge(1) }, "Out"),
+            el("button", { className: "small", dataset: { tip: "Move the face in", key: keyOf("nudgeIn") }, onclick: () => nudge(-1) }, "In"),
+            el("button", { className: "small", dataset: { tip: "Move the face out", key: keyOf("nudgeOut") }, onclick: () => nudge(1) }, "Out"),
           )
         : null,
       cutOn
@@ -760,8 +783,8 @@ async function main(): Promise<void> {
       el(
         "div",
         { className: "buttons" },
-        el("button", { className: "small", dataset: { tip: "Down a block", key: "Down" }, onclick: () => nudge(-1) }, "Down"),
-        el("button", { className: "small", dataset: { tip: "Up a block", key: "Up" }, onclick: () => nudge(1) }, "Up"),
+        el("button", { className: "small", dataset: { tip: "Down a block", key: keyOf("nudgeIn") }, onclick: () => nudge(-1) }, "Down"),
+        el("button", { className: "small", dataset: { tip: "Up a block", key: keyOf("nudgeOut") }, onclick: () => nudge(1) }, "Up"),
         cuts.top !== undefined ? el("button", { className: "small", dataset: { tip: "Put it where a click on the Y cut's layer would" }, onclick: () => toCut(1) }, "To Y cut") : null,
         deleteButton(),
       ),
@@ -1086,7 +1109,44 @@ async function main(): Promise<void> {
   $("past-gone").onchange = () => ((settings = { ...settings, faded: false }), applySettings());
   $("look-colors").onchange = () => ((settings = { ...settings, look: "colors" }), applySettings());
   $("look-textures").onchange = () => ((settings = { ...settings, look: "textures" }), applySettings());
+  // The dialog's tabs: View (the settings above) and Keys.
+  const showTab = (which: "view" | "keys") => {
+    for (const tab of ["view", "keys"] as const) {
+      $(`tab-${tab}`).setAttribute("aria-selected", String(tab === which));
+      $(`panel-${tab}`).hidden = tab !== which;
+    }
+    if (which !== "keys") keysTab.stop();
+  };
+  $("tab-view").onclick = () => showTab("view");
+  $("tab-keys").onclick = () => showTab("keys");
   $("open-settings").onclick = () => settingsDialog.showModal();
+  // Esc while a key is being changed is the Keys tab's, not the dialog's.
+  settingsDialog.addEventListener("cancel", (event) => {
+    if (keysTab.busy) event.preventDefault();
+  });
+  settingsDialog.addEventListener("close", () => keysTab.stop());
+
+  /** Shows the keys where the page names them: the tooltips, the cuts' line, flying's line. */
+  const applyKeys = () => {
+    fly.keys = keys;
+    for (const button of document.querySelectorAll<HTMLButtonElement>("[data-tool]")) button.dataset.key = keyOf(button.dataset.tool as ToolId);
+    $("undo").dataset.key = keyOf("undo");
+    $("redo").dataset.key = keyOf("redo");
+    $("view-home").dataset.key = keyOf("home");
+    const [up, down] = [keyOf("cutUp"), keyOf("cutDown")];
+    $("cuts-keys").textContent = up && down ? ` ${up} and ${down} move the Y cut a layer, Shift five.` : "";
+    const moves = (["flyForward", "flyLeft", "flyBack", "flyRight"] as const).map(keyOf).filter(Boolean);
+    const listed = moves.length > 1 ? `${moves.slice(0, -1).join(", ")} and ${moves.at(-1)}` : moves.join("");
+    const [flyUp, flyDown] = [keysText(keys, "flyUp"), keysText(keys, "flyDown")];
+    const vertical = flyUp && flyDown ? `${flyUp} goes up and ${flyDown} down` : flyUp ? `${flyUp} goes up` : flyDown ? `${flyDown} goes down` : "";
+    $("fly-keys").textContent = `${[listed ? `${listed} move` : "", vertical].filter(Boolean).join(", ") || "Flying has no keys (Keys)"}; right drag looks around, and the wheel moves forward and back.`;
+    renderPanel();
+  };
+  const keysTab = new KeysTab($("panel-keys"), $("keys-note"), keys, (next) => {
+    keys = next;
+    saveKeys(keys);
+    applyKeys();
+  });
   applySettings();
 
   // ---- Views: the cube and Home.
@@ -1140,36 +1200,71 @@ async function main(): Promise<void> {
   };
   for (const axis of ["x", "y", "z"] as const) $(`${axis}-here`).onclick = () => armCut(axis);
 
-  // ---- Keys. In the capture phase on the window, so a focused button or the canvas never keeps them.
+  // ---- Keys (Settings, Keys). In the capture phase on the window, so a focused button or the canvas never keeps them.
   addEventListener(
     "keydown",
     (event) => {
       if (settingsDialog.open || typing(event.target)) return;
-      const ctrl = event.ctrlKey || event.metaKey;
+      const action = actionFor(keys, event);
+      if (!action) return;
       const step = event.shiftKey ? 5 : 1;
       const now = cuts.top ?? max[1];
       const pickedBox = also.size === 0 ? boxOf(picked) : undefined;
       const pickedHeight = also.size === 0 ? heightMarkOf(picked) : undefined;
-      if (ctrl && event.code === "KeyZ" && !event.shiftKey) changes.undo();
-      else if (ctrl && (event.code === "KeyY" || (event.code === "KeyZ" && event.shiftKey))) changes.redo();
-      else if (ctrl || event.altKey) return;
-      else if (TOOL_KEYS[event.code] && !event.shiftKey) setTool(TOOL_KEYS[event.code]);
-      else if (event.code === "KeyG" && pickedBox) setBoxMode("move");
-      else if (event.code === "KeyE" && pickedBox) setBoxMode("expand");
-      else if (event.code === "KeyF" && picked) pickEntry(picked, true);
-      else if (event.key === "PageDown" || event.key === "[" || event.key === "{") setTop(now - step);
-      else if (event.key === "PageUp" || event.key === "]" || event.key === "}") setTop(now + step);
-      else if (event.key === "Home") scene.view("home");
-      else if ((event.key === "ArrowUp" || event.key === "ArrowRight") && (pickedBox || pickedHeight) && tool === "select") pickedBox && boxMode === "move" ? notice("Drag the gizmo's arrows, or click one to step a block.", false) : nudge(step);
-      else if ((event.key === "ArrowDown" || event.key === "ArrowLeft") && (pickedBox || pickedHeight) && tool === "select") pickedBox && boxMode === "move" ? notice("Drag the gizmo's arrows, or click one to step a block.", false) : nudge(-step);
-      else if (event.key === "Delete" || event.key === "Backspace") removePicked();
-      else if (event.key === "Escape") {
-        if (press?.drag) cancelDrag();
-        else if (arming) armCut(undefined);
-        else if (corner) armTool();
-        else if (tool !== "select") setTool("select");
-        else pickEntry(undefined);
-      } else return;
+      const nudging = (pickedBox || pickedHeight) && tool === "select";
+      switch (action) {
+        case "undo":
+          changes.undo();
+          break;
+        case "redo":
+          changes.redo();
+          break;
+        case "select":
+        case "spawn":
+        case "marker":
+        case "region":
+        case "height":
+        case "mirror":
+        case "cut":
+          setTool(action);
+          break;
+        case "boxMove":
+        case "boxResize":
+          if (!pickedBox) return;
+          setBoxMode(action === "boxMove" ? "move" : "expand");
+          break;
+        case "frame":
+          if (!picked) return;
+          pickEntry(picked, true);
+          break;
+        case "cutDown":
+          setTop(now - step);
+          break;
+        case "cutUp":
+          setTop(now + step);
+          break;
+        case "home":
+          scene.view("home");
+          break;
+        case "nudgeOut":
+        case "nudgeIn":
+          if (!nudging) return;
+          if (pickedBox && boxMode === "move") notice("Drag the gizmo's arrows, or click one to step a block.", false);
+          else nudge(action === "nudgeOut" ? step : -step);
+          break;
+        case "delete":
+          removePicked();
+          break;
+        case "cancel":
+          if (press?.drag) cancelDrag();
+          else if (arming) armCut(undefined);
+          else if (corner) armTool();
+          else if (tool !== "select") setTool("select");
+          else pickEntry(undefined);
+          break;
+        default:
+          return;
+      }
       event.preventDefault();
     },
     true,
@@ -1495,6 +1590,7 @@ async function main(): Promise<void> {
   setTool("select");
   applyCuts({});
   redraw();
+  applyKeys();
   canvas.focus();
 }
 

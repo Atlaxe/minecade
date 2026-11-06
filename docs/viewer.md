@@ -23,8 +23,8 @@ x or z, counting every block in its world, can't be shown: the viewer says how w
 
 ## The window
 
-- **The top bar:** the back arrow, the map's thumbnail, name and game; then Undo, Redo, View
-  settings, **Save** and **Publish** on the right. "Open in game Edit" shows while game Edit has
+- **The top bar:** the back arrow, the map's thumbnail, name and game; then Undo, Redo, Settings
+  (the sliders), **Save** and **Publish** on the right. "Open in game Edit" shows while game Edit has
   the map open.
 - **The left panel:** the tools, the game's checklist, the **checks**, and the **overview** of
   every list.
@@ -33,7 +33,8 @@ x or z, counting every block in its world, can't be shown: the viewer says how w
   the Cut tool), the cuts.
 - **The status line:** what's picked, what's under the pointer, and the map's size.
 
-Hover any button for a second: its tooltip says what it does, with its key.
+Hover any button for a second: its tooltip says what it does, with its key. The keys below are the
+defaults: every one can be changed (see "Keys").
 
 ## Moving around
 
@@ -47,7 +48,7 @@ Hover any button for a second: its tooltip says what it does, with its key.
 | **Home** (beside the cube, or the Home key) | The whole map |
 | F | Frame the picked entry |
 
-**WASD flying** (in View settings, off at first): W, A, S and D move along the ground the way you
+**WASD flying** (in Settings, off at first): W, A, S and D move along the ground the way you
 look, Space goes up and Shift down, at the speed the settings say. Right drag then looks around from
 where you are, and the wheel moves forward and back. A block you fly into isn't drawn, and clicks go
 through it, so a tool used from inside a wall works on what's beyond it.
@@ -63,7 +64,7 @@ The **Cuts** in the right panel slice the map, X (red), Y (green) and Z (blue), 
 - The **Cut tool** (C): a click on a block cuts there, along the axis picked in its panel (Y at
   first). Useful for tall maps, such as Sinkhole.
 
-What's past the cuts is drawn see-through (**Faded**) or not at all (**Gone**), in View settings.
+What's past the cuts is drawn see-through (**Faded**) or not at all (**Gone**), in Settings.
 Clicks never land on it. With the Top view and a Y cut, you see each floor of a building in turn.
 
 ## The tools
@@ -97,7 +98,7 @@ Everything game Edit's tools place is drawn over the blocks, in game Edit's colo
 | Kill Y, build limit | A red sheet and orange sheets across the map at that height |
 
 Every spawn and marker has a red line toward where it faces (to the map's middle when it has no
-facing of its own), and its name over it (Names, in View settings, turns them off). Box edges show
+facing of its own), and its name over it (Names, in Settings, turns them off). Box edges show
 faintly through blocks. Markers past a cut are faded or gone with the blocks; a marker counts as
 past the cut when the block it stands on is, so cutting at a floor keeps the spawns on it.
 
@@ -221,6 +222,24 @@ point to the point; facings turn with them, and boxes stay whole blocks. The spe
 spawns hold one entry each, so they're moved but never copied. At most 64 changes go at a time (a
 move into another team's list is two).
 
+## Keys
+
+**Settings** (the sliders button in the top bar) has a **Keys** tab: every key the viewer uses, by
+Tools, Changes, View and WASD flying, each action with up to two keys.
+
+- **Click a key** (or **Add**), then press the key you want, with Ctrl, Alt or Shift if you like.
+  Shift, Ctrl or Alt let go on its own is the key itself (flying down is Shift). Esc keeps the key
+  as it was.
+- A key another action had moves to this one: one key never does two things, and the line beside
+  Done says which action lost it.
+- The **x** beside a key takes it away. **Default** (shown when an action's keys aren't its own)
+  puts them back, and **All keys to their defaults** puts every one back.
+- Shift with the Y cut's and the nudges' keys still means five at a time, and flying's keys work
+  with Shift held; for any other key, Shift makes it another key.
+
+The tooltips and the lines that name keys follow the changes at once, and the viewer remembers them
+in this browser.
+
 ## Undo, Save and Publish
 
 Every change is written to `map.json` at once, in the same style game Edit writes it, and the
@@ -242,7 +261,7 @@ viewer says to restart it.
 
 ## How it looks
 
-**Look** (in **View settings**, the sliders button in the top bar) is **Average colors** or
+**Look** (in **Settings**, the sliders button in the top bar, on its View tab) is **Average colors** or
 **Vanilla textures**:
 
 - **Average colors:** each block face is one color, the most common color of its texture (the
@@ -253,7 +272,7 @@ viewer says to restart it.
   fast leaves look; glass shows its frame. The textures load the first time it's picked.
 
 Both tint grass, leaves and water as in a plains biome and shade the sides (tops brightest), and
-**View settings** changes the rest:
+**Settings** changes the rest:
 
 - **Corner darkening:** corners where blocks meet are darker.
 - **Brightness variation:** each block a little brighter or darker, so big floors don't look flat.

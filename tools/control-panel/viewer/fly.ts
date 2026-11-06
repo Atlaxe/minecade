@@ -1,10 +1,12 @@
 // WASD flying, a setting of the viewer's: W and S move forward and back the way the camera looks
-// (level, never into the ground's slope), A and D sideways, Space up and Shift down, at the speed
-// the settings say (no Ctrl for faster: Ctrl+W would close the window).
+// (level, never into the ground's slope), A and D sideways, Space up and Shift down (or the keys
+// Settings, Keys gives them: keys.ts), at the speed the settings say (no Ctrl for faster: Ctrl+W
+// would close the window).
 // While it's on, the point the camera turns around rides just ahead of it, so a right drag looks
 // around from where the camera is, and the wheel moves forward and back. Movement runs once a frame
 // only while a key is held.
 import * as THREE from "three";
+import { actionFor, defaultKeyMap, type ActionId, type KeyMap } from "./keys.ts";
 import type { MapScene } from "./scene.ts";
 
 /** Blocks a second for each speed setting. */
@@ -15,11 +17,12 @@ const LOOK_AHEAD = 0.6;
 /** Blocks a wheel notch moves. */
 const WHEEL_STEP = 3;
 
-const KEYS = new Set(["KeyW", "KeyA", "KeyS", "KeyD", "Space", "ShiftLeft", "ShiftRight"]);
-
 export class Fly {
   private on = false;
-  private readonly held = new Set<string>();
+  /** The flying actions whose keys are held. */
+  private readonly held = new Set<ActionId>();
+  /** The viewer's keys (flying's are the "fly" actions). */
+  keys: KeyMap = defaultKeyMap();
   /** Blocks a second. */
   speed: number = FLY_SPEEDS.normal;
   private last = 0;
@@ -30,13 +33,17 @@ export class Fly {
     private readonly canvas: HTMLCanvasElement,
   ) {
     addEventListener("keydown", (event) => {
-      // Ctrl and Alt with a key are shortcuts (Ctrl+Z), not moves.
-      if (!this.on || !KEYS.has(event.code) || typing(event.target) || event.ctrlKey || event.altKey || event.metaKey) return;
-      this.held.add(event.code);
+      // Ctrl and Alt with a key are shortcuts (Ctrl+Z), not moves, unless a flying key has them; nothing flies while a dialog is open.
+      if (!this.on || typing(event.target) || document.querySelector("dialog[open]")) return;
+      const action = actionFor(this.keys, event, (candidate) => candidate.fly === true);
+      if (!action) return;
+      this.held.add(action);
       event.preventDefault();
       this.start();
     });
-    addEventListener("keyup", (event) => this.held.delete(event.code));
+    addEventListener("keyup", (event) => {
+      for (const action of [...this.held]) if (this.keys[action].some((binding) => binding?.code === event.code)) this.held.delete(action);
+    });
     addEventListener("blur", () => this.held.clear());
     canvas.addEventListener(
       "wheel",
@@ -93,12 +100,12 @@ export class Fly {
       const forward = this.forward();
       const right = new THREE.Vector3().crossVectors(forward, new THREE.Vector3(0, 1, 0));
       const move = new THREE.Vector3();
-      if (this.held.has("KeyW")) move.add(forward);
-      if (this.held.has("KeyS")) move.sub(forward);
-      if (this.held.has("KeyD")) move.add(right);
-      if (this.held.has("KeyA")) move.sub(right);
-      if (this.held.has("Space")) move.y += 1;
-      if (this.held.has("ShiftLeft") || this.held.has("ShiftRight")) move.y -= 1;
+      if (this.held.has("flyForward")) move.add(forward);
+      if (this.held.has("flyBack")) move.sub(forward);
+      if (this.held.has("flyRight")) move.add(right);
+      if (this.held.has("flyLeft")) move.sub(right);
+      if (this.held.has("flyUp")) move.y += 1;
+      if (this.held.has("flyDown")) move.y -= 1;
       if (move.lengthSq() > 0) this.moveBy(move.normalize().multiplyScalar(this.speed * seconds), false);
       requestAnimationFrame(step);
     };

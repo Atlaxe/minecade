@@ -138,14 +138,38 @@
   .status .spacer { flex: 1; }
   .status .warn { color: var(--warn); }
 
-  dialog.settings { width: min(440px, 92vw); padding: 0; border: 1px solid var(--line-strong); border-radius: var(--radius-lg); background: var(--surface); color: var(--text); box-shadow: var(--shadow); }
+  dialog.settings { width: min(680px, 92vw); padding: 0; border: 1px solid var(--line-strong); border-radius: var(--radius-lg); background: var(--surface); color: var(--text); box-shadow: var(--shadow); }
   dialog.settings::backdrop { background: #0008; }
   .settings form { display: grid; gap: 18px; padding: 20px 22px; }
   .settings fieldset { border: 0; padding: 0; margin: 0; display: grid; gap: 10px; }
   .settings legend { font: 600 var(--fs-meta) var(--font); color: var(--muted); text-transform: uppercase; letter-spacing: .06em; margin-bottom: 8px; padding: 0; }
   .settings label { display: flex; align-items: center; gap: 10px; cursor: pointer; }
   .settings .hint { color: var(--muted); font-size: var(--fs-meta); margin: -4px 0 0 26px; }
-  .settings .actions { display: flex; justify-content: flex-end; }
+  .settings .actions { display: flex; justify-content: flex-end; align-items: center; gap: 12px; }
+  .settings-head { display: flex; align-items: center; gap: 16px; }
+  .settings-head h2 { margin: 0; }
+  .tabs { display: flex; gap: 2px; margin-left: auto; padding: 2px; background: var(--inset); border: 1px solid var(--line); border-radius: var(--radius); }
+  .tabs [role=tab] { background: none; border: 1px solid transparent; color: var(--muted); padding: 5px 16px; }
+  .tabs [role=tab]:hover { color: var(--text); }
+  .tabs [role=tab][aria-selected=true] { background: var(--selected); color: var(--on-selected); border-color: color-mix(in srgb, var(--primary) 45%, transparent); }
+  .settings-panel { display: grid; gap: 18px; max-height: min(64vh, 620px); overflow-y: auto; padding-right: 6px; }
+  .settings-panel[hidden] { display: none; }
+  /* Keys: a row per action, its label and two keys, and Default when it's changed. */
+  .settings .keys .key-rows { display: grid; gap: 4px; }
+  .key-row { display: grid; grid-template-columns: 1fr 144px 144px 76px; gap: 6px; align-items: center; }
+  .key-label { min-width: 0; }
+  .key-slot { display: flex; align-items: stretch; border: 1px solid var(--line); border-radius: var(--radius); background: var(--inset); min-width: 0; }
+  .key-slot .key { flex: 1; min-width: 0; padding: 4px 8px; background: none; border: 0; font-family: var(--font-mono); font-size: var(--fs-meta); color: var(--text); text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .key-slot.none .key { color: var(--muted); font-family: var(--font); }
+  .key-slot .key:hover { background: var(--raised); }
+  .key-slot.waiting { border-color: var(--primary); box-shadow: 0 0 0 1px var(--primary); }
+  .key-slot.waiting .key { color: var(--primary); font-family: var(--font); }
+  .key-clear { display: grid; place-items: center; width: 26px; padding: 0; background: none; border: 0; border-left: 1px solid var(--line); color: var(--muted); }
+  .key-clear:hover { color: var(--text); background: var(--raised); }
+  .key-clear svg.i { width: 14px; height: 14px; }
+  .key-reset { justify-self: end; }
+  .keys-note { margin: 0 auto 0 0; color: var(--warn); }
+  .keys-actions { display: flex; justify-content: flex-start; }
 </style>
 </head>
 <body>
@@ -157,7 +181,7 @@
   <div class="banner-actions">
     <button id="undo" class="icon" aria-label="Undo" data-tip="Undo" data-key="Ctrl+Z"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 14 4 9l5-5"/><path d="M4 9h10a6 6 0 0 1 0 12h-3"/></svg></button>
     <button id="redo" class="icon" aria-label="Redo" data-tip="Redo" data-key="Ctrl+Y"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="m15 14 5-5-5-5"/><path d="M20 9H10a6 6 0 0 0 0 12h3"/></svg></button>
-    <button id="open-settings" class="icon" aria-label="View settings" data-tip="View settings"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h9M17 7h3M4 17h3M11 17h9"/><rect x="13" y="5" width="4" height="4"/><rect x="7" y="15" width="4" height="4"/></svg></button>
+    <button id="open-settings" class="icon" aria-label="Settings" data-tip="Settings: the view and the keys"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h9M17 7h3M4 17h3M11 17h9"/><rect x="13" y="5" width="4" height="4"/><rect x="7" y="15" width="4" height="4"/></svg></button>
     <span class="sep"></span>
     <button id="save" data-tip="Keep the map as a version in the map store">Save</button>
     <button id="publish" class="primary">Publish</button>
@@ -191,7 +215,7 @@
     <div id="tool"></div>
     <section id="cuts" class="cuts">
       <h2>Cuts</h2>
-      <p class="sub">Slice the map to see inside. Page Up and Page Down move the Y cut a layer, Shift five.</p>
+      <p class="sub">Slice the map to see inside.<span id="cuts-keys"></span></p>
       <div class="cut" data-axis="x">
         <div class="cut-head"><span class="axis-name x">X</span><span id="x-label" class="muted"></span></div>
         <input type="range" id="x" step="1" aria-label="X cut">
@@ -215,7 +239,14 @@
 </footer>
 <dialog id="settings" class="settings" aria-labelledby="settings-title">
   <form method="dialog">
-    <h2 id="settings-title">View settings</h2>
+    <div class="settings-head">
+      <h2 id="settings-title">Settings</h2>
+      <div class="tabs" role="tablist" aria-label="Settings">
+        <button type="button" role="tab" id="tab-view" aria-selected="true" aria-controls="panel-view">View</button>
+        <button type="button" role="tab" id="tab-keys" aria-selected="false" aria-controls="panel-keys">Keys</button>
+      </div>
+    </div>
+    <div id="panel-view" class="settings-panel" role="tabpanel" aria-labelledby="tab-view">
     <fieldset>
       <legend>Blocks</legend>
       <label><input type="checkbox" id="toggle-occlusion"> Corner darkening</label>
@@ -240,10 +271,12 @@
     <fieldset id="movement">
       <legend>Moving around</legend>
       <label><input type="checkbox" id="toggle-wasd"> WASD flying</label>
-      <p class="hint">W, A, S and D move, Space goes up and Shift down; right drag looks around, and the wheel moves forward and back.</p>
+      <p id="fly-keys" class="hint"></p>
       <label>Flying speed <select id="fly-speed"><option value="slow">Slow</option><option value="normal">Normal</option><option value="fast">Fast</option></select></label>
     </fieldset>
-    <div class="actions"><button value="done" class="primary">Done</button></div>
+    </div>
+    <div id="panel-keys" class="settings-panel keys" role="tabpanel" aria-labelledby="tab-keys" hidden></div>
+    <div class="actions"><p id="keys-note" class="keys-note" aria-live="polite" hidden></p><button value="done" class="primary">Done</button></div>
   </form>
 </dialog>
 <script type="module" src="/viewer/app.js"></script>

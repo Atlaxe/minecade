@@ -416,7 +416,12 @@ The user's changes to V.3 to V.6's layout, built the same day (`docs/viewer.md` 
   copies where they'd go, and the tool's settings say how: Left to right, Front to back or Half
   turn; which team team entries go to; and **Copies** or **Move** (the entries themselves). Copy to
   another team stays with Select.
-- **Keys** in the settings dialog: every key the viewer uses, each changeable (pass "Keys" below).
+- **Keys** in the settings dialog (built the same day, `keys.ts` and `keys-tab.ts`): the dialog is
+  now Settings, with a View tab (what it had) and a Keys tab listing every action by group with two
+  keys each; a click on a key waits for the next press (a modifier let go alone is the key, Esc
+  keeps it), a key another action had moves over (the footer says from where), and Default or All
+  keys to their defaults put them back. Kept in this browser; tooltips, the cuts' line and flying's
+  line follow. Flying takes its keys from the same map.
 
 ## Passes (the implementation order: stop and report after each, commit and push)
 
