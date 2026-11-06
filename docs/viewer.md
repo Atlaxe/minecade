@@ -198,10 +198,18 @@ viewer says to restart it.
 
 ## How it looks
 
-Each block face is one color: the most common color of its texture (the average of a texture's
-pixels turns many blocks brown). Grass, leaves and water are tinted as in a plains biome. Sides
-are shaded (tops brightest), and **View settings** (the sliders button in the top bar) changes the
-rest:
+**Look** (in **View settings**, the sliders button in the top bar) is **Average colors** or
+**Vanilla textures**:
+
+- **Average colors:** each block face is one color, the most common color of its texture (the
+  average of a texture's pixels turns many blocks brown).
+- **Vanilla textures:** each face shows its texture, its pixels crisp, repeated once per block
+  (the first frame of an animated one). Plants are cut out by their textures; leaves and other
+  blocks with see-through pixels have them filled with the block's average color, as Minecraft's
+  fast leaves look; glass shows its frame. The textures load the first time it's picked.
+
+Both tint grass, leaves and water as in a plains biome and shade the sides (tops brightest), and
+**View settings** changes the rest:
 
 - **Corner darkening:** corners where blocks meet are darker.
 - **Brightness variation:** each block a little brighter or darker, so big floors don't look flat.
@@ -234,13 +242,13 @@ drawn (see Hidden blocks). A block with no color at all is bright pink, and list
 
 The status line also names the block under the pointer, its states and where it is.
 
-### Where the colors come from
+### Where the colors and textures come from
 
 From Minecraft on this PC (its vanilla packs) and the shared blocks pack (`packs\blocks`), worked
-out the first time the viewer needs them (a few seconds) and kept in
-`work\viewer\looks\colors.json`, which is made again when Minecraft or the blocks pack changes.
-Nothing made from those textures goes into git. Without Minecraft installed, vanilla blocks are
-pink.
+out the first time the viewer needs them (a few seconds) and kept in `work\viewer\looks\`
+(`colors.json`, and the textures at 16x16 in `textures.bin`), which is made again when Minecraft or
+the blocks pack changes. Nothing made from those textures goes into git, and the Panel serves the
+textures only to its own viewer. Without Minecraft installed, vanilla blocks are pink.
 
 The method gets a few blocks wrong. Ores are their stone mixed with their specks' color, and
 glowstone takes its whole texture's average, but any block can be set by hand in

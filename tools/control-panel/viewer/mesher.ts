@@ -20,9 +20,14 @@ const CROSS_SHADE = 0.85;
 /** A section's blocks with a 1-block border from its neighbors: 18 a side, at ((x + 1) * 18 + (z + 1)) * 18 + (y + 1). */
 export const PADDED = 18;
 
+/** A layer's flag for faces whose texture is cut out by its alpha (plants), not filled with the average color. */
+export const CUTOUT = 0x8000;
+
 export interface MeshPart {
   /** Sixteenths of a block. */
   positions: Uint16Array;
+  /** Each vertex's texture layer (Vanilla textures), with CUTOUT for plants. */
+  layers: Uint16Array;
   /** RGBA, shaded; alpha is how see-through a see-through block is. */
   tints: Uint8Array;
   /** Each vertex's corner darkening, 0 (darkest) to 255 (none). */
@@ -43,6 +48,8 @@ export interface Looks {
   drawn: Uint8Array;
   /** 24 bytes a look: each face's RGBA (volume.ts's face order). */
   colors: Uint8Array;
+  /** 6 a look: each face's texture layer. */
+  layers: Uint16Array;
   table: ShapeTable;
 }
 
@@ -86,15 +93,17 @@ function faceOf(axis: number, sign: number): number {
 /** A mesh being built. */
 class Builder {
   readonly positions: number[] = [];
+  readonly layers: number[] = [];
   readonly tints: number[] = [];
   readonly occlusion: number[] = [];
   readonly indices: number[] = [];
 
   /** A quad: four corners in winding order (counterclockwise seen from its front). */
-  quad(corners: number[][], color: Uint8Array, at: number, shade: number, levels: number[] | undefined, alpha: number): void {
+  quad(corners: number[][], color: Uint8Array, at: number, shade: number, levels: number[] | undefined, alpha: number, layer: number): void {
     const base = this.positions.length / 3;
     for (let corner = 0; corner < 4; corner++) {
       this.positions.push(corners[corner][0], corners[corner][1], corners[corner][2]);
+      this.layers.push(layer);
       this.tints.push(color[at] * shade, color[at + 1] * shade, color[at + 2] * shade, alpha);
       this.occlusion.push(levels ? levels[corner] * 85 : 255);
     }
@@ -105,7 +114,7 @@ class Builder {
   }
 
   done(): MeshPart {
-    return { positions: Uint16Array.from(this.positions), tints: Uint8Array.from(this.tints), occlusion: Uint8Array.from(this.occlusion), indices: Uint32Array.from(this.indices) };
+    return { positions: Uint16Array.from(this.positions), layers: Uint16Array.from(this.layers), tints: Uint8Array.from(this.tints), occlusion: Uint8Array.from(this.occlusion), indices: Uint32Array.from(this.indices) };
   }
 }
 
@@ -114,7 +123,7 @@ class Builder {
  * is none near), `offset` the section's corner in its region, in blocks.
  */
 export function meshSection(blocks: Uint16Array, water: Uint16Array | undefined, looks: Prepared, offset: [number, number, number]): SectionMesh {
-  const { drawn, colors, table, cover, full, rects } = looks;
+  const { drawn, colors, layers, table, cover, full, rects } = looks;
   const { flags, shapeOf, shapes } = table;
   const solid = new Builder();
   const glass = new Builder();
@@ -205,7 +214,7 @@ export function meshSection(blocks: Uint16Array, water: Uint16Array | undefined,
               return [base[0] + c[0] * 16, base[1] + c[1] * 16, base[2] + c[2] * 16];
             });
             const see = (flags[look] & SEE_THROUGH) !== 0;
-            (see ? glass : solid).quad(corners, colors, look * 24 + face * 4, shade, order, see ? colors[look * 24 + face * 4 + 3] : 255);
+            (see ? glass : solid).quad(corners, colors, look * 24 + face * 4, shade, order, see ? colors[look * 24 + face * 4 + 3] : 255, layers[look * 6 + face]);
             i += width;
           }
         }
@@ -248,27 +257,29 @@ export function meshSection(blocks: Uint16Array, water: Uint16Array | undefined,
           }
         } else if (insideOther(shape, box, face)) continue;
         const points = corners.map((c) => [corner[0] + (c[0] ? box[3] : box[0]), corner[1] + (c[1] ? box[4] : box[1]), corner[2] + (c[2] ? box[5] : box[2])]);
-        builder.quad(points, colors, look * 24 + face * 4, SHADE[face], undefined, see ? colors[look * 24 + face * 4 + 3] : 255);
+        builder.quad(points, colors, look * 24 + face * 4, SHADE[face], undefined, see ? colors[look * 24 + face * 4 + 3] : 255, layers[look * 6 + face]);
       }
     }
   }
 
+  // A plant's two faces run corner to corner and the block's full height, so its texture fills them.
   function crossFaces(builder: Builder, corner: number[], look: number, see: boolean): void {
     const at = look * 24 + 2 * 4;
     const alpha = see ? colors[at + 3] : 255;
+    const layer = layers[look * 6 + 2] | CUTOUT;
     const [x, y, z] = corner;
     for (const [a, b] of [
-      [[2, 2], [14, 14]],
-      [[2, 14], [14, 2]],
+      [[0, 0], [16, 16]],
+      [[0, 16], [16, 0]],
     ]) {
       const quad = [
         [x + a[0], y, z + a[1]],
         [x + b[0], y, z + b[1]],
-        [x + b[0], y + 14, z + b[1]],
-        [x + a[0], y + 14, z + a[1]],
+        [x + b[0], y + 16, z + b[1]],
+        [x + a[0], y + 16, z + a[1]],
       ];
-      builder.quad(quad, colors, at, CROSS_SHADE, undefined, alpha);
-      builder.quad([quad[0], quad[3], quad[2], quad[1]], colors, at, CROSS_SHADE, undefined, alpha);
+      builder.quad(quad, colors, at, CROSS_SHADE, undefined, alpha, layer);
+      builder.quad([quad[0], quad[3], quad[2], quad[1]], colors, at, CROSS_SHADE, undefined, alpha, layer);
     }
   }
 
@@ -293,7 +304,7 @@ export function meshSection(blocks: Uint16Array, water: Uint16Array | undefined,
           }
           if (face !== UP && full[blocks[neighbor] * 6 + OPPOSITE[face]]) continue;
           const points = corners.map((c) => [corner[0] + (c[0] ? box[3] : box[0]), corner[1] + (c[1] ? box[4] : box[1]), corner[2] + (c[2] ? box[5] : box[2])]);
-          builder.quad(points, colors, look * 24 + face * 4, SHADE[face], undefined, see ? colors[look * 24 + face * 4 + 3] : 255);
+          builder.quad(points, colors, look * 24 + face * 4, SHADE[face], undefined, see ? colors[look * 24 + face * 4 + 3] : 255, layers[look * 6 + face]);
         }
       }
     }

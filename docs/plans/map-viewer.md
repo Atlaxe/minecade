@@ -6,7 +6,8 @@
 read-only viewer, `docs/viewer.md`) done 2026-11-05, in `tools/viewer/` and
 `tools/control-panel/viewer/`. V.4 (markers shown), V.5 (points, Save and Publish) and V.6 (boxes
 and planes) done 2026-11-06. Before V.7, the same day, the user reworked the viewer's layout (see
-"Layout rework" below). V.7 (shapes and see-through blocks) done 2026-11-06. Build it in the order of "Passes" below: each pass leans on the ones before
+"Layout rework" below). V.7 (shapes and see-through blocks) and V.8 (Vanilla textures) done
+2026-11-06. Build it in the order of "Passes" below: each pass leans on the ones before
 it.
 
 **For the session that implements this:**
@@ -482,7 +483,17 @@ each spawn just outside its boundary's corner, which the game pairs by distance)
 spawn paired with none or with one more than 3 blocks away instead of every spawn outside one. The
 editor's marker entities aren't counted: the world reader doesn't read entities.
 
-**V.8 Vanilla textures.** The Look toggle and the texture array.
+**V.8 Vanilla textures** (done 2026-11-06). The Look toggle and the texture array. As built: the
+Look is a choice in View settings (the top bar's toggles moved there in the layout rework). The
+color table's build (`looks.ts`, method 2) also makes each texture a 16x16 layer, tinted as its
+color (an overlay texture tinted where its alpha is set, water made as see-through as the viewer
+draws it), kept in `work\viewer\looks\textures.bin`; the color table names each block's layers,
+and `GET /api/viewer/textures` sends them, fetched the first time Vanilla textures is picked. Each
+vertex carries its face's layer; the shader works out where on the face it is from the world
+position, so merged faces repeat the texture per block with nothing more stored. A cube's
+see-through texels show its Average color (leaves look like Minecraft's fast leaves rather than
+showing through to the sky, since their inner faces are left out), plants are cut out, and plants'
+crossed faces now run corner to corner and full height so their textures fill them.
 
 **V.9 Speed tools.** Mirror, copy to another team, pick several.
 

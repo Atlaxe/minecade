@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { crc32, deflateSync } from "node:zlib";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { buildColorTable, colorTable, type Rgba } from "../looks.ts";
+import { buildColorTable, buildLooks, colorTable, LAYER_BYTES, textureLayer, textureLayers, type Rgba } from "../looks.ts";
 
 type Color = [number, number, number, number];
 
@@ -161,6 +161,40 @@ describe("buildColorTable", () => {
     const table = buildColorTable(join(root, "nowhere"), blocksPack);
     expect(table.note).toMatch(/isn't installed/);
     expect(Object.keys(table.blocks)).toEqual(["minecade:chair"]);
+  });
+});
+
+describe("texture layers", () => {
+  /** A layer's pixel at (x, y): RGBA. */
+  const pixel = (layers: Uint8Array, layer: number, x: number, y: number) => Array.from(layers.subarray(layer * LAYER_BYTES + (y * 16 + x) * 4, layer * LAYER_BYTES + (y * 16 + x) * 4 + 4));
+
+  it("gives every block's faces a layer, layer 0 pink for none, tinted as the colors are", () => {
+    const { table, layers } = buildLooks(packs, blocksPack);
+    expect(layers.length).toBe(table.layers! * LAYER_BYTES);
+    expect(pixel(layers, 0, 0, 0)).toEqual([255, 0, 255, 255]);
+    const [up, down, side] = table.textures!["minecraft:grass_block"];
+    expect(pixel(layers, up, 5, 5)).toEqual([Math.round((200 * 100) / 255), Math.round((200 * 200) / 255), Math.round((200 * 50) / 255), 255]);
+    expect(pixel(layers, down, 5, 5)).toEqual(DIRT);
+    // The side: its marked top rows tinted, the dirt below made opaque.
+    expect(pixel(layers, side, 0, 0)).toEqual([Math.round((150 * 100) / 255), Math.round((150 * 200) / 255), Math.round((150 * 50) / 255), 255]);
+    expect(pixel(layers, side, 0, 10)).toEqual(DIRT);
+    // Faces with one texture share its layer; an animated strip is its first frame.
+    expect(table.textures!["minecraft:stone"]).toEqual([1, 1, 1].map(() => table.textures!["minecraft:stone"][0]));
+    expect(pixel(layers, table.textures!["minecraft:oak_log"][2], 3, 15)).toEqual([110, 85, 50, 255]);
+    expect(table.textures!["minecade:chair"]).toHaveLength(3);
+  });
+
+  it("scales a texture to 16 pixels and makes water see-through", () => {
+    const big = { width: 32, height: 32, data: new Uint8Array(32 * 32 * 4).map((_, i) => (i % 4 === 3 ? 255 : Math.floor(i / 4) % 32 < 16 ? 10 : 200)) };
+    const layer = textureLayer(big, undefined);
+    expect([layer[0], layer[15 * 4]]).toEqual([10, 200]);
+    const water = textureLayer({ width: 16, height: 16, data: new Uint8Array(16 * 16 * 4).fill(240) }, [68, 175, 245], false, true);
+    expect(Array.from(water.subarray(0, 4))).toEqual([Math.round((240 * 68) / 255), Math.round((240 * 175) / 255), Math.round((240 * 245) / 255), 150]);
+  });
+
+  it("keeps the layers beside the colors in work\viewer\looks", () => {
+    const table = colorTable(root, packs);
+    expect(textureLayers(root, packs).length).toBe(table.layers! * LAYER_BYTES);
   });
 });
 

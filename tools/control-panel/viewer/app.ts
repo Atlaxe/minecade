@@ -45,8 +45,10 @@ interface Settings extends Toggles {
   flySpeed: FlySpeed;
   /** Outlines of the hidden blocks a game uses: barriers, invisible bedrock, light blocks. */
   hidden: boolean;
+  /** Each face one color (Average colors), or its texture (Vanilla textures). */
+  look: "colors" | "textures";
 }
-const DEFAULTS: Settings = { occlusion: true, variation: true, darkenBelow: false, faded: true, names: true, center: true, wasd: false, flySpeed: "normal", hidden: false };
+const DEFAULTS: Settings = { occlusion: true, variation: true, darkenBelow: false, faded: true, names: true, center: true, wasd: false, flySpeed: "normal", hidden: false, look: "colors" };
 
 /** What the Panel sends for a map's markup (tools/viewer/map-data.ts). */
 interface MapData extends MarkerAssets {
@@ -145,10 +147,10 @@ async function main(): Promise<void> {
   }
   const data = (await mapResponse.json()) as MapData;
   const view = decodeView(new Uint8Array(await viewResponse.arrayBuffer()));
-  const colors = (await colorsResponse.json()) as { blocks: Record<string, FaceColors>; note?: string };
+  const colors = (await colorsResponse.json()) as { blocks: Record<string, FaceColors>; textures?: Record<string, [number, number, number]>; layers?: number; note?: string };
   // Custom blocks are drawn as cubes when their shapes can't be read.
   const shapes = shapesResponse.ok ? ((await shapesResponse.json()) as { shapes: Record<string, CustomShape> }).shapes : {};
-  const volume = buildVolume(view, colors.blocks, shapes);
+  const volume = buildVolume(view, colors.blocks, shapes, colors.textures);
   const unknown = blocksWithoutLook(volume);
   show("Meshing...");
 
@@ -731,8 +733,28 @@ async function main(): Promise<void> {
 
   // ---- Settings: the dialog behind the sliders button.
   const settingsDialog = $<HTMLDialogElement>("settings");
+  /** The texture layers, fetched the first time Vanilla textures is picked. */
+  let textures: Promise<boolean> | undefined;
+  const loadTextures = (): Promise<boolean> =>
+    (textures ??= (async () => {
+      const response = await fetch("/api/viewer/textures").catch(() => undefined);
+      const count = colors.layers ?? 0;
+      const data = response?.ok ? new Uint8Array(await response.arrayBuffer()) : undefined;
+      if (!data || count === 0 || data.length !== count * 16 * 16 * 4) {
+        textures = undefined;
+        notice("The textures couldn't be loaded: the viewer shows Average colors.", true);
+        return false;
+      }
+      scene.setTextures(data, count);
+      return true;
+    })());
+  const applyLook = async () => {
+    const wanted = settings.look === "textures";
+    scene.setLook(wanted && (await loadTextures()));
+  };
   const applySettings = () => {
     scene.setToggles(settings);
+    void applyLook();
     overlay.showNames(settings.names);
     overlay.refresh();
     fly.setEnabled(settings.wasd);
@@ -748,6 +770,8 @@ async function main(): Promise<void> {
     $<HTMLSelectElement>("fly-speed").value = settings.flySpeed;
     $<HTMLInputElement>("past-faded").checked = settings.faded;
     $<HTMLInputElement>("past-gone").checked = !settings.faded;
+    $<HTMLInputElement>("look-colors").checked = settings.look === "colors";
+    $<HTMLInputElement>("look-textures").checked = settings.look === "textures";
   };
   const toggle = (id: string, key: "occlusion" | "variation" | "darkenBelow" | "names" | "wasd" | "hidden") => {
     $(id).onchange = (event) => ((settings = { ...settings, [key]: (event.target as HTMLInputElement).checked }), applySettings());
@@ -761,6 +785,8 @@ async function main(): Promise<void> {
   $("fly-speed").onchange = (event) => ((settings = { ...settings, flySpeed: (event.target as HTMLSelectElement).value as FlySpeed }), applySettings());
   $("past-faded").onchange = () => ((settings = { ...settings, faded: true }), applySettings());
   $("past-gone").onchange = () => ((settings = { ...settings, faded: false }), applySettings());
+  $("look-colors").onchange = () => ((settings = { ...settings, look: "colors" }), applySettings());
+  $("look-textures").onchange = () => ((settings = { ...settings, look: "textures" }), applySettings());
   $("open-settings").onclick = () => settingsDialog.showModal();
   applySettings();
 

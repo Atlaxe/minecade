@@ -1,6 +1,7 @@
-// The map viewer's Average colors: each block face's color, worked out on this PC from the
-// installed Minecraft client and the shared blocks pack (packs\blocks), and kept in
-// work\viewer\looks\colors.json, which git ignores, like everything made from those textures.
+// The map viewer's looks: each block face's Average color, and for Vanilla textures each face's
+// texture as a layer of a texture array, worked out on this PC from the installed Minecraft client
+// and the shared blocks pack (packs\blocks), and kept in work\viewer\looks\ (colors.json and
+// textures.bin), which git ignores, like everything made from those textures.
 //
 // Vanilla blocks: the client layers its vanilla resource packs (vanilla, then vanilla_1.14 up to
 // the newest), each adding to blocks.json (which texture each face uses) field by field and to
@@ -15,6 +16,11 @@
 // most common color; a few blocks take the whole texture's average instead. Grass, leaves and water
 // are tinted as in plains. work\viewer\looks\overrides.json sets any block's color by hand, for
 // every face: { "minecraft:sea_lantern": "#b4d0c8", "minecraft:tinted_glass": "#2c2a2e80" }.
+//
+// A texture layer is the texture's first frame at 16x16 (nearest pixels), rows from the top,
+// tinted as its color is: an overlay texture (a grass block's side) is tinted where its alpha is
+// set and made opaque, and water is made as see-through as the viewer draws it. Layer 0 is the
+// loud pink of a block with no texture.
 import { createHash } from "node:crypto";
 import { existsSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
@@ -31,12 +37,22 @@ export interface ColorTable {
   stamp: string;
   /** By full name (minecraft:stone, minecade:oak_chair). */
   blocks: Record<string, FaceColors>;
+  /** Each block's texture layers (textures.bin): its top, its bottom and its sides. */
+  textures?: Record<string, [up: number, down: number, side: number]>;
+  /** How many texture layers there are. */
+  layers?: number;
   /** Why some blocks have no colors, when that's so (the client isn't installed). */
   note?: string;
 }
 
+/** A texture layer's side, in pixels: every layer is this size. */
+export const LAYER_SIZE = 16;
+/** Bytes in a texture layer (RGBA). */
+export const LAYER_BYTES = LAYER_SIZE * LAYER_SIZE * 4;
+/** How see-through water's texture is made (0 to 255), as the viewer draws water. */
+const WATER_ALPHA = 150;
 /** Changed whenever the method changes, so tables made before are made again. */
-const METHOD = 1;
+const METHOD = 2;
 /** Blocks whose blocks.json entry still has an older name. */
 const RENAMED: Record<string, string> = { grass_block: "grass", sea_lantern: "seaLantern", iron_chain: "chain" };
 /** Blocks whose most common color is wrong (glowstone's is the dark gaps): the whole texture's average instead. */
@@ -55,23 +71,34 @@ type BlockEntry = { textures?: string | Partial<Record<"up" | "down" | "side" | 
 /** The client's resource packs folder (the parent of its vanilla pack). */
 export const CLIENT_PACKS = dirname(VANILLA_PACK);
 
-/** The color table, from work\viewer\looks\colors.json when nothing it was made from changed, with the overrides applied. */
+/**
+ * The color table, from work\viewer\looks\colors.json when nothing it was made from changed, with
+ * the overrides applied; its texture layers are work\viewer\looks\textures.bin (textureLayers).
+ */
 export function colorTable(root: string, clientPacks = CLIENT_PACKS): ColorTable {
   const dir = join(root, "work", "viewer", "looks");
   const blocksPack = join(root, "packs", "blocks");
   const stamp = looksStamp(clientPacks, blocksPack);
   const cache = join(dir, "colors.json");
   let table: ColorTable | undefined;
-  if (existsSync(cache)) {
+  if (existsSync(cache) && existsSync(join(dir, "textures.bin"))) {
     const cached = JSON.parse(readFileSync(cache, "utf8")) as ColorTable;
     if (cached.stamp === stamp) table = cached;
   }
   if (!table) {
-    table = buildColorTable(clientPacks, blocksPack, stamp);
+    const built = buildLooks(clientPacks, blocksPack, stamp);
+    table = built.table;
     mkdirSync(dir, { recursive: true });
+    writeFileSync(join(dir, "textures.bin"), built.layers);
     writeFileSync(cache, JSON.stringify(table));
   }
   return withOverrides(table, join(dir, "overrides.json"));
+}
+
+/** The texture layers (LAYER_BYTES each, in order), made with the color table when it's made. */
+export function textureLayers(root: string, clientPacks = CLIENT_PACKS): Uint8Array {
+  colorTable(root, clientPacks);
+  return new Uint8Array(readFileSync(join(root, "work", "viewer", "looks", "textures.bin")));
 }
 
 /** A hash of every file the table is made from: the vanilla packs' block files and the blocks pack's. */
@@ -112,29 +139,54 @@ function vanillaPacks(clientPacks: string): string[] {
 }
 
 export function buildColorTable(clientPacks: string, blocksPack: string, stamp = looksStamp(clientPacks, blocksPack)): ColorTable {
-  const table: ColorTable = { stamp, blocks: {} };
+  return buildLooks(clientPacks, blocksPack, stamp).table;
+}
+
+/** The color table and its texture layers. */
+export function buildLooks(clientPacks: string, blocksPack: string, stamp = looksStamp(clientPacks, blocksPack)): { table: ColorTable; layers: Uint8Array } {
+  const table: ColorTable = { stamp, blocks: {}, textures: {} };
   const tints = loadTints(clientPacks);
   const colors = new Map<string, Rgba>();
+  // Layer 0: no texture.
+  const layers: Uint8Array[] = [new Uint8Array(LAYER_BYTES).map((_, i) => [255, 0, 255, 255][i % 4])];
+  const layerIds = new Map<string, number>();
+  const pictures = new Map<string, Image | undefined>();
+  const pictureOf = (path: string, read: (path: string) => Uint8Array | undefined): Image | undefined => {
+    if (pictures.has(path)) return pictures.get(path);
+    const data = read(path);
+    let picture: Image | undefined;
+    try {
+      picture = data ? firstFrame(data[0] === 0x89 ? decodeAnyPng(data) : decodeTga(data)) : undefined;
+    } catch {
+      // A texture that doesn't decode leaves the block without a color or a texture, like a missing one.
+    }
+    pictures.set(path, picture);
+    return picture;
+  };
   const colorOf = (texture: TextureFile | undefined, read: (path: string) => Uint8Array | undefined, name: string): Rgba | undefined => {
     if (!texture) return undefined;
     const { path, overlay } = texture;
     const key = `${name}|${path}`;
     if (colors.has(key)) return colors.get(key);
-    const data = read(path);
+    let picture = pictureOf(path, read);
     let color: Rgba | undefined;
-    if (data) {
-      try {
-        let picture = firstFrame(data[0] === 0x89 ? decodeAnyPng(data) : decodeTga(data));
-        // An overlay texture's alpha says where the biome's tint goes (a grass block's side), not
-        // what's see-through: without the tint it's the dirt it shows.
-        if (picture && overlay) picture = { ...picture, data: picture.data.map((value, i) => (i % 4 === 3 ? 255 : value)) };
-        if (picture) color = tinted(WHOLE_AVERAGE.has(name) ? wholeAverage(picture) : /_ore$/.test(name) ? oreColor(picture) : commonColor(picture), overlay ? undefined : tintOf(path, tints));
-      } catch {
-        // A texture that doesn't decode leaves the block without a color, like a missing one.
-      }
-    }
+    // An overlay texture's alpha says where the biome's tint goes (a grass block's side), not
+    // what's see-through: without the tint it's the dirt it shows.
+    if (picture && overlay) picture = { ...picture, data: picture.data.map((value, i) => (i % 4 === 3 ? 255 : value)) };
+    if (picture) color = tinted(WHOLE_AVERAGE.has(name) ? wholeAverage(picture) : /_ore$/.test(name) ? oreColor(picture) : commonColor(picture), overlay ? undefined : tintOf(path, tints));
     colors.set(key, color!);
     return color;
+  };
+  const layerOf = (texture: TextureFile | undefined, read: (path: string) => Uint8Array | undefined): number => {
+    if (!texture) return 0;
+    const key = `${texture.path}|${texture.overlay ? 1 : 0}`;
+    const known = layerIds.get(key);
+    if (known !== undefined) return known;
+    const picture = pictureOf(texture.path, read);
+    const id = picture ? layers.length : 0;
+    if (picture) layers.push(textureLayer(picture, texture.overlay ? (tints.grass ?? [124, 189, 107]) : tintOf(texture.path, tints), texture.overlay === true, /^water_/.test(texture.path.split("/").pop()!)));
+    layerIds.set(key, id);
+    return id;
   };
 
   const packs = vanillaPacks(clientPacks);
@@ -173,7 +225,10 @@ export function buildColorTable(clientPacks: string, blocksPack: string, stamp =
     if (!faces) continue;
     const name = `minecraft:${short}`;
     const [up, down, side] = (["up", "down", "side"] as Face[]).map((face) => colorOf(pathOf(textures, faces[face]), vanillaFile, name));
-    if (up && down && side) table.blocks[name] = [up, down, side];
+    if (up && down && side) {
+      table.blocks[name] = [up, down, side];
+      table.textures![name] = (["up", "down", "side"] as Face[]).map((face) => layerOf(pathOf(textures, faces[face]), vanillaFile)) as [number, number, number];
+    }
   }
 
   // The blocks pack: each block's material instance for its top, bottom and north side (* when one covers all).
@@ -197,10 +252,37 @@ export function buildColorTable(clientPacks: string, blocksPack: string, stamp =
         return pathOf(terrain, typeof instance === "object" ? instance.texture : undefined);
       };
       const [up, down, side] = ["up", "down", "north"].map((face) => colorOf(textureOf(face), customFile, name));
-      if (up && down && side) table.blocks[name] = [up, down, side];
+      if (up && down && side) {
+        table.blocks[name] = [up, down, side];
+        table.textures![name] = ["up", "down", "north"].map((face) => layerOf(textureOf(face), customFile)) as [number, number, number];
+      }
     }
   }
-  return table;
+  table.layers = layers.length;
+  const out = new Uint8Array(layers.length * LAYER_BYTES);
+  layers.forEach((layer, i) => out.set(layer, i * LAYER_BYTES));
+  return { table, layers: out };
+}
+
+/**
+ * A texture as a layer: LAYER_SIZE square (nearest pixels), tinted. An overlay texture is tinted
+ * where its alpha is set and opaque everywhere; water is made WATER_ALPHA see-through.
+ */
+export function textureLayer(picture: Image, tint: Rgb | undefined, overlay = false, water = false): Uint8Array {
+  const out = new Uint8Array(LAYER_BYTES);
+  for (let y = 0; y < LAYER_SIZE; y++) {
+    for (let x = 0; x < LAYER_SIZE; x++) {
+      const from = (Math.floor((y * picture.height) / LAYER_SIZE) * picture.width + Math.floor((x * picture.width) / LAYER_SIZE)) * 4;
+      const to = (y * LAYER_SIZE + x) * 4;
+      const [r, g, b, a] = picture.data.subarray(from, from + 4);
+      const tinting = tint && (!overlay || a > 0);
+      out[to] = tinting ? Math.round((r * tint[0]) / 255) : r;
+      out[to + 1] = tinting ? Math.round((g * tint[1]) / 255) : g;
+      out[to + 2] = tinting ? Math.round((b * tint[2]) / 255) : b;
+      out[to + 3] = overlay ? 255 : water ? Math.min(a, WATER_ALPHA) : a;
+    }
+  }
+  return out;
 }
 
 /** The table with work\viewer\looks\overrides.json applied: "#rrggbb" (or "#rrggbbaa") for every face of a block. */

@@ -6,7 +6,10 @@
 //   GET /api/viewer/maps                        the editor's catalog (catalog.ts): every map by target
 //                                               with its checklist state, and the client's worlds
 //   GET /api/viewer/view?target=<id>&map=<id>   the map's view file (view-format.ts), gzipped
-//   GET /api/viewer/colors                      the blocks' Average colors (looks.ts), gzipped JSON
+//   GET /api/viewer/colors                      the blocks' Average colors and texture layer
+//                                               numbers (looks.ts), gzipped JSON
+//   GET /api/viewer/textures                    the texture layers for Vanilla textures (16x16
+//                                               RGBA each, looks.ts), gzipped; for this page only
 //   GET /api/viewer/shapes?target=<id>&map=<id> the shapes of the custom blocks the map uses
 //                                               (custom-shapes.ts), by look
 //   GET /api/viewer/thumb?target=<id>&map=<id>  the map's thumbnail (preview.png), if it has one
@@ -22,7 +25,7 @@ import { storeDir, workingDir } from "../maps/paths.ts";
 import { MapStore } from "../maps/store.ts";
 import type { CustomShape } from "../control-panel/viewer/shapes.ts";
 import { viewShapes } from "./custom-shapes.ts";
-import { colorTable } from "./looks.ts";
+import { colorTable, textureLayers } from "./looks.ts";
 import { cachedView, ViewError } from "./view-file.ts";
 
 const ID = /^[A-Za-z0-9_-]+$/;
@@ -84,6 +87,15 @@ export function viewerColors(root: string): Buffer {
   const key = `${table.stamp} ${existsSync(overrides) ? statSync(overrides).mtimeMs : 0}`;
   if (colors?.key !== key) colors = { key, gzipped: gzipSync(JSON.stringify(table)) };
   return colors.gzipped;
+}
+
+let textures: { stamp: string; gzipped: Buffer } | undefined;
+
+/** The texture layers as gzipped bytes, kept until the table changes. */
+export function viewerTextures(root: string): Buffer {
+  const { stamp } = colorTable(root);
+  if (textures?.stamp !== stamp) textures = { stamp, gzipped: gzipSync(textureLayers(root)) };
+  return textures.gzipped;
 }
 
 let bundle: { newest: number; files: Promise<Map<string, Uint8Array>> } | undefined;

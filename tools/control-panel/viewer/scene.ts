@@ -5,12 +5,15 @@
 // toggling them costs nothing), cuts as clipping planes with a cap of the cut layer (nothing is
 // meshed again: docs/spike-results.md, "Map viewer"), Faded as the same meshes drawn again
 // see-through on the other side of the cuts, outlines of hidden blocks (barriers, invisible
-// bedrock, light) when asked, and the camera with its views. Everything is placed in world
+// bedrock, light) when asked, and the camera with its views. Vanilla textures fill each face from
+// a texture array (a layer per texture, by a number on each vertex), repeating once per block, in
+// place of the face's color; the color still fills a cube's see-through texels (as Minecraft's
+// fast leaves do), and plants are cut out by their alpha. Everything is placed in world
 // coordinates (Minecraft's: +x east, +y up, +z south); the meshes' positions are sixteenths of a
 // block, scaled down.
 import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
-import { paddedSection, paddedWater, prepareLooks, SHADE, type Looks, type MeshPart, type Prepared, type SectionMesh } from "./mesher.ts";
+import { CUTOUT, paddedSection, paddedWater, prepareLooks, SHADE, type Looks, type MeshPart, type Prepared, type SectionMesh } from "./mesher.ts";
 import { covered, OPPOSITE, SEE_THROUGH, type Rect } from "./shapes.ts";
 import { EAST, lookAtSpot, OUTLINED, pick, spotsOf, UP, WEST, NORTH, SOUTH, type Hit, type Keep, type Volume } from "./volume.ts";
 
@@ -35,13 +38,16 @@ const MAX_OUTLINED = 300_000;
 const VERTEX = /* glsl */ `
 attribute vec4 tint;
 attribute float occlusion;
+attribute float layer;
 varying vec4 vTint;
 varying float vOcclusion;
 varying vec3 vWorld;
+flat varying float vLayer;
 #include <clipping_planes_pars_vertex>
 void main() {
   vTint = tint;
   vOcclusion = occlusion;
+  vLayer = layer;
   vec4 worldPosition = modelMatrix * vec4(position, 1.0);
   vWorld = worldPosition.xyz;
   vec4 mvPosition = viewMatrix * worldPosition;
@@ -58,9 +64,12 @@ uniform float opacity;
 uniform float grid;
 uniform float clipNear;
 uniform float useAlpha;
+uniform float useTextures;
+uniform highp sampler2DArray atlas;
 varying vec4 vTint;
 varying float vOcclusion;
 varying vec3 vWorld;
+flat varying float vLayer;
 #include <clipping_planes_pars_fragment>
 float hash(vec3 p) {
   p = fract(p * 0.3183099 + vec3(0.71, 0.113, 0.419));
@@ -90,7 +99,40 @@ void main() {
     float strength = 1.0 - smoothstep(1.0 / 10.0, 1.0 / 5.0, size);
     light *= mix(1.0 - 0.22 * strength, 1.0, smoothstep(0.0, 1.2, edge));
   }
-  gl_FragColor = vec4(vTint.rgb * light, useAlpha > 0.5 ? vTint.a * opacity : opacity);
+  vec3 color = vTint.rgb;
+  float alpha = useAlpha > 0.5 ? vTint.a * opacity : opacity;
+  if (useTextures > 0.5) {
+    // The texture repeats once per block: u and v from where on the face this is, the image's top
+    // row at a side's top and at a top's north edge, its left as seen from outside.
+    bool cutout = vLayer >= ${CUTOUT}.0;
+    float layer = cutout ? vLayer - ${CUTOUT}.0 : vLayer;
+    vec3 a = abs(n);
+    vec3 f = fract(vWorld);
+    vec2 uv;
+    float shade;
+    if (a.y > 0.5) {
+      uv = vec2(f.x, n.y > 0.0 ? f.z : 1.0 - f.z);
+      shade = n.y > 0.0 ? ${SHADE[0].toFixed(2)} : ${SHADE[1].toFixed(2)};
+    } else if (a.z >= a.x) {
+      uv = vec2(n.z > 0.0 ? f.x : 1.0 - f.x, 1.0 - f.y);
+      shade = abs(a.z - a.x) < 0.2 ? 0.85 : ${SHADE[2].toFixed(2)};
+    } else {
+      uv = vec2(n.x > 0.0 ? 1.0 - f.z : f.z, 1.0 - f.y);
+      shade = ${SHADE[4].toFixed(2)};
+    }
+    vec4 texel = texture(atlas, vec3(uv, layer));
+    if (useAlpha > 0.5) {
+      // See-through blocks take the texture's own alpha (glass is clear but for its frame).
+      if (texel.a < 0.02) discard;
+      color = texel.rgb * shade;
+      alpha = texel.a * opacity;
+    } else if (texel.a < 0.5) {
+      if (cutout) discard;
+    } else {
+      color = texel.rgb * shade;
+    }
+  }
+  gl_FragColor = vec4(color * light, alpha);
 }`;
 
 export interface Toggles {
@@ -146,6 +188,8 @@ export class MapScene {
     darkenBelow: { value: 0 },
     cutTop: { value: FAR },
     clipNear: { value: CLIP_NEAR },
+    useTextures: { value: 0 },
+    atlas: { value: emptyArray() as THREE.DataArrayTexture },
   };
   private readonly planes = { top: new THREE.Plane(new THREE.Vector3(0, -1, 0), FAR), x: new THREE.Plane(new THREE.Vector3(-1, 0, 0), FAR), z: new THREE.Plane(new THREE.Vector3(0, 0, -1), FAR) };
   private readonly opposite = { top: new THREE.Plane(), x: new THREE.Plane(), z: new THREE.Plane() };
@@ -209,7 +253,7 @@ export class MapScene {
 
   /** What the mesher needs to know about the looks. */
   private looks(): Looks {
-    return { drawn: this.volume.drawn, colors: this.volume.colors, table: this.volume.table };
+    return { drawn: this.volume.drawn, colors: this.volume.colors, layers: this.volume.layers, table: this.volume.table };
   }
 
   /** Meshes every section in the workers, then builds the region meshes. */
@@ -365,6 +409,7 @@ export class MapScene {
     }
     const positions: number[] = [];
     const tints: number[] = [];
+    const layers: number[] = [];
     const indices: number[] = [];
     const shade = SHADE[face];
     const plane = (layer + (toward > 0 ? 1 : 0)) * 16;
@@ -384,6 +429,7 @@ export class MapScene {
         c[u] = du;
         c[v] = dv;
         positions.push(c[0], c[1], c[2]);
+        layers.push(volume.layers[look * 6 + face]);
         const color = look * 24 + face * 4;
         tints.push(volume.colors[color] * shade, volume.colors[color + 1] * shade, volume.colors[color + 2] * shade, 255);
       }
@@ -414,6 +460,7 @@ export class MapScene {
     const geometry = new THREE.BufferGeometry();
     geometry.setAttribute("position", new THREE.BufferAttribute(Uint16Array.from(positions), 3));
     geometry.setAttribute("tint", new THREE.BufferAttribute(Uint8Array.from(tints), 4, true));
+    geometry.setAttribute("layer", new THREE.BufferAttribute(Uint16Array.from(layers), 1));
     geometry.setAttribute("occlusion", new THREE.BufferAttribute(new Uint8Array(positions.length / 3).fill(255), 1, true));
     geometry.setIndex(positions.length / 3 < 65536 ? new THREE.BufferAttribute(Uint16Array.from(indices), 1) : new THREE.BufferAttribute(Uint32Array.from(indices), 1));
     geometry.boundingSphere = new THREE.Sphere(new THREE.Vector3(sx * 8, sy * 8, sz * 8), Math.hypot(sx, sy, sz) * 8);
@@ -424,6 +471,30 @@ export class MapScene {
     mesh.matrixAutoUpdate = false;
     this.caps[axis] = mesh;
     this.scene.add(mesh);
+  }
+
+  /**
+   * The texture layers for Vanilla textures (looks.ts: 16x16 RGBA each, rows from the top): kept
+   * as a texture array, with mipmaps so far blocks don't shimmer, pixels crisp up close.
+   */
+  setTextures(data: Uint8Array, count: number): void {
+    const texture = new THREE.DataArrayTexture(data, 16, 16, count);
+    texture.format = THREE.RGBAFormat;
+    texture.type = THREE.UnsignedByteType;
+    texture.magFilter = THREE.NearestFilter;
+    texture.minFilter = THREE.NearestMipmapLinearFilter;
+    texture.generateMipmaps = true;
+    texture.anisotropy = 4;
+    texture.needsUpdate = true;
+    this.uniforms.atlas.value.dispose();
+    this.uniforms.atlas.value = texture;
+    this.requestRender();
+  }
+
+  /** Whether the faces show their textures (after setTextures) or their Average colors. */
+  setLook(textures: boolean): void {
+    this.uniforms.useTextures.value = textures ? 1 : 0;
+    this.requestRender();
   }
 
   /** Shows or hides outlines of the hidden blocks a game uses: barriers, invisible bedrock, light blocks. */
@@ -749,6 +820,7 @@ function regionGeometry(parts: MeshPart[]): THREE.BufferGeometry {
   const vertices = parts.reduce((sum, part) => sum + part.positions.length / 3, 0);
   const count = parts.reduce((sum, part) => sum + part.indices.length, 0);
   const positions = new Uint16Array(vertices * 3);
+  const layers = new Uint16Array(vertices);
   const tints = new Uint8Array(vertices * 4);
   const occlusion = new Uint8Array(vertices);
   const indices = vertices < 65536 ? new Uint16Array(count) : new Uint32Array(count);
@@ -756,6 +828,7 @@ function regionGeometry(parts: MeshPart[]): THREE.BufferGeometry {
   let i = 0;
   for (const part of parts) {
     positions.set(part.positions, v * 3);
+    layers.set(part.layers, v);
     tints.set(part.tints, v * 4);
     occlusion.set(part.occlusion, v);
     for (let k = 0; k < part.indices.length; k++) indices[i + k] = part.indices[k] + v;
@@ -765,11 +838,19 @@ function regionGeometry(parts: MeshPart[]): THREE.BufferGeometry {
   const geometry = new THREE.BufferGeometry();
   geometry.setAttribute("position", new THREE.BufferAttribute(positions, 3));
   geometry.setAttribute("tint", new THREE.BufferAttribute(tints, 4, true));
+  geometry.setAttribute("layer", new THREE.BufferAttribute(layers, 1));
   geometry.setAttribute("occlusion", new THREE.BufferAttribute(occlusion, 1, true));
   geometry.setIndex(new THREE.BufferAttribute(indices, 1));
   const half = (REGION * 16 * 16) / 2;
   geometry.boundingSphere = new THREE.Sphere(new THREE.Vector3(half, half, half), half * Math.sqrt(3));
   return geometry;
+}
+
+/** A one-layer texture array to bind until the textures come. */
+function emptyArray(): THREE.DataArrayTexture {
+  const texture = new THREE.DataArrayTexture(new Uint8Array([255, 0, 255, 255]), 1, 1, 1);
+  texture.needsUpdate = true;
+  return texture;
 }
 
 interface MeshJob {

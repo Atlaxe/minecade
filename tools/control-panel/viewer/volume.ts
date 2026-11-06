@@ -42,6 +42,8 @@ export interface Volume {
   drawn: Uint8Array;
   /** 24 bytes a look: each face's RGBA, faces in the order above. */
   colors: Uint8Array;
+  /** 6 a look: each face's texture layer (looks.ts; 0 for none). */
+  layers: Uint16Array;
   /** How each look is drawn and picked. */
   table: ShapeTable;
   /** Drawn looks with no color in the table, by name. */
@@ -52,7 +54,7 @@ export interface Volume {
   box: View["box"];
 }
 
-export function buildVolume(view: View, table: Record<string, FaceColors>, custom: Record<string, CustomShape> = {}): Volume {
+export function buildVolume(view: View, table: Record<string, FaceColors>, custom: Record<string, CustomShape> = {}, textures: Record<string, [number, number, number]> = {}): Volume {
   const origin = view.box.min.map((v) => Math.floor(v / 16) * 16) as [number, number, number];
   const sections = view.box.max.map((v, i) => Math.floor(v / 16) - origin[i] / 16 + 1) as [number, number, number];
   const size = sections.map((n) => n * 16) as [number, number, number];
@@ -80,6 +82,7 @@ export function buildVolume(view: View, table: Record<string, FaceColors>, custo
   joinDoors(looks, blocks, size);
   const drawn = new Uint8Array(looks.length);
   const colors = new Uint8Array(looks.length * 24);
+  const layers = new Uint16Array(looks.length * 6);
   const unknown = new Set<string>();
   looks.forEach((look, id) => {
     if (id === 0 || HIDDEN.test(look.name)) return;
@@ -87,6 +90,8 @@ export function buildVolume(view: View, table: Record<string, FaceColors>, custo
     const faces = table[look.name];
     if (!faces) unknown.add(look.name);
     faceColors(look, faces).forEach((color, face) => colors.set(color, id * 24 + face * 4));
+    const textured = textures[look.name];
+    if (textured) layers.set(sixFaces(look, textured), id * 6);
   });
   const shapes = buildShapeTable(looks, drawn, custom);
   // Alpha is how see-through a see-through block is drawn; every other block is drawn solid.
@@ -99,7 +104,7 @@ export function buildVolume(view: View, table: Record<string, FaceColors>, custo
   }
   const counts = new Uint32Array(looks.length);
   for (let i = 0; i < blocks.length; i++) counts[blocks[i]]++;
-  return { origin, size, sections, blocks, water, looks, drawn, colors, table: shapes, unknown: [...unknown].sort(), counts, box: view.box };
+  return { origin, size, sections, blocks, water, looks, drawn, colors, layers, table: shapes, unknown: [...unknown].sort(), counts, box: view.box };
 }
 
 /**
@@ -139,7 +144,11 @@ function joinDoors(looks: ViewLook[], blocks: Uint16Array, size: [number, number
 /** A look's six face colors: a log lying along x or z (pillar_axis) has its rings on its ends. */
 export function faceColors(look: ViewLook, faces: FaceColors | undefined): number[][] {
   if (!faces) return [UNKNOWN, UNKNOWN, UNKNOWN, UNKNOWN, UNKNOWN, UNKNOWN];
-  const [up, down, side] = faces;
+  return sixFaces(look, faces);
+}
+
+/** A block's top, bottom and side (colors or textures) on its six faces, turned by pillar_axis. */
+export function sixFaces<T>(look: ViewLook, [up, down, side]: readonly [T, T, T]): T[] {
   const axis = look.states?.pillar_axis;
   if (axis === "x") return [side, side, side, side, down, up];
   if (axis === "z") return [side, side, down, up, side, side];

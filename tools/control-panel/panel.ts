@@ -23,7 +23,7 @@ import { catalogDir, storeDir } from "../maps/paths.ts";
 import { MapStore } from "../maps/store.ts";
 import { MapChanges } from "../viewer/map-changes.ts";
 import { viewerMap, viewerMapConfig, watchMap } from "../viewer/map-data.ts";
-import { VIEWER_PAGE, viewerColors, viewerMaps, viewerScripts, viewerShapes, viewerThumbPath, viewerView } from "../viewer/routes.ts";
+import { VIEWER_PAGE, viewerColors, viewerMaps, viewerScripts, viewerShapes, viewerTextures, viewerThumbPath, viewerView } from "../viewer/routes.ts";
 import {
   BroadcastLog,
   checkLobbyMap,
@@ -693,6 +693,11 @@ async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> 
     if (path === "/api/viewer/colors") {
       res.writeHead(200, { "content-type": "application/json", "content-encoding": "gzip", "cache-control": "no-store" });
       res.end(viewerColors(repoRoot));
+      return;
+    }
+    if (path === "/api/viewer/textures") {
+      res.writeHead(200, { "content-type": "application/octet-stream", "content-encoding": "gzip", "cache-control": "no-store" });
+      res.end(viewerTextures(repoRoot));
       return;
     }
     if (path === "/api/viewer/maps") return sendJson(res, 200, await viewerMaps(repoRoot));

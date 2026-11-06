@@ -50,6 +50,16 @@ describe("buildVolume", () => {
   });
 });
 
+describe("texture layers", () => {
+  it("gives each look's faces their layers, a log's turned by its axis, 0 for none", () => {
+    const volume = buildVolume(view([{ at: [0, 0, 0], look: 1 }], LOOKS), TABLE, {}, { "minecraft:stone": [3, 3, 3], "minecraft:oak_log": [7, 8, 9] });
+    expect(Array.from(volume.layers.subarray(6, 12))).toEqual([3, 3, 3, 3, 3, 3]);
+    // The log lies along x: its rings (7 and 8) on its west and east ends.
+    expect(Array.from(volume.layers.subarray(4 * 6, 5 * 6))).toEqual([9, 9, 9, 9, 8, 7]);
+    expect(Array.from(volume.layers.subarray(3 * 6, 4 * 6))).toEqual([0, 0, 0, 0, 0, 0]);
+  });
+});
+
 describe("faceColors", () => {
   it("puts a log's rings on its ends when it lies along x or z", () => {
     expect(faceColors({ name: "minecraft:oak_log" }, LOG)[UP]).toEqual(LOG[0]);

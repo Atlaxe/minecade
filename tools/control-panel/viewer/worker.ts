@@ -17,6 +17,6 @@ scope.onmessage = (event) => {
     return;
   }
   const mesh: SectionMesh = meshSection(message.blocks!, message.water, looks!, message.offset!);
-  const buffers = [mesh.solid, mesh.glass].flatMap((part) => [part.positions.buffer, part.tints.buffer, part.occlusion.buffer, part.indices.buffer]);
+  const buffers = [mesh.solid, mesh.glass].flatMap((part) => [part.positions.buffer, part.layers.buffer, part.tints.buffer, part.occlusion.buffer, part.indices.buffer]);
   scope.postMessage({ id: message.id, mesh }, buffers);
 };

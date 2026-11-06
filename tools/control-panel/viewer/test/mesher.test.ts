@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { ViewLook } from "../../../viewer/view-format.ts";
-import { meshSection, PADDED, paddedSection, paddedWater, prepareLooks, type MeshPart } from "../mesher.ts";
+import { CUTOUT, meshSection, PADDED, paddedSection, paddedWater, prepareLooks, type MeshPart } from "../mesher.ts";
 import { buildShapeTable } from "../shapes.ts";
 
 /** Section blocks with their border, from (x, y, z) to a look (0 to 15 inside, -1 and 16 the neighbors'). */
@@ -25,7 +25,8 @@ const [RED, BLUE, SLAB, TOP_SLAB, GLASS, WATER, POPPY, STAIRS] = [1, 2, 3, 4, 5,
 const DRAWN = new Uint8Array(LOOKS.map((_, id) => (id === 0 ? 0 : 1)));
 const COLORS = new Uint8Array(LOOKS.length * 24);
 for (let look = 1; look < LOOKS.length; look++) for (let face = 0; face < 6; face++) COLORS.set(look === BLUE ? [0, 0, 200, 255] : look === GLASS ? [180, 220, 230, 120] : [200, 0, 0, 255], look * 24 + face * 4);
-const PREPARED = prepareLooks({ drawn: DRAWN, colors: COLORS, table: buildShapeTable(LOOKS, DRAWN, {}) });
+const LAYERS = new Uint16Array(LOOKS.length * 6).map((_, i) => Math.floor(i / 6) * 10 + (i % 6));
+const PREPARED = prepareLooks({ drawn: DRAWN, colors: COLORS, layers: LAYERS, table: buildShapeTable(LOOKS, DRAWN, {}) });
 
 const mesh = (at: (x: number, y: number, z: number) => number, offset: [number, number, number] = [0, 0, 0], water?: (x: number, y: number, z: number) => number) =>
   meshSection(blocksOf(at), water ? blocksOf(water) : undefined, PREPARED, offset);
@@ -87,6 +88,16 @@ describe("meshSection: cubes", () => {
   it("places the faces from the region offset", () => {
     const result = mesh(only(0, 0, 0, RED), [16, 32, 48]);
     for (const corners of quads(result.solid)) for (const [x, y, z] of corners) expect([x >= 256 && x <= 272, y >= 512 && y <= 528, z >= 768 && z <= 784]).toEqual([true, true, true]);
+  });
+});
+
+describe("meshSection: texture layers", () => {
+  it("puts each face's layer on its corners, and marks a plant's to be cut out", () => {
+    const cube = mesh(only(3, 4, 5, RED)).solid;
+    // Look 1's faces are layers 10 to 15 here; the top (face 0) is the first quad merged.
+    expect(new Set(cube.layers)).toEqual(new Set([10, 11, 12, 13, 14, 15]));
+    const plant = mesh(only(3, 4, 5, POPPY)).solid;
+    expect(new Set(plant.layers)).toEqual(new Set([(POPPY * 10 + 2) | CUTOUT]));
   });
 });
 
