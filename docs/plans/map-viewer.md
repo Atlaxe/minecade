@@ -423,6 +423,19 @@ The user's changes to V.3 to V.6's layout, built the same day (`docs/viewer.md` 
   keys to their defaults put them back. Kept in this browser; tooltips, the cuts' line and flying's
   line follow. Flying takes its keys from the same map.
 
+## After V.10 (2026-11-06, the user's changes)
+
+The user asked for these with V.11 and V.12, each its own pass:
+- **The left panel in tabs** (done 2026-11-06, `sidebar.ts`): Checklist (the checklist and the
+  checks) and Overview, each with its own search. The overview shows only what the map has: no
+  Spawns section until a spawn is placed, no build limit until one is set.
+- **No Map editor page** in the Panel once V.11 is in: the Maps page and the viewer drive the
+  in-game editor. Its servers start in the background while the Maps page is open, a picked map
+  starts loading in Edit (another pick cancels it), so by the time the viewer is up, joining the
+  map in game is quick. The editor's log moves to the Logs page, and the editor page's Friends tab
+  switch goes (the Servers page has the switch).
+- **The Servers page reworked**, the join addresses and the Friends tab broadcast especially.
+
 ## Passes (the implementation order: stop and report after each, commit and push)
 
 **V.1 Spike** (done 2026-11-05: `docs/spike-results.md`, "Map viewer"; `spike/viewer/`).

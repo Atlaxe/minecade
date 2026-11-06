@@ -73,8 +73,8 @@ list; its map, if any, stays).
 - **The top bar:** the back arrow, the map's thumbnail, name and game; then Undo, Redo, Settings
   (the sliders), **Save** and **Publish** on the right. "Open in game Edit" shows while game Edit has
   the map open.
-- **The left panel:** the tools, the game's checklist, the **checks**, and the **overview** of
-  every list.
+- **The left panel:** the tools, then two tabs, **Checklist** (the game's checklist and the
+  **checks**) and **Overview** (what the map has), each with its own search.
 - **The view**, with the view cube in its top right corner.
 - **The right panel:** what the tool or the picked entry can change; with nothing picked (and with
   the Cut tool), the cuts.
@@ -149,9 +149,18 @@ facing of its own), and its name over it (Names, in Settings, turns them off). B
 faintly through blocks. Markers past a cut are faded or gone with the blocks; a marker counts as
 past the cut when the block it stands on is, so cutting at a floor keeps the spawns on it.
 
-**The left panel** starts with the game's checklist (each thing the map needs, with how many it has,
-then what the build would refuse it for, in red, and warnings), then the **checks**, then the
-**overview**: every list as game Edit's tools have them, under Spawns, Game markers and Boundaries.
+**The left panel** has two tabs under the tools; the one last open stays open next time.
+- **Checklist** (its count is what's left to do and the checks found): the game's checklist (each
+  thing the map needs, with how many it has, then what the build would refuse it for, in red, and
+  warnings), then the **checks**.
+- **Overview** (its count is the entries): what the map has, by the lists game Edit's tools place
+  into, under Spawns, Game markers and Boundaries. Only lists with entries show, and only sections
+  with such a list: a map with no spawns yet has no Spawns section, and none without a build limit
+  has one. What's still needed is the checklist's job.
+- **Search:** each tab has its own box, kept while the other tab is open. It shows what has every
+  word typed, in any case: the checklist's rows, problems, warnings and checks; the overview's
+  entries by name or by the numbers of their place, or a whole list or section by its name
+  ("red", "boundaries"). Esc empties the box, and Esc again leaves it.
 
 **Checks** are what a look at the blocks finds, as warnings: Save and Publish still work. Click one
 to pick the entry it's about (or, for blocks, to look at the first of them).

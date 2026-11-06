@@ -27,10 +27,10 @@
 
   .main { display: grid; grid-template-columns: 300px 1fr 280px; min-height: 0; }
   .left, .right { background: var(--surface); overflow-y: auto; min-height: 0; }
-  .left { border-right: 1px solid var(--line); }
+  .left { border-right: 1px solid var(--line); display: flex; flex-direction: column; overflow: hidden; }
   .right { border-left: 1px solid var(--line); padding: 16px; display: flex; flex-direction: column; gap: 18px; }
 
-  .tools { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; padding: 12px; border-bottom: 1px solid var(--line); position: sticky; top: 0; background: var(--surface); z-index: 1; }
+  .tools { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; padding: 12px; border-bottom: 1px solid var(--line); flex: none; }
   .tools button { display: grid; place-items: center; padding: 7px 0; background: none; color: var(--muted); border: 1px solid transparent; }
   .tools button:hover:not(:disabled) { background: var(--raised); color: var(--text); }
   .tools button.on, .tools button.on:hover:not(:disabled) { background: var(--selected); color: var(--on-selected); border-color: color-mix(in srgb, var(--primary) 45%, transparent); }
@@ -64,8 +64,22 @@
   .tag.size { --tag-color: var(--primary); }
   .tag.size.bad { --tag-color: var(--bad); color: #ffd2cd; }
 
-  /* The left panel: the checklist, then the overview of every list. */
-  .sidebar { padding: 14px 12px 24px; display: flex; flex-direction: column; gap: 20px; }
+  /* The left panel: Checklist and Overview tabs, each with its own search. */
+  #sidebar { display: flex; flex-direction: column; flex: 1; min-height: 0; }
+  .side-head { display: grid; gap: 8px; padding: 10px 12px; border-bottom: 1px solid var(--line); flex: none; }
+  .side-tabs { display: grid; grid-template-columns: 1fr 1fr; gap: 2px; padding: 2px; background: var(--inset); border: 1px solid var(--line); border-radius: var(--radius); }
+  .side-tabs [role=tab] { display: flex; align-items: center; justify-content: center; gap: 6px; background: none; border: 1px solid transparent; color: var(--muted); padding: 5px 8px; }
+  .side-tabs [role=tab]:hover { color: var(--text); }
+  .side-tabs [role=tab][aria-selected=true] { background: var(--selected); color: var(--on-selected); border-color: color-mix(in srgb, var(--primary) 45%, transparent); }
+  .tab-count { font-size: var(--fs-meta); font-weight: 400; color: inherit; opacity: .8; }
+  .tab-count:empty { display: none; }
+  .tab-count.warn { color: var(--warn); opacity: 1; }
+  .side-search { display: flex; align-items: center; gap: 8px; padding: 0 8px; background: var(--inset); border: 1px solid var(--line); border-radius: var(--radius); color: var(--muted); cursor: text; }
+  .side-search:focus-within { border-color: var(--primary); }
+  .side-search svg { width: 16px; height: 16px; flex: none; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; }
+  .side-search input { flex: 1; min-width: 0; border: 0; background: none; padding: 6px 0; outline: none; }
+  .sidebar { flex: 1; min-height: 0; overflow-y: auto; padding: 14px 12px 24px; display: flex; flex-direction: column; gap: 20px; }
+  .side-empty { color: var(--muted); margin: 0 4px; }
   .sidebar h2 { font-size: 18px; display: flex; align-items: center; gap: 8px; margin: 0 4px 8px; }
   .checklist ul { list-style: none; margin: 0; padding: 0; }
   .checklist .rows li { display: flex; align-items: center; gap: 8px; padding: 3px 4px; }
@@ -83,12 +97,12 @@
   .check .dot { width: 8px; height: 8px; background: var(--warn); flex: none; margin-top: 6px; }
   .check .swatch { margin-top: 5px; }
   .swatch.unknown { background: #ff00ff; }
-  .overview h3 { font-size: var(--fs-meta); color: var(--muted); text-transform: uppercase; letter-spacing: .06em; margin: 14px 4px 6px; }
+  .overview h3 { font-size: var(--fs-meta); color: var(--muted); text-transform: uppercase; letter-spacing: .06em; margin: 0 4px 6px; }
+  .overview h3 ~ h3 { margin-top: 14px; }
   .list { margin-bottom: 6px; }
   .list-head { display: flex; align-items: center; gap: 8px; font-weight: 700; padding: 4px; }
   .list.todo .count { color: var(--warn); }
   .swatch { width: 10px; height: 10px; flex: none; box-shadow: 0 0 0 1px rgba(0, 0, 0, .4); }
-  .empty { color: var(--muted); padding: 2px 4px 2px 22px; font-size: var(--fs-meta); }
   .entry { display: flex; width: 100%; gap: 8px; align-items: baseline; text-align: left; background: none; font-size: var(--fs-body); font-weight: 400; padding: 4px 6px 4px 22px; border: 0; }
   .entry:hover:not(:disabled) { background: var(--raised); }
   .entry.on, .entry.on:hover:not(:disabled) { background: var(--selected); color: var(--on-selected); }
@@ -188,7 +202,7 @@
   </div>
 </header>
 <div class="main">
-  <aside class="left" aria-label="Tools, checklist and overview">
+  <aside class="left" aria-label="Tools, the checklist and the overview">
     <div class="tools" role="toolbar" aria-label="Tools">
       <button data-tool="select" aria-label="Select" data-tip="Select: pick, move and resize" data-key="V"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3l12 7.5-5.5 1.2L10 17z"/><path d="m12.5 11.7 4 6.3"/></svg></button>
       <button data-tool="spawn" aria-label="Spawn" data-tip="Spawn: place spawns" data-key="P"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="2.5" width="6" height="6"/><path d="M8 10h8v6H8zM9.5 16v5.5M14.5 16v5.5M8 10l-3 5M16 10l3 5"/></svg></button>
@@ -198,7 +212,7 @@
       <button data-tool="mirror" aria-label="Mirror" data-tip="Mirror: place a plane, pick entries, mirror them across it" data-key="I"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2.5v19" stroke-dasharray="2.2 2.4"/><path d="M9 6.5 3 17.5h6z"/><path d="M15 6.5l6 11h-6z"/></svg></button>
       <button data-tool="cut" aria-label="Cut" data-tip="Cut: slice the map by height, X and Z" data-key="C"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 9l9-4.5L21 9l-9 4.5z"/><path d="M3 15l9 4.5 9-4.5" stroke-dasharray="2 2.5"/></svg></button>
     </div>
-    <div id="sidebar" class="sidebar"></div>
+    <div id="sidebar"></div>
   </aside>
   <div class="stage">
     <canvas id="view" tabindex="0"></canvas>
