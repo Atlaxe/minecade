@@ -35,10 +35,13 @@ import {
   normalizeNames,
   PlayerLog,
   readEnv,
+  setAllowListOn,
   setEnvValues,
+  setPlayerSwitch,
   shouldExit,
   stackOf,
   STACKS,
+  type PlayerLists,
   type StackDef,
   type StackId,
 } from "./core.ts";
@@ -390,6 +393,7 @@ async function buildState() {
       ? {
           missing: false,
           ALLOW_LIST: env.ALLOW_LIST ?? "",
+          ALLOW_LIST_PAUSED: env.ALLOW_LIST_PAUSED ?? "",
           LAN_PLAYERS: env.LAN_PLAYERS ?? "",
           WATCHER_GAMERTAG: env.WATCHER_GAMERTAG ?? "",
           LOBBY_MAP: env.LOBBY_MAP ?? "",
@@ -761,6 +765,31 @@ async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> 
     void refresh();
     return sendJson(res, 202, { ok: true });
   }
+  // The Players page's switches: one player's Allowed or Map editor, and the allow list itself.
+  if (path === "/api/players" || path === "/api/allow-list") {
+    if (!existsSync(envPath)) return sendJson(res, 409, { error: "No .env file. Copy .env.example to .env first." });
+    const before = await readFile(envPath, "utf8");
+    const env = readEnv(before);
+    const lists: PlayerLists = { ALLOW_LIST: env.ALLOW_LIST ?? "", ALLOW_LIST_PAUSED: env.ALLOW_LIST_PAUSED ?? "", LAN_PLAYERS: env.LAN_PLAYERS ?? "" };
+    let next: PlayerLists | { error: string } = lists;
+    if (path === "/api/allow-list") {
+      if (typeof body.on !== "boolean") return sendJson(res, 400, { error: "expected {on: true|false}" });
+      next = setAllowListOn(lists, body.on);
+    } else {
+      if (typeof body.name !== "string") return sendJson(res, 400, { error: "expected {name, allowed?: true|false, editor?: true|false}" });
+      for (const which of ["allowed", "editor"] as const) {
+        if (typeof body[which] === "boolean" && !("error" in next)) next = setPlayerSwitch(next, body.name, which, body[which] as boolean);
+      }
+    }
+    if ("error" in next) return sendJson(res, 409, { error: next.error });
+    const after = setEnvValues(before, { ...next });
+    if (after !== before) {
+      await writeFile(envPath, after);
+      note(path === "/api/allow-list" ? `Allow list switched ${body.on ? "on" : "off"} in .env. Restart the network to apply.` : `Saved ${String(body.name)}'s switches to .env. Restart the network to apply.`);
+    }
+    void refresh();
+    return sendJson(res, 200, { changed: after !== before });
+  }
   if (path === "/api/env") {
     const result = await saveEnv(body);
     return sendJson(res, result.status, result.body);
@@ -928,7 +957,22 @@ async function relayToOrchestrator(start: boolean, body: Record<string, unknown>
 }
 
 /** Everyone's stats from the orchestrator, or an error the page shows as is. */
+/** The last stats the orchestrator gave, kept so the Players page lists everyone while the network is stopped. */
+const statsCachePath = join(dataDir, "stats.json");
+
 async function fetchStats(): Promise<{ status: number; body: unknown }> {
+  const answer = await fetchLiveStats();
+  if (answer.status === 200) {
+    await writeFile(statsCachePath, JSON.stringify({ at: new Date().toISOString(), stats: answer.body })).catch(() => undefined);
+    return answer;
+  }
+  // The network is down: the stats as they were, saying when, and why they aren't live.
+  const cached = await readFile(statsCachePath, "utf8").then((text) => JSON.parse(text) as { at: string; stats: Record<string, unknown> }).catch(() => undefined);
+  if (cached) return { status: 200, body: { ...cached.stats, cachedAt: cached.at, liveError: (answer.body as { error?: string }).error } };
+  return answer;
+}
+
+async function fetchLiveStats(): Promise<{ status: number; body: unknown }> {
   try {
     const response = await fetch(`${ORCHESTRATOR_URL}/v1/stats`, { signal: AbortSignal.timeout(3000) });
     const result = (await response.json().catch(() => ({}))) as { error?: string };

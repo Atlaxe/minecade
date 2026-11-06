@@ -1,6 +1,11 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import {
+  allowListOn,
+  isAllowed,
+  namesOf,
+  setAllowListOn,
+  setPlayerSwitch,
   BroadcastLog,
   checkLobbyMap,
   checkRequest,
@@ -265,5 +270,32 @@ describe("shouldExit", () => {
   it("never exits with a window open or an action running", () => {
     expect(shouldExit({ ...base, now: base.now + 999_999, windows: 1, lastWindowAt: base.now })).toBe(false);
     expect(shouldExit({ ...base, now: base.now + 999_999, busy: true, lastWindowAt: base.now })).toBe(false);
+  });
+});
+
+describe("the Players page's switches", () => {
+  const off = { ALLOW_LIST: "", ALLOW_LIST_PAUSED: "Ana", LAN_PLAYERS: "get a waffle" };
+  const on = { ALLOW_LIST: "Ana,Bo", ALLOW_LIST_PAUSED: "", LAN_PLAYERS: "get a waffle" };
+
+  it("keeps allowed players aside while the allow list is off, and lets only them in once it's on", () => {
+    expect(allowListOn(off)).toBe(false);
+    expect(isAllowed(off, "ana")).toBe(true);
+    expect(setPlayerSwitch(off, "Bo", "allowed", true)).toEqual({ ...off, ALLOW_LIST_PAUSED: "Ana,Bo" });
+    expect(setAllowListOn({ ...off, ALLOW_LIST_PAUSED: "Ana,Bo" }, true)).toEqual({ ...off, ALLOW_LIST: "Ana,Bo", ALLOW_LIST_PAUSED: "" });
+    expect(setAllowListOn(on, false)).toEqual({ ...on, ALLOW_LIST: "", ALLOW_LIST_PAUSED: "Ana,Bo" });
+  });
+
+  it("changes the allow list itself while it's on, but never empties it (that lets anyone in)", () => {
+    expect(setPlayerSwitch(on, "bo", "allowed", false)).toEqual({ ...on, ALLOW_LIST: "Ana" });
+    expect(setPlayerSwitch({ ...on, ALLOW_LIST: "Ana" }, "Ana", "allowed", false)).toMatchObject({ error: /last allowed player/ });
+    expect(setAllowListOn({ ALLOW_LIST: "", ALLOW_LIST_PAUSED: "", LAN_PLAYERS: "" }, true)).toMatchObject({ error: /at least one player/ });
+  });
+
+  it("switches a map editor in LAN_PLAYERS, and refuses names .env can't hold", () => {
+    expect(setPlayerSwitch(off, "Cy", "editor", true)).toEqual({ ...off, LAN_PLAYERS: "get a waffle,Cy" });
+    expect(setPlayerSwitch(off, "GET A WAFFLE", "editor", false)).toEqual({ ...off, LAN_PLAYERS: "" });
+    expect(setPlayerSwitch(off, 'Bad"Name', "editor", true)).toMatchObject({ error: /character/ });
+    expect(setPlayerSwitch(off, "A,B", "editor", true)).toMatchObject({ error: /one gamertag/ });
+    expect(namesOf(" a, ,b ")).toEqual(["a", "b"]);
   });
 });

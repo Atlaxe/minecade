@@ -70,10 +70,28 @@ export class ViewCube {
     });
   }
 
-  /** Turns the cube the way the main camera looks. */
+  /**
+   * Turns the cube the way the main camera looks. Top's and Bottom's labels turn a quarter at a
+   * time with the camera's heading, so they read upright from whichever side it looks.
+   */
   sync(quaternion: THREE.Quaternion): void {
     this.camera.quaternion.copy(quaternion);
     this.camera.position.set(0, 0, 3).applyQuaternion(quaternion);
+    const forward = new THREE.Vector3(0, 0, -1).applyQuaternion(quaternion);
+    const up = new THREE.Vector3(0, 1, 0).applyQuaternion(quaternion);
+    // Looking straight down or up, the screen's up is the heading; otherwise the view's direction is.
+    const heading = Math.abs(forward.y) > 0.99 ? up : forward;
+    const quarter = Math.round(Math.atan2(heading.x, -heading.z) / (Math.PI / 2));
+    const materials = this.cube.material as THREE.MeshBasicMaterial[];
+    for (const [face, sign] of [[2, -1], [3, 1]] as const) {
+      const map = materials[face].map;
+      if (!map) continue;
+      const rotation = sign * quarter * (Math.PI / 2);
+      if (map.rotation !== rotation) {
+        map.center.set(0.5, 0.5);
+        map.rotation = rotation;
+      }
+    }
     this.draw();
   }
 

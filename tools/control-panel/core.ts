@@ -269,6 +269,72 @@ export function normalizeNames(raw: string): NormalizeResult {
   return { ok: true, value: names.join(",") };
 }
 
+// ---- Players' switches --------------------------------------------------------------------
+
+/**
+ * The .env lists behind the Players page's switches: ALLOW_LIST (who may join; empty lets anyone
+ * in, and the servers read only this), ALLOW_LIST_PAUSED (the allowed players kept while the allow
+ * list is switched off) and LAN_PLAYERS (the map editors, transferred by LAN address).
+ */
+export interface PlayerLists {
+  ALLOW_LIST: string;
+  ALLOW_LIST_PAUSED: string;
+  LAN_PLAYERS: string;
+}
+
+/** The names in a comma-separated list. */
+export function namesOf(list: string | undefined): string[] {
+  return (list ?? "")
+    .split(",")
+    .map((name) => name.trim())
+    .filter(Boolean);
+}
+
+function hasName(list: string, name: string): boolean {
+  return namesOf(list).some((each) => each.toLowerCase() === name.toLowerCase());
+}
+
+function withName(list: string, name: string, on: boolean): string {
+  const others = namesOf(list).filter((each) => each.toLowerCase() !== name.toLowerCase());
+  return (on ? [...others, name] : others).join(",");
+}
+
+/** Whether the allow list is on: the servers let in only its players. */
+export function allowListOn(lists: PlayerLists): boolean {
+  return namesOf(lists.ALLOW_LIST).length > 0;
+}
+
+/** Whether a player is allowed: on the allow list, or on its paused copy while it's off. */
+export function isAllowed(lists: PlayerLists, name: string): boolean {
+  return hasName(lists.ALLOW_LIST, name) || hasName(lists.ALLOW_LIST_PAUSED, name);
+}
+
+/**
+ * The lists after one player's switch changes: Allowed (the allow list while it's on, its paused
+ * copy while it's off) or Map editor (LAN_PLAYERS). Taking the last player off the allow list while
+ * it's on is refused: an empty allow list lets anyone in.
+ */
+export function setPlayerSwitch(lists: PlayerLists, rawName: string, which: "allowed" | "editor", on: boolean): PlayerLists | { error: string } {
+  const checked = normalizeNames(rawName);
+  if (!checked.ok) return { error: checked.error };
+  const name = checked.value;
+  if (!name || name.includes(",")) return { error: "expected one gamertag" };
+  if (which === "editor") return { ...lists, LAN_PLAYERS: withName(lists.LAN_PLAYERS, name, on) };
+  if (allowListOn(lists)) {
+    const next = withName(lists.ALLOW_LIST, name, on);
+    if (namesOf(next).length === 0) return { error: "that's the last allowed player: switch the allow list off instead, or anyone could join" };
+    return { ...lists, ALLOW_LIST: next, ALLOW_LIST_PAUSED: withName(lists.ALLOW_LIST_PAUSED, name, false) };
+  }
+  return { ...lists, ALLOW_LIST_PAUSED: withName(lists.ALLOW_LIST_PAUSED, name, on) };
+}
+
+/** The lists with the allow list switched on (its paused players let in, and only them) or off (kept, not enforced). */
+export function setAllowListOn(lists: PlayerLists, on: boolean): PlayerLists | { error: string } {
+  const names = [...namesOf(lists.ALLOW_LIST), ...namesOf(lists.ALLOW_LIST_PAUSED)].filter((name, i, all) => all.findIndex((other) => other.toLowerCase() === name.toLowerCase()) === i);
+  if (on && names.length === 0) return { error: "allow at least one player first: with nobody on it, the allow list would let anyone in" };
+  return on ? { ...lists, ALLOW_LIST: names.join(","), ALLOW_LIST_PAUSED: "" } : { ...lists, ALLOW_LIST: "", ALLOW_LIST_PAUSED: names.join(",") };
+}
+
 // ---- Requests and lifetime ---------------------------------------------------------------
 
 export interface RequestInfo {

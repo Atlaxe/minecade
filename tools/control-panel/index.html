@@ -67,12 +67,6 @@
   dd { margin: 0; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
   .address { font-size: var(--fs-body); }
 
-  .server-list { display: grid; gap: 12px; }
-  .server-row { display: grid; grid-template-columns: 150px 1fr; gap: 12px; align-items: start; }
-  .field + .field { margin-top: 16px; }
-  .field label { display: block; font-weight: 700; }
-  .field label .mono { color: var(--muted); font-weight: 400; margin-left: 6px; }
-  .field .hint { margin: 2px 0 6px; }
 
   pre.log { font: var(--fs-meta)/1.5 var(--font-mono); margin: 0; padding: 12px 14px; height: 34vh; min-height: 160px; overflow: auto; background: var(--inset); border: 1px solid var(--line); border-radius: var(--radius); white-space: pre-wrap; word-break: break-all; }
   pre.log:empty::before { content: "Nothing yet."; color: var(--muted); }
@@ -87,6 +81,30 @@
   .toast { --tone: var(--off); display: flex; align-items: baseline; gap: 10px; background: var(--surface); border: 1px solid var(--line-strong); border-radius: var(--radius); padding: 10px 14px; box-shadow: var(--shadow); cursor: pointer; }
   .toast.ok { --tone: var(--ok); } .toast.warn { --tone: var(--warn); } .toast.bad { --tone: var(--bad); }
   .toast::before { content: ""; width: 8px; height: 8px; border-radius: 1px; background: var(--tone); flex: none; transform: translateY(-1px); }
+
+  /* Players: the allow list's switch and the add box, then one table. */
+  .players-bar { display: flex; align-items: center; gap: 12px 18px; flex-wrap: wrap; margin-top: 24px; }
+  .switch-label { display: flex; align-items: center; gap: 10px; font-weight: 700; cursor: pointer; }
+  .add-player { margin-left: auto; display: flex; gap: 8px; }
+  .add-player input { width: 240px; }
+  #players-note { margin: 12px 0 0; min-height: 1.5em; }
+  #players { margin-top: 8px; }
+  #players td { vertical-align: middle; }
+  #players th.switch-col, #players td.switch-col { text-align: center; width: 104px; }
+  .name-button { background: none; border: 0; padding: 0; font-size: var(--fs-body); font-weight: 700; color: var(--text); text-align: left; display: inline-flex; align-items: center; gap: 8px; }
+  .name-button:hover:not(:disabled) { background: none; color: var(--primary); }
+  .name-button svg { width: 12px; height: 12px; fill: currentColor; transition: transform .15s ease-out; }
+  .name-button.open svg { transform: rotate(90deg); }
+  .where { display: inline-flex; align-items: center; gap: 6px; }
+  tr.stats-row td { background: var(--surface); padding: 16px 18px 18px; }
+  tr.stats-row:hover td { background: var(--surface); }
+  .player-stats { display: grid; gap: 14px; }
+  .player-stats .row select { min-width: 200px; }
+  .stat-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(136px, 1fr)); gap: 14px 18px; margin: 0; }
+  .stat-grid div { display: grid; gap: 2px; }
+  .stat-grid dt { color: var(--muted); font-size: var(--fs-meta); }
+  .stat-grid dd { margin: 0; font: 600 var(--fs-h3) var(--font-head); }
+  .editor-friends:not(:empty) { margin-top: 16px; }
 
   /* Maps: the search row, the cards by game, and the bar for the picked one. */
   .page.page-wide { max-width: 1280px; padding-bottom: 72px; }
@@ -128,7 +146,6 @@
     .brand-sub { display: none; }
     .side-foot { margin: 0 0 0 auto; padding: 0; border-top: 0; }
     main { padding: 16px; }
-    .server-row { grid-template-columns: 1fr; gap: 4px; }
     .map-pick { left: 0; padding: 10px 16px; }
   }
 </style>
@@ -181,47 +198,23 @@
   </div>
 </section>
 
-<section id="page-players" class="page" hidden>
-  <div class="page-head"><h1>Players</h1><p>Who is online, who can join, and how everyone is doing.</p></div>
-  <div class="card">
-    <div class="card-head"><h2>Online now</h2><span id="online-count" class="muted"></span></div>
-    <div id="online"></div>
+<section id="page-players" class="page page-wide" hidden>
+  <div class="page-head"><h1>Players</h1><p>Everyone who has played or may join: where they are, who may join the network and the map editor, and how each is doing. Click a name for their stats.</p></div>
+  <div class="players-bar">
+    <label class="switch-label" data-tip="ALLOW_LIST in .env: the network uses it from its next start"><input type="checkbox" class="switch" id="allow-switch"> Only allowed players may join</label>
+    <span id="allow-note" class="muted meta"></span>
+    <div class="add-player"><input type="text" id="add-player" placeholder="Add a player by gamertag" maxlength="20" spellcheck="false" autocomplete="off" aria-label="Gamertag to add"><button id="add-player-go" data-tip="Add them as allowed">Add</button></div>
   </div>
-  <div class="card">
-    <div class="card-head"><h2>Who can join</h2><span class="muted small">Saved to .env</span></div>
-    <div class="field">
-      <label for="allow-list">Allow list<span class="mono">ALLOW_LIST</span></label>
-      <p class="hint">Who may join, as comma-separated gamertags. Empty lets anyone in.</p>
-      <input id="allow-list" type="text" spellcheck="false">
-    </div>
-    <div class="field">
-      <label for="lan-players">LAN players<span class="mono">LAN_PLAYERS</span></label>
-      <p class="hint">Players on this home network. They are transferred by LAN address.</p>
-      <input id="lan-players" type="text" spellcheck="false">
-      <p id="lan-warning" class="callout bad" hidden>Add your own gamertag here. Without it, transfers from this PC go to the public address, which this PC can't reach.</p>
-    </div>
-    <div class="row" style="margin-top:14px">
-      <button id="save-env" class="primary">Save</button>
-      <span id="env-result" class="muted"></span>
-    </div>
-  </div>
-  <div class="card">
-    <div class="card-head">
-      <h2>Player stats</h2>
-      <div class="actions"><select id="stats-game" aria-label="Game"><option value="">Overall</option></select><button id="stats-refresh">Refresh</button></div>
-    </div>
-    <div id="stats"><p class="hint">Loading...</p></div>
-  </div>
+  <p id="lan-warning" class="callout bad" hidden>Nobody is a map editor: switch Map editor on for your own gamertag. Without it, transfers from this PC go to the public address, which this PC can't reach.</p>
+  <p id="players-note" class="muted meta"></p>
+  <div id="players"><p class="hint">Loading...</p></div>
+  <p class="hint">Allowed and Map editor are saved to .env (ALLOW_LIST, LAN_PLAYERS; map editors are also sent by LAN address): the network uses them from its next start. Guest lets someone into the map editor's lobby, Select and previews, never Edit, at once (work/editor/guests.json).</p>
 </section>
 
 <section id="page-editor" class="page" hidden>
   <div class="page-head"><h1>Map editor</h1><p>Boot it, then join the editor lobby (port 19132), which asks what to open: a map in Edit (port 19134), or a copy of one of your worlds in Select (port 19133), to cut new maps out of. Every change goes straight into map.json. The network is stopped while the editor runs: they use the same ports.</p></div>
   <div id="editor-server"></div>
-  <div class="card">
-    <div class="card-head"><h2>Who can join</h2><span class="muted small">Guests are saved to work/editor/guests.json</span></div>
-    <div id="editor-friends"></div>
-    <div id="editor-guests"></div>
-  </div>
+  <div id="editor-friends" class="editor-friends"></div>
   <div id="editor-checklist"></div>
   <div id="editor-select"></div>
   <div class="card">
@@ -374,8 +367,7 @@ function render(next) {
   renderSidebar();
   renderStacks();
   renderConnection();
-  renderOnline();
-  renderEnv();
+  renderPlayers();
   renderEditor();
   renderLogPicker();
   $("stale-banner").hidden = !state.panelStale;
@@ -623,45 +615,60 @@ function renderConnection() {
 
 const SERVER_NAMES = { lobby: "Lobby", game: "Game", editor: "Map editor" };
 
-function renderOnline() {
-  const servers = bdsServers();
+/** Names in a comma-separated .env list. */
+function namesOf(list) {
+  return (list ?? "").split(",").map((name) => name.trim()).filter(Boolean);
+}
+
+/** Where each player online is, by lower-case name: "Lobby", the game's title, "Map editor". */
+function whereOnline() {
   const status = mainStatus();
   const playing = status && !status.error && status.state !== "idle" ? gameTitle(status) : "";
-  const count = onlinePlayers().length;
-  $("online-count").textContent = servers.length ? `${count} ${count === 1 ? "player" : "players"}` : "";
-  patch($("online"), [servers, state.env.WATCHER_GAMERTAG, playing], () => {
-    if (servers.length === 0) return el("p", { className: "muted", style: "margin:0" }, "The network is stopped, so nobody is online.");
-    return el("div", { className: "server-list" }, servers.map((server) => el("div", { className: "server-row" },
-      el("div", {}, el("div", { className: "strong" }, SERVER_NAMES[server.role] ?? server.name), server.role === "game" && playing && el("div", { className: "muted small" }, playing)),
-      onlineCell(server))));
-  });
+  const where = new Map();
+  for (const server of bdsServers()) {
+    for (const name of server.players ?? []) {
+      if (!isWatcher(name)) where.set(name.toLowerCase(), server.role === "game" && playing ? playing : SERVER_NAMES[server.role] ?? server.name);
+    }
+  }
+  const guestPlaces = { home: "Map editor lobby", select: "Map editor, Select", preview: "Map editor, preview" };
+  for (const guest of state.editor?.guests ?? []) if (guest.on && !where.has(guest.name.toLowerCase())) where.set(guest.name.toLowerCase(), guestPlaces[guest.on] ?? "Map editor");
+  return where;
 }
 
-let envDirty = false;
-$("allow-list").oninput = $("lan-players").oninput = () => { envDirty = true; };
-
-function renderEnv() {
-  const missing = state.env.missing;
-  $("save-env").disabled = missing;
-  if (missing) { $("env-result").textContent = "No .env file. Copy .env.example to .env first."; return; }
-  $("lan-warning").hidden = state.env.LAN_PLAYERS.trim() !== "";
-  if (envDirty || document.activeElement === $("allow-list") || document.activeElement === $("lan-players")) return;
-  $("allow-list").value = state.env.ALLOW_LIST;
-  $("lan-players").value = state.env.LAN_PLAYERS;
+/** Every player the Panel knows: from the stats, the .env lists, the map editor's guests and who is online. */
+function playerRows() {
+  const env = state.env.missing ? {} : state.env;
+  const allowed = new Set([...namesOf(env.ALLOW_LIST), ...namesOf(env.ALLOW_LIST_PAUSED)].map((name) => name.toLowerCase()));
+  const editors = new Set(namesOf(env.LAN_PLAYERS).map((name) => name.toLowerCase()));
+  const guests = new Set((state.editor?.guests ?? []).map((guest) => guest.name.toLowerCase()));
+  const where = whereOnline();
+  const rows = new Map();
+  const add = (name) => {
+    if (!name || isWatcher(name)) return;
+    const key = name.toLowerCase();
+    if (!rows.has(key)) rows.set(key, { name, key });
+  };
+  for (const player of stats?.players ?? []) add(player.name);
+  for (const name of [...namesOf(env.ALLOW_LIST), ...namesOf(env.ALLOW_LIST_PAUSED), ...namesOf(env.LAN_PLAYERS)]) add(name);
+  for (const guest of state.editor?.guests ?? []) add(guest.name);
+  for (const name of onlinePlayers()) add(name);
+  return [...rows.values()].map((row) => ({
+    ...row,
+    where: where.get(row.key),
+    allowed: allowed.has(row.key),
+    editor: editors.has(row.key),
+    guest: guests.has(row.key),
+    stats: stats?.players.find((player) => player.name.toLowerCase() === row.key),
+  }));
 }
-
-$("save-env").onclick = async () => {
-  const { ok, result } = await post("/api/env", { ALLOW_LIST: $("allow-list").value, LAN_PLAYERS: $("lan-players").value });
-  $("env-result").className = ok ? "muted" : "error";
-  $("env-result").textContent = ok ? (result.changed ? "Saved. Restart the network on the Servers page to apply." : "No changes.") : (result.error ?? "Save failed.");
-  if (ok) { envDirty = false; $("allow-list").blur(); $("lan-players").blur(); }
-};
-
-$("start-docker").onclick = () => post("/api/docker/start");
 
 // Stats load when the page opens, on Refresh and when a game ends, never on a timer.
 let stats = null;
-let statsSort = { key: "games", desc: true };
+let statsError = "";
+let playerSort = { key: "games", desc: true };
+/** The player whose stats are open, and the game they show ("" for all games). */
+let openPlayer = "";
+let openGame = "";
 
 function formatPlayTime(seconds) {
   if (seconds < 60) return `${seconds}s`;
@@ -670,34 +677,105 @@ function formatPlayTime(seconds) {
   return `${Math.floor(minutes / 60)}h ${String(minutes % 60).padStart(2, "0")}m`;
 }
 
-const stat = (key, label, text = String) => ({ key, label, text, value: (line) => line[key] });
+const stat = (key, label, text = String) => ({ key, label, text, value: (line) => line?.[key] ?? 0 });
 const STATS_COLUMNS = [
-  stat("games", "Games"), stat("wins", "W"), stat("losses", "L"), stat("winRate", "Win %", (value) => `${value}%`),
-  stat("kills", "K"), stat("deaths", "D"), stat("kd", "K/D"), stat("dealt", "Damage dealt"), stat("taken", "Damage taken"),
+  stat("games", "Games"), stat("wins", "Wins"), stat("losses", "Losses"), stat("winRate", "Win rate", (value) => `${value}%`),
+  stat("kills", "Kills"), stat("deaths", "Deaths"), stat("kd", "K/D"), stat("dealt", "Damage dealt"), stat("taken", "Damage taken"),
   stat("seconds", "Time played", formatPlayTime),
 ];
+/** The table's own stat columns (all games); the rest are in each player's stats. */
+const TABLE_STATS = ["games", "winRate", "kd", "seconds"].map((key) => STATS_COLUMNS.find((column) => column.key === key));
 
 async function loadStats() {
-  $("stats-refresh").disabled = true;
   const response = await fetch("/api/stats").catch(() => null);
   const result = response ? await response.json().catch(() => ({})) : {};
-  $("stats-refresh").disabled = false;
   stats = response?.ok ? result : null;
-  $("stats-game").disabled = !stats;
-  if (stats) { renderStatsGames(); renderStats(); return; }
-  // A helper started before stats existed has no /api/stats.
-  const error = !response ? "Could not reach the panel helper."
+  statsError = stats ? (stats.cachedAt ? `Stats as of ${new Date(stats.cachedAt).toLocaleString()}: ${stats.liveError ?? "the network is stopped"}` : "")
+    : !response ? "Could not reach the panel helper."
     : response.status === 404 ? "The panel helper is out of date. Close this window, wait 15 seconds, then open Minecade Panel again."
     : result.error ?? `HTTP ${response.status}`;
-  $("stats").replaceChildren(el("p", { className: "error", style: "margin:0" }, error));
+  renderPlayers();
 }
 
-function renderStatsGames() {
-  const select = $("stats-game");
-  const pick = select.value;
-  const games = [...stats.games].sort((a, b) => a.name.localeCompare(b.name));
-  select.replaceChildren(el("option", { value: "" }, "Overall"), ...games.map((game) => el("option", { value: game.id }, game.name)));
-  select.value = games.some((game) => game.id === pick) ? pick : "";
+function renderPlayers() {
+  if (!state) return;
+  const env = state.env;
+  const allowOn = !env.missing && namesOf(env.ALLOW_LIST).length > 0;
+  const allowSwitch = $("allow-switch");
+  allowSwitch.checked = allowOn;
+  allowSwitch.disabled = Boolean(env.missing);
+  const allowedCount = env.missing ? 0 : new Set([...namesOf(env.ALLOW_LIST), ...namesOf(env.ALLOW_LIST_PAUSED)].map((name) => name.toLowerCase())).size;
+  $("allow-note").textContent = env.missing ? "No .env file: copy .env.example to .env first." : allowOn ? `Only the ${allowedCount} allowed ${allowedCount === 1 ? "player" : "players"} can join.` : "Anyone with the address can join.";
+  $("lan-warning").hidden = env.missing || namesOf(env.LAN_PLAYERS).length > 0;
+  const rows = playerRows();
+  const online = rows.filter((row) => row.where).length;
+  $("players-note").textContent = [`${rows.length} ${rows.length === 1 ? "player" : "players"}, ${online} online`, statsError].filter(Boolean).join(". ");
+  patch($("players"), [rows, openPlayer, openGame, playerSort, stats?.games, Boolean(state.busy), env.missing], () => playersTable(rows));
+}
+
+function playersTable(rows) {
+  if (rows.length === 0) return el("p", { className: "muted" }, "No players yet. Players show up here once they play a match, or when you add one.");
+  const column = TABLE_STATS.find((c) => c.key === playerSort.key);
+  const byName = (a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: "base" });
+  const value = (row) => playerSort.key === "online" ? (row.where ? 1 : 0) : column ? column.value(row.stats?.overall) : 0;
+  rows.sort((a, b) => (playerSort.key === "name" ? 0 : (playerSort.desc ? -1 : 1) * (value(a) - value(b))) || byName(a, b) * (playerSort.key === "name" && playerSort.desc ? -1 : 1));
+  const header = (key, label, className = "") => el("th", { className: `sortable ${className} ${playerSort.key === key ? "sorted" : ""}`, onclick: () => {
+    playerSort = { key, desc: playerSort.key === key ? !playerSort.desc : key !== "name" };
+    renderPlayers();
+  } }, label, playerSort.key === key ? sortMark(playerSort.desc) : "");
+  const switchCell = (on, tip, change) => {
+    const input = el("input", { type: "checkbox", className: "switch", "aria-label": tip, "data-tip": tip });
+    input.checked = on;
+    input.disabled = Boolean(state.env.missing);
+    input.onchange = () => change(input.checked);
+    return el("td", { className: "switch-col" }, input);
+  };
+  const body = [];
+  for (const row of rows) {
+    const open = openPlayer === row.key;
+    const name = el("button", { className: `name-button${open ? " open" : ""}`, "aria-expanded": String(open), "data-tip": open ? "Hide their stats" : "Show their stats" }, chevron(), row.name);
+    name.onclick = () => { openPlayer = open ? "" : row.key; openGame = ""; renderPlayers(); };
+    body.push(el("tr", {},
+      el("td", {}, name),
+      el("td", {}, row.where ? el("span", { className: "where status ok" }, row.where) : el("span", { className: "muted" }, "Offline")),
+      switchCell(row.allowed, `Allowed: ${row.name} may join the network while the allow list is on`, (on) => setPlayer(row.name, { allowed: on })),
+      switchCell(row.editor, `Map editor: ${row.name} gets into the map editor's Edit, and is sent by LAN address (LAN_PLAYERS)`, (on) => setPlayer(row.name, { editor: on })),
+      switchCell(row.guest, `Guest: ${row.name} gets into the map editor's lobby, Select and previews`, (on) => post("/api/editor/guests", { name: row.name, on })),
+      TABLE_STATS.map((c) => el("td", { className: "num" }, row.stats ? c.text(c.value(row.stats.overall)) : el("span", { className: "muted" }, "-"))),
+    ));
+    if (open) body.push(el("tr", { className: "stats-row" }, el("td", { colspan: String(5 + TABLE_STATS.length) }, playerStats(row))));
+  }
+  return el("div", { className: "table-wrap" }, el("table", {},
+    el("thead", {}, el("tr", {},
+      header("name", "Player"), header("online", "Online"),
+      el("th", { className: "switch-col" }, "Allowed"), el("th", { className: "switch-col" }, "Map editor"), el("th", { className: "switch-col" }, "Guest"),
+      TABLE_STATS.map((c) => header(c.key, c.label, "num")))),
+    el("tbody", {}, body)));
+}
+
+/** One player's stats: all games, or one game, with that game's own numbers. */
+function playerStats(row) {
+  if (!row.stats) return el("p", { className: "muted", style: "margin:0" }, stats ? `${row.name} has no matches recorded yet. Matches with at least 2 players are.` : statsError || "Loading stats...");
+  const played = (stats.games ?? []).filter((game) => row.stats.games?.[game.id]).sort((a, b) => a.name.localeCompare(b.name));
+  const game = played.find((candidate) => candidate.id === openGame);
+  const line = game ? row.stats.games[game.id] : row.stats.overall;
+  const select = el("select", { "aria-label": "Game" }, el("option", { value: "" }, "All games"), played.map((each) => el("option", { value: each.id }, each.name)));
+  select.value = game ? game.id : "";
+  select.onchange = () => { openGame = select.value; renderPlayers(); };
+  const columns = [...STATS_COLUMNS, ...(game?.extras ?? []).map((extra) => ({ key: extra.key, label: extra.label, text: String, value: (l) => l?.extras?.[extra.key] ?? 0 }))];
+  return el("div", { className: "player-stats" },
+    el("div", { className: "row" }, el("h3", {}, `${row.name}'s stats`), select),
+    el("dl", { className: "stat-grid" }, columns.map((c) => el("div", {}, el("dt", {}, c.label), el("dd", {}, c.text(c.value(line)))))));
+}
+
+function chevron() {
+  const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+  svg.setAttribute("viewBox", "0 0 10 10");
+  svg.setAttribute("aria-hidden", "true");
+  const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+  path.setAttribute("d", "M3 1.5 7.5 5 3 8.5z");
+  svg.append(path);
+  return svg;
 }
 
 /** A small drawn triangle beside the sorted column's name: down for most first, up for least. */
@@ -712,34 +790,28 @@ function sortMark(desc) {
   return svg;
 }
 
-function renderStats() {
-  const game = stats.games.find((candidate) => candidate.id === $("stats-game").value);
-  const extras = (game?.extras ?? []).map((extra) => ({
-    key: `extra:${extra.key}`, label: extra.label, text: String, value: (line) => line.extras?.[extra.key] ?? 0,
-  }));
-  const columns = [...STATS_COLUMNS, ...extras];
-  const rows = stats.players
-    .map((player) => ({ name: player.name, line: game ? player.games[game.id] : player.overall }))
-    .filter((row) => row.line);
-  if (rows.length === 0) {
-    const empty = stats.players.length === 0 ? "No stats yet. Matches with at least 2 players are recorded." : `No ${game.name} matches recorded yet.`;
-    $("stats").replaceChildren(el("p", { className: "muted", style: "margin:0" }, empty));
-    return;
-  }
-  // A game's own columns go away when another game is picked.
-  if (statsSort.key !== "name" && !columns.some((c) => c.key === statsSort.key)) statsSort = { key: "games", desc: true };
-  const column = columns.find((c) => c.key === statsSort.key);
-  const byName = (a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: "base" });
-  rows.sort((a, b) => (statsSort.desc ? -1 : 1) * (column ? column.value(a.line) - column.value(b.line) : byName(a, b)) || byName(a, b));
-  const header = (key, label, align = "num") => el("th", { className: `sortable ${align} ${statsSort.key === key ? "sorted" : ""}`, onclick: () => {
-    statsSort = { key, desc: statsSort.key === key ? !statsSort.desc : key !== "name" };
-    renderStats();
-  } }, label, statsSort.key === key ? sortMark(statsSort.desc) : "");
-  $("stats").replaceChildren(el("div", { className: "table-wrap" }, el("table", {},
-    el("thead", {}, el("tr", {}, header("name", "Player", ""), columns.map((c) => header(c.key, c.label)))),
-    el("tbody", {}, rows.map((row) => el("tr", {}, el("td", { className: "strong" }, row.name), columns.map((c) => el("td", { className: "num" }, c.text(c.value(row.line))))))),
-  )));
+async function setPlayer(name, change) {
+  const { ok, result } = await post("/api/players", { name, ...change });
+  if (!ok) toast(result.error ?? "That didn't save.", "bad");
 }
+
+$("allow-switch").onchange = async (event) => {
+  const on = event.target.checked;
+  const { ok, result } = await post("/api/allow-list", { on });
+  if (!ok) {
+    event.target.checked = !on;
+    toast(`The allow list wasn't switched ${on ? "on" : "off"}: ${result.error ?? "it didn't save"}.`, "bad");
+  } else if (result.changed) toast(`The allow list is ${on ? "on" : "off"}. Restart the network to apply it.`, "ok");
+};
+const addPlayer = async () => {
+  const name = $("add-player").value.trim();
+  if (!name) return;
+  const { ok, result } = await post("/api/players", { name, allowed: true });
+  if (ok) { $("add-player").value = ""; toast(`${name} is allowed.`, "ok"); }
+  else toast(result.error ?? "That didn't save.", "bad");
+};
+$("add-player-go").onclick = addPlayer;
+$("add-player").addEventListener("keydown", (event) => event.key === "Enter" && addPlayer());
 
 // A game's stats are final once its session is over, and an orchestrator that just came up has some.
 let lastGameState;
@@ -747,12 +819,11 @@ function reloadStatsWhenIdle() {
   const status = mainStatus();
   const gameState = status && !status.error ? status.state : null;
   if (lastGameState !== undefined && lastGameState !== "idle" && gameState === "idle") loadStats();
+  if (lastGameState === undefined || (lastGameState === null && gameState !== null)) loadStats();
   lastGameState = gameState;
 }
 
-$("stats-refresh").onclick = () => loadStats();
-$("stats-game").onchange = () => renderStats();
-loadStats();
+$("start-docker").onclick = () => post("/api/docker/start");
 
 // ---- Map editor --------------------------------------------------------------------------
 
@@ -785,7 +856,6 @@ function renderEditor() {
   patch($("editor-checklist"), status?.edit && [status.edit.checklist, status.edit.undo, status.edit.redo, status.edit.unsaved, status.edit.saving, status.edit.publishing, status.edit.draft, status.edit.mapName, status.edit.target], () => status?.edit && checklistCard(status.edit));
   patch($("editor-select"), status?.select && [status.select.world, status.select.selections], () => status?.select && selectionsCard(status.select));
   patch($("editor-friends"), [state.env.missing, state.broadcast?.on, state.busy, status?.state, status?.broadcast], () => editorFriendsRow(status));
-  patch($("editor-guests"), [editor.guests, Boolean(status)], () => guestsList(editor.guests ?? [], Boolean(status)));
   const pre = $("editor-log");
   const lines = editor.log.join("\n");
   if (pre.textContent !== lines) {
@@ -915,33 +985,6 @@ function editorFriendsRow(status) {
   else parts.push(...broadcastProgress(b, `On. Friends who add ${b.account} in Minecraft see "Minecade map editor" in their Friends tab.${b.lastJoin ? ` Last join: ${b.lastJoin}.` : ""}`));
   if (on && b?.container && b.lastError && b.phase !== "live") parts.push(rowText(b.lastError, "error"));
   return el("div", { className: "row" }, parts);
-}
-
-/**
- * The map editor's guests (work/editor/guests.json), who may join besides map editors: the editor
- * lobby, Select and previews, never Edit. Editable while the editor is off too; `running` adds where
- * each one is.
- */
-function guestsList(guests, running) {
-  const where = { home: "waiting in the editor lobby", select: "on Select", preview: "in the preview" };
-  const input = el("input", { type: "text", placeholder: "Gamertag", maxLength: 20, className: "mono", style: "flex:1;width:auto" });
-  const add = () => {
-    const name = input.value.trim();
-    if (name) post("/api/editor/guests", { name, on: true });
-  };
-  input.addEventListener("keydown", (event) => event.key === "Enter" && add());
-  const rows = guests.map((guest) =>
-    el("tr", {},
-      el("td", {}, guest.name),
-      el("td", { className: "muted" }, running ? (guest.on ? where[guest.on] : "not on") : ""),
-      el("td", { className: "end" }, el("button", { className: "small danger", onclick: () => post("/api/editor/guests", { name: guest.name, on: false }) }, "Remove"))));
-  return [
-    guests.length > 0
-      ? el("div", { className: "table-wrap", style: "margin-top:12px" }, el("table", {}, el("tbody", {}, rows)))
-      : el("p", { className: "hint" }, "No guests yet: only map editors (LAN_PLAYERS) can join."),
-    el("div", { className: "row", style: "margin-top:12px" }, input, el("button", { onclick: add }, "Add")),
-    el("p", { className: "hint" }, "Besides map editors (LAN_PLAYERS), only the gamertags here get in: to the editor lobby, Select and previews, never Edit. Console friends join from the Friends tab; anyone else adds this PC's public address, port 19132. Remove disconnects them if they're on."),
-  ];
 }
 
 /** The maps cut out of the world open in Select, and how each extraction is going. */

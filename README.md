@@ -59,7 +59,7 @@ Prophunt, Zombies, Hide and Seek, Block Drop). See [Adding a game](#adding-a-gam
    | `EULA` | `TRUE` to accept the [Minecraft EULA](https://www.minecraft.net/eula). The build refuses to download BDS without it. |
    | `LAN_HOST` | Your PC's LAN IP, for example `192.168.40.98`. Reserve it in your router so it never changes. |
    | `LAN_PLAYERS` | Gamertags of everyone playing from your home network, at least your own. See [why](#why-lan_players). |
-   | `ALLOW_LIST` | Gamertags allowed to join, comma-separated. Empty means anyone with your address can join. |
+   | `ALLOW_LIST` | Gamertags allowed to join, comma-separated. Empty means anyone with your address can join. The Panel's Players page sets it: its allow list switch, and each player's Allowed switch (kept in `ALLOW_LIST_PAUSED` while the allow list is off). |
    | `PUBLIC_HOST` | `auto` (looks up your public IP at start) or a DDNS hostname. |
    | `WATCHER_GAMERTAG` | The gamertag of a spare Microsoft account that stays in the lobby to save players' skins (see [Player skins](#player-skins)). Empty turns it off, and players get letter badges. |
    | `BROADCAST` | Empty normally (off). `1` shows the lobby in the Friends tab of a spare account's friends, for console players (see [Friends tab broadcast](#friends-tab-broadcast)). The Panel's Servers page turns it on and off. |
@@ -224,7 +224,8 @@ Xbox account, so stats survive a gamertag change.
 - **Where:** the `minecade-data` Docker volume: `stats.db`, a raw log of every match
   (`stats-events.jsonl`), and a backup at every start and once a day (`backups/`, newest 14
   kept). `docker compose down` and the panel's Stop keep it.
-- **See them:** the Stats book in the lobby, the Players page in the panel, or
+- **See them:** the Stats book in the lobby, the Players page in the panel (click a player's name;
+  while the network is stopped it shows the last stats it saw, saying when), or
   `http://127.0.0.1:8080/v1/stats` and `http://127.0.0.1:8080/v1/stats/<gamertag>` on the PC.
 - **Reset everything:** stop the stack, then `docker volume rm minecade-data`. This also
   deletes the backups.

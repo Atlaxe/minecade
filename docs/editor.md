@@ -183,19 +183,21 @@ with the real blocks once they're in `packs/blocks/`.
 
 ## Who can join
 
-- **Map editors:** the gamertags in `LAN_PLAYERS` (in `.env`). They get the tools, and operator for
-  commands, on every server. A change applies at the editor's next boot.
-- **Guests:** the gamertags on the Panel's Map editor page (**Who can join**). They may be in the
+- **Map editors:** the gamertags in `LAN_PLAYERS` (in `.env`; the **Map editor** switch on the
+  Panel's Players page). They get the tools, and operator for commands, on every server. A change
+  applies at the editor's next boot.
+- **Guests:** the players with **Guest** on, on the Panel's Players page. They may be in the
   editor lobby and on whatever runs on port 19133, **Select or a preview** (only one runs at a
   time), but **never Edit**. Everyone else is refused.
 
-**Guests** are set only on the Panel: type a gamertag and press **Add**, or **Remove** one. That
-works with the editor off too. The list is kept in `work/editor/guests.json`. Removing a guest
-while the editor runs also disconnects them.
+**Guests** are set only on the Panel: switch **Guest** on or off in a player's row (add a player
+who isn't listed yet with **Add a player** above the table). That works with the editor off too.
+The list is kept in `work/editor/guests.json`. Switching a guest off while the editor runs also
+disconnects them.
 
 **How guests join:**
 - **Console friends:** with **Friends tab** on (the same switch as the network's, `BROADCAST`, on
-  the Map editor page and the Servers page), the editor runs the network's bot while it's up. Its
+  the Map editor page, under the editor's own status, and the Servers page), the editor runs the network's bot while it's up. Its
   friends see **Minecade map editor** in their Friends tab and join from there, the way they join
   the network (see the README's "Friends tab broadcast"; the sign-in is shared). Anyone can add
   the bot as a friend, but only guests get past the editor lobby.
@@ -786,7 +788,7 @@ isn't committed; see its README.
 - **Can't join:** first check that the editor is running (the Panel's Map editor page, or
   `npm run editor -- status`): with none running, nothing answers on port 19132 and the join
   fails. If the Panel's buttons do nothing, restart the Panel (see Restarting above). Then check
-  that your gamertag is in `LAN_PLAYERS` (or a guest's on the Map editor page), and, from outside
+  that your gamertag is in `LAN_PLAYERS` (or Guest is on for theirs, on the Players page), and, from outside
   this network, that ports 19132-19135 are forwarded (see the README).
 - **A console guest is stuck coming back to the editor lobby:** TCP 19135 isn't forwarded, or the
   firewall rule still stops at 19134 (see the README).
