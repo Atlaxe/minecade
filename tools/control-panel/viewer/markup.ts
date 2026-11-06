@@ -27,9 +27,11 @@ import {
   regionTargets,
   targetKeyOf,
   type HeightLine,
+  type RegionEntry,
   type RegionTarget,
   type Rgb,
 } from "../../../editor/behavior_pack/scripts/regions.ts";
+import type { BoxPlace } from "./boxes.ts";
 
 /** Game Edit's marker colors by what they mark (editor/resource_pack/textures/entity/editor_marker*.png). */
 export const KIND_COLORS = { spawns: 0xffaa1e, spectatorSpawn: 0xafb9cd, queueSpawn: 0x3cc8ff, teamSpawns: 0x5adc5a, points: 0xffe63c } as const;
@@ -64,6 +66,10 @@ export interface BoxMark {
   label: string;
   box: Box;
   color: number;
+  /** Where the map keeps it (game Edit's Region tool's entry): the edits that change it name this. */
+  entry: RegionEntry;
+  /** Regions: the fewest blocks it must span along every side. */
+  minSize?: number;
 }
 
 export interface PlaneMark {
@@ -92,8 +98,9 @@ export interface MarkupList {
   /** Points: the list as game Edit's Spawn and Game marker tools have it, and how its markers are drawn. */
   spawn?: SpawnList;
   shape?: Shape;
-  /** Boxes: where game Edit's Region tool saves a box. */
+  /** Boxes: where game Edit's Region tool saves a box, and where a new one goes. */
   region?: RegionTarget;
+  place?: BoxPlace;
   /** Heights: which line. */
   line?: HeightLine;
   /** The checklist's row for it: entries needed, and whether that's met. */
@@ -159,7 +166,8 @@ export function buildMarkup(config: MapConfig, rules: EditorRules): Markup {
   const boxes: BoxMark[] = entries.map((entry) => {
     const list = targetKeyOf(entry);
     const color = entry.region ? (colors.get(entry.region.name) ?? BOUNDS_COLOR) : entry.spectators ? SPECTATOR_BOUNDS_COLOR : BOUNDS_COLOR;
-    return { key: entry.key, list, label: entry.label, box: entry.box, color: hex(color) };
+    const minSize = entry.region ? regionMinSize(rules.requires, entry.region.name) : undefined;
+    return { key: entry.key, list, label: entry.label, box: entry.box, color: hex(color), entry, ...(minSize !== undefined ? { minSize } : {}) };
   });
   const targets = regionTargets(config, rules).filter((target) => target.kind !== "addBounds" && target.kind !== "new");
   const boxLists: MarkupList[] = targets.map((target) => {
@@ -172,6 +180,7 @@ export function buildMarkup(config: MapConfig, rules: EditorRules): Markup {
       kind: "boxes",
       color: hex(color),
       region: target,
+      place: target.kind === "region" ? { kind: "region", name: target.name ?? "" } : target.kind === "spectatorBounds" ? { kind: "spectatorBounds" } : { kind: "bounds" },
       entries: boxes.filter((box) => box.list === target.key).map((box) => ({ key: box.key, label: box.label, detail: boxText(box.box) })),
       ...need(target.key),
       ...(minSize !== undefined ? { minSize } : {}),

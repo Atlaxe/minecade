@@ -4,8 +4,9 @@
 `docs/spike-results.md`, "Map viewer", and this plan is updated for them; its code in
 `spike/viewer/` (the looks, the mesher) is where V.3 started. V.2 (the world reader) and V.3 (the
 read-only viewer, `docs/viewer.md`) done 2026-11-05, in `tools/viewer/` and
-`tools/control-panel/viewer/`. V.4 (markers shown) and V.5 (points, Save and Publish) done
-2026-11-06. Build it in the order of "Passes" below: each pass leans on the ones before it.
+`tools/control-panel/viewer/`. V.4 (markers shown), V.5 (points, Save and Publish) and V.6 (boxes
+and planes) done 2026-11-06. Build it in the order of "Passes" below: each pass leans on the ones
+before it.
 
 **For the session that implements this:**
 - Work in a worktree of your own (`CLAUDE.md`, "Branch and merge").
@@ -425,8 +426,17 @@ elsewhere is one step. What the viewer may send is checked on both sides (`edit-
 markup ops and `draft`). The store's `exportPublished` now counts catalog files it changed, so
 Publish's message says whether the next Start must rebuild.
 
-**V.6 Boxes and planes.** Bounds (one box or several), spectator bounds, regions (the game's, the
-map's own, per team, kill), `minSize`; Kill Y and the build limits; handles, nudges, Set to cut.
+**V.6 Boxes and planes** (done 2026-11-06). Bounds (one box or several), spectator bounds, regions
+(the game's, the map's own, per team, kill), `minSize`; Kill Y and the build limits; handles,
+nudges, Set to cut. As built: Add on a box list takes two corner clicks (a preview with its size
+follows the pointer, red under `minSize`); New region asks for a name first; the picked box has a
+handle on each face (drag it, or click it and nudge with the arrow keys or In and Out), and To
+height, X or Z cut moves the picked face (else the nearer one) onto that cut. Set on a height takes
+a block click (kill Y under the block, a build limit on top of it, as game Edit's Kill Y tool
+starts them); the picked height has a handle to drag, and nudges. The math is `boxes.ts`; the
+rules game Edit's tools keep (a region's `minSize`, kill Y and build limit ranges, above over
+below) are `edit-check.ts`'s `markupProblem`, which the page and the Panel both apply, so a bad box
+or height is never written, whether or not game Edit has the map.
 
 **V.7 Shapes and see-through blocks.** The shape table, custom blocks' collision boxes, liquids,
 glass, clicks passing through plants, Hidden blocks, unknown blocks, and the checks from "Checks".

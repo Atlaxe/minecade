@@ -11,7 +11,7 @@ import { History, withLineEndings, type EditorStatus } from "../editor/editor-co
 import { loadTarget } from "../editor/targets.ts";
 import { storeDir } from "../maps/paths.ts";
 import { MapStore } from "../maps/store.ts";
-import { VIEWER_BY, viewerEdit } from "./edit-check.ts";
+import { VIEWER_BY, markupProblem, viewerEdit } from "./edit-check.ts";
 import { mapJsonPath, stampOf } from "./map-data.ts";
 
 /** How the Panel reaches the map editor (tests give a fake). */
@@ -55,6 +55,11 @@ export class MapChanges {
     if (typeof edit === "string") return { status: 400, error: edit };
     const path = this.path(target, map);
     if (typeof path !== "string") return path;
+    // The rules game Edit's tools keep (a region's size, the build limit's order), against the map as it is.
+    const current = this.read(path);
+    if ("error" in current) return current;
+    const problem = markupProblem(current.config, edit, (await loadTarget(this.root, target)).rules.requires);
+    if (problem) return { status: 422, error: problem, config: current.config };
     const through = await this.throughEditor("/edit", { target, map, edit, by: VIEWER_BY }, target, map, path);
     if (through) return through;
     return this.change(path, (config) => applyEdit(config, edit), describeEdit(edit));

@@ -483,18 +483,18 @@ export class MapScene {
 
   /**
    * Frames a spot: the view centers on it and moves in or out until a ball of `radius` around it
-   * fills about half the view, keeping the direction it looks from.
+   * fills about two thirds of the view, keeping the direction it looks from.
    */
   frame(center: THREE.Vector3, radius: number): void {
     if (this.camera === this.orthographic) {
       const extent = (this.orthographic.userData.extent as number | undefined) ?? 64;
-      this.orthographic.zoom = Math.max(0.05, extent / (radius * 2.2));
+      this.orthographic.zoom = Math.max(0.05, extent / (radius * 1.5));
       this.orthographic.updateProjectionMatrix();
       this.orthographic.position.set(center.x, this.orthographic.position.y, center.z + 1e-3);
       this.controls.target.set(center.x, this.controls.target.y, center.z);
     } else {
       const direction = this.perspective.position.clone().sub(this.controls.target).normalize();
-      const distance = Math.max(4, (radius * 2.2) / Math.tan(THREE.MathUtils.degToRad(this.perspective.fov / 2)));
+      const distance = Math.max(4, (radius * 1.5) / Math.tan(THREE.MathUtils.degToRad(this.perspective.fov / 2)));
       this.controls.target.copy(center);
       this.perspective.position.copy(center).addScaledVector(direction, distance);
     }

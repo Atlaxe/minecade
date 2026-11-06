@@ -4,9 +4,13 @@
 // through blocks) and see-through faces; kill Y and the build limit as sheets across the map.
 // Points past a cut are faded or gone with the blocks; box faces are cut with them. While a tool
 // works, a see-through ghost shows where a new point goes, a dragged point moves with the pointer,
-// and the picked point has a knob on the floor that turns its facing.
+// and the picked point has a knob on the floor that turns its facing. A box being drawn or dragged
+// shows as a preview with its size; the picked box has a handle on each face, the picked height
+// one on its sheet.
 import * as THREE from "three";
+import { FACES, type Face } from "./boxes.ts";
 import { geoHeight, parseGeo, type FaceName, type Geo, type GeoBone } from "./geo.ts";
+import type { Box } from "@minecade/minigame-core/config";
 import { FACING_COLOR, type BoxMark, type Markup, type PlaneMark, type PointMark, type Shape } from "./markup.ts";
 import type { MapScene } from "./scene.ts";
 
@@ -28,6 +32,10 @@ const GHOST = 0.45;
 export const KNOB_DISTANCE = 1.6;
 /** How far box faces and edges stand off the blocks they enclose, so they don't flicker on them. */
 const BOX_GAP = 0.02;
+/** A preview box that can't be saved (smaller than its region's minSize). */
+const BAD_COLOR = 0xff3b30;
+const HANDLE_COLOR = 0xffffff;
+const ACTIVE_HANDLE_COLOR = 0x5ad2ff;
 
 interface ShapeModel {
   geo: Geo;
@@ -69,6 +77,15 @@ export class Overlay {
   private ghost: { group: THREE.Group; materials: THREE.Material[] } | undefined;
   private picked: string | undefined;
   private names = true;
+  /** A box drawn or dragged: edges, faces and its size over it. */
+  private readonly preview: { faces: THREE.Mesh<THREE.BufferGeometry, THREE.MeshBasicMaterial>; edges: THREE.LineSegments<THREE.BufferGeometry, THREE.LineBasicMaterial>; through: THREE.LineSegments<THREE.BufferGeometry, THREE.LineBasicMaterial> };
+  private previewBox: Box | undefined;
+  private readonly sizeTag: HTMLDivElement;
+  /** The picked box's face handles (and the picked height's), and the face arrow keys nudge. */
+  private readonly handles = new THREE.Group();
+  private activeFace: Face | undefined;
+  /** A box or height drawn by the preview while it's dragged (its own drawing is hidden). */
+  private editing: string | undefined;
 
   constructor(
     private readonly scene: MapScene,
@@ -99,7 +116,99 @@ export class Overlay {
     this.knob.renderOrder = 11;
     this.knob.visible = false;
     this.root.add(this.knob);
-    scene.addRenderListener(() => this.placeTags());
+    // The preview box: a unit box, moved and scaled to the box shown.
+    const unit = new THREE.BoxGeometry(1, 1, 1).translate(0.5, 0.5, 0.5);
+    const outline = new THREE.EdgesGeometry(unit);
+    this.preview = {
+      faces: new THREE.Mesh(unit, new THREE.MeshBasicMaterial({ transparent: true, opacity: 0.12, depthWrite: false, side: THREE.DoubleSide })),
+      edges: new THREE.LineSegments(outline, new THREE.LineBasicMaterial({})),
+      through: new THREE.LineSegments(outline, new THREE.LineBasicMaterial({ transparent: true, opacity: 0.5, depthTest: false })),
+    };
+    this.preview.faces.renderOrder = 4;
+    this.preview.through.renderOrder = 4;
+    for (const object of Object.values(this.preview)) {
+      object.visible = false;
+      this.root.add(object);
+    }
+    this.sizeTag = document.createElement("div");
+    this.sizeTag.className = "tag size";
+    this.sizeTag.hidden = true;
+    tags.append(this.sizeTag);
+    // Six face handles (spheres) and a height's handle (a cube), drawn over everything.
+    for (const face of FACES) {
+      const handle = new THREE.Mesh(new THREE.SphereGeometry(1, 16, 12), new THREE.MeshBasicMaterial({ color: HANDLE_COLOR, depthTest: false, transparent: true, opacity: 0.95 }));
+      handle.userData.face = face;
+      this.handles.add(handle);
+    }
+    const heightHandle = new THREE.Mesh(new THREE.BoxGeometry(2, 2, 2), new THREE.MeshBasicMaterial({ color: HANDLE_COLOR, depthTest: false, transparent: true, opacity: 0.95 }));
+    heightHandle.userData.height = true;
+    this.handles.add(heightHandle);
+    for (const handle of this.handles.children) {
+      handle.renderOrder = 12;
+      handle.visible = false;
+    }
+    this.root.add(this.handles);
+    scene.addRenderListener(() => {
+      this.placeTags();
+      this.scaleHandles();
+    });
+  }
+
+  /** Shows a box being drawn or dragged, red when it can't be saved, with its size over it (or none). */
+  showBox(box: Box | undefined, color: number, size?: string, bad = false): void {
+    this.previewBox = box;
+    for (const object of Object.values(this.preview)) object.visible = box !== undefined;
+    if (box) {
+      const shown = bad ? BAD_COLOR : color;
+      const extent = [0, 1, 2].map((axis) => box.max[axis] - box.min[axis] + 1 + BOX_GAP * 2);
+      for (const object of Object.values(this.preview)) {
+        object.position.set(box.min[0] - BOX_GAP, box.min[1] - BOX_GAP, box.min[2] - BOX_GAP);
+        object.scale.set(extent[0], extent[1], extent[2]);
+        object.material.color.setHex(shown);
+      }
+    }
+    this.sizeTag.textContent = size ?? "";
+    this.sizeTag.classList.toggle("bad", bad);
+    this.placeHandles();
+    this.scene.requestRender();
+  }
+
+  /** Hides a box's or height's own drawing while the preview shows it (or none). */
+  hideWhileEditing(key: string | undefined): void {
+    this.editing = key;
+    this.refresh();
+  }
+
+  /** Draws a height's sheet at another height while it's dragged (the map isn't changed). */
+  previewHeight(key: string, y: number): void {
+    const plane = this.planes.find((candidate) => candidate.mark.key === key);
+    if (!plane) return;
+    plane.sheet.position.y = y - plane.mark.y;
+    plane.edge.position.y = y - plane.mark.y;
+    this.placeHandles();
+    this.scene.requestRender();
+  }
+
+  /** The face the arrow keys nudge, shown by its handle's color (or none). */
+  setActiveFace(face: Face | undefined): void {
+    this.activeFace = face;
+    this.placeHandles();
+    this.scene.requestRender();
+  }
+
+  /** The handle under a spot on the canvas: a picked box's face, or the picked height's. */
+  handleAt(clientX: number, clientY: number): { face: Face } | { height: true } | undefined {
+    const shown = this.handles.children.filter((handle) => handle.visible);
+    if (shown.length === 0) return undefined;
+    const hit = this.scene.rayAt(clientX, clientY).intersectObjects(shown, false)[0];
+    if (!hit) return undefined;
+    return hit.object.userData.height ? { height: true } : { face: hit.object.userData.face as Face };
+  }
+
+  /** The middle of the picked height's sheet, where its handle is. */
+  heightHandleSpot(): THREE.Vector3 | undefined {
+    const handle = this.handles.children.find((child) => child.userData.height);
+    return handle?.visible ? handle.position.clone() : undefined;
   }
 
   /** Draws a map's markup, replacing what was drawn. */
@@ -212,6 +321,57 @@ export class Overlay {
     return undefined;
   }
 
+  /** Puts the handles on the picked box's faces (or the preview's, while it's dragged) or the picked height's sheet. */
+  private placeHandles(): void {
+    const boxObject = this.boxes.find((candidate) => candidate.mark.key === this.picked);
+    const box = this.editing && this.editing === this.picked && this.previewBox ? this.previewBox : boxObject?.mark.box;
+    const plane = this.planes.find((candidate) => candidate.mark.key === this.picked);
+    for (const handle of this.handles.children) {
+      const face = handle.userData.face as Face | undefined;
+      if (face) {
+        handle.visible = boxObject !== undefined && box !== undefined;
+        if (!handle.visible || !box) continue;
+        const spot = [0, 1, 2].map((axis) => (box.min[axis] + box.max[axis] + 1) / 2);
+        spot[face.axis] = face.side === "min" ? box.min[face.axis] - BOX_GAP : box.max[face.axis] + 1 + BOX_GAP;
+        handle.position.set(spot[0], spot[1], spot[2]);
+        const active = this.activeFace?.axis === face.axis && this.activeFace.side === face.side;
+        ((handle as THREE.Mesh).material as THREE.MeshBasicMaterial).color.setHex(active ? ACTIVE_HANDLE_COLOR : HANDLE_COLOR);
+      } else {
+        handle.visible = plane !== undefined && plane.sheet.visible;
+        if (!plane) continue;
+        const bounds = plane.sheet.geometry.boundingBox ?? (plane.sheet.geometry.computeBoundingBox(), plane.sheet.geometry.boundingBox!);
+        const middle = new THREE.Vector3();
+        bounds.getCenter(middle);
+        handle.position.set(middle.x, middle.y + plane.sheet.position.y, middle.z);
+      }
+    }
+  }
+
+  /** Keeps the handles about the same size on the screen, whatever the zoom. */
+  private scaleHandles(): void {
+    const camera = this.scene.activeCamera;
+    let changed = false;
+    for (const handle of this.handles.children) {
+      if (!handle.visible) continue;
+      let size: number;
+      if (camera instanceof THREE.OrthographicCamera) size = ((camera.top - camera.bottom) / camera.zoom) * 0.008;
+      else size = camera.position.distanceTo(handle.position) * 0.012;
+      size = Math.min(4, Math.max(0.12, size));
+      if (Math.abs(handle.scale.x - size) > size * 0.01) {
+        handle.scale.setScalar(size);
+        changed = true;
+      }
+    }
+    // The frame just drawn had them at their old size: draw again (only when it changed).
+    if (changed) this.scene.requestRender();
+    if (this.previewBox && !this.sizeTag.hidden) {
+      const box = this.previewBox;
+      const spot = new THREE.Vector3((box.min[0] + box.max[0] + 1) / 2, box.max[1] + 1.2, (box.min[2] + box.max[2] + 1) / 2).project(camera);
+      this.sizeTag.style.transform = `translate(${((spot.x + 1) / 2) * this.tags.clientWidth}px, ${((1 - spot.y) / 2) * this.tags.clientHeight}px) translate(-50%, -100%)`;
+    }
+    this.sizeTag.hidden = !this.previewBox || !this.sizeTag.textContent;
+  }
+
   /** Shows what's past the cuts faded or not at all, as the blocks are. Called after a cut or toggle changes. */
   refresh(): void {
     const faded = this.scene.isFaded;
@@ -236,6 +396,7 @@ export class Overlay {
     }
     for (const box of this.boxes) {
       const picked = box.mark.key === this.picked;
+      for (const object of [box.faces, box.edges, box.through]) object.visible = box.mark.key !== this.editing;
       box.faces.material.opacity = picked ? 0.16 : 0.05;
       box.through.material.opacity = picked ? 0.85 : 0.22;
       box.edges.material.color.setHex(picked ? 0xffffff : box.mark.color);
@@ -243,11 +404,16 @@ export class Overlay {
     for (const plane of this.planes) {
       const kept = this.scene.isHeightKept(plane.mark.y);
       const picked = plane.mark.key === this.picked;
-      plane.sheet.visible = kept || faded;
+      plane.sheet.visible = kept || faded || plane.mark.key === this.editing;
       plane.edge.visible = plane.sheet.visible;
+      if (plane.mark.key !== this.editing) {
+        plane.sheet.position.y = 0;
+        plane.edge.position.y = 0;
+      }
       plane.sheet.material.opacity = (picked ? 0.4 : 0.2) * (kept ? 1 : 0.4);
       plane.edge.material.color.setHex(picked ? 0xffffff : plane.mark.color);
     }
+    this.placeHandles();
     this.scene.requestRender();
   }
 

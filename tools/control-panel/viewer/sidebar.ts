@@ -1,7 +1,7 @@
 // The viewer's side panel: the game's checklist (what the map still needs, and what the build
 // would refuse it for), then every list game Edit's tools place into, with its entries. Clicking an
 // entry picks it (the page frames it in the view).
-import type { Markup, MarkupList } from "./markup.ts";
+import type { Markup, MarkupList, MarkupSection } from "./markup.ts";
 
 type Child = Node | string | null | undefined | false | Child[];
 
@@ -34,8 +34,10 @@ export function swatch(color: number): HTMLSpanElement {
 export interface SidebarHandlers {
   /** An entry was clicked. */
   pick(key: string): void;
-  /** Extra controls on a list's header (the later passes' Place buttons), if any. */
+  /** Controls on a list's header (Place, Add, Set), if any. */
   listTools?(list: MarkupList): Child;
+  /** Controls under a section's lists (New region), if any. */
+  sectionTools?(section: MarkupSection): Child;
 }
 
 export class Sidebar {
@@ -68,6 +70,7 @@ export class Sidebar {
           { className: "lists" },
           el("h2", {}, section.title),
           section.lists.map((list) => this.list(list)),
+          this.handlers.sectionTools?.(section),
         ),
       ),
     );

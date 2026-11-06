@@ -3,13 +3,17 @@
 // the Panel, meshes the blocks in workers, and draws them (scene.ts) with the camera's views and
 // the height, X and Z cuts; over them, the map's markup (overlay.ts) and beside them its checklist
 // and lists (sidebar.ts), kept up to date when map.json changes. Spawns and game markers are
-// placed, moved, turned and deleted with the mouse (changes.ts sends each edit to the Panel), with
-// undo and redo, Save and Publish.
-import { worldPoint, type EditorRules, type MapConfig, type MapEdit, type MapPosition } from "@minecade/minigame-core/config";
+// placed, moved, turned and deleted with the mouse; boxes (bounds, spectator bounds, regions) are
+// drawn from two corners and changed with their face handles; kill Y and the build limit are set by
+// a click and dragged by their handle. Each edit goes to the Panel (changes.ts), with undo and redo,
+// Save and Publish.
+import { bigEnough, worldPoint, type Box, type EditorRules, type MapConfig, type MapEdit, type MapPosition, type Vec3 } from "@minecade/minigame-core/config";
 import { lookAt, mapMiddle } from "../../../editor/behavior_pack/scripts/lists.ts";
+import { regionName, type HeightLine } from "../../../editor/behavior_pack/scripts/regions.ts";
 import { decodeView } from "../../viewer/view-format.ts";
+import { addBoxEdit, boxFrom, faceToCut, facePlane, heightEdit, heightFromBlock, heightProblem, moveFace, nearestOnAxis, nudgeFace, removeBoxEdit, setBoxEdit, sizeText, MAX_LIMIT, MIN_HEIGHT, type Face } from "./boxes.ts";
 import { MapChangesClient } from "./changes.ts";
-import { buildMarkup, findEntry, type Markup, type MarkupList, type PointMark } from "./markup.ts";
+import { buildMarkup, findEntry, type BoxMark, type Markup, type MarkupList, type PlaneMark, type PointMark } from "./markup.ts";
 import { Overlay, type MarkerAssets } from "./overlay.ts";
 import { floorSpot, placedPosition, yawToward, type Spot } from "./placing.ts";
 import { MapScene, type Cuts, type Toggles, type ViewName } from "./scene.ts";
@@ -45,6 +49,8 @@ interface MapData extends MarkerAssets {
 const DRAG_PIXELS = 4;
 /** Facing steps while dragging the knob (Shift: whole degrees). */
 const FACING_STEP = 15;
+/** A new region's color until it has a box (then it takes game Edit's). */
+const NEW_REGION_COLOR = 0xffffff;
 
 function loadSettings(): Settings {
   try {
@@ -79,6 +85,11 @@ function notice(text: string, bad = false): void {
   box.hidden = false;
   clearTimeout(noticeTimer);
   noticeTimer = setTimeout(() => (box.hidden = true), bad ? 9000 : 6000);
+}
+
+/** Why a box can't be saved in a list with a minimum size, or undefined. */
+function sizeProblem(box: Box, label: string, minSize: number | undefined): string | undefined {
+  return bigEnough(box, minSize) ? undefined : `${label} boxes must span at least ${minSize} blocks along every side.`;
 }
 
 async function main(): Promise<void> {
@@ -125,19 +136,28 @@ async function main(): Promise<void> {
   let config = data.config;
   let markup: Markup = buildMarkup(config, data.rules);
   let picked: string | undefined;
-  /** The list new points go into while Place is on. */
-  let placing: MarkupList | undefined;
+  /**
+   * The list a click on the blocks adds to: points are placed (Place), a box is drawn from two
+   * corners (Add, `corner` once the first is clicked), a height is set (Set).
+   */
+  let armed: MarkupList | undefined;
+  let corner: Vec3 | undefined;
+  /** The picked box's face the arrow keys nudge. */
+  let activeFace: Face | undefined;
+  const allLists = () => markup.sections.flatMap((section) => section.lists);
+  const armLabel = (list: MarkupList) => (list.kind === "points" ? "Place" : list.kind === "boxes" ? "Add" : "Set");
+  const armTitle = (list: MarkupList) =>
+    list.kind === "points" ? `Click blocks to place ${list.spawn?.single ? "it" : "entries"} (Esc stops)` : list.kind === "boxes" ? "Click one corner block, then the opposite one (Esc stops)" : "Click a block: the height goes to its layer (Esc stops)";
   const sidebar = new Sidebar($("sidebar"), {
     pick: (key) => pickEntry(key, true),
-    listTools: (list) =>
-      list.kind === "points" && list.spawn
-        ? el("button", { className: `small${placing?.key === list.key ? " on" : ""}`, title: `Click blocks to place ${list.spawn.single ? "it" : "entries"} (Esc stops)`, onclick: () => place(placing?.key === list.key ? undefined : list) }, "Place")
-        : null,
+    listTools: (list) => el("button", { className: `small${armed?.key === list.key ? " on" : ""}`, title: armTitle(list), onclick: () => arm(armed?.key === list.key ? undefined : list) }, armLabel(list)),
+    sectionTools: (section) => (section.title === "Boundaries" ? el("button", { className: "small", title: "A region of the map's own, by name", onclick: newRegion }, "New region") : null),
   });
   const redraw = () => {
     markup = buildMarkup(config, data.rules);
     if (picked && !findEntry(markup, picked)) picked = undefined;
-    if (placing) placing = markup.sections.flatMap((section) => section.lists).find((list) => list.key === placing!.key);
+    // A new region's list is the viewer's own until its first box is saved.
+    if (armed) armed = allLists().find((list) => list.key === armed!.key) ?? (armed.kind === "boxes" ? armed : undefined);
     overlay.set(markup);
     overlay.pick(picked);
     sidebar.render(markup);
@@ -185,6 +205,8 @@ async function main(): Promise<void> {
 
   // ---- Picking: an entry in the side panel or a marker in the view; the tool panel says what can be done with it.
   const pointOf = (key: string | undefined): PointMark | undefined => (key ? markup.points.find((point) => point.key === key) : undefined);
+  const boxOf = (key: string | undefined): BoxMark | undefined => (key ? markup.boxes.find((box) => box.key === key) : undefined);
+  const heightMarkOf = (key: string | undefined): PlaneMark | undefined => (key ? markup.planes.find((plane) => plane.key === key) : undefined);
   const showPicked = () => {
     const found = picked ? findEntry(markup, picked) : undefined;
     $("picked").textContent = found ? `${found.entry.label}: ${found.entry.detail}` : "";
@@ -192,8 +214,10 @@ async function main(): Promise<void> {
   };
   /** Picks an entry (or none); from the side panel, the view frames it, moving a height cut that hides it. */
   const pickEntry = (key: string | undefined, frame = false) => {
+    if (key !== picked) activeFace = undefined;
     picked = key;
     overlay.pick(key);
+    overlay.setActiveFace(activeFace);
     sidebar.pick(key);
     showPicked();
     if (!key || !frame) return;
@@ -203,54 +227,138 @@ async function main(): Promise<void> {
     scene.frame(extent.center, extent.radius);
   };
 
-  /** Removes the picked entry. */
+  /** Removes the picked entry: a point, a box, or a height. */
   const removePicked = () => {
     const point = pointOf(picked);
-    const list = point && findEntry(markup, point.key)?.list;
-    if (!point || !list?.spawn) return;
-    edit({ op: "remove", target: list.spawn.target, index: point.index });
+    const pointList = point && findEntry(markup, point.key)?.list;
+    const box = boxOf(picked);
+    const height = heightMarkOf(picked);
+    if (point && pointList?.spawn) edit({ op: "remove", target: pointList.spawn.target, index: point.index });
+    else if (box) edit(removeBoxEdit(box.entry));
+    else if (height) edit(heightEdit(height.line));
+    else return;
     pickEntry(undefined);
   };
 
-  /** The tool panel: Place's list and Center on block, then what can be done with the picked entry. */
+  /** Saves a changed box, unless it's too small for its list. */
+  const saveBox = (box: BoxMark, next: Box) => {
+    if (next.min.every((v, axis) => v === box.box.min[axis]) && next.max.every((v, axis) => v === box.box.max[axis])) return;
+    const problem = sizeProblem(next, findEntry(markup, box.key)?.list.label ?? box.label, box.minSize);
+    if (problem) return notice(problem, true);
+    edit(setBoxEdit(box.entry, next));
+  };
+
+  /** Sets a height, unless game Edit's rules refuse it. */
+  const saveHeight = (line: HeightLine, y: number) => {
+    const problem = heightProblem(config, line, y);
+    if (problem) return notice(problem, true);
+    edit(heightEdit(line, y));
+  };
+
+  /** Moves the picked box's face, or the picked height, by whole blocks (the arrow keys and the tool panel's buttons). */
+  const nudge = (steps: number) => {
+    const box = boxOf(picked);
+    const height = heightMarkOf(picked);
+    if (box) {
+      if (!activeFace) return notice("Click one of the box's handles first: the arrow keys move that face.", true);
+      saveBox(box, nudgeFace(box.box, activeFace, steps));
+    } else if (height) saveHeight(height.line, height.y + steps);
+  };
+
+  /** Moves the picked box's face (or the picked height) onto a cut. */
+  const toCut = (axis: 0 | 1 | 2) => {
+    const layer = axis === 1 ? cuts.top : axis === 0 ? cuts.x?.at : cuts.z?.at;
+    if (layer === undefined) return;
+    const box = boxOf(picked);
+    const height = heightMarkOf(picked);
+    if (box) saveBox(box, faceToCut(box.box, axis, layer, activeFace));
+    else if (height && axis === 1) saveHeight(height.line, heightFromBlock(height.line, layer));
+  };
+
+  /** The tool panel: what's armed and Center on block, then what can be done with the picked entry. */
   const renderTool = () => {
-    const point = pointOf(picked);
-    const list = point ? findEntry(markup, point.key)?.list : undefined;
     const center = el("input", { type: "checkbox", checked: settings.center, onchange: (event: Event) => ((settings = { ...settings, center: (event.target as HTMLInputElement).checked }), saveSettings(settings)) });
-    $("tool").replaceChildren(
-      el("h2", {}, "Tool"),
-      placing
-        ? el("div", { className: "row" }, el("span", { className: "grow" }, "Placing ", el("strong", {}, placing.label)), el("button", { className: "small", onclick: () => place(undefined) }, "Stop"))
-        : el("div", { className: "muted" }, "Place beside a list puts its entries."),
-      el("label", { className: "check" }, center, " Center on block"),
-      ...(point && list?.spawn
-        ? [el(
+    const doing = armed
+      ? armed.kind === "points"
+        ? "Placing"
+        : armed.kind === "boxes"
+          ? corner
+            ? "Opposite corner for"
+            : "First corner for"
+          : "Click a block for"
+      : undefined;
+    const point = pointOf(picked);
+    const pointList = point ? findEntry(markup, point.key)?.list : undefined;
+    const box = boxOf(picked);
+    const height = heightMarkOf(picked);
+    const cutButtons = (axes: (0 | 1 | 2)[]) =>
+      axes.map((axis) => {
+        const layer = axis === 1 ? cuts.top : axis === 0 ? cuts.x?.at : cuts.z?.at;
+        const label = axis === 1 ? "Height cut" : axis === 0 ? "X cut" : "Z cut";
+        return el("button", { className: "small", disabled: layer === undefined, title: layer === undefined ? `No ${label.toLowerCase()} to set it to` : `Move ${box ? "the face nearer it (or the picked face)" : "it"} onto the ${label.toLowerCase()}`, onclick: () => toCut(axis) }, `To ${label.toLowerCase()}`);
+      });
+    const nudges = el("div", { className: "row" }, el("button", { className: "small", title: box ? "Move the picked face in (Down or Left)" : "Down a block (Down)", onclick: () => nudge(-1) }, box ? "In" : "Down"), el("button", { className: "small", title: box ? "Move the picked face out (Up or Right)" : "Up a block (Up)", onclick: () => nudge(1) }, box ? "Out" : "Up"));
+    const remove = el("button", { className: "small danger", title: "Delete (Del)", onclick: removePicked }, "Delete");
+    const pickedPart = point && pointList?.spawn
+      ? el(
+          "div",
+          { className: "picked" },
+          el("strong", {}, point.label),
+          el("div", { className: "row" }, el("button", { className: "small", disabled: !point.faced, title: "Face the map's middle again", onclick: () => edit({ op: "face", target: pointList.spawn!.target, index: point.index }) }, "Clear facing"), remove),
+        )
+      : box
+        ? el(
             "div",
             { className: "picked" },
-            el("strong", {}, point.label),
-            el(
-              "div",
-              { className: "row" },
-              el("button", { className: "small", disabled: !point.faced, title: "Face the map's middle again", onclick: () => edit({ op: "face", target: list.spawn!.target, index: point.index }) }, "Clear facing"),
-              el("button", { className: "small danger", title: "Delete (Del)", onclick: removePicked }, "Delete"),
-            ),
-          )]
-        : []),
+            el("strong", {}, box.label),
+            el("span", { className: "muted" }, `${sizeText(box.box)}${box.minSize !== undefined ? `, at least ${box.minSize} each way` : ""}`),
+            el("span", { className: "muted" }, activeFace ? `Face: ${faceName(activeFace)}` : "Drag a handle; click one to nudge it."),
+            activeFace ? nudges : null,
+            el("div", { className: "row" }, ...cutButtons([1, 0, 2])),
+            el("div", { className: "row" }, remove),
+          )
+        : height
+          ? el("div", { className: "picked" }, el("strong", {}, height.label), el("span", { className: "muted" }, `y ${height.y}`), nudges, el("div", { className: "row" }, ...cutButtons([1]), remove))
+          : null;
+    $("tool").replaceChildren(
+      ...[
+        el("h2", {}, "Tool"),
+        armed && doing
+          ? el("div", { className: "row" }, el("span", { className: "grow" }, `${doing} `, el("strong", {}, armed.label)), el("button", { className: "small", onclick: () => arm(undefined) }, "Stop"))
+          : el("div", { className: "muted" }, "Place, Add or Set beside a list."),
+        el("label", { className: "check" }, center, " Center on block"),
+        pickedPart,
+      ].filter((child): child is NonNullable<typeof child> => child !== null),
     );
   };
 
-  /** Turns Place on for a list (or off): clicks on blocks then put entries in it. */
-  const place = (list: MarkupList | undefined) => {
-    placing = list;
+  /** Arms a list (or nothing): clicks on blocks then place its points, draw its box or set its height. */
+  const arm = (list: MarkupList | undefined) => {
+    armed = list;
+    corner = undefined;
+    // Clicks go to the armed list: the picked entry's handles would catch them.
+    if (list && picked) pickEntry(undefined);
     canvas.classList.toggle("placing", list !== undefined);
-    if (list?.shape) overlay.setGhost({ key: "ghost", list: list.key, index: -1, label: "", at: { x: 0, y: -1e4, z: 0 }, yaw: 0, pitch: 0, faced: false, color: list.color, shape: list.shape });
+    if (list?.kind === "points" && list.shape) overlay.setGhost({ key: "ghost", list: list.key, index: -1, label: "", at: { x: 0, y: -1e4, z: 0 }, yaw: 0, pitch: 0, faced: false, color: list.color, shape: list.shape });
     else overlay.setGhost(undefined);
+    overlay.showBox(undefined, 0);
     sidebar.render(markup);
     sidebar.pick(picked);
     renderTool();
   };
 
-  /** Where a point would go for a pointer spot: its position in map.json, where it stands, and which way it looks. */
+  /** New region: a name of the map's own, then two corners. */
+  const newRegion = () => {
+    const typed = prompt("The new region's name (letters, digits and _, starting with a letter):");
+    if (typed === null) return;
+    const regionKey = regionName(typed);
+    if (!regionKey) return notice("A region's name is letters, digits and _, starting with a letter.", true);
+    const existing = allLists().find((list) => list.key === `regions.${regionKey}`);
+    if (existing) return arm(existing);
+    arm({ key: `regions.${regionKey}`, label: regionKey, kind: "boxes", color: NEW_REGION_COLOR, entries: [], place: { kind: "region", name: regionKey } });
+  };
+
+  /** Where a point would go for a pointer spot: its position in map.json, and where it stands. */
   const spotUnder = (clientX: number, clientY: number): { position: MapPosition; at: Spot } | undefined => {
     const hit = scene.pickAt(clientX, clientY);
     const spot = hit && floorSpot(volume, hit);
@@ -260,17 +368,46 @@ async function main(): Promise<void> {
   };
   const middle = () => mapMiddle(config);
 
-  /** Places a point into the Place list at a spot on the canvas, and picks it. */
-  const placeAt = (clientX: number, clientY: number) => {
-    const list = placing;
-    if (!list?.spawn) return;
-    const spot = spotUnder(clientX, clientY);
-    if (!spot) return notice("Nothing to stand on there: click the top of a block.", true);
-    const replace = list.spawn.single && list.entries.length > 0;
-    const done = edit(replace ? { op: "set", target: list.spawn.target, index: 0, at: spot.position } : { op: "add", target: list.spawn.target, at: spot.position });
-    if (!done) return;
-    pickEntry(`${list.key}#${replace ? 0 : list.entries.length}`);
-    if (list.spawn.single) place(undefined);
+  /** What a click does while a list is armed: place a point, a box's corner, or a height. */
+  const useArmed = (clientX: number, clientY: number) => {
+    const list = armed;
+    if (!list) return;
+    if (list.kind === "points" && list.spawn) {
+      const spot = spotUnder(clientX, clientY);
+      if (!spot) return notice("Nothing to stand on there: click the top of a block.", true);
+      const replace = list.spawn.single && list.entries.length > 0;
+      const done = edit(replace ? { op: "set", target: list.spawn.target, index: 0, at: spot.position } : { op: "add", target: list.spawn.target, at: spot.position });
+      if (!done) return;
+      pickEntry(`${list.key}#${replace ? 0 : list.entries.length}`);
+      if (list.spawn.single) arm(undefined);
+      return;
+    }
+    const hit = scene.pickAt(clientX, clientY);
+    if (!hit) return notice("Click a block.", true);
+    if (list.kind === "plane" && list.line) {
+      const y = heightFromBlock(list.line, hit.world[1]);
+      const problem = heightProblem(config, list.line, y);
+      if (problem) return notice(problem, true);
+      if (!edit(heightEdit(list.line, y))) return;
+      arm(undefined);
+      pickEntry(list.key);
+      return;
+    }
+    if (list.kind === "boxes" && list.place) {
+      if (!corner) {
+        corner = hit.world;
+        renderTool();
+        return;
+      }
+      const box = boxFrom(corner, hit.world);
+      const problem = sizeProblem(box, list.label, list.minSize);
+      if (problem) return notice(problem, true);
+      if (!edit(addBoxEdit(list.place, box))) return;
+      const index = list.entries.length;
+      const key = list.place.kind === "region" ? `regions.${list.place.name}#${index}` : `${list.place.kind}#${index}`;
+      arm(undefined);
+      pickEntry(key);
+    }
   };
 
   // ---- Toggles.
@@ -327,6 +464,8 @@ async function main(): Promise<void> {
       input.value = String(cut?.at ?? max[index]);
       $(`${axis}-label`).textContent = cut ? `${axis} ${cut.side === "below" ? "<=" : ">="} ${cut.at}` : "off";
     }
+    // The tool panel's To cut buttons follow the cuts.
+    if (picked && (boxOf(picked) || heightMarkOf(picked))) renderTool();
   };
   const setTop = (value: number) => applyCuts({ ...cuts, top: value >= max[1] ? undefined : Math.max(min[1], value) });
   top.oninput = () => setTop(Number(top.value));
@@ -343,16 +482,16 @@ async function main(): Promise<void> {
 
   // Cut here: the next click on a block puts that cut at it.
   let arming: "top" | "x" | "z" | undefined;
-  const arm = (axis: typeof arming) => {
+  const armCut = (axis: typeof arming) => {
     arming = arming === axis ? undefined : axis;
     canvas.classList.toggle("arming", arming !== undefined);
     for (const id of ["top", "x", "z"]) $(`${id}-here`).classList.toggle("on", arming === id);
   };
-  $("top-here").onclick = () => arm("top");
-  $("x-here").onclick = () => arm("x");
-  $("z-here").onclick = () => arm("z");
+  $("top-here").onclick = () => armCut("top");
+  $("x-here").onclick = () => armCut("x");
+  $("z-here").onclick = () => armCut("z");
 
-  // ---- Keys: the cut, undo and redo, Delete, and Esc (stop a drag, Place, Cut here, or the pick).
+  // ---- Keys: the cut, undo and redo, the arrows (nudge), Delete, and Esc (stop a drag, an armed list, Cut here, or the pick).
   addEventListener("keydown", (event) => {
     if (event.target instanceof HTMLInputElement && event.target.type !== "range" && event.target.type !== "checkbox") return;
     const step = event.shiftKey ? 5 : 1;
@@ -363,26 +502,45 @@ async function main(): Promise<void> {
     else if (event.key === "PageDown" || event.key === "[" || event.key === "{") setTop(now - step);
     else if (event.key === "PageUp" || event.key === "]" || event.key === "}") setTop(now + step);
     else if (event.key === "Home") scene.view("home");
+    else if ((event.key === "ArrowUp" || event.key === "ArrowRight") && (boxOf(picked) || heightMarkOf(picked))) nudge(step);
+    else if ((event.key === "ArrowDown" || event.key === "ArrowLeft") && (boxOf(picked) || heightMarkOf(picked))) nudge(-step);
     else if (event.key === "Delete" || event.key === "Backspace") removePicked();
     else if (event.key === "Escape") {
       if (press?.drag) cancelDrag();
-      else if (placing) place(undefined);
-      else if (arming) arm(undefined);
+      else if (armed) arm(undefined);
+      else if (arming) armCut(undefined);
       else pickEntry(undefined);
     } else return;
     event.preventDefault();
   });
 
-  // ---- The pointer. A left press on a marker drags it along the floor; on the picked point's knob
-  // it turns its facing; a click places (Place), cuts (Cut here) or picks. A double click centers.
-  type Drag = { kind: "move" | "face"; point: PointMark; moved: boolean; position?: MapPosition; yaw?: number };
+  // ---- The pointer. A left press on a handle drags a box's face or a height; on the picked
+  // point's knob it turns its facing; on a marker it drags it along the floor. A click uses the
+  // armed list, cuts (Cut here), or picks. A double click centers the view.
+  type Drag =
+    | { kind: "move" | "face"; point: PointMark; moved: boolean; position?: MapPosition; yaw?: number }
+    | { kind: "boxFace"; box: BoxMark; face: Face; moved: boolean; next?: Box }
+    | { kind: "height"; height: PlaneMark; moved: boolean; y?: number; from: { x: number; y: number; z: number } };
   let press: { x: number; y: number; drag?: Drag } | undefined;
   const cancelDrag = () => {
     press = undefined;
+    overlay.hideWhileEditing(undefined);
+    overlay.showBox(undefined, 0);
     overlay.set(markup);
     overlay.pick(picked);
   };
   const finishDrag = (drag: Drag) => {
+    overlay.hideWhileEditing(undefined);
+    overlay.showBox(undefined, 0);
+    if (drag.kind === "boxFace") {
+      if (drag.next) saveBox(drag.box, drag.next);
+      return;
+    }
+    if (drag.kind === "height") {
+      if (drag.y !== undefined && drag.y !== drag.height.y) saveHeight(drag.height.line, drag.y);
+      else overlay.refresh();
+      return;
+    }
     const list = findEntry(markup, drag.point.key)?.list;
     if (!list?.spawn) return;
     if (drag.kind === "move" && drag.position) {
@@ -397,16 +555,35 @@ async function main(): Promise<void> {
     }
   };
 
+  /** Where along an axis through a spot the pointer is nearest: the spot's coordinate plus how far along. */
+  const alongAxis = (spot: Vec3, axis: 0 | 1 | 2, clientX: number, clientY: number): number | undefined => {
+    const { ray } = scene.rayAt(clientX, clientY);
+    const direction: Vec3 = [0, 0, 0];
+    direction[axis] = 1;
+    const s = nearestOnAxis(spot, direction, [ray.origin.x, ray.origin.y, ray.origin.z], [ray.direction.x, ray.direction.y, ray.direction.z]);
+    return s === undefined ? undefined : spot[axis] + s;
+  };
+
   canvas.addEventListener("pointerdown", (event) => {
     if (event.button !== 0) return;
     press = { x: event.clientX, y: event.clientY };
     if (arming) return;
-    const block = scene.pickAt(event.clientX, event.clientY);
-    const knob = overlay.knobAt(event.clientX, event.clientY);
-    const pickedPoint = pointOf(picked);
-    const point = overlay.pointAt(event.clientX, event.clientY);
-    if (knob !== undefined && pickedPoint) press.drag = { kind: "face", point: pickedPoint, moved: false };
-    else if (point && (!block || point.distance <= block.distance + 0.01)) press.drag = { kind: "move", point: pointOf(point.key)!, moved: false };
+    const handle = overlay.handleAt(event.clientX, event.clientY);
+    const box = boxOf(picked);
+    const height = heightMarkOf(picked);
+    if (handle && "face" in handle && box) press.drag = { kind: "boxFace", box, face: handle.face, moved: false };
+    else if (handle && "height" in handle && height) {
+      const spot = overlay.heightHandleSpot();
+      if (spot) press.drag = { kind: "height", height, moved: false, from: { x: spot.x, y: spot.y, z: spot.z } };
+    }
+    if (!press.drag && armed?.kind !== "boxes" && armed?.kind !== "plane") {
+      const block = scene.pickAt(event.clientX, event.clientY);
+      const knob = overlay.knobAt(event.clientX, event.clientY);
+      const pickedPoint = pointOf(picked);
+      const point = overlay.pointAt(event.clientX, event.clientY);
+      if (knob !== undefined && pickedPoint) press.drag = { kind: "face", point: pickedPoint, moved: false };
+      else if (point && (!block || point.distance <= block.distance + 0.01)) press.drag = { kind: "move", point: pointOf(point.key)!, moved: false };
+    }
     if (press.drag) canvas.setPointerCapture(event.pointerId);
   });
 
@@ -415,7 +592,28 @@ async function main(): Promise<void> {
     if (drag && press) {
       if (!drag.moved && Math.hypot(event.clientX - press.x, event.clientY - press.y) <= DRAG_PIXELS) return;
       drag.moved = true;
-      if (drag.kind === "move") {
+      if (drag.kind === "boxFace") {
+        const { box, face } = drag;
+        const spot = [0, 1, 2].map((axis) => (box.box.min[axis] + box.box.max[axis] + 1) / 2) as Vec3;
+        spot[face.axis] = facePlane(box.box, face);
+        const plane = alongAxis(spot, face.axis, event.clientX, event.clientY);
+        if (plane === undefined) return;
+        drag.next = moveFace(box.box, face, plane);
+        const problem = sizeProblem(drag.next, box.label, box.minSize);
+        activeFace = face;
+        overlay.setActiveFace(face);
+        overlay.hideWhileEditing(box.key);
+        overlay.showBox(drag.next, box.color, sizeText(drag.next), problem !== undefined);
+        $("hover").textContent = `${box.label}: ${sizeText(drag.next)}${problem ? ` (too small: at least ${box.minSize} each way)` : ""}`;
+      } else if (drag.kind === "height") {
+        const along = alongAxis([drag.from.x, drag.from.y, drag.from.z], 1, event.clientX, event.clientY);
+        if (along === undefined) return;
+        const high = drag.height.line === "killY" ? MAX_LIMIT - 1 : MAX_LIMIT;
+        drag.y = Math.min(high, Math.max(MIN_HEIGHT, Math.round(along)));
+        overlay.hideWhileEditing(drag.height.key);
+        overlay.previewHeight(drag.height.key, drag.y);
+        $("hover").textContent = `${drag.height.label}: y ${drag.y}`;
+      } else if (drag.kind === "move") {
         const spot = spotUnder(event.clientX, event.clientY);
         if (!spot) return;
         drag.position = spot.position;
@@ -423,7 +621,7 @@ async function main(): Promise<void> {
         overlay.previewPoint(drag.point.key, spot.at, yaw);
         $("hover").textContent = `${drag.point.label} to ${spot.position.join(" ")}`;
       } else {
-        const ray = scene.rayAt(event.clientX, event.clientY).ray;
+        const { ray } = scene.rayAt(event.clientX, event.clientY);
         const { at } = drag.point;
         if (Math.abs(ray.direction.y) < 1e-6) return;
         const t = (at.y - ray.origin.y) / ray.direction.y;
@@ -445,16 +643,24 @@ async function main(): Promise<void> {
     press = undefined;
     if (drag?.moved) return finishDrag(drag);
     if (!click) return;
+    if (drag?.kind === "boxFace") {
+      // A click on a face's handle picks that face for the arrow keys.
+      activeFace = drag.face;
+      overlay.setActiveFace(activeFace);
+      renderTool();
+      return;
+    }
+    if (drag?.kind === "height") return;
     if (arming) {
       const hit = scene.pickAt(event.clientX, event.clientY);
       if (!hit) return;
       const [x, y, z] = hit.world;
       if (arming === "top") setTop(y);
       else applyCuts({ ...cuts, [arming]: { at: arming === "x" ? x : z, side: cuts[arming]?.side ?? "below" } });
-      arm(undefined);
+      armCut(undefined);
       return;
     }
-    if (placing && !drag) return placeAt(event.clientX, event.clientY);
+    if (armed && !drag) return useArmed(event.clientX, event.clientY);
     // A marker in front of the blocks picks its entry; anywhere else picks nothing.
     pickEntry(drag?.point.key);
   });
@@ -463,7 +669,7 @@ async function main(): Promise<void> {
     if (hit) scene.centerOn([hit.world[0] + 0.5, hit.world[1] + 0.5, hit.world[2] + 0.5]);
   });
 
-  // What's under the pointer, in the status line, and where Place would put a point (once a frame).
+  // What's under the pointer, in the status line, and what the armed list would do there (once a frame).
   let hoverQueued = false;
   let last: PointerEvent | undefined;
   const queueHover = (event: PointerEvent) => {
@@ -473,11 +679,21 @@ async function main(): Promise<void> {
     requestAnimationFrame(() => {
       hoverQueued = false;
       if (!last) return;
-      if (placing) {
+      const hit = scene.pickAt(last.clientX, last.clientY);
+      if (armed?.kind === "points") {
         const spot = spotUnder(last.clientX, last.clientY);
         overlay.moveGhost(spot?.at, spot ? lookAt(spot.at, middle()).yaw : 0);
+      } else if (armed?.kind === "boxes") {
+        if (hit) {
+          const box = boxFrom(corner ?? hit.world, hit.world);
+          const problem = corner ? sizeProblem(box, armed.label, armed.minSize) : undefined;
+          overlay.showBox(box, armed.color, sizeText(box), problem !== undefined);
+          return void ($("hover").textContent = `${corner ? "Box" : "First corner"}: ${sizeText(box)} from ${box.min.join(" ")}${problem ? " (too small)" : ""}`);
+        }
+        overlay.showBox(undefined, 0);
+      } else if (armed?.kind === "plane" && armed.line && hit) {
+        return void ($("hover").textContent = `${armed.label} at y ${heightFromBlock(armed.line, hit.world[1])}`);
       }
-      const hit = scene.pickAt(last.clientX, last.clientY);
       const point = overlay.pointAt(last.clientX, last.clientY);
       if (point && (!hit || point.distance <= hit.distance + 0.01)) return void ($("hover").textContent = findEntry(markup, point.key)?.entry.label ?? "");
       if (!hit) return void ($("hover").textContent = "");
@@ -489,10 +705,18 @@ async function main(): Promise<void> {
   canvas.addEventListener("pointerleave", () => {
     $("hover").textContent = "";
     overlay.moveGhost(undefined, 0);
+    if (armed?.kind === "boxes" && !corner) overlay.showBox(undefined, 0);
   });
   applyCuts({});
   redraw();
   canvas.focus();
+}
+
+/** A box's face in words: "top", "west side". */
+function faceName(face: Face): string {
+  if (face.axis === 1) return face.side === "max" ? "top" : "bottom";
+  if (face.axis === 0) return face.side === "max" ? "east side" : "west side";
+  return face.side === "max" ? "south side" : "north side";
 }
 
 main().catch((error: unknown) => show(`The viewer stopped: ${error instanceof Error ? error.message : String(error)}`, true));

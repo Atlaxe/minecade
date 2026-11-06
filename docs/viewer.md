@@ -3,9 +3,10 @@
 A 3D view of any map in the map store, in the Panel. It reads the map's world straight from its
 files, so it needs no server and works while the network or the map editor runs. It shows the map's
 spawns, points, boundaries and regions as game Edit does, with the game's checklist beside them,
-and places, moves, turns and deletes spawns and game markers with the mouse, with undo, Save and
-Publish. Boxes and heights come in the next pass (`docs/plans/map-viewer.md`). It never changes a
-world's blocks. The in-game editor (`docs/editor.md`) keeps every tool it has.
+and changes them with the mouse: spawns and game markers placed, moved, turned and deleted; bounds,
+spectator bounds and regions drawn from two corners and resized by their faces; kill Y and the
+build limit set and dragged; with undo, Save and Publish. It never changes a world's blocks. The
+in-game editor (`docs/editor.md`) keeps every tool it has.
 
 ## Opening a map
 
@@ -99,6 +100,38 @@ checked as you go: the checklist on the left updates with each change.
 changes go through the map editor: markers move in game at once, and undo and redo are game Edit's,
 shared with the players there. An editor started before this viewer existed can't take them: the
 viewer says to restart it.
+
+## Boxes: bounds, spectator bounds and regions
+
+- **Add** beside a box list (Bounds, Spectator bounds, Kill region, each of the game's regions, a
+  team's, and any the map has of its own), then click one corner block and the opposite one: the
+  box takes both blocks in. The second corner can be on another layer: move the height cut between
+  the clicks. A see-through box shows what you'd get, with its size. A second bounds box makes the
+  bounds a list (a player inside any box is in), as game Edit's Add to bounds does.
+- **New region** (under Boundaries) asks for a name (letters, digits and _, starting with a letter)
+  and then draws its first box, like game Edit's New region.
+- **Pick a box** in the side panel: its faces get handles. **Drag a handle** to move that face in
+  whole blocks (never past the other side); the size shows as you drag. **Click a handle** to pick
+  its face (it turns blue), then the **arrow keys** move it out (Up, Right) or in (Down, Left), five
+  at a time with Shift; **In** and **Out** in the tool panel do the same.
+- **To height cut**, **To X cut** and **To Z cut** move a face onto that cut: the picked face when
+  it's on the cut's axis, else the face nearer the cut. The cut's layer becomes the box's last (or
+  first) layer.
+- A region the game gives a minimum size (Build Swap's build boundaries, 24 each way) shows red
+  while it's smaller, and isn't saved, as in game.
+- **Delete** removes the picked box.
+
+## Kill Y and the build limit
+
+- **Set** beside Kill Y, Build limit above or Build limit below, then click a block: kill Y goes
+  just under that block (players who fall off it are out), and a build limit to its top (where a
+  player standing on it builds from), as game Edit's Kill Y tool starts them.
+- **Pick one** in the side panel: its sheet gets a handle. Drag the handle up or down, or use the
+  Up and Down arrow keys (Shift: five) or the tool panel's buttons. **To height cut** puts it where
+  a click on the cut's layer would.
+- Kill Y runs from -64 to 319, a build limit from -64 to 320, and the build limit above stays over
+  the one below, as in game: a height that breaks these isn't saved, and the viewer says why.
+- **Delete** removes it.
 
 ## Save and Publish
 

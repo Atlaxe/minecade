@@ -1,5 +1,6 @@
+import type { Box } from "@minecade/minigame-core/config";
 import { describe, expect, it } from "vitest";
-import { viewerEdit } from "../edit-check.ts";
+import { markupProblem, viewerEdit } from "../edit-check.ts";
 
 describe("viewerEdit", () => {
   it("takes the edits that place, move, face and remove markup", () => {
@@ -39,5 +40,24 @@ describe("viewerEdit", () => {
     expect(viewerEdit({ op: "buildLimit", side: "above", y: 321 })).toMatch(/build limit/);
     expect(viewerEdit({ op: "batch", edits: [{ op: "batch", edits: [] }] })).toMatch(/batch/);
     expect(viewerEdit({ op: "batch", edits: [] })).toMatch(/1 to/);
+  });
+});
+
+describe("markupProblem", () => {
+  const requires = { regions: { plot: { label: "Build boundary", count: 8, minSize: 24 } } };
+  const config = { name: "M", spawns: [], buildLimit: { above: 80, below: 60 } };
+
+  it("refuses a region box under the game's minSize, as game Edit does", () => {
+    const small = { min: [0, 0, 0], max: [22, 30, 30] } as Box;
+    const big = { min: [0, 0, 0], max: [23, 23, 23] } as Box;
+    expect(markupProblem(config, { op: "addRegion", name: "plot", box: small }, requires)).toMatch(/at least 24 blocks/);
+    expect(markupProblem(config, { op: "setRegion", name: "plot", index: 0, box: big }, requires)).toBeUndefined();
+    expect(markupProblem(config, { op: "addRegion", name: "kill", box: small }, requires)).toBeUndefined();
+  });
+
+  it("keeps the build limit's sides apart", () => {
+    expect(markupProblem(config, { op: "buildLimit", side: "above", y: 60 }, requires)).toMatch(/over the build limit below/);
+    expect(markupProblem(config, { op: "buildLimit", side: "above" }, requires)).toBeUndefined();
+    expect(markupProblem(config, { op: "batch", edits: [{ op: "killY", y: 999 }] }, requires)).toMatch(/Kill Y/);
   });
 });

@@ -93,6 +93,16 @@ describe("MapChanges without game Edit", () => {
     expect(await changes.edit("..", "hub", { op: "killY", y: 1 })).toMatchObject({ status: 400 });
   });
 
+  it("keeps game Edit's rules: a Build Swap plot under 24 blocks each way isn't saved", async () => {
+    const dir = join(store, "working", "buildswap", "roman");
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(join(dir, "map.json"), '{ "name": "Roman", "spawns": [] }\n');
+    const changes = new MapChanges(root, NO_EDITOR);
+    expect(await changes.edit("buildswap", "roman", { op: "addRegion", name: "plot", box: { min: [0, 0, 0], max: [10, 30, 30] } })).toMatchObject({ status: 422, error: /at least 24 blocks/ });
+    expect(readFileSync(join(dir, "map.json"), "utf8")).toBe('{ "name": "Roman", "spawns": [] }\n');
+    expect(await changes.edit("buildswap", "roman", { op: "addRegion", name: "plot", box: { min: [0, 0, 0], max: [23, 23, 23] } })).toMatchObject({ status: 200 });
+  });
+
   it("saves a version, and publishes once the checklist is done, no longer a draft", async () => {
     const path = lobbyMap("hub", JSON.stringify({ name: "Hub", draft: true, spawns: [] }));
     const changes = new MapChanges(root, NO_EDITOR);

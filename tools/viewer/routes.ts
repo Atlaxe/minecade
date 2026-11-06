@@ -26,6 +26,7 @@ const PAGE_DIR = fileURLToPath(new URL("../control-panel/viewer/", import.meta.u
 const PAGE_SOURCES = [
   PAGE_DIR,
   fileURLToPath(new URL("./view-format.ts", import.meta.url)),
+  fileURLToPath(new URL("./edit-check.ts", import.meta.url)),
   fileURLToPath(new URL("../../packages/minigame-core/src/", import.meta.url)),
   fileURLToPath(new URL("../../editor/behavior_pack/scripts/lists.ts", import.meta.url)),
   fileURLToPath(new URL("../../editor/behavior_pack/scripts/regions.ts", import.meta.url)),

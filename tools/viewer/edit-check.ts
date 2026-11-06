@@ -2,7 +2,7 @@
 // the ops that place, move, face and remove markup (spawns, points, boxes, heights) and Publish's
 // "draft", with finite numbers, whole-block boxes and heights, and sensible names. The Panel checks
 // what its page sends, and the map editor what the Panel forwards (control.ts POST /edit).
-import type { MapEdit, MapList } from "@minecade/minigame-core/config";
+import { bigEnough, regionMinSize, type Box, type BuildLimitSide, type MapConfig, type MapEdit, type MapList, type MapRequirementsConfig } from "@minecade/minigame-core/config";
 
 /** Who the viewer's changes are by, in game Edit's log and the map store's versions. */
 export const VIEWER_BY = "Map viewer";
@@ -10,6 +10,43 @@ export const VIEWER_BY = "Map viewer";
 /** The world's height range: kill Y within it, a build limit up to one over it. */
 const MIN_Y = -64;
 const MAX_Y = 320;
+
+/** Why a line (kill Y, or a side of the build limit) can't be at a height, by game Edit's Kill Y tool's rules, or undefined. */
+export function heightProblem(config: MapConfig, line: "killY" | BuildLimitSide, y: number): string | undefined {
+  if (line === "killY") return Number.isInteger(y) && y >= MIN_Y && y <= MAX_Y - 1 ? undefined : `Kill Y must be a whole number from ${MIN_Y} to ${MAX_Y - 1}.`;
+  if (!Number.isInteger(y) || y < MIN_Y || y > MAX_Y) return `The build limit ${line} must be a whole number from ${MIN_Y} to ${MAX_Y}.`;
+  const other: BuildLimitSide = line === "above" ? "below" : "above";
+  const otherY = config.buildLimit?.[other];
+  if (typeof otherY === "number" && (line === "above" ? y <= otherY : y >= otherY)) return `The build limit ${line} must be ${line === "above" ? "over" : "under"} the build limit ${other} (${otherY}), or nothing can be built.`;
+  return undefined;
+}
+
+/** Why a region's box can't be saved (smaller than the game's minSize for it, as game Edit refuses), or undefined. */
+export function regionBoxProblem(requires: MapRequirementsConfig | undefined, name: string, box: Box): string | undefined {
+  const minSize = regionMinSize(requires, name);
+  return bigEnough(box, minSize) ? undefined : `${name} boxes must span at least ${minSize} blocks along every side.`;
+}
+
+/** Why an edit breaks a rule game Edit's tools keep (a region's minSize, the build limit's order), or undefined. */
+export function markupProblem(config: MapConfig, edit: MapEdit, requires: MapRequirementsConfig | undefined): string | undefined {
+  switch (edit.op) {
+    case "addRegion":
+    case "setRegion":
+      return regionBoxProblem(requires, edit.name, edit.box);
+    case "killY":
+      return edit.y === undefined ? undefined : heightProblem(config, "killY", edit.y);
+    case "buildLimit":
+      return edit.y === undefined ? undefined : heightProblem(config, edit.side, edit.y);
+    case "batch":
+      for (const inner of edit.edits) {
+        const problem = markupProblem(config, inner, requires);
+        if (problem) return problem;
+      }
+      return undefined;
+    default:
+      return undefined;
+  }
+}
 const NAME = /^[A-Za-z][A-Za-z0-9_]*(\.[A-Za-z0-9_-]+)?$/;
 const TEAM = /^[A-Za-z0-9_-]+$/;
 const MAX_BATCH = 64;
