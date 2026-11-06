@@ -80,3 +80,13 @@ describe("pick", () => {
     expect(pick(volume, [100, 100, 100], [1, 0, 0])).toBeUndefined();
   });
 });
+
+describe("pick near the camera", () => {
+  it("passes through blocks the camera is in, so a click from inside a wall lands beyond it", () => {
+    const volume = buildVolume(view([{ at: [0, 0, 0], look: 1 }, { at: [0, 0, 5], look: 1 }], LOOKS), TABLE);
+    const from = [0.5, 0.5, 0.4];
+    // From inside the block at z 0, looking south: without skipping, that block; with it, the one at z 5.
+    expect(pick(volume, from, [0, 0, 1])?.block[2]).toBe(0);
+    expect(pick(volume, from, [0, 0, 1], {}, 1)?.block[2]).toBe(5);
+  });
+});

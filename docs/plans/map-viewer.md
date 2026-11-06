@@ -5,8 +5,9 @@
 `spike/viewer/` (the looks, the mesher) is where V.3 started. V.2 (the world reader) and V.3 (the
 read-only viewer, `docs/viewer.md`) done 2026-11-05, in `tools/viewer/` and
 `tools/control-panel/viewer/`. V.4 (markers shown), V.5 (points, Save and Publish) and V.6 (boxes
-and planes) done 2026-11-06. Build it in the order of "Passes" below: each pass leans on the ones
-before it.
+and planes) done 2026-11-06. Before V.7, the same day, the user reworked the viewer's layout (see
+"Layout rework" below). Build it in the order of "Passes" below: each pass leans on the ones before
+it.
 
 **For the session that implements this:**
 - Work in a worktree of your own (`CLAUDE.md`, "Branch and merge").
@@ -39,7 +40,7 @@ does, and the two can be used on the same map one after the other.
 | Purpose | A faster way to do more things, beside the in-game editor, which keeps all its tools |
 | What it changes | Map data only (`map.json`). It never changes a world's blocks |
 | Size | Maps up to 256x256 blocks across, at most the world's full height (384 blocks, y -64 to 319) |
-| Camera | Rotate, pan and zoom around the map, with snap views. No flying |
+| Camera | Rotate, pan and zoom around the map, with a view cube for the snap views. WASD flying as a setting (2026-11-06), off at first |
 | Slicing | Cut through the model by height, and along x and z, one layer at a time |
 | Past the cut | A toggle: **Faded** (see-through) or **Gone** |
 | Look | A toggle: **Average colors** (each block face one color, the average of its texture's most common color, not of the whole texture, which turns many blocks brown) or **Vanilla textures** |
@@ -54,7 +55,7 @@ does, and the two can be used on the same map one after the other.
 
 - Not a replacement for the in-game editor (see above).
 - Not a block editor. Blocks change in game (Open in game) or in Java, as today.
-- Not a flying camera.
+- Not a flying camera by default: WASD flying is a setting.
 
 ## How it fits
 
@@ -378,6 +379,31 @@ In-game Select stays as it is. This is the Panel's way to cut a map out of a wor
   with its checklist state, and the client's worlds for Select) and
   `GET /api/viewer/view?target=<id>&map=<id>` (the view file, sent gzipped with
   `content-encoding: gzip`, so the page gets it unzipped).
+
+## Layout rework (2026-11-06, before V.7)
+
+The user's changes to V.3 to V.6's layout, built the same day (`docs/viewer.md` has how it works):
+- **Opening:** the Maps page has a search box, a game and a status dropdown, and map cards with
+  their thumbnails; a card is picked first, and a bar at the bottom opens it ("Edit (map) for
+  (game)") in the same window, with a back arrow in the viewer.
+- **Top bar:** back arrow, thumbnail, title; Undo, Redo, View settings, Save and Publish on the
+  right. The look's toggles and Past the cut moved into the View settings dialog.
+- **View cube** (`viewcube.ts`) in the view's top right, with Home beside it, in place of the
+  compass buttons.
+- **Tools** as game Edit has them (`app.ts`): Select (V), Spawn (P), Marker (M), Region (B), Height
+  (H) and Cut (C), icons above the checklist in place of the lists' Place, Add and Set buttons. The
+  lists are the "overview".
+- **Right panel:** the tool's settings or the picked entry's values to type (a point's X, Y, Z,
+  yaw and pitch; a box's corners; a height's Y); the cuts (X, Y and Z sliders in red, green and
+  blue, Y now horizontal) only with nothing picked or with the Cut tool.
+- **Gizmos** (`gizmo.ts`), as Blockbench and Axiom have them: Move (arrows out of a cube along each
+  axis, drag or click) for points, boxes and heights, and Resize (a square per face, opposite faces
+  joined by a line) for boxes; G and E switch a box between them.
+- **WASD flying** (`fly.ts`), a setting, and blocks within a block of the camera aren't drawn or
+  clicked (`CLIP_NEAR`), so a camera inside a wall works on what's beyond it.
+- **Keys:** undo and redo listen in the capture phase on the window, so a focused button or the
+  canvas never keeps them; every button with a key shows it in a tooltip after a second
+  (`tips.js`).
 
 ## Passes (the implementation order: stop and report after each, commit and push)
 

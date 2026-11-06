@@ -1,7 +1,7 @@
-// The viewer's side panel: the game's checklist (what the map still needs, and what the build
-// would refuse it for), then every list game Edit's tools place into, with its entries. Clicking an
-// entry picks it (the page frames it in the view).
-import type { Markup, MarkupList, MarkupSection } from "./markup.ts";
+// The viewer's left panel under the tools: the game's checklist (what the map still needs, and
+// what the build would refuse it for), then the overview: every list game Edit's tools place into,
+// with its entries. Clicking an entry picks it (the page frames it in the view).
+import type { Markup, MarkupList } from "./markup.ts";
 
 type Child = Node | string | null | undefined | false | Child[];
 
@@ -34,10 +34,6 @@ export function swatch(color: number): HTMLSpanElement {
 export interface SidebarHandlers {
   /** An entry was clicked. */
   pick(key: string): void;
-  /** Controls on a list's header (Place, Add, Set), if any. */
-  listTools?(list: MarkupList): Child;
-  /** Controls under a section's lists (New region), if any. */
-  sectionTools?(section: MarkupSection): Child;
 }
 
 export class Sidebar {
@@ -64,14 +60,11 @@ export class Sidebar {
         checklist.problems.length > 0 ? el("ul", { className: "problems" }, checklist.problems.map((problem) => el("li", {}, problem))) : null,
         checklist.warnings.length > 0 ? el("ul", { className: "warnings" }, checklist.warnings.map((warning) => el("li", {}, warning))) : null,
       ),
-      ...markup.sections.map((section) =>
-        el(
-          "section",
-          { className: "lists" },
-          el("h2", {}, section.title),
-          section.lists.map((list) => this.list(list)),
-          this.handlers.sectionTools?.(section),
-        ),
+      el(
+        "section",
+        { className: "overview" },
+        el("h2", {}, "Overview"),
+        markup.sections.map((section) => [el("h3", {}, section.title), section.lists.map((list) => this.list(list))]),
       ),
     );
     this.root.scrollTop = scroll;
@@ -90,7 +83,7 @@ export class Sidebar {
     return el(
       "div",
       { className: `list${list.done === false ? " todo" : ""}`, dataset: { list: list.key } },
-      el("div", { className: "list-head" }, swatch(list.color), el("span", { className: "grow" }, list.label), el("span", { className: "count" }, count), this.handlers.listTools?.(list)),
+      el("div", { className: "list-head" }, swatch(list.color), el("span", { className: "grow" }, list.label), el("span", { className: "count" }, count)),
       list.entries.length === 0
         ? el("div", { className: "empty" }, "None yet")
         : list.entries.map((entry) =>

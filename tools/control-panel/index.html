@@ -114,6 +114,7 @@
   .map-tags { display: flex; gap: 6px; flex-wrap: wrap; }
   .map-empty { margin-top: 28px; color: var(--muted); }
   .map-pick { position: fixed; left: 216px; right: 0; bottom: 0; z-index: 5; display: flex; align-items: center; gap: 14px; padding: 12px 40px; background: var(--surface); border-top: 1px solid var(--line-strong); box-shadow: 0 -8px 24px #0004; }
+  #map-pick-thumb:empty { display: none; }
   .map-pick img { width: 80px; aspect-ratio: 16 / 9; object-fit: cover; border-radius: 2px; border: 1px solid var(--line); }
   .map-pick-text { display: grid; flex: 1; min-width: 0; }
   .map-pick-text span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -247,7 +248,7 @@
   <p id="maps-note" class="muted meta" aria-live="polite"></p>
   <div id="maps"><p class="hint">Loading...</p></div>
   <div id="map-pick" class="map-pick" hidden>
-    <img id="map-pick-thumb" alt="" hidden>
+    <span id="map-pick-thumb"></span>
     <div class="map-pick-text"><span id="map-pick-name" class="strong"></span><span id="map-pick-detail" class="muted meta"></span></div>
     <button id="map-pick-clear" class="small" data-tip="Pick nothing" data-key="Esc">Clear</button>
     <button id="map-pick-edit" class="primary" data-tip="Open it in the 3D viewer" data-key="Enter"></button>
@@ -1195,9 +1196,7 @@ function showPickedMap() {
   $("map-pick").hidden = !found;
   if (!found) return;
   const { target, map } = found;
-  const thumb = $("map-pick-thumb");
-  thumb.hidden = !map.picture;
-  if (map.picture) thumb.src = thumbUrl(target, map);
+  $("map-pick-thumb").replaceChildren(...(map.picture ? [el("img", { src: thumbUrl(target, map), alt: "" })] : []));
   $("map-pick-name").textContent = map.name;
   $("map-pick-detail").textContent = `${target.name}, ${map.id}`;
   $("map-pick-edit").textContent = `Edit ${map.name} for ${target.name}`;

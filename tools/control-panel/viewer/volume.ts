@@ -115,9 +115,10 @@ export interface Hit {
 
 /**
  * The first drawn block a ray meets that isn't past a cut, walking the grid one block at a time
- * (Amanatides and Woo). `from` and `direction` are in grid units.
+ * (Amanatides and Woo). `from` and `direction` are in grid units. Blocks whose middle is within
+ * `skipNear` of `from` are passed through (the camera is in them).
  */
-export function pick(volume: Volume, from: number[], direction: number[], keep: Keep = {}, maxSteps = 4000): Hit | undefined {
+export function pick(volume: Volume, from: number[], direction: number[], keep: Keep = {}, skipNear = 0, maxSteps = 4000): Hit | undefined {
   const size = volume.size;
   // Start where the ray enters the grid, through the face of the axis that's entered last.
   let tEnter = 0;
@@ -147,7 +148,8 @@ export function pick(volume: Volume, from: number[], direction: number[], keep: 
   let t = tEnter;
   for (let n = 0; n < maxSteps; n++) {
     const look = lookAtSpot(volume, cell[0], cell[1], cell[2]);
-    if (volume.drawn[look] && isKept(keep, cell[0], cell[1], cell[2])) {
+    const near = skipNear > 0 && Math.hypot(cell[0] + 0.5 - from[0], cell[1] + 0.5 - from[1], cell[2] + 0.5 - from[2]) < skipNear;
+    if (volume.drawn[look] && isKept(keep, cell[0], cell[1], cell[2]) && !near) {
       return { block: [cell[0], cell[1], cell[2]], normal, point: from.map((v, i) => v + direction[i] * t) as [number, number, number], look };
     }
     const axis = tMax[0] < tMax[1] ? (tMax[0] < tMax[2] ? 0 : 2) : tMax[1] < tMax[2] ? 1 : 2;

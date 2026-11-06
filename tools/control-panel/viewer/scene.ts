@@ -14,6 +14,11 @@ import { EAST, lookAtSpot, pick, UP, WEST, NORTH, SOUTH, type Hit, type Keep, ty
 const REGION = 4;
 /** A plane's constant for "no cut": far past every block. */
 const FAR = 1e6;
+/**
+ * Blocks whose middle is this close to the camera aren't drawn, and clicks pass through them, so a
+ * camera inside a wall sees and works on what's beyond it.
+ */
+export const CLIP_NEAR = 1;
 /** How see-through Faded is. */
 const FADED_OPACITY = 0.15;
 
@@ -41,6 +46,7 @@ uniform float darkenBelow;
 uniform float cutTop;
 uniform float opacity;
 uniform float grid;
+uniform float clipNear;
 varying vec4 vTint;
 varying float vOcclusion;
 varying vec3 vWorld;
@@ -56,6 +62,8 @@ void main() {
   vec3 n = normalize(cross(dFdx(vWorld), dFdy(vWorld)));
   if (dot(n, cameraPosition - vWorld) < 0.0) n = -n;
   vec3 block = floor(vWorld - n * 0.5);
+  // A block the camera is in (or all but in) isn't drawn: flying through walls shows what's beyond.
+  if (distance(block + 0.5, cameraPosition) < clipNear) discard;
   float light = mix(1.0, 0.5 + 0.5 * vOcclusion, aoStrength);
   light *= 1.0 + variation * (hash(block) * 2.0 - 1.0);
   if (darkenBelow > 0.0) light *= clamp(1.0 - max(cutTop - vWorld.y, 0.0) * darkenBelow, 0.35, 1.0);
@@ -126,6 +134,7 @@ export class MapScene {
     variation: { value: 0.03 },
     darkenBelow: { value: 0 },
     cutTop: { value: FAR },
+    clipNear: { value: CLIP_NEAR },
   };
   private readonly planes = { top: new THREE.Plane(new THREE.Vector3(0, -1, 0), FAR), x: new THREE.Plane(new THREE.Vector3(-1, 0, 0), FAR), z: new THREE.Plane(new THREE.Vector3(0, 0, -1), FAR) };
   private readonly opposite = { top: new THREE.Plane(), x: new THREE.Plane(), z: new THREE.Plane() };
@@ -399,6 +408,33 @@ export class MapScene {
   }
 
   /**
+   * Moves the camera to look at the whole map from a direction (the view cube's face, edge or
+   * corner): straight down is Top's flat floor plan, anything else the perspective camera.
+   */
+  viewFrom(direction: [number, number, number]): void {
+    const look = new THREE.Vector3(...direction);
+    if (look.lengthSq() === 0) return;
+    look.normalize();
+    if (look.y > 0.999) return this.view("top");
+    // Straight up from below would sit on the orbit's pole: tilt it a hair.
+    if (look.y < -0.97) look.set(look.x, -0.97, look.z === 0 && look.x === 0 ? 0.24 : look.z).normalize();
+    const { center, radius } = this.bounds();
+    this.camera = this.perspective;
+    this.controls.object = this.perspective;
+    this.controls.enableRotate = true;
+    this.perspective.position.copy(center).addScaledVector(look, this.fitDistance(center, look, radius));
+    this.controls.target.copy(center);
+    this.resize();
+    this.controls.update();
+    this.requestRender();
+  }
+
+  /** Which way the camera is turned (the view cube follows it). */
+  get cameraQuaternion(): THREE.Quaternion {
+    return this.camera.quaternion;
+  }
+
+  /**
    * How far from the map's middle the camera goes, looking back along `direction`, for all eight
    * corners of its box to be in view with a margin: a corner c is in view while its distance
    * sideways (or up) is within tan(fov / 2) of its depth, d - c . direction.
@@ -536,7 +572,7 @@ export class MapScene {
       ...(this.cuts.x ? { x: { at: this.cuts.x.at - origin[0], side: this.cuts.x.side } } : {}),
       ...(this.cuts.z ? { z: { at: this.cuts.z.at - origin[2], side: this.cuts.z.side } } : {}),
     };
-    const hit = pick(this.volume, from, direction, keep);
+    const hit = pick(this.volume, from, direction, keep, CLIP_NEAR);
     if (!hit) return undefined;
     const distance = Math.hypot(hit.point[0] - from[0], hit.point[1] - from[1], hit.point[2] - from[2]);
     return { ...hit, world: [hit.block[0] + origin[0], hit.block[1] + origin[1], hit.block[2] + origin[2]], distance };

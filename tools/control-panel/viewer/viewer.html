@@ -4,180 +4,222 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Map viewer</title>
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' rx='3' fill='%235ad2ff'/%3E%3Crect x='4' y='4' width='3' height='3' fill='%2304202d'/%3E%3Crect x='9' y='4' width='3' height='3' fill='%2304202d'/%3E%3Crect x='4' y='9' width='8' height='3' fill='%2304202d'/%3E%3C/svg%3E">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' fill='%23103050'/%3E%3Cpath fill='%2348c0f0' d='M3 3h2v10H3zM11 3h2v10h-2zM5 4h2v3H5zM9 4h2v3H9zM7 6h2v3H7z'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="/theme.css">
+<script src="/tips.js" defer></script>
 <style>
-  /* The Panel's colors (index.html). */
-  :root {
-    color-scheme: dark;
-    --bg: #121922; --side: #0d131a; --card: #1c2530; --raised: #283342; --raised-hover: #324051; --inset: #141b24;
-    --text: #e2e9f1; --muted: #8b98a9; --accent: #5ad2ff; --accent-hover: #8adfff; --on-accent: #04202d;
-    --ok: #4fcf76; --warn: #e5ab3c; --bad: #ff6b61;
-  }
-  @media (prefers-color-scheme: light) {
-    :root {
-      color-scheme: light;
-      --bg: #edf1f6; --side: #e1e7ef; --card: #ffffff; --raised: #e5eaf1; --raised-hover: #d8dfe9; --inset: #f2f5f9;
-      --text: #17202b; --muted: #5b6878; --accent: #0a8bc2; --accent-hover: #0879a9; --on-accent: #ffffff;
-      --ok: #1d8a42; --warn: #a66900; --bad: #c9342b;
-    }
-  }
-  * { box-sizing: border-box; }
-  [hidden] { display: none !important; }
+  /* The viewer's layout; colors, type and controls are theme.css's. */
   html, body { height: 100%; }
-  body { margin: 0; background: var(--bg); color: var(--text); font: 13px/1.4 "Segoe UI", system-ui, sans-serif; display: grid; grid-template-rows: auto 1fr auto; overflow: hidden; }
+  body { display: grid; grid-template-rows: auto 1fr auto; overflow: hidden; }
+  svg.i { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
 
-  .bar { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; padding: 8px 12px; background: var(--side); }
-  .back { display: grid; place-items: center; width: 32px; height: 32px; border-radius: 4px; color: var(--text); }
+  .banner { display: flex; align-items: center; gap: 14px; padding: 10px 16px; background: var(--side); border-bottom: 1px solid var(--line); min-width: 0; }
+  .back { display: grid; place-items: center; width: 36px; height: 36px; flex: none; border-radius: var(--radius); color: var(--text); }
   .back:hover { background: var(--raised); }
-  .back svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
-  .title { display: flex; flex-direction: column; min-width: 150px; margin-right: 6px; }
-  .title strong { font-size: 15px; }
-  .muted { color: var(--muted); }
-  .group { display: flex; align-items: center; gap: 4px; }
-  .group-label { color: var(--muted); margin-right: 4px; }
-  button { font: inherit; font-weight: 600; color: var(--text); background: var(--raised); border: 0; border-radius: 6px; padding: 5px 10px; cursor: pointer; }
-  button:hover:not(:disabled) { background: var(--raised-hover); }
-  button.on { background: var(--accent); color: var(--on-accent); }
-  button.on:hover:not(:disabled) { background: var(--accent-hover); }
-  button:disabled { opacity: .45; cursor: default; }
-  label.check { display: flex; align-items: center; gap: 5px; cursor: pointer; white-space: nowrap; }
-  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  #map-thumb { display: contents; }
+  .banner-thumb { width: 96px; aspect-ratio: 16 / 9; object-fit: cover; flex: none; border-radius: 2px; border: 1px solid var(--line); }
+  .banner-title { display: grid; min-width: 0; }
+  .banner-title h1 { font-size: 24px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .banner-title span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .banner-actions { margin-left: auto; display: flex; align-items: center; gap: 8px; }
+  .banner-actions .sep { width: 1px; height: 24px; background: var(--line-strong); margin: 0 4px; }
+  #save, #publish { padding: 8px 18px; font-size: var(--fs-body); }
 
-  .compass { display: grid; grid-template-columns: repeat(3, 30px); gap: 2px; }
-  .compass button { padding: 2px 0; font-size: 11px; }
-  .needle { width: 36px; height: 36px; flex: none; }
-  .needle path { fill: var(--bad); } .needle .south { fill: var(--muted); }
+  .main { display: grid; grid-template-columns: 300px 1fr 280px; min-height: 0; }
+  .left, .right { background: var(--surface); overflow-y: auto; min-height: 0; }
+  .left { border-right: 1px solid var(--line); }
+  .right { border-left: 1px solid var(--line); padding: 16px; display: flex; flex-direction: column; gap: 18px; }
 
-  .main { display: grid; grid-template-columns: auto 1fr auto; min-height: 0; }
+  .tools { display: grid; grid-template-columns: repeat(6, 1fr); gap: 4px; padding: 12px; border-bottom: 1px solid var(--line); position: sticky; top: 0; background: var(--surface); z-index: 1; }
+  .tools button { display: grid; place-items: center; padding: 7px 0; background: none; color: var(--muted); border: 1px solid transparent; }
+  .tools button:hover:not(:disabled) { background: var(--raised); color: var(--text); }
+  .tools button.on, .tools button.on:hover:not(:disabled) { background: var(--selected); color: var(--on-selected); border-color: color-mix(in srgb, var(--primary) 45%, transparent); }
+
   .stage { position: relative; min-width: 0; min-height: 0; }
-  canvas, canvas:focus-visible { display: block; width: 100%; height: 100%; outline: none; }
-  canvas.arming, canvas.placing { cursor: crosshair; }
-  button.small { padding: 2px 8px; font-size: 12px; }
-  button.danger { color: var(--bad); }
-  button.primary { background: var(--accent); color: var(--on-accent); }
-  button.primary:hover:not(:disabled) { background: var(--accent-hover); }
-  .badge { font-size: 12px; font-weight: 600; padding: 3px 9px; border-radius: 10px; background: color-mix(in srgb, var(--warn) 22%, transparent); color: var(--warn); }
-  .notice { position: absolute; top: 12px; left: 50%; transform: translateX(-50%); max-width: min(720px, 90%); padding: 8px 14px; border-radius: 8px; background: var(--card); color: var(--text); box-shadow: 0 4px 18px rgba(0, 0, 0, .35); z-index: 2; }
+  canvas#view, canvas#view:focus-visible { display: block; width: 100%; height: 100%; outline: none; }
+  canvas#view.aiming { cursor: crosshair; }
+  .cube-wrap { position: absolute; top: 12px; right: 12px; display: flex; align-items: flex-start; gap: 4px; z-index: 2; }
+  #cube { width: 104px; height: 104px; display: block; }
+  .cube-wrap button { background: color-mix(in srgb, var(--surface) 85%, transparent); border: 1px solid var(--line); }
+  .notice { position: absolute; top: 12px; left: 50%; transform: translateX(-50%); max-width: min(720px, 70%); padding: 10px 16px; border-radius: var(--radius); background: var(--surface); border: 1px solid var(--line-strong); box-shadow: var(--shadow); z-index: 3; }
   .notice.bad { color: var(--bad); }
-  .message { position: absolute; inset: 0; display: grid; place-content: center; text-align: center; gap: 8px; padding: 24px; color: var(--muted); font-size: 15px; }
+  .message { position: absolute; inset: 0; display: grid; place-content: center; text-align: center; gap: 8px; padding: 24px; color: var(--muted); font-size: var(--fs-h3); }
   .message.bad { color: var(--bad); }
 
+  /* Names over the markers: a dark plate with the list's color as a square before the name. */
   .tags { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
-  .tag { position: absolute; left: 0; top: 0; padding: 1px 6px; border-radius: 4px; background: rgba(0, 0, 0, .55); color: #fff; font-size: 12px; white-space: nowrap; border-bottom: 2px solid var(--tag-color); }
-  .tag.picked { background: rgba(0, 0, 0, .8); outline: 1px solid #fff; z-index: 1; }
+  .tag { position: absolute; left: 0; top: 0; display: flex; align-items: center; gap: 6px; padding: 2px 7px; background: rgba(6, 12, 20, .78); color: #fff; font-size: var(--fs-meta); white-space: nowrap; }
+  .tag::before { content: ""; width: 8px; height: 8px; background: var(--tag-color); flex: none; }
+  .tag.picked { background: rgba(6, 12, 20, .92); outline: 1px solid #fff; z-index: 1; }
+  .tag.size { --tag-color: var(--primary); }
+  .tag.size.bad { --tag-color: var(--bad); color: #ffd2cd; }
 
-  .sidebar { width: 270px; background: var(--card); padding: 12px; overflow-y: auto; display: flex; flex-direction: column; gap: 16px; }
-  .sidebar h2 { font-size: 13px; margin: 0 0 6px; display: flex; align-items: center; gap: 8px; }
-  .pill { font-size: 11px; font-weight: 600; padding: 1px 8px; border-radius: 10px; }
-  .pill.ok { background: color-mix(in srgb, var(--ok) 22%, transparent); color: var(--ok); }
-  .pill.warn { background: color-mix(in srgb, var(--warn) 22%, transparent); color: var(--warn); }
+  /* The left panel: the checklist, then the overview of every list. */
+  .sidebar { padding: 14px 12px 24px; display: flex; flex-direction: column; gap: 20px; }
+  .sidebar h2 { font-size: 18px; display: flex; align-items: center; gap: 8px; margin: 0 4px 8px; }
   .checklist ul { list-style: none; margin: 0; padding: 0; }
-  .checklist .rows li { display: flex; align-items: center; gap: 8px; padding: 2px 0; }
-  .checklist .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--warn); flex: none; }
+  .checklist .rows li { display: flex; align-items: center; gap: 8px; padding: 3px 4px; }
+  .checklist .rows .dot { width: 8px; height: 8px; background: var(--warn); flex: none; }
   .checklist .done { color: var(--muted); }
   .checklist .done .dot { background: var(--ok); }
-  .checklist .problems li, .checklist .warnings li { padding: 3px 0 3px 10px; border-left: 2px solid var(--bad); margin-top: 4px; color: var(--bad); }
-  .checklist .warnings li { border-color: var(--warn); color: var(--warn); }
-  .grow { flex: 1; min-width: 0; }
-  .count { color: var(--muted); font-variant-numeric: tabular-nums; }
-  .list { margin-bottom: 8px; }
-  .list-head { display: flex; align-items: center; gap: 8px; font-weight: 600; padding: 3px 0; }
+  .checklist .problems li, .checklist .warnings li { display: flex; gap: 8px; padding: 6px 8px; margin-top: 6px; border-radius: var(--radius); color: var(--bad); background: color-mix(in srgb, var(--bad) 10%, transparent); }
+  .checklist .warnings li { color: var(--warn); background: color-mix(in srgb, var(--warn) 10%, transparent); }
+  .count { color: var(--muted); }
+  .overview h3 { font-size: var(--fs-meta); color: var(--muted); text-transform: uppercase; letter-spacing: .06em; margin: 14px 4px 6px; }
+  .list { margin-bottom: 6px; }
+  .list-head { display: flex; align-items: center; gap: 8px; font-weight: 700; padding: 4px; }
   .list.todo .count { color: var(--warn); }
-  .swatch { width: 10px; height: 10px; border-radius: 2px; flex: none; box-shadow: 0 0 0 1px rgba(0, 0, 0, .35); }
-  .empty { color: var(--muted); padding: 2px 0 2px 18px; }
-  .entry { display: flex; width: 100%; gap: 8px; align-items: baseline; text-align: left; background: none; font-weight: 400; padding: 3px 6px 3px 18px; border-radius: 5px; }
+  .swatch { width: 10px; height: 10px; flex: none; box-shadow: 0 0 0 1px rgba(0, 0, 0, .4); }
+  .empty { color: var(--muted); padding: 2px 4px 2px 22px; font-size: var(--fs-meta); }
+  .entry { display: flex; width: 100%; gap: 8px; align-items: baseline; text-align: left; background: none; font-size: var(--fs-body); font-weight: 400; padding: 4px 6px 4px 22px; border: 0; }
   .entry:hover:not(:disabled) { background: var(--raised); }
-  .entry.on, .entry.on:hover:not(:disabled) { background: var(--accent); color: var(--on-accent); }
+  .entry.on, .entry.on:hover:not(:disabled) { background: var(--selected); color: var(--on-selected); }
   .entry-label { white-space: nowrap; }
-  .entry-detail { color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; }
-  .entry.on .entry-detail { color: inherit; opacity: .8; }
+  .entry-detail { color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--fs-meta); }
+  .entry.on .entry-detail { color: inherit; }
 
-  .cuts { width: 210px; background: var(--card); padding: 12px; display: flex; flex-direction: column; gap: 14px; overflow-y: auto; }
-  .tool { display: flex; flex-direction: column; gap: 8px; padding-bottom: 12px; border-bottom: 1px solid var(--raised); }
-  .tool h2 { font-size: 13px; margin: 0; }
-  .tool .row { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
-  .tool .picked { display: flex; flex-direction: column; gap: 6px; }
-  .cut h2 { font-size: 13px; margin: 0 0 6px; display: flex; justify-content: space-between; align-items: baseline; }
-  .cut h2 span { color: var(--muted); font-weight: 400; }
-  .cut .row { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 6px; }
-  .height { display: flex; gap: 10px; align-items: stretch; }
-  .height input { writing-mode: vertical-lr; direction: rtl; height: 260px; }
-  .height .side { display: flex; flex-direction: column; gap: 6px; justify-content: flex-start; }
-  input[type=range] { accent-color: var(--accent); }
-  .axis input[type=range] { width: 100%; }
+  /* The right panel: the tool's settings or the picked entry's, else the cuts. */
+  .panel h2 { font-size: 18px; margin-bottom: 4px; }
+  .panel .sub { color: var(--muted); font-size: var(--fs-meta); margin: 0 0 12px; }
+  .panel section + section { border-top: 1px solid var(--line); padding-top: 16px; }
+  .choices { display: grid; gap: 2px; }
+  .choice { display: flex; align-items: center; gap: 8px; width: 100%; text-align: left; background: none; font-size: var(--fs-body); font-weight: 400; padding: 6px 8px; border: 1px solid transparent; }
+  .choice:hover:not(:disabled) { background: var(--raised); }
+  .choice.on, .choice.on:hover:not(:disabled) { background: var(--selected); color: var(--on-selected); border-color: color-mix(in srgb, var(--primary) 45%, transparent); }
+  .choice .count { margin-left: auto; font-size: var(--fs-meta); }
+  .choice.on .count { color: inherit; }
+  .field-row { display: flex; gap: 8px; align-items: center; margin-top: 10px; }
+  .field-row label { display: flex; align-items: center; gap: 8px; cursor: pointer; }
+  .fields { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+  .fields label { display: grid; gap: 3px; font-size: var(--fs-meta); color: var(--muted); }
+  .fields label b { font-weight: 700; }
+  .fields .x b { color: var(--axis-x); } .fields .y b { color: var(--axis-y); } .fields .z b { color: var(--axis-z); }
+  .fields input { width: 100%; font-variant-numeric: tabular-nums; padding: 5px 7px; }
+  .group-label { font-size: var(--fs-meta); color: var(--muted); margin: 14px 0 6px; }
+  .buttons { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 12px; }
+  .modes { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; margin-top: 12px; }
+  .modes button { display: flex; align-items: center; justify-content: center; gap: 6px; }
+  .modes.three { grid-template-columns: repeat(3, 1fr); }
 
-  .status { display: flex; gap: 16px; padding: 5px 12px; background: var(--side); color: var(--muted); min-height: 26px; white-space: nowrap; overflow: hidden; }
+  .cut { display: grid; gap: 6px; }
+  .cut + .cut { margin-top: 14px; }
+  .cut-head { display: flex; align-items: baseline; gap: 8px; }
+  .axis-name { font: 600 var(--fs-h3) var(--font-head); }
+  .axis-name.x { color: var(--axis-x); } .axis-name.y { color: var(--axis-y); } .axis-name.z { color: var(--axis-z); }
+  .cut-head .muted { margin-left: auto; font-size: var(--fs-meta); }
+  .cut input[type=range] { width: 100%; margin: 0; }
+  .cut[data-axis=x] input { accent-color: var(--axis-x); }
+  .cut[data-axis=y] input { accent-color: var(--axis-y); }
+  .cut[data-axis=z] input { accent-color: var(--axis-z); }
+  .cut-buttons { display: flex; gap: 6px; }
+  .cut-buttons button { flex: 1; }
+
+  .status { display: flex; gap: 18px; padding: 6px 16px; background: var(--side); border-top: 1px solid var(--line); color: var(--muted); font-size: var(--fs-meta); min-height: 32px; white-space: nowrap; overflow: hidden; align-items: center; }
   .status #hover { color: var(--text); overflow: hidden; text-overflow: ellipsis; }
-  .status #picked { color: var(--accent); }
+  .status #picked { color: var(--primary); }
   .status .spacer { flex: 1; }
   .status .warn { color: var(--warn); }
+
+  dialog.settings { width: min(440px, 92vw); padding: 0; border: 1px solid var(--line-strong); border-radius: var(--radius-lg); background: var(--surface); color: var(--text); box-shadow: var(--shadow); }
+  dialog.settings::backdrop { background: #0008; }
+  .settings form { display: grid; gap: 18px; padding: 20px 22px; }
+  .settings fieldset { border: 0; padding: 0; margin: 0; display: grid; gap: 10px; }
+  .settings legend { font: 600 var(--fs-meta) var(--font); color: var(--muted); text-transform: uppercase; letter-spacing: .06em; margin-bottom: 8px; padding: 0; }
+  .settings label { display: flex; align-items: center; gap: 10px; cursor: pointer; }
+  .settings .hint { color: var(--muted); font-size: var(--fs-meta); margin: -4px 0 0 26px; }
+  .settings .actions { display: flex; justify-content: flex-end; }
 </style>
 </head>
 <body>
-<header class="bar">
-  <a class="back" href="/#maps" aria-label="Back to Maps" title="Back to Maps"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg></a>
-  <div class="title"><strong id="map-name">Map viewer</strong><span id="map-game" class="muted"></span></div>
-  <div class="group" aria-label="Views">
-    <button id="view-home" title="Home: the whole map (Home key)">Home</button>
-    <div class="compass">
-      <button data-view="northwest" title="From the northwest">NW</button><button data-view="north" title="From the north">N</button><button data-view="northeast" title="From the northeast">NE</button>
-      <button data-view="west" title="From the west">W</button><button data-view="top" title="Top: straight down, flat, north up">Top</button><button data-view="east" title="From the east">E</button>
-      <button data-view="southwest" title="From the southwest">SW</button><button data-view="south" title="From the south">S</button><button data-view="southeast" title="From the southeast">SE</button>
-    </div>
-    <svg class="needle" id="needle" viewBox="-18 -18 36 36" aria-label="North"><path d="M0 -15 L5 0 L-5 0 Z"/><path class="south" d="M0 15 L5 0 L-5 0 Z"/></svg>
-  </div>
-  <div class="group" aria-label="Past the cut">
-    <span class="group-label">Past the cut</span>
-    <button id="past-faded">Faded</button><button id="past-gone">Gone</button>
-  </div>
-  <div class="group" aria-label="Changes">
-    <button id="undo" title="Undo (Ctrl+Z)">Undo</button><button id="redo" title="Redo (Ctrl+Y)">Redo</button>
-    <button id="save" title="Keep the map as a version in the map store">Save</button><button id="publish" class="primary">Publish</button>
-    <span id="in-edit" class="badge" hidden title="Game Edit has this map open: the viewer's changes go through it">Open in game Edit</span>
-  </div>
-  <div class="group">
-    <label class="check"><input type="checkbox" id="toggle-occlusion"> Corner darkening</label>
-    <label class="check"><input type="checkbox" id="toggle-variation"> Brightness variation</label>
-    <label class="check"><input type="checkbox" id="toggle-darken"> Darken below the cut</label>
-    <label class="check"><input type="checkbox" id="toggle-names"> Names</label>
+<header class="banner">
+  <a class="back" href="/#maps" aria-label="Back to Maps" data-tip="Back to Maps"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg></a>
+  <span id="map-thumb"></span>
+  <div class="banner-title"><h1 id="map-name">Map viewer</h1><span id="map-game" class="muted meta"></span></div>
+  <span id="in-edit" class="pill warn" hidden data-tip="Game Edit has this map open: the viewer's changes go through it">Open in game Edit</span>
+  <div class="banner-actions">
+    <button id="undo" class="icon" aria-label="Undo" data-tip="Undo" data-key="Ctrl+Z"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 14 4 9l5-5"/><path d="M4 9h10a6 6 0 0 1 0 12h-3"/></svg></button>
+    <button id="redo" class="icon" aria-label="Redo" data-tip="Redo" data-key="Ctrl+Y"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="m15 14 5-5-5-5"/><path d="M20 9H10a6 6 0 0 0 0 12h3"/></svg></button>
+    <button id="open-settings" class="icon" aria-label="View settings" data-tip="View settings"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h9M17 7h3M4 17h3M11 17h9"/><rect x="13" y="5" width="4" height="4"/><rect x="7" y="15" width="4" height="4"/></svg></button>
+    <span class="sep"></span>
+    <button id="save" data-tip="Keep the map as a version in the map store">Save</button>
+    <button id="publish" class="primary">Publish</button>
   </div>
 </header>
 <div class="main">
-  <aside class="sidebar" id="sidebar" aria-label="Checklist and lists"></aside>
+  <aside class="left" aria-label="Tools, checklist and overview">
+    <div class="tools" role="toolbar" aria-label="Tools">
+      <button data-tool="select" aria-label="Select" data-tip="Select: pick, move and resize" data-key="V"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3l12 7.5-5.5 1.2L10 17z"/><path d="m12.5 11.7 4 6.3"/></svg></button>
+      <button data-tool="spawn" aria-label="Spawn" data-tip="Spawn: place spawns" data-key="P"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="2.5" width="6" height="6"/><path d="M8 10h8v6H8zM9.5 16v5.5M14.5 16v5.5M8 10l-3 5M16 10l3 5"/></svg></button>
+      <button data-tool="marker" aria-label="Marker" data-tip="Marker: place the game's markers" data-key="M"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><rect x="7" y="3" width="10" height="8"/><path d="M12 11v10M8 21h8"/></svg></button>
+      <button data-tool="region" aria-label="Region" data-tip="Region: draw bounds and regions" data-key="B"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h4M12 4h4M20 4v4M20 12v4M20 20h-4M12 20H8M4 20v-4M4 12V8"/></svg></button>
+      <button data-tool="height" aria-label="Height" data-tip="Height: set kill Y and the build limit" data-key="H"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 16l9-3.5 9 3.5-9 3.5z"/><path d="M12 3v7M9 6l3-3 3 3"/></svg></button>
+      <button data-tool="cut" aria-label="Cut" data-tip="Cut: slice the map by height, X and Z" data-key="C"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 9l9-4.5L21 9l-9 4.5z"/><path d="M3 15l9 4.5 9-4.5" stroke-dasharray="2 2.5"/></svg></button>
+    </div>
+    <div id="sidebar" class="sidebar"></div>
+  </aside>
   <div class="stage">
     <canvas id="view" tabindex="0"></canvas>
     <div id="tags" class="tags"></div>
+    <div class="cube-wrap">
+      <button id="view-home" class="icon" aria-label="Home" data-tip="Home: the whole map" data-key="Home"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 11 12 4l8 7"/><path d="M6 9.5V20h12V9.5"/><path d="M10 20v-5h4v5"/></svg></button>
+      <canvas id="cube" aria-label="View cube: click a side to look from it"></canvas>
+    </div>
     <div id="notice" class="notice" hidden></div>
     <div id="message" class="message">Loading the map...</div>
   </div>
-  <aside class="cuts" aria-label="Tool and cuts">
-    <section class="tool" id="tool"></section>
-    <section class="cut">
-      <h2>Height <span id="top-label"></span></h2>
-      <div class="height">
-        <input type="range" id="top" step="1" aria-label="Top layer kept">
-        <div class="side">
-          <button id="top-here" title="Click a block next: the cut goes to its layer">Cut here</button>
-          <button id="top-off">No cut</button>
-          <span class="muted">Page Up and Page Down (or [ and ]) move it a layer, Shift five.</span>
-        </div>
+  <aside class="right panel" aria-label="Tool settings and cuts">
+    <div id="tool"></div>
+    <section id="cuts" class="cuts">
+      <h2>Cuts</h2>
+      <p class="sub">Slice the map to see inside. Page Up and Page Down move the Y cut a layer, Shift five.</p>
+      <div class="cut" data-axis="x">
+        <div class="cut-head"><span class="axis-name x">X</span><span id="x-label" class="muted"></span></div>
+        <input type="range" id="x" step="1" aria-label="X cut">
+        <div class="cut-buttons"><button id="x-here" class="small" data-tip="Click a block next: the cut goes to it">Here</button><button id="x-flip" class="small" data-tip="Keep the other side">Flip</button><button id="x-off" class="small">Off</button></div>
       </div>
-    </section>
-    <section class="cut axis" data-axis="x">
-      <h2>X <span id="x-label"></span></h2>
-      <input type="range" id="x" step="1" aria-label="X cut">
-      <div class="row"><button id="x-here">Cut here</button><button id="x-flip">Flip</button><button id="x-off">Off</button></div>
-    </section>
-    <section class="cut axis" data-axis="z">
-      <h2>Z <span id="z-label"></span></h2>
-      <input type="range" id="z" step="1" aria-label="Z cut">
-      <div class="row"><button id="z-here">Cut here</button><button id="z-flip">Flip</button><button id="z-off">Off</button></div>
+      <div class="cut" data-axis="y">
+        <div class="cut-head"><span class="axis-name y">Y</span><span id="y-label" class="muted"></span></div>
+        <input type="range" id="y" step="1" aria-label="Y cut: the top layer kept">
+        <div class="cut-buttons"><button id="y-here" class="small" data-tip="Click a block next: the cut goes to its layer">Here</button><button id="y-off" class="small" data-tip="Show every layer">Off</button></div>
+      </div>
+      <div class="cut" data-axis="z">
+        <div class="cut-head"><span class="axis-name z">Z</span><span id="z-label" class="muted"></span></div>
+        <input type="range" id="z" step="1" aria-label="Z cut">
+        <div class="cut-buttons"><button id="z-here" class="small" data-tip="Click a block next: the cut goes to it">Here</button><button id="z-flip" class="small" data-tip="Keep the other side">Flip</button><button id="z-off" class="small">Off</button></div>
+      </div>
     </section>
   </aside>
 </div>
 <footer class="status">
   <span id="picked"></span><span id="hover"></span><span class="spacer"></span><span id="note" class="warn"></span><span id="info"></span>
 </footer>
+<dialog id="settings" class="settings" aria-labelledby="settings-title">
+  <form method="dialog">
+    <h2 id="settings-title">View settings</h2>
+    <fieldset>
+      <legend>Blocks</legend>
+      <label><input type="checkbox" id="toggle-occlusion"> Corner darkening</label>
+      <label><input type="checkbox" id="toggle-variation"> Brightness variation</label>
+      <label><input type="checkbox" id="toggle-darken"> Darken below the Y cut</label>
+    </fieldset>
+    <fieldset>
+      <legend>Past the cut</legend>
+      <label><input type="radio" name="past" id="past-faded"> Faded: drawn see-through</label>
+      <label><input type="radio" name="past" id="past-gone"> Gone: not drawn</label>
+    </fieldset>
+    <fieldset>
+      <legend>Markers</legend>
+      <label><input type="checkbox" id="toggle-names"> Names over the markers</label>
+    </fieldset>
+    <fieldset id="movement">
+      <legend>Moving around</legend>
+      <label><input type="checkbox" id="toggle-wasd"> WASD flying</label>
+      <p class="hint">W, A, S and D move, Space goes up and Shift down; right drag looks around, and the wheel moves forward and back.</p>
+      <label>Flying speed <select id="fly-speed"><option value="slow">Slow</option><option value="normal">Normal</option><option value="fast">Fast</option></select></label>
+    </fieldset>
+    <div class="actions"><button value="done" class="primary">Done</button></div>
+  </form>
+</dialog>
 <script type="module" src="/viewer/app.js"></script>
 </body>
 </html>
