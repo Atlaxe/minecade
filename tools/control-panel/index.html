@@ -4,137 +4,97 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Minecade Panel</title>
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' rx='3' fill='%235ad2ff'/%3E%3Crect x='4' y='4' width='3' height='3' fill='%2304202d'/%3E%3Crect x='9' y='4' width='3' height='3' fill='%2304202d'/%3E%3Crect x='4' y='9' width='8' height='3' fill='%2304202d'/%3E%3C/svg%3E">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' fill='%23103050'/%3E%3Cpath fill='%2348c0f0' d='M3 3h2v10H3zM11 3h2v10h-2zM5 4h2v3H5zM9 4h2v3H9zM7 6h2v3H7z'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="/theme.css">
+<script src="/tips.js" defer></script>
 <style>
-  /* Two tones: the page behind, cards on top. The accent is the lobby hologram's cyan. */
-  :root {
-    color-scheme: dark;
-    --bg: #121922; --side: #0d131a; --card: #1c2530; --raised: #283342; --raised-hover: #324051; --inset: #141b24;
-    --text: #e2e9f1; --muted: #8b98a9; --accent: #5ad2ff; --accent-hover: #8adfff; --on-accent: #04202d;
-    --ok: #4fcf76; --warn: #e5ab3c; --bad: #ff6b61; --off: #8b98a9;
-    --zebra: #ffffff06; --hover: #5ad2ff10; --shadow: none;
-  }
-  @media (prefers-color-scheme: light) {
-    :root {
-      color-scheme: light;
-      --bg: #edf1f6; --side: #e1e7ef; --card: #ffffff; --raised: #e5eaf1; --raised-hover: #d8dfe9; --inset: #f2f5f9;
-      --text: #17202b; --muted: #5b6878; --accent: #0a8bc2; --accent-hover: #0879a9; --on-accent: #ffffff;
-      --ok: #1d8a42; --warn: #a66900; --bad: #c9342b; --off: #6b7888;
-      --zebra: #0f1e320a; --hover: #0a8bc212; --shadow: 0 1px 3px #0f1e3214;
-    }
-  }
-  * { box-sizing: border-box; }
-  [hidden] { display: none !important; }
-  body { margin: 0; background: var(--bg); color: var(--text); font: 14px/1.45 "Segoe UI", system-ui, sans-serif; }
-  .app { display: grid; grid-template-columns: 200px 1fr; height: 100vh; }
+  /* The page's own layout; the colors, type and controls are theme.css's. */
+  .app { display: grid; grid-template-columns: 216px 1fr; height: 100vh; }
 
-  .sidebar { background: var(--side); display: flex; flex-direction: column; gap: 2px; padding: 16px 10px; overflow-y: auto; }
-  .brand { display: flex; align-items: center; gap: 10px; padding: 2px 10px 18px; }
-  .mark { width: 30px; height: 30px; flex: none; }
-  .mark-bg { fill: var(--accent); } .mark-face { fill: var(--on-accent); }
-  .brand-name { font-weight: 700; font-size: 16px; line-height: 1.1; }
-  .brand-sub { color: var(--muted); font-size: 12px; }
-  .nav-item { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 8px; color: var(--muted); font-weight: 600; text-decoration: none; }
+  .sidebar { background: var(--side); display: flex; flex-direction: column; gap: 2px; padding: 18px 12px; overflow-y: auto; border-right: 1px solid var(--line); }
+  .brand { display: grid; gap: 4px; padding: 0 8px 22px; }
+  .brand img { width: 150px; height: auto; display: block; image-rendering: auto; }
+  .brand-sub { color: var(--muted); font: 600 var(--fs-meta) var(--font-head); letter-spacing: .08em; text-transform: uppercase; }
+  .nav-item { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: var(--radius); color: var(--muted); font-weight: 600; text-decoration: none; transition: background-color .15s ease-out, color .15s ease-out; }
   .nav-item svg { width: 18px; height: 18px; flex: none; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
-  .nav-item:hover { background: var(--hover); color: var(--text); }
-  .nav-item.active { background: color-mix(in srgb, var(--accent) 14%, transparent); color: var(--accent); }
+  .nav-item:hover { background: var(--raised); color: var(--text); }
+  .nav-item.active { background: var(--selected); color: var(--on-selected); }
   .nav-item .dot, .nav-item .count { margin-left: auto; }
-  .count { background: color-mix(in srgb, var(--accent) 16%, transparent); color: var(--accent); border-radius: 999px; padding: 0 7px; font-size: 12px; }
-  .side-foot { margin-top: auto; display: grid; gap: 6px; padding: 14px 10px 0; font-size: 12px; }
+  .count { color: var(--text); background: var(--raised); border-radius: var(--radius); padding: 0 7px; font-size: var(--fs-meta); }
+  .side-foot { margin-top: auto; display: grid; gap: 6px; padding: 16px 8px 0; font-size: var(--fs-meta); border-top: 1px solid var(--line); }
   .side-status { display: flex; justify-content: space-between; align-items: center; gap: 8px; color: var(--muted); }
   .side-busy { display: flex; align-items: center; gap: 8px; color: var(--warn); margin-bottom: 4px; }
 
-  main { overflow-y: auto; padding: 24px 28px 48px; scrollbar-gutter: stable; }
-  .page { max-width: 960px; }
-  .page-head h1 { font-size: 21px; margin: 0; }
-  .page-head p { color: var(--muted); margin: 2px 0 18px; }
-  .card { background: var(--card); border-radius: 12px; padding: 16px 18px; margin-bottom: 14px; box-shadow: var(--shadow); }
-  .card-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 12px; }
-  .card-head h2 { font-size: 15px; margin: 0; }
-  .actions { margin-left: auto; display: flex; gap: 8px; flex-wrap: wrap; }
+  main { overflow-y: auto; padding: 32px 40px 64px; scrollbar-gutter: stable; }
+  .page { max-width: 1040px; }
+  .page-head { margin-bottom: 8px; }
+  .page-head p { color: var(--muted); margin: 6px 0 0; max-width: 72ch; }
+  /* A section of a page: a rule above, its heading, then its content. */
+  .card { padding: 24px 0 4px; margin-top: 24px; border-top: 1px solid var(--line); }
+  .card-head { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 14px; }
+  .actions { margin-left: auto; display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
   .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
-
-  button { font: inherit; font-size: 13px; font-weight: 600; color: var(--text); background: var(--raised); border: 0; border-radius: 7px; padding: 6px 13px; cursor: pointer; }
-  button:hover:not(:disabled) { background: var(--raised-hover); }
-  button.primary { background: var(--accent); color: var(--on-accent); }
-  button.primary:hover:not(:disabled) { background: var(--accent-hover); }
-  button.danger { color: var(--bad); }
-  button.small { font-size: 12px; padding: 3px 10px; }
-  button:disabled { opacity: .45; cursor: default; }
-  select, input[type=text] { font: inherit; color: var(--text); background: var(--inset); border: 0; border-radius: 7px; padding: 6px 10px; }
-  select { min-width: 220px; cursor: pointer; }
+  select { min-width: 220px; }
   input[type=text] { width: 100%; }
-  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 
   .table-wrap { overflow-x: auto; }
-  table { width: 100%; border-collapse: separate; border-spacing: 0; font-variant-numeric: tabular-nums; }
-  th, td { text-align: left; padding: 7px 10px; vertical-align: top; }
-  th { color: var(--muted); font-size: 12px; font-weight: 600; white-space: nowrap; }
+  table { width: 100%; border-collapse: collapse; }
+  th, td { text-align: left; padding: 8px 12px; vertical-align: top; }
+  th { color: var(--muted); font-size: var(--fs-meta); font-weight: 600; white-space: nowrap; border-bottom: 1px solid var(--line-strong); }
+  td { border-bottom: 1px solid var(--line); }
   th.sortable { cursor: pointer; user-select: none; }
-  th.sortable:hover, th.sorted { color: var(--accent); }
-  tbody tr:nth-child(odd) td { background: var(--zebra); }
-  tbody tr:hover td { background: var(--hover); }
-  tbody td:first-child { border-radius: 7px 0 0 7px; }
-  tbody td:last-child { border-radius: 0 7px 7px 0; }
+  th.sortable:hover, th.sorted { color: var(--text); }
+  .sort-mark { width: 10px; height: 10px; margin-left: 4px; vertical-align: -1px; fill: currentColor; }
+  tbody tr:hover td { background: color-mix(in srgb, var(--raised) 55%, transparent); }
   td.end { text-align: right; }
-  #maps table { table-layout: fixed; }
-  #maps th:first-child { width: 42%; }
-  #maps th:last-child { width: 120px; }
   td.nowrap { white-space: nowrap; }
 
-  .pill, .status, .dot, .callout, .toast { --tone: var(--off); }
-  .ok { --tone: var(--ok); } .warn { --tone: var(--warn); } .bad { --tone: var(--bad); } .off { --tone: var(--off); }
-  .pill { display: inline-flex; align-items: center; gap: 6px; padding: 1px 9px; border-radius: 999px; font-size: 12px; font-weight: 600; color: var(--tone); background: color-mix(in srgb, var(--tone) 15%, transparent); }
-  .pill::before, .status::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: currentColor; flex: none; }
-  .status { display: inline-flex; align-items: center; gap: 6px; color: var(--tone); font-weight: 600; }
-  .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--tone); flex: none; }
-  .callout { margin: 12px 0 0; padding: 8px 12px; border-radius: 8px; color: var(--tone); background: color-mix(in srgb, var(--tone) 13%, transparent); }
+  .callout { --tone: var(--off); margin: 12px 0 0; padding: 10px 14px; border-radius: var(--radius); color: var(--tone); background: color-mix(in srgb, var(--tone) 12%, transparent); }
+  .callout.ok { --tone: var(--ok); } .callout.warn { --tone: var(--warn); } .callout.bad { --tone: var(--bad); }
   .chips { display: flex; flex-wrap: wrap; gap: 6px; }
-  .chip { background: var(--raised); border-radius: 999px; padding: 1px 10px; font-size: 13px; white-space: nowrap; }
+  .chip { background: var(--raised); border-radius: var(--radius); padding: 1px 10px; white-space: nowrap; }
   .chip.bot { color: var(--muted); }
 
-  .muted { color: var(--muted); }
-  .small { font-size: 12px; }
-  .strong { font-weight: 600; }
-  .mono { font-family: "Cascadia Mono", Consolas, monospace; font-size: 12px; }
-  .num { text-align: right; }
-  .hint { color: var(--muted); font-size: 12px; margin: 6px 0 0; }
-  .error { color: var(--bad); }
-  .game-title { font-size: 16px; font-weight: 600; }
-  .game-now { display: grid; gap: 6px; margin-bottom: 12px; }
+  .small { font-size: var(--fs-meta); }
+  .hint { color: var(--muted); font-size: var(--fs-meta); margin: 8px 0 0; max-width: 80ch; }
+  .game-title { font: 600 var(--fs-h3) var(--font-head); }
+  .game-now { display: grid; gap: 6px; margin-bottom: 14px; }
   .busy-line { display: flex; align-items: center; gap: 10px; margin-top: 12px; color: var(--muted); min-width: 0; }
   .busy-line .mono { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
-  dl { display: grid; grid-template-columns: max-content 1fr; gap: 10px 18px; margin: 0; align-items: center; }
+  dl { display: grid; grid-template-columns: max-content 1fr; gap: 10px 20px; margin: 0; align-items: center; }
   dt { color: var(--muted); }
   dd { margin: 0; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
-  .address { font-size: 14px; }
+  .address { font-size: var(--fs-body); }
 
-  .server-list { display: grid; gap: 10px; }
-  .server-row { display: grid; grid-template-columns: 140px 1fr; gap: 12px; align-items: start; }
-  .field + .field { margin-top: 14px; }
-  .field label { display: block; font-weight: 600; }
+  .server-list { display: grid; gap: 12px; }
+  .server-row { display: grid; grid-template-columns: 150px 1fr; gap: 12px; align-items: start; }
+  .field + .field { margin-top: 16px; }
+  .field label { display: block; font-weight: 700; }
   .field label .mono { color: var(--muted); font-weight: 400; margin-left: 6px; }
-  .field .hint { margin: 0 0 6px; }
+  .field .hint { margin: 2px 0 6px; }
 
-  pre.log { font: 12px/1.45 "Cascadia Mono", Consolas, monospace; margin: 0; padding: 10px 12px; height: 34vh; min-height: 160px; overflow: auto; background: var(--inset); border-radius: 8px; white-space: pre-wrap; word-break: break-all; }
+  pre.log { font: var(--fs-meta)/1.5 var(--font-mono); margin: 0; padding: 12px 14px; height: 34vh; min-height: 160px; overflow: auto; background: var(--inset); border: 1px solid var(--line); border-radius: var(--radius); white-space: pre-wrap; word-break: break-all; }
   pre.log:empty::before { content: "Nothing yet."; color: var(--muted); }
 
-  .spin { width: 12px; height: 12px; flex: none; border-radius: 50%; border: 2px solid color-mix(in srgb, var(--accent) 30%, transparent); border-top-color: var(--accent); animation: spin .8s linear infinite; }
+  /* Work under way: a small square turning, only while something runs. */
+  .spin { width: 10px; height: 10px; flex: none; border: 2px solid var(--primary); border-right-color: transparent; animation: spin .9s linear infinite; }
   @keyframes spin { to { transform: rotate(360deg); } }
   @media (prefers-reduced-motion: reduce) { .spin { animation-duration: 3s; } }
 
-  #banner { display: none; background: color-mix(in srgb, var(--bad) 18%, var(--card)); padding: 10px 14px; border-radius: 10px; margin-bottom: 14px; }
-  #toasts { position: fixed; right: 18px; bottom: 18px; display: grid; gap: 8px; max-width: min(380px, calc(100vw - 36px)); z-index: 10; }
-  .toast { display: flex; gap: 10px; background: var(--raised); border-radius: 10px; padding: 10px 14px 10px 10px; box-shadow: 0 6px 20px #0005; cursor: pointer; }
-  .toast::before { content: ""; width: 4px; border-radius: 2px; background: var(--tone); flex: none; }
+  #banner { display: none; background: color-mix(in srgb, var(--bad) 14%, var(--bg)); color: var(--text); padding: 12px 16px; border-radius: var(--radius); margin-bottom: 16px; }
+  #toasts { position: fixed; right: 20px; bottom: 20px; display: grid; gap: 8px; max-width: min(400px, calc(100vw - 40px)); z-index: 10; }
+  .toast { --tone: var(--off); display: flex; align-items: baseline; gap: 10px; background: var(--surface); border: 1px solid var(--line-strong); border-radius: var(--radius); padding: 10px 14px; box-shadow: var(--shadow); cursor: pointer; }
+  .toast.ok { --tone: var(--ok); } .toast.warn { --tone: var(--warn); } .toast.bad { --tone: var(--bad); }
+  .toast::before { content: ""; width: 8px; height: 8px; border-radius: 1px; background: var(--tone); flex: none; transform: translateY(-1px); }
 
   @media (max-width: 720px) {
     .app { grid-template-columns: 1fr; height: auto; }
-    .sidebar { flex-direction: row; flex-wrap: wrap; align-items: center; padding: 8px 12px; }
+    .sidebar { flex-direction: row; flex-wrap: wrap; align-items: center; padding: 8px 12px; border-right: 0; border-bottom: 1px solid var(--line); }
     .brand { padding: 0 8px 0 0; }
+    .brand img { width: 110px; }
     .brand-sub { display: none; }
-    .side-foot { margin: 0 0 0 auto; padding: 0; }
+    .side-foot { margin: 0 0 0 auto; padding: 0; border-top: 0; }
     main { padding: 16px; }
     .server-row { grid-template-columns: 1fr; gap: 4px; }
   }
@@ -144,8 +104,8 @@
 <div class="app">
 <nav class="sidebar" aria-label="Sections">
   <div class="brand">
-    <svg class="mark" viewBox="0 0 16 16" aria-hidden="true"><rect class="mark-bg" width="16" height="16" rx="3"/><rect class="mark-face" x="4" y="4" width="3" height="3"/><rect class="mark-face" x="9" y="4" width="3" height="3"/><rect class="mark-face" x="4" y="9" width="8" height="3"/></svg>
-    <div><div class="brand-name">Minecade</div><div class="brand-sub">Panel</div></div>
+    <img src="/brand/logo.png" alt="Minecade" width="150" height="34">
+    <div class="brand-sub">Panel</div>
   </div>
   <a class="nav-item" href="#servers" data-page="servers">
     <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="6.5" rx="1.5"/><rect x="3" y="13.5" width="18" height="6.5" rx="1.5"/><path d="M7 7.25h.01M7 16.75h.01"/></svg>
@@ -688,6 +648,18 @@ function renderStatsGames() {
   select.value = games.some((game) => game.id === pick) ? pick : "";
 }
 
+/** A small drawn triangle beside the sorted column's name: down for most first, up for least. */
+function sortMark(desc) {
+  const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+  svg.setAttribute("viewBox", "0 0 10 10");
+  svg.setAttribute("class", "sort-mark");
+  svg.setAttribute("aria-hidden", "true");
+  const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+  path.setAttribute("d", desc ? "M1 3h8L5 8z" : "M1 7h8L5 2z");
+  svg.append(path);
+  return svg;
+}
+
 function renderStats() {
   const game = stats.games.find((candidate) => candidate.id === $("stats-game").value);
   const extras = (game?.extras ?? []).map((extra) => ({
@@ -710,7 +682,7 @@ function renderStats() {
   const header = (key, label, align = "num") => el("th", { className: `sortable ${align} ${statsSort.key === key ? "sorted" : ""}`, onclick: () => {
     statsSort = { key, desc: statsSort.key === key ? !statsSort.desc : key !== "name" };
     renderStats();
-  } }, label, statsSort.key === key ? (statsSort.desc ? " ▼" : " ▲") : "");
+  } }, label, statsSort.key === key ? sortMark(statsSort.desc) : "");
   $("stats").replaceChildren(el("div", { className: "table-wrap" }, el("table", {},
     el("thead", {}, el("tr", {}, header("name", "Player", ""), columns.map((c) => header(c.key, c.label)))),
     el("tbody", {}, rows.map((row) => el("tr", {}, el("td", { className: "strong" }, row.name), columns.map((c) => el("td", { className: "num" }, c.text(c.value(row.line))))))),

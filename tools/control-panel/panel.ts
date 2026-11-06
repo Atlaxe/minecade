@@ -57,6 +57,13 @@ const repoRoot = fileURLToPath(new URL("../../", import.meta.url));
 const envPath = join(repoRoot, ".env");
 /** The map viewer's edits, undo histories, Save and Publish. */
 const mapChanges = new MapChanges(repoRoot);
+/** Files both pages load, by URL path (paths from the repo root). */
+const PANEL_ASSETS: Record<string, { file: string; type: string }> = {
+  "/theme.css": { file: join("tools", "control-panel", "theme.css"), type: "text/css; charset=utf-8" },
+  "/tips.js": { file: join("tools", "control-panel", "tips.js"), type: "text/javascript; charset=utf-8" },
+  "/brand/logo.png": { file: join("packages", "minigame-core", "resource_pack", "textures", "minecade", "ui", "logo.png"), type: "image/png" },
+};
+const FONT_FILE = /^\/fonts\/[a-z0-9-]+\.woff2$/;
 /** The map editor's output when the Panel starts it (it runs on after the Panel closes). */
 const editorLogPath = join(repoRoot, "work", "editor", "editor.log");
 const EDITOR_LOG_LINES = 150;
@@ -640,6 +647,15 @@ async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> 
     if (path === "/") {
       res.writeHead(200, { "content-type": "text/html; charset=utf-8", "cache-control": "no-store" });
       res.end(await readFile(new URL("./index.html", import.meta.url)));
+      return;
+    }
+    // The look both pages share: the theme, its fonts, the wordmark and the tooltips.
+    const asset = PANEL_ASSETS[path] ?? (FONT_FILE.test(path) ? { file: join("tools", "control-panel", path), type: "font/woff2" } : undefined);
+    if (asset) {
+      const data = await readFile(join(repoRoot, asset.file)).catch(() => undefined);
+      if (!data) return sendJson(res, 404, { error: "not found" });
+      res.writeHead(200, { "content-type": asset.type, "cache-control": "no-store" });
+      res.end(data);
       return;
     }
     if (path === "/api/ping") return sendJson(res, 200, { app: "minecade-panel", pid: process.pid });
