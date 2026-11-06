@@ -37,7 +37,7 @@ describe("parseArgs", () => {
     expect(parseArgs(["preview"])).toEqual({ command: "preview" });
     expect(parseArgs(["preview", "end"])).toEqual({ command: "endPreview" });
     // Guests are set on the Panel only.
-    expect(parseArgs(["invite", "Pal"])).toEqual({ command: "help", error: "guests are set on the Panel's Map editor page" });
+    expect(parseArgs(["invite", "Pal"])).toEqual({ command: "help", error: "guests are set on the Panel's Players page (its Guest switch)" });
     expect(parseArgs(["picture"])).toEqual({ command: "picture", kind: "map" });
     expect(parseArgs(["picture", "game"])).toEqual({ command: "picture", kind: "game" });
     expect(parseArgs(["picture", "hat"]).command).toBe("help");

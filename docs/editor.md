@@ -19,20 +19,23 @@ map in the store, cut a layer at a time, which works while the network or the ed
 
 ## Starting and stopping
 
-From the Panel: open **Map editor** and press **Boot up map editor**. If the network is running,
-the Panel asks first, then stops it. Once the page says the editor is ready, join `LAN_HOST:19132`.
-Each port keeps the identity the network's server on it has, so if you've played on the network,
-there's no trust prompt; otherwise accept it once per server.
+From the Panel, there's nothing to start by hand: it boots the editor by itself while its **Maps**
+page or a map viewer is open (unless the network runs, as they use the same ports), opens the map
+picked there in Edit ahead of time while nobody uses Edit, and shuts an editor it booted down once
+nobody has used it for 15 minutes, or when the Panel closes with nobody on it. A map viewer's **In
+game** menu has **Open in game**, which opens its map in Edit (booting the editor first, and asking
+before it stops the network) and sends map editors straight there (`docs/viewer.md`, "In game").
+Then join `LAN_HOST:19132`. Each port keeps the identity the network's server on it has, so if
+you've played on the network, there's no trust prompt; otherwise accept it once per server.
 
-The Panel also boots it by itself while its Maps page or a map viewer is open (unless the network
-runs), opens the map picked there in Edit ahead of time while nobody uses Edit, and shuts an
-editor it booted down once nobody has used it for 15 minutes; a map viewer's **In game, Open in
-game** opens its map in Edit and sends map editors straight there (`docs/viewer.md`, "In game").
-
-The page shows each server (what it has open, and who is on it), the checklist of the map open in
-Edit with **Save** and **Publish**, the maps cut from the world open in Select, and the editor's log. **Shut down**
-stops all three (Edit saves first); then **Start the network** brings the lobby and games back.
-Closing the Panel doesn't stop an editor someone is on, or one booted from a terminal.
+The **Servers** page has a **Map editor** section: its join address, each server (what it has open,
+who is on it, and its console's **Logs**), **View** to open the map in Edit in the viewer, **End
+preview** during a preview, the maps cut out of the world open in Select, and **Shut down** (Edit
+saves first; the warm-up then leaves it off until a map is picked on the Maps page), **Restart**
+once its code changed, or **Boot up** while it's off. Starting the network shuts the editor down
+first (asking when someone is on it). The editor's log is on the **Logs** page. The map open in
+Edit is saved, published, previewed and pictured from the viewer (its top bar and In game menu),
+or in game. Closing the Panel doesn't stop an editor someone is on, or one booted from a terminal.
 
 From a terminal:
 
@@ -205,8 +208,8 @@ The list is kept in `work/editor/guests.json`. Switching a guest off while the e
 disconnects them.
 
 **How guests join:**
-- **Console friends:** with **Friends tab** on (the same switch as the network's, `BROADCAST`, on
-  the Map editor page, under the editor's own status, and the Servers page), the editor runs the network's bot while it's up. Its
+- **Console friends:** with **Friends tab** on (the network's switch, `BROADCAST`, on the Servers
+  page under Join, Console friends), the editor runs the network's bot while it's up. Its
   friends see **Minecade map editor** in their Friends tab and join from there, the way they join
   the network (see the README's "Friends tab broadcast"; the sign-in is shared). Anyone can add
   the bot as a friend, but only guests get past the editor lobby.
@@ -794,7 +797,8 @@ isn't committed; see its README.
 - **"An older map editor is running":** one from before the editor lobby. The Panel's **Restart
   the editor** shuts it down (it saves first) and boots the new one; from a terminal,
   `npm run editor -- stop`.
-- **Can't join:** first check that the editor is running (the Panel's Map editor page, or
+- **Can't join:** first check that the editor is running (the Map editor section of the Panel's
+  Servers page, or
   `npm run editor -- status`): with none running, nothing answers on port 19132 and the join
   fails. If the Panel's buttons do nothing, restart the Panel (see Restarting above). Then check
   that your gamertag is in `LAN_PLAYERS` (or Guest is on for theirs, on the Players page), and, from outside

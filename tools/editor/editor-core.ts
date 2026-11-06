@@ -151,7 +151,7 @@ export const USAGE = `Usage:
   npm run editor -- stop                    shut the editor down (Edit saves first)
 Add --verbose to echo the servers' consoles. The editor takes the network's ports (19132-19134,
 and 19135 for guests coming back to the editor lobby), so stop the network first. Guests are set
-on the Panel's Map editor page.`;
+on the Panel's Players page (its Guest switch).`;
 
 export function parseArgs(argv: string[]): EditorArgs {
   const flags = new Set(argv.filter((arg) => arg.startsWith("--")));
@@ -171,7 +171,7 @@ export function parseArgs(argv: string[]): EditorArgs {
     if (words.length === 1 || words[1] === "map") return { command: "picture", kind: "map" };
     return words[1] === "game" ? { command: "picture", kind: "game" } : { command: "help", error: 'picture takes "game" (or nothing, for the map\'s preview)' };
   }
-  if (words[0] === "invite" || words[0] === "uninvite") return { command: "help", error: "guests are set on the Panel's Map editor page" };
+  if (words[0] === "invite" || words[0] === "uninvite") return { command: "help", error: "guests are set on the Panel's Players page (its Guest switch)" };
   if (words.length !== 2) return { command: "help", error: "expected a target and a map" };
   const [target, map] = words;
   if (!isMapId(map)) return { command: "help", error: `"${map}" is not a map id: use lower case letters, digits, _ and -` };

@@ -1,4 +1,4 @@
-// The map editor's guests (work/editor/guests.json, set on the Panel's Map editor page and kept until
+// The map editor's guests (work/editor/guests.json, set by the Panel's Players page, its Guest switch, and kept until
 // someone removes them). Guests may join the editor lobby and whatever runs on Select's port
 // (Select, or a preview), never Edit; the runner opens those servers' allow lists to them, and the
 // Panel edits the file itself while the editor is off. Map editors (LAN_PLAYERS) are never guests.

@@ -167,6 +167,14 @@ export class EditorRunner {
     this.players = editorPlayers(this.env);
     this.guests = await readGuests(this.root);
     const docker = connectDocker();
+    // This editor holds the control port, so no other one runs: editor servers still running were
+    // left by one that stopped without shutting them down (its process ended). They'd hold the
+    // ports for good, so they go; map.json has every change, and only block changes since their
+    // last save are lost.
+    for (const info of await docker.listContainers({ filters: { label: ["minecade.role=editor"] } })) {
+      this.log(`Removing ${info.Names[0]?.replace(/^\//, "") ?? info.Id.slice(0, 12)}, left running by an earlier map editor that stopped without it (block changes since its last save are lost; map.json has every change).`);
+      await docker.getContainer(info.Id).remove({ force: true }).catch((error: unknown) => this.log(`Could not remove it: ${message(error)}`));
+    }
     const ports = Object.values(this.slots).flatMap((slot) => (slot.entrance ? [slot.port, slot.entrance] : [slot.port]));
     const holders = portHolders(await docker.listContainers(), ports);
     if (holders.length > 0) {

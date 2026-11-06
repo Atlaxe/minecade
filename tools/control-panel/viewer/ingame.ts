@@ -51,7 +51,7 @@ export function gameSummary(state: PanelState, target: string, map: string): { t
   const status = editor?.status?.booted ? editor.status : undefined;
   const key = `${target}/${map}`;
   if (state.docker !== "running") return { tone: "off", line: "Docker isn't running.", open: false };
-  if (editor?.status && !status) return { tone: "off", line: "An older map editor is running: restart it on the Panel first.", open: false };
+  if (editor?.status && !status) return { tone: "off", line: "An older map editor is running: restart it on the Panel's Servers page first.", open: false };
   if (!status) {
     if (editor?.launching || editor?.restarting) return { tone: "warn", line: state.warm?.openWhenReady === key ? "The map editor is starting: this map opens in Edit once it's ready." : "The map editor is starting...", open: false };
     if (state.networkRunning) return { tone: "off", line: "The network is running, and the map editor needs its ports: Open in game stops the network first.", open: false };

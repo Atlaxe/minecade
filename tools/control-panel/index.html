@@ -62,10 +62,18 @@
   .busy-line { display: flex; align-items: center; gap: 10px; margin-top: 12px; color: var(--muted); min-width: 0; }
   .busy-line .mono { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
-  dl { display: grid; grid-template-columns: max-content 1fr; gap: 10px 20px; margin: 0; align-items: center; }
-  dt { color: var(--muted); }
-  dd { margin: 0; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  /* How players join: a row each, its name and who it's for on the left, the address and its notes on the right. */
+  .join { margin-top: 20px; }
+  .join h3 { margin-bottom: 10px; }
+  .join-list { display: grid; grid-template-columns: minmax(200px, max-content) 1fr; margin: 0 0 4px; border: 1px solid var(--line); border-radius: var(--radius-lg); background: var(--surface); }
+  .join-list dt, .join-list dd { padding: 12px 16px; border-top: 1px solid var(--line); }
+  .join-list dt:first-of-type, .join-list dt:first-of-type + dd { border-top: 0; }
+  .join-list dt { display: grid; gap: 2px; align-content: center; }
+  .join-list dd { margin: 0; display: flex; gap: 8px 12px; align-items: center; flex-wrap: wrap; min-width: 0; }
   .address { font-size: var(--fs-body); }
+  .lobby-map { margin-top: 18px; }
+  .card .table-wrap { margin-top: 16px; }
+  .editor-selections { margin-top: 20px; }
 
 
   pre.log { font: var(--fs-meta)/1.5 var(--font-mono); margin: 0; padding: 12px 14px; height: 34vh; min-height: 160px; overflow: auto; background: var(--inset); border: 1px solid var(--line); border-radius: var(--radius); white-space: pre-wrap; word-break: break-all; }
@@ -104,7 +112,6 @@
   .stat-grid div { display: grid; gap: 2px; }
   .stat-grid dt { color: var(--muted); font-size: var(--fs-meta); }
   .stat-grid dd { margin: 0; font: 600 var(--fs-h3) var(--font-head); }
-  .editor-friends:not(:empty) { margin-top: 16px; }
 
   /* Maps: the search row, the cards by game, and the bar for the picked one. */
   .page.page-wide { max-width: 1280px; padding-bottom: 72px; }
@@ -180,10 +187,6 @@
     <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c0-3.6 2.9-6 6.5-6s6.5 2.4 6.5 6"/><path d="M16 4.5a3.5 3.5 0 0 1 0 7M18 14.2c2.1.7 3.5 2.8 3.5 5.8"/></svg>
     <span>Players</span><span id="nav-online" class="count" title="Players online" hidden></span>
   </a>
-  <a class="nav-item" href="#editor" data-page="editor">
-    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 4 3 6.5V20l6-2.5 6 2.5 6-2.5V4l-6 2.5z"/><path d="M9 4v13.5M15 6.5V20"/></svg>
-    <span>Map editor</span><span id="nav-editor" class="dot off"></span>
-  </a>
   <a class="nav-item" href="#maps" data-page="maps">
     <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 3.5 7.5 12 12l8.5-4.5z"/><path d="M3.5 7.5v9L12 21l8.5-4.5v-9"/><path d="M12 12v9"/></svg>
     <span>Maps</span>
@@ -196,6 +199,7 @@
     <div id="busy" class="side-busy" hidden><span class="spin"></span><span id="busy-text"></span></div>
     <div class="side-status"><span>Docker</span><span id="docker" class="status off">...</span></div>
     <div class="side-status"><span>Network</span><span id="network" class="status off">...</span></div>
+    <div class="side-status"><span>Map editor</span><span id="editor-side" class="status off">...</span></div>
     <button id="start-docker" class="primary" hidden>Start Docker Desktop</button>
   </div>
 </nav>
@@ -204,13 +208,9 @@
 <div id="stale-banner" class="callout warn" hidden style="margin:0 0 14px">The Panel's code changed since it started. <button id="restart-panel" class="small">Restart Panel</button></div>
 
 <section id="page-servers" class="page">
-  <div class="page-head"><h1>Servers</h1><p>Start and stop the network, run a game, and see what each server is doing.</p></div>
+  <div class="page-head"><h1>Servers</h1><p>Start and stop the network, run a game, and see what each server is doing, the map editor's too. The network and the map editor use the same ports, so one runs at a time.</p></div>
   <div id="stacks"><p class="hint">Connecting to the panel helper...</p></div>
-  <div class="card">
-    <div class="card-head"><h2>Join addresses</h2></div>
-    <dl id="connection"></dl>
-    <p class="hint">The public address can't be tested from this PC: the router doesn't loop it back. Test it from a phone on cellular data.</p>
-  </div>
+  <div id="editor-server"></div>
 </section>
 
 <section id="page-players" class="page page-wide" hidden>
@@ -224,18 +224,6 @@
   <p id="players-note" class="muted meta"></p>
   <div id="players"><p class="hint">Loading...</p></div>
   <p class="hint">Allowed and Map editor are saved to .env (ALLOW_LIST, LAN_PLAYERS; map editors are also sent by LAN address): the network uses them from its next start. Guest lets someone into the map editor's lobby, Select and previews, never Edit, at once (work/editor/guests.json).</p>
-</section>
-
-<section id="page-editor" class="page" hidden>
-  <div class="page-head"><h1>Map editor</h1><p>Boot it, then join the editor lobby (port 19132), which asks what to open: a map in Edit (port 19134), or a copy of one of your worlds in Select (port 19133), to cut new maps out of. Every change goes straight into map.json. The network is stopped while the editor runs: they use the same ports.</p></div>
-  <div id="editor-server"></div>
-  <div id="editor-friends" class="editor-friends"></div>
-  <div id="editor-checklist"></div>
-  <div id="editor-select"></div>
-  <div class="card">
-    <div class="card-head"><h2>Editor log</h2><span class="muted small">work/editor/editor.log</span></div>
-    <pre id="editor-log" class="log"></pre>
-  </div>
 </section>
 
 <section id="page-maps" class="page page-wide" hidden>
@@ -288,7 +276,7 @@
 </section>
 
 <section id="page-logs" class="page" hidden>
-  <div class="page-head"><h1>Logs</h1><p>What the panel did, and each server's console.</p></div>
+  <div class="page-head"><h1>Logs</h1><p>What the panel did, each server's console, and the map editor's log.</p></div>
   <div class="card">
     <div class="card-head"><h2>Panel activity</h2></div>
     <pre id="activity" class="log"></pre>
@@ -296,6 +284,10 @@
   <div class="card">
     <div class="card-head"><h2>Server console</h2><div class="actions"><select id="logs-pick" aria-label="Container"></select></div></div>
     <pre id="console-log" class="log"></pre>
+  </div>
+  <div class="card">
+    <div class="card-head"><h2>Map editor</h2><span class="muted small">work/editor/editor.log: its servers, what was opened, saved and cut out</span></div>
+    <pre id="editor-log" class="log"></pre>
   </div>
 </section>
 </main>
@@ -369,7 +361,7 @@ async function copy(text) {
 
 // ---- Pages -------------------------------------------------------------------------------
 
-const PAGES = ["servers", "players", "editor", "maps", "logs"];
+const PAGES = ["servers", "players", "maps", "logs"];
 let page = "servers";
 
 function showPage(name) {
@@ -406,7 +398,6 @@ function render(next) {
   state = next;
   renderSidebar();
   renderStacks();
-  renderConnection();
   renderPlayers();
   renderEditor();
   renderGameLine();
@@ -475,7 +466,7 @@ function renderStacks() {
   for (const stack of stacks) {
     const [controls, game, servers] = $(`stack-${stack.id}`).children;
     const busy = state.busy?.startsWith(`${stack.label}: `) ? state.busy : null;
-    const facts = [stack.label, stack.available, stack.missing, stack.running, stack.settingsStale, state.env.LOBBY_MAP, state.lobbyMaps, state.broadcast];
+    const facts = [stack.label, stack.available, stack.missing, stack.running, stack.settingsStale, state.env.LOBBY_MAP, state.lobbyMaps, state.broadcast, state.connection, state.env.missing, Boolean(state.editor?.status)];
     patch(controls, [facts, canAct, busy], () => stackCard(stack, canAct, busy));
     patch(game, stack.orchestrator, () => stack.orchestrator && gameCard(stack.orchestrator));
     patch(servers, [stack.containers, state.env.WATCHER_GAMERTAG], () => containersCard(stack));
@@ -488,6 +479,10 @@ function editorPeople(status) {
   return status.home.players.length + (status.select?.players.length ?? 0) + (status.edit?.players.length ?? 0) + (status.preview?.players.length ?? 0) + status.waiting.length;
 }
 
+/**
+ * The network: its state and buttons, then how players join it (this PC's network, the internet,
+ * and console friends through the Friends tab broadcast, with its switch), then its lobby map.
+ */
 function stackCard(stack, canAct, busy) {
   const action = (verb) => () => {
     // The map editor (warmed up for the Maps page, perhaps) has the network's ports: it shuts down first.
@@ -503,65 +498,62 @@ function stackCard(stack, canAct, busy) {
     el("button", { className: "danger", onclick: action("down") }, "Stop"),
   ];
   for (const button of buttons) button.disabled = !canAct || !stack.available;
+  buttons[0].dataset.tip = state.editor?.status ? "The map editor shuts down first (Edit saves first): they use the same ports" : stack.running ? "Rebuild what changed and start it again" : "Build and start the lobby and the orchestrator";
   const [tone, text] = busy ? ["warn", busyWord(busy)] : stack.running ? ["ok", "running"] : ["off", "stopped"];
   return el("div", { className: "card" },
     el("div", { className: "card-head" }, el("h2", {}, stack.label), el("span", { className: `pill ${tone}` }, text), el("div", { className: "actions" }, buttons)),
     !stack.available && el("p", { className: "hint" }, `Missing: ${stack.missing.join(", ")}.`),
-    stack.id === "main" && lobbyMapRow(),
-    stack.id === "main" && broadcastRow(stack.running),
     stack.settingsStale && el("p", { className: "callout warn" }, ".env changed after this stack started. Click Restart to apply the new settings."),
     busy && el("div", { className: "busy-line" }, el("span", { className: "spin" }), el("span", { id: "busy-line", className: "mono" }, lastActivity)),
+    stack.id === "main" && joinList(stack.running),
+    stack.id === "main" && lobbyMapRow(),
   );
 }
 
-// The lobby map picker is rebuilt with the network card, so remember the choice across renders.
-let lobbyPick = "";
+/** A join address with its Copy button. */
+function address(text) {
+  return [el("span", { className: "mono address" }, text), el("button", { className: "small", onclick: () => copy(text) }, "Copy")];
+}
 
-/** Which lobby map the network uses (LOBBY_MAP in .env); a restart applies it. */
-function lobbyMapRow() {
-  const maps = state.lobbyMaps ?? [];
-  if (state.env.missing || maps.length === 0) return null;
-  const saved = state.env.LOBBY_MAP || "spaceship";
-  const select = el("select", { "aria-label": "Lobby map" });
-  for (const map of maps) select.append(el("option", { value: map.id }, map.name));
-  select.value = lobbyPick || saved;
-  const result = el("span", { className: "muted small" });
-  const save = el("button", { onclick: async () => {
-    const { ok, result: answer } = await post("/api/env", { LOBBY_MAP: select.value });
-    result.className = ok ? "muted small" : "error";
-    result.textContent = ok ? (answer.changed ? "Saved. Restart to apply." : "No changes.") : (answer.error ?? "Save failed.");
-    if (ok) lobbyPick = "";
-  } }, "Save");
-  save.disabled = select.value === saved;
-  select.onchange = () => { lobbyPick = select.value; save.disabled = select.value === saved; };
-  return el("div", { className: "row" }, el("span", {}, "Lobby map"), el("span", { className: "mono muted" }, "LOBBY_MAP"), select, save, result);
+/** How players join the network: one row each for this PC's network, the internet and console friends. */
+function joinList(running) {
+  const c = state.connection;
+  const row = (label, sub, ...value) => [el("dt", {}, el("span", { className: "strong" }, label), el("span", { className: "muted meta" }, sub)), el("dd", {}, ...value)];
+  return el("section", { className: "join" },
+    el("h3", {}, "Join"),
+    el("dl", { className: "join-list" },
+      row("This PC's network", "You, and anyone on the same network",
+        c.lanHost ? address(`${c.lanHost}:${c.joinPort}`) : el("span", { className: "error" }, "LAN_HOST is not set in .env"),
+        c.lanHost && !c.lanHostOk && el("span", { className: "error" }, "This PC no longer has this address. Update LAN_HOST and the router forward.")),
+      row("The internet", "Friends anywhere else",
+        c.publicIp ? address(`${c.publicIp}:${c.joinPort}`) : el("span", { className: "muted" }, "Unknown: the lookup failed."),
+        c.publicIp && el("span", { className: "muted meta", "data-tip": "The router doesn't loop it back, so it can't be tested from this PC: try a phone on cellular data" }, c.publicHost === "auto" ? "Found by itself. Test it from a phone on cellular data." : "Test it from a phone on cellular data.")),
+      row("Console friends", "Consoles can't type an address", friendsTab(running))));
 }
 
 /**
- * The friends broadcast (BROADCAST in .env): a spare account that puts the lobby in its friends'
- * Friends tab. Turning it on or off applies at once while the network runs, without a restart.
+ * The Friends tab broadcast (BROADCAST in .env): a spare account that puts the lobby in its friends'
+ * Friends tab, for console players, who can't type an address. Its switch applies at once while the
+ * network runs, without a restart, and to the map editor too.
  */
-function broadcastRow(running) {
+function friendsTab(running) {
   const b = state.broadcast;
-  if (state.env.missing || !b) return null;
-  const parts = [el("span", {}, "Friends tab"), el("span", { className: "mono muted" }, "BROADCAST"), broadcastToggle(b.on)];
-  if (!b.on) parts.push(rowText("Off. Console friends can't see the lobby in their Friends tab."));
-  else if (!running || !b.container) parts.push(rowText("On. It starts with the network."));
-  else if (b.container !== "running") parts.push(rowText("On, but it isn't running. Its log (Containers, minecade-broadcaster) says why.", "error"));
-  else parts.push(...broadcastProgress(b, `On. Friends who add ${b.account} in Minecraft see the lobby in their Friends tab.${b.lastJoin ? ` Last join: ${b.lastJoin}.` : ""}`));
-  if (b.on && b.lastError && b.phase !== "live") parts.push(rowText(b.lastError, "error"));
-  return el("div", { className: "row" }, parts);
-}
-
-function rowText(text, className = "muted small") {
-  return el("span", { className }, text);
-}
-
-/** The Friends tab switch: BROADCAST in .env, for the network and the map editor alike. */
-function broadcastToggle(on) {
-  const toggle = el("button", { onclick: () => post("/api/broadcast", { on: !on }) }, on ? "Turn off" : "Turn on");
+  if (state.env.missing || !b) return el("span", { className: "muted" }, "No .env file: copy .env.example to .env first.");
+  const toggle = el("input", { type: "checkbox", className: "switch", "aria-label": "Friends tab broadcast (BROADCAST)", "data-tip": "BROADCAST in .env: the network and the map editor show in the spare account's friends' Friends tab" });
+  toggle.checked = b.on;
   toggle.disabled = Boolean(state.busy);
-  return toggle;
+  toggle.onchange = () => post("/api/broadcast", { on: toggle.checked });
+  const parts = [el("label", { className: "switch-label" }, toggle, "Friends tab")];
+  if (!b.on) parts.push(rowText("Off: console friends can't see the lobby in their Friends tab."));
+  else if (!running || !b.container) parts.push(rowText("On: it starts with the network."));
+  else if (b.container !== "running") parts.push(rowText("On, but it isn't running: its log (Logs, minecade-broadcaster) says why.", "error"));
+  else parts.push(...broadcastProgress(b, b.account ? `On: friends who add ${b.account} in Minecraft see the lobby in their Friends tab.${b.lastJoin ? ` Last join: ${b.lastJoin}.` : ""}` : "On."));
+  if (b.on && b.lastError && b.phase !== "live") parts.push(rowText(b.lastError, "error"));
+  return parts;
+}
+
+function rowText(text, className = "muted meta") {
+  return el("span", { className }, text);
 }
 
 /** How far a running friends broadcast `b` got: the sign-in it asks for, starting, or `live` once friends see it. */
@@ -572,6 +564,29 @@ function broadcastProgress(b, live) {
   }
   if (b.phase === "live") return [rowText(live)];
   return [rowText(b.phase === "signed-in" ? `Signed in as ${b.account}. Starting...` : "Starting...")];
+}
+
+// The lobby map picker is rebuilt with the network card, so remember the choice across renders.
+let lobbyPick = "";
+
+/** Which lobby map the network uses (LOBBY_MAP in .env); a restart applies it. */
+function lobbyMapRow() {
+  const maps = state.lobbyMaps ?? [];
+  if (state.env.missing || maps.length === 0) return null;
+  const saved = state.env.LOBBY_MAP || "spaceship";
+  const select = el("select", { "aria-label": "Lobby map", "data-tip": "LOBBY_MAP in .env: a restart applies it" });
+  for (const map of maps) select.append(el("option", { value: map.id }, map.name));
+  select.value = lobbyPick || saved;
+  const result = el("span", { className: "muted meta" });
+  const save = el("button", { onclick: async () => {
+    const { ok, result: answer } = await post("/api/env", { LOBBY_MAP: select.value });
+    result.className = ok ? "muted meta" : "error";
+    result.textContent = ok ? (answer.changed ? "Saved. Restart to apply." : "No changes.") : (answer.error ?? "Save failed.");
+    if (ok) lobbyPick = "";
+  } }, "Save");
+  save.disabled = select.value === saved;
+  select.onchange = () => { lobbyPick = select.value; save.disabled = select.value === saved; };
+  return el("div", { className: "row lobby-map" }, el("span", { className: "strong" }, "Lobby map"), select, save, result);
 }
 
 // The game picker is rebuilt when the game status changes, so remember the choice across renders.
@@ -618,10 +633,12 @@ function gameCard(status) {
 
 function containersCard(stack) {
   const head = el("div", { className: "card-head" }, el("h2", {}, "Containers"));
-  if (stack.containers.length === 0) {
+  // The map editor's servers are listed in its own section.
+  const list = stack.containers.filter((c) => !c.editor);
+  if (list.length === 0) {
     return el("div", { className: "card" }, head, el("p", { className: "hint" }, "No containers. Press Start to boot this stack."));
   }
-  const rows = stack.containers.map((c) => el("tr", {},
+  const rows = list.map((c) => el("tr", {},
     el("td", { className: "nowrap" }, el("div", { className: "strong" }, c.name), c.role && el("div", { className: "muted small" }, c.role)),
     el("td", { className: "nowrap" }, el("span", { className: `pill ${c.state === "running" ? "ok" : "off"}` }, c.state), el("div", { className: "muted small" }, c.status)),
     el("td", { className: "mono nowrap" }, c.ports || el("span", { className: "muted" }, "-")),
@@ -642,27 +659,6 @@ function onlineCell(c) {
 function chip(name) {
   if (isWatcher(name)) return el("span", { className: "chip bot", title: "The skin watcher's account (WATCHER_GAMERTAG)" }, `${name} (skin watcher)`);
   return el("span", { className: "chip" }, name);
-}
-
-function renderConnection() {
-  const c = state.connection;
-  const b = state.broadcast ?? {};
-  const address = (text) => [el("span", { className: "mono address" }, text), el("button", { className: "small", onclick: () => copy(text) }, "Copy")];
-  patch($("connection"), [c, b.on, b.account], () => [
-    el("dt", {}, "You (this network)"),
-    el("dd", {},
-      c.lanHost ? address(`${c.lanHost}:${c.joinPort}`) : el("span", { className: "error" }, "LAN_HOST is not set in .env"),
-      c.lanHost && !c.lanHostOk && el("span", { className: "error" }, "This PC no longer has this address. Update LAN_HOST and the router forward.")),
-    el("dt", {}, "Friends (internet)"),
-    el("dd", {},
-      c.publicIp ? address(`${c.publicIp}:${c.joinPort}`) : el("span", { className: "muted" }, "unknown (lookup failed)"),
-      c.publicIp && c.publicHost === "auto" && el("span", { className: "muted small" }, "auto-detected")),
-    el("dt", {}, "Console friends"),
-    el("dd", {},
-      !b.on ? el("span", { className: "muted" }, "Turn on the Friends tab broadcast on the Servers page.")
-        : b.account ? [el("span", {}, "Add"), el("span", { className: "mono address" }, b.account), el("span", {}, "as a friend in Minecraft, then join from the Friends tab.")]
-        : el("span", { className: "muted" }, "The broadcast hasn't signed in yet (Servers page).")),
-  ]);
 }
 
 // ---- Players -----------------------------------------------------------------------------
@@ -879,7 +875,9 @@ function reloadStatsWhenIdle() {
 
 $("start-docker").onclick = () => post("/api/docker/start");
 
-// ---- Map editor --------------------------------------------------------------------------
+// ---- Map editor: the Servers page's section for the in-game editor's servers, and its log on the
+// Logs page. It boots by itself while the Maps page or a map viewer is open (unless the network
+// runs), and maps are opened in it from the viewer's In game menu.
 
 const EDITOR_STATES = { starting: ["warn", "booting"], ready: ["ok", "ready to join"], stopping: ["warn", "shutting down"] };
 const SERVER_STATES = {
@@ -894,7 +892,7 @@ function editorTone(editor) {
   if (editor.restarting) return ["warn", "restarting"];
   if (editor.status && !editor.status.booted) return ["warn", "an older version is running"];
   if (editor.status) return EDITOR_STATES[editor.status.state] ?? ["warn", editor.status.state];
-  return editor.launching ? EDITOR_STATES.starting : ["off", "not running"];
+  return editor.launching ? EDITOR_STATES.starting : ["off", "off"];
 }
 
 function renderEditor() {
@@ -902,14 +900,11 @@ function renderEditor() {
   // An editor from before the editor lobby reports another shape: only its log is shown.
   const status = editor.status?.booted ? editor.status : null;
   const [tone, text] = editorTone(editor);
-  $("nav-editor").className = `dot ${tone}`;
-  $("nav-editor").title = `Map editor: ${text}`;
-  const server = (s) => s && [s.state, s.error, s.players, s.world, s.targetName, s.mapName, s.map, s.draft, s.saving, s.unsaved, s.publishing, s.checklist?.ready];
-  const facts = status && [status.state, status.error, status.join, status.home.players, status.waiting, server(status.select), server(status.edit), status.preview?.state, status.preview?.label];
-  patch($("editor-server"), [tone, text, editor.old, editor.stale, editor.launching, state.docker, state.busy, state.networkRunning, state.connection.lanHost, facts], () => editorCard(editor, status));
-  patch($("editor-checklist"), status?.edit && [status.edit.checklist, status.edit.undo, status.edit.redo, status.edit.unsaved, status.edit.saving, status.edit.publishing, status.edit.draft, status.edit.mapName, status.edit.target], () => status?.edit && checklistCard(status.edit));
-  patch($("editor-select"), status?.select && [status.select.world, status.select.selections], () => status?.select && selectionsCard(status.select));
-  patch($("editor-friends"), [state.env.missing, state.broadcast?.on, state.busy, status?.state, status?.broadcast], () => editorFriendsRow(status));
+  setStatus($("editor-side"), tone, text === "ready to join" ? "ready" : text === "an older version is running" ? "older" : text);
+  const server = (s) => s && [s.state, s.error, s.players, s.world, s.targetName, s.mapName, s.map, s.draft];
+  const facts = status && [status.state, status.error, status.join, status.home.players, status.waiting, server(status.select), server(status.edit), status.preview?.state, status.preview?.label, status.select?.selections, status.broadcast?.phase, status.broadcast?.container];
+  const containers = state.stacks.flatMap((stack) => stack.containers).filter((c) => c.editor).map((c) => [c.id, c.name]);
+  patch($("editor-server"), [tone, text, editor.old, editor.stale, editor.launching, state.docker, state.busy, state.networkRunning, state.warm?.note, state.broadcast?.on, facts, containers], () => editorCard(editor, status));
   const pre = $("editor-log");
   const lines = editor.log.join("\n");
   if (pre.textContent !== lines) {
@@ -928,10 +923,9 @@ async function bootEditor(restart) {
 
 function editorCard(editor, status) {
   const [tone, text] = editorTone(editor);
-  const head = (...extra) => el("div", { className: "card-head" }, el("h2", {}, "Map editor"), el("span", { className: `pill ${tone}` }, text), extra);
-  const lanHost = state.connection.lanHost || "LAN_HOST";
+  const head = (...extra) => el("div", { className: "card-head" }, el("h2", {}, "Map editor"), el("span", { className: `pill ${tone}` }, text), el("div", { className: "actions" }, extra));
   const restart = (label) => {
-    const button = el("button", { onclick: () => bootEditor(true) }, label);
+    const button = el("button", { onclick: () => bootEditor(true), "data-tip": "Shut it down (Edit saves first) and boot it on this checkout's code" }, label);
     button.disabled = editor.restarting || Boolean(state.busy);
     return button;
   };
@@ -939,152 +933,94 @@ function editorCard(editor, status) {
     return el("div", { className: "card" }, head(), el("div", { className: "busy-line" }, el("span", { className: "spin" }), el("span", {}, "Shutting the editor down (Edit saves first), then booting it again...")));
   }
   if (editor.status && !status) {
-    return el("div", { className: "card" }, head(el("div", { className: "actions" }, restart("Restart the editor"))),
+    return el("div", { className: "card" }, head(restart("Restart")),
       el("p", { className: "callout warn" }, "A map editor from before the editor lobby is running. Restart it to boot the new one (it saves first)."));
   }
   if (status) {
-    const shutDown = el("button", { className: "danger", onclick: () => post("/api/editor/stop") }, "Shut down");
+    const shutDown = el("button", { className: "danger", onclick: () => post("/api/editor/stop"), "data-tip": "Stop every editor server (Edit saves first). It stays off until a map is picked on the Maps page" }, "Shut down");
     shutDown.disabled = status.state === "stopping";
-    shutDown.title = "Stop every editor server (Edit saves first)";
     const rows = [
-      serverRow("Editor lobby", 19132, status.home, "where everyone joins"),
+      serverRow("Editor lobby", 19132, status.home, "Where everyone joins", "minecade-editor-lobby"),
       status.preview
-        ? serverRow("Preview", 19133, status.preview, status.preview.label, endPreviewButton(status.preview))
-        : serverRow("Select", 19133, status.select, status.select ? status.select.world : "nothing open"),
-      serverRow("Edit", 19134, status.edit, status.edit ? `${status.edit.targetName}: ${status.edit.mapName} (${status.edit.map})${status.edit.draft ? ", draft" : ""}` : "nothing open", status.edit && [saveButton(status.edit), " ", publishButton(status.edit), " ", previewButton(status.edit, status.preview)]),
+        ? serverRow("Preview", 19133, status.preview, status.preview.label, "minecade-editor-select", endPreviewButton(status.preview))
+        : serverRow("Select", 19133, status.select, status.select ? status.select.world : "Nothing open", "minecade-editor-select"),
+      serverRow("Edit", 19134, status.edit, status.edit ? `${status.edit.targetName}: ${status.edit.mapName} (${status.edit.map})${status.edit.draft ? ", a draft" : ""}` : "Nothing open", "minecade-editor-edit", status.edit && viewerButton(status.edit)),
     ];
     return el("div", { className: "card" },
-      head(el("div", { className: "actions" }, editor.stale && restart("Restart"), shutDown)),
-      el("dl", {}, el("dt", {}, "Join"), el("dd", {}, el("span", { className: "mono address" }, status.join), el("button", { className: "small", onclick: () => copy(status.join) }, "Copy"))),
+      head(editor.stale && restart("Restart"), shutDown),
+      el("dl", { className: "join-list" },
+        el("dt", {}, el("span", { className: "strong" }, "Join"), el("span", { className: "muted meta" }, "Everyone joins the editor lobby")),
+        el("dd", {}, ...address(status.join), editorFriends(status))),
       el("div", { className: "table-wrap" }, el("table", {},
         el("thead", {}, el("tr", {}, ["Server", "Open", "State", "Players", ""].map((h) => el("th", {}, h)))),
         el("tbody", {}, rows))),
       status.waiting.length > 0 && el("p", { className: "hint" }, `Waiting: ${status.waiting.map((entry) => `${entry.name} for ${entry.label}`).join(", ")}.`),
       editor.stale && el("p", { className: "callout warn" }, "The editor's code changed since it booted. Restart it to use the new code (Edit saves first)."),
       status.error && el("p", { className: "callout bad" }, status.error),
-      el("p", { className: "hint" }, "Everyone joins the editor lobby, which opens maps and worlds and moves players between the servers. Shut down saves the map open in Edit."));
+      status.select?.selections.length > 0 && selections(status.select));
   }
   if (editor.launching) {
     return el("div", { className: "card" }, head(), el("div", { className: "busy-line" }, el("span", { className: "spin" }), el("span", {}, "Building the editor's packs and booting the editor lobby...")));
   }
-  const boot = el("button", { className: "primary", onclick: () => bootEditor(false) }, "Boot up map editor");
+  const boot = el("button", { onclick: () => bootEditor(false) }, "Boot up");
   boot.disabled = state.docker !== "running" || Boolean(state.busy);
-  const network = el("button", { onclick: () => post("/api/stacks/main/up") }, "Start the network");
-  network.disabled = state.docker !== "running" || Boolean(state.busy);
+  const why = state.networkRunning ? "The network is running: they use the same ports, so it waits for the network to stop, or for Open in game in a map viewer (which asks first)."
+    : state.warm?.note ? `It isn't booting now: ${state.warm.note}.` : "";
   return el("div", { className: "card" },
-    head(el("div", { className: "actions" }, !state.networkRunning && network, boot)),
-    el("p", { className: "hint" }, `Once it's ready, join ${lanHost}:19132: the editor lobby asks what to open (accept each server's trust prompt the first time).`),
-    state.networkRunning && el("p", { className: "callout warn" }, "The network is running. Booting the map editor stops it first: they use the same ports."));
+    head(boot),
+    el("p", { className: "muted", style: "margin:0" }, "Off. It boots by itself while the Maps page or a map viewer is open, and shuts down once nobody has used it for 15 minutes."),
+    why && el("p", { className: "hint" }, why));
 }
 
-function serverRow(name, port, server, what, extra) {
+/** One of the editor's servers: what it has open, its state, who is on it, and its console's log. */
+function serverRow(name, port, server, what, container, extra) {
   const [tone, label] = server ? SERVER_STATES[server.state] ?? ["warn", server.state] : ["off", "closed"];
-  const players = server && !server.players ? "" : server?.players.length ? server.players.join(", ") : "nobody";
+  const players = server && !server.players ? "" : server?.players.length ? server.players.join(", ") : el("span", { className: "muted" }, "nobody");
+  const found = state.stacks.flatMap((stack) => stack.containers).find((c) => c.name === container);
   return el("tr", {},
-    el("td", { className: "strong" }, name, el("div", { className: "muted small" }, `port ${port}`)),
+    el("td", { className: "nowrap" }, el("div", { className: "strong" }, name), el("div", { className: "muted small" }, `port ${port}`)),
     el("td", {}, what, server?.error && el("div", { className: "muted small" }, server.error)),
     el("td", {}, el("span", { className: `pill ${tone}` }, label)),
     el("td", {}, players),
-    el("td", { className: "end" }, extra));
+    el("td", { className: "end nowrap" }, extra, extra && found && " ", found && el("button", { className: "small", onclick: () => showLogs(found) }, "Logs")));
 }
 
-function saveButton(edit) {
-  const save = el("button", { className: "small", onclick: () => post("/api/editor/save") }, edit.saving ? "Saving..." : "Save");
-  save.disabled = edit.state !== "ready" || edit.saving;
-  save.title = "Save the world into the map now (map.json is saved on every change)";
-  return save;
-}
-
-/** Publish: the map stops being a draft, is saved, and its folder is committed and pushed. */
-function publishButton(edit) {
-  const publish = el("button", { className: "small", onclick: () => {
-    const draft = edit.draft ? " It stops being a draft." : "";
-    if (confirm(`Publish ${edit.mapName} (${edit.map}) for ${edit.targetName}? The map and its world are saved, then its folder is committed and pushed to GitHub.${draft} Start the network then includes it.`)) post("/api/editor/publish");
-  } }, edit.publishing ? "Publishing..." : "Publish");
-  publish.disabled = edit.state !== "ready" || edit.publishing || !edit.checklist.ready;
-  publish.title = edit.checklist.ready ? "Save, then commit and push this map, so the lobby lists it" : "Finish the checklist first";
-  return publish;
-}
-
-/** Preview: the map open in Edit as its game on 19133 (Select closes meanwhile); everyone in Edit goes. */
-function previewButton(edit, preview) {
-  const button = el("button", { className: "small", onclick: () => post("/api/editor/preview") }, preview ? "Previewing..." : "Preview");
-  button.disabled = edit.state !== "ready" || Boolean(preview) || !edit.checklist.ready || edit.target === "lobby";
-  button.title = edit.target === "lobby" ? "Lobby maps can't be previewed yet" : edit.checklist.ready ? "Play this map as its game, then come back to Edit" : "Finish the checklist first";
-  return button;
+/** The map open in Edit, in the 3D viewer (its In game menu has Preview and the screenshots). */
+function viewerButton(edit) {
+  const query = new URLSearchParams({ target: edit.target, map: edit.map, name: edit.mapName || edit.map, game: edit.targetName });
+  return el("button", { className: "small", onclick: () => { location.href = `/viewer?${query}`; }, "data-tip": "Open it in the map viewer" }, "View");
 }
 
 function endPreviewButton(preview) {
   const button = el("button", { className: "small", onclick: () => post("/api/editor/preview/end") }, "End preview");
   button.disabled = preview.state !== "ready" && preview.state !== "starting";
-  button.title = "End the match now: everyone goes back to Edit";
+  button.dataset.tip = "End the match now: everyone goes back to Edit";
   return button;
 }
 
-/**
- * The Friends tab on the Map editor page: the same switch as the network's (BROADCAST), shown with
- * the editor's own bot, which puts "Minecade map editor" in friends' Friends tab.
- */
-function editorFriendsRow(status) {
-  const on = state.broadcast?.on;
-  if (state.env.missing || !state.broadcast) return null;
-  // An editor from before its Friends tab reports none.
-  const b = status?.broadcast;
-  const parts = [el("span", {}, "Friends tab"), el("span", { className: "mono muted" }, "BROADCAST"), broadcastToggle(on)];
-  if (!on) parts.push(rowText("Off. Console friends can't see the map editor in their Friends tab."));
-  else if (!status) parts.push(rowText("On. It starts with the map editor."));
-  else if (!b) parts.push(rowText("On, but this editor is older than its Friends tab: restart it.", "error"));
-  else if (b.container === null) parts.push(b.lastError ? rowText(`On, but it didn't start: ${b.lastError}`, "error") : rowText(status.state === "ready" ? "Starting..." : "On. It starts once the editor lobby is ready."));
-  else if (b.container !== "running") parts.push(rowText("On, but it stopped. The editor log says why; Turn off, then Turn on, restarts it.", "error"));
-  else parts.push(...broadcastProgress(b, `On. Friends who add ${b.account} in Minecraft see "Minecade map editor" in their Friends tab.${b.lastJoin ? ` Last join: ${b.lastJoin}.` : ""}`));
-  if (on && b?.container && b.lastError && b.phase !== "live") parts.push(rowText(b.lastError, "error"));
-  return el("div", { className: "row" }, parts);
+/** The editor's Friends tab bot, with BROADCAST on: how it's going (the switch is the network's, under Join). */
+function editorFriends(status) {
+  const b = status.broadcast;
+  if (!state.broadcast?.on || !b) return null;
+  if (b.container === "running" && b.phase === "live") return rowText(`Console friends: in ${b.account}'s friends' Friends tab as "Minecade map editor".`);
+  if (b.container === "running") return broadcastProgress(b, "");
+  if (b.lastError) return rowText(`Friends tab: ${b.lastError}`, "error");
+  return rowText(status.state === "ready" ? "Friends tab: starting..." : "Friends tab: it starts once the editor lobby is ready.");
 }
 
-/** The maps cut out of the world open in Select, and how each extraction is going. */
-function selectionsCard(select) {
-  const list = select.selections;
-  const body = list.length
-    ? el("div", { className: "table-wrap" }, el("table", {},
+/** The maps cut out of the world open in in-game Select, and how each extraction is going. */
+function selections(select) {
+  return el("section", { className: "editor-selections" },
+    el("h3", {}, `Maps from ${select.world}`),
+    el("div", { className: "table-wrap" }, el("table", {},
       el("thead", {}, el("tr", {}, ["Map", "For", "Status"].map((h) => el("th", {}, h)))),
-      el("tbody", {}, list.map((item) => {
+      el("tbody", {}, select.selections.map((item) => {
         const [tone, label] = SELECTION_TONES[item.status] ?? ["warn", item.status];
         return el("tr", {},
           el("td", { className: "strong" }, `${item.name} (${item.map})`),
           el("td", {}, item.targetName),
           el("td", {}, el("span", { className: `pill ${tone}` }, label), item.error && el("div", { className: "muted small" }, item.error)));
-      }))))
-    : el("p", { className: "muted", style: "margin:0" }, "None yet: box a build with the Select tool in game, and save it as a map.");
-  return el("div", { className: "card" },
-    el("div", { className: "card-head" }, el("h2", {}, `Maps from ${select.world}`), el("span", { className: "muted small" }, "open in Select")),
-    body);
-}
-
-function checklistCard(status) {
-  const { rows, problems, warnings, ready } = status.checklist;
-  const count = problems.length;
-  const table = el("div", { className: "table-wrap" }, el("table", {},
-    el("thead", {}, el("tr", {}, ["Needs", "Has", ""].map((h) => el("th", {}, h)))),
-    el("tbody", {}, rows.map((row) => el("tr", {},
-      el("td", { className: "strong" }, row.label),
-      el("td", { className: "nowrap" }, `${row.have} of ${row.need}`),
-      el("td", { className: "end" }, el("span", { className: `pill ${row.done ? "ok" : "bad"}` }, row.done ? "done" : "missing")))))));
-  const facts = [
-    status.undo && `Undo: ${status.undo}`,
-    status.redo && `Redo: ${status.redo}`,
-    status.saving ? "Saving the world..." : status.unsaved ? "Unsaved block changes: Save, or shutting down, saves them." : "The world is saved.",
-    status.publishing && "Publishing: commit and push...",
-  ].filter(Boolean).join("  |  ");
-  return el("div", { className: "card" },
-    el("div", { className: "card-head" }, el("h2", {}, `Checklist: ${status.mapName}`), el("span", { className: `pill ${ready ? "ok" : "bad"}` }, ready ? (status.draft ? "ready to publish" : "ready") : `${count} problem${count === 1 ? "" : "s"}`)),
-    rows.length ? table : el("p", { className: "muted", style: "margin:0" }, "This map's game asks for nothing beyond its spawns."),
-    problems.map((problem) => el("p", { className: "callout bad" }, problem)),
-    warnings.map((warning) => el("p", { className: "callout warn" }, warning)),
-    el("p", { className: "hint" }, facts),
-    status.target !== "lobby" && el("div", { className: "actions" },
-      el("span", { className: "muted small" }, "Newest screenshot as:"),
-      el("button", { className: "small", title: "Crop your newest screenshot (taken in the last 10 minutes) to 16:9 and save it as this map's preview.png", onclick: () => post("/api/editor/picture", { kind: "map" }) }, "Map preview"),
-      el("button", { className: "small", title: `Crop your newest screenshot to 16:9 and save it as ${status.targetName}'s icon.png`, onclick: () => post("/api/editor/picture", { kind: "game" }) }, "Game picture")));
+      })))));
 }
 
 // ---- Logs --------------------------------------------------------------------------------
@@ -1340,7 +1276,7 @@ function renderGameLine() {
   const spin = () => el("span", { className: "spin" });
   const parts = [];
   if (state.docker !== "running") parts.push(el("span", { className: "status off" }, "Map editor: off, as Docker isn't running"));
-  else if (editor?.status && !status) parts.push(el("span", { className: "status warn" }, "Map editor: an older one is running. Restart it on the Map editor page."));
+  else if (editor?.status && !status) parts.push(el("span", { className: "status warn" }, "Map editor: an older one is running. Restart it on the Servers page."));
   else if (!status && (editor?.launching || editor?.restarting)) parts.push(spin(), el("span", {}, "Map editor: starting..."));
   else if (!status) parts.push(el("span", { className: "status off" }, state.networkRunning ? "Map editor: off while the network runs. Open in game, in the viewer, stops the network first." : `Map editor: off${warmInfo.note ? `: ${warmInfo.note}` : ""}`));
   else if (status.state === "stopping") parts.push(spin(), el("span", {}, "Map editor: shutting down..."));

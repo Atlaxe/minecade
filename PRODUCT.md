@@ -34,9 +34,10 @@ markers, boundaries, regions) beside the in-game editor, never replacing it.
 
 - Runs on the network's Windows PC, served by a local Node helper on 127.0.0.1:8099 and shown in an
   Edge app window at desktop size. Not used on phones.
-- Pages: Servers (start, stop, join addresses), Players (who is on, who may join, stats), Map
-  editor (its servers, guests, log), Maps (every map in the map store, opened in the 3D viewer),
-  Logs.
+- Pages: Servers (the network and the map editor: start, stop, join addresses, the Friends tab
+  switch), Players (who is on, who may join, guests, stats), Maps (every map in the map store,
+  opened in the 3D viewer; the map editor warms up in the background while it's open), Logs (the
+  Panel's activity, each server's console, the map editor's log).
 - The map viewer edits `map.json` only; blocks change in game. When the in-game editor has the same
   map open, the viewer's edits go through it.
 - Works offline: no CDN. Everything it loads is served by the helper.

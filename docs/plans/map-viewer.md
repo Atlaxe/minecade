@@ -430,12 +430,21 @@ The user asked for these with V.11 and V.12, each its own pass:
 - **The left panel in tabs** (done 2026-11-06, `sidebar.ts`): Checklist (the checklist and the
   checks) and Overview, each with its own search. The overview shows only what the map has: no
   Spawns section until a spawn is placed, no build limit until one is set.
-- **No Map editor page** in the Panel once V.11 is in: the Maps page and the viewer drive the
-  in-game editor. Its servers start in the background while the Maps page is open, a picked map
-  starts loading in Edit (another pick cancels it), so by the time the viewer is up, joining the
-  map in game is quick. The editor's log moves to the Logs page, and the editor page's Friends tab
-  switch goes (the Servers page has the switch).
-- **The Servers page reworked**, the join addresses and the Friends tab broadcast especially.
+- **No Map editor page** in the Panel once V.11 is in (done 2026-11-06, with V.11's warm-up): the
+  Maps page and the viewer drive the in-game editor. Its servers start in the background while the
+  Maps page is open, a picked map starts loading in Edit (another pick cancels it), so by the time
+  the viewer is up, joining the map in game is quick. The editor's log moves to the Logs page, and
+  the editor page's Friends tab switch goes (the Servers page has the switch). As built: the
+  Servers page has a Map editor section (state, join address, each server with what it has open,
+  who is on it and its console's Logs, View for the map in Edit, End preview, the maps cut out in
+  Select, Shut down, Restart and Boot up), the sidebar's footer says its state, and Save, Publish,
+  Preview and the screenshots for the map in Edit are the viewer's. A booting editor removes editor
+  servers left running by one whose process ended, which would otherwise hold the ports.
+- **The Servers page reworked** (done 2026-11-06), the join addresses and the Friends tab broadcast
+  especially: the network's section has its state and buttons, then Join, a row each for this
+  PC's network, the internet (with how to test it) and console friends, whose row holds the
+  Friends tab switch and its progress (sign-in code, live), then the lobby map; the Game and
+  Containers sections follow (the map editor's containers are in its own section).
 
 ## Passes (the implementation order: stop and report after each, commit and push)
 

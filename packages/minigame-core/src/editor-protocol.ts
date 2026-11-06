@@ -153,7 +153,7 @@ export interface ServersInfo {
 }
 
 /**
- * A guest (set on the Panel's Map editor page): guests may join the editor lobby and whatever runs
+ * A guest (set by the Panel's Players page, its Guest switch): guests may join the editor lobby and whatever runs
  * on Select's port (Select, or a preview), never Edit. `on` is where they are now, if anywhere.
  */
 export interface GuestInfo {

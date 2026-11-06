@@ -141,21 +141,21 @@ shows the lobby as a joinable world to everyone on its friends list, using
 [MCXboxBroadcast](https://github.com/MCXboxBroadcast/Broadcaster). When a friend joins, it passes
 the join on to the lobby, and their console connects straight to your public address.
 
-1. On the Panel's Servers page, press **Turn on** next to Friends tab. With the network running it
-   starts at once, and nobody is disconnected.
+1. On the Panel's Servers page, under Join, switch on **Friends tab** in the Console friends row.
+   With the network running it starts at once, and nobody is disconnected.
 2. The first time, that row shows a sign-in link and code: sign in with the spare account. The
    sign-in is kept in the `minecade-broadcaster` Docker volume.
 3. Friends add the account's gamertag as a friend in Minecraft. It accepts friend requests on its
    own and sends an invite, and the lobby shows under Joinable Friends in their Friends tab (the
    first time can take a few minutes).
 
-**Turn off** stops it. Without the Panel: `BROADCAST=1` in `.env`, then start or restart the
+Switching it off stops it. Without the Panel: `BROADCAST=1` in `.env`, then start or restart the
 network; `docker logs minecade-broadcaster` shows the sign-in code.
 
-**The map editor** uses the same switch (the Panel shows it on the Map editor page too): while the
-editor runs, the same account shows "Minecade map editor" instead, and passes joins to the editor
-lobby. Only the editor's guests (set on the Map editor page) and map editors get in; see "Who can
-join" in [docs/editor.md](docs/editor.md).
+**The map editor** uses the same switch: while the editor runs, the same account shows "Minecade
+map editor" instead, and passes joins to the editor lobby (the Servers page's Map editor section
+says how it's going). Only the editor's guests (the Players page's Guest switch) and map editors
+get in; see "Who can join" in [docs/editor.md](docs/editor.md).
 
 - **The account:** MCXboxBroadcast acts like a game client on Xbox Live, which may break
   Microsoft's terms, so the account could be banned. Use a spare one.

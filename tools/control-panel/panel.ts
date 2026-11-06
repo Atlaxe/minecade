@@ -232,6 +232,8 @@ function containerView(info: Docker.ContainerInfo) {
     id: info.Id,
     name: info.Names[0]?.replace(/^\//, "") ?? info.Id.slice(0, 12),
     role: role ?? "",
+    /** One of the map editor's: listed in the Servers page's Map editor section. */
+    editor: isEditorContainer(info),
     state: info.State,
     status: info.Status,
     ports: formatPorts(info.Ports),
@@ -1157,7 +1159,7 @@ function launchEditor(): { status: number; body: unknown } {
     child.on("exit", (code) => {
       if (code === 0) return;
       warmUp.failedAt = Date.now();
-      note(`Map editor: stopped with exit code ${code}. Its log is on the Map editor page.`);
+      note(`Map editor: stopped with exit code ${code}. Its log is on the Logs page.`);
     });
     child.unref();
   } finally {

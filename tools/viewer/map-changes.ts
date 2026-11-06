@@ -37,7 +37,7 @@ export type ChangeAnswer =
 
 export type MessageAnswer = { status: 200 | 202; message: string; config?: MapConfig } | { status: 400 | 404 | 409 | 422 | 500; error: string };
 
-const NOT_OPEN_YET = "the map editor running is older than the viewer: restart it (Restart on the Panel's Map editor card) to change the map open in Edit from here";
+const NOT_OPEN_YET = "the map editor running is older than the viewer: restart it (Restart in the Map editor section of the Panel's Servers page) to change the map open in Edit from here";
 
 export class MapChanges {
   /** Each map's undo history and map.json as last written or read, by its path. */
