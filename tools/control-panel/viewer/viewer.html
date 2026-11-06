@@ -45,12 +45,42 @@
   .needle { width: 36px; height: 36px; flex: none; }
   .needle path { fill: var(--bad); } .needle .south { fill: var(--muted); }
 
-  .main { display: grid; grid-template-columns: 1fr auto; min-height: 0; }
+  .main { display: grid; grid-template-columns: auto 1fr auto; min-height: 0; }
   .stage { position: relative; min-width: 0; min-height: 0; }
   canvas, canvas:focus-visible { display: block; width: 100%; height: 100%; outline: none; }
   canvas.arming { cursor: crosshair; }
   .message { position: absolute; inset: 0; display: grid; place-content: center; text-align: center; gap: 8px; padding: 24px; color: var(--muted); font-size: 15px; }
   .message.bad { color: var(--bad); }
+
+  .tags { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
+  .tag { position: absolute; left: 0; top: 0; padding: 1px 6px; border-radius: 4px; background: rgba(0, 0, 0, .55); color: #fff; font-size: 12px; white-space: nowrap; border-bottom: 2px solid var(--tag-color); }
+  .tag.picked { background: rgba(0, 0, 0, .8); outline: 1px solid #fff; z-index: 1; }
+
+  .sidebar { width: 270px; background: var(--card); padding: 12px; overflow-y: auto; display: flex; flex-direction: column; gap: 16px; }
+  .sidebar h2 { font-size: 13px; margin: 0 0 6px; display: flex; align-items: center; gap: 8px; }
+  .pill { font-size: 11px; font-weight: 600; padding: 1px 8px; border-radius: 10px; }
+  .pill.ok { background: color-mix(in srgb, var(--ok) 22%, transparent); color: var(--ok); }
+  .pill.warn { background: color-mix(in srgb, var(--warn) 22%, transparent); color: var(--warn); }
+  .checklist ul { list-style: none; margin: 0; padding: 0; }
+  .checklist .rows li { display: flex; align-items: center; gap: 8px; padding: 2px 0; }
+  .checklist .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--warn); flex: none; }
+  .checklist .done { color: var(--muted); }
+  .checklist .done .dot { background: var(--ok); }
+  .checklist .problems li, .checklist .warnings li { padding: 3px 0 3px 10px; border-left: 2px solid var(--bad); margin-top: 4px; color: var(--bad); }
+  .checklist .warnings li { border-color: var(--warn); color: var(--warn); }
+  .grow { flex: 1; min-width: 0; }
+  .count { color: var(--muted); font-variant-numeric: tabular-nums; }
+  .list { margin-bottom: 8px; }
+  .list-head { display: flex; align-items: center; gap: 8px; font-weight: 600; padding: 3px 0; }
+  .list.todo .count { color: var(--warn); }
+  .swatch { width: 10px; height: 10px; border-radius: 2px; flex: none; box-shadow: 0 0 0 1px rgba(0, 0, 0, .35); }
+  .empty { color: var(--muted); padding: 2px 0 2px 18px; }
+  .entry { display: flex; width: 100%; gap: 8px; align-items: baseline; text-align: left; background: none; font-weight: 400; padding: 3px 6px 3px 18px; border-radius: 5px; }
+  .entry:hover:not(:disabled) { background: var(--raised); }
+  .entry.on, .entry.on:hover:not(:disabled) { background: var(--accent); color: var(--on-accent); }
+  .entry-label { white-space: nowrap; }
+  .entry-detail { color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; }
+  .entry.on .entry-detail { color: inherit; opacity: .8; }
 
   .cuts { width: 210px; background: var(--card); padding: 12px; display: flex; flex-direction: column; gap: 14px; overflow-y: auto; }
   .cut h2 { font-size: 13px; margin: 0 0 6px; display: flex; justify-content: space-between; align-items: baseline; }
@@ -64,6 +94,7 @@
 
   .status { display: flex; gap: 16px; padding: 5px 12px; background: var(--side); color: var(--muted); min-height: 26px; white-space: nowrap; overflow: hidden; }
   .status #hover { color: var(--text); overflow: hidden; text-overflow: ellipsis; }
+  .status #picked { color: var(--accent); }
   .status .spacer { flex: 1; }
   .status .warn { color: var(--warn); }
 </style>
@@ -88,11 +119,14 @@
     <label class="check"><input type="checkbox" id="toggle-occlusion"> Corner darkening</label>
     <label class="check"><input type="checkbox" id="toggle-variation"> Brightness variation</label>
     <label class="check"><input type="checkbox" id="toggle-darken"> Darken below the cut</label>
+    <label class="check"><input type="checkbox" id="toggle-names"> Names</label>
   </div>
 </header>
 <div class="main">
+  <aside class="sidebar" id="sidebar" aria-label="Checklist and lists"></aside>
   <div class="stage">
     <canvas id="view" tabindex="0"></canvas>
+    <div id="tags" class="tags"></div>
     <div id="message" class="message">Loading the map...</div>
   </div>
   <aside class="cuts" aria-label="Cuts">
@@ -120,7 +154,7 @@
   </aside>
 </div>
 <footer class="status">
-  <span id="hover"></span><span class="spacer"></span><span id="note" class="warn"></span><span id="info"></span>
+  <span id="picked"></span><span id="hover"></span><span class="spacer"></span><span id="note" class="warn"></span><span id="info"></span>
 </footer>
 <script type="module" src="/viewer/app.js"></script>
 </body>

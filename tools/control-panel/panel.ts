@@ -21,6 +21,7 @@ import { addGuest, readGuests, removeGuest, writeGuests } from "../editor/guests
 import { cacheVanillaTextures } from "../build/vanilla-textures.ts";
 import { catalogDir, storeDir } from "../maps/paths.ts";
 import { MapStore } from "../maps/store.ts";
+import { viewerMap, watchMap } from "../viewer/map-data.ts";
 import { VIEWER_PAGE, viewerColors, viewerMaps, viewerScripts, viewerView } from "../viewer/routes.ts";
 import {
   BroadcastLog,
@@ -435,13 +436,22 @@ function note(text: string): void {
   broadcast("activity", entry);
 }
 
-async function openEvents(req: IncomingMessage, res: ServerResponse): Promise<void> {
+/**
+ * A window's event stream: the Panel's state and activity. A map viewer's window names its map
+ * (?target=&map=), and its stream also carries "map" events when that map's map.json changes, so
+ * each window keeps one stream (Edge allows six connections to the Panel at once).
+ */
+async function openEvents(req: IncomingMessage, res: ServerResponse, url: URL): Promise<void> {
   res.writeHead(200, { "content-type": "text/event-stream", "cache-control": "no-store" });
   res.write("retry: 2000\n\n");
   windows.add(res);
   lastWindowAt = Date.now();
+  const target = url.searchParams.get("target");
+  const map = url.searchParams.get("map");
+  const unwatch = target && map ? watchMap(repoRoot, target, map, (change) => res.write(`event: map\ndata: ${JSON.stringify(change)}\n\n`)) : undefined;
   res.on("close", () => {
     windows.delete(res);
+    unwatch?.();
     lastWindowAt = Date.now();
   });
   for (const entry of activity) res.write(`event: activity\ndata: ${JSON.stringify(entry)}\n\n`);
@@ -630,7 +640,7 @@ async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> 
       return;
     }
     if (path === "/api/ping") return sendJson(res, 200, { app: "minecade-panel", pid: process.pid });
-    if (path === "/api/events") return openEvents(req, res);
+    if (path === "/api/events") return openEvents(req, res, url);
     if (path === "/api/state") return sendJson(res, 200, await buildState());
     if (path === "/api/logs") {
       const id = url.searchParams.get("id") ?? "";
@@ -663,6 +673,10 @@ async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> 
       return;
     }
     if (path === "/api/viewer/maps") return sendJson(res, 200, await viewerMaps(repoRoot));
+    if (path === "/api/viewer/map") {
+      const answer = await viewerMap(repoRoot, url.searchParams.get("target") ?? "", url.searchParams.get("map") ?? "");
+      return answer.status === 200 ? sendJson(res, 200, answer.map) : sendJson(res, answer.status, { error: answer.error });
+    }
     if (path === "/api/viewer/view") {
       const answer = viewerView(repoRoot, url.searchParams.get("target") ?? "", url.searchParams.get("map") ?? "");
       if (answer.status !== 200) return sendJson(res, answer.status, { error: answer.error });

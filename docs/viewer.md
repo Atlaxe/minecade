@@ -1,9 +1,10 @@
 # Map viewer
 
 A 3D view of any map in the map store, in the Panel. It reads the map's world straight from its
-files, so it needs no server and works while the network or the map editor runs. For now it only
-looks: placing spawns, points, boundaries and regions with the mouse comes in later passes
-(`docs/plans/map-viewer.md`). The in-game editor (`docs/editor.md`) keeps every tool it has.
+files, so it needs no server and works while the network or the map editor runs. It shows the map's
+spawns, points, boundaries and regions as game Edit does, with the game's checklist beside them.
+Placing them with the mouse comes in later passes (`docs/plans/map-viewer.md`). The in-game editor
+(`docs/editor.md`) keeps every tool it has.
 
 ## Opening a map
 
@@ -27,7 +28,8 @@ viewer says how wide it is.
 | **Top** | Straight down and flat (no perspective), north up: a floor plan |
 | **N**, **NE**, **E** ... | The whole map from that side or corner |
 
-Left click is kept for the tools (and Cut here). The arrow beside the views points north.
+Left click picks a marker, or does what a tool does (Cut here). The arrow beside the views points
+north.
 
 ## Cutting through
 
@@ -41,6 +43,34 @@ Left click is kept for the tools (and Cut here). The arrow beside the views poin
   land on it.
 
 With the Top view and a height cut, you see each floor of a building in turn.
+
+## The map's markup
+
+Everything game Edit's tools place is drawn over the blocks, in game Edit's colors:
+
+| | Drawn as |
+|---|---|
+| Spawns | An orange figure; a team's spawns in the team's color |
+| Spectator spawn, queue spawn | A gray-blue figure, a light blue one |
+| Game markers (points) | A yellow post with a square head, a team's in its color, or the game's own model (Bridges' hole, Paintball's power-up) with its rim or marked parts in the team's color |
+| Bounds, spectator bounds | White and light gray box edges with faint faces |
+| Regions | Box edges in the region's color: kill regions red, a team's region its team's color, the others a color each |
+| Kill Y, build limit | A red sheet and orange sheets across the map at that height |
+
+Every spawn and marker has a red line toward where it faces (to the map's middle when it has no
+facing of its own), and its name over it (**Names** in the top bar turns them off). Box edges show
+faintly through blocks. Markers past a cut are faded or gone with the blocks; a marker counts as
+past the cut when the block it stands on is, so cutting at a floor keeps the spawns on it.
+
+**The side panel** on the left starts with the game's checklist (each thing the map needs, with how
+many it has, then what the build would refuse it for, in red, and warnings), then every list as
+game Edit's tools have them: Spawns, Game markers, then Boundaries (the bounds, each region, the
+spectator bounds, kill Y and the build limit). **Click an entry** to pick it: the view frames it (a
+height cut above it moves down to it) and the status line says where it is. Clicking a marker in
+the view picks it too.
+
+When `map.json` changes (game Edit, a hand edit, another viewer), the viewer shows the change within
+a second.
 
 ## How it looks
 

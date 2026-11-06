@@ -138,8 +138,8 @@ export class MapScene {
   private cuts: Cuts = {};
   private toggles: Toggles = { occlusion: true, variation: true, darkenBelow: false, faded: true };
   private pending = false;
-  /** Called after each frame drawn (the page updates its compass). */
-  onRender: () => void = () => {};
+  /** Called after each frame drawn (the page's compass, the markers' names). */
+  private readonly renderListeners: (() => void)[] = [];
 
   constructor(private readonly canvas: HTMLCanvasElement, readonly volume: Volume) {
     this.renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: "high-performance" });
@@ -424,6 +424,84 @@ export class MapScene {
     return distance;
   }
 
+  /** Calls `listener` after every frame drawn. */
+  addRenderListener(listener: () => void): void {
+    this.renderListeners.push(listener);
+  }
+
+  /** Adds something to the scene (the markers' overlay). */
+  add(object: THREE.Object3D): void {
+    this.scene.add(object);
+  }
+
+  /** The camera drawing now: the perspective one, or Top's. */
+  get activeCamera(): THREE.Camera {
+    return this.camera;
+  }
+
+  /** The planes that cut the blocks, for anything else that's cut with them (box faces). */
+  get cutPlanes(): THREE.Plane[] {
+    return [this.planes.top, this.planes.x, this.planes.z];
+  }
+
+  /** Whether what's past the cuts is drawn see-through (Faded) rather than not at all (Gone). */
+  get isFaded(): boolean {
+    return this.toggles.faded;
+  }
+
+  /**
+   * Whether a point (a marker's feet) is kept by the cuts: the block it stands on is. A spawn on a
+   * floor stays when the cut is at that floor.
+   */
+  isKept(at: { x: number; y: number; z: number }): boolean {
+    const block = [Math.floor(at.x), Math.floor(at.y - 0.01), Math.floor(at.z)];
+    const { top, x, z } = this.cuts;
+    if (top !== undefined && block[1] > top) return false;
+    if (x && (x.side === "below" ? block[0] > x.at : block[0] < x.at)) return false;
+    if (z && (z.side === "below" ? block[2] > z.at : block[2] < z.at)) return false;
+    return true;
+  }
+
+  /** Whether a height (a plane between layers) is at or under the top of the height cut. */
+  isHeightKept(y: number): boolean {
+    return this.cuts.top === undefined || y <= this.cuts.top + 1;
+  }
+
+  /** The box sheets across the map span: the blocks' box. */
+  planeExtent(): { min: [number, number, number]; max: [number, number, number] } {
+    return this.volume.box;
+  }
+
+  /** A ray from the camera through a spot on the canvas (pixels from the window's top left). */
+  rayAt(clientX: number, clientY: number): THREE.Raycaster {
+    const rect = this.canvas.getBoundingClientRect();
+    const ndc = new THREE.Vector2(((clientX - rect.left) / rect.width) * 2 - 1, -((clientY - rect.top) / rect.height) * 2 + 1);
+    const ray = new THREE.Raycaster();
+    ray.setFromCamera(ndc, this.camera);
+    return ray;
+  }
+
+  /**
+   * Frames a spot: the view centers on it and moves in or out until a ball of `radius` around it
+   * fills about half the view, keeping the direction it looks from.
+   */
+  frame(center: THREE.Vector3, radius: number): void {
+    if (this.camera === this.orthographic) {
+      const extent = (this.orthographic.userData.extent as number | undefined) ?? 64;
+      this.orthographic.zoom = Math.max(0.05, extent / (radius * 2.2));
+      this.orthographic.updateProjectionMatrix();
+      this.orthographic.position.set(center.x, this.orthographic.position.y, center.z + 1e-3);
+      this.controls.target.set(center.x, this.controls.target.y, center.z);
+    } else {
+      const direction = this.perspective.position.clone().sub(this.controls.target).normalize();
+      const distance = Math.max(4, (radius * 2.2) / Math.tan(THREE.MathUtils.degToRad(this.perspective.fov / 2)));
+      this.controls.target.copy(center);
+      this.perspective.position.copy(center).addScaledVector(direction, distance);
+    }
+    this.controls.update();
+    this.requestRender();
+  }
+
   /** Whether the camera is the Top view's. */
   get isTop(): boolean {
     return this.camera === this.orthographic;
@@ -448,11 +526,8 @@ export class MapScene {
   }
 
   /** The block under a spot on the canvas (pixels from its top left), not counting what's past a cut. */
-  pickAt(clientX: number, clientY: number): (Hit & { world: [number, number, number] }) | undefined {
-    const rect = this.canvas.getBoundingClientRect();
-    const ndc = new THREE.Vector2(((clientX - rect.left) / rect.width) * 2 - 1, -((clientY - rect.top) / rect.height) * 2 + 1);
-    const ray = new THREE.Raycaster();
-    ray.setFromCamera(ndc, this.camera);
+  pickAt(clientX: number, clientY: number): (Hit & { world: [number, number, number]; distance: number }) | undefined {
+    const ray = this.rayAt(clientX, clientY);
     const { origin } = this.volume;
     const from = [ray.ray.origin.x - origin[0], ray.ray.origin.y - origin[1], ray.ray.origin.z - origin[2]];
     const direction = [ray.ray.direction.x, ray.ray.direction.y, ray.ray.direction.z];
@@ -463,7 +538,8 @@ export class MapScene {
     };
     const hit = pick(this.volume, from, direction, keep);
     if (!hit) return undefined;
-    return { ...hit, world: [hit.block[0] + origin[0], hit.block[1] + origin[1], hit.block[2] + origin[2]] };
+    const distance = Math.hypot(hit.point[0] - from[0], hit.point[1] - from[1], hit.point[2] - from[2]);
+    return { ...hit, world: [hit.block[0] + origin[0], hit.block[1] + origin[1], hit.block[2] + origin[2]], distance };
   }
 
   /** Draws on the next frame (only then: nothing is drawn while nothing changes). */
@@ -473,7 +549,7 @@ export class MapScene {
     requestAnimationFrame(() => {
       this.pending = false;
       this.renderer.render(this.scene, this.camera);
-      this.onRender();
+      for (const listener of this.renderListeners) listener();
     });
   }
 

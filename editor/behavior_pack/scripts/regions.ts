@@ -258,6 +258,20 @@ export function toggleBoundary(shown: ReadonlySet<string>, group: string, groups
 
 /** Every box the map has, with its outline color: bounds white, spectator bounds light gray, kill red, team regions in the team's color. */
 export function outlineBoxes(config: MapConfig, rules: EditorRules): OutlineBox[] {
+  const colors = regionColors(config, rules);
+  return regionEntries(config, rules).map((entry) => ({
+    key: entry.key,
+    group: targetKeyOf(entry),
+    box: entry.box,
+    color: entry.region ? (colors.get(entry.region.name) ?? BOUNDS_COLOR) : entry.spectators ? SPECTATOR_BOUNDS_COLOR : BOUNDS_COLOR,
+  }));
+}
+
+/**
+ * Each region's outline color by name, boxes or not: kill red, a team's region its team's color,
+ * the others the palette's colors in turn (in regionNames' order).
+ */
+export function regionColors(config: MapConfig, rules: EditorRules): Map<string, Rgb> {
   const colors = new Map<string, Rgb>();
   let next = 0;
   for (const name of regionNames(config, rules)) {
@@ -265,12 +279,7 @@ export function outlineBoxes(config: MapConfig, rules: EditorRules): OutlineBox[
     const color = name === KILL_REGION ? KILL_COLOR : team && codeColor(team.color);
     colors.set(name, color ?? PALETTE[next++ % PALETTE.length]);
   }
-  return regionEntries(config, rules).map((entry) => ({
-    key: entry.key,
-    group: targetKeyOf(entry),
-    box: entry.box,
-    color: entry.region ? (colors.get(entry.region.name) ?? BOUNDS_COLOR) : entry.spectators ? SPECTATOR_BOUNDS_COLOR : BOUNDS_COLOR,
-  }));
+  return colors;
 }
 
 /** Region names in a fixed order: kill, then the ones the rules ask for, then any others the map has. */

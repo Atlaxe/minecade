@@ -4,8 +4,8 @@
 `docs/spike-results.md`, "Map viewer", and this plan is updated for them; its code in
 `spike/viewer/` (the looks, the mesher) is where V.3 started. V.2 (the world reader) and V.3 (the
 read-only viewer, `docs/viewer.md`) done 2026-11-05, in `tools/viewer/` and
-`tools/control-panel/viewer/`. Build it in the order of "Passes" below: each pass leans on the
-ones before it.
+`tools/control-panel/viewer/`. V.4 (markers shown) done 2026-11-06. Build it in the order of
+"Passes" below: each pass leans on the ones before it.
 
 **For the session that implements this:**
 - Work in a worktree of your own (`CLAUDE.md`, "Branch and merge").
@@ -342,8 +342,10 @@ In-game Select stays as it is. This is the Panel's way to cut a map out of a wor
   and its settings on the other, and a top bar with Look (Average colors or Vanilla textures),
   Past the cut (Faded or Gone), Hidden blocks, the view buttons, Save, Publish and Open in game.
   It opens in a window of its own, one per map (`/viewer?target=&map=`), which keeps an event
-  stream open so the Panel counts it as one of its windows. V.3 has the top bar's views, Past the
-  cut and its three toggles, and the cuts in a panel on the right; the lists come in V.4.
+  stream open so the Panel counts it as one of its windows (`/api/events?target=&map=`, which
+  also carries the map's `map.json` changes: one stream per window, as Edge allows six connections
+  to the Panel). V.3 has the top bar's views, Past the cut and its toggles, and the cuts in a panel
+  on the right; V.4 the checklist and lists in a panel on the left.
 
 ## Tech
 
@@ -402,9 +404,13 @@ shader uniforms (toggling them re-meshes nothing), the block under the pointer i
 and Cut here for all three cuts. Temples meshes in about 150 ms (255k triangles: corner darkening
 keeps some faces from merging).
 
-**V.4 Markers shown.** Every list in the table above drawn, read-only, game markers in their
-list's style (the game's own models too); the side panel with the checklist; clicking an entry
-frames it; refresh when `map.json` changes.
+**V.4 Markers shown** (done 2026-11-06). Every list in the table above drawn, read-only, game
+markers in their list's style (the game's own models too); the side panel with the checklist;
+clicking an entry frames it; refresh when `map.json` changes. The lists, labels and colors come
+from game Edit's own pure code (`editor/behavior_pack/scripts/lists.ts` and `regions.ts`, which
+gained `regionColors`), so both read the same; markers are built from game Edit's geometry file
+and the games' `markers/` (`geo.ts`, `overlay.ts`), served with `map.json` and the rules by
+`GET /api/viewer/map` (`tools/viewer/map-data.ts`).
 
 **V.5 Points, Save and Publish.** Placing, moving, facing and deleting every kind of spawn and game
 marker; undo and redo; Save and Publish; `POST /edit` on the editor's control port, so the map

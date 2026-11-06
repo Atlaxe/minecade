@@ -6,6 +6,8 @@
 //                                               with its checklist state, and the client's worlds
 //   GET /api/viewer/view?target=<id>&map=<id>   the map's view file (view-format.ts), gzipped
 //   GET /api/viewer/colors                      the blocks' Average colors (looks.ts), gzipped JSON
+//   GET /api/viewer/map?target=<id>&map=<id>    the map's markup data (map-data.ts): map.json, its
+//                                               game's rules, marker shapes and models
 import { existsSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -18,9 +20,15 @@ import { colorTable } from "./looks.ts";
 import { cachedView, ViewError } from "./view-file.ts";
 
 const ID = /^[A-Za-z0-9_-]+$/;
-/** The page's code, and the shared code it bundles. */
+/** The page's code, and the shared code it bundles: the view format, minigame-core's map code, and game Edit's lists and boxes. */
 const PAGE_DIR = fileURLToPath(new URL("../control-panel/viewer/", import.meta.url));
-const PAGE_SOURCES = [PAGE_DIR, fileURLToPath(new URL("./view-format.ts", import.meta.url))];
+const PAGE_SOURCES = [
+  PAGE_DIR,
+  fileURLToPath(new URL("./view-format.ts", import.meta.url)),
+  fileURLToPath(new URL("../../packages/minigame-core/src/", import.meta.url)),
+  fileURLToPath(new URL("../../editor/behavior_pack/scripts/lists.ts", import.meta.url)),
+  fileURLToPath(new URL("../../editor/behavior_pack/scripts/regions.ts", import.meta.url)),
+];
 
 export async function viewerMaps(root: string): Promise<Catalog> {
   const store = MapStore.open(storeDir(root));

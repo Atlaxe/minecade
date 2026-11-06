@@ -1,9 +1,14 @@
 // The map viewer page (/viewer?target=<id>&map=<id>&name=<name>&game=<name>, opened from the
-// Panel's Maps page): a map's world in 3D, read only. It loads the map's view file and the blocks'
-// colors from the Panel, meshes the blocks in workers, and draws them (scene.ts) with the camera's
-// views and the height, X and Z cuts.
+// Panel's Maps page): a map's world in 3D. It loads the map's view file and the blocks' colors from
+// the Panel, meshes the blocks in workers, and draws them (scene.ts) with the camera's views and
+// the height, X and Z cuts; over them, the map's markup (overlay.ts) and beside them its checklist
+// and lists (sidebar.ts), kept up to date when map.json changes.
+import type { EditorRules, MapConfig } from "@minecade/minigame-core/config";
 import { decodeView } from "../../viewer/view-format.ts";
+import { buildMarkup, findEntry, type Markup } from "./markup.ts";
+import { Overlay, type MarkerAssets } from "./overlay.ts";
 import { MapScene, type Cuts, type Toggles, type ViewName } from "./scene.ts";
+import { Sidebar } from "./sidebar.ts";
 import { buildVolume, type FaceColors } from "./volume.ts";
 
 const $ = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id) as T;
@@ -15,17 +20,29 @@ const game = params.get("game") || target;
 
 /** The viewer's own settings, kept in this browser: per viewer, not per map. */
 const STORE_KEY = "minecade-viewer";
-const DEFAULTS: Toggles = { occlusion: true, variation: true, darkenBelow: false, faded: true };
+interface Settings extends Toggles {
+  /** Names over the markers. */
+  names: boolean;
+}
+const DEFAULTS: Settings = { occlusion: true, variation: true, darkenBelow: false, faded: true, names: true };
 
-function loadToggles(): Toggles {
+/** What the Panel sends for a map's markup (tools/viewer/map-data.ts). */
+interface MapData extends MarkerAssets {
+  config: MapConfig;
+  stamp: string;
+  targetName: string;
+  rules: EditorRules;
+}
+
+function loadToggles(): Settings {
   try {
-    return { ...DEFAULTS, ...(JSON.parse(localStorage.getItem(STORE_KEY) ?? "{}") as Partial<Toggles>) };
+    return { ...DEFAULTS, ...(JSON.parse(localStorage.getItem(STORE_KEY) ?? "{}") as Partial<Settings>) };
   } catch {
     return { ...DEFAULTS };
   }
 }
 
-function saveToggles(toggles: Toggles): void {
+function saveToggles(toggles: Settings): void {
   try {
     localStorage.setItem(STORE_KEY, JSON.stringify(toggles));
   } catch {
@@ -44,15 +61,18 @@ async function main(): Promise<void> {
   document.title = `${name} (${game})`;
   $("map-name").textContent = name;
   $("map-game").textContent = `${game}, ${map}`;
-  // An open event stream counts this window as one of the Panel's, so it stays up while the viewer is open.
-  new EventSource("/api/events");
-
   const query = `target=${encodeURIComponent(target)}&map=${encodeURIComponent(map)}`;
-  const [viewResponse, colorsResponse] = await Promise.all([fetch(`/api/viewer/view?${query}`), fetch("/api/viewer/colors")]);
-  if (!viewResponse.ok) {
-    const answer = (await viewResponse.json().catch(() => ({}))) as { error?: string };
-    return show(`This map can't be shown: ${answer.error ?? `HTTP ${viewResponse.status}`}.`, true);
+  // An open event stream counts this window as one of the Panel's, so it stays up while the viewer
+  // is open; naming the map also brings its map.json's changes.
+  const events = new EventSource(`/api/events?${query}`);
+
+  const [viewResponse, colorsResponse, mapResponse] = await Promise.all([fetch(`/api/viewer/view?${query}`), fetch("/api/viewer/colors"), fetch(`/api/viewer/map?${query}`)]);
+  for (const response of [viewResponse, mapResponse]) {
+    if (response.ok) continue;
+    const answer = (await response.json().catch(() => ({}))) as { error?: string };
+    return show(`This map can't be shown: ${answer.error ?? `HTTP ${response.status}`}.`, true);
   }
+  const data = (await mapResponse.json()) as MapData;
   const view = decodeView(new Uint8Array(await viewResponse.arrayBuffer()));
   const colors = (await colorsResponse.json()) as { blocks: Record<string, FaceColors>; note?: string };
   const volume = buildVolume(view, colors.blocks);
@@ -74,20 +94,67 @@ async function main(): Promise<void> {
   $("note").textContent = notes.join("; ");
   $("note").title = volume.unknown.join("\n");
 
+  // The markup: drawn over the blocks, listed beside them, and drawn again whenever map.json changes.
+  const overlay = new Overlay(scene, data, $("tags"));
+  let config = data.config;
+  let markup: Markup = buildMarkup(config, data.rules);
+  let picked: string | undefined;
+  const sidebar = new Sidebar($("sidebar"), { pick: (key) => pickEntry(key, true) });
+  const redraw = () => {
+    markup = buildMarkup(config, data.rules);
+    if (picked && !findEntry(markup, picked)) picked = undefined;
+    overlay.set(markup);
+    overlay.pick(picked);
+    sidebar.render(markup);
+    sidebar.pick(picked);
+    showPicked();
+    document.title = `${config.name || name} (${data.targetName})`;
+    $("map-name").textContent = config.name || name;
+  };
+  events.addEventListener("map", (event) => {
+    const change = JSON.parse((event as MessageEvent<string>).data) as { stamp: string; config?: MapConfig };
+    if (!change.config) return show("map.json isn't valid JSON right now: the viewer shows it as it was.", true);
+    $("message").hidden = true;
+    config = change.config;
+    redraw();
+  });
+
+  const showPicked = () => {
+    const found = picked ? findEntry(markup, picked) : undefined;
+    $("picked").textContent = found ? `${found.entry.label}: ${found.entry.detail}` : "";
+  };
+
+  /** Picks an entry (or none); from the side panel, the view frames it, moving a height cut that hides it. */
+  const pickEntry = (key: string | undefined, frame = false) => {
+    picked = key;
+    overlay.pick(key);
+    sidebar.pick(key);
+    showPicked();
+    if (!key || !frame) return;
+    const extent = overlay.extent(key);
+    if (!extent) return;
+    if (cuts.top !== undefined && extent.floor > cuts.top) setTop(extent.floor);
+    scene.frame(extent.center, extent.radius);
+  };
+
   // Toggles.
   let toggles = loadToggles();
   const applyToggles = () => {
     scene.setToggles(toggles);
+    overlay.showNames(toggles.names);
+    overlay.refresh();
     saveToggles(toggles);
     $<HTMLInputElement>("toggle-occlusion").checked = toggles.occlusion;
     $<HTMLInputElement>("toggle-variation").checked = toggles.variation;
     $<HTMLInputElement>("toggle-darken").checked = toggles.darkenBelow;
+    $<HTMLInputElement>("toggle-names").checked = toggles.names;
     $("past-faded").classList.toggle("on", toggles.faded);
     $("past-gone").classList.toggle("on", !toggles.faded);
   };
   $("toggle-occlusion").onchange = (event) => ((toggles = { ...toggles, occlusion: (event.target as HTMLInputElement).checked }), applyToggles());
   $("toggle-variation").onchange = (event) => ((toggles = { ...toggles, variation: (event.target as HTMLInputElement).checked }), applyToggles());
   $("toggle-darken").onchange = (event) => ((toggles = { ...toggles, darkenBelow: (event.target as HTMLInputElement).checked }), applyToggles());
+  $("toggle-names").onchange = (event) => ((toggles = { ...toggles, names: (event.target as HTMLInputElement).checked }), applyToggles());
   $("past-faded").onclick = () => ((toggles = { ...toggles, faded: true }), applyToggles());
   $("past-gone").onclick = () => ((toggles = { ...toggles, faded: false }), applyToggles());
   applyToggles();
@@ -95,10 +162,10 @@ async function main(): Promise<void> {
   // Views.
   $("view-home").onclick = () => scene.view("home");
   for (const button of document.querySelectorAll<HTMLButtonElement>("[data-view]")) button.onclick = () => scene.view(button.dataset.view as ViewName);
-  scene.onRender = () => {
+  scene.addRenderListener(() => {
     $("needle").style.transform = `rotate(${-scene.heading}deg)`;
     for (const button of document.querySelectorAll<HTMLButtonElement>("[data-view]")) button.classList.toggle("on", button.dataset.view === "top" && scene.isTop);
-  };
+  });
 
   // Cuts. The height slider runs over the layers the map uses; at its top, nothing is cut.
   const { min, max } = view.box;
@@ -113,6 +180,7 @@ async function main(): Promise<void> {
   const applyCuts = (next: Cuts) => {
     cuts = next;
     scene.setCuts(cuts);
+    overlay.refresh();
     top.value = String(cuts.top ?? max[1]);
     $("top-label").textContent = cuts.top === undefined ? "all" : `y ${cuts.top}`;
     for (const axis of ["x", "z"] as const) {
@@ -164,7 +232,13 @@ async function main(): Promise<void> {
   canvas.addEventListener("pointerup", (event) => {
     if (event.button !== 0 || !down || Math.hypot(event.clientX - down.x, event.clientY - down.y) > 4) return;
     down = undefined;
-    if (!arming) return;
+    if (!arming) {
+      // A marker in front of the blocks picks its entry; anywhere else picks nothing.
+      const point = overlay.pointAt(event.clientX, event.clientY);
+      const block = scene.pickAt(event.clientX, event.clientY);
+      pickEntry(point && (!block || point.distance <= block.distance + 0.01) ? point.key : undefined);
+      return;
+    }
     const hit = scene.pickAt(event.clientX, event.clientY);
     if (!hit) return;
     const [x, y, z] = hit.world;
@@ -188,6 +262,8 @@ async function main(): Promise<void> {
       hoverQueued = false;
       if (!last) return;
       const hit = scene.pickAt(last.clientX, last.clientY);
+      const point = overlay.pointAt(last.clientX, last.clientY);
+      if (point && (!hit || point.distance <= hit.distance + 0.01)) return void ($("hover").textContent = findEntry(markup, point.key)?.entry.label ?? "");
       if (!hit) return void ($("hover").textContent = "");
       const look = volume.looks[hit.look];
       const states = look.states ? ` ${Object.entries(look.states).map(([key, value]) => `${key}=${value}`).join(" ")}` : "";
@@ -196,6 +272,7 @@ async function main(): Promise<void> {
   });
   canvas.addEventListener("pointerleave", () => ($("hover").textContent = ""));
   applyCuts({});
+  redraw();
   canvas.focus();
 }
 
