@@ -262,8 +262,11 @@ async function main(): Promise<void> {
   };
   for (const key of ["x0", "z0", "x1", "z1"] as const) {
     $<HTMLInputElement>(key).addEventListener("change", () => {
+      const ids = ["x0", "z0", "x1", "z1"];
       const value = (id: string) => Number($<HTMLInputElement>(id).value);
-      if (!["x0", "z0", "x1", "z1"].every((id) => $<HTMLInputElement>(id).value.trim() !== "" && Number.isFinite(value(id)))) return setFields();
+      // With no box yet, the corners are typed one by one: wait for all four.
+      if (ids.some((id) => $<HTMLInputElement>(id).value.trim() === "")) return;
+      if (!ids.every((id) => Number.isFinite(value(id)))) return setFields();
       box = typedColumns(value("x0"), value("z0"), value("x1"), value("z1"));
       boxChanged();
     });
