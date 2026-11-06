@@ -38,7 +38,10 @@ does, and the two can be used on the same map one after the other.
 | Slicing | Cut through the model by height, and along x and z, one layer at a time |
 | Past the cut | A toggle: **Faded** (see-through) or **Gone** |
 | Look | A toggle: **Average colors** (each block face one color, the average of its texture's most common color, not of the whole texture, which turns many blocks brown) or **Vanilla textures** |
-| Select | Pick the area from a picture of the world seen from above. Its height is trimmed to the lowest and highest block inside it |
+| Select | Pick the area from a picture of the world seen from above. Its height is trimmed to the lowest and highest block inside it, then a floor and a ceiling can be dragged by hand (for ground under the build) |
+| Center on block | On when the viewer first opens (a click lands anywhere on a face); the viewer remembers the last choice |
+| Game markers | Drawn the way game Edit draws them from the start: the game's own model (`markers/<model>.geo.json`) when its list names one |
+| With game Edit open | The viewer edits the map game Edit has open through the editor (`POST /edit`) from the first editing pass, never read-only |
 | Changing blocks | **Open in game**: opens the map in the in-game editor's Edit |
 | Cameras and mannequins | Skipped for now: not drawn, and kept unchanged in `map.json` |
 
@@ -194,7 +197,7 @@ lines), so the game's checklist reads the same in both.
 | `spawns` | A standing figure with a facing line |
 | `teamSpawns.<team>` | The same, in the team's color |
 | `spectatorSpawn`, `queueSpawn` | The same, in their colors from game Edit |
-| `points` (and `<name>.<team>`) | A post with a square head and its name |
+| `points` (and `<name>.<team>`) | By the list's `marker` style, as in game Edit (`MarkerStyle`, `packages/minigame-core/src/config.ts`): a post with a square head (the default), a standing figure, or the game's own model (`markers/<model>.geo.json` and `.png` in the game's folder, bones named `tint` in the team's color), with its name |
 | `bounds`, `spectatorBounds` | Box edges and faint faces, one per box in a list |
 | `regions` (with `kill` and `<name>.<team>`) | The same, in game Edit's outline colors, a team's in its color |
 | `killY`, `buildLimit.above`, `buildLimit.below` | A sheet across the map at that height |
@@ -204,7 +207,9 @@ y is the feet, and yaw 0 faces south.
 
 **Points** (spawns of every kind, and game markers): pick the list, then click a top face. The
 entry lands on the block above it, at the block's middle, or at the exact point clicked with
-**Center on block** off (the same choice the in-game Spawn tool has). A list that holds one entry
+**Center on block** off (the same choice the in-game Spawn tool has). It starts on in the viewer,
+unlike in game (where it starts off), since a click lands anywhere on a face; the viewer remembers
+the last choice. A list that holds one entry
 (the spectator and queue spawns) is replaced. No facing by default (it then faces the map's
 middle); dragging out from a placed marker sets one in 15 degree steps (Shift for any angle), and
 "Clear facing" removes it. Drag a marker to move it along its floor; Delete removes it.
@@ -260,13 +265,16 @@ pass.
 - Fields the viewer doesn't edit stay exactly as they were: an edit changes only what it names.
 - **Save** keeps a version in `maps.db`, as the editor does when it saves. **Publish** does what the
   in-game Publish does, and is refused until the checklist is done. Publishing while the network
-  runs is safe: each published version gets its own folder, and the next game starts from it
-  (`docs/maps.md`, "The map store").
+  runs is safe: each published version gets its own folder. A change to the world or `map.json`
+  reaches the next game; a new map, a new id or name, or a picture still needs the Panel's Start
+  (a rebuild) before the lobby shows it (`docs/maps.md`, "The map store"). Publish's message says
+  which, as the in-game one does.
 - **With the in-game editor running:** the editor's `GET /status` says which map Edit has open.
-  Until pass 11, that map opens read-only in the viewer, and its markers refresh whenever
-  `map.json` changes. From pass 11, the viewer's edits go through the editor (a new `POST /edit`
-  on its control port, taking a `MapEdit`), so markers move in game at once and there's only one
-  writer.
+  The viewer's edits to that map go through the editor (a new `POST /edit` on its control port,
+  taking a `MapEdit`, from pass V.5), so markers move in game at once and there's only one writer;
+  an edit made in game shows in the viewer when `map.json` changes. (The editor already reloads
+  `map.json` when it changes on disk, `session.ts` `reloadMap`, but two writers could lose a change
+  made in both within its half-second check.)
 - **Open in game** is the viewer's way to change blocks: it opens the map in the in-game editor's
   Edit (`POST /open`), booting the editor first if it isn't running, which stops the network after
   the usual question. When the editor saves the world (a new version), the viewer reloads the
@@ -284,8 +292,10 @@ In-game Select stays as it is. This is the Panel's way to cut a map out of a wor
   outlines.
 - **The box:** drag a rectangle, up to 256x256 (it stops growing there, and its size shows), with
   handles on its sides.
-- **Height:** automatic. The box is trimmed to the lowest and highest block inside it (air doesn't
-  count), and a picture from the side shows the result.
+- **Height:** automatic, then by hand. The box is trimmed to the lowest and highest block inside it
+  (air doesn't count), and a picture from the side shows the result, with a floor and a ceiling
+  handle to drag. Ground under the build (terrain, or a superflat floor) is in the trim at first:
+  drag the floor up past it.
 - **A 3D look** at the box in the normal viewer (read-only) before exporting.
 - **Export:** the same choices as in-game Export to Map, then the same
   extractor in-game Select uses (`tools/editor/extract.ts`: Chunker prunes the world, a throwaway
@@ -338,11 +348,13 @@ map list and a map's view file.
 and corner darkening, the camera and its views, height, X and Z cuts with Faded and Gone, the Maps
 page.
 
-**V.4 Markers shown.** Every list in the table above drawn, read-only; the side panel with the
-checklist; clicking an entry frames it; refresh when `map.json` changes.
+**V.4 Markers shown.** Every list in the table above drawn, read-only, game markers in their
+list's style (the game's own models too); the side panel with the checklist; clicking an entry
+frames it; refresh when `map.json` changes.
 
 **V.5 Points, Save and Publish.** Placing, moving, facing and deleting every kind of spawn and game
-marker; undo and redo; Save and Publish; read-only while game Edit has the map open.
+marker; undo and redo; Save and Publish; `POST /edit` on the editor's control port, so the map
+game Edit has open is edited through the editor.
 
 **V.6 Boxes and planes.** Bounds (one box or several), spectator bounds, regions (the game's, the
 map's own, per team, kill), `minSize`; Kill Y and the build limits; handles, nudges, Set to cut.
@@ -354,14 +366,13 @@ glass, clicks passing through plants, Hidden blocks, unknown blocks, and the che
 
 **V.9 Speed tools.** Mirror, copy to another team, pick several.
 
-**V.10 Select from above.** The Worlds tab: the picture, the box, the automatic height, the 3D
-look, and Export through the extractor.
+**V.10 Select from above.** The Worlds tab: the picture, the box, the automatic height with its
+floor and ceiling handles, the 3D look, and Export through the extractor.
 
-**V.11 With the in-game editor.** Open in game, reloading after the editor saves a world, and edits
-through the editor's control port while Edit has the map open.
+**V.11 With the in-game editor.** Open in game, and reloading after the editor saves a world.
 
 **V.12 Map settings.** Forms for the name, time, queue mode and countdown, game settings and the
-lobby's stars.
+lobby's stars (`map-edit.ts` has no op for `stars` yet: this pass adds one).
 
 ## Files
 
@@ -376,7 +387,8 @@ lobby's stars.
 **Changed**
 - `tools/control-panel/panel.ts` (routes, the bundle at start) and `index.html` (the Maps page).
 - `tools/maps/blocks.ts`: its table reader shared with the world reader.
-- `tools/editor/control.ts` and the runner: `POST /edit` (pass V.11).
+- `tools/editor/control.ts`, the runner and `session.ts`: `POST /edit` (pass V.5).
+- `packages/minigame-core/src/map-edit.ts`: a `stars` op (pass V.12).
 - `package.json`: `three`.
 - `docs/editor.md`: a line pointing to the viewer.
 
@@ -390,6 +402,7 @@ lobby's stars.
 - `tools/editor/worlds.ts`, `extract.ts` and `chunker.ts` for Select from above;
   `tools/editor/targets.ts` for each target's maps and rules.
 - `tools/editor/control.ts` for Open in game and the editor's status.
+- `tools/editor/marker-models.ts` and each game's `markers/` for the game markers' models.
 - `tools/editor/png.ts` (`decodePng`) for textures; `prismarine-nbt` for palettes.
 - `games/paintball/behavior_pack/scripts/paint.ts` and `docs/spike-results.md` ("Vanilla block
   shapes for painting", "Painted shapes") for block states and door, gate and trapdoor boxes.
@@ -415,8 +428,5 @@ lobby's stars.
 
 ## Open questions
 
-- **Select's automatic height** on a world with ground under the build (terrain, or a superflat
-  floor): the trim reaches down to that ground. Raise the floor by hand then, or leave out the
-  world's ground blocks?
-- **Center on block:** on or off by default in the viewer?
-- **Game marker models** (`markers/<name>.geo.json`): draw them on points later, or keep posts?
+None right now. The three from the first draft are answered in "Your decisions" (Select's floor,
+Center on block, game marker models).
