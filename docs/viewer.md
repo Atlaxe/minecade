@@ -7,7 +7,8 @@ and changes them with the mouse or by typing their values: spawns and game marke
 turned and deleted; bounds, spectator bounds and regions drawn from two corners, moved and resized;
 kill Y and the build limit set and moved; with undo, Save and Publish. It never changes a world's
 blocks. Its **Worlds** tab cuts new maps out of a world from a picture of it seen from above (see
-"Select from above"). The in-game editor (`docs/editor.md`) keeps every tool it has.
+"Select from above"). The in-game editor (`docs/editor.md`) keeps every tool it has, and **In
+game** opens the map there (see "In game").
 
 ## Opening a map
 
@@ -71,8 +72,8 @@ list; its map, if any, stays).
 ## The window
 
 - **The top bar:** the back arrow, the map's thumbnail, name and game; then Undo, Redo, Settings
-  (the sliders), **Save** and **Publish** on the right. "Open in game Edit" shows while game Edit has
-  the map open.
+  (the sliders), **In game**, **Save** and **Publish** on the right. In game's square is green while
+  game Edit has the map open.
 - **The left panel:** the tools, then two tabs, **Checklist** (the game's checklist and the
   **checks**) and **Overview** (what the map has), each with its own search.
 - **The view**, with the view cube in its top right corner.
@@ -302,9 +303,11 @@ Every change is written to `map.json` at once, in the same style game Edit write
 checklist updates with it. **Undo** and **Redo** (Ctrl+Z, and Ctrl+Y or Ctrl+Shift+Z) step through
 the map's changes, wherever the focus is (except in a box you're typing in).
 
-**With game Edit open on the same map** (the top bar says **Open in game Edit**), the viewer's
-changes go through the map editor: markers move in game at once, and undo and redo are game Edit's,
-shared with the players there. An editor started before this viewer existed can't take them: the
+**With game Edit open on the same map** (In game's square is green), the viewer's changes go
+through the map editor: markers move in game at once, and undo and redo are game Edit's, shared
+with the players there. While game Edit is still opening the map, the Panel writes the changes, and
+game Edit takes them once it's ready ("map.json was changed while Edit was opening it"); undo then
+steps back through them too. An editor started before this viewer existed can't take them: the
 viewer says to restart it.
 
 - **Save** keeps the map as a version in the map store, as game Edit's Save does (with game Edit
@@ -314,6 +317,42 @@ viewer says to restart it.
   store's `published\`. Its message says what happens next: a changed `map.json` reaches the next
   game with no rebuild; a new map, or a new name, picture or block, needs the network's next Start.
   With game Edit open on the map, it's game Edit's Publish.
+
+## In game
+
+The in-game editor (`docs/editor.md`) is for what the viewer doesn't do: blocks, and playing the map.
+The Panel gets it ready in the background, so going in game is quick:
+
+- **While the Maps page or a viewer is open**, the map editor boots by itself (about 10 seconds, the
+  editor lobby only), unless the network runs: the two use the same ports, and the Panel never
+  stops the network on its own. The Maps page's line beside its tabs says how it's going, with the
+  join address.
+- **A map picked** on the Maps page, or opened in a viewer, starts opening in game Edit at once
+  (about 4 seconds for Temples), while nobody is using Edit: a map someone is on, or waiting for, is
+  never taken from them. Picking another map calls the first off, even halfway through starting.
+- **When nobody has used it** for 15 minutes (no page open, nobody on its servers), a map editor
+  the Panel booted shuts down (Edit saves first), and so it does when the Panel itself closes with
+  nobody on it. One booted from a terminal is left alone.
+
+**In game** in the top bar opens a menu: where the map editor is, whether this map is open in Edit
+and who is on it, the join address with **Copy**, and:
+- **Open in game:** opens this map in game Edit for sure, booting the map editor if it's off. With
+  the network running, it asks first, then stops the network. Map editors already in the editor
+  lobby, and any who join it in the next 10 minutes, go straight to this map (once each); the menu
+  says until when.
+- With the map open in Edit: **Preview** (play it as its game, as game Edit's Preview does; not for
+  lobby maps, and only once the checklist is done) or **End preview**, and your newest screenshot
+  (taken in the last 10 minutes, cropped to 16:9) as the **Map preview** or the **Game picture**.
+
+Esc or a click elsewhere closes the menu.
+
+**When game Edit saves the world** (its Save, the viewer's Save while game Edit has the map, a
+preview, or shutting down with blocks changed), the viewer draws the blocks again: the page loads
+again once nothing is under way (no drag, nothing being typed), keeping the camera, the cuts, the
+tool and the pick.
+
+The Panel's Servers page still starts and stops the network; starting it while the map editor runs
+shuts the editor down first (Edit saves first), asking only when someone is on it.
 
 ## How it looks
 

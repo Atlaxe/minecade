@@ -264,6 +264,11 @@ export class EditorSession extends ServerSession {
     this.noteChecklist();
   }
 
+  /** Changes made while it was starting (the Panel's map viewer writes map.json itself until Edit is ready) come in now. */
+  protected onReady(): void {
+    void this.reloadMap("changed while Edit was opening it");
+  }
+
   // ---- Talking to the pack ----------------------------------------------------------------
 
   protected onEvent(event: EditorEvent): void {
@@ -374,7 +379,7 @@ export class EditorSession extends ServerSession {
   }
 
   /** map.json changed on disk: a hand edit (in VS Code, say) goes into the game as one undo step. */
-  private async reloadMap(): Promise<void> {
+  private async reloadMap(why = "changed by hand"): Promise<void> {
     if (this.state !== "ready") return;
     let text: string;
     try {
@@ -392,13 +397,13 @@ export class EditorSession extends ServerSession {
       return;
     }
     this.text = text;
-    this.history.record(this.config, "hand edit of map.json");
+    this.history.record(this.config, why === "changed by hand" ? "hand edit of map.json" : "changes made while Edit was opening");
     this.config = config;
-    this.note("map.json was changed by hand: sent to the game.");
+    this.note(`map.json was ${why}: sent to the game.`);
     this.noteChecklist();
     void this.sendConfig();
     void this.sendStatus();
-    void this.say("map.json was changed by hand, and the map is updated.");
+    void this.say(`map.json was ${why}, and the map is updated.`);
   }
 
   private async sendConfig(): Promise<void> {

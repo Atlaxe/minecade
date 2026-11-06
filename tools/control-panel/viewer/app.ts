@@ -9,7 +9,9 @@
 // delete together), Spawn and Marker (place points), Region (draw boxes), Height (kill Y, the build
 // limit), Mirror (place a mirror plane, pick entries, mirror them across it: speed.ts) and Cut.
 // Each edit goes to the Panel (changes.ts), with undo and redo, Save and Publish. Every key is
-// in Settings, Keys, where it can be changed (keys.ts, keys-tab.ts).
+// in Settings, Keys, where it can be changed (keys.ts, keys-tab.ts). In game (ingame.ts) opens the
+// map in the in-game editor, which the Panel warms up while the viewer is open; when game Edit
+// saves the map's world, the page loads again to draw the new blocks, keeping the view as it was.
 import * as THREE from "three";
 import { bigEnough, listOf, worldPoint, type Box, type EditorRules, type MapConfig, type MapEdit, type MapPosition, type Vec3 } from "@minecade/minigame-core/config";
 import { lookAt, mapMiddle } from "../../../editor/behavior_pack/scripts/lists.ts";
@@ -22,6 +24,7 @@ import { Gizmo, type GizmoPart } from "./gizmo.ts";
 import { actionFor, keyText, keysText, readKeyMap, changedKeys, type ActionId, type KeyMap } from "./keys.ts";
 import { KeysTab } from "./keys-tab.ts";
 import { buildMarkup, findEntry, type BoxMark, type Markup, type MarkupList, type PlaneMark, type PointMark } from "./markup.ts";
+import { InGame, type PanelState } from "./ingame.ts";
 import { Overlay, type MarkerAssets, type MirrorPlane } from "./overlay.ts";
 import { blocksWithoutLook, mapWarnings } from "./checks.ts";
 import { copyEdits, entryListKey, mirrorEdits, mirrorPlan, snapHalf, teamOf, type MirrorOptions, type MirrorTeam, type SpeedEntry } from "./speed.ts";
@@ -156,8 +159,13 @@ async function main(): Promise<void> {
   thumb.onload = () => $("map-thumb").replaceChildren(thumb);
   thumb.src = `/api/viewer/thumb?${query}`;
   // An open event stream counts this window as one of the Panel's, so it stays up while the viewer
-  // is open; naming the map also brings its map.json's changes.
+  // is open; naming the map also brings its map.json's changes, and its world's.
   const events = new EventSource(`/api/events?${query}`);
+  // The map editor warms up while the viewer is open, with this map in game Edit if nobody uses it.
+  const warm = (pick: boolean) =>
+    void fetch("/api/editor/warm", { method: "POST", headers: { "content-type": "application/json", "x-minecade-panel": "1" }, body: JSON.stringify(pick ? { target, map, pick: true } : {}) }).catch(() => undefined);
+  warm(true);
+  setInterval(() => warm(false), 30_000);
 
   const [viewResponse, colorsResponse, mapResponse, shapesResponse] = await Promise.all([
     fetch(`/api/viewer/view?${query}`),
@@ -171,6 +179,8 @@ async function main(): Promise<void> {
     return show(`This map can't be shown: ${answer.error ?? `HTTP ${response.status}`}.`, true);
   }
   const data = (await mapResponse.json()) as MapData;
+  /** The world the blocks were drawn from: game Edit saving it makes another. */
+  const worldStamp = viewResponse.headers.get("x-view-stamp") ?? "";
   const view = decodeView(new Uint8Array(await viewResponse.arrayBuffer()));
   const colors = (await colorsResponse.json()) as { blocks: Record<string, FaceColors>; textures?: Record<string, [number, number, number]>; layers?: number; note?: string };
   // Custom blocks are drawn as cubes when their shapes can't be read.
@@ -306,11 +316,22 @@ async function main(): Promise<void> {
     if (!change.config) return notice("map.json isn't valid JSON right now: the viewer shows it as it was.", true);
     changes.external(change.stamp, change.config);
   });
-  // The Panel's state says whether game Edit has this map open: then edits go through it.
-  events.addEventListener("state", (event) => {
-    const state = JSON.parse((event as MessageEvent<string>).data) as { editor?: { status?: { edit?: { target: string; map: string } } | null } };
-    const open = state.editor?.status?.edit;
-    $("in-edit").hidden = !(open && open.target === target && open.map === map);
+  // In game: the Panel's state says where the map editor is, and whether game Edit has this map open (then edits go through it).
+  const inGame = new InGame({ target, map, name: () => config.name || name, notice });
+  events.addEventListener("state", (event) => inGame.update(JSON.parse((event as MessageEvent<string>).data) as PanelState));
+  // Game Edit saved the world: the page loads again for the new blocks once nothing is under way, keeping the view.
+  let reloading = false;
+  events.addEventListener("world", (event) => {
+    const { stamp } = JSON.parse((event as MessageEvent<string>).data) as { stamp: string };
+    if (stamp === worldStamp || reloading) return;
+    reloading = true;
+    notice("The world was saved in game Edit: drawing its blocks again...");
+    const reload = () => {
+      if (press || settingsDialog.open || typing(document.activeElement)) return void setTimeout(reload, 500);
+      keepView({ camera: scene.viewState, cuts, tool, picked, at: Date.now() });
+      location.reload();
+    };
+    setTimeout(reload, 800);
   });
   $("undo").onclick = () => changes.undo();
   $("redo").onclick = () => changes.redo();
@@ -1256,6 +1277,7 @@ async function main(): Promise<void> {
           removePicked();
           break;
         case "cancel":
+          if (inGame.close()) break;
           if (press?.drag) cancelDrag();
           else if (arming) armCut(undefined);
           else if (corner) armTool();
@@ -1591,7 +1613,47 @@ async function main(): Promise<void> {
   applyCuts({});
   redraw();
   applyKeys();
+  // Loaded again for new blocks: the view as it was.
+  const kept = keptView();
+  if (kept) {
+    scene.setViewState(kept.camera);
+    applyCuts(kept.cuts);
+    if (kept.tool !== "select") setTool(kept.tool);
+    if (kept.picked && findEntry(markup, kept.picked)) pickEntry(kept.picked);
+    notice("Drew the blocks again: game Edit saved the world.");
+  }
   canvas.focus();
+}
+
+/** The view kept over a reload for new blocks: the camera, the cuts, the tool and the pick. */
+interface KeptView {
+  camera: MapScene["viewState"];
+  cuts: Cuts;
+  tool: ToolId;
+  picked?: string;
+  at: number;
+}
+
+const KEPT_VIEW = `minecade-viewer-kept:${location.search}`;
+
+function keepView(view: KeptView): void {
+  try {
+    sessionStorage.setItem(KEPT_VIEW, JSON.stringify(view));
+  } catch {
+    // Not kept: the page opens on its home view.
+  }
+}
+
+/** The view kept just before this page loaded again (at most a minute ago), taken out so a later load starts fresh. */
+function keptView(): KeptView | undefined {
+  try {
+    const text = sessionStorage.getItem(KEPT_VIEW);
+    sessionStorage.removeItem(KEPT_VIEW);
+    const view = text ? (JSON.parse(text) as KeptView) : undefined;
+    return view && Date.now() - view.at < 60_000 ? view : undefined;
+  } catch {
+    return undefined;
+  }
 }
 
 /** A box's face in words: "top", "west side". */

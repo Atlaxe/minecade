@@ -117,6 +117,11 @@ export interface EditorStatus {
   guests: GuestInfo[];
   /** The Friends tab broadcast (BROADCAST in .env). */
   broadcast: BroadcastStatus;
+  /** The Panel booted it (it shuts it down once nobody has used it for a while). */
+  fromPanel?: boolean;
+  /** Open in game's map ("<target>/<map>"): map editors who join the editor lobby go straight to it in Edit, until `bringUntil`. */
+  bring?: string;
+  bringUntil?: string;
 }
 
 export type EditorArgs =
@@ -195,6 +200,28 @@ export interface OpenPlan {
 export function planOpen(slot: "select" | "edit", key: string, current: { key: string; state: ServerState; players: string[] } | undefined): OpenPlan {
   const same = current !== undefined && current.key === key && (current.state === "starting" || current.state === "ready");
   return { slot, restart: !same, evict: same || !current ? [] : [...current.players] };
+}
+
+/** How long after Open in game a map editor joining the editor lobby goes straight to that map in Edit. */
+export const BRING_MS = 10 * 60_000;
+
+/**
+ * Whether the Panel's warm-up may open `key` (a map picked on its Maps page, or open in its viewer)
+ * in Edit now, which has `edit` open (or nothing): only while nobody uses Edit, so a player's map
+ * is never taken from them. `waiting` counts players waiting for Edit, `asked` the opens players
+ * or this PC asked for that haven't run yet, and `preview` a preview running or getting under way.
+ */
+export function warmPlan(
+  key: string,
+  edit: { key: string; state: ServerState; players: string[] } | undefined,
+  busy: { waiting: number; asked: number; preview: boolean },
+): { open: boolean; why?: string } {
+  if (edit && edit.key === key && (edit.state === "starting" || edit.state === "ready")) return { open: false, why: edit.state === "ready" ? "open in Edit already" : "opening in Edit already" };
+  if (edit && edit.players.length > 0) return { open: false, why: `${edit.players.join(", ")} ${edit.players.length === 1 ? "is" : "are"} in Edit` };
+  if (busy.waiting > 0) return { open: false, why: "someone is waiting for Edit" };
+  if (busy.asked > 0) return { open: false, why: "Edit is opening something else" };
+  if (busy.preview) return { open: false, why: "a preview is running" };
+  return { open: true };
 }
 
 /** The recent list with `entry` first: no duplicates, at most a few. */

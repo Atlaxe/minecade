@@ -107,7 +107,7 @@ if (running) {
   process.exit(result.ok ? 0 : 1);
 }
 
-const runner = new EditorRunner({ root, verbose: args.verbose });
+const runner = new EditorRunner({ root, verbose: args.verbose, fromPanel: process.env.MINECADE_EDITOR_FROM === "panel" });
 runner.onExit = (ok) => {
   control.close();
   process.exit(ok ? 0 : 1);
@@ -122,7 +122,8 @@ const control = await serveControl({
   broadcast: (on) => runner.setBroadcast(on),
   picture: (kind) => runner.picture(kind),
   stop: () => void runner.shutdown(),
-  open: (request) => runner.request("this PC", request),
+  open: (request, bring) => (bring && request.to === "edit" ? runner.openInGame(request.target, request.map) : runner.request("this PC", request)),
+  warm: (target, map) => runner.warm(target, map),
   edit: (target, map, edit, by) => runner.outerEdit(target, map, edit, by),
   step: (target, map, kind, by) => runner.outerStep(target, map, kind, by),
 }).catch((error: unknown) => {

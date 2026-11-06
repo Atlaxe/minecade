@@ -8,7 +8,8 @@ read-only viewer, `docs/viewer.md`) done 2026-11-05, in `tools/viewer/` and
 and planes) done 2026-11-06. Before V.7, the same day, the user reworked the viewer's layout (see
 "Layout rework" below). V.7 (shapes and see-through blocks), V.8 (Vanilla textures) and V.9 (speed
 tools) done 2026-11-06. After V.9 the user made Mirror a tool of its own and asked for a Keys tab in
-the settings (see "After V.9" below). V.10 (Select from above) done 2026-11-06. Build it in the order of "Passes" below: each pass leans on
+the settings (see "After V.9" below). V.10 (Select from above) done 2026-11-06. V.11 (with the in-game editor) done 2026-11-06, with the
+warm-up the user asked for. Build it in the order of "Passes" below: each pass leans on
 the ones before it.
 
 **For the session that implements this:**
@@ -551,7 +552,25 @@ container, `minecade-extract-panel`, so in-game Select's can run at the same tim
 build no longer blocks the process. The Panel doesn't exit or restart while one runs. The page
 polls the world's list and opens the new map in the viewer when it's ready.
 
-**V.11 With the in-game editor.** Open in game, and reloading after the editor saves a world.
+**V.11 With the in-game editor** (done 2026-11-06). Open in game, and reloading after the editor
+saves a world. As built, with the user's warm-up: the Maps page and each viewer say every half
+minute that they're open (`POST /api/editor/warm`), and a pick or a viewer opening names its map.
+The Panel (`tools/control-panel/warm.ts`, `warmStep`, after each refresh) boots the map editor in
+the background while one is open and the network isn't running (never stopping the network), asks
+it (`POST /warm` on its control port) to open the named map in Edit ahead of time, and shuts an
+editor it booted (`MINECADE_EDITOR_FROM=panel`, `fromPanel` in its status) down after 15 minutes
+unused, or when the Panel closes with nobody on it. The runner (`warm`, `warmPlan` in
+`editor-core.ts`) opens it only while nobody uses Edit (nobody on it or waiting for it, no open
+asked for, no preview); a newer warm-up or a player's open calls off one still starting
+(`ServerSession.cancel`, `StartCanceled`). Edits to the map while Edit opens it go to map.json
+through the Panel, and Edit takes them once ready (`onReady`, "changed while Edit was opening
+it"); the Panel's undo covers them when Edit has nothing to undo. Open in game (`POST
+/api/viewer/in-game`, `POST /open` with `bring`) boots the editor if needed (asking before
+stopping the network), opens the map, and sends map editors in the editor lobby, or joining in the
+next 10 minutes, to it (`BRING_MS`). The viewer's In game menu (`ingame.ts`) shows all this, with
+Preview and the screenshot buttons the Map editor page had. The Panel watches each open viewer's
+world (`map-data.ts` `watchWorld`, a stamp steady twice in a row) and sends `world`; the page loads
+again, keeping the camera, cuts, tool and pick. Starting the network shuts the editor down first.
 
 **V.12 Map settings.** Forms for the name, time, queue mode and countdown, game settings and the
 lobby's stars (`map-edit.ts` has no op for `stars` yet: this pass adds one).

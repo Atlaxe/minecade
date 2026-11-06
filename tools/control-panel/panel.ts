@@ -15,14 +15,14 @@ import { createInterface } from "node:readline";
 import { fileURLToPath } from "node:url";
 import type Docker from "dockerode";
 import type { GuestInfo } from "@minecade/minigame-core/config";
-import { broadcastEditor, editorStatus, endPreviewEditor, guestEditor, pictureEditor, previewEditor, publishEditor, saveEditor, stopEditor } from "../editor/control.ts";
+import { broadcastEditor, editorStatus, endPreviewEditor, guestEditor, openInEditor, pictureEditor, previewEditor, publishEditor, saveEditor, stopEditor, warmEditor } from "../editor/control.ts";
 import { editorPlayers, type EditorStatus } from "../editor/editor-core.ts";
 import { addGuest, readGuests, removeGuest, writeGuests } from "../editor/guests.ts";
 import { cacheVanillaTextures } from "../build/vanilla-textures.ts";
 import { catalogDir, storeDir } from "../maps/paths.ts";
 import { MapStore } from "../maps/store.ts";
 import { MapChanges } from "../viewer/map-changes.ts";
-import { viewerMap, viewerMapConfig, watchMap } from "../viewer/map-data.ts";
+import { mapJsonPath, viewerMap, viewerMapConfig, watchMap, watchWorld } from "../viewer/map-data.ts";
 import { SELECT_PAGE, VIEWER_PAGE, viewerColors, viewerMaps, viewerScripts, viewerShapes, viewerTextures, viewerThumbPath, viewerView } from "../viewer/routes.ts";
 import { SelectFromAbove } from "../viewer/select.ts";
 import {
@@ -46,6 +46,7 @@ import {
   type StackDef,
   type StackId,
 } from "./core.ts";
+import { WANTED_MS, warmStep, type EditorPhase } from "./warm.ts";
 
 const portArg = process.argv.indexOf("--port");
 const PORT = portArg >= 0 ? Number(process.argv[portArg + 1]) : 8099;
@@ -81,6 +82,7 @@ const EDITOR_STOP_MS = 5 * 60_000;
 const PANEL_SOURCES = [
   "tools/control-panel/panel.ts",
   "tools/control-panel/core.ts",
+  "tools/control-panel/warm.ts",
   "tools/editor/control.ts",
   "tools/editor/editor-core.ts",
   "tools/editor/guests.ts",
@@ -274,6 +276,19 @@ let editorLaunch: { at: number } | null = null;
 let editorRestart = false;
 
 /**
+ * The warm-up (warm.ts): when a Maps page or a viewer last said it's open, the map to have open in
+ * Edit (the newest picked or opened), whether the editor was shut down by hand, when a boot last
+ * failed, when anyone last used the editor, the last map asked for, and why it isn't warming now.
+ */
+const warmUp: { wantedAt?: number; map?: string; paused: boolean; failedAt?: number; usedAt: number; sentMap?: string; sentAt?: number; note: string } = {
+  paused: false,
+  usedAt: Date.now(),
+  note: "",
+};
+/** Open in game asked for while the editor was off or starting: it opens once the editor is ready. */
+let openWhenReady: { target: string; map: string } | undefined;
+
+/**
  * The running editor's status, a boot in progress, or the last run's log when none is running.
  * `old` is an editor from before the editor lobby (its status has another shape), and `stale` one
  * started before its code last changed: either should be restarted. `guests` are the running
@@ -407,6 +422,12 @@ async function buildState() {
     broadcast: broadcastState(env),
     lobbyMaps: await lobbyMaps(),
     editor: await editorState(),
+    warm: {
+      note: warmUp.note,
+      map: warmUp.map ?? null,
+      wanted: warmUp.wantedAt !== undefined && Date.now() - warmUp.wantedAt < WANTED_MS,
+      openWhenReady: openWhenReady ? `${openWhenReady.target}/${openWhenReady.map}` : null,
+    },
     networkRunning: networkRunning(),
     /** The Panel's own code changed since it started: Restart Panel picks it up. */
     panelStale: isStale(startedAt, await sourceTimes(PANEL_SOURCES)),
@@ -427,12 +448,135 @@ async function refresh(): Promise<void> {
       for (const follower of followers.values()) follower.stop();
       followers.clear();
     }
-    broadcast("state", await buildState());
+    const state = await buildState();
+    broadcast("state", state);
+    void warmTick(state).catch((error: unknown) => log(`warm-up failed: ${String(error)}`));
   } catch (error) {
     log(`refresh failed: ${String(error)}`);
   } finally {
     refreshing = false;
   }
+}
+
+type PanelState = Awaited<ReturnType<typeof buildState>>;
+
+/** The editor as warm.ts sees it. */
+function editorPhase(editor: PanelState["editor"]): EditorPhase {
+  if (editor.status) return editor.old ? "old" : editor.status.state === "ready" ? "ready" : editor.status.state === "stopping" ? "stopping" : "starting";
+  return editor.launching ? "booting" : "off";
+}
+
+/** Players on the editor's servers, waiting for one, or in a preview. */
+function editorPeople(status: EditorStatus): number {
+  return status.home.players.length + (status.select?.players.length ?? 0) + (status.edit?.players.length ?? 0) + (status.preview?.players.length ?? 0) + status.waiting.length;
+}
+
+let warmTicking = false;
+
+/** One step of the warm-up (warm.ts), after each refresh; and Open in game once the editor is ready. */
+async function warmTick(state: PanelState): Promise<void> {
+  if (warmTicking) return;
+  warmTicking = true;
+  try {
+    const status = state.editor.status && !state.editor.old ? state.editor.status : undefined;
+    const phase = editorPhase(state.editor);
+    const now = Date.now();
+    if (status && editorPeople(status) > 0) warmUp.usedAt = now;
+    if (status) warmUp.failedAt = undefined;
+    if (openWhenReady && phase === "ready") {
+      const { target, map } = openWhenReady;
+      openWhenReady = undefined;
+      const result = await openInEditor({ to: "edit", target, map }, true);
+      note(result.ok ? `Map editor: opening ${target}/${map} in game Edit.` : `Map editor: could not open ${target}/${map} in game Edit: ${result.error}`);
+      return;
+    }
+    const edit = status?.edit;
+    const step = warmStep({
+      now,
+      wantedAt: warmUp.wantedAt,
+      paused: warmUp.paused,
+      docker: state.docker === "running",
+      busy: state.busy !== null || editorRestart,
+      network: state.networkRunning,
+      editor: phase,
+      fromPanel: status?.fromPanel === true,
+      people: status ? editorPeople(status) : 0,
+      extracting: status?.select?.selections.some((item) => item.status !== "ready" && item.status !== "failed") ?? false,
+      usedAt: Math.max(warmUp.usedAt, warmUp.wantedAt ?? 0, status ? Date.parse(status.startedAt) : 0),
+      failedAt: warmUp.failedAt,
+      map: warmUp.map,
+      editMap: edit && (edit.state === "starting" || edit.state === "ready") ? `${edit.target}/${edit.map}` : undefined,
+      sentMap: warmUp.sentMap,
+      sentAt: warmUp.sentAt,
+    });
+    if (step.action === "none") {
+      if (step.why !== undefined || phase !== "ready") warmUp.note = step.why ?? "";
+      return;
+    }
+    warmUp.note = "";
+    if (step.action === "boot") {
+      note("Map editor: booting in the background, so maps open in game quickly.");
+      launchEditor();
+    } else if (step.action === "stop") {
+      note("Map editor: shutting down, as nobody has used it for 15 minutes (Edit saves first).");
+      await stopEditor();
+    } else {
+      const [target, map] = step.map.split("/");
+      warmUp.sentMap = step.map;
+      warmUp.sentAt = now;
+      const answer = await warmEditor(target, map);
+      warmUp.note = answer && !answer.opening && answer.why ? `${step.map} isn't opening in Edit: ${answer.why}` : "";
+    }
+  } finally {
+    warmTicking = false;
+  }
+}
+
+/**
+ * Open in game, from the map viewer: the map in game Edit, with map editors in the editor lobby
+ * (and joining it in the next minutes) sent straight there. A map editor that's off boots first,
+ * stopping the network once the page has asked (`stopNetwork`).
+ */
+async function openInGame(target: string, map: string, stopNetwork: boolean): Promise<{ status: number; body: unknown }> {
+  warmUp.paused = false;
+  warmUp.map = `${target}/${map}`;
+  warmUp.wantedAt = Date.now();
+  const status = await editorStatus(500);
+  if (status) {
+    if (status.booted !== true) return { status: 409, body: { error: "an older map editor is running: restart it on the Servers page first" } };
+    if (status.state === "stopping") return { status: 409, body: { error: "the map editor is shutting down: try again once it has" } };
+    if (status.state === "ready") {
+      const result = await openInEditor({ to: "edit", target, map }, true);
+      if (!result.ok) return { status: 409, body: { error: result.error ?? "the map editor didn't answer" } };
+      note(`Map editor: opening ${target}/${map} in game Edit, for the map viewer.`);
+      return { status: 202, body: { ok: true } };
+    }
+    openWhenReady = { target, map };
+    return { status: 202, body: { ok: true } };
+  }
+  if (!editorLaunch && !editorRestart) {
+    const booted = await bootEditor(stopNetwork);
+    if (booted.status >= 400) return booted;
+  }
+  openWhenReady = { target, map };
+  return { status: 202, body: { ok: true } };
+}
+
+/** Starts the network once the map editor (which has its ports) has shut down; Edit saves first. */
+async function startAfterEditor(stack: StackDef, action: string): Promise<void> {
+  busy = `${stack.label}: ${action}`;
+  note("Map editor: shutting down first, as the network takes its ports (Edit saves first)...");
+  void refresh();
+  await stopEditor();
+  const until = Date.now() + EDITOR_STOP_MS;
+  while (Date.now() < until && (await editorStatus(500))) await new Promise((resolve) => setTimeout(resolve, 1000));
+  if (await editorStatus(500)) {
+    busy = null;
+    note(`${stack.label}: not started, because the map editor didn't shut down in time.`);
+    void refresh();
+    return;
+  }
+  runCompose(stack, action);
 }
 
 // ---- Live updates (server-sent events) ---------------------------------------------------
@@ -466,9 +610,12 @@ async function openEvents(req: IncomingMessage, res: ServerResponse, url: URL): 
   const target = url.searchParams.get("target");
   const map = url.searchParams.get("map");
   const unwatch = target && map ? watchMap(repoRoot, target, map, (change) => res.write(`event: map\ndata: ${JSON.stringify(change)}\n\n`)) : undefined;
+  // Its world, too: game Edit saving it, the viewer draws the blocks again.
+  const unwatchWorld = target && map ? watchWorld(repoRoot, target, map, (stamp) => res.write(`event: world\ndata: ${JSON.stringify({ stamp })}\n\n`)) : undefined;
   res.on("close", () => {
     windows.delete(res);
     unwatch?.();
+    unwatchWorld?.();
     lastWindowAt = Date.now();
   });
   for (const entry of activity) res.write(`event: activity\ndata: ${JSON.stringify(entry)}\n\n`);
@@ -806,10 +953,15 @@ async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> 
     if (busy) return sendJson(res, 409, { error: `busy: ${busy}` });
     if (dockerState !== "running") return sendJson(res, 409, { error: "Docker is not running" });
     if (stackRoute[2] !== "down") {
-      if (stack.id === "main" && (await editorStatus(500))) return sendJson(res, 409, { error: "shut the map editor down first: it uses the network's ports" });
       const blocker = otherRunningStack(stack.id);
       if (blocker) return sendJson(res, 409, { error: `stop "${blocker}" first: both use the same ports` });
       if (!existsSync(envPath)) return sendJson(res, 409, { error: "No .env file. Copy .env.example to .env first." });
+      // The map editor has the network's ports: it shuts down first, once the page has asked (or nobody is on it).
+      if (stack.id === "main" && (await editorStatus(500))) {
+        if (body.stopEditor !== true) return sendJson(res, 409, { error: "the map editor is running, and the network needs its ports", editor: true });
+        void startAfterEditor(stack, stackRoute[2]);
+        return sendJson(res, 202, { ok: true });
+      }
     }
     runCompose(stack, stackRoute[2]);
     void refresh();
@@ -897,8 +1049,33 @@ async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> 
     void refresh();
     return sendJson(res, 200, { ok: true });
   }
+  // A Maps page or a map viewer is open (each says so every half minute): the editor warms up.
+  // A map picked there, or opened in a viewer, is the one to have open in Edit.
+  if (path === "/api/editor/warm") {
+    warmUp.wantedAt = Date.now();
+    const target = typeof body.target === "string" ? body.target : "";
+    const map = typeof body.map === "string" ? body.map : "";
+    if (body.pick === true && mapJsonPath(repoRoot, target, map)) {
+      warmUp.map = `${target}/${map}`;
+      warmUp.paused = false;
+    }
+    void refresh();
+    return sendJson(res, 200, { ok: true });
+  }
+  if (path === "/api/viewer/in-game") {
+    const target = typeof body.target === "string" ? body.target : "";
+    const map = typeof body.map === "string" ? body.map : "";
+    const json = mapJsonPath(repoRoot, target, map);
+    if (!json || !existsSync(json)) return sendJson(res, 404, { error: `there's no map ${target}/${map} in the map store` });
+    if (dockerState !== "running") return sendJson(res, 409, { error: "Docker is not running" });
+    const result = await openInGame(target, map, body.stopNetwork === true);
+    void refresh();
+    return sendJson(res, result.status, result.body);
+  }
   if (path === "/api/editor/stop") {
     if (!(await stopEditor())) return sendJson(res, 409, { error: "no map editor is running" });
+    // Shut down by hand: the warm-up leaves it off until a map is picked again.
+    warmUp.paused = true;
     note("Map editor: shutting down (Edit saves first)...");
     void refresh();
     return sendJson(res, 202, { ok: true });
@@ -971,12 +1148,16 @@ function launchEditor(): { status: number; body: unknown } {
     // node:sqlite (the map store) is stable enough for us but still prints an experimental warning.
     const child = spawn(process.execPath, ["--disable-warning=ExperimentalWarning", "--import", "tsx", join("tools", "editor", "editor.ts")], {
       cwd: repoRoot,
+      // Its status says the Panel booted it, so the warm-up shuts it down once nobody uses it.
+      env: { ...process.env, MINECADE_EDITOR_FROM: "panel" },
       detached: true,
       stdio: ["ignore", out, out],
       windowsHide: true,
     });
     child.on("exit", (code) => {
-      if (code !== 0) note(`Map editor: stopped with exit code ${code}. Its log is on the Map editor page.`);
+      if (code === 0) return;
+      warmUp.failedAt = Date.now();
+      note(`Map editor: stopped with exit code ${code}. Its log is on the Map editor page.`);
     });
     child.unref();
   } finally {
@@ -1114,6 +1295,8 @@ async function handOff(): Promise<void> {
 }
 
 const startedAt = Date.now();
+/** On its way out: no windows for a while. */
+let exiting = false;
 await handOff();
 
 const server = createServer((req, res) => {
@@ -1150,10 +1333,19 @@ server.listen(PORT, "127.0.0.1", () => {
   setInterval(() => {
     if (stay) return;
     // A map being cut out of a world keeps the Panel up until it's done.
-    if (shouldExit({ now: Date.now(), startedAt, windows: windows.size, lastWindowAt, busy: busy !== null || selectFromAbove.busy > 0 })) {
-      log("no windows open; exiting");
-      for (const follower of followers.values()) follower.stop();
-      process.exit(0);
+    if (!exiting && shouldExit({ now: Date.now(), startedAt, windows: windows.size, lastWindowAt, busy: busy !== null || selectFromAbove.busy > 0 })) {
+      exiting = true;
+      void (async () => {
+        // A map editor the Panel booted goes with it, unless someone is on it (Edit saves first).
+        const status = await editorStatus(500);
+        if (status?.booted && status.fromPanel && editorPeople(status) === 0) {
+          log("shutting down the map editor it booted: nobody is on it");
+          await stopEditor();
+        }
+        log("no windows open; exiting");
+        for (const follower of followers.values()) follower.stop();
+        process.exit(0);
+      })();
     }
   }, 5000);
 });

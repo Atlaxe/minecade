@@ -12,6 +12,7 @@ import {
   parseRecent,
   planOpen,
   portHolders,
+  warmPlan,
   withLineEndings,
 } from "../editor-core.ts";
 
@@ -71,6 +72,21 @@ describe("the three servers", () => {
     // Stopping or failed: it starts again, and nobody is left on it to move.
     expect(planOpen("edit", "edit:sumo/arena_1", { ...arena, state: "stopping", players: [] })).toEqual({ slot: "edit", restart: true, evict: [] });
     expect(planOpen("select", "select:abc=", undefined)).toEqual({ slot: "select", restart: true, evict: [] });
+  });
+
+  it("warms a picked map up in Edit only while nobody uses Edit", () => {
+    const idle = { waiting: 0, asked: 0, preview: false };
+    const arena = { key: "edit:sumo/arena_1", state: "ready" as const, players: [] };
+    expect(warmPlan("edit:sumo/castle", undefined, idle)).toEqual({ open: true });
+    expect(warmPlan("edit:sumo/castle", arena, idle)).toEqual({ open: true });
+    expect(warmPlan("edit:sumo/arena_1", arena, idle)).toMatchObject({ open: false, why: "open in Edit already" });
+    expect(warmPlan("edit:sumo/arena_1", { ...arena, state: "starting" }, idle)).toMatchObject({ open: false, why: "opening in Edit already" });
+    // A failed or stopped one starts again.
+    expect(warmPlan("edit:sumo/arena_1", { ...arena, state: "failed" }, idle)).toEqual({ open: true });
+    expect(warmPlan("edit:sumo/castle", { ...arena, players: ["Steve"] }, idle)).toMatchObject({ open: false, why: "Steve is in Edit" });
+    expect(warmPlan("edit:sumo/castle", arena, { ...idle, waiting: 1 })).toMatchObject({ open: false });
+    expect(warmPlan("edit:sumo/castle", arena, { ...idle, asked: 1 })).toMatchObject({ open: false });
+    expect(warmPlan("edit:sumo/castle", arena, { ...idle, preview: true })).toMatchObject({ open: false, why: "a preview is running" });
   });
 
   it("names whatever holds their ports", () => {

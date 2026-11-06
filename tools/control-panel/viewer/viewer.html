@@ -25,6 +25,26 @@
   .banner-actions .sep { width: 1px; height: 24px; background: var(--line-strong); margin: 0 4px; }
   #save, #publish { padding: 8px 18px; font-size: var(--fs-body); }
 
+  /* In game: this map in the in-game editor, a menu under its button. */
+  .in-game { position: relative; }
+  #in-game { display: flex; align-items: center; gap: 8px; padding: 8px 12px; font-size: var(--fs-body); }
+  #in-game .game-dot { width: 8px; height: 8px; background: var(--off); flex: none; }
+  #in-game[data-tone=warn] .game-dot { background: var(--warn); }
+  #in-game[data-tone=ok] .game-dot { background: var(--ok); }
+  #in-game svg.i { width: 14px; height: 14px; }
+  .game-menu { position: absolute; top: calc(100% + 8px); right: 0; width: 360px; z-index: 20; display: grid; gap: 12px; padding: 16px; background: var(--surface); border: 1px solid var(--line-strong); border-radius: var(--radius-lg); box-shadow: var(--shadow); }
+  .game-menu[hidden] { display: none; }
+  .game-head { display: flex; align-items: center; gap: 10px; }
+  .game-head h2 { font-size: 18px; margin: 0; }
+  .game-head .pill { margin-left: auto; }
+  .game-text { margin: 0; }
+  .game-join { display: flex; align-items: center; gap: 8px; }
+  .game-join .mono { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+  .game-buttons { display: flex; gap: 6px; flex-wrap: wrap; }
+  .game-buttons .primary { flex: 1; }
+  .game-section { display: grid; gap: 6px; padding-top: 12px; border-top: 1px solid var(--line); }
+  .game-section > button { justify-self: start; }
+
   .main { display: grid; grid-template-columns: 300px 1fr 280px; min-height: 0; }
   .left, .right { background: var(--surface); overflow-y: auto; min-height: 0; }
   .left { border-right: 1px solid var(--line); display: flex; flex-direction: column; overflow: hidden; }
@@ -191,12 +211,15 @@
   <a class="back" href="/#maps" aria-label="Back to Maps" data-tip="Back to Maps"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg></a>
   <span id="map-thumb"></span>
   <div class="banner-title"><h1 id="map-name">Map viewer</h1><span id="map-game" class="muted meta"></span></div>
-  <span id="in-edit" class="pill warn" hidden data-tip="Game Edit has this map open: the viewer's changes go through it">Open in game Edit</span>
   <div class="banner-actions">
     <button id="undo" class="icon" aria-label="Undo" data-tip="Undo" data-key="Ctrl+Z"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 14 4 9l5-5"/><path d="M4 9h10a6 6 0 0 1 0 12h-3"/></svg></button>
     <button id="redo" class="icon" aria-label="Redo" data-tip="Redo" data-key="Ctrl+Y"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="m15 14 5-5-5-5"/><path d="M20 9H10a6 6 0 0 0 0 12h3"/></svg></button>
     <button id="open-settings" class="icon" aria-label="Settings" data-tip="Settings: the view and the keys"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h9M17 7h3M4 17h3M11 17h9"/><rect x="13" y="5" width="4" height="4"/><rect x="7" y="15" width="4" height="4"/></svg></button>
     <span class="sep"></span>
+    <div class="in-game">
+      <button id="in-game" data-tone="off" aria-haspopup="dialog" aria-expanded="false" aria-controls="game-menu" data-tip="This map in game: Open in game, Preview, the join address"><span class="game-dot" aria-hidden="true"></span>In game<svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button>
+      <div id="game-menu" class="game-menu" role="dialog" aria-label="In game" hidden></div>
+    </div>
     <button id="save" data-tip="Keep the map as a version in the map store">Save</button>
     <button id="publish" class="primary">Publish</button>
   </div>

@@ -7,7 +7,9 @@
 //   POST /guests {name, on}  add a guest (the editor lobby, Select and previews), or remove one
 //   POST /broadcast {on}     start or stop the Friends tab bot (the Panel's switch, BROADCAST)
 //   POST /picture {kind}     the newest screenshot as the map's preview ("map") or the game's picture ("game")
-//   POST /open {request}     open a map in Edit or a world in Select (an OpenRequest)
+//   POST /open {request, bring?}   open a map in Edit or a world in Select (an OpenRequest); with
+//                            bring, map editors in the editor lobby (and joining it soon) go to the map
+//   POST /warm {target, map} the Panel's warm-up: open a map in Edit ahead of time, while nobody uses Edit
 //   POST /edit {target, map, edit, by}   the Panel's map viewer: a MapEdit to the map open in Edit
 //   POST /undo, /redo {target, map, by}  the same, undo and redo (game Edit's history)
 //   POST /stop               shut it down (Edit saves first)
@@ -49,8 +51,10 @@ export interface ControlHandlers {
   /** Undefined when it's saved, or why not. */
   picture(kind: "map" | "game"): Promise<string | undefined>;
   stop(): void;
-  /** Undefined when it's under way, or why not. */
-  open(request: OpenRequest): Promise<string | undefined>;
+  /** Undefined when it's under way, or why not. `bring` is Open in game's: map editors go to the map. */
+  open(request: OpenRequest, bring: boolean): Promise<string | undefined>;
+  /** The Panel's warm-up: whether the map is opening in Edit now, and why not. */
+  warm(target: string, map: string): { opening: boolean; why?: string };
   /** A map viewer's edit to the map open in Edit. */
   edit(target: string, map: string, edit: MapEdit, by: string): OuterAnswer;
   /** A map viewer's undo or redo, on the map open in Edit. */
@@ -131,8 +135,12 @@ export function serveControl(handlers: ControlHandlers): Promise<Server> {
         if (method === "POST" && path === "/open") {
           const request = requestOf(body.request);
           if (!request) return reply(400, { error: "open needs a request: {to: 'edit', target, map} or {to: 'select', world}" });
-          const problem = await handlers.open(request);
+          const problem = await handlers.open(request, body.bring === true && request.to === "edit");
           return problem ? reply(409, { error: problem }) : reply(202, { ok: true });
+        }
+        if (method === "POST" && path === "/warm") {
+          if (typeof body.target !== "string" || typeof body.map !== "string") return reply(400, { error: "expected {target, map}" });
+          return reply(200, handlers.warm(body.target, body.map));
         }
         return reply(404, { error: "not found" });
       })();
@@ -206,9 +214,25 @@ export function pictureEditor(kind: "map" | "game"): Promise<{ ok: boolean; erro
   return post("/picture", { kind });
 }
 
-/** Asks the running editor to open a map or a world; the error when it can't (or none answers). */
-export function openInEditor(request: OpenRequest): Promise<{ ok: boolean; error?: string }> {
-  return post("/open", { request });
+/** Asks the running editor to open a map or a world (with `bring`, map editors go to the map); the error when it can't (or none answers). */
+export function openInEditor(request: OpenRequest, bring = false): Promise<{ ok: boolean; error?: string }> {
+  return post("/open", { request, ...(bring ? { bring: true } : {}) });
+}
+
+/** Asks the running editor to warm a map up in Edit: whether it's opening, and why not (undefined when none answers). */
+export async function warmEditor(target: string, map: string): Promise<{ opening: boolean; why?: string } | undefined> {
+  try {
+    const response = await fetch(`${ORIGIN}/warm`, {
+      method: "POST",
+      headers: { "x-minecade-panel": "1", "content-type": "application/json" },
+      body: JSON.stringify({ target, map }),
+      signal: AbortSignal.timeout(3000),
+    });
+    if (!response.ok) return { opening: false, why: ((await response.json().catch(() => ({}))) as { error?: string }).error ?? `HTTP ${response.status}` };
+    return (await response.json()) as { opening: boolean; why?: string };
+  } catch {
+    return undefined;
+  }
 }
 
 /**

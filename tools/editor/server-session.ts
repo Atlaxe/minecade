@@ -59,6 +59,8 @@ export abstract class ServerSession {
   private readonly waiters = new Map<string, (event: EditorEvent) => void>();
   private commands: Promise<unknown> = Promise.resolve();
   private cleanupId = 0;
+  /** A start under way was called off (cancel()). */
+  private canceled = false;
   /** Called once the session is over: stopped (true) or failed (false). */
   onEnd: (ok: boolean) => void = () => {};
   /** A player asked (in the pack) to open a map or a world, or to go to the editor lobby. */
@@ -86,6 +88,8 @@ export abstract class ServerSession {
   protected abstract onEvent(event: EditorEvent): void;
   /** Runs once the pack is ready and the console answers. */
   protected abstract afterReady(): Promise<void>;
+  /** Runs once the session is ready (its state says so). */
+  protected onReady(): void {}
   /** Stops the server; `save` is false for a quit without saving. Must end with endSession(). */
   protected abstract shutdown(save: boolean): Promise<void>;
 
@@ -93,6 +97,13 @@ export abstract class ServerSession {
     try {
       await this.boot();
     } catch (error) {
+      if (this.canceled) {
+        this.state = "stopped";
+        this.note("Stopped while starting: it isn't wanted any more.");
+        await this.removeContainer();
+        this.onEnd(true);
+        throw new StartCanceled();
+      }
       this.state = "failed";
       this.error = message(error);
       this.note(`Could not start: ${this.error}`);
@@ -101,6 +112,21 @@ export abstract class ServerSession {
       this.onEnd(false);
       throw error;
     }
+  }
+
+  /**
+   * Calls off a start under way (the Panel's warm-up moved on to another map): start() then throws
+   * StartCanceled, with nothing left behind. Does nothing once the session is ready.
+   */
+  cancel(): void {
+    if (this.state !== "starting" || this.canceled) return;
+    this.canceled = true;
+    void this.container?.kill().catch(() => {});
+  }
+
+  /** Whether a start under way is being called off. */
+  get canceling(): boolean {
+    return this.canceled && this.state === "starting";
   }
 
   /** Stops (saving where the mode saves). Safe to call more than once. */
@@ -169,6 +195,7 @@ export abstract class ServerSession {
     if (!this.env.LAN_HOST) throw new Error("set LAN_HOST in .env");
     if (editorPlayers(this.env).length === 0) throw new Error("nobody could join: put your gamertag in LAN_PLAYERS in .env");
     await this.prepare();
+    this.goOn();
 
     const docker = connectDocker();
     const old = await findContainerByName(docker, this.slot.container);
@@ -177,6 +204,7 @@ export abstract class ServerSession {
       await old.remove({ force: true });
     }
     await editorImage((text) => this.note(text), this.verbose);
+    this.goOn();
     const staging = await mkdtemp(join(tmpdir(), "minecade-editor-"));
     try {
       this.note("Building the editor's packs...");
@@ -189,6 +217,7 @@ export abstract class ServerSession {
       await rm(staging, { recursive: true, force: true });
     }
 
+    this.goOn();
     const container = this.container;
     this.console = await attachConsole(container, this.verbose);
     this.console.onLine((line) => this.onLine(line));
@@ -196,6 +225,8 @@ export abstract class ServerSession {
     const started = this.console.waitFor(/Server started\./, START_TIMEOUT_MS);
     this.note(`Starting: ${this.label()}...`);
     await container.start();
+    // Called off while it was starting the container: it stops at once.
+    if (this.canceled) await container.kill().catch(() => {});
     this.exited = container.wait().then((result: { StatusCode: number }) => result.StatusCode);
     void this.exited.then((code) => this.onExit(code));
     await this.untilExit(started);
@@ -206,9 +237,17 @@ export abstract class ServerSession {
       warm = /There are/.test((await this.command("list", /There are \d+\/\d+ players online|Unknown command/)) ?? "");
     }
     if (!warm) throw new Error("the server console does not answer");
+    this.goOn();
     await this.afterReady();
+    this.goOn();
     this.state = "ready";
     this.note(`Ready on port ${this.slot.port}.`);
+    this.onReady();
+  }
+
+  /** Stops a start that was called off. */
+  private goOn(): void {
+    if (this.canceled) throw new StartCanceled();
   }
 
   private containerOptions(): Docker.ContainerCreateOptions {
@@ -421,6 +460,13 @@ export abstract class ServerSession {
 
   protected note(text: string): void {
     this.sink(`${this.slot.label}: ${text}`);
+  }
+}
+
+/** A start called off (ServerSession.cancel()): nothing went wrong. */
+export class StartCanceled extends Error {
+  constructor() {
+    super("called off");
   }
 }
 

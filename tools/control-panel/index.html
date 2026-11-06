@@ -142,6 +142,12 @@
   .page-tabs [role=tab] { background: none; border: 1px solid transparent; color: var(--muted); padding: 6px 18px; font-size: var(--fs-body); }
   .page-tabs [role=tab]:hover { color: var(--text); }
   .page-tabs [role=tab][aria-selected=true] { background: var(--selected); color: var(--on-selected); border-color: color-mix(in srgb, var(--primary) 45%, transparent); }
+  .maps-tabs-row { display: flex; align-items: center; gap: 12px 20px; flex-wrap: wrap; margin-top: 20px; }
+  .maps-tabs-row .page-tabs { margin-top: 0; }
+  /* The map editor's line on the Maps page: it warms up in the background while the page is open. */
+  .game-line { display: flex; align-items: center; gap: 8px; min-width: 0; color: var(--muted); }
+  .game-line:empty { display: none; }
+  .game-line .mono { color: var(--text); }
   .world-open { display: flex; gap: 8px; align-items: center; margin-top: 24px; }
   .world-open input { flex: 1 1 320px; }
   .world-card .map-thumb img { object-fit: cover; }
@@ -234,9 +240,12 @@
 
 <section id="page-maps" class="page page-wide" hidden>
   <div class="page-head"><h1>Maps</h1><p id="maps-head">Every map in the map store. Pick one to edit its spawns, markers and boundaries in the 3D viewer.</p></div>
-  <div class="page-tabs" role="tablist" aria-label="Maps or worlds">
-    <button type="button" role="tab" id="maps-tab-maps" aria-selected="true" aria-controls="maps-panel">Maps</button>
-    <button type="button" role="tab" id="maps-tab-worlds" aria-selected="false" aria-controls="worlds-panel">Worlds</button>
+  <div class="maps-tabs-row">
+    <div class="page-tabs" role="tablist" aria-label="Maps or worlds">
+      <button type="button" role="tab" id="maps-tab-maps" aria-selected="true" aria-controls="maps-panel">Maps</button>
+      <button type="button" role="tab" id="maps-tab-worlds" aria-selected="false" aria-controls="worlds-panel">Worlds</button>
+    </div>
+    <div id="game-line" class="game-line" aria-live="polite"></div>
   </div>
   <div id="maps-panel" role="tabpanel" aria-labelledby="maps-tab-maps">
   <div class="map-search" role="search">
@@ -375,6 +384,7 @@ function showPage(name) {
   if (location.hash !== `#${page}`) history.replaceState(null, "", `#${page}`);
   syncLogs();
   if (page === "maps") showMapsTab(mapsView.tab);
+  syncWarm();
 }
 window.onhashchange = () => showPage(location.hash.slice(1));
 
@@ -399,6 +409,7 @@ function render(next) {
   renderConnection();
   renderPlayers();
   renderEditor();
+  renderGameLine();
   renderLogPicker();
   $("stale-banner").hidden = !state.panelStale;
   reloadStatsWhenIdle();
@@ -471,8 +482,21 @@ function renderStacks() {
   }
 }
 
+/** People on the map editor's servers, waiting for one, or in a preview. */
+function editorPeople(status) {
+  if (!status?.booted) return 0;
+  return status.home.players.length + (status.select?.players.length ?? 0) + (status.edit?.players.length ?? 0) + (status.preview?.players.length ?? 0) + status.waiting.length;
+}
+
 function stackCard(stack, canAct, busy) {
-  const action = (verb) => () => post(`/api/stacks/${stack.id}/${verb}`);
+  const action = (verb) => () => {
+    // The map editor (warmed up for the Maps page, perhaps) has the network's ports: it shuts down first.
+    const editor = state.editor?.status;
+    if (stack.id !== "main" || verb === "down" || !editor) return post(`/api/stacks/${stack.id}/${verb}`);
+    const people = editorPeople(editor);
+    if (people > 0 && !confirm(`${people} ${people === 1 ? "player is" : "players are"} in the map editor. Starting the network shuts it down first (Edit saves first). Continue?`)) return;
+    return post(`/api/stacks/${stack.id}/${verb}`, { stopEditor: true });
+  };
   const buttons = [
     el("button", { className: stack.running ? "" : "primary", onclick: action("up") }, stack.running ? "Start (update)" : "Start"),
     el("button", { onclick: action("restart") }, "Restart"),
@@ -1253,8 +1277,11 @@ function findMap(key) {
 }
 
 function pickMap(key) {
+  const changed = key !== mapsView.picked;
   mapsView.picked = key;
   saveMapsView();
+  // A map picked opens in game Edit ahead of time; another pick calls that off.
+  if (key && changed) warm(findMap(key));
   for (const card of document.querySelectorAll(".map-card")) {
     const on = card.dataset.map === key;
     card.classList.toggle("picked", on);
@@ -1282,6 +1309,53 @@ function openViewer(target, map) {
 }
 
 $("maps-refresh").onclick = () => loadMaps();
+
+// ---- The map editor's warm-up: while this page is open, it boots in the background (not while the
+// network runs), and the picked map opens in game Edit ahead of time, so going in game is quick.
+
+let warmTimer = null;
+
+/** Says the Maps page is open, every half minute while it is; `pick` names the map just picked. */
+function warm(pick) {
+  void post("/api/editor/warm", pick ? { target: pick.target.id, map: pick.map.id, pick: true } : {});
+}
+
+function syncWarm() {
+  const on = page === "maps";
+  if (on && !warmTimer) {
+    warm(findMap(mapsView.picked));
+    warmTimer = setInterval(() => warm(), 30_000);
+  } else if (!on && warmTimer) {
+    clearInterval(warmTimer);
+    warmTimer = null;
+  }
+}
+
+/** The map editor's line on the Maps page: how its warm-up is going, and where to join. */
+function renderGameLine() {
+  const editor = state.editor;
+  const status = editor?.status?.booted ? editor.status : null;
+  const warmInfo = state.warm ?? {};
+  const join = (address) => [el("span", {}, "Join"), el("span", { className: "mono" }, address), el("button", { className: "small", onclick: () => copy(address) }, "Copy")];
+  const spin = () => el("span", { className: "spin" });
+  const parts = [];
+  if (state.docker !== "running") parts.push(el("span", { className: "status off" }, "Map editor: off, as Docker isn't running"));
+  else if (editor?.status && !status) parts.push(el("span", { className: "status warn" }, "Map editor: an older one is running. Restart it on the Map editor page."));
+  else if (!status && (editor?.launching || editor?.restarting)) parts.push(spin(), el("span", {}, "Map editor: starting..."));
+  else if (!status) parts.push(el("span", { className: "status off" }, state.networkRunning ? "Map editor: off while the network runs. Open in game, in the viewer, stops the network first." : `Map editor: off${warmInfo.note ? `: ${warmInfo.note}` : ""}`));
+  else if (status.state === "stopping") parts.push(spin(), el("span", {}, "Map editor: shutting down..."));
+  else if (status.state !== "ready") parts.push(spin(), el("span", {}, "Map editor: starting..."));
+  else {
+    const edit = status.edit;
+    const name = edit ? `${edit.mapName || edit.map}` : "";
+    if (edit && edit.state === "starting") parts.push(spin(), el("span", {}, `Map editor: opening ${name} in Edit...`));
+    else if (edit && edit.state === "ready") parts.push(el("span", { className: "status ok" }, `Map editor: ${name} is open in Edit.`));
+    else parts.push(el("span", { className: "status ok" }, "Map editor: ready."));
+    parts.push(...join(status.join));
+    if (warmInfo.note) parts.push(el("span", { className: "muted meta" }, warmInfo.note));
+  }
+  patch($("game-line"), [state.docker, state.networkRunning, editor?.launching, editor?.restarting, Boolean(editor?.status), status?.state, status?.join, status?.edit?.state, status?.edit?.mapName, status?.edit?.map, warmInfo.note], () => parts);
+}
 
 // ---- Worlds: Select from above (the viewer's select page) opens one to cut maps out of it.
 

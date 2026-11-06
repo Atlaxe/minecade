@@ -32,14 +32,14 @@ import { MapStore } from "../maps/store.ts";
 import { EditorBroadcast } from "./broadcast.ts";
 import { buildCatalog, forgetRecent, mapLabel, noteRecent, renameRecent, requestedWorld, worldId } from "./catalog.ts";
 import type { OuterAnswer } from "./control.ts";
-import { SLOTS, editorPlayers, isMapId, planOpen, portHolders, type EditorStatus, type Slot, type SlotId } from "./editor-core.ts";
+import { BRING_MS, SLOTS, editorPlayers, isMapId, planOpen, portHolders, warmPlan, type EditorStatus, type Slot, type SlotId } from "./editor-core.ts";
 import { addGuest, readGuests, removeGuest, writeGuests } from "./guests.ts";
 import { HomeSession } from "./home-session.ts";
 import { PreviewSession } from "./preview-session.ts";
 import type { PreviewMap } from "./preview-template.ts";
 import { SelectSession } from "./select-session.ts";
 import { Selections } from "./selections.ts";
-import { delay, message, type ServerSession } from "./server-session.ts";
+import { StartCanceled, delay, message, type ServerSession } from "./server-session.ts";
 import { EditorSession } from "./session.ts";
 import { loadTarget, mapsDirOf } from "./targets.ts";
 import { clientWorlds } from "./worlds.ts";
@@ -82,6 +82,8 @@ export interface RunnerOptions {
   slots?: Record<SlotId, Slot>;
   /** The map store (a headless test passes its own): maps\ beside the checkout, or MAP_STORE. */
   store?: MapStore;
+  /** The Panel booted it (MINECADE_EDITOR_FROM=panel): its status says so. */
+  fromPanel?: boolean;
 }
 
 export class EditorRunner {
@@ -122,6 +124,14 @@ export class EditorRunner {
   private selectBefore: Opened | undefined;
   /** Exports to open in Edit once they're cut out ("<target>/<map>"), and who exported each. */
   private readonly editAfterExport = new Map<string, string>();
+  private readonly fromPanel: boolean;
+  /** Opens in Edit asked for (by players or this PC) that haven't finished: the Panel's warm-up waits for them. */
+  private editAsked = 0;
+  /** The Panel's warm-up: the newest map it asked for (an older one still to run is skipped), and the Edit session it is starting. */
+  private warmCount = 0;
+  private warming: EditorSession | undefined;
+  /** Open in game: map editors who join the editor lobby go straight to this map in Edit (once each) until `until`. */
+  private bring: { request: Extract<OpenRequest, { to: "edit" }>; key: string; until: number; brought: Set<string> } | undefined;
   /** Called once everything has stopped: true when it went well. */
   onExit: (ok: boolean) => void = () => {};
 
@@ -130,6 +140,7 @@ export class EditorRunner {
     this.verbose = options.verbose;
     this.slots = options.slots ?? SLOTS;
     this.store = options.store ?? MapStore.open(storeDir(this.root));
+    this.fromPanel = options.fromPanel === true;
     this.selections = new Selections(this.root, { verbose: this.verbose, note: (text) => this.log(`Extract: ${text}`) });
     this.broadcast = new EditorBroadcast({ root: this.root, note: (text) => this.log(text) });
     this.selections.onChange((world, info, gone) => {
@@ -203,6 +214,8 @@ export class EditorRunner {
       waiting: [...this.waiting.values()].map(({ name, label }) => ({ name, label })),
       guests: this.guestInfo(),
       broadcast: this.broadcast.status(),
+      ...(this.fromPanel ? { fromPanel: true } : {}),
+      ...(this.bring && this.bring.until > Date.now() ? { bring: `${this.bring.request.target}/${this.bring.request.map}`, bringUntil: new Date(this.bring.until).toISOString() } : {}),
     };
   }
 
@@ -217,11 +230,13 @@ export class EditorRunner {
     return undefined;
   }
 
-  /** A map viewer's edit to the map open in Edit (control.ts POST /edit). */
+  /**
+   * A map viewer's edit to the map open in Edit (control.ts POST /edit). Until Edit is ready (or
+   * once it's stopping), the Panel changes map.json itself, and Edit picks the change up when it's ready.
+   */
   outerEdit(target: string, map: string, edit: MapEdit, by: string): OuterAnswer {
     const session = this.work.edit;
-    if (!session || !session.isMap(target, map)) return { outcome: "notOpen" };
-    if (session.status().state !== "ready") return { outcome: "busy", error: "game Edit is still opening this map: try again in a moment" };
+    if (!session || !session.isMap(target, map) || session.status().state !== "ready") return { outcome: "notOpen" };
     try {
       return { outcome: "done", ...session.outerEdit(edit, by) };
     } catch (error) {
@@ -233,8 +248,7 @@ export class EditorRunner {
   /** A map viewer's undo or redo on the map open in Edit (control.ts POST /undo and /redo). */
   outerStep(target: string, map: string, kind: "undo" | "redo", by: string): OuterAnswer {
     const session = this.work.edit;
-    if (!session || !session.isMap(target, map)) return { outcome: "notOpen" };
-    if (session.status().state !== "ready") return { outcome: "busy", error: "game Edit is still opening this map: try again in a moment" };
+    if (!session || !session.isMap(target, map) || session.status().state !== "ready") return { outcome: "notOpen" };
     const done = session.outerStep(kind, by);
     return done ? { outcome: "done", ...done } : { outcome: "refused", error: `Nothing to ${kind}.` };
   }
@@ -304,6 +318,65 @@ export class EditorRunner {
   }
 
   /**
+   * The Panel's warm-up (control.ts POST /warm): a map picked on its Maps page, or open in its
+   * viewer, opened in Edit ahead of time while nobody uses Edit (warmPlan), so going in game is
+   * quick. A newer one calls off an older one: still to run, it's skipped; starting, it stops.
+   * Says whether it's opening, and why not.
+   */
+  warm(target: string, map: string): { opening: boolean; why?: string } {
+    if (this.state !== "ready") return { opening: false, why: this.state === "stopping" ? "the editor is shutting down" : "the editor is still starting" };
+    if (!isMapId(target) || !isMapId(map)) return { opening: false, why: "not a map id" };
+    const request: Extract<OpenRequest, { to: "edit" }> = { to: "edit", target, map };
+    const key = openKey(request);
+    const plan = this.warmPlanFor(key);
+    if (!plan.open) return { opening: false, why: plan.why };
+    const count = ++this.warmCount;
+    const opened = this.opened.get("edit");
+    if (this.warming && opened && openKey(opened.request) !== key) this.warming.cancel();
+    this.queues.edit = this.queues.edit
+      .then(async () => {
+        // Skipped when a newer pick came, or Edit got busy meanwhile.
+        if (count !== this.warmCount || !this.warmPlanFor(key).open) return;
+        const launch = await this.editLaunch(request);
+        this.log(`The Panel: warming up ${launch.label} in Edit`);
+        await this.launch("this PC", launch, true);
+      })
+      .catch((error: unknown) => this.log(`Warming ${target}/${map} up went wrong: ${message(error)}`));
+    return { opening: true };
+  }
+
+  /**
+   * Open in game from the Panel's map viewer: opens the map in Edit, and moves the map editors in the
+   * editor lobby there once it's ready, and any who join it in the next minutes (once each).
+   */
+  async openInGame(target: string, map: string): Promise<string | undefined> {
+    const request: Extract<OpenRequest, { to: "edit" }> = { to: "edit", target, map };
+    const problem = await this.request("this PC", request);
+    if (problem) return problem;
+    this.bring = { request, key: openKey(request), until: Date.now() + BRING_MS, brought: new Set() };
+    const opened = this.opened.get("edit");
+    const label = opened && openKey(opened.request) === this.bring.key ? opened.label : `${target}/${map}`;
+    for (const name of this.home?.online() ?? []) {
+      if (this.isGuest(name)) continue;
+      this.bring.brought.add(name.toLowerCase());
+      this.waiting.set(name.toLowerCase(), { name, slot: "edit", label });
+    }
+    this.homeChanged();
+    // Already open and ready: they go now; else once it's ready.
+    await this.deliver("edit");
+    return undefined;
+  }
+
+  /** warmPlan for the Panel's warm-up, against Edit and who is using it now. */
+  private warmPlanFor(key: string): { open: boolean; why?: string } {
+    const session = this.work.edit;
+    const opened = this.opened.get("edit");
+    const current = session && opened ? { key: openKey(opened.request), state: session.status().state, players: session.online() } : undefined;
+    const waiting = [...this.waiting.values()].filter((entry) => entry.slot === "edit").length;
+    return warmPlan(key, current, { waiting, asked: this.editAsked, preview: this.previewing !== undefined || this.previewAsked });
+  }
+
+  /**
    * Adds a guest (on), or removes one, from the Panel. Guests may join the editor lobby and
    * whatever runs on Select's port, never Edit; removing one disconnects them. Undefined when it's
    * done, or why it can't be.
@@ -369,7 +442,18 @@ export class EditorRunner {
     }
     this.log(`${by}: open ${launch.label}`);
     this.homeChanged();
-    this.queues[launch.slot] = this.queues[launch.slot].then(() => this.launch(by, launch)).catch((error: unknown) => this.log(`Opening ${launch.label} went wrong: ${message(error)}`));
+    if (launch.slot === "edit") {
+      this.editAsked++;
+      // The Panel's warm-up starting another map gives way.
+      const opened = this.opened.get("edit");
+      if (this.warming && opened && openKey(opened.request) !== openKey(launch.request)) this.warming.cancel();
+    }
+    this.queues[launch.slot] = this.queues[launch.slot]
+      .then(() => this.launch(by, launch))
+      .catch((error: unknown) => this.log(`Opening ${launch.label} went wrong: ${message(error)}`))
+      .finally(() => {
+        if (launch.slot === "edit") this.editAsked--;
+      });
     return undefined;
   }
 
@@ -416,8 +500,11 @@ export class EditorRunner {
     };
   }
 
-  /** Runs one open on its server: moves whoever is on it to the lobby, restarts it, then delivers the waiting players. */
-  private async launch(by: string, launch: Launch): Promise<void> {
+  /**
+   * Runs one open on its server: moves whoever is on it to the lobby, restarts it, then delivers the
+   * waiting players. `warm` is the Panel's warm-up, which a newer open may call off while it starts.
+   */
+  private async launch(by: string, launch: Launch, warm = false): Promise<void> {
     if (this.state !== "ready") return;
     const { slot } = launch;
     const current = this.work[slot];
@@ -458,9 +545,16 @@ export class EditorRunner {
       this.homeChanged();
     };
     this.homeChanged();
+    if (warm && session instanceof EditorSession) this.warming = session;
     try {
       await session.start();
     } catch (error) {
+      // Called off for another map: whoever waits for Edit waits for that one.
+      if (error instanceof StartCanceled) {
+        this.log(`Stopped warming up ${launch.label}: another map was asked for.`);
+        this.homeChanged();
+        return;
+      }
       for (const [key, entry] of this.waiting) {
         if (entry.slot !== slot) continue;
         this.waiting.delete(key);
@@ -469,6 +563,8 @@ export class EditorRunner {
       }
       this.homeChanged();
       return;
+    } finally {
+      if (this.warming === session) this.warming = undefined;
     }
     await noteRecent(this.root, { request: launch.request, label: launch.label }).catch((error: unknown) => this.log(`Could not note it as recent: ${message(error)}`));
     this.homeChanged();
@@ -863,7 +959,18 @@ export class EditorRunner {
     }
     // Back in the lobby: on to a server that's waiting for them (a preview moves its players once it's ready).
     const entry = this.waiting.get(name.toLowerCase());
-    if (entry && entry.slot !== "preview") void this.deliver(entry.slot);
+    if (entry && entry.slot !== "preview") {
+      void this.deliver(entry.slot);
+      return;
+    }
+    // Open in game, from the Panel: a map editor joining goes straight to that map in Edit (once).
+    const bring = this.bring;
+    const opened = this.opened.get("edit");
+    if (!bring || bring.until < Date.now() || bring.brought.has(name.toLowerCase()) || !opened || openKey(opened.request) !== bring.key) return;
+    bring.brought.add(name.toLowerCase());
+    this.waiting.set(name.toLowerCase(), { name, slot: "edit", label: opened.label });
+    this.homeChanged();
+    void this.deliver("edit");
   }
 
   // ---- The lobby's state ------------------------------------------------------------------

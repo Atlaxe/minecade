@@ -635,6 +635,30 @@ export class MapScene {
     this.requestRender();
   }
 
+  /** Where the camera is and looks, to put it back after the page loads again. */
+  get viewState(): { top: boolean; position: [number, number, number]; target: [number, number, number]; zoom: number } {
+    const { position, zoom } = this.camera;
+    const { target } = this.controls;
+    return { top: this.camera === this.orthographic, position: [position.x, position.y, position.z], target: [target.x, target.y, target.z], zoom };
+  }
+
+  /** Puts the camera back where viewState had it. */
+  setViewState(state: { top: boolean; position: [number, number, number]; target: [number, number, number]; zoom: number }): void {
+    if (state.top) this.view("top");
+    else {
+      this.camera = this.perspective;
+      this.controls.object = this.perspective;
+      this.controls.enableRotate = true;
+    }
+    this.camera.position.set(...state.position);
+    this.controls.target.set(...state.target);
+    this.camera.zoom = state.zoom;
+    this.camera.updateProjectionMatrix();
+    this.resize();
+    this.controls.update();
+    this.requestRender();
+  }
+
   /** Which way the camera is turned (the view cube follows it). */
   get cameraQuaternion(): THREE.Quaternion {
     return this.camera.quaternion;

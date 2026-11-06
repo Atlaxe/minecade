@@ -154,4 +154,23 @@ describe("MapChanges with game Edit", () => {
     const oldOther = new MapChanges(root, editor({ target: "lobby", map: "other" }, () => ({ status: 404, answer: { error: "not found" } })));
     expect(await oldOther.edit("lobby", "hub", { op: "killY", y: 10 })).toMatchObject({ status: 200, via: "panel" });
   });
+
+  it("undoes its own changes, made before Edit had the map, once Edit has nothing to undo", async () => {
+    const path = lobbyMap("hub", '{ "name": "Hub", "spawns": [] }\n');
+    let open = false;
+    const link = editor({ target: "lobby", map: "hub" }, (route) =>
+      !open ? { status: 409, answer: { notOpen: true, error: "Edit doesn't have that map open" } } : { status: 422, answer: { error: `Nothing to ${route === "/undo" ? "undo" : "redo"}.` } },
+    );
+    const changes = new MapChanges(root, link);
+    // Edit is still opening the map: the Panel writes the change.
+    expect(await changes.edit("lobby", "hub", { op: "killY", y: 10 })).toMatchObject({ status: 200, via: "panel" });
+    open = true;
+    expect(await changes.step("lobby", "hub", "undo")).toMatchObject({ status: 200, via: "panel" });
+    expect(JSON.parse(readFileSync(path, "utf8")).killY).toBeUndefined();
+    expect(await changes.step("lobby", "hub", "redo")).toMatchObject({ status: 200, via: "panel" });
+    expect(JSON.parse(readFileSync(path, "utf8")).killY).toBe(10);
+    // With nothing left on either side, Edit's answer stands.
+    await changes.step("lobby", "hub", "undo");
+    expect(await changes.step("lobby", "hub", "undo")).toMatchObject({ status: 422, error: "Nothing to undo." });
+  });
 });

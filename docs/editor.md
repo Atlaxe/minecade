@@ -24,10 +24,15 @@ the Panel asks first, then stops it. Once the page says the editor is ready, joi
 Each port keeps the identity the network's server on it has, so if you've played on the network,
 there's no trust prompt; otherwise accept it once per server.
 
+The Panel also boots it by itself while its Maps page or a map viewer is open (unless the network
+runs), opens the map picked there in Edit ahead of time while nobody uses Edit, and shuts an
+editor it booted down once nobody has used it for 15 minutes; a map viewer's **In game, Open in
+game** opens its map in Edit and sends map editors straight there (`docs/viewer.md`, "In game").
+
 The page shows each server (what it has open, and who is on it), the checklist of the map open in
 Edit with **Save** and **Publish**, the maps cut from the world open in Select, and the editor's log. **Shut down**
 stops all three (Edit saves first); then **Start the network** brings the lobby and games back.
-Closing the Panel doesn't stop the editor.
+Closing the Panel doesn't stop an editor someone is on, or one booted from a terminal.
 
 From a terminal:
 

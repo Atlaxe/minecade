@@ -2,7 +2,8 @@
 // team's color), the shapes game Edit draws markers with (its resource pack's geometry) and the
 // game's own marker models (markers/<model>.geo.json and .png), so the page draws every list the
 // way game Edit does. And a watch on map.json, so an open viewer sees a change made in game Edit or
-// by hand: the Panel's event stream for the viewer's window carries it (panel.ts openEvents).
+// by hand: the Panel's event stream for the viewer's window carries it (panel.ts openEvents); and
+// one on the map's world, so the viewer draws the blocks again once game Edit saves them.
 import { createHash } from "node:crypto";
 import { existsSync, readFileSync, unwatchFile, watchFile } from "node:fs";
 import { readFile } from "node:fs/promises";
@@ -11,6 +12,7 @@ import type { EditorRules, MapConfig } from "@minecade/minigame-core/config";
 import { listMarkerModels } from "../editor/marker-models.ts";
 import { loadTarget } from "../editor/targets.ts";
 import { storeDir, workingDir } from "../maps/paths.ts";
+import { worldStamp } from "./view-file.ts";
 
 const ID = /^[A-Za-z0-9_-]+$/;
 /** Game Edit's marker shapes, in its resource pack. */
@@ -135,6 +137,63 @@ export function watchMap(root: string, target: string, map: string, listener: (c
     if (listeners.size === 0 && watches.get(path)?.listeners === listeners) {
       unwatchFile(path);
       watches.delete(path);
+    }
+  };
+}
+
+/** How often a watched world's files are looked at. */
+const WORLD_POLL_MS = 2000;
+const worldWatches = new Map<string, { listeners: Set<(stamp: string) => void>; stamp: string; seen: string; timer: NodeJS.Timeout }>();
+
+/**
+ * Calls `listener` with the world's new stamp (view-file.ts worldStamp, the view file's) whenever
+ * the map's world changes: game Edit saving it swaps the world folder whole, so a stamp counts once
+ * it's the same twice in a row with the world there. Returns the function that stops it.
+ */
+export function watchWorld(root: string, target: string, map: string, listener: (stamp: string) => void): () => void {
+  const json = mapJsonPath(root, target, map);
+  if (!json) return () => {};
+  const world = join(json, "..", "world");
+  let watch = worldWatches.get(world);
+  if (!watch) {
+    let stamp = "";
+    try {
+      stamp = worldStamp(world);
+    } catch {
+      // Read again on the next look.
+    }
+    const created = {
+      listeners: new Set<(stamp: string) => void>(),
+      stamp,
+      seen: stamp,
+      timer: setInterval(() => {
+        if (!existsSync(join(world, "db"))) return;
+        let now: string;
+        try {
+          now = worldStamp(world);
+        } catch {
+          // A file went while it was read: the world is being swapped.
+          return;
+        }
+        const steady = now === created.seen;
+        created.seen = now;
+        if (!steady || now === created.stamp) return;
+        created.stamp = now;
+        for (const each of created.listeners) each(now);
+      }, WORLD_POLL_MS),
+    };
+    created.timer.unref();
+    watch = created;
+    worldWatches.set(world, created);
+  }
+  const listeners = watch.listeners;
+  listeners.add(listener);
+  return () => {
+    listeners.delete(listener);
+    const current = worldWatches.get(world);
+    if (listeners.size === 0 && current?.listeners === listeners) {
+      clearInterval(current.timer);
+      worldWatches.delete(world);
     }
   };
 }
