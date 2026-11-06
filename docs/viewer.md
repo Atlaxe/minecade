@@ -77,6 +77,7 @@ The row at the top of the left panel, each with its key (none of them W, A, S or
 | **Marker** | M | Places one of the game's markers (off for a game without any) |
 | **Region** | B | Two clicks draw a box into the list picked in the right panel |
 | **Height** | H | Sets kill Y or a side of the build limit |
+| **Mirror** | I | Puts the mirror plane at the block, or picks a marker to mirror |
 | **Cut** | C | Cuts the map at the block |
 
 Esc goes back to Select (and, in Select, picks nothing). Clicking an entry in the overview picks it
@@ -177,7 +178,7 @@ a second.
   the one below, as in game: a height that breaks these isn't saved, and the viewer says why.
 - **Delete** removes it.
 
-## Picking several, mirroring and copying
+## Picking several and copying
 
 - **Pick several:** with Select, Shift + click markers in the view or entries in the overview to add
   them to the pick (Shift + click a picked one to take it out). In Top view (the cube's top), drag a
@@ -185,15 +186,40 @@ a second.
   (Shift: adds them). Esc picks nothing.
 - With several picked, the right panel names them and acts on them all: **Delete** (the key too)
   removes them as one change, which one undo brings back.
-- **Mirror** (for one picked entry, under its values; for several, in the panel): **Left to right**,
-  **Front to back** or **Half turn** adds a copy of each picked spawn, marker and box mirrored across
-  the map's middle (its bounds' middle, the point every marker faces without a facing of its own;
-  x 0 and z 0 for a map Select centered). Facings mirror too, and boxes stay whole blocks. A team's
-  entries go to **the other team** (Red to Blue; with more teams, the next one, or a team you pick,
-  or their own). The copies are picked afterward, and one undo takes them all back. The spectator and
-  queue spawns hold one entry each, so they aren't mirrored.
-- **Copy to another team:** adds a copy of each picked team entry (team spawns, a team's markers
-  and regions) to that team's list, in the same place.
+- **Copy to another team** (under a picked team entry's values, or in the panel for several): adds a
+  copy of each picked team entry (team spawns, a team's markers and regions) to that team's list,
+  in the same place.
+
+## Mirror
+
+The **Mirror** tool (I) mirrors spawns, game markers and boxes across a plane you place. What was
+picked with Select stays picked when you switch to it, and back.
+
+1. **Place plane:** the plane (a blue sheet standing across the map) starts at the map's middle, the
+   middle of its bounds that every marker faces without a facing of its own. With **Place plane** on
+   (it is when nothing is picked), the plane follows the pointer: click a block to put it there, at
+   the block's edge or middle, whichever the click is nearer. Its arrows above the map drag it half a
+   block at a time (a click on one moves it half a block), or type its X or Z. **Map's middle** puts
+   it back.
+2. **Pick entries:** after the plane goes down, a click on a marker picks it, or takes it out again,
+   and so does a click on an entry in the overview. **Spawns**, **Game markers** and **Boundaries**
+   pick every one of them (a second click takes them out), **None** picks nothing, and in Top view a
+   rectangle dragged from anywhere that isn't a marker adds what's in it. A see-through copy shows
+   where each picked entry would go.
+3. **How:**
+   - **Left to right** mirrors across a plane at x, **Front to back** across one at z, and **Half
+     turn** turns everything half around the line where both planes meet (both show, with their
+     arrows, and the cube between them drags the line).
+   - **Team entries go to** the other team (Red to Blue; with more teams, the next one, or a team you
+     pick, or their own).
+   - **Copies** adds mirrored copies and leaves the picked entries where they are. **Move** moves the
+     picked entries themselves, into the other team's list when they change team.
+4. **Mirror** does it, as one change that one undo takes back, and picks nothing.
+
+A whole x or z (a block's middle) mirrors to the middle of the block across the plane, an exact
+point to the point; facings turn with them, and boxes stay whole blocks. The spectator and queue
+spawns hold one entry each, so they're moved but never copied. At most 64 changes go at a time (a
+move into another team's list is two).
 
 ## Undo, Save and Publish
 

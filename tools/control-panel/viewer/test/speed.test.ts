@@ -1,6 +1,6 @@
 import type { MapList } from "@minecade/minigame-core/config";
 import { describe, expect, it } from "vitest";
-import { mirrorBox, mirrorPosition, mirrorYaw, nextTeam, speedEdits, teamOf, type SpeedEntry } from "../speed.ts";
+import { copyEdits, mirrorBox, mirrorEdits, mirrorPosition, mirrorYaw, nextTeam, snapHalf, teamOf, type SpeedEntry } from "../speed.ts";
 
 const TEAMS = ["red", "blue"];
 
@@ -50,7 +50,7 @@ describe("teams", () => {
   });
 });
 
-describe("speedEdits", () => {
+describe("mirrorEdits and copyEdits", () => {
   const entries: SpeedEntry[] = [
     { kind: "point", label: "Red spawn 1", target: { list: "teamSpawns", team: "red" }, position: [10, 64, 5, 90, 0] },
     { kind: "point", label: "Hole (Red) 1", target: { list: "points", name: "hole.red" }, position: [12.5, 60, 7.25] },
@@ -60,7 +60,7 @@ describe("speedEdits", () => {
   ];
 
   it("mirrors each entry into the other team's list, untouched lists into their own, and leaves out single entries", () => {
-    const { edits, skipped } = speedEdits(entries, TEAMS, { mirror: "x" });
+    const { edits, skipped } = mirrorEdits(entries, TEAMS, { mode: "x" });
     expect(edits).toEqual([
       { op: "add", target: { list: "teamSpawns", team: "blue" }, at: [-11, 64, 5, -90, 0] },
       { op: "add", target: { list: "points", name: "hole.blue" }, at: [-12.5, 60, 7.25] },
@@ -69,17 +69,50 @@ describe("speedEdits", () => {
     ]);
     expect(skipped).toEqual(["Queue spawn holds one entry"]);
     // Kept in their own team's lists when asked.
-    expect(speedEdits(entries.slice(0, 1), TEAMS, { mirror: "z", mirrorTeam: { kind: "same" } }).edits).toEqual([{ op: "add", target: { list: "teamSpawns", team: "red" }, at: [10, 64, -6, 90, 0] }]);
+    expect(mirrorEdits(entries.slice(0, 1), TEAMS, { mode: "z", team: { kind: "same" } }).edits).toEqual([{ op: "add", target: { list: "teamSpawns", team: "red" }, at: [10, 64, -6, 90, 0] }]);
   });
 
   it("copies team entries to another team as they are, and says which it left out", () => {
-    const { edits, skipped } = speedEdits(entries, TEAMS, { copyTo: "blue" });
+    const { edits, skipped } = copyEdits(entries, TEAMS, "blue");
     expect(edits).toEqual([
       { op: "add", target: { list: "teamSpawns", team: "blue" }, at: [10, 64, 5, 90, 0] },
       { op: "add", target: { list: "points", name: "hole.blue" }, at: [12.5, 60, 7.25] },
       { op: "addRegion", name: "spawnGuard.blue", box: { min: [8, 60, 2], max: [14, 70, 9] } },
     ]);
     expect(skipped).toEqual(["Bounds isn't a team's", "Queue spawn isn't a team's"]);
-    expect(speedEdits(entries.slice(0, 1), TEAMS, { copyTo: "red" }).skipped).toEqual(["Red spawn 1 is already red's"]);
+    expect(copyEdits(entries.slice(0, 1), TEAMS, "red").skipped).toEqual(["Red spawn 1 is already red's"]);
+  });
+
+  it("moves entries instead: in place in their own list, else out of theirs (the last first) and into the other team's", () => {
+    const moving: SpeedEntry[] = [
+      { kind: "point", label: "Red spawn 1", target: { list: "teamSpawns", team: "red" }, position: [10, 64, 5], index: 0 },
+      { kind: "point", label: "Red spawn 2", target: { list: "teamSpawns", team: "red" }, position: [11, 64, 5], index: 1 },
+      { kind: "point", label: "Queue spawn", target: { list: "queueSpawn" }, position: [3, 64, 0], index: 0, single: true },
+      { kind: "box", label: "Bounds 2", place: { kind: "bounds" }, box: { min: [0, 50, 0], max: [4, 60, 4] }, entry: { key: "bounds#1", label: "Bounds 2", box: { min: [0, 50, 0], max: [4, 60, 4] }, bounds: 1 } },
+      { kind: "box", label: "Spawn guard (Red) 1", place: { kind: "region", name: "spawnGuard.red" }, box: { min: [8, 60, 2], max: [14, 70, 9] }, entry: { key: "regions.spawnGuard.red#0", label: "Spawn guard (Red) 1", box: { min: [8, 60, 2], max: [14, 70, 9] }, region: { name: "spawnGuard.red", index: 0 } } },
+    ];
+    const { edits, skipped } = mirrorEdits(moving, TEAMS, { mode: "x", middle: { x: 0.5, z: 0 }, move: true });
+    expect(skipped).toEqual([]);
+    expect(edits).toEqual([
+      { op: "set", target: { list: "queueSpawn" }, index: 0, at: [-3, 64, 0] },
+      { op: "setBounds", index: 1, box: { min: [-4, 50, 0], max: [0, 60, 4] } },
+      { op: "removeRegion", name: "spawnGuard.red", index: 0 },
+      { op: "remove", target: { list: "teamSpawns", team: "red" }, index: 1 },
+      { op: "remove", target: { list: "teamSpawns", team: "red" }, index: 0 },
+      { op: "add", target: { list: "teamSpawns", team: "blue" }, at: [-10, 64, 5] },
+      { op: "add", target: { list: "teamSpawns", team: "blue" }, at: [-11, 64, 5] },
+      { op: "addRegion", name: "spawnGuard.blue", box: { min: [-14, 60, 2], max: [-8, 70, 9] } },
+    ]);
+    // An entry without its place can't be moved.
+    expect(mirrorEdits([{ kind: "point", label: "Spawn", target: { list: "spawns" }, position: [1, 2, 3] }], TEAMS, { mode: "z", move: true }).skipped).toEqual(["Spawn can't be moved"]);
+  });
+});
+
+describe("snapHalf", () => {
+  it("snaps to a block's edge or middle", () => {
+    expect(snapHalf(3.2)).toBe(3);
+    expect(snapHalf(3.3)).toBe(3.5);
+    expect(snapHalf(-0.2)).toBe(0);
+    expect(snapHalf(-0.3)).toBe(-0.5);
   });
 });

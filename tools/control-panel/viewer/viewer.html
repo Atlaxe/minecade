@@ -30,7 +30,7 @@
   .left { border-right: 1px solid var(--line); }
   .right { border-left: 1px solid var(--line); padding: 16px; display: flex; flex-direction: column; gap: 18px; }
 
-  .tools { display: grid; grid-template-columns: repeat(6, 1fr); gap: 4px; padding: 12px; border-bottom: 1px solid var(--line); position: sticky; top: 0; background: var(--surface); z-index: 1; }
+  .tools { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; padding: 12px; border-bottom: 1px solid var(--line); position: sticky; top: 0; background: var(--surface); z-index: 1; }
   .tools button { display: grid; place-items: center; padding: 7px 0; background: none; color: var(--muted); border: 1px solid transparent; }
   .tools button:hover:not(:disabled) { background: var(--raised); color: var(--text); }
   .tools button.on, .tools button.on:hover:not(:disabled) { background: var(--selected); color: var(--on-selected); border-color: color-mix(in srgb, var(--primary) 45%, transparent); }
@@ -51,7 +51,10 @@
   /* The rectangle a drag in Top view picks with. */
   #marquee { position: absolute; pointer-events: none; border: 1px solid var(--primary); background: color-mix(in srgb, var(--primary) 14%, transparent); z-index: 2; }
   .speed .modes.three { grid-template-columns: 1fr 1fr; }
-  .speed .modes button:last-child { grid-column: span 2; }
+  .speed .modes.three button:last-child { grid-column: span 2; }
+  .speed .fields { margin-top: 10px; }
+  .speed .picked-list { margin: 8px 0 0; }
+  .speed .buttons .primary.grow { flex: 1; }
   .speed .field-row { display: grid; gap: 6px; cursor: default; }
   .speed select { width: 100%; }
   .speed .field-row .group-label { margin: 8px 0 0; }
@@ -168,6 +171,7 @@
       <button data-tool="marker" aria-label="Marker" data-tip="Marker: place the game's markers" data-key="M"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><rect x="7" y="3" width="10" height="8"/><path d="M12 11v10M8 21h8"/></svg></button>
       <button data-tool="region" aria-label="Region" data-tip="Region: draw bounds and regions" data-key="B"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h4M12 4h4M20 4v4M20 12v4M20 20h-4M12 20H8M4 20v-4M4 12V8"/></svg></button>
       <button data-tool="height" aria-label="Height" data-tip="Height: set kill Y and the build limit" data-key="H"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 16l9-3.5 9 3.5-9 3.5z"/><path d="M12 3v7M9 6l3-3 3 3"/></svg></button>
+      <button data-tool="mirror" aria-label="Mirror" data-tip="Mirror: place a plane, pick entries, mirror them across it" data-key="I"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2.5v19" stroke-dasharray="2.2 2.4"/><path d="M9 6.5 3 17.5h6z"/><path d="M15 6.5l6 11h-6z"/></svg></button>
       <button data-tool="cut" aria-label="Cut" data-tip="Cut: slice the map by height, X and Z" data-key="C"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 9l9-4.5L21 9l-9 4.5z"/><path d="M3 15l9 4.5 9-4.5" stroke-dasharray="2 2.5"/></svg></button>
     </div>
     <div id="sidebar" class="sidebar"></div>

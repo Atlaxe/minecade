@@ -5,7 +5,9 @@
 // Points past a cut are faded or gone with the blocks; box faces are cut with them. While a tool
 // works, a see-through ghost shows where a new point goes, a dragged point moves with the pointer,
 // and the picked point has a knob on the floor that turns its facing. A box being drawn or dragged
-// shows as a preview with its size. The move and resize handles are the gizmo's (gizmo.ts).
+// shows as a preview with its size. The Mirror tool's plane is a sheet across the map (two for a
+// half turn), and see-through copies show where the picked entries would be mirrored to. The move
+// and resize handles are the gizmo's (gizmo.ts).
 import * as THREE from "three";
 import { geoHeight, parseGeo, type FaceName, type Geo, type GeoBone } from "./geo.ts";
 import type { Box } from "@minecade/minigame-core/config";
@@ -32,6 +34,15 @@ export const KNOB_DISTANCE = 1.6;
 const BOX_GAP = 0.02;
 /** A preview box that can't be saved (smaller than its region's minSize). */
 const BAD_COLOR = 0xff3b30;
+/** How see-through the Mirror tool's plane is. */
+const MIRROR_SHEET = 0.14;
+
+/** Where the Mirror tool's plane is: across x, across z, or both (a half turn about where they meet). */
+export interface MirrorPlane {
+  mode: "x" | "z" | "turn";
+  x: number;
+  z: number;
+}
 
 interface ShapeModel {
   geo: Geo;
@@ -82,6 +93,10 @@ export class Overlay {
   private readonly sizeTag: HTMLDivElement;
   /** A box or height drawn by the preview while it's dragged (its own drawing is hidden). */
   private editing: string | undefined;
+  /** The Mirror tool's plane, and the copies it would make. */
+  private readonly mirror = new THREE.Group();
+  private readonly mirrored = new THREE.Group();
+  private readonly mirrorColor: number;
 
   constructor(
     private readonly scene: MapScene,
@@ -126,6 +141,8 @@ export class Overlay {
       object.visible = false;
       this.root.add(object);
     }
+    this.mirrorColor = new THREE.Color(getComputedStyle(document.documentElement).getPropertyValue("--primary").trim() || "#48c0f0").getHex();
+    this.root.add(this.mirror, this.mirrored);
     this.sizeTag = document.createElement("div");
     this.sizeTag.className = "tag size";
     this.sizeTag.hidden = true;
@@ -151,6 +168,66 @@ export class Overlay {
     }
     this.sizeTag.textContent = size ?? "";
     this.sizeTag.classList.toggle("bad", bad);
+    this.scene.requestRender();
+  }
+
+  /**
+   * Shows the Mirror tool's plane, or none: a sheet standing across the map at x (Left to right)
+   * or z (Front to back), from the map's floor to its top, or both for a half turn, with the line
+   * they turn about.
+   */
+  showMirror(plane: MirrorPlane | undefined): void {
+    disposeAll(this.mirror);
+    if (plane) {
+      const { min, max } = this.scene.planeExtent();
+      const [y0, y1] = [min[1], max[1] + 1];
+      const sheet = (corners: number[]) => {
+        const geometry = new THREE.BufferGeometry();
+        geometry.setAttribute("position", new THREE.Float32BufferAttribute(corners, 3));
+        geometry.setIndex([0, 1, 2, 0, 2, 3]);
+        const faces = new THREE.Mesh(geometry, new THREE.MeshBasicMaterial({ color: this.mirrorColor, transparent: true, opacity: MIRROR_SHEET, depthWrite: false, side: THREE.DoubleSide }));
+        const edge = new THREE.LineLoop(geometry.clone().setIndex(null), new THREE.LineBasicMaterial({ color: this.mirrorColor }));
+        const through = new THREE.LineLoop(geometry.clone().setIndex(null), new THREE.LineBasicMaterial({ color: this.mirrorColor, transparent: true, opacity: 0.35, depthTest: false }));
+        faces.renderOrder = 2;
+        through.renderOrder = 3;
+        this.mirror.add(faces, edge, through);
+      };
+      if (plane.mode !== "z") {
+        const [z0, z1] = [min[2] - 1, max[2] + 2];
+        sheet([plane.x, y0, z0, plane.x, y1, z0, plane.x, y1, z1, plane.x, y0, z1]);
+      }
+      if (plane.mode !== "x") {
+        const [x0, x1] = [min[0] - 1, max[0] + 2];
+        sheet([x0, y0, plane.z, x1, y0, plane.z, x1, y1, plane.z, x0, y1, plane.z]);
+      }
+      if (plane.mode === "turn") {
+        const axis = new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(plane.x, y0 - 2, plane.z), new THREE.Vector3(plane.x, y1 + 2, plane.z)]), new THREE.LineBasicMaterial({ color: 0xffffff, depthTest: false, transparent: true, opacity: 0.9 }));
+        axis.renderOrder = 4;
+        this.mirror.add(axis);
+      }
+    }
+    this.scene.requestRender();
+  }
+
+  /** See-through copies where the Mirror tool would put the picked entries (none: empty lists). */
+  showMirrored(points: PointMark[], boxes: { box: Box; color: number }[]): void {
+    disposeAll(this.mirrored);
+    for (const mark of points) {
+      const built = this.buildPoint(mark);
+      for (const material of built.materials) Object.assign(material, { transparent: true, opacity: GHOST, depthWrite: false });
+      built.group.renderOrder = 5;
+      this.mirrored.add(built.group);
+    }
+    for (const { box, color } of boxes) {
+      const size = [0, 1, 2].map((axis) => box.max[axis] - box.min[axis] + 1 + BOX_GAP * 2);
+      const center = [0, 1, 2].map((axis) => (box.min[axis] + box.max[axis] + 1) / 2);
+      const geometry = new THREE.BoxGeometry(size[0], size[1], size[2]).translate(center[0], center[1], center[2]);
+      const faces = new THREE.Mesh(geometry, new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.1, depthWrite: false, side: THREE.DoubleSide }));
+      const edges = new THREE.LineSegments(new THREE.EdgesGeometry(geometry), new THREE.LineBasicMaterial({ color, transparent: true, opacity: 0.75, depthTest: false }));
+      faces.renderOrder = 4;
+      edges.renderOrder = 4;
+      this.mirrored.add(faces, edges);
+    }
     this.scene.requestRender();
   }
 
@@ -476,6 +553,18 @@ export class Overlay {
       point.tag.classList.toggle("picked", this.isPicked(point.mark.key));
       if (onScreen) point.tag.style.transform = `translate(${((spot.x + 1) / 2) * width}px, ${((1 - spot.y) / 2) * height}px) translate(-50%, -100%)`;
     }
+  }
+}
+
+/** Removes a group's children, freeing their geometries and materials. */
+function disposeAll(group: THREE.Group): void {
+  for (const child of [...group.children]) {
+    group.remove(child);
+    child.traverse((object) => {
+      const drawn = object as THREE.Mesh;
+      drawn.geometry?.dispose();
+      for (const material of Array.isArray(drawn.material) ? drawn.material : drawn.material ? [drawn.material] : []) material.dispose();
+    });
   }
 }
 

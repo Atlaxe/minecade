@@ -5,10 +5,10 @@
 // checklist, the checks (checks.ts) and the overview (sidebar.ts) on the left and the picked tool's
 // or entry's settings, or the cuts, on the right.
 // Tools as game Edit has them: Select (pick, then move or resize with the gizmo, gizmo.ts, or type
-// the values; Shift + click or a rectangle in Top view picks several, to mirror, copy to another
-// team or delete together: speed.ts), Spawn and Marker (place points), Region (draw boxes), Height
-// (kill Y, the build limit) and Cut. Each edit goes to the Panel (changes.ts), with undo and redo,
-// Save and Publish.
+// the values; Shift + click or a rectangle in Top view picks several, to copy to another team or
+// delete together), Spawn and Marker (place points), Region (draw boxes), Height (kill Y, the build
+// limit), Mirror (place a mirror plane, pick entries, mirror them across it: speed.ts) and Cut.
+// Each edit goes to the Panel (changes.ts), with undo and redo, Save and Publish.
 import * as THREE from "three";
 import { bigEnough, listOf, worldPoint, type Box, type EditorRules, type MapConfig, type MapEdit, type MapPosition, type Vec3 } from "@minecade/minigame-core/config";
 import { lookAt, mapMiddle } from "../../../editor/behavior_pack/scripts/lists.ts";
@@ -19,9 +19,9 @@ import { MapChangesClient } from "./changes.ts";
 import { FLY_SPEEDS, Fly, type FlySpeed } from "./fly.ts";
 import { Gizmo, type GizmoPart } from "./gizmo.ts";
 import { buildMarkup, findEntry, type BoxMark, type Markup, type MarkupList, type PlaneMark, type PointMark } from "./markup.ts";
-import { Overlay, type MarkerAssets } from "./overlay.ts";
+import { Overlay, type MarkerAssets, type MirrorPlane } from "./overlay.ts";
 import { blocksWithoutLook, mapWarnings } from "./checks.ts";
-import { speedEdits, teamOf, type MirrorMode, type MirrorTeam, type SpeedEntry } from "./speed.ts";
+import { copyEdits, entryListKey, mirrorEdits, mirrorPlan, snapHalf, teamOf, type MirrorOptions, type MirrorTeam, type SpeedEntry } from "./speed.ts";
 import { centeredSpot, floorSpot, normalYaw, placedPosition, yawToward, type Spot } from "./placing.ts";
 import { MapScene, type Cuts, type Toggles } from "./scene.ts";
 import { Sidebar, el, swatch } from "./sidebar.ts";
@@ -61,10 +61,10 @@ interface MapData extends MarkerAssets {
   rules: EditorRules;
 }
 
-type ToolId = "select" | "spawn" | "marker" | "region" | "height" | "cut";
+type ToolId = "select" | "spawn" | "marker" | "region" | "height" | "mirror" | "cut";
 type CutAxis = "x" | "y" | "z";
 /** Each tool's key (no modifier). W, A, S and D stay free for flying. */
-const TOOL_KEYS: Record<string, ToolId> = { KeyV: "select", KeyP: "spawn", KeyM: "marker", KeyB: "region", KeyH: "height", KeyC: "cut" };
+const TOOL_KEYS: Record<string, ToolId> = { KeyV: "select", KeyP: "spawn", KeyM: "marker", KeyB: "region", KeyH: "height", KeyI: "mirror", KeyC: "cut" };
 
 /** How far the pointer moves before a press is a drag, in pixels. */
 const DRAG_PIXELS = 4;
@@ -186,8 +186,16 @@ async function main(): Promise<void> {
   let picked: string | undefined;
   /** Entries picked with `picked` (Shift + click, or a rectangle in Top view). */
   const also = new Set<string>();
-  /** Where mirrored team entries go. */
+  /**
+   * The Mirror tool: its plane (at the map's middle at first) and which way it mirrors, whether a
+   * click places the plane or picks entries, where mirrored team entries go, and whether it adds
+   * copies or moves the entries.
+   */
+  const start = mapMiddle(config);
+  let mirror: MirrorPlane = { mode: "x", x: start.x, z: start.z };
+  let mirrorStep: "place" | "pick" = "place";
   let mirrorTeam: MirrorTeam = { kind: "next" };
+  let mirrorMove = false;
 
   // The tools' state: which is on, each placing tool's list, a new region's name, the box's first corner.
   let tool: ToolId = "select";
@@ -216,6 +224,8 @@ async function main(): Promise<void> {
 
   const sidebar = new Sidebar($("sidebar"), {
     pick: (key, add) => {
+      // The Mirror tool picks what it mirrors from the overview too.
+      if (tool === "mirror") return togglePick(key);
       setTool("select");
       if (add) togglePick(key);
       else pickEntry(key, true);
@@ -349,8 +359,20 @@ async function main(): Promise<void> {
     showPick();
   };
 
+  /** Takes entries out of the pick. */
+  const unpick = (keys: string[]) => {
+    const gone = new Set(keys);
+    const kept = pickedKeys().filter((key) => !gone.has(key));
+    picked = kept[0];
+    also.clear();
+    for (const key of kept.slice(1)) also.add(key);
+    activeFace = undefined;
+    showPick();
+  };
+
   /** Where the picked entry's gizmo goes: a point's middle, a box's (or its faces), a height's sheet. */
-  const placeGizmo = (preview?: { point?: Spot; box?: Box; y?: number }) => {
+  const placeGizmo = (preview?: { point?: Spot; box?: Box; y?: number; plane?: MirrorPlane }) => {
+    if (tool === "mirror") return placeMirror(preview?.plane);
     if (tool !== "select" || !picked || also.size > 0) return gizmo.hide();
     const point = pointOf(picked);
     const box = boxOf(picked);
@@ -539,83 +561,116 @@ async function main(): Promise<void> {
     );
   const deleteButton = () => el("button", { className: "small danger", dataset: { tip: "Delete", key: "Del" }, onclick: removePicked }, "Delete");
 
-  // ---- The speed tools: mirror the picked entries across the map's middle, or copy them to another team.
+  // ---- The speed tools: Mirror (a tool of its own) and copying team entries to another team.
   const teams = data.rules.teams ?? [];
   const teamIds = teams.map((team) => team.id);
   const teamName = (id: string) => teams.find((team) => team.id === id)?.name ?? id;
-  /** The picked points and boxes as the speed tools take them (heights aren't mirrored). */
+  /** The picked points and boxes as the speed tools take them, with their places (heights aren't mirrored). */
   const speedEntries = (keys: string[]): SpeedEntry[] =>
     keys.flatMap((key): SpeedEntry[] => {
       const point = pointOf(key);
       const list = point && findEntry(markup, point.key)?.list;
       const position = point && positionOf(point);
-      if (point && list?.spawn && position) return [{ kind: "point", label: point.label, target: list.spawn.target, position, ...(list.spawn.single ? { single: true } : {}) }];
+      if (point && list?.spawn && position) return [{ kind: "point", label: point.label, target: list.spawn.target, position, index: point.index, ...(list.spawn.single ? { single: true } : {}) }];
       const box = boxOf(key);
       if (!box) return [];
       const place: BoxPlace = box.entry.region ? { kind: "region", name: box.entry.region.name } : box.entry.spectators ? { kind: "spectatorBounds" } : { kind: "bounds" };
-      return [{ kind: "box", label: box.label, place, box: box.box }];
+      return [{ kind: "box", label: box.label, place, box: box.box, entry: box.entry }];
     });
-  /** Adds the mirrored or copied entries as one change, then picks them. */
-  const applySpeed = (options: { mirror: MirrorMode; mirrorTeam: MirrorTeam } | { copyTo: string }) => {
-    const { edits, skipped } = speedEdits(speedEntries(pickedKeys()), teamIds, "mirror" in options ? { ...options, middle: middle() } : options);
-    const left = skipped.length > 0 ? ` Left out: ${skipped.join("; ")}.` : "";
-    if (edits.length === 0) return notice(`Nothing to ${"copyTo" in options ? "copy" : "mirror"}.${left}`, true);
-    if (edits.length > MAX_TOGETHER) return notice(`Mirror or copy at most ${MAX_TOGETHER} entries at a time.`, true);
+  const leftOut = (skipped: string[]) => (skipped.length > 0 ? ` Left out: ${skipped.join("; ")}.` : "");
+  /** Adds a copy of each picked team entry to another team's list, as one change, then picks the copies. */
+  const applyCopy = (copyTo: string) => {
+    const { edits, skipped } = copyEdits(speedEntries(pickedKeys()), teamIds, copyTo);
+    if (edits.length === 0) return notice(`Nothing to copy.${leftOut(skipped)}`, true);
+    if (edits.length > MAX_TOGETHER) return notice(`Copy at most ${MAX_TOGETHER} entries at a time.`, true);
     const before = new Set([...markup.points, ...markup.boxes].map((entry) => entry.key));
     if (!edit(edits.length === 1 ? edits[0] : { op: "batch", edits })) return;
     const added = [...markup.points, ...markup.boxes].map((entry) => entry.key).filter((key) => !before.has(key));
     pickMany(added, false);
-    notice(`${"copyTo" in options ? `Copied to ${teamName(options.copyTo)}` : "Mirrored"}: ${edits.length} ${edits.length === 1 ? "entry" : "entries"}, now picked.${left}`);
+    notice(`Copied to ${teamName(copyTo)}: ${edits.length} ${edits.length === 1 ? "entry" : "entries"}, now picked.${leftOut(skipped)}`);
   };
-  /** Mirror and Copy for the picked entries, under their values (or alone, with several picked). */
-  const speedSection = (keys: string[]): HTMLElement | null => {
+  /** Copy to another team, for the picked team entries, under their values (or alone, with several picked). */
+  const copySection = (keys: string[]): HTMLElement | null => {
     const entries = speedEntries(keys);
-    if (entries.length === 0) return null;
-    const teamed = entries.some((entry) => teamOf(entry, teamIds));
-    const mirror = (mode: MirrorMode, label: string, tip: string) => el("button", { className: "small", dataset: { tip }, onclick: () => applySpeed({ mirror: mode, mirrorTeam }) }, label);
-    const ruleValue = mirrorTeam.kind === "team" ? `team:${mirrorTeam.team}` : mirrorTeam.kind;
-    const mirrorTo = el(
-      "select",
-      {
-        onchange: (event: Event) => {
-          const value = (event.target as HTMLSelectElement).value;
-          mirrorTeam = value === "next" ? { kind: "next" } : value === "same" ? { kind: "same" } : { kind: "team", team: value.slice("team:".length) };
-        },
-      },
-      el("option", { value: "next", selected: ruleValue === "next" }, teams.length === 2 ? `The other team (${teams[0].name} to ${teams[1].name})` : `The next team (${teams[0]?.name ?? ""} to ${teams[1]?.name ?? ""})`),
-      el("option", { value: "same", selected: ruleValue === "same" }, "Their own team"),
-      teams.length > 2 ? teams.map((team) => el("option", { value: `team:${team.id}`, selected: ruleValue === `team:${team.id}` }, team.name)) : null,
-    );
+    if (teams.length < 2 || !entries.some((entry) => teamOf(entry, teamIds))) return null;
     return el(
       "div",
       { className: "speed" },
-      el("div", { className: "group-label" }, "Mirror across the map's middle"),
+      el("div", { className: "group-label" }, "Copy to another team"),
       el(
         "div",
-        { className: "modes three" },
-        mirror("x", "Left to right", "Add a copy mirrored across the middle's x"),
-        mirror("z", "Front to back", "Add a copy mirrored across the middle's z"),
-        mirror("turn", "Half turn", "Add a copy turned half around the map's middle"),
+        { className: "buttons" },
+        teams.map((team) => el("button", { className: "small", disabled: entries.every((entry) => teamOf(entry, teamIds) === team.id || !teamOf(entry, teamIds)), dataset: { tip: `Add a copy in ${team.name}'s list, in the same place` }, onclick: () => applyCopy(team.id) }, team.name)),
       ),
-      teamed && teams.length > 1 ? el("label", { className: "field-row" }, el("span", { className: "group-label" }, "Team entries go to"), mirrorTo) : null,
-      teamed && teams.length > 1
-        ? [
-            el("div", { className: "group-label" }, "Copy to another team"),
-            el(
-              "div",
-              { className: "buttons" },
-              teams.map((team) => el("button", { className: "small", disabled: entries.every((entry) => teamOf(entry, teamIds) === team.id || !teamOf(entry, teamIds)), dataset: { tip: `Add a copy in ${team.name}'s list, in the same place` }, onclick: () => applySpeed({ copyTo: team.id }) }, team.name)),
-            ),
-          ]
-        : null,
     );
   };
+
+  /** How the Mirror tool mirrors now, across a plane (its own when not given). */
+  const mirrorOptions = (plane: MirrorPlane = mirror): MirrorOptions => ({ mode: plane.mode, middle: { x: plane.x, z: plane.z }, team: mirrorTeam, move: mirrorMove });
+  const planeText = (plane: MirrorPlane) => (plane.mode === "x" ? `x ${plane.x}` : plane.mode === "z" ? `z ${plane.z}` : `x ${plane.x}, z ${plane.z}`);
+  /** The mirror plane through a spot on a block, to the nearest half block (its edge or middle), on the mode's axes. */
+  const planeAt = (clientX: number, clientY: number): MirrorPlane | undefined => {
+    const hit = scene.pickAt(clientX, clientY);
+    if (!hit) return undefined;
+    const x = snapHalf(hit.point[0] + volume.origin[0]);
+    const z = snapHalf(hit.point[2] + volume.origin[2]);
+    return { ...mirror, ...(mirror.mode !== "z" ? { x } : {}), ...(mirror.mode !== "x" ? { z } : {}) };
+  };
+  /** See-through copies where the picked entries would be mirrored to, across a plane. */
+  const showMirrorCopies = (plane: MirrorPlane = mirror) => {
+    const { mirrored } = mirrorPlan(speedEntries(pickedKeys()), teamIds, mirrorOptions(plane));
+    const points: PointMark[] = [];
+    const boxes: { box: Box; color: number }[] = [];
+    for (const { to } of mirrored) {
+      const list = allLists().find((candidate) => candidate.key === entryListKey(to));
+      if (to.kind === "box") {
+        boxes.push({ box: to.box, color: list?.color ?? NEW_REGION_COLOR });
+        continue;
+      }
+      const position = to.position;
+      const at = worldPoint(position);
+      const facing = position.length === 5 ? { yaw: position[3], pitch: position[4] } : undefined;
+      points.push({ key: "mirrored", list: entryListKey(to), index: -1, label: "", at, yaw: facing?.yaw ?? lookAt(at, middle()).yaw, pitch: facing?.pitch ?? 0, faced: facing !== undefined, color: list?.color ?? NEW_REGION_COLOR, shape: list?.shape ?? { kind: "post" } });
+    }
+    overlay.showMirrored(points, boxes);
+  };
+  /** The Mirror tool's plane, its copies, and the gizmo that moves the plane (above the kept layers). */
+  const placeMirror = (plane: MirrorPlane = mirror) => {
+    overlay.showMirror(plane);
+    showMirrorCopies(plane);
+    const y = (cuts.top ?? view.box.max[1]) + 3;
+    gizmo.showMove(new THREE.Vector3(plane.x, y, plane.z), plane.mode === "x" ? [0] : plane.mode === "z" ? [2] : [0, 2]);
+    gizmo.setActive(undefined);
+  };
+  const setMirror = (next: MirrorPlane) => {
+    mirror = next;
+    renderPanel();
+    placeGizmo();
+  };
+  const setMirrorStep = (step: "place" | "pick") => {
+    mirrorStep = step;
+    canvas.classList.toggle("aiming", step === "place" || arming !== undefined);
+    renderPanel();
+  };
+  /** Mirrors the picked entries across the plane as one change (copies, or the entries moved), then picks nothing. */
+  const applyMirror = () => {
+    const entries = speedEntries(pickedKeys());
+    if (entries.length === 0) return notice("Pick what to mirror first: click markers, or entries in the overview.", true);
+    const { edits, skipped } = mirrorEdits(entries, teamIds, mirrorOptions());
+    if (edits.length === 0) return notice(`Nothing to mirror.${leftOut(skipped)}`, true);
+    if (edits.length > MAX_TOGETHER) return notice(`That's ${edits.length} changes: mirror at most ${MAX_TOGETHER} at a time.`, true);
+    if (!edit(edits.length === 1 ? edits[0] : { op: "batch", edits })) return;
+    const count = entries.length - skipped.length;
+    pickEntry(undefined);
+    notice(`${mirrorMove ? "Moved" : "Mirrored"} ${count} ${count === 1 ? "entry" : "entries"} across ${planeText(mirror)}.${leftOut(skipped)}`);
+  };
+
   /** Several picked: what they are, and what can be done to them all. */
   const manyPanel = (): HTMLElement => {
     const keys = pickedKeys();
     const labels = keys.map((key) => findEntry(markup, key)?.entry.label).filter(Boolean) as string[];
     const shown = labels.length > 6 ? `${labels.slice(0, 6).join(", ")} and ${labels.length - 6} more` : labels.join(", ");
-    return el("section", {}, el("h2", {}, `${keys.length} picked`), el("p", { className: "sub" }, shown), speedSection(keys), el("div", { className: "buttons" }, deleteButton()));
+    return el("section", {}, el("h2", {}, `${keys.length} picked`), el("p", { className: "sub" }, shown), copySection(keys), el("div", { className: "buttons" }, deleteButton()));
   };
 
   const pointEditor = (point: PointMark): HTMLElement => {
@@ -647,7 +702,7 @@ async function main(): Promise<void> {
         ? el("div", { className: "fields" }, numberField("Yaw", "", yaw, FACING_STEP, (value) => at({ yaw: value })), numberField("Pitch", "", pitch, 5, (value) => at({ pitch: value })))
         : el("p", { className: "sub" }, "It faces the map's middle."),
       centerBox(),
-      speedSection([point.key]),
+      copySection([point.key]),
       el("div", { className: "buttons" }, deleteButton()),
     );
   };
@@ -690,7 +745,7 @@ async function main(): Promise<void> {
               .map((axis) => el("button", { className: "small", dataset: { tip: `Move ${activeFace?.axis === axis ? "the picked face" : "the face nearer it"} onto the ${"XYZ"[axis]} cut` }, onclick: () => toCut(axis) }, `To ${"XYZ"[axis]} cut`)),
           )
         : null,
-      speedSection([box.key]),
+      copySection([box.key]),
       el("div", { className: "buttons" }, deleteButton()),
     );
   };
@@ -776,6 +831,78 @@ async function main(): Promise<void> {
       }),
     );
 
+  const mirrorToolPanel = (): HTMLElement => {
+    const keys = pickedKeys();
+    const entries = speedEntries(keys);
+    const count = mirrorPlan(entries, teamIds, mirrorOptions()).mirrored.length;
+    const teamed = teams.length > 1 && entries.some((entry) => teamOf(entry, teamIds));
+    const tile = (on: boolean, label: string, tip: string, act: () => void) => el("button", { className: `small${on ? " on" : ""}`, dataset: { tip }, onclick: act }, label);
+    const field = (axis: "x" | "z") => numberField(axis.toUpperCase(), axis, mirror[axis], 0.5, (value) => setMirror({ ...mirror, [axis]: snapHalf(value) }));
+    // Each section of the overview (Spawns, Game markers, Boundaries): picks all of it, or takes it out.
+    const groups = markup.sections
+      .map((section) => ({ title: section.title, keys: section.lists.flatMap((list) => list.entries.map((entry) => entry.key)).filter((key) => pointOf(key) || boxOf(key)) }))
+      .filter((group) => group.keys.length > 0);
+    const isPicked = (key: string) => key === picked || also.has(key);
+    const labels = keys.map((key) => findEntry(markup, key)?.entry.label).filter(Boolean) as string[];
+    const shown = labels.length > 6 ? `${labels.slice(0, 6).join(", ")} and ${labels.length - 6} more` : labels.join(", ");
+    const ruleValue = mirrorTeam.kind === "team" ? `team:${mirrorTeam.team}` : mirrorTeam.kind;
+    const mirrorTo = el(
+      "select",
+      {
+        onchange: (event: Event) => {
+          const value = (event.target as HTMLSelectElement).value;
+          mirrorTeam = value === "next" ? { kind: "next" } : value === "same" ? { kind: "same" } : { kind: "team", team: value.slice("team:".length) };
+          placeGizmo();
+        },
+      },
+      el("option", { value: "next", selected: ruleValue === "next" }, teams.length === 2 ? `The other team (${teams[0].name} to ${teams[1].name})` : `The next team (${teams[0]?.name ?? ""} to ${teams[1]?.name ?? ""})`),
+      el("option", { value: "same", selected: ruleValue === "same" }, "Their own team"),
+      teams.length > 2 ? teams.map((team) => el("option", { value: `team:${team.id}`, selected: ruleValue === `team:${team.id}` }, team.name)) : null,
+    );
+    return el(
+      "section",
+      { className: "speed" },
+      el("h2", {}, "Mirror"),
+      el("p", { className: "sub" }, mirrorStep === "place" ? "Click a block: the plane goes through it, at its edge or middle." : "Click markers, or entries in the overview, to pick what to mirror."),
+      el(
+        "div",
+        { className: "modes" },
+        tile(mirrorStep === "place", "Place plane", "A click on a block puts the plane there", () => setMirrorStep("place")),
+        tile(mirrorStep === "pick", "Pick entries", "A click on a marker picks it, or takes it out", () => setMirrorStep("pick")),
+      ),
+      el("div", { className: "group-label" }, "Plane"),
+      el(
+        "div",
+        { className: "modes three" },
+        tile(mirror.mode === "x", "Left to right", "Mirror across a plane at x", () => setMirror({ ...mirror, mode: "x" })),
+        tile(mirror.mode === "z", "Front to back", "Mirror across a plane at z", () => setMirror({ ...mirror, mode: "z" })),
+        tile(mirror.mode === "turn", "Half turn", "Turn half around the line where both planes meet", () => setMirror({ ...mirror, mode: "turn" })),
+      ),
+      el("div", { className: "fields" }, mirror.mode !== "z" ? field("x") : null, mirror.mode !== "x" ? field("z") : null),
+      el("div", { className: "buttons" }, el("button", { className: "small", dataset: { tip: "The middle of the map's bounds, which markers face" }, onclick: () => setMirror({ ...mirror, x: middle().x, z: middle().z }) }, "Map's middle")),
+      el("div", { className: "group-label" }, "Pick"),
+      el(
+        "div",
+        { className: "buttons" },
+        groups.map((group) => {
+          const all = group.keys.every(isPicked);
+          return el("button", { className: `small${all ? " on" : ""}`, dataset: { tip: all ? `Take every one of the ${group.title.toLowerCase()} out` : `Pick every one of the ${group.title.toLowerCase()}` }, onclick: () => (all ? unpick(group.keys) : pickMany(group.keys, true)) }, `${group.title} (${group.keys.length})`);
+        }),
+        keys.length > 0 ? el("button", { className: "small", dataset: { tip: "Pick nothing" }, onclick: () => pickEntry(undefined) }, "None") : null,
+      ),
+      el("p", { className: "sub picked-list" }, keys.length > 0 ? `${keys.length} picked: ${shown}` : "Nothing picked."),
+      teamed ? el("label", { className: "field-row" }, el("span", { className: "group-label" }, "Team entries go to"), mirrorTo) : null,
+      el("div", { className: "group-label" }, "Mirror as"),
+      el(
+        "div",
+        { className: "modes" },
+        tile(!mirrorMove, "Copies", "Add mirrored copies; the picked entries stay", () => ((mirrorMove = false), renderPanel(), placeGizmo())),
+        tile(mirrorMove, "Move", "Move the picked entries to where they mirror", () => ((mirrorMove = true), renderPanel(), placeGizmo())),
+      ),
+      el("div", { className: "buttons" }, el("button", { className: "primary grow", disabled: count === 0, onclick: applyMirror }, count > 0 ? `Mirror ${count} ${count === 1 ? "entry" : "entries"}` : "Mirror")),
+    );
+  };
+
   const cutToolPanel = (): HTMLElement =>
     el(
       "section",
@@ -798,25 +925,34 @@ async function main(): Promise<void> {
     else if (tool === "spawn" || tool === "marker") content = placeToolPanel(tool);
     else if (tool === "region") content = regionToolPanel();
     else if (tool === "height") content = heightToolPanel();
+    else if (tool === "mirror") content = mirrorToolPanel();
     else if (tool === "cut") content = cutToolPanel();
     $("tool").replaceChildren(...(content ? [content] : []));
     $("cuts").hidden = !((tool === "select" && !picked) || tool === "cut");
   };
 
-  /** Switches tools: a placing tool picks nothing (its clicks place), and Esc comes back to Select. */
+  /**
+   * Switches tools: a placing tool picks nothing (its clicks place), Select and Mirror keep the pick
+   * (Mirror mirrors it), and Esc comes back to Select.
+   */
   const setTool = (next: ToolId) => {
     if (next === "marker" && listsFor("marker").length === 0) return;
     tool = next;
     newRegion = undefined;
     for (const button of document.querySelectorAll<HTMLButtonElement>("[data-tool]")) button.classList.toggle("on", button.dataset.tool === next);
-    if (next !== "select" && picked) pickEntry(undefined);
+    if (next !== "select" && next !== "mirror" && (picked || also.size > 0)) pickEntry(undefined);
+    if (next === "mirror") mirrorStep = pickedKeys().length > 0 ? "pick" : "place";
     armTool();
   };
   /** What the active tool shows under the pointer, and its panel. */
   const armTool = () => {
     corner = undefined;
     const list = armedList();
-    canvas.classList.toggle("aiming", tool !== "select" || arming !== undefined);
+    canvas.classList.toggle("aiming", (tool !== "select" && !(tool === "mirror" && mirrorStep === "pick")) || arming !== undefined);
+    if (tool !== "mirror") {
+      overlay.showMirror(undefined);
+      overlay.showMirrored([], []);
+    }
     if ((tool === "spawn" || tool === "marker") && list?.shape) overlay.setGhost({ key: "ghost", list: list.key, index: -1, label: "", at: { x: 0, y: -1e4, z: 0 }, yaw: 0, pitch: 0, faced: false, color: list.color, shape: list.shape });
     else overlay.setGhost(undefined);
     overlay.showBox(undefined, 0);
@@ -840,8 +976,22 @@ async function main(): Promise<void> {
   };
   const middle = () => mapMiddle(config);
 
-  /** A click on the blocks with a placing tool: a point, a box's corner, a height, or a cut. */
+  /** A click with a tool: a point, a box's corner, a height, a cut, or the mirror plane (or, picking for Mirror, a marker). */
   const useTool = (clientX: number, clientY: number) => {
+    if (tool === "mirror") {
+      if (mirrorStep === "pick") {
+        const point = overlay.pointAt(clientX, clientY);
+        const hit = scene.pickAt(clientX, clientY);
+        if (point && (!hit || point.distance <= hit.distance + 0.01)) togglePick(point.key);
+        return;
+      }
+      const plane = planeAt(clientX, clientY);
+      if (!plane) return notice("Click a block: the plane goes through it.", true);
+      mirror = plane;
+      setMirrorStep("pick");
+      placeGizmo();
+      return;
+    }
     const list = armedList();
     if ((tool === "spawn" || tool === "marker") && list?.spawn) {
       const spot = spotUnder(clientX, clientY);
@@ -985,7 +1135,7 @@ async function main(): Promise<void> {
   // Here: the next click on a block puts that cut at it.
   const armCut = (axis: CutAxis | undefined) => {
     arming = arming === axis ? undefined : axis;
-    canvas.classList.toggle("aiming", tool !== "select" || arming !== undefined);
+    canvas.classList.toggle("aiming", (tool !== "select" && !(tool === "mirror" && mirrorStep === "pick")) || arming !== undefined);
     for (const id of ["x", "y", "z"]) $(`${id}-here`).classList.toggle("on", arming === id);
   };
   for (const axis of ["x", "y", "z"] as const) $(`${axis}-here`).onclick = () => armCut(axis);
@@ -1031,7 +1181,7 @@ async function main(): Promise<void> {
   type Drag =
     | { kind: "move" | "face"; point: PointMark; moved: boolean; position?: MapPosition; yaw?: number }
     | { kind: "marquee"; moved: boolean; add: boolean }
-    | { kind: "gizmo"; part: GizmoPart; moved: boolean; origin: THREE.Vector3; start: THREE.Vector3; fine: boolean; result?: { point?: Vec3; box?: Box; y?: number } };
+    | { kind: "gizmo"; part: GizmoPart; moved: boolean; origin: THREE.Vector3; start: THREE.Vector3; fine: boolean; result?: { point?: Vec3; box?: Box; y?: number; plane?: MirrorPlane } };
   let press: { x: number; y: number; drag?: Drag } | undefined;
   const cancelDrag = () => {
     press = undefined;
@@ -1039,7 +1189,7 @@ async function main(): Promise<void> {
     overlay.hideWhileEditing(undefined);
     overlay.showBox(undefined, 0);
     overlay.set(markup);
-    overlay.pick(picked);
+    overlay.pick(picked, also);
     placeGizmo();
   };
 
@@ -1063,6 +1213,21 @@ async function main(): Promise<void> {
   /** A gizmo drag at a pointer spot: the entry's new place, shown (not saved). */
   const dragGizmo = (drag: Extract<Drag, { kind: "gizmo" }>, clientX: number, clientY: number, fine: boolean) => {
     const { part } = drag;
+    if (tool === "mirror") {
+      // The mirror plane, in half blocks: along its arrow, or across with the cube (a half turn).
+      if (part.kind === "face") return;
+      const now = gizmoStart(part, drag.origin, clientX, clientY);
+      if (!now) return;
+      const delta = now.clone().sub(drag.start);
+      const axes: (0 | 1 | 2)[] = part.kind === "arrow" ? [part.axis] : [0, 2];
+      const plane = { ...mirror, ...(axes.includes(0) ? { x: snapHalf(mirror.x + delta.x) } : {}), ...(axes.includes(2) ? { z: snapHalf(mirror.z + delta.z) } : {}) };
+      const before = drag.result?.plane;
+      drag.result = { plane };
+      if (!before || before.x !== plane.x || before.z !== plane.z) placeGizmo({ plane });
+      gizmo.setActive(part);
+      $("hover").textContent = `Mirror plane at ${planeText(plane)}`;
+      return;
+    }
     const point = pointOf(picked);
     const box = boxOf(picked);
     const height = heightMarkOf(picked);
@@ -1144,7 +1309,8 @@ async function main(): Promise<void> {
       const point = pointOf(picked);
       const box = boxOf(picked);
       const height = heightMarkOf(picked);
-      if (result?.point && point) movePoint(point, result.point);
+      if (result?.plane) setMirror(result.plane);
+      else if (result?.point && point) movePoint(point, result.point);
       else if (result?.box && box) saveBox(box, result.box);
       else if (result?.y !== undefined && height && result.y !== height.y) saveHeight(height.line, result.y);
       else cancelDrag();
@@ -1169,12 +1335,15 @@ async function main(): Promise<void> {
     if (event.button !== 0) return;
     canvas.focus();
     press = { x: event.clientX, y: event.clientY };
-    if (arming || tool !== "select") return;
+    if (arming || (tool !== "select" && tool !== "mirror")) return;
     const part = gizmo.partAt(event.clientX, event.clientY);
     if (part) {
       const origin = gizmo.center;
       const start = gizmoStart(part, origin, event.clientX, event.clientY);
       if (start || part.kind === "face") press.drag = { kind: "gizmo", part, moved: false, origin, start: start ?? origin, fine: event.shiftKey };
+    } else if (tool === "mirror") {
+      // Picking for Mirror in Top view, a rectangle from anywhere that isn't a marker adds what's in it.
+      if (mirrorStep === "pick" && scene.isTop && !overlay.pointAt(event.clientX, event.clientY)) press.drag = { kind: "marquee", moved: false, add: true };
     } else {
       const block = scene.pickAt(event.clientX, event.clientY);
       const knob = overlay.knobAt(event.clientX, event.clientY);
@@ -1246,6 +1415,11 @@ async function main(): Promise<void> {
       armCut(undefined);
       return;
     }
+    if (tool === "mirror" && drag?.kind === "gizmo") {
+      // A click on one of the plane's arrows moves it half a block that way.
+      if (drag.part.kind === "arrow") setMirror({ ...mirror, ...(drag.part.axis === 0 ? { x: mirror.x + drag.part.sign / 2 } : { z: mirror.z + drag.part.sign / 2 }) });
+      return;
+    }
     if (tool !== "select") return useTool(event.clientX, event.clientY);
     if (drag?.kind === "gizmo") {
       // A click on an arrow steps a block its way; on a square, picks that face for the arrow keys.
@@ -1278,8 +1452,14 @@ async function main(): Promise<void> {
       hoverQueued = false;
       if (!last) return;
       const list = armedList();
-      canvas.style.cursor = tool === "select" && !arming && gizmo.partAt(last.clientX, last.clientY) ? "grab" : "";
+      canvas.style.cursor = (tool === "select" || tool === "mirror") && !arming && gizmo.partAt(last.clientX, last.clientY) ? "grab" : "";
       const hit = scene.pickAt(last.clientX, last.clientY);
+      if (!arming && tool === "mirror" && mirrorStep === "place") {
+        // The plane follows the pointer until a click puts it down.
+        const plane = hit ? planeAt(last.clientX, last.clientY) : undefined;
+        overlay.showMirror(plane ?? mirror);
+        return void ($("hover").textContent = plane ? `Mirror plane at ${planeText(plane)}` : "");
+      }
       if (!arming && (tool === "spawn" || tool === "marker")) {
         const spot = spotUnder(last.clientX, last.clientY);
         overlay.moveGhost(spot?.at, spot ? lookAt(spot.at, middle()).yaw : 0);
@@ -1308,6 +1488,7 @@ async function main(): Promise<void> {
   canvas.addEventListener("pointerleave", () => {
     $("hover").textContent = "";
     overlay.moveGhost(undefined, 0);
+    if (tool === "mirror") overlay.showMirror(mirror);
     if (tool === "region" && !corner) overlay.showBox(undefined, 0);
   });
 

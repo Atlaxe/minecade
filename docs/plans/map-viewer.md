@@ -7,8 +7,9 @@ read-only viewer, `docs/viewer.md`) done 2026-11-05, in `tools/viewer/` and
 `tools/control-panel/viewer/`. V.4 (markers shown), V.5 (points, Save and Publish) and V.6 (boxes
 and planes) done 2026-11-06. Before V.7, the same day, the user reworked the viewer's layout (see
 "Layout rework" below). V.7 (shapes and see-through blocks), V.8 (Vanilla textures) and V.9 (speed
-tools) done 2026-11-06. Build it in the order of "Passes" below: each pass leans on the ones before
-it.
+tools) done 2026-11-06. After V.9 the user made Mirror a tool of its own and asked for a Keys tab in
+the settings (see "After V.9" below). Build it in the order of "Passes" below: each pass leans on
+the ones before it.
 
 **For the session that implements this:**
 - Work in a worktree of your own (`CLAUDE.md`, "Branch and merge").
@@ -405,6 +406,17 @@ The user's changes to V.3 to V.6's layout, built the same day (`docs/viewer.md` 
 - **Keys:** undo and redo listen in the capture phase on the window, so a focused button or the
   canvas never keeps them; every button with a key shows it in a tooltip after a second
   (`tips.js`).
+
+## After V.9 (2026-11-06, the user's changes)
+
+- **Mirror is a tool** (I, `app.ts` and `speed.ts`), no longer buttons under a picked entry. First
+  the mirror plane is placed (it starts at the map's middle; a click on a block puts it there, at
+  the nearer half block, and its arrows or typed X and Z move it), then what to mirror is picked
+  (markers clicked, the overview, a section at a time, or a rectangle in Top view), with see-through
+  copies where they'd go, and the tool's settings say how: Left to right, Front to back or Half
+  turn; which team team entries go to; and **Copies** or **Move** (the entries themselves). Copy to
+  another team stays with Select.
+- **Keys** in the settings dialog: every key the viewer uses, each changeable (pass "Keys" below).
 
 ## Passes (the implementation order: stop and report after each, commit and push)
 
