@@ -7,6 +7,7 @@
 //                                               with its checklist state, and the client's worlds
 //   GET /api/viewer/view?target=<id>&map=<id>   the map's view file (view-format.ts), gzipped
 //   GET /api/viewer/colors                      the blocks' Average colors (looks.ts), gzipped JSON
+//   GET /api/viewer/thumb?target=<id>&map=<id>  the map's thumbnail (preview.png), if it has one
 //   GET /api/viewer/map?target=<id>&map=<id>    the map's markup data (map-data.ts): map.json, its
 //                                               game's rules, marker shapes and models
 import { existsSync, readdirSync, statSync } from "node:fs";
@@ -54,6 +55,13 @@ export function viewerView(root: string, target: string, map: string): ViewAnswe
     if (!(error instanceof ViewError)) throw error;
     return { status: error.message.startsWith("there's no world") ? 404 : 422, error: error.message };
   }
+}
+
+/** A map's thumbnail (its preview.png, taken in game Edit), or undefined when it has none. */
+export function viewerThumbPath(root: string, target: string, map: string): string | undefined {
+  if (!ID.test(target) || !ID.test(map)) return undefined;
+  const path = join(workingDir(target, storeDir(root)), map, "preview.png");
+  return existsSync(path) ? path : undefined;
 }
 
 let colors: { key: string; gzipped: Buffer } | undefined;

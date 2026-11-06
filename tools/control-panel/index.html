@@ -88,6 +88,37 @@
   .toast.ok { --tone: var(--ok); } .toast.warn { --tone: var(--warn); } .toast.bad { --tone: var(--bad); }
   .toast::before { content: ""; width: 8px; height: 8px; border-radius: 1px; background: var(--tone); flex: none; transform: translateY(-1px); }
 
+  /* Maps: the search row, the cards by game, and the bar for the picked one. */
+  .page.page-wide { max-width: 1280px; padding-bottom: 72px; }
+  .map-search { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 24px; }
+  .search-box { flex: 1 1 320px; display: flex; align-items: center; gap: 8px; background: var(--inset); border: 1px solid var(--line); border-radius: var(--radius); padding: 0 10px; color: var(--muted); }
+  .search-box:focus-within { border-color: var(--primary); }
+  .search-box input { flex: 1; min-width: 0; border: 0; background: none; padding: 7px 0; outline: none; }
+  .map-search select { min-width: 180px; }
+  #maps-note { margin: 10px 0 0; min-height: 1.5em; }
+  .map-group { margin-top: 28px; }
+  .map-group h2 { display: flex; align-items: baseline; gap: 10px; margin-bottom: 12px; }
+  .map-group h2 .muted { font: 400 var(--fs-meta) var(--font); }
+  .map-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(232px, 1fr)); gap: 14px; }
+  .map-card { display: flex; flex-direction: column; text-align: left; padding: 0; gap: 0; font-size: var(--fs-body); font-weight: 400; background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-lg); overflow: hidden; transition: border-color .15s ease-out, background-color .15s ease-out; }
+  .map-card:hover:not(:disabled) { background: var(--surface); border-color: var(--line-strong); }
+  .map-card.picked, .map-card.picked:hover:not(:disabled) { border-color: var(--primary); background: var(--selected); box-shadow: 0 0 0 1px var(--primary); }
+  .map-thumb { aspect-ratio: 16 / 9; width: 100%; background: var(--inset); border-bottom: 1px solid var(--line); display: grid; place-items: center; color: var(--muted); font-size: var(--fs-meta); }
+  .map-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; image-rendering: auto; }
+  .map-card.picked .map-thumb { border-bottom-color: var(--primary); }
+  .map-body { display: grid; gap: 8px; padding: 12px 14px 14px; }
+  .map-title { display: flex; align-items: baseline; gap: 8px; min-width: 0; }
+  .map-title .strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .map-title .mono { color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .map-card.picked .map-title .mono { color: var(--on-selected); }
+  .map-tags { display: flex; gap: 6px; flex-wrap: wrap; }
+  .map-empty { margin-top: 28px; color: var(--muted); }
+  .map-pick { position: fixed; left: 216px; right: 0; bottom: 0; z-index: 5; display: flex; align-items: center; gap: 14px; padding: 12px 40px; background: var(--surface); border-top: 1px solid var(--line-strong); box-shadow: 0 -8px 24px #0004; }
+  .map-pick img { width: 80px; aspect-ratio: 16 / 9; object-fit: cover; border-radius: 2px; border: 1px solid var(--line); }
+  .map-pick-text { display: grid; flex: 1; min-width: 0; }
+  .map-pick-text span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  #map-pick-edit { padding: 9px 18px; font-size: var(--fs-body); }
+
   @media (max-width: 720px) {
     .app { grid-template-columns: 1fr; height: auto; }
     .sidebar { flex-direction: row; flex-wrap: wrap; align-items: center; padding: 8px 12px; border-right: 0; border-bottom: 1px solid var(--line); }
@@ -97,6 +128,7 @@
     .side-foot { margin: 0 0 0 auto; padding: 0; border-top: 0; }
     main { padding: 16px; }
     .server-row { grid-template-columns: 1fr; gap: 4px; }
+    .map-pick { left: 0; padding: 10px 16px; }
   }
 </style>
 </head>
@@ -197,10 +229,29 @@
   </div>
 </section>
 
-<section id="page-maps" class="page" hidden>
-  <div class="page-head"><h1>Maps</h1><p>Every map in the map store, by game. View one in 3D: turn it, look from any side, cut through it a layer at a time, and place its spawns and markers with the mouse. The viewer never changes a world's blocks, so it works while the network runs; with game Edit open on the map, its changes go through the map editor.</p></div>
-  <div class="row" style="margin-bottom:14px"><button id="maps-refresh">Refresh</button><span id="maps-note" class="muted"></span></div>
+<section id="page-maps" class="page page-wide" hidden>
+  <div class="page-head"><h1>Maps</h1><p>Every map in the map store. Pick one to edit its spawns, markers and boundaries in the 3D viewer.</p></div>
+  <div class="map-search" role="search">
+    <label class="search-box"><svg class="icon-svg" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="m16 16 4.5 4.5"/></svg><input id="maps-query" type="search" placeholder="Search maps by name or id" aria-label="Search maps" autocomplete="off" spellcheck="false"></label>
+    <select id="maps-game" aria-label="Game"><option value="">All games</option></select>
+    <select id="maps-status" aria-label="Status">
+      <option value="">Any status</option>
+      <option value="ready">Ready</option>
+      <option value="notready">Not ready</option>
+      <option value="draft">Draft</option>
+      <option value="unpublished">Unpublished changes</option>
+      <option value="published">Published, no changes</option>
+    </select>
+    <button id="maps-refresh" class="icon" data-tip="Read the map store again" aria-label="Refresh"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11a8 8 0 1 0-2.3 5.7"/><path d="M20 4v7h-7"/></svg></button>
+  </div>
+  <p id="maps-note" class="muted meta" aria-live="polite"></p>
   <div id="maps"><p class="hint">Loading...</p></div>
+  <div id="map-pick" class="map-pick" hidden>
+    <img id="map-pick-thumb" alt="" hidden>
+    <div class="map-pick-text"><span id="map-pick-name" class="strong"></span><span id="map-pick-detail" class="muted meta"></span></div>
+    <button id="map-pick-clear" class="small" data-tip="Pick nothing" data-key="Esc">Clear</button>
+    <button id="map-pick-edit" class="primary" data-tip="Open it in the 3D viewer" data-key="Enter"></button>
+  </div>
 </section>
 
 <section id="page-logs" class="page" hidden>
@@ -1035,50 +1086,151 @@ function addActivity(entry) {
 
 /** The map store's maps by target (the editor's catalog), loaded when the Maps page opens. */
 let maps = null;
+/** The picked map, "<target>/<map>", and the filters: kept for this window, so coming back from the viewer finds them as they were. */
+const MAPS_STATE = "minecade-maps";
+let mapsView = (() => {
+  try { return { query: "", game: "", status: "", picked: "", ...JSON.parse(sessionStorage.getItem(MAPS_STATE) ?? "{}") }; }
+  catch { return { query: "", game: "", status: "", picked: "" }; }
+})();
+function saveMapsView() {
+  try { sessionStorage.setItem(MAPS_STATE, JSON.stringify(mapsView)); } catch { /* not kept */ }
+}
 
 async function loadMaps() {
-  $("maps-note").textContent = "Loading...";
+  $("maps-note").textContent = "Reading the map store...";
+  $("maps-refresh").disabled = true;
   const response = await fetch("/api/viewer/maps").catch(() => null);
   const result = response ? await response.json().catch(() => ({})) : {};
-  $("maps-note").textContent = "";
+  $("maps-refresh").disabled = false;
   if (!response?.ok) {
     const error = !response ? "Could not reach the panel helper."
       : response.status === 404 ? "The panel helper is out of date: Restart Panel, or close this window and open Minecade Panel again."
       : result.error ?? `HTTP ${response.status}`;
+    $("maps-note").textContent = "";
     $("maps").replaceChildren(el("p", { className: "error" }, error));
     return;
   }
   maps = result;
+  const select = $("maps-game");
+  select.replaceChildren(el("option", { value: "" }, "All games"), ...maps.targets.filter((target) => target.maps.length > 0).map((target) => el("option", { value: target.id }, target.name)));
+  $("maps-query").value = mapsView.query;
+  select.value = maps.targets.some((target) => target.id === mapsView.game) ? mapsView.game : "";
+  $("maps-status").value = mapsView.status;
   renderMaps();
 }
 
+const MAP_STATUS = {
+  ready: (map) => map.ready,
+  notready: (map) => !map.ready,
+  draft: (map) => map.draft,
+  unpublished: (map) => map.unpublished,
+  published: (map) => !map.unpublished && !map.draft,
+};
+
 function renderMaps() {
-  const targets = maps.targets.filter((target) => target.maps.length > 0);
-  const empty = maps.targets.filter((target) => target.maps.length === 0).map((target) => target.name);
+  if (!maps) return;
+  const query = mapsView.query.trim().toLowerCase();
+  const matches = (target, map) =>
+    (!mapsView.game || target.id === mapsView.game)
+    && (!mapsView.status || MAP_STATUS[mapsView.status]?.(map))
+    && (!query || map.name.toLowerCase().includes(query) || map.id.toLowerCase().includes(query));
+  const groups = maps.targets.map((target) => ({ target, list: target.maps.filter((map) => matches(target, map)) })).filter((group) => group.list.length > 0);
+  const total = maps.targets.reduce((sum, target) => sum + target.maps.length, 0);
+  const shown = groups.reduce((sum, group) => sum + group.list.length, 0);
+  $("maps-note").textContent = shown === total ? `${total} ${total === 1 ? "map" : "maps"}` : `${shown} of ${total} maps`;
+  if (!groups.some((group) => group.list.some((map) => `${group.target.id}/${map.id}` === mapsView.picked))) mapsView.picked = "";
   $("maps").replaceChildren(
-    ...targets.map((target) => el("div", { className: "card" },
-      el("div", { className: "card-head" }, el("h2", {}, target.name), el("span", { className: "muted small mono" }, target.id)),
-      el("div", { className: "table-wrap" }, el("table", {},
-        el("thead", {}, el("tr", {}, el("th", {}, "Map"), el("th", {}, "Checklist"), el("th", {}))),
-        el("tbody", {}, ...target.maps.map((map) => el("tr", {},
-          el("td", {}, el("span", { className: "strong" }, map.name), " ", el("span", { className: "muted mono" }, map.id)),
-          el("td", {},
-            el("span", { className: `pill ${map.ready ? "ok" : "warn"}` }, map.ready ? "Ready" : "Not ready"),
-            map.draft ? [" ", el("span", { className: "pill off" }, "Draft")] : null,
-            map.unpublished ? [" ", el("span", { className: "pill warn" }, "Unpublished changes")] : null),
-          el("td", { className: "end" }, el("button", { className: "small primary", onclick: () => openViewer(target, map) }, "View in 3D")),
-        ))))))),
-    empty.length > 0 ? el("p", { className: "hint" }, `No maps yet: ${empty.join(", ")}.`) : null,
+    ...groups.map(({ target, list }) => el("section", { className: "map-group" },
+      el("h2", {}, target.name, el("span", { className: "muted" }, `${list.length} ${list.length === 1 ? "map" : "maps"}`)),
+      el("div", { className: "map-grid" }, list.map((map) => mapCard(target, map))))),
+    groups.length === 0 ? el("p", { className: "map-empty" }, total === 0 ? "No maps yet. Cut one out of a world in the map editor's Select." : "No maps match. Clear the search or pick another game or status.") : null,
   );
+  showPickedMap();
 }
 
-/** Opens a map in the viewer, in a window of its own (one per map). */
+function mapCard(target, map) {
+  const key = `${target.id}/${map.id}`;
+  const thumb = el("div", { className: "map-thumb" });
+  if (map.picture) thumb.append(el("img", { src: thumbUrl(target, map), alt: "", loading: "lazy" }));
+  else thumb.append("No picture");
+  const card = el("button", { className: `map-card${mapsView.picked === key ? " picked" : ""}`, "aria-pressed": String(mapsView.picked === key), "data-map": key },
+    thumb,
+    el("div", { className: "map-body" },
+      el("div", { className: "map-title" }, el("span", { className: "strong" }, map.name), el("span", { className: "mono" }, map.id)),
+      el("div", { className: "map-tags" },
+        el("span", { className: `pill ${map.ready ? "ok" : "warn"}` }, map.ready ? "Ready" : "Not ready"),
+        map.draft ? el("span", { className: "pill off" }, "Draft") : null,
+        map.unpublished ? el("span", { className: "pill warn" }, "Unpublished changes") : null)));
+  card.onclick = () => pickMap(mapsView.picked === key ? "" : key);
+  card.ondblclick = () => { pickMap(key); openViewer(target, map); };
+  return card;
+}
+
+function thumbUrl(target, map) {
+  return `/api/viewer/thumb?${new URLSearchParams({ target: target.id, map: map.id })}`;
+}
+
+function findMap(key) {
+  for (const target of maps?.targets ?? []) {
+    const map = target.maps.find((candidate) => `${target.id}/${candidate.id}` === key);
+    if (map) return { target, map };
+  }
+  return undefined;
+}
+
+function pickMap(key) {
+  mapsView.picked = key;
+  saveMapsView();
+  for (const card of document.querySelectorAll(".map-card")) {
+    const on = card.dataset.map === key;
+    card.classList.toggle("picked", on);
+    card.setAttribute("aria-pressed", String(on));
+  }
+  showPickedMap();
+}
+
+/** The bar at the bottom for the picked map: Edit opens it in the viewer, in this window. */
+function showPickedMap() {
+  const found = mapsView.picked ? findMap(mapsView.picked) : undefined;
+  $("map-pick").hidden = !found;
+  if (!found) return;
+  const { target, map } = found;
+  const thumb = $("map-pick-thumb");
+  thumb.hidden = !map.picture;
+  if (map.picture) thumb.src = thumbUrl(target, map);
+  $("map-pick-name").textContent = map.name;
+  $("map-pick-detail").textContent = `${target.name}, ${map.id}`;
+  $("map-pick-edit").textContent = `Edit ${map.name} for ${target.name}`;
+}
+
+/** Opens a map in the 3D viewer, in this window: its back arrow returns to Maps. */
 function openViewer(target, map) {
   const query = new URLSearchParams({ target: target.id, map: map.id, name: map.name, game: target.name });
-  window.open(`/viewer?${query}`, `viewer-${target.id}-${map.id}`, "popup,width=1400,height=900");
+  location.href = `/viewer?${query}`;
 }
 
 $("maps-refresh").onclick = () => loadMaps();
+$("maps-query").oninput = (event) => { mapsView.query = event.target.value; saveMapsView(); renderMaps(); };
+$("maps-game").onchange = (event) => { mapsView.game = event.target.value; saveMapsView(); renderMaps(); };
+$("maps-status").onchange = (event) => { mapsView.status = event.target.value; saveMapsView(); renderMaps(); };
+$("map-pick-clear").onclick = () => pickMap("");
+$("map-pick-edit").onclick = () => {
+  const found = findMap(mapsView.picked);
+  if (found) openViewer(found.target, found.map);
+};
+// Esc picks nothing; Enter opens the picked map (on a card, that card's), other buttons keep their own Enter.
+addEventListener("keydown", (event) => {
+  if (page !== "maps" || event.target instanceof HTMLInputElement || event.target instanceof HTMLSelectElement) return;
+  if (event.key === "Escape" && mapsView.picked) pickMap("");
+  if (event.key !== "Enter") return;
+  const card = event.target instanceof Element ? event.target.closest(".map-card") : null;
+  if (!card && event.target instanceof HTMLButtonElement) return;
+  const found = findMap(card ? card.dataset.map : mapsView.picked);
+  if (!found) return;
+  event.preventDefault();
+  pickMap(`${found.target.id}/${found.map.id}`);
+  openViewer(found.target, found.map);
+});
 
 showPage(location.hash.slice(1));
 

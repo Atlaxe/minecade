@@ -23,7 +23,7 @@ import { catalogDir, storeDir } from "../maps/paths.ts";
 import { MapStore } from "../maps/store.ts";
 import { MapChanges } from "../viewer/map-changes.ts";
 import { viewerMap, viewerMapConfig, watchMap } from "../viewer/map-data.ts";
-import { VIEWER_PAGE, viewerColors, viewerMaps, viewerScripts, viewerView } from "../viewer/routes.ts";
+import { VIEWER_PAGE, viewerColors, viewerMaps, viewerScripts, viewerThumbPath, viewerView } from "../viewer/routes.ts";
 import {
   BroadcastLog,
   checkLobbyMap,
@@ -692,6 +692,13 @@ async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> 
       return;
     }
     if (path === "/api/viewer/maps") return sendJson(res, 200, await viewerMaps(repoRoot));
+    if (path === "/api/viewer/thumb") {
+      const file = viewerThumbPath(repoRoot, url.searchParams.get("target") ?? "", url.searchParams.get("map") ?? "");
+      if (!file) return sendJson(res, 404, { error: "no picture" });
+      res.writeHead(200, { "content-type": "image/png", "cache-control": "no-store" });
+      res.end(await readFile(file));
+      return;
+    }
     if (path === "/api/viewer/map" && url.searchParams.has("configOnly")) {
       const answer = await viewerMapConfig(repoRoot, url.searchParams.get("target") ?? "", url.searchParams.get("map") ?? "");
       return answer.status === 200 ? sendJson(res, 200, { config: answer.config, stamp: answer.stamp }) : sendJson(res, answer.status, { error: answer.error });

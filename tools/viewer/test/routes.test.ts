@@ -1,10 +1,10 @@
-import { existsSync, mkdtempSync, rmSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { gunzipSync } from "node:zlib";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import type { BlockState } from "../subchunk.ts";
-import { viewerView } from "../routes.ts";
+import { viewerThumbPath, viewerView } from "../routes.ts";
 import { decodeView } from "../view-format.ts";
 import { subChunk, subChunkKey, writeWorld } from "./fixture-world.ts";
 
@@ -57,5 +57,15 @@ describe("viewerView", () => {
     const answer = viewerView(root, "sumo", "huge");
     expect(answer).toMatchObject({ status: 422 });
     if (answer.status === 422) expect(answer.error).toMatch(/321 by 1 blocks across/);
+  });
+});
+
+describe("viewerThumbPath", () => {
+  it("finds a map's own preview.png, and nothing for a map without one or ids that could leave the store", () => {
+    mkdirSync(join(store, "working", "sumo", "arena"), { recursive: true });
+    expect(viewerThumbPath(root, "sumo", "arena")).toBeUndefined();
+    writeFileSync(join(store, "working", "sumo", "arena", "preview.png"), "png");
+    expect(viewerThumbPath(root, "sumo", "arena")).toBe(join(store, "working", "sumo", "arena", "preview.png"));
+    expect(viewerThumbPath(root, "..", "arena")).toBeUndefined();
   });
 });
