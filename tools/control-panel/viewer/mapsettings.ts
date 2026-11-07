@@ -124,7 +124,7 @@ export class MapSettings {
       el(
         "div",
         { className: "buttons" },
-        el("button", { className: "small", dataset: { tip: "Its blocks become a new map of another game, with nothing placed yet" }, onclick: () => this.options.port() }, "Port to another game"),
+        el("button", { className: "small", dataset: { tip: "Its blocks and picture become a new map of another game, with the markup you pick" }, onclick: () => this.options.port() }, "Port to another game"),
       ),
     ];
     this.element.replaceChildren(...parts.filter((part): part is HTMLElement => part !== null));

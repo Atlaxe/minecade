@@ -79,6 +79,8 @@ worktree sits next to it.
   that worktree's build.
 - **Thumbnails are the user's.** Never add, make or replace a map's thumbnail or a game's picture
   (the lobby's map and game pictures, the editor's shots), not even a placeholder: the user takes
-  them in the map editor (docs/editor.md, "Pictures"). A new game or map ships without one.
+  them in the map editor (docs/editor.md, "Pictures"). A new game or map ships without one. The
+  one exception is the map editor's Port to another game, which copies the map's own picture to
+  the new map, as the user asked.
 - **Long milestones:** keep one worktree for the whole milestone and merge after each part, so
   `main` always has the finished parts.

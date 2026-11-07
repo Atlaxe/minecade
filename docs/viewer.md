@@ -358,10 +358,9 @@ markers").
 
 ## Port to another game
 
-A map's blocks become a new map of another game: One in the Quiver's KGB for Gunfight, say. Only
-the world goes. The new map has none of the old one's spawns, markers, boundaries, regions,
-heights, settings, time, cameras or mannequins, nor its picture: it's a draft with its name and
-nothing else, for its own game's tools to mark up. The old map stays as it is.
+A map's blocks become a new map of another game: One in the Quiver's KGB for Gunfight, say. The
+world and the map's picture (its `preview.png`) always go, and so does what of its markup you check.
+The new map is a draft, and the old map stays as it is.
 
 **Port to another game** is under Map settings in the viewer, and in the Maps page's bar for the
 picked map. It asks:
@@ -373,10 +372,24 @@ picked map. It asks:
   of games that play its maps (Gunfight plays Siege's, so a Gunfight map can't be called "strife",
   and a new Siege map can't take a Gunfight map's id), nor a map still being cut out of a world for
   it. The line under the fields says why.
+- **What goes along:** a box for each kind of markup the old map has that the picked game can use,
+  each with what of it would go, all checked at first (a box you uncheck stays unchecked next
+  time, in this browser). What the game can't use is named under them ("Stays behind: 11 spawns").
+  - **Spawns:** plain spawns, when the game uses them (Gunfight places players at team spawns
+    only, so KGB's spawns stay behind); team spawns of the game's own teams; the spectator spawn
+    and the queue spawn with how players wait there (not for the lobby).
+  - **Game markers:** the ones the game names (a Bridges hole goes to another game with holes).
+  - **Boundaries:** bounds, spectator bounds, kill Y, kill regions and the regions the game names,
+    and the sides of a build limit it asks for.
+  - **Time of day**, **Cameras** and **Mannequins**, as they are.
+  - **Game settings:** the game's own settings the map has a value for that fits (by key), and the
+    star box for the lobby.
+
+  Where the map was cut from and its own kits never go.
 
 **Port** copies the world as last saved (game Edit, with the map open and blocks not saved yet,
-has to save first) into the store's `working\<game>\<id>\` and keeps it as the new map's first
-version ("Port from quiver/kgb"). The dialog then offers **Open it**, the new map in the viewer;
+has to save first) and the picture into the store's `working\<game>\<id>\`, writes the markup
+checked into its `map.json`, and keeps it as the new map's first version ("Port from quiver/kgb"). The dialog then offers **Open it**, the new map in the viewer;
 from the Maps page, the new map is picked. A game that plays another game's maps through
 `map.borrow` doesn't need a port for them: a port is for a map of its own, marked up its own way.
 

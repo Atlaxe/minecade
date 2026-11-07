@@ -5,7 +5,8 @@ import { fileURLToPath } from "node:url";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import type { EditorStatus } from "../../editor/editor-core.ts";
 import { MapStore } from "../../maps/store.ts";
-import { portChoices, portMap, portProblem, portedConfig, suggestId, takenIds, type PortGame } from "../port-map.ts";
+import type { EditorRules, MapConfig } from "@minecade/minigame-core/config";
+import { carryPlan, portChoices, portMap, portProblem, portedConfig, portedText, suggestId, takenIds, type PortGame } from "../port-map.ts";
 
 const root = fileURLToPath(new URL("../../../", import.meta.url));
 let store: string;
@@ -101,6 +102,105 @@ describe("Port to another game: which ids a game can't take", () => {
   it("starts the new map with its name only, as a draft", () => {
     expect(portedConfig(" KGB ")).toEqual({ name: "KGB", draft: true, spawns: [] });
   });
+
+  it("starts it with the markup carried, in the old map's order", () => {
+    const config = portedConfig("KGB", [{ time: "noon" }, { bounds: KGB.bounds as MapConfig["bounds"], killY: -51 }], ["name", "spawns", "bounds", "killY", "time"]);
+    expect(config).toEqual({ name: "KGB", draft: true, spawns: [], bounds: KGB.bounds, killY: -51, time: "noon" });
+    expect(Object.keys(config)).toEqual(["name", "draft", "spawns", "bounds", "killY", "time"]);
+    expect(portedConfig("KGB", [{ spawns: [[1, 2, 3]] }]).spawns).toEqual([[1, 2, 3]]);
+  });
+
+  it("says what went", () => {
+    expect(portedText(true, [])).toBe("its blocks and picture, with no markup yet");
+    expect(portedText(false, [])).toBe("its blocks, with no markup yet");
+    expect(portedText(true, ["spawns", "boundaries", "time"])).toBe("its blocks, picture, spawns, boundaries and time of day");
+  });
+});
+
+const TEAMS = [
+  { id: "red", name: "Red", color: "\u00a7c" },
+  { id: "blue", name: "Blue", color: "\u00a79" },
+];
+const QUIVER: EditorRules = { kind: "game", maxPlayers: 10, requires: { spawns: { min: 10 }, killY: true } };
+const GUNFIGHT: EditorRules = { kind: "game", maxPlayers: 8, requires: { teamSpawns: true, bounds: true, borrow: ["siege"] }, teams: TEAMS };
+const BRIDGES: EditorRules = {
+  kind: "game",
+  maxPlayers: 8,
+  requires: { teamSpawns: true, bounds: true, buildLimit: true, points: { hole: { label: "Hole", perTeam: true } }, regions: { spawnGuard: { label: "Spawn guard", perTeam: true } } },
+  teams: TEAMS,
+};
+const BUILDSWAP: EditorRules = {
+  kind: "game",
+  maxPlayers: 8,
+  requires: {
+    spawns: { min: "maxPlayers" },
+    regions: { plot: { label: "Build boundary", count: 8, minSize: 24 } },
+    settings: { buildPadding: { label: "Build padding", default: 2, min: 0, max: 32, unit: "blocks" } },
+  },
+};
+const LOBBY: EditorRules = { kind: "lobby", requires: { spawns: { min: 1 }, points: { terminal: { label: "Terminal", count: 1 } } } };
+
+describe("Port to another game: what of the markup goes", () => {
+  it("offers what the other game can take, and names what stays behind", () => {
+    const plan = carryPlan({ ...KGB, mannequins: { Bob: { at: [0, 0, 0, 0], skin: "steve", pose: "stand" } } } as unknown as MapConfig, GUNFIGHT, QUIVER);
+    expect(plan.options).toEqual([
+      { id: "spawns", label: "Spawns", detail: "queue spawn" },
+      { id: "boundaries", label: "Boundaries", detail: "bounds, kill Y" },
+      { id: "time", label: "Time of day", detail: "Dusk (18:00)" },
+      { id: "cameras", label: "Cameras", detail: "1 camera" },
+      { id: "mannequins", label: "Mannequins", detail: "1 mannequin" },
+    ]);
+    // Gunfight places players at team spawns only.
+    expect(plan.left).toEqual(["1 spawn"]);
+    expect(plan.parts.spawns).toEqual({ queueSpawn: KGB.queueSpawn, queue: KGB.queue });
+    expect(plan.parts.boundaries).toEqual({ bounds: KGB.bounds, killY: -51 });
+  });
+
+  it("takes team spawns of the game's teams, and markers and regions it names", () => {
+    const temples = {
+      name: "Temples",
+      spawns: [],
+      teamSpawns: { red: [[24, 64, 0]], blue: [[-24, 64, 0]], green: [[0, 64, 24]] },
+      spectatorSpawn: [0, 80, 0],
+      bounds: [{ min: [-30, 0, -30], max: [30, 100, 30] }],
+      buildLimit: { above: 90, below: 40 },
+      points: { "hole.red": [[20, 60, 0]], "hole.blue": [[-20, 60, 0]] },
+      regions: { "spawnGuard.red": [{ min: [20, 60, -2], max: [26, 70, 2] }], kill: [{ min: [-2, 0, -2], max: [2, 10, 2] }] },
+    } as MapConfig;
+    const toGunfight = carryPlan(temples, GUNFIGHT, BRIDGES);
+    expect(toGunfight.options.find((option) => option.id === "spawns")).toEqual({ id: "spawns", label: "Spawns", detail: "2 team spawns, spectator spawn" });
+    expect(toGunfight.parts.spawns).toEqual({ teamSpawns: { red: [[24, 64, 0]], blue: [[-24, 64, 0]] }, spectatorSpawn: [0, 80, 0] });
+    expect(toGunfight.options.find((option) => option.id === "markers")).toBeUndefined();
+    expect(toGunfight.parts.boundaries).toEqual({ bounds: temples.bounds, regions: { kill: temples.regions!.kill } });
+    expect(toGunfight.left).toEqual(["1 green spawn", "1 hole.red marker", "1 hole.blue marker", "1 spawnGuard.red region", "the build limit above", "the build limit below"]);
+    // Back to a game that has them all.
+    const toBridges = carryPlan(temples, BRIDGES, GUNFIGHT);
+    expect(toBridges.parts.markers).toEqual({ points: temples.points });
+    expect(toBridges.parts.boundaries).toEqual({ bounds: temples.bounds, buildLimit: { above: 90, below: 40 }, regions: temples.regions });
+    expect(toBridges.options.find((option) => option.id === "boundaries")?.detail).toBe("bounds, 2 regions, build limit");
+  });
+
+  it("gives the lobby plain spawns but no queue, and its star box", () => {
+    const plan = carryPlan({ ...KGB, stars: true, points: { terminal: [[0, 64, 0]] } } as unknown as MapConfig, LOBBY, QUIVER);
+    expect(plan.parts.spawns).toEqual({ spawns: KGB.spawns });
+    expect(plan.parts.markers).toEqual({ points: { terminal: [[0, 64, 0]] } });
+    expect(plan.parts.settings).toEqual({ stars: true });
+    expect(plan.left).toEqual(["the queue spawn"]);
+    // A game can't take the star box.
+    expect(carryPlan({ ...KGB, stars: true } as unknown as MapConfig, QUIVER, LOBBY).left).toEqual(["the star box"]);
+  });
+
+  it("takes a setting the other game has when the value fits it, and names the old game's that stay behind", () => {
+    const roman = { name: "Roman", spawns: [[0, 64, 0]], buildPadding: 4, returnDelay: 3 } as MapConfig;
+    const withDelay: EditorRules = { ...BUILDSWAP, requires: { ...BUILDSWAP.requires, settings: { ...BUILDSWAP.requires!.settings, returnDelay: { label: "Return delay", default: 0, min: 0, max: 30 } } } };
+    expect(carryPlan(roman, BUILDSWAP, withDelay)).toMatchObject({ parts: { settings: { buildPadding: 4 } }, left: ["Return delay"] });
+    expect(carryPlan({ ...roman, buildPadding: 99 } as MapConfig, BUILDSWAP, withDelay).parts.settings).toBeUndefined();
+    expect(carryPlan(roman, QUIVER, withDelay).left).toEqual(["Build padding", "Return delay"]);
+  });
+
+  it("offers nothing for a map with no markup", () => {
+    expect(carryPlan({ name: "Empty", spawns: [] }, GUNFIGHT, QUIVER)).toEqual({ options: [], parts: {}, left: [] });
+  });
 });
 
 describe("Port to another game in the map store", () => {
@@ -118,21 +218,25 @@ describe("Port to another game in the map store", () => {
     // Gunfight plays Siege's maps, and Siege has a "kgb".
     expect(gunfight.suggested).toBe("kgb-2");
     expect(gunfight.taken.kgb).toMatch(/plays Siege's maps too/);
+    // What of KGB's markup Gunfight can take, from the real configs.
+    expect(gunfight.carry.map((option) => option.id)).toEqual(["spawns", "boundaries", "time", "cameras"]);
+    expect(gunfight.left).toEqual(["1 spawn"]);
     expect(answer.games.find((game) => game.id === "sumo")?.suggested).toBe("kgb");
     expect(await portChoices(root, "quiver", "nowhere")).toMatchObject({ status: 404 });
     expect(await portChoices(root, "..", "kgb")).toMatchObject({ status: 400 });
   });
 
-  it("copies the world alone into a new draft map of the other game, kept as its first version", async () => {
+  it("copies the world and picture into a new draft map of the other game, kept as its first version", async () => {
     const from = storeMap("quiver", "kgb", KGB);
     const answer = await portMap(root, { target: "quiver", map: "kgb", to: "gunfight", id: "kgb", name: "KGB" }, noEditor);
-    expect(answer).toMatchObject({ status: 200, target: "gunfight", targetName: "Gunfight", map: "kgb", name: "KGB" });
+    expect(answer).toMatchObject({ status: 200, target: "gunfight", targetName: "Gunfight", map: "kgb", name: "KGB", message: /its blocks and picture, with no markup yet/ });
     const dir = join(store, "working", "gunfight", "kgb");
     expect(JSON.parse(readFileSync(join(dir, "map.json"), "utf8"))).toEqual({ name: "KGB", draft: true, spawns: [] });
     expect(readFileSync(join(dir, "world", "db", "000001.ldb"), "utf8")).toBe("blocks");
     expect(readFileSync(join(dir, "world", "level.dat"), "utf8")).toBe("level");
-    // Its picture stays with the old map, and no half-made folder is left.
-    expect(existsSync(join(dir, "preview.png"))).toBe(false);
+    // Its picture goes too, and no half-made folder is left.
+    expect(readFileSync(join(dir, "preview.png"), "utf8")).toBe("picture");
+    expect(readFileSync(join(from, "preview.png"), "utf8")).toBe("picture");
     expect(readdirSync(join(store, "working", "gunfight"))).toEqual(["kgb"]);
     // The old map is as it was.
     expect(JSON.parse(readFileSync(join(from, "map.json"), "utf8"))).toEqual(KGB);
@@ -144,6 +248,16 @@ describe("Port to another game in the map store", () => {
     }
     // The id is taken now.
     expect(await portMap(root, { target: "quiver", map: "kgb", to: "gunfight", id: "kgb", name: "KGB" }, noEditor)).toMatchObject({ status: 422, error: 'Gunfight has a map "kgb" already.' });
+  });
+
+  it("brings along the markup asked for, of what the game can take", async () => {
+    storeMap("quiver", "kgb", KGB);
+    const answer = await portMap(root, { target: "quiver", map: "kgb", to: "gunfight", id: "kgb", name: "KGB", carry: ["spawns", "boundaries", "time", "markers", "nonsense"] }, noEditor);
+    expect(answer).toMatchObject({ status: 200, message: /its blocks, picture, spawns, boundaries and time of day\. It's a draft\./ });
+    const text = readFileSync(join(store, "working", "gunfight", "kgb", "map.json"), "utf8");
+    // Gunfight's players start at team spawns, so the plain spawn stays behind; cameras weren't asked for.
+    expect(JSON.parse(text)).toEqual({ name: "KGB", draft: true, spawns: [], queueSpawn: KGB.queueSpawn, queue: KGB.queue, bounds: KGB.bounds, killY: -51, time: "sunset" });
+    expect(Object.keys(JSON.parse(text))).toEqual(["name", "draft", "spawns", "queueSpawn", "queue", "bounds", "killY", "time"]);
   });
 
   it("refuses its own game, ids another game's list has, bad names and missing maps", async () => {

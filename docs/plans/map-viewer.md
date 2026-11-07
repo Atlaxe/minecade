@@ -472,6 +472,15 @@ The user asked for these together, to declutter the top bar:
   map.json is written, and the map store keeps it as its first version ("Port from
   <target>/<map>"). GET and POST `/api/viewer/port`. Under Map settings in the viewer, and in the
   Maps page's bar for the picked map.
+- **Port carries markup and the picture** (2026-11-07, the user's ask): the picture
+  (`preview.png`) always goes now, and the dialog has a box for each kind of the old map's markup
+  the picked game can use, all checked at first (unchecked ones are remembered in the browser):
+  Spawns, Game markers, Boundaries, Time of day, Cameras, Mannequins, Game settings. `carryPlan`
+  keeps each to what the game has: plain spawns only when it uses them, team spawns of its teams,
+  spectator and queue spawns (with the queue's settings) for games only, points and regions by the
+  names it asks for (kill regions always), the build limit's sides it asks for, its settings by key
+  when the value fits, the star box for the lobby. What it can't take is listed ("Stays behind:
+  11 spawns"). `source` and the map's kits never go. The POST takes `carry`, the kinds checked.
 
 ## Passes (the implementation order: stop and report after each, commit and push)
 

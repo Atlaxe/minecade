@@ -105,6 +105,10 @@ dialog.port-dialog::backdrop { background: #0008; }
 .port-body p { margin: 0; }
 .port-form label { display: grid; gap: 4px; font-size: var(--fs-meta); color: var(--muted); }
 .port-form input, .port-form select { width: 100%; }
+.port-carry { display: grid; gap: 8px; }
+.port-form .port-carry label { display: flex; align-items: center; gap: 8px; font-size: var(--fs-body); color: var(--text); cursor: pointer; }
+.port-form .port-carry input { width: 16px; flex: none; }
+.port-carry label .muted { margin-left: auto; font-size: var(--fs-meta); text-align: right; }
 .port-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 4px; }
 .port-actions button { padding: 8px 18px; font-size: var(--fs-body); }
 

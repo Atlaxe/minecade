@@ -1,8 +1,10 @@
 // Port to another game: the dialog that makes a map's blocks a new map of another game, such as One
-// in the Quiver's KGB for Gunfight (only the world goes: tools/viewer/port-map.ts). The viewer opens
-// it from Map settings, and the Panel's Maps page from the bar for the picked map, loading it as
-// /viewer/port.js. It asks the game, the name and the map id, checks the id as it's typed against
-// the ids that game can't take, and then offers to open the new map in the viewer.
+// in the Quiver's KGB for Gunfight (its world and picture, and the markup picked here:
+// tools/viewer/port-map.ts). The viewer opens it from Map settings, and the Panel's Maps page from
+// the bar for the picked map, loading it as /viewer/port.js. It asks the game, the name, the map id
+// and what of the markup to bring along (what that game can take, all ticked but what was unticked
+// last time), checks the id as it's typed against the ids that game can't take, and then offers to
+// open the new map in the viewer.
 import { el } from "./sidebar.ts";
 
 export interface PortSource {
@@ -19,14 +21,40 @@ export interface PortDone {
   message: string;
 }
 
+/** One kind of markup the game can take (port-map.ts's CarryOption). */
+interface CarryOption {
+  id: string;
+  label: string;
+  detail: string;
+}
+
 interface Choices {
   name: string;
   targetName: string;
-  games: { id: string; name: string; suggested: string; taken: Record<string, string> }[];
+  games: { id: string; name: string; suggested: string; taken: Record<string, string>; carry: CarryOption[]; left: string[] }[];
 }
 
 /** The game picked last, kept in this browser: porting several maps to one game asks once. */
 const GAME_STORE = "minecade-port-game";
+/** The kinds of markup unticked last time, kept in this browser the same way. */
+const SKIP_STORE = "minecade-port-skip";
+
+function readSkipped(): Set<string> {
+  try {
+    const list = JSON.parse(localStorage.getItem(SKIP_STORE) ?? "[]") as unknown;
+    return new Set(Array.isArray(list) ? list.filter((kind): kind is string => typeof kind === "string") : []);
+  } catch {
+    return new Set();
+  }
+}
+
+function keepSkipped(skipped: ReadonlySet<string>): void {
+  try {
+    localStorage.setItem(SKIP_STORE, JSON.stringify([...skipped]));
+  } catch {
+    // Not kept.
+  }
+}
 const MAP_ID = /^[a-z0-9][a-z0-9_-]{0,47}$/;
 const MAX_NAME = 48;
 
@@ -92,6 +120,30 @@ export async function openPortDialog(source: PortSource, done?: (made: PortDone)
     problemLine.hidden = !problem;
     portButton.disabled = problem !== undefined;
   };
+  // What of the markup goes: a box for each kind the picked game can take, and what stays behind.
+  const skipped = readSkipped();
+  const carryBoxes = new Map<string, HTMLInputElement>();
+  const carryList = el("div", { className: "port-carry" });
+  const leftLine = el("p", { className: "muted meta", hidden: true });
+  const drawCarry = () => {
+    const game = picked();
+    carryBoxes.clear();
+    carryList.replaceChildren(
+      ...game.carry.map((option) => {
+        const box = el("input", { type: "checkbox", checked: !skipped.has(option.id) });
+        box.addEventListener("change", () => {
+          if (box.checked) skipped.delete(option.id);
+          else skipped.add(option.id);
+          keepSkipped(skipped);
+        });
+        carryBoxes.set(option.id, box);
+        return el("label", {}, box, el("span", {}, option.label), el("span", { className: "muted" }, option.detail));
+      }),
+    );
+    carryList.hidden = game.carry.length === 0;
+    leftLine.textContent = game.left.length > 0 ? `Stays behind: ${game.left.join(", ")}.` : "";
+    leftLine.hidden = game.left.length === 0;
+  };
   gameSelect.addEventListener("change", () => {
     if (!idTyped) idInput.value = picked().suggested;
     try {
@@ -99,6 +151,7 @@ export async function openPortDialog(source: PortSource, done?: (made: PortDone)
     } catch {
       // Not kept.
     }
+    drawCarry();
     validate();
   });
   nameInput.addEventListener("input", validate);
@@ -111,10 +164,12 @@ export async function openPortDialog(source: PortSource, done?: (made: PortDone)
     "form",
     { className: "port-form" },
     title,
-    el("p", { className: "muted" }, `Only its blocks go: the new map starts as a draft with no spawns, markers, boundaries or settings. ${choices.targetName}'s map stays as it is.`),
+    el("p", { className: "muted" }, `Its blocks and picture go, with what's checked below. ${choices.targetName}'s map stays as it is.`),
     el("label", {}, el("span", {}, "Game"), gameSelect),
     el("label", {}, el("span", {}, "Name"), nameInput),
     el("label", {}, el("span", {}, "Map id"), idInput),
+    carryList,
+    leftLine,
     problemLine,
     el("div", { className: "port-actions" }, el("button", { type: "button", onclick: close }, "Cancel"), portButton),
   );
@@ -129,7 +184,7 @@ export async function openPortDialog(source: PortSource, done?: (made: PortDone)
     const sent = await fetch("/api/viewer/port", {
       method: "POST",
       headers: { "content-type": "application/json", "x-minecade-panel": "1" },
-      body: JSON.stringify({ target: source.target, map: source.map, to: game.id, id, name }),
+      body: JSON.stringify({ target: source.target, map: source.map, to: game.id, id, name, carry: [...carryBoxes].filter(([, box]) => box.checked).map(([kind]) => kind) }),
     }).catch(() => undefined);
     const result = sent ? ((await sent.json().catch(() => ({}))) as Partial<PortDone> & { error?: string }) : undefined;
     portButton.textContent = "Port";
@@ -154,6 +209,7 @@ export async function openPortDialog(source: PortSource, done?: (made: PortDone)
     body.querySelector<HTMLButtonElement>(".primary")?.focus();
   });
   body.replaceChildren(form);
+  drawCarry();
   validate();
   nameInput.focus();
   nameInput.select();
