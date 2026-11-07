@@ -99,6 +99,171 @@
           ]
         }
       }
+    },
+    "animation.minecade.gun_handgun.recoil": {
+      "loop": true,
+      "bones": {
+        "body": {
+          "position": [
+            0,
+            0,
+            "v.kick * 1.5"
+          ],
+          "rotation": [
+            "v.kick * -8",
+            0,
+            0
+          ]
+        }
+      }
+    },
+    "animation.minecade.gun_smg.recoil": {
+      "loop": true,
+      "bones": {
+        "body": {
+          "position": [
+            0,
+            0,
+            "v.kick * 0.8"
+          ],
+          "rotation": [
+            "v.kick * -3",
+            0,
+            0
+          ]
+        }
+      }
+    },
+    "animation.minecade.gun_assault_rifle.recoil": {
+      "loop": true,
+      "bones": {
+        "body": {
+          "position": [
+            0,
+            0,
+            "v.kick * 1"
+          ],
+          "rotation": [
+            "v.kick * -4",
+            0,
+            0
+          ]
+        }
+      }
+    },
+    "animation.minecade.gun_burst_rifle.recoil": {
+      "loop": true,
+      "bones": {
+        "body": {
+          "position": [
+            0,
+            0,
+            "v.kick * 1"
+          ],
+          "rotation": [
+            "v.kick * -4",
+            0,
+            0
+          ]
+        }
+      }
+    },
+    "animation.minecade.gun_pump_shotgun.recoil": {
+      "loop": true,
+      "bones": {
+        "body": {
+          "position": [
+            0,
+            0,
+            "v.kick * 2.5"
+          ],
+          "rotation": [
+            "v.kick * -14",
+            0,
+            0
+          ]
+        }
+      }
+    },
+    "animation.minecade.gun_double_barrel.recoil": {
+      "loop": true,
+      "bones": {
+        "body": {
+          "position": [
+            0,
+            0,
+            "v.kick * 2.5"
+          ],
+          "rotation": [
+            "v.kick * -14",
+            0,
+            0
+          ]
+        }
+      }
+    },
+    "animation.minecade.gun_sniper_rifle.recoil": {
+      "loop": true,
+      "bones": {
+        "body": {
+          "position": [
+            0,
+            0,
+            "v.kick * 3"
+          ],
+          "rotation": [
+            "v.kick * -16",
+            0,
+            0
+          ]
+        }
+      }
+    },
+    "animation.minecade.gun_rail_gun.recoil": {
+      "loop": true,
+      "bones": {
+        "body": {
+          "position": [
+            0,
+            0,
+            "v.kick * 2.5"
+          ],
+          "rotation": [
+            "v.kick * -10",
+            0,
+            0
+          ]
+        }
+      }
+    },
+    "animation.minecade.gun_rpg.recoil": {
+      "loop": true,
+      "bones": {
+        "body": {
+          "position": [
+            0,
+            0,
+            "v.kick * 3"
+          ],
+          "rotation": [
+            "v.kick * -10",
+            0,
+            0
+          ]
+        }
+      }
+    },
+    "animation.minecade.rocket.fly": {
+      "loop": true,
+      "bones": {
+        "display": {
+          "rotation": [
+            "q.target_x_rotation",
+            "-q.target_y_rotation",
+            0
+          ]
+        }
+      }
     }
   }
 }

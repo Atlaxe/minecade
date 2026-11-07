@@ -1,0 +1,20 @@
+{
+  "format_version": "1.21.60",
+  "minecraft:block": {
+    "description": {
+      "identifier": "minecade:stimpack_model",
+      "menu_category": {
+        "category": "none"
+      }
+    },
+    "components": {
+      "minecraft:geometry": "geometry.minecade.gun_stimpack_icon",
+      "minecraft:material_instances": {
+        "*": {
+          "texture": "minecade_arsenal_stimpack",
+          "render_method": "alpha_test"
+        }
+      }
+    }
+  }
+}

@@ -335,12 +335,17 @@ export class FakePlayer {
   selectedSlotIndex = 0;
   /** The item ids whose cooldowns a script started for this player, oldest first. */
   readonly cooldownsStarted: string[] = [];
-  /** Its camera: each setFov's field of view, oldest first (undefined puts the player's own back). */
+  /** Its camera: each setFov's field of view, oldest first (undefined puts the player's own back), and each fade's options. */
   readonly camera = {
     fovs: [] as (number | undefined)[],
+    fades: [] as { fadeColor?: { red: number; green: number; blue: number }; fadeTime?: { fadeInTime: number; holdTime: number; fadeOutTime: number } }[],
     setFov: (options: { fov?: number; easeOptions?: { easeTime?: number } } = {}) => {
       writable("Camera::setFov");
       this.camera.fovs.push(options.fov);
+    },
+    fade: (options: { fadeColor?: { red: number; green: number; blue: number }; fadeTime?: { fadeInTime: number; holdTime: number; fadeOutTime: number } } = {}) => {
+      writable("Camera::fade");
+      this.camera.fades.push(options);
     },
   };
   readonly teleports: Vector3[] = [];
@@ -745,6 +750,28 @@ export class MolangVariableMap {
   setFloat(name: string, value: number): void {
     this.values.set(name, value);
   }
+
+  setVector3(name: string, vector: Vector3): void {
+    this.values.set(name, { ...vector });
+  }
+}
+
+/** A player's or mob's box for raycasts: 0.6 across, 1.8 tall, standing on its location. */
+const BODY = { half: 0.3, height: 1.8 };
+
+/** How far along a ray (a unit direction) it first meets a box; undefined when it misses. */
+function rayBox(origin: Vector3, direction: Vector3, low: Vector3, high: Vector3): number | undefined {
+  let [near, far] = [-Infinity, Infinity];
+  for (const axis of ["x", "y", "z"] as const) {
+    if (Math.abs(direction[axis]) < 1e-9) {
+      if (origin[axis] < low[axis] || origin[axis] > high[axis]) return undefined;
+      continue;
+    }
+    const [a, b] = [(low[axis] - origin[axis]) / direction[axis], (high[axis] - origin[axis]) / direction[axis]];
+    near = Math.max(near, Math.min(a, b));
+    far = Math.min(far, Math.max(a, b));
+  }
+  return near <= far && far >= 0 ? Math.max(0, near) : undefined;
 }
 
 /** A box of blocks between two corners (both inside), as the real BlockVolume. */
@@ -823,6 +850,46 @@ class FakeDimension {
     const mob = new FakeMob(typeId, location);
     this.spawned.push(mob);
     return mob;
+  }
+
+  /**
+   * The first block a ray reaches within `maxDistance`: every block that isn't air is solid here
+   * (liquids too, when asked for), walked in small steps. The face is the side the ray came in by.
+   */
+  getBlockFromRay(location: Vector3, direction: Vector3, options: { maxDistance?: number; includeLiquidBlocks?: boolean } = {}) {
+    const max = options.maxDistance ?? 64;
+    const step = 0.01;
+    let previous = { x: Math.floor(location.x), y: Math.floor(location.y), z: Math.floor(location.z) };
+    for (let t = 0; t <= max; t += step) {
+      const at = { x: location.x + direction.x * t, y: location.y + direction.y * t, z: location.z + direction.z * t };
+      const cell = { x: Math.floor(at.x), y: Math.floor(at.y), z: Math.floor(at.z) };
+      const block = this.getBlock(cell);
+      if (!block.isAir && (options.includeLiquidBlocks || !block.isLiquid)) {
+        const face =
+          previous.y > cell.y ? Direction.Up : previous.y < cell.y ? Direction.Down
+          : previous.x > cell.x ? Direction.East : previous.x < cell.x ? Direction.West
+          : previous.z > cell.z ? Direction.South : Direction.North;
+        // Where the ray enters the block, exactly, as the real raycast reports it.
+        const enter = rayBox(location, direction, cell, { x: cell.x + 1, y: cell.y + 1, z: cell.z + 1 }) ?? t;
+        const hit = { x: location.x + direction.x * enter, y: location.y + direction.y * enter, z: location.z + direction.z * enter };
+        return { block, face, faceLocation: { x: hit.x - cell.x, y: hit.y - cell.y, z: hit.z - cell.z } };
+      }
+      previous = cell;
+    }
+    return undefined;
+  }
+
+  /** Every player and spawned mob a ray passes through within `maxDistance` (each a 0.6 by 1.8 box), with how far along. */
+  getEntitiesFromRay(location: Vector3, direction: Vector3, options: { maxDistance?: number } = {}): { entity: FakePlayer | FakeMob; distance: number }[] {
+    const max = options.maxDistance ?? Infinity;
+    const bodies: (FakePlayer | FakeMob)[] = [...world.getAllPlayers(), ...this.spawned.filter((mob) => mob.isValid)];
+    const hits: { entity: FakePlayer | FakeMob; distance: number }[] = [];
+    for (const entity of bodies) {
+      const at = entity.location;
+      const distance = rayBox(location, direction, { x: at.x - BODY.half, y: at.y, z: at.z - BODY.half }, { x: at.x + BODY.half, y: at.y + BODY.height, z: at.z + BODY.half });
+      if (distance !== undefined && distance <= max) hits.push({ entity, distance });
+    }
+    return hits;
   }
 
   reset(): void {

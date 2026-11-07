@@ -1,0 +1,20 @@
+{
+  "format_version": "1.21.60",
+  "minecraft:block": {
+    "description": {
+      "identifier": "minecade:frag_grenade_model",
+      "menu_category": {
+        "category": "none"
+      }
+    },
+    "components": {
+      "minecraft:geometry": "geometry.minecade.gun_frag_grenade_icon",
+      "minecraft:material_instances": {
+        "*": {
+          "texture": "minecade_arsenal_frag_grenade",
+          "render_method": "alpha_test"
+        }
+      }
+    }
+  }
+}

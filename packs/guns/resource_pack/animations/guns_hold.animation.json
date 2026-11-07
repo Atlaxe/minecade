@@ -194,6 +194,693 @@
           ]
         }
       }
+    },
+    "animation.minecade.gun_handgun.first_person_hip": {
+      "loop": true,
+      "bones": {
+        "gun": {
+          "rotation": [
+            79.96,
+            61.52,
+            -43.23
+          ],
+          "position": [
+            -0.72,
+            15.45,
+            -2.98
+          ],
+          "scale": 1.35
+        }
+      }
+    },
+    "animation.minecade.gun_handgun.first_person_aim": {
+      "loop": true,
+      "bones": {
+        "gun": {
+          "rotation": [
+            82.64,
+            61.26,
+            -51.57
+          ],
+          "position": [
+            -0.28,
+            26.51,
+            -11.06
+          ],
+          "scale": 1.35
+        }
+      }
+    },
+    "animation.minecade.gun_handgun.third_person": {
+      "loop": true,
+      "bones": {
+        "gun": {
+          "rotation": [
+            18,
+            0,
+            0
+          ],
+          "position": [
+            0,
+            25.47,
+            -1.34
+          ]
+        }
+      }
+    },
+    "animation.minecade.gun_smg.first_person_hip": {
+      "loop": true,
+      "bones": {
+        "gun": {
+          "rotation": [
+            79.96,
+            61.52,
+            -43.23
+          ],
+          "position": [
+            -0.4,
+            15.75,
+            -2.75
+          ],
+          "scale": 1.2
+        }
+      }
+    },
+    "animation.minecade.gun_smg.first_person_aim": {
+      "loop": true,
+      "bones": {
+        "gun": {
+          "rotation": [
+            82.64,
+            61.26,
+            -51.57
+          ],
+          "position": [
+            1.58,
+            25.52,
+            -10.85
+          ],
+          "scale": 1.2
+        }
+      }
+    },
+    "animation.minecade.gun_smg.third_person": {
+      "loop": true,
+      "bones": {
+        "gun": {
+          "rotation": [
+            18,
+            0,
+            0
+          ],
+          "position": [
+            0,
+            25.47,
+            -1.34
+          ]
+        }
+      }
+    },
+    "animation.minecade.gun_assault_rifle.first_person_hip": {
+      "loop": true,
+      "bones": {
+        "gun": {
+          "rotation": [
+            79.96,
+            61.52,
+            -43.23
+          ],
+          "position": [
+            -0.08,
+            16.05,
+            -2.51
+          ],
+          "scale": 1.1
+        }
+      }
+    },
+    "animation.minecade.gun_assault_rifle.first_person_aim": {
+      "loop": true,
+      "bones": {
+        "gun": {
+          "rotation": [
+            82.64,
+            61.26,
+            -51.57
+          ],
+          "position": [
+            3.44,
+            24.53,
+            -10.64
+          ],
+          "scale": 1.1
+        }
+      }
+    },
+    "animation.minecade.gun_assault_rifle.third_person": {
+      "loop": true,
+      "bones": {
+        "gun": {
+          "rotation": [
+            18,
+            0,
+            0
+          ],
+          "position": [
+            0,
+            25.47,
+            -1.34
+          ]
+        }
+      }
+    },
+    "animation.minecade.gun_burst_rifle.first_person_hip": {
+      "loop": true,
+      "bones": {
+        "gun": {
+          "rotation": [
+            79.96,
+            61.52,
+            -43.23
+          ],
+          "position": [
+            -0.08,
+            16.05,
+            -2.51
+          ],
+          "scale": 1.1
+        }
+      }
+    },
+    "animation.minecade.gun_burst_rifle.first_person_aim": {
+      "loop": true,
+      "bones": {
+        "gun": {
+          "rotation": [
+            82.64,
+            61.26,
+            -51.57
+          ],
+          "position": [
+            3.44,
+            24.53,
+            -10.64
+          ],
+          "scale": 1.1
+        }
+      }
+    },
+    "animation.minecade.gun_burst_rifle.third_person": {
+      "loop": true,
+      "bones": {
+        "gun": {
+          "rotation": [
+            18,
+            0,
+            0
+          ],
+          "position": [
+            0,
+            25.47,
+            -1.34
+          ]
+        }
+      }
+    },
+    "animation.minecade.gun_pump_shotgun.first_person_hip": {
+      "loop": true,
+      "bones": {
+        "gun": {
+          "rotation": [
+            79.96,
+            61.52,
+            -43.23
+          ],
+          "position": [
+            -0.21,
+            15.93,
+            -2.6
+          ],
+          "scale": 1.1
+        }
+      }
+    },
+    "animation.minecade.gun_pump_shotgun.first_person_aim": {
+      "loop": true,
+      "bones": {
+        "gun": {
+          "rotation": [
+            82.64,
+            61.26,
+            -51.57
+          ],
+          "position": [
+            2,
+            24.55,
+            -11.13
+          ],
+          "scale": 1.1
+        }
+      }
+    },
+    "animation.minecade.gun_pump_shotgun.third_person": {
+      "loop": true,
+      "bones": {
+        "gun": {
+          "rotation": [
+            18,
+            0,
+            0
+          ],
+          "position": [
+            0,
+            25.47,
+            -1.34
+          ]
+        }
+      }
+    },
+    "animation.minecade.gun_double_barrel.first_person_hip": {
+      "loop": true,
+      "bones": {
+        "gun": {
+          "rotation": [
+            79.96,
+            61.52,
+            -43.23
+          ],
+          "position": [
+            -0.21,
+            15.93,
+            -2.6
+          ],
+          "scale": 1.15
+        }
+      }
+    },
+    "animation.minecade.gun_double_barrel.first_person_aim": {
+      "loop": true,
+      "bones": {
+        "gun": {
+          "rotation": [
+            82.64,
+            61.26,
+            -51.57
+          ],
+          "position": [
+            1.42,
+            24.01,
+            -11.55
+          ],
+          "scale": 1.15
+        }
+      }
+    },
+    "animation.minecade.gun_double_barrel.third_person": {
+      "loop": true,
+      "bones": {
+        "gun": {
+          "rotation": [
+            18,
+            0,
+            0
+          ],
+          "position": [
+            0,
+            25.47,
+            -1.34
+          ]
+        }
+      }
+    },
+    "animation.minecade.gun_sniper_rifle.first_person_hip": {
+      "loop": true,
+      "bones": {
+        "gun": {
+          "rotation": [
+            79.96,
+            61.52,
+            -43.23
+          ],
+          "position": [
+            -0.08,
+            16.05,
+            -2.51
+          ],
+          "scale": 0.95
+        }
+      }
+    },
+    "animation.minecade.gun_sniper_rifle.first_person_aim": {
+      "loop": true,
+      "bones": {
+        "gun": {
+          "rotation": [
+            82.64,
+            61.26,
+            -51.57
+          ],
+          "position": [
+            6,
+            22.83,
+            -10.5
+          ],
+          "scale": 0
+        }
+      }
+    },
+    "animation.minecade.gun_sniper_rifle.third_person": {
+      "loop": true,
+      "bones": {
+        "gun": {
+          "rotation": [
+            18,
+            0,
+            0
+          ],
+          "position": [
+            0,
+            25.47,
+            -1.34
+          ]
+        }
+      }
+    },
+    "animation.minecade.gun_rail_gun.first_person_hip": {
+      "loop": true,
+      "bones": {
+        "gun": {
+          "rotation": [
+            79.96,
+            61.52,
+            -43.23
+          ],
+          "position": [
+            -0.08,
+            16.05,
+            -2.51
+          ],
+          "scale": 1
+        }
+      }
+    },
+    "animation.minecade.gun_rail_gun.first_person_aim": {
+      "loop": true,
+      "bones": {
+        "gun": {
+          "rotation": [
+            82.64,
+            61.26,
+            -51.57
+          ],
+          "position": [
+            3.16,
+            22.9,
+            -11.44
+          ],
+          "scale": 1
+        }
+      }
+    },
+    "animation.minecade.gun_rail_gun.third_person": {
+      "loop": true,
+      "bones": {
+        "gun": {
+          "rotation": [
+            18,
+            0,
+            0
+          ],
+          "position": [
+            0,
+            25.47,
+            -1.34
+          ]
+        }
+      }
+    },
+    "animation.minecade.gun_rpg.first_person_hip": {
+      "loop": true,
+      "bones": {
+        "gun": {
+          "rotation": [
+            79.96,
+            61.52,
+            -43.23
+          ],
+          "position": [
+            -0.08,
+            16.05,
+            -2.51
+          ],
+          "scale": 1
+        }
+      }
+    },
+    "animation.minecade.gun_rpg.first_person_aim": {
+      "loop": true,
+      "bones": {
+        "gun": {
+          "rotation": [
+            82.64,
+            61.26,
+            -51.57
+          ],
+          "position": [
+            1.92,
+            24.47,
+            -11.18
+          ],
+          "scale": 1
+        }
+      }
+    },
+    "animation.minecade.gun_rpg.third_person": {
+      "loop": true,
+      "bones": {
+        "gun": {
+          "rotation": [
+            18,
+            0,
+            0
+          ],
+          "position": [
+            0,
+            25.47,
+            -1.34
+          ]
+        }
+      }
+    },
+    "animation.minecade.gun_frag_grenade.first_person_hip": {
+      "loop": true,
+      "bones": {
+        "gun": {
+          "rotation": [
+            106.9,
+            57.67,
+            -12.2
+          ],
+          "position": [
+            -0.64,
+            18.17,
+            -0.65
+          ],
+          "scale": 1.3
+        }
+      }
+    },
+    "animation.minecade.gun_frag_grenade.third_person": {
+      "loop": true,
+      "bones": {
+        "gun": {
+          "rotation": [
+            18,
+            0,
+            0
+          ],
+          "position": [
+            0,
+            22.62,
+            -0.41
+          ]
+        }
+      }
+    },
+    "animation.minecade.gun_molotov.first_person_hip": {
+      "loop": true,
+      "bones": {
+        "gun": {
+          "rotation": [
+            106.9,
+            57.67,
+            -12.2
+          ],
+          "position": [
+            -0.89,
+            17.93,
+            -0.84
+          ],
+          "scale": 1.2
+        }
+      }
+    },
+    "animation.minecade.gun_molotov.third_person": {
+      "loop": true,
+      "bones": {
+        "gun": {
+          "rotation": [
+            18,
+            0,
+            0
+          ],
+          "position": [
+            0,
+            23.09,
+            -0.57
+          ]
+        }
+      }
+    },
+    "animation.minecade.gun_flashbang.first_person_hip": {
+      "loop": true,
+      "bones": {
+        "gun": {
+          "rotation": [
+            106.9,
+            57.67,
+            -12.2
+          ],
+          "position": [
+            -0.64,
+            18.17,
+            -0.65
+          ],
+          "scale": 1.3
+        }
+      }
+    },
+    "animation.minecade.gun_flashbang.third_person": {
+      "loop": true,
+      "bones": {
+        "gun": {
+          "rotation": [
+            18,
+            0,
+            0
+          ],
+          "position": [
+            0,
+            22.62,
+            -0.41
+          ]
+        }
+      }
+    },
+    "animation.minecade.gun_smoke_grenade.first_person_hip": {
+      "loop": true,
+      "bones": {
+        "gun": {
+          "rotation": [
+            106.9,
+            57.67,
+            -12.2
+          ],
+          "position": [
+            -0.89,
+            17.93,
+            -0.84
+          ],
+          "scale": 1.3
+        }
+      }
+    },
+    "animation.minecade.gun_smoke_grenade.third_person": {
+      "loop": true,
+      "bones": {
+        "gun": {
+          "rotation": [
+            18,
+            0,
+            0
+          ],
+          "position": [
+            0,
+            23.09,
+            -0.57
+          ]
+        }
+      }
+    },
+    "animation.minecade.gun_throwing_knife.first_person_hip": {
+      "loop": true,
+      "bones": {
+        "gun": {
+          "rotation": [
+            70.87,
+            60.95,
+            -30.8
+          ],
+          "position": [
+            0.2,
+            17.58,
+            -0.62
+          ],
+          "scale": 1.2
+        }
+      }
+    },
+    "animation.minecade.gun_throwing_knife.third_person": {
+      "loop": true,
+      "bones": {
+        "gun": {
+          "rotation": [
+            18,
+            0,
+            0
+          ],
+          "position": [
+            0,
+            22.31,
+            -1.37
+          ]
+        }
+      }
+    },
+    "animation.minecade.gun_stimpack.first_person_hip": {
+      "loop": true,
+      "bones": {
+        "gun": {
+          "rotation": [
+            96.9,
+            57.67,
+            -12.2
+          ],
+          "position": [
+            0.2,
+            17.58,
+            -0.62
+          ],
+          "scale": 1.3
+        }
+      }
+    },
+    "animation.minecade.gun_stimpack.third_person": {
+      "loop": true,
+      "bones": {
+        "gun": {
+          "rotation": [
+            18,
+            0,
+            0
+          ],
+          "position": [
+            0,
+            22.62,
+            -0.41
+          ]
+        }
+      }
     }
   }
 }

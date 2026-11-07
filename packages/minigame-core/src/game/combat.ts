@@ -77,21 +77,32 @@ export class Combat {
   /**
    * A game-made hit, such as a paintball or a one-shot arrow, under the same rules as real
    * damage. A lethal one downs the victim with `cause`. Call it outside before-events.
+   *
+   * `direct` takes the health straight off instead of dealing damage: no armor, and no hurt
+   * cooldown (Minecraft ignores a second hit within half a second, which would swallow most of a
+   * fast gun's bullets). What came of it: "down", "hurt", or undefined when it didn't count.
    */
-  hit(victim: Entity, attacker: string | undefined, amount: number | "lethal", cause = "entityAttack"): void {
+  hit(victim: Entity, attacker: string | undefined, amount: number | "lethal", cause = "entityAttack", options: { direct?: boolean } = {}): "down" | "hurt" | undefined {
     const name = this.host.nameOf(victim);
-    if (name === undefined) return;
-    if (!this.host.playing || this.dying.has(name.toLowerCase()) || !this.host.canFight(name) || this.host.isProtected(name)) return;
-    if (attacker && (!this.host.canFight(attacker) || this.host.areAllies(attacker, name))) return;
+    if (name === undefined) return undefined;
+    if (!this.host.playing || this.dying.has(name.toLowerCase()) || !this.host.canFight(name) || this.host.isProtected(name)) return undefined;
+    if (attacker && (!this.host.canFight(attacker) || this.host.areAllies(attacker, name))) return undefined;
     if (attacker) this.credit.hit(name, attacker, system.currentTick);
-    const health = victim.getComponent(EntityComponentTypes.Health)?.currentValue ?? MAX_HEALTH;
+    const healthComponent = victim.getComponent(EntityComponentTypes.Health);
+    const health = healthComponent?.currentValue ?? MAX_HEALTH;
     if (amount === "lethal" || amount >= health) {
       this.dying.add(name.toLowerCase());
       this.stats.damage(name, health, attacker);
       this.host.down(name, cause);
+      return "down";
+    }
+    if (options.direct) {
+      healthComponent?.setCurrentValue(health - amount);
+      this.stats.damage(name, amount, attacker);
     } else {
       victim.applyDamage(amount);
     }
+    return "hurt";
   }
 
   private beforeHurt(event: EntityHurtBeforeEvent, scope: Scope): void {

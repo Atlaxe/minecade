@@ -1,0 +1,20 @@
+{
+  "format_version": "1.21.60",
+  "minecraft:block": {
+    "description": {
+      "identifier": "minecade:sniper_rifle_model",
+      "menu_category": {
+        "category": "none"
+      }
+    },
+    "components": {
+      "minecraft:geometry": "geometry.minecade.gun_sniper_rifle_icon",
+      "minecraft:material_instances": {
+        "*": {
+          "texture": "minecade_arsenal_sniper_rifle",
+          "render_method": "alpha_test"
+        }
+      }
+    }
+  }
+}

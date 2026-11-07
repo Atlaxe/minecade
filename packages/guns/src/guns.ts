@@ -1,13 +1,19 @@
 // Guns any game can hand out (the shared guns pack, packs/guns). Left click fires: a tap gun one
-// shot a click, a held gun again and again while the button stays down (Bedrock repeats the
-// swing). Right click raises the gun to aim and lowers it again (a toggle: Bedrock sends no left
-// click while right click is held): the camera zooms, the shots stray less, and the held model
-// comes up to the middle of the screen. Each shot shades the gun's hotbar slot for its fire rate
-// (the item's own cooldown). A grenade is thrown with either click, lands, swells for its fuse and
-// bursts. A shot's balls fly as PAINTBALL entities in the shooter's paint color, from
-// where they look, spread in a cone; the game hears where each lands (a player, a mob, a block's
-// face) and decides what that does. A gun with an AmmoDef has a magazine that reloads by itself
-// when it runs dry. The guns' numbers are defs.ts's.
+// shot a click (a burst gun a few shots a click), a held gun again and again while the button stays
+// down (Bedrock repeats the swing). Right click raises the gun to aim and lowers it again (a toggle:
+// Bedrock sends no left click while right click is held): the camera zooms, the shots stray less,
+// and the held model comes up to the middle of the screen. Each shot shades the gun's hotbar slot
+// for its fire rate (the item's own cooldown). A thrown item goes with either click: a grenade lands,
+// sits for its fuse and bursts; a Molotov bursts where it hits; a knife stops where it hits.
+//
+// A shot travels by its gun's ShotKind. Paintball's balls fly as PAINTBALL entities in the shooter's
+// paint color, spread in a cone, and the game hears where each lands (a player, a mob, a block's
+// face). A bullet is hitscan: a ray from the eyes finds the first player or block in its range at
+// once, with a streak drawn from the muzzle; a beam goes on through every player to the first block.
+// A rocket flies, trailing smoke, and bursts where it hits. Bullet, beam and rocket hits come with
+// their damage (DamageDef: headshots, falloff); what a hit or a burst does is the game's (arsenal.ts
+// for the real weapons). A gun with an AmmoDef has a magazine that reloads by itself when it runs
+// dry. The guns' numbers are defs.ts's.
 import {
   EntityComponentTypes,
   EntitySwingSource,
@@ -25,31 +31,36 @@ import {
 } from "@minecraft/server";
 import { describeError, log, type Scope } from "@minecade/minigame-core";
 import {
+  AIM_MARKER,
+  ARSENAL_MODELS,
   COLOR_PROPERTY,
   DYES,
   GRENADE,
   GUNS,
+  MODEL_PROPERTY,
   PAINTBALL,
   PAINT_RGB,
   PAINT_SPLASH,
-  AIM_MARKER,
+  PARTICLES,
+  ROCKET,
+  damageAt,
   dyeIndex,
   parseGunItem,
   shotMarker,
+  weaponId,
   type Dye,
   type GunDef,
-  type GunKind,
   type Sound,
   type ThrowableDef,
 } from "./defs.ts";
 
-/** One trigger pull (or throw): a shotgun's balls share it. */
+/** One trigger pull (or throw): a shotgun's balls or pellets share it. */
 export interface Shot {
   id: number;
   shooter: string;
-  /** The gun's or the throwable's id ("pistol", "grenade"). */
+  /** The gun's or the throwable's id ("pistol", "grenade", "handgun", "molotov"). */
   weapon: string;
-  /** The paint color: an index into DYES. */
+  /** The paint color: an index into DYES (white for the arsenal's, which have none). */
   color: number;
 }
 
@@ -59,9 +70,16 @@ export interface BlockHit {
   face: Direction;
 }
 
+/** How a bullet, a beam, a rocket or a knife met a player: what it takes off (its gun's DamageDef), whether in the head, from how far. */
+export interface HitInfo {
+  damage?: number;
+  headshot: boolean;
+  distance: number;
+}
+
 /** A gun's magazine as the game's HUD shows it. */
 export interface AmmoState {
-  gun: GunKind;
+  gun: string;
   loaded: number;
   magazine: number;
   /** Spare rounds; undefined when they never run out. */
@@ -72,15 +90,22 @@ export interface AmmoState {
 export interface GunsOptions {
   /** The guns players may fire, by model (defs.ts's GUNS by default): a game can change their numbers or give them ammo. */
   guns?: readonly GunDef[];
+  /** GRENADE by default. */
   throwables?: readonly ThrowableDef[];
   /** Whether a player may fire now: playing, not out, not frozen. */
   canFire(player: Player): boolean;
+  /** Whether a bullet or beam stops at (and hits) an entity; players only by default. */
+  isTarget?(entity: Entity): boolean;
   /** The paint color (DYES index) a player's balls take; the held item's own paint by default. */
   colorOf?(player: Player, itemDye: Dye): number;
-  /** A ball reached a player or a mob. A gun's maxHitsPerShot caps how many of one shot's balls count on one target. */
-  onHitEntity?(shot: Shot, entity: Entity, location: Vector3): void;
+  /**
+   * A ball, bullet, beam, rocket or knife reached a player or a mob. A gun's maxHitsPerShot caps how
+   * many of one shot's balls or pellets count on one target. `info` comes with all but paint balls.
+   */
+  onHitEntity?(shot: Shot, entity: Entity, location: Vector3, info?: HitInfo): void;
+  /** A ball or bullet reached a block. */
   onHitBlock?(shot: Shot, hit: BlockHit, location: Vector3): void;
-  /** A grenade's fuse ran out where it sits. */
+  /** A grenade's fuse ran out where it sits, a Molotov or rocket hit something, or a knife came to rest. */
   onBurst?(shot: Shot, location: Vector3): void;
   onFire?(player: Player, shot: Shot): void;
   /** A magazine changed (a shot, a reload starting or done), for the game's HUD (ammoText). */
@@ -88,16 +113,18 @@ export interface GunsOptions {
   random?: () => number;
 }
 
-/** A ball or grenade in the air: its shot, until when it may fly, and how many of its shot's hits one target may take. */
+/** A ball, rocket or thrown item in the air: its shot, until when it may fly, and how many of its shot's hits one target may take. */
 interface Flying {
   entity: Entity;
   shot: Shot;
   until: number;
   maxHits: number;
   throwable?: ThrowableDef;
+  /** A rocket's gun. */
+  rocket?: GunDef;
 }
 
-/** A grenade that landed, swelling until it bursts. */
+/** A grenade that landed, waiting until it bursts. */
 interface Primed {
   entity: Entity;
   shot: Shot;
@@ -118,11 +145,26 @@ interface Magazine {
   reloadingUntil: number;
 }
 
+/** A burst gun's shots still to come from one click. */
+interface Burst {
+  player: Player;
+  gun: GunDef;
+  typeId: string;
+  left: number;
+  nextAt: number;
+}
+
 /** Balls leave from just ahead of the eyes, so they clear the shooter's own body. */
 const MUZZLE = 0.6;
-/** A thrown grenade leaves rising a little, so it arcs. */
+/** Where a bullet's streak starts, from the eyes: ahead, to the right (from the hip), and down. */
+const STREAK_FROM = { ahead: 0.7, right: 0.22, down: 0.2 };
+/** A bullet or beam with no range of its own reaches this far. */
+const DEFAULT_RANGE = 64;
+/** A hit this close under the eyes or higher is in the head (a player's head is half a block, the eyes 0.18 under its top). */
+const HEAD_BELOW_EYES = 0.32;
+/** A thrown item leaves rising a little, so it arcs. */
 const THROW_LIFT = 0.15;
-/** A grenade lands this far off the face it hit, so it doesn't start inside the block. */
+/** A grenade or knife lands this far off the face it hit, so it doesn't start inside the block. */
 const LAND_OFF_FACE = 0.2;
 /** The zoom's ease in and out, in seconds. */
 const AIM_EASE = 0.15;
@@ -151,6 +193,7 @@ const FACE_OUT: Record<string, Vector3> = {
 export class Guns {
   private readonly options: GunsOptions;
   private readonly random: () => number;
+  private readonly isTarget: (entity: Entity) => boolean;
   private readonly guns = new Map<string, GunDef>();
   private readonly throwables = new Map<string, ThrowableDef>();
   /** By entity id. */
@@ -161,17 +204,20 @@ export class Guns {
   private readonly readyAt = new Map<string, number>();
   /** Players holding the attack button on a held gun: until when the last swing keeps it firing. */
   private readonly triggers = new Map<string, { player: Player; gun: GunDef; until: number }>();
+  /** Burst guns part way through a burst, by player. */
+  private readonly bursts = new Map<string, Burst>();
   /** Players aiming a gun (right click toggles it). */
   private readonly aiming = new Map<string, { player: Player; gun: GunDef }>();
   /** When each player's last right click event came, to tell one press from the next. */
   private readonly lastPress = new Map<string, number>();
   /** Each player's magazines, by gun, for guns with ammo. */
-  private readonly magazines = new Map<string, Map<GunKind, Magazine>>();
+  private readonly magazines = new Map<string, Map<string, Magazine>>();
   private nextShot = 1;
 
   constructor(scope: Scope, options: GunsOptions) {
     this.options = options;
     this.random = options.random ?? Math.random;
+    this.isTarget = options.isTarget ?? ((entity) => entity.typeId === "minecraft:player");
     for (const gun of options.guns ?? Object.values(GUNS)) this.guns.set(gun.id, gun);
     for (const throwable of options.throwables ?? [GRENADE]) this.throwables.set(throwable.id, throwable);
     scope.subscribe(world.afterEvents.playerSwingStart, ({ player, heldItemStack, swingSource }) => {
@@ -190,18 +236,21 @@ export class Guns {
     scope.subscribe(world.afterEvents.projectileHitEntity, (event) => {
       const flying = this.landed(event.projectile);
       if (!flying) return;
-      if (flying.throwable) return this.prime(flying, flying.throwable, event.location);
       const target = event.getEntityHit().entity;
-      if (target && this.countHit(flying, target)) this.notify(() => this.options.onHitEntity?.(flying.shot, target, event.location));
+      if (flying.throwable) return this.thrownHit(flying, flying.throwable, event.location, target);
+      if (flying.rocket) return this.rocketHit(flying, flying.rocket, event.location, target);
+      if (target && this.countHit(flying.shot, flying.maxHits, target)) this.notify(() => this.options.onHitEntity?.(flying.shot, target, event.location));
     });
     scope.subscribe(world.afterEvents.projectileHitBlock, (event) => {
       const flying = this.landed(event.projectile);
       if (!flying) return;
       const { block, face } = event.getBlockHit();
-      if (flying.throwable) {
+      if (flying.throwable || flying.rocket) {
         const out = FACE_OUT[face] ?? FACE_OUT.Up;
         const at = event.location;
-        return this.prime(flying, flying.throwable, { x: at.x + out.x * LAND_OFF_FACE, y: at.y + out.y * LAND_OFF_FACE, z: at.z + out.z * LAND_OFF_FACE });
+        const off = { x: at.x + out.x * LAND_OFF_FACE, y: at.y + out.y * LAND_OFF_FACE, z: at.z + out.z * LAND_OFF_FACE };
+        if (flying.throwable) return this.thrownHit(flying, flying.throwable, off);
+        return this.rocketHit(flying, flying.rocket!, off);
       }
       this.notify(() => this.options.onHitBlock?.(flying.shot, { block, face }, event.location));
     });
@@ -213,6 +262,7 @@ export class Guns {
   forget(name: string): void {
     const key = name.toLowerCase();
     this.triggers.delete(key);
+    this.bursts.delete(key);
     this.stopAiming(key);
     this.readyAt.delete(key);
     this.lastPress.delete(key);
@@ -242,19 +292,19 @@ export class Guns {
     return this.aiming.has(name.toLowerCase());
   }
 
-  /** Balls and grenades in the air, and grenades waiting to burst. */
+  /** Balls, rockets and thrown items in the air, and grenades waiting to burst. */
   get inFlight(): number {
     return this.flying.size + this.primed.size;
   }
 
   private gunOf(typeId: string): GunDef | undefined {
-    const item = parseGunItem(typeId);
-    return item && item.kind !== "grenade" ? this.guns.get(item.kind) : undefined;
+    const id = weaponId(typeId);
+    return id === undefined ? undefined : this.guns.get(id);
   }
 
   private throwableOf(typeId: string): ThrowableDef | undefined {
-    const item = parseGunItem(typeId);
-    return item?.kind === "grenade" ? this.throwables.get(item.kind) : undefined;
+    const id = weaponId(typeId);
+    return id === undefined ? undefined : this.throwables.get(id);
   }
 
   private heldGun(player: Player): GunDef | undefined {
@@ -316,13 +366,20 @@ export class Guns {
       return false;
     }
     if (!this.ready(player, gun.everyTicks)) return false;
-    this.fire(player, gun, typeId);
-    if (magazine) {
-      magazine.loaded--;
-      if (magazine.loaded <= 0) this.startReload(player, gun, magazine);
-      else this.ammoChanged(player, gun, magazine);
+    this.fireRound(player, gun, typeId, magazine, true);
+    if (gun.burst && gun.burst.shots > 1 && (!magazine || magazine.loaded > 0)) {
+      this.bursts.set(player.name.toLowerCase(), { player, gun, typeId, left: gun.burst.shots - 1, nextAt: system.currentTick + gun.burst.gapTicks });
     }
     return true;
+  }
+
+  /** One round: fired, and taken from the magazine (which starts reloading once it's empty). */
+  private fireRound(player: Player, gun: GunDef, typeId: string, magazine: Magazine | undefined, first: boolean): void {
+    this.fire(player, gun, typeId, first);
+    if (!magazine) return;
+    magazine.loaded--;
+    if (magazine.loaded <= 0) this.startReload(player, gun, magazine);
+    else this.ammoChanged(player, gun, magazine);
   }
 
   /** True (and the next shot waits `ticks`) when the player's last shot was long enough ago. */
@@ -334,22 +391,86 @@ export class Guns {
     return true;
   }
 
-  private fire(player: Player, gun: GunDef, typeId: string): void {
+  /** One shot: its balls, bullets, beam or rocket, its sound and kick. `first`: a burst's first shot, which shades the slot. */
+  private fire(player: Player, gun: GunDef, typeId: string, first: boolean): void {
     const shot = this.newShot(player, gun.id, typeId);
     const head = player.getHeadLocation();
     const dimension = world.getDimension("overworld");
-    const spread = this.aiming.has(player.name.toLowerCase()) ? gun.aimSpreadDegrees : gun.hipSpreadDegrees;
+    const aiming = this.aiming.has(player.name.toLowerCase());
+    const spread = aiming ? gun.aimSpreadDegrees : gun.hipSpreadDegrees;
+    const kind = gun.shot ?? "ball";
     for (const direction of coneDirections(player.getViewDirection(), gun.pellets, spread, this.random)) {
+      if (kind === "bullet" || kind === "beam") {
+        this.hitscan(dimension, player, gun, shot, direction, aiming);
+        continue;
+      }
       const from = { x: head.x + direction.x * MUZZLE, y: head.y - 0.1 + direction.y * MUZZLE, z: head.z + direction.z * MUZZLE };
       const velocity = { x: direction.x * gun.speed, y: direction.y * gun.speed, z: direction.z * gun.speed };
-      this.launch(dimension, PAINTBALL, player, shot, from, velocity, { lifeTicks: gun.lifeTicks, maxHits: gun.maxHitsPerShot });
+      if (kind === "rocket") this.launch(dimension, ROCKET, player, shot, from, velocity, {}, { lifeTicks: gun.lifeTicks, maxHits: 1, rocket: gun });
+      else this.launch(dimension, PAINTBALL, player, shot, from, velocity, { [COLOR_PROPERTY]: shot.color }, { lifeTicks: gun.lifeTicks, maxHits: gun.maxHitsPerShot });
     }
     playAt(dimension, gun.sound, head);
-    // The gun's own cooldown shades its hotbar slot until it can fire again; the held model's
-    // recoil runs off its shot marker's (the pack's attachables read that category).
-    startCooldown(player, typeId);
+    // The gun's own cooldown shades its slot until it can fire again; the held model's recoil runs
+    // off its shot marker's (the pack's attachables read that category), and kicks every shot.
+    if (first) startCooldown(player, typeId);
     startCooldown(player, shotMarker(gun.id).item);
     this.notify(() => this.options.onFire?.(player, shot));
+  }
+
+  /**
+   * A bullet or beam along `direction` from the eyes: the first player it meets before a block
+   * (every player, for a beam) takes its hit at once, a streak or beam is drawn from the muzzle, and
+   * a bullet that met no one marks the block it reached.
+   */
+  private hitscan(dimension: Dimension, player: Player, gun: GunDef, shot: Shot, direction: Vector3, aiming: boolean): void {
+    const eye = player.getHeadLocation();
+    const range = gun.range ?? DEFAULT_RANGE;
+    const beam = gun.shot === "beam";
+    let wall: { block: Block; face: Direction; at: Vector3 } | undefined;
+    try {
+      const hit = dimension.getBlockFromRay(eye, direction, { maxDistance: range, includeLiquidBlocks: false, includePassableBlocks: false });
+      if (hit) wall = { block: hit.block, face: hit.face, at: plus(hit.block.location, hit.faceLocation) };
+    } catch (error) {
+      log.warn(`guns: a bullet could not find its block: ${describeError(error)}`);
+    }
+    const reach = wall ? distance(eye, wall.at) : range;
+    let met: { entity: Entity; distance: number }[] = [];
+    try {
+      met = dimension
+        .getEntitiesFromRay(eye, direction, { maxDistance: reach, ignoreBlockCollision: true })
+        .filter((hit) => hit.entity.id !== player.id && this.isTarget(hit.entity))
+        .sort((a, b) => a.distance - b.distance);
+    } catch (error) {
+      log.warn(`guns: a bullet could not find its target: ${describeError(error)}`);
+    }
+    const struck = beam ? met : met.slice(0, 1);
+    for (const hit of struck) {
+      const at = along(eye, direction, hit.distance);
+      if (!this.countHit(shot, gun.maxHitsPerShot, hit.entity)) continue;
+      const headshot = isHeadshot(hit.entity, at);
+      const info: HitInfo = { damage: gun.damage && damageAt(gun.damage, hit.distance, headshot), headshot, distance: hit.distance };
+      this.notify(() => this.options.onHitEntity?.(shot, hit.entity, at, info));
+    }
+    const stopped = !beam && struck.length > 0 ? struck[0].distance : reach;
+    const end = along(eye, direction, stopped);
+    this.drawShot(dimension, player, gun, direction, end, aiming);
+    if (wall && stopped >= reach) {
+      const block = wall;
+      spawnParticle(dimension, PARTICLES.impact, block.at);
+      this.notify(() => this.options.onHitBlock?.(shot, { block: block.block, face: block.face }, block.at));
+    }
+  }
+
+  /** A bullet's streak or a beam, from the gun's muzzle to `end`. */
+  private drawShot(dimension: Dimension, player: Player, gun: GunDef, direction: Vector3, end: Vector3, aiming: boolean): void {
+    const from = muzzleOf(player.getHeadLocation(), direction, aiming);
+    const length = distance(from, end);
+    if (length < 0.5) return;
+    const variables = new MolangVariableMap();
+    variables.setVector3("variable.dir", { x: (end.x - from.x) / length, y: (end.y - from.y) / length, z: (end.z - from.z) / length });
+    variables.setFloat("variable.dist", length);
+    variables.setFloat("variable.speed", gun.speed * 20);
+    spawnParticle(dimension, gun.shot === "beam" ? PARTICLES.beam : PARTICLES.streak, from, variables);
   }
 
   private tryThrow(player: Player, throwable: ThrowableDef, typeId: string): void {
@@ -360,7 +481,7 @@ export class Guns {
     const dimension = world.getDimension("overworld");
     const from = { x: head.x + view.x * MUZZLE, y: head.y - 0.1 + view.y * MUZZLE, z: head.z + view.z * MUZZLE };
     const velocity = { x: view.x * throwable.speed, y: view.y * throwable.speed + THROW_LIFT, z: view.z * throwable.speed };
-    this.launch(dimension, throwable.entity, player, shot, from, velocity, { lifeTicks: throwable.lifeTicks, maxHits: 1, throwable });
+    this.launch(dimension, throwable.entity, player, shot, from, velocity, entityLook(shot), { lifeTicks: throwable.lifeTicks, maxHits: 1, throwable });
     playAt(dimension, throwable.sound, head);
     consumeHeld(player, typeId);
     this.notify(() => this.options.onFire?.(player, shot));
@@ -381,11 +502,12 @@ export class Guns {
     shot: Shot,
     from: Vector3,
     velocity: Vector3,
-    how: { lifeTicks: number; maxHits: number; throwable?: ThrowableDef },
+    properties: Record<string, number>,
+    how: { lifeTicks: number; maxHits: number; throwable?: ThrowableDef; rocket?: GunDef },
   ): void {
     try {
       const entity = dimension.spawnEntity(typeId, from);
-      entity.setProperty(COLOR_PROPERTY, shot.color);
+      for (const [property, value] of Object.entries(properties)) entity.setProperty(property, value);
       const projectile = entity.getComponent(EntityComponentTypes.Projectile);
       if (!projectile) {
         entity.remove();
@@ -393,33 +515,59 @@ export class Guns {
       }
       projectile.owner = owner;
       projectile.shoot(velocity);
-      this.flying.set(entity.id, { entity, shot, until: system.currentTick + how.lifeTicks, maxHits: how.maxHits, throwable: how.throwable });
+      this.flying.set(entity.id, { entity, shot, until: system.currentTick + how.lifeTicks, maxHits: how.maxHits, throwable: how.throwable, rocket: how.rocket });
       this.shots.get(shot.id)!.flying++;
     } catch (error) {
       log.warn(`guns: could not launch ${typeId}: ${describeError(error)}`);
     }
   }
 
-  /** A grenade landed at `location`: it sits there, swelling, until its fuse runs out. */
+  /** A thrown item hit something at `location` (a player, `target`, or a block). */
+  private thrownHit(flying: Flying, throwable: ThrowableDef, location: Vector3, target?: Entity): void {
+    const land = throwable.land ?? "fuse";
+    if (land === "fuse") return this.prime(flying, throwable, location);
+    if (land === "stick" && target && this.countHit(flying.shot, flying.maxHits, target)) {
+      const thrower = world.getAllPlayers().find((player) => player.name === flying.shot.shooter);
+      const headshot = isHeadshot(target, location);
+      const far = thrower ? distance(thrower.location, location) : 0;
+      const info: HitInfo = { damage: throwable.damage && damageAt(throwable.damage, far, headshot), headshot, distance: far };
+      this.notify(() => this.options.onHitEntity?.(flying.shot, target, location, info));
+    }
+    // A knife comes to rest at the feet of whoever it hit.
+    this.burst(flying.shot, target && land === "stick" ? target.location : location, throwable.burstSound);
+  }
+
+  /** A rocket hit something: a player it hit straight on takes its direct hit, then it bursts. */
+  private rocketHit(flying: Flying, gun: GunDef, location: Vector3, target?: Entity): void {
+    if (target && this.isTarget(target) && this.countHit(flying.shot, flying.maxHits, target)) {
+      const headshot = isHeadshot(target, location);
+      const info: HitInfo = { damage: gun.damage && damageAt(gun.damage, 0, headshot), headshot, distance: 0 };
+      this.notify(() => this.options.onHitEntity?.(flying.shot, target, location, info));
+    }
+    this.burst(flying.shot, location);
+  }
+
+  /** A grenade landed at `location`: it sits there (swelling, flashing) until its fuse runs out. */
   private prime(flying: Flying, throwable: ThrowableDef, location: Vector3): void {
     const dimension = world.getDimension("overworld");
     try {
+      if (!throwable.primed) throw new Error(`${throwable.id} has no entity to sit as`);
       const entity = dimension.spawnEntity(throwable.primed, location);
-      entity.setProperty(COLOR_PROPERTY, flying.shot.color);
+      for (const [property, value] of Object.entries(entityLook(flying.shot))) entity.setProperty(property, value);
       this.primed.set(entity.id, { entity, shot: flying.shot, throwable, burstAt: system.currentTick + throwable.fuseTicks, location });
-      playAt(dimension, throwable.fuseSound, location);
+      if (throwable.fuseSound) playAt(dimension, throwable.fuseSound, location);
     } catch (error) {
-      log.warn(`guns: could not land ${throwable.primed}: ${describeError(error)}`);
-      this.burst(flying.shot, throwable, location);
+      log.warn(`guns: could not land ${throwable.id}: ${describeError(error)}`);
+      this.burst(flying.shot, location, throwable.burstSound);
     }
   }
 
-  private burst(shot: Shot, throwable: ThrowableDef, location: Vector3): void {
-    playAt(world.getDimension("overworld"), throwable.burstSound, location);
+  private burst(shot: Shot, location: Vector3, sound?: Sound): void {
+    if (sound) playAt(world.getDimension("overworld"), sound, location);
     this.notify(() => this.options.onBurst?.(shot, location));
   }
 
-  /** The ball or grenade that just hit something, now out of the air; undefined for anything else. */
+  /** The ball, rocket or thrown item that just hit something, now out of the air; undefined for anything else. */
   private landed(projectile: Entity): Flying | undefined {
     let id: string;
     try {
@@ -433,17 +581,17 @@ export class Guns {
     return flying;
   }
 
-  /** Whether this hit counts: a shot's balls count on one target up to its gun's maxHitsPerShot. */
-  private countHit(flying: Flying, target: Entity): boolean {
-    const state = this.shots.get(flying.shot.id);
+  /** Whether this hit counts: a shot's balls or pellets count on one target up to `maxHits`. */
+  private countHit(shot: Shot, maxHits: number, target: Entity): boolean {
+    const state = this.shots.get(shot.id);
     const key = target.id;
     const hits = state?.hits.get(key) ?? 0;
-    if (hits >= flying.maxHits) return false;
+    if (hits >= maxHits) return false;
     state?.hits.set(key, hits + 1);
     return true;
   }
 
-  /** Takes a ball or grenade out of the air (and the world): it landed, or flew its whole range. */
+  /** Takes a ball, rocket or thrown item out of the air (and the world): it landed, or flew its whole range. */
   private down(id: string, flying: Flying): void {
     this.flying.delete(id);
     remove(flying.entity);
@@ -501,6 +649,20 @@ export class Guns {
       }
       this.tryFire(trigger.player, trigger.gun, held.typeId);
     }
+    // A burst's later shots, while the gun is still in hand, the player may fire and it has rounds.
+    for (const [key, burst] of [...this.bursts]) {
+      if (burst.nextAt > now) continue;
+      const held = burst.player.isValid ? heldItem(burst.player) : undefined;
+      const magazine = this.magazine(burst.player, burst.gun);
+      if (!held || held.typeId !== burst.typeId || !this.options.canFire(burst.player) || (magazine && (magazine.loaded <= 0 || this.isReloading(magazine)))) {
+        this.bursts.delete(key);
+        continue;
+      }
+      this.fireRound(burst.player, burst.gun, burst.typeId, magazine, false);
+      burst.left--;
+      burst.nextAt = now + (burst.gun.burst?.gapTicks ?? 1);
+      if (burst.left <= 0) this.bursts.delete(key);
+    }
     // Switching away from the gun lowers it; while it's up, the aim marker keeps the model up.
     for (const [key, { player, gun }] of [...this.aiming]) {
       const held = player.isValid ? heldItem(player) : undefined;
@@ -526,9 +688,12 @@ export class Guns {
       if (primed.burstAt > now) continue;
       this.primed.delete(id);
       remove(primed.entity);
-      this.burst(primed.shot, primed.throwable, primed.location);
+      this.burst(primed.shot, primed.location, primed.throwable.burstSound);
     }
-    for (const [id, flying] of [...this.flying]) if (flying.until <= now) this.down(id, flying);
+    for (const [id, flying] of [...this.flying]) {
+      if (flying.until <= now) this.down(id, flying);
+      else if (flying.rocket && flying.entity.isValid) spawnParticle(world.getDimension("overworld"), PARTICLES.trail, flying.entity.location);
+    }
     for (const [id, state] of [...this.shots]) if (state.flying <= 0) this.shots.delete(id);
   }
 
@@ -539,6 +704,7 @@ export class Guns {
     for (const key of [...this.aiming.keys()]) this.stopAiming(key);
     this.shots.clear();
     this.triggers.clear();
+    this.bursts.clear();
     this.readyAt.clear();
     this.lastPress.clear();
     this.magazines.clear();
@@ -573,6 +739,51 @@ export function paintSplash(location: Vector3, color: number, bursts = 1): void 
 /** The item in a player's selected hotbar slot. */
 export function heldItem(player: Player): ItemStack | undefined {
   return player.getComponent(EntityComponentTypes.Inventory)?.container?.getItem(player.selectedSlotIndex);
+}
+
+/** The properties a thrown or landed item's entity shows it by: an arsenal item's model, or a paint grenade's color. */
+function entityLook(shot: Shot): Record<string, number> {
+  const model = (ARSENAL_MODELS as readonly string[]).indexOf(shot.weapon);
+  return model >= 0 ? { [MODEL_PROPERTY]: model } : { [COLOR_PROPERTY]: shot.color };
+}
+
+/** Whether a hit at `at` is in `entity`'s head: no lower than just under its eyes. */
+function isHeadshot(entity: Entity, at: Vector3): boolean {
+  let eyes: number;
+  try {
+    eyes = entity.getHeadLocation().y;
+  } catch {
+    eyes = entity.location.y + 1.62;
+  }
+  return at.y >= eyes - HEAD_BELOW_EYES;
+}
+
+/** Where a shot's streak leaves the gun: ahead of the eyes, to the right and down from the hip, under the crosshair when aiming. */
+export function muzzleOf(eye: Vector3, direction: Vector3, aiming: boolean): Vector3 {
+  const level = Math.hypot(direction.x, direction.z);
+  const right = level < 1e-6 ? { x: -1, y: 0, z: 0 } : { x: -direction.z / level, y: 0, z: direction.x / level };
+  const side = aiming ? 0 : STREAK_FROM.right;
+  return {
+    x: eye.x + direction.x * STREAK_FROM.ahead + right.x * side,
+    y: eye.y + direction.y * STREAK_FROM.ahead - STREAK_FROM.down,
+    z: eye.z + direction.z * STREAK_FROM.ahead + right.z * side,
+  };
+}
+
+const plus = (a: Vector3, b: Vector3): Vector3 => ({ x: a.x + b.x, y: a.y + b.y, z: a.z + b.z });
+const along = (from: Vector3, direction: Vector3, length: number): Vector3 => ({
+  x: from.x + direction.x * length,
+  y: from.y + direction.y * length,
+  z: from.z + direction.z * length,
+});
+const distance = (a: Vector3, b: Vector3) => Math.hypot(a.x - b.x, a.y - b.y, a.z - b.z);
+
+function spawnParticle(dimension: Dimension, id: string, location: Vector3, variables?: MolangVariableMap): void {
+  try {
+    dimension.spawnParticle(id, location, variables);
+  } catch {
+    // An unloaded spot, or out of the world: the shot still counted.
+  }
 }
 
 /** Starts a player's cooldown of an item's category (a gun's own, or a hidden marker's). */

@@ -3,15 +3,19 @@
 // setting picks the stage length, and the match starts by saying which settings arrived and who is
 // on which team (picked in the lobby, or dealt out). Its kits are there for the kit form; the
 // Painter's guns, in the team's paint, fire balls that splash in it and hurt nobody, and a row of
-// the guns' pickups floats in front of the first player.
-import { world, type Vector3 } from "@minecraft/server";
-import { GUN_PICKUP, Guns, KIND_PROPERTY, PICKUP_KINDS, paintSplash } from "@minecade/guns";
+// the guns' pickups floats in front of the first player. The Gunner's and Grenadier's arsenal fires
+// and blasts for real but hurts nobody either: each hit says in chat what it would have taken, the
+// held gun's ammo shows top right, and a second row floats the arsenal's models.
+import { world, type Player, type Vector3 } from "@minecraft/server";
+import { ARSENAL_MODELS, ARSENAL_PICKUP, Arsenal, GUN_PICKUP, Guns, KIND_PROPERTY, MODEL_PROPERTY, PICKUP_KINDS, paintSplash } from "@minecade/guns";
 import { Minigame, nameOf, say, type GameContext } from "@minecade/minigame-core";
 import { runGameServer } from "@minecade/minigame-core/game";
 import pack from "../../resource_pack/manifest.json";
 import config from "../../game.config.ts";
 
 class Probe extends Minigame<typeof config> {
+  private arsenal?: Arsenal;
+
   constructor(ctx: GameContext, gameConfig: typeof config, picturePack: string) {
     super(ctx, gameConfig);
     this.kitPicturePack = picturePack;
@@ -24,6 +28,27 @@ class Probe extends Minigame<typeof config> {
       onHitEntity: (shot, _entity, location) => paintSplash(location, shot.color),
       onBurst: (shot, location) => paintSplash(location, shot.color, 3),
     });
+    const alive = (name: string) => this.roster.get(name)?.state === "alive";
+    this.arsenal = new Arsenal(
+      this.scope,
+      {
+        canFire: (player) => alive(player.name),
+        targets: () => world.getAllPlayers().filter((player) => alive(player.name)),
+        nameOf: (entity) => (entity.typeId === "minecraft:player" ? (entity as Player).name : undefined),
+        hurt: (victim, attacker, amount, cause) => {
+          const taken = amount === "lethal" ? "everything" : `${Math.round(amount * 10) / 10}`;
+          this.broadcast(say.minor(`${attacker ?? "Their own"} ${cause} hit ${(victim as Player).name}: ${taken}`));
+          return "hurt";
+        },
+      },
+      { onAmmo: (player) => this.refreshHud(player.name) },
+    );
+  }
+
+  /** The held arsenal gun's ammo, top right beside the clock. */
+  protected override hud(name: string): string | undefined {
+    const player = this.player(name);
+    return (player && this.arsenal?.ammoLine(player)) ?? super.hud(name);
   }
 
   protected override get timeLimit(): number | undefined {
@@ -44,12 +69,17 @@ class Probe extends Minigame<typeof config> {
     if (first) this.showPickups(first.location);
   }
 
-  /** Each gun's pickup in a row a few blocks south of `from`, to look at the models. */
+  /** Each gun's pickup in a row a few blocks south of `from`, and the arsenal's in a row behind it, to look at the models. */
   private showPickups(from: Vector3): void {
     const dimension = world.getDimension("overworld");
     PICKUP_KINDS.forEach((_kind, i) => {
       const pickup = dimension.spawnEntity(GUN_PICKUP, { x: Math.floor(from.x) - 3 + i * 2 + 0.5, y: Math.floor(from.y), z: Math.floor(from.z) + 4.5 });
       pickup.setProperty(KIND_PROPERTY, i);
+      this.track(pickup);
+    });
+    ARSENAL_MODELS.forEach((_model, i) => {
+      const pickup = dimension.spawnEntity(ARSENAL_PICKUP, { x: Math.floor(from.x) - 14 + i * 2 + 0.5, y: Math.floor(from.y), z: Math.floor(from.z) + 7.5 });
+      pickup.setProperty(MODEL_PROPERTY, i);
       this.track(pickup);
     });
   }

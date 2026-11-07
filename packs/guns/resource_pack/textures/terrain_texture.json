@@ -195,6 +195,51 @@
     },
     "minecade_gun_grenade_black": {
       "textures": "textures/minecade/guns/grenade/black"
+    },
+    "minecade_arsenal_handgun": {
+      "textures": "textures/minecade/guns/arsenal/handgun"
+    },
+    "minecade_arsenal_smg": {
+      "textures": "textures/minecade/guns/arsenal/smg"
+    },
+    "minecade_arsenal_assault_rifle": {
+      "textures": "textures/minecade/guns/arsenal/assault_rifle"
+    },
+    "minecade_arsenal_burst_rifle": {
+      "textures": "textures/minecade/guns/arsenal/burst_rifle"
+    },
+    "minecade_arsenal_pump_shotgun": {
+      "textures": "textures/minecade/guns/arsenal/pump_shotgun"
+    },
+    "minecade_arsenal_double_barrel": {
+      "textures": "textures/minecade/guns/arsenal/double_barrel"
+    },
+    "minecade_arsenal_sniper_rifle": {
+      "textures": "textures/minecade/guns/arsenal/sniper_rifle"
+    },
+    "minecade_arsenal_rail_gun": {
+      "textures": "textures/minecade/guns/arsenal/rail_gun"
+    },
+    "minecade_arsenal_rpg": {
+      "textures": "textures/minecade/guns/arsenal/rpg"
+    },
+    "minecade_arsenal_frag_grenade": {
+      "textures": "textures/minecade/guns/arsenal/frag_grenade"
+    },
+    "minecade_arsenal_molotov": {
+      "textures": "textures/minecade/guns/arsenal/molotov"
+    },
+    "minecade_arsenal_flashbang": {
+      "textures": "textures/minecade/guns/arsenal/flashbang"
+    },
+    "minecade_arsenal_smoke_grenade": {
+      "textures": "textures/minecade/guns/arsenal/smoke_grenade"
+    },
+    "minecade_arsenal_throwing_knife": {
+      "textures": "textures/minecade/guns/arsenal/throwing_knife"
+    },
+    "minecade_arsenal_stimpack": {
+      "textures": "textures/minecade/guns/arsenal/stimpack"
     }
   }
 }

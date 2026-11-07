@@ -1467,6 +1467,29 @@ export abstract class Minigame<C extends GameConfig = GameConfig> {
     }
   }
 
+  /**
+   * Draws one player's HUD line again now, rather than at the next half-second refresh: for a game
+   * whose hud() text changes faster (a gun's ammo count, shot by shot). Only while playing.
+   */
+  protected refreshHud(name: string): void {
+    if (!this.playingScope || this.playingScope.disposed) return;
+    const player = this.player(name);
+    if (player) this.showHudLine(player, this.currentStage?.secondsLeft ?? this.matchSecondsLeft, this.roundsCodes());
+  }
+
+  private showHudLine(player: Player, secondsLeft: number | undefined, rounds: string): void {
+    const scoring = this.config.scoring;
+    const own = scoring?.display === "own";
+    const rest = this.hud(player.name) ?? "";
+    const count = own ? this.ownScore(player.name) : undefined;
+    // With no clock (and no rounds) there's no box to put the score beside: it goes on the action bar as text.
+    const text =
+      secondsLeft === undefined && count !== undefined && !rounds
+        ? [say.info(`${scoring?.title ?? "Score"}: ${count}`), rest].filter(Boolean).join("   ")
+        : hudLine(secondsLeft, rest, count, rounds);
+    if (text) player.onScreenDisplay.setActionBar(text);
+  }
+
   private refreshDisplays(): void {
     // A round's own clock, else the match's (a stage's, or the one over all best-of rounds).
     const secondsLeft = this.currentStage?.secondsLeft ?? this.matchSecondsLeft;
@@ -1474,16 +1497,7 @@ export abstract class Minigame<C extends GameConfig = GameConfig> {
     const own = scoring?.display === "own";
     const sides = scoring?.display === "sides";
     const rounds = this.roundsCodes();
-    for (const player of world.getAllPlayers()) {
-      const rest = this.hud(player.name) ?? "";
-      const count = own ? this.ownScore(player.name) : undefined;
-      // With no clock (and no rounds) there's no box to put the score beside: it goes on the action bar as text.
-      const text =
-        secondsLeft === undefined && count !== undefined && !rounds
-          ? [say.info(`${scoring?.title ?? "Score"}: ${count}`), rest].filter(Boolean).join("   ")
-          : hudLine(secondsLeft, rest, count, rounds);
-      if (text) player.onScreenDisplay.setActionBar(text);
-    }
+    for (const player of world.getAllPlayers()) this.showHudLine(player, secondsLeft, rounds);
     this.respawnTitles();
     // "own" and "sides" show the scores in the HUD's boxes, not on the sidebar.
     const board = scoring && !own && !sides ? this.score : undefined;

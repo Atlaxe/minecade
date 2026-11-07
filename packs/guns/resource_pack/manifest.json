@@ -2,7 +2,7 @@
   "format_version": 2,
   "header": {
     "name": "Minecade Guns",
-    "description": "The guns' models, recoil, icons, paint balls and splashes",
+    "description": "The guns' models, recoil, icons, paint balls and splashes, and the arsenal's streaks, blasts, flames and smoke",
     "uuid": "e9b3c6a1-09d7-4b65-b420-fb7b39ed15b3",
     "version": [1, 0, 0],
     "min_engine_version": [1, 26, 60]

@@ -1,0 +1,20 @@
+{
+  "format_version": "1.21.60",
+  "minecraft:block": {
+    "description": {
+      "identifier": "minecade:handgun_model",
+      "menu_category": {
+        "category": "none"
+      }
+    },
+    "components": {
+      "minecraft:geometry": "geometry.minecade.gun_handgun_icon",
+      "minecraft:material_instances": {
+        "*": {
+          "texture": "minecade_arsenal_handgun",
+          "render_method": "alpha_test"
+        }
+      }
+    }
+  }
+}

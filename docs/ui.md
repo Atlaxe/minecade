@@ -327,6 +327,86 @@ Keep to the `gun` bone (the `body` bone carries the recoil), keep the animation 
 `guns.animation.json` alone (it's generated). Blockbench's preview is approximate: check in game.
 `npm run check` confirms every pose the guns name is still in the file.
 
+When a new model comes (the arsenal's did), the generator adds the solver's first guess for each of
+its poses at the end of the file, as text in the file's own layout and line endings, and changes
+nothing already there (`withMissingHolds`). The arsenal's guesses start from the paint guns' places;
+the sniper's aim pose is scaled to nothing, so aiming it is just the zoom (its scope).
+
+### The arsenal
+
+The real guns, grenades, knife and stimpack, for Gunfight, Gun Game and any other game: one item
+each (`minecade:<id>`, `arsenalItem(id)`), built in the guns' style without Paintball's paint (no
+hopper; the pistol, rifle and shotgun are Paintball's models without it). They fire through the
+same `Guns` (left click fires, right click toggles the aim, the slot shades for the fire rate, the
+held model kicks), and `Arsenal` (`packages/guns/src/arsenal.ts`) does what each does to players.
+
+| Item (id) | Fires | Every | Damage body / head (20 is full health) | Magazine, reload | Notes |
+|---|---|---|---|---|---|
+| Pistol (`handgun`) | tap | 5 ticks | 5 / 8 | 12, 1.5 s | falls to 60% from 25 to 60 blocks |
+| SMG (`smg`) | hold | 2 ticks | 3 / 4 | 32, 1.75 s | 45 block reach, falls to half from 15 to 35 |
+| Assault Rifle (`assault_rifle`) | hold | 3 ticks | 4 / 6 | 30, 2 s | |
+| Burst Rifle (`burst_rifle`) | tap: 3 shots 2 ticks apart | 12 ticks | 5 / 8 | 24, 2 s | |
+| Pump Shotgun (`pump_shotgun`) | tap: 6 pellets | 18 ticks | 3.5 / 4 each | 6, 3 s | 18 block reach |
+| Double Barrel (`double_barrel`) | tap: 8 pellets | 6 ticks | 2.5 / 3 each | 2, 2 s | 14 block reach, wide |
+| Sniper Rifle (`sniper_rifle`) | tap | 30 ticks | 17 / 40 | 5, 2.5 s | zoom 20, 10 degrees off from the hip |
+| Rail Gun (`rail_gun`) | tap: a beam | 40 ticks | 20 | 4, 3 s | goes through every player in line |
+| RPG (`rpg`) | tap: a rocket | 20 ticks | 20 direct, up to 14 in 4 blocks | 1, 3 s | the shooter takes half its blast |
+| Frag Grenade (`frag_grenade`) | thrown, lands, 1.5 s fuse | | up to 18 in 5 blocks | | |
+| Molotov (`molotov`) | thrown, breaks where it hits | | 1 every half second in 3 blocks, 6 s | | flames are particles, never fire blocks |
+| Flashbang (`flashbang`) | thrown, lands, 0.6 s fuse | | | | whites out screens up to 3 s |
+| Smoke Grenade (`smoke_grenade`) | thrown, lands, 0.5 s fuse | | | | a cloud of 4 blocks for 10 s |
+| Throwing Knife (`throwing_knife`) | thrown | | kills | | floats where it stops until someone takes it |
+| Stimpack (`stimpack`) | either click | once a second | 8 health back, Speed I 4 s | | |
+
+- **Bullets are hitscan:** a ray from the eyes (`getBlockFromRay` to find the first block in the
+  gun's reach, then `getEntitiesFromRay` up to it) hits the nearest participant at once; a beam goes
+  on through every one to the block. A hit at or above 0.32 under the target's eyes is a headshot.
+  Each shot draws a streak from the muzzle (`minecade:bullet_streak`; the beam's is
+  `minecade:rail_beam`), a hit throws red sparks, and a bullet that reaches a block puffs dust there.
+  Pellets count on one target up to the gun's `maxHitsPerShot`.
+- **Damage is taken straight off health** (`combat.hit(..., { direct: true })`): no armor, and no
+  hurt cooldown, so a fast gun's every bullet counts. The shooter hears a hit, a headshot (higher)
+  and a down (a chime) apart.
+- **The rocket** flies straight at its speed, trailing smoke (`minecade:rocket`, the snowball's
+  runtime: docs/spike-results.md), and a direct hit takes its damage before the blast.
+- **Blasts** (the frag, the rocket) hurt everyone within their radius, falling off evenly to nothing
+  at its edge, a quarter through cover, and throw them out from the middle; nobody's blocks break.
+  Teammates are the game's to spare (combat's allies); the thrower's own share comes with no
+  attacker, so it never scores.
+- **Flashes** white out (`camera.fade`) players who can see the flashbang: full close up and
+  looking at it, a third looking away, falling off to nothing at 20 blocks, none through a wall. The
+  thrower too.
+- **Smoke** is a cloud of particles; anyone standing in it is blinded while they stay.
+- **Knives** kill whoever they hit and float (`minecade:arsenal_pickup`) where they came to rest:
+  the first fighting player to walk over one takes it (the game's `give`, or the first free hotbar
+  slot).
+- **Magazines** reload by themselves when empty (Bedrock gives scripts no reload key), spare rounds
+  never run out, and `Arsenal.ammoLine` is the HUD text ("12/30", "Reloading"); its `onAmmo` lets a
+  game redraw it at once (`refreshHud`).
+- **Vanilla one-hits:** `arsenal.vanillaDamage(hit)` in a game's `onDamage` makes a crossbow's
+  arrow and a netherite sword's hit kill outright (`LETHAL`). Crossbow carriers are kept at 8 arrows
+  above the hotbar, and arrows that land are taken away.
+- **Entities:** thrown grenades and knives fly as `minecade:arsenal_thrown`, landed grenades sit as
+  `minecade:arsenal_primed` (flashing faster and faster), and pickups float as
+  `minecade:arsenal_pickup`; each shows any arsenal model by its `minecade:model` property (an index
+  into `ARSENAL_MODELS`).
+
+A game gives it a host:
+
+```ts
+const arsenal = new Arsenal(this.scope, {
+  canFire: (player) => this.roster.get(player.name)?.state === "alive",
+  targets: () => /* every fighting participant's body */,
+  nameOf: (entity) => /* a participant's name, or undefined */,
+  hurt: (victim, attacker, amount, cause) => this.combat.hit(victim, attacker, amount, cause, { direct: true }),
+}, { onAmmo: (player) => this.refreshHud(player.name) });
+```
+
+and calls `arsenal.vanillaDamage(hit)` from `onDamage`, `arsenal.forget(name)` when a player goes
+down, `arsenal.refill(name)` on a respawn or a new round, and shows `arsenal.ammoLine(player)` from
+`hud()`. Probe's Gunner and Grenadier kits carry the whole arsenal (its hits only say in chat what
+they would have taken), with the arsenal's models floating in a row behind the paint guns'.
+
 ## Dyed leather armor
 
 Bedrock's scripts can't dye vanilla leather (setting `ItemDyeableComponent.color` on it does

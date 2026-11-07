@@ -1,0 +1,20 @@
+{
+  "format_version": "1.21.60",
+  "minecraft:block": {
+    "description": {
+      "identifier": "minecade:double_barrel_model",
+      "menu_category": {
+        "category": "none"
+      }
+    },
+    "components": {
+      "minecraft:geometry": "geometry.minecade.gun_double_barrel_icon",
+      "minecraft:material_instances": {
+        "*": {
+          "texture": "minecade_arsenal_double_barrel",
+          "render_method": "alpha_test"
+        }
+      }
+    }
+  }
+}

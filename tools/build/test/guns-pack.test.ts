@@ -3,14 +3,26 @@ import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import {
   AIM_MARKER,
+  ARSENAL_GUNS,
+  ARSENAL_GUN_DEFS,
+  ARSENAL_MODELS,
+  ARSENAL_PICKUP,
   DYES,
   GRENADE,
   GUNS,
   GUN_KINDS,
   GUN_PICKUP,
+  MODEL_PROPERTY,
   PAINTBALL,
+  PARTICLES,
+  PRIMED_ARSENAL,
   PRIMED_GRENADE,
+  ROCKET,
+  THROWN_ARSENAL,
   THROWN_GRENADE,
+  arsenalItem,
+  arsenalItems,
+  arsenalModelBlock,
   gunCooldown,
   gunItem,
   gunItems,
@@ -19,7 +31,7 @@ import {
   shotMarker,
   teamGunItem,
 } from "../../../packages/guns/src/defs.ts";
-import { HOLD_FILE, gunsPackFiles, holdAnimationNames } from "../../assets/guns.ts";
+import { HOLD_FILE, gunsPackFiles, holdAnimationNames, withMissingHolds } from "../../assets/guns.ts";
 
 type Json = Record<string, any>;
 const files = gunsPackFiles();
@@ -155,7 +167,7 @@ describe("the hand-edited hold file", () => {
 
   it("still has every hold animation the attachables name, each moving the bound \"gun\" bone", () => {
     const named = new Set<string>();
-    for (const id of gunItems()) {
+    for (const id of [...gunItems(), ...arsenalItems()]) {
       const { animations } = json(`resource_pack/attachables/${file(id)}.json`)["minecraft:attachable"].description;
       for (const name of Object.values(animations) as string[]) if (!name.endsWith(".recoil")) named.add(name);
     }
@@ -168,5 +180,105 @@ describe("the hand-edited hold file", () => {
 
   it("is left alone by the generator", () => {
     expect(files[HOLD_FILE]).toBeUndefined();
+  });
+});
+
+describe("adding new models' poses to the hold file", () => {
+  const disk = readFileSync(onDisk(HOLD_FILE), "utf8");
+  const names = Object.keys(JSON.parse(disk).animations as Json);
+
+  it("adds only the missing ones, after the last, keeping every character already there and its line endings", () => {
+    // The file as it was before the arsenal: Paintball's poses only, edited by hand, with CRLF.
+    const paintOnly = { format_version: "1.8.0", animations: Object.fromEntries(names.filter((name) => /gun_(pistol|rifle|shotgun|grenade)\./.test(name)).map((name) => [name, { loop: true, bones: { gun: { position: [1.25, 2, 3] } } }])) };
+    const before = `${JSON.stringify(paintOnly, null, 2)}\n`.replace(/\n/g, "\r\n");
+    const { text, added } = withMissingHolds(before);
+    expect(added.sort()).toEqual(holdAnimationNames().filter((name) => !(name in paintOnly.animations)).sort());
+    const [kept, tail] = [before.slice(0, before.lastIndexOf("}", before.lastIndexOf("}") - 1)).trimEnd(), "\r\n  }\r\n}\r\n"];
+    expect(text.startsWith(kept)).toBe(true);
+    expect(text.endsWith(tail)).toBe(true);
+    expect(text.replace(/\r\n/g, "")).not.toContain("\n");
+    const after = JSON.parse(text).animations as Json;
+    for (const [name, pose] of Object.entries(paintOnly.animations)) expect(after[name]).toEqual(pose);
+    expect(Object.keys(after).sort()).toEqual(holdAnimationNames().sort());
+  });
+
+  it("leaves a file with every pose as it is", () => {
+    expect(withMissingHolds(disk)).toEqual({ text: disk, added: [] });
+  });
+});
+
+describe("the arsenal's files", () => {
+  const geometries = new Set(json("resource_pack/models/entity/guns.geo.json")["minecraft:geometry"].map((geometry: Json) => geometry.description.identifier));
+
+  it("gives each item one model block for its icon, a held model, one texture and a kit picture icon", () => {
+    const terrain = json("resource_pack/textures/terrain_texture.json").texture_data;
+    expect(arsenalItems()).toHaveLength(ARSENAL_MODELS.length);
+    for (const model of ARSENAL_MODELS) {
+      const id = arsenalItem(model);
+      const item = json(`behavior_pack/items/${file(id)}.json`)["minecraft:item"];
+      expect(item.description.identifier).toBe(id);
+      expect(item.components["minecraft:icon"], id).toBeUndefined();
+      const block = arsenalModelBlock(model);
+      expect(item.components["minecraft:block_placer"]).toEqual({ block, use_on: [block] });
+      const blockFile = json(`behavior_pack/blocks/${file(block)}.json`)["minecraft:block"];
+      expect(geometries.has(blockFile.components["minecraft:geometry"]), id).toBe(true);
+      const texture = terrain[blockFile.components["minecraft:material_instances"]["*"].texture]?.textures;
+      expect(files[`resource_pack/${texture}.png`], id).toBeDefined();
+      const attachable = json(`resource_pack/attachables/${file(id)}.json`)["minecraft:attachable"].description;
+      expect(attachable.identifier).toBe(id);
+      expect(attachable.textures.default).toBe(texture);
+      expect(geometries.has(attachable.geometry.default), id).toBe(true);
+      expect(files[`icons/${file(id)}.png`], id).toBeDefined();
+    }
+  });
+
+  it("shades a gun's slot for its fire rate and kicks it off its own shot marker; grenades, the knife and the stimpack stack", () => {
+    for (const gun of ARSENAL_GUNS) {
+      const components = json(`behavior_pack/items/${file(arsenalItem(gun))}.json`)["minecraft:item"].components;
+      expect(components["minecraft:cooldown"]).toEqual({ category: gunCooldown(gun), duration: ARSENAL_GUN_DEFS[gun].everyTicks / 20 });
+      expect(components["minecraft:max_stack_size"]).toBe(1);
+      const marker = shotMarker(gun);
+      expect(json(`behavior_pack/items/${file(marker.item)}.json`)["minecraft:item"].components["minecraft:cooldown"].category).toBe(marker.category);
+      const scripts = json(`resource_pack/attachables/${file(arsenalItem(gun))}.json`)["minecraft:attachable"].description.scripts;
+      expect(scripts.pre_animation.join("\n")).toContain(`q.cooldown_time_remaining('${marker.category}')`);
+    }
+    for (const model of ARSENAL_MODELS.filter((model) => !(ARSENAL_GUNS as readonly string[]).includes(model))) {
+      const components = json(`behavior_pack/items/${file(arsenalItem(model))}.json`)["minecraft:item"].components;
+      expect(components["minecraft:max_stack_size"], model).toBeGreaterThan(1);
+      expect(components["minecraft:cooldown"], model).toBeUndefined();
+    }
+  });
+
+  it("shows any arsenal model on its thrown, landed and pickup entities by the model property, and draws the rocket", () => {
+    for (const [id, path] of [
+      [THROWN_ARSENAL, "arsenal_thrown"],
+      [PRIMED_ARSENAL, "arsenal_primed"],
+      [ARSENAL_PICKUP, "arsenal_pickup"],
+    ]) {
+      const entity = json(`behavior_pack/entities/${path}.json`)["minecraft:entity"].description;
+      expect(entity.identifier).toBe(id);
+      expect(entity.properties[MODEL_PROPERTY].range).toEqual([0, ARSENAL_MODELS.length - 1]);
+      const client = json(`resource_pack/entity/${path}.entity.json`)["minecraft:client_entity"].description;
+      expect(client.identifier).toBe(id);
+      expect(Object.keys(client.geometry)).toEqual([...ARSENAL_MODELS]);
+      for (const geometry of Object.values(client.geometry)) expect(geometries.has(geometry as string), geometry as string).toBe(true);
+      for (const texture of Object.values(client.textures)) expect(files[`resource_pack/${texture}.png`], texture as string).toBeDefined();
+    }
+    const controllers = json("resource_pack/render_controllers/guns.render_controllers.json").render_controllers;
+    expect(controllers["controller.render.minecade.arsenal_model"].arrays.geometries["Array.models"]).toEqual(ARSENAL_MODELS.map((model) => `Geometry.${model}`));
+    expect(json("behavior_pack/entities/rocket.json")["minecraft:entity"].description).toEqual({ identifier: ROCKET, runtime_identifier: "minecraft:snowball", is_spawnable: false, is_summonable: true });
+    const rocket = json("resource_pack/entity/rocket.entity.json")["minecraft:client_entity"].description;
+    expect(geometries.has(rocket.geometry.default)).toBe(true);
+    expect(files[`resource_pack/${rocket.textures.default}.png`]).toBeDefined();
+  });
+
+  it("has every particle the scripts spawn", () => {
+    const particles = Object.entries(files).filter(([path]) => path.startsWith("resource_pack/particles/"));
+    const ids = particles.map(([, content]) => JSON.parse(content as string).particle_effect.description.identifier);
+    for (const id of Object.values(PARTICLES)) expect(ids, id).toContain(id);
+    for (const [path, content] of particles) {
+      const texture = JSON.parse(content as string).particle_effect.description.basic_render_parameters.texture;
+      expect(files[`resource_pack/${texture}.png`], path).toBeDefined();
+    }
   });
 });

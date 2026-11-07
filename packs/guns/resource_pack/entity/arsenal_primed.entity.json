@@ -1,0 +1,48 @@
+{
+  "format_version": "1.10.0",
+  "minecraft:client_entity": {
+    "description": {
+      "identifier": "minecade:arsenal_primed",
+      "materials": {
+        "default": "entity_alphatest"
+      },
+      "textures": {
+        "handgun": "textures/minecade/guns/arsenal/handgun",
+        "smg": "textures/minecade/guns/arsenal/smg",
+        "assault_rifle": "textures/minecade/guns/arsenal/assault_rifle",
+        "burst_rifle": "textures/minecade/guns/arsenal/burst_rifle",
+        "pump_shotgun": "textures/minecade/guns/arsenal/pump_shotgun",
+        "double_barrel": "textures/minecade/guns/arsenal/double_barrel",
+        "sniper_rifle": "textures/minecade/guns/arsenal/sniper_rifle",
+        "rail_gun": "textures/minecade/guns/arsenal/rail_gun",
+        "rpg": "textures/minecade/guns/arsenal/rpg",
+        "frag_grenade": "textures/minecade/guns/arsenal/frag_grenade",
+        "molotov": "textures/minecade/guns/arsenal/molotov",
+        "flashbang": "textures/minecade/guns/arsenal/flashbang",
+        "smoke_grenade": "textures/minecade/guns/arsenal/smoke_grenade",
+        "throwing_knife": "textures/minecade/guns/arsenal/throwing_knife",
+        "stimpack": "textures/minecade/guns/arsenal/stimpack"
+      },
+      "geometry": {
+        "handgun": "geometry.minecade.gun_handgun_display",
+        "smg": "geometry.minecade.gun_smg_display",
+        "assault_rifle": "geometry.minecade.gun_assault_rifle_display",
+        "burst_rifle": "geometry.minecade.gun_burst_rifle_display",
+        "pump_shotgun": "geometry.minecade.gun_pump_shotgun_display",
+        "double_barrel": "geometry.minecade.gun_double_barrel_display",
+        "sniper_rifle": "geometry.minecade.gun_sniper_rifle_display",
+        "rail_gun": "geometry.minecade.gun_rail_gun_display",
+        "rpg": "geometry.minecade.gun_rpg_display",
+        "frag_grenade": "geometry.minecade.gun_frag_grenade_display",
+        "molotov": "geometry.minecade.gun_molotov_display",
+        "flashbang": "geometry.minecade.gun_flashbang_display",
+        "smoke_grenade": "geometry.minecade.gun_smoke_grenade_display",
+        "throwing_knife": "geometry.minecade.gun_throwing_knife_display",
+        "stimpack": "geometry.minecade.gun_stimpack_display"
+      },
+      "render_controllers": [
+        "controller.render.minecade.arsenal_primed"
+      ]
+    }
+  }
+}

@@ -1,0 +1,51 @@
+{
+  "format_version": "1.10.0",
+  "minecraft:attachable": {
+    "description": {
+      "identifier": "minecade:pump_shotgun",
+      "materials": {
+        "default": "entity_alphatest",
+        "enchanted": "entity_alphatest_glint"
+      },
+      "textures": {
+        "default": "textures/minecade/guns/arsenal/pump_shotgun",
+        "enchanted": "textures/misc/enchanted_item_glint"
+      },
+      "geometry": {
+        "default": "geometry.minecade.gun_pump_shotgun"
+      },
+      "animations": {
+        "first_person_hip": "animation.minecade.gun_pump_shotgun.first_person_hip",
+        "first_person_aim": "animation.minecade.gun_pump_shotgun.first_person_aim",
+        "third_person": "animation.minecade.gun_pump_shotgun.third_person",
+        "recoil": "animation.minecade.gun_pump_shotgun.recoil"
+      },
+      "scripts": {
+        "initialize": [
+          "v.aim = 0;",
+          "v.kick = 0;"
+        ],
+        "pre_animation": [
+          "v.aim = math.lerp(v.aim, q.cooldown_time_remaining('minecade_aim') > 0, math.min(q.delta_time * 12, 1));",
+          "v.kick_left = math.clamp(q.cooldown_time_remaining('minecade_pump_shotgun_shot') / 0.45, 0, 1);",
+          "v.kick = v.kick_left > 0.75 ? (1 - v.kick_left) * 4 : v.kick_left / 0.75;"
+        ],
+        "animate": [
+          {
+            "first_person_hip": "c.is_first_person * (1 - v.aim)"
+          },
+          {
+            "first_person_aim": "c.is_first_person * v.aim"
+          },
+          {
+            "third_person": "!c.is_first_person"
+          },
+          "recoil"
+        ]
+      },
+      "render_controllers": [
+        "controller.render.item_default"
+      ]
+    }
+  }
+}

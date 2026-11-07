@@ -1,0 +1,22 @@
+{
+  "format_version": "1.21.120",
+  "minecraft:item": {
+    "description": {
+      "identifier": "minecade:rpg_shot",
+      "menu_category": {
+        "category": "none"
+      }
+    },
+    "components": {
+      "minecraft:icon": {
+        "textures": {
+          "default": "minecade_gun_marker"
+        }
+      },
+      "minecraft:cooldown": {
+        "category": "minecade_rpg_shot",
+        "duration": 0.5
+      }
+    }
+  }
+}

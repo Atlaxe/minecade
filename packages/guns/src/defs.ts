@@ -1,7 +1,8 @@
-// The guns every server knows (the shared guns pack, packs/guns): their items in each of the 16
-// paint colors, how each fires, the ball and grenade entities, and the paint colors themselves.
-// Plain data with no Minecraft imports, so the pack's generator (tools/assets/guns.ts) and the
-// games' scripts (guns.ts) read the same names and numbers.
+// The guns every server knows (the shared guns pack, packs/guns): Paintball's guns in each of the
+// 16 paint colors, how each fires, the ball and grenade entities, and the paint colors themselves;
+// and the arsenal, the real guns, grenades and the stimpack (one item each, at the end). Plain data
+// with no Minecraft imports, so the pack's generator (tools/assets/guns.ts) and the games' scripts
+// (guns.ts, arsenal.ts) read the same names and numbers.
 import { COLOR_SLOT } from "@minecade/minigame-core/config";
 
 /** The ball a gun fires: a sprite in one of the 16 paint colors (its `minecade:color` property). */
@@ -34,9 +35,24 @@ export interface AmmoDef {
   reserve?: number;
 }
 
+/**
+ * How a gun's shot travels: a paint ball that flies (Paintball's), a bullet that lands at once
+ * where the aim meets a player or a block (hitscan), a beam that does the same through every player
+ * in line, or a rocket that flies and explodes where it hits.
+ */
+export type ShotKind = "ball" | "bullet" | "beam" | "rocket";
+
+/** What a hit takes off: health (2 is a heart), more for a headshot, less far off. */
+export interface DamageDef {
+  body: number;
+  head: number;
+  /** Past `from` blocks the damage falls off evenly, down to `least` of it (a fraction) at `to` and beyond. */
+  falloff?: { from: number; to: number; least: number };
+}
+
 export interface GunDef {
-  /** Which model and items: a game can hand out the pack's guns with numbers of its own. */
-  id: GunKind;
+  /** Which model and items (a GunKind or an ArsenalGun): a game can hand out the pack's guns with numbers of its own. */
+  id: string;
   name: string;
   fire: FireMode;
   /** Ticks between shots. */
@@ -53,33 +69,52 @@ export interface GunDef {
   hipSpreadDegrees: number;
   /** The camera's field of view while aiming. */
   aimFov: number;
-  /** Blocks a tick the ball leaves the gun at (a snowball is about 1.5). */
+  /** Blocks a tick the ball or rocket leaves the gun at (a snowball is about 1.5); a bullet's streak flies at it. */
   speed: number;
-  /** Ticks before a ball that hit nothing is taken away (its range). */
+  /** Ticks before a ball or rocket that hit nothing is taken away (its range). Bullets and beams use `range`. */
   lifeTicks: number;
-  /** Most hits one shot counts on one target (a shotgun's balls together). */
+  /** Most hits one shot counts on one target (a shotgun's balls or pellets together). */
   maxHitsPerShot: number;
   sound: Sound;
   /** Left out, a gun never runs dry (Paintball's). */
   ammo?: AmmoDef;
+  /** A paint ball when left out. */
+  shot?: ShotKind;
+  /** Bullets and beams: how far they reach, in blocks. */
+  range?: number;
+  /** What a bullet, a beam or a rocket's direct hit takes off. Paint balls leave it to the game. */
+  damage?: DamageDef;
+  /** A tap fires `shots` shots, `gapTicks` apart (a burst gun); `everyTicks` counts from the first. */
+  burst?: { shots: number; gapTicks: number };
 }
 
+/**
+ * What a thrown item does when it hits something: lands and sits for its fuse, then bursts (a
+ * grenade); bursts right there (a Molotov); or stops there, a hit on a player counting (a knife).
+ */
+export type LandKind = "fuse" | "impact" | "stick";
+
 export interface ThrowableDef {
-  id: "grenade";
+  /** "grenade" (Paintball's), or an ArsenalThrowable. */
+  id: string;
   name: string;
-  /** The entity it flies as, and the one it sits as once it lands. */
+  /** The entity it flies as, and (a fuse throwable) the one it sits as once it lands. */
   entity: string;
-  primed: string;
+  primed?: string;
+  /** "fuse" when left out. */
+  land?: LandKind;
   /** Ticks between throws. */
   everyTicks: number;
   speed: number;
   /** Ticks before one that hit nothing is taken away. */
   lifeTicks: number;
-  /** Ticks it sits swelling before it bursts. */
+  /** Ticks it sits (swelling, flashing) before it bursts. */
   fuseTicks: number;
   sound: Sound;
-  fuseSound: Sound;
+  fuseSound?: Sound;
   burstSound: Sound;
+  /** A "stick" throwable's hit on a player. */
+  damage?: DamageDef;
 }
 
 export interface Sound {
@@ -243,8 +278,8 @@ export function gunModelBlock(kind: PickupKind, dye: Dye): string {
   return `${gunItem(kind, dye)}_model`;
 }
 
-/** A gun's own cooldown category: its fire rate, which Minecraft shades over its hotbar slot. */
-export function gunCooldown(kind: GunKind): string {
+/** A gun's own cooldown category (a GunKind's or an ArsenalGun's): its fire rate, which Minecraft shades over its hotbar slot. */
+export function gunCooldown(kind: string): string {
   return `minecade_${kind}`;
 }
 
@@ -252,7 +287,7 @@ export function gunCooldown(kind: GunKind): string {
  * The hidden item whose cooldown a gun's shot starts, and that cooldown's category: the held
  * model's recoil reads q.cooldown_time_remaining of the category, so it keeps its own timing.
  */
-export function shotMarker(kind: GunKind): { item: string; category: string } {
+export function shotMarker(kind: string): { item: string; category: string } {
   return { item: `minecade:${kind}_shot`, category: `minecade_${kind}_shot` };
 }
 
@@ -261,3 +296,396 @@ export function shotMarker(kind: GunKind): { item: string; category: string } {
  * and the held model, which reads its category, stays up until it runs out.
  */
 export const AIM_MARKER = { item: "minecade:aim_marker", category: "minecade_aim" } as const;
+
+// ---- The arsenal: real guns, grenades, a knife and the stimpack -------------------------------
+//
+// Built in the guns' style without Paintball's paint (no hopper, no colors): one item each,
+// minecade:<id>. Bullets are hitscan, the RPG fires a rocket, the grenades and the knife fly as
+// projectiles. What each does to players is arsenal.ts's (any game can use it); the numbers are here.
+
+/** The arsenal's guns, in the order Gun Game's ladder climbs them. */
+export const ARSENAL_GUNS = ["handgun", "smg", "assault_rifle", "burst_rifle", "pump_shotgun", "double_barrel", "sniper_rifle", "rail_gun", "rpg"] as const;
+export type ArsenalGun = (typeof ARSENAL_GUNS)[number];
+export const ARSENAL_THROWABLES = ["frag_grenade", "molotov", "flashbang", "smoke_grenade", "throwing_knife"] as const;
+export type ArsenalThrowable = (typeof ARSENAL_THROWABLES)[number];
+export const STIMPACK = "stimpack";
+/** Every arsenal item, which is also its model: the thrown, landed and pickup entities' `minecade:model` property is the index. */
+export const ARSENAL_MODELS = [...ARSENAL_GUNS, ...ARSENAL_THROWABLES, STIMPACK] as const;
+export type ArsenalModel = (typeof ARSENAL_MODELS)[number];
+
+/** A thrown arsenal grenade or knife in flight (its `minecade:model` property says which). */
+export const THROWN_ARSENAL = "minecade:arsenal_thrown";
+/** A grenade that landed and sits for its fuse. */
+export const PRIMED_ARSENAL = "minecade:arsenal_primed";
+/** An arsenal item floating to be picked up (a thrown knife where it landed, or a game's pickups). */
+export const ARSENAL_PICKUP = "minecade:arsenal_pickup";
+export const MODEL_PROPERTY = "minecade:model";
+/** The RPG's rocket in flight. */
+export const ROCKET = "minecade:rocket";
+
+/** The arsenal's particles (packs/guns/resource_pack/particles), and the Molang variables each reads. */
+export const PARTICLES = {
+  /** A bullet's streak from the muzzle to where it hit: v.dir (a direction), v.dist (blocks), v.speed (blocks a second). */
+  streak: "minecade:bullet_streak",
+  /** Dust where a bullet hit a block. */
+  impact: "minecade:bullet_impact",
+  /** Red sparks where a bullet hit a player. */
+  hit: "minecade:hit_spark",
+  /** The rail gun's beam: v.dir and v.dist, as the streak. */
+  beam: "minecade:rail_beam",
+  /** Smoke a flying rocket leaves behind it. */
+  trail: "minecade:rocket_trail",
+  /** A frag grenade's or a rocket's blast: v.radius. */
+  explosion: "minecade:explosion",
+  /** A Molotov's pool of flames: v.radius, v.seconds. */
+  fire: "minecade:fire_pool",
+  /** Flames on a player standing in the fire. */
+  burning: "minecade:burning",
+  /** A smoke grenade's cloud: v.radius, v.seconds. */
+  smoke: "minecade:smoke_cloud",
+  /** A flashbang's burst of light. */
+  flash: "minecade:flash_burst",
+  /** Green motes rising off a player who used a stimpack. */
+  stim: "minecade:stim_glow",
+} as const;
+
+/** The real guns. Damage is health (20 is a full bar); bullets are hitscan, so `speed` is only their streak's. */
+export const ARSENAL_GUN_DEFS = {
+  handgun: {
+    id: "handgun",
+    name: "Pistol",
+    fire: "tap",
+    shot: "bullet",
+    everyTicks: 5,
+    triggerTicks: 0,
+    pellets: 1,
+    aimSpreadDegrees: 0.3,
+    hipSpreadDegrees: 2,
+    aimFov: 60,
+    speed: 8,
+    lifeTicks: 0,
+    range: 60,
+    maxHitsPerShot: 1,
+    damage: { body: 5, head: 8, falloff: { from: 25, to: 60, least: 0.6 } },
+    ammo: { magazine: 12, reloadTicks: 30 },
+    sound: { id: "firework.blast", pitch: 1.4, volume: 1 },
+  },
+  smg: {
+    id: "smg",
+    name: "SMG",
+    fire: "hold",
+    shot: "bullet",
+    everyTicks: 2,
+    triggerTicks: 6,
+    pellets: 1,
+    aimSpreadDegrees: 2,
+    hipSpreadDegrees: 3.5,
+    aimFov: 60,
+    speed: 8,
+    lifeTicks: 0,
+    range: 45,
+    maxHitsPerShot: 1,
+    damage: { body: 3, head: 4, falloff: { from: 15, to: 35, least: 0.5 } },
+    ammo: { magazine: 32, reloadTicks: 35 },
+    sound: { id: "firework.blast", pitch: 1.75, volume: 0.7 },
+  },
+  assault_rifle: {
+    id: "assault_rifle",
+    name: "Assault Rifle",
+    fire: "hold",
+    shot: "bullet",
+    everyTicks: 3,
+    triggerTicks: 7,
+    pellets: 1,
+    aimSpreadDegrees: 0.8,
+    hipSpreadDegrees: 3.5,
+    aimFov: 50,
+    speed: 8,
+    lifeTicks: 0,
+    range: 90,
+    maxHitsPerShot: 1,
+    damage: { body: 4, head: 6, falloff: { from: 40, to: 90, least: 0.7 } },
+    ammo: { magazine: 30, reloadTicks: 40 },
+    sound: { id: "firework.blast", pitch: 1.1, volume: 0.9 },
+  },
+  burst_rifle: {
+    id: "burst_rifle",
+    name: "Burst Rifle",
+    fire: "tap",
+    shot: "bullet",
+    everyTicks: 12,
+    triggerTicks: 0,
+    pellets: 1,
+    aimSpreadDegrees: 0.6,
+    hipSpreadDegrees: 3,
+    aimFov: 50,
+    speed: 8,
+    lifeTicks: 0,
+    range: 90,
+    maxHitsPerShot: 1,
+    burst: { shots: 3, gapTicks: 2 },
+    damage: { body: 5, head: 8, falloff: { from: 40, to: 90, least: 0.7 } },
+    ammo: { magazine: 24, reloadTicks: 40 },
+    sound: { id: "firework.blast", pitch: 1.25, volume: 0.9 },
+  },
+  pump_shotgun: {
+    id: "pump_shotgun",
+    name: "Pump Shotgun",
+    fire: "tap",
+    shot: "bullet",
+    everyTicks: 18,
+    triggerTicks: 0,
+    pellets: 6,
+    aimSpreadDegrees: 4,
+    hipSpreadDegrees: 6,
+    aimFov: 65,
+    speed: 8,
+    lifeTicks: 0,
+    range: 18,
+    maxHitsPerShot: 6,
+    damage: { body: 3.5, head: 4, falloff: { from: 6, to: 18, least: 0.4 } },
+    ammo: { magazine: 6, reloadTicks: 60 },
+    sound: { id: "firework.large_blast", pitch: 0.9, volume: 1 },
+  },
+  double_barrel: {
+    id: "double_barrel",
+    name: "Double Barrel",
+    fire: "tap",
+    shot: "bullet",
+    everyTicks: 6,
+    triggerTicks: 0,
+    pellets: 8,
+    aimSpreadDegrees: 6,
+    hipSpreadDegrees: 8,
+    aimFov: 65,
+    speed: 8,
+    lifeTicks: 0,
+    range: 14,
+    maxHitsPerShot: 8,
+    damage: { body: 2.5, head: 3, falloff: { from: 5, to: 14, least: 0.3 } },
+    ammo: { magazine: 2, reloadTicks: 40 },
+    sound: { id: "firework.large_blast", pitch: 0.8, volume: 1 },
+  },
+  sniper_rifle: {
+    id: "sniper_rifle",
+    name: "Sniper Rifle",
+    fire: "tap",
+    shot: "bullet",
+    everyTicks: 30,
+    triggerTicks: 0,
+    pellets: 1,
+    aimSpreadDegrees: 0,
+    hipSpreadDegrees: 10,
+    aimFov: 20,
+    speed: 12,
+    lifeTicks: 0,
+    range: 200,
+    maxHitsPerShot: 1,
+    damage: { body: 17, head: 40 },
+    ammo: { magazine: 5, reloadTicks: 50 },
+    sound: { id: "firework.large_blast", pitch: 0.6, volume: 1.2 },
+  },
+  rail_gun: {
+    id: "rail_gun",
+    name: "Rail Gun",
+    fire: "tap",
+    shot: "beam",
+    everyTicks: 40,
+    triggerTicks: 0,
+    pellets: 1,
+    aimSpreadDegrees: 0,
+    hipSpreadDegrees: 1.5,
+    aimFov: 40,
+    speed: 12,
+    lifeTicks: 0,
+    range: 120,
+    maxHitsPerShot: 1,
+    damage: { body: 20, head: 20 },
+    ammo: { magazine: 4, reloadTicks: 60 },
+    sound: { id: "conduit.attack", pitch: 1.2, volume: 1.2 },
+  },
+  rpg: {
+    id: "rpg",
+    name: "RPG",
+    fire: "tap",
+    shot: "rocket",
+    everyTicks: 20,
+    triggerTicks: 0,
+    pellets: 1,
+    aimSpreadDegrees: 0.5,
+    hipSpreadDegrees: 2,
+    aimFov: 55,
+    speed: 1.6,
+    lifeTicks: 100,
+    maxHitsPerShot: 1,
+    // A direct hit; the blast around it is BLASTS.rpg.
+    damage: { body: 20, head: 20 },
+    ammo: { magazine: 1, reloadTicks: 60 },
+    sound: { id: "firework.launch", pitch: 0.6, volume: 1.2 },
+  },
+} as const satisfies Record<ArsenalGun, GunDef>;
+
+const THROW_SOUND: Sound = { id: "random.bow", pitch: 0.6, volume: 1 };
+
+export const ARSENAL_THROWABLE_DEFS = {
+  frag_grenade: {
+    id: "frag_grenade",
+    name: "Frag Grenade",
+    entity: THROWN_ARSENAL,
+    primed: PRIMED_ARSENAL,
+    land: "fuse",
+    everyTicks: 10,
+    speed: 1.2,
+    lifeTicks: 200,
+    fuseTicks: 30,
+    sound: THROW_SOUND,
+    fuseSound: { id: "random.fuse", pitch: 1.2, volume: 0.8 },
+    burstSound: { id: "random.explode", pitch: 1, volume: 1.4 },
+  },
+  molotov: {
+    id: "molotov",
+    name: "Molotov",
+    entity: THROWN_ARSENAL,
+    land: "impact",
+    everyTicks: 10,
+    speed: 1.1,
+    lifeTicks: 200,
+    fuseTicks: 0,
+    sound: THROW_SOUND,
+    burstSound: { id: "random.glass", pitch: 0.9, volume: 1.2 },
+  },
+  flashbang: {
+    id: "flashbang",
+    name: "Flashbang",
+    entity: THROWN_ARSENAL,
+    primed: PRIMED_ARSENAL,
+    land: "fuse",
+    everyTicks: 10,
+    speed: 1.2,
+    lifeTicks: 200,
+    fuseTicks: 12,
+    sound: THROW_SOUND,
+    fuseSound: { id: "random.click", pitch: 1.4, volume: 0.8 },
+    burstSound: { id: "firework.large_blast", pitch: 1.8, volume: 1.4 },
+  },
+  smoke_grenade: {
+    id: "smoke_grenade",
+    name: "Smoke Grenade",
+    entity: THROWN_ARSENAL,
+    primed: PRIMED_ARSENAL,
+    land: "fuse",
+    everyTicks: 10,
+    speed: 1.2,
+    lifeTicks: 200,
+    fuseTicks: 10,
+    sound: THROW_SOUND,
+    fuseSound: { id: "random.click", pitch: 1, volume: 0.8 },
+    burstSound: { id: "random.fizz", pitch: 0.6, volume: 1.2 },
+  },
+  throwing_knife: {
+    id: "throwing_knife",
+    name: "Throwing Knife",
+    entity: THROWN_ARSENAL,
+    land: "stick",
+    everyTicks: 10,
+    speed: 1.8,
+    lifeTicks: 100,
+    fuseTicks: 0,
+    sound: { id: "item.trident.throw", pitch: 1.3, volume: 1 },
+    burstSound: { id: "item.trident.hit_ground", pitch: 1.3, volume: 1 },
+    // One hit kills: more than anyone's health.
+    damage: { body: 40, head: 40 },
+  },
+} as const satisfies Record<ArsenalThrowable, ThrowableDef>;
+
+/** The stimpack: used with either click, `health` back at once and Speed I for `speedSeconds`. */
+export const STIM = { name: "Stimpack", health: 8, speedSeconds: 4, everyTicks: 20, sound: { id: "random.drink", pitch: 1.4, volume: 1 } } as const;
+
+/**
+ * A blast's reach: full `damage` at the middle, falling off evenly to none at `radius`, a quarter
+ * through cover. The thrower's own blast takes `selfFactor` of it from them.
+ */
+export interface BlastDef {
+  radius: number;
+  damage: number;
+  selfFactor: number;
+  /** How hard it throws players out from its middle. */
+  push: number;
+}
+
+/** The frag grenade's and the rocket's blasts. Neither breaks blocks. */
+export const BLASTS = {
+  frag_grenade: { radius: 5, damage: 18, selfFactor: 1, push: 1.2 },
+  rpg: { radius: 4, damage: 14, selfFactor: 0.5, push: 1.6 },
+} as const satisfies Record<string, BlastDef>;
+
+/** A Molotov's fire: `damage` every `everyTicks` to anyone within `radius` (across) and a block or two up, for `seconds`. No fire blocks. */
+export const FIRE = { radius: 3, seconds: 6, damage: 1, everyTicks: 10 } as const;
+/** A flashbang whites out players within `range` who can see it, for up to `seconds` (less far off or looking away). */
+export const FLASH = { range: 20, seconds: 3 } as const;
+/** A smoke grenade's cloud: `radius` blocks for `seconds`; anyone inside is blinded while they stay. */
+export const SMOKE = { radius: 4, seconds: 10 } as const;
+/** Arrows a crossbow carrier is kept at. */
+export const CROSSBOW_ARROWS = 8;
+/** The vanilla weapons the arsenal makes one-hit kills. */
+export const ONE_HIT = { crossbow: "minecraft:crossbow", arrow: "minecraft:arrow", sword: "minecraft:netherite_sword" } as const;
+
+/** An arsenal item's id: minecade:handgun. */
+export function arsenalItem(model: ArsenalModel): string {
+  return `minecade:${model}`;
+}
+
+/** Which arsenal item an item id is; undefined for anything else. */
+export function parseArsenalItem(typeId: string): ArsenalModel | undefined {
+  if (!typeId.startsWith("minecade:")) return undefined;
+  const name = typeId.slice("minecade:".length);
+  return (ARSENAL_MODELS as readonly string[]).includes(name) ? (name as ArsenalModel) : undefined;
+}
+
+/** Every item the arsenal adds. */
+export function arsenalItems(): string[] {
+  return ARSENAL_MODELS.map(arsenalItem);
+}
+
+/** The hidden block an arsenal item shows as its icon, as gunModelBlock. */
+export function arsenalModelBlock(model: ArsenalModel): string {
+  return `${arsenalItem(model)}_model`;
+}
+
+export const isArsenalGun = (model: string): model is ArsenalGun => (ARSENAL_GUNS as readonly string[]).includes(model);
+export const isArsenalThrowable = (model: string): model is ArsenalThrowable => (ARSENAL_THROWABLES as readonly string[]).includes(model);
+
+/**
+ * Which gun or throwable an item is, by the id Guns knows it as: a Paintball gun's kind ("pistol",
+ * "grenade"), or an arsenal item's model ("handgun", "molotov"). Undefined for anything else.
+ */
+export function weaponId(typeId: string): string | undefined {
+  return parseGunItem(typeId)?.kind ?? parseArsenalItem(typeId);
+}
+
+/** A hit's damage `distance` blocks off, a headshot or not. */
+export function damageAt(damage: DamageDef, distance: number, headshot: boolean): number {
+  const full = headshot ? damage.head : damage.body;
+  const falloff = damage.falloff;
+  if (!falloff || distance <= falloff.from) return full;
+  const along = Math.min(1, (distance - falloff.from) / Math.max(1e-6, falloff.to - falloff.from));
+  return full * (1 - along * (1 - falloff.least));
+}
+
+/** A blast's damage `distance` blocks from its middle: falling off evenly to none at its radius, a quarter through cover. */
+export function blastDamage(blast: BlastDef, distance: number, covered: boolean): number {
+  if (distance >= blast.radius) return 0;
+  return blast.damage * (1 - distance / blast.radius) * (covered ? 0.25 : 1);
+}
+
+/**
+ * How hard a flash whites a player out, 0 to 1: full close up and looking at it, falling off evenly
+ * to none at its range, a third when looking away (`facing` is the cosine between where they look
+ * and the flash: 1 straight at it). Nothing through walls.
+ */
+export function flashStrength(distance: number, facing: number, seen: boolean): number {
+  if (!seen || distance >= FLASH.range) return 0;
+  const near = 1 - distance / FLASH.range;
+  const look = facing >= 0.5 ? 1 : facing <= 0 ? 1 / 3 : 1 / 3 + ((facing / 0.5) * 2) / 3;
+  return near * look;
+}

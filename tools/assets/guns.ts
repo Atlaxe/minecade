@@ -1,22 +1,30 @@
-// Writes the shared guns pack (packs/guns): the pistol, rifle, shotgun and paint grenade as items in
-// each of the 16 paint colors, held as 3D models (attachables) that come up to the middle of the
-// screen while aiming and kick back when they fire; the ball, thrown grenade and landed grenade
-// entities; the pickup that floats over a map spot; and the splash particle. The models are lists of
-// boxes below; the generator turns each into a Blockbench-ready geometry (box UV) and a shaded
-// texture per paint color (a box painted "paint" takes the color). Each item places a hidden block
-// holding its model, so the hotbar shows the model in 3D the way it shows a wall or a banner; the
-// kit pictures get icons drawn from the models (packs/guns/icons). Where the models sit in the hand
-// is a hand-edited file (HOLD_FILE), which this writes only when it's missing. The guns' names and
-// numbers come from packages/guns/src/defs.ts, which the games' scripts read too. Rerun after
-// changing either, and commit the files:
+// Writes the shared guns pack (packs/guns): Paintball's pistol, rifle, shotgun and paint grenade as
+// items in each of the 16 paint colors, and the arsenal's real guns, grenades, knife and stimpack as
+// one item each, all held as 3D models (attachables) that come up to the middle of the screen while
+// aiming and kick back when they fire; the ball, rocket, thrown and landed grenade entities; the
+// pickups that float over a map spot; and the particles (the paint splash, and the arsenal's
+// streaks, beams, blasts, flames and smoke). The models are lists of boxes below; the generator
+// turns each into a Blockbench-ready geometry (box UV) and a shaded texture (per paint color for
+// Paintball's: a box painted "paint" takes the color). Each item places a hidden block holding its
+// model, so the hotbar shows the model in 3D the way it shows a wall or a banner; the kit pictures
+// get icons drawn from the models (packs/guns/icons). Where the models sit in the hand is a
+// hand-edited file (HOLD_FILE): this writes it when it's missing, and otherwise only adds the poses
+// of models it doesn't have yet, leaving every other line as it is. The guns' names and numbers come
+// from packages/guns/src/defs.ts, which the games' scripts read too. Rerun after changing either, and
+// commit the files:
 //
 //     npx tsx tools/assets/guns.ts
 //
 // A test checks the committed files match (tools/build/test/guns-pack.test.ts).
-import { existsSync, mkdirSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
+  ARSENAL_GUNS,
+  ARSENAL_GUN_DEFS,
+  ARSENAL_MODELS,
+  ARSENAL_PICKUP,
+  ARSENAL_THROWABLE_DEFS,
   COLOR_PROPERTY,
   DYES,
   GRENADE,
@@ -24,19 +32,28 @@ import {
   GUN_KINDS,
   GUN_PICKUP,
   KIND_PROPERTY,
+  MODEL_PROPERTY,
   PAINTBALL,
   PAINT_RGB,
   PAINT_SPLASH,
+  PARTICLES,
   PICKUP_KINDS,
+  PRIMED_ARSENAL,
   PRIMED_GRENADE,
+  ROCKET,
+  STIM,
+  THROWN_ARSENAL,
   THROWN_GRENADE,
   AIM_MARKER,
+  arsenalItem,
+  arsenalModelBlock,
   gunCooldown,
   gunItem,
   gunModelBlock,
+  isArsenalGun,
   shotMarker,
+  type ArsenalModel,
   type Dye,
-  type GunKind,
   type PickupKind,
 } from "../../packages/guns/src/defs.ts";
 import { blankImage, encodePng } from "../skins/png.ts";
@@ -51,6 +68,17 @@ const PALETTE = {
   tank: 0x55636f,
   wood: 0x6b4a2b,
   accent: 0xc9a227,
+  // The arsenal's: darker steel, army green, a Molotov's bottle and rag, the rail gun's coils, the
+  // stimpack's dose, a flashbang's white and a knife's blade.
+  steel: 0x5f666e,
+  olive: 0x4f5a2e,
+  glass: 0x5f8f6a,
+  cloth: 0xd8c9a3,
+  flame: 0xe8781e,
+  glow: 0x3fd7e6,
+  dose: 0xb3262b,
+  white: 0xdde1e4,
+  blade: 0xc4ccd3,
 } as const;
 type Paint = keyof typeof PALETTE | "paint";
 
@@ -111,12 +139,204 @@ const MODELS: Record<PickupKind, Box[]> = {
   ],
 };
 
+/**
+ * The arsenal's models, built the same way: the real pistol, rifle and shotgun are Paintball's
+ * without the hopper (a sight or a bead where it sat), the rest new in the same style.
+ */
+const ARSENAL_BOXES: Record<ArsenalModel, Box[]> = {
+  handgun: [
+    box([-1, -6, -1], [2, 6, 3], "grip"),
+    box([-1.5, 0, -7], [3, 3, 10], "body"),
+    box([-1, 0.5, -12], [2, 2, 5], "metal"),
+    box([-0.5, -2, -4], [1, 1, 3], "grip"),
+    box([-0.5, -1, -3], [1, 1, 1], "accent"),
+    box([-0.5, 3, 1], [1, 1, 1], "metal"),
+    box([-0.5, 3, -6], [1, 1, 1], "metal"),
+  ],
+  smg: [
+    box([-1, -6, 0], [2, 6, 3], "grip"),
+    box([-1.5, 0, -9], [3, 4, 12], "body"),
+    box([-1, 1, -14], [2, 2, 5], "metal"),
+    box([-1, -8, -6], [2, 8, 2], "steel"),
+    box([-0.5, -2, -3], [1, 1, 3], "grip"),
+    box([-0.5, -1, -2], [1, 1, 1], "accent"),
+    box([-0.5, 4, -3], [1, 1, 3], "metal"),
+    box([-1, 1, 3], [2, 1, 8], "steel"),
+    box([-1, -2, 11], [2, 4, 1], "steel"),
+  ],
+  assault_rifle: [
+    box([-1, -6, 0], [2, 6, 3], "grip"),
+    box([-1.5, 0, -11], [3, 4, 17], "body"),
+    box([-1, 1, -23], [2, 2, 12], "metal"),
+    box([-1.5, 0.5, -15], [3, 3, 4], "body"),
+    box([-1, 4, -7], [2, 2, 5], "steel"),
+    box([-0.5, 4, -11], [1, 1, 1], "metal"),
+    box([-1, -5, -8], [2, 5, 3], "steel"),
+    box([-0.5, -2, -4], [1, 1, 4], "grip"),
+    box([-0.5, -1, -2], [1, 1, 1], "accent"),
+    box([-1.5, -1, 6], [3, 4, 9], "body"),
+    box([-1.5, -2, 15], [3, 6, 1], "grip"),
+  ],
+  burst_rifle: [
+    box([-1, -6, 2], [2, 6, 3], "grip"),
+    box([-1.5, 0, -12], [3, 4, 22], "body"),
+    box([-1, 1, -19], [2, 2, 7], "metal"),
+    box([-1, 4, -9], [2, 2, 9], "steel"),
+    box([-0.5, 4.5, -10], [1, 1, 1], "glow"),
+    box([-1, -5, 6], [2, 5, 3], "steel"),
+    box([-0.5, -2, -2], [1, 1, 4], "grip"),
+    box([-0.5, -1, 0], [1, 1, 1], "accent"),
+    box([-1.5, -1, -12], [3, 1, 6], "grip"),
+    box([-1.5, -1, 10], [3, 5, 1], "grip"),
+  ],
+  pump_shotgun: [
+    box([-1, -6, 1], [2, 6, 3], "grip"),
+    box([-1.5, 0, -6], [3, 4, 12], "body"),
+    box([-1, 2, -22], [2, 2, 16], "metal"),
+    box([-1, 0, -20], [2, 2, 14], "steel"),
+    box([-1.5, -0.5, -16], [3, 3, 6], "wood"),
+    box([-0.5, 4, -21], [1, 1, 1], "accent"),
+    box([-0.5, -2, -3], [1, 1, 4], "grip"),
+    box([-0.5, -1, -1], [1, 1, 1], "accent"),
+    box([-1.5, -1, 6], [3, 4, 8], "wood"),
+    box([-1.5, -3, 14], [3, 7, 1], "grip"),
+  ],
+  double_barrel: [
+    box([-1, -6, 1], [2, 6, 3], "grip"),
+    box([-2, 0, -8], [4, 4, 14], "body"),
+    box([-2, 1, -20], [2, 2, 12], "metal"),
+    box([0, 1, -20], [2, 2, 12], "metal"),
+    box([-2, -1, -17], [4, 2, 6], "wood"),
+    box([-0.5, 3, -19], [1, 1, 1], "accent"),
+    box([-0.5, -2, -3], [1, 1, 4], "grip"),
+    box([-0.5, -1, -1], [1, 1, 1], "accent"),
+    box([-1.5, -1, 6], [3, 4, 8], "wood"),
+    box([-1.5, -3, 14], [3, 7, 1], "grip"),
+  ],
+  sniper_rifle: [
+    box([-1, -6, 1], [2, 6, 3], "grip"),
+    box([-1.5, 0, -8], [3, 4, 14], "body"),
+    box([-1, 1, -30], [2, 2, 22], "metal"),
+    box([-1.5, 0.5, -32], [3, 3, 2], "steel"),
+    box([-1, 5, -10], [2, 2, 12], "steel"),
+    box([-1.5, 4.5, -12], [3, 3, 2], "steel"),
+    box([-1.5, 4.5, 2], [3, 3, 2], "steel"),
+    box([-0.5, 4, -7], [1, 1, 1], "metal"),
+    box([-0.5, 4, -1], [1, 1, 1], "metal"),
+    box([1.5, 2, 1], [2, 1, 1], "metal"),
+    box([-1, -3, -7], [2, 3, 3], "steel"),
+    box([-0.5, -2, -3], [1, 1, 4], "grip"),
+    box([-0.5, -1, -1], [1, 1, 1], "accent"),
+    box([-1.5, -1, 6], [3, 4, 10], "wood"),
+    box([-1.5, -3, 16], [3, 7, 1], "grip"),
+  ],
+  rail_gun: [
+    box([-1, -6, 2], [2, 6, 3], "grip"),
+    box([-2, 0, -10], [4, 5, 18], "body"),
+    box([-1.5, 4, -24], [3, 1, 14], "metal"),
+    box([-1.5, 0, -24], [3, 1, 14], "metal"),
+    box([-1, 1, -22], [2, 3, 2], "glow"),
+    box([-1, 1, -17], [2, 3, 2], "glow"),
+    box([-1, 1, -12], [2, 3, 2], "glow"),
+    box([-1.5, -3, -7], [3, 3, 4], "glow"),
+    box([2, 1, -6], [1, 3, 8], "glow"),
+    box([-0.5, -2, -2], [1, 1, 4], "grip"),
+    box([-0.5, -1, 0], [1, 1, 1], "accent"),
+    box([-1.5, 0, 8], [3, 4, 6], "body"),
+    box([-1.5, -2, 14], [3, 6, 1], "grip"),
+  ],
+  rpg: [
+    box([-2, 0, -12], [4, 4, 26], "olive"),
+    box([-2.5, -0.5, -17], [5, 5, 5], "steel"),
+    box([-1.5, 0.5, -20], [3, 3, 3], "steel"),
+    box([-0.5, 1.5, -21], [1, 1, 1], "accent"),
+    box([-2.5, -0.5, 14], [5, 5, 1], "steel"),
+    box([-1, -6, 0], [2, 6, 3], "grip"),
+    box([-1, -5, -7], [2, 5, 2], "grip"),
+    box([-0.5, -2, -3], [1, 1, 3], "grip"),
+    box([-0.5, -1, -2], [1, 1, 1], "accent"),
+    box([-3, 3, -4], [1, 2, 2], "metal"),
+  ],
+  frag_grenade: [
+    box([-2, -3, -2], [4, 5, 4], "olive"),
+    box([-2.5, -1, -2.5], [5, 1, 5], "steel"),
+    box([-1, 2, -1], [2, 1, 2], "metal"),
+    box([2, -1, -0.5], [1, 3, 1], "metal"),
+    box([-0.5, 3, -0.5], [1, 1, 1], "accent"),
+  ],
+  molotov: [
+    box([-2, -4, -2], [4, 6, 4], "glass"),
+    box([-2, -2, -3], [4, 2, 1], "cloth"),
+    box([-1.5, 2, -1.5], [3, 1, 3], "glass"),
+    box([-1, 3, -1], [2, 2, 2], "glass"),
+    box([-1, 5, -1], [2, 2, 2], "cloth"),
+    box([-0.5, 7, -0.5], [1, 1, 1], "flame"),
+  ],
+  flashbang: [
+    box([-1.5, -3, -1.5], [3, 6, 3], "white"),
+    box([-2, -1, -2], [4, 1, 4], "grip"),
+    box([-2, -4, -2], [4, 1, 4], "steel"),
+    box([-2, 3, -2], [4, 1, 4], "steel"),
+    box([-0.5, 4, -0.5], [1, 1, 1], "metal"),
+    box([2, -2, -0.5], [1, 5, 1], "metal"),
+  ],
+  smoke_grenade: [
+    box([-1.5, -4, -1.5], [3, 7, 3], "tank"),
+    box([-2, 0, -2], [4, 1, 4], "white"),
+    box([-2, 3, -2], [4, 1, 4], "metal"),
+    box([-0.5, 4, -0.5], [1, 1, 1], "metal"),
+    box([2, -2, -0.5], [1, 5, 1], "metal"),
+    box([-0.5, 5, -0.5], [1, 1, 1], "accent"),
+  ],
+  throwing_knife: [
+    box([-0.5, -1, 0], [1, 2, 5], "grip"),
+    box([-1.5, -1.5, -1], [3, 3, 1], "metal"),
+    box([-0.5, -1, -10], [1, 2, 9], "blade"),
+    box([-0.5, -0.5, -11], [1, 1, 1], "blade"),
+    box([-1, -1.5, 5], [2, 3, 1], "metal"),
+  ],
+  stimpack: [
+    box([-1, -1, -4], [2, 2, 1], "white"),
+    box([-1, -1, -3], [2, 2, 5], "dose"),
+    box([-1, -1, 2], [2, 2, 2], "white"),
+    box([-2, -0.5, 2], [4, 1, 1], "white"),
+    box([-0.5, -0.5, 4], [1, 1, 3], "metal"),
+    box([-1.5, -1.5, 7], [3, 3, 1], "grip"),
+    box([-0.5, -0.5, -7], [1, 1, 3], "metal"),
+  ],
+};
+
+/** The RPG's rocket in flight, pointing north like the guns. */
+const ROCKET_BOXES: Box[] = [
+  box([-1, -1, -6], [2, 2, 8], "steel"),
+  box([-1.5, -1.5, -9], [3, 3, 3], "olive"),
+  box([-0.5, -0.5, -10], [1, 1, 1], "accent"),
+  box([-2, -0.5, 1], [4, 1, 2], "metal"),
+  box([-0.5, -2, 1], [1, 4, 2], "metal"),
+];
+
+/** Every model the pack draws, by id: Paintball's and the arsenal's. */
+type ModelId = PickupKind | ArsenalModel;
+const boxesOf = (model: ModelId): Box[] => (model in MODELS ? MODELS[model as PickupKind] : ARSENAL_BOXES[model as ArsenalModel]);
+const isGunModel = (model: ModelId): boolean => (GUN_KINDS as readonly string[]).includes(model) || isArsenalGun(model);
+
 /** A shot's kick on the "body" bone: back toward the player and the muzzle up, then home, over `seconds`. */
-const RECOIL: Record<GunKind, { seconds: number; back: number; lift: number }> = {
+const RECOIL: Record<string, { seconds: number; back: number; lift: number }> = {
   pistol: { seconds: 0.15, back: 1.5, lift: 8 },
   // Just under the rifle's 4 ticks between shots, so each shot's kick starts fresh.
   rifle: { seconds: 0.18, back: 1, lift: 4 },
   shotgun: { seconds: 0.3, back: 2.5, lift: 14 },
+  handgun: { seconds: 0.15, back: 1.5, lift: 8 },
+  // Held guns: just under their time between shots.
+  smg: { seconds: 0.09, back: 0.8, lift: 3 },
+  assault_rifle: { seconds: 0.14, back: 1, lift: 4 },
+  // Each of a burst's shots, 2 ticks apart.
+  burst_rifle: { seconds: 0.09, back: 1, lift: 4 },
+  pump_shotgun: { seconds: 0.45, back: 2.5, lift: 14 },
+  double_barrel: { seconds: 0.3, back: 2.5, lift: 14 },
+  sniper_rifle: { seconds: 0.6, back: 3, lift: 16 },
+  rail_gun: { seconds: 0.5, back: 2.5, lift: 10 },
+  rpg: { seconds: 0.5, back: 3, lift: 10 },
 };
 
 /**
@@ -130,12 +350,37 @@ const RECOIL: Record<GunKind, { seconds: number; back: number; lift: number }> =
  *   screen's height), the grip's top `depth` pixels ahead of the eye.
  * - third: third person, the grip's top this far from the fist (right, up, ahead), level.
  */
-const HOLD: Record<PickupKind, { scale: number; hip: Place; aim?: { under: number; depth: number }; third: Vec3 }> = {
+const HOLD: Record<ModelId, Hold> = {
   pistol: { scale: 1.35, hip: { fromFist: [-1, 6, 4], turnIn: 4, tipUp: 10 }, aim: { under: 0.07, depth: 15 }, third: [0, 4.5, 1] },
   rifle: { scale: 1.1, hip: { fromFist: [-1, 5, 4], turnIn: 4, tipUp: 10 }, aim: { under: 0.07, depth: 19 }, third: [0, 4.5, 1] },
   shotgun: { scale: 1.15, hip: { fromFist: [-1, 5.2, 4], turnIn: 4, tipUp: 10 }, aim: { under: 0.07, depth: 18 }, third: [0, 4.5, 1] },
   grenade: { scale: 1.3, hip: { fromFist: [0, 3.2, 2], turnIn: 20, tipUp: 10 }, third: [0, 1.5, 1] },
+  // The arsenal's first guesses, from the paint guns' (the user moves them in Blockbench).
+  handgun: { scale: 1.35, hip: { fromFist: [-1, 6, 4], turnIn: 4, tipUp: 10 }, aim: { under: 0.07, depth: 15 }, third: [0, 4.5, 1] },
+  smg: { scale: 1.2, hip: { fromFist: [-1, 5.5, 4], turnIn: 4, tipUp: 10 }, aim: { under: 0.07, depth: 17 }, third: [0, 4.5, 1] },
+  assault_rifle: { scale: 1.1, hip: { fromFist: [-1, 5, 4], turnIn: 4, tipUp: 10 }, aim: { under: 0.07, depth: 19 }, third: [0, 4.5, 1] },
+  burst_rifle: { scale: 1.1, hip: { fromFist: [-1, 5, 4], turnIn: 4, tipUp: 10 }, aim: { under: 0.07, depth: 19 }, third: [0, 4.5, 1] },
+  pump_shotgun: { scale: 1.1, hip: { fromFist: [-1, 5.2, 4], turnIn: 4, tipUp: 10 }, aim: { under: 0.07, depth: 18 }, third: [0, 4.5, 1] },
+  double_barrel: { scale: 1.15, hip: { fromFist: [-1, 5.2, 4], turnIn: 4, tipUp: 10 }, aim: { under: 0.07, depth: 18 }, third: [0, 4.5, 1] },
+  // Aiming the sniper hides it: the zoom is the scope.
+  sniper_rifle: { scale: 0.95, hip: { fromFist: [-1, 5, 4], turnIn: 4, tipUp: 10 }, aim: { under: 0.07, depth: 22, hidden: true }, third: [0, 4.5, 1] },
+  rail_gun: { scale: 1, hip: { fromFist: [-1, 5, 4], turnIn: 4, tipUp: 10 }, aim: { under: 0.07, depth: 20 }, third: [0, 4.5, 1] },
+  rpg: { scale: 1, hip: { fromFist: [-1, 5, 4], turnIn: 4, tipUp: 10 }, aim: { under: 0.1, depth: 18 }, third: [0, 4.5, 1] },
+  frag_grenade: { scale: 1.3, hip: { fromFist: [0, 3.2, 2], turnIn: 20, tipUp: 10 }, third: [0, 1.5, 1] },
+  molotov: { scale: 1.2, hip: { fromFist: [0, 3.6, 2], turnIn: 20, tipUp: 10 }, third: [0, 2, 1] },
+  flashbang: { scale: 1.3, hip: { fromFist: [0, 3.2, 2], turnIn: 20, tipUp: 10 }, third: [0, 1.5, 1] },
+  smoke_grenade: { scale: 1.3, hip: { fromFist: [0, 3.6, 2], turnIn: 20, tipUp: 10 }, third: [0, 2, 1] },
+  throwing_knife: { scale: 1.2, hip: { fromFist: [0, 3, 3], turnIn: 10, tipUp: 30 }, third: [0, 1.5, 2] },
+  stimpack: { scale: 1.3, hip: { fromFist: [0, 3, 3], turnIn: 20, tipUp: 20 }, third: [0, 1.5, 1] },
 };
+
+interface Hold {
+  scale: number;
+  hip: Place;
+  /** Guns only. `hidden`: scaled to nothing while aiming. */
+  aim?: { under: number; depth: number; hidden?: boolean };
+  third: Vec3;
+}
 
 interface Place {
   fromFist: Vec3;
@@ -152,13 +397,19 @@ const BALL_SIZE = 16;
 const GUN_SWING_SECONDS = 0.05;
 const GUN_TEXTURES = "textures/minecade/guns";
 
-const heldGeometry = (kind: PickupKind) => `geometry.minecade.gun_${kind}`;
-const iconGeometry = (kind: PickupKind) => `geometry.minecade.gun_${kind}_icon`;
-const displayGeometry = (kind: PickupKind) => `geometry.minecade.gun_${kind}_display`;
+const heldGeometry = (kind: ModelId) => `geometry.minecade.gun_${kind}`;
+const iconGeometry = (kind: ModelId) => `geometry.minecade.gun_${kind}_icon`;
+const displayGeometry = (kind: ModelId) => `geometry.minecade.gun_${kind}_display`;
+const ROCKET_GEOMETRY = "geometry.minecade.rocket";
 const modelTexturePath = (kind: PickupKind, dye: Dye) => `${GUN_TEXTURES}/${kind}/${dye}`;
 const terrainKey = (kind: PickupKind, dye: Dye) => `minecade_gun_${kind}_${dye}`;
+/** The arsenal's models have one texture each (no paint). */
+const arsenalTexturePath = (model: ArsenalModel) => `${GUN_TEXTURES}/arsenal/${model}`;
+const arsenalTerrainKey = (model: ArsenalModel) => `minecade_arsenal_${model}`;
+const ROCKET_TEXTURE = `${GUN_TEXTURES}/arsenal/rocket`;
+const PUFF_TEXTURE = `${GUN_TEXTURES}/puff`;
 const itemFile = (identifier: string) => identifier.replace("minecade:", "");
-const isGun = (kind: PickupKind): kind is GunKind => kind !== "grenade";
+const isGun = (kind: ModelId): boolean => isGunModel(kind);
 
 // ---- Textures --------------------------------------------------------------------------------
 
@@ -433,23 +684,23 @@ function solve(turn: Matrix, point: Vec3, chain: { arm: Matrix; shoulder: Vec3 }
 const fistIn = (chain: { arm: Matrix; shoulder: Vec3 }) => add(chain.shoulder, apply(chain.arm, minus(FIST, SHOULDER)));
 
 /** First person from the hip: by the fist, the model turned to face away from the camera, in and up a little. */
-function hipHold(kind: PickupKind): Transform {
+function hipHold(kind: ModelId): Transform {
   const { hip } = HOLD[kind];
   const [right, up, ahead] = hip.fromFist;
   return solve(times(rotY(180 - hip.turnIn), rotX(hip.tipUp)), add(fistIn(FIRST_PERSON), [-right, up, ahead]), FIRST_PERSON);
 }
 
 /** First person aiming: in the middle, straight ahead, its top just under the crosshair. */
-function aimHold(kind: PickupKind): Transform | undefined {
+function aimHold(kind: ModelId): Transform | undefined {
   const { aim, scale } = HOLD[kind];
   if (!aim) return undefined;
-  const top = Math.max(...MODELS[kind].map(({ from, size }) => from[1] + size[1])) * scale;
+  const top = Math.max(...boxesOf(kind).map(({ from, size }) => from[1] + size[1])) * scale;
   const point: Vec3 = add(EYE, [0, -aim.under * VIEW_SLOPE * aim.depth - top, aim.depth]);
   return solve(rotY(180), point, FIRST_PERSON);
 }
 
 /** Third person: in the fist, barrel ahead and level. */
-function thirdHold(kind: PickupKind): Transform {
+function thirdHold(kind: ModelId): Transform {
   const [right, up, ahead] = HOLD[kind].third;
   return solve(rotX(0), add(fistIn(THIRD_PERSON), [right, up, -ahead]), THIRD_PERSON);
 }
@@ -484,8 +735,8 @@ function iconCubes(boxes: Box[]): unknown[] {
 
 function geometries(): unknown {
   const all: unknown[] = [];
-  for (const kind of PICKUP_KINDS) {
-    const boxes = MODELS[kind];
+  for (const kind of [...PICKUP_KINDS, ...ARSENAL_MODELS]) {
+    const boxes = boxesOf(kind);
     const { uvs, height } = uvLayout(boxes);
     const cubes = boxes.map((piece, i) => cube(piece, uvs[i]));
     const description = (identifier: string) => ({
@@ -504,13 +755,15 @@ function geometries(): unknown {
         { name: "body", parent: "gun", pivot: [0, 0, 0], cubes },
       ],
     });
-    // Floating, flying or sitting on its own: turns and swells around its middle.
-    const middle = middleOf(boxes);
+    // Floating, flying or sitting on its own: turns and swells around its middle. The arsenal's
+    // stand on their floor (one entity shows any of them, so they can't each be lifted their own way).
+    const shown = kind in ARSENAL_BOXES ? grounded(boxes) : boxes;
+    const middle = middleOf(shown);
     all.push({
       description: description(displayGeometry(kind)),
       bones: [
         { name: "display", pivot: middle },
-        { name: "body", parent: "display", pivot: middle, cubes },
+        { name: "body", parent: "display", pivot: middle, cubes: shown.map((piece, i) => cube(piece, uvs[i])) },
       ],
     });
     // Its model block's, which the game draws as the item's icon.
@@ -519,7 +772,25 @@ function geometries(): unknown {
       bones: [{ name: "model", pivot: [0, 0, 0], cubes: iconCubes(boxes) }],
     });
   }
+  // The rocket in flight: turned along its flight around its middle.
+  const { uvs, height } = uvLayout(ROCKET_BOXES);
+  const middle = middleOf(ROCKET_BOXES);
+  all.push({
+    description: { identifier: ROCKET_GEOMETRY, texture_width: TEXTURE_WIDTH, texture_height: height, visible_bounds_width: 2, visible_bounds_height: 2 },
+    bones: [
+      { name: "display", pivot: middle },
+      { name: "body", parent: "display", pivot: middle, cubes: ROCKET_BOXES.map((piece, i) => cube(piece, uvs[i])) },
+    ],
+  });
   return { format_version: "1.16.0", "minecraft:geometry": all };
+}
+
+/** Boxes moved to stand on y 0, centered across: a model sitting on the ground. */
+function grounded(boxes: Box[]): Box[] {
+  const low = [0, 1, 2].map((axis) => Math.min(...boxes.map(({ from }) => from[axis])));
+  const high = [0, 1, 2].map((axis) => Math.max(...boxes.map(({ from, size }) => from[axis] + size[axis])));
+  const shift: Vec3 = [-(low[0] + high[0]) / 2, -low[1], -(low[2] + high[2]) / 2];
+  return boxes.map(({ from, size, paint }) => ({ from: add(from, shift), size, paint }));
 }
 
 function middleOf(boxes: Box[]): Vec3 {
@@ -531,10 +802,14 @@ function middleOf(boxes: Box[]): Vec3 {
 }
 
 /** The hold animations: plain poses of the "gun" bone, blended by the attachable (HOLD_FILE). */
-const holdAnimation = (kind: PickupKind, pose: HoldPose) => `animation.minecade.gun_${kind}.${pose}`;
+const holdAnimation = (kind: ModelId, pose: HoldPose) => `animation.minecade.gun_${kind}.${pose}`;
 type HoldPose = "first_person_hip" | "first_person_aim" | "third_person";
-const holdPoses = (kind: PickupKind): HoldPose[] => (isGun(kind) ? ["first_person_hip", "first_person_aim", "third_person"] : ["first_person_hip", "third_person"]);
-const recoilAnimation = (kind: GunKind) => `animation.minecade.gun_${kind}.recoil`;
+const holdPoses = (kind: ModelId): HoldPose[] => (isGun(kind) ? ["first_person_hip", "first_person_aim", "third_person"] : ["first_person_hip", "third_person"]);
+const recoilAnimation = (kind: ModelId) => `animation.minecade.gun_${kind}.recoil`;
+const ROCKET_ANIMATION = "animation.minecade.rocket.fly";
+/** Every model the held animations cover, Paintball's first. */
+const ALL_MODELS: ModelId[] = [...PICKUP_KINDS, ...ARSENAL_MODELS];
+const GUN_MODELS: ModelId[] = [...GUN_KINDS, ...ARSENAL_GUNS];
 const PICKUP_ANIMATION = "animation.minecade.gun_pickup.float";
 const TUMBLE_ANIMATION = "animation.minecade.paint_grenade.tumble";
 const SWELL_ANIMATION = "animation.minecade.paint_grenade.swell";
@@ -549,13 +824,13 @@ export const HOLD_FILE = "resource_pack/animations/guns_hold.animation.json";
 const fixed = (value: number) => Number(value.toFixed(2));
 
 /** The hold animations as the solver places them: the first version of HOLD_FILE. */
-export function holdAnimationsSeed(): unknown {
+export function holdAnimationsSeed(): { format_version: string; animations: Record<string, unknown> } {
   const all: Record<string, unknown> = {};
-  for (const kind of PICKUP_KINDS) {
+  for (const kind of ALL_MODELS) {
     const { scale } = HOLD[kind];
     all[holdAnimation(kind, "first_person_hip")] = { loop: true, bones: { gun: { ...hipHold(kind), scale } } };
     const aim = aimHold(kind);
-    if (aim) all[holdAnimation(kind, "first_person_aim")] = { loop: true, bones: { gun: { ...aim, scale } } };
+    if (aim) all[holdAnimation(kind, "first_person_aim")] = { loop: true, bones: { gun: { ...aim, scale: HOLD[kind].aim?.hidden ? 0 : scale } } };
     all[holdAnimation(kind, "third_person")] = { loop: true, bones: { gun: thirdHold(kind) } };
   }
   return { format_version: "1.8.0", animations: all };
@@ -563,7 +838,28 @@ export function holdAnimationsSeed(): unknown {
 
 /** Every hold animation an attachable names, for the check that HOLD_FILE still has them all. */
 export function holdAnimationNames(): string[] {
-  return PICKUP_KINDS.flatMap((kind) => holdPoses(kind).map((pose) => holdAnimation(kind, pose)));
+  return ALL_MODELS.flatMap((kind) => holdPoses(kind).map((pose) => holdAnimation(kind, pose)));
+}
+
+/**
+ * HOLD_FILE's text with the solver's poses added for every hold animation it doesn't have yet (a
+ * new model's), inserted after its last one in the file's own layout and line endings. Every
+ * character already there stays as it is: the poses in it are the user's.
+ */
+export function withMissingHolds(text: string): { text: string; added: string[] } {
+  const have = (JSON.parse(text) as { animations?: Record<string, unknown> }).animations ?? {};
+  const seed = holdAnimationsSeed().animations;
+  const added = Object.keys(seed).filter((name) => !(name in have));
+  if (added.length === 0) return { text, added };
+  const newline = text.includes("\r\n") ? "\r\n" : "\n";
+  // The file ends with the animations object's closing brace, then the root's.
+  const rootClose = text.lastIndexOf("}");
+  const animationsClose = text.lastIndexOf("}", rootClose - 1);
+  let last = animationsClose - 1;
+  while (last >= 0 && /\s/.test(text[last])) last--;
+  const empty = text[last] === "{";
+  const entries = added.map((name) => `    ${JSON.stringify(name)}: ${JSON.stringify(seed[name], null, 2).replace(/\n/g, "\n    ")}`.replace(/\n/g, newline));
+  return { text: `${text.slice(0, last + 1)}${empty ? "" : ","}${newline}${entries.join(`,${newline}`)}${text.slice(last + 1)}`, added };
 }
 
 /** The generated animations: recoil, the pickup's float, and the grenade's tumble and swell. */
@@ -592,6 +888,12 @@ function animations(): unknown {
       },
     },
   };
+  for (const kind of ARSENAL_GUNS) {
+    const { back, lift } = RECOIL[kind];
+    all[recoilAnimation(kind)] = { loop: true, bones: { body: { position: [0, 0, `v.kick * ${back}`], rotation: [`v.kick * ${-lift}`, 0, 0] } } };
+  }
+  // Points the rocket along its flight, as vanilla's arrow does.
+  all[ROCKET_ANIMATION] = { loop: true, bones: { display: { rotation: ["q.target_x_rotation", "-q.target_y_rotation", 0] } } };
   return { format_version: "1.8.0", animations: all };
 }
 
@@ -600,7 +902,7 @@ function animations(): unknown {
  * keeps restarting it while the player aims), and the hip and aim poses blend by it; v.kick rises
  * fast and falls back over a shot's recoil cooldown.
  */
-function attachableScripts(kind: PickupKind): Record<string, unknown> {
+function attachableScripts(kind: ModelId): Record<string, unknown> {
   if (!isGun(kind)) return { animate: [{ first_person_hip: "c.is_first_person" }, { third_person: "!c.is_first_person" }] };
   const { seconds } = RECOIL[kind];
   return {
@@ -620,15 +922,19 @@ function attachableScripts(kind: PickupKind): Record<string, unknown> {
 }
 
 function attachable(kind: PickupKind, dye: Dye): unknown {
+  return attachableOf(kind, gunItem(kind, dye), modelTexturePath(kind, dye));
+}
+
+function attachableOf(kind: ModelId, identifier: string, texture: string): unknown {
   const animationsOf: Record<string, string> = Object.fromEntries(holdPoses(kind).map((pose) => [pose, holdAnimation(kind, pose)]));
   if (isGun(kind)) animationsOf.recoil = recoilAnimation(kind);
   return {
     format_version: "1.10.0",
     "minecraft:attachable": {
       description: {
-        identifier: gunItem(kind, dye),
+        identifier,
         materials: { default: "entity_alphatest", enchanted: "entity_alphatest_glint" },
-        textures: { default: modelTexturePath(kind, dye), enchanted: "textures/misc/enchanted_item_glint" },
+        textures: { default: texture, enchanted: "textures/misc/enchanted_item_glint" },
         geometry: { default: heldGeometry(kind) },
         animations: animationsOf,
         scripts: attachableScripts(kind),
@@ -648,7 +954,7 @@ function item(kind: PickupKind, dye: Dye): unknown {
     // No icon: an item that places a block shows that block, which is the model drawn in 3D. It
     // can only be placed on that block, which is never in the world, so it places nothing.
     "minecraft:block_placer": { block: model, use_on: [model] },
-    "minecraft:display_name": { value: isGun(kind) ? GUNS[kind].name : GRENADE.name },
+    "minecraft:display_name": { value: isGun(kind) ? GUNS[kind as keyof typeof GUNS].name : GRENADE.name },
     "minecraft:max_stack_size": isGun(kind) ? 1 : 16,
     "minecraft:hand_equipped": true,
     "minecraft:can_destroy_in_creative": false,
@@ -657,9 +963,28 @@ function item(kind: PickupKind, dye: Dye): unknown {
     // A left click fires (a swing), so the swing is kept short. Each shot starts this cooldown,
     // which shades the hotbar slot until the gun can fire again.
     components["minecraft:swing_duration"] = { value: GUN_SWING_SECONDS };
-    components["minecraft:cooldown"] = { category: gunCooldown(kind), duration: GUNS[kind].everyTicks / 20 };
+    components["minecraft:cooldown"] = { category: gunCooldown(kind), duration: GUNS[kind as keyof typeof GUNS].everyTicks / 20 };
   }
   return { format_version: ITEM_FORMAT, "minecraft:item": { description: { identifier: gunItem(kind, dye), menu_category: { category: "none" } }, components } };
+}
+
+/** An arsenal item: as a paint gun's (a hidden model block for its icon, a short swing and its fire rate's cooldown for a gun), one of each. */
+function arsenalItemFile(model: ArsenalModel): unknown {
+  const block = arsenalModelBlock(model);
+  const gun = isArsenalGun(model) ? ARSENAL_GUN_DEFS[model] : undefined;
+  const name = gun?.name ?? (model === "stimpack" ? STIM.name : (ARSENAL_THROWABLE_DEFS as Record<string, { name: string }>)[model].name);
+  const components: Record<string, unknown> = {
+    "minecraft:block_placer": { block, use_on: [block] },
+    "minecraft:display_name": { value: name },
+    "minecraft:max_stack_size": gun ? 1 : 4,
+    "minecraft:hand_equipped": true,
+    "minecraft:can_destroy_in_creative": false,
+  };
+  if (gun) {
+    components["minecraft:swing_duration"] = { value: GUN_SWING_SECONDS };
+    components["minecraft:cooldown"] = { category: gunCooldown(model), duration: gun.everyTicks / 20 };
+  }
+  return { format_version: ITEM_FORMAT, "minecraft:item": { description: { identifier: arsenalItem(model), menu_category: { category: "none" } }, components } };
 }
 
 /** A hidden item whose cooldown category the held models read (a shot's recoil, the aim). */
@@ -694,7 +1019,22 @@ function modelBlock(kind: PickupKind, dye: Dye): unknown {
   };
 }
 
+function arsenalBlock(model: ArsenalModel): unknown {
+  return {
+    format_version: "1.21.60",
+    "minecraft:block": {
+      description: { identifier: arsenalModelBlock(model), menu_category: { category: "none" } },
+      components: {
+        "minecraft:geometry": iconGeometry(model),
+        "minecraft:material_instances": { "*": { texture: arsenalTerrainKey(model), render_method: "alpha_test" } },
+      },
+    },
+  };
+}
+
 const colorProperty = { [COLOR_PROPERTY]: { type: "int", range: [0, DYES.length - 1], default: 0, client_sync: true } };
+/** Which arsenal model an arsenal entity shows: an index into ARSENAL_MODELS. */
+const modelProperty = { [MODEL_PROPERTY]: { type: "int", range: [0, ARSENAL_MODELS.length - 1], default: 0, client_sync: true } };
 /** Nothing hurts, pushes or burns these: the script places and removes them. */
 const UNTOUCHABLE = {
   "minecraft:pushable": { is_pushable: false, is_pushable_by_piston: false },
@@ -704,11 +1044,18 @@ const UNTOUCHABLE = {
   "minecraft:fire_immune": true,
 };
 
-function projectileEntity(identifier: string, size: number, gravity: number, knockback: boolean): unknown {
+/**
+ * A projectile the script shoots. Without a vanilla runtime, it moves as a plain entity does (it
+ * keeps 0.91 of its speed a tick and falls under the world's gravity: Paintball's balls and
+ * grenades, as the user has them). `straight` borrows the snowball's runtime, which keeps the
+ * projectile's own numbers: it holds its speed and only falls by its own small gravity (the
+ * rocket). Measured on BDS: spike/arsenal.
+ */
+function projectileEntity(identifier: string, size: number, gravity: number, knockback: boolean, properties: Record<string, unknown> | null = colorProperty, straight = false): unknown {
   return {
     format_version: "1.21.100",
     "minecraft:entity": {
-      description: { identifier, is_spawnable: false, is_summonable: true, properties: colorProperty },
+      description: { identifier, ...(straight ? { runtime_identifier: "minecraft:snowball" } : {}), is_spawnable: false, is_summonable: true, ...(properties ? { properties } : {}) },
       components: {
         "minecraft:collision_box": { width: size, height: size },
         // The script decides what a hit does; a ball only pushes, like a snowball.
@@ -719,8 +1066,9 @@ function projectileEntity(identifier: string, size: number, gravity: number, kno
           anchor: 1,
           offset: [0, -0.1, 0],
           angle_offset: 0,
+          ...(straight ? { inertia: 1 } : {}),
         },
-        "minecraft:physics": {},
+        "minecraft:physics": straight ? { has_gravity: false } : {},
         "minecraft:pushable": { is_pushable: false, is_pushable_by_piston: false },
         "minecraft:conditional_bandwidth_optimization": {
           default_values: { max_optimized_distance: 80, max_dropped_ticks: 5, use_motion_prediction_hints: true },
@@ -751,6 +1099,32 @@ function pickupEntity(): unknown {
         is_summonable: true,
         properties: { [KIND_PROPERTY]: { type: "int", range: [0, PICKUP_KINDS.length - 1], default: 0, client_sync: true } },
       },
+      components: {
+        "minecraft:collision_box": { width: 0.01, height: 0.01 },
+        "minecraft:physics": { has_gravity: false, has_collision: false },
+        ...UNTOUCHABLE,
+      },
+    },
+  };
+}
+
+/** An arsenal grenade that landed: it falls to the ground and sits there until the script bursts it. */
+function primedArsenalEntity(): unknown {
+  return {
+    format_version: "1.21.100",
+    "minecraft:entity": {
+      description: { identifier: PRIMED_ARSENAL, is_spawnable: false, is_summonable: true, properties: modelProperty },
+      components: { "minecraft:collision_box": { width: 0.3, height: 0.3 }, "minecraft:physics": {}, ...UNTOUCHABLE },
+    },
+  };
+}
+
+/** An arsenal item floating over a spot (a thrown knife where it came to rest). */
+function arsenalPickupEntity(): unknown {
+  return {
+    format_version: "1.21.100",
+    "minecraft:entity": {
+      description: { identifier: ARSENAL_PICKUP, is_spawnable: false, is_summonable: true, properties: modelProperty },
       components: {
         "minecraft:collision_box": { width: 0.01, height: 0.01 },
         "minecraft:physics": { has_gravity: false, has_collision: false },
@@ -806,12 +1180,56 @@ function clientEntities(): Record<string, unknown> {
       animations: { float: PICKUP_ANIMATION },
       scripts: { animate: ["float"] },
     }),
+    "resource_pack/entity/arsenal_thrown.entity.json": client({
+      identifier: THROWN_ARSENAL,
+      ...arsenalLooks,
+      render_controllers: ["controller.render.minecade.arsenal_model"],
+      animations: { tumble: TUMBLE_ANIMATION },
+      scripts: { animate: ["tumble"] },
+    }),
+    "resource_pack/entity/arsenal_primed.entity.json": client({
+      identifier: PRIMED_ARSENAL,
+      ...arsenalLooks,
+      render_controllers: ["controller.render.minecade.arsenal_primed"],
+    }),
+    "resource_pack/entity/arsenal_pickup.entity.json": client({
+      identifier: ARSENAL_PICKUP,
+      ...arsenalLooks,
+      render_controllers: ["controller.render.minecade.arsenal_pickup"],
+      animations: { float: PICKUP_ANIMATION },
+      scripts: { animate: ["float"] },
+    }),
+    "resource_pack/entity/rocket.entity.json": client({
+      identifier: ROCKET,
+      materials: { default: "entity_alphatest" },
+      textures: { default: ROCKET_TEXTURE },
+      geometry: { default: ROCKET_GEOMETRY },
+      render_controllers: ["controller.render.minecade.rocket"],
+      animations: { fly: ROCKET_ANIMATION },
+      scripts: { animate: ["fly"] },
+    }),
   };
 }
+
+/** The arsenal entities' models and textures, one of each per model, picked by the model property. */
+const arsenalLooks = {
+  materials: { default: "entity_alphatest" },
+  textures: Object.fromEntries(ARSENAL_MODELS.map((model) => [model, arsenalTexturePath(model)])),
+  geometry: Object.fromEntries(ARSENAL_MODELS.map((model) => [model, displayGeometry(model)])),
+};
 
 function renderControllers(): unknown {
   const pick = (array: string, property: string) => `${array}[q.property('${property}')]`;
   const byColor = { arrays: { textures: { "Array.dyes": DYES.map((dye) => `Texture.${dye}`) } }, geometry: "Geometry.default", materials: [{ "*": "Material.default" }], textures: [pick("Array.dyes", COLOR_PROPERTY)] };
+  const byModel = {
+    arrays: {
+      textures: { "Array.models": ARSENAL_MODELS.map((model) => `Texture.${model}`) },
+      geometries: { "Array.models": ARSENAL_MODELS.map((model) => `Geometry.${model}`) },
+    },
+    geometry: pick("Array.models", MODEL_PROPERTY),
+    materials: [{ "*": "Material.default" }],
+    textures: [pick("Array.models", MODEL_PROPERTY)],
+  };
   return {
     format_version: "1.10.0",
     render_controllers: {
@@ -832,6 +1250,14 @@ function renderControllers(): unknown {
         textures: [pick("Array.kinds", KIND_PROPERTY)],
         ignore_lighting: true,
       },
+      "controller.render.minecade.arsenal_model": byModel,
+      // Flashes white faster and faster, like lit TNT.
+      "controller.render.minecade.arsenal_primed": {
+        ...byModel,
+        overlay_color: { r: 1, g: 1, b: 1, a: "math.mod(q.life_time * (2 + q.life_time * 5), 1) > 0.5 ? 0.55 : 0" },
+      },
+      "controller.render.minecade.arsenal_pickup": { ...byModel, ignore_lighting: true },
+      "controller.render.minecade.rocket": { geometry: "Geometry.default", materials: [{ "*": "Material.default" }], textures: ["Texture.default"] },
     },
   };
 }
@@ -865,6 +1291,164 @@ function splashParticle(): unknown {
   };
 }
 
+// ---- The arsenal's particles -------------------------------------------------------------------
+//
+// Each draws the soft puff (PUFF_TEXTURE) tinted, and reads the Molang variables the scripts set
+// (defs.ts's PARTICLES says which). A streak or beam runs from the muzzle along v.dir for v.dist
+// blocks: every particle leaves the muzzle along it, the streak's each at its own speed and gone as
+// it reaches the end, the beam's slowed by drag to rest at its own point of the line.
+
+const AGE = "v.particle_age / v.particle_lifetime";
+const FADE = `1 - ${AGE}`;
+
+function arsenalParticle(identifier: string, material: "particles_add" | "particles_blend", components: Record<string, unknown>): unknown {
+  return {
+    format_version: "1.10.0",
+    particle_effect: { description: { identifier, basic_render_parameters: { material, texture: PUFF_TEXTURE } }, components },
+  };
+}
+
+function puffs(size: string | number): unknown {
+  return { size: [size, size], facing_camera_mode: "rotate_xyz", uv: { texture_width: 16, texture_height: 16, uv: [0, 0], uv_size: [16, 16] } };
+}
+
+/** A burst all at once: `count` particles, then the emitter is done. */
+const once = (count: number | string) => ({
+  "minecraft:emitter_rate_instant": { num_particles: count },
+  "minecraft:emitter_lifetime_once": { active_time: 0.05 },
+});
+/** Fire's colors: yellow at first, red as it goes, fading out. */
+const flameColor = { color: [1, `math.lerp(0.85, 0.25, ${AGE})`, `math.lerp(0.35, 0.05, ${AGE})`, FADE] };
+
+function arsenalParticles(): Record<string, unknown> {
+  const along = { "minecraft:emitter_shape_point": { direction: ["v.dir.x", "v.dir.y", "v.dir.z"] } };
+  const list = [
+    arsenalParticle(PARTICLES.streak, "particles_add", {
+      ...once(10),
+      ...along,
+      "minecraft:particle_initial_speed": "v.speed * (0.7 + v.particle_random_1 * 0.3)",
+      "minecraft:particle_lifetime_expression": { max_lifetime: "v.dist / (v.speed * (0.7 + v.particle_random_1 * 0.3))" },
+      "minecraft:particle_motion_dynamic": {},
+      "minecraft:particle_appearance_billboard": puffs(0.04),
+      "minecraft:particle_appearance_tinting": { color: [1, 0.86, 0.55, 1] },
+    }),
+    arsenalParticle(PARTICLES.impact, "particles_blend", {
+      ...once(6),
+      "minecraft:emitter_shape_sphere": { radius: 0.05, direction: "outwards" },
+      "minecraft:particle_initial_speed": "1 + v.particle_random_1 * 1.5",
+      "minecraft:particle_lifetime_expression": { max_lifetime: "0.3 + v.particle_random_2 * 0.3" },
+      "minecraft:particle_motion_dynamic": { linear_acceleration: [0, -4, 0], linear_drag_coefficient: 4 },
+      "minecraft:particle_appearance_billboard": puffs("0.05 + v.particle_random_3 * 0.05"),
+      "minecraft:particle_appearance_tinting": { color: [0.55, 0.52, 0.48, FADE] },
+      "minecraft:particle_appearance_lighting": {},
+    }),
+    arsenalParticle(PARTICLES.hit, "particles_blend", {
+      ...once(8),
+      "minecraft:emitter_shape_sphere": { radius: 0.1, direction: "outwards" },
+      "minecraft:particle_initial_speed": "1.5 + v.particle_random_1 * 2",
+      "minecraft:particle_lifetime_expression": { max_lifetime: "0.25 + v.particle_random_2 * 0.15" },
+      "minecraft:particle_motion_dynamic": { linear_acceleration: [0, -6, 0], linear_drag_coefficient: 3 },
+      "minecraft:particle_appearance_billboard": puffs(0.06),
+      "minecraft:particle_appearance_tinting": { color: [0.75, 0.06, 0.06, FADE] },
+    }),
+    arsenalParticle(PARTICLES.beam, "particles_add", {
+      ...once("math.min(v.dist * 4, 480)"),
+      ...along,
+      "minecraft:particle_initial_speed": "v.dist * 25 * v.particle_random_1",
+      "minecraft:particle_lifetime_expression": { max_lifetime: "0.6 + v.particle_random_2 * 0.3" },
+      "minecraft:particle_motion_dynamic": { linear_drag_coefficient: 25 },
+      "minecraft:particle_appearance_billboard": puffs(`0.12 * (${FADE}) + 0.02`),
+      "minecraft:particle_appearance_tinting": { color: [0.35, 0.9, 1, 1] },
+    }),
+    arsenalParticle(PARTICLES.trail, "particles_blend", {
+      ...once(2),
+      "minecraft:emitter_shape_sphere": { radius: 0.08, direction: "outwards" },
+      "minecraft:particle_initial_speed": 0.2,
+      "minecraft:particle_lifetime_expression": { max_lifetime: "0.9 + v.particle_random_1 * 0.4" },
+      "minecraft:particle_motion_dynamic": { linear_drag_coefficient: 1 },
+      "minecraft:particle_appearance_billboard": puffs("0.12 + v.particle_age * 0.35"),
+      "minecraft:particle_appearance_tinting": {
+        color: [`math.lerp(1, 0.33, math.min(1, ${AGE} * 3))`, `math.lerp(0.7, 0.32, math.min(1, ${AGE} * 3))`, `math.lerp(0.3, 0.31, math.min(1, ${AGE} * 3))`, `0.85 * (${FADE})`],
+      },
+    }),
+    arsenalParticle(PARTICLES.explosion, "particles_blend", {
+      ...once("16 + v.radius * 6"),
+      "minecraft:emitter_shape_sphere": { radius: "v.radius * 0.2", direction: "outwards" },
+      "minecraft:particle_initial_speed": "v.radius * (1.2 + v.particle_random_1 * 1.6)",
+      "minecraft:particle_lifetime_expression": { max_lifetime: "0.5 + v.particle_random_2 * 0.8" },
+      "minecraft:particle_motion_dynamic": { linear_acceleration: [0, 0.8, 0], linear_drag_coefficient: 3.5 },
+      "minecraft:particle_appearance_billboard": puffs("(0.35 + v.particle_random_3 * 0.45) * (1 + v.particle_age * 1.5)"),
+      "minecraft:particle_appearance_tinting": {
+        color: [`math.lerp(1, 0.3, math.min(1, ${AGE} * 2.5))`, `math.lerp(0.75, 0.29, math.min(1, ${AGE} * 2.5))`, `math.lerp(0.3, 0.28, math.min(1, ${AGE} * 2.5))`, FADE],
+      },
+    }),
+    arsenalParticle(PARTICLES.fire, "particles_add", {
+      "minecraft:emitter_rate_steady": { spawn_rate: "v.radius * v.radius * 10", max_particles: 300 },
+      "minecraft:emitter_lifetime_once": { active_time: "v.seconds" },
+      "minecraft:emitter_shape_disc": { radius: "v.radius", plane_normal: [0, 1, 0], offset: [0, 0.1, 0], direction: [0, 1, 0] },
+      "minecraft:particle_initial_speed": "0.3 + v.particle_random_1 * 0.6",
+      "minecraft:particle_lifetime_expression": { max_lifetime: "0.5 + v.particle_random_2 * 0.5" },
+      "minecraft:particle_motion_dynamic": { linear_acceleration: [0, 1.2, 0], linear_drag_coefficient: 1 },
+      "minecraft:particle_appearance_billboard": puffs(`0.28 * (${FADE}) + 0.06`),
+      "minecraft:particle_appearance_tinting": flameColor,
+    }),
+    arsenalParticle(PARTICLES.burning, "particles_add", {
+      ...once(6),
+      "minecraft:emitter_shape_box": { half_dimensions: [0.3, 0.9, 0.3], offset: [0, 0.9, 0], direction: [0, 1, 0] },
+      "minecraft:particle_initial_speed": 0.4,
+      "minecraft:particle_lifetime_expression": { max_lifetime: "0.35 + v.particle_random_1 * 0.2" },
+      "minecraft:particle_motion_dynamic": { linear_acceleration: [0, 2, 0] },
+      "minecraft:particle_appearance_billboard": puffs(`0.14 * (${FADE}) + 0.03`),
+      "minecraft:particle_appearance_tinting": flameColor,
+    }),
+    arsenalParticle(PARTICLES.smoke, "particles_blend", {
+      "minecraft:emitter_rate_steady": { spawn_rate: "v.radius * 7", max_particles: 220 },
+      "minecraft:emitter_lifetime_once": { active_time: "math.max(1, v.seconds - 3)" },
+      "minecraft:emitter_shape_sphere": { radius: "v.radius * 0.75", offset: [0, "v.radius * 0.45", 0], direction: "outwards" },
+      "minecraft:particle_initial_speed": "0.2 + v.particle_random_1 * 0.4",
+      "minecraft:particle_lifetime_expression": { max_lifetime: "3 + v.particle_random_2" },
+      "minecraft:particle_motion_dynamic": { linear_drag_coefficient: 1.5 },
+      "minecraft:particle_appearance_billboard": puffs("1.2 + v.particle_random_3 + v.particle_age * 0.15"),
+      "minecraft:particle_appearance_tinting": {
+        color: [0.74, 0.74, 0.76, "0.92 * math.min(1, v.particle_age * 2) * math.min(1, (v.particle_lifetime - v.particle_age) * 1.2)"],
+      },
+      "minecraft:particle_appearance_lighting": {},
+    }),
+    arsenalParticle(PARTICLES.flash, "particles_add", {
+      ...once(18),
+      "minecraft:emitter_shape_sphere": { radius: 0.1, direction: "outwards" },
+      "minecraft:particle_initial_speed": "4 + v.particle_random_1 * 5",
+      "minecraft:particle_lifetime_expression": { max_lifetime: "0.18 + v.particle_random_2 * 0.12" },
+      "minecraft:particle_motion_dynamic": { linear_drag_coefficient: 5 },
+      "minecraft:particle_appearance_billboard": puffs(`0.35 * (${FADE}) + 0.05`),
+      "minecraft:particle_appearance_tinting": { color: [1, 1, 1, 1] },
+    }),
+    arsenalParticle(PARTICLES.stim, "particles_add", {
+      ...once(14),
+      "minecraft:emitter_shape_box": { half_dimensions: [0.3, 0.9, 0.3], offset: [0, 0.9, 0], direction: [0, 1, 0] },
+      "minecraft:particle_initial_speed": 0.3,
+      "minecraft:particle_lifetime_expression": { max_lifetime: "0.7 + v.particle_random_1 * 0.4" },
+      "minecraft:particle_motion_dynamic": { linear_acceleration: [0, 0.8, 0] },
+      "minecraft:particle_appearance_billboard": puffs(0.07),
+      "minecraft:particle_appearance_tinting": { color: [0.45, 1, 0.55, FADE] },
+    }),
+  ];
+  return Object.fromEntries(list.map((particle) => [`resource_pack/particles/${itemFile((particle as { particle_effect: { description: { identifier: string } } }).particle_effect.description.identifier)}.json`, particle]));
+}
+
+/** The arsenal particles' soft white puff, which they tint. */
+function puffTexture(): Buffer {
+  const image = blankImage(16, 16);
+  for (let y = 0; y < 16; y++) {
+    for (let x = 0; x < 16; x++) {
+      const distance = Math.hypot(x - 7.5, y - 7.5) / 7.5;
+      if (distance >= 1) continue;
+      image.data.set([255, 255, 255, clamp(255 * (1 - distance * distance))], (y * 16 + x) * 4);
+    }
+  }
+  return encodePng(image);
+}
+
 // ---- The pack ----------------------------------------------------------------------------------
 
 /** Every generated file, by path under packs/guns (the manifests are hand-written). */
@@ -875,6 +1459,10 @@ export function gunsPackFiles(): Record<string, string | Buffer> {
     "behavior_pack/entities/paint_grenade.json": json(projectileEntity(THROWN_GRENADE, 0.3, 0.05, false)),
     "behavior_pack/entities/paint_grenade_primed.json": json(primedGrenadeEntity()),
     "behavior_pack/entities/gun_pickup.json": json(pickupEntity()),
+    "behavior_pack/entities/arsenal_thrown.json": json(projectileEntity(THROWN_ARSENAL, 0.3, 0.05, false, modelProperty)),
+    "behavior_pack/entities/arsenal_primed.json": json(primedArsenalEntity()),
+    "behavior_pack/entities/arsenal_pickup.json": json(arsenalPickupEntity()),
+    "behavior_pack/entities/rocket.json": json(projectileEntity(ROCKET, 0.3, 0.005, false, null, true)),
     "resource_pack/models/entity/guns.geo.json": json(geometries()),
     "resource_pack/animations/guns.animation.json": json(animations()),
     "resource_pack/render_controllers/guns.render_controllers.json": json(renderControllers()),
@@ -891,7 +1479,10 @@ export function gunsPackFiles(): Record<string, string | Buffer> {
       texture_name: "atlas.terrain",
       padding: 8,
       num_mip_levels: 4,
-      texture_data: Object.fromEntries(PICKUP_KINDS.flatMap((kind) => DYES.map((dye) => [terrainKey(kind, dye), { textures: modelTexturePath(kind, dye) }]))),
+      texture_data: Object.fromEntries([
+        ...PICKUP_KINDS.flatMap((kind) => DYES.map((dye) => [terrainKey(kind, dye), { textures: modelTexturePath(kind, dye) }])),
+        ...ARSENAL_MODELS.map((model) => [arsenalTerrainKey(model), { textures: arsenalTexturePath(model) }]),
+      ]),
     }),
     [`resource_pack/${GUN_TEXTURES}/splash.png`]: splashTexture(),
     ...Object.fromEntries(Object.entries(clientEntities()).map(([path, value]) => [path, json(value)])),
@@ -915,6 +1506,24 @@ export function gunsPackFiles(): Record<string, string | Buffer> {
     }
   }
   for (const dye of DYES) files[`resource_pack/${GUN_TEXTURES}/balls/${dye}.png`] = ballTexture(PAINT_RGB[dye]);
+  // The arsenal: one of each, no paint.
+  for (const kind of ARSENAL_GUNS) {
+    const marker = shotMarker(kind);
+    files[`behavior_pack/items/${itemFile(marker.item)}.json`] = json(markerItem(marker.item, marker.category, RECOIL[kind].seconds));
+  }
+  for (const model of ARSENAL_MODELS) {
+    const boxes = ARSENAL_BOXES[model];
+    const layers = textureLayers(boxes);
+    const file = itemFile(arsenalItem(model));
+    files[`behavior_pack/items/${file}.json`] = json(arsenalItemFile(model));
+    files[`behavior_pack/blocks/${itemFile(arsenalModelBlock(model))}.json`] = json(arsenalBlock(model));
+    files[`resource_pack/attachables/${file}.json`] = json(attachableOf(model, arsenalItem(model), arsenalTexturePath(model)));
+    files[`resource_pack/${arsenalTexturePath(model)}.png`] = modelTexture(layers, "white");
+    files[`icons/${file}.png`] = modelIcon(iconSamples(boxes, ICON_VIEW), layers, "white");
+  }
+  files[`resource_pack/${ROCKET_TEXTURE}.png`] = modelTexture(textureLayers(ROCKET_BOXES), "white");
+  files[`resource_pack/${PUFF_TEXTURE}.png`] = puffTexture();
+  for (const [path, value] of Object.entries(arsenalParticles())) files[path] = json(value);
   return files;
 }
 
@@ -926,6 +1535,12 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
   if (!existsSync(pack(HOLD_FILE))) {
     writeFileSync(pack(HOLD_FILE), `${JSON.stringify(holdAnimationsSeed(), null, 2)}\n`);
     console.log(`wrote ${HOLD_FILE} from the solver's poses`);
+  } else {
+    const { text, added } = withMissingHolds(readFileSync(pack(HOLD_FILE), "utf8"));
+    if (added.length > 0) {
+      writeFileSync(pack(HOLD_FILE), text);
+      console.log(`added ${added.length} poses to ${HOLD_FILE} for new models, leaving the rest as they were`);
+    }
   }
   console.log("wrote the guns pack's files");
 }

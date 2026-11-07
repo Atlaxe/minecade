@@ -135,6 +135,177 @@
         "Array.kinds[q.property('minecade:kind')]"
       ],
       "ignore_lighting": true
+    },
+    "controller.render.minecade.arsenal_model": {
+      "arrays": {
+        "textures": {
+          "Array.models": [
+            "Texture.handgun",
+            "Texture.smg",
+            "Texture.assault_rifle",
+            "Texture.burst_rifle",
+            "Texture.pump_shotgun",
+            "Texture.double_barrel",
+            "Texture.sniper_rifle",
+            "Texture.rail_gun",
+            "Texture.rpg",
+            "Texture.frag_grenade",
+            "Texture.molotov",
+            "Texture.flashbang",
+            "Texture.smoke_grenade",
+            "Texture.throwing_knife",
+            "Texture.stimpack"
+          ]
+        },
+        "geometries": {
+          "Array.models": [
+            "Geometry.handgun",
+            "Geometry.smg",
+            "Geometry.assault_rifle",
+            "Geometry.burst_rifle",
+            "Geometry.pump_shotgun",
+            "Geometry.double_barrel",
+            "Geometry.sniper_rifle",
+            "Geometry.rail_gun",
+            "Geometry.rpg",
+            "Geometry.frag_grenade",
+            "Geometry.molotov",
+            "Geometry.flashbang",
+            "Geometry.smoke_grenade",
+            "Geometry.throwing_knife",
+            "Geometry.stimpack"
+          ]
+        }
+      },
+      "geometry": "Array.models[q.property('minecade:model')]",
+      "materials": [
+        {
+          "*": "Material.default"
+        }
+      ],
+      "textures": [
+        "Array.models[q.property('minecade:model')]"
+      ]
+    },
+    "controller.render.minecade.arsenal_primed": {
+      "arrays": {
+        "textures": {
+          "Array.models": [
+            "Texture.handgun",
+            "Texture.smg",
+            "Texture.assault_rifle",
+            "Texture.burst_rifle",
+            "Texture.pump_shotgun",
+            "Texture.double_barrel",
+            "Texture.sniper_rifle",
+            "Texture.rail_gun",
+            "Texture.rpg",
+            "Texture.frag_grenade",
+            "Texture.molotov",
+            "Texture.flashbang",
+            "Texture.smoke_grenade",
+            "Texture.throwing_knife",
+            "Texture.stimpack"
+          ]
+        },
+        "geometries": {
+          "Array.models": [
+            "Geometry.handgun",
+            "Geometry.smg",
+            "Geometry.assault_rifle",
+            "Geometry.burst_rifle",
+            "Geometry.pump_shotgun",
+            "Geometry.double_barrel",
+            "Geometry.sniper_rifle",
+            "Geometry.rail_gun",
+            "Geometry.rpg",
+            "Geometry.frag_grenade",
+            "Geometry.molotov",
+            "Geometry.flashbang",
+            "Geometry.smoke_grenade",
+            "Geometry.throwing_knife",
+            "Geometry.stimpack"
+          ]
+        }
+      },
+      "geometry": "Array.models[q.property('minecade:model')]",
+      "materials": [
+        {
+          "*": "Material.default"
+        }
+      ],
+      "textures": [
+        "Array.models[q.property('minecade:model')]"
+      ],
+      "overlay_color": {
+        "r": 1,
+        "g": 1,
+        "b": 1,
+        "a": "math.mod(q.life_time * (2 + q.life_time * 5), 1) > 0.5 ? 0.55 : 0"
+      }
+    },
+    "controller.render.minecade.arsenal_pickup": {
+      "arrays": {
+        "textures": {
+          "Array.models": [
+            "Texture.handgun",
+            "Texture.smg",
+            "Texture.assault_rifle",
+            "Texture.burst_rifle",
+            "Texture.pump_shotgun",
+            "Texture.double_barrel",
+            "Texture.sniper_rifle",
+            "Texture.rail_gun",
+            "Texture.rpg",
+            "Texture.frag_grenade",
+            "Texture.molotov",
+            "Texture.flashbang",
+            "Texture.smoke_grenade",
+            "Texture.throwing_knife",
+            "Texture.stimpack"
+          ]
+        },
+        "geometries": {
+          "Array.models": [
+            "Geometry.handgun",
+            "Geometry.smg",
+            "Geometry.assault_rifle",
+            "Geometry.burst_rifle",
+            "Geometry.pump_shotgun",
+            "Geometry.double_barrel",
+            "Geometry.sniper_rifle",
+            "Geometry.rail_gun",
+            "Geometry.rpg",
+            "Geometry.frag_grenade",
+            "Geometry.molotov",
+            "Geometry.flashbang",
+            "Geometry.smoke_grenade",
+            "Geometry.throwing_knife",
+            "Geometry.stimpack"
+          ]
+        }
+      },
+      "geometry": "Array.models[q.property('minecade:model')]",
+      "materials": [
+        {
+          "*": "Material.default"
+        }
+      ],
+      "textures": [
+        "Array.models[q.property('minecade:model')]"
+      ],
+      "ignore_lighting": true
+    },
+    "controller.render.minecade.rocket": {
+      "geometry": "Geometry.default",
+      "materials": [
+        {
+          "*": "Material.default"
+        }
+      ],
+      "textures": [
+        "Texture.default"
+      ]
     }
   }
 }

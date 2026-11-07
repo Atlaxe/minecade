@@ -1,0 +1,32 @@
+{
+  "format_version": "1.21.120",
+  "minecraft:item": {
+    "description": {
+      "identifier": "minecade:rail_gun",
+      "menu_category": {
+        "category": "none"
+      }
+    },
+    "components": {
+      "minecraft:block_placer": {
+        "block": "minecade:rail_gun_model",
+        "use_on": [
+          "minecade:rail_gun_model"
+        ]
+      },
+      "minecraft:display_name": {
+        "value": "Rail Gun"
+      },
+      "minecraft:max_stack_size": 1,
+      "minecraft:hand_equipped": true,
+      "minecraft:can_destroy_in_creative": false,
+      "minecraft:swing_duration": {
+        "value": 0.05
+      },
+      "minecraft:cooldown": {
+        "category": "minecade_rail_gun",
+        "duration": 2
+      }
+    }
+  }
+}

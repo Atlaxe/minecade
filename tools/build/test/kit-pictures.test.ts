@@ -150,13 +150,15 @@ describe("kit pictures", () => {
     const game = { ...bridges, kits: { ...bridges.kits, list: [{ id: "wool", name: "Wool", items: [{ item: "minecraft:{color}_wool", count: 16 }] }] } };
     expect(await addGameKitPictures(out, game, [], TEXTURES)).toBe(2);
     expect((await readdir(join(out, "textures", "minecade", "kits"))).sort()).toEqual(["wool_blue.png", "wool_red.png"]);
-    // Probe's: soldier (no team colors), builder (team wool), scout and painter (team leather) for red and blue.
+    // Probe's: soldier, gunner and grenadier (no team colors), builder (team wool), scout and painter (team leather) for red and blue.
     const probeOut = await tempDir();
-    expect(await addGameKitPictures(probeOut, probe, [], TEXTURES)).toBe(7);
+    expect(await addGameKitPictures(probeOut, probe, [], TEXTURES)).toBe(9);
     const folder = join(probeOut, "textures", "minecade", "kits");
     expect((await readdir(folder)).sort()).toEqual([
       "builder_blue.png",
       "builder_red.png",
+      "grenadier.png",
+      "gunner.png",
       "painter_blue.png",
       "painter_red.png",
       "scout_blue.png",
@@ -168,13 +170,16 @@ describe("kit pictures", () => {
     expect(pixel(scout, 8 * 80 + 8 + 16, 40)).toEqual([138, 36, 30, 255]);
     // The painter's guns are the guns pack's own items: their hotbar icons fill the first four slots.
     const painter = decodePng(await readFile(join(folder, "painter_red.png")));
-    const drawn = (slot: number) => {
+    const drawn = (picture: ReturnType<typeof decodePng>, slot: number) => {
       let solid = 0;
-      for (let y = 8; y < 72; y++) for (let x = slot * 80 + 8; x < slot * 80 + 72; x++) if (pixel(painter, x, y)[3] === 255) solid++;
+      for (let y = 8; y < 72; y++) for (let x = slot * 80 + 8; x < slot * 80 + 72; x++) if (pixel(picture, x, y)[3] === 255) solid++;
       return solid;
     };
-    for (const slot of [0, 1, 2, 3]) expect(drawn(slot), `slot ${slot}`).toBeGreaterThan(200);
-    expect(drawn(4)).toBe(0);
+    for (const slot of [0, 1, 2, 3]) expect(drawn(painter, slot), `slot ${slot}`).toBeGreaterThan(200);
+    expect(drawn(painter, 4)).toBe(0);
+    // So are the arsenal's: the gunner's nine guns fill every slot.
+    const gunner = decodePng(await readFile(join(folder, "gunner.png")));
+    for (let slot = 0; slot < 9; slot++) expect(drawn(gunner, slot), `slot ${slot}`).toBeGreaterThan(100);
   });
 });
 

@@ -1,0 +1,20 @@
+{
+  "format_version": "1.21.60",
+  "minecraft:block": {
+    "description": {
+      "identifier": "minecade:molotov_model",
+      "menu_category": {
+        "category": "none"
+      }
+    },
+    "components": {
+      "minecraft:geometry": "geometry.minecade.gun_molotov_icon",
+      "minecraft:material_instances": {
+        "*": {
+          "texture": "minecade_arsenal_molotov",
+          "render_method": "alpha_test"
+        }
+      }
+    }
+  }
+}

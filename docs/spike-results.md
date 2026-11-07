@@ -194,6 +194,20 @@ log was checked on a server; the rest waits on a look in game.
 | Icons drawn by the game | Microsoft's docs: an item with `minecraft:block_placer` and no `minecraft:icon` shows its block as its icon, in 3D, the way a wall or a banner shows. Each gun places a hidden block holding its model (a block's model must fit in 30 pixels, so the long guns are shrunk), only on itself, so it's never placed. The blocks and the guns with `block_placer` load with no content log errors; unseen in game. |
 | Dyeing leather | Setting `ItemDyeableComponent.color` on vanilla leather from a script left Probe's team armor brown in game. Mojira reports that a custom item's `minecraft:dyeable` `default_color` only tints the inventory icon, not held items or dropped ones. So team leather is 64 items of its own (`packs/armor`), Minecraft's leather textures tinted by the build; they load with no content log errors. |
 
+## The arsenal: items, entities, raycasts and a rocket's flight (BDS 1.26.60.6, @minecraft/server 2.11.0, checked 2026-11-06)
+
+`npx tsx spike/arsenal/run.ts` boots a throwaway server (`minecade-armscheck`, no published ports)
+with the shared guns behavior pack and `spike/arsenal/probe.ts` on a void world. Only the server
+side: the particles, held models and client entities wait on a look in game.
+
+| Check | Finding |
+|---|---|
+| The arsenal's files | Its 15 items, 9 shot markers, 15 model blocks and 4 entities load with no content log errors. An item's cooldown category can't be read from a script on 2.11.0 (the getter throws); the component is there. |
+| Entity properties | A `setProperty` takes effect at the end of the tick: read straight back it's still the old value, a tick later the new one (the thrown, landed and pickup entities' `minecade:model`). |
+| `getBlockFromRay` | Reports the block and the face the ray entered by, and `faceLocation` exactly on that face (a ray at a wall 5.5 blocks south: the block's north face, z 0). |
+| `getEntitiesFromRay` | Each hit's `distance` is to where the ray enters the entity's box (an armor stand 3 blocks south: 2.65). Without `ignoreBlockCollision` a block between stops it (the stand behind a wall: no hits). `getHeadLocation` on an armor stand is 1.68 over its feet. |
+| A custom projectile's flight | Without a vanilla `runtime_identifier`, a projectile moves as a plain entity: it keeps 0.91 of its speed a tick and falls under the world's gravity (a rocket shot level at 1.6 blocks a tick fell 6.4 blocks in 9 ticks), whatever its `minecraft:projectile` says (`inertia: 1` and `minecraft:physics` `has_gravity: false` change nothing but the fall). With `runtime_identifier` `minecraft:snowball` (or `minecraft:arrow`) it keeps exactly the speed it was shot at and falls only by the component's own `gravity`. The rocket uses the snowball's; Paintball's balls and grenades keep the plain flight the user has seen. |
+
 ## Map viewer (pass V.1, BDS 1.26.60.6, client packs up to vanilla_1.26.62, checked 2026-11-05)
 
 The spike for `docs/plans/map-viewer.md`, in `spike/viewer/`. Everything it writes (colors,

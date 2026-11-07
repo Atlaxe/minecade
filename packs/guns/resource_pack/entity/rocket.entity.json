@@ -1,0 +1,28 @@
+{
+  "format_version": "1.10.0",
+  "minecraft:client_entity": {
+    "description": {
+      "identifier": "minecade:rocket",
+      "materials": {
+        "default": "entity_alphatest"
+      },
+      "textures": {
+        "default": "textures/minecade/guns/arsenal/rocket"
+      },
+      "geometry": {
+        "default": "geometry.minecade.rocket"
+      },
+      "render_controllers": [
+        "controller.render.minecade.rocket"
+      ],
+      "animations": {
+        "fly": "animation.minecade.rocket.fly"
+      },
+      "scripts": {
+        "animate": [
+          "fly"
+        ]
+      }
+    }
+  }
+}

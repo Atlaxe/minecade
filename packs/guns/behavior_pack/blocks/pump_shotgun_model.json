@@ -1,0 +1,20 @@
+{
+  "format_version": "1.21.60",
+  "minecraft:block": {
+    "description": {
+      "identifier": "minecade:pump_shotgun_model",
+      "menu_category": {
+        "category": "none"
+      }
+    },
+    "components": {
+      "minecraft:geometry": "geometry.minecade.gun_pump_shotgun_icon",
+      "minecraft:material_instances": {
+        "*": {
+          "texture": "minecade_arsenal_pump_shotgun",
+          "render_method": "alpha_test"
+        }
+      }
+    }
+  }
+}
