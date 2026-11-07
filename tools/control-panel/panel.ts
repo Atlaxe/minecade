@@ -23,6 +23,7 @@ import { catalogDir, storeDir } from "../maps/paths.ts";
 import { MapStore } from "../maps/store.ts";
 import { MapChanges } from "../viewer/map-changes.ts";
 import { mapJsonPath, viewerMap, viewerMapConfig, watchMap, watchWorld } from "../viewer/map-data.ts";
+import { portChoices, portMap } from "../viewer/port-map.ts";
 import { SELECT_PAGE, VIEWER_PAGE, viewerColors, viewerMaps, viewerScripts, viewerShapes, viewerTextures, viewerThumbPath, viewerView } from "../viewer/routes.ts";
 import { SelectFromAbove } from "../viewer/select.ts";
 import {
@@ -836,7 +837,7 @@ async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> 
       res.end(await readFile(SELECT_PAGE));
       return;
     }
-    if (path === "/viewer/app.js" || path === "/viewer/worker.js" || path === "/viewer/select.js") {
+    if (path === "/viewer/app.js" || path === "/viewer/worker.js" || path === "/viewer/select.js" || path === "/viewer/port.js") {
       try {
         const script = (await viewerScripts()).get(path.slice("/viewer/".length));
         if (!script) return sendJson(res, 404, { error: "not found" });
@@ -876,6 +877,11 @@ async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> 
     if (path === "/api/viewer/shapes") {
       const answer = viewerShapes(repoRoot, url.searchParams.get("target") ?? "", url.searchParams.get("map") ?? "");
       return answer.status === 200 ? sendJson(res, 200, { shapes: answer.shapes }) : sendJson(res, answer.status, { error: answer.error });
+    }
+    // Port to another game (port-map.ts): where the map can go.
+    if (path === "/api/viewer/port") {
+      const answer = await portChoices(repoRoot, url.searchParams.get("target") ?? "", url.searchParams.get("map") ?? "");
+      return answer.status === 200 ? sendJson(res, 200, { name: answer.name, targetName: answer.targetName, games: answer.games }) : sendJson(res, answer.status, { error: answer.error });
     }
     if (path === "/api/viewer/view") {
       const answer = viewerView(repoRoot, url.searchParams.get("target") ?? "", url.searchParams.get("map") ?? "");
@@ -922,6 +928,14 @@ async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> 
     const action = selectRoute[1];
     const answer = action === "export" ? await selectFromAbove.export(body) : await selectFromAbove.act(action as "retry" | "forget", body);
     return answer.status === 200 ? sendJson(res, 200, { ok: true, message: answer.message }) : sendJson(res, answer.status, { error: answer.error });
+  }
+
+  // Port to another game (port-map.ts): the map's blocks become a new map of another game.
+  if (path === "/api/viewer/port") {
+    const answer = await portMap(repoRoot, body);
+    if (answer.status !== 200) return sendJson(res, answer.status, { error: answer.error });
+    note(answer.message);
+    return sendJson(res, 200, { ok: true, target: answer.target, targetName: answer.targetName, map: answer.map, name: answer.name, message: answer.message });
   }
 
   // The map viewer's changes (map-changes.ts): through the map editor when game Edit has the map open.

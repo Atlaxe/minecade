@@ -1,9 +1,11 @@
 // The Panel's map viewer routes (panel.ts serves them). They only read the map store; the viewer's
-// changes are POST /api/viewer/edit, /undo, /redo, /save and /publish (map-changes.ts).
+// changes are POST /api/viewer/edit, /undo, /redo, /save and /publish (map-changes.ts), and Port to
+// another game is GET and POST /api/viewer/port (port-map.ts).
 //   GET /viewer                                 the viewer page (tools/control-panel/viewer/)
 //   GET /viewer/select                          Select from above's page (select.ts has its routes)
-//   GET /viewer/app.js, worker.js, select.js    the pages' scripts, bundled with esbuild on first use and
-//                                               again when one of their files changes
+//   GET /viewer/app.js, worker.js, select.js,   the pages' scripts, bundled with esbuild on first use and
+//       port.js                                 again when one of their files changes (port.js is Port
+//                                               to another game's dialog, which the Maps page loads too)
 //   GET /api/viewer/maps                        the editor's catalog (catalog.ts): every map by target
 //                                               with its checklist state, and the client's worlds
 //   GET /api/viewer/view?target=<id>&map=<id>   the map's view file (view-format.ts), gzipped
@@ -109,7 +111,7 @@ export async function viewerScripts(): Promise<Map<string, Uint8Array>> {
     const files = (async () => {
       const { build } = await import("esbuild");
       const result = await build({
-        entryPoints: { app: join(PAGE_DIR, "app.ts"), worker: join(PAGE_DIR, "worker.ts"), select: join(PAGE_DIR, "select.ts") },
+        entryPoints: { app: join(PAGE_DIR, "app.ts"), worker: join(PAGE_DIR, "worker.ts"), select: join(PAGE_DIR, "select.ts"), port: join(PAGE_DIR, "port.ts") },
         bundle: true,
         format: "esm",
         target: "es2022",

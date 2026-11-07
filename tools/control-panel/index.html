@@ -143,7 +143,7 @@
   .map-pick img { width: 80px; aspect-ratio: 16 / 9; object-fit: cover; border-radius: 2px; border: 1px solid var(--line); }
   .map-pick-text { display: grid; flex: 1; min-width: 0; }
   .map-pick-text span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  #map-pick-edit, #world-pick-open { padding: 9px 18px; font-size: var(--fs-body); }
+  #map-pick-edit, #map-pick-port, #world-pick-open { padding: 9px 18px; font-size: var(--fs-body); }
   /* Maps or Worlds: two tabs under the page's title. */
   .page-tabs { display: inline-flex; gap: 2px; margin-top: 20px; padding: 2px; background: var(--inset); border: 1px solid var(--line); border-radius: var(--radius); }
   .page-tabs [role=tab] { background: none; border: 1px solid transparent; color: var(--muted); padding: 6px 18px; font-size: var(--fs-body); }
@@ -255,6 +255,7 @@
     <span id="map-pick-thumb"></span>
     <div class="map-pick-text"><span id="map-pick-name" class="strong"></span><span id="map-pick-detail" class="muted meta"></span></div>
     <button id="map-pick-clear" class="small" data-tip="Pick nothing" data-key="Esc">Clear</button>
+    <button id="map-pick-port" data-tip="Its blocks become a new map of another game, with nothing placed yet">Port to another game</button>
     <button id="map-pick-edit" class="primary" data-tip="Open it in the 3D viewer" data-key="Enter"></button>
   </div>
   </div>
@@ -1401,9 +1402,23 @@ $("map-pick-edit").onclick = () => {
   const found = findMap(mapsView.picked);
   if (found) openViewer(found.target, found.map);
 };
+// Port to another game: its dialog is the viewer's (viewer/port.ts), loaded the first time. The new map is picked once it's made.
+$("map-pick-port").onclick = async () => {
+  const found = findMap(mapsView.picked);
+  if (!found) return;
+  try {
+    const { openPortDialog } = await import("/viewer/port.js");
+    await openPortDialog({ target: found.target.id, map: found.map.id }, async (made) => {
+      await loadMaps();
+      pickMap(`${made.target}/${made.map}`);
+    });
+  } catch (error) {
+    $("maps-note").textContent = `Port to another game didn't open: ${error instanceof Error ? error.message : error}`;
+  }
+};
 // Esc picks nothing; Enter opens the picked map (on a card, that card's), other buttons keep their own Enter.
 addEventListener("keydown", (event) => {
-  if (page !== "maps" || event.target instanceof HTMLInputElement || event.target instanceof HTMLSelectElement) return;
+  if (page !== "maps" || event.target instanceof HTMLInputElement || event.target instanceof HTMLSelectElement || document.querySelector("dialog[open]")) return;
   if (mapsView.tab === "worlds") {
     if (event.key === "Escape" && mapsView.world) pickWorld("");
     if (event.key !== "Enter") return;

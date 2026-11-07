@@ -21,8 +21,6 @@
   .banner-title { display: grid; min-width: 0; }
   .banner-title h1 { font-size: 24px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .banner-title span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  #open-map-settings { flex: none; color: var(--muted); }
-  #open-map-settings:hover:not(:disabled) { color: var(--text); }
   .banner-actions { margin-left: auto; display: flex; align-items: center; gap: 8px; }
   .banner-actions .sep { width: 1px; height: 24px; background: var(--line-strong); margin: 0 4px; }
   #save, #publish { padding: 8px 18px; font-size: var(--fs-body); }
@@ -52,7 +50,7 @@
   .left { border-right: 1px solid var(--line); display: flex; flex-direction: column; overflow: hidden; }
   .right { border-left: 1px solid var(--line); padding: 16px; display: flex; flex-direction: column; gap: 18px; }
 
-  .tools { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; padding: 12px; border-bottom: 1px solid var(--line); flex: none; }
+  .tools { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; padding: 12px; border-bottom: 1px solid var(--line); flex: none; }
   .tools button { display: grid; place-items: center; padding: 7px 0; background: none; color: var(--muted); border: 1px solid transparent; }
   .tools button:hover:not(:disabled) { background: var(--raised); color: var(--text); }
   .tools button.on, .tools button.on:hover:not(:disabled) { background: var(--selected); color: var(--on-selected); border-color: color-mix(in srgb, var(--primary) 45%, transparent); }
@@ -206,17 +204,17 @@
   .key-reset { justify-self: end; }
   .keys-note { margin: 0 auto 0 0; color: var(--warn); }
   .keys-actions { display: flex; justify-content: flex-start; }
-  /* Map settings: a fieldset per setting, each change made when its field is done. */
-  .map-settings input[type=text] { width: 100%; }
-  .map-settings .hint.flush { margin: 0; }
-  .map-settings .choice-row { display: flex; flex-wrap: wrap; gap: 6px; }
-  .map-settings .choice-chip { gap: 8px; padding: 5px 10px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--inset); }
-  .map-settings .choice-chip:has(input:checked) { border-color: color-mix(in srgb, var(--primary) 55%, transparent); background: var(--selected); color: var(--on-selected); }
-  .map-settings .inline-field { gap: 10px; flex-wrap: wrap; cursor: default; }
-  .map-settings input.number { width: 96px; }
-  .map-settings input.clock { width: 96px; }
-  .map-settings .setting { display: grid; gap: 4px; }
-  .map-settings .setting + .setting { margin-top: 8px; }
+  /* Map settings (with nothing picked) and the Time tool: each change made when its field is done. */
+  .panel input.wide { width: 100%; }
+  .panel input.number, .panel input.clock { width: 84px; padding: 5px 7px; }
+  .panel input.grow { flex: 1; min-width: 0; padding: 5px 7px; }
+  .panel .field-row { flex-wrap: wrap; }
+  label.field-row { cursor: pointer; }
+  .map-settings .setting { display: grid; gap: 4px; margin-top: 12px; }
+  .map-settings .setting .sub, .map-settings .setting .field-row, .map-settings .setting .group-label { margin: 0; }
+  .map-settings .buttons.tight { margin-top: 0; }
+  .map-settings > .buttons { margin-top: 16px; }
+  .panel .queue-note { margin: 8px 0 0; }
 </style>
 </head>
 <body>
@@ -224,7 +222,6 @@
   <a class="back" href="/#maps" aria-label="Back to Maps" data-tip="Back to Maps"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg></a>
   <span id="map-thumb"></span>
   <div class="banner-title"><h1 id="map-name">Map viewer</h1><span id="map-game" class="muted meta"></span></div>
-  <button id="open-map-settings" class="icon" aria-label="Map settings" data-tip="Map settings: the name, time of day, queue and game settings"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M10.3 3h3.4l.5 2.4 1.6.9 2.3-.8 1.7 2.9-1.8 1.6v1.9l1.8 1.6-1.7 2.9-2.3-.8-1.6.9-.5 2.4h-3.4l-.5-2.4-1.6-.9-2.3.8-1.7-2.9 1.8-1.6v-1.9L3.9 8.4l1.7-2.9 2.3.8 1.6-.9z"/><circle cx="12" cy="12" r="2.8"/></svg></button>
   <div class="banner-actions">
     <button id="undo" class="icon" aria-label="Undo" data-tip="Undo" data-key="Ctrl+Z"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 14 4 9l5-5"/><path d="M4 9h10a6 6 0 0 1 0 12h-3"/></svg></button>
     <button id="redo" class="icon" aria-label="Redo" data-tip="Redo" data-key="Ctrl+Y"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="m15 14 5-5-5-5"/><path d="M20 9H10a6 6 0 0 0 0 12h3"/></svg></button>
@@ -248,6 +245,7 @@
       <button data-tool="height" aria-label="Height" data-tip="Height: set kill Y and the build limit" data-key="H"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 16l9-3.5 9 3.5-9 3.5z"/><path d="M12 3v7M9 6l3-3 3 3"/></svg></button>
       <button data-tool="mirror" aria-label="Mirror" data-tip="Mirror: place a plane, pick entries, mirror them across it" data-key="I"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2.5v19" stroke-dasharray="2.2 2.4"/><path d="M9 6.5 3 17.5h6z"/><path d="M15 6.5l6 11h-6z"/></svg></button>
       <button data-tool="cut" aria-label="Cut" data-tip="Cut: slice the map by height, X and Z" data-key="C"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 9l9-4.5L21 9l-9 4.5z"/><path d="M3 15l9 4.5 9-4.5" stroke-dasharray="2 2.5"/></svg></button>
+      <button data-tool="time" aria-label="Time" data-tip="Time: the map's time of day" data-key="T"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><path d="M12 7v5l3.5 2"/></svg></button>
     </div>
     <div id="sidebar"></div>
   </aside>
@@ -262,8 +260,9 @@
     <div id="notice" class="notice" hidden></div>
     <div id="message" class="message">Loading the map...</div>
   </div>
-  <aside class="right panel" aria-label="Tool settings and cuts">
+  <aside class="right panel" aria-label="Tool settings, map settings and cuts">
     <div id="tool"></div>
+    <section id="map-panel" class="map-settings" aria-label="Map settings" hidden></section>
     <section id="cuts" class="cuts">
       <h2>Cuts</h2>
       <p class="sub">Slice the map to see inside.<span id="cuts-keys"></span></p>
@@ -328,13 +327,6 @@
     </div>
     <div id="panel-keys" class="settings-panel keys" role="tabpanel" aria-labelledby="tab-keys" hidden></div>
     <div class="actions"><p id="keys-note" class="keys-note" aria-live="polite" hidden></p><button value="done" class="primary">Done</button></div>
-  </form>
-</dialog>
-<dialog id="map-settings" class="settings map-settings" aria-labelledby="map-settings-title">
-  <form method="dialog">
-    <div class="settings-head"><h2 id="map-settings-title">Map settings</h2></div>
-    <div id="map-settings-body" class="settings-panel"></div>
-    <div class="actions"><button value="done" class="primary">Done</button></div>
   </form>
 </dialog>
 <script type="module" src="/viewer/app.js"></script>

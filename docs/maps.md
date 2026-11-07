@@ -234,6 +234,10 @@ map: { teamSpawns: true, bounds: true, borrow: ["siege"] },
 - A game playing only borrowed maps has none of its own to take its picture on yet: the build
   warns instead of refusing, and the lobby shows the stand-in picture.
 
+To give a game a map of its own built from another game's, port it instead: the Panel's **Port to
+another game** (docs/viewer.md) copies the map's world, and nothing else of it, into a new draft
+map of that game.
+
 ## The map store
 
 The maps and the games' pictures are kept in `C:\dev\minecade\maps\`, beside the checkouts, and

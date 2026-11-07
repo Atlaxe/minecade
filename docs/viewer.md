@@ -7,9 +7,10 @@ and changes them with the mouse or by typing their values: spawns and game marke
 turned and deleted; bounds, spectator bounds and regions drawn from two corners, moved and resized;
 kill Y and the build limit set and moved; the map's settings (its name, time of day, queue, game
 settings and the lobby's star box); with undo, Save and Publish. It never changes a world's
-blocks. Its **Worlds** tab cuts new maps out of a world from a picture of it seen from above (see
-"Select from above"). The in-game editor (`docs/editor.md`) keeps every tool it has, and **In
-game** opens the map there (see "In game").
+blocks, but **Port to another game** copies them into a new map of another game. Its **Worlds**
+tab cuts new maps out of a world from a picture of it seen from above (see "Select from above").
+The in-game editor (`docs/editor.md`) keeps every tool it has, and **In game** opens the map there
+(see "In game").
 
 ## Opening a map
 
@@ -18,7 +19,8 @@ In the Panel, open **Maps**: every map in the store, in cards by game, each with
 Unpublished changes). The search box finds maps by name or id; the dropdowns show one game, or one
 status. **Click a card** to pick it, and the bar at the bottom offers **Edit (map) for (game)**:
 it, Enter or a double click opens the viewer in the same window. The back arrow at the viewer's
-top left returns to Maps, with the search and the pick as they were.
+top left returns to Maps, with the search and the pick as they were. The bar's **Port to another
+game** makes the picked map's blocks a new map of another game (see "Port to another game").
 
 The first time a map opens, its world is read and kept in `work\viewer\maps\` (Temples takes about
 0.1 s, then a few milliseconds); a world saved since is read again. A map wider than 256 blocks on
@@ -72,15 +74,14 @@ list; its map, if any, stays).
 
 ## The window
 
-- **The top bar:** the back arrow, the map's thumbnail, name and game, and the gear (**Map
-  settings**); then Undo, Redo, Settings (the sliders), **In game**, **Save** and **Publish** on
-  the right. In game's square is green while
-  game Edit has the map open.
-- **The left panel:** the tools, then two tabs, **Checklist** (the game's checklist and the
-  **checks**) and **Overview** (what the map has), each with its own search.
+- **The top bar:** the back arrow, the map's thumbnail, name and game; then Undo, Redo, Settings
+  (the sliders), **In game**, **Save** and **Publish** on the right. In game's square is green
+  while game Edit has the map open.
+- **The left panel:** the tools, in rows of four, then two tabs, **Checklist** (the game's
+  checklist and the **checks**) and **Overview** (what the map has), each with its own search.
 - **The view**, with the view cube in its top right corner.
-- **The right panel:** what the tool or the picked entry can change; with nothing picked (and with
-  the Cut tool), the cuts.
+- **The right panel:** what the tool or the picked entry can change; with Select and nothing
+  picked, **Map settings** (see "Map settings") and the cuts; with the Cut tool, the cuts.
 - **The status line:** what's picked, what's under the pointer, and the map's size.
 
 Hover any button for a second: its tooltip says what it does, with its key. The keys below are the
@@ -119,7 +120,8 @@ Clicks never land on it. With the Top view and a Y cut, you see each floor of a 
 
 ## The tools
 
-The row at the top of the left panel, each with its key (none of them W, A, S or D):
+The grid at the top of the left panel, four to a row, each with its key (none of them W, A, S or
+D):
 
 | Tool | Key | What a click does |
 |---|---|---|
@@ -130,6 +132,7 @@ The row at the top of the left panel, each with its key (none of them W, A, S or
 | **Height** | H | Sets kill Y or a side of the build limit |
 | **Mirror** | I | Puts the mirror plane at the block, or picks a marker to mirror |
 | **Cut** | C | Cuts the map at the block |
+| **Time** | T | Nothing: its panel sets the map's time of day (see "Map settings") |
 
 Esc goes back to Select (and, in Select, picks nothing). Clicking an entry in the overview picks it
 with Select and frames it in the view.
@@ -201,6 +204,8 @@ a second.
 - **The right panel** shows its X, Y and Z (whole X and Z are the block's middle, as in `map.json`)
   and, with **Faces a fixed way** on, its yaw and pitch: type a value and press Enter. Off, it faces
   the map's middle.
+- **The queue spawn**, picked, also has **Players wait here**: **Lock in** (they look around but
+  don't move, and can't see each other) or **Free** (they roam until they're put at their spawns).
 - **Delete** (the key, or the button) removes it.
 
 ## Boxes: bounds, spectator bounds and regions
@@ -323,18 +328,17 @@ viewer says to restart it.
 
 ## Map settings
 
-The gear beside the map's name opens **Map settings**: what game Edit sets in its map menu's gear,
-its Time tool and its Game settings tool. Each change is made when its field is done (Enter, or
-leaving it) or a choice is picked, as one undo step; Esc in a field puts its value back, and Esc
-again (or Done) closes it. A value that doesn't fit is put back, and the note over the view says why.
+What game Edit sets in its map menu's gear, its Time tool, its Game settings tool and the queue
+spawn's screen, in three places. Each change is made when its field is done (Enter, or leaving it)
+or a choice is picked, as one undo step; Esc in a field puts its value back. A value that doesn't
+fit is put back, and the note over the view says why.
 
-- **Name:** the map's name, up to 48 characters. Its map id shows under it: game Edit's Name and
+**Map settings**, in the right panel with Select and nothing picked (Esc picks nothing):
+
+- **Name:** the map's name, up to 48 characters. Its map id shows above it: game Edit's Name and
   map id changes that, as the map's folder moves.
-- **Time of day:** where the map's servers stop the daylight cycle: **Not set** (the editor shows
-  noon), game Edit's **Noon**, **Dusk**, **Midnight** and **Dawn**, or **Custom**, a time typed on
-  the 24-hour clock (14:30).
-- **Queue** (once the queue spawn is placed): **Lock in** (players look around but don't move,
-  and can't see each other) or **Free**, and the **Countdown**, 1 to 60 seconds once everyone is in.
+- **Countdown** (once the queue spawn is placed): 1 to 60 seconds once everyone is in at the queue
+  spawn, before they're put at their spawns.
 - **Game settings** (a game whose config names some, `map.settings`): each with its range, its
   unit and what it changes; the map's own value, or the default until one is typed. **Use the
   default** takes the map's own away. Build Swap has **Build padding** and **Return delay**.
@@ -342,6 +346,39 @@ again (or Done) closes it. A value that doesn't fit is put back, and the note ov
   with a night time.
 - **The game's other keys:** any other plain value of the game's own the map has (as game Edit's
   Name and map id lists them), kept to its kind: a number stays a number, true or false a switch.
+- **Port to another game** (see below).
+
+**The Time tool** (T): where the map's servers stop the daylight cycle. **Not set** (the editor
+shows noon), game Edit's **Noon**, **Dusk**, **Midnight** and **Dawn**, or **Custom**, a time typed
+on the 24-hour clock (14:30), with **An hour earlier** and **An hour later**. A click in the view
+does nothing with it.
+
+**The queue spawn**, picked: how players wait there, **Lock in** or **Free** (see "Spawns and
+markers").
+
+## Port to another game
+
+A map's blocks become a new map of another game: One in the Quiver's KGB for Gunfight, say. Only
+the world goes. The new map has none of the old one's spawns, markers, boundaries, regions,
+heights, settings, time, cameras or mannequins, nor its picture: it's a draft with its name and
+nothing else, for its own game's tools to mark up. The old map stays as it is.
+
+**Port to another game** is under Map settings in the viewer, and in the Maps page's bar for the
+picked map. It asks:
+
+- **Game:** every other game, the lobby last (the last one picked comes up first).
+- **Name:** the old map's at first.
+- **Map id:** the old map's, when the game can take it, else with -2 (or -3, and so on). A game
+  can't take an id its list of maps has: its own maps, the maps of games it plays too, and the maps
+  of games that play its maps (Gunfight plays Siege's, so a Gunfight map can't be called "strife",
+  and a new Siege map can't take a Gunfight map's id), nor a map still being cut out of a world for
+  it. The line under the fields says why.
+
+**Port** copies the world as last saved (game Edit, with the map open and blocks not saved yet,
+has to save first) into the store's `working\<game>\<id>\` and keeps it as the new map's first
+version ("Port from quiver/kgb"). The dialog then offers **Open it**, the new map in the viewer;
+from the Maps page, the new map is picked. A game that plays another game's maps through
+`map.borrow` doesn't need a port for them: a port is for a map of its own, marked up its own way.
 
 ## In game
 

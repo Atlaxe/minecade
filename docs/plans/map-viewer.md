@@ -9,8 +9,9 @@ and planes) done 2026-11-06. Before V.7, the same day, the user reworked the vie
 "Layout rework" below). V.7 (shapes and see-through blocks), V.8 (Vanilla textures) and V.9 (speed
 tools) done 2026-11-06. After V.9 the user made Mirror a tool of its own and asked for a Keys tab in
 the settings (see "After V.9" below). V.10 (Select from above) done 2026-11-06. V.11 (with the in-game editor) done 2026-11-06, with the
-warm-up the user asked for. V.12 (map settings) done 2026-11-06: every pass is built. Build it in the order of "Passes" below: each pass leans on
-the ones before it.
+warm-up the user asked for. V.12 (map settings) done 2026-11-06: every pass is built. After it the
+user moved the map settings out of their dialog and asked for Port to another game (see "After
+V.12" below). Build it in the order of "Passes" below: each pass leans on the ones before it.
 
 **For the session that implements this:**
 - Work in a worktree of your own (`CLAUDE.md`, "Branch and merge").
@@ -445,6 +446,32 @@ The user asked for these with V.11 and V.12, each its own pass:
   PC's network, the internet (with how to test it) and console friends, whose row holds the
   Friends tab switch and its progress (sign-in code, live), then the lobby map; the Game and
   Containers sections follow (the map editor's containers are in its own section).
+
+## After V.12 (2026-11-06, the user's changes)
+
+The user asked for these together, to declutter the top bar:
+- **Time is a tool** (T, a clock): its panel is the Time list game Edit's Time tool has (Not set,
+  Noon, Dusk, Midnight, Dawn, Custom with the 24-hour clock and an hour earlier or later). A click
+  in the view does nothing with it.
+- **The tools in a grid of four columns** (two rows of four with Time).
+- **No gear, no Map settings dialog.** The queue's Lock in or Free is only in the picked queue
+  spawn's panel ("Players wait here"). The name and the countdown (with the game's settings, the
+  lobby's star box and the other keys) are in the right panel as **Map settings**, with Select and
+  nothing picked, above the cuts. The countdown shows once the queue spawn is placed, since the
+  game counts it only there. `mapsettings.ts` has `MapSettings` (the panel, drawn again on every
+  change unless one of its fields is being typed in), `TimeTool` and `queuePanel`.
+- **Port to another game** (`tools/viewer/port-map.ts`, the dialog `port.ts`, served alone as
+  `/viewer/port.js` for the Maps page): a map's blocks become a new map of another game, such as
+  KGB from One in the Quiver for Gunfight (and Gun Game once it's built). Only the world goes: the
+  new map.json is `{ name, draft: true, spawns: [] }`, with no spawns, markers, boundaries,
+  settings, time, cameras, mannequins or `source`, and no picture. Its id is the old map's when
+  the game can take it, else with -2 and so on; an id is taken when the game's own maps, its
+  lenders' (map.borrow) or a borrower's list has it (the build refuses two maps of one id in one
+  game's list), or a map is being cut out for it. Refused while game Edit has the map open with
+  blocks not saved. The world is copied into a folder of its own, then moved into place, then
+  map.json is written, and the map store keeps it as its first version ("Port from
+  <target>/<map>"). GET and POST `/api/viewer/port`. Under Map settings in the viewer, and in the
+  Maps page's bar for the picked map.
 
 ## Passes (the implementation order: stop and report after each, commit and push)
 

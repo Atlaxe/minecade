@@ -3,11 +3,13 @@
 // blocks' colors and its custom blocks' shapes from the Panel, meshes the blocks in workers, and
 // draws them (scene.ts); over them the map's markup (overlay.ts), and beside them the tools, the
 // checklist, the checks (checks.ts) and the overview (sidebar.ts) on the left and the picked tool's
-// or entry's settings, or the cuts, on the right.
+// or entry's settings on the right, else the map's own settings (mapsettings.ts) and the cuts.
 // Tools as game Edit has them: Select (pick, then move or resize with the gizmo, gizmo.ts, or type
 // the values; Shift + click or a rectangle in Top view picks several, to copy to another team or
 // delete together), Spawn and Marker (place points), Region (draw boxes), Height (kill Y, the build
-// limit), Mirror (place a mirror plane, pick entries, mirror them across it: speed.ts) and Cut.
+// limit), Mirror (place a mirror plane, pick entries, mirror them across it: speed.ts), Cut and
+// Time (the map's time of day). Port to another game (port.ts), under Map settings, makes the
+// map's blocks a new map of another game.
 // Each edit goes to the Panel (changes.ts), with undo and redo, Save and Publish. Every key is
 // in Settings, Keys, where it can be changed (keys.ts, keys-tab.ts). In game (ingame.ts) opens the
 // map in the in-game editor, which the Panel warms up while the viewer is open; when game Edit
@@ -25,7 +27,8 @@ import { actionFor, keyText, keysText, readKeyMap, changedKeys, type ActionId, t
 import { KeysTab } from "./keys-tab.ts";
 import { buildMarkup, findEntry, type BoxMark, type Markup, type MarkupList, type PlaneMark, type PointMark } from "./markup.ts";
 import { InGame, type PanelState } from "./ingame.ts";
-import { MapSettings } from "./mapsettings.ts";
+import { MapSettings, TimeTool, queuePanel } from "./mapsettings.ts";
+import { openPortDialog } from "./port.ts";
 import { Overlay, type MarkerAssets, type MirrorPlane } from "./overlay.ts";
 import { blocksWithoutLook, mapWarnings } from "./checks.ts";
 import { copyEdits, entryListKey, mirrorEdits, mirrorPlan, snapHalf, teamOf, type MirrorOptions, type MirrorTeam, type SpeedEntry } from "./speed.ts";
@@ -68,9 +71,9 @@ interface MapData extends MarkerAssets {
   rules: EditorRules;
 }
 
-type ToolId = "select" | "spawn" | "marker" | "region" | "height" | "mirror" | "cut";
+type ToolId = "select" | "spawn" | "marker" | "region" | "height" | "mirror" | "cut" | "time";
 type CutAxis = "x" | "y" | "z";
-const TOOLS: readonly ToolId[] = ["select", "spawn", "marker", "region", "height", "mirror", "cut"];
+const TOOLS: readonly ToolId[] = ["select", "spawn", "marker", "region", "height", "mirror", "cut", "time"];
 /** The keys changed in Settings, Keys, kept in this browser (keys.ts has the defaults). */
 const KEYS_STORE = "minecade-viewer-keys";
 
@@ -243,6 +246,8 @@ async function main(): Promise<void> {
   /** Here on a cut: the next click on a block puts that cut at it. The Cut tool's clicks cut along `cutAxis`. */
   let arming: CutAxis | undefined;
   let cutAxis: CutAxis = "y";
+  /** Whether a click in the view does something with the active tool: the pointer is a crosshair then. */
+  const aims = () => (tool !== "select" && tool !== "time" && !(tool === "mirror" && mirrorStep === "pick")) || arming !== undefined;
 
   const allLists = () => markup.sections.flatMap((section) => section.lists);
   const listsFor = (which: ToolId): MarkupList[] =>
@@ -313,9 +318,11 @@ async function main(): Promise<void> {
     },
   });
   const edit = (change: MapEdit) => changes.edit(config, change);
-  // Map settings (the gear beside the name): the name, the time, the queue, the game's settings.
-  const mapSettings = new MapSettings($<HTMLDialogElement>("map-settings"), { map, rules: data.rules, edit, note: (text) => notice(text, true) });
-  $("open-map-settings").onclick = () => mapSettings.open(config);
+  // Map settings, in the right panel with nothing picked: the name, the queue's countdown, the game's settings, Port to another game.
+  const mapSettings = new MapSettings($("map-panel"), { map, rules: data.rules, edit, note: (text) => notice(text, true), port: () => void openPortDialog({ target, map }) });
+  mapSettings.update(config);
+  // The Time tool: the map's time of day.
+  const timeTool = new TimeTool({ edit, note: (text) => notice(text, true), redraw: () => renderPanel() });
   events.addEventListener("map", (event) => {
     const change = JSON.parse((event as MessageEvent<string>).data) as { stamp: string; config?: MapConfig };
     if (!change.config) return notice("map.json isn't valid JSON right now: the viewer shows it as it was.", true);
@@ -332,7 +339,7 @@ async function main(): Promise<void> {
     reloading = true;
     notice("The world was saved in game Edit: drawing its blocks again...");
     const reload = () => {
-      if (press || settingsDialog.open || typing(document.activeElement)) return void setTimeout(reload, 500);
+      if (press || document.querySelector("dialog[open]") || typing(document.activeElement)) return void setTimeout(reload, 500);
       keepView({ camera: scene.viewState, cuts, tool, picked, at: Date.now() });
       location.reload();
     };
@@ -698,7 +705,7 @@ async function main(): Promise<void> {
   };
   const setMirrorStep = (step: "place" | "pick") => {
     mirrorStep = step;
-    canvas.classList.toggle("aiming", step === "place" || arming !== undefined);
+    canvas.classList.toggle("aiming", aims());
     renderPanel();
   };
   /** Mirrors the picked entries across the plane as one change (copies, or the entries moved), then picks nothing. */
@@ -751,6 +758,7 @@ async function main(): Promise<void> {
         ? el("div", { className: "fields" }, numberField("Yaw", "", yaw, FACING_STEP, (value) => at({ yaw: value })), numberField("Pitch", "", pitch, 5, (value) => at({ pitch: value })))
         : el("p", { className: "sub" }, "It faces the map's middle."),
       centerBox(),
+      list.key === "queueSpawn" ? queuePanel(config, edit) : null,
       copySection([point.key]),
       el("div", { className: "buttons" }, deleteButton()),
     );
@@ -976,7 +984,11 @@ async function main(): Promise<void> {
     else if (tool === "height") content = heightToolPanel();
     else if (tool === "mirror") content = mirrorToolPanel();
     else if (tool === "cut") content = cutToolPanel();
+    else if (tool === "time") content = timeTool.panel(config);
     $("tool").replaceChildren(...(content ? [content] : []));
+    $("tool").hidden = !content;
+    // Nothing picked with Select: the map's own settings, then the cuts.
+    $("map-panel").hidden = !(tool === "select" && !picked);
     $("cuts").hidden = !((tool === "select" && !picked) || tool === "cut");
   };
 
@@ -988,6 +1000,7 @@ async function main(): Promise<void> {
     if (next === "marker" && listsFor("marker").length === 0) return;
     tool = next;
     newRegion = undefined;
+    timeTool.reset();
     for (const button of document.querySelectorAll<HTMLButtonElement>("[data-tool]")) button.classList.toggle("on", button.dataset.tool === next);
     if (next !== "select" && next !== "mirror" && (picked || also.size > 0)) pickEntry(undefined);
     if (next === "mirror") mirrorStep = pickedKeys().length > 0 ? "pick" : "place";
@@ -997,7 +1010,7 @@ async function main(): Promise<void> {
   const armTool = () => {
     corner = undefined;
     const list = armedList();
-    canvas.classList.toggle("aiming", (tool !== "select" && !(tool === "mirror" && mirrorStep === "pick")) || arming !== undefined);
+    canvas.classList.toggle("aiming", aims());
     if (tool !== "mirror") {
       overlay.showMirror(undefined);
       overlay.showMirrored([], []);
@@ -1025,8 +1038,9 @@ async function main(): Promise<void> {
   };
   const middle = () => mapMiddle(config);
 
-  /** A click with a tool: a point, a box's corner, a height, a cut, or the mirror plane (or, picking for Mirror, a marker). */
+  /** A click with a tool: a point, a box's corner, a height, a cut, or the mirror plane (or, picking for Mirror, a marker). The Time tool's are its panel's. */
   const useTool = (clientX: number, clientY: number) => {
+    if (tool === "time") return;
     if (tool === "mirror") {
       if (mirrorStep === "pick") {
         const point = overlay.pointAt(clientX, clientY);
@@ -1221,7 +1235,7 @@ async function main(): Promise<void> {
   // Here: the next click on a block puts that cut at it.
   const armCut = (axis: CutAxis | undefined) => {
     arming = arming === axis ? undefined : axis;
-    canvas.classList.toggle("aiming", (tool !== "select" && !(tool === "mirror" && mirrorStep === "pick")) || arming !== undefined);
+    canvas.classList.toggle("aiming", aims());
     for (const id of ["x", "y", "z"]) $(`${id}-here`).classList.toggle("on", arming === id);
   };
   for (const axis of ["x", "y", "z"] as const) $(`${axis}-here`).onclick = () => armCut(axis);
@@ -1230,7 +1244,7 @@ async function main(): Promise<void> {
   addEventListener(
     "keydown",
     (event) => {
-      if (settingsDialog.open || mapSettings.dialog.open || typing(event.target)) return;
+      if (document.querySelector("dialog[open]") || typing(event.target)) return;
       const action = actionFor(keys, event);
       if (!action) return;
       const step = event.shiftKey ? 5 : 1;
@@ -1252,6 +1266,7 @@ async function main(): Promise<void> {
         case "height":
         case "mirror":
         case "cut":
+        case "time":
           setTool(action);
           break;
         case "boxMove":

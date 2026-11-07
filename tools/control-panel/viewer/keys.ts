@@ -20,6 +20,7 @@ export type ActionId =
   | "height"
   | "mirror"
   | "cut"
+  | "time"
   | "undo"
   | "redo"
   | "delete"
@@ -61,6 +62,7 @@ export const ACTIONS: readonly Action[] = [
   { id: "height", group: "Tools", label: "Height", keys: [key("KeyH")] },
   { id: "mirror", group: "Tools", label: "Mirror", keys: [key("KeyI")] },
   { id: "cut", group: "Tools", label: "Cut", keys: [key("KeyC")] },
+  { id: "time", group: "Tools", label: "Time", keys: [key("KeyT")] },
   { id: "undo", group: "Changes", label: "Undo", keys: [key("KeyZ", { ctrl: true })] },
   { id: "redo", group: "Changes", label: "Redo", keys: [key("KeyY", { ctrl: true }), key("KeyZ", { ctrl: true, shift: true })] },
   { id: "delete", group: "Changes", label: "Delete the picked entries", keys: [key("Delete"), key("Backspace")] },

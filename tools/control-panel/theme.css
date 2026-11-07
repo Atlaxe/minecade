@@ -96,4 +96,16 @@ input[type=checkbox].switch:disabled { opacity: .45; cursor: default; }
 .tip { position: fixed; z-index: 50; pointer-events: none; padding: 5px 9px; border-radius: var(--radius); background: var(--text); color: var(--bg); font-size: var(--fs-meta); font-weight: 600; box-shadow: var(--shadow); white-space: nowrap; }
 .tip kbd { font: inherit; font-family: var(--font-mono); padding: 0 5px; margin-left: 6px; border-radius: 2px; background: color-mix(in srgb, var(--bg) 18%, transparent); }
 
+/* Port to another game's dialog (viewer/port.ts), on the Maps page and in the viewer. */
+dialog.port-dialog { width: min(480px, 92vw); padding: 0; border: 1px solid var(--line-strong); border-radius: var(--radius-lg); background: var(--surface); color: var(--text); box-shadow: var(--shadow); }
+dialog.port-dialog::backdrop { background: #0008; }
+.port-body { padding: 20px 22px; }
+.port-body, .port-form { display: grid; gap: 14px; }
+.port-body h2 { font-size: var(--fs-h2); }
+.port-body p { margin: 0; }
+.port-form label { display: grid; gap: 4px; font-size: var(--fs-meta); color: var(--muted); }
+.port-form input, .port-form select { width: 100%; }
+.port-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 4px; }
+.port-actions button { padding: 8px 18px; font-size: var(--fs-body); }
+
 @media (prefers-reduced-motion: reduce) { * { transition-duration: 0s !important; } }
