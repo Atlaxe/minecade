@@ -211,6 +211,29 @@ copy.
 `.env` picks which published lobby map is the live lobby (default `spaceship`), and the Panel has a
 picker for it on the Servers page. A restart applies it.
 
+### Borrowing another game's maps
+
+A game can play another game's published maps as they are, beside any of its own, by naming that
+game in `map.borrow`. Gunfight plays Siege's:
+
+```ts
+map: { teamSpawns: true, bounds: true, borrow: ["siege"] },
+```
+
+- The build lists the other game's published maps after the game's own (each in `registry.json`
+  with `owner`, the game it belongs to, and that game's preview), and refuses two maps with the
+  same id. It also checks that the other game asks at least what this one asks of a map
+  (`uncoveredRequirements`), so any map it publishes will do: Siege's team spawns, bounds and
+  spectator or queue spawn are all Gunfight needs.
+- A borrowed map stays its own game's: it's made, edited and published there, and Gunfight gets
+  each new version of it with Siege's next publish. Its world is published under its owner, so the
+  orchestrator looks it up there and starts the server with `MAP_GAME` (the entrypoint reads
+  `/maps/<MAP_GAME>/<map>/<version>`).
+- In the map editor, Preview can play a borrowed map as the game that borrows it ("Play as": see
+  docs/editor.md, "Preview").
+- A game playing only borrowed maps has none of its own to take its picture on yet: the build
+  warns instead of refusing, and the lobby shows the stand-in picture.
+
 ## The map store
 
 The maps and the games' pictures are kept in `C:\dev\minecade\maps\`, beside the checkouts, and

@@ -49,7 +49,7 @@ describe("registry", () => {
   });
 
   it("runs only maps that are in the published maps, and picks among those for random", () => {
-    const published = (map: string) => map === "default";
+    const published = (map: { id: string }) => map.id === "default";
     expect(resolveGameMap(registry, "probe", "random", () => 0.99, published)).toMatchObject({ ok: true, map: { id: "default" } });
     expect(resolveGameMap(registry, "probe", "other", () => 0, published)).toEqual({ ok: false, reason: "Probe's Other isn't in the published maps; restart the network" });
     expect(resolveGameMap(registry, "probe", "random", () => 0, () => false)).toEqual({ ok: false, reason: "none of Probe's maps is in the published maps; restart the network" });

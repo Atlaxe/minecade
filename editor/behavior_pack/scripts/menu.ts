@@ -847,16 +847,26 @@ export function importMapEntries(pictures: PictureInfo, target: string): { actio
 /** The most fake players the preview menu offers. */
 export const MAX_PREVIEW_FAKES = 7;
 
-export type PreviewAction = { kind: "back" } | { kind: "fakes"; fakes: number } | { kind: "start" } | { kind: "none" };
+export type PreviewAction = { kind: "back" } | { kind: "fakes"; fakes: number } | { kind: "as"; game: string } | { kind: "start" } | { kind: "none" };
 
 /**
- * Before a preview loads: how many fake players the match starts with, as a toggle (0 up to what
- * fits beside the players going), and Start preview, green, at the bottom.
+ * Before a preview loads: which game it plays the map as, when other games play this game's maps
+ * too (`games`, its own first: Siege or Gunfight for a Siege map), how many fake players the match
+ * starts with, as a toggle (0 up to what fits beside the players going), and Start preview, green,
+ * at the bottom.
  */
-export function previewEntries(view: { fakes: number; most: number; back: boolean }): { action: PreviewAction; text: string; icon?: string }[] {
+export function previewEntries(view: { fakes: number; most: number; back: boolean; games?: { id: string; name: string }[]; as?: string }): { action: PreviewAction; text: string; icon?: string }[] {
   const most = Math.max(0, Math.min(MAX_PREVIEW_FAKES, view.most));
+  const games = view.games ?? [];
+  const as = games.some((game) => game.id === view.as) ? view.as : games[0]?.id;
   return [
     ...(view.back ? [{ action: { kind: "back" } as const, text: BACK_TEXT, icon: ICONS.back }] : []),
+    ...(games.length > 1
+      ? [
+          { action: { kind: "none" } as const, text: `${MARK.lead}${headingText("Play as")}` },
+          ...games.map((game, index) => ({ action: { kind: "as", game: game.id } as const, text: segmentText(game.name, index, game.id === as, false, true) })),
+        ]
+      : []),
     { action: { kind: "none" }, text: `${MARK.lead}${headingText("Fake players")}` },
     ...Array.from({ length: most + 1 }, (_, fakes) => ({ action: { kind: "fakes", fakes } as const, text: stepTileText(String(fakes), fakes, fakes === Math.min(view.fakes, most)) })),
     { action: { kind: "start" }, text: saveBarText("Start preview") },

@@ -123,6 +123,18 @@ describe("SessionManager: starting", () => {
     expect([...other.docker.specs, ...none.docker.specs]).toEqual([]);
   });
 
+  it("runs a borrowed map from its own game's published worlds", async () => {
+    const borrowing = {
+      games: [{ id: "gunfight", name: "Gunfight", minPlayers: 1, maxPlayers: 8, maps: [{ id: "strife", name: "Strife", owner: "siege" }] }],
+    };
+    const t = setupSessions({}, { registry: borrowing, publishedMaps: () => ({ siege: { strife: 2 } }) });
+    expect(await t.sessions.start({ ...startRequest, game: "gunfight", map: "random" })).toMatchObject({ ok: true });
+    expect(t.docker.specs[0].env).toMatchObject({ GAME: "gunfight", MAP: "strife", MAP_GAME: "siege" });
+    // Published only under the borrowing game's own name, it isn't there.
+    const wrong = setupSessions({}, { registry: borrowing, publishedMaps: () => ({ gunfight: { strife: 2 } }) });
+    expect(await wrong.sessions.start({ ...startRequest, game: "gunfight", map: "strife" })).toEqual({ ok: false, reason: "Gunfight's Strife isn't in the published maps; restart the network" });
+  });
+
   it("mounts the identity key volume so every game keeps one server identity", async () => {
     const t = setupSessions({ keysVolume: "minecade-keys" });
     await t.sessions.start(startRequest);

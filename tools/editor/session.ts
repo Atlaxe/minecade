@@ -56,7 +56,7 @@ export interface SessionOptions extends SessionBase {
 
 export class EditorSession extends ServerSession {
   /** Preview in the map menu (set by the runner, which runs it). */
-  onPreview: ((by: string, fakes: number) => void) | undefined;
+  onPreview: ((by: string, fakes: number, as?: string) => void) | undefined;
   /** A map editor asked to delete this map (the gear's Delete map): the runner closes Edit and deletes it. */
   onDelete: ((by: string) => void) | undefined;
   /** A map editor gave this map another id (Map settings, or a thumbnail imported with its name): the runner reopens it under that id. */
@@ -126,11 +126,14 @@ export class EditorSession extends ServerSession {
   }
 
   /** What a Preview builds: the game, the map (its folder and map.json as it is now), and its label. */
-  previewSource(): { map: PreviewMap; label: string; maxPlayers: number } {
+  /** What a preview of this map plays: its own game, or `as`, a game that borrows its maps (Gunfight, for a Siege map). */
+  previewSource(as?: string): { map: PreviewMap; label: string; maxPlayers: number } {
+    const borrower = this.target.borrowers?.find((game) => game.id === as);
+    const game = borrower ?? { id: this.target.id, name: this.target.name, maxPlayers: this.target.rules.maxPlayers ?? 1 };
     return {
-      map: { game: this.target.id, mapId: this.mapId, mapDir: this.mapDir, config: this.config },
-      label: `${this.target.name}: ${this.config.name}`,
-      maxPlayers: this.target.rules.maxPlayers ?? 1,
+      map: { game: game.id, mapId: this.mapId, mapDir: this.mapDir, config: this.config },
+      label: `${game.name}: ${this.config.name}`,
+      maxPlayers: game.maxPlayers,
     };
   }
 
@@ -253,6 +256,7 @@ export class EditorSession extends ServerSession {
       ...(this.from ? { from: this.from.name } : {}),
       view: await readViews(root),
       pictures: await pictureInfo(root, this.target.id, this.mapId),
+      ...(this.target.borrowers ? { playAs: this.target.borrowers } : {}),
     };
     await writeFile(join(dir, "editor.json"), JSON.stringify(info));
   }
@@ -290,7 +294,7 @@ export class EditorSession extends ServerSession {
         void this.publish(event.by);
         return;
       case "preview":
-        this.onPreview?.(event.by, Math.max(0, Math.trunc(event.fakes ?? 0)));
+        this.onPreview?.(event.by, Math.max(0, Math.trunc(event.fakes ?? 0)), typeof event.as === "string" ? event.as : undefined);
         return;
       case "deleteMap":
         this.onDelete?.(event.by);

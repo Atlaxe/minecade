@@ -502,6 +502,28 @@ Paintball (`games/paintball`) is two to four teams with the shared guns: first t
   a quarter turn from Java's facing).
 - **Stats:** kills, deaths and wins, plus Blocks painted.
 
+## Gunfight
+
+Two teams (Red and Blue, names over heads in their color, team leather), best of 5 (the lobby's
+Best of), one life a round, 90 second rounds (core's `standingResult` decides one that runs out:
+more players standing, then more health). `games/gunfight`.
+
+- **Loadouts:** each round everyone gets the same one, dealt by `LoadoutDeck` from the config's
+  `loadouts`: a primary (Assault Rifle, SMG, Burst Rifle, Pump Shotgun, Double Barrel, Sniper
+  Rifle, Rail Gun or Crossbow; each comes up once before any comes again), a secondary (Pistol,
+  RPG or Netherite Sword) and a grenade (Frag, Molotov, Flashbang, Smoke or Throwing Knife), never
+  the same secondary or grenade twice running, plus a Stimpack. Slots: primary 1, secondary 2,
+  grenade 3, stimpack 9, each locked in place; a crossbow comes with 8 arrows above the hotbar.
+  Each player hears the round's loadout in chat as they spawn, the magazines full.
+- **Sides:** `bestOf.swapSides` makes the teams take each other's team spawns every even round
+  (core's `spawnSide`); chat says so.
+- **Guns** fire only while a round is in play. Their hits take health straight off (no armor),
+  teammates are spared, a crossbow's arrow and a netherite sword kill in one hit, and health comes
+  back only from a stimpack. The held gun's ammo is the text bubble top right, over the round's
+  clock and circles, redrawn shot by shot.
+- **Stats:** kills, deaths and wins as every team game, and Headshots.
+- **Maps:** Siege's (`map.borrow`). Previews: open a Siege map in Edit, Preview, Play as Gunfight.
+
 ## The prompt form
 
 Build Swap has every player write prompts before the match, in a live form like the kit form

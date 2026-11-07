@@ -9,6 +9,8 @@ export interface RegistryMap {
   name: string;
   /** Texture path of the map's 16:9 screenshot in the lobby resource pack, when it has a preview.png. */
   preview?: string;
+  /** Another game's map this game borrows (map.borrow): that game's id, under which its world is published. */
+  owner?: string;
 }
 
 export interface RegistryGame {

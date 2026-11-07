@@ -70,6 +70,24 @@ export class BestOf {
   }
 }
 
+/** A team's side of a round that ran out of time: how many of them are standing, and their health together. */
+export interface Standing {
+  team: string;
+  players: number;
+  health: number;
+}
+
+/**
+ * Who takes a round that ran out of time: the team with more players standing, then the one with
+ * more health left (`by` says which). Undefined for a draw. Siege's and Gunfight's rule.
+ */
+export function timeUpWinner(sides: Standing[]): { team: string; by: "players" | "health" } | undefined {
+  const [first, second] = [...sides].sort((a, b) => b.players - a.players || b.health - a.health);
+  if (!first || first.players === 0) return undefined;
+  if (!second || first.players > second.players) return { team: first.team, by: "players" };
+  return first.health > second.health ? { team: first.team, by: "health" } : undefined;
+}
+
 /** The best-of rounds a match plays: the config's, with `rounds` replaced by the lobby option's value when it names one. */
 export function bestOfRounds(config: BestOfConfig, settings: Readonly<Record<string, string>> | undefined): { rounds?: number; firstTo?: number } {
   if (config.firstTo !== undefined) return { firstTo: config.firstTo };

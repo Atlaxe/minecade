@@ -279,7 +279,7 @@ export class EditorRunner {
    * Plays the map open in Edit as its game on Select's port (from a player there, or this PC), then
    * brings everyone back. Answers at once: undefined when it's under way, or why it can't be.
    */
-  preview(by: string, fakes = 0): string | undefined {
+  preview(by: string, fakes = 0, as?: string): string | undefined {
     const problem = this.isGuest(by) ? "only map editors can start a preview" : this.previewProblem();
     if (problem) {
       this.log(`${by}: can't preview: ${problem}`);
@@ -288,7 +288,7 @@ export class EditorRunner {
     }
     this.previewAsked = true;
     this.queues.select = this.queues.select
-      .then(() => this.runPreview(by, fakes))
+      .then(() => this.runPreview(by, fakes, as))
       .catch((error: unknown) => this.log(`The preview went wrong: ${message(error)}`))
       .finally(() => (this.previewAsked = false));
     return undefined;
@@ -538,7 +538,7 @@ export class EditorRunner {
     this.opened.set(slot, { request: launch.request, label: launch.label });
     session.onOpen = (request, who) => void this.request(who, request);
     if (session instanceof EditorSession) {
-      session.onPreview = (who, fakes) => void this.preview(who, fakes);
+      session.onPreview = (who, fakes, as) => void this.preview(who, fakes, as);
       session.onDelete = (who) => this.deleteMap(who, session);
       session.onRename = (who, map) => this.renameMap(who, session, map);
     }
@@ -723,10 +723,10 @@ export class EditorRunner {
   }
 
   /** Saves Edit's world, then plays the map open there, moving everyone in Edit to it. */
-  private async runPreview(by: string, fakes: number): Promise<void> {
+  private async runPreview(by: string, fakes: number, as?: string): Promise<void> {
     const edit = this.work.edit;
     if (!edit || this.previewProblem(true)) return;
-    const source = edit.previewSource();
+    const source = edit.previewSource(as);
     const status = edit.status();
     this.log(`${by}: preview ${source.label}`);
     await edit.say(`${by === "this PC" ? "This PC" : by} is starting a preview of ${chatMapName(status.targetName, status.mapName)}: everyone here goes as soon as it's ready (about 30 seconds).`);

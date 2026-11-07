@@ -11,7 +11,9 @@
 // kits) and preview (<target>/<map>.png), and each game's picture (<game>/icon.png), in the store's
 // published\catalog\, or MAPS_CATALOG, which the Docker build sets. Their worlds aren't built in:
 // servers read them from the store's published\worlds\, mounted at /maps. A game with no
-// published map is skipped with a warning.
+// published map is skipped with a warning. A game that borrows other games' maps (map.borrow:
+// Gunfight plays Siege's) lists their published maps after its own, each with its owner, once the
+// build has checked their games ask at least what it asks of a map.
 import { existsSync } from "node:fs";
 import { cp, mkdir, readdir, readFile, rm, writeFile } from "node:fs/promises";
 import { dirname, join, relative } from "node:path";
@@ -22,6 +24,7 @@ import {
   holoPortraits,
   mapRequirements,
   possibleTeams,
+  uncoveredRequirements,
   skinTexture,
   type GameConfig,
   type LobbyConfig,
@@ -62,8 +65,8 @@ interface Target {
   resourcePack?: Manifest;
   /** The game's 16:9 icon.png (required for games). */
   icon?: string;
-  /** The published maps, by their cards in the catalog. */
-  maps: { id: string; card: MapCard; preview?: string }[];
+  /** The published maps, by their cards in the catalog: its own, then the ones it borrows (with their owner game). */
+  maps: { id: string; card: MapCard; preview?: string; owner?: string }[];
 }
 
 const problems: string[] = [];
@@ -126,19 +129,14 @@ async function loadTarget(id: string, dir: string, configPath?: string): Promise
   // Every map in the catalog was checked when it was published (the map editor's checklist is the
   // map rules the build used to check), so only its card is read here.
   const mapsDir = join(catalog, id);
-  const entries = existsSync(mapsDir) ? await readdir(mapsDir, { withFileTypes: true }) : [];
-  for (const file of entries.filter((entry) => entry.isFile() && entry.name.endsWith(".json")).map((entry) => entry.name).sort()) {
-    const mapId = file.slice(0, -".json".length);
-    const cardPath = join(mapsDir, file);
-    const card = (await readJson(cardPath)) as MapCard | undefined;
-    if (card === undefined) continue;
-    if (typeof card.name !== "string" || card.name.trim() === "") {
-      report(cardPath, ["has no name"]);
-      continue;
+  target.maps.push(...(await publishedMaps(id)));
+  for (const owner of target.game?.map?.borrow ?? []) {
+    for (const map of await publishedMaps(owner)) {
+      if (target.maps.some((other) => other.id === map.id)) report(join(catalog, owner, `${map.id}.json`), [`has the same id as another of ${id}'s maps, which borrows it`]);
+      else target.maps.push({ ...map, owner });
     }
-    const preview = join(mapsDir, `${mapId}.png`);
-    target.maps.push({ id: mapId, card, ...(existsSync(preview) ? { preview } : {}) });
   }
+  const borrowedOnly = target.maps.length > 0 && target.maps.every((map) => map.owner !== undefined);
   if (target.maps.length === 0 && kind === "game") {
     // A new game's first map is made in the map editor, which reads games/ itself.
     warn(dir, ["no published maps yet, so the game is skipped (make one in the map editor)"]);
@@ -149,9 +147,53 @@ async function loadTarget(id: string, dir: string, configPath?: string): Promise
   if (target.game && !target.skip) {
     const icon = join(mapsDir, "icon.png");
     if (existsSync(icon)) target.icon = icon;
+    // A game playing only other games' maps has none of its own to take its picture on yet: the lobby shows the stand-in.
+    else if (borrowedOnly) warn(dir, ["has no picture yet (it plays only other games' maps): the lobby shows the stand-in picture"]);
     else report(dir, ["has no published picture: the lobby's game picker and hologram show it (take one with the map editor's Camera tool, and publish a map)"]);
   }
   return target;
+}
+
+/** A game's published maps in the catalog, by their cards (name, blocks) and previews. */
+async function publishedMaps(game: string): Promise<{ id: string; card: MapCard; preview?: string }[]> {
+  const mapsDir = join(catalog, game);
+  const entries = existsSync(mapsDir) ? await readdir(mapsDir, { withFileTypes: true }) : [];
+  const maps: { id: string; card: MapCard; preview?: string }[] = [];
+  for (const file of entries.filter((entry) => entry.isFile() && entry.name.endsWith(".json")).map((entry) => entry.name).sort()) {
+    const mapId = file.slice(0, -".json".length);
+    const cardPath = join(mapsDir, file);
+    const card = (await readJson(cardPath)) as MapCard | undefined;
+    if (card === undefined) continue;
+    if (typeof card.name !== "string" || card.name.trim() === "") {
+      report(cardPath, ["has no name"]);
+      continue;
+    }
+    const preview = join(mapsDir, `${mapId}.png`);
+    maps.push({ id: mapId, card, ...(existsSync(preview) ? { preview } : {}) });
+  }
+  return maps;
+}
+
+/**
+ * Each borrowing game's lenders must be games that ask at least what it asks of a map, so any map
+ * they publish will do for it too (a lender game skipped for having no maps lends none).
+ */
+function checkBorrowed(all: Target[]): void {
+  for (const target of all) {
+    const game = target.game;
+    if (!game?.map?.borrow) continue;
+    const needs = mapRequirements(game.map, { kind: "game", maxPlayers: game.maxPlayers, teams: target.teams });
+    for (const owner of game.map.borrow) {
+      const lender = all.find((candidate) => candidate.id === owner);
+      if (!lender?.game) {
+        report(join(target.dir, "game.config.ts"), [`map.borrow: "${owner}" isn't a game`]);
+        continue;
+      }
+      const has = mapRequirements(lender.game.map, { kind: "game", maxPlayers: lender.game.maxPlayers, teams: lender.teams });
+      const missing = uncoveredRequirements(needs, has);
+      if (missing.length > 0) report(join(target.dir, "game.config.ts"), [`map.borrow: ${lender.game.name}'s maps needn't have ${missing.map((requirement) => requirement.label).join(", ")}, which ${game.name} needs`]);
+    }
+  }
 }
 
 async function discoverTargets(): Promise<Target[]> {
@@ -161,6 +203,7 @@ async function discoverTargets(): Promise<Target[]> {
     const configPath = join(root, "games", id, "game.config.ts");
     if (existsSync(configPath)) targets.push(await loadTarget(id, join(root, "games", id), configPath));
   }
+  checkBorrowed(targets);
   const editorDir = join(root, EDITOR);
   if (existsSync(join(editorDir, "behavior_pack", "manifest.json"))) targets.push(await loadTarget(EDITOR, editorDir));
   return targets.filter((target) => !target.skip);
@@ -203,8 +246,9 @@ async function addGameIcons(out: string): Promise<void> {
   }
   for (const target of targets) {
     if (target.icon) await cp(target.icon, join(out, "textures", "minecade", "games", `${target.id}.png`));
+    // A borrowed map's preview is its own game's, copied there.
     for (const map of target.maps) {
-      if (map.preview) await cp(map.preview, join(out, "textures", "minecade", "maps", target.id, `${map.id}.png`));
+      if (map.preview && !map.owner) await cp(map.preview, join(out, "textures", "minecade", "maps", target.id, `${map.id}.png`));
     }
   }
   const entityPath = join(out, "entity", "holo_display.entity.json");
@@ -230,7 +274,7 @@ async function addGameIcons(out: string): Promise<void> {
   await writeFile(controllersPath, JSON.stringify(controllers, null, 2));
 }
 
-function pick({ id, name, description, minPlayers, maxPlayers, test, teams, options, stats }: GameConfig): Omit<RegistryGame, "maps"> {
+function pick({ id, name, description, minPlayers, maxPlayers, test, teams, options, stats }: GameConfig, hasIcon: boolean): Omit<RegistryGame, "maps"> {
   return {
     id,
     name,
@@ -238,7 +282,8 @@ function pick({ id, name, description, minPlayers, maxPlayers, test, teams, opti
     minPlayers,
     maxPlayers,
     ...(test ? { test } : {}),
-    icon: `textures/minecade/games/${id}`,
+    // Without one (a game playing only borrowed maps, so far), the lobby shows the stand-in.
+    ...(hasIcon ? { icon: `textures/minecade/games/${id}` } : {}),
     ...(teams ? { teams } : {}),
     ...(options ? { options } : {}),
     ...(stats ? { stats } : {}),
@@ -308,15 +353,16 @@ if (problems.length > 0) {
 // its maps need (the map editor's checklist).
 const lobbyTarget = targets.find((target) => target.id === "lobby")!;
 const registry: Registry = {
-  games: targets.flatMap(({ game, maps, teams }) =>
+  games: targets.flatMap(({ game, maps, teams, icon }) =>
     game
       ? [
           {
-            ...pick(game),
+            ...pick(game, icon !== undefined),
             maps: maps.map((map) => ({
               id: map.id,
               name: map.card.name,
-              ...(map.preview ? { preview: `textures/minecade/maps/${game.id}/${map.id}` } : {}),
+              ...(map.preview ? { preview: `textures/minecade/maps/${map.owner ?? game.id}/${map.id}` } : {}),
+              ...(map.owner ? { owner: map.owner } : {}),
             })),
             mapRequirements: mapRequirements(game.map, { kind: "game", maxPlayers: game.maxPlayers, teams }),
           },

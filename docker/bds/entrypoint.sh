@@ -6,6 +6,8 @@
 #                   /maps/index.json names each map's version, in /maps/$GAME/$MAP/<version>). A
 #                   template holding the map itself (/templates/servers/$GAME/maps/$MAP, a map
 #                   editor's preview) runs that instead.
+#   MAP_GAME        the game whose published worlds hold the map, when it isn't GAME (a map the
+#                   game borrows from another: Gunfight plays Siege's, in /maps/siege/$MAP)
 #   SERVER_ID       how the orchestrator knows this server ("lobby", or the session id)
 #   SERVER_PORT     TCP signaling and UDP game port (the same number inside and outside)
 #   TRANSPORT       http | log (must match the orchestrator)
@@ -46,9 +48,10 @@ elif [[ -d "${TEMPLATE}/maps/${MAP}" ]]; then
   MAP_DIR="${TEMPLATE}/maps/${MAP}"
 else
   [[ -f /maps/index.json ]] || fail "no published maps at /maps (the map store's published\\worlds\\ isn't mounted)"
-  version="$(jq -r --arg game "$GAME" --arg map "$MAP" '.[$game][$map] // empty' /maps/index.json)"
-  [[ -n "$version" ]] || fail "${GAME}/${MAP} isn't published (not in /maps/index.json): publish it in the map editor"
-  MAP_DIR="/maps/${GAME}/${MAP}/${version}"
+  MAP_GAME="${MAP_GAME:-$GAME}"
+  version="$(jq -r --arg game "$MAP_GAME" --arg map "$MAP" '.[$game][$map] // empty' /maps/index.json)"
+  [[ -n "$version" ]] || fail "${MAP_GAME}/${MAP} isn't published (not in /maps/index.json): publish it in the map editor"
+  MAP_DIR="/maps/${MAP_GAME}/${MAP}/${version}"
 fi
 [[ "$TRANSPORT" == "http" || "$TRANSPORT" == "log" ]] || fail "TRANSPORT must be http or log, got: $TRANSPORT"
 [[ -f "$MAP_DIR/world/level.dat" ]] || fail "no world template at $MAP_DIR/world"

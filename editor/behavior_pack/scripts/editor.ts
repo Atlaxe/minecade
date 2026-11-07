@@ -699,21 +699,25 @@ export class Editor {
   }
 
   /**
-   * Before a preview loads: how many fake players its match starts with (none up to what fits
+   * Before a preview loads: the game it plays the map as, when other games play this game's maps
+   * (Gunfight, for a Siege map), how many fake players its match starts with (none up to what fits
    * beside everyone here, who all go), then Start preview.
    */
-  private async previewMenu(player: Player, fakes = 0): Promise<void> {
-    const most = Math.max(0, (this.info.rules.maxPlayers ?? 1) - world.getAllPlayers().length);
-    const entries = previewEntries({ fakes, most, back: true });
+  private async previewMenu(player: Player, fakes = 0, as = this.info.target): Promise<void> {
+    const games = this.info.playAs?.length ? [{ id: this.info.target, name: this.info.targetName, maxPlayers: this.info.rules.maxPlayers ?? 1 }, ...this.info.playAs] : [];
+    const game = games.find((candidate) => candidate.id === as);
+    const most = Math.max(0, (game?.maxPlayers ?? this.info.rules.maxPlayers ?? 1) - world.getAllPlayers().length);
+    const entries = previewEntries({ fakes, most, back: true, games, as });
     const form = new ActionFormData().title(sideTitle("Preview"));
     for (const entry of entries) form.button(entry.text, entry.icon);
     const response = await this.show(player, form);
     const action = response?.selection === undefined ? undefined : entries[response.selection]?.action;
     if (!action || !player.isValid) return;
     if (action.kind === "back") return this.mapMenu(player);
-    if (action.kind === "fakes") return this.previewMenu(player, action.fakes);
-    if (action.kind === "none") return this.previewMenu(player, fakes);
-    this.link.send({ t: "preview", by: player.name, fakes: Math.min(fakes, most) });
+    if (action.kind === "fakes") return this.previewMenu(player, action.fakes, as);
+    if (action.kind === "as") return this.previewMenu(player, fakes, action.game);
+    if (action.kind === "none") return this.previewMenu(player, fakes, as);
+    this.link.send({ t: "preview", by: player.name, fakes: Math.min(fakes, most), ...(as !== this.info.target ? { as } : {}) });
     actionBar(player, "Starting the preview...");
   }
 

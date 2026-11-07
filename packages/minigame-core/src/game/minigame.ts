@@ -27,7 +27,7 @@ import type { Scope } from "../scope.ts";
 import { COLOR, deathMessage as formatDeath, nameOf, say, stripColors } from "../text.ts";
 import { showForm } from "../ui.ts";
 import { homePort } from "../vars.ts";
-import { BestOf, bestOfDisplay, bestOfRounds } from "./best-of.ts";
+import { BestOf, bestOfDisplay, bestOfRounds, timeUpWinner, type Standing } from "./best-of.ts";
 import { BuildRules, type BuildHost } from "./build.ts";
 import { Combat, type CombatHost, type Hit } from "./combat.ts";
 import { KillCredit } from "./credit.ts";
@@ -211,6 +211,30 @@ export abstract class Minigame<C extends GameConfig = GameConfig> {
     return this.teams;
   }
 
+  /**
+   * Whose team spawns a team uses: its own, or with bestOf.swapSides in a two-team match, the other
+   * team's in every even round.
+   */
+  spawnSide(team: string): string {
+    const swap = this.config.bestOf?.swapSides === true && this.teams.length === 2 && (this.series?.round ?? 1) % 2 === 0;
+    return swap ? (this.teams.find((def) => def.id !== team)?.id ?? team) : team;
+  }
+
+  /**
+   * A round that ran out of time, decided by who's left (timeUpWinner): the team with more players
+   * standing, then the one with more health left, else a draw. For a team game's onRoundTimeUp.
+   */
+  protected standingResult(): Result {
+    const sides = this.teams.map((team): Standing => {
+      const standing = this.roster.teamMembers(team.id).filter((member) => member.state === "alive");
+      const health = standing.reduce((sum, member) => sum + (this.body(member.name)?.getComponent(EntityComponentTypes.Health)?.currentValue ?? 0), 0);
+      return { team: team.id, players: standing.length, health };
+    });
+    const winner = timeUpWinner(sides);
+    if (!winner) return draw("time ran out");
+    return this.teamWins(winner.team, winner.by === "players" ? "more players standing" : "more health left");
+  }
+
   get activeStage(): Stage | undefined {
     return this.currentStage;
   }
@@ -331,7 +355,7 @@ export abstract class Minigame<C extends GameConfig = GameConfig> {
     const participant = this.roster.get(name);
     const key = name.toLowerCase();
     if (participant?.team) {
-      const spawns = this.map.teamSpawns(participant.team);
+      const spawns = this.map.teamSpawns(this.spawnSide(participant.team));
       const members = this.roster.teamMembers(participant.team).map((member) => member.name.toLowerCase());
       if (spawns.length > 0) return spawns[Math.max(0, members.indexOf(key)) % spawns.length];
     }

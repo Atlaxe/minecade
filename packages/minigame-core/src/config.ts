@@ -195,6 +195,11 @@ export interface BestOfConfig {
   roundSeconds?: number;
   /** A lobby option (one of `options`) whose value replaces `rounds`, such as Bridges' "Best of". */
   option?: string;
+  /**
+   * Two teams take each other's team spawns every other round (Gunfight): round 1 at their own,
+   * round 2 at the other team's, and so on. Only the spawns swap.
+   */
+  swapSides?: boolean;
 }
 
 /**
@@ -334,6 +339,12 @@ export interface MapRequirementsConfig {
    * buildPadding. The map editor's Game settings tool sets them; a map without one has its default.
    */
   settings?: Record<string, MapSettingConfig>;
+  /**
+   * Other games whose published maps this game plays too, as they are (Gunfight plays Siege's): the
+   * build lists them with the game's own, and each stays that game's map, made and published there.
+   * Their games must ask at least what this game asks of a map (checked at build).
+   */
+  borrow?: string[];
 }
 
 /** A whole number a game reads from each of its maps (minigame.mapSetting), set in the map editor. */

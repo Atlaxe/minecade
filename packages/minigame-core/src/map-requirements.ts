@@ -115,6 +115,21 @@ export function mapRequirements(map: MapRequirementsConfig | undefined, options:
   return list;
 }
 
+/**
+ * What `needs` (a game borrowing another's maps) asks of a map that `has` (the maps' own game)
+ * doesn't, so a map passing `has` could still fail `needs`: empty when every map of that game will
+ * do. A spectator-or-queue need is met by asking for either spawn.
+ */
+export function uncoveredRequirements(needs: readonly MapRequirement[], has: readonly MapRequirement[]): MapRequirement[] {
+  const byKey = new Map(has.map((requirement) => [requirement.key, requirement]));
+  return needs.filter((need) => {
+    if (need.key === "spectatorOrQueue") return !["spectatorOrQueue", "spectatorSpawn", "queueSpawn"].some((key) => byKey.has(key));
+    const own = byKey.get(need.key);
+    if (!own || own.min < need.min) return true;
+    return (need.minSize ?? 0) > (own.minSize ?? 0);
+  });
+}
+
 /** The build limit's sides a config asks for: true is both. */
 function buildLimitSides(value: MapRequirementsConfig["buildLimit"]): BuildLimitSide[] {
   if (!value) return [];

@@ -56,9 +56,10 @@ export interface ArsenalHost {
   nameOf(entity: Entity): string | undefined;
   /**
    * Takes `amount` of a body's health (or all of it), credited to `attacker`, none for a player's
-   * own blast or fire. The game's rules decide whether it counts.
+   * own blast or fire. The game's rules decide whether it counts. `headshot`: a bullet, beam,
+   * rocket or knife that hit the head.
    */
-  hurt(victim: Entity, attacker: string | undefined, amount: number | "lethal", cause: ArsenalCause): HurtResult;
+  hurt(victim: Entity, attacker: string | undefined, amount: number | "lethal", cause: ArsenalCause, headshot?: boolean): HurtResult;
   /** A knife picked up off the map: where it goes. The first free hotbar slot when left out. */
   give?(player: Player, item: string): boolean;
 }
@@ -201,7 +202,7 @@ export class Arsenal {
     const amount = knife ? "lethal" : info?.damage;
     if (amount === undefined || amount === 0) return;
     const cause: ArsenalCause = knife ? "knife" : shot.weapon === "rpg" ? "explosion" : "gun";
-    const result = this.host.hurt(entity, shot.shooter, amount, cause);
+    const result = this.host.hurt(entity, shot.shooter, amount, cause, info?.headshot === true);
     const dimension = world.getDimension("overworld");
     particle(dimension, PARTICLES.hit, location);
     if (!result) return;

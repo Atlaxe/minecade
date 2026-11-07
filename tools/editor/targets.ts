@@ -22,6 +22,15 @@ export interface EditorTarget {
   /** The game's picture, icon.png beside its maps (the lobby has none). */
   icon: string;
   rules: EditorRules;
+  /** Games that play this game's maps too (their map.borrow names it): a preview can play a map as one of them. */
+  borrowers?: PlayAs[];
+}
+
+/** A game a map can be previewed as. */
+export interface PlayAs {
+  id: string;
+  name: string;
+  maxPlayers: number;
 }
 
 export async function loadTarget(root: string, id: string): Promise<EditorTarget> {
@@ -41,7 +50,28 @@ export async function loadTarget(root: string, id: string): Promise<EditorTarget
   const teams = config.teams ? possibleTeams(config.teams).map(({ id: team, name, color }) => ({ id: team, name, color })) : undefined;
   const items = kitItems(config.kits);
   const mapKits = config.kits?.mapKits === false ? { mapKits: false } : {};
-  return { id, name: config.name, dir, mapsDir, icon, rules: { kind: "game", maxPlayers: config.maxPlayers, requires: config.map, ...(teams ? { teams } : {}), ...markerModels, ...(items.length > 0 ? { items } : {}), ...mapKits } };
+  const borrowers = await borrowersOf(root, id);
+  return {
+    id,
+    name: config.name,
+    dir,
+    mapsDir,
+    icon,
+    rules: { kind: "game", maxPlayers: config.maxPlayers, requires: config.map, ...(teams ? { teams } : {}), ...markerModels, ...(items.length > 0 ? { items } : {}), ...mapKits },
+    ...(borrowers.length > 0 ? { borrowers } : {}),
+  };
+}
+
+/** The games whose map.borrow names `id` (Gunfight, for Siege), by name. */
+async function borrowersOf(root: string, id: string): Promise<PlayAs[]> {
+  const found: PlayAs[] = [];
+  for (const other of (await readdir(join(root, "games"))).sort()) {
+    const path = join(root, "games", other, "game.config.ts");
+    if (other === id || !existsSync(path)) continue;
+    const config = await importConfig<GameConfig>(path);
+    if (config.map?.borrow?.includes(id)) found.push({ id: other, name: config.name, maxPlayers: config.maxPlayers });
+  }
+  return found;
 }
 
 /**

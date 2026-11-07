@@ -58,7 +58,7 @@ export {
   type LeatherPiece,
   type MatchKits,
 } from "./kit-defs.ts";
-export { MAX_ROUND_ICONS, MAX_SCORE_SIDES, MIN_BEST_OF } from "./game/best-of.ts";
+export { MAX_ROUND_ICONS, MAX_SCORE_SIDES, MIN_BEST_OF, timeUpWinner, type Standing } from "./game/best-of.ts";
 export { leapPush, type LeapConfig } from "./leap.ts";
 export {
   BUILD_LIMIT_SIDES,
@@ -100,7 +100,7 @@ export {
 export { MapEditError, applyEdit, describeEdit, isMapKey, listKey, listOf, type MapEdit, type MapList } from "./map-edit.ts";
 export { mapChecklist, type Checklist, type ChecklistRow } from "./map-checklist.ts";
 export { formatMapConfig } from "./map-format.ts";
-export { bigEnough, boxSize, mapRequirements, mapSettings, mapSettingValue, regionMinSize, settingFits, settingText, usesPlainSpawns, type MapField, type MapRequirement, type RequirementOptions } from "./map-requirements.ts";
+export { bigEnough, boxSize, mapRequirements, mapSettings, mapSettingValue, regionMinSize, settingFits, settingText, uncoveredRequirements, usesPlainSpawns, type MapField, type MapRequirement, type RequirementOptions } from "./map-requirements.ts";
 export { mapWarnings, validateMapConfig, type MapRules } from "./map-validate.ts";
 export { PROMPT_MAX_CHARS, cleanPrompt, dealPrompts, promptKey, promptReplyParts, type DealablePrompt } from "./prompts.ts";
 export {

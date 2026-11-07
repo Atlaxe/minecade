@@ -50,6 +50,8 @@ export interface EditInfo {
   view?: Record<string, string[]>;
   /** The pictures in the editor's pack, for the thumbnail menus. */
   pictures?: PictureInfo;
+  /** Other games that play this game's maps (Gunfight, for a Siege map): Preview can play the map as one of them. */
+  playAs?: { id: string; name: string; maxPlayers: number }[];
 }
 
 /**
@@ -185,7 +187,7 @@ export type EditorEvent =
   /** Publish the map: no longer a draft, saved, then its folder committed and pushed (the checklist's Publish). */
   | { t: "publish"; by: string }
   /** Play the map as the real game on Select's port, then come back (the map menu's Preview), with this many fake players. */
-  | { t: "preview"; by: string; fakes?: number }
+  | { t: "preview"; by: string; fakes?: number; as?: string }
   /**
    * Blocks changed, so the world has changes to save. Sent at most every few seconds; with
    * `leftovers`, at start: markers, mannequins or boundary planes an earlier save missed were taken out.

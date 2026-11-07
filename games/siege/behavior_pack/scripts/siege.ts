@@ -11,7 +11,6 @@ import {
   LevelSeconds,
   Minigame,
   describeError,
-  draw,
   kitStack,
   leapPush,
   log,
@@ -52,22 +51,8 @@ interface Vanish {
 }
 
 /** A team when a round runs out of time: its players still standing, and their health added up. */
-export interface Standing {
-  team: string;
-  players: number;
-  health: number;
-}
-
-/**
- * Who takes a round that ran out of time: the team with more players standing, then the one with
- * more health left (`by` says which). Undefined for a draw.
- */
-export function timeUpWinner(sides: Standing[]): { team: string; by: "players" | "health" } | undefined {
-  const [first, second] = [...sides].sort((a, b) => b.players - a.players || b.health - a.health);
-  if (!first || first.players === 0) return undefined;
-  if (!second || first.players > second.players) return { team: first.team, by: "players" };
-  return first.health > second.health ? { team: first.team, by: "health" } : undefined;
-}
+/** Who takes a round that ran out of time: in core now, which Gunfight shares (standingResult). */
+export { timeUpWinner, type Standing } from "@minecade/minigame-core";
 
 /** A Volley's directions: the look, turned left and right around the vertical `spreadDegrees` apart, `count` in all. */
 export function fan(view: Vector3, count: number, spreadDegrees: number): Vector3[] {
@@ -194,14 +179,7 @@ export class Siege extends Minigame<typeof config> {
 
   /** A round out of time: the team with more players standing takes it, then the one with more health left. */
   protected override onRoundTimeUp(): Result {
-    const sides = this.teamDefs.map((team): Standing => {
-      const standing = this.roster.teamMembers(team.id).filter((member) => member.state === "alive");
-      const health = standing.reduce((sum, member) => sum + (this.body(member.name)?.getComponent(EntityComponentTypes.Health)?.currentValue ?? 0), 0);
-      return { team: team.id, players: standing.length, health };
-    });
-    const winner = timeUpWinner(sides);
-    if (!winner) return draw("time ran out");
-    return this.teamWins(winner.team, winner.by === "players" ? "more players standing" : "more health left");
+    return this.standingResult();
   }
 
   private fortified(name: string): boolean {

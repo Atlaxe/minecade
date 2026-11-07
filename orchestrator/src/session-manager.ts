@@ -168,7 +168,8 @@ export class SessionManager {
   private resolve(gameId: string, mapId: string): Resolved {
     const index = this.deps.publishedMaps ? this.deps.publishedMaps() : undefined;
     if (this.deps.publishedMaps && !index) return { ok: false, reason: `the published maps aren't at ${this.deps.config.mapsDir}; restart the network` };
-    const published = index ? (map: string) => index[gameId]?.[map] !== undefined : undefined;
+    // A borrowed map (Siege's, in Gunfight) is published under its own game.
+    const published = index ? (map: RegistryMap) => index[map.owner ?? gameId]?.[map.id] !== undefined : undefined;
     return resolveGameMap(this.deps.registry, gameId, mapId, this.deps.random, published);
   }
 
@@ -428,6 +429,8 @@ export class SessionManager {
       env: {
         GAME: session.game.id,
         MAP: session.map.id,
+        // The game whose published worlds hold the map: its own, or the owner of a borrowed one.
+        MAP_GAME: session.map.owner ?? session.game.id,
         SERVER_ID: session.id,
         // Every game runs on the game port under one saved identity, so players trust it once.
         IDENTITY: "game",

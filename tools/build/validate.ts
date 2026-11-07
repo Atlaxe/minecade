@@ -53,6 +53,7 @@ export function validateGameConfig(config: GameConfig, folder: string): string[]
     problems.push('respawn.lives must be at least 1 when respawn.mode is "lives"');
   }
   problems.push(...validateMapSettings(config));
+  problems.push(...validateBorrow(config));
   if (config.blocks !== undefined && config.blocks !== "full") problems.push('blocks must be "full" or left out');
   return problems;
 }
@@ -102,6 +103,18 @@ function validateBestOf(config: GameConfig): string[] {
   } else if (bestOf.display === "score" && config.teams && possibleTeams(config.teams).length > MAX_SCORE_SIDES) {
     problems.push(`bestOf.display "score" shows up to ${MAX_SCORE_SIDES} teams`);
   }
+  if (bestOf.swapSides && (!config.teams || possibleTeams(config.teams).length !== 2)) problems.push("bestOf.swapSides is for two teams");
+  return problems;
+}
+
+/** Games whose maps this one plays too (map.borrow): other games, named once each. Whether they ask enough of a map is checked once every game is loaded (build.ts). */
+function validateBorrow(config: GameConfig): string[] {
+  const borrow = config.map?.borrow;
+  if (borrow === undefined) return [];
+  if (!Array.isArray(borrow) || borrow.some((id) => typeof id !== "string" || !/^[a-z0-9_]+$/.test(id))) return ["map.borrow must be a list of game ids"];
+  const problems: string[] = [];
+  if (borrow.includes(config.id)) problems.push("map.borrow can't name the game itself: its own maps are its own");
+  if (new Set(borrow).size !== borrow.length) problems.push("map.borrow names a game twice");
   return problems;
 }
 

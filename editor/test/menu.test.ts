@@ -526,6 +526,25 @@ describe("the editor lobby's menu", () => {
     expect(previewEntries({ fakes: 3, most: 1, back: false }).filter((entry) => entry.text.includes(MARK.on)).map((entry) => entry.action)).toEqual([{ kind: "fakes", fakes: 1 }]);
   });
 
+  it("offers to play the map as a game that borrows its maps, its own game picked at first", () => {
+    const games = [
+      { id: "siege", name: "Siege" },
+      { id: "gunfight", name: "Gunfight" },
+    ];
+    const entries = previewEntries({ fakes: 0, most: 3, back: true, games });
+    expect(entries[1].text).toBe(`${MARK.lead}${headingText("Play as")}`);
+    const tiles = entries.filter((entry) => entry.action.kind === "as");
+    expect(tiles.map((entry) => entry.action)).toEqual([
+      { kind: "as", game: "siege" },
+      { kind: "as", game: "gunfight" },
+    ]);
+    expect(tiles.map((entry) => entry.text.includes(MARK.on))).toEqual([true, false]);
+    const picked = previewEntries({ fakes: 0, most: 3, back: true, games, as: "gunfight" }).filter((entry) => entry.action.kind === "as");
+    expect(picked.map((entry) => entry.text.includes(MARK.on))).toEqual([false, true]);
+    // A map only its own game plays has no choice to make.
+    expect(previewEntries({ fakes: 0, most: 3, back: true, games: games.slice(0, 1) }).some((entry) => entry.action.kind === "as")).toBe(false);
+  });
+
   it("lists targets, maps and worlds, with an empty world last", () => {
     expect(targetEntries(empty.catalog).map((entry) => stripColors(entry.text))).toEqual(["Lobby\n1 map", "Sumo\n2 maps"]);
     expect(mapEntries(empty.catalog.targets[0])).toEqual([{ map: "spaceship", text: "Spaceship (spaceship)\n§7ready for games" }]);

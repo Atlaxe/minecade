@@ -62,6 +62,29 @@ would have taken.
 - The crossbow keeps 8 arrows above the hotbar, and arrows that land disappear.
 - A row of the arsenal's models floats behind the row of paint guns.
 
+## Gunfight
+
+docs/ui.md, "Gunfight". It plays Siege's maps (Strife). Alone: restart the map editor (it has new
+code), open Strife in Edit, Preview, pick **Play as: Gunfight** and 3 fake players.
+
+- The Preview menu has Play as with Siege picked at first; picking Gunfight lets you add up to 7
+  fake players, and the preview says Gunfight.
+- Everyone spawns at their team's spawns with the same four items: a primary in slot 1, a
+  secondary in 2, a grenade in 3, a Stimpack in 9, none of them movable, and team leather. Chat
+  says the round's loadout.
+- Guns fire only once the round starts (not in the countdown). Shooting a fake player takes health
+  (more in the head), shot after shot, and you hear a hit, a higher one for a headshot, a chime
+  for a down. Teammates take nothing.
+- The ammo count is top right above the clock and the round circles, counting down each shot.
+- Down the other team: your team takes the round, a circle colors in, and round 2 starts with a new
+  primary and the teams at each other's spawns ("The teams have switched sides" in chat). Round 3
+  goes back.
+- A crossbow comes with arrows and kills in one hit; so does the netherite sword.
+- Let a round run out (90 seconds): it goes to the team with more players standing, then more
+  health.
+- On the network (2 or more players): Gunfight is in the lobby's game grid with the stand-in
+  picture, Strife is its map with Siege's preview, and a match plays there.
+
 ## Map editor
 Several bounds and the Boundaries view, on a copy of Sumo's Arena:
 

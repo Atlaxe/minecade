@@ -28,6 +28,7 @@ Everything runs on the official Bedrock Dedicated Server (BDS) with TypeScript b
 | Build Swap | 3-8 | Everyone writes a prompt and a twist before the match (or skips). Build the prompt you're dealt in your own area (the lobby's Build time: 5 or 10 minutes), then swap and add a twist to someone else's build (5 minutes). Everyone votes 1 to 5 on every build, as it was and then with its twist; your build's points and your twist's add up, and the most points wins. While voting, the build's prompt (and its twist) shows top left. Builders stay anonymous until the end: chat shows the standings, and each player sees what their own prompt and twist earned. `/floor` lays the block in hand as the floor of your area. It shows in the lobby once it has a map. |
 | Siege | 4-8 | Two teams. Before every round each player picks one of seven classes (Soldier, Archer, Seaman, Tank, Medic, Scout, Assassin), each with its own gear and an ability in the last hotbar slot. One life a round: the last team standing takes it, and a round out of time (3 minutes) goes to the team with more players standing, then more health. Water hurts everyone but a Seaman, and only a Medic heals. Best of 5 (the lobby's Best of: 3 to 7). It shows in the lobby once it has a map. |
 | Paintball | 2-8 | Two to four teams (the lobby's Team count) with paint guns: everyone has a pistol, and a rifle, a shotgun and a paint grenade float on the map's power-up spots, two at a time. Each hit colors a piece of armor, mixing in the shooter's color; four hits and you're out until you respawn. Every ball paints the map where it lands in its team's color. First team to 10 kills wins. It shows in the lobby once it has a map. |
+| Gunfight | 2-8 | Two teams, one life a round, everyone with the same guns: each round deals everyone the same primary, secondary and grenade from the arsenal (real guns, grenades, a throwing knife, a one-hit crossbow and netherite sword) and a stimpack, and the teams take each other's spawns every other round. The last team standing takes a round; a round out of time (90 seconds) goes to the team with more players standing, then more health. Best of 5 (the lobby's Best of: 3 to 7). It plays Siege's maps, so it shows in the lobby once Siege has one. |
 | Probe | 2-8 | A short test game on two teams that exercises the whole flow, team picks in the lobby included. The lobby lists it only while `DEV_TEST_GAMES=1`. Set `DEV_MIN_PLAYERS=1` to play it alone. |
 
 More games are planned (Arena, Search and Destroy, Microbattles, Build Battle,
@@ -334,7 +335,9 @@ docs/                     map format (maps.md), the map editor (editor.md), meas
    pack's leather in their team's dye (`docs/ui.md`, "Team armor in a new game"). Don't dye
    leather from a script; Bedrock ignores it. For a team count the lobby picks, give `teams` a
    range and an `option` naming one of your `options` (Paintball's Team count); for every team's
-   score top right instead of a sidebar, `scoring.display: "sides"`.
+   score top right instead of a sidebar, `scoring.display: "sides"`. To play another game's maps
+   as they are, name it in `map.borrow` (Gunfight plays Siege's: `docs/maps.md`, "Borrowing
+   another game's maps"). For guns, see `docs/ui.md`, "The guns" and "The arsenal".
 3. Write the game in `behavior_pack/scripts/`: a class extending `Minigame` that overrides only
    what's different. The framework already handles waiting, the kit form, the countdown, teams,
    deaths without a death screen, kill credit, respawns, win checks, best-of rounds, building
