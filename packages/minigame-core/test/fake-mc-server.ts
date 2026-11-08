@@ -333,8 +333,23 @@ export class FakePlayer {
   isSneaking = false;
   isInWater = false;
   selectedSlotIndex = 0;
-  /** The item ids whose cooldowns a script started for this player, oldest first. */
+  isOnGround = true;
+  /** The item ids whose cooldowns a script started for this player through an item, oldest first. */
   readonly cooldownsStarted: string[] = [];
+  /** The cooldowns a script started for this player by category (startItemCooldown), oldest first. */
+  readonly itemCooldowns: { category: string; ticks: number }[] = [];
+  private readonly cooldownEnds = new Map<string, number>();
+
+  startItemCooldown(category: string, ticks: number): void {
+    writable("Player::startItemCooldown");
+    this.itemCooldowns.push({ category, ticks });
+    this.cooldownEnds.set(category, system.currentTick + ticks);
+  }
+
+  /** Ticks left on a category's cooldown. */
+  getItemCooldown(category: string): number {
+    return Math.max(0, (this.cooldownEnds.get(category) ?? 0) - system.currentTick);
+  }
   /** Its camera: each setFov's field of view, oldest first (undefined puts the player's own back), and each fade's options. */
   readonly camera = {
     fovs: [] as (number | undefined)[],

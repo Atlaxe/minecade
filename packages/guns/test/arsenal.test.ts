@@ -20,6 +20,7 @@ import {
   blastDamage,
   damageAt,
   flashStrength,
+  gunCooldown,
   parseArsenalItem,
   weaponId,
   type ArsenalModel,
@@ -160,7 +161,8 @@ describe("bullets", () => {
     expect(hurts).toHaveLength(2);
     system.advanceTicks(gapTicks * 3);
     expect(hurts).toHaveLength(shots);
-    expect(ann.cooldownsStarted.filter((id) => id === gun("burst_rifle"))).toHaveLength(1);
+    // One shading of the slot, and one kick of the held model, for the whole burst.
+    expect(ann.itemCooldowns).toEqual([{ category: gunCooldown("burst_rifle"), ticks: ARSENAL_GUN_DEFS.burst_rifle.everyTicks }]);
     expect(arsenal.guns.ammoOf(ann as never)).toMatchObject({ loaded: ARSENAL_GUN_DEFS.burst_rifle.ammo.magazine - shots });
     expect(arsenal.ammoLine(ann as never)).toBe(`§f${ARSENAL_GUN_DEFS.burst_rifle.ammo.magazine - shots}§7/${ARSENAL_GUN_DEFS.burst_rifle.ammo.magazine}`);
   });

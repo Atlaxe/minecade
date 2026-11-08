@@ -3,6 +3,7 @@ import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import {
   AIM_MARKER,
+  AIM_RECOIL,
   ARSENAL_GUNS,
   ARSENAL_GUN_DEFS,
   ARSENAL_MODELS,
@@ -28,10 +29,10 @@ import {
   gunItems,
   gunModelBlock,
   parseGunItem,
-  shotMarker,
   teamGunItem,
+  type GunDef,
 } from "../../../packages/guns/src/defs.ts";
-import { HOLD_FILE, gunsPackFiles, holdAnimationNames, withMissingHolds } from "../../assets/guns.ts";
+import { HOLD_FILE, gunsPackFiles, holdAnimationNames, kickHeight, kickRise, withMissingHolds } from "../../assets/guns.ts";
 
 type Json = Record<string, any>;
 const files = gunsPackFiles();
@@ -104,18 +105,64 @@ describe("the guns pack's files", () => {
     expect(grenade["minecraft:max_stack_size"]).toBeGreaterThan(1);
   });
 
-  it("times the recoil and the aim off hidden markers' cooldown categories, which the held model reads", () => {
+  it("times the recoil off the gun's own cooldown in the main hand, and the aim off a hidden marker's category", () => {
     for (const kind of GUN_KINDS) {
-      const marker = shotMarker(kind);
-      const item = json(`behavior_pack/items/${file(marker.item)}.json`)["minecraft:item"];
-      expect(item.components["minecraft:cooldown"].category).toBe(marker.category);
       const scripts = json(`resource_pack/attachables/${file(gunItem(kind))}.json`)["minecraft:attachable"].description.scripts;
       const script = scripts.pre_animation.join("\n");
-      expect(script).toContain(`q.cooldown_time_remaining('${marker.category}')`);
+      expect(script).toContain("q.cooldown_time_remaining('slot.weapon.mainhand')");
       expect(script).toContain(`q.cooldown_time_remaining('${AIM_MARKER.category}')`);
       expect(scripts.animate).toContain("recoil");
     }
-    expect(json(`behavior_pack/items/${file(AIM_MARKER.item)}.json`)["minecraft:item"].components["minecraft:cooldown"].category).toBe(AIM_MARKER.category);
+    expect(json(`behavior_pack/items/${file(AIM_MARKER.item)}.json`)["minecraft:item"].components["minecraft:cooldown"]).toEqual({
+      category: AIM_MARKER.category,
+      duration: AIM_MARKER.ticks / 20,
+    });
+    // No hidden item per gun: the kick reads the gun itself.
+    expect(Object.keys(files).filter((path) => path.endsWith("_shot.json"))).toEqual([]);
+  });
+
+  it("kicks every gun's held model by its own recoil, settling just as it can fire again", () => {
+    const guns = [...GUN_KINDS.map((kind) => ({ def: GUNS[kind] as GunDef, item: gunItem(kind) })), ...ARSENAL_GUNS.map((gun) => ({ def: ARSENAL_GUN_DEFS[gun] as GunDef, item: arsenalItem(gun) }))];
+    const recoils = json("resource_pack/animations/guns.animation.json").animations;
+    for (const { def, item } of guns) {
+      const recoil = def.recoil!;
+      expect(recoil, def.id).toBeDefined();
+      expect(recoil.back, def.id).toBeGreaterThan(0);
+      expect(recoil.lift, def.id).toBeGreaterThan(0);
+      expect(recoil.pitch, def.id).toBeGreaterThan(0);
+      // Over the gun's own cooldown, its fire rate, which every shot (or burst) starts.
+      const seconds = def.everyTicks / 20;
+      expect(json(`behavior_pack/items/${file(item)}.json`)["minecraft:item"].components["minecraft:cooldown"], def.id).toEqual({ category: gunCooldown(def.id), duration: seconds });
+      const script = json(`resource_pack/attachables/${file(item)}.json`)["minecraft:attachable"].description.scripts.pre_animation.join("\n");
+      expect(script, def.id).toContain(`q.cooldown_time_remaining('slot.weapon.mainhand') / ${seconds}`);
+      // Less while aiming.
+      expect(script, def.id).toContain(`(1 - v.aim * ${Number((1 - AIM_RECOIL).toFixed(2))})`);
+      expect(recoils[`animation.minecade.gun_${def.id}.recoil`].bones.body, def.id).toEqual({
+        position: [0, 0, `v.kick * ${recoil.back}`],
+        rotation: [`v.kick * ${-recoil.lift}`, 0, 0],
+      });
+    }
+    // Heavy guns kick harder than fast ones.
+    expect(ARSENAL_GUN_DEFS.sniper_rifle.recoil.lift).toBeGreaterThan(ARSENAL_GUN_DEFS.smg.recoil.lift);
+    expect(ARSENAL_GUN_DEFS.pump_shotgun.recoil.pitch).toBeGreaterThan(ARSENAL_GUN_DEFS.assault_rifle.recoil.pitch);
+  });
+
+  it("raises a kick fast, then eases it home to nothing by the next shot", () => {
+    for (const seconds of [0.1, 0.25, 1, 2]) {
+      const rise = kickRise(seconds);
+      expect(rise).toBeGreaterThan(0);
+      expect(rise).toBeLessThanOrEqual(0.3);
+      expect(kickHeight(0, seconds)).toBe(0);
+      expect(kickHeight(rise * seconds, seconds)).toBeCloseTo(1, 5);
+      expect(kickHeight(seconds, seconds)).toBe(0);
+      expect(kickHeight(seconds * 2, seconds)).toBe(0);
+      // Falling the whole way back, fastest at first.
+      const samples = [0.4, 0.6, 0.8, 0.95].map((t) => kickHeight(t * seconds, seconds));
+      for (let i = 1; i < samples.length; i++) expect(samples[i]).toBeLessThan(samples[i - 1]);
+      expect(samples[0] - samples[1]).toBeGreaterThan(samples[2] - samples[3]);
+    }
+    // A slow gun's kick still comes up in about the same short time as a fast one's.
+    expect(kickRise(2) * 2).toBeCloseTo(0.04, 2);
   });
 
   it("names items so kits can ask for the team's paint, and reads them back", () => {
@@ -232,15 +279,13 @@ describe("the arsenal's files", () => {
     }
   });
 
-  it("shades a gun's slot for its fire rate and kicks it off its own shot marker; grenades, the knife and the stimpack stack", () => {
+  it("shades a gun's slot for its fire rate and kicks it over that cooldown; grenades, the knife and the stimpack stack", () => {
     for (const gun of ARSENAL_GUNS) {
       const components = json(`behavior_pack/items/${file(arsenalItem(gun))}.json`)["minecraft:item"].components;
       expect(components["minecraft:cooldown"]).toEqual({ category: gunCooldown(gun), duration: ARSENAL_GUN_DEFS[gun].everyTicks / 20 });
       expect(components["minecraft:max_stack_size"]).toBe(1);
-      const marker = shotMarker(gun);
-      expect(json(`behavior_pack/items/${file(marker.item)}.json`)["minecraft:item"].components["minecraft:cooldown"].category).toBe(marker.category);
       const scripts = json(`resource_pack/attachables/${file(arsenalItem(gun))}.json`)["minecraft:attachable"].description.scripts;
-      expect(scripts.pre_animation.join("\n")).toContain(`q.cooldown_time_remaining('${marker.category}')`);
+      expect(scripts.pre_animation.join("\n")).toContain("q.cooldown_time_remaining('slot.weapon.mainhand')");
     }
     for (const model of ARSENAL_MODELS.filter((model) => !(ARSENAL_GUNS as readonly string[]).includes(model))) {
       const components = json(`behavior_pack/items/${file(arsenalItem(model))}.json`)["minecraft:item"].components;

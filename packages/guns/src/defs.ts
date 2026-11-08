@@ -86,7 +86,26 @@ export interface GunDef {
   damage?: DamageDef;
   /** A tap fires `shots` shots, `gapTicks` apart (a burst gun); `everyTicks` counts from the first. */
   burst?: { shots: number; gapTicks: number };
+  /** How each shot kicks the held model and the shooter's view; none when left out. */
+  recoil?: RecoilDef;
 }
+
+/**
+ * A shot's kick. The held model goes back `back` pixels with its muzzle tipped up `lift` degrees,
+ * then eases home over the gun's own cooldown (its fire rate, `everyTicks`), so it settles just as
+ * the gun can fire again; a burst kicks once. The shooter's view turns up `pitch` degrees and
+ * sideways by up to `yaw` either way, and stays there: the player pulls it back down. Aiming takes
+ * AIM_RECOIL of both.
+ */
+export interface RecoilDef {
+  back: number;
+  lift: number;
+  pitch: number;
+  yaw: number;
+}
+
+/** How much of a gun's kick is left while aiming: a raised gun is steadier. */
+export const AIM_RECOIL = 0.6;
 
 /**
  * What a thrown item does when it hits something: lands and sits for its fuse, then bursts (a
@@ -139,6 +158,7 @@ export const GUNS = {
     lifeTicks: 40,
     maxHitsPerShot: 1,
     sound: { id: "mob.llama.spit", pitch: 1.3, volume: 0.8 },
+    recoil: { back: 2, lift: 12, pitch: 1.5, yaw: 0.5 },
   },
   rifle: {
     id: "rifle",
@@ -154,6 +174,7 @@ export const GUNS = {
     lifeTicks: 40,
     maxHitsPerShot: 1,
     sound: { id: "mob.llama.spit", pitch: 1.6, volume: 0.7 },
+    recoil: { back: 1.2, lift: 5, pitch: 0.8, yaw: 0.5 },
   },
   shotgun: {
     id: "shotgun",
@@ -169,6 +190,7 @@ export const GUNS = {
     lifeTicks: 10,
     maxHitsPerShot: 2,
     sound: { id: "mob.llama.spit", pitch: 0.7, volume: 1 },
+    recoil: { back: 3, lift: 20, pitch: 4, yaw: 1.5 },
   },
 } as const satisfies Record<GunKind, GunDef>;
 
@@ -278,24 +300,19 @@ export function gunModelBlock(kind: PickupKind, dye: Dye): string {
   return `${gunItem(kind, dye)}_model`;
 }
 
-/** A gun's own cooldown category (a GunKind's or an ArsenalGun's): its fire rate, which Minecraft shades over its hotbar slot. */
+/**
+ * A gun's own cooldown category (a GunKind's or an ArsenalGun's): its fire rate, which Minecraft
+ * shades over its hotbar slot and the held model's recoil runs off (it reads the main hand's cooldown).
+ */
 export function gunCooldown(kind: string): string {
   return `minecade_${kind}`;
 }
 
 /**
- * The hidden item whose cooldown a gun's shot starts, and that cooldown's category: the held
- * model's recoil reads q.cooldown_time_remaining of the category, so it keeps its own timing.
+ * The hidden item whose cooldown says a player is aiming: the script restarts it every 2 ticks while
+ * they aim, and the held model, which reads its category, stays up until it runs out (`ticks`).
  */
-export function shotMarker(kind: string): { item: string; category: string } {
-  return { item: `minecade:${kind}_shot`, category: `minecade_${kind}_shot` };
-}
-
-/**
- * The hidden item whose cooldown says a player is aiming: the script restarts it while they aim,
- * and the held model, which reads its category, stays up until it runs out.
- */
-export const AIM_MARKER = { item: "minecade:aim_marker", category: "minecade_aim" } as const;
+export const AIM_MARKER = { item: "minecade:aim_marker", category: "minecade_aim", ticks: 6 } as const;
 
 // ---- The arsenal: real guns, grenades, a knife and the stimpack -------------------------------
 //
@@ -369,6 +386,7 @@ export const ARSENAL_GUN_DEFS = {
     damage: { body: 5, head: 8, falloff: { from: 25, to: 60, least: 0.6 } },
     ammo: { magazine: 12, reloadTicks: 30 },
     sound: { id: "firework.blast", pitch: 1.4, volume: 1 },
+    recoil: { back: 2, lift: 12, pitch: 2, yaw: 0.6 },
   },
   smg: {
     id: "smg",
@@ -388,6 +406,7 @@ export const ARSENAL_GUN_DEFS = {
     damage: { body: 3, head: 4, falloff: { from: 15, to: 35, least: 0.5 } },
     ammo: { magazine: 32, reloadTicks: 35 },
     sound: { id: "firework.blast", pitch: 1.75, volume: 0.7 },
+    recoil: { back: 0.8, lift: 4, pitch: 0.7, yaw: 0.6 },
   },
   assault_rifle: {
     id: "assault_rifle",
@@ -407,6 +426,7 @@ export const ARSENAL_GUN_DEFS = {
     damage: { body: 4, head: 6, falloff: { from: 40, to: 90, least: 0.7 } },
     ammo: { magazine: 30, reloadTicks: 40 },
     sound: { id: "firework.blast", pitch: 1.1, volume: 0.9 },
+    recoil: { back: 1.2, lift: 5, pitch: 1, yaw: 0.5 },
   },
   burst_rifle: {
     id: "burst_rifle",
@@ -427,6 +447,8 @@ export const ARSENAL_GUN_DEFS = {
     damage: { body: 5, head: 8, falloff: { from: 40, to: 90, least: 0.7 } },
     ammo: { magazine: 24, reloadTicks: 40 },
     sound: { id: "firework.blast", pitch: 1.25, volume: 0.9 },
+    // The model kicks once a burst; the view each shot.
+    recoil: { back: 2, lift: 10, pitch: 1.2, yaw: 0.5 },
   },
   pump_shotgun: {
     id: "pump_shotgun",
@@ -446,6 +468,7 @@ export const ARSENAL_GUN_DEFS = {
     damage: { body: 3.5, head: 4, falloff: { from: 6, to: 18, least: 0.4 } },
     ammo: { magazine: 6, reloadTicks: 60 },
     sound: { id: "firework.large_blast", pitch: 0.9, volume: 1 },
+    recoil: { back: 3.5, lift: 24, pitch: 5, yaw: 1.5 },
   },
   double_barrel: {
     id: "double_barrel",
@@ -465,6 +488,7 @@ export const ARSENAL_GUN_DEFS = {
     damage: { body: 2.5, head: 3, falloff: { from: 5, to: 14, least: 0.3 } },
     ammo: { magazine: 2, reloadTicks: 40 },
     sound: { id: "firework.large_blast", pitch: 0.8, volume: 1 },
+    recoil: { back: 3.5, lift: 26, pitch: 6, yaw: 2 },
   },
   sniper_rifle: {
     id: "sniper_rifle",
@@ -484,6 +508,7 @@ export const ARSENAL_GUN_DEFS = {
     damage: { body: 17, head: 40 },
     ammo: { magazine: 5, reloadTicks: 50 },
     sound: { id: "firework.large_blast", pitch: 0.6, volume: 1.2 },
+    recoil: { back: 4, lift: 28, pitch: 8, yaw: 1 },
   },
   rail_gun: {
     id: "rail_gun",
@@ -503,6 +528,7 @@ export const ARSENAL_GUN_DEFS = {
     damage: { body: 20, head: 20 },
     ammo: { magazine: 4, reloadTicks: 60 },
     sound: { id: "conduit.attack", pitch: 1.2, volume: 1.2 },
+    recoil: { back: 3, lift: 18, pitch: 5, yaw: 0.5 },
   },
   rpg: {
     id: "rpg",
@@ -522,6 +548,7 @@ export const ARSENAL_GUN_DEFS = {
     damage: { body: 20, head: 20 },
     ammo: { magazine: 1, reloadTicks: 60 },
     sound: { id: "firework.launch", pitch: 0.6, volume: 1.2 },
+    recoil: { back: 4, lift: 12, pitch: 4, yaw: 0.5 },
   },
 } as const satisfies Record<ArsenalGun, GunDef>;
 
@@ -653,6 +680,11 @@ export function arsenalModelBlock(model: ArsenalModel): string {
 }
 
 export const isArsenalGun = (model: string): model is ArsenalGun => (ARSENAL_GUNS as readonly string[]).includes(model);
+
+/** A gun's own numbers by id (a GunKind or an ArsenalGun), the ones the pack's files are drawn from; undefined for anything else. */
+export function gunDef(id: string): GunDef | undefined {
+  return (GUNS as Record<string, GunDef>)[id] ?? (ARSENAL_GUN_DEFS as Record<string, GunDef>)[id];
+}
 export const isArsenalThrowable = (model: string): model is ArsenalThrowable => (ARSENAL_THROWABLES as readonly string[]).includes(model);
 
 /**

@@ -3,8 +3,10 @@
 // down (Bedrock repeats the swing). Right click raises the gun to aim and lowers it again (a toggle:
 // Bedrock sends no left click while right click is held): the camera zooms, the shots stray less,
 // and the held model comes up to the middle of the screen. Each shot shades the gun's hotbar slot
-// for its fire rate (the item's own cooldown). A thrown item goes with either click: a grenade lands,
-// sits for its fuse and bursts; a Molotov bursts where it hits; a knife stops where it hits.
+// for its fire rate (the item's own cooldown), kicks the held model back until the next shot, and
+// turns the shooter's view up and a little aside (defs.ts's RecoilDef). A thrown item goes with
+// either click: a grenade lands, sits for its fuse and bursts; a Molotov bursts where it hits; a
+// knife stops where it hits.
 //
 // A shot travels by its gun's ShotKind. Paintball's balls fly as PAINTBALL entities in the shooter's
 // paint color, spread in a cone, and the game hears where each lands (a player, a mob, a block's
@@ -17,8 +19,6 @@
 import {
   EntityComponentTypes,
   EntitySwingSource,
-  ItemComponentTypes,
-  ItemStack,
   MolangVariableMap,
   system,
   world,
@@ -26,12 +26,14 @@ import {
   type Direction,
   type Dimension,
   type Entity,
+  type ItemStack,
   type Player,
   type Vector3,
 } from "@minecraft/server";
 import { describeError, log, type Scope } from "@minecade/minigame-core";
 import {
   AIM_MARKER,
+  AIM_RECOIL,
   ARSENAL_MODELS,
   COLOR_PROPERTY,
   DYES,
@@ -45,8 +47,8 @@ import {
   ROCKET,
   damageAt,
   dyeIndex,
+  gunCooldown,
   parseGunItem,
-  shotMarker,
   weaponId,
   type Dye,
   type GunDef,
@@ -168,8 +170,10 @@ const THROW_LIFT = 0.15;
 const LAND_OFF_FACE = 0.2;
 /** The zoom's ease in and out, in seconds. */
 const AIM_EASE = 0.15;
-/** Ticks between restarts of the aim marker's cooldown (it lasts 6), which keeps the held model up. */
+/** Ticks between restarts of the aim marker's cooldown (it lasts AIM_MARKER.ticks), which keeps the held model up. */
 const AIM_REFRESH_TICKS = 2;
+/** The fewest ticks between two turns of a player's view by recoil (each is a teleport). */
+const VIEW_KICK_GAP_TICKS = 4;
 /**
  * Right click events closer together than this are one press: holding the button can repeat
  * them, and a press can bring both a use and a block interaction.
@@ -212,6 +216,10 @@ export class Guns {
   private readonly lastPress = new Map<string, number>();
   /** Each player's magazines, by gun, for guns with ammo. */
   private readonly magazines = new Map<string, Map<string, Magazine>>();
+  /** View kicks waiting for their turn (turnView), by player. */
+  private readonly kicks = new Map<string, { player: Player; pitch: number; yaw: number }>();
+  /** When each player's view was last kicked. */
+  private readonly lastKick = new Map<string, number>();
   private nextShot = 1;
 
   constructor(scope: Scope, options: GunsOptions) {
@@ -266,6 +274,8 @@ export class Guns {
     this.stopAiming(key);
     this.readyAt.delete(key);
     this.lastPress.delete(key);
+    this.kicks.delete(key);
+    this.lastKick.delete(key);
   }
 
   /** Fills every magazine a player has, spare rounds too (a respawn). */
@@ -338,7 +348,7 @@ export class Guns {
   private aim(player: Player, gun: GunDef): void {
     this.aiming.set(player.name.toLowerCase(), { player, gun });
     this.setFov(player, gun.aimFov);
-    startCooldown(player, AIM_MARKER.item);
+    startCooldown(player, AIM_MARKER.category, AIM_MARKER.ticks);
   }
 
   private stopAiming(key: string): void {
@@ -410,11 +420,50 @@ export class Guns {
       else this.launch(dimension, PAINTBALL, player, shot, from, velocity, { [COLOR_PROPERTY]: shot.color }, { lifeTicks: gun.lifeTicks, maxHits: gun.maxHitsPerShot });
     }
     playAt(dimension, gun.sound, head);
-    // The gun's own cooldown shades its slot until it can fire again; the held model's recoil runs
-    // off its shot marker's (the pack's attachables read that category), and kicks every shot.
-    if (first) startCooldown(player, typeId);
-    startCooldown(player, shotMarker(gun.id).item);
+    // The gun's own cooldown shades its slot until it can fire again, and the held model kicks over
+    // it (the attachable reads the main hand's cooldown): once a shot, or once a burst.
+    if (first) startCooldown(player, gunCooldown(gun.id), gun.everyTicks);
+    this.kickView(player, gun, aiming);
     this.notify(() => this.options.onFire?.(player, shot));
+  }
+
+  /**
+   * A shot's kick on the shooter's view: up by the gun's recoil pitch and sideways by up to its yaw
+   * either way (less while aiming), so the next shot goes where the kick left the aim until the
+   * player pulls it back. Only on the ground: the kick is a teleport (a script's setRotation is
+   * reported to do nothing to a player, MCPE-179128), and a player's teleport can't keep their
+   * speed, so in the air it would cut a jump short.
+   */
+  private kickView(player: Player, gun: GunDef, aiming: boolean): void {
+    const recoil = gun.recoil;
+    if (!recoil || (recoil.pitch <= 0 && recoil.yaw <= 0) || !player.isOnGround) return;
+    const key = player.name.toLowerCase();
+    const scale = aiming ? AIM_RECOIL : 1;
+    const kick = this.kicks.get(key) ?? { player, pitch: 0, yaw: 0 };
+    kick.pitch += recoil.pitch * scale;
+    kick.yaw += (this.random() * 2 - 1) * recoil.yaw * scale;
+    this.kicks.set(key, kick);
+    this.turnView(key, system.currentTick);
+  }
+
+  /**
+   * Turns a player's view by the kicks waiting for it, at most once every VIEW_KICK_GAP_TICKS (a
+   * fast gun's kicks between add up): each teleport stops the player's stride for a moment. A kick
+   * still waiting when they leave the ground is dropped.
+   */
+  private turnView(key: string, now: number): void {
+    const kick = this.kicks.get(key);
+    if (!kick || now < (this.lastKick.get(key) ?? -Infinity) + VIEW_KICK_GAP_TICKS) return;
+    this.kicks.delete(key);
+    const { player } = kick;
+    if (!player.isValid || !player.isOnGround) return;
+    this.lastKick.set(key, now);
+    const { x: pitch, y: yaw } = player.getRotation();
+    try {
+      player.teleport(player.location, { rotation: { x: Math.max(-90, Math.min(90, pitch - kick.pitch)), y: yaw + kick.yaw } });
+    } catch (error) {
+      log.warn(`guns: could not kick ${player.name}'s view: ${describeError(error)}`);
+    }
   }
 
   /**
@@ -663,11 +712,12 @@ export class Guns {
       burst.nextAt = now + (burst.gun.burst?.gapTicks ?? 1);
       if (burst.left <= 0) this.bursts.delete(key);
     }
+    for (const key of [...this.kicks.keys()]) this.turnView(key, now);
     // Switching away from the gun lowers it; while it's up, the aim marker keeps the model up.
     for (const [key, { player, gun }] of [...this.aiming]) {
       const held = player.isValid ? heldItem(player) : undefined;
       if (!held || this.gunOf(held.typeId) !== gun) this.stopAiming(key);
-      else if (now % AIM_REFRESH_TICKS === 0) startCooldown(player, AIM_MARKER.item);
+      else if (now % AIM_REFRESH_TICKS === 0) startCooldown(player, AIM_MARKER.category, AIM_MARKER.ticks);
     }
     for (const [key, byGun] of this.magazines) {
       for (const [kind, magazine] of byGun) {
@@ -708,6 +758,8 @@ export class Guns {
     this.readyAt.clear();
     this.lastPress.clear();
     this.magazines.clear();
+    this.kicks.clear();
+    this.lastKick.clear();
   }
 
   /** Runs a game's callback; an error there doesn't stop the guns. */
@@ -786,12 +838,17 @@ function spawnParticle(dimension: Dimension, id: string, location: Vector3, vari
   }
 }
 
-/** Starts a player's cooldown of an item's category (a gun's own, or a hidden marker's). */
-function startCooldown(player: Player, item: string): void {
+/**
+ * Starts a player's cooldown of `category` for `ticks`: a gun's own (its fire rate, shaded over its
+ * hotbar slot, which the held model's kick runs off) or the aim marker's. The player's own call: an
+ * item's cooldown component throws on startCooldown on @minecraft/server 2.11.0, for every item
+ * (docs/spike-results.md, "Recoil").
+ */
+function startCooldown(player: Player, category: string, ticks: number): void {
   try {
-    new ItemStack(item).getComponent(ItemComponentTypes.Cooldown)?.startCooldown(player);
+    player.startItemCooldown(category, Math.max(1, Math.round(ticks)));
   } catch (error) {
-    log.warn(`guns: no cooldown for ${item}: ${describeError(error)}`);
+    log.warn(`guns: could not start the ${category} cooldown: ${describeError(error)}`);
   }
 }
 

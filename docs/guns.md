@@ -17,11 +17,11 @@ manifests, and `guns_hold.animation.json` (where each gun sits in the hand).
 
 | Path | What it is | Who writes it |
 |---|---|---|
-| `packages/guns/src/defs.ts` | Every gun's name and numbers: fire mode, fire rate, spread, zoom, speed, range, damage, magazine, sound. The generator and the games read the same file. | By hand |
-| `packages/guns/src/guns.ts` | `Guns`: firing, aiming, ammo, balls, bullets, beams, rockets, thrown items. | By hand |
+| `packages/guns/src/defs.ts` | Every gun's name and numbers: fire mode, fire rate, spread, zoom, speed, range, damage, magazine, sound, recoil. The generator and the games read the same file. | By hand |
+| `packages/guns/src/guns.ts` | `Guns`: firing, aiming, the view kick, ammo, balls, bullets, beams, rockets, thrown items. | By hand |
 | `packages/guns/src/arsenal.ts` | `Arsenal`: what the arsenal does to players (damage, blasts, flames, flashes, smoke, knives, the stimpack). | By hand |
-| `tools/assets/guns.ts` | The generator: every model's boxes, colors, recoil, first hold guesses, particles, and all the pack's files. | By hand |
-| `packs/guns/behavior_pack/items/` | One item per gun (per paint color for Paintball's), plus hidden marker items. | Generated |
+| `tools/assets/guns.ts` | The generator: every model's boxes, colors, first hold guesses, particles, and all the pack's files. | By hand |
+| `packs/guns/behavior_pack/items/` | One item per gun (per paint color for Paintball's), plus the hidden aim marker. | Generated |
 | `packs/guns/behavior_pack/blocks/` | A hidden block per item whose model the hotbar shows as the item's icon. | Generated |
 | `packs/guns/behavior_pack/entities/` | Balls, the rocket, thrown and landed grenades, pickups. | Generated |
 | `packs/guns/resource_pack/models/entity/guns.geo.json` | Every model's geometry, three per model: held, display (pickups and thrown items) and icon. | Generated |
@@ -94,11 +94,11 @@ per paint color, the arsenal's one each):
 | Texture | `resource_pack/textures/minecade/guns/pistol/red.png` (64x32) | `resource_pack/textures/minecade/guns/arsenal/handgun.png` |
 | Hold poses | `animation.minecade.gun_pistol.first_person_hip`, `.first_person_aim`, `.third_person` | `animation.minecade.gun_handgun.first_person_hip`, `.first_person_aim`, `.third_person` |
 | Recoil | `animation.minecade.gun_pistol.recoil` | `animation.minecade.gun_handgun.recoil` |
-| Shot marker (times the recoil) | `minecade:pistol_shot` | `minecade:handgun_shot` |
+| Its own cooldown (fire rate, times the recoil) | `minecade_pistol` | `minecade_handgun` |
 | Kit picture icon | `icons/red_paintball_pistol.png` | `icons/handgun.png` |
 
 The paint grenade and the arsenal's throwables and stimpack have the same files except the aim
-pose, the recoil and the shot marker. The rocket has its own geometry (`geometry.minecade.rocket`)
+pose, the recoil and the cooldown. The rocket has its own geometry (`geometry.minecade.rocket`)
 and texture (`arsenal/rocket.png`).
 
 ## How they work in game
@@ -109,14 +109,19 @@ and texture (`arsenal/rocket.png`).
   aiming, the camera zooms to the gun's field of view, shots stray less, and the held model eases up
   to the middle of the screen. Switching slots lowers it. A gun's left click swing is kept to 0.05 s
   so a shot barely moves the hand.
-- **Hotbar:** each shot starts the gun's own cooldown (`minecade_<gun>`, its fire rate), which
-  Minecraft shades over the slot until the gun can fire again. The icon is the model itself, drawn by
+- **Hotbar:** each shot (a burst's first) starts the gun's own cooldown (`minecade_<gun>`, its fire
+  rate) with the player's `startItemCooldown`, and Minecraft shades it over the slot until the gun
+  can fire again. While it shades, a right click can't raise or lower the gun (a cooling item can't
+  be used). The icon is the model itself, drawn by
   the game the way it draws a wall or a banner: each item places a hidden block holding the model
   (`minecade:<item>_model`, placeable only on itself, so never placed).
 - **Held models:** each gun is a 3D model (an attachable) with two bones. `gun` follows the hand and
   carries the hold poses; `body` holds the boxes and carries the recoil. The attachable blends the
   hip and aim poses by `v.aim`, which eases toward 1 while the hidden aim marker's cooldown runs
-  (`minecade:aim_marker`, restarted every 2 ticks while the player aims).
+  (category `minecade_aim`, restarted every 2 ticks while the player aims).
+- **Recoil:** each shot kicks the held model back and tips its muzzle up, easing home just as the gun
+  can fire again, and turns the shooter's view up and a little to one side, where it stays until the
+  player pulls it back down. Both are smaller while aiming. See "Recoil" under Editing.
 - **Ammo:** a gun with a magazine fires it, then reloads by itself when it's empty (crossbow loading
   sounds). Spare rounds never run out. The game shows `ammoText` or `Arsenal.ammoLine` on the HUD.
 - **Balls** fly as `minecade:paintball`, a sprite like the snowball's, in one of 16 paint colors (the
@@ -237,11 +242,54 @@ of the file, in the file's own layout and line endings, and changes nothing alre
 
 ### Recoil
 
-Each shot kicks the held model: the `body` bone moves back and tips the muzzle up, then eases home.
-The amounts and timing per gun are `RECOIL` in `tools/assets/guns.ts` (`seconds`, `back` in pixels,
-`lift` in degrees). The timing runs off a hidden item's cooldown that each shot starts
-(`minecade:<gun>_shot`, category `minecade_<gun>_shot`), which the attachable reads with
-`q.cooldown_time_remaining`. Nobody has confirmed this kick in game yet.
+Each gun's recoil is its `recoil` in `defs.ts` (`GUNS` and `ARSENAL_GUN_DEFS`), four numbers:
+
+| Number | What it does |
+|---|---|
+| `back` | Pixels the held model moves back toward you. |
+| `lift` | Degrees the held model's muzzle tips up. |
+| `pitch` | Degrees your view turns up. |
+| `yaw` | Your view also turns up to this many degrees left or right, at random. |
+
+| Gun | back | lift | pitch | yaw |
+|---|---|---|---|---|
+| Paintball Pistol | 2 | 12 | 1.5 | 0.5 |
+| Paintball Rifle | 1.2 | 5 | 0.8 | 0.5 |
+| Paintball Shotgun | 3 | 20 | 4 | 1.5 |
+| Pistol | 2 | 12 | 2 | 0.6 |
+| SMG | 0.8 | 4 | 0.7 | 0.6 |
+| Assault Rifle | 1.2 | 5 | 1 | 0.5 |
+| Burst Rifle | 2 | 10 | 1.2 | 0.5 |
+| Pump Shotgun | 3.5 | 24 | 5 | 1.5 |
+| Double Barrel | 3.5 | 26 | 6 | 2 |
+| Sniper Rifle | 4 | 28 | 8 | 1 |
+| Rail Gun | 3 | 18 | 5 | 0.5 |
+| RPG | 4 | 12 | 4 | 0.5 |
+
+While aiming, both kicks are `AIM_RECOIL` (0.6) of these.
+
+**The held model's kick** runs off the gun's own cooldown, its fire rate: the attachable reads
+`q.cooldown_time_remaining('slot.weapon.mainhand')`, the item in your hand. The kick rises in about
+0.04 seconds, then eases home (fast at first, slower at the end) and is back at rest just as the gun
+can fire again. So a pistol kicks and settles in a quarter second, the SMG shivers every tenth of a
+second, and the sniper rifle settles over its whole second and a half. The burst rifle kicks once a
+burst. The animations (`animation.minecade.gun_<gun>.recoil`, in `guns.animation.json`) move the
+`body` bone by `v.kick`, 0 to 1. Change the numbers in `defs.ts` and rerun the generator. The shape
+of the kick is the Molang in `attachableScripts` in `tools/assets/guns.ts` (`kickHeight` beside it
+works it out the same way, for the tests).
+
+**The view kick** is the script's (`Guns.kickView`). A script can't turn a player's view by itself
+(Bedrock's `setRotation` is reported to do nothing to a player), so it teleports you to where you
+stand with the new facing. That has two costs, so:
+
+- It only happens while you're on the ground. Bedrock refuses to keep a player's speed through a
+  teleport, so in the air it would cut a jump short.
+- It happens at most once every 4 ticks (`VIEW_KICK_GAP_TICKS`), the kicks of a fast gun's shots in
+  between adding up, because each teleport stops your stride for a moment.
+
+The kick stays where it put your view: holding down an automatic gun climbs, and you pull it back
+down. Only the script reads `pitch` and `yaw`, so changing them needs no rerun of the generator
+(still a restart, as for any change).
 
 ### Particles
 
@@ -251,11 +299,11 @@ ids are `PARTICLES` and `PAINT_SPLASH` in `defs.ts`.
 
 ### Adding a gun
 
-1. In `defs.ts`, add its id to `ARSENAL_GUNS` and its numbers to `ARSENAL_GUN_DEFS`.
-2. In `tools/assets/guns.ts`, add its boxes to `ARSENAL_BOXES`, its first hold guesses to `HOLD`,
-   and its recoil to `RECOIL`.
-3. Rerun the generator. It writes the item, icon block, attachable, texture, kit icon and shot
-   marker, and appends first guesses for its three poses to the hold file.
+1. In `defs.ts`, add its id to `ARSENAL_GUNS` and its numbers, recoil included, to
+   `ARSENAL_GUN_DEFS`.
+2. In `tools/assets/guns.ts`, add its boxes to `ARSENAL_BOXES` and its first hold guesses to `HOLD`.
+3. Rerun the generator. It writes the item, icon block, attachable (with its recoil), texture and kit
+   icon, and appends first guesses for its three poses to the hold file.
 4. Hand it out with `arsenalItem("<id>")` in a kit. `Arsenal` fires every gun in `ARSENAL_GUN_DEFS`.
 5. Run `npm run check`, and set its poses in Blockbench.
 

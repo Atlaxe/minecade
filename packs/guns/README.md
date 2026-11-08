@@ -9,7 +9,7 @@ and smoke). The build adds this pack to every server (the lobby, every game and 
 editor), the same way it adds the core resource pack and `packs/blocks`, so any game can give the
 guns as kit items and mannequins can hold them in the editor.
 
-- `behavior_pack/`: the items (and the hidden markers whose cooldowns time the recoil and the aim),
+- `behavior_pack/`: the items (and the hidden aim marker, whose cooldown the held models read),
   the hidden blocks whose models the hotbar shows as the items' icons, and the ball, grenade and
   pickup entities.
 - `resource_pack/`: the held models (attachables), their animations, textures per paint color, the

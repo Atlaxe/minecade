@@ -4,7 +4,7 @@
 // a mob is, whether a block stops it), then fires a rocket and sees where it goes.
 //   scriptevent arms:probe        runs it and prints "ARMS|" lines, then "ARMS|done"
 import { EntityComponentTypes, ItemComponentTypes, ItemStack, MolangVariableMap, system, world, type Vector3 } from "@minecraft/server";
-import { ARSENAL_GUNS, ARSENAL_MODELS, ARSENAL_PICKUP, MODEL_PROPERTY, PARTICLES, PRIMED_ARSENAL, ROCKET, THROWN_ARSENAL, arsenalItem, shotMarker } from "../../packages/guns/src/defs.ts";
+import { ARSENAL_MODELS, ARSENAL_PICKUP, MODEL_PROPERTY, PARTICLES, PRIMED_ARSENAL, ROCKET, THROWN_ARSENAL, arsenalItem } from "../../packages/guns/src/defs.ts";
 
 const Y = 101;
 const out = (value: unknown) => console.log(`ARMS|${JSON.stringify(value)}`);
@@ -17,7 +17,7 @@ system.afterEvents.scriptEventReceive.subscribe(({ id }) => {
 
 async function probe(): Promise<void> {
   const dimension = world.getDimension("overworld");
-  for (const id of [...ARSENAL_MODELS.map(arsenalItem), ...ARSENAL_GUNS.map((gun) => shotMarker(gun).item)]) {
+  for (const id of ARSENAL_MODELS.map(arsenalItem)) {
     try {
       // Its category can't be read from a script on 2.11.0: only whether it has one.
       out({ id: "item", item: id, cooldown: new ItemStack(id).getComponent(ItemComponentTypes.Cooldown) !== undefined });

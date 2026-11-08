@@ -45,13 +45,14 @@ import {
   THROWN_ARSENAL,
   THROWN_GRENADE,
   AIM_MARKER,
+  AIM_RECOIL,
   arsenalItem,
   arsenalModelBlock,
   gunCooldown,
+  gunDef,
   gunItem,
   gunModelBlock,
   isArsenalGun,
-  shotMarker,
   type ArsenalModel,
   type Dye,
   type PickupKind,
@@ -320,24 +321,20 @@ type ModelId = PickupKind | ArsenalModel;
 const boxesOf = (model: ModelId): Box[] => (model in MODELS ? MODELS[model as PickupKind] : ARSENAL_BOXES[model as ArsenalModel]);
 const isGunModel = (model: ModelId): boolean => (GUN_KINDS as readonly string[]).includes(model) || isArsenalGun(model);
 
-/** A shot's kick on the "body" bone: back toward the player and the muzzle up, then home, over `seconds`. */
-const RECOIL: Record<string, { seconds: number; back: number; lift: number }> = {
-  pistol: { seconds: 0.15, back: 1.5, lift: 8 },
-  // Just under the rifle's 4 ticks between shots, so each shot's kick starts fresh.
-  rifle: { seconds: 0.18, back: 1, lift: 4 },
-  shotgun: { seconds: 0.3, back: 2.5, lift: 14 },
-  handgun: { seconds: 0.15, back: 1.5, lift: 8 },
-  // Held guns: just under their time between shots.
-  smg: { seconds: 0.09, back: 0.8, lift: 3 },
-  assault_rifle: { seconds: 0.14, back: 1, lift: 4 },
-  // Each of a burst's shots, 2 ticks apart.
-  burst_rifle: { seconds: 0.09, back: 1, lift: 4 },
-  pump_shotgun: { seconds: 0.45, back: 2.5, lift: 14 },
-  double_barrel: { seconds: 0.3, back: 2.5, lift: 14 },
-  sniper_rifle: { seconds: 0.6, back: 3, lift: 16 },
-  rail_gun: { seconds: 0.5, back: 2.5, lift: 10 },
-  rpg: { seconds: 0.5, back: 3, lift: 10 },
-};
+/**
+ * A shot's kick on the "body" bone (defs.ts's RecoilDef): back toward the player with the muzzle
+ * up, then home over `seconds`, the gun's own cooldown (its fire rate), so it settles just as the
+ * gun can fire again.
+ */
+function recoilOf(kind: ModelId): { seconds: number; back: number; lift: number } {
+  const gun = gunDef(kind)!;
+  return { seconds: gun.everyTicks / 20, back: gun.recoil?.back ?? 0, lift: gun.recoil?.lift ?? 0 };
+}
+
+/** How long a kick takes to reach its full height; the rest of it eases home. */
+const KICK_RISE_SECONDS = 0.04;
+/** The most of a kick spent rising, for the fastest guns. */
+const KICK_RISE_MOST = 0.3;
 
 /**
  * Where each model first sat in the hand, as places on the screen and around the fist (the solver
@@ -865,10 +862,7 @@ export function withMissingHolds(text: string): { text: string; added: string[] 
 /** The generated animations: recoil, the pickup's float, and the grenade's tumble and swell. */
 function animations(): unknown {
   const all: Record<string, unknown> = {};
-  for (const kind of GUN_KINDS) {
-    const { back, lift } = RECOIL[kind];
-    all[recoilAnimation(kind)] = { loop: true, bones: { body: { position: [0, 0, `v.kick * ${back}`], rotation: [`v.kick * ${-lift}`, 0, 0] } } };
-  }
+  for (const kind of GUN_KINDS) all[recoilAnimation(kind)] = recoilPose(kind);
   all[PICKUP_ANIMATION] = {
     loop: true,
     bones: { display: { rotation: [0, "q.life_time * 120", 0], position: [0, "10 + math.sin(q.life_time * 150) * 1.5", 0], scale: 1.6 } },
@@ -888,29 +882,50 @@ function animations(): unknown {
       },
     },
   };
-  for (const kind of ARSENAL_GUNS) {
-    const { back, lift } = RECOIL[kind];
-    all[recoilAnimation(kind)] = { loop: true, bones: { body: { position: [0, 0, `v.kick * ${back}`], rotation: [`v.kick * ${-lift}`, 0, 0] } } };
-  }
+  for (const kind of ARSENAL_GUNS) all[recoilAnimation(kind)] = recoilPose(kind);
   // Points the rocket along its flight, as vanilla's arrow does.
   all[ROCKET_ANIMATION] = { loop: true, bones: { display: { rotation: ["q.target_x_rotation", "-q.target_y_rotation", 0] } } };
   return { format_version: "1.8.0", animations: all };
 }
 
+/** A gun's recoil animation: v.kick (0 to 1) moves the "body" bone back and tips its muzzle up. */
+function recoilPose(kind: ModelId): unknown {
+  const { back, lift } = recoilOf(kind);
+  return { loop: true, bones: { body: { position: [0, 0, `v.kick * ${back}`], rotation: [`v.kick * ${-lift}`, 0, 0] } } };
+}
+
+/** The part of a kick of `seconds` spent rising to its full height. */
+export function kickRise(seconds: number): number {
+  return fixed(Math.min(KICK_RISE_MOST, KICK_RISE_SECONDS / seconds));
+}
+
+/**
+ * How high a kick of `seconds` is `elapsed` seconds after its shot, 0 to 1: up fast, then easing
+ * home (the square of what's left), back at 0 when the next shot can come. The attachable's
+ * pre_animation script works it out the same way in Molang.
+ */
+export function kickHeight(elapsed: number, seconds: number): number {
+  const t = Math.min(1, Math.max(0, elapsed / seconds));
+  const rise = kickRise(seconds);
+  return t < rise ? t / rise : ((1 - t) / (1 - rise)) ** 2;
+}
+
 /**
  * The attachable's script. v.aim eases toward 1 while the aim marker's cooldown runs (the script
- * keeps restarting it while the player aims), and the hip and aim poses blend by it; v.kick rises
- * fast and falls back over a shot's recoil cooldown.
+ * keeps restarting it while the player aims), and the hip and aim poses blend by it. v.kick follows
+ * kickHeight over the gun's own cooldown, read off the main hand (the item this model is), less
+ * while aiming: the guns' first pass read it the same way and it was seen kicking in game.
  */
 function attachableScripts(kind: ModelId): Record<string, unknown> {
   if (!isGun(kind)) return { animate: [{ first_person_hip: "c.is_first_person" }, { third_person: "!c.is_first_person" }] };
-  const { seconds } = RECOIL[kind];
+  const { seconds } = recoilOf(kind);
+  const rise = kickRise(seconds);
   return {
     initialize: ["v.aim = 0;", "v.kick = 0;"],
     pre_animation: [
       `v.aim = math.lerp(v.aim, q.cooldown_time_remaining('${AIM_MARKER.category}') > 0, math.min(q.delta_time * 12, 1));`,
-      `v.kick_left = math.clamp(q.cooldown_time_remaining('${shotMarker(kind).category}') / ${seconds}, 0, 1);`,
-      "v.kick = v.kick_left > 0.75 ? (1 - v.kick_left) * 4 : v.kick_left / 0.75;",
+      `v.kick_t = 1 - math.clamp(q.cooldown_time_remaining('slot.weapon.mainhand') / ${seconds}, 0, 1);`,
+      `v.kick = (v.kick_t < ${rise} ? v.kick_t / ${rise} : math.pow((1 - v.kick_t) / ${fixed(1 - rise)}, 2)) * (1 - v.aim * ${fixed(1 - AIM_RECOIL)});`,
     ],
     animate: [
       { first_person_hip: "c.is_first_person * (1 - v.aim)" },
@@ -987,7 +1002,7 @@ function arsenalItemFile(model: ArsenalModel): unknown {
   return { format_version: ITEM_FORMAT, "minecraft:item": { description: { identifier: arsenalItem(model), menu_category: { category: "none" } }, components } };
 }
 
-/** A hidden item whose cooldown category the held models read (a shot's recoil, the aim). */
+/** A hidden item whose cooldown category the held models read: the aim marker. */
 function markerItem(identifier: string, category: string, seconds: number): unknown {
   return {
     format_version: ITEM_FORMAT,
@@ -1001,8 +1016,6 @@ function markerItem(identifier: string, category: string, seconds: number): unkn
   };
 }
 
-/** The aim marker's cooldown: a little longer than the script's restarts, so it doesn't run out while aiming. */
-const AIM_MARKER_SECONDS = 0.3;
 const MARKER_ICON = "minecade_gun_marker";
 
 /** The hidden block an item shows as its icon (iconGeometry). */
@@ -1487,11 +1500,7 @@ export function gunsPackFiles(): Record<string, string | Buffer> {
     [`resource_pack/${GUN_TEXTURES}/splash.png`]: splashTexture(),
     ...Object.fromEntries(Object.entries(clientEntities()).map(([path, value]) => [path, json(value)])),
   };
-  for (const kind of GUN_KINDS) {
-    const marker = shotMarker(kind);
-    files[`behavior_pack/items/${itemFile(marker.item)}.json`] = json(markerItem(marker.item, marker.category, RECOIL[kind].seconds));
-  }
-  files[`behavior_pack/items/${itemFile(AIM_MARKER.item)}.json`] = json(markerItem(AIM_MARKER.item, AIM_MARKER.category, AIM_MARKER_SECONDS));
+  files[`behavior_pack/items/${itemFile(AIM_MARKER.item)}.json`] = json(markerItem(AIM_MARKER.item, AIM_MARKER.category, AIM_MARKER.ticks / 20));
   for (const kind of PICKUP_KINDS) {
     const layers = textureLayers(MODELS[kind]);
     const samples = iconSamples(MODELS[kind], ICON_VIEW);
@@ -1507,10 +1516,6 @@ export function gunsPackFiles(): Record<string, string | Buffer> {
   }
   for (const dye of DYES) files[`resource_pack/${GUN_TEXTURES}/balls/${dye}.png`] = ballTexture(PAINT_RGB[dye]);
   // The arsenal: one of each, no paint.
-  for (const kind of ARSENAL_GUNS) {
-    const marker = shotMarker(kind);
-    files[`behavior_pack/items/${itemFile(marker.item)}.json`] = json(markerItem(marker.item, marker.category, RECOIL[kind].seconds));
-  }
   for (const model of ARSENAL_MODELS) {
     const boxes = ARSENAL_BOXES[model];
     const layers = textureLayers(boxes);

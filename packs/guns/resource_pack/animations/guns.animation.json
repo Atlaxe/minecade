@@ -8,10 +8,10 @@
           "position": [
             0,
             0,
-            "v.kick * 1.5"
+            "v.kick * 2"
           ],
           "rotation": [
-            "v.kick * -8",
+            "v.kick * -12",
             0,
             0
           ]
@@ -25,10 +25,10 @@
           "position": [
             0,
             0,
-            "v.kick * 1"
+            "v.kick * 1.2"
           ],
           "rotation": [
-            "v.kick * -4",
+            "v.kick * -5",
             0,
             0
           ]
@@ -42,10 +42,10 @@
           "position": [
             0,
             0,
-            "v.kick * 2.5"
+            "v.kick * 3"
           ],
           "rotation": [
-            "v.kick * -14",
+            "v.kick * -20",
             0,
             0
           ]
@@ -107,10 +107,10 @@
           "position": [
             0,
             0,
-            "v.kick * 1.5"
+            "v.kick * 2"
           ],
           "rotation": [
-            "v.kick * -8",
+            "v.kick * -12",
             0,
             0
           ]
@@ -127,7 +127,7 @@
             "v.kick * 0.8"
           ],
           "rotation": [
-            "v.kick * -3",
+            "v.kick * -4",
             0,
             0
           ]
@@ -141,10 +141,10 @@
           "position": [
             0,
             0,
-            "v.kick * 1"
+            "v.kick * 1.2"
           ],
           "rotation": [
-            "v.kick * -4",
+            "v.kick * -5",
             0,
             0
           ]
@@ -158,10 +158,10 @@
           "position": [
             0,
             0,
-            "v.kick * 1"
+            "v.kick * 2"
           ],
           "rotation": [
-            "v.kick * -4",
+            "v.kick * -10",
             0,
             0
           ]
@@ -175,10 +175,10 @@
           "position": [
             0,
             0,
-            "v.kick * 2.5"
+            "v.kick * 3.5"
           ],
           "rotation": [
-            "v.kick * -14",
+            "v.kick * -24",
             0,
             0
           ]
@@ -192,10 +192,10 @@
           "position": [
             0,
             0,
-            "v.kick * 2.5"
+            "v.kick * 3.5"
           ],
           "rotation": [
-            "v.kick * -14",
+            "v.kick * -26",
             0,
             0
           ]
@@ -209,10 +209,10 @@
           "position": [
             0,
             0,
-            "v.kick * 3"
+            "v.kick * 4"
           ],
           "rotation": [
-            "v.kick * -16",
+            "v.kick * -28",
             0,
             0
           ]
@@ -226,10 +226,10 @@
           "position": [
             0,
             0,
-            "v.kick * 2.5"
+            "v.kick * 3"
           ],
           "rotation": [
-            "v.kick * -10",
+            "v.kick * -18",
             0,
             0
           ]
@@ -243,10 +243,10 @@
           "position": [
             0,
             0,
-            "v.kick * 3"
+            "v.kick * 4"
           ],
           "rotation": [
-            "v.kick * -10",
+            "v.kick * -12",
             0,
             0
           ]

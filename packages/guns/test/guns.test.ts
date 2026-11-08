@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Scope } from "@minecade/minigame-core";
-import { AIM_MARKER, GRENADE, GUNS, PAINTBALL, PRIMED_GRENADE, THROWN_GRENADE, dyeIndex, gunItem, shotMarker, type GunDef } from "../src/defs.ts";
+import { AIM_MARKER, AIM_RECOIL, ARSENAL_GUN_DEFS, GRENADE, GUNS, PAINTBALL, PRIMED_GRENADE, THROWN_GRENADE, arsenalItem, dyeIndex, gunCooldown, gunItem, type GunDef } from "../src/defs.ts";
 import { Guns, ammoText, coneDirections, type AmmoState, type GunsOptions, type Shot } from "../src/guns.ts";
 import { Direction, EntitySwingSource, ItemStack, system, world, type FakeMob, type FakePlayer } from "../../minigame-core/test/fake-mc-server.ts";
 
@@ -46,7 +46,7 @@ const click = (player: FakePlayer, swingSource: string = EntitySwingSource.Attac
   world.afterEvents.playerSwingStart.emit({ player, heldItemStack: player.inventory.slots[player.selectedSlotIndex], swingSource });
 /** A right click at the sky. */
 const use = (player: FakePlayer) => world.afterEvents.itemUse.emit({ source: player, itemStack: player.inventory.slots[0]! });
-const markers = (player: FakePlayer) => player.cooldownsStarted.filter((id) => id === AIM_MARKER.item).length;
+const markers = (player: FakePlayer) => player.itemCooldowns.filter(({ category }) => category === AIM_MARKER.category).length;
 const angleOf = (velocity: { x: number; y: number; z: number }) => (Math.acos(velocity.z / Math.hypot(velocity.x, velocity.y, velocity.z)) * 180) / Math.PI;
 
 describe("Guns", () => {
@@ -62,11 +62,88 @@ describe("Guns", () => {
     // Fired the way the player looks (south), at the pistol's speed.
     expect(ball.projectile.shot!.z).toBeCloseTo(GUNS.pistol.speed, 1);
     expect(world.overworld.sounds.map((sound) => sound.id)).toEqual([GUNS.pistol.sound.id]);
-    // The gun's own cooldown shades its slot; the recoil runs off the shot marker's.
-    expect(player.cooldownsStarted).toEqual([gunItem("pistol", "red"), shotMarker("pistol").item]);
+    // The gun's own cooldown shades its slot for its fire rate, and the held model kicks over it.
+    expect(player.itemCooldowns).toEqual([{ category: gunCooldown("pistol"), ticks: GUNS.pistol.everyTicks }]);
     system.advanceTicks(GUNS.pistol.everyTicks);
     click(player);
     expect(balls()).toHaveLength(2);
+  });
+
+  it("kicks the shooter's view up by the gun's recoil each shot, where they stand, keeping their speed, and less while aiming", () => {
+    const { balls } = setup();
+    const player = holding("Ann", gunItem("pistol", "red"));
+    player.location = { x: 3, y: 65, z: -2 };
+    player.rotation = { x: 10, y: 45 };
+    const { pitch } = GUNS.pistol.recoil;
+    click(player);
+    expect(balls()).toHaveLength(1);
+    // Negative pitch looks up; random 0.5 kicks it straight up.
+    expect(player.rotation.x).toBeCloseTo(10 - pitch, 5);
+    expect(player.rotation.y).toBeCloseTo(45, 5);
+    expect(player.teleports).toEqual([{ x: 3, y: 65, z: -2 }]);
+    // The kick stays: the next shot starts from it.
+    system.advanceTicks(GUNS.pistol.everyTicks);
+    use(player);
+    click(player);
+    expect(balls()).toHaveLength(2);
+    expect(player.rotation.x).toBeCloseTo(10 - pitch - pitch * AIM_RECOIL, 5);
+  });
+
+  it("kicks the view to one side by up to the gun's yaw, and never past straight up", () => {
+    const { yaw } = GUNS.shotgun.recoil;
+    for (const [random, side] of [
+      [1, yaw],
+      [0, -yaw],
+    ]) {
+      world.reset();
+      setup({ random: () => random });
+      const player = holding(`Shooter${random}`, gunItem("shotgun", "blue"));
+      player.rotation = { x: -89, y: 0 };
+      click(player);
+      expect(player.rotation.y).toBeCloseTo(side, 5);
+      expect(player.rotation.x).toBe(-90);
+    }
+  });
+
+  it("turns a fast gun's view at most every 4 ticks, the kicks between adding up", () => {
+    const { pitch } = ARSENAL_GUN_DEFS.smg.recoil;
+    setup({ guns: Object.values(ARSENAL_GUN_DEFS) });
+    const player = holding("Ann", arsenalItem("smg"));
+    click(player);
+    expect(player.teleports).toHaveLength(1);
+    expect(player.rotation.x).toBeCloseTo(-pitch, 5);
+    // The SMG fires every 2 ticks: the next shot's kick waits for the 4th tick, with the one after it.
+    system.advanceTicks(2);
+    click(player);
+    expect(player.teleports).toHaveLength(1);
+    system.advanceTicks(2);
+    click(player);
+    expect(player.teleports).toHaveLength(2);
+    expect(player.rotation.x).toBeCloseTo(-pitch * 3, 5);
+  });
+
+  it("leaves the view alone for a shot in the air, which a teleport would cut short", () => {
+    const { balls } = setup();
+    const player = holding("Ann", gunItem("pistol", "red"));
+    player.isOnGround = false;
+    click(player);
+    expect(balls()).toHaveLength(1);
+    expect(player.teleports).toHaveLength(0);
+    expect(player.rotation).toEqual({ x: 0, y: 0 });
+    // The held model still kicks.
+    expect(player.itemCooldowns.map(({ category }) => category)).toContain(gunCooldown("pistol"));
+  });
+
+  it("climbs a held gun's view kick shot by shot while the button stays down", () => {
+    const { balls } = setup();
+    const player = holding("Ann", gunItem("rifle", "red"));
+    click(player);
+    for (let tick = 0; tick < GUNS.rifle.everyTicks * 3; tick++) {
+      system.advanceTicks(1);
+      if (tick % 2 === 0) click(player);
+    }
+    expect(balls().length).toBeGreaterThanOrEqual(3);
+    expect(player.rotation.x).toBeCloseTo(-GUNS.rifle.recoil.pitch * balls().length, 5);
   });
 
   it("fires only on an attack or mining swing, not on a right click's own swings or a drop", () => {

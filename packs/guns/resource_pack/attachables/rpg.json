@@ -27,8 +27,8 @@
         ],
         "pre_animation": [
           "v.aim = math.lerp(v.aim, q.cooldown_time_remaining('minecade_aim') > 0, math.min(q.delta_time * 12, 1));",
-          "v.kick_left = math.clamp(q.cooldown_time_remaining('minecade_rpg_shot') / 0.5, 0, 1);",
-          "v.kick = v.kick_left > 0.75 ? (1 - v.kick_left) * 4 : v.kick_left / 0.75;"
+          "v.kick_t = 1 - math.clamp(q.cooldown_time_remaining('slot.weapon.mainhand') / 1, 0, 1);",
+          "v.kick = (v.kick_t < 0.04 ? v.kick_t / 0.04 : math.pow((1 - v.kick_t) / 0.96, 2)) * (1 - v.aim * 0.4);"
         ],
         "animate": [
           {
