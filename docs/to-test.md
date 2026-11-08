@@ -38,7 +38,7 @@ Bridges, since its Leap and arrow countdown moved into core with Siege:
 
 ## The arsenal
 
-docs/ui.md, "The arsenal". Start the network from the Panel so it rebuilds, then play Probe alone
+docs/guns.md. Start the network from the Panel so it rebuilds, then play Probe alone
 (`DEV_TEST_GAMES=1`, `DEV_MIN_PLAYERS=1`, Round 60 s) with the Gunner kit (the nine guns) or the
 Grenadier kit (the rest). Probe hurts nobody: with a second player, each hit says in chat what it
 would have taken.

@@ -337,7 +337,7 @@ docs/                     map format (maps.md), the map editor (editor.md), meas
    range and an `option` naming one of your `options` (Paintball's Team count); for every team's
    score top right instead of a sidebar, `scoring.display: "sides"`. To play another game's maps
    as they are, name it in `map.borrow` (Gunfight plays Siege's: `docs/maps.md`, "Borrowing
-   another game's maps"). For guns, see `docs/ui.md`, "The guns" and "The arsenal".
+   another game's maps"). For guns, see `docs/guns.md`.
 3. Write the game in `behavior_pack/scripts/`: a class extending `Minigame` that overrides only
    what's different. The framework already handles waiting, the kit form, the countdown, teams,
    deaths without a death screen, kill credit, respawns, win checks, best-of rounds, building

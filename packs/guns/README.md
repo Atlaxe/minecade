@@ -24,7 +24,7 @@ Unlike `packs/blocks`, this pack is committed: everything in it is drawn by
 
 A test checks the committed files match (`tools/build/test/guns-pack.test.ts`). The manifests and
 `resource_pack/animations/guns_hold.animation.json` (where the guns sit in the hand, edited in
-Blockbench: docs/ui.md, "Editing where the guns sit") are the only hand-written files; the
+Blockbench: docs/guns.md, "Where a gun sits in the hand") are the only hand-written files; the
 generator only adds a new model's poses to the end of the hold file, leaving the rest as it is. A
 game fires the guns with `Guns` from `@minecade/guns` (`packages/guns`), and the arsenal's with
-`Arsenal`; see docs/ui.md, "The guns" and "The arsenal".
+`Arsenal`; see docs/guns.md.
