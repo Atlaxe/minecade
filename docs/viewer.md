@@ -20,7 +20,8 @@ Unpublished changes). The search box finds maps by name or id; the dropdowns sho
 status. **Click a card** to pick it, and the bar at the bottom offers **Edit (map) for (game)**:
 it, Enter or a double click opens the viewer in the same window. The back arrow at the viewer's
 top left returns to Maps, with the search and the pick as they were. The bar's **Port to another
-game** makes the picked map's blocks a new map of another game (see "Port to another game").
+game** makes the picked map's blocks a new map of another game (see "Port to another game"), and
+its **Delete** (red) deletes the map (see "Deleting a map").
 
 The first time a map opens, its world is read and kept in `work\viewer\maps\` (Temples takes about
 0.1 s, then a few milliseconds); a world saved since is read again. A map wider than 256 blocks on
@@ -346,7 +347,7 @@ fit is put back, and the note over the view says why.
   with a night time.
 - **The game's other keys:** any other plain value of the game's own the map has (as game Edit's
   Name and map id lists them), kept to its kind: a number stays a number, true or false a switch.
-- **Port to another game** (see below).
+- **Port to another game** and **Delete map** (red) (see below).
 
 **The Time tool** (T): where the map's servers stop the daylight cycle. **Not set** (the editor
 shows noon), game Edit's **Noon**, **Dusk**, **Midnight** and **Dawn**, or **Custom**, a time typed
@@ -355,6 +356,26 @@ does nothing with it.
 
 **The queue spawn**, picked: how players wait there, **Lock in** or **Free** (see "Spawns and
 markers").
+
+## Deleting a map
+
+**Delete** in the Maps page's bar for the picked map, or **Delete map** under Map settings in the
+viewer, asks first, then does what game Edit's Delete map does (`docs/editor.md`, "Deleting a
+map"): the map's folder goes from the map store, a published map stops being published (it leaves
+the lobby at the network's next start, or the lobby map picker for a lobby map), and it leaves its
+world's list in Select (in game and from above) and Recent. Its versions stay in `maps.db`. The
+viewer then goes back to Maps, which says what was deleted.
+
+- **With the map editor running**, the editor does the deleting: when game Edit has the map open
+  (or is opening it, as the Panel warms up the map picked), everyone there goes to the editor lobby
+  and Edit stops without saving first. It's refused while a preview of the map runs. A map editor
+  started before Delete was added says to restart it first.
+- **With no map editor**, the Panel does the same itself.
+- **The live lobby** (`LOBBY_MAP`, `spaceship` unless set) can't be deleted: pick another lobby map
+  on the Servers page first.
+
+The Panel's route is POST `/api/viewer/delete {target, map}` (`tools/viewer/delete-map.ts`), and the
+editor's control port has `POST /delete`.
 
 ## Port to another game
 

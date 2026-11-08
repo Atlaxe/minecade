@@ -142,6 +142,11 @@ export class SelectFromAbove {
     });
   }
 
+  /** Takes a deleted map off every world's list (delete-map.ts), the open ones and the files. */
+  forgetMap(target: string, map: string): Promise<void> {
+    return this.selections.removeMap(target, map);
+  }
+
   /** The maps cut from a world (in-game Select's and the Panel's), and how each export is going. */
   async maps(id: string): Promise<Answer<{ world: string; selections: SelectionInfo[] }>> {
     return this.answer(async () => {

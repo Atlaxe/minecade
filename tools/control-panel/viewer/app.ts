@@ -28,6 +28,7 @@ import { KeysTab } from "./keys-tab.ts";
 import { buildMarkup, findEntry, type BoxMark, type Markup, type MarkupList, type PlaneMark, type PointMark } from "./markup.ts";
 import { InGame, type PanelState } from "./ingame.ts";
 import { MapSettings, TimeTool, queuePanel } from "./mapsettings.ts";
+import { openDeleteDialog } from "./delete.ts";
 import { openPortDialog } from "./port.ts";
 import { Overlay, type MarkerAssets, type MirrorPlane } from "./overlay.ts";
 import { blocksWithoutLook, mapWarnings } from "./checks.ts";
@@ -318,8 +319,16 @@ async function main(): Promise<void> {
     },
   });
   const edit = (change: MapEdit) => changes.edit(config, change);
-  // Map settings, in the right panel with nothing picked: the name, the queue's countdown, the game's settings, Port to another game.
-  const mapSettings = new MapSettings($("map-panel"), { map, rules: data.rules, edit, note: (text) => notice(text, true), port: () => void openPortDialog({ target, map }) });
+  // Map settings, in the right panel with nothing picked: the name, the queue's countdown, the game's settings, Port to another game, Delete map.
+  const mapSettings = new MapSettings($("map-panel"), {
+    map,
+    rules: data.rules,
+    edit,
+    note: (text) => notice(text, true),
+    port: () => void openPortDialog({ target, map }),
+    // Once it's deleted, back to Maps, which says so.
+    delete: () => openDeleteDialog({ target, map, name: config.name || name, gameName: game }, (message) => location.assign(`/?${new URLSearchParams({ deleted: message })}#maps`)),
+  });
   mapSettings.update(config);
   // The Time tool: the map's time of day.
   const timeTool = new TimeTool({ edit, note: (text) => notice(text, true), redraw: () => renderPanel() });

@@ -255,6 +255,7 @@
     <span id="map-pick-thumb"></span>
     <div class="map-pick-text"><span id="map-pick-name" class="strong"></span><span id="map-pick-detail" class="muted meta"></span></div>
     <button id="map-pick-clear" class="small" data-tip="Pick nothing" data-key="Esc">Clear</button>
+    <button id="map-pick-delete" class="danger">Delete</button>
     <button id="map-pick-port" data-tip="Its blocks and picture become a new map of another game, with the markup you pick">Port to another game</button>
     <button id="map-pick-edit" class="primary" data-tip="Open it in the 3D viewer" data-key="Enter"></button>
   </div>
@@ -1131,6 +1132,10 @@ function saveMapsView() {
   try { sessionStorage.setItem(MAPS_STATE, JSON.stringify(mapsView)); } catch { /* not kept */ }
 }
 
+/** What the Panel said of a map just deleted (here, or in a viewer that came back with ?deleted=), shown once the list is read again. */
+let mapsMessage = new URLSearchParams(location.search).get("deleted") ?? "";
+if (mapsMessage) history.replaceState(null, "", `${location.pathname}${location.hash}`);
+
 async function loadMaps() {
   $("maps-note").textContent = "Reading the map store...";
   $("maps-refresh").disabled = true;
@@ -1152,6 +1157,8 @@ async function loadMaps() {
   select.value = maps.targets.some((target) => target.id === mapsView.game) ? mapsView.game : "";
   $("maps-status").value = mapsView.status;
   renderMaps();
+  if (mapsMessage) $("maps-note").textContent = mapsMessage;
+  mapsMessage = "";
 }
 
 const MAP_STATUS = {
@@ -1178,7 +1185,8 @@ function renderMaps() {
     ...groups.map(({ target, list }) => el("section", { className: "map-group" },
       el("h2", {}, target.name, el("span", { className: "muted" }, `${list.length} ${list.length === 1 ? "map" : "maps"}`)),
       el("div", { className: "map-grid" }, list.map((map) => mapCard(target, map))))),
-    groups.length === 0 ? el("p", { className: "map-empty" }, total === 0 ? "No maps yet. Cut one out of a world in the map editor's Select." : "No maps match. Clear the search or pick another game or status.") : null,
+    // replaceChildren writes a null as the text "null", so an empty list adds nothing.
+    ...(groups.length === 0 ? [el("p", { className: "map-empty" }, total === 0 ? "No maps yet. Cut one out of a world in the map editor's Select." : "No maps match. Clear the search or pick another game or status.")] : []),
   );
   showPickedMap();
 }
@@ -1414,6 +1422,21 @@ $("map-pick-port").onclick = async () => {
     });
   } catch (error) {
     $("maps-note").textContent = `Port to another game didn't open: ${error instanceof Error ? error.message : error}`;
+  }
+};
+// Delete: its dialog is the viewer's (viewer/delete.ts), loaded the first time. The list is read again, with what the Panel said.
+$("map-pick-delete").onclick = async () => {
+  const found = findMap(mapsView.picked);
+  if (!found) return;
+  try {
+    const { openDeleteDialog } = await import("/viewer/delete.js");
+    openDeleteDialog({ target: found.target.id, map: found.map.id, name: found.map.name, gameName: found.target.name }, async (message) => {
+      pickMap("");
+      mapsMessage = message;
+      await loadMaps();
+    });
+  } catch (error) {
+    $("maps-note").textContent = `Delete didn't open: ${error instanceof Error ? error.message : error}`;
   }
 };
 // Esc picks nothing; Enter opens the picked map (on a card, that card's), other buttons keep their own Enter.

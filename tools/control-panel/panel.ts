@@ -6,7 +6,7 @@
 //   --port N     serve on port N instead of 8099 (testing beside a running Panel)
 //   --restarting started by Restart Panel: wait for the old one to free the port, open no window
 import { spawn } from "node:child_process";
-import { appendFileSync, closeSync, existsSync, mkdirSync, openSync, statSync, writeFileSync } from "node:fs";
+import { appendFileSync, closeSync, existsSync, mkdirSync, openSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { readdir, readFile, stat, writeFile } from "node:fs/promises";
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import { networkInterfaces, tmpdir } from "node:os";
@@ -15,7 +15,7 @@ import { createInterface } from "node:readline";
 import { fileURLToPath } from "node:url";
 import type Docker from "dockerode";
 import type { GuestInfo } from "@minecade/minigame-core/config";
-import { broadcastEditor, editorStatus, endPreviewEditor, guestEditor, openInEditor, pictureEditor, previewEditor, publishEditor, saveEditor, stopEditor, warmEditor } from "../editor/control.ts";
+import { broadcastEditor, deleteInEditor, editorStatus, endPreviewEditor, guestEditor, openInEditor, pictureEditor, previewEditor, publishEditor, saveEditor, stopEditor, warmEditor } from "../editor/control.ts";
 import { editorPlayers, type EditorStatus } from "../editor/editor-core.ts";
 import { addGuest, readGuests, removeGuest, writeGuests } from "../editor/guests.ts";
 import { cacheVanillaTextures } from "../build/vanilla-textures.ts";
@@ -23,6 +23,7 @@ import { catalogDir, storeDir } from "../maps/paths.ts";
 import { MapStore } from "../maps/store.ts";
 import { MapChanges } from "../viewer/map-changes.ts";
 import { mapJsonPath, viewerMap, viewerMapConfig, watchMap, watchWorld } from "../viewer/map-data.ts";
+import { DEFAULT_LOBBY_MAP, deleteMap } from "../viewer/delete-map.ts";
 import { portChoices, portMap } from "../viewer/port-map.ts";
 import { SELECT_PAGE, VIEWER_PAGE, viewerColors, viewerMaps, viewerScripts, viewerShapes, viewerTextures, viewerThumbPath, viewerView } from "../viewer/routes.ts";
 import { SelectFromAbove } from "../viewer/select.ts";
@@ -837,7 +838,7 @@ async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> 
       res.end(await readFile(SELECT_PAGE));
       return;
     }
-    if (path === "/viewer/app.js" || path === "/viewer/worker.js" || path === "/viewer/select.js" || path === "/viewer/port.js") {
+    if (path === "/viewer/app.js" || path === "/viewer/worker.js" || path === "/viewer/select.js" || path === "/viewer/port.js" || path === "/viewer/delete.js") {
       try {
         const script = (await viewerScripts()).get(path.slice("/viewer/".length));
         if (!script) return sendJson(res, 404, { error: "not found" });
@@ -936,6 +937,19 @@ async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> 
     if (answer.status !== 200) return sendJson(res, answer.status, { error: answer.error });
     note(answer.message);
     return sendJson(res, 200, { ok: true, target: answer.target, targetName: answer.targetName, map: answer.map, name: answer.name, message: answer.message });
+  }
+
+  // Delete (delete-map.ts): through the map editor when it runs, so Edit closes first when it has the map.
+  if (path === "/api/viewer/delete") {
+    const answer = await deleteMap(repoRoot, body, {
+      editor: deleteInEditor,
+      forgetSelections: (target, map) => selectFromAbove.forgetMap(target, map),
+      lobbyMap: () => (existsSync(envPath) ? readEnv(readFileSync(envPath, "utf8")).LOBBY_MAP?.trim() : "") || DEFAULT_LOBBY_MAP,
+    });
+    if (answer.status !== 200) return sendJson(res, answer.status, { error: answer.error });
+    mapChanges.forget(String(body.target), String(body.map));
+    note(answer.message);
+    return sendJson(res, 200, { ok: true, message: answer.message, published: answer.published });
   }
 
   // The map viewer's changes (map-changes.ts): through the map editor when game Edit has the map open.

@@ -167,7 +167,8 @@ back out.
     it's ready; Select keeps running. Every move between servers shows the loading screen, in Edit
     too (a preview starting, say).
   - **A failed one** says so. Tap it for why, then **Try again** or **Remove from this list**.
-  - A map is deleted only from Edit (its gear's **Delete map**), which also takes it off this list.
+  - A map is deleted from Edit (its gear's **Delete map**) or the Panel (Maps, or the map viewer's
+    Map settings), which also takes it off this list.
   - The Panel lists them too, with how each is going.
 
 **What a new map gets:**
@@ -654,6 +655,10 @@ version. With nothing changed, it says so.
 3. it leaves its world's list in Select (every world's, open or not) and Recent.
 
 Chat in the editor lobby says when it's done. A preview has to end first.
+
+The Panel's Maps page and map viewer delete maps too (`docs/viewer.md`, "Deleting a map"): with
+the map editor running, through it (control port `POST /delete`), the same steps as above, so a map
+open in Edit, or being opened there, closes first.
 
 ## How it works
 

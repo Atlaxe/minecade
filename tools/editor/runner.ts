@@ -601,8 +601,8 @@ export class EditorRunner {
 
   /**
    * Deletes the map open in Edit (its gear's Delete map): everyone there waits in the editor lobby,
-   * Edit stops without saving, the map's folder goes (its removal committed and pushed when it was
-   * published), and it leaves its world's list in Select and Recent.
+   * Edit stops without saving, the map's folder goes (a published map stops being published), and
+   * it leaves its world's list in Select and Recent.
    */
   private deleteMap(by: string, edit: EditorSession): void {
     if (this.isGuest(by) || this.work.edit !== edit) return;
@@ -611,14 +611,60 @@ export class EditorRunner {
       return;
     }
     const { target, targetName, map, mapName } = edit.status();
-    const label = mapLabel(targetName, mapName, map);
     const chat = chatMapName(targetName, mapName);
-    this.log(`${by}: delete ${label}`);
-    this.queues.edit = this.queues.edit
-      .then(async () => {
-        if (this.work.edit !== edit) return;
+    this.removeMap(by, target, map, { chat, label: mapLabel(targetName, mapName, map) }, edit).then(
+      (published) => {
+        if (published !== undefined) void this.tell(by, `Deleted ${chat}.${published ? " It leaves the lobby at the network's next start." : ""}`);
+      },
+      (error: unknown) => void this.tell(by, `§cDeleting ${chat}§c went wrong: ${message(error)}`),
+    );
+  }
+
+  /**
+   * The Panel's Delete (control.ts POST /delete, from its Maps page or a map viewer): deletes a map
+   * whether Edit has it or not. Edit having it open, or opening it (the Panel's warm-up of the map
+   * picked), closes first as for Delete map. Whether it was published, or why it can't be deleted.
+   */
+  async deleteFromPanel(target: string, map: string): Promise<{ published: boolean } | { error: string }> {
+    if (this.state !== "ready") return { error: this.state === "stopping" ? "the map editor is shutting down" : "the map editor is still starting: try again in a moment" };
+    const path = isMapId(target) && isMapId(map) ? join(mapsDirOf(this.root, target), map, "map.json") : undefined;
+    if (!path || !existsSync(path)) return { error: `there's no map ${target}/${map} in the map store` };
+    const opened = this.opened.get("edit");
+    const open = opened !== undefined && openKey(opened.request) === openKey({ to: "edit", target, map });
+    if (open && (this.previewing || this.previewAsked)) return { error: "a preview of it is running: end the preview first" };
+    // Warm-ups still waiting their turn are called off (the Maps page asks again for what it has picked).
+    this.warmCount++;
+    let targetName = target;
+    let mapName = map;
+    try {
+      targetName = (await loadTarget(this.root, target)).name;
+      mapName = ((JSON.parse(await readFile(path, "utf8")) as { name?: string }).name || map).trim();
+    } catch {
+      // Named by its ids, then.
+    }
+    try {
+      const published = await this.removeMap("The Panel", target, map, { chat: chatMapName(targetName, mapName), label: mapLabel(targetName, mapName, map) });
+      return { published: published === true };
+    } catch (error) {
+      return { error: message(error) };
+    }
+  }
+
+  /**
+   * Deletes a map in Edit's queue. When Edit has it open, everyone there waits in the editor lobby
+   * and Edit stops without saving first. Its folder goes and a published map stops being published
+   * (its versions stay in the map store), and it leaves every world's list in Select and Recent.
+   * Whether it was published; undefined when `expect` (the Edit asking) is gone by its turn.
+   */
+  private removeMap(by: string, target: string, map: string, names: { chat: string; label: string }, expect?: EditorSession): Promise<boolean | undefined> {
+    this.log(`${by}: delete ${names.label}`);
+    const run = this.queues.edit.then(async () => {
+      if (expect && this.work.edit !== expect) return undefined;
+      const opened = this.opened.get("edit");
+      const edit = opened && openKey(opened.request) === openKey({ to: "edit", target, map }) ? this.work.edit : undefined;
+      if (edit) {
         const players = edit.online();
-        await edit.say(`${by} is deleting ${chat}: everyone here goes to the editor lobby.`);
+        await edit.say(`${by} is deleting ${names.chat}: everyone here goes to the editor lobby.`);
         if (players.length > 0) {
           await this.sendHome(edit, players);
           await delay(LEAVE_MS);
@@ -627,21 +673,20 @@ export class EditorRunner {
         this.opened.delete("edit");
         this.homeChanged();
         await edit.forceStop();
-        // Its versions stay in the map store: npm run maps -- restore brings it back.
-        const { published } = this.store.remove(target, map);
-        if (published) this.store.exportPublished();
-        await this.selections.removeMap(target, map);
-        await forgetRecent(this.root, (entry) => entry.request.to !== "select" && entry.request.target === target && entry.request.map === map);
-        this.homeChanged();
-        let text = `Deleted ${chat}.`;
-        if (published) text += " It leaves the lobby at the network's next start.";
-        this.log(`Deleted ${label}.${text.slice(`Deleted ${chat}.`.length)}`);
-        void this.tell(by, text);
-      })
-      .catch((error: unknown) => {
-        this.log(`Deleting ${label} went wrong: ${message(error)}`);
-        void this.tell(by, `§cDeleting ${chat}§c went wrong: ${message(error)}`);
-      });
+      }
+      const { published } = this.store.remove(target, map);
+      if (published) this.store.exportPublished();
+      await this.selections.removeMap(target, map);
+      await forgetRecent(this.root, (entry) => entry.request.to !== "select" && entry.request.target === target && entry.request.map === map);
+      this.homeChanged();
+      this.log(`Deleted ${names.label}.${published ? " It leaves the lobby at the network's next start." : ""}`);
+      return published;
+    });
+    this.queues.edit = run.then(
+      () => undefined,
+      (error: unknown) => this.log(`Deleting ${names.label} went wrong: ${message(error)}`),
+    );
+    return run;
   }
 
   /**

@@ -147,6 +147,12 @@ export class MapChanges {
     }
   }
 
+  /** A deleted map's undo history goes with it, so a new map given its id starts afresh. */
+  forget(target: string, map: string): void {
+    const path = mapJsonPath(this.root, target, map);
+    if (path) this.maps.delete(path);
+  }
+
   /** The map's map.json path, or why there's none. */
   private path(target: string, map: string): string | { status: 400 | 404; error: string } {
     const path = mapJsonPath(this.root, target, map);

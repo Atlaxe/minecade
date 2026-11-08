@@ -24,6 +24,8 @@ export interface MapSettingsOptions {
   note(text: string): void;
   /** Port to another game: opens its dialog. */
   port(): void;
+  /** Delete map: opens its dialog. */
+  delete(): void;
 }
 
 /** A value typed for a key that holds `old`: the same kind of value, or undefined when it isn't one (game Edit's parseSetting). */
@@ -125,6 +127,7 @@ export class MapSettings {
         "div",
         { className: "buttons" },
         el("button", { className: "small", dataset: { tip: "Its blocks and picture become a new map of another game, with the markup you pick" }, onclick: () => this.options.port() }, "Port to another game"),
+        el("button", { className: "small danger", onclick: () => this.options.delete() }, "Delete map"),
       ),
     ];
     this.element.replaceChildren(...parts.filter((part): part is HTMLElement => part !== null));

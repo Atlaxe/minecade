@@ -126,6 +126,7 @@ const control = await serveControl({
   warm: (target, map) => runner.warm(target, map),
   edit: (target, map, edit, by) => runner.outerEdit(target, map, edit, by),
   step: (target, map, kind, by) => runner.outerStep(target, map, kind, by),
+  delete: (target, map) => runner.deleteFromPanel(target, map),
 }).catch((error: unknown) => {
   console.error(error instanceof Error ? error.message : String(error));
   process.exit(1);

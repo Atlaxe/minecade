@@ -481,6 +481,15 @@ The user asked for these together, to declutter the top bar:
   names it asks for (kill regions always), the build limit's sides it asks for, its settings by key
   when the value fits, the star box for the lobby. What it can't take is listed ("Stays behind:
   11 spawns"). `source` and the map's kits never go. The POST takes `carry`, the kinds checked.
+- **Delete** (2026-11-07, the user's ask): the Maps page's bar (red Delete) and the viewer's Map
+  settings (red Delete map) delete a map after a confirm (`delete.ts`, served as `/viewer/delete.js`).
+  POST `/api/viewer/delete` (`tools/viewer/delete-map.ts`): with the map editor running it asks the
+  editor (control port `POST /delete`, the runner's `deleteFromPanel`, sharing `removeMap` with
+  game Edit's Delete map, in Edit's queue so a warm-up of the map finishes, then closes); with none
+  the Panel removes it from the store itself (`MapStore.remove`, export when it was published,
+  Recent). Either way the Panel's own Select from above lists and its undo history for the map
+  forget it. The live lobby (`LOBBY_MAP`) is refused. An editor older than this answers 404, and
+  the Panel says to restart it.
 
 ## Passes (the implementation order: stop and report after each, commit and push)
 

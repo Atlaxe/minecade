@@ -10,6 +10,7 @@
 //   POST /open {request, bring?}   open a map in Edit or a world in Select (an OpenRequest); with
 //                            bring, map editors in the editor lobby (and joining it soon) go to the map
 //   POST /warm {target, map} the Panel's warm-up: open a map in Edit ahead of time, while nobody uses Edit
+//   POST /delete {target, map}   the Panel's Delete: delete a map (Edit closes first when it has it)
 //   POST /edit {target, map, edit, by}   the Panel's map viewer: a MapEdit to the map open in Edit
 //   POST /undo, /redo {target, map, by}  the same, undo and redo (game Edit's history)
 //   POST /stop               shut it down (Edit saves first)
@@ -59,6 +60,8 @@ export interface ControlHandlers {
   edit(target: string, map: string, edit: MapEdit, by: string): OuterAnswer;
   /** A map viewer's undo or redo, on the map open in Edit. */
   step(target: string, map: string, kind: "undo" | "redo", by: string): OuterAnswer;
+  /** The Panel's Delete: whether the map was published, or why it can't be deleted. */
+  delete(target: string, map: string): Promise<{ published: boolean } | { error: string }>;
 }
 
 /** Serves the control port. Fails when another editor already holds it. */
@@ -137,6 +140,11 @@ export function serveControl(handlers: ControlHandlers): Promise<Server> {
           if (!request) return reply(400, { error: "open needs a request: {to: 'edit', target, map} or {to: 'select', world}" });
           const problem = await handlers.open(request, body.bring === true && request.to === "edit");
           return problem ? reply(409, { error: problem }) : reply(202, { ok: true });
+        }
+        if (method === "POST" && path === "/delete") {
+          if (typeof body.target !== "string" || typeof body.map !== "string") return reply(400, { error: "expected {target, map}" });
+          const answer = await handlers.delete(body.target, body.map);
+          return "error" in answer ? reply(409, answer) : reply(200, { ok: true, published: answer.published });
         }
         if (method === "POST" && path === "/warm") {
           if (typeof body.target !== "string" || typeof body.map !== "string") return reply(400, { error: "expected {target, map}" });
@@ -231,6 +239,29 @@ export async function warmEditor(target: string, map: string): Promise<{ opening
     if (!response.ok) return { opening: false, why: ((await response.json().catch(() => ({}))) as { error?: string }).error ?? `HTTP ${response.status}` };
     return (await response.json()) as { opening: boolean; why?: string };
   } catch {
+    return undefined;
+  }
+}
+
+/**
+ * Asks the running editor to delete a map (closing Edit first when it has it): whether it was
+ * published, or the error; undefined when no editor answers.
+ */
+export async function deleteInEditor(target: string, map: string): Promise<{ published: boolean } | { error: string } | undefined> {
+  try {
+    const response = await fetch(`${ORIGIN}/delete`, {
+      method: "POST",
+      headers: { "x-minecade-panel": "1", "content-type": "application/json" },
+      body: JSON.stringify({ target, map }),
+      // Closing Edit first takes a few seconds, and a warm-up of the map ahead of it in Edit's queue longer.
+      signal: AbortSignal.timeout(60_000),
+    });
+    const answer = (await response.json().catch(() => ({}))) as { published?: boolean; error?: string };
+    if (response.status === 404) return { error: "the map editor running is older than the Panel's Delete: restart it (Restart in the Map editor section of the Servers page), then delete again" };
+    return response.ok ? { published: answer.published === true } : { error: answer.error ?? `HTTP ${response.status}` };
+  } catch (error) {
+    // Still at it after a minute: the editor has it, so the Panel mustn't delete it as well.
+    if (error instanceof Error && error.name === "TimeoutError") return { error: "the map editor is still deleting it: its log says when it's done" };
     return undefined;
   }
 }
