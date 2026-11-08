@@ -26,7 +26,7 @@
           "v.kick = 0;"
         ],
         "pre_animation": [
-          "v.aim = math.lerp(v.aim, q.cooldown_time_remaining('minecade_aim') > 0, math.min(q.delta_time * 12, 1));",
+          "v.aim = math.lerp(v.aim, q.is_item_name_any('slot.weapon.offhand', 0, 'minecade:aim_marker'), math.min(q.delta_time * 12, 1));",
           "v.kick_t = 1 - math.clamp(q.cooldown_time_remaining('slot.weapon.mainhand') / 2, 0, 1);",
           "v.kick = (v.kick_t < 0.02 ? v.kick_t / 0.02 : math.pow((1 - v.kick_t) / 0.98, 2)) * (1 - v.aim * 0.4);"
         ],

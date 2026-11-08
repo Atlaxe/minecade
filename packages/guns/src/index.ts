@@ -14,5 +14,6 @@ export {
   type GunsOptions,
   type HitInfo,
   type Shot,
+  type TriggerReport,
 } from "./guns.ts";
 export { Arsenal, LETHAL, type ArsenalCause, type ArsenalHost, type ArsenalOptions, type HurtResult } from "./arsenal.ts";

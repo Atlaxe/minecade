@@ -47,17 +47,21 @@ function begin(settings: Record<string, string> = {}) {
   return { a, b, c, d, baseline, from, game };
 }
 
-/**
- * `shooter` holds `item` and looks level at `target`'s head. The first time, a right click raises
- * the gun (aiming, its shots stray far less: from the hip a pistol's can miss at 20 blocks).
- */
-function aim(shooter: FakePlayer, target: FakePlayer, item: string, raise = true): void {
+/** `shooter` holds `item` and looks level at `target`'s head. */
+function aim(shooter: FakePlayer, target: FakePlayer, item: string): void {
   shooter.inventory.slots[0] = new ItemStack(item, 1);
   shooter.selectedSlotIndex = 0;
   const [dx, dz] = [target.location.x - shooter.location.x, target.location.z - shooter.location.z];
   const across = Math.hypot(dx, dz);
   shooter.viewDirection = { x: dx / across, y: 0, z: dz / across };
-  if (raise) world.afterEvents.itemUse.emit({ source: shooter, itemStack: shooter.inventory.slots[0]! });
+}
+
+/**
+ * `target` steps up to 3 blocks in front of `shooter`: the Pistol doesn't aim, and from the hip its
+ * shots stray enough to miss at 20 blocks, but not to leave the head this close.
+ */
+function closeIn(target: FakePlayer, shooter: FakePlayer): void {
+  target.location = { x: shooter.location.x + 3, y: shooter.location.y, z: shooter.location.z };
 }
 
 /** Red takes the round in play: C and D go down to A and B. */
@@ -158,10 +162,12 @@ describe("a match of Gunfight", () => {
     await playToEnd(game, harness.root, baseline, async () => {
       // Not during the countdown.
       await ticks(10);
-      aim(a, c, arsenalItem("handgun"), false);
+      closeIn(c, a);
+      aim(a, c, arsenalItem("handgun"));
       click(a);
       expect(c.health.currentValue).toBe(20);
       await ticks(COUNTDOWN_TICKS);
+      closeIn(c, a);
       aim(a, c, arsenalItem("handgun"));
       const { everyTicks, damage } = ARSENAL_GUN_DEFS.handgun;
       click(a);
@@ -177,7 +183,8 @@ describe("a match of Gunfight", () => {
       await ticks(1);
       expect(game.roster.get("C")?.state).toBe("out");
       // Teammates are spared.
-      aim(a, b, arsenalItem("handgun"), false);
+      closeIn(b, a);
+      aim(a, b, arsenalItem("handgun"));
       await ticks(everyTicks);
       click(a);
       expect(b.health.currentValue).toBe(20);

@@ -1,8 +1,9 @@
 // Guns any game can hand out (the shared guns pack, packs/guns). Left click fires: a tap gun one
 // shot a click (a burst gun a few shots a click), a held gun again and again while the button stays
-// down (Bedrock repeats the swing). Right click raises the gun to aim and lowers it again (a toggle:
-// Bedrock sends no left click while right click is held): the camera zooms, the shots stray less,
-// and the held model comes up to the middle of the screen. Each shot shades the gun's hotbar slot
+// down (Bedrock repeats the swing, in bursts: a window bridges them). A gun that aims (one with an
+// aimFov: the Sniper Rifle, Rail Gun and RPG) is raised by a right click and lowered by the next (a
+// toggle: Bedrock sends no left click while right click is held): the camera zooms, the shots stray
+// less, and the held model comes up (the aim marker in the off hand). Each shot shades the gun's hotbar slot
 // for its fire rate (the item's own cooldown), kicks the held model back until the next shot, and
 // turns the shooter's view up and a little aside (defs.ts's RecoilDef). A thrown item goes with
 // either click: a grenade lands, sits for its fuse and bursts; a Molotov bursts where it hits; a
@@ -19,6 +20,9 @@
 import {
   EntityComponentTypes,
   EntitySwingSource,
+  EquipmentSlot,
+  ItemLockMode,
+  ItemStack,
   MolangVariableMap,
   system,
   world,
@@ -26,7 +30,6 @@ import {
   type Direction,
   type Dimension,
   type Entity,
-  type ItemStack,
   type Player,
   type Vector3,
 } from "@minecraft/server";
@@ -45,6 +48,7 @@ import {
   PAINT_SPLASH,
   PARTICLES,
   ROCKET,
+  canAim,
   damageAt,
   dyeIndex,
   gunCooldown,
@@ -112,7 +116,19 @@ export interface GunsOptions {
   onFire?(player: Player, shot: Shot): void;
   /** A magazine changed (a shot, a reload starting or done), for the game's HUD (ammoText). */
   onAmmo?(player: Player, ammo: AmmoState): void;
+  /**
+   * A held gun's trigger let go (its window ran out): the shots it fired, and the ticks between the
+   * swings Bedrock reported while the button was down (how a held attack button arrives).
+   */
+  onTrigger?(player: Player, report: TriggerReport): void;
   random?: () => number;
+}
+
+/** One hold of a held gun's trigger: what it fired, and how far apart the swings that kept it going came. */
+export interface TriggerReport {
+  gun: string;
+  shots: number;
+  swingGaps: number[];
 }
 
 /** A ball, rocket or thrown item in the air: its shot, until when it may fly, and how many of its shot's hits one target may take. */
@@ -170,8 +186,6 @@ const THROW_LIFT = 0.15;
 const LAND_OFF_FACE = 0.2;
 /** The zoom's ease in and out, in seconds. */
 const AIM_EASE = 0.15;
-/** Ticks between restarts of the aim marker's cooldown (it lasts AIM_MARKER.ticks), which keeps the held model up. */
-const AIM_REFRESH_TICKS = 2;
 /** The fewest ticks between two turns of a player's view by recoil (each is a teleport). */
 const VIEW_KICK_GAP_TICKS = 4;
 /**
@@ -207,7 +221,7 @@ export class Guns {
   /** When each player (lowercase name) may fire or throw again. */
   private readonly readyAt = new Map<string, number>();
   /** Players holding the attack button on a held gun: until when the last swing keeps it firing. */
-  private readonly triggers = new Map<string, { player: Player; gun: GunDef; until: number }>();
+  private readonly triggers = new Map<string, { player: Player; gun: GunDef; until: number; lastSwing: number; swingGaps: number[]; shots: number }>();
   /** Burst guns part way through a burst, by player. */
   private readonly bursts = new Map<string, Burst>();
   /** Players aiming a gun (right click toggles it). */
@@ -328,14 +342,43 @@ export class Guns {
     if (throwable) return void this.tryThrow(player, throwable, typeId);
     const gun = this.gunOf(typeId);
     if (!gun) return;
-    if (gun.fire === "hold") this.triggers.set(player.name.toLowerCase(), { player, gun, until: system.currentTick + gun.triggerTicks });
-    this.tryFire(player, gun, typeId);
+    if (gun.fire === "hold") this.holdTrigger(player, gun);
+    if (this.tryFire(player, gun, typeId) && gun.fire === "hold") this.countShot(player);
   }
 
-  /** A right click with `typeId` in hand: a gun's raises or lowers it, once a press. */
+  /** A swing with a held gun: its trigger stays down for its window, and the gap since the last swing is kept. */
+  private holdTrigger(player: Player, gun: GunDef): void {
+    const key = player.name.toLowerCase();
+    const now = system.currentTick;
+    const trigger = this.triggers.get(key);
+    if (trigger && trigger.gun === gun) {
+      trigger.swingGaps.push(now - trigger.lastSwing);
+      trigger.lastSwing = now;
+      trigger.until = now + gun.triggerTicks;
+      return;
+    }
+    if (trigger) this.letGo(key);
+    this.triggers.set(key, { player, gun, until: now + gun.triggerTicks, lastSwing: now, swingGaps: [], shots: 0 });
+  }
+
+  private countShot(player: Player): void {
+    const trigger = this.triggers.get(player.name.toLowerCase());
+    if (trigger) trigger.shots++;
+  }
+
+  /** A held gun's trigger lets go: the game hears what it fired and how its swings came. */
+  private letGo(key: string): void {
+    const trigger = this.triggers.get(key);
+    if (!trigger) return;
+    this.triggers.delete(key);
+    const report = { gun: trigger.gun.id, shots: trigger.shots, swingGaps: trigger.swingGaps };
+    if (trigger.player.isValid) this.notify(() => this.options.onTrigger?.(trigger.player, report));
+  }
+
+  /** A right click with `typeId` in hand: a gun that aims is raised or lowered, once a press. */
   private rightClick(player: Player, typeId: string): void {
     const gun = this.gunOf(typeId);
-    if (!gun) return;
+    if (!gun || !canAim(gun)) return;
     const key = player.name.toLowerCase();
     const now = system.currentTick;
     const last = this.lastPress.get(key);
@@ -345,17 +388,20 @@ export class Guns {
     else this.aim(player, gun);
   }
 
+  /** Raises the gun: the camera zooms, and the aim marker in the off hand tells the held model. */
   private aim(player: Player, gun: GunDef): void {
     this.aiming.set(player.name.toLowerCase(), { player, gun });
     this.setFov(player, gun.aimFov);
-    startCooldown(player, AIM_MARKER.category, AIM_MARKER.ticks);
+    setAimMarker(player, true);
   }
 
   private stopAiming(key: string): void {
     const aim = this.aiming.get(key);
     if (!aim) return;
     this.aiming.delete(key);
-    if (aim.player.isValid) this.setFov(aim.player, undefined);
+    if (!aim.player.isValid) return;
+    this.setFov(aim.player, undefined);
+    setAimMarker(aim.player, false);
   }
 
   /** Zooms a player's camera to `fov`, or back to their own with none. */
@@ -407,7 +453,7 @@ export class Guns {
     const head = player.getHeadLocation();
     const dimension = world.getDimension("overworld");
     const aiming = this.aiming.has(player.name.toLowerCase());
-    const spread = aiming ? gun.aimSpreadDegrees : gun.hipSpreadDegrees;
+    const spread = aiming ? (gun.aimSpreadDegrees ?? gun.hipSpreadDegrees) : gun.hipSpreadDegrees;
     const kind = gun.shot ?? "ball";
     for (const direction of coneDirections(player.getViewDirection(), gun.pellets, spread, this.random)) {
       if (kind === "bullet" || kind === "beam") {
@@ -693,10 +739,10 @@ export class Guns {
     for (const [key, trigger] of [...this.triggers]) {
       const held = trigger.player.isValid ? heldItem(trigger.player) : undefined;
       if (trigger.until < now || !held || this.gunOf(held.typeId) !== trigger.gun) {
-        this.triggers.delete(key);
+        this.letGo(key);
         continue;
       }
-      this.tryFire(trigger.player, trigger.gun, held.typeId);
+      if (this.tryFire(trigger.player, trigger.gun, held.typeId)) trigger.shots++;
     }
     // A burst's later shots, while the gun is still in hand, the player may fire and it has rounds.
     for (const [key, burst] of [...this.bursts]) {
@@ -713,11 +759,10 @@ export class Guns {
       if (burst.left <= 0) this.bursts.delete(key);
     }
     for (const key of [...this.kicks.keys()]) this.turnView(key, now);
-    // Switching away from the gun lowers it; while it's up, the aim marker keeps the model up.
+    // Switching away from the gun lowers it.
     for (const [key, { player, gun }] of [...this.aiming]) {
       const held = player.isValid ? heldItem(player) : undefined;
       if (!held || this.gunOf(held.typeId) !== gun) this.stopAiming(key);
-      else if (now % AIM_REFRESH_TICKS === 0) startCooldown(player, AIM_MARKER.category, AIM_MARKER.ticks);
     }
     for (const [key, byGun] of this.magazines) {
       for (const [kind, magazine] of byGun) {
@@ -839,9 +884,32 @@ function spawnParticle(dimension: Dimension, id: string, location: Vector3, vari
 }
 
 /**
+ * Puts the aim marker in a player's off hand (`on`), or takes it out, for the held model's aim pose
+ * (it reads the off hand natively). Locked in its slot so it can't be moved or dropped. Something
+ * else of the player's in the off hand is left alone (the model then stays lowered).
+ */
+function setAimMarker(player: Player, on: boolean): void {
+  try {
+    const equipment = player.getComponent(EntityComponentTypes.Equippable);
+    if (!equipment) return;
+    const current = equipment.getEquipment(EquipmentSlot.Offhand);
+    if (on) {
+      if (current && current.typeId !== AIM_MARKER.item) return;
+      const marker = new ItemStack(AIM_MARKER.item);
+      marker.lockMode = ItemLockMode.slot;
+      equipment.setEquipment(EquipmentSlot.Offhand, marker);
+    } else if (current?.typeId === AIM_MARKER.item) {
+      equipment.setEquipment(EquipmentSlot.Offhand, undefined);
+    }
+  } catch (error) {
+    log.warn(`guns: could not ${on ? "set" : "clear"} ${player.name}'s aim marker: ${describeError(error)}`);
+  }
+}
+
+/**
  * Starts a player's cooldown of `category` for `ticks`: a gun's own (its fire rate, shaded over its
- * hotbar slot, which the held model's kick runs off) or the aim marker's. The player's own call: an
- * item's cooldown component throws on startCooldown on @minecraft/server 2.11.0, for every item
+ * hotbar slot, which the held model's kick runs off). The player's own call: an item's cooldown
+ * component throws on startCooldown on @minecraft/server 2.11.0, for every item
  * (docs/spike-results.md, "Recoil").
  */
 function startCooldown(player: Player, category: string, ticks: number): void {

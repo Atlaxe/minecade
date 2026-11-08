@@ -40,7 +40,7 @@ import {
   type GunDef,
   type ThrowableDef,
 } from "./defs.ts";
-import { Guns, ammoText, heldItem, type HitInfo, type Shot } from "./guns.ts";
+import { Guns, ammoText, heldItem, type HitInfo, type Shot, type TriggerReport } from "./guns.ts";
 
 /** What hurt a player, for the game's kill feed. */
 export type ArsenalCause = "gun" | "explosion" | "fire" | "knife";
@@ -73,6 +73,8 @@ export interface ArsenalOptions {
   arrows?: number;
   /** A magazine changed (a shot, a reload starting or done): the game can show ammoLine at once. */
   onAmmo?(player: Player): void;
+  /** A held gun's trigger let go: Guns' onTrigger. */
+  onTrigger?(player: Player, report: TriggerReport): void;
 }
 
 /** Damage past anyone's health: what vanillaDamage gives a one-hit kill. */
@@ -139,6 +141,7 @@ export class Arsenal {
       onHitEntity: (shot, entity, location, info) => this.struck(shot, entity, location, info),
       onBurst: (shot, location) => this.burst(shot, location),
       onAmmo: options.onAmmo && ((player) => options.onAmmo!(player)),
+      onTrigger: options.onTrigger,
       random: options.random,
     });
     const stimpack = arsenalItem(STIMPACK);

@@ -5,7 +5,7 @@
 // held model's kick runs off on the client) and the player's facing (the view kick). Then it checks
 // the teleport the view kick is made of on a walking and a jumping player, and setRotation.
 //   scriptevent rc:run        runs it and prints "RC|" lines, then "RC|{"id":"done"}"
-import { EntityComponentTypes, GameMode, ItemComponentTypes, ItemStack, system, world, type Player, type Vector3 } from "@minecraft/server";
+import { EntityComponentTypes, EquipmentSlot, GameMode, ItemComponentTypes, ItemStack, system, world, type Player, type Vector3 } from "@minecraft/server";
 // @ts-expect-error The gametest module's types aren't installed; the spike only calls these.
 import { spawnSimulatedPlayer } from "@minecraft/server-gametest";
 import { ARSENAL_GUN_DEFS, GUNS, arsenalItem, gunCooldown, gunItem, type GunDef } from "../../packages/guns/src/defs.ts";
@@ -135,6 +135,22 @@ async function firing(shooter: Simulated): Promise<void> {
       warnings: [...warnings],
     });
   }
+  // Aiming a gun that aims puts the aim marker in the off hand, and lowering it takes it out.
+  const sniper = ALL_GUNS.find(({ def }) => def.id === "sniper_rifle")!;
+  guns.forget(shooter.name);
+  inventory?.setItem(0, new ItemStack(sniper.item));
+  shooter.selectedSlotIndex = 0;
+  await wait(10);
+  const offHand = () => shooter.getComponent(EntityComponentTypes.Equippable)?.getEquipment(EquipmentSlot.Offhand)?.typeId;
+  warnings.length = 0;
+  const press = (guns as unknown as { rightClick(player: Player, typeId: string): void }).rightClick.bind(guns);
+  press(shooter, sniper.item);
+  await wait(1);
+  const raised = { aiming: guns.isAiming(shooter.name), offHand: offHand() };
+  await wait(10);
+  press(shooter, sniper.item);
+  await wait(1);
+  out({ id: "aim", raised, lowered: { aiming: guns.isAiming(shooter.name), offHand: offHand() ?? null }, warnings: [...warnings] });
   scope.dispose();
   console.warn = warn;
 }

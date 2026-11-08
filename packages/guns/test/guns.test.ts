@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Scope } from "@minecade/minigame-core";
 import { AIM_MARKER, AIM_RECOIL, ARSENAL_GUN_DEFS, GRENADE, GUNS, PAINTBALL, PRIMED_GRENADE, THROWN_GRENADE, arsenalItem, dyeIndex, gunCooldown, gunItem, type GunDef } from "../src/defs.ts";
 import { Guns, ammoText, coneDirections, type AmmoState, type GunsOptions, type Shot } from "../src/guns.ts";
-import { Direction, EntitySwingSource, ItemStack, system, world, type FakeMob, type FakePlayer } from "../../minigame-core/test/fake-mc-server.ts";
+import { Direction, EntitySwingSource, EquipmentSlot, ItemLockMode, ItemStack, system, world, type FakeMob, type FakePlayer } from "../../minigame-core/test/fake-mc-server.ts";
 
 beforeEach(() => {
   system.reset();
@@ -46,7 +46,10 @@ const click = (player: FakePlayer, swingSource: string = EntitySwingSource.Attac
   world.afterEvents.playerSwingStart.emit({ player, heldItemStack: player.inventory.slots[player.selectedSlotIndex], swingSource });
 /** A right click at the sky. */
 const use = (player: FakePlayer) => world.afterEvents.itemUse.emit({ source: player, itemStack: player.inventory.slots[0]! });
-const markers = (player: FakePlayer) => player.itemCooldowns.filter(({ category }) => category === AIM_MARKER.category).length;
+/** What the player has in their off hand: the aim marker while they aim. */
+const offHand = (player: FakePlayer) => player.equipment.get(EquipmentSlot.Offhand);
+/** A Paintball Pistol that aims (none of Paintball's do now), to test aiming with balls whose spread shows. */
+const AIMING_PISTOL: GunDef = { ...GUNS.pistol, aimFov: 60, aimSpreadDegrees: 0.5 };
 const angleOf = (velocity: { x: number; y: number; z: number }) => (Math.acos(velocity.z / Math.hypot(velocity.x, velocity.y, velocity.z)) * 180) / Math.PI;
 
 describe("Guns", () => {
@@ -69,8 +72,8 @@ describe("Guns", () => {
     expect(balls()).toHaveLength(2);
   });
 
-  it("kicks the shooter's view up by the gun's recoil each shot, where they stand, keeping their speed, and less while aiming", () => {
-    const { balls } = setup();
+  it("kicks the shooter's view up by the gun's recoil each shot, where they stand, and less while aiming", () => {
+    const { balls } = setup({ guns: [AIMING_PISTOL] });
     const player = holding("Ann", gunItem("pistol", "red"));
     player.location = { x: 3, y: 65, z: -2 };
     player.rotation = { x: 10, y: 45 };
@@ -183,39 +186,86 @@ describe("Guns", () => {
     expect(balls()).toHaveLength(fired + 1);
   });
 
-  it("raises a gun to aim with a right click and lowers it with the next: the camera zooms, shots stray less, and the held model stays up", () => {
+  it("raises a gun that aims with a right click and lowers it with the next: the camera zooms, shots stray less, and the aim marker sits in the off hand", () => {
     // random 1: every ball strays the gun's whole spread.
-    const { guns, balls } = setup({ random: () => 1 });
+    const { guns, balls } = setup({ guns: [AIMING_PISTOL], random: () => 1 });
     const player = holding("Ann", gunItem("pistol", "red"));
     click(player);
-    expect(angleOf(balls()[0].projectile.shot!)).toBeCloseTo(GUNS.pistol.hipSpreadDegrees, 3);
+    expect(angleOf(balls()[0].projectile.shot!)).toBeCloseTo(AIMING_PISTOL.hipSpreadDegrees, 3);
     use(player);
     expect(guns.isAiming("Ann")).toBe(true);
-    expect(player.camera.fovs).toEqual([GUNS.pistol.aimFov]);
-    expect(markers(player)).toBe(1);
+    expect(player.camera.fovs).toEqual([AIMING_PISTOL.aimFov]);
+    // The held model reads the off hand: the marker, locked where it is.
+    expect(offHand(player)?.typeId).toBe(AIM_MARKER.item);
+    expect(offHand(player)?.lockMode).toBe(ItemLockMode.slot);
     // Holding the button repeats the use: still one press.
     system.advanceTicks(2);
     use(player);
     expect(guns.isAiming("Ann")).toBe(true);
-    // While it's up, the aim marker keeps being restarted, so the held model stays up.
-    system.advanceTicks(6);
-    expect(markers(player)).toBeGreaterThan(2);
+    system.advanceTicks(AIMING_PISTOL.everyTicks);
     click(player);
-    expect(angleOf(balls()[1].projectile.shot!)).toBeCloseTo(GUNS.pistol.aimSpreadDegrees, 3);
+    expect(angleOf(balls()[1].projectile.shot!)).toBeCloseTo(AIMING_PISTOL.aimSpreadDegrees!, 3);
     system.advanceTicks(10);
     use(player);
     expect(guns.isAiming("Ann")).toBe(false);
-    expect(player.camera.fovs).toEqual([GUNS.pistol.aimFov, undefined]);
-    const lowered = markers(player);
-    system.advanceTicks(10);
-    expect(markers(player)).toBe(lowered);
+    expect(player.camera.fovs).toEqual([AIMING_PISTOL.aimFov, undefined]);
+    expect(offHand(player)).toBeUndefined();
     // A right click at a block raises it too (its first event; held, it repeats), and switching away lowers it.
+    system.advanceTicks(10);
     world.afterEvents.playerInteractWithBlock.emit({ player, itemStack: player.inventory.slots[0], isFirstEvent: true });
     expect(guns.isAiming("Ann")).toBe(true);
     player.selectedSlotIndex = 1;
     system.advanceTicks(1);
     expect(guns.isAiming("Ann")).toBe(false);
     expect(player.camera.fovs).toHaveLength(4);
+    expect(offHand(player)).toBeUndefined();
+  });
+
+  it("leaves something of the player's own in the off hand where it is when they aim", () => {
+    const { guns } = setup({ guns: [AIMING_PISTOL] });
+    const player = holding("Ann", gunItem("pistol", "red"));
+    const shield = new ItemStack("minecraft:shield");
+    player.equipment.set(EquipmentSlot.Offhand, shield);
+    use(player);
+    expect(guns.isAiming("Ann")).toBe(true);
+    expect(offHand(player)).toBe(shield);
+    system.advanceTicks(10);
+    use(player);
+    expect(offHand(player)).toBe(shield);
+  });
+
+  it("doesn't aim a gun without an aimFov: a right click does nothing (Paintball's and most of the arsenal's)", () => {
+    const { guns, balls } = setup({ random: () => 1 });
+    const player = holding("Ann", gunItem("pistol", "red"));
+    expect(GUNS.pistol).not.toHaveProperty("aimFov");
+    use(player);
+    expect(guns.isAiming("Ann")).toBe(false);
+    expect(player.camera.fovs).toEqual([]);
+    expect(offHand(player)).toBeUndefined();
+    click(player);
+    expect(angleOf(balls()[0].projectile.shot!)).toBeCloseTo(GUNS.pistol.hipSpreadDegrees, 3);
+    // Only the Sniper Rifle, Rail Gun and RPG aim, each zooming within what Bedrock allows (a custom
+    // field of view from 30 to 110: camera.setFov throws outside it, seen on BDS).
+    const aiming = Object.values(ARSENAL_GUN_DEFS as Record<string, GunDef>).filter((gun) => gun.aimFov !== undefined);
+    expect(aiming.map((gun) => gun.id)).toEqual(["sniper_rifle", "rail_gun", "rpg"]);
+    for (const gun of aiming) {
+      expect(gun.aimFov, gun.id).toBeGreaterThanOrEqual(30);
+      expect(gun.aimFov, gun.id).toBeLessThanOrEqual(110);
+    }
+  });
+
+  it("tells the game when a held gun's trigger lets go: the shots, and how far apart the swings came", () => {
+    const reports: unknown[] = [];
+    const { balls } = setup({ onTrigger: (_player, report) => reports.push(report) });
+    const player = holding("Ann", gunItem("rifle", "blue"));
+    click(player);
+    system.advanceTicks(3);
+    click(player);
+    system.advanceTicks(5);
+    click(player);
+    expect(reports).toEqual([]);
+    system.advanceTicks(GUNS.rifle.triggerTicks + 1);
+    expect(reports).toEqual([{ gun: "rifle", shots: balls().length, swingGaps: [3, 5] }]);
   });
 
   it("fires nothing when the game says no", () => {

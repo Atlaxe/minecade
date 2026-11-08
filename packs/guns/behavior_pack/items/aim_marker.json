@@ -13,10 +13,10 @@
           "default": "minecade_gun_marker"
         }
       },
-      "minecraft:cooldown": {
-        "category": "minecade_aim",
-        "duration": 0.3
-      }
+      "minecraft:allow_off_hand": {
+        "value": true
+      },
+      "minecraft:max_stack_size": 1
     }
   }
 }

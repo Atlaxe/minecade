@@ -47,6 +47,7 @@ import {
   AIM_MARKER,
   AIM_RECOIL,
   arsenalItem,
+  canAim,
   arsenalModelBlock,
   gunCooldown,
   gunDef,
@@ -343,22 +344,22 @@ const KICK_RISE_MOST = 0.3;
  * - scale: its size in first person.
  * - hip: the grip's top this far from the fist (right, up, ahead), the barrel turned in toward the
  *   crosshair and tipped up, so the stock drops out of view.
- * - aim (right click held): centered, its top `under` the crosshair (a fraction of half the
+ * - aim (a gun that aims, raised by a right click): centered, its top `under` the crosshair (a fraction of half the
  *   screen's height), the grip's top `depth` pixels ahead of the eye.
  * - third: third person, the grip's top this far from the fist (right, up, ahead), level.
  */
 const HOLD: Record<ModelId, Hold> = {
-  pistol: { scale: 1.35, hip: { fromFist: [-1, 6, 4], turnIn: 4, tipUp: 10 }, aim: { under: 0.07, depth: 15 }, third: [0, 4.5, 1] },
-  rifle: { scale: 1.1, hip: { fromFist: [-1, 5, 4], turnIn: 4, tipUp: 10 }, aim: { under: 0.07, depth: 19 }, third: [0, 4.5, 1] },
-  shotgun: { scale: 1.15, hip: { fromFist: [-1, 5.2, 4], turnIn: 4, tipUp: 10 }, aim: { under: 0.07, depth: 18 }, third: [0, 4.5, 1] },
+  pistol: { scale: 1.35, hip: { fromFist: [-1, 6, 4], turnIn: 4, tipUp: 10 }, third: [0, 4.5, 1] },
+  rifle: { scale: 1.1, hip: { fromFist: [-1, 5, 4], turnIn: 4, tipUp: 10 }, third: [0, 4.5, 1] },
+  shotgun: { scale: 1.15, hip: { fromFist: [-1, 5.2, 4], turnIn: 4, tipUp: 10 }, third: [0, 4.5, 1] },
   grenade: { scale: 1.3, hip: { fromFist: [0, 3.2, 2], turnIn: 20, tipUp: 10 }, third: [0, 1.5, 1] },
   // The arsenal's first guesses, from the paint guns' (the user moves them in Blockbench).
-  handgun: { scale: 1.35, hip: { fromFist: [-1, 6, 4], turnIn: 4, tipUp: 10 }, aim: { under: 0.07, depth: 15 }, third: [0, 4.5, 1] },
-  smg: { scale: 1.2, hip: { fromFist: [-1, 5.5, 4], turnIn: 4, tipUp: 10 }, aim: { under: 0.07, depth: 17 }, third: [0, 4.5, 1] },
-  assault_rifle: { scale: 1.1, hip: { fromFist: [-1, 5, 4], turnIn: 4, tipUp: 10 }, aim: { under: 0.07, depth: 19 }, third: [0, 4.5, 1] },
-  burst_rifle: { scale: 1.1, hip: { fromFist: [-1, 5, 4], turnIn: 4, tipUp: 10 }, aim: { under: 0.07, depth: 19 }, third: [0, 4.5, 1] },
-  pump_shotgun: { scale: 1.1, hip: { fromFist: [-1, 5.2, 4], turnIn: 4, tipUp: 10 }, aim: { under: 0.07, depth: 18 }, third: [0, 4.5, 1] },
-  double_barrel: { scale: 1.15, hip: { fromFist: [-1, 5.2, 4], turnIn: 4, tipUp: 10 }, aim: { under: 0.07, depth: 18 }, third: [0, 4.5, 1] },
+  handgun: { scale: 1.35, hip: { fromFist: [-1, 6, 4], turnIn: 4, tipUp: 10 }, third: [0, 4.5, 1] },
+  smg: { scale: 1.2, hip: { fromFist: [-1, 5.5, 4], turnIn: 4, tipUp: 10 }, third: [0, 4.5, 1] },
+  assault_rifle: { scale: 1.1, hip: { fromFist: [-1, 5, 4], turnIn: 4, tipUp: 10 }, third: [0, 4.5, 1] },
+  burst_rifle: { scale: 1.1, hip: { fromFist: [-1, 5, 4], turnIn: 4, tipUp: 10 }, third: [0, 4.5, 1] },
+  pump_shotgun: { scale: 1.1, hip: { fromFist: [-1, 5.2, 4], turnIn: 4, tipUp: 10 }, third: [0, 4.5, 1] },
+  double_barrel: { scale: 1.15, hip: { fromFist: [-1, 5.2, 4], turnIn: 4, tipUp: 10 }, third: [0, 4.5, 1] },
   // Aiming the sniper hides it: the zoom is the scope.
   sniper_rifle: { scale: 0.95, hip: { fromFist: [-1, 5, 4], turnIn: 4, tipUp: 10 }, aim: { under: 0.07, depth: 22, hidden: true }, third: [0, 4.5, 1] },
   rail_gun: { scale: 1, hip: { fromFist: [-1, 5, 4], turnIn: 4, tipUp: 10 }, aim: { under: 0.07, depth: 20 }, third: [0, 4.5, 1] },
@@ -407,6 +408,8 @@ const ROCKET_TEXTURE = `${GUN_TEXTURES}/arsenal/rocket`;
 const PUFF_TEXTURE = `${GUN_TEXTURES}/puff`;
 const itemFile = (identifier: string) => identifier.replace("minecade:", "");
 const isGun = (kind: ModelId): boolean => isGunModel(kind);
+/** A gun that aims (defs.ts's canAim): it has an aim pose, raised by a right click. */
+const aims = (kind: ModelId): boolean => isGun(kind) && canAim(gunDef(kind)!);
 
 // ---- Textures --------------------------------------------------------------------------------
 
@@ -642,24 +645,21 @@ function splashTexture(): Buffer {
 // turned as vanilla's animations turn it. In first person the camera looks along +z; in third
 // person the player faces -z with their right hand on +x.
 //
-// Where a bound model's origin is: in third person, at the hand (the player's rightItem locator,
-// (1, -7, 1) from the shoulder), as vanilla's crossbow shows (its bound rightitem bone draws its
-// picture a few pixels from the origin and sits in the hand); the first guesses put it 24 pixels
-// lower, and every gun was seen held over the player's head (docs/spike-results.md, "Holding in
-// third person"). First person keeps the 24 pixels it was first solved with: its hip and aim
-// poses have been set by eye in game since.
+// Where a bound model's origin is: at the hand (the player's rightItem locator, (1, -7, 1) from
+// the shoulder), as vanilla's crossbow shows (its bound rightitem bone draws its picture a few
+// pixels from the origin, in both views). The first guesses put it 24 pixels lower, and the guns
+// were seen over the player's head in third person and in the middle of the screen in first
+// person (docs/spike-results.md, "Holding in third person").
 
-/** First person: from the shoulder to a bound model's origin, before the arm turns. */
-const FIRST_BIND: Vec3 = [1, -31, -1];
-/** Third person: the hand, the player geometry's rightItem locator, from the shoulder. */
-const THIRD_BIND: Vec3 = [1, -7, 1];
+/** From the shoulder to a bound model's origin, before the arm turns: the hand, the player geometry's rightItem locator. */
+const HAND_BIND: Vec3 = [1, -7, 1];
 /** The middle of the fist, the arm's end. */
 const FIST: Vec3 = [6, 12.5, 0];
 const SHOULDER: Vec3 = [5, 22, 0];
 /** First person: vanilla's animation.player.first_person.empty_hand turns the arm (95, -45, 115) and moves it (13.5, -10, 12). */
-const FIRST_PERSON = { arm: times(times(rotZ(115), rotY(45)), rotX(-95)), shoulder: add(SHOULDER, [-13.5, -10, 12]), bind: FIRST_BIND };
+const FIRST_PERSON = { arm: times(times(rotZ(115), rotY(45)), rotX(-95)), shoulder: add(SHOULDER, [-13.5, -10, 12]) };
 /** Third person: vanilla's animation.player.holding raises the arm 18 degrees. */
-const THIRD_PERSON = { arm: rotX(18), shoulder: SHOULDER, bind: THIRD_BIND };
+const THIRD_PERSON = { arm: rotX(18), shoulder: SHOULDER };
 /** Blockbench's first-person camera: at the eyes, looking along +z, a 70.25 degree field of view on a 16:9 screen. */
 const EYE: Vec3 = [0, 27.41, 0];
 const VIEW_SLOPE = Math.tan(radians(70.25 / 2));
@@ -671,10 +671,10 @@ interface Transform {
 }
 
 /** The bone rotation and position (a Bedrock file's, pivot at the origin) that put the model at `place` (a turn, then a point) on `chain`'s arm. */
-function solve(turn: Matrix, point: Vec3, chain: { arm: Matrix; shoulder: Vec3; bind: Vec3 }): Transform {
+function solve(turn: Matrix, point: Vec3, chain: { arm: Matrix; shoulder: Vec3 }): Transform {
   const back = transpose(chain.arm);
   const bone = times(back, turn);
-  const offset = minus(apply(back, minus(point, chain.shoulder)), chain.bind);
+  const offset = minus(apply(back, minus(point, chain.shoulder)), HAND_BIND);
   // bone = rotZ(c) * rotY(b) * rotX(a)
   const b = Math.asin(Math.max(-1, Math.min(1, -bone[2][0])));
   const a = Math.atan2(bone[2][1], bone[2][2]);
@@ -777,6 +777,11 @@ function geometries(): unknown {
       bones: [{ name: "model", pivot: [0, 0, 0], cubes: iconCubes(boxes) }],
     });
   }
+  // The aim marker in a hand: nothing.
+  all.push({
+    description: { identifier: BLANK_GEOMETRY, texture_width: 16, texture_height: 16 },
+    bones: [{ name: "blank", binding: "q.item_slot_to_bone_name(c.item_slot)", pivot: [0, 0, 0] }],
+  });
   // The rocket in flight: turned along its flight around its middle.
   const { uvs, height } = uvLayout(ROCKET_BOXES);
   const middle = middleOf(ROCKET_BOXES);
@@ -809,7 +814,7 @@ function middleOf(boxes: Box[]): Vec3 {
 /** The hold animations: plain poses of the "gun" bone, blended by the attachable (HOLD_FILE). */
 const holdAnimation = (kind: ModelId, pose: HoldPose) => `animation.minecade.gun_${kind}.${pose}`;
 type HoldPose = "first_person_hip" | "first_person_aim" | "third_person";
-const holdPoses = (kind: ModelId): HoldPose[] => (isGun(kind) ? ["first_person_hip", "first_person_aim", "third_person"] : ["first_person_hip", "third_person"]);
+const holdPoses = (kind: ModelId): HoldPose[] => (aims(kind) ? ["first_person_hip", "first_person_aim", "third_person"] : ["first_person_hip", "third_person"]);
 const recoilAnimation = (kind: ModelId) => `animation.minecade.gun_${kind}.recoil`;
 const ROCKET_ANIMATION = "animation.minecade.rocket.fly";
 /** Every model the held animations cover, Paintball's first. */
@@ -919,21 +924,31 @@ export function kickHeight(elapsed: number, seconds: number): number {
 }
 
 /**
- * The attachable's script. v.aim eases toward 1 while the aim marker's cooldown runs (the script
- * keeps restarting it while the player aims), and the hip and aim poses blend by it. v.kick follows
- * kickHeight over the gun's own cooldown, read off the main hand (the item this model is), less
- * while aiming: the guns' first pass read it the same way and it was seen kicking in game.
+ * The attachable's script. v.kick follows kickHeight over the gun's own cooldown, read off the main
+ * hand (the item this model is): the guns' first pass read it the same way and it was seen kicking
+ * in game. A gun that aims also has v.aim, easing toward 1 while the aim marker is in the off hand
+ * (q.is_item_name_any reads the player's own equipment, nothing the script has to send), which
+ * blends the hip pose into the aim pose and takes some of the kick away.
  */
 function attachableScripts(kind: ModelId): Record<string, unknown> {
   if (!isGun(kind)) return { animate: [{ first_person_hip: "c.is_first_person" }, { third_person: "!c.is_first_person" }] };
   const { seconds } = recoilOf(kind);
   const rise = kickRise(seconds);
+  const kickT = `v.kick_t = 1 - math.clamp(q.cooldown_time_remaining('slot.weapon.mainhand') / ${seconds}, 0, 1);`;
+  const shape = `(v.kick_t < ${rise} ? v.kick_t / ${rise} : math.pow((1 - v.kick_t) / ${fixed(1 - rise)}, 2))`;
+  if (!aims(kind)) {
+    return {
+      initialize: ["v.kick = 0;"],
+      pre_animation: [kickT, `v.kick = ${shape};`],
+      animate: [{ first_person_hip: "c.is_first_person" }, { third_person: "!c.is_first_person" }, "recoil"],
+    };
+  }
   return {
     initialize: ["v.aim = 0;", "v.kick = 0;"],
     pre_animation: [
-      `v.aim = math.lerp(v.aim, q.cooldown_time_remaining('${AIM_MARKER.category}') > 0, math.min(q.delta_time * 12, 1));`,
-      `v.kick_t = 1 - math.clamp(q.cooldown_time_remaining('slot.weapon.mainhand') / ${seconds}, 0, 1);`,
-      `v.kick = (v.kick_t < ${rise} ? v.kick_t / ${rise} : math.pow((1 - v.kick_t) / ${fixed(1 - rise)}, 2)) * (1 - v.aim * ${fixed(1 - AIM_RECOIL)});`,
+      `v.aim = math.lerp(v.aim, q.is_item_name_any('slot.weapon.offhand', 0, '${AIM_MARKER.item}'), math.min(q.delta_time * 12, 1));`,
+      kickT,
+      `v.kick = ${shape} * (1 - v.aim * ${fixed(1 - AIM_RECOIL)});`,
     ],
     animate: [
       { first_person_hip: "c.is_first_person * (1 - v.aim)" },
@@ -1010,21 +1025,49 @@ function arsenalItemFile(model: ArsenalModel): unknown {
   return { format_version: ITEM_FORMAT, "minecraft:item": { description: { identifier: arsenalItem(model), menu_category: { category: "none" } }, components } };
 }
 
-/** A hidden item whose cooldown category the held models read: the aim marker. */
-function markerItem(identifier: string, category: string, seconds: number): unknown {
+/**
+ * The aim marker (AIM_MARKER): an item Guns puts in the off hand while a player aims, which the held
+ * models read. Its icon and its look in a hand (blankAttachable) are blank, so the off hand shows nothing.
+ */
+function aimMarkerItem(): unknown {
   return {
     format_version: ITEM_FORMAT,
     "minecraft:item": {
-      description: { identifier, menu_category: { category: "none" } },
+      description: { identifier: AIM_MARKER.item, menu_category: { category: "none" } },
       components: {
         "minecraft:icon": { textures: { default: MARKER_ICON } },
-        "minecraft:cooldown": { category, duration: seconds },
+        "minecraft:allow_off_hand": { value: true },
+        "minecraft:max_stack_size": 1,
       },
     },
   };
 }
 
 const MARKER_ICON = "minecade_gun_marker";
+/** A fully clear texture: the aim marker's icon, and what its blank model is drawn with. */
+const BLANK_TEXTURE = `${GUN_TEXTURES}/blank`;
+/** A geometry with no boxes: the aim marker in a hand draws nothing. */
+const BLANK_GEOMETRY = "geometry.minecade.blank";
+
+/** The aim marker held (in the off hand): a model with nothing to draw. */
+function blankAttachable(): unknown {
+  return {
+    format_version: "1.10.0",
+    "minecraft:attachable": {
+      description: {
+        identifier: AIM_MARKER.item,
+        materials: { default: "entity_alphatest" },
+        textures: { default: BLANK_TEXTURE },
+        geometry: { default: BLANK_GEOMETRY },
+        render_controllers: ["controller.render.item_default"],
+      },
+    },
+  };
+}
+
+function blankTexture(): Buffer {
+  return encodePng(blankImage(16, 16));
+}
 
 /** The hidden block an item shows as its icon (iconGeometry). */
 function modelBlock(kind: PickupKind, dye: Dye): unknown {
@@ -1488,11 +1531,11 @@ export function gunsPackFiles(): Record<string, string | Buffer> {
     "resource_pack/animations/guns.animation.json": json(animations()),
     "resource_pack/render_controllers/guns.render_controllers.json": json(renderControllers()),
     "resource_pack/particles/paint_splash.json": json(splashParticle()),
-    // The hidden markers' icon (never seen).
+    // The aim marker's icon: blank, as the off hand's slot shows it while a player aims.
     "resource_pack/textures/item_texture.json": json({
       resource_pack_name: "minecade_guns",
       texture_name: "atlas.items",
-      texture_data: { [MARKER_ICON]: { textures: `${GUN_TEXTURES}/splash` } },
+      texture_data: { [MARKER_ICON]: { textures: BLANK_TEXTURE } },
     }),
     // The model blocks' textures: the models' own.
     "resource_pack/textures/terrain_texture.json": json({
@@ -1508,7 +1551,9 @@ export function gunsPackFiles(): Record<string, string | Buffer> {
     [`resource_pack/${GUN_TEXTURES}/splash.png`]: splashTexture(),
     ...Object.fromEntries(Object.entries(clientEntities()).map(([path, value]) => [path, json(value)])),
   };
-  files[`behavior_pack/items/${itemFile(AIM_MARKER.item)}.json`] = json(markerItem(AIM_MARKER.item, AIM_MARKER.category, AIM_MARKER.ticks / 20));
+  files[`behavior_pack/items/${itemFile(AIM_MARKER.item)}.json`] = json(aimMarkerItem());
+  files[`resource_pack/attachables/${itemFile(AIM_MARKER.item)}.json`] = json(blankAttachable());
+  files[`resource_pack/${BLANK_TEXTURE}.png`] = blankTexture();
   for (const kind of PICKUP_KINDS) {
     const layers = textureLayers(MODELS[kind]);
     const samples = iconSamples(MODELS[kind], ICON_VIEW);

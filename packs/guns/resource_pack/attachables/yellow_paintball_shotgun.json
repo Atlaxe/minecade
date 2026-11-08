@@ -16,26 +16,20 @@
       },
       "animations": {
         "first_person_hip": "animation.minecade.gun_shotgun.first_person_hip",
-        "first_person_aim": "animation.minecade.gun_shotgun.first_person_aim",
         "third_person": "animation.minecade.gun_shotgun.third_person",
         "recoil": "animation.minecade.gun_shotgun.recoil"
       },
       "scripts": {
         "initialize": [
-          "v.aim = 0;",
           "v.kick = 0;"
         ],
         "pre_animation": [
-          "v.aim = math.lerp(v.aim, q.cooldown_time_remaining('minecade_aim') > 0, math.min(q.delta_time * 12, 1));",
           "v.kick_t = 1 - math.clamp(q.cooldown_time_remaining('slot.weapon.mainhand') / 1, 0, 1);",
-          "v.kick = (v.kick_t < 0.04 ? v.kick_t / 0.04 : math.pow((1 - v.kick_t) / 0.96, 2)) * (1 - v.aim * 0.4);"
+          "v.kick = (v.kick_t < 0.04 ? v.kick_t / 0.04 : math.pow((1 - v.kick_t) / 0.96, 2));"
         ],
         "animate": [
           {
-            "first_person_hip": "c.is_first_person * (1 - v.aim)"
-          },
-          {
-            "first_person_aim": "c.is_first_person * v.aim"
+            "first_person_hip": "c.is_first_person"
           },
           {
             "third_person": "!c.is_first_person"

@@ -58,17 +58,22 @@ export interface GunDef {
   /** Ticks between shots. */
   everyTicks: number;
   /**
-   * A held gun keeps firing this many ticks after the last swing: Bedrock repeats the swing while
-   * the attack button is down, so a held button is a stream of swings.
+   * A held gun keeps firing this many ticks after the last swing. Bedrock reports a held attack
+   * button only as repeated swings, and in the air they come in bursts (seen in game), so the
+   * window bridges the gaps between them (Guns' onTrigger reports how far apart they came).
    */
   triggerTicks: number;
   /** Balls a shot fires, spread in a cone. */
   pellets: number;
-  /** The cone's half angle, aiming and from the hip: how far a ball can stray from where the player looks. */
-  aimSpreadDegrees: number;
+  /** The cone's half angle from the hip, and (a gun that aims) while aiming: how far a shot can stray from where the player looks. */
   hipSpreadDegrees: number;
-  /** The camera's field of view while aiming. */
-  aimFov: number;
+  aimSpreadDegrees?: number;
+  /**
+   * The camera's field of view while aiming. Left out, the gun doesn't aim and a right click does
+   * nothing. Only the Sniper Rifle, Rail Gun and RPG aim for now: Bedrock sends a script no left
+   * click while right click is held, so aiming is a right click toggle (docs/guns.md, "Aiming").
+   */
+  aimFov?: number;
   /** Blocks a tick the ball or rocket leaves the gun at (a snowball is about 1.5); a bullet's streak flies at it. */
   speed: number;
   /** Ticks before a ball or rocket that hit nothing is taken away (its range). Bullets and beams use `range`. */
@@ -151,9 +156,7 @@ export const GUNS = {
     everyTicks: 6,
     triggerTicks: 0,
     pellets: 1,
-    aimSpreadDegrees: 0.5,
     hipSpreadDegrees: 2.5,
-    aimFov: 60,
     speed: 3,
     lifeTicks: 40,
     maxHitsPerShot: 1,
@@ -165,11 +168,9 @@ export const GUNS = {
     name: "Paintball Rifle",
     fire: "hold",
     everyTicks: 4,
-    triggerTicks: 8,
+    triggerTicks: 10,
     pellets: 1,
-    aimSpreadDegrees: 2,
     hipSpreadDegrees: 5,
-    aimFov: 50,
     speed: 3.5,
     lifeTicks: 40,
     maxHitsPerShot: 1,
@@ -183,9 +184,7 @@ export const GUNS = {
     everyTicks: 20,
     triggerTicks: 0,
     pellets: 6,
-    aimSpreadDegrees: 9,
     hipSpreadDegrees: 12,
-    aimFov: 60,
     speed: 2.2,
     lifeTicks: 10,
     maxHitsPerShot: 2,
@@ -309,10 +308,16 @@ export function gunCooldown(kind: string): string {
 }
 
 /**
- * The hidden item whose cooldown says a player is aiming: the script restarts it every 2 ticks while
- * they aim, and the held model, which reads its category, stays up until it runs out (`ticks`).
+ * The hidden item that says a player is aiming: Guns puts it in their off hand while they aim, and
+ * the held model reads the off hand (q.is_item_name_any) to show the aim pose. It looks like
+ * nothing, in a hand or in the off hand's slot.
  */
-export const AIM_MARKER = { item: "minecade:aim_marker", category: "minecade_aim", ticks: 6 } as const;
+export const AIM_MARKER = { item: "minecade:aim_marker" } as const;
+
+/** Whether a gun aims (right click raises it): only those with an aimFov. */
+export function canAim(gun: Pick<GunDef, "aimFov">): boolean {
+  return gun.aimFov !== undefined;
+}
 
 // ---- The arsenal: real guns, grenades, a knife and the stimpack -------------------------------
 //
@@ -376,9 +381,7 @@ export const ARSENAL_GUN_DEFS = {
     everyTicks: 5,
     triggerTicks: 0,
     pellets: 1,
-    aimSpreadDegrees: 0.3,
     hipSpreadDegrees: 2,
-    aimFov: 60,
     speed: 8,
     lifeTicks: 0,
     range: 60,
@@ -394,11 +397,9 @@ export const ARSENAL_GUN_DEFS = {
     fire: "hold",
     shot: "bullet",
     everyTicks: 2,
-    triggerTicks: 6,
+    triggerTicks: 10,
     pellets: 1,
-    aimSpreadDegrees: 2,
     hipSpreadDegrees: 3.5,
-    aimFov: 60,
     speed: 8,
     lifeTicks: 0,
     range: 45,
@@ -414,11 +415,9 @@ export const ARSENAL_GUN_DEFS = {
     fire: "hold",
     shot: "bullet",
     everyTicks: 3,
-    triggerTicks: 7,
+    triggerTicks: 10,
     pellets: 1,
-    aimSpreadDegrees: 0.8,
     hipSpreadDegrees: 3.5,
-    aimFov: 50,
     speed: 8,
     lifeTicks: 0,
     range: 90,
@@ -436,9 +435,7 @@ export const ARSENAL_GUN_DEFS = {
     everyTicks: 12,
     triggerTicks: 0,
     pellets: 1,
-    aimSpreadDegrees: 0.6,
     hipSpreadDegrees: 3,
-    aimFov: 50,
     speed: 8,
     lifeTicks: 0,
     range: 90,
@@ -458,9 +455,7 @@ export const ARSENAL_GUN_DEFS = {
     everyTicks: 18,
     triggerTicks: 0,
     pellets: 6,
-    aimSpreadDegrees: 4,
     hipSpreadDegrees: 6,
-    aimFov: 65,
     speed: 8,
     lifeTicks: 0,
     range: 18,
@@ -478,9 +473,7 @@ export const ARSENAL_GUN_DEFS = {
     everyTicks: 6,
     triggerTicks: 0,
     pellets: 8,
-    aimSpreadDegrees: 6,
     hipSpreadDegrees: 8,
-    aimFov: 65,
     speed: 8,
     lifeTicks: 0,
     range: 14,
@@ -500,7 +493,8 @@ export const ARSENAL_GUN_DEFS = {
     pellets: 1,
     aimSpreadDegrees: 0,
     hipSpreadDegrees: 10,
-    aimFov: 20,
+    // Bedrock allows a custom field of view from 30 to 110: the strongest zoom there is.
+    aimFov: 30,
     speed: 12,
     lifeTicks: 0,
     range: 200,

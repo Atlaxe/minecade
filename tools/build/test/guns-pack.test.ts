@@ -105,18 +105,33 @@ describe("the guns pack's files", () => {
     expect(grenade["minecraft:max_stack_size"]).toBeGreaterThan(1);
   });
 
-  it("times the recoil off the gun's own cooldown in the main hand, and the aim off a hidden marker's category", () => {
-    for (const kind of GUN_KINDS) {
-      const scripts = json(`resource_pack/attachables/${file(gunItem(kind))}.json`)["minecraft:attachable"].description.scripts;
+  it("times the recoil off the gun's own cooldown in the main hand; only the guns that aim read the aim marker in the off hand", () => {
+    const aiming = ["sniper_rifle", "rail_gun", "rpg"];
+    const all = [...GUN_KINDS.map((kind) => ({ id: kind as string, item: gunItem(kind) })), ...ARSENAL_GUNS.map((gun) => ({ id: gun as string, item: arsenalItem(gun) }))];
+    for (const { id, item } of all) {
+      const scripts = json(`resource_pack/attachables/${file(item)}.json`)["minecraft:attachable"].description.scripts;
       const script = scripts.pre_animation.join("\n");
-      expect(script).toContain("q.cooldown_time_remaining('slot.weapon.mainhand')");
-      expect(script).toContain(`q.cooldown_time_remaining('${AIM_MARKER.category}')`);
-      expect(scripts.animate).toContain("recoil");
+      expect(script, id).toContain("q.cooldown_time_remaining('slot.weapon.mainhand')");
+      expect(scripts.animate, id).toContain("recoil");
+      // No cooldown is read by category: the client reads only what it has itself.
+      expect(script, id).not.toMatch(/cooldown_time_remaining\('minecade/);
+      const names = scripts.animate.flatMap((entry: unknown) => (typeof entry === "string" ? [entry] : Object.keys(entry as object)));
+      if (aiming.includes(id)) {
+        expect(script, id).toContain(`q.is_item_name_any('slot.weapon.offhand', 0, '${AIM_MARKER.item}')`);
+        expect(names, id).toContain("first_person_aim");
+      } else {
+        expect(script, id).not.toContain("v.aim");
+        expect(names, id).not.toContain("first_person_aim");
+      }
     }
-    expect(json(`behavior_pack/items/${file(AIM_MARKER.item)}.json`)["minecraft:item"].components["minecraft:cooldown"]).toEqual({
-      category: AIM_MARKER.category,
-      duration: AIM_MARKER.ticks / 20,
-    });
+    // The aim marker: allowed in the off hand, with a blank icon and a model with nothing to draw.
+    const marker = json(`behavior_pack/items/${file(AIM_MARKER.item)}.json`)["minecraft:item"];
+    expect(marker.components["minecraft:allow_off_hand"]).toEqual({ value: true });
+    expect(marker.components["minecraft:cooldown"]).toBeUndefined();
+    const attachable = json(`resource_pack/attachables/${file(AIM_MARKER.item)}.json`)["minecraft:attachable"].description;
+    const blank = json("resource_pack/models/entity/guns.geo.json")["minecraft:geometry"].find((geo: Json) => geo.description.identifier === attachable.geometry.default);
+    expect(blank.bones.flatMap((bone: Json) => bone.cubes ?? [])).toEqual([]);
+    expect(files[`resource_pack/${attachable.textures.default}.png`]).toBeDefined();
     // No hidden item per gun: the kick reads the gun itself.
     expect(Object.keys(files).filter((path) => path.endsWith("_shot.json"))).toEqual([]);
   });
@@ -135,8 +150,8 @@ describe("the guns pack's files", () => {
       expect(json(`behavior_pack/items/${file(item)}.json`)["minecraft:item"].components["minecraft:cooldown"], def.id).toEqual({ category: gunCooldown(def.id), duration: seconds });
       const script = json(`resource_pack/attachables/${file(item)}.json`)["minecraft:attachable"].description.scripts.pre_animation.join("\n");
       expect(script, def.id).toContain(`q.cooldown_time_remaining('slot.weapon.mainhand') / ${seconds}`);
-      // Less while aiming.
-      expect(script, def.id).toContain(`(1 - v.aim * ${Number((1 - AIM_RECOIL).toFixed(2))})`);
+      // Less while aiming, for a gun that aims.
+      if (def.aimFov !== undefined) expect(script, def.id).toContain(`(1 - v.aim * ${Number((1 - AIM_RECOIL).toFixed(2))})`);
       expect(recoils[`animation.minecade.gun_${def.id}.recoil`].bones.body, def.id).toEqual({
         position: [0, 0, `v.kick * ${recoil.back}`],
         rotation: [`v.kick * ${-recoil.lift}`, 0, 0],

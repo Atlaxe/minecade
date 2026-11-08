@@ -5,9 +5,11 @@
 // Painter's guns, in the team's paint, fire balls that splash in it and hurt nobody, and a row of
 // the guns' pickups floats in front of the first player. The Gunner's and Grenadier's arsenal fires
 // and blasts for real but hurts nobody either: each hit says in chat what it would have taken, the
-// held gun's ammo shows top right, and a second row floats the arsenal's models.
+// held gun's ammo shows top right, and a second row floats the arsenal's models. Letting go of a held
+// gun (the Paintball Rifle, SMG, Assault Rifle) says in chat what it fired and how far apart Bedrock
+// reported the held button's swings, to tune their triggerTicks.
 import { world, type Player, type Vector3 } from "@minecraft/server";
-import { ARSENAL_MODELS, ARSENAL_PICKUP, Arsenal, GUN_PICKUP, Guns, KIND_PROPERTY, MODEL_PROPERTY, PICKUP_KINDS, paintSplash } from "@minecade/guns";
+import { ARSENAL_MODELS, ARSENAL_PICKUP, Arsenal, GUN_PICKUP, Guns, KIND_PROPERTY, MODEL_PROPERTY, PICKUP_KINDS, paintSplash, type TriggerReport } from "@minecade/guns";
 import { Minigame, nameOf, say, type GameContext } from "@minecade/minigame-core";
 import { runGameServer } from "@minecade/minigame-core/game";
 import pack from "../../resource_pack/manifest.json";
@@ -27,6 +29,7 @@ class Probe extends Minigame<typeof config> {
       onHitBlock: (shot, _hit, location) => paintSplash(location, shot.color),
       onHitEntity: (shot, _entity, location) => paintSplash(location, shot.color),
       onBurst: (shot, location) => paintSplash(location, shot.color, 3),
+      onTrigger: (player, report) => this.reportTrigger(player, report),
     });
     const alive = (name: string) => this.roster.get(name)?.state === "alive";
     this.arsenal = new Arsenal(
@@ -41,8 +44,22 @@ class Probe extends Minigame<typeof config> {
           return "hurt";
         },
       },
-      { onAmmo: (player) => this.refreshHud(player.name) },
+      { onAmmo: (player) => this.refreshHud(player.name), onTrigger: (player, report) => this.reportTrigger(player, report) },
     );
+  }
+
+  /** "smg held: 14 shots, swings 4 to 9 ticks apart (mostly 4)", or one click's. */
+  private reportTrigger(player: Player, { gun, shots, swingGaps }: TriggerReport): void {
+    let swings = "one swing";
+    if (swingGaps.length > 0) {
+      const counts = new Map<number, number>();
+      for (const gap of swingGaps) counts.set(gap, (counts.get(gap) ?? 0) + 1);
+      const most = [...counts].sort((a, b) => b[1] - a[1])[0][0];
+      swings = `${swingGaps.length + 1} swings, ${Math.min(...swingGaps)} to ${Math.max(...swingGaps)} ticks apart (mostly ${most})`;
+    }
+    const line = `${gun} held: ${shots} shots, ${swings}`;
+    console.warn(`[probe] ${player.name} ${line}`);
+    player.sendMessage(say.minor(line));
   }
 
   /** The held arsenal gun's ammo, top right beside the clock. */

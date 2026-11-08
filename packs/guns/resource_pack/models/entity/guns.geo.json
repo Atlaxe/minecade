@@ -18885,6 +18885,24 @@
     },
     {
       "description": {
+        "identifier": "geometry.minecade.blank",
+        "texture_width": 16,
+        "texture_height": 16
+      },
+      "bones": [
+        {
+          "name": "blank",
+          "binding": "q.item_slot_to_bone_name(c.item_slot)",
+          "pivot": [
+            0,
+            0,
+            0
+          ]
+        }
+      ]
+    },
+    {
+      "description": {
         "identifier": "geometry.minecade.rocket",
         "texture_width": 64,
         "texture_height": 16,
