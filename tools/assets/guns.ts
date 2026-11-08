@@ -635,23 +635,31 @@ function splashTexture(): Buffer {
 
 // ---- Where a held model sits ------------------------------------------------------------------
 //
-// A held model's root bone is bound to the hand (q.item_slot_to_bone_name), and Bedrock draws a
-// bound model 24 pixels lower than its coordinates say. The math here works in Blockbench's space
-// (a Bedrock file's x mirrored; rotations (-x, -y, z), turned z after y after x), using the setup
-// Blockbench's attachable preview draws (js/formats/bedrock/attachable_preview.js) and the vanilla
-// arm poses: a bound model's point p lands at SHOULDER + ARM * (p + BIND_OFFSET), the arm turned
-// as vanilla's animations turn it. In first person the camera looks along +z; in third person the
-// player faces -z with their right hand on +x.
+// A held model's root bone is bound to the hand (q.item_slot_to_bone_name). The math here works in
+// Blockbench's space (a Bedrock file's x mirrored; rotations (-x, -y, z), turned z after y after
+// x), using the setup Blockbench's attachable preview draws (js/formats/bedrock/attachable_preview.js)
+// and the vanilla arm poses: a bound model's point p lands at SHOULDER + ARM * (p + bind), the arm
+// turned as vanilla's animations turn it. In first person the camera looks along +z; in third
+// person the player faces -z with their right hand on +x.
+//
+// Where a bound model's origin is: in third person, at the hand (the player's rightItem locator,
+// (1, -7, 1) from the shoulder), as vanilla's crossbow shows (its bound rightitem bone draws its
+// picture a few pixels from the origin and sits in the hand); the first guesses put it 24 pixels
+// lower, and every gun was seen held over the player's head (docs/spike-results.md, "Holding in
+// third person"). First person keeps the 24 pixels it was first solved with: its hip and aim
+// poses have been set by eye in game since.
 
-/** From the shoulder to a bound model's origin, before the arm turns: the 24-pixel drop and the hand's place on the arm. */
-const BIND_OFFSET: Vec3 = [1, -31, -1];
+/** First person: from the shoulder to a bound model's origin, before the arm turns. */
+const FIRST_BIND: Vec3 = [1, -31, -1];
+/** Third person: the hand, the player geometry's rightItem locator, from the shoulder. */
+const THIRD_BIND: Vec3 = [1, -7, 1];
 /** The middle of the fist, the arm's end. */
 const FIST: Vec3 = [6, 12.5, 0];
 const SHOULDER: Vec3 = [5, 22, 0];
 /** First person: vanilla's animation.player.first_person.empty_hand turns the arm (95, -45, 115) and moves it (13.5, -10, 12). */
-const FIRST_PERSON = { arm: times(times(rotZ(115), rotY(45)), rotX(-95)), shoulder: add(SHOULDER, [-13.5, -10, 12]) };
+const FIRST_PERSON = { arm: times(times(rotZ(115), rotY(45)), rotX(-95)), shoulder: add(SHOULDER, [-13.5, -10, 12]), bind: FIRST_BIND };
 /** Third person: vanilla's animation.player.holding raises the arm 18 degrees. */
-const THIRD_PERSON = { arm: rotX(18), shoulder: SHOULDER };
+const THIRD_PERSON = { arm: rotX(18), shoulder: SHOULDER, bind: THIRD_BIND };
 /** Blockbench's first-person camera: at the eyes, looking along +z, a 70.25 degree field of view on a 16:9 screen. */
 const EYE: Vec3 = [0, 27.41, 0];
 const VIEW_SLOPE = Math.tan(radians(70.25 / 2));
@@ -663,10 +671,10 @@ interface Transform {
 }
 
 /** The bone rotation and position (a Bedrock file's, pivot at the origin) that put the model at `place` (a turn, then a point) on `chain`'s arm. */
-function solve(turn: Matrix, point: Vec3, chain: { arm: Matrix; shoulder: Vec3 }): Transform {
+function solve(turn: Matrix, point: Vec3, chain: { arm: Matrix; shoulder: Vec3; bind: Vec3 }): Transform {
   const back = transpose(chain.arm);
   const bone = times(back, turn);
-  const offset = minus(apply(back, minus(point, chain.shoulder)), BIND_OFFSET);
+  const offset = minus(apply(back, minus(point, chain.shoulder)), chain.bind);
   // bone = rotZ(c) * rotY(b) * rotX(a)
   const b = Math.asin(Math.max(-1, Math.min(1, -bone[2][0])));
   const a = Math.atan2(bone[2][1], bone[2][2]);

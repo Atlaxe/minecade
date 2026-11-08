@@ -184,7 +184,7 @@ log was checked on a server; the rest waits on a look in game.
 
 | Check | Finding |
 |---|---|
-| Where a bound model sits | Bedrock draws a model bound to the hand (`q.item_slot_to_bone_name`) 24 pixels lower than its coordinates say: the Bedrock Wiki's attachable guide moves `rightItem` by (-6, -9, -1) to match it, and Mcblend's docs give the same 1.5 block drop. The first pass ignored it, so the guns sat a block and a half off the hand. |
+| Where a bound model sits | Bedrock draws a model bound to the hand (`q.item_slot_to_bone_name`) 24 pixels lower than its coordinates say: the Bedrock Wiki's attachable guide moves `rightItem` by (-6, -9, -1) to match it, and Mcblend's docs give the same 1.5 block drop. The first pass ignored it, so the guns sat a block and a half off the hand. **2026-11-08: not in third person** (see "Holding in third person" below). |
 | First person | Blockbench's attachable preview (`js/formats/bedrock/attachable_preview.js`) draws first person with the camera at (0, 27.41, 0) looking along +z, a 70.25 degree field of view, and the arm in vanilla's `animation.player.first_person.empty_hand` pose (turned (95, -45, 115), moved (13.5, -10, 12)). A small simulator built on that drew the vanilla trident where the game draws it (low right, leaning up and left), then placed the guns. |
 | Vanilla arm poses | `animation.player.holding` raises a held item's arm 18 degrees in third person. The first-person swing (`first_person_attack_rotation_item`) and the third-person one only play while no item is in use (`variable.item_use_normalized <= 0`), so a shot fired while aiming doesn't swing. |
 | Left click | `world.afterEvents.playerSwingStart` is in @minecraft/server 2.11.0 stable, with `swingSource` (Attack, Mine, Build, Interact, UseItem, DropItem, ThrowItem, Event, None). **Seen in game (2026-11-04): no left click arrives while right click is held** (an item in use), so aiming is a right click toggle. Still unseen: which source a click at the sky reports, and whether a held button repeats the swing. |
@@ -223,6 +223,13 @@ the held model's kick is drawn by the client.
 | `keepVelocity` on a player | `player.teleport(at, { keepVelocity: true })` throws "keepVelocity is not supported for player teleportation." The server's other refusals for players: `lookAt`, `remove` and `setVelocity`; nothing for `setRotation`. |
 | A teleport's cost | A teleport without it stops a SimulatedPlayer: a walk ends where it was teleported, and a jump teleported 2 ticks in hangs there, then falls (its upward speed is gone). |
 | Turning a SimulatedPlayer | A teleport with a rotation sets its yaw exactly (the view kick's sideways part, as expected per gun), but a SimulatedPlayer resets its own pitch every tick, after a teleport or a `setRotation` alike, so the kick's upward part can't be seen on one. A real player's pitch follows a teleport (the lobby faces players that way). Whether `setRotation` turns a real player's view is unknown (MCPE-179128 says it does nothing). |
+
+## Holding in third person (client 1.26.6x, seen in game 2026-11-08)
+
+| Check | Finding |
+|---|---|
+| Where a bound model sits in third person | At the hand. Every gun's third person pose, solved with the 24-pixel drop, showed the gun above the player's head (a Probe match, in F5), swinging in over the head as the arm moved: its origin sat above the shoulder joint. Vanilla's crossbow binds its `rightitem` bone the same way (`q.item_slot_to_bone_name(c.item_slot)`), draws its picture at (0, -5, -3) from the origin and moves it only (0.5, -0.5, -1.5) in third person, and sits in the hand. The poses now solve third person from the rightItem locator, (1, -7, 1) from the shoulder, 24 pixels higher than before; first person keeps the drop (its poses were set by eye in game). |
+| Blockbench's Item 3rd Person view | Showed the old poses where the game did (through the head), so it can be used to set the third person poses. |
 
 ## Map viewer (pass V.1, BDS 1.26.60.6, client packs up to vanilla_1.26.62, checked 2026-11-05)
 

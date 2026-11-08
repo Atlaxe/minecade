@@ -246,6 +246,11 @@ name is still in the file.
 When a new model comes, the generator adds the solver's first guess for each of its poses at the end
 of the file, in the file's own layout and line endings, and changes nothing already there.
 
+In third person a gun's origin (the top of its grip) is at the hand, so a third person pose's
+position stays within a few pixels of zero. The first guesses used to lift every gun 24 pixels,
+which put it over the player's head; they were lowered on 2026-11-08 (docs/spike-results.md,
+"Holding in third person").
+
 ### Recoil
 
 Each gun's recoil is its `recoil` in `defs.ts` (`GUNS` and `ARSENAL_GUN_DEFS`), four numbers:
