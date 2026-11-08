@@ -228,10 +228,16 @@ previews attachables):
 2. Drag in its texture, such as `packs/guns/resource_pack/textures/minecade/guns/pistol/red.png`
    or `.../guns/arsenal/handgun.png`.
 3. In the Animate tab, import `guns_hold.animation.json` (the Animations panel's import button).
-4. Set the Bedrock animation mode on the toolbar: Attachable First Person for the hip and aim poses,
-   Attachable Third Person for `third_person`.
-5. Pick the animation, select the `gun` bone, and move, turn or scale it at time 0.
-6. Save the animation file only. The generator owns `guns.geo.json` and `guns.animation.json`.
+4. In the Animate tab's toolbar, set the **Bedrock Animation Mode** dropdown to match the pose:
+   **Item 1st Person** for `first_person_hip` and `first_person_aim` (the camera's view, with a
+   crosshair), **Item 3rd Person** for `third_person` (a reference player holding the gun). A pose
+   looks wrong in the other mode.
+5. In the Animations panel, click the pose's animation (`animation.minecade.gun_<model>.<pose>`) so
+   it's the one playing. In the Outliner, select the `gun` bone, and move, turn or scale it in the
+   view (or type the numbers in its keyframe at time 0).
+6. Save the animation file only: right-click the animation in the Animations panel and pick Save.
+   Not File > Save Model, which also overwrites `guns.geo.json` (the generator owns it, and
+   `guns.animation.json`).
 
 Keep to the `gun` bone (the `body` bone carries the recoil) and keep the animation names.
 Blockbench's preview is approximate, so check in game. `npm run check` confirms every pose the guns
