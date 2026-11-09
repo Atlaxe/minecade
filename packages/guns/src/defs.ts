@@ -95,22 +95,22 @@ export interface GunDef {
   damage?: DamageDef;
   /** A tap fires `shots` shots, `gapTicks` apart (a burst gun); `everyTicks` counts from the first. */
   burst?: { shots: number; gapTicks: number };
-  /** How each shot kicks the held model and the shooter's view; none when left out. */
+  /** How each shot kicks the held model and shakes the shooter's camera; none when left out. */
   recoil?: RecoilDef;
 }
 
 /**
  * A shot's kick. The held model goes back `back` pixels with its muzzle tipped up `lift` degrees,
  * then eases home over the gun's own cooldown (its fire rate, `everyTicks`), so it settles just as
- * the gun can fire again; a burst kicks once. The shooter's view turns up `pitch` degrees and
- * sideways by up to `yaw` either way, and stays there: the player pulls it back down. Aiming takes
- * AIM_RECOIL of both.
+ * the gun can fire again; a burst kicks once. The shooter's camera shakes (`/camerashake`,
+ * rotational) at `shake` intensity (the command takes 0 to 4; the guns use 0.07 for the SMG to 0.45
+ * for the Sniper Rifle) until the gun can fire again (at least 0.1 and at most 0.3 seconds); the aim
+ * stays where it was. Aiming takes AIM_RECOIL of the shake.
  */
 export interface RecoilDef {
   back: number;
   lift: number;
-  pitch: number;
-  yaw: number;
+  shake: number;
 }
 
 /** How much of a gun's kick is left while aiming: a raised gun is steadier. */
@@ -165,7 +165,7 @@ export const GUNS = {
     lifeTicks: 40,
     maxHitsPerShot: 1,
     sound: { id: "mob.llama.spit", pitch: 1.3, volume: 0.8 },
-    recoil: { back: 2, lift: 12, pitch: 1.5, yaw: 0.5 },
+    recoil: { back: 2, lift: 12, shake: 0.12 },
   },
   rifle: {
     id: "rifle",
@@ -179,7 +179,7 @@ export const GUNS = {
     lifeTicks: 40,
     maxHitsPerShot: 1,
     sound: { id: "mob.llama.spit", pitch: 1.6, volume: 0.7 },
-    recoil: { back: 1.2, lift: 5, pitch: 0.8, yaw: 0.5 },
+    recoil: { back: 1.2, lift: 5, shake: 0.08 },
   },
   shotgun: {
     id: "shotgun",
@@ -193,7 +193,7 @@ export const GUNS = {
     lifeTicks: 10,
     maxHitsPerShot: 2,
     sound: { id: "mob.llama.spit", pitch: 0.7, volume: 1 },
-    recoil: { back: 3, lift: 20, pitch: 4, yaw: 1.5 },
+    recoil: { back: 3, lift: 20, shake: 0.25 },
   },
 } as const satisfies Record<GunKind, GunDef>;
 
@@ -393,7 +393,7 @@ export const ARSENAL_GUN_DEFS = {
     damage: { body: 5, head: 8, falloff: { from: 25, to: 60, least: 0.6 } },
     ammo: { magazine: 12, reloadTicks: 30 },
     sound: { id: "firework.blast", pitch: 1.4, volume: 1 },
-    recoil: { back: 2, lift: 12, pitch: 2, yaw: 0.6 },
+    recoil: { back: 2, lift: 12, shake: 0.14 },
   },
   smg: {
     id: "smg",
@@ -411,7 +411,7 @@ export const ARSENAL_GUN_DEFS = {
     damage: { body: 3, head: 4, falloff: { from: 15, to: 35, least: 0.5 } },
     ammo: { magazine: 32, reloadTicks: 35 },
     sound: { id: "firework.blast", pitch: 1.75, volume: 0.7 },
-    recoil: { back: 0.8, lift: 4, pitch: 0.7, yaw: 0.6 },
+    recoil: { back: 0.8, lift: 4, shake: 0.07 },
   },
   assault_rifle: {
     id: "assault_rifle",
@@ -429,7 +429,7 @@ export const ARSENAL_GUN_DEFS = {
     damage: { body: 4, head: 6, falloff: { from: 40, to: 90, least: 0.7 } },
     ammo: { magazine: 30, reloadTicks: 40 },
     sound: { id: "firework.blast", pitch: 1.1, volume: 0.9 },
-    recoil: { back: 1.2, lift: 5, pitch: 1, yaw: 0.5 },
+    recoil: { back: 1.2, lift: 5, shake: 0.09 },
   },
   burst_rifle: {
     id: "burst_rifle",
@@ -449,7 +449,7 @@ export const ARSENAL_GUN_DEFS = {
     ammo: { magazine: 24, reloadTicks: 40 },
     sound: { id: "firework.blast", pitch: 1.25, volume: 0.9 },
     // The model kicks once a burst; the view each shot.
-    recoil: { back: 2, lift: 10, pitch: 1.2, yaw: 0.5 },
+    recoil: { back: 2, lift: 10, shake: 0.1 },
   },
   pump_shotgun: {
     id: "pump_shotgun",
@@ -467,7 +467,7 @@ export const ARSENAL_GUN_DEFS = {
     damage: { body: 3.5, head: 4, falloff: { from: 6, to: 18, least: 0.4 } },
     ammo: { magazine: 6, reloadTicks: 60 },
     sound: { id: "firework.large_blast", pitch: 0.9, volume: 1 },
-    recoil: { back: 3.5, lift: 24, pitch: 5, yaw: 1.5 },
+    recoil: { back: 3.5, lift: 24, shake: 0.3 },
   },
   double_barrel: {
     id: "double_barrel",
@@ -485,7 +485,7 @@ export const ARSENAL_GUN_DEFS = {
     damage: { body: 2.5, head: 3, falloff: { from: 5, to: 14, least: 0.3 } },
     ammo: { magazine: 2, reloadTicks: 40 },
     sound: { id: "firework.large_blast", pitch: 0.8, volume: 1 },
-    recoil: { back: 3.5, lift: 26, pitch: 6, yaw: 2 },
+    recoil: { back: 3.5, lift: 26, shake: 0.35 },
   },
   sniper_rifle: {
     id: "sniper_rifle",
@@ -506,7 +506,7 @@ export const ARSENAL_GUN_DEFS = {
     damage: { body: 17, head: 40 },
     ammo: { magazine: 5, reloadTicks: 50 },
     sound: { id: "firework.large_blast", pitch: 0.6, volume: 1.2 },
-    recoil: { back: 4, lift: 28, pitch: 8, yaw: 1 },
+    recoil: { back: 4, lift: 28, shake: 0.45 },
   },
   rail_gun: {
     id: "rail_gun",
@@ -526,7 +526,7 @@ export const ARSENAL_GUN_DEFS = {
     damage: { body: 20, head: 20 },
     ammo: { magazine: 4, reloadTicks: 60 },
     sound: { id: "conduit.attack", pitch: 1.2, volume: 1.2 },
-    recoil: { back: 3, lift: 18, pitch: 5, yaw: 0.5 },
+    recoil: { back: 3, lift: 18, shake: 0.3 },
   },
   rpg: {
     id: "rpg",
@@ -546,7 +546,7 @@ export const ARSENAL_GUN_DEFS = {
     damage: { body: 20, head: 20 },
     ammo: { magazine: 1, reloadTicks: 60 },
     sound: { id: "firework.launch", pitch: 0.6, volume: 1.2 },
-    recoil: { back: 4, lift: 12, pitch: 4, yaw: 0.5 },
+    recoil: { back: 4, lift: 12, shake: 0.25 },
   },
 } as const satisfies Record<ArsenalGun, GunDef>;
 

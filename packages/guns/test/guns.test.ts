@@ -119,78 +119,49 @@ describe("Guns", () => {
     expect(balls()).toHaveLength(6);
   });
 
-  it("kicks the shooter's view up by the gun's recoil each shot, where they stand, and less while aiming", () => {
+  it("shakes the shooter's camera by the gun's recoil each shot, leaving the aim alone, and less while aiming", () => {
     const { balls } = setup({ guns: [AIMING_PISTOL] });
     const player = holding("Ann", gunItem("pistol", "red"));
-    player.location = { x: 3, y: 65, z: -2 };
     player.rotation = { x: 10, y: 45 };
-    const { pitch } = GUNS.pistol.recoil;
+    const { shake } = GUNS.pistol.recoil;
     pressRight(player);
     releaseRight(player);
     expect(balls()).toHaveLength(1);
-    // Negative pitch looks up; random 0.5 kicks it straight up.
-    expect(player.rotation.x).toBeCloseTo(10 - pitch, 5);
-    expect(player.rotation.y).toBeCloseTo(45, 5);
-    expect(player.teleports).toEqual([{ x: 3, y: 65, z: -2 }]);
-    // The kick stays: the next shot starts from it.
+    // Until the pistol can fire again (6 ticks).
+    expect(player.commands).toEqual([`camerashake add @s ${shake} 0.3 rotational`]);
+    expect(player.rotation).toEqual({ x: 10, y: 45 });
+    expect(player.teleports).toHaveLength(0);
+    // Raised (a left click), the shake is smaller.
     system.advanceTicks(GUNS.pistol.everyTicks);
     click(player);
     pressRight(player);
     expect(balls()).toHaveLength(2);
-    expect(player.rotation.x).toBeCloseTo(10 - pitch - pitch * AIM_RECOIL, 5);
+    expect(player.commands[1]).toBe(`camerashake add @s ${Math.round(shake * AIM_RECOIL * 1000) / 1000} 0.3 rotational`);
   });
 
-  it("kicks the view to one side by up to the gun's yaw, and never past straight up", () => {
-    const { yaw } = GUNS.shotgun.recoil;
-    for (const [random, side] of [
-      [1, yaw],
-      [0, -yaw],
-    ]) {
-      world.reset();
-      setup({ random: () => random });
-      const player = holding(`Shooter${random}`, gunItem("shotgun", "blue"));
-      player.rotation = { x: -89, y: 0 };
-      click(player);
-      expect(player.rotation.y).toBeCloseTo(side, 5);
-      expect(player.rotation.x).toBe(-90);
+  it("shakes as long as the gun takes to fire again, from 0.1 to 0.3 seconds", () => {
+    setup({ guns: Object.values(ARSENAL_GUN_DEFS) });
+    for (const [gun, seconds] of [
+      ["smg", 0.1],
+      ["handgun", 0.25],
+      ["sniper_rifle", 0.3],
+    ] as const) {
+      const player = holding(`Shooter_${gun}`, arsenalItem(gun));
+      pressRight(player);
+      expect(player.commands, gun).toEqual([`camerashake add @s ${ARSENAL_GUN_DEFS[gun].recoil.shake} ${seconds} rotational`]);
     }
   });
 
-  it("turns a fast gun's view at most every 4 ticks, the kicks between adding up", () => {
-    const { pitch } = ARSENAL_GUN_DEFS.smg.recoil;
-    setup({ guns: Object.values(ARSENAL_GUN_DEFS) });
-    const player = holding("Ann", arsenalItem("smg"));
-    pressRight(player);
-    expect(player.teleports).toHaveLength(1);
-    expect(player.rotation.x).toBeCloseTo(-pitch, 5);
-    // Held, the SMG fires every 2 ticks: the next shot's kick waits for the 4th tick, with the one after it.
-    system.advanceTicks(2);
-    expect(player.teleports).toHaveLength(1);
-    system.advanceTicks(2);
-    expect(player.teleports).toHaveLength(2);
-    expect(player.rotation.x).toBeCloseTo(-pitch * 3, 5);
-  });
-
-  it("leaves the view alone for a shot in the air, which a teleport would cut short", () => {
-    const { balls } = setup();
-    const player = holding("Ann", gunItem("pistol", "red"));
-    player.isOnGround = false;
-    click(player);
-    expect(balls()).toHaveLength(1);
-    expect(player.teleports).toHaveLength(0);
-    expect(player.rotation).toEqual({ x: 0, y: 0 });
-    // The held model still kicks.
-    expect(player.itemCooldowns.map(({ category }) => category)).toContain(gunCooldown("pistol"));
-  });
-
-  it("climbs a held gun's view kick shot by shot while the button stays down", () => {
+  it("shakes for every shot of a held gun, in the air too", () => {
     const { balls } = setup();
     const player = holding("Ann", gunItem("rifle", "red"));
+    player.isOnGround = false;
     pressRight(player);
     system.advanceTicks(GUNS.rifle.everyTicks * 3);
     releaseRight(player);
     expect(balls().length).toBeGreaterThanOrEqual(3);
-    expect(player.rotation.x).toBeCloseTo(-GUNS.rifle.recoil.pitch * balls().length, 5);
+    expect(player.commands).toHaveLength(balls().length);
+    expect(player.rotation).toEqual({ x: 0, y: 0 });
   });
 
   it("fires on a left click (an attack or mining swing), not on a right click's own swings or a drop", () => {

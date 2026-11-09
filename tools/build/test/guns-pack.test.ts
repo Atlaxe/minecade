@@ -187,7 +187,7 @@ describe("the guns pack's files", () => {
       expect(recoil, def.id).toBeDefined();
       expect(recoil.back, def.id).toBeGreaterThan(0);
       expect(recoil.lift, def.id).toBeGreaterThan(0);
-      expect(recoil.pitch, def.id).toBeGreaterThan(0);
+      expect(recoil.shake, def.id).toBeGreaterThan(0);
       // Over the gun's own cooldown, its fire rate, which every shot (or burst) starts.
       const seconds = def.everyTicks / 20;
       expect(json(`behavior_pack/items/${file(item)}.json`)["minecraft:item"].components["minecraft:cooldown"], def.id).toEqual({ category: gunCooldown(def.id), duration: seconds });
@@ -203,7 +203,7 @@ describe("the guns pack's files", () => {
     }
     // Heavy guns kick harder than fast ones.
     expect(ARSENAL_GUN_DEFS.sniper_rifle.recoil.lift).toBeGreaterThan(ARSENAL_GUN_DEFS.smg.recoil.lift);
-    expect(ARSENAL_GUN_DEFS.pump_shotgun.recoil.pitch).toBeGreaterThan(ARSENAL_GUN_DEFS.assault_rifle.recoil.pitch);
+    expect(ARSENAL_GUN_DEFS.pump_shotgun.recoil.shake).toBeGreaterThan(ARSENAL_GUN_DEFS.assault_rifle.recoil.shake);
   });
 
   it("raises a kick fast, then eases it home to nothing by the next shot", () => {

@@ -1,3 +1,6 @@
+import { mkdtempSync, readdirSync, readFileSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { PROTOCOL_VERSION, type OutboundEvent } from "@minecade/minigame-core/protocol";
 import { cleanPicks, cleanSettings, PREPARED_MS } from "../src/session-manager.ts";
@@ -312,6 +315,32 @@ describe("SessionManager: running", () => {
     early.docker.handles[0].exit(1);
     await vi.advanceTimersByTimeAsync(0);
     expect(early.lobby.find((message) => message.t === "game_failed")).toMatchObject({ reason: expect.stringContaining("exit code 1") });
+  });
+
+  it("keeps a crashed game's last console lines in its data folder, and the last few in its log", async () => {
+    const dataDir = mkdtempSync(join(tmpdir(), "minecade-crash-"));
+    try {
+      const t = setupSessions({ dataDir });
+      const { handle } = await startAndReady(t);
+      for (let i = 1; i <= 250; i++) handle.console.emit(`[2026-11-09 10:19:00:000 INFO] line ${i}`);
+      handle.console.emit("[2026-11-09 10:19:29:000 ERROR] the last words");
+      handle.exit(139);
+      await vi.waitFor(() => expect(readdirSync(join(dataDir, "crashes"))).toHaveLength(1));
+      const [name] = readdirSync(join(dataDir, "crashes"));
+      expect(name).toMatch(/-probe-default\.log$/);
+      const lines = readFileSync(join(dataDir, "crashes", name), "utf8").trimEnd().split("\n");
+      expect(lines[0]).toBe("session s1: the probe server (map default, players none) stopped with exit code 139");
+      // The last 200 lines, oldest first: lines 52 to 250 and the last words.
+      expect(lines.slice(1)).toHaveLength(200);
+      expect(lines[1]).toBe("[2026-11-09 10:19:00:000 INFO] line 52");
+      expect(lines.at(-1)).toBe("[2026-11-09 10:19:29:000 ERROR] the last words");
+      const warned = vi.mocked(console.warn).mock.calls.map(([line]) => String(line));
+      expect(warned.some((line) => line.includes("game s1: [2026-11-09 10:19:29:000 ERROR] the last words"))).toBe(true);
+      expect(warned.some((line) => line.includes("line 220"))).toBe(false);
+      expect(t.lobby).toContainEqual({ t: "game_ended", sessionId: "s1", reason: "crashed" });
+    } finally {
+      rmSync(dataDir, { recursive: true, force: true });
+    }
   });
 
   it("ends a game that stays empty past the backstop, but not one with players", async () => {

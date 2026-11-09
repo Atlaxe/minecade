@@ -18,7 +18,7 @@ manifests, and `guns_hold.animation.json` (where each gun sits in the hand).
 | Path | What it is | Who writes it |
 |---|---|---|
 | `packages/guns/src/defs.ts` | Every gun's name and numbers: fire mode, fire rate, spread, zoom, speed, range, damage, magazine, sound, recoil. The generator and the games read the same file. | By hand |
-| `packages/guns/src/guns.ts` | `Guns`: firing, aiming, the view kick, ammo, balls, bullets, beams, rockets, thrown items. | By hand |
+| `packages/guns/src/guns.ts` | `Guns`: firing, aiming, the camera shake, ammo, balls, bullets, beams, rockets, thrown items. | By hand |
 | `packages/guns/src/arsenal.ts` | `Arsenal`: what the arsenal does to players (damage, blasts, flames, flashes, smoke, knives, the stimpack). | By hand |
 | `tools/assets/guns.ts` | The generator: every model's boxes, colors, first hold guesses, particles, and all the pack's files. | By hand |
 | `packs/guns/behavior_pack/items/` | One item per gun (per paint color for Paintball's), plus the hidden aim marker. | Generated |
@@ -142,9 +142,8 @@ and texture (`arsenal/rocket.png`).
   marker's icon and its model in a hand are blank, so the off hand shows nothing. Something else of
   the player's in the off hand is left alone (the model then stays lowered).
 - **Recoil:** each shot kicks the held model back and tips its muzzle up, easing home just as the gun
-  can fire again, and turns the shooter's view up and a little to one side, where it stays until the
-  player pulls it back down. Both are smaller while aiming a gun that aims. See "Recoil" under
-  Editing.
+  can fire again, and shakes the shooter's camera for a moment (the aim stays put). Both are smaller
+  while aiming a gun that aims. See "Recoil" under Editing.
 - **Ammo:** a gun with a magazine fires it, then reloads by itself when it's empty (crossbow loading
   sounds). Spare rounds never run out. The game shows `ammoText` or `Arsenal.ammoLine` on the HUD.
 - **Balls** fly as `minecade:paintball`, a sprite like the snowball's, in one of 16 paint colors (the
@@ -287,8 +286,10 @@ colors, so they share their own poses too), or the arsenal's id: `handgun` (the 
 - **Rotations and positions add:** an own rotation of (10, 0, 0) on top of a shared (79.96, 61.52,
   -43.23) makes (89.96, 61.52, -43.23). The first number turns the gun about its own sideways axis
   (tipping the muzzle up or down) whichever way the shared pose points it.
-- **Keep a size in the gun's own pose,** not the shared one: Blockbench multiplies two sizes, and
-  the game hasn't been seen doing the same.
+- **Sizes multiply:** a shared size of 1.2 on top of the Pistol's own 1.35 makes 1.62, so a size in
+  the shared pose grows or shrinks every gun by the same share. That's what Blockbench shows, and
+  the game is expected to do the same, though that hasn't been seen yet: check one gun in game the
+  first time.
 - **To put a gun back on the shared pose,** set its own rotation and position to 0.
 
 Every model is built the same way (facing north, top up, the top of its grip at the origin), so one
@@ -306,7 +307,10 @@ way the game does, so what it shows is close to the game. Edit the file in the m
    Paintball's, `.../guns/<model>/red.png`.
 2. **Load the poses.** In the Animate tab, import
    `packs/guns/resource_pack/animations/guns_hold.animation.json` with the Animations panel's import
-   button (all of it).
+   button. Import only that file, never `guns.animation.json` beside it: its recoil animations
+   multiply everything by the shot's kick, which is 0 in Blockbench, so a turn typed or dragged into
+   one shows nothing (and doesn't move the hold). If an animation ending in `.recoil` is in the
+   Animations panel, close the project without saving and start again from step 1.
 3. **Pick the view.** In the Animate tab's toolbar, set **Bedrock Animation Mode** to **Item 1st
    Person** (the camera's view, with a crosshair) for `first_person_hip` and `first_person_aim`, or
    **Item 3rd Person** (a player holding it) for `third_person`. A pose looks wrong in the other
@@ -342,8 +346,7 @@ model has it, at the top of the grip, so turning a gun turns it in the hand.
 
 **Which number does what:** a rotation's first number tips the muzzle up or down about the grip.
 The others, and the positions, are in the arm's own directions, which in first person aren't the
-screen's: change one a little and watch which way the gun goes. Scale is the size (keep it in the
-gun's own pose).
+screen's: change one a little and watch which way the gun goes. Scale is the size.
 
 #### Or in the file
 
@@ -385,31 +388,30 @@ nothing already there.
 
 ### Recoil
 
-Each gun's recoil is its `recoil` in `defs.ts` (`GUNS` and `ARSENAL_GUN_DEFS`), four numbers:
+Each gun's recoil is its `recoil` in `defs.ts` (`GUNS` and `ARSENAL_GUN_DEFS`), three numbers:
 
 | Number | What it does |
 |---|---|
 | `back` | Pixels the held model moves back toward you. |
 | `lift` | Degrees the held model's muzzle tips up. |
-| `pitch` | Degrees your view turns up. |
-| `yaw` | Your view also turns up to this many degrees left or right, at random. |
+| `shake` | How hard your camera shakes (`/camerashake` intensity, which goes from 0 to 4). |
 
-| Gun | back | lift | pitch | yaw |
-|---|---|---|---|---|
-| Paintball Pistol | 2 | 12 | 1.5 | 0.5 |
-| Paintball Rifle | 1.2 | 5 | 0.8 | 0.5 |
-| Paintball Shotgun | 3 | 20 | 4 | 1.5 |
-| Pistol | 2 | 12 | 2 | 0.6 |
-| SMG | 0.8 | 4 | 0.7 | 0.6 |
-| Assault Rifle | 1.2 | 5 | 1 | 0.5 |
-| Burst Rifle | 2 | 10 | 1.2 | 0.5 |
-| Pump Shotgun | 3.5 | 24 | 5 | 1.5 |
-| Double Barrel | 3.5 | 26 | 6 | 2 |
-| Sniper Rifle | 4 | 28 | 8 | 1 |
-| Rail Gun | 3 | 18 | 5 | 0.5 |
-| RPG | 4 | 12 | 4 | 0.5 |
+| Gun | back | lift | shake |
+|---|---|---|---|
+| Paintball Pistol | 2 | 12 | 0.12 |
+| Paintball Rifle | 1.2 | 5 | 0.08 |
+| Paintball Shotgun | 3 | 20 | 0.25 |
+| Pistol | 2 | 12 | 0.14 |
+| SMG | 0.8 | 4 | 0.07 |
+| Assault Rifle | 1.2 | 5 | 0.09 |
+| Burst Rifle | 2 | 10 | 0.1 |
+| Pump Shotgun | 3.5 | 24 | 0.3 |
+| Double Barrel | 3.5 | 26 | 0.35 |
+| Sniper Rifle | 4 | 28 | 0.45 |
+| Rail Gun | 3 | 18 | 0.3 |
+| RPG | 4 | 12 | 0.25 |
 
-While aiming (the guns that aim), both kicks are `AIM_RECOIL` (0.6) of these.
+While aiming (the guns that aim), the kick and the shake are `AIM_RECOIL` (0.6) of these.
 
 **The held model's kick** runs off the gun's own cooldown, its fire rate: the attachable reads
 `q.cooldown_time_remaining('slot.weapon.mainhand')`, the item in your hand. The kick rises in about
@@ -424,18 +426,14 @@ from it kicks a little off line). Change the numbers in `defs.ts` and rerun the 
 Molang from `kickMolang` in `tools/assets/guns.ts` (`kickHeight` beside it works it out the same
 way, for the tests).
 
-**The view kick** is the script's (`Guns.kickView`). A script can't turn a player's view by itself
-(Bedrock's `setRotation` is reported to do nothing to a player), so it teleports you to where you
-stand with the new facing. That has two costs, so:
-
-- It only happens while you're on the ground. Bedrock refuses to keep a player's speed through a
-  teleport, so in the air it would cut a jump short.
-- It happens at most once every 4 ticks (`VIEW_KICK_GAP_TICKS`), the kicks of a fast gun's shots in
-  between adding up, because each teleport stops your stride for a moment.
-
-The kick stays where it put your view: holding down an automatic gun climbs, and you pull it back
-down. Only the script reads `pitch` and `yaw`, so changing them needs no rerun of the generator
-(still a restart, as for any change).
+**The camera shake** is the script's (`Guns.shakeView`): each shot runs `camerashake add @s
+<shake> <seconds> rotational` as the shooter, for as long as the gun takes to fire again (at least
+0.1 and at most 0.3 seconds). The shake is drawn by your own game, so it never fights your mouse,
+and it doesn't move your aim: shots still go to the crosshair, and holding down an automatic gun no
+longer climbs. It replaced a view kick that turned your view with a teleport from where the server
+last saw you looking, a few ticks old while the mouse moved, so looking around while firing jumped.
+Only the script reads `shake`, so changing it needs no rerun of the generator (still a restart, as
+for any change).
 
 ### Particles
 

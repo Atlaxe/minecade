@@ -4,6 +4,8 @@
 // ahead while a player looks at its screen in the lobby (prepare_game): a start for that game and
 // map adopts it, so its players skip some or all of the boot.
 import { randomBytes } from "node:crypto";
+import { mkdir, writeFile } from "node:fs/promises";
+import { join } from "node:path";
 import {
   PROTOCOL_VERSION,
   type InboundMessage,
@@ -28,6 +30,10 @@ const SCRIPT_LINE = /^\[[^\]]*\] \[Scripting\] /;
 /** BDS logs each player's Xbox account id as they connect, which keeps stats across gamertag changes. */
 const PLAYER_CONNECTED = /\] Player connected: (.+), xuid: (\d+)/;
 const START_ATTEMPTS = 4;
+/** A game's last console lines, kept in case its server stops on its own (keepCrashLog). */
+const CRASH_TAIL_LINES = 200;
+/** How many of them go to the orchestrator's log; all of them go to the crash file. */
+const CRASH_LOG_LINES = 30;
 const EMPTY_CHECK_MS = 10_000;
 /** How long a game gets to send its players home after return_all. */
 const RETURN_ALL_WAIT_MS = 10_000;
@@ -98,6 +104,8 @@ interface Session {
   configured: boolean;
   /** A game booted ahead: resolves once its container has started (undefined if it couldn't). */
   launched?: Promise<ServerHandle | undefined>;
+  /** The game's last CRASH_TAIL_LINES console lines, oldest first. */
+  consoleTail: string[];
 }
 
 export class SessionManager {
@@ -197,6 +205,7 @@ export class SessionManager {
       startPlayers: [],
       configureSent: false,
       configured: false,
+      consoleTail: [],
     };
   }
 
@@ -483,6 +492,8 @@ export class SessionManager {
     session.cleanup.push(link.onEvent((event) => this.onGameEvent(session, event)));
     session.cleanup.push(
       handle.console.onLine((line) => {
+        session.consoleTail.push(line);
+        if (session.consoleTail.length > CRASH_TAIL_LINES) session.consoleTail.shift();
         // Game containers are deleted when the session ends, so keep their script output here.
         if (SCRIPT_LINE.test(line) && !line.includes("[NET]")) log.info(`game ${session.id}: ${line}`);
         if (session.timeline.markStep(line)) return;
@@ -496,6 +507,7 @@ export class SessionManager {
     );
     void handle.exited.then((code) => {
       if (!this.isLive(session)) return;
+      void this.keepCrashLog(session, code);
       if (this.prepared === session) {
         void this.dropPrepared(session, `its server stopped (exit code ${code})`);
         return;
@@ -503,6 +515,29 @@ export class SessionManager {
       const reason = session.state === "running" ? "crashed" : `the game server crashed while starting (exit code ${code})`;
       void this.finish(session, reason);
     });
+  }
+
+  /**
+   * A game server that stopped on its own: its last console lines go to the log, and with a data
+   * folder all of them go to a file in its crashes folder. The container (and Docker's log of it)
+   * is removed right after, and restarting the network starts the orchestrator's own log afresh.
+   */
+  private async keepCrashLog(session: Session, code: number): Promise<void> {
+    const lines = session.consoleTail.slice();
+    const what = `the ${session.game.id} server (map ${session.map.id}, players ${session.players.join(", ") || "none"}) stopped with exit code ${code}`;
+    log.warn(`session ${session.id}: ${what}; its last ${Math.min(lines.length, CRASH_LOG_LINES)} console lines:`);
+    for (const line of lines.slice(-CRASH_LOG_LINES)) log.warn(`game ${session.id}: ${line}`);
+    const { dataDir } = this.deps.config;
+    if (!dataDir) return;
+    const folder = join(dataDir, "crashes");
+    const file = join(folder, `${new Date().toISOString().replace(/[:.]/g, "-")}-${`${session.game.id}-${session.map.id}`.replace(/[^\w-]/g, "_")}.log`);
+    try {
+      await mkdir(folder, { recursive: true });
+      await writeFile(file, [`session ${session.id}: ${what}`, ...lines, ""].join("\n"));
+      log.warn(`session ${session.id}: its last ${lines.length} console lines are in ${file}`);
+    } catch (error) {
+      log.error(`session ${session.id}: could not keep its console lines: ${describeError(error)}`);
+    }
   }
 
   private onGameEvent(session: Session, event: OutboundEvent): void {

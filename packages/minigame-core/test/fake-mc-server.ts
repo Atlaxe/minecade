@@ -364,6 +364,8 @@ export class FakePlayer {
     },
   };
   readonly teleports: Vector3[] = [];
+  /** The commands a script ran as this player (runCommand), oldest first. */
+  readonly commands: string[] = [];
   /** Its facing: x pitch, y yaw (set by a teleport with a rotation). */
   rotation = { x: 0, y: 0 };
   /** The facing of each teleport, in order: a rotation (x pitch, y yaw), a point to face, or none. */
@@ -444,6 +446,12 @@ export class FakePlayer {
       default:
         return undefined;
     }
+  }
+
+  runCommand(command: string): { successCount: number } {
+    writable("Entity::runCommand");
+    this.commands.push(command);
+    return { successCount: 1 };
   }
 
   teleport(location: Vector3, options: { rotation?: { x: number; y: number }; facingLocation?: Vector3 } = {}): void {

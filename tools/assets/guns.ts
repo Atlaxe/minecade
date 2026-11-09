@@ -423,21 +423,28 @@ const aims = (kind: ModelId): boolean => isGun(kind) && canAim(gunDef(kind)!);
 
 // ---- Textures --------------------------------------------------------------------------------
 
-/** Where each box's net sits in the model's texture (box UV), and the texture's size. */
-function uvLayout(boxes: Box[]): { uvs: [number, number][]; height: number } {
-  const uvs: [number, number][] = [];
-  let [x, y, rowHeight] = [0, 0, 0];
-  for (const { size } of boxes) {
-    const [w, h, d] = size;
-    const [netWidth, netHeight] = [2 * (w + d), h + d];
-    if (x + netWidth > TEXTURE_WIDTH) [x, y, rowHeight] = [0, y + rowHeight, 0];
-    uvs.push([x, y]);
-    x += netWidth;
-    rowHeight = Math.max(rowHeight, netHeight);
+/**
+ * Where each box's net sits in the model's texture (box UV), and the texture's size: TEXTURE_WIDTH
+ * wide, or wider when that would make it taller than wide. The icon's model block takes its texture
+ * from the block atlas, which seems to keep only a square of a tall texture: the Sniper Rifle's icon
+ * (64 by 128) was missing parts, and its stock's sides were the faces below row 64.
+ */
+function uvLayout(boxes: Box[]): { uvs: [number, number][]; width: number; height: number } {
+  for (let width = TEXTURE_WIDTH; ; width *= 2) {
+    const uvs: [number, number][] = [];
+    let [x, y, rowHeight] = [0, 0, 0];
+    for (const { size } of boxes) {
+      const [w, h, d] = size;
+      const [netWidth, netHeight] = [2 * (w + d), h + d];
+      if (x + netWidth > width) [x, y, rowHeight] = [0, y + rowHeight, 0];
+      uvs.push([x, y]);
+      x += netWidth;
+      rowHeight = Math.max(rowHeight, netHeight);
+    }
+    let height = 16;
+    while (height < y + rowHeight) height *= 2;
+    if (height <= width) return { uvs, width, height };
   }
-  let height = 16;
-  while (height < y + rowHeight) height *= 2;
-  return { uvs, height };
 }
 
 /** A box's six faces: where each sits in its net (box UV), how lit the texture paints it, and its corner and edges in the model. */
@@ -464,16 +471,16 @@ interface TextureLayers {
 }
 
 function textureLayers(boxes: Box[]): TextureLayers {
-  const { uvs, height } = uvLayout(boxes);
-  const layers: TextureLayers = { width: TEXTURE_WIDTH, height, paint: Array(TEXTURE_WIDTH * height).fill(undefined), light: new Float32Array(TEXTURE_WIDTH * height) };
+  const { uvs, width, height } = uvLayout(boxes);
+  const layers: TextureLayers = { width, height, paint: Array(width * height).fill(undefined), light: new Float32Array(width * height) };
   boxes.forEach((piece, i) => {
     for (const { rect: [x0, y0, w, h], light } of boxFaces(piece, uvs[i])) {
       for (let y = y0; y < y0 + h; y++) {
         for (let x = x0; x < x0 + w; x++) {
           const rim = (x === x0 || y === y0 || x === x0 + w - 1 || y === y0 + h - 1) && w > 2 && h > 2;
           const grain = 1 + (((x * 73 + y * 151) % 17) - 8) / 220;
-          layers.paint[y * TEXTURE_WIDTH + x] = piece.paint;
-          layers.light[y * TEXTURE_WIDTH + x] = light * (rim ? 0.82 : 1) * grain;
+          layers.paint[y * width + x] = piece.paint;
+          layers.light[y * width + x] = light * (rim ? 0.82 : 1) * grain;
         }
       }
     }
@@ -540,7 +547,7 @@ interface IconSamples {
 /** Draws the model's faces into ICON_SIZE * ICON_SAMPLES samples a side, nearest face wins (seen from +z, orthographic). */
 function iconSamples(boxes: Box[], view: Matrix): IconSamples {
   const size = ICON_SIZE * ICON_SAMPLES;
-  const { uvs } = uvLayout(boxes);
+  const { uvs, width } = uvLayout(boxes);
   const samples: IconSamples = { texel: new Int32Array(size * size).fill(-1), light: new Float32Array(size * size) };
   const depth = new Float32Array(size * size).fill(-Infinity);
   const corners = boxes.flatMap(({ from, size: [w, h, d] }) =>
@@ -583,7 +590,7 @@ function iconSamples(boxes: Box[], view: Matrix): IconSamples {
             const [rx, ry, rw, rh] = face.rect;
             const tx = Math.min(rx + rw - 1, Math.floor(rx + s * rw));
             const ty = Math.min(ry + rh - 1, Math.floor(ry + t * rh));
-            samples.texel[sample] = ty * TEXTURE_WIDTH + tx;
+            samples.texel[sample] = ty * width + tx;
             samples.light[sample] = light;
           }
         }
@@ -754,11 +761,11 @@ function geometries(): unknown {
   const all: unknown[] = [];
   for (const kind of [...PICKUP_KINDS, ...ARSENAL_MODELS]) {
     const boxes = boxesOf(kind);
-    const { uvs, height } = uvLayout(boxes);
+    const { uvs, width, height } = uvLayout(boxes);
     const cubes = boxes.map((piece, i) => cube(piece, uvs[i]));
     const description = (identifier: string) => ({
       identifier,
-      texture_width: TEXTURE_WIDTH,
+      texture_width: width,
       texture_height: height,
       visible_bounds_width: 3,
       visible_bounds_height: 3,
@@ -784,7 +791,7 @@ function geometries(): unknown {
     });
     // Its model block's, which the game draws as the item's icon.
     all.push({
-      description: { identifier: iconGeometry(kind), texture_width: TEXTURE_WIDTH, texture_height: height },
+      description: { identifier: iconGeometry(kind), texture_width: width, texture_height: height },
       bones: [{ name: "model", pivot: [0, 0, 0], cubes: iconCubes(boxes) }],
     });
   }
@@ -794,10 +801,10 @@ function geometries(): unknown {
     bones: [{ name: "blank", binding: "q.item_slot_to_bone_name(c.item_slot)", pivot: [0, 0, 0] }],
   });
   // The rocket in flight: turned along its flight around its middle.
-  const { uvs, height } = uvLayout(ROCKET_BOXES);
+  const { uvs, width, height } = uvLayout(ROCKET_BOXES);
   const middle = middleOf(ROCKET_BOXES);
   all.push({
-    description: { identifier: ROCKET_GEOMETRY, texture_width: TEXTURE_WIDTH, texture_height: height, visible_bounds_width: 2, visible_bounds_height: 2 },
+    description: { identifier: ROCKET_GEOMETRY, texture_width: width, texture_height: height, visible_bounds_width: 2, visible_bounds_height: 2 },
     bones: [
       { name: "display", pivot: middle },
       { name: "body", parent: "display", pivot: middle, cubes: ROCKET_BOXES.map((piece, i) => cube(piece, uvs[i])) },
@@ -826,8 +833,9 @@ function middleOf(boxes: Box[]): Vec3 {
 // for every gun, and one for every grenade, the knife and the stimpack (a HoldGroup), and each model
 // has its own pose for the view on top. The game plays both and adds their rotations and positions,
 // as Blockbench does with two animations playing, so moving a shared pose moves every model in its
-// group, and a model's own moves just that model. A size is kept in one of the two (each model's
-// own has its size): Blockbench multiplies two sizes, and the game hasn't been seen to.
+// group, and a model's own moves just that model. The generator's first guesses keep each model's
+// size in its own pose; a size in the shared pose too multiplies with it, as Blockbench shows (the
+// game is expected to do the same, not yet seen).
 
 type HoldPose = "first_person_hip" | "first_person_aim" | "third_person";
 const holdPoses = (kind: ModelId): HoldPose[] => (aims(kind) ? ["first_person_hip", "first_person_aim", "third_person"] : ["first_person_hip", "third_person"]);
