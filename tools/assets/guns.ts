@@ -901,10 +901,31 @@ function animations(): unknown {
   return { format_version: "1.8.0", animations: all };
 }
 
-/** A gun's recoil animation: v.kick (0 to 1) moves the "body" bone back and tips its muzzle up. */
+/** A gun's recoil animation: its kick (0 to 1, kickMolang) moves the "body" bone back and tips its muzzle up. */
 function recoilPose(kind: ModelId): unknown {
   const { back, lift } = recoilOf(kind);
-  return { loop: true, bones: { body: { position: [0, 0, `v.kick * ${back}`], rotation: [`v.kick * ${-lift}`, 0, 0] } } };
+  const kick = kickMolang(kind);
+  return { loop: true, bones: { body: { position: [0, 0, `${kick} * ${back}`], rotation: [`${kick} * ${-lift}`, 0, 0] } } };
+}
+
+/** True while the player aims: Guns puts the aim marker in their off hand (q.is_item_name_any reads the player's own equipment). */
+const AIMING = `q.is_item_name_any('slot.weapon.offhand', 0, '${AIM_MARKER.item}')`;
+/** How long a gun that aims takes to come up or go down. */
+const AIM_EASE_SECONDS = 0.2;
+
+/**
+ * A held gun's kick in Molang, 0 to 1: kickHeight over the gun's own cooldown, read off the main
+ * hand (the item this model is), and smaller while aiming a gun that aims. It's written out in full
+ * in each channel, with no variables: a held model's animations look variables up on the player
+ * holding it, so the ones its own scripts set were unknown to them (the client said so, and the
+ * guns never kicked; docs/spike-results.md, "Holding in third person").
+ */
+function kickMolang(kind: ModelId): string {
+  const { seconds } = recoilOf(kind);
+  const rise = kickRise(seconds);
+  const t = `(1 - math.clamp(q.cooldown_time_remaining('slot.weapon.mainhand') / ${seconds}, 0, 1))`;
+  const kick = `(${t} < ${rise} ? ${t} / ${rise} : math.pow((1 - ${t}) / ${fixed(1 - rise)}, 2))`;
+  return aims(kind) ? `${kick} * (${AIMING} ? ${AIM_RECOIL} : 1)` : kick;
 }
 
 /** The part of a kick of `seconds` spent rising to its full height. */
@@ -914,8 +935,8 @@ export function kickRise(seconds: number): number {
 
 /**
  * How high a kick of `seconds` is `elapsed` seconds after its shot, 0 to 1: up fast, then easing
- * home (the square of what's left), back at 0 when the next shot can come. The attachable's
- * pre_animation script works it out the same way in Molang.
+ * home (the square of what's left), back at 0 when the next shot can come. The recoil animation
+ * works it out the same way in Molang (kickMolang).
  */
 export function kickHeight(elapsed: number, seconds: number): number {
   const t = Math.min(1, Math.max(0, elapsed / seconds));
@@ -924,39 +945,36 @@ export function kickHeight(elapsed: number, seconds: number): number {
 }
 
 /**
- * The attachable's script. v.kick follows kickHeight over the gun's own cooldown, read off the main
- * hand (the item this model is): the guns' first pass read it the same way and it was seen kicking
- * in game. A gun that aims also has v.aim, easing toward 1 while the aim marker is in the off hand
- * (q.is_item_name_any reads the player's own equipment, nothing the script has to send), which
- * blends the hip pose into the aim pose and takes some of the kick away.
+ * The attachable's script: no variables (see kickMolang), only what to animate. The hold poses
+ * by first or third person; a gun that aims eases between its hip and aim poses through its hold
+ * controller (holdControllers); a gun's recoil plays all the time, still until a shot.
  */
 function attachableScripts(kind: ModelId): Record<string, unknown> {
-  if (!isGun(kind)) return { animate: [{ first_person_hip: "c.is_first_person" }, { third_person: "!c.is_first_person" }] };
-  const { seconds } = recoilOf(kind);
-  const rise = kickRise(seconds);
-  const kickT = `v.kick_t = 1 - math.clamp(q.cooldown_time_remaining('slot.weapon.mainhand') / ${seconds}, 0, 1);`;
-  const shape = `(v.kick_t < ${rise} ? v.kick_t / ${rise} : math.pow((1 - v.kick_t) / ${fixed(1 - rise)}, 2))`;
-  if (!aims(kind)) {
-    return {
-      initialize: ["v.kick = 0;"],
-      pre_animation: [kickT, `v.kick = ${shape};`],
-      animate: [{ first_person_hip: "c.is_first_person" }, { third_person: "!c.is_first_person" }, "recoil"],
+  const hold = aims(kind) ? ["hold"] : [{ first_person_hip: "c.is_first_person" }, { third_person: "!c.is_first_person" }];
+  return { animate: isGun(kind) ? [...hold, "recoil"] : hold };
+}
+
+/** A gun that aims: its hold controller, named in its attachable as "hold". */
+const holdController = (kind: ModelId) => `controller.animation.minecade.gun_${kind}.hold`;
+
+/**
+ * The hold controllers of the guns that aim: the hip and aim poses as two states, the gun easing
+ * from one to the other (blend_transition) as the aim marker comes into the off hand and goes.
+ */
+function holdControllers(): unknown {
+  const all: Record<string, unknown> = {};
+  for (const kind of GUN_MODELS.filter(aims)) {
+    const state = (pose: HoldPose, next: string, when: string) => ({
+      animations: [{ [pose]: "c.is_first_person" }, { third_person: "!c.is_first_person" }],
+      transitions: [{ [next]: when }],
+      blend_transition: AIM_EASE_SECONDS,
+    });
+    all[holdController(kind)] = {
+      initial_state: "hip",
+      states: { hip: state("first_person_hip", "aim", AIMING), aim: state("first_person_aim", "hip", `!${AIMING}`) },
     };
   }
-  return {
-    initialize: ["v.aim = 0;", "v.kick = 0;"],
-    pre_animation: [
-      `v.aim = math.lerp(v.aim, q.is_item_name_any('slot.weapon.offhand', 0, '${AIM_MARKER.item}'), math.min(q.delta_time * 12, 1));`,
-      kickT,
-      `v.kick = ${shape} * (1 - v.aim * ${fixed(1 - AIM_RECOIL)});`,
-    ],
-    animate: [
-      { first_person_hip: "c.is_first_person * (1 - v.aim)" },
-      { first_person_aim: "c.is_first_person * v.aim" },
-      { third_person: "!c.is_first_person" },
-      "recoil",
-    ],
-  };
+  return { format_version: "1.10.0", animation_controllers: all };
 }
 
 function attachable(kind: PickupKind, dye: Dye): unknown {
@@ -966,6 +984,7 @@ function attachable(kind: PickupKind, dye: Dye): unknown {
 function attachableOf(kind: ModelId, identifier: string, texture: string): unknown {
   const animationsOf: Record<string, string> = Object.fromEntries(holdPoses(kind).map((pose) => [pose, holdAnimation(kind, pose)]));
   if (isGun(kind)) animationsOf.recoil = recoilAnimation(kind);
+  if (aims(kind)) animationsOf.hold = holdController(kind);
   return {
     format_version: "1.10.0",
     "minecraft:attachable": {
@@ -1529,6 +1548,7 @@ export function gunsPackFiles(): Record<string, string | Buffer> {
     "behavior_pack/entities/rocket.json": json(projectileEntity(ROCKET, 0.3, 0.005, false, null, true)),
     "resource_pack/models/entity/guns.geo.json": json(geometries()),
     "resource_pack/animations/guns.animation.json": json(animations()),
+    "resource_pack/animation_controllers/guns.animation_controllers.json": json(holdControllers()),
     "resource_pack/render_controllers/guns.render_controllers.json": json(renderControllers()),
     "resource_pack/particles/paint_splash.json": json(splashParticle()),
     // The aim marker's icon: blank, as the off hand's slot shows it while a player aims.

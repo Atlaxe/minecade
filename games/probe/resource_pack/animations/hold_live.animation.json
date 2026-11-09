@@ -1,0 +1,21 @@
+{
+  "format_version": "1.10.0",
+  "animations": {
+    "animation.minecade.hold_live.up": {
+      "animation_length": 0.05,
+      "timeline": {
+        "0.0": [
+          "v.minecade_hold = 8;"
+        ]
+      }
+    },
+    "animation.minecade.hold_live.down": {
+      "animation_length": 0.05,
+      "timeline": {
+        "0.0": [
+          "v.minecade_hold = 0;"
+        ]
+      }
+    }
+  }
+}

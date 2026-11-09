@@ -28,6 +28,67 @@
           "scale": 2.5
         }
       }
+    },
+    "animation.minecade.hold_test.zero": {
+      "loop": true,
+      "bones": {
+        "root": {
+          "position": [
+            0,
+            0,
+            0
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": 1
+        }
+      }
+    },
+    "animation.minecade.hold_test.pistol_zero": {
+      "loop": true,
+      "bones": {
+        "gun": {
+          "position": [
+            0,
+            0,
+            0
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": 1
+        },
+        "body": {
+          "position": [
+            0,
+            0,
+            0
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": 1
+        }
+      }
+    },
+    "animation.minecade.hold_test.live": {
+      "loop": true,
+      "bones": {
+        "root": {
+          "position": [
+            "c.owning_entity->v.minecade_hold ?? 0",
+            "v.minecade_hold ?? 0",
+            0
+          ]
+        }
+      }
     }
   }
 }

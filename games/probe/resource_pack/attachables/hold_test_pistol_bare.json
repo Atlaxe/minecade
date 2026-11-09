@@ -16,7 +16,15 @@
       },
       "render_controllers": [
         "controller.render.item_default"
-      ]
+      ],
+      "animations": {
+        "zero": "animation.minecade.hold_test.pistol_zero"
+      },
+      "scripts": {
+        "animate": [
+          "zero"
+        ]
+      }
     }
   }
 }

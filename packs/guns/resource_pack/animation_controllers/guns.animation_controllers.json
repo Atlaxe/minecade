@@ -1,0 +1,116 @@
+{
+  "format_version": "1.10.0",
+  "animation_controllers": {
+    "controller.animation.minecade.gun_sniper_rifle.hold": {
+      "initial_state": "hip",
+      "states": {
+        "hip": {
+          "animations": [
+            {
+              "first_person_hip": "c.is_first_person"
+            },
+            {
+              "third_person": "!c.is_first_person"
+            }
+          ],
+          "transitions": [
+            {
+              "aim": "q.is_item_name_any('slot.weapon.offhand', 0, 'minecade:aim_marker')"
+            }
+          ],
+          "blend_transition": 0.2
+        },
+        "aim": {
+          "animations": [
+            {
+              "first_person_aim": "c.is_first_person"
+            },
+            {
+              "third_person": "!c.is_first_person"
+            }
+          ],
+          "transitions": [
+            {
+              "hip": "!q.is_item_name_any('slot.weapon.offhand', 0, 'minecade:aim_marker')"
+            }
+          ],
+          "blend_transition": 0.2
+        }
+      }
+    },
+    "controller.animation.minecade.gun_rail_gun.hold": {
+      "initial_state": "hip",
+      "states": {
+        "hip": {
+          "animations": [
+            {
+              "first_person_hip": "c.is_first_person"
+            },
+            {
+              "third_person": "!c.is_first_person"
+            }
+          ],
+          "transitions": [
+            {
+              "aim": "q.is_item_name_any('slot.weapon.offhand', 0, 'minecade:aim_marker')"
+            }
+          ],
+          "blend_transition": 0.2
+        },
+        "aim": {
+          "animations": [
+            {
+              "first_person_aim": "c.is_first_person"
+            },
+            {
+              "third_person": "!c.is_first_person"
+            }
+          ],
+          "transitions": [
+            {
+              "hip": "!q.is_item_name_any('slot.weapon.offhand', 0, 'minecade:aim_marker')"
+            }
+          ],
+          "blend_transition": 0.2
+        }
+      }
+    },
+    "controller.animation.minecade.gun_rpg.hold": {
+      "initial_state": "hip",
+      "states": {
+        "hip": {
+          "animations": [
+            {
+              "first_person_hip": "c.is_first_person"
+            },
+            {
+              "third_person": "!c.is_first_person"
+            }
+          ],
+          "transitions": [
+            {
+              "aim": "q.is_item_name_any('slot.weapon.offhand', 0, 'minecade:aim_marker')"
+            }
+          ],
+          "blend_transition": 0.2
+        },
+        "aim": {
+          "animations": [
+            {
+              "first_person_aim": "c.is_first_person"
+            },
+            {
+              "third_person": "!c.is_first_person"
+            }
+          ],
+          "transitions": [
+            {
+              "hip": "!q.is_item_name_any('slot.weapon.offhand', 0, 'minecade:aim_marker')"
+            }
+          ],
+          "blend_transition": 0.2
+        }
+      }
+    }
+  }
+}

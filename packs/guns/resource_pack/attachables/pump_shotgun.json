@@ -20,13 +20,6 @@
         "recoil": "animation.minecade.gun_pump_shotgun.recoil"
       },
       "scripts": {
-        "initialize": [
-          "v.kick = 0;"
-        ],
-        "pre_animation": [
-          "v.kick_t = 1 - math.clamp(q.cooldown_time_remaining('slot.weapon.mainhand') / 0.9, 0, 1);",
-          "v.kick = (v.kick_t < 0.04 ? v.kick_t / 0.04 : math.pow((1 - v.kick_t) / 0.96, 2));"
-        ],
         "animate": [
           {
             "first_person_hip": "c.is_first_person"

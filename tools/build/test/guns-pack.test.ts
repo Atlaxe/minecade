@@ -107,21 +107,32 @@ describe("the guns pack's files", () => {
 
   it("times the recoil off the gun's own cooldown in the main hand; only the guns that aim read the aim marker in the off hand", () => {
     const aiming = ["sniper_rifle", "rail_gun", "rpg"];
+    const offHand = `q.is_item_name_any('slot.weapon.offhand', 0, '${AIM_MARKER.item}')`;
+    const recoils = json("resource_pack/animations/guns.animation.json").animations;
+    const controllers = json("resource_pack/animation_controllers/guns.animation_controllers.json").animation_controllers;
     const all = [...GUN_KINDS.map((kind) => ({ id: kind as string, item: gunItem(kind) })), ...ARSENAL_GUNS.map((gun) => ({ id: gun as string, item: arsenalItem(gun) }))];
     for (const { id, item } of all) {
-      const scripts = json(`resource_pack/attachables/${file(item)}.json`)["minecraft:attachable"].description.scripts;
-      const script = scripts.pre_animation.join("\n");
-      expect(script, id).toContain("q.cooldown_time_remaining('slot.weapon.mainhand')");
-      expect(scripts.animate, id).toContain("recoil");
+      const description = json(`resource_pack/attachables/${file(item)}.json`)["minecraft:attachable"].description;
+      const recoil = JSON.stringify(recoils[description.animations.recoil]);
+      expect(recoil, id).toContain("q.cooldown_time_remaining('slot.weapon.mainhand')");
+      expect(description.scripts.animate, id).toContain("recoil");
       // No cooldown is read by category: the client reads only what it has itself.
-      expect(script, id).not.toMatch(/cooldown_time_remaining\('minecade/);
-      const names = scripts.animate.flatMap((entry: unknown) => (typeof entry === "string" ? [entry] : Object.keys(entry as object)));
+      expect(recoil, id).not.toMatch(/cooldown_time_remaining\('minecade/);
       if (aiming.includes(id)) {
-        expect(script, id).toContain(`q.is_item_name_any('slot.weapon.offhand', 0, '${AIM_MARKER.item}')`);
-        expect(names, id).toContain("first_person_aim");
+        // The hold controller eases between the hip and aim poses as the marker comes and goes.
+        expect(description.scripts.animate, id).toEqual(["hold", "recoil"]);
+        const hold = controllers[description.animations.hold];
+        expect(hold.states.hip.transitions, id).toEqual([{ aim: offHand }]);
+        expect(hold.states.aim.transitions, id).toEqual([{ hip: `!${offHand}` }]);
+        expect(hold.states.aim.animations, id).toEqual([{ first_person_aim: "c.is_first_person" }, { third_person: "!c.is_first_person" }]);
+        expect(hold.states.hip.blend_transition, id).toBeGreaterThan(0);
+        expect(description.animations.first_person_aim, id).toBeDefined();
+        expect(recoil, id).toContain(offHand);
       } else {
-        expect(script, id).not.toContain("v.aim");
-        expect(names, id).not.toContain("first_person_aim");
+        const names = description.scripts.animate.flatMap((entry: unknown) => (typeof entry === "string" ? [entry] : Object.keys(entry as object)));
+        expect(names, id).toEqual(["first_person_hip", "third_person", "recoil"]);
+        expect(description.animations.first_person_aim, id).toBeUndefined();
+        expect(recoil, id).not.toContain("offhand");
       }
     }
     // The aim marker: allowed in the off hand, with a blank icon and a model with nothing to draw.
@@ -136,6 +147,21 @@ describe("the guns pack's files", () => {
     expect(Object.keys(files).filter((path) => path.endsWith("_shot.json"))).toEqual([]);
   });
 
+  it("uses no variables in the held models: their animations look variables up on the player, so a script's would be unknown", () => {
+    const animations = { ...json("resource_pack/animations/guns.animation.json").animations, ...JSON.parse(readFileSync(onDisk(HOLD_FILE), "utf8")).animations };
+    const controllers = json("resource_pack/animation_controllers/guns.animation_controllers.json").animation_controllers;
+    for (const path of Object.keys(files).filter((name) => name.startsWith("resource_pack/attachables/"))) {
+      const description = json(path)["minecraft:attachable"].description;
+      expect(description.scripts?.initialize, path).toBeUndefined();
+      expect(description.scripts?.pre_animation, path).toBeUndefined();
+      for (const name of Object.values(description.animations ?? {}) as string[]) {
+        const used = name.startsWith("controller.") ? controllers[name] : animations[name];
+        expect(used, `${path}: ${name}`).toBeDefined();
+        expect(JSON.stringify(used), `${path}: ${name}`).not.toMatch(/\b(v|variable)\./);
+      }
+    }
+  });
+
   it("kicks every gun's held model by its own recoil, settling just as it can fire again", () => {
     const guns = [...GUN_KINDS.map((kind) => ({ def: GUNS[kind] as GunDef, item: gunItem(kind) })), ...ARSENAL_GUNS.map((gun) => ({ def: ARSENAL_GUN_DEFS[gun] as GunDef, item: arsenalItem(gun) }))];
     const recoils = json("resource_pack/animations/guns.animation.json").animations;
@@ -148,14 +174,13 @@ describe("the guns pack's files", () => {
       // Over the gun's own cooldown, its fire rate, which every shot (or burst) starts.
       const seconds = def.everyTicks / 20;
       expect(json(`behavior_pack/items/${file(item)}.json`)["minecraft:item"].components["minecraft:cooldown"], def.id).toEqual({ category: gunCooldown(def.id), duration: seconds });
-      const script = json(`resource_pack/attachables/${file(item)}.json`)["minecraft:attachable"].description.scripts.pre_animation.join("\n");
-      expect(script, def.id).toContain(`q.cooldown_time_remaining('slot.weapon.mainhand') / ${seconds}`);
+      const { position, rotation } = recoils[`animation.minecade.gun_${def.id}.recoil`].bones.body;
+      expect(position[2], def.id).toContain(`q.cooldown_time_remaining('slot.weapon.mainhand') / ${seconds}`);
+      expect(position[2], def.id).toMatch(new RegExp(` \\* ${recoil.back}$`));
+      expect(rotation[0], def.id).toMatch(new RegExp(` \\* ${-recoil.lift}$`));
+      expect([position[0], position[1], rotation[1], rotation[2]], def.id).toEqual([0, 0, 0, 0]);
       // Less while aiming, for a gun that aims.
-      if (def.aimFov !== undefined) expect(script, def.id).toContain(`(1 - v.aim * ${Number((1 - AIM_RECOIL).toFixed(2))})`);
-      expect(recoils[`animation.minecade.gun_${def.id}.recoil`].bones.body, def.id).toEqual({
-        position: [0, 0, `v.kick * ${recoil.back}`],
-        rotation: [`v.kick * ${-recoil.lift}`, 0, 0],
-      });
+      if (def.aimFov !== undefined) expect(position[2], def.id).toContain(`? ${AIM_RECOIL} : 1)`);
     }
     // Heavy guns kick harder than fast ones.
     expect(ARSENAL_GUN_DEFS.sniper_rifle.recoil.lift).toBeGreaterThan(ARSENAL_GUN_DEFS.smg.recoil.lift);
@@ -231,7 +256,7 @@ describe("the hand-edited hold file", () => {
     const named = new Set<string>();
     for (const id of [...gunItems(), ...arsenalItems()]) {
       const { animations } = json(`resource_pack/attachables/${file(id)}.json`)["minecraft:attachable"].description;
-      for (const name of Object.values(animations) as string[]) if (!name.endsWith(".recoil")) named.add(name);
+      for (const name of Object.values(animations) as string[]) if (!name.endsWith(".recoil") && !name.startsWith("controller.")) named.add(name);
     }
     expect([...named].sort()).toEqual(holdAnimationNames().sort());
     for (const name of named) {
@@ -299,8 +324,8 @@ describe("the arsenal's files", () => {
       const components = json(`behavior_pack/items/${file(arsenalItem(gun))}.json`)["minecraft:item"].components;
       expect(components["minecraft:cooldown"]).toEqual({ category: gunCooldown(gun), duration: ARSENAL_GUN_DEFS[gun].everyTicks / 20 });
       expect(components["minecraft:max_stack_size"]).toBe(1);
-      const scripts = json(`resource_pack/attachables/${file(arsenalItem(gun))}.json`)["minecraft:attachable"].description.scripts;
-      expect(scripts.pre_animation.join("\n")).toContain("q.cooldown_time_remaining('slot.weapon.mainhand')");
+      const recoil = json("resource_pack/animations/guns.animation.json").animations[`animation.minecade.gun_${gun}.recoil`];
+      expect(JSON.stringify(recoil)).toContain("q.cooldown_time_remaining('slot.weapon.mainhand')");
     }
     for (const model of ARSENAL_MODELS.filter((model) => !(ARSENAL_GUNS as readonly string[]).includes(model))) {
       const components = json(`behavior_pack/items/${file(arsenalItem(model))}.json`)["minecraft:item"].components;

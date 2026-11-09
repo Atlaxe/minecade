@@ -26,8 +26,9 @@ manifests, and `guns_hold.animation.json` (where each gun sits in the hand).
 | `packs/guns/behavior_pack/entities/` | Balls, the rocket, thrown and landed grenades, pickups. | Generated |
 | `packs/guns/resource_pack/models/entity/guns.geo.json` | Every model's geometry, three per model: held, display (pickups and thrown items) and icon. | Generated |
 | `packs/guns/resource_pack/textures/minecade/guns/` | The models' textures, ball sprites, the splash and puff. | Generated |
-| `packs/guns/resource_pack/attachables/` | How each item is drawn in the hand: model, texture, animations, the aim and recoil script. | Generated |
+| `packs/guns/resource_pack/attachables/` | How each item is drawn in the hand: model, texture, and which animations play. | Generated |
 | `packs/guns/resource_pack/animations/guns.animation.json` | Recoil, the pickups' float, the paint grenade's tumble and swell, the rocket's flight. | Generated |
+| `packs/guns/resource_pack/animation_controllers/guns.animation_controllers.json` | The aiming guns' hold controllers: hip pose or aim pose, eased between. | Generated |
 | `packs/guns/resource_pack/animations/guns_hold.animation.json` | Where each gun sits in the hand: hip, aim and third person poses. | **By hand** (Blockbench) |
 | `packs/guns/resource_pack/particles/` | The paint splash and the arsenal's streaks, beam, blasts, flames, smoke and glow. | Generated |
 | `packs/guns/icons/` | 128x128 pictures of each item for the lobby's kit pictures (not in either pack). | Generated |
@@ -119,10 +120,13 @@ and texture (`arsenal/rocket.png`).
   the game the way it draws a wall or a banner: each item places a hidden block holding the model
   (`minecade:<item>_model`, placeable only on itself, so never placed).
 - **Held models:** each gun is a 3D model (an attachable) with two bones. `gun` follows the hand and
-  carries the hold poses; `body` holds the boxes and carries the recoil. For a gun that aims, the
-  attachable blends the hip and aim poses by `v.aim`, which eases toward 1 while the aim marker
-  (`minecade:aim_marker`) is in the player's off hand: Guns puts it there while they aim, and the
-  model reads it with `q.is_item_name_any('slot.weapon.offhand', 0, 'minecade:aim_marker')`. The
+  carries the hold poses; `body` holds the boxes and carries the recoil. A gun that aims has a hold
+  controller with two states, its hip pose and its aim pose, and eases from one to the other in a
+  fifth of a second as the aim marker (`minecade:aim_marker`) comes into the player's off hand and
+  goes: Guns puts it there while they aim, and the controller reads it with
+  `q.is_item_name_any('slot.weapon.offhand', 0, 'minecade:aim_marker')`. The held models use no
+  variables at all: their animations look variables up on the player holding them, so a variable
+  their own scripts set is unknown to them (the client logs "unknown variable"). The
   marker's icon and its model in a hand are blank, so the off hand shows nothing. Something else of
   the player's in the off hand is left alone (the model then stays lowered).
 - **Recoil:** each shot kicks the held model back and tips its muzzle up, easing home just as the gun
@@ -313,9 +317,10 @@ While aiming (the guns that aim), both kicks are `AIM_RECOIL` (0.6) of these.
 can fire again. So a pistol kicks and settles in a quarter second, the SMG shivers every tenth of a
 second, and the sniper rifle settles over its whole second and a half. The burst rifle kicks once a
 burst. The animations (`animation.minecade.gun_<gun>.recoil`, in `guns.animation.json`) move the
-`body` bone by `v.kick`, 0 to 1. Change the numbers in `defs.ts` and rerun the generator. The shape
-of the kick is the Molang in `attachableScripts` in `tools/assets/guns.ts` (`kickHeight` beside it
-works it out the same way, for the tests).
+`body` bone by the kick, 0 to 1, written out in full in each channel (no variables, see "Held
+models"). Change the numbers in `defs.ts` and rerun the generator. The shape of the kick is the
+Molang from `kickMolang` in `tools/assets/guns.ts` (`kickHeight` beside it works it out the same
+way, for the tests).
 
 **The view kick** is the script's (`Guns.kickView`). A script can't turn a player's view by itself
 (Bedrock's `setRotation` is reported to do nothing to a player), so it teleports you to where you
