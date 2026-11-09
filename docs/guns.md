@@ -302,15 +302,17 @@ way the game does, so what it shows is close to the game. Edit the file in the m
 (`C:\dev\minecade\network`), which the network builds from.
 
 1. **Open a gun.** File > Open Model: `packs/guns/resource_pack/models/entity/guns.geo.json`, and
-   pick its held model, `geometry.minecade.gun_<model>` (not `_display` or `_icon`). Drag in its
-   texture: `packs/guns/resource_pack/textures/minecade/guns/arsenal/<model>.png`, or for
-   Paintball's, `.../guns/<model>/red.png`.
-2. **Load the poses.** In the Animate tab, import
-   `packs/guns/resource_pack/animations/guns_hold.animation.json` with the Animations panel's import
-   button. Import only that file, never `guns.animation.json` beside it: its recoil animations
-   multiply everything by the shot's kick, which is 0 in Blockbench, so a turn typed or dragged into
-   one shows nothing (and doesn't move the hold). If an animation ending in `.recoil` is in the
-   Animations panel, close the project without saving and start again from step 1.
+   pick its held model, `geometry.minecade.gun_<model>` (not `_display` or `_icon`). Blockbench
+   finds the gun's attachable (`attachables/<model>.json`) and loads what it names: the texture,
+   and in the Animate tab its poses (under `guns_hold.animation.json`: the shared and the gun's own,
+   for each view) and its recoil (under `guns.animation.json`). If the texture is missing, drag it
+   in: `packs/guns/resource_pack/textures/minecade/guns/arsenal/<model>.png`, or for Paintball's,
+   `.../guns/<model>/red.png`.
+2. **Unload the recoil.** Right-click `animation.minecade.gun_<model>.recoil` in the Animations
+   panel and pick **Unload**, which only takes it off the list (not Delete, which offers to delete
+   it from the file). A recoil animation is the shot's kick times a number, and the kick is 0 in
+   Blockbench, so a turn typed or dragged into it shows nothing and never moves the hold; with it
+   selected, every edit goes there.
 3. **Pick the view.** In the Animate tab's toolbar, set **Bedrock Animation Mode** to **Item 1st
    Person** (the camera's view, with a crosshair) for `first_person_hip` and `first_person_aim`, or
    **Item 3rd Person** (a player holding it) for `third_person`. A pose looks wrong in the other
