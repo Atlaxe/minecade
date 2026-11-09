@@ -22,15 +22,6 @@
             0,
             0,
             0
-          ]
-        },
-        {
-          "name": "body",
-          "parent": "gun",
-          "pivot": [
-            0,
-            0,
-            0
           ],
           "cubes": [
             {
@@ -850,15 +841,6 @@
         {
           "name": "gun",
           "binding": "q.item_slot_to_bone_name(c.item_slot)",
-          "pivot": [
-            0,
-            0,
-            0
-          ]
-        },
-        {
-          "name": "body",
-          "parent": "gun",
           "pivot": [
             0,
             0,
@@ -2004,15 +1986,6 @@
             0,
             0,
             0
-          ]
-        },
-        {
-          "name": "body",
-          "parent": "gun",
-          "pivot": [
-            0,
-            0,
-            0
           ],
           "cubes": [
             {
@@ -3154,15 +3127,6 @@
             0,
             0,
             0
-          ]
-        },
-        {
-          "name": "body",
-          "parent": "gun",
-          "pivot": [
-            0,
-            0,
-            0
           ],
           "cubes": [
             {
@@ -3770,15 +3734,6 @@
         {
           "name": "gun",
           "binding": "q.item_slot_to_bone_name(c.item_slot)",
-          "pivot": [
-            0,
-            0,
-            0
-          ]
-        },
-        {
-          "name": "body",
-          "parent": "gun",
           "pivot": [
             0,
             0,
@@ -4602,15 +4557,6 @@
         {
           "name": "gun",
           "binding": "q.item_slot_to_bone_name(c.item_slot)",
-          "pivot": [
-            0,
-            0,
-            0
-          ]
-        },
-        {
-          "name": "body",
-          "parent": "gun",
           "pivot": [
             0,
             0,
@@ -5646,15 +5592,6 @@
         {
           "name": "gun",
           "binding": "q.item_slot_to_bone_name(c.item_slot)",
-          "pivot": [
-            0,
-            0,
-            0
-          ]
-        },
-        {
-          "name": "body",
-          "parent": "gun",
           "pivot": [
             0,
             0,
@@ -6906,15 +6843,6 @@
             0,
             0,
             0
-          ]
-        },
-        {
-          "name": "body",
-          "parent": "gun",
-          "pivot": [
-            0,
-            0,
-            0
           ],
           "cubes": [
             {
@@ -8052,15 +7980,6 @@
         {
           "name": "gun",
           "binding": "q.item_slot_to_bone_name(c.item_slot)",
-          "pivot": [
-            0,
-            0,
-            0
-          ]
-        },
-        {
-          "name": "body",
-          "parent": "gun",
           "pivot": [
             0,
             0,
@@ -9206,15 +9125,6 @@
             0,
             0,
             0
-          ]
-        },
-        {
-          "name": "body",
-          "parent": "gun",
-          "pivot": [
-            0,
-            0,
-            0
           ],
           "cubes": [
             {
@@ -10352,15 +10262,6 @@
         {
           "name": "gun",
           "binding": "q.item_slot_to_bone_name(c.item_slot)",
-          "pivot": [
-            0,
-            0,
-            0
-          ]
-        },
-        {
-          "name": "body",
-          "parent": "gun",
           "pivot": [
             0,
             0,
@@ -12036,15 +11937,6 @@
             0,
             0,
             0
-          ]
-        },
-        {
-          "name": "body",
-          "parent": "gun",
-          "pivot": [
-            0,
-            0,
-            0
           ],
           "cubes": [
             {
@@ -13504,15 +13396,6 @@
             0,
             0,
             0
-          ]
-        },
-        {
-          "name": "body",
-          "parent": "gun",
-          "pivot": [
-            0,
-            0,
-            0
           ],
           "cubes": [
             {
@@ -14654,15 +14537,6 @@
             0,
             0,
             0
-          ]
-        },
-        {
-          "name": "body",
-          "parent": "gun",
-          "pivot": [
-            0,
-            0,
-            0
           ],
           "cubes": [
             {
@@ -15270,15 +15144,6 @@
         {
           "name": "gun",
           "binding": "q.item_slot_to_bone_name(c.item_slot)",
-          "pivot": [
-            0,
-            0,
-            0
-          ]
-        },
-        {
-          "name": "body",
-          "parent": "gun",
           "pivot": [
             0,
             0,
@@ -16000,15 +15865,6 @@
             0,
             0,
             0
-          ]
-        },
-        {
-          "name": "body",
-          "parent": "gun",
-          "pivot": [
-            0,
-            0,
-            0
           ],
           "cubes": [
             {
@@ -16722,15 +16578,6 @@
         {
           "name": "gun",
           "binding": "q.item_slot_to_bone_name(c.item_slot)",
-          "pivot": [
-            0,
-            0,
-            0
-          ]
-        },
-        {
-          "name": "body",
-          "parent": "gun",
           "pivot": [
             0,
             0,
@@ -17452,15 +17299,6 @@
             0,
             0,
             0
-          ]
-        },
-        {
-          "name": "body",
-          "parent": "gun",
-          "pivot": [
-            0,
-            0,
-            0
           ],
           "cubes": [
             {
@@ -18068,15 +17906,6 @@
         {
           "name": "gun",
           "binding": "q.item_slot_to_bone_name(c.item_slot)",
-          "pivot": [
-            0,
-            0,
-            0
-          ]
-        },
-        {
-          "name": "body",
-          "parent": "gun",
           "pivot": [
             0,
             0,

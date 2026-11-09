@@ -119,8 +119,10 @@ and texture (`arsenal/rocket.png`).
   be used). The icon is the model itself, drawn by
   the game the way it draws a wall or a banner: each item places a hidden block holding the model
   (`minecade:<item>_model`, placeable only on itself, so never placed).
-- **Held models:** each gun is a 3D model (an attachable) with two bones. `gun` follows the hand and
-  carries the hold poses; `body` holds the boxes and carries the recoil. A gun that aims has a hold
+- **Held models:** each gun is a 3D model (an attachable) with one bone, `gun`, bound to the hand
+  and holding every box; the hold poses and the recoil both move it. (They used to have a child
+  bone, `body`, holding the boxes, and a pose on the bound bone never moved it: seen in game on
+  2026-11-08, which is why no hold pose ever showed.) A gun that aims has a hold
   controller with two states, its hip pose and its aim pose, and eases from one to the other in a
   fifth of a second as the aim marker (`minecade:aim_marker`) comes into the player's off hand and
   goes: Guns puts it there while they aim, and the controller reads it with
@@ -270,18 +272,17 @@ previews attachables):
    Not File > Save Model, which also overwrites `guns.geo.json` (the generator owns it, and
    `guns.animation.json`).
 
-Keep to the `gun` bone (the `body` bone carries the recoil) and keep the animation names.
+Keep to the `gun` bone (the only one) and keep the animation names.
 Blockbench's preview is approximate, so check in game. `npm run check` confirms every pose the guns
 name is still in the file.
 
 When a new model comes, the generator adds the solver's first guess for each of its poses at the end
 of the file, in the file's own layout and line endings, and changes nothing already there.
 
-A gun's origin (the top of its grip) is at the hand, in first person as in third, so a pose's
-position is where the grip sits from the hand. The first guesses used to lift every gun 24
-pixels, which put it over the player's head in third person and in the middle of the screen in
-first person; every pose was lowered on 2026-11-08 (docs/spike-results.md, "Holding in third
-person").
+A gun's origin (the top of its grip) sits 24 pixels under the hand when it has no pose, as
+Blockbench's preview has it: seen in game with Probe's Holds kit (docs/spike-results.md, "Holding in
+third person"). So a pose lifts it about 24 pixels back up to the hand, and Blockbench's preview
+should match the game.
 
 ### Recoil
 
@@ -317,8 +318,10 @@ While aiming (the guns that aim), both kicks are `AIM_RECOIL` (0.6) of these.
 can fire again. So a pistol kicks and settles in a quarter second, the SMG shivers every tenth of a
 second, and the sniper rifle settles over its whole second and a half. The burst rifle kicks once a
 burst. The animations (`animation.minecade.gun_<gun>.recoil`, in `guns.animation.json`) move the
-`body` bone by the kick, 0 to 1, written out in full in each channel (no variables, see "Held
-models"). Change the numbers in `defs.ts` and rerun the generator. The shape of the kick is the
+`gun` bone on top of its hold pose by the kick, 0 to 1, written out in full in each channel (no
+variables, see "Held models"): the muzzle tips up about the grip, and the gun goes back along its
+barrel, which way that is coming from the generator's own pose for each view (so a hold pose turned
+far from it kicks a little off line). Change the numbers in `defs.ts` and rerun the generator. The shape of the kick is the
 Molang from `kickMolang` in `tools/assets/guns.ts` (`kickHeight` beside it works it out the same
 way, for the tests).
 

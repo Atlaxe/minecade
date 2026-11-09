@@ -645,14 +645,16 @@ function splashTexture(): Buffer {
 // turned as vanilla's animations turn it. In first person the camera looks along +z; in third
 // person the player faces -z with their right hand on +x.
 //
-// Where a bound model's origin is: at the hand (the player's rightItem locator, (1, -7, 1) from
-// the shoulder), as vanilla's crossbow shows (its bound rightitem bone draws its picture a few
-// pixels from the origin, in both views). The first guesses put it 24 pixels lower, and the guns
-// were seen over the player's head in third person and in the middle of the screen in first
-// person (docs/spike-results.md, "Holding in third person").
+// Where a bound model's origin is: 24 pixels under the hand (the player's rightItem locator, (1,
+// -7, 1) from the shoulder), as Blockbench's preview and the Bedrock Wiki have it and vanilla's
+// spear shows (it lifts its bound bone 24). Seen in game on 2026-11-08 with Probe's test axes, whose
+// boxes are in the bound bone: with no pose they sat by the feet in third person, and right of the
+// crosshair in first person, about where this puts them and turned within about 25 degrees of
+// this (docs/spike-results.md, "Holding in third person"). A pose moves only the bound bone's own
+// boxes, not a child bone's, so each held model keeps all its boxes in the bound bone.
 
-/** From the shoulder to a bound model's origin, before the arm turns: the hand, the player geometry's rightItem locator. */
-const HAND_BIND: Vec3 = [1, -7, 1];
+/** From the shoulder to a bound model's origin, before the arm turns: the 24-pixel drop under the hand. */
+const BIND: Vec3 = [1, -31, -1];
 /** The middle of the fist, the arm's end. */
 const FIST: Vec3 = [6, 12.5, 0];
 const SHOULDER: Vec3 = [5, 22, 0];
@@ -674,7 +676,7 @@ interface Transform {
 function solve(turn: Matrix, point: Vec3, chain: { arm: Matrix; shoulder: Vec3 }): Transform {
   const back = transpose(chain.arm);
   const bone = times(back, turn);
-  const offset = minus(apply(back, minus(point, chain.shoulder)), HAND_BIND);
+  const offset = minus(apply(back, minus(point, chain.shoulder)), BIND);
   // bone = rotZ(c) * rotY(b) * rotX(a)
   const b = Math.asin(Math.max(-1, Math.min(1, -bone[2][0])));
   const a = Math.atan2(bone[2][1], bone[2][2]);
@@ -752,13 +754,12 @@ function geometries(): unknown {
       visible_bounds_height: 3,
       visible_bounds_offset: [0, 0.75, 0],
     });
-    // Held: the root follows the hand; "body" carries the boxes, so the recoil moves them on the hold.
+    // Held: one bone, bound to the hand, holding every box; the hold poses and the recoil both move
+    // it. (A pose on a bound bone doesn't move a child bone's boxes: seen in game, the guns' child
+    // "body" never followed a pose.)
     all.push({
       description: description(heldGeometry(kind)),
-      bones: [
-        { name: "gun", binding: "q.item_slot_to_bone_name(c.item_slot)", pivot: [0, 0, 0] },
-        { name: "body", parent: "gun", pivot: [0, 0, 0], cubes },
-      ],
+      bones: [{ name: "gun", binding: "q.item_slot_to_bone_name(c.item_slot)", pivot: [0, 0, 0], cubes }],
     });
     // Floating, flying or sitting on its own: turns and swells around its middle. The arsenal's
     // stand on their floor (one entity shows any of them, so they can't each be lifted their own way).
@@ -901,11 +902,30 @@ function animations(): unknown {
   return { format_version: "1.8.0", animations: all };
 }
 
-/** A gun's recoil animation: its kick (0 to 1, kickMolang) moves the "body" bone back and tips its muzzle up. */
+/**
+ * A gun's recoil animation, on its held bone on top of the hold pose: its kick (0 to 1, kickMolang)
+ * tips the muzzle up about the grip and moves the gun back along its barrel. The pose turns the
+ * barrel, so which way is back comes from the solver's pose for each view (first person from the
+ * hip or aiming, third person); the hold file's poses stay close to those.
+ */
 function recoilPose(kind: ModelId): unknown {
   const { back, lift } = recoilOf(kind);
   const kick = kickMolang(kind);
-  return { loop: true, bones: { body: { position: [0, 0, `${kick} * ${back}`], rotation: [`${kick} * ${-lift}`, 0, 0] } } };
+  const hip = barrelBack(hipHold(kind).rotation);
+  const third = barrelBack(thirdHold(kind).rotation);
+  const aim = aimHold(kind);
+  const aimed = aim && barrelBack(aim.rotation);
+  const first = (axis: number) => (aimed ? `(${AIMING} ? ${fixed(aimed[axis] * back)} : ${fixed(hip[axis] * back)})` : `${fixed(hip[axis] * back)}`);
+  const along = (axis: number) => `${kick} * (c.is_first_person ? ${first(axis)} : ${fixed(third[axis] * back)})`;
+  return { loop: true, bones: { gun: { position: [along(0), along(1), along(2)], rotation: [`${kick} * ${-lift}`, 0, 0] } } };
+}
+
+/**
+ * Back along the barrel (the model's +z) in the bone's parent space, for a pose's rotation as the
+ * file has it: the game turns x, then y, then z, its file's x mirrored (Blockbench's reading).
+ */
+export function barrelBack([x, y, z]: Vec3): Vec3 {
+  return apply(times(times(rotZ(-z), rotY(y)), rotX(-x)), [0, 0, 1]);
 }
 
 /**

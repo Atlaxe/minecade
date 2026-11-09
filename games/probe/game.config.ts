@@ -102,8 +102,8 @@ export default defineGame({
       // Held model tests (resource_pack/attachables/hold_test_*): the arsenal's Pistol, then the same
       // model with no pose, and a colored axes model (white at the origin, red +X, green +Y, blue -Z,
       // the barrel's way) with no pose, moved up 8, sized by view, sized by a controller, and sized by
-      // view on an item that doesn't place a block, and moved by a value the server flips every 2
-      // seconds and by the aim marker coming and going from the off hand (main.ts). The no-pose ones pose to nothing on purpose: a held model with no animation
+      // view on an item that doesn't place a block, and moved by the aim marker coming and going
+      // from the off hand (main.ts). The no-pose ones pose to nothing on purpose: a held model with no animation
       // keeps the last item's pose. Docs: docs/spike-results.md, "Holding in third person".
       {
         id: "holds",
@@ -116,7 +116,6 @@ export default defineGame({
           { item: "minecade:hold_test_axes_size" },
           { item: "minecade:hold_test_axes_controller" },
           { item: "minecade:hold_test_axes_noblock" },
-          { item: "minecade:hold_test_axes_live" },
           { item: "minecade:hold_test_axes_aim" },
         ],
       },

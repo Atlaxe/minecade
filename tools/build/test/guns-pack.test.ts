@@ -71,6 +71,11 @@ describe("the guns pack's files", () => {
       const attachable = json(`resource_pack/attachables/${file(id)}.json`)["minecraft:attachable"].description;
       expect(attachable.identifier).toBe(id);
       expect(geometries.has(attachable.geometry.default), id).toBe(true);
+      // One bone, bound to the hand, with every box: a pose on a bound bone doesn't move a child's boxes.
+      const held = json("resource_pack/models/entity/guns.geo.json")["minecraft:geometry"].find((geo: Json) => geo.description.identifier === attachable.geometry.default);
+      expect(held.bones.length, id).toBe(1);
+      expect(held.bones[0].binding, id).toBe("q.item_slot_to_bone_name(c.item_slot)");
+      expect(held.bones[0].cubes.length, id).toBeGreaterThan(0);
       expect(attachable.textures.default).toBe(texture);
       textures.add(texture);
       expect(files[`icons/${file(id)}.png`], id).toBeDefined();
@@ -175,13 +180,15 @@ describe("the guns pack's files", () => {
       // Over the gun's own cooldown, its fire rate, which every shot (or burst) starts.
       const seconds = def.everyTicks / 20;
       expect(json(`behavior_pack/items/${file(item)}.json`)["minecraft:item"].components["minecraft:cooldown"], def.id).toEqual({ category: gunCooldown(def.id), duration: seconds });
-      const { position, rotation } = recoils[`animation.minecade.gun_${def.id}.recoil`].bones.body;
-      expect(position[2], def.id).toContain(`q.cooldown_time_remaining('slot.weapon.mainhand') / ${seconds}`);
-      expect(position[2], def.id).toMatch(new RegExp(` \\* ${recoil.back}$`));
-      expect(rotation[0], def.id).toMatch(new RegExp(` \\* ${-recoil.lift}$`));
-      expect([position[0], position[1], rotation[1], rotation[2]], def.id).toEqual([0, 0, 0, 0]);
+      // On the held bone, over the hold pose: the muzzle tips up about the grip, and the gun goes back
+      // along its barrel, which way that is depending on the view.
+      const { position, rotation } = recoils[`animation.minecade.gun_${def.id}.recoil`].bones.gun;
+      expect(rotation[0], def.id).toContain(`q.cooldown_time_remaining('slot.weapon.mainhand') / ${seconds}`);
+      expect(rotation[0].endsWith(` * ${-recoil.lift}`), def.id).toBe(true);
+      expect([rotation[1], rotation[2]], def.id).toEqual([0, 0]);
+      for (const channel of position) expect(channel, def.id).toMatch(/ \* \(c\.is_first_person \? .+ : -?[\d.]+\)$/);
       // Less while aiming, for a gun that aims.
-      if (def.aimFov !== undefined) expect(position[2], def.id).toContain(`? ${AIM_RECOIL} : 1)`);
+      if (def.aimFov !== undefined) expect(rotation[0], def.id).toContain(`? ${AIM_RECOIL} : 1)`);
     }
     // Heavy guns kick harder than fast ones.
     expect(ARSENAL_GUN_DEFS.sniper_rifle.recoil.lift).toBeGreaterThan(ARSENAL_GUN_DEFS.smg.recoil.lift);
