@@ -8,9 +8,11 @@
 // held gun's ammo shows top right, and a second row floats the arsenal's models. Letting go of a held
 // gun (the Paintball Rifle, SMG, Assault Rifle) says in chat what it fired and how far apart Bedrock
 // reported the held button's swings, to tune their triggerTicks. For the Holds kit's live test, every
-// player's v.minecade_hold flips between 0 and 8 every 2 seconds, set by an animation played on them.
-import { world, type Player, type Vector3 } from "@minecraft/server";
+// player's v.minecade_hold flips between 0 and 8 every 2 seconds, set by an animation played on them,
+// and while they hold a Holds test item the aim marker comes and goes from their off hand with it.
+import { EquipmentSlot, ItemStack, world, type Player, type Vector3 } from "@minecraft/server";
 import { ARSENAL_MODELS, ARSENAL_PICKUP, Arsenal, GUN_PICKUP, Guns, KIND_PROPERTY, MODEL_PROPERTY, PICKUP_KINDS, paintSplash, type TriggerReport } from "@minecade/guns";
+import { AIM_MARKER } from "@minecade/guns/defs";
 import { Minigame, nameOf, say, type GameContext } from "@minecade/minigame-core";
 import { runGameServer } from "@minecade/minigame-core/game";
 import pack from "../../resource_pack/manifest.json";
@@ -18,9 +20,12 @@ import config from "../../game.config.ts";
 
 /** Played on a player, these set their v.minecade_hold (resource_pack/animations/hold_live.animation.json). */
 const HOLD_LIVE = { up: "animation.minecade.hold_live.up", down: "animation.minecade.hold_live.down" };
+const HOLD_TEST = "minecade:hold_test_";
 
 class Probe extends Minigame<typeof config> {
   private arsenal?: Arsenal;
+  /** Players whose off hand holds an aim marker Probe put there (Test I), not Guns. */
+  private readonly testMarkers = new Set<string>();
 
   constructor(ctx: GameContext, gameConfig: typeof config, picturePack: string) {
     super(ctx, gameConfig);
@@ -50,12 +55,35 @@ class Probe extends Minigame<typeof config> {
       },
       { onAmmo: (player) => this.refreshHud(player.name), onTrigger: (player, report) => this.reportTrigger(player, report) },
     );
-    // The live hold test (Test H): a held model that follows a value the server sends moves 8 up and down.
+    // The live hold tests: a held model that follows a value the server sends (Test H) or the aim
+    // marker in the off hand (Test I) moves 8 up or sideways and back every 2 seconds.
     let up = false;
     this.scope.interval(() => {
       up = !up;
-      for (const player of world.getAllPlayers()) player.playAnimation(up ? HOLD_LIVE.up : HOLD_LIVE.down);
+      for (const player of world.getAllPlayers()) {
+        player.playAnimation(up ? HOLD_LIVE.up : HOLD_LIVE.down);
+        this.flipTestMarker(player, up);
+      }
     }, 40);
+    this.scope.interval(() => {
+      for (const player of world.getAllPlayers()) if (!this.holdsTest(player)) this.flipTestMarker(player, false);
+    }, 5);
+  }
+
+  private holdsTest(player: Player): boolean {
+    return player.getComponent("minecraft:equippable")?.getEquipment(EquipmentSlot.Mainhand)?.typeId.startsWith(HOLD_TEST) ?? false;
+  }
+
+  /** Test I: puts the aim marker in an empty off hand while a Holds test item is held, or takes back the one it put there. */
+  private flipTestMarker(player: Player, on: boolean): void {
+    const equipment = player.getComponent("minecraft:equippable");
+    if (!equipment) return;
+    if (on && this.holdsTest(player) && !equipment.getEquipment(EquipmentSlot.Offhand)) {
+      equipment.setEquipment(EquipmentSlot.Offhand, new ItemStack(AIM_MARKER.item));
+      this.testMarkers.add(player.name);
+    } else if (!on && this.testMarkers.delete(player.name) && equipment.getEquipment(EquipmentSlot.Offhand)?.typeId === AIM_MARKER.item) {
+      equipment.setEquipment(EquipmentSlot.Offhand, undefined);
+    }
   }
 
   /** "smg held: 14 shots, swings 4 to 9 ticks apart (mostly 4)", or one click's. */

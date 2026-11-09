@@ -107,7 +107,8 @@ describe("the guns pack's files", () => {
 
   it("times the recoil off the gun's own cooldown in the main hand; only the guns that aim read the aim marker in the off hand", () => {
     const aiming = ["sniper_rifle", "rail_gun", "rpg"];
-    const offHand = `q.is_item_name_any('slot.weapon.offhand', 0, '${AIM_MARKER.item}')`;
+    const markerQuery = `is_item_name_any('slot.weapon.offhand', 0, '${AIM_MARKER.item}')`;
+    const offHand = `(q.${markerQuery} || c.owning_entity->q.${markerQuery})`;
     const recoils = json("resource_pack/animations/guns.animation.json").animations;
     const controllers = json("resource_pack/animation_controllers/guns.animation_controllers.json").animation_controllers;
     const all = [...GUN_KINDS.map((kind) => ({ id: kind as string, item: gunItem(kind) })), ...ARSENAL_GUNS.map((gun) => ({ id: gun as string, item: arsenalItem(gun) }))];

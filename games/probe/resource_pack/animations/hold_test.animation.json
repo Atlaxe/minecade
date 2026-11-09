@@ -83,8 +83,20 @@
       "bones": {
         "root": {
           "position": [
-            "c.owning_entity->v.minecade_hold ?? 0",
+            "c.owning_entity->v.minecade_hold",
             "v.minecade_hold ?? 0",
+            0
+          ]
+        }
+      }
+    },
+    "animation.minecade.hold_test.aim": {
+      "loop": true,
+      "bones": {
+        "root": {
+          "position": [
+            "c.owning_entity->q.is_item_name_any('slot.weapon.offhand', 0, 'minecade:aim_marker') * 8",
+            "q.is_item_name_any('slot.weapon.offhand', 0, 'minecade:aim_marker') * 8",
             0
           ]
         }

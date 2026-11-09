@@ -908,8 +908,13 @@ function recoilPose(kind: ModelId): unknown {
   return { loop: true, bones: { body: { position: [0, 0, `${kick} * ${back}`], rotation: [`${kick} * ${-lift}`, 0, 0] } } };
 }
 
-/** True while the player aims: Guns puts the aim marker in their off hand (q.is_item_name_any reads the player's own equipment). */
-const AIMING = `q.is_item_name_any('slot.weapon.offhand', 0, '${AIM_MARKER.item}')`;
+/**
+ * True while the player aims: Guns puts the aim marker in their off hand. Asked of the held model
+ * and of its holder (c.owning_entity, as vanilla's spear asks its holder), since a right click
+ * zoomed but the aim pose didn't come up when only the first was asked.
+ */
+const OFF_HAND_MARKER = `is_item_name_any('slot.weapon.offhand', 0, '${AIM_MARKER.item}')`;
+const AIMING = `(q.${OFF_HAND_MARKER} || c.owning_entity->q.${OFF_HAND_MARKER})`;
 /** How long a gun that aims takes to come up or go down. */
 const AIM_EASE_SECONDS = 0.2;
 
@@ -1075,8 +1080,9 @@ function blankAttachable(): unknown {
     "minecraft:attachable": {
       description: {
         identifier: AIM_MARKER.item,
-        materials: { default: "entity_alphatest" },
-        textures: { default: BLANK_TEXTURE },
+        // The item render controller names an enchanted look too, and logs an error without one.
+        materials: { default: "entity_alphatest", enchanted: "entity_alphatest_glint" },
+        textures: { default: BLANK_TEXTURE, enchanted: "textures/misc/enchanted_item_glint" },
         geometry: { default: BLANK_GEOMETRY },
         render_controllers: ["controller.render.item_default"],
       },

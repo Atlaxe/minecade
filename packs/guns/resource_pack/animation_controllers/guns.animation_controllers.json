@@ -15,7 +15,7 @@
           ],
           "transitions": [
             {
-              "aim": "q.is_item_name_any('slot.weapon.offhand', 0, 'minecade:aim_marker')"
+              "aim": "(q.is_item_name_any('slot.weapon.offhand', 0, 'minecade:aim_marker') || c.owning_entity->q.is_item_name_any('slot.weapon.offhand', 0, 'minecade:aim_marker'))"
             }
           ],
           "blend_transition": 0.2
@@ -31,7 +31,7 @@
           ],
           "transitions": [
             {
-              "hip": "!q.is_item_name_any('slot.weapon.offhand', 0, 'minecade:aim_marker')"
+              "hip": "!(q.is_item_name_any('slot.weapon.offhand', 0, 'minecade:aim_marker') || c.owning_entity->q.is_item_name_any('slot.weapon.offhand', 0, 'minecade:aim_marker'))"
             }
           ],
           "blend_transition": 0.2
@@ -52,7 +52,7 @@
           ],
           "transitions": [
             {
-              "aim": "q.is_item_name_any('slot.weapon.offhand', 0, 'minecade:aim_marker')"
+              "aim": "(q.is_item_name_any('slot.weapon.offhand', 0, 'minecade:aim_marker') || c.owning_entity->q.is_item_name_any('slot.weapon.offhand', 0, 'minecade:aim_marker'))"
             }
           ],
           "blend_transition": 0.2
@@ -68,7 +68,7 @@
           ],
           "transitions": [
             {
-              "hip": "!q.is_item_name_any('slot.weapon.offhand', 0, 'minecade:aim_marker')"
+              "hip": "!(q.is_item_name_any('slot.weapon.offhand', 0, 'minecade:aim_marker') || c.owning_entity->q.is_item_name_any('slot.weapon.offhand', 0, 'minecade:aim_marker'))"
             }
           ],
           "blend_transition": 0.2
@@ -89,7 +89,7 @@
           ],
           "transitions": [
             {
-              "aim": "q.is_item_name_any('slot.weapon.offhand', 0, 'minecade:aim_marker')"
+              "aim": "(q.is_item_name_any('slot.weapon.offhand', 0, 'minecade:aim_marker') || c.owning_entity->q.is_item_name_any('slot.weapon.offhand', 0, 'minecade:aim_marker'))"
             }
           ],
           "blend_transition": 0.2
@@ -105,7 +105,7 @@
           ],
           "transitions": [
             {
-              "hip": "!q.is_item_name_any('slot.weapon.offhand', 0, 'minecade:aim_marker')"
+              "hip": "!(q.is_item_name_any('slot.weapon.offhand', 0, 'minecade:aim_marker') || c.owning_entity->q.is_item_name_any('slot.weapon.offhand', 0, 'minecade:aim_marker'))"
             }
           ],
           "blend_transition": 0.2
