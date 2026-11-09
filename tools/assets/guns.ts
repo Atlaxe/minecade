@@ -800,14 +800,16 @@ function geometries(): unknown {
     description: { identifier: BLANK_GEOMETRY, texture_width: 16, texture_height: 16 },
     bones: [{ name: "blank", binding: "q.item_slot_to_bone_name(c.item_slot)", pivot: [0, 0, 0] }],
   });
-  // The rocket in flight: turned along its flight around its middle.
+  // The rocket in flight: turned along its flight around its middle, its smoke coming off its tail
+  // (ROCKET_TAIL, the back of its fins, which turns with it).
   const { uvs, width, height } = uvLayout(ROCKET_BOXES);
   const middle = middleOf(ROCKET_BOXES);
+  const back = Math.max(...ROCKET_BOXES.map((piece) => piece.from[2] + piece.size[2]));
   all.push({
     description: { identifier: ROCKET_GEOMETRY, texture_width: width, texture_height: height, visible_bounds_width: 2, visible_bounds_height: 2 },
     bones: [
       { name: "display", pivot: middle },
-      { name: "body", parent: "display", pivot: middle, cubes: ROCKET_BOXES.map((piece, i) => cube(piece, uvs[i])) },
+      { name: "body", parent: "display", pivot: middle, locators: { [ROCKET_TAIL]: [middle[0], middle[1], back] }, cubes: ROCKET_BOXES.map((piece, i) => cube(piece, uvs[i])) },
     ],
   });
   return { format_version: "1.16.0", "minecraft:geometry": all };
@@ -851,6 +853,14 @@ const holdAnimation = (kind: ModelId, pose: HoldPose) => `animation.minecade.gun
 const GROUP_SEED: Record<HoldGroup, { model: ModelId; aim?: ModelId }> = { guns: { model: "handgun", aim: "rail_gun" }, throwables: { model: "frag_grenade" } };
 const recoilAnimation = (kind: ModelId) => `animation.minecade.gun_${kind}.recoil`;
 const ROCKET_ANIMATION = "animation.minecade.rocket.fly";
+/**
+ * The rocket's smoke trail: its client entity emits PARTICLES.trail from ROCKET_TAIL all the time,
+ * as vanilla's phantom and dolphin emit theirs (a controller state's particle_effects on a locator),
+ * so the smoke follows the rocket the client draws. Spawned by the script at the rocket's place on
+ * the server, it came out ahead of it: the client draws an entity a few ticks behind the server.
+ */
+const ROCKET_TRAIL_CONTROLLER = "controller.animation.minecade.rocket.trail";
+const ROCKET_TAIL = "tail";
 /**
  * The rocket's heading, worked out on the client from its own flight (q.movement_direction, its
  * normalized move, as vanilla's elytra reads it), in degrees as a player's rotation has them (yaw:
@@ -1068,7 +1078,8 @@ const holdController = (kind: ModelId) => `controller.animation.minecade.gun_${k
 
 /**
  * The hold controllers of the guns that aim: the hip and aim poses as two states, the gun easing
- * from one to the other (blend_transition) as the aim marker comes into the off hand and goes.
+ * from one to the other (blend_transition) as the aim marker comes into the off hand and goes. And
+ * the rocket's trail (ROCKET_TRAIL_CONTROLLER): one state that keeps its smoke coming.
  */
 function holdControllers(): unknown {
   const all: Record<string, unknown> = {};
@@ -1083,6 +1094,7 @@ function holdControllers(): unknown {
       states: { hip: state("first_person_hip", "aim", AIMING), aim: state("first_person_aim", "hip", `!${AIMING}`) },
     };
   }
+  all[ROCKET_TRAIL_CONTROLLER] = { initial_state: "default", states: { default: { particle_effects: [{ effect: "trail", locator: ROCKET_TAIL }] } } };
   return { format_version: "1.10.0", animation_controllers: all };
 }
 
@@ -1405,8 +1417,9 @@ function clientEntities(): Record<string, unknown> {
       textures: { default: ROCKET_TEXTURE },
       geometry: { default: ROCKET_GEOMETRY },
       render_controllers: ["controller.render.minecade.rocket"],
-      animations: { fly: ROCKET_ANIMATION },
-      scripts: { ...ROCKET_SCRIPTS, animate: ["fly"] },
+      particle_effects: { trail: PARTICLES.trail },
+      animations: { fly: ROCKET_ANIMATION, trail: ROCKET_TRAIL_CONTROLLER },
+      scripts: { ...ROCKET_SCRIPTS, animate: ["fly", "trail"] },
     }),
   };
 }
@@ -1560,8 +1573,11 @@ function arsenalParticles(): Record<string, unknown> {
       "minecraft:particle_appearance_billboard": puffs(`0.12 * (${FADE}) + 0.02`),
       "minecraft:particle_appearance_tinting": { color: [0.35, 0.9, 1, 1] },
     }),
+    // Emitted by the rocket's client entity for as long as it flies (ROCKET_TRAIL_CONTROLLER): 40
+    // puffs a second, as the script's 2 a tick were, left behind where they come out.
     arsenalParticle(PARTICLES.trail, "particles_blend", {
-      ...once(2),
+      "minecraft:emitter_rate_steady": { spawn_rate: 40, max_particles: 60 },
+      "minecraft:emitter_lifetime_looping": { active_time: 1 },
       "minecraft:emitter_shape_sphere": { radius: 0.08, direction: "outwards" },
       "minecraft:particle_initial_speed": 0.2,
       "minecraft:particle_lifetime_expression": { max_lifetime: "0.9 + v.particle_random_1 * 0.4" },

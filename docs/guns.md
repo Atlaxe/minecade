@@ -166,7 +166,11 @@ and texture (`arsenal/rocket.png`).
   head (its warhead is at -Z, where a face is). It flies as a snowball, which nothing
   turns (vanilla's arrow's `q.target_x_rotation` and `q.target_y_rotation` stayed 0), and the client
   gives an entity with a `runtime_identifier` no property component, so a property from the script
-  can't reach its model either (`q.property` on it is a content log error).
+  can't reach its model either (`q.property` on it is a content log error). Its smoke comes from the
+  client entity too: `controller.animation.minecade.rocket.trail` keeps `minecade:rocket_trail`
+  coming off a `tail` locator at the back of its fins, as vanilla's phantom and dolphin keep theirs,
+  so it follows the rocket the client draws. Spawned by the script where the server had the rocket,
+  it came out ahead of it, since the client draws an entity a few ticks behind the server.
 - **Blasts** (the frag, the rocket) hurt everyone in their radius, falling off evenly to nothing at
   the edge, a quarter through cover, and throw them out from the middle. No blocks break.
 - **Flashes** white out players who can see the flashbang: full close up and looking at it, a third

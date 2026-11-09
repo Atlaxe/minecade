@@ -200,7 +200,8 @@ describe("the RPG", () => {
     expect(rocket.properties.size).toBe(0);
     expect(rocket.projectile.shot!.z).toBeCloseTo(ARSENAL_GUN_DEFS.rpg.speed, 1);
     system.advanceTicks(2);
-    expect(particles(PARTICLES.trail).length).toBeGreaterThan(0);
+    // Its smoke comes from its client entity, behind the rocket the client draws, not from here.
+    expect(particles(PARTICLES.trail)).toHaveLength(0);
     world.projectileHitsEntity(rocket, bo, { x: 0.5, y: 66, z: 10.2 }, ann);
     expect(rocket.isValid).toBe(false);
     expect(hurts[0]).toEqual({ victim: "Bo", attacker: "Ann", amount: 20, cause: "explosion" });

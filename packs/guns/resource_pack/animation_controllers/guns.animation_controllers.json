@@ -147,6 +147,19 @@
           "blend_transition": 0.2
         }
       }
+    },
+    "controller.animation.minecade.rocket.trail": {
+      "initial_state": "default",
+      "states": {
+        "default": {
+          "particle_effects": [
+            {
+              "effect": "trail",
+              "locator": "tail"
+            }
+          ]
+        }
+      }
     }
   }
 }

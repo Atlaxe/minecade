@@ -841,10 +841,8 @@ export class Guns {
       remove(primed.entity);
       this.burst(primed.shot, primed.location, primed.throwable.burstSound);
     }
-    for (const [id, flying] of [...this.flying]) {
-      if (flying.until <= now) this.down(id, flying);
-      else if (flying.rocket && flying.entity.isValid) spawnParticle(world.getDimension("overworld"), PARTICLES.trail, flying.entity.location);
-    }
+    // A rocket's smoke comes from its client entity, so it follows the rocket the client draws.
+    for (const [id, flying] of [...this.flying]) if (flying.until <= now) this.down(id, flying);
     for (const [id, state] of [...this.shots]) if (state.flying <= 0) this.shots.delete(id);
   }
 

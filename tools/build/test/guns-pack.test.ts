@@ -398,6 +398,19 @@ describe("the arsenal's files", () => {
     expect(JSON.stringify(rocket)).not.toContain("q.property");
     expect(rocket.scripts.initialize).toEqual(["v.yaw = 0;", "v.pitch = 0;"]);
     expect(rocket.scripts.pre_animation.join(" ")).toContain("q.movement_direction");
+    // Its smoke comes off its tail all the time, from the rocket the client draws.
+    expect(rocket.particle_effects).toEqual({ trail: "minecade:rocket_trail" });
+    expect(rocket.scripts.animate).toEqual(["fly", "trail"]);
+    const trail = json("resource_pack/animation_controllers/guns.animation_controllers.json").animation_controllers[rocket.animations.trail];
+    expect(trail.states[trail.initial_state].particle_effects).toEqual([{ effect: "trail", locator: "tail" }]);
+    const rocketBones = json("resource_pack/models/entity/guns.geo.json")["minecraft:geometry"].find(
+      (geometry: { description: { identifier: string } }) => geometry.description.identifier === rocket.geometry.default,
+    ).bones;
+    // The tail is on the bone the flight turns (display's child), at the back of the fins.
+    expect(rocketBones.find((bone: { name: string }) => bone.name === "body")).toMatchObject({ parent: "display", locators: { tail: [0, 0, 3] } });
+    const smoke = json("resource_pack/particles/rocket_trail.json").particle_effect.components;
+    expect(smoke["minecraft:emitter_lifetime_looping"]).toBeDefined();
+    expect(smoke["minecraft:emitter_rate_steady"].spawn_rate).toBe(40);
     expect(geometries.has(rocket.geometry.default)).toBe(true);
     expect(files[`resource_pack/${rocket.textures.default}.png`]).toBeDefined();
   });

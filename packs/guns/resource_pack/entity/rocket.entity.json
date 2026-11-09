@@ -15,8 +15,12 @@
       "render_controllers": [
         "controller.render.minecade.rocket"
       ],
+      "particle_effects": {
+        "trail": "minecade:rocket_trail"
+      },
       "animations": {
-        "fly": "animation.minecade.rocket.fly"
+        "fly": "animation.minecade.rocket.fly",
+        "trail": "controller.animation.minecade.rocket.trail"
       },
       "scripts": {
         "initialize": [
@@ -29,7 +33,8 @@
           "v.pitch = v.moving ? math.asin(math.clamp(-q.movement_direction(1), -1, 1)) : v.pitch;"
         ],
         "animate": [
-          "fly"
+          "fly",
+          "trail"
         ]
       }
     }

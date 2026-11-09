@@ -374,7 +374,7 @@ export const PARTICLES = {
   hit: "minecade:hit_spark",
   /** The rail gun's beam: v.dir and v.dist, as the streak. */
   beam: "minecade:rail_beam",
-  /** Smoke a flying rocket leaves behind it. */
+  /** Smoke a flying rocket leaves behind it, emitted by its client entity (no script spawns it). */
   trail: "minecade:rocket_trail",
   /** A frag grenade's or a rocket's blast: v.radius. */
   explosion: "minecade:explosion",
