@@ -316,15 +316,56 @@ way the game does, so what it shows is close to the game. Edit the file in the m
    another. To change one gun, lock the shared pose (`animation.minecade.all_guns.first_person_hip`);
    to change every gun, lock the gun's own (`animation.minecade.gun_handgun.first_person_hip`).
 5. **Click the pose you're changing.** Both now play, added up as in the game.
-6. **Move it.** Select the `gun` bone in the Outliner and move, turn or scale it in the view, or
-   type the numbers in its keyframe at time 0 (the Keyframe panel). Change only the `gun` bone, and
-   keep the animation names.
-7. **Save that animation, not the model.** Right-click the animation you changed in the Animations
+6. **Click the `gun` bone again.** Picking an animation deselects everything, so after step 5
+   click `gun` in the Outliner (right side). The timeline at the bottom now shows `gun` with
+   Rotation, Position and Scale rows. Nothing can be changed until a bone is selected this way.
+7. **Change it,** either way. The preview follows as you go.
+   - **Type the numbers.** In the timeline, click the keyframe (the diamond at time 0) on the
+     Rotation, Position or Scale row. The Keyframe panel (left side, under Animations) shows its
+     X, Y and Z: type in them. A row with no diamond (Scale, in most poses) gets one with the **+**
+     at the right end of the row's name.
+   - **Drag it.** Pick the Rotate tool (R), Move tool (V) or Resize tool (S) and drag the colored
+     rings or arrows. Blockbench writes the drag into the selected animation's keyframe.
+
+   Change only the `gun` bone, and keep the animation names.
+8. **Save that animation, not the model.** Right-click the animation you changed in the Animations
    panel and pick Save: Blockbench writes that one into the file and keeps the rest. Never use File
    > Save Model, which overwrites `guns.geo.json` (the generator owns it): when Blockbench says
    `guns.geo.json` has unsaved changes as you close it, don't save them.
-8. **Changed the shared pose?** Open another gun or two (step 1) to see it fits them, before you
+9. **Changed the shared pose?** Open another gun or two (step 1) to see it fits them, before you
    try it in game.
+
+**The Edit tab can't change a hold.** Its Pivot Point and Rotation fields, and anything moved or
+turned there, change the model, and the game never sees them (the model isn't saved: the generator
+owns `guns.geo.json`). A hold is only the Animate tab's keyframes. The pivot stays where every
+model has it, at the top of the grip, so turning a gun turns it in the hand.
+
+**Which number does what:** a rotation's first number tips the muzzle up or down about the grip.
+The others, and the positions, are in the arm's own directions, which in first person aren't the
+screen's: change one a little and watch which way the gun goes. Scale is the size (keep it in the
+gun's own pose).
+
+#### Or in the file
+
+Each pose is a few numbers in `guns_hold.animation.json`, so it can be changed in VS Code too:
+find the pose by name (Ctrl+F `gun_handgun.third_person`), change its numbers and save. This makes
+the Pistol tip 10 degrees and grow a tenth in third person:
+
+```json
+"animation.minecade.gun_handgun.third_person": {
+  "loop": true,
+  "bones": {
+    "gun": {
+      "rotation": [10, 0, 0],
+      "position": [0, 0, 0],
+      "scale": 1.1
+    }
+  }
+},
+```
+
+Keep the commas and brackets: `npm run check` finds a broken file. Blockbench shows the change after
+the file is imported again.
 
 **Seeing it in game:** restart the map editor (Panel, Servers page, Restart) or start the network
 again, then rejoin and pick Probe's Gunner or Painter kit: the client downloads the new pack (packs
