@@ -27,8 +27,6 @@ import {
   ARSENAL_PICKUP,
   ARSENAL_THROWABLE_DEFS,
   COLOR_PROPERTY,
-  PITCH_PROPERTY,
-  YAW_PROPERTY,
   DYES,
   GRENADE,
   GUNS,
@@ -853,6 +851,21 @@ const holdAnimation = (kind: ModelId, pose: HoldPose) => `animation.minecade.gun
 const GROUP_SEED: Record<HoldGroup, { model: ModelId; aim?: ModelId }> = { guns: { model: "handgun", aim: "rail_gun" }, throwables: { model: "frag_grenade" } };
 const recoilAnimation = (kind: ModelId) => `animation.minecade.gun_${kind}.recoil`;
 const ROCKET_ANIMATION = "animation.minecade.rocket.fly";
+/**
+ * The rocket's heading, worked out on the client from its own flight (q.movement_direction, its
+ * normalized move, as vanilla's elytra reads it), in degrees as a player's rotation has them (yaw:
+ * 0 is south, 90 west; pitch: positive is down). Not a property from the script: the rocket flies
+ * as a snowball (runtime_identifier), and the client gives such an entity no property component,
+ * so q.property on it is an error. Between moves (the frame it appears, say) it keeps the last.
+ */
+const ROCKET_SCRIPTS = {
+  initialize: ["v.yaw = 0;", "v.pitch = 0;"],
+  pre_animation: [
+    "v.moving = math.abs(q.movement_direction(0)) + math.abs(q.movement_direction(1)) + math.abs(q.movement_direction(2)) > 0.5;",
+    "v.yaw = v.moving ? math.atan2(-q.movement_direction(0), q.movement_direction(2)) : v.yaw;",
+    "v.pitch = v.moving ? math.asin(math.clamp(-q.movement_direction(1), -1, 1)) : v.pitch;",
+  ],
+};
 /** Every model the held animations cover, Paintball's first. */
 const ALL_MODELS: ModelId[] = [...PICKUP_KINDS, ...ARSENAL_MODELS];
 const GUN_MODELS: ModelId[] = [...GUN_KINDS, ...ARSENAL_GUNS];
@@ -961,11 +974,11 @@ function animations(): unknown {
     },
   };
   for (const kind of ARSENAL_GUNS) all[recoilAnimation(kind)] = recoilPose(kind);
-  // Points the rocket along its flight by the heading the script gave it (YAW_PROPERTY,
-  // PITCH_PROPERTY), with vanilla's arrow's signs ("-pitch", "-yaw" from q.target_x_rotation and
-  // q.target_y_rotation, which only a vanilla projectile's own flight keeps: the rocket flies as a
-  // snowball, so it always pointed one way).
-  all[ROCKET_ANIMATION] = { loop: true, bones: { display: { rotation: [`-q.property('${PITCH_PROPERTY}')`, `-q.property('${YAW_PROPERTY}')`, 0] } } };
+  // Points the rocket along its flight by the heading its client entity works out (ROCKET_SCRIPTS),
+  // with vanilla's arrow's signs ("-pitch", "-yaw" from q.target_x_rotation and q.target_y_rotation,
+  // which only a vanilla projectile's own flight keeps: the rocket flies as a snowball, so it always
+  // pointed one way).
+  all[ROCKET_ANIMATION] = { loop: true, bones: { display: { rotation: ["-v.pitch", "-v.yaw", 0] } } };
   return { format_version: "1.8.0", animations: all };
 }
 
@@ -1219,11 +1232,6 @@ function arsenalBlock(model: ArsenalModel): unknown {
 }
 
 const colorProperty = { [COLOR_PROPERTY]: { type: "int", range: [0, DYES.length - 1], default: 0, client_sync: true } };
-/** A rocket's heading (guns.ts's heading): which way its model points. */
-const headingProperties = {
-  [YAW_PROPERTY]: { type: "float", range: [-180, 180], default: 0, client_sync: true },
-  [PITCH_PROPERTY]: { type: "float", range: [-90, 90], default: 0, client_sync: true },
-};
 /** Which arsenal model an arsenal entity shows: an index into ARSENAL_MODELS. */
 const modelProperty = { [MODEL_PROPERTY]: { type: "int", range: [0, ARSENAL_MODELS.length - 1], default: 0, client_sync: true } };
 /** Nothing hurts, pushes or burns these: the script places and removes them. */
@@ -1397,7 +1405,7 @@ function clientEntities(): Record<string, unknown> {
       geometry: { default: ROCKET_GEOMETRY },
       render_controllers: ["controller.render.minecade.rocket"],
       animations: { fly: ROCKET_ANIMATION },
-      scripts: { animate: ["fly"] },
+      scripts: { ...ROCKET_SCRIPTS, animate: ["fly"] },
     }),
   };
 }
@@ -1653,7 +1661,7 @@ export function gunsPackFiles(): Record<string, string | Buffer> {
     "behavior_pack/entities/arsenal_thrown.json": json(projectileEntity(THROWN_ARSENAL, 0.3, 0.05, false, modelProperty)),
     "behavior_pack/entities/arsenal_primed.json": json(primedArsenalEntity()),
     "behavior_pack/entities/arsenal_pickup.json": json(arsenalPickupEntity()),
-    "behavior_pack/entities/rocket.json": json(projectileEntity(ROCKET, 0.3, 0.005, false, headingProperties, true)),
+    "behavior_pack/entities/rocket.json": json(projectileEntity(ROCKET, 0.3, 0.005, false, null, true)),
     "resource_pack/models/entity/guns.geo.json": json(geometries()),
     "resource_pack/animations/guns.animation.json": json(animations()),
     "resource_pack/animation_controllers/guns.animation_controllers.json": json(holdControllers()),

@@ -390,18 +390,14 @@ describe("the arsenal's files", () => {
       runtime_identifier: "minecraft:snowball",
       is_spawnable: false,
       is_summonable: true,
-      properties: {
-        "minecade:yaw": { type: "float", range: [-180, 180], default: 0, client_sync: true },
-        "minecade:pitch": { type: "float", range: [-90, 90], default: 0, client_sync: true },
-      },
     });
-    // Its model points along the heading the script gives it, with vanilla's arrow's signs.
-    expect(json("resource_pack/animations/guns.animation.json").animations["animation.minecade.rocket.fly"].bones.display.rotation).toEqual([
-      "-q.property('minecade:pitch')",
-      "-q.property('minecade:yaw')",
-      0,
-    ]);
+    // Its model points along its flight, worked out on the client (an entity flying as a snowball
+    // has no property component there), with vanilla's arrow's signs.
+    expect(json("resource_pack/animations/guns.animation.json").animations["animation.minecade.rocket.fly"].bones.display.rotation).toEqual(["-v.pitch", "-v.yaw", 0]);
     const rocket = json("resource_pack/entity/rocket.entity.json")["minecraft:client_entity"].description;
+    expect(JSON.stringify(rocket)).not.toContain("q.property");
+    expect(rocket.scripts.initialize).toEqual(["v.yaw = 0;", "v.pitch = 0;"]);
+    expect(rocket.scripts.pre_animation.join(" ")).toContain("q.movement_direction");
     expect(geometries.has(rocket.geometry.default)).toBe(true);
     expect(files[`resource_pack/${rocket.textures.default}.png`]).toBeDefined();
   });

@@ -160,10 +160,12 @@ and texture (`arsenal/rocket.png`).
 - **Damage** comes straight off health (no armor, no hurt cooldown), so a fast gun's every bullet
   counts. The shooter hears a hit, a headshot (higher) and a down (a chime) apart.
 - **The rocket** flies straight at its speed, trailing smoke, and a direct hit takes its damage before
-  the blast. It points along its flight: the script gives it its heading (`minecade:yaw` and
-  `minecade:pitch`, synced properties, from `heading()` in `guns.ts`) as it leaves the gun, and its
-  `animation.minecade.rocket.fly` turns its model by them. (It flies as a snowball, which nothing
-  turns, so vanilla's arrow's `q.target_x_rotation` and `q.target_y_rotation` stayed 0.)
+  the blast. It points along its flight: its client entity works out its heading from its own move
+  each frame (`q.movement_direction`, as vanilla's elytra reads it, into `v.yaw` and `v.pitch`), and
+  its `animation.minecade.rocket.fly` turns its model by them. It flies as a snowball, which nothing
+  turns (vanilla's arrow's `q.target_x_rotation` and `q.target_y_rotation` stayed 0), and the client
+  gives an entity with a `runtime_identifier` no property component, so a property from the script
+  can't reach its model either (`q.property` on it is a content log error).
 - **Blasts** (the frag, the rocket) hurt everyone in their radius, falling off evenly to nothing at
   the edge, a quarter through cover, and throw them out from the middle. No blocks break.
 - **Flashes** white out players who can see the flashbang: full close up and looking at it, a third

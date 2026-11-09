@@ -258,8 +258,8 @@
       "bones": {
         "display": {
           "rotation": [
-            "-q.property('minecade:pitch')",
-            "-q.property('minecade:yaw')",
+            "-v.pitch",
+            "-v.yaw",
             0
           ]
         }
