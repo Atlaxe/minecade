@@ -29,6 +29,7 @@ export const EntityComponentTypes = {
   Health: "minecraft:health",
   Hunger: "minecraft:player.hunger",
   Inventory: "minecraft:inventory",
+  Movement: "minecraft:movement",
   Projectile: "minecraft:projectile",
   Saturation: "minecraft:player.saturation",
 } as const;
@@ -363,6 +364,20 @@ export class FakePlayer {
       this.camera.fades.push(options);
     },
   };
+  /** Its walking speed (the movement attribute, 0.1 for a player). */
+  readonly movement = {
+    currentValue: 0.1,
+    defaultValue: 0.1,
+    setCurrentValue(value: number) {
+      writable("movement::setCurrentValue");
+      this.currentValue = value;
+      return true;
+    },
+    resetToDefaultValue() {
+      writable("movement::resetToDefaultValue");
+      this.currentValue = this.defaultValue;
+    },
+  };
   readonly teleports: Vector3[] = [];
   /** The commands a script ran as this player (runCommand), oldest first. */
   readonly commands: string[] = [];
@@ -443,6 +458,8 @@ export class FakePlayer {
         };
       case EntityComponentTypes.CursorInventory:
         return { clear: () => this.cursorCleared.count++ };
+      case EntityComponentTypes.Movement:
+        return this.movement;
       default:
         return undefined;
     }

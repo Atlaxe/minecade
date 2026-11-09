@@ -10,6 +10,7 @@ import {
   HUD_MARK,
   NOTES_MARK,
   ROUND_COLORS,
+  SCOPE_CODE,
   TEXT_MARK,
   bestOfCodes,
   clockCodes,
@@ -59,6 +60,18 @@ describe("hudLine", () => {
   it("is just the line without a clock, above the hotbar", () => {
     expect(hudLine(undefined, "Respawning in 3")).toBe("Respawning in 3");
     expect(hudLine(undefined)).toBe("");
+  });
+
+  it("carries the scope's code at the end, marked so it never shows above the hotbar", () => {
+    expect(hudLine(65, "Ammo 5", undefined, "", SCOPE_CODE)).toBe(`${HUD_MARK}Ammo 5§r${TEXT_MARK}§r${clockCodes(65)}${SCOPE_CODE}`);
+    // No clock: still marked, so the line's text goes top right and the scope shows.
+    expect(hudLine(undefined, "Ammo 5", undefined, "", SCOPE_CODE)).toBe(`${HUD_MARK}Ammo 5§r${TEXT_MARK}§r${SCOPE_CODE}`);
+    expect(hudLine(undefined, "", undefined, "", SCOPE_CODE)).toBe(`${HUD_MARK}${SCOPE_CODE}`);
+    expect(stripColors(hudLine(65, "", undefined, "", SCOPE_CODE))).toBe("");
+    // The pack shows the scope on exactly that code, and its picture is there.
+    const hud = readFileSync(new URL("../resource_pack/ui/hud_screen.json", import.meta.url), "utf8");
+    expect(hud).toContain(`"visible": "(not (($atext - '${SCOPE_CODE}') = $atext))"`);
+    for (const texture of ["scope", "black"]) expect(existsSync(new URL(`../resource_pack/textures/minecade/hud/${texture}.png`, import.meta.url))).toBe(true);
   });
 
   it("puts text alone top right, in its own bubble", () => {

@@ -1501,16 +1501,25 @@ export abstract class Minigame<C extends GameConfig = GameConfig> {
     if (player) this.showHudLine(player, this.currentStage?.secondsLeft ?? this.matchSecondsLeft, this.roundsCodes());
   }
 
+  /**
+   * Codes for the HUD line beyond the text, clock, score and rounds: SCOPE_CODE while a player looks
+   * through a gun's scope (Guns.isScoped). None by default.
+   */
+  protected hudCodes(_name: string): string {
+    return "";
+  }
+
   private showHudLine(player: Player, secondsLeft: number | undefined, rounds: string): void {
     const scoring = this.config.scoring;
     const own = scoring?.display === "own";
     const rest = this.hud(player.name) ?? "";
     const count = own ? this.ownScore(player.name) : undefined;
+    const codes = this.hudCodes(player.name);
     // With no clock (and no rounds) there's no box to put the score beside: it goes on the action bar as text.
     const text =
-      secondsLeft === undefined && count !== undefined && !rounds
+      secondsLeft === undefined && count !== undefined && !rounds && !codes
         ? [say.info(`${scoring?.title ?? "Score"}: ${count}`), rest].filter(Boolean).join("   ")
-        : hudLine(secondsLeft, rest, count, rounds);
+        : hudLine(secondsLeft, rest, count, rounds, codes);
     if (text) player.onScreenDisplay.setActionBar(text);
   }
 

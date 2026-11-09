@@ -12,7 +12,7 @@
 import { EquipmentSlot, ItemStack, world, type Player, type Vector3 } from "@minecraft/server";
 import { ARSENAL_MODELS, ARSENAL_PICKUP, Arsenal, GUN_PICKUP, Guns, KIND_PROPERTY, MODEL_PROPERTY, PICKUP_KINDS, paintSplash, type TriggerReport } from "@minecade/guns";
 import { AIM_MARKER } from "@minecade/guns/defs";
-import { Minigame, nameOf, say, type GameContext } from "@minecade/minigame-core";
+import { Minigame, SCOPE_CODE, nameOf, say, type GameContext } from "@minecade/minigame-core";
 import { runGameServer } from "@minecade/minigame-core/game";
 import pack from "../../resource_pack/manifest.json";
 import config from "../../game.config.ts";
@@ -50,7 +50,11 @@ class Probe extends Minigame<typeof config> {
           return "hurt";
         },
       },
-      { onAmmo: (player) => this.refreshHud(player.name), onTrigger: (player, report) => this.reportTrigger(player, report) },
+      {
+        onAmmo: (player) => this.refreshHud(player.name),
+        onAim: (player) => this.refreshHud(player.name),
+        onTrigger: (player, report) => this.reportTrigger(player, report),
+      },
     );
     // Test H: a held model that sees the aim marker in the off hand moves 8 up or sideways and back
     // every 2 seconds. (Playing an animation on the player to set a variable didn't reach a held
@@ -103,6 +107,11 @@ class Probe extends Minigame<typeof config> {
   protected override hud(name: string): string | undefined {
     const player = this.player(name);
     return (player && this.arsenal?.ammoLine(player)) ?? super.hud(name);
+  }
+
+  /** The Sniper Rifle's scope over the screen while it's raised. */
+  protected override hudCodes(name: string): string {
+    return this.arsenal?.guns.isScoped(name) ? SCOPE_CODE : "";
   }
 
   protected override get timeLimit(): number | undefined {

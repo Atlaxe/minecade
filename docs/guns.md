@@ -202,6 +202,25 @@ right click is held, no left click reaches the script at all, and a held left cl
 swing (now and then a few, 4 to 5 ticks apart). So "hold one button to aim and the other to shoot"
 can't work, and only guns that fire a shot at a time aim, between shots.
 
+**The Sniper Rifle's scope:** raised, the Sniper Rifle hides (its aim pose's size is 0), the
+camera zooms to its `aimFov` (30), and the HUD draws a scope over the screen: a round lens with a
+reticle, black out to the screen's edges. A gun with `scope: true` in `defs.ts` has it (only the
+Sniper Rifle). Bedrock has no script call to draw on the screen, so the scope rides on the HUD line
+like the clock: `Guns.isScoped` says who looks through one, Guns' `onAim` (Arsenal's too) tells the
+game when a gun goes up or down, and the game's `hudCodes` adds `SCOPE_CODE` to that player's line
+and redraws it at once (`refreshHud`). Gunfight and Probe do; a new game with the Sniper Rifle needs
+the same two lines. The core pack's `ui/hud_screen.json` (`mc_scope`) shows the lens
+(`textures/minecade/hud/scope.png`, from `tools/assets/scope-hud.ts`) as tall as the screen in the
+middle and black either side, so it fits any screen. It only shows while the game is playing (the
+HUD line is drawn every half second then).
+
+**Heavy guns:** the Sniper Rifle, Rail Gun and RPG slow whoever holds one to `HEAVY_CARRY_SPEED`
+(0.75) of their walking speed, while it's the item in their hand: each gun's `carrySpeed` in
+`defs.ts`. Guns looks at every player's held item every 4 ticks (`weigh`) and sets their movement
+attribute (`minecraft:movement`) to that share of its own; switching to anything else, going out
+(`forget`) or the game ending gives it back. A sprint and a Stimpack's speed still add on top. Only
+the speed a Guns set is ever given back, so a game's own change to a player's movement stays.
+
 **Bring aiming back** for another gun:
 
 1. In `defs.ts`, give it an `aimFov` (the camera's zoom) and an `aimSpreadDegrees` (its aimed

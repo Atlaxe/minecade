@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Scope } from "@minecade/minigame-core";
-import { AIM_MARKER, AIM_RECOIL, ARSENAL_GUN_DEFS, GRENADE, GUNS, PAINTBALL, PRIMED_GRENADE, THROWN_GRENADE, arsenalItem, dyeIndex, gunCooldown, gunItem, type GunDef } from "../src/defs.ts";
+import { AIM_MARKER, AIM_RECOIL, ARSENAL_GUN_DEFS, GRENADE, GUNS, HEAVY_CARRY_SPEED, PAINTBALL, PRIMED_GRENADE, THROWN_GRENADE, arsenalItem, dyeIndex, gunCooldown, gunItem, type GunDef } from "../src/defs.ts";
 import { Guns, ammoText, coneDirections, type AmmoState, type GunsOptions, type Shot } from "../src/guns.ts";
 import { Direction, EntitySwingSource, EquipmentSlot, ItemLockMode, ItemStack, system, world, type FakeBlock, type FakeMob, type FakePlayer } from "../../minigame-core/test/fake-mc-server.ts";
 
@@ -255,6 +255,64 @@ describe("Guns", () => {
     expect(guns.isAiming("Ann")).toBe(false);
     expect(player.camera.fovs).toHaveLength(4);
     expect(offHand(player)).toBeUndefined();
+  });
+
+  it("says who looks through a scope (the raised Sniper Rifle), and tells the game whenever a gun goes up or down", () => {
+    const aims: [string, boolean][] = [];
+    const { guns } = setup({ guns: Object.values(ARSENAL_GUN_DEFS), onAim: (player, aiming) => aims.push([player.name, aiming]) });
+    const ann = holding("Ann", arsenalItem("sniper_rifle"));
+    ann.inventory.slots[1] = new ItemStack(arsenalItem("rpg"));
+    expect(guns.isScoped("Ann")).toBe(false);
+    click(ann);
+    expect(guns.isScoped("Ann")).toBe(true);
+    expect(aims).toEqual([["Ann", true]]);
+    system.advanceTicks(10);
+    click(ann);
+    expect(guns.isScoped("Ann")).toBe(false);
+    expect(aims).toEqual([
+      ["Ann", true],
+      ["Ann", false],
+    ]);
+    // The RPG aims without a scope; switching away lowers it, and says so.
+    ann.selectedSlotIndex = 1;
+    system.advanceTicks(10);
+    click(ann);
+    expect(guns.isAiming("Ann")).toBe(true);
+    expect(guns.isScoped("Ann")).toBe(false);
+    ann.selectedSlotIndex = 2;
+    system.advanceTicks(1);
+    expect(aims.at(-1)).toEqual(["Ann", false]);
+    expect((Object.values(ARSENAL_GUN_DEFS) as GunDef[]).filter((gun) => gun.scope).map((gun) => gun.id)).toEqual(["sniper_rifle"]);
+  });
+
+  it("slows a player while a heavy gun is in hand, and gives them their own speed back when it isn't", () => {
+    const { scope } = setup({ guns: Object.values(ARSENAL_GUN_DEFS) });
+    const ann = holding("Ann", arsenalItem("sniper_rifle"));
+    ann.inventory.slots[1] = new ItemStack(arsenalItem("handgun"));
+    ann.inventory.slots[2] = new ItemStack(arsenalItem("rpg"));
+    const bob = holding("Bob", arsenalItem("smg"));
+    system.advanceTicks(4);
+    expect(ann.movement.currentValue).toBeCloseTo(0.1 * HEAVY_CARRY_SPEED, 6);
+    expect(bob.movement.currentValue).toBe(0.1);
+    ann.selectedSlotIndex = 1;
+    system.advanceTicks(4);
+    expect(ann.movement.currentValue).toBe(0.1);
+    ann.selectedSlotIndex = 2;
+    system.advanceTicks(4);
+    expect(ann.movement.currentValue).toBeCloseTo(0.1 * HEAVY_CARRY_SPEED, 6);
+    // The game's end gives it back too.
+    scope.dispose();
+    expect(ann.movement.currentValue).toBe(0.1);
+    expect((Object.values(ARSENAL_GUN_DEFS) as GunDef[]).filter((gun) => gun.carrySpeed !== undefined).map((gun) => gun.id)).toEqual(["sniper_rifle", "rail_gun", "rpg"]);
+  });
+
+  it("gives a player who goes out their own speed back at once", () => {
+    const { guns } = setup({ guns: Object.values(ARSENAL_GUN_DEFS) });
+    const ann = holding("Ann", arsenalItem("rail_gun"));
+    system.advanceTicks(4);
+    expect(ann.movement.currentValue).toBeCloseTo(0.1 * HEAVY_CARRY_SPEED, 6);
+    guns.forget("Ann");
+    expect(ann.movement.currentValue).toBe(0.1);
   });
 
   it("leaves something of the player's own in the off hand where it is when they aim", () => {

@@ -6,7 +6,7 @@
 // netherite sword kill in one hit, and the held gun's ammo shows top right.
 import { EntityComponentTypes, ItemLockMode, ItemStack, type Player } from "@minecraft/server";
 import { ARSENAL_GUN_DEFS, ARSENAL_THROWABLE_DEFS, Arsenal, STIM, STIMPACK, arsenalItem, parseArsenalItem } from "@minecade/guns";
-import { Minigame, describeError, log, say, type Down, type DownDecision, type GameContext, type Hit, type Result, type SpawnReason } from "@minecade/minigame-core";
+import { Minigame, SCOPE_CODE, describeError, log, say, type Down, type DownDecision, type GameContext, type Hit, type Result, type SpawnReason } from "@minecade/minigame-core";
 import type config from "../../game.config.ts";
 
 /** One round's loadout, as item ids: the same for everyone. */
@@ -113,7 +113,7 @@ export class Gunfight extends Minigame<typeof config> {
         },
         give: (player, item) => this.giveGrenade(player, item),
       },
-      { random: () => this.ctx.random(), onAmmo: (player) => this.refreshHud(player.name) },
+      { random: () => this.ctx.random(), onAmmo: (player) => this.refreshHud(player.name), onAim: (player) => this.refreshHud(player.name) },
     );
   }
 
@@ -149,6 +149,11 @@ export class Gunfight extends Minigame<typeof config> {
   protected override hud(name: string): string | undefined {
     const player = this.player(name);
     return (player && this.arsenal?.ammoLine(player)) ?? super.hud(name);
+  }
+
+  /** The Sniper Rifle's scope over the screen while it's raised. */
+  protected override hudCodes(name: string): string {
+    return this.arsenal?.guns.isScoped(name) ? SCOPE_CODE : "";
   }
 
   /** The loadout in its slots, each locked there, and a crossbow's arrows above the hotbar. */

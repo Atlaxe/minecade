@@ -152,6 +152,14 @@ won circle's color (`§k§i`, `§k§j`), or each side's color and its wins' tens
 is the match's, over all the rounds; with no clock at all, the clock's box goes, and the line's
 text stays in its own bubble.
 
+**A gun's scope:** `SCOPE_CODE` (`§k§l`) anywhere on the line draws a scope over the whole screen
+(`mc_scope` in the core pack's `ui/hud_screen.json`): the lens (`textures/minecade/hud/scope.png`,
+written by `tools/assets/scope-hud.ts`) as tall as the screen in the middle, and `black.png` either
+side out to the edges, sized by `"%y"` (a share of the control's own height) so it fits any screen.
+It's first in the action bar's controls, so the HUD's bubbles show over it. A game adds the code
+through `Minigame.hudCodes` (docs/guns.md, "Aiming"); with it, a line with no clock is still marked
+(`HUD_MARK`), so its text shows top right rather than over the hotbar.
+
 **Team scores as sides:** a game whose `scoring` has `display: "sides"` (Paintball) has no sidebar:
 every team's score shows in the rounds box, as the best-of score does, each in its team's color with
 gray bars between ("3 | 1 | 0 | 2", up to 99). It's for team scores (`per: "team"`) of up to four

@@ -5,7 +5,9 @@
 // it repeats the interaction instead, and a window bridges the repeats. Left click fires one shot
 // with a gun that doesn't aim, and raises or lowers one that does (an aimFov: the Sniper Rifle, Rail
 // Gun and RPG; Bedrock sends no left click while right click is held, so it can't be both): the
-// camera zooms, the shots stray less, and the held model comes up (the aim marker in the off hand).
+// camera zooms, the shots stray less, and the held model comes up (the aim marker in the off hand);
+// a scoped gun (the Sniper Rifle) also has the game draw a scope over the screen. A heavy gun (the
+// Sniper Rifle, Rail Gun and RPG) slows its holder while it's in hand.
 // Each shot shades the gun's hotbar slot
 // for its fire rate (the item's own cooldown), kicks the held model back until the next shot, and
 // shakes the shooter's camera for a moment (defs.ts's RecoilDef). A thrown item goes with
@@ -124,6 +126,8 @@ export interface GunsOptions {
    * reported it (to tune held fire).
    */
   onTrigger?(player: Player, report: TriggerReport): void;
+  /** A player raised a gun to aim (`aiming`) or lowered it: the game can redraw its HUD at once (isScoped). */
+  onAim?(player: Player, aiming: boolean): void;
   random?: () => number;
 }
 
@@ -213,6 +217,8 @@ const LAND_OFF_FACE = 0.2;
 /** The zoom's ease in and out, in seconds. */
 const AIM_EASE = 0.15;
 const round = (value: number, places: number) => Math.round(value * 10 ** places) / 10 ** places;
+/** How often each player's held item is weighed (GunDef.carrySpeed), in ticks. */
+const CARRY_CHECK_TICKS = 4;
 /** A shot shakes the shooter's camera until the gun can fire again, but at least and at most this long. */
 const SHAKE_SECONDS = { least: 0.1, most: 0.3 };
 /**
@@ -267,6 +273,8 @@ export class Guns {
   private readonly lastLeftClick = new Map<string, number>();
   /** When each player's last use of a gun ended, so a use that comes with the release isn't a press. */
   private readonly lastRelease = new Map<string, number>();
+  /** The players a heavy gun slows (lowercase name), and the share of their speed it leaves. */
+  private readonly carrying = new Map<string, { player: Player; speed: number }>();
   /** Each player's magazines, by gun, for guns with ammo. */
   private readonly magazines = new Map<string, Map<string, Magazine>>();
   private nextShot = 1;
@@ -326,6 +334,7 @@ export class Guns {
     this.readyAt.delete(key);
     this.lastLeftClick.delete(key);
     this.lastRelease.delete(key);
+    this.putDown(key);
   }
 
   /** Fills every magazine a player has, spare rounds too (a respawn). */
@@ -350,6 +359,11 @@ export class Guns {
   /** Whether a player has a gun raised to aim. */
   isAiming(name: string): boolean {
     return this.aiming.has(name.toLowerCase());
+  }
+
+  /** Whether a player is looking through a gun's scope: aiming a gun with one (GunDef.scope). */
+  isScoped(name: string): boolean {
+    return this.aiming.get(name.toLowerCase())?.gun.scope === true;
   }
 
   /** Balls, rockets and thrown items in the air, and grenades waiting to burst. */
@@ -452,6 +466,7 @@ export class Guns {
     this.aiming.set(player.name.toLowerCase(), { player, gun });
     this.setFov(player, gun.aimFov);
     setAimMarker(player, true);
+    this.notify(() => this.options.onAim?.(player, true));
   }
 
   private stopAiming(key: string): void {
@@ -461,6 +476,7 @@ export class Guns {
     if (!aim.player.isValid) return;
     this.setFov(aim.player, undefined);
     setAimMarker(aim.player, false);
+    this.notify(() => this.options.onAim?.(aim.player, false));
   }
 
   /** Zooms a player's camera to `fov`, or back to their own with none. */
@@ -775,6 +791,7 @@ export class Guns {
 
   private tick(): void {
     const now = system.currentTick;
+    if (now % CARRY_CHECK_TICKS === 0) this.weigh();
     // A held gun fires on at its rate while its right click stays down; switching away lets go.
     for (const [key, trigger] of [...this.triggers]) {
       const held = trigger.player.isValid ? heldItem(trigger.player) : undefined;
@@ -843,6 +860,33 @@ export class Guns {
     this.lastLeftClick.clear();
     this.lastRelease.clear();
     this.magazines.clear();
+    for (const key of [...this.carrying.keys()]) this.putDown(key);
+  }
+
+  /**
+   * Slows each player holding a heavy gun to its carrySpeed, and gives back their own speed to a
+   * player who no longer holds one.
+   */
+  private weigh(): void {
+    const holding = new Map<string, { player: Player; speed: number }>();
+    for (const player of world.getAllPlayers()) {
+      const held = heldItem(player);
+      const speed = held ? this.gunOf(held.typeId)?.carrySpeed : undefined;
+      if (speed !== undefined && speed !== 1) holding.set(player.name.toLowerCase(), { player, speed });
+    }
+    for (const [key, carried] of holding) {
+      if (this.carrying.get(key)?.speed === carried.speed) continue;
+      if (setWalkSpeed(carried.player, carried.speed)) this.carrying.set(key, carried);
+    }
+    for (const key of [...this.carrying.keys()]) if (!holding.has(key)) this.putDown(key);
+  }
+
+  /** A player's heavy gun no longer slows them. */
+  private putDown(key: string): void {
+    const carried = this.carrying.get(key);
+    if (!carried) return;
+    this.carrying.delete(key);
+    if (carried.player.isValid) setWalkSpeed(carried.player, 1);
   }
 
   /** Runs a game's callback; an error there doesn't stop the guns. */
@@ -872,6 +916,20 @@ export function paintSplash(location: Vector3, color: number, bursts = 1): void 
 }
 
 /** The item in a player's selected hotbar slot. */
+/** Sets a player's walking speed to `share` of their own (1: their own again). False if it couldn't. */
+function setWalkSpeed(player: Player, share: number): boolean {
+  try {
+    const movement = player.getComponent(EntityComponentTypes.Movement);
+    if (!movement) return false;
+    if (share === 1) movement.resetToDefaultValue();
+    else movement.setCurrentValue(movement.defaultValue * share);
+    return true;
+  } catch (error) {
+    log.warn(`guns: could not change ${player.name}'s speed: ${describeError(error)}`);
+    return false;
+  }
+}
+
 export function heldItem(player: Player): ItemStack | undefined {
   return player.getComponent(EntityComponentTypes.Inventory)?.container?.getItem(player.selectedSlotIndex);
 }

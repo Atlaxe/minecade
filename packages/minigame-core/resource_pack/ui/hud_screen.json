@@ -32,8 +32,55 @@
     "alpha": 1.0,
     "propagate_alpha": false,
     "controls": [
+      { "mc_scope@hud.mc_scope": {} },
       { "mc_actionbar_plain@hud.mc_actionbar_plain": {} },
       { "mc_hud_stack@hud.mc_hud_stack": {} }
+    ]
+  },
+
+  // A gun's scope while it's raised to aim (SCOPE_CODE in hud.ts, '§k§l', anywhere in the line):
+  // the round lens (textures/minecade/hud/scope, from tools/assets/scope-hud.ts) as tall as the
+  // screen in the middle, and black either side of it out to the edges, so it fits any shape of
+  // screen ("%y" is a share of the control's own height, the screen's here). First, so the HUD's
+  // bubbles show over it.
+  "mc_scope": {
+    "type": "panel",
+    "size": [ "100%", "100%" ],
+    "$atext": "$actionbar_text",
+    "visible": "(not (($atext - '§k§l') = $atext))",
+    "controls": [
+      {
+        "mc_scope_lens": {
+          "type": "image",
+          "texture": "textures/minecade/hud/scope",
+          "size": [ "100%y", "100%" ],
+          "anchor_from": "center",
+          "anchor_to": "center",
+          "keep_ratio": false
+        }
+      },
+      {
+        "mc_scope_left": {
+          "type": "image",
+          "texture": "textures/minecade/hud/black",
+          "size": [ "50%", "100%" ],
+          "anchor_from": "center",
+          "anchor_to": "right",
+          "offset": [ "-50%y + 1px", 0 ],
+          "keep_ratio": false
+        }
+      },
+      {
+        "mc_scope_right": {
+          "type": "image",
+          "texture": "textures/minecade/hud/black",
+          "size": [ "50%", "100%" ],
+          "anchor_from": "center",
+          "anchor_to": "left",
+          "offset": [ "50%y - 1px", 0 ],
+          "keep_ratio": false
+        }
+      }
     ]
   },
 

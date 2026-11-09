@@ -75,6 +75,8 @@ export interface ArsenalOptions {
   onAmmo?(player: Player): void;
   /** A held gun's trigger let go: Guns' onTrigger. */
   onTrigger?(player: Player, report: TriggerReport): void;
+  /** A gun raised or lowered: Guns' onAim (the game redraws its HUD for the scope, isScoped). */
+  onAim?(player: Player, aiming: boolean): void;
 }
 
 /** Damage past anyone's health: what vanillaDamage gives a one-hit kill. */
@@ -120,7 +122,7 @@ interface Knife {
 }
 
 export class Arsenal {
-  /** The guns underneath: forget, refill, reload, ammoOf and isAiming are theirs. */
+  /** The guns underneath: forget, refill, reload, ammoOf, isAiming and isScoped are theirs. */
   readonly guns: Guns;
   private readonly host: ArsenalHost;
   private readonly arrows: number;
@@ -142,6 +144,7 @@ export class Arsenal {
       onBurst: (shot, location) => this.burst(shot, location),
       onAmmo: options.onAmmo && ((player) => options.onAmmo!(player)),
       onTrigger: options.onTrigger,
+      onAim: options.onAim,
       random: options.random,
     });
     const stimpack = arsenalItem(STIMPACK);

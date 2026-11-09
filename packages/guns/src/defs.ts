@@ -78,6 +78,18 @@ export interface GunDef {
    * fires, and Bedrock sends a script no left click while right click is held (docs/guns.md, "Aiming").
    */
   aimFov?: number;
+  /**
+   * Aiming looks through a scope: while the gun is raised, the HUD draws a scope over the screen
+   * (Guns.isScoped; a game puts SCOPE_CODE on its HUD line). The Sniper Rifle's, whose held model
+   * hides while aiming, so the scope and the zoom are all that show.
+   */
+  scope?: boolean;
+  /**
+   * A heavy gun: while it's in hand, its holder walks at this share of their own speed (their
+   * movement attribute; a sprint or a Stimpack still adds on top). The Sniper Rifle, Rail Gun and
+   * RPG. Left out, 1.
+   */
+  carrySpeed?: number;
   /** Blocks a tick the ball or rocket leaves the gun at (a snowball is about 1.5); a bullet's streak flies at it. */
   speed: number;
   /** Ticks before a ball or rocket that hit nothing is taken away (its range). Bullets and beams use `range`. */
@@ -112,6 +124,9 @@ export interface RecoilDef {
   lift: number;
   shake: number;
 }
+
+/** How fast a heavy gun's holder walks (GunDef.carrySpeed): the Sniper Rifle, Rail Gun and RPG. */
+export const HEAVY_CARRY_SPEED = 0.75;
 
 /** How much of a gun's kick is left while aiming: a raised gun is steadier. */
 export const AIM_RECOIL = 0.6;
@@ -499,6 +514,8 @@ export const ARSENAL_GUN_DEFS = {
     hipSpreadDegrees: 10,
     // Bedrock allows a custom field of view from 30 to 110: the strongest zoom there is.
     aimFov: 30,
+    scope: true,
+    carrySpeed: HEAVY_CARRY_SPEED,
     speed: 12,
     lifeTicks: 0,
     range: 200,
@@ -519,6 +536,7 @@ export const ARSENAL_GUN_DEFS = {
     aimSpreadDegrees: 0,
     hipSpreadDegrees: 1.5,
     aimFov: 40,
+    carrySpeed: HEAVY_CARRY_SPEED,
     speed: 12,
     lifeTicks: 0,
     range: 120,
@@ -539,6 +557,7 @@ export const ARSENAL_GUN_DEFS = {
     aimSpreadDegrees: 0.5,
     hipSpreadDegrees: 2,
     aimFov: 55,
+    carrySpeed: HEAVY_CARRY_SPEED,
     speed: 1.6,
     lifeTicks: 100,
     maxHitsPerShot: 1,

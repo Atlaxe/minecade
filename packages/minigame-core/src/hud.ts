@@ -15,6 +15,8 @@
 //   (countCodes).
 // - Best-of rounds: a circle per round colored by its winner, or each side's round wins in its color
 //   ("R | B") (bestOfCodes).
+// - Scope: SCOPE_CODE anywhere in the line draws a gun's scope over the whole screen (a game adds it
+//   while Guns.isScoped, through Minigame.hudCodes).
 // The pack's controls for the clock and the rounds are generated from these codes
 // (tools/assets/clock-hud.ts and rounds-hud.ts write ui/minecade_clock.json and minecade_rounds.json).
 import type { Player } from "@minecraft/server";
@@ -27,6 +29,11 @@ export const TEXT_MARK = "§k§c";
 export const CLOCK_PLACES = ["§k§g", "§k§n", "§k§p", "§k§a"] as const;
 /** The clock in red: the last 30 seconds. */
 export const CLOCK_URGENT = "§k§b";
+/**
+ * Draws a gun's scope over the screen (the core pack's hud_screen.json, mc_scope, and
+ * textures/minecade/hud/scope.png from tools/assets/scope-hud.ts). Must match hud_screen.json.
+ */
+export const SCOPE_CODE = "§k§l";
 
 /**
  * Starts a title that shows in the map editor's mode box top center instead of as a title: the
@@ -59,14 +66,14 @@ const MAX_MINUTES = 99;
 /**
  * The action bar text for the HUD top right: the line's text (`rest`, its own bubble), a stage
  * clock (red in the last 30 seconds), the player's own score when `count` is given, and best-of
- * rounds when `rounds` (bestOfCodes) is, each in its own bubble. Without a clock or rounds it's just
- * the text, shown above the hotbar like the vanilla action bar.
+ * rounds when `rounds` (bestOfCodes) is, each in its own bubble, then `codes` (SCOPE_CODE). Without
+ * a clock, rounds or codes it's just the text, shown above the hotbar like the vanilla action bar.
  */
-export function hudLine(secondsLeft: number | undefined, rest = "", count?: number, rounds = ""): string {
-  if (secondsLeft === undefined && !rounds) return rest;
+export function hudLine(secondsLeft: number | undefined, rest = "", count?: number, rounds = "", codes = ""): string {
+  if (secondsLeft === undefined && !rounds && !codes) return rest;
   const text = rest ? `${rest}§r${TEXT_MARK}§r` : "";
   const clock = secondsLeft === undefined ? "" : clockCodes(secondsLeft);
-  return `${HUD_MARK}${text}${clock}${count === undefined ? "" : countCodes(count)}${rounds}`;
+  return `${HUD_MARK}${text}${clock}${count === undefined ? "" : countCodes(count)}${rounds}${codes}`;
 }
 
 /** Text alone top right, in its own bubble (the map editor's Replace mode). */
