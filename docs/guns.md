@@ -160,7 +160,10 @@ and texture (`arsenal/rocket.png`).
 - **Damage** comes straight off health (no armor, no hurt cooldown), so a fast gun's every bullet
   counts. The shooter hears a hit, a headshot (higher) and a down (a chime) apart.
 - **The rocket** flies straight at its speed, trailing smoke, and a direct hit takes its damage before
-  the blast.
+  the blast. It points along its flight: the script gives it its heading (`minecade:yaw` and
+  `minecade:pitch`, synced properties, from `heading()` in `guns.ts`) as it leaves the gun, and its
+  `animation.minecade.rocket.fly` turns its model by them. (It flies as a snowball, which nothing
+  turns, so vanilla's arrow's `q.target_x_rotation` and `q.target_y_rotation` stayed 0.)
 - **Blasts** (the frag, the rocket) hurt everyone in their radius, falling off evenly to nothing at
   the edge, a quarter through cover, and throw them out from the middle. No blocks break.
 - **Flashes** white out players who can see the flashbang: full close up and looking at it, a third
@@ -210,8 +213,9 @@ like the clock: `Guns.isScoped` says who looks through one, Guns' `onAim` (Arsen
 game when a gun goes up or down, and the game's `hudCodes` adds `SCOPE_CODE` to that player's line
 and redraws it at once (`refreshHud`). Gunfight and Probe do; a new game with the Sniper Rifle needs
 the same two lines. The core pack's `ui/hud_screen.json` (`mc_scope`) shows the lens
-(`textures/minecade/hud/scope.png`, from `tools/assets/scope-hud.ts`) as tall as the screen in the
-middle and black either side, so it fits any screen. It only shows while the game is playing (the
+(`textures/minecade/hud/scope.png`) as tall as the screen in the middle and black either side, so it
+fits any screen. The lens is a picture to paint over: docs/ui.md has its size, and
+`tools/assets/scope-hud.ts` drew the first one (it never overwrites an edited one). It only shows while the game is playing (the
 HUD line is drawn every half second then).
 
 **Heavy guns:** the Sniper Rifle, Rail Gun and RPG slow whoever holds one to `HEAVY_CARRY_SPEED`

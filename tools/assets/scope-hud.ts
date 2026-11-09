@@ -1,11 +1,12 @@
 // Writes the gun scope the HUD draws over the screen while a player aims a scoped gun (the Sniper
 // Rifle): textures/minecade/hud/scope.png, a square lens (clear inside a circle, black around it,
 // darkening toward its rim, with a reticle), and black.png, which fills the screen either side of it
-// (the core pack's ui/hud_screen.json, mc_scope). Rerun after changing the numbers, and commit the
-// files.
+// (the core pack's ui/hud_screen.json, mc_scope). It's a first draft to paint over: like
+// make-assets.py, it only writes a file that isn't there (delete one to get it back), and --force
+// writes both again over any edits.
 //
-//     npx tsx tools/assets/scope-hud.ts
-import { mkdirSync, writeFileSync } from "node:fs";
+//     npx tsx tools/assets/scope-hud.ts [--force]
+import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { encodePng } from "../skins/png.ts";
@@ -53,11 +54,16 @@ function black(): Buffer {
   return encodePng({ width: 16, height: 16, data });
 }
 
-for (const [name, content] of [
-  ["scope.png", lens()],
-  ["black.png", black()],
+const force = process.argv.includes("--force");
+for (const [name, draw] of [
+  ["scope.png", lens],
+  ["black.png", black],
 ] as const) {
+  if (existsSync(hud(name)) && !force) {
+    console.log(`kept ${name} (--force to write it again)`);
+    continue;
+  }
   mkdirSync(dirname(hud(name)), { recursive: true });
-  writeFileSync(hud(name), content);
+  writeFileSync(hud(name), draw());
+  console.log(`wrote ${name}`);
 }
-console.log("wrote the scope's HUD textures");

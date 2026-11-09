@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Scope } from "@minecade/minigame-core";
 import { AIM_MARKER, AIM_RECOIL, ARSENAL_GUN_DEFS, GRENADE, GUNS, HEAVY_CARRY_SPEED, PAINTBALL, PRIMED_GRENADE, THROWN_GRENADE, arsenalItem, dyeIndex, gunCooldown, gunItem, type GunDef } from "../src/defs.ts";
-import { Guns, ammoText, coneDirections, type AmmoState, type GunsOptions, type Shot } from "../src/guns.ts";
+import { Guns, ammoText, coneDirections, heading, type AmmoState, type GunsOptions, type Shot } from "../src/guns.ts";
 import { Direction, EntitySwingSource, EquipmentSlot, ItemLockMode, ItemStack, system, world, type FakeBlock, type FakeMob, type FakePlayer } from "../../minigame-core/test/fake-mc-server.ts";
 
 beforeEach(() => {
@@ -66,6 +66,18 @@ const offHand = (player: FakePlayer) => player.equipment.get(EquipmentSlot.Offha
 /** A Paintball Pistol that aims (none of Paintball's do now), to test aiming with balls whose spread shows. */
 const AIMING_PISTOL: GunDef = { ...GUNS.pistol, aimFov: 60, aimSpreadDegrees: 0.5 };
 const angleOf = (velocity: { x: number; y: number; z: number }) => (Math.acos(velocity.z / Math.hypot(velocity.x, velocity.y, velocity.z)) * 180) / Math.PI;
+
+describe("heading", () => {
+  it("gives a flight's yaw and pitch as a player's rotation has them", () => {
+    const at = (x: number, y: number, z: number) => Object.values(heading({ x, y, z }));
+    expect(at(0, 0, 1)).toEqual([0, 0]);
+    expect(at(-1, 0, 0)).toEqual([90, 0]);
+    expect(at(1, 0, 0)).toEqual([-90, 0]);
+    expect(Math.abs(at(0, 0, -1)[0])).toBe(180);
+    expect(at(0, -1, 0)[1]).toBe(90);
+    expect(at(0, Math.SQRT1_2, Math.SQRT1_2)).toEqual([0, -45]);
+  });
+});
 
 describe("Guns", () => {
   it("fires a tap gun once per click, at its fire rate, in the gun's paint, shading its slot and kicking its held model", () => {

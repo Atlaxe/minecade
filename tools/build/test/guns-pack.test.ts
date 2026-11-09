@@ -385,7 +385,22 @@ describe("the arsenal's files", () => {
     }
     const controllers = json("resource_pack/render_controllers/guns.render_controllers.json").render_controllers;
     expect(controllers["controller.render.minecade.arsenal_model"].arrays.geometries["Array.models"]).toEqual(ARSENAL_MODELS.map((model) => `Geometry.${model}`));
-    expect(json("behavior_pack/entities/rocket.json")["minecraft:entity"].description).toEqual({ identifier: ROCKET, runtime_identifier: "minecraft:snowball", is_spawnable: false, is_summonable: true });
+    expect(json("behavior_pack/entities/rocket.json")["minecraft:entity"].description).toEqual({
+      identifier: ROCKET,
+      runtime_identifier: "minecraft:snowball",
+      is_spawnable: false,
+      is_summonable: true,
+      properties: {
+        "minecade:yaw": { type: "float", range: [-180, 180], default: 0, client_sync: true },
+        "minecade:pitch": { type: "float", range: [-90, 90], default: 0, client_sync: true },
+      },
+    });
+    // Its model points along the heading the script gives it, with vanilla's arrow's signs.
+    expect(json("resource_pack/animations/guns.animation.json").animations["animation.minecade.rocket.fly"].bones.display.rotation).toEqual([
+      "-q.property('minecade:pitch')",
+      "-q.property('minecade:yaw')",
+      0,
+    ]);
     const rocket = json("resource_pack/entity/rocket.entity.json")["minecraft:client_entity"].description;
     expect(geometries.has(rocket.geometry.default)).toBe(true);
     expect(files[`resource_pack/${rocket.textures.default}.png`]).toBeDefined();

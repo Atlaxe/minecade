@@ -44,6 +44,8 @@ import {
   AIM_RECOIL,
   ARSENAL_MODELS,
   COLOR_PROPERTY,
+  PITCH_PROPERTY,
+  YAW_PROPERTY,
   DYES,
   GRENADE,
   GUNS,
@@ -537,7 +539,7 @@ export class Guns {
       }
       const from = { x: head.x + direction.x * MUZZLE, y: head.y - 0.1 + direction.y * MUZZLE, z: head.z + direction.z * MUZZLE };
       const velocity = { x: direction.x * gun.speed, y: direction.y * gun.speed, z: direction.z * gun.speed };
-      if (kind === "rocket") this.launch(dimension, ROCKET, player, shot, from, velocity, {}, { lifeTicks: gun.lifeTicks, maxHits: 1, rocket: gun });
+      if (kind === "rocket") this.launch(dimension, ROCKET, player, shot, from, velocity, heading(direction), { lifeTicks: gun.lifeTicks, maxHits: 1, rocket: gun });
       else this.launch(dimension, PAINTBALL, player, shot, from, velocity, { [COLOR_PROPERTY]: shot.color }, { lifeTicks: gun.lifeTicks, maxHits: gun.maxHitsPerShot });
     }
     playAt(dimension, gun.sound, head);
@@ -916,6 +918,18 @@ export function paintSplash(location: Vector3, color: number, bursts = 1): void 
 }
 
 /** The item in a player's selected hotbar slot. */
+/**
+ * The yaw and pitch (degrees, as a player's rotation has them) of a flight along `direction`, as a
+ * rocket's YAW_PROPERTY and PITCH_PROPERTY: the client points its model by them.
+ */
+export function heading(direction: Vector3): Record<string, number> {
+  const length = Math.hypot(direction.x, direction.y, direction.z) || 1;
+  const yaw = (Math.atan2(-direction.x, direction.z) * 180) / Math.PI;
+  const pitch = (Math.asin(Math.max(-1, Math.min(1, -direction.y / length))) * 180) / Math.PI;
+  const tidy = (degrees: number) => Math.round(degrees * 100) / 100 || 0;
+  return { [YAW_PROPERTY]: tidy(yaw), [PITCH_PROPERTY]: tidy(pitch) };
+}
+
 /** Sets a player's walking speed to `share` of their own (1: their own again). False if it couldn't. */
 function setWalkSpeed(player: Player, share: number): boolean {
   try {

@@ -153,10 +153,12 @@ is the match's, over all the rounds; with no clock at all, the clock's box goes,
 text stays in its own bubble.
 
 **A gun's scope:** `SCOPE_CODE` (`§k§l`) anywhere on the line draws a scope over the whole screen
-(`mc_scope` in the core pack's `ui/hud_screen.json`): the lens (`textures/minecade/hud/scope.png`,
-written by `tools/assets/scope-hud.ts`) as tall as the screen in the middle, and `black.png` either
-side out to the edges, sized by `"%y"` (a share of the control's own height) so it fits any screen.
-It's first in the action bar's controls, so the HUD's bubbles show over it. A game adds the code
+(`mc_scope` in the core pack's `ui/hud_screen.json`): the lens (`textures/minecade/hud/scope.png`)
+as wide as the screen is tall (`"100%y"`) in the middle, and `black.png` hung off either side of it,
+three lenses wide, so it fits any screen. (Black sides placed from the screen's middle by a `"%y"`
+offset covered all but a narrow strip of the lens, seen in game: an offset's `"%y"` isn't the
+control's own height, though a size's is.) It's first in the action bar's controls, so the HUD's
+bubbles show over it. The lens is art to paint over (the table below). A game adds the code
 through `Minigame.hudCodes` (docs/guns.md, "Aiming"); with it, a line with no clock is still marked
 (`HUD_MARK`), so its text shows top right rather than over the hotbar.
 
@@ -865,6 +867,8 @@ middle, and the tiled scanlines, which repeat.
 |---|---|---|
 | `packages/minigame-core/resource_pack/textures/minecade/hud/clock.png` | HUD clock icon, 10x10 | 16x16 |
 | `packages/minigame-core/resource_pack/textures/minecade/hud/skull.png` | HUD own score icon (kills), 10x10 | 16x16 |
+| `packages/minigame-core/resource_pack/textures/minecade/hud/scope.png` | The Sniper Rifle's scope while aiming: a square as tall as the screen, in its middle, the screen's own crosshair over its center | Any square (the first is 512x512): clear where you see through, opaque black around the circle so it meets the black sides. The first draft is from `tools/assets/scope-hud.ts`, not make-assets.py; it too only writes a missing file (`--force` to redraw) |
+| `packages/minigame-core/resource_pack/textures/minecade/hud/black.png` | Fills the screen either side of the scope | Any size, plain black |
 | `packages/minigame-core/resource_pack/textures/minecade/ui/logo.png` | Main menu logo, 232x50; the logo on every server's loading screen and pause menu | 1072x240, transparent background |
 | `lobby/resource_pack/textures/minecade/ui/holo_panel.png` | Every menu's background (main menu 300x116, game grid 460 wide by 80% of the screen, game screen 460x250) | 64x64 at 1x, nine-slice (`holo_panel.json`): the outer 24 pixels hold the border and corner brackets and keep their size, the middle stretches; partly transparent |
 | `lobby/resource_pack/textures/minecade/ui/holo_scanlines.png` | Scanlines over every menu's background, tiled (repeated at 1 pixel per pixel) | 4x3, one faint line on top, the rest transparent |

@@ -189,6 +189,17 @@ describe("bullets", () => {
 });
 
 describe("the RPG", () => {
+  it("points its rocket the way its shooter looks", () => {
+    const { spawned } = setup();
+    const ann = player("Ann", { x: 0.5, y: 65, z: 0.5 }, gun("rpg"));
+    // West and 30 degrees down.
+    ann.viewDirection = { x: -Math.cos(Math.PI / 6), y: -Math.sin(Math.PI / 6), z: 0 };
+    use(ann);
+    const [rocket] = spawned(ROCKET);
+    expect(rocket.properties.get("minecade:yaw")).toBeCloseTo(90, 1);
+    expect(rocket.properties.get("minecade:pitch")).toBeCloseTo(30, 1);
+  });
+
   it("fires a rocket that trails smoke; a direct hit takes its damage, then its blast hurts everyone near, its shooter a share", () => {
     const { arsenal, hurts, spawned, particles } = setup();
     const ann = player("Ann", { x: 0.5, y: 65, z: 0.5 }, gun("rpg"));
@@ -196,7 +207,8 @@ describe("the RPG", () => {
     player("Cy", { x: 2.5, y: 65, z: 10.5 });
     use(ann);
     const [rocket] = spawned(ROCKET);
-    expect(rocket.properties.size).toBe(0);
+    // Its heading, for its model to point along its flight: Ann looks south, level.
+    expect(Object.fromEntries(rocket.properties)).toEqual({ "minecade:yaw": 0, "minecade:pitch": 0 });
     expect(rocket.projectile.shot!.z).toBeCloseTo(ARSENAL_GUN_DEFS.rpg.speed, 1);
     system.advanceTicks(2);
     expect(particles(PARTICLES.trail).length).toBeGreaterThan(0);

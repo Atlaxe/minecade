@@ -27,6 +27,8 @@ import {
   ARSENAL_PICKUP,
   ARSENAL_THROWABLE_DEFS,
   COLOR_PROPERTY,
+  PITCH_PROPERTY,
+  YAW_PROPERTY,
   DYES,
   GRENADE,
   GUNS,
@@ -959,8 +961,11 @@ function animations(): unknown {
     },
   };
   for (const kind of ARSENAL_GUNS) all[recoilAnimation(kind)] = recoilPose(kind);
-  // Points the rocket along its flight, as vanilla's arrow does.
-  all[ROCKET_ANIMATION] = { loop: true, bones: { display: { rotation: ["q.target_x_rotation", "-q.target_y_rotation", 0] } } };
+  // Points the rocket along its flight by the heading the script gave it (YAW_PROPERTY,
+  // PITCH_PROPERTY), with vanilla's arrow's signs ("-pitch", "-yaw" from q.target_x_rotation and
+  // q.target_y_rotation, which only a vanilla projectile's own flight keeps: the rocket flies as a
+  // snowball, so it always pointed one way).
+  all[ROCKET_ANIMATION] = { loop: true, bones: { display: { rotation: [`-q.property('${PITCH_PROPERTY}')`, `-q.property('${YAW_PROPERTY}')`, 0] } } };
   return { format_version: "1.8.0", animations: all };
 }
 
@@ -1214,6 +1219,11 @@ function arsenalBlock(model: ArsenalModel): unknown {
 }
 
 const colorProperty = { [COLOR_PROPERTY]: { type: "int", range: [0, DYES.length - 1], default: 0, client_sync: true } };
+/** A rocket's heading (guns.ts's heading): which way its model points. */
+const headingProperties = {
+  [YAW_PROPERTY]: { type: "float", range: [-180, 180], default: 0, client_sync: true },
+  [PITCH_PROPERTY]: { type: "float", range: [-90, 90], default: 0, client_sync: true },
+};
 /** Which arsenal model an arsenal entity shows: an index into ARSENAL_MODELS. */
 const modelProperty = { [MODEL_PROPERTY]: { type: "int", range: [0, ARSENAL_MODELS.length - 1], default: 0, client_sync: true } };
 /** Nothing hurts, pushes or burns these: the script places and removes them. */
@@ -1643,7 +1653,7 @@ export function gunsPackFiles(): Record<string, string | Buffer> {
     "behavior_pack/entities/arsenal_thrown.json": json(projectileEntity(THROWN_ARSENAL, 0.3, 0.05, false, modelProperty)),
     "behavior_pack/entities/arsenal_primed.json": json(primedArsenalEntity()),
     "behavior_pack/entities/arsenal_pickup.json": json(arsenalPickupEntity()),
-    "behavior_pack/entities/rocket.json": json(projectileEntity(ROCKET, 0.3, 0.005, false, null, true)),
+    "behavior_pack/entities/rocket.json": json(projectileEntity(ROCKET, 0.3, 0.005, false, headingProperties, true)),
     "resource_pack/models/entity/guns.geo.json": json(geometries()),
     "resource_pack/animations/guns.animation.json": json(animations()),
     "resource_pack/animation_controllers/guns.animation_controllers.json": json(holdControllers()),

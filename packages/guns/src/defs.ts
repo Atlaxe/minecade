@@ -15,6 +15,13 @@ export const PRIMED_GRENADE = "minecade:paint_grenade_primed";
 export const GUN_PICKUP = "minecade:gun_pickup";
 /** A ball's and a grenade's paint color: an index into DYES. */
 export const COLOR_PROPERTY = "minecade:color";
+/**
+ * A rocket's heading as it leaves the gun, in degrees as a player's rotation has them (yaw: 0 is
+ * south, 90 west; pitch: positive is down), for its model to point along its flight. It flies
+ * straight, so it's set once.
+ */
+export const YAW_PROPERTY = "minecade:yaw";
+export const PITCH_PROPERTY = "minecade:pitch";
 export const KIND_PROPERTY = "minecade:kind";
 /** The splash a ball or a grenade leaves, tinted by `variable.color` (MolangVariableMap.setColorRGB). */
 export const PAINT_SPLASH = "minecade:paint_splash";
