@@ -1,0 +1,25 @@
+{
+  "format_version": "1.21.120",
+  "minecraft:item": {
+    "description": {
+      "identifier": "minecade:hold_test_axes_up",
+      "menu_category": {
+        "category": "none"
+      }
+    },
+    "components": {
+      "minecraft:block_placer": {
+        "block": "minecade:handgun_model",
+        "use_on": [
+          "minecade:handgun_model"
+        ]
+      },
+      "minecraft:display_name": {
+        "value": "Test D: Axes, up 8"
+      },
+      "minecraft:max_stack_size": 1,
+      "minecraft:hand_equipped": true,
+      "minecraft:can_destroy_in_creative": false
+    }
+  }
+}

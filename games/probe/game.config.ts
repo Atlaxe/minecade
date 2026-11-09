@@ -6,7 +6,8 @@ import { defineGame } from "@minecade/minigame-core/config";
 // two teams and a Round setting to test the lobby's game screen and team picking, and three kits to
 // test the kit form's pictures (a full hotbar with armor, a full hotbar without, a few items with
 // leather in the team's color), plus a Painter kit to try the shared guns, and Gunner and Grenadier
-// kits to try the arsenal (its real guns; its grenades, knife, stimpack, crossbow and sword): set
+// kits to try the arsenal (its real guns; its grenades, knife, stimpack, crossbow and sword), and a
+// Holds kit of held model tests: set
 // DEV_MIN_PLAYERS=1 to play it alone. Probe says what it got in chat when the match starts. The lobby lists it only
 // while DEV_TEST_GAMES is 1.
 export default defineGame({
@@ -98,6 +99,23 @@ export default defineGame({
           { item: "minecraft:netherite_sword" },
         ],
       },
+      // Held model tests (resource_pack/attachables/hold_test_*): the arsenal's Pistol, then the same
+      // model with no pose, and a colored axes model (white at the origin, red +X, green +Y, blue -Z,
+      // the barrel's way) with no pose, moved up 8, sized by view, sized by a controller, and sized by
+      // view on an item that doesn't place a block. Docs: docs/spike-results.md, "Holding in third person".
+      {
+        id: "holds",
+        name: "Holds",
+        items: [
+          { item: arsenalItem("handgun") },
+          { item: "minecade:hold_test_pistol_bare" },
+          { item: "minecade:hold_test_axes_bare" },
+          { item: "minecade:hold_test_axes_up" },
+          { item: "minecade:hold_test_axes_size" },
+          { item: "minecade:hold_test_axes_controller" },
+          { item: "minecade:hold_test_axes_noblock" },
+        ],
+      },
     ],
   },
   options: [
@@ -108,6 +126,7 @@ export default defineGame({
         { value: "15", label: "15 s" },
         { value: "30", label: "30 s" },
         { value: "60", label: "60 s" },
+        { value: "300", label: "5 min" },
       ],
     },
   ],

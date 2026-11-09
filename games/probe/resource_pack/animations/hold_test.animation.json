@@ -1,0 +1,33 @@
+{
+  "format_version": "1.8.0",
+  "animations": {
+    "animation.minecade.hold_test.up": {
+      "loop": true,
+      "bones": {
+        "root": {
+          "position": [
+            0,
+            8,
+            0
+          ]
+        }
+      }
+    },
+    "animation.minecade.hold_test.small": {
+      "loop": true,
+      "bones": {
+        "root": {
+          "scale": 0.5
+        }
+      }
+    },
+    "animation.minecade.hold_test.big": {
+      "loop": true,
+      "bones": {
+        "root": {
+          "scale": 2.5
+        }
+      }
+    }
+  }
+}
