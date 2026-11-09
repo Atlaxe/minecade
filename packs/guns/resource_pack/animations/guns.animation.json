@@ -258,8 +258,8 @@
       "bones": {
         "display": {
           "rotation": [
-            "-v.pitch",
-            "-v.yaw",
+            "v.pitch",
+            "v.yaw",
             0
           ]
         }

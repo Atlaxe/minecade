@@ -162,7 +162,8 @@ and texture (`arsenal/rocket.png`).
 - **The rocket** flies straight at its speed, trailing smoke, and a direct hit takes its damage before
   the blast. It points along its flight: its client entity works out its heading from its own move
   each frame (`q.movement_direction`, as vanilla's elytra reads it, into `v.yaw` and `v.pitch`), and
-  its `animation.minecade.rocket.fly` turns its model by them. It flies as a snowball, which nothing
+  its `animation.minecade.rocket.fly` turns its model by them as vanilla's `look_at_target` turns a
+  head (its warhead is at -Z, where a face is). It flies as a snowball, which nothing
   turns (vanilla's arrow's `q.target_x_rotation` and `q.target_y_rotation` stayed 0), and the client
   gives an entity with a `runtime_identifier` no property component, so a property from the script
   can't reach its model either (`q.property` on it is a content log error).

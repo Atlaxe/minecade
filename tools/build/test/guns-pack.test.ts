@@ -392,8 +392,8 @@ describe("the arsenal's files", () => {
       is_summonable: true,
     });
     // Its model points along its flight, worked out on the client (an entity flying as a snowball
-    // has no property component there), with vanilla's arrow's signs.
-    expect(json("resource_pack/animations/guns.animation.json").animations["animation.minecade.rocket.fly"].bones.display.rotation).toEqual(["-v.pitch", "-v.yaw", 0]);
+    // has no property component there), turned as vanilla turns a head toward a look.
+    expect(json("resource_pack/animations/guns.animation.json").animations["animation.minecade.rocket.fly"].bones.display.rotation).toEqual(["v.pitch", "v.yaw", 0]);
     const rocket = json("resource_pack/entity/rocket.entity.json")["minecraft:client_entity"].description;
     expect(JSON.stringify(rocket)).not.toContain("q.property");
     expect(rocket.scripts.initialize).toEqual(["v.yaw = 0;", "v.pitch = 0;"]);

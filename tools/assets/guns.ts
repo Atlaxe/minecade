@@ -974,11 +974,12 @@ function animations(): unknown {
     },
   };
   for (const kind of ARSENAL_GUNS) all[recoilAnimation(kind)] = recoilPose(kind);
-  // Points the rocket along its flight by the heading its client entity works out (ROCKET_SCRIPTS),
-  // with vanilla's arrow's signs ("-pitch", "-yaw" from q.target_x_rotation and q.target_y_rotation,
-  // which only a vanilla projectile's own flight keeps: the rocket flies as a snowball, so it always
-  // pointed one way).
-  all[ROCKET_ANIMATION] = { loop: true, bones: { display: { rotation: ["-v.pitch", "-v.yaw", 0] } } };
+  // Points the rocket along its flight by the heading its client entity works out (ROCKET_SCRIPTS).
+  // Its warhead is at -Z, where a mob's face is (and vanilla's arrow's tip), so unturned it faces
+  // south, and a look's pitch and yaw turn it as vanilla's look_at_target turns a head (rotation
+  // [q.target_x_rotation, q.target_y_rotation], pitch positive down, yaw 90 west). Vanilla's arrow
+  // negates both because its own rotation is the other way round (yaw atan2(x, z), pitch up).
+  all[ROCKET_ANIMATION] = { loop: true, bones: { display: { rotation: ["v.pitch", "v.yaw", 0] } } };
   return { format_version: "1.8.0", animations: all };
 }
 
