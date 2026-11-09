@@ -1,9 +1,12 @@
-// Guns any game can hand out (the shared guns pack, packs/guns). Left click fires: a tap gun one
-// shot a click (a burst gun a few shots a click), a held gun again and again while the button stays
-// down (Bedrock repeats the swing, in bursts: a window bridges them). A gun that aims (one with an
-// aimFov: the Sniper Rifle, Rail Gun and RPG) is raised by a right click and lowered by the next (a
-// toggle: Bedrock sends no left click while right click is held): the camera zooms, the shots stray
-// less, and the held model comes up (the aim marker in the off hand). Each shot shades the gun's hotbar slot
+// Guns any game can hand out (the shared guns pack, packs/guns). Right click fires: a tap gun one
+// shot a press (a burst gun a few shots a press), a held gun (fire "hold": the Paintball Rifle, SMG,
+// Assault Rifle) again and again until the button goes up. Each gun item is used like a bow (its
+// use_modifiers), so Bedrock says when the button goes down and when it comes up; aimed at a block,
+// it repeats the interaction instead, and a window bridges the repeats. Left click fires one shot
+// with a gun that doesn't aim, and raises or lowers one that does (an aimFov: the Sniper Rifle, Rail
+// Gun and RPG; Bedrock sends no left click while right click is held, so it can't be both): the
+// camera zooms, the shots stray less, and the held model comes up (the aim marker in the off hand).
+// Each shot shades the gun's hotbar slot
 // for its fire rate (the item's own cooldown), kicks the held model back until the next shot, and
 // turns the shooter's view up and a little aside (defs.ts's RecoilDef). A thrown item goes with
 // either click: a grenade lands, sits for its fuse and bursts; a Molotov bursts where it hits; a
@@ -117,18 +120,41 @@ export interface GunsOptions {
   /** A magazine changed (a shot, a reload starting or done), for the game's HUD (ammoText). */
   onAmmo?(player: Player, ammo: AmmoState): void;
   /**
-   * A held gun's trigger let go (its window ran out): the shots it fired, and the ticks between the
-   * swings Bedrock reported while the button was down (how a held attack button arrives).
+   * A held gun's right click let go: the shots it fired, how long it was down and how Bedrock
+   * reported it (to tune held fire).
    */
   onTrigger?(player: Player, report: TriggerReport): void;
   random?: () => number;
 }
 
-/** One hold of a held gun's trigger: what it fired, and how far apart the swings that kept it going came. */
+/** One hold of a held gun's right click: what it fired, how long it was down, and how Bedrock reported the button. */
 export interface TriggerReport {
   gun: string;
   shots: number;
-  swingGaps: number[];
+  /** Ticks from the press to the let go. */
+  ticks: number;
+  /**
+   * "use": Bedrock said when the button came up (the gun used like a bow). "repeats": aimed at a
+   * block, the interaction repeated while the button was down, `gaps` ticks apart. "press": neither
+   * came, so it let go its gun's triggerTicks after the press.
+   */
+  held: "use" | "repeats" | "press";
+  gaps: number[];
+}
+
+/** A right click down on a gun: what keeps it down, and what it fired. */
+interface Trigger {
+  player: Player;
+  gun: GunDef;
+  pressedAt: number;
+  /** The last event that kept it down. */
+  lastEvent: number;
+  /** In use: down until Bedrock says the button came up. Otherwise down until `until`, which each repeat moves on. */
+  using: boolean;
+  until: number;
+  /** Ticks between the repeated block interactions that kept it down. */
+  gaps: number[];
+  shots: number;
 }
 
 /** A ball, rocket or thrown item in the air: its shot, until when it may fly, and how many of its shot's hits one target may take. */
@@ -189,12 +215,22 @@ const AIM_EASE = 0.15;
 /** The fewest ticks between two turns of a player's view by recoil (each is a teleport). */
 const VIEW_KICK_GAP_TICKS = 4;
 /**
- * Right click events closer together than this are one press: holding the button can repeat
- * them, and a press can bring both a use and a block interaction.
+ * Right click events this close together are one press: a press can bring a use, its start and a
+ * block interaction, and a use's release can bring a use of its own.
  */
-const PRESS_GAP_TICKS = 5;
-/** Left clicks that fire. A right click's own swings (using, placing, interacting) and a drop don't. */
-const FIRE_SWINGS = new Set<string>([EntitySwingSource.Attack, EntitySwingSource.Mine, EntitySwingSource.None]);
+const PRESS_GAP_TICKS = 3;
+/**
+ * Left clicks closer together than this are one, for raising and lowering a gun: a held button
+ * can repeat its swing every 4 to 5 ticks (docs/spike-results.md), which would lower it again.
+ */
+const AIM_CLICK_GAP_TICKS = 7;
+/**
+ * Blocks a right click opens, shuts or presses (vanilla's, and Paintball's painted doors,
+ * trapdoors and gates): a gun's right click at one does that, and doesn't fire.
+ */
+const USED_BLOCKS = /(door|fence_gate|button|lever)$/;
+/** Left clicks. A right click's own swings (using, placing, interacting) and a drop aren't. */
+const LEFT_CLICKS = new Set<string>([EntitySwingSource.Attack, EntitySwingSource.Mine, EntitySwingSource.None]);
 const RELOAD_START: Sound = { id: "crossbow.loading.start", pitch: 1.2, volume: 0.8 };
 const RELOAD_END: Sound = { id: "crossbow.loading.end", pitch: 1.2, volume: 0.8 };
 const DRY_CLICK: Sound = { id: "random.click", pitch: 1.6, volume: 0.6 };
@@ -220,14 +256,16 @@ export class Guns {
   private readonly shots = new Map<number, ShotState>();
   /** When each player (lowercase name) may fire or throw again. */
   private readonly readyAt = new Map<string, number>();
-  /** Players holding the attack button on a held gun: until when the last swing keeps it firing. */
-  private readonly triggers = new Map<string, { player: Player; gun: GunDef; until: number; lastSwing: number; swingGaps: number[]; shots: number }>();
+  /** Players with right click down on a gun. */
+  private readonly triggers = new Map<string, Trigger>();
   /** Burst guns part way through a burst, by player. */
   private readonly bursts = new Map<string, Burst>();
-  /** Players aiming a gun (right click toggles it). */
+  /** Players aiming a gun (left click toggles it). */
   private readonly aiming = new Map<string, { player: Player; gun: GunDef }>();
-  /** When each player's last right click event came, to tell one press from the next. */
-  private readonly lastPress = new Map<string, number>();
+  /** When each player's last left click came, to tell one from the next. */
+  private readonly lastLeftClick = new Map<string, number>();
+  /** When each player's last use of a gun ended, so a use that comes with the release isn't a press. */
+  private readonly lastRelease = new Map<string, number>();
   /** Each player's magazines, by gun, for guns with ammo. */
   private readonly magazines = new Map<string, Map<string, Magazine>>();
   /** View kicks waiting for their turn (turnView), by player. */
@@ -243,17 +281,19 @@ export class Guns {
     for (const gun of options.guns ?? Object.values(GUNS)) this.guns.set(gun.id, gun);
     for (const throwable of options.throwables ?? [GRENADE]) this.throwables.set(throwable.id, throwable);
     scope.subscribe(world.afterEvents.playerSwingStart, ({ player, heldItemStack, swingSource }) => {
-      if (heldItemStack && FIRE_SWINGS.has(swingSource)) this.pull(player, heldItemStack.typeId);
+      if (heldItemStack && LEFT_CLICKS.has(swingSource)) this.leftClick(player, heldItemStack.typeId);
     });
-    // A grenade is thrown with a right click too, like a snowball. A gun's right click raises or
-    // lowers it, at the sky (a use) or at a block (an interaction).
-    scope.subscribe(world.afterEvents.itemUse, ({ source, itemStack }) => {
-      const throwable = this.throwableOf(itemStack.typeId);
-      if (throwable) return void this.tryThrow(source, throwable, itemStack.typeId);
-      this.rightClick(source, itemStack.typeId);
-    });
-    scope.subscribe(world.afterEvents.playerInteractWithBlock, ({ player, itemStack, isFirstEvent }) => {
-      if (isFirstEvent && itemStack) this.rightClick(player, itemStack.typeId);
+    // Right click fires, at the sky (a use, and the use's start and end) or at a block (an
+    // interaction, repeated while the button stays down). A grenade is thrown with it too, like a
+    // snowball.
+    scope.subscribe(world.afterEvents.itemUse, ({ source, itemStack }) => this.press(source, itemStack.typeId, false));
+    scope.subscribe(world.afterEvents.itemStartUse, ({ source, itemStack }) => this.press(source, itemStack.typeId, true));
+    scope.subscribe(world.afterEvents.itemStopUse, ({ source }) => this.release(source));
+    scope.subscribe(world.afterEvents.itemReleaseUse, ({ source }) => this.release(source));
+    scope.subscribe(world.afterEvents.playerInteractWithBlock, ({ player, itemStack, block, isFirstEvent }) => {
+      if (!itemStack || USED_BLOCKS.test(block?.typeId ?? "")) return;
+      if (isFirstEvent) this.press(player, itemStack.typeId, false);
+      else this.repeat(player, itemStack.typeId);
     });
     scope.subscribe(world.afterEvents.projectileHitEntity, (event) => {
       const flying = this.landed(event.projectile);
@@ -287,7 +327,8 @@ export class Guns {
     this.bursts.delete(key);
     this.stopAiming(key);
     this.readyAt.delete(key);
-    this.lastPress.delete(key);
+    this.lastLeftClick.delete(key);
+    this.lastRelease.delete(key);
     this.kicks.delete(key);
     this.lastKick.delete(key);
   }
@@ -336,56 +377,79 @@ export class Guns {
     return held && this.gunOf(held.typeId);
   }
 
-  /** A left click with `typeId` in hand. */
-  private pull(player: Player, typeId: string): void {
+  /**
+   * A left click with `typeId` in hand: a thrown item goes, a gun that aims is raised or lowered
+   * (once a click), and any other gun fires one shot (a burst gun its burst).
+   */
+  private leftClick(player: Player, typeId: string): void {
     const throwable = this.throwableOf(typeId);
     if (throwable) return void this.tryThrow(player, throwable, typeId);
     const gun = this.gunOf(typeId);
     if (!gun) return;
-    if (gun.fire === "hold") this.holdTrigger(player, gun);
-    if (this.tryFire(player, gun, typeId) && gun.fire === "hold") this.countShot(player);
+    if (!canAim(gun)) return void this.tryFire(player, gun, typeId);
+    const key = player.name.toLowerCase();
+    const now = system.currentTick;
+    const last = this.lastLeftClick.get(key);
+    this.lastLeftClick.set(key, now);
+    if (last !== undefined && now - last < AIM_CLICK_GAP_TICKS) return;
+    if (this.aiming.has(key)) this.stopAiming(key);
+    else this.aim(player, gun);
   }
 
-  /** A swing with a held gun: its trigger stays down for its window, and the gap since the last swing is kept. */
-  private holdTrigger(player: Player, gun: GunDef): void {
+  /**
+   * A right click with `typeId` in hand: a thrown item goes, and a gun fires (a held gun goes on
+   * firing in tick while the button stays down). `using`: Bedrock started using the gun, and says
+   * when the button comes up (release). One press can bring a use, its start and a block
+   * interaction, so events close together are one press.
+   */
+  private press(player: Player, typeId: string, using: boolean): void {
+    const throwable = this.throwableOf(typeId);
+    if (throwable) return void (!using && this.tryThrow(player, throwable, typeId));
+    const gun = this.gunOf(typeId);
+    if (!gun) return;
     const key = player.name.toLowerCase();
     const now = system.currentTick;
     const trigger = this.triggers.get(key);
-    if (trigger && trigger.gun === gun) {
-      trigger.swingGaps.push(now - trigger.lastSwing);
-      trigger.lastSwing = now;
-      trigger.until = now + gun.triggerTicks;
+    if (trigger && trigger.gun === gun && (now - trigger.pressedAt < PRESS_GAP_TICKS || (trigger.using && !using))) {
+      if (using) trigger.using = true;
       return;
     }
+    if (!using && now - (this.lastRelease.get(key) ?? -Infinity) < PRESS_GAP_TICKS) return;
     if (trigger) this.letGo(key);
-    this.triggers.set(key, { player, gun, until: now + gun.triggerTicks, lastSwing: now, swingGaps: [], shots: 0 });
+    const pressed: Trigger = { player, gun, pressedAt: now, lastEvent: now, using, until: now + gun.triggerTicks, gaps: [], shots: 0 };
+    this.triggers.set(key, pressed);
+    if (this.tryFire(player, gun, typeId)) pressed.shots++;
   }
 
-  private countShot(player: Player): void {
+  /** A right click held at a block: Bedrock repeats the interaction while the button stays down. */
+  private repeat(player: Player, typeId: string): void {
+    const gun = this.gunOf(typeId);
+    if (!gun) return;
     const trigger = this.triggers.get(player.name.toLowerCase());
-    if (trigger) trigger.shots++;
+    // Repeats too far apart for the window: a held gun picks up again; a tap gun waits for a press.
+    if (!trigger || trigger.gun !== gun) return void (gun.fire === "hold" && this.press(player, typeId, false));
+    const now = system.currentTick;
+    trigger.gaps.push(now - trigger.lastEvent);
+    trigger.lastEvent = now;
+    trigger.until = now + gun.triggerTicks;
   }
 
-  /** A held gun's trigger lets go: the game hears what it fired and how its swings came. */
+  /** Bedrock says the button using a gun came up. */
+  private release(player: Player): void {
+    const key = player.name.toLowerCase();
+    this.lastRelease.set(key, system.currentTick);
+    this.letGo(key);
+  }
+
+  /** A gun's right click lets go: for a held gun, the game hears what it fired and how the button came. */
   private letGo(key: string): void {
     const trigger = this.triggers.get(key);
     if (!trigger) return;
     this.triggers.delete(key);
-    const report = { gun: trigger.gun.id, shots: trigger.shots, swingGaps: trigger.swingGaps };
-    if (trigger.player.isValid) this.notify(() => this.options.onTrigger?.(trigger.player, report));
-  }
-
-  /** A right click with `typeId` in hand: a gun that aims is raised or lowered, once a press. */
-  private rightClick(player: Player, typeId: string): void {
-    const gun = this.gunOf(typeId);
-    if (!gun || !canAim(gun)) return;
-    const key = player.name.toLowerCase();
-    const now = system.currentTick;
-    const last = this.lastPress.get(key);
-    this.lastPress.set(key, now);
-    if (last !== undefined && now - last < PRESS_GAP_TICKS) return;
-    if (this.aiming.has(key)) this.stopAiming(key);
-    else this.aim(player, gun);
+    if (trigger.gun.fire !== "hold" || !trigger.player.isValid) return;
+    const held = trigger.using ? "use" : trigger.gaps.length > 0 ? "repeats" : "press";
+    const report: TriggerReport = { gun: trigger.gun.id, shots: trigger.shots, ticks: system.currentTick - trigger.pressedAt, held, gaps: trigger.gaps };
+    this.notify(() => this.options.onTrigger?.(trigger.player, report));
   }
 
   /** Raises the gun: the camera zooms, and the aim marker in the off hand tells the held model. */
@@ -736,13 +800,14 @@ export class Guns {
 
   private tick(): void {
     const now = system.currentTick;
+    // A held gun fires on at its rate while its right click stays down; switching away lets go.
     for (const [key, trigger] of [...this.triggers]) {
       const held = trigger.player.isValid ? heldItem(trigger.player) : undefined;
-      if (trigger.until < now || !held || this.gunOf(held.typeId) !== trigger.gun) {
+      if (!held || this.gunOf(held.typeId) !== trigger.gun || (!trigger.using && trigger.until < now)) {
         this.letGo(key);
         continue;
       }
-      if (this.tryFire(trigger.player, trigger.gun, held.typeId)) trigger.shots++;
+      if (trigger.gun.fire === "hold" && this.tryFire(trigger.player, trigger.gun, held.typeId)) trigger.shots++;
     }
     // A burst's later shots, while the gun is still in hand, the player may fire and it has rounds.
     for (const [key, burst] of [...this.bursts]) {
@@ -801,7 +866,8 @@ export class Guns {
     this.triggers.clear();
     this.bursts.clear();
     this.readyAt.clear();
-    this.lastPress.clear();
+    this.lastLeftClick.clear();
+    this.lastRelease.clear();
     this.magazines.clear();
     this.kicks.clear();
     this.lastKick.clear();

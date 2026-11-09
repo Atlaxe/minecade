@@ -6,8 +6,8 @@
 // the guns' pickups floats in front of the first player. The Gunner's and Grenadier's arsenal fires
 // and blasts for real but hurts nobody either: each hit says in chat what it would have taken, the
 // held gun's ammo shows top right, and a second row floats the arsenal's models. Letting go of a held
-// gun (the Paintball Rifle, SMG, Assault Rifle) says in chat what it fired and how far apart Bedrock
-// reported the held button's swings, to tune their triggerTicks. For the Holds kit's Test H, while a
+// gun's right click (the Paintball Rifle, SMG, Assault Rifle) says in chat what it fired, how long
+// it was down and how Bedrock reported the button, to tune held fire. For the Holds kit's Test H, while a
 // player holds one of its items the aim marker comes and goes from their off hand every 2 seconds.
 import { EquipmentSlot, ItemStack, world, type Player, type Vector3 } from "@minecraft/server";
 import { ARSENAL_MODELS, ARSENAL_PICKUP, Arsenal, GUN_PICKUP, Guns, KIND_PROPERTY, MODEL_PROPERTY, PICKUP_KINDS, paintSplash, type TriggerReport } from "@minecade/guns";
@@ -81,16 +81,20 @@ class Probe extends Minigame<typeof config> {
     }
   }
 
-  /** "smg held: 14 shots, swings 4 to 9 ticks apart (mostly 4)", or one click's. */
-  private reportTrigger(player: Player, { gun, shots, swingGaps }: TriggerReport): void {
-    let swings = "one swing";
-    if (swingGaps.length > 0) {
+  /**
+   * "smg held 40 ticks: 20 shots, in use", "smg held 30 ticks: 15 shots, 6 repeats 4 to 5 ticks
+   * apart (mostly 4)" (at a block), or "smg held 10 ticks: 5 shots, no release or repeats".
+   */
+  private reportTrigger(player: Player, { gun, shots, ticks, held, gaps }: TriggerReport): void {
+    let how = "in use";
+    if (held === "press") how = "no release or repeats";
+    if (held === "repeats") {
       const counts = new Map<number, number>();
-      for (const gap of swingGaps) counts.set(gap, (counts.get(gap) ?? 0) + 1);
+      for (const gap of gaps) counts.set(gap, (counts.get(gap) ?? 0) + 1);
       const most = [...counts].sort((a, b) => b[1] - a[1])[0][0];
-      swings = `${swingGaps.length + 1} swings, ${Math.min(...swingGaps)} to ${Math.max(...swingGaps)} ticks apart (mostly ${most})`;
+      how = `${gaps.length} repeats, ${Math.min(...gaps)} to ${Math.max(...gaps)} ticks apart (mostly ${most})`;
     }
-    const line = `${gun} held: ${shots} shots, ${swings}`;
+    const line = `${gun} held ${ticks} ticks: ${shots} shots, ${how}`;
     console.warn(`[probe] ${player.name} ${line}`);
     player.sendMessage(say.minor(line));
   }

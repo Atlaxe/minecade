@@ -15,8 +15,10 @@
         "default": "geometry.minecade.gun_pistol"
       },
       "animations": {
-        "first_person_hip": "animation.minecade.gun_pistol.first_person_hip",
-        "third_person": "animation.minecade.gun_pistol.third_person",
+        "first_person_hip": "animation.minecade.all_guns.first_person_hip",
+        "first_person_hip_own": "animation.minecade.gun_pistol.first_person_hip",
+        "third_person": "animation.minecade.all_guns.third_person",
+        "third_person_own": "animation.minecade.gun_pistol.third_person",
         "recoil": "animation.minecade.gun_pistol.recoil"
       },
       "scripts": {
@@ -25,7 +27,13 @@
             "first_person_hip": "c.is_first_person"
           },
           {
+            "first_person_hip_own": "c.is_first_person"
+          },
+          {
             "third_person": "!c.is_first_person"
+          },
+          {
+            "third_person_own": "!c.is_first_person"
           },
           "recoil"
         ]

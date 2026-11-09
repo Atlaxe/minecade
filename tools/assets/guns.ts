@@ -8,8 +8,9 @@
 // Paintball's: a box painted "paint" takes the color). Each item places a hidden block holding its
 // model, so the hotbar shows the model in 3D the way it shows a wall or a banner; the kit pictures
 // get icons drawn from the models (packs/guns/icons). Where the models sit in the hand is a
-// hand-edited file (HOLD_FILE): this writes it when it's missing, and otherwise only adds the poses
-// of models it doesn't have yet, leaving every other line as it is. The guns' names and numbers come
+// hand-edited file (HOLD_FILE: a shared pose a view for every gun, one for the grenades, knife and
+// stimpack, and each model's own on top): this writes it when it's missing, and otherwise only adds
+// the poses of models it doesn't have yet, leaving every other line as it is. The guns' names and numbers come
 // from packages/guns/src/defs.ts, which the games' scripts read too. Rerun after changing either, and
 // commit the files:
 //
@@ -340,7 +341,8 @@ const KICK_RISE_MOST = 0.3;
 /**
  * Where each model first sat in the hand, as places on the screen and around the fist (the solver
  * below turns them into the rotations and positions HOLD_FILE starts with; the file is edited by
- * hand since). Pixels, degrees.
+ * hand since). The guns all start in the same place (GUN_HIP, GUN_THIRD), so their own poses start
+ * as nothing but their size. Pixels, degrees.
  * - scale: its size in first person.
  * - hip: the grip's top this far from the fist (right, up, ahead), the barrel turned in toward the
  *   crosshair and tipped up, so the stock drops out of view.
@@ -348,22 +350,24 @@ const KICK_RISE_MOST = 0.3;
  *   screen's height), the grip's top `depth` pixels ahead of the eye.
  * - third: third person, the grip's top this far from the fist (right, up, ahead), level.
  */
+const GUN_HIP: Place = { fromFist: [-1, 6, 4], turnIn: 4, tipUp: 10 };
+const GUN_THIRD: Vec3 = [0, 4.5, 1];
 const HOLD: Record<ModelId, Hold> = {
-  pistol: { scale: 1.35, hip: { fromFist: [-1, 6, 4], turnIn: 4, tipUp: 10 }, third: [0, 4.5, 1] },
-  rifle: { scale: 1.1, hip: { fromFist: [-1, 5, 4], turnIn: 4, tipUp: 10 }, third: [0, 4.5, 1] },
-  shotgun: { scale: 1.15, hip: { fromFist: [-1, 5.2, 4], turnIn: 4, tipUp: 10 }, third: [0, 4.5, 1] },
+  pistol: { scale: 1.35, hip: GUN_HIP, third: GUN_THIRD },
+  rifle: { scale: 1.1, hip: GUN_HIP, third: GUN_THIRD },
+  shotgun: { scale: 1.15, hip: GUN_HIP, third: GUN_THIRD },
   grenade: { scale: 1.3, hip: { fromFist: [0, 3.2, 2], turnIn: 20, tipUp: 10 }, third: [0, 1.5, 1] },
   // The arsenal's first guesses, from the paint guns' (the user moves them in Blockbench).
-  handgun: { scale: 1.35, hip: { fromFist: [-1, 6, 4], turnIn: 4, tipUp: 10 }, third: [0, 4.5, 1] },
-  smg: { scale: 1.2, hip: { fromFist: [-1, 5.5, 4], turnIn: 4, tipUp: 10 }, third: [0, 4.5, 1] },
-  assault_rifle: { scale: 1.1, hip: { fromFist: [-1, 5, 4], turnIn: 4, tipUp: 10 }, third: [0, 4.5, 1] },
-  burst_rifle: { scale: 1.1, hip: { fromFist: [-1, 5, 4], turnIn: 4, tipUp: 10 }, third: [0, 4.5, 1] },
-  pump_shotgun: { scale: 1.1, hip: { fromFist: [-1, 5.2, 4], turnIn: 4, tipUp: 10 }, third: [0, 4.5, 1] },
-  double_barrel: { scale: 1.15, hip: { fromFist: [-1, 5.2, 4], turnIn: 4, tipUp: 10 }, third: [0, 4.5, 1] },
+  handgun: { scale: 1.35, hip: GUN_HIP, third: GUN_THIRD },
+  smg: { scale: 1.2, hip: GUN_HIP, third: GUN_THIRD },
+  assault_rifle: { scale: 1.1, hip: GUN_HIP, third: GUN_THIRD },
+  burst_rifle: { scale: 1.1, hip: GUN_HIP, third: GUN_THIRD },
+  pump_shotgun: { scale: 1.1, hip: GUN_HIP, third: GUN_THIRD },
+  double_barrel: { scale: 1.15, hip: GUN_HIP, third: GUN_THIRD },
   // Aiming the sniper hides it: the zoom is the scope.
-  sniper_rifle: { scale: 0.95, hip: { fromFist: [-1, 5, 4], turnIn: 4, tipUp: 10 }, aim: { under: 0.07, depth: 22, hidden: true }, third: [0, 4.5, 1] },
-  rail_gun: { scale: 1, hip: { fromFist: [-1, 5, 4], turnIn: 4, tipUp: 10 }, aim: { under: 0.07, depth: 20 }, third: [0, 4.5, 1] },
-  rpg: { scale: 1, hip: { fromFist: [-1, 5, 4], turnIn: 4, tipUp: 10 }, aim: { under: 0.1, depth: 18 }, third: [0, 4.5, 1] },
+  sniper_rifle: { scale: 0.95, hip: GUN_HIP, aim: { under: 0.07, depth: 22, hidden: true }, third: GUN_THIRD },
+  rail_gun: { scale: 1, hip: GUN_HIP, aim: { under: 0.07, depth: 20 }, third: GUN_THIRD },
+  rpg: { scale: 1, hip: GUN_HIP, aim: { under: 0.1, depth: 18 }, third: GUN_THIRD },
   frag_grenade: { scale: 1.3, hip: { fromFist: [0, 3.2, 2], turnIn: 20, tipUp: 10 }, third: [0, 1.5, 1] },
   molotov: { scale: 1.2, hip: { fromFist: [0, 3.6, 2], turnIn: 20, tipUp: 10 }, third: [0, 2, 1] },
   flashbang: { scale: 1.3, hip: { fromFist: [0, 3.2, 2], turnIn: 20, tipUp: 10 }, third: [0, 1.5, 1] },
@@ -391,8 +395,14 @@ const ICON_SIZE = 128;
 const ICON_SAMPLES = 3;
 const TEXTURE_WIDTH = 64;
 const BALL_SIZE = 16;
-/** A gun's swing on a left click, which fires it: short enough to barely show. */
+/** A gun's swing on a left click, which fires it or raises it: short enough to barely show. */
 const GUN_SWING_SECONDS = 0.05;
+/**
+ * A gun is used like a bow while right click is down, so Bedrock says when the button goes down and
+ * when it comes up, and Guns fires a held gun all that time: an hour's use (it never finishes), at
+ * full walking speed.
+ */
+const GUN_USE = { use_duration: 3600, movement_modifier: 1 };
 const GUN_TEXTURES = "textures/minecade/guns";
 
 const heldGeometry = (kind: ModelId) => `geometry.minecade.gun_${kind}`;
@@ -812,10 +822,25 @@ function middleOf(boxes: Box[]): Vec3 {
   }) as Vec3;
 }
 
-/** The hold animations: plain poses of the "gun" bone, blended by the attachable (HOLD_FILE). */
-const holdAnimation = (kind: ModelId, pose: HoldPose) => `animation.minecade.gun_${kind}.${pose}`;
+// The hold animations (HOLD_FILE) are plain poses of the "gun" bone. Each view has a shared pose
+// for every gun, and one for every grenade, the knife and the stimpack (a HoldGroup), and each model
+// has its own pose for the view on top. The game plays both and adds their rotations and positions,
+// as Blockbench does with two animations playing, so moving a shared pose moves every model in its
+// group, and a model's own moves just that model. A size is kept in one of the two (each model's
+// own has its size): Blockbench multiplies two sizes, and the game hasn't been seen to.
+
 type HoldPose = "first_person_hip" | "first_person_aim" | "third_person";
 const holdPoses = (kind: ModelId): HoldPose[] => (aims(kind) ? ["first_person_hip", "first_person_aim", "third_person"] : ["first_person_hip", "third_person"]);
+type HoldGroup = "guns" | "throwables";
+const HOLD_GROUPS: HoldGroup[] = ["guns", "throwables"];
+const holdGroup = (kind: ModelId): HoldGroup => (isGun(kind) ? "guns" : "throwables");
+const groupPoses = (group: HoldGroup): HoldPose[] => (group === "guns" ? ["first_person_hip", "first_person_aim", "third_person"] : ["first_person_hip", "third_person"]);
+/** A group's shared pose for a view. */
+const sharedHold = (group: HoldGroup, pose: HoldPose) => `animation.minecade.all_${group}.${pose}`;
+/** A model's own pose for a view, on top of its group's. */
+const holdAnimation = (kind: ModelId, pose: HoldPose) => `animation.minecade.gun_${kind}.${pose}`;
+/** The models each group's shared poses first came from: the Pistol's or the frag grenade's place, and the Rail Gun's aim. */
+const GROUP_SEED: Record<HoldGroup, { model: ModelId; aim?: ModelId }> = { guns: { model: "handgun", aim: "rail_gun" }, throwables: { model: "frag_grenade" } };
 const recoilAnimation = (kind: ModelId) => `animation.minecade.gun_${kind}.recoil`;
 const ROCKET_ANIMATION = "animation.minecade.rocket.fly";
 /** Every model the held animations cover, Paintball's first. */
@@ -834,22 +859,51 @@ export const HOLD_FILE = "resource_pack/animations/guns_hold.animation.json";
 
 const fixed = (value: number) => Number(value.toFixed(2));
 
-/** The hold animations as the solver places them: the first version of HOLD_FILE. */
+/** The solver's pose for a model in a view, at full size. */
+function solvedHold(kind: ModelId, pose: HoldPose): Transform {
+  if (pose === "first_person_hip") return hipHold(kind);
+  if (pose === "third_person") return thirdHold(kind);
+  return aimHold(kind)!;
+}
+
+/** A shared pose's first guess: its group's seed model's, at full size. */
+function sharedSeed(group: HoldGroup, pose: HoldPose): Transform {
+  const seed = GROUP_SEED[group];
+  return solvedHold(pose === "first_person_aim" ? seed.aim! : seed.model, pose);
+}
+
+/**
+ * A model's own pose's first guess: the solver's pose for it less its group's shared one (the game
+ * adds the two up), and its size (none while a hidden gun aims).
+ */
+function ownSeed(kind: ModelId, pose: HoldPose): { rotation: Vec3; position: Vec3; scale?: number } {
+  const whole = solvedHold(kind, pose);
+  const shared = sharedSeed(holdGroup(kind), pose);
+  const turn = (degrees: number) => fixed(((((degrees + 180) % 360) + 360) % 360) - 180) + 0;
+  const own = {
+    rotation: whole.rotation.map((value, axis) => turn(value - shared.rotation[axis])) as Vec3,
+    position: whole.position.map((value, axis) => fixed(value - shared.position[axis]) + 0) as Vec3,
+  };
+  const { scale, aim } = HOLD[kind];
+  const size = pose === "third_person" ? 1 : pose === "first_person_aim" && aim?.hidden ? 0 : scale;
+  return size === 1 ? own : { ...own, scale: size };
+}
+
+/** The hold animations as the solver places them: the first version of HOLD_FILE, the shared poses first. */
 export function holdAnimationsSeed(): { format_version: string; animations: Record<string, unknown> } {
   const all: Record<string, unknown> = {};
-  for (const kind of ALL_MODELS) {
-    const { scale } = HOLD[kind];
-    all[holdAnimation(kind, "first_person_hip")] = { loop: true, bones: { gun: { ...hipHold(kind), scale } } };
-    const aim = aimHold(kind);
-    if (aim) all[holdAnimation(kind, "first_person_aim")] = { loop: true, bones: { gun: { ...aim, scale: HOLD[kind].aim?.hidden ? 0 : scale } } };
-    all[holdAnimation(kind, "third_person")] = { loop: true, bones: { gun: thirdHold(kind) } };
-  }
+  const posed = (gun: object) => ({ loop: true, bones: { gun } });
+  for (const group of HOLD_GROUPS) for (const pose of groupPoses(group)) all[sharedHold(group, pose)] = posed(sharedSeed(group, pose));
+  for (const kind of ALL_MODELS) for (const pose of holdPoses(kind)) all[holdAnimation(kind, pose)] = posed(ownSeed(kind, pose));
   return { format_version: "1.8.0", animations: all };
 }
 
 /** Every hold animation an attachable names, for the check that HOLD_FILE still has them all. */
 export function holdAnimationNames(): string[] {
-  return ALL_MODELS.flatMap((kind) => holdPoses(kind).map((pose) => holdAnimation(kind, pose)));
+  return [
+    ...HOLD_GROUPS.flatMap((group) => groupPoses(group).map((pose) => sharedHold(group, pose))),
+    ...ALL_MODELS.flatMap((kind) => holdPoses(kind).map((pose) => holdAnimation(kind, pose))),
+  ];
 }
 
 /**
@@ -969,13 +1023,16 @@ export function kickHeight(elapsed: number, seconds: number): number {
   return t < rise ? t / rise : ((1 - t) / (1 - rise)) ** 2;
 }
 
+/** A view's two poses in an attachable: its group's shared one (`pose`) and the model's own (`pose_own`), played together. */
+const posesFor = (pose: HoldPose, when: string) => [{ [pose]: when }, { [`${pose}_own`]: when }];
+
 /**
  * The attachable's script: no variables (see kickMolang), only what to animate. The hold poses
  * by first or third person; a gun that aims eases between its hip and aim poses through its hold
  * controller (holdControllers); a gun's recoil plays all the time, still until a shot.
  */
 function attachableScripts(kind: ModelId): Record<string, unknown> {
-  const hold = aims(kind) ? ["hold"] : [{ first_person_hip: "c.is_first_person" }, { third_person: "!c.is_first_person" }];
+  const hold = aims(kind) ? ["hold"] : [...posesFor("first_person_hip", "c.is_first_person"), ...posesFor("third_person", "!c.is_first_person")];
   return { animate: isGun(kind) ? [...hold, "recoil"] : hold };
 }
 
@@ -990,7 +1047,7 @@ function holdControllers(): unknown {
   const all: Record<string, unknown> = {};
   for (const kind of GUN_MODELS.filter(aims)) {
     const state = (pose: HoldPose, next: string, when: string) => ({
-      animations: [{ [pose]: "c.is_first_person" }, { third_person: "!c.is_first_person" }],
+      animations: [...posesFor(pose, "c.is_first_person"), ...posesFor("third_person", "!c.is_first_person")],
       transitions: [{ [next]: when }],
       blend_transition: AIM_EASE_SECONDS,
     });
@@ -1007,7 +1064,11 @@ function attachable(kind: PickupKind, dye: Dye): unknown {
 }
 
 function attachableOf(kind: ModelId, identifier: string, texture: string): unknown {
-  const animationsOf: Record<string, string> = Object.fromEntries(holdPoses(kind).map((pose) => [pose, holdAnimation(kind, pose)]));
+  const animationsOf: Record<string, string> = {};
+  for (const pose of holdPoses(kind)) {
+    animationsOf[pose] = sharedHold(holdGroup(kind), pose);
+    animationsOf[`${pose}_own`] = holdAnimation(kind, pose);
+  }
   if (isGun(kind)) animationsOf.recoil = recoilAnimation(kind);
   if (aims(kind)) animationsOf.hold = holdController(kind);
   return {
@@ -1042,15 +1103,17 @@ function item(kind: PickupKind, dye: Dye): unknown {
     "minecraft:can_destroy_in_creative": false,
   };
   if (isGun(kind)) {
-    // A left click fires (a swing), so the swing is kept short. Each shot starts this cooldown,
-    // which shades the hotbar slot until the gun can fire again.
+    // Right click fires, held in use until it comes up; a left click fires once or raises the gun
+    // (a swing), so the swing is kept short. Each shot starts this cooldown, which shades the hotbar
+    // slot until the gun can fire again.
+    components["minecraft:use_modifiers"] = GUN_USE;
     components["minecraft:swing_duration"] = { value: GUN_SWING_SECONDS };
     components["minecraft:cooldown"] = { category: gunCooldown(kind), duration: GUNS[kind as keyof typeof GUNS].everyTicks / 20 };
   }
   return { format_version: ITEM_FORMAT, "minecraft:item": { description: { identifier: gunItem(kind, dye), menu_category: { category: "none" } }, components } };
 }
 
-/** An arsenal item: as a paint gun's (a hidden model block for its icon, a short swing and its fire rate's cooldown for a gun), one of each. */
+/** An arsenal item: as a paint gun's (a hidden model block for its icon; for a gun, its use, a short swing and its fire rate's cooldown), one of each. */
 function arsenalItemFile(model: ArsenalModel): unknown {
   const block = arsenalModelBlock(model);
   const gun = isArsenalGun(model) ? ARSENAL_GUN_DEFS[model] : undefined;
@@ -1063,6 +1126,7 @@ function arsenalItemFile(model: ArsenalModel): unknown {
     "minecraft:can_destroy_in_creative": false,
   };
   if (gun) {
+    components["minecraft:use_modifiers"] = GUN_USE;
     components["minecraft:swing_duration"] = { value: GUN_SWING_SECONDS };
     components["minecraft:cooldown"] = { category: gunCooldown(model), duration: gun.everyTicks / 20 };
   }

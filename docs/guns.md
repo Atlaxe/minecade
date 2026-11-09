@@ -29,7 +29,7 @@ manifests, and `guns_hold.animation.json` (where each gun sits in the hand).
 | `packs/guns/resource_pack/attachables/` | How each item is drawn in the hand: model, texture, and which animations play. | Generated |
 | `packs/guns/resource_pack/animations/guns.animation.json` | Recoil, the pickups' float, the paint grenade's tumble and swell, the rocket's flight. | Generated |
 | `packs/guns/resource_pack/animation_controllers/guns.animation_controllers.json` | The aiming guns' hold controllers: hip pose or aim pose, eased between. | Generated |
-| `packs/guns/resource_pack/animations/guns_hold.animation.json` | Where each gun sits in the hand: hip, aim and third person poses. | **By hand** (Blockbench) |
+| `packs/guns/resource_pack/animations/guns_hold.animation.json` | Where each gun sits in the hand: a pose for every gun in each view (hip, aim, third person), one for the grenades, knife and stimpack, and each model's own on top. | **By hand** (Blockbench) |
 | `packs/guns/resource_pack/particles/` | The paint splash and the arsenal's streaks, beam, blasts, flames, smoke and glow. | Generated |
 | `packs/guns/icons/` | 128x128 pictures of each item for the lobby's kit pictures (not in either pack). | Generated |
 | `packs/guns/*/manifest.json` | The two packs' manifests. | By hand |
@@ -49,20 +49,22 @@ Item ids carry the paint color: `minecade:<dye>_paintball_pistol`, `_paintball_r
 `_paintball_shotgun` and `minecade:<dye>_paint_grenade` (`gunItem(kind, dye)` in `defs.ts`). A kit
 asks for the team's color with `teamGunItem(kind)`. White is the pickups' look.
 
-| Gun | Fires (left click) | Every (ticks) | Balls | Spread | Range | Sound |
+| Gun | Fires (right click) | Every (ticks) | Balls | Spread | Range | Sound |
 |---|---|---|---|---|---|---|
-| Paintball Pistol | One shot a click | 6 | 1 | 2.5 degrees | 2 s of flight | `mob.llama.spit`, high |
+| Paintball Pistol | One shot a press | 6 | 1 | 2.5 degrees | 2 s of flight | `mob.llama.spit`, high |
 | Paintball Rifle | Again and again while held | 4 | 1 | 5 degrees | 2 s of flight | `mob.llama.spit`, higher |
-| Paintball Shotgun | One spray a click | 20 | 6 | 12 degrees | Half a second of flight; at most 2 of a spray count on one target | `mob.llama.spit`, low |
+| Paintball Shotgun | One spray a press | 20 | 6 | 12 degrees | Half a second of flight; at most 2 of a spray count on one target | `mob.llama.spit`, low |
 | Paint Grenade | Thrown with either click, used up | 10 | | | 10 s | Lands, swells for a second, bursts |
 
-Paintball's guns have no magazine (they never run dry) and don't aim (see "Aiming").
+A left click fires one shot (one spray) with any of them. Paintball's guns have no magazine (they
+never run dry) and don't aim (see "Aiming").
 
 ### The arsenal
 
 One item each: `minecade:<id>` (`arsenalItem(id)`). The real pistol, rifle and shotgun are
-Paintball's models without the paint hopper. Only the Sniper Rifle, Rail Gun and RPG aim (see
-"Aiming"); the others fire from the hip.
+Paintball's models without the paint hopper. Right click fires them all (`hold` guns again and
+again while it's held); a left click fires one shot, except with the Sniper Rifle, Rail Gun and
+RPG, which it raises to aim (see "Aiming"). The others fire from the hip.
 
 | Item | Id | Fires | Every (ticks) | Damage body / head (20 is full health) | Magazine, reload | Notes |
 |---|---|---|---|---|---|---|
@@ -94,7 +96,7 @@ per paint color, the arsenal's one each):
 | Held model (attachable) | `resource_pack/attachables/red_paintball_pistol.json` | `resource_pack/attachables/handgun.json` |
 | Geometry (in `guns.geo.json`) | `geometry.minecade.gun_pistol` (held), `_display`, `_icon` | `geometry.minecade.gun_handgun`, `_display`, `_icon` |
 | Texture | `resource_pack/textures/minecade/guns/pistol/red.png` (64x32) | `resource_pack/textures/minecade/guns/arsenal/handgun.png` |
-| Hold poses | `animation.minecade.gun_pistol.first_person_hip`, `.third_person` | `animation.minecade.gun_handgun.first_person_hip`, `.third_person` (and `.first_person_aim` for the Sniper Rifle, Rail Gun and RPG) |
+| Hold poses (its own, on top of every gun's `animation.minecade.all_guns.*`) | `animation.minecade.gun_pistol.first_person_hip`, `.third_person` | `animation.minecade.gun_handgun.first_person_hip`, `.third_person` (and `.first_person_aim` for the Sniper Rifle, Rail Gun and RPG) |
 | Recoil | `animation.minecade.gun_pistol.recoil` | `animation.minecade.gun_handgun.recoil` |
 | Its own cooldown (fire rate, times the recoil) | `minecade_pistol` | `minecade_handgun` |
 | Kit picture icon | `icons/red_paintball_pistol.png` | `icons/handgun.png` |
@@ -105,24 +107,32 @@ and texture (`arsenal/rocket.png`).
 
 ## How they work in game
 
-- **Controls:** left click fires. A held attack button reaches a script only as repeated swings,
-  which come in bursts in the air, so a held gun (the Paintball Rifle, SMG, Assault Rifle) keeps
-  firing for its `triggerTicks` (10) after each swing, bridging the gaps; Probe says in chat, when
-  you let go, how far apart the swings came, to tune it. Only the Sniper Rifle, Rail Gun and RPG aim
-  (see "Aiming"): a right click raises one and the next lowers it; the camera zooms to its field of
-  view, its shots stray less, and the held model comes up. Switching slots lowers it. A right click
-  with any other gun does nothing. A gun's left click swing is kept to 0.05 s so a shot barely moves
-  the hand.
+- **Controls:** right click fires. A tap gun fires once a press (a burst gun its burst), however
+  long the button stays down; a held gun (`fire: "hold"`: the Paintball Rifle, SMG, Assault Rifle)
+  fires at its rate until the button comes up. Each gun item is used like a bow while right click
+  is down (`minecraft:use_modifiers`: an hour's use that never finishes, at full walking speed), so
+  Bedrock tells the script when the button goes down (`itemStartUse`) and when it comes up
+  (`itemReleaseUse`, `itemStopUse`). Aimed at a block, a held button comes as a block interaction
+  repeated while it's down instead, so there a held gun keeps firing for its `triggerTicks` (10)
+  after each repeat. Probe says in chat when a held gun lets go: its shots, how long it was down and
+  how the button came (in use, repeats, or neither), to tune it. A left click fires one shot (a burst
+  gun its burst) with any gun that doesn't aim, and raises or lowers the Sniper Rifle, Rail Gun and
+  RPG (see "Aiming"): the camera zooms to its field of view, its shots stray less, and the held
+  model comes up. Bedrock sends no left click while right click is held, so a player can't hold fire
+  and aim at once. Switching slots lowers a raised gun and lets go of a held one. A right click on a
+  door, trapdoor, gate, button or lever (vanilla's or Paintball's painted ones) uses it and doesn't
+  fire. A gun's left click swing is kept to 0.05 s so it barely moves the hand.
 - **Hotbar:** each shot (a burst's first) starts the gun's own cooldown (`minecade_<gun>`, its fire
   rate) with the player's `startItemCooldown`, and Minecraft shades it over the slot until the gun
-  can fire again. While it shades, a right click can't raise or lower the gun (a cooling item can't
-  be used). The icon is the model itself, drawn by
+  can fire again. While it shades, a right click does nothing (a cooling item can't be used), so a
+  tap gun clicked faster than its fire rate drops the early presses. The icon is the model itself, drawn by
   the game the way it draws a wall or a banner: each item places a hidden block holding the model
   (`minecade:<item>_model`, placeable only on itself, so never placed).
 - **Held models:** each gun is a 3D model (an attachable) with one bone, `gun`, bound to the hand
   and holding every box; the hold poses and the recoil both move it. (They used to have a child
   bone, `body`, holding the boxes, and a pose on the bound bone never moved it: seen in game on
-  2026-11-08, which is why no hold pose ever showed.) A gun that aims has a hold
+  2026-11-08, which is why no hold pose ever showed.) Each view plays two poses together: the one
+  every gun shares and the model's own (see "Where a gun sits in the hand"). A gun that aims has a hold
   controller with two states, its hip pose and its aim pose, and eases from one to the other in a
   fifth of a second as the aim marker (`minecade:aim_marker`) comes into the player's off hand and
   goes: Guns puts it there while they aim, and the controller reads it with
@@ -187,22 +197,21 @@ first player.
 
 ## Aiming
 
-Only the Sniper Rifle, Rail Gun and RPG aim, with a right click toggle. The other guns used to aim
-too, but Bedrock doesn't let a script read a held button together with another one: while right
-click is held, no left click reaches the script at all (so "hold right click to aim, left click to
-shoot" can't work), and a held left click only arrives as bursts of swings. So for now they fire
-from the hip only, and their aim poses are gone from the hold file.
+Only the Sniper Rifle, Rail Gun and RPG aim, with a left click toggle; right click fires them. The
+other guns used to aim too, but Bedrock doesn't let a script read two held buttons together: while
+right click is held, no left click reaches the script at all, and a held left click arrives as one
+swing (now and then a few, 4 to 5 ticks apart). So "hold one button to aim and the other to shoot"
+can't work, and only guns that fire a shot at a time aim, between shots.
 
-**Bring aiming back** when Bedrock lets a script read held buttons (a hold-to-aim that still lets
-the player shoot, with the shot's accuracy telling hip fire from aimed fire). For a gun:
+**Bring aiming back** for another gun:
 
 1. In `defs.ts`, give it an `aimFov` (the camera's zoom) and an `aimSpreadDegrees` (its aimed
-   spread, under its `hipSpreadDegrees`). `canAim` then says yes, Guns raises it on a right click,
-   and its kick is `AIM_RECOIL` of the hip one while it's up.
+   spread, under its `hipSpreadDegrees`). `canAim` then says yes, Guns raises it on a left click
+   (so a left click no longer fires it), and its kick is `AIM_RECOIL` of the hip one while it's up.
 2. In `tools/assets/guns.ts`, give its `HOLD` entry an `aim` place (`under`, `depth`).
-3. Rerun the generator: its attachable gets the aim blend, and the hold file gets a first guess
-   for its `first_person_aim` pose at the end.
-4. Change the controls in `Guns` (`rightClick`, `aim`, `stopAiming`) if the new input calls for it,
+3. Rerun the generator: its attachable gets the hold controller, and the hold file gets its own
+   `first_person_aim` pose at the end (on top of the shared `animation.minecade.all_guns.first_person_aim`).
+4. Change the controls in `Guns` (`leftClick`, `aim`, `stopAiming`) if the new input calls for it,
    and the docs here.
 
 ## Editing
@@ -250,39 +259,88 @@ icons from them; it doesn't yet.
 ### Where a gun sits in the hand
 
 The poses are in `packs/guns/resource_pack/animations/guns_hold.animation.json`, the one generated
-file the generator leaves alone (it writes it only when it's missing, from a solver's first guesses:
-delete it and rerun to start over). Each gun has three animations, each a single pose of the `gun`
-bone: `animation.minecade.gun_<model>.first_person_hip` and `.third_person`, and
-`.first_person_aim` for the guns that aim (the Sniper Rifle, Rail Gun and RPG). To change one in Blockbench (5.1 or later, which
-previews attachables):
+file the generator leaves alone (it writes it only when it's missing, from a solver's first
+guesses: delete it and rerun to start over). Each is a single pose (one keyframe at time 0) of the
+`gun` bone.
 
-1. File > Open Model: `packs/guns/resource_pack/models/entity/guns.geo.json`, and pick the held
-   model, `geometry.minecade.gun_<model>` (not `_display` or `_icon`).
-2. Drag in its texture, such as `packs/guns/resource_pack/textures/minecade/guns/pistol/red.png`
-   or `.../guns/arsenal/handgun.png`.
-3. In the Animate tab, import `guns_hold.animation.json` (the Animations panel's import button).
-4. In the Animate tab's toolbar, set the **Bedrock Animation Mode** dropdown to match the pose:
-   **Item 1st Person** for `first_person_hip` and `first_person_aim` (the camera's view, with a
-   crosshair), **Item 3rd Person** for `third_person` (a reference player holding the gun). A pose
-   looks wrong in the other mode.
-5. In the Animations panel, click the pose's animation (`animation.minecade.gun_<model>.<pose>`) so
-   it's the one playing. In the Outliner, select the `gun` bone, and move, turn or scale it in the
-   view (or type the numbers in its keyframe at time 0).
-6. Save the animation file only: right-click the animation in the Animations panel and pick Save.
-   Not File > Save Model, which also overwrites `guns.geo.json` (the generator owns it, and
-   `guns.animation.json`).
+**Each view plays two poses at once, and the game adds them up:** one every gun shares, and the
+gun's own on top.
 
-Keep to the `gun` bone (the only one) and keep the animation names.
-Blockbench's preview is approximate, so check in game. `npm run check` confirms every pose the guns
-name is still in the file.
+| View | Every gun's (shared) | The gun's own |
+|---|---|---|
+| First person, from the hip | `animation.minecade.all_guns.first_person_hip` | `animation.minecade.gun_<model>.first_person_hip` |
+| First person, aiming (Sniper Rifle, Rail Gun, RPG) | `animation.minecade.all_guns.first_person_aim` | `animation.minecade.gun_<model>.first_person_aim` |
+| Third person | `animation.minecade.all_guns.third_person` | `animation.minecade.gun_<model>.third_person` |
 
-When a new model comes, the generator adds the solver's first guess for each of its poses at the end
-of the file, in the file's own layout and line endings, and changes nothing already there.
+The grenades (Paintball's and the arsenal's), the knife and the stimpack share
+`animation.minecade.all_throwables.first_person_hip` and `.third_person` the same way.
+
+`<model>` is Paintball's `pistol`, `rifle`, `shotgun` or `grenade` (one model for all 16 paint
+colors, so they share their own poses too), or the arsenal's id: `handgun` (the Pistol), `smg`,
+`assault_rifle`, `burst_rifle`, `pump_shotgun`, `double_barrel`, `sniper_rifle`, `rail_gun`, `rpg`,
+`frag_grenade`, `molotov`, `flashbang`, `smoke_grenade`, `throwing_knife`, `stimpack`.
+
+- **To move every gun,** change the shared pose. Every gun follows, each keeping its own on top.
+- **To move one gun,** change its own pose. Each starts at nothing (rotation and position 0)
+  except its size (`scale`) and, for the Sniper Rifle and RPG, its aim (the sniper's aim size is 0:
+  aiming hides it, the zoom is the scope).
+- **Rotations and positions add:** an own rotation of (10, 0, 0) on top of a shared (79.96, 61.52,
+  -43.23) makes (89.96, 61.52, -43.23). The first number turns the gun about its own sideways axis
+  (tipping the muzzle up or down) whichever way the shared pose points it.
+- **Keep a size in the gun's own pose,** not the shared one: Blockbench multiplies two sizes, and
+  the game hasn't been seen doing the same.
+- **To put a gun back on the shared pose,** set its own rotation and position to 0.
+
+Every model is built the same way (facing north, top up, the top of its grip at the origin), so one
+pose fits them all, and turning a gun pivots it about the grip.
+
+#### In Blockbench
+
+Blockbench (5.1 or later) previews a held model in the hand, and plays two animations together the
+way the game does, so what it shows is close to the game. Edit the file in the main checkout
+(`C:\dev\minecade\network`), which the network builds from.
+
+1. **Open a gun.** File > Open Model: `packs/guns/resource_pack/models/entity/guns.geo.json`, and
+   pick its held model, `geometry.minecade.gun_<model>` (not `_display` or `_icon`). Drag in its
+   texture: `packs/guns/resource_pack/textures/minecade/guns/arsenal/<model>.png`, or for
+   Paintball's, `.../guns/<model>/red.png`.
+2. **Load the poses.** In the Animate tab, import
+   `packs/guns/resource_pack/animations/guns_hold.animation.json` with the Animations panel's import
+   button (all of it).
+3. **Pick the view.** In the Animate tab's toolbar, set **Bedrock Animation Mode** to **Item 1st
+   Person** (the camera's view, with a crosshair) for `first_person_hip` and `first_person_aim`, or
+   **Item 3rd Person** (a player holding it) for `third_person`. A pose looks wrong in the other
+   mode.
+4. **Lock the pose you aren't changing.** Click it in the Animations panel, then click the round
+   play button at its right so it shows a lock: a locked animation keeps playing while you work on
+   another. To change one gun, lock the shared pose (`animation.minecade.all_guns.first_person_hip`);
+   to change every gun, lock the gun's own (`animation.minecade.gun_handgun.first_person_hip`).
+5. **Click the pose you're changing.** Both now play, added up as in the game.
+6. **Move it.** Select the `gun` bone in the Outliner and move, turn or scale it in the view, or
+   type the numbers in its keyframe at time 0 (the Keyframe panel). Change only the `gun` bone, and
+   keep the animation names.
+7. **Save that animation, not the model.** Right-click the animation you changed in the Animations
+   panel and pick Save: Blockbench writes that one into the file and keeps the rest. Never use File
+   > Save Model, which overwrites `guns.geo.json` (the generator owns it): when Blockbench says
+   `guns.geo.json` has unsaved changes as you close it, don't save them.
+8. **Changed the shared pose?** Open another gun or two (step 1) to see it fits them, before you
+   try it in game.
+
+**Seeing it in game:** restart the map editor (Panel, Servers page, Restart) or start the network
+again, then rejoin and pick Probe's Gunner or Painter kit: the client downloads the new pack (packs
+are versioned by their content). Then ask Claude to commit the file, so it's kept.
+
+Blockbench's preview is close, not exact (Probe's test axes sat where it puts them, turned within
+about 25 degrees in first person), so check in game. `npm run check` confirms every pose the guns
+name is still in the file and moves only the `gun` bone.
 
 A gun's origin (the top of its grip) sits 24 pixels under the hand when it has no pose, as
-Blockbench's preview has it: seen in game with Probe's Holds kit (docs/spike-results.md, "Holding in
-third person"). So a pose lifts it about 24 pixels back up to the hand, and Blockbench's preview
-should match the game.
+Blockbench's preview has it (seen in game with Probe's Holds kit: docs/spike-results.md, "Holding
+in third person"), so the shared poses lift it about 24 pixels back up to the hand.
+
+When a new model comes, the generator adds the solver's first guess for its own poses (and any
+missing shared one) at the end of the file, in the file's own layout and line endings, and changes
+nothing already there.
 
 ### Recoil
 
@@ -320,8 +378,8 @@ second, and the sniper rifle settles over its whole second and a half. The burst
 burst. The animations (`animation.minecade.gun_<gun>.recoil`, in `guns.animation.json`) move the
 `gun` bone on top of its hold pose by the kick, 0 to 1, written out in full in each channel (no
 variables, see "Held models"): the muzzle tips up about the grip, and the gun goes back along its
-barrel, which way that is coming from the generator's own pose for each view (so a hold pose turned
-far from it kicks a little off line). Change the numbers in `defs.ts` and rerun the generator. The shape of the kick is the
+barrel, which way that is coming from the generator's first guess for each view (so a gun posed far
+from it kicks a little off line). Change the numbers in `defs.ts` and rerun the generator. The shape of the kick is the
 Molang from `kickMolang` in `tools/assets/guns.ts` (`kickHeight` beside it works it out the same
 way, for the tests).
 
@@ -348,11 +406,13 @@ ids are `PARTICLES` and `PAINT_SPLASH` in `defs.ts`.
 
 1. In `defs.ts`, add its id to `ARSENAL_GUNS` and its numbers, recoil included, to
    `ARSENAL_GUN_DEFS`.
-2. In `tools/assets/guns.ts`, add its boxes to `ARSENAL_BOXES` and its first hold guesses to `HOLD`.
+2. In `tools/assets/guns.ts`, add its boxes to `ARSENAL_BOXES` (built like the others: facing
+   north, the top of the grip at the origin) and its `HOLD` entry (its size, with `GUN_HIP` and
+   `GUN_THIRD`, every gun's place).
 3. Rerun the generator. It writes the item, icon block, attachable (with its recoil), texture and kit
-   icon, and appends first guesses for its three poses to the hold file.
+   icon, and appends its own poses to the hold file (nothing but its size), on top of every gun's.
 4. Hand it out with `arsenalItem("<id>")` in a kit. `Arsenal` fires every gun in `ARSENAL_GUN_DEFS`.
-5. Run `npm run check`, and set its poses in Blockbench.
+5. Run `npm run check`, and give it its own poses in Blockbench if the shared ones don't suit it.
 
 ## Seeing a change in game
 

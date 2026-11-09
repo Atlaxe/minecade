@@ -142,7 +142,8 @@ describe("bullets", () => {
     player("Bo", { x: 0.5, y: 65, z: 10.5 });
     player("Cy", { x: 0.5, y: 65, z: 20.5 });
     stone(0, 66, 30);
-    click(ann);
+    // Right click fires it: a left click would raise it (it aims).
+    use(ann);
     expect(hurts.map((hurt) => [hurt.victim, hurt.amount])).toEqual([
       ["Bo", 20],
       ["Cy", 20],
@@ -193,7 +194,7 @@ describe("the RPG", () => {
     const ann = player("Ann", { x: 0.5, y: 65, z: 0.5 }, gun("rpg"));
     const bo = player("Bo", { x: 0.5, y: 65, z: 10.5 });
     player("Cy", { x: 2.5, y: 65, z: 10.5 });
-    click(ann);
+    use(ann);
     const [rocket] = spawned(ROCKET);
     expect(rocket.properties.size).toBe(0);
     expect(rocket.projectile.shot!.z).toBeCloseTo(ARSENAL_GUN_DEFS.rpg.speed, 1);
@@ -213,7 +214,7 @@ describe("the RPG", () => {
   it("hurts its own shooter with half its blast", () => {
     const { hurts, spawned } = setup();
     const ann = player("Ann", { x: 0.5, y: 65, z: 0.5 }, gun("rpg"));
-    click(ann);
+    use(ann);
     const [rocket] = spawned(ROCKET);
     rocket.location = { x: 0.5, y: 66, z: 2.5 };
     stone(0, 66, 3);

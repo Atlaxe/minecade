@@ -98,13 +98,13 @@ describe("the guns pack's files", () => {
     }
   });
 
-  it("shades a gun's hotbar slot for its fire rate and keeps its left click swing short; a grenade stacks", () => {
+  it("shades a gun's hotbar slot for its fire rate, uses it while right click is down and keeps its left click swing short; a grenade stacks", () => {
     for (const kind of GUN_KINDS) {
       const components = json(`behavior_pack/items/${file(gunItem(kind, "red"))}.json`)["minecraft:item"].components;
       expect(components["minecraft:cooldown"]).toEqual({ category: gunCooldown(kind), duration: GUNS[kind].everyTicks / 20 });
       expect(components["minecraft:swing_duration"].value).toBeLessThan(0.3);
-      // Right click toggles the aim: nothing holds it in use, which would stop the left click.
-      expect(components["minecraft:use_modifiers"]).toBeUndefined();
+      // Used like a bow while right click is down (Bedrock says when it comes up), never finishing, at full speed.
+      expect(components["minecraft:use_modifiers"]).toEqual({ use_duration: 3600, movement_modifier: 1 });
     }
     const grenade = json(`behavior_pack/items/${file(gunItem("grenade", "red"))}.json`)["minecraft:item"].components;
     expect(grenade["minecraft:max_stack_size"]).toBeGreaterThan(1);
@@ -130,13 +130,24 @@ describe("the guns pack's files", () => {
         const hold = controllers[description.animations.hold];
         expect(hold.states.hip.transitions, id).toEqual([{ aim: offHand }]);
         expect(hold.states.aim.transitions, id).toEqual([{ hip: `!${offHand}` }]);
-        expect(hold.states.aim.animations, id).toEqual([{ first_person_aim: "c.is_first_person" }, { third_person: "!c.is_first_person" }]);
+        expect(hold.states.hip.animations, id).toEqual([
+          { first_person_hip: "c.is_first_person" },
+          { first_person_hip_own: "c.is_first_person" },
+          { third_person: "!c.is_first_person" },
+          { third_person_own: "!c.is_first_person" },
+        ]);
+        expect(hold.states.aim.animations, id).toEqual([
+          { first_person_aim: "c.is_first_person" },
+          { first_person_aim_own: "c.is_first_person" },
+          { third_person: "!c.is_first_person" },
+          { third_person_own: "!c.is_first_person" },
+        ]);
         expect(hold.states.hip.blend_transition, id).toBeGreaterThan(0);
         expect(description.animations.first_person_aim, id).toBeDefined();
         expect(recoil, id).toContain(offHand);
       } else {
         const names = description.scripts.animate.flatMap((entry: unknown) => (typeof entry === "string" ? [entry] : Object.keys(entry as object)));
-        expect(names, id).toEqual(["first_person_hip", "third_person", "recoil"]);
+        expect(names, id).toEqual(["first_person_hip", "first_person_hip_own", "third_person", "third_person_own", "recoil"]);
         expect(description.animations.first_person_aim, id).toBeUndefined();
         expect(recoil, id).not.toContain("offhand");
       }
@@ -260,7 +271,7 @@ describe("the guns pack's files", () => {
 describe("the hand-edited hold file", () => {
   const holds = JSON.parse(readFileSync(onDisk(HOLD_FILE), "utf8")).animations as Json;
 
-  it("still has every hold animation the attachables name, each moving the bound \"gun\" bone", () => {
+  it("still has every hold animation the attachables name, moving only the bound \"gun\" bone", () => {
     const named = new Set<string>();
     for (const id of [...gunItems(), ...arsenalItems()]) {
       const { animations } = json(`resource_pack/attachables/${file(id)}.json`)["minecraft:attachable"].description;
@@ -269,7 +280,20 @@ describe("the hand-edited hold file", () => {
     expect([...named].sort()).toEqual(holdAnimationNames().sort());
     for (const name of named) {
       expect(holds[name], `${HOLD_FILE} has no ${name}`).toBeDefined();
-      expect(holds[name].bones?.gun, `${name} moves no "gun" bone`).toBeDefined();
+      // A model's own pose may be empty (Blockbench saves one with no keyframes without bones).
+      expect(Object.keys(holds[name].bones ?? {}).filter((bone) => bone !== "gun"), `${name} moves a bone other than "gun"`).toEqual([]);
+    }
+  });
+
+  it("gives every gun the guns' shared poses and every other model the throwables', each with its own on top", () => {
+    for (const id of [...gunItems(), ...arsenalItems()]) {
+      const { animations } = json(`resource_pack/attachables/${file(id)}.json`)["minecraft:attachable"].description;
+      const group = animations.recoil ? "all_guns" : "all_throwables";
+      const model = (animations.first_person_hip_own as string).split(".")[2];
+      for (const pose of ["first_person_hip", "third_person", ...(animations.first_person_aim ? ["first_person_aim"] : [])]) {
+        expect(animations[pose], id).toBe(`animation.minecade.${group}.${pose}`);
+        expect(animations[`${pose}_own`], id).toBe(`animation.minecade.${model}.${pose}`);
+      }
     }
   });
 
@@ -331,6 +355,7 @@ describe("the arsenal's files", () => {
     for (const gun of ARSENAL_GUNS) {
       const components = json(`behavior_pack/items/${file(arsenalItem(gun))}.json`)["minecraft:item"].components;
       expect(components["minecraft:cooldown"]).toEqual({ category: gunCooldown(gun), duration: ARSENAL_GUN_DEFS[gun].everyTicks / 20 });
+      expect(components["minecraft:use_modifiers"], gun).toEqual({ use_duration: 3600, movement_modifier: 1 });
       expect(components["minecraft:max_stack_size"]).toBe(1);
       const recoil = json("resource_pack/animations/guns.animation.json").animations[`animation.minecade.gun_${gun}.recoil`];
       expect(JSON.stringify(recoil)).toContain("q.cooldown_time_remaining('slot.weapon.mainhand')");
@@ -339,6 +364,7 @@ describe("the arsenal's files", () => {
       const components = json(`behavior_pack/items/${file(arsenalItem(model))}.json`)["minecraft:item"].components;
       expect(components["minecraft:max_stack_size"], model).toBeGreaterThan(1);
       expect(components["minecraft:cooldown"], model).toBeUndefined();
+      expect(components["minecraft:use_modifiers"], model).toBeUndefined();
     }
   });
 

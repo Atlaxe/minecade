@@ -15,9 +15,12 @@
         "default": "geometry.minecade.gun_rail_gun"
       },
       "animations": {
-        "first_person_hip": "animation.minecade.gun_rail_gun.first_person_hip",
-        "first_person_aim": "animation.minecade.gun_rail_gun.first_person_aim",
-        "third_person": "animation.minecade.gun_rail_gun.third_person",
+        "first_person_hip": "animation.minecade.all_guns.first_person_hip",
+        "first_person_hip_own": "animation.minecade.gun_rail_gun.first_person_hip",
+        "first_person_aim": "animation.minecade.all_guns.first_person_aim",
+        "first_person_aim_own": "animation.minecade.gun_rail_gun.first_person_aim",
+        "third_person": "animation.minecade.all_guns.third_person",
+        "third_person_own": "animation.minecade.gun_rail_gun.third_person",
         "recoil": "animation.minecade.gun_rail_gun.recoil",
         "hold": "controller.animation.minecade.gun_rail_gun.hold"
       },

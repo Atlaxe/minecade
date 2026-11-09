@@ -10,7 +10,13 @@
               "first_person_hip": "c.is_first_person"
             },
             {
+              "first_person_hip_own": "c.is_first_person"
+            },
+            {
               "third_person": "!c.is_first_person"
+            },
+            {
+              "third_person_own": "!c.is_first_person"
             }
           ],
           "transitions": [
@@ -26,7 +32,13 @@
               "first_person_aim": "c.is_first_person"
             },
             {
+              "first_person_aim_own": "c.is_first_person"
+            },
+            {
               "third_person": "!c.is_first_person"
+            },
+            {
+              "third_person_own": "!c.is_first_person"
             }
           ],
           "transitions": [
@@ -47,7 +59,13 @@
               "first_person_hip": "c.is_first_person"
             },
             {
+              "first_person_hip_own": "c.is_first_person"
+            },
+            {
               "third_person": "!c.is_first_person"
+            },
+            {
+              "third_person_own": "!c.is_first_person"
             }
           ],
           "transitions": [
@@ -63,7 +81,13 @@
               "first_person_aim": "c.is_first_person"
             },
             {
+              "first_person_aim_own": "c.is_first_person"
+            },
+            {
               "third_person": "!c.is_first_person"
+            },
+            {
+              "third_person_own": "!c.is_first_person"
             }
           ],
           "transitions": [
@@ -84,7 +108,13 @@
               "first_person_hip": "c.is_first_person"
             },
             {
+              "first_person_hip_own": "c.is_first_person"
+            },
+            {
               "third_person": "!c.is_first_person"
+            },
+            {
+              "third_person_own": "!c.is_first_person"
             }
           ],
           "transitions": [
@@ -100,7 +130,13 @@
               "first_person_aim": "c.is_first_person"
             },
             {
+              "first_person_aim_own": "c.is_first_person"
+            },
+            {
               "third_person": "!c.is_first_person"
+            },
+            {
+              "third_person_own": "!c.is_first_person"
             }
           ],
           "transitions": [

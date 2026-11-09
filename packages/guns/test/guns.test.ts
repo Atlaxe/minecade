@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Scope } from "@minecade/minigame-core";
 import { AIM_MARKER, AIM_RECOIL, ARSENAL_GUN_DEFS, GRENADE, GUNS, PAINTBALL, PRIMED_GRENADE, THROWN_GRENADE, arsenalItem, dyeIndex, gunCooldown, gunItem, type GunDef } from "../src/defs.ts";
 import { Guns, ammoText, coneDirections, type AmmoState, type GunsOptions, type Shot } from "../src/guns.ts";
-import { Direction, EntitySwingSource, EquipmentSlot, ItemLockMode, ItemStack, system, world, type FakeMob, type FakePlayer } from "../../minigame-core/test/fake-mc-server.ts";
+import { Direction, EntitySwingSource, EquipmentSlot, ItemLockMode, ItemStack, system, world, type FakeBlock, type FakeMob, type FakePlayer } from "../../minigame-core/test/fake-mc-server.ts";
 
 beforeEach(() => {
   system.reset();
@@ -44,8 +44,23 @@ function setup(options: Partial<GunsOptions> = {}) {
 /** A left click: the swing Bedrock reports for an attack. */
 const click = (player: FakePlayer, swingSource: string = EntitySwingSource.Attack) =>
   world.afterEvents.playerSwingStart.emit({ player, heldItemStack: player.inventory.slots[player.selectedSlotIndex], swingSource });
-/** A right click at the sky. */
+/** A right click at the sky, as a plain use (no start or release). */
 const use = (player: FakePlayer) => world.afterEvents.itemUse.emit({ source: player, itemStack: player.inventory.slots[0]! });
+/** Right click goes down at the sky on a gun, which Bedrock uses like a bow: a use and its start. */
+const pressRight = (player: FakePlayer) => {
+  const itemStack = player.inventory.slots[player.selectedSlotIndex]!;
+  world.afterEvents.itemUse.emit({ source: player, itemStack });
+  world.afterEvents.itemStartUse.emit({ source: player, itemStack, useDuration: 72000 });
+};
+/** Right click comes up: the use's release and stop. */
+const releaseRight = (player: FakePlayer) => {
+  const itemStack = player.inventory.slots[player.selectedSlotIndex];
+  world.afterEvents.itemReleaseUse.emit({ source: player, itemStack, useDuration: 71900 });
+  world.afterEvents.itemStopUse.emit({ source: player, itemStack, useDuration: 71900 });
+};
+/** Right click at a block: its first event, or a repeat while the button stays down. */
+const atBlock = (player: FakePlayer, isFirstEvent: boolean) =>
+  world.afterEvents.playerInteractWithBlock.emit({ player, itemStack: player.inventory.slots[player.selectedSlotIndex], isFirstEvent });
 /** What the player has in their off hand: the aim marker while they aim. */
 const offHand = (player: FakePlayer) => player.equipment.get(EquipmentSlot.Offhand);
 /** A Paintball Pistol that aims (none of Paintball's do now), to test aiming with balls whose spread shows. */
@@ -53,7 +68,7 @@ const AIMING_PISTOL: GunDef = { ...GUNS.pistol, aimFov: 60, aimSpreadDegrees: 0.
 const angleOf = (velocity: { x: number; y: number; z: number }) => (Math.acos(velocity.z / Math.hypot(velocity.x, velocity.y, velocity.z)) * 180) / Math.PI;
 
 describe("Guns", () => {
-  it("fires a tap gun once per left click, at its fire rate, in the gun's paint, shading its slot and kicking its held model", () => {
+  it("fires a tap gun once per click, at its fire rate, in the gun's paint, shading its slot and kicking its held model", () => {
     const { balls } = setup();
     const player = holding("Ann", gunItem("pistol", "red"));
     click(player);
@@ -70,6 +85,38 @@ describe("Guns", () => {
     system.advanceTicks(GUNS.pistol.everyTicks);
     click(player);
     expect(balls()).toHaveLength(2);
+    // Right click fires it too, once a press however long it's held.
+    system.advanceTicks(GUNS.pistol.everyTicks);
+    pressRight(player);
+    expect(balls()).toHaveLength(3);
+    system.advanceTicks(GUNS.pistol.everyTicks * 4);
+    expect(balls()).toHaveLength(3);
+    releaseRight(player);
+    // A release can bring a use of its own: not a press.
+    use(player);
+    expect(balls()).toHaveLength(3);
+    system.advanceTicks(GUNS.pistol.everyTicks);
+    pressRight(player);
+    expect(balls()).toHaveLength(4);
+    releaseRight(player);
+    // At a block: each press fires, the repeats of a held button don't.
+    system.advanceTicks(GUNS.pistol.everyTicks);
+    atBlock(player, true);
+    expect(balls()).toHaveLength(5);
+    for (let i = 0; i < 4; i++) {
+      system.advanceTicks(GUNS.pistol.everyTicks);
+      atBlock(player, false);
+    }
+    expect(balls()).toHaveLength(5);
+    system.advanceTicks(GUNS.pistol.everyTicks);
+    atBlock(player, true);
+    expect(balls()).toHaveLength(6);
+    // A right click on a door, trapdoor, gate, button or lever uses it, and fires nothing.
+    for (const typeId of ["minecraft:oak_door", "minecraft:spruce_trapdoor", "minecraft:oak_fence_gate", "minecraft:stone_button", "minecraft:lever", "minecade:paint_blue_door"]) {
+      system.advanceTicks(GUNS.pistol.everyTicks);
+      world.afterEvents.playerInteractWithBlock.emit({ player, itemStack: player.inventory.slots[0], block: { typeId } as FakeBlock, isFirstEvent: true });
+    }
+    expect(balls()).toHaveLength(6);
   });
 
   it("kicks the shooter's view up by the gun's recoil each shot, where they stand, and less while aiming", () => {
@@ -78,7 +125,8 @@ describe("Guns", () => {
     player.location = { x: 3, y: 65, z: -2 };
     player.rotation = { x: 10, y: 45 };
     const { pitch } = GUNS.pistol.recoil;
-    click(player);
+    pressRight(player);
+    releaseRight(player);
     expect(balls()).toHaveLength(1);
     // Negative pitch looks up; random 0.5 kicks it straight up.
     expect(player.rotation.x).toBeCloseTo(10 - pitch, 5);
@@ -86,8 +134,8 @@ describe("Guns", () => {
     expect(player.teleports).toEqual([{ x: 3, y: 65, z: -2 }]);
     // The kick stays: the next shot starts from it.
     system.advanceTicks(GUNS.pistol.everyTicks);
-    use(player);
     click(player);
+    pressRight(player);
     expect(balls()).toHaveLength(2);
     expect(player.rotation.x).toBeCloseTo(10 - pitch - pitch * AIM_RECOIL, 5);
   });
@@ -112,15 +160,13 @@ describe("Guns", () => {
     const { pitch } = ARSENAL_GUN_DEFS.smg.recoil;
     setup({ guns: Object.values(ARSENAL_GUN_DEFS) });
     const player = holding("Ann", arsenalItem("smg"));
-    click(player);
+    pressRight(player);
     expect(player.teleports).toHaveLength(1);
     expect(player.rotation.x).toBeCloseTo(-pitch, 5);
-    // The SMG fires every 2 ticks: the next shot's kick waits for the 4th tick, with the one after it.
+    // Held, the SMG fires every 2 ticks: the next shot's kick waits for the 4th tick, with the one after it.
     system.advanceTicks(2);
-    click(player);
     expect(player.teleports).toHaveLength(1);
     system.advanceTicks(2);
-    click(player);
     expect(player.teleports).toHaveLength(2);
     expect(player.rotation.x).toBeCloseTo(-pitch * 3, 5);
   });
@@ -140,79 +186,98 @@ describe("Guns", () => {
   it("climbs a held gun's view kick shot by shot while the button stays down", () => {
     const { balls } = setup();
     const player = holding("Ann", gunItem("rifle", "red"));
-    click(player);
-    for (let tick = 0; tick < GUNS.rifle.everyTicks * 3; tick++) {
-      system.advanceTicks(1);
-      if (tick % 2 === 0) click(player);
-    }
+    pressRight(player);
+    system.advanceTicks(GUNS.rifle.everyTicks * 3);
+    releaseRight(player);
     expect(balls().length).toBeGreaterThanOrEqual(3);
     expect(player.rotation.x).toBeCloseTo(-GUNS.rifle.recoil.pitch * balls().length, 5);
   });
 
-  it("fires only on an attack or mining swing, not on a right click's own swings or a drop", () => {
+  it("fires on a left click (an attack or mining swing), not on a right click's own swings or a drop", () => {
     const { balls } = setup();
     const player = holding("Ann", gunItem("pistol"));
     for (const source of [EntitySwingSource.UseItem, EntitySwingSource.Build, EntitySwingSource.Interact, EntitySwingSource.DropItem, EntitySwingSource.ThrowItem]) {
       click(player, source);
     }
-    use(player);
     expect(balls()).toHaveLength(0);
     click(player, EntitySwingSource.Mine);
     expect(balls()).toHaveLength(1);
   });
 
-  it("keeps a held gun firing while the swings keep coming, and stops a moment after the last", () => {
+  it("keeps a held gun firing at its rate while right click stays down, and stops when it comes up", () => {
     const { balls } = setup();
     const player = holding("Ann", gunItem("rifle", "blue"));
-    click(player);
+    pressRight(player);
     expect(balls()).toHaveLength(1);
-    // The button stays down: Bedrock repeats the swing.
-    for (let i = 0; i < 3; i++) {
-      system.advanceTicks(GUNS.rifle.everyTicks);
-      click(player);
-    }
-    expect(balls()).toHaveLength(4);
-    // Let go: it fires out the trigger's last ticks, then stops.
-    system.advanceTicks(GUNS.rifle.triggerTicks + GUNS.rifle.everyTicks * 3);
-    const fired = balls().length;
-    expect(fired).toBeLessThanOrEqual(4 + Math.ceil(GUNS.rifle.triggerTicks / GUNS.rifle.everyTicks));
+    // In use, it fires on with no more events, however long the button stays down.
+    system.advanceTicks(GUNS.rifle.everyTicks * 10);
+    expect(balls()).toHaveLength(11);
+    releaseRight(player);
     system.advanceTicks(GUNS.rifle.everyTicks * 3);
-    expect(balls()).toHaveLength(fired);
-    // Putting the gun away ends a held trigger at once.
-    system.advanceTicks(GUNS.rifle.everyTicks);
+    expect(balls()).toHaveLength(11);
+    // A left click fires one shot.
     click(player);
+    expect(balls()).toHaveLength(12);
+    system.advanceTicks(GUNS.rifle.everyTicks * 3);
+    expect(balls()).toHaveLength(12);
+    // Putting the gun away lets go at once.
+    pressRight(player);
     player.selectedSlotIndex = 1;
     system.advanceTicks(GUNS.rifle.everyTicks * 2);
+    expect(balls()).toHaveLength(13);
+  });
+
+  it("keeps a held gun firing at a block while the interaction repeats, and stops its triggerTicks after the last", () => {
+    const { balls } = setup();
+    const player = holding("Ann", gunItem("rifle", "blue"));
+    atBlock(player, true);
+    expect(balls()).toHaveLength(1);
+    for (let i = 0; i < 4; i++) {
+      system.advanceTicks(5);
+      atBlock(player, false);
+    }
+    // Fired at its rate all along: the first at once, then every everyTicks over the 20 ticks.
+    expect(balls()).toHaveLength(1 + Math.floor(20 / GUNS.rifle.everyTicks));
+    system.advanceTicks(GUNS.rifle.triggerTicks + GUNS.rifle.everyTicks);
+    const fired = balls().length;
+    expect(fired).toBeLessThanOrEqual(1 + Math.ceil((20 + GUNS.rifle.triggerTicks) / GUNS.rifle.everyTicks));
+    system.advanceTicks(GUNS.rifle.everyTicks * 3);
+    expect(balls()).toHaveLength(fired);
+    // A repeat after the window ran out picks up again.
+    atBlock(player, false);
     expect(balls()).toHaveLength(fired + 1);
   });
 
-  it("raises a gun that aims with a right click and lowers it with the next: the camera zooms, shots stray less, and the aim marker sits in the off hand", () => {
+  it("raises a gun that aims with a left click and lowers it with the next: the camera zooms, shots stray less, and the aim marker sits in the off hand", () => {
     // random 1: every ball strays the gun's whole spread.
     const { guns, balls } = setup({ guns: [AIMING_PISTOL], random: () => 1 });
     const player = holding("Ann", gunItem("pistol", "red"));
-    click(player);
+    pressRight(player);
+    releaseRight(player);
     expect(angleOf(balls()[0].projectile.shot!)).toBeCloseTo(AIMING_PISTOL.hipSpreadDegrees, 3);
-    use(player);
+    click(player);
     expect(guns.isAiming("Ann")).toBe(true);
+    expect(balls()).toHaveLength(1);
     expect(player.camera.fovs).toEqual([AIMING_PISTOL.aimFov]);
     // The held model reads the off hand: the marker, locked where it is.
     expect(offHand(player)?.typeId).toBe(AIM_MARKER.item);
     expect(offHand(player)?.lockMode).toBe(ItemLockMode.slot);
-    // Holding the button repeats the use: still one press.
-    system.advanceTicks(2);
-    use(player);
+    // A held left click can repeat its swing: still one click.
+    system.advanceTicks(4);
+    click(player);
     expect(guns.isAiming("Ann")).toBe(true);
     system.advanceTicks(AIMING_PISTOL.everyTicks);
-    click(player);
+    pressRight(player);
+    releaseRight(player);
     expect(angleOf(balls()[1].projectile.shot!)).toBeCloseTo(AIMING_PISTOL.aimSpreadDegrees!, 3);
     system.advanceTicks(10);
-    use(player);
+    click(player);
     expect(guns.isAiming("Ann")).toBe(false);
     expect(player.camera.fovs).toEqual([AIMING_PISTOL.aimFov, undefined]);
     expect(offHand(player)).toBeUndefined();
-    // A right click at a block raises it too (its first event; held, it repeats), and switching away lowers it.
+    // Switching away lowers it.
     system.advanceTicks(10);
-    world.afterEvents.playerInteractWithBlock.emit({ player, itemStack: player.inventory.slots[0], isFirstEvent: true });
+    click(player);
     expect(guns.isAiming("Ann")).toBe(true);
     player.selectedSlotIndex = 1;
     system.advanceTicks(1);
@@ -226,23 +291,22 @@ describe("Guns", () => {
     const player = holding("Ann", gunItem("pistol", "red"));
     const shield = new ItemStack("minecraft:shield");
     player.equipment.set(EquipmentSlot.Offhand, shield);
-    use(player);
+    click(player);
     expect(guns.isAiming("Ann")).toBe(true);
     expect(offHand(player)).toBe(shield);
     system.advanceTicks(10);
-    use(player);
+    click(player);
     expect(offHand(player)).toBe(shield);
   });
 
-  it("doesn't aim a gun without an aimFov: a right click does nothing (Paintball's and most of the arsenal's)", () => {
+  it("doesn't aim a gun without an aimFov: a left click fires it (Paintball's and most of the arsenal's)", () => {
     const { guns, balls } = setup({ random: () => 1 });
     const player = holding("Ann", gunItem("pistol", "red"));
     expect(GUNS.pistol).not.toHaveProperty("aimFov");
-    use(player);
+    click(player);
     expect(guns.isAiming("Ann")).toBe(false);
     expect(player.camera.fovs).toEqual([]);
     expect(offHand(player)).toBeUndefined();
-    click(player);
     expect(angleOf(balls()[0].projectile.shot!)).toBeCloseTo(GUNS.pistol.hipSpreadDegrees, 3);
     // Only the Sniper Rifle, Rail Gun and RPG aim, each zooming within what Bedrock allows (a custom
     // field of view from 30 to 110: camera.setFov throws outside it, seen on BDS).
@@ -254,18 +318,33 @@ describe("Guns", () => {
     }
   });
 
-  it("tells the game when a held gun's trigger lets go: the shots, and how far apart the swings came", () => {
+  it("tells the game when a held gun's right click lets go: the shots, how long, and how the button came", () => {
     const reports: unknown[] = [];
     const { balls } = setup({ onTrigger: (_player, report) => reports.push(report) });
     const player = holding("Ann", gunItem("rifle", "blue"));
-    click(player);
-    system.advanceTicks(3);
-    click(player);
-    system.advanceTicks(5);
-    click(player);
+    pressRight(player);
+    system.advanceTicks(20);
     expect(reports).toEqual([]);
+    releaseRight(player);
+    expect(reports).toEqual([{ gun: "rifle", shots: balls().length, ticks: 20, held: "use", gaps: [] }]);
+    // At a block, held: the interaction's repeats.
+    system.advanceTicks(10);
+    atBlock(player, true);
+    system.advanceTicks(3);
+    atBlock(player, false);
+    system.advanceTicks(5);
+    atBlock(player, false);
     system.advanceTicks(GUNS.rifle.triggerTicks + 1);
-    expect(reports).toEqual([{ gun: "rifle", shots: balls().length, swingGaps: [3, 5] }]);
+    expect(reports[1]).toEqual({ gun: "rifle", shots: expect.any(Number), ticks: 8 + GUNS.rifle.triggerTicks + 1, held: "repeats", gaps: [3, 5] });
+    // A plain use with no release.
+    use(player);
+    system.advanceTicks(GUNS.rifle.triggerTicks + 1);
+    expect(reports[2]).toMatchObject({ held: "press", gaps: [] });
+    // A tap gun says nothing.
+    const other = holding("Bo", gunItem("pistol"));
+    pressRight(other);
+    releaseRight(other);
+    expect(reports).toHaveLength(3);
   });
 
   it("fires nothing when the game says no", () => {

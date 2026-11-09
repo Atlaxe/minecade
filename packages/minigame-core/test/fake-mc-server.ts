@@ -1058,7 +1058,7 @@ class FakeWorld {
     itemStopUse: new FakeSignal<{ source: FakePlayer; itemStack?: ItemStack; useDuration: number }>(),
     itemReleaseUse: new FakeSignal<{ source: FakePlayer; itemStack?: ItemStack; useDuration: number }>(),
     playerSwingStart: new FakeSignal<{ player: FakePlayer; heldItemStack?: ItemStack; swingSource: string }>(),
-    playerInteractWithBlock: new FakeSignal<{ player: FakePlayer; itemStack?: ItemStack; isFirstEvent: boolean }>(),
+    playerInteractWithBlock: new FakeSignal<{ player: FakePlayer; itemStack?: ItemStack; block?: FakeBlock; isFirstEvent: boolean }>(),
     projectileHitBlock: new FakeSignal<{
       projectile: FakeEntity | FakeMob;
       source?: FakePlayer;

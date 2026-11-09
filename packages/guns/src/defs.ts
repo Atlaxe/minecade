@@ -19,7 +19,10 @@ export const KIND_PROPERTY = "minecade:kind";
 /** The splash a ball or a grenade leaves, tinted by `variable.color` (MolangVariableMap.setColorRGB). */
 export const PAINT_SPLASH = "minecade:paint_splash";
 
-/** How a gun fires on a left click: one shot, or again and again while the button stays down. */
+/**
+ * How a gun fires on a right click: one shot a press (a burst gun's burst), or again and again until
+ * the button comes up. A left click fires one shot either way, with a gun that doesn't aim.
+ */
 export type FireMode = "tap" | "hold";
 
 export const GUN_KINDS = ["pistol", "rifle", "shotgun"] as const;
@@ -58,9 +61,10 @@ export interface GunDef {
   /** Ticks between shots. */
   everyTicks: number;
   /**
-   * A held gun keeps firing this many ticks after the last swing. Bedrock reports a held attack
-   * button only as repeated swings, and in the air they come in bursts (seen in game), so the
-   * window bridges the gaps between them (Guns' onTrigger reports how far apart they came).
+   * A held gun keeps firing this many ticks after the last repeat of its right click at a block. In
+   * the air, the gun is in use (like a bow) until the button comes up; aimed at a block, Bedrock
+   * reports the held button as a repeated interaction instead, and this bridges the gaps (Guns'
+   * onTrigger reports how far apart they came).
    */
   triggerTicks: number;
   /** Balls a shot fires, spread in a cone. */
@@ -69,9 +73,9 @@ export interface GunDef {
   hipSpreadDegrees: number;
   aimSpreadDegrees?: number;
   /**
-   * The camera's field of view while aiming. Left out, the gun doesn't aim and a right click does
-   * nothing. Only the Sniper Rifle, Rail Gun and RPG aim for now: Bedrock sends a script no left
-   * click while right click is held, so aiming is a right click toggle (docs/guns.md, "Aiming").
+   * The camera's field of view while aiming. Left out, the gun doesn't aim, and a left click fires
+   * one shot. Only the Sniper Rifle, Rail Gun and RPG aim, with a left click toggle: right click
+   * fires, and Bedrock sends a script no left click while right click is held (docs/guns.md, "Aiming").
    */
   aimFov?: number;
   /** Blocks a tick the ball or rocket leaves the gun at (a snowball is about 1.5); a bullet's streak flies at it. */
@@ -314,7 +318,7 @@ export function gunCooldown(kind: string): string {
  */
 export const AIM_MARKER = { item: "minecade:aim_marker" } as const;
 
-/** Whether a gun aims (right click raises it): only those with an aimFov. */
+/** Whether a gun aims (a left click raises it): only those with an aimFov. */
 export function canAim(gun: Pick<GunDef, "aimFov">): boolean {
   return gun.aimFov !== undefined;
 }
