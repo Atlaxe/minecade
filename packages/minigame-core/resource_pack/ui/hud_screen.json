@@ -403,7 +403,8 @@
   // one can't be hidden alone. Games don't show effects otherwise (only a kit can give one).
   // The column top left (vanilla's chat_stack) becomes mc_chat_stack, with the notes above the
   // paper doll and the chat. The sidebar is put in again with its own visibility: hidden while it
-  // holds notes (an instance's bindings take the place of its def's, so scoreboards.json can't).
+  // holds notes or pictures (an instance's bindings take the place of its def's, so scoreboards.json
+  // can't), and the pictures (mc_pictures) go after it, where it sits.
   "root_panel": {
     "modifications": [
       { "array_name": "controls", "operation": "remove", "control_name": "mob_effects_renderer" },
@@ -428,12 +429,13 @@
                 { "binding_name": "#objective_sidebar_name", "binding_type": "global" },
                 {
                   "binding_type": "view",
-                  "source_property_name": "(#scoreboard_sidebar_visible and ((#objective_sidebar_name - '§r§m§n§r') = #objective_sidebar_name))",
+                  "source_property_name": "(#scoreboard_sidebar_visible and ((#objective_sidebar_name - '§r§m§n§r') = #objective_sidebar_name) and ((#objective_sidebar_name - '§r§m§p§r') = #objective_sidebar_name))",
                   "target_property_name": "#visible"
                 }
               ]
             }
-          }
+          },
+          { "mc_pictures@hud.mc_pictures": {} }
         ]
       }
     ]
@@ -536,6 +538,69 @@
         "binding_type": "view",
         "source_property_name": "(not ((#objective_sidebar_name - '§r§m§n§r') = #objective_sidebar_name))",
         "target_property_name": "#visible"
+      }
+    ]
+  },
+
+  // Pictures on the right, where the vanilla sidebar sits (PICTURES_MARK in hud.ts): a sidebar whose
+  // title is the pictures mark ('§r§m§p§r') shows here instead (root_panel's sidebar hides then),
+  // each participant's name being a texture path, drawn top to bottom in the sidebar's order, a
+  // bubble each, the column centered on the screen's right edge. Scores aren't shown.
+  "mc_pictures": {
+    "type": "stack_panel",
+    "orientation": "vertical",
+    "size": [ 48, "100%c" ],
+    "anchor_from": "right_middle",
+    "anchor_to": "right_middle",
+    "offset": [ -2, 0 ],
+    "visible": false,
+    "collection_name": "scoreboard_players",
+    "factory": { "name": "player_list_factory", "control_name": "hud.mc_picture" },
+    "bindings": [
+      { "binding_name": "#scoreboard_sidebar_size", "binding_type": "global", "binding_name_override": "#collection_length" },
+      { "binding_name": "#objective_sidebar_name", "binding_type": "global" },
+      {
+        "binding_type": "view",
+        "source_property_name": "(not ((#objective_sidebar_name - '§r§m§p§r') = #objective_sidebar_name))",
+        "target_property_name": "#visible"
+      }
+    ]
+  },
+
+  // One picture: a 44 pixel bubble holding the participant's texture at 40, 2 pixels under the one above.
+  "mc_picture": {
+    "type": "panel",
+    "size": [ 48, 46 ],
+    "controls": [
+      {
+        "mc_picture_box": {
+          "type": "image",
+          "texture": "textures/ui/hud_tip_text_background",
+          "anchor_from": "top_right",
+          "anchor_to": "top_right",
+          "size": [ 44, 44 ],
+          "layer": 30,
+          "alpha": 0.6,
+          "controls": [
+            {
+              "mc_picture_image": {
+                "type": "image",
+                "anchor_from": "center",
+                "anchor_to": "center",
+                "size": [ 40, 40 ],
+                "layer": 31,
+                "bindings": [
+                  {
+                    "binding_name": "#player_name_sidebar",
+                    "binding_name_override": "#texture",
+                    "binding_type": "collection",
+                    "binding_collection_name": "scoreboard_players"
+                  }
+                ]
+              }
+            }
+          ]
+        }
       }
     ]
   },

@@ -20,6 +20,7 @@ export {
   HUD_MARK,
   MODE_MARK,
   NOTES_MARK,
+  PICTURES_MARK,
   SCOPE_CODE,
   TEXT_MARK,
   bestOfCodes,

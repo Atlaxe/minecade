@@ -55,6 +55,30 @@ export async function sharedPacks(): Promise<SharedPack[]> {
   return found;
 }
 
+/**
+ * A target's private packs: games/<id>/private_packs/<name>/behavior_pack and resource_pack, filled
+ * from outside the repo (a workshop project's install script) and git-ignored, for tests whose
+ * files aren't ours to publish (Probe's chameleon test copies vanilla's player files and draws
+ * pictures from Minecraft's textures). Each half counts once it has a manifest and some content, and
+ * goes into that target's template only, named <id>_<name>_bp and _rp. Its behavior pack ships as
+ * it is: a script in it is already built, for every transport.
+ */
+export async function privatePacks(targetDir: string, targetId: string): Promise<SharedPack[]> {
+  const base = join(targetDir, "private_packs");
+  if (!existsSync(base)) return [];
+  const found: SharedPack[] = [];
+  for (const entry of await readdir(base, { withFileTypes: true })) {
+    if (!entry.isDirectory()) continue;
+    for (const [kind, folder, suffix] of [["behavior", "behavior_pack", "bp"], ["resource", "resource_pack", "rp"]] as const) {
+      const dir = join(base, entry.name, folder);
+      if (existsSync(join(dir, "manifest.json")) && (await hasContent(dir))) {
+        found.push({ kind, name: `${targetId}_${entry.name}_${suffix}`, dir });
+      }
+    }
+  }
+  return found.sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0));
+}
+
 /** A pack's manifest with pinned versions. Throws when it's missing, not JSON, or names an unknown module. */
 export async function readPinnedManifest(dir: string): Promise<Manifest> {
   const path = join(dir, "manifest.json");

@@ -25,3 +25,6 @@ tools/assets/vanilla/
 # The dyed leather armor pack is Minecraft's leather tinted: the build writes it (tools/assets/armor.ts).
 packs/armor/behavior_pack/
 packs/armor/resource_pack/
+# A game's private test packs come from workshop projects outside the repo and hold files that
+# aren't ours to publish (games/probe/private_packs/README.md).
+/games/*/private_packs/*/

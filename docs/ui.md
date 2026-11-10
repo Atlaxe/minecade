@@ -125,6 +125,15 @@ Notes are the same for everyone (the sidebar is the world's), and a game shows n
 scores, never both. Without the pack they'd show as a plain sidebar on the right with a blank
 title.
 
+**Pictures on the right:** a sidebar whose title is `PICTURES_MARK` (`§r§m§p§r`, in `hud.ts`)
+shows as a column of pictures where the vanilla sidebar sits, centered on the screen's right edge:
+each participant's name is a texture path in a pack the server loads, drawn at 40 pixels in a
+bubble of its own, top to bottom in the sidebar's order (highest score first). Scores aren't shown,
+and two participants can't share a name, so a picture shows once. The core pack's `mc_pictures`
+binds each row's `#player_name_sidebar` to the image's `#texture`, and `root_panel`'s sidebar hides
+for this mark as it does for notes. It's the world's sidebar too, so everyone sees the same
+pictures. Probe's chameleon test shows the hiders' costumes this way (its Seeker view).
+
 **Own score:** a game whose `scoring` has `display: "own"` (One in the Quiver) has no sidebar.
 Each player sees only their own score (their team's in team games) in a box left of the clock's,
 with a skull and the number. It rides on the same action bar line: `countCodes()` in `hud.ts` adds
@@ -684,7 +693,9 @@ that really sets its stage length. Its three kits test the kit form's pictures: 
 and iron armor: eight items, then the armor), Builder (nine items, no armor) and Scout (three items
 and leather in the team's color). The lobby lists it only while `DEV_TEST_GAMES=1` (its config has
 `test: true`). It needs 2 players, so set `DEV_MIN_PLAYERS=1` to test alone.
-When the match starts, Probe says the settings it got and who is on which team.
+When the match starts, Probe says the settings it got and who is on which team. Its Chameleon kit
+is a compass for the chameleon test, a private pack (`games/probe/private_packs/README.md`) that
+the workshop's chameleon-test project installs; Round 20 min gives it time.
 
 ```ts
 options: [

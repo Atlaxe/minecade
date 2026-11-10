@@ -13,7 +13,9 @@
 // servers read them from the store's published\worlds\, mounted at /maps. A game with no
 // published map is skipped with a warning. A game that borrows other games' maps (map.borrow:
 // Gunfight plays Siege's) lists their published maps after its own, each with its owner, once the
-// build has checked their games ask at least what it asks of a map.
+// build has checked their games ask at least what it asks of a map. A target can also have private
+// packs (<target>/private_packs/<name>/, git-ignored, filled from outside the repo: packs.ts,
+// privatePacks), which go into its template only.
 import { existsSync } from "node:fs";
 import { cp, mkdir, readdir, readFile, rm, writeFile } from "node:fs/promises";
 import { dirname, join, relative } from "node:path";
@@ -42,7 +44,7 @@ import { cutBlocksPack } from "./blocks-cut.ts";
 import { addGameKitPictures } from "./kit-pictures.ts";
 import { addTeamButtons } from "./team-buttons.ts";
 import { pinManifest, type Manifest } from "./mc-versions.ts";
-import { addSharedPacks, buildBehaviorPack, buildResourcePack, hasContent, PACK_PREFIX, sharedPacks, writePackLists, type SharedPack } from "./packs.ts";
+import { addSharedPacks, buildBehaviorPack, buildResourcePack, hasContent, PACK_PREFIX, privatePacks, sharedPacks, writePackLists, type SharedPack } from "./packs.ts";
 import { validateGameConfig } from "./validate.ts";
 
 const root = fileURLToPath(new URL("../../", import.meta.url));
@@ -63,6 +65,8 @@ interface Target {
   skip?: boolean;
   behaviorPack?: Manifest;
   resourcePack?: Manifest;
+  /** Packs from outside the repo in its private_packs/ (git-ignored; packs.ts, privatePacks). */
+  privatePacks: { pack: SharedPack; manifest: Manifest }[];
   /** The game's 16:9 icon.png (required for games). */
   icon?: string;
   /** The published maps, by their cards in the catalog: its own, then the ones it borrows (with their owner game). */
@@ -110,7 +114,7 @@ async function loadManifest(packDir: string): Promise<Manifest | undefined> {
 }
 
 async function loadTarget(id: string, dir: string, configPath?: string): Promise<Target> {
-  const target: Target = { id, dir, teams: [], maps: [] };
+  const target: Target = { id, dir, teams: [], maps: [], privatePacks: [] };
   const kind = id === "lobby" ? "lobby" : "game";
   if (configPath && kind === "lobby") {
     target.lobby = (await import(pathToFileURL(configPath).href)).default as LobbyConfig;
@@ -124,6 +128,10 @@ async function loadTarget(id: string, dir: string, configPath?: string): Promise
   // A game whose players pick kits ships its pack even with nothing else in it: the build draws the kit pictures into it.
   const pictures = target.game?.kits?.select !== undefined;
   if (existsSync(join(rpDir, "manifest.json")) && (pictures || (await hasContent(rpDir)))) target.resourcePack = await loadManifest(rpDir);
+  for (const pack of await privatePacks(dir, id)) {
+    const manifest = await loadManifest(pack.dir);
+    if (manifest) target.privatePacks.push({ pack, manifest });
+  }
   if (id === EDITOR) return target;
 
   // Every map in the catalog was checked when it was published (the map editor's checklist is the
@@ -395,6 +403,7 @@ for (const target of targets) {
     const extra = target.id === "lobby" ? addGameIcons : game?.kits?.select ? (pack: string) => addGameKitPictures(pack, game, maps).then(() => {}) : undefined;
     await buildResourcePack(join(target.dir, "resource_pack"), join(out, "resource_packs", `${target.id}_rp`), target.resourcePack, extra);
   }
+  await addSharedPacks(out, target.privatePacks);
   // Each server loads one blocks pack: the cut, or the whole one for a game that asks (and the editor).
   const full = target.game?.blocks === "full" || target.id === EDITOR;
   await writePackLists(out, sharedOut, (name) => cut && (full ? CUT_NAMES.includes(name) : FULL_NAMES.includes(name)));

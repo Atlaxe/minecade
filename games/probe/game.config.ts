@@ -6,8 +6,9 @@ import { defineGame } from "@minecade/minigame-core/config";
 // two teams and a Round setting to test the lobby's game screen and team picking, and three kits to
 // test the kit form's pictures (a full hotbar with armor, a full hotbar without, a few items with
 // leather in the team's color), plus a Painter kit to try the shared guns, and Gunner and Grenadier
-// kits to try the arsenal (its real guns; its grenades, knife, stimpack, crossbow and sword), and a
-// Holds kit of held model tests: set
+// kits to try the arsenal (its real guns; its grenades, knife, stimpack, crossbow and sword), a
+// Holds kit of held model tests, and a Chameleon kit for the chameleon test in private_packs/
+// (README.md there; without it installed the compass is just a compass): set
 // DEV_MIN_PLAYERS=1 to play it alone. Probe says what it got in chat when the match starts. The lobby lists it only
 // while DEV_TEST_GAMES is 1.
 export default defineGame({
@@ -99,6 +100,10 @@ export default defineGame({
           { item: "minecraft:netherite_sword" },
         ],
       },
+      // The chameleon test's compass (private_packs/chameleon, installed from the workshop's
+      // chameleon-test): right click a block with it, or with an empty hand, to wear the block's
+      // texture, and the air for its menu (size, poses, the seeker's pictures on the right).
+      { id: "chameleon", name: "Chameleon", items: [{ item: "minecraft:compass" }] },
       // Held model tests (resource_pack/attachables/hold_test_*): the arsenal's Pistol, then the same
       // model with no pose, and a colored axes model (white at the origin, red +X, green +Y, blue -Z,
       // the barrel's way) with no pose, moved up 8, sized by view, sized by a controller, and sized by
@@ -130,6 +135,7 @@ export default defineGame({
         { value: "30", label: "30 s" },
         { value: "60", label: "60 s" },
         { value: "300", label: "5 min" },
+        { value: "1200", label: "20 min" },
       ],
     },
   ],

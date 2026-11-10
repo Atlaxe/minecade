@@ -49,6 +49,15 @@ export const MODE_MARK = "§r§m§o§r";
  */
 export const NOTES_MARK = "§r§m§n§r";
 
+/**
+ * The title of a sidebar shown as pictures on the right, where the vanilla sidebar sits, instead of
+ * as the vanilla sidebar: each participant's name is a texture path in some pack the server loads
+ * ("textures/chameleon/models/41"), drawn top to bottom in the sidebar's order, a bubble each.
+ * Scores aren't shown. Probe's chameleon test shows its seeker's pictures this way. Must match the
+ * core pack's ui/hud_screen.json (the pictures, and the sidebar that hides for them).
+ */
+export const PICTURES_MARK = "§r§m§p§r";
+
 /** The mode box's line in a game previewed from the map editor: "Preview   Sumo: Arena". */
 export function previewLine(label: string): string {
   return `${MODE_MARK}§dPreview${label ? `§7   ${label}` : ""}`;
