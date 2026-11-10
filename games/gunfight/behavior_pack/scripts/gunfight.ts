@@ -5,7 +5,7 @@
 // Arsenal): bullets take health straight off through core's combat, a crossbow's arrow and a
 // netherite sword kill in one hit, and the held gun's ammo shows top right.
 import { EntityComponentTypes, ItemLockMode, ItemStack, type Player } from "@minecraft/server";
-import { ARSENAL_GUN_DEFS, ARSENAL_THROWABLE_DEFS, Arsenal, STIM, STIMPACK, arsenalItem, parseArsenalItem } from "@minecade/guns";
+import { Arsenal, STIMPACK, arsenalItem, arsenalItemName } from "@minecade/guns";
 import { Minigame, SCOPE_CODE, describeError, log, say, type Down, type DownDecision, type GameContext, type Hit, type Result, type SpawnReason } from "@minecade/minigame-core";
 import type config from "../../game.config.ts";
 
@@ -74,18 +74,9 @@ function shuffle<T>(items: T[], random: () => number): T[] {
   return items;
 }
 
-/** What players call an item: an arsenal item's name ("Sniper Rifle"), or a vanilla one's id in words ("Netherite Sword"). */
-export function itemName(item: string): string {
-  const model = parseArsenalItem(item);
-  if (model === STIMPACK) return STIM.name;
-  if (model) return (ARSENAL_GUN_DEFS as Record<string, { name: string }>)[model]?.name ?? (ARSENAL_THROWABLE_DEFS as Record<string, { name: string }>)[model]?.name ?? model;
-  const words = item.replace(/^minecraft:/, "").split("_");
-  return words.map((word) => word.charAt(0).toUpperCase() + word.slice(1)).join(" ");
-}
-
 /** A loadout as a line: "Sniper Rifle and Pistol, with a Molotov". */
 export function loadoutText(loadout: Loadout): string {
-  return `${itemName(loadout.primary)} and ${itemName(loadout.secondary)}, with a ${itemName(loadout.grenade)}`;
+  return `${arsenalItemName(loadout.primary)} and ${arsenalItemName(loadout.secondary)}, with a ${arsenalItemName(loadout.grenade)}`;
 }
 
 export class Gunfight extends Minigame<typeof config> {

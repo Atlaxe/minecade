@@ -7,7 +7,7 @@ items, and mannequins can hold them in the editor. There are two families:
 - **Paintball's guns:** the pistol, rifle, shotgun and paint grenade, each in all 16 paint colors.
   Their balls fly and splash paint.
 - **The arsenal:** real guns (hitscan bullets, a beam, a rocket), grenades, a throwing knife and a
-  stimpack, one item each. Gunfight uses them, and Gun Game will.
+  stimpack, one item each. Gunfight and Gun Game use them.
 
 Almost every file in the pack is drawn by a generator (`tools/assets/guns.ts`) from lists of boxes
 and the numbers in `packages/guns/src/defs.ts`. Only two kinds of file are edited by hand: the
@@ -218,7 +218,7 @@ reticle, black out to the screen's edges. A gun with `scope: true` in `defs.ts` 
 Sniper Rifle). Bedrock has no script call to draw on the screen, so the scope rides on the HUD line
 like the clock: `Guns.isScoped` says who looks through one, Guns' `onAim` (Arsenal's too) tells the
 game when a gun goes up or down, and the game's `hudCodes` adds `SCOPE_CODE` to that player's line
-and redraws it at once (`refreshHud`). Gunfight and Probe do; a new game with the Sniper Rifle needs
+and redraws it at once (`refreshHud`). Gunfight, Gun Game and Probe do; a new game with the Sniper Rifle needs
 the same two lines. The core pack's `ui/hud_screen.json` (`mc_scope`) shows the lens
 (`textures/minecade/hud/scope.png`) as tall as the screen in the middle and black either side, so it
 fits any screen. The lens is a picture to paint over: docs/ui.md has its size, and

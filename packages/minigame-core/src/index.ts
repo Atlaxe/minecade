@@ -59,6 +59,7 @@ export {
 export type { Hit } from "./game/combat.ts";
 export { aborted, draw, type Result } from "./game/results.ts";
 export { Score } from "./game/score.ts";
+export { pickSpawn, rankSpawns } from "./game/spawns.ts";
 export { Notes } from "./game/sidebar.ts";
 export { MapView, inside } from "./game/map-view.ts";
 export { PromptBank } from "./game/prompt-bank.ts";

@@ -382,6 +382,37 @@ more players standing, then more health). `games/gunfight`.
 - **Stats:** kills, deaths and wins as every team game, and Headshots.
 - **Maps:** Siege's (`map.borrow`). Previews: open a Siege map in Edit, Preview, Play as Gunfight.
 
+## Gun Game
+
+Free for all, 2 to 8 players, unlimited respawns (2 seconds, then 2 seconds of protection, at a
+spawn away from everyone: core's `spawnAway`), late joiners welcome, a 10 minute clock.
+`games/gungame`.
+
+- **The ladder:** the config's `ladders`, picked by the lobby's Ladder setting: 11 weapons (Pistol,
+  SMG, Assault Rifle, Burst Rifle, Pump Shotgun, Double Barrel, Sniper Rifle, Rail Gun, RPG,
+  Crossbow, Netherite Sword) or 6 (Pistol, Assault Rifle, Pump Shotgun, Sniper Rifle, RPG,
+  Netherite Sword). Everyone starts on the first, alone in the first hotbar slot, locked and
+  selected (a crossbow's 8 arrows sit just above the hotbar). A late joiner starts on the lowest
+  weapon anyone's on.
+- **Moving up:** a kill whose last hit came from the weapon you're on moves you to the next, a tick
+  later (once the shot is done), magazine full; chat says which ("Next: the SMG (2 of 11)") with a
+  chime. A shot fired before you moved up doesn't count again, so one rail beam or rocket through
+  two players moves you once. Everyone hears when someone reaches the last weapon, and the first
+  kill with it wins.
+- **Melee:** a hit with a fist, or a bash with whatever's in hand, takes 5 health (a quarter of 20,
+  the config's `meleeHits`); the Netherite Sword and a crossbow's arrow kill in one hit. A melee
+  death puts the victim back one weapon (the killer stays where they are), and so does dying with
+  nobody to credit (falling out of the map, your own rocket); never below the first. The kill feed
+  adds "(back one weapon)". Leaving costs nothing.
+- **Health** comes back only by respawning (no natural regeneration); saturation keeps everyone
+  able to sprint.
+- **HUD:** the held gun's ammo in the text bubble top right, the clock, and in the skull box how
+  far up you are (the kills that counted). The Sniper Rifle's scope as in Gunfight.
+- **Time up:** the furthest up the ladder wins, then the most kills; otherwise a draw.
+- **Stats:** kills, deaths and wins, and Headshots.
+- **Maps:** One in the Quiver's (`map.borrow`). It has no picture of its own yet: the lobby shows the
+  stand-in until one is taken. Previews: open a Quiver map in Edit, Preview, Play as Gun Game.
+
 ## The prompt form
 
 Build Swap has every player write prompts before the match, in a live form like the kit form

@@ -468,7 +468,7 @@ icon in the map menu's top row (a game's map with its checklist done; lobby maps
 previewed yet), **Preview** on the Panel's Edit row, or `npm run editor -- preview`. In game it asks
 first how many **fake players** the match starts with (a toggle from 0 up to what fits beside
 everyone going, at most 7), then **Start preview** (green). When other games play this game's maps
-(`map.borrow`: Gunfight plays Siege's), it also asks which game to **Play as**: the map's own game at
+(`map.borrow`: Gunfight plays Siege's, Gun Game One in the Quiver's), it also asks which game to **Play as**: the map's own game at
 first, or one that borrows it (the fake players then fit that game's player count).
 
 1. The editor saves the world (when blocks changed) and builds the game from this checkout, with

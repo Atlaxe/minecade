@@ -2,14 +2,14 @@
 // the teams switching sides, the arsenal's bullets taking health through core's combat, one-hit
 // vanilla weapons, rounds decided by the last team standing or by who's left when time runs out.
 import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
-import { ARSENAL_GUN_DEFS, arsenalItem } from "@minecade/guns/defs";
+import { ARSENAL_GUN_DEFS, arsenalItem, arsenalItemName as itemName } from "@minecade/guns/defs";
 import { mapRequirements, runtimeMapConfig, stripColors, uncoveredRequirements, validateMapConfig, type MapConfig } from "@minecade/minigame-core/config";
 import { EntitySwingSource, ItemStack, world, type FakePlayer } from "../../../packages/minigame-core/test/fake-mc-server.ts";
 import { createHarness, everyoneLeaves, expectBaseline, playToEnd, snapshot, statsRows, ticks, type Harness } from "../../../packages/minigame-core/test/game-harness.ts";
 import { validateGameConfig } from "../../../tools/build/validate.ts";
 import siege from "../../siege/game.config.ts";
 import config from "../game.config.ts";
-import { Gunfight, LoadoutDeck, itemName, loadoutText } from "../behavior_pack/scripts/gunfight.ts";
+import { Gunfight, LoadoutDeck, loadoutText } from "../behavior_pack/scripts/gunfight.ts";
 
 const FORT: MapConfig = runtimeMapConfig({
   name: "Fort",

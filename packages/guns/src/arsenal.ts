@@ -57,9 +57,11 @@ export interface ArsenalHost {
   /**
    * Takes `amount` of a body's health (or all of it), credited to `attacker`, none for a player's
    * own blast or fire. The game's rules decide whether it counts. `headshot`: a bullet, beam,
-   * rocket or knife that hit the head.
+   * rocket or knife that hit the head. `weapon`: the arsenal item that did it ("rail_gun", "rpg",
+   * "molotov"), as it was when it was fired or thrown (Gun Game counts a kill only with the gun a
+   * player is on).
    */
-  hurt(victim: Entity, attacker: string | undefined, amount: number | "lethal", cause: ArsenalCause, headshot?: boolean): HurtResult;
+  hurt(victim: Entity, attacker: string | undefined, amount: number | "lethal", cause: ArsenalCause, headshot?: boolean, weapon?: string): HurtResult;
   /** A knife picked up off the map: where it goes. The first free hotbar slot when left out. */
   give?(player: Player, item: string): boolean;
 }
@@ -208,7 +210,7 @@ export class Arsenal {
     const amount = knife ? "lethal" : info?.damage;
     if (amount === undefined || amount === 0) return;
     const cause: ArsenalCause = knife ? "knife" : shot.weapon === "rpg" ? "explosion" : "gun";
-    const result = this.host.hurt(entity, shot.shooter, amount, cause, info?.headshot === true);
+    const result = this.host.hurt(entity, shot.shooter, amount, cause, info?.headshot === true, shot.weapon);
     const dimension = world.getDimension("overworld");
     particle(dimension, PARTICLES.hit, location);
     if (!result) return;
@@ -253,7 +255,7 @@ export class Arsenal {
       if (far >= blast.radius) continue;
       const own = name.toLowerCase() === shot.shooter.toLowerCase();
       const amount = blastDamage(blast, far, blocked(dimension, at, middle)) * (own ? blast.selfFactor : 1);
-      if (amount > 0.05) this.host.hurt(body, own ? undefined : shot.shooter, amount, "explosion");
+      if (amount > 0.05) this.host.hurt(body, own ? undefined : shot.shooter, amount, "explosion", false, shot.weapon);
       push(body, at, blast.push * (1 - far / blast.radius));
     }
   }
@@ -359,7 +361,7 @@ export class Arsenal {
         const across = Math.hypot(feet.x - fire.at.x, feet.z - fire.at.z);
         if (name === undefined || across > FIRE.radius || feet.y < fire.at.y - 1 || feet.y > fire.at.y + 2) continue;
         const own = name.toLowerCase() === fire.thrower.toLowerCase();
-        if (this.host.hurt(body, own ? undefined : fire.thrower, FIRE.damage, "fire")) particle(dimension, PARTICLES.burning, feet);
+        if (this.host.hurt(body, own ? undefined : fire.thrower, FIRE.damage, "fire", false, "molotov")) particle(dimension, PARTICLES.burning, feet);
       }
     }
     for (const cloud of [...this.clouds]) {

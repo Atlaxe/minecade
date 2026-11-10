@@ -7,7 +7,8 @@ const root = fileURLToPath(new URL("../../../", import.meta.url));
 describe("the editor's targets", () => {
   it("know the games that borrow a game's maps, which a preview can play its maps as", async () => {
     expect((await loadTarget(root, "siege")).borrowers).toEqual([{ id: "gunfight", name: "Gunfight", maxPlayers: 8 }]);
-    expect((await loadTarget(root, "quiver")).borrowers).toBeUndefined();
+    expect((await loadTarget(root, "quiver")).borrowers).toEqual([{ id: "gungame", name: "Gun Game", maxPlayers: 8 }]);
+    expect((await loadTarget(root, "bridges")).borrowers).toBeUndefined();
     expect((await loadTarget(root, "lobby")).borrowers).toBeUndefined();
   });
 });

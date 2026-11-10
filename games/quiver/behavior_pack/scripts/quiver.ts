@@ -10,7 +10,6 @@ import {
   log,
   nameOf,
   say,
-  worldPoint,
   type Down,
   type DownDecision,
   type Hit,
@@ -34,8 +33,6 @@ const PICKUP_RANGE = 2.5;
 const LANDED_CHECK_TICKS = 2;
 /** Kill streaks are announced in chat every this many kills in a row. */
 const STREAK_EVERY = 5;
-/** The share of spawns, safest first, that a respawn picks from at random (at least one). */
-const SAFE_SHARE = 0.3;
 /** "<victim> was <verb> by <killer>" for an arrow kill; sword kills use the usual verbs. */
 export const ARROW_VERBS = ["shot", "sniped", "skewered", "pinned", "picked off", "tagged"];
 
@@ -130,13 +127,7 @@ export class Quiver extends Minigame<typeof config> {
   /** Respawns and late joins land at one of the spawns farthest from everyone still alive. */
   protected override spawnPoint(name: string, why: SpawnReason): MapPosition {
     if (why === "start") return super.spawnPoint(name, why);
-    const key = name.toLowerCase();
-    const enemies = this.roster
-      .inState("alive")
-      .filter((participant) => participant.name.toLowerCase() !== key)
-      .map((participant) => this.body(participant.name)?.location)
-      .filter((location): location is Vector3 => location !== undefined);
-    return pickSpawn(this.map.spawns, enemies, this.ctx.random) ?? super.spawnPoint(name, why);
+    return this.spawnAway(name) ?? super.spawnPoint(name, why);
   }
 
   /** Removes missed arrows that have lain still long enough, or that a player has come close to. */
@@ -198,25 +189,4 @@ function arrows(count: number): ItemStack {
   const stack = new ItemStack(ARROW, count);
   stack.lockMode = ItemLockMode.inventory;
   return stack;
-}
-
-/**
- * A spawn away from the enemies: one of the safest few (the top 30%, at least one), at random so
- * respawns can't be predicted. With nobody else alive, any spawn. Undefined when there are none.
- */
-export function pickSpawn(spawns: MapPosition[], enemies: Vector3[], random: () => number): MapPosition | undefined {
-  if (spawns.length === 0) return undefined;
-  const ranked = rankSpawns(spawns, enemies);
-  const pool = enemies.length === 0 ? ranked : ranked.slice(0, Math.max(1, Math.round(ranked.length * SAFE_SHARE)));
-  return pool[Math.min(pool.length - 1, Math.floor(random() * pool.length))];
-}
-
-/** Spawns from the one farthest from its nearest enemy to the closest (map order breaks ties). */
-export function rankSpawns(spawns: MapPosition[], enemies: Vector3[]): MapPosition[] {
-  const scored = spawns.map((spawn, index) => {
-    const at = worldPoint(spawn);
-    const nearest = Math.min(...enemies.map((enemy) => Math.hypot(enemy.x - at.x, enemy.y - at.y, enemy.z - at.z)));
-    return { spawn, index, nearest };
-  });
-  return scored.sort((a, b) => b.nearest - a.nearest || a.index - b.index).map((entry) => entry.spawn);
 }

@@ -18,7 +18,8 @@ import { validateGameConfig } from "../../../tools/build/validate.ts";
 import config from "../game.config.ts";
 import { countCodes } from "../../../packages/minigame-core/src/hud.ts";
 import { heartsText } from "../../../packages/minigame-core/src/game/fakes.ts";
-import { ARROW_SLOT, ARROW_VERBS, Quiver, giveArrows, pickSpawn, rankSpawns } from "../behavior_pack/scripts/quiver.ts";
+import { pickSpawn, rankSpawns } from "../../../packages/minigame-core/src/game/spawns.ts";
+import { ARROW_SLOT, ARROW_VERBS, Quiver, giveArrows } from "../behavior_pack/scripts/quiver.ts";
 
 const ARROW = "minecraft:arrow";
 /** Ten spawns on a ring 12 blocks out: spawn 0 is east, spawn 5 west, 2 and 3 south, 7 and 8 north. */

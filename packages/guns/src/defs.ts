@@ -686,6 +686,18 @@ export function parseArsenalItem(typeId: string): ArsenalModel | undefined {
   return (ARSENAL_MODELS as readonly string[]).includes(name) ? (name as ArsenalModel) : undefined;
 }
 
+/**
+ * What players call a weapon: an arsenal item's name ("Sniper Rifle", "Pistol", "Stimpack"), or a
+ * vanilla item's id in words ("Netherite Sword"). For chat lines in the games that hand them out.
+ */
+export function arsenalItemName(item: string): string {
+  const model = parseArsenalItem(item);
+  if (model === STIMPACK) return STIM.name;
+  if (model) return (ARSENAL_GUN_DEFS as Record<string, { name: string }>)[model]?.name ?? (ARSENAL_THROWABLE_DEFS as Record<string, { name: string }>)[model]?.name ?? model;
+  const words = item.replace(/^minecraft:/, "").split("_");
+  return words.map((word) => word.charAt(0).toUpperCase() + word.slice(1)).join(" ");
+}
+
 /** Every item the arsenal adds. */
 export function arsenalItems(): string[] {
   return ARSENAL_MODELS.map(arsenalItem);

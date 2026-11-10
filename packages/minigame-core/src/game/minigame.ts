@@ -43,6 +43,7 @@ import { aborted, draw, lastStanding, type Result } from "./results.ts";
 import { Roster, type Participant } from "./roster.ts";
 import { Score } from "./score.ts";
 import { Sidebar } from "./sidebar.ts";
+import { pickSpawn } from "./spawns.ts";
 import { packStatsParts, StatsRecorder } from "./stats.ts";
 import { activeTeams, assignTeams, teamLimit } from "./teams.ts";
 
@@ -362,6 +363,21 @@ export abstract class Minigame<C extends GameConfig = GameConfig> {
     const everyone = this.roster.all().map((member) => member.name.toLowerCase());
     const spawns = this.map.waitingSpots;
     return spawns[Math.max(0, everyone.indexOf(key)) % Math.max(1, spawns.length)] ?? [0, 65, 0];
+  }
+
+  /**
+   * One of the map's spawns away from everyone else still in play (pickSpawn: a random one of the
+   * safest few), for a free-for-all's respawns and late joins (One in the Quiver, Gun Game).
+   * Undefined when the map has no spawns.
+   */
+  protected spawnAway(name: string): MapPosition | undefined {
+    const key = name.toLowerCase();
+    const others = this.roster
+      .inState("alive")
+      .filter((participant) => participant.name.toLowerCase() !== key)
+      .map((participant) => this.body(participant.name)?.location)
+      .filter((location): location is Vector3 => location !== undefined);
+    return pickSpawn(this.map.spawns, others, this.ctx.random);
   }
 
   /**

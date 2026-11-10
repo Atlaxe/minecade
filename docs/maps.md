@@ -214,7 +214,7 @@ picker for it on the Servers page. A restart applies it.
 ### Borrowing another game's maps
 
 A game can play another game's published maps as they are, beside any of its own, by naming that
-game in `map.borrow`. Gunfight plays Siege's:
+game in `map.borrow`. Gunfight plays Siege's, and Gun Game plays One in the Quiver's:
 
 ```ts
 map: { teamSpawns: true, bounds: true, borrow: ["siege"] },
