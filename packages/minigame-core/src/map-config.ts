@@ -227,6 +227,11 @@ export interface MapConfig {
   mannequins?: Record<string, MapMannequin>;
   /** The map editor only: the mannequins stand in this map's previews too. */
   mannequinsInPreview?: boolean;
+  /**
+   * The map editor only: a map for taking its game's picture (the minigame's thumbnail), so the
+   * Panel shows and sets the game's picture for it, beside the map's own.
+   */
+  gameThumbnail?: boolean;
   /** A preview's server only: the mannequins to stand in it (see PreviewMannequin). */
   previewMannequins?: PreviewMannequin[];
   /** Game-specific values, such as Sumo's eliminationY. */
@@ -256,7 +261,7 @@ export function queueSettings(config: Pick<MapConfig, "queue">): QueueSettings {
 }
 
 /** Keys only the build and the map editor use; servers get the map without them. */
-export const EDITOR_ONLY_KEYS = ["build", "source", "cameras", "mannequins", "mannequinsInPreview", "draft"] as const;
+export const EDITOR_ONLY_KEYS = ["build", "source", "cameras", "mannequins", "mannequinsInPreview", "gameThumbnail", "draft"] as const;
 
 /** The map as servers get it: without the editor-only keys. */
 export function runtimeMapConfig(config: MapConfig): MapConfig {

@@ -215,6 +215,20 @@
   .map-settings .buttons.tight { margin-top: 0; }
   .map-settings > .buttons { margin-top: 16px; }
   .panel .queue-note { margin: 8px 0 0; }
+  /* Map settings' pictures, and their dialog (pictures.ts). */
+  .picture-frame { aspect-ratio: 16 / 9; width: 100%; display: grid; place-items: center; overflow: hidden; background: var(--inset); border: 1px solid var(--line); border-radius: 2px; color: var(--muted); font-size: var(--fs-meta); }
+  .picture-frame img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .picture-head { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; }
+  dialog.picture-dialog { width: min(760px, 94vw); }
+  .picture-newest { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+  .picture-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; max-height: 56vh; overflow-y: auto; padding: 2px; }
+  .picture-grid > p { grid-column: 1 / -1; margin: 0; }
+  .picture-pick { display: grid; gap: 6px; padding: 4px 4px 6px; text-align: left; font-weight: 400; background: var(--raised); border: 2px solid transparent; }
+  .picture-pick:hover:not(:disabled) { background: var(--raised-hover); }
+  .picture-pick.on { border-color: var(--primary); }
+  .picture-pick.on span { color: var(--text); font-weight: 600; }
+  .picture-pick img { width: 100%; aspect-ratio: 16 / 9; object-fit: cover; display: block; border-radius: 2px; background: var(--inset); }
+  .picture-pick span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--muted); }
 </style>
 </head>
 <body>

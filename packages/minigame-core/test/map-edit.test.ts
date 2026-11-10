@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Box, MapConfig } from "../src/map-config.ts";
-import { MapEditError, applyEdit, describeEdit, listKey, listOf, type MapEdit } from "../src/map-edit.ts";
+import { MapEditError, applyEdit, describeEdit, isMapKey, listKey, listOf, type MapEdit } from "../src/map-edit.ts";
 import { formatMapConfig } from "../src/map-format.ts";
 
 const base: MapConfig = {
@@ -22,6 +22,17 @@ describe("applyEdit's star box", () => {
     expect(on.stars).toBe(true);
     expect("stars" in applyEdit(on, { op: "stars", on: false })).toBe(false);
     expect(describeEdit({ op: "stars", on: true })).toBe("star box on");
+  });
+});
+
+describe("applyEdit's minigame thumbnail map", () => {
+  it("marks a map for taking its game's picture, with the editor's keys, and takes the mark away", () => {
+    const on = applyEdit({ name: "Shot", spawns: [], cameras: {}, source: { world: "W", box, offset: [0, 0, 0] } }, { op: "gameThumbnail", on: true });
+    expect(Object.keys(on)).toEqual(["name", "spawns", "cameras", "gameThumbnail", "source"]);
+    expect(on.gameThumbnail).toBe(true);
+    expect("gameThumbnail" in applyEdit(on, { op: "gameThumbnail", on: false })).toBe(false);
+    expect(describeEdit({ op: "gameThumbnail", on: true })).toBe("make it a minigame thumbnail map");
+    expect(isMapKey("gameThumbnail")).toBe(true);
   });
 });
 

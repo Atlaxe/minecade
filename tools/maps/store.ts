@@ -220,6 +220,24 @@ export class MapStore {
     this.db.prepare("UPDATE maps SET published_id = ?, published_version = ? WHERE key = ?").run(map, version, row.key);
   }
 
+  /**
+   * Publishes the game's working picture alone, with no map (a minigame thumbnail map's picture,
+   * from the Panel's map viewer). True when it was new or changed; the database is backed up then.
+   */
+  publishPicture(target: string): boolean {
+    if (!this.publishIcon(target)) return false;
+    this.backup();
+    return true;
+  }
+
+  /** Whether the game's working picture is in the lobby: "none" without one, "published", or "changed" (new, or changed since). */
+  pictureState(target: string): "none" | "published" | "changed" {
+    const path = this.icon(target);
+    if (target === "lobby" || !existsSync(path)) return "none";
+    const current = this.db.prepare("SELECT sha256 FROM icons WHERE target = ?").get(target) as { sha256: string } | undefined;
+    return current?.sha256 === sha(readFileSync(path)) ? "published" : "changed";
+  }
+
   /** Publishes `data` (a PNG) as a game's picture, whatever its working one is (import does). */
   setPublishedIcon(target: string, data: Buffer): void {
     const sha256 = sha(data);

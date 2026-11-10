@@ -159,10 +159,16 @@ async function main(): Promise<void> {
   $("map-name").textContent = name;
   $("map-game").textContent = `${game}, ${map}`;
   const query = `target=${encodeURIComponent(target)}&map=${encodeURIComponent(map)}`;
-  // The map's thumbnail, when it has one.
-  const thumb = el("img", { className: "banner-thumb", alt: "" });
-  thumb.onload = () => $("map-thumb").replaceChildren(thumb);
-  thumb.src = `/api/viewer/thumb?${query}`;
+  // The map's thumbnail when it has one, or a minigame thumbnail map's game picture; drawn again when
+  // either changes. Once the map is loaded, the page says which (its change shows before map.json has it).
+  const showThumb = (gameThumbnail?: boolean) => {
+    const thumb = el("img", { className: "banner-thumb", alt: "" });
+    thumb.onload = () => $("map-thumb").replaceChildren(thumb);
+    thumb.onerror = () => $("map-thumb").replaceChildren();
+    const kind = gameThumbnail === undefined ? "" : `&kind=${gameThumbnail ? "game" : "map"}`;
+    thumb.src = `/api/viewer/thumb?${query}${kind}&v=${Date.now()}`;
+  };
+  showThumb();
   // An open event stream counts this window as one of the Panel's, so it stays up while the viewer
   // is open; naming the map also brings its map.json's changes, and its world's.
   const events = new EventSource(`/api/events?${query}`);
@@ -304,6 +310,8 @@ async function main(): Promise<void> {
   };
   const setConfig = (next: MapConfig) => {
     if (JSON.stringify(next) === JSON.stringify(config)) return;
+    // A minigame thumbnail map shows its game's picture in the top bar.
+    if (next.gameThumbnail !== config.gameThumbnail) showThumb(next.gameThumbnail === true);
     config = next;
     redraw();
     mapSettings.update(config);
@@ -321,15 +329,26 @@ async function main(): Promise<void> {
   const edit = (change: MapEdit) => changes.edit(config, change);
   // Map settings, in the right panel with nothing picked: the name, the queue's countdown, the game's settings, Port to another game, Delete map.
   const mapSettings = new MapSettings($("map-panel"), {
+    target,
+    targetName: data.targetName,
     map,
     rules: data.rules,
     edit,
     note: (text) => notice(text, true),
+    told: (text) => notice(text),
+    pictureChanged: () => showThumb(config.gameThumbnail === true),
     port: () => void openPortDialog({ target, map }),
     // Once it's deleted, back to Maps, which says so.
     delete: () => openDeleteDialog({ target, map, name: config.name || name, gameName: game }, (message) => location.assign(`/?${new URLSearchParams({ deleted: message })}#maps`)),
   });
   mapSettings.update(config);
+  // The pictures: read now, and again when the window comes back (a picture may have been taken in game Edit meanwhile).
+  const pictures = () => {
+    void mapSettings.refreshPictures();
+    showThumb(config.gameThumbnail === true);
+  };
+  void mapSettings.refreshPictures();
+  window.addEventListener("focus", pictures);
   // The Time tool: the map's time of day.
   const timeTool = new TimeTool({ edit, note: (text) => notice(text, true), redraw: () => renderPanel() });
   events.addEventListener("map", (event) => {
@@ -338,7 +357,7 @@ async function main(): Promise<void> {
     changes.external(change.stamp, change.config);
   });
   // In game: the Panel's state says where the map editor is, and whether game Edit has this map open (then edits go through it).
-  const inGame = new InGame({ target, map, name: () => config.name || name, notice });
+  const inGame = new InGame({ target, map, name: () => config.name || name, notice, pictureSaved: pictures });
   events.addEventListener("state", (event) => inGame.update(JSON.parse((event as MessageEvent<string>).data) as PanelState));
   // Game Edit saved the world: the page loads again for the new blocks once nothing is under way, keeping the view.
   let reloading = false;

@@ -16,7 +16,9 @@
 //                                               RGBA each, looks.ts), gzipped; for this page only
 //   GET /api/viewer/shapes?target=<id>&map=<id> the shapes of the custom blocks the map uses
 //                                               (custom-shapes.ts), by look
-//   GET /api/viewer/thumb?target=<id>&map=<id>  the map's thumbnail (preview.png), if it has one
+//   GET /api/viewer/thumb?target=<id>&map=<id>  the map's thumbnail (preview.png), or a minigame
+//       [&kind=map|game]                        thumbnail map's game picture (icon.png), if it has
+//                                               one; kind asks for one of the two
 //   GET /api/viewer/map?target=<id>&map=<id>    the map's markup data (map-data.ts): map.json, its
 //                                               game's rules, marker shapes and models
 import { existsSync, readdirSync, statSync } from "node:fs";
@@ -30,6 +32,7 @@ import { MapStore } from "../maps/store.ts";
 import type { CustomShape } from "../control-panel/viewer/shapes.ts";
 import { viewShapes } from "./custom-shapes.ts";
 import { colorTable, textureLayers } from "./looks.ts";
+import { gamePicturePath, isGameThumbnail } from "./pictures.ts";
 import { cachedView, ViewError } from "./view-file.ts";
 
 const ID = /^[A-Za-z0-9_-]+$/;
@@ -76,11 +79,16 @@ export function viewerShapes(root: string, target: string, map: string): { statu
   return { status: 200, shapes: viewShapes(answer.gzipped, join(root, "packs", "blocks")) };
 }
 
-/** A map's thumbnail (its preview.png, taken in game Edit), or undefined when it has none. */
-export function viewerThumbPath(root: string, target: string, map: string): string | undefined {
+/**
+ * A map's thumbnail (its preview.png, taken in game Edit), or for a minigame thumbnail map its game's
+ * picture; `kind` asks for one of the two. Undefined when there's none.
+ */
+export function viewerThumbPath(root: string, target: string, map: string, kind?: string): string | undefined {
   if (!ID.test(target) || !ID.test(map)) return undefined;
-  const path = join(workingDir(target, storeDir(root)), map, "preview.png");
-  return existsSync(path) ? path : undefined;
+  const folder = join(workingDir(target, storeDir(root)), map);
+  const game = kind === "game" || (kind !== "map" && isGameThumbnail(join(folder, "map.json")));
+  const path = game ? gamePicturePath(root, target) : join(folder, "preview.png");
+  return target !== "lobby" && existsSync(path) ? path : undefined;
 }
 
 let colors: { key: string; gzipped: Buffer } | undefined;

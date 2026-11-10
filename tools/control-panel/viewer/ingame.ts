@@ -43,6 +43,8 @@ export interface InGameOptions {
   /** The map's name now (it can be renamed while the viewer is open). */
   name(): string;
   notice(text: string, bad?: boolean): void;
+  /** The newest screenshot became the map's preview or the game's picture. */
+  pictureSaved?(): void;
 }
 
 /** Where this map stands in game, from the Panel's state: the menu's tone, its line, and whether this map is open in Edit (edits then go through it). */
@@ -160,8 +162,8 @@ export class InGame {
               { className: "game-section" },
               el("span", { className: "muted meta", title: "A screenshot taken in game in the last 10 minutes, cropped to 16:9" }, "Your newest screenshot as"),
               el("div", { className: "game-buttons" },
-                el("button", { className: "small", onclick: () => void this.act("/api/editor/picture", { kind: "map" }, "Saved your newest screenshot as this map's preview.") }, "Map preview"),
-                el("button", { className: "small", onclick: () => void this.act("/api/editor/picture", { kind: "game" }, "Saved your newest screenshot as the game's picture.") }, "Game picture"),
+                el("button", { className: "small", onclick: () => void this.act("/api/editor/picture", { kind: "map" }, "Saved your newest screenshot as this map's preview.").then(() => this.options.pictureSaved?.()) }, "Map preview"),
+                el("button", { className: "small", onclick: () => void this.act("/api/editor/picture", { kind: "game" }, "Saved your newest screenshot as the game's picture.").then(() => this.options.pictureSaved?.()) }, "Game picture"),
               ),
             ),
       );

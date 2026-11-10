@@ -575,6 +575,10 @@ of its maps with a picture (cards with the picture and the name); it asks first,
 then asks **Import map name?**: **Import name** gives this map that map's name and map id too (see
 "A new map id"), **Keep mine** doesn't. It's for a map you're reusing in another game.
 
+The Panel's map viewer picks pictures too, under **Pictures** in its Map settings (`docs/viewer.md`,
+"Pictures"): a map's thumbnail, and on a map checked as a **Minigame thumbnail map** the game's
+picture, with **Publish picture** to put the game's picture in the lobby without publishing a map.
+
 **Mannequins** stand in for players in a game picture. With the Mannequin tool, use it on a block:
 "Mannequin 1" stands there at once, facing you, a plain red figure (a see-through mannequin shows
 where it'll go while you hold the tool). Hit or right click one for its screen, where every tap

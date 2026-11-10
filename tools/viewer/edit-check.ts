@@ -70,6 +70,8 @@ export function markupProblem(config: MapConfig, edit: MapEdit, rules: EditRules
     }
     case "stars":
       return edit.on && rules.kind !== "lobby" ? "The star box is only for the lobby's maps." : undefined;
+    case "gameThumbnail":
+      return edit.on && rules.kind === "lobby" ? "The lobby has no picture: a minigame thumbnail map is one of a game's maps." : undefined;
     case "queue":
       return config.queueSpawn === undefined ? "Place the queue spawn first." : undefined;
     case "addRegion":
@@ -154,6 +156,8 @@ export function viewerEdit(value: unknown, depth = 0): MapEdit | string {
         : "a game setting's value is a number, true or false, or text";
     case "stars":
       return typeof edit.on === "boolean" ? (edit as MapEdit) : "stars is true or false";
+    case "gameThumbnail":
+      return typeof edit.on === "boolean" ? (edit as MapEdit) : "gameThumbnail is true or false";
     case "batch": {
       if (depth > 0) return "a batch can't hold a batch";
       if (!Array.isArray(edit.edits) || edit.edits.length === 0 || edit.edits.length > MAX_BATCH) return `a batch is 1 to ${MAX_BATCH} edits`;

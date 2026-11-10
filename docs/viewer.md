@@ -6,7 +6,8 @@ spawns, points, boundaries and regions as game Edit does, with the game's checkl
 and changes them with the mouse or by typing their values: spawns and game markers placed, moved,
 turned and deleted; bounds, spectator bounds and regions drawn from two corners, moved and resized;
 kill Y and the build limit set and moved; the map's settings (its name, time of day, queue, game
-settings and the lobby's star box); with undo, Save and Publish. It never changes a world's
+settings and the lobby's star box) and pictures (its thumbnail, and on a minigame thumbnail map its
+game's picture); with undo, Save and Publish. It never changes a world's
 blocks, but **Port to another game** copies them into a new map of another game. Its **Worlds**
 tab cuts new maps out of a world from a picture of it seen from above (see "Select from above").
 The in-game editor (`docs/editor.md`) keeps every tool it has, and **In game** opens the map there
@@ -15,7 +16,8 @@ The in-game editor (`docs/editor.md`) keeps every tool it has, and **In game** o
 ## Opening a map
 
 In the Panel, open **Maps**: every map in the store, in cards by game, each with its thumbnail
-(the `preview.png` taken in game Edit) and its checklist state (Ready or Not ready, Draft,
+(the `preview.png` taken in game Edit, or a minigame thumbnail map's game picture, tagged
+**Minigame thumbnail**; see "Pictures") and its checklist state (Ready or Not ready, Draft,
 Unpublished changes). The search box finds maps by name or id; the dropdowns show one game, or one
 status. **Click a card** to pick it, and the bar at the bottom offers **Edit (map) for (game)**:
 it, Enter or a double click opens the viewer in the same window. The back arrow at the viewer's
@@ -75,7 +77,8 @@ list; its map, if any, stays).
 
 ## The window
 
-- **The top bar:** the back arrow, the map's thumbnail, name and game; then Undo, Redo, Settings
+- **The top bar:** the back arrow, the map's thumbnail (its game's picture on a minigame thumbnail
+  map), name and game; then Undo, Redo, Settings
   (the sliders), **In game**, **Save** and **Publish** on the right. In game's square is green
   while game Edit has the map open.
 - **The left panel:** the tools, in rows of four, then two tabs, **Checklist** (the game's
@@ -347,6 +350,8 @@ fit is put back, and the note over the view says why.
   with a night time.
 - **The game's other keys:** any other plain value of the game's own the map has (as game Edit's
   Name and map id lists them), kept to its kind: a number stays a number, true or false a switch.
+- **Pictures** (a game's maps): the **Minigame thumbnail map** box, the game's picture while it's
+  checked, and the map's thumbnail (see "Pictures").
 - **Port to another game** and **Delete map** (red) (see below).
 
 **The Time tool** (T): where the map's servers stop the daylight cycle. **Not set** (the editor
@@ -356,6 +361,39 @@ does nothing with it.
 
 **The queue spawn**, picked: how players wait there, **Lock in** or **Free** (see "Spawns and
 markers").
+
+## Pictures
+
+The lobby shows a picture of each game's map (its thumbnail, `preview.png`) and of each game (its
+picture, the store's `working\<game>\icon.png`). They're taken in game Edit with the Camera and
+Snapshot tools (`docs/editor.md`, "Pictures"); the viewer picks which ones are used. Under **Pictures**
+in Map settings (a game's maps only; the lobby shows no picture of its own map):
+
+- **Minigame thumbnail map:** check it on a map made for taking the game's picture (Bridges'
+  BridgesThumbnail, say), an undo step like any setting (`"gameThumbnail": true` in `map.json`).
+  Its card on the Maps page and its thumbnail in the top bar then show the game's picture, and the
+  card says **Minigame thumbnail**. It changes nothing else: the map is still a map of its game.
+- **Minigame thumbnail** (while the box is checked): the game's picture, whether it's **Published**
+  or **Not published yet**, **Change**, and **Publish picture**, which asks first, then puts the
+  game's picture in the lobby with no map published (a thumbnail map is often a draft that never
+  is) and writes the store's `published\`. The lobby shows it from the network's next start. A
+  Publish of any of the game's maps (here or in game Edit) publishes a changed picture too, as
+  before.
+- **Map thumbnail:** the map's own picture and **Change**. Publish puts it in the lobby with the map.
+
+**Change** opens a dialog: **Use newest screenshot** (one taken in the last 10 minutes on this PC,
+cropped to 16:9 at 320x180 and kept with the others, as the Snapshot's Use latest screenshot
+does), and the pictures kept so far, newest first: those used before for a map's thumbnail (or a
+game's picture, for Minigame thumbnail), each named by where it was used last, and those not
+used yet. The one in use is outlined. Click one to use it; the dialog closes and the pictures in
+Map settings, the top bar and Maps follow. They follow game Edit's pictures too when the viewer's
+window comes back to the front.
+
+The Panel's routes are GET `/api/viewer/pictures?target=&map=`, GET `/api/viewer/shot?id=`, POST
+`/api/viewer/picture {target, map, kind: "map" | "game", shot: id | "newest"}` and POST
+`/api/viewer/publish-picture {target}` (`tools/viewer/pictures.ts`). They write the picture files
+themselves, with or without the map editor; game Edit's thumbnail menus show a picture changed
+here from the next time it opens the map.
 
 ## Deleting a map
 

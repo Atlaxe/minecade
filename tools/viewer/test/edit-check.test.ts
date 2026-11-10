@@ -35,6 +35,7 @@ describe("viewerEdit", () => {
       { op: "extra", key: "buildPadding" },
       { op: "extra", key: "theme", value: "ice" },
       { op: "stars", on: true },
+      { op: "gameThumbnail", on: true },
     ];
     for (const edit of edits) expect(viewerEdit(edit)).toBe(edit);
     expect(viewerEdit({ op: "name", name: "" })).toMatch(/1 to 48/);
@@ -48,6 +49,7 @@ describe("viewerEdit", () => {
     expect(viewerEdit({ op: "extra", key: "spawns", value: 1 })).toMatch(/not one of map.json's own/);
     expect(viewerEdit({ op: "extra", key: "x", value: [1] })).toMatch(/number, true or false, or text/);
     expect(viewerEdit({ op: "stars", on: "yes" })).toMatch(/true or false/);
+    expect(viewerEdit({ op: "gameThumbnail" })).toMatch(/true or false/);
   });
 
   it("refuses what the viewer doesn't change, and malformed edits", () => {
@@ -100,6 +102,9 @@ describe("markupProblem", () => {
     expect(markupProblem(config, { op: "stars", on: true }, rules)).toMatch(/only for the lobby/);
     expect(markupProblem(config, { op: "stars", on: true }, { kind: "lobby" })).toBeUndefined();
     expect(markupProblem(config, { op: "stars", on: false }, rules)).toBeUndefined();
+    expect(markupProblem(config, { op: "gameThumbnail", on: true }, rules)).toBeUndefined();
+    expect(markupProblem(config, { op: "gameThumbnail", on: true }, { kind: "lobby" })).toMatch(/lobby has no picture/);
+    expect(markupProblem(config, { op: "gameThumbnail", on: false }, { kind: "lobby" })).toBeUndefined();
     expect(markupProblem(config, { op: "queue", mode: "free" }, rules)).toMatch(/queue spawn first/);
     expect(markupProblem({ ...config, queueSpawn: [0, 64, 0] }, { op: "queue", mode: "free" }, rules)).toBeUndefined();
   });

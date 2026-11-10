@@ -139,6 +139,8 @@ export interface CatalogMap {
   ready: boolean;
   world?: string;
   picture?: boolean;
+  /** A minigame thumbnail map (map.json's gameThumbnail): its picture is the game's (`picture` says whether the game has one). */
+  gameThumbnail?: boolean;
   /** Its folder has changes that weren't published (pushed) yet. */
   unpublished?: boolean;
 }

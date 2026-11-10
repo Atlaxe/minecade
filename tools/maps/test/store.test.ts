@@ -107,6 +107,25 @@ describe("publishing", () => {
     expect(readFileSync(published("catalog", "sumo", "icon.png"), "utf8")).toBe("picture 1");
   });
 
+  it("publishes the game's picture alone, and says whether it's the one in the lobby", () => {
+    expect(store.pictureState("sumo")).toBe("none");
+    expect(store.publishPicture("sumo")).toBe(false);
+    mkdirSync(join(store.dir, "working", "sumo"), { recursive: true });
+    writeFileSync(store.icon("sumo"), "picture 1");
+    expect(store.pictureState("sumo")).toBe("changed");
+    expect(store.publishPicture("sumo")).toBe(true);
+    expect(store.pictureState("sumo")).toBe("published");
+    expect(store.publishPicture("sumo")).toBe(false);
+    expect(readdirSync(join(store.dir, "backups"))).toHaveLength(1);
+    store.exportPublished();
+    expect(readFileSync(published("catalog", "sumo", "icon.png"), "utf8")).toBe("picture 1");
+    writeFileSync(store.icon("sumo"), "picture 2");
+    expect(store.pictureState("sumo")).toBe("changed");
+    // No map of the game was published.
+    expect(store.published()).toEqual([]);
+    expect(store.pictureState("lobby")).toBe("none");
+  });
+
   it("backs up the database each time, keeping the newest", () => {
     writeMap("sumo", "pit", "Pit");
     store.publish("sumo", "pit");

@@ -46,6 +46,7 @@ The map editor sets spawns and points in game and writes `map.json` for you; see
 | `regions` | no | `{ "<name>": [{ "min": [x, y, z], "max": [x, y, z] }, ...] }`: named boxes, such as build plots or a floor that falls away. `"<name>.<team>"` is one team's. The name `kill` is reserved: anyone inside a `kill` box is out, the same as falling below `killY` (spectators fly over them). |
 | `kits` | no | Games only: kits of the map's own, for a game whose players pick kits. `{ "mode": "append", "list": [kits] }` adds them after the game's (a kit with the same `id` as one of the game's takes its place); `"mode": "replace"` uses only the map's. A `base` replaces the game's base kit either way. Each kit is written as in `game.config.ts`: `{ "id": "ice", "name": "Ice", "refill": "round", "items": [{ "item": "minecraft:snowball", "count": 16 }] }`. The map editor keeps it as written; there's no screen for it yet. A game whose kits are the same on every map (`kits.mapKits: false`, Siege) refuses a map's own. |
 | `build.commands` | no | Console commands (no leading `/`) that build the world, run once by `npm run bake`. |
+| `gameThumbnail` | no | Games only: `true` marks a map made for taking its game's picture (a minigame thumbnail map, the Panel's map viewer's Map settings): the Panel's Maps page and viewer show the game's picture for it, and the viewer can publish that picture alone (`docs/viewer.md`, "Pictures"). Servers never get it. |
 | `source`, `cameras`, `mannequins`, `mannequinsInPreview` | no | Written by the map editor: where the map was cut from, its preview cameras (`{ "Camera 1": { "at": [x, y, z, yaw, pitch], "kind": "map" \| "game" } }`, the eye point and view the Camera tool saved), and its mannequins, stand-ins for game pictures (`{ "Mannequin 1": { "at": [x, y, z, yaw], "skin": "color", "color": "red", "pose": "standing", "hold": "minecraft:bow" } }`, the Mannequin tool's; ids from minigame-core's `fake-looks.ts`, or for a player's saved skin "p" and a hash of their xuid), and whether the mannequins stand in its previews (`true`, the Mannequin tool's Show in previews; a preview's server then gets them as `previewMannequins`, each look worked out for its pack). Servers never get them. |
 | anything else | no | Game-specific settings the game reads itself: the settings its config names (`map.settings`, below, set with the map editor's Game settings tool), each a whole number under its key (`"buildPadding": 4`), the default when it's left out. |
 
@@ -58,7 +59,7 @@ and points must be inside a `bounds` box, and regions inside the box around them
 inside a max of 12). The lobby's
 `terminal` point is always a block.
 
-Servers get `map.json` without `build`, `source`, `cameras`, `mannequins`, `mannequinsInPreview` and `draft`. `npm run build` reports
+Servers get `map.json` without `build`, `source`, `cameras`, `mannequins`, `mannequinsInPreview`, `gameThumbnail` and `draft`. `npm run build` reports
 every problem in every map at once, and warns (without stopping) about two entries of a list in
 the same block.
 

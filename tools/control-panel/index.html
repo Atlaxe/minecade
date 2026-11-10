@@ -1203,6 +1203,7 @@ function mapCard(target, map) {
       el("div", { className: "map-tags" },
         el("span", { className: `pill ${map.ready ? "ok" : "warn"}` }, map.ready ? "Ready" : "Not ready"),
         map.draft ? el("span", { className: "pill off" }, "Draft") : null,
+        map.gameThumbnail ? el("span", { className: "pill off", "data-tip": "Shows the minigame thumbnail" }, "Minigame thumbnail") : null,
         map.unpublished ? el("span", { className: "pill warn" }, "Unpublished changes") : null)));
   card.onclick = () => pickMap(mapsView.picked === key ? "" : key);
   card.ondblclick = () => { pickMap(key); openViewer(target, map); };

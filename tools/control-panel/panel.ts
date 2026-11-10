@@ -25,6 +25,7 @@ import { MapChanges } from "../viewer/map-changes.ts";
 import { mapJsonPath, viewerMap, viewerMapConfig, watchMap, watchWorld } from "../viewer/map-data.ts";
 import { DEFAULT_LOBBY_MAP, deleteMap } from "../viewer/delete-map.ts";
 import { portChoices, portMap } from "../viewer/port-map.ts";
+import { publishGamePicture, shotPath, usePicture, viewerPictures } from "../viewer/pictures.ts";
 import { SELECT_PAGE, VIEWER_PAGE, viewerColors, viewerMaps, viewerScripts, viewerShapes, viewerTextures, viewerThumbPath, viewerView } from "../viewer/routes.ts";
 import { SelectFromAbove } from "../viewer/select.ts";
 import {
@@ -861,9 +862,21 @@ async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> 
     }
     if (path === "/api/viewer/maps") return sendJson(res, 200, await viewerMaps(repoRoot));
     if (path === "/api/viewer/thumb") {
-      const file = viewerThumbPath(repoRoot, url.searchParams.get("target") ?? "", url.searchParams.get("map") ?? "");
+      const file = viewerThumbPath(repoRoot, url.searchParams.get("target") ?? "", url.searchParams.get("map") ?? "", url.searchParams.get("kind") ?? undefined);
       if (!file) return sendJson(res, 404, { error: "no picture" });
       res.writeHead(200, { "content-type": "image/png", "cache-control": "no-store" });
+      res.end(await readFile(file));
+      return;
+    }
+    // The pictures kept so far (pictures.ts), for the viewer's thumbnail dialogs.
+    if (path === "/api/viewer/pictures") {
+      const answer = await viewerPictures(repoRoot, url.searchParams.get("target") ?? "", url.searchParams.get("map") ?? "");
+      return answer.status === 200 ? sendJson(res, 200, answer.pictures) : sendJson(res, answer.status, { error: answer.error });
+    }
+    if (path === "/api/viewer/shot") {
+      const file = shotPath(repoRoot, url.searchParams.get("id") ?? "");
+      if (!file) return sendJson(res, 404, { error: "no picture" });
+      res.writeHead(200, { "content-type": "image/png", "cache-control": "max-age=3600" });
       res.end(await readFile(file));
       return;
     }
@@ -937,6 +950,14 @@ async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> 
     if (answer.status !== 200) return sendJson(res, answer.status, { error: answer.error });
     note(answer.message);
     return sendJson(res, 200, { ok: true, target: answer.target, targetName: answer.targetName, map: answer.map, name: answer.name, message: answer.message });
+  }
+
+  // Pictures (pictures.ts): a kept picture or the newest screenshot as a map's thumbnail or its game's, and the game's published alone.
+  if (path === "/api/viewer/picture" || path === "/api/viewer/publish-picture") {
+    const answer = path === "/api/viewer/picture" ? await usePicture(repoRoot, body) : await publishGamePicture(repoRoot, body);
+    if (answer.status !== 200) return sendJson(res, answer.status, { error: answer.error });
+    note(answer.message);
+    return sendJson(res, 200, { ok: true, message: answer.message });
   }
 
   // Delete (delete-map.ts): through the map editor when it runs, so Edit closes first when it has the map.

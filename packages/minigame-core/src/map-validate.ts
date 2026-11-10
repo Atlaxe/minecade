@@ -150,7 +150,7 @@ export function validateMapConfig(raw: unknown, rules: MapRules): string[] {
     const value = (raw as Record<string, unknown>)[setting.key];
     if (value !== undefined && !settingFits(setting, value)) problems.push(`"${setting.key}" must be a whole number from ${setting.min} to ${setting.max}`);
   }
-  problems.push(...editorKeyProblems(map));
+  problems.push(...editorKeyProblems(map, rules.kind));
   return problems;
 }
 
@@ -228,8 +228,8 @@ function checkTeamKey(field: string, key: string, teamIds: string[] | undefined,
   problems.push(`${field}.${key}: "${team}" must be ${known}`);
 }
 
-/** The map editor's keys: where the map was cut from, its preview cameras, and its mannequins (and whether previews show them). */
-function editorKeyProblems(map: Partial<MapConfig>): string[] {
+/** The map editor's keys: where the map was cut from, its preview cameras, its mannequins (and whether previews show them), and whether it's a minigame thumbnail map. */
+function editorKeyProblems(map: Partial<MapConfig>, kind: MapRules["kind"]): string[] {
   const problems: string[] = [];
   const source = map.source;
   if (source !== undefined && !(isRecord(source) && typeof source.world === "string" && isBox(source.box) && isVec3(source.offset))) {
@@ -254,6 +254,8 @@ function editorKeyProblems(map: Partial<MapConfig>): string[] {
     }
   }
   if (map.mannequinsInPreview !== undefined && typeof map.mannequinsInPreview !== "boolean") problems.push('"mannequinsInPreview" must be true or false');
+  if (map.gameThumbnail !== undefined && typeof map.gameThumbnail !== "boolean") problems.push('"gameThumbnail" must be true or false');
+  if (map.gameThumbnail === true && kind === "lobby") problems.push('"gameThumbnail" is only for a game\'s maps: the lobby has no picture');
   return problems;
 }
 

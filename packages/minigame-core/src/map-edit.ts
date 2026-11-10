@@ -47,6 +47,8 @@ export type MapEdit =
   | { op: "time"; time?: MapTime }
   /** Whether the mannequins stand in the map's previews too. */
   | { op: "mannequinsInPreview"; on: boolean }
+  /** Whether the map is for taking its game's picture (a minigame thumbnail map). */
+  | { op: "gameThumbnail"; on: boolean }
   /** The lobby's star box (stars in every direction, below the horizon too), on or off. */
   | { op: "stars"; on: boolean }
   /** Sets (or, with no value, removes) a game-specific key, such as Sumo's eliminationY. */
@@ -64,7 +66,7 @@ export function isMapKey(key: string): boolean {
 }
 
 /** Where new keys go, the order map.json files are written in. Unknown keys stay where they are. */
-const KEY_ORDER: readonly string[] = ["name", "draft", "spawns", "spectatorSpawn", "queueSpawn", "queue", "bounds", "spectatorBounds", "killY", "buildLimit", "teamSpawns", "points", "regions", "time", "stars", "cameras", "mannequins", "mannequinsInPreview", "source", "build"];
+const KEY_ORDER: readonly string[] = ["name", "draft", "spawns", "spectatorSpawn", "queueSpawn", "queue", "bounds", "spectatorBounds", "killY", "buildLimit", "teamSpawns", "points", "regions", "time", "stars", "cameras", "mannequins", "mannequinsInPreview", "gameThumbnail", "source", "build"];
 
 export function applyEdit(config: MapConfig, edit: MapEdit): MapConfig {
   switch (edit.op) {
@@ -162,6 +164,8 @@ export function applyEdit(config: MapConfig, edit: MapEdit): MapConfig {
       return withKey(config, "time", edit.time);
     case "mannequinsInPreview":
       return withKey(config, "mannequinsInPreview", edit.on ? true : undefined);
+    case "gameThumbnail":
+      return withKey(config, "gameThumbnail", edit.on ? true : undefined);
     case "stars":
       return withKey(config, "stars", edit.on ? true : undefined);
     case "dropBuild":
@@ -229,6 +233,8 @@ export function describeEdit(edit: MapEdit): string {
       return edit.time === undefined ? "clear time" : `set time ${edit.time}`;
     case "mannequinsInPreview":
       return edit.on ? "show mannequins in previews" : "keep mannequins out of previews";
+    case "gameThumbnail":
+      return edit.on ? "make it a minigame thumbnail map" : "no longer a minigame thumbnail map";
     case "stars":
       return edit.on ? "star box on" : "star box off";
     case "dropBuild":

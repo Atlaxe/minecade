@@ -28,6 +28,13 @@ describe("validateMapConfig: map format v2", () => {
     expect(validateMapConfig(map, game)).toEqual([]);
   });
 
+  it("takes a minigame thumbnail map's mark on a game's map only", () => {
+    const map = { name: "Shot", spawns: [[0, 65, 0]], bounds, gameThumbnail: true };
+    expect(validateMapConfig(map, game)).toEqual([]);
+    expect(validateMapConfig({ ...map, gameThumbnail: "yes" }, game)).toContain('"gameThumbnail" must be true or false');
+    expect(validateMapConfig(map, { kind: "lobby" }).some((problem) => problem.startsWith('"gameThumbnail" is only for a game'))).toBe(true);
+  });
+
   it("checks facings and positions", () => {
     expect(validateMapConfig({ name: "M", spawns: [[0, 65, 0, 200, 0], [0, 65, 0, 0, 91], [0, 65, 0, 1]] }, { kind: "lobby" })).toEqual([
       "spawns[0] facing must be a yaw from -180 to 180 and a pitch from -90 to 90",

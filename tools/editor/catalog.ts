@@ -1,8 +1,8 @@
 // What the editor lobby's form offers (the Catalog): every map of the lobby and each game (whether
-// its checklist is done, the world it came from, whether it has a picture, whether its folder isn't
-// what's published: the map store says), the client's worlds by the name the game shows (with how
-// many maps came from each), and what was opened lately (work/editor/recent.json). A world travels
-// by its folder's name, never its path.
+// its checklist is done, the world it came from, whether it has a picture (a minigame thumbnail
+// map's is its game's), whether its folder isn't what's published: the map store says), the
+// client's worlds by the name the game shows (with how many maps came from each), and what was
+// opened lately (work/editor/recent.json). A world travels by its folder's name, never its path.
 import { existsSync } from "node:fs";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { basename, join } from "node:path";
@@ -25,13 +25,16 @@ export async function buildCatalog(root: string, store: MapStore, appData?: stri
       const world = config?.source?.world;
       if (world) fromWorld.set(world, (fromWorld.get(world) ?? 0) + 1);
       const from = world ? client.find((candidate) => candidate.name === world) : undefined;
+      // A minigame thumbnail map shows its game's picture.
+      const thumbnailMap = config?.gameThumbnail === true && target.id !== "lobby";
       maps.push({
         id,
         name: config?.name || id,
         draft: config?.draft === true,
         ready: config !== undefined && mapChecklist(config, target.rules).ready,
         ...(from ? { world: worldId(from) } : {}),
-        ...(existsSync(join(folder, "preview.png")) ? { picture: true } : {}),
+        ...(existsSync(thumbnailMap ? target.icon : join(folder, "preview.png")) ? { picture: true } : {}),
+        ...(thumbnailMap ? { gameThumbnail: true } : {}),
         ...(store.isUnpublished(target.id, id) ? { unpublished: true } : {}),
       });
     }

@@ -4,7 +4,9 @@
 // - Map settings (MapSettings), in the right panel with Select and nothing picked: the map's name,
 //   the queue's countdown once the queue spawn is placed, each of the game's own settings for the
 //   map (map.settings in its config, with their ranges and defaults), the lobby's star box, any
-//   other plain key of the game's own the map has, and Port to another game.
+//   other plain key of the game's own the map has, a game's map's pictures (the Minigame thumbnail
+//   map switch, the game's picture on such a map, and the map's thumbnail: pictures.ts), and Port
+//   to another game.
 // - The Time tool's panel (TimeTool): the map's time of day, game Edit's Noon, Dusk, Midnight and
 //   Dawn, or a time typed on the 24-hour clock.
 // - The picked queue spawn's (queuePanel): how players wait there, locked in or free.
@@ -13,15 +15,23 @@
 import { QUEUE_COUNTDOWN, isMapKey, mapSettings, mapTimeTicks, queueSettings, settingText, type EditorRules, type MapConfig, type MapEdit, type MapTime } from "@minecade/minigame-core/config";
 import { TIME_PRESETS, clockText, hoursLater, parseClock, presetOf } from "../../../editor/behavior_pack/scripts/time-of-day.ts";
 import { MAX_NAME } from "../../viewer/edit-check.ts";
+import { loadPictures, openPictureDialog, pictureUrl, postPicture, type PictureKind, type PictureList } from "./pictures.ts";
 import { el } from "./sidebar.ts";
 
 export interface MapSettingsOptions {
+  /** The map's game (or "lobby") and its name. */
+  target: string;
+  targetName: string;
   /** The map's id (its folder). */
   map: string;
   rules: EditorRules;
   edit(change: MapEdit): void;
   /** Says why a value wasn't taken. */
   note(text: string): void;
+  /** Says what a picture change did. */
+  told(text: string): void;
+  /** A picture was changed here: the top bar's follows. */
+  pictureChanged(): void;
   /** Port to another game: opens its dialog. */
   port(): void;
   /** Delete map: opens its dialog. */
@@ -85,6 +95,9 @@ export class MapSettings {
   private config: MapConfig | undefined;
   /** A field is being typed in: the panel is drawn again once it's left. */
   private pending = false;
+  /** The pictures kept so far and the ones in use (a game's maps only), and when they were read, so a changed picture loads again. */
+  private pictures: PictureList | undefined;
+  private version = Date.now();
 
   constructor(
     readonly element: HTMLElement,
@@ -99,6 +112,16 @@ export class MapSettings {
         this.draw();
       }, 0);
     });
+  }
+
+  /** Reads the pictures again (a picture changed here, in game Edit, or anywhere else) and draws them. */
+  async refreshPictures(): Promise<void> {
+    if (this.options.rules.kind !== "game") return;
+    const list = await loadPictures(this.options.target, this.options.map);
+    if (!list) return;
+    this.pictures = list;
+    this.version = Date.now();
+    if (this.config) this.update(this.config);
   }
 
   /** The map changed (an edit here, an undo, game Edit): the panel follows, unless a field in it is being typed in. */
@@ -123,6 +146,7 @@ export class MapSettings {
       this.gameSettings(config, rules),
       rules.kind === "lobby" ? this.starBox(config) : null,
       this.otherKeys(config, rules),
+      this.picturesPart(config),
       el(
         "div",
         { className: "buttons" },
@@ -197,6 +221,79 @@ export class MapSettings {
       { className: "setting" },
       el("label", { className: "field-row" }, box, "Star box: stars all around, below the horizon too"),
       el("p", { className: "sub" }, "Bedrock's own sky has stars only above the horizon. Use it with a night time."),
+    );
+  }
+
+  /**
+   * A game's map's pictures: the Minigame thumbnail map switch, the game's picture on such a map
+   * (Change, and Publish picture while the lobby doesn't have it), and the map's own thumbnail.
+   */
+  private picturesPart(config: MapConfig): HTMLElement | null {
+    const { rules, target, map, targetName } = this.options;
+    if (rules.kind !== "game") return null;
+    const on = config.gameThumbnail === true;
+    const box = el("input", { type: "checkbox", checked: on, onchange: () => this.options.edit({ op: "gameThumbnail", on: box.checked }) });
+    const list = this.pictures;
+    const frame = (kind: PictureKind) =>
+      el("div", { className: "picture-frame" }, list?.current[kind] !== undefined ? el("img", { src: pictureUrl(target, map, kind, this.version), alt: "" }) : "No picture yet");
+    const change = (kind: PictureKind) =>
+      el(
+        "button",
+        {
+          className: "small",
+          dataset: { tip: kind === "game" ? `Pick the minigame thumbnail for ${targetName}: a kept picture or your newest screenshot` : "Pick this map's thumbnail: a kept picture or your newest screenshot" },
+          onclick: () =>
+            void openPictureDialog({ target, map, kind, name: kind === "game" ? targetName : config.name || map }, (message) => {
+              this.options.told(message);
+              this.options.pictureChanged();
+              void this.refreshPictures();
+            }),
+        },
+        "Change",
+      );
+    const state = list?.game ?? "none";
+    const publish = el(
+      "button",
+      {
+        className: "small",
+        disabled: state !== "changed",
+        dataset: { tip: state === "changed" ? "Put the minigame thumbnail in the lobby, with no map published" : state === "published" ? "The lobby has this picture already" : `${targetName} has no picture yet` },
+      },
+      "Publish picture",
+    );
+    publish.addEventListener("click", async () => {
+      if (!confirm(`Publish the minigame thumbnail for ${targetName}? The lobby shows it from the network's next start.`)) return;
+      publish.disabled = true;
+      const answer = await postPicture("/api/viewer/publish-picture", { target });
+      if ("error" in answer) this.options.note(`Not published: ${answer.error}`);
+      else this.options.told(answer.message);
+      void this.refreshPictures();
+    });
+    return el(
+      "div",
+      {},
+      el("div", { className: "group-label" }, "Pictures"),
+      el(
+        "div",
+        { className: "setting" },
+        el("label", { className: "field-row" }, box, "Minigame thumbnail map"),
+        el("p", { className: "sub" }, `A map for taking the minigame thumbnail for ${targetName}: Maps and the bar above show that picture for it.`),
+      ),
+      on
+        ? el(
+            "div",
+            { className: "setting" },
+            el(
+              "div",
+              { className: "picture-head" },
+              el("span", { className: "strong" }, "Minigame thumbnail"),
+              state === "none" ? null : el("span", { className: `pill ${state === "published" ? "ok" : "warn"}` }, state === "published" ? "Published" : "Not published yet"),
+            ),
+            frame("game"),
+            el("div", { className: "buttons tight" }, change("game"), publish),
+          )
+        : null,
+      el("div", { className: "setting" }, el("span", { className: "strong" }, "Map thumbnail"), frame("map"), el("div", { className: "buttons tight" }, change("map"))),
     );
   }
 
