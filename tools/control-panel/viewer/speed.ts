@@ -1,7 +1,7 @@
 // The viewer's speed tools as plain data: the Mirror tool's mirroring of picked entries across a
 // mirror plane (x, z, or both for a half turn), with their facings and boxes, as copies or moving
-// the entries themselves, and Select's copying of team entries to another team's list. A team's
-// entries go to the team asked for. Plain TypeScript, tested.
+// the entries themselves, Select's copying of team entries to another team's list, and duplicating
+// entries in their own lists. A team's entries go to the team asked for. Plain TypeScript, tested.
 import { isExact, listKey, type Box, type MapEdit, type MapList, type MapPosition, type Vec3 } from "@minecade/minigame-core/config";
 import type { RegionEntry } from "../../../editor/behavior_pack/scripts/regions.ts";
 import { addBoxEdit, removeBoxEdit, setBoxEdit, type BoxPlace } from "./boxes.ts";
@@ -183,6 +183,20 @@ export function copyEdits(entries: readonly SpeedEntry[], teams: readonly string
     if (!team) skipped.push(`${entry.label} isn't a team's`);
     else if (team === copyTo) skipped.push(`${entry.label} is already ${copyTo}'s`);
     else edits.push(addEdit(toTeam(entry, copyTo)));
+  }
+  return { edits, skipped };
+}
+
+/**
+ * The edits that duplicate entries in their own lists, in the same place (each copy goes last in its
+ * list), and the entries left out, with why: a list holding one entry can't take a copy.
+ */
+export function duplicateEdits(entries: readonly SpeedEntry[]): { edits: MapEdit[]; skipped: string[] } {
+  const edits: MapEdit[] = [];
+  const skipped: string[] = [];
+  for (const entry of entries) {
+    if (entry.kind === "point" && entry.single) skipped.push(`${entry.label} holds one entry`);
+    else edits.push(addEdit(entry));
   }
   return { edits, skipped };
 }

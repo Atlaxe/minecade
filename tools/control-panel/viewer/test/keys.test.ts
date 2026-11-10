@@ -12,6 +12,9 @@ describe("the default keys", () => {
     expect(actionFor(map, press("KeyZ", { ctrlKey: true, shiftKey: true }))).toBe("redo");
     expect(actionFor(map, press("KeyY", { ctrlKey: true }))).toBe("redo");
     expect(actionFor(map, press("Backspace"))).toBe("delete");
+    expect(actionFor(map, press("KeyD", { ctrlKey: true }))).toBe("duplicate");
+    // D alone is flying's, never Duplicate's.
+    expect(actionFor(map, press("KeyD"))).toBeUndefined();
     expect(actionFor(map, press("Escape"))).toBe("cancel");
     // No key does two things.
     const seen = new Set<string>();

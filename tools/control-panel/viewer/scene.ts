@@ -5,7 +5,8 @@
 // toggling them costs nothing), cuts as clipping planes with a cap of the cut layer (nothing is
 // meshed again: docs/spike-results.md, "Map viewer"), Faded as the same meshes drawn again
 // see-through on the other side of the cuts, outlines of hidden blocks (barriers, invisible
-// bedrock, light) when asked, and the camera with its views. Vanilla textures fill each face from
+// bedrock, light) when asked, and the camera with its views, turning around the spot pressed on
+// and zooming toward the one under the pointer. Vanilla textures fill each face from
 // a texture array (a layer per texture, by a number on each vertex), repeating once per block, in
 // place of the face's color; the color still fills a cube's see-through texels (as Minecraft's
 // fast leaves do), and plants are cut out by their alpha. Everything is placed in world
@@ -30,6 +31,19 @@ export const CLIP_NEAR = 1;
 const FADED_OPACITY = 0.15;
 /** Mesh positions are sixteenths of a block. */
 const UNIT = 1 / 16;
+/** Turning never goes quite straight down (the orbit's pole), in radians. */
+const MIN_POLAR = 0.01;
+/** The wheel stops this close to the spot it zooms toward (not flying). */
+const NEAREST = 1;
+/** Flying, a wheel notch toward a spot moves at least this far, so it carries on through a wall. */
+const FLY_MIN_STEP = 0.5;
+/** Flying with nothing under the pointer, the wheel moves as if toward a spot this far along it. */
+const FLY_REACH = 20;
+/** The farthest out the wheel goes, in the map's radiuses from its middle (at least FAR_OUT_MIN blocks). */
+const FAR_OUT = 6;
+const FAR_OUT_MIN = 96;
+/** Top's zoom limits. */
+const TOP_ZOOM = { min: 0.05, max: 400 };
 /** The Hidden blocks outlines' colors: barriers, invisible bedrock, light blocks. */
 const OUTLINE_COLORS = [0xf0505a, 0xa078ff, 0xffd23c];
 /** The most hidden blocks outlined (a map walled in barriers has tens of thousands). */
@@ -218,9 +232,12 @@ export class MapScene {
     this.orthographic = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.5, 4000);
     this.camera = this.perspective;
     this.controls = new OrbitControls(this.perspective, canvas);
-    // Right drag turns, Shift + right drag or middle drag pans, the wheel zooms where it points; left clicks are the tools'.
+    // Shift + right drag or middle drag pans. Turning (a right drag, or a left drag with Select) and
+    // the wheel are the page's (orbit, wheelAt), around and toward the spot under the pointer, so
+    // the controls' own are off; left clicks are the tools'.
     this.controls.mouseButtons = { LEFT: null, MIDDLE: THREE.MOUSE.PAN, RIGHT: THREE.MOUSE.ROTATE };
-    this.controls.zoomToCursor = true;
+    this.controls.enableRotate = false;
+    this.controls.enableZoom = false;
     this.controls.maxPolarAngle = Math.PI * 0.98;
     this.controls.addEventListener("change", () => this.requestRender());
     this.prepared = prepareLooks(this.looks());
@@ -595,7 +612,6 @@ export class MapScene {
       const box = this.volume.box;
       this.camera = this.orthographic;
       this.controls.object = this.orthographic;
-      this.controls.enableRotate = false;
       this.orthographic.position.set(center.x, box.max[1] + 50, center.z + 1e-3);
       this.orthographic.zoom = 1;
       this.orthographic.userData.extent = Math.max(box.max[0] - box.min[0] + 1, box.max[2] - box.min[2] + 1) * 0.55;
@@ -603,7 +619,6 @@ export class MapScene {
     } else {
       this.camera = this.perspective;
       this.controls.object = this.perspective;
-      this.controls.enableRotate = true;
       const direction = new THREE.Vector3(...VIEW_DIRECTIONS[name]).normalize();
       this.perspective.position.copy(center).addScaledVector(direction, this.fitDistance(center, direction, radius));
       this.controls.target.copy(center);
@@ -627,7 +642,6 @@ export class MapScene {
     const { center, radius } = this.bounds();
     this.camera = this.perspective;
     this.controls.object = this.perspective;
-    this.controls.enableRotate = true;
     this.perspective.position.copy(center).addScaledVector(look, this.fitDistance(center, look, radius));
     this.controls.target.copy(center);
     this.resize();
@@ -648,7 +662,6 @@ export class MapScene {
     else {
       this.camera = this.perspective;
       this.controls.object = this.perspective;
-      this.controls.enableRotate = true;
     }
     this.camera.position.set(...state.position);
     this.controls.target.set(...state.target);
@@ -779,6 +792,78 @@ export class MapScene {
     this.camera.getWorldDirection(direction);
     if (Math.abs(direction.x) < 1e-6 && Math.abs(direction.z) < 1e-6) return 0;
     return (THREE.MathUtils.radToDeg(Math.atan2(direction.x, -direction.z)) + 360) % 360;
+  }
+
+  /**
+   * Turns the view around a spot (the one pressed on): the camera goes around it, turning with it,
+   * by a drag of dx and dy pixels (a drag the view's height is a whole turn, as the controls' own
+   * was), never over the top nor under the bottom. The point the camera looks at goes around with
+   * it, so panning and flying carry on from there. Top's flat view doesn't turn.
+   */
+  orbit(pivot: THREE.Vector3, dx: number, dy: number): void {
+    if (this.camera !== this.perspective) return;
+    const up = new THREE.Vector3(0, 1, 0);
+    const perPixel = (2 * Math.PI) / (this.canvas.clientHeight || 1);
+    const { position } = this.perspective;
+    const { target } = this.controls;
+    const offset = position.clone().sub(target);
+    // Dragging down tilts toward looking down: about the level line across the view, kept off the poles.
+    const polar = offset.angleTo(up);
+    const tilt = THREE.MathUtils.clamp(dy * perPixel, polar - this.controls.maxPolarAngle, polar - MIN_POLAR);
+    const across = new THREE.Vector3().crossVectors(offset, up);
+    if (across.lengthSq() < 1e-9) across.set(-1, 0, 0).applyQuaternion(this.perspective.quaternion);
+    const turn = new THREE.Quaternion().setFromAxisAngle(up, -dx * perPixel).multiply(new THREE.Quaternion().setFromAxisAngle(across.normalize(), tilt));
+    for (const point of [position, target]) point.sub(pivot).applyQuaternion(turn).add(pivot);
+    this.controls.update();
+    this.requestRender();
+  }
+
+  /**
+   * The wheel at a spot on the canvas: toward `spot` (what's under the pointer) when `scale` is
+   * under 1, away from it over 1, by that share of the way. Not flying, everything is scaled about
+   * the spot (the camera and the point it turns around alike), so the view keeps its direction and
+   * the spot stays under the pointer; it stops a block short. Flying, the camera and its turning
+   * point move together along the pointer, at least half a block a notch toward it, so it goes on
+   * through a wall. With nothing under the pointer, the spot is along it as far as the turning point
+   * is (flying, a little way ahead). Top zooms in or out keeping the spot under the pointer where it is.
+   */
+  wheelAt(clientX: number, clientY: number, scale: number, spot: THREE.Vector3 | undefined, flying: boolean): void {
+    const { ray } = this.rayAt(clientX, clientY);
+    const { target } = this.controls;
+    if (this.camera === this.orthographic) {
+      const camera = this.orthographic;
+      const zoom = THREE.MathUtils.clamp(camera.zoom / scale, TOP_ZOOM.min, TOP_ZOOM.max);
+      const by = camera.zoom / zoom;
+      for (const point of [camera.position, target]) {
+        point.x = ray.origin.x + (point.x - ray.origin.x) * by;
+        point.z = ray.origin.z + (point.z - ray.origin.z) * by;
+      }
+      camera.zoom = zoom;
+      camera.updateProjectionMatrix();
+    } else {
+      const camera = this.perspective;
+      const forward = camera.getWorldDirection(new THREE.Vector3());
+      const toward = spot ?? ray.origin.clone().addScaledVector(ray.direction, flying ? FLY_REACH : target.distanceTo(camera.position) / Math.max(0.1, ray.direction.dot(forward)));
+      const distance = camera.position.distanceTo(toward);
+      const { center, radius } = this.bounds();
+      const tooFar = (at: THREE.Vector3) => scale > 1 && at.distanceTo(center) > Math.max(radius * FAR_OUT, FAR_OUT_MIN);
+      if (flying) {
+        const step = scale < 1 ? Math.max(distance * (1 - scale), FLY_MIN_STEP) : distance * (1 - scale);
+        const move = ray.direction.clone().multiplyScalar(step);
+        if (tooFar(camera.position.clone().add(move))) return;
+        camera.position.add(move);
+        target.add(move);
+      } else {
+        if (scale < 1 && distance <= NEAREST) return;
+        const by = scale < 1 ? Math.max(scale, NEAREST / distance) : scale;
+        const next = camera.position.clone().sub(toward).multiplyScalar(by).add(toward);
+        if (tooFar(next)) return;
+        camera.position.copy(next);
+        target.sub(toward).multiplyScalar(by).add(toward);
+      }
+    }
+    this.controls.update();
+    this.requestRender();
   }
 
   /** Centers the view on a world spot, keeping how the camera looks at it. */

@@ -771,7 +771,8 @@ The rules every editor menu follows (the user's, from 2026-10-31):
   button's second line (§7) shows only as its hover tooltip; an icon's tooltip; a question-mark
   icon. A tool's how-to is a **Help** link that puts it in chat, with a chime. What the mode box top
   center already shows (the map, the game) isn't repeated. Status that changes (a card's "open:
-  Friend", "failed") stays visible, on a taller button (`MARK.twoLine`).
+  Friend", "failed") stays visible, on a taller button (`MARK.twoLine`). The Panel's map viewer
+  follows the same rule (`docs/viewer.md`, "The window").
 - **Buttons** use the game's regular font (only titles use Minecraft Ten), one line, 22 pixels tall.
 - **Icon rows** for actions that fit an icon (Players, Back one step, New map), with tooltips.
 - **Toggles** (one choice of several: a spawn's list, what a selection is saved as, how many fake

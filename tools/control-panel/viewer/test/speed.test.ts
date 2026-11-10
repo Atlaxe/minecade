@@ -1,6 +1,6 @@
 import type { MapList } from "@minecade/minigame-core/config";
 import { describe, expect, it } from "vitest";
-import { copyEdits, mirrorBox, mirrorEdits, mirrorPosition, mirrorYaw, nextTeam, snapHalf, teamOf, type SpeedEntry } from "../speed.ts";
+import { copyEdits, duplicateEdits, mirrorBox, mirrorEdits, mirrorPosition, mirrorYaw, nextTeam, snapHalf, teamOf, type SpeedEntry } from "../speed.ts";
 
 const TEAMS = ["red", "blue"];
 
@@ -114,5 +114,32 @@ describe("snapHalf", () => {
     expect(snapHalf(3.3)).toBe(3.5);
     expect(snapHalf(-0.2)).toBe(0);
     expect(snapHalf(-0.3)).toBe(-0.5);
+  });
+});
+
+describe("duplicateEdits", () => {
+  it("adds a copy of each entry to its own list, in the same place", () => {
+    const entries: SpeedEntry[] = [
+      { kind: "point", label: "Spawn 2", target: { list: "spawns" }, position: [3, 64, -2, 90, 0], index: 1 },
+      { kind: "point", label: "Red spawn 1", target: { list: "teamSpawns", team: "red" }, position: [10.25, 64, 5], index: 0 },
+      { kind: "box", label: "Bounds", place: { kind: "bounds" }, box: { min: [0, 60, 0], max: [9, 69, 4] } },
+      { kind: "box", label: "Spectator bounds", place: { kind: "spectatorBounds" }, box: { min: [0, 60, 0], max: [9, 69, 4] } },
+      { kind: "box", label: "Plot 1", place: { kind: "region", name: "plot" }, box: { min: [1, 2, 3], max: [24, 25, 26] } },
+    ];
+    expect(duplicateEdits(entries)).toEqual({
+      edits: [
+        { op: "add", target: { list: "spawns" }, at: [3, 64, -2, 90, 0] },
+        { op: "add", target: { list: "teamSpawns", team: "red" }, at: [10.25, 64, 5] },
+        { op: "addBounds", box: { min: [0, 60, 0], max: [9, 69, 4] } },
+        { op: "addBounds", box: { min: [0, 60, 0], max: [9, 69, 4] }, spectators: true },
+        { op: "addRegion", name: "plot", box: { min: [1, 2, 3], max: [24, 25, 26] } },
+      ],
+      skipped: [],
+    });
+  });
+
+  it("leaves out a list that holds one entry", () => {
+    const queue: SpeedEntry = { kind: "point", label: "Queue spawn", target: { list: "queueSpawn" }, position: [0, 64, 0], index: 0, single: true };
+    expect(duplicateEdits([queue])).toEqual({ edits: [], skipped: ["Queue spawn holds one entry"] });
   });
 });

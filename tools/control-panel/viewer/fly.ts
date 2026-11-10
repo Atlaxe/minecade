@@ -2,9 +2,9 @@
 // (level, never into the ground's slope), A and D sideways, Space up and Shift down (or the keys
 // Settings, Keys gives them: keys.ts), at the speed the settings say (no Ctrl for faster: Ctrl+W
 // would close the window).
-// While it's on, the point the camera turns around rides just ahead of it, so a right drag looks
-// around from where the camera is, and the wheel moves forward and back. Movement runs once a frame
-// only while a key is held.
+// While it's on, the point the camera looks at rides just ahead of it. Turning and the wheel are the
+// page's, flying or not: around the spot pressed on, and toward the one under the pointer
+// (scene.ts, orbit and wheelAt). Movement runs once a frame only while a key is held.
 import * as THREE from "three";
 import { actionFor, defaultKeyMap, type ActionId, type KeyMap } from "./keys.ts";
 import type { MapScene } from "./scene.ts";
@@ -12,10 +12,8 @@ import type { MapScene } from "./scene.ts";
 /** Blocks a second for each speed setting. */
 export const FLY_SPEEDS = { slow: 5, normal: 12, fast: 30 } as const;
 export type FlySpeed = keyof typeof FLY_SPEEDS;
-/** How far ahead of the camera the turning point rides while flying. */
+/** How far ahead of the camera the point it looks at rides while flying. */
 const LOOK_AHEAD = 0.6;
-/** Blocks a wheel notch moves. */
-const WHEEL_STEP = 3;
 
 export class Fly {
   private on = false;
@@ -28,10 +26,7 @@ export class Fly {
   private last = 0;
   private running = false;
 
-  constructor(
-    private readonly scene: MapScene,
-    private readonly canvas: HTMLCanvasElement,
-  ) {
+  constructor(private readonly scene: MapScene) {
     addEventListener("keydown", (event) => {
       // Ctrl and Alt with a key are shortcuts (Ctrl+Z), not moves, unless a flying key has them; nothing flies while a dialog is open.
       if (!this.on || typing(event.target) || document.querySelector("dialog[open]")) return;
@@ -45,23 +40,13 @@ export class Fly {
       for (const action of [...this.held]) if (this.keys[action].some((binding) => binding?.code === event.code)) this.held.delete(action);
     });
     addEventListener("blur", () => this.held.clear());
-    canvas.addEventListener(
-      "wheel",
-      (event) => {
-        if (!this.on) return;
-        event.preventDefault();
-        event.stopImmediatePropagation();
-        this.moveBy(this.forward().multiplyScalar(-Math.sign(event.deltaY) * WHEEL_STEP), true);
-      },
-      { capture: true, passive: false },
-    );
   }
 
   get enabled(): boolean {
     return this.on;
   }
 
-  /** Turns flying on (the turning point comes close) or off (it goes back out ahead). */
+  /** Turns flying on (the point the camera looks at comes close) or off (it goes back out ahead). */
   setEnabled(on: boolean): void {
     if (on === this.on) return;
     this.on = on;
@@ -72,7 +57,6 @@ export class Fly {
     camera.getWorldDirection(look);
     const distance = on ? LOOK_AHEAD : Math.max(12, controls.target.distanceTo(camera.position) * 20);
     controls.target.copy(camera.position).addScaledVector(look, distance);
-    controls.enableZoom = !on;
     controls.update();
     this.scene.requestRender();
   }
@@ -106,19 +90,18 @@ export class Fly {
       if (this.held.has("flyLeft")) move.sub(right);
       if (this.held.has("flyUp")) move.y += 1;
       if (this.held.has("flyDown")) move.y -= 1;
-      if (move.lengthSq() > 0) this.moveBy(move.normalize().multiplyScalar(this.speed * seconds), false);
+      if (move.lengthSq() > 0) this.moveBy(move.normalize().multiplyScalar(this.speed * seconds));
       requestAnimationFrame(step);
     };
     requestAnimationFrame(step);
   }
 
-  /** Moves the camera and its turning point together. */
-  private moveBy(move: THREE.Vector3, render: boolean): void {
+  /** Moves the camera and the point it looks at together (the controls' change draws the frame). */
+  private moveBy(move: THREE.Vector3): void {
     const controls = this.scene.controls;
     this.scene.activeCamera.position.add(move);
     controls.target.add(move);
     controls.update();
-    if (render) this.scene.requestRender();
   }
 }
 

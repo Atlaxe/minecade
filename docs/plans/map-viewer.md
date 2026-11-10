@@ -491,6 +491,29 @@ The user asked for these together, to declutter the top bar:
   forget it. The live lobby (`LOBBY_MAP`) is refused. An editor older than this answers 404, and
   the Panel says to restart it.
 
+## 2026-11-10 (the user's changes)
+
+- **Boxes with a minimum size are drawn at least that big:** with the Region tool, each short side
+  runs on from the first corner toward the second (up when level), kept within -64 to 319
+  (`boxAtLeast` in `boxes.ts`), as the user asked after needing a 24 x 24 x 24 build boundary on a
+  map with no block 24 up to click. The preview shows it from the first corner on.
+- **The wheel goes toward the spot under the pointer, flying or not** (`MapScene.wheelAt`): not
+  flying, the camera and the point it turns around are scaled about the spot, so the view keeps
+  its direction and the spot stays under the pointer (stopping a block short); flying, both move
+  along the pointer, at least half a block a notch, so it goes on through walls. Top keeps the spot
+  under the pointer while it zooms. The controls' own zoom (zoomToCursor) and flying's level wheel
+  step are gone.
+- **Turning goes around the spot pressed on, with any tool and flying or not** (`MapScene.orbit`):
+  the camera and the point it looks at go around the spot, so it stays put on screen; over nothing,
+  around the point the view looks at (flying, the camera's own place). The controls' own turning is
+  off; Shift + right drag and middle drag still pan through them. **A left drag with Select**
+  (from anywhere that isn't a marker, the knob or the gizmo) turns the same way; Top keeps its
+  rectangle.
+- **Duplicate** (Ctrl+D, a button beside Delete): `duplicateEdits` in `speed.ts` adds each picked
+  spawn, marker and box to its own list in place, one batch, and the copies are picked.
+- **No helper text** under the Minigame thumbnail map box, and the rule written into
+  `docs/viewer.md` ("The window").
+
 ## Passes (the implementation order: stop and report after each, commit and push)
 
 **V.1 Spike** (done 2026-11-05: `docs/spike-results.md`, "Map viewer"; `spike/viewer/`).

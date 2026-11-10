@@ -1,6 +1,6 @@
 import type { Box, MapConfig } from "@minecade/minigame-core/config";
 import { describe, expect, it } from "vitest";
-import { addBoxEdit, boxFrom, faceToCut, facePlane, heightEdit, heightFromBlock, heightProblem, moveFace, nearestOnAxis, nudgeFace, removeBoxEdit, setBoxEdit, sizeText } from "../boxes.ts";
+import { addBoxEdit, boxAtLeast, boxFrom, faceToCut, facePlane, heightEdit, heightFromBlock, heightProblem, moveFace, nearestOnAxis, nudgeFace, removeBoxEdit, setBoxEdit, sizeText } from "../boxes.ts";
 
 const BOX: Box = { min: [0, 60, 0], max: [9, 69, 4] };
 
@@ -8,6 +8,27 @@ describe("boxFrom", () => {
   it("spans two corner blocks, both inside, whichever is clicked first", () => {
     expect(boxFrom([5, 70, -2], [1, 60, 3])).toEqual({ min: [1, 60, -2], max: [5, 70, 3] });
     expect(sizeText(boxFrom([5, 70, -2], [1, 60, 3]))).toBe("5 x 11 x 6");
+  });
+});
+
+describe("boxAtLeast", () => {
+  it("is the two corners' box when the list has no minimum, or the box is big enough", () => {
+    expect(boxAtLeast([5, 70, -2], [1, 60, 3], undefined)).toEqual({ min: [1, 60, -2], max: [5, 70, 3] });
+    expect(boxAtLeast([0, 60, 0], [30, 90, 30], 24)).toEqual({ min: [0, 60, 0], max: [30, 90, 30] });
+  });
+
+  it("grows each short side from the first corner the way the second lies, up when they're level", () => {
+    // Two clicks on one floor: 24 tall from the floor up.
+    expect(boxAtLeast([0, 60, 0], [30, 60, 30], 24)).toEqual({ min: [0, 60, 0], max: [30, 83, 30] });
+    // The second corner west, north and below the first: the box grows that way.
+    expect(boxAtLeast([10, 70, 10], [5, 65, 5], 24)).toEqual({ min: [-13, 47, -13], max: [10, 70, 10] });
+    // One click's worth (both corners the same block): 24 each way, east, up and south.
+    expect(boxAtLeast([2, 64, -3], [2, 64, -3], 24)).toEqual({ min: [2, 64, -3], max: [25, 87, 20] });
+  });
+
+  it("stays within the world's heights", () => {
+    expect(boxAtLeast([0, 310, 0], [30, 310, 30], 24)).toEqual({ min: [0, 296, 0], max: [30, 319, 30] });
+    expect(boxAtLeast([0, -60, 0], [30, -61, 30], 24)).toEqual({ min: [0, -64, 0], max: [30, -41, 30] });
   });
 });
 

@@ -273,12 +273,7 @@ export class MapSettings {
       "div",
       {},
       el("div", { className: "group-label" }, "Pictures"),
-      el(
-        "div",
-        { className: "setting" },
-        el("label", { className: "field-row" }, box, "Minigame thumbnail map"),
-        el("p", { className: "sub" }, `A map for taking the minigame thumbnail for ${targetName}: Maps and the bar above show that picture for it.`),
-      ),
+      el("div", { className: "setting" }, el("label", { className: "field-row" }, box, "Minigame thumbnail map")),
       on
         ? el(
             "div",

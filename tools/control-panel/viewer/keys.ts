@@ -24,6 +24,7 @@ export type ActionId =
   | "undo"
   | "redo"
   | "delete"
+  | "duplicate"
   | "cancel"
   | "boxMove"
   | "boxResize"
@@ -66,6 +67,7 @@ export const ACTIONS: readonly Action[] = [
   { id: "undo", group: "Changes", label: "Undo", keys: [key("KeyZ", { ctrl: true })] },
   { id: "redo", group: "Changes", label: "Redo", keys: [key("KeyY", { ctrl: true }), key("KeyZ", { ctrl: true, shift: true })] },
   { id: "delete", group: "Changes", label: "Delete the picked entries", keys: [key("Delete"), key("Backspace")] },
+  { id: "duplicate", group: "Changes", label: "Duplicate the picked entries", keys: [key("KeyD", { ctrl: true })] },
   { id: "cancel", group: "Changes", label: "Back to Select, or pick nothing", keys: [key("Escape")] },
   { id: "boxMove", group: "Changes", label: "Picked box: Move", keys: [key("KeyG")] },
   { id: "boxResize", group: "Changes", label: "Picked box: Resize", keys: [key("KeyE")] },

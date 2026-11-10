@@ -91,22 +91,30 @@ list; its map, if any, stays).
 Hover any button for a second: its tooltip says what it does, with its key. The keys below are the
 defaults: every one can be changed (see "Keys").
 
+**No helper text** (the user's rule, 2026-11-10, as for game Edit's menus in `docs/ui.md`): a
+setting's label says what it is, with no sentence under it explaining what it does or where else it
+shows (the Minigame thumbnail map box had one, "A map for taking the minigame thumbnail..."). What
+only a first use needs goes in the button's tooltip, or in these docs.
+
 ## Moving around
 
 | | |
 |---|---|
-| Right drag | Turn around the map |
+| Right drag | Turn around the spot you press on (the block or marker under the pointer): it stays where it is on screen while the view goes around it. Pressed on nothing, around the middle of the view |
+| Left drag, with Select | The same, from anywhere that isn't a marker, the knob or the gizmo (in Top view it draws a rectangle) |
 | Shift + right drag, or middle drag | Move sideways |
-| Wheel | Zoom, toward the pointer |
+| Wheel | Toward the spot under the pointer (or away from it), which stays under the pointer; it stops a block short |
 | Double click a block | Center the view on it |
 | **The view cube** | Turned the way you look. Click a face (N, S, E, W, Top, Bottom), an edge or a corner to look from that side; Top is a flat floor plan, north up |
 | **Home** (beside the cube, or the Home key) | The whole map |
 | F | Frame the picked entry |
 
 **WASD flying** (in Settings, off at first): W, A, S and D move along the ground the way you
-look, Space goes up and Shift down, at the speed the settings say. Right drag then looks around from
-where you are, and the wheel moves forward and back. A block you fly into isn't drawn, and clicks go
-through it, so a tool used from inside a wall works on what's beyond it.
+look, Space goes up and Shift down, at the speed the settings say. Turning and the wheel work as
+they do without it: around the spot you press on (pressed on nothing, you turn where you are), and
+toward the spot under the pointer, at least half a block a notch, so the wheel carries on through a
+wall. A block you fly into isn't drawn, and clicks go through it, so a tool used from inside a wall
+works on what's beyond it.
 
 ## Cutting through
 
@@ -129,7 +137,7 @@ D):
 
 | Tool | Key | What a click does |
 |---|---|---|
-| **Select** | V | Picks a marker (anywhere else picks nothing); the picked entry can be moved, resized or typed in |
+| **Select** | V | Picks a marker (anywhere else picks nothing; a drag from there turns the view); the picked entry can be moved, resized, typed in or duplicated |
 | **Spawn** | P | Places a spawn into the list picked in the right panel |
 | **Marker** | M | Places one of the game's markers (off for a game without any) |
 | **Region** | B | Two clicks draw a box into the list picked in the right panel |
@@ -231,8 +239,11 @@ a second.
 - **The right panel** shows the box's corners, From (its lowest block) and To (its highest), to type.
 - **To Y cut**, **To X cut** and **To Z cut** (when that cut is on) move a face onto the cut: the
   picked face when it's on the cut's axis, else the face nearer the cut.
-- A region the game gives a minimum size (Build Swap's build boundaries, 24 each way) shows red
-  while it's smaller, and isn't saved, as in game.
+- A region the game gives a minimum size (Build Swap's build boundaries, 24 each way) is drawn at
+  least that big: each side shorter than that runs on from the first corner the way the second
+  lies (up when both are on one layer), so two clicks on a floor make a box tall enough with no
+  block up there to click. The box shown before the second click is already that size. Moved or
+  resized smaller, it shows red and isn't saved, as in game.
 - **Delete** removes the picked box.
 
 ## Kill Y and the build limit
@@ -258,6 +269,10 @@ a second.
 - **Copy to another team** (under a picked team entry's values, or in the panel for several): adds a
   copy of each picked team entry (team spawns, a team's markers and regions) to that team's list,
   in the same place.
+- **Duplicate** (Ctrl+D, or the button beside Delete): adds a copy of each picked spawn, game marker
+  and box (bounds, spectator bounds, regions) to its own list, in the same place, as one change,
+  and picks the copies, ready to drag where they go. The spectator and queue spawns hold one entry
+  and a height is one value, so they're left out (with no button), and the viewer says so.
 
 ## Mirror
 

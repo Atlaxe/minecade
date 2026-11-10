@@ -10,8 +10,11 @@
 // limit), Mirror (place a mirror plane, pick entries, mirror them across it: speed.ts), Cut and
 // Time (the map's time of day). Port to another game (port.ts), under Map settings, makes the
 // map's blocks a new map of another game.
-// Each edit goes to the Panel (changes.ts), with undo and redo, Save and Publish. Every key is
-// in Settings, Keys, where it can be changed (keys.ts, keys-tab.ts). In game (ingame.ts) opens the
+// A right drag turns the view around the spot it starts on (so does a left drag with Select, from
+// anywhere that isn't a marker or the gizmo), and the wheel goes toward the spot under the pointer,
+// flying or not (scene.ts, orbit and wheelAt). Select's Duplicate copies the picked spawns, markers
+// and boxes in place. Each edit goes to the Panel (changes.ts), with undo and redo, Save and
+// Publish. Every key is in Settings, Keys, where it can be changed (keys.ts, keys-tab.ts). In game (ingame.ts) opens the
 // map in the in-game editor, which the Panel warms up while the viewer is open; when game Edit
 // saves the map's world, the page loads again to draw the new blocks, keeping the view as it was.
 import * as THREE from "three";
@@ -19,7 +22,7 @@ import { bigEnough, listOf, worldPoint, type Box, type EditorRules, type MapConf
 import { lookAt, mapMiddle } from "../../../editor/behavior_pack/scripts/lists.ts";
 import { regionName } from "../../../editor/behavior_pack/scripts/regions.ts";
 import { decodeView } from "../../viewer/view-format.ts";
-import { addBoxEdit, boxFrom, faceToCut, facePlane, heightEdit, heightFromBlock, heightProblem, moveFace, nearestOnAxis, nudgeFace, removeBoxEdit, setBoxEdit, sizeText, MAX_LIMIT, MIN_HEIGHT, type BoxPlace, type Face } from "./boxes.ts";
+import { addBoxEdit, boxAtLeast, boxFrom, faceToCut, facePlane, heightEdit, heightFromBlock, heightProblem, moveFace, nearestOnAxis, nudgeFace, removeBoxEdit, setBoxEdit, sizeText, MAX_LIMIT, MIN_HEIGHT, type BoxPlace, type Face } from "./boxes.ts";
 import { MapChangesClient } from "./changes.ts";
 import { FLY_SPEEDS, Fly, type FlySpeed } from "./fly.ts";
 import { Gizmo, type GizmoPart } from "./gizmo.ts";
@@ -32,7 +35,7 @@ import { openDeleteDialog } from "./delete.ts";
 import { openPortDialog } from "./port.ts";
 import { Overlay, type MarkerAssets, type MirrorPlane } from "./overlay.ts";
 import { blocksWithoutLook, mapWarnings } from "./checks.ts";
-import { copyEdits, entryListKey, mirrorEdits, mirrorPlan, snapHalf, teamOf, type MirrorOptions, type MirrorTeam, type SpeedEntry } from "./speed.ts";
+import { copyEdits, duplicateEdits, entryListKey, mirrorEdits, mirrorPlan, snapHalf, teamOf, type MirrorOptions, type MirrorTeam, type SpeedEntry } from "./speed.ts";
 import { centeredSpot, floorSpot, normalYaw, placedPosition, yawToward, type Spot } from "./placing.ts";
 import { MapScene, type Cuts, type Toggles } from "./scene.ts";
 import { Sidebar, el, swatch } from "./sidebar.ts";
@@ -87,6 +90,8 @@ const NEW_REGION_COLOR = 0xffffff;
 /** The most entries one change may add or remove (the Panel takes batches of up to 64 edits). */
 const MAX_TOGETHER = 64;
 const AXIS_VECTORS = [new THREE.Vector3(1, 0, 0), new THREE.Vector3(0, 1, 0), new THREE.Vector3(0, 0, 1)];
+/** What's left of the way to the spot under the pointer after a wheel notch toward it (0.85: 15% of the way). */
+const WHEEL_ZOOM = 0.85;
 
 function loadSettings(): Settings {
   try {
@@ -224,7 +229,7 @@ async function main(): Promise<void> {
   const gizmo = new Gizmo(scene);
   const cube = new ViewCube($<HTMLCanvasElement>("cube"), (direction) => scene.viewFrom(direction));
   scene.addRenderListener(() => cube.sync(scene.cameraQuaternion));
-  const fly = new Fly(scene, canvas);
+  const fly = new Fly(scene);
   let config = data.config;
   let markup: Markup = buildMarkup(config, data.rules);
   let picked: string | undefined;
@@ -367,7 +372,7 @@ async function main(): Promise<void> {
     reloading = true;
     notice("The world was saved in game Edit: drawing its blocks again...");
     const reload = () => {
-      if (press || document.querySelector("dialog[open]") || typing(document.activeElement)) return void setTimeout(reload, 500);
+      if (press || turning || document.querySelector("dialog[open]") || typing(document.activeElement)) return void setTimeout(reload, 500);
       keepView({ camera: scene.viewState, cuts, tool, picked, at: Date.now() });
       location.reload();
     };
@@ -673,6 +678,26 @@ async function main(): Promise<void> {
     pickMany(added, false);
     notice(`Copied to ${teamName(copyTo)}: ${edits.length} ${edits.length === 1 ? "entry" : "entries"}, now picked.${leftOut(skipped)}`);
   };
+  /** Duplicates the picked spawns, markers and boxes in their own lists, in the same place, as one change, then picks the copies. */
+  const duplicatePicked = () => {
+    const keys = pickedKeys();
+    if (keys.length === 0) return;
+    const { edits, skipped } = duplicateEdits(speedEntries(keys));
+    for (const key of keys) {
+      const height = heightMarkOf(key);
+      if (height) skipped.push(`${height.label} is one height`);
+    }
+    if (edits.length === 0) return notice(`Nothing to duplicate.${leftOut(skipped)}`, true);
+    if (edits.length > MAX_TOGETHER) return notice(`Duplicate at most ${MAX_TOGETHER} entries at a time.`, true);
+    const before = new Set([...markup.points, ...markup.boxes].map((entry) => entry.key));
+    if (!edit(edits.length === 1 ? edits[0] : { op: "batch", edits })) return;
+    const added = [...markup.points, ...markup.boxes].map((entry) => entry.key).filter((key) => !before.has(key));
+    pickMany(added, false);
+    const what = added.length === 1 ? (findEntry(markup, added[0])?.entry.label ?? "1 entry") : `${added.length} entries`;
+    notice(`Duplicated in place: ${what}, picked.${leftOut(skipped)}`);
+  };
+  const duplicateButton = () => el("button", { className: "small", dataset: { tip: "Duplicate in place", key: keyOf("duplicate") }, onclick: duplicatePicked }, "Duplicate");
+
   /** Copy to another team, for the picked team entries, under their values (or alone, with several picked). */
   const copySection = (keys: string[]): HTMLElement | null => {
     const entries = speedEntries(keys);
@@ -754,7 +779,7 @@ async function main(): Promise<void> {
     const keys = pickedKeys();
     const labels = keys.map((key) => findEntry(markup, key)?.entry.label).filter(Boolean) as string[];
     const shown = labels.length > 6 ? `${labels.slice(0, 6).join(", ")} and ${labels.length - 6} more` : labels.join(", ");
-    return el("section", {}, el("h2", {}, `${keys.length} picked`), el("p", { className: "sub" }, shown), copySection(keys), el("div", { className: "buttons" }, deleteButton()));
+    return el("section", {}, el("h2", {}, `${keys.length} picked`), el("p", { className: "sub" }, shown), copySection(keys), el("div", { className: "buttons" }, duplicateButton(), deleteButton()));
   };
 
   const pointEditor = (point: PointMark): HTMLElement => {
@@ -788,7 +813,7 @@ async function main(): Promise<void> {
       centerBox(),
       list.key === "queueSpawn" ? queuePanel(config, edit) : null,
       copySection([point.key]),
-      el("div", { className: "buttons" }, deleteButton()),
+      el("div", { className: "buttons" }, list.spawn.single ? null : duplicateButton(), deleteButton()),
     );
   };
 
@@ -831,7 +856,7 @@ async function main(): Promise<void> {
           )
         : null,
       copySection([box.key]),
-      el("div", { className: "buttons" }, deleteButton()),
+      el("div", { className: "buttons" }, duplicateButton(), deleteButton()),
     );
   };
 
@@ -1107,7 +1132,7 @@ async function main(): Promise<void> {
         renderPanel();
         return;
       }
-      const box = boxFrom(corner, hit.world);
+      const box = boxAtLeast(corner, hit.world, list.minSize);
       const problem = sizeProblem(box, list.label, list.minSize);
       if (problem) return notice(problem, true);
       if (!edit(addBoxEdit(list.place, box))) return;
@@ -1207,7 +1232,7 @@ async function main(): Promise<void> {
     const listed = moves.length > 1 ? `${moves.slice(0, -1).join(", ")} and ${moves.at(-1)}` : moves.join("");
     const [flyUp, flyDown] = [keysText(keys, "flyUp"), keysText(keys, "flyDown")];
     const vertical = flyUp && flyDown ? `${flyUp} goes up and ${flyDown} down` : flyUp ? `${flyUp} goes up` : flyDown ? `${flyDown} goes down` : "";
-    $("fly-keys").textContent = `${[listed ? `${listed} move` : "", vertical].filter(Boolean).join(", ") || "Flying has no keys (Keys)"}; right drag looks around, and the wheel moves forward and back.`;
+    $("fly-keys").textContent = `${[listed ? `${listed} move` : "", vertical].filter(Boolean).join(", ") || "Flying has no keys (Keys)"}.`;
     renderPanel();
   };
   const keysTab = new KeysTab($("panel-keys"), $("keys-note"), keys, (next) => {
@@ -1324,6 +1349,10 @@ async function main(): Promise<void> {
         case "delete":
           removePicked();
           break;
+        case "duplicate":
+          if (pickedKeys().length === 0) return;
+          duplicatePicked();
+          break;
         case "cancel":
           if (inGame.close()) break;
           if (press?.drag) cancelDrag();
@@ -1341,13 +1370,40 @@ async function main(): Promise<void> {
   );
 
   // ---- The pointer. With Select, a press on the gizmo moves or resizes the picked entry, on the
-  // picked point's knob it turns it, on a marker it drags it along the floor; a click picks (or,
-  // on nothing, picks nothing). Other tools use the click. A double click centers the view.
+  // picked point's knob it turns it, on a marker it drags it along the floor, anywhere else a drag
+  // turns the view (Top: draws a rectangle); a click picks (or, on nothing, picks nothing). Other
+  // tools use the click. A right drag turns the view with any tool, around the spot it starts on.
+  // The wheel goes toward the spot under the pointer. A double click centers the view.
   type Drag =
     | { kind: "move" | "face"; point: PointMark; moved: boolean; position?: MapPosition; yaw?: number }
     | { kind: "marquee"; moved: boolean; add: boolean }
+    | { kind: "turn"; moved: boolean; pivot: THREE.Vector3; x: number; y: number }
     | { kind: "gizmo"; part: GizmoPart; moved: boolean; origin: THREE.Vector3; start: THREE.Vector3; fine: boolean; result?: { point?: Vec3; box?: Box; y?: number; plane?: MirrorPlane } };
   let press: { x: number; y: number; drag?: Drag } | undefined;
+  /** A right drag turning the view around the spot it started on, and where the pointer was last. */
+  let turning: { pivot: THREE.Vector3; x: number; y: number } | undefined;
+
+  /** The spot under the pointer: a marker's in front of the blocks, else the block's face there, or nothing. */
+  const spotAt = (clientX: number, clientY: number): THREE.Vector3 | undefined => {
+    const { ray } = scene.rayAt(clientX, clientY);
+    const distance = Math.min(scene.pickAt(clientX, clientY)?.distance ?? Infinity, overlay.pointAt(clientX, clientY)?.distance ?? Infinity);
+    return Number.isFinite(distance) ? ray.origin.clone().addScaledVector(ray.direction, distance) : undefined;
+  };
+  /** What a drag from a spot turns around: the spot; over nothing, the camera's own place when flying, else the point it looks at. */
+  const pivotAt = (clientX: number, clientY: number): THREE.Vector3 => spotAt(clientX, clientY) ?? (fly.enabled ? scene.activeCamera.position.clone() : scene.controls.target.clone());
+
+  // The wheel, flying or not: toward the spot under the pointer, or away from it.
+  canvas.addEventListener(
+    "wheel",
+    (event) => {
+      event.preventDefault();
+      const pixels = event.deltaY * (event.deltaMode === 1 ? 33 : event.deltaMode === 2 ? 400 : 1);
+      if (pixels === 0) return;
+      const notches = THREE.MathUtils.clamp(pixels / 100, -3, 3);
+      scene.wheelAt(event.clientX, event.clientY, Math.pow(WHEEL_ZOOM, -notches), spotAt(event.clientX, event.clientY), fly.enabled);
+    },
+    { passive: false },
+  );
   const cancelDrag = () => {
     press = undefined;
     $("marquee").hidden = true;
@@ -1468,7 +1524,7 @@ async function main(): Promise<void> {
   const finishDrag = (drag: Drag) => {
     overlay.hideWhileEditing(undefined);
     overlay.showBox(undefined, 0);
-    if (drag.kind === "marquee") return;
+    if (drag.kind === "marquee" || drag.kind === "turn") return;
     if (drag.kind === "gizmo") {
       const result = drag.result;
       const point = pointOf(picked);
@@ -1497,6 +1553,13 @@ async function main(): Promise<void> {
   };
 
   canvas.addEventListener("pointerdown", (event) => {
+    if (event.button === 2) {
+      // Shift (or Ctrl) + right drag pans, as the controls do it; Top's flat view doesn't turn.
+      if (event.shiftKey || event.ctrlKey || event.metaKey || scene.isTop) return;
+      turning = { pivot: pivotAt(event.clientX, event.clientY), x: event.clientX, y: event.clientY };
+      canvas.setPointerCapture(event.pointerId);
+      return;
+    }
     if (event.button !== 0) return;
     canvas.focus();
     press = { x: event.clientX, y: event.clientY };
@@ -1518,16 +1581,28 @@ async function main(): Promise<void> {
       else if (point && (!block || point.distance <= block.distance + 0.01)) press.drag = { kind: "move", point: pointOf(point.key)!, moved: false };
       // In Top view, a drag from anywhere else draws a rectangle that picks what's in it.
       else if (scene.isTop) press.drag = { kind: "marquee", moved: false, add: event.shiftKey };
+      // Anywhere else, a drag turns the view around the spot it starts on, as a right drag does.
+      else press.drag = { kind: "turn", moved: false, pivot: pivotAt(event.clientX, event.clientY), x: event.clientX, y: event.clientY };
     }
     if (press.drag) canvas.setPointerCapture(event.pointerId);
   });
 
   canvas.addEventListener("pointermove", (event) => {
+    if (turning) {
+      scene.orbit(turning.pivot, event.clientX - turning.x, event.clientY - turning.y);
+      [turning.x, turning.y] = [event.clientX, event.clientY];
+      return;
+    }
     const drag = press?.drag;
     if (drag && press) {
       if (!drag.moved && Math.hypot(event.clientX - press.x, event.clientY - press.y) <= DRAG_PIXELS) return;
       drag.moved = true;
       if (drag.kind === "gizmo") return dragGizmo(drag, event.clientX, event.clientY, event.shiftKey);
+      if (drag.kind === "turn") {
+        scene.orbit(drag.pivot, event.clientX - drag.x, event.clientY - drag.y);
+        [drag.x, drag.y] = [event.clientX, event.clientY];
+        return;
+      }
       if (drag.kind === "marquee") {
         const box = $("marquee");
         const stage = canvas.getBoundingClientRect();
@@ -1562,6 +1637,7 @@ async function main(): Promise<void> {
   });
 
   canvas.addEventListener("pointerup", (event) => {
+    if (event.button === 2) turning = undefined;
     if (event.button !== 0 || !press) return;
     const drag = press.drag;
     const click = Math.hypot(event.clientX - press.x, event.clientY - press.y) <= DRAG_PIXELS;
@@ -1597,7 +1673,7 @@ async function main(): Promise<void> {
       return;
     }
     // A marker in front of the blocks picks its entry (Shift: adds it to the pick, or takes it out); anywhere else picks nothing.
-    const clicked = drag && drag.kind !== "marquee" ? drag.point.key : undefined;
+    const clicked = drag && (drag.kind === "move" || drag.kind === "face") ? drag.point.key : undefined;
     if (event.shiftKey && clicked) togglePick(clicked);
     else if (!event.shiftKey) pickEntry(clicked);
   });
@@ -1630,7 +1706,7 @@ async function main(): Promise<void> {
         overlay.moveGhost(spot?.at, spot ? lookAt(spot.at, middle()).yaw : 0);
       } else if (!arming && tool === "region" && list) {
         if (hit) {
-          const box = boxFrom(corner ?? hit.world, hit.world);
+          const box = corner ? boxAtLeast(corner, hit.world, list.minSize) : boxFrom(hit.world, hit.world);
           const problem = corner ? sizeProblem(box, list.label, list.minSize) : undefined;
           overlay.showBox(box, list.color, sizeText(box), problem !== undefined);
           return void ($("hover").textContent = `${corner ? "Box" : "First corner"}: ${sizeText(box)} from ${box.min.join(" ")}${problem ? " (too small)" : ""}`);
@@ -1650,6 +1726,7 @@ async function main(): Promise<void> {
       $("hover").textContent = `${look.name.replace(/^minecraft:/, "")}${states} at ${hit.world.join(", ")}`;
     });
   };
+  canvas.addEventListener("lostpointercapture", () => (turning = undefined));
   canvas.addEventListener("pointerleave", () => {
     $("hover").textContent = "";
     overlay.moveGhost(undefined, 0);

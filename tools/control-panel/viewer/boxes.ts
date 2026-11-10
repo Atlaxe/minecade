@@ -24,6 +24,26 @@ export function boxFrom(a: Vec3, b: Vec3): Box {
   return { min: [0, 1, 2].map((axis) => Math.min(a[axis], b[axis])) as Vec3, max: [0, 1, 2].map((axis) => Math.max(a[axis], b[axis])) as Vec3 };
 }
 
+/**
+ * The box two corner blocks span, grown to at least `minSize` blocks along every side when its
+ * list has a minimum: each short side runs on from the first corner the way the second lies (up
+ * when they're level), so two clicks on one floor make a box tall enough without a block up there
+ * to click. It stays within the world's heights, growing down from the top when it must.
+ */
+export function boxAtLeast(first: Vec3, second: Vec3, minSize: number | undefined): Box {
+  const box = boxFrom(first, second);
+  if (minSize === undefined) return box;
+  for (const axis of [0, 1, 2] as const) {
+    if (box.max[axis] - box.min[axis] + 1 >= minSize) continue;
+    if (second[axis] < first[axis]) box.min[axis] = first[axis] - minSize + 1;
+    else box.max[axis] = first[axis] + minSize - 1;
+    if (axis !== 1) continue;
+    if (box.max[1] > MAX_KILL_Y) [box.min[1], box.max[1]] = [MAX_KILL_Y - minSize + 1, MAX_KILL_Y];
+    if (box.min[1] < MIN_HEIGHT) [box.min[1], box.max[1]] = [MIN_HEIGHT, MIN_HEIGHT + minSize - 1];
+  }
+  return box;
+}
+
 /** Where a face is: the plane between blocks it lies on (a max face is past its last block). */
 export function facePlane(box: Box, face: Face): number {
   return face.side === "min" ? box.min[face.axis] : box.max[face.axis] + 1;
