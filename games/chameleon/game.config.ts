@@ -1,25 +1,19 @@
 import { arsenalItem } from "@minecade/guns/defs";
 import { defineGame } from "@minecade/minigame-core/config";
+import { DETECTOR, FREE_LOOK, LOCK, POSE, TAUNT, WEAR_BLOCK, type AbilityItem } from "./behavior_pack/scripts/abilities.ts";
+
+const slot = (ability: AbilityItem, at: number) => ({ item: ability.item, name: ability.name, slot: at });
 
 /**
- * Each side's hotbar, slot by slot. The hiders' abilities are the chameleon pack's
- * (private_packs/chameleon, from the workshop's chameleon-test), which knows them by item and name,
- * so these must match it; wool until they get icons of their own. The hiders' first slot is left
- * free to hit seekers with.
+ * Each side's hotbar, slot by slot: the game's own ability items, each with its icon
+ * (abilities.ts; they were colored wool until 2026-11-11). The hiders' abilities are the chameleon
+ * pack's (private_packs/chameleon, from the workshop's chameleon-test), which knows them by item and
+ * name. The hiders' first slot is left free to hit seekers with.
  */
 export const HOTBARS = {
-  hiders: [
-    { item: "minecraft:lime_wool", name: "Wear block", slot: 1 },
-    { item: "minecraft:yellow_wool", name: "Pose", slot: 2 },
-    { item: "minecraft:purple_wool", name: "Lock position", slot: 3 },
-    { item: "minecraft:orange_wool", name: "Taunt", slot: 5 },
-    { item: "minecraft:light_blue_wool", name: "Free look", slot: 8 },
-  ],
-  seekers: [
-    { item: arsenalItem("pump_shotgun"), slot: 0 },
-    { item: "minecraft:cyan_wool", name: "Detector", slot: 1 },
-  ],
-} as const;
+  hiders: [slot(WEAR_BLOCK, 1), slot(POSE, 2), slot(LOCK, 3), slot(TAUNT, 5), slot(FREE_LOOK, 8)],
+  seekers: [{ item: arsenalItem("pump_shotgun"), slot: 0 }, slot(DETECTOR, 1)],
+};
 
 // Chameleon: hide and seek where the hiders wear the blocks around them. One seeker (picked in the
 // lobby, else dealt) waits blinded while the hiders hide (the map's Hide time), then hunts them
@@ -62,8 +56,9 @@ export default defineGame({
     },
   },
   hotbars: HOTBARS,
-  // The hotbars are handed out by script, not a kit: the map editor's mannequins can hold them.
-  mannequinItems: [...HOTBARS.seekers, ...HOTBARS.hiders].map((entry) => ("name" in entry ? { item: entry.item, name: entry.name } : entry.item)),
+  // The hotbars are handed out by script, not a kit. The map editor's mannequins can hold the
+  // shotgun: the ability items are the game's own, which the editor's Edit mode doesn't load.
+  mannequinItems: [arsenalItem("pump_shotgun")],
   /** A hider's hit on a seeker: thrown about as far as knockback 5 would, half a heart, then a pause before that seeker can be hit again. */
   hiderHit: { damage: 1, horizontal: 2.5, vertical: 0.5, pauseTicks: 10 },
   /**

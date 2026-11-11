@@ -366,6 +366,41 @@ describe("LobbyController: team picks", () => {
     expect(t.sent.some((event) => event.t === "team_picks")).toBe(false);
   });
 
+  it("lets two players pick who seeks in a role game, and ends at 10 s when nobody does", async () => {
+    const roleGame: Registry = {
+      games: [
+        {
+          id: "chameleon",
+          name: "Chameleon",
+          minPlayers: 2,
+          maxPlayers: 8,
+          teams: { count: 2, defs: [{ id: "seekers", name: "Seekers", color: "§c", size: 1 }, { id: "hiders", name: "Hiders", color: "§a", size: "rest" }] },
+          maps: [{ id: "depot", name: "Depot" }],
+        },
+      ],
+    };
+    const roleReady = { ...ready, game: "chameleon", map: "depot" };
+    const t = setup(["Steve", "Alex"], { registry: roleGame });
+    t.lobby.request("Steve", "chameleon", "depot", { teams: "pick" });
+    expect(t.sent[0]).toMatchObject({ t: "start_game", settings: { teams: "pick" } });
+    expect(t.teamForms).toEqual(["Steve", "Alex"]);
+    t.say({ t: "game_starting", requestId: "r1", sessionId: "s1", game: "chameleon", map: "depot" });
+    t.say(roleReady);
+    system.advanceTicks(100);
+    expect(t.sent.some((event) => event.t === "team_picks")).toBe(false); // nobody has the seeker yet
+    system.advanceTicks(100);
+    expect(t.sent.at(-1)).toEqual({ t: "team_picks", sessionId: "s1", picks: {} });
+
+    // Someone who takes the seeker ends it at the 5 s least.
+    const u = setup(["Steve", "Alex"], { registry: roleGame });
+    u.lobby.request("Steve", "chameleon", "depot", { teams: "pick" });
+    u.say({ t: "game_starting", requestId: "r1", sessionId: "s1", game: "chameleon", map: "depot" });
+    u.lobby.pickTeam("Alex", "seekers");
+    u.say(roleReady);
+    system.advanceTicks(100);
+    expect(u.sent.at(-1)).toEqual({ t: "team_picks", sessionId: "s1", picks: { Alex: "seekers" } });
+  });
+
   it("skips picking when the game screen chose random teams, or the game has no teams", () => {
     const t = setup(trio, { registry: teamGame });
     t.lobby.request("Steve", "paint", "yard", { teams: "random" });

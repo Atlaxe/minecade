@@ -461,16 +461,21 @@ spawn away from everyone: core's `spawnAway`), late joiners welcome, a 10 minute
 
 ## Chameleon
 
-Hide and seek where the hiders wear the blocks around them: 2 to 8 players, one seeker (the
-lobby's Seekers pick, else dealt) and everyone else hiding. `games/chameleon`.
+Hide and seek where the hiders wear the blocks around them: 2 to 8 players, one seeker (picked in
+the lobby's team form, where the only button is Seekers, else dealt at random) and everyone else
+hiding. `games/chameleon`.
 
 - **The hide:** after the countdown at the team spawns, the seekers wait at theirs, unable to move
   and blinded, for the map's Hide time (its `hideSeconds` setting in the map editor's Game settings
   tool, 30 seconds unless set); nobody can be hit meanwhile. Then "Ready or not!" and the seek runs
   on a 5 minute clock.
 - **Hotbars** (handed out by the game, each item named and locked in its slot): hiders get Wear
-  block, Pose, Lock position, Taunt and Free look (wool for now) with the first slot free, and
-  weakness; seekers get the Pump Shotgun and the Detector (cyan wool for now).
+  block, Pose, Lock position, Taunt and Free look with the first slot free, and weakness; seekers
+  get the Pump Shotgun and the Detector. Each ability is the game's own item
+  (`minecade:chameleon_<ability>`, `scripts/abilities.ts`) with its own icon in the ability's old
+  wool color: a block, a figure striking a pose, a padlock, a megaphone, an eye and a radar screen
+  (`tools/assets/chameleon-items.ts` draws them into the game's packs). The map editor's mannequins
+  hold only the shotgun, since Edit mode doesn't load a game's own items.
 - **Finding:** the seekers' Pump Shotgun never runs out or reloads (only its fire rate holds it
   back) and hits only hiders, or a hider's free look stand-in, which brings that hider back to it;
   shots pass through other seekers. A hider shot down "was found by" the seeker and, 3 seconds
@@ -725,6 +730,11 @@ players pick in the lobby while the game server boots, so no time is lost on the
 - **Two players don't pick:** with only two players going, there's nothing to choose, so nobody
   gets the form: the lobby sends the start as Random, and the game puts them on teams of their own
   at random.
+- **Roles:** a game whose teams are roles (a team of a fixed size: Chameleon's one seeker) has the
+  Teams setting too, and its form offers only the fixed-size roles (Seekers), each up to its size:
+  whoever wants to seek takes it, and everyone else is dealt (the user's ask, 2026-11-11). Two
+  players get the form as well, and it locks as soon as the roles are full (after the 5 seconds at
+  least), else at 10 seconds.
 - **The form:** right after Start, every player in the match gets a live team form. It's a
   data-driven `CustomForm` from `@minecraft/server-ui` (`scripts/team-pick-form.ts`), the newer
   kind of form whose text updates while it's open and whose buttons don't close it. It renders in

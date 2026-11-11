@@ -100,12 +100,20 @@ export function mapOptions(game: RegistryGame): MapOption[] {
 
 const TEAMS: GameSetting = { id: "teams", label: "Teams", values: [{ value: "pick", label: "Pick" }, { value: "random", label: "Random" }] };
 
-/** Team games where players pick their own team can switch to random teams; then the game's own options. */
+/**
+ * Team games where players pick their own team can switch to random teams (a role game, such as
+ * Chameleon's one seeker, picks only its fixed-size roles: whoever wants to be the seeker); then
+ * the game's own options.
+ */
 export function settingsFor(game: RegistryGame): GameSetting[] {
   const teams = game.teams;
-  const roles = (teams?.defs ?? []).some((team) => team.size !== undefined);
-  const pickable = teams !== undefined && teams.pick !== false && !roles;
+  const pickable = teams !== undefined && teams.pick !== false;
   return [...(pickable ? [TEAMS] : []), ...(game.options ?? [])];
+}
+
+/** Whether a game's teams are roles (a team of a fixed size, such as one seeker). */
+export function hasRoles(game: Pick<RegistryGame, "teams">): boolean {
+  return (game.teams?.defs ?? []).some((team) => team.size !== undefined);
 }
 
 export function defaultSettings(game: RegistryGame): Record<string, string> {

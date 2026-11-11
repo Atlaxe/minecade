@@ -1,0 +1,24 @@
+{
+  "resource_pack_name": "minecade_chameleon",
+  "texture_name": "atlas.items",
+  "texture_data": {
+    "minecade_chameleon_wear_block": {
+      "textures": "textures/minecade/chameleon/wear_block"
+    },
+    "minecade_chameleon_pose": {
+      "textures": "textures/minecade/chameleon/pose"
+    },
+    "minecade_chameleon_lock": {
+      "textures": "textures/minecade/chameleon/lock"
+    },
+    "minecade_chameleon_taunt": {
+      "textures": "textures/minecade/chameleon/taunt"
+    },
+    "minecade_chameleon_free_look": {
+      "textures": "textures/minecade/chameleon/free_look"
+    },
+    "minecade_chameleon_detector": {
+      "textures": "textures/minecade/chameleon/detector"
+    }
+  }
+}

@@ -9,7 +9,7 @@
 //            also covers stale messages queued from before a lobby restart.
 import { Scope, nameOf, say, teamLimit, type Chime, type InboundMessage, type OutboundEvent, type Registry, type RegistryGame, type StatusSnapshot } from "@minecade/minigame-core";
 import { isDemoGame } from "./demo-games.ts";
-import { settingsFor } from "./game-screen.ts";
+import { hasRoles, settingsFor } from "./game-screen.ts";
 import { TeamPickController, type TeamPickPorts } from "./team-pick-controller.ts";
 
 export interface GameChoice {
@@ -233,9 +233,11 @@ export class LobbyController {
     // Team games set to Pick: the players pick here while the game server boots (the only place
     // teams are picked; the game deals out the rest). The team view owns the hologram until then;
     // otherwise it shows the countdown screen while the server boots. Two players have nothing to
-    // pick: the game puts them on teams of their own at random.
+    // pick: the game puts them on teams of their own at random. A role game picks only its roles
+    // (whoever wants to be Chameleon's seeker), with two players too, and for less long.
     const choose = lobbyPicksTeams(game, settings);
-    const picking = choose && players.length > PICK_AFTER && this.ports.teamPicks !== undefined;
+    const roles = hasRoles(game);
+    const picking = choose && players.length > (roles ? 1 : PICK_AFTER) && this.ports.teamPicks !== undefined;
     if (!picking) this.ports.countdown?.({ game: game.name, map: mapName });
     const sent = picking ? { ...settings, teams: "pick" } : choose ? { ...settings, teams: "random" } : settings;
     this.ports.send({ t: "start_game", requestId: pending.requestId, game: game.id, map: mapId, players, settings: sent });
@@ -247,6 +249,7 @@ export class LobbyController {
         teamLimit: teamLimit(game, settings),
         online: () => this.ports.onlinePlayers(),
         done: (picks) => this.picksDone(pending, picks),
+        ...(roles ? { maxTicks: ROLE_PICK_TICKS } : {}),
       });
     }
   }
@@ -309,6 +312,8 @@ export function lobbyPicksTeams(game: RegistryGame, settings: Record<string, str
 
 /** Up to this many players, a team game set to Pick deals teams at random instead. */
 const PICK_AFTER = 2;
+/** A role game's pick ends this soon when nobody takes a role (the roles are dealt). */
+const ROLE_PICK_TICKS = 10 * 20;
 
 function randomId(): string {
   return Math.random().toString(36).slice(2, 10);

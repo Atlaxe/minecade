@@ -34,7 +34,8 @@ describe("the game screen model", () => {
 
   it("offers Pick or Random teams for games where players pick their team, then the game's own options", () => {
     expect(settingsFor(sumo)).toEqual([]);
-    expect(settingsFor(roles)).toEqual([]);
+    // A role game picks its roles (whoever wants to be the seeker) or deals them.
+    expect(settingsFor(roles).map((entry) => entry.id)).toEqual(["teams"]);
     expect(settingsFor({ ...teams, teams: { count: 2, pick: false } })).toEqual([]);
     const [setting] = settingsFor(teams);
     expect(setting.id).toBe("teams");

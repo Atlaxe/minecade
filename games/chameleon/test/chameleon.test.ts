@@ -3,12 +3,16 @@
 // runs out; a hider shot down joins the seekers, and the seekers win when nobody is left hiding.
 // The hiders win when the clock runs out. A hider's hit throws a seeker and takes half a heart,
 // never the last; the Detector says how near the nearest hider is.
+import { existsSync, readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import { ARSENAL_GUN_DEFS, arsenalItem } from "@minecade/guns/defs";
 import { runtimeMapConfig, stripColors, validateMapConfig, type MapConfig } from "@minecade/minigame-core/config";
 import { system, world, type FakePlayer } from "../../../packages/minigame-core/test/fake-mc-server.ts";
 import { createHarness, everyoneLeaves, expectBaseline, playToEnd, snapshot, ticks, type Harness } from "../../../packages/minigame-core/test/game-harness.ts";
 import { validateGameConfig } from "../../../tools/build/validate.ts";
+import { chameleonItemFiles } from "../../../tools/assets/chameleon-items.ts";
+import { ABILITY_ITEMS } from "../behavior_pack/scripts/abilities.ts";
 import config from "../game.config.ts";
 import {
   Chameleon,
@@ -35,7 +39,7 @@ const COUNTDOWN_TICKS = config.countdownSeconds * 20 + 5;
 const HIDE_TICKS = HIDE_SECONDS * 20 + 5;
 const RESPAWN_TICKS = config.respawn.delaySeconds * 20 + 2;
 const SHOTGUN = arsenalItem("pump_shotgun");
-const DETECTOR = "minecraft:cyan_wool";
+const DETECTOR = "minecade:chameleon_detector";
 const MOVEMENT = 2;
 
 let harness: Harness;
@@ -87,6 +91,33 @@ async function shootDown(game: Chameleon, shooter: FakePlayer, name: string): Pr
 const sent = (id: string) => system.scriptEventsSent.filter((event) => event.id === id).map((event) => event.message);
 const text = (player: FakePlayer) => stripColors(player.messages.join("\n"));
 
+describe("Chameleon's ability items", () => {
+  it("hands out its own items with icons, one per ability, named as the chameleon pack knows them", () => {
+    expect(ABILITY_ITEMS.map((item) => `${item.item} ${item.name}`)).toEqual([
+      "minecade:chameleon_wear_block Wear block",
+      "minecade:chameleon_pose Pose",
+      "minecade:chameleon_lock Lock position",
+      "minecade:chameleon_taunt Taunt",
+      "minecade:chameleon_free_look Free look",
+      "minecade:chameleon_detector Detector",
+    ]);
+    const handed = [...config.hotbars.hiders, ...config.hotbars.seekers].map((entry) => entry.item);
+    for (const item of ABILITY_ITEMS) expect(handed).toContain(item.item);
+    // The map editor's mannequins hold only what Edit mode loads: the shotgun.
+    expect(config.mannequinItems).toEqual([SHOTGUN]);
+  });
+
+  it("match what tools/assets/chameleon-items.ts writes (rerun it after changing abilities.ts or an icon)", () => {
+    for (const [path, content] of Object.entries(chameleonItemFiles())) {
+      const file = fileURLToPath(new URL(`../${path}`, import.meta.url));
+      expect(existsSync(file), path).toBe(true);
+      const disk = readFileSync(file);
+      if (typeof content === "string") expect(disk.toString("utf8").replace(/\r\n/g, "\n"), path).toBe(content);
+      else expect(disk.equals(content), path).toBe(true);
+    }
+  });
+});
+
 describe("Chameleon's config", () => {
   it("passes the build's checks, and a map needs the seekers' and the hiders' spawns", () => {
     expect(validateGameConfig(config, "chameleon")).toEqual([]);
@@ -129,8 +160,8 @@ describe("Chameleon", () => {
       expect(a.inventory.slots[0]).toMatchObject({ typeId: SHOTGUN, lockMode: "slot" });
       expect(a.inventory.slots[1]).toMatchObject({ typeId: DETECTOR, nameTag: "Detector", lockMode: "slot" });
       expect(b.inventory.slots[0]).toBeUndefined();
-      expect(b.inventory.slots[1]).toMatchObject({ typeId: "minecraft:lime_wool", nameTag: "Wear block", lockMode: "slot" });
-      expect(b.inventory.slots[8]).toMatchObject({ typeId: "minecraft:light_blue_wool", nameTag: "Free look" });
+      expect(b.inventory.slots[1]).toMatchObject({ typeId: "minecade:chameleon_wear_block", nameTag: "Wear block", lockMode: "slot" });
+      expect(b.inventory.slots[8]).toMatchObject({ typeId: "minecade:chameleon_free_look", nameTag: "Free look" });
       expect(b.effects.has("weakness")).toBe(true);
       expect(a.effects.has("weakness")).toBe(false);
 

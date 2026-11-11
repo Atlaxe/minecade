@@ -49,6 +49,23 @@ describe("TeamPicks", () => {
     expect(picks.allPicked(["Steve", "Alex"])).toBe(true);
   });
 
+  it("in a role game, offers only the fixed-size roles, each up to its size, and is done once they're full", () => {
+    const roles = { count: 2, defs: [{ id: "seekers", name: "Seekers", color: "§c", size: 1 }, { id: "hiders", name: "Hiders", color: "§a", size: "rest" as const }] };
+    const picks = new TeamPicks(players.slice(0, 2), roles);
+    expect(picks.roles).toBe(true);
+    expect(picks.teams.map((team) => team.id)).toEqual(["seekers"]);
+    expect(picks.allPicked(["Steve", "Alex"])).toBe(false);
+    expect(picks.pick("Steve", "hiders")).toBe(false); // everyone else hides: nothing to pick
+    expect(picks.pick("Steve", "seekers")).toBe(true);
+    expect(picks.pick("Alex", "seekers")).toBe(false); // one seeker
+    expect(picks.view()).toEqual({ teams: [{ id: "seekers", name: "Seekers", color: "§c", members: ["Steve"], cap: 1, full: true }], unpicked: ["Alex"] });
+    expect(picks.allPicked(["Steve", "Alex"])).toBe(true);
+    // The game server honors it.
+    const assigned = assignTeams(players.slice(0, 2), new Map(Object.entries(picks.picks())), roles, () => 0.99);
+    expect(assigned.get("Steve")).toBe("seekers");
+    expect(assigned.get("Alex")).toBe("hiders");
+  });
+
   it("only allows picks the game server's assignTeams honors", () => {
     const picks = new TeamPicks(players, { count: 2 });
     for (const [name, team] of [["Steve", "red"], ["Alex", "red"], ["Bob", "red"], ["Cara", "blue"]] as const) picks.pick(name, team);
