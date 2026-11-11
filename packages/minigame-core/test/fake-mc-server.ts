@@ -537,6 +537,14 @@ export class FakePlayer {
     return { ...this.velocity };
   }
 
+  /** Particles sent to this player alone (spawnParticle), oldest first. */
+  readonly particles: { id: string; location: Vector3 }[] = [];
+
+  spawnParticle(id: string, location: Vector3): void {
+    writable("Player::spawnParticle");
+    this.particles.push({ id, location: { ...location } });
+  }
+
   /** Eye height over the feet, as a standing player's. */
   getHeadLocation(): Vector3 {
     return { x: this.location.x, y: this.location.y + 1.62, z: this.location.z };
@@ -929,16 +937,25 @@ class FakeDimension {
   }
 
   /** Every block in a volume to one permutation, as the real fillBlocks (32,768 blocks at most). */
-  fillBlocks(volume: BlockVolume, block: BlockPermutation): void {
+  /** Fills a volume (only blockFilter's includeTypes is supported): the blocks it changed, as their count. */
+  fillBlocks(volume: BlockVolume, block: BlockPermutation | string, options: { blockFilter?: { includeTypes?: string[] } } = {}): { getCapacity(): number } {
     writable("Dimension::fillBlocks");
     const [from, to] = [volume.from, volume.to];
     const size = (Math.abs(to.x - from.x) + 1) * (Math.abs(to.y - from.y) + 1) * (Math.abs(to.z - from.z) + 1);
     if (size > 32768) throw new Error("fillBlocks: the volume is over 32,768 blocks");
+    const permutation = typeof block === "string" ? BlockPermutation.resolve(block) : block;
+    const only = options.blockFilter?.includeTypes;
+    let changed = 0;
     for (let x = Math.min(from.x, to.x); x <= Math.max(from.x, to.x); x++) {
       for (let y = Math.min(from.y, to.y); y <= Math.max(from.y, to.y); y++) {
-        for (let z = Math.min(from.z, to.z); z <= Math.max(from.z, to.z); z++) this.setBlockPermutation({ x, y, z }, block);
+        for (let z = Math.min(from.z, to.z); z <= Math.max(from.z, to.z); z++) {
+          if (only && !only.includes(this.getBlock({ x, y, z }).typeId)) continue;
+          this.setBlockPermutation({ x, y, z }, permutation);
+          changed++;
+        }
       }
     }
+    return { getCapacity: () => changed };
   }
 
   /** The blocks in a volume of the given types (only includeTypes is supported). */
@@ -1329,7 +1346,7 @@ class FakeWorld {
 
   /** A player finishes breaking the block at `at`: the before-event, then (unless canceled) it's gone. Returns whether it broke. */
   breakBlock(player: FakePlayer, at: Vector3): boolean {
-    const event = { player, block: this.overworld.getBlock(at), cancel: false };
+    const event = { player, block: this.overworld.getBlock(at), itemStack: player.inventory.slots[player.selectedSlotIndex], cancel: false };
     this.beforeEvents.playerBreakBlock.emit(event);
     if (event.cancel) return false;
     event.block.setType("minecraft:air");

@@ -12,6 +12,7 @@ import { validateGameConfig } from "../../../tools/build/validate.ts";
 import config from "../game.config.ts";
 import { BuildSwap, standings } from "../behavior_pack/scripts/buildswap.ts";
 import { clampInto, pairPlots, shell, swapPlots, tiles } from "../behavior_pack/scripts/plots.ts";
+import { WAND, boxVolume, clipBox, cornersBox, fillPieces, fixCells, sizeText, type FixCell } from "../behavior_pack/scripts/selection.ts";
 import { Ballot, VOTES } from "../behavior_pack/scripts/votes.ts";
 
 /** Eight building areas in a row along x, 40 blocks apart, each 24 blocks on a side, with a floor under it at y 63. */
@@ -76,6 +77,21 @@ async function voteAll(game: BuildSwap, players: FakePlayer[], points: (builder:
 }
 
 const placeOn = (player: FakePlayer, x: number, z: number, y = 63) => world.placeBlock(player, { x, y, z }, Direction.Up, "minecraft:stone");
+/** Everyone skips the prompts, the bank answers with none, and the match starts. */
+async function skipPrompts(names: string[], from: number): Promise<void> {
+  await ticks(2);
+  for (const name of names) openLiveForm(name)!.click("Skip");
+  await ticks(12);
+  answerBank(from, []);
+  await ticks(COUNTDOWN_TICKS + 2);
+}
+/** A right click on a block with what's in the hand: whether the game canceled it. */
+function rightClick(player: FakePlayer, at: { x: number; y: number; z: number }): boolean {
+  const event = { player, block: world.overworld.getBlock(at), blockFace: Direction.Up, itemStack: player.inventory.slots[player.selectedSlotIndex], isFirstEvent: true, cancel: false };
+  world.beforeEvents.playerInteractWithBlock.emit(event);
+  return event.cancel;
+}
+const lastMessage = (player: FakePlayer) => stripColors(player.messages.at(-1) ?? "");
 
 describe("Build Swap's config and map", () => {
   it("passes the build's checks; its maps need 8 spawns and 8 building boundaries at least 24 blocks on every side", () => {
@@ -133,6 +149,37 @@ describe("Build Swap's config and map", () => {
     expect(parts.length).toBeGreaterThan(1);
     for (const part of parts) expect(() => encodeMessage(part)).not.toThrow();
     expect(parts.flatMap((part) => part.prompts)).toHaveLength(40);
+  });
+
+  it("selects a box from two corners, keeps it in an area, and cuts it into pieces a fill takes", () => {
+    expect(cornersBox({ first: [5, 70, 1], second: [1, 64, 3] })).toEqual({ min: [1, 64, 1], max: [5, 70, 3] });
+    expect(cornersBox({ first: [2, 2, 2] })).toEqual({ min: [2, 2, 2], max: [2, 2, 2] });
+    expect(cornersBox({})).toBeUndefined();
+    expect(clipBox({ min: [-5, 60, 0], max: [5, 70, 3] }, PLOTS[0])).toEqual({ min: [0, 64, 0], max: [5, 70, 3] });
+    expect(clipBox({ min: [30, 64, 0], max: [35, 70, 3] }, PLOTS[0])).toBeUndefined();
+    expect(sizeText({ min: [0, 0, 0], max: [2, 1, 0] })).toBe("3 x 2 x 1 (6 blocks)");
+    // A 24-block area fills in one go; a big one in layers, each within the limit.
+    expect(fillPieces(PLOTS[0])).toEqual([PLOTS[0]]);
+    const big = { min: [0, 0, 0] as [number, number, number], max: [99, 49, 99] as [number, number, number] };
+    const pieces = fillPieces(big);
+    expect(pieces.every((piece) => boxVolume(piece) <= 32768)).toBe(true);
+    expect(pieces.reduce((sum, piece) => sum + boxVolume(piece), 0)).toBe(boxVolume(big));
+    const wide = { min: [0, 0, 0] as [number, number, number], max: [299, 0, 199] as [number, number, number] };
+    expect(fillPieces(wide).reduce((sum, piece) => sum + boxVolume(piece), 0)).toBe(300 * 200);
+    expect(fillPieces(wide).every((piece) => boxVolume(piece) <= 32768)).toBe(true);
+  });
+
+  it("fixes the pool you stand in: its liquid and air joined to you, no higher, within 7 blocks and the area", () => {
+    // A floor at y 63, a wall along x = 4, and water at y 64 and 65.
+    const kindAt = (at: [number, number, number]): FixCell => (at[1] <= 63 || at[0] === 4 ? "other" : "air");
+    const area = { min: [-20, 60, -20] as [number, number, number], max: [20, 80, 20] as [number, number, number] };
+    const cells = fixCells([0, 64, 0], kindAt, area);
+    expect(cells.every(([x, y, z]) => y === 64 && x < 4 && Math.hypot(x, z) <= 7)).toBe(true);
+    expect(cells).toContainEqual([3, 64, 0]);
+    expect(cells).toContainEqual([0, 64, -7]);
+    expect(cells).not.toContainEqual([5, 64, 0]);
+    // The area cuts it short too.
+    expect(fixCells([0, 64, 0], kindAt, { min: [-2, 64, -2], max: [2, 64, 2] })).toHaveLength(25);
   });
 
   it("counts votes from everyone but the builder, who can change them, and ranks by points", () => {
@@ -321,6 +368,121 @@ describe("a match of Build Swap", () => {
     expect(builds.map((build) => build.starter).every((starter) => starter.length > 0)).toBe(true);
     expect(result).toEqual({ kind: "win", players: ["A"], reason: "everyone else left" });
     expectBaseline(harness.root, baseline);
+    for (const player of players) world.leave(player.name);
+  });
+
+  it("keeps blocks that fall where they're put, and has a selection wand with /set, /replace and /fix inside your own area", async () => {
+    const { players, baseline, from, game } = start(["A", "B", "C"]);
+    const [a, b] = players;
+    const blocks = world.overworld.blocks;
+    const result = await playToEnd(game, harness.root, baseline, async () => {
+      await skipPrompts(["A", "B", "C"], from);
+      expect(stripColors(game.wand(a as never))).toBe("The wand works while you're building.");
+      game.skipStage();
+      await ticks(2);
+      expect(game.activeStage?.name).toBe("Build");
+
+      // Concrete powder, sand and anvils stay up: each becomes its twin that doesn't fall.
+      expect(world.placeBlock(a, { x: 5, y: 70, z: 5 }, Direction.Up, "minecraft:red_concrete_powder")).toBe(true);
+      expect(blocks.get("5,71,5")).toBe("minecade:still_red_concrete_powder");
+      world.placeBlock(a, { x: 6, y: 70, z: 5 }, Direction.Up, "minecraft:anvil");
+      expect(blocks.get("6,71,5")).toBe("minecade:still_anvil");
+      expect(world.overworld.blockStates.get("6,71,5")).toEqual({ "minecraft:cardinal_direction": "south" });
+      world.placeBlock(a, { x: 7, y: 70, z: 5 }, Direction.Up, "minecraft:stone");
+      expect(blocks.get("7,71,5")).toBe("minecraft:stone");
+
+      // The wand: no selection yet, then a corner with each click, inside A's area only.
+      expect(stripColors(game.wand(a as never))).toBe("Left click a block for the first corner, right click one for the second.");
+      const wandSlot = a.inventory.slots.findIndex((item) => item?.typeId === WAND);
+      expect(a.inventory.slots[wandSlot]?.nameTag).toBe("Selection Wand");
+      a.selectedSlotIndex = wandSlot;
+      expect(stripColors(game.set(a as never, "minecraft:stone"))).toBe("Pick two corners with the wand first (/wand).");
+      blocks.set("1,64,1", "minecraft:dirt");
+      expect(world.breakBlock(a, { x: 1, y: 64, z: 1 })).toBe(false); // the wand doesn't break it
+      expect(blocks.get("1,64,1")).toBe("minecraft:dirt");
+      await ticks(1);
+      expect(lastMessage(a)).toBe("First corner set.");
+      expect(rightClick(a, { x: 45, y: 64, z: 2 })).toBe(true);
+      await ticks(1);
+      expect(lastMessage(a)).toBe("Pick a block inside your building area.");
+      expect(rightClick(a, { x: 3, y: 65, z: 2 })).toBe(true);
+      await ticks(1);
+      expect(lastMessage(a)).toBe("Second corner set: 3 x 2 x 2 (12 blocks).");
+      // Its dots show to A alone (looking its way: dots behind a player aren't drawn).
+      a.viewDirection = { x: -0.7, y: 0, z: -0.7 };
+      await ticks(10);
+      expect(a.particles.some((particle) => particle.id === "minecade:outline")).toBe(true);
+      expect(b.particles).toEqual([]);
+
+      // /set fills it (a block that falls as its twin), /replace swaps one block for another.
+      expect(stripColors(game.set(a as never, "minecraft:stone"))).toBe("Set 12 blocks.");
+      for (const at of ["1,64,1", "3,65,2", "2,64,2"]) expect(blocks.get(at)).toBe("minecraft:stone");
+      expect(blocks.has("4,64,1")).toBe(false);
+      expect(stripColors(game.set(a as never, "minecraft:sand"))).toBe("Set 12 blocks.");
+      expect(blocks.get("2,65,1")).toBe("minecade:still_sand");
+      blocks.set("2,64,2", "minecraft:sand");
+      expect(stripColors(game.replace(a as never, "minecraft:sand", "minecraft:oak_planks"))).toBe("Replaced 12 blocks.");
+      expect(blocks.get("2,64,2")).toBe("minecraft:oak_planks");
+      expect(stripColors(game.replace(a as never, "minecraft:dirt", "minecraft:stone"))).toBe("Nothing in your selection was that block.");
+      // B has no selection of their own, and can't reach A's.
+      expect(stripColors(game.set(b as never, "minecraft:stone"))).toBe("Pick two corners with the wand first (/wand).");
+
+      // /fix: standing in the water, the pool turns still and level, walls and floor left alone.
+      for (let x = 8; x <= 12; x++) for (let z = 8; z <= 12; z++) {
+        blocks.set(`${x},63,${z}`, "minecraft:stone");
+        if (x === 8 || x === 12 || z === 8 || z === 12) blocks.set(`${x},64,${z}`, "minecraft:stone");
+      }
+      a.location = { x: 10.5, y: 64, z: 10.5 };
+      expect(stripColors(game.fix(a as never))).toBe("Stand in the water or lava to fix, then /fix.");
+      blocks.set("10,64,10", "minecraft:flowing_water");
+      blocks.set("9,64,10", "minecraft:flowing_water");
+      expect(stripColors(game.fix(a as never))).toBe("Fixed 9 blocks of water.");
+      for (const at of ["9,64,9", "10,64,10", "11,64,11"]) expect(blocks.get(at)).toBe("minecraft:water");
+      expect(blocks.get("8,64,10")).toBe("minecraft:stone");
+      expect(blocks.has("10,65,10")).toBe(false);
+      expect(stripColors(game.fix(a as never))).toBe("The water is already still.");
+      world.leave("B");
+      world.leave("C");
+      await ticks(25);
+    });
+    expect(result).toMatchObject({ kind: "win", players: ["A"] });
+    expectBaseline(harness.root, baseline);
+    world.overworld.reset();
+    for (const player of players) world.leave(player.name);
+  });
+
+  it("calls a voter who hasn't voted after 10 seconds, loudly, and again until they do", async () => {
+    const { players, baseline, from, game } = start(["A", "B", "C"]);
+    const result = await playToEnd(game, harness.root, baseline, async () => {
+      await skipPrompts(["A", "B", "C"], from);
+      for (let skip = 0; skip < 4; skip++) {
+        game.skipStage();
+        await ticks(2);
+      }
+      expect(game.activeStage?.name).toBe("Vote");
+      const builder = players.find((player) => player.name === game.voting!.builder)!;
+      const [first, second] = players.filter((player) => player !== builder);
+      const nags = (player: FakePlayer) => player.titles.map(stripColors).filter((title) => title === "Vote! | Pick a number from 1 to 5").length;
+      const roars = (player: FakePlayer) => player.sounds.filter((sound) => sound.id === "mob.wither.spawn").length;
+      await ticks(config.voteNagSeconds * 20 - 5);
+      expect(nags(first)).toBe(0);
+      world.afterEvents.itemUse.emit({ source: first, itemStack: new ItemStack(VOTES[2].item) });
+      await ticks(10);
+      // The one who voted and the builder are left alone.
+      expect([nags(first), roars(first), nags(builder), roars(builder)]).toEqual([0, 0, 0, 0]);
+      expect([nags(second), roars(second)]).toEqual([1, 1]);
+      await ticks(config.voteNagSeconds * 20);
+      expect(nags(second)).toBe(2);
+      world.afterEvents.itemUse.emit({ source: second, itemStack: new ItemStack(VOTES[2].item) });
+      await ticks(config.voteNagSeconds * 20);
+      expect(nags(second)).toBe(2);
+      world.leave("B");
+      world.leave("C");
+      await ticks(25);
+    });
+    expect(result.kind).toBe("win");
+    expectBaseline(harness.root, baseline);
+    world.overworld.reset();
     for (const player of players) world.leave(player.name);
   });
 

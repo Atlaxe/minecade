@@ -72,6 +72,11 @@ export default defineGame({
   twistMinutes: 5,
   /** Once everyone has voted on a build, seconds until the next one (votes can still change). */
   voteGraceSeconds: 10,
+  /**
+   * A voter who hasn't voted this long after a build shows gets a big "Vote!" title and a wither's
+   * roar (the user's ask, 2026-11-11: loud and obnoxious), again each time this passes.
+   */
+  voteNagSeconds: 10,
   /** A build nobody can vote on (only its builders are here) shows this long. */
   showSeconds: 5,
 });

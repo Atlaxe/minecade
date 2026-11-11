@@ -126,6 +126,39 @@ Same rig, with a cases file (`npx tsx spike/knockback/run.ts cases.json`) and tw
 
 What the code does with this: Sumo's default `knockback.mode` is "vanilla" (its `onDamage` returns 0 for melee hits), and "scripted" uses the numbers above with a 10-tick cooldown per victim and credits its own pushes. Since 2026-11-11 Sumo knocks twice as far (`knockback.strength` 2, the user's ask): in vanilla mode each hit that lands (`afterEvents.entityHurt`, so not the taps the hurt cooldown drops) gets a push of 1.5 (2.25 sprinting) on top, keeping the hurt flash and the cooldown; scripted mode multiplies its horizontal numbers. Its double jump pushes up at `0.5 - min(0, vy + 0.125) / 2`, so it rises the same whether the player is going up or falling. `combat.ts` now takes kill credit from `afterEvents.entityHurt`, plus lethal hits it intercepts, so a tap inside the cooldown can't steal a knock-off. `damage: "none"` stays "cancel every hit" (for games where hits should do nothing at all); games that want push-only hits return 0 from `onDamage` instead.
 
+## Block physics (BDS 1.26.60.6, @minecraft/server 2.11.0, checked 2026-11-11)
+
+Measured on a throwaway BDS (`npx tsx spike/physics/run.ts`): red concrete powder, sand and an anvil
+put in the air over a stone floor, by script and by a creative SimulatedPlayer
+(`useItemInSlotOnBlock` against a pillar's side), each checked 10 or 20 ticks later and again after
+a block was set beside it. The runner also loads Build Swap's twins (`games/buildswap/behavior_pack/blocks`).
+
+| Question | Finding |
+|---|---|
+| A gravity block a script puts in the air | **Falls**, every way: `setType`, `setPermutation`, `/setblock`, `fillBlocks`, and a structure placed there. One falling block entity each, the block lands on the floor. |
+| A player's | `playerPlaceBlock` fires in the placing tick; the falling block entity spawns **2 ticks later** (cause Spawned), a block lower. |
+| Putting it back | Removing the falling block entity and setting the block again (`setPermutation` in `entitySpawn`) only starts another fall; setting it to air and back in `playerPlaceBlock` still falls. A script can't keep a vanilla gravity block up. |
+| A custom twin (no gravity) | **Stays**: set in the air by script, and in place of a player's block in `playerPlaceBlock` (no falling block entity ever spawns), and after a neighbor update. All 23 of Build Swap's twins load with no content errors. |
+| Anvil states | `minecraft:anvil`, `minecraft:chipped_anvil` and `minecraft:damaged_anvil` are separate blocks, each with `damage` (undamaged, slightly_damaged, very_damaged), `minecraft:cardinal_direction` and the older `direction` (0 to 3). Placed looking north it was `west`, direction 1. Concrete powders carry a `color` state (light gray's is `silver`). |
+
+What the code does with this: Build Swap swaps each gravity block a builder places for its twin in
+`playerPlaceBlock` (`still-blocks.ts`), and `/set`, `/replace` and `/floor` fill with twins.
+Before, the game's "nothing spawned stays" rule removed the falling block entity, so concrete
+powder placed in the air just vanished.
+
+## Custom command names (BDS 1.26.60.6, @minecraft/server 2.11.0, checked 2026-11-11)
+
+`npx tsx spike/commands/run.ts` registers custom commands and runs them from the console.
+
+| Question | Finding |
+|---|---|
+| `minecade:/wand` and `minecade://wand` | **Registered** without complaint, but `/wand` (what a player's `//wand` reaches the server as) fails: "Unknown command: /". The parser splits the second slash off, so WorldEdit's `//` commands can't work. |
+| `minecade:wand`, `set`, `replace`, `fix` | Run by their bare names (`wand`, `set stone`); no vanilla command is in the way. `minecade:-set` runs as `-set` too. |
+| A `BlockType` parameter | Takes a bare id (`set stone`, `set red_concrete_powder`) and gives the script `minecraft:stone`. |
+
+What the code does with this: Build Swap's selection commands take one slash: `/wand`, `/set`,
+`/replace`, `/fix`.
+
 ## Map editor (pass 10.1, BDS 1.26.60.6, @minecraft/server 2.11.0, checked 2026-10-30)
 
 Source: a copy of the user's converted world "Datapacking (imported)" (6.8 MB, a void world with a

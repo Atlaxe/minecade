@@ -797,10 +797,12 @@ open in Edit, or being opened there, closes first.
   the void around a map and sheets in open sky were never painted), so each piece sets its first
   block by hand in every slice it crosses first. Block geometry mirrors x, so a plane `n` pixels
   from a block's west side sits at `7 - n` in it.
-- **Select's outlines** are particles (`editor/resource_pack/particles/outline.json`) sent to the
-  holder only: Select works in a converted world that gets exported, so it puts no blocks in it.
-  `viewDots` in `scripts/boxes.ts` works out where each dot goes and how big it is for that player
-  (tune `DOTS` there), and each refresh has a budget, so a big map costs no more than a small one.
+- **Select's outlines** are particles (core's `minecade:outline`,
+  `packages/minigame-core/resource_pack/particles/outline.json`) sent to the holder only: Select
+  works in a converted world that gets exported, so it puts no blocks in it. `viewDots` (core's
+  `outline-dots.ts`, re-exported by `scripts/boxes.ts`) works out where each dot goes and how big it
+  is for that player (tune `DOTS` there), and each refresh has a budget, so a big map costs no more
+  than a small one. Games draw the same outlines with core's `drawOutline` (Build Swap's selection).
 
 ## Shared blocks pack
 

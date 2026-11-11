@@ -5,16 +5,15 @@
 // far dots are drawn closer in on the same line of sight, sized and spaced by distance
 // (boxes.ts viewDots), so they look alike near and far. Each dot has a dark rim, so it shows on
 // bright and dark backgrounds alike. A budget per refresh keeps a big map as cheap as a small one.
-import { MolangVariableMap, world, type Player } from "@minecraft/server";
-import type { Box, Scope } from "@minecade/minigame-core";
+import { world, type Player } from "@minecraft/server";
+import { drawDots, type Box, type Scope } from "@minecade/minigame-core";
 import { viewDots, type Dot, type View } from "./boxes.ts";
 import { ALL_BOUNDARIES, SELECTION_COLOR, outlineShown, type OutlineBox, type Rgb } from "./regions.ts";
 import { nudgePreview, previewEditing } from "./box-picker.ts";
 import { heldTool } from "./tool-host.ts";
 import type { ToolId } from "./tools.ts";
 
-/** The editor resource pack's dot (particles/outline.json): it lives a little longer than a refresh. */
-const PARTICLE = "minecade:outline";
+/** Core's dot (particles/outline.json) lives a little longer than a refresh. */
 const REFRESH_TICKS = 10;
 const SELECTION_BUDGET = 300;
 /** Dots for the map's boxes, shared between them, with at least BOX_BUDGET each. */
@@ -67,16 +66,5 @@ export class Outlines {
 }
 
 function dots(player: Player, list: Dot[], color: Rgb): void {
-  if (list.length === 0 || !player.isValid) return;
-  const molang = new MolangVariableMap();
-  molang.setColorRGB("variable.color", color);
-  for (const dot of list) {
-    molang.setFloat("variable.size", dot.size);
-    try {
-      player.spawnParticle(PARTICLE, dot, molang);
-    } catch {
-      // Outside the world's height, or the player just left.
-      if (!player.isValid) return;
-    }
-  }
+  drawDots(player, list, color);
 }

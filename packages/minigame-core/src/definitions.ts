@@ -180,3 +180,4 @@ export {
   type Death,
   type DeathMessageConfig,
 } from "./text.ts";
+export { DOTS, viewDots, type Dot, type Point, type View } from "./outline-dots.ts";

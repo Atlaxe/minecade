@@ -10,6 +10,7 @@ export { inBeforeEvent, Scope, type ScopeCounts, type Signal } from "./scope.ts"
 export { homePort, readServerVars, type ServerVars } from "./vars.ts";
 export { TransferService } from "./transfer.ts";
 export { showForm } from "./ui.ts";
+export { OUTLINE_PARTICLE, OUTLINE_REFRESH_TICKS, drawDots, drawOutline, outlineColor, type OutlineColor } from "./game/outline.ts";
 export { normalizePlayer } from "./player.ts";
 export { killDeathRatio, winRate } from "./stats-math.ts";
 export {

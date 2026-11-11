@@ -1,0 +1,76 @@
+{
+  "format_version": [
+    1,
+    1,
+    0
+  ],
+  "minecade:still_white_concrete_powder": {
+    "sound": "sand"
+  },
+  "minecade:still_orange_concrete_powder": {
+    "sound": "sand"
+  },
+  "minecade:still_magenta_concrete_powder": {
+    "sound": "sand"
+  },
+  "minecade:still_light_blue_concrete_powder": {
+    "sound": "sand"
+  },
+  "minecade:still_yellow_concrete_powder": {
+    "sound": "sand"
+  },
+  "minecade:still_lime_concrete_powder": {
+    "sound": "sand"
+  },
+  "minecade:still_pink_concrete_powder": {
+    "sound": "sand"
+  },
+  "minecade:still_gray_concrete_powder": {
+    "sound": "sand"
+  },
+  "minecade:still_light_gray_concrete_powder": {
+    "sound": "sand"
+  },
+  "minecade:still_cyan_concrete_powder": {
+    "sound": "sand"
+  },
+  "minecade:still_purple_concrete_powder": {
+    "sound": "sand"
+  },
+  "minecade:still_blue_concrete_powder": {
+    "sound": "sand"
+  },
+  "minecade:still_brown_concrete_powder": {
+    "sound": "sand"
+  },
+  "minecade:still_green_concrete_powder": {
+    "sound": "sand"
+  },
+  "minecade:still_red_concrete_powder": {
+    "sound": "sand"
+  },
+  "minecade:still_black_concrete_powder": {
+    "sound": "sand"
+  },
+  "minecade:still_sand": {
+    "sound": "sand"
+  },
+  "minecade:still_red_sand": {
+    "sound": "sand"
+  },
+  "minecade:still_gravel": {
+    "sound": "gravel"
+  },
+  "minecade:still_anvil": {
+    "sound": "anvil"
+  },
+  "minecade:still_chipped_anvil": {
+    "sound": "anvil"
+  },
+  "minecade:still_damaged_anvil": {
+    "sound": "anvil"
+  },
+  "minecade:still_dragon_egg": {
+    "sound": "stone"
+  }
+}

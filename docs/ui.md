@@ -515,6 +515,35 @@ Build Swap has every player write prompts before the match, in a live form like 
 - **Text filter:** what's typed goes through Minecraft's filter for the writer (`getFilteredText`),
   and is taken as typed when the filter is off or doesn't answer within 3 seconds.
 
+## Build Swap's building tools
+
+Everything here works only while building, and only inside the area being built
+(`games/buildswap/behavior_pack/scripts/selection.ts` and `buildswap.ts`):
+
+- **Blocks that fall stay put:** concrete powder, sand, red sand, gravel, the anvils and the dragon
+  egg become their twin the tick they're placed (`minecade:still_<id>`, the same look and name, no
+  gravity; `still-blocks.ts`, drawn by `tools/assets/still-blocks.ts` into the game's packs). A
+  block that falls would otherwise turn into a falling block entity two ticks later, which the game
+  removes like anything spawned, so it vanished. An anvil keeps its facing; a twin doesn't open the
+  anvil screen or turn concrete powder into concrete in water.
+- **/wand** gives the selection wand, a wooden axe named Selection Wand (any wooden axe works). Left
+  click a block for the first corner, right click one for the second; neither breaks nor strips
+  anything. A corner outside your area is refused. Chat says each corner, and the selection's size
+  once both are set. The selection shows as yellow dots on its edges (core's `drawOutline`, the map
+  editor's Select outline), to its builder alone, while they look its way. Corners are forgotten
+  each round.
+- **/set `<block>`** fills the selection; **/replace `<from>` `<to>`** swaps one block for another
+  in it (a block that falls goes in as its twin, and `/replace sand ...` takes the twins too). Both
+  autocomplete block names and say how many blocks changed.
+- **/fix**, standing in water or lava: the pool around you turns still and level, as WorldEdit's
+  `//fixwater`: every block of that liquid or air joined to where you stand, never higher, within 7
+  blocks and inside your area, becomes a still source.
+- **Why one slash:** Bedrock reads WorldEdit's `//wand` as a command named `/wand` and stops at the
+  second slash ("Unknown command: /"), so `//` can't work; measured in `spike/commands`
+  (docs/spike-results.md, "Custom command names").
+- **Voting:** a voter who still hasn't voted 10 seconds after a build shows (`voteNagSeconds`) gets
+  a big "Vote!" title and a wither's roar, again every 10 seconds until they do.
+
 ## Countdown sounds
 
 A game's frozen countdown at the spawns is `countdownSeconds` (5 unless it says; Build Swap has none,

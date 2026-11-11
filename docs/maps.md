@@ -224,7 +224,7 @@ where one player builds; put one spawn in each (the game pairs each spawn with t
 in, or the nearest one left), facing the build if you like, since players also stand there to
 vote on that build. Put a floor under each box rather than inside it: players can change every
 block inside their box, and nothing outside it (`/floor` lays the block in hand across the box's
-bottom layer). Leave space between boxes (liquids that run out of a box are cleared from the
+bottom layer, and the selection wand with `/set`, `/replace` and `/fix` works inside it). Leave space between boxes (liquids that run out of a box are cleared from the
 block-thick shell around it, and a shell that cuts into another box is skipped). A box bigger than
 64 blocks on a side works: the game saves it in 64-block pieces. Builders are kept within 2 blocks
 of their box unless the map sets its own **Build padding** (`"buildPadding"`, 0 to 32), and put back

@@ -7,13 +7,17 @@
 // for their prompt and their twist, to them alone.
 //
 // Players build in creative mode, only inside the building area they're working on (they can
-// change any block there, and /floor lays the block in hand across its bottom), and are kept
+// change any block there, and /floor lays the block in hand across its bottom; the selection wand
+// and /set, /replace and /fix work there too, selection.ts), and are kept
 // within the map's build padding of it (put back once they've been past it for the map's return
 // delay). In a round's prep time they can take blocks from creative's inventory, but not build yet.
 // Out of their rounds they're still in creative (so voters can fly; adventure mode can't), but keep
 // nothing from creative's inventory: a voter only their vote blocks. Voters are kept within the
-// same padding of the build being voted on, put back at once. Nothing spawned (mobs, items,
-// armor stands) stays, TNT and fire do nothing, and liquids that run out of an area are cleared.
+// same padding of the build being voted on, put back at once; one who still hasn't voted after
+// voteNagSeconds gets a big "Vote!" and a wither's roar, again each time that passes. Nothing
+// spawned (mobs, items, armor stands) stays, TNT and fire do nothing, and liquids that run out of
+// an area are cleared. Blocks that fall (concrete powder, sand, gravel, anvils) stay where they're
+// put: each becomes its twin that doesn't (still-blocks.ts).
 import {
   BlockPermutation,
   BlockVolume,
@@ -26,6 +30,7 @@ import {
   ItemStack,
   system,
   world,
+  type Block,
   type Entity,
   type Player,
   type Vector3,
@@ -33,6 +38,7 @@ import {
 import {
   COLOR,
   Minigame,
+  OUTLINE_REFRESH_TICKS,
   Notes,
   PromptBank,
   cleanPrompt,
@@ -40,12 +46,14 @@ import {
   dealPrompts,
   describeError,
   draw,
+  drawOutline,
   facingOf,
   hudText,
   inside,
   log,
   nameOf,
   ordinal,
+  outlineColor,
   PROMPT_MAX_CHARS,
   say,
   worldPoint,
@@ -54,13 +62,17 @@ import {
   type MapPosition,
   type PromptKind,
   type Result,
+  type Box,
   type Scope,
   type SpawnReason,
+  type Vec3,
 } from "@minecade/minigame-core";
 import type config from "../../game.config.ts";
 import { DEFAULT_STARTERS, DEFAULT_TWISTS } from "./default-prompts.ts";
 import { PromptForm, type PromptAnswer } from "./prompt-form.ts";
-import { LiquidGuard, PLOT_REGION, Snapshots, blockInside, clampInto, floorOf, grow, pairPlots, swapPlots, tiles, type Plot } from "./plots.ts";
+import { LIQUIDS, LiquidGuard, PLOT_REGION, Snapshots, blockInside, clampInto, floorOf, grow, pairPlots, swapPlots, tiles, type Plot } from "./plots.ts";
+import { SELECTION_HEX, WAND, WAND_NAME, boxVolume, clipBox, cornersBox, fillPieces, fixCells, sizeText, type Corners, type FixCell } from "./selection.ts";
+import { stillStates, stillTwin } from "./still-blocks.ts";
 import { Ballot, VOTES, votePoints, voteText } from "./votes.ts";
 
 /** How often the prompt form's status and the players near their areas are checked, in ticks. */
@@ -81,6 +93,11 @@ const FALLBACK = { starter: "Anything you like", twist: "Make it bigger" };
 const BUILD_PADDING = "buildPadding";
 /** The map setting for how long (seconds) builders may stay past the padding before they're put back. */
 const RETURN_DELAY = "returnDelay";
+/** What a voter who hasn't voted hears with the "Vote!" title: loud on purpose (the user's ask). */
+const NAG_SOUND = "mob.wither.spawn";
+/** The most dots a selection takes a refresh. */
+const SELECTION_DOTS = 300;
+const SELECTION_COLOR = outlineColor(SELECTION_HEX);
 /** Where armor and the off hand go: emptied with the inventory out of building time. */
 const WORN = [EquipmentSlot.Head, EquipmentSlot.Chest, EquipmentSlot.Legs, EquipmentSlot.Feet, EquipmentSlot.Offhand];
 
@@ -136,6 +153,22 @@ export function shuffled<T>(list: readonly T[], random: () => number): T[] {
   return copy;
 }
 
+/** Water or lava for a block that is either (still or flowing); undefined for anything else. */
+function liquidAt(typeId: string | undefined): "water" | "lava" | undefined {
+  if (typeId === undefined || !LIQUIDS.includes(typeId)) return undefined;
+  return typeId.includes("lava") ? "lava" : "water";
+}
+
+/** What a builder's block id is placed as: its twin when it would fall; undefined for something that isn't a block. */
+function placeable(typeId: string): BlockPermutation | undefined {
+  const twin = stillTwin(typeId);
+  try {
+    return BlockPermutation.resolve(twin ? twin.still : typeId);
+  } catch {
+    return undefined;
+  }
+}
+
 /** "m:ss". */
 function clock(seconds: number): string {
   const whole = Math.max(0, Math.ceil(seconds));
@@ -162,6 +195,8 @@ export class BuildSwap extends Minigame<typeof config> {
   private readonly working = new Map<string, Build>();
   /** Where each participant must stay: their area while building, the one being voted on while voting. */
   private readonly keepIn = new Map<string, KeepIn>();
+  /** Each builder's selection corners (the wand), by lowercase name; cleared every round. */
+  private readonly corners = new Map<string, Corners>();
   private building = false;
   /** Each player's line after the clock, while it isn't the vote's. */
   private readonly lines = new Map<string, string>();
@@ -211,6 +246,13 @@ export class BuildSwap extends Minigame<typeof config> {
     // vote instead of being placed.
     this.scope.subscribeBefore(world.beforeEvents.playerInteractWithBlock, (event) => {
       const name = event.player.name;
+      // The wand's right click picks the second corner, and does nothing else (no stripped logs).
+      if (event.itemStack?.typeId === WAND) {
+        event.cancel = true;
+        const at = event.block.location;
+        if (event.isFirstEvent !== false) system.run(() => this.pickCorner(name, "second", at));
+        return;
+      }
       const points = votePoints(event.itemStack?.typeId);
       if (points !== undefined && this.ballot) {
         event.cancel = true;
@@ -224,19 +266,28 @@ export class BuildSwap extends Minigame<typeof config> {
       if (!box || !(blockInside(at, box) || (event.itemStack !== undefined && blockInside(beside, box)))) event.cancel = true;
     });
     this.scope.subscribeBefore(world.beforeEvents.playerBreakBlock, (event) => {
+      // The wand's left click picks the first corner instead of breaking the block.
+      if (event.itemStack?.typeId === WAND) {
+        event.cancel = true;
+        const [name, at] = [event.player.name, event.block.location];
+        system.run(() => this.pickCorner(name, "first", at));
+        return;
+      }
       const box = this.workBox(event.player.name);
       if (!box || !blockInside(event.block.location, box)) event.cancel = true;
     });
-    // A placement that still landed outside (a tall block's top half) is taken back.
+    // A placement that still landed outside (a tall block's top half) is taken back. One that falls
+    // becomes its twin that doesn't, before it can (two ticks later).
     this.scope.subscribe(world.afterEvents.playerPlaceBlock, ({ player, block }) => {
       const box = this.workBox(player.name);
-      if (box && blockInside(block.location, box)) return;
+      if (box && blockInside(block.location, box)) return this.keepStill(block);
       try {
         block.setType("minecraft:air");
       } catch {
         // gone already
       }
     });
+    this.scope.interval(() => this.drawSelections(), OUTLINE_REFRESH_TICKS);
     this.scope.subscribe(world.afterEvents.itemUse, ({ source, itemStack }) => {
       const points = votePoints(itemStack.typeId);
       if (points !== undefined) this.castVote(source.name, points);
@@ -433,6 +484,7 @@ export class BuildSwap extends Minigame<typeof config> {
   private async round(kind: PromptKind, seconds: number): Promise<void> {
     this.keepIn.clear();
     this.working.clear();
+    this.corners.clear();
     for (const build of this.builds.values()) {
       const worker = kind === "starter" ? build.builder : build.twister;
       if (!this.present(worker)) continue;
@@ -464,6 +516,7 @@ export class BuildSwap extends Minigame<typeof config> {
     });
     this.building = false;
     this.working.clear();
+    this.corners.clear();
     this.title(say.highlight("Time's up!"));
   }
 
@@ -538,6 +591,7 @@ export class BuildSwap extends Minigame<typeof config> {
       stage.scope.interval(() => {
         if (ballot.done) stage.end();
       }, 5);
+      stage.scope.interval(() => this.nagVoters(ballot), this.config.voteNagSeconds * 20);
     });
     await this.stage("Next build", { seconds: this.config.voteGraceSeconds });
     this.ballot = undefined;
@@ -555,6 +609,20 @@ export class BuildSwap extends Minigame<typeof config> {
       this.player(name)?.playSound(VOTE_SOUND, { pitch: 0.8 + points * 0.1 });
     } catch {
       // gone
+    }
+  }
+
+  /** Every player who still hasn't voted on the part under way: a big "Vote!" and a wither's roar, to them. */
+  private nagVoters(ballot: Ballot): void {
+    if (this.ballot !== ballot || ballot.done) return;
+    for (const name of this.online()) {
+      if (!ballot.isVoter(name) || ballot.voteOf(name) !== undefined || this.fakes?.has(name)) continue;
+      this.title(say.warn("Vote!"), say.info("Pick a number from 1 to 5"), name, 50);
+      try {
+        this.player(name)?.playSound(NAG_SOUND, { volume: 1 });
+      } catch {
+        // gone
+      }
     }
   }
 
@@ -681,12 +749,8 @@ export class BuildSwap extends Minigame<typeof config> {
     if (!box) return say.minor("Lay a floor while you're building.");
     const item = player.getComponent(EntityComponentTypes.Inventory)?.container.getItem(player.selectedSlotIndex);
     if (!item) return say.minor("Hold the block for the floor, then /floor.");
-    let block: BlockPermutation;
-    try {
-      block = BlockPermutation.resolve(item.typeId);
-    } catch {
-      return say.minor("That isn't a block: hold the block for the floor.");
-    }
+    const block = placeable(item.typeId);
+    if (!block) return say.minor("That isn't a block: hold the block for the floor.");
     const dimension = world.getDimension("overworld");
     try {
       for (const tile of tiles(floorOf(box))) dimension.fillBlocks(new BlockVolume(corner(tile.min), corner(tile.max)), block);
@@ -695,6 +759,142 @@ export class BuildSwap extends Minigame<typeof config> {
       return say.warn("The floor didn't go down: try again.");
     }
     return say.success("Floor laid.");
+  }
+
+  // ---- The selection wand, /set, /replace and /fix ------------------------------------------
+
+  /** /wand: a wooden axe, the selection wand. Returns what happened. */
+  wand(player: Player): string {
+    if (!this.workBox(player.name)) return say.minor("The wand works while you're building.");
+    const wand = new ItemStack(WAND, 1);
+    wand.nameTag = WAND_NAME;
+    try {
+      const left = player.getComponent(EntityComponentTypes.Inventory)?.container.addItem(wand);
+      if (left) return say.warn("Your inventory is full: make room for the wand.");
+    } catch (error) {
+      log.warn(`buildswap: could not give ${player.name} the wand: ${describeError(error)}`);
+      return say.warn("The wand didn't come: try again.");
+    }
+    return say.success("Left click a block for the first corner, right click one for the second.");
+  }
+
+  /** The wand's click: a corner of the selection, inside the area being built. */
+  private pickCorner(name: string, which: keyof Corners, at: Vector3): void {
+    const player = this.player(name);
+    const box = this.workBox(name);
+    if (!player) return;
+    if (!box) return player.sendMessage(say.minor("The wand works while you're building."));
+    if (!blockInside(at, box)) return player.sendMessage(say.warn("Pick a block inside your building area."));
+    const key = keyOf(name);
+    const corners = { ...this.corners.get(key), [which]: [Math.floor(at.x), Math.floor(at.y), Math.floor(at.z)] as Vec3 };
+    this.corners.set(key, corners);
+    const selected = cornersBox(corners);
+    const size = corners.first && corners.second && selected ? `: ${sizeText(selected)}` : "";
+    player.sendMessage(say.info(`${which === "first" ? "First" : "Second"} corner set${size}.`));
+  }
+
+  /** A builder's selection, inside the area they're building; undefined (with why) when there isn't one. */
+  private selection(player: Player): { box: Box } | { problem: string } {
+    const area = this.workBox(player.name);
+    if (!area) return { problem: say.minor("That works while you're building.") };
+    const corners = this.corners.get(keyOf(player.name));
+    if (!corners?.first || !corners.second) return { problem: say.minor("Pick two corners with the wand first (/wand).") };
+    const box = clipBox(cornersBox(corners)!, area);
+    return box ? { box } : { problem: say.minor("Your selection is outside your building area.") };
+  }
+
+  /** /set: the selection filled with `block`. Returns what happened. */
+  set(player: Player, block: string): string {
+    const picked = this.selection(player);
+    if ("problem" in picked) return picked.problem;
+    const permutation = placeable(block);
+    if (!permutation) return say.warn("That isn't a block.");
+    try {
+      const dimension = world.getDimension("overworld");
+      for (const piece of fillPieces(picked.box)) dimension.fillBlocks(new BlockVolume(corner(piece.min), corner(piece.max)), permutation);
+    } catch (error) {
+      log.warn(`buildswap: ${player.name}'s /set failed: ${describeError(error)}`);
+      return say.warn("That didn't work: try again.");
+    }
+    const count = boxVolume(picked.box);
+    return say.success(`Set ${count === 1 ? "1 block" : `${count} blocks`}.`);
+  }
+
+  /** /replace: every `from` in the selection (its twin too) becomes `to`. Returns what happened. */
+  replace(player: Player, from: string, to: string): string {
+    const picked = this.selection(player);
+    if ("problem" in picked) return picked.problem;
+    const permutation = placeable(to);
+    if (!permutation) return say.warn("That isn't a block.");
+    const twin = stillTwin(from)?.still;
+    const includeTypes = twin ? [from, twin] : [from];
+    let count = 0;
+    try {
+      const dimension = world.getDimension("overworld");
+      for (const piece of fillPieces(picked.box)) {
+        count += dimension.fillBlocks(new BlockVolume(corner(piece.min), corner(piece.max)), permutation, { blockFilter: { includeTypes } }).getCapacity();
+      }
+    } catch (error) {
+      log.warn(`buildswap: ${player.name}'s /replace failed: ${describeError(error)}`);
+      return say.warn("That didn't work: try again.");
+    }
+    return count === 0 ? say.minor("Nothing in your selection was that block.") : say.success(`Replaced ${count === 1 ? "1 block" : `${count} blocks`}.`);
+  }
+
+  /**
+   * /fix, standing in water or lava: the pool around you becomes still liquid, levelled to where
+   * you stand and its gaps filled, up to FIX_RADIUS blocks away, inside your building area.
+   */
+  fix(player: Player): string {
+    const area = this.workBox(player.name);
+    if (!area) return say.minor("That works while you're building.");
+    const dimension = world.getDimension("overworld");
+    const feet: Vec3 = [Math.floor(player.location.x), Math.floor(player.location.y), Math.floor(player.location.z)];
+    const liquid = [feet, [feet[0], feet[1] + 1, feet[2]] as Vec3].map((at) => liquidAt(dimension.getBlock(corner(at))?.typeId)).find(Boolean);
+    if (!liquid) return say.minor("Stand in the water or lava to fix, then /fix.");
+    if (!blockInside(corner(feet), area)) return say.minor("Stand in your building area to fix.");
+    const kindAt = (at: Vec3): FixCell => {
+      const typeId = dimension.getBlock(corner(at))?.typeId;
+      if (typeId === undefined) return "other";
+      if (typeId === "minecraft:air") return "air";
+      return liquidAt(typeId) === liquid ? "liquid" : "other";
+    };
+    const still = BlockPermutation.resolve(`minecraft:${liquid}`, { liquid_depth: 0 });
+    let count = 0;
+    try {
+      for (const at of fixCells(feet, kindAt, area)) {
+        const block = dimension.getBlock(corner(at));
+        if (!block) continue;
+        if (block.typeId === `minecraft:${liquid}` && block.permutation.getState("liquid_depth") === 0) continue;
+        block.setPermutation(still);
+        count++;
+      }
+    } catch (error) {
+      log.warn(`buildswap: ${player.name}'s /fix failed: ${describeError(error)}`);
+      return say.warn("That didn't work: try again.");
+    }
+    return count === 0 ? say.minor(`The ${liquid} is already still.`) : say.success(`Fixed ${count === 1 ? "1 block" : `${count} blocks`} of ${liquid}.`);
+  }
+
+  /** Each builder's selection, in dots only they see. */
+  private drawSelections(): void {
+    if (!this.building) return;
+    for (const [key, corners] of this.corners) {
+      const box = cornersBox(corners);
+      const player = box && this.working.has(key) ? this.player(key) : undefined;
+      if (player && box) drawOutline(player, box, SELECTION_COLOR, SELECTION_DOTS);
+    }
+  }
+
+  /** A gravity block a builder placed, as its twin that stays put (an anvil keeps its facing). */
+  private keepStill(block: Block): void {
+    try {
+      const states = block.permutation.getAllStates();
+      const twin = stillTwin(block.typeId, states);
+      if (twin) block.setPermutation(BlockPermutation.resolve(twin.still, stillStates(twin, states)));
+    } catch (error) {
+      log.warn(`buildswap: could not keep a ${block.typeId} from falling: ${describeError(error)}`);
+    }
   }
 
   // ---- Helpers ------------------------------------------------------------------------------
