@@ -81,6 +81,7 @@ export {
   queueSettings,
   runtimeMapConfig,
   spectatorBoundsBoxes,
+  startViewCamera,
   teamKey,
   worldSpawnOf,
   worldPoint,

@@ -74,9 +74,13 @@ describe("fake players in a preview", () => {
       expect(players[0].nameTag).toBe("");
       world.hurt(bodyOf("Fake 2")!, 5, "entityAttack", { attacker: a });
       expect(bodyOf("Fake 2")?.nameTag).toBe(heartsText(15, 20));
+      // A gun's hit takes health straight off, which Minecraft never reports as a hurt: the hearts follow it too.
+      expect(game.combat.hit(bodyOf("Fake 2") as never, "A", 3, "entityAttack", { direct: true })).toBe("hurt");
+      expect(bodyOf("Fake 2")?.nameTag).toBe(heartsText(12, 20));
 
       // A sword kill: the hit is intercepted like a player's, and the fake is out (no respawns). It
-      // watches from the spectator spawn, floating there, nameless (seen, unlike a player).
+      // watches from the spectator spawn, floating there, nameless and unseen, as a player in
+      // spectator mode is.
       const fake1 = bodyOf("Fake 1");
       world.hurt(fake1!, 25, "entityAttack", { attacker: a });
       expect(fake1!.health.currentValue).toBe(20);
@@ -86,6 +90,7 @@ describe("fake players in a preview", () => {
       expect(fake1!.location).toEqual({ x: 0.5, y: 75, z: 0.5 });
       expect(fake1!.events.at(-1)).toBe("minecade:float");
       expect(fake1!.nameTag).toBe("");
+      expect(fake1!.effects.has("invisibility")).toBe(true);
       expect(stripColors(world.chat.at(-1) ?? "")).toMatch(/^Fake 1 .* A$/);
 
       // Right click: the side panel asks first. Closing it leaves everyone be; the red button lets

@@ -49,6 +49,15 @@ export class MapView {
     return spawn ? ([...spawn] as MapPosition) : undefined;
   }
 
+  /**
+   * The lens of the camera players wait looking through before the match, on a map with no queue
+   * spawn ([x, y, z, yaw, pitch] at the eyes: runtimeMapConfig's startView), if it has one.
+   */
+  get startView(): [x: number, y: number, z: number, yaw: number, pitch: number] | undefined {
+    const view = this.config.startView;
+    return Array.isArray(view) && view.length === 5 && view.every((value) => typeof value === "number" && Number.isFinite(value)) ? [...view] : undefined;
+  }
+
   /** How players wait at the queue spawn (the defaults when the map doesn't say). */
   get queue(): QueueSettings {
     return queueSettings(this.config);

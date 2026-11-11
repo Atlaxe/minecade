@@ -171,6 +171,10 @@ bubbles show over it. The lens is art to paint over (the table below). A game ad
 through `Minigame.hudCodes` (docs/guns.md, "Aiming"); with it, a line with no clock is still marked
 (`HUD_MARK`), so its text shows top right rather than over the hotbar.
 
+**A flag to take:** `FLAG_CODE` (`§k§e`) anywhere on the line shows a bubble of its own reading
+"Capture the flag!" in gold, left of the rounds, the score and the clock (`mc_flag_box` in the core
+pack's `ui/hud_screen.json`). Gunfight adds it through `hudCodes` while its flag's circle is up.
+
 **Team scores as sides:** a game whose `scoring` has `display: "sides"` (Paintball) has no sidebar:
 every team's score shows in the rounds box, as the best-of score does, each in its team's color with
 gray bars between ("3 | 1 | 0 | 2", up to 99). It's for team scores (`per: "team"`) of up to four
@@ -371,9 +375,23 @@ Paintball (`games/paintball`) is two to four teams with the shared guns: first t
 
 ## Gunfight
 
-Two teams (Red and Blue, names over heads in their color, team leather), best of 5 (the lobby's
-Best of), one life a round, 90 second rounds (core's `standingResult` decides one that runs out:
-more players standing, then more health). `games/gunfight`.
+Two teams of one or two (2 to 4 players, so a preview's fake players and the player fill 4 at
+most), Red and Blue, names over heads in their color, team leather. First to 5 round wins (best of
+10, as the user asked), shown top right as each team's wins in its color ("R | B", the rounds box's
+score display). One life a round, 4 minute rounds, then the flag. `games/gunfight`.
+
+- **The flag:** when a round's 4 minutes run out, a circle comes up around the map's flag (its
+  `flag` point, which Siege's maps carry for Gunfight) for 20 seconds, on a clock of its own top
+  right, with a "Capture the flag!" bubble beside it (`FLAG_CODE`), a title and a line in chat. The
+  circle is a ring of `minecade:flag_ring` particles (the core pack's), 2 blocks out from the flag,
+  gold, or the color of the team taking it. A team alone in it (2 blocks across, from a block
+  below the flag to 2 above) for 5 seconds in a row takes the round ("took the flag"); the other
+  team stepping in holds it up ("Contested" for those in it), and the taking team leaving starts
+  it over (`FlagCapture`). Those taking it see the seconds left as a title with a tick each
+  second, and chat says when a team starts taking it. Standing the other team down still takes the
+  round meanwhile. Nobody takes it: the team with more health left takes the round, then the one
+  that dealt more damage that round (`flagTimeUpWinner`), else it's a draw. A map with no flag goes
+  straight to that rule (and the log says so). The config's `flag` holds the numbers.
 
 - **Loadouts:** each round everyone gets the same one, dealt by `LoadoutDeck` from the config's
   `loadouts`: a primary (Assault Rifle, SMG, Burst Rifle, Pump Shotgun, Double Barrel, Sniper
@@ -389,7 +407,9 @@ more players standing, then more health). `games/gunfight`.
   back only from a stimpack. The held gun's ammo is the text bubble top right, over the round's
   clock and circles, redrawn shot by shot.
 - **Stats:** kills, deaths and wins as every team game, and Headshots.
-- **Maps:** Siege's (`map.borrow`). Previews: open a Siege map in Edit, Preview, Play as Gunfight.
+- **Maps:** Siege's (`map.borrow`), each with a Flag (Gunfight) point: Siege asks for one, so the
+  checklist of every Siege map has it. Previews: open a Siege map in Edit, Preview, Play as
+  Gunfight.
 
 ## Gun Game
 
@@ -418,6 +438,7 @@ spawn away from everyone: core's `spawnAway`), late joiners welcome, a 10 minute
 - **HUD:** the held gun's ammo in the text bubble top right, the clock, and in the skull box how
   far up you are (the kills that counted). The Sniper Rifle's scope as in Gunfight.
 - **Time up:** the furthest up the ladder wins, then the most kills; otherwise a draw.
+- **The win** says only who won: no reason after it (the first kill with the last weapon says it all).
 - **Stats:** kills, deaths and wins, and Headshots.
 - **Maps:** One in the Quiver's (`map.borrow`). It has no picture of its own yet: the lobby shows the
   stand-in until one is taken. Previews: open a Quiver map in Edit, Preview, Play as Gun Game.
@@ -476,9 +497,9 @@ too, so the box stays one line tall whatever the lines say. A game never needs t
 this: lock items as usual (`lockMode`, `keepOnDeath`).
 
 **Effect icons are hidden on every server** (the core pack's `ui/hud_screen.json` removes
-`mob_effects_renderer` from the HUD). A lock-in queue makes players invisible with an effect, and
-the HUD draws every effect's icon as one piece, so the invisibility one can't be hidden alone. A
-kit's effects don't show either.
+`mob_effects_renderer` from the HUD). A lock-in queue (and the camera view, and a shared spawn)
+makes players invisible with an effect, and the HUD draws every effect's icon as one piece, so the
+invisibility one can't be hidden alone. A kit's effects don't show either.
 
 ## The lobby terminal
 

@@ -2,7 +2,7 @@
   "format_version": 2,
   "header": {
     "name": "Minecade Gunfight",
-    "description": "Gunfight: two teams, one life a round, everyone with the same guns, new every round, sides switching, best of 5",
+    "description": "Gunfight: two teams, one life a round, everyone with the same guns, new every round, sides switching, first to 5 rounds, a flag to take when time runs out",
     "uuid": "6eb3d76e-f145-4bbe-9826-3e180dc059d7",
     "version": [0, 1, 0],
     "min_engine_version": [1, 26, 60]

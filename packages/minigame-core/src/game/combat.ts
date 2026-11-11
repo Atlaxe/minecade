@@ -40,6 +40,11 @@ export interface CombatHost {
   areAllies(a: string, b: string): boolean;
   onDamage(hit: Hit): number | "cancel" | void;
   down(name: string, cause: string): void;
+  /**
+   * A game-made hit took health straight off (hit's `direct`), which Minecraft doesn't report as
+   * a hurt: a fake player's hearts follow it from here.
+   */
+  healthChanged?(victim: Entity): void;
 }
 
 const MAX_HEALTH = 20;
@@ -99,6 +104,7 @@ export class Combat {
     if (options.direct) {
       healthComponent?.setCurrentValue(health - amount);
       this.stats.damage(name, amount, attacker);
+      this.host.healthChanged?.(victim);
     } else {
       victim.applyDamage(amount);
     }

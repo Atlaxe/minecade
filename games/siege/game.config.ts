@@ -116,8 +116,10 @@ export default defineGame({
     ],
   },
   options: [{ id: "bestOf", label: "Best of", values: BEST_OF.map((rounds) => ({ value: String(rounds), label: `${rounds} rounds` })) }],
-  // Players watch from the spectator or queue spawn once they're out (core's default).
-  map: { teamSpawns: true, bounds: true },
+  // Players watch from the spectator or queue spawn once they're out (core's default). Gunfight
+  // plays Siege's maps too, and takes its rounds at a flag when their time runs out: Siege doesn't
+  // use it, but every Siege map has one for Gunfight (its game.config.ts, `flag`).
+  map: { teamSpawns: true, bounds: true, points: { flag: { label: "Flag (Gunfight)" } } },
   stats: { mode: "team", pvp: true },
   /** The hotbar slot every class's ability item is in. */
   abilitySlot: ABILITY_SLOT,

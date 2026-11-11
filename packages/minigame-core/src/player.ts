@@ -46,6 +46,8 @@ export function normalizePlayer(player: Player, gameMode: GameMode = GameMode.Ad
     for (const category of INPUT_CATEGORIES) player.inputPermissions.setPermissionCategory(category, true);
   });
   step("hud", () => player.onScreenDisplay.resetHudElementsVisibility());
+  // Their own view again (a game's waiting camera, Minigame's camera view before the match).
+  step("camera", () => player.camera.clear());
   step("name tag", () => {
     if (player.nameTag !== player.name) player.nameTag = player.name; // team colors
   });

@@ -58,25 +58,28 @@ asks for the team's color with `teamGunItem(kind)`. White is the pickups' look.
 | Paintball Shotgun | One spray a press | 20 | 6 | 12 degrees | Half a second of flight; at most 2 of a spray count on one target | `mob.llama.spit`, low |
 | Paint Grenade | Thrown with either click, used up | 10 | | | 10 s | Lands, swells for a second, bursts |
 
-A left click fires one shot (one spray) with any of them. Paintball's guns have no magazine (they
-never run dry) and don't aim (see "Aiming").
+A left click fires one shot (one spray) with the rifle and the shotgun; the pistol fires on right
+click only (its `leftClickFires: false`), so a left click with it is a punch. Paintball's guns have
+no magazine (they never run dry) and don't aim (see "Aiming").
 
 ### The arsenal
 
 One item each: `minecade:<id>` (`arsenalItem(id)`). The real pistol, rifle and shotgun are
 Paintball's models without the paint hopper. Right click fires them all (`hold` guns again and
-again while it's held); a left click fires one shot, except with the Sniper Rifle, Rail Gun and
-RPG, which it raises to aim (see "Aiming"). The others fire from the hip.
+again while it's held); a left click fires one shot, except with the Pistol (right click only, as
+the user asked: a left click is a punch) and the Sniper Rifle, Rail Gun and RPG, which it raises to
+aim (see "Aiming"). The others fire from the hip. A left click while sneaking reloads any of them
+before its magazine is empty.
 
 | Item | Id | Fires | Every (ticks) | Damage body / head (20 is full health) | Magazine, reload | Notes |
 |---|---|---|---|---|---|---|
 | Pistol | `handgun` | tap | 5 | 5 / 8 | 12, 1.5 s | falls to 60% from 25 to 60 blocks |
 | SMG | `smg` | hold | 2 | 3 / 4 | 32, 1.75 s | 45 block reach, falls to half from 15 to 35 |
-| Assault Rifle | `assault_rifle` | hold | 3 | 4 / 6 | 30, 2 s | 90 block reach |
-| Burst Rifle | `burst_rifle` | tap: 3 shots 2 ticks apart | 12 | 5 / 8 | 24, 2 s | 90 block reach |
+| Assault Rifle | `assault_rifle` | hold | 3 | 4 / 6 | 30, 2 s | 90 block reach, 1.2 degrees off, falls to 80% from 50 to 90; a light kick |
+| Burst Rifle | `burst_rifle` | tap: 3 shots 2 ticks apart | 12 | 5 / 8 | 24, 2 s | 90 block reach, 0.8 degrees off, falls to 80% from 50 to 90; a light kick |
 | Pump Shotgun | `pump_shotgun` | tap: 6 pellets | 18 | 3.5 / 4 each | 6, 3 s | 18 block reach |
 | Double Barrel | `double_barrel` | tap: 8 pellets | 6 | 2.5 / 3 each | 2, 2 s | 14 block reach, wide |
-| Sniper Rifle | `sniper_rifle` | tap | 30 | 17 / 40 | 5, 2.5 s | aims (zoom 30, the most Bedrock allows; dead on); 10 degrees off from the hip; aiming hides the model (the zoom is the scope) |
+| Sniper Rifle | `sniper_rifle` | tap | 30 | 17 / 40 | 5, 2.5 s | aims (zoom 30, the most Bedrock allows; dead on); 10 degrees off from the hip; aiming hides the model (the zoom is the scope) and slows its holder to 40% (`aimSpeed`) |
 | Rail Gun | `rail_gun` | tap: a beam | 40 | 20 | 4, 3 s | aims (zoom 40, dead on); goes through every player in line |
 | RPG | `rpg` | tap: a rocket | 20 | 20 direct, up to 14 in 4 blocks | 1, 3 s | aims (zoom 55); the shooter takes half its blast |
 | Frag Grenade | `frag_grenade` | thrown, lands, 1.5 s fuse | 10 | up to 18 in 5 blocks | | |
@@ -118,12 +121,15 @@ and texture (`arsenal/rocket.png`).
   repeated while it's down instead, so there a held gun keeps firing for its `triggerTicks` (10)
   after each repeat. Probe says in chat when a held gun lets go: its shots, how long it was down and
   how the button came (in use, repeats, or neither), to tune it. A left click fires one shot (a burst
-  gun its burst) with any gun that doesn't aim, and raises or lowers the Sniper Rifle, Rail Gun and
-  RPG (see "Aiming"): the camera zooms to its field of view, its shots stray less, and the held
-  model comes up. Bedrock sends no left click while right click is held, so a player can't hold fire
-  and aim at once. Switching slots lowers a raised gun and lets go of a held one. A right click on a
-  door, trapdoor, gate, button or lever (vanilla's or Paintball's painted ones) uses it and doesn't
-  fire. A gun's left click swing is kept to 0.05 s so it barely moves the hand.
+  gun its burst) with any gun that doesn't aim, except the pistols (`leftClickFires: false`: the
+  Paintball Pistol and the arsenal's Pistol fire on right click only), and raises or lowers the
+  Sniper Rifle, Rail Gun and RPG (see "Aiming"): the camera zooms to its field of view, its shots
+  stray less, and the held model comes up. A left click while sneaking (`player.isSneaking`)
+  reloads a gun with a magazine that isn't full, any gun, and doesn't fire or aim it. Bedrock sends
+  no left click while right click is held, so a player can't hold fire and aim at once. Switching
+  slots lowers a raised gun and lets go of a held one. A right click on a door, trapdoor, gate,
+  button or lever (vanilla's or Paintball's painted ones) uses it and doesn't fire. A gun's left
+  click swing is kept to 0.05 s so it barely moves the hand.
 - **Hotbar:** each shot (a burst's first) starts the gun's own cooldown (`minecade_<gun>`, its fire
   rate) with the player's `startItemCooldown`, and Minecraft shades it over the slot until the gun
   can fire again. While it shades, a right click does nothing (a cooling item can't be used), so a
@@ -186,7 +192,12 @@ and texture (`arsenal/rocket.png`).
 - **Pickups:** `minecade:gun_pickup` floats, spins and bobs a white Paintball gun or grenade (the
   `minecade:kind` property); `minecade:arsenal_pickup` does the same for any arsenal model (the
   `minecade:model` property, an index into `ARSENAL_MODELS`). Thrown arsenal items fly as
-  `minecade:arsenal_thrown` and landed grenades sit as `minecade:arsenal_primed`.
+  `minecade:arsenal_thrown` and landed grenades sit as `minecade:arsenal_primed`. Their render
+  controllers pick the model's texture and geometry from two arrays with names of their own
+  (`Array.model_skins`, `Array.model_geos`; the pickups' `Array.kind_skins`, `Array.kind_geos`), as
+  vanilla's do: both were once `Array.models` (and `Array.kinds`), and the user saw the thrown
+  knife and the knife left to pick up drawn as nothing (2026-11-11). Whether that was why is not yet
+  seen in game; a test keeps the names apart.
 
 A game fires Paintball's guns with `Guns` (Paintball's own script) and the arsenal with `Arsenal`,
 giving it a host:
@@ -233,6 +244,10 @@ HUD line is drawn every half second then).
 attribute (`minecraft:movement`) to that share of its own; switching to anything else, going out
 (`forget`) or the game ending gives it back. A sprint and a Stimpack's speed still add on top. Only
 the speed a Guns set is ever given back, so a game's own change to a player's movement stays.
+Looking through the Sniper Rifle's scope slows them more, to `SCOPED_SPEED` (0.4, its `aimSpeed`),
+from the click that raises it to the one that lowers it (Guns weighs again at once both times).
+Slower mouse turning while scoped isn't possible: no script call or pack setting reaches a
+player's sensitivity, and the zoom (30, the most Bedrock allows) is as close as it gets.
 
 **Bring aiming back** for another gun:
 

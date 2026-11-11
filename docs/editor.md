@@ -390,7 +390,8 @@ you back in creative at every spawn).
   - The checklist's Kill Y and build limit rows give you the tool already set to that row.
 - **Camera tool:** pictures for the lobby (see "Pictures"). Using it places a camera at your eyes at
   once, looking your way, of the kind the tool's settings say (**Game picture** off or on). Hit a
-  camera to look through it (as the Snapshot tool does); right click it for its kind and Delete.
+  camera to look through it (as the Snapshot tool does); right click it for its kind, Start view
+  and Delete.
 - **Snapshot tool:** takes a camera's picture (see "Pictures"). Using it lists the cameras; its
   settings in the map menu list them too.
 - **Mannequin tool** (a game's maps): stand-ins for players in the game's picture (see "Pictures").
@@ -615,8 +616,11 @@ model of its own. `map.json` names one by a hash of the player's xuid, never the
 skin this PC hasn't saved shows as Color. A skin the watcher saves shows after the editor's next
 start.
 
-Right click a camera for its form: **Game picture** (switches its kind) and Delete. The Camera tool's
-settings list every camera too. Lobby maps can have cameras (the Snapshot only nudges them there),
+Right click a camera for its form: **Game picture** (switches its kind), **Start view** and Delete.
+Start view is on for every camera until it's turned off: on a map with no queue spawn, players wait
+before the match looking through a camera that has it on (a map preview first, then a game picture,
+each in name order; `docs/maps.md`, "Where players wait"). Turn it off on every camera for players
+to wait at their spawns instead. The Camera tool's settings list every camera too. Lobby maps can have cameras (the Snapshot only nudges them there),
 but the lobby shows no picture of its own map.
 
 ## A new map id

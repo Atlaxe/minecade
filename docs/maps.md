@@ -47,7 +47,7 @@ The map editor sets spawns and points in game and writes `map.json` for you; see
 | `kits` | no | Games only: kits of the map's own, for a game whose players pick kits. `{ "mode": "append", "list": [kits] }` adds them after the game's (a kit with the same `id` as one of the game's takes its place); `"mode": "replace"` uses only the map's. A `base` replaces the game's base kit either way. Each kit is written as in `game.config.ts`: `{ "id": "ice", "name": "Ice", "refill": "round", "items": [{ "item": "minecraft:snowball", "count": 16 }] }`. The map editor keeps it as written; there's no screen for it yet. A game whose kits are the same on every map (`kits.mapKits: false`, Siege) refuses a map's own. |
 | `build.commands` | no | Console commands (no leading `/`) that build the world, run once by `npm run bake`. |
 | `gameThumbnail` | no | Games only: `true` marks a map made for taking its game's picture (a minigame thumbnail map, the Panel's map viewer's Map settings): the Panel's Maps page and viewer show the game's picture for it, and the viewer can publish that picture alone (`docs/viewer.md`, "Pictures"). Servers never get it. |
-| `source`, `cameras`, `mannequins`, `mannequinsInPreview` | no | Written by the map editor: where the map was cut from, its preview cameras (`{ "Camera 1": { "at": [x, y, z, yaw, pitch], "kind": "map" \| "game" } }`, the eye point and view the Camera tool saved), and its mannequins, stand-ins for game pictures (`{ "Mannequin 1": { "at": [x, y, z, yaw], "skin": "color", "color": "red", "pose": "standing", "hold": "minecraft:bow" } }`, the Mannequin tool's; ids from minigame-core's `fake-looks.ts`, or for a player's saved skin "p" and a hash of their xuid), and whether the mannequins stand in its previews (`true`, the Mannequin tool's Show in previews; a preview's server then gets them as `previewMannequins`, each look worked out for its pack). Servers never get them. |
+| `source`, `cameras`, `mannequins`, `mannequinsInPreview` | no | Written by the map editor: where the map was cut from, its preview cameras (`{ "Camera 1": { "at": [x, y, z, yaw, pitch], "kind": "map" \| "game" } }`, the eye point and view the Camera tool saved; `"startView": false` when its Start view is off, see "Where players wait" below), and its mannequins, stand-ins for game pictures (`{ "Mannequin 1": { "at": [x, y, z, yaw], "skin": "color", "color": "red", "pose": "standing", "hold": "minecraft:bow" } }`, the Mannequin tool's; ids from minigame-core's `fake-looks.ts`, or for a player's saved skin "p" and a hash of their xuid), and whether the mannequins stand in its previews (`true`, the Mannequin tool's Show in previews; a preview's server then gets them as `previewMannequins`, each look worked out for its pack). Servers never get them. |
 | anything else | no | Game-specific settings the game reads itself: the settings its config names (`map.settings`, below, set with the map editor's Game settings tool), each a whole number under its key (`"buildPadding": 4`), the default when it's left out. |
 
 **Positions** are `[x, y, z]`, or `[x, y, z, yaw, pitch]` with a fixed facing in degrees (yaw -180
@@ -59,7 +59,11 @@ and points must be inside a `bounds` box, and regions inside the box around them
 inside a max of 12). The lobby's
 `terminal` point is always a block.
 
-Servers get `map.json` without `build`, `source`, `cameras`, `mannequins`, `mannequinsInPreview`, `gameThumbnail` and `draft`. `npm run build` reports
+Servers get `map.json` without `build`, `source`, `cameras`, `mannequins`, `mannequinsInPreview`, `gameThumbnail` and `draft`, and with
+`startView`: the lens (`[x, y, z, yaw, pitch]`) of the camera players wait looking through
+(`runtimeMapConfig`, from the cameras; never written in a map's own `map.json`). The map store's
+export writes each published world's `map.json` again when what servers get changes, so a map
+published before needn't be published again. `npm run build` reports
 every problem in every map at once, and warns (without stopping) about two entries of a list in
 the same block.
 
@@ -77,8 +81,34 @@ With a `queueSpawn`, the start of a game goes:
 3. Everyone moves to their spawns, visible again, for the game's usual frozen countdown, then "Go!".
    If players drop below the minimum, it's back to the queue.
 
-Without one, players wait at their spawns, as before. The map editor places it with the Spawn
-tool (Queue spawn, in Place into); hit its marker for Lock in and the countdown.
+The map editor places it with the Spawn tool (Queue spawn, in Place into); hit its marker for Lock
+in and the countdown.
+
+## Where players wait
+
+Before the match, best first (the user's order):
+
+1. **The queue spawn**, when the map has one (above).
+2. **A camera's view**, when it has none but has a camera with Start view on (every camera, until
+   it's turned off in its form: the Camera tool, right click its marker). Of those, a map preview
+   comes before a game picture, each kind in name order. Everyone waits under its lens, unable to
+   move, looking through it (the free camera at its eye point, its yaw and pitch), held up on a
+   barrier if it's in the air, and invisible with no name tag. Once everyone's in (and has picked
+   a kit), they go to their spawns for the usual frozen countdown, their own view back. A fall off
+   the spot is caught within 2 ticks; the bounds don't apply to it.
+3. **Their spawns**, when there's neither.
+
+**Sharing a spot:** a locked queue and the camera view are one spot for everyone, so everyone
+there is invisible with no name tag. Waiting at their spawns, players who share one with someone
+(a spawn for two, a team on its one spawn) are invisible and nameless while they're together, and
+seen again once they're apart; the same goes for teammates on one spawn through a best-of round's
+frozen countdown, until "Go!".
+
+**The floor:** a locked queue spawn or the camera view in the air gets a barrier in the block under
+it (in place of air or a liquid, put back as it was once everyone leaves). A locked spot is only
+left for being more than a block off it, never for being outside `bounds`, so a waiting room above
+the map holds everyone still. A free queue spawn (or a spectator's queue spawn) outside the bounds
+puts players back only when they fall 4 blocks below it or walk 32 away.
 
 **Watching from the queue spawn:** a map with a `queueSpawn` and no `spectatorSpawn` has players
 who are out (or waiting to respawn), late joiners who spectate, and players past the game's limit
@@ -86,7 +116,7 @@ wait at the queue spawn instead: on foot in adventure mode, with empty hands, se
 without a name tag (whatever `queue.mode` says). A fall below `killY` or a step out of `bounds` puts
 them back there (on a map with `spectatorBounds`, a step out of those). A preview's fake players go where players would: in the queue while waiting, at
 their spawns in the match, and when out at the queue spawn on foot, or floating at the spectator
-spawn (seen there, unlike a player).
+spawn, unseen as a player in spectator mode is.
 
 **Name tags:** while players wait (at their spawns, or in a free queue) their gamertags show. During
 the match they're hidden, players' and a preview's fake players' alike, unless the game's config has
@@ -179,7 +209,9 @@ Per team:
 - a `spawnGuard.<team>` region around the team's spawn (and its hole), where nobody builds.
 
 **Siege** needs team spawns (one per team at least; up to four players share a team's spawns, so
-give each team a few), bounds, and a spectator or queue spawn. Players who are out watch from there
+give each team a few), bounds, a spectator or queue spawn, and a Flag (Gunfight) point: Siege
+never uses it, but Gunfight plays Siege's maps and takes a round there when its time runs out
+(docs/ui.md, "Gunfight"). Players who are out watch from there
 until the next round. Water anywhere on the map hurts every class but the Seaman, a heart a second,
 so a moat or a pool is part of the map's design. Its classes are the same on every map: a Siege map
 can't have `kits` of its own (the build and the editor's checklist refuse them).
@@ -224,8 +256,9 @@ map: { teamSpawns: true, bounds: true, borrow: ["siege"] },
 - The build lists the other game's published maps after the game's own (each in `registry.json`
   with `owner`, the game it belongs to, and that game's preview), and refuses two maps with the
   same id. It also checks that the other game asks at least what this one asks of a map
-  (`uncoveredRequirements`), so any map it publishes will do: Siege's team spawns, bounds and
-  spectator or queue spawn are all Gunfight needs.
+  (`uncoveredRequirements`), so any map it publishes will do: Siege's team spawns, bounds,
+  spectator or queue spawn and Flag (Gunfight) point are all Gunfight needs. Siege never uses the
+  flag; it asks for one so its maps carry it for Gunfight.
 - A borrowed map stays its own game's: it's made, edited and published there, and Gunfight gets
   each new version of it with Siege's next publish. Its world is published under its owner, so the
   orchestrator looks it up there and starts the server with `MAP_GAME` (the entrypoint reads

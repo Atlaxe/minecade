@@ -90,8 +90,8 @@ describe("bullets", () => {
     const ann = player("Ann", { x: 0.5, y: 65, z: 0.5 }, gun("handgun"));
     player("Bo", { x: 0.5, y: 65, z: 10.5 });
     player("Cy", { x: 0.5, y: 65, z: 20.5 });
-    // Level from the eyes: Bo's head.
-    click(ann);
+    // Level from the eyes: Bo's head. The Pistol fires on right click.
+    use(ann);
     expect(hurts).toEqual([{ victim: "Bo", attacker: "Ann", amount: ARSENAL_GUN_DEFS.handgun.damage.head, cause: "gun" }]);
     const [streak] = particles(PARTICLES.streak);
     expect(streak.variables!.values.get("variable.dist")).toBeGreaterThan(8);
@@ -99,7 +99,7 @@ describe("bullets", () => {
     // A little lower: the body.
     system.advanceTicks(ARSENAL_GUN_DEFS.handgun.everyTicks);
     look(ann, 0, -0.1, 1);
-    click(ann);
+    use(ann);
     expect(hurts[1]).toMatchObject({ victim: "Bo", amount: ARSENAL_GUN_DEFS.handgun.damage.body });
     expect(world.overworld.sounds.filter((sound) => sound.id === ARSENAL_GUN_DEFS.handgun.sound.id)).toHaveLength(2);
   });
@@ -114,15 +114,16 @@ describe("bullets", () => {
     expect(particles(PARTICLES.impact)).toHaveLength(1);
     expect(particles(PARTICLES.impact)[0].location.z).toBeCloseTo(5, 1);
     expect(damageAt(ARSENAL_GUN_DEFS.assault_rifle.damage, 10, false)).toBe(4);
-    expect(damageAt(ARSENAL_GUN_DEFS.assault_rifle.damage, 90, false)).toBeCloseTo(4 * 0.7);
-    expect(damageAt(ARSENAL_GUN_DEFS.assault_rifle.damage, 65, true)).toBeCloseTo(6 * (1 - 0.5 * 0.3));
+    expect(damageAt(ARSENAL_GUN_DEFS.assault_rifle.damage, 50, false)).toBe(4);
+    expect(damageAt(ARSENAL_GUN_DEFS.assault_rifle.damage, 90, false)).toBeCloseTo(4 * 0.8);
+    expect(damageAt(ARSENAL_GUN_DEFS.assault_rifle.damage, 70, true)).toBeCloseTo(6 * (1 - 0.5 * 0.2));
   });
 
   it("go through a block that isn't solid, and never hit the shooter", () => {
     const { hurts } = setup();
     const ann = player("Ann", { x: 0.5, y: 65, z: 0.5 }, gun("handgun"));
     look(ann, 0, -1, 0);
-    click(ann);
+    use(ann);
     expect(hurts).toEqual([]);
   });
 
@@ -183,7 +184,7 @@ describe("bullets", () => {
     const ann = player("Ann", { x: 0.5, y: 65, z: 0.5 }, gun("handgun"));
     player("Bo", { x: 0.5, y: 65, z: 10.5 });
     down.add("Ann");
-    click(ann);
+    use(ann);
     expect(hurts).toEqual([]);
   });
 });

@@ -17,6 +17,8 @@
 //   ("R | B") (bestOfCodes).
 // - Scope: SCOPE_CODE anywhere in the line draws a gun's scope over the whole screen (a game adds it
 //   while Guns.isScoped, through Minigame.hudCodes).
+// - Flag: FLAG_CODE anywhere in the line shows a "Capture the flag!" bubble left of the others
+//   (Gunfight, while its flag can be taken).
 // The pack's controls for the clock and the rounds are generated from these codes
 // (tools/assets/clock-hud.ts and rounds-hud.ts write ui/minecade_clock.json and minecade_rounds.json).
 import type { Player } from "@minecraft/server";
@@ -34,6 +36,11 @@ export const CLOCK_URGENT = "§k§b";
  * textures/minecade/hud/scope.png from tools/assets/scope-hud.ts). Must match hud_screen.json.
  */
 export const SCOPE_CODE = "§k§l";
+/**
+ * Shows the "Capture the flag!" bubble top right, left of the rounds, the score and the clock
+ * (Gunfight's flag capture adds it through Minigame.hudCodes). Must match hud_screen.json.
+ */
+export const FLAG_CODE = "§k§e";
 
 /**
  * Starts a title that shows in the map editor's mode box top center instead of as a title: the

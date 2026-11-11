@@ -1,8 +1,16 @@
 import { STIMPACK, arsenalItem, arsenalItemName } from "@minecade/guns/defs";
 import { defineGame } from "@minecade/minigame-core/config";
 
-/** The lobby's Best of setting: how many rounds a match can last. The first is the default. */
-const BEST_OF = [5, 3, 7];
+/**
+ * The flag: the map point it stands on and its name in the map editor (Siege's maps carry it too:
+ * games/siege), and how it's taken when a round's clock runs out, for `seconds`: players standing
+ * within `radius` blocks of it (across; from a block below to 2 above), one team alone there for
+ * `holdSeconds` in a row, take the round.
+ */
+const FLAG = { point: "flag", label: "Flag (Gunfight)", radius: 2, holdSeconds: 5, seconds: 20 } as const;
+
+/** Round wins that take the match: best of 10, first to 5, as the user asked. */
+const FIRST_TO = 5;
 
 /** What a round's loadout is dealt from: one of each, the same for everyone. */
 const LOADOUTS = {
@@ -20,18 +28,22 @@ const LOADOUTS = {
   grenade: [arsenalItem("frag_grenade"), arsenalItem("molotov"), arsenalItem("flashbang"), arsenalItem("smoke_grenade"), arsenalItem("throwing_knife")],
 };
 
-// Gunfight: two teams, one life a round, everyone with the same guns. Each round deals one loadout
-// to everyone: a primary (each comes up once before any comes again), a secondary, a grenade and a
-// stimpack, all from the arsenal (packages/guns) or vanilla's one-hit crossbow and netherite sword.
-// The teams take each other's spawns every other round. The last team standing takes the round, the
-// first to win more than half (3 of 5) takes the match; a round that runs out of time goes to the
-// team with more players standing, then more health left. It plays Siege's maps as they are.
+// Gunfight: two teams of one or two, one life a round, everyone with the same guns. Each round
+// deals one loadout to everyone: a primary (each comes up once before any comes again), a
+// secondary, a grenade and a stimpack, all from the arsenal (packages/guns) or vanilla's one-hit
+// crossbow and netherite sword. The teams take each other's spawns every other round. The last team
+// standing takes the round, the first to 5 round wins takes the match (best of 10, shown as each
+// team's wins, "R | B"). A round lasts 4 minutes; then the flag's circle comes up for 20 seconds,
+// and a team that holds it alone for 5 seconds takes the round. Nobody does: the team with more
+// health left takes it, then the one that dealt more damage that round. It plays Siege's maps, each
+// with a flag (Siege's maps ask for one for Gunfight).
 export default defineGame({
   id: "gunfight",
   name: "Gunfight",
-  description: "Two teams, one life a round, everyone with the same guns. The guns and the sides change every round. Best of 5.",
+  description: "Two teams, one life a round, everyone with the same guns. The guns and the sides change every round. First to 5 rounds.",
   minPlayers: 2,
-  maxPlayers: 8,
+  // Two a team at most, as the user asked; a preview's fake players and the player fill 4 at most.
+  maxPlayers: 4,
   countdownSeconds: 5,
   // No clock over the match: each round has its own (bestOf.roundSeconds).
   timeLimitSeconds: 0,
@@ -41,7 +53,9 @@ export default defineGame({
   teams: { count: 2 },
   combat: { killCreditSeconds: 8 },
   respawn: { mode: "none" },
-  bestOf: { rounds: BEST_OF[0], display: "icons", option: "bestOf", roundSeconds: 90, swapSides: true },
+  // Each round's clock: 4 minutes, then the flag (flag below).
+  bestOf: { firstTo: FIRST_TO, display: "score", roundSeconds: 240, swapSides: true },
+  flag: FLAG,
   // Health comes back only from a stimpack.
   gameRules: { naturalRegeneration: false },
   deathMessages: { verbs: ["shot", "gunned down", "dropped", "outgunned"] },
@@ -59,10 +73,9 @@ export default defineGame({
       },
     ],
   },
-  options: [{ id: "bestOf", label: "Best of", values: BEST_OF.map((rounds) => ({ value: String(rounds), label: `${rounds} rounds` })) }],
   // Players watch from the spectator or queue spawn once they're out (core's default). Siege asks
-  // the same of a map, so every Siege map will do.
-  map: { teamSpawns: true, bounds: true, borrow: ["siege"] },
+  // the same of a map, the flag too, so every Siege map will do.
+  map: { teamSpawns: true, bounds: true, points: { [FLAG.point]: { label: FLAG.label } }, borrow: ["siege"] },
   stats: { mode: "team", pvp: true, extras: [{ key: "headshots", label: "Headshots", agg: "sum" }] },
   loadouts: LOADOUTS,
   // The map editor's mannequins can hold every weapon a loadout can deal, and the stimpack.

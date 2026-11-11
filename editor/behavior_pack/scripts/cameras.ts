@@ -67,17 +67,30 @@ export function cameraPlace(camera: MapCamera): { at: string; looks: string } {
   return { at: [x, y, z].map((value) => Math.round(value * 10) / 10).join(" "), looks: `${compass(yaw)}, ${tilt}` };
 }
 
-export type CameraAction = "kind" | "delete";
+export type CameraAction = "kind" | "start" | "delete";
 
 /**
- * A camera's form: the kind and Delete. Its picture is the Snapshot's (the Camera tool's slot 2),
- * and a new angle is a new camera.
+ * A camera's form: the kind, Start view and Delete. Its picture is the Snapshot's (the Camera
+ * tool's slot 2), and a new angle is a new camera. Start view (on unless turned off): on a map
+ * without a queue spawn, players wait before the match looking through a camera with it on, a map
+ * preview before a game picture, each in name order (startViewCamera).
  */
 export function cameraActions(camera: MapCamera): { action: CameraAction; text: string }[] {
+  const start = camera.startView !== false;
   return [
     { action: "kind", text: switchText("Game picture", camera.kind === "game" ? CAMERA_KINDS.game.hint : "off: a map preview, nobody in the shot", camera.kind === "game") },
+    { action: "start", text: switchText("Start view", start ? "players wait looking through it (no queue spawn)" : "off: players never wait looking through it", start) },
     { action: "delete", text: dangerText("Delete") },
   ];
+}
+
+/** The camera with Start view switched: off (false), or on again (the key left out, as every camera starts). */
+export function toggleStartView(camera: MapCamera): MapCamera {
+  if (camera.startView === false) {
+    const { startView: _off, ...on } = camera;
+    return on;
+  }
+  return { ...camera, startView: false };
 }
 
 /** A camera moved `by` along an axis, or turned (yaw) or tilted (pitch, kept from -90 to 90), its numbers rounded like cameraAt's. */

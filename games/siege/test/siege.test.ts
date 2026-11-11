@@ -17,6 +17,8 @@ const FORT: MapConfig = runtimeMapConfig({
   spectatorSpawn: [0, 80, 0],
   teamSpawns: { red: [[-10, 65, 0], [-10, 65, 2]], blue: [[10, 65, 0], [10, 65, 2]] },
   bounds: { min: [-30, 40, -30], max: [30, 100, 30] },
+  // Gunfight's flag: Siege's maps carry it for Gunfight, which plays them too.
+  points: { flag: [[0, 65, 0]] },
 });
 const NAMES = ["A", "B", "C", "D"];
 const COUNTDOWN_TICKS = config.countdownSeconds * 20 + 5;
@@ -81,6 +83,8 @@ describe("Siege's config and map", () => {
     const missing = validateMapConfig({ ...FORT, teamSpawns: {}, bounds: undefined }, rules);
     expect(missing.join("\n")).toMatch(/teamSpawns/);
     expect(missing.join("\n")).toMatch(/bounds/);
+    // Gunfight's flag, which Siege itself never uses.
+    expect(validateMapConfig({ ...FORT, points: {} }, rules).join("\n")).toMatch(/flag/);
     expect(config.kits.list.map((kit) => kit.id)).toEqual(Object.keys(config.abilities));
     for (const kit of config.kits.list) expect(kit.items.filter((item) => item.slot === config.abilitySlot), kit.id).toHaveLength(1);
   });

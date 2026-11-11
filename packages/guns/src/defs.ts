@@ -21,7 +21,8 @@ export const PAINT_SPLASH = "minecade:paint_splash";
 
 /**
  * How a gun fires on a right click: one shot a press (a burst gun's burst), or again and again until
- * the button comes up. A left click fires one shot either way, with a gun that doesn't aim.
+ * the button comes up. A left click fires one shot either way, with a gun that doesn't aim (but not
+ * the pistols: GunDef.leftClickFires), and a sneaking left click reloads.
  */
 export type FireMode = "tap" | "hold";
 
@@ -90,6 +91,16 @@ export interface GunDef {
    * RPG. Left out, 1.
    */
   carrySpeed?: number;
+  /**
+   * While it's raised to aim, its holder walks at this share of their own speed instead of
+   * carrySpeed (the Sniper Rifle, scoped). Left out, carrySpeed.
+   */
+  aimSpeed?: number;
+  /**
+   * A gun that doesn't aim fires one shot on a left click unless this is false (the pistols, which
+   * fire on right click only). A sneaking left click reloads any gun with a magazine either way.
+   */
+  leftClickFires?: boolean;
   /** Blocks a tick the ball or rocket leaves the gun at (a snowball is about 1.5); a bullet's streak flies at it. */
   speed: number;
   /** Ticks before a ball or rocket that hit nothing is taken away (its range). Bullets and beams use `range`. */
@@ -115,8 +126,8 @@ export interface GunDef {
  * A shot's kick. The held model goes back `back` pixels with its muzzle tipped up `lift` degrees,
  * then eases home over the gun's own cooldown (its fire rate, `everyTicks`), so it settles just as
  * the gun can fire again; a burst kicks once. The shooter's camera shakes (`/camerashake`,
- * rotational) at `shake` intensity (the command takes 0 to 4; the guns use 0.07 for the SMG to 0.45
- * for the Sniper Rifle) until the gun can fire again (at least 0.1 and at most 0.3 seconds); the aim
+ * rotational) at `shake` intensity (the command takes 0 to 4; the guns use 0.035 for the Assault
+ * Rifle to 0.45 for the Sniper Rifle) until the gun can fire again (at least 0.1 and at most 0.3 seconds); the aim
  * stays where it was. Aiming takes AIM_RECOIL of the shake.
  */
 export interface RecoilDef {
@@ -127,6 +138,9 @@ export interface RecoilDef {
 
 /** How fast a heavy gun's holder walks (GunDef.carrySpeed): the Sniper Rifle, Rail Gun and RPG. */
 export const HEAVY_CARRY_SPEED = 0.75;
+
+/** How fast someone looking through the Sniper Rifle's scope walks (GunDef.aimSpeed). */
+export const SCOPED_SPEED = 0.4;
 
 /** How much of a gun's kick is left while aiming: a raised gun is steadier. */
 export const AIM_RECOIL = 0.6;
@@ -172,6 +186,8 @@ export const GUNS = {
     id: "pistol",
     name: "Paintball Pistol",
     fire: "tap",
+    // Right click only: a left click is a punch.
+    leftClickFires: false,
     everyTicks: 6,
     triggerTicks: 0,
     pellets: 1,
@@ -396,6 +412,8 @@ export const ARSENAL_GUN_DEFS = {
     id: "handgun",
     name: "Pistol",
     fire: "tap",
+    // Right click only: a left click is a punch.
+    leftClickFires: false,
     shot: "bullet",
     everyTicks: 5,
     triggerTicks: 0,
@@ -436,15 +454,16 @@ export const ARSENAL_GUN_DEFS = {
     everyTicks: 3,
     triggerTicks: 10,
     pellets: 1,
-    hipSpreadDegrees: 3.5,
+    // Tight, so it holds a line at range (the user's ask: was 3.5, and a shake of 0.09).
+    hipSpreadDegrees: 1.2,
     speed: 8,
     lifeTicks: 0,
     range: 90,
     maxHitsPerShot: 1,
-    damage: { body: 4, head: 6, falloff: { from: 40, to: 90, least: 0.7 } },
+    damage: { body: 4, head: 6, falloff: { from: 50, to: 90, least: 0.8 } },
     ammo: { magazine: 30, reloadTicks: 40 },
     sound: { id: "firework.blast", pitch: 1.1, volume: 0.9 },
-    recoil: { back: 1.2, lift: 5, shake: 0.09 },
+    recoil: { back: 0.7, lift: 2.5, shake: 0.035 },
   },
   burst_rifle: {
     id: "burst_rifle",
@@ -454,17 +473,18 @@ export const ARSENAL_GUN_DEFS = {
     everyTicks: 12,
     triggerTicks: 0,
     pellets: 1,
-    hipSpreadDegrees: 3,
+    // Tight, so a burst lands together at range (the user's ask: was 3, and a shake of 0.1).
+    hipSpreadDegrees: 0.8,
     speed: 8,
     lifeTicks: 0,
     range: 90,
     maxHitsPerShot: 1,
     burst: { shots: 3, gapTicks: 2 },
-    damage: { body: 5, head: 8, falloff: { from: 40, to: 90, least: 0.7 } },
+    damage: { body: 5, head: 8, falloff: { from: 50, to: 90, least: 0.8 } },
     ammo: { magazine: 24, reloadTicks: 40 },
     sound: { id: "firework.blast", pitch: 1.25, volume: 0.9 },
     // The model kicks once a burst; the view each shot.
-    recoil: { back: 2, lift: 10, shake: 0.1 },
+    recoil: { back: 1.2, lift: 5, shake: 0.04 },
   },
   pump_shotgun: {
     id: "pump_shotgun",
@@ -516,6 +536,7 @@ export const ARSENAL_GUN_DEFS = {
     aimFov: 30,
     scope: true,
     carrySpeed: HEAVY_CARRY_SPEED,
+    aimSpeed: SCOPED_SPEED,
     speed: 12,
     lifeTicks: 0,
     range: 200,

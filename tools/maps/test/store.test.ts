@@ -137,6 +137,24 @@ describe("publishing", () => {
     expect(backups.every((name) => /^maps-20261105-1200\d\d\.db$/.test(name))).toBe(true);
   });
 
+  it("brings a published world's map.json up to what servers read now, leaving the world alone", () => {
+    const pit = writeMap("sumo", "pit", "Pit");
+    writeFileSync(join(pit, "map.json"), JSON.stringify({ name: "Pit", spawns: [[0, 64, 0]], cameras: { "Camera 1": { at: [1, 70, 2, 90, 10], kind: "map" } } }));
+    store.publish("sumo", "pit");
+    store.exportPublished();
+    const runtime = published("worlds", "sumo", "pit", "1", "map.json");
+    const now = { name: "Pit", spawns: [[0, 64, 0]], startView: [1, 70, 2, 90, 10] };
+    expect(JSON.parse(readFileSync(runtime, "utf8"))).toEqual(now);
+    // A world written before servers got the cameras' start view: its map.json comes up to date.
+    writeFileSync(runtime, JSON.stringify({ name: "Pit", spawns: [[0, 64, 0]] }, null, 2));
+    const log = published("worlds", "sumo", "pit", "1", "world", "db", "000001.log");
+    const before = statSync(log).mtimeMs;
+    expect(store.exportPublished().written).toBe(0);
+    expect(JSON.parse(readFileSync(runtime, "utf8"))).toEqual(now);
+    expect(statSync(log).mtimeMs).toBe(before);
+    expect(existsSync(`${runtime}.new`)).toBe(false);
+  });
+
   it("writes the catalog and each published version's world, without drafts nobody published", async () => {
     const pit = writeMap("sumo", "pit", "Pit");
     writeFileSync(join(pit, "map.json"), '{ "name": "Pit", "spawns": [[0, 64, 0]], "kits": { "list": [] }, "cameras": [] }\n');

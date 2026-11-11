@@ -235,9 +235,13 @@ export class GunGame extends Minigame<typeof config> {
     return line && `${line}${back}`;
   }
 
-  /** The first to a kill with the last weapon. Otherwise core's rule: the last player left wins once everyone else has gone. */
+  /**
+   * The first to a kill with the last weapon, with no reason after the win (the user found "first
+   * to a kill with the Netherite Sword" said nothing new). Otherwise core's rule: the last player
+   * left wins once everyone else has gone.
+   */
   protected override checkWin(): Result | undefined {
-    if (this.winner !== undefined) return this.playerWins(this.winner, `first to a kill with the ${arsenalItemName(this.ladder.weapons[this.ladder.top])}`);
+    if (this.winner !== undefined) return this.playerWins(this.winner, "");
     return super.checkWin();
   }
 

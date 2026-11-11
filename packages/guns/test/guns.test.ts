@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Scope } from "@minecade/minigame-core";
-import { AIM_MARKER, AIM_RECOIL, ARSENAL_GUN_DEFS, GRENADE, GUNS, HEAVY_CARRY_SPEED, PAINTBALL, PRIMED_GRENADE, THROWN_GRENADE, arsenalItem, dyeIndex, gunCooldown, gunItem, type GunDef } from "../src/defs.ts";
+import { AIM_MARKER, AIM_RECOIL, ARSENAL_GUN_DEFS, GRENADE, GUNS, HEAVY_CARRY_SPEED, PAINTBALL, SCOPED_SPEED, PRIMED_GRENADE, THROWN_GRENADE, arsenalItem, dyeIndex, gunCooldown, gunItem, type GunDef } from "../src/defs.ts";
 import { Guns, ammoText, coneDirections, type AmmoState, type GunsOptions, type Shot } from "../src/guns.ts";
 import { Direction, EntitySwingSource, EquipmentSlot, ItemLockMode, ItemStack, system, world, type FakeBlock, type FakeMob, type FakePlayer } from "../../minigame-core/test/fake-mc-server.ts";
 
@@ -71,8 +71,8 @@ describe("Guns", () => {
   it("fires a tap gun once per click, at its fire rate, in the gun's paint, shading its slot and kicking its held model", () => {
     const { balls } = setup();
     const player = holding("Ann", gunItem("pistol", "red"));
-    click(player);
-    click(player);
+    use(player);
+    use(player);
     expect(balls()).toHaveLength(1);
     const [ball] = balls();
     expect(ball.properties.get("minecade:color")).toBe(dyeIndex("red"));
@@ -83,9 +83,12 @@ describe("Guns", () => {
     // The gun's own cooldown shades its slot for its fire rate, and the held model kicks over it.
     expect(player.itemCooldowns).toEqual([{ category: gunCooldown("pistol"), ticks: GUNS.pistol.everyTicks }]);
     system.advanceTicks(GUNS.pistol.everyTicks);
+    // A left click is a punch: the pistols fire on right click only (the user's ask).
     click(player);
+    expect(balls()).toHaveLength(1);
+    use(player);
     expect(balls()).toHaveLength(2);
-    // Right click fires it too, once a press however long it's held.
+    // Held down, it fires once a press however long it's held.
     system.advanceTicks(GUNS.pistol.everyTicks);
     pressRight(player);
     expect(balls()).toHaveLength(3);
@@ -166,13 +169,68 @@ describe("Guns", () => {
 
   it("fires on a left click (an attack or mining swing), not on a right click's own swings or a drop", () => {
     const { balls } = setup();
-    const player = holding("Ann", gunItem("pistol"));
+    const player = holding("Ann", gunItem("shotgun"));
     for (const source of [EntitySwingSource.UseItem, EntitySwingSource.Build, EntitySwingSource.Interact, EntitySwingSource.DropItem, EntitySwingSource.ThrowItem]) {
       click(player, source);
     }
     expect(balls()).toHaveLength(0);
     click(player, EntitySwingSource.Mine);
+    expect(balls()).toHaveLength(GUNS.shotgun.pellets);
+  });
+
+  it("fires the pistols on right click only: their left click is a punch", () => {
+    const { balls } = setup({ guns: [GUNS.pistol, ARSENAL_GUN_DEFS.handgun] });
+    const paint = holding("Ann", gunItem("pistol"));
+    const real = holding("Bo", arsenalItem("handgun"));
+    expect([GUNS.pistol.leftClickFires, ARSENAL_GUN_DEFS.handgun.leftClickFires]).toEqual([false, false]);
+    click(paint);
+    click(real);
+    expect(balls()).toHaveLength(0);
+    expect(real.itemCooldowns).toEqual([]);
+    use(paint);
+    use(real);
     expect(balls()).toHaveLength(1);
+    expect(real.itemCooldowns).toEqual([{ category: gunCooldown("handgun"), ticks: ARSENAL_GUN_DEFS.handgun.everyTicks }]);
+    // Every other gun that doesn't aim still fires on a left click.
+    const leftOnly = Object.values({ ...GUNS, ...ARSENAL_GUN_DEFS } as Record<string, GunDef>).filter((gun) => gun.leftClickFires === false);
+    expect(leftOnly.map((gun) => gun.id)).toEqual(["pistol", "handgun"]);
+  });
+
+  it("reloads a gun with a magazine on a sneaking left click, instead of firing or aiming it", () => {
+    const { guns, ammo } = setup({ guns: [ARSENAL_GUN_DEFS.smg, ARSENAL_GUN_DEFS.sniper_rifle] });
+    const ann = holding("Ann", arsenalItem("smg"));
+    click(ann);
+    expect(guns.ammoOf(ann as never)).toMatchObject({ loaded: ARSENAL_GUN_DEFS.smg.ammo.magazine - 1, reloading: false });
+    // A full magazine doesn't reload; one shot short of full does.
+    ann.isSneaking = true;
+    system.advanceTicks(ARSENAL_GUN_DEFS.smg.everyTicks + 10);
+    click(ann);
+    expect(guns.ammoOf(ann as never)).toMatchObject({ loaded: ARSENAL_GUN_DEFS.smg.ammo.magazine - 1, reloading: true });
+    expect(ammo.at(-1)?.reloading).toBe(true);
+    system.advanceTicks(ARSENAL_GUN_DEFS.smg.ammo.reloadTicks + 1);
+    expect(guns.ammoOf(ann as never)).toMatchObject({ loaded: ARSENAL_GUN_DEFS.smg.ammo.magazine, reloading: false });
+    // The Sniper Rifle: sneaking, a left click reloads rather than raising it.
+    const bo = holding("Bo", arsenalItem("sniper_rifle"));
+    use(bo);
+    bo.isSneaking = true;
+    system.advanceTicks(ARSENAL_GUN_DEFS.sniper_rifle.everyTicks);
+    click(bo);
+    expect(guns.isAiming("Bo")).toBe(false);
+    expect(guns.ammoOf(bo as never)?.reloading).toBe(true);
+  });
+
+  it("slows a player looking through the Sniper Rifle's scope more than carrying it, and back as it comes down", () => {
+    const { guns } = setup({ guns: [ARSENAL_GUN_DEFS.sniper_rifle] });
+    const ann = holding("Ann", arsenalItem("sniper_rifle"));
+    system.advanceTicks(4);
+    expect(ann.movement.currentValue).toBeCloseTo(0.1 * HEAVY_CARRY_SPEED, 6);
+    click(ann);
+    expect(guns.isScoped("Ann")).toBe(true);
+    expect(ann.movement.currentValue).toBeCloseTo(0.1 * SCOPED_SPEED, 6);
+    system.advanceTicks(10);
+    click(ann);
+    expect(guns.isScoped("Ann")).toBe(false);
+    expect(ann.movement.currentValue).toBeCloseTo(0.1 * HEAVY_CARRY_SPEED, 6);
   });
 
   it("keeps a held gun firing at its rate while right click stays down, and stops when it comes up", () => {
@@ -328,11 +386,13 @@ describe("Guns", () => {
     expect(offHand(player)).toBe(shield);
   });
 
-  it("doesn't aim a gun without an aimFov: a left click fires it (Paintball's and most of the arsenal's)", () => {
+  it("doesn't aim a gun without an aimFov: a left click fires it (Paintball's and most of the arsenal's), or is a punch with a pistol", () => {
     const { guns, balls } = setup({ random: () => 1 });
     const player = holding("Ann", gunItem("pistol", "red"));
     expect(GUNS.pistol).not.toHaveProperty("aimFov");
     click(player);
+    expect(balls()).toHaveLength(0);
+    use(player);
     expect(guns.isAiming("Ann")).toBe(false);
     expect(player.camera.fovs).toEqual([]);
     expect(offHand(player)).toBeUndefined();
@@ -378,13 +438,13 @@ describe("Guns", () => {
 
   it("fires nothing when the game says no", () => {
     const { balls } = setup({ canFire: () => false });
-    click(holding("Ann", gunItem("pistol")));
+    use(holding("Ann", gunItem("pistol")));
     expect(balls()).toHaveLength(0);
   });
 
   it("paints in the game's color when it chooses one", () => {
     const { balls } = setup({ colorOf: () => dyeIndex("green") });
-    click(holding("Ann", gunItem("pistol", "red")));
+    use(holding("Ann", gunItem("pistol", "red")));
     expect(balls()[0].properties.get("minecade:color")).toBe(dyeIndex("green"));
   });
 
@@ -404,11 +464,11 @@ describe("Guns", () => {
   it("reports a ball's block and face, and takes a ball away once it has flown its range", () => {
     const { guns, balls, blocks } = setup();
     const player = holding("Ann", gunItem("pistol"));
-    click(player);
+    use(player);
     world.projectileHitsBlock(balls()[0], { x: 0, y: 64, z: 5 }, Direction.North, player);
     expect(blocks).toEqual([{ shot: expect.objectContaining({ weapon: "pistol" }), face: Direction.North }]);
     system.advanceTicks(GUNS.pistol.everyTicks);
-    click(player);
+    use(player);
     expect(guns.inFlight).toBe(1);
     system.advanceTicks(GUNS.pistol.lifeTicks);
     expect(guns.inFlight).toBe(0);

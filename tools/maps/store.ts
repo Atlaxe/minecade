@@ -337,11 +337,15 @@ export class MapStore {
       const n = row.published_version!;
       (index[row.target] ??= {})[map] = n;
       const folder = join(worlds, row.target, map, String(n));
+      const config = JSON.parse(Buffer.from(this.file(row.key, n, "map.json")!).toString("utf8")) as MapConfig;
       if (!existsSync(join(folder, "map.json"))) {
         this.writeWorld(row.key, n, folder);
         written++;
+      } else {
+        // A world written before servers got something new from map.json (the cameras' startView)
+        // gets its runtime map.json again; the world itself stays as it is.
+        writeRuntimeConfig(folder, config);
       }
-      const config = JSON.parse(Buffer.from(this.file(row.key, n, "map.json")!).toString("utf8")) as MapConfig;
       const card: MapCard = { name: config.name, ...(config.kits ? { kits: config.kits } : {}), customNames: versionNames(folder) };
       keep(join(catalog, row.target, `${map}.json`), JSON.stringify(card, null, 2));
       const preview = this.file(row.key, n, "preview.png");
@@ -560,6 +564,15 @@ function versionNames(folder: string): string[] {
 /** Deletes a file or folder, if it's there. Retries cover Windows file watchers (VS Code) briefly holding files. */
 function removeTree(path: string): void {
   rmSync(path, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
+}
+
+/** A published world's map.json as servers read it (runtimeMapConfig), written only when it changed, and whole (renamed into place). */
+function writeRuntimeConfig(folder: string, config: MapConfig): void {
+  const path = join(folder, "map.json");
+  const json = JSON.stringify(runtimeMapConfig(config), null, 2);
+  if (readFileSync(path, "utf8") === json) return;
+  writeFileSync(`${path}.new`, json);
+  renameSync(`${path}.new`, path);
 }
 
 /** Writes a file unless it already holds exactly `data`, so its time (and Docker's build cache) stays. */

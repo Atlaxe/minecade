@@ -351,10 +351,22 @@ export class FakePlayer {
   getItemCooldown(category: string): number {
     return Math.max(0, (this.cooldownEnds.get(category) ?? 0) - system.currentTick);
   }
-  /** Its camera: each setFov's field of view, oldest first (undefined puts the player's own back), and each fade's options. */
+  /**
+   * Its camera: each setFov's field of view, oldest first (undefined puts the player's own back),
+   * each fade's options, and the camera set now (setCamera; clear puts the player's own back).
+   */
   readonly camera = {
     fovs: [] as (number | undefined)[],
     fades: [] as { fadeColor?: { red: number; green: number; blue: number }; fadeTime?: { fadeInTime: number; holdTime: number; fadeOutTime: number } }[],
+    view: undefined as { preset: string; location?: Vector3; rotation?: { x: number; y: number } } | undefined,
+    setCamera: (preset: string, options: { location?: Vector3; rotation?: { x: number; y: number } } = {}) => {
+      writable("Camera::setCamera");
+      this.camera.view = { preset, ...options };
+    },
+    clear: () => {
+      writable("Camera::clear");
+      this.camera.view = undefined;
+    },
     setFov: (options: { fov?: number; easeOptions?: { easeTime?: number } } = {}) => {
       writable("Camera::setFov");
       this.camera.fovs.push(options.fov);

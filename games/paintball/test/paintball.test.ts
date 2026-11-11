@@ -7,7 +7,7 @@ import { fileURLToPath } from "node:url";
 import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import { GRENADE, GUNS, GUN_PICKUP, KIND_PROPERTY, PAINTBALL, PICKUP_KINDS, THROWN_GRENADE, gunItem } from "@minecade/guns/defs";
 import { possibleTeams, runtimeMapConfig, stripColors, validateMapConfig, type MapConfig, type MapPosition } from "@minecade/minigame-core/config";
-import { EntitySwingSource, ItemStack, world, type FakeMob, type FakePlayer } from "../../../packages/minigame-core/test/fake-mc-server.ts";
+import { ItemStack, world, type FakeMob, type FakePlayer } from "../../../packages/minigame-core/test/fake-mc-server.ts";
 import { createHarness, everyoneLeaves, expectBaseline, playToEnd, snapshot, statsRows, ticks, type Harness } from "../../../packages/minigame-core/test/game-harness.ts";
 import { bestOfCodes } from "../../../packages/minigame-core/src/hud.ts";
 import { paintBlockFiles } from "../../../tools/assets/paint-blocks.ts";
@@ -60,15 +60,18 @@ function begin(options: { settings?: Record<string, string>; overrides?: Partial
   return { a, b, c, d, baseline, from, game };
 }
 
-/** A left click with what's in the hand. */
-const click = (player: FakePlayer) =>
-  world.afterEvents.playerSwingStart.emit({ player, heldItemStack: player.inventory.slots[player.selectedSlotIndex], swingSource: EntitySwingSource.Attack });
+/** A right click with what's in the hand, let go at once: one shot (the pistol fires on right click only). */
+const fire = (player: FakePlayer) => {
+  const itemStack = player.inventory.slots[player.selectedSlotIndex]!;
+  world.afterEvents.itemUse.emit({ source: player, itemStack });
+  world.afterEvents.itemReleaseUse.emit({ source: player, itemStack, useDuration: 0 });
+};
 const live = (typeId: string) => world.overworld.spawned.filter((mob) => mob.typeId === typeId && mob.isValid);
 
 /** `shooter` fires once and the ball lands on `victim`, `height` blocks over their feet. */
 async function shoot(shooter: FakePlayer, victim: FakePlayer, height = 1): Promise<void> {
   const before = new Set(live(PAINTBALL));
-  click(shooter);
+  fire(shooter);
   const ball = live(PAINTBALL).find((mob) => !before.has(mob));
   expect(ball, `${shooter.name} fired`).toBeDefined();
   world.projectileHitsEntity(ball!, victim, { x: victim.location.x, y: victim.location.y + height, z: victim.location.z }, shooter);
@@ -351,7 +354,7 @@ describe("a match of Paintball", () => {
       a.location = { x: 0, y: 65, z: -2 };
       const before = new Set(live(PAINTBALL));
       a.inventory.setItem(0, new ItemStack(gunItem("pistol", "red")));
-      click(a);
+      fire(a);
       const ball = live(PAINTBALL).find((mob) => !before.has(mob))!;
       world.projectileHitsBlock(ball, { x: 0, y: 64, z: 0 }, "Up", a);
       const red = [...world.overworld.blocks.values()].filter((id) => id === "minecraft:red_concrete").length;

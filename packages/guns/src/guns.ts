@@ -3,11 +3,13 @@
 // Assault Rifle) again and again until the button goes up. Each gun item is used like a bow (its
 // use_modifiers), so Bedrock says when the button goes down and when it comes up; aimed at a block,
 // it repeats the interaction instead, and a window bridges the repeats. Left click fires one shot
-// with a gun that doesn't aim, and raises or lowers one that does (an aimFov: the Sniper Rifle, Rail
-// Gun and RPG; Bedrock sends no left click while right click is held, so it can't be both): the
-// camera zooms, the shots stray less, and the held model comes up (the aim marker in the off hand);
-// a scoped gun (the Sniper Rifle) also has the game draw a scope over the screen. A heavy gun (the
-// Sniper Rifle, Rail Gun and RPG) slows its holder while it's in hand.
+// with a gun that doesn't aim (not the pistols, GunDef.leftClickFires), and raises or lowers one
+// that does (an aimFov: the Sniper Rifle, Rail Gun and RPG; Bedrock sends no left click while right
+// click is held, so it can't be both): the camera zooms, the shots stray less, and the held model
+// comes up (the aim marker in the off hand); a scoped gun (the Sniper Rifle) also has the game draw
+// a scope over the screen, and slows its holder more while it's up (GunDef.aimSpeed). A left click
+// while sneaking reloads a gun with a magazine instead. A heavy gun (the Sniper Rifle, Rail Gun and
+// RPG) slows its holder while it's in hand.
 // Each shot shades the gun's hotbar slot
 // for its fire rate (the item's own cooldown), kicks the held model back until the next shot, and
 // shakes the shooter's camera for a moment (defs.ts's RecoilDef). A thrown item goes with
@@ -387,19 +389,27 @@ export class Guns {
   }
 
   /**
-   * A left click with `typeId` in hand: a thrown item goes, a gun that aims is raised or lowered
-   * (once a click), and any other gun fires one shot (a burst gun its burst).
+   * A left click with `typeId` in hand: a thrown item goes; sneaking, a gun with a magazine reloads;
+   * a gun that aims is raised or lowered (once a click), and any other gun fires one shot (a burst
+   * gun its burst), unless it fires on right click only (leftClickFires false: the pistols).
    */
   private leftClick(player: Player, typeId: string): void {
     const throwable = this.throwableOf(typeId);
     if (throwable) return void this.tryThrow(player, throwable, typeId);
     const gun = this.gunOf(typeId);
     if (!gun) return;
-    if (!canAim(gun)) return void this.tryFire(player, gun, typeId);
     const key = player.name.toLowerCase();
     const now = system.currentTick;
     const last = this.lastLeftClick.get(key);
     this.lastLeftClick.set(key, now);
+    if (gun.ammo && isSneaking(player)) {
+      if (last === undefined || now - last >= AIM_CLICK_GAP_TICKS) this.reload(player);
+      return;
+    }
+    if (!canAim(gun)) {
+      if (gun.leftClickFires !== false) this.tryFire(player, gun, typeId);
+      return;
+    }
     if (last !== undefined && now - last < AIM_CLICK_GAP_TICKS) return;
     if (this.aiming.has(key)) this.stopAiming(key);
     else this.aim(player, gun);
@@ -466,6 +476,7 @@ export class Guns {
     this.aiming.set(player.name.toLowerCase(), { player, gun });
     this.setFov(player, gun.aimFov);
     setAimMarker(player, true);
+    if (gun.aimSpeed !== undefined) this.weigh();
     this.notify(() => this.options.onAim?.(player, true));
   }
 
@@ -476,6 +487,7 @@ export class Guns {
     if (!aim.player.isValid) return;
     this.setFov(aim.player, undefined);
     setAimMarker(aim.player, false);
+    if (aim.gun.aimSpeed !== undefined) this.weigh();
     this.notify(() => this.options.onAim?.(aim.player, false));
   }
 
@@ -862,15 +874,17 @@ export class Guns {
   }
 
   /**
-   * Slows each player holding a heavy gun to its carrySpeed, and gives back their own speed to a
-   * player who no longer holds one.
+   * Slows each player holding a heavy gun to its carrySpeed (its aimSpeed while it's raised), and
+   * gives back their own speed to a player who no longer holds one.
    */
   private weigh(): void {
     const holding = new Map<string, { player: Player; speed: number }>();
     for (const player of world.getAllPlayers()) {
       const held = heldItem(player);
-      const speed = held ? this.gunOf(held.typeId)?.carrySpeed : undefined;
-      if (speed !== undefined && speed !== 1) holding.set(player.name.toLowerCase(), { player, speed });
+      const gun = held ? this.gunOf(held.typeId) : undefined;
+      const key = player.name.toLowerCase();
+      const speed = gun && this.aiming.get(key)?.gun === gun ? (gun.aimSpeed ?? gun.carrySpeed) : gun?.carrySpeed;
+      if (speed !== undefined && speed !== 1) holding.set(key, { player, speed });
     }
     for (const [key, carried] of holding) {
       if (this.carrying.get(key)?.speed === carried.speed) continue;
@@ -913,7 +927,6 @@ export function paintSplash(location: Vector3, color: number, bursts = 1): void 
   for (let i = 0; i < bursts; i++) dimension.spawnParticle(PAINT_SPLASH, location, variables);
 }
 
-/** The item in a player's selected hotbar slot. */
 /** Sets a player's walking speed to `share` of their own (1: their own again). False if it couldn't. */
 function setWalkSpeed(player: Player, share: number): boolean {
   try {
@@ -928,6 +941,16 @@ function setWalkSpeed(player: Player, share: number): boolean {
   }
 }
 
+/** Whether a player is sneaking (false for anything that isn't a player now). */
+function isSneaking(player: Player): boolean {
+  try {
+    return player.isSneaking;
+  } catch {
+    return false;
+  }
+}
+
+/** The item in a player's selected hotbar slot. */
 export function heldItem(player: Player): ItemStack | undefined {
   return player.getComponent(EntityComponentTypes.Inventory)?.container?.getItem(player.selectedSlotIndex);
 }

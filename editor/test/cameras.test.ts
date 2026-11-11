@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { MapConfig } from "@minecade/minigame-core/config";
-import { cameraActions, cameraAt, cameraMarkers, camerasOf, cameraText, nextCameraName, nudgeCamera } from "../behavior_pack/scripts/cameras.ts";
+import { startViewCamera } from "@minecade/minigame-core/config";
+import { cameraActions, cameraAt, cameraMarkers, camerasOf, cameraText, nextCameraName, nudgeCamera, toggleStartView } from "../behavior_pack/scripts/cameras.ts";
 import { MARKER_KINDS, MARKER_STYLES } from "../behavior_pack/scripts/lists.ts";
 import { MARK, dangerText } from "../behavior_pack/scripts/marks.ts";
 import { cameraSettings } from "../behavior_pack/scripts/menu.ts";
@@ -44,13 +45,34 @@ describe("cameras", () => {
     });
   });
 
-  it("describes a camera, and offers only its kind and Delete (the Snapshot takes its picture)", () => {
+  it("describes a camera, and offers only its kind, Start view and Delete (the Snapshot takes its picture)", () => {
     expect(cameraText(map.cameras!["Camera 2"])).toBe("Map preview at 3.3 70.6 -14, looking south, 25 degrees down");
     expect(cameraText({ at: [0, 90, 0, 90, -10], kind: "game" })).toBe("Game picture at 0 90 0, looking west, 10 degrees up");
-    expect(cameraActions(map.cameras!["Camera 2"]).map((entry) => entry.action)).toEqual(["kind", "delete"]);
+    expect(cameraActions(map.cameras!["Camera 2"]).map((entry) => entry.action)).toEqual(["kind", "start", "delete"]);
+    // Start view is on until it's turned off.
+    expect(cameraActions(map.cameras!["Camera 2"])[1].text).toContain(MARK.on);
+    expect(cameraActions({ ...map.cameras!["Camera 2"], startView: false })[1].text).not.toContain(MARK.on);
     expect(cameraActions(map.cameras!["Camera 10"])[0].text).toContain(MARK.on);
     expect(cameraActions(map.cameras!["Camera 2"])[0].text).not.toContain(MARK.on);
     expect(cameraActions(map.cameras!["Camera 2"]).at(-1)?.text).toBe(dangerText("Delete"));
+  });
+
+  it("turns Start view off and on again, the key left out while it's on", () => {
+    const camera = map.cameras!["Camera 2"];
+    const off = toggleStartView(camera);
+    expect(off).toEqual({ ...camera, startView: false });
+    expect(toggleStartView(off)).toEqual(camera);
+    expect("startView" in toggleStartView(off)).toBe(false);
+  });
+
+  it("picks the camera players wait looking through: Start view on, a map preview first, then in number order", () => {
+    expect(startViewCamera(map)).toBe(map.cameras!["Camera 2"]);
+    const cameras = { ...map.cameras!, "Camera 2": { ...map.cameras!["Camera 2"], startView: false } };
+    expect(startViewCamera({ cameras })).toBe(map.cameras!["Camera 10"]);
+    const previews = { "Camera 9": { at: [1, 70, 1, 0, 0], kind: "map" }, "Camera 12": { at: [2, 70, 2, 0, 0], kind: "map" }, "Camera 1": { at: [3, 70, 3, 0, 0], kind: "game" } } as const;
+    expect(startViewCamera({ cameras: previews as unknown as MapConfig["cameras"] })?.at).toEqual([1, 70, 1, 0, 0]);
+    expect(startViewCamera({ cameras: { only: { at: [0, 70, 0, 0, 0], kind: "map", startView: false } } })).toBeUndefined();
+    expect(startViewCamera({})).toBeUndefined();
   });
 
   it("nudges a camera along an axis, turns it round past 180, and tilts it no further than straight up or down", () => {

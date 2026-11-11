@@ -1434,14 +1434,17 @@ const arsenalLooks = {
 function renderControllers(): unknown {
   const pick = (array: string, property: string) => `${array}[q.property('${property}')]`;
   const byColor = { arrays: { textures: { "Array.dyes": DYES.map((dye) => `Texture.${dye}`) } }, geometry: "Geometry.default", materials: [{ "*": "Material.default" }], textures: [pick("Array.dyes", COLOR_PROPERTY)] };
+  // A texture array and a geometry array never share a name (vanilla's never do, as the tropical
+  // fish's Array.skins and Array.geos): the arsenal's once both were Array.models, and its thrown
+  // knife and the knife left to pick up were never seen in game.
   const byModel = {
     arrays: {
-      textures: { "Array.models": ARSENAL_MODELS.map((model) => `Texture.${model}`) },
-      geometries: { "Array.models": ARSENAL_MODELS.map((model) => `Geometry.${model}`) },
+      textures: { "Array.model_skins": ARSENAL_MODELS.map((model) => `Texture.${model}`) },
+      geometries: { "Array.model_geos": ARSENAL_MODELS.map((model) => `Geometry.${model}`) },
     },
-    geometry: pick("Array.models", MODEL_PROPERTY),
+    geometry: pick("Array.model_geos", MODEL_PROPERTY),
     materials: [{ "*": "Material.default" }],
-    textures: [pick("Array.models", MODEL_PROPERTY)],
+    textures: [pick("Array.model_skins", MODEL_PROPERTY)],
   };
   return {
     format_version: "1.10.0",
@@ -1455,12 +1458,12 @@ function renderControllers(): unknown {
       },
       "controller.render.minecade.gun_pickup": {
         arrays: {
-          textures: { "Array.kinds": PICKUP_KINDS.map((kind) => `Texture.${kind}`) },
-          geometries: { "Array.kinds": PICKUP_KINDS.map((kind) => `Geometry.${kind}`) },
+          textures: { "Array.kind_skins": PICKUP_KINDS.map((kind) => `Texture.${kind}`) },
+          geometries: { "Array.kind_geos": PICKUP_KINDS.map((kind) => `Geometry.${kind}`) },
         },
-        geometry: pick("Array.kinds", KIND_PROPERTY),
+        geometry: pick("Array.kind_geos", KIND_PROPERTY),
         materials: [{ "*": "Material.default" }],
-        textures: [pick("Array.kinds", KIND_PROPERTY)],
+        textures: [pick("Array.kind_skins", KIND_PROPERTY)],
         ignore_lighting: true,
       },
       "controller.render.minecade.arsenal_model": byModel,

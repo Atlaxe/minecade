@@ -241,6 +241,7 @@ function editorKeyProblems(map: Partial<MapConfig>, kind: MapRules["kind"]): str
       for (const [name, camera] of Object.entries(map.cameras)) {
         const ok = isRecord(camera) && isPosition(camera.at) && camera.at.length === 5 && (camera.kind === "map" || camera.kind === "game");
         if (!ok) problems.push(`cameras.${name} must be { "at": [x, y, z, yaw, pitch], "kind": "map" or "game" }`);
+        else if (camera.startView !== undefined && typeof camera.startView !== "boolean") problems.push(`cameras.${name}.startView must be true or false`);
       }
     }
   }
@@ -253,6 +254,7 @@ function editorKeyProblems(map: Partial<MapConfig>, kind: MapRules["kind"]): str
       }
     }
   }
+  if (map.startView !== undefined) problems.push('"startView" is the servers\' own (from the cameras): leave it out');
   if (map.mannequinsInPreview !== undefined && typeof map.mannequinsInPreview !== "boolean") problems.push('"mannequinsInPreview" must be true or false');
   if (map.gameThumbnail !== undefined && typeof map.gameThumbnail !== "boolean") problems.push('"gameThumbnail" must be true or false');
   if (map.gameThumbnail === true && kind === "lobby") problems.push('"gameThumbnail" is only for a game\'s maps: the lobby has no picture');

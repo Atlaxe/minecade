@@ -159,4 +159,40 @@ describe("a best-of team game with kits every round and building", () => {
     expectBaseline(harness.root, baseline);
     everyoneLeaves();
   });
+
+  it("hides teammates who share their team's one spawn through a round's countdown, and shows them at Go!", async () => {
+    const players = ["A", "B", "C", "D"].map((name) => world.join(name));
+    const [a, b, c, d] = players;
+    const baseline = snapshot(harness.root);
+    const config: GameConfig = { ...CONFIG, minPlayers: 4, maxPlayers: 4, nameTags: true, respawn: { mode: "none" }, kits: undefined, build: undefined };
+    const game = new TestGame(harness.context(["A", "B", "C", "D"], DUEL), config);
+    game.setTeamPicks({ A: "red", B: "red", C: "blue", D: "blue" });
+    const hidden = () => players.map((player) => player.effects.has("invisibility"));
+    await playToEnd(game, harness.root, baseline, async () => {
+      // Waiting, two to a team spawn: unseen and nameless.
+      await ticks(12);
+      expect(hidden()).toEqual([true, true, true, true]);
+      expect(a.nameTag).toBe("");
+      await ticks(3 * 20);
+      // Go!: seen, named in their team's color.
+      expect(game.roundInPlay).toBe(true);
+      expect(hidden()).toEqual([false, false, false, false]);
+      expect(a.nameTag).toBe("§cA");
+      world.hurt(c, 25, "entityAttack", { attacker: a });
+      world.hurt(d, 25, "entityAttack", { attacker: b });
+      await ticks(2 + 40 + 10);
+      // The next round's countdown: back on the one spawn, hidden again until Go!.
+      expect(game.roundInPlay).toBe(false);
+      expect(hidden()).toEqual([true, true, true, true]);
+      expect(c.nameTag).toBe("");
+      await ticks(3 * 20);
+      expect(game.roundInPlay).toBe(true);
+      expect(hidden()).toEqual([false, false, false, false]);
+      expect(c.nameTag).toBe("§9C");
+      game.finish({ kind: "draw", reason: "test over" });
+      await ticks(2);
+    });
+    expectBaseline(harness.root, baseline);
+    everyoneLeaves();
+  });
 });

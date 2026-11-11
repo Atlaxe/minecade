@@ -4,7 +4,7 @@
 import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import { ARSENAL_GUN_DEFS, arsenalItem, arsenalItemName } from "@minecade/guns/defs";
 import { mapRequirements, runtimeMapConfig, stripColors, uncoveredRequirements, validateMapConfig, type MapConfig, type MapPosition } from "@minecade/minigame-core/config";
-import { EntitySwingSource, ItemStack, world, type FakePlayer } from "../../../packages/minigame-core/test/fake-mc-server.ts";
+import { ItemStack, world, type FakePlayer } from "../../../packages/minigame-core/test/fake-mc-server.ts";
 import { createHarness, everyoneLeaves, expectBaseline, playToEnd, snapshot, statsRows, ticks, type Harness } from "../../../packages/minigame-core/test/game-harness.ts";
 import { countCodes } from "../../../packages/minigame-core/src/hud.ts";
 import { validateGameConfig } from "../../../tools/build/validate.ts";
@@ -58,8 +58,12 @@ function lineUp(shooter: FakePlayer, target: FakePlayer): void {
   shooter.viewDirection = { x: 1, y: 0, z: 0 };
 }
 
-const click = (player: FakePlayer) =>
-  world.afterEvents.playerSwingStart.emit({ player, heldItemStack: player.inventory.slots[player.selectedSlotIndex], swingSource: EntitySwingSource.Attack });
+/** A right click with what's in the hand, let go at once: one shot (the Pistol fires on right click only). */
+const fire = (player: FakePlayer) => {
+  const itemStack = player.inventory.slots[player.selectedSlotIndex]!;
+  world.afterEvents.itemUse.emit({ source: player, itemStack });
+  world.afterEvents.itemReleaseUse.emit({ source: player, itemStack, useDuration: 0 });
+};
 const slot = (player: FakePlayer, index: number) => player.inventory.slots[index];
 const hold = (player: FakePlayer, item: string) => {
   player.inventory.slots[0] = new ItemStack(item, 1);
@@ -136,7 +140,7 @@ describe("a match of Gun Game", () => {
       const { everyTicks, damage } = ARSENAL_GUN_DEFS.handgun;
       for (let shot = 0; shot < Math.ceil(20 / damage.head); shot++) {
         if (shot > 0) await ticks(everyTicks);
-        click(a);
+        fire(a);
       }
       await ticks(2);
       expect(game.roster.get("B")?.state).toBe("respawning");
@@ -174,7 +178,10 @@ describe("a match of Gun Game", () => {
       world.melee(a, b, 8);
       await ticks(2);
     });
-    expect(result).toMatchObject({ kind: "win", players: ["A"], reason: "first to a kill with the Netherite Sword" });
+    // The win says nothing after it: "(first to a kill with the Netherite Sword)" was the user's to drop.
+    expect(result).toMatchObject({ kind: "win", players: ["A"], reason: "" });
+    expect(chat()).toContain("A wins Gun Game!");
+    expect(chat()).not.toContain("A wins Gun Game! (");
     expect(statsRows(harness.sent, from).find((row) => row.n === "A")).toMatchObject({ k: 4 });
     expect(statsRows(harness.sent, from).find((row) => row.n === "A")?.x?.headshots).toBe(3);
     expectBaseline(harness.root, baseline);

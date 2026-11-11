@@ -3,6 +3,7 @@
 // objectives, game rules, locked or spectating players, open forms).
 import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import type { GameConfig } from "../src/config.ts";
+import { runtimeMapConfig } from "../src/map-config.ts";
 import { Minigame } from "../src/game/minigame.ts";
 import { MODE_MARK, previewLine } from "../src/hud.ts";
 import { removeLeftoverObjectives } from "../src/game/sidebar.ts";
@@ -480,6 +481,36 @@ describe("the queue spawn", () => {
     everyoneLeaves();
   });
 
+  it("holds players at a locked queue spawn above the bounds without putting them back again and again, and puts back what its floor replaced", async () => {
+    const [a] = ["A", "B"].map((name) => world.join(name));
+    world.overworld.blocks.set("0,109,0", "minecraft:water");
+    const baseline = snapshot();
+    const map = { ...ARENA, queueSpawn: [0, 110, 0], queue: { mode: "lock", countdown: 1 } } as typeof ARENA;
+    const game = new TestGame(harness.context(["A", "B", "C"], map), { ...config, maxPlayers: 3 });
+    await playToEnd(game, baseline, async () => {
+      await ticks(4);
+      // Over the bounds' top (100): held there all the same, on a barrier in place of the water.
+      expect(at(a)).toEqual([0.5, 110, 0.5]);
+      expect(world.overworld.blocks.get("0,109,0")).toBe("minecraft:barrier");
+      const teleports = a.teleports.length;
+      await ticks(40);
+      expect(a.teleports.length).toBe(teleports);
+      // A fall off it is caught at once.
+      a.location = { x: 0.5, y: 107, z: 0.5 };
+      await ticks(2);
+      expect(at(a)).toEqual([0.5, 110, 0.5]);
+      world.join("C");
+      await ticks(25 + 20 + 5);
+      expect(game.phase).toBe("countdown");
+      expect(world.overworld.blocks.get("0,109,0")).toBe("minecraft:water");
+      game.finish({ kind: "draw", reason: "test over" });
+      await ticks(2);
+    });
+    world.overworld.blocks.delete("0,109,0");
+    expectBaseline(baseline);
+    everyoneLeaves();
+  });
+
   it("shows name tags during the match for a game that asks for them", async () => {
     const players = ["A", "B"].map((name) => world.join(name));
     const baseline = snapshot();
@@ -488,6 +519,81 @@ describe("the queue spawn", () => {
       await ticks(150);
       expect(game.phase).toBe("playing");
       expect(players.map((player) => player.nameTag)).toEqual(["A", "B"]);
+      game.finish({ kind: "draw", reason: "test over" });
+      await ticks(2);
+    });
+    expectBaseline(baseline);
+    everyoneLeaves();
+  });
+});
+
+describe("waiting without a queue spawn", () => {
+  const config: GameConfig = { id: "waiting", name: "Waiting", minPlayers: 2, maxPlayers: 3, countdownSeconds: 2, endDelaySeconds: 1 };
+  const at = (player: FakePlayer) => [player.location.x, player.location.y, player.location.z];
+
+  it("looks through a camera with Start view on: held under its lens, locked in, unseen, on a floor, then off to the spawns", async () => {
+    const [a, b] = ["A", "B"].map((name) => world.join(name));
+    const baseline = snapshot();
+    // The map editor's cameras stay in the editor; servers get the lens to look through, the first
+    // map preview with Start view on (Camera 2 has it off), above the bounds here.
+    const map = runtimeMapConfig({
+      ...ARENA,
+      cameras: { "Camera 1": { at: [5.5, 110.62, -2.5, 90, 30], kind: "map" }, "Camera 2": { at: [3, 90, 3, 0, 0], kind: "map", startView: false }, "Camera 3": { at: [1, 90, 1, 0, 0], kind: "game" } },
+    });
+    expect(map.startView).toEqual([5.5, 110.62, -2.5, 90, 30]);
+    expect(map).not.toHaveProperty("cameras");
+    const game = new TestGame(harness.context(["A", "B", "C"], map), config);
+    await playToEnd(game, baseline, async () => {
+      await ticks(4);
+      // Under the lens, standing on a whole block (feet at 109), looking through it.
+      expect([at(a), at(b)]).toEqual([[5.5, 109, -2.5], [5.5, 109, -2.5]]);
+      expect(a.camera.view).toEqual({ preset: "minecraft:free", location: { x: 5.5, y: 110.62, z: -2.5 }, rotation: { x: 30, y: 90 } });
+      expect(a.unlocked).toBe(false);
+      expect([a, b].map((player) => player.effects.has("invisibility"))).toEqual([true, true]);
+      expect(a.nameTag).toBe("");
+      expect(world.overworld.blocks.get("5,108,-3")).toBe("minecraft:barrier");
+      const teleports = a.teleports.length;
+      await ticks(40);
+      expect(a.teleports.length).toBe(teleports);
+      // A fall is caught at once.
+      a.location = { x: 5.5, y: 104, z: -2.5 };
+      await ticks(2);
+      expect(at(a)).toEqual([5.5, 109, -2.5]);
+      // C comes: everyone's in, so off to the spawns for the countdown, their own view back.
+      const c = world.join("C");
+      await ticks(25);
+      expect(game.phase).toBe("countdown");
+      expect([at(a), at(b), at(c)]).toEqual([[0.5, 65, 0.5], [4.5, 65, 0.5], [-3.5, 65, 0.5]]);
+      expect(a.camera.view).toBeUndefined();
+      expect(a.effects.has("invisibility")).toBe(false);
+      expect(a.nameTag).toBe("A");
+      expect(world.overworld.blocks.has("5,108,-3")).toBe(false);
+      game.finish({ kind: "draw", reason: "test over" });
+      await ticks(2);
+    });
+    expectBaseline(baseline);
+    everyoneLeaves();
+  });
+
+  it("waits at the spawns when no camera has Start view on, unseen and nameless while two share one", async () => {
+    const [a, b] = ["A", "B"].map((name) => world.join(name));
+    const baseline = snapshot();
+    const map = runtimeMapConfig({ ...ARENA, spawns: [[0, 65, 0]], cameras: { "Camera 1": { at: [5, 90, 5, 0, 0], kind: "map", startView: false } } });
+    expect(map).not.toHaveProperty("startView");
+    const game = new TestGame(harness.context(["A", "B", "C"], map), config);
+    await playToEnd(game, baseline, async () => {
+      await ticks(12);
+      // One spawn for both.
+      expect([at(a), at(b)]).toEqual([[0.5, 65, 0.5], [0.5, 65, 0.5]]);
+      expect(a.camera.view).toBeUndefined();
+      expect(a.unlocked).toBe(true);
+      expect([a, b].map((player) => player.effects.has("invisibility"))).toEqual([true, true]);
+      expect([a.nameTag, b.nameTag]).toEqual(["", ""]);
+      // Apart: seen again, named.
+      a.location = { x: 6, y: 65, z: 6 };
+      await ticks(10);
+      expect([a, b].map((player) => player.effects.has("invisibility"))).toEqual([false, false]);
+      expect([a.nameTag, b.nameTag]).toEqual(["A", "B"]);
       game.finish({ kind: "draw", reason: "test over" });
       await ticks(2);
     });

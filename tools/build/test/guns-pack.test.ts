@@ -384,7 +384,12 @@ describe("the arsenal's files", () => {
       for (const texture of Object.values(client.textures)) expect(files[`resource_pack/${texture}.png`], texture as string).toBeDefined();
     }
     const controllers = json("resource_pack/render_controllers/guns.render_controllers.json").render_controllers;
-    expect(controllers["controller.render.minecade.arsenal_model"].arrays.geometries["Array.models"]).toEqual(ARSENAL_MODELS.map((model) => `Geometry.${model}`));
+    expect(controllers["controller.render.minecade.arsenal_model"].arrays.geometries["Array.model_geos"]).toEqual(ARSENAL_MODELS.map((model) => `Geometry.${model}`));
+    // A texture array and a geometry array never share a name, as in vanilla's controllers.
+    for (const [id, controller] of Object.entries(controllers) as [string, { arrays?: Record<string, Record<string, unknown>> }][]) {
+      const names = Object.values(controller.arrays ?? {}).flatMap((arrays) => Object.keys(arrays));
+      expect(new Set(names).size, id).toBe(names.length);
+    }
     expect(json("behavior_pack/entities/rocket.json")["minecraft:entity"].description).toEqual({
       identifier: ROCKET,
       runtime_identifier: "minecraft:snowball",

@@ -13,7 +13,7 @@
 import { HudVisibility, type Player } from "@minecraft/server";
 import { ActionFormData } from "@minecraft/server-ui";
 import { describeError } from "@minecade/minigame-core";
-import { CAMERA_KINDS, cameraActions, cameraAt, cameraText, nextCameraName, nudgeCamera, type CameraKind } from "./cameras.ts";
+import { CAMERA_KINDS, cameraActions, cameraAt, cameraText, nextCameraName, nudgeCamera, toggleStartView, type CameraKind } from "./cameras.ts";
 import { frameLine } from "./hud.ts";
 import { sideTitle } from "./marks.ts";
 import { BACK_TEXT, ICONS, SNAPSHOT_STEPS, snapshotEntries, snapshotListEntries, type SnapshotAction } from "./menu.ts";
@@ -106,6 +106,11 @@ export class CameraTool {
     if (action === "kind") {
       const kind = now.kind === "map" ? "game" : "map";
       this.host.edit(player, { op: "camera", name, camera: { ...now, kind } }, `${name} is a ${CAMERA_KINDS[kind].label.toLowerCase()} now.`);
+      return this.menu(player, name, back);
+    }
+    if (action === "start") {
+      const camera = toggleStartView(now);
+      this.host.edit(player, { op: "camera", name, camera }, camera.startView === false ? `Players never wait looking through ${name} now.` : `Players can wait looking through ${name} now.`);
       return this.menu(player, name, back);
     }
     if (this.isLookingAt(name)) {

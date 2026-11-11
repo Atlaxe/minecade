@@ -176,9 +176,30 @@ export interface PreviewMannequin {
 
 /** A preview camera placed in the map editor: where the screenshot is taken from. */
 export interface MapCamera {
+  /** The lens: x, y and z at the eyes, then where it looks. */
   at: [x: number, y: number, z: number, yaw: number, pitch: number];
   /** "map": the map's preview, without players. "game": the game's picture, players in the shot. */
   kind: "map" | "game";
+  /**
+   * false: players never wait looking through it. On a map without a queue spawn, players wait
+   * before the match looking through a camera (startViewCamera); every camera may be the one until
+   * this is turned off in its form.
+   */
+  startView?: boolean;
+}
+
+/**
+ * The camera players wait looking through before the match on a map without a queue spawn: of the
+ * cameras whose Start view is on, a map preview before a game picture, each kind in name order
+ * ("Camera 2" before "Camera 10"). Undefined when there's none.
+ */
+export function startViewCamera(config: Pick<MapConfig, "cameras">): MapCamera | undefined {
+  const cameras = config.cameras;
+  if (typeof cameras !== "object" || cameras === null || Array.isArray(cameras)) return undefined;
+  const usable = Object.entries(cameras)
+    .filter(([, camera]) => camera?.startView !== false && Array.isArray(camera?.at) && camera.at.length === 5 && camera.at.every((value) => typeof value === "number" && Number.isFinite(value)))
+    .sort(([a, first], [b, second]) => Number(first.kind !== "map") - Number(second.kind !== "map") || a.localeCompare(b, undefined, { numeric: true }));
+  return usable[0]?.[1];
 }
 
 export interface MapConfig {
@@ -234,6 +255,12 @@ export interface MapConfig {
   gameThumbnail?: boolean;
   /** A preview's server only: the mannequins to stand in it (see PreviewMannequin). */
   previewMannequins?: PreviewMannequin[];
+  /**
+   * Servers only (runtimeMapConfig writes it from the cameras, never the map editor): the lens of
+   * the camera players wait looking through before the match when the map has no queue spawn
+   * (startViewCamera).
+   */
+  startView?: MapCamera["at"];
   /** Game-specific values, such as Sumo's eliminationY. */
   [key: string]: unknown;
 }
@@ -263,9 +290,15 @@ export function queueSettings(config: Pick<MapConfig, "queue">): QueueSettings {
 /** Keys only the build and the map editor use; servers get the map without them. */
 export const EDITOR_ONLY_KEYS = ["build", "source", "cameras", "mannequins", "mannequinsInPreview", "gameThumbnail", "draft"] as const;
 
-/** The map as servers get it: without the editor-only keys. */
+/**
+ * The map as servers get it: without the editor-only keys, and with the lens of the camera players
+ * wait looking through (startView), when one has Start view on.
+ */
 export function runtimeMapConfig(config: MapConfig): MapConfig {
   const runtime: MapConfig = { ...config };
   for (const key of EDITOR_ONLY_KEYS) delete runtime[key];
+  delete runtime.startView;
+  const view = startViewCamera(config);
+  if (view) runtime.startView = [...view.at];
   return runtime;
 }

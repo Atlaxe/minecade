@@ -109,7 +109,7 @@
     "controller.render.minecade.gun_pickup": {
       "arrays": {
         "textures": {
-          "Array.kinds": [
+          "Array.kind_skins": [
             "Texture.pistol",
             "Texture.rifle",
             "Texture.shotgun",
@@ -117,7 +117,7 @@
           ]
         },
         "geometries": {
-          "Array.kinds": [
+          "Array.kind_geos": [
             "Geometry.pistol",
             "Geometry.rifle",
             "Geometry.shotgun",
@@ -125,21 +125,21 @@
           ]
         }
       },
-      "geometry": "Array.kinds[q.property('minecade:kind')]",
+      "geometry": "Array.kind_geos[q.property('minecade:kind')]",
       "materials": [
         {
           "*": "Material.default"
         }
       ],
       "textures": [
-        "Array.kinds[q.property('minecade:kind')]"
+        "Array.kind_skins[q.property('minecade:kind')]"
       ],
       "ignore_lighting": true
     },
     "controller.render.minecade.arsenal_model": {
       "arrays": {
         "textures": {
-          "Array.models": [
+          "Array.model_skins": [
             "Texture.handgun",
             "Texture.smg",
             "Texture.assault_rifle",
@@ -158,7 +158,7 @@
           ]
         },
         "geometries": {
-          "Array.models": [
+          "Array.model_geos": [
             "Geometry.handgun",
             "Geometry.smg",
             "Geometry.assault_rifle",
@@ -177,20 +177,20 @@
           ]
         }
       },
-      "geometry": "Array.models[q.property('minecade:model')]",
+      "geometry": "Array.model_geos[q.property('minecade:model')]",
       "materials": [
         {
           "*": "Material.default"
         }
       ],
       "textures": [
-        "Array.models[q.property('minecade:model')]"
+        "Array.model_skins[q.property('minecade:model')]"
       ]
     },
     "controller.render.minecade.arsenal_primed": {
       "arrays": {
         "textures": {
-          "Array.models": [
+          "Array.model_skins": [
             "Texture.handgun",
             "Texture.smg",
             "Texture.assault_rifle",
@@ -209,7 +209,7 @@
           ]
         },
         "geometries": {
-          "Array.models": [
+          "Array.model_geos": [
             "Geometry.handgun",
             "Geometry.smg",
             "Geometry.assault_rifle",
@@ -228,14 +228,14 @@
           ]
         }
       },
-      "geometry": "Array.models[q.property('minecade:model')]",
+      "geometry": "Array.model_geos[q.property('minecade:model')]",
       "materials": [
         {
           "*": "Material.default"
         }
       ],
       "textures": [
-        "Array.models[q.property('minecade:model')]"
+        "Array.model_skins[q.property('minecade:model')]"
       ],
       "overlay_color": {
         "r": 1,
@@ -247,7 +247,7 @@
     "controller.render.minecade.arsenal_pickup": {
       "arrays": {
         "textures": {
-          "Array.models": [
+          "Array.model_skins": [
             "Texture.handgun",
             "Texture.smg",
             "Texture.assault_rifle",
@@ -266,7 +266,7 @@
           ]
         },
         "geometries": {
-          "Array.models": [
+          "Array.model_geos": [
             "Geometry.handgun",
             "Geometry.smg",
             "Geometry.assault_rifle",
@@ -285,14 +285,14 @@
           ]
         }
       },
-      "geometry": "Array.models[q.property('minecade:model')]",
+      "geometry": "Array.model_geos[q.property('minecade:model')]",
       "materials": [
         {
           "*": "Material.default"
         }
       ],
       "textures": [
-        "Array.models[q.property('minecade:model')]"
+        "Array.model_skins[q.property('minecade:model')]"
       ],
       "ignore_lighting": true
     },

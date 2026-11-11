@@ -5,6 +5,7 @@
 import {
   EntityComponentTypes,
   GameMode,
+  type BlockPermutation,
   InputPermissionCategory,
   ItemLockMode,
   ItemStack,
@@ -20,7 +21,7 @@ import type { BestOfConfig, GameConfig, KitDef, TeamDef } from "../config.ts";
 import { bestOfCodes, countdownChime, hudLine, playChime, previewLine, type Chime } from "../hud.ts";
 import { kitLines, kitPicturePath, teamColored } from "../kit-defs.ts";
 import { describeError, log } from "../log.ts";
-import { facingOf, worldPoint, type Box, type MapPosition } from "../map-config.ts";
+import { exactPosition, facingOf, worldPoint, type Box, type MapPosition } from "../map-config.ts";
 import { mapSettingValue } from "../map-requirements.ts";
 import { normalizePlayer } from "../player.ts";
 import type { Scope } from "../scope.ts";
@@ -55,6 +56,11 @@ export interface GameContext extends ServerContext {
 
 /** "picking": everyone is in, and picking kits before the countdown. */
 export type Phase = "waiting" | "picking" | "countdown" | "playing" | "ending" | "done";
+/**
+ * Where players wait before the match, best first: the map's queue spawn, else looking through one
+ * of its cameras (MapView.startView: a map without a queue spawn), else at their own spawns.
+ */
+export type Hold = "queue" | "camera";
 export type SpawnReason = "start" | "round" | "respawn" | "join";
 /** What happens to a downed player: out for good, back after a delay, back at the next round or wave, or the game took care of it. */
 export type DownDecision = "eliminate" | "respawn" | "wait" | "handled";
@@ -90,10 +96,21 @@ const PREVIEW_REFRESH_TICKS = 100;
 /** A title() lasts this long (stay plus fade out); the preview's line waits until it's gone. */
 const TITLE_TICKS = 40;
 const TITLE_FADE_TICKS = 10;
-/** Invisibility in a locked queue lasts until normalizePlayer clears it at the spawn. */
+/** Invisibility in a locked queue (or the camera view, or a shared spawn) lasts until normalizePlayer clears it at the spawn. */
 const QUEUE_EFFECT_TICKS = 1_000_000;
-/** What holds players up at a locked queue spawn in the air: solid, and players don't see it. */
+/** What holds players up at a locked queue spawn or the camera view in the air: solid, and players don't see it. */
 const QUEUE_FLOOR = "minecraft:barrier";
+/** How high a player's eyes are over their feet: the camera view's lens is at the eyes. */
+const EYE_HEIGHT = 1.62;
+/** How often players held on one spot (a locked queue, the camera view) are checked, so a fall is caught at once. */
+const HOLD_CHECK_TICKS = 2;
+/**
+ * Waiting at a place outside the bounds (a waiting room above the map): only falling this far below
+ * it or walking this far from it puts a player back.
+ */
+const STRAY = { fall: 4, wander: 32 } as const;
+/** Two waiting players closer than this (across, and up) share a spot: both are unseen until they're apart. */
+const STACKED = { across: 1, up: 2 } as const;
 /** After a best-of round is decided, everyone stays put this long before going back to their spawns. */
 const ROUND_BREAK_TICKS = 40;
 /** How often the kit form's picks are checked, in ticks; its clock moves every second. */
@@ -137,8 +154,10 @@ export abstract class Minigame<C extends GameConfig = GameConfig> {
   private currentPhase: Phase = "waiting";
   private playingScope: Scope | undefined;
   private countdownScope: Scope | undefined;
-  /** Players wait at the map's queue spawn (until the queue countdown ends). */
-  private queued = false;
+  /** Where players wait now: at the map's queue spawn or looking through its camera (until everyone's in), else at their spawns. */
+  private held: Hold | undefined;
+  /** Waiting players (and fakes) made unseen for sharing a spot (lowercase), shown again once they're apart. */
+  private readonly stackHidden = new Set<string>();
   /** When title() last showed a title, and when the preview's mode line was last sent, in ticks. */
   private titleAt = -TITLE_TICKS;
   private previewSentAt = -PREVIEW_REFRESH_TICKS;
@@ -176,8 +195,8 @@ export abstract class Minigame<C extends GameConfig = GameConfig> {
   private readonly panelOpen = new Set<string>();
   /** A map editor's /restart ended the preview: everyone plays it again. */
   private restartAsked = false;
-  /** The block under a locked queue spawn the game made a barrier while players wait there. */
-  private queueFloor: Vector3 | undefined;
+  /** The block under a locked queue spawn or the camera view the game made a barrier while players wait there, and what it was. */
+  private queueFloor: { at: Vector3; was: BlockPermutation } | undefined;
 
   constructor(ctx: GameContext, config: C) {
     this.ctx = ctx;
@@ -277,8 +296,13 @@ export abstract class Minigame<C extends GameConfig = GameConfig> {
   /** Once a best-of round is decided, before the next (or the end of the match). */
   protected onRoundEnd(_round: number, _result: Result): void {}
 
-  /** A best-of round ran out of time (bestOf.roundSeconds): a drawn round unless the game says otherwise. */
-  protected onRoundTimeUp(_round: number): Result {
+  /**
+   * A best-of round ran out of time (bestOf.roundSeconds): a drawn round unless the game says
+   * otherwise. A promise plays on first (Gunfight's flag capture, a stage() of its own): the round is
+   * still in play until it settles, so the win check can still decide it, and then what it gives is
+   * ignored.
+   */
+  protected onRoundTimeUp(_round: number): Result | Promise<Result> {
     return draw("time ran out");
   }
 
@@ -435,8 +459,10 @@ export abstract class Minigame<C extends GameConfig = GameConfig> {
 
     const pregame = this.scope.child("pregame");
     // A map with a queue spawn: everyone waits there, then a countdown puts them at their spawns
-    // for the usual frozen countdown. A countdown that falls through sends them back to it.
-    this.queued = this.map.queueSpawn !== undefined;
+    // for the usual frozen countdown. Without one, a map with a camera (Start view on) has everyone
+    // wait looking through it, then puts them at their spawns for the countdown. A countdown that
+    // falls through sends them back.
+    this.held = this.holdKind;
     this.openPregame(pregame);
     // A preview starts with the fake players picked before it loaded: they wait like anyone else,
     // leaving room for everyone the preview expects.
@@ -446,7 +472,7 @@ export abstract class Minigame<C extends GameConfig = GameConfig> {
     // a kit where they wait (the queue spawn or their spawn), then the countdown. A countdown or a
     // kit form that loses players goes back to waiting; picks already made are kept.
     for (;;) {
-      if (this.map.queueSpawn && !this.queued) this.requeue(true);
+      if (this.holdKind && !this.held) this.requeue(true);
       if (!(await this.waitForPlayers())) {
         pregame.dispose();
         return this.conclude(this.outcome ?? aborted("not_enough_players"));
@@ -463,13 +489,11 @@ export abstract class Minigame<C extends GameConfig = GameConfig> {
           continue;
         }
       }
-      if (this.queued) {
-        if (!(await this.queueCountdown(this.map.queue.countdown))) {
-          this.unplanTeams();
-          continue;
-        }
-        this.requeue(false);
+      if (this.held === "queue" && !(await this.queueCountdown(this.map.queue.countdown))) {
+        this.unplanTeams();
+        continue;
       }
+      if (this.held) this.requeue(false);
       if (await this.countdown()) break;
       this.unplanTeams();
     }
@@ -653,9 +677,10 @@ export abstract class Minigame<C extends GameConfig = GameConfig> {
 
   spectate(name: string): void {
     if (this.fakes?.has(name)) {
-      // Where a player would watch from: on foot at the queue spawn, or floating at the spectator
-      // spawn. Seen there, unlike a player (so a preview shows where they went), and nameless.
-      this.placeFake(name, this.map.spectatorSpawn, { tagged: false, floating: !this.map.watchesFromQueue });
+      // Where a player would watch from, and seen as they would be: on foot at the queue spawn, seen
+      // but nameless; or floating at the spectator spawn, unseen, as a player in spectator mode is.
+      const flying = !this.map.watchesFromQueue;
+      this.placeFake(name, this.map.spectatorSpawn, { tagged: false, floating: flying, unseen: flying });
       return;
     }
     const player = this.player(name);
@@ -761,7 +786,7 @@ export abstract class Minigame<C extends GameConfig = GameConfig> {
     if (!player) return;
     normalizePlayer(player, this.gameMode);
     const team = this.teamOf(name);
-    player.nameTag = this.config.nameTags !== true ? "" : team ? `${team.color}${player.name}` : player.name;
+    player.nameTag = this.matchTag(player.name);
     this.place(player, this.spawnPoint(name, why), true);
     // Kits picked every round come once the round's pick is made (nextRound).
     this.kits.give(player, why, team?.color, { chosen: !(why === "round" && this.kits.select === "round" && this.kits.picking) });
@@ -903,20 +928,56 @@ export abstract class Minigame<C extends GameConfig = GameConfig> {
       scope.add(() => this.closeKitForms());
     }
     // Nobody can be hurt before the match (combat ignores non-participants); fallers come back,
-    // and so does anyone pushed off a locked queue spawn. The queue is the spectators' place: its
-    // waiters are kept in the spectator bounds, when the map has them.
+    // and so does anyone pushed or fallen off a locked queue spawn or the camera view, checked
+    // often so a fall is caught at once. The queue is the spectators' place: its waiters are kept in
+    // the spectator bounds, when the map has them. Waiting at their own spawns, players who share
+    // a spot are unseen (hideStacked).
+    scope.interval(() => {
+      if (!this.lockedSpot()) return;
+      this.holdQueueFloor();
+      this.putBackStrays();
+    }, HOLD_CHECK_TICKS);
     scope.interval(() => {
       this.holdQueueFloor();
-      const spectating = this.queued;
-      for (const player of world.getAllPlayers()) {
-        if (this.map.outOfBounds(player.location, { spectating }) || this.offQueueSpot(player)) this.placeWaiting(player);
-      }
-      for (const name of this.fakes?.all ?? []) {
-        if (this.fakes?.isPlacing(name)) continue;
-        const body = this.fakes?.body(name);
-        if (!body || this.map.outOfBounds(body.location, { spectating })) this.placeWaitingFake(name);
-      }
+      this.putBackStrays();
+      this.hideStacked();
     }, 10);
+  }
+
+  /** Waiting players and fake players who left their waiting place (fell, walked off, were pushed) go back to it. */
+  private putBackStrays(): void {
+    for (const player of world.getAllPlayers()) {
+      if (this.strayedWhileWaiting(player.name, player.location)) this.placeWaiting(player);
+    }
+    for (const name of this.fakes?.all ?? []) {
+      if (this.fakes?.isPlacing(name)) continue;
+      const body = this.fakes?.body(name);
+      if (!body || this.strayedWhileWaiting(name, body.location)) this.placeWaitingFake(name);
+    }
+  }
+
+  /**
+   * Whether a waiting player is away from where they wait: more than a block off a locked spot (a
+   * locked queue spawn, the camera view), else out of bounds (the spectator bounds in the queue),
+   * except near a waiting place that's out there itself (STRAY).
+   */
+  private strayedWhileWaiting(name: string, location: Vector3): boolean {
+    const spot = this.lockedSpot();
+    if (spot) return Math.hypot(location.x - spot.x, location.z - spot.z) > 1 || Math.abs(location.y - spot.y) > 1;
+    const queued = this.held === "queue" && this.map.queueSpawn !== undefined;
+    return this.strayedFrom(location, queued ? this.map.queueSpawn! : this.waitingSpawn(name), queued);
+  }
+
+  /**
+   * Whether `location` is out of bounds (`spectating`: the spectator bounds, when the map has them),
+   * for someone kept at `spot`. A spot that's out there itself (a waiting room above the map, a
+   * spectator place outside the bounds) isn't left for that: only falling or walking far from it is.
+   */
+  private strayedFrom(location: Vector3, spot: MapPosition, spectating: boolean): boolean {
+    if (!this.map.outOfBounds(location, { spectating })) return false;
+    const at = worldPoint(spot);
+    if (!this.map.outOfBounds(at, { spectating })) return true;
+    return location.y < at.y - STRAY.fall || Math.hypot(location.x - at.x, location.z - at.z) > STRAY.wander;
   }
 
   /**
@@ -942,20 +1003,37 @@ export abstract class Minigame<C extends GameConfig = GameConfig> {
     this.scope.subscribe(world.afterEvents.playerSpawn, () => (this.previewSentAt = -PREVIEW_REFRESH_TICKS));
   }
 
-  /** Everyone into the queue (`on`), or out of it to their waiting spawns. */
+  /** Where players wait before the match on this map: the queue spawn, else a camera's view, else (undefined) their own spawns. */
+  private get holdKind(): Hold | undefined {
+    if (this.map.queueSpawn) return "queue";
+    return this.map.startView ? "camera" : undefined;
+  }
+
+  /** Everyone into the queue or the camera view (`on`), or out of it to their waiting spawns. */
   private requeue(on: boolean): void {
-    this.queued = on;
+    this.held = on ? this.holdKind : undefined;
     if (!on) this.releaseQueueFloor();
+    this.stackHidden.clear();
     for (const player of world.getAllPlayers()) this.prepareWaiting(player);
     for (const name of this.fakes?.all ?? []) this.placeWaitingFake(name);
   }
 
-  /** A locked-in player more than a block from the queue spawn (pushed, or lagging). */
-  private offQueueSpot(player: Player): boolean {
-    const spawn = this.map.queueSpawn;
-    if (!this.queued || !spawn || this.map.queue.mode !== "lock") return false;
-    const spot = worldPoint(spawn);
-    return Math.hypot(player.location.x - spot.x, player.location.z - spot.z) > 1 || Math.abs(player.location.y - spot.y) > 1;
+  /** The camera view's waiting place: under the camera's lens, standing on a whole block, facing the way it looks. */
+  private cameraSpot(): MapPosition | undefined {
+    const view = this.map.startView;
+    if (!view) return undefined;
+    const [x, y, z, yaw, pitch] = view;
+    return exactPosition({ x, y: Math.floor(y - EYE_HEIGHT), z }, { yaw, pitch });
+  }
+
+  /** Where waiting players are held on one spot, unable to walk: a locked queue spawn, or the camera view's place. */
+  private lockedSpot(): Vector3 | undefined {
+    if (this.held === "camera") {
+      const spot = this.cameraSpot();
+      return spot && worldPoint(spot);
+    }
+    const queue = this.map.queueSpawn;
+    return this.held === "queue" && queue && this.map.queue.mode === "lock" ? worldPoint(queue) : undefined;
   }
 
   private prepareWaiting(player: Player): void {
@@ -970,68 +1048,165 @@ export abstract class Minigame<C extends GameConfig = GameConfig> {
   }
 
   /**
-   * At the queue spawn while queued (locked in: unable to move but free to look around, held up
-   * there, and invisible without a name tag, so nobody sees the others), else at a spawn of their
-   * own. normalizePlayer, at every spawn, undoes the queue's lock.
+   * In the queue, at the queue spawn (locked in: unable to move but free to look around). In the
+   * camera view, under the camera's lens looking through it, unable to move. Either way held up
+   * there, and when everyone's on one spot (a locked queue, the camera view) invisible without a
+   * name tag, so nobody sees the others. Else at a spawn of their own (hideStacked hides those who
+   * share one). normalizePlayer, at every spawn, undoes all of it.
    */
   private placeWaiting(player: Player): void {
     const queueSpawn = this.map.queueSpawn;
-    if (this.queued && queueSpawn) {
+    const camera = this.held === "camera" ? this.cameraSpot() : undefined;
+    if (this.held === "queue" && queueSpawn) {
       this.holdQueueFloor();
       this.place(player, queueSpawn);
-      if (this.map.queue.mode !== "lock") return;
-      try {
-        player.inputPermissions.setPermissionCategory(InputPermissionCategory.Movement, false);
-        player.addEffect("invisibility", QUEUE_EFFECT_TICKS, { amplifier: 0, showParticles: false });
-        player.nameTag = "";
-      } catch (error) {
-        log.warn(`could not lock ${player.name} in the queue: ${describeError(error)}`);
-      }
+      if (this.map.queue.mode === "lock") this.lockIn(player);
+      return;
+    }
+    if (camera) {
+      this.holdQueueFloor();
+      this.place(player, camera);
+      this.lockIn(player);
+      this.lookThroughCamera(player);
       return;
     }
     this.place(player, this.waitingSpawn(player.name));
   }
 
-  /** A fake player waits where a player would: in the queue (unseen, nameless and floating when it locks), else at a spawn of its own. */
+  /** Unable to move, invisible and nameless: one of everyone on a single spot. */
+  private lockIn(player: Player): void {
+    try {
+      player.inputPermissions.setPermissionCategory(InputPermissionCategory.Movement, false);
+      player.addEffect("invisibility", QUEUE_EFFECT_TICKS, { amplifier: 0, showParticles: false });
+      player.nameTag = "";
+    } catch (error) {
+      log.warn(`could not lock ${player.name} in place: ${describeError(error)}`);
+    }
+  }
+
+  /**
+   * The player sees through the camera (the free camera at its lens, looking its way) until
+   * normalizePlayer gives them their own view back. Sent again a second later, in case the first
+   * came before their screen was ready.
+   */
+  private lookThroughCamera(player: Player): void {
+    const view = this.map.startView;
+    if (!view) return;
+    const [x, y, z, yaw, pitch] = view;
+    const look = () => {
+      try {
+        if (player.isValid && this.held === "camera") player.camera.setCamera("minecraft:free", { location: { x, y, z }, rotation: { x: pitch, y: yaw } });
+      } catch (error) {
+        log.warn(`could not show ${player.name} the camera view: ${describeError(error)}`);
+      }
+    };
+    look();
+    this.scope.timeout(look, 20);
+  }
+
+  /**
+   * A fake player waits where a player would: in the queue (unseen, nameless and floating when it
+   * locks), at the camera view's place (the same), else at a spawn of its own.
+   */
   private placeWaitingFake(name: string): void {
     const queueSpawn = this.map.queueSpawn;
-    if (this.queued && queueSpawn) {
+    const camera = this.held === "camera" ? this.cameraSpot() : undefined;
+    if (this.held === "queue" && queueSpawn) {
       const locked = this.map.queue.mode === "lock";
       this.placeFake(name, queueSpawn, { tagged: !locked, unseen: locked, floating: locked });
+      return;
+    }
+    if (camera) {
+      this.placeFake(name, camera, { tagged: false, unseen: true, floating: true });
       return;
     }
     this.placeFake(name, this.waitingSpawn(name));
   }
 
   /**
-   * Locking players in can't stop them falling, so a locked queue spawn in the air gets a floor
-   * while they wait there: a barrier in the block under it (only in place of air), taken away
-   * once they leave the queue. Until its chunk loads, the pregame's check tries again.
+   * Waiting at their own spawns, players (and fake players) who share a spot with someone (two to
+   * a spawn, a team on its one spawn) are unseen and nameless, so they aren't a tangle; once
+   * they're apart they're seen again. In the queue or the camera view, the lock does it.
+   */
+  private hideStacked(): void {
+    if (this.held) return;
+    this.concealStacked(this.online(), (name) => name);
+  }
+
+  /**
+   * Of `names`, those whose bodies share a spot with another's (STACKED) are made unseen and
+   * nameless, the rest seen again with `tagOf` (only those this hid). Returns the ones it hid.
+   */
+  private concealStacked(names: readonly string[], tagOf: (name: string) => string): string[] {
+    const bodies = names.flatMap((name) => {
+      const body = this.body(name);
+      return body?.isValid ? [{ name, body, at: body.location }] : [];
+    });
+    const hidden: string[] = [];
+    for (const { name, body, at } of bodies) {
+      const stacked = bodies.some((other) => other.name !== name && Math.hypot(other.at.x - at.x, other.at.z - at.z) < STACKED.across && Math.abs(other.at.y - at.y) < STACKED.up);
+      this.conceal(name, body, stacked, tagOf(name));
+      if (stacked) hidden.push(name);
+    }
+    return hidden;
+  }
+
+  /**
+   * Makes a participant unseen and nameless (`hidden`) for sharing a spot, or seen again with
+   * `nameTag`; stackHidden keeps who it hid, so it only shows its own again.
+   */
+  private conceal(name: string, body: Entity, hidden: boolean, nameTag: string): void {
+    const key = name.toLowerCase();
+    if (!hidden && !this.stackHidden.has(key)) return;
+    try {
+      if (hidden) {
+        if (!body.getEffect("invisibility")) body.addEffect("invisibility", QUEUE_EFFECT_TICKS, { amplifier: 0, showParticles: false });
+        this.stackHidden.add(key);
+      } else {
+        body.removeEffect("invisibility");
+        this.stackHidden.delete(key);
+      }
+      const tag = hidden ? "" : nameTag;
+      // A fake's tag carries its hearts in play: FakePlayers puts them back under the new one.
+      if (this.fakes?.has(name)) {
+        if (!hidden || body.nameTag !== "") this.fakes.retag(name, tag, this.teamOf(name)?.color);
+      } else if (body.nameTag !== tag) {
+        body.nameTag = tag;
+      }
+    } catch (error) {
+      log.warn(`could not ${hidden ? "hide" : "show"} ${name}: ${describeError(error)}`);
+    }
+  }
+
+  /**
+   * Locking players in can't stop them falling, so a locked queue spawn or the camera view in the
+   * air gets a floor while players wait there: a barrier in the block under the spot, in place of
+   * air or a liquid, put back as it was once they leave. Until its chunk loads, the checks try again.
    */
   private holdQueueFloor(): void {
-    const spawn = this.map.queueSpawn;
-    if (this.queueFloor || !this.queued || !spawn || this.map.queue.mode !== "lock") return;
-    const at = worldPoint(spawn);
-    const below = { x: Math.floor(at.x), y: Math.floor(at.y) - 1, z: Math.floor(at.z) };
+    const spot = this.lockedSpot();
+    if (this.queueFloor || !spot) return;
+    const below = { x: Math.floor(spot.x), y: Math.floor(spot.y) - 1, z: Math.floor(spot.z) };
     try {
       const block = world.getDimension("overworld").getBlock(below);
-      if (block?.typeId !== "minecraft:air") return;
+      if (!block || !(block.isAir || block.isLiquid)) return;
+      const was = block.permutation;
       block.setType(QUEUE_FLOOR);
-      this.queueFloor = below;
+      this.queueFloor = { at: below, was };
     } catch (error) {
-      log.warn(`could not put a floor under the queue spawn: ${describeError(error)}`);
+      log.warn(`could not put a floor under where players wait: ${describeError(error)}`);
     }
   }
 
   private releaseQueueFloor(): void {
-    const at = this.queueFloor;
+    const floor = this.queueFloor;
     this.queueFloor = undefined;
-    if (!at) return;
+    if (!floor) return;
     try {
-      const block = world.getDimension("overworld").getBlock(at);
-      if (block?.typeId === QUEUE_FLOOR) block.setType("minecraft:air");
+      const block = world.getDimension("overworld").getBlock(floor.at);
+      if (block?.typeId === QUEUE_FLOOR) block.setPermutation(floor.was);
     } catch (error) {
-      log.warn(`could not take the queue spawn's floor away: ${describeError(error)}`);
+      log.warn(`could not take the floor under where players waited away: ${describeError(error)}`);
     }
   }
 
@@ -1066,7 +1241,7 @@ export abstract class Minigame<C extends GameConfig = GameConfig> {
     const plan = assignTeams(names, picks, teams, this.ctx.random, limit);
     this.teamPlan = new Map([...plan].map(([name, team]) => [name.toLowerCase(), team]));
     this.teams = activeTeams(names.length, teams, limit);
-    if (!this.queued) {
+    if (!this.held) {
       for (const player of world.getAllPlayers()) this.placeWaiting(player);
       for (const name of this.fakes?.all ?? []) this.placeWaitingFake(name);
     }
@@ -1093,7 +1268,7 @@ export abstract class Minigame<C extends GameConfig = GameConfig> {
   private async pickKits(names: string[], scope: Scope, pregame: boolean): Promise<boolean> {
     if (pregame) this.currentPhase = "picking";
     const picking = scope.child("kit-picks");
-    if (pregame && !this.queued) this.freeze(names, picking);
+    if (pregame && !this.held) this.freeze(names, picking);
     const teamOf = (name: string) => (pregame ? this.plannedTeam(name) : this.teamOf(name));
     this.closeKitForms(); // the star's: the picker brings up its own
     const forms = this.kitForms;
@@ -1306,18 +1481,44 @@ export abstract class Minigame<C extends GameConfig = GameConfig> {
           resolve(decided);
         };
         this.contestSides = this.roster.standingSides().length;
-        void this.stage(`Round ${round}`, { seconds: config.roundSeconds }).then(({ timedOut }) => {
-          if (timedOut) this.contest?.(this.onRoundTimeUp(round));
-        });
+        const contest = this.contest;
+        void this.stage(`Round ${round}`, { seconds: config.roundSeconds })
+          .then(({ timedOut }) => (timedOut ? this.onRoundTimeUp(round) : undefined))
+          .then((decided) => {
+            if (decided && this.contest === contest) contest?.(decided);
+          })
+          .catch((error: unknown) => {
+            log.error(`${this.config.id}: onRoundTimeUp failed: ${describeError(error)}`);
+            if (this.contest === contest) contest?.(draw("time ran out"));
+          });
       }),
     );
     this.currentStage?.end();
     return result;
   }
 
-  /** Before every round after the first: everyone back at their spawns, their kits (picked again, when they're picked every round), the countdown. */
+  /**
+   * Before every round after the first: everyone back at their spawns, their kits (picked again,
+   * when they're picked every round), the countdown. Players who share a spawn are unseen and
+   * nameless until "Go!".
+   */
   private async nextRound(round: number, config: BestOfConfig): Promise<void> {
     this.respawnAll("round");
+    const alive = this.roster.inState("alive").map((participant) => participant.name);
+    const stacked = this.concealStacked(alive, (name) => this.matchTag(name));
+    try {
+      await this.roundStart(round, config);
+    } finally {
+      for (const name of stacked) {
+        const body = this.body(name);
+        if (body?.isValid) this.conceal(name, body, false, this.matchTag(name));
+      }
+      this.stackHidden.clear();
+    }
+  }
+
+  /** A round's kits (picked again, when they're picked every round) and its frozen countdown. */
+  private async roundStart(round: number, config: BestOfConfig): Promise<void> {
     if (this.kits.select === "round" && this.kits.picking) {
       const names = this.roster.inState("alive").map((participant) => participant.name);
       const scope = (this.playingScope ?? this.scope).child("round-kits");
@@ -1416,6 +1617,8 @@ export abstract class Minigame<C extends GameConfig = GameConfig> {
     const playing = this.scope.child("playing");
     this.playingScope = playing;
     this.startTick = system.currentTick;
+    // Everyone's spawn shows them again (normalizePlayer, placeFake).
+    this.stackHidden.clear();
     const names = this.online().slice(0, this.config.maxPlayers);
     let assignment: Map<string, string> | undefined;
     if (this.config.teams) {
@@ -1485,14 +1688,15 @@ export abstract class Minigame<C extends GameConfig = GameConfig> {
     // bounds, when the map has them) puts them back. Anyone here who isn't playing counts (late
     // joiners and extras watch too).
     if (this.map.watchesFromQueue) {
+      const spot = this.map.spectatorSpawn;
       for (const player of world.getAllPlayers()) {
         const state = this.roster.get(player.name)?.state;
-        if ((state === undefined || state === "out" || state === "respawning") && this.map.outOfBounds(player.location, { spectating: true })) this.place(player, this.map.spectatorSpawn);
+        if ((state === undefined || state === "out" || state === "respawning") && this.strayedFrom(player.location, spot, true)) this.place(player, spot);
       }
       for (const name of this.fakes?.all ?? []) {
         const state = this.roster.get(name)?.state;
         const body = this.fakes?.body(name);
-        if ((state === "out" || state === "respawning") && body && !this.fakes?.isPlacing(name) && this.map.outOfBounds(body.location, { spectating: true })) this.place(body, this.map.spectatorSpawn);
+        if ((state === "out" || state === "respawning") && body && !this.fakes?.isPlacing(name) && this.strayedFrom(body.location, spot, true)) this.place(body, spot);
       }
       return;
     }
@@ -1608,8 +1812,9 @@ export abstract class Minigame<C extends GameConfig = GameConfig> {
       case "win": {
         const team = result.team !== undefined ? this.teams.find((def) => def.id === result.team) : undefined;
         const who = team ? nameOf(`${team.name} team`, team.color) : result.players.map((name) => nameOf(name)).join(say.highlight(", "));
-        this.title(`${who} ${COLOR.highlight}wins!`, say.minor(result.reason));
-        this.broadcast(`${say.highlight(`${who} wins ${this.config.name}!`)} ${say.minor(`(${result.reason})`)}`);
+        // A win with no reason (Gun Game's, where the win says it all) shows none.
+        this.title(`${who} ${COLOR.highlight}wins!`, result.reason ? say.minor(result.reason) : undefined);
+        this.broadcast(result.reason ? `${say.highlight(`${who} wins ${this.config.name}!`)} ${say.minor(`(${result.reason})`)}` : say.highlight(`${who} wins ${this.config.name}!`));
         return;
       }
       case "coop":
@@ -1745,6 +1950,7 @@ export abstract class Minigame<C extends GameConfig = GameConfig> {
       body.teleport(mine.at, { rotation: { x: 0, y: mine.rotation.y } });
       setHealth(player, theirs.health);
       setHealth(body, mine.health);
+      fakes.showHealth(body);
     } catch (error) {
       log.warn(`could not switch ${player.name} with ${name}: ${describeError(error)}`);
       return say.minor("That didn't work: try again.");
@@ -1893,7 +2099,17 @@ export abstract class Minigame<C extends GameConfig = GameConfig> {
       areAllies: (a, b) => this.areTeammates(a, b) && !this.config.teams?.friendlyFire,
       onDamage: (hit) => this.onDamage(hit),
       down: (name, cause) => this.down(name, cause),
+      healthChanged: (victim) => {
+        if (victim.typeId === FAKE_PLAYER) this.fakes?.showHealth(victim);
+      },
     };
+  }
+
+  /** A participant's name tag in the match: their name, in their team's color, when the game shows names; else none. */
+  private matchTag(name: string): string {
+    if (this.config.nameTags !== true) return "";
+    const team = this.teamOf(name);
+    return team ? `${team.color}${name}` : name;
   }
 
   private areTeammates(a: string, b: string): boolean {

@@ -139,12 +139,12 @@
       "bones": {
         "gun": {
           "position": [
-            "((1 - math.clamp(q.cooldown_time_remaining('slot.weapon.mainhand') / 0.15, 0, 1)) < 0.27 ? (1 - math.clamp(q.cooldown_time_remaining('slot.weapon.mainhand') / 0.15, 0, 1)) / 0.27 : math.pow((1 - (1 - math.clamp(q.cooldown_time_remaining('slot.weapon.mainhand') / 0.15, 0, 1))) / 0.73, 2)) * (c.is_first_person ? -0.68 : 0)",
-            "((1 - math.clamp(q.cooldown_time_remaining('slot.weapon.mainhand') / 0.15, 0, 1)) < 0.27 ? (1 - math.clamp(q.cooldown_time_remaining('slot.weapon.mainhand') / 0.15, 0, 1)) / 0.27 : math.pow((1 - (1 - math.clamp(q.cooldown_time_remaining('slot.weapon.mainhand') / 0.15, 0, 1))) / 0.73, 2)) * (c.is_first_person ? 0.99 : 0.37)",
-            "((1 - math.clamp(q.cooldown_time_remaining('slot.weapon.mainhand') / 0.15, 0, 1)) < 0.27 ? (1 - math.clamp(q.cooldown_time_remaining('slot.weapon.mainhand') / 0.15, 0, 1)) / 0.27 : math.pow((1 - (1 - math.clamp(q.cooldown_time_remaining('slot.weapon.mainhand') / 0.15, 0, 1))) / 0.73, 2)) * (c.is_first_person ? 0.1 : 1.14)"
+            "((1 - math.clamp(q.cooldown_time_remaining('slot.weapon.mainhand') / 0.15, 0, 1)) < 0.27 ? (1 - math.clamp(q.cooldown_time_remaining('slot.weapon.mainhand') / 0.15, 0, 1)) / 0.27 : math.pow((1 - (1 - math.clamp(q.cooldown_time_remaining('slot.weapon.mainhand') / 0.15, 0, 1))) / 0.73, 2)) * (c.is_first_person ? -0.39 : 0)",
+            "((1 - math.clamp(q.cooldown_time_remaining('slot.weapon.mainhand') / 0.15, 0, 1)) < 0.27 ? (1 - math.clamp(q.cooldown_time_remaining('slot.weapon.mainhand') / 0.15, 0, 1)) / 0.27 : math.pow((1 - (1 - math.clamp(q.cooldown_time_remaining('slot.weapon.mainhand') / 0.15, 0, 1))) / 0.73, 2)) * (c.is_first_person ? 0.58 : 0.22)",
+            "((1 - math.clamp(q.cooldown_time_remaining('slot.weapon.mainhand') / 0.15, 0, 1)) < 0.27 ? (1 - math.clamp(q.cooldown_time_remaining('slot.weapon.mainhand') / 0.15, 0, 1)) / 0.27 : math.pow((1 - (1 - math.clamp(q.cooldown_time_remaining('slot.weapon.mainhand') / 0.15, 0, 1))) / 0.73, 2)) * (c.is_first_person ? 0.06 : 0.67)"
           ],
           "rotation": [
-            "((1 - math.clamp(q.cooldown_time_remaining('slot.weapon.mainhand') / 0.15, 0, 1)) < 0.27 ? (1 - math.clamp(q.cooldown_time_remaining('slot.weapon.mainhand') / 0.15, 0, 1)) / 0.27 : math.pow((1 - (1 - math.clamp(q.cooldown_time_remaining('slot.weapon.mainhand') / 0.15, 0, 1))) / 0.73, 2)) * -5",
+            "((1 - math.clamp(q.cooldown_time_remaining('slot.weapon.mainhand') / 0.15, 0, 1)) < 0.27 ? (1 - math.clamp(q.cooldown_time_remaining('slot.weapon.mainhand') / 0.15, 0, 1)) / 0.27 : math.pow((1 - (1 - math.clamp(q.cooldown_time_remaining('slot.weapon.mainhand') / 0.15, 0, 1))) / 0.73, 2)) * -2.5",
             0,
             0
           ]
@@ -156,12 +156,12 @@
       "bones": {
         "gun": {
           "position": [
-            "((1 - math.clamp(q.cooldown_time_remaining('slot.weapon.mainhand') / 0.6, 0, 1)) < 0.07 ? (1 - math.clamp(q.cooldown_time_remaining('slot.weapon.mainhand') / 0.6, 0, 1)) / 0.07 : math.pow((1 - (1 - math.clamp(q.cooldown_time_remaining('slot.weapon.mainhand') / 0.6, 0, 1))) / 0.93, 2)) * (c.is_first_person ? -1.13 : 0)",
-            "((1 - math.clamp(q.cooldown_time_remaining('slot.weapon.mainhand') / 0.6, 0, 1)) < 0.07 ? (1 - math.clamp(q.cooldown_time_remaining('slot.weapon.mainhand') / 0.6, 0, 1)) / 0.07 : math.pow((1 - (1 - math.clamp(q.cooldown_time_remaining('slot.weapon.mainhand') / 0.6, 0, 1))) / 0.93, 2)) * (c.is_first_person ? 1.64 : 0.62)",
-            "((1 - math.clamp(q.cooldown_time_remaining('slot.weapon.mainhand') / 0.6, 0, 1)) < 0.07 ? (1 - math.clamp(q.cooldown_time_remaining('slot.weapon.mainhand') / 0.6, 0, 1)) / 0.07 : math.pow((1 - (1 - math.clamp(q.cooldown_time_remaining('slot.weapon.mainhand') / 0.6, 0, 1))) / 0.93, 2)) * (c.is_first_person ? 0.17 : 1.9)"
+            "((1 - math.clamp(q.cooldown_time_remaining('slot.weapon.mainhand') / 0.6, 0, 1)) < 0.07 ? (1 - math.clamp(q.cooldown_time_remaining('slot.weapon.mainhand') / 0.6, 0, 1)) / 0.07 : math.pow((1 - (1 - math.clamp(q.cooldown_time_remaining('slot.weapon.mainhand') / 0.6, 0, 1))) / 0.93, 2)) * (c.is_first_person ? -0.68 : 0)",
+            "((1 - math.clamp(q.cooldown_time_remaining('slot.weapon.mainhand') / 0.6, 0, 1)) < 0.07 ? (1 - math.clamp(q.cooldown_time_remaining('slot.weapon.mainhand') / 0.6, 0, 1)) / 0.07 : math.pow((1 - (1 - math.clamp(q.cooldown_time_remaining('slot.weapon.mainhand') / 0.6, 0, 1))) / 0.93, 2)) * (c.is_first_person ? 0.99 : 0.37)",
+            "((1 - math.clamp(q.cooldown_time_remaining('slot.weapon.mainhand') / 0.6, 0, 1)) < 0.07 ? (1 - math.clamp(q.cooldown_time_remaining('slot.weapon.mainhand') / 0.6, 0, 1)) / 0.07 : math.pow((1 - (1 - math.clamp(q.cooldown_time_remaining('slot.weapon.mainhand') / 0.6, 0, 1))) / 0.93, 2)) * (c.is_first_person ? 0.1 : 1.14)"
           ],
           "rotation": [
-            "((1 - math.clamp(q.cooldown_time_remaining('slot.weapon.mainhand') / 0.6, 0, 1)) < 0.07 ? (1 - math.clamp(q.cooldown_time_remaining('slot.weapon.mainhand') / 0.6, 0, 1)) / 0.07 : math.pow((1 - (1 - math.clamp(q.cooldown_time_remaining('slot.weapon.mainhand') / 0.6, 0, 1))) / 0.93, 2)) * -10",
+            "((1 - math.clamp(q.cooldown_time_remaining('slot.weapon.mainhand') / 0.6, 0, 1)) < 0.07 ? (1 - math.clamp(q.cooldown_time_remaining('slot.weapon.mainhand') / 0.6, 0, 1)) / 0.07 : math.pow((1 - (1 - math.clamp(q.cooldown_time_remaining('slot.weapon.mainhand') / 0.6, 0, 1))) / 0.93, 2)) * -5",
             0,
             0
           ]
