@@ -16,7 +16,7 @@ import {
   type Harness,
 } from "../../../packages/minigame-core/test/game-harness.ts";
 import config from "../game.config.ts";
-import { Sumo, pushDirection } from "../behavior_pack/scripts/sumo.ts";
+import { Sumo, doubleJumpPush, extraPush, pushDirection, scriptedPush } from "../behavior_pack/scripts/sumo.ts";
 
 /** The Arena map's map.json (its world was deleted from the game's maps on 2026-11-04). */
 const arena = runtimeMapConfig({
@@ -158,7 +158,7 @@ describe("Sumo", () => {
       b.location = { x: 3.5, y: 65, z: 0.5 };
       world.melee(a, b, 5);
       expect(b.health.currentValue).toBe(20);
-      expect(b.knockbacks).toEqual([{ x: knockback.horizontal, z: 0, vertical: knockback.vertical }]);
+      expect(b.knockbacks).toEqual([{ x: knockback.horizontal * knockback.strength, z: 0, vertical: knockback.vertical }]);
       await ticks(knockback.cooldownTicks - 1);
       world.melee(a, b, 5); // too soon: no second push
       expect(b.knockbacks).toHaveLength(1);
@@ -166,7 +166,7 @@ describe("Sumo", () => {
       a.isSprinting = true;
       world.melee(a, b, 5);
       expect(b.knockbacks).toHaveLength(2);
-      expect(b.knockbacks[1]).toEqual({ x: knockback.sprintHorizontal, z: 0, vertical: knockback.sprintVertical });
+      expect(b.knockbacks[1]).toEqual({ x: knockback.sprintHorizontal * knockback.strength, z: 0, vertical: knockback.sprintVertical });
 
       knockOff(b); // the push is credited, though no damage ever landed
       await ticks(3);
@@ -174,6 +174,77 @@ describe("Sumo", () => {
       expect(a.knockbacks).toEqual([]);
     });
     expect(statsRows(harness.sent, from).find((row) => row.n === "A")).toMatchObject({ k: 1, r: "w" });
+    expectBaseline(harness.root, baseline);
+    everyoneLeaves();
+  });
+
+  it("pushes each hit that lands again, for twice vanilla's distance, but not one in the hit cooldown", async () => {
+    const { players, baseline, game } = start(["A", "B"]);
+    const [a, b] = players;
+    await playToEnd(game, harness.root, baseline, async () => {
+      await ticks(2);
+      world.melee(a, b, 5); // the countdown: no push
+      await ticks(COUNTDOWN_TICKS);
+      a.location = { x: 0.5, y: 65, z: 0.5 };
+      b.location = { x: 0.5, y: 65, z: 3.5 };
+      world.melee(a, b, 5);
+      expect(b.health.currentValue).toBe(20);
+      expect(b.knockbacks).toEqual([{ x: 0, z: 1.5, vertical: 0.4 }]);
+      world.melee(a, b, 5, true); // inside B's hit cooldown: Minecraft drops it, and so does the push
+      expect(b.knockbacks).toHaveLength(1);
+      a.isSprinting = true;
+      world.melee(a, b, 5);
+      expect(b.knockbacks[1]).toEqual({ x: 0, z: 2.25, vertical: 0.32 });
+      knockOff(b);
+      await ticks(3);
+    });
+    expectBaseline(harness.root, baseline);
+    everyoneLeaves();
+  });
+
+  it("gives one more jump in the air until you land, the ground jump not counting", async () => {
+    const { players, baseline, game } = start(["A", "B"]);
+    const [a, b] = players;
+    await playToEnd(game, harness.root, baseline, async () => {
+      await ticks(2);
+      a.isOnGround = false;
+      await ticks(5);
+      world.pressButton(a); // the countdown: no double jump yet
+      expect(a.knockbacks).toEqual([]);
+      a.isOnGround = true;
+      await ticks(COUNTDOWN_TICKS);
+
+      world.pressButton(a); // on the ground: Minecraft's own jump
+      a.isOnGround = false;
+      await ticks(1);
+      world.pressButton(a); // just left the ground: still the ground jump's press
+      expect(a.knockbacks).toEqual([]);
+      await ticks(4);
+      a.velocity = { x: 0, y: -0.4, z: 0 };
+      a.viewDirection = { x: 1, y: 0, z: 0 };
+      a.movementVector = { x: 0, y: 1 };
+      world.pressButton(a);
+      expect(a.knockbacks).toEqual([{ x: 0.75, z: 0, vertical: 0.5 + (0.4 - 0.125) / 2 }]);
+      expect(world.overworld.sounds.at(-1)?.id).toBe("mob.enderdragon.flap");
+      world.pressButton(a); // one a jump
+      world.pressButton(a, "Sneak");
+      expect(a.knockbacks).toHaveLength(1);
+      a.isOnGround = true;
+      await ticks(2);
+      a.isOnGround = false;
+      await ticks(5);
+      a.movementVector = { x: 0, y: 0 };
+      a.velocity = { x: 0, y: 0.2, z: 0 };
+      world.pressButton(a); // landed: another one, straight up
+      expect(a.knockbacks[1]).toEqual({ x: 0, z: 0, vertical: 0.5 });
+
+      knockOff(a);
+      await ticks(3);
+      b.isOnGround = false;
+      await ticks(5);
+      world.pressButton(a); // out: no double jump
+      expect(a.knockbacks).toHaveLength(2);
+    });
     expectBaseline(harness.root, baseline);
     everyoneLeaves();
   });
@@ -192,6 +263,24 @@ describe("Sumo", () => {
     expect(statsRows(harness.sent, from).map((row) => row.r)).toEqual(["d", "d"]);
     expectBaseline(harness.root, baseline);
     everyoneLeaves();
+  });
+});
+
+describe("pushes", () => {
+  const knockback = config.knockback;
+
+  it("takes vanilla to twice as far with 1.5 times its push on top (2.25 for a sprint hit), and adds none at strength 1", () => {
+    expect(extraPush(knockback, false)).toEqual({ horizontal: 1.5, vertical: 0.4 });
+    expect(extraPush(knockback, true)).toEqual({ horizontal: 2.25, vertical: 0.32 });
+    expect(extraPush({ ...knockback, strength: 1 }, false)).toBeUndefined();
+    expect(scriptedPush(knockback, false)).toEqual({ horizontal: 2, vertical: 0.4 });
+  });
+
+  it("double jumps the way you look as far as you hold forward or back, always rising the same", () => {
+    const jump = config.doubleJump;
+    expect(doubleJumpPush({ x: 0, y: -0.6, z: 0.8 }, 1, 0.3, jump)).toEqual({ x: 0, z: 0.75, vertical: 0.5 });
+    expect(doubleJumpPush({ x: 0, y: 0, z: 1 }, -1, -0.125, jump)).toEqual({ x: -0, z: -0.75, vertical: 0.5 });
+    expect(doubleJumpPush({ x: 0, y: 1, z: 0 }, 1, -0.625, jump)).toEqual({ x: 0, z: 0, vertical: 0.75 });
   });
 });
 

@@ -42,6 +42,8 @@ export const EntitySwingSource = {
 export const EntityInitializationCause = { Born: "Born", Event: "Event", Loaded: "Loaded", Spawned: "Spawned", Transformed: "Transformed" } as const;
 export const StructureSaveMode = { Memory: "Memory", World: "World" } as const;
 export const LiquidType = { Water: "Water" } as const;
+export const InputButton = { Jump: "Jump", Sneak: "Sneak" } as const;
+export const ButtonState = { Pressed: "Pressed", Released: "Released" } as const;
 export type Direction = (typeof Direction)[keyof typeof Direction];
 
 /** Blocks flowing water washes away here: plants, torches, rails and the like. */
@@ -353,6 +355,11 @@ export class FakePlayer {
   isInWater = false;
   selectedSlotIndex = 0;
   isOnGround = true;
+  /** Its velocity, as getVelocity reports it (still unless a test sets it). */
+  velocity: Vector3 = { x: 0, y: 0, z: 0 };
+  /** The movement keys or stick: x left and right, y forward (1) and back (-1). */
+  movementVector = { x: 0, y: 0 };
+  readonly inputInfo = { getMovementVector: () => ({ ...this.movementVector }) };
   /** The item ids whose cooldowns a script started for this player through an item, oldest first. */
   readonly cooldownsStarted: string[] = [];
   /** The cooldowns a script started for this player by category (startItemCooldown), oldest first. */
@@ -524,6 +531,10 @@ export class FakePlayer {
 
   getViewDirection(): Vector3 {
     return { ...this.viewDirection };
+  }
+
+  getVelocity(): Vector3 {
+    return { ...this.velocity };
   }
 
   /** Eye height over the feet, as a standing player's. */
@@ -1165,6 +1176,7 @@ class FakeWorld {
     playerInteractWithEntity: new FakeSignal<{ player: FakePlayer; target: FakePlayer | FakeMob }>(),
     playerPlaceBlock: new FakeSignal<{ player: FakePlayer; block: FakeBlock }>(),
     entitySpawn: new FakeSignal<{ entity: FakeMob | FakeEntity; cause: string }>(),
+    playerButtonInput: new FakeSignal<{ player: FakePlayer; button: string; newButtonState: string }, { buttons?: string[]; state?: string }>(),
   };
   readonly beforeEvents = {
     entityHurt: new FakeSignal<HurtBeforeEvent, unknown>(true),
@@ -1247,6 +1259,14 @@ class FakeWorld {
   melee(attacker: FakePlayer, victim: FakePlayer | FakeMob, damage = 1, cooldown = false): void {
     this.hurt(victim, damage, "entityAttack", { attacker, cooldown });
     this.afterEvents.entityHitEntity.emit({ damagingEntity: attacker, hitEntity: victim }, acceptsEntity(attacker));
+  }
+
+  /** A player presses (or lets go of) a button, as playerButtonInput reports it to listeners whose options accept it. */
+  pressButton(player: FakePlayer, button: string = InputButton.Jump, state: string = ButtonState.Pressed): void {
+    this.afterEvents.playerButtonInput.emit(
+      { player, button, newButtonState: state },
+      (options) => (options?.buttons === undefined || options.buttons.includes(button)) && (options?.state === undefined || options.state === state),
+    );
   }
 
   /** A projectile (an arrow by default) sticks in a block: returns it, so a test can see whether it was removed. */

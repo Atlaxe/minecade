@@ -6,7 +6,9 @@
 // applyKnockback in afterEvents.entityHitEntity), kbSprint (the same, used instead of kb when
 // the attacker is sprinting), weapon (none | wooden_sword | iron_sword), hits (tick offsets),
 // and per hit: by (a | b), targets (victim | bystander), weapons; sprint (none | flag | run),
-// method (entity | swing), attackerAt ([x, z]), attackerYaw, ticks.
+// method (entity | swing), attackerAt ([x, z]), attackerYaw, ticks; jump (the victim jumps at
+// tick 0) and push ([tick, h, v]: applyKnockback({ x: 0, z: h }, v) on the victim at that tick), for
+// a push on a player in the air (Sumo's double jump).
 import { GameMode, ItemStack, system, world } from "@minecraft/server";
 import { spawnSimulatedPlayer } from "@minecraft/server-gametest";
 
@@ -156,6 +158,12 @@ async function runCase(spec) {
   const samples = [];
   let next = 0;
   for (let t = 0; t <= ticks; t++) {
+    if (spec.jump && t === 0) victim.jump();
+    if (spec.push && spec.push[0] === t) {
+      const before = vec(victim.getVelocity());
+      victim.applyKnockback({ x: 0, z: spec.push[1] }, spec.push[2]);
+      current.events.push({ ev: "push", t, velBefore: before });
+    }
     while (next < hits.length && hits[next] === t) {
       const by = spec.by?.[next] === "b" ? attacker2 : attacker;
       const target = spec.targets?.[next] === "bystander" ? bystander : victim;
