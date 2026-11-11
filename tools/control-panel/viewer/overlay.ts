@@ -12,6 +12,7 @@ import * as THREE from "three";
 import { geoHeight, parseGeo, type FaceName, type Geo, type GeoBone } from "./geo.ts";
 import type { Box } from "@minecade/minigame-core/config";
 import { FACING_COLOR, type BoxMark, type Markup, type PlaneMark, type PointMark, type Shape } from "./markup.ts";
+import { boxEdges, segmentDistance, sheetEdges, type SheetRect } from "./pick.ts";
 import type { MapScene } from "./scene.ts";
 
 /** Game Edit's shapes and the game's models, as the Panel sends them (map-data.ts). */
@@ -298,6 +299,36 @@ export class Overlay {
     return object ? { key: object.userData.key as string, distance: hit.distance } : undefined;
   }
 
+  /** The rectangle a height's sheet spans: one block past the blocks' box each way. */
+  sheetRect(): SheetRect {
+    const { min, max } = this.scene.planeExtent();
+    return { x0: min[0] - 1, z0: min[2] - 1, x1: max[0] + 2, z1: max[2] + 2 };
+  }
+
+  /**
+   * The box or height whose outline passes nearest a spot on the canvas, within `pixels` (heights
+   * only when asked for, and only those the Y cut keeps). Box edges show through blocks, so they're
+   * picked through them too.
+   */
+  outlineAt(clientX: number, clientY: number, pixels: number, heights: boolean): string | undefined {
+    let best: { key: string; distance: number } | undefined;
+    const onScreen = this.scene.segmentsOnScreen();
+    const consider = (key: string, edges: [readonly [number, number, number], readonly [number, number, number]][]) => {
+      for (const [a, b] of edges) {
+        const segment = onScreen(a, b);
+        if (!segment) continue;
+        const distance = segmentDistance(clientX, clientY, ...segment);
+        if (distance <= pixels && (!best || distance < best.distance)) best = { key, distance };
+      }
+    };
+    for (const box of this.boxes) consider(box.mark.key, boxEdges(box.mark.box));
+    if (heights) {
+      const rect = this.sheetRect();
+      for (const plane of this.planes) if (this.scene.isHeightKept(plane.mark.y)) consider(plane.mark.key, sheetEdges(plane.mark.y, rect));
+    }
+    return best?.key;
+  }
+
   /** How far along the ray from a spot on the canvas the picked point's facing knob is, if the ray meets it. */
   knobAt(clientX: number, clientY: number): number | undefined {
     if (!this.knob.visible) return undefined;
@@ -526,8 +557,7 @@ export class Overlay {
   }
 
   private plane(mark: PlaneMark): PlaneObject {
-    const { min, max } = this.scene.planeExtent();
-    const [x0, z0, x1, z1] = [min[0] - 1, min[2] - 1, max[0] + 2, max[2] + 2];
+    const { x0, z0, x1, z1 } = this.sheetRect();
     const geometry = new THREE.BufferGeometry();
     geometry.setAttribute("position", new THREE.Float32BufferAttribute([x0, mark.y, z0, x1, mark.y, z0, x1, mark.y, z1, x0, mark.y, z1], 3));
     geometry.setIndex([0, 2, 1, 0, 3, 2]);

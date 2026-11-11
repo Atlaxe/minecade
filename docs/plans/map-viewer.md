@@ -514,6 +514,19 @@ The user asked for these together, to declutter the top bar:
 - **No helper text** under the Minigame thumbnail map box, and the rule written into
   `docs/viewer.md` ("The window").
 
+Later the same day, as the user asked next:
+
+- **Type** for a picked spawn, game marker, box or height (a dropdown under its name): the list
+  it's in, and picking another moves it there as one change (`retypePointEdit`, `retypeBoxEdit`,
+  `retypeHeightEdit` in `speed.ts`), keeping its place and facing; a spawn can become the queue
+  spawn (replacing the one there), a plot a kill region, kill Y a build limit. The moved entry
+  stays picked.
+- **Select picks boxes and heights with a click** (`pick.ts`, `markupAt` in `app.ts`), after
+  markers: an outline within 6 pixels, else the smallest region the pointer goes into before the
+  block under it, else the bounds, spectator bounds or a height with only sky behind. The bounds
+  usually hold the whole map, so a click on a block inside them still picks nothing. The status
+  line names what a click would pick; Mirror's Pick entries picks boxes the same way.
+
 ## Passes (the implementation order: stop and report after each, commit and push)
 
 **V.1 Spike** (done 2026-11-05: `docs/spike-results.md`, "Map viewer"; `spike/viewer/`).

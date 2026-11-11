@@ -4,9 +4,10 @@
 // draws them (scene.ts); over them the map's markup (overlay.ts), and beside them the tools, the
 // checklist, the checks (checks.ts) and the overview (sidebar.ts) on the left and the picked tool's
 // or entry's settings on the right, else the map's own settings (mapsettings.ts) and the cuts.
-// Tools as game Edit has them: Select (pick, then move or resize with the gizmo, gizmo.ts, or type
-// the values; Shift + click or a rectangle in Top view picks several, to copy to another team or
-// delete together), Spawn and Marker (place points), Region (draw boxes), Height (kill Y, the build
+// Tools as game Edit has them: Select (a click picks a marker, a box or a height, pick.ts; then
+// move or resize it with the gizmo, gizmo.ts, type its values, or change its Type, the list it's
+// in; Shift + click or a rectangle in Top view picks several, to copy to another team or delete
+// together), Spawn and Marker (place points), Region (draw boxes), Height (kill Y, the build
 // limit), Mirror (place a mirror plane, pick entries, mirror them across it: speed.ts), Cut and
 // Time (the map's time of day). Port to another game (port.ts), under Map settings, makes the
 // map's blocks a new map of another game.
@@ -18,11 +19,11 @@
 // map in the in-game editor, which the Panel warms up while the viewer is open; when game Edit
 // saves the map's world, the page loads again to draw the new blocks, keeping the view as it was.
 import * as THREE from "three";
-import { bigEnough, listOf, worldPoint, type Box, type EditorRules, type MapConfig, type MapEdit, type MapPosition, type Vec3 } from "@minecade/minigame-core/config";
+import { applyEdit, bigEnough, listOf, worldPoint, type Box, type EditorRules, type MapConfig, type MapEdit, type MapPosition, type Vec3 } from "@minecade/minigame-core/config";
 import { lookAt, mapMiddle } from "../../../editor/behavior_pack/scripts/lists.ts";
 import { regionName } from "../../../editor/behavior_pack/scripts/regions.ts";
 import { decodeView } from "../../viewer/view-format.ts";
-import { addBoxEdit, boxAtLeast, boxFrom, faceToCut, facePlane, heightEdit, heightFromBlock, heightProblem, moveFace, nearestOnAxis, nudgeFace, removeBoxEdit, setBoxEdit, sizeText, MAX_LIMIT, MIN_HEIGHT, type BoxPlace, type Face } from "./boxes.ts";
+import { addBoxEdit, boxAtLeast, boxFrom, faceToCut, facePlane, heightEdit, heightFromBlock, heightOf, heightProblem, moveFace, nearestOnAxis, nudgeFace, removeBoxEdit, setBoxEdit, sizeText, MAX_LIMIT, MIN_HEIGHT, type BoxPlace, type Face } from "./boxes.ts";
 import { MapChangesClient } from "./changes.ts";
 import { FLY_SPEEDS, Fly, type FlySpeed } from "./fly.ts";
 import { Gizmo, type GizmoPart } from "./gizmo.ts";
@@ -35,7 +36,8 @@ import { openDeleteDialog } from "./delete.ts";
 import { openPortDialog } from "./port.ts";
 import { Overlay, type MarkerAssets, type MirrorPlane } from "./overlay.ts";
 import { blocksWithoutLook, mapWarnings } from "./checks.ts";
-import { copyEdits, duplicateEdits, entryListKey, mirrorEdits, mirrorPlan, snapHalf, teamOf, type MirrorOptions, type MirrorTeam, type SpeedEntry } from "./speed.ts";
+import { copyEdits, duplicateEdits, entryListKey, mirrorEdits, mirrorPlan, retypeBoxEdit, retypeHeightEdit, retypePointEdit, snapHalf, teamOf, type MirrorOptions, type MirrorTeam, type SpeedEntry } from "./speed.ts";
+import { boxUnder, keptBox, sheetUnder, type PickBox } from "./pick.ts";
 import { centeredSpot, floorSpot, normalYaw, placedPosition, yawToward, type Spot } from "./placing.ts";
 import { MapScene, type Cuts, type Toggles } from "./scene.ts";
 import { Sidebar, el, swatch } from "./sidebar.ts";
@@ -92,6 +94,8 @@ const MAX_TOGETHER = 64;
 const AXIS_VECTORS = [new THREE.Vector3(1, 0, 0), new THREE.Vector3(0, 1, 0), new THREE.Vector3(0, 0, 1)];
 /** What's left of the way to the spot under the pointer after a wheel notch toward it (0.85: 15% of the way). */
 const WHEEL_ZOOM = 0.85;
+/** How near a box's or height's outline a click picks it, in pixels. */
+const OUTLINE_PIXELS = 6;
 
 function loadSettings(): Settings {
   try {
@@ -698,6 +702,63 @@ async function main(): Promise<void> {
   };
   const duplicateButton = () => el("button", { className: "small", dataset: { tip: "Duplicate in place", key: keyOf("duplicate") }, onclick: duplicatePicked }, "Duplicate");
 
+  // ---- Type: the picked entry moved to another list of its kind, where it is, then picked there.
+  /** The Type box: the lists an entry can go to (in groups when there's more than one), its own chosen. */
+  const typeField = (groups: { title: string; lists: MarkupList[] }[], current: string, change: (list: MarkupList) => void) => {
+    const shown = groups.filter((group) => group.lists.length > 0);
+    const option = (list: MarkupList) => el("option", { value: list.key, selected: list.key === current }, list.label);
+    const select = el(
+      "select",
+      {
+        onchange: () => {
+          const list = shown.flatMap((group) => group.lists).find((candidate) => candidate.key === select.value);
+          if (list && list.key !== current) change(list);
+        },
+      },
+      shown.length > 1 ? shown.map((group) => el("optgroup", { label: group.title }, group.lists.map(option))) : shown.flatMap((group) => group.lists.map(option)),
+    );
+    return el("label", { className: "field-row type-row" }, el("span", { className: "group-label" }, "Type"), select);
+  };
+  /** What the moved entry is called now, for the note. */
+  const nowCalled = (key: string, fallback: string) => findEntry(markup, key)?.entry.label ?? fallback;
+  /** A point into another list (a spawn to the queue spawn, say), keeping its place and facing; a list holding one entry has it replaced. */
+  const retypePoint = (point: PointMark, to: MarkupList) => {
+    const from = findEntry(markup, point.key)?.list;
+    const position = positionOf(point);
+    if (!from?.spawn || !to.spawn || !position || from.key === to.key) return;
+    const replace = to.spawn.single && to.entries.length > 0;
+    const key = `${to.key}#${to.spawn.single ? 0 : to.entries.length}`;
+    if (!edit(retypePointEdit({ target: from.spawn.target, index: point.index, position }, to.spawn.target, replace))) return renderPanel();
+    pickEntry(key);
+    notice(`${point.label} is now ${nowCalled(key, to.label)}.${replace ? ` It replaced the ${to.label} there was (undo brings that back).` : ""}`);
+  };
+  /** A box into another list (bounds, spectator bounds, a region), unless it's too small for that list. */
+  const retypeBox = (box: BoxMark, to: MarkupList) => {
+    if (!to.place || to.key === box.list) return;
+    const problem = sizeProblem(box.box, to.label, to.minSize);
+    if (problem) {
+      renderPanel();
+      return notice(problem, true);
+    }
+    const key = `${to.key}#${to.entries.length}`;
+    if (!edit(retypeBoxEdit(box.entry, box.box, to.place))) return renderPanel();
+    pickEntry(key);
+    notice(`${box.label} is now ${nowCalled(key, to.label)}.`);
+  };
+  /** A height made another (kill Y, a side of the build limit) at the same height, unless game Edit's rules refuse it there. */
+  const retypeHeight = (height: PlaneMark, to: MarkupList) => {
+    if (!to.line || to.line === height.line) return;
+    const problem = heightProblem(applyEdit(config, heightEdit(height.line)), to.line, height.y);
+    if (problem) {
+      renderPanel();
+      return notice(problem, true);
+    }
+    const replace = heightOf(config, to.line) !== undefined;
+    if (!edit(retypeHeightEdit(height.line, to.line, height.y))) return renderPanel();
+    pickEntry(to.key);
+    notice(`${height.label} is now ${to.label} at y ${height.y}.${replace ? ` It replaced the ${to.label} there was (undo brings that back).` : ""}`);
+  };
+
   /** Copy to another team, for the picked team entries, under their values (or alone, with several picked). */
   const copySection = (keys: string[]): HTMLElement | null => {
     const entries = speedEntries(keys);
@@ -764,7 +825,7 @@ async function main(): Promise<void> {
   /** Mirrors the picked entries across the plane as one change (copies, or the entries moved), then picks nothing. */
   const applyMirror = () => {
     const entries = speedEntries(pickedKeys());
-    if (entries.length === 0) return notice("Pick what to mirror first: click markers, or entries in the overview.", true);
+    if (entries.length === 0) return notice("Pick what to mirror first: click markers or boxes, or entries in the overview.", true);
     const { edits, skipped } = mirrorEdits(entries, teamIds, mirrorOptions());
     if (edits.length === 0) return notice(`Nothing to mirror.${leftOut(skipped)}`, true);
     if (edits.length > MAX_TOGETHER) return notice(`That's ${edits.length} changes: mirror at most ${MAX_TOGETHER} at a time.`, true);
@@ -798,7 +859,15 @@ async function main(): Promise<void> {
       "section",
       {},
       el("h2", {}, point.label),
-      el("p", { className: "sub" }, `${list.label}. Drag the arrows to move it, the red knob to turn it.`),
+      typeField(
+        [
+          { title: "Spawns", lists: listsFor("spawn") },
+          { title: "Game markers", lists: listsFor("marker") },
+        ],
+        list.key,
+        (to) => retypePoint(point, to),
+      ),
+      el("p", { className: "sub" }, "Drag the arrows to move it, the red knob to turn it."),
       el("div", { className: "group-label" }, "Position (whole X and Z: the block's middle)"),
       el("div", { className: "fields" }, numberField("X", "x", x, 1, (value) => at({ x: value })), numberField("Y", "y", y, 1, (value) => at({ y: value })), numberField("Z", "z", z, 1, (value) => at({ z: value }))),
       el(
@@ -831,6 +900,7 @@ async function main(): Promise<void> {
       "section",
       {},
       el("h2", {}, box.label),
+      typeField([{ title: "Boundaries", lists: listsFor("region") }], box.list, (to) => retypeBox(box, to)),
       el("p", { className: "sub" }, `${sizeText(box.box)} blocks${box.minSize !== undefined ? `, at least ${box.minSize} each way` : ""}`),
       el("div", { className: "modes" }, mode("move", "Move", "boxMove", "Move the whole box"), mode("expand", "Resize", "boxResize", "Move its faces")),
       el("div", { className: "group-label" }, "From (lowest corner block)"),
@@ -865,6 +935,7 @@ async function main(): Promise<void> {
       "section",
       {},
       el("h2", {}, height.label),
+      typeField([{ title: "Heights", lists: listsFor("height") }], height.key, (to) => retypeHeight(height, to)),
       el("p", { className: "sub" }, height.line === "killY" ? "Players below it are out." : height.line === "above" ? "No block goes above it." : "No block goes below it."),
       el("div", { className: "fields" }, numberField("Y", "y", height.y, 1, (value) => saveHeight(height.line, Math.round(value)))),
       el(
@@ -973,12 +1044,12 @@ async function main(): Promise<void> {
       "section",
       { className: "speed" },
       el("h2", {}, "Mirror"),
-      el("p", { className: "sub" }, mirrorStep === "place" ? "Click a block: the plane goes through it, at its edge or middle." : "Click markers, or entries in the overview, to pick what to mirror."),
+      el("p", { className: "sub" }, mirrorStep === "place" ? "Click a block: the plane goes through it, at its edge or middle." : "Click markers or boxes, or entries in the overview, to pick what to mirror."),
       el(
         "div",
         { className: "modes" },
         tile(mirrorStep === "place", "Place plane", "A click on a block puts the plane there", () => setMirrorStep("place")),
-        tile(mirrorStep === "pick", "Pick entries", "A click on a marker picks it, or takes it out", () => setMirrorStep("pick")),
+        tile(mirrorStep === "pick", "Pick entries", "A click on a marker or a box picks it, or takes it out", () => setMirrorStep("pick")),
       ),
       el("div", { className: "group-label" }, "Plane"),
       el(
@@ -1098,7 +1169,8 @@ async function main(): Promise<void> {
       if (mirrorStep === "pick") {
         const point = overlay.pointAt(clientX, clientY);
         const hit = scene.pickAt(clientX, clientY);
-        if (point && (!hit || point.distance <= hit.distance + 0.01)) togglePick(point.key);
+        const key = point && (!hit || point.distance <= hit.distance + 0.01) ? point.key : markupAt(clientX, clientY, false, hit?.distance ?? Infinity);
+        if (key) togglePick(key);
         return;
       }
       const plane = planeAt(clientX, clientY);
@@ -1371,7 +1443,8 @@ async function main(): Promise<void> {
 
   // ---- The pointer. With Select, a press on the gizmo moves or resizes the picked entry, on the
   // picked point's knob it turns it, on a marker it drags it along the floor, anywhere else a drag
-  // turns the view (Top: draws a rectangle); a click picks (or, on nothing, picks nothing). Other
+  // turns the view (Top: draws a rectangle); a click picks a marker, a box or a height (markupAt),
+  // or on nothing picks nothing. Other
   // tools use the click. A right drag turns the view with any tool, around the spot it starts on.
   // The wheel goes toward the spot under the pointer. A double click centers the view.
   type Drag =
@@ -1391,6 +1464,26 @@ async function main(): Promise<void> {
   };
   /** What a drag from a spot turns around: the spot; over nothing, the camera's own place when flying, else the point it looks at. */
   const pivotAt = (clientX: number, clientY: number): THREE.Vector3 => spotAt(clientX, clientY) ?? (fly.enabled ? scene.activeCamera.position.clone() : scene.controls.target.clone());
+  /**
+   * What a click picks there besides a marker (pick.ts): a box or a height by its outline, the
+   * nearest within a few pixels; else the smallest region the pointer goes into before the block
+   * under it (`block`, its distance); else a box or a height with nothing behind it. Mirror leaves
+   * heights out (it doesn't mirror them).
+   */
+  const markupAt = (clientX: number, clientY: number, heights: boolean, block = scene.pickAt(clientX, clientY)?.distance ?? Infinity): string | undefined => {
+    const outline = overlay.outlineAt(clientX, clientY, OUTLINE_PIXELS, heights);
+    if (outline) return outline;
+    const { ray } = scene.rayAt(clientX, clientY);
+    const origin = ray.origin.toArray() as Vec3;
+    const direction = ray.direction.toArray() as Vec3;
+    const boxes = markup.boxes.flatMap((mark): PickBox[] => {
+      const kept = keptBox(mark.box, cuts);
+      return kept ? [{ key: mark.key, box: kept, ...(mark.entry.region ? {} : { bounds: true }) }] : [];
+    });
+    const box = boxUnder(origin, direction, boxes, block);
+    if (box || !heights) return box;
+    return sheetUnder(origin, direction, markup.planes.filter((plane) => scene.isHeightKept(plane.y)), overlay.sheetRect(), block);
+  };
 
   // The wheel, flying or not: toward the spot under the pointer, or away from it.
   canvas.addEventListener(
@@ -1672,8 +1765,9 @@ async function main(): Promise<void> {
       }
       return;
     }
-    // A marker in front of the blocks picks its entry (Shift: adds it to the pick, or takes it out); anywhere else picks nothing.
-    const clicked = drag && (drag.kind === "move" || drag.kind === "face") ? drag.point.key : undefined;
+    // A marker in front of the blocks picks its entry, else a box or a height under the pointer
+    // (Shift: adds it to the pick, or takes it out); anywhere else picks nothing.
+    const clicked = drag && (drag.kind === "move" || drag.kind === "face") ? drag.point.key : markupAt(event.clientX, event.clientY, true);
     if (event.shiftKey && clicked) togglePick(clicked);
     else if (!event.shiftKey) pickEntry(clicked);
   });
@@ -1720,10 +1814,15 @@ async function main(): Promise<void> {
       }
       const point = overlay.pointAt(last.clientX, last.clientY);
       if (point && (!hit || point.distance <= hit.distance + 0.01)) return void ($("hover").textContent = findEntry(markup, point.key)?.entry.label ?? "");
-      if (!hit) return void ($("hover").textContent = "");
+      // With Select (or Mirror picking), the box or height a click would pick, then the block.
+      const picking = !arming && (tool === "select" || (tool === "mirror" && mirrorStep === "pick"));
+      const under = picking ? markupAt(last.clientX, last.clientY, tool === "select", hit?.distance ?? Infinity) : undefined;
+      const label = under ? findEntry(markup, under)?.entry.label : undefined;
+      if (!hit) return void ($("hover").textContent = label ?? "");
       const look = volume.looks[hit.look];
       const states = look.states ? ` ${Object.entries(look.states).map(([key, value]) => `${key}=${value}`).join(" ")}` : "";
-      $("hover").textContent = `${look.name.replace(/^minecraft:/, "")}${states} at ${hit.world.join(", ")}`;
+      const block = `${look.name.replace(/^minecraft:/, "")}${states} at ${hit.world.join(", ")}`;
+      $("hover").textContent = label ? `${label}; ${block}` : block;
     });
   };
   canvas.addEventListener("lostpointercapture", () => (turning = undefined));

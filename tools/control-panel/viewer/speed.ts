@@ -1,10 +1,11 @@
 // The viewer's speed tools as plain data: the Mirror tool's mirroring of picked entries across a
 // mirror plane (x, z, or both for a half turn), with their facings and boxes, as copies or moving
-// the entries themselves, Select's copying of team entries to another team's list, and duplicating
-// entries in their own lists. A team's entries go to the team asked for. Plain TypeScript, tested.
+// the entries themselves, Select's copying of team entries to another team's list, duplicating
+// entries in their own lists, and changing an entry's type (moving it to another list of its kind).
+// A team's entries go to the team asked for. Plain TypeScript, tested.
 import { isExact, listKey, type Box, type MapEdit, type MapList, type MapPosition, type Vec3 } from "@minecade/minigame-core/config";
-import type { RegionEntry } from "../../../editor/behavior_pack/scripts/regions.ts";
-import { addBoxEdit, removeBoxEdit, setBoxEdit, type BoxPlace } from "./boxes.ts";
+import type { HeightLine, RegionEntry } from "../../../editor/behavior_pack/scripts/regions.ts";
+import { addBoxEdit, heightEdit, removeBoxEdit, setBoxEdit, type BoxPlace } from "./boxes.ts";
 import { normalYaw } from "./placing.ts";
 
 /** Left to right (across a plane at x), front to back (across one at z), or a half turn (about the line where both meet). */
@@ -199,6 +200,25 @@ export function duplicateEdits(entries: readonly SpeedEntry[]): { edits: MapEdit
     else edits.push(addEdit(entry));
   }
   return { edits, skipped };
+}
+
+/**
+ * The edit that changes a point's type: out of its list and into another (last there), where it is
+ * and facing the same way, as one change. A list holding one entry that has it already (`replace`)
+ * gets this one in place of that one.
+ */
+export function retypePointEdit(from: { target: MapList; index: number; position: MapPosition }, to: MapList, replace: boolean): MapEdit {
+  return { op: "batch", edits: [{ op: "remove", target: from.target, index: from.index }, replace ? { op: "set", target: to, index: 0, at: from.position } : { op: "add", target: to, at: from.position }] };
+}
+
+/** The edit that changes a box's type: out of where it's kept and last into another list (the bounds, the spectator bounds, a region), as one change. */
+export function retypeBoxEdit(entry: RegionEntry, box: Box, to: BoxPlace): MapEdit {
+  return { op: "batch", edits: [removeBoxEdit(entry), addBoxEdit(to, box)] };
+}
+
+/** The edit that changes a height's type (kill Y, a side of the build limit) at the same height, replacing the other's, as one change. */
+export function retypeHeightEdit(from: HeightLine, to: HeightLine, y: number): MapEdit {
+  return { op: "batch", edits: [heightEdit(from), heightEdit(to, y)] };
 }
 
 function addEdit(entry: SpeedEntry): MapEdit {

@@ -761,6 +761,30 @@ export class MapScene {
   }
 
   /**
+   * Shows segments as the canvas does, for the view as it is now: each one's part in front of the
+   * camera, in pixels from the window's top left, or undefined when it's all behind.
+   */
+  segmentsOnScreen(): (a: readonly [number, number, number], b: readonly [number, number, number]) => [number, number, number, number] | undefined {
+    const camera = this.camera as THREE.PerspectiveCamera | THREE.OrthographicCamera;
+    camera.updateMatrixWorld();
+    const rect = this.canvas.getBoundingClientRect();
+    // The camera looks down -z: what's nearer than its near plane is cut off.
+    const near = -camera.near - 1e-3;
+    const x = (v: THREE.Vector3) => rect.left + ((v.x + 1) / 2) * rect.width;
+    const y = (v: THREE.Vector3) => rect.top + ((1 - v.y) / 2) * rect.height;
+    return (a, b) => {
+      const p = new THREE.Vector3(...a).applyMatrix4(camera.matrixWorldInverse);
+      const q = new THREE.Vector3(...b).applyMatrix4(camera.matrixWorldInverse);
+      if (p.z > near && q.z > near) return undefined;
+      if (p.z > near) p.lerp(q, (p.z - near) / (p.z - q.z));
+      else if (q.z > near) q.lerp(p, (q.z - near) / (q.z - p.z));
+      p.applyMatrix4(camera.projectionMatrix);
+      q.applyMatrix4(camera.projectionMatrix);
+      return [x(p), y(p), x(q), y(q)];
+    };
+  }
+
+  /**
    * Frames a spot: the view centers on it and moves in or out until a ball of `radius` around it
    * fills about two thirds of the view, keeping the direction it looks from.
    */

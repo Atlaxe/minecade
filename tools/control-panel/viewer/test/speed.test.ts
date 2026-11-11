@@ -1,6 +1,6 @@
-import type { MapList } from "@minecade/minigame-core/config";
+import { applyEdit, type Box, type MapConfig, type MapList } from "@minecade/minigame-core/config";
 import { describe, expect, it } from "vitest";
-import { copyEdits, duplicateEdits, mirrorBox, mirrorEdits, mirrorPosition, mirrorYaw, nextTeam, snapHalf, teamOf, type SpeedEntry } from "../speed.ts";
+import { copyEdits, duplicateEdits, mirrorBox, mirrorEdits, mirrorPosition, mirrorYaw, nextTeam, retypeBoxEdit, retypeHeightEdit, retypePointEdit, snapHalf, teamOf, type SpeedEntry } from "../speed.ts";
 
 const TEAMS = ["red", "blue"];
 
@@ -141,5 +141,52 @@ describe("duplicateEdits", () => {
   it("leaves out a list that holds one entry", () => {
     const queue: SpeedEntry = { kind: "point", label: "Queue spawn", target: { list: "queueSpawn" }, position: [0, 64, 0], index: 0, single: true };
     expect(duplicateEdits([queue])).toEqual({ edits: [], skipped: ["Queue spawn holds one entry"] });
+  });
+});
+
+describe("retype edits", () => {
+  const config = {
+    name: "Test",
+    spawns: [
+      [1, 64, 1],
+      [2, 64, 2, 90, 0],
+    ],
+    queueSpawn: [0, 70, 0],
+    queue: { mode: "free", countdown: 5 },
+    bounds: { min: [-10, 50, -10], max: [10, 90, 10] },
+    killY: 40,
+    regions: { plot: [{ min: [0, 64, 0], max: [23, 87, 23] }] },
+  } as unknown as MapConfig;
+
+  it("moves a spawn into the queue spawn, in place of the one there, facing kept", () => {
+    const next = applyEdit(config, retypePointEdit({ target: { list: "spawns" }, index: 1, position: [2, 64, 2, 90, 0] }, { list: "queueSpawn" }, true));
+    expect(next.spawns).toEqual([[1, 64, 1]]);
+    expect(next.queueSpawn).toEqual([2, 64, 2, 90, 0]);
+    expect(next.queue).toEqual({ mode: "free", countdown: 5 });
+  });
+
+  it("moves the queue spawn last into the spawns, and a spawn into a team's list", () => {
+    const queue = applyEdit(config, retypePointEdit({ target: { list: "queueSpawn" }, index: 0, position: [0, 70, 0] }, { list: "spawns" }, false));
+    expect(queue.spawns).toEqual([[1, 64, 1], [2, 64, 2, 90, 0], [0, 70, 0]]);
+    expect(queue.queueSpawn).toBeUndefined();
+    const team = applyEdit(config, retypePointEdit({ target: { list: "spawns" }, index: 0, position: [1, 64, 1] }, { list: "teamSpawns", team: "red" }, false));
+    expect(team.spawns).toEqual([[2, 64, 2, 90, 0]]);
+    expect(team.teamSpawns).toEqual({ red: [[1, 64, 1]] });
+  });
+
+  it("moves a box to another list, as it is", () => {
+    const plot = { min: [0, 64, 0], max: [23, 87, 23] } as Box;
+    const kill = applyEdit(config, retypeBoxEdit({ key: "regions.plot#0", label: "Build boundary 1", box: plot, region: { name: "plot", index: 0 } }, plot, { kind: "region", name: "kill" }));
+    expect(kill.regions).toEqual({ kill: [plot] });
+    const bounds = { min: [-10, 50, -10], max: [10, 90, 10] } as Box;
+    const spectators = applyEdit(config, retypeBoxEdit({ key: "bounds#0", label: "Bounds", box: bounds, bounds: 0 }, bounds, { kind: "spectatorBounds" }));
+    expect(spectators.bounds).toBeUndefined();
+    expect(spectators.spectatorBounds).toEqual(bounds);
+  });
+
+  it("makes a height another at the same y", () => {
+    const next = applyEdit(config, retypeHeightEdit("killY", "below", 40));
+    expect(next.killY).toBeUndefined();
+    expect(next.buildLimit).toEqual({ below: 40 });
   });
 });

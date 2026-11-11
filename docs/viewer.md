@@ -137,7 +137,7 @@ D):
 
 | Tool | Key | What a click does |
 |---|---|---|
-| **Select** | V | Picks a marker (anywhere else picks nothing; a drag from there turns the view); the picked entry can be moved, resized, typed in or duplicated |
+| **Select** | V | Picks a marker, a box or a height (see "Picking with a click"; anywhere else picks nothing, and a drag from there turns the view); the picked entry can be moved, resized, typed in, duplicated or given another type |
 | **Spawn** | P | Places a spawn into the list picked in the right panel |
 | **Marker** | M | Places one of the game's markers (off for a game without any) |
 | **Region** | B | Two clicks draw a box into the list picked in the right panel |
@@ -148,6 +148,22 @@ D):
 
 Esc goes back to Select (and, in Select, picks nothing). Clicking an entry in the overview picks it
 with Select and frames it in the view.
+
+### Picking with a click
+
+With Select, a click picks the first of these under the pointer:
+
+1. A marker in front of the blocks.
+2. A box or a height whose outline (a box's edges, a sheet's rim) passes within 6 pixels of the
+   pointer, the nearest. Box edges show through blocks, so they're picked through them too.
+3. A region the pointer goes into before the block under it, the smallest when there are several:
+   a click on a build boundary's floor picks that boundary. A region the camera is inside is left
+   out.
+4. The bounds, the spectator bounds or a height with nothing behind it (only sky).
+
+The bounds and the spectator bounds usually hold the whole map, so a click on a block inside them
+still picks nothing: click their edges. The status line names what a click would pick, before the
+block. Shift + click adds it to the pick, or takes it out. What's past a cut isn't picked.
 
 ## The map's markup
 
@@ -216,6 +232,10 @@ a second.
 - **The right panel** shows its X, Y and Z (whole X and Z are the block's middle, as in `map.json`)
   and, with **Faces a fixed way** on, its yaw and pitch: type a value and press Enter. Off, it faces
   the map's middle.
+- **Type** (under its name) is the list it's in: pick another to move it there, where it is and
+  facing the same way, as one change (a spawn to the queue spawn, a team's spawns or one of the
+  game's markers). The spectator and queue spawns hold one entry, so the one there is replaced; the
+  note says so, and undo brings it back. The moved entry stays picked.
 - **The queue spawn**, picked, also has **Players wait here**: **Lock in** (they look around but
   don't move, and can't see each other) or **Free** (they roam until they're put at their spawns).
 - **Delete** (the key, or the button) removes it.
@@ -237,6 +257,9 @@ a second.
   one to pick that face, then the arrow keys move it out (Up, Right) or in (Down, Left), five at a
   time with Shift, as do **In** and **Out**.
 - **The right panel** shows the box's corners, From (its lowest block) and To (its highest), to type.
+- **Type** (under its name): the bounds, the spectator bounds, a kill region, the game's regions, a
+  team's, or the map's own. Pick another to move the box there as it is, last in that list. A list
+  with a minimum size refuses a box smaller than that.
 - **To Y cut**, **To X cut** and **To Z cut** (when that cut is on) move a face onto the cut: the
   picked face when it's on the cut's axis, else the face nearer the cut.
 - A region the game gives a minimum size (Build Swap's build boundaries, 24 each way) is drawn at
@@ -256,12 +279,15 @@ a second.
   click on the cut's layer would.
 - Kill Y runs from -64 to 319, a build limit from -64 to 320, and the build limit above stays over
   the one below, as in game: a height that breaks these isn't saved, and the viewer says why.
+- **Type** (under its name): Kill Y, Build limit above or Build limit below, at the same y. One
+  that was set already is replaced (undo brings it back); a height the rules refuse there isn't
+  moved.
 - **Delete** removes it.
 
 ## Picking several and copying
 
-- **Pick several:** with Select, Shift + click markers in the view or entries in the overview to add
-  them to the pick (Shift + click a picked one to take it out). In Top view (the cube's top), drag a
+- **Pick several:** with Select, Shift + click markers, boxes or heights in the view, or entries in
+  the overview, to add them to the pick (Shift + click a picked one to take it out). In Top view (the cube's top), drag a
   rectangle from anywhere that isn't a marker: it picks every marker and box whose middle is inside
   (Shift: adds them). Esc picks nothing.
 - With several picked, the right panel names them and acts on them all: **Delete** (the key too)
@@ -285,9 +311,9 @@ picked with Select stays picked when you switch to it, and back.
    the block's edge or middle, whichever the click is nearer. Its arrows above the map drag it half a
    block at a time (a click on one moves it half a block), or type its X or Z. **Map's middle** puts
    it back.
-2. **Pick entries:** after the plane goes down, a click on a marker picks it, or takes it out again,
-   and so does a click on an entry in the overview. **Spawns**, **Game markers** and **Boundaries**
-   pick every one of them (a second click takes them out), **None** picks nothing, and in Top view a
+2. **Pick entries:** after the plane goes down, a click on a marker or a box (as Select picks them)
+   picks it, or takes it out again, and so does a click on an entry in the overview. **Spawns**,
+   **Game markers** and **Boundaries** pick every one of them (a second click takes them out), **None** picks nothing, and in Top view a
    rectangle dragged from anywhere that isn't a marker adds what's in it. A see-through copy shows
    where each picked entry would go.
 3. **How:**
