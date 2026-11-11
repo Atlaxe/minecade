@@ -233,7 +233,8 @@ map: { teamSpawns: true, bounds: true, borrow: ["siege"] },
 - In the map editor, Preview can play a borrowed map as the game that borrows it ("Play as": see
   docs/editor.md, "Preview").
 - A game playing only borrowed maps has none of its own to take its picture on yet: the build
-  warns instead of refusing, and the lobby shows the stand-in picture.
+  warns, and the lobby shows the stand-in picture. So does a game whose picture isn't published
+  yet: a missing picture never keeps the network from starting.
 
 To give a game a map of its own built from another game's, port it instead: the Panel's **Port to
 another game** (docs/viewer.md) copies the map's world, and nothing else of it, into a new draft

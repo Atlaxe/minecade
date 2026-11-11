@@ -32,6 +32,7 @@ import {
   BroadcastLog,
   checkLobbyMap,
   checkRequest,
+  composeFailure,
   formatPorts,
   isEditorContainer,
   isStale,
@@ -59,6 +60,8 @@ const ORCHESTRATOR_URL = "http://127.0.0.1:8080";
 const JOIN_PORT = 19132;
 const LOG_LINES_KEPT = 300;
 const ACTIVITY_KEPT = 200;
+/** A compose run's last output lines, kept to say why it failed. */
+const COMPOSE_OUTPUT_KEPT = 400;
 const DOCKER_START_GRACE_MS = 3 * 60_000;
 
 const repoRoot = fileURLToPath(new URL("../../", import.meta.url));
@@ -665,9 +668,14 @@ function runCompose(stack: StackDef, action: string, done?: (ok: boolean) => voi
   const args = ["compose", "--ansi", "never", "--progress", "plain", "-f", join(repoRoot, stack.file), "--env-file", envPath];
   note(`${stack.label}: ${action}...`);
   const child = spawn(dockerExe(), [...args, ...COMPOSE_ACTIONS[action]], { cwd: repoRoot, windowsHide: true });
+  // Kept so a failure can say why (composeFailure), not only its exit code.
+  const output: string[] = [];
   for (const stream of [child.stdout, child.stderr]) {
     createInterface({ input: stream }).on("line", (line) => {
-      if (line.trim()) note(line);
+      if (!line.trim()) return;
+      note(line);
+      output.push(line);
+      if (output.length > COMPOSE_OUTPUT_KEPT) output.shift();
     });
   }
   let finished = false;
@@ -679,9 +687,11 @@ function runCompose(stack: StackDef, action: string, done?: (ok: boolean) => voi
     void refresh().then(() => done?.(ok));
   };
   child.on("error", (error) => finish(`${stack.label}: ${action} could not run docker: ${error.message}`, false));
-  child.on("close", (code) =>
-    finish(code === 0 ? `${stack.label}: ${action} done.` : `${stack.label}: ${action} failed (exit code ${code}).`, code === 0),
-  );
+  child.on("close", (code) => {
+    if (code === 0) return finish(`${stack.label}: ${action} done.`, true);
+    const why = composeFailure(output);
+    finish(`${stack.label}: ${action} failed (exit code ${code})${why ? `: ${why}` : "."}`, false);
+  });
 }
 
 function startDockerDesktop(): void {

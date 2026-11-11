@@ -49,6 +49,35 @@ export interface PortLike {
   IP?: string;
 }
 
+/** A build step's output line, as `docker compose --progress plain` prints it: "#43 0.920 text". */
+const BUILD_STEP_LINE = /^#\d+ \d+(?:\.\d+)? /;
+const BUILD_STOPPED = /^Build stopped: \d+ problems?$/;
+const DOCKER_ERROR = /^Error\b|Error response from daemon:|failed to solve:/i;
+const REASONS_SHOWN = 3;
+
+/**
+ * Why a `docker compose` run failed, from its output, for the Panel's failure line: the build's
+ * problems when the image build stopped on them (tools/build/build.ts prints "Build stopped: N
+ * problems", then each indented), else Docker's last error line. Undefined when neither is there.
+ */
+export function composeFailure(lines: string[]): string | undefined {
+  const text = lines.map((line) => line.replace(BUILD_STEP_LINE, "").trimEnd());
+  const stopped = text.findIndex((line) => BUILD_STOPPED.test(line.trim()));
+  if (stopped >= 0) {
+    const problems: string[] = [];
+    for (const line of text.slice(stopped + 1)) {
+      if (!line.startsWith("  ") || line.trim() === "") break;
+      problems.push(line.trim());
+    }
+    if (problems.length > REASONS_SHOWN) problems.splice(REASONS_SHOWN, Infinity, `and ${problems.length - REASONS_SHOWN} more (the Logs page has them all)`);
+    if (problems.length > 0) return problems.join("; ");
+  }
+  for (let i = text.length - 1; i >= 0; i--) {
+    if (DOCKER_ERROR.test(text[i].trim())) return text[i].trim();
+  }
+  return undefined;
+}
+
 /**
  * "19132 tcp+udp, 127.0.0.1:8080 tcp". Docker lists IPv4 and IPv6 bindings separately, and gives
  * null instead of a list for a container without ports (the watcher).

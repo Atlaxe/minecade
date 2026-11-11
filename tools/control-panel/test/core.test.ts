@@ -9,6 +9,7 @@ import {
   BroadcastLog,
   checkLobbyMap,
   checkRequest,
+  composeFailure,
   formatPorts,
   isEditorContainer,
   isStale,
@@ -297,5 +298,48 @@ describe("the Players page's switches", () => {
     expect(setPlayerSwitch(off, 'Bad"Name', "editor", true)).toMatchObject({ error: /character/ });
     expect(setPlayerSwitch(off, "A,B", "editor", true)).toMatchObject({ error: /one gamertag/ });
     expect(namesOf(" a, ,b ")).toEqual(["a", "b"]);
+  });
+});
+
+// A Start that the image build stopped on (the Panel's activity on 2026-11-10, trimmed).
+const stoppedBuild = [
+  "#43 [orchestrator build 10/10] RUN npm run build",
+  "#43 0.390 > tsx tools/build/build.ts",
+  "#43 0.877 1 warning:",
+  "#43 0.877   games/paintball: no published maps yet, so the game is skipped (make one in the map editor)",
+  "#43 0.912 Build stopped: 1 problem",
+  "#43 0.912   games/gungame: has no published picture",
+  "#43 ERROR: process \"/bin/sh -c npm run build\" did not complete successfully: exit code: 1",
+  "------",
+  " > [orchestrator build 10/10] RUN npm run build:",
+  "0.912 Build stopped: 1 problem",
+  "0.912   games/gungame: has no published picture",
+  "------",
+  "target orchestrator: failed to solve: process \"/bin/sh -c npm run build\" did not complete successfully: exit code: 1",
+];
+
+describe("composeFailure", () => {
+  it("names the build's problems, not its warnings", () => {
+    expect(composeFailure(stoppedBuild)).toBe("games/gungame: has no published picture");
+  });
+
+  it("lists a few problems and says how many more", () => {
+    const problems = ["a", "b", "c", "d", "e"].map((name) => `#43 0.9   games/${name}: broken`);
+    expect(composeFailure(["#43 0.9 Build stopped: 5 problems", ...problems])).toBe(
+      "games/a: broken; games/b: broken; games/c: broken; and 2 more (the Logs page has them all)",
+    );
+  });
+
+  it("falls back to Docker's last error line", () => {
+    const lines = [
+      " Container minecade-lobby-1  Creating",
+      "Error response from daemon: ports are not available: exposing port UDP 0.0.0.0:19132 -> 127.0.0.1:0: bind: address already in use",
+    ];
+    expect(composeFailure(lines)).toBe(lines[1]);
+    expect(composeFailure(["#12 ERROR: failed to fetch", "target lobby: failed to solve: npm ci failed"])).toBe("target lobby: failed to solve: npm ci failed");
+  });
+
+  it("says nothing when the output has no reason", () => {
+    expect(composeFailure([" Container minecade-lobby-1  Stopping", " Container minecade-lobby-1  Stopped"])).toBeUndefined();
   });
 });
