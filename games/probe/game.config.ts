@@ -7,8 +7,8 @@ import { defineGame } from "@minecade/minigame-core/config";
 // test the kit form's pictures (a full hotbar with armor, a full hotbar without, a few items with
 // leather in the team's color), plus a Painter kit to try the shared guns, and Gunner and Grenadier
 // kits to try the arsenal (its real guns; its grenades, knife, stimpack, crossbow and sword), a
-// Holds kit of held model tests, and a Chameleon kit of wool abilities for the chameleon test in
-// private_packs/ (README.md there; without it installed the wool is just wool): set
+// Holds kit of held model tests, and a Chameleon kit (a hider's hotbar) for the chameleon test in
+// private_packs/ (README.md there; without it installed it's just a stick and wool): set
 // DEV_MIN_PLAYERS=1 to play it alone. Probe says what it got in chat when the match starts. The lobby lists it only
 // while DEV_TEST_GAMES is 1.
 export default defineGame({
@@ -100,19 +100,23 @@ export default defineGame({
           { item: "minecraft:netherite_sword" },
         ],
       },
-      // The chameleon test's abilities (private_packs/chameleon, installed from the workshop's
-      // chameleon-test), wool until they get their own icons: Wear block (right click a block to wear
-      // its texture), Pose (a form of poses), Size (small or normal), Free look (the camera turns
-      // by itself, the body only to walk) and Take off. Everyone sees the worn blocks on the right.
+      // A hider's hotbar in the chameleon test (private_packs/chameleon, installed from the
+      // workshop's chameleon-test), in the slots the test lays out (it gives a hider these itself
+      // too, and a seeker's, with /chameleon:role), wool until they get their own icons: a
+      // knockback stick, Wear block (wear the outlined block's texture), Pose (a form of poses),
+      // Lock position (stay put and look around), Taunt (a passive mob's sound, then a cooldown)
+      // and Free look (fly as a spectator while a stand-in stays). Everyone sees the hiders' costumes
+      // on the right.
       {
         id: "chameleon",
         name: "Chameleon",
         items: [
-          { item: "minecraft:lime_wool", name: "Wear block" },
-          { item: "minecraft:yellow_wool", name: "Pose" },
-          { item: "minecraft:light_blue_wool", name: "Size" },
-          { item: "minecraft:purple_wool", name: "Free look" },
-          { item: "minecraft:red_wool", name: "Take off" },
+          { item: "minecraft:stick", name: "Knockback stick", slot: 0 },
+          { item: "minecraft:lime_wool", name: "Wear block", slot: 1 },
+          { item: "minecraft:yellow_wool", name: "Pose", slot: 2 },
+          { item: "minecraft:purple_wool", name: "Lock position", slot: 3 },
+          { item: "minecraft:orange_wool", name: "Taunt", slot: 5 },
+          { item: "minecraft:light_blue_wool", name: "Free look", slot: 8 },
         ],
       },
       // Held model tests (resource_pack/attachables/hold_test_*): the arsenal's Pistol, then the same

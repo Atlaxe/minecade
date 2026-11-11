@@ -714,8 +714,9 @@ and iron armor: eight items, then the armor), Builder (nine items, no armor) and
 and leather in the team's color). The lobby lists it only while `DEV_TEST_GAMES=1` (its config has
 `test: true`). It needs 2 players, so set `DEV_MIN_PLAYERS=1` to test alone.
 When the match starts, Probe says the settings it got and who is on which team. Its Chameleon kit
-holds the chameleon test's abilities as named wool (Wear block, Pose, Size, Free look, Take off);
-the test is a private pack (`games/probe/private_packs/README.md`) that the workshop's
+is the chameleon test's hider hotbar, a stick and named wool (Knockback stick, Wear block, Pose,
+Lock position, Taunt, Free look; `/chameleon:role` switches to a seeker's, the Pump Shotgun and a
+Detector); the test is a private pack (`games/probe/private_packs/README.md`) that the workshop's
 chameleon-test project installs, and Round 20 min gives it time.
 
 ```ts
