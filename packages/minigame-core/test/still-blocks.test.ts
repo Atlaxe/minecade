@@ -1,12 +1,12 @@
-// Build Swap's blocks that stay where they're put: the twin of each vanilla block that falls, and the
-// files tools/assets/still-blocks.ts writes for them.
+// The building games' blocks that stay where they're put: the twin of each vanilla block that falls,
+// and the files tools/assets/still-blocks.ts writes for them into each game's packs.
 import { existsSync, readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
-import { stillBlockFiles } from "../../../tools/assets/still-blocks.ts";
-import { ANVIL_FACING, STILL_BLOCKS, isStill, stillStates, stillTwin } from "../behavior_pack/scripts/still-blocks.ts";
+import { STILL_BLOCK_GAMES, stillBlockFiles } from "../../../tools/assets/still-blocks.ts";
+import { ANVIL_FACING, STILL_BLOCKS, isStill, stillStates, stillTwin } from "../src/building/still-blocks.ts";
 
-describe("Build Swap's blocks that stay put", () => {
+describe("the building games' blocks that stay put", () => {
   it("has a twin for every block that falls: the 16 concrete powders, sand, red sand, gravel, the three anvils and the dragon egg", () => {
     expect(STILL_BLOCKS).toHaveLength(23);
     expect(stillTwin("minecraft:light_gray_concrete_powder")).toMatchObject({ still: "minecade:still_light_gray_concrete_powder", textures: { all: "textures/blocks/concrete_powder_silver" } });
@@ -27,13 +27,17 @@ describe("Build Swap's blocks that stay put", () => {
     expect(stillStates(stillTwin("minecraft:red_sand")!, { color: "red" })).toEqual({});
   });
 
-  it("match what tools/assets/still-blocks.ts writes (rerun it after changing still-blocks.ts)", () => {
-    for (const [path, content] of Object.entries(stillBlockFiles())) {
-      const file = fileURLToPath(new URL(`../${path}`, import.meta.url));
-      expect(existsSync(file), path).toBe(true);
-      expect(readFileSync(file, "utf8").replace(/\r\n/g, "\n"), path).toBe(content);
+  it("match what tools/assets/still-blocks.ts writes into Build Swap's and Guess the Build's packs (rerun it after changing still-blocks.ts)", () => {
+    expect(STILL_BLOCK_GAMES).toEqual(["buildswap", "guessbuild"]);
+    for (const game of STILL_BLOCK_GAMES) {
+      for (const [path, content] of Object.entries(stillBlockFiles(game))) {
+        const file = fileURLToPath(new URL(`../../../games/${game}/${path}`, import.meta.url));
+        expect(existsSync(file), `${game}/${path}`).toBe(true);
+        expect(readFileSync(file, "utf8").replace(/\r\n/g, "\n"), `${game}/${path}`).toBe(content);
+      }
     }
-    const lang = stillBlockFiles()["resource_pack/texts/en_US.lang"];
-    expect(lang).toContain("tile.minecade:still_red_concrete_powder.name=Red Concrete Powder");
+    const files = stillBlockFiles("guessbuild");
+    expect(files["resource_pack/texts/en_US.lang"]).toContain("tile.minecade:still_red_concrete_powder.name=Red Concrete Powder");
+    expect(files["resource_pack/textures/terrain_texture.json"]).toContain('"resource_pack_name": "minecade_guessbuild"');
   });
 });

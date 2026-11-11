@@ -1,0 +1,29 @@
+{
+  "format_version": 2,
+  "header": {
+    "name": "Minecade Guess the Build",
+    "description": "Guess the Build: telephone with building, then vote on every build",
+    "uuid": "aab003b3-b774-4cc4-8154-0356c2ec810b",
+    "version": [0, 1, 0],
+    "min_engine_version": [1, 26, 60]
+  },
+  "modules": [
+    {
+      "type": "data",
+      "uuid": "7b472850-6196-46cb-a5f1-775e9e06576d",
+      "version": [0, 1, 0]
+    },
+    {
+      "type": "script",
+      "language": "javascript",
+      "uuid": "91f4d764-2d9b-4930-8076-831a8e3dd481",
+      "version": [0, 1, 0],
+      "entry": "scripts/main.js"
+    }
+  ],
+  "dependencies": [
+    { "module_name": "@minecraft/server", "version": "2.11.0" },
+    { "module_name": "@minecraft/server-ui", "version": "2.3.0" },
+    { "module_name": "@minecraft/server-admin", "version": "1.0.0-beta" }
+  ]
+}

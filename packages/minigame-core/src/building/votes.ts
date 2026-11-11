@@ -1,6 +1,6 @@
-// Build Swap's voting, as plain logic: the vote blocks, who votes on a build, their votes (which
-// they can change until the build is over), and the points it earns its builder. The game shows the
-// builds and hands out the blocks.
+// The building games' voting (Build Swap, Guess the Build), as plain logic: the vote blocks, who
+// votes on a build, their votes (which they can change until the build is over), and the points it
+// earns its builder. The game shows the builds and hands out the blocks.
 
 /** The vote blocks, hotbar slots 1 to 5: terracotta named for its points, in its own color. */
 export const VOTES = [

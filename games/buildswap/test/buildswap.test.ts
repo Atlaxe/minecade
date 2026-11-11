@@ -1,6 +1,6 @@
-// Build Swap against the fake world, on a row of eight 24-block building areas: the prompt form,
-// the deal (nobody gets their own prompt), building only in your area, the swap, voting on each
-// build before and after its twist, and the winner by points.
+// Build Swap against the fake world, on a map with one 40-block arena around a 24-block build area,
+// copied once per player: the prompt form, the deal (nobody gets their own prompt), building only in
+// your area, the swap, voting on each build before and after its twist, and the winner by points.
 import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import { dealPrompts, promptReplyParts, runtimeMapConfig, stripColors, validateMapConfig, type MapConfig, type MapPosition } from "@minecade/minigame-core/config";
 import { encodeMessage, type PromptRequest } from "@minecade/minigame-core/protocol";
@@ -10,19 +10,23 @@ import { CLOCK_PLACES, HUD_MARK, NOTES_MARK } from "../../../packages/minigame-c
 import { createHarness, expectBaseline, playToEnd, snapshot, statsRows, ticks, type Harness } from "../../../packages/minigame-core/test/game-harness.ts";
 import { validateGameConfig } from "../../../tools/build/validate.ts";
 import config from "../game.config.ts";
-import { BuildSwap, standings } from "../behavior_pack/scripts/buildswap.ts";
-import { clampInto, pairPlots, shell, swapPlots, tiles } from "../behavior_pack/scripts/plots.ts";
-import { WAND, boxVolume, clipBox, cornersBox, fillPieces, fixCells, sizeText, type FixCell } from "../behavior_pack/scripts/selection.ts";
-import { Ballot, VOTES } from "../behavior_pack/scripts/votes.ts";
+import { shiftPosition, structurePieces, tileColumns, tileOffset } from "../../../packages/minigame-core/src/game/arenas.ts";
+import { Ballot, VOTES, WAND, boxVolume, clampInto, clipBox, cornersBox, fillPieces, fixCells, shell, sizeText, standings, type FixCell } from "@minecade/minigame-core/building";
+import { BuildSwap, swapPlots } from "../behavior_pack/scripts/buildswap.ts";
 
-/** Eight building areas in a row along x, 40 blocks apart, each 24 blocks on a side, with a floor under it at y 63. */
-const PLOTS = Array.from({ length: 8 }, (_, i) => ({ min: [i * 40, 64, 0] as [number, number, number], max: [i * 40 + 23, 87, 23] as [number, number, number] }));
-const SPAWNS: MapPosition[] = PLOTS.map((plot) => [plot.min[0] + 12, 64, 12]);
+type Vec3 = [number, number, number];
+/** The map's arena: 40 blocks across, a floor's height under its build area to the top. */
+const ARENA = { min: [0, 63, 0] as Vec3, max: [39, 90, 39] as Vec3 };
+/** Its build area, 24 blocks on every side, in the arena's west corner. */
+const PLOT = { min: [0, 64, 0] as Vec3, max: [23, 87, 23] as Vec3 };
+const SPAWN: MapPosition = [12, 64, 12];
+/** The build areas of the first copies: 8 players' arenas go 3 to a row along x, 40 blocks apart. */
+const PLOTS = Array.from({ length: 3 }, (_, i) => ({ min: [i * 40, 64, 0] as Vec3, max: [i * 40 + 23, 87, 23] as Vec3 }));
 const ROW: MapConfig = runtimeMapConfig({
-  name: "Row",
-  spawns: SPAWNS,
+  name: "Arena",
+  spawns: [SPAWN],
   spectatorSpawn: [150, 110, 12],
-  regions: { plot: PLOTS },
+  regions: { arena: [ARENA], plot: [PLOT] },
 });
 const COUNTDOWN_TICKS = config.countdownSeconds * 20 + 5;
 
@@ -94,31 +98,38 @@ function rightClick(player: FakePlayer, at: { x: number; y: number; z: number })
 const lastMessage = (player: FakePlayer) => stripColors(player.messages.at(-1) ?? "");
 
 describe("Build Swap's config and map", () => {
-  it("passes the build's checks; its maps need 8 spawns and 8 building boundaries at least 24 blocks on every side", () => {
+  it("passes the build's checks; its maps need one arena (80 blocks across at most) with a build area (24 on every side at least) and a spawn in it", () => {
     expect(validateGameConfig(config, "buildswap")).toEqual([]);
     const rules = { kind: "game" as const, maxPlayers: config.maxPlayers, requires: config.map };
     expect(validateMapConfig(ROW, rules)).toEqual([]);
-    const small = { ...ROW, regions: { plot: [{ min: [0, 64, 0], max: [22, 87, 23] }, ...PLOTS.slice(1)] } };
-    expect(validateMapConfig(small, rules)).toEqual([
-      "regions.plot[0] is 23x24x24, smaller than 24 on a side",
-      'this game needs 8 "regions.plot" entries, has 7',
-    ]);
-    expect(validateMapConfig({ ...ROW, spawns: SPAWNS.slice(0, 7) }, rules)[0]).toContain("8");
+    const small = { ...ROW, regions: { arena: [ARENA], plot: [{ min: [0, 64, 0], max: [22, 87, 23] }] } };
+    expect(validateMapConfig(small, rules)).toEqual(["regions.plot[0] is 23x24x24, smaller than 24 on a side", 'this game needs a "regions.plot" entry']);
+    const big = { ...ROW, regions: { arena: [{ min: [0, 63, 0], max: [80, 90, 39] }], plot: [PLOT] } };
+    expect(validateMapConfig(big, rules)).toEqual(["regions.arena[0] is 81x28x40, bigger than 80 on a side", 'this game needs a "regions.arena" entry']);
+    expect(validateMapConfig({ ...ROW, spawns: [[45, 64, 12]] }, rules)).toEqual(['spawns[0] is outside the "arena" region']);
+    expect(validateMapConfig({ ...ROW, spawns: [] }, rules)).toEqual(["needs at least 1 spawn, has 0"]);
     // The build padding is each map's own (the map editor's Game settings tool), 2 when it doesn't say.
     expect(validateMapConfig({ ...ROW, buildPadding: 6 }, rules)).toEqual([]);
     expect(validateMapConfig({ ...ROW, buildPadding: 99 }, rules)).toEqual(['"buildPadding" must be a whole number from 0 to 32']);
     expect(config.map.settings.buildPadding.default).toBe(2);
   });
 
-  it("pairs each spawn with the area it's in, or the nearest one left", () => {
-    const plots = pairPlots([[52, 64, 12], [12, 64, 12], [100, 64, 12]], PLOTS.slice(0, 3));
-    expect(plots.map((plot) => [plot.index, plot.box.min[0]])).toEqual([
-      [0, 40],
-      [1, 0],
-      [2, 80],
+  it("copies the arena in rows along x as wide as 8 players' square grid, and keeps a spawn's facing when it moves", () => {
+    expect([1, 3, 4, 8, 9, 10].map(tileColumns)).toEqual([1, 2, 2, 3, 3, 4]);
+    expect(Array.from({ length: 8 }, (_, i) => tileOffset(ARENA, i, 3))).toEqual([
+      [0, 0, 0],
+      [40, 0, 0],
+      [80, 0, 0],
+      [0, 0, 40],
+      [40, 0, 40],
+      [80, 0, 40],
+      [0, 0, 80],
+      [40, 0, 80],
     ]);
+    expect(shiftPosition([12, 64, 12, 90, 5], [40, 0, 80])).toEqual([52, 64, 92, 90, 5]);
+    expect(shiftPosition([12.5, 64, 12], [40, 0, 0])).toEqual([52.5, 64, 12]);
     expect(clampInto({ x: -5, y: 70, z: 30 }, PLOTS[0])).toEqual({ x: 0.5, y: 70, z: 23.5 });
-    expect(tiles({ min: [0, 0, 0], max: [99, 10, 63] }).map((tile) => [tile.min[0], tile.max[0]])).toEqual([
+    expect(structurePieces({ min: [0, 0, 0], max: [99, 10, 63] }).map((piece) => [piece.min[0], piece.max[0]])).toEqual([
       [0, 63],
       [64, 99],
     ]);
@@ -204,6 +215,9 @@ describe("a match of Build Swap", () => {
   it("takes prompts, deals them, builds, swaps for the twist, votes on every build before and after, and shows the winner", async () => {
     // The map's own water beside A's area stays; water that runs out of it doesn't.
     world.overworld.blocks.set("-1,64,5", "minecraft:water");
+    // The arena's own blocks: a floor block under the build area and a lamp in its corner, copied to every arena.
+    world.overworld.blocks.set("5,63,5", "minecraft:grass_block");
+    world.overworld.blocks.set("39,90,39", "minecraft:sea_lantern");
     const { players, baseline, from, game } = start(["A", "B", "C"]);
     const [a, b, c] = players;
     const result = await playToEnd(game, harness.root, baseline, async () => {
@@ -231,6 +245,13 @@ describe("a match of Build Swap", () => {
       await ticks(COUNTDOWN_TICKS);
       expect(game.phase).toBe("playing");
       expect(a.gameMode).toBe("Creative");
+      // The arena is copied for the three of them, in a row along x, each copy kept loaded.
+      expect(["45,63,5", "85,63,5"].map((at) => world.overworld.blocks.get(at))).toEqual(["minecraft:grass_block", "minecraft:grass_block"]);
+      expect(["79,90,39", "119,90,39"].map((at) => world.overworld.blocks.get(at))).toEqual(["minecraft:sea_lantern", "minecraft:sea_lantern"]);
+      expect(world.overworld.blocks.has("125,63,5")).toBe(false);
+      expect(world.tickingAreaManager.areas.size).toBe(3);
+      // Everyone starts at their own copy's spawn.
+      expect([a, b, c].map((player) => Math.floor(player.location.x))).toEqual([12, 52, 92]);
 
       // Round 1: everyone in their own area, a prompt nobody else has and that they didn't write.
       await ticks(2);
@@ -340,6 +361,7 @@ describe("a match of Build Swap", () => {
     const rows = statsRows(harness.sent, from);
     expect(rows.find((row) => row.n === "A")).toMatchObject({ r: "w", x: { points: 20, bestScore: 20 } });
     expect(world.structureManager.saved.size).toBe(0);
+    expect(world.tickingAreaManager.areas.size).toBe(0);
     expectBaseline(harness.root, baseline);
     world.overworld.reset();
     for (const player of players) world.leave(player.name);

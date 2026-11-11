@@ -505,14 +505,16 @@ hiding. `games/chameleon`.
 
 ## The prompt form
 
-Build Swap has every player write prompts before the match, in a live form like the kit form
-(`games/buildswap/behavior_pack/scripts/prompt-form.ts`):
+Build Swap and Guess the Build have every player write prompts before the match, in a live form
+like the kit form (minigame-core's `src/building/prompt-form.ts`, which Guess the Build's guess form
+uses too):
 
-- **On it:** a status line (who's still writing, or how many, and the time left), two text boxes
-  (Build prompt and Twist prompt, each with a short example under its label), a line for what's
-  wrong with an answer, then Submit and Skip. All plain text: a live form takes no color codes.
-- **Answers:** Submit takes either box or both, each up to 50 characters (color codes are taken
-  out); with both empty it asks for a prompt or a skip. Skip takes nothing. Either one closes the
+- **On it:** a status line (who's still writing, or how many, and the time left), the text boxes (Build
+  Swap's Build prompt and Twist prompt, Guess the Build's Build prompt alone, each with a short
+  example under its label), a line for what's wrong with an answer, then Submit and Skip. All plain
+  text: a live form takes no color codes.
+- **Answers:** Submit takes any box or all, each up to 50 characters (color codes are taken out);
+  with every box empty it asks for a prompt or a skip. Skip takes nothing. Either one closes the
   form for good, and the player sees "Waiting for N players" on the action bar.
 - **Staying open:** closing the form brings it back within half a second, until the player submits
   or skips. After 2 minutes (`promptSeconds`), whoever hasn't answered is skipped and the match
@@ -520,14 +522,15 @@ Build Swap has every player write prompts before the match, in a live form like 
 - **Text filter:** what's typed goes through Minecraft's filter for the writer (`getFilteredText`),
   and is taken as typed when the filter is off or doesn't answer within 3 seconds.
 
-## Build Swap's building tools
+## The building games' tools
 
-Everything here works only while building, and only inside the area being built
-(`games/buildswap/behavior_pack/scripts/selection.ts` and `buildswap.ts`):
+Build Swap and Guess the Build share these (minigame-core's building kit, `src/building/`:
+`building-game.ts`, `selection.ts`, `commands.ts`). Everything here works only while building, and
+only inside the area being built:
 
 - **Blocks that fall stay put:** concrete powder, sand, red sand, gravel, the anvils and the dragon
   egg become their twin the tick they're placed (`minecade:still_<id>`, the same look and name, no
-  gravity; `still-blocks.ts`, drawn by `tools/assets/still-blocks.ts` into the game's packs). A
+  gravity; `still-blocks.ts`, drawn by `tools/assets/still-blocks.ts` into each game's packs). A
   block that falls would otherwise turn into a falling block entity two ticks later, which the game
   removes like anything spawned, so it vanished. An anvil keeps its facing; a twin doesn't open the
   anvil screen or turn concrete powder into concrete in water.
@@ -548,6 +551,37 @@ Everything here works only while building, and only inside the area being built
   (docs/spike-results.md, "Custom command names").
 - **Voting:** a voter who still hasn't voted 10 seconds after a build shows (`voteNagSeconds`) gets
   a big "Vote!" title and a wither's roar, again every 10 seconds until they do.
+
+## Guess the Build
+
+Telephone with building (`games/guessbuild`). Before the match everyone writes one prompt (or skips),
+then the map's arena is copied once per player (docs/maps.md). Everyone sits in a shuffled circle
+and owns a chain: their own prompt (a player who skipped gets one dealt), living in their copy of
+the arena. The steps go round the circle, one fewer than players, so everyone works once on every
+chain but their own and never sees their own prompt until the end (`chains.ts`):
+
+- **Build steps** (the first, third, ...): everyone builds the latest text of the chain they're on,
+  the next player's prompt first, then the guess before them, in that chain's arena. 10 seconds to
+  read it (the title, and the line top right), then the lobby's Build time (3 or 5 minutes) with the
+  building tools. From the second build on, the arena's build area is put back as the map made it
+  first; each build is saved when its time is up.
+- **Guess steps** (the second, fourth, ...): everyone moves to the chain they're on and looks at its
+  last build, with the paper (named Guess) locked in their first slot: right click brings up the
+  guess form, one box (Your guess), Submit only. It also comes up on its own 15 seconds in
+  (`guessLookSeconds`) for whoever hasn't guessed. A guess can be changed with the paper until the
+  45 seconds (`guessSeconds`) are up, or the step ends once everyone has guessed. Whatever's typed
+  but not submitted when time's up counts; no guess at all means the next builder builds what the
+  build before was built from. A guess whose builder left has nothing to look at: that player waits.
+- **The showcase:** chain by chain in a random order, everyone in its arena. Its prompt shows top
+  left (notes), each build is put back for everyone but its builder to vote 1 to 5 (the terracotta
+  blocks, as in Build Swap, 3 seconds after the last vote to change it), and each guess shows by its
+  guesser's name, as a title and in chat: "A guessed it was a boat" (4 seconds, `revealSeconds`),
+  added to the notes. A chain that ends on a guess shows "It started as" and its prompt last.
+- **The end:** builders stay anonymous until then: chat shows the standings, each player hears what
+  each of their builds earned, and the winner's best build is put back with everyone there to see
+  it. The most points wins; no votes at all is a draw.
+- **Maps:** Build Swap's (it borrows them), or its own, of the same kind. A match needs a copy of
+  the arena for every player: if the server can't keep them all loaded, the match stops.
 
 ## Countdown sounds
 

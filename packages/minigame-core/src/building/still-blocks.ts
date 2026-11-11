@@ -1,12 +1,12 @@
-// Blocks that stay where they're put: Build Swap's twin of every vanilla block that falls (concrete
-// powder, sand, gravel, anvils, the dragon egg), looking the same, with no gravity. A builder's
-// gravity block becomes its twin the tick it's placed (it would fall two ticks later), and the
-// selection commands fill with twins, so nothing in a build falls. Measured on BDS
+// Blocks that stay where they're put: the building games' twin of every vanilla block that falls
+// (concrete powder, sand, gravel, anvils, the dragon egg), looking the same, with no gravity. A
+// builder's gravity block becomes its twin the tick it's placed (it would fall two ticks later),
+// and the selection commands fill with twins, so nothing in a build falls. Measured on BDS
 // (docs/spike-results.md, "Block physics"): a gravity block a script puts in the air falls too,
-// whether by setType, setPermutation, /setblock, fillBlocks or a structure, and so does one put back
-// after its falling block entity is removed, so the twin is the only way it stays. Pure data, so the
-// asset generator (tools/assets/still-blocks.ts) and tests can read it. Rerun the generator after
-// changing it.
+// whether by setType, setPermutation, /setblock, fillBlocks or a structure, and so does one put
+// back after its falling block entity is removed, so the twin is the only way it stays. Pure data,
+// so the asset generator (tools/assets/still-blocks.ts) and tests can read it. Rerun the generator
+// after changing it.
 
 export type StillShape = "cube" | "anvil" | "egg";
 

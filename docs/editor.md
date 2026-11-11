@@ -425,8 +425,8 @@ you back in creative at every spawn).
   bubble top right (where games show their clock) says **Replace mode** while no tool is in hand.
 - **Game settings tool:** a game's own settings for each of its maps, set here instead of in a
   tool of the game's own: the settings its config names (`map.settings` in `game.config.ts`, see
-  `docs/maps.md`). Build Swap has two: **Build padding**, how far past their building boundary
-  builders can go, and voters past the build they're voting on (2 blocks unless the map says), and
+  `docs/maps.md`). Build Swap and Guess the Build have two: **Build padding**, how far past their
+  build area builders can go, and voters past the build they're voting on (2 blocks unless the map says), and
   **Return delay**, how long builders can stay past that before they're put back (0 seconds, at
   once, unless the map says; voters are put back at once). A use of the tool,
   tapping a setting in its settings, or **/gamesettings** (`/minecade:gamesettings`, with or without

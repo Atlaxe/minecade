@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { possibleTeams } from "../src/game/teams.ts";
 import { MapView } from "../src/game/map-view.ts";
 import { worldSpawnOf, type MapConfig } from "../src/map-config.ts";
-import { mapRequirements, usesPlainSpawns } from "../src/map-requirements.ts";
+import { mapRequirements, uncoveredRequirements, usesPlainSpawns } from "../src/map-requirements.ts";
 import { validateMapConfig, type MapRules } from "../src/map-validate.ts";
 
 const TEAMS = [
@@ -77,6 +77,36 @@ describe("mapRequirements", () => {
       { key: "spawns", label: "Spawn", field: "spawns", min: 1 },
       { key: "points.terminal", label: "Terminal", field: "points", name: "terminal", min: 1 },
     ]);
+  });
+
+  it("checks a tiled arena: no bigger than its maxSize, its build area and spawn inside it", () => {
+    const requires = {
+      spawns: { min: 1, inside: "arena" },
+      regions: { arena: { label: "Arena", maxSize: 80 }, plot: { label: "Build area", minSize: 24, inside: "arena" } },
+    };
+    const rules: MapRules = { kind: "game", maxPlayers: 8, requires };
+    expect(mapRequirements(requires, { kind: "game", maxPlayers: 8 }).slice(0, 1)).toEqual([{ key: "spawns", label: "Spawn", field: "spawns", min: 1, inside: "arena" }]);
+    expect(mapRequirements(requires, { kind: "game", maxPlayers: 8 }).find((requirement) => requirement.key === "regions.plot")).toMatchObject({ minSize: 24, inside: "arena" });
+    const arena = { min: [0, 60, 0], max: [39, 90, 39] };
+    const plot = { min: [8, 64, 8], max: [31, 87, 31] };
+    const map = { name: "Tiled", spawns: [[20, 64, 4]], spectatorSpawn: [20, 100, 20], regions: { arena: [arena], plot: [plot] } };
+    expect(validateMapConfig(map, rules)).toEqual([]);
+    // Too big an arena doesn't count; a build area or spawn sticking out says so.
+    expect(validateMapConfig({ ...map, regions: { arena: [{ min: [0, 60, 0], max: [80, 90, 39] }], plot: [plot] } }, rules)).toEqual([
+      "regions.arena[0] is 81x31x40, bigger than 80 on a side",
+      'this game needs a "regions.arena" entry',
+    ]);
+    expect(validateMapConfig({ ...map, spawns: [[50, 64, 4]], regions: { arena: [arena], plot: [{ min: [20, 64, 8], max: [43, 87, 31] }] } }, rules)).toEqual([
+      'spawns[0] is outside the "arena" region',
+      'regions.plot[0] is outside the "arena" region',
+    ]);
+    // With no arena yet, only the arena is missing.
+    expect(validateMapConfig({ ...map, regions: { plot: [plot] } }, rules)).toEqual(['this game needs a "regions.arena" entry']);
+    // A game borrowing these maps is covered only by one asking the same.
+    const needs = mapRequirements(requires, { kind: "game", maxPlayers: 8 });
+    expect(uncoveredRequirements(needs, needs)).toEqual([]);
+    const loose = mapRequirements({ spawns: { min: 1 }, regions: { arena: {}, plot: { minSize: 24 } } }, { kind: "game", maxPlayers: 8 });
+    expect(uncoveredRequirements(needs, loose).map((requirement) => requirement.key)).toEqual(["spawns", "regions.arena", "regions.plot"]);
   });
 });
 

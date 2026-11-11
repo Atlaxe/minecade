@@ -3,7 +3,7 @@
 // is reported at once; mapWarnings lists things worth a look that don't stop a build.
 import type { MapRequirementsConfig } from "./config.ts";
 import { BUILD_LIMIT_SIDES, MAP_TIMES, QUEUE_COUNTDOWN, QUEUE_MODES, enclosingBox, mapTimeTicks, type Box, type BuildLimitSide, type MapConfig, type MapPosition, type Vec3 } from "./map-config.ts";
-import { bigEnough, boxSize, mapRequirements, mapSettings, settingFits, type MapRequirement } from "./map-requirements.ts";
+import { bigEnough, boxSize, mapRequirements, mapSettings, settingFits, smallEnough, type MapRequirement } from "./map-requirements.ts";
 
 /** Bedrock overworld height limits. */
 const MIN_Y = -64;
@@ -180,8 +180,14 @@ export function mapWarnings(config: MapConfig): string[] {
 function missing(requirement: MapRequirement, map: Partial<MapConfig>, who: string, hasTeamSpawns: boolean): string[] {
   const { field, name, min } = requirement;
   switch (field) {
-    case "spawns":
-      return [];
+    case "spawns": {
+      // Their count is checked above; here, that each is inside the region the game asks for.
+      const region = requirement.inside;
+      const within = region === undefined ? undefined : regionBoxes(map, region);
+      if (!within || within.length === 0) return [];
+      const spawns = Array.isArray(map.spawns) ? map.spawns : [];
+      return spawns.flatMap((spawn, i) => (isPosition(spawn) && !within.some((box) => inside(xyz(spawn), box.min, box.max)) ? [`spawns[${i}] is outside the "${region}" region`] : []));
+    }
     case "spectatorSpawn":
       return map.spectatorSpawn === undefined ? [`${who} needs a "spectatorSpawn"`] : [];
     case "queueSpawn":
@@ -200,12 +206,33 @@ function missing(requirement: MapRequirement, map: Partial<MapConfig>, who: stri
     case "points":
       return count(`${field}.${name}`, listLength(map[field], name!), min, who);
     case "regions": {
-      // A box smaller than the game asks for doesn't count, and says so.
+      // A box smaller (or bigger) than the game asks for doesn't count, and says so. One outside the
+      // region it must be in says so too, once that region has a box.
       const boxes = isRecord(map.regions) && Array.isArray(map.regions[name!]) ? map.regions[name!] : [];
-      const small = boxes.flatMap((box, i) => (isBox(box) && !bigEnough(box, requirement.minSize) ? [`regions.${name}[${i}] is ${boxSize(box).join("x")}, smaller than ${requirement.minSize} on a side`] : []));
-      return [...small, ...count(`${field}.${name}`, boxes.length - small.length, min, who)];
+      const misfits = boxes.flatMap((box, i) => {
+        if (!isBox(box)) return [];
+        const size = boxSize(box).join("x");
+        if (!bigEnough(box, requirement.minSize)) return [`regions.${name}[${i}] is ${size}, smaller than ${requirement.minSize} on a side`];
+        if (!smallEnough(box, requirement.maxSize)) return [`regions.${name}[${i}] is ${size}, bigger than ${requirement.maxSize} on a side`];
+        return [];
+      });
+      const region = requirement.inside;
+      const within = region === undefined ? [] : regionBoxes(map, region);
+      const outside = within.length === 0 ? [] : boxes.flatMap((box, i) => (isBox(box) && !within.some((around) => boxInside(box, around)) ? [`regions.${name}[${i}] is outside the "${region}" region`] : []));
+      return [...misfits, ...outside, ...count(`${field}.${name}`, boxes.length - misfits.length, min, who)];
     }
   }
+}
+
+/** A region's well-formed boxes (none when it has none). */
+function regionBoxes(map: Partial<MapConfig>, name: string): Box[] {
+  const list = isRecord(map.regions) ? map.regions[name] : undefined;
+  return Array.isArray(list) ? list.filter(isBox) : [];
+}
+
+/** Whether every block of `box` is inside `around`. */
+function boxInside(box: Box, around: Box): boolean {
+  return [0, 1, 2].every((axis) => box.min[axis] >= around.min[axis] && box.max[axis] <= around.max[axis]);
 }
 
 function count(key: string, have: number, min: number, who: string): string[] {

@@ -1,0 +1,15 @@
+{
+  "format_version": 2,
+  "header": {
+    "name": "Minecade Tiles Check",
+    "description": "Spike: copying an arena into far void chunks with ticking areas and structures",
+    "uuid": "5d0f7a52-3c1e-4c7b-9a43-2b1f8f6f0c11",
+    "version": [1, 0, 0],
+    "min_engine_version": [1, 26, 60]
+  },
+  "modules": [
+    { "type": "data", "uuid": "a0d6e8f4-55a9-4c8f-9a0e-7b3c2f1d9e21", "version": [1, 0, 0] },
+    { "type": "script", "language": "javascript", "uuid": "c3b7d1e2-8f4a-4e6b-b2d9-0f1e2a3b4c31", "version": [1, 0, 0], "entry": "scripts/main.js" }
+  ],
+  "dependencies": [{ "module_name": "@minecraft/server", "version": "2.11.0" }]
+}

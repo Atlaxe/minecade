@@ -65,6 +65,7 @@ export { Score } from "./game/score.ts";
 export { pickSpawn, rankSpawns } from "./game/spawns.ts";
 export { Notes } from "./game/sidebar.ts";
 export { MapView, inside } from "./game/map-view.ts";
+export { ArenaTiles, STRUCTURE_PIECE, shiftBox, shiftPosition, structurePieces, tileColumns, tileOffset, type ArenaTile } from "./game/arenas.ts";
 export { PromptBank } from "./game/prompt-bank.ts";
 export { kitStack } from "./game/kits.ts";
 export { LevelSeconds } from "./game/level-seconds.ts";

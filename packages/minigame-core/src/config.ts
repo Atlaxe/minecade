@@ -315,8 +315,12 @@ export interface MapEntryRequirement {
   perTeam?: boolean;
   /** Points only: how the map editor draws them. Default "post". */
   marker?: MarkerStyle;
-  /** Regions only: the fewest blocks each box spans along every side (Build Swap's 24 for 24x24x24 building boundaries). */
+  /** Regions only: the fewest blocks each box spans along every side (Build Swap's 24 for 24x24x24 build areas). */
   minSize?: number;
+  /** Regions only: the most blocks each box spans along any side (Build Swap's arena, copied once per player). */
+  maxSize?: number;
+  /** Regions only: every box must be inside a box of this region (Build Swap's build area, inside its arena). */
+  inside?: string;
 }
 
 /**
@@ -328,8 +332,9 @@ export interface MapRequirementsConfig {
    * Spawns needed: a number, or "maxPlayers" (the default for games; the lobby needs 1). false: the
    * game uses no plain spawns, only team spawns (and the spectator and queue spawns). A game that
    * asks for team spawns and doesn't name this has them off; naming it turns them back on.
+   * `inside`: every spawn must be inside a box of that region (Build Swap's spawn, in its arena).
    */
-  spawns?: false | { min?: number | "maxPlayers"; marker?: MarkerStyle };
+  spawns?: false | { min?: number | "maxPlayers"; marker?: MarkerStyle; inside?: string };
   /** Spawns per team: true for at least 1 each, or how many each team needs. */
   teamSpawns?: boolean | { perTeam?: number; marker?: MarkerStyle };
   /**

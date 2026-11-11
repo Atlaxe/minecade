@@ -132,6 +132,7 @@ Measured on a throwaway BDS (`npx tsx spike/physics/run.ts`): red concrete powde
 put in the air over a stone floor, by script and by a creative SimulatedPlayer
 (`useItemInSlotOnBlock` against a pillar's side), each checked 10 or 20 ticks later and again after
 a block was set beside it. The runner also loads Build Swap's twins (`games/buildswap/behavior_pack/blocks`).
+The twins' list is minigame-core's `src/building/still-blocks.ts` now, shared with Guess the Build.
 
 | Question | Finding |
 |---|---|
@@ -145,6 +146,29 @@ What the code does with this: Build Swap swaps each gravity block a builder plac
 `playerPlaceBlock` (`still-blocks.ts`), and `/set`, `/replace` and `/floor` fill with twins.
 Before, the game's "nothing spawned stays" rule removed the falling block entity, so concrete
 powder placed in the air just vanished.
+
+## Arena tiles (BDS 1.26.60.6, @minecraft/server 2.11.0, checked 2026-11-11)
+
+`npx tsx spike/tiles/run.ts` boots a throwaway server (`minecade-tilescheck`, no published ports) on
+a void world with no players. Its script builds a 40 by 31 by 40 arena at the origin (a stone floor,
+a gold block, glass in the far corner, water), loads it with a ticking area, saves it as a structure
+in memory, and copies it to eight tiles in a 3 by 3 grid and one 1000 blocks away, each loaded by a
+ticking area of its own.
+
+| Question | Finding |
+|---|---|
+| The ticking area limit | `world.tickingAreaManager.maxChunkCount` is **300** (chunks, all of a world's script ticking areas together; overlapping chunks count twice). One area's sides are capped at 255 chunks. |
+| Loading void chunks nobody has visited | `createTickingArea` resolves **2 to 3 ticks** later, the chunks generated (void) and loaded. |
+| Copying the arena there | `structureManager.place` right after works: every tile had the gold block, the glass and the water where the arena does, 1000 blocks away too. |
+| A 40 by 40 arena | 9 chunks for the first, 4 to 9 more for each copy (copies share chunk columns at their edges): 73 for the nine. |
+| How big the copies can be | `hasCapacity`: true for 8 arenas 64 blocks across in a row, or 4 by 2 of them; false for one area 300 by 300. |
+| A chunk with no area and no player | `getBlock` there gives **undefined** (not loaded), 1000 blocks out before its area and again 5 seconds after removing it. With its area kept, saving it as a structure works with nobody near. |
+
+What the code does with this: a building game's map has one arena (Build Swap, Guess the Build), and
+the game copies it once per player before the match (minigame-core's `game/arenas.ts`), each copy
+keeping its own ticking area until the match ends, so builds can be saved and put back in any of
+them. An arena is at most 80 blocks on a side (the game's `maxSize`): 8 copies of that take at most
+288 chunks, leaving room for a preview's fake players (one chunk each).
 
 ## Custom command names (BDS 1.26.60.6, @minecraft/server 2.11.0, checked 2026-11-11)
 

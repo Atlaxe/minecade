@@ -73,6 +73,15 @@ export class MapView {
     return boundsBoxes(this.config);
   }
 
+  /**
+   * More bounds boxes, on a map that has bounds (a tiled map's copied arenas, ArenaTiles); a map
+   * without bounds stays without.
+   */
+  extendBounds(boxes: readonly Box[]): void {
+    if (this.config.bounds === undefined || boxes.length === 0) return;
+    this.config.bounds = [...boundsBoxes(this.config), ...boxes];
+  }
+
   /** The spectator bounds' boxes (none when the map keeps spectators in the bounds). */
   get spectatorBoundsBoxes(): Box[] {
     return spectatorBoundsBoxes(this.config);

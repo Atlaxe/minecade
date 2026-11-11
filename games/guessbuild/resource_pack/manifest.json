@@ -1,0 +1,29 @@
+{
+  "format_version": 2,
+  "header": {
+    "name": "Minecade Guess the Build",
+    "description": "Guess the Build's blocks that stay where they're put",
+    "uuid": "03bf71e2-3a1f-4426-be31-88b6896a37d6",
+    "version": [
+      1,
+      0,
+      0
+    ],
+    "min_engine_version": [
+      1,
+      26,
+      60
+    ]
+  },
+  "modules": [
+    {
+      "type": "resources",
+      "uuid": "bb795d4a-307d-4dd9-af78-2c16fad03188",
+      "version": [
+        1,
+        0,
+        0
+      ]
+    }
+  ]
+}

@@ -22,6 +22,10 @@ export interface MapRequirement {
   marker?: MarkerStyle;
   /** Regions only: the fewest blocks each box spans along every side; smaller boxes don't count. */
   minSize?: number;
+  /** Regions only: the most blocks each box spans along any side; bigger boxes don't count. */
+  maxSize?: number;
+  /** Spawns and regions: the region every entry must be inside a box of. */
+  inside?: string;
 }
 
 /** How many blocks a box spans along each side (its corners are whole blocks, both inside). */
@@ -32,6 +36,16 @@ export function boxSize(box: Box): Vec3 {
 /** Whether a box is big enough for a requirement's `minSize` (any box is without one). */
 export function bigEnough(box: Box, minSize: number | undefined): boolean {
   return minSize === undefined || boxSize(box).every((side) => side >= minSize);
+}
+
+/** Whether a box is small enough for a requirement's `maxSize` (any box is without one). */
+export function smallEnough(box: Box, maxSize: number | undefined): boolean {
+  return maxSize === undefined || boxSize(box).every((side) => side <= maxSize);
+}
+
+/** Whether a box fits a region requirement's sizes: big enough and small enough. */
+export function fitsSize(box: Box, requirement: { minSize?: number; maxSize?: number }): boolean {
+  return bigEnough(box, requirement.minSize) && smallEnough(box, requirement.maxSize);
 }
 
 /** The `minSize` a game asks of a region's boxes (`name` may be one team's "<name>.<team>"), if any. */
@@ -65,16 +79,17 @@ export function mapRequirements(map: MapRequirementsConfig | undefined, options:
   const list: MapRequirement[] = [];
   const teams = options.teams ?? [];
   const asked = map?.spawns ? map.spawns.min : undefined;
+  const spawnsInside = map?.spawns && map.spawns.inside !== undefined ? { inside: map.spawns.inside } : {};
   if (options.kind === "lobby") {
     list.push({ key: "spawns", label: "Spawn", field: "spawns", min: typeof asked === "number" ? asked : 1 });
   } else if (!usesPlainSpawns(map, options.kind)) {
     // Team spawns only.
   } else if (typeof asked === "number") {
-    list.push({ key: "spawns", label: "Spawns", field: "spawns", min: asked });
+    list.push({ key: "spawns", label: asked === 1 ? "Spawn" : "Spawns", field: "spawns", min: asked, ...spawnsInside });
   } else {
     // Team games spawn players by team, so their plain spawns only need one (for waiting).
     const perPlayer = !map?.teamSpawns;
-    list.push({ key: "spawns", label: "Spawns", field: "spawns", min: perPlayer ? (options.maxPlayers ?? 1) : 1, perPlayer });
+    list.push({ key: "spawns", label: "Spawns", field: "spawns", min: perPlayer ? (options.maxPlayers ?? 1) : 1, perPlayer, ...spawnsInside });
   }
   // A game watches from the spectator spawn, or from the queue spawn when the map has no spectator
   // spawn: one or the other, unless the game names what it needs.
@@ -93,7 +108,14 @@ export function mapRequirements(map: MapRequirementsConfig | undefined, options:
       const label = entry.label ?? name;
       const min = entry.count ?? 1;
       const marker = field === "points" && entry.marker !== undefined ? { marker: entry.marker } : {};
-      const size = field === "regions" && entry.minSize !== undefined ? { minSize: entry.minSize } : {};
+      const size =
+        field === "regions"
+          ? {
+              ...(entry.minSize !== undefined ? { minSize: entry.minSize } : {}),
+              ...(entry.maxSize !== undefined ? { maxSize: entry.maxSize } : {}),
+              ...(entry.inside !== undefined ? { inside: entry.inside } : {}),
+            }
+          : {};
       if (entry.perTeam && teams.length > 0) {
         for (const team of teams) {
           const key = teamKey(name, team.id);
@@ -126,6 +148,8 @@ export function uncoveredRequirements(needs: readonly MapRequirement[], has: rea
     if (need.key === "spectatorOrQueue") return !["spectatorOrQueue", "spectatorSpawn", "queueSpawn"].some((key) => byKey.has(key));
     const own = byKey.get(need.key);
     if (!own || own.min < need.min) return true;
+    if (need.inside !== undefined && own.inside !== need.inside) return true;
+    if (need.maxSize !== undefined && (own.maxSize ?? Infinity) > need.maxSize) return true;
     return (need.minSize ?? 0) > (own.minSize ?? 0);
   });
 }

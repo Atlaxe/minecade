@@ -144,8 +144,12 @@ map: {
 ```
 
 A region can ask for big enough boxes: `minSize: 24` means every box spans at least 24 blocks along
-each side (Build Swap's building boundaries). A smaller box doesn't count toward the region's
-`count`, the build names it as a problem, and the map editor's region tool won't save one.
+each side (Build Swap's build area). A smaller box doesn't count toward the region's `count`, the
+build names it as a problem, and the map editor's region tool won't save one. `maxSize: 80` is the
+other way: a box bigger than 80 blocks along any side doesn't count, and the checklist says so
+(Build Swap's arena). `inside: "arena"` asks for every box to be inside a box of the `arena` region,
+and `spawns: { min: 1, inside: "arena" }` the same of every spawn; the checklist names any that
+stick out, once the map has that region.
 
 **Per-map settings:** `settings` names numbers the game reads from each map, which the map
 editor's Game settings tool sets (a game never needs a tool of its own for them):
@@ -218,19 +222,32 @@ until the next round. Water anywhere on the map hurts every class but the Seaman
 so a moat or a pool is part of the map's design. Its classes are the same on every map: a Siege map
 can't have `kits` of its own (the build and the editor's checklist refuse them).
 
-**Build Swap** needs 8 spawns, a spectator or queue spawn, and 8 boxes in the `plot` region
-(Build boundary in the map editor's Region list), each at least 24 blocks on every side. A box is
-where one player builds; put one spawn in each (the game pairs each spawn with the box it stands
-in, or the nearest one left), facing the build if you like, since players also stand there to
-vote on that build. Put a floor under each box rather than inside it: players can change every
-block inside their box, and nothing outside it (`/floor` lays the block in hand across the box's
-bottom layer, and the selection wand with `/set`, `/replace` and `/fix` works inside it). Leave space between boxes (liquids that run out of a box are cleared from the
-block-thick shell around it, and a shell that cuts into another box is skipped). A box bigger than
-64 blocks on a side works: the game saves it in 64-block pieces. Builders are kept within 2 blocks
-of their box unless the map sets its own **Build padding** (`"buildPadding"`, 0 to 32), and put back
-as soon as they're past it unless the map sets a **Return delay** (`"returnDelay"`, 0 to 30
-seconds); both with the map editor's Game settings tool. Voters are kept within the same padding of
-the box being voted on, and always put back at once.
+**Build Swap and Guess the Build** play the same maps (Guess the Build borrows Build Swap's, and can
+have its own). A map is one player's place, and the game copies it for everyone at the start:
+
+- **Arena** (Arena in the map editor's Region list): one box around everything one player needs, at
+  most 80 blocks on a side. It's what gets copied.
+- **Build area** (Build area in the Region list): one box inside the arena, at least 24 blocks on
+  every side, where that player builds. Put a floor under it rather than inside it: players can
+  change every block inside it, and nothing outside it (`/floor` lays the block in hand across its
+  bottom layer, and the selection wand with `/set`, `/replace` and `/fix` works inside it).
+- **Spawn:** one, inside the arena, facing the build if you like: its player starts there, and
+  everyone stands there to look at (and vote on) that build.
+- **A spectator or queue spawn**, where spectators watch and players wait.
+
+**The copies:** once the prompt form is done, the game copies the arena's blocks once for each
+player in the match, side by side with no gap: the map's own arena is the first, and the copies go
+east (+x) of it in rows of 3 (the square grid 8 players need), the rows going south (+z). So keep
+the arena's east and south sides clear of anything else on the map (a queue platform belongs west
+or north of it, or above), and make the arena as wide as the space you want between builds. The
+editor shows only the one; previews copy it like a real match. Every copy stays loaded for the
+whole match (a ticking area each; the server has room for 300 chunks in all, hence the size limit:
+docs/spike-results.md, "Arena tiles"). A map with `bounds` gets each copy as another bounds box.
+Liquids that run out of a build area are cleared from the block-thick shell around it. Builders are
+kept within 2 blocks of their build area unless the map sets its own **Build padding**
+(`"buildPadding"`, 0 to 32), and put back as soon as they're past it unless the map sets a **Return
+delay** (`"returnDelay"`, 0 to 30 seconds); both with the map editor's Game settings tool. Voters
+are kept within the same padding of the build being voted on, and always put back at once.
 
 **Paintball** needs team spawns for Red and Blue (at least 2 each), bounds, at least 8 Power-up spots (the Game marker
 tool's Power-up spot list, drawn as the floating white rifle players see), and a spectator or queue

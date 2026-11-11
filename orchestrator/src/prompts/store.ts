@@ -1,6 +1,6 @@
-// The prompt bank: prompts players wrote before their matches (Build Swap's prompt form), kept in
-// node:sqlite under DATA_DIR (prompts.db, beside stats.db) for later matches of any game that deals
-// prompts (Build Swap now, Pictionary later). Each kind keeps at most KEEP_PER_KIND prompts, the
+// The prompt bank: prompts players wrote before their matches (Build Swap's and Guess the Build's
+// prompt forms), kept in node:sqlite under DATA_DIR (prompts.db, beside stats.db) for later matches
+// of any game that deals prompts (those two now, Pictionary later). Each kind keeps at most KEEP_PER_KIND prompts, the
 // oldest going first, and a game is dealt from the newest NEWEST_WINDOW of a kind, least used first,
 // so new prompts come up before old ones. Nobody is ever dealt their own: replies say who wrote each
 // prompt, and the game deals around it.

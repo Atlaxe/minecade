@@ -1,9 +1,9 @@
 // The checks a 3D view makes easy (docs/plans/map-viewer.md, "Checks"), shown as warnings beside
 // the game's checklist; Save and Publish still work. A spawn or marker standing in a block, a spawn
 // with nothing to stand on (barriers and invisible bedrock count: the viewer doesn't draw them, but
-// players stand on them), Build Swap's building areas that overlap or whose block-thick shell (where
-// liquids are cleared) reaches another, and spawns the game can't pair with an area nearby; game
-// Edit's boundary blocks left in the world; and blocks with no look. Plain TypeScript, tested.
+// players stand on them), build areas (the building games' "plot" region) that overlap or whose
+// block-thick shell (where liquids are cleared) reaches another; game Edit's boundary blocks left in
+// the world; and blocks with no look. Plain TypeScript, tested.
 import type { Box } from "@minecade/minigame-core/config";
 import type { Markup, PointMark } from "./markup.ts";
 import { insideShape, PASSABLE, WATER, LAVA } from "./shapes.ts";
@@ -25,10 +25,8 @@ const FEET = 0.1;
 const HEAD = 1.6;
 /** Game Edit's boundary blocks (editor/behavior_pack/scripts/sheets.ts). */
 export const PLANE_BLOCK = "minecade:plane";
-/** Build Swap's building areas: its "plot" region list. */
+/** The building games' build areas: their "plot" region list. */
 const PLOT_LIST = "regions.plot";
-/** How far a Build Swap spawn may stand from the area it's paired with, in blocks. */
-export const PLOT_REACH = 3;
 /** Hidden blocks that are solid in a game: walls and floors nobody sees. */
 const SOLID_HIDDEN = /^minecraft:(barrier|invisible_bedrock)$/;
 
@@ -75,13 +73,10 @@ function pointWarnings(volume: Volume, point: PointMark): MapWarning[] {
 
 const overlaps = (a: Box, b: Box) => [0, 1, 2].every((axis) => a.min[axis] <= b.max[axis] && b.min[axis] <= a.max[axis]);
 const grown = (box: Box): Box => ({ min: box.min.map((v) => v - 1) as Box["min"], max: box.max.map((v) => v + 1) as Box["max"] });
-/** How far a point is from a whole-block box (0 inside it), as Build Swap measures it (plots.ts). */
-const distanceToBox = (at: { x: number; y: number; z: number }, box: Box) => Math.hypot(...[at.x, at.y, at.z].map((value, axis) => Math.max(box.min[axis] - value, 0, value - (box.max[axis] + 1))));
 
 /**
- * Build Swap's building areas: overlapping, a shell reaching another, and spawns the game pairs
- * with none or with one more than PLOT_REACH away. The game pairs each spawn with the area it
- * stands in, else the nearest one still free, closest pairs first (plots.ts pairPlots).
+ * Build areas that overlap, or whose shell reaches another. A building game's map has one, inside
+ * its arena (the checklist says when it isn't), but a map can still be given more.
  */
 function plotWarnings(markup: Markup): MapWarning[] {
   const plots = markup.boxes.filter((box) => box.list === PLOT_LIST);
@@ -93,22 +88,6 @@ function plotWarnings(markup: Markup): MapWarning[] {
       else if (overlaps(grown(a.box), b.box)) out.push({ text: `${a.label}'s shell (the block around it) reaches ${b.label}`, entry: b.key });
     }),
   );
-  const spawns = markup.points.filter((point) => point.list === "spawns");
-  const pairs = spawns.flatMap((spawn, s) => plots.map((plot, p) => ({ s, p, distance: distanceToBox(spawn.at, plot.box) })));
-  pairs.sort((a, b) => a.distance - b.distance || a.s - b.s || a.p - b.p);
-  const plotOf = new Map<number, { p: number; distance: number }>();
-  const taken = new Set<number>();
-  for (const pair of pairs) {
-    if (plotOf.has(pair.s) || taken.has(pair.p)) continue;
-    plotOf.set(pair.s, pair);
-    taken.add(pair.p);
-  }
-  const noun = plots[0].label.replace(/\s*\d+$/, "").toLowerCase() || "building area";
-  spawns.forEach((spawn, s) => {
-    const pair = plotOf.get(s);
-    if (!pair) out.push({ text: `${spawn.label} has no ${noun} of its own`, entry: spawn.key });
-    else if (pair.distance > PLOT_REACH) out.push({ text: `${spawn.label} is ${Math.round(pair.distance)} blocks from its ${noun} (${plots[pair.p].label})`, entry: spawn.key });
-  });
   return out;
 }
 

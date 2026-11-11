@@ -1,11 +1,12 @@
-// Build Swap's selection tools, a small WorldEdit inside a builder's own area: the wand (a wooden
-// axe, from /wand) picks two corners, left click the first and right click the second, and the box
-// between them shows in particle dots to its builder alone; /set fills it with a block, /replace
-// swaps one block for another in it, and /fix, standing in water or lava, levels the pool around
-// you into still liquid. Everything stays inside the area being built. Bedrock reads "//wand" as a
-// command named "/wand" and stops at the second slash (docs/spike-results.md, "Custom command
-// names"), so the commands take one slash. Pure geometry here; the world side is in buildswap.ts.
-import type { Box, Vec3 } from "@minecade/minigame-core";
+// The building games' selection tools (Build Swap, Guess the Build), a small WorldEdit inside a
+// builder's own area: the wand (a wooden axe, from /wand) picks two corners, left click the first
+// and right click the second, and the box between them shows in particle dots to its builder alone;
+// /set fills it with a block, /replace swaps one block for another in it, and /fix, standing in
+// water or lava, levels the pool around you into still liquid. Everything stays inside the area
+// being built. Bedrock reads "//wand" as a command named "/wand" and stops at the second slash
+// (docs/spike-results.md, "Custom command names"), so the commands take one slash. Pure geometry
+// here; the world side is in building-game.ts.
+import type { Box, Vec3 } from "../map-config.ts";
 
 /** The selection wand: any wooden axe, as WorldEdit's. */
 export const WAND = "minecraft:wooden_axe";

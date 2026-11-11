@@ -63,28 +63,27 @@ describe("mapWarnings", () => {
     expect(warnings[2].block).toBe("minecade:plane");
   });
 
-  it("warns of Build Swap's areas that overlap or come within a block, and spawns the game pairs with none nearby", () => {
+  it("warns of build areas that overlap or come within a block", () => {
     const box = (min: [number, number, number], max: [number, number, number]) => ({ min, max });
     const warnings = mapWarnings(
       v,
       markup(
         [point("Spawn 1", "spawns", 0.5, 1), point("Spawn 2", "spawns", 30.5, 1), point("Spawn 3", "spawns", 10.5, 1)],
         [
-          { key: "regions.plot#0", list: "regions.plot", label: "Build boundary 1", box: box([0, 0, 0], [3, 4, 3]) },
-          { key: "regions.plot#1", list: "regions.plot", label: "Build boundary 2", box: box([3, 0, 0], [6, 4, 3]) },
-          { key: "regions.plot#2", list: "regions.plot", label: "Build boundary 3", box: box([7, 0, 0], [10, 4, 3]) },
+          { key: "regions.plot#0", list: "regions.plot", label: "Build area 1", box: box([0, 0, 0], [3, 4, 3]) },
+          { key: "regions.plot#1", list: "regions.plot", label: "Build area 2", box: box([3, 0, 0], [6, 4, 3]) },
+          { key: "regions.plot#2", list: "regions.plot", label: "Build area 3", box: box([7, 0, 0], [10, 4, 3]) },
         ],
       ),
     ).filter((warning) => !warning.block);
     expect(warnings.map((warning) => warning.text)).toEqual([
       "Spawn 2: nothing to stand on within 3 blocks",
-      "Build boundary 1 and Build boundary 2 overlap",
-      "Build boundary 2's shell (the block around it) reaches Build boundary 3",
-      "Spawn 2 is 24 blocks from its build boundary (Build boundary 2)",
+      "Build area 1 and Build area 2 overlap",
+      "Build area 2's shell (the block around it) reaches Build area 3",
     ]);
-    // One area for two spawns: the second has none.
-    const one = mapWarnings(v, markup([point("Spawn 1", "spawns", 0.5, 1), point("Spawn 2", "spawns", 1.5, 1)], [{ key: "regions.plot#0", list: "regions.plot", label: "Build boundary 1", box: box([0, 0, 0], [3, 4, 3]) }]));
-    expect(one.filter((warning) => !warning.block).map((warning) => warning.text)).toEqual(["Spawn 2 has no build boundary of its own"]);
+    // A spawn away from the one build area is fine: it only has to be in the arena (the checklist's).
+    const one = mapWarnings(v, markup([point("Spawn 1", "spawns", 0.5, 1), point("Spawn 2", "spawns", 1.5, 1)], [{ key: "regions.plot#0", list: "regions.plot", label: "Build area 1", box: box([0, 0, 0], [3, 4, 3]) }]));
+    expect(one.filter((warning) => !warning.block).map((warning) => warning.text)).toEqual([]);
   });
 });
 

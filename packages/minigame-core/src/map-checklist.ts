@@ -2,7 +2,7 @@
 // map has, plus every problem the build would report. The editor pack shows it in game, the host
 // logs it, and the Panel mirrors it.
 import type { Box, BuildLimitSide, MapConfig } from "./map-config.ts";
-import { bigEnough, mapRequirements, type MapRequirement } from "./map-requirements.ts";
+import { fitsSize, mapRequirements, type MapRequirement } from "./map-requirements.ts";
 import { mapWarnings, validateMapConfig, type MapRules } from "./map-validate.ts";
 
 export interface ChecklistRow extends MapRequirement {
@@ -55,9 +55,9 @@ function count(config: MapConfig, requirement: MapRequirement): number {
     case "points":
       return lengthOf(config.points, requirement.name ?? "");
     case "regions": {
-      // Only boxes as big as the game asks for count (the problems name the others).
+      // Only boxes the size the game asks for count (the problems name the others).
       const list: unknown = isRecord(config.regions) ? config.regions[requirement.name ?? ""] : undefined;
-      return Array.isArray(list) ? list.filter((box) => isBoxLike(box) && bigEnough(box, requirement.minSize)).length : 0;
+      return Array.isArray(list) ? list.filter((box) => isBoxLike(box) && fitsSize(box, requirement)).length : 0;
     }
   }
 }

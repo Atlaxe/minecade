@@ -266,7 +266,7 @@ export class RegionTool {
     return { edit: { op: "addRegion", name, box }, label: `${regionLabel(name, this.host.rules)} ${index + 1}` };
   }
 
-  /** False (and why) when the game asks for bigger boxes in this region (Build Swap's building boundaries). */
+  /** False (and why) when the game asks for bigger boxes in this region (Build Swap's build area). */
   private bigEnough(player: Player, name: string, box: Box): boolean {
     const minSize = regionMinSize(this.host.rules.requires, name);
     if (bigEnough(box, minSize)) return true;

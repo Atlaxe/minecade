@@ -1,6 +1,6 @@
-// Build Swap's own prompts, dealt when this match's form and the prompt bank don't have enough
-// (a new bank, a preview, a bank that's off). Starters are something to build; twists are something
-// to add to a build or a change to make to it.
+// The building games' own prompts (Build Swap, Guess the Build), dealt when this match's form and
+// the prompt bank don't have enough (a new bank, a preview, a bank that's off). Starters are
+// something to build; twists are something to add to a build or a change to make to it.
 
 export const DEFAULT_STARTERS: readonly string[] = [
   "A pirate ship",

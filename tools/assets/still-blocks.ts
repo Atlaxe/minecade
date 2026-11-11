@@ -1,6 +1,8 @@
-// Writes Build Swap's blocks that stay where they're put (games/buildswap/behavior_pack/blocks/,
-// and their geometries, names, sounds and textures in its resource pack): a twin of each vanilla
-// block that falls, listed in games/buildswap/behavior_pack/scripts/still-blocks.ts. Their textures
+// Writes the building games' blocks that stay where they're put (Build Swap's and Guess the Build's:
+// games/<id>/behavior_pack/blocks/, and their geometries, names, sounds and textures in the game's
+// resource pack): a twin of each vanilla block that falls, listed in minigame-core's
+// src/building/still-blocks.ts. Each game gets its own copy, since a server loads only its game's
+// packs. Their textures
 // are vanilla's own (textures/blocks/...), so no vanilla file is copied. Cubes are full blocks; an
 // anvil and the dragon egg are drawn from boxes in Java's block coordinates (0 to 16, x east, z
 // south), as vanilla draws them, and an anvil turns with its facing like the vanilla one. Rerun
@@ -8,13 +10,16 @@
 //
 //     npx tsx tools/assets/still-blocks.ts
 //
-// A test checks the committed files match (games/buildswap/test/still-blocks.test.ts).
+// A test checks the committed files match (packages/minigame-core/test/still-blocks.test.ts).
 import { mkdirSync, writeFileSync } from "node:fs";
 import { dirname } from "node:path";
 import { fileURLToPath } from "node:url";
-import { ANVIL_FACING, STILL_BLOCKS, type StillBlock, type StillShape } from "../../games/buildswap/behavior_pack/scripts/still-blocks.ts";
+import { ANVIL_FACING, STILL_BLOCKS, type StillBlock, type StillShape } from "../../packages/minigame-core/src/building/still-blocks.ts";
 
-const buildswap = (path: string) => fileURLToPath(new URL(`../../games/buildswap/${path}`, import.meta.url));
+/** The games whose packs get the blocks. */
+export const STILL_BLOCK_GAMES = ["buildswap", "guessbuild"] as const;
+
+const gameFile = (game: string, path: string) => fileURLToPath(new URL(`../../games/${game}/${path}`, import.meta.url));
 
 /** A box in Java's block coordinates: x1, y1, z1, x2, y2, z2. */
 type Box = readonly [number, number, number, number, number, number];
@@ -141,7 +146,8 @@ function block(entry: StillBlock): unknown {
   };
 }
 
-export function stillBlockFiles(): Record<string, string> {
+/** The files for one game, by their path in its folder. */
+export function stillBlockFiles(game: string): Record<string, string> {
   const json = (value: unknown) => `${JSON.stringify(value, null, 2)}\n`;
   const files: Record<string, string> = {};
   const sounds: Record<string, unknown> = { format_version: [1, 1, 0] };
@@ -159,7 +165,7 @@ export function stillBlockFiles(): Record<string, string> {
   files["resource_pack/models/blocks/still_egg.geo.json"] = json(geometry("egg"));
   files["resource_pack/blocks.json"] = json(sounds);
   files["resource_pack/textures/terrain_texture.json"] = json({
-    resource_pack_name: "minecade_buildswap",
+    resource_pack_name: `minecade_${game}`,
     texture_name: "atlas.terrain",
     padding: 8,
     num_mip_levels: 4,
@@ -171,9 +177,11 @@ export function stillBlockFiles(): Record<string, string> {
 }
 
 if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
-  for (const [path, content] of Object.entries(stillBlockFiles())) {
-    mkdirSync(dirname(buildswap(path)), { recursive: true });
-    writeFileSync(buildswap(path), content);
+  for (const game of STILL_BLOCK_GAMES) {
+    for (const [path, content] of Object.entries(stillBlockFiles(game))) {
+      mkdirSync(dirname(gameFile(game, path)), { recursive: true });
+      writeFileSync(gameFile(game, path), content);
+    }
   }
-  console.log("wrote Build Swap's blocks that stay where they're put");
+  console.log(`wrote the blocks that stay where they're put for ${STILL_BLOCK_GAMES.join(" and ")}`);
 }
