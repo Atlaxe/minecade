@@ -8,7 +8,7 @@ import { defineGame } from "@minecade/minigame-core/config";
 // leather in the team's color), plus a Painter kit to try the shared guns, and Gunner and Grenadier
 // kits to try the arsenal (its real guns; its grenades, knife, stimpack, crossbow and sword), a
 // Holds kit of held model tests, and a Chameleon kit (a hider's hotbar) for the chameleon test in
-// private_packs/ (README.md there; without it installed it's just a stick and wool): set
+// private_packs/ (README.md there; without it installed it's just wool): set
 // DEV_MIN_PLAYERS=1 to play it alone. Probe says what it got in chat when the match starts. The lobby lists it only
 // while DEV_TEST_GAMES is 1.
 export default defineGame({
@@ -102,16 +102,15 @@ export default defineGame({
       },
       // A hider's hotbar in the chameleon test (private_packs/chameleon, installed from the
       // workshop's chameleon-test), in the slots the test lays out (it gives a hider these itself
-      // too, and a seeker's, with /chameleon:role), wool until they get their own icons: a
-      // knockback stick, Wear block (wear the outlined block's texture), Pose (a form of poses),
-      // Lock position (stay put and look around), Taunt (a passive mob's sound, then a cooldown)
-      // and Free look (fly as a spectator while a stand-in stays). Everyone sees the hiders' costumes
-      // on the right.
+      // too, and a seeker's, with /chameleon:role), wool until they get their own icons, the first
+      // slot left free to hit seekers with: Wear block (wear the outlined block's texture), Pose (a
+      // form of poses), Lock position (stay put and look around), Taunt (a passive mob's sound,
+      // then a cooldown) and Free look (fly as a spectator while a stand-in stays). Everyone sees
+      // the hiders' costumes on the right.
       {
         id: "chameleon",
         name: "Chameleon",
         items: [
-          { item: "minecraft:stick", name: "Knockback stick", slot: 0 },
           { item: "minecraft:lime_wool", name: "Wear block", slot: 1 },
           { item: "minecraft:yellow_wool", name: "Pose", slot: 2 },
           { item: "minecraft:purple_wool", name: "Lock position", slot: 3 },

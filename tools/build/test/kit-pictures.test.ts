@@ -66,12 +66,12 @@ const TEXTURES = new VanillaTextures({
     ["bucket_water.png", png([60, 60, 250, 255])],
     ["leather_chestplate.png", png(GRAY)],
     ["leather_boots.tga", tga(1, [[GRAY]])],
-    ["stick.png", png([140, 100, 60, 255])],
   ]),
   blocks: new Map([
     ["wool_colored_red.png", png([200, 40, 40, 255])],
     ["wool_colored_blue.png", png([40, 40, 200, 255])],
     ["wool_colored_silver.png", png([160, 160, 160, 255])],
+    ["wool_colored_lime.png", png([110, 190, 30, 255])],
   ]),
 });
 
