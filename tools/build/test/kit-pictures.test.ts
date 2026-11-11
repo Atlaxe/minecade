@@ -150,13 +150,14 @@ describe("kit pictures", () => {
     const game = { ...bridges, kits: { ...bridges.kits, list: [{ id: "wool", name: "Wool", items: [{ item: "minecraft:{color}_wool", count: 16 }] }] } };
     expect(await addGameKitPictures(out, game, [], TEXTURES)).toBe(2);
     expect((await readdir(join(out, "textures", "minecade", "kits"))).sort()).toEqual(["wool_blue.png", "wool_red.png"]);
-    // Probe's: soldier, gunner, grenadier and holds (no team colors), builder (team wool), scout and painter (team leather) for red and blue.
+    // Probe's: soldier, gunner, grenadier, holds and chameleon (no team colors), builder (team wool), scout and painter (team leather) for red and blue.
     const probeOut = await tempDir();
-    expect(await addGameKitPictures(probeOut, probe, [], TEXTURES)).toBe(10);
+    expect(await addGameKitPictures(probeOut, probe, [], TEXTURES)).toBe(11);
     const folder = join(probeOut, "textures", "minecade", "kits");
     expect((await readdir(folder)).sort()).toEqual([
       "builder_blue.png",
       "builder_red.png",
+      "chameleon.png",
       "grenadier.png",
       "gunner.png",
       "holds.png",
