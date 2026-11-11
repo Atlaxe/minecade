@@ -1185,7 +1185,7 @@ function renderMaps() {
   const matches = (target, map) =>
     (!mapsView.game || target.id === mapsView.game)
     && (!mapsView.status || MAP_STATUS[mapsView.status]?.(map))
-    && (!query || map.name.toLowerCase().includes(query) || map.id.toLowerCase().includes(query));
+    && (!query || [map.name, map.id, map.gameThumbnail && thumbnailTitle(target)].some((text) => text && text.toLowerCase().includes(query)));
   // A game's minigame thumbnail map comes first, the rest in the store's order.
   const groups = maps.targets.map((target) => ({ target, list: target.maps.filter((map) => matches(target, map)).sort((a, b) => Number(b.gameThumbnail === true) - Number(a.gameThumbnail === true)) }))
     .filter((group) => group.list.length > 0);
@@ -1208,14 +1208,22 @@ function mapCard(target, map) {
   const thumb = el("div", { className: "map-thumb" });
   if (map.picture) thumb.append(el("img", { src: thumbUrl(target, map), alt: "", loading: "lazy" }));
   else thumb.append("No picture");
-  const classes = ["map-card", map.gameThumbnail && "game-thumb", map.draft && "draft", mapsView.picked === key && "picked"].filter(Boolean).join(" ");
+  // A minigame thumbnail map's card is the game's picture: "<game> Thumbnail", no state, never gray.
+  const title = map.gameThumbnail
+    ? [el("span", { className: "strong" }, thumbnailTitle(target))]
+    : [mapState(map), el("span", { className: "strong" }, map.name), el("span", { className: "mono" }, map.id)];
+  const classes = ["map-card", map.gameThumbnail && "game-thumb", map.draft && !map.gameThumbnail && "draft", mapsView.picked === key && "picked"].filter(Boolean).join(" ");
   const card = el("button", { className: classes, "aria-pressed": String(mapsView.picked === key), "data-map": key },
     thumb,
-    el("div", { className: "map-body" },
-      el("div", { className: "map-title" }, mapState(map), el("span", { className: "strong" }, map.name), el("span", { className: "mono" }, map.id))));
+    el("div", { className: "map-body" }, el("div", { className: "map-title" }, title)));
   card.onclick = () => pickMap(mapsView.picked === key ? "" : key);
   card.ondblclick = () => { pickMap(key); openViewer(target, map); };
   return card;
+}
+
+/** What a minigame thumbnail map's card says: its game's name and "Thumbnail". */
+function thumbnailTitle(target) {
+  return `${target.name} Thumbnail`;
 }
 
 /** A map's state as one square: filled when Ready, an outline when not; orange for a draft, yellow for unpublished changes, green when published as it is. */
