@@ -1,6 +1,6 @@
 // Paintball's paint, as plain logic: what a block becomes when a ball of a dye hits it
-// (paintTarget), and which blocks a ball's splash or a grenade's burst paints (Painter, through a
-// port to the world, so tests run it on plain data). Full blocks become the dye's concrete; stairs
+// (paintTarget), which blocks a ball's splat or a grenade's burst paints (Painter, through a port
+// to the world, so tests run it on plain data), and which team's paint a block shows (paintDyeOf). Full blocks become the dye's concrete; stairs
 // and slabs vanilla's concrete stairs and slabs; carpets the dye's carpet; walls, fences, panes,
 // gates, doors, trapdoors and vertical slabs Paintball's own painted blocks (shapes.ts). Blocks
 // from the shared blocks pack are painted by their shape (the build's "#mod-blocks" table). Small
@@ -222,10 +222,26 @@ function mergeDoor(lower: BlockLook, upper: BlockLook): { lower: States; upper: 
   return { lower: { ...base, [half]: vanilla ? false : "lower" }, upper: { ...base, [facing]: lower.states[facing], [open]: lower.states[open], [half]: vanilla ? true : "upper" } };
 }
 
+/**
+ * The dye a block shows as paint: a dye's concrete (stairs, slabs), carpet, or a painted shape. Any
+ * such block counts, painted or built that way. Undefined for anything else.
+ */
+export function paintDyeOf(typeId: string): string | undefined {
+  const own = parsePaintBlock(typeId);
+  if (own) return own.dye;
+  return /^minecraft:([a-z_]+?)_(concrete|concrete_stairs|concrete_slab|concrete_double_slab|carpet)$/.exec(typeId)?.[1];
+}
+
+/** A block as the painter reads it from the world. */
+export interface WorldBlock extends BlockLook {
+  /** Paint flies through it as through air: a plant, a torch, a rail. */
+  open?: boolean;
+}
+
 /** What Painter needs of the world. */
 export interface PaintPort {
   /** The block at a place (air where there's none); undefined where it can't be read (unloaded). */
-  read(at: Vec): BlockLook | undefined;
+  read(at: Vec): WorldBlock | undefined;
   /** Puts a block there; false if it couldn't. */
   write(at: Vec, look: BlockLook): boolean;
   /** Whether a place may be painted (inside the map's bounds). */
@@ -291,34 +307,53 @@ export class Painter {
   }
 
   /**
-   * A ball's splash: the block it hit and touching blocks of the same surface (each with the same
-   * face open), `count` in all where there are that many, spreading out from the hit at random.
+   * A ball's splat: the block it hit (at `hit`, on its `face`), and every block with a face within
+   * `radius` of where it hit (`point`) that the paint reaches through the open air in front of the
+   * hit. On a floor or a wall that's a circle `radius` * 2 across; it runs up walls and over edges
+   * the air leads to, never through a wall to its other side. What the air holds (a carpet) counts
+   * too; plants and torches, which paint flies through, aren't painted.
    */
-  splashBlocks(hit: Vec, face: string, count: number, random: () => number): Vec[] {
+  splatBlocks(point: Vec, hit: Vec, face: string, radius: number): Vec[] {
     const out = FACE_OUT[face] ?? FACE_OUT.Up;
-    const start = floor(hit);
-    const along = NEIGHBORS.filter((step) => step.x * out.x + step.y * out.y + step.z * out.z === 0);
-    const picked: Vec[] = [];
-    const seen = new Set<string>([keyOf(start)]);
-    const frontier: Vec[] = [start];
-    while (frontier.length > 0 && picked.length < count) {
-      const at = frontier.splice(Math.floor(random() * frontier.length), 1)[0];
-      if (picked.length > 0 && !this.onSurface(at, out)) continue;
-      picked.push(at);
-      for (const step of along) {
-        const next = add(at, step);
-        if (!seen.has(keyOf(next))) {
-          seen.add(keyOf(next));
-          frontier.push(next);
+    const struck = floor(hit);
+    const center = onFace(point, struck, out);
+    const cache = new Map<string, WorldBlock | undefined>();
+    const read = (at: Vec) => {
+      const key = keyOf(at);
+      if (!cache.has(key)) cache.set(key, this.port.read(at));
+      return cache.get(key);
+    };
+    const found = new Map<string, Vec>([[keyOf(struck), struck]]);
+    const first = add(struck, out);
+    const seen = new Set<string>([keyOf(first)]);
+    const queue: Vec[] = [first];
+    // An air cell is worth going through while one of its faces (half a block from its middle) may be in reach.
+    const cellReach = radius + 0.5;
+    while (queue.length > 0) {
+      const cell = queue.shift()!;
+      const here = read(cell);
+      if (!isOpen(here)) continue;
+      if (here!.typeId !== AIR && gap(middle(cell), center) <= radius) found.set(keyOf(cell), cell);
+      for (const step of NEIGHBORS) {
+        const next = add(cell, step);
+        const key = keyOf(next);
+        const block = read(next);
+        if (isOpen(block)) {
+          if (!seen.has(key) && gap(middle(next), center) <= cellReach) {
+            seen.add(key);
+            queue.push(next);
+          }
+        } else if (block && gap(faceMiddle(cell, step), center) <= radius) {
+          found.set(key, next);
         }
       }
     }
-    return picked;
+    return [...found.values()];
   }
 
-  /** Paints a ball's splash; the number of blocks it changed. */
-  splash(hit: Vec, face: string, dye: string, count: number, random: () => number): number {
-    return this.splashBlocks(hit, face, count, random).reduce((sum, at) => sum + this.paint(at, dye), 0);
+  /** Paints a ball's splat; the number of blocks it changed. */
+  splat(point: Vec, hit: Vec, face: string, dye: string, radius: number): number {
+    return this.splatBlocks(point, hit, face, radius).reduce((sum, at) => sum + this.paint(at, dye), 0);
   }
 
   /** The blocks of a ball `radius` blocks around `center` that show (a side open to the air). */
@@ -347,14 +382,23 @@ export class Painter {
   burst(center: Vec, radius: number, dye: string): number {
     return this.burstBlocks(center, radius).reduce((sum, at) => sum + this.paint(at, dye), 0);
   }
+}
 
-  /** A block there that isn't air, with air (or nothing solid) on the side the splash faces. */
-  private onSurface(at: Vec, out: Vec): boolean {
-    const block = this.port.read(at);
-    if (!block || block.typeId === AIR) return false;
-    const front = this.port.read(add(at, out));
-    return front !== undefined && front.typeId === AIR;
-  }
+/** Air, or something paint flies through (a plant, a torch). Not where it can't be read. */
+const isOpen = (block: WorldBlock | undefined) => block !== undefined && (block.typeId === AIR || block.open === true);
+const gap = (a: Vec, b: Vec) => Math.hypot(a.x - b.x, a.y - b.y, a.z - b.z);
+const middle = (at: Vec): Vec => ({ x: at.x + 0.5, y: at.y + 0.5, z: at.z + 0.5 });
+/** The middle of the face between a cell and the one a step away. */
+const faceMiddle = (at: Vec, step: Vec): Vec => ({ x: at.x + 0.5 + step.x / 2, y: at.y + 0.5 + step.y / 2, z: at.z + 0.5 + step.z / 2 });
+
+/** The point on a block's face (`out` from the block) nearest `point`: where a ball met it. */
+function onFace(point: Vec, block: Vec, out: Vec): Vec {
+  const clamp = (value: number, low: number) => Math.min(low + 1, Math.max(low, value));
+  const on = { x: clamp(point.x, block.x), y: clamp(point.y, block.y), z: clamp(point.z, block.z) };
+  if (out.x !== 0) on.x = block.x + (out.x > 0 ? 1 : 0);
+  if (out.y !== 0) on.y = block.y + (out.y > 0 ? 1 : 0);
+  if (out.z !== 0) on.z = block.z + (out.z > 0 ? 1 : 0);
+  return on;
 }
 
 /** A painted door's, trapdoor's or gate's states opened or shut (a right click); both door halves take the same. */

@@ -123,10 +123,11 @@ describe("Guns", () => {
   });
 
   it("shakes the shooter's camera by the gun's recoil each shot, leaving the aim alone, and less while aiming", () => {
-    const { balls } = setup({ guns: [AIMING_PISTOL] });
+    // The Paintball Pistol doesn't shake: this one shakes as the Paintball Rifle does.
+    const { balls } = setup({ guns: [{ ...AIMING_PISTOL, recoil: GUNS.rifle.recoil }] });
     const player = holding("Ann", gunItem("pistol", "red"));
     player.rotation = { x: 10, y: 45 };
-    const { shake } = GUNS.pistol.recoil;
+    const { shake } = GUNS.rifle.recoil;
     pressRight(player);
     releaseRight(player);
     expect(balls()).toHaveLength(1);
@@ -140,6 +141,19 @@ describe("Guns", () => {
     pressRight(player);
     expect(balls()).toHaveLength(2);
     expect(player.commands[1]).toBe(`camerashake add @s ${Math.round(shake * AIM_RECOIL * 1000) / 1000} 0.3 rotational`);
+  });
+
+  it("never shakes the camera for the Paintball Pistol, only for the power-up rifle and shotgun", () => {
+    setup();
+    const shakes = (kind: "pistol" | "rifle" | "shotgun") => {
+      const player = holding(`Shooter_${kind}`, gunItem(kind, "red"));
+      pressRight(player);
+      releaseRight(player);
+      return player.commands.filter((command) => command.startsWith("camerashake"));
+    };
+    expect(shakes("pistol")).toEqual([]);
+    expect(shakes("rifle")).toHaveLength(1);
+    expect(shakes("shotgun")).toHaveLength(1);
   });
 
   it("shakes as long as the gun takes to fire again, from 0.1 to 0.3 seconds", () => {
@@ -473,6 +487,44 @@ describe("Guns", () => {
     system.advanceTicks(GUNS.pistol.lifeTicks);
     expect(guns.inFlight).toBe(0);
     expect(balls()[1].isValid).toBe(false);
+  });
+
+  it("lands a ball where its path meets a block before Bedrock moves it there, unless a player is in the way", () => {
+    const { balls, blocks, guns } = setup();
+    const player = holding("Ann", gunItem("pistol"));
+    // A wall 6 blocks south: out of the first tick's reach, so the ball flies.
+    for (let x = -2; x <= 2; x++) for (let y = 64; y <= 68; y++) world.overworld.blocks.set(`${x},${y},6`, "minecraft:stone");
+    use(player);
+    expect(balls()).toHaveLength(1);
+    const [ball] = balls();
+    // It flies a tick (3 blocks south), and the next tick would take it into the wall.
+    ball.location = { x: ball.location.x, y: ball.location.y, z: 3.5 };
+    system.advanceTicks(1);
+    expect(ball.isValid).toBe(false);
+    expect(guns.inFlight).toBe(0);
+    expect(blocks).toEqual([{ shot: expect.objectContaining({ weapon: "pistol" }), face: Direction.North }]);
+
+    // A player between the ball and the wall: Bedrock's hit on them, not the wall.
+    system.advanceTicks(GUNS.pistol.everyTicks);
+    use(player);
+    const second = balls()[1];
+    second.location = { x: second.location.x, y: second.location.y, z: 3.5 };
+    world.join("Bo").location = { x: 0, y: 65, z: 5 };
+    system.advanceTicks(1);
+    expect(second.isValid).toBe(true);
+    expect(blocks).toHaveLength(1);
+  });
+
+  it("lands a ball at once where the first tick reaches a block: the shooter's own feet", () => {
+    const { balls, blocks } = setup();
+    const player = holding("Ann", gunItem("pistol"));
+    player.location = { x: 0.5, y: 65, z: 0.5 };
+    world.overworld.blocks.set("0,64,0", "minecraft:stone");
+    // Looking straight down.
+    player.viewDirection = { x: 0, y: -1, z: 0 };
+    use(player);
+    expect(balls()).toHaveLength(0);
+    expect(blocks).toEqual([{ shot: expect.objectContaining({ shooter: "Ann" }), face: Direction.Up }]);
   });
 
   it("ignores projectiles it didn't fire", () => {

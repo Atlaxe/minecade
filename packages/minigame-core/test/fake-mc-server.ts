@@ -41,7 +41,11 @@ export const EntitySwingSource = {
 } as const;
 export const EntityInitializationCause = { Born: "Born", Event: "Event", Loaded: "Loaded", Spawned: "Spawned", Transformed: "Transformed" } as const;
 export const StructureSaveMode = { Memory: "Memory", World: "World" } as const;
+export const LiquidType = { Water: "Water" } as const;
 export type Direction = (typeof Direction)[keyof typeof Direction];
+
+/** Blocks flowing water washes away here: plants, torches, rails and the like. */
+const WASHED_AWAY = /(^|_)(grass|fern|flower|poppy|dandelion|tulip|torch|rail|sapling|vine|vines|bush|roots|button|carpet|redstone_wire)$/;
 
 /** Block types: anything that reads as a block id (wool, concrete, stone, planks, glass). */
 export const BlockTypes = {
@@ -81,6 +85,11 @@ export class BlockPermutation {
 
   matches(typeId: string, states: BlockStates = {}): boolean {
     return typeId === this.type.id && Object.entries(states).every(([name, value]) => this.states[name] === value);
+  }
+
+  /** Whether flowing water breaks it (WASHED_AWAY's names). */
+  canBeDestroyedByLiquidSpread(_liquid: string): boolean {
+    return WASHED_AWAY.test(this.type.id.replace(/^minecraft:/, ""));
   }
 }
 
@@ -632,6 +641,11 @@ export class FakeMob {
   getComponent(id: string): unknown {
     if (id === EntityComponentTypes.Projectile) return this.projectile;
     return id === EntityComponentTypes.Health ? this.health : undefined;
+  }
+
+  /** As a projectile, the velocity it was shot at (it doesn't fly here); else still. */
+  getVelocity(): Vector3 {
+    return { ...(this.projectile.shot ?? { x: 0, y: 0, z: 0 }) };
   }
 
   setProperty(id: string, value: number | boolean | string): void {

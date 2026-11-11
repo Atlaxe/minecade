@@ -150,13 +150,19 @@ and texture (`arsenal/rocket.png`).
   marker's icon and its model in a hand are blank, so the off hand shows nothing. Something else of
   the player's in the off hand is left alone (the model then stays lowered).
 - **Recoil:** each shot kicks the held model back and tips its muzzle up, easing home just as the gun
-  can fire again, and shakes the shooter's camera for a moment (the aim stays put). Both are smaller
+  can fire again, and shakes the shooter's camera for a moment (the aim stays put), except the
+  Paintball Pistol, which doesn't shake it (its `shake` is 0, the user's call). Both are smaller
   while aiming a gun that aims. See "Recoil" under Editing.
 - **Ammo:** a gun with a magazine fires it, then reloads by itself when it's empty (crossbow loading
   sounds). Spare rounds never run out. The game shows `ammoText` or `Arsenal.ammoLine` on the HUD.
 - **Balls** fly as `minecade:paintball`, a sprite like the snowball's, in one of 16 paint colors (the
   `minecade:color` property). Where a ball lands, the game decides what happens; `paintSplash` throws
-  the splash particle in its color.
+  the splash particle in its color. A ball lands on a block where its path first meets it: each
+  tick, a ray along the ball's next tick of flight finds the block, and the ball is taken away and
+  the game told (`onHitBlock`, with the point on the face) before Bedrock moves it there, so a ball
+  never glances off a surface. A player or a preview's fake player in the way (`isTarget`) is left
+  to Bedrock's own hit. A shot whose first tick from the eyes reaches a block (a wall in front of
+  you, your own feet) lands there as it's fired, and no ball flies.
 - **Paint grenades:** a thrown grenade (`minecade:paint_grenade_thrown`) that hits something becomes
   `minecade:paint_grenade_primed`: it falls to the ground, swells to nearly twice its size and
   flashes white for its 1 second fuse, then bursts.
@@ -447,7 +453,7 @@ Each gun's recoil is its `recoil` in `defs.ts` (`GUNS` and `ARSENAL_GUN_DEFS`), 
 
 | Gun | back | lift | shake |
 |---|---|---|---|
-| Paintball Pistol | 2 | 12 | 0.12 |
+| Paintball Pistol | 2 | 12 | 0 |
 | Paintball Rifle | 1.2 | 5 | 0.08 |
 | Paintball Shotgun | 3 | 20 | 0.25 |
 | Pistol | 2 | 12 | 0.14 |

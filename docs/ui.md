@@ -351,8 +351,14 @@ Paintball (`games/paintball`) is Red against Blue with the shared guns: first te
   counts them down), then the pistol comes back; nobody can take a gun while they have one. A
   grenade goes in the second slot, one at a time: it paints a ball of blocks 4 blocks around where
   it bursts, and hits every enemy within 3 blocks twice.
-- **Paint:** every ball paints where it lands, in the shooter's team's color: the block it hit and
-  touching blocks of the same open surface, 3 to 5 in all, never outside the map's bounds. Full
+- **Paint:** every ball paints a circle 5 blocks across where it lands (`splash.radius` 2.5), in the
+  shooter's team's color, never outside the map's bounds: every block with a face within 2.5 blocks
+  of where the ball hit that the paint reaches through the air in front of the hit. On a floor or a
+  wall that's a circle; it runs up a wall beside the hit and over edges, but never through a wall
+  to its other side. It flies through plants, torches and rails (whatever flowing water washes
+  away) to the floor under them, and stops at water. A ball lands where its path first meets a
+  block (`@minecade/guns` finds it with a ray each tick, so it never glances off), and a shot at a
+  wall right in front of you or at your own feet paints there at once. Full
   blocks (glass and leaves too) become concrete; stairs and slabs vanilla's concrete stairs and
   slabs; carpets the color's carpet; walls, fences, panes and bars, fence gates, doors, trapdoors
   and vertical slabs Paintball's painted blocks of the same shape, which keep their facing, their
@@ -362,6 +368,16 @@ Paintball (`games/paintball`) is Red against Blue with the shared guns: first te
   painting a door's half breaks the other for a moment). Blocks from the shared blocks pack are
   painted by their shape, read at build time from the installed pack's own table (`#mod-blocks`,
   `tools/build/mod-blocks.ts`); a build without the pack paints only vanilla blocks.
+- **Walking on paint:** on your own team's paint you walk at 1.3 times your speed, on the other
+  team's at 0.7 (`paintSpeed`, your movement attribute, so a sprint still adds on top). Paint is any
+  block that shows a team's color as paint: its concrete, concrete stairs and slabs, carpet, or a
+  painted shape (`paintDyeOf`), whether a ball painted it or the map was built with it. The block
+  under your feet is checked every 2 ticks while you're on the ground; in the air you keep the
+  speed you had. Being put out, respawning or the match ending puts your speed back. A change of
+  speed also changes your field of view a little, unless "FOV can be altered by gameplay" is off in
+  your video settings.
+- **Preview fakes:** a fake player's hearts (on its name tag) go down with each hit. It wears no
+  armor, so no piece changes color.
 - **Painted blocks** (`minecade:paint_<dye>_<shape>`, in each team's dye) are in Paintball's own
   packs, so only its servers and previews have them. `tools/assets/paint-blocks.ts` writes them from
   `games/paintball/behavior_pack/scripts/shapes.ts` (rerun it and commit after changing either; a

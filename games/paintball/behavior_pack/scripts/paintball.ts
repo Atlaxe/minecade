@@ -2,13 +2,15 @@
 // unlimited respawns with spawn protection, a kill
 // for the team of whoever painted a player out, first to 10 with each team's kills top right, the
 // clock and the stats. This class wires the shared guns (packs/guns, @minecade/guns): every hit
-// colors a piece of armor and takes a share of health, four put a player out; every ball paints
-// where it lands, and a grenade paints a ball of blocks and hits everyone near twice. It puts out the
+// colors a piece of armor and takes a share of health, four put a player out; every ball paints a
+// circle where it lands, and a grenade paints a ball of blocks and hits everyone near twice. Your
+// own team's paint under your feet speeds you up, the other team's slows you down. It puts out the
 // power-ups and hands out what they hold: a rifle or shotgun in place of the pistol for 30 seconds
 // (counted on the level), or a grenade.
-import { BlockPermutation, EntityComponentTypes, EquipmentSlot, ItemLockMode, ItemStack, system, world, type Entity, type Player, type Vector3 } from "@minecraft/server";
+import { BlockPermutation, EntityComponentTypes, EquipmentSlot, ItemLockMode, ItemStack, LiquidType, system, world, type Block, type Entity, type Player, type Vector3 } from "@minecraft/server";
 import { DYES, Guns, dyeIndex, gunItem, paintSplash, parseGunItem, type BlockHit, type Dye, type PickupKind, type Shot } from "@minecade/guns";
 import {
+  FAKE_PLAYER,
   LevelSeconds,
   Minigame,
   describeError,
@@ -28,7 +30,7 @@ import {
 } from "@minecade/minigame-core";
 import type config from "../../game.config.ts";
 import { blend, nextPiece, pieceAt } from "./armor.ts";
-import { Painter, type BlockLook, type PaintPort, type Vec } from "./paint.ts";
+import { Painter, paintDyeOf, type BlockLook, type PaintPort, type Vec, type WorldBlock } from "./paint.ts";
 import { PowerUps } from "./powerups.ts";
 
 /** What a hit is, for the death message (core's paint verbs). */
@@ -41,8 +43,21 @@ const ARMOR_SLOTS: Record<LeatherPiece, EquipmentSlot> = {
 };
 const MAX_HEALTH = 20;
 const GUN_CHECK_TICKS = 5;
+/** How often the paint under players' feet is looked at, in ticks. */
+const FEET_CHECK_TICKS = 2;
+const AIR = "minecraft:air";
 const HURT_SOUND = "game.player.hurt";
 const HIT_SOUND = "random.orb";
+
+/** Whether paint flies through a block: what flowing water washes away (plants, torches, rails), and light blocks. Never a liquid. */
+function throughBlock(block: Block, typeId: string): boolean {
+  if (typeId.startsWith("minecraft:light_block")) return true;
+  try {
+    return !block.isLiquid && block.permutation.canBeDestroyedByLiquidSpread(LiquidType.Water);
+  } catch {
+    return false;
+  }
+}
 
 /** A player's life so far: the hits taken, and the pieces they colored. */
 interface Life {
@@ -55,6 +70,8 @@ export class Paintball extends Minigame<typeof config> {
   private readonly lives = new Map<string, Life>();
   /** Until when (tick) each player's power-up gun lasts. */
   private readonly gunUntil = new Map<string, number>();
+  /** Players walking faster or slower on paint: the share of their own speed, by lowercase name. */
+  private readonly paintSpeeds = new Map<string, { player: Player; share: number }>();
   private readonly painter: Painter;
   private guns?: Guns;
   private powerUps?: PowerUps;
@@ -74,11 +91,17 @@ export class Paintball extends Minigame<typeof config> {
     this.guns = new Guns(this.scope, {
       canFire: (player) => this.phase === "playing" && this.roster.get(player.name)?.state === "alive",
       colorOf: (player, itemDye) => dyeIndex(this.dyeOf(player.name) ?? itemDye),
+      // A player or a preview's fake player in a ball's way: the ball flies on to hit them, not the wall behind.
+      isTarget: (entity) => entity.typeId === "minecraft:player" || entity.typeId === FAKE_PLAYER,
       onHitEntity: (shot, entity, location) => this.ballHit(shot, entity, location),
       onHitBlock: (shot, hit, location) => this.ballLanded(shot, hit, location),
       onBurst: (shot, location) => this.burst(shot, location),
     });
     this.scope.interval(() => this.watchGuns(), GUN_CHECK_TICKS);
+    this.scope.interval(() => this.watchFeet(), FEET_CHECK_TICKS);
+    this.scope.add(() => {
+      for (const key of [...this.paintSpeeds.keys()]) this.walkOn(key, 1);
+    });
   }
 
   protected override onStart(): void {
@@ -150,6 +173,8 @@ export class Paintball extends Minigame<typeof config> {
     this.playTo(victim, HURT_SOUND, 1);
     try {
       body.getComponent(EntityComponentTypes.Health)?.setCurrentValue(Math.ceil(MAX_HEALTH * (1 - life.hits / this.config.hitsToOut)));
+      // A preview's fake player shows its health as hearts on its name tag: they follow the hit.
+      if (body.typeId === FAKE_PLAYER) this.fakes?.showHealth(body);
     } catch (error) {
       log.warn(`paintball: could not show ${victim}'s hits: ${describeError(error)}`);
     }
@@ -182,12 +207,10 @@ export class Paintball extends Minigame<typeof config> {
 
   // ---- Paint -----------------------------------------------------------------------------------
 
-  /** A ball landed on a block: it paints a small splash there. */
+  /** A ball landed on a block: it paints a circle around where it hit. */
   private ballLanded(shot: Shot, hit: BlockHit, location: Vector3): void {
     paintSplash(location, shot.color);
-    const { min, max } = this.config.splash;
-    const count = min + Math.floor(this.ctx.random() * (max - min + 1));
-    this.painted(shot.shooter, this.painter.splash(hit.block.location, hit.face, this.paintDye(shot), count, () => this.ctx.random()));
+    this.painted(shot.shooter, this.painter.splat(location, hit.block.location, hit.face, this.paintDye(shot), this.config.splash.radius));
   }
 
   /** A grenade burst: it paints a ball of blocks, and every enemy near takes its hits. */
@@ -218,10 +241,26 @@ export class Paintball extends Minigame<typeof config> {
   private paintPort(modShapes: Readonly<Record<string, string>>): PaintPort {
     const dimension = () => world.getDimension("overworld");
     return {
-      read: (at: Vec): BlockLook | undefined => {
+      // A splat reads a hundred or so blocks, mostly air: a block's states, and whether paint flies
+      // through it (what flowing water washes away: plants, torches, rails; and light blocks), are
+      // only asked of the blocks that need them.
+      read: (at: Vec): WorldBlock | undefined => {
         try {
           const block = dimension().getBlock(at);
-          return block ? { typeId: block.typeId, states: block.permutation.getAllStates() } : undefined;
+          if (!block) return undefined;
+          const typeId = block.typeId;
+          if (typeId === AIR) return { typeId, states: {} };
+          let states: WorldBlock["states"] | undefined;
+          let open: boolean | undefined;
+          return {
+            typeId,
+            get states() {
+              return (states ??= block.permutation.getAllStates());
+            },
+            get open() {
+              return (open ??= throughBlock(block, typeId));
+            },
+          };
         } catch {
           return undefined; // unloaded
         }
@@ -240,6 +279,59 @@ export class Paintball extends Minigame<typeof config> {
       inside: (at: Vec) => !this.map.outOfBounds({ x: at.x + 0.5, y: at.y + 0.5, z: at.z + 0.5 }, { killRegions: false }),
       modShape: (typeId: string) => modShapes[typeId],
     };
+  }
+
+  // ---- Walking on paint ------------------------------------------------------------------------
+
+  /**
+   * Each player on the ground walks faster on their own team's paint and slower on the other team's
+   * (any block that shows a team's paint: paintDyeOf); in the air, they keep the speed they had.
+   */
+  private watchFeet(): void {
+    if (this.phase !== "playing") {
+      for (const key of [...this.paintSpeeds.keys()]) this.walkOn(key, 1);
+      return;
+    }
+    const teams = new Set(this.teamDefs.map((team) => dyeName(team.color)));
+    const { own: faster, enemy: slower } = this.config.paintSpeed;
+    for (const participant of this.roster.inState("alive")) {
+      const player = this.player(participant.name);
+      if (!player) continue; // a preview's fake player
+      let paint: string | undefined;
+      try {
+        if (!player.isOnGround) continue;
+        paint = this.paintUnder(player);
+      } catch {
+        continue;
+      }
+      const own = this.dyeOf(participant.name);
+      const share = !paint || !own || !teams.has(paint) ? 1 : paint === own ? faster : slower;
+      this.walkOn(participant.name.toLowerCase(), share, player);
+    }
+  }
+
+  /** The paint (a dye) under a player's feet: the block they stand on, or the carpet or slab they stand in. */
+  private paintUnder(player: Player): string | undefined {
+    const at = player.location;
+    const block = world.getDimension("overworld").getBlock({ x: Math.floor(at.x), y: Math.floor(at.y - 0.05), z: Math.floor(at.z) });
+    return block ? paintDyeOf(block.typeId) : undefined;
+  }
+
+  /** A player walks at `share` of their own speed (1: their own again), set only when it changes (or they came back). */
+  private walkOn(key: string, share: number, player = this.paintSpeeds.get(key)?.player): void {
+    const known = this.paintSpeeds.get(key);
+    if (known ? known.player === player && known.share === share : share === 1) return;
+    this.paintSpeeds.delete(key);
+    if (!player?.isValid) return;
+    try {
+      const movement = player.getComponent(EntityComponentTypes.Movement);
+      if (!movement) return;
+      if (share === 1) movement.resetToDefaultValue();
+      else movement.setCurrentValue(movement.defaultValue * share);
+      if (share !== 1) this.paintSpeeds.set(key, { player, share });
+    } catch (error) {
+      log.warn(`paintball: could not change ${player.name}'s speed: ${describeError(error)}`);
+    }
   }
 
   // ---- Power-ups -------------------------------------------------------------------------------
@@ -330,6 +422,7 @@ export class Paintball extends Minigame<typeof config> {
     const key = name.toLowerCase();
     this.lives.delete(key);
     this.gunUntil.delete(key);
+    this.walkOn(key, 1);
     this.levels.forget(name);
     const player = this.player(name);
     if (player) this.levels.show(player, 0);

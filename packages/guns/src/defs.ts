@@ -196,7 +196,9 @@ export const GUNS = {
     lifeTicks: 40,
     maxHitsPerShot: 1,
     sound: { id: "mob.llama.spit", pitch: 1.3, volume: 0.8 },
-    recoil: { back: 2, lift: 12, shake: 0.12 },
+    // The held model kicks, but the camera doesn't shake (the user's call, 2026-11-11): only the
+    // power-up guns shake it.
+    recoil: { back: 2, lift: 12, shake: 0 },
   },
   rifle: {
     id: "rifle",

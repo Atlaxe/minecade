@@ -187,7 +187,9 @@ describe("the guns pack's files", () => {
       expect(recoil, def.id).toBeDefined();
       expect(recoil.back, def.id).toBeGreaterThan(0);
       expect(recoil.lift, def.id).toBeGreaterThan(0);
-      expect(recoil.shake, def.id).toBeGreaterThan(0);
+      // Every gun shakes the camera but the Paintball Pistol (the user's call).
+      if (def.id === "pistol") expect(recoil.shake, def.id).toBe(0);
+      else expect(recoil.shake, def.id).toBeGreaterThan(0);
       // Over the gun's own cooldown, its fire rate, which every shot (or burst) starts.
       const seconds = def.everyTicks / 20;
       expect(json(`behavior_pack/items/${file(item)}.json`)["minecraft:item"].components["minecraft:cooldown"], def.id).toEqual({ category: gunCooldown(def.id), duration: seconds });

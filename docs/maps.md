@@ -237,8 +237,10 @@ tool's Power-up spot list, drawn as the floating white rifle players see), and a
 spawn, where players wait out their 3 second respawn. Two power-ups are out at a time, never on the
 same spot, so spread the spots around the arena. Balls paint everything inside the bounds in the
 teams' colors (full blocks become concrete; see "Paintball" in [ui.md](ui.md)), so build the arena
-from blocks that look good painted. The map itself never changes: every match starts from a fresh
-copy.
+from blocks that look good painted. Red or blue concrete (its stairs and slabs) and red or blue
+carpet count as that team's paint from the start: players walk faster or slower on them, so leave
+them out unless that's what you want. The map itself never changes: every match starts from a
+fresh copy.
 
 **The lobby** declares its own in `lobby/lobby.config.ts`: one spawn and the `terminal` point
 (the middle block of the terminal's 3x3 console; the hologram floats above it). `LOBBY_MAP` in

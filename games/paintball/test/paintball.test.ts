@@ -10,11 +10,12 @@ import { possibleTeams, runtimeMapConfig, stripColors, validateMapConfig, type M
 import { ItemStack, world, type FakeMob, type FakePlayer } from "../../../packages/minigame-core/test/fake-mc-server.ts";
 import { createHarness, everyoneLeaves, expectBaseline, playToEnd, snapshot, statsRows, ticks, type Harness } from "../../../packages/minigame-core/test/game-harness.ts";
 import { bestOfCodes } from "../../../packages/minigame-core/src/hud.ts";
+import { heartsText } from "../../../packages/minigame-core/src/game/fakes.ts";
 import { paintBlockFiles } from "../../../tools/assets/paint-blocks.ts";
 import { validateGameConfig } from "../../../tools/build/validate.ts";
 import config from "../game.config.ts";
 import { blend, nearestDye, nextPiece, pieceAt } from "../behavior_pack/scripts/armor.ts";
-import { Painter, paintTarget, toggled, type BlockLook, type PaintPort, type Vec } from "../behavior_pack/scripts/paint.ts";
+import { Painter, paintDyeOf, paintTarget, toggled, type BlockLook, type PaintPort, type Vec, type WorldBlock } from "../behavior_pack/scripts/paint.ts";
 import { Paintball } from "../behavior_pack/scripts/paintball.ts";
 import { freeSpot } from "../behavior_pack/scripts/powerups.ts";
 import { PAINT_SHAPES, SHAPE_STATES, paintBlock, parsePaintBlock } from "../behavior_pack/scripts/shapes.ts";
@@ -77,6 +78,12 @@ async function shoot(shooter: FakePlayer, victim: FakePlayer, height = 1): Promi
 }
 
 const armor = (player: FakePlayer) => ["Head", "Chest", "Legs", "Feet"].map((slot) => player.equipment.get(slot)?.typeId);
+/** The keys of the floor blocks (at `y`, x and z from -3 to 3) in a circle `radius` out from the middle of block (0, y, 0)'s top. */
+const circle = (radius: number, y = 64) => {
+  const keys: string[] = [];
+  for (let x = -3; x <= 3; x++) for (let z = -3; z <= 3; z++) if (Math.hypot(x, z) <= radius) keys.push(`${x},${y},${z}`);
+  return keys.sort();
+};
 const chat = () => stripColors(world.chat.join("\n"));
 
 describe("Paintball's config and map", () => {
@@ -212,7 +219,7 @@ describe("Paintball's paint", () => {
   });
 
   /** A world of blocks by "x,y,z" for the painter, inside x and z from -`reach` to `reach`. */
-  function blocks(entries: [Vec, BlockLook][], reach = 10) {
+  function blocks(entries: [Vec, WorldBlock][], reach = 10) {
     const map = new Map(entries.map(([at, block]) => [`${at.x},${at.y},${at.z}`, block]));
     const port: PaintPort = {
       read: (at) => map.get(`${at.x},${at.y},${at.z}`) ?? { typeId: "minecraft:air", states: {} },
@@ -222,27 +229,59 @@ describe("Paintball's paint", () => {
     };
     return { map, painter: new Painter(port) };
   }
-  const floor = (size: number, y = 64): [Vec, BlockLook][] => {
-    const out: [Vec, BlockLook][] = [];
+  const floor = (size: number, y = 64): [Vec, WorldBlock][] => {
+    const out: [Vec, WorldBlock][] = [];
     for (let x = -size; x <= size; x++) for (let z = -size; z <= size; z++) out.push([{ x, y, z }, look("stone")]);
     return out;
   };
   const painted = (map: Map<string, BlockLook>, dye: string) => [...map].filter(([, block]) => block.typeId === `minecraft:${dye}_concrete`).map(([key]) => key);
 
-  it("splashes the block hit and touching blocks of the same open surface, inside the bounds", () => {
-    const { map, painter } = blocks([...floor(3), [{ x: 1, y: 65, z: 0 }, look("stone")]]);
-    expect(painter.splash({ x: 0, y: 64, z: 0 }, "Up", "red", 5, () => 0.5)).toBe(5);
-    const splash = painted(map, "red");
-    expect(splash).toContain("0,64,0");
-    // Under a block the surface isn't open: never painted.
-    expect(splash).not.toContain("1,64,0");
-    expect(splash.every((key) => key.split(",")[1] === "64")).toBe(true);
-    const edge = blocks(floor(3), 0);
-    expect(edge.painter.splash({ x: 0, y: 64, z: 0 }, "Up", "blue", 5, () => 0.5)).toBe(1);
+  it("splats a circle 5 blocks across around where a ball hit a floor, inside the bounds", () => {
+    const { map, painter } = blocks(floor(3));
+    expect(painter.splat({ x: 0.5, y: 65, z: 0.5 }, { x: 0, y: 64, z: 0 }, "Up", "red", 2.5)).toBe(21);
+    expect(painted(map, "red").sort()).toEqual(circle(2.5));
+    // The circle goes where the ball hit: two blocks east, it reaches the floor's east edge, not x -1.
+    const east = blocks(floor(3));
+    east.painter.splat({ x: 2.5, y: 65, z: 0.5 }, { x: 2, y: 64, z: 0 }, "Up", "blue", 2.5);
+    expect(painted(east.map, "blue")).toEqual(expect.arrayContaining(["3,64,0", "0,64,0", "2,64,2"]));
+    expect(painted(east.map, "blue")).not.toContain("-1,64,0");
+    // Where the ball says it was, off the face, still lands on the face it hit.
+    const above = blocks(floor(3));
+    expect(above.painter.splat({ x: 0.5, y: 66.4, z: 0.5 }, { x: 0, y: 64, z: 0 }, "Up", "red", 2.5)).toBe(21);
+    // Only inside the bounds.
+    const bounded = blocks(floor(3), 0);
+    expect(bounded.painter.splat({ x: 0.5, y: 65, z: 0.5 }, { x: 0, y: 64, z: 0 }, "Up", "blue", 2.5)).toBe(1);
+  });
+
+  it("runs a splat up a wall beside it, never through the wall, and through grass to the floor under it", () => {
+    const wall: [Vec, WorldBlock][] = [];
+    for (let z = -3; z <= 3; z++) for (let y = 65; y <= 67; y++) wall.push([{ x: 1, y, z }, look("stone")]);
+    const grass: [Vec, WorldBlock] = [{ x: -1, y: 65, z: 0 }, { ...look("short_grass"), open: true }];
+    const { map, painter } = blocks([...floor(3), ...wall, grass]);
+    painter.splat({ x: 0.5, y: 65, z: 0.5 }, { x: 0, y: 64, z: 0 }, "Up", "red", 2.5);
+    const red = painted(map, "red");
+    // The wall's face toward the hit, as far up and along as the circle reaches.
+    expect(red).toEqual(expect.arrayContaining(["1,65,-2", "1,65,2", "1,66,0", "1,66,1"]));
+    expect(red).not.toContain("1,67,0");
+    expect(red).not.toContain("1,66,2");
+    // Behind the wall, and under it, nothing.
+    expect(red.filter((key) => Number(key.split(",")[0]) >= 2)).toEqual([]);
+    expect(red).not.toContain("1,64,0");
+    // The grass stays grass; the floor under it is painted.
+    expect(map.get("-1,65,0")?.typeId).toBe("minecraft:short_grass");
+    expect(red).toContain("-1,64,0");
+  });
+
+  it("tells a team's paint by the block: concrete, its stairs and slabs, carpet and painted shapes", () => {
+    for (const typeId of ["minecraft:red_concrete", "minecraft:red_concrete_stairs", "minecraft:red_concrete_slab", "minecraft:red_carpet", "minecade:paint_red_fence"]) {
+      expect(paintDyeOf(typeId), typeId).toBe("red");
+    }
+    expect(paintDyeOf("minecraft:light_blue_concrete")).toBe("light_blue");
+    for (const typeId of ["minecraft:stone", "minecraft:red_concrete_powder", "minecraft:red_wool", "minecade:red_bricks"]) expect(paintDyeOf(typeId), typeId).toBeUndefined();
   });
 
   it("bursts over every block of a ball that shows, and paints both halves of a door", () => {
-    const solid: [Vec, BlockLook][] = [];
+    const solid: [Vec, WorldBlock][] = [];
     for (let x = -3; x <= 3; x++) for (let y = 60; y <= 64; y++) for (let z = -3; z <= 3; z++) solid.push([{ x, y, z }, look("stone")]);
     const { map, painter } = blocks(solid);
     const count = painter.burst({ x: 0.5, y: 65, z: 0.5 }, 2.5, "blue");
@@ -261,6 +300,36 @@ describe("Paintball's paint", () => {
       { "minecade:facing": "east", "minecade:half": "lower", "minecade:hinge": "right", "minecade:open": "true" },
       { "minecade:facing": "east", "minecade:half": "upper", "minecade:hinge": "right", "minecade:open": "true" },
     ]);
+  });
+});
+
+describe("a Paintball preview", () => {
+  it("shows a fake player's hearts going down with each ball that hits it", async () => {
+    everyoneLeaves();
+    const a = world.join("A");
+    const baseline = snapshot(harness.root);
+    const context = harness.context(["A"], YARD);
+    context.vars.preview = "Paintball: Yard";
+    context.vars.lanPlayers = ["A"];
+    const game = new Paintball(context, config, "pack-uuid");
+    await playToEnd(game, harness.root, baseline, async () => {
+      await ticks(1);
+      expect(game.addFakes(1)).toContain("Added Fake 1");
+      await ticks(20 + COUNTDOWN_TICKS);
+      expect(game.phase).toBe("playing");
+      expect(game.teamOf("Fake 1")?.id).not.toBe(game.teamOf("A")?.id);
+      const fake = game.body("Fake 1") as FakeMob;
+      expect(fake.nameTag).toContain(heartsText(20, 20));
+      const before = new Set(live(PAINTBALL));
+      fire(a);
+      const ball = live(PAINTBALL).find((mob) => !before.has(mob))!;
+      world.projectileHitsEntity(ball, fake, undefined, a);
+      // A quarter of its health, and its hearts show it.
+      expect(fake.health.currentValue).toBe(15);
+      expect(fake.nameTag).toContain(heartsText(15, 20));
+      everyoneLeaves();
+    });
+    expectBaseline(harness.root, baseline);
   });
 });
 
@@ -346,17 +415,17 @@ describe("a match of Paintball", () => {
       await ticks(5);
       expect(live(GUN_PICKUP)).toHaveLength(1);
 
-      // A ball on the stone floor paints a splash in Red's concrete.
+      // A ball on the stone floor paints a circle 5 blocks across in Red's concrete.
       for (let x = -3; x <= 3; x++) for (let z = -3; z <= 3; z++) world.overworld.blocks.set(`${x},64,${z}`, "minecraft:stone");
       a.location = { x: 0, y: 65, z: -2 };
       const before = new Set(live(PAINTBALL));
       a.inventory.setItem(0, new ItemStack(gunItem("pistol", "red")));
       fire(a);
       const ball = live(PAINTBALL).find((mob) => !before.has(mob))!;
+      ball.location = { x: 0.5, y: 65, z: 0.5 };
       world.projectileHitsBlock(ball, { x: 0, y: 64, z: 0 }, "Up", a);
       const red = [...world.overworld.blocks.values()].filter((id) => id === "minecraft:red_concrete").length;
-      expect(red).toBeGreaterThanOrEqual(config.splash.min);
-      expect(red).toBeLessThanOrEqual(config.splash.max);
+      expect(red).toBe(21);
 
       // The rifle's time runs out: the pistol is back, and A can take a gun again.
       a.inventory.setItem(0, new ItemStack(gunItem("rifle", "red")));
@@ -366,7 +435,46 @@ describe("a match of Paintball", () => {
       expect(c.inventory.getItem(0)?.typeId).toBe(gunItem("pistol", "blue"));
       everyoneLeaves();
     });
-    expect(statsRows(harness.sent, from).find((row) => row.n === "A")?.x?.painted).toBeGreaterThanOrEqual(config.splash.min);
+    expect(statsRows(harness.sent, from).find((row) => row.n === "A")?.x?.painted).toBe(21);
+    expectBaseline(harness.root, baseline);
+  });
+
+  it("paints the floor around a shooter's feet, and paint speeds its own team up and slows the other down", async () => {
+    const { a, c, baseline, game } = begin();
+    const speed = (player: FakePlayer) => Math.round(player.movement.currentValue * 1000) / 1000;
+    const own = Math.round(0.1 * config.paintSpeed.own * 1000) / 1000;
+    const enemy = Math.round(0.1 * config.paintSpeed.enemy * 1000) / 1000;
+    await playToEnd(game, harness.root, baseline, async () => {
+      await ticks(COUNTDOWN_TICKS);
+      for (let x = -3; x <= 3; x++) for (let z = -3; z <= 3; z++) world.overworld.blocks.set(`${x},64,${z}`, "minecraft:stone");
+      // A looks straight down and fires: no ball flies, the floor around A's feet is Red's.
+      a.location = { x: 0.5, y: 65, z: 0.5 };
+      a.viewDirection = { x: 0, y: -1, z: 0 };
+      const before = live(PAINTBALL).length;
+      fire(a);
+      expect(live(PAINTBALL)).toHaveLength(before);
+      const red = [...world.overworld.blocks].filter(([, id]) => id === "minecraft:red_concrete").map(([key]) => key);
+      expect(red.sort()).toEqual(circle(2.5));
+
+      // On Red's paint, A (Red) walks faster and C (Blue) slower; off it, both as they were.
+      c.location = { x: 1.5, y: 65, z: 0.5 };
+      await ticks(3);
+      expect(speed(a)).toBe(own);
+      expect(speed(c)).toBe(enemy);
+      // In the air, C keeps the speed it had; back on the ground off the paint, its own again.
+      c.isOnGround = false;
+      c.location = { x: 20.5, y: 70, z: 20.5 };
+      await ticks(3);
+      expect(speed(c)).toBe(enemy);
+      c.isOnGround = true;
+      await ticks(3);
+      expect(speed(c)).toBe(0.1);
+      // Put out, A loses the paint's speed.
+      for (let hit = 0; hit < config.hitsToOut; hit++) await shoot(c, a);
+      expect(game.roster.get("A")?.state).not.toBe("alive");
+      expect(speed(a)).toBe(0.1);
+      everyoneLeaves();
+    });
     expectBaseline(harness.root, baseline);
   });
 

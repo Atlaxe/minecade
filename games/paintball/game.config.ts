@@ -7,8 +7,9 @@ const POWER_UPS: PickupKind[] = ["rifle", "shotgun", "grenade"];
 // Paintball: Red against Blue with paint guns. Everyone has a pistol; a rifle, a shotgun and a paint
 // grenade float on the map's power-up spots, two at a time, moving on their own timers. Each ball
 // that hits colors the armor piece it hit, mixing in the shooter's color, and four hits put a player
-// out until they respawn. Every ball paints where it lands in its team's color: full blocks become
-// concrete, other shapes concrete-colored shapes. The first team to 10 kills wins; when time runs
+// out until they respawn. Every ball paints a circle 5 blocks across where it lands in its team's
+// color: full blocks become concrete, other shapes concrete-colored shapes. Your own team's paint
+// speeds you up, the other team's slows you down. The first team to 10 kills wins; when time runs
 // out, the most kills wins (a tie is a draw).
 export default defineGame({
   id: "paintball",
@@ -78,6 +79,11 @@ export default defineGame({
   },
   /** A burst grenade paints a ball of `paintRadius` blocks and hits every enemy within `hitRadius` `hits` times. */
   grenade: { paintRadius: 4, hitRadius: 3, hits: 2 },
-  /** A ball paints the block it hits and a few touching blocks of the same surface: `min` to `max` in all. */
-  splash: { min: 3, max: 5 },
+  /**
+   * A ball paints a circle `radius` blocks out from where it hit (5 across), on a floor, a wall, or
+   * the floor at a shooter's own feet, as far as the paint reaches through the air.
+   */
+  splash: { radius: 2.5 },
+  /** Walking on your own team's paint, your speed is this share of your own; on the other team's, `enemy` of it. */
+  paintSpeed: { own: 1.3, enemy: 0.7 },
 });

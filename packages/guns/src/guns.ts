@@ -18,7 +18,9 @@
 //
 // A shot travels by its gun's ShotKind. Paintball's balls fly as PAINTBALL entities in the shooter's
 // paint color, spread in a cone, and the game hears where each lands (a player, a mob, a block's
-// face). A bullet is hitscan: a ray from the eyes finds the first player or block in its range at
+// face). A ball lands on a block where its path meets it, found by a ray each tick before Bedrock
+// moves it there (a ball whose first tick reaches a block, at a wall or at the shooter's feet, lands
+// as it's fired), so it never glances off. A bullet is hitscan: a ray from the eyes finds the first player or block in its range at
 // once, with a streak drawn from the muzzle; a beam goes on through every player to the first block.
 // A rocket flies, trailing smoke, and bursts where it hits. Bullet, beam and rocket hits come with
 // their damage (DamageDef: headshots, falloff); what a hit or a burst does is the game's (arsenal.ts
@@ -107,7 +109,10 @@ export interface GunsOptions {
   throwables?: readonly ThrowableDef[];
   /** Whether a player may fire now: playing, not out, not frozen. */
   canFire(player: Player): boolean;
-  /** Whether a bullet or beam stops at (and hits) an entity; players only by default. */
+  /**
+   * Whether a bullet or beam stops at (and hits) an entity, and whether one in a ball's way keeps it
+   * from landing on the block behind (the ball flies on and hits it); players only by default.
+   */
   isTarget?(entity: Entity): boolean;
   /** The paint color (DYES index) a player's balls take; the held item's own paint by default. */
   colorOf?(player: Player, itemDye: Dye): number;
@@ -116,7 +121,7 @@ export interface GunsOptions {
    * many of one shot's balls or pellets count on one target. `info` comes with all but paint balls.
    */
   onHitEntity?(shot: Shot, entity: Entity, location: Vector3, info?: HitInfo): void;
-  /** A ball or bullet reached a block. */
+  /** A ball or bullet reached a block: `location` is where it met the block's face. */
   onHitBlock?(shot: Shot, hit: BlockHit, location: Vector3): void;
   /** A grenade's fuse ran out where it sits, a Molotov or rocket hit something, or a knife came to rest. */
   onBurst?(shot: Shot, location: Vector3): void;
@@ -206,6 +211,8 @@ interface Burst {
 
 /** Balls leave from just ahead of the eyes, so they clear the shooter's own body. */
 const MUZZLE = 0.6;
+/** A ball reaches this far past its middle (its collision box is a quarter block). */
+const BALL_REACH = 0.15;
 /** Where a bullet's streak starts, from the eyes: ahead, to the right (from the hip), and down. */
 const STREAK_FROM = { ahead: 0.7, right: 0.22, down: 0.2 };
 /** A bullet or beam with no range of its own reaches this far. */
@@ -550,7 +557,9 @@ export class Guns {
       const from = { x: head.x + direction.x * MUZZLE, y: head.y - 0.1 + direction.y * MUZZLE, z: head.z + direction.z * MUZZLE };
       const velocity = { x: direction.x * gun.speed, y: direction.y * gun.speed, z: direction.z * gun.speed };
       if (kind === "rocket") this.launch(dimension, ROCKET, player, shot, from, velocity, {}, { lifeTicks: gun.lifeTicks, maxHits: 1, rocket: gun });
-      else this.launch(dimension, PAINTBALL, player, shot, from, velocity, { [COLOR_PROPERTY]: shot.color }, { lifeTicks: gun.lifeTicks, maxHits: gun.maxHitsPerShot });
+      else if (!this.pointBlank(dimension, player, shot, head, direction, MUZZLE + gun.speed)) {
+        this.launch(dimension, PAINTBALL, player, shot, from, velocity, { [COLOR_PROPERTY]: shot.color }, { lifeTicks: gun.lifeTicks, maxHits: gun.maxHitsPerShot });
+      }
     }
     playAt(dimension, gun.sound, head);
     // The gun's own cooldown shades its slot until it can fire again, and the held model kicks over
@@ -682,6 +691,71 @@ export class Guns {
     } catch (error) {
       log.warn(`guns: could not launch ${typeId}: ${describeError(error)}`);
     }
+  }
+
+  /**
+   * A ball whose first tick of flight from the eyes reaches a block, with no target in between,
+   * lands there as it's fired, and no ball flies: a shot at a wall in front of the shooter, or at
+   * their own feet, where a ball from the muzzle would start in the wall or by the shooter's legs.
+   */
+  private pointBlank(dimension: Dimension, player: Player, shot: Shot, eye: Vector3, direction: Vector3, reach: number): boolean {
+    const wall = this.blockAhead(dimension, eye, direction, reach, (entity) => entity.id === player.id);
+    if (!wall) return false;
+    this.notify(() => this.options.onHitBlock?.(shot, { block: wall.block, face: wall.face }, wall.at));
+    return true;
+  }
+
+  /**
+   * Balls that would reach a block in the coming tick land on it now, where their path meets it:
+   * Bedrock's own collision can glance a ball off a surface, or carry it on a moment before its hit.
+   * A target in the way (isTarget) is left to Bedrock: the ball flies on and hits it.
+   */
+  private landBalls(): void {
+    const dimension = world.getDimension("overworld");
+    for (const [id, flying] of [...this.flying]) {
+      if (flying.throwable || flying.rocket) continue;
+      let from: Vector3;
+      let velocity: Vector3;
+      try {
+        if (!flying.entity.isValid) continue;
+        from = flying.entity.location;
+        velocity = flying.entity.getVelocity();
+      } catch {
+        continue;
+      }
+      const speed = Math.hypot(velocity.x, velocity.y, velocity.z);
+      if (speed < 0.01) continue;
+      const direction = { x: velocity.x / speed, y: velocity.y / speed, z: velocity.z / speed };
+      const shooter = flying.shot.shooter;
+      const wall = this.blockAhead(dimension, from, direction, speed + BALL_REACH, (entity) => entity.id === id || (entity as Player).name === shooter);
+      if (!wall) continue;
+      this.down(id, flying);
+      this.notify(() => this.options.onHitBlock?.(flying.shot, { block: wall.block, face: wall.face }, wall.at));
+    }
+  }
+
+  /**
+   * The first block a ball going `reach` blocks from `from` along `direction` meets (no liquids,
+   * nothing it passes through, such as grass), and the point on its face, unless a target other
+   * than `ignore` is in the way first.
+   */
+  private blockAhead(dimension: Dimension, from: Vector3, direction: Vector3, reach: number, ignore: (entity: Entity) => boolean): { block: Block; face: Direction; at: Vector3 } | undefined {
+    let wall: { block: Block; face: Direction; at: Vector3 } | undefined;
+    try {
+      const hit = dimension.getBlockFromRay(from, direction, { maxDistance: reach, includeLiquidBlocks: false, includePassableBlocks: false });
+      if (hit) wall = { block: hit.block, face: hit.face, at: plus(hit.block.location, hit.faceLocation) };
+    } catch (error) {
+      log.warn(`guns: a ball could not find the block ahead: ${describeError(error)}`);
+    }
+    if (!wall) return undefined;
+    try {
+      const between = distance(from, wall.at);
+      const inWay = dimension.getEntitiesFromRay(from, direction, { maxDistance: between, ignoreBlockCollision: true }).some((hit) => !ignore(hit.entity) && this.isTarget(hit.entity));
+      if (inWay) return undefined;
+    } catch {
+      // Nobody found: the block it is.
+    }
+    return wall;
   }
 
   /** A thrown item hit something at `location` (a player, `target`, or a block). */
@@ -853,6 +927,7 @@ export class Guns {
       remove(primed.entity);
       this.burst(primed.shot, primed.location, primed.throwable.burstSound);
     }
+    this.landBalls();
     // A rocket's smoke comes from its client entity, so it follows the rocket the client draws.
     for (const [id, flying] of [...this.flying]) if (flying.until <= now) this.down(id, flying);
     for (const [id, state] of [...this.shots]) if (state.flying <= 0) this.shots.delete(id);
