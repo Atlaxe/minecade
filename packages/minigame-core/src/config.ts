@@ -23,8 +23,8 @@ export interface TeamsConfig {
   /** Team names and colors. Default: Red, Blue, Green, Yellow. */
   defs?: TeamDef[];
   /**
-   * A lobby option (one of `options`) whose value is the most teams a match has, such as
-   * Paintball's "Team count" (2, 3 or 4). A range still opens no more teams than the players fill.
+   * A lobby option (one of `options`) whose value is the most teams a match has, such as a
+   * "Team count" of 2, 3 or 4. A range still opens no more teams than the players fill.
    */
   option?: string;
 }

@@ -1,13 +1,10 @@
 import { teamGunItem, type PickupKind } from "@minecade/guns/defs";
 import { WAYPOINTS_OPTION, defineGame } from "@minecade/minigame-core/config";
 
-/** The lobby's Team count setting: the most teams a match has (fewer when the players can't fill them). The first is the default. */
-const TEAM_COUNTS = [2, 3, 4];
-
 /** What a power-up can be, picked at random each time one appears. */
 const POWER_UPS: PickupKind[] = ["rifle", "shotgun", "grenade"];
 
-// Paintball: two to four teams with paint guns. Everyone has a pistol; a rifle, a shotgun and a paint
+// Paintball: Red against Blue with paint guns. Everyone has a pistol; a rifle, a shotgun and a paint
 // grenade float on the map's power-up spots, two at a time, moving on their own timers. Each ball
 // that hits colors the armor piece it hit, mixing in the shooter's color, and four hits put a player
 // out until they respawn. Every ball paints where it lands in its team's color: full blocks become
@@ -16,7 +13,7 @@ const POWER_UPS: PickupKind[] = ["rifle", "shotgun", "grenade"];
 export default defineGame({
   id: "paintball",
   name: "Paintball",
-  description: "Two to four teams with paint guns. Four hits and you're out until you respawn. First team to 10 kills wins.",
+  description: "Red against Blue with paint guns. Four hits and you're out until you respawn. First team to 10 kills wins.",
   minPlayers: 2,
   maxPlayers: 8,
   countdownSeconds: 5,
@@ -26,18 +23,15 @@ export default defineGame({
   // Names over heads in the team's color, so teammates know each other under the paint.
   nameTags: true,
   teams: {
-    count: [2, 4],
-    option: "teamCount",
+    count: 2,
     defs: [
       { id: "red", name: "Red", color: "§c" },
       { id: "blue", name: "Blue", color: "§9" },
-      { id: "yellow", name: "Yellow", color: "§e" },
-      { id: "green", name: "Green", color: "§2" },
     ],
   },
   combat: { killCreditSeconds: 8 },
   respawn: { mode: "unlimited", delaySeconds: 3, protectSeconds: 2 },
-  // Each team's kills top right in its color, "R | B | Y | G".
+  // Each team's kills top right in its color, "R | B".
   scoring: { per: "team", perKill: 1, target: 10, title: "Kills", display: "sides" },
   // Health shows the hits left, and only paint takes it away (paintball.ts). Painting a block can
   // break what stood on it for a moment (a door's other half, crops on farmland): nothing drops.
@@ -60,9 +54,9 @@ export default defineGame({
   // the mannequin's color.
   mannequinItems: POWER_UPS.map((kind) => teamGunItem(kind)),
   // Waypoints: On shows everyone on the locator bar over the hotbar (Off at first).
-  options: [{ id: "teamCount", label: "Team count", values: TEAM_COUNTS.map((teams) => ({ value: String(teams), label: `${teams} teams` })) }, WAYPOINTS_OPTION],
-  // Spawns for all four teams, since any match may use them. Players watch from the spectator or
-  // queue spawn while they wait to respawn (core's default: one or the other).
+  options: [WAYPOINTS_OPTION],
+  // Spawns for Red and Blue. Players watch from the spectator or queue spawn while they wait to
+  // respawn (core's default: one or the other).
   map: {
     teamSpawns: { perTeam: 2 },
     bounds: true,

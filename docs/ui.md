@@ -179,7 +179,7 @@ pack's `ui/hud_screen.json`). Gunfight adds it through `hudCodes` while its flag
 every team's score shows in the rounds box, as the best-of score does, each in its team's color with
 gray bars between ("3 | 1 | 0 | 2", up to 99). It's for team scores (`per: "team"`) of up to four
 teams, in a game without best-of rounds, which would need the same box (the build checks). Dark
-green (§2, Paintball's Green) has its own color there, as the other team colors do.
+green (§2) has its own color there, as the other team colors do.
 
 ## The kit form
 
@@ -327,15 +327,14 @@ Bedrock ignores it and the armor stays brown.
 
 ## Paintball
 
-Paintball (`games/paintball`) is two to four teams with the shared guns: first team to 10 kills, a
+Paintball (`games/paintball`) is Red against Blue with the shared guns: first team to 10 kills, a
 10 minute clock, unlimited respawns after 3 seconds. Its numbers are in
 `games/paintball/game.config.ts` (`hitsToOut`, `powerUps`, `grenade`, `splash`).
 
-- **Team count:** the lobby's game screen has Team count (2, 3 or 4; 2 at first). A match has that
-  many teams, Red, Blue, Yellow, then Green, or fewer when the players can't fill them (three players
-  never make four teams), and the lobby's team form offers the same ones. Any team game can have
-  one: `teams.option` names one of its `options`, whose values are team counts inside `teams.count`
-  (`teamLimit` in minigame-core; the build checks them).
+- **Teams:** Red and Blue, picked in the lobby's team form or dealt out evenly. (Yellow and Green
+  were taken out on 2026-11-11.) Any team game can still let the lobby pick how many teams play:
+  `teams.count` a range and `teams.option` naming one of its `options`, whose values are team
+  counts inside the range (`teamLimit` in minigame-core; the build checks them).
 - **Hits:** a ball that hits an enemy colors the leather piece it hit (by how high: head, chest,
   legs or feet), or the nearest piece not yet colored, in the piece's color mixed with the
   shooter's: by Minecraft's dye recipe when there is one (red and blue make purple, red and yellow

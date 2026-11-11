@@ -2,7 +2,7 @@
   "format_version": 2,
   "header": {
     "name": "Minecade Paintball",
-    "description": "Paintball: two to four teams with paint guns, painted blocks and armor, power-ups, first team to 10 kills",
+    "description": "Paintball: Red against Blue with paint guns, painted blocks and armor, power-ups, first team to 10 kills",
     "uuid": "bdf39dfe-56aa-49c7-bbb8-7adbaf52185e",
     "version": [0, 1, 0],
     "min_engine_version": [1, 26, 60]

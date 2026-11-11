@@ -1,5 +1,5 @@
-// Paintball on the minigame framework. Core already runs the rest: the teams (as many as the lobby's
-// Team count, as far as the players fill them), unlimited respawns with spawn protection, a kill
+// Paintball on the minigame framework. Core already runs the rest: the teams (Red and Blue),
+// unlimited respawns with spawn protection, a kill
 // for the team of whoever painted a player out, first to 10 with each team's kills top right, the
 // clock and the stats. This class wires the shared guns (packs/guns, @minecade/guns): every hit
 // colors a piece of armor and takes a share of health, four put a player out; every ball paints
@@ -335,7 +335,7 @@ export class Paintball extends Minigame<typeof config> {
     if (player) this.levels.show(player, 0);
   }
 
-  /** A player's team's dye (red, blue, yellow, green), or undefined without a team. */
+  /** A player's team's dye (red or blue), or undefined without a team. */
   private dyeOf(name: string): string | undefined {
     const team = this.teamOf(name);
     return team ? dyeName(team.color) : undefined;

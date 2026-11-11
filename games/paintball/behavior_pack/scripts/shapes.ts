@@ -40,5 +40,5 @@ export function parsePaintBlock(typeId: string): { dye: string; shape: PaintShap
   return match ? { dye: match[1], shape: match[2] as PaintShape } : undefined;
 }
 
-/** The dyes Paintball paints in: each team's (§c red, §9 blue, §e yellow, §2 green). */
+/** The dyes Paintball paints in: each team's (§c red, §9 blue). */
 export const paintDyes = (teams: readonly TeamDef[]): string[] => teams.map((team) => dyeName(team.color));

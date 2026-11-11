@@ -1,4 +1,4 @@
-// Paintball against the fake world, on a yard with two spawns for each of the four teams and eight
+// Paintball against the fake world, on a yard with two spawns each for Red and Blue and eight
 // power-up spots. Each hit colors a piece of armor and takes a quarter of a player's health, four
 // put them out and score for the shooter's team; balls paint where they land; power-ups hand out a
 // rifle or shotgun for 30 seconds, or a grenade that paints a ball of blocks and hits twice.
@@ -30,8 +30,6 @@ const YARD: MapConfig = runtimeMapConfig({
   teamSpawns: {
     red: [[-10, 65, 0], [-10, 65, 2]],
     blue: [[10, 65, 0], [10, 65, 2]],
-    yellow: [[0, 65, -10], [2, 65, -10]],
-    green: [[0, 65, 10], [2, 65, 10]],
   },
   bounds: { min: [-30, 40, -30], max: [30, 100, 30] },
   points: { powerup: SPOTS },
@@ -51,11 +49,11 @@ afterEach(() => {
 });
 
 /** A match on the yard: A and B on Red, C and D on Blue, by the lobby's team picks (unless `picks` says otherwise). */
-function begin(options: { settings?: Record<string, string>; overrides?: Partial<typeof config>; picks?: Record<string, string> } = {}) {
+function begin(options: { overrides?: Partial<typeof config>; picks?: Record<string, string> } = {}) {
   const [a, b, c, d] = NAMES.map((name) => world.join(name));
   const baseline = snapshot(harness.root);
   const from = harness.sent.length;
-  const game = new Paintball(harness.context(NAMES, YARD, options.settings), { ...config, ...options.overrides }, "pack-uuid");
+  const game = new Paintball(harness.context(NAMES, YARD), { ...config, ...options.overrides }, "pack-uuid");
   game.setTeamPicks(options.picks ?? { A: "red", B: "red", C: "blue", D: "blue" });
   return { a, b, c, d, baseline, from, game };
 }
@@ -84,16 +82,17 @@ const chat = () => stripColors(world.chat.join("\n"));
 describe("Paintball's config and map", () => {
   const rules = { kind: "game" as const, maxPlayers: config.maxPlayers, requires: config.map, teams: possibleTeams(config.teams) };
 
-  it("passes the build's checks, and maps need spawns for all four teams, bounds and 8 power-up spots", () => {
+  it("passes the build's checks, and maps need spawns for Red and Blue, bounds and 8 power-up spots", () => {
     expect(validateGameConfig(config, "paintball")).toEqual([]);
-    expect(possibleTeams(config.teams).map((team) => `${team.id} ${team.color}`)).toEqual(["red §c", "blue §9", "yellow §e", "green §2"]);
+    expect(possibleTeams(config.teams).map((team) => `${team.id} ${team.color}`)).toEqual(["red §c", "blue §9"]);
     expect(validateMapConfig(YARD, rules)).toEqual([]);
-    const { yellow: _yellow, ...three } = YARD.teamSpawns!;
-    const problems = validateMapConfig({ ...YARD, teamSpawns: three, points: { powerup: SPOTS.slice(0, 7) } }, rules).join("\n");
-    expect(problems).toMatch(/yellow/i);
+    const { blue: _blue, ...redOnly } = YARD.teamSpawns!;
+    const problems = validateMapConfig({ ...YARD, teamSpawns: redOnly, points: { powerup: SPOTS.slice(0, 7) } }, rules).join("\n");
+    expect(problems).toMatch(/blue/i);
     expect(problems).toMatch(/needs 8 "points.powerup" entries/);
-    expect(config.options[0]).toMatchObject({ id: "teamCount", label: "Team count" });
-    expect(config.options[0].values.map((value) => value.value)).toEqual(["2", "3", "4"]);
+    // No Team count in the lobby: always two teams.
+    expect(config.teams).not.toHaveProperty("option");
+    expect(config.options.map((option) => option.id)).not.toContain("teamCount");
   });
 
   it("writes the painted blocks and the Power-up spot marker as the committed files say", () => {
@@ -111,7 +110,7 @@ describe("Paintball's config and map", () => {
     for (const shape of PAINT_SHAPES) {
       const geometry = JSON.parse(files[`resource_pack/models/blocks/paint_${shape}.geo.json`] as string)["minecraft:geometry"][0];
       const bones = new Set(geometry.bones.map((bone: { name: string }) => bone.name));
-      for (const dye of ["red", "blue", "yellow", "green"]) {
+      for (const dye of ["red", "blue"]) {
         const block = JSON.parse(files[`behavior_pack/blocks/paint_${dye}_${shape}.json`] as string)["minecraft:block"];
         expect(block.description.identifier).toBe(paintBlock(dye, shape));
         expect(block.description.states).toEqual(SHAPE_STATES[shape]);
@@ -119,7 +118,9 @@ describe("Paintball's config and map", () => {
       }
     }
     expect(parsePaintBlock("minecade:paint_red_fence_gate")).toEqual({ dye: "red", shape: "fence_gate" });
-    expect(parsePaintBlock("minecade:paint_green_fence")).toEqual({ dye: "green", shape: "fence" });
+    expect(parsePaintBlock("minecade:paint_blue_fence")).toEqual({ dye: "blue", shape: "fence" });
+    // Only Red's and Blue's painted blocks.
+    expect(Object.keys(files).filter((path) => path.startsWith("behavior_pack/blocks/") && !/paint_(red|blue)_/.test(path))).toEqual([]);
     expect(parsePaintBlock("minecade:red_bricks")).toBeUndefined();
   });
 });
@@ -151,12 +152,12 @@ describe("Paintball's paint", () => {
   it("turns full blocks into concrete, stairs and slabs into concrete's, and carpets into carpet, in the dye", () => {
     expect(paintTarget(look("stone"), "red")).toEqual({ typeId: "minecraft:red_concrete", states: {} });
     expect(paintTarget(look("oak_leaves"), "blue")?.typeId).toBe("minecraft:blue_concrete");
-    expect(paintTarget(look("white_concrete"), "green")?.typeId).toBe("minecraft:green_concrete");
+    expect(paintTarget(look("white_concrete"), "blue")?.typeId).toBe("minecraft:blue_concrete");
     expect(paintTarget(look("oak_double_slab"), "red")?.typeId).toBe("minecraft:red_concrete");
     // Already that color: nothing to do.
     expect(paintTarget(look("red_concrete"), "red")).toBeUndefined();
     const stairs = { weirdo_direction: 2, upside_down_bit: true, "minecraft:corner": "inner_left" };
-    expect(paintTarget(look("oak_stairs", stairs), "yellow")).toEqual({ typeId: "minecraft:yellow_concrete_stairs", states: stairs });
+    expect(paintTarget(look("oak_stairs", stairs), "blue")).toEqual({ typeId: "minecraft:blue_concrete_stairs", states: stairs });
     expect(paintTarget(look("oak_slab", { "minecraft:vertical_half": "top", wood_type: "oak" }), "red")).toEqual({ typeId: "minecraft:red_concrete_slab", states: { "minecraft:vertical_half": "top" } });
     expect(paintTarget(look("white_carpet", { color: "white" }), "blue")).toEqual({ typeId: "minecraft:blue_carpet", states: {} });
   });
@@ -171,8 +172,8 @@ describe("Paintball's paint", () => {
     expect(paintTarget(look("oak_fence", sides), "blue")?.states).toEqual({ "minecade:north": "true", "minecade:east": "false", "minecade:south": "true", "minecade:west": "false" });
     expect(paintTarget(look("glass_pane", sides), "blue")?.typeId).toBe("minecade:paint_blue_pane");
     expect(paintTarget(look("iron_bars", sides), "blue")?.typeId).toBe("minecade:paint_blue_pane");
-    expect(paintTarget(look("fence_gate", { "minecraft:cardinal_direction": "west", open_bit: true, in_wall_bit: false }), "green")).toEqual({
-      typeId: "minecade:paint_green_fence_gate",
+    expect(paintTarget(look("fence_gate", { "minecraft:cardinal_direction": "west", open_bit: true, in_wall_bit: false }), "blue")).toEqual({
+      typeId: "minecade:paint_blue_fence_gate",
       states: { "minecade:facing": "west", "minecade:open": "true", "minecade:in_wall": "false" },
     });
     expect(paintTarget(look("spruce_trapdoor", { direction: 3, open_bit: false, upside_down_bit: true }), "red")?.states).toEqual({ "minecade:facing": "north", "minecade:half": "top", "minecade:open": "false" });
@@ -244,9 +245,9 @@ describe("Paintball's paint", () => {
     const solid: [Vec, BlockLook][] = [];
     for (let x = -3; x <= 3; x++) for (let y = 60; y <= 64; y++) for (let z = -3; z <= 3; z++) solid.push([{ x, y, z }, look("stone")]);
     const { map, painter } = blocks(solid);
-    const count = painter.burst({ x: 0.5, y: 65, z: 0.5 }, 2.5, "green");
+    const count = painter.burst({ x: 0.5, y: 65, z: 0.5 }, 2.5, "blue");
     expect(count).toBeGreaterThan(9);
-    expect(painted(map, "green").every((key) => key.split(",")[1] === "64")).toBe(true);
+    expect(painted(map, "blue").every((key) => key.split(",")[1] === "64")).toBe(true);
 
     const door = blocks([
       [{ x: 0, y: 65, z: 0 }, look("wooden_door", { "minecraft:cardinal_direction": "south", open_bit: true, upper_block_bit: false, door_hinge_bit: false })],
@@ -313,21 +314,17 @@ describe("a match of Paintball", () => {
     expectBaseline(harness.root, baseline);
   });
 
-  it("plays as many teams as the Team count, Red, Blue, Yellow, then Green", async () => {
-    for (const [count, teams] of [
-      ["2", ["red", "blue"]],
-      ["3", ["red", "blue", "yellow"]],
-      ["4", ["red", "blue", "yellow", "green"]],
-    ] as const) {
-      const { baseline, game } = begin({ settings: { teamCount: count }, picks: {} });
-      await playToEnd(game, harness.root, baseline, async () => {
-        await ticks(COUNTDOWN_TICKS);
-        expect(game.teamDefs.map((team) => team.id)).toEqual(teams);
-        expect(new Set(NAMES.map((name) => game.teamOf(name)?.id)).size).toBe(teams.length);
-        everyoneLeaves();
-      });
-      expectBaseline(harness.root, baseline);
-    }
+  it("plays Red against Blue, two a side, with nobody's team picked", async () => {
+    // The match before ended with a win, its players still in the world: just these four now.
+    everyoneLeaves();
+    const { baseline, game } = begin({ picks: {} });
+    await playToEnd(game, harness.root, baseline, async () => {
+      await ticks(COUNTDOWN_TICKS);
+      expect(game.teamDefs.map((team) => team.id)).toEqual(["red", "blue"]);
+      expect(NAMES.map((name) => game.teamOf(name)?.id).sort()).toEqual(["blue", "blue", "red", "red"]);
+      everyoneLeaves();
+    });
+    expectBaseline(harness.root, baseline);
   });
 
   it("puts two power-ups out, hands a rifle in place of the pistol for 30 seconds, and paints where balls land", async () => {

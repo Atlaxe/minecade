@@ -230,8 +230,7 @@ as soon as they're past it unless the map sets a **Return delay** (`"returnDelay
 seconds); both with the map editor's Game settings tool. Voters are kept within the same padding of
 the box being voted on, and always put back at once.
 
-**Paintball** needs team spawns for all four teams (Red, Blue, Yellow and Green, at least 2 each,
-since a match can have any of 2 to 4 teams), bounds, at least 8 Power-up spots (the Game marker
+**Paintball** needs team spawns for Red and Blue (at least 2 each), bounds, at least 8 Power-up spots (the Game marker
 tool's Power-up spot list, drawn as the floating white rifle players see), and a spectator or queue
 spawn, where players wait out their 3 second respawn. Two power-ups are out at a time, never on the
 same spot, so spread the spots around the arena. Balls paint everything inside the bounds in the
