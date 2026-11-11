@@ -564,7 +564,9 @@ screenshot as the picture.
    with the others (`work/editor/shots/`, listed with where each was used in
    `work/editor/shots.json`), and saved as the map's `preview.png` or the game's `icon.png` (beside
    its maps in the store). Your view comes back. The Panel's checklist card ("Newest screenshot
-   as") and `npm run editor -- picture [game]` do the same. Publish puts both in the lobby.
+   as") and `npm run editor -- picture [game]` do the same. Publish puts the map's thumbnail in
+   the lobby. The game's picture needs no Publish: the lobby shows the saved one from the
+   network's next start.
 
 **Edit Map Thumbnail** and **Edit Minigame Thumbnail** (the gear) show the pictures kept so far for
 their kind, two to a row, the one in use outlined green; tap one to use it. A map's shows the maps'
@@ -577,7 +579,7 @@ then asks **Import map name?**: **Import name** gives this map that map's name a
 
 The Panel's map viewer picks pictures too, under **Pictures** in its Map settings (`docs/viewer.md`,
 "Pictures"): a map's thumbnail, and on a map checked as a **Minigame thumbnail map** the game's
-picture, with **Publish picture** to put the game's picture in the lobby without publishing a map.
+picture.
 
 **Mannequins** stand in for players in a game picture. With the Mannequin tool, use it on a block:
 "Mannequin 1" stands there at once, facing you, a plain red figure (a see-through mannequin shows
@@ -634,9 +636,8 @@ Panel it asks first. Then it:
 1. checks the checklist: a map with problems isn't published;
 2. removes `"draft"` (an undo step, like any change);
 3. saves the world into the map, when blocks changed since the last save;
-4. keeps the map's folder as a version in the map store and points the map's publish at it, with
-   the game's picture when it changed (a map given another id since its last Publish moves to the
-   new id here);
+4. keeps the map's folder as a version in the map store and points the map's publish at it (a
+   map given another id since its last Publish moves to the new id here);
 5. copies the store's database into its `backups\` and writes the store's `published\`: the
    catalog the network's build reads and the worlds its servers read (see "The map store" in
    [maps.md](maps.md)).

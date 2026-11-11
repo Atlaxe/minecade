@@ -197,14 +197,13 @@ export class MapStore {
   }
 
   /**
-   * Publishes the map as its working folder is now (a version, if it changed), and the game's
-   * working picture with it. "unchanged" when that's what was published already.
+   * Publishes the map as its working folder is now (a version, if it changed). "unchanged" when
+   * that's what was published already. The game's picture needs no Publish: exportPublished takes it.
    */
   publish(target: string, map: string, by?: string): PublishResult {
     const { version } = this.saveVersion(target, map, "publish", by);
     const row = this.liveRow(target, map)!;
-    const iconChanged = this.publishIcon(target);
-    if (row.published_version === version && row.published_id === map && !iconChanged) return { outcome: "unchanged", version };
+    if (row.published_version === version && row.published_id === map) return { outcome: "unchanged", version };
     // A map given another id since it was published under this one gives way.
     this.db.prepare("UPDATE maps SET published_id = NULL, published_version = NULL WHERE target = ? AND published_id = ? AND key != ?").run(target, map, row.key);
     this.db.prepare("UPDATE maps SET published_id = ?, published_version = ? WHERE key = ?").run(map, version, row.key);
@@ -220,25 +219,7 @@ export class MapStore {
     this.db.prepare("UPDATE maps SET published_id = ?, published_version = ? WHERE key = ?").run(map, version, row.key);
   }
 
-  /**
-   * Publishes the game's working picture alone, with no map (a minigame thumbnail map's picture,
-   * from the Panel's map viewer). True when it was new or changed; the database is backed up then.
-   */
-  publishPicture(target: string): boolean {
-    if (!this.publishIcon(target)) return false;
-    this.backup();
-    return true;
-  }
-
-  /** Whether the game's working picture is in the lobby: "none" without one, "published", or "changed" (new, or changed since). */
-  pictureState(target: string): "none" | "published" | "changed" {
-    const path = this.icon(target);
-    if (target === "lobby" || !existsSync(path)) return "none";
-    const current = this.db.prepare("SELECT sha256 FROM icons WHERE target = ?").get(target) as { sha256: string } | undefined;
-    return current?.sha256 === sha(readFileSync(path)) ? "published" : "changed";
-  }
-
-  /** Publishes `data` (a PNG) as a game's picture, whatever its working one is (import does). */
+  /** Keeps `data` (a PNG) as a game's picture in the lobby, whatever its working one is (import does). */
   setPublishedIcon(target: string, data: Buffer): void {
     const sha256 = sha(data);
     this.db.prepare("INSERT OR IGNORE INTO blobs (sha256, size, data) VALUES (?, ?, ?)").run(sha256, data.length, data);
@@ -320,8 +301,9 @@ export class MapStore {
    * Writes the published maps to `dest` (the store's published\ unless given), in two halves:
    * - catalog\: what the network's build reads (the Docker build's "maps" context): each map's card
    *   (<target>\<map>.json, MapCard) and preview (<target>\<map>.png), and each game's picture
-   *   (<game>\icon.png). A file is written only when its bytes change, so the build stays cached
-   *   while no map's name, kits or pictures did.
+   *   (<game>\icon.png), its saved one (takePictures: a game's picture is never held back for a
+   *   Publish, the user's rule). A file is written only when its bytes change, so the build stays
+   *   cached while no map's name, kits or pictures did.
    * - worlds\: what the servers read (mounted at /maps): each published version in a folder of its
    *   own, <target>\<map>\<version>\ (world\ with Beta APIs on, and map.json as servers read it),
    *   written once and never changed, and index.json naming each map's published version, swapped
@@ -332,6 +314,7 @@ export class MapStore {
    * the lobby's lists only when that's more than none.
    */
   exportPublished(dest = join(this.dir, "published")): { maps: number; icons: number; written: number; catalog: number } {
+    if (this.takePictures()) this.backup();
     const maps = this.db.prepare("SELECT key, target, published_id, published_version FROM maps WHERE deleted_at IS NULL AND published_version IS NOT NULL").all() as unknown as MapRow[];
     const icons = this.db.prepare("SELECT target, sha256 FROM icons").all() as { target: string; sha256: string }[];
     const catalog = join(dest, "catalog");
@@ -396,15 +379,27 @@ export class MapStore {
     this.db.close();
   }
 
-  /** Publishes the game's working picture when it's new or changed. True when it did. */
-  private publishIcon(target: string): boolean {
-    const path = this.icon(target);
-    if (target === "lobby" || !existsSync(path)) return false;
-    const data = readFileSync(path);
-    const current = this.db.prepare("SELECT sha256 FROM icons WHERE target = ?").get(target) as { sha256: string } | undefined;
-    if (current?.sha256 === sha(data)) return false;
-    this.setPublishedIcon(target, data);
-    return true;
+  /**
+   * Takes every game's saved picture (working\<game>\icon.png) as the one the lobby shows, whether
+   * or not any map was published since: a minigame thumbnail map is a draft that never is, and the
+   * picture taken on it is the game's all the same (the user's rule, 2026-11-11). True when one was
+   * new or changed. A game whose picture file is gone keeps the last one.
+   */
+  private takePictures(): boolean {
+    const working = join(this.dir, "working");
+    if (!existsSync(working)) return false;
+    let changed = false;
+    for (const entry of readdirSync(working, { withFileTypes: true })) {
+      if (!entry.isDirectory() || entry.name === "lobby") continue;
+      const path = this.icon(entry.name);
+      if (!existsSync(path)) continue;
+      const data = readFileSync(path);
+      const current = this.db.prepare("SELECT sha256 FROM icons WHERE target = ?").get(entry.name) as { sha256: string } | undefined;
+      if (current?.sha256 === sha(data)) continue;
+      this.setPublishedIcon(entry.name, data);
+      changed = true;
+    }
+    return changed;
   }
 
   private checkout(key: number, n: number, dest: string): void {

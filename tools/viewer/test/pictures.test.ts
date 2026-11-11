@@ -1,6 +1,6 @@
 // The map viewer's pictures (pictures.ts): a kept picture or the newest screenshot as a map's
-// thumbnail or its game's picture, the game's picture published alone, and the thumbnail a
-// minigame thumbnail map shows. The kept pictures and the map store are temporary folders here.
+// thumbnail or its game's picture, the game's picture reaching the lobby with no map published,
+// and the thumbnail a minigame thumbnail map shows. The kept pictures and the map store are temporary folders here.
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, utimesSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -8,7 +8,7 @@ import { fileURLToPath } from "node:url";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { encodePng } from "../../editor/png.ts";
 import { MapStore } from "../../maps/store.ts";
-import { publishGamePicture, shotPath, usePicture, viewerPictures } from "../pictures.ts";
+import { shotPath, usePicture, viewerPictures } from "../pictures.ts";
 import { viewerThumbPath } from "../routes.ts";
 
 /** The checkout: its games' configs name them. */
@@ -60,18 +60,18 @@ describe("usePicture", () => {
     expect(list.status).toBe(200);
     if (list.status !== 200) return;
     const id = list.pictures.shots[0].id;
-    expect(list.pictures).toEqual({ shots: [{ id, map: "Pit" }], current: { map: id }, game: "none" });
+    expect(list.pictures).toEqual({ shots: [{ id, map: "Pit" }], current: { map: id } });
     expect(shotPath(kept, id)).toBe(join(kept, "work", "editor", "shots", `${id}.png`));
   });
 
-  it("uses a kept picture as the game's picture, which isn't published until asked", async () => {
+  it("uses a kept picture as the game's picture", async () => {
     screenshot("shot.png", 5000);
     await use({ kind: "map", shot: "newest" });
     const id = ((await viewerPictures(root, "sumo", "pit", kept)) as { pictures: { shots: { id: string }[] } }).pictures.shots[0].id;
     const answer = await use({ kind: "game", shot: id });
-    expect(answer).toEqual({ status: 200, message: "Saved the minigame thumbnail for Sumo. Publish picture puts it in the lobby." });
+    expect(answer).toEqual({ status: 200, message: "Saved the minigame thumbnail for Sumo. The lobby shows it from the network's next start." });
     expect(readFileSync(join(store, "working", "sumo", "icon.png"))).toEqual(readFileSync(shotPath(kept, id)!));
-    expect(await viewerPictures(root, "sumo", "pit", kept)).toEqual({ status: 200, pictures: { shots: [{ id, map: "Pit", game: "Sumo" }], current: { map: id, game: id }, game: "changed" } });
+    expect(await viewerPictures(root, "sumo", "pit", kept)).toEqual({ status: 200, pictures: { shots: [{ id, map: "Pit", game: "Sumo" }], current: { map: id, game: id } } });
   });
 
   it("refuses the lobby, a picture that's gone, no screenshot, a map that isn't there and a bad ask", async () => {
@@ -87,23 +87,20 @@ describe("usePicture", () => {
   });
 });
 
-describe("publishGamePicture", () => {
-  it("publishes the game's picture alone, once, into the store's published catalog", async () => {
-    expect(await publishGamePicture(root, { target: "sumo" })).toEqual({ status: 422, error: "Sumo has no picture yet." });
-    writeFileSync(join(store, "working", "sumo", "icon.png"), "picture");
-    expect(await publishGamePicture(root, { target: "sumo" })).toEqual({ status: 200, message: "The minigame thumbnail for Sumo is published: the lobby shows it from the network's next start." });
-    expect(readFileSync(join(store, "published", "catalog", "sumo", "icon.png"), "utf8")).toBe("picture");
-    expect(await publishGamePicture(root, { target: "sumo" })).toEqual({ status: 200, message: "The minigame thumbnail for Sumo is published already." });
+describe("a game's picture", () => {
+  it("reaches the store's published catalog with no map published", async () => {
+    map("pit", { name: "Pit", spawns: [], draft: true, gameThumbnail: true });
+    screenshot("shot.png", 5000);
+    expect(await use({ kind: "game", shot: "newest" })).toMatchObject({ status: 200 });
     const opened = MapStore.open(store);
     try {
-      expect(opened.pictureState("sumo")).toBe("published");
-      // Pit itself stays unpublished.
+      opened.exportPublished();
+      // Pit, a draft thumbnail map, stays unpublished.
       expect(opened.published()).toEqual([]);
     } finally {
       opened.close();
     }
-    expect(await publishGamePicture(root, { target: "lobby" })).toMatchObject({ status: 422 });
-    expect(await publishGamePicture(root, { target: "../x" })).toMatchObject({ status: 400 });
+    expect(readFileSync(join(store, "published", "catalog", "sumo", "icon.png"))).toEqual(readFileSync(join(store, "working", "sumo", "icon.png")));
   });
 });
 

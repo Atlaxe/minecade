@@ -97,33 +97,34 @@ describe("publishing", () => {
     expect(store.published()).toEqual([{ target: "sumo", map: "pit", version: 2 }]);
   });
 
-  it("publishes the game's picture with it, and only a changed one counts", () => {
+  it("leaves the game's picture out of a map's Publish", () => {
     writeMap("sumo", "pit", "Pit");
     store.publish("sumo", "pit");
     writeFileSync(store.icon("sumo"), "picture 1");
-    expect(store.publish("sumo", "pit").outcome).toBe("published");
     expect(store.publish("sumo", "pit").outcome).toBe("unchanged");
-    store.exportPublished();
-    expect(readFileSync(published("catalog", "sumo", "icon.png"), "utf8")).toBe("picture 1");
   });
 
-  it("publishes the game's picture alone, and says whether it's the one in the lobby", () => {
-    expect(store.pictureState("sumo")).toBe("none");
-    expect(store.publishPicture("sumo")).toBe(false);
-    mkdirSync(join(store.dir, "working", "sumo"), { recursive: true });
+  it("writes each game's saved picture, with no map published, and backs it up when it changed", () => {
+    // A draft thumbnail map's game: nothing of it is published.
+    writeMap("sumo", "thumbnail", "Thumbnail");
     writeFileSync(store.icon("sumo"), "picture 1");
-    expect(store.pictureState("sumo")).toBe("changed");
-    expect(store.publishPicture("sumo")).toBe(true);
-    expect(store.pictureState("sumo")).toBe("published");
-    expect(store.publishPicture("sumo")).toBe(false);
-    expect(readdirSync(join(store.dir, "backups"))).toHaveLength(1);
-    store.exportPublished();
+    expect(store.exportPublished()).toMatchObject({ maps: 0, icons: 1, catalog: 1 });
     expect(readFileSync(published("catalog", "sumo", "icon.png"), "utf8")).toBe("picture 1");
+    expect(readdirSync(join(store.dir, "backups"))).toHaveLength(1);
+    // The same picture: nothing written, no backup.
+    expect(store.exportPublished().catalog).toBe(0);
+    expect(readdirSync(join(store.dir, "backups"))).toHaveLength(1);
     writeFileSync(store.icon("sumo"), "picture 2");
-    expect(store.pictureState("sumo")).toBe("changed");
-    // No map of the game was published.
+    expect(store.exportPublished().catalog).toBe(1);
+    expect(readFileSync(published("catalog", "sumo", "icon.png"), "utf8")).toBe("picture 2");
+    // A picture file that's gone keeps the last one; the lobby has none.
+    rmSync(store.icon("sumo"));
+    mkdirSync(join(store.dir, "working", "lobby"), { recursive: true });
+    writeFileSync(join(store.dir, "working", "lobby", "icon.png"), "not a game");
+    expect(store.exportPublished().catalog).toBe(0);
+    expect(readFileSync(published("catalog", "sumo", "icon.png"), "utf8")).toBe("picture 2");
+    expect(existsSync(published("catalog", "lobby", "icon.png"))).toBe(false);
     expect(store.published()).toEqual([]);
-    expect(store.pictureState("lobby")).toBe("none");
   });
 
   it("backs up the database each time, keeping the newest", () => {
@@ -289,7 +290,8 @@ describe("importing a git checkout", () => {
     store.exportPublished();
     const pit = index().sumo.pit;
     expect(readFileSync(published("worlds", "sumo", "pit", String(pit), "world", "db", "000001.log"), "utf8")).toBe("pit");
-    expect(readFileSync(published("catalog", "sumo", "icon.png"), "utf8")).toBe("picture 1");
+    // A game's picture is the saved one, published or not.
+    expect(readFileSync(published("catalog", "sumo", "icon.png"), "utf8")).toBe("picture 2");
     expect(JSON.parse(readFileSync(published("catalog", "lobby", "spaceship.json"), "utf8"))).toEqual({ name: "Spaceship", customNames: [] });
 
     const again = await importCheckout(store, checkout);

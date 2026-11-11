@@ -559,8 +559,8 @@ export class EditorSession extends ServerSession {
   /**
    * Keeps the newest screenshot on this PC (taken in the last few minutes) with the pictures used
    * before (shots.ts), cropped to 16:9 at 320x180, and uses it as the map's preview.png ("map") or
-   * the game's icon.png ("game"): the Snapshot's picture. Publish commits it. Undefined when it's
-   * saved, or why not.
+   * the game's icon.png ("game"): the Snapshot's picture. Publish puts a map's in the lobby; a game's
+   * needs none (the store's export takes it). Undefined when it's saved, or why not.
    */
   async picture(by: string, kind: ShotKind): Promise<string | undefined> {
     const problem = this.pictureProblem(by);
@@ -588,7 +588,7 @@ export class EditorSession extends ServerSession {
     }
     const what = kind === "map" ? `${this.config.name}'s thumbnail` : `${this.target.name}'s thumbnail`;
     this.note(`${by}: saved ${out} (320x180) ${from}.`);
-    this.tellOne(by, `§aSaved ${what} ${from}. Publish puts it in the lobby.`);
+    this.tellOne(by, `§aSaved ${what} ${from}. ${kind === "map" ? "Publish puts it in the lobby." : "The lobby shows it from the network's next start."}`);
     return undefined;
   }
 

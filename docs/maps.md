@@ -233,8 +233,8 @@ map: { teamSpawns: true, bounds: true, borrow: ["siege"] },
 - In the map editor, Preview can play a borrowed map as the game that borrows it ("Play as": see
   docs/editor.md, "Preview").
 - A game playing only borrowed maps has none of its own to take its picture on yet: the build
-  warns, and the lobby shows the stand-in picture. So does a game whose picture isn't published
-  yet: a missing picture never keeps the network from starting.
+  warns, and the lobby shows the stand-in picture. So does a game with no picture taken yet: a
+  missing picture never keeps the network from starting.
 
 To give a game a map of its own built from another game's, port it instead: the Panel's **Port to
 another game** (docs/viewer.md) copies the map's world, and nothing else of it, into a new draft
@@ -249,7 +249,7 @@ never go to GitHub. It's `..\maps` from the repo root, so the main checkout and 
 | In the store | What it is |
 | --- | --- |
 | `working\<target>\<map>\` | The map the map editor works on: `map.json`, `preview.png`, `world\`. `<target>` is `lobby` or a game id. |
-| `working\<game>\icon.png` | The game's picture, taken with the editor's Camera tool. |
+| `working\<game>\icon.png` | The game's picture, taken with the editor's Camera tool. It needs no Publish: every export takes the saved one (below). |
 | `maps.db` | Every map's versions and which one is published (node:sqlite). A version is the map's folder as it was; files that didn't change are stored once. |
 | `published\catalog\` | What the network's build reads: each published map's card (`<target>\<map>.json`: its name, its kits, and the custom blocks its world uses, for the network's cut of the blocks pack), its preview (`<target>\<map>.png`), and each game's picture (`<game>\icon.png`). |
 | `published\worlds\` | What the servers read, mounted at `/maps` in the lobby, the orchestrator and every game: each published version in a folder of its own (`<target>\<map>\<version>\`, the world with Beta APIs on and `map.json` as servers read it), and `index.json`, which names each map's published version. |
@@ -273,6 +273,11 @@ only what changed is written: a version's folder never changes once it's there, 
 is rewritten only when its bytes do. A server that starts while the index changes reads the old
 one or the new one, and both versions are there (the one before the published one stays; older
 ones go).
+
+Each game's picture in `published\catalog\` is the one saved in `working\<game>\icon.png`,
+whether or not any of its maps was published since: a minigame thumbnail map, the map a game's
+picture is taken on, is a draft that's never published. A new or changed picture is kept in
+`maps.db` (and backed up) as it's written, so the lobby shows it from the network's next start.
 
 The Docker build gets `published\catalog\` as a second build context (`maps` in
 `docker-compose.yml`), and compose mounts `published\worlds\` read-only at `/maps` in the lobby

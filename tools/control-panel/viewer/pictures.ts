@@ -2,17 +2,16 @@
 // on a minigame thumbnail map (its switch there, map.json's gameThumbnail), its game's picture,
 // each with Change: a dialog of the pictures kept so far (the map editor's shots, newest first) and
 // the newest screenshot, as game Edit's Edit Map Thumbnail and Edit Minigame Thumbnail offer them.
-// The game's picture also has Publish picture, which puts it in the lobby with no map published
-// (a thumbnail map is often a draft that never is). The Panel's side is tools/viewer/pictures.ts.
+// The game's picture needs no Publish: the lobby shows the saved one from the network's next start
+// (a thumbnail map is a draft that never is published). The Panel's side is tools/viewer/pictures.ts.
 import { el } from "./sidebar.ts";
 
 export type PictureKind = "map" | "game";
 
-/** GET /api/viewer/pictures: the kept pictures, which ones the map and its game use, and whether the game's is published. */
+/** GET /api/viewer/pictures: the kept pictures, and which ones the map and its game use. */
 export interface PictureList {
   shots: { id: string; map?: string; game?: string }[];
   current: { map?: string; game?: string };
-  game: "none" | "published" | "changed";
 }
 
 export interface PictureSource {
@@ -24,7 +23,7 @@ export interface PictureSource {
 }
 
 /** Posts to the Panel: its message, or its error. */
-export async function postPicture(path: "/api/viewer/picture" | "/api/viewer/publish-picture", body: Record<string, unknown>): Promise<{ message: string } | { error: string }> {
+export async function postPicture(path: "/api/viewer/picture", body: Record<string, unknown>): Promise<{ message: string } | { error: string }> {
   const sent = await fetch(path, { method: "POST", headers: { "content-type": "application/json", "x-minecade-panel": "1" }, body: JSON.stringify(body) }).catch(() => undefined);
   if (!sent) return { error: "the Panel didn't answer" };
   const answer = (await sent.json().catch(() => ({}))) as { message?: string; error?: string };

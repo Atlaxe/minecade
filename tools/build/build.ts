@@ -158,7 +158,7 @@ async function loadTarget(id: string, dir: string, configPath?: string): Promise
     // A game playing only other games' maps has none of its own to take its picture on yet: the lobby shows the stand-in.
     else if (borrowedOnly) warn(dir, ["has no picture yet (it plays only other games' maps): the lobby shows the stand-in picture"]);
     // Without one the lobby shows the stand-in too: a missing picture never keeps the network from starting.
-    else warn(dir, ["has no published picture yet, so the lobby shows the stand-in picture (take one with the map editor's Camera tool on its thumbnail map, and Publish picture)"]);
+    else warn(dir, ["has no picture yet, so the lobby shows the stand-in picture (take one with the map editor's Camera tool on its thumbnail map)"]);
   }
   return target;
 }

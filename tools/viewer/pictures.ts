@@ -2,27 +2,24 @@
 // minigame thumbnail map (map.json's gameThumbnail, a switch in Map settings), its game's picture,
 // picked from the pictures kept so far (the map editor's shots, tools/editor/shots.ts) or the
 // newest screenshot, as game Edit's Edit Map Thumbnail and Edit Minigame Thumbnail do. A game's
-// picture reaches the lobby with any of its maps' Publish, or alone with Publish picture here: a
-// thumbnail map is often a draft that's never published itself.
-//   GET  /api/viewer/pictures?target=<id>&map=<id>    the kept pictures, which ones the map and its
-//                                                      game use, and whether the game's is published
+// picture needs no Publish: the lobby shows the saved one from the network's next start (the map
+// store's export takes it), as a thumbnail map is a draft that's never published itself.
+//   GET  /api/viewer/pictures?target=<id>&map=<id>    the kept pictures, and which ones the map
+//                                                      and its game use
 //   GET  /api/viewer/shot?id=<id>                      a kept picture (a 320x180 PNG)
 //   POST /api/viewer/picture {target, map, kind, shot} a kept picture (its id), or "newest" for the
 //                                                      newest screenshot, as the map's thumbnail
 //                                                      ("map") or its game's picture ("game")
-//   POST /api/viewer/publish-picture {target}          publishes the game's picture alone
 import { existsSync, readFileSync } from "node:fs";
 import { basename, join } from "node:path";
 import { loadTarget } from "../editor/targets.ts";
 import { keepNewestScreenshot, readShots, shotFile, shotOf, shotUses, useShot, type ShotKind } from "../editor/shots.ts";
 import { storeDir, workingDir } from "../maps/paths.ts";
-import { MapStore } from "../maps/store.ts";
 import { mapJsonPath } from "./map-data.ts";
 
 /** Who keeps a screenshot taken from the Panel (shots.json's `by`). */
 export const PANEL_BY = "the Panel";
 
-const ID = /^[A-Za-z0-9_-]+$/;
 const SHOT = /^[a-z0-9_]+$/;
 
 export interface PictureList {
@@ -30,8 +27,6 @@ export interface PictureList {
   shots: { id: string; map?: string; game?: string }[];
   /** The kept picture the map's thumbnail and its game's picture are, or "own" for one that isn't kept; none without a picture. */
   current: { map?: string; game?: string };
-  /** Whether the game's picture is in the lobby: "none" without one, "published", or "changed" (new, or changed since). */
-  game: "none" | "published" | "changed";
 }
 
 export interface PictureOptions {
@@ -71,14 +66,7 @@ export async function viewerPictures(root: string, target: string, map: string, 
   if (existsSync(preview)) current.map = (await shotOf(kept, preview, shots)) ?? "own";
   const icon = gamePicturePath(root, target);
   if (existsSync(icon)) current.game = (await shotOf(kept, icon, shots)) ?? "own";
-  const store = MapStore.open(storeDir(root));
-  let game: PictureList["game"];
-  try {
-    game = store.pictureState(target);
-  } finally {
-    store.close();
-  }
-  return { status: 200, pictures: { shots: shots.map((shot) => ({ id: shot.id, ...shotUses(shot) })), current, game } };
+  return { status: 200, pictures: { shots: shots.map((shot) => ({ id: shot.id, ...shotUses(shot) })), current } };
 }
 
 /** A kept picture's file, or undefined when there's no such picture. */
@@ -134,32 +122,5 @@ export async function usePicture(root: string, body: Record<string, unknown>, op
   if (failed) return { status: 404, error: `No picture saved: ${failed}.` };
   return kind === "map"
     ? { status: 200, message: `Saved the thumbnail for ${mapName}${from}. Publish puts it in the lobby.` }
-    : { status: 200, message: `Saved the minigame thumbnail for ${targetName}${from}. Publish picture puts it in the lobby.` };
-}
-
-/** Publishes a game's picture alone (no map), and writes the store's published\ when it changed. */
-export async function publishGamePicture(root: string, body: Record<string, unknown>): Promise<PictureAnswer> {
-  const target = typeof body.target === "string" ? body.target : "";
-  if (!ID.test(target)) return { status: 400, error: "expected {target}" };
-  if (target === "lobby") return { status: 422, error: "The lobby has no picture of its own." };
-  let targetName: string;
-  try {
-    targetName = (await loadTarget(root, target)).name;
-  } catch (error) {
-    return { status: 404, error: error instanceof Error ? error.message : String(error) };
-  }
-  const store = MapStore.open(storeDir(root));
-  try {
-    if (store.pictureState(target) === "none") return { status: 422, error: `${targetName} has no picture yet.` };
-    if (!store.publishPicture(target)) return { status: 200, message: `The minigame thumbnail for ${targetName} is published already.` };
-    try {
-      store.exportPublished();
-    } catch (error) {
-      // The Panel's Start writes it again.
-      return { status: 200, message: `The minigame thumbnail for ${targetName} is published, but the store's published folder wasn't written (${error instanceof Error ? error.message : String(error)}): the network's next Start writes it.` };
-    }
-    return { status: 200, message: `The minigame thumbnail for ${targetName} is published: the lobby shows it from the network's next start.` };
-  } finally {
-    store.close();
-  }
+    : { status: 200, message: `Saved the minigame thumbnail for ${targetName}${from}. The lobby shows it from the network's next start.` };
 }

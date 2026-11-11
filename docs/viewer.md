@@ -420,12 +420,10 @@ in Map settings (a game's maps only; the lobby shows no picture of its own map):
   Its card on the Maps page and its thumbnail in the top bar then show the game's picture, and the
   card goes first in its game, on a shaded card titled with the game's name and Thumbnail. It
   changes nothing else: the map is still a map of its game.
-- **Minigame thumbnail** (while the box is checked): the game's picture, whether it's **Published**
-  or **Not published yet**, **Change**, and **Publish picture**, which asks first, then puts the
-  game's picture in the lobby with no map published (a thumbnail map is often a draft that never
-  is) and writes the store's `published\`. The lobby shows it from the network's next start. A
-  Publish of any of the game's maps (here or in game Edit) publishes a changed picture too, as
-  before.
+- **Minigame thumbnail** (while the box is checked): the game's picture and **Change**. It needs no
+  Publish (a thumbnail map is a draft that never is published): the lobby shows the picture saved
+  here or in game Edit from the network's next start, since every Start writes each game's saved
+  picture into the store's `published\` (`docs/maps.md`, "The map store").
 - **Map thumbnail:** the map's own picture and **Change**. Publish puts it in the lobby with the map.
 
 **Change** opens a dialog: **Use newest screenshot** (one taken in the last 10 minutes on this PC,
@@ -437,8 +435,8 @@ Map settings, the top bar and Maps follow. They follow game Edit's pictures too 
 window comes back to the front.
 
 The Panel's routes are GET `/api/viewer/pictures?target=&map=`, GET `/api/viewer/shot?id=`, POST
-`/api/viewer/picture {target, map, kind: "map" | "game", shot: id | "newest"}` and POST
-`/api/viewer/publish-picture {target}` (`tools/viewer/pictures.ts`). They write the picture files
+`/api/viewer/picture {target, map, kind: "map" | "game", shot: id | "newest"}`
+(`tools/viewer/pictures.ts`). They write the picture files
 themselves, with or without the map editor; game Edit's thumbnail menus show a picture changed
 here from the next time it opens the map.
 

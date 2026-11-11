@@ -15,7 +15,7 @@
 import { QUEUE_COUNTDOWN, isMapKey, mapSettings, mapTimeTicks, queueSettings, settingText, type EditorRules, type MapConfig, type MapEdit, type MapTime } from "@minecade/minigame-core/config";
 import { TIME_PRESETS, clockText, hoursLater, parseClock, presetOf } from "../../../editor/behavior_pack/scripts/time-of-day.ts";
 import { MAX_NAME } from "../../viewer/edit-check.ts";
-import { loadPictures, openPictureDialog, pictureUrl, postPicture, type PictureKind, type PictureList } from "./pictures.ts";
+import { loadPictures, openPictureDialog, pictureUrl, type PictureKind, type PictureList } from "./pictures.ts";
 import { el } from "./sidebar.ts";
 
 export interface MapSettingsOptions {
@@ -226,7 +226,8 @@ export class MapSettings {
 
   /**
    * A game's map's pictures: the Minigame thumbnail map switch, the game's picture on such a map
-   * (Change, and Publish picture while the lobby doesn't have it), and the map's own thumbnail.
+   * (Change: the lobby shows the saved one from the network's next start, with no Publish), and
+   * the map's own thumbnail.
    */
   private picturesPart(config: MapConfig): HTMLElement | null {
     const { rules, target, map, targetName } = this.options;
@@ -251,43 +252,12 @@ export class MapSettings {
         },
         "Change",
       );
-    const state = list?.game ?? "none";
-    const publish = el(
-      "button",
-      {
-        className: "small",
-        disabled: state !== "changed",
-        dataset: { tip: state === "changed" ? "Put the minigame thumbnail in the lobby, with no map published" : state === "published" ? "The lobby has this picture already" : `${targetName} has no picture yet` },
-      },
-      "Publish picture",
-    );
-    publish.addEventListener("click", async () => {
-      if (!confirm(`Publish the minigame thumbnail for ${targetName}? The lobby shows it from the network's next start.`)) return;
-      publish.disabled = true;
-      const answer = await postPicture("/api/viewer/publish-picture", { target });
-      if ("error" in answer) this.options.note(`Not published: ${answer.error}`);
-      else this.options.told(answer.message);
-      void this.refreshPictures();
-    });
     return el(
       "div",
       {},
       el("div", { className: "group-label" }, "Pictures"),
       el("div", { className: "setting" }, el("label", { className: "field-row" }, box, "Minigame thumbnail map")),
-      on
-        ? el(
-            "div",
-            { className: "setting" },
-            el(
-              "div",
-              { className: "picture-head" },
-              el("span", { className: "strong" }, "Minigame thumbnail"),
-              state === "none" ? null : el("span", { className: `pill ${state === "published" ? "ok" : "warn"}` }, state === "published" ? "Published" : "Not published yet"),
-            ),
-            frame("game"),
-            el("div", { className: "buttons tight" }, change("game"), publish),
-          )
-        : null,
+      on ? el("div", { className: "setting" }, el("span", { className: "strong" }, "Minigame thumbnail"), frame("game"), el("div", { className: "buttons tight" }, change("game"))) : null,
       el("div", { className: "setting" }, el("span", { className: "strong" }, "Map thumbnail"), frame("map"), el("div", { className: "buttons tight" }, change("map"))),
     );
   }
