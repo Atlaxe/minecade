@@ -458,6 +458,45 @@ spawn away from everyone: core's `spawnAway`), late joiners welcome, a 10 minute
 - **Maps:** One in the Quiver's (`map.borrow`). It has no picture of its own yet: the lobby shows the
   stand-in until one is taken. Previews: open a Quiver map in Edit, Preview, Play as Gun Game.
 
+## Chameleon
+
+Hide and seek where the hiders wear the blocks around them: 2 to 8 players, one seeker (the
+lobby's Seekers pick, else dealt) and everyone else hiding. `games/chameleon`.
+
+- **The hide:** after the countdown at the team spawns, the seekers wait at theirs, unable to move
+  and blinded, for the map's Hide time (its `hideSeconds` setting in the map editor's Game settings
+  tool, 30 seconds unless set); nobody can be hit meanwhile. Then "Ready or not!" and the seek runs
+  on a 5 minute clock.
+- **Hotbars** (handed out by the game, each item named and locked in its slot): hiders get Wear
+  block, Pose, Lock position, Taunt and Free look (wool for now) with the first slot free, and
+  weakness; seekers get the Pump Shotgun and the Detector (cyan wool for now).
+- **Finding:** the seekers' Pump Shotgun never runs out or reloads (only its fire rate holds it
+  back) and hits only hiders, or a hider's free look stand-in, which brings that hider back to it;
+  shots pass through other seekers. A hider shot down "was found by" the seeker and, 3 seconds
+  later, comes back at the seekers' spawn as a seeker. A hider who falls out of the map is found
+  too; a seeker who does just comes back. A seeker's own hits do nothing.
+- **Hiders hitting seekers:** throws the seeker the way the hider faces, about as far as knockback 5
+  would, and takes half a heart, never the last; the same seeker can be thrown again after half a
+  second (the config's `hiderHit`).
+- **The Detector:** right click for how near the nearest hider (or stand-in) is: beeps, more and
+  quicker the nearer, and a word in chat (Hot within 8 blocks, Warm to 16, Cool to 32, Cold past
+  that), then 10 seconds before it works again. While it's held, the experience bar empties as the
+  wait runs out and the level shows the seconds left (the config's `detector`).
+- **HUD:** the clock, and how many hiders are left top right. Every hider's costume is a picture on
+  the right (the chameleon pack's); a found hider's goes.
+- **The win:** the seekers, once every hider is found; the hiders, when the clock runs out with any
+  of them still hidden, or if every seeker leaves. Alone (a test with `DEV_MIN_PLAYERS=1`) you hide,
+  and the match runs until the clock does.
+- **The hiders' side** (wearing a block, the poses, the close camera, Lock position, Taunt, free
+  look's stand-in, being seen by other hiders only up close, the costume pictures) is the chameleon
+  pack, a private pack in `games/chameleon/private_packs/` (its README) that the workshop's
+  chameleon-test project builds and installs, since it copies Minecraft's player files and textures.
+  It knows a hider by their Wear block item and a seeker by their Detector, and the game tells it the
+  rest by script events (`PACK_EVENTS`: a match is on, bring a hider back, a hider is found). Free
+  look's stand-in is tagged with its hider's name. Without the pack the game plays, and the hiders
+  look like themselves.
+- **Maps** need a spawn for the seekers and one for the hiders. It has no map or picture yet.
+
 ## The prompt form
 
 Build Swap has every player write prompts before the match, in a live form like the kit form

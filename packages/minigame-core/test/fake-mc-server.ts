@@ -212,6 +212,14 @@ class FakeSystem {
     }
   }
 
+  /** Script events a script sent (sendScriptEvent), oldest first; delivered too, as BDS does. */
+  readonly scriptEventsSent: { id: string; message: string }[] = [];
+
+  sendScriptEvent(id: string, message: string): void {
+    this.scriptEventsSent.push({ id, message });
+    this.emitScriptEvent(id, message);
+  }
+
   /** Test helper: delivers a script event, filtered by namespace as BDS does. */
   emitScriptEvent(id: string, message: string, sourceType: ScriptEventSource = ScriptEventSource.Server): void {
     const namespace = id.split(":")[0];
@@ -229,6 +237,7 @@ class FakeSystem {
     this.currentTick = 0;
     this.runs.clear();
     this.afterEvents.scriptEventReceive.clear();
+    this.scriptEventsSent.length = 0;
   }
 
   private schedule(run: ScheduledRun): number {
@@ -418,6 +427,8 @@ export class FakePlayer {
   gameMode: string = GameMode.Adventure;
   onFire = false;
   level = 0;
+  /** Experience points toward the next level (addExperience); resetLevel clears them too. */
+  xp = 0;
   readonly effects = new Map<string, { amplifier: number; duration: number }>();
   readonly inventory = new FakeContainer();
   readonly equipment = new Map<string, ItemStack | undefined>();
@@ -567,6 +578,7 @@ export class FakePlayer {
   resetLevel(): void {
     writable("Player::resetLevel");
     this.level = 0;
+    this.xp = 0;
   }
 
   addLevels(amount: number): number {
@@ -574,6 +586,13 @@ export class FakePlayer {
     this.level += amount;
     if (amount > 0) this.levelsGained.push(this.level);
     return this.level;
+  }
+
+  /** Points toward the next level (none past it here: a test sets less than a level's worth). */
+  addExperience(amount: number): number {
+    writable("Player::addExperience");
+    this.xp += amount;
+    return this.xp;
   }
 
   applyDamage(amount: number): boolean {
@@ -624,6 +643,7 @@ export class FakeMob {
   readonly commands: string[] = [];
   rotation = { x: 0, y: 0 };
   isInWater = false;
+  readonly tags = new Set<string>();
   /** As a projectile (an arrow): who shot it, and the velocity it was shot at. */
   readonly projectile: { owner?: unknown; shot?: Vector3; shoot(velocity: Vector3): void } = {
     shoot: (velocity: Vector3) => {
@@ -636,6 +656,21 @@ export class FakeMob {
     this.typeId = typeId;
     this.id = String(nextEntityId++);
     this.location = { ...location };
+  }
+
+  addTag(tag: string): boolean {
+    writable("Entity::addTag");
+    const added = !this.tags.has(tag);
+    this.tags.add(tag);
+    return added;
+  }
+
+  getTags(): string[] {
+    return [...this.tags];
+  }
+
+  hasTag(tag: string): boolean {
+    return this.tags.has(tag);
   }
 
   getComponent(id: string): unknown {
@@ -909,6 +944,11 @@ class FakeDimension {
       return within({ x, y, z }, volume.from, volume.to);
     })) throw new Error("UnloadedChunksError");
     return { getBlockLocationIterator: () => found };
+  }
+
+  /** Spawned mobs still in the world, of one type when asked. */
+  getEntities(options: { type?: string } = {}): FakeMob[] {
+    return this.spawned.filter((mob) => mob.isValid && (options.type === undefined || mob.typeId === options.type));
   }
 
   spawnEntity(typeId: string, location: Vector3): FakeMob {
