@@ -531,7 +531,7 @@ describe("waiting without a queue spawn", () => {
   const config: GameConfig = { id: "waiting", name: "Waiting", minPlayers: 2, maxPlayers: 3, countdownSeconds: 2, endDelaySeconds: 1 };
   const at = (player: FakePlayer) => [player.location.x, player.location.y, player.location.z];
 
-  it("looks through a camera with Start view on: held under its lens, locked in, unseen, on a floor, then off to the spawns", async () => {
+  it("looks through a camera with Start view on: held under its lens, locked in, unseen, on a floor, through the countdown, then off to the spawns at Go!", async () => {
     const [a, b] = ["A", "B"].map((name) => world.join(name));
     const baseline = snapshot();
     // The map editor's cameras stay in the editor; servers get the lens to look through, the first
@@ -559,15 +559,44 @@ describe("waiting without a queue spawn", () => {
       a.location = { x: 5.5, y: 104, z: -2.5 };
       await ticks(2);
       expect(at(a)).toEqual([5.5, 109, -2.5]);
-      // C comes: everyone's in, so off to the spawns for the countdown, their own view back.
+      // C comes: everyone's in, and the countdown runs where they are, still looking through the camera.
       const c = world.join("C");
       await ticks(25);
       expect(game.phase).toBe("countdown");
+      expect([at(a), at(b), at(c)]).toEqual([[5.5, 109, -2.5], [5.5, 109, -2.5], [5.5, 109, -2.5]]);
+      expect(c.camera.view?.preset).toBe("minecraft:free");
+      expect(a.titles.at(-1)).toContain("Waiting is starting");
+      expect(world.overworld.blocks.get("5,108,-3")).toBe("minecraft:barrier");
+      // "Go!": at their spawns, their own view back, seen and named.
+      await ticks(2 * 20);
+      expect(game.phase).toBe("playing");
       expect([at(a), at(b), at(c)]).toEqual([[0.5, 65, 0.5], [4.5, 65, 0.5], [-3.5, 65, 0.5]]);
-      expect(a.camera.view).toBeUndefined();
+      expect([a, b, c].map((player) => player.camera.view)).toEqual([undefined, undefined, undefined]);
       expect(a.effects.has("invisibility")).toBe(false);
-      expect(a.nameTag).toBe("A");
+      expect(a.unlocked).toBe(true);
       expect(world.overworld.blocks.has("5,108,-3")).toBe(false);
+      game.finish({ kind: "draw", reason: "test over" });
+      await ticks(2);
+    });
+    expectBaseline(baseline);
+    everyoneLeaves();
+  });
+
+  it("keeps everyone locked in at the camera when its countdown falls through", async () => {
+    const [a] = ["A", "B"].map((name) => world.join(name));
+    const baseline = snapshot();
+    const map = runtimeMapConfig({ ...ARENA, cameras: { "Camera 1": { at: [5.5, 80.62, -2.5, 90, 30], kind: "map" } } });
+    const game = new TestGame(harness.context(["A", "B"], map), { ...config, countdownSeconds: 5 });
+    await playToEnd(game, baseline, async () => {
+      await ticks(25);
+      expect(game.phase).toBe("countdown");
+      world.leave("B");
+      await ticks(25);
+      expect(game.phase).toBe("waiting");
+      expect(at(a)).toEqual([5.5, 79, -2.5]);
+      expect(a.unlocked).toBe(false);
+      expect(a.camera.view?.preset).toBe("minecraft:free");
+      expect(a.effects.has("invisibility")).toBe(true);
       game.finish({ kind: "draw", reason: "test over" });
       await ticks(2);
     });

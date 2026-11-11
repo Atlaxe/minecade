@@ -94,8 +94,10 @@ Before the match, best first (the user's order):
    comes before a game picture, each kind in name order. Everyone waits under its lens, unable to
    move, looking through it (the free camera at its eye point, its yaw and pitch), held up on a
    barrier if it's in the air, and invisible with no name tag. Once everyone's in (and has picked
-   a kit), they go to their spawns for the usual frozen countdown, their own view back. A fall off
-   the spot is caught within 2 ticks; the bounds don't apply to it.
+   a kit), the game's countdown runs there, still looking through it, and "Go!" puts them at
+   their spawns, their own view back (a queue spawn's players go to their spawns for the
+   countdown instead). A countdown that falls through leaves them locked in at the camera. A fall
+   off the spot is caught within 2 ticks; the bounds don't apply to it.
 3. **Their spawns**, when there's neither.
 
 **Sharing a spot:** a locked queue and the camera view are one spot for everyone, so everyone

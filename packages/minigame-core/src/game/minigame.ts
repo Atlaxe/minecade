@@ -493,10 +493,15 @@ export abstract class Minigame<C extends GameConfig = GameConfig> {
         this.unplanTeams();
         continue;
       }
-      if (this.held) this.requeue(false);
+      // The queue's players go to their spawns for the countdown. The camera view's count down where
+      // they are, looking through it, and go to their spawns at "Go!" (begin).
+      if (this.held === "queue") this.requeue(false);
       if (await this.countdown()) break;
       this.unplanTeams();
+      // Back to waiting, locked in again where they wait (the countdown's freeze let them go).
+      if (this.held) this.requeue(true);
     }
+    this.held = undefined;
     pregame.dispose();
     if (this.outcome) return this.conclude(this.outcome);
 
