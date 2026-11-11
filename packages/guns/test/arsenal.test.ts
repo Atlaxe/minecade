@@ -260,11 +260,15 @@ describe("thrown", () => {
     expect(bo.knockbacks[0].z).toBeGreaterThan(0);
   });
 
-  it("a Molotov breaks where it hits and leaves flames on the ground that hurt whoever stands in them, for a while", () => {
+  it("a Molotov breaks where it hits and sets the floor around alight, hurting whoever stands in the flames, for a while", () => {
     const { hurts, spawned, particles } = setup();
     const ann = player("Ann", { x: 0.5, y: 65, z: 0.5 }, gun("molotov"));
-    player("Bo", { x: 1.5, y: 65, z: 6.5 });
-    stone(0, 64, 5);
+    const bo = player("Bo", { x: 1.5, y: 65, z: 6.5 });
+    // A stone floor around where it breaks, a step up to the east, and a wall to the west.
+    for (let x = -5; x <= 5; x++) for (let z = 0; z <= 10; z++) stone(x, 64, z);
+    for (let z = 0; z <= 10; z++) stone(3, 65, z);
+    for (let z = 0; z <= 10; z++) for (let y = 65; y <= 67; y++) stone(-2, y, z);
+    world.overworld.blocks.set("0,65,7", "minecraft:oak_fence");
     use(ann);
     const [thrown] = spawned(THROWN_ARSENAL);
     thrown.location = { x: 0.5, y: 65, z: 5.5 };
@@ -277,10 +281,43 @@ describe("thrown", () => {
     const burns = hurts.filter((hurt) => hurt.cause === "fire");
     expect(burns.length).toBeGreaterThanOrEqual(3);
     expect(burns[0]).toEqual({ victim: "Bo", attacker: "Ann", amount: FIRE.damage, cause: "fire" });
+    // Fire blocks on the floor in its circle: up on the step and the fence too, never in place of a
+    // block, never past the wall or behind the fence.
+    const alight = () => [...world.overworld.blocks].filter(([, typeId]) => typeId === "minecraft:fire").map(([key]) => key);
+    expect(alight()).toEqual(expect.arrayContaining(["0,65,5", "1,65,6", "-1,65,5", "3,66,5", "0,66,7"]));
+    expect(alight()).not.toContain("0,65,7");
+    expect(alight()).not.toContain("0,65,8");
+    expect(alight().filter((key) => Number(key.split(",")[0]) < -1)).toEqual([]);
+    expect(alight().every((key) => Math.hypot(Number(key.split(",")[0]), Number(key.split(",")[2]) - 5) <= FIRE.radius)).toBe(true);
+    expect(world.overworld.blocks.get("0,65,7")).toBe("minecraft:oak_fence");
+    // Out of the flames, Minecraft's own burning goes out.
+    bo.onFire = true;
+    bo.location = { x: 0.5, y: 65, z: 9.5 };
+    system.advanceTicks(2);
+    expect(bo.onFire).toBe(false);
+    const stepped = hurts.length;
+    system.advanceTicks(FIRE.everyTicks * 2);
+    expect(hurts).toHaveLength(stepped);
     system.advanceTicks(FIRE.seconds * 20);
     const later = hurts.length;
     system.advanceTicks(FIRE.everyTicks * 3);
     expect(hurts).toHaveLength(later);
+    expect(alight()).toEqual([]);
+  });
+
+  it("puts a Molotov's flames out when its scope ends, and only its own", () => {
+    const { scope, spawned } = setup();
+    const ann = player("Ann", { x: 0.5, y: 65, z: 0.5 }, gun("molotov"));
+    for (let x = -4; x <= 4; x++) for (let z = 1; z <= 9; z++) stone(x, 64, z);
+    world.overworld.blocks.set("4,65,5", "minecraft:fire");
+    use(ann);
+    const [thrown] = spawned(THROWN_ARSENAL);
+    thrown.location = { x: 0.5, y: 65, z: 5.5 };
+    world.projectileHitsBlock(thrown, { x: 0, y: 64, z: 5 }, Direction.Up, ann);
+    expect(world.overworld.blocks.get("0,65,5")).toBe("minecraft:fire");
+    scope.dispose();
+    expect(world.overworld.blocks.get("0,65,5")).toBeUndefined();
+    expect(world.overworld.blocks.get("4,65,5")).toBe("minecraft:fire");
   });
 
   it("a flashbang whites out players who can see it: more close up and looking at it, less looking away, none behind a wall", () => {
@@ -375,7 +412,7 @@ describe("the stimpack", () => {
 });
 
 describe("vanilla weapons", () => {
-  it("make a crossbow's arrow and a netherite sword's hit one-hit kills, and leave everything else to the game", () => {
+  it("make a crossbow's arrow and a netherite sword's hit one-hit kills, cancel fire's own damage, and leave everything else to the game", () => {
     const { arsenal } = setup();
     player("Ann", { x: 0.5, y: 65, z: 0.5 }, "minecraft:netherite_sword");
     player("Bo", { x: 0.5, y: 65, z: 0.5 }, "minecraft:iron_sword");
@@ -383,6 +420,9 @@ describe("vanilla weapons", () => {
     expect(arsenal.vanillaDamage({ victim: "Cy", attacker: "Ann", cause: "entityAttack", damage: 8 })).toBe(LETHAL);
     expect(arsenal.vanillaDamage({ victim: "Cy", attacker: "Bo", cause: "entityAttack", damage: 6 })).toBeUndefined();
     expect(arsenal.vanillaDamage({ victim: "Cy", cause: "fall", damage: 3 })).toBeUndefined();
+    // Fire's own damage: a Molotov's flames hurt by its own rule instead.
+    expect(arsenal.vanillaDamage({ victim: "Cy", cause: "fire", damage: 1 })).toBe("cancel");
+    expect(arsenal.vanillaDamage({ victim: "Cy", cause: "fireTick", damage: 1 })).toBe("cancel");
   });
 
   it("keep crossbow carriers in arrows above the hotbar, and take landed arrows away", () => {

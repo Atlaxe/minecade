@@ -67,10 +67,16 @@ const fire = (player: FakePlayer) => {
 };
 const live = (typeId: string) => world.overworld.spawned.filter((mob) => mob.typeId === typeId && mob.isValid);
 
-/** `shooter` fires once and the ball lands on `victim`, `height` blocks over their feet. */
+/**
+ * `shooter` fires once and the ball lands on `victim`, `height` blocks over their feet: fired at the
+ * sky, so nothing is in its first tick's reach and a ball flies, which the test then lands.
+ */
 async function shoot(shooter: FakePlayer, victim: FakePlayer, height = 1): Promise<void> {
   const before = new Set(live(PAINTBALL));
+  const view = shooter.viewDirection;
+  shooter.viewDirection = { x: 0, y: 1, z: 0 };
   fire(shooter);
+  shooter.viewDirection = view;
   const ball = live(PAINTBALL).find((mob) => !before.has(mob));
   expect(ball, `${shooter.name} fired`).toBeDefined();
   world.projectileHitsEntity(ball!, victim, { x: victim.location.x, y: victim.location.y + height, z: victim.location.z }, shooter);
@@ -436,6 +442,25 @@ describe("a match of Paintball", () => {
       everyoneLeaves();
     });
     expect(statsRows(harness.sent, from).find((row) => row.n === "A")?.x?.painted).toBe(21);
+    expectBaseline(harness.root, baseline);
+  });
+
+  it("hits a player up close: a ball's first tick lands on whoever is right in front", async () => {
+    const { a, c, baseline, game } = begin();
+    await playToEnd(game, harness.root, baseline, async () => {
+      await ticks(COUNTDOWN_TICKS + config.respawn.protectSeconds * 20 + 5);
+      expect(game.phase).toBe("playing");
+      a.location = { x: 0.5, y: 65, z: 0.5 };
+      a.viewDirection = { x: 0, y: 0, z: 1 };
+      c.location = { x: 0.5, y: 65, z: 2.5 };
+      const balls = live(PAINTBALL).length;
+      fire(a);
+      // No ball flew: it landed on C at once, coloring the piece at the eyes' height.
+      expect(live(PAINTBALL)).toHaveLength(balls);
+      expect(armor(c)[0]).toBe("minecade:purple_leather_helmet");
+      expect(c.health.currentValue).toBe(15);
+      everyoneLeaves();
+    });
     expectBaseline(harness.root, baseline);
   });
 

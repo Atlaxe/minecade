@@ -53,7 +53,7 @@ asks for the team's color with `teamGunItem(kind)`. White is the pickups' look.
 
 | Gun | Fires (right click) | Every (ticks) | Balls | Spread | Range | Sound |
 |---|---|---|---|---|---|---|
-| Paintball Pistol | One shot a press | 6 | 1 | 2.5 degrees | 2 s of flight | `mob.llama.spit`, high |
+| Paintball Pistol | One shot a press | 4 | 1 | 2.5 degrees | 2 s of flight | `mob.llama.spit`, high |
 | Paintball Rifle | Again and again while held | 4 | 1 | 5 degrees | 2 s of flight | `mob.llama.spit`, higher |
 | Paintball Shotgun | One spray a press | 20 | 6 | 12 degrees | Half a second of flight; at most 2 of a spray count on one target | `mob.llama.spit`, low |
 | Paint Grenade | Thrown with either click, used up | 10 | | | 10 s | Lands, swells for a second, bursts |
@@ -83,7 +83,7 @@ before its magazine is empty.
 | Rail Gun | `rail_gun` | tap: a beam | 40 | 20 | 4, 3 s | aims (zoom 40, dead on); goes through every player in line |
 | RPG | `rpg` | tap: a rocket | 20 | 20 direct, up to 14 in 4 blocks | 1, 3 s | aims (zoom 55); the shooter takes half its blast |
 | Frag Grenade | `frag_grenade` | thrown, lands, 1.5 s fuse | 10 | up to 18 in 5 blocks | | |
-| Molotov | `molotov` | thrown, breaks where it hits | 10 | 1 every half second in 3 blocks, 6 s | | flames are particles, never fire blocks |
+| Molotov | `molotov` | thrown, breaks where it hits | 10 | 1 every half second in the flames, 6 s | | sets the floor alight within 3 blocks: fire blocks, gone after 6 s |
 | Flashbang | `flashbang` | thrown, lands, 0.6 s fuse | 10 | | | whites out screens up to 3 s |
 | Smoke Grenade | `smoke_grenade` | thrown, lands, 0.5 s fuse | 10 | | | a cloud of 4 blocks for 10 s |
 | Throwing Knife | `throwing_knife` | thrown | 10 | kills | | floats where it stops until someone takes it |
@@ -127,7 +127,16 @@ and texture (`arsenal/rocket.png`).
   stray less, and the held model comes up. A left click while sneaking (`player.isSneaking`)
   reloads a gun with a magazine that isn't full, any gun, and doesn't fire or aim it. Bedrock sends
   no left click while right click is held, so a player can't hold fire and aim at once. Switching
-  slots lowers a raised gun and lets go of a held one. A right click on a door, trapdoor, gate,
+  slots lowers a raised gun at once (`playerHotbarSelectedSlotChange`, so even a quick switch and
+  back) and lets go of a held one. A player who can't fire (out, waiting to respawn, frozen,
+  between rounds: the game's `canFire`) can't raise a gun, and one who stops being able to lowers
+  theirs and lets go of their trigger: a click that came with a down used to raise the Sniper
+  Rifle again, scope and all, for after the respawn (seen 2026-11-11). A held gun also lets go
+  when its magazine runs dry, and fires again from a new press once it's reloaded; and for half a
+  second after the game takes a player's gun (`forget`: a down, or Gun Game's next weapon) no
+  right click fires, so a button held from the old gun can't start one the client never lets go
+  of. Both are there because the Assault Rifle fired on its own in Gun Game (2026-11-11), just
+  after a kill with the SMG handed it over. A right click on a door, trapdoor, gate,
   button or lever (vanilla's or Paintball's painted ones) uses it and doesn't fire. A gun's left
   click swing is kept to 0.05 s so it barely moves the hand.
 - **Hotbar:** each shot (a burst's first) starts the gun's own cooldown (`minecade_<gun>`, its fire
@@ -157,12 +166,14 @@ and texture (`arsenal/rocket.png`).
   sounds). Spare rounds never run out. The game shows `ammoText` or `Arsenal.ammoLine` on the HUD.
 - **Balls** fly as `minecade:paintball`, a sprite like the snowball's, in one of 16 paint colors (the
   `minecade:color` property). Where a ball lands, the game decides what happens; `paintSplash` throws
-  the splash particle in its color. A ball lands on a block where its path first meets it: each
-  tick, a ray along the ball's next tick of flight finds the block, and the ball is taken away and
-  the game told (`onHitBlock`, with the point on the face) before Bedrock moves it there, so a ball
-  never glances off a surface. A player or a preview's fake player in the way (`isTarget`) is left
-  to Bedrock's own hit. A shot whose first tick from the eyes reaches a block (a wall in front of
-  you, your own feet) lands there as it's fired, and no ball flies.
+  the splash particle in its color. A ball lands where its path first meets a block or a target
+  (`isTarget`: a player or a preview's fake player): each tick, a ray along the ball's next tick of
+  flight finds them, and the ball is taken away and the game told (`onHitEntity` or `onHitBlock`,
+  with the point) before Bedrock moves it there, so a ball never glances off a surface. A shot
+  whose first tick from the eyes reaches one (a player right in front of you, a wall, your own
+  feet) lands there as it's fired, and no ball flies: Bedrock never hit a player with a ball's
+  first tick of flight, so nobody within about 4 blocks (the muzzle's 0.6 and a tick's 3 to 3.5)
+  took a hit (seen 2026-11-11). Bedrock's own hit still counts for a graze the ray misses.
 - **Paint grenades:** a thrown grenade (`minecade:paint_grenade_thrown`) that hits something becomes
   `minecade:paint_grenade_primed`: it falls to the ground, swells to nearly twice its size and
   flashes white for its 1 second fuse, then bursts.

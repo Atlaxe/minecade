@@ -973,7 +973,7 @@ class FakeDimension {
    * The first block a ray reaches within `maxDistance`: every block that isn't air is solid here
    * (liquids too, when asked for), walked in small steps. The face is the side the ray came in by.
    */
-  getBlockFromRay(location: Vector3, direction: Vector3, options: { maxDistance?: number; includeLiquidBlocks?: boolean } = {}) {
+  getBlockFromRay(location: Vector3, direction: Vector3, options: { maxDistance?: number; includeLiquidBlocks?: boolean; includePassableBlocks?: boolean } = {}) {
     const max = options.maxDistance ?? 64;
     const step = 0.01;
     let previous = { x: Math.floor(location.x), y: Math.floor(location.y), z: Math.floor(location.z) };
@@ -981,7 +981,8 @@ class FakeDimension {
       const at = { x: location.x + direction.x * t, y: location.y + direction.y * t, z: location.z + direction.z * t };
       const cell = { x: Math.floor(at.x), y: Math.floor(at.y), z: Math.floor(at.z) };
       const block = this.getBlock(cell);
-      if (!block.isAir && (options.includeLiquidBlocks || !block.isLiquid)) {
+      // Fire is passable: a ray goes through it unless it asks for passable blocks.
+      if (!block.isAir && (options.includeLiquidBlocks || !block.isLiquid) && (options.includePassableBlocks || block.typeId !== "minecraft:fire")) {
         const face =
           previous.y > cell.y ? Direction.Up : previous.y < cell.y ? Direction.Down
           : previous.x > cell.x ? Direction.East : previous.x < cell.x ? Direction.West
@@ -1159,6 +1160,8 @@ class FakeWorld {
     itemStartUse: new FakeSignal<{ source: FakePlayer; itemStack: ItemStack; useDuration: number }>(),
     itemStopUse: new FakeSignal<{ source: FakePlayer; itemStack?: ItemStack; useDuration: number }>(),
     itemReleaseUse: new FakeSignal<{ source: FakePlayer; itemStack?: ItemStack; useDuration: number }>(),
+    itemCompleteUse: new FakeSignal<{ source: FakePlayer; itemStack?: ItemStack; useDuration: number }>(),
+    playerHotbarSelectedSlotChange: new FakeSignal<{ player: FakePlayer; previousSlotSelected: number; newSlotSelected: number; itemStack?: ItemStack }>(),
     playerSwingStart: new FakeSignal<{ player: FakePlayer; heldItemStack?: ItemStack; swingSource: string }>(),
     playerInteractWithBlock: new FakeSignal<{ player: FakePlayer; itemStack?: ItemStack; block?: FakeBlock; isFirstEvent: boolean }>(),
     projectileHitBlock: new FakeSignal<{
@@ -1259,6 +1262,13 @@ class FakeWorld {
   melee(attacker: FakePlayer, victim: FakePlayer | FakeMob, damage = 1, cooldown = false): void {
     this.hurt(victim, damage, "entityAttack", { attacker, cooldown });
     this.afterEvents.entityHitEntity.emit({ damagingEntity: attacker, hitEntity: victim }, acceptsEntity(attacker));
+  }
+
+  /** A player picks another hotbar slot, as Bedrock reports it. */
+  selectSlot(player: FakePlayer, slot: number): void {
+    const previousSlotSelected = player.selectedSlotIndex;
+    player.selectedSlotIndex = slot;
+    this.afterEvents.playerHotbarSelectedSlotChange.emit({ player, previousSlotSelected, newSlotSelected: slot, itemStack: player.inventory.slots[slot] });
   }
 
   /** A player presses (or lets go of) a button, as playerButtonInput reports it to listeners whose options accept it. */

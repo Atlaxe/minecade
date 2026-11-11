@@ -7,14 +7,18 @@
 //   direct hit too, then its blast. The shooter hears a hit, a headshot and a down apart.
 // - A frag grenade's and a rocket's blast hurt everyone near, less far off and through cover, and
 //   throw them out; the thrower takes their own share (BLASTS). No blocks break.
-// - A Molotov leaves a pool of flames that hurts whoever stands in it (FIRE); no fire blocks.
+// - A Molotov sets the ground alight: fire blocks in a circle (FIRE.radius) on the floor it can
+//   reach from where it broke, for FIRE.seconds, hurting whoever stands in them (FIRE, credited to
+//   the thrower). The servers' fire never spreads or burns blocks (doFireTick is off), and the
+//   flames' own burning is canceled (vanillaDamage) and put out once a player is clear of them.
 // - A flashbang whites out the screens of players who can see it, more the closer and the more
 //   they look at it (FLASH), thrower included.
 // - A smoke grenade leaves a cloud that blinds whoever stands in it (SMOKE).
 // - A throwing knife kills whoever it hits, and floats where it came to rest until someone walks
 //   over it and takes it.
 // - A stimpack, used with either click, gives health back and a moment of Speed (STIM).
-// - vanillaDamage: for the game's onDamage, a crossbow's arrow and a netherite sword kill in one hit.
+// - vanillaDamage: for the game's onDamage, a crossbow's arrow and a netherite sword kill in one hit,
+//   and fire's own damage is canceled (a Molotov's flames hurt by FIRE instead).
 //   Crossbow carriers are kept in arrows, and arrows that land are taken away.
 import { EntityComponentTypes, ItemStack, MolangVariableMap, system, world, type Dimension, type Entity, type Player, type Vector3 } from "@minecraft/server";
 import { describeError, log, type Hit, type Scope } from "@minecade/minigame-core";
@@ -91,6 +95,14 @@ const ARROW_CHECK_TICKS = 20;
 const KNIFE_REACH = 1.5;
 /** How far down a Molotov's flames or a smoke cloud look for the ground under where it hit. */
 const GROUND_SEARCH = 6;
+/** The block a Molotov sets alight. */
+const FIRE_BLOCK = "minecraft:fire";
+/** A Molotov's flames find their floor this far up or down from where it broke, per column. */
+const FIRE_STEP = { up: 1, down: 2 };
+/** Fire damage Minecraft deals by itself (in the flames, then burning): a Molotov hurts by FIRE instead. */
+const FIRE_CAUSES = new Set<string>(["fire", "fireTick"]);
+/** How long after the last flames go out a player may still be burning (Minecraft's burn lasts 8 seconds). */
+const BURN_TICKS = 160;
 const FLASH_COLOR = { red: 1, green: 1, blue: 1 };
 const FIRE_SWINGS = new Set<string>(["Attack", "Mine", "None"]);
 
@@ -110,6 +122,8 @@ interface Fire {
   thrower: string;
   until: number;
   nextHurt: number;
+  /** The blocks it set alight (each one's own block position); none on the open air or water, when it hurts in a circle. */
+  cells: Vector3[];
 }
 
 interface Cloud {
@@ -129,6 +143,10 @@ export class Arsenal {
   private readonly host: ArsenalHost;
   private readonly arrows: number;
   private readonly fires: Fire[] = [];
+  /** Fire blocks the Molotovs lit, by "x,y,z", and until when (the latest Molotov's end where two overlap). */
+  private readonly flames = new Map<string, { at: Vector3; until: number }>();
+  /** Until when a player may still be burning from the flames, to put out once they're clear of them. */
+  private burnUntil = 0;
   private readonly clouds: Cloud[] = [];
   private readonly knives: Knife[] = [];
   /** When each player (lowercase) may use a stimpack again. */
@@ -173,10 +191,12 @@ export class Arsenal {
   }
 
   /**
-   * For the game's onDamage: a crossbow's arrow or a netherite sword's hit kills outright (LETHAL);
+   * For the game's onDamage: a crossbow's arrow or a netherite sword's hit kills outright (LETHAL),
+   * and fire's own damage is canceled (a Molotov's flames hurt by FIRE, credited to the thrower);
    * undefined for anything else, which the game rules on.
    */
-  vanillaDamage(hit: Hit): number | undefined {
+  vanillaDamage(hit: Hit): number | "cancel" | undefined {
+    if (FIRE_CAUSES.has(hit.cause)) return "cancel";
     if (hit.projectile === ONE_HIT.arrow) return LETHAL;
     if (hit.cause !== "entityAttack" || hit.attacker === undefined || hit.projectile !== undefined) return undefined;
     const attacker = world.getAllPlayers().find((player) => player.name.toLowerCase() === hit.attacker!.toLowerCase());
@@ -260,7 +280,7 @@ export class Arsenal {
     }
   }
 
-  /** A Molotov's flames, on the ground under where it broke, for FIRE.seconds. */
+  /** A Molotov's flames: the ground under where it broke set alight for FIRE.seconds, with embers rising. */
   private ignite(shot: Shot, at: Vector3): void {
     const dimension = world.getDimension("overworld");
     const ground = groundUnder(dimension, at);
@@ -270,7 +290,71 @@ export class Arsenal {
     particle(dimension, PARTICLES.fire, ground, variables);
     playAt(dimension, SOUNDS.ignite, ground);
     const now = system.currentTick;
-    this.fires.push({ at: ground, thrower: shot.shooter, until: now + FIRE.seconds * 20, nextHurt: now });
+    const until = now + FIRE.seconds * 20;
+    const cells = this.light(dimension, ground, until);
+    this.fires.push({ at: ground, thrower: shot.shooter, until, nextHurt: now, cells });
+    this.burnUntil = Math.max(this.burnUntil, until + BURN_TICKS);
+  }
+
+  /**
+   * Sets the floor alight within FIRE.radius of `ground`: in each column, the first open block (air,
+   * or flames already) over a floor (anything but air, liquid or fire) from FIRE_STEP up to down,
+   * where a line from the middle reaches without a wall in between. Flames already burning there
+   * from another Molotov stay until the later end. Returns the blocks alight.
+   */
+  private light(dimension: Dimension, ground: Vector3, until: number): Vector3[] {
+    const middle = { x: Math.floor(ground.x), y: Math.floor(ground.y + 0.01), z: Math.floor(ground.z) };
+    const eye = { x: ground.x, y: ground.y + 0.5, z: ground.z };
+    const cells: Vector3[] = [];
+    const reach = Math.floor(FIRE.radius);
+    for (let dx = -reach; dx <= reach; dx++) {
+      for (let dz = -reach; dz <= reach; dz++) {
+        if (Math.hypot(dx, dz) > FIRE.radius) continue;
+        const cell = this.floorCell(dimension, middle.x + dx, middle.y, middle.z + dz);
+        if (!cell) continue;
+        const toward = { x: cell.x + 0.5, y: cell.y + 0.5, z: cell.z + 0.5 };
+        if ((dx !== 0 || dz !== 0) && blocked(dimension, eye, toward)) continue;
+        const key = `${cell.x},${cell.y},${cell.z}`;
+        try {
+          const block = dimension.getBlock(cell);
+          if (!block) continue;
+          if (block.typeId !== FIRE_BLOCK) block.setType(FIRE_BLOCK);
+          this.flames.set(key, { at: cell, until: Math.max(until, this.flames.get(key)?.until ?? 0) });
+          cells.push(cell);
+        } catch {
+          // unloaded, or out of the world
+        }
+      }
+    }
+    return cells;
+  }
+
+  /** The open block over a floor in column (x, z), searched from `y` FIRE_STEP up to down; undefined if there's none. */
+  private floorCell(dimension: Dimension, x: number, y: number, z: number): Vector3 | undefined {
+    for (let at = y + FIRE_STEP.up; at >= y - FIRE_STEP.down; at--) {
+      try {
+        const block = dimension.getBlock({ x, y: at, z });
+        const below = dimension.getBlock({ x, y: at - 1, z });
+        if (!block || !below) continue;
+        const open = block.isAir || block.typeId === FIRE_BLOCK;
+        const floor = !below.isAir && !below.isLiquid && below.typeId !== FIRE_BLOCK;
+        if (open && floor) return { x, y: at, z };
+      } catch {
+        return undefined;
+      }
+    }
+    return undefined;
+  }
+
+  /** Whether a body's feet are in a Molotov's flames: touching a block alight, or (none lit) within its circle. */
+  private inFire(fire: Fire, feet: Vector3): boolean {
+    if (fire.cells.length === 0) {
+      return Math.hypot(feet.x - fire.at.x, feet.z - fire.at.z) <= FIRE.radius && feet.y >= fire.at.y - 1 && feet.y <= fire.at.y + 2;
+    }
+    // A player is 0.6 across: flames in any block their feet overlap.
+    return fire.cells.some(
+      (cell) => Math.abs(feet.x - (cell.x + 0.5)) < 0.8 && Math.abs(feet.z - (cell.z + 0.5)) < 0.8 && feet.y >= cell.y - 0.5 && feet.y < cell.y + 1.5,
+    );
   }
 
   /** A flashbang: each player who can see it is whited out by how close and how straight they look at it. */
@@ -358,10 +442,25 @@ export class Arsenal {
       for (const body of this.host.targets()) {
         const name = this.host.nameOf(body);
         const feet = body.location;
-        const across = Math.hypot(feet.x - fire.at.x, feet.z - fire.at.z);
-        if (name === undefined || across > FIRE.radius || feet.y < fire.at.y - 1 || feet.y > fire.at.y + 2) continue;
+        if (name === undefined || !this.inFire(fire, feet)) continue;
         const own = name.toLowerCase() === fire.thrower.toLowerCase();
         if (this.host.hurt(body, own ? undefined : fire.thrower, FIRE.damage, "fire", false, "molotov")) particle(dimension, PARTICLES.burning, feet);
+      }
+    }
+    for (const [key, flame] of [...this.flames]) {
+      if (flame.until > now) continue;
+      this.flames.delete(key);
+      putOut(dimension, flame.at);
+    }
+    // Minecraft's own burning goes out once a player is clear of the flames (its damage is canceled anyway).
+    if (this.burnUntil > now) {
+      for (const body of this.host.targets()) {
+        if (this.fires.some((fire) => this.inFire(fire, body.location))) continue;
+        try {
+          body.extinguishFire(false);
+        } catch {
+          // gone
+        }
       }
     }
     for (const cloud of [...this.clouds]) {
@@ -434,6 +533,10 @@ export class Arsenal {
     for (const knife of this.knives) remove(knife.entity);
     this.knives.length = 0;
     this.fires.length = 0;
+    const dimension = world.getDimension("overworld");
+    for (const flame of this.flames.values()) putOut(dimension, flame.at);
+    this.flames.clear();
+    this.burnUntil = 0;
     this.clouds.length = 0;
     this.stimReady.clear();
   }
@@ -470,6 +573,16 @@ function groundUnder(dimension: Dimension, at: Vector3): Vector3 {
     // out of the world
   }
   return at;
+}
+
+/** A Molotov's fire block back to air, unless something else stands there now. */
+function putOut(dimension: Dimension, at: Vector3): void {
+  try {
+    const block = dimension.getBlock(at);
+    if (block?.typeId === FIRE_BLOCK) block.setType("minecraft:air");
+  } catch {
+    // unloaded
+  }
 }
 
 /** Throws a body out from `from` along the ground, and up a little. */

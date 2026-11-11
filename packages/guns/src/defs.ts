@@ -188,7 +188,8 @@ export const GUNS = {
     fire: "tap",
     // Right click only: a left click is a punch.
     leftClickFires: false,
-    everyTicks: 6,
+    // 5 shots a second (the user's ask, 2026-11-11: was 6 ticks, 3.3 a second).
+    everyTicks: 4,
     triggerTicks: 0,
     pellets: 1,
     hipSpreadDegrees: 2.5,

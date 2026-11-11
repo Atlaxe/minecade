@@ -18,9 +18,11 @@
 //
 // A shot travels by its gun's ShotKind. Paintball's balls fly as PAINTBALL entities in the shooter's
 // paint color, spread in a cone, and the game hears where each lands (a player, a mob, a block's
-// face). A ball lands on a block where its path meets it, found by a ray each tick before Bedrock
-// moves it there (a ball whose first tick reaches a block, at a wall or at the shooter's feet, lands
-// as it's fired), so it never glances off. A bullet is hitscan: a ray from the eyes finds the first player or block in its range at
+// face). A ball lands where its path meets a block or a target, found by a ray each tick before
+// Bedrock moves it there (a ball whose first tick reaches one, a player in front of the shooter, a
+// wall or the shooter's own feet, lands as it's fired), so it never glances off a block, and a
+// target up close is hit: Bedrock never hit a player with a ball's first tick of flight, so nobody
+// within about 4 blocks took a hit (seen 2026-11-11). A bullet is hitscan: a ray from the eyes finds the first player or block in its range at
 // once, with a streak drawn from the muzzle; a beam goes on through every player to the first block.
 // A rocket flies, trailing smoke, and bursts where it hits. Bullet, beam and rocket hits come with
 // their damage (DamageDef: headshots, falloff); what a hit or a burst does is the game's (arsenal.ts
@@ -84,6 +86,9 @@ export interface BlockHit {
   block: Block;
   face: Direction;
 }
+
+/** What a ball's path met first: a target, or a block's face. */
+type Met = { entity: Entity; at: Vector3 } | { entity: undefined; block: Block; face: Direction; at: Vector3 };
 
 /** How a bullet, a beam, a rocket or a knife met a player: what it takes off (its gun's DamageDef), whether in the head, from how far. */
 export interface HitInfo {
@@ -223,6 +228,13 @@ const HEAD_BELOW_EYES = 0.32;
 const THROW_LIFT = 0.15;
 /** A grenade or knife lands this far off the face it hit, so it doesn't start inside the block. */
 const LAND_OFF_FACE = 0.2;
+/**
+ * After a game takes a player's gun (forget: a new weapon, a down), right click events this soon
+ * don't fire: a button still held from the old gun can carry over, and Bedrock can start a use of
+ * the new one that the client never ends (the Assault Rifle that fired on its own after a Gun Game
+ * kill with the SMG, 2026-11-11). A new press after this fires as usual.
+ */
+const QUIET_AFTER_FORGET_TICKS = 10;
 /** The zoom's ease in and out, in seconds. */
 const AIM_EASE = 0.15;
 const round = (value: number, places: number) => Math.round(value * 10 ** places) / 10 ** places;
@@ -282,6 +294,8 @@ export class Guns {
   private readonly lastLeftClick = new Map<string, number>();
   /** When each player's last use of a gun ended, so a use that comes with the release isn't a press. */
   private readonly lastRelease = new Map<string, number>();
+  /** Until when each player's right click doesn't fire (QUIET_AFTER_FORGET_TICKS). */
+  private readonly quietUntil = new Map<string, number>();
   /** The players a heavy gun slows (lowercase name), and the share of their speed it leaves. */
   private readonly carrying = new Map<string, { player: Player; speed: number }>();
   /** Each player's magazines, by gun, for guns with ammo. */
@@ -304,6 +318,9 @@ export class Guns {
     scope.subscribe(world.afterEvents.itemStartUse, ({ source, itemStack }) => this.press(source, itemStack.typeId, true));
     scope.subscribe(world.afterEvents.itemStopUse, ({ source }) => this.release(source));
     scope.subscribe(world.afterEvents.itemReleaseUse, ({ source }) => this.release(source));
+    scope.subscribe(world.afterEvents.itemCompleteUse, ({ source }) => this.release(source));
+    // Another hotbar slot lowers a raised gun at once, however fast it comes and goes.
+    scope.subscribe(world.afterEvents.playerHotbarSelectedSlotChange, ({ player }) => this.stopAiming(player.name.toLowerCase()));
     scope.subscribe(world.afterEvents.playerInteractWithBlock, ({ player, itemStack, block, isFirstEvent }) => {
       if (!itemStack || USED_BLOCKS.test(block?.typeId ?? "")) return;
       if (isFirstEvent) this.press(player, itemStack.typeId, false);
@@ -334,9 +351,13 @@ export class Guns {
     scope.add(() => this.clear());
   }
 
-  /** Forgets a player's trigger, aim and fire rate (they went out, or left); the zoom goes back. */
+  /**
+   * Forgets a player's trigger, aim and fire rate (they went out, left, or the game gave them
+   * another weapon); the zoom goes back. Their right click fires again from a new press.
+   */
   forget(name: string): void {
     const key = name.toLowerCase();
+    this.quietUntil.set(key, system.currentTick + QUIET_AFTER_FORGET_TICKS);
     this.triggers.delete(key);
     this.bursts.delete(key);
     this.stopAiming(key);
@@ -419,7 +440,9 @@ export class Guns {
     }
     if (last !== undefined && now - last < AIM_CLICK_GAP_TICKS) return;
     if (this.aiming.has(key)) this.stopAiming(key);
-    else this.aim(player, gun);
+    // A player who can't fire (out, waiting to respawn, frozen) can't raise one either: a click
+    // that came with a down used to raise the gun again, scope and all, for after the respawn.
+    else if (this.options.canFire(player)) this.aim(player, gun);
   }
 
   /**
@@ -435,6 +458,7 @@ export class Guns {
     if (!gun) return;
     const key = player.name.toLowerCase();
     const now = system.currentTick;
+    if ((this.quietUntil.get(key) ?? 0) > now) return;
     const trigger = this.triggers.get(key);
     if (trigger && trigger.gun === gun && (now - trigger.pressedAt < PRESS_GAP_TICKS || (trigger.using && !using))) {
       if (using) trigger.using = true;
@@ -523,13 +547,19 @@ export class Guns {
     return true;
   }
 
-  /** One round: fired, and taken from the magazine (which starts reloading once it's empty). */
+  /**
+   * One round: fired, and taken from the magazine, which starts reloading once it's empty. An empty
+   * magazine lets go of the trigger: a held gun fires again from a new press once it's reloaded, so
+   * a trigger Bedrock never let go of can't fire past one magazine.
+   */
   private fireRound(player: Player, gun: GunDef, typeId: string, magazine: Magazine | undefined, first: boolean): void {
     this.fire(player, gun, typeId, first);
     if (!magazine) return;
     magazine.loaded--;
-    if (magazine.loaded <= 0) this.startReload(player, gun, magazine);
-    else this.ammoChanged(player, gun, magazine);
+    if (magazine.loaded > 0) return this.ammoChanged(player, gun, magazine);
+    this.startReload(player, gun, magazine);
+    const key = player.name.toLowerCase();
+    if (this.triggers.get(key)?.gun === gun) this.letGo(key);
   }
 
   /** True (and the next shot waits `ticks`) when the player's last shot was long enough ago. */
@@ -557,7 +587,7 @@ export class Guns {
       const from = { x: head.x + direction.x * MUZZLE, y: head.y - 0.1 + direction.y * MUZZLE, z: head.z + direction.z * MUZZLE };
       const velocity = { x: direction.x * gun.speed, y: direction.y * gun.speed, z: direction.z * gun.speed };
       if (kind === "rocket") this.launch(dimension, ROCKET, player, shot, from, velocity, {}, { lifeTicks: gun.lifeTicks, maxHits: 1, rocket: gun });
-      else if (!this.pointBlank(dimension, player, shot, head, direction, MUZZLE + gun.speed)) {
+      else if (!this.pointBlank(dimension, player, shot, gun.maxHitsPerShot, head, direction, MUZZLE + gun.speed)) {
         this.launch(dimension, PAINTBALL, player, shot, from, velocity, { [COLOR_PROPERTY]: shot.color }, { lifeTicks: gun.lifeTicks, maxHits: gun.maxHitsPerShot });
       }
     }
@@ -694,21 +724,23 @@ export class Guns {
   }
 
   /**
-   * A ball whose first tick of flight from the eyes reaches a block, with no target in between,
-   * lands there as it's fired, and no ball flies: a shot at a wall in front of the shooter, or at
-   * their own feet, where a ball from the muzzle would start in the wall or by the shooter's legs.
+   * A ball whose first tick of flight from the eyes reaches a target or a block lands there as it's
+   * fired, and no ball flies: a player in front of the shooter (Bedrock never hits one with a ball's
+   * first tick), a wall, or the shooter's own feet, where a ball from the muzzle would start in the
+   * wall or by the shooter's legs.
    */
-  private pointBlank(dimension: Dimension, player: Player, shot: Shot, eye: Vector3, direction: Vector3, reach: number): boolean {
-    const wall = this.blockAhead(dimension, eye, direction, reach, (entity) => entity.id === player.id);
-    if (!wall) return false;
-    this.notify(() => this.options.onHitBlock?.(shot, { block: wall.block, face: wall.face }, wall.at));
+  private pointBlank(dimension: Dimension, player: Player, shot: Shot, maxHits: number, eye: Vector3, direction: Vector3, reach: number): boolean {
+    const met = this.pathAhead(dimension, eye, direction, reach, (entity) => entity.id === player.id);
+    if (!met) return false;
+    this.meet(shot, maxHits, met);
     return true;
   }
 
   /**
-   * Balls that would reach a block in the coming tick land on it now, where their path meets it:
-   * Bedrock's own collision can glance a ball off a surface, or carry it on a moment before its hit.
-   * A target in the way (isTarget) is left to Bedrock: the ball flies on and hits it.
+   * Balls that would reach a target or a block in the coming tick land on it now, where their path
+   * meets it: Bedrock's own collision can glance a ball off a surface, carry it on a moment before
+   * its hit, or (on its first tick) miss a player. Bedrock still hits a target the ray misses (a
+   * graze: the ball is wider than the ray).
    */
   private landBalls(): void {
     const dimension = world.getDimension("overworld");
@@ -727,19 +759,30 @@ export class Guns {
       if (speed < 0.01) continue;
       const direction = { x: velocity.x / speed, y: velocity.y / speed, z: velocity.z / speed };
       const shooter = flying.shot.shooter;
-      const wall = this.blockAhead(dimension, from, direction, speed + BALL_REACH, (entity) => entity.id === id || (entity as Player).name === shooter);
-      if (!wall) continue;
+      const met = this.pathAhead(dimension, from, direction, speed + BALL_REACH, (entity) => entity.id === id || (entity as Player).name === shooter);
+      if (!met) continue;
       this.down(id, flying);
-      this.notify(() => this.options.onHitBlock?.(flying.shot, { block: wall.block, face: wall.face }, wall.at));
+      this.meet(flying.shot, flying.maxHits, met);
     }
   }
 
+  /** A ball landed on what its path met: a target takes the hit (up to the shot's cap on it), a block hears where. */
+  private meet(shot: Shot, maxHits: number, met: Met): void {
+    if (met.entity) {
+      const target = met.entity;
+      if (this.countHit(shot, maxHits, target)) this.notify(() => this.options.onHitEntity?.(shot, target, met.at));
+      return;
+    }
+    const { block, face } = met;
+    this.notify(() => this.options.onHitBlock?.(shot, { block, face }, met.at));
+  }
+
   /**
-   * The first block a ball going `reach` blocks from `from` along `direction` meets (no liquids,
-   * nothing it passes through, such as grass), and the point on its face, unless a target other
-   * than `ignore` is in the way first.
+   * What a ball going `reach` blocks from `from` along `direction` meets first: a target (isTarget,
+   * other than `ignore`), or a block (no liquids, nothing it passes through, such as grass), and
+   * the point where it does. Undefined when the way is clear.
    */
-  private blockAhead(dimension: Dimension, from: Vector3, direction: Vector3, reach: number, ignore: (entity: Entity) => boolean): { block: Block; face: Direction; at: Vector3 } | undefined {
+  private pathAhead(dimension: Dimension, from: Vector3, direction: Vector3, reach: number, ignore: (entity: Entity) => boolean): Met | undefined {
     let wall: { block: Block; face: Direction; at: Vector3 } | undefined;
     try {
       const hit = dimension.getBlockFromRay(from, direction, { maxDistance: reach, includeLiquidBlocks: false, includePassableBlocks: false });
@@ -747,15 +790,16 @@ export class Guns {
     } catch (error) {
       log.warn(`guns: a ball could not find the block ahead: ${describeError(error)}`);
     }
-    if (!wall) return undefined;
     try {
-      const between = distance(from, wall.at);
-      const inWay = dimension.getEntitiesFromRay(from, direction, { maxDistance: between, ignoreBlockCollision: true }).some((hit) => !ignore(hit.entity) && this.isTarget(hit.entity));
-      if (inWay) return undefined;
+      const target = dimension
+        .getEntitiesFromRay(from, direction, { maxDistance: wall ? distance(from, wall.at) : reach, ignoreBlockCollision: true })
+        .filter((hit) => !ignore(hit.entity) && this.isTarget(hit.entity))
+        .sort((a, b) => a.distance - b.distance)[0];
+      if (target) return { entity: target.entity, at: along(from, direction, target.distance) };
     } catch {
-      // Nobody found: the block it is.
+      // Nobody found: the block, if any.
     }
-    return wall;
+    return wall && { entity: undefined, ...wall };
   }
 
   /** A thrown item hit something at `location` (a player, `target`, or a block). */
@@ -879,9 +923,10 @@ export class Guns {
     const now = system.currentTick;
     if (now % CARRY_CHECK_TICKS === 0) this.weigh();
     // A held gun fires on at its rate while its right click stays down; switching away lets go.
+    // One who can't fire now (out, frozen, between rounds) lets go too: a new press fires again.
     for (const [key, trigger] of [...this.triggers]) {
       const held = trigger.player.isValid ? heldItem(trigger.player) : undefined;
-      if (!held || this.gunOf(held.typeId) !== trigger.gun || (!trigger.using && trigger.until < now)) {
+      if (!held || this.gunOf(held.typeId) !== trigger.gun || (!trigger.using && trigger.until < now) || !this.options.canFire(trigger.player)) {
         this.letGo(key);
         continue;
       }
@@ -901,10 +946,10 @@ export class Guns {
       burst.nextAt = now + (burst.gun.burst?.gapTicks ?? 1);
       if (burst.left <= 0) this.bursts.delete(key);
     }
-    // Switching away from the gun lowers it.
+    // Switching away from the gun lowers it, and so does going out (or anything else that stops firing).
     for (const [key, { player, gun }] of [...this.aiming]) {
       const held = player.isValid ? heldItem(player) : undefined;
-      if (!held || this.gunOf(held.typeId) !== gun) this.stopAiming(key);
+      if (!held || this.gunOf(held.typeId) !== gun || !this.options.canFire(player)) this.stopAiming(key);
     }
     for (const [key, byGun] of this.magazines) {
       for (const [kind, magazine] of byGun) {
@@ -944,6 +989,7 @@ export class Guns {
     this.readyAt.clear();
     this.lastLeftClick.clear();
     this.lastRelease.clear();
+    this.quietUntil.clear();
     this.magazines.clear();
     for (const key of [...this.carrying.keys()]) this.putDown(key);
   }

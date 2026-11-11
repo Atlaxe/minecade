@@ -358,7 +358,8 @@ Paintball (`games/paintball`) is Red against Blue with the shared guns: first te
   to its other side. It flies through plants, torches and rails (whatever flowing water washes
   away) to the floor under them, and stops at water. A ball lands where its path first meets a
   block (`@minecade/guns` finds it with a ray each tick, so it never glances off), and a shot at a
-  wall right in front of you or at your own feet paints there at once. Full
+  wall right in front of you or at your own feet paints there at once. A player right in front of
+  you is hit at once the same way. Full
   blocks (glass and leaves too) become concrete; stairs and slabs vanilla's concrete stairs and
   slabs; carpets the color's carpet; walls, fences, panes and bars, fence gates, doors, trapdoors
   and vertical slabs Paintball's painted blocks of the same shape, which keep their facing, their

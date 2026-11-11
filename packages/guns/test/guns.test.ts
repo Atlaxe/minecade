@@ -131,8 +131,8 @@ describe("Guns", () => {
     pressRight(player);
     releaseRight(player);
     expect(balls()).toHaveLength(1);
-    // Until the pistol can fire again (6 ticks).
-    expect(player.commands).toEqual([`camerashake add @s ${shake} 0.3 rotational`]);
+    // Until the pistol can fire again (4 ticks).
+    expect(player.commands).toEqual([`camerashake add @s ${shake} 0.2 rotational`]);
     expect(player.rotation).toEqual({ x: 10, y: 45 });
     expect(player.teleports).toHaveLength(0);
     // Raised (a left click), the shake is smaller.
@@ -140,7 +140,7 @@ describe("Guns", () => {
     click(player);
     pressRight(player);
     expect(balls()).toHaveLength(2);
-    expect(player.commands[1]).toBe(`camerashake add @s ${Math.round(shake * AIM_RECOIL * 1000) / 1000} 0.3 rotational`);
+    expect(player.commands[1]).toBe(`camerashake add @s ${Math.round(shake * AIM_RECOIL * 1000) / 1000} 0.2 rotational`);
   });
 
   it("never shakes the camera for the Paintball Pistol, only for the power-up rifle and shotgun", () => {
@@ -196,6 +196,7 @@ describe("Guns", () => {
     const { balls } = setup({ guns: [GUNS.pistol, ARSENAL_GUN_DEFS.handgun] });
     const paint = holding("Ann", gunItem("pistol"));
     const real = holding("Bo", arsenalItem("handgun"));
+    real.location = { x: 5, y: 65, z: 0 };
     expect([GUNS.pistol.leftClickFires, ARSENAL_GUN_DEFS.handgun.leftClickFires]).toEqual([false, false]);
     click(paint);
     click(real);
@@ -289,6 +290,84 @@ describe("Guns", () => {
     // A repeat after the window ran out picks up again.
     atBlock(player, false);
     expect(balls()).toHaveLength(fired + 1);
+  });
+
+  it("lets go of a held gun when the player can't fire, or a new weapon comes: a new press fires again", () => {
+    let allowed = true;
+    const { guns, balls } = setup({ canFire: () => allowed });
+    const player = holding("Ann", gunItem("rifle", "blue"));
+    pressRight(player);
+    system.advanceTicks(GUNS.rifle.everyTicks * 2);
+    expect(balls()).toHaveLength(3);
+    // Out (or frozen) for a moment: the trigger goes, and coming back doesn't fire by itself.
+    allowed = false;
+    system.advanceTicks(1);
+    allowed = true;
+    system.advanceTicks(GUNS.rifle.everyTicks * 3);
+    expect(balls()).toHaveLength(3);
+    // The game hands over another weapon (forget): a use Bedrock starts from the button still held
+    // doesn't fire it, and the release that never comes doesn't matter.
+    releaseRight(player);
+    system.advanceTicks(GUNS.rifle.everyTicks);
+    pressRight(player);
+    expect(balls()).toHaveLength(4);
+    guns.forget("Ann");
+    const itemStack = player.inventory.slots[0]!;
+    world.afterEvents.itemStartUse.emit({ source: player, itemStack, useDuration: 72000 });
+    system.advanceTicks(GUNS.rifle.everyTicks * 3);
+    expect(balls()).toHaveLength(4);
+    // Half a second on, a press fires again; a use that runs its whole length lets go.
+    system.advanceTicks(10);
+    pressRight(player);
+    expect(balls()).toHaveLength(5);
+    world.afterEvents.itemCompleteUse.emit({ source: player, itemStack, useDuration: 0 });
+    system.advanceTicks(GUNS.rifle.everyTicks * 3);
+    expect(balls()).toHaveLength(5);
+  });
+
+  it("lets go of a held gun when its magazine runs dry: once reloaded it waits for a new press", () => {
+    const SMALL: GunDef = { ...ARSENAL_GUN_DEFS.assault_rifle, ammo: { magazine: 3, reloadTicks: 10 } };
+    const { guns } = setup({ guns: [SMALL] });
+    const player = holding("Ann", arsenalItem("assault_rifle"));
+    const shots = () => player.itemCooldowns.length;
+    pressRight(player);
+    system.advanceTicks(SMALL.everyTicks * 5);
+    expect(shots()).toBe(3);
+    expect(guns.ammoOf(player as never)).toMatchObject({ loaded: 0, reloading: true });
+    system.advanceTicks(SMALL.ammo!.reloadTicks + SMALL.everyTicks * 3);
+    expect(guns.ammoOf(player as never)).toMatchObject({ loaded: 3, reloading: false });
+    expect(shots()).toBe(3);
+    releaseRight(player);
+    system.advanceTicks(5);
+    pressRight(player);
+    expect(shots()).toBe(4);
+  });
+
+  it("raises no gun for a player who can't fire, and lowers one at once when they go out or pick another slot", () => {
+    let allowed = false;
+    const aims: boolean[] = [];
+    const { guns } = setup({ guns: Object.values(ARSENAL_GUN_DEFS), canFire: () => allowed, onAim: (_player, aiming) => aims.push(aiming) });
+    const ann = holding("Ann", arsenalItem("sniper_rifle"));
+    // A click that came with the down, or while waiting to respawn: no scope.
+    click(ann);
+    expect(guns.isScoped("Ann")).toBe(false);
+    allowed = true;
+    system.advanceTicks(10);
+    click(ann);
+    expect(guns.isScoped("Ann")).toBe(true);
+    allowed = false;
+    system.advanceTicks(1);
+    expect(guns.isScoped("Ann")).toBe(false);
+    expect(ann.camera.fovs.at(-1)).toBeUndefined();
+    // Another slot and straight back, within a tick: lowered all the same.
+    allowed = true;
+    system.advanceTicks(10);
+    click(ann);
+    expect(guns.isScoped("Ann")).toBe(true);
+    world.selectSlot(ann, 1);
+    world.selectSlot(ann, 0);
+    expect(guns.isScoped("Ann")).toBe(false);
+    expect(aims).toEqual([true, false, true, false]);
   });
 
   it("raises a gun that aims with a left click and lowers it with the next: the camera zooms, shots stray less, and the aim marker sits in the off hand", () => {
@@ -466,6 +545,8 @@ describe("Guns", () => {
     const { balls, hits } = setup();
     const player = holding("Ann", gunItem("shotgun", "red"));
     const victim = world.join("Bo");
+    // Out of the first tick's reach, so the pellets fly.
+    victim.location = { x: 0, y: 65, z: 20 };
     click(player);
     expect(balls()).toHaveLength(GUNS.shotgun.pellets);
     for (const ball of balls()) world.projectileHitsEntity(ball, victim, undefined, player);
@@ -489,8 +570,8 @@ describe("Guns", () => {
     expect(balls()[1].isValid).toBe(false);
   });
 
-  it("lands a ball where its path meets a block before Bedrock moves it there, unless a player is in the way", () => {
-    const { balls, blocks, guns } = setup();
+  it("lands a ball where its path meets a block or a player before Bedrock moves it there, the nearer first", () => {
+    const { balls, blocks, guns, hits } = setup();
     const player = holding("Ann", gunItem("pistol"));
     // A wall 6 blocks south: out of the first tick's reach, so the ball flies.
     for (let x = -2; x <= 2; x++) for (let y = 64; y <= 68; y++) world.overworld.blocks.set(`${x},${y},6`, "minecraft:stone");
@@ -504,15 +585,43 @@ describe("Guns", () => {
     expect(guns.inFlight).toBe(0);
     expect(blocks).toEqual([{ shot: expect.objectContaining({ weapon: "pistol" }), face: Direction.North }]);
 
-    // A player between the ball and the wall: Bedrock's hit on them, not the wall.
+    // A player between the ball and the wall: the ball hits them, not the wall.
     system.advanceTicks(GUNS.pistol.everyTicks);
     use(player);
     const second = balls()[1];
     second.location = { x: second.location.x, y: second.location.y, z: 3.5 };
-    world.join("Bo").location = { x: 0, y: 65, z: 5 };
+    const bo = world.join("Bo");
+    bo.location = { x: 0, y: 65, z: 5 };
     system.advanceTicks(1);
-    expect(second.isValid).toBe(true);
+    expect(second.isValid).toBe(false);
+    expect(hits).toEqual([{ shot: expect.objectContaining({ shooter: "Ann" }), entity: bo }]);
     expect(blocks).toHaveLength(1);
+  });
+
+  it("hits a player up close as it fires, where Bedrock's ball would fly through them, and only a player it can hit", () => {
+    const hitAt: { entity: unknown; y: number }[] = [];
+    const { balls } = setup({ onHitEntity: (_shot, entity, location) => hitAt.push({ entity, y: location.y }) });
+    const player = holding("Ann", gunItem("pistol"));
+    player.location = { x: 0.5, y: 65, z: 0.5 };
+    const bo = world.join("Bo");
+    bo.location = { x: 0.5, y: 65, z: 2.5 };
+    use(player);
+    expect(balls()).toHaveLength(0);
+    // Level with the eyes: in Bo's head.
+    expect(hitAt).toEqual([{ entity: bo, y: expect.closeTo(66.62, 2) }]);
+    // Past the first tick's reach (0.6 ahead and 3 a tick): the ball flies.
+    bo.location = { x: 0.5, y: 65, z: 6 };
+    system.advanceTicks(GUNS.pistol.everyTicks);
+    use(player);
+    expect(balls()).toHaveLength(1);
+    // A body the game doesn't count (isTarget) is passed by.
+    const passed: unknown[] = [];
+    const other = setup({ isTarget: () => false, onHitEntity: (_shot, entity) => passed.push(entity) });
+    const cy = holding("Cy", gunItem("pistol"));
+    cy.location = { x: 0.5, y: 65, z: -0.5 };
+    use(cy);
+    expect(passed).toEqual([]);
+    expect(other.balls().length).toBeGreaterThan(0);
   });
 
   it("lands a ball at once where the first tick reaches a block: the shooter's own feet", () => {
