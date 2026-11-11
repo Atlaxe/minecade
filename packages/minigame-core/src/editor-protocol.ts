@@ -16,7 +16,7 @@ export const EDIT_LOG_MARKER = "[EDIT] ";
 /**
  * The rules a map is checked against, with each team's § color for its markers, the marker style
  * number (the editor's resource pack) of each of the game's own marker models, and what its
- * mannequins can hold (every item in the game's kits).
+ * mannequins can hold (every item in the game's kits, then its mannequinItems).
  */
 export type EditorRules = Omit<MapRules, "teams"> & {
   teams?: { id: string; name: string; color: string }[];

@@ -1,7 +1,7 @@
 // Kits as plain data: the game's and the map's kits put together, team colors in item ids, what a
 // spawn gives back, and the text and pictures the kit form shows. No Minecraft imports: the build
 // uses this too, to draw each kit's picture into the game's resource pack.
-import type { KitDef, KitItem, KitRefill, KitSelect, KitsConfig, MapKitsConfig } from "./config.ts";
+import type { GameConfig, KitDef, KitItem, KitRefill, KitSelect, KitsConfig, MapKitsConfig } from "./config.ts";
 
 /** Stands for the player's team color in a kit item's id: "minecraft:{color}_wool". */
 export const COLOR_SLOT = "{color}";
@@ -175,12 +175,17 @@ export function itemLabel(item: KitItem, teamColor?: string): string {
     .join(" ");
 }
 
-/** Every item in a game's kits, once each, with its name: what the map editor's mannequins can hold. */
-export function kitItems(kits: KitsConfig | undefined): { item: string; label: string }[] {
+/**
+ * What the map editor's mannequins can hold, once each, with its name: every item in the game's
+ * kits, then its mannequinItems (what it hands out from its own code, such as Gunfight's guns).
+ */
+export function holdItems(config: Pick<GameConfig, "kits" | "mannequinItems">): { item: string; label: string }[] {
   const items = new Map<string, string>();
-  for (const kit of [kits?.base, ...(kits?.list ?? [])]) {
-    for (const entry of kit?.items ?? []) if (!items.has(entry.item)) items.set(entry.item, itemLabel(entry));
-  }
+  const add = (entry: KitItem) => {
+    if (!items.has(entry.item)) items.set(entry.item, itemLabel(entry));
+  };
+  for (const kit of [config.kits?.base, ...(config.kits?.list ?? [])]) for (const entry of kit?.items ?? []) add(entry);
+  for (const entry of config.mannequinItems ?? []) add(typeof entry === "string" ? { item: entry } : entry);
   return [...items].map(([item, label]) => ({ item, label }));
 }
 

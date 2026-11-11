@@ -20,6 +20,14 @@ describe("validateGameConfig", () => {
     expect(validateGameConfig({ ...game, blocks: "all" as "full" }, "sumo")).toEqual(['blocks must be "full" or left out']);
   });
 
+  it("takes item ids for the mannequins to hold, named or not", () => {
+    expect(validateGameConfig({ ...game, mannequinItems: ["minecraft:bow", { item: "minecade:{color}_paintball_rifle", name: "Rifle" }] }, "sumo")).toEqual([]);
+    expect(validateGameConfig({ ...game, mannequinItems: ["bow", { name: "Rifle" } as unknown as { item: string }] }, "sumo")).toEqual([
+      'mannequinItems: "bow" must be an item id, such as "minecraft:bow"',
+      'mannequinItems: {"name":"Rifle"} must be an item id, such as "minecraft:bow"',
+    ]);
+  });
+
   it("reports every problem at once", () => {
     expect(validateGameConfig({ ...game, id: "other", minPlayers: 0, maxPlayers: -1 }, "sumo")).toEqual([
       'id "other" must match the folder name "sumo"',

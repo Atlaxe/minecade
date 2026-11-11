@@ -43,6 +43,10 @@ export function validateGameConfig(config: GameConfig, folder: string): string[]
   if (kits?.pickSeconds !== undefined && !(Number.isInteger(kits.pickSeconds) && kits.pickSeconds >= 5 && kits.pickSeconds <= 120)) {
     problems.push("kits.pickSeconds must be whole seconds from 5 to 120");
   }
+  for (const entry of config.mannequinItems ?? []) {
+    const item: unknown = typeof entry === "string" ? entry : entry?.item;
+    if (typeof item !== "string" || !ITEM_ID.test(item)) problems.push(`mannequinItems: ${JSON.stringify(item ?? entry)} must be an item id, such as "minecraft:bow"`);
+  }
   problems.push(...validateBestOf(config));
   for (const name of config.build?.noBuild ?? []) {
     if (!REGION_NAME.test(name)) problems.push(`build.noBuild "${name}" must be a region name: letters, digits and _, starting with a letter`);
@@ -60,6 +64,8 @@ export function validateGameConfig(config: GameConfig, folder: string): string[]
 
 const KIT_SELECTS: readonly string[] = ["match", "round"];
 const REGION_NAME = /^[A-Za-z][A-Za-z0-9_]*$/;
+/** An item id: "minecraft:bow", "minecade:{color}_paintball_rifle". */
+const ITEM_ID = /^[a-z0-9_.-]+:[a-z0-9_.{}/-]+$/;
 
 /** Per-map settings: a key of the game's own in map.json, whole numbers, and a default in range. */
 function validateMapSettings(config: GameConfig): string[] {

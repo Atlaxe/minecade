@@ -1,4 +1,4 @@
-import { arsenalItem } from "@minecade/guns/defs";
+import { arsenalItem, arsenalItemName } from "@minecade/guns/defs";
 import { WAYPOINTS_OPTION, defineGame } from "@minecade/minigame-core/config";
 
 /**
@@ -76,6 +76,8 @@ export default defineGame({
   map: { spawns: { min: 10 }, killY: true, borrow: ["quiver"] },
   stats: { mode: "solo", pvp: true, extras: [{ key: "headshots", label: "Headshots", agg: "sum" }] },
   ladders: LADDERS,
+  // The map editor's mannequins can hold every weapon on the ladder.
+  mannequinItems: LADDERS.full.map((item) => ({ item, name: arsenalItemName(item) })),
   /** Melee hits (fist or bash) that put a player at full health down: each takes 20 / 4 = 5 health. */
   meleeHits: 4,
   /** The hotbar: the ladder's weapon in the first slot, a crossbow's arrows just above the hotbar. */

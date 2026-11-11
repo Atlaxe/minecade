@@ -2,7 +2,9 @@
 
 Every gun, grenade, knife and stimpack lives in one shared pack, `packs/guns`, and the build adds it
 to every server: the lobby, every game and the map editor. So any game can hand them out as kit
-items, and mannequins can hold them in the editor. There are two families:
+items, and mannequins can hold them in the editor (its kits' items, and any it lists in
+`mannequinItems` in `game.config.ts`, as Gunfight, Gun Game and Paintball do for the guns their
+scripts hand out). There are two families:
 
 - **Paintball's guns:** the pistol, rifle, shotgun and paint grenade, each in all 16 paint colors.
   Their balls fly and splash paint.
@@ -496,4 +498,4 @@ To try the guns alone, open Probe's map in Edit, Preview, and pick the Painter (
 Gunner (the arsenal's nine guns) or Grenadier (grenades, knife, stimpack, crossbow and sword) kit.
 The aim pose and the recoil only show where a game runs the guns (a preview or a match); in Edit
 itself, a mannequin can hold any gun in Probe's kits (Mannequin tool, Hold) to show the third person
-pose.
+pose, and on a Gunfight, Gun Game or Paintball map any weapon that game hands out.

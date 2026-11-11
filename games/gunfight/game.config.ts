@@ -1,8 +1,24 @@
-import { arsenalItem } from "@minecade/guns/defs";
+import { STIMPACK, arsenalItem, arsenalItemName } from "@minecade/guns/defs";
 import { defineGame } from "@minecade/minigame-core/config";
 
 /** The lobby's Best of setting: how many rounds a match can last. The first is the default. */
 const BEST_OF = [5, 3, 7];
+
+/** What a round's loadout is dealt from: one of each, the same for everyone. */
+const LOADOUTS = {
+  primary: [
+    arsenalItem("assault_rifle"),
+    arsenalItem("smg"),
+    arsenalItem("burst_rifle"),
+    arsenalItem("pump_shotgun"),
+    arsenalItem("double_barrel"),
+    arsenalItem("sniper_rifle"),
+    arsenalItem("rail_gun"),
+    "minecraft:crossbow",
+  ],
+  secondary: [arsenalItem("handgun"), arsenalItem("rpg"), "minecraft:netherite_sword"],
+  grenade: [arsenalItem("frag_grenade"), arsenalItem("molotov"), arsenalItem("flashbang"), arsenalItem("smoke_grenade"), arsenalItem("throwing_knife")],
+};
 
 // Gunfight: two teams, one life a round, everyone with the same guns. Each round deals one loadout
 // to everyone: a primary (each comes up once before any comes again), a secondary, a grenade and a
@@ -48,21 +64,9 @@ export default defineGame({
   // the same of a map, so every Siege map will do.
   map: { teamSpawns: true, bounds: true, borrow: ["siege"] },
   stats: { mode: "team", pvp: true, extras: [{ key: "headshots", label: "Headshots", agg: "sum" }] },
-  /** What a round's loadout is dealt from: one of each, the same for everyone. */
-  loadouts: {
-    primary: [
-      arsenalItem("assault_rifle"),
-      arsenalItem("smg"),
-      arsenalItem("burst_rifle"),
-      arsenalItem("pump_shotgun"),
-      arsenalItem("double_barrel"),
-      arsenalItem("sniper_rifle"),
-      arsenalItem("rail_gun"),
-      "minecraft:crossbow",
-    ],
-    secondary: [arsenalItem("handgun"), arsenalItem("rpg"), "minecraft:netherite_sword"],
-    grenade: [arsenalItem("frag_grenade"), arsenalItem("molotov"), arsenalItem("flashbang"), arsenalItem("smoke_grenade"), arsenalItem("throwing_knife")],
-  },
+  loadouts: LOADOUTS,
+  // The map editor's mannequins can hold every weapon a loadout can deal, and the stimpack.
+  mannequinItems: [...LOADOUTS.primary, ...LOADOUTS.secondary, ...LOADOUTS.grenade, arsenalItem(STIMPACK)].map((item) => ({ item, name: arsenalItemName(item) })),
   /** The hotbar: the loadout's three, and everyone's stimpack in the last slot. */
   slots: { primary: 0, secondary: 1, grenade: 2, stimpack: 8 },
 });

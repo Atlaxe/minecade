@@ -5,6 +5,7 @@ import { Kits } from "../src/game/kits.ts";
 import {
   dyeName,
   dyedLeather,
+  holdItems,
   itemLabel,
   kitItemId,
   kitLines,
@@ -50,6 +51,16 @@ describe("kit items", () => {
     expect(itemLabel({ item: "minecraft:{color}_wool" })).toBe("Wool");
     expect(kitLines(BASE, "§c")).toEqual(["Wooden Sword", "Bow", "64x Red Wool", "Arrow"]);
     expect(kitLines(SNOW)).toEqual(["8x Snowball"]);
+  });
+
+  it("lists what the editor's mannequins can hold: the kits' items once each, then the game's own", () => {
+    expect(holdItems({ kits: { base: BASE, list: [SNOW, { id: "again", name: "Again", items: [{ item: "minecraft:bow" }] }] } }).map(({ label }) => label)).toEqual(["Wooden Sword", "Bow", "Wool", "Arrow", "Snowball"]);
+    expect(holdItems({ kits: { list: [SNOW] }, mannequinItems: ["minecraft:snowball", "minecade:{color}_paintball_rifle", { item: "minecade:handgun", name: "Pistol" }] })).toEqual([
+      { item: "minecraft:snowball", label: "Snowball" },
+      { item: "minecade:{color}_paintball_rifle", label: "Paintball Rifle" },
+      { item: "minecade:handgun", label: "Pistol" },
+    ]);
+    expect(holdItems({})).toEqual([]);
   });
 
   it("files pictures by kit, by dye for team-colored kits, and under the map for a map's own", () => {

@@ -107,6 +107,12 @@ export interface KitItem {
 }
 
 /**
+ * An item the map editor's mannequins can hold: its id, or { item, name } to name it in the Hold
+ * list (else it's named from its id). "{color}" takes the mannequin's color as a dye, as in a kit.
+ */
+export type MannequinItem = string | { item: string; name?: string };
+
+/**
  * When a kit's items come back: "life" on every spawn (the default); "round" at the start of the
  * match and of every best-of round, with what's left kept through a respawn; "match" once, with
  * what's left kept through every respawn and round.
@@ -261,6 +267,12 @@ export interface GameConfig {
   /** Who wins when time runs out. Default: the highest score, else a draw. */
   timeUp?: "highestScore" | "draw" | { team: string };
   kits?: KitsConfig;
+  /**
+   * What the map editor's mannequins can hold besides the kits' items, for the game's picture: the
+   * items the game hands out from its own code (Gunfight's loadouts, Gun Game's ladder, Paintball's
+   * power-ups). The Hold list shows the kits' items first, then these.
+   */
+  mannequinItems?: MannequinItem[];
   /** A match of best-of rounds instead of one long stage (see BestOfConfig). */
   bestOf?: BestOfConfig;
   build?: BuildConfig;

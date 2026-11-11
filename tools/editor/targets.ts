@@ -1,12 +1,12 @@
 // What the editor can open: the lobby or a game, with the rules its maps are checked against (the
 // same ones the build uses), the numbers of its own marker models (marker-models.ts), and the items
-// its mannequins can hold. Its code is in the checkout (lobby/, games/<id>/); its maps and its
+// its mannequins can hold (its kits' items, then its mannequinItems). Its code is in the checkout (lobby/, games/<id>/); its maps and its
 // picture are in the map store's working folder for it (tools/maps).
 import { existsSync } from "node:fs";
 import { readdir, stat } from "node:fs/promises";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
-import { kitItems, possibleTeams, type EditorRules, type GameConfig, type LobbyConfig } from "@minecade/minigame-core/config";
+import { holdItems, possibleTeams, type EditorRules, type GameConfig, type LobbyConfig } from "@minecade/minigame-core/config";
 import { storeDir, workingDir } from "../maps/paths.ts";
 import { listMarkerModels, markerStyles } from "./marker-models.ts";
 
@@ -48,7 +48,7 @@ export async function loadTarget(root: string, id: string): Promise<EditorTarget
   if (!/^[a-z0-9_-]+$/.test(id) || !existsSync(configPath)) throw new Error(`there is no game "${id}" (games/${id}/game.config.ts): use lobby or a game id`);
   const config = await importConfig<GameConfig>(configPath);
   const teams = config.teams ? possibleTeams(config.teams).map(({ id: team, name, color }) => ({ id: team, name, color })) : undefined;
-  const items = kitItems(config.kits);
+  const items = holdItems(config);
   const mapKits = config.kits?.mapKits === false ? { mapKits: false } : {};
   const borrowers = await borrowersOf(root, id);
   return {
