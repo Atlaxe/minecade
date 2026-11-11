@@ -127,12 +127,22 @@
   .map-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(232px, 1fr)); gap: 14px; }
   .map-card { display: flex; flex-direction: column; text-align: left; padding: 0; gap: 0; font-size: var(--fs-body); font-weight: 400; background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-lg); overflow: hidden; transition: border-color .15s ease-out, background-color .15s ease-out; }
   .map-card:hover:not(:disabled) { background: var(--surface); border-color: var(--line-strong); }
+  /* A minigame thumbnail map's card: first in its game, on a shaded surface. */
+  .map-card.game-thumb, .map-card.game-thumb:hover:not(:disabled) { background: var(--raised); }
   .map-card.picked, .map-card.picked:hover:not(:disabled) { border-color: var(--primary); background: var(--selected); box-shadow: 0 0 0 1px var(--primary); }
   .map-thumb { aspect-ratio: 16 / 9; width: 100%; background: var(--inset); border-bottom: 1px solid var(--line); display: grid; place-items: center; color: var(--muted); font-size: var(--fs-meta); }
   .map-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; image-rendering: auto; }
+  .map-card.draft .map-thumb img { filter: grayscale(1); }
   .map-card.picked .map-thumb { border-bottom-color: var(--primary); }
   .map-body { display: grid; gap: 8px; padding: 12px 14px 14px; }
   .map-title { display: flex; align-items: baseline; gap: 8px; min-width: 0; }
+  /* A map's state before its name: filled when Ready, an outline when not; orange for a draft,
+     yellow for unpublished changes, green when what's published is what's there. */
+  .map-state { --tone: var(--ok); align-self: center; display: inline-grid; place-items: center; width: 14px; height: 14px; flex: none; }
+  .map-state::before { content: ""; width: 9px; height: 9px; border-radius: 1px; border: 2px solid var(--tone); background: var(--tone); box-sizing: border-box; }
+  .map-state.not-ready::before { background: none; }
+  .map-state.draft { --tone: var(--orange); }
+  .map-state.changed { --tone: var(--yellow); }
   .map-title .strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .map-title .mono { color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .map-card.picked .map-title .mono { color: var(--on-selected); }
@@ -1176,7 +1186,9 @@ function renderMaps() {
     (!mapsView.game || target.id === mapsView.game)
     && (!mapsView.status || MAP_STATUS[mapsView.status]?.(map))
     && (!query || map.name.toLowerCase().includes(query) || map.id.toLowerCase().includes(query));
-  const groups = maps.targets.map((target) => ({ target, list: target.maps.filter((map) => matches(target, map)) })).filter((group) => group.list.length > 0);
+  // A game's minigame thumbnail map comes first, the rest in the store's order.
+  const groups = maps.targets.map((target) => ({ target, list: target.maps.filter((map) => matches(target, map)).sort((a, b) => Number(b.gameThumbnail === true) - Number(a.gameThumbnail === true)) }))
+    .filter((group) => group.list.length > 0);
   const total = maps.targets.reduce((sum, target) => sum + target.maps.length, 0);
   const shown = groups.reduce((sum, group) => sum + group.list.length, 0);
   $("maps-note").textContent = shown === total ? `${total} ${total === 1 ? "map" : "maps"}` : `${shown} of ${total} maps`;
@@ -1196,18 +1208,21 @@ function mapCard(target, map) {
   const thumb = el("div", { className: "map-thumb" });
   if (map.picture) thumb.append(el("img", { src: thumbUrl(target, map), alt: "", loading: "lazy" }));
   else thumb.append("No picture");
-  const card = el("button", { className: `map-card${mapsView.picked === key ? " picked" : ""}`, "aria-pressed": String(mapsView.picked === key), "data-map": key },
+  const classes = ["map-card", map.gameThumbnail && "game-thumb", map.draft && "draft", mapsView.picked === key && "picked"].filter(Boolean).join(" ");
+  const card = el("button", { className: classes, "aria-pressed": String(mapsView.picked === key), "data-map": key },
     thumb,
     el("div", { className: "map-body" },
-      el("div", { className: "map-title" }, el("span", { className: "strong" }, map.name), el("span", { className: "mono" }, map.id)),
-      el("div", { className: "map-tags" },
-        el("span", { className: `pill ${map.ready ? "ok" : "warn"}` }, map.ready ? "Ready" : "Not ready"),
-        map.draft ? el("span", { className: "pill off" }, "Draft") : null,
-        map.gameThumbnail ? el("span", { className: "pill off", "data-tip": "Shows the minigame thumbnail" }, "Minigame thumbnail") : null,
-        map.unpublished ? el("span", { className: "pill warn" }, "Unpublished changes") : null)));
+      el("div", { className: "map-title" }, mapState(map), el("span", { className: "strong" }, map.name), el("span", { className: "mono" }, map.id))));
   card.onclick = () => pickMap(mapsView.picked === key ? "" : key);
   card.ondblclick = () => { pickMap(key); openViewer(target, map); };
   return card;
+}
+
+/** A map's state as one square: filled when Ready, an outline when not; orange for a draft, yellow for unpublished changes, green when published as it is. */
+function mapState(map) {
+  const [tone, publish] = map.draft ? ["draft", "draft"] : map.unpublished ? ["changed", "unpublished changes"] : ["published", "published"];
+  const text = `${map.ready ? "Ready" : "Not ready"}, ${publish}`;
+  return el("span", { className: `map-state ${tone}${map.ready ? "" : " not-ready"}`, role: "img", "aria-label": text, "data-tip": text });
 }
 
 function thumbUrl(target, map) {

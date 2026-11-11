@@ -16,10 +16,12 @@ The in-game editor (`docs/editor.md`) keeps every tool it has, and **In game** o
 ## Opening a map
 
 In the Panel, open **Maps**: every map in the store, in cards by game, each with its thumbnail
-(the `preview.png` taken in game Edit, or a minigame thumbnail map's game picture, tagged
-**Minigame thumbnail**; see "Pictures") and its checklist state (Ready or Not ready, Draft,
-Unpublished changes). The search box finds maps by name or id; the dropdowns show one game, or one
-status. **Click a card** to pick it, and the bar at the bottom offers **Edit (map) for (game)**:
+(the `preview.png` taken in game Edit, or a minigame thumbnail map's game picture; see
+"Pictures"), gray while the map is a draft. A square before the map's name gives its state, said
+in words when the pointer rests on it: filled when the checklist is done (Ready), an outline when
+it isn't (Not ready); orange for a draft, yellow for unpublished changes, green when what's
+published is what's there. A game's minigame thumbnail map comes first in its game, on a shaded
+card. The search box finds maps by name or id; the dropdowns show one game, or one status. **Click a card** to pick it, and the bar at the bottom offers **Edit (map) for (game)**:
 it, Enter or a double click opens the viewer in the same window. The back arrow at the viewer's
 top left returns to Maps, with the search and the pick as they were. The bar's **Port to another
 game** makes the picked map's blocks a new map of another game (see "Port to another game"), and
@@ -413,7 +415,8 @@ in Map settings (a game's maps only; the lobby shows no picture of its own map):
 - **Minigame thumbnail map:** check it on a map made for taking the game's picture (Bridges'
   BridgesThumbnail, say), an undo step like any setting (`"gameThumbnail": true` in `map.json`).
   Its card on the Maps page and its thumbnail in the top bar then show the game's picture, and the
-  card says **Minigame thumbnail**. It changes nothing else: the map is still a map of its game.
+  card goes first in its game, on a shaded card. It changes nothing else: the map is still a map
+  of its game.
 - **Minigame thumbnail** (while the box is checked): the game's picture, whether it's **Published**
   or **Not published yet**, **Change**, and **Publish picture**, which asks first, then puts the
   game's picture in the lobby with no map published (a thumbnail map is often a draft that never

@@ -16,6 +16,7 @@
   --primary: #48c0f0; --primary-hover: #78d8f8; --on-primary: #06223a;
   --selected: #123656; --on-selected: #d6f1fd;
   --ok: #5ad48c; --warn: #f2b84b; --bad: #ff7a70; --off: #8796a8;
+  --orange: #f5913c; --yellow: #ecd348;
   --axis-x: #f0605a; --axis-y: #5ccf6e; --axis-z: #4f8ff7;
   --shadow: 0 8px 24px #0006;
   --font: "Atkinson Hyperlegible Next", "Segoe UI", system-ui, sans-serif;
@@ -33,6 +34,7 @@
     --primary: #0a6494; --primary-hover: #08537b; --on-primary: #ffffff;
     --selected: #d4ecf9; --on-selected: #0b3a5a;
     --ok: #156b37; --warn: #7d4e00; --bad: #b02a22; --off: #4d5b6a;
+    --orange: #c05400; --yellow: #9c8300;
     --axis-x: #c8322b; --axis-y: #1a7a2d; --axis-z: #1d5fd0;
     --shadow: 0 8px 24px #0f1e3226;
   }
