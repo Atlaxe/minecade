@@ -1,6 +1,7 @@
 // The prompt bank's shared rules, pure so the orchestrator (which keeps the bank in prompts.db) and
 // the games (which deal its prompts) agree: how a prompt is cleaned up and how long it may be, how a
-// reply is split to fit a message, and how prompts are dealt so nobody gets one they wrote.
+// reply is split to fit a message, and how prompts are dealt (half fresh, half played before) so
+// nobody gets one they wrote.
 import { MAX_MESSAGE_CHARS, type BankPrompt, type PromptReply } from "./protocol/index.ts";
 
 /** The longest prompt kept: it has to fit a title's subtitle. */
@@ -39,49 +40,51 @@ export function promptReplyParts(requestId: string, prompts: BankPrompt[]): Prom
   return groups.map((group, index) => ({ t: "prompt_reply", requestId, part: index + 1, parts: groups.length, prompts: group }));
 }
 
-/** A prompt a game can deal: written in this match's form, from the bank (with its id), or from the game's own list (by nobody). */
+/** A prompt a game can deal: from the bank (with its id), or from the game's own list (by nobody). */
 export interface DealablePrompt {
   text: string;
   /** Who wrote it, lowercase; "" for nobody. */
   by: string;
   /** The bank's id, for prompts from the bank. */
   id?: number;
+  /** A bank prompt no match has been dealt yet. */
+  fresh?: boolean;
+}
+
+/** Whether a player may be dealt a prompt: by default, any but one they wrote. */
+export type MayHave = (player: string, prompt: DealablePrompt) => boolean;
+
+export const notTheirOwn: MayHave = (player, prompt) => prompt.by === "" || prompt.by !== player.toLowerCase();
+
+/** The two piles a deal draws from, each in the order it's taken (shuffled by the game). */
+export interface PromptPiles {
+  /** The bank's prompts no match has had yet. */
+  fresh: readonly DealablePrompt[];
+  /** Prompts played before: the bank's dealt ones, and the game's own list. */
+  played: readonly DealablePrompt[];
 }
 
 /**
- * Deals each player one prompt from `pool`, never one they wrote and never two players the same one
- * (prompts that say the same thing count as one). The pool is in order of preference (this match's
- * prompts, then the bank's newest, then the game's own), and the deal leans on the first ones: as
- * many players as possible get a prompt, and among the ways to do that it takes from the front.
- * Players come in turn in the order given. A player missing from the result had nothing left.
+ * Deals each player one prompt, players in the order given: at even odds (`random`) from the fresh
+ * pile or the played one, and from the other when the first has nothing left they may have. Never
+ * one a player may not have (`mayHave`: by default, never one they wrote), and never two players the
+ * same one (prompts that say the same thing count as one). A player missing from the result had
+ * nothing left in either pile.
  */
-export function dealPrompts(players: string[], pool: readonly DealablePrompt[]): Map<string, DealablePrompt> {
-  const seen = new Set<string>();
-  const prompts = pool.filter((prompt) => {
-    const key = promptKey(prompt.text);
-    if (!key || seen.has(key)) return false;
-    seen.add(key);
-    return true;
-  });
-  // A matching of players to prompts (Kuhn's augmenting paths), each player trying the prompts in order.
-  const holder: (number | undefined)[] = prompts.map(() => undefined);
-  const mayHave = (player: string, prompt: DealablePrompt) => prompt.by === "" || prompt.by !== player.toLowerCase();
-  const place = (player: number, visited: Set<number>): boolean => {
-    for (let index = 0; index < prompts.length; index++) {
-      if (visited.has(index) || !mayHave(players[player], prompts[index])) continue;
-      visited.add(index);
-      const other = holder[index];
-      if (other === undefined || place(other, visited)) {
-        holder[index] = player;
-        return true;
-      }
-    }
-    return false;
-  };
-  players.forEach((_, player) => place(player, new Set()));
+export function dealPrompts(players: readonly string[], piles: PromptPiles, random: () => number, mayHave: MayHave = notTheirOwn): Map<string, DealablePrompt> {
+  const taken = new Set<string>();
+  const next = (pile: readonly DealablePrompt[], player: string) =>
+    pile.find((prompt) => {
+      const key = promptKey(prompt.text);
+      return key !== "" && !taken.has(key) && mayHave(player, prompt);
+    });
   const dealt = new Map<string, DealablePrompt>();
-  holder.forEach((player, index) => {
-    if (player !== undefined) dealt.set(players[player], prompts[index]);
-  });
+  for (const player of players) {
+    const [first, second] = random() < 0.5 ? [piles.fresh, piles.played] : [piles.played, piles.fresh];
+    const prompt = next(first, player) ?? next(second, player);
+    if (!prompt) continue;
+    taken.add(promptKey(prompt.text));
+    dealt.set(player, prompt);
+  }
   return dealt;
 }

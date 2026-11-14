@@ -2,7 +2,7 @@
 // (one seeker, everyone else hiding), the countdown at the team spawns, the clock, the respawns and
 // the end. This class plays the hide (the seekers held blinded at their spawn for the map's Hide
 // time), then the seek; gives each side its hotbar; fires the arsenal's Pump Shotgun, with no
-// magazine to run out, at the hiders and their free look stand-ins; turns a hider shot down into a
+// magazine to run out, at the hiders and their free look stand-ins (one pellet finds a hider); turns a hider shot down into a
 // seeker; throws a seeker a hider hits; and runs the seekers' Detector.
 //
 // The hiders' own side is the chameleon pack (private_packs/chameleon, from the workshop's
@@ -217,14 +217,17 @@ export class Chameleon extends Minigame<typeof config> {
     return this.whoIs(entity) ?? (entity.typeId === STAND_IN ? standInOwner(entity) : undefined);
   }
 
-  /** A shot that hit a hider or their stand-in: their health, through core's combat (a hit in free look brings them back first). */
-  private shot(victim: Entity, attacker: string | undefined, amount: number | "lethal", cause: ArsenalCause): HurtResult {
+  /**
+   * A shot that hit a hider or their stand-in finds them: one pellet is enough, whatever its
+   * damage, through core's combat (a hit in free look brings them back first).
+   */
+  private shot(victim: Entity, attacker: string | undefined, _amount: number | "lethal", cause: ArsenalCause): HurtResult {
     const name = this.ownerOf(victim);
     if (name === undefined || !this.isHider(name)) return undefined;
     const body = this.body(name);
     if (!body) return undefined;
     if (victim.typeId === STAND_IN) tellPack(PACK_EVENTS.back, name);
-    return this.combat.hit(body, attacker, amount, cause, { direct: true });
+    return this.combat.hit(body, attacker, "lethal", cause, { direct: true });
   }
 
   // ---- Hiders hitting seekers -------------------------------------------------------------------

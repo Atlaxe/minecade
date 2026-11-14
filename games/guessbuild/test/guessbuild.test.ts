@@ -9,7 +9,7 @@ import { Direction, ItemStack, world, type FakePlayer } from "../../../packages/
 import { openLiveForm } from "../../../packages/minigame-core/test/fake-mc-server-ui.ts";
 import { NOTES_MARK } from "../../../packages/minigame-core/src/hud.ts";
 import { createHarness, expectBaseline, playToEnd, snapshot, statsRows, ticks, type Harness } from "../../../packages/minigame-core/test/game-harness.ts";
-import type { PromptRequest } from "@minecade/minigame-core/protocol";
+import type { BankPrompt, PromptRequest } from "@minecade/minigame-core/protocol";
 import { DEFAULT_STARTERS, VOTES } from "@minecade/minigame-core/building";
 import { validateGameConfig } from "../../../tools/build/validate.ts";
 import buildSwapConfig from "../../buildswap/game.config.ts";
@@ -47,11 +47,11 @@ function start(names: string[], settings: Record<string, string> = {}) {
   return { players, baseline, from, game };
 }
 
-/** The prompt request the game sent since `from`, answered with no prompts. */
-function answerBank(from: number): void {
+/** The prompt request the game sent since `from`, answered with `prompts` (none unless given). */
+function answerBank(from: number, prompts: BankPrompt[] = []): void {
   const request = harness.sent.slice(from).find((event): event is PromptRequest => event.t === "prompt_request");
   expect(request, "a prompt request").toBeDefined();
-  for (const part of promptReplyParts(request!.requestId, [])) harness.deliver(part);
+  for (const part of promptReplyParts(request!.requestId, prompts)) harness.deliver(part);
 }
 
 const byName = (players: FakePlayer[], name: string) => players.find((player) => player.name === name)!;
@@ -134,13 +134,15 @@ describe("a match of Guess the Build", () => {
       expect(game.phase).toBe("playing");
       expect(world.tickingAreaManager.areas.size).toBe(4);
 
-      // Each chain is its owner's prompt, C's a dealt one nobody wrote this match.
+      // Every chain's prompt is dealt (with nothing in the bank, from the game's own list), all
+      // different; what they wrote waits in the bank for a later match.
       const chains = game.allChains;
       const seats = game.circle;
       expect(chains.map((chain) => chain.owner)).toEqual(seats);
-      const promptOf = (owner: string) => chains.find((chain) => chain.owner === owner)!.prompt;
-      expect([promptOf("A"), promptOf("B"), promptOf("D")]).toEqual(["A pirate ship", "A volcano", "A big snowman"]);
-      expect(DEFAULT_STARTERS).toContain(promptOf("C"));
+      const prompts = chains.map((chain) => chain.prompt);
+      for (const prompt of prompts) expect(DEFAULT_STARTERS).toContain(prompt);
+      expect(new Set(prompts).size).toBe(4);
+      expect(prompts.filter((prompt) => /pirate ship|volcano|big snowman/i.test(prompt))).toEqual([]);
       const seatOf = (name: string) => seats.indexOf(name);
       /** The chain (and tile) `name` works on at `step`. */
       const onAt = (name: string, step: number) => (seatOf(name) + step) % 4;
@@ -196,6 +198,14 @@ describe("a match of Guess the Build", () => {
       openLiveForm("C")!.type("Your guess", "A rocket");
       openLiveForm("D")!.dismiss();
       await ticks(2);
+      // Whoever hasn't guessed and doesn't have the form up (D closed it) gets a big "Guess!" and a
+      // wither's roar every guessNagSeconds; not A or B (they guessed), nor C (the form is up).
+      const nags = (name: string) => byName(players, name).titles.map(stripColors).filter((title) => title === "Guess! | Use the paper to write what it is").length;
+      const roars = (name: string) => byName(players, name).sounds.filter((sound) => sound.id === "mob.wither.spawn").length;
+      expect(nags("D")).toBe(0);
+      await ticks(config.guessNagSeconds * 20);
+      expect([nags("D"), roars("D")]).toEqual([1, 1]);
+      expect(["A", "B", "C"].map((name) => nags(name) + roars(name))).toEqual([0, 0, 0]);
       expect(game.activeStage?.name).toBe("Guess");
       game.skipStage();
       await ticks(5);
@@ -281,8 +291,14 @@ describe("a match of Guess the Build", () => {
       await ticks(2);
       for (const name of ["A", "B", "C"]) openLiveForm(name)!.click("Skip");
       await ticks(12);
-      answerBank(from);
+      // The bank has one fresh prompt by each of them from earlier matches, and one by someone else:
+      // a chain's prompt is never one written by anyone who works on it (everyone but its owner).
+      answerBank(from, [
+        ...["a", "b", "c"].map((by, i) => ({ id: i + 1, k: "starter" as const, x: `Bank ${by.toUpperCase()}`, by, u: 0 })),
+        { id: 4, k: "starter", x: "Bank Zed", by: "zed", u: 0 },
+      ]);
       await ticks(5);
+      for (const chain of game.allChains) expect(chain.prompt).toMatch(new RegExp(`^(Bank ${chain.owner}|Bank Zed)$|^(?!Bank )`));
       // Build, then guess: two steps for three players.
       game.skipStage();
       await ticks(2);

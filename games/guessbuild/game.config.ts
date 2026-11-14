@@ -59,6 +59,11 @@ export default defineGame({
   guessSeconds: 45,
   /** The guess form comes up on its own this long into a guess (the paper brings it up sooner). */
   guessLookSeconds: 15,
+  /**
+   * After that, a guesser who still hasn't guessed and doesn't have the form up gets a big "Guess!"
+   * title and a wither's roar this often, the way voteNagSeconds nags voters.
+   */
+  guessNagSeconds: 10,
   /** How long the showcase shows each guess (and, at a chain's end, its prompt). */
   revealSeconds: 4,
   /** Once everyone has voted on a build, seconds until the next one (votes can still change). */

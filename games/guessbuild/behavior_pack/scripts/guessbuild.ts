@@ -1,7 +1,7 @@
 // Guess the Build on the minigame framework and the building games' base (minigame-core's building
 // kit: the prompt form, the copies of the map's arena, the building rules and tools, and voting).
-// After the prompt form, everyone sits in a shuffled circle and owns a chain: their own prompt (or a
-// dealt one, for a player who skipped), living in their copy of the arena (chains.ts). Then the steps:
+// After the prompt form, everyone sits in a shuffled circle and owns a chain: a dealt prompt (what
+// they wrote goes to the bank for a later match), living in their copy of the arena (chains.ts). Then the steps:
 // a build step has everyone build the latest text of the chain they're on (the prompt, then the last
 // guess) in that chain's arena, cleared first; a guess step has everyone look at the build in the
 // chain they're on and write what they think it is, with the paper in their first slot or the form
@@ -105,16 +105,16 @@ export class GuessBuild extends BuildingGame<typeof config> {
     );
   }
 
-  /** Each seat's chain: the prompt its owner wrote, else one dealt (never one written this match, which their writers' chains use). */
+  /**
+   * Each seat's chain and its prompt, dealt: what players write in this match's form waits in the
+   * bank for a later match (the user's ask, 2026-11-13). Everyone but a chain's owner works on it, so
+   * its prompt is never one any of them wrote in an earlier match (the owner's own, or one by
+   * nobody here, is fine).
+   */
   private dealChains(): void {
-    const written = new Map<string, string>();
-    for (const name of this.seats) {
-      const answer = this.answers.get(keyOf(name));
-      if (answer && answer !== "skip" && answer.starter) written.set(keyOf(name), answer.starter);
-    }
-    const others = this.seats.filter((name) => !written.has(keyOf(name)));
-    const dealt = this.deal("starter", others, new Set([...written.values()].map((text) => text.toLowerCase())));
-    this.seats.forEach((owner, index) => this.chains.push({ index, owner, prompt: written.get(keyOf(owner)) ?? dealt.get(owner)!, entries: [] }));
+    const here = new Set(this.seats.map(keyOf));
+    const dealt = this.deal("starter", this.seats, (owner, prompt) => prompt.by === "" || prompt.by === keyOf(owner) || !here.has(prompt.by));
+    this.seats.forEach((owner, index) => this.chains.push({ index, owner, prompt: dealt.get(owner)!, entries: [] }));
   }
 
   // ---- Building -------------------------------------------------------------------------------
@@ -144,8 +144,10 @@ export class GuessBuild extends BuildingGame<typeof config> {
 
   /**
    * Everyone looks at the build in the chain they're on and writes what they think it is: the paper
-   * brings up the form, and it comes up on its own guessLookSeconds in. Once all have guessed (or the
-   * time's up, taking whatever is typed), the guesses go in their chains.
+   * brings up the form, and it comes up on its own guessLookSeconds in. From then on, whoever still
+   * hasn't guessed and doesn't have the form up gets a big "Guess!" and a wither's roar every
+   * guessNagSeconds, as Build Swap's voters do. Once all have guessed (or the time's up, taking
+   * whatever is typed), the guesses go in their chains.
    */
   private async guessStep(step: number): Promise<void> {
     this.lines.clear();
@@ -169,10 +171,13 @@ export class GuessBuild extends BuildingGame<typeof config> {
       this.title(say.highlight("What is it?"), say.minor("Look around, then guess"), guesser, 60);
     }
     this.fakesGuess();
+    let looked = false;
     await this.stage("Guess", { seconds: this.config.guessSeconds }, (stage) => {
       stage.scope.timeout(() => {
+        looked = true;
         for (const name of this.guessing.keys()) if (!this.guessed.has(name) && !this.fakes?.has(name)) this.openGuess(name);
       }, this.config.guessLookSeconds * 20);
+      stage.scope.interval(() => looked && this.nagGuessers(), this.config.guessNagSeconds * 20);
       stage.scope.interval(() => {
         const status = `Time left: ${clock(stage.secondsLeft ?? 0)}`;
         for (const form of this.guessForms.values()) form.update(status);
@@ -218,6 +223,16 @@ export class GuessBuild extends BuildingGame<typeof config> {
       this.guessForms.set(key, form);
     }
     form.show();
+  }
+
+  /** Every guesser who hasn't submitted a guess and doesn't have the form up: "Guess!" and a wither's roar, to them. */
+  private nagGuessers(): void {
+    for (const key of this.guessing.keys()) {
+      if (this.guessed.has(key) || this.fakes?.has(key) || !this.present(key)) continue;
+      const player = this.player(key);
+      if (!player || this.guessForms.get(key)?.showingTo(player)) continue;
+      this.nag(key, say.warn("Guess!"), say.info("Use the paper to write what it is"));
+    }
   }
 
   /** A guess submitted: undefined when it's taken (it can be changed until the time's up), else what's wrong. */

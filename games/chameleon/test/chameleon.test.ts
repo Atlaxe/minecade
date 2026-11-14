@@ -214,9 +214,10 @@ describe("Chameleon", () => {
       expect(a.level).toBe(config.detector.cooldownSeconds);
       expect(a.xp).toBeGreaterThan(0);
 
-      // A shoots B down: found, out of the hiders' costume, and a seeker 3 seconds later.
+      // A shoots B down: one blast finds them, out of the hiders' costume, and a seeker 3 seconds later.
       lineUp(a, b);
-      await shootDown(game, a, "B");
+      use(a);
+      await ticks(1);
       expect(game.roster.get("B")?.state).toBe("respawning");
       expect(game.teamOf("B")?.id).toBe("seekers");
       expect(sent(PACK_EVENTS.out)).toEqual(["B"]);

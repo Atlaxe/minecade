@@ -43,16 +43,16 @@ export class PromptBank {
     return this.expectedParts > 0 && this.parts.size >= this.expectedParts;
   }
 
-  /** The bank's prompts of a kind that have come so far, in the bank's order (the newest, least used first). */
+  /** The bank's prompts of a kind that have come so far, in the bank's order; fresh ones (never dealt) say so. */
   prompts(kind: PromptKind): DealablePrompt[] {
     return [...this.parts.entries()]
       .sort(([a], [b]) => a - b)
       .flatMap(([, list]) => list)
       .filter((prompt) => prompt.k === kind)
-      .map((prompt) => ({ text: cleanPrompt(prompt.x), by: String(prompt.by ?? "").toLowerCase(), id: prompt.id }));
+      .map((prompt) => ({ text: cleanPrompt(prompt.x), by: String(prompt.by ?? "").toLowerCase(), id: prompt.id, fresh: prompt.u === 0 }));
   }
 
-  /** The bank's prompts a game dealt (its own and this match's have no id), counted so others come up first. */
+  /** The bank's prompts a game dealt (its own list's have no id), counted so the less used come up first. */
   used(prompts: readonly DealablePrompt[]): void {
     const ids = prompts.flatMap((prompt) => (prompt.id === undefined ? [] : [prompt.id]));
     if (ids.length > 0) this.ctx.transport.send({ t: "prompt_used", sessionId: this.ctx.vars.sessionId, ids });

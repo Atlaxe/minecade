@@ -1,6 +1,6 @@
 import { DatabaseSync } from "node:sqlite";
 import { describe, expect, it } from "vitest";
-import { KEEP_PER_KIND, NEWEST_WINDOW, PromptStore, promptEvent } from "../src/prompts/store.ts";
+import { KEEP_PER_KIND, PromptStore, promptEvent } from "../src/prompts/store.ts";
 
 function store(): PromptStore {
   let now = 0;
@@ -28,29 +28,41 @@ describe("the prompt bank", () => {
     expect(bank.count("twist")).toBe(1);
   });
 
-  it(`deals from the newest ${NEWEST_WINDOW}, the least used first`, () => {
+  it("gives two piles to deal from, fresh and played before, never one written in the asking match", () => {
     const bank = store();
-    for (let i = 0; i < 80; i++) bank.add("starter", `Prompt ${i}`, i % 2 ? "alex" : "sam", "buildswap");
-    const first = bank.pick("starter", 10);
+    for (let i = 0; i < 80; i++) bank.add("starter", `Prompt ${i}`, i % 2 ? "alex" : "sam", "buildswap", "s1");
+    // The match they were written in gets none of them.
+    expect(bank.pick("starter", 10, "s1")).toEqual([]);
+    // A later one gets up to 10 fresh ones, from all of them, and none played before yet.
+    const first = bank.pick("starter", 10, "s2");
     expect(first).toHaveLength(10);
-    // Only the 50 newest (Prompt 30 to 79).
-    expect(first.every((prompt) => Number(prompt.x.split(" ")[1]) >= 30)).toBe(true);
+    expect(first.every((prompt) => prompt.u === 0)).toBe(true);
     expect(first[0]).toMatchObject({ k: "starter", by: expect.stringMatching(/alex|sam/) });
+    expect(first.some((prompt) => Number(prompt.x.split(" ")[1]) < 30)).toBe(true);
     bank.markUsed(first.map((prompt) => prompt.id));
-    const second = bank.pick("starter", 40);
+    bank.markUsed(first.slice(0, 5).map((prompt) => prompt.id));
+    // Then 10 fresh ones (others) and 10 played before, the least used first.
+    const second = bank.pick("starter", 10, "s3");
     const used = new Set(first.map((prompt) => prompt.id));
-    expect(second.some((prompt) => used.has(prompt.id))).toBe(false);
-    expect(bank.pick("twist", 5)).toEqual([]);
+    const fresh = second.filter((prompt) => prompt.u === 0);
+    const played = second.filter((prompt) => (prompt.u ?? 0) > 0);
+    expect([fresh.length, played.length]).toEqual([10, 10]);
+    expect(fresh.some((prompt) => used.has(prompt.id))).toBe(false);
+    expect(played.map((prompt) => prompt.u)).toEqual([1, 1, 1, 1, 1, 2, 2, 2, 2, 2]);
+    expect(bank.pick("twist", 5, "s3")).toEqual([]);
   });
 
   it("answers a game: submissions go in, a request gets prompts in parts, deals are counted", () => {
     const bank = store();
     expect(promptEvent(bank, { t: "prompt_submit", sessionId: "s1", game: "x", by: "alex", prompts: [{ kind: "starter", text: "A castle" }, { kind: "twist", text: "On fire" }] }, "buildswap")).toEqual([]);
-    const [reply] = promptEvent(bank, { t: "prompt_request", requestId: "r1", sessionId: "s1", counts: { starter: 3, twist: 3 } }, "buildswap");
+    // Not in the match that wrote them; in the next one.
+    const [same] = promptEvent(bank, { t: "prompt_request", requestId: "r0", sessionId: "s1", counts: { starter: 3, twist: 3 } }, "buildswap");
+    expect(same).toMatchObject({ t: "prompt_reply", requestId: "r0", prompts: [] });
+    const [reply] = promptEvent(bank, { t: "prompt_request", requestId: "r1", sessionId: "s2", counts: { starter: 3, twist: 3 } }, "buildswap");
     expect(reply).toMatchObject({ t: "prompt_reply", requestId: "r1", part: 1, parts: 1 });
-    expect(reply.t === "prompt_reply" && reply.prompts.map((prompt) => [prompt.k, prompt.x, prompt.by])).toEqual([
-      ["starter", "A castle", "alex"],
-      ["twist", "On fire", "alex"],
+    expect(reply.t === "prompt_reply" && reply.prompts.map((prompt) => [prompt.k, prompt.x, prompt.by, prompt.u])).toEqual([
+      ["starter", "A castle", "alex", 0],
+      ["twist", "On fire", "alex", 0],
     ]);
     promptEvent(bank, { t: "prompt_used", sessionId: "s1", ids: [1] }, "buildswap");
     expect(bank.list("starter")[0].uses).toBe(1);

@@ -478,7 +478,8 @@ hiding. `games/chameleon`.
   hold only the shotgun, since Edit mode doesn't load a game's own items.
 - **Finding:** the seekers' Pump Shotgun never runs out or reloads (only its fire rate holds it
   back) and hits only hiders, or a hider's free look stand-in, which brings that hider back to it;
-  shots pass through other seekers. A hider shot down "was found by" the seeker and, 3 seconds
+  shots pass through other seekers. One pellet that lands finds a hider, at any range (the user's
+  ask, 2026-11-13). A hider shot down "was found by" the seeker and, 3 seconds
   later, comes back at the seekers' spawn as a seeker. A hider who falls out of the map is found
   too; a seeker who does just comes back. A seeker's own hits do nothing.
 - **Hiders hitting seekers:** throws the seeker the way the hider faces, about as far as knockback 5
@@ -521,6 +522,12 @@ uses too):
   starts. A preview's fake players get no form.
 - **Text filter:** what's typed goes through Minecraft's filter for the writer (`getFilteredText`),
   and is taken as typed when the filter is off or doesn't answer within 3 seconds.
+- **Where answers go:** into the prompt bank (README, "The prompt bank") for a later match, never
+  this one (the user's ask, 2026-11-13): nothing written in this match's form is dealt in it, nor
+  anything that says the same, so nobody knows what someone else is building or guessing. Each
+  prompt dealt is, at even odds, a fresh one from the bank (written in an earlier match, never dealt)
+  or one played before (the bank's dealt ones and the game's own list), the other kind when one runs
+  out (`deal()` in `building-game.ts`, `dealPrompts()` in `prompts.ts`).
 
 ## The building games' tools
 
@@ -556,9 +563,11 @@ only inside the area being built:
 
 Telephone with building (`games/guessbuild`). Before the match everyone writes one prompt (or skips),
 then the map's arena is copied once per player (docs/maps.md). Everyone sits in a shuffled circle
-and owns a chain: their own prompt (a player who skipped gets one dealt), living in their copy of
-the arena. The steps go round the circle, one fewer than players, so everyone works once on every
-chain but their own and never sees their own prompt until the end (`chains.ts`):
+and owns a chain: a dealt prompt (what the players wrote waits in the prompt bank for a later
+match, so nobody knows what the others are building or guessing; the user's ask, 2026-11-13), never
+one written in an earlier match by anyone who works on that chain, living in their copy of the
+arena. The steps go round the circle, one fewer than players, so everyone works once on every
+chain but their own and never sees their own chain's prompt until the end (`chains.ts`):
 
 - **Build steps** (the first, third, ...): everyone builds the latest text of the chain they're on,
   the next player's prompt first, then the guess before them, in that chain's arena. 10 seconds to
@@ -568,7 +577,10 @@ chain but their own and never sees their own prompt until the end (`chains.ts`):
 - **Guess steps** (the second, fourth, ...): everyone moves to the chain they're on and looks at its
   last build, with the paper (named Guess) locked in their first slot: right click brings up the
   guess form, one box (Your guess), Submit only. It also comes up on its own 15 seconds in
-  (`guessLookSeconds`) for whoever hasn't guessed. A guess can be changed with the paper until the
+  (`guessLookSeconds`) for whoever hasn't guessed. From then on, a player who still hasn't guessed
+  and doesn't have the form up (closed it, or it couldn't show) gets a big "Guess!" ("Use the paper
+  to write what it is") and a wither's roar every 10 seconds (`guessNagSeconds`), like Build Swap's
+  voters (the user's ask, 2026-11-13). A guess can be changed with the paper until the
   45 seconds (`guessSeconds`) are up, or the step ends once everyone has guessed. Whatever's typed
   but not submitted when time's up counts; no guess at all means the next builder builds what the
   build before was built from. A guess whose builder left has nothing to look at: that player waits.

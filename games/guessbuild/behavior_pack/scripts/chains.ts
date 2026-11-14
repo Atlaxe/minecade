@@ -1,9 +1,9 @@
 // Guess the Build's telephone, as plain logic. Everyone sits in a circle (a shuffled order) and owns
-// one chain, which starts from the prompt they wrote (or one dealt to them) and lives in their copy
-// of the arena. At each step everyone works on the chain of the player `step` seats after them:
-// odd steps build (the chain's prompt, then each guess), even steps guess what the build before is.
-// A match has one step fewer than players, so everyone works on every chain but their own once, and
-// nobody sees the prompt they wrote until the end.
+// one chain, which starts from a prompt dealt to them (never one written by anyone else in the
+// match) and lives in their copy of the arena. At each step everyone works on the chain of the player
+// `step` seats after them: odd steps build (the chain's prompt, then each guess), even steps guess
+// what the build before is. A match has one step fewer than players, so everyone works on every
+// chain but their own once, and nobody sees their own chain's prompt until the end.
 
 export type StepKind = "build" | "guess";
 

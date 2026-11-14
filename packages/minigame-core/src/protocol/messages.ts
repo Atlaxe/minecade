@@ -181,7 +181,11 @@ export interface PromptSubmit {
   prompts: { kind: PromptKind; text: string }[];
 }
 
-/** A game asks the prompt bank for prompts to deal: up to this many of each kind, the newest first. */
+/**
+ * A game asks the prompt bank for prompts to deal: up to this many of each kind that no match has
+ * had yet, and as many played before. Never one written in this session (its match deals none of
+ * its own prompts).
+ */
 export interface PromptRequest {
   t: "prompt_request";
   requestId: string;
@@ -317,6 +321,8 @@ export interface BankPrompt {
   x: string;
   /** Who wrote it (lowercase), or "" for nobody here. */
   by: string;
+  /** How many matches it's been dealt in: 0 for a fresh one. */
+  u?: number;
 }
 
 /** The prompt bank's answer to a prompt_request, possibly in several parts (each fits the size limit). */

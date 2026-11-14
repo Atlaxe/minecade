@@ -43,7 +43,7 @@ import { draw, type Result } from "../game/results.ts";
 import { countdownChime, hudText } from "../hud.ts";
 import { describeError, log } from "../log.ts";
 import { facingOf, worldPoint, type Box, type MapPosition, type Vec3 } from "../map-config.ts";
-import { cleanPrompt, dealPrompts, PROMPT_MAX_CHARS, type DealablePrompt } from "../prompts.ts";
+import { cleanPrompt, dealPrompts, PROMPT_MAX_CHARS, promptKey, type DealablePrompt, type MayHave } from "../prompts.ts";
 import type { PromptKind } from "../protocol/index.ts";
 import type { Scope } from "../scope.ts";
 import { COLOR, nameOf, ordinal, say } from "../text.ts";
@@ -69,7 +69,7 @@ const FAKE_VOTE_TICKS = [20, 80];
 const VOTE_SOUND = "random.orb";
 /** Dealt when every prompt is used up, which a full game list makes rare. */
 export const FALLBACK_PROMPTS: Record<PromptKind, string> = { starter: "Anything you like", twist: "Make it bigger" };
-/** What a voter who hasn't voted hears with the "Vote!" title: loud on purpose (the user's ask). */
+/** What a voter who hasn't voted hears with the "Vote!" title (and a guesser with "Guess!"): loud on purpose (the user's ask). */
 const NAG_SOUND = "mob.wither.spawn";
 /** The most dots a selection takes a refresh. */
 const SELECTION_DOTS = 300;
@@ -413,7 +413,7 @@ export abstract class BuildingGame<C extends BuildingGameConfig> extends Minigam
     this.forms.get(keyOf(name))?.close();
     this.forms.delete(keyOf(name));
     const one = this.promptFields().length === 1;
-    const reply = answer === "skip" ? `You skipped the ${one ? "prompt" : "prompts"}.` : `Your ${one ? "prompt is" : "prompts are"} in. Nobody gets their own.`;
+    const reply = answer === "skip" ? `You skipped the ${one ? "prompt" : "prompts"}.` : `Your ${one ? "prompt is" : "prompts are"} in, for a later match.`;
     this.player(name)?.sendMessage(say.minor(reply));
   }
 
@@ -480,20 +480,32 @@ export abstract class BuildingGame<C extends BuildingGameConfig> extends Minigam
   }
 
   /**
-   * One prompt of a kind for each of `players`, never one they wrote and never two the same: this
-   * match's prompts first, then the bank's (newest, least used), then the game's own list. The
-   * bank's are counted as used. `skip` leaves out prompts already taken (by lowercase text).
+   * One prompt of a kind for each of `players`, never two the same and never one a player may not
+   * have (`mayHave`: by default, never one they wrote). Nothing written in this match's form is
+   * dealt in it, nor anything that says the same: it waits in the bank for a later match, so nobody
+   * knows what someone else is building or guessing (the user's ask, 2026-11-13). Each prompt is, at
+   * even odds, one of the bank's that no match has had yet, or one played before (the bank's dealt
+   * ones and the game's own list, shuffled together), the other when one runs out. The bank's are
+   * counted as used.
    */
-  protected deal(kind: PromptKind, players: readonly string[], skip: ReadonlySet<string> = new Set()): Map<string, string> {
+  protected deal(kind: PromptKind, players: readonly string[], mayHave?: MayHave): Map<string, string> {
     const random = this.ctx.random;
-    const written: DealablePrompt[] = [];
-    for (const [by, answer] of this.answers) {
+    const written = new Set<string>();
+    for (const answer of this.answers.values()) {
       const text = answer === "skip" ? undefined : answer[kind];
-      if (text) written.push({ text, by });
+      if (text) written.add(promptKey(text));
     }
-    const own = (kind === "starter" ? DEFAULT_STARTERS : DEFAULT_TWISTS).map((text) => ({ text, by: "" }));
-    const pool = [...shuffled(written, random), ...this.bank.prompts(kind), ...shuffled(own, random)].filter((prompt) => !skip.has(prompt.text.toLowerCase()));
-    const dealt = dealPrompts(shuffled(players, random), pool);
+    const notWritten = (prompt: DealablePrompt) => !written.has(promptKey(prompt.text));
+    const bank = this.bank.prompts(kind).filter(notWritten);
+    const own = (kind === "starter" ? DEFAULT_STARTERS : DEFAULT_TWISTS).map((text): DealablePrompt => ({ text, by: "" })).filter(notWritten);
+    const piles = {
+      fresh: shuffled(
+        bank.filter((prompt) => prompt.fresh),
+        random,
+      ),
+      played: shuffled([...bank.filter((prompt) => !prompt.fresh), ...own], random),
+    };
+    const dealt = dealPrompts(shuffled(players, random), piles, random, mayHave);
     this.bank.used([...dealt.values()]);
     return new Map([...players].map((name) => [name, dealt.get(name)?.text ?? FALLBACK_PROMPTS[kind]]));
   }
@@ -613,12 +625,17 @@ export abstract class BuildingGame<C extends BuildingGameConfig> extends Minigam
     if (this.ballot !== ballot || ballot.done) return;
     for (const name of this.online()) {
       if (!ballot.isVoter(name) || ballot.voteOf(name) !== undefined || this.fakes?.has(name)) continue;
-      this.title(say.warn("Vote!"), say.info("Pick a number from 1 to 5"), name, 50);
-      try {
-        this.player(name)?.playSound(NAG_SOUND, { volume: 1 });
-      } catch {
-        // gone
-      }
+      this.nag(name, say.warn("Vote!"), say.info("Pick a number from 1 to 5"));
+    }
+  }
+
+  /** A big title and a wither's roar, to one player: something they still have to do (vote, guess). */
+  protected nag(name: string, title: string, subtitle: string): void {
+    this.title(title, subtitle, name, 50);
+    try {
+      this.player(name)?.playSound(NAG_SOUND, { volume: 1 });
+    } catch {
+      // gone
     }
   }
 

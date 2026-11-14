@@ -1,5 +1,6 @@
 // Build Swap against the fake world, on a map with one 40-block arena around a 24-block build area,
-// copied once per player: the prompt form, the deal (nobody gets their own prompt), building only in
+// copied once per player: the prompt form, the deal (nobody gets their own prompt, nor one written this
+// match; fresh or played before at even odds), building only in
 // your area, the swap, voting on each build before and after its twist, and the winner by points.
 import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import { dealPrompts, promptReplyParts, runtimeMapConfig, stripColors, validateMapConfig, type MapConfig, type MapPosition } from "@minecade/minigame-core/config";
@@ -54,7 +55,7 @@ function start(names: string[], overrides: Partial<typeof config> = {}, settings
 }
 
 /** The prompt request the game sent since `from`, answered with `prompts` (one reply part). */
-function answerBank(from: number, prompts: { id: number; k: "starter" | "twist"; x: string; by: string }[]): void {
+function answerBank(from: number, prompts: { id: number; k: "starter" | "twist"; x: string; by: string; u?: number }[]): void {
   const request = harness.sent.slice(from).find((event): event is PromptRequest => event.t === "prompt_request");
   expect(request, "a prompt request").toBeDefined();
   for (const part of promptReplyParts(request!.requestId, prompts)) harness.deliver(part);
@@ -148,12 +149,33 @@ describe("Build Swap's config and map", () => {
     }
   });
 
-  it("deals nobody their own prompt, and finds a way when the first try wouldn't", () => {
-    const dealt = dealPrompts(["A", "B"], [{ text: "A castle", by: "c" }, { text: "A boat", by: "b" }]);
-    expect(dealt.get("A")?.text).toBe("A boat");
-    expect(dealt.get("B")?.text).toBe("A castle");
-    // The same prompt twice counts once; a player with nothing left gets nothing.
-    expect(dealPrompts(["A", "B"], [{ text: "A cat", by: "b" }, { text: "a  CAT", by: "c" }]).size).toBe(1);
+  it("deals at even odds from the fresh prompts or the ones played before, nobody their own, never two the same", () => {
+    // Each player's coin, in turn: under a half takes from the fresh pile first.
+    const coins = (...flips: number[]) => () => flips.shift() ?? 0.9;
+    const fresh = [
+      { text: "A castle", by: "a", fresh: true },
+      { text: "A boat", by: "c", fresh: true },
+    ];
+    const played = [
+      { text: "A cat", by: "" },
+      { text: "a  CAT", by: "b" },
+      { text: "A dog", by: "c" },
+    ];
+    const dealt = dealPrompts(["A", "B", "C"], { fresh, played }, coins(0.1, 0.1, 0.9));
+    // A skips their own castle for the boat; B takes the castle; C, played first, the cat.
+    expect([...dealt].map(([name, prompt]) => `${name}: ${prompt.text}`)).toEqual(["A: A boat", "B: A castle", "C: A cat"]);
+    // A pile with nothing left for a player falls back to the other; the same prompt twice counts once.
+    const again = dealPrompts(["A", "B"], { fresh: [], played }, coins(0.1, 0.9));
+    expect([...again].map(([name, prompt]) => `${name}: ${prompt.text}`)).toEqual(["A: A cat", "B: A dog"]);
+    // A player with nothing left gets nothing.
+    expect(dealPrompts(["B"], { fresh: [], played: played.slice(1, 2) }, coins(0.1)).size).toBe(0);
+    // Over many deals, about half come from each pile.
+    let seed = 7;
+    const random = () => (seed = (seed * 48271) % 2147483647) / 2147483647;
+    let fromFresh = 0;
+    for (let i = 0; i < 1000; i++) if (dealPrompts(["Z"], { fresh, played }, random).get("Z")?.fresh) fromFresh++;
+    expect(fromFresh).toBeGreaterThan(440);
+    expect(fromFresh).toBeLessThan(560);
     // A reply too big for one message comes in parts that each fit.
     const many = Array.from({ length: 40 }, (_, i) => ({ id: i, k: "starter" as const, x: `${"x".repeat(45)} ${i}`, by: "someone" }));
     const parts = promptReplyParts("r1", many);
@@ -237,10 +259,12 @@ describe("a match of Build Swap", () => {
         { t: "prompt_submit", sessionId: "s1", game: "buildswap", by: "b", prompts: [{ kind: "twist", text: "Add a ******** dragon" }] },
       ]);
       await ticks(12);
-      // The bank has one of A's own from an earlier match, which A must not get.
+      // The bank has one of A's own from an earlier match, which A must not get, and one that says
+      // the same as A's prompt this match, which nobody gets: this match's prompts wait for a later one.
       answerBank(from, [
-        { id: 7, k: "starter", x: "A bank castle", by: "a" },
-        { id: 8, k: "twist", x: "Add a bank flag", by: "zed" },
+        { id: 7, k: "starter", x: "A bank castle", by: "a", u: 0 },
+        { id: 8, k: "twist", x: "Add a bank flag", by: "zed", u: 2 },
+        { id: 9, k: "starter", x: "a tiny  HOUSE", by: "zed", u: 0 },
       ]);
       await ticks(COUNTDOWN_TICKS);
       expect(game.phase).toBe("playing");
@@ -263,8 +287,8 @@ describe("a match of Build Swap", () => {
       ]);
       const starters = builds.map((build) => build.starter);
       expect(new Set(starters).size).toBe(3);
-      expect(builds.find((build) => build.builder === "A")!.starter).not.toMatch(/tiny house|bank castle/i);
-      expect(starters).toContain("A tiny house");
+      expect(builds.find((build) => build.builder === "A")!.starter).not.toMatch(/bank castle/i);
+      expect(starters.filter((starter) => /tiny house/i.test(starter))).toEqual([]);
       expect(harness.sent.slice(from).some((event) => event.t === "prompt_used")).toBe(true);
       // Nobody builds while reading the prompt.
       expect(game.activeStage?.name).toBe("Get ready");
@@ -297,6 +321,8 @@ describe("a match of Build Swap", () => {
       expect(onB.twister).not.toBe("B");
       for (const build of game.allBuilds) expect(build.twist).toBeTruthy();
       expect(new Set(game.allBuilds.map((build) => build.twist)).size).toBe(3);
+      // Not this match's twists either.
+      expect(game.allBuilds.filter((build) => /pink|dragon/i.test(build.twist ?? ""))).toEqual([]);
       game.skipStage();
       await ticks(2);
       expect(game.activeStage?.secondsLeft).toBe(config.twistMinutes * 60);
