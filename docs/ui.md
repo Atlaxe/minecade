@@ -212,8 +212,9 @@ don't close it; `packages/minigame-core/src/game/kit-form.ts`, its logic in `kit
   typed instead of changing the color, in a label, a text field's label or description, or a
   button. Never use `§` codes to color anything in a live form, and don't try it again: the kit
   form, the lobby's team form and Build Swap's prompt form pass their text through `stripColors`
-  where it goes in. An image button (`imageDetails` in the button's options) is likely the only way
-  to color a button; the team form's buttons are pictures for that reason.
+  where it goes in. A picture would be the only way to color a button, but pictures don't show in a
+  live form (the user, 2026-11-13: the team form's picture buttons never appeared), so the team
+  form's buttons are plain.
 - **Pictures:** the build draws each kit's picture into the game's resource pack
   (`tools/build/kit-pictures.ts`): a hotbar of nine slots (a gray frame around a dark see-through
   square), all four times as large. The kit's items fill it from the left (then what it puts in
@@ -787,14 +788,14 @@ players pick in the lobby while the game server boots, so no time is lost on the
   Ore UI, so the resource pack can't theme it.
 - **On it:** each team with its players and count ("2/3"), a Join button per team (disabled when
   the team is full), a Random team button, and a status line.
-- **Buttons as pictures:** Ore UI's buttons can't take a color, and their text shows color codes
-  as they are. So each button is a clickable picture the full width of the form, lined up with the
-  text above it: the team's color with white text ("Join Red"), framed in white on the player's own
-  team ("On Red"), dimmed when full ("Red is full"), and a gray Random team (framed while the player
-  has no pick). The build draws them into the lobby pack for every team any game can have
-  (`tools/build/team-buttons.ts`, a pixel font drawn after Minecraft's; `teamButtonPath()` names
-  them). A picture can't be disabled, so a tap on your own or a full team does nothing. If a form
-  with pictures can't show, it's shown again with Ore UI's plain buttons.
+- **Plain buttons:** each team's button is Ore UI's own, under its text: "Join Red", "On Red" on
+  the player's own team and "Red is full" (both disabled), then "Random team" (disabled while the
+  player has no pick). Ore UI's buttons can't take a color, and their text shows color codes as
+  they are, so they're white. From 2026-11-02 they were clickable pictures in the team's color
+  instead (the build still draws them into the lobby pack: `tools/build/team-buttons.ts`,
+  `teamButtonPath()`), but on 2026-11-13 the user found that pictures don't show in a live form at
+  all: every team game's form had only the teams' text and nothing to tap, so nobody could pick.
+  The form is plain buttons since then.
 - **Rules:** the teams and caps are the game's own (`activeTeams`, and `ceil(players / teams)`
   per team, as `assignTeams` honors), worked out in `scripts/team-picks.ts`. A player who leaves
   the lobby loses their pick. Someone who closed the form gets it back by tapping the terminal.
