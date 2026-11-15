@@ -1,8 +1,8 @@
 // What the map viewer may change, checked before anything applies it: a MapEdit (map-edit.ts) of
 // the ops that place, move, face and remove markup (spawns, points, boxes, heights), Publish's
 // "draft", and the map settings (the name, the time of day, the queue, a game's own settings and
-// other plain keys, the lobby's star box), with finite numbers, whole-block boxes and heights, and
-// sensible names. The Panel checks what its page sends, and the map editor what the Panel forwards
+// other plain keys, the lobby's star box, the requirement options), with finite numbers, whole-block
+// boxes and heights, and sensible names. The Panel checks what its page sends, and the map editor what the Panel forwards
 // (control.ts POST /edit).
 import {
   MAP_TIMES,
@@ -11,6 +11,7 @@ import {
   isMapKey,
   mapSettings,
   regionMinSize,
+  requirementOptions,
   settingFits,
   type Box,
   type BuildLimitSide,
@@ -68,6 +69,8 @@ export function markupProblem(config: MapConfig, edit: MapEdit, rules: EditRules
       if (!["string", "number", "boolean"].includes(typeof old)) return `${edit.key} isn't one of this map's settings.`;
       return typeof edit.value === typeof old ? undefined : `${edit.key} is ${typeof old === "boolean" ? "true or false" : `a ${typeof old}`}.`;
     }
+    case "requirement":
+      return edit.value === undefined ? undefined : requirementProblem(requires, rules.kind === "lobby" ? "lobby" : "game", edit.key, edit.value);
     case "stars":
       return edit.on && rules.kind !== "lobby" ? "The star box is only for the lobby's maps." : undefined;
     case "gameThumbnail":
@@ -91,6 +94,15 @@ export function markupProblem(config: MapConfig, edit: MapEdit, rules: EditRules
       return undefined;
   }
 }
+/** Why a map can't make a requirement option choice (its game's map.adjustable decides), or undefined. */
+export function requirementProblem(requires: MapRequirementsConfig | undefined, kind: "lobby" | "game", key: string, value: false | number): string | undefined {
+  const option = requirementOptions(requires, { kind }).find((candidate) => candidate.key === key);
+  if (!option) return `This game doesn't let a map change ${key}.`;
+  if (value === false) return option.off ? undefined : `This game can't do without ${option.label}.`;
+  if (!option.range) return `${option.label} has no count to set.`;
+  return value >= option.range.min && value <= option.range.max ? undefined : `${option.label} is a count from ${option.range.min} to ${option.range.max}.`;
+}
+
 const NAME = /^[A-Za-z][A-Za-z0-9_]*(\.[A-Za-z0-9_-]+)?$/;
 const TEAM = /^[A-Za-z0-9_-]+$/;
 const MAX_BATCH = 64;
@@ -154,6 +166,11 @@ export function viewerEdit(value: unknown, depth = 0): MapEdit | string {
       return edit.value === undefined || typeof edit.value === "boolean" || finite(edit.value) || (typeof edit.value === "string" && edit.value.length <= 200)
         ? (edit as MapEdit)
         : "a game setting's value is a number, true or false, or text";
+    case "requirement":
+      if (typeof edit.key !== "string" || !/^[A-Za-z][A-Za-z0-9_]*(\.[A-Za-z0-9_]+)?$/.test(edit.key)) return "a requirement's key is a checklist row's, such as killY or regions.kill";
+      return edit.value === undefined || edit.value === false || (Number.isInteger(edit.value) && (edit.value as number) >= 1 && (edit.value as number) <= 999)
+        ? (edit as MapEdit)
+        : "a requirement is off (false) or a count from 1";
     case "stars":
       return typeof edit.on === "boolean" ? (edit as MapEdit) : "stars is true or false";
     case "gameThumbnail":

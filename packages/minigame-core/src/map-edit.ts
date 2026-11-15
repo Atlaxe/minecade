@@ -53,6 +53,12 @@ export type MapEdit =
   | { op: "stars"; on: boolean }
   /** Sets (or, with no value, removes) a game-specific key, such as Sumo's eliminationY. */
   | { op: "extra"; key: string; value?: string | number | boolean }
+  /**
+   * A requirement option (map.json "requirements"): false turns a checklist row off, a number sets
+   * its count; with no value the row goes back to the game's own. `key` is the row's key without a
+   * team ("killY", "regions.kill"). Whether the game allows it is checked where edits come in.
+   */
+  | { op: "requirement"; key: string; value?: false | number }
   /** Removes "build", so `npm run bake` no longer rebuilds the world (world edits are kept). */
   | { op: "dropBuild" }
   /** Several edits as one change (one undo step). */
@@ -60,13 +66,16 @@ export type MapEdit =
 
 export class MapEditError extends Error {}
 
+/** A requirement option's key: a checklist row's key without a team ("killY", "regions.kill", "buildLimit.above"). */
+const REQUIREMENT_KEY = /^[A-Za-z][A-Za-z0-9_]*(\.[A-Za-z0-9_]+)?$/;
+
 /** True for the keys map.json defines; every other key is a game's own setting. */
 export function isMapKey(key: string): boolean {
   return KEY_ORDER.includes(key);
 }
 
 /** Where new keys go, the order map.json files are written in. Unknown keys stay where they are. */
-const KEY_ORDER: readonly string[] = ["name", "draft", "spawns", "spectatorSpawn", "queueSpawn", "queue", "bounds", "spectatorBounds", "killY", "buildLimit", "teamSpawns", "points", "regions", "time", "stars", "cameras", "mannequins", "mannequinsInPreview", "gameThumbnail", "source", "build"];
+const KEY_ORDER: readonly string[] = ["name", "draft", "spawns", "spectatorSpawn", "queueSpawn", "queue", "bounds", "spectatorBounds", "killY", "buildLimit", "teamSpawns", "points", "regions", "requirements", "time", "stars", "cameras", "mannequins", "mannequinsInPreview", "gameThumbnail", "source", "build"];
 
 export function applyEdit(config: MapConfig, edit: MapEdit): MapConfig {
   switch (edit.op) {
@@ -159,6 +168,14 @@ export function applyEdit(config: MapConfig, edit: MapEdit): MapConfig {
     case "extra":
       if (isMapKey(edit.key) || !/^[A-Za-z][A-Za-z0-9_]*$/.test(edit.key)) throw new MapEditError(`"${edit.key}" is not a game setting`);
       return withKey(config, edit.key, edit.value);
+    case "requirement": {
+      if (!REQUIREMENT_KEY.test(edit.key)) throw new MapEditError(`"${edit.key}" is not a checklist row`);
+      if (edit.value !== undefined && edit.value !== false && !(Number.isInteger(edit.value) && edit.value >= 1)) throw new MapEditError("A requirement is off (false) or a count of at least 1");
+      const old = Object.entries(typeof config.requirements === "object" && config.requirements !== null ? config.requirements : {});
+      const kept: [string, false | number][] = old.filter(([key]) => key !== edit.key || edit.value !== undefined).map(([key, value]) => [key, key === edit.key ? edit.value! : value]);
+      if (edit.value !== undefined && !old.some(([key]) => key === edit.key)) kept.push([edit.key, edit.value]);
+      return withKey(config, "requirements", kept.length > 0 ? Object.fromEntries(kept) : undefined);
+    }
     case "time":
       if (edit.time !== undefined && mapTimeTicks(edit.time) === undefined) throw new MapEditError(`"${edit.time}" is not a time of day`);
       return withKey(config, "time", edit.time);
@@ -229,6 +246,8 @@ export function describeEdit(edit: MapEdit): string {
       return `${edit.mannequin ? "set" : "remove"} mannequin ${edit.name}`;
     case "extra":
       return `set ${edit.key}`;
+    case "requirement":
+      return edit.value === undefined ? `${edit.key} as the game asks` : edit.value === false ? `turn ${edit.key} off` : `ask for ${edit.value} ${edit.key}`;
     case "time":
       return edit.time === undefined ? "clear time" : `set time ${edit.time}`;
     case "mannequinsInPreview":

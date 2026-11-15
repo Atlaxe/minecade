@@ -392,6 +392,12 @@ fit is put back, and the note over the view says why.
 - **Game settings** (a game whose config names some, `map.settings`): each with its range, its
   unit and what it changes; the map's own value, or the default until one is typed. **Use the
   default** takes the map's own away. Build Swap has **Build padding** and **Return delay**.
+- **Requirements** (a game whose config marks rows adjustable, `map.adjustable`; only here, game
+  Edit has no screen for them): each checklist row the map can change, with a switch when it can
+  be turned off and a count when it has a range, what the game asks, and **Use the default** once
+  the map has its own. A count typed back to the game's own is the default again. The checklist
+  follows at once, and game Edit's goes by the same values (`map.json` "requirements",
+  `docs/maps.md`). Probe's maps can turn off the spectator or queue spawn.
 - **Star box** (the lobby's maps only): stars all around the map, below the horizon too. Use it
   with a night time.
 - **The game's other keys:** any other plain value of the game's own the map has (as game Edit's
@@ -486,8 +492,8 @@ picked map. It asks:
   - **Boundaries:** bounds, spectator bounds, kill Y, kill regions and the regions the game names,
     and the sides of a build limit it asks for.
   - **Time of day**, **Cameras** and **Mannequins**, as they are.
-  - **Game settings:** the game's own settings the map has a value for that fits (by key), and the
-    star box for the lobby.
+  - **Game settings:** the game's own settings the map has a value for that fits (by key), its
+    requirement options the other game allows too, and the star box for the lobby.
 
   Where the map was cut from and its own kits never go.
 

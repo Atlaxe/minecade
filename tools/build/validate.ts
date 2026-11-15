@@ -1,7 +1,7 @@
 // Checks for game configs and map.json files. Each function returns a list of problems (empty
 // when valid) so the build can report everything at once instead of stopping at the first. The
 // map checks live in minigame-core, so the map editor shows the same problems live.
-import { MAX_ROUND_ICONS, MAX_SCORE_SIDES, MIN_BEST_OF, isMapKey, mapSettings, possibleTeams, settingFits, type GameConfig } from "@minecade/minigame-core/config";
+import { MAX_ROUND_ICONS, MAX_SCORE_SIDES, MIN_BEST_OF, adjustableProblems, isMapKey, mapSettings, possibleTeams, settingFits, type GameConfig } from "@minecade/minigame-core/config";
 
 export { mapWarnings, validateMapConfig, type MapRules } from "@minecade/minigame-core/config";
 
@@ -57,6 +57,8 @@ export function validateGameConfig(config: GameConfig, folder: string): string[]
     problems.push('respawn.lives must be at least 1 when respawn.mode is "lives"');
   }
   problems.push(...validateMapSettings(config));
+  // Requirement options: what each map may change of its checklist (map.adjustable).
+  problems.push(...adjustableProblems(config.map, { kind: "game", maxPlayers: config.maxPlayers, teams: config.teams ? possibleTeams(config.teams) : [] }));
   problems.push(...validateBorrow(config));
   if (config.blocks !== undefined && config.blocks !== "full") problems.push('blocks must be "full" or left out');
   return problems;

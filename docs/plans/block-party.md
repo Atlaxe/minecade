@@ -676,6 +676,11 @@ board it's played from, and the same arena map works on every board.
 
 ### Requirement options (Panel only)
 
+**Built in pass 2 (2026-11-15), for any game:** a game marks rows adjustable in its config's
+`map.adjustable` (`docs/maps.md`), the Panel's Map settings has the Requirements group, and
+`map.json` keeps the map's choices as `"requirements"`. Probe's maps can turn off the spectator or
+queue spawn, as a test; no real game marks a row yet.
+
 Most checklist rows become options, set in the Panel's map viewer the way Game settings are: a
 switch to turn a row off, and a count for how many entries it asks for. Turn off Kill Y for an
 arena that ends by falling into the void, or ask for 3 kill regions instead of 1.
@@ -692,10 +697,12 @@ arena that ends by falling into the void, or ask for 3 kill regions instead of 1
   ```json
   "requirements": { "killY": false, "regions.kill": 3 }
   ```
-- **The build** checks each map against its own choices, within the game's ranges, so a map can't
-  ask for less than the code needs.
+- **Publish** (in both editors) checks each map against its own choices, within the game's ranges,
+  so a map can't ask for less than the code needs. The build checks each game's `map.adjustable`
+  (every key names a row, a range holds the game's own count).
 - **Any game** can mark rows adjustable; Block Party's arenas and boards will use it most. A borrowed
-  map is checked against its own choices.
+  map is checked against its own choices, and a borrowing game counts on a lender's row only down
+  to the fewest a lender's map can be left with (the build's borrow check).
 
 ## Minigames
 

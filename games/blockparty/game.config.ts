@@ -26,7 +26,9 @@ export default defineGame({
   respawn: { mode: "none" },
   win: "custom",
   // No maps of its own yet: the spike plays Probe's (a small platform in the void).
-  map: { borrow: ["probe"] },
+  // Probe's maps can do without a spectator or queue spawn (its map.adjustable), so this game can
+  // too, as the build's borrow check asks: players then watch from over the first spawn.
+  map: { borrow: ["probe"], adjustable: { spectatorOrQueue: { off: true } } },
   /**
    * The test board: 12 spaces around a square, `spacing` blocks apart, its middle `at` (x, y of the
    * spaces' top, z), out beside Probe's platform. Pieces walk at `speed` blocks a second.

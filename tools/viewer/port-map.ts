@@ -15,12 +15,14 @@ import { copyFile, cp, mkdir, rename, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import {
   BUILD_LIMIT_SIDES,
+  choiceProblem,
   formatMapConfig,
   KILL_REGION,
   boundsBoxes,
   mapRequirements,
   mapSettings,
   mapTimeTicks,
+  requirementOptions,
   settingFits,
   spectatorBoundsBoxes,
   usesPlainSpawns,
@@ -235,6 +237,17 @@ export function carryPlan(config: MapConfig, to: EditorRules, from?: EditorRules
     }
     for (const setting of mapSettings(from?.requires)) {
       if (config[setting.key] !== undefined && !(setting.key in part)) left.push(setting.label);
+    }
+    // Requirement options: those the other game lets a map make too, as they are.
+    const allowed = requirementOptions(to.requires, { kind: to.kind, maxPlayers: to.maxPlayers, teams });
+    const carried: Record<string, false | number> = {};
+    for (const [key, value] of Object.entries(config.requirements ?? {})) {
+      if (choiceProblem(allowed.find((option) => option.key === key), key, value) === undefined) carried[key] = value;
+      else left.push(`the requirement option for ${key}`);
+    }
+    if (Object.keys(carried).length > 0) {
+      part.requirements = carried;
+      detail.push("requirement options");
     }
     add("settings", part, detail);
   }

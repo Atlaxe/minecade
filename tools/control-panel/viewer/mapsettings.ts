@@ -3,7 +3,9 @@
 // spawn's screen:
 // - Map settings (MapSettings), in the right panel with Select and nothing picked: the map's name,
 //   the queue's countdown once the queue spawn is placed, each of the game's own settings for the
-//   map (map.settings in its config, with their ranges and defaults), the lobby's star box, any
+//   map (map.settings in its config, with their ranges and defaults), the requirement options (the
+//   checklist rows the game lets a map turn off or set a count for: map.adjustable in its config,
+//   "requirements" in map.json; the Panel only, game Edit has no screen for them), the lobby's star box, any
 //   other plain key of the game's own the map has, a game's map's pictures (the Minigame thumbnail
 //   map switch, the game's picture on such a map, and the map's thumbnail: pictures.ts), and Port
 //   to another game.
@@ -12,7 +14,20 @@
 // - The picked queue spawn's (queuePanel): how players wait there, locked in or free.
 // Each change is one edit (one undo step), made when a field is done (Enter, or leaving it) or a
 // choice is picked.
-import { QUEUE_COUNTDOWN, isMapKey, mapSettings, mapTimeTicks, queueSettings, settingText, type EditorRules, type MapConfig, type MapEdit, type MapTime } from "@minecade/minigame-core/config";
+import {
+  QUEUE_COUNTDOWN,
+  isMapKey,
+  mapSettings,
+  mapTimeTicks,
+  queueSettings,
+  requirementOptions,
+  settingText,
+  type EditorRules,
+  type MapConfig,
+  type MapEdit,
+  type MapTime,
+  type RequirementOption,
+} from "@minecade/minigame-core/config";
 import { TIME_PRESETS, clockText, hoursLater, parseClock, presetOf } from "../../../editor/behavior_pack/scripts/time-of-day.ts";
 import { MAX_NAME } from "../../viewer/edit-check.ts";
 import { loadPictures, openPictureDialog, pictureUrl, type PictureKind, type PictureList } from "./pictures.ts";
@@ -52,6 +67,14 @@ function sentence(text: string | undefined): string {
   if (!text) return "";
   const first = text.charAt(0).toUpperCase() + text.slice(1);
   return /[.!?]$/.test(first) ? first : `${first}.`;
+}
+
+/** What a requirement option's row says under it: what the game asks, and what a map can do instead. */
+export function requirementHint(option: RequirementOption, off: boolean): string {
+  if (off) return "Off: this map's checklist doesn't ask for it.";
+  const asks = option.count === undefined ? "The game needs it." : `The game asks for ${option.count}.`;
+  const can = [option.range ? `ask for ${option.range.min} to ${option.range.max}` : "", option.off ? "turn it off" : ""].filter(Boolean).join(", or ");
+  return `${asks} A map can ${can}.`;
 }
 
 /** The map's own keys that aren't map.json's or one of the game's settings, with a plain value: game Edit's Name and map id form lists them. */
@@ -144,6 +167,7 @@ export class MapSettings {
       this.nameField(config),
       this.countdownField(config),
       this.gameSettings(config, rules),
+      this.requirements(config, rules),
       rules.kind === "lobby" ? this.starBox(config) : null,
       this.otherKeys(config, rules),
       this.picturesPart(config),
@@ -211,6 +235,52 @@ export class MapSettings {
           el("p", { className: "sub" }, [sentence(setting.hint), `The default is ${settingText(setting, setting.default)}; it can be ${setting.min} to ${setting.max}.`].filter(Boolean).join(" ")),
         );
       }),
+    );
+  }
+
+  /**
+   * The requirement options: each checklist row the game lets a map change, with a switch when it
+   * can be turned off and a count when it has a range, and Use the default once the map has its own.
+   * A count back at the game's own is the default again (map.json keeps only what differs).
+   */
+  private requirements(config: MapConfig, rules: EditorRules): HTMLElement | null {
+    const options = requirementOptions(rules.requires, { kind: rules.kind, maxPlayers: rules.maxPlayers, teams: rules.teams });
+    if (options.length === 0) return null;
+    const chosen = config.requirements ?? {};
+    return el(
+      "div",
+      {},
+      el("div", { className: "group-label" }, "Requirements"),
+      el("p", { className: "sub" }, "What this map's checklist asks for, where its game lets a map change it."),
+      options.map((option) => this.requirement(option, chosen[option.key])),
+    );
+  }
+
+  private requirement(option: RequirementOption, choice: false | number | undefined): HTMLElement {
+    const { key, label, range, count } = option;
+    const off = choice === false;
+    const box = option.off
+      ? el("input", { type: "checkbox", checked: !off, onchange: () => this.options.edit(box!.checked ? { op: "requirement", key } : { op: "requirement", key, value: false }) })
+      : null;
+    let input: HTMLInputElement | null = null;
+    if (range && !off) {
+      const current = typeof choice === "number" ? choice : (count ?? range.min);
+      const field = el("input", { type: "number", min: String(range.min), max: String(range.max), step: "1", value: String(current), className: "number" });
+      onDone(field, () => {
+        const value = Number(field.value);
+        if (!Number.isInteger(value) || value < range.min || value > range.max) return refuse(field, String(current), `${label} is a count from ${range.min} to ${range.max}.`, this.options.note);
+        if (value === current) return;
+        this.options.edit(value === count ? { op: "requirement", key } : { op: "requirement", key, value });
+      });
+      input = field;
+    }
+    const reset = choice !== undefined ? el("button", { className: "small", onclick: () => this.options.edit({ op: "requirement", key }) }, "Use the default") : null;
+    return el(
+      "div",
+      { className: "setting" },
+      el("label", { className: "field-row" }, box, el("span", { className: "strong" }, label), input),
+      reset ? el("div", { className: "buttons tight" }, reset) : null,
+      el("p", { className: "sub" }, requirementHint(option, off)),
     );
   }
 

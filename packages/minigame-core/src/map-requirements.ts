@@ -1,6 +1,6 @@
 // What a game's (or the lobby's) maps need, from the `map` block of its config, as one flat list:
 // the build checks every map against it, and the map editor shows it as a checklist.
-import type { MapEntryRequirement, MapRequirementsConfig, MapSettingConfig, MarkerStyle } from "./config.ts";
+import type { MapAdjustable, MapEntryRequirement, MapRequirementsConfig, MapSettingConfig, MarkerStyle } from "./config.ts";
 import { BUILD_LIMIT_SIDES, teamKey, type Box, type BuildLimitSide, type MapConfig, type Vec3 } from "./map-config.ts";
 
 /** "spectatorOrQueue": a spectator spawn or a queue spawn, either one (games that name neither). */
@@ -26,6 +26,11 @@ export interface MapRequirement {
   maxSize?: number;
   /** Spawns and regions: the region every entry must be inside a box of. */
   inside?: string;
+  /**
+   * When the game lets each map change the row (map.adjustable): the fewest entries one of its maps
+   * can be left with, 0 when the row can be turned off. Rows that can't change have none: min.
+   */
+  floor?: number;
 }
 
 /** How many blocks a box spans along each side (its corners are whole blocks, both inside). */
@@ -72,6 +77,13 @@ export interface RequirementOptions {
   maxPlayers?: number;
   /** Every team the game can have (possibleTeams), for team spawns and per-team entries. */
   teams?: { id: string; name: string }[];
+  /**
+   * The map's own requirement options (map.json "requirements"): a row the game lets a map turn off
+   * goes, and a count set within the game's range replaces the game's own. Choices the game doesn't
+   * allow are left out (validateMapConfig names them). Without it, every row the game names (what
+   * the editors' lists offer).
+   */
+  choices?: unknown;
 }
 
 /** The requirements in checklist order: spawns, spectator or queue spawn, spectator spawn, queue spawn, bounds, killY, the build limit, points, regions, team spawns. */
@@ -134,7 +146,140 @@ export function mapRequirements(map: MapRequirementsConfig | undefined, options:
       list.push({ key: `teamSpawns.${team.id}`, label: `${team.name} spawns`, field: "teamSpawns", name: team.id, team: team.id, min: perTeam });
     }
   }
-  return list;
+  const adjustable = map?.adjustable;
+  const rows = adjustable ? list.map((row) => withFloor(row, adjustable[optionKey(row)])) : list;
+  return options.choices === undefined ? rows : applyChoices(rows, adjustable, options.choices);
+}
+
+/**
+ * The key a row is changed by (map.adjustable in the game's config, "requirements" in map.json):
+ * its key without a team, so one choice covers every team's row ("points.hole", "teamSpawns").
+ */
+export function optionKey(row: MapRequirement): string {
+  if (row.field === "teamSpawns") return "teamSpawns";
+  if (row.team !== undefined && (row.field === "points" || row.field === "regions")) return row.key.slice(0, -(row.team.length + 1));
+  return row.key;
+}
+
+/** Whether a row has a count a map can change: points, regions, team spawns, and spawns given as a number. */
+export function hasCount(row: MapRequirement): boolean {
+  return row.field === "points" || row.field === "regions" || row.field === "teamSpawns" || (row.field === "spawns" && !row.perPlayer);
+}
+
+/** A row a game lets each map change, and how (the Panel's Requirements group lists them). */
+export interface RequirementOption {
+  /** Its key in map.json "requirements". */
+  key: string;
+  label: string;
+  /** The game's own count, for a row with one (each team's, for a row per team). */
+  count?: number;
+  /** A map can turn it off. */
+  off: boolean;
+  /** The counts a map can ask for instead, when it can. */
+  range?: { min: number; max: number };
+}
+
+/** The rows a game lets each map change (its config's map.adjustable, where they name a row), in checklist order. */
+export function requirementOptions(map: MapRequirementsConfig | undefined, options: Omit<RequirementOptions, "choices">): RequirementOption[] {
+  return optionsOf(mapRequirements(map, { ...options, choices: undefined }), map?.adjustable);
+}
+
+function optionsOf(rows: readonly MapRequirement[], adjustable: Record<string, MapAdjustable> | undefined): RequirementOption[] {
+  const found = new Map<string, RequirementOption>();
+  for (const row of rows) {
+    const key = optionKey(row);
+    const adjust = adjustable?.[key];
+    if (!adjust || found.has(key)) continue;
+    const counted = hasCount(row);
+    const ranged = counted && Number.isInteger(adjust.min) && Number.isInteger(adjust.max);
+    found.set(key, {
+      key,
+      label: optionLabel(row),
+      ...(counted ? { count: row.min } : {}),
+      off: adjust.off === true,
+      ...(ranged ? { range: { min: adjust.min!, max: adjust.max! } } : {}),
+    });
+  }
+  return [...found.values()];
+}
+
+/** A row's name without its team: "Hole" for "Hole (Red)", "Team spawns" for "Red spawns". */
+function optionLabel(row: MapRequirement): string {
+  if (row.field === "teamSpawns") return "Team spawns";
+  return row.team === undefined ? row.label : row.label.replace(/ \([^()]*\)$/, "");
+}
+
+/** Why a map's choice for a row doesn't fit what its game allows, or undefined when it does. */
+export function choiceProblem(option: RequirementOption | undefined, key: string, value: unknown, who = "this game"): string | undefined {
+  if (!option) return `"requirements.${key}": ${who} doesn't let a map change that`;
+  if (value === false) return option.off ? undefined : `"requirements.${key}": ${who} can't do without ${option.label}`;
+  if (typeof value !== "number" || !Number.isInteger(value)) return `"requirements.${key}" must be false (off) or a count`;
+  if (!option.range) return `"requirements.${key}": ${option.label} has no count to set`;
+  return value >= option.range.min && value <= option.range.max ? undefined : `"requirements.${key}" must be a whole number from ${option.range.min} to ${option.range.max}`;
+}
+
+/** The problems with a map's "requirements" against what its game allows (none when it has none). */
+export function choiceProblems(choices: unknown, map: MapRequirementsConfig | undefined, options: Omit<RequirementOptions, "choices">, who = "this game"): string[] {
+  if (choices === undefined) return [];
+  if (typeof choices !== "object" || choices === null || Array.isArray(choices)) return ['"requirements" must map checklist rows to false (off) or a count'];
+  const allowed = requirementOptions(map, options);
+  return Object.entries(choices).flatMap(([key, value]) => {
+    const problem = choiceProblem(allowed.find((option) => option.key === key), key, value, who);
+    return problem ? [problem] : [];
+  });
+}
+
+/**
+ * What's wrong with a game's map.adjustable (checked at build): a key that names no row, a count
+ * range on a row without a count, a range that doesn't hold the game's own count, or nothing to change.
+ */
+export function adjustableProblems(map: MapRequirementsConfig | undefined, options: Omit<RequirementOptions, "choices">): string[] {
+  const problems: string[] = [];
+  const rows = mapRequirements(map, { ...options, choices: undefined });
+  for (const [key, adjust] of Object.entries(map?.adjustable ?? {})) {
+    const where = `map.adjustable.${key}`;
+    const row = rows.find((candidate) => optionKey(candidate) === key);
+    if (!row) {
+      problems.push(`${where}: no row of the game's checklist has that key`);
+      continue;
+    }
+    if (typeof adjust !== "object" || adjust === null) {
+      problems.push(`${where} must be { off, min, max }`);
+      continue;
+    }
+    if (adjust.off !== undefined && typeof adjust.off !== "boolean") problems.push(`${where}.off must be true or false`);
+    const ranged = adjust.min !== undefined || adjust.max !== undefined;
+    if (ranged) {
+      const { min, max } = adjust;
+      if (!hasCount(row)) problems.push(`${where}: ${row.label} has no count to change, only off`);
+      else if (!Number.isInteger(min) || !Number.isInteger(max) || min! < 1 || min! > max!) problems.push(`${where}: min and max must be whole numbers from 1, min no more than max`);
+      else if (row.min < min! || row.min > max!) problems.push(`${where}: the game's own count (${row.min}) must be from ${min} to ${max}`);
+    }
+    if (adjust.off !== true && !ranged) problems.push(`${where}: nothing to change (give off, or min and max)`);
+  }
+  return problems;
+}
+
+/** A row with the fewest entries a map can be left with, when the game lets maps change it. */
+function withFloor(row: MapRequirement, adjust: MapAdjustable | undefined): MapRequirement {
+  if (!adjust) return row;
+  const lowest = adjust.off === true ? 0 : hasCount(row) && Number.isInteger(adjust.min) ? Math.min(adjust.min!, row.min) : row.min;
+  return { ...row, floor: lowest };
+}
+
+/** The rows after a map's own choices: those it turned off go, and counts it set replace the game's. */
+function applyChoices(rows: readonly MapRequirement[], adjustable: Record<string, MapAdjustable> | undefined, choices: unknown): MapRequirement[] {
+  if (typeof choices !== "object" || choices === null || Array.isArray(choices)) return [...rows];
+  const allowed = optionsOf(rows, adjustable);
+  const chosen = choices as Record<string, unknown>;
+  return rows.flatMap((row) => {
+    const key = optionKey(row);
+    const value = chosen[key];
+    if (value === undefined || choiceProblem(allowed.find((option) => option.key === key), key, value) !== undefined) return [row];
+    if (value === false) return [];
+    const { perPlayer: _perPlayer, ...rest } = row;
+    return [{ ...rest, min: value as number }];
+  });
 }
 
 /**
@@ -145,9 +290,15 @@ export function mapRequirements(map: MapRequirementsConfig | undefined, options:
 export function uncoveredRequirements(needs: readonly MapRequirement[], has: readonly MapRequirement[]): MapRequirement[] {
   const byKey = new Map(has.map((requirement) => [requirement.key, requirement]));
   return needs.filter((need) => {
-    if (need.key === "spectatorOrQueue") return !["spectatorOrQueue", "spectatorSpawn", "queueSpawn"].some((key) => byKey.has(key));
+    // A row either game lets maps change counts at its floor: the fewest a map can be left with.
+    const needs = need.floor ?? need.min;
+    if (need.key === "spectatorOrQueue") return needs > 0 && !["spectatorOrQueue", "spectatorSpawn", "queueSpawn"].some((key) => {
+        const own = byKey.get(key);
+        return own !== undefined && (own.floor ?? own.min) > 0;
+      });
     const own = byKey.get(need.key);
-    if (!own || own.min < need.min) return true;
+    if (!own) return needs > 0;
+    if ((own.floor ?? own.min) < needs) return true;
     if (need.inside !== undefined && own.inside !== need.inside) return true;
     if (need.maxSize !== undefined && (own.maxSize ?? Infinity) > need.maxSize) return true;
     return (need.minSize ?? 0) > (own.minSize ?? 0);

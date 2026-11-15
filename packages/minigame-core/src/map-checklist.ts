@@ -25,7 +25,8 @@ export interface Checklist {
 export function mapChecklist(config: MapConfig, rules: MapRules): Checklist {
   const teamSpawns = isRecord(config.teamSpawns) ? config.teamSpawns : {};
   const hasTeamSpawns = Object.keys(teamSpawns).length > 0;
-  const rows = mapRequirements(rules.requires, { kind: rules.kind, maxPlayers: rules.maxPlayers, teams: rules.teams }).map((requirement) => {
+  // The map's own requirement options (map.json "requirements") decide its rows, as in the validator.
+  const rows = mapRequirements(rules.requires, { kind: rules.kind, maxPlayers: rules.maxPlayers, teams: rules.teams, choices: config.requirements }).map((requirement) => {
     const have = count(config, requirement);
     // The same rule as the validator: with team spawns, plain spawns are only where players wait.
     const need = requirement.field === "spawns" && hasTeamSpawns ? 1 : requirement.min;

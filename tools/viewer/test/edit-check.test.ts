@@ -109,3 +109,27 @@ describe("markupProblem", () => {
     expect(markupProblem({ ...config, queueSpawn: [0, 64, 0] }, { op: "queue", mode: "free" }, rules)).toBeUndefined();
   });
 });
+
+describe("requirement options", () => {
+  const requires = { killY: true, regions: { kill: { label: "Kill region" } }, adjustable: { killY: { off: true }, "regions.kill": { min: 1, max: 3 } } };
+  const config = { name: "Arena", spawns: [] };
+
+  it("takes a requirement edit's shape: a row key, and off, a count or nothing", () => {
+    expect(viewerEdit({ op: "requirement", key: "killY", value: false })).toEqual({ op: "requirement", key: "killY", value: false });
+    expect(viewerEdit({ op: "requirement", key: "regions.kill", value: 3 })).toEqual({ op: "requirement", key: "regions.kill", value: 3 });
+    expect(viewerEdit({ op: "requirement", key: "regions.kill" })).toEqual({ op: "requirement", key: "regions.kill" });
+    expect(viewerEdit({ op: "requirement", key: "regions.kill", value: 0 })).toMatch(/count from 1/);
+    expect(viewerEdit({ op: "requirement", key: "regions.kill", value: true })).toMatch(/off \(false\)/);
+    expect(viewerEdit({ op: "requirement", key: "a b" })).toMatch(/checklist row/);
+  });
+
+  it("allows only what the game's map.adjustable allows", () => {
+    expect(markupProblem(config, { op: "requirement", key: "killY", value: false }, { requires })).toBeUndefined();
+    expect(markupProblem(config, { op: "requirement", key: "regions.kill", value: 2 }, { requires })).toBeUndefined();
+    expect(markupProblem(config, { op: "requirement", key: "regions.kill", value: 4 }, { requires })).toBe("Kill region is a count from 1 to 3.");
+    expect(markupProblem(config, { op: "requirement", key: "regions.kill", value: false }, { requires })).toBe("This game can't do without Kill region.");
+    expect(markupProblem(config, { op: "requirement", key: "killY", value: 2 }, { requires })).toBe("Kill Y has no count to set.");
+    expect(markupProblem(config, { op: "requirement", key: "bounds", value: false }, { requires })).toBe("This game doesn't let a map change bounds.");
+    expect(markupProblem(config, { op: "requirement", key: "bounds" }, { requires })).toBeUndefined();
+  });
+});

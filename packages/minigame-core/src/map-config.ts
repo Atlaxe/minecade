@@ -233,6 +233,12 @@ export interface MapConfig {
   points?: Record<string, MapPosition[]>;
   /** Named areas, such as build plots or a floor; "<name>.<team>" for one team's; "kill" puts players out. */
   regions?: Record<string, Box[]>;
+  /**
+   * The map editor only: the map's own requirement options, for the rows its game lets a map change
+   * (MapRequirementsConfig.adjustable): false turns a row off, a number is its count. Only what
+   * differs from the game's own: { "killY": false, "regions.kill": 3 }.
+   */
+  requirements?: RequirementChoices;
   /** A fixed time of day: the daylight cycle stops there (set when the server starts). */
   time?: MapTime;
   /** The lobby only: a star box around the map, so stars show in every direction, below the horizon too. */
@@ -265,6 +271,9 @@ export interface MapConfig {
   [key: string]: unknown;
 }
 
+/** A map's requirement options (map.json "requirements"): by row key, false (off) or a count. */
+export type RequirementChoices = Record<string, false | number>;
+
 /**
  * How players wait at a map's queue spawn: "lock" keeps them on the spot (looking around, not
  * moving) and invisible to each other, "free" lets them roam. Once everyone is in, `countdown`
@@ -288,7 +297,7 @@ export function queueSettings(config: Pick<MapConfig, "queue">): QueueSettings {
 }
 
 /** Keys only the build and the map editor use; servers get the map without them. */
-export const EDITOR_ONLY_KEYS = ["build", "source", "cameras", "mannequins", "mannequinsInPreview", "gameThumbnail", "draft"] as const;
+export const EDITOR_ONLY_KEYS = ["build", "source", "cameras", "mannequins", "mannequinsInPreview", "gameThumbnail", "draft", "requirements"] as const;
 
 /**
  * The map as servers get it: without the editor-only keys, and with the lens of the camera players

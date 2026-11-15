@@ -25,6 +25,10 @@ export default defineGame({
   combat: { damage: "none" },
   win: "custom",
   teams: { count: 2 },
+  // Requirement options (the Panel's Map settings, Requirements): a Probe map can do without a
+  // spectator or queue spawn, since players then watch from over the first spawn (MapView). A
+  // test of the feature, nothing Probe needs.
+  map: { adjustable: { spectatorOrQueue: { off: true } } },
   kits: {
     select: "match",
     pickSeconds: 20,

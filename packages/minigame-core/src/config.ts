@@ -362,6 +362,26 @@ export interface MapRequirementsConfig {
    * Their games must ask at least what this game asks of a map (checked at build).
    */
   borrow?: string[];
+  /**
+   * Checklist rows each map can change (requirement options), by the row's key without a team:
+   * "killY", "bounds", "spawns", "spectatorSpawn", "queueSpawn", "spectatorOrQueue",
+   * "buildLimit.above", "points.<name>", "regions.<name>", "teamSpawns". A map sets its own in the
+   * Panel's map viewer (map.json "requirements"); the game's code must work with every value
+   * allowed here. Rows left out are fixed.
+   */
+  adjustable?: Record<string, MapAdjustable>;
+}
+
+/** How a map can change one checklist row (MapRequirementsConfig.adjustable). */
+export interface MapAdjustable {
+  /** The row can be turned off: such a map needs none. */
+  off?: boolean;
+  /**
+   * The fewest and the most entries a map can ask for instead of the game's own count (rows with a
+   * count: spawns given as a number, points, regions, team spawns per team). Both or neither.
+   */
+  min?: number;
+  max?: number;
 }
 
 /** A whole number a game reads from each of its maps (minigame.mapSetting), set in the map editor. */

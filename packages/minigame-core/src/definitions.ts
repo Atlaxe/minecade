@@ -18,6 +18,7 @@ export {
   type KitsConfig,
   type LobbyConfig,
   type MannequinItem,
+  type MapAdjustable,
   type MapKitsConfig,
   type MapEntryRequirement,
   type MapRequirementsConfig,
@@ -97,12 +98,36 @@ export {
   type MapSource,
   type MapTime,
   type QueueSettings,
+  type RequirementChoices,
   type Vec3,
 } from "./map-config.ts";
 export { MapEditError, applyEdit, describeEdit, isMapKey, listKey, listOf, type MapEdit, type MapList } from "./map-edit.ts";
 export { mapChecklist, type Checklist, type ChecklistRow } from "./map-checklist.ts";
 export { formatMapConfig } from "./map-format.ts";
-export { bigEnough, boxSize, fitsSize, mapRequirements, mapSettings, mapSettingValue, regionMinSize, settingFits, settingText, smallEnough, uncoveredRequirements, usesPlainSpawns, type MapField, type MapRequirement, type RequirementOptions } from "./map-requirements.ts";
+export {
+  adjustableProblems,
+  bigEnough,
+  boxSize,
+  choiceProblem,
+  choiceProblems,
+  fitsSize,
+  hasCount,
+  mapRequirements,
+  mapSettings,
+  mapSettingValue,
+  optionKey,
+  regionMinSize,
+  requirementOptions,
+  settingFits,
+  settingText,
+  smallEnough,
+  uncoveredRequirements,
+  usesPlainSpawns,
+  type MapField,
+  type MapRequirement,
+  type RequirementOption,
+  type RequirementOptions,
+} from "./map-requirements.ts";
 export { mapWarnings, validateMapConfig, type MapRules } from "./map-validate.ts";
 export { ARENA_MAX_SIZE, ARENA_REGION, BUILD_AREA_MIN_SIZE, BUILD_PADDING, BUILDING_MAP, BUILDING_SETTINGS, PLOT_REGION, RETURN_DELAY } from "./building/building-map.ts";
 export { PROMPT_MAX_CHARS, cleanPrompt, dealPrompts, notTheirOwn, promptKey, promptReplyParts, type DealablePrompt, type MayHave, type PromptPiles } from "./prompts.ts";

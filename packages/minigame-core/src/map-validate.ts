@@ -3,7 +3,7 @@
 // is reported at once; mapWarnings lists things worth a look that don't stop a build.
 import type { MapRequirementsConfig } from "./config.ts";
 import { BUILD_LIMIT_SIDES, MAP_TIMES, QUEUE_COUNTDOWN, QUEUE_MODES, enclosingBox, mapTimeTicks, type Box, type BuildLimitSide, type MapConfig, type MapPosition, type Vec3 } from "./map-config.ts";
-import { bigEnough, boxSize, mapRequirements, mapSettings, settingFits, smallEnough, type MapRequirement } from "./map-requirements.ts";
+import { bigEnough, boxSize, choiceProblems, mapRequirements, mapSettings, settingFits, smallEnough, type MapRequirement } from "./map-requirements.ts";
 
 /** Bedrock overworld height limits. */
 const MIN_Y = -64;
@@ -26,7 +26,9 @@ export function validateMapConfig(raw: unknown, rules: MapRules): string[] {
   const map = raw as Partial<MapConfig>;
   const problems: string[] = [];
   const who = rules.kind === "lobby" ? "the lobby" : "this game";
-  const requirements = mapRequirements(rules.requires, { kind: rules.kind, maxPlayers: rules.maxPlayers, teams: rules.teams });
+  const shape = { kind: rules.kind, maxPlayers: rules.maxPlayers, teams: rules.teams };
+  // The map's own requirement options count: rows it turned off go, counts it set replace the game's.
+  const requirements = mapRequirements(rules.requires, { ...shape, choices: map.requirements });
   if (typeof map.name !== "string" || !map.name) problems.push('"name" is required');
   if (map.draft !== undefined && typeof map.draft !== "boolean") problems.push('"draft" must be true or false');
 
@@ -150,6 +152,7 @@ export function validateMapConfig(raw: unknown, rules: MapRules): string[] {
     const value = (raw as Record<string, unknown>)[setting.key];
     if (value !== undefined && !settingFits(setting, value)) problems.push(`"${setting.key}" must be a whole number from ${setting.min} to ${setting.max}`);
   }
+  problems.push(...choiceProblems(map.requirements, rules.requires, shape, who));
   problems.push(...editorKeyProblems(map, rules.kind));
   return problems;
 }
