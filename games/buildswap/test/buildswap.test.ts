@@ -323,6 +323,12 @@ describe("a match of Build Swap", () => {
       expect(new Set(game.allBuilds.map((build) => build.twist)).size).toBe(3);
       // Not this match's twists either.
       expect(game.allBuilds.filter((build) => /pink|dragon/i.test(build.twist ?? ""))).toEqual([]);
+      // A twister is told only their twist, never the build's first prompt.
+      await ticks(11);
+      const onBTwister = players.find((player) => player.name === onB.twister)!;
+      expect(stripColors(onBTwister.actionBar)).toContain(`Twist: ${onB.twist}`);
+      expect(stripColors(onBTwister.actionBar)).not.toContain(onB.starter);
+      expect(stripColors([...onBTwister.messages, ...onBTwister.titles].join("\n"))).not.toContain(onB.starter);
       game.skipStage();
       await ticks(2);
       expect(game.activeStage?.secondsLeft).toBe(config.twistMinutes * 60);

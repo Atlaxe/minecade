@@ -1602,7 +1602,7 @@ function arsenalParticles(): Record<string, unknown> {
       },
     }),
     arsenalParticle(PARTICLES.fire, "particles_add", {
-      "minecraft:emitter_rate_steady": { spawn_rate: "v.radius * v.radius * 10", max_particles: 300 },
+      "minecraft:emitter_rate_steady": { spawn_rate: "v.radius * v.radius * 10", max_particles: 1000 },
       "minecraft:emitter_lifetime_once": { active_time: "v.seconds" },
       "minecraft:emitter_shape_disc": { radius: "v.radius", plane_normal: [0, 1, 0], offset: [0, 0.1, 0], direction: [0, 1, 0] },
       "minecraft:particle_initial_speed": "0.3 + v.particle_random_1 * 0.6",

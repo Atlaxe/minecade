@@ -1,9 +1,11 @@
 // Guess the Build's telephone, as plain logic. Everyone sits in a circle (a shuffled order) and owns
-// one chain, which starts from a prompt dealt to them (never one written by anyone else in the
-// match) and lives in their copy of the arena. At each step everyone works on the chain of the player
-// `step` seats after them: odd steps build (the chain's prompt, then each guess), even steps guess
-// what the build before is. A match has one step fewer than players, so everyone works on every
-// chain but their own once, and nobody sees their own chain's prompt until the end.
+// one chain, which starts from a dealt prompt (never one written by anyone in the match) and lives in
+// their copy of the arena. At each step everyone works on the chain of the player `step` seats after
+// them: odd steps build (the chain's prompt, then each guess), even steps guess what the build before
+// is. Each chain gets 2 builds with 3 players and one more for each player after, 5 at most, with a
+// guess between each, so a match always ends on a build (the user's ask, 2026-11-14). That's as many
+// steps as players or more, so everyone works on every chain, their own too, and with 4 or more
+// players the circle comes round again: the same player works on a chain twice, never in a row.
 
 export type StepKind = "build" | "guess";
 
@@ -36,9 +38,18 @@ export interface Chain {
   entries: ChainEntry[];
 }
 
-/** How many steps a match of `players` has: everyone works once on every chain but their own. At least one. */
+/** Each chain's builds: 2 for 3 players (or fewer), one more for each player after, this many at most. */
+export const MIN_BUILDS = 2;
+export const MAX_BUILDS = 5;
+
+/** How many builds each chain gets in a match of `players`. */
+export function buildCount(players: number): number {
+  return Math.min(MAX_BUILDS, Math.max(MIN_BUILDS, players - 1));
+}
+
+/** How many steps a match of `players` has: its builds with a guess between each, so it ends on a build. */
 export function stepCount(players: number): number {
-  return Math.max(1, players - 1);
+  return 2 * buildCount(players) - 1;
 }
 
 /** Odd steps build, even steps guess (steps count from 1). */

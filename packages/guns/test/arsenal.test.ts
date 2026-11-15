@@ -262,7 +262,8 @@ describe("thrown", () => {
 
   it("a Molotov breaks where it hits and sets the floor around alight, hurting whoever stands in the flames, for a while", () => {
     const { hurts, spawned, particles } = setup();
-    const ann = player("Ann", { x: 0.5, y: 65, z: 0.5 }, gun("molotov"));
+    // The thrower well back, off the floor and out of the flames' reach.
+    const ann = player("Ann", { x: 0.5, y: 65, z: -6.5 }, gun("molotov"));
     const bo = player("Bo", { x: 1.5, y: 65, z: 6.5 });
     // A stone floor around where it breaks, a step up to the east, and a wall to the west.
     for (let x = -5; x <= 5; x++) for (let z = 0; z <= 10; z++) stone(x, 64, z);

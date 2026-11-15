@@ -566,12 +566,16 @@ Telephone with building (`games/guessbuild`). Before the match everyone writes o
 then the map's arena is copied once per player (docs/maps.md). Everyone sits in a shuffled circle
 and owns a chain: a dealt prompt (what the players wrote waits in the prompt bank for a later
 match, so nobody knows what the others are building or guessing; the user's ask, 2026-11-13), never
-one written in an earlier match by anyone who works on that chain, living in their copy of the
-arena. The steps go round the circle, one fewer than players, so everyone works once on every
-chain but their own and never sees their own chain's prompt until the end (`chains.ts`):
+one written in an earlier match by anyone in this one, living in their copy of the arena. Each chain
+gets 2 builds with 3 players and one more for each player after, 5 at most (6 to 8 players), with a
+guess between each, so a match always ends on a build (the user's ask, 2026-11-14): 3 players build,
+guess, build; 4 players build, guess, build, guess, build; and so on. The steps go round the circle,
+so everyone works on every chain, their own too (it starts from a dealt prompt now), and from 4
+players the circle comes round again: a player works on the same chain twice, never twice in a row
+(`chains.ts`):
 
-- **Build steps** (the first, third, ...): everyone builds the latest text of the chain they're on,
-  the next player's prompt first, then the guess before them, in that chain's arena. 10 seconds to
+- **Build steps** (the first, third, ..., and the last): everyone builds the latest text of the
+  chain they're on, the next player's prompt first, then the guess before them, in that chain's arena. 10 seconds to
   read it (the title, and the line top right), then the lobby's Build time (3 or 5 minutes) with the
   building tools. From the second build on, the arena's build area is put back as the map made it
   first; each build is saved when its time is up.
@@ -589,7 +593,8 @@ chain but their own and never sees their own chain's prompt until the end (`chai
   left (notes), each build is put back for everyone but its builder to vote 1 to 5 (the terracotta
   blocks, as in Build Swap, 3 seconds after the last vote to change it), and each guess shows by its
   guesser's name, as a title and in chat: "A guessed it was a boat" (4 seconds, `revealSeconds`),
-  added to the notes. A chain that ends on a guess shows "It started as" and its prompt last.
+  added to the notes. Every chain ends on a build, unless its last builder left: then it ends on
+  the guess and shows "It started as" and its prompt last.
 - **The end:** builders stay anonymous until then: chat shows the standings, each player hears what
   each of their builds earned, and the winner's best build is put back with everyone there to see
   it. The most points wins; no votes at all is a draw.

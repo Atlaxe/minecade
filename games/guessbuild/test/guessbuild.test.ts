@@ -15,7 +15,7 @@ import { validateGameConfig } from "../../../tools/build/validate.ts";
 import buildSwapConfig from "../../buildswap/game.config.ts";
 import config from "../game.config.ts";
 import { GUESS_ITEM, GuessBuild } from "../behavior_pack/scripts/guessbuild.ts";
-import { buildToGuess, chainOf, nextText, stepCount, stepKind, workerSeat, type Chain } from "../behavior_pack/scripts/chains.ts";
+import { buildCount, buildToGuess, chainOf, nextText, stepCount, stepKind, workerSeat, type Chain } from "../behavior_pack/scripts/chains.ts";
 
 type Vec3 = [number, number, number];
 const ARENA = { min: [0, 63, 0] as Vec3, max: [39, 90, 39] as Vec3 };
@@ -80,23 +80,26 @@ describe("Guess the Build's config and its circle", () => {
     expect(config.options[0].values.map((value) => value.value)).toEqual(["3", "5"]);
   });
 
-  it("has everyone work once on every chain but their own: a build, then a guess, in turn", () => {
-    for (const seats of [3, 4, 5, 8]) {
+  it("gives each chain 2 builds for 3 players, one more per player, 5 at most, a guess between each, ending on a build", () => {
+    expect([1, 3, 4, 5, 6, 7, 8].map(buildCount)).toEqual([2, 2, 3, 4, 5, 5, 5]);
+    expect([3, 4, 5, 6, 8].map(stepCount)).toEqual([3, 5, 7, 9, 9]);
+    expect([1, 2, 3, 4].map(stepKind)).toEqual(["build", "guess", "build", "guess"]);
+    for (const seats of [3, 4, 5, 6, 8]) {
       const steps = stepCount(seats);
-      expect(steps).toBe(seats - 1);
-      for (let seat = 0; seat < seats; seat++) {
-        const chains = Array.from({ length: steps }, (_, i) => chainOf(seat, i + 1, seats));
-        expect(new Set(chains).size).toBe(steps);
-        expect(chains).not.toContain(seat);
-      }
+      expect(stepKind(steps)).toBe("build");
+      // Each step everyone works on one chain, round the circle.
       for (let step = 1; step <= steps; step++) {
         const workers = Array.from({ length: seats }, (_, chain) => workerSeat(chain, step, seats));
         expect(new Set(workers).size).toBe(seats);
         workers.forEach((worker, chain) => expect(chainOf(worker, step, seats)).toBe(chain));
       }
+      // Everyone works on every chain (their own too) before anyone works on one again, and never twice in a row.
+      for (let seat = 0; seat < seats; seat++) {
+        const chains = Array.from({ length: steps }, (_, i) => chainOf(seat, i + 1, seats));
+        expect(new Set(chains.slice(0, seats)).size).toBe(seats);
+        chains.forEach((chain, i) => i > 0 && expect(chain).not.toBe(chains[i - 1]));
+      }
     }
-    expect([1, 2, 3, 4].map(stepKind)).toEqual(["build", "guess", "build", "guess"]);
-    expect(stepCount(1)).toBe(1);
   });
 
   it("builds from the last guess, or with none given, from what the build before was built from", () => {
@@ -134,8 +137,10 @@ describe("a match of Guess the Build", () => {
       expect(game.phase).toBe("playing");
       expect(world.tickingAreaManager.areas.size).toBe(4);
 
-      // Every chain's prompt is dealt (with nothing in the bank, from the game's own list), all
-      // different; what they wrote waits in the bank for a later match.
+      // Five steps for four players: build, guess, build, guess, build. Every chain's prompt is dealt
+      // (with nothing in the bank, from the game's own list), all different; what they wrote waits in
+      // the bank for a later match.
+      expect(stepCount(4)).toBe(5);
       const chains = game.allChains;
       const seats = game.circle;
       expect(chains.map((chain) => chain.owner)).toEqual(seats);
@@ -237,6 +242,28 @@ describe("a match of Guess the Build", () => {
       game.skipStage();
       await ticks(2);
 
+      // Step 4: a guess again, everyone on their own chain now (the circle has come round); all guess.
+      expect(game.activeStage?.name).toBe("Guess");
+      for (const player of players) {
+        expect(game.guessingOf(player.name)?.owner).toBe(player.name);
+        game.submitGuess(player.name, `${player.name}'s second guess`);
+      }
+      await ticks(GUESS_TICKS);
+
+      // Step 5, the last, is a build: the guess before, the arena cleared first.
+      expect(game.activeStage?.name).toBe("Get ready");
+      await ticks(11);
+      for (let tile = 0; tile < 4; tile++) expect(blockIn(tile, 11)).toBeUndefined();
+      for (const player of players) {
+        const chain = chains[onAt(player.name, 5)];
+        expect(stripColors(player.actionBar)).toContain(`Build: ${chain.owner}'s second guess`);
+      }
+      game.skipStage();
+      await ticks(2);
+      for (const player of players) expect(placeIn(player, onAt(player.name, 5), 13)).toBe(true);
+      game.skipStage();
+      await ticks(2);
+
       // The showcase: every chain, its builds back in its arena, a vote on each; A's builds get 5s.
       const seen: string[] = [];
       for (let chain = 0; chain < 4; chain++) {
@@ -262,22 +289,36 @@ describe("a match of Guess the Build", () => {
         expect(game.activeStage?.name).toBe("Vote");
         expect(game.voting!.entry.step).toBe(3);
         expect(blockIn(first.chain.index, 11)).toBe("minecraft:stone");
+        expect(blockIn(first.chain.index, 13)).toBeUndefined();
         expect([...world.scoreboard.sidebar!.scores].length).toBe(2);
         await voteAll(game, players, (builder) => (builder === "A" ? 5 : 1));
         game.skipStage();
         await ticks(2);
+        // The owner's guess, then the last build: the chain ends on it, with no "It started as".
+        expect(game.activeStage?.name).toBe("Guessed");
+        expect(stripColors(world.chat.at(-1) ?? "")).toBe(`${first.chain.owner} guessed it was ${first.chain.owner}'s second guess`);
+        game.skipStage();
+        await ticks(2);
+        expect(game.activeStage?.name).toBe("Vote");
+        expect(game.voting!.entry.step).toBe(5);
+        expect(blockIn(first.chain.index, 13)).toBe("minecraft:stone");
+        expect([...world.scoreboard.sidebar!.scores].length).toBe(3);
+        await voteAll(game, players, (builder) => (builder === "A" ? 5 : 1));
+        game.skipStage();
+        await ticks(2);
+        expect(game.activeStage?.name).not.toBe("Started as");
       }
       expect(seen.sort()).toEqual(["A", "B", "C", "D"]);
     });
-    // A built twice and got 5 from three voters each time.
-    expect(result).toEqual({ kind: "win", players: ["A"], reason: "30 points" });
-    expect(game.pointsOf("B")).toBe(6);
+    // A built three times and got 5 from three voters each time.
+    expect(result).toEqual({ kind: "win", players: ["A"], reason: "45 points" });
+    expect(game.pointsOf("B")).toBe(9);
     const chat = stripColors(world.chat.join("\n"));
-    expect(chat).toContain("1st A: 30 points");
+    expect(chat).toContain("1st A: 45 points");
     const toA = stripColors(byName(players, "A").messages.join("\n"));
-    expect(toA.match(/Your build of .+: 15 points/g)).toHaveLength(2);
+    expect(toA.match(/Your build of .+: 15 points/g)).toHaveLength(3);
     expect(world.scoreboard.sidebar).toBeUndefined();
-    expect(statsRows(harness.sent, from).find((row) => row.n === "A")).toMatchObject({ r: "w", x: { points: 30, bestScore: 30 } });
+    expect(statsRows(harness.sent, from).find((row) => row.n === "A")).toMatchObject({ r: "w", x: { points: 45, bestScore: 45 } });
     expect(world.structureManager.saved.size).toBe(0);
     expect(world.tickingAreaManager.areas.size).toBe(0);
     expectBaseline(harness.root, baseline);
@@ -285,21 +326,21 @@ describe("a match of Guess the Build", () => {
     for (const player of players) world.leave(player.name);
   });
 
-  it("ends a chain of three on a guess, then shows what it started as", async () => {
+  it("has three players build, guess and build, each owner building the last build of their own chain", async () => {
     const { players, baseline, from, game } = start(["A", "B", "C"]);
     const result = await playToEnd(game, harness.root, baseline, async () => {
       await ticks(2);
       for (const name of ["A", "B", "C"]) openLiveForm(name)!.click("Skip");
       await ticks(12);
       // The bank has one fresh prompt by each of them from earlier matches, and one by someone else:
-      // a chain's prompt is never one written by anyone who works on it (everyone but its owner).
+      // everyone works on every chain, so no chain gets one of theirs.
       answerBank(from, [
         ...["a", "b", "c"].map((by, i) => ({ id: i + 1, k: "starter" as const, x: `Bank ${by.toUpperCase()}`, by, u: 0 })),
         { id: 4, k: "starter", x: "Bank Zed", by: "zed", u: 0 },
       ]);
       await ticks(5);
-      for (const chain of game.allChains) expect(chain.prompt).toMatch(new RegExp(`^(Bank ${chain.owner}|Bank Zed)$|^(?!Bank )`));
-      // Build, then guess: two steps for three players.
+      for (const chain of game.allChains) expect(chain.prompt).toMatch(/^Bank Zed$|^(?!Bank )/);
+      // Build, guess, build: three steps for three players.
       game.skipStage();
       await ticks(2);
       expect(game.activeStage?.name).toBe("Build");
@@ -308,21 +349,64 @@ describe("a match of Guess the Build", () => {
       expect(game.activeStage?.name).toBe("Guess");
       for (const name of ["A", "B", "C"]) game.submitGuess(name, `${name}'s guess`);
       await ticks(GUESS_TICKS);
-      // Everyone guessed: the showcase starts.
+      expect(game.activeStage?.name).toBe("Get ready");
+      for (const chain of game.allChains) {
+        const [guess, build] = chain.entries.slice(-2);
+        expect(build).toMatchObject({ kind: "build", step: 3, by: chain.owner, from: guess.kind === "guess" ? guess.text : "" });
+      }
+      game.skipStage();
+      await ticks(2);
+      game.skipStage();
+      await ticks(2);
+      // The showcase: the first build, the guess, the last build, then the next chain (no "It started as").
+      for (const stage of ["Vote", "Guessed", "Vote"]) {
+        expect(game.activeStage?.name).toBe(stage);
+        if (stage === "Vote") await voteAll(game, players, () => 3);
+        game.skipStage();
+        await ticks(2);
+      }
       expect(game.activeStage?.name).toBe("Vote");
-      await voteAll(game, players, () => 3);
-      game.skipStage();
-      await ticks(2);
-      expect(game.activeStage?.name).toBe("Guessed");
-      game.skipStage();
-      await ticks(2);
-      expect(game.activeStage?.name).toBe("Started as");
-      expect(stripColors(byName(players, "A").titles.at(-1) ?? "")).toContain("It started as");
+      expect(game.voting!.entry.step).toBe(1);
       world.leave("B");
       world.leave("C");
       await ticks(25);
     });
     expect(result).toEqual({ kind: "win", players: ["A"], reason: "everyone else left" });
+    expectBaseline(harness.root, baseline);
+    world.overworld.reset();
+    for (const player of players) world.leave(player.name);
+  });
+
+  it("ends a chain whose last builder left on its guess, then shows what it started as", async () => {
+    const { players, baseline, from, game } = start(["A", "B", "C"]);
+    const result = await playToEnd(game, harness.root, baseline, async () => {
+      await ticks(2);
+      for (const name of ["A", "B", "C"]) openLiveForm(name)!.click("Skip");
+      await ticks(12);
+      answerBank(from);
+      await ticks(5);
+      game.skipStage();
+      await ticks(2);
+      game.skipStage();
+      await ticks(2);
+      expect(game.activeStage?.name).toBe("Guess");
+      for (const name of ["A", "B", "C"]) game.submitGuess(name, `${name}'s guess`);
+      // C leaves before the last build: their own chain gets none.
+      world.leave("C");
+      await ticks(GUESS_TICKS);
+      const ownC = game.allChains.find((chain) => chain.owner === "C")!;
+      expect(ownC.entries.map((entry) => entry.kind)).toEqual(["build", "guess"]);
+      const stages: string[] = [];
+      for (let i = 0; i < 40 && game.phase === "playing"; i++) {
+        const name = game.activeStage?.name;
+        if (name) stages.push(name);
+        if (name === "Started as") expect(stripColors(byName(players, "A").titles.at(-1) ?? "")).toBe(`It started as | ${ownC.prompt}`);
+        game.skipStage();
+        await ticks(2);
+      }
+      expect(stages.filter((name) => name === "Started as")).toHaveLength(1);
+    });
+    expect(result).toMatchObject({ kind: "draw" });
     expectBaseline(harness.root, baseline);
     world.overworld.reset();
     for (const player of players) world.leave(player.name);

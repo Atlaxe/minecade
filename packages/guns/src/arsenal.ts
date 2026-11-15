@@ -300,7 +300,8 @@ export class Arsenal {
    * Sets the floor alight within FIRE.radius of `ground`: in each column, the first open block (air,
    * or flames already) over a floor (anything but air, liquid or fire) from FIRE_STEP up to down,
    * where a line from the middle reaches without a wall in between. Flames already burning there
-   * from another Molotov stay until the later end. Returns the blocks alight.
+   * from another Molotov stay until the later end; the map's own fire isn't taken over. Returns the
+   * blocks alight.
    */
   private light(dimension: Dimension, ground: Vector3, until: number): Vector3[] {
     const middle = { x: Math.floor(ground.x), y: Math.floor(ground.y + 0.01), z: Math.floor(ground.z) };
@@ -318,6 +319,8 @@ export class Arsenal {
         try {
           const block = dimension.getBlock(cell);
           if (!block) continue;
+          // Fire that's the map's own (not a Molotov's) is left as it is, and never put out.
+          if (block.typeId === FIRE_BLOCK && !this.flames.has(key)) continue;
           if (block.typeId !== FIRE_BLOCK) block.setType(FIRE_BLOCK);
           this.flames.set(key, { at: cell, until: Math.max(until, this.flames.get(key)?.until ?? 0) });
           cells.push(cell);

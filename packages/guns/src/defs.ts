@@ -687,8 +687,11 @@ export const BLASTS = {
   rpg: { radius: 4, damage: 14, selfFactor: 0.5, push: 1.6 },
 } as const satisfies Record<string, BlastDef>;
 
-/** A Molotov's fire: `damage` every `everyTicks` to anyone within `radius` (across) and a block or two up, for `seconds`. No fire blocks. */
-export const FIRE = { radius: 3, seconds: 6, damage: 1, everyTicks: 10 } as const;
+/**
+ * A Molotov's fire: fire blocks on the floor within `radius` blocks (6.5 since 2026-11-14, the user's
+ * "6 to 7 blocks"; it was 3), and `damage` every `everyTicks` to anyone in them, for `seconds`.
+ */
+export const FIRE = { radius: 6.5, seconds: 6, damage: 1, everyTicks: 10 } as const;
 /** A flashbang whites out players within `range` who can see it, for up to `seconds` (less far off or looking away). */
 export const FLASH = { range: 20, seconds: 3 } as const;
 /** A smoke grenade's cloud: `radius` blocks for `seconds`; anyone inside is blinded while they stay. */

@@ -102,7 +102,11 @@ export class BuildSwap extends BuildingGame<typeof config> {
     );
   }
 
-  /** A building round: the first builders on their own prompts, or the twisters on someone else's build. */
+  /**
+   * A building round: the first builders on their own prompts, or the twisters on someone else's
+   * build. A twister is told only their twist, never the build's first prompt (the user's ask,
+   * 2026-11-14): they see it in the votes, like everyone.
+   */
   private async round(kind: PromptKind, seconds: number): Promise<void> {
     const jobs = [...this.builds.values()].flatMap((build) => {
       const worker = kind === "starter" ? build.builder : build.twister;
@@ -113,9 +117,9 @@ export class BuildSwap extends BuildingGame<typeof config> {
             {
               name: worker,
               plot: build.plot,
-              line: `${COLOR.minor}Twist: §f${build.twist}${COLOR.minor} on §f${build.starter}`,
+              line: `${COLOR.minor}Twist: §f${build.twist}`,
               title: [say.highlight("Your twist"), `§f${build.twist}`] as [string, string],
-              message: `${say.info("Twist:")} §f${build.twist}${say.minor(" on this build:")} §f${build.starter}`,
+              message: `${say.info("Twist:")} §f${build.twist}`,
             },
           ];
     });

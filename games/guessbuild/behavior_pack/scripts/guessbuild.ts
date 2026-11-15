@@ -3,11 +3,12 @@
 // After the prompt form, everyone sits in a shuffled circle and owns a chain: a dealt prompt (what
 // they wrote goes to the bank for a later match), living in their copy of the arena (chains.ts). Then the steps:
 // a build step has everyone build the latest text of the chain they're on (the prompt, then the last
-// guess) in that chain's arena, cleared first; a guess step has everyone look at the build in the
+// guess) in that chain's arena, cleared first; the last step is always a build; a guess step has everyone look at the build in the
 // chain they're on and write what they think it is, with the paper in their first slot or the form
 // that comes up on its own. Then the showcase: chain by chain, everyone in its arena, the prompt top
 // left, each build again from its snapshot for everyone but its builder to vote on, then each guess
-// by its guesser's name ("A guessed it was ..."), and at the end what it started as. Builders stay
+// by its guesser's name ("A guessed it was ..."), and (for a chain whose last builder left, so it
+// ends on a guess) what it started as. Builders stay
 // anonymous until the end: the standings in chat, and each player's own builds' points to them alone.
 import { ItemLockMode, ItemStack, EntityComponentTypes } from "@minecraft/server";
 import { COLOR, Notes, aborted, cleanPrompt, nameOf, PROMPT_MAX_CHARS, say, type Result } from "@minecade/minigame-core";
@@ -107,13 +108,12 @@ export class GuessBuild extends BuildingGame<typeof config> {
 
   /**
    * Each seat's chain and its prompt, dealt: what players write in this match's form waits in the
-   * bank for a later match (the user's ask, 2026-11-13). Everyone but a chain's owner works on it, so
-   * its prompt is never one any of them wrote in an earlier match (the owner's own, or one by
-   * nobody here, is fine).
+   * bank for a later match (the user's ask, 2026-11-13). Everyone works on every chain (stepCount),
+   * so a chain's prompt is never one anyone here wrote in an earlier match.
    */
   private dealChains(): void {
     const here = new Set(this.seats.map(keyOf));
-    const dealt = this.deal("starter", this.seats, (owner, prompt) => prompt.by === "" || prompt.by === keyOf(owner) || !here.has(prompt.by));
+    const dealt = this.deal("starter", this.seats, (_owner, prompt) => prompt.by === "" || !here.has(prompt.by));
     this.seats.forEach((owner, index) => this.chains.push({ index, owner, prompt: dealt.get(owner)!, entries: [] }));
   }
 
@@ -285,7 +285,8 @@ export class GuessBuild extends BuildingGame<typeof config> {
   /**
    * Chain by chain, in a random order, everyone in its arena: its prompt top left, each build again
    * for everyone but its builder to vote on (the text it was built from as the title), each guess by
-   * its guesser's name, and at the end what it started as.
+   * its guesser's name, and, for a chain that ends on a guess (its last builder left), what it
+   * started as.
    */
   private async showcase(): Promise<void> {
     this.lines.clear();

@@ -83,7 +83,7 @@ before its magazine is empty.
 | Rail Gun | `rail_gun` | tap: a beam | 40 | 20 | 4, 3 s | aims (zoom 40, dead on); goes through every player in line |
 | RPG | `rpg` | tap: a rocket | 20 | 20 direct, up to 14 in 4 blocks | 1, 3 s | aims (zoom 55); the shooter takes half its blast |
 | Frag Grenade | `frag_grenade` | thrown, lands, 1.5 s fuse | 10 | up to 18 in 5 blocks | | |
-| Molotov | `molotov` | thrown, breaks where it hits | 10 | 1 every half second in the flames, 6 s | | sets the floor alight within 3 blocks: fire blocks, gone after 6 s |
+| Molotov | `molotov` | thrown, breaks where it hits | 10 | 1 every half second in the flames, 6 s | | sets the floor alight within 6.5 blocks: fire blocks, gone after 6 s |
 | Flashbang | `flashbang` | thrown, lands, 0.6 s fuse | 10 | | | whites out screens up to 3 s |
 | Smoke Grenade | `smoke_grenade` | thrown, lands, 0.5 s fuse | 10 | | | a cloud of 4 blocks for 10 s |
 | Throwing Knife | `throwing_knife` | thrown | 10 | kills | | floats where it stops until someone takes it |
