@@ -3,7 +3,11 @@
 **Status:** design, 2026-11-14. Nothing is built yet. This plan combines the user's Block Party plan
 with the minigame list from their first draft, their follow-up numbers (the shop, the Witch's
 reroll, the Wandering Trader, the Happening table, 1v3 payouts, Star prices) and the map design
-worked out with them. "Open questions" at the end lists what needs an answer before building.
+worked out with them. The same day the user answered the first open questions: 2-4 players, a
+Chance outcome that takes a Star (Shooting Star), ideas for where special dice come from and what
+they sell for (see "Dice"), pieces that walk from space to space with a custom animation while
+everyone watches through the scripted camera (see "Pieces"), and duels that also play FFA
+minigames. "Open questions" at the end lists what still needs an answer before building.
 
 **For the session that implements this:**
 - Work in a worktree of your own (`CLAUDE.md`, "Branch and merge").
@@ -18,6 +22,9 @@ worked out with them. "Open questions" at the end lists what needs an answer bef
 | Topic | Decision |
 |---|---|
 | The game | Block Party: a board game with minigames between turns. Most Stars wins |
+| Players | 2 to 4 |
+| Pieces | A custom walk animation, moved from space to space by the script, while players watch through the scripted camera. Whatever does that best (see "Pieces") |
+| Duels | 1v1 minigames, and FFA minigames played by 2 |
 | Boards | Maps of their own: a themed loop with 2-3 shortcut branches, about 36-45 spaces (longer is fine) |
 | Minigames | One arena map per minigame, its own small map. No variant maps, and no borrowing other games' maps or minigames |
 | Arenas at play time | Copied into the board's world when picked, a fresh copy every time it's played |
@@ -107,8 +114,8 @@ A map without Happening spaces gives their share to Blue (proposed).
   (about 30% of the loop on bigger boards, proposed).
 - Star candidates: roughly 1 per 4-6 spaces, 25-30% of them on shortcuts. 2 are flagged as opening
   spots, 10-20 spaces from Start.
-- Losing Stars is rare: only through a Chance outcome or a Warden event, one Star at a time, taken
-  from the leader.
+- Losing Stars is rare: only through a Chance outcome (Shooting Star) or a Warden event (Sonic
+  Boom), one Star at a time, taken from the leader.
 
 | Length | Star price | Active Stars |
 |---|---|---|
@@ -136,6 +143,8 @@ Outcomes get bigger later in the game, so late ones help trailing players.
 - **Battle Royale:** forces a Battle minigame.
 - **Zombie Outbreak:** a zombie appears on the leader.
 - **Half-price Star:** last place gets 5 off their next Star.
+- **Shooting Star** (rare, late game only): the leader's Star flies to last place. The leader is
+  the one with the most Stars, then coins. It's never drawn while the leader has no Star.
 
 ## The Warden
 
@@ -177,8 +186,11 @@ a Star, so shopping delays a Star but never blocks it:
 | Ender Pearl, Cursed Totem, Zombie Spawn | 8 |
 | Golden Totem, Iron Golem, Dueling Glove | 10 |
 | Lightning Strike | 12 |
+| Slow Die (proposed) | 3 |
+| Risk Die (proposed) | 6 |
 
-**Selling** through the Villager item pays half the shop price, rounded down.
+**Selling,** through the Villager item or at a Shop, pays half the item's value, rounded down (see
+"Dice" for value).
 
 **Wandering Trader:** every 3-4 rounds it appears on a random Item space for one round. Chris
 announces it and a beacon marks the spot. Pass or land on it to trade, like the Star spot: one buyer
@@ -191,6 +203,7 @@ per visit, and the stock is a single item from a rare pool at about 1.5x shop pr
 | Lightning Strike | 18 |
 | Cursed Die | 15 |
 | Golden Totem | 15 |
+| Triple Die (proposed) | 15 |
 
 ## Versus and the Dueling Glove
 
@@ -209,7 +222,8 @@ per visit, and the stock is a single item from a rare pool at about 1.5x shop pr
 - **1v3**
 - **Battle:** everyone bets 5 coins (capped at what they have), and the winner takes the whole pot.
   Ties split the pot among the winners.
-- **1v1:** Versus spaces and the Dueling Glove.
+- **1v1:** Versus spaces and the Dueling Glove. Duels play the 1v1 minigames and the FFA ones,
+  played by the two duelists.
 
 The format is picked by schedule or at random (every 3rd round a team game, say). The 1v3 solo role
 and the 2v2 pairings rotate, so everyone gets an equal share.
@@ -229,7 +243,7 @@ and the 2v2 pairings rotate, so everyone gets an equal share.
 ## End-of-game bonus Stars
 
 Each bonus is worth 1 Star, at most 1 per player, and the Allay delivers each one. The number of
-bonuses scales with players: 2 players get 1, 3-4 get 2, 5-6 get 3. They're drawn from:
+bonuses scales with players: 2 players get 1, 3 or 4 get 2. They're drawn from:
 
 - **Chaos:** most hazards hit (Red and Warden spaces, zombies), biggest coin swing, luckiest roll,
   most wins from random or luck-based events.
@@ -252,16 +266,24 @@ Checked after the bonus Stars:
 
 ## Dice
 
-At most 2 special dice held. One movement boost per turn: a die or a totem, not both.
+At most 2 special dice held, beside at most 3 items. One movement boost per turn: a die or a totem,
+not both. Where each die comes from and its value are proposed (the user asked for ideas):
 
-- **Standard:** 1-6.
-- **Double / triple:** roll 2 or 3 dice and move the total.
-- **Slow:** 1-3.
-- **Golden:** a rare high roll.
-- **Risk:** extreme ends (0, 0, 1, 6, 7, 8).
-- **Cursed:** a big jackpot on 1 face, the others bad. You can make another player use it.
-- **Mystery:** each face triggers an event for the whole lobby (everyone swaps places, a coin swap,
-  double coins).
+| Die | Faces | Where it comes from | Value |
+|---|---|---|---|
+| Standard | 1-6 | Everyone, always | |
+| Slow | 1-3 | The Shop (a cheap die for landing exactly on the Star or a Shop); the Warden's Slow Curse forces it for one roll | 3 |
+| Double | 2 dice, the total | See the open questions: the Stone Totem does the same | |
+| Triple | 3 dice, the total | Item spaces (trailing players), the Wandering Trader at 15 | 10 |
+| Risk | 0, 0, 1, 6, 7, 8 | The Shop, Item spaces | 6 |
+| Golden | a rare high roll | The Wandering Trader at 20; Item spaces, last place only, rarely | 13 |
+| Mystery | each face also triggers an event for the whole lobby (everyone swaps places, a coin swap, double coins) | The Wandering Trader at 18; Chance's Lucky Draw | 12 |
+| Cursed | a big jackpot on 1 face, the others bad; you can make another player use it | The Wandering Trader at 15; Item spaces | 10 |
+
+**Value** is what selling works from: the shop price, or for what only the Trader sells, the Trader
+price divided by 1.5, rounded down. Selling pays half the value, rounded down. Item spaces, Lucky
+Draw and the Happening's free item all draw from one pool of items and dice, weighted by standing.
+The Shop's 3 random slots can hold Slow and Risk dice.
 
 ## Items
 
@@ -279,14 +301,34 @@ At most 3 held.
   target finishes top 2 in a minigame, after 3 rounds, when the target has no coins left to take, or
   when the target uses an Iron Golem or a Lightning Strike.
 - **Iron Golem:** shakes down a player for coins, or removes a zombie from you.
-- **Villager:** trade a die or an item for coins: half its shop price, rounded down. Not on the
-  final turn.
+- **Villager:** trade a die or an item for coins: half its value, rounded down (see "Dice"). Not
+  on the final turn.
 
 ## Presentation and cameras
 
 Players don't walk the board: a script moves each piece space to space. The camera follows the
 active player's turn, with authored views for the pre-game, dice rolls, NPC conversations, events
 and podiums.
+
+### Pieces
+
+The user's call: whatever best gives a custom walk animation from space to space, watched through
+the scripted camera. The camera is free of the body either way, so what matters is how the walk
+looks and whose skin shows. The spike tries these, best first, and keeps the first that walks
+smoothly:
+
+1. **The player, moved along the path by the script** (each tick, their own movement locked), with
+   a walk animation the game's pack plays on them, the way Chameleon's pack plays its poses on the
+   player.
+2. **The player carried by an invisible mount** the script glides along the path, the same pack
+   animation overriding the riding pose.
+3. **A stand-in figure** wearing the player's saved skin, as the editor's mannequins do, with its
+   own walk animation; the player waits out of sight.
+
+The first two show every player's own skin, character creator skins included. The stand-in can't:
+a skin reaches it only after the watcher has seen the player and the network has been rebuilt
+(`docs/skins.md`), and a character creator skin needs a model of its own, so those players would
+get a plain look. That's why it's last.
 
 **(S)** a static authored position, **(D)** dynamic (follow, pan, orbit, push-in, spline). Everyone
 sees the same shot unless marked **(P)**, a private shot for one player.
@@ -324,7 +366,8 @@ sees the same shot unless marked **(P)**, a private shot for one player.
 - The Witch's cauldron: three potions on display (S, close-up).
 - Potion choice and reroll (P).
 - Outcome cutaways: Coin Rain (wide, S), Coin Swap (two-shot, S), Position Shuffle (overview, D),
-  Battle Royale (transition), Zombie Outbreak (the zombie arrives, D).
+  Battle Royale (transition), Zombie Outbreak (the zombie arrives, D), Shooting Star (the Star
+  flies from the leader to last place, D).
 
 **Warden**
 - Warden event: low-angle looming shot with shake (D).
@@ -506,7 +549,8 @@ checklist problem; warnings don't.
   need room (Boss Fight, Hunter vs. Runners, Minecart Dodge) can go to about 128.
 - **Self-contained:** any backdrop goes inside the box. Outside it is void, wherever it's placed.
 - **Spawns by format:** FFA 4 (every FFA arena also works with 2 or 3 players); 2v2 Red and Blue
-  team spawns; 1v3 Solo and Trio spawns; 1v1 2.
+  team spawns; 1v3 Solo and Trio spawns; a 1v1 minigame 2. Duels on an FFA arena use its first 2
+  spawns.
 - **Out players** watch from a spectator spawn, or a camera.
 - **The rules camera** (the Camera tool): what players look through while the rules show; a slow pan
   is two cameras, start and end.
@@ -593,7 +637,7 @@ designed.
 - **Trap Door Maze:** the runners pick between doors; behind each is a shortcut or a dead-end trap
   the solo player assigned in secret. The solo wins by trapping more runners than they let through.
 
-**1v1 and sudden death** (from the tiebreaker pool)
+**1v1 and sudden death** (from the tiebreaker pool; duels also play the FFA minigames)
 - **Quick Draw**
 - **Sumo Duel**
 
@@ -608,7 +652,10 @@ reward was dropped.
 ## Suggested order (a draft, to settle after the open questions)
 
 1. **Spike:** bring an arena from another map into a board's world at play time; scripted cameras
-   (eased moves, splines, per-player shots, fades, clearing).
+   (eased moves, splines, per-player shots, fades, clearing); the pieces (see "Pieces"); and
+   what two minigames need from Bedrock: a player riding a player (Carry Race) and a lead between
+   players (Paired Parkour), both likely through the game's own copy of `player.json`, as
+   Chameleon's pack does.
 2. **Requirement options** in the Panel, for any game.
 3. **Board markup:** chained spaces, dealt types, the space menu, `/boardcheck`.
 4. **The board loop:** turns, dice, moving pieces, branches, spaces, Stars, coins.
@@ -620,22 +667,72 @@ reward was dropped.
 
 ## Open questions
 
-1. **Player count:** the bonus Stars go up to 5-6 players, but FFA pays 4 places and 2v2 and 1v3
-   need exactly 4. Is it 2-4 players, or up to 6 (and what do team rounds do with 5 or 6)?
-2. **Stars from Chance Time:** the Stars rules say a Chance outcome can take one, but no Chance
-   outcome does. Add one, or only the Warden's Sonic Boom?
-3. **1v3 payouts:** this plan starts from the suggested 10 / 1 and 6 / 2. Keep those, or start from
-   15 / 1 and 5 / 3?
-4. **Special dice:** where do Double, Triple and Risk dice come from (the Trader sells Golden, Mystery
-   and Cursed, and the Slow Curse forces Slow)? And what does the Villager item pay for a die, which
-   has no shop price?
-5. **Pieces:** is a player's piece the player (moved by script, the camera locked), or a stand-in
-   wearing their skin? Chameleon shows both work: a pack can redraw the player, and its free look
-   stand-in is an entity in the player's costume (the editor's mannequins already wear player
-   skins).
-6. **Duel minigames:** only Quick Draw and Sumo Duel are 1v1. Do Versus duels also play FFA
-   minigames with 2 players?
-7. **Board selection view:** the lobby already picks a game's map before its server starts. Is the
-   board picked there, making this shot unneeded, or in game?
-8. **Bedrock's limits:** Carry Race (a player riding a player) and Paired Parkour (a lead between
-   players) need a check before their arenas are built.
+Each with the recommended answer.
+
+**Setup and players**
+1. **Picking the board, the length and Chris's tutorial:** all in the lobby, like Probe's round
+   length? The board is the map the lobby picks, so the in-game Board selection view would go.
+   Recommended: yes.
+2. **2 or 3 players:** which formats? Recommended: 2 players play FFA only; 3 play FFA and 1v2 (the
+   1v3 minigames with a pair).
+3. **FFA payouts for 2 or 3:** recommended: 10 / 3 for 2 players, 10 / 5 / 2 for 3.
+4. **Starting coins:** recommended: 10.
+5. **Someone leaves:** recommended: their piece stays and is skipped (no turns, no minigames),
+   keeping its Stars and coins, and they take it back if they rejoin. A computer player taking over
+   is much more work.
+6. **1v3 payouts:** this plan starts from the suggested 10 / 1 and 6 / 2. Keep those, or start from
+   15 / 1 and 5 / 3? Recommended: keep.
+
+**Turns and controls**
+7. **Rolling:** right click the die in your hotbar, or jump to hit a die floating over your piece?
+   Recommended: right click (it works wherever you're looking; a jump while locked or carried is
+   untested).
+8. **The board hotbar:** the die in slot 1, items in 2-4, special dice in 5-6, a menu (standings,
+   settings) in 9? Recommended: yes.
+9. **Branches:** pick a path from a form with one button per path, while the camera shows both with
+   arrows? Recommended: yes.
+10. **Timers:** recommended: 20 seconds to roll before an automatic roll, and 15 seconds for each
+    choice before a default (a random path, no item, no purchase).
+
+**Minigames**
+11. **The format schedule:** recommended: every 3rd round a team game, taking turns between 2v2 and
+    1v3, FFA otherwise, with about 1 FFA round in 8 played as a Battle, plus Chance's Battle Royale.
+12. **Picking the minigame:** recommended: at random within the format, with no repeat until every
+    minigame of that format has been played, shown with a short roulette.
+
+**Items and dice**
+13. **Iron Golem:** how many coins does a shakedown take? Recommended: up to 5.
+14. **Lightning Strike:** how many coins move? Recommended: 10, capped at what the giver has.
+15. **Cursed Totem:** by how much, and for how long? Recommended: the rival's next roll is halved,
+    rounded up.
+16. **Golden Die faces:** recommended: 5 to 10.
+17. **Cursed Die faces:** recommended: one face moves 12 and gives 10 coins; the other five move 1
+    and cost 3 coins.
+18. **Mystery Die:** only 3 of its 6 events are named. Recommended: add everyone +5 coins, everyone
+    back 3, and roll again; the roller also moves by the face's number.
+19. **Stone Totem and Double Die** do the same thing (an extra die next turn). Recommended: drop the
+    Double Die.
+
+**End of game, presentation and art**
+20. **Bonus Stars:** which are in play, and when are they revealed? Recommended: drawn at random each
+    game, never two from one category, kept secret until the end.
+21. **Skipping cutscenes:** recommended: each player skips for themselves (their camera jumps to the
+    end shot), and the game moves on when everyone has skipped or the scene ends.
+22. **Art:** who makes the NPCs' looks (Chris's piggy bank model, the per-map skins) and the space
+    icons, and are any of them edited from vanilla textures? Anything made from a vanilla texture
+    stays out of git, in a private pack like Chameleon's. Recommended: you make them in Blockbench;
+    until then the game uses vanilla mobs and plain colored space tops.
+
+**Defaults taken unless the user says otherwise**
+- Coins never go below 0: every payment is capped at what the payer has.
+- A 4th item or a 3rd special die: the player picks which one to drop.
+- Joining late: watch only. No computer players for now.
+- The zombie takes its coins at the start of its target's turn.
+- A Half-price Star lasts until it's used.
+- Chance Time growing later: coin amounts go up by half in the last third of the game; Coin Swap,
+  Position Shuffle and Shooting Star come only in the last third.
+- A minigame's rules show for about 10 seconds through its rules camera, with no practice round.
+- Reduced motion is each player's own setting, in the board hotbar's menu.
+- The plan's other "proposed" items: Happening's share goes to Blue on maps without it, the Star
+  moves at least ~30% of the loop away on bigger boards, the beacon beam is a model, and results
+  play on the board's podium.
