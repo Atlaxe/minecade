@@ -50,7 +50,7 @@ import { goto } from "./goto.ts";
 import { keepModeLine, modeLine } from "./hud.ts";
 import { KillYTool } from "./kill-y-tool.ts";
 import { LoadingScreens } from "./loading.ts";
-import { onGameSettings, onReplace, onReset } from "./commands.ts";
+import { onBoardCheck, onGameSettings, onReplace, onReset } from "./commands.ts";
 import { GameSettingsTool } from "./game-settings-tool.ts";
 import { HostLink } from "./link.ts";
 import { Overlay } from "./planes.ts";
@@ -61,6 +61,7 @@ import { cameraMarkers, type CameraMarker } from "./cameras.ts";
 import { MannequinBodies, MannequinTool } from "./mannequin-tool.ts";
 import { mannequinsOf } from "./mannequins.ts";
 import { RegionTool } from "./region-tool.ts";
+import { SpacesTool, type SpaceMarker } from "./spaces-tool.ts";
 import { REPLACE_LINE, ReplaceMode } from "./replace-mode.ts";
 import { NOON, TimeTool } from "./time-tool.ts";
 import { actionBar, heldTool, hintBar, notice, type ToolHost } from "./tool-host.ts";
@@ -136,12 +137,13 @@ export class Editor {
   private readonly info: EditInfo;
   private readonly state: MapState;
   private readonly link: HostLink;
-  private readonly markers: Markers<MarkerSpec | CameraMarker>;
+  private readonly markers: Markers<MarkerSpec | CameraMarker | SpaceMarker>;
   private readonly mannequins: MannequinBodies;
   private readonly regionTool: RegionTool;
   private readonly killYTool: KillYTool;
   private readonly timeTool: TimeTool;
   private readonly gameSettingsTool: GameSettingsTool;
+  private readonly spacesTool: SpacesTool;
   private readonly cameraTool: CameraTool;
   private readonly mannequinTool: MannequinTool;
   private readonly loading: LoadingScreens;
@@ -200,6 +202,7 @@ export class Editor {
     this.killYTool = new KillYTool(host);
     this.timeTool = new TimeTool(host);
     this.gameSettingsTool = new GameSettingsTool(host);
+    this.spacesTool = new SpacesTool(scope, host, (player) => this.aimedAt(player));
     this.mannequinTool = new MannequinTool({ ...host, aimedAt: (player) => this.aimedAt(player) });
     this.loading = new LoadingScreens(scope, (player, form) => this.show(player, form));
     this.cursors = new Cursors(scope, this.dimension, (player) => this.cursorAim(player));
@@ -282,6 +285,7 @@ export class Editor {
       else if (tool === "killY") void this.killYTool.use(source, () => this.mapMenu(source));
       else if (tool === "time") void this.timeTool.use(source, () => this.mapMenu(source));
       else if (tool === "gameSettings") void this.gameSettingsTool.use(source, () => this.mapMenu(source));
+      else if (tool === "spaces") this.spacesTool.use(source);
       else if (tool === "camera") this.cameraTool.use(source);
       else if (tool === "snapshot") void this.cameraTool.snapshot(source);
       else if (tool === "mannequin") this.mannequinTool.use(source);
@@ -294,7 +298,9 @@ export class Editor {
       if (mannequin) return void this.mannequinTool.screen(player, mannequin);
       if (hitEntity.typeId !== MARKER) return;
       const spec = this.markers.specOf(hitEntity);
-      if (spec) void ("camera" in spec ? this.cameraTool.snapshotOf(player, spec.camera) : this.markerMenu(player, spec));
+      if (!spec) return;
+      if ("space" in spec) void this.spacesTool.menu(player, spec.space);
+      else void ("camera" in spec ? this.cameraTool.snapshotOf(player, spec.camera) : this.markerMenu(player, spec));
     });
     // Shift brings a player looking through a camera back to their own view (the button, so it works
     // while flying, where shift doesn't sneak).
@@ -329,6 +335,7 @@ export class Editor {
     onReset((player) => this.reset(player));
     onReplace((player) => this.replaceMode.toggle(player));
     onGameSettings((player) => void this.gameSettingsTool.screen(player));
+    onBoardCheck((player) => this.spacesTool.check(player));
     keepModeLine(scope, () => modeLine("edit", `${this.info.targetName}: ${this.state.current.name}`), (player) => this.cameraTool.isLooking(player));
     this.refresh();
     void this.prepareWorld();
@@ -430,7 +437,7 @@ export class Editor {
   }
 
   private refresh(): void {
-    this.markers.show([...markerSpecs(this.state.current, this.lists()), ...cameraMarkers(this.state.current)]);
+    this.markers.show([...markerSpecs(this.state.current, this.lists()), ...cameraMarkers(this.state.current), ...this.spacesTool.markers(this.state.current)]);
     this.mannequins.show(mannequinsOf(this.state.current));
     // The map's time, when it changed (the Time tool, Undo).
     const time = mapTimeTicks(this.state.current.time) ?? NOON;
@@ -564,6 +571,7 @@ export class Editor {
       else if (tool === "killY") hintBar(player, this.killYTool.hint(player));
       else if (tool === "time") hintBar(player, this.timeTool.hint());
       else if (tool === "gameSettings") hintBar(player, this.gameSettingsTool.hint(player));
+      else if (tool === "spaces") hintBar(player, this.spacesTool.hint(player));
       else if (tool === "camera") hintBar(player, this.cameraTool.hint(player));
       else if (tool === "mannequin") hintBar(player, this.mannequinTool.hint());
       else if (tool === "snapshot") hintBar(player, "Use: pick a camera to take its picture   Hit a camera: the same");
@@ -606,6 +614,7 @@ export class Editor {
       camera: { kind: this.cameraTool.kindOf(player) },
       items: this.info.rules.items ?? [],
       gameSettings: this.gameSettingsTool.settings,
+      ...(this.spacesTool.board ? { spaces: this.spacesTool.settings() } : {}),
     });
     // The map and game are in the mode box top center, and how to use the tool is behind Help.
     const form = new ActionFormData().title(mapTitle("Map menu"));
@@ -678,6 +687,13 @@ export class Editor {
         return this.timeTool.screen(player, () => this.mapMenu(player));
       case "gameSetting":
         return this.gameSettingsTool.screen(player, action.key, () => this.mapMenu(player));
+      case "dealAgain":
+        this.spacesTool.dealAgain(player);
+        return this.mapMenu(player);
+      case "boardCheck":
+        return this.spacesTool.check(player);
+      case "space":
+        return this.spacesTool.menu(player, action.id, () => this.mapMenu(player));
       case "cameraKind":
         this.cameraTool.toggleKind(player);
         return this.mapMenu(player);
@@ -761,6 +777,12 @@ export class Editor {
     }
     if (row.field === "killY" || row.field === "buildLimit") {
       this.killYTool.equip(player, row.field === "buildLimit" && (row.name === "above" || row.name === "below") ? row.name : "killY");
+      return;
+    }
+    if (row.field === "spaces") {
+      const spaces = EDITOR_TOOLS.find((candidate) => candidate.id === "spaces");
+      if (spaces) this.equipTool(player, spaces);
+      tell(player, "Spaces tool: use it where each space goes, in order. /boardcheck says what the board still needs.");
       return;
     }
     const list = this.lists().find((candidate) => candidate.key === row.key);

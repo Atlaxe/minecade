@@ -548,6 +548,13 @@ minigame has to come to the board's world instead.
 
 ### Board maps
 
+**Pass 3 so far (2026-11-15):** minigame-core's board kit (`src/board`: spaces in map.json,
+their edits, the dealer, the board check), Block Party's `map.board` and its optional Arena slot (a
+40 x 60 region, switches in Checklist Features while the spike plays Probe's maps), and game Edit's
+Spaces tool with `/boardcheck` (`docs/editor.md`). The Panel's Spaces tool is next. Not checked
+yet: special event markup, camera anchors and stages (passes 6 and later), and the free block beside
+Star candidates and Item spaces.
+
 Build the board in a creative world and bring it in with Select or Port to another game. Outside the
 board there should be nothing: the game uses the empty space around it for the arenas.
 

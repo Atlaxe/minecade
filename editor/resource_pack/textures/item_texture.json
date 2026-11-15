@@ -11,6 +11,7 @@
     "minecade_mannequin_tool": { "textures": "textures/items/mannequin_tool" },
     "minecade_time_tool": { "textures": "textures/items/time_tool" },
     "minecade_game_settings_tool": { "textures": "textures/items/game_settings_tool" },
+    "minecade_spaces_tool": { "textures": "textures/items/spaces_tool" },
     "minecade_snapshot": { "textures": "textures/items/snapshot" },
     "minecade_select_tool": { "textures": "textures/items/select_tool" }
   }

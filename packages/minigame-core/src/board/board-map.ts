@@ -32,6 +32,8 @@ export interface BoardSpaceType {
   share: number;
   /** The vanilla block the game lays on the space's spot at the start. */
   block: string;
+  /** Its color in the map editors (0xRRGGBB): the block's, about. */
+  color: number;
 }
 
 /**
@@ -80,15 +82,15 @@ export const BLOCK_PARTY_BOARD: BoardConfig = {
   label: "Spaces",
   minSpaces: 12,
   types: [
-    { id: "start", name: "Start", share: 0, block: "minecraft:white_concrete" },
-    { id: "blue", name: "Blue", share: 0.45, block: "minecraft:blue_concrete" },
-    { id: "red", name: "Red", share: 0.12, block: "minecraft:red_concrete" },
-    { id: "item", name: "Item", share: 0.075, block: "minecraft:gold_block" },
-    { id: "shop", name: "Shop", share: 0.055, block: "minecraft:emerald_block" },
-    { id: "chance", name: "Chance Time", share: 0.1, block: "minecraft:purple_concrete" },
-    { id: "warden", name: "Warden", share: 0.09, block: "minecraft:sculk" },
-    { id: "versus", name: "Versus", share: 0.07, block: "minecraft:orange_concrete" },
-    { id: "happening", name: "Happening", share: 0.04, block: "minecraft:pink_concrete" },
+    { id: "start", name: "Start", share: 0, block: "minecraft:white_concrete", color: 0xf0f0f0 },
+    { id: "blue", name: "Blue", share: 0.45, block: "minecraft:blue_concrete", color: 0x3c5adc },
+    { id: "red", name: "Red", share: 0.12, block: "minecraft:red_concrete", color: 0xd23c32 },
+    { id: "item", name: "Item", share: 0.075, block: "minecraft:gold_block", color: 0xf5c832 },
+    { id: "shop", name: "Shop", share: 0.055, block: "minecraft:emerald_block", color: 0x32c864 },
+    { id: "chance", name: "Chance Time", share: 0.1, block: "minecraft:purple_concrete", color: 0x9632c8 },
+    { id: "warden", name: "Warden", share: 0.09, block: "minecraft:sculk", color: 0x0f5a64 },
+    { id: "versus", name: "Versus", share: 0.07, block: "minecraft:orange_concrete", color: 0xf08c1e },
+    { id: "happening", name: "Happening", share: 0.04, block: "minecraft:pink_concrete", color: 0xf08cb4 },
   ],
   // The plan's "Placement rules", "Stars" and "Boards".
   rules: {

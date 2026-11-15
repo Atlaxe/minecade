@@ -1,10 +1,11 @@
 // The map editor's tools, as plain data. Each is an item a map editor picks from the map menu's
 // tool grid: it goes in hotbar slot 1, unlocked, and only one tool is out at a time. A new tool
 // adds a row here and gets its icon in the grid. The Game marker tool is only there for a game (or
-// the lobby) whose config asks for points, the Mannequin tool only on a game's maps, and the Game
-// settings tool only for a game with settings of its own (its config's map.settings).
+// the lobby) whose config asks for points, the Mannequin tool only on a game's maps, the Game
+// settings tool only for a game with settings of its own (its config's map.settings), and the
+// Spaces tool only for a game with a board (its config's map.board).
 
-export type ToolId = "spawn" | "marker" | "region" | "killY" | "camera" | "snapshot" | "mannequin" | "time" | "gameSettings" | "select";
+export type ToolId = "spawn" | "marker" | "region" | "killY" | "camera" | "snapshot" | "mannequin" | "time" | "gameSettings" | "spaces" | "select";
 
 export interface EditorTool {
   id: ToolId;
@@ -91,6 +92,14 @@ export const EDITOR_TOOLS: EditorTool[] = [
     label: "Game settings tool",
     hint: "the game's settings for this map",
     howTo: "Use it, tap a setting here, or type /gamesettings, to change the game's own settings for this map (Build Swap's build padding): type a number or nudge it, then Set. A map that doesn't set one plays with its default.",
+  },
+  {
+    id: "spaces",
+    item: "minecade:spaces_tool",
+    icon: "textures/items/spaces_tool",
+    label: "Spaces tool",
+    hint: "the board's spaces, chained",
+    howTo: "Use it on a block to place a space there, linked from your previous space (the one you placed or picked last), its type dealt for you; the first is Start. Hit a space for its screen: its type, Lock, Star candidate, Opening spot, Make it the previous (to start a branch), Link the previous here (to close the loop or rejoin a shortcut), and its links. Deal again and Board check are here, and /boardcheck prints the check in chat.",
   },
 ];
 

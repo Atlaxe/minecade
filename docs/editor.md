@@ -291,6 +291,8 @@ game in gold and the map in orange.
    - **Game settings tool:** each of the game's own settings for this map (Build Swap's **Build
      padding** and **Return delay**), with its value, "(default)" while the map doesn't set it. Tap
      one for its screen.
+   - **Spaces tool:** **Deal again**, **Board check**, then every space with its type and
+     position. Tap one for its screen.
 4. **Save:** a green bar at the bottom, outside the scrolling part. It saves the world into the map
    now (see Saving); its tooltip says whether blocks changed since the last save.
 
@@ -423,6 +425,23 @@ you back in creative at every spawn).
   (a stair's facing, a log's direction); with nothing in hand, or an item that isn't a block, a
   right click does what it always does. The block a right click would replace is outlined, and a
   bubble top right (where games show their clock) says **Replace mode** while no tool is in hand.
+- **Spaces tool** (a game with a board, its config's `map.board`: Block Party): a board's
+  spaces, chained as you place them. A use on a block places a space on that block's middle,
+  linked from your previous space (the one you placed or picked last), and deals its type (the one
+  furthest under its share that breaks no placement rule there; the first space is Start); it
+  becomes your previous space. Hit a space for its screen: **Type** (pick another), **Lock** (Deal
+  again leaves it alone), **Star candidate**, **Opening spot** (on a Star candidate), **Make it
+  the previous** (the next space placed links from it, so placing from a space that already leads
+  somewhere starts a branch), **Link space N here** (from your previous space: closes the loop,
+  rejoins a shortcut), a button per link it has (tap to take it away), and **Delete space** (its
+  links go too). Spaces are markers in their type's color; holding the tool shows each link as
+  dots with an arrowhead at the space it leads to, and a green ring around your previous space.
+  The tool's settings in the map menu have **Deal again** (new types for every unlocked space
+  but Start, keeping the try with the fewest warnings) and **Board check**, which prints the
+  board's errors, warnings, counts by type against their targets and its routes in chat, as
+  **/boardcheck** (`/minecade:boardcheck`) does. The checklist's **Spaces** row counts them,
+  Publish refuses the board's errors, and its warnings show with the checklist's. Ids stay the
+  same when a space moves, so links survive (map.json "spaces", `docs/maps.md`).
 - **Game settings tool:** a game's own settings for each of its maps, set here instead of in a
   tool of the game's own: the settings its config names (`map.settings` in `game.config.ts`, see
   `docs/maps.md`). Build Swap and Guess the Build have two: **Build padding**, how far past their

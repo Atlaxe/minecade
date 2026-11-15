@@ -106,6 +106,10 @@ export type MenuAction =
   /** The Mannequin tool: a mannequin's screen, and whether previews show them. */
   | { kind: "mannequin"; name: string }
   | { kind: "mannequinsInPreview" }
+  /** The Spaces tool: deal every unlocked space again, the board check in chat, and a space's screen. */
+  | { kind: "dealAgain" }
+  | { kind: "boardCheck" }
+  | { kind: "space"; id: number }
   | { kind: "save" }
   /** Select mode: something to do with the selection. */
   | { kind: "pick"; action: PickAction }
@@ -159,6 +163,8 @@ export interface MapMenuView {
   items?: { item: string; label: string }[];
   /** The game's per-map settings (its config's map.settings), for the Game settings tool. */
   gameSettings?: GameSetting[];
+  /** The Spaces tool's settings (a game with a board, its config's map.board): its entries. */
+  spaces?: MenuEntry[];
 }
 
 /** One of the game's per-map settings, with its map.json key. */
@@ -182,7 +188,7 @@ export function mapMenuEntries(view: MapMenuView): MenuEntry[] {
     entries.push({ action: { kind: "preview" }, text: `${MARK.quick}${ready ? "" : MARK.dim}Preview\n§7${ready ? `play it as ${view.game}, then come back` : "finish the checklist first"}`, icon: ICONS.play });
   }
   entries.push({ action: { kind: "settings" }, text: `${MARK.quick}Map settings\n§7name, thumbnails, build commands`, icon: ICONS.settings });
-  editorTools(view.spawn.lists, view.game !== undefined, (view.gameSettings ?? []).length > 0).forEach((tool, i) => {
+  editorTools(view.spawn.lists, view.game !== undefined, (view.gameSettings ?? []).length > 0, view.spaces !== undefined).forEach((tool, i) => {
     const picked = tool.id === view.tool ? MARK.on : "";
     entries.push({ action: { kind: "tool", tool: tool.id }, text: `${MARK.tool}${COLUMNS[i % COLUMNS.length]}${picked}${tool.label}\n§7${tool.hint}`, icon: tool.icon });
   });
@@ -197,17 +203,19 @@ export function mapMenuEntries(view: MapMenuView): MenuEntry[] {
   else if (view.tool === "mannequin") entries.push(...mannequinSettings(view.config, view.items ?? []));
   else if (view.tool === "time") entries.push(...timeSettings(view.config));
   else if (view.tool === "gameSettings") entries.push(...gameSettingsSettings(view.config, view.gameSettings ?? []));
+  else if (view.tool === "spaces") entries.push(...(view.spaces ?? []));
   entries.push({ action: { kind: "save" }, text: `${MARK.save}${saveText(view)}` });
   return entries;
 }
 
 /**
  * The tools in the map menu's grid: the Game marker tool only when the game has markers of its own,
- * the Mannequin tool only on a game's map, and the Game settings tool only when the game has settings.
+ * the Mannequin tool only on a game's map, the Game settings tool only when the game has settings,
+ * and the Spaces tool only when it has a board.
  */
-export function editorTools(lists: SpawnList[], game: boolean, settings = false): typeof EDITOR_TOOLS {
+export function editorTools(lists: SpawnList[], game: boolean, settings = false, board = false): typeof EDITOR_TOOLS {
   const markers = lists.some((list) => list.tool === "marker");
-  return EDITOR_TOOLS.filter((tool) => (tool.id !== "marker" || markers) && (tool.id !== "mannequin" || game) && (tool.id !== "gameSettings" || settings));
+  return EDITOR_TOOLS.filter((tool) => (tool.id !== "marker" || markers) && (tool.id !== "mannequin" || game) && (tool.id !== "gameSettings" || settings) && (tool.id !== "spaces" || board));
 }
 
 /** The Mannequin tool's settings: whether previews show them (off unless switched on), then the map's mannequins (tap one for its screen). */

@@ -44,6 +44,7 @@ The map editor sets spawns and points in game and writes `map.json` for you; see
 | `teamSpawns` | no | `{ "<team or role id>": [positions] }`. Team games spawn each team at its own points; before teams are dealt, players wait at every team's spawns in turn (or the plain spawns, when the map has them). The keys must be the game's team ids. |
 | `points` | no | `{ "<name>": [positions] }`: named positions a game uses, such as bomb sites or mob spawns. `"<name>.<team>"` is one team's (`"flag.red"`). |
 | `regions` | no | `{ "<name>": [{ "min": [x, y, z], "max": [x, y, z] }, ...] }`: named boxes, such as build plots or a floor that falls away. `"<name>.<team>"` is one team's. The name `kill` is reserved: anyone inside a `kill` box is out, the same as falling below `killY` (spectators fly over them). |
+| `spaces` | no | A board's spaces (a game whose config has `map.board`, below): `[{ "id": 1, "at": [x, y, z], "next": [2], "type": "start" }, ...]`, each with its id (kept when it moves, so links survive), its position (whole x and z are the block's middle), the spaces it leads to (1, or 2-3 at a branch), its type, and `locked`, `star` and `opening` when true. Set with game Edit's Spaces tool. |
 | `requirements` | no | The map's own requirement options: for the checklist rows its game lets a map change (`map.adjustable`, below), `false` turns a row off and a number sets its count, keyed by the row's key without a team: `{ "killY": false, "regions.kill": 3 }`. Only what differs from the game's own; set in the Panel's map viewer (Map settings, Checklist Features). The checklist, Publish and game Edit all go by it. Servers never get it. |
 | `kits` | no | Games only: kits of the map's own, for a game whose players pick kits. `{ "mode": "append", "list": [kits] }` adds them after the game's (a kit with the same `id` as one of the game's takes its place); `"mode": "replace"` uses only the map's. A `base` replaces the game's base kit either way. Each kit is written as in `game.config.ts`: `{ "id": "ice", "name": "Ice", "refill": "round", "items": [{ "item": "minecraft:snowball", "count": 16 }] }`. The map editor keeps it as written; there's no screen for it yet. A game whose kits are the same on every map (`kits.mapKits: false`, Siege) refuses a map's own. |
 | `build.commands` | no | Console commands (no leading `/`) that build the world, run once by `npm run bake`. |
@@ -181,6 +182,18 @@ off goes, a count set replaces the game's. The build checks each key names a row
 the game's own count, and a borrowing game counts on a lender's row only down to the fewest a
 lender's map can be left with (0 when it can be turned off). Probe's maps can turn off the
 spectator or queue spawn, as a test of it.
+
+**Boards:** `board` gives a game's maps spaces (minigame-core's board kit, `src/board`; Block
+Party's is `BLOCK_PARTY_BOARD`): the space types with their share of the board, block and color
+(the first is Start), the fewest spaces the checklist asks for, and the placement rules the dealer
+keeps and the board check warns about. Both editors then offer the Spaces tool (game Edit's for
+now), the checklist has a **Spaces** row, Publish refuses the board's errors (one Start, every
+space reachable and leading back to the loop, no dead ends, enough Star candidates, two opening
+spots) and its warnings show (shares off target, Reds in a row, Wardens or Versus too close, a
+long stretch with no Item, shortcuts saving too much or too little, Star candidates bunched).
+
+A region can also ask for an exact footprint: `footprint: [40, 60]` means every box is 40 by 60
+blocks across, either way round, any height (Block Party's arena slot).
 
 `perTeam` entries are needed once for every team the game can have (`"buyZone.red"`,
 `"buyZone.blue"`). The short forms still work: `points: ["bombA", "bombB"]`,

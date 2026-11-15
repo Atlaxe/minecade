@@ -26,6 +26,7 @@ Outputs:
     editor/resource_pack/textures/items/mannequin_tool.png                    the Mannequin tool (a figure on a stand)
     editor/resource_pack/textures/items/time_tool.png                         the Time tool (a clock)
     editor/resource_pack/textures/items/game_settings_tool.png                the Game settings tool (sliders)
+    editor/resource_pack/textures/items/spaces_tool.png                       the Spaces tool (three linked spaces)
     editor/resource_pack/textures/entity/editor_marker_facing.png            the red facing line on markers
     editor/resource_pack/textures/entity/editor_marker*.png                  markers, a color per kind
     games/<id>/icon.png                                                      16:9 game pictures (Probe, Sumo, One in the Quiver, Bridges, Siege, Paintball)
@@ -756,6 +757,17 @@ def marker_tool_icon() -> Image.Image:
     return image
 
 
+def spaces_tool_icon() -> Image.Image:
+    """The Spaces tool's item icon, 16x16 like the other editor items: three board spaces, blue, red and gold, linked in a chain."""
+    image = Image.new("RGBA", (16, 16), (0, 0, 0, 0))
+    draw = ImageDraw.Draw(image)
+    link = (220, 220, 225, 255)
+    draw.line([(3, 12), (8, 8), (12, 3)], fill=link, width=1)
+    for (x, y), color in (((1, 10), (60, 90, 220, 255)), ((6, 6), (210, 60, 50, 255)), ((10, 1), (245, 200, 50, 255))):
+        draw.rectangle((x, y, x + 4, y + 4), fill=color, outline=(30, 30, 36, 255))
+    return image
+
+
 def mannequin_tool_icon() -> Image.Image:
     """The Mannequin tool's item icon, 16x16 like the other editor items: a tan figure on a stand."""
     image = Image.new("RGBA", (16, 16), (0, 0, 0, 0))
@@ -1010,6 +1022,7 @@ def main() -> None:
     save(mannequin_tool_icon(), EDITOR_TEXTURES / "items" / "mannequin_tool.png")
     save(time_tool_icon(), EDITOR_TEXTURES / "items" / "time_tool.png")
     save(game_settings_tool_icon(), EDITOR_TEXTURES / "items" / "game_settings_tool.png")
+    save(spaces_tool_icon(), EDITOR_TEXTURES / "items" / "spaces_tool.png")
     # A dropdown's arrow (the Game marker tool's Marker list, a Team list), closed and open.
     for kind in ("chevron_down", "chevron_up"):
         save(editor_icon(kind), EDITOR_TEXTURES / "minecade" / "editor" / f"icon_{kind}.png")

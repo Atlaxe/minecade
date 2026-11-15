@@ -85,7 +85,7 @@ describe("map menu", () => {
 
   it("puts each tool in a grid column with its icon, the one out marked, the Game marker tool only for a game with markers, the Mannequin tool only on a game's map", () => {
     const tools = mapMenuEntries(view(draft, { tool: "region" })).filter((entry) => entry.action.kind === "tool");
-    expect(tools.map((entry) => entry.icon)).toEqual(EDITOR_TOOLS.filter((tool) => tool.id !== "marker" && tool.id !== "mannequin" && tool.id !== "gameSettings").map((tool) => tool.icon));
+    expect(tools.map((entry) => entry.icon)).toEqual(EDITOR_TOOLS.filter((tool) => tool.id !== "marker" && tool.id !== "mannequin" && tool.id !== "gameSettings" && tool.id !== "spaces").map((tool) => tool.icon));
     expect(tools[0].text).toBe(`${MARK.tool}${COLUMNS[0]}Spawn tool\n§7spawns, spectator and queue spawns`);
     expect(tools[1].text).toBe(`${MARK.tool}${COLUMNS[1]}${MARK.on}Region tool\n§7bounds, regions, kill regions`);
     expect(tools[4].text).toBe(`${MARK.tool}${COLUMNS[4]}Snapshot tool\n§7take a camera's picture`);
@@ -94,6 +94,11 @@ describe("map menu", () => {
     expect(editorTools(withMarkers, false).map((tool) => tool.id)).not.toContain("mannequin");
     // The Game settings tool, only for a game with settings of its own.
     expect(editorTools(withMarkers, true, true).map((tool) => tool.id).at(-1)).toBe("gameSettings");
+    // The Spaces tool, only for a game with a board; its settings are the ones the editor hands in.
+    expect(editorTools(withMarkers, true, true, true).map((tool) => tool.id).at(-1)).toBe("spaces");
+    const spaces = mapMenuEntries({ ...view(draft, { tool: "spaces" }), spaces: [{ action: { kind: "dealAgain" }, text: "Deal again" }] });
+    expect(spaces.filter((entry) => entry.action.kind === "tool").at(-1)?.icon).toBe("textures/items/spaces_tool");
+    expect(spaces.map((entry) => entry.action.kind)).toContain("dealAgain");
     // Its settings list the game's markers, and the Spawn tool's leave them out.
     const settings = (tool: "spawn" | "marker") => mapMenuEntries({ ...view(draft, { tool }), spawn: { lists: withMarkers, settings: { list: "spawns", center: false, keepFacing: false, snap: "exact" } } }).map((entry) => entry.text);
     expect(settings("marker")).toContain(headingText("Hole: none yet"));
