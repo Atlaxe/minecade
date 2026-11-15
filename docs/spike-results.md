@@ -432,7 +432,7 @@ What this means for pass 5 (proposed): the map store's export can write each pub
 folder (copied in at container start from `/maps`, so a new arena needs no build). The game places
 an arena behind a fade, and an arena box has to hold whatever its attached blocks hang on.
 
-### The game's entities, the mount, pushes and the camera calls (server side)
+### The game's entities, the mount, pushes and the camera calls (server side; the mount and the stand-in were dropped after the user's look)
 
 | Question | Finding |
 |---|---|
@@ -443,15 +443,26 @@ an arena behind a fade, and an arena box has to hold whatever its attached block
 | The camera on a player | `setCamera("minecraft:free")` eased or with `facingEntity`, `playAnimation` on a CatmullRom spline, `fade`, `attachToEntity` (a mount, and even a player) and `clear`: none throws. |
 | The players pack | Vanilla's player is already rideable, by tame parrots only (two shoulder seats that pull parrots in). With its `player.json` given one seat over the head for players (no pulling in) and `minecraft:leashable` (the workshop's block-party-players, installed in `games/blockparty/private_packs/players/`), `addRider` puts a player on another's head (1.67 over their feet) and they move together, and `leashTo` ties a player to another's lead: the follower is pulled once the gap reaches 5 blocks (the hard distance) and keeps about 5.9 behind. |
 
-### In game
+### In game (the user's first look, 2026-11-15)
 
 | Check | Finding |
 |---|---|
-| The pieces' walk | Not yet seen. Piece settings: the player moved by teleport or by pushes (vanilla's own walk plays with pushes), the player on the mount (teleport or glide), or the Steve stand-in (teleport or glide); each walk says in chat how long it took and how far off the spot it ended. Which looks smooth to the walker and to others, and whether the pack's walk animation (`animation.blockparty.walk`, played with `playAnimation`) shows on a player and overrides the riding pose. |
-| Names | Not yet seen: the label over each piece, the player's own tag hidden, and whether the owner sees their own label (and their own tag, with the label off) through the scripted camera. |
-| The cameras | Not yet seen: eased moves of seven kinds, flyovers on a CatmullRom and a linear spline, private shots, fades, cuts, shot and reverse shot with Chris, an orbit, a shake; the chase camera, the Watch camera (`facingEntity`: does it follow?) and the camera attached to the mount or stand-in during a walk; everyone jumping to skip. |
-| The jump button | Not yet seen: whether a jump reaches the script with lateral movement off, with movement off, with movement and jumping off, under a scripted camera, and riding the mount (the Jump test reports each). Roll: a die over your head, hit it by jumping, and your piece walks the number. |
-| The hotbar | Not yet seen: the restyled slots and gold frame (`resource_pack/ui/hud_screen.json`, JSON UI modifications of vanilla's controls), whether scrolling, number keys and tapping still pick a slot, and the selected item's name and what it does over the bar. |
-| The NPCs | Not yet seen: each on its vanilla model, standing still; the Warden's roar and sonic boom, the Allay's dance and the others from its menu (hit it); Chris's pig variants and the Villager's biome, profession and level. |
-| An arena in game | Not yet seen: an arena installed by `spike/blockparty/arena-pack.ts` (the private arenas pack) placed east of the board behind a fade, how long the stall feels, and Place it again putting it back whole. |
-| Riding and leads | Not yet seen (two players): riding another player (the players pack), riding a seat that follows them (no pack: a mount teleported over their head each tick), and a lead between players. |
+| The pieces' walk | Teleporting each tick (the player, the stand-in) and gliding the mount jitter: 20 stops a second, never a smooth walk. Pushing the player each tick (`applyKnockback`, walking locked) looks good: vanilla's own walk plays and the camera stays smooth. Two faults: the player didn't face where they were going (`setRotation` each tick doesn't turn a player on their own client) and didn't end on the same spot each time. So the push is the way, and the mount and the stand-in are gone. |
+| Names | The label shows over each piece, and the owner sees their own label through the scripted camera, so the label is needed. At 2.35 over the feet it floated about half a player too high. The user wants a setting for players to turn names over the pieces on or off. |
+| The cameras | Every shot works and loops round the board. The user's least favorite: the fades, the cuts, and the shot and reverse shot. The chase and the Watch camera (`facingEntity` follows the piece) both look very good with the push. |
+| The jump button | A jump reached the script in every mode: lateral movement off, movement off, movement and jumping off, a scripted camera. On the mount, a jump threw the player off even with dismounting turned off. |
+| The hotbar | The restyled slots, the gold frame and the item text over the bar all work. The user asked for the health, hunger and XP bars gone; the 1st and 2nd slots opening bars of their own for items and dice; and only the slots in use showing (two dice: two slots and a Back slot). |
+| The NPCs | Every model, variant and facing is right. The Enderman's poses and the raised arms (Villager, Wandering Trader) lasted only a second: they're loops, and a loop "finishes" at once. The Iron Golem and the Zombie had no hit. The Referee's Celebrate did nothing: a Vindicator's arms only show while it's angry or celebrating. The user asked for the Referee raising its arms very high. |
+| An arena in game | Moving between the board and an arena works well. The user wants the fade both ways, and Minecade's logo fading in on the black after a couple of seconds, for big arenas. |
+| Riding and leads | Not yet seen (needs two players). |
+| Content log | `animation.blockparty.rest` had an empty `bones` (an error); fixed. `blockparty:chris` logs that `armor_offset.default_neck` doesn't match on `geometry.pig.v3`. That locator is in no vanilla model file (only `player.animation.json` reads it), so the engine adds it, and the vanilla pig uses the same geometry: left as is, harmless (the second definition is skipped). |
+
+### Pass 1b (the user's look, acted on; not yet seen)
+
+| Check | What to look at |
+|---|---|
+| The walk | The push only. Facing: a teleport to where the player already is, with the new facing, at each turn, or spread over 2 to 8 ticks (Piece settings, Turn over); it can't keep their velocity (`keepVelocity` throws for a player, as the recoil spike found), so the next push gets them going again. Headless, the teleport stops a pushed SimulatedPlayer for that tick (steps of 0.55 a tick, then 0, then 0.4, 0.51, 0.54, 0.55 as the pushes build again), so a turn spread over several ticks stalls each of them: a snap (1 tick, the default) costs least. Landing: each tick's push is the walking speed plus a quarter of the gap to where the piece should be; after the last point it settles onto its spot with smaller pushes for up to 16 ticks, and only one still 0.3 off is teleported there. Each walk reports the turns, how far it fell behind the path, and how far off the spot it settled. |
+| Names | The label at 1.5 over the feet, with a height slider in Piece settings. |
+| The hotbar | Items, Dice and Tests in the middle three slots; Items and Dice each swap the bar for their own (the items held or the dice, then Back), centered, with empty slots drawing no tile and no frame (`#item_id_aux` is 0 for an empty slot, untested), and a selection that lands on an empty slot moved on to the next one in use. In the dice bar the picked die floats over your head and a jump hits it. Hotbar contents (Tests) sets 0 to 2 special dice and 0 to 3 items. Health, hunger, armor, air and the XP bar are hidden with `setHudVisibility`. |
+| The NPCs | Looping poses held until Stop; the pack's own hits for the Iron Golem and the Zombie (keyframed swings, since vanilla's attacks run on variables only the mob's AI sets); the Referee's cheer, both arms high and waving, switched on by a `blockparty:cheer` property that also shows its arms (its own render controller). |
+| Arenas | A fade both ways. After 2 seconds of black, Minecade's logo fades in (a title of formatting codes only, `§r§m§l§r`, with the logo at the front of vanilla's title in the pack's `hud_screen.json`, fading with it); a placement expected to stall the server over 1.5 s shows it first. Slow loads (the arena menu) keep the screen black 4 s longer to show it. |

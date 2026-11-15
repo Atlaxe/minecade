@@ -13,16 +13,23 @@
         "default": "geometry.vindicator.v1.8"
       },
       "render_controllers": [
-        "controller.render.vindicator"
+        "controller.render.blockparty.referee"
       ],
       "animations": {
-        "base": "animation.vindicator.base",
+        "base": "animation.blockparty.referee_base",
+        "cheer": "animation.blockparty.referee_cheer",
         "look_at_target": "animation.humanoid.look_at_target.default"
       },
       "scripts": {
         "scale": "0.9375",
+        "pre_animation": [
+          "v.cheer = q.property('blockparty:cheer');"
+        ],
         "animate": [
           "base",
+          {
+            "cheer": "v.cheer"
+          },
           "look_at_target"
         ]
       }

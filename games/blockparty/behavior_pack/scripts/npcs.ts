@@ -2,8 +2,14 @@
 // and animations (resource_pack/entity/*.entity.json name them; nothing is copied or textured), with
 // no AI, so each stands still until the script moves it or plays an animation on it (the plan's
 // "Characters"). They stand in two rows in the middle of the test board; hitting one opens its menu:
-// the vanilla animations the game will play on it, and its vanilla variants (Chris's pig, the
-// Villager's biome, profession and level), each an entity property its client entity reads.
+// the animations the game will play on it, and its vanilla variants (Chris's pig, the Villager's
+// biome, profession and level), each an entity property its client entity reads.
+//
+// From the user's first look: a looping pose (the Enderman's, the raised arms) is held until Stop,
+// since a loop "finishes" at once; the Iron Golem and the Zombie hit with the pack's own swings
+// (vanilla's attacks run on variables only the mob's AI sets); and the Referee cheers with both arms
+// high, the pack's own animation, switched on by a property that also shows its arms (a Vindicator
+// keeps them crossed unless it's angry or celebrating).
 import type { Dimension, Entity, Player } from "@minecraft/server";
 import { ActionFormData } from "@minecraft/server-ui";
 import { describeError, showForm, type Scope } from "@minecade/minigame-core";
@@ -15,13 +21,21 @@ interface Variant {
   values: readonly string[];
 }
 
+interface NpcAnimation {
+  label: string;
+  /** An animation the entity plays (vanilla's or the pack's), or a bool property that switches one on. */
+  animation?: string;
+  property?: string;
+  /** A looping pose: held until Stop. */
+  hold?: boolean;
+}
+
 export interface NpcRole {
   id: string;
   name: string;
   /** What the role is in the game, under its name in its menu. */
   role: string;
-  /** Vanilla animations to play on it: label, animation, seconds it runs. */
-  animations: readonly [string, string, number][];
+  animations: readonly NpcAnimation[];
   variants?: readonly Variant[];
 }
 
@@ -34,7 +48,7 @@ export const NPC_ROLES: readonly NpcRole[] = [
     id: "villager",
     name: "Villager",
     role: "The shopkeeper",
-    animations: [["Raise arms", "animation.villager.raise_arms", 2]],
+    animations: [{ label: "Raise arms", animation: "animation.villager.raise_arms", hold: true }],
     variants: [
       { property: "blockparty:biome", label: "Biome", values: VILLAGER_BIOMES },
       { property: "blockparty:profession", label: "Profession", values: PROFESSIONS },
@@ -42,18 +56,18 @@ export const NPC_ROLES: readonly NpcRole[] = [
     ],
   },
   { id: "witch", name: "Witch", role: "Hosts Chance Time", animations: [] },
-  { id: "wandering_trader", name: "Wandering Trader", role: "Trades rare items for a round", animations: [["Raise arms", "animation.villager.raise_arms", 2]] },
-  { id: "referee", name: "Referee", role: "Announces duels, takes bets", animations: [["Celebrate", "animation.humanoid.celebrating", 3]] },
+  { id: "wandering_trader", name: "Wandering Trader", role: "Trades rare items for a round", animations: [{ label: "Raise arms", animation: "animation.villager.raise_arms", hold: true }] },
+  { id: "referee", name: "Referee", role: "Announces duels, takes bets", animations: [{ label: "Cheer, arms up high", property: "blockparty:cheer", hold: true }] },
   {
     id: "warden",
     name: "Warden",
     role: "The villain",
     animations: [
-      ["Roar", "animation.warden.roar", 4.2],
-      ["Sonic boom", "animation.warden.sonic_boom", 3],
-      ["Sniff", "animation.warden.sniff", 3.3],
-      ["Emerge", "animation.warden.emerge", 6.6],
-      ["Dig", "animation.warden.dig", 5],
+      { label: "Roar", animation: "animation.warden.roar" },
+      { label: "Sonic boom", animation: "animation.warden.sonic_boom" },
+      { label: "Sniff", animation: "animation.warden.sniff" },
+      { label: "Emerge", animation: "animation.warden.emerge" },
+      { label: "Dig", animation: "animation.warden.dig" },
     ],
   },
   {
@@ -61,24 +75,25 @@ export const NPC_ROLES: readonly NpcRole[] = [
     name: "Enderman",
     role: "Performs swaps and teleports",
     animations: [
-      ["Scary face", "animation.enderman.scary_face", 3],
-      ["Carrying", "animation.enderman.carrying", 3],
+      { label: "Scary face", animation: "animation.enderman.scary_face", hold: true },
+      { label: "Carrying", animation: "animation.enderman.carrying", hold: true },
     ],
   },
-  { id: "iron_golem", name: "Iron Golem", role: "An item: shakedowns, zombie removal", animations: [] },
-  { id: "zombie", name: "Zombie", role: "An item and a curse: takes coins", animations: [] },
+  { id: "iron_golem", name: "Iron Golem", role: "An item: shakedowns, zombie removal", animations: [{ label: "Hit", animation: "animation.blockparty.golem_hit" }] },
+  { id: "zombie", name: "Zombie", role: "An item and a curse: takes coins", animations: [{ label: "Hit", animation: "animation.blockparty.zombie_hit" }] },
   {
     id: "allay",
     name: "Allay",
     role: "Delivers bonus Stars",
     animations: [
-      ["Dance", "animation.allay.dance", 4],
-      ["Fly", "animation.allay.fly", 3],
+      { label: "Dance", animation: "animation.allay.dance" },
+      { label: "Fly", animation: "animation.allay.fly" },
     ],
   },
 ];
 
 const NPC_ANIMATION = "blockparty.npc";
+const REST = "animation.blockparty.rest";
 
 export class Npcs {
   private readonly out = new Map<string, Entity>();
@@ -137,11 +152,19 @@ export class Npcs {
   async menu(player: Player, entity: Entity, role: NpcRole, say: (text: string) => void): Promise<void> {
     const form = new ActionFormData().title(role.name).body(role.role);
     const actions: (() => void)[] = [];
-    for (const [label, animation, seconds] of role.animations) {
-      form.button(`Play: ${label}`);
+    for (const { label, animation, property, hold } of role.animations) {
+      form.button(`Play: ${label}${hold ? " (held)" : ""}`);
       actions.push(() => {
-        entity.playAnimation(animation, { controller: NPC_ANIMATION, stopExpression: "q.any_animation_finished", blendOutTime: 0.2 });
-        say(`${role.name}: ${animation} (about ${seconds} s)`);
+        if (property) entity.setProperty(property, true);
+        if (animation) entity.playAnimation(animation, { controller: NPC_ANIMATION, stopExpression: hold ? "0" : "q.any_animation_finished", blendOutTime: 0.2 });
+        say(`${role.name}: ${label}${hold ? ", held until Stop" : ""}`);
+      });
+    }
+    if (role.animations.length > 0) {
+      form.button("Stop the animation");
+      actions.push(() => {
+        for (const { property } of role.animations) if (property) entity.setProperty(property, false);
+        entity.playAnimation(REST, { controller: NPC_ANIMATION, stopExpression: "q.any_animation_finished", blendOutTime: 0.2 });
       });
     }
     for (const variant of role.variants ?? []) {

@@ -9,6 +9,11 @@
   // Only Block Party's servers load this pack. The core pack changes item_name_text_root (one line
   // for the vanilla popup), never these controls; each change below is a modification of vanilla's
   // own definition rather than a copy of it.
+  //
+  // Only the slots in use show: an empty slot draws no tile, and no gold frame when it's selected
+  // (an item's #item_id_aux is 0 when the slot is empty). The game puts its items in the middle
+  // slots, so what shows is centered, and moves a selection that lands on an empty slot on to the
+  // next one in use (spike.ts, keepHotbars).
 
   // Vanilla's gray slots: the desktop bar draws them in one piece behind the grid, the touch bar
   // one a slot; and the caps at the bar's ends.
@@ -19,7 +24,13 @@
 
   "hotbar_slot_selected_image": {
     "texture": "textures/blockparty/hud/selected",
-    "size": [ 24, 24 ]
+    "size": [ 24, 24 ],
+    "visible": false,
+    "bindings": [
+      { "binding_name": "#slot_selected", "binding_type": "collection", "binding_collection_name": "$hotbar_collection_name" },
+      { "binding_name": "#item_id_aux", "binding_type": "collection", "binding_collection_name": "$hotbar_collection_name" },
+      { "binding_type": "view", "source_property_name": "(#slot_selected and (not (#item_id_aux = 0)))", "target_property_name": "#visible" }
+    ]
   },
 
   "gui_hotbar_grid_item": {
@@ -45,7 +56,46 @@
     "type": "image",
     "texture": "textures/blockparty/hud/slot",
     "size": [ 20, 22 ],
-    "layer": 1
+    "layer": 1,
+    "visible": false,
+    "bindings": [
+      { "binding_name": "#item_id_aux", "binding_type": "collection", "binding_collection_name": "$hotbar_collection_name" },
+      { "binding_type": "view", "source_property_name": "(not (#item_id_aux = 0))", "target_property_name": "#visible" }
+    ]
+  },
+
+  // Minecade's logo on the black while an arena loads (spike.ts, behindBlack): the game shows a
+  // title that is only LOADING_MARK ('§r§m§l§r', formatting codes that never render), and the logo
+  // rides at the front of vanilla's title, so it fades in and out with it. The title's own text is
+  // the mark (nothing shows) and its dark box is lost on the black. Any other title hides the logo.
+  // The logo is the core pack's (textures/minecade/ui/logo, every server has it).
+  "hud_title_text": {
+    "modifications": [
+      { "array_name": "controls", "operation": "insert_front", "value": [ { "bp_loading_logo@hud.bp_loading_logo": {} } ] }
+    ]
+  },
+
+  "bp_loading_logo": {
+    "type": "panel",
+    "size": [ "100%", 0 ],
+    "visible": false,
+    "bindings": [
+      { "binding_name": "#hud_title_text_string", "binding_type": "global" },
+      { "binding_type": "view", "source_property_name": "(not ((#hud_title_text_string - '§r§m§l§r') = #hud_title_text_string))", "target_property_name": "#visible" }
+    ],
+    "controls": [
+      {
+        "bp_loading_logo_image": {
+          "type": "image",
+          "texture": "textures/minecade/ui/logo",
+          "size": [ 214, 48 ],
+          "anchor_from": "center",
+          "anchor_to": "center",
+          "offset": [ 0, 8 ],
+          "layer": 40
+        }
+      }
+    ]
   },
 
   "bp_item_text_anchor": {

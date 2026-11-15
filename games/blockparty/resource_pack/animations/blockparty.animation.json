@@ -1,27 +1,37 @@
 {
   "format_version": "1.8.0",
   "animations": {
-    "animation.blockparty.walk": {
-      "loop": true,
-      "bones": {
-        "rightleg": { "rotation": ["-this + 38.0 * math.sin(q.life_time * 760.0)", "-this", "-this"] },
-        "leftleg": { "rotation": ["-this - 38.0 * math.sin(q.life_time * 760.0)", "-this", "-this"] },
-        "rightarm": { "rotation": ["-this - 32.0 * math.sin(q.life_time * 760.0)", "-this", "-this + 4.0"] },
-        "leftarm": { "rotation": ["-this + 32.0 * math.sin(q.life_time * 760.0)", "-this", "-this - 4.0"] }
-      }
-    },
-    "animation.blockparty.stand": {
-      "loop": true,
-      "bones": {
-        "rightleg": { "rotation": ["-this", "-this", "-this"] },
-        "leftleg": { "rotation": ["-this", "-this", "-this"] },
-        "rightarm": { "rotation": ["-this", "-this", "-this + 4.0"] },
-        "leftarm": { "rotation": ["-this", "-this", "-this - 4.0"] }
-      }
-    },
     "animation.blockparty.rest": {
-      "animation_length": 0.05,
-      "bones": {}
+      "animation_length": 0.05
+    },
+    "animation.blockparty.golem_hit": {
+      "animation_length": 0.6,
+      "bones": {
+        "arm0": { "rotation": { "0.0": [0, 0, 0], "0.15": [-115, 0, -6], "0.3": [-100, 0, -6], "0.6": [0, 0, 0] } },
+        "arm1": { "rotation": { "0.0": [0, 0, 0], "0.15": [-115, 0, 6], "0.3": [-100, 0, 6], "0.6": [0, 0, 0] } },
+        "head": { "rotation": { "0.0": [0, 0, 0], "0.15": [10, 0, 0], "0.6": [0, 0, 0] } }
+      }
+    },
+    "animation.blockparty.zombie_hit": {
+      "animation_length": 0.5,
+      "bones": {
+        "rightarm": { "rotation": { "0.0": [0, 0, 0], "0.12": [-35, 0, 0], "0.28": [45, -10, 0], "0.5": [0, 0, 0] } },
+        "leftarm": { "rotation": { "0.0": [0, 0, 0], "0.12": [-35, 0, 0], "0.28": [45, 10, 0], "0.5": [0, 0, 0] } },
+        "body": { "rotation": { "0.0": [0, 0, 0], "0.28": [8, 0, 0], "0.5": [0, 0, 0] } }
+      }
+    },
+    "animation.blockparty.referee_base": {
+      "loop": true,
+      "bones": {
+        "arms": { "position": [0.0, "-3.0 - this", "-1.0 - this"], "rotation": ["-42.97 - this", 0.0, 0.0] }
+      }
+    },
+    "animation.blockparty.referee_cheer": {
+      "loop": true,
+      "bones": {
+        "rightarm": { "rotation": ["-this - 168.0 + math.sin(q.life_time * 540.0) * 10.0", "-this", "-this + 18.0 + math.sin(q.life_time * 540.0) * 6.0"] },
+        "leftarm": { "rotation": ["-this - 168.0 - math.sin(q.life_time * 540.0) * 10.0", "-this", "-this - 18.0 - math.sin(q.life_time * 540.0) * 6.0"] }
+      }
     }
   }
 }

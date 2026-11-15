@@ -1,9 +1,9 @@
 // Block Party's pieces check, headless: what the server side of the in-game tests does, with
-// SimulatedPlayers on a stone floor. Every Block Party entity spawns (its file loads); a player rides
-// the invisible mount while it's teleported and while it glides (velocity set each tick), with the
-// label on its second seat; a player whose walking is locked is pushed (applyKnockback) and
-// teleported each tick; the jump button from a simulated jump; the camera calls on a player; and,
-// when the players pack is loaded, a player riding a player and a player on another's lead.
+// SimulatedPlayers on a stone floor. Every Block Party entity spawns (its file loads); a player whose
+// walking is locked is pushed (applyKnockback) and teleported each tick, and turned by a teleport
+// in the middle of a push (does it stall it?); the jump button from a simulated jump; the
+// camera calls on a player; and, when the players pack is loaded, a player riding a player and a
+// player on another's lead. (The mount and the stand-in were dropped after the user's look.)
 // Prints BP|{json} lines; spike/blockparty/pieces.ts reads them. A real client can move differently
 // (it runs its own player's physics), so this says what the server accepts, not how it looks.
 import { ButtonState, CatmullRomSpline, EasingType, GameMode, InputButton, InputPermissionCategory, system, world } from "@minecraft/server";
@@ -24,7 +24,7 @@ const tryIt = (fn) => {
 };
 const ridingOn = (entity) => entity.getComponent("minecraft:riding")?.entityRidingOn?.typeId ?? null;
 
-const ENTITIES = ["chris", "warden", "villager", "witch", "enderman", "wandering_trader", "referee", "allay", "iron_golem", "zombie", "label", "mount", "stand_in"];
+const ENTITIES = ["chris", "warden", "villager", "witch", "enderman", "wandering_trader", "referee", "allay", "iron_golem", "zombie", "label"];
 
 async function run() {
   const d = dim();
@@ -88,44 +88,9 @@ async function run() {
     facingEntity: tryIt(() => cam.setCamera("minecraft:free", { location: { x: 0, y: 70, z: -5 }, facingEntity: a })),
     spline: tryIt(() => cam.playAnimation(spline, { totalTimeSeconds: 4, animation: { progressKeyFrames: [{ alpha: 0, timeSeconds: 0 }, { alpha: 1, timeSeconds: 4 }], rotationKeyFrames: [{ rotation: { x: 20, y: 0, z: 0 }, timeSeconds: 0 }, { rotation: { x: 20, y: 270, z: 0 }, timeSeconds: 4 }] } })),
     fade: tryIt(() => cam.fade({ fadeTime: { fadeInTime: 0.5, holdTime: 0.5, fadeOutTime: 0.5 }, fadeColor: { red: 0, green: 0, blue: 0 } })),
-    attachToMount: tryIt(() => cam.attachToEntity({ entity: d.getEntities({ type: "blockparty:mount" })[0], locator: "Head" })),
     attachToPlayer: tryIt(() => cam.attachToEntity({ entity: a, locator: "Head" })),
     clear: tryIt(() => cam.clear()),
   });
-
-  // Riding the mount, teleported 0.4 a tick for 20 ticks, then gliding back.
-  const mount = d.spawnEntity("blockparty:mount", { x: 0.5, y: 63.5, z: 0.5 });
-  const label = d.spawnEntity("blockparty:label", { x: 0.5, y: 66, z: 0.5 });
-  label.nameTag = "Alpha";
-  const rideable = mount.getComponent("minecraft:rideable");
-  const addedPlayer = rideable.addRider(a);
-  const addedLabel = rideable.addRider(label);
-  a.inputPermissions.setPermissionCategory(InputPermissionCategory.Dismount, false);
-  await wait(2);
-  out("mount", { addedPlayer, addedLabel, alphaOn: ridingOn(a), labelOn: ridingOn(label), seats: rideable.getSeats().map((s) => s.position), riders: rideable.getRiders().map((r) => r.typeId) });
-  const teleportTrace = [];
-  for (let t = 1; t <= 20; t++) {
-    mount.teleport({ x: 0.5 + 0.4 * t, y: 63.5, z: 0.5 }, { rotation: { x: 0, y: -90 } });
-    await wait(1);
-    if (t % 5 === 0) teleportTrace.push({ t, mount: where(mount), alpha: where(a), on: ridingOn(a), label: where(label) });
-  }
-  out("mount_teleport", { trace: teleportTrace });
-  const glideTrace = [];
-  let worst = 0;
-  for (let t = 1; t <= 20; t++) {
-    const target = { x: 8.5 - 0.4 * t, y: 63.5, z: 0.5 };
-    const here = mount.location;
-    mount.clearVelocity();
-    mount.applyImpulse({ x: target.x - here.x, y: target.y - here.y, z: target.z - here.z });
-    await wait(1);
-    const miss = Math.hypot(mount.location.x - (8.5 - 0.4 * t), mount.location.z - 0.5);
-    worst = Math.max(worst, miss);
-    if (t % 5 === 0) glideTrace.push({ t, mount: where(mount), alpha: where(a), on: ridingOn(a) });
-  }
-  out("mount_glide", { worstMissAfterATick: round(worst), trace: glideTrace });
-  rideable.ejectRiders();
-  a.inputPermissions.setPermissionCategory(InputPermissionCategory.Dismount, true);
-  await wait(5);
 
   // A locked player pushed each tick toward +x, then teleported each tick.
   b.teleport({ x: 0.5, y: 64, z: 10.5 });
@@ -146,6 +111,21 @@ async function run() {
     if (t % 10 === 0) tpTrace.push({ t, at: where(b), rotation: b.getRotation() });
   }
   out("teleport_locked", { trace: tpTrace });
+  // Turning a pushed player: a teleport to where they are, with a new facing, at tick 6 of 12
+  // pushes. Each tick's step says whether the turn stalled the push. (keepVelocity throws for a
+  // player: "not supported for player teleportation".)
+  b.teleport({ x: 0.5, y: 64, z: 10.5 });
+  await wait(5);
+  const turnSteps = [];
+  let last = b.location;
+  for (let t = 1; t <= 12; t++) {
+    b.applyKnockback({ x: 1, z: 0 }, 0);
+    if (t === 6) b.teleport(b.location, { rotation: { x: 0, y: -90 } });
+    await wait(1);
+    turnSteps.push(round(b.location.x - last.x));
+    last = b.location;
+  }
+  out("turn_while_pushed", { stepsPerTick: turnSteps, facing: b.getRotation().y });
   b.inputPermissions.setPermissionCategory(InputPermissionCategory.LateralMovement, true);
 
   // The players pack: a player riding a player, and a player on another's lead.

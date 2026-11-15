@@ -1,66 +1,129 @@
 // Block Party's spike (docs/plans/block-party.md, "Suggested order" 1), played as a test game on
-// Probe's map. It lays a 12-space test board beside the platform and gives each player a piece on
-// it and a Tests menu in the last hotbar slot (a compass). The menu tries what the game will need:
-//   - walking a piece (pieces.ts: the player moved by script, on an invisible mount, or a stand-in;
-//     teleported, pushed or gliding; each walk says in chat how it went), watched by everyone
-//     through the chase, watch or attached camera, with a name label over each piece;
+// Probe's map. It lays a 12-space test board beside the platform, makes each player their own piece
+// on it, and gives them the game's hotbar (a stand-in for it) with a Tests menu. The menu tries what
+// the game will need:
+//   - walking a piece (pieces.ts: the player pushed along the path; each walk says in chat how it
+//     went), watched by everyone through the chase or watch camera, with a name label over each;
 //   - camera shots (shots.ts), skipped by everyone jumping (a vote);
-//   - the jump button: every jump is reported in chat with what was locked at the time (movement,
-//     jumping, a scripted camera, riding), and "Roll" floats a die over your head to hit by jumping,
-//     then walks you that many spaces;
-//   - the restyled hotbar (resource_pack/ui/hud_screen.json): its items say what they are;
+//   - the jump button: every jump is reported in chat with what was locked at the time;
+//   - the hotbar (resource_pack/ui/hud_screen.json restyles vanilla's): Items, Dice and Tests in the
+//     middle slots, only the slots in use showing. Using Items or Dice swaps the bar for that set
+//     (the items held, or the dice, each with a Back slot); in the dice, the die picked floats over
+//     your head and a jump hits it, and your piece walks the number. Health, hunger and the XP bar
+//     are hidden;
 //   - the NPCs on the vanilla mobs' models (npcs.ts): hit one for its animations and variants;
 //   - arenas from other maps (spike/blockparty/arena-pack.ts installs them as structures in
-//     private_packs/arenas/): placed far east of the board, fresh each time;
-//   - a player riding a player, on a lead, or carried on a seat that follows them (two players;
-//     the first two need private_packs/players/, vanilla's player.json made rideable and leashable).
-import { ButtonState, EntityComponentTypes, InputButton, InputPermissionCategory, ItemLockMode, ItemStack, BlockVolume, system, world, type Entity, type Player, type Vector3 } from "@minecraft/server";
+//     private_packs/arenas/): placed far east of the board, fresh each time, behind a fade both ways,
+//     with Minecade's logo on the black once it lasts;
+//   - a player riding a player and on a lead (two players; both need private_packs/players/,
+//     vanilla's player.json made rideable and leashable).
+// What a test tells a player in chat also goes to the server's log ("blockparty test:" lines).
+import {
+  ButtonState,
+  EntityComponentTypes,
+  HudElement,
+  HudVisibility,
+  InputButton,
+  InputPermissionCategory,
+  ItemLockMode,
+  ItemStack,
+  BlockVolume,
+  system,
+  world,
+  type Player,
+  type Vector3,
+} from "@minecraft/server";
 import { ActionFormData, ModalFormData } from "@minecraft/server-ui";
 import { Minigame, describeError, draw, log, say, showForm, type GameContext, type Result, type SpawnReason } from "@minecade/minigame-core";
 import registry from "#registry";
 import type config from "../../game.config.ts";
 import { boardBox, build, testSpaces, type Space, type Vec3 } from "./board.ts";
 import { Npcs } from "./npcs.ts";
-import { DEFAULT_SETTINGS, DRIVERS, METHODS, Pieces, WALK_CAMERAS, lock, unlock, type PieceSettings } from "./pieces.ts";
+import { DEFAULT_SETTINGS, Pieces, WALK_CAMERAS, lock, unlock, type PieceSettings } from "./pieces.ts";
 import { SHOTS, Shots, type ShotId } from "./shots.ts";
 
 type Config = typeof config;
 
-const MENU_ITEM = "minecraft:compass";
-/** Stand-ins for the hotbar the game will have (the plan's "Turns and controls"): slot, item, name, what it does. */
-const HOTBAR: readonly [number, string, string, string][] = [
-  [0, "minecraft:white_concrete", "Die", "Jump to hit it: 1 to 6"],
-  [1, "minecraft:light_blue_concrete", "Slow Die", "Jump to hit it: 1 to 3"],
-  [2, "minecraft:gold_block", "Golden Die", "Jump to hit it: 5 to 10"],
-  [3, "minecraft:totem_of_undying", "Stone Totem", "Roll an extra die next turn"],
-  [4, "minecraft:blaze_rod", "Lightning Strike", "The leader gives 10 coins to last place"],
-  [5, "minecraft:leather", "Dueling Glove", "A 1v1 duel for 10 coins"],
-  [8, MENU_ITEM, "Tests", "Every Block Party test"],
-];
+// ---- The hotbar ----------------------------------------------------------------------------
+// Stand-ins for the game's own items: vanilla items with a name and a line saying what they do.
 
-type JumpMode = "free" | "lateral" | "movement" | "nojump" | "camera" | "riding";
+interface BarItem {
+  id: string;
+  name: string;
+  what: string;
+}
+interface Die extends BarItem {
+  faces: readonly number[];
+}
+
+const MENU_ITEM = "minecraft:compass";
+const ITEMS_ITEM = "minecraft:book";
+const DICE_ITEM = "minecraft:quartz";
+const BACK_ITEM = "minecraft:arrow";
+
+const MAIN_BAR: readonly BarItem[] = [
+  { id: ITEMS_ITEM, name: "Items", what: "Use it: your items" },
+  { id: DICE_ITEM, name: "Dice", what: "Use it: pick a die, then jump to roll" },
+  { id: MENU_ITEM, name: "Tests", what: "Every Block Party test" },
+];
+const DICE: readonly Die[] = [
+  { id: "minecraft:white_concrete", name: "Die", what: "Jump to hit it: 1 to 6", faces: [1, 2, 3, 4, 5, 6] },
+  { id: "minecraft:light_blue_concrete", name: "Slow Die", what: "Jump to hit it: 1 to 3", faces: [1, 2, 3] },
+  { id: "minecraft:gold_block", name: "Golden Die", what: "Jump to hit it: 5 to 10", faces: [5, 6, 7, 8, 9, 10] },
+];
+const ITEMS: readonly BarItem[] = [
+  { id: "minecraft:totem_of_undying", name: "Stone Totem", what: "Roll an extra die next turn" },
+  { id: "minecraft:blaze_rod", name: "Lightning Strike", what: "The leader gives 10 coins to last place" },
+  { id: "minecraft:leather", name: "Dueling Glove", what: "A 1v1 duel for 10 coins" },
+];
+const BACK: BarItem = { id: BACK_ITEM, name: "Back", what: "Use it: back to the hotbar" };
+const HOTBAR_SIZE = 9;
+/** What the board hides: everything a survival player watches that Block Party has no use for. */
+const HIDDEN_HUD = [HudElement.Health, HudElement.Hunger, HudElement.ProgressBar, HudElement.Armor, HudElement.AirBubbles];
+
+type Bar = "main" | "items" | "dice";
+
+// ---- Jumps and arenas ----------------------------------------------------------------------
+
+type JumpMode = "free" | "lateral" | "movement" | "nojump" | "camera";
 const JUMP_MODES: readonly { id: JumpMode; label: string }[] = [
   { id: "free", label: "Nothing locked" },
   { id: "lateral", label: "Can't walk (lateral movement off)" },
   { id: "movement", label: "Can't move (movement off)" },
   { id: "nojump", label: "Movement and jump off" },
   { id: "camera", label: "Can't walk, scripted camera on" },
-  { id: "riding", label: "Riding an invisible mount" },
 ];
 
 /** Where arenas are placed: far east of the board, their middle at x and z, their floor from y. */
 const ARENA_AT: Vec3 = [2000, 0, 0];
 const ARENA_AREA = "minecade:blockparty_arena";
 const BOARD_AREA = "minecade:blockparty_board";
+/**
+ * A title made of formatting codes that never render: the pack's ui/hud_screen.json shows
+ * Minecade's logo inside the title while it's this, so the logo fades in and out with the title.
+ */
+const LOADING_MARK = "§r§m§l§r";
+/** Ticks of black before the logo fades in. */
+const LOGO_AFTER = 40;
+/** A placement expected to stall the server longer than this (ms) shows the logo first: the server can't send it mid-stall. */
+const LONG_STALL_MS = 1500;
+/** Blocks placed a millisecond, about (docs/spike-results.md, "Block Party": Sinkhole's 667,648 in 608 to 676 ms). */
+const BLOCKS_PER_MS = 1000;
+/** Ticks the slow-load test keeps the screen black, so the logo shows. */
+const SLOW_LOAD = 80;
 
 interface PlayerTests {
   settings: PieceSettings;
   jumpMode: JumpMode;
   reportJumps: boolean;
-  jumpMount?: Entity;
-  /** A seat that follows another player (the carry test), and who. */
-  seat?: { entity: Entity; carrier: string };
-  rolling?: { die: Vector3; resolve: (value: number) => void };
+  bar: Bar;
+  /** Special dice held besides the standard die (0 to 2) and items held (0 to 3): "Hotbar contents". */
+  specialDice: number;
+  items: number;
+  /** The slot selected last tick, to tell which way a scroll went. */
+  lastSlot: number;
+  /** The open dice bar: the die floating over the player's head. */
+  rolling?: { at: Vector3; placed: boolean; shown?: string };
 }
 
 export class BlockPartySpike extends Minigame<Config> {
@@ -72,6 +135,9 @@ export class BlockPartySpike extends Minigame<Config> {
   private arena: { id: string; min: Vector3; size: Vector3 } | undefined;
   /** Whether the test board's blocks are down: nobody is put on it before. */
   private boardReady = false;
+  private slowLoads = false;
+  /** The tick each player last used a hotbar item: a click on a block and in the air both report. */
+  private readonly lastUse = new Map<string, number>();
 
   constructor(ctx: GameContext, gameConfig: Config) {
     super(ctx, gameConfig);
@@ -81,7 +147,7 @@ export class BlockPartySpike extends Minigame<Config> {
     const key = player.name.toLowerCase();
     let tests = this.tests.get(key);
     if (!tests) {
-      tests = { settings: { ...DEFAULT_SETTINGS, speed: this.config.board.speed }, jumpMode: "free", reportJumps: true };
+      tests = { settings: { ...DEFAULT_SETTINGS, speed: this.config.board.speed }, jumpMode: "free", reportJumps: true, bar: "main", specialDice: 2, items: 3, lastSlot: 0 };
       this.tests.set(key, tests);
     }
     return tests;
@@ -91,12 +157,15 @@ export class BlockPartySpike extends Minigame<Config> {
     return this.config.board.at;
   }
 
+  /** A test's result: in the player's chat, and in the server's log. */
   private tell(player: Player, text: string): void {
     if (player.isValid) player.sendMessage(say.info(text));
+    log.info(`blockparty test: to ${player.isValid ? player.name : "?"}: ${text}`);
   }
 
   private everyone(text: string): void {
     this.broadcast(say.info(text));
+    log.info(`blockparty test: ${text}`);
   }
 
   protected override setup(): void {
@@ -116,12 +185,13 @@ export class BlockPartySpike extends Minigame<Config> {
     this.shots = new Shots(this.scope, {
       watchers,
       middle: () => this.middle,
-      pieceOf: (player) => this.pieces.body(player),
+      pieceOf: (player) => player,
       chris: () => this.npcs.get("chris"),
       say: (text) => this.everyone(text),
     });
-    this.scope.subscribe(world.afterEvents.itemUse, ({ source, itemStack }) => {
-      if (itemStack.typeId === MENU_ITEM) void this.menu(source);
+    this.scope.subscribe(world.afterEvents.itemUse, ({ source, itemStack }) => this.used(source, itemStack.typeId));
+    this.scope.subscribe(world.afterEvents.playerInteractWithBlock, ({ player, itemStack }) => {
+      if (itemStack) this.used(player, itemStack.typeId);
     });
     this.scope.subscribe(world.afterEvents.entityHitEntity, ({ damagingEntity, hitEntity }) => {
       if (damagingEntity.typeId !== "minecraft:player") return;
@@ -135,11 +205,11 @@ export class BlockPartySpike extends Minigame<Config> {
     );
     this.scope.subscribe(world.afterEvents.playerLeave, ({ playerName }) => {
       const tests = this.tests.get(playerName.toLowerCase());
-      for (const entity of [tests?.jumpMount, tests?.seat?.entity]) if (entity?.isValid) entity.remove();
+      if (tests?.rolling?.placed) this.clearDie(tests.rolling.at);
       this.tests.delete(playerName.toLowerCase());
       this.pieces.forget(playerName);
     });
-    this.scope.interval(() => this.keepSeats(), 1);
+    this.scope.interval(() => this.keepHotbars(), 1);
     this.scope.add(() => this.cleanUp());
   }
 
@@ -153,7 +223,14 @@ export class BlockPartySpike extends Minigame<Config> {
   }
 
   protected override onSpawn(player: Player, _why: SpawnReason): void {
-    this.giveHotbar(player);
+    const tests = this.testsOf(player);
+    tests.bar = "main";
+    this.giveBar(player);
+    try {
+      player.onScreenDisplay.setHudVisibility(HudVisibility.Hide, HIDDEN_HUD);
+    } catch (error) {
+      this.tell(player, `Hiding the health, hunger and XP bars failed: ${describeError(error)}`);
+    }
     if (this.boardReady) system.runTimeout(() => player.isValid && this.pieces.place(player), 10);
   }
 
@@ -173,35 +250,193 @@ export class BlockPartySpike extends Minigame<Config> {
     }
     this.boardReady = true;
     for (const player of world.getAllPlayers()) this.pieces.place(player);
-    this.everyone("Block Party spike: your piece is on the test board. The compass (last slot) has every test. Every jump is reported in chat; hit an NPC for its menu.");
+    this.everyone("Block Party spike: you're your piece on the test board. Use Dice to roll, Tests for every test, and hit an NPC for its menu. Every jump is reported in chat.");
   }
 
-  private giveHotbar(player: Player): void {
+  // ---- The hotbar -------------------------------------------------------------------------
+
+  /** What a bar holds, left to right. */
+  private barItems(player: Player): readonly BarItem[] {
+    const tests = this.testsOf(player);
+    if (tests.bar === "items") return [...ITEMS.slice(0, tests.items), BACK];
+    if (tests.bar === "dice") return [...DICE.slice(0, 1 + tests.specialDice), BACK];
+    return MAIN_BAR;
+  }
+
+  /**
+   * Puts the player's bar in their hotbar, in the middle slots: the pack hides the empty ones, so
+   * only these show, centered. The first slot is selected.
+   */
+  private giveBar(player: Player): void {
     const container = player.getComponent(EntityComponentTypes.Inventory)?.container;
     if (!container) return;
-    for (const [slot, id, name, what] of HOTBAR) {
+    const items = this.barItems(player);
+    const first = Math.floor((HOTBAR_SIZE - items.length) / 2);
+    for (let slot = 0; slot < HOTBAR_SIZE; slot++) container.setItem(slot, undefined);
+    items.forEach(({ id, name, what }, i) => {
       const item = new ItemStack(id, 1);
       item.nameTag = name;
       item.setLore([what]);
       item.lockMode = ItemLockMode.slot;
       item.keepOnDeath = true;
-      container.setItem(slot, item);
+      container.setItem(first + i, item);
+    });
+    try {
+      player.selectedSlotIndex = first;
+    } catch {
+      // gone
     }
+    this.testsOf(player).lastSlot = first;
+  }
+
+  private openBar(player: Player, bar: Bar): void {
+    this.testsOf(player).bar = bar;
+    this.giveBar(player);
+  }
+
+  /** The selected item's id, if any. */
+  private selected(player: Player): string | undefined {
+    return player.getComponent(EntityComponentTypes.Inventory)?.container?.getItem(player.selectedSlotIndex)?.typeId;
+  }
+
+  /**
+   * Every tick: a selection that lands on an empty (hidden) slot moves on to the next slot in use,
+   * the way the scroll went, wrapping round, so scrolling only ever stops on what shows; and the die
+   * over a rolling player's head follows the die they pick.
+   */
+  private keepHotbars(): void {
+    for (const player of world.getAllPlayers()) {
+      const tests = this.tests.get(player.name.toLowerCase());
+      const container = player.getComponent(EntityComponentTypes.Inventory)?.container;
+      if (!tests || !container) continue;
+      let slot = player.selectedSlotIndex;
+      if (!container.getItem(slot)) {
+        const step = slot > tests.lastSlot || (tests.lastSlot === HOTBAR_SIZE - 1 && slot === 0) ? 1 : -1;
+        for (let i = 1; i < HOTBAR_SIZE; i++) {
+          const next = (((slot + step * i) % HOTBAR_SIZE) + HOTBAR_SIZE) % HOTBAR_SIZE;
+          if (container.getItem(next)) {
+            slot = next;
+            player.selectedSlotIndex = next;
+            break;
+          }
+        }
+      }
+      tests.lastSlot = slot;
+      if (tests.rolling?.placed) {
+        const die = DICE.find((d) => d.id === container.getItem(slot)?.typeId);
+        if (die && tests.rolling.shown !== die.id) {
+          player.dimension.getBlock(tests.rolling.at)?.setType(die.id);
+          tests.rolling.shown = die.id;
+        }
+      }
+    }
+  }
+
+  /** A hotbar item was used (right click, or a tap on a touch screen). */
+  private used(player: Player, typeId: string): void {
+    const key = player.name.toLowerCase();
+    const last = this.lastUse.get(key) ?? -10;
+    if (system.currentTick - last < 4) return;
+    this.lastUse.set(key, system.currentTick);
+    const tests = this.testsOf(player);
+    if (typeId === MENU_ITEM) void this.menu(player);
+    else if (typeId === ITEMS_ITEM) this.openBar(player, "items");
+    else if (typeId === DICE_ITEM) this.openDice(player);
+    else if (typeId === BACK_ITEM) {
+      if (tests.rolling) this.endRoll(player);
+      this.openBar(player, "main");
+    } else {
+      const item = ITEMS.find((i) => i.id === typeId);
+      if (item && tests.bar === "items") this.tell(player, `Used ${item.name} (a test: nothing happens yet).`);
+    }
+  }
+
+  private async contentsForm(player: Player): Promise<void> {
+    const tests = this.testsOf(player);
+    const form = new ModalFormData()
+      .title("Hotbar contents")
+      .slider("Special dice (besides the standard die)", 0, 2, { valueStep: 1, defaultValue: tests.specialDice })
+      .slider("Items", 0, 3, { valueStep: 1, defaultValue: tests.items });
+    const values = (await showForm(this.scope, player, form))?.formValues;
+    if (!values) return;
+    tests.specialDice = values[0] as number;
+    tests.items = values[1] as number;
+    this.giveBar(player);
+    this.tell(player, `Hotbar: the standard die and ${tests.specialDice} special, ${tests.items} items. Use Items or Dice to see them.`);
+  }
+
+  // ---- Rolling ----------------------------------------------------------------------------
+
+  /** The dice bar: the picked die floats over your head, a low camera looks up at it, and a jump hits it. */
+  private openDice(player: Player): void {
+    const tests = this.testsOf(player);
+    if (tests.rolling || this.pieces.isWalking(player)) return;
+    this.openBar(player, "dice");
+    const at = player.location;
+    const die = { x: Math.floor(at.x), y: Math.floor(at.y) + 3, z: Math.floor(at.z) };
+    const block = player.dimension.getBlock(die);
+    const placed = block?.isAir === true;
+    if (placed) block?.setType(DICE[0].id);
+    tests.rolling = { at: die, placed, shown: placed ? DICE[0].id : undefined };
+    lock(player);
+    const yaw = (player.getRotation().y * Math.PI) / 180;
+    for (const watcher of world.getAllPlayers()) {
+      watcher.camera.setCamera("minecraft:free", { location: { x: at.x - Math.sin(yaw) * 3.5, y: at.y + 0.5, z: at.z + Math.cos(yaw) * 3.5 }, facingLocation: { x: die.x + 0.5, y: die.y, z: die.z + 0.5 } });
+    }
+    this.everyone(`${player.name} is rolling: pick a die in the hotbar, then jump to hit it.`);
+  }
+
+  /** Takes the die away and gives everyone their own view back (the roll is over or called off). */
+  private endRoll(player: Player): void {
+    const tests = this.testsOf(player);
+    if (tests.rolling?.placed) this.clearDie(tests.rolling.at);
+    tests.rolling = undefined;
+    for (const watcher of world.getAllPlayers()) watcher.camera.clear();
+    unlock(player);
+  }
+
+  private clearDie(at: Vector3): void {
+    try {
+      const block = world.getDimension("overworld").getBlock(at);
+      if (block && DICE.some((d) => d.id === block.typeId)) block.setType("minecraft:air");
+    } catch {
+      // unloaded
+    }
+  }
+
+  private async roll(player: Player): Promise<void> {
+    const die = DICE.find((d) => d.id === this.selected(player));
+    if (!die) {
+      this.tell(player, "Pick a die in the hotbar, then jump.");
+      return;
+    }
+    const tests = this.testsOf(player);
+    const rolled = die.faces[Math.floor(Math.random() * die.faces.length)];
+    const rolling = tests.rolling;
+    tests.rolling = undefined;
+    for (const watcher of world.getAllPlayers()) watcher.onScreenDisplay.setTitle(`${rolled}`, { subtitle: `${player.name}, ${die.name}`, fadeInDuration: 2, stayDuration: 25, fadeOutDuration: 8 });
+    await this.scope.wait(12);
+    if (rolling?.placed) this.clearDie(rolling.at);
+    await this.scope.wait(8);
+    for (const watcher of world.getAllPlayers()) watcher.camera.clear();
+    this.openBar(player, "main");
+    await this.pieces.walk(player, rolled);
   }
 
   // ---- The menu ---------------------------------------------------------------------------
 
   private async menu(player: Player): Promise<void> {
     const items: [string, () => void | Promise<void>][] = [
-      ["Roll by jumping, then walk", () => this.rollAndWalk(player)],
+      ["Roll: the dice bar", () => this.openDice(player)],
       ["Walk 1 space", () => this.pieces.walk(player, 1)],
       ["Walk 6 spaces", () => this.pieces.walk(player, 6)],
       ["Piece settings", () => this.settingsForm(player)],
       ["Camera shots", () => this.shotsMenu(player)],
       ["Jump test", () => this.jumpMenu(player)],
+      ["Hotbar contents", () => this.contentsForm(player)],
       [this.npcs.spawned ? "Take the NPCs away" : "Put the NPCs out", () => this.toggleNpcs()],
       ["Arenas from other maps", () => this.arenaMenu(player)],
-      ["Ride, carry and lead (two players)", () => this.rideMenu(player)],
+      ["Ride and lead (two players)", () => this.rideMenu(player)],
       ["Back to Start", () => this.pieces.reset(player)],
       ["End the test game", () => this.finish(draw("ended from the Tests menu"))],
     ];
@@ -221,21 +456,18 @@ export class BlockPartySpike extends Minigame<Config> {
     const s = tests.settings;
     const form = new ModalFormData()
       .title("Piece settings")
-      .dropdown("The piece", METHODS.map((m) => m.label), { defaultValueIndex: METHODS.findIndex((m) => m.id === s.method) })
-      .dropdown("Moved by", DRIVERS.map((d) => d.label), { defaultValueIndex: DRIVERS.findIndex((d) => d.id === s.driver) })
       .dropdown("Camera while walking", WALK_CAMERAS.map((c) => c.label), { defaultValueIndex: WALK_CAMERAS.findIndex((c) => c.id === s.camera) })
       .slider("Speed (blocks a second)", 2, 16, { valueStep: 1, defaultValue: s.speed })
-      .toggle("The pack's walk animation", { defaultValue: s.animation })
+      .slider("Turn over (ticks; 1 is a snap at the corner)", 1, 8, { valueStep: 1, defaultValue: s.turnTicks })
       .toggle("A name label over the piece", { defaultValue: s.label })
-      .toggle("Hide my own name tag", { defaultValue: s.hideTag })
-      .slider("Mount under the space (tenths of a block)", 0, 15, { valueStep: 1, defaultValue: Math.round(s.seatDrop * 10) });
-    const response = await showForm(this.scope, player, form);
-    const values = response?.formValues;
+      .slider("The label's height over your feet (tenths of a block)", 5, 30, { valueStep: 1, defaultValue: Math.round(s.labelHeight * 10) })
+      .toggle("Hide my own name tag", { defaultValue: s.hideTag });
+    const values = (await showForm(this.scope, player, form))?.formValues;
     if (!values) return;
-    const [method, driver, camera, speed, animation, label, hideTag, seatDrop] = values as [number, number, number, number, boolean, boolean, boolean, number];
-    tests.settings = { method: METHODS[method].id, driver: DRIVERS[driver].id, camera: WALK_CAMERAS[camera].id, speed, animation, label, hideTag, seatDrop: seatDrop / 10 };
+    const [camera, speed, turnTicks, label, labelHeight, hideTag] = values as [number, number, number, boolean, number, boolean];
+    tests.settings = { camera: WALK_CAMERAS[camera].id, speed, turnTicks, label, labelHeight: labelHeight / 10, hideTag };
     this.pieces.refresh(player);
-    this.tell(player, `Piece: ${METHODS[method].label}; ${DRIVERS[driver].label}; camera ${WALK_CAMERAS[camera].id}; ${speed} blocks a second.`);
+    this.tell(player, `Piece: camera ${WALK_CAMERAS[camera].id}, ${speed} blocks a second, turns over ${turnTicks} ticks, label ${label ? `at ${(labelHeight / 10).toFixed(1)}` : "off"}, own tag ${hideTag ? "hidden" : "shown"}.`);
   }
 
   private async shotsMenu(player: Player): Promise<void> {
@@ -263,16 +495,14 @@ export class BlockPartySpike extends Minigame<Config> {
   private jumped(player: Player): void {
     const tests = this.testsOf(player);
     if (tests.rolling) {
-      const { resolve } = tests.rolling;
-      tests.rolling = undefined;
-      resolve(1 + Math.floor(Math.random() * 6));
+      void this.roll(player);
       return;
     }
     if (this.shots.vote(player)) return;
     if (!tests.reportJumps) return;
     const startY = player.location.y;
     const camera = tests.jumpMode === "camera" ? "scripted" : "own";
-    const state = `test: ${JUMP_MODES.find((m) => m.id === tests.jumpMode)?.label}; walking: ${this.pieces.isWalking(player) ? "yes" : "no"}; riding: ${this.pieces.riding(player) ? "yes" : "no"}; camera: ${camera}`;
+    const state = `test: ${JUMP_MODES.find((m) => m.id === tests.jumpMode)?.label}; walking: ${this.pieces.isWalking(player) ? "yes" : "no"}; camera: ${camera}`;
     system.runTimeout(() => {
       if (!player.isValid) return;
       const rose = player.location.y - startY;
@@ -298,9 +528,6 @@ export class BlockPartySpike extends Minigame<Config> {
     const tests = this.testsOf(player);
     unlock(player);
     player.camera.clear();
-    if (tests.jumpMount?.isValid) tests.jumpMount.remove();
-    tests.jumpMount = undefined;
-    player.inputPermissions.setPermissionCategory(InputPermissionCategory.Dismount, true);
     tests.jumpMode = mode;
     const perms = player.inputPermissions;
     if (mode === "lateral" || mode === "camera") perms.setPermissionCategory(InputPermissionCategory.LateralMovement, false);
@@ -311,44 +538,7 @@ export class BlockPartySpike extends Minigame<Config> {
       const yaw = (player.getRotation().y * Math.PI) / 180;
       player.camera.setCamera("minecraft:free", { location: { x: at.x - Math.sin(yaw) * 4, y: at.y + 1.8, z: at.z + Math.cos(yaw) * 4 }, facingLocation: { x: at.x, y: at.y + 1, z: at.z } });
     }
-    if (mode === "riding") {
-      if (this.testsOf(player).settings.method === "mount") {
-        this.tell(player, "You're already on your piece's mount: jump away.");
-      } else {
-        const mount = player.dimension.spawnEntity("blockparty:mount", player.location);
-        mount.getComponent("minecraft:rideable")?.addRider(player);
-        perms.setPermissionCategory(InputPermissionCategory.Dismount, false);
-        tests.jumpMount = mount;
-      }
-    }
     this.tell(player, `Jump test: ${JUMP_MODES.find((m) => m.id === mode)?.label}. Jump, and the chat says what came through. Pick Nothing locked to go back.`);
-  }
-
-  /** The plan's roll: a die floats over your head, you jump to hit it, and your piece walks the number. */
-  private async rollAndWalk(player: Player): Promise<void> {
-    const tests = this.testsOf(player);
-    if (tests.rolling || this.pieces.isWalking(player)) return;
-    const body = this.pieces.body(player);
-    const at = player.location;
-    const die = { x: Math.floor(at.x), y: Math.floor(at.y) + 3, z: Math.floor(at.z) };
-    const dimension = player.dimension;
-    const block = dimension.getBlock(die);
-    const placed = block?.isAir === true;
-    if (placed) block?.setType("minecraft:white_concrete");
-    if (tests.settings.method === "player") lock(player);
-    const yaw = (body.getRotation().y * Math.PI) / 180;
-    for (const watcher of world.getAllPlayers()) {
-      watcher.camera.setCamera("minecraft:free", { location: { x: at.x - Math.sin(yaw) * 3.5, y: at.y + 0.5, z: at.z + Math.cos(yaw) * 3.5 }, facingLocation: { x: die.x + 0.5, y: die.y, z: die.z + 0.5 } });
-    }
-    this.everyone(`${player.name} is rolling: jump to hit the die.`);
-    const rolled = await new Promise<number>((resolve) => (tests.rolling = { die, resolve }));
-    for (const watcher of world.getAllPlayers()) watcher.onScreenDisplay.setTitle(`${rolled}`, { subtitle: player.name, fadeInDuration: 2, stayDuration: 25, fadeOutDuration: 8 });
-    await this.scope.wait(12);
-    if (placed) dimension.getBlock(die)?.setType("minecraft:air");
-    await this.scope.wait(8);
-    for (const watcher of world.getAllPlayers()) watcher.camera.clear();
-    if (tests.settings.method === "player") unlock(player);
-    await this.pieces.walk(player, rolled);
   }
 
   // ---- Arenas -----------------------------------------------------------------------------
@@ -369,7 +559,7 @@ export class BlockPartySpike extends Minigame<Config> {
   private async arenaMenu(player: Player): Promise<void> {
     const arenas = this.installedArenas();
     const form = new ActionFormData().title("Arenas from other maps");
-    form.body(arenas.length > 0 ? "Placed far east of the board, a fresh copy each time." : "None installed: run spike/blockparty/arena-pack.ts, then Start the network again.");
+    form.body(arenas.length > 0 ? "Placed far east of the board, a fresh copy each time, behind a fade both ways." : "None installed: run spike/blockparty/arena-pack.ts, then Start the network again.");
     const actions: (() => void | Promise<void>)[] = [];
     for (const arena of arenas) {
       form.button(arena.label);
@@ -381,9 +571,46 @@ export class BlockPartySpike extends Minigame<Config> {
       form.button("Back to the board");
       actions.push(() => this.backToBoard());
     }
+    form.button(this.slowLoads ? "Slow loads: on (4 s of black, to see the logo)" : "Slow loads: off");
+    actions.push(() => {
+      this.slowLoads = !this.slowLoads;
+      this.tell(player, `Slow loads ${this.slowLoads ? "on: every move between the board and an arena keeps the screen black 4 s longer, so the logo shows" : "off"}.`);
+    });
     const response = await showForm(this.scope, player, form);
     if (response?.selection === undefined) return;
     await actions[response.selection]?.();
+  }
+
+  /**
+   * A move behind black, for everyone: fade out, do the work, fade back in. Once the black has
+   * lasted LOGO_AFTER ticks, Minecade's logo fades in on it; `work` calls `expectStall` before
+   * anything that stalls the server long (the logo can't be sent during the stall), which shows it
+   * at once. The fade's hold is the longest a fade allows (10 s); the fade back in replaces it.
+   */
+  private async behindBlack(work: (expectStall: (ms: number) => void) => void | Promise<void>): Promise<void> {
+    const black = { red: 0, green: 0, blue: 0 };
+    for (const player of world.getAllPlayers()) player.camera.fade({ fadeTime: { fadeInTime: 0.4, holdTime: 10, fadeOutTime: 0.6 }, fadeColor: black });
+    await this.scope.wait(9);
+    let done = false;
+    let logo = false;
+    const showLogo = () => {
+      if (logo || done) return;
+      logo = true;
+      for (const player of world.getAllPlayers()) player.onScreenDisplay.setTitle(LOADING_MARK, { fadeInDuration: 15, stayDuration: 20 * 30, fadeOutDuration: 8 });
+    };
+    this.scope.timeout(showLogo, LOGO_AFTER);
+    try {
+      if (this.slowLoads) await this.scope.wait(SLOW_LOAD);
+      await work((ms) => {
+        if (ms > LONG_STALL_MS) showLogo();
+      });
+    } finally {
+      done = true;
+      for (const player of world.getAllPlayers()) {
+        if (logo) player.onScreenDisplay.setTitle(LOADING_MARK, { fadeInDuration: 0, stayDuration: 0, fadeOutDuration: 8 });
+        player.camera.fade({ fadeTime: { fadeInTime: 0, holdTime: logo ? 0.4 : 0.1, fadeOutTime: 0.6 }, fadeColor: black });
+      }
+    }
   }
 
   private async placeArena(id: string): Promise<void> {
@@ -393,23 +620,27 @@ export class BlockPartySpike extends Minigame<Config> {
     const dimension = world.getDimension("overworld");
     const min = { x: ARENA_AT[0] - Math.floor(size.x / 2), y: ARENA_AT[1], z: ARENA_AT[2] - Math.floor(size.z / 2) };
     const max = { x: min.x + size.x - 1, y: min.y + size.y - 1, z: min.z + size.z - 1 };
-    const manager = world.tickingAreaManager;
-    if (manager.hasTickingArea(ARENA_AREA)) manager.removeTickingArea(ARENA_AREA);
-    let started = system.currentTick;
-    await manager.createTickingArea(ARENA_AREA, { dimension, from: min, to: max });
-    const loadTicks = system.currentTick - started;
-    for (const player of world.getAllPlayers()) player.camera.fade({ fadeTime: { fadeInTime: 0.3, holdTime: 1, fadeOutTime: 0.5 }, fadeColor: { red: 0, green: 0, blue: 0 } });
-    await this.scope.wait(6);
-    started = Date.now();
-    world.structureManager.place(id, dimension, min, { includeEntities: false });
-    const ms = Date.now() - started;
-    this.arena = { id, min, size };
-    const spot = this.standingSpot(min, size);
-    for (const player of world.getAllPlayers()) {
-      this.pieces.release(player);
-      player.teleport(spot);
-    }
-    this.everyone(`Placed ${id} (${size.x} x ${size.y} x ${size.z}) at ${min.x}, ${min.y}, ${min.z}: its chunks loaded in ${loadTicks} ticks, the placing took ${ms} ms. Break something and Place it again: it comes back whole.`);
+    let report = "";
+    await this.behindBlack(async (expectStall) => {
+      const manager = world.tickingAreaManager;
+      if (manager.hasTickingArea(ARENA_AREA)) manager.removeTickingArea(ARENA_AREA);
+      const loadStarted = system.currentTick;
+      await manager.createTickingArea(ARENA_AREA, { dimension, from: min, to: max });
+      const loadTicks = system.currentTick - loadStarted;
+      const expected = (size.x * size.y * size.z) / BLOCKS_PER_MS;
+      expectStall(expected);
+      const started = Date.now();
+      world.structureManager.place(id, dimension, min, { includeEntities: false });
+      const ms = Date.now() - started;
+      this.arena = { id, min, size };
+      const spot = this.standingSpot(min, size);
+      for (const player of world.getAllPlayers()) {
+        this.pieces.release(player);
+        player.teleport(spot);
+      }
+      report = `Placed ${id} (${size.x} x ${size.y} x ${size.z}) at ${min.x}, ${min.y}, ${min.z}: its chunks loaded in ${loadTicks} ticks, the placing took ${ms} ms (about ${Math.round(expected)} expected).`;
+    });
+    this.everyone(`${report} Break something and Place it again: it comes back whole.`);
   }
 
   /** The highest spot near the arena's middle with a block underfoot and room to stand. */
@@ -429,10 +660,12 @@ export class BlockPartySpike extends Minigame<Config> {
     return { x: cx + 0.5, y: min.y + size.y + 1, z: cz + 0.5 };
   }
 
-  private backToBoard(): void {
-    for (const player of world.getAllPlayers()) this.pieces.place(player);
-    const manager = world.tickingAreaManager;
-    if (manager.hasTickingArea(ARENA_AREA)) manager.removeTickingArea(ARENA_AREA);
+  private async backToBoard(): Promise<void> {
+    await this.behindBlack(() => {
+      for (const player of world.getAllPlayers()) this.pieces.place(player);
+      const manager = world.tickingAreaManager;
+      if (manager.hasTickingArea(ARENA_AREA)) manager.removeTickingArea(ARENA_AREA);
+    });
     this.everyone("Back on the board.");
   }
 
@@ -440,14 +673,12 @@ export class BlockPartySpike extends Minigame<Config> {
 
   private async rideMenu(player: Player): Promise<void> {
     const others = world.getAllPlayers().filter((other) => other.name !== player.name);
-    const form = new ActionFormData().title("Ride, carry and lead");
+    const form = new ActionFormData().title("Ride and lead");
     const actions: (() => void)[] = [];
     if (others.length === 0) form.body("These need a second player.");
     for (const other of others) {
       form.button(`Ride ${other.name} (players pack)`);
       actions.push(() => this.ride(player, other));
-      form.button(`Ride a seat that follows ${other.name}`);
-      actions.push(() => this.seatOn(player, other));
       form.button(`Put me on ${other.name}'s lead (players pack)`);
       actions.push(() => this.lead(player, other));
     }
@@ -468,34 +699,7 @@ export class BlockPartySpike extends Minigame<Config> {
       return;
     }
     const ok = rideable.addRider(rider);
-    this.everyone(ok ? `${rider.name} is riding ${carrier.name}. Sneak to get off.` : `${rider.name} couldn't get on ${carrier.name} (addRider said no).`);
-  }
-
-  /** The carry without player.json: a mount kept over the carrier's head each tick, the rider on it. */
-  private seatOn(rider: Player, carrier: Player): void {
-    this.pieces.release(rider);
-    const tests = this.testsOf(rider);
-    if (tests.seat?.entity.isValid) tests.seat.entity.remove();
-    const at = carrier.location;
-    const entity = rider.dimension.spawnEntity("blockparty:mount", { x: at.x, y: at.y + 1.9, z: at.z });
-    entity.getComponent("minecraft:rideable")?.addRider(rider);
-    tests.seat = { entity, carrier: carrier.name };
-    this.everyone(`${rider.name} is on a seat that follows ${carrier.name} (moved each tick). Sneak to get off.`);
-  }
-
-  private keepSeats(): void {
-    for (const player of world.getAllPlayers()) {
-      const seat = this.tests.get(player.name.toLowerCase())?.seat;
-      if (!seat) continue;
-      const carrier = world.getAllPlayers().find((other) => other.name === seat.carrier);
-      if (!seat.entity.isValid || !carrier || !this.pieces.riding(player)) {
-        if (seat.entity.isValid) seat.entity.remove();
-        this.testsOf(player).seat = undefined;
-        continue;
-      }
-      const at = carrier.location;
-      seat.entity.teleport({ x: at.x, y: at.y + 1.9, z: at.z }, { rotation: { x: 0, y: carrier.getRotation().y } });
-    }
+    this.everyone(ok ? `${rider.name} is riding ${carrier.name}. Sneak to get off, and try jumping too.` : `${rider.name} couldn't get on ${carrier.name} (addRider said no).`);
   }
 
   private lead(follower: Player, holder: Player): void {
@@ -514,9 +718,6 @@ export class BlockPartySpike extends Minigame<Config> {
   }
 
   private letGo(player: Player): void {
-    const tests = this.testsOf(player);
-    if (tests.seat?.entity.isValid) tests.seat.entity.remove();
-    tests.seat = undefined;
     try {
       player.getComponent("minecraft:riding")?.entityRidingOn?.getComponent("minecraft:rideable")?.ejectRider(player);
       for (const other of world.getAllPlayers()) other.getComponent("minecraft:rideable")?.ejectRider(player);
@@ -537,20 +738,12 @@ export class BlockPartySpike extends Minigame<Config> {
         // gone with the server
       }
     }
-    for (const tests of this.tests.values()) {
-      for (const entity of [tests.jumpMount, tests.seat?.entity]) {
-        try {
-          if (entity?.isValid) entity.remove();
-        } catch {
-          // gone
-        }
-      }
-    }
+    for (const tests of this.tests.values()) if (tests.rolling?.placed) this.clearDie(tests.rolling.at);
     for (const player of world.getAllPlayers()) {
       unlock(player);
       try {
-        player.inputPermissions.setPermissionCategory(InputPermissionCategory.Dismount, true);
         player.camera.clear();
+        player.onScreenDisplay.setHudVisibility(HudVisibility.Reset, HIDDEN_HUD);
       } catch {
         // gone
       }

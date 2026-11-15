@@ -80,6 +80,31 @@
       "textures": [
         "Array.levels[v.level_index]"
       ]
+    },
+    "controller.render.blockparty.referee": {
+      "geometry": "Geometry.default",
+      "part_visibility": [
+        {
+          "rightArm": "v.cheer"
+        },
+        {
+          "leftArm": "v.cheer"
+        },
+        {
+          "rightItem": false
+        },
+        {
+          "arms": "!v.cheer"
+        }
+      ],
+      "materials": [
+        {
+          "*": "Material.default"
+        }
+      ],
+      "textures": [
+        "Texture.default"
+      ]
     }
   }
 }

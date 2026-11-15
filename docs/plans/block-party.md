@@ -1,6 +1,6 @@
 # Block Party (plan)
 
-**Status:** design, 2026-11-14. The spike (step 1 of "Suggested order") was built on 2026-11-15 as a test game, `games/blockparty`; what it found, and what is still to be seen in game, is in `docs/spike-results.md`, "Block Party". This plan combines the user's Block Party plan
+**Status:** design, 2026-11-14. The spike (step 1 of "Suggested order") was built on 2026-11-15 as a test game, `games/blockparty`, and the user looked at it the same day: pieces are the player pushed along the path, NPC poses hold, the hotbar gets bars of its own for items and dice, arenas load behind a fade with the logo, and arenas will load into each board's arena background (see "Arena backgrounds"). What it found is in `docs/spike-results.md`, "Block Party". This plan combines the user's Block Party plan
 with the minigame list from their first draft, their follow-up numbers (the shop, the Witch's
 reroll, the Wandering Trader, the Happening table, 1v3 payouts, Star prices) and the map design
 worked out with them. The same day the user answered the first open questions: 2-4 players, a
@@ -28,19 +28,20 @@ idle. Nothing is open; "Defaults" at the end lists what was taken without a ques
 |---|---|
 | The game | Block Party: a board game with minigames between turns. Most Stars wins |
 | Players | 2 to 4 |
-| Pieces | A custom walk animation, moved from space to space by the script, while players watch through the scripted camera. Whatever does that best (see "Pieces"). Every piece shows its player's name over its head |
+| Pieces | The player, pushed from space to space by the script (vanilla's walk plays), while everyone watches through the scripted camera (see "Pieces"). Every piece shows its player's name over its head, and each player can turn the names off |
 | Duels | 1v1 minigames, and FFA minigames played by 2 |
 | In the lobby | The board, the length (10, 15 or 20 turns) and Chris's tutorial, as game options |
 | Starting coins | 10, handed out by Chris |
 | Bonus Stars | 3 with 3 or 4 players; 2 with 2 players (at most 1 each) |
 | Rolling | Jump to hit the die |
-| Hotbar | A Block Party look drawn with JSON UI (see "Turns and controls") |
+| Hotbar | A Block Party look drawn with JSON UI: Items and Dice open bars of their own, only the slots in use show, and health, hunger and XP are hidden (see "Turns and controls") |
 | Timers | None: the game waits for the player |
 | Votes | Every player: to skip a cutscene, to start a minigame after its rules, to let a late joiner in |
 | NPC looks | The vanilla mobs' own models, nothing textured |
 | Boards | Maps of their own: a themed loop with 2-3 shortcut branches, about 36-45 spaces (longer is fine) |
 | Minigames | One arena map per minigame, its own small map. No variant maps, and no borrowing other games' maps or minigames |
-| Arenas at play time | Copied into the board's world when picked, a fresh copy every time it's played |
+| Arenas at play time | Copied into the board's world when picked, a fresh copy every time it's played, into the slot of the board's arena background |
+| Arena backgrounds | Each board has a themed surround with a fixed 40 x 60 slot that every minigame arena loads into (see "Arena backgrounds"); arena maps are made to fit it |
 | Board markup | A ported world, then space markers chained by clicking (the clicked one is the previous). Types are dealt automatically by the share and the rules, and can be changed or locked in the marker's menu, which also holds a Star candidate box |
 | Requirement options | Most checklist rows become options a map can turn off or set a count for, like Game settings, in the Panel's map viewer only |
 | Board check | `/boardcheck`: errors, warnings and a report (see "/boardcheck") |
@@ -347,10 +348,16 @@ and podiums.
 
 ### Pieces
 
-The user's call: whatever best gives a custom walk animation from space to space, watched through
-the scripted camera. The camera is free of the body either way, so what matters is how the walk
-looks and whose skin shows. The spike tries these, best first, and keeps the first that walks
-smoothly:
+**Decided after the spike (the user's look, 2026-11-15): the player, pushed.** Each tick the script
+pushes the player toward the next point (`applyKnockback`, their own walking locked), so their own
+client moves them: vanilla's walk plays and the camera stays smooth, for the walker and for those
+watching. Anything moved by a teleport or a set velocity each tick (the first way below by
+teleport, the mount, the stand-in) stopped 20 times a second and looked jittery, and a jump threw a
+rider off the mount, so the mount and the stand-in are out. A turn is a teleport to where the
+player already is, with the new facing, at each corner, and the pushes steer back to the path and
+settle on the spot. The chase and the watch camera both looked very good with it.
+
+What the spike tried, for the record:
 
 1. **The player, moved along the path by the script** (each tick, their own movement locked), with
    a walk animation the game's pack plays on them, the way Chameleon's pack plays its poses on the
@@ -366,22 +373,29 @@ a skin reaches it only after the watcher has seen the player and the network has
 get a plain look. That's why it's last.
 
 **Names:** every piece shows its player's gamertag over its head, seen through the scripted camera
-by everyone, its owner included. Bedrock never shows players their own name tag, so with the player
-as the piece, the name is a label of its own kept over the head (an invisible entity named for the
-player), and the player's own tag is hidden so the others don't see two. The spike checks whether
-the owner sees their own tag through a free camera; if they do, no label is needed.
+by everyone, its owner included. Bedrock never shows players their own name tag, so the name is a
+label of its own kept over the head (an invisible entity named for the player), and the player's own
+tag is hidden so the others don't see two. The spike showed the owner sees the label through the
+scripted camera, so the label stays. **Each player can turn the names over the pieces off or on**
+(the user asked, 2026-11-15), in the hotbar's menu settings. A name tag shows to everyone, so
+hiding the labels from one player only is worked out when names are built (pass 4).
 
 ### Turns and controls
 
-- **The hotbar** (the user's idea): a Block Party look drawn with JSON UI. Proposed: the vanilla
-  hotbar restyled rather than hidden and replaced, so scrolling, number keys, controller bumpers and
+- **The hotbar** (the user's idea): a Block Party look drawn with JSON UI, the vanilla hotbar
+  restyled rather than hidden and replaced, so scrolling, number keys, controller bumpers and
   tapping on a touch screen all still pick a slot. The selected item's name and what it does show
-  over it. Slot 1 holds the standard die, 2-3 special dice, 4-6 items, and 9 a menu (standings,
-  settings).
-- **Rolling:** pick a die in the hotbar (the standard one or a special one), then jump to hit it.
+  over it. The spike showed all of this works. After it the user asked for:
+  - **Bars of their own:** the main bar is Items, Dice and the menu (standings, settings). Using
+    Items swaps the bar for the items held, and Dice for the dice held (the standard one and any
+    special ones), each with a Back slot.
+  - **Only the slots in use show,** centered: two dice show as two slots and Back. Empty slots draw
+    nothing, and a scroll skips them.
+  - **No health, hunger or XP bar** (nor armor or air) on the board.
+- **Rolling:** open Dice, pick a die (the standard one or a special one), then jump to hit it.
   The script reads the jump button (`playerButtonInput`, as Sumo's double jump does); the spike
-  checks it still reports while the player is locked in place or carried.
-- **Items:** pick one in the hotbar and use it (right click) before jumping. A target is picked
+  showed it reports in every lock mode.
+- **Items:** open Items, pick one and use it (right click) before jumping. A target is picked
   from a form.
 - **Branches:** a form with one button per path, while the camera shows both with arrows.
 - **No timers:** the game waits for the player, at the roll and at every choice. If one player
@@ -515,7 +529,8 @@ minigame has to come to the board's world instead.
   one arena map. No variants: the build warns about a second map for one minigame.
 - **At play time** the board's server has every published arena with it (how is a build question:
   saved as structures the server loads). When a minigame is picked, the game places its arena in
-  the empty space well away from the board, loads it with a ticking area, moves the players in, and
+  the slot of the board's arena background (see "Arena backgrounds"), loads it with a ticking area,
+  moves the players in behind a fade (Minecade's logo fades in on the black if it lasts), and
   clears it afterward. The next play places a fresh copy, so floors that fall away or get mined
   (TNT Run, Spleef Duo, Hot Floor, Mining Race) are always whole. This is how Build Swap's arenas
   already work (minigame-core's `game/arenas.ts`, `docs/spike-results.md`, "Arena tiles"), except
@@ -611,11 +626,38 @@ checklist problem; warnings don't.
 - **Report:** counts by type against the targets, route lengths (the loop and each shortcut), and
   flagged spaces with their coordinates.
 
+### Arena backgrounds
+
+The user's idea (2026-11-15), documented for later and not built yet: every board has an **arena
+background**, a themed surround (a stadium, a station hall, a cavern) built around an empty slot of
+a fixed size. Every minigame arena loads into that slot, so a minigame looks like it belongs to the
+board it's played from, and the same arena map works on every board.
+
+- **The slot:** 40 x 60 blocks across (the user's numbers). Every arena map fits it (see "Minigame
+  arena maps"). Proposed: up to 48 blocks tall from the slot's floor, and an arena built 60 x 40 is
+  turned a quarter turn to fit (a structure can be placed rotated).
+- **Where it is (proposed):** in the board's own map, away from the board, built with the rest of
+  the world. The board's markup marks it with an **Arena slot** box of exactly 40 x 60, and
+  `/boardcheck` checks the box is that size and empty. A board without one is an error once this is
+  built.
+- **At play time:** the arena is placed into the slot, fresh each time, behind the fade. The game
+  saves the empty slot when the board loads (a structure of its own) and puts it back after each
+  minigame, so nothing of the last arena is left over.
+- **What the background can hold:** stands where out players watch (the arena's spectator spawn or
+  the background's own), the rules camera's backdrop, and lights and decoration. Nothing in it may
+  reach into the slot.
+- **Time of day:** the arena's own time still applies while it's played (see below).
+- **Still to decide when it's built:** whether Boss Fight, Hunter vs. Runners and Minecart Dodge
+  (which wanted up to 128) are designed to fit 40 x 60, or a background can have a bigger slot.
+
 ### Minigame arena maps
 
-- **One box, the Arena:** aim for 64x64 blocks across (any height), one structure copy. The few that
-  need room (Boss Fight, Hunter vs. Runners, Minecart Dodge) can go to about 128.
-- **Self-contained:** any backdrop goes inside the box. Outside it is void, wherever it's placed.
+- **One box, the Arena, made to fit the arena background's slot:** 40 x 60 blocks across at most
+  (see "Arena backgrounds"), one structure copy. Before the user's arena background idea this was
+  64 x 64, with the few that need room (Boss Fight, Hunter vs. Runners, Minecart Dodge) up to about
+  128; those three are the open point above.
+- **Self-contained:** any backdrop goes inside the box. Outside it is the board's arena background,
+  wherever it's played.
 - **Spawns by format:** FFA 4 (every FFA arena also works with 2 or 3 players); 2v2 Red and Blue
   team spawns; 1v3 Solo and Trio spawns; a 1v1 minigame 2. Duels on an FFA arena use its first 2
   spawns.
@@ -727,9 +769,9 @@ reward was dropped.
    players (Paired Parkour), both likely through the game's own copy of `player.json`, as
    Chameleon's pack does.
 2. **Requirement options** in the Panel, for any game.
-3. **Board markup:** chained spaces, dealt types, the space menu, `/boardcheck`.
+3. **Board markup:** chained spaces, dealt types, the space menu, the Arena slot, `/boardcheck`.
 4. **The board loop:** turns, dice, moving pieces, branches, spaces, Stars, coins.
-5. **Minigame plumbing:** formats, placing arenas, results and payouts, with a first few minigames.
+5. **Minigame plumbing:** formats, placing arenas into the arena background's slot, results and payouts, with a first few minigames.
 6. **NPCs and cameras:** stages, conversations, the shot list.
 7. **Items, dice, Chance Time, the Warden, the shop and the Trader.**
 8. **End of game:** bonus Stars, the tiebreaker, the podium.
