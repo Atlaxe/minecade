@@ -30,8 +30,10 @@ export interface BoardReport {
 class Graph {
   readonly byId = new Map<number, BoardSpace>();
   private readonly before = new Map<number, number[]>();
+  readonly spaces: readonly BoardSpace[];
 
-  constructor(readonly spaces: readonly BoardSpace[]) {
+  constructor(spaces: readonly BoardSpace[]) {
+    this.spaces = spaces;
     for (const space of spaces) this.byId.set(space.id, space);
     for (const space of spaces) {
       for (const next of space.next ?? []) {
