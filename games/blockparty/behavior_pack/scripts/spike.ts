@@ -2,19 +2,20 @@
 // Probe's map. It lays a 12-space test board beside the platform, makes each player their own piece
 // on it, and gives them the game's hotbar (a stand-in for it) with a Tests menu. The menu tries what
 // the game will need:
-//   - walking a piece (pieces.ts: the player pushed along the path; each walk says in chat how it
-//     went), watched by everyone through the chase or watch camera, with a name label over each;
+//   - walking a piece (pieces.ts: the player pushed along the path, easing into corners; each walk
+//     says in chat how it went), watched by everyone through the chase or watch camera;
 //   - camera shots (shots.ts), skipped by everyone jumping (a vote);
 //   - the jump button: every jump is reported in chat with what was locked at the time;
-//   - the hotbar (resource_pack/ui/hud_screen.json restyles vanilla's): Items, Dice and Tests in the
-//     middle slots, only the slots in use showing. Using Items or Dice swaps the bar for that set
-//     (the items held, or the dice, each with a Back slot); in the dice, the die picked floats over
-//     your head and a jump hits it, and your piece walks the number. Health, hunger and the XP bar
-//     are hidden;
+//   - the hotbar (resource_pack/ui/hud_screen.json restyles vanilla's, bottom right): Items, Dice
+//     and Tests in the rightmost slots, only the slots in use showing (each item a count of 2: the
+//     pack shows a slot only while its count would show). Using Items or Dice swaps the bar for that
+//     set (the items held, or the dice, each with a Back slot); in the dice, the die picked floats
+//     over your head and a jump hits it, and your piece walks the number. Health, hunger and the XP
+//     bar are hidden;
 //   - the NPCs on the vanilla mobs' models (npcs.ts): hit one for its animations and variants;
 //   - arenas from other maps (spike/blockparty/arena-pack.ts installs them as structures in
 //     private_packs/arenas/): placed far east of the board, fresh each time, behind a fade both ways,
-//     with Minecade's logo on the black once it lasts;
+//     with a loading screen (the star field and Minecade's logo) once the black lasts;
 //   - a player riding a player and on a lead (two players; both need private_packs/players/,
 //     vanilla's player.json made rideable and leashable).
 // What a test tells a player in chat also goes to the server's log ("blockparty test:" lines).
@@ -34,7 +35,7 @@ import {
   type Vector3,
 } from "@minecraft/server";
 import { ActionFormData, ModalFormData } from "@minecraft/server-ui";
-import { Minigame, describeError, draw, log, say, showForm, type GameContext, type Result, type SpawnReason } from "@minecade/minigame-core";
+import { Minigame, describeError, draw, hudLine, log, say, showForm, type GameContext, type Result, type SpawnReason } from "@minecade/minigame-core";
 import registry from "#registry";
 import type config from "../../game.config.ts";
 import { boardBox, build, testSpaces, type Space, type Vec3 } from "./board.ts";
@@ -72,12 +73,14 @@ const DICE: readonly Die[] = [
   { id: "minecraft:gold_block", name: "Golden Die", what: "Jump to hit it: 5 to 10", faces: [5, 6, 7, 8, 9, 10] },
 ];
 const ITEMS: readonly BarItem[] = [
-  { id: "minecraft:totem_of_undying", name: "Stone Totem", what: "Roll an extra die next turn" },
+  { id: "minecraft:flint", name: "Stone Totem", what: "Roll an extra die next turn" },
   { id: "minecraft:blaze_rod", name: "Lightning Strike", what: "The leader gives 10 coins to last place" },
   { id: "minecraft:leather", name: "Dueling Glove", what: "A 1v1 duel for 10 coins" },
 ];
 const BACK: BarItem = { id: BACK_ITEM, name: "Back", what: "Use it: back to the hotbar" };
 const HOTBAR_SIZE = 9;
+/** Every bar item's count: the pack shows a slot only while vanilla would show its count (more than 1). */
+const BAR_COUNT = 2;
 /** What the board hides: everything a survival player watches that Block Party has no use for. */
 const HIDDEN_HUD = [HudElement.Health, HudElement.Hunger, HudElement.ProgressBar, HudElement.Armor, HudElement.AirBubbles];
 
@@ -99,13 +102,14 @@ const ARENA_AT: Vec3 = [2000, 0, 0];
 const ARENA_AREA = "minecade:blockparty_arena";
 const BOARD_AREA = "minecade:blockparty_board";
 /**
- * A title made of formatting codes that never render: the pack's ui/hud_screen.json shows
- * Minecade's logo inside the title while it's this, so the logo fades in and out with the title.
+ * An action bar code (formatting codes, which never render) that shows the pack's loading screen,
+ * the star field and Minecade's logo, over everything (ui/hud_screen.json, bp_loading). It rides
+ * after the core's HUD mark, so nothing else of the action bar shows.
  */
-const LOADING_MARK = "§r§m§l§r";
-/** Ticks of black before the logo fades in. */
-const LOGO_AFTER = 40;
-/** A placement expected to stall the server longer than this (ms) shows the logo first: the server can't send it mid-stall. */
+const LOADING_CODE = "§k§d";
+/** Ticks of black before the loading screen shows. */
+const LOADING_AFTER = 40;
+/** A placement expected to stall the server longer than this (ms) shows the loading screen first: the server can't send anything mid-stall. */
 const LONG_STALL_MS = 1500;
 /** Blocks placed a millisecond, about (docs/spike-results.md, "Block Party": Sinkhole's 667,648 in 608 to 676 ms). */
 const BLOCKS_PER_MS = 1000;
@@ -264,17 +268,17 @@ export class BlockPartySpike extends Minigame<Config> {
   }
 
   /**
-   * Puts the player's bar in their hotbar, in the middle slots: the pack hides the empty ones, so
-   * only these show, centered. The first slot is selected.
+   * Puts the player's bar in their hotbar, in the rightmost slots (the bar sits bottom right): the
+   * pack hides the empty ones, so only these show, against the screen's edge. The first is selected.
    */
   private giveBar(player: Player): void {
     const container = player.getComponent(EntityComponentTypes.Inventory)?.container;
     if (!container) return;
     const items = this.barItems(player);
-    const first = Math.floor((HOTBAR_SIZE - items.length) / 2);
+    const first = HOTBAR_SIZE - items.length;
     for (let slot = 0; slot < HOTBAR_SIZE; slot++) container.setItem(slot, undefined);
     items.forEach(({ id, name, what }, i) => {
-      const item = new ItemStack(id, 1);
+      const item = new ItemStack(id, BAR_COUNT);
       item.nameTag = name;
       item.setLore([what]);
       item.lockMode = ItemLockMode.slot;
@@ -458,16 +462,14 @@ export class BlockPartySpike extends Minigame<Config> {
       .title("Piece settings")
       .dropdown("Camera while walking", WALK_CAMERAS.map((c) => c.label), { defaultValueIndex: WALK_CAMERAS.findIndex((c) => c.id === s.camera) })
       .slider("Speed (blocks a second)", 2, 16, { valueStep: 1, defaultValue: s.speed })
-      .slider("Turn over (ticks; 1 is a snap at the corner)", 1, 8, { valueStep: 1, defaultValue: s.turnTicks })
-      .toggle("A name label over the piece", { defaultValue: s.label })
-      .slider("The label's height over your feet (tenths of a block)", 5, 30, { valueStep: 1, defaultValue: Math.round(s.labelHeight * 10) })
-      .toggle("Hide my own name tag", { defaultValue: s.hideTag });
+      .slider("Turn over (ticks)", 1, 10, { valueStep: 1, defaultValue: s.turnTicks })
+      .slider("Slow down into corners over (tenths of a block; 0 is no easing)", 0, 40, { valueStep: 1, defaultValue: Math.round(s.ease * 10) });
     const values = (await showForm(this.scope, player, form))?.formValues;
     if (!values) return;
-    const [camera, speed, turnTicks, label, labelHeight, hideTag] = values as [number, number, number, boolean, number, boolean];
-    tests.settings = { camera: WALK_CAMERAS[camera].id, speed, turnTicks, label, labelHeight: labelHeight / 10, hideTag };
+    const [camera, speed, turnTicks, ease] = values as [number, number, number, number];
+    tests.settings = { camera: WALK_CAMERAS[camera].id, speed, turnTicks, ease: ease / 10 };
     this.pieces.refresh(player);
-    this.tell(player, `Piece: camera ${WALK_CAMERAS[camera].id}, ${speed} blocks a second, turns over ${turnTicks} ticks, label ${label ? `at ${(labelHeight / 10).toFixed(1)}` : "off"}, own tag ${hideTag ? "hidden" : "shown"}.`);
+    this.tell(player, `Piece: camera ${WALK_CAMERAS[camera].id}, ${speed} blocks a second, turns over ${turnTicks} ticks, easing over ${(ease / 10).toFixed(1)} blocks.`);
   }
 
   private async shotsMenu(player: Player): Promise<void> {
@@ -571,10 +573,10 @@ export class BlockPartySpike extends Minigame<Config> {
       form.button("Back to the board");
       actions.push(() => this.backToBoard());
     }
-    form.button(this.slowLoads ? "Slow loads: on (4 s of black, to see the logo)" : "Slow loads: off");
+    form.button(this.slowLoads ? "Slow loads: on (4 s more, to see the loading screen)" : "Slow loads: off");
     actions.push(() => {
       this.slowLoads = !this.slowLoads;
-      this.tell(player, `Slow loads ${this.slowLoads ? "on: every move between the board and an arena keeps the screen black 4 s longer, so the logo shows" : "off"}.`);
+      this.tell(player, `Slow loads ${this.slowLoads ? "on: every move between the board and an arena takes 4 s longer, so the loading screen shows" : "off"}.`);
     });
     const response = await showForm(this.scope, player, form);
     if (response?.selection === undefined) return;
@@ -582,35 +584,56 @@ export class BlockPartySpike extends Minigame<Config> {
   }
 
   /**
-   * A move behind black, for everyone: fade out, do the work, fade back in. Once the black has
-   * lasted LOGO_AFTER ticks, Minecade's logo fades in on it; `work` calls `expectStall` before
-   * anything that stalls the server long (the logo can't be sent during the stall), which shows it
-   * at once. The fade's hold is the longest a fade allows (10 s); the fade back in replaces it.
+   * A move behind black, for everyone: fade to black, do the work, fade back in. A camera fade
+   * covers the HUD (the user saw no logo on it), so once the black has lasted LOADING_AFTER ticks
+   * the loading screen goes on under it and the black fades away to show it; at the end the black
+   * comes back over it, it goes off, and the black fades away to show the new place. `work` awaits
+   * `expectStall` before anything that stalls the server long: the loading screen shows first,
+   * since nothing can be sent mid-stall. A fade's hold is at most 10 s; the next fade replaces it.
    */
-  private async behindBlack(work: (expectStall: (ms: number) => void) => void | Promise<void>): Promise<void> {
+  private async behindBlack(work: (expectStall: (ms: number) => Promise<void>) => void | Promise<void>): Promise<void> {
     const black = { red: 0, green: 0, blue: 0 };
-    for (const player of world.getAllPlayers()) player.camera.fade({ fadeTime: { fadeInTime: 0.4, holdTime: 10, fadeOutTime: 0.6 }, fadeColor: black });
+    const fade = (fadeInTime: number, holdTime: number, fadeOutTime: number) => {
+      for (const player of world.getAllPlayers()) player.camera.fade({ fadeTime: { fadeInTime, holdTime, fadeOutTime }, fadeColor: black });
+    };
+    fade(0.4, 10, 0.6);
     await this.scope.wait(9);
     let done = false;
-    let logo = false;
-    const showLogo = () => {
-      if (logo || done) return;
-      logo = true;
-      for (const player of world.getAllPlayers()) player.onScreenDisplay.setTitle(LOADING_MARK, { fadeInDuration: 15, stayDuration: 20 * 30, fadeOutDuration: 8 });
+    let loading = false;
+    const showLoading = () => {
+      if (loading || done) return;
+      loading = true;
+      this.setLoading(true);
+      fade(0, 0, 0.5);
     };
-    this.scope.timeout(showLogo, LOGO_AFTER);
+    // The action bar fades unless it's sent again.
+    const keep = this.scope.interval(() => {
+      if (loading && !done) this.setLoading(true);
+    }, 20);
+    this.scope.timeout(showLoading, LOADING_AFTER);
     try {
       if (this.slowLoads) await this.scope.wait(SLOW_LOAD);
-      await work((ms) => {
-        if (ms > LONG_STALL_MS) showLogo();
+      await work(async (ms) => {
+        if (ms <= LONG_STALL_MS || loading) return;
+        showLoading();
+        await this.scope.wait(12);
       });
     } finally {
       done = true;
-      for (const player of world.getAllPlayers()) {
-        if (logo) player.onScreenDisplay.setTitle(LOADING_MARK, { fadeInDuration: 0, stayDuration: 0, fadeOutDuration: 8 });
-        player.camera.fade({ fadeTime: { fadeInTime: 0, holdTime: logo ? 0.4 : 0.1, fadeOutTime: 0.6 }, fadeColor: black });
+      system.clearRun(keep);
+      if (loading) {
+        fade(0.4, 10, 0.6);
+        await this.scope.wait(9);
+        this.setLoading(false);
       }
+      fade(0, 0.1, 0.6);
     }
+  }
+
+  /** The loading screen on or off, for everyone (a marked action bar holding LOADING_CODE, or nothing). */
+  private setLoading(on: boolean): void {
+    const line = on ? hudLine(undefined, "", undefined, "", LOADING_CODE) : hudLine(undefined, "");
+    for (const player of world.getAllPlayers()) player.onScreenDisplay.setActionBar(line);
   }
 
   private async placeArena(id: string): Promise<void> {
@@ -628,7 +651,7 @@ export class BlockPartySpike extends Minigame<Config> {
       await manager.createTickingArea(ARENA_AREA, { dimension, from: min, to: max });
       const loadTicks = system.currentTick - loadStarted;
       const expected = (size.x * size.y * size.z) / BLOCKS_PER_MS;
-      expectStall(expected);
+      await expectStall(expected);
       const started = Date.now();
       world.structureManager.place(id, dimension, min, { includeEntities: false });
       const ms = Date.now() - started;

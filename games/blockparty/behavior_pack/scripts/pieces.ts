@@ -1,26 +1,27 @@
 // The spike's pieces: each player is their own piece on the test board, walked from space to space
 // by the script while everyone watches through the scripted camera (the plan's "Pieces").
 //
-// The user's first look settled the way: the player, their walking locked, pushed each tick
+// The user's looks settled the way: the player, their walking locked, pushed each tick
 // (applyKnockback toward the next point). Their own client moves them, so vanilla's walk plays and
 // the camera stays smooth. Teleporting each tick, gliding an invisible mount and a stand-in figure
 // all stuttered (20 stops a second), and a jump threw the player off the mount, so those are gone.
 //
-// What this pass adds on top of the push:
+// On top of the push:
+//   - easing: the walk slows down into every corner and the end and speeds up out of them
+//     (smoothstep over `ease` blocks either side, board.ts easedShare), so a corner isn't taken in
+//     one sweep;
 //   - facing: setRotation doesn't turn a player on their own client, so a turn is a teleport to
-//     where the player already is, with the new facing, once at each corner (or spread over a few
-//     ticks, the "Turn over" setting). A player's teleport can't keep their velocity
-//     (keepVelocity throws "not supported for player teleportation"), so the next push gets them
-//     going again;
-//   - landing on the spot: the push steers back toward the path every tick (a pull toward where the
-//     piece should be, on top of the walking speed), and after the last point it settles onto the
-//     spot with smaller pushes; only a piece still more than SNAP_OVER off is teleported there.
-// A label (blockparty:label, an invisible entity with the name always showing) is kept over each
-// piece, since Bedrock never shows players their own name tag, and the player's own tag can be
-// hidden so the others don't see two.
-import { EasingType, InputPermissionCategory, system, world, type Entity, type Player, type Vector3 } from "@minecraft/server";
+//     where the player already is, with the new facing, spread over `turnTicks` ticks while they're
+//     slow at the corner. A player's teleport can't keep their velocity (keepVelocity throws), and
+//     each one costs that tick of the push, which hardly shows at a corner's low speed;
+//   - landing: each push is the walking speed plus a small pull back toward where the piece should
+//     be; after the last point the piece settles onto its spot with gentle pushes, stopping once
+//     it's close (no chasing small misses back and forth), and only one still far off is teleported.
+// No names over the pieces (the user: a label lags behind the player, and a HUD will say whose turn
+// it is), and the players' own name tags are hidden on the board.
+import { EasingType, InputPermissionCategory, system, world, type Player, type Vector3 } from "@minecraft/server";
 import { describeError, log, type Scope } from "@minecade/minigame-core";
-import { along, pathOf, route, standAt, type Space, type Vec3 } from "./board.ts";
+import { along, angleGap, easedShare, pathOf, route, slowPoints, standAt, type Space, type Vec3 } from "./board.ts";
 
 export type WalkCamera = "chase" | "watch" | "none";
 
@@ -32,32 +33,31 @@ export const WALK_CAMERAS: readonly { id: WalkCamera; label: string }[] = [
 
 export interface PieceSettings {
   camera: WalkCamera;
-  /** Blocks a second. */
+  /** Blocks a second, at full speed. */
   speed: number;
-  /** Ticks a turn is spread over, one facing teleport a tick (1: a snap at the corner). */
+  /** Ticks a turn is spread over, one facing teleport a tick. */
   turnTicks: number;
-  /** A label with the name over the piece. */
-  label: boolean;
-  /** The player's own name tag hidden (the label shows the name instead). */
-  hideTag: boolean;
-  /** Where the label floats, in blocks over the player's feet. */
-  labelHeight: number;
+  /** Blocks over which the walk slows into a corner (and speeds up out of it); 0 is no easing. */
+  ease: number;
 }
 
-export const DEFAULT_SETTINGS: PieceSettings = { camera: "chase", speed: 8, turnTicks: 1, label: true, hideTag: true, labelHeight: 1.5 };
+export const DEFAULT_SETTINGS: PieceSettings = { camera: "chase", speed: 8, turnTicks: 4, ease: 2 };
 
 /** applyKnockback's horizontal speed is 0.4 times the force's length (docs/spike-results.md, "Knockback"). */
 const KNOCKBACK_SPEED = 0.4;
+/** The share of full speed at a corner, the start and the end. */
+const SLOWEST = 0.12;
 /** How much of the gap to where the piece should be is closed each tick, on top of the walking speed. */
-const PULL = 0.25;
+const PULL = 0.15;
 /** The fastest push, as a share of the walking speed. */
-const MOST = 1.6;
-/** Ticks the piece gets to settle onto its spot after the last point. */
-const SETTLE_TICKS = 16;
+const MOST = 1.4;
+/** Ticks the piece gets to settle onto its spot after the last point, and the share of the gap each push closes. */
+const SETTLE_TICKS = 10;
+const SETTLE_PULL = 0.3;
 /** Close enough to the spot: the settling stops. */
-const SETTLED = 0.08;
+const SETTLED = 0.12;
 /** Further off than this after settling, and the piece is teleported onto its spot. */
-const SNAP_OVER = 0.3;
+const SNAP_OVER = 0.6;
 /** A change of direction bigger than this (degrees) is a turn. */
 const TURN_OVER = 3;
 const CHASE_EVERY = 2;
@@ -66,7 +66,6 @@ interface PieceState {
   space: number;
   corner: number;
   walking: boolean;
-  label?: { entity: Entity; height: number };
 }
 
 const vec = (v: Vec3): Vector3 => ({ x: v[0], y: v[1], z: v[2] });
@@ -91,7 +90,6 @@ export class Pieces {
     private readonly scope: Scope,
     private readonly host: PiecesHost,
   ) {
-    scope.interval(() => this.keepLabels(), 1);
     scope.add(() => this.removeAll());
   }
 
@@ -109,15 +107,15 @@ export class Pieces {
     return this.state(player).walking;
   }
 
-  /** Puts the player on their piece's space (Start at first), facing south, with their label. */
+  /** Puts the player on their piece's space (Start at first), facing south, their name tag hidden. */
   place(player: Player): void {
     const state = this.state(player);
     try {
       player.teleport(vec(standAt(this.host.spaces()[state.space], state.corner)), { rotation: { x: 0, y: 180 } });
+      player.nameTag = "";
     } catch (error) {
       log.warn(`blockparty: placing ${player.name}'s piece failed: ${describeError(error)}`);
     }
-    this.applyLabel(player, state, this.host.settings(player));
   }
 
   /** Back to Start. */
@@ -126,19 +124,16 @@ export class Pieces {
     this.place(player);
   }
 
-  /** Takes the label away and gives the player back their movement and name tag. */
+  /** Gives the player back their movement and name tag (off the board: an arena, a ride). */
   release(player: Player): void {
-    this.removeLabel(this.state(player));
     unlock(player);
     player.nameTag = player.name;
   }
 
-  /** A player left: their label goes (their place on the board is kept for a rejoin). */
+  /** A player left (their place on the board is kept for a rejoin). */
   forget(name: string): void {
     const state = this.states.get(name.toLowerCase());
-    if (!state) return;
-    this.removeLabel(state);
-    state.walking = false;
+    if (state) state.walking = false;
   }
 
   /** Walks the player's piece `steps` spaces ahead. Resolves when it has landed. */
@@ -152,6 +147,7 @@ export class Pieces {
     const end = standAt(landing, state.corner);
     const here = player.location;
     const path = pathOf([[here.x, here.y, here.z], ...passed.slice(0, -1).map((space) => space.at), end]);
+    const slow = slowPoints(path, TURN_OVER);
     state.walking = true;
     const startedAt = system.currentTick;
     let turns = 0;
@@ -166,7 +162,8 @@ export class Pieces {
       let facing = player.getRotation().y;
       let turn: { from: number; to: number; step: number } | undefined;
       while (traveled < path.length && !this.scope.disposed && player.isValid) {
-        traveled = Math.min(path.length, traveled + perTick);
+        const share = easedShare(traveled, slow, settings.ease, SLOWEST);
+        traveled = Math.min(path.length, traveled + perTick * share);
         const { point, yaw } = along(path, traveled);
         if (!turn && Math.abs(angleGap(facing, yaw)) > TURN_OVER) {
           turn = { from: facing, to: yaw, step: 0 };
@@ -174,13 +171,15 @@ export class Pieces {
         }
         if (turn) {
           turn.step++;
-          const share = Math.min(1, turn.step / turnTicks);
-          facing = turn.from + angleGap(turn.from, turn.to) * share;
+          const part = Math.min(1, turn.step / turnTicks);
+          const eased = part * part * (3 - 2 * part);
+          facing = turn.from + angleGap(turn.from, turn.to) * eased;
           this.face(player, facing);
-          if (share >= 1) turn = undefined;
+          if (part >= 1) turn = undefined;
         }
         const rad = (yaw * Math.PI) / 180;
-        this.push(player, point, { x: -Math.sin(rad) * perTick, z: Math.cos(rad) * perTick }, perTick);
+        const step = perTick * share;
+        this.push(player, point, { x: -Math.sin(rad) * step, z: Math.cos(rad) * step }, perTick, PULL);
         worstLag = Math.max(worstLag, Math.hypot(player.location.x - point[0], player.location.z - point[2]));
         if (settings.camera === "chase" && tick % CHASE_EVERY === 0) this.chaseCamera(path, traveled, yaw);
         tick++;
@@ -191,7 +190,7 @@ export class Pieces {
       for (; settleTicks < SETTLE_TICKS; settleTicks++) {
         const at = player.location;
         if (Math.hypot(end[0] - at.x, end[2] - at.z) < SETTLED) break;
-        this.push(player, end, { x: 0, z: 0 }, perTick, 0.5);
+        this.push(player, end, { x: 0, z: 0 }, perTick * SLOWEST * 2, SETTLE_PULL);
         await this.scope.wait(1);
         if (!player.isValid || this.scope.disposed) return;
       }
@@ -204,7 +203,7 @@ export class Pieces {
       const seconds = ((system.currentTick - startedAt) / 20).toFixed(1);
       this.host.report(
         player,
-        `Walked ${steps} to space ${landing.index + 1} (${landing.type}) in ${seconds} s, ${path.length.toFixed(1)} blocks, ${turns} turns over ${turnTicks} ticks; at most ${worstLag.toFixed(2)} off the path; settled in ${settleTicks} ticks, ${miss.toFixed(2)} off the spot${snapped ? " (teleported onto it)" : ""}.`,
+        `Walked ${steps} to space ${landing.index + 1} (${landing.type}) in ${seconds} s, ${path.length.toFixed(1)} blocks, ${turns} turns over ${turnTicks} ticks, easing ${settings.ease} blocks; at most ${worstLag.toFixed(2)} off the path; settled in ${settleTicks} ticks, ${miss.toFixed(2)} off the spot${snapped ? " (teleported onto it)" : ""}.`,
       );
       await this.scope.wait(20);
       if (settings.camera !== "none") for (const watcher of this.host.watchers()) watcher.camera.clear();
@@ -218,10 +217,10 @@ export class Pieces {
   }
 
   /**
-   * One tick's push: the walking speed along the path (`ahead`, blocks this tick) plus a pull toward
-   * where the piece should be now, capped at MOST times the walking speed.
+   * One tick's push: `ahead` (the walking step this tick) plus `pull` of the gap to where the piece
+   * should be, capped at MOST times the full walking speed.
    */
-  private push(player: Player, target: Vec3, ahead: { x: number; z: number }, perTick: number, pull = PULL): void {
+  private push(player: Player, target: Vec3, ahead: { x: number; z: number }, perTick: number, pull: number): void {
     try {
       const here = player.location;
       let dx = ahead.x + (target[0] - here.x) * pull;
@@ -247,7 +246,7 @@ export class Pieces {
     }
   }
 
-  /** Turns the player to `yaw` on their own client: a teleport to where they are (it stops them; the next push goes on). */
+  /** Turns the player to `yaw` on their own client: a teleport to where they are (it stops them that tick). */
   private face(player: Player, yaw: number): void {
     try {
       player.teleport(player.location, { rotation: { x: 0, y: yaw } });
@@ -284,51 +283,12 @@ export class Pieces {
     }
   }
 
-  /** The label over the piece, and the player's own tag. */
-  private applyLabel(player: Player, state: PieceState, settings: PieceSettings): void {
-    if (!settings.label) {
-      this.removeLabel(state);
-    } else if (!state.label?.entity.isValid) {
-      const at = player.location;
-      const entity = player.dimension.spawnEntity("blockparty:label", { x: at.x, y: at.y + settings.labelHeight, z: at.z });
-      entity.nameTag = player.name;
-      state.label = { entity, height: settings.labelHeight };
-    } else {
-      state.label.height = settings.labelHeight;
-    }
-    player.nameTag = settings.hideTag ? "" : player.name;
-  }
-
-  /** Keeps every label over its player's head. */
-  private keepLabels(): void {
-    for (const player of world.getAllPlayers()) {
-      const label = this.states.get(player.name.toLowerCase())?.label;
-      if (!label?.entity.isValid) continue;
-      try {
-        const at = player.location;
-        label.entity.teleport({ x: at.x, y: at.y + label.height, z: at.z });
-      } catch {
-        // gone
-      }
-    }
-  }
-
-  /** The settings changed: puts the piece down again with them. */
+  /** The settings changed: puts the piece down again. */
   refresh(player: Player): void {
     if (!this.state(player).walking) this.place(player);
   }
 
-  private removeLabel(state: PieceState): void {
-    try {
-      if (state.label?.entity.isValid) state.label.entity.remove();
-    } catch {
-      // gone
-    }
-    state.label = undefined;
-  }
-
   private removeAll(): void {
-    for (const state of this.states.values()) this.removeLabel(state);
     for (const player of world.getAllPlayers()) {
       unlock(player);
       try {
@@ -338,11 +298,6 @@ export class Pieces {
       }
     }
   }
-}
-
-/** The signed turn from `from` to `to`, in degrees, the short way round (-180 to 180). */
-export function angleGap(from: number, to: number): number {
-  return ((((to - from) % 360) + 540) % 360) - 180;
 }
 
 /** The player can't walk or turn (their piece is walked for them); jumping still reaches the script. */

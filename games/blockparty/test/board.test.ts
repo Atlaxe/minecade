@@ -1,7 +1,7 @@
 // The spike's test board and walk paths: the layout around the square, the route a roll takes, the
 // corners pieces share, and where a walk is along its path.
 import { describe, expect, it } from "vitest";
-import { along, boardBox, distance, pathOf, route, standAt, testSpaces, yawTo, type Vec3 } from "../behavior_pack/scripts/board.ts";
+import { along, angleGap, boardBox, distance, easedShare, pathOf, route, slowPoints, standAt, testSpaces, yawTo, type Vec3 } from "../behavior_pack/scripts/board.ts";
 
 describe("the test board", () => {
   const spaces = testSpaces([0, 64, 48], 6);
@@ -69,5 +69,30 @@ describe("walk paths", () => {
     expect(yawTo([0, 0, 0], [0, 0, 1])).toBeCloseTo(0);
     expect(yawTo([0, 0, 0], [-1, 0, 0])).toBeCloseTo(90);
     expect(Math.abs(yawTo([0, 0, 0], [0, 0, -1]))).toBeCloseTo(180);
+  });
+});
+
+describe("easing into corners", () => {
+  // An L: 6 east, then 4 south, with a step along the first leg that doesn't turn.
+  const path = pathOf([[0, 64, 0], [3, 64, 0], [6, 64, 0], [6, 64, 4]]);
+
+  it("slows down at the start, each corner and the end, not where the way stays the same", () => {
+    expect(slowPoints(path)).toEqual([0, 6, 10]);
+    expect(slowPoints(pathOf([[0, 64, 0], [0, 64, 0.01], [0, 64, 5]]))).toEqual([0, 5]);
+  });
+
+  it("goes from the floor at a slow point to full speed `ease` blocks away, smoothly", () => {
+    const slow = slowPoints(path);
+    expect(easedShare(6, slow, 2, 0.1)).toBeCloseTo(0.1);
+    expect(easedShare(3, slow, 2, 0.1)).toBe(1);
+    expect(easedShare(5, slow, 2, 0.1)).toBeCloseTo(0.1 + 0.9 * 0.5);
+    expect(easedShare(5.5, slow, 2, 0.1)).toBeLessThan(easedShare(5, slow, 2, 0.1));
+    expect(easedShare(6, slow, 0, 0.1)).toBe(1);
+  });
+
+  it("turns the short way round", () => {
+    expect(angleGap(170, -170)).toBe(20);
+    expect(angleGap(-170, 170)).toBe(-20);
+    expect(angleGap(0, 90)).toBe(90);
   });
 });

@@ -17,7 +17,7 @@
       ],
       "animations": {
         "base": "animation.blockparty.referee_base",
-        "cheer": "animation.blockparty.referee_cheer",
+        "celebrate": "animation.humanoid.celebrating",
         "look_at_target": "animation.humanoid.look_at_target.default"
       },
       "scripts": {
@@ -28,7 +28,7 @@
         "animate": [
           "base",
           {
-            "cheer": "v.cheer"
+            "celebrate": "v.cheer"
           },
           "look_at_target"
         ]

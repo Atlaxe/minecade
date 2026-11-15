@@ -28,7 +28,7 @@ idle. Nothing is open; "Defaults" at the end lists what was taken without a ques
 |---|---|
 | The game | Block Party: a board game with minigames between turns. Most Stars wins |
 | Players | 2 to 4 |
-| Pieces | The player, pushed from space to space by the script (vanilla's walk plays), while everyone watches through the scripted camera (see "Pieces"). Every piece shows its player's name over its head, and each player can turn the names off |
+| Pieces | The player, pushed from space to space by the script (vanilla's walk plays), easing into every corner, while everyone watches through the scripted camera (see "Pieces"). No names over the pieces: a HUD says whose turn it is |
 | Duels | 1v1 minigames, and FFA minigames played by 2 |
 | In the lobby | The board, the length (10, 15 or 20 turns) and Chris's tutorial, as game options |
 | Starting coins | 10, handed out by Chris |
@@ -302,6 +302,12 @@ Checked after the bonus Stars:
 
 ## Dice
 
+**How a die looks** (the user, 2026-11-15; the spike uses blocks as stand-ins): each die is a model,
+a cube with its faces, that spins over the roller's head until it's hit, and fades in and out (or
+grows and shrinks) when the player switches dice in the dice bar. Proposed: an entity of the game's
+own per die with its own texture, spun and faded by its pack animations, built with the board loop
+(pass 4).
+
 At most 2 special dice held, beside at most 3 items. One movement boost per turn: a die or a totem,
 not both. Where each die comes from and its value are proposed (the user asked for ideas). There's
 no Double Die: the Stone Totem does the same.
@@ -372,13 +378,15 @@ a skin reaches it only after the watcher has seen the player and the network has
 (`docs/skins.md`), and a character creator skin needs a model of its own, so those players would
 get a plain look. That's why it's last.
 
-**Names:** every piece shows its player's gamertag over its head, seen through the scripted camera
-by everyone, its owner included. Bedrock never shows players their own name tag, so the name is a
-label of its own kept over the head (an invisible entity named for the player), and the player's own
-tag is hidden so the others don't see two. The spike showed the owner sees the label through the
-scripted camera, so the label stays. **Each player can turn the names over the pieces off or on**
-(the user asked, 2026-11-15), in the hotbar's menu settings. A name tag shows to everyone, so
-hiding the labels from one player only is worked out when names are built (pass 4).
+**Names:** none over the pieces (the user's call after the spike's second look, 2026-11-15). The
+spike's label (an invisible entity named for the player, kept over the head) lagged behind the
+player, and the players' own name tags are hidden on the board. A HUD says whose turn it is instead
+(built with the board loop, pass 4).
+
+**Corners** (the user's second look): the walk slows into every corner and the end and speeds up
+out of them (smoothstep over about 2 blocks), and the turn is spread over a few ticks while it's
+slow, so a corner isn't taken in one sweep. Where a piece stops on a space (and the back and forth
+some spots showed) is settled with the board markup's spaces (pass 3).
 
 ### Turns and controls
 
@@ -432,7 +440,7 @@ sees the same shot unless marked **(P)**, a private shot for one player.
 - Landing result: close-up of the space and its effect (S).
 - Board overview (S, high).
 - Standings (S).
-- Into a minigame (fade).
+- Into a minigame (fade; a loading screen, Minecade's star field and logo, once the black lasts).
 
 **Star**
 - Star moves: pan to the new spot, beacon beam (D).
@@ -628,7 +636,7 @@ checklist problem; warnings don't.
 
 ### Arena backgrounds
 
-The user's idea (2026-11-15), documented for later and not built yet: every board has an **arena
+The user's idea (2026-11-15), documented for later and not built yet: a board can have an **arena
 background**, a themed surround (a stadium, a station hall, a cavern) built around an empty slot of
 a fixed size. Every minigame arena loads into that slot, so a minigame looks like it belongs to the
 board it's played from, and the same arena map works on every board.
@@ -636,10 +644,11 @@ board it's played from, and the same arena map works on every board.
 - **The slot:** 40 x 60 blocks across (the user's numbers). Every arena map fits it (see "Minigame
   arena maps"). Proposed: up to 48 blocks tall from the slot's floor, and an arena built 60 x 40 is
   turned a quarter turn to fit (a structure can be placed rotated).
-- **Where it is (proposed):** in the board's own map, away from the board, built with the rest of
-  the world. The board's markup marks it with an **Arena slot** box of exactly 40 x 60, and
-  `/boardcheck` checks the box is that size and empty. A board without one is an error once this is
-  built.
+- **Where it is** (the user's call, after the spike's second look): built into the board's own map,
+  away from the board, as an option of the map. The board is never unloaded: only the minigame's
+  arena is placed in the slot and cleared. The board's markup marks it with an **Arena slot** box of
+  exactly 40 x 60, and `/boardcheck` checks the box is that size and empty. A board without one
+  plays its minigames in the empty space away from it, as the spike does.
 - **At play time:** the arena is placed into the slot, fresh each time, behind the fade. The game
   saves the empty slot when the board loads (a structure of its own) and puts it back after each
   minigame, so nothing of the last arena is left over.
@@ -677,7 +686,7 @@ board it's played from, and the same arena map works on every board.
 ### Requirement options (Panel only)
 
 **Built in pass 2 (2026-11-15), for any game:** a game marks rows adjustable in its config's
-`map.adjustable` (`docs/maps.md`), the Panel's Map settings has the Requirements group, and
+`map.adjustable` (`docs/maps.md`), the Panel's Map settings has the Checklist Features group, and
 `map.json` keeps the map's choices as `"requirements"`. Probe's maps can turn off the spectator or
 queue spawn, as a test; no real game marks a row yet.
 
@@ -689,8 +698,8 @@ arena that ends by falling into the void, or ask for 3 kill regions instead of 1
   run without it: Hot Floor's floor region, a format's spawns, the Arena box) or adjustable, with
   the range its code handles. The game's code must work with every value its config allows: an arena
   that lets Kill Y go off needs another way out.
-- **In the Panel:** a **Requirements** group in Map settings, beside Game settings: each adjustable
-  row with its switch and count, and Use the default. The checklist follows at once.
+- **In the Panel:** a **Checklist Features** group in Map settings, beside Game settings: each
+  adjustable row with its switch and count, and Use the default, with no helper text (the user). The checklist follows at once.
 - **In game Edit:** no screen for them (Panel only, as asked). Its checklist reads the same values,
   so both editors always agree.
 - **In map.json:** only what differs from the defaults:

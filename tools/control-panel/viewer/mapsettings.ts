@@ -3,9 +3,10 @@
 // spawn's screen:
 // - Map settings (MapSettings), in the right panel with Select and nothing picked: the map's name,
 //   the queue's countdown once the queue spawn is placed, each of the game's own settings for the
-//   map (map.settings in its config, with their ranges and defaults), the requirement options (the
-//   checklist rows the game lets a map turn off or set a count for: map.adjustable in its config,
-//   "requirements" in map.json; the Panel only, game Edit has no screen for them), the lobby's star box, any
+//   map (map.settings in its config, with their ranges and defaults), Checklist Features (the
+//   requirement options: the checklist rows the game lets a map turn off or set a count for,
+//   map.adjustable in its config, "requirements" in map.json; the Panel only, game Edit has no
+//   screen for them, and no helper text, as the user asked), the lobby's star box, any
 //   other plain key of the game's own the map has, a game's map's pictures (the Minigame thumbnail
 //   map switch, the game's picture on such a map, and the map's thumbnail: pictures.ts), and Port
 //   to another game.
@@ -67,14 +68,6 @@ function sentence(text: string | undefined): string {
   if (!text) return "";
   const first = text.charAt(0).toUpperCase() + text.slice(1);
   return /[.!?]$/.test(first) ? first : `${first}.`;
-}
-
-/** What a requirement option's row says under it: what the game asks, and what a map can do instead. */
-export function requirementHint(option: RequirementOption, off: boolean): string {
-  if (off) return "Off: this map's checklist doesn't ask for it.";
-  const asks = option.count === undefined ? "The game needs it." : `The game asks for ${option.count}.`;
-  const can = [option.range ? `ask for ${option.range.min} to ${option.range.max}` : "", option.off ? "turn it off" : ""].filter(Boolean).join(", or ");
-  return `${asks} A map can ${can}.`;
 }
 
 /** The map's own keys that aren't map.json's or one of the game's settings, with a plain value: game Edit's Name and map id form lists them. */
@@ -250,8 +243,7 @@ export class MapSettings {
     return el(
       "div",
       {},
-      el("div", { className: "group-label" }, "Requirements"),
-      el("p", { className: "sub" }, "What this map's checklist asks for, where its game lets a map change it."),
+      el("div", { className: "group-label" }, "Checklist Features"),
       options.map((option) => this.requirement(option, chosen[option.key])),
     );
   }
@@ -280,7 +272,6 @@ export class MapSettings {
       { className: "setting" },
       el("label", { className: "field-row" }, box, el("span", { className: "strong" }, label), input),
       reset ? el("div", { className: "buttons tight" }, reset) : null,
-      el("p", { className: "sub" }, requirementHint(option, off)),
     );
   }
 

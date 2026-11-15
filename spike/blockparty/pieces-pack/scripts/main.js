@@ -24,7 +24,7 @@ const tryIt = (fn) => {
 };
 const ridingOn = (entity) => entity.getComponent("minecraft:riding")?.entityRidingOn?.typeId ?? null;
 
-const ENTITIES = ["chris", "warden", "villager", "witch", "enderman", "wandering_trader", "referee", "allay", "iron_golem", "zombie", "label"];
+const ENTITIES = ["chris", "warden", "villager", "witch", "enderman", "wandering_trader", "referee", "allay", "iron_golem", "zombie"];
 
 async function run() {
   const d = dim();

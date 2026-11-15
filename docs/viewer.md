@@ -392,10 +392,10 @@ fit is put back, and the note over the view says why.
 - **Game settings** (a game whose config names some, `map.settings`): each with its range, its
   unit and what it changes; the map's own value, or the default until one is typed. **Use the
   default** takes the map's own away. Build Swap has **Build padding** and **Return delay**.
-- **Requirements** (a game whose config marks rows adjustable, `map.adjustable`; only here, game
-  Edit has no screen for them): each checklist row the map can change, with a switch when it can
-  be turned off and a count when it has a range, what the game asks, and **Use the default** once
-  the map has its own. A count typed back to the game's own is the default again. The checklist
+- **Checklist Features** (a game whose config marks rows adjustable, `map.adjustable`; only here,
+  game Edit has no screen for them): each checklist row the map can change, with a switch when it
+  can be turned off and a count when it has a range, and **Use the default** once the map has its
+  own. No helper text, as the user asked. A count typed back to the game's own is the default again. The checklist
   follows at once, and game Edit's goes by the same values (`map.json` "requirements",
   `docs/maps.md`). Probe's maps can turn off the spectator or queue spawn.
 - **Star box** (the lobby's maps only): stars all around the map, below the horizon too. Use it

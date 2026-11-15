@@ -44,7 +44,7 @@ The map editor sets spawns and points in game and writes `map.json` for you; see
 | `teamSpawns` | no | `{ "<team or role id>": [positions] }`. Team games spawn each team at its own points; before teams are dealt, players wait at every team's spawns in turn (or the plain spawns, when the map has them). The keys must be the game's team ids. |
 | `points` | no | `{ "<name>": [positions] }`: named positions a game uses, such as bomb sites or mob spawns. `"<name>.<team>"` is one team's (`"flag.red"`). |
 | `regions` | no | `{ "<name>": [{ "min": [x, y, z], "max": [x, y, z] }, ...] }`: named boxes, such as build plots or a floor that falls away. `"<name>.<team>"` is one team's. The name `kill` is reserved: anyone inside a `kill` box is out, the same as falling below `killY` (spectators fly over them). |
-| `requirements` | no | The map's own requirement options: for the checklist rows its game lets a map change (`map.adjustable`, below), `false` turns a row off and a number sets its count, keyed by the row's key without a team: `{ "killY": false, "regions.kill": 3 }`. Only what differs from the game's own; set in the Panel's map viewer (Map settings, Requirements). The checklist, Publish and game Edit all go by it. Servers never get it. |
+| `requirements` | no | The map's own requirement options: for the checklist rows its game lets a map change (`map.adjustable`, below), `false` turns a row off and a number sets its count, keyed by the row's key without a team: `{ "killY": false, "regions.kill": 3 }`. Only what differs from the game's own; set in the Panel's map viewer (Map settings, Checklist Features). The checklist, Publish and game Edit all go by it. Servers never get it. |
 | `kits` | no | Games only: kits of the map's own, for a game whose players pick kits. `{ "mode": "append", "list": [kits] }` adds them after the game's (a kit with the same `id` as one of the game's takes its place); `"mode": "replace"` uses only the map's. A `base` replaces the game's base kit either way. Each kit is written as in `game.config.ts`: `{ "id": "ice", "name": "Ice", "refill": "round", "items": [{ "item": "minecraft:snowball", "count": 16 }] }`. The map editor keeps it as written; there's no screen for it yet. A game whose kits are the same on every map (`kits.mapKits: false`, Siege) refuses a map's own. |
 | `build.commands` | no | Console commands (no leading `/`) that build the world, run once by `npm run bake`. |
 | `gameThumbnail` | no | Games only: `true` marks a map made for taking its game's picture (a minigame thumbnail map, the Panel's map viewer's Map settings): the Panel's Maps page and viewer show the game's picture for it, and the viewer can publish that picture alone (`docs/viewer.md`, "Pictures"). Servers never get it. |
@@ -175,7 +175,7 @@ regions: { kill: { label: "Kill region" } },
 adjustable: { killY: { off: true }, "regions.kill": { min: 1, max: 3 } },
 ```
 
-A map makes its choices in the Panel's map viewer (Map settings, Requirements; game Edit has no
+A map makes its choices in the Panel's map viewer (Map settings, Checklist Features; game Edit has no
 screen for them), kept in `map.json` as `"requirements"`, and its checklist follows: a row turned
 off goes, a count set replaces the game's. The build checks each key names a row, a range holds
 the game's own count, and a borrowing game counts on a lender's row only down to the fewest a

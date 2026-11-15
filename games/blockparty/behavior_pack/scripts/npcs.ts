@@ -7,9 +7,10 @@
 //
 // From the user's first look: a looping pose (the Enderman's, the raised arms) is held until Stop,
 // since a loop "finishes" at once; the Iron Golem and the Zombie hit with the pack's own swings
-// (vanilla's attacks run on variables only the mob's AI sets); and the Referee cheers with both arms
-// high, the pack's own animation, switched on by a property that also shows its arms (a Vindicator
-// keeps them crossed unless it's angry or celebrating).
+// (vanilla's attacks run on variables only the mob's AI sets). The Referee celebrates with vanilla's
+// celebrating animation, switched on by a property that also shows its separate arms (a Vindicator
+// keeps them crossed unless it's angry or celebrating), and raises its crossed arms high with the
+// pack's own (the mirror of their usual tilt, held).
 import type { Dimension, Entity, Player } from "@minecraft/server";
 import { ActionFormData } from "@minecraft/server-ui";
 import { describeError, showForm, type Scope } from "@minecade/minigame-core";
@@ -57,7 +58,15 @@ export const NPC_ROLES: readonly NpcRole[] = [
   },
   { id: "witch", name: "Witch", role: "Hosts Chance Time", animations: [] },
   { id: "wandering_trader", name: "Wandering Trader", role: "Trades rare items for a round", animations: [{ label: "Raise arms", animation: "animation.villager.raise_arms", hold: true }] },
-  { id: "referee", name: "Referee", role: "Announces duels, takes bets", animations: [{ label: "Cheer, arms up high", property: "blockparty:cheer", hold: true }] },
+  {
+    id: "referee",
+    name: "Referee",
+    role: "Announces duels, takes bets",
+    animations: [
+      { label: "Celebrate", property: "blockparty:cheer", hold: true },
+      { label: "Raise arms high", animation: "animation.blockparty.referee_raise", hold: true },
+    ],
+  },
   {
     id: "warden",
     name: "Warden",
