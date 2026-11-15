@@ -1,0 +1,17 @@
+{
+  "format_version": 2,
+  "header": {
+    "name": "Minecade Block Party",
+    "description": "Block Party's NPCs (on the vanilla mobs' models), the pieces' walk and the restyled hotbar",
+    "uuid": "ea8e5895-c030-4a85-8474-2f5f935cf335",
+    "version": [1, 0, 0],
+    "min_engine_version": [1, 26, 60]
+  },
+  "modules": [
+    {
+      "type": "resources",
+      "uuid": "46c87e96-bf42-4060-9887-8fb8d0ffb516",
+      "version": [1, 0, 0]
+    }
+  ]
+}

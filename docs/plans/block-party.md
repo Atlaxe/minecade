@@ -1,6 +1,6 @@
 # Block Party (plan)
 
-**Status:** design, 2026-11-14. Nothing is built yet. This plan combines the user's Block Party plan
+**Status:** design, 2026-11-14. The spike (step 1 of "Suggested order") was built on 2026-11-15 as a test game, `games/blockparty`; what it found, and what is still to be seen in game, is in `docs/spike-results.md`, "Block Party". This plan combines the user's Block Party plan
 with the minigame list from their first draft, their follow-up numbers (the shop, the Witch's
 reroll, the Wandering Trader, the Happening table, 1v3 payouts, Star prices) and the map design
 worked out with them. The same day the user answered the first open questions: 2-4 players, a

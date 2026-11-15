@@ -1,0 +1,85 @@
+{
+  "format_version": "1.8.0",
+  "render_controllers": {
+    "controller.render.blockparty.villager_base": {
+      "geometry": "Geometry.default",
+      "materials": [
+        {
+          "*": "Material.default"
+        }
+      ],
+      "textures": [
+        "Texture.base"
+      ]
+    },
+    "controller.render.blockparty.villager_masked": {
+      "arrays": {
+        "textures": {
+          "Array.biomes": [
+            "Texture.plains",
+            "Texture.desert",
+            "Texture.jungle",
+            "Texture.savanna",
+            "Texture.snow",
+            "Texture.swamp",
+            "Texture.taiga"
+          ],
+          "Array.professions": [
+            "Texture.unskilled",
+            "Texture.farmer",
+            "Texture.fisherman",
+            "Texture.shepherd",
+            "Texture.fletcher",
+            "Texture.librarian",
+            "Texture.cartographer",
+            "Texture.cleric",
+            "Texture.armorer",
+            "Texture.weapon_smith",
+            "Texture.tool_smith",
+            "Texture.butcher",
+            "Texture.leatherworker",
+            "Texture.stonemason",
+            "Texture.nitwit"
+          ]
+        }
+      },
+      "geometry": "Geometry.default",
+      "materials": [
+        {
+          "*": "v.profession_index == 0 ? Material.default : Material.masked"
+        }
+      ],
+      "textures": [
+        "Array.biomes[v.biome_index]",
+        "Array.professions[v.profession_index]"
+      ]
+    },
+    "controller.render.blockparty.villager_level": {
+      "arrays": {
+        "textures": {
+          "Array.levels": [
+            "Texture.level_stone",
+            "Texture.level_iron",
+            "Texture.level_gold",
+            "Texture.level_emerald",
+            "Texture.level_diamond"
+          ]
+        }
+      },
+      "geometry": "Geometry.default",
+      "part_visibility": [
+        {
+          "*": "v.profession_index != 0 && v.profession_index != 14"
+        }
+      ],
+      "materials": [
+        {
+          "*": "Material.default"
+        }
+      ],
+      "textures": [
+        "Array.levels[v.level_index]"
+      ]
+    }
+  }
+}

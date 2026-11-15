@@ -1,0 +1,15 @@
+{
+  "format_version": 2,
+  "header": {
+    "name": "Minecade Block Party Arena Check",
+    "description": "Spike: a minigame's arena from another map, placed from a behavior pack's structures folder",
+    "uuid": "8f2b6d1e-4a7c-4e39-b1d5-6c0e9a3f7b42",
+    "version": [1, 0, 0],
+    "min_engine_version": [1, 26, 60]
+  },
+  "modules": [
+    { "type": "data", "uuid": "2c9e4f71-b6a3-4d58-8e1f-0a7d3c5b9e63", "version": [1, 0, 0] },
+    { "type": "script", "language": "javascript", "uuid": "d47a1c3e-9b2f-4f6a-a8e5-3b1c7d9f2e84", "version": [1, 0, 0], "entry": "scripts/main.js" }
+  ],
+  "dependencies": [{ "module_name": "@minecraft/server", "version": "2.11.0" }]
+}

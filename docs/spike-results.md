@@ -406,3 +406,52 @@ bytes, indices 32-bit where a region passes 65,535 vertices.
 | Height maps | Data3D's 256 heights are `[z * 16 + x]`, each the top block's y + 65. **They can't be used for the picture:** right in 99.5% of Temples' columns (saved by BDS), 89% of the Showroom's (a custom block on top is often left out), and almost none in converted worlds: Datapacking 24k of 2.6 million columns, Minecade Maps 0 of 155k, Bikini Bottom 15k of 698k. |
 | Top-down scan | Each chunk's sub-chunks from the highest down, all-air ones skipped by their palette, until all 256 columns have a top: right in every column of all four worlds checked. Datapacking (5.7 MB of db, 1808x1712 columns): 1.2 s, of which reading 0.75 s, decoding 12k of 247k sub-chunks. Minecade Maps (4.0 MB, 1424x1552): 1.0 s. Reading only the height maps would save little (0.5 s and 0.4 s), since reading the tables is most of it. |
 | Old names | Older converted worlds can hold old block names (Bikini Bottom's `minecraft:grass`, `concretePowder`), which the game upgrades when it loads them (not checked here). Map worlds have been through BDS, so mostly Select's picture meets them: an unknown name there gets a plain color. |
+
+## Block Party (BDS 1.26.60.6, @minecraft/server 2.11.0, checked 2026-11-15)
+
+The plan's spike (docs/plans/block-party.md, "Suggested order" 1). Two parts ran headless, on
+throwaway servers with no published ports: `npx tsx spike/blockparty/run.ts [<game> <map>]` (an
+arena from another map) and `npx tsx spike/blockparty/pieces.ts [--players <pack>]` (the game's
+entities, the mount, pushes, the camera calls and the players pack, with SimulatedPlayers). The rest
+needs a client: the Block Party test game (`games/blockparty`, listed while `DEV_TEST_GAMES` is 1)
+has a Tests menu for it, and its rows below say "Not yet seen".
+
+### Arenas from another map
+
+| Question | Finding |
+|---|---|
+| Writing an arena with no server | `spike/blockparty/mcstructure.ts` reads a box straight out of a published world's LevelDB and writes a .mcstructure file: every block's palette index in two layers (blocks, then water in waterlogged ones), the palette entries exactly as the world stored them (name, states, version), and the block entities by index. 47 to 149 ms an arena; 0.4 MB (55 x 19 x 35) to 6.6 MB (128 x 45 x 127). |
+| Loading one | A file in a behavior pack's `structures/minecade/` is `minecade:<file name>` to `structureManager.get` and `place`, with its size. `getWorldStructureIds` doesn't list it. |
+| Size | A 130 x 8 x 130 test pattern in one file loaded and placed whole, every block right: a pack's structure isn't held to the 64 a script can save at once (`createFromWorld`). |
+| Exactness | Sumo's Sinkhole (64 x 163 x 64, 667,648 blocks) placed 3000 blocks east matched the original in every block (type, states, water). Gunfight's KGB (55 x 19 x 35, 141 block entities): one block differed, a button on the box's edge whose block was outside the box (it dropped off); the chests came with their contents. Chameleon's Depot (128 x 45 x 127, 2,954 block entities; its 51 signs kept their text): 1,239 differed, all of them blocks vanilla's rules don't allow, which the map's world only kept because nothing had updated them: 1,216 farmland under a full block (dirt now), 19 lower halves of large ferns with no top and a flower (gone), and 3 walls and a fence (connection states, worked out live). A second placement changed none of them. |
+| Time | One `place` call: 43 ms for KGB, 608 to 676 ms for Sinkhole and Depot, about 210 ms for the 130 x 8 x 130, all in one tick, so the server stalls that long. A ticking area over far void chunks loaded in 3 to 4 ticks. |
+| Ticking chunks | Depot and its copy together held 136 of the 300. |
+
+What this means for pass 5 (proposed): the map store's export can write each published arena as a
+.mcstructure with no server, and a board's server can get them in a behavior pack's structures
+folder (copied in at container start from `/maps`, so a new arena needs no build). The game places
+an arena behind a fade, and an arena box has to hold whatever its attached blocks hang on.
+
+### The game's entities, the mount, pushes and the camera calls (server side)
+
+| Question | Finding |
+|---|---|
+| The entities | All 13 (the ten NPCs, the label, the mount, the stand-in) load and spawn with no content log errors. A property set with `setProperty` reads back from the next tick. |
+| The mount | `addRider` puts the player on seat 0 and the label on seat 1. Teleported 0.4 blocks a tick for a second, the mount carries both: the player 0.4 under the seat, the label 2.4 over the mount, and the player never falls off. Gliding (`clearVelocity`, then `applyImpulse` of the gap to the next point, each tick), it lands on the point every tick (worst miss 0). |
+| A locked player | With lateral movement off, `applyKnockback` still moves a player: asked for 0.4 blocks a tick, a SimulatedPlayer averaged 0.55. Teleporting each tick is exact. A real client runs its own player's physics, so how a push looks is for the game test. |
+| The jump button | A SimulatedPlayer's `jump()` fires no `playerButtonInput` (simulated players send no input): only a client can answer it. |
+| The camera on a player | `setCamera("minecraft:free")` eased or with `facingEntity`, `playAnimation` on a CatmullRom spline, `fade`, `attachToEntity` (a mount, and even a player) and `clear`: none throws. |
+| The players pack | Vanilla's player is already rideable, by tame parrots only (two shoulder seats that pull parrots in). With its `player.json` given one seat over the head for players (no pulling in) and `minecraft:leashable` (the workshop's block-party-players, installed in `games/blockparty/private_packs/players/`), `addRider` puts a player on another's head (1.67 over their feet) and they move together, and `leashTo` ties a player to another's lead: the follower is pulled once the gap reaches 5 blocks (the hard distance) and keeps about 5.9 behind. |
+
+### In game
+
+| Check | Finding |
+|---|---|
+| The pieces' walk | Not yet seen. Piece settings: the player moved by teleport or by pushes (vanilla's own walk plays with pushes), the player on the mount (teleport or glide), or the Steve stand-in (teleport or glide); each walk says in chat how long it took and how far off the spot it ended. Which looks smooth to the walker and to others, and whether the pack's walk animation (`animation.blockparty.walk`, played with `playAnimation`) shows on a player and overrides the riding pose. |
+| Names | Not yet seen: the label over each piece, the player's own tag hidden, and whether the owner sees their own label (and their own tag, with the label off) through the scripted camera. |
+| The cameras | Not yet seen: eased moves of seven kinds, flyovers on a CatmullRom and a linear spline, private shots, fades, cuts, shot and reverse shot with Chris, an orbit, a shake; the chase camera, the Watch camera (`facingEntity`: does it follow?) and the camera attached to the mount or stand-in during a walk; everyone jumping to skip. |
+| The jump button | Not yet seen: whether a jump reaches the script with lateral movement off, with movement off, with movement and jumping off, under a scripted camera, and riding the mount (the Jump test reports each). Roll: a die over your head, hit it by jumping, and your piece walks the number. |
+| The hotbar | Not yet seen: the restyled slots and gold frame (`resource_pack/ui/hud_screen.json`, JSON UI modifications of vanilla's controls), whether scrolling, number keys and tapping still pick a slot, and the selected item's name and what it does over the bar. |
+| The NPCs | Not yet seen: each on its vanilla model, standing still; the Warden's roar and sonic boom, the Allay's dance and the others from its menu (hit it); Chris's pig variants and the Villager's biome, profession and level. |
+| An arena in game | Not yet seen: an arena installed by `spike/blockparty/arena-pack.ts` (the private arenas pack) placed east of the board behind a fade, how long the stall feels, and Place it again putting it back whole. |
+| Riding and leads | Not yet seen (two players): riding another player (the players pack), riding a seat that follows them (no pack: a mount teleported over their head each tick), and a lead between players. |

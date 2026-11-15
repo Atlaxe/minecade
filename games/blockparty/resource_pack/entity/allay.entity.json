@@ -1,0 +1,30 @@
+{
+  "format_version": "1.10.0",
+  "minecraft:client_entity": {
+    "description": {
+      "identifier": "blockparty:allay",
+      "materials": {
+        "default": "allay"
+      },
+      "textures": {
+        "default": "textures/entity/allay/allay"
+      },
+      "geometry": {
+        "default": "geometry.allay"
+      },
+      "render_controllers": [
+        "controller.render.allay"
+      ],
+      "animations": {
+        "idle": "animation.allay.idle",
+        "look_at_target": "animation.allay.look_at_target.default"
+      },
+      "scripts": {
+        "animate": [
+          "idle",
+          "look_at_target"
+        ]
+      }
+    }
+  }
+}

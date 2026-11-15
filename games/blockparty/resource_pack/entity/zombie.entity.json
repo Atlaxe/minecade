@@ -1,0 +1,36 @@
+{
+  "format_version": "1.10.0",
+  "minecraft:client_entity": {
+    "description": {
+      "identifier": "blockparty:zombie",
+      "materials": {
+        "default": "zombie"
+      },
+      "textures": {
+        "default": "textures/entity/zombie/zombie",
+        "baby": "textures/entity/zombie/zombie_baby"
+      },
+      "geometry": {
+        "default": "geometry.zombie.v1.8",
+        "baby": "geometry.zombie.baby"
+      },
+      "render_controllers": [
+        "controller.render.zombie.v2"
+      ],
+      "animations": {
+        "look_at_target": "animation.humanoid.look_at_target.default",
+        "arms": "animation.zombie.attack_bare_hand"
+      },
+      "scripts": {
+        "pre_animation": [
+          "v.attack_time = 0.0;",
+          "v.is_brandishing_spear = 0.0;"
+        ],
+        "animate": [
+          "look_at_target",
+          "arms"
+        ]
+      }
+    }
+  }
+}

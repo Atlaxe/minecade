@@ -1,0 +1,33 @@
+{
+  "format_version": "1.10.0",
+  "minecraft:client_entity": {
+    "description": {
+      "identifier": "blockparty:enderman",
+      "materials": {
+        "default": "enderman",
+        "invisible": "enderman_invisible"
+      },
+      "textures": {
+        "default": "textures/entity/enderman/enderman"
+      },
+      "geometry": {
+        "default": "geometry.enderman.v1.8"
+      },
+      "render_controllers": [
+        "controller.render.enderman"
+      ],
+      "animations": {
+        "look_at_target": "animation.humanoid.look_at_target.default",
+        "base_pose": "animation.enderman.base_pose",
+        "arms_legs": "animation.enderman.arms_legs"
+      },
+      "scripts": {
+        "animate": [
+          "look_at_target",
+          "base_pose",
+          "arms_legs"
+        ]
+      }
+    }
+  }
+}

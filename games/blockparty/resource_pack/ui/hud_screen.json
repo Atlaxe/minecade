@@ -1,0 +1,83 @@
+{
+  "namespace": "hud",
+
+  // Block Party's hotbar (the plan's "Turns and controls"): vanilla's hotbar restyled, not hidden
+  // and replaced, so scrolling, number keys, a controller's bumpers and tapping a slot on a touch
+  // screen all still pick a slot. Each slot gets the game's tile (textures/blockparty/hud/slot,
+  // drawn by tools/assets/blockparty-hud.py) in place of vanilla's gray slot art, the selected slot a
+  // gold frame, and the selected item's name and what it does (its lore) show over the bar and stay.
+  // Only Block Party's servers load this pack. The core pack changes item_name_text_root (one line
+  // for the vanilla popup), never these controls; each change below is a modification of vanilla's
+  // own definition rather than a copy of it.
+
+  // Vanilla's gray slots: the desktop bar draws them in one piece behind the grid, the touch bar
+  // one a slot; and the caps at the bar's ends.
+  "hotbar_slots_renderer": { "ignored": true },
+  "hotbar_renderer": { "ignored": true },
+  "hotbar_start_cap": { "ignored": true },
+  "hotbar_end_cap": { "ignored": true },
+
+  "hotbar_slot_selected_image": {
+    "texture": "textures/blockparty/hud/selected",
+    "size": [ 24, 24 ]
+  },
+
+  "gui_hotbar_grid_item": {
+    "modifications": [
+      { "array_name": "controls", "operation": "insert_front", "value": [ { "bp_slot@hud.bp_slot": {} } ] }
+    ]
+  },
+  "gui_hotbar_grid_item_pocket": {
+    "modifications": [
+      { "array_name": "controls", "operation": "insert_front", "value": [ { "bp_slot@hud.bp_slot": { "size": [ "100%", "100%" ] } } ] }
+    ]
+  },
+
+  // The name and what it does, over the bar: a zero-size anchor keeps the label from widening the
+  // grid, so the slots never move.
+  "hotbar_grid_frame": {
+    "modifications": [
+      { "array_name": "controls", "operation": "insert_back", "value": [ { "bp_item_text_anchor@hud.bp_item_text_anchor": {} } ] }
+    ]
+  },
+
+  "bp_slot": {
+    "type": "image",
+    "texture": "textures/blockparty/hud/slot",
+    "size": [ 20, 22 ],
+    "layer": 1
+  },
+
+  "bp_item_text_anchor": {
+    "type": "panel",
+    "size": [ 0, 0 ],
+    "anchor_from": "top_middle",
+    "anchor_to": "top_middle",
+    "controls": [ { "bp_item_text@hud.bp_item_text": {} } ]
+  },
+
+  "bp_item_text": {
+    "type": "panel",
+    "size": [ "100%c", 20 ],
+    "anchor_from": "top_middle",
+    "anchor_to": "bottom_middle",
+    "offset": [ 0, -4 ],
+    "clips_children": true,
+    "controls": [
+      {
+        "bp_item_text_label": {
+          "type": "label",
+          "anchor_from": "top_middle",
+          "anchor_to": "top_middle",
+          "max_size": [ 260, "default" ],
+          "text_alignment": "center",
+          "color": [ 1.0, 0.95, 0.75 ],
+          "shadow": true,
+          "layer": 31,
+          "text": "#item_text",
+          "bindings": [ { "binding_name": "#item_text" } ]
+        }
+      }
+    ]
+  }
+}

@@ -1,0 +1,31 @@
+{
+  "format_version": "1.10.0",
+  "minecraft:client_entity": {
+    "description": {
+      "identifier": "blockparty:referee",
+      "materials": {
+        "default": "vindicator"
+      },
+      "textures": {
+        "default": "textures/entity/vindicator"
+      },
+      "geometry": {
+        "default": "geometry.vindicator.v1.8"
+      },
+      "render_controllers": [
+        "controller.render.vindicator"
+      ],
+      "animations": {
+        "base": "animation.vindicator.base",
+        "look_at_target": "animation.humanoid.look_at_target.default"
+      },
+      "scripts": {
+        "scale": "0.9375",
+        "animate": [
+          "base",
+          "look_at_target"
+        ]
+      }
+    }
+  }
+}

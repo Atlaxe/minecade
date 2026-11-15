@@ -1,0 +1,27 @@
+{
+  "format_version": "1.8.0",
+  "animations": {
+    "animation.blockparty.walk": {
+      "loop": true,
+      "bones": {
+        "rightleg": { "rotation": ["-this + 38.0 * math.sin(q.life_time * 760.0)", "-this", "-this"] },
+        "leftleg": { "rotation": ["-this - 38.0 * math.sin(q.life_time * 760.0)", "-this", "-this"] },
+        "rightarm": { "rotation": ["-this - 32.0 * math.sin(q.life_time * 760.0)", "-this", "-this + 4.0"] },
+        "leftarm": { "rotation": ["-this + 32.0 * math.sin(q.life_time * 760.0)", "-this", "-this - 4.0"] }
+      }
+    },
+    "animation.blockparty.stand": {
+      "loop": true,
+      "bones": {
+        "rightleg": { "rotation": ["-this", "-this", "-this"] },
+        "leftleg": { "rotation": ["-this", "-this", "-this"] },
+        "rightarm": { "rotation": ["-this", "-this", "-this + 4.0"] },
+        "leftarm": { "rotation": ["-this", "-this", "-this - 4.0"] }
+      }
+    },
+    "animation.blockparty.rest": {
+      "animation_length": 0.05,
+      "bones": {}
+    }
+  }
+}

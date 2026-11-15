@@ -32,6 +32,7 @@ Everything runs on the official Bedrock Dedicated Server (BDS) with TypeScript b
 | Gunfight | 2-4 | Two teams, one life a round, everyone with the same guns: each round deals everyone the same primary, secondary and grenade from the arsenal (real guns, grenades, a throwing knife, a one-hit crossbow and netherite sword) and a stimpack, and the teams take each other's spawns every other round. The last team standing takes a round. When a round's 4 minutes run out, a circle comes up around the map's flag for 20 seconds: a team alone in it for 5 seconds takes the round, else more health left, then more damage dealt. First to 5 rounds (best of 10). It plays Siege's maps (each with a flag), so it shows in the lobby once Siege has one. |
 | Gun Game | 2-8 | Free for all up a ladder of weapons: everyone starts on the Pistol, each kill with the weapon you're on moves you to the next (SMG, Assault Rifle, Burst Rifle, Pump Shotgun, Double Barrel, Sniper Rifle, Rail Gun, RPG, Crossbow), and the first kill with the last, the Netherite Sword, wins (the lobby's Ladder: 11 weapons or 6). A melee death (four hits with a fist or a bashing gun) or dying by yourself puts you back one. Respawns are unlimited; when time runs out (10 minutes), the furthest up wins, then the most kills. It plays One in the Quiver's maps. |
 | Chameleon | 2-8 | Hide and seek where the hiders wear the blocks around them (the hiders' side is a private pack). One seeker (whoever takes it in the lobby's team form, else dealt) waits blinded while everyone else hides, then hunts them with a shotgun that never runs out and a Detector that says how near the nearest hider is. Everyone found joins the seekers; the seekers win by finding everyone, the hiders by lasting the 5 minutes. |
+| Block Party | 2-4 | A board game with minigames between turns, being built from its plan (docs/plans/block-party.md). For now it's the plan's spike, a test game the lobby lists only while `DEV_TEST_GAMES=1`, on Probe's map: a 12-space test board with a piece for each player, and a Tests menu (the compass in the last slot) that walks the pieces three ways, plays camera shots, reports every jump, rolls a die you hit by jumping, puts the NPCs out on the vanilla mobs' models, places arenas from other maps beside the board, and tries a player riding a player or on a lead. docs/spike-results.md, "Block Party", says what each found. |
 | Probe | 2-8 | A short test game on two teams that exercises the whole flow, team picks in the lobby included. The lobby lists it only while `DEV_TEST_GAMES=1`. Set `DEV_MIN_PLAYERS=1` to play it alone. |
 
 More games are planned (Arena, Search and Destroy, Microbattles, Build Battle,
@@ -70,7 +71,7 @@ Prophunt, Zombies, Hide and Seek, Block Drop). See [Adding a game](#adding-a-gam
    | `LOBBY_MAP` | Empty normally (the `spaceship` lobby). The id of another published lobby map to use it as the lobby; the Panel has a picker on the Servers page. Restart the network to apply. |
    | `MAP_STORE` | Empty normally: the maps are kept in `maps` beside the checkout (`C:\dev\minecade\maps`). A folder to keep them in instead (docs/maps.md, "The map store"). |
    | `DEV_MIN_PLAYERS` | Empty normally. `1` lets every game start with one player, for testing alone. |
-   | `DEV_TEST_GAMES` | Empty normally, which hides the test game (Probe) from the lobby. `1` lists it. |
+   | `DEV_TEST_GAMES` | Empty normally, which hides the test games (Probe, and Block Party while it's a spike) from the lobby. `1` lists them. |
    | `DEV_HOLO_PREVIEW` | Empty normally. `1` adds a Preview button to the terminal's main menu: pick a hologram screen, and it stays up with sample data until you tap the terminal again, so you can look at it without a form in the way. |
    | `DEV_DEMO_GAMES` | Empty normally. A number (up to 12) adds that many made-up games to the lobby's menus, for testing how they look with more games. They can't be started. |
    | `DEV_DEMO_STATS` | Empty normally. `1` fills the lobby's stats screens with made-up players and matches, kept in memory only, for testing alone. The real stats database isn't read or changed while it's on. |
@@ -319,7 +320,7 @@ packs/blocks/             the shared blocks pack every server loads (custom bloc
 packs/guns/               the shared guns pack every server loads (guns, paint balls, pickups)
 packs/armor/              the shared armor pack every server loads (leather in 16 dyes; the build writes it)
 games/<id>/               one folder per game: game.config.ts, behavior_pack/, test/ (its maps are in the map store, docs/maps.md),
-                          and private_packs/ for packs from outside the repo, git-ignored (the chameleon pack, for Chameleon and Probe)
+                          and private_packs/ for packs from outside the repo, git-ignored (the chameleon pack, for Chameleon and Probe; Block Party's arenas and players packs)
 orchestrator/             the session manager, transport links, stats store, debug API
 watcher/                  the skin watcher (a bot in the lobby that saves players' skins)
 tools/build/              build, bake and console tools

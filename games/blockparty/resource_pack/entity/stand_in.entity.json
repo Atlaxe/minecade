@@ -1,0 +1,31 @@
+{
+  "format_version": "1.10.0",
+  "minecraft:client_entity": {
+    "description": {
+      "identifier": "blockparty:stand_in",
+      "materials": {
+        "default": "entity_alphatest"
+      },
+      "textures": {
+        "default": "textures/entity/steve"
+      },
+      "geometry": {
+        "default": "geometry.humanoid.custom"
+      },
+      "render_controllers": [
+        "controller.render.default"
+      ],
+      "animations": {
+        "look_at_target": "animation.humanoid.look_at_target.default",
+        "piece_walk": "animation.blockparty.walk",
+        "piece_stand": "animation.blockparty.stand",
+        "piece_rest": "animation.blockparty.rest"
+      },
+      "scripts": {
+        "animate": [
+          "look_at_target"
+        ]
+      }
+    }
+  }
+}
