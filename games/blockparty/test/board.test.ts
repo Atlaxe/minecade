@@ -1,7 +1,7 @@
 // The spike's test board and walk paths: the layout around the square, the route a roll takes, the
 // corners pieces share, and where a walk is along its path.
 import { describe, expect, it } from "vitest";
-import { along, angleGap, boardBox, distance, easedShare, pathOf, route, slowPoints, standAt, testSpaces, yawTo, type Vec3 } from "../behavior_pack/scripts/board.ts";
+import { along, angleGap, boardBox, distance, easedShare, mapSpaces, pathOf, route, slowPoints, standAt, testSpaces, yawTo, type Vec3 } from "../behavior_pack/scripts/board.ts";
 
 describe("the test board", () => {
   const spaces = testSpaces([0, 64, 48], 6);
@@ -94,5 +94,25 @@ describe("easing into corners", () => {
     expect(angleGap(170, -170)).toBe(20);
     expect(angleGap(-170, 170)).toBe(-20);
     expect(angleGap(0, 90)).toBe(90);
+  });
+});
+
+describe("a map's own spaces", () => {
+  const spaces = mapSpaces([
+    { id: 4, at: [10, 64, 0], type: "blue", next: [9] },
+    { id: 9, at: [10.3, 64, 5], next: [2, 4] },
+    { id: 2, at: [0, 64, 0], type: "start", next: [4] },
+  ]);
+
+  it("puts Start first, whole x and z at a block's middle, links as indices, and Blue for no type", () => {
+    expect(spaces.map((space) => [space.id, space.type, space.at, space.next])).toEqual([
+      [2, "start", [0.5, 64, 0.5], [1]],
+      [4, "blue", [10.5, 64, 0.5], [2]],
+      [9, "blue", [10.3, 64, 5.5], [0, 1]],
+    ]);
+  });
+
+  it("walks each space's first way on", () => {
+    expect(route(spaces, 0, 4).map((space) => space.id)).toEqual([4, 9, 2, 4]);
   });
 });

@@ -35,10 +35,10 @@ import {
   type Vector3,
 } from "@minecraft/server";
 import { ActionFormData, ModalFormData } from "@minecraft/server-ui";
-import { Minigame, describeError, draw, hudLine, log, say, showForm, type GameContext, type Result, type SpawnReason } from "@minecade/minigame-core";
+import { ARENA_SLOT, Minigame, describeError, draw, hudLine, log, say, showForm, spacesOf, type GameContext, type Result, type SpawnReason } from "@minecade/minigame-core";
 import registry from "#registry";
 import type config from "../../game.config.ts";
-import { boardBox, build, testSpaces, type Space, type Vec3 } from "./board.ts";
+import { boardBox, build, mapSpaces, testSpaces, type Space, type Vec3 } from "./board.ts";
 import { Npcs } from "./npcs.ts";
 import { DEFAULT_SETTINGS, Pieces, WALK_CAMERAS, lock, unlock, type PieceSettings } from "./pieces.ts";
 import { SHOTS, Shots, type ShotId } from "./shots.ts";
@@ -140,6 +140,10 @@ export class BlockPartySpike extends Minigame<Config> {
   /** Whether the test board's blocks are down: nobody is put on it before. */
   private boardReady = false;
   private slowLoads = false;
+  /** Whether the board is the map's own spaces (else the test board is laid beside Probe's platform). */
+  private ownBoard = false;
+  /** The board's middle: the test board's, or the middle of the map's spaces. */
+  private boardMiddle: Vec3 = [0, 64, 0];
   /** The tick each player last used a hotbar item: a click on a block and in the air both report. */
   private readonly lastUse = new Map<string, number>();
 
@@ -158,7 +162,7 @@ export class BlockPartySpike extends Minigame<Config> {
   }
 
   private get middle(): Vec3 {
-    return this.config.board.at;
+    return this.boardMiddle;
   }
 
   /** A test's result: in the player's chat, and in the server's log. */
@@ -173,7 +177,14 @@ export class BlockPartySpike extends Minigame<Config> {
   }
 
   protected override setup(): void {
-    this.spaces = testSpaces(this.middle, this.config.board.spacing);
+    const own = spacesOf(this.map.config);
+    this.ownBoard = own.length > 0;
+    this.spaces = this.ownBoard ? mapSpaces(own) : testSpaces(this.config.board.at, this.config.board.spacing);
+    if (this.ownBoard) {
+      const xs = this.spaces.map((space) => space.at[0]);
+      const zs = this.spaces.map((space) => space.at[2]);
+      this.boardMiddle = [(Math.min(...xs) + Math.max(...xs)) / 2, this.spaces[0].at[1], (Math.min(...zs) + Math.max(...zs)) / 2];
+    } else this.boardMiddle = this.config.board.at;
     const box = boardBox(this.spaces);
     const arenaBox = { min: [ARENA_AT[0] - 100, -64, ARENA_AT[2] - 100] as Vec3, max: [ARENA_AT[0] + 100, 319, ARENA_AT[2] + 100] as Vec3 };
     this.map.extendBounds([box, arenaBox]);
@@ -243,10 +254,13 @@ export class BlockPartySpike extends Minigame<Config> {
     const dimension = world.getDimension("overworld");
     try {
       await world.tickingAreaManager.createTickingArea(BOARD_AREA, { dimension, from: { x: box.min[0], y: box.min[1], z: box.min[2] }, to: { x: box.max[0], y: box.max[1], z: box.max[2] } });
-      build(dimension, this.spaces);
-      // A plaza in the middle for the NPCs.
-      const [mx, my, mz] = this.middle;
-      dimension.fillBlocks(new BlockVolume({ x: Math.floor(mx) - 6, y: my - 1, z: Math.floor(mz) - 6 }, { x: Math.floor(mx) + 6, y: my - 1, z: Math.floor(mz) + 6 }), "minecraft:smooth_stone");
+      // A map's own board keeps its paths; only the spaces' blocks are laid.
+      build(dimension, this.spaces, !this.ownBoard);
+      if (!this.ownBoard) {
+        // A plaza in the middle for the NPCs.
+        const [mx, my, mz] = this.middle;
+        dimension.fillBlocks(new BlockVolume({ x: Math.floor(mx) - 6, y: my - 1, z: Math.floor(mz) - 6 }, { x: Math.floor(mx) + 6, y: my - 1, z: Math.floor(mz) + 6 }), "minecraft:smooth_stone");
+      }
     } catch (error) {
       log.warn(`blockparty: laying the test board failed: ${describeError(error)}`);
       this.everyone(`Laying the test board failed: ${describeError(error)}`);
@@ -641,7 +655,10 @@ export class BlockPartySpike extends Minigame<Config> {
     if (!structure) return;
     const size = structure.size;
     const dimension = world.getDimension("overworld");
-    const min = { x: ARENA_AT[0] - Math.floor(size.x / 2), y: ARENA_AT[1], z: ARENA_AT[2] - Math.floor(size.z / 2) };
+    // The map's arena slot when it has one (the board's arena background), else far east of the board.
+    const slot = this.map.regions(ARENA_SLOT)[0];
+    const middle = slot ? { x: Math.floor((slot.min[0] + slot.max[0] + 1) / 2), y: slot.min[1], z: Math.floor((slot.min[2] + slot.max[2] + 1) / 2) } : { x: ARENA_AT[0], y: ARENA_AT[1], z: ARENA_AT[2] };
+    const min = { x: middle.x - Math.floor(size.x / 2), y: middle.y, z: middle.z - Math.floor(size.z / 2) };
     const max = { x: min.x + size.x - 1, y: min.y + size.y - 1, z: min.z + size.z - 1 };
     let report = "";
     await this.behindBlack(async (expectStall) => {
@@ -661,7 +678,7 @@ export class BlockPartySpike extends Minigame<Config> {
         this.pieces.release(player);
         player.teleport(spot);
       }
-      report = `Placed ${id} (${size.x} x ${size.y} x ${size.z}) at ${min.x}, ${min.y}, ${min.z}: its chunks loaded in ${loadTicks} ticks, the placing took ${ms} ms (about ${Math.round(expected)} expected).`;
+      report = `Placed ${id} (${size.x} x ${size.y} x ${size.z}) at ${min.x}, ${min.y}, ${min.z}${slot ? ` in the map's arena slot${size.x > 60 || size.z > 60 ? " (bigger than the slot)" : ""}` : ""}: its chunks loaded in ${loadTicks} ticks, the placing took ${ms} ms (about ${Math.round(expected)} expected).`;
     });
     this.everyone(`${report} Break something and Place it again: it comes back whole.`);
   }

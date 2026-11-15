@@ -1,6 +1,8 @@
 // A map's checklist in the map editor: each thing its game (or the lobby) needs, with how many the
 // map has, plus every problem the build would report. The editor pack shows it in game, the host
 // logs it, and the Panel mirrors it.
+import { checkBoard } from "./board/board-check.ts";
+import { spacesOf } from "./board/board-map.ts";
 import type { Box, BuildLimitSide, MapConfig } from "./map-config.ts";
 import { fitsSize, mapRequirements, type MapRequirement } from "./map-requirements.ts";
 import { mapWarnings, validateMapConfig, type MapRules } from "./map-validate.ts";
@@ -33,7 +35,11 @@ export function mapChecklist(config: MapConfig, rules: MapRules): Checklist {
     return { ...requirement, have, need, done: have >= need };
   });
   const problems = validateMapConfig(config, rules);
-  return { rows, problems, warnings: problems.length === 0 ? mapWarnings(config) : [], ready: problems.length === 0 };
+  // A board's warnings (/boardcheck's), while its spaces count (a map can turn them off).
+  const board = rules.requires?.board;
+  const spaces = spacesOf(config);
+  const boardWarnings = board && rows.some((row) => row.field === "spaces") && spaces.length > 0 ? checkBoard(spaces, board).warnings.map((warning) => warning.text) : [];
+  return { rows, problems, warnings: problems.length === 0 ? [...mapWarnings(config), ...boardWarnings] : [], ready: problems.length === 0 };
 }
 
 function count(config: MapConfig, requirement: MapRequirement): number {
@@ -50,6 +56,8 @@ function count(config: MapConfig, requirement: MapRequirement): number {
       return config.spectatorSpawn === undefined && config.queueSpawn === undefined ? 0 : 1;
     case "bounds":
       return Array.isArray(config.bounds) ? config.bounds.length : config.bounds === undefined ? 0 : 1;
+    case "spaces":
+      return spacesOf(config).length;
     case "teamSpawns":
       if (requirement.name === undefined) return isRecord(config.teamSpawns) ? Object.keys(config.teamSpawns).length : 0;
       return lengthOf(config.teamSpawns, requirement.name);

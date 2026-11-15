@@ -69,6 +69,15 @@ export function markupProblem(config: MapConfig, edit: MapEdit, rules: EditRules
       if (!["string", "number", "boolean"].includes(typeof old)) return `${edit.key} isn't one of this map's settings.`;
       return typeof edit.value === typeof old ? undefined : `${edit.key} is ${typeof old === "boolean" ? "true or false" : `a ${typeof old}`}.`;
     }
+    case "addSpace":
+    case "setSpace":
+      return edit.type === undefined ? (requires?.board ? undefined : "This game has no board.") : spaceTypeProblem(requires, edit.type);
+    case "retypeSpaces":
+      for (const type of Object.values(edit.types)) {
+        const problem = spaceTypeProblem(requires, type);
+        if (problem) return problem;
+      }
+      return undefined;
     case "requirement":
       return edit.value === undefined ? undefined : requirementProblem(requires, rules.kind === "lobby" ? "lobby" : "game", edit.key, edit.value);
     case "stars":
@@ -94,6 +103,13 @@ export function markupProblem(config: MapConfig, edit: MapEdit, rules: EditRules
       return undefined;
   }
 }
+/** Why a space can't be a type: the game's board doesn't have it (or the game has no board), or undefined. */
+export function spaceTypeProblem(requires: MapRequirementsConfig | undefined, type: string): string | undefined {
+  const board = requires?.board;
+  if (!board) return "This game has no board.";
+  return board.types.some((candidate) => candidate.id === type) ? undefined : `A space can't be "${type}": it's one of ${board.types.map((candidate) => candidate.name).join(", ")}.`;
+}
+
 /** Why a map can't make a requirement option choice (its game's map.adjustable decides), or undefined. */
 export function requirementProblem(requires: MapRequirementsConfig | undefined, kind: "lobby" | "game", key: string, value: false | number): string | undefined {
   const option = requirementOptions(requires, { kind }).find((candidate) => candidate.key === key);
@@ -104,6 +120,13 @@ export function requirementProblem(requires: MapRequirementsConfig | undefined, 
 }
 
 const NAME = /^[A-Za-z][A-Za-z0-9_]*(\.[A-Za-z0-9_-]+)?$/;
+const SPACE_TYPE = /^[a-z][a-z0-9_]*$/;
+/** The most spaces one Deal again can retype. */
+const MAX_SPACES = 500;
+
+function spaceId(value: unknown): boolean {
+  return Number.isInteger(value) && (value as number) >= 1;
+}
 const TEAM = /^[A-Za-z0-9_-]+$/;
 const MAX_BATCH = 64;
 
@@ -171,6 +194,26 @@ export function viewerEdit(value: unknown, depth = 0): MapEdit | string {
       return edit.value === undefined || edit.value === false || (Number.isInteger(edit.value) && (edit.value as number) >= 1 && (edit.value as number) <= 999)
         ? (edit as MapEdit)
         : "a requirement is off (false) or a count from 1";
+    case "addSpace":
+      if (!position(edit.at)) return "a space needs a position";
+      if (typeof edit.type !== "string" || !SPACE_TYPE.test(edit.type)) return "a space's type is a type id";
+      return edit.from === undefined || spaceId(edit.from) ? (edit as MapEdit) : "a space id is a whole number from 1";
+    case "moveSpace":
+      return spaceId(edit.id) && numbers(edit.at, 3) ? (edit as MapEdit) : "moving a space needs its id and x, y and z";
+    case "removeSpace":
+      return spaceId(edit.id) ? (edit as MapEdit) : "a space id is a whole number from 1";
+    case "linkSpace":
+    case "unlinkSpace":
+      return spaceId(edit.from) && spaceId(edit.to) ? (edit as MapEdit) : "a link is from one space id to another";
+    case "setSpace":
+      if (!spaceId(edit.id)) return "a space id is a whole number from 1";
+      if (edit.type !== undefined && (typeof edit.type !== "string" || !SPACE_TYPE.test(edit.type))) return "a space's type is a type id";
+      return ["locked", "star", "opening"].every((flag) => edit[flag] === undefined || typeof edit[flag] === "boolean") ? (edit as MapEdit) : "a space's flags are true or false";
+    case "retypeSpaces": {
+      const types = edit.types;
+      if (!isRecord(types) || Object.keys(types).length === 0 || Object.keys(types).length > MAX_SPACES) return `dealing again gives 1 to ${MAX_SPACES} spaces their types`;
+      return Object.entries(types).every(([id, type]) => spaceId(Number(id)) && typeof type === "string" && SPACE_TYPE.test(type)) ? (edit as MapEdit) : "dealing again maps space ids to type ids";
+    }
     case "stars":
       return typeof edit.on === "boolean" ? (edit as MapEdit) : "stars is true or false";
     case "gameThumbnail":

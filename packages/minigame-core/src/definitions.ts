@@ -110,6 +110,7 @@ export {
   boxSize,
   choiceProblem,
   choiceProblems,
+  fitsFootprint,
   fitsSize,
   hasCount,
   mapRequirements,
@@ -130,6 +131,28 @@ export {
 } from "./map-requirements.ts";
 export { mapWarnings, validateMapConfig, type MapRules } from "./map-validate.ts";
 export { ARENA_MAX_SIZE, ARENA_REGION, BUILD_AREA_MIN_SIZE, BUILD_PADDING, BUILDING_MAP, BUILDING_SETTINGS, PLOT_REGION, RETURN_DELAY } from "./building/building-map.ts";
+export {
+  ARENA_SLOT,
+  ARENA_SLOT_FOOTPRINT,
+  BLOCK_PARTY_BOARD,
+  MAX_EXITS,
+  addSpace,
+  linkSpaces,
+  moveSpace,
+  nextSpaceId,
+  removeSpace,
+  retypeSpaces,
+  setSpace,
+  spaceProblems,
+  spacesOf,
+  startType,
+  unlinkSpaces,
+  type BoardConfig,
+  type BoardRules,
+  type BoardSpace,
+  type BoardSpaceType,
+} from "./board/board-map.ts";
+export { boardLoop, checkBoard, dealAgain, dealType, reportLines, typeForNewSpace, type BoardFinding, type BoardReport } from "./board/board-check.ts";
 export { PROMPT_MAX_CHARS, cleanPrompt, dealPrompts, notTheirOwn, promptKey, promptReplyParts, type DealablePrompt, type MayHave, type PromptPiles } from "./prompts.ts";
 export {
   ConfigAssembler,

@@ -1,9 +1,11 @@
 // Checks for map.json files, shared by the build and the map editor (which shows the same
 // problems live). validateMapConfig returns a list of problems (empty when valid) so everything
 // is reported at once; mapWarnings lists things worth a look that don't stop a build.
+import { checkBoard } from "./board/board-check.ts";
+import { spaceProblems, spacesOf } from "./board/board-map.ts";
 import type { MapRequirementsConfig } from "./config.ts";
 import { BUILD_LIMIT_SIDES, MAP_TIMES, QUEUE_COUNTDOWN, QUEUE_MODES, enclosingBox, mapTimeTicks, type Box, type BuildLimitSide, type MapConfig, type MapPosition, type Vec3 } from "./map-config.ts";
-import { bigEnough, boxSize, choiceProblems, mapRequirements, mapSettings, settingFits, smallEnough, type MapRequirement } from "./map-requirements.ts";
+import { bigEnough, boxSize, choiceProblems, fitsFootprint, mapRequirements, mapSettings, settingFits, smallEnough, type MapRequirement } from "./map-requirements.ts";
 
 /** Bedrock overworld height limits. */
 const MIN_Y = -64;
@@ -76,6 +78,8 @@ export function validateMapConfig(raw: unknown, rules: MapRules): string[] {
   spawns.forEach((spawn, i) => isPosition(spawn) && points.push([`spawns[${i}]`, xyz(spawn)]));
   if (isPosition(map.spectatorSpawn)) points.push(["spectatorSpawn", xyz(map.spectatorSpawn)]);
   if (isPosition(map.queueSpawn)) points.push(["queueSpawn", xyz(map.queueSpawn)]);
+  problems.push(...spaceProblems(map.spaces, rules.requires?.board));
+  for (const space of spacesOf(map)) if (isPosition(space.at)) points.push([`space ${space.id}`, xyz(space.at)]);
   const teamIds = rules.teams?.map((team) => team.id);
   for (const [field, entries] of [
     ["teamSpawns", map.teamSpawns],
@@ -135,6 +139,12 @@ export function validateMapConfig(raw: unknown, rules: MapRules): string[] {
   }
 
   for (const requirement of requirements) problems.push(...missing(requirement, map, who, hasTeamSpawns));
+  // The board's errors (/boardcheck's), while its spaces count (a map can turn them off).
+  const board = rules.requires?.board;
+  const spaces = spacesOf(map);
+  if (board && spaces.length > 0 && requirements.some((requirement) => requirement.field === "spaces")) {
+    for (const error of checkBoard(spaces, board).errors) problems.push(error.spaces.length > 0 ? `${error.text} (space${error.spaces.length === 1 ? "" : "s"} ${error.spaces.slice(0, 6).join(", ")}${error.spaces.length > 6 ? ", ..." : ""})` : error.text);
+  }
 
   if (map.build !== undefined) {
     const commands = isRecord(map.build) ? map.build.commands : undefined;
@@ -199,6 +209,8 @@ function missing(requirement: MapRequirement, map: Partial<MapConfig>, who: stri
       return map.spectatorSpawn === undefined && map.queueSpawn === undefined ? [`${who} needs a "spectatorSpawn" or a "queueSpawn"`] : [];
     case "bounds":
       return map.bounds === undefined ? [`${who} needs "bounds"`] : [];
+    case "spaces":
+      return count("spaces", spacesOf(map).length, min, who);
     case "killY":
       return map.killY === undefined ? [`${who} needs "killY"`] : [];
     case "buildLimit":
@@ -217,6 +229,7 @@ function missing(requirement: MapRequirement, map: Partial<MapConfig>, who: stri
         const size = boxSize(box).join("x");
         if (!bigEnough(box, requirement.minSize)) return [`regions.${name}[${i}] is ${size}, smaller than ${requirement.minSize} on a side`];
         if (!smallEnough(box, requirement.maxSize)) return [`regions.${name}[${i}] is ${size}, bigger than ${requirement.maxSize} on a side`];
+        if (!fitsFootprint(box, requirement.footprint)) return [`regions.${name}[${i}] is ${size}; it must be ${requirement.footprint![0]} by ${requirement.footprint![1]} across`];
         return [];
       });
       const region = requirement.inside;

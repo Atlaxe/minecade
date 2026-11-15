@@ -1,6 +1,7 @@
 // A map's map.json. The build validates it, `npm run bake` builds the world from it, the map
 // editor writes it, and the runtime receives it (without the editor-only keys) as the mapConfig
 // server variable.
+import type { BoardSpace } from "./board/board-map.ts";
 import type { MapKitsConfig } from "./config.ts";
 
 export type Vec3 = [x: number, y: number, z: number];
@@ -233,6 +234,8 @@ export interface MapConfig {
   points?: Record<string, MapPosition[]>;
   /** Named areas, such as build plots or a floor; "<name>.<team>" for one team's; "kill" puts players out. */
   regions?: Record<string, Box[]>;
+  /** A board's spaces (the board kit; map.board in its game's config): each with an id, its position, the spaces it leads to, a type and flags. */
+  spaces?: BoardSpace[];
   /**
    * The map editor only: the map's own requirement options, for the rows its game lets a map change
    * (MapRequirementsConfig.adjustable): false turns a row off, a number is its count. Only what

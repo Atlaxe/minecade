@@ -1,35 +1,29 @@
-// The spike's test board: 12 spaces around a square, each a 3x3 pad of its type's block on a
-// 3-wide path, the way a real board's spaces will be laid in vanilla blocks at the start (the plan's
+// The spike's board: a map's own spaces (the board kit's, placed with the Spaces tool), or on a map
+// without any, a test board of 12 spaces around a square, each a 3x3 pad of its type's block on a
+// 3-wide path. Either way each space's type is laid in its vanilla block at the start (the plan's
 // "Building spaces"). Pure, apart from build(), so the tests can check the layout and the paths.
 import { BlockVolume, type Dimension } from "@minecraft/server";
+import { BLOCK_PARTY_BOARD, type BoardSpace } from "@minecade/minigame-core/config";
 
 export type Vec3 = [number, number, number];
 
-export type SpaceType = "start" | "blue" | "red" | "item" | "shop" | "chance" | "warden" | "versus" | "happening";
+/** Each type's block (the board kit's BLOCK_PARTY_BOARD): Start white concrete, Blue blue concrete, and so on. */
+export const SPACE_BLOCKS: Readonly<Record<string, string>> = Object.fromEntries(BLOCK_PARTY_BOARD.types.map((type) => [type.id, type.block]));
 
-/** Each type's block (the plan's proposal): Start white concrete, Blue blue concrete, and so on. */
-export const SPACE_BLOCKS: Record<SpaceType, string> = {
-  start: "minecraft:white_concrete",
-  blue: "minecraft:blue_concrete",
-  red: "minecraft:red_concrete",
-  item: "minecraft:gold_block",
-  shop: "minecraft:emerald_block",
-  chance: "minecraft:purple_concrete",
-  warden: "minecraft:sculk",
-  versus: "minecraft:orange_concrete",
-  happening: "minecraft:pink_concrete",
-};
-
-/** The 12 spaces' types, Start first, going around. */
-export const TEST_TYPES: readonly SpaceType[] = ["start", "blue", "blue", "item", "blue", "red", "chance", "blue", "warden", "shop", "versus", "happening"];
+/** The test board's 12 types, Start first, going around. */
+export const TEST_TYPES: readonly string[] = ["start", "blue", "blue", "item", "blue", "red", "chance", "blue", "warden", "shop", "versus", "happening"];
 
 export const PATH_BLOCK = "minecraft:smooth_stone";
 
 export interface Space {
   index: number;
-  type: SpaceType;
+  type: string;
   /** The middle of its pad, where a piece stands: x and z a block's middle, y the top of the pad. */
   at: Vec3;
+  /** The spaces it leads to, by index (a piece takes the first for now). */
+  next: number[];
+  /** Its id on the map (a map's spaces only). */
+  id?: number;
 }
 
 /**
@@ -45,13 +39,35 @@ export function testSpaces(middle: Vec3, spacing: number): Space[] {
     ...offsets.slice(0, 3).reverse().map((x): [number, number] => [x, offsets[3]]),
     ...offsets.slice(1, 3).reverse().map((z): [number, number] => [offsets[0], z]),
   ];
-  return ring.map(([dx, dz], index) => ({ index, type: TEST_TYPES[index % TEST_TYPES.length], at: [Math.floor(mx + dx) + 0.5, y, Math.floor(mz + dz) + 0.5] }));
+  return ring.map(([dx, dz], index) => ({ index, type: TEST_TYPES[index % TEST_TYPES.length], at: [Math.floor(mx + dx) + 0.5, y, Math.floor(mz + dz) + 0.5], next: [(index + 1) % ring.length] }));
 }
 
-/** The spaces a piece passes from `from`, `steps` ahead (the last is where it lands), around the loop. */
+/**
+ * A map's spaces as the spike's: in the map's order, Start first, each at its position (whole x and z
+ * are a block's middle, as map.json's positions are), its links as indices. A space without a type
+ * is Blue.
+ */
+export function mapSpaces(list: readonly BoardSpace[]): Space[] {
+  const ordered = [...list].sort((a, b) => (a.type === "start" ? -1 : b.type === "start" ? 1 : 0));
+  const index = new Map(ordered.map((space, i) => [space.id, i]));
+  const middle = (value: number) => (Number.isInteger(value) ? value + 0.5 : value);
+  return ordered.map((space, i) => ({
+    index: i,
+    id: space.id,
+    type: space.type ?? "blue",
+    at: [middle(space.at[0]), space.at[1], middle(space.at[2])],
+    next: (space.next ?? []).flatMap((id) => (index.has(id) ? [index.get(id)!] : [])),
+  }));
+}
+
+/** The spaces a piece passes from `from`, `steps` ahead (the last is where it lands), taking each space's first way on. */
 export function route(spaces: readonly Space[], from: number, steps: number): Space[] {
   const out: Space[] = [];
-  for (let step = 1; step <= steps; step++) out.push(spaces[(from + step) % spaces.length]);
+  let at = from;
+  for (let step = 1; step <= steps; step++) {
+    at = spaces[at].next[0] ?? at;
+    out.push(spaces[at]);
+  }
   return out;
 }
 
@@ -149,16 +165,21 @@ export function boardBox(spaces: readonly Space[]): { min: Vec3; max: Vec3 } {
 }
 
 /** Lays the board: a 3-wide path between neighbors, then each space's 3x3 pad, all at the pads' height. */
-export function build(dimension: Dimension, spaces: readonly Space[]): void {
-  const y = spaces[0].at[1] - 1;
+export function build(dimension: Dimension, spaces: readonly Space[], paths = true): void {
   const cell = (space: Space) => [Math.floor(space.at[0]), Math.floor(space.at[2])];
-  spaces.forEach((space, i) => {
-    const [ax, az] = cell(space);
-    const [bx, bz] = cell(spaces[(i + 1) % spaces.length]);
-    dimension.fillBlocks(new BlockVolume({ x: Math.min(ax, bx) - 1, y, z: Math.min(az, bz) - 1 }, { x: Math.max(ax, bx) + 1, y, z: Math.max(az, bz) + 1 }), PATH_BLOCK);
-  });
+  if (paths) {
+    const y = spaces[0].at[1] - 1;
+    spaces.forEach((space) => {
+      const [ax, az] = cell(space);
+      for (const next of space.next) {
+        const [bx, bz] = cell(spaces[next]);
+        dimension.fillBlocks(new BlockVolume({ x: Math.min(ax, bx) - 1, y, z: Math.min(az, bz) - 1 }, { x: Math.max(ax, bx) + 1, y, z: Math.max(az, bz) + 1 }), PATH_BLOCK);
+      }
+    });
+  }
   for (const space of spaces) {
     const [x, z] = cell(space);
-    dimension.fillBlocks(new BlockVolume({ x: x - 1, y, z: z - 1 }, { x: x + 1, y, z: z + 1 }), SPACE_BLOCKS[space.type]);
+    const y = Math.floor(space.at[1]) - 1;
+    dimension.fillBlocks(new BlockVolume({ x: x - 1, y, z: z - 1 }, { x: x + 1, y, z: z + 1 }), SPACE_BLOCKS[space.type] ?? SPACE_BLOCKS.blue);
   }
 }

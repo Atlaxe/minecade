@@ -4,7 +4,7 @@ import type { MapAdjustable, MapEntryRequirement, MapRequirementsConfig, MapSett
 import { BUILD_LIMIT_SIDES, teamKey, type Box, type BuildLimitSide, type MapConfig, type Vec3 } from "./map-config.ts";
 
 /** "spectatorOrQueue": a spectator spawn or a queue spawn, either one (games that name neither). */
-export type MapField = "spawns" | "spectatorSpawn" | "queueSpawn" | "spectatorOrQueue" | "bounds" | "killY" | "buildLimit" | "points" | "regions" | "teamSpawns";
+export type MapField = "spawns" | "spectatorSpawn" | "queueSpawn" | "spectatorOrQueue" | "bounds" | "killY" | "buildLimit" | "points" | "regions" | "teamSpawns" | "spaces";
 
 export interface MapRequirement {
   /** Where it lives in map.json, and a unique id: "spawns", "points.bombA", "regions.buyZone.red", "teamSpawns.red". */
@@ -26,6 +26,8 @@ export interface MapRequirement {
   maxSize?: number;
   /** Spawns and regions: the region every entry must be inside a box of. */
   inside?: string;
+  /** Regions only: exactly this many blocks across, x by z either way round. */
+  footprint?: [number, number];
   /**
    * When the game lets each map change the row (map.adjustable): the fewest entries one of its maps
    * can be left with, 0 when the row can be turned off. Rows that can't change have none: min.
@@ -48,9 +50,16 @@ export function smallEnough(box: Box, maxSize: number | undefined): boolean {
   return maxSize === undefined || boxSize(box).every((side) => side <= maxSize);
 }
 
-/** Whether a box fits a region requirement's sizes: big enough and small enough. */
-export function fitsSize(box: Box, requirement: { minSize?: number; maxSize?: number }): boolean {
-  return bigEnough(box, requirement.minSize) && smallEnough(box, requirement.maxSize);
+/** Whether a box is exactly a footprint across (x by z, either way round), or any box without one. */
+export function fitsFootprint(box: Box, footprint: readonly [number, number] | undefined): boolean {
+  if (!footprint) return true;
+  const [x, , z] = boxSize(box);
+  return (x === footprint[0] && z === footprint[1]) || (x === footprint[1] && z === footprint[0]);
+}
+
+/** Whether a box fits a region requirement's sizes: big enough, small enough, and its footprint. */
+export function fitsSize(box: Box, requirement: { minSize?: number; maxSize?: number; footprint?: readonly [number, number] }): boolean {
+  return bigEnough(box, requirement.minSize) && smallEnough(box, requirement.maxSize) && fitsFootprint(box, requirement.footprint);
 }
 
 /** The `minSize` a game asks of a region's boxes (`name` may be one team's "<name>.<team>"), if any. */
@@ -126,6 +135,7 @@ export function mapRequirements(map: MapRequirementsConfig | undefined, options:
               ...(entry.minSize !== undefined ? { minSize: entry.minSize } : {}),
               ...(entry.maxSize !== undefined ? { maxSize: entry.maxSize } : {}),
               ...(entry.inside !== undefined ? { inside: entry.inside } : {}),
+              ...(entry.footprint !== undefined ? { footprint: entry.footprint } : {}),
             }
           : {};
       if (entry.perTeam && teams.length > 0) {
@@ -138,6 +148,7 @@ export function mapRequirements(map: MapRequirementsConfig | undefined, options:
       }
     }
   }
+  if (map?.board) list.push({ key: "spaces", label: map.board.label ?? "Spaces", field: "spaces", min: map.board.minSpaces });
   const teamSpawns = map?.teamSpawns;
   if (teamSpawns) {
     const perTeam = typeof teamSpawns === "object" ? (teamSpawns.perTeam ?? 1) : 1;
@@ -163,7 +174,7 @@ export function optionKey(row: MapRequirement): string {
 
 /** Whether a row has a count a map can change: points, regions, team spawns, and spawns given as a number. */
 export function hasCount(row: MapRequirement): boolean {
-  return row.field === "points" || row.field === "regions" || row.field === "teamSpawns" || (row.field === "spawns" && !row.perPlayer);
+  return row.field === "points" || row.field === "regions" || row.field === "teamSpawns" || row.field === "spaces" || (row.field === "spawns" && !row.perPlayer);
 }
 
 /** A row a game lets each map change, and how (the Panel's Requirements group lists them). */
@@ -301,6 +312,7 @@ export function uncoveredRequirements(needs: readonly MapRequirement[], has: rea
     if ((own.floor ?? own.min) < needs) return true;
     if (need.inside !== undefined && own.inside !== need.inside) return true;
     if (need.maxSize !== undefined && (own.maxSize ?? Infinity) > need.maxSize) return true;
+    if (need.footprint !== undefined && (own.footprint === undefined || !fitsFootprint({ min: [0, 0, 0], max: [own.footprint[0] - 1, 0, own.footprint[1] - 1] }, need.footprint))) return true;
     return (need.minSize ?? 0) > (own.minSize ?? 0);
   });
 }

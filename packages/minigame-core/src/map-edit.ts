@@ -2,6 +2,7 @@
 // once) and its host tool (which applies the same change and writes the file). Each edit returns a
 // new config and never changes the old one; undo keeps the old configs. New keys go where a person
 // would write them (spawns near the top, build last), and lists or names left empty are removed.
+import { addSpace, linkSpaces, moveSpace, removeSpace, retypeSpaces, setSpace, spacesOf, unlinkSpaces, type BoardSpace } from "./board/board-map.ts";
 import { QUEUE_COUNTDOWN, boundsBoxes, mapTimeTicks, queueSettings, spectatorBoundsBoxes, type Box, type BuildLimitSide, type MapCamera, type MapMannequin, type Facing, type MapConfig, type MapPosition, type MapTime, type QueueSettings, type Vec3 } from "./map-config.ts";
 
 /** A list of positions in map.json. The spectator and queue spawns are lists of at most one. */
@@ -61,6 +62,18 @@ export type MapEdit =
   | { op: "requirement"; key: string; value?: false | number }
   /** Removes "build", so `npm run bake` no longer rebuilds the world (world edits are kept). */
   | { op: "dropBuild" }
+  /**
+   * A board's spaces (map.json "spaces", the Spaces tool): place one (its type dealt by the editor,
+   * linked from the previous space when given), move, remove (its links go too), link and unlink,
+   * change a space's type and flags, or give several new types at once (Deal again).
+   */
+  | { op: "addSpace"; at: MapPosition; type: string; from?: number }
+  | { op: "moveSpace"; id: number; at: Vec3 }
+  | { op: "removeSpace"; id: number }
+  | { op: "linkSpace"; from: number; to: number }
+  | { op: "unlinkSpace"; from: number; to: number }
+  | { op: "setSpace"; id: number; type?: string; locked?: boolean; star?: boolean; opening?: boolean }
+  | { op: "retypeSpaces"; types: Record<string, string> }
   /** Several edits as one change (one undo step). */
   | { op: "batch"; edits: MapEdit[] };
 
@@ -75,7 +88,7 @@ export function isMapKey(key: string): boolean {
 }
 
 /** Where new keys go, the order map.json files are written in. Unknown keys stay where they are. */
-const KEY_ORDER: readonly string[] = ["name", "draft", "spawns", "spectatorSpawn", "queueSpawn", "queue", "bounds", "spectatorBounds", "killY", "buildLimit", "teamSpawns", "points", "regions", "requirements", "time", "stars", "cameras", "mannequins", "mannequinsInPreview", "gameThumbnail", "source", "build"];
+const KEY_ORDER: readonly string[] = ["name", "draft", "spawns", "spectatorSpawn", "queueSpawn", "queue", "bounds", "spectatorBounds", "killY", "buildLimit", "teamSpawns", "points", "regions", "spaces", "requirements", "time", "stars", "cameras", "mannequins", "mannequinsInPreview", "gameThumbnail", "source", "build"];
 
 export function applyEdit(config: MapConfig, edit: MapEdit): MapConfig {
   switch (edit.op) {
@@ -168,6 +181,14 @@ export function applyEdit(config: MapConfig, edit: MapEdit): MapConfig {
     case "extra":
       if (isMapKey(edit.key) || !/^[A-Za-z][A-Za-z0-9_]*$/.test(edit.key)) throw new MapEditError(`"${edit.key}" is not a game setting`);
       return withKey(config, edit.key, edit.value);
+    case "addSpace":
+    case "moveSpace":
+    case "removeSpace":
+    case "linkSpace":
+    case "unlinkSpace":
+    case "setSpace":
+    case "retypeSpaces":
+      return withSpaces(config, spaceEdit(spacesOf(config), edit));
     case "requirement": {
       if (!REQUIREMENT_KEY.test(edit.key)) throw new MapEditError(`"${edit.key}" is not a checklist row`);
       if (edit.value !== undefined && edit.value !== false && !(Number.isInteger(edit.value) && edit.value >= 1)) throw new MapEditError("A requirement is off (false) or a count of at least 1");
@@ -246,6 +267,20 @@ export function describeEdit(edit: MapEdit): string {
       return `${edit.mannequin ? "set" : "remove"} mannequin ${edit.name}`;
     case "extra":
       return `set ${edit.key}`;
+    case "addSpace":
+      return edit.from === undefined ? `place a ${edit.type} space` : `place a ${edit.type} space after space ${edit.from}`;
+    case "moveSpace":
+      return `move space ${edit.id}`;
+    case "removeSpace":
+      return `remove space ${edit.id}`;
+    case "linkSpace":
+      return `link space ${edit.from} to space ${edit.to}`;
+    case "unlinkSpace":
+      return `unlink space ${edit.from} from space ${edit.to}`;
+    case "setSpace":
+      return `change space ${edit.id}`;
+    case "retypeSpaces":
+      return `deal ${Object.keys(edit.types).length} spaces again`;
     case "requirement":
       return edit.value === undefined ? `${edit.key} as the game asks` : edit.value === false ? `turn ${edit.key} off` : `ask for ${edit.value} ${edit.key}`;
     case "time":
@@ -337,6 +372,34 @@ function withEntry<T>(record: Record<string, T[]> | undefined, name: string, lis
  * Sets a top-level key in place, adds it in KEY_ORDER's place (a game's own keys go after the map
  * data, before the editor's), or removes it when `value` is undefined.
  */
+/** A spaces edit on the list (board-map.ts's errors as MapEditErrors). */
+function spaceEdit(spaces: BoardSpace[], edit: Extract<MapEdit, { op: "addSpace" | "moveSpace" | "removeSpace" | "linkSpace" | "unlinkSpace" | "setSpace" | "retypeSpaces" }>): BoardSpace[] {
+  try {
+    switch (edit.op) {
+      case "addSpace":
+        return addSpace(spaces, edit.at, edit.type, edit.from).spaces;
+      case "moveSpace":
+        return moveSpace(spaces, edit.id, edit.at);
+      case "removeSpace":
+        return removeSpace(spaces, edit.id);
+      case "linkSpace":
+        return linkSpaces(spaces, edit.from, edit.to);
+      case "unlinkSpace":
+        return unlinkSpaces(spaces, edit.from, edit.to);
+      case "setSpace":
+        return setSpace(spaces, edit.id, edit);
+      case "retypeSpaces":
+        return retypeSpaces(spaces, edit.types);
+    }
+  } catch (error) {
+    throw new MapEditError(error instanceof Error ? error.message : String(error));
+  }
+}
+
+function withSpaces(config: MapConfig, spaces: BoardSpace[]): MapConfig {
+  return withKey(config, "spaces", spaces.length > 0 ? spaces : undefined);
+}
+
 function withKey(config: MapConfig, key: string, value: unknown): MapConfig {
   const entries = Object.entries(config).filter(([existing]) => existing !== key || value !== undefined);
   if (value === undefined) return Object.fromEntries(entries) as MapConfig;

@@ -1,6 +1,7 @@
 // A game's definition, exported from games/<id>/game.config.ts. The build reads it to fill the
 // registry and check the game's maps; the game server reads it to run the match. Every field
 // beyond the basics is optional, with defaults that suit a free-for-all last-standing game.
+import type { BoardConfig } from "./board/board-map.ts";
 import type { DeathMessageConfig } from "./text.ts";
 
 export interface TeamDef {
@@ -321,6 +322,8 @@ export interface MapEntryRequirement {
   maxSize?: number;
   /** Regions only: every box must be inside a box of this region (Build Swap's build area, inside its arena). */
   inside?: string;
+  /** Regions only: exactly this many blocks across, x by z either way round, any height (Block Party's 40 x 60 arena slot). */
+  footprint?: [number, number];
 }
 
 /**
@@ -370,6 +373,12 @@ export interface MapRequirementsConfig {
    * allowed here. Rows left out are fixed.
    */
   adjustable?: Record<string, MapAdjustable>;
+  /**
+   * Spaces on a board (Block Party's boards, minigame-core's board kit): the space types, their
+   * shares and blocks, and the placement rules. Both map editors then have the Spaces tool, and the
+   * checklist a Spaces row and the board's checks (/boardcheck).
+   */
+  board?: BoardConfig;
 }
 
 /** How a map can change one checklist row (MapRequirementsConfig.adjustable). */
