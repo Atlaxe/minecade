@@ -563,13 +563,13 @@ board there should be nothing: the game uses the empty space around it for the a
 
 **Building spaces:**
 
-- Leave a flat 3x3 spot for each space: four pieces can share it, one on each corner.
+- Leave a flat 2.5x2.5 spot for each space: four pieces can share it, one on each corner.
 - The game lays each space's type on its spot at the start, in vanilla blocks (proposed: Blue blue
   concrete, Red red concrete, Item a gold block, Shop an emerald block, Chance Time purple concrete,
   Warden sculk, Versus orange concrete, Happening pink concrete, Start white concrete). A re-deal
   never means rebuilding, and nothing is textured. Build the path, not colored pads.
-- Space them about 4-5 blocks apart, center to center. Pieces move in straight lines between
-  spaces, so put a space at every corner of the path.
+- Space them 4-5 blocks apart, center to center, 4.5 by default on a straight stretch. Pieces
+  move in straight lines between spaces, so put a space at every corner of the path.
 - Leave a free block beside every Star candidate and every Item space: Chris stands beside the
   Star, and the Wandering Trader beside its Item space.
 - The beacon beam is a model the game draws with the vanilla beam's texture (proposed), so it works under a ceiling (an Ancient City
