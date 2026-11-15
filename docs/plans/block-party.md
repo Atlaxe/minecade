@@ -7,10 +7,12 @@ worked out with them. The same day the user answered the first open questions: 2
 Chance outcome that takes a Star (Shooting Star), ideas for where special dice come from and what
 they sell for (see "Dice"), pieces that walk from space to space with a custom animation while
 everyone watches through the scripted camera (see "Pieces"), and duels that also play FFA
-minigames. Later the same day they answered most of the rest: 3 bonus Stars every game, names over
+minigames. Later the same day they answered most of the rest: 3 bonus Stars, names over
 the pieces, picking in the lobby, Chris handing out the starting coins, rolling by jumping, a
 restyled hotbar, no timers, votes (to skip a cutscene, to start a minigame, to let a late joiner
-in), and NPCs that are the vanilla mobs' own models. "Open questions" at the end lists what's left.
+in), and NPCs that are the vanilla mobs' own models. Then the last five: 2 bonus Stars in a 2-player
+game (at most 1 each), the Cursed Totem, the Mystery Die, a late joiner's start, and players who go
+idle. Nothing is open; "Defaults" at the end lists what was taken without a question.
 
 **For the session that implements this:**
 - Work in a worktree of your own (`CLAUDE.md`, "Branch and merge").
@@ -30,7 +32,7 @@ in), and NPCs that are the vanilla mobs' own models. "Open questions" at the end
 | Duels | 1v1 minigames, and FFA minigames played by 2 |
 | In the lobby | The board, the length (10, 15 or 20 turns) and Chris's tutorial, as game options |
 | Starting coins | 10, handed out by Chris |
-| Bonus Stars | 3 every game, whatever the player count |
+| Bonus Stars | 3 with 3 or 4 players; 2 with 2 players (at most 1 each) |
 | Rolling | Jump to hit the die |
 | Hotbar | A Block Party look drawn with JSON UI (see "Turns and controls") |
 | Timers | None: the game waits for the player |
@@ -274,9 +276,9 @@ every player has said they're ready (a jump). There's no practice round.
 
 ## End-of-game bonus Stars
 
-Every game awards 3 bonus Stars, whatever the player count, each worth 1 Star and delivered by the
-Allay. A player gets at most 1 (for 2 players, see the open questions). The 3 are drawn at random
-each game, never two from one category, and kept secret until the end. They're drawn from:
+A game with 3 or 4 players awards 3 bonus Stars, and a 2-player game 2, each worth 1 Star and
+delivered by the Allay. A player gets at most 1. They're drawn at random each game, never two from
+one category, and kept secret until the end, from:
 
 - **Chaos:** most hazards hit (Red and Warden spaces, zombies), biggest coin swing, luckiest roll,
   most wins from random or luck-based events.
@@ -310,7 +312,7 @@ no Double Die: the Stone Totem does the same.
 | Triple | 3 dice, the total | Item spaces (trailing players), the Wandering Trader at 15 | 10 |
 | Risk | 0, 0, 1, 6, 7, 8 | The Shop, Item spaces | 6 |
 | Golden | 5 to 10 | The Wandering Trader at 20; Item spaces, last place only, rarely | 13 |
-| Mystery | each face also triggers an event for the whole lobby (everyone swaps places, a coin swap, double coins) | The Wandering Trader at 18; Chance's Lucky Draw | 12 |
+| Mystery | 1-6, and each face also triggers an event for the whole lobby: Everyone swaps places, Coin swap (the roller's coins with a random player's), Double coins (the next minigame pays double), Everyone +5 coins, Everyone back 3, Roll again | The Wandering Trader at 18; Chance's Lucky Draw | 12 |
 | Cursed | one face moves 12 and gives 10 coins; the other five move 1 and cost 3 coins. You can make another player use it | The Wandering Trader at 15; Item spaces | 10 |
 
 **Value** is what selling works from: the shop price, or for what only the Trader sells, the Trader
@@ -325,7 +327,7 @@ At most 3 held.
 - **Stone Totem:** roll an extra die next turn.
 - **Golden Totem:** roll an extra die that doubles, next turn.
 - **Ender Pearl:** switch places with a player (the Enderman performs it).
-- **Cursed Totem:** shrinks a rival's dice rolls.
+- **Cursed Totem:** used on a rival: their next roll is halved, rounded up.
 - **Dueling Glove:** forces a 1v1 with 10 coins at stake.
 - **Lightning Strike:** the player with the most Stars (then coins) gives 10 coins (capped at what they have) to the player with
   the fewest. Used on yourself, it gets rid of a zombie, but you still lose coins. Coins only, never
@@ -382,14 +384,17 @@ the owner sees their own tag through a free camera; if they do, no label is need
 - **Items:** pick one in the hotbar and use it (right click) before jumping. A target is picked
   from a form.
 - **Branches:** a form with one button per path, while the camera shows both with arrows.
-- **No timers:** the game waits for the player, at the roll and at every choice.
+- **No timers:** the game waits for the player, at the roll and at every choice. If one player
+  holds everyone up for a minute (at their turn, or by not voting), the others can vote to go on
+  without them: their turn is skipped, or the vote goes ahead without theirs. They keep their place.
 - **Votes, by every player:** a jump during a cutscene votes to skip it, and it's skipped once
   everyone has voted. A minigame starts once everyone is ready. A late joiner comes in once
   everyone has said yes.
 - **Leaving:** the piece stays and is skipped (no turns, no minigames), keeping its Stars and coins,
   and its player takes it back on rejoining, with no vote.
 - **Late joiners** (while fewer than 4 play): choose to join or to watch. Joining needs every
-  current player's yes; watching is always open.
+  current player's yes; watching is always open. A joiner comes in at the start of the next round,
+  at Start, last in the turn order, with as many coins as the player in last place and no Stars.
 
 ### Shots
 
@@ -712,7 +717,7 @@ and the **Wheel of Fortune** (between rounds, the lowest scorer spins a wheel of
 everyone). Its shop rounds and betting became Shop spaces and the duel and Battle bets, and its lap
 reward was dropped.
 
-## Suggested order (a draft, to settle after the open questions)
+## Suggested order
 
 1. **Spike:** bring an arena from another map into a board's world at play time; scripted cameras
    (eased moves, splines, per-player shots, fades, clearing); the pieces and their names (see
@@ -730,26 +735,10 @@ reward was dropped.
 8. **End of game:** bonus Stars, the tiebreaker, the podium.
 9. **The rest of the minigames.**
 
-## Open questions
+## Defaults
 
-Each with the recommended answer.
+Every question is answered. These were taken without one; the user can change any of them.
 
-1. **Bonus Stars with 2 players:** 3 bonuses and at most 1 per player can't both hold with 2
-   players. Recommended: with 2 players, one of them can get 2.
-2. **Cursed Totem:** the Stone Totem is "roll an extra die next turn" (two dice, the total), and the
-   Golden Totem's extra die counts double, so the Cursed Totem could be their opposite, used on a
-   rival. Recommended: the rival's next roll is halved, rounded up.
-3. **Mystery Die:** its named faces are Everyone swaps places, Coin swap and Double coins.
-   Recommended: Coin swap swaps the roller's coins with a random player's, and Double coins doubles
-   the next minigame's payouts; add Everyone +5 coins, Everyone back 3 and Roll again; and the
-   roller also moves by the face's number.
-4. **A late joiner's start:** recommended: they come in at the start of the next round, at Start,
-   last in the turn order, with as many coins as the player in last place and no Stars.
-5. **Someone idle:** with no timers, a player who walks away holds everyone up, votes included.
-   Recommended: after a minute of waiting, the others can vote to skip that player's turn (they keep
-   their place). Or just wait.
-
-**Defaults taken unless the user says otherwise**
 - Coins never go below 0: every payment is capped at what the payer has.
 - A 4th item or a 3rd special die: the player picks which one to drop.
 - No computer players for now.
