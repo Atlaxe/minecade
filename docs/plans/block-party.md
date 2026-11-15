@@ -7,7 +7,10 @@ worked out with them. The same day the user answered the first open questions: 2
 Chance outcome that takes a Star (Shooting Star), ideas for where special dice come from and what
 they sell for (see "Dice"), pieces that walk from space to space with a custom animation while
 everyone watches through the scripted camera (see "Pieces"), and duels that also play FFA
-minigames. "Open questions" at the end lists what still needs an answer before building.
+minigames. Later the same day they answered most of the rest: 3 bonus Stars every game, names over
+the pieces, picking in the lobby, Chris handing out the starting coins, rolling by jumping, a
+restyled hotbar, no timers, votes (to skip a cutscene, to start a minigame, to let a late joiner
+in), and NPCs that are the vanilla mobs' own models. "Open questions" at the end lists what's left.
 
 **For the session that implements this:**
 - Work in a worktree of your own (`CLAUDE.md`, "Branch and merge").
@@ -23,8 +26,16 @@ minigames. "Open questions" at the end lists what still needs an answer before b
 |---|---|
 | The game | Block Party: a board game with minigames between turns. Most Stars wins |
 | Players | 2 to 4 |
-| Pieces | A custom walk animation, moved from space to space by the script, while players watch through the scripted camera. Whatever does that best (see "Pieces") |
+| Pieces | A custom walk animation, moved from space to space by the script, while players watch through the scripted camera. Whatever does that best (see "Pieces"). Every piece shows its player's name over its head |
 | Duels | 1v1 minigames, and FFA minigames played by 2 |
+| In the lobby | The board, the length (10, 15 or 20 turns) and Chris's tutorial, as game options |
+| Starting coins | 10, handed out by Chris |
+| Bonus Stars | 3 every game, whatever the player count |
+| Rolling | Jump to hit the die |
+| Hotbar | A Block Party look drawn with JSON UI (see "Turns and controls") |
+| Timers | None: the game waits for the player |
+| Votes | Every player: to skip a cutscene, to start a minigame after its rules, to let a late joiner in |
+| NPC looks | The vanilla mobs' own models, nothing textured |
 | Boards | Maps of their own: a themed loop with 2-3 shortcut branches, about 36-45 spaces (longer is fine) |
 | Minigames | One arena map per minigame, its own small map. No variant maps, and no borrowing other games' maps or minigames |
 | Arenas at play time | Copied into the board's world when picked, a fresh copy every time it's played |
@@ -37,7 +48,9 @@ minigames. "Open questions" at the end lists what still needs an answer before b
 
 ## Characters
 
-NPCs are defined by role. Maps change only the skin.
+NPCs are defined by role and look like their vanilla mob, with nothing textured. A map changes only
+the vanilla variant, where the mob has one (the Villager's biome type and profession, Chris's pig
+variant).
 
 - **Chris** (the Pig, a piggy bank): tutorial guide in speech roles (toggleable per game), Star
   seller, and commentator on standings and big moments.
@@ -56,9 +69,19 @@ NPCs are defined by role. Maps change only the skin.
 - **Iron Golem and Zombie:** item characters (see "Items").
 - **Wither:** the playable boss in the 1v3 Boss Fight, not an NPC.
 
+**Why not frozen vanilla mobs** (the user asked): Bedrock has no switch that turns a mob's AI off,
+and the real mobs act on their own. The Warden attacks and digs away, the Enderman teleports and
+picks up blocks, the Allay chases dropped items, the Witch throws potions, the Zombie attacks and
+burns in daylight, the Iron Golem attacks, and the Wandering Trader leaves. So the game has one
+entity of its own per role that points at the vanilla mob's model, textures and animations by name,
+with no AI (proposed). Nothing is copied, so nothing has to stay out of git, and nothing gets
+textured. Each NPC stands still, plays a vanilla animation when the game says (the Warden's roar and
+sonic boom), and moves only when the script moves it.
+
 ## Core loop
 
-1. Pick a board and a game length of 10, 15 or 20 turns. Every length uses the same board.
+1. In the lobby, pick a board, a game length of 10, 15 or 20 turns, and whether Chris gives the
+   tutorial. Every length uses the same board. Chris hands everyone 10 starting coins.
 2. Take a turn: use an item if you want, roll, and a script moves your piece that many spaces.
    Choose a path at branches.
 3. Land on a space and its effect triggers. Passing or landing on the Star spot lets you buy a
@@ -225,25 +248,35 @@ per visit, and the stock is a single item from a rare pool at about 1.5x shop pr
 - **1v1:** Versus spaces and the Dueling Glove. Duels play the 1v1 minigames and the FFA ones,
   played by the two duelists.
 
-The format is picked by schedule or at random (every 3rd round a team game, say). The 1v3 solo role
-and the 2v2 pairings rotate, so everyone gets an equal share.
+**The schedule:** every 3rd round is a team game, taking turns between 2v2 and 1v3. The others are
+FFA, with about 1 FFA round in 8 played as a Battle (plus Chance's Battle Royale). The 1v3 solo role
+and the 2v2 pairings rotate, so everyone gets an equal share. With 3 players there's no 2v2, and 1v3
+becomes 1v2 (the 1v3 minigames with a pair); 2 players play FFA only.
+
+**The minigame** is picked at random within the format, shown with a short roulette. One already
+played this game is very unlikely to come up again (about a twentieth as likely as a fresh one).
+
+**Rules, then Ready:** the rules show through the arena's rules camera, and the minigame starts once
+every player has said they're ready (a jump). There's no practice round.
 
 ## Coins awarded
 
-- **FFA:** 1st 10, 2nd 6, 3rd 3, 4th 1, scaled for 2-3 players. Ties average the places (2 tied for
-  1st get 8: (10 + 6) / 2).
+- **FFA:** 1st 10, 2nd 6, 3rd 3, 4th 1. With 3 players 10, 5, 2; with 2 players 10, 3. Ties
+  average the places (2 tied for 1st get 8: (10 + 6) / 2).
 - **2v2:** winners get 7 each, losers 2 each.
-- **1v3:** starting values: solo win 10 for the solo and 1 for each trio member; trio win 6 for each
-  trio member and 2 for the solo. These balance when the solo wins about 31% of the time. (The first
-  numbers, 15 / 1 and 5 / 3, balance only at a 12% solo win rate.) Track the real solo win rate in
+- **1v3:** solo win 10 for the solo and 1 for each trio member; trio win 6 for each trio member and
+  2 for the solo. The user left it to whichever is more balanced: these balance when the solo wins
+  about 31% of the time, a realistic rate, while the first numbers (15 / 1 and 5 / 3) balance only
+  at 12%. Track the real solo win rate in
   playtests: if it's higher, lower the solo win payout; if it's lower, raise it.
 - **Doubling:** coins double in the last 2 rounds (15 and 20-turn games), the last round only in
   10-turn games. Chris announces when doubling starts.
 
 ## End-of-game bonus Stars
 
-Each bonus is worth 1 Star, at most 1 per player, and the Allay delivers each one. The number of
-bonuses scales with players: 2 players get 1, 3 or 4 get 2. They're drawn from:
+Every game awards 3 bonus Stars, whatever the player count, each worth 1 Star and delivered by the
+Allay. A player gets at most 1 (for 2 players, see the open questions). The 3 are drawn at random
+each game, never two from one category, and kept secret until the end. They're drawn from:
 
 - **Chaos:** most hazards hit (Red and Warden spaces, zombies), biggest coin swing, luckiest roll,
   most wins from random or luck-based events.
@@ -267,18 +300,18 @@ Checked after the bonus Stars:
 ## Dice
 
 At most 2 special dice held, beside at most 3 items. One movement boost per turn: a die or a totem,
-not both. Where each die comes from and its value are proposed (the user asked for ideas):
+not both. Where each die comes from and its value are proposed (the user asked for ideas). There's
+no Double Die: the Stone Totem does the same.
 
 | Die | Faces | Where it comes from | Value |
 |---|---|---|---|
 | Standard | 1-6 | Everyone, always | |
 | Slow | 1-3 | The Shop (a cheap die for landing exactly on the Star or a Shop); the Warden's Slow Curse forces it for one roll | 3 |
-| Double | 2 dice, the total | See the open questions: the Stone Totem does the same | |
 | Triple | 3 dice, the total | Item spaces (trailing players), the Wandering Trader at 15 | 10 |
 | Risk | 0, 0, 1, 6, 7, 8 | The Shop, Item spaces | 6 |
-| Golden | a rare high roll | The Wandering Trader at 20; Item spaces, last place only, rarely | 13 |
+| Golden | 5 to 10 | The Wandering Trader at 20; Item spaces, last place only, rarely | 13 |
 | Mystery | each face also triggers an event for the whole lobby (everyone swaps places, a coin swap, double coins) | The Wandering Trader at 18; Chance's Lucky Draw | 12 |
-| Cursed | a big jackpot on 1 face, the others bad; you can make another player use it | The Wandering Trader at 15; Item spaces | 10 |
+| Cursed | one face moves 12 and gives 10 coins; the other five move 1 and cost 3 coins. You can make another player use it | The Wandering Trader at 15; Item spaces | 10 |
 
 **Value** is what selling works from: the shop price, or for what only the Trader sells, the Trader
 price divided by 1.5, rounded down. Selling pays half the value, rounded down. Item spaces, Lucky
@@ -294,13 +327,13 @@ At most 3 held.
 - **Ender Pearl:** switch places with a player (the Enderman performs it).
 - **Cursed Totem:** shrinks a rival's dice rolls.
 - **Dueling Glove:** forces a 1v1 with 10 coins at stake.
-- **Lightning Strike:** the player with the most Stars (then coins) gives coins to the player with
+- **Lightning Strike:** the player with the most Stars (then coins) gives 10 coins (capped at what they have) to the player with
   the fewest. Used on yourself, it gets rid of a zombie, but you still lose coins. Coins only, never
   Stars.
 - **Zombie Spawn:** a zombie follows a rival and takes 3 coins every round. It leaves when the
   target finishes top 2 in a minigame, after 3 rounds, when the target has no coins left to take, or
   when the target uses an Iron Golem or a Lightning Strike.
-- **Iron Golem:** shakes down a player for coins, or removes a zombie from you.
+- **Iron Golem:** shakes down a player for up to 5 coins, or removes a zombie from you.
 - **Villager:** trade a die or an item for coins: half its value, rounded down (see "Dice"). Not
   on the final turn.
 
@@ -330,10 +363,38 @@ a skin reaches it only after the watcher has seen the player and the network has
 (`docs/skins.md`), and a character creator skin needs a model of its own, so those players would
 get a plain look. That's why it's last.
 
-**(S)** a static authored position, **(D)** dynamic (follow, pan, orbit, push-in, spline). Everyone
-sees the same shot unless marked **(P)**, a private shot for one player.
+**Names:** every piece shows its player's gamertag over its head, seen through the scripted camera
+by everyone, its owner included. Bedrock never shows players their own name tag, so with the player
+as the piece, the name is a label of its own kept over the head (an invisible entity named for the
+player), and the player's own tag is hidden so the others don't see two. The spike checks whether
+the owner sees their own tag through a free camera; if they do, no label is needed.
+
+### Turns and controls
+
+- **The hotbar** (the user's idea): a Block Party look drawn with JSON UI. Proposed: the vanilla
+  hotbar restyled rather than hidden and replaced, so scrolling, number keys, controller bumpers and
+  tapping on a touch screen all still pick a slot. The selected item's name and what it does show
+  over it. Slot 1 holds the standard die, 2-3 special dice, 4-6 items, and 9 a menu (standings,
+  settings).
+- **Rolling:** pick a die in the hotbar (the standard one or a special one), then jump to hit it.
+  The script reads the jump button (`playerButtonInput`, as Sumo's double jump does); the spike
+  checks it still reports while the player is locked in place or carried.
+- **Items:** pick one in the hotbar and use it (right click) before jumping. A target is picked
+  from a form.
+- **Branches:** a form with one button per path, while the camera shows both with arrows.
+- **No timers:** the game waits for the player, at the roll and at every choice.
+- **Votes, by every player:** a jump during a cutscene votes to skip it, and it's skipped once
+  everyone has voted. A minigame starts once everyone is ready. A late joiner comes in once
+  everyone has said yes.
+- **Leaving:** the piece stays and is skipped (no turns, no minigames), keeping its Stars and coins,
+  and its player takes it back on rejoining, with no vote.
+- **Late joiners** (while fewer than 4 play): choose to join or to watch. Joining needs every
+  current player's yes; watching is always open.
 
 ### Shots
+
+**(S)** a static authored position, **(D)** dynamic (follow, pan, orbit, push-in, spline). Everyone
+sees the same shot unless marked **(P)**, a private shot for one player.
 
 **Pre-game**
 - Intro flyover of the board (D, spline).
@@ -341,7 +402,7 @@ sees the same shot unless marked **(P)**, a private shot for one player.
 - Turn-order roll: a group shot, each player's die on its own pedestal (S).
 - Turn-order reveal (S, podium).
 - Chris explaining the rules (S, NPC dialog view).
-- Board selection view (S).
+- Chris hands out the starting coins (S).
 
 **Each turn**
 - Turn start: the active player close up with a name card (S).
@@ -395,7 +456,7 @@ sees the same shot unless marked **(P)**, a private shot for one player.
 
 **Minigames**
 - Arena overview with the rules (S or a slow pan).
-- Countdown, then vanilla controls.
+- Everyone ready, a countdown, then vanilla controls.
 - Battle pot: the bets landing in the middle (S).
 - Results and coins awarded (S).
 - Winner highlight (S).
@@ -483,13 +544,15 @@ board there should be nothing: the game uses the empty space around it for the a
 **Building spaces:**
 
 - Leave a flat 3x3 spot for each space: four pieces can share it, one on each corner.
-- The game draws each space's type on its spot (a flat top in the type's color and icon, the way
-  Bridges draws its hole), so a re-deal never means rebuilding. Build the path, not colored pads.
+- The game lays each space's type on its spot at the start, in vanilla blocks (proposed: Blue blue
+  concrete, Red red concrete, Item a gold block, Shop an emerald block, Chance Time purple concrete,
+  Warden sculk, Versus orange concrete, Happening pink concrete, Start white concrete). A re-deal
+  never means rebuilding, and nothing is textured. Build the path, not colored pads.
 - Space them about 4-5 blocks apart, center to center. Pieces move in straight lines between
   spaces, so put a space at every corner of the path.
 - Leave a free block beside every Star candidate and every Item space: Chris stands beside the
   Star, and the Wandering Trader beside its Item space.
-- The beacon beam is a model the game draws (proposed), so it works under a ceiling (an Ancient City
+- The beacon beam is a model the game draws with the vanilla beam's texture (proposed), so it works under a ceiling (an Ancient City
   board). A real beacon would need open sky over every candidate.
 
 **Special event markup**, by the map's event type (picked in Map settings, with its timing):
@@ -519,7 +582,7 @@ Each also has an event camera.
 Chris at the Star, the Enderman's swaps and the Trader's visits happen on the board itself, framed
 from the spaces.
 
-**Map settings** for a board (Panel and game Edit): the NPCs' skins (per role, from a list), the
+**Map settings** for a board (Panel and game Edit): the NPCs' vanilla variants (the Villager's biome type and profession, Chris's pig variant), the
 Happening flavor (a few lines of text, one picked each time, and a sound), the special event and
 its timing, and the map's time of day.
 
@@ -652,7 +715,9 @@ reward was dropped.
 ## Suggested order (a draft, to settle after the open questions)
 
 1. **Spike:** bring an arena from another map into a board's world at play time; scripted cameras
-   (eased moves, splines, per-player shots, fades, clearing); the pieces (see "Pieces"); and
+   (eased moves, splines, per-player shots, fades, clearing); the pieces and their names (see
+   "Pieces"); the jump button while a player is locked or carried; the restyled hotbar; NPC
+   entities on the vanilla mobs' models; and
    what two minigames need from Bedrock: a player riding a player (Carry Race) and a lead between
    players (Paired Parkour), both likely through the game's own copy of `player.json`, as
    Chameleon's pack does.
@@ -669,70 +734,31 @@ reward was dropped.
 
 Each with the recommended answer.
 
-**Setup and players**
-1. **Picking the board, the length and Chris's tutorial:** all in the lobby, like Probe's round
-   length? The board is the map the lobby picks, so the in-game Board selection view would go.
-   Recommended: yes.
-2. **2 or 3 players:** which formats? Recommended: 2 players play FFA only; 3 play FFA and 1v2 (the
-   1v3 minigames with a pair).
-3. **FFA payouts for 2 or 3:** recommended: 10 / 3 for 2 players, 10 / 5 / 2 for 3.
-4. **Starting coins:** recommended: 10.
-5. **Someone leaves:** recommended: their piece stays and is skipped (no turns, no minigames),
-   keeping its Stars and coins, and they take it back if they rejoin. A computer player taking over
-   is much more work.
-6. **1v3 payouts:** this plan starts from the suggested 10 / 1 and 6 / 2. Keep those, or start from
-   15 / 1 and 5 / 3? Recommended: keep.
-
-**Turns and controls**
-7. **Rolling:** right click the die in your hotbar, or jump to hit a die floating over your piece?
-   Recommended: right click (it works wherever you're looking; a jump while locked or carried is
-   untested).
-8. **The board hotbar:** the die in slot 1, items in 2-4, special dice in 5-6, a menu (standings,
-   settings) in 9? Recommended: yes.
-9. **Branches:** pick a path from a form with one button per path, while the camera shows both with
-   arrows? Recommended: yes.
-10. **Timers:** recommended: 20 seconds to roll before an automatic roll, and 15 seconds for each
-    choice before a default (a random path, no item, no purchase).
-
-**Minigames**
-11. **The format schedule:** recommended: every 3rd round a team game, taking turns between 2v2 and
-    1v3, FFA otherwise, with about 1 FFA round in 8 played as a Battle, plus Chance's Battle Royale.
-12. **Picking the minigame:** recommended: at random within the format, with no repeat until every
-    minigame of that format has been played, shown with a short roulette.
-
-**Items and dice**
-13. **Iron Golem:** how many coins does a shakedown take? Recommended: up to 5.
-14. **Lightning Strike:** how many coins move? Recommended: 10, capped at what the giver has.
-15. **Cursed Totem:** by how much, and for how long? Recommended: the rival's next roll is halved,
-    rounded up.
-16. **Golden Die faces:** recommended: 5 to 10.
-17. **Cursed Die faces:** recommended: one face moves 12 and gives 10 coins; the other five move 1
-    and cost 3 coins.
-18. **Mystery Die:** only 3 of its 6 events are named. Recommended: add everyone +5 coins, everyone
-    back 3, and roll again; the roller also moves by the face's number.
-19. **Stone Totem and Double Die** do the same thing (an extra die next turn). Recommended: drop the
-    Double Die.
-
-**End of game, presentation and art**
-20. **Bonus Stars:** which are in play, and when are they revealed? Recommended: drawn at random each
-    game, never two from one category, kept secret until the end.
-21. **Skipping cutscenes:** recommended: each player skips for themselves (their camera jumps to the
-    end shot), and the game moves on when everyone has skipped or the scene ends.
-22. **Art:** who makes the NPCs' looks (Chris's piggy bank model, the per-map skins) and the space
-    icons, and are any of them edited from vanilla textures? Anything made from a vanilla texture
-    stays out of git, in a private pack like Chameleon's. Recommended: you make them in Blockbench;
-    until then the game uses vanilla mobs and plain colored space tops.
+1. **Bonus Stars with 2 players:** 3 bonuses and at most 1 per player can't both hold with 2
+   players. Recommended: with 2 players, one of them can get 2.
+2. **Cursed Totem:** the Stone Totem is "roll an extra die next turn" (two dice, the total), and the
+   Golden Totem's extra die counts double, so the Cursed Totem could be their opposite, used on a
+   rival. Recommended: the rival's next roll is halved, rounded up.
+3. **Mystery Die:** its named faces are Everyone swaps places, Coin swap and Double coins.
+   Recommended: Coin swap swaps the roller's coins with a random player's, and Double coins doubles
+   the next minigame's payouts; add Everyone +5 coins, Everyone back 3 and Roll again; and the
+   roller also moves by the face's number.
+4. **A late joiner's start:** recommended: they come in at the start of the next round, at Start,
+   last in the turn order, with as many coins as the player in last place and no Stars.
+5. **Someone idle:** with no timers, a player who walks away holds everyone up, votes included.
+   Recommended: after a minute of waiting, the others can vote to skip that player's turn (they keep
+   their place). Or just wait.
 
 **Defaults taken unless the user says otherwise**
 - Coins never go below 0: every payment is capped at what the payer has.
 - A 4th item or a 3rd special die: the player picks which one to drop.
-- Joining late: watch only. No computer players for now.
+- No computer players for now.
 - The zombie takes its coins at the start of its target's turn.
 - A Half-price Star lasts until it's used.
 - Chance Time growing later: coin amounts go up by half in the last third of the game; Coin Swap,
   Position Shuffle and Shooting Star come only in the last third.
-- A minigame's rules show for about 10 seconds through its rules camera, with no practice round.
-- Reduced motion is each player's own setting, in the board hotbar's menu.
+- Reduced motion is each player's own setting, in the hotbar's menu.
+- Jump is the one button for going ahead: hitting the die, Ready, and voting to skip.
 - The plan's other "proposed" items: Happening's share goes to Blue on maps without it, the Star
-  moves at least ~30% of the loop away on bigger boards, the beacon beam is a model, and results
-  play on the board's podium.
+  moves at least ~30% of the loop away on bigger boards, the beacon beam is a model, results play on
+  the board's podium, the space blocks, the restyled hotbar, and the NPC entities.
