@@ -97,6 +97,7 @@ const PANEL_SOURCES = [
   "tools/viewer",
   "tools/editor/catalog.ts",
   "tools/editor/targets.ts",
+  "tools/editor/import-config.ts",
   "tools/editor/worlds.ts",
   "tools/editor/select-core.ts",
   "tools/editor/marker-models.ts",

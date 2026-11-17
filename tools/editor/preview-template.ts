@@ -9,7 +9,7 @@
 import { existsSync } from "node:fs";
 import { cp, writeFile } from "node:fs/promises";
 import { join } from "node:path";
-import { fileURLToPath, pathToFileURL } from "node:url";
+import { fileURLToPath } from "node:url";
 import {
   FAKE_COLORS,
   FAKE_SKINS,
@@ -28,6 +28,7 @@ import { enableBetaApis, patchLevelDat } from "../build/leveldat.ts";
 import { buildBehaviorPack, buildResourcePack, readPinnedManifest, writePackLists } from "../build/packs.ts";
 import { EDITOR_SHARED } from "./editor-image.ts";
 import { addFakeSkins, addPlayerSkins, mannequinSkins, type MannequinSkin } from "./fake-player.ts";
+import { importConfig } from "./import-config.ts";
 
 const root = fileURLToPath(new URL("../../", import.meta.url));
 /** What the preview's resource pack takes from the editor's: the mode box, the side panel forms and their art. */
@@ -51,7 +52,7 @@ export async function buildPreviewTemplate(map: PreviewMap, out: string): Promis
   const rp = join(gameDir, "resource_pack");
   if (existsSync(join(rp, "manifest.json"))) {
     // With the kit form's pictures, for a game whose players pick kits.
-    const game = (await import(pathToFileURL(join(gameDir, "game.config.ts")).href)).default as GameConfig;
+    const game = await importConfig<GameConfig>(join(gameDir, "game.config.ts"));
     await buildResourcePack(rp, join(out, "resource_packs", `${map.game}_rp`), await readPinnedManifest(rp), async (pack) => {
       await addGameKitPictures(pack, game, [{ id: map.mapId, config: map.config }]);
     });

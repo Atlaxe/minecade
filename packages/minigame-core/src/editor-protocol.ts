@@ -130,6 +130,8 @@ export interface Catalog {
   worlds: { id: string; name: string; maps: number }[];
   /** What was opened lately, newest first. */
   recent: RecentEntry[];
+  /** The lobby or games left out of `targets` because their config didn't load: its file (from the repo root) and why. */
+  broken?: { id: string; file: string; error: string }[];
 }
 
 export interface CatalogMap {

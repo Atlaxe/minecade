@@ -73,6 +73,10 @@ The Panel says the same about its own code, with **Restart Panel** at the top of
 Panel from before Restart Panel existed can't: close every Panel window, wait about 20 seconds for
 it to exit, and open it again.)
 
+A game's config needs neither: the Panel and the editor read `game.config.ts` (and
+`lobby.config.ts`) with every file it imports as they are now, each time. A config that doesn't
+load leaves out only its own game, and the Maps page shows the error above the maps.
+
 ## The editor lobby
 
 You're shut in a small dark room with the **Map editor** menu, which opens again whenever it

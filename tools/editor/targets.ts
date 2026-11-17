@@ -3,11 +3,11 @@
 // its mannequins can hold (its kits' items, then its mannequinItems). Its code is in the checkout (lobby/, games/<id>/); its maps and its
 // picture are in the map store's working folder for it (tools/maps).
 import { existsSync } from "node:fs";
-import { readdir, stat } from "node:fs/promises";
+import { readdir } from "node:fs/promises";
 import { join } from "node:path";
-import { pathToFileURL } from "node:url";
 import { holdItems, possibleTeams, type EditorRules, type GameConfig, type LobbyConfig } from "@minecade/minigame-core/config";
 import { storeDir, workingDir } from "../maps/paths.ts";
+import { importConfig } from "./import-config.ts";
 import { listMarkerModels, markerStyles } from "./marker-models.ts";
 
 export interface EditorTarget {
@@ -33,24 +33,44 @@ export interface PlayAs {
   maxPlayers: number;
 }
 
-export async function loadTarget(root: string, id: string): Promise<EditorTarget> {
+/** A lobby or game that's left out because its config didn't load, and why. */
+export interface BrokenTarget {
+  id: string;
+  /** Its config, from the repo root. */
+  file: string;
+  error: string;
+}
+
+/** Loads the configs one call needs, each once (a game's borrowers read every other game's config). */
+type ConfigLoader = (path: string) => Promise<unknown>;
+
+function configLoader(): ConfigLoader {
+  const loaded = new Map<string, Promise<unknown>>();
+  return (path) => {
+    let config = loaded.get(path);
+    if (!config) loaded.set(path, (config = importConfig(path)));
+    return config;
+  };
+}
+
+export async function loadTarget(root: string, id: string, load: ConfigLoader = configLoader()): Promise<EditorTarget> {
   const models = markerStyles(await listMarkerModels(root), id);
   const markerModels = Object.keys(models).length > 0 ? { markerModels: models } : {};
   const mapsDir = mapsDirOf(root, id);
   const icon = join(mapsDir, "icon.png");
   if (id === "lobby") {
     const configPath = join(root, "lobby", "lobby.config.ts");
-    const config: LobbyConfig = existsSync(configPath) ? await importConfig(configPath) : {};
+    const config = existsSync(configPath) ? ((await load(configPath)) as LobbyConfig) : {};
     return { id, name: "Lobby", dir: join(root, "lobby"), mapsDir, icon, rules: { kind: "lobby", requires: config.map, ...markerModels } };
   }
   const dir = join(root, "games", id);
   const configPath = join(dir, "game.config.ts");
   if (!/^[a-z0-9_-]+$/.test(id) || !existsSync(configPath)) throw new Error(`there is no game "${id}" (games/${id}/game.config.ts): use lobby or a game id`);
-  const config = await importConfig<GameConfig>(configPath);
+  const config = (await load(configPath)) as GameConfig;
   const teams = config.teams ? possibleTeams(config.teams).map(({ id: team, name, color }) => ({ id: team, name, color })) : undefined;
   const items = holdItems(config);
   const mapKits = config.kits?.mapKits === false ? { mapKits: false } : {};
-  const borrowers = await borrowersOf(root, id);
+  const borrowers = await borrowersOf(root, id, load);
   return {
     id,
     name: config.name,
@@ -63,33 +83,34 @@ export async function loadTarget(root: string, id: string): Promise<EditorTarget
 }
 
 /** The games whose map.borrow names `id` (Gunfight, for Siege), by name. */
-async function borrowersOf(root: string, id: string): Promise<PlayAs[]> {
+async function borrowersOf(root: string, id: string, load: ConfigLoader): Promise<PlayAs[]> {
   const found: PlayAs[] = [];
   for (const other of (await readdir(join(root, "games"))).sort()) {
     const path = join(root, "games", other, "game.config.ts");
     if (other === id || !existsSync(path)) continue;
-    const config = await importConfig<GameConfig>(path);
-    if (config.map?.borrow?.includes(id)) found.push({ id: other, name: config.name, maxPlayers: config.maxPlayers });
+    // A game whose config doesn't load borrows nothing (listTargets says why).
+    const config = (await load(path).catch(() => undefined)) as GameConfig | undefined;
+    if (config?.map?.borrow?.includes(id)) found.push({ id: other, name: config.name, maxPlayers: config.maxPlayers });
   }
   return found;
 }
 
 /**
- * A config file's default export, as the file is now. The editor runs for days, and Node keeps a
- * module it imported for the life of the process, so a config changed since (a new map setting, say)
- * is imported again under its modified time. Files the config imports itself stay as first read.
+ * The lobby and every game, with the map ids each has, for Select mode's save-as-map form. One whose
+ * config doesn't load is left out, so the rest still list, and `broken` hears why.
  */
-async function importConfig<T>(path: string): Promise<T> {
-  const { mtimeMs } = await stat(path);
-  return (await import(`${pathToFileURL(path).href}?mtime=${Math.floor(mtimeMs)}`)).default as T;
-}
-
-/** The lobby and every game, with the map ids each has, for Select mode's save-as-map form. */
-export async function listTargets(root: string): Promise<(EditorTarget & { maps: string[] })[]> {
+export async function listTargets(root: string, broken?: (target: BrokenTarget) => void): Promise<(EditorTarget & { maps: string[] })[]> {
   const ids = ["lobby", ...(await readdir(join(root, "games"))).filter((id) => existsSync(join(root, "games", id, "game.config.ts"))).sort()];
   const targets: (EditorTarget & { maps: string[] })[] = [];
+  const load = configLoader();
   for (const id of ids) {
-    const target = await loadTarget(root, id);
+    let target: EditorTarget;
+    try {
+      target = await loadTarget(root, id, load);
+    } catch (error) {
+      broken?.({ id, file: id === "lobby" ? "lobby/lobby.config.ts" : `games/${id}/game.config.ts`, error: error instanceof Error ? error.message : String(error) });
+      continue;
+    }
     targets.push({ ...target, maps: await mapIds(target.mapsDir) });
   }
   return targets;

@@ -17,7 +17,8 @@ export async function buildCatalog(root: string, store: MapStore, appData?: stri
   const targets: Catalog["targets"] = [];
   /** How many maps came from each world, by its name. */
   const fromWorld = new Map<string, number>();
-  for (const target of await listTargets(root)) {
+  const broken: NonNullable<Catalog["broken"]> = [];
+  for (const target of await listTargets(root, (target) => broken.push(target))) {
     const maps: Catalog["targets"][number]["maps"] = [];
     for (const id of target.maps) {
       const folder = join(target.mapsDir, id);
@@ -41,7 +42,7 @@ export async function buildCatalog(root: string, store: MapStore, appData?: stri
     targets.push({ id: target.id, name: target.name, ...(target.rules.maxPlayers ? { maxPlayers: target.rules.maxPlayers } : {}), maps });
   }
   const worlds = client.map((world) => ({ id: worldId(world), name: world.name, maps: fromWorld.get(world.name) ?? 0 }));
-  return { targets, worlds, recent: await readRecent(root) };
+  return { targets, worlds, recent: await readRecent(root), ...(broken.length > 0 ? { broken } : {}) };
 }
 
 /** A client world's id in the catalog: its folder's name. */

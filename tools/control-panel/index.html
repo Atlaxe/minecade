@@ -148,6 +148,8 @@
   .map-card.picked .map-title .mono { color: var(--on-selected); }
   .map-tags { display: flex; gap: 6px; flex-wrap: wrap; }
   .map-empty { margin-top: 28px; color: var(--muted); }
+  .map-broken p { margin: 0; }
+  .map-broken pre { margin: 6px 0 0; font: var(--fs-meta)/1.5 var(--font-mono); white-space: pre-wrap; word-break: break-word; }
   .map-pick { position: fixed; left: 216px; right: 0; bottom: 0; z-index: 5; display: flex; align-items: center; gap: 14px; padding: 12px 40px; background: var(--surface); border-top: 1px solid var(--line-strong); box-shadow: 0 -8px 24px #0004; }
   #map-pick-thumb:empty { display: none; }
   .map-pick img { width: 80px; aspect-ratio: 16 / 9; object-fit: cover; border-radius: 2px; border: 1px solid var(--line); }
@@ -1194,6 +1196,10 @@ function renderMaps() {
   $("maps-note").textContent = shown === total ? `${total} ${total === 1 ? "map" : "maps"}` : `${shown} of ${total} maps`;
   if (!groups.some((group) => group.list.some((map) => `${group.target.id}/${map.id}` === mapsView.picked))) mapsView.picked = "";
   $("maps").replaceChildren(
+    // A lobby or game whose config didn't load: its maps aren't listed until it's fixed.
+    ...(maps.broken ?? []).map((target) => el("div", { className: "callout bad map-broken" },
+      el("p", {}, `${target.file} didn't load, so its maps aren't listed. Fix it, then refresh.`),
+      el("pre", {}, target.error))),
     ...groups.map(({ target, list }) => el("section", { className: "map-group" },
       el("h2", {}, target.name, el("span", { className: "muted" }, `${list.length} ${list.length === 1 ? "map" : "maps"}`)),
       el("div", { className: "map-grid" }, list.map((map) => mapCard(target, map))))),
