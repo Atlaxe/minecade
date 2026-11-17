@@ -89,7 +89,9 @@ Everything the game says (titles, chat lines, forms, the HUD's status line durin
 what each NPC says) is a line in `games/blockparty/dialogue.json`, by id, and the code says it with
 `line(id, fills)` (`behavior_pack/scripts/lines.ts`). `{player}`, `{coins}` and the like are filled in
 by the code ("12 coins" with its word); a moment with several lines picks one at random. An id with
-no line shows as the id, and `test/lines.test.ts` checks that every id the code says has one.
+no line is skipped, the user's call (2026-11-17): chat, titles and the status show nothing for it,
+and a form button, which can't be left out, shows its id. The dialogue editor lists the ids the game
+says that have no line.
 
 The lines are the user's: `dialogue.json` is written by their dialogue editor (not in this repo),
 which keeps every line with its scene, character, when it's said, how it shows, a review status and

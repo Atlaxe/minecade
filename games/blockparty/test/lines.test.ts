@@ -1,9 +1,8 @@
 import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { BLOCK_PARTY_BOARD } from "@minecade/minigame-core/config";
 import { describe, expect, it } from "vitest";
-import { line } from "../behavior_pack/scripts/lines.ts";
+import { button, line } from "../behavior_pack/scripts/lines.ts";
 import dialogue from "../dialogue.json";
 
 const SCRIPTS = fileURLToPath(new URL("../behavior_pack/scripts", import.meta.url));
@@ -20,15 +19,12 @@ function idsSaid(): string[] {
 }
 
 describe("Block Party's lines", () => {
-  it("has a line for every id the game says", () => {
+  // The user may leave a line out on purpose (the game skips it), so no id needs a line; the
+  // dialogue editor lists the ones the game says that have none.
+  it("says lines by ids of lowercase words joined by dots or hyphens", () => {
     const ids = idsSaid();
     expect(ids.length).toBeGreaterThan(30);
-    expect(ids.filter((id) => !(LINES[id]?.length > 0))).toEqual([]);
-  });
-
-  it("has a landing line for every space type but Versus (which starts a duel)", () => {
-    const types = BLOCK_PARTY_BOARD.types.map((type) => type.id).filter((id) => id !== "versus");
-    expect(types.filter((id) => !LINES[`land.${id}`])).toEqual([]);
+    expect(ids.filter((id) => !/^[a-z0-9]+(?:[.-][a-z0-9]+)*$/.test(id))).toEqual([]);
   });
 
   it("fills each {name} it's given and leaves the rest as typed", () => {
@@ -44,7 +40,9 @@ describe("Block Party's lines", () => {
     expect(line(id, {}, () => 0.999)).toBe(texts[texts.length - 1]);
   });
 
-  it("says the id of a line it doesn't have", () => {
-    expect(line("no.such.line")).toBe("no.such.line");
+  it("skips a line it doesn't have (nothing to show), but a button keeps its id so the choice still shows", () => {
+    expect(line("no.such.line")).toBe("");
+    expect(button("no.such.line")).toBe("no.such.line");
+    expect(button("turn.rolled", { player: "Alex", roll: 4 }, () => 0)).toBe(line("turn.rolled", { player: "Alex", roll: 4 }, () => 0));
   });
 });

@@ -206,13 +206,15 @@ export class BlockPartySpike extends Minigame<Config> {
     return this.boardMiddle;
   }
 
-  /** A test's result: in the player's chat, and in the server's log. */
+  /** A test's result: in the player's chat, and in the server's log. Nothing for an empty text (a line the user hasn't written). */
   private tell(player: Player, text: string): void {
+    if (text === "") return;
     if (player.isValid) player.sendMessage(say.info(text));
     log.info(`blockparty test: to ${player.isValid ? player.name : "?"}: ${text}`);
   }
 
   private everyone(text: string): void {
+    if (text === "") return;
     this.broadcast(say.info(text));
     log.info(`blockparty test: ${text}`);
   }
@@ -368,10 +370,14 @@ export class BlockPartySpike extends Minigame<Config> {
     for (const player of world.getAllPlayers()) this.titleTo(player, text, subtitle ?? "", timing);
   }
 
-  /** A big line on one player's screen. */
+  /**
+   * A big line on one player's screen. Nothing when both are empty (lines the user hasn't written);
+   * a subtitle alone gets a blank title, since Bedrock shows a subtitle only with one.
+   */
   private titleTo(player: Player, text: string, subtitle: string, timing: TitleTiming = TITLE.show): void {
+    if (text === "" && subtitle === "") return;
     try {
-      player.onScreenDisplay.setTitle(text, { subtitle, fadeInDuration: timing.fadeIn, stayDuration: timing.stay, fadeOutDuration: timing.fadeOut });
+      player.onScreenDisplay.setTitle(text === "" ? " " : text, { subtitle, fadeInDuration: timing.fadeIn, stayDuration: timing.stay, fadeOutDuration: timing.fadeOut });
     } catch {
       // gone
     }

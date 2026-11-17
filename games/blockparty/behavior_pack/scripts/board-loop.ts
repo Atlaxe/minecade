@@ -26,7 +26,7 @@ import { BLOCK_PARTY_BOARD } from "@minecade/minigame-core/config";
 import type { Space } from "./board.ts";
 import { activeStars, addCoins, coinsFor, count, firstStars, leaders, nextStar, ranked, starDistance, starPrice, turnOrder, type Standing } from "./board-rules.ts";
 import type { Who } from "./bots.ts";
-import { line } from "./lines.ts";
+import { button, line } from "./lines.ts";
 import { VERSUS_STAKE, battleBets, ffaCoins, firstDoubled, fits, formatFor, isDoubled, kindOf, pairingKey, pickMinigame, pickPairs, pickSolo, splitPot, teamCoins, type Format } from "./minigame-rules.ts";
 import type { Results, Settle } from "./minigame-runner.ts";
 import type { MinigameDef, Outcome } from "./minigames/kit.ts";
@@ -315,7 +315,7 @@ export class BoardLoop {
     const botPick = Math.max(0, toStar ? space.next.indexOf(toStar[0]) : Math.floor(this.host.random() * space.next.length));
     const options = space.next.map((next) => {
       const way = { space: this.spaceName(spaces[next]), type: this.typeName(spaces[next].type) };
-      return this.stars.includes(next) ? line("branch.button.star", way) : line("branch.button", way);
+      return this.stars.includes(next) ? button("branch.button.star", way) : button("branch.button", way);
     });
     const picked = await this.host.choose(who, line("branch.title"), "", options, botPick);
     const next = space.next[picked ?? 0] ?? space.next[0];
@@ -334,7 +334,7 @@ export class BoardLoop {
       else this.host.everyone(line("star.short.bot", money));
       return;
     }
-    const picked = await this.host.choose(who, line("star.form.title"), line("star.form.body", money), [line("star.form.buy"), line("star.form.skip")], 0);
+    const picked = await this.host.choose(who, line("star.form.title"), line("star.form.body", money), [button("star.form.buy"), button("star.form.skip")], 0);
     if (picked !== 0) return;
     seat.coins -= price;
     seat.stars++;
@@ -377,7 +377,7 @@ export class BoardLoop {
       who,
       line("versus.form.title"),
       line("versus.form.body", { coins: count(stake, "coin") }),
-      others.map((other) => line("versus.form.button", { player: other.name, coins: count(this.seats.get(other.key)?.coins ?? 0, "coin") })),
+      others.map((other) => button("versus.form.button", { player: other.name, coins: count(this.seats.get(other.key)?.coins ?? 0, "coin") })),
       others.indexOf(leader),
     );
     const rival = others[picked ?? 0];
