@@ -9,6 +9,11 @@ itself, steered with the movement keys, jump and sneak.
 The user may build a tool for editing JSON UI (beside the workshop's `json-ui` previewer), so each
 screen's look is kept in files such a tool can own ("How the HUD gets its data").
 
+The user answered the first open points the same day (the cards' reference picture, the dice,
+the colors, losing, the results font, settings by command, own animations, device prompts, no blur,
+no chat), and the workshop's dialogue tool gained what this UI reads: each moment's delivery, skip,
+cutscene and camera, each line's actions, and the sound map ("The dialogue tool's data").
+
 **For the session that implements this:**
 - Read `block-party.md` first (the game, its passes and the spike results it points to), then this.
 - Work in a worktree (`CLAUDE.md`). Stop and report after each part of "Build order" with a list of
@@ -20,7 +25,8 @@ screen's look is kept in files such a tool can own ("How the HUD gets its data")
   as the old bar did.
 - Never make a map thumbnail or a game picture (`CLAUDE.md`, "Also").
 - Everything the game says is a line in the user's dialogue file, said with `line(id, fills)`
-  (`block-party.md`, "Dialogue").
+  (`block-party.md`, "Dialogue"). How each line shows, what plays during it, and every sound come
+  from the same tool ("The dialogue tool's data").
 - Run the item in "Checks first" that a part depends on before building that part.
 
 ## What changes
@@ -72,21 +78,30 @@ button if the game can tell what they play with; if it can't, show words (Jump, 
 - Bedrock text has tokens that draw the viewer's own key or button for an action, such as
   `:_input_key.jump:`. The client draws them, so one line shared by everyone would show each player
   their own. Check it works in HUD text ("Checks first").
-- Failing that, the script knows each player's last input mode (`player.inputInfo.lastInputModeUsed`:
-  KeyboardAndMouse, Gamepad, Touch or MotionController) and `player.clientSystemInfo.platformType`
-  (Console, Desktop or Mobile). Neither tells an Xbox from a PlayStation, so a controller's prompt
-  would name the button by place (the bottom face button) or use the word.
-- If neither works: static words.
+- Failing that, the game picks the prompt itself:
+  - **What they're using right now:** the script knows each player's last input mode
+    (`player.inputInfo.lastInputModeUsed`: KeyboardAndMouse, Gamepad, Touch or MotionController).
+    Keyboard and mouse gets keys, a controller gets buttons, touch gets words.
+  - **Which controller:** the script can't tell (`clientSystemInfo.platformType` says only
+    Console, Desktop or Mobile), but the watcher can: the player list it already reads for skins
+    (`watcher/watcher.ts`) carries each player's device (`build_platform`: PlayStation, Xbox,
+    Nintendo Switch, Windows, Android, iOS and so on). The watcher saves it per player beside their
+    skin; how a game server gets it (with the build, as the skins list does, or while running) is
+    for this pass to settle.
+  - **The Panel's Players page** (the user asked) shows each player's device and lets it be set by
+    hand, which wins over the detected one: for a player the watcher hasn't seen, or a PC player on
+    a controller.
+  - **Default** (the user): a console player is taken as Xbox; keyboard and mouse shows keys.
 
 ## Look
 
 - **Fonts:** MinecraftTen (`font_type`) only where the user named it: the board menu's buttons, the
-  tutorial's minigame name, the places on the results screen, and "Minigame!" in the announcement
-  (nothing else in the announcement). Everything else is the regular font.
-- **Highlight** (the turn color): behind a card on its player's turn, and behind a selected dialogue
-  button. **Secondary highlight:** behind a selected board menu button, semi-transparent. The user
-  hasn't picked the colors: keep both in one place with stand-ins (proposed: gold `#F2B33D` at 85%,
-  white at 30%).
+  tutorial's minigame name, the results screen's title and places, and "Minigame!" in the
+  announcement (nothing else in the announcement). Everything else is the regular font.
+- **Highlight** (the turn color), Minecade's blue `#48C0F0` (the Panel's primary): behind a card on
+  its player's turn, and behind a selected dialogue button. **Secondary highlight**, Minecade's
+  orange `#F5913C`, semi-transparent (proposed: 45%): behind a selected board menu button. Both in
+  one place, so they're easy to tune.
 - **Panels:** fully transparent or a very light black (proposed: 25%) unless a screen says
   otherwise.
 - **Color codes** (`§`) work in HUD text (the action bar and titles), so dialogue can be colored.
@@ -133,17 +148,22 @@ generator). Proposed letters and paths:
   ```
   - Left: the player's head, a 2D picture ("Player heads").
   - Right, two rows: the Star icon with the count, then the coin icon with the count (0 shows as 0).
-  - Under both, a line across the card, and under it a row: the player's place (1st to 4th), then a
-    tiny icon for each item they hold. A player with no place yet and no items shows neither the line
-    nor the row (proposed: no places until the first standings after a minigame; tied players share
-    a place).
-  - Background: transparent or a very light black; the highlight color while it's that player's
-    turn.
+  - Under both, a thin line across the card, always there (as in the reference picture), and under
+    it a row: the player's place (1st to 4th), then a tiny icon for each item they hold. A player
+    with no place yet and no items has no row (proposed: no places until the first standings after a
+    minigame; tied players share a place).
+  - Background: transparent or a very light black; filled with the highlight color while it's that
+    player's turn.
 - When coins or Stars change, the number steps to its new value with the gain or loss pop over the
   piece ("Gain and loss").
-- The user has a reference picture for the cards (another game's player cards), which didn't come
-  through with the spec: ask for it (proposed home: `C:\dev\minecade\assets\block-party\`). The
-  cards are a plainer, more Minecraft take on it.
+- **The reference picture** (the user's, from another party game; not in the repo):
+  `C:\dev\minecade\assets\block-party\player-cards-reference.png`. Four cards spread evenly across
+  the top. Each: a round portrait in a white ring on the left; to its right the Star icon over the
+  coin icon, each with its count right-aligned (the Star count bigger and bolder); a thin white line
+  under the card from the portrait to the numbers; no box around it. The card whose turn it is is
+  filled with a solid color behind all of it. Ours is a plainer, more Minecraft take: the 2D head
+  in place of the portrait (a ring is a picture the user can add over it, since JSON UI can't cut a
+  circle), placeholder letters for the icons, the place-and-items row under the line.
 - The cards and the board menu must not meet on the narrowest screen ("Checks first").
 
 ## The board menu (top left)
@@ -153,11 +173,11 @@ generator). Proposed letters and paths:
 - Shown to everyone on the active player's turn, until they roll.
 - Text in MinecraftTen, semi-transparent, with no background behind the menu. A button has no
   background until it's selected, then the secondary highlight.
-- **Disabled** (dimmer text, steps skip it): Items while the player holds no items. The spec also
-  says Dice block is disabled without extra dice; read here as Dice block always opening, with only
-  the standard die in the item panel (no chevrons), since rolling starts there. An open point.
-- **Jump:** Dice block and Items open the item panel for dice or items. Board isn't described yet:
-  proposed, the board overview camera, sneak back. An open point.
+- **Disabled** (dimmer text, steps skip it): Items while the player holds no items. Dice block
+  always opens (the user): with only the standard die, the item panel shows it with no chevrons.
+- **Jump:** Dice block and Items open the item panel for dice or items. Board isn't decided yet:
+  proposed, the board overview camera to look the board over (where the Star is, where everyone
+  stands), sneak back. An open point.
 - Opens on Dice block (proposed). Sneak here does nothing.
 
 ## The item panel (bottom left)
@@ -204,11 +224,12 @@ player.
   Ready").
 - Long lines go over several pages with Next (proposed).
 - A line can play a sound ("Sounds").
-- **The words come from the dialogue file.** Its deliveries today include "Chat, everyone" (71
-  rows) and "Chat, one player" (11). With chat hidden those move to the dialogue box or a title,
-  a change in the user's file: proposed, new deliveries "Dialogue box" and "Dialogue box, everyone"
-  in the dialogue editor. The name on the border is the line's character; a "Game" line has no name
-  tab (proposed).
+- **The words come from the dialogue file,** with how each shows: its delivery ("Dialogue box" to
+  one player, "Dialogue box, everyone", "Dialogue button" for its buttons), whether it can be
+  skipped, whether it's a cutscene, and the camera ("The dialogue tool's data"). Its "Chat,
+  everyone" (71 rows) and "Chat, one player" (11) lines move to the dialogue box or a title in the
+  user's file, or go: the user said much of what's in chat now isn't needed long term. The name on
+  the border is the line's character; a "Game" line has no name tab (proposed).
 
 ## Skip and Ready (bottom right)
 
@@ -227,15 +248,14 @@ On the HUD while the minigame's rules camera waits for everyone to be ready:
 - **Per side:** in a 1v3 (and any minigame with sides) each side sees its own objective and
   controls.
 - Each minigame's definition gains this (its name, and per side an objective and controls) in
-  place of its rules text, as lines in the dialogue file (proposed; today each test minigame's name
-  and rules are in code).
+  place of its rules text, as lines in the dialogue file with the "Tutorial panel" delivery
+  (proposed; today each test minigame's name and rules are in code).
 
 ## The results screen
 
 After every minigame, and when a player gets a Star.
-- **Behind it:** the camera's view blurred and then darkened if JSON UI can blur ("Checks first",
-  probably not), else darkened.
-- **Results** at the top left (its font isn't said: the regular one, proposed).
+- **Behind it:** the camera's view darkened (the user: no blur needed, black is fine).
+- **Results** at the top left, in MinecraftTen.
 - **A row per player,** best first: the place (1st to 4th) in MinecraftTen, the player's head, the
   Star icon, the coin icon. Each icon's count sits at its bottom right, the way the hotbar shows a
   stack's count.
@@ -299,11 +319,10 @@ A pop over a piece for anything gained or lost: coins, a Star, an item, a die.
 
 ## Settings and Tests
 
-- **Settings leave the HUD.** The user asked whether the pause menu could hold them. A resource pack
-  can add a button to vanilla's pause screen, but nothing pressed there reaches the server: JSON UI
-  buttons only do what the client's own screen code does with them, and scripts get no event. So
-  settings in the pause screen could show but never change anything in the game. Expected no; worth
-  a short check in case the pause screen has a way ("Checks first").
+- **Settings leave the HUD.** Not in the pause menu: a resource pack can add a button there, but
+  nothing pressed there reaches the server (JSON UI buttons only do what the client's own screen
+  code does with them, and scripts get no event), so it could never change a game setting. The user
+  is happy with a command.
 - **`/blockparty:settings`** opens a player's own settings (reduced motion, and the rest) as a form:
   a custom command, registered the way `packages/minigame-core/src/building/commands.ts` does.
 - **`/blockparty:tests`** opens the Tests form the compass opens today, in test games
@@ -337,7 +356,7 @@ stays as proposals.
 | **Star reveal** | Chris says where the first Star will be. The camera pans to the spot, where a pig (Chris's variant) slowly falls down beside the marker. Then the game starts with everyone on Start. |
 | **Board view** | Whenever nobody is rolling, on the player whose turn it is. Two modes: **follow** (turns as the board turns) or **fixed** (follows the players but never turns). Distance, angle, zoom and the rest are settings, changed in both editors. Pieces stand facing their next space. |
 | **Player's turn** | The board view zoomed in, eased with no cut either way. The player turns to face the camera, body first, then head. The die over their head while Dice block is picked; a jump makes them jump. |
-| **NPC dialogue** | A pan from the board camera to the NPC, or a jump cut. Each conversation has a default and can be set either way: Chris at the Star pans; the intro to Chris at the podium cuts. |
+| **NPC dialogue** | A pan from the board camera to the NPC, or a jump cut. Each conversation has a default and can be set either way, per moment in the dialogue tool (Camera: Pan to speaker, Cut to speaker, Camera stays, or the default): Chris at the Star pans; the intro to Chris at the podium cuts. |
 | **Minigame announcement** | The zoom out, the stars and the wheel, and the zoom into the arena ("The minigame announcement"). |
 | **Minigame camera** | Fixed: the arena's rules camera, with the tutorial, until everyone is ready. |
 
@@ -366,36 +385,59 @@ Chameleon's poses and the referee's cheer are), a variant picked at random:
 | Dice roll | the jump that hits the die: a vanilla jump with one or both fists punched up, some kicking their legs | 4 or more |
 | Select | they're picked, or their turn starts | 1 to 4 |
 
-"Losing a minigame" is read as last place, and the losing side in a team minigame (proposed).
+"Losing a minigame" is coming away with nothing from it (the user): last place, the losing side in
+a team minigame, a duel's loser.
 
-**The emotes the user linked** (`JustTalDevelops/bedrock-emotes`) are a list and nothing more: the
-names, UUIDs and thumbnails of Bedrock's 103 marketplace emotes, with no animation files and no
-license. A client fetches an emote's animation from Mojang's servers by its UUID, and a server makes
-a player play one with a network packet; BDS scripts have no call for that, and Minecade has nothing
-between players and BDS that could send it. So these are animations of the game's own, made in
-Blockbench, with the list's emotes as the look to aim for:
-- Celebration: Victory Cheer, Hooray!, Victorious, Diamonds To You!
-- Sad: Sad Sigh, Disappointed, Pouting, Facepalm
-- Dice roll: The Woodpunch, Hadoken!, Foot Stomp!
-- Select: Wave, Over Here!, Saluting
+They're animations of the game's own, made in Blockbench: Bedrock's marketplace emotes can't be
+played by the server (scripts have no call for it, and nothing sits between players and BDS that
+could send one). Start with one simple animation per set (arms up, head down, a punch up, a wave)
+so every hook shows something; the user adds the variants.
 
-Start with one simple animation per set (arms up, head down, a punch up, a wave) so every hook
-shows something; the user adds the variants.
+**During dialogue:** a line's actions in the dialogue tool say who does what and when (at the
+start, at the end, or seconds in): the players' four sets above and each NPC's moves (Chris's Talk,
+Look at the player, Celebrate and Fall in; the Warden's Roar, Sonic boom, Sniff, Emerge and Dig
+away; and the rest in the tool's list, which the user can add to). The NPCs' moves are their vanilla
+animations where the mob has one, else the game's own.
 
 ## Sounds
 
-Every animation and much of the dialogue plays a sound, and the user will say which later. So every
-moment gets a cue now, silent until it has a sound:
-- One file maps cues to sounds (proposed: `games/blockparty/sounds.json`, each cue a sound id with
-  its volume and pitch, empty for silence), played to everyone with `playSound`. The user's own sound
-  files go in the pack's sound definitions when they add them.
-- A dialogue line can have its own sound: a new column in the dialogue editor (proposed), else its
-  character's cue.
-- **Cues, a first list:** the board menu's step, select, back and disabled; the item panel's step
-  and use; the dialogue box opening, next and closing; a skip vote, a ready vote; a card revealed, a
-  turn starting; the results opening, each counting step (coins, Stars), a place swap, 1st's border;
-  the announcement's zoom out, Minigame!, the format, each wheel tick, the wheel landing, the zoom in;
-  gain and loss (coins, a Star, an item); each player animation set; camera pans and cuts.
+Every animation and much of the dialogue plays a sound. The user maps them in the dialogue tool's
+Sounds view ("The dialogue tool's data"): a cue for each character's voice, each line, each action,
+each game event and the background music, every one silent until it has a sound.
+- **Events, the first list** (the tool's seed, which the user can add to): the board menu's step,
+  select, back and disabled; the item panel's step and use, switching dice, hitting the die, its
+  number; the dialogue box opening, next, its buttons and closing; a skip vote, a ready vote,
+  everyone voted; a card revealed, a turn starting; a piece's step and landing on each space type;
+  the Star landing and bought; gain and loss (coins, a Star, an item); the results opening, each
+  counting step, a place swap, 1st's border; the announcement's zoom out, Minigame!, the format,
+  each wheel tick, the wheel landing, the zoom in, 3-2-1 and Go; camera pans and cuts.
+- **Music:** the intro, the starting podium, the board, a minigame, the results, the final podium,
+  played with `world.playMusic` (fade and loop from the cue) and stopped or crossfaded as the game
+  moves on.
+- **A line's sound** is its own cue if it has one, else its character's voice.
+- Sounds play to everyone (the view is shared), with the cue's volume, pitch and delay.
+
+## The dialogue tool's data
+
+The workshop's dialogue tool (`..\workshop\dialogue`, not in this repo; its README) holds what the
+UI shows and plays. This pass extends its install (`tools\install.mjs`) to hand the game what it
+needs, as data with no art in it, committed like `dialogue.json`:
+
+- **Per moment** (shared by an id's alternates, in `lines\blockparty.json`): `delivery` (the old
+  ones plus "Dialogue box", "Dialogue box, everyone", "Dialogue button", "Tutorial panel"),
+  `skippable` and `cutscene` (true or false), `camera` ("Pan", "Cut", "Stay", or "" for the moment's
+  default).
+- **Per line:** `actions`, each `{ who, action, when, seconds? }`: who is "Speaker" (the line's
+  character), "Player" (the `{player}` fill), "Other" (`{other}`), "Every player", or a character by
+  name; the action is from the file's `actions` list (by owner: "Player" for the players' sets, else
+  the character); when is "Start", "End" or "After" with `seconds`.
+- **The sound map** (`sounds\blockparty.json`): `cues` keyed `voice:<character>`, `line:<id>`,
+  `action:<owner>/<action>` and `event:<id>`, each a list of `{ sound, volume, pitch, delay }` (music
+  events also `fade` and `loop`), one picked at random each time; `events` (the event list, with a
+  `music` flag); `sounds` (the user's own, each `blockparty.<name>`).
+- **The user's sound files** are already installed by the tool's `install-sounds.mjs` as a private
+  pack (`games/blockparty/private_packs/sounds/`, git-ignored), each sound defined under its id
+  with its category, volume, pitch and streaming. Minecraft's own sounds play by their ids.
 
 ## How the HUD gets its data
 
@@ -438,28 +480,25 @@ Short checks, in game or in the previewer, before building on each:
 4. A picture path taken from the data: a head picked by a code or a name in the text.
 5. The sidebar's entries as a list the pack draws itself, with vanilla's sidebar not drawn.
 6. Looping offset animations on a tiled stars image (parallax), and reversing them.
-7. A blur behind the results: expected no (darken only).
-8. A pause screen button reaching the server: expected no.
-9. An entity's opacity driven by an animation (gain and loss): else the size change only.
-10. The widest layout (4 cards and the menu) on the smallest screen and GUI scale the previewer has.
+7. An entity's opacity driven by an animation (gain and loss): else the size change only.
+8. The widest layout (4 cards and the menu) on the smallest screen and GUI scale the previewer has.
+9. A WAV sound file in a resource pack plays (the dialogue tool makes clipped sounds as WAV); else
+   the tool needs another format.
 
 ## Build order (proposed)
 
 1. Checks first, and the data's shape: encoders, the look and wiring split, previews.
 2. Controls (steer, select, back), the board menu, the item panel for dice and items; the old bar
-   out; `/blockparty:tests` and `/blockparty:settings`; the vanilla HUD and chat hidden.
+   out; `/blockparty:tests` and `/blockparty:settings`; the vanilla HUD and chat hidden; button
+   prompts, with the watcher's devices and the Panel's Players page marks.
 3. Player cards and heads.
 4. The dialogue box and the skip and ready strip, with the dialogue file's new deliveries.
 5. Cameras: the board view's modes and settings, the turn shot, NPC pans and cuts; then the
    pre-game (intro, podium, order rolls and reveal, Star reveal), with or after pass 6's stages.
 6. The minigame announcement, the tutorial panel and the results screen.
-7. Gain and loss, player animations, sound cues.
+7. Gain and loss, player animations, the dialogue tool's actions and sound cues (its install
+   extended to carry them).
 
 ## Open points for the user
 
-- The player cards' reference picture (it didn't come through).
-- Dice block with only the standard die: open with that one die (as read above), or disabled?
-- What Board does.
-- The highlight and secondary highlight colors.
-- Sad on losing a minigame: last place only (as read above), or everyone but 1st?
-- The font of the results screen's title.
+- What Board does (proposed: the board overview, to look the board over).
