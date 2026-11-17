@@ -431,6 +431,17 @@ needs, as data with no art in it, committed like `dialogue.json`:
   character), "Player" (the `{player}` fill), "Other" (`{other}`), "Every player", or a character by
   name; the action is from the file's `actions` list (by owner: "Player" for the players' sets, else
   the character); when is "Start", "End" or "After" with `seconds`.
+- **Blocks:** rows among the lines (`"kind": "block"`, no id) for what the game does, in the order
+  things happen: a block runs after the row above it (after a line, or after the block before it),
+  and the user drags rows into order. Each has a `block` kind from the file's `blocks` list, which
+  names the fields that kind takes: `who` and `target` (one of "Player", "Other", "Every player",
+  "Everyone else", "The leader", "Last place", "Speaker"), `amount` (spaces back are below 0),
+  `item` (from the file's `items`), `seconds`, or `text` (a description). The first kinds: Give
+  coins, Take coins, Pay coins, Give Stars, Take Stars, Give item, Take item, Move spaces, Swap
+  places, Camera, Wait, Game step; the user adds kinds that take a description. A block's effects
+  show with the gain and loss pops and the cards ("Gain and loss"). The game's copy (`dialogue.json`)
+  leaves them out until this pass carries them; a kind with only a description is for the code to
+  do by hand.
 - **The sound map** (`sounds\blockparty.json`): `cues` keyed `voice:<character>`, `line:<id>`,
   `action:<owner>/<action>` and `event:<id>`, each a list of `{ sound, volume, pitch, delay }` (music
   events also `fade` and `loop`), one picked at random each time; `events` (the event list, with a
