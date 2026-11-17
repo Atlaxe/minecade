@@ -49,7 +49,9 @@ import { SHOTS, Shots, type ShotId } from "./shots.ts";
 type Config = typeof config;
 
 // ---- The hotbar ----------------------------------------------------------------------------
-// Stand-ins for the game's own items: vanilla items with a name and a line saying what they do.
+// The bar's items are the pack's own (behavior_pack/items/bar_<icon>.json), with a clear texture so
+// nothing shows in the player's hand (the user asked); the bar draws each one's icon (vanilla's
+// textures for now, bar-codes.ts). Each has a name and a line saying what it does.
 
 interface BarItem {
   id: string;
@@ -60,12 +62,16 @@ interface BarItem {
 }
 interface Die extends BarItem {
   faces: readonly number[];
+  /** The block that floats over the roller's head while it's picked. */
+  block: string;
 }
 
-const MENU_ITEM = "minecraft:compass";
-const ITEMS_ITEM = "minecraft:book";
-const DICE_ITEM = "minecraft:quartz";
-const BACK_ITEM = "minecraft:arrow";
+/** A bar item's id: the pack's item for its icon. */
+const barItem = (icon: BarIcon) => `blockparty:bar_${icon}`;
+const MENU_ITEM = barItem("tests");
+const ITEMS_ITEM = barItem("items");
+const DICE_ITEM = barItem("dice");
+const BACK_ITEM = barItem("back");
 
 const MAIN_BAR: readonly BarItem[] = [
   { id: ITEMS_ITEM, name: "Items", what: "Use it: your items", icon: "items" },
@@ -73,14 +79,14 @@ const MAIN_BAR: readonly BarItem[] = [
   { id: MENU_ITEM, name: "Tests", what: "Every Block Party test", icon: "tests" },
 ];
 const DICE: readonly Die[] = [
-  { id: "minecraft:white_concrete", name: "Die", what: "Jump to hit it: 1 to 6", icon: "die", faces: [1, 2, 3, 4, 5, 6] },
-  { id: "minecraft:light_blue_concrete", name: "Slow Die", what: "Jump to hit it: 1 to 3", icon: "slow_die", faces: [1, 2, 3] },
-  { id: "minecraft:gold_block", name: "Golden Die", what: "Jump to hit it: 5 to 10", icon: "golden_die", faces: [5, 6, 7, 8, 9, 10] },
+  { id: barItem("die"), name: "Die", what: "Jump to hit it: 1 to 6", icon: "die", faces: [1, 2, 3, 4, 5, 6], block: "minecraft:white_concrete" },
+  { id: barItem("slow_die"), name: "Slow Die", what: "Jump to hit it: 1 to 3", icon: "slow_die", faces: [1, 2, 3], block: "minecraft:light_blue_concrete" },
+  { id: barItem("golden_die"), name: "Golden Die", what: "Jump to hit it: 5 to 10", icon: "golden_die", faces: [5, 6, 7, 8, 9, 10], block: "minecraft:gold_block" },
 ];
 const ITEMS: readonly BarItem[] = [
-  { id: "minecraft:flint", name: "Stone Totem", what: "Roll an extra die next turn", icon: "stone_totem" },
-  { id: "minecraft:blaze_rod", name: "Lightning Strike", what: "The leader gives 10 coins to last place", icon: "lightning" },
-  { id: "minecraft:leather", name: "Dueling Glove", what: "A 1v1 duel for 10 coins", icon: "glove" },
+  { id: barItem("stone_totem"), name: "Stone Totem", what: "Roll an extra die next turn", icon: "stone_totem" },
+  { id: barItem("lightning"), name: "Lightning Strike", what: "The leader gives 10 coins to last place", icon: "lightning" },
+  { id: barItem("glove"), name: "Dueling Glove", what: "A 1v1 duel for 10 coins", icon: "glove" },
 ];
 const BACK: BarItem = { id: BACK_ITEM, name: "Back", what: "Use it: back to the hotbar", icon: "back" };
 /** What the board hides: everything a survival player watches that Block Party has no use for, and vanilla's hotbar (the pack draws its own). */
@@ -111,6 +117,11 @@ const LOADING_AFTER = 4;
 const BLOCKS_PER_MS = 1000;
 /** Ticks the slow-load test keeps the loading screen up longer. */
 const SLOW_LOAD = 80;
+/**
+ * Ticks the loading screen stays up after the move, while players' clients load the chunks around
+ * their new place (the user saw it fade away before the arena showed).
+ */
+const CLIENT_LOAD = 40;
 
 interface PlayerTests {
   settings: PieceSettings;
@@ -344,9 +355,9 @@ export class BlockPartySpike extends Minigame<Config> {
       this.sendLine(player, tests, container);
       if (tests.rolling?.placed) {
         const die = DICE.find((d) => d.id === container.getItem(slot)?.typeId);
-        if (die && tests.rolling.shown !== die.id) {
-          player.dimension.getBlock(tests.rolling.at)?.setType(die.id);
-          tests.rolling.shown = die.id;
+        if (die && tests.rolling.shown !== die.block) {
+          player.dimension.getBlock(tests.rolling.at)?.setType(die.block);
+          tests.rolling.shown = die.block;
         }
       }
     }
@@ -415,8 +426,8 @@ export class BlockPartySpike extends Minigame<Config> {
     const die = { x: Math.floor(at.x), y: Math.floor(at.y) + 3, z: Math.floor(at.z) };
     const block = player.dimension.getBlock(die);
     const placed = block?.isAir === true;
-    if (placed) block?.setType(DICE[0].id);
-    tests.rolling = { at: die, placed, shown: placed ? DICE[0].id : undefined };
+    if (placed) block?.setType(DICE[0].block);
+    tests.rolling = { at: die, placed, shown: placed ? DICE[0].block : undefined };
     lock(player);
     const yaw = (player.getRotation().y * Math.PI) / 180;
     for (const watcher of world.getAllPlayers()) {
@@ -437,7 +448,7 @@ export class BlockPartySpike extends Minigame<Config> {
   private clearDie(at: Vector3): void {
     try {
       const block = world.getDimension("overworld").getBlock(at);
-      if (block && DICE.some((d) => d.id === block.typeId)) block.setType("minecraft:air");
+      if (block && DICE.some((d) => d.block === block.typeId)) block.setType("minecraft:air");
     } catch {
       // unloaded
     }
@@ -620,7 +631,8 @@ export class BlockPartySpike extends Minigame<Config> {
    * A move behind the loading screen, for everyone: the screen fades to black (a camera fade), the
    * loading screen fades in over the black a level a tick (the HUD draws over a camera fade: the
    * user saw it pop in), the work is done (a long placement stalls the server, the screen holding),
-   * the loading screen fades out to the black, and the black fades away on the new place. A fade's
+   * it holds CLIENT_LOAD ticks more while clients load the new place's chunks, the loading screen
+   * fades out to the black, and the black fades away on the new place. A fade's
    * hold is at most 10 s; the last fade replaces it.
    */
   private async behindBlack(work: () => void | Promise<void>): Promise<void> {
@@ -636,7 +648,7 @@ export class BlockPartySpike extends Minigame<Config> {
       await this.scope.wait(2);
       if (this.slowLoads) await this.scope.wait(SLOW_LOAD);
       await work();
-      await this.scope.wait(2);
+      await this.scope.wait(CLIENT_LOAD);
     } finally {
       for (let level = LOADING_LEVELS - 1; level >= 0; level--) await this.loadingAt(level);
       fade(0, 0.1, 0.6);

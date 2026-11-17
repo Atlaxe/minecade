@@ -15,24 +15,27 @@ export const LOADING_CODE = "§k§d";
 export const LOADING_LEVELS = 8;
 export const HOTBAR_SIZE = 9;
 
-/** Each icon the bar draws (textures/blockparty/hud/icon_<id>.png), with its code: a formatting code that's never a slot's digit. */
+/**
+ * Each icon the bar draws, with its code (a formatting code that's never a slot's digit) and its
+ * texture: vanilla's own for now (the user's call), until the items get art of their own.
+ */
 export const BAR_ICONS = {
-  items: "a",
-  dice: "b",
-  tests: "c",
-  back: "e",
-  die: "f",
-  slow_die: "g",
-  golden_die: "h",
-  stone_totem: "i",
-  lightning: "j",
-  glove: "m",
+  items: { code: "a", texture: "textures/items/book_normal" },
+  dice: { code: "b", texture: "textures/items/quartz" },
+  tests: { code: "c", texture: "textures/items/compass_item" },
+  back: { code: "e", texture: "textures/items/arrow" },
+  die: { code: "f", texture: "textures/blocks/concrete_white" },
+  slow_die: { code: "g", texture: "textures/blocks/concrete_light_blue" },
+  golden_die: { code: "h", texture: "textures/blocks/gold_block" },
+  stone_totem: { code: "i", texture: "textures/items/flint" },
+  lightning: { code: "j", texture: "textures/items/blaze_rod" },
+  glove: { code: "m", texture: "textures/items/leather" },
 } as const;
 export type BarIcon = keyof typeof BAR_ICONS;
 
 /** One slot's code: its tile and icon. */
 export function slotCode(slot: number, icon: BarIcon): string {
-  return `${BAR_CODE}§${slot}§${BAR_ICONS[icon]}`;
+  return `${BAR_CODE}§${slot}§${BAR_ICONS[icon].code}`;
 }
 
 /** The bar's codes: each slot in use and its icon, and the selected slot. */

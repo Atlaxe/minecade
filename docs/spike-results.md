@@ -488,3 +488,7 @@ an arena behind a fade, and an arena box has to hold whatever its attached block
 | The Referee | Right now. |
 | The loading screen | Better, but it popped in rather than fading, so the HUD draws over a camera fade. Now: fade to black, then the loading screen fades in over it a level a tick (8 strengths on an action bar code), holds while the arena loads, fades out to the black, and the black fades away on the new place. |
 | Checklist Features | Right. |
+
+### The user's fourth look (2026-11-16)
+
+The walk's corners are right now (where on a space a piece stops waits for the board's markers), the pack's own hotbar works as wanted, and the loading screen fades in and out well, but it faded away before the arena showed. Acted on: the bar's icons are vanilla's textures for now (the user will add item art later); the bar's items are the pack's own (`blockparty:bar_<icon>`) with a clear texture, so nothing shows in the player's hand, first person or third; the loading screen holds 2 seconds after the move while clients load the new place's chunks.

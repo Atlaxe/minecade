@@ -100,7 +100,7 @@
       {
         "icon_items": {
           "type": "image",
-          "texture": "textures/blockparty/hud/icon_items",
+          "texture": "textures/items/book_normal",
           "size": [
             16,
             16
@@ -113,7 +113,7 @@
       {
         "icon_dice": {
           "type": "image",
-          "texture": "textures/blockparty/hud/icon_dice",
+          "texture": "textures/items/quartz",
           "size": [
             16,
             16
@@ -126,7 +126,7 @@
       {
         "icon_tests": {
           "type": "image",
-          "texture": "textures/blockparty/hud/icon_tests",
+          "texture": "textures/items/compass_item",
           "size": [
             16,
             16
@@ -139,7 +139,7 @@
       {
         "icon_back": {
           "type": "image",
-          "texture": "textures/blockparty/hud/icon_back",
+          "texture": "textures/items/arrow",
           "size": [
             16,
             16
@@ -152,7 +152,7 @@
       {
         "icon_die": {
           "type": "image",
-          "texture": "textures/blockparty/hud/icon_die",
+          "texture": "textures/blocks/concrete_white",
           "size": [
             16,
             16
@@ -165,7 +165,7 @@
       {
         "icon_slow_die": {
           "type": "image",
-          "texture": "textures/blockparty/hud/icon_slow_die",
+          "texture": "textures/blocks/concrete_light_blue",
           "size": [
             16,
             16
@@ -178,7 +178,7 @@
       {
         "icon_golden_die": {
           "type": "image",
-          "texture": "textures/blockparty/hud/icon_golden_die",
+          "texture": "textures/blocks/gold_block",
           "size": [
             16,
             16
@@ -191,7 +191,7 @@
       {
         "icon_stone_totem": {
           "type": "image",
-          "texture": "textures/blockparty/hud/icon_stone_totem",
+          "texture": "textures/items/flint",
           "size": [
             16,
             16
@@ -204,7 +204,7 @@
       {
         "icon_lightning": {
           "type": "image",
-          "texture": "textures/blockparty/hud/icon_lightning",
+          "texture": "textures/items/blaze_rod",
           "size": [
             16,
             16
@@ -217,7 +217,7 @@
       {
         "icon_glove": {
           "type": "image",
-          "texture": "textures/blockparty/hud/icon_glove",
+          "texture": "textures/items/leather",
           "size": [
             16,
             16
@@ -271,7 +271,7 @@
       {
         "icon_items": {
           "type": "image",
-          "texture": "textures/blockparty/hud/icon_items",
+          "texture": "textures/items/book_normal",
           "size": [
             16,
             16
@@ -284,7 +284,7 @@
       {
         "icon_dice": {
           "type": "image",
-          "texture": "textures/blockparty/hud/icon_dice",
+          "texture": "textures/items/quartz",
           "size": [
             16,
             16
@@ -297,7 +297,7 @@
       {
         "icon_tests": {
           "type": "image",
-          "texture": "textures/blockparty/hud/icon_tests",
+          "texture": "textures/items/compass_item",
           "size": [
             16,
             16
@@ -310,7 +310,7 @@
       {
         "icon_back": {
           "type": "image",
-          "texture": "textures/blockparty/hud/icon_back",
+          "texture": "textures/items/arrow",
           "size": [
             16,
             16
@@ -323,7 +323,7 @@
       {
         "icon_die": {
           "type": "image",
-          "texture": "textures/blockparty/hud/icon_die",
+          "texture": "textures/blocks/concrete_white",
           "size": [
             16,
             16
@@ -336,7 +336,7 @@
       {
         "icon_slow_die": {
           "type": "image",
-          "texture": "textures/blockparty/hud/icon_slow_die",
+          "texture": "textures/blocks/concrete_light_blue",
           "size": [
             16,
             16
@@ -349,7 +349,7 @@
       {
         "icon_golden_die": {
           "type": "image",
-          "texture": "textures/blockparty/hud/icon_golden_die",
+          "texture": "textures/blocks/gold_block",
           "size": [
             16,
             16
@@ -362,7 +362,7 @@
       {
         "icon_stone_totem": {
           "type": "image",
-          "texture": "textures/blockparty/hud/icon_stone_totem",
+          "texture": "textures/items/flint",
           "size": [
             16,
             16
@@ -375,7 +375,7 @@
       {
         "icon_lightning": {
           "type": "image",
-          "texture": "textures/blockparty/hud/icon_lightning",
+          "texture": "textures/items/blaze_rod",
           "size": [
             16,
             16
@@ -388,7 +388,7 @@
       {
         "icon_glove": {
           "type": "image",
-          "texture": "textures/blockparty/hud/icon_glove",
+          "texture": "textures/items/leather",
           "size": [
             16,
             16
@@ -442,7 +442,7 @@
       {
         "icon_items": {
           "type": "image",
-          "texture": "textures/blockparty/hud/icon_items",
+          "texture": "textures/items/book_normal",
           "size": [
             16,
             16
@@ -455,7 +455,7 @@
       {
         "icon_dice": {
           "type": "image",
-          "texture": "textures/blockparty/hud/icon_dice",
+          "texture": "textures/items/quartz",
           "size": [
             16,
             16
@@ -468,7 +468,7 @@
       {
         "icon_tests": {
           "type": "image",
-          "texture": "textures/blockparty/hud/icon_tests",
+          "texture": "textures/items/compass_item",
           "size": [
             16,
             16
@@ -481,7 +481,7 @@
       {
         "icon_back": {
           "type": "image",
-          "texture": "textures/blockparty/hud/icon_back",
+          "texture": "textures/items/arrow",
           "size": [
             16,
             16
@@ -494,7 +494,7 @@
       {
         "icon_die": {
           "type": "image",
-          "texture": "textures/blockparty/hud/icon_die",
+          "texture": "textures/blocks/concrete_white",
           "size": [
             16,
             16
@@ -507,7 +507,7 @@
       {
         "icon_slow_die": {
           "type": "image",
-          "texture": "textures/blockparty/hud/icon_slow_die",
+          "texture": "textures/blocks/concrete_light_blue",
           "size": [
             16,
             16
@@ -520,7 +520,7 @@
       {
         "icon_golden_die": {
           "type": "image",
-          "texture": "textures/blockparty/hud/icon_golden_die",
+          "texture": "textures/blocks/gold_block",
           "size": [
             16,
             16
@@ -533,7 +533,7 @@
       {
         "icon_stone_totem": {
           "type": "image",
-          "texture": "textures/blockparty/hud/icon_stone_totem",
+          "texture": "textures/items/flint",
           "size": [
             16,
             16
@@ -546,7 +546,7 @@
       {
         "icon_lightning": {
           "type": "image",
-          "texture": "textures/blockparty/hud/icon_lightning",
+          "texture": "textures/items/blaze_rod",
           "size": [
             16,
             16
@@ -559,7 +559,7 @@
       {
         "icon_glove": {
           "type": "image",
-          "texture": "textures/blockparty/hud/icon_glove",
+          "texture": "textures/items/leather",
           "size": [
             16,
             16
@@ -613,7 +613,7 @@
       {
         "icon_items": {
           "type": "image",
-          "texture": "textures/blockparty/hud/icon_items",
+          "texture": "textures/items/book_normal",
           "size": [
             16,
             16
@@ -626,7 +626,7 @@
       {
         "icon_dice": {
           "type": "image",
-          "texture": "textures/blockparty/hud/icon_dice",
+          "texture": "textures/items/quartz",
           "size": [
             16,
             16
@@ -639,7 +639,7 @@
       {
         "icon_tests": {
           "type": "image",
-          "texture": "textures/blockparty/hud/icon_tests",
+          "texture": "textures/items/compass_item",
           "size": [
             16,
             16
@@ -652,7 +652,7 @@
       {
         "icon_back": {
           "type": "image",
-          "texture": "textures/blockparty/hud/icon_back",
+          "texture": "textures/items/arrow",
           "size": [
             16,
             16
@@ -665,7 +665,7 @@
       {
         "icon_die": {
           "type": "image",
-          "texture": "textures/blockparty/hud/icon_die",
+          "texture": "textures/blocks/concrete_white",
           "size": [
             16,
             16
@@ -678,7 +678,7 @@
       {
         "icon_slow_die": {
           "type": "image",
-          "texture": "textures/blockparty/hud/icon_slow_die",
+          "texture": "textures/blocks/concrete_light_blue",
           "size": [
             16,
             16
@@ -691,7 +691,7 @@
       {
         "icon_golden_die": {
           "type": "image",
-          "texture": "textures/blockparty/hud/icon_golden_die",
+          "texture": "textures/blocks/gold_block",
           "size": [
             16,
             16
@@ -704,7 +704,7 @@
       {
         "icon_stone_totem": {
           "type": "image",
-          "texture": "textures/blockparty/hud/icon_stone_totem",
+          "texture": "textures/items/flint",
           "size": [
             16,
             16
@@ -717,7 +717,7 @@
       {
         "icon_lightning": {
           "type": "image",
-          "texture": "textures/blockparty/hud/icon_lightning",
+          "texture": "textures/items/blaze_rod",
           "size": [
             16,
             16
@@ -730,7 +730,7 @@
       {
         "icon_glove": {
           "type": "image",
-          "texture": "textures/blockparty/hud/icon_glove",
+          "texture": "textures/items/leather",
           "size": [
             16,
             16
@@ -784,7 +784,7 @@
       {
         "icon_items": {
           "type": "image",
-          "texture": "textures/blockparty/hud/icon_items",
+          "texture": "textures/items/book_normal",
           "size": [
             16,
             16
@@ -797,7 +797,7 @@
       {
         "icon_dice": {
           "type": "image",
-          "texture": "textures/blockparty/hud/icon_dice",
+          "texture": "textures/items/quartz",
           "size": [
             16,
             16
@@ -810,7 +810,7 @@
       {
         "icon_tests": {
           "type": "image",
-          "texture": "textures/blockparty/hud/icon_tests",
+          "texture": "textures/items/compass_item",
           "size": [
             16,
             16
@@ -823,7 +823,7 @@
       {
         "icon_back": {
           "type": "image",
-          "texture": "textures/blockparty/hud/icon_back",
+          "texture": "textures/items/arrow",
           "size": [
             16,
             16
@@ -836,7 +836,7 @@
       {
         "icon_die": {
           "type": "image",
-          "texture": "textures/blockparty/hud/icon_die",
+          "texture": "textures/blocks/concrete_white",
           "size": [
             16,
             16
@@ -849,7 +849,7 @@
       {
         "icon_slow_die": {
           "type": "image",
-          "texture": "textures/blockparty/hud/icon_slow_die",
+          "texture": "textures/blocks/concrete_light_blue",
           "size": [
             16,
             16
@@ -862,7 +862,7 @@
       {
         "icon_golden_die": {
           "type": "image",
-          "texture": "textures/blockparty/hud/icon_golden_die",
+          "texture": "textures/blocks/gold_block",
           "size": [
             16,
             16
@@ -875,7 +875,7 @@
       {
         "icon_stone_totem": {
           "type": "image",
-          "texture": "textures/blockparty/hud/icon_stone_totem",
+          "texture": "textures/items/flint",
           "size": [
             16,
             16
@@ -888,7 +888,7 @@
       {
         "icon_lightning": {
           "type": "image",
-          "texture": "textures/blockparty/hud/icon_lightning",
+          "texture": "textures/items/blaze_rod",
           "size": [
             16,
             16
@@ -901,7 +901,7 @@
       {
         "icon_glove": {
           "type": "image",
-          "texture": "textures/blockparty/hud/icon_glove",
+          "texture": "textures/items/leather",
           "size": [
             16,
             16
@@ -955,7 +955,7 @@
       {
         "icon_items": {
           "type": "image",
-          "texture": "textures/blockparty/hud/icon_items",
+          "texture": "textures/items/book_normal",
           "size": [
             16,
             16
@@ -968,7 +968,7 @@
       {
         "icon_dice": {
           "type": "image",
-          "texture": "textures/blockparty/hud/icon_dice",
+          "texture": "textures/items/quartz",
           "size": [
             16,
             16
@@ -981,7 +981,7 @@
       {
         "icon_tests": {
           "type": "image",
-          "texture": "textures/blockparty/hud/icon_tests",
+          "texture": "textures/items/compass_item",
           "size": [
             16,
             16
@@ -994,7 +994,7 @@
       {
         "icon_back": {
           "type": "image",
-          "texture": "textures/blockparty/hud/icon_back",
+          "texture": "textures/items/arrow",
           "size": [
             16,
             16
@@ -1007,7 +1007,7 @@
       {
         "icon_die": {
           "type": "image",
-          "texture": "textures/blockparty/hud/icon_die",
+          "texture": "textures/blocks/concrete_white",
           "size": [
             16,
             16
@@ -1020,7 +1020,7 @@
       {
         "icon_slow_die": {
           "type": "image",
-          "texture": "textures/blockparty/hud/icon_slow_die",
+          "texture": "textures/blocks/concrete_light_blue",
           "size": [
             16,
             16
@@ -1033,7 +1033,7 @@
       {
         "icon_golden_die": {
           "type": "image",
-          "texture": "textures/blockparty/hud/icon_golden_die",
+          "texture": "textures/blocks/gold_block",
           "size": [
             16,
             16
@@ -1046,7 +1046,7 @@
       {
         "icon_stone_totem": {
           "type": "image",
-          "texture": "textures/blockparty/hud/icon_stone_totem",
+          "texture": "textures/items/flint",
           "size": [
             16,
             16
@@ -1059,7 +1059,7 @@
       {
         "icon_lightning": {
           "type": "image",
-          "texture": "textures/blockparty/hud/icon_lightning",
+          "texture": "textures/items/blaze_rod",
           "size": [
             16,
             16
@@ -1072,7 +1072,7 @@
       {
         "icon_glove": {
           "type": "image",
-          "texture": "textures/blockparty/hud/icon_glove",
+          "texture": "textures/items/leather",
           "size": [
             16,
             16
@@ -1126,7 +1126,7 @@
       {
         "icon_items": {
           "type": "image",
-          "texture": "textures/blockparty/hud/icon_items",
+          "texture": "textures/items/book_normal",
           "size": [
             16,
             16
@@ -1139,7 +1139,7 @@
       {
         "icon_dice": {
           "type": "image",
-          "texture": "textures/blockparty/hud/icon_dice",
+          "texture": "textures/items/quartz",
           "size": [
             16,
             16
@@ -1152,7 +1152,7 @@
       {
         "icon_tests": {
           "type": "image",
-          "texture": "textures/blockparty/hud/icon_tests",
+          "texture": "textures/items/compass_item",
           "size": [
             16,
             16
@@ -1165,7 +1165,7 @@
       {
         "icon_back": {
           "type": "image",
-          "texture": "textures/blockparty/hud/icon_back",
+          "texture": "textures/items/arrow",
           "size": [
             16,
             16
@@ -1178,7 +1178,7 @@
       {
         "icon_die": {
           "type": "image",
-          "texture": "textures/blockparty/hud/icon_die",
+          "texture": "textures/blocks/concrete_white",
           "size": [
             16,
             16
@@ -1191,7 +1191,7 @@
       {
         "icon_slow_die": {
           "type": "image",
-          "texture": "textures/blockparty/hud/icon_slow_die",
+          "texture": "textures/blocks/concrete_light_blue",
           "size": [
             16,
             16
@@ -1204,7 +1204,7 @@
       {
         "icon_golden_die": {
           "type": "image",
-          "texture": "textures/blockparty/hud/icon_golden_die",
+          "texture": "textures/blocks/gold_block",
           "size": [
             16,
             16
@@ -1217,7 +1217,7 @@
       {
         "icon_stone_totem": {
           "type": "image",
-          "texture": "textures/blockparty/hud/icon_stone_totem",
+          "texture": "textures/items/flint",
           "size": [
             16,
             16
@@ -1230,7 +1230,7 @@
       {
         "icon_lightning": {
           "type": "image",
-          "texture": "textures/blockparty/hud/icon_lightning",
+          "texture": "textures/items/blaze_rod",
           "size": [
             16,
             16
@@ -1243,7 +1243,7 @@
       {
         "icon_glove": {
           "type": "image",
-          "texture": "textures/blockparty/hud/icon_glove",
+          "texture": "textures/items/leather",
           "size": [
             16,
             16
@@ -1297,7 +1297,7 @@
       {
         "icon_items": {
           "type": "image",
-          "texture": "textures/blockparty/hud/icon_items",
+          "texture": "textures/items/book_normal",
           "size": [
             16,
             16
@@ -1310,7 +1310,7 @@
       {
         "icon_dice": {
           "type": "image",
-          "texture": "textures/blockparty/hud/icon_dice",
+          "texture": "textures/items/quartz",
           "size": [
             16,
             16
@@ -1323,7 +1323,7 @@
       {
         "icon_tests": {
           "type": "image",
-          "texture": "textures/blockparty/hud/icon_tests",
+          "texture": "textures/items/compass_item",
           "size": [
             16,
             16
@@ -1336,7 +1336,7 @@
       {
         "icon_back": {
           "type": "image",
-          "texture": "textures/blockparty/hud/icon_back",
+          "texture": "textures/items/arrow",
           "size": [
             16,
             16
@@ -1349,7 +1349,7 @@
       {
         "icon_die": {
           "type": "image",
-          "texture": "textures/blockparty/hud/icon_die",
+          "texture": "textures/blocks/concrete_white",
           "size": [
             16,
             16
@@ -1362,7 +1362,7 @@
       {
         "icon_slow_die": {
           "type": "image",
-          "texture": "textures/blockparty/hud/icon_slow_die",
+          "texture": "textures/blocks/concrete_light_blue",
           "size": [
             16,
             16
@@ -1375,7 +1375,7 @@
       {
         "icon_golden_die": {
           "type": "image",
-          "texture": "textures/blockparty/hud/icon_golden_die",
+          "texture": "textures/blocks/gold_block",
           "size": [
             16,
             16
@@ -1388,7 +1388,7 @@
       {
         "icon_stone_totem": {
           "type": "image",
-          "texture": "textures/blockparty/hud/icon_stone_totem",
+          "texture": "textures/items/flint",
           "size": [
             16,
             16
@@ -1401,7 +1401,7 @@
       {
         "icon_lightning": {
           "type": "image",
-          "texture": "textures/blockparty/hud/icon_lightning",
+          "texture": "textures/items/blaze_rod",
           "size": [
             16,
             16
@@ -1414,7 +1414,7 @@
       {
         "icon_glove": {
           "type": "image",
-          "texture": "textures/blockparty/hud/icon_glove",
+          "texture": "textures/items/leather",
           "size": [
             16,
             16
@@ -1468,7 +1468,7 @@
       {
         "icon_items": {
           "type": "image",
-          "texture": "textures/blockparty/hud/icon_items",
+          "texture": "textures/items/book_normal",
           "size": [
             16,
             16
@@ -1481,7 +1481,7 @@
       {
         "icon_dice": {
           "type": "image",
-          "texture": "textures/blockparty/hud/icon_dice",
+          "texture": "textures/items/quartz",
           "size": [
             16,
             16
@@ -1494,7 +1494,7 @@
       {
         "icon_tests": {
           "type": "image",
-          "texture": "textures/blockparty/hud/icon_tests",
+          "texture": "textures/items/compass_item",
           "size": [
             16,
             16
@@ -1507,7 +1507,7 @@
       {
         "icon_back": {
           "type": "image",
-          "texture": "textures/blockparty/hud/icon_back",
+          "texture": "textures/items/arrow",
           "size": [
             16,
             16
@@ -1520,7 +1520,7 @@
       {
         "icon_die": {
           "type": "image",
-          "texture": "textures/blockparty/hud/icon_die",
+          "texture": "textures/blocks/concrete_white",
           "size": [
             16,
             16
@@ -1533,7 +1533,7 @@
       {
         "icon_slow_die": {
           "type": "image",
-          "texture": "textures/blockparty/hud/icon_slow_die",
+          "texture": "textures/blocks/concrete_light_blue",
           "size": [
             16,
             16
@@ -1546,7 +1546,7 @@
       {
         "icon_golden_die": {
           "type": "image",
-          "texture": "textures/blockparty/hud/icon_golden_die",
+          "texture": "textures/blocks/gold_block",
           "size": [
             16,
             16
@@ -1559,7 +1559,7 @@
       {
         "icon_stone_totem": {
           "type": "image",
-          "texture": "textures/blockparty/hud/icon_stone_totem",
+          "texture": "textures/items/flint",
           "size": [
             16,
             16
@@ -1572,7 +1572,7 @@
       {
         "icon_lightning": {
           "type": "image",
-          "texture": "textures/blockparty/hud/icon_lightning",
+          "texture": "textures/items/blaze_rod",
           "size": [
             16,
             16
@@ -1585,7 +1585,7 @@
       {
         "icon_glove": {
           "type": "image",
-          "texture": "textures/blockparty/hud/icon_glove",
+          "texture": "textures/items/leather",
           "size": [
             16,
             16

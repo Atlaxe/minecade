@@ -31,7 +31,7 @@ const ATEXT = { $atext: "$actionbar_text" };
 
 function slot(index: number): Control {
   const icons = (Object.keys(BAR_ICONS) as BarIcon[]).map((icon) => ({
-    [`icon_${icon}`]: { type: "image", texture: `textures/blockparty/hud/icon_${icon}`, size: ICON, layer: 2, ...ATEXT, visible: has(slotCode(index, icon)) },
+    [`icon_${icon}`]: { type: "image", texture: BAR_ICONS[icon].texture, size: ICON, layer: 2, ...ATEXT, visible: has(slotCode(index, icon)) },
   }));
   return {
     type: "panel",
