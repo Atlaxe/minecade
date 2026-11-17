@@ -18,7 +18,7 @@ const LINES: Readonly<Record<string, readonly string[]>> = dialogue.lines;
 export interface Moment {
   /** Who says it: "Game", or a character ("Chris"). */
   character: string;
-  /** Where it shows: "Chat, everyone", "Title", "NPC", "Dialogue box", ... */
+  /** Where it shows: "Dialogue box", "Title", "Subtitle", "Action bar" (the dialogue tool's scene deliveries; chat is gone). */
   delivery: string;
   /** Players can vote to skip it. */
   skippable: boolean;
@@ -35,7 +35,7 @@ export function moment(id: string): Moment {
   const found = MOMENTS[id];
   return {
     character: found?.character ?? "Game",
-    delivery: found?.delivery ?? "Chat, everyone",
+    delivery: found?.delivery ?? "Dialogue box",
     skippable: found?.skippable === true,
     cutscene: found?.cutscene === true,
     camera: found?.camera ?? "",

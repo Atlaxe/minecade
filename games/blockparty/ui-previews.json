@@ -1,5 +1,5 @@
 {
-  "about": "Block Party's HUD states for the workshop's JSON UI tool. Written by games/blockparty/test/ui-previews.test.ts (run it with -u after changing it); don't edit by hand.",
+  "about": "Block Party's HUD states for the workshop's JSON UI tool. Written by games/blockparty/test/ui-previews.test.ts (run it with WRITE_PREVIEWS=1 after changing it); don't edit by hand.",
   "previews": [
     {
       "name": "Dialogue box: Chris to everyone",

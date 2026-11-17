@@ -144,8 +144,8 @@ the skip strip). A game that shows its own sidebar puts its notes back afterward
 (`Notes.display()`; a `Sidebar` going away leaves the slot alone if another has taken it). The
 workshop's JSON UI tool draws the box: its Preview page's **Game preview** list (with the
 blockparty packs) has its states, from `games/blockparty/ui-previews.json`, which
-`games/blockparty/test/ui-previews.test.ts` writes from the game's own codes (run it with `-u`
-after changing them).
+`games/blockparty/test/ui-previews.test.ts` writes from the game's own codes (run it with
+`WRITE_PREVIEWS=1` after changing them).
 
 **Own score:** a game whose `scoring` has `display: "own"` (One in the Quiver) has no sidebar.
 Each player sees only their own score (their team's in team games) in a box left of the clock's,
