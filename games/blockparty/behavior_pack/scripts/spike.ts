@@ -6,16 +6,17 @@
 //     says in chat how it went), watched by everyone through the chase or watch camera;
 //   - camera shots (shots.ts), skipped by everyone jumping (a vote);
 //   - the jump button: every jump is reported in chat with what was locked at the time;
-//   - the hotbar (resource_pack/ui/hud_screen.json restyles vanilla's, bottom right): Items, Dice
-//     and Tests in the rightmost slots, only the slots in use showing (each item a count of 2: the
-//     pack shows a slot only while its count would show). Using Items or Dice swaps the bar for that
-//     set (the items held, or the dice, each with a Back slot); in the dice, the die picked floats
-//     over your head and a jump hits it, and your piece walks the number. Health, hunger and the XP
-//     bar are hidden;
+//   - the hotbar: the pack's own, bottom right (vanilla's is hidden; bar-codes.ts and
+//     ui/blockparty_hud.json), each player's drawn from codes on their action bar: Items, Dice and
+//     Tests in the rightmost slots, only the slots in use showing. Vanilla's slots still pick
+//     (scrolling, number keys). Using Items or Dice swaps the bar for that set (the items held, or the
+//     dice, each with a Back slot); in the dice, the die picked floats over your head and a jump hits
+//     it, and your piece walks the number. Health, hunger and the XP bar are hidden;
 //   - the NPCs on the vanilla mobs' models (npcs.ts): hit one for its animations and variants;
 //   - arenas from other maps (spike/blockparty/arena-pack.ts installs them as structures in
-//     private_packs/arenas/): placed far east of the board, fresh each time, behind a fade both ways,
-//     with a loading screen (the star field and Minecade's logo) once the black lasts;
+//     private_packs/arenas/): placed far east of the board (or in the map's arena slot), fresh each
+//     time: a fade to black, the loading screen (the star field and Minecade's logo) fading in over
+//     it, then out again, and the black fading away on the new place;
 //   - a player riding a player and on a lead (two players; both need private_packs/players/,
 //     vanilla's player.json made rideable and leashable).
 // What a test tells a player in chat also goes to the server's log ("blockparty test:" lines).
@@ -31,12 +32,14 @@ import {
   BlockVolume,
   system,
   world,
+  type Container,
   type Player,
   type Vector3,
 } from "@minecraft/server";
 import { ActionFormData, ModalFormData } from "@minecraft/server-ui";
 import { ARENA_SLOT, Minigame, describeError, draw, hudLine, log, say, showForm, spacesOf, type GameContext, type Result, type SpawnReason } from "@minecade/minigame-core";
 import registry from "#registry";
+import { HOTBAR_SIZE, LOADING_LEVELS, barCodes, loadingCode, type BarIcon } from "./bar-codes.ts";
 import type config from "../../game.config.ts";
 import { boardBox, build, mapSpaces, testSpaces, type Space, type Vec3 } from "./board.ts";
 import { Npcs } from "./npcs.ts";
@@ -52,6 +55,8 @@ interface BarItem {
   id: string;
   name: string;
   what: string;
+  /** Its icon on the pack's bar. */
+  icon: BarIcon;
 }
 interface Die extends BarItem {
   faces: readonly number[];
@@ -63,26 +68,25 @@ const DICE_ITEM = "minecraft:quartz";
 const BACK_ITEM = "minecraft:arrow";
 
 const MAIN_BAR: readonly BarItem[] = [
-  { id: ITEMS_ITEM, name: "Items", what: "Use it: your items" },
-  { id: DICE_ITEM, name: "Dice", what: "Use it: pick a die, then jump to roll" },
-  { id: MENU_ITEM, name: "Tests", what: "Every Block Party test" },
+  { id: ITEMS_ITEM, name: "Items", what: "Use it: your items", icon: "items" },
+  { id: DICE_ITEM, name: "Dice", what: "Use it: pick a die, then jump to roll", icon: "dice" },
+  { id: MENU_ITEM, name: "Tests", what: "Every Block Party test", icon: "tests" },
 ];
 const DICE: readonly Die[] = [
-  { id: "minecraft:white_concrete", name: "Die", what: "Jump to hit it: 1 to 6", faces: [1, 2, 3, 4, 5, 6] },
-  { id: "minecraft:light_blue_concrete", name: "Slow Die", what: "Jump to hit it: 1 to 3", faces: [1, 2, 3] },
-  { id: "minecraft:gold_block", name: "Golden Die", what: "Jump to hit it: 5 to 10", faces: [5, 6, 7, 8, 9, 10] },
+  { id: "minecraft:white_concrete", name: "Die", what: "Jump to hit it: 1 to 6", icon: "die", faces: [1, 2, 3, 4, 5, 6] },
+  { id: "minecraft:light_blue_concrete", name: "Slow Die", what: "Jump to hit it: 1 to 3", icon: "slow_die", faces: [1, 2, 3] },
+  { id: "minecraft:gold_block", name: "Golden Die", what: "Jump to hit it: 5 to 10", icon: "golden_die", faces: [5, 6, 7, 8, 9, 10] },
 ];
 const ITEMS: readonly BarItem[] = [
-  { id: "minecraft:flint", name: "Stone Totem", what: "Roll an extra die next turn" },
-  { id: "minecraft:blaze_rod", name: "Lightning Strike", what: "The leader gives 10 coins to last place" },
-  { id: "minecraft:leather", name: "Dueling Glove", what: "A 1v1 duel for 10 coins" },
+  { id: "minecraft:flint", name: "Stone Totem", what: "Roll an extra die next turn", icon: "stone_totem" },
+  { id: "minecraft:blaze_rod", name: "Lightning Strike", what: "The leader gives 10 coins to last place", icon: "lightning" },
+  { id: "minecraft:leather", name: "Dueling Glove", what: "A 1v1 duel for 10 coins", icon: "glove" },
 ];
-const BACK: BarItem = { id: BACK_ITEM, name: "Back", what: "Use it: back to the hotbar" };
-const HOTBAR_SIZE = 9;
-/** Every bar item's count: the pack shows a slot only while vanilla would show its count (more than 1). */
-const BAR_COUNT = 2;
-/** What the board hides: everything a survival player watches that Block Party has no use for. */
-const HIDDEN_HUD = [HudElement.Health, HudElement.Hunger, HudElement.ProgressBar, HudElement.Armor, HudElement.AirBubbles];
+const BACK: BarItem = { id: BACK_ITEM, name: "Back", what: "Use it: back to the hotbar", icon: "back" };
+/** What the board hides: everything a survival player watches that Block Party has no use for, and vanilla's hotbar (the pack draws its own). */
+const HIDDEN_HUD = [HudElement.Hotbar, HudElement.Health, HudElement.Hunger, HudElement.ProgressBar, HudElement.Armor, HudElement.AirBubbles];
+/** Ticks between sends of each player's bar (the action bar fades unless it's sent again). */
+const BAR_RESEND = 20;
 
 type Bar = "main" | "items" | "dice";
 
@@ -101,19 +105,11 @@ const JUMP_MODES: readonly { id: JumpMode; label: string }[] = [
 const ARENA_AT: Vec3 = [2000, 0, 0];
 const ARENA_AREA = "minecade:blockparty_arena";
 const BOARD_AREA = "minecade:blockparty_board";
-/**
- * An action bar code (formatting codes, which never render) that shows the pack's loading screen,
- * the star field and Minecade's logo, over everything (ui/hud_screen.json, bp_loading). It rides
- * after the core's HUD mark, so nothing else of the action bar shows.
- */
-const LOADING_CODE = "§k§d";
-/** Ticks of black before the loading screen shows. */
-const LOADING_AFTER = 40;
-/** A placement expected to stall the server longer than this (ms) shows the loading screen first: the server can't send anything mid-stall. */
-const LONG_STALL_MS = 1500;
+/** Ticks of black before the loading screen starts fading in over it. */
+const LOADING_AFTER = 4;
 /** Blocks placed a millisecond, about (docs/spike-results.md, "Block Party": Sinkhole's 667,648 in 608 to 676 ms). */
 const BLOCKS_PER_MS = 1000;
-/** Ticks the slow-load test keeps the screen black, so the logo shows. */
+/** Ticks the slow-load test keeps the loading screen up longer. */
 const SLOW_LOAD = 80;
 
 interface PlayerTests {
@@ -126,6 +122,9 @@ interface PlayerTests {
   items: number;
   /** The slot selected last tick, to tell which way a scroll went. */
   lastSlot: number;
+  /** The action bar line last sent, and when: the bar's codes, sent again when they change or every BAR_RESEND ticks. */
+  sentLine?: string;
+  sentAt?: number;
   /** The open dice bar: the die floating over the player's head. */
   rolling?: { at: Vector3; placed: boolean; shown?: string };
 }
@@ -146,6 +145,8 @@ export class BlockPartySpike extends Minigame<Config> {
   private boardMiddle: Vec3 = [0, 64, 0];
   /** The tick each player last used a hotbar item: a click on a block and in the air both report. */
   private readonly lastUse = new Map<string, number>();
+  /** The loading screen's strength for everyone (0 off, up to LOADING_LEVELS). */
+  private loadingLevel = 0;
 
   constructor(ctx: GameContext, gameConfig: Config) {
     super(ctx, gameConfig);
@@ -292,7 +293,7 @@ export class BlockPartySpike extends Minigame<Config> {
     const first = HOTBAR_SIZE - items.length;
     for (let slot = 0; slot < HOTBAR_SIZE; slot++) container.setItem(slot, undefined);
     items.forEach(({ id, name, what }, i) => {
-      const item = new ItemStack(id, BAR_COUNT);
+      const item = new ItemStack(id, 1);
       item.nameTag = name;
       item.setLore([what]);
       item.lockMode = ItemLockMode.slot;
@@ -340,6 +341,7 @@ export class BlockPartySpike extends Minigame<Config> {
         }
       }
       tests.lastSlot = slot;
+      this.sendLine(player, tests, container);
       if (tests.rolling?.placed) {
         const die = DICE.find((d) => d.id === container.getItem(slot)?.typeId);
         if (die && tests.rolling.shown !== die.id) {
@@ -348,6 +350,25 @@ export class BlockPartySpike extends Minigame<Config> {
         }
       }
     }
+  }
+
+  /**
+   * The player's action bar: the core's HUD mark, then their bar's codes (each slot in use, its
+   * icon, the selected one) and the loading screen's level, when it's up. Sent when it changes, and
+   * every BAR_RESEND ticks so it doesn't fade.
+   */
+  private sendLine(player: Player, tests: PlayerTests, container: Container): void {
+    const slots: { slot: number; icon: BarIcon }[] = [];
+    const icons = new Map([...MAIN_BAR, ...DICE, ...ITEMS, BACK].map((item) => [item.id, item.icon]));
+    for (let slot = 0; slot < HOTBAR_SIZE; slot++) {
+      const icon = icons.get(container.getItem(slot)?.typeId ?? "");
+      if (icon) slots.push({ slot, icon });
+    }
+    const line = hudLine(undefined, "", undefined, "", barCodes(slots, player.selectedSlotIndex) + loadingCode(this.loadingLevel));
+    if (line === tests.sentLine && system.currentTick - (tests.sentAt ?? 0) < BAR_RESEND) return;
+    tests.sentLine = line;
+    tests.sentAt = system.currentTick;
+    player.onScreenDisplay.setActionBar(line);
   }
 
   /** A hotbar item was used (right click, or a tap on a touch screen). */
@@ -475,15 +496,13 @@ export class BlockPartySpike extends Minigame<Config> {
     const form = new ModalFormData()
       .title("Piece settings")
       .dropdown("Camera while walking", WALK_CAMERAS.map((c) => c.label), { defaultValueIndex: WALK_CAMERAS.findIndex((c) => c.id === s.camera) })
-      .slider("Speed (blocks a second)", 2, 16, { valueStep: 1, defaultValue: s.speed })
-      .slider("Turn over (ticks)", 1, 10, { valueStep: 1, defaultValue: s.turnTicks })
-      .slider("Slow down into corners over (tenths of a block; 0 is no easing)", 0, 40, { valueStep: 1, defaultValue: Math.round(s.ease * 10) });
+      .slider("Speed (blocks a second)", 2, 16, { valueStep: 1, defaultValue: s.speed });
     const values = (await showForm(this.scope, player, form))?.formValues;
     if (!values) return;
-    const [camera, speed, turnTicks, ease] = values as [number, number, number, number];
-    tests.settings = { camera: WALK_CAMERAS[camera].id, speed, turnTicks, ease: ease / 10 };
+    const [camera, speed] = values as [number, number];
+    tests.settings = { camera: WALK_CAMERAS[camera].id, speed };
     this.pieces.refresh(player);
-    this.tell(player, `Piece: camera ${WALK_CAMERAS[camera].id}, ${speed} blocks a second, turns over ${turnTicks} ticks, easing over ${(ease / 10).toFixed(1)} blocks.`);
+    this.tell(player, `Piece: camera ${WALK_CAMERAS[camera].id}, ${speed} blocks a second.`);
   }
 
   private async shotsMenu(player: Player): Promise<void> {
@@ -598,56 +617,40 @@ export class BlockPartySpike extends Minigame<Config> {
   }
 
   /**
-   * A move behind black, for everyone: fade to black, do the work, fade back in. A camera fade
-   * covers the HUD (the user saw no logo on it), so once the black has lasted LOADING_AFTER ticks
-   * the loading screen goes on under it and the black fades away to show it; at the end the black
-   * comes back over it, it goes off, and the black fades away to show the new place. `work` awaits
-   * `expectStall` before anything that stalls the server long: the loading screen shows first,
-   * since nothing can be sent mid-stall. A fade's hold is at most 10 s; the next fade replaces it.
+   * A move behind the loading screen, for everyone: the screen fades to black (a camera fade), the
+   * loading screen fades in over the black a level a tick (the HUD draws over a camera fade: the
+   * user saw it pop in), the work is done (a long placement stalls the server, the screen holding),
+   * the loading screen fades out to the black, and the black fades away on the new place. A fade's
+   * hold is at most 10 s; the last fade replaces it.
    */
-  private async behindBlack(work: (expectStall: (ms: number) => Promise<void>) => void | Promise<void>): Promise<void> {
+  private async behindBlack(work: () => void | Promise<void>): Promise<void> {
     const black = { red: 0, green: 0, blue: 0 };
     const fade = (fadeInTime: number, holdTime: number, fadeOutTime: number) => {
       for (const player of world.getAllPlayers()) player.camera.fade({ fadeTime: { fadeInTime, holdTime, fadeOutTime }, fadeColor: black });
     };
     fade(0.4, 10, 0.6);
-    await this.scope.wait(9);
-    let done = false;
-    let loading = false;
-    const showLoading = () => {
-      if (loading || done) return;
-      loading = true;
-      this.setLoading(true);
-      fade(0, 0, 0.5);
-    };
-    // The action bar fades unless it's sent again.
-    const keep = this.scope.interval(() => {
-      if (loading && !done) this.setLoading(true);
-    }, 20);
-    this.scope.timeout(showLoading, LOADING_AFTER);
+    await this.scope.wait(8 + LOADING_AFTER);
     try {
+      for (let level = 1; level <= LOADING_LEVELS; level++) await this.loadingAt(level);
+      // The level is sent: the stall can't hide it.
+      await this.scope.wait(2);
       if (this.slowLoads) await this.scope.wait(SLOW_LOAD);
-      await work(async (ms) => {
-        if (ms <= LONG_STALL_MS || loading) return;
-        showLoading();
-        await this.scope.wait(12);
-      });
+      await work();
+      await this.scope.wait(2);
     } finally {
-      done = true;
-      system.clearRun(keep);
-      if (loading) {
-        fade(0.4, 10, 0.6);
-        await this.scope.wait(9);
-        this.setLoading(false);
-      }
+      for (let level = LOADING_LEVELS - 1; level >= 0; level--) await this.loadingAt(level);
       fade(0, 0.1, 0.6);
     }
   }
 
-  /** The loading screen on or off, for everyone (a marked action bar holding LOADING_CODE, or nothing). */
-  private setLoading(on: boolean): void {
-    const line = on ? hudLine(undefined, "", undefined, "", LOADING_CODE) : hudLine(undefined, "");
-    for (const player of world.getAllPlayers()) player.onScreenDisplay.setActionBar(line);
+  /** The loading screen at `level` for everyone, then a tick's wait. */
+  private async loadingAt(level: number): Promise<void> {
+    this.loadingLevel = level;
+    for (const player of world.getAllPlayers()) {
+      const container = player.getComponent(EntityComponentTypes.Inventory)?.container;
+      if (container) this.sendLine(player, this.testsOf(player), container);
+    }
+    await this.scope.wait(1);
   }
 
   private async placeArena(id: string): Promise<void> {
@@ -661,14 +664,13 @@ export class BlockPartySpike extends Minigame<Config> {
     const min = { x: middle.x - Math.floor(size.x / 2), y: middle.y, z: middle.z - Math.floor(size.z / 2) };
     const max = { x: min.x + size.x - 1, y: min.y + size.y - 1, z: min.z + size.z - 1 };
     let report = "";
-    await this.behindBlack(async (expectStall) => {
+    await this.behindBlack(async () => {
       const manager = world.tickingAreaManager;
       if (manager.hasTickingArea(ARENA_AREA)) manager.removeTickingArea(ARENA_AREA);
       const loadStarted = system.currentTick;
       await manager.createTickingArea(ARENA_AREA, { dimension, from: min, to: max });
       const loadTicks = system.currentTick - loadStarted;
       const expected = (size.x * size.y * size.z) / BLOCKS_PER_MS;
-      await expectStall(expected);
       const started = Date.now();
       world.structureManager.place(id, dimension, min, { includeEntities: false });
       const ms = Date.now() - started;

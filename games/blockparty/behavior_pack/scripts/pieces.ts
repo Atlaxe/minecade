@@ -2,26 +2,25 @@
 // by the script while everyone watches through the scripted camera (the plan's "Pieces").
 //
 // The user's looks settled the way: the player, their walking locked, pushed each tick
-// (applyKnockback toward the next point). Their own client moves them, so vanilla's walk plays and
-// the camera stays smooth. Teleporting each tick, gliding an invisible mount and a stand-in figure
-// all stuttered (20 stops a second), and a jump threw the player off the mount, so those are gone.
-//
-// On top of the push:
-//   - easing: the walk slows down into every corner and the end and speeds up out of them
-//     (smoothstep over `ease` blocks either side, board.ts easedShare), so a corner isn't taken in
-//     one sweep;
-//   - facing: setRotation doesn't turn a player on their own client, so a turn is a teleport to
-//     where the player already is, with the new facing, spread over `turnTicks` ticks while they're
-//     slow at the corner. A player's teleport can't keep their velocity (keepVelocity throws), and
-//     each one costs that tick of the push, which hardly shows at a corner's low speed;
-//   - landing: each push is the walking speed plus a small pull back toward where the piece should
-//     be; after the last point the piece settles onto its spot with gentle pushes, stopping once
-//     it's close (no chasing small misses back and forth), and only one still far off is teleported.
+// (applyKnockback). Their own client moves them, so vanilla's walk plays and the camera stays smooth.
+// Teleporting each tick, gliding an invisible mount and a stand-in figure all stuttered (20 stops a
+// second), a jump threw the player off the mount, and slowing down into corners looked worse than
+// walking on at one speed, so the walk is:
+//   - one speed all the way: each tick a push along the leg the player is on, made a little smaller
+//     than asked (a push moves a player about 1.375 times what it asks, measured), plus a pull back
+//     onto the leg's line for any drift sideways;
+//   - legs followed by where the player is, not by the clock: a leg ends when the player is within
+//     a tick's step of its end, so a corner is turned exactly on the space's block middle;
+//   - a turn is one teleport onto that middle with the new facing (setRotation doesn't turn a player
+//     on their own client, and a player's teleport can't keep their speed, so it costs that one
+//     tick); straight on through a space there's no teleport at all;
+//   - the chase camera follows the player and turns at most CAMERA_TURN degrees a tick, so it pans
+//     round a corner instead of cutting to the new way.
 // No names over the pieces (the user: a label lags behind the player, and a HUD will say whose turn
 // it is), and the players' own name tags are hidden on the board.
 import { EasingType, InputPermissionCategory, system, world, type Player, type Vector3 } from "@minecraft/server";
 import { describeError, log, type Scope } from "@minecade/minigame-core";
-import { along, angleGap, easedShare, pathOf, route, slowPoints, standAt, type Space, type Vec3 } from "./board.ts";
+import { angleGap, distance, route, standAt, yawTo, type Space, type Vec3 } from "./board.ts";
 
 export type WalkCamera = "chase" | "watch" | "none";
 
@@ -33,33 +32,24 @@ export const WALK_CAMERAS: readonly { id: WalkCamera; label: string }[] = [
 
 export interface PieceSettings {
   camera: WalkCamera;
-  /** Blocks a second, at full speed. */
+  /** Blocks a second. */
   speed: number;
-  /** Ticks a turn is spread over, one facing teleport a tick. */
-  turnTicks: number;
-  /** Blocks over which the walk slows into a corner (and speeds up out of it); 0 is no easing. */
-  ease: number;
 }
 
-export const DEFAULT_SETTINGS: PieceSettings = { camera: "chase", speed: 8, turnTicks: 4, ease: 2 };
+export const DEFAULT_SETTINGS: PieceSettings = { camera: "chase", speed: 8 };
 
 /** applyKnockback's horizontal speed is 0.4 times the force's length (docs/spike-results.md, "Knockback"). */
 const KNOCKBACK_SPEED = 0.4;
-/** The share of full speed at a corner, the start and the end. */
-const SLOWEST = 0.12;
-/** How much of the gap to where the piece should be is closed each tick, on top of the walking speed. */
-const PULL = 0.15;
-/** The fastest push, as a share of the walking speed. */
-const MOST = 1.4;
-/** Ticks the piece gets to settle onto its spot after the last point, and the share of the gap each push closes. */
-const SETTLE_TICKS = 10;
-const SETTLE_PULL = 0.3;
-/** Close enough to the spot: the settling stops. */
-const SETTLED = 0.12;
-/** Further off than this after settling, and the piece is teleported onto its spot. */
-const SNAP_OVER = 0.6;
+/** A push moves a player this many times what it asks, once going (0.55 a tick for 0.4, docs/spike-results.md, "Block Party"). */
+const PUSH_GAIN = 1.375;
+/** How much of the sideways drift off a leg's line is taken back each tick. */
+const STEER = 0.4;
+/** Ticks a leg may run past its length at full speed before the piece is put at its end (something in the way). */
+const STUCK_SLACK = 30;
 /** A change of direction bigger than this (degrees) is a turn. */
 const TURN_OVER = 3;
+/** The fastest the chase camera turns, in degrees a tick, so a corner pans (a right angle in about 0.75 s). */
+const CAMERA_TURN = 6;
 const CHASE_EVERY = 2;
 
 interface PieceState {
@@ -146,65 +136,71 @@ export class Pieces {
     const landing = passed[passed.length - 1];
     const end = standAt(landing, state.corner);
     const here = player.location;
-    const path = pathOf([[here.x, here.y, here.z], ...passed.slice(0, -1).map((space) => space.at), end]);
-    const slow = slowPoints(path, TURN_OVER);
+    const points: Vec3[] = [[here.x, here.y, here.z], ...passed.slice(0, -1).map((space) => space.at), end];
+    const length = points.slice(1).reduce((sum, point, i) => sum + distance(points[i], point), 0);
     state.walking = true;
     const startedAt = system.currentTick;
     let turns = 0;
-    let worstLag = 0;
+    let drift = 0;
+    let stuck = 0;
+    let miss = 0;
     try {
       lock(player);
       if (settings.camera === "watch") this.watchCamera(player);
       const perTick = settings.speed / 20;
-      const turnTicks = Math.max(1, Math.round(settings.turnTicks));
-      let traveled = 0;
-      let tick = 0;
       let facing = player.getRotation().y;
-      let turn: { from: number; to: number; step: number } | undefined;
-      while (traveled < path.length && !this.scope.disposed && player.isValid) {
-        const share = easedShare(traveled, slow, settings.ease, SLOWEST);
-        traveled = Math.min(path.length, traveled + perTick * share);
-        const { point, yaw } = along(path, traveled);
-        if (!turn && Math.abs(angleGap(facing, yaw)) > TURN_OVER) {
-          turn = { from: facing, to: yaw, step: 0 };
+      let cameraYaw: number | undefined;
+      let tick = 0;
+      for (let leg = 0; leg < points.length - 1; leg++) {
+        const a = points[leg];
+        const b = points[leg + 1];
+        const span = Math.hypot(b[0] - a[0], b[2] - a[2]);
+        if (span < 0.05) continue;
+        const ux = (b[0] - a[0]) / span;
+        const uz = (b[2] - a[2]) / span;
+        const yaw = yawTo(a, b);
+        // The first leg's turn, where the player stands (later ones are made on arriving at a corner).
+        if (Math.abs(angleGap(facing, yaw)) > TURN_OVER) {
+          this.face(player, player.location, yaw);
+          facing = yaw;
           turns++;
+          await this.scope.wait(1);
         }
-        if (turn) {
-          turn.step++;
-          const part = Math.min(1, turn.step / turnTicks);
-          const eased = part * part * (3 - 2 * part);
-          facing = turn.from + angleGap(turn.from, turn.to) * eased;
-          this.face(player, facing);
-          if (part >= 1) turn = undefined;
+        cameraYaw ??= yaw;
+        const budget = Math.ceil(span / perTick) + STUCK_SLACK;
+        let ticks = 0;
+        for (; ticks < budget && !this.scope.disposed && player.isValid; ticks++) {
+          const at = player.location;
+          const along = (at.x - a[0]) * ux + (at.z - a[2]) * uz;
+          if (span - along <= perTick) break;
+          const side = (at.x - a[0]) * -uz + (at.z - a[2]) * ux;
+          drift = Math.max(drift, Math.abs(side));
+          this.push(player, { x: ux * perTick + uz * side * STEER, z: uz * perTick - ux * side * STEER });
+          if (settings.camera === "chase" && tick % CHASE_EVERY === 0) {
+            cameraYaw += Math.max(-CAMERA_TURN * CHASE_EVERY, Math.min(CAMERA_TURN * CHASE_EVERY, angleGap(cameraYaw, yaw)));
+            this.chaseCamera(at, cameraYaw);
+          }
+          tick++;
+          await this.scope.wait(1);
         }
-        const rad = (yaw * Math.PI) / 180;
-        const step = perTick * share;
-        this.push(player, point, { x: -Math.sin(rad) * step, z: Math.cos(rad) * step }, perTick, PULL);
-        worstLag = Math.max(worstLag, Math.hypot(player.location.x - point[0], player.location.z - point[2]));
-        if (settings.camera === "chase" && tick % CHASE_EVERY === 0) this.chaseCamera(path, traveled, yaw);
-        tick++;
-        await this.scope.wait(1);
-      }
-      if (!player.isValid || this.scope.disposed) return;
-      let settleTicks = 0;
-      for (; settleTicks < SETTLE_TICKS; settleTicks++) {
-        const at = player.location;
-        if (Math.hypot(end[0] - at.x, end[2] - at.z) < SETTLED) break;
-        this.push(player, end, { x: 0, z: 0 }, perTick * SLOWEST * 2, SETTLE_PULL);
-        await this.scope.wait(1);
         if (!player.isValid || this.scope.disposed) return;
+        if (ticks >= budget) stuck++;
+        const last = leg === points.length - 2;
+        const next = last ? undefined : yawTo(b, points[leg + 2]);
+        const at = player.location;
+        if (last) miss = Math.hypot(at.x - b[0], at.z - b[2]);
+        // A corner (or the end): onto the space's block middle, facing the next leg. Straight on, no teleport.
+        if (last || stuck > 0 || (next !== undefined && Math.abs(angleGap(yaw, next)) > TURN_OVER)) {
+          this.face(player, { x: b[0], y: b[1], z: b[2] }, next ?? facing);
+          if (next !== undefined && Math.abs(angleGap(yaw, next)) > TURN_OVER) turns++;
+          facing = next ?? facing;
+          stuck = 0;
+        }
       }
       this.stop(player);
-      const at = player.location;
-      const miss = Math.hypot(at.x - end[0], at.z - end[2]);
-      const snapped = miss > SNAP_OVER;
-      if (snapped) player.teleport(vec(end), { rotation: { x: 0, y: facing } });
       state.space = landing.index;
       const seconds = ((system.currentTick - startedAt) / 20).toFixed(1);
-      this.host.report(
-        player,
-        `Walked ${steps} to space ${landing.index + 1} (${landing.type}) in ${seconds} s, ${path.length.toFixed(1)} blocks, ${turns} turns over ${turnTicks} ticks, easing ${settings.ease} blocks; at most ${worstLag.toFixed(2)} off the path; settled in ${settleTicks} ticks, ${miss.toFixed(2)} off the spot${snapped ? " (teleported onto it)" : ""}.`,
-      );
+      this.host.report(player, `Walked ${steps} to space ${landing.index + 1} (${landing.type}) in ${seconds} s, ${length.toFixed(1)} blocks (${(length / ((system.currentTick - startedAt) / 20)).toFixed(1)} a second), ${turns} turns; at most ${drift.toFixed(2)} off a leg's line; ${miss.toFixed(2)} off the spot before it was put on it.`);
       await this.scope.wait(20);
       if (settings.camera !== "none") for (const watcher of this.host.watchers()) watcher.camera.clear();
     } catch (error) {
@@ -216,22 +212,10 @@ export class Pieces {
     }
   }
 
-  /**
-   * One tick's push: `ahead` (the walking step this tick) plus `pull` of the gap to where the piece
-   * should be, capped at MOST times the full walking speed.
-   */
-  private push(player: Player, target: Vec3, ahead: { x: number; z: number }, perTick: number, pull: number): void {
+  /** One tick's push: `step` blocks this tick (asked for a little less, as pushes overshoot). */
+  private push(player: Player, step: { x: number; z: number }): void {
     try {
-      const here = player.location;
-      let dx = ahead.x + (target[0] - here.x) * pull;
-      let dz = ahead.z + (target[2] - here.z) * pull;
-      const length = Math.hypot(dx, dz);
-      const most = perTick * MOST;
-      if (length > most) {
-        dx *= most / length;
-        dz *= most / length;
-      }
-      player.applyKnockback({ x: dx / KNOCKBACK_SPEED, z: dz / KNOCKBACK_SPEED }, 0);
+      player.applyKnockback({ x: step.x / PUSH_GAIN / KNOCKBACK_SPEED, z: step.z / PUSH_GAIN / KNOCKBACK_SPEED }, 0);
     } catch (error) {
       log.warn(`blockparty: pushing a piece failed: ${describeError(error)}`);
     }
@@ -246,25 +230,24 @@ export class Pieces {
     }
   }
 
-  /** Turns the player to `yaw` on their own client: a teleport to where they are (it stops them that tick). */
-  private face(player: Player, yaw: number): void {
+  /** Puts the player at `at` facing `yaw` on their own client: a teleport (it stops them that tick). */
+  private face(player: Player, at: Vector3, yaw: number): void {
     try {
-      player.teleport(player.location, { rotation: { x: 0, y: yaw } });
+      player.teleport(at, { rotation: { x: 0, y: yaw } });
     } catch (error) {
       log.warn(`blockparty: turning a piece failed: ${describeError(error)}`);
     }
   }
 
-  /** The chase camera, for everyone: behind the piece and above, looking a little ahead. */
-  private chaseCamera(path: ReturnType<typeof pathOf>, traveled: number, yaw: number): void {
-    const { point } = along(path, traveled);
-    const ahead = along(path, traveled + 9).point;
+  /** The chase camera, for everyone: behind the piece and above, looking ahead, turned to `yaw`. */
+  private chaseCamera(at: Vector3, yaw: number): void {
     const rad = (yaw * Math.PI) / 180;
-    const back = { x: Math.sin(rad) * 7, z: -Math.cos(rad) * 7 };
-    const location = { x: point[0] + back.x, y: point[1] + 4.5, z: point[2] + back.z };
+    const forward = { x: -Math.sin(rad), z: Math.cos(rad) };
+    const location = { x: at.x - forward.x * 7, y: at.y + 4.5, z: at.z - forward.z * 7 };
+    const facingLocation = { x: at.x + forward.x * 6, y: at.y + 1, z: at.z + forward.z * 6 };
     for (const watcher of this.host.watchers()) {
       try {
-        watcher.camera.setCamera("minecraft:free", { location, facingLocation: { x: ahead[0], y: ahead[1] + 1, z: ahead[2] }, easeOptions: { easeTime: 0.15, easeType: EasingType.Linear } });
+        watcher.camera.setCamera("minecraft:free", { location, facingLocation, easeOptions: { easeTime: 0.15, easeType: EasingType.Linear } });
       } catch {
         // gone
       }

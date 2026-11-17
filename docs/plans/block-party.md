@@ -383,9 +383,9 @@ spike's label (an invisible entity named for the player, kept over the head) lag
 player, and the players' own name tags are hidden on the board. A HUD says whose turn it is instead
 (built with the board loop, pass 4).
 
-**Corners** (the user's second look): the walk slows into every corner and the end and speeds up
-out of them (smoothstep over about 2 blocks), and the turn is spread over a few ticks while it's
-slow, so a corner isn't taken in one sweep. Where a piece stops on a space (and the back and forth
+**Corners** (the user's third look): one speed all the way (slowing into corners looked worse);
+a corner is turned exactly on the space's block middle, and the chase camera pans round it at a
+fixed rate instead of cutting. Where a piece stops on a space (and the back and forth
 some spots showed) is settled with the board markup's spaces (pass 3).
 
 ### Turns and controls
@@ -397,8 +397,10 @@ some spots showed) is settled with the board markup's spaces (pass 3).
   - **Bars of their own:** the main bar is Items, Dice and the menu (standings, settings). Using
     Items swaps the bar for the items held, and Dice for the dice held (the standard one and any
     special ones), each with a Back slot.
-  - **Only the slots in use show,** centered: two dice show as two slots and Back. Empty slots draw
-    nothing, and a scroll skips them.
+  - **Only the slots in use show,** bottom right: two dice show as two slots and Back, and a
+    scroll skips the empty ones. Vanilla's empty slots can't be hidden (two tries), so the bar is
+    the pack's own, drawn from codes on each player's action bar (the user's idea), with vanilla's
+    hidden; vanilla's slots still pick by scrolling and number keys.
   - **No health, hunger or XP bar** (nor armor or air) on the board.
 - **Rolling:** open Dice, pick a die (the standard one or a special one), then jump to hit it.
   The script reads the jump button (`playerButtonInput`, as Sumo's double jump does); the spike

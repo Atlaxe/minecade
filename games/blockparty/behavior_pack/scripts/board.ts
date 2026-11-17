@@ -125,34 +125,6 @@ export function angleGap(from: number, to: number): number {
   return ((((to - from) % 360) + 540) % 360) - 180;
 }
 
-/**
- * Where a walk slows down, as distances along its path: the start, every corner (the way turns by
- * more than `turnOver` degrees) and the end. Legs shorter than a twentieth of a block have no way.
- */
-export function slowPoints(path: Path, turnOver = 3): number[] {
-  const out = [0];
-  let way: number | undefined;
-  for (let i = 1; i < path.points.length; i++) {
-    if (distance(path.points[i - 1], path.points[i]) < 0.05) continue;
-    const next = yawTo(path.points[i - 1], path.points[i]);
-    if (way !== undefined && Math.abs(angleGap(way, next)) > turnOver) out.push(path.at[i - 1]);
-    way = next;
-  }
-  out.push(path.length);
-  return out;
-}
-
-/**
- * The share of full walking speed `d` along a path: `floor` at each slow point, rising smoothly
- * (smoothstep) to 1 over `ease` blocks either side of it. No easing (`ease` 0) is full speed.
- */
-export function easedShare(d: number, slow: readonly number[], ease: number, floor: number): number {
-  if (ease <= 0 || slow.length === 0) return 1;
-  const nearest = Math.min(...slow.map((at) => Math.abs(d - at)));
-  const x = Math.min(1, nearest / ease);
-  return floor + (1 - floor) * x * x * (3 - 2 * x);
-}
-
 /** The box the board takes, with room around it (the spike keeps players inside the map's bounds there). */
 export function boardBox(spaces: readonly Space[]): { min: Vec3; max: Vec3 } {
   const xs = spaces.map((space) => space.at[0]);
