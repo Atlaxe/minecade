@@ -186,8 +186,8 @@ spectator or queue spawn, as a test of it.
 **Boards:** `board` gives a game's maps spaces (minigame-core's board kit, `src/board`; Block
 Party's is `BLOCK_PARTY_BOARD`): the space types with their share of the board, block and color
 (the first is Start), the fewest spaces the checklist asks for, and the placement rules the dealer
-keeps and the board check warns about. Both editors then offer the Spaces tool (game Edit's for
-now), the checklist has a **Spaces** row, Publish refuses the board's errors (one Start, every
+keeps and the board check warns about. Both editors then offer the Spaces tool (game Edit's and
+the Panel's), the checklist has a **Spaces** row, Publish refuses the board's errors (one Start, every
 space reachable and leading back to the loop, no dead ends, enough Star candidates, two opening
 spots) and its warnings show (shares off target, Reds in a row, Wardens or Versus too close, a
 long stretch with no Item, shortcuts saving too much or too little, Star candidates bunched).

@@ -145,6 +145,7 @@ D):
 | **Select** | V | Picks a marker, a box or a height (see "Picking with a click"; anywhere else picks nothing, and a drag from there turns the view); the picked entry can be moved, resized, typed in, duplicated or given another type |
 | **Spawn** | P | Places a spawn into the list picked in the right panel |
 | **Marker** | M | Places one of the game's markers (off for a game without any) |
+| **Spaces** | O | Places a board's spaces, chained (off for a game without a board) |
 | **Region** | B | Two clicks draw a box into the list picked in the right panel |
 | **Height** | H | Sets kill Y or a side of the build limit |
 | **Mirror** | I | Puts the mirror plane at the block, or picks a marker to mirror |
@@ -223,6 +224,16 @@ a second.
   pointer, and each click on the top of a block puts an entry there. A click on a block's side or
   underside puts it just in front and drops it to the floor below, as game Edit does. The spectator
   and queue spawns hold one entry: placing one replaces it.
+- **Spaces** (a game with a board, its config's `map.board`: Block Party), as game Edit's Spaces
+  tool: each click on a block places a space on that block's middle, linked from the previous
+  space (the one placed or picked last) and dealt its type (the first is Start). Spaces are posts
+  in their type's color, listed under **Board**, with an arrow along each link. The tool's panel
+  says what the next click does, has **Deal again** (new types for every unlocked space but Start),
+  and the **Board check**: its errors (red) and warnings, each one flying to its first space, then
+  the counts by type, the loop and its shortcuts. A space picked with Select has its panel:
+  **Type**, **Lock**, **Star candidate**, **Opening spot**, **Make it the previous**, **Link space N
+  here** (from the previous space), each space it leads to (with **Unlink**), and **Delete**. Select
+  moves a space with its gizmo (onto a block's middle) and deletes it with Delete; its links go too.
 - **Center on block** (on at first, remembered) puts an entry at its block's middle; off, it goes
   exactly where you click. Switching it on with a marker picked that stands at an exact spot moves
   that marker to its block's middle, at the same height and facing the same way, as game Edit's

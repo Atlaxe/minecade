@@ -16,6 +16,7 @@ export type ActionId =
   | "select"
   | "spawn"
   | "marker"
+  | "spaces"
   | "region"
   | "height"
   | "mirror"
@@ -59,6 +60,7 @@ export const ACTIONS: readonly Action[] = [
   { id: "select", group: "Tools", label: "Select", keys: [key("KeyV")] },
   { id: "spawn", group: "Tools", label: "Spawn", keys: [key("KeyP")] },
   { id: "marker", group: "Tools", label: "Marker", keys: [key("KeyM")] },
+  { id: "spaces", group: "Tools", label: "Spaces", keys: [key("KeyO")] },
   { id: "region", group: "Tools", label: "Region", keys: [key("KeyB")] },
   { id: "height", group: "Tools", label: "Height", keys: [key("KeyH")] },
   { id: "mirror", group: "Tools", label: "Mirror", keys: [key("KeyI")] },

@@ -19,7 +19,7 @@
 // map in the in-game editor, which the Panel warms up while the viewer is open; when game Edit
 // saves the map's world, the page loads again to draw the new blocks, keeping the view as it was.
 import * as THREE from "three";
-import { applyEdit, bigEnough, listOf, worldPoint, type Box, type EditorRules, type MapConfig, type MapEdit, type MapPosition, type Vec3 } from "@minecade/minigame-core/config";
+import { applyEdit, bigEnough, listOf, spacesOf, worldPoint, type Box, type EditorRules, type MapConfig, type MapEdit, type MapPosition, type Vec3 } from "@minecade/minigame-core/config";
 import { lookAt, mapMiddle } from "../../../editor/behavior_pack/scripts/lists.ts";
 import { regionName } from "../../../editor/behavior_pack/scripts/regions.ts";
 import { decodeView } from "../../viewer/view-format.ts";
@@ -44,6 +44,7 @@ import { Sidebar, el, swatch } from "./sidebar.ts";
 import { ViewCube } from "./viewcube.ts";
 import type { CustomShape } from "./shapes.ts";
 import { buildVolume, spotsOf, type FaceColors } from "./volume.ts";
+import { placeSpace, spaceIdOf, spaceKey, spacePanel, spacePosition, spacesToolPanel, type SpacePanelOptions } from "./spaces.ts";
 
 const $ = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id) as T;
 const params = new URLSearchParams(location.search);
@@ -77,9 +78,9 @@ interface MapData extends MarkerAssets {
   rules: EditorRules;
 }
 
-type ToolId = "select" | "spawn" | "marker" | "region" | "height" | "mirror" | "cut" | "time";
+type ToolId = "select" | "spawn" | "marker" | "spaces" | "region" | "height" | "mirror" | "cut" | "time";
 type CutAxis = "x" | "y" | "z";
-const TOOLS: readonly ToolId[] = ["select", "spawn", "marker", "region", "height", "mirror", "cut", "time"];
+const TOOLS: readonly ToolId[] = ["select", "spawn", "marker", "spaces", "region", "height", "mirror", "cut", "time"];
 /** The keys changed in Settings, Keys, kept in this browser (keys.ts has the defaults). */
 const KEYS_STORE = "minecade-viewer-keys";
 
@@ -237,6 +238,9 @@ async function main(): Promise<void> {
   let config = data.config;
   let markup: Markup = buildMarkup(config, data.rules);
   let picked: string | undefined;
+  /** A board's game (its config's map.board): the Spaces tool, and the space a new one links from (placed or picked last). */
+  const board = data.rules.requires?.board;
+  let previousSpace: number | undefined;
   /** Entries picked with `picked` (Shift + click, or a rectangle in Top view). */
   const also = new Set<string>();
   /**
@@ -316,6 +320,9 @@ async function main(): Promise<void> {
     const markerButton = document.querySelector<HTMLButtonElement>('[data-tool="marker"]')!;
     markerButton.disabled = !markers;
     markerButton.dataset.tip = markers ? "Marker: place the game's markers" : "This game has no markers of its own";
+    const spacesButton = document.querySelector<HTMLButtonElement>('[data-tool="spaces"]')!;
+    spacesButton.disabled = !board;
+    spacesButton.dataset.tip = board ? "Spaces: place a board's spaces, chained" : "This game has no board";
   };
   const setConfig = (next: MapConfig) => {
     if (JSON.stringify(next) === JSON.stringify(config)) return;
@@ -394,6 +401,8 @@ async function main(): Promise<void> {
   const boxOf = (key: string | undefined): BoxMark | undefined => (key ? markup.boxes.find((box) => box.key === key) : undefined);
   const heightMarkOf = (key: string | undefined): PlaneMark | undefined => (key ? markup.planes.find((plane) => plane.key === key) : undefined);
   const positionOf = (point: PointMark): MapPosition | undefined => {
+    const id = spaceIdOf(point.key);
+    if (id !== undefined) return spacesOf(config).find((space) => space.id === id)?.at;
     const list = findEntry(markup, point.key)?.list;
     return list?.spawn ? listOf(config, list.spawn.target)[point.index] : undefined;
   };
@@ -494,7 +503,9 @@ async function main(): Promise<void> {
         const pointList = point && findEntry(markup, point.key)?.list;
         const box = boxOf(key);
         const height = heightMarkOf(key);
-        if (point && pointList?.spawn) removals.push({ list: point.list, index: point.index, edit: { op: "remove", target: pointList.spawn.target, index: point.index } });
+        const space = spaceIdOf(key);
+        if (space !== undefined) removals.push({ list: point?.list ?? "spaces", index: space, edit: { op: "removeSpace", id: space } });
+        else if (point && pointList?.spawn) removals.push({ list: point.list, index: point.index, edit: { op: "remove", target: pointList.spawn.target, index: point.index } });
         else if (box) removals.push({ list: box.list, index: box.entry.region?.index ?? box.entry.bounds ?? 0, edit: removeBoxEdit(box.entry) });
         else if (height) removals.push({ list: height.key, index: 0, edit: heightEdit(height.line) });
       }
@@ -509,7 +520,9 @@ async function main(): Promise<void> {
     const pointList = point && findEntry(markup, point.key)?.list;
     const box = boxOf(picked);
     const height = heightMarkOf(picked);
-    if (point && pointList?.spawn) edit({ op: "remove", target: pointList.spawn.target, index: point.index });
+    const space = spaceIdOf(picked);
+    if (space !== undefined) edit({ op: "removeSpace", id: space });
+    else if (point && pointList?.spawn) edit({ op: "remove", target: pointList.spawn.target, index: point.index });
     else if (box) edit(removeBoxEdit(box.entry));
     else if (height) edit(heightEdit(height.line));
     else return;
@@ -518,12 +531,21 @@ async function main(): Promise<void> {
 
   /** Saves a point at a position (its facing kept when the position has none of its own and `keepFacing`). */
   const savePoint = (point: PointMark, at: MapPosition) => {
+    const space = spaceIdOf(point.key);
+    if (space !== undefined) return void edit({ op: "moveSpace", id: space, at: spacePosition(at) });
     const list = findEntry(markup, point.key)?.list;
     if (!list?.spawn) return;
     edit({ op: "set", target: list.spawn.target, index: point.index, at });
   };
   /** Moves a point to x, y, z, keeping its facing. */
   const movePoint = (point: PointMark, at: Vec3) => {
+    const space = spaceIdOf(point.key);
+    if (space !== undefined) {
+      const next = spacePosition(at);
+      const before = positionOf(point);
+      if (before && Math.floor(before[0]) === next[0] && before[1] === next[1] && Math.floor(before[2]) === next[2]) return;
+      return void edit({ op: "moveSpace", id: space, at: next });
+    }
     const list = findEntry(markup, point.key)?.list;
     if (!list?.spawn) return;
     const before = positionOf(point);
@@ -1097,12 +1119,31 @@ async function main(): Promise<void> {
       ),
     );
 
+  /** What a space's panel and the Spaces tool's work with. */
+  const spaceOptions = (): SpacePanelOptions | undefined =>
+    board && {
+      config,
+      board,
+      previous: previousSpace,
+      edit,
+      setPrevious: (id) => {
+        previousSpace = id;
+        renderPanel();
+        notice(`Space ${id} is the previous space: the next one placed links from it.`);
+      },
+      show: (id) => pickEntry(spaceKey(id), true),
+      note: notice,
+    };
   const renderPanel = () => {
     const point = pointOf(picked);
     const box = boxOf(picked);
     const height = heightMarkOf(picked);
+    const spaceId = spaceIdOf(picked);
+    const space = spaceId === undefined ? undefined : spacesOf(config).find((candidate) => candidate.id === spaceId);
+    const spaces = spaceOptions();
     let content: HTMLElement | null = null;
-    if (tool === "select") content = also.size > 0 ? manyPanel() : point ? pointEditor(point) : box ? boxEditor(box) : height ? heightEditor(height) : null;
+    if (tool === "select") content = also.size > 0 ? manyPanel() : space && spaces ? spacePanel(space, spaces) : point ? pointEditor(point) : box ? boxEditor(box) : height ? heightEditor(height) : null;
+    else if (tool === "spaces") content = spaces ? spacesToolPanel(spaces) : null;
     else if (tool === "spawn" || tool === "marker") content = placeToolPanel(tool);
     else if (tool === "region") content = regionToolPanel();
     else if (tool === "height") content = heightToolPanel();
@@ -1122,6 +1163,7 @@ async function main(): Promise<void> {
    */
   const setTool = (next: ToolId) => {
     if (next === "marker" && listsFor("marker").length === 0) return;
+    if (next === "spaces" && !board) return;
     tool = next;
     newRegion = undefined;
     timeTool.reset();
@@ -1178,6 +1220,17 @@ async function main(): Promise<void> {
       mirror = plane;
       setMirrorStep("pick");
       placeGizmo();
+      return;
+    }
+    if (tool === "spaces" && board) {
+      const spot = spotUnder(clientX, clientY);
+      if (!spot) return notice("Nothing to stand on there: click the top of a block.", true);
+      const at = spacePosition(spot.position);
+      if (spacesOf(config).some((space) => Math.floor(space.at[0]) === at[0] && Math.floor(space.at[2]) === at[2] && Math.abs(space.at[1] - at[1]) < 2)) return notice("There's a space on that block already: pick it with Select.", true);
+      const { edit: change, id } = placeSpace(config, board, spot.position, previousSpace);
+      if (!edit(change)) return;
+      previousSpace = id;
+      renderPanel();
       return;
     }
     const list = armedList();
@@ -1387,6 +1440,7 @@ async function main(): Promise<void> {
         case "select":
         case "spawn":
         case "marker":
+        case "spaces":
         case "region":
         case "height":
         case "mirror":

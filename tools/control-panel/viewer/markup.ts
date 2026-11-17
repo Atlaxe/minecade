@@ -31,6 +31,7 @@ import {
   type RegionTarget,
   type Rgb,
 } from "../../../editor/behavior_pack/scripts/regions.ts";
+import { SPACES_LIST, spaceMarkup, type LinkMark } from "./spaces.ts";
 import type { BoxPlace } from "./boxes.ts";
 
 /** Game Edit's marker colors by what they mark (editor/resource_pack/textures/entity/editor_marker*.png). */
@@ -57,6 +58,8 @@ export interface PointMark {
   faced: boolean;
   color: number;
   shape: Shape;
+  /** No facing line (a board's spaces). */
+  noLine?: boolean;
 }
 
 export interface BoxMark {
@@ -119,6 +122,8 @@ export interface Markup {
   points: PointMark[];
   boxes: BoxMark[];
   planes: PlaneMark[];
+  /** A board's links between spaces, drawn as arrows (spaces.ts). */
+  links: LinkMark[];
   sections: MarkupSection[];
   checklist: Checklist;
 }
@@ -200,14 +205,19 @@ export function buildMarkup(config: MapConfig, rules: EditorRules): Markup {
     heightLists.push({ key, label, kind: "plane", color, line, entries: typeof y === "number" ? [{ key, label, detail: `y ${y}` }] : [], ...need(key) });
   }
 
+  // A board's spaces (spaces.ts): their posts with the points, their list in a Board section, and the links' arrows.
+  const spaces = spaceMarkup(config, rules.requires?.board, need(SPACES_LIST));
+  points.push(...spaces.points);
+
   const spawnSection = lists.filter((list) => list.tool === "spawn").map(pointList);
   const markerSection = lists.filter((list) => list.tool === "marker").map(pointList);
   const sections: MarkupSection[] = [
     { title: "Spawns", lists: spawnSection },
     ...(markerSection.length > 0 ? [{ title: "Game markers", lists: markerSection }] : []),
+    ...(spaces.list ? [{ title: "Board", lists: [spaces.list] }] : []),
     { title: "Boundaries", lists: [...boxLists, ...heightLists] },
   ];
-  return { points, boxes, planes, sections, checklist };
+  return { points, boxes, planes, links: spaces.links, sections, checklist };
 }
 
 /** A point list's marker color: a team's (its tint), else its kind's. */

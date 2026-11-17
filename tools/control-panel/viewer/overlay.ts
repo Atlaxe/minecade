@@ -13,6 +13,7 @@ import { geoHeight, parseGeo, type FaceName, type Geo, type GeoBone } from "./ge
 import type { Box } from "@minecade/minigame-core/config";
 import { FACING_COLOR, type BoxMark, type Markup, type PlaneMark, type PointMark, type Shape } from "./markup.ts";
 import { boxEdges, segmentDistance, sheetEdges, type SheetRect } from "./pick.ts";
+import type { LinkMark } from "./spaces.ts";
 import type { MapScene } from "./scene.ts";
 
 /** Game Edit's shapes and the game's models, as the Panel sends them (map-data.ts). */
@@ -26,6 +27,9 @@ const FACE_SHADE: Record<FaceName, number> = { up: 1, down: 0.55, north: 0.85, s
 /** Facing line heights in blocks: a mannequin's at its eyes, every other marker's lower (editor_marker_line_low). */
 const LINE_HEIGHT = { player: 28 / 16, other: 14 / 16 };
 const LINE_LENGTH = 2;
+/** A board's links: how high over the spaces' floor, and their color. */
+const LINK_HEIGHT = 0.4;
+const LINK_COLOR = 0xffffff;
 const FADED = 0.2;
 /** How see-through a point that's being placed is. */
 const GHOST = 0.45;
@@ -78,6 +82,8 @@ export class Overlay {
   private readonly root = new THREE.Group();
   private readonly shapes = new Map<string, ShapeModel>();
   private points: PointObject[] = [];
+  /** A board's links' lines and arrowheads. */
+  private links: THREE.Object3D[] = [];
   private boxes: BoxObject[] = [];
   private planes: PlaneObject[] = [];
   private readonly ring: THREE.Mesh;
@@ -263,7 +269,31 @@ export class Overlay {
     for (const mark of markup.points) this.points.push(this.point(mark));
     for (const mark of markup.boxes) this.boxes.push(this.box(mark));
     for (const mark of markup.planes) this.planes.push(this.plane(mark));
+    for (const mark of markup.links) this.links.push(...this.link(mark));
     this.refresh();
+  }
+
+  /**
+   * A board's link: a line from one space toward the next, stopping short of both, with a cone at
+   * its end, drawn through blocks so the way shows from anywhere.
+   */
+  private link(mark: LinkMark): THREE.Object3D[] {
+    const from = new THREE.Vector3(mark.from.x, mark.from.y + LINK_HEIGHT, mark.from.z);
+    const to = new THREE.Vector3(mark.to.x, mark.to.y + LINK_HEIGHT, mark.to.z);
+    const length = from.distanceTo(to);
+    if (length < 1.5) return [];
+    const way = to.clone().sub(from).normalize();
+    const start = from.clone().addScaledVector(way, 0.7);
+    const tip = to.clone().addScaledVector(way, -0.7);
+    const material = new THREE.LineBasicMaterial({ color: LINK_COLOR, transparent: true, opacity: 0.9, depthTest: false });
+    const line = new THREE.Line(new THREE.BufferGeometry().setFromPoints([start, tip]), material);
+    const head = new THREE.Mesh(new THREE.ConeGeometry(0.22, 0.6, 12).translate(0, -0.3, 0), new THREE.MeshBasicMaterial({ color: LINK_COLOR, depthTest: false }));
+    head.position.copy(tip);
+    head.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), way);
+    line.renderOrder = 4;
+    head.renderOrder = 4;
+    this.root.add(line, head);
+    return [line, head];
   }
 
   /** Shows an entry as picked (or none): a ring around a point, brighter edges and faces on a box; and any others picked with it. */
@@ -469,6 +499,13 @@ export class Overlay {
   }
 
   private clear(): void {
+    for (const object of this.links) {
+      this.root.remove(object);
+      const shape = object as THREE.Mesh;
+      shape.geometry?.dispose();
+      (shape.material as THREE.Material | undefined)?.dispose();
+    }
+    this.links = [];
     for (const point of this.points) {
       this.root.remove(point.group);
       point.group.traverse((object) => (object as THREE.Mesh).geometry?.dispose());
@@ -526,6 +563,7 @@ export class Overlay {
     const tint = new THREE.MeshBasicMaterial({ color: mark.color, side: THREE.DoubleSide });
     materials.push(body, tint);
     addBones(model, shape.geo, (bone) => (bone.name === "tint" ? tint : body));
+    if (mark.noLine) return { group, materials, height: shape.height };
     // The facing line: from the marker's eyes (a post's middle), two blocks long, tilted by the pitch.
     const lineMaterial = new THREE.MeshBasicMaterial({ color: FACING_COLOR });
     materials.push(lineMaterial);
