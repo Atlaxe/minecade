@@ -803,10 +803,36 @@ reward was dropped.
    pause where the minigame goes, and the winner (a tie at random until the Allay, pass 8). Late
    joiners come in at Start with last place's coins (no vote yet); an absent player is skipped.
 5. **Minigame plumbing:** formats, placing arenas into the arena background's slot, results and payouts, with a first few minigames.
+   - **Part A, built 2026-11-17** (`minigame-rules.ts`, `minigame-runner.ts`, `minigames/`): after
+     each round a minigame in the round's format (the schedule above: every 3rd round 2v2 and 1v3
+     in turn, 1v2 with 3 players, else FFA with about 1 in 8 a Battle), the solo and the pairs
+     rotating, the pick weighted against repeats; the roulette, the arena laid behind the loading
+     screen, the rules through a camera over it until everyone has jumped (Ready), 3-2-1-Go, players
+     who are out watching as spectators (bots from a stand beside the arena), the results over the
+     arena, and back to the board. Coins as "Coins awarded" (ties averaged, doubled in the last
+     rounds), a Battle's pot, and Versus spaces (the lander picks a rival, an FFA minigame for two,
+     the loser pays 5, doubled late). Three minigames, one of each kind, each on a test arena it
+     lays in code where the arena goes: **Hot Floor** (FFA), **Co-op Painters** (2v2) and
+     **Hunter** (1v3, a small Hunter vs. Runners: half the runners home wins it for them).
+   - **Bots** (the user's idea, 2026-11-17, to watch a whole game flow): a game one player starts
+     gets bots in the empty seats (the lobby's Bots option, 3 by default). A bot is a Steve on
+     vanilla's zombie model (`blockparty:bot`), its piece its own body, walked like a player's. It
+     rolls (the die over its head, a moment's thought, a hop), heads for the Star at a branch, buys
+     a Star when it can, picks the leader to duel, and plays every minigame, each step after a delay.
+   - **Test help** (the user asked): the One Die (always 1) in place of the Slow Die, Get star in
+     Tests (on your roll, the roll is the number of spaces to the nearest Star and the branches go
+     that way), and 30 starting coins while Block Party is a test game or `DEV_MIN_PLAYERS` is 1.
+   - **Part B, next:** arena maps. Each minigame its own entry in the editor's map list with its own
+     checklist, its published arena turned into a structure the board's server loads, placed fresh
+     into the arena slot in place of the test arena. Then spectator bets on duels and the Dueling
+     Glove (pass 7, with the items).
 6. **NPCs and cameras:** stages, conversations, the shot list.
 7. **Items, dice, Chance Time, the Warden, the shop and the Trader.**
 8. **End of game:** bonus Stars, the tiebreaker, the podium.
 9. **The rest of the minigames.**
+10. **Refinement: cameras and UI** (the user, 2026-11-17): everything that works made to work and
+    look better: the cameras, the titles and the HUD, and showing coins as they're won and lost
+    (the user couldn't tell when coins came in; more on this from them later).
 
 ## Defaults
 

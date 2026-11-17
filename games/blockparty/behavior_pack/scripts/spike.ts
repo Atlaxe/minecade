@@ -41,9 +41,12 @@ import { ARENA_SLOT, Minigame, Notes, describeError, draw, hudLine, log, say, sh
 import registry from "#registry";
 import { HOTBAR_SIZE, LOADING_LEVELS, barCodes, loadingCode, type BarIcon } from "./bar-codes.ts";
 import type config from "../../game.config.ts";
-import { boardBox, build, mapSpaces, testSpaces, type Space, type Vec3 } from "./board.ts";
+import { boardBox, build, mapSpaces, standAt, testSpaces, type Space, type Vec3 } from "./board.ts";
 import { BoardLoop } from "./board-loop.ts";
-import { LENGTHS } from "./board-rules.ts";
+import { BOT_COUNTS, LENGTHS, START_COINS } from "./board-rules.ts";
+import { Bots, hop, isPlayer, thinkTicks, whoOf, type Who } from "./bots.ts";
+import { MinigameRunner } from "./minigame-runner.ts";
+import { MINIGAMES } from "./minigames/index.ts";
 import { Npcs } from "./npcs.ts";
 import { DEFAULT_SETTINGS, Pieces, WALK_CAMERAS, lock, unlock, type PieceSettings } from "./pieces.ts";
 import { SHOTS, Shots, type ShotId } from "./shots.ts";
@@ -82,7 +85,8 @@ const MAIN_BAR: readonly BarItem[] = [
 ];
 const DICE: readonly Die[] = [
   { id: barItem("die"), name: "Die", what: "Jump to hit it: 1 to 6", icon: "die", faces: [1, 2, 3, 4, 5, 6], block: "minecraft:white_concrete" },
-  { id: barItem("slow_die"), name: "Slow Die", what: "Jump to hit it: 1 to 3", icon: "slow_die", faces: [1, 2, 3], block: "minecraft:light_blue_concrete" },
+  // A test die (the user asked): always 1, to step up to a space.
+  { id: barItem("slow_die"), name: "One Die", what: "Jump to hit it: always 1 (a test die)", icon: "slow_die", faces: [1], block: "minecraft:light_blue_concrete" },
   { id: barItem("golden_die"), name: "Golden Die", what: "Jump to hit it: 5 to 10", icon: "golden_die", faces: [5, 6, 7, 8, 9, 10], block: "minecraft:gold_block" },
 ];
 const ITEMS: readonly BarItem[] = [
@@ -117,6 +121,13 @@ const BOARD_AREA = "minecade:blockparty_board";
 const LOADING_AFTER = 4;
 /** Blocks placed a millisecond, about (docs/spike-results.md, "Block Party": Sinkhole's 667,648 in 608 to 676 ms). */
 const BLOCKS_PER_MS = 1000;
+/** Starting coins while Block Party is a test game or a server plays it alone. */
+const TEST_COINS = 30;
+/** Seats at a Block Party game. */
+const SEATS = 4;
+/** Ticks a bot thinks before a choice. */
+const BOT_CHOICE: [number, number] = [20, 40];
+
 /** Ticks the slow-load test keeps the loading screen up longer. */
 const SLOW_LOAD = 80;
 /**
@@ -167,6 +178,11 @@ export class BlockPartySpike extends Minigame<Config> {
   private readonly pendingRolls = new Map<string, { resolve: (value: number | undefined) => void; shot: boolean }>();
   /** The board's blocks are down (play waits for it). */
   private boardLaid: Promise<void> = Promise.resolve();
+  /** The bots in a game one player started (bots.ts), and the minigames' runner. */
+  private bots!: Bots;
+  private runner!: MinigameRunner;
+  /** The minigame's line top right while one is on (it takes the board's place). */
+  private minigameStatus: string | undefined;
 
   constructor(ctx: GameContext, gameConfig: Config) {
     super(ctx, gameConfig);
@@ -212,10 +228,25 @@ export class BlockPartySpike extends Minigame<Config> {
     const watchers = () => world.getAllPlayers();
     this.pieces = new Pieces(this.scope, {
       spaces: () => this.spaces,
-      settings: (player) => this.testsOf(player).settings,
+      // A bot's walk is watched through the first player's camera setting.
+      settings: (body) => (isPlayer(body) ? this.testsOf(body).settings : (world.getAllPlayers().map((player) => this.testsOf(player).settings)[0] ?? { ...DEFAULT_SETTINGS, speed: this.config.board.speed })),
       watchers,
       overview: () => [this.middle[0], this.middle[1] + 18, this.middle[2] - 22],
-      report: (player, text) => this.tell(player, text),
+      report: (body, text) => isPlayer(body) && this.tell(body, text),
+    });
+    const dimension = world.getDimension("overworld");
+    this.bots = new Bots(this.scope, dimension);
+    this.runner = new MinigameRunner({
+      scope: this.scope,
+      dimension,
+      arenaMiddle: () => this.arenaMiddle(),
+      behindBlack: (work) => this.behindBlack(work),
+      leaveBoard: (who) => this.pieces.release(who.body),
+      backToBoard: (who) => who.body.isValid && this.pieces.place(who.body),
+      title: (text, subtitle) => this.titleAll(text, subtitle),
+      say: (text) => this.everyone(text),
+      random: () => this.ctx.random(),
+      status: (text) => (this.minigameStatus = text),
     });
     this.npcs = new Npcs(this.scope);
     this.shots = new Shots(this.scope, {
@@ -232,18 +263,25 @@ export class BlockPartySpike extends Minigame<Config> {
       spaces: () => this.spaces,
       pieces: this.pieces,
       turns: (LENGTHS as readonly number[]).includes(length) ? length : LENGTHS[0],
-      roll: (player, shot) =>
-        new Promise((resolve) => {
+      // 30 coins while Block Party is a test game or a server plays it alone (the user asked), so Stars can be tried.
+      startCoins: this.config.test || this.ctx.vars.devMinPlayers === 1 ? TEST_COINS : START_COINS,
+      present: () => [...world.getAllPlayers().map(whoOf), ...this.bots.all()],
+      roll: (who, shot) => {
+        const player = who.player;
+        if (!player) return this.botRoll(who, shot);
+        return new Promise((resolve) => {
           const key = player.name.toLowerCase();
           this.pendingRolls.get(key)?.resolve(undefined);
           this.pendingRolls.set(key, { resolve, shot });
           this.openDice(player);
-        }),
-      everyone: (text) => this.everyone(text),
-      tell: (player, text) => this.tell(player, text),
-      title: (text, subtitle) => {
-        for (const player of world.getAllPlayers()) player.onScreenDisplay.setTitle(text, { subtitle: subtitle ?? "", fadeInDuration: 4, stayDuration: 40, fadeOutDuration: 10 });
+        });
       },
+      choose: (who, title, body, options, botPick) => this.choose(who, title, body, options, botPick),
+      minigames: MINIGAMES,
+      playMinigame: (format, def, sides, pool, onlookers, settle) => this.runner.play(format, def, sides, pool, onlookers, settle),
+      everyone: (text) => this.everyone(text),
+      tell: (who, text) => who.player && this.tell(who.player, text),
+      title: (text, subtitle) => this.titleAll(text, subtitle),
       changed: () => this.loopChanged(),
       random: () => this.ctx.random(),
     });
@@ -281,7 +319,70 @@ export class BlockPartySpike extends Minigame<Config> {
   protected override async play(): Promise<Result | void> {
     await this.boardLaid;
     if (!this.boardReady) return draw("the board couldn't be laid");
+    this.seatBots();
     return this.loop.run();
+  }
+
+  /** A game one player started gets bots in the empty seats, as many as the lobby's Bots option says. */
+  private seatBots(): void {
+    const players = world.getAllPlayers().length;
+    const asked = Number(this.ctx.vars.settings.bots ?? BOT_COUNTS[0]);
+    const wanted = Math.min(SEATS - players, Number.isInteger(asked) && asked >= 0 ? asked : BOT_COUNTS[0]);
+    if (players !== 1 || wanted <= 0) return;
+    const [x, y, z] = standAt(this.spaces[0], 0);
+    for (const bot of this.bots.add(wanted, { x, y, z })) this.pieces.place(bot.body);
+    this.everyone(`${wanted === 1 ? "A bot joins" : `${wanted} bots join`} you: ${this.bots.all().map((bot) => bot.name).join(", ")}. They take their turns and play the minigames, a moment's thought at each step.`);
+  }
+
+  /** A choice: a player's form, or a bot's moment of thought and its pick. */
+  private async choose(who: Who, title: string, body: string, options: readonly string[], botPick: number): Promise<number | undefined> {
+    const player = who.player;
+    if (!player) {
+      await this.scope.wait(thinkTicks(() => this.ctx.random(), ...BOT_CHOICE));
+      return botPick;
+    }
+    const form = new ActionFormData().title(title);
+    if (body) form.body(body);
+    for (const option of options) form.button(option);
+    return (await showForm(this.scope, player, form))?.selection;
+  }
+
+  /** A big line on everyone's screen. */
+  private titleAll(text: string, subtitle?: string): void {
+    for (const player of world.getAllPlayers()) player.onScreenDisplay.setTitle(text, { subtitle: subtitle ?? "", fadeInDuration: 4, stayDuration: 40, fadeOutDuration: 10 });
+  }
+
+  /** Where an arena goes: the middle of the map's arena slot's floor, else far east of the board. */
+  private arenaMiddle(): Vector3 {
+    const slot = this.map.regions(ARENA_SLOT)[0];
+    return slot ? { x: (slot.min[0] + slot.max[0] + 1) / 2, y: slot.min[1], z: (slot.min[2] + slot.max[2] + 1) / 2 } : { x: ARENA_AT[0], y: ARENA_AT[1], z: ARENA_AT[2] };
+  }
+
+  /** A bot's roll: the die over its head (everyone watching through the roll camera on a turn), a moment's thought, a hop, the number. */
+  private async botRoll(who: Who, shot: boolean): Promise<number | undefined> {
+    const body = who.body;
+    if (!body.isValid) return undefined;
+    const at = body.location;
+    const die = { x: Math.floor(at.x), y: Math.floor(at.y) + 3, z: Math.floor(at.z) };
+    const block = body.dimension.getBlock(die);
+    const placed = block?.isAir === true;
+    if (placed) block?.setType(DICE[0].block);
+    const watchers = shot ? world.getAllPlayers() : [];
+    const yaw = (body.getRotation().y * Math.PI) / 180;
+    for (const watcher of watchers) {
+      watcher.camera.setCamera("minecraft:free", { location: { x: at.x - Math.sin(yaw) * 3.5, y: at.y + 0.5, z: at.z + Math.cos(yaw) * 3.5 }, facingLocation: { x: die.x + 0.5, y: die.y, z: die.z + 0.5 } });
+    }
+    await this.scope.wait(thinkTicks(() => this.ctx.random(), 25, 45));
+    if (!body.isValid) return undefined;
+    hop(body);
+    await this.scope.wait(5);
+    const rolled = DICE[0].faces[Math.floor(this.ctx.random() * DICE[0].faces.length)];
+    for (const watcher of watchers) watcher.onScreenDisplay.setTitle(`${rolled}`, { subtitle: `${who.name}, ${DICE[0].name}`, fadeInDuration: 2, stayDuration: 25, fadeOutDuration: 8 });
+    await this.scope.wait(12);
+    if (placed) this.clearDie(die);
+    await this.scope.wait(8);
+    for (const watcher of watchers) watcher.camera.clear();
+    return rolled;
   }
 
   /** The loop's state changed: everyone's HUD line, and the standings top left. */
@@ -419,7 +520,7 @@ export class BlockPartySpike extends Minigame<Config> {
       const icon = icons.get(container.getItem(slot)?.typeId ?? "");
       if (icon) slots.push({ slot, icon });
     }
-    const line = hudLine(undefined, this.loop?.hudText(player) ?? "", undefined, "", barCodes(slots, player.selectedSlotIndex) + loadingCode(this.loadingLevel));
+    const line = hudLine(undefined, this.minigameStatus ?? this.loop?.hudText(player) ?? "", undefined, "", barCodes(slots, player.selectedSlotIndex) + loadingCode(this.loadingLevel));
     if (!force && line === tests.sentLine && system.currentTick - (tests.sentAt ?? 0) < BAR_RESEND) return;
     tests.sentLine = line;
     tests.sentAt = system.currentTick;
@@ -531,6 +632,7 @@ export class BlockPartySpike extends Minigame<Config> {
 
   private async menu(player: Player): Promise<void> {
     const items: [string, () => void | Promise<void>][] = [
+      ["Get star (on your roll)", () => this.getStar(player)],
       ["Piece settings", () => this.settingsForm(player)],
       ["Camera shots", () => this.shotsMenu(player)],
       ["Jump test", () => this.jumpMenu(player)],
@@ -549,6 +651,25 @@ export class BlockPartySpike extends Minigame<Config> {
     } catch (error) {
       this.tell(player, `That test failed: ${describeError(error)}`);
     }
+  }
+
+  /**
+   * Get star (the user asked, to try Stars without a long game): on the player's turn, while their
+   * roll waits, the roll is the number of spaces to the nearest Star ahead, and every branch on the
+   * way takes the way there.
+   */
+  private getStar(player: Player): void {
+    const key = player.name.toLowerCase();
+    const pending = this.pendingRolls.get(key);
+    if (!pending?.shot) return this.tell(player, "Get star works on your turn, while your roll waits.");
+    const path = this.loop.pathToStar(this.pieces.spaceOf(player));
+    if (!path) return this.tell(player, "There's no Star ahead to get to.");
+    this.loop.steer(key, path);
+    this.pendingRolls.delete(key);
+    this.endRoll(player);
+    this.openBar(player, "main");
+    this.tell(player, `Get star: ${path.length} space${path.length === 1 ? "" : "s"} to the Star.`);
+    pending.resolve(path.length);
   }
 
   private async settingsForm(player: Player): Promise<void> {
@@ -589,6 +710,8 @@ export class BlockPartySpike extends Minigame<Config> {
   // ---- Jumps ------------------------------------------------------------------------------
 
   private jumped(player: Player): void {
+    // A minigame's rules: a jump is Ready.
+    if (this.runner.jumped(player)) return;
     const tests = this.testsOf(player);
     if (tests.rolling) {
       void this.roll(player);

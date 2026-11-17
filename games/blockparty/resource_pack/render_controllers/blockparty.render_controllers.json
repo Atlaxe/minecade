@@ -1,6 +1,17 @@
 {
   "format_version": "1.8.0",
   "render_controllers": {
+    "controller.render.blockparty.bot": {
+      "geometry": "Geometry.default",
+      "materials": [
+        {
+          "*": "Material.default"
+        }
+      ],
+      "textures": [
+        "Texture.default"
+      ]
+    },
     "controller.render.blockparty.villager_base": {
       "geometry": "Geometry.default",
       "materials": [

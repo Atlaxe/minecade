@@ -18,9 +18,13 @@
 //     round a corner instead of cutting to the new way.
 // No names over the pieces (the user: a label lags behind the player, and a HUD will say whose turn
 // it is), and the players' own name tags are hidden on the board.
-import { EasingType, InputPermissionCategory, system, world, type Player, type Vector3 } from "@minecraft/server";
+//
+// A bot's piece (bots.ts) is its own body, walked the same way, except that it's set moving at the
+// step's speed each tick (a push's overshoot is a player's client's) and has nothing to lock.
+import { EasingType, InputPermissionCategory, system, world, type Entity, type Player, type Vector3 } from "@minecraft/server";
 import { describeError, log, type Scope } from "@minecade/minigame-core";
 import { angleGap, distance, route, standAt, yawTo, type Space, type Vec3 } from "./board.ts";
+import { isPlayer, nameOf, stepBot } from "./bots.ts";
 
 export type WalkCamera = "chase" | "watch" | "none";
 
@@ -63,13 +67,13 @@ const vec = (v: Vec3): Vector3 => ({ x: v[0], y: v[1], z: v[2] });
 /** What a piece's host gives it: the board, everyone watching, and each player's settings. */
 export interface PiecesHost {
   spaces: () => readonly Space[];
-  settings: (player: Player) => PieceSettings;
+  settings: (body: Entity) => PieceSettings;
   /** Everyone who watches a walk through its camera. */
   watchers: () => Player[];
   /** Where the Watch camera stands. */
   overview: () => Vec3;
   /** Told when a walk ends, to the walker: what happened, for the chat. */
-  report: (player: Player, text: string) => void;
+  report: (body: Entity, text: string) => void;
 }
 
 export class Pieces {
@@ -83,8 +87,8 @@ export class Pieces {
     scope.add(() => this.removeAll());
   }
 
-  private state(player: Player): PieceState {
-    const key = player.name.toLowerCase();
+  private state(body: Entity): PieceState {
+    const key = nameOf(body).toLowerCase();
     let state = this.states.get(key);
     if (!state) {
       state = { space: 0, corner: this.nextCorner++ % 4, walking: false };
@@ -93,31 +97,33 @@ export class Pieces {
     return state;
   }
 
-  isWalking(player: Player): boolean {
-    return this.state(player).walking;
+  isWalking(body: Entity): boolean {
+    return this.state(body).walking;
   }
 
-  /** Puts the player on their piece's space (Start at first), facing south, their name tag hidden. */
-  place(player: Player): void {
-    const state = this.state(player);
+  /** Puts the piece on its space (Start at first), facing south, a player's name tag hidden. */
+  place(body: Entity): void {
+    const state = this.state(body);
     try {
-      player.teleport(vec(standAt(this.host.spaces()[state.space], state.corner)), { rotation: { x: 0, y: 180 } });
-      player.nameTag = "";
+      body.teleport(vec(standAt(this.host.spaces()[state.space], state.corner)), { rotation: { x: 0, y: 180 } });
+      if (isPlayer(body)) body.nameTag = "";
+      else body.clearVelocity();
     } catch (error) {
-      log.warn(`blockparty: placing ${player.name}'s piece failed: ${describeError(error)}`);
+      log.warn(`blockparty: placing ${nameOf(body)}'s piece failed: ${describeError(error)}`);
     }
   }
 
   /** Back to Start. */
-  reset(player: Player): void {
-    this.state(player).space = 0;
-    this.place(player);
+  reset(body: Entity): void {
+    this.state(body).space = 0;
+    this.place(body);
   }
 
-  /** Gives the player back their movement and name tag (off the board: an arena, a ride). */
-  release(player: Player): void {
-    unlock(player);
-    player.nameTag = player.name;
+  /** Gives a player back their movement and name tag (off the board: an arena, a ride). */
+  release(body: Entity): void {
+    if (!isPlayer(body)) return;
+    unlock(body);
+    body.nameTag = body.name;
   }
 
   /** A player left (their place on the board is kept for a rejoin). */
@@ -126,14 +132,14 @@ export class Pieces {
     if (state) state.walking = false;
   }
 
-  /** Walks the player's piece `steps` spaces ahead. Resolves when it has landed. */
-  async walk(player: Player, steps: number): Promise<void> {
-    return this.walkThrough(player, route(this.host.spaces(), this.state(player).space, steps));
+  /** Walks the piece `steps` spaces ahead. Resolves when it has landed. */
+  async walk(body: Entity, steps: number): Promise<void> {
+    return this.walkThrough(body, route(this.host.spaces(), this.state(body).space, steps));
   }
 
-  /** The space the player's piece is on (its index). */
-  spaceOf(player: Player): number {
-    return this.state(player).space;
+  /** The space the piece is on (its index). */
+  spaceOf(body: Entity): number {
+    return this.state(body).space;
   }
 
   /**
@@ -142,7 +148,7 @@ export class Pieces {
    * Star) to go on later. `quiet`: no chat report, and the camera is left as it is for the next
    * stretch (the board loop's walks).
    */
-  async walkThrough(player: Player, passed: readonly Space[], options: { land?: boolean; quiet?: boolean } = {}): Promise<void> {
+  async walkThrough(player: Entity, passed: readonly Space[], options: { land?: boolean; quiet?: boolean } = {}): Promise<void> {
     const state = this.state(player);
     if (state.walking || passed.length === 0) return;
     const land = options.land !== false;
@@ -160,7 +166,7 @@ export class Pieces {
     let stuck = 0;
     let miss = 0;
     try {
-      lock(player);
+      if (isPlayer(player)) lock(player);
       if (settings.camera === "watch") this.watchCamera(player);
       const perTick = settings.speed / 20;
       let facing = player.getRotation().y;
@@ -220,16 +226,17 @@ export class Pieces {
       await this.scope.wait(20);
       if (settings.camera !== "none") for (const watcher of this.host.watchers()) watcher.camera.clear();
     } catch (error) {
-      log.warn(`blockparty: ${player.name}'s walk failed: ${describeError(error)}`);
+      log.warn(`blockparty: ${nameOf(player)}'s walk failed: ${describeError(error)}`);
       this.host.report(player, `The walk failed: ${describeError(error)}`);
     } finally {
       state.walking = false;
-      if (player.isValid) unlock(player);
+      if (player.isValid && isPlayer(player)) unlock(player);
     }
   }
 
-  /** One tick's push: `step` blocks this tick (asked for a little less, as pushes overshoot). */
-  private push(player: Player, step: { x: number; z: number }): void {
+  /** One tick's push: `step` blocks this tick (asked for a little less, as a player's pushes overshoot; a bot is set moving at it). */
+  private push(player: Entity, step: { x: number; z: number }): void {
+    if (!isPlayer(player)) return stepBot(player, step.x, step.z);
     try {
       player.applyKnockback({ x: step.x / PUSH_GAIN / KNOCKBACK_SPEED, z: step.z / PUSH_GAIN / KNOCKBACK_SPEED }, 0);
     } catch (error) {
@@ -238,7 +245,8 @@ export class Pieces {
   }
 
   /** Stops the piece where it is (a push of nothing takes its speed away). */
-  private stop(player: Player): void {
+  private stop(player: Entity): void {
+    if (!isPlayer(player)) return stepBot(player, 0, 0);
     try {
       player.applyKnockback({ x: 0, z: 0 }, 0);
     } catch {
@@ -246,8 +254,8 @@ export class Pieces {
     }
   }
 
-  /** Puts the player at `at` facing `yaw` on their own client: a teleport (it stops them that tick). */
-  private face(player: Player, at: Vector3, yaw: number): void {
+  /** Puts the piece at `at` facing `yaw` (a player on their own client): a teleport (it stops them that tick). */
+  private face(player: Entity, at: Vector3, yaw: number): void {
     try {
       player.teleport(at, { rotation: { x: 0, y: yaw } });
     } catch (error) {
@@ -271,7 +279,7 @@ export class Pieces {
   }
 
   /** The Watch camera: a fixed spot over the board, facing the moving piece. */
-  private watchCamera(walker: Player): void {
+  private watchCamera(walker: Entity): void {
     const at = this.host.overview();
     for (const watcher of this.host.watchers()) {
       try {
@@ -283,8 +291,8 @@ export class Pieces {
   }
 
   /** The settings changed: puts the piece down again. */
-  refresh(player: Player): void {
-    if (!this.state(player).walking) this.place(player);
+  refresh(body: Entity): void {
+    if (!this.state(body).walking) this.place(body);
   }
 
   private removeAll(): void {

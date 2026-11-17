@@ -1,0 +1,58 @@
+import { describe, expect, it } from "vitest";
+import { battleBets, ffaCoins, firstDoubled, formatFor, isDoubled, kindOf, pairingKey, pickMinigame, pickPairs, pickSolo, splitPot, teamCoins } from "../behavior_pack/scripts/minigame-rules.ts";
+
+/** Always the first choice. */
+const first = () => 0;
+/** Never a Battle. */
+const high = () => 0.99;
+
+describe("Block Party's minigame rules", () => {
+  it("plays a team game every 3rd round, 2v2 and 1v3 in turn, FFA otherwise", () => {
+    expect([1, 2, 3, 4, 5, 6, 9, 12].map((round) => formatFor(round, 4, high))).toEqual(["ffa", "ffa", "2v2", "ffa", "ffa", "1v3", "2v2", "1v3"]);
+    expect(formatFor(3, 3, high)).toBe("1v3");
+    expect(formatFor(3, 2, high)).toBe("ffa");
+    expect(formatFor(1, 4, first)).toBe("battle");
+    expect(formatFor(1, 1, first)).toBe("ffa");
+    expect(kindOf("battle")).toBe("ffa");
+    expect(kindOf("duel")).toBe("ffa");
+    expect(kindOf("1v3")).toBe("1v3");
+  });
+
+  it("rotates the solo and the pairs so everyone gets an equal share", () => {
+    expect(pickSolo(["a", "b", "c"], new Map([["a", 1]]), first)).toBe("b");
+    const used = new Map([[pairingKey([["a", "b"], ["c", "d"]]), 1]]);
+    expect(pairingKey(pickPairs(["a", "b", "c", "d"], used, first))).toBe("a+c|b+d");
+    expect(pairingKey([["d", "c"], ["b", "a"]])).toBe("a+b|c+d");
+  });
+
+  it("makes a minigame played already much less likely", () => {
+    const pool = [{ id: "x" }, { id: "y" }];
+    expect(pickMinigame(pool, new Map([["x", 1]]), () => 0.5)?.id).toBe("y");
+    expect(pickMinigame(pool, new Map([["x", 1]]), () => 0.01)?.id).toBe("x");
+    expect(pickMinigame([], new Map(), first)).toBeUndefined();
+  });
+
+  it("pays FFA places by how many play, a tie the average of its places", () => {
+    expect(Object.fromEntries(ffaCoins([["a"], ["b"], ["c"], ["d"]]))).toEqual({ a: 10, b: 6, c: 3, d: 1 });
+    expect(Object.fromEntries(ffaCoins([["a", "b"], ["c"], ["d"]]))).toEqual({ a: 8, b: 8, c: 3, d: 1 });
+    expect(Object.fromEntries(ffaCoins([["a"], ["b"], ["c"]]))).toEqual({ a: 10, b: 5, c: 2 });
+    expect(Object.fromEntries(ffaCoins([["a"], ["b"]]))).toEqual({ a: 10, b: 3 });
+  });
+
+  it("pays 2v2 7 and 2, 1v3 by who won", () => {
+    expect(Object.fromEntries(teamCoins("2v2", [["a", "b"], ["c", "d"]], 1))).toEqual({ a: 2, b: 2, c: 7, d: 7 });
+    expect(Object.fromEntries(teamCoins("1v3", [["s"], ["a", "b", "c"]], 0))).toEqual({ s: 10, a: 1, b: 1, c: 1 });
+    expect(Object.fromEntries(teamCoins("1v3", [["s"], ["a", "b", "c"]], 1))).toEqual({ s: 2, a: 6, b: 6, c: 6 });
+  });
+
+  it("takes 5 from each for a Battle's pot and splits it among the winners", () => {
+    expect(Object.fromEntries(battleBets(new Map([["a", 12], ["b", 3], ["c", 0]])))).toEqual({ a: 5, b: 3, c: 0 });
+    expect(Object.fromEntries(splitPot(13, ["a", "b"]))).toEqual({ a: 6, b: 6 });
+  });
+
+  it("doubles the last 2 rounds, the last one only in a 10-turn game", () => {
+    expect([13, 14, 15].map((round) => isDoubled(round, 15))).toEqual([false, true, true]);
+    expect([9, 10].map((round) => isDoubled(round, 10))).toEqual([false, true]);
+    expect([firstDoubled(10), firstDoubled(15), firstDoubled(20)]).toEqual([10, 14, 19]);
+  });
+});
