@@ -6,10 +6,41 @@
 // A line the user hasn't written (or took out) is skipped: line() gives "" and the game shows
 // nothing for it (the user's call). A form button can't be skipped, since it's a choice, so button()
 // falls back to the id.
+//
+// Each moment also says who says it and how it shows (moment(): its character, its delivery, and the
+// dialogue box's switches, docs/plans/block-party-ui.md "The dialogue tool's data").
 import { log } from "@minecade/minigame-core";
 import dialogue from "../../dialogue.json";
 
 const LINES: Readonly<Record<string, readonly string[]>> = dialogue.lines;
+
+/** How a moment shows, as the user's file sets it. */
+export interface Moment {
+  /** Who says it: "Game", or a character ("Chris"). */
+  character: string;
+  /** Where it shows: "Chat, everyone", "Title", "NPC", "Dialogue box", ... */
+  delivery: string;
+  /** Players can vote to skip it. */
+  skippable: boolean;
+  /** It's part of a cutscene (skipping skips the rest of it). */
+  cutscene: boolean;
+  /** How the camera gets to the speaker: "Pan", "Cut", "Stay", or "" for the moment's default. */
+  camera: string;
+}
+
+const MOMENTS: Readonly<Record<string, Partial<Moment>>> = (dialogue as { moments?: Record<string, Partial<Moment>> }).moments ?? {};
+
+/** How `id`'s moment shows: a Game line in chat when the file doesn't say. */
+export function moment(id: string): Moment {
+  const found = MOMENTS[id];
+  return {
+    character: found?.character ?? "Game",
+    delivery: found?.delivery ?? "Chat, everyone",
+    skippable: found?.skippable === true,
+    cutscene: found?.cutscene === true,
+    camera: found?.camera ?? "",
+  };
+}
 
 /** What a line's {name}s are filled with: {player} takes fills.player. */
 export type Fills = Readonly<Record<string, string | number>>;

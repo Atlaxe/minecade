@@ -10,7 +10,9 @@
   // with the selected item's name and what it does over it. Vanilla's slots still pick: scrolling
   // and number keys. The loading screen (the star field and Minecade's logo, faded in and out a level
   // at a time) rides the same way. Both sit in the core pack's full-screen action bar panel, like the
-  // gun scope (packages/minigame-core's hud_screen.json), the loading screen on top.
+  // gun scope (packages/minigame-core's hud_screen.json), the loading screen on top. The dialogue box
+  // (ui/blockparty_dialogue.json) rides there too, under the loading screen: it reads the sidebar,
+  // not the action bar, but this panel is always up while the game sends its HUD line.
 
   // Vanilla's popup of the selected item's name (the core pack's one-line version of it): the bar
   // shows the name.
@@ -18,7 +20,7 @@
 
   "hud_actionbar_text": {
     "modifications": [
-      { "array_name": "controls", "operation": "insert_back", "value": [ { "bp_hotbar@blockparty_hud.hotbar": {} }, { "bp_loading@blockparty_hud.loading": {} } ] }
+      { "array_name": "controls", "operation": "insert_back", "value": [ { "bp_hotbar@blockparty_hud.hotbar": {} }, { "bp_dialogue@blockparty_dialogue.box": {} }, { "bp_loading@blockparty_hud.loading": {} } ] }
     ]
   }
 }

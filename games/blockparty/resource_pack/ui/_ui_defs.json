@@ -1,3 +1,3 @@
 {
-  "ui_defs": ["ui/blockparty_hud.json"]
+  "ui_defs": ["ui/blockparty_hud.json", "ui/blockparty_dialogue.json"]
 }

@@ -443,7 +443,7 @@
   // one can't be hidden alone. Games don't show effects otherwise (only a kit can give one).
   // The column top left (vanilla's chat_stack) becomes mc_chat_stack, with the notes above the
   // paper doll and the chat. The sidebar is put in again with its own visibility: hidden while it
-  // holds notes or pictures (an instance's bindings take the place of its def's, so scoreboards.json
+  // holds notes, pictures or a game's own (GAME_SIDEBAR_MARK, '§r§m§g§r', which the game's pack draws) (an instance's bindings take the place of its def's, so scoreboards.json
   // can't), and the pictures (mc_pictures) go after it, where it sits.
   "root_panel": {
     "modifications": [
@@ -469,7 +469,7 @@
                 { "binding_name": "#objective_sidebar_name", "binding_type": "global" },
                 {
                   "binding_type": "view",
-                  "source_property_name": "(#scoreboard_sidebar_visible and ((#objective_sidebar_name - '§r§m§n§r') = #objective_sidebar_name) and ((#objective_sidebar_name - '§r§m§p§r') = #objective_sidebar_name))",
+                  "source_property_name": "(#scoreboard_sidebar_visible and ((#objective_sidebar_name - '§r§m§n§r') = #objective_sidebar_name) and ((#objective_sidebar_name - '§r§m§p§r') = #objective_sidebar_name) and ((#objective_sidebar_name - '§r§m§g§r') = #objective_sidebar_name))",
                   "target_property_name": "#visible"
                 }
               ]

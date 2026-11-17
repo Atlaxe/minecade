@@ -1,6 +1,7 @@
 import { ARENA_SLOT, ARENA_SLOT_FOOTPRINT, BLOCK_PARTY_BOARD, defineGame } from "@minecade/minigame-core/config";
 import { BOT_COUNTS, LENGTHS } from "./behavior_pack/scripts/board-rules.ts";
 import { ARENAS } from "./behavior_pack/scripts/minigames/arenas.ts";
+import { STAGE_ADJUSTABLE, STAGE_MARKUP } from "./behavior_pack/scripts/stage-markup.ts";
 
 // Block Party (docs/plans/block-party.md): a board game with minigames between turns, a test game
 // the lobby lists only while DEV_TEST_GAMES is 1 until it's whole. It plays the board loop
@@ -40,12 +41,16 @@ export default defineGame({
   options: [
     { id: "length", label: "Length", values: LENGTHS.map((turns) => ({ value: String(turns), label: `${turns} turns` })) },
     { id: "bots", label: "Bots (playing alone)", values: BOT_COUNTS.map((bots) => ({ value: String(bots), label: bots === 0 ? "No bots" : bots === 1 ? "1 bot" : `${bots} bots` })) },
+    // Chris's tutorial in the pre-game (the plan's "In the lobby"), on unless the lobby turns it off.
+    { id: "tutorial", label: "Chris's tutorial", values: [ { value: "on", label: "On" }, { value: "off", label: "Off" } ] },
   ],
   map: {
     borrow: ["probe"],
     board: BLOCK_PARTY_BOARD,
     regions: { [ARENA_SLOT]: { label: "Arena slot", footprint: ARENA_SLOT_FOOTPRINT } },
-    adjustable: { spectatorOrQueue: { off: true }, spaces: { off: true }, [`regions.${ARENA_SLOT}`]: { off: true } },
+    // The stage (stage-markup.ts): the podium's lineup, Chris's spot and camera, and the intro's shots.
+    points: STAGE_MARKUP,
+    adjustable: { spectatorOrQueue: { off: true }, spaces: { off: true }, [`regions.${ARENA_SLOT}`]: { off: true }, ...STAGE_ADJUSTABLE },
   },
   // The minigames' arenas (minigames/arenas.ts): each its own entry in the map editor, its published
   // maps placed into the board's arena slot when it's played. A minigame without one plays on its

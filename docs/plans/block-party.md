@@ -93,6 +93,16 @@ no line is skipped, the user's call (2026-11-17): chat, titles and the status sh
 and a form button, which can't be left out, shows its id. The dialogue editor lists the ids the game
 says that have no line.
 
+**What the NPCs say** goes in the dialogue box (pass 6, `block-party-ui.md` "The dialogue box";
+`dialogue.ts`): bottom middle, the same for everyone, the speaker's name on its border. A line comes
+a sentence at a time, each sentence with one sound of the speaker's voice (the user's sound map,
+`games/blockparty/sounds.json`, installed from the same editor; a line with a sound of its own plays
+that instead). Said to one player (`talk`), it has buttons (Next when there's no choice) steered
+with W and S, jump to pick, sneak for its back button; said to everyone (`say`), it goes on by
+itself once read, and a skippable one (or a skippable cutscene) is skipped once every player has
+jumped. `dialogue.json` carries each moment's character and how it shows (`moment()` in
+`lines.ts`); the code still picks talk or say for each.
+
 The lines are the user's: `dialogue.json` is written by their dialogue editor (not in this repo),
 which keeps every line with its scene, character, when it's said, how it shows, a review status and
 notes, including the ones no pass has built yet (Chris's tutorial, the Witch's outcomes, the
@@ -645,12 +655,18 @@ Each also has an event camera.
 | Intro flyover path (its cameras in order) | Camera tool |
 | Special event camera (a map with an event) | Camera tool |
 | Podium set: 4 spots, 1st to 4th, facing front | Game marker tool |
-| Pre-game lineup, one spot per player, and the turn-order pedestals (the starting podium in `block-party-ui.md`: a wider gap between the 2nd and 3rd spots, Chris's spot further back, a fixed podium camera) | Game marker tool |
+| Pre-game lineup, one spot per player, and the turn-order pedestals (the starting podium in `block-party-ui.md`: a wider gap between the 2nd and 3rd spots, Chris's spot further back, a fixed podium camera). **Built in pass 6** as Podium lineup (4), Chris at the podium and Podium camera (`stage-markup.ts`) | Game marker tool |
+| **Intro shots** (pass 6): the intro's cameras in order, each placed standing where the camera goes with your facing taken (the shot is what you saw); the camera eases from each to the next. They stand in for the intro flyover path above | Game marker tool |
 | NPC stages: Chris, Villager (the shop counter), Witch (the cauldron), Referee, and the Allay's landing spot. Each is the NPC's spot and the guest's spot (where the player stands to talk), both with a facing; the conversation shots are worked out from the two, and a camera named for the stage replaces the default | Game marker tool |
 | A spectator or queue spawn | Spawn tool |
 
 Chris at the Star, the Enderman's swaps and the Trader's visits happen on the board itself, framed
 from the spaces.
+
+The pass 6 rows can each be turned off (Checklist Features), and a board without them plays with
+stand-ins: the lineup on Start's corners, Chris on the space after Start, the camera behind Start,
+and three high intro shots round the board. The camera rows are points rather than Camera tool
+cameras: those are the lobby's pictures, which servers never get.
 
 **Map settings** for a board (Panel and game Edit): the NPCs' vanilla variants (the Villager's biome type and profession, Chris's pig variant), the
 Happening flavor (a few lines of text, one picked each time, and a sound), the special event and
@@ -898,7 +914,39 @@ reward was dropped.
      still plays a minigame with no arena map. Out bots float at the spectator spawn. Not yet seen:
      the user builds the three arena maps. Then spectator bets on duels and the Dueling Glove
      (pass 7, with the items).
-6. **NPCs and cameras:** stages, conversations, the shot list.
+6. **NPCs and cameras:** stages, conversations, the shot list. **Built 2026-11-17** with the
+   dialogue box from pass 10 (the user asked for the two together):
+   - **The dialogue box** (`dialogue.ts`, `dialogue-codes.ts`, `ui/blockparty_dialogue.json`): see
+     "Dialogue". It rides the scoreboard sidebar, everyone's alike, under the core's
+     `GAME_SIDEBAR_MARK`; the standings come back when it goes.
+   - **Voices:** one sound of the speaker's voice for each sentence, from the user's sound map
+     (`sounds.json`, installed with the lines); the box's events (open, next, a button, close, a
+     skip vote) play their cues once the user maps them.
+   - **The stage** (`stage.ts`, `stage-layout.ts`, `stage-markup.ts`): the NPCs as the vanilla
+     mobs' models with no AI, placed and turned by the game; shots for everyone, a pan or a cut
+     (each moment's Camera in the user's file wins over its default). The board stays loaded
+     (its ticking area takes in the podium), so NPCs can be placed anywhere on it.
+   - **The pre-game:** the intro (the map's intro shots or high ones round the board) under
+     Chris's welcome, a cut to the starting podium (everyone in the lineup facing Chris), how long
+     the game is, Chris's tutorial (the lobby's new **Chris's tutorial** option, on by default), the
+     starting coins, everyone turning to the camera and rolling for the order, then the reveal (the
+     camera moves to each player in turn order, their place as a title, Chris turning to them and
+     introducing them) and the Star reveal (the camera pans to each Star's space and a Chris drops
+     in beside it with slow falling). Everything but the roll is a cutscene everyone can vote to
+     skip; skipped, everyone still ends on Start and every Star has its Chris.
+   - **Chris at the Star:** he stands beside each Star all game. Passing or landing on it, the
+     camera pans to the player and Chris, and he offers it in the dialogue box (Buy a Star, Not
+     now; sneak is Not now), or says the player can't afford it. Bought, he thanks them, the camera
+     pans to the Star's new space, and a Chris drops in there.
+   - **The Referee at Versus:** comes to stand beside the lander (a cut), says the stakes are
+     doubled in the last rounds, and the lander picks a rival from his buttons; then the face-off
+     line, and he goes.
+   - **Chris's announcements** as a round starts: halfway, coins doubling from now on, the final
+     round (each skippable).
+   - **Not yet:** player animations (Celebrate on the reveal, `block-party-ui.md` "Player
+     animations"), line actions and blocks from the dialogue tool, the other NPCs' stages (the
+     Villager, the Witch, the Allay: with their passes), the board view's modes and the turn shot,
+     button prompts per device, heads in the skip strip (names for now). Not yet seen in game.
 7. **Items, dice, Chance Time, the Warden, the shop and the Trader.**
 8. **End of game:** bonus Stars, the tiebreaker, the podium.
 9. **The rest of the minigames.**

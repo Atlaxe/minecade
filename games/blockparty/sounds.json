@@ -1,0 +1,163 @@
+{
+  "about": "Block Party's sound cues, from the user's dialogue editor (Sounds; not in this repo). Change them there, not here.",
+  "cues": {
+    "voice:Allay": [
+      {
+        "sound": "mob.allay.idle_holding",
+        "volume": 1,
+        "pitch": 1,
+        "delay": 0
+      },
+      {
+        "sound": "mob.allay.item_given",
+        "volume": 1,
+        "pitch": 1,
+        "delay": 0
+      },
+      {
+        "sound": "mob.allay.item_taken",
+        "volume": 1,
+        "pitch": 1,
+        "delay": 0
+      },
+      {
+        "sound": "mob.allay.item_thrown",
+        "volume": 1,
+        "pitch": 1,
+        "delay": 0
+      }
+    ],
+    "voice:Chris": [
+      {
+        "sound": "mob.pig.eat",
+        "volume": 1,
+        "pitch": 1,
+        "delay": 0
+      },
+      {
+        "sound": "mob.pig.say",
+        "volume": 1,
+        "pitch": 1,
+        "delay": 0
+      },
+      {
+        "sound": "mob.pig.boost",
+        "volume": 1,
+        "pitch": 1,
+        "delay": 0
+      }
+    ],
+    "voice:Enderman": [
+      {
+        "sound": "mob.endermen.idle",
+        "volume": 1,
+        "pitch": 1,
+        "delay": 0
+      }
+    ],
+    "voice:Iron Golem": [
+      {
+        "sound": "mob.camel_husk.ambient",
+        "volume": 1,
+        "pitch": 1.75,
+        "delay": 0
+      }
+    ],
+    "voice:Referee": [
+      {
+        "sound": "mob.pillager.idle",
+        "volume": 1,
+        "pitch": 1,
+        "delay": 0
+      },
+      {
+        "sound": "mob.pillager.celebrate",
+        "volume": 1,
+        "pitch": 1,
+        "delay": 0
+      }
+    ],
+    "voice:Villager": [
+      {
+        "sound": "mob.villager.haggle",
+        "volume": 1,
+        "pitch": 1,
+        "delay": 0
+      },
+      {
+        "sound": "mob.villager.idle",
+        "volume": 1,
+        "pitch": 1,
+        "delay": 0
+      },
+      {
+        "sound": "mob.villager.yes",
+        "volume": 1,
+        "pitch": 1,
+        "delay": 0
+      }
+    ],
+    "voice:Wandering Trader": [
+      {
+        "sound": "mob.wanderingtrader.idle",
+        "volume": 1,
+        "pitch": 1,
+        "delay": 0
+      },
+      {
+        "sound": "mob.wanderingtrader.haggle",
+        "volume": 1,
+        "pitch": 1,
+        "delay": 0
+      },
+      {
+        "sound": "mob.wanderingtrader.yes",
+        "volume": 1,
+        "pitch": 1,
+        "delay": 0
+      }
+    ],
+    "voice:Warden": [
+      {
+        "sound": "mob.warden.angry",
+        "volume": 1,
+        "pitch": 1,
+        "delay": 0
+      },
+      {
+        "sound": "mob.warden.agitated",
+        "volume": 1,
+        "pitch": 1,
+        "delay": 0
+      },
+      {
+        "sound": "mob.warden.idle",
+        "volume": 1,
+        "pitch": 1,
+        "delay": 0
+      }
+    ],
+    "voice:Witch": [
+      {
+        "sound": "mob.witch.ambient",
+        "volume": 1,
+        "pitch": 1,
+        "delay": 0
+      }
+    ],
+    "voice:Zombie": [
+      {
+        "sound": "mob.zombie.say",
+        "volume": 1,
+        "pitch": 1,
+        "delay": 0
+      },
+      {
+        "sound": "mob.zombie_villager.say",
+        "volume": 1,
+        "pitch": 1,
+        "delay": 0
+      }
+    ]
+  }
+}

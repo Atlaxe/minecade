@@ -1,7 +1,9 @@
 # Block Party UI and cameras (plan)
 
-**Status:** the user's spec, 2026-11-17, written down for the session that builds it. Nothing here
-is built yet. It is the content of pass 10 in `block-party.md` ("Refinement: cameras and UI"), and
+**Status:** the user's spec, 2026-11-17, written down for the session that builds it. Built so far
+(pass 6 of `block-party.md`, 2026-11-17): the dialogue box with its buttons, steering and voices,
+the skip strip (names for now, heads later), the NPC pans and cuts, and the pre-game shots (intro,
+podium, order rolls and reveal, Star reveal). The rest isn't built yet. It is the content of pass 10 in `block-party.md` ("Refinement: cameras and UI"), and
 it replaces that plan's hotbar: the board can't use the hotbar for its controls, because minigames
 need the hotbar for their own items. Everything the board shows moves to JSON UI the game draws
 itself, steered with the movement keys, jump and sneak.
@@ -431,17 +433,22 @@ needs, as data with no art in it, committed like `dialogue.json`:
   character), "Player" (the `{player}` fill), "Other" (`{other}`), "Every player", or a character by
   name; the action is from the file's `actions` list (by owner: "Player" for the players' sets, else
   the character); when is "Start", "End" or "After" with `seconds`.
-- **Blocks:** rows among the lines (`"kind": "block"`, no id) for what the game does, in the order
-  things happen: a block runs after the row above it (after a line, or after the block before it),
-  and the user drags rows into order. Each has a `block` kind from the file's `blocks` list, which
+- **Blocks:** nodes among the lines (`"kind": "block"`, each with an id of its own, `block-1` and
+  on) for what the game does. Since the tool's flow charts (2026-11-17, workshop 606adcb) each
+  scene is a chart: `flows` holds, per scene, where each node sits and the links between them
+  (`[from, to]`, a line's id or a block's), and a block runs when a link leads to it. Each has a `block` kind from the file's `blocks` list, which
   names the fields that kind takes: `who` and `target` (one of "Player", "Other", "Every player",
   "Everyone else", "The leader", "Last place", "Speaker"), `amount` (spaces back are below 0),
   `item` (from the file's `items`), `seconds`, or `text` (a description). The first kinds: Give
   coins, Take coins, Pay coins, Give Stars, Take Stars, Give item, Take item, Move spaces, Swap
   places, Camera, Wait, Game step; the user adds kinds that take a description. A block's effects
   show with the gain and loss pops and the cards ("Gain and loss"). The game's copy (`dialogue.json`)
-  leaves them out until this pass carries them; a kind with only a description is for the code to
-  do by hand.
+  leaves blocks and flows out until a pass carries them; a kind with only a description is for the
+  code to do by hand.
+- **In the game's copy now** (pass 6): `dialogue.json` has `moments`, each id's character and
+  delivery, and `skippable`, `cutscene` and `camera` when set (`moment()` in `lines.ts`); and the
+  install writes `sounds.json` beside it, the sound map's cues (`sounds.ts` plays them). Actions,
+  blocks and flows aren't carried yet.
 - **The sound map** (`sounds\blockparty.json`): `cues` keyed `voice:<character>`, `line:<id>`,
   `action:<owner>/<action>` and `event:<id>`, each a list of `{ sound, volume, pitch, delay }` (music
   events also `fade` and `loop`), one picked at random each time; `events` (the event list, with a

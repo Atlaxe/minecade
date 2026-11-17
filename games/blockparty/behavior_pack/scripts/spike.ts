@@ -37,13 +37,17 @@ import {
   type Vector3,
 } from "@minecraft/server";
 import { ActionFormData, ModalFormData } from "@minecraft/server-ui";
-import { ARENA_SLOT, Minigame, Notes, describeError, draw, hudLine, log, say, showForm, spacesOf, type GameContext, type Result, type SpawnReason } from "@minecade/minigame-core";
+import { ARENA_SLOT, Minigame, Notes, describeError, draw, facingOf, hudLine, log, say, showForm, spacesOf, worldPoint, type GameContext, type MapPosition, type Result, type SpawnReason } from "@minecade/minigame-core";
 import { BLOCK_PARTY_BOARD } from "@minecade/minigame-core/config";
 import registry from "#registry";
 import { HOTBAR_SIZE, LOADING_LEVELS, barCodes, loadingCode, type BarIcon } from "./bar-codes.ts";
 import type config from "../../game.config.ts";
 import { boardBox, build, mapSpaces, standAt, testSpaces, type Space, type Vec3 } from "./board.ts";
 import { BoardLoop } from "./board-loop.ts";
+import { Dialogue } from "./dialogue.ts";
+import { Stage, type StageMarkup } from "./stage.ts";
+import type { Marker } from "./stage-layout.ts";
+import { STAGE_POINTS } from "./stage-markup.ts";
 import { line } from "./lines.ts";
 import { BOT_COUNTS, LENGTHS, START_COINS } from "./board-rules.ts";
 import { Bots, hop, isPlayer, thinkTicks, whoOf, type Who } from "./bots.ts";
@@ -129,6 +133,8 @@ const BLOCKS_PER_MS = 1000;
 const TEST_COINS = 30;
 /** Seats at a Block Party game. */
 const SEATS = 4;
+/** Ticks after the players have moved before the bots are made again beside them (their screens are there by then). */
+const BOTS_AFTER = 10;
 /** Ticks a bot thinks before a choice. */
 const BOT_CHOICE: [number, number] = [20, 40];
 
@@ -185,6 +191,9 @@ export class BlockPartySpike extends Minigame<Config> {
   /** The bots in a game one player started (bots.ts), and the minigames' runner. */
   private bots!: Bots;
   private runner!: MinigameRunner;
+  /** The dialogue box (dialogue.ts) and the stage: the NPCs and the shots (stage.ts). */
+  private dialogue!: Dialogue;
+  private staging!: Stage;
   /** The minigame's line top right while one is on (it takes the board's place). */
   private minigameStatus: string | undefined;
 
@@ -249,15 +258,7 @@ export class BlockPartySpike extends Minigame<Config> {
       arenaMaps: (id) => this.ctx.vars.arenas[id] ?? [],
       behindBlack: (work) => this.behindBlack(work),
       leaveBoard: (who) => this.pieces.release(who.body),
-      backToBoard: (who) => {
-        if (who.player) {
-          if (who.player.isValid) this.pieces.place(who.player);
-          return;
-        }
-        // A bot is made again on its space (bots.ts, respawn).
-        this.bots.respawn(who, this.pieces.spotOf(who.name));
-        if (who.body.isValid) this.pieces.place(who.body);
-      },
+      backToBoard: (who) => this.backOnBoard(who),
       respawnBot: (who, at, yaw) => this.bots.respawn(who, at, yaw),
       title: (text, subtitle, timing) => this.titleAll(text, subtitle, timing),
       titleTo: (player, text, subtitle, timing) => this.titleTo(player, text, subtitle, timing),
@@ -274,6 +275,17 @@ export class BlockPartySpike extends Minigame<Config> {
       say: (text) => this.everyone(text),
     });
     this.notes = new Notes(this.scope);
+    this.dialogue = new Dialogue({ scope: this.scope, random: () => this.ctx.random(), restore: () => this.notes.display() });
+    this.staging = new Stage({
+      scope: this.scope,
+      dimension,
+      dialogue: this.dialogue,
+      spaces: () => this.spaces,
+      markup: () => this.stageMarkup(),
+      put: (who, at, yaw) => this.putSeat(who, at, yaw),
+      // Bots a moment after the players, as everywhere a body goes a long way with them (bots.ts).
+      toStart: (who) => (who.player ? this.backOnBoard(who) : this.scope.timeout(() => this.backOnBoard(who), BOTS_AFTER)),
+    });
     const length = Number(this.ctx.vars.settings.length);
     this.loop = new BoardLoop({
       scope: this.scope,
@@ -294,6 +306,11 @@ export class BlockPartySpike extends Minigame<Config> {
         });
       },
       choose: (who, title, body, options, botPick) => this.choose(who, title, body, options, botPick),
+      say: (id, fills, skippable) => this.dialogue.say(id, fills, skippable),
+      talk: (id, fills, options) => this.dialogue.talk(id, fills, options),
+      cutscene: (skippable, work) => this.dialogue.cutscene(skippable, work),
+      stage: this.staging,
+      tutorial: this.ctx.vars.settings.tutorial !== "off",
       minigames: MINIGAMES,
       playMinigame: (format, def, sides, pool, onlookers, settle) => this.runner.play(format, def, sides, pool, onlookers, settle),
       everyone: (text) => this.everyone(text),
@@ -315,6 +332,12 @@ export class BlockPartySpike extends Minigame<Config> {
       world.afterEvents.playerButtonInput,
       ({ player }) => this.jumped(player),
       { buttons: [InputButton.Jump], state: ButtonState.Pressed },
+    );
+    // Sneak is the dialogue box's back button (Not now).
+    this.scope.subscribe(
+      world.afterEvents.playerButtonInput,
+      ({ player }) => void this.dialogue.sneaked(player),
+      { buttons: [InputButton.Sneak], state: ButtonState.Pressed },
     );
     this.scope.subscribe(world.afterEvents.playerLeave, ({ playerName }) => {
       this.pendingRolls.get(playerName.toLowerCase())?.resolve(undefined);
@@ -381,6 +404,45 @@ export class BlockPartySpike extends Minigame<Config> {
     } catch {
       // gone
     }
+  }
+
+  /** A seat back on its space: a player put there, a bot made again there (bots.ts, respawn). */
+  private backOnBoard(who: Who): void {
+    if (who.player) {
+      if (who.player.isValid) this.pieces.place(who.player);
+      return;
+    }
+    this.bots.respawn(who, this.pieces.spotOf(who.name));
+    if (who.body.isValid) this.pieces.place(who.body);
+  }
+
+  /** A seat put somewhere off its space (the podium) facing `yaw`: a player at once, a bot made again there a moment later. */
+  private putSeat(who: Who, at: Vec3, yaw: number): void {
+    const spot = { x: at[0], y: at[1], z: at[2] };
+    if (who.player) {
+      try {
+        if (who.player.isValid) who.player.teleport(spot, { rotation: { x: 0, y: yaw } });
+      } catch {
+        // gone
+      }
+      return;
+    }
+    this.scope.timeout(() => this.bots.respawn(who, spot, yaw), BOTS_AFTER);
+  }
+
+  /** The map's stage markup (stage-markup.ts): its podium and its intro, each marker with its facing. */
+  private stageMarkup(): StageMarkup {
+    const marker = (position: MapPosition): Marker => {
+      const at = worldPoint(position);
+      const facing = facingOf(position);
+      return { at: [at.x, at.y, at.z], ...(facing ? { yaw: facing.yaw, pitch: facing.pitch } : {}) };
+    };
+    return {
+      lineup: this.map.points(STAGE_POINTS.lineup).map(marker),
+      chris: this.map.points(STAGE_POINTS.chris).map(marker)[0],
+      podiumCamera: this.map.points(STAGE_POINTS.podiumCamera).map(marker)[0],
+      intro: this.map.points(STAGE_POINTS.intro).map(marker),
+    };
   }
 
   /** Where an arena goes: the middle of the map's arena slot's floor (and the slot's size across), else far east of the board. */
@@ -823,6 +885,8 @@ export class BlockPartySpike extends Minigame<Config> {
   // ---- Jumps ------------------------------------------------------------------------------
 
   private jumped(player: Player): void {
+    // The dialogue box: its steerer's pick, or a vote to skip.
+    if (this.dialogue.jumped(player)) return;
     // A minigame's rules: a jump is Ready.
     if (this.runner.jumped(player)) return;
     const tests = this.testsOf(player);

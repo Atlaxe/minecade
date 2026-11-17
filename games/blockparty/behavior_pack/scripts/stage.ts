@@ -1,0 +1,352 @@
+// Block Party's stage (pass 6, docs/plans/block-party.md "Shots"; block-party-ui.md "Cameras"): the
+// NPCs on the board and the shots everyone watches together.
+//   - The cast: one entity per part (Chris at the podium, a Chris beside each Star, the Referee at a
+//     duel), on the vanilla mob's model with no AI (npcs.ts's roles), placed, turned and taken away
+//     by the game. A Chris who "falls in" drops from above with slow falling, so every client moves
+//     it smoothly (a teleport each tick jitters).
+//   - The shots, for everyone at once: a cut, or a pan (the camera eases there). A line's camera in
+//     the user's file (Pan, Cut, Stay) picks how a conversation's shot comes in; each moment has its
+//     own default.
+//   - The pre-game: the intro (the map's intro shots, or high shots round the board), the starting
+//     podium (the map's lineup, Chris's spot and camera, or Start's corners with Chris on the next
+//     space), the turn order reveal (the camera moves to each player in turn), and the Star reveal
+//     (the camera pans to each Star's space as its Chris drops in beside it).
+// While a cutscene is skipped (dialogue.ts) the shots and waits are left out, but everyone and
+// everything still ends up where it belongs.
+import { EasingType, world, type Dimension, type Entity, type Vector3 } from "@minecraft/server";
+import { describeError, log, type Scope } from "@minecade/minigame-core";
+import { boardBox, type Space, type Vec3 } from "./board.ts";
+import type { Who } from "./bots.ts";
+import type { Dialogue } from "./dialogue.ts";
+import { moment } from "./lines.ts";
+import { besideSpace, faceShot, introAround, markerShot, podiumFromMarkup, podiumOnStart, spaceShot, twoShot, yawFrom, type Marker, type Podium, type Shot } from "./stage-layout.ts";
+
+/** The map's podium and intro markup (Block Party's config, map.points). */
+export interface StageMarkup {
+  lineup: Marker[];
+  chris?: Marker;
+  podiumCamera?: Marker;
+  intro: Marker[];
+}
+
+export interface StageDeps {
+  scope: Scope;
+  dimension: Dimension;
+  dialogue: Dialogue;
+  spaces(): readonly Space[];
+  markup(): StageMarkup;
+  /** A seat's body put at `at` facing `yaw`: a player teleported (their piece locked), a bot made again there. */
+  put(who: Who, at: Vec3, yaw: number): void;
+  /** Everyone back on Start, as the board loop places them. */
+  toStart(who: Who): void;
+}
+
+/** How a shot comes in. */
+export type Move = "Pan" | "Cut" | "Stay";
+
+const BOARD_AREA = "minecade:blockparty_board";
+/** A pan's ease, in seconds. */
+const PAN = 1.4;
+/** How high a Chris falls in from, and how long the fall is given before the game goes on. */
+const DROP = 9;
+const DROP_TICKS = 70;
+/** The intro: each shot held, then eased to the next over this many seconds. */
+const INTRO_HOLD = 30;
+const INTRO_EASE = 3;
+
+export class Stage {
+  private readonly deps: StageDeps;
+  private readonly cast = new Map<string, Entity>();
+  /** The podium this game uses (the map's, or the one on Start). */
+  private podiumNow: Podium | undefined;
+
+  constructor(deps: StageDeps) {
+    this.deps = deps;
+    deps.scope.add(() => {
+      for (const key of [...this.cast.keys()]) this.remove(key);
+      const manager = world.tickingAreaManager;
+      if (manager.hasTickingArea(BOARD_AREA)) manager.removeTickingArea(BOARD_AREA);
+    });
+  }
+
+  /** Keeps the whole board loaded, so NPCs can be placed (and fall) anywhere on it, however far from the players. */
+  async loadBoard(): Promise<void> {
+    const spaces = this.deps.spaces();
+    if (spaces.length === 0) return;
+    const box = boardBox(spaces);
+    const manager = world.tickingAreaManager;
+    try {
+      if (manager.hasTickingArea(BOARD_AREA)) manager.removeTickingArea(BOARD_AREA);
+      const markers = [...this.deps.markup().lineup, ...[this.deps.markup().chris, this.deps.markup().podiumCamera].filter((marker): marker is Marker => marker !== undefined)].map((marker) => marker.at);
+      const xs = [box.min[0], box.max[0], ...markers.map((at) => at[0])];
+      const zs = [box.min[2], box.max[2], ...markers.map((at) => at[2])];
+      await manager.createTickingArea(BOARD_AREA, {
+        dimension: this.deps.dimension,
+        from: { x: Math.min(...xs) - 8, y: box.min[1] - 8, z: Math.min(...zs) - 8 },
+        to: { x: Math.max(...xs) + 8, y: box.max[1] + 16, z: Math.max(...zs) + 8 },
+      });
+    } catch (error) {
+      log.warn(`blockparty: keeping the board loaded failed: ${describeError(error)}`);
+    }
+  }
+
+  // ---- Shots ----------------------------------------------------------------------------------
+
+  /** Everyone's camera to `shot`: eased there (Pan), at once (Cut), or left as it is (Stay). Nothing while a cutscene is skipped. */
+  shot(shot: Shot, move: Move = "Cut", ease = PAN): void {
+    if (move === "Stay" || this.deps.dialogue.skipping) return;
+    const location = vec(shot.location);
+    const easeOptions = move === "Pan" ? { easeOptions: { easeTime: ease, easeType: EasingType.InOutSine } } : {};
+    for (const player of world.getAllPlayers()) {
+      try {
+        if (shot.rotation) player.camera.setCamera("minecraft:free", { location, rotation: { x: shot.rotation.pitch, y: shot.rotation.yaw }, ...easeOptions });
+        else player.camera.setCamera("minecraft:free", { location, facingLocation: vec(shot.facing ?? shot.location), ...easeOptions });
+      } catch {
+        // gone
+      }
+    }
+  }
+
+  /** Everyone's own camera again (the board's, until the walk or the roll sets theirs). */
+  clear(): void {
+    for (const player of world.getAllPlayers()) {
+      try {
+        player.camera.clear();
+      } catch {
+        // gone
+      }
+    }
+  }
+
+  /** How a moment's shot comes in: its camera in the user's file, else `fallback`. */
+  moveFor(id: string, fallback: Move): Move {
+    const camera = moment(id).camera;
+    return camera === "Pan" || camera === "Cut" || camera === "Stay" ? camera : fallback;
+  }
+
+  // ---- The cast -----------------------------------------------------------------------------
+
+  /** A part on stage (`key`), as the role's entity, at `at` facing `yaw`: placed, or moved there. */
+  put(key: string, role: string, at: Vec3, yaw: number): Entity | undefined {
+    let entity = this.cast.get(key);
+    try {
+      if (!entity?.isValid) {
+        entity = this.deps.dimension.spawnEntity(`blockparty:${role}`, vec(at));
+        this.cast.set(key, entity);
+      } else entity.teleport(vec(at));
+      entity.setRotation({ x: 0, y: yaw });
+      return entity;
+    } catch (error) {
+      log.warn(`blockparty: putting ${role} on stage failed: ${describeError(error)}`);
+      return undefined;
+    }
+  }
+
+  /** A part drops in from above, slowly (none of the fall while a cutscene is skipped). */
+  async fallIn(key: string, role: string, at: Vec3, yaw: number): Promise<void> {
+    this.remove(key);
+    if (this.deps.dialogue.skipping) {
+      this.put(key, role, at, yaw);
+      return;
+    }
+    const entity = this.put(key, role, [at[0], at[1] + DROP, at[2]], yaw);
+    try {
+      entity?.addEffect("slow_falling", DROP_TICKS + 60, { amplifier: 0, showParticles: false });
+    } catch {
+      // no effects on it: it just falls
+    }
+    await this.deps.dialogue.wait(DROP_TICKS);
+    // Wherever the fall ended, it stands where it should.
+    if (entity?.isValid) this.put(key, role, at, yaw);
+  }
+
+  get(key: string): Entity | undefined {
+    const entity = this.cast.get(key);
+    return entity?.isValid ? entity : undefined;
+  }
+
+  remove(key: string): void {
+    const entity = this.cast.get(key);
+    this.cast.delete(key);
+    try {
+      if (entity?.isValid) entity.remove();
+    } catch {
+      // gone
+    }
+  }
+
+  /** Turns a part to face `toward`. */
+  face(key: string, toward: Vec3): void {
+    const entity = this.get(key);
+    if (!entity) return;
+    try {
+      entity.setRotation({ x: 0, y: yawFrom(arr(entity.location), toward) });
+    } catch {
+      // gone
+    }
+  }
+
+  /** A spot beside a space with ground under it and room to stand (the first one, if none has). */
+  besideSpace(space: Space): Vec3 {
+    const spots = besideSpace(space, this.deps.spaces());
+    for (const spot of spots) if (this.standable(spot)) return spot;
+    return spots[0];
+  }
+
+  private standable(at: Vec3): boolean {
+    try {
+      const feet = { x: Math.floor(at[0]), y: Math.floor(at[1]), z: Math.floor(at[2]) };
+      const ground = this.deps.dimension.getBlock({ ...feet, y: feet.y - 1 });
+      const here = this.deps.dimension.getBlock(feet);
+      const head = this.deps.dimension.getBlock({ ...feet, y: feet.y + 1 });
+      return ground !== undefined && !ground.isAir && !ground.isLiquid && here?.isAir === true && head?.isAir === true;
+    } catch {
+      return false;
+    }
+  }
+
+  // ---- The pre-game -------------------------------------------------------------------------
+
+  /** The intro: the map's intro shots (or high ones round the board), the camera easing from each to the next. */
+  async intro(): Promise<void> {
+    const marked = this.deps.markup().intro;
+    const spaces = this.deps.spaces();
+    const middle = spaces.length > 0 ? centerOf(spaces) : undefined;
+    const shots = marked.length > 0 ? marked.map((marker) => markerShot(marker, middle)) : introAround(spaces);
+    for (let i = 0; i < shots.length && !this.deps.dialogue.skipping; i++) {
+      this.shot(shots[i], i === 0 ? "Cut" : "Pan", INTRO_EASE);
+      await this.deps.dialogue.wait((i === 0 ? 0 : INTRO_EASE * 20) + INTRO_HOLD);
+    }
+  }
+
+  /** The starting podium: everyone in the lineup facing Chris, Chris at his spot, the podium camera (a cut). */
+  async podium(seats: readonly Who[]): Promise<void> {
+    const podium = this.podiumFor(seats.length);
+    this.podiumNow = podium;
+    const middle = lineupMiddle(podium);
+    this.put("chris:podium", "chris", podium.chris, yawFrom(podium.chris, middle));
+    seats.forEach((who, i) => this.deps.put(who, podium.lineup[i] ?? podium.lineup[0], yawFrom(podium.lineup[i] ?? podium.lineup[0], podium.chris)));
+    this.shot(podium.camera, "Cut");
+    await this.deps.scope.wait(2);
+  }
+
+  /** The podium camera again (a cut): after a skipped cutscene, which leaves the shots out. */
+  podiumShot(): void {
+    if (this.podiumNow) this.shot(this.podiumNow.camera, "Cut");
+  }
+
+  /** The order roll: everyone turns from Chris to face the camera's way. */
+  turnToCamera(seats: readonly Who[]): void {
+    const podium = this.podiumNow;
+    if (!podium) return;
+    const yaw = yawFrom(podium.chris, podium.camera.location);
+    seats.forEach((who, i) => this.deps.put(who, podium.lineup[i] ?? podium.lineup[0], yaw));
+  }
+
+  /** The order reveal: the camera moves to the seat's spot in the lineup (never a cut), and Chris looks at them. */
+  async reveal(seat: number): Promise<void> {
+    const podium = this.podiumNow;
+    if (!podium) return;
+    const at = podium.lineup[seat] ?? podium.lineup[0];
+    this.face("chris:podium", at);
+    const yaw = yawFrom(podium.chris, podium.camera.location);
+    this.shot(faceShot(at, yaw), "Pan", 1.2);
+    await this.deps.dialogue.wait(26);
+  }
+
+  /** The Star reveal for one Star: the camera pans to its space, and its Chris drops in beside it. */
+  async starReveal(space: Space): Promise<void> {
+    this.shot(spaceShot(space, this.deps.spaces()), this.moveFor("pregame.star", "Pan"));
+    await this.deps.dialogue.wait(Math.round(PAN * 20));
+    await this.starChris(space, true);
+  }
+
+  /** Off the podium: its Chris goes, everyone back on Start, everyone's own camera. */
+  toBoard(seats: readonly Who[]): void {
+    this.remove("chris:podium");
+    for (const who of seats) this.deps.toStart(who);
+    this.podiumNow = undefined;
+    this.clear();
+  }
+
+  // ---- On the board -------------------------------------------------------------------------
+
+  /** The Chris who stands by the Star on `space`: placed (dropping in when `drop`), facing the space. */
+  async starChris(space: Space, drop: boolean): Promise<void> {
+    const at = this.besideSpace(space);
+    const yaw = yawFrom(at, space.at);
+    if (drop) await this.fallIn(starKey(space), "chris", at, yaw);
+    else this.put(starKey(space), "chris", at, yaw);
+  }
+
+  /** A seat at the Star: Chris turns to them, and the shot of the two comes in (the offer's camera, a pan by default). */
+  async starVisit(who: Who, space: Space): Promise<void> {
+    if (!this.get(starKey(space))) await this.starChris(space, false);
+    const chris = this.get(starKey(space));
+    if (!chris || !who.body.isValid) return;
+    const them = arr(who.body.location);
+    this.face(starKey(space), them);
+    this.shot(twoShot(them, arr(chris.location), sideOf(who)), this.moveFor("star.chris.offer", "Pan"));
+    await this.deps.scope.wait(Math.round(PAN * 20));
+  }
+
+  /** The Star flies on: its Chris leaves `from`, the camera pans to `to`, and a Chris drops in there. */
+  async starMoved(from: Space, to: Space): Promise<void> {
+    this.remove(starKey(from));
+    this.shot(spaceShot(to, this.deps.spaces()), this.moveFor("star.chris.moves", "Pan"));
+    await this.deps.scope.wait(Math.round(PAN * 20));
+    await this.starChris(to, true);
+  }
+
+  /** The Referee comes to a duel: beside the lander's space, turned to them, the two in shot (a cut by default). */
+  async referee(who: Who, space: Space | undefined): Promise<void> {
+    if (!space || !who.body.isValid) return;
+    const at = this.besideSpace(space);
+    const them = arr(who.body.location);
+    this.put("referee", "referee", at, yawFrom(at, them));
+    this.shot(twoShot(them, at, sideOf(who)), this.moveFor("versus.announce", "Cut"));
+    await this.deps.scope.wait(10);
+  }
+
+  refereeGone(): void {
+    this.remove("referee");
+  }
+
+  private podiumFor(seats: number): Podium {
+    const markup = this.deps.markup();
+    const marked = podiumFromMarkup(markup.lineup, markup.chris, markup.podiumCamera, seats);
+    if (marked) return marked;
+    const spaces = this.deps.spaces();
+    return podiumOnStart(spaces[0], spaces);
+  }
+}
+
+/** The Chris beside the Star on a space. */
+function starKey(space: Space): string {
+  return `chris:star:${space.index}`;
+}
+
+/** Which side a two-shot looks from: the same side for a seat each time, so the screen doesn't flip. */
+function sideOf(who: Who): 1 | -1 {
+  let hash = 0;
+  for (const char of who.key) hash = (hash * 31 + char.charCodeAt(0)) | 0;
+  return hash % 2 === 0 ? 1 : -1;
+}
+
+function lineupMiddle(podium: Podium): Vec3 {
+  const n = podium.lineup.length || 1;
+  return [podium.lineup.reduce((sum, at) => sum + at[0], 0) / n, podium.lineup[0]?.[1] ?? podium.chris[1], podium.lineup.reduce((sum, at) => sum + at[2], 0) / n];
+}
+
+function centerOf(spaces: readonly Space[]): Vec3 {
+  const box = boardBox(spaces);
+  return [(box.min[0] + box.max[0]) / 2, box.min[1], (box.min[2] + box.max[2]) / 2];
+}
+
+function vec(at: Vec3): Vector3 {
+  return { x: at[0], y: at[1], z: at[2] };
+}
+
+function arr(at: Vector3): Vec3 {
+  return [at.x, at.y, at.z];
+}

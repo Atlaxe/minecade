@@ -4,12 +4,6 @@
     "board.start": [
       "Everyone starts with {coins}. {starWhere}"
     ],
-    "order.title": [
-      "Roll for turn order"
-    ],
-    "order.subtitle": [
-      "Jump to hit your die"
-    ],
     "order.result": [
       "Turn order: {order}."
     ],
@@ -30,6 +24,12 @@
     ],
     "pregame.order.reveal": [
       "{player} goes first! Everyone else, line up behind."
+    ],
+    "order.place": [
+      "{player}: {place}"
+    ],
+    "pregame.star": [
+      "And here's what you're all after: the first Star, waiting on {space}!"
     ],
     "pregame.coins": [
       "Everybody gets {coins} from me to start. Spend them wisely. Or don't, I won't tell."
@@ -714,6 +714,12 @@
     "leave.back": [
       "{player} is back!"
     ],
+    "dialogue.next": [
+      "Next"
+    ],
+    "dialogue.skip": [
+      "Jump to skip"
+    ],
     "end.chris.over": [
       "That's the game! But wait, it's not over yet..."
     ],
@@ -807,5 +813,1079 @@
     "end.thanks": [
       "Thanks for playing! Same time next round?"
     ]
+  },
+  "moments": {
+    "board.start": {
+      "character": "Game",
+      "delivery": "Chat, everyone"
+    },
+    "order.result": {
+      "character": "Game",
+      "delivery": "Chat, everyone"
+    },
+    "pregame.welcome": {
+      "character": "Chris",
+      "delivery": "NPC"
+    },
+    "pregame.length": {
+      "character": "Chris",
+      "delivery": "NPC"
+    },
+    "pregame.intro": {
+      "character": "Chris",
+      "delivery": "NPC"
+    },
+    "pregame.order": {
+      "character": "Chris",
+      "delivery": "NPC"
+    },
+    "pregame.order.reveal": {
+      "character": "Chris",
+      "delivery": "NPC"
+    },
+    "order.place": {
+      "character": "Game",
+      "delivery": "Title"
+    },
+    "pregame.star": {
+      "character": "Chris",
+      "delivery": "NPC"
+    },
+    "pregame.coins": {
+      "character": "Chris",
+      "delivery": "NPC"
+    },
+    "tutorial.goal": {
+      "character": "Chris",
+      "delivery": "NPC"
+    },
+    "tutorial.turns": {
+      "character": "Chris",
+      "delivery": "NPC"
+    },
+    "tutorial.branches": {
+      "character": "Chris",
+      "delivery": "NPC"
+    },
+    "tutorial.spaces": {
+      "character": "Chris",
+      "delivery": "NPC"
+    },
+    "tutorial.stars": {
+      "character": "Chris",
+      "delivery": "NPC"
+    },
+    "tutorial.items": {
+      "character": "Chris",
+      "delivery": "NPC"
+    },
+    "tutorial.minigames": {
+      "character": "Chris",
+      "delivery": "NPC"
+    },
+    "tutorial.end": {
+      "character": "Chris",
+      "delivery": "NPC"
+    },
+    "round.title": {
+      "character": "Game",
+      "delivery": "Title"
+    },
+    "turn.title": {
+      "character": "Game",
+      "delivery": "Title"
+    },
+    "turn.subtitle": {
+      "character": "Game",
+      "delivery": "Subtitle"
+    },
+    "turn.roll.hint": {
+      "character": "Game",
+      "delivery": "Chat, one player"
+    },
+    "turn.roll.pick": {
+      "character": "Game",
+      "delivery": "Chat, one player"
+    },
+    "turn.dice.wait": {
+      "character": "Game",
+      "delivery": "Chat, one player"
+    },
+    "turn.dice.later": {
+      "character": "Game",
+      "delivery": "Chat, one player"
+    },
+    "turn.chris": {
+      "character": "Chris",
+      "delivery": "NPC"
+    },
+    "turn.rolled": {
+      "character": "Game",
+      "delivery": "Chat, everyone"
+    },
+    "turn.rolled.high": {
+      "character": "Chris",
+      "delivery": "NPC"
+    },
+    "turn.rolled.one": {
+      "character": "Chris",
+      "delivery": "NPC"
+    },
+    "turn.skipped": {
+      "character": "Game",
+      "delivery": "Chat, everyone"
+    },
+    "branch.title": {
+      "character": "Game",
+      "delivery": "Form title"
+    },
+    "branch.button": {
+      "character": "Game",
+      "delivery": "Form button"
+    },
+    "branch.button.star": {
+      "character": "Game",
+      "delivery": "Form button"
+    },
+    "branch.bot": {
+      "character": "Game",
+      "delivery": "Chat, everyone"
+    },
+    "land.blue": {
+      "character": "Game",
+      "delivery": "Chat, everyone"
+    },
+    "land.red": {
+      "character": "Game",
+      "delivery": "Chat, everyone"
+    },
+    "land.item": {
+      "character": "Game",
+      "delivery": "Chat, everyone"
+    },
+    "land.shop": {
+      "character": "Game",
+      "delivery": "Chat, everyone"
+    },
+    "land.chance": {
+      "character": "Game",
+      "delivery": "Chat, everyone"
+    },
+    "land.warden": {
+      "character": "Game",
+      "delivery": "Chat, everyone"
+    },
+    "land.happening": {
+      "character": "Game",
+      "delivery": "Chat, everyone"
+    },
+    "land.start": {
+      "character": "Game",
+      "delivery": "Chat, everyone"
+    },
+    "star.where.one": {
+      "character": "Game",
+      "delivery": "Chat, everyone"
+    },
+    "star.where.two": {
+      "character": "Game",
+      "delivery": "Chat, everyone"
+    },
+    "star.short": {
+      "character": "Game",
+      "delivery": "Chat, one player"
+    },
+    "star.short.bot": {
+      "character": "Game",
+      "delivery": "Chat, everyone"
+    },
+    "star.form.title": {
+      "character": "Game",
+      "delivery": "Form title"
+    },
+    "star.form.body": {
+      "character": "Game",
+      "delivery": "Form text"
+    },
+    "star.form.buy": {
+      "character": "Game",
+      "delivery": "Form button"
+    },
+    "star.form.skip": {
+      "character": "Game",
+      "delivery": "Form button"
+    },
+    "star.bought": {
+      "character": "Game",
+      "delivery": "Chat, everyone"
+    },
+    "star.bought.title": {
+      "character": "Game",
+      "delivery": "Title"
+    },
+    "star.bought.subtitle": {
+      "character": "Game",
+      "delivery": "Subtitle"
+    },
+    "star.chris.offer": {
+      "character": "Chris",
+      "delivery": "NPC"
+    },
+    "star.chris.short": {
+      "character": "Chris",
+      "delivery": "NPC"
+    },
+    "star.chris.sold": {
+      "character": "Chris",
+      "delivery": "NPC"
+    },
+    "star.chris.declined": {
+      "character": "Chris",
+      "delivery": "NPC"
+    },
+    "star.chris.moves": {
+      "character": "Chris",
+      "delivery": "NPC"
+    },
+    "star.chris.half-price": {
+      "character": "Chris",
+      "delivery": "NPC"
+    },
+    "shop.welcome": {
+      "character": "Villager",
+      "delivery": "NPC"
+    },
+    "shop.form.title": {
+      "character": "Game",
+      "delivery": "Form title"
+    },
+    "shop.form.body": {
+      "character": "Game",
+      "delivery": "Form text"
+    },
+    "shop.form.item": {
+      "character": "Game",
+      "delivery": "Form button"
+    },
+    "shop.form.sell": {
+      "character": "Game",
+      "delivery": "Form button"
+    },
+    "shop.form.leave": {
+      "character": "Game",
+      "delivery": "Form button"
+    },
+    "shop.bought": {
+      "character": "Villager",
+      "delivery": "NPC"
+    },
+    "shop.short": {
+      "character": "Villager",
+      "delivery": "NPC"
+    },
+    "shop.full": {
+      "character": "Villager",
+      "delivery": "NPC"
+    },
+    "shop.sold": {
+      "character": "Villager",
+      "delivery": "NPC"
+    },
+    "shop.bye": {
+      "character": "Villager",
+      "delivery": "NPC"
+    },
+    "shop.nothing": {
+      "character": "Villager",
+      "delivery": "NPC"
+    },
+    "trader.arrives": {
+      "character": "Chris",
+      "delivery": "NPC"
+    },
+    "trader.offer": {
+      "character": "Wandering Trader",
+      "delivery": "NPC"
+    },
+    "trader.form.title": {
+      "character": "Game",
+      "delivery": "Form title"
+    },
+    "trader.form.body": {
+      "character": "Game",
+      "delivery": "Form text"
+    },
+    "trader.sold": {
+      "character": "Wandering Trader",
+      "delivery": "NPC"
+    },
+    "trader.short": {
+      "character": "Wandering Trader",
+      "delivery": "NPC"
+    },
+    "trader.sold-out": {
+      "character": "Chris",
+      "delivery": "NPC"
+    },
+    "trader.leaves": {
+      "character": "Chris",
+      "delivery": "NPC"
+    },
+    "chance.welcome": {
+      "character": "Witch",
+      "delivery": "NPC"
+    },
+    "chance.potions": {
+      "character": "Witch",
+      "delivery": "NPC"
+    },
+    "chance.reroll.offer": {
+      "character": "Witch",
+      "delivery": "NPC"
+    },
+    "chance.reroll.done": {
+      "character": "Witch",
+      "delivery": "NPC"
+    },
+    "chance.form.title": {
+      "character": "Game",
+      "delivery": "Form title"
+    },
+    "chance.form.body": {
+      "character": "Game",
+      "delivery": "Form text"
+    },
+    "chance.form.reroll": {
+      "character": "Game",
+      "delivery": "Form button"
+    },
+    "chance.coin-rain": {
+      "character": "Witch",
+      "delivery": "NPC"
+    },
+    "chance.coin-swap": {
+      "character": "Witch",
+      "delivery": "NPC"
+    },
+    "chance.coin-swap.form": {
+      "character": "Game",
+      "delivery": "Form text"
+    },
+    "chance.reverse-fortune": {
+      "character": "Witch",
+      "delivery": "NPC"
+    },
+    "chance.double": {
+      "character": "Witch",
+      "delivery": "NPC"
+    },
+    "chance.double.form": {
+      "character": "Game",
+      "delivery": "Form text"
+    },
+    "chance.double.won": {
+      "character": "Witch",
+      "delivery": "NPC"
+    },
+    "chance.double.lost": {
+      "character": "Witch",
+      "delivery": "NPC"
+    },
+    "chance.gift-exchange": {
+      "character": "Witch",
+      "delivery": "NPC"
+    },
+    "chance.lucky-draw": {
+      "character": "Witch",
+      "delivery": "NPC"
+    },
+    "chance.shuffle": {
+      "character": "Witch",
+      "delivery": "NPC"
+    },
+    "chance.battle-royale": {
+      "character": "Witch",
+      "delivery": "NPC"
+    },
+    "chance.zombie": {
+      "character": "Witch",
+      "delivery": "NPC"
+    },
+    "chance.half-price": {
+      "character": "Witch",
+      "delivery": "NPC"
+    },
+    "chance.shooting-star": {
+      "character": "Witch",
+      "delivery": "NPC"
+    },
+    "chance.bye": {
+      "character": "Witch",
+      "delivery": "NPC"
+    },
+    "warden.arrives": {
+      "character": "Warden",
+      "delivery": "NPC"
+    },
+    "warden.sculk-tax": {
+      "character": "Warden",
+      "delivery": "NPC"
+    },
+    "warden.hush-money": {
+      "character": "Warden",
+      "delivery": "NPC"
+    },
+    "warden.star-tax": {
+      "character": "Warden",
+      "delivery": "NPC"
+    },
+    "warden.silenced": {
+      "character": "Warden",
+      "delivery": "NPC"
+    },
+    "warden.slow-curse": {
+      "character": "Warden",
+      "delivery": "NPC"
+    },
+    "warden.zombie-curse": {
+      "character": "Warden",
+      "delivery": "NPC"
+    },
+    "warden.sonic-boom": {
+      "character": "Warden",
+      "delivery": "NPC"
+    },
+    "warden.leaves": {
+      "character": "Game",
+      "delivery": "Chat, everyone"
+    },
+    "happening.coins": {
+      "character": "Game",
+      "delivery": "Chat, everyone"
+    },
+    "happening.item": {
+      "character": "Game",
+      "delivery": "Chat, everyone"
+    },
+    "happening.forward": {
+      "character": "Game",
+      "delivery": "Chat, everyone"
+    },
+    "happening.back": {
+      "character": "Game",
+      "delivery": "Chat, everyone"
+    },
+    "happening.lose": {
+      "character": "Game",
+      "delivery": "Chat, everyone"
+    },
+    "happening.nothing": {
+      "character": "Game",
+      "delivery": "Chat, everyone"
+    },
+    "happening.swap-item": {
+      "character": "Game",
+      "delivery": "Chat, everyone"
+    },
+    "happening.roll-again": {
+      "character": "Game",
+      "delivery": "Chat, everyone"
+    },
+    "items.got": {
+      "character": "Game",
+      "delivery": "Chat, everyone"
+    },
+    "items.full": {
+      "character": "Game",
+      "delivery": "Chat, one player"
+    },
+    "items.pick.title": {
+      "character": "Game",
+      "delivery": "Form title"
+    },
+    "items.stone-totem": {
+      "character": "Game",
+      "delivery": "Chat, everyone"
+    },
+    "items.golden-totem": {
+      "character": "Game",
+      "delivery": "Chat, everyone"
+    },
+    "items.ender-pearl": {
+      "character": "Enderman",
+      "delivery": "Chat, everyone"
+    },
+    "items.cursed-totem": {
+      "character": "Game",
+      "delivery": "Chat, everyone"
+    },
+    "items.lightning": {
+      "character": "Game",
+      "delivery": "Chat, everyone"
+    },
+    "items.lightning.self": {
+      "character": "Game",
+      "delivery": "Chat, everyone"
+    },
+    "items.zombie-spawn": {
+      "character": "Game",
+      "delivery": "Chat, everyone"
+    },
+    "items.iron-golem": {
+      "character": "Iron Golem",
+      "delivery": "Chat, everyone"
+    },
+    "items.iron-golem.zombie": {
+      "character": "Iron Golem",
+      "delivery": "Chat, everyone"
+    },
+    "items.villager": {
+      "character": "Villager",
+      "delivery": "NPC"
+    },
+    "items.villager.final": {
+      "character": "Game",
+      "delivery": "Chat, one player"
+    },
+    "zombie.arrives": {
+      "character": "Zombie",
+      "delivery": "NPC"
+    },
+    "zombie.takes": {
+      "character": "Zombie",
+      "delivery": "NPC"
+    },
+    "zombie.takes.chat": {
+      "character": "Game",
+      "delivery": "Chat, everyone"
+    },
+    "zombie.leaves": {
+      "character": "Game",
+      "delivery": "Chat, everyone"
+    },
+    "dice.full": {
+      "character": "Game",
+      "delivery": "Chat, one player"
+    },
+    "dice.slow-curse": {
+      "character": "Game",
+      "delivery": "Chat, everyone"
+    },
+    "dice.triple": {
+      "character": "Game",
+      "delivery": "Chat, everyone"
+    },
+    "dice.risk.zero": {
+      "character": "Game",
+      "delivery": "Chat, everyone"
+    },
+    "dice.golden": {
+      "character": "Game",
+      "delivery": "Chat, everyone"
+    },
+    "dice.halved": {
+      "character": "Game",
+      "delivery": "Chat, everyone"
+    },
+    "dice.cursed.given": {
+      "character": "Game",
+      "delivery": "Chat, everyone"
+    },
+    "dice.cursed.lucky": {
+      "character": "Game",
+      "delivery": "Chat, everyone"
+    },
+    "dice.cursed.unlucky": {
+      "character": "Game",
+      "delivery": "Chat, everyone"
+    },
+    "dice.mystery.swap": {
+      "character": "Game",
+      "delivery": "Chat, everyone"
+    },
+    "dice.mystery.coin-swap": {
+      "character": "Game",
+      "delivery": "Chat, everyone"
+    },
+    "dice.mystery.double": {
+      "character": "Game",
+      "delivery": "Chat, everyone"
+    },
+    "dice.mystery.coins": {
+      "character": "Game",
+      "delivery": "Chat, everyone"
+    },
+    "dice.mystery.back": {
+      "character": "Game",
+      "delivery": "Chat, everyone"
+    },
+    "dice.mystery.again": {
+      "character": "Game",
+      "delivery": "Chat, everyone"
+    },
+    "versus.nobody": {
+      "character": "Game",
+      "delivery": "Chat, everyone"
+    },
+    "versus.form.title": {
+      "character": "Game",
+      "delivery": "Form title"
+    },
+    "versus.form.body": {
+      "character": "Game",
+      "delivery": "Form text"
+    },
+    "versus.form.button": {
+      "character": "Game",
+      "delivery": "Form button"
+    },
+    "versus.start": {
+      "character": "Game",
+      "delivery": "Chat, everyone"
+    },
+    "versus.start.doubled": {
+      "character": "Game",
+      "delivery": "Chat, everyone"
+    },
+    "versus.won": {
+      "character": "Game",
+      "delivery": "Chat, everyone"
+    },
+    "versus.won.title": {
+      "character": "Game",
+      "delivery": "Title"
+    },
+    "versus.won.subtitle": {
+      "character": "Game",
+      "delivery": "Subtitle"
+    },
+    "versus.you.won": {
+      "character": "Game",
+      "delivery": "Subtitle"
+    },
+    "versus.you.lost": {
+      "character": "Game",
+      "delivery": "Subtitle"
+    },
+    "versus.draw.title": {
+      "character": "Game",
+      "delivery": "Title"
+    },
+    "versus.draw.subtitle": {
+      "character": "Game",
+      "delivery": "Subtitle"
+    },
+    "versus.announce": {
+      "character": "Referee",
+      "delivery": "NPC"
+    },
+    "versus.faceoff": {
+      "character": "Referee",
+      "delivery": "NPC"
+    },
+    "versus.glove": {
+      "character": "Referee",
+      "delivery": "NPC"
+    },
+    "versus.doubled": {
+      "character": "Referee",
+      "delivery": "NPC"
+    },
+    "versus.bets.open": {
+      "character": "Referee",
+      "delivery": "NPC"
+    },
+    "versus.bets.form.title": {
+      "character": "Game",
+      "delivery": "Form title"
+    },
+    "versus.bets.form.body": {
+      "character": "Game",
+      "delivery": "Form text"
+    },
+    "versus.bets.closed": {
+      "character": "Referee",
+      "delivery": "NPC"
+    },
+    "versus.referee.winner": {
+      "character": "Referee",
+      "delivery": "NPC"
+    },
+    "versus.bet.won": {
+      "character": "Game",
+      "delivery": "Chat, one player"
+    },
+    "versus.bet.lost": {
+      "character": "Game",
+      "delivery": "Chat, one player"
+    },
+    "format.ffa": {
+      "character": "Game",
+      "delivery": "Subtitle"
+    },
+    "format.2v2": {
+      "character": "Game",
+      "delivery": "Subtitle"
+    },
+    "format.1v3": {
+      "character": "Game",
+      "delivery": "Subtitle"
+    },
+    "format.battle": {
+      "character": "Game",
+      "delivery": "Subtitle"
+    },
+    "format.duel": {
+      "character": "Game",
+      "delivery": "Subtitle"
+    },
+    "minigame.battle.pot": {
+      "character": "Game",
+      "delivery": "Chat, everyone"
+    },
+    "minigame.rules": {
+      "character": "Game",
+      "delivery": "Chat, everyone"
+    },
+    "minigame.ready.status": {
+      "character": "Game",
+      "delivery": "Action bar"
+    },
+    "minigame.go": {
+      "character": "Game",
+      "delivery": "Title"
+    },
+    "minigame.places": {
+      "character": "Game",
+      "delivery": "Chat, everyone"
+    },
+    "minigame.won.one": {
+      "character": "Game",
+      "delivery": "Title"
+    },
+    "minigame.won.many": {
+      "character": "Game",
+      "delivery": "Title"
+    },
+    "minigame.won.tie": {
+      "character": "Game",
+      "delivery": "Title"
+    },
+    "minigame.won.red": {
+      "character": "Game",
+      "delivery": "Title"
+    },
+    "minigame.won.blue": {
+      "character": "Game",
+      "delivery": "Title"
+    },
+    "minigame.won.group": {
+      "character": "Game",
+      "delivery": "Title"
+    },
+    "minigame.you.place": {
+      "character": "Game",
+      "delivery": "Subtitle"
+    },
+    "minigame.you.nothing": {
+      "character": "Game",
+      "delivery": "Subtitle"
+    },
+    "minigame.you.won": {
+      "character": "Game",
+      "delivery": "Subtitle"
+    },
+    "minigame.you.lost": {
+      "character": "Game",
+      "delivery": "Subtitle"
+    },
+    "minigame.you.draw": {
+      "character": "Game",
+      "delivery": "Subtitle"
+    },
+    "minigame.nobody": {
+      "character": "Game",
+      "delivery": "Title"
+    },
+    "minigame.draw": {
+      "character": "Game",
+      "delivery": "Title"
+    },
+    "minigame.coins": {
+      "character": "Game",
+      "delivery": "Chat, everyone"
+    },
+    "minigame.coins.doubled": {
+      "character": "Game",
+      "delivery": "Chat, everyone"
+    },
+    "minigame.pot": {
+      "character": "Game",
+      "delivery": "Chat, everyone"
+    },
+    "minigame.chris": {
+      "character": "Chris",
+      "delivery": "NPC"
+    },
+    "minigame.chris.2v2": {
+      "character": "Chris",
+      "delivery": "NPC"
+    },
+    "minigame.chris.1v3": {
+      "character": "Chris",
+      "delivery": "NPC"
+    },
+    "minigame.chris.battle": {
+      "character": "Chris",
+      "delivery": "NPC"
+    },
+    "minigame.chris.winner": {
+      "character": "Chris",
+      "delivery": "NPC"
+    },
+    "minigame.chris.pot": {
+      "character": "Chris",
+      "delivery": "NPC"
+    },
+    "minigame.chris.pot-split": {
+      "character": "Chris",
+      "delivery": "NPC"
+    },
+    "announce.halfway": {
+      "character": "Chris",
+      "delivery": "NPC"
+    },
+    "announce.standings": {
+      "character": "Chris",
+      "delivery": "NPC"
+    },
+    "announce.lead": {
+      "character": "Chris",
+      "delivery": "NPC"
+    },
+    "announce.comeback": {
+      "character": "Chris",
+      "delivery": "NPC"
+    },
+    "round.doubled.subtitle": {
+      "character": "Game",
+      "delivery": "Subtitle"
+    },
+    "announce.doubled": {
+      "character": "Game",
+      "delivery": "Chat, everyone"
+    },
+    "announce.doubling": {
+      "character": "Chris",
+      "delivery": "NPC"
+    },
+    "announce.final": {
+      "character": "Chris",
+      "delivery": "NPC"
+    },
+    "announce.final.title": {
+      "character": "Game",
+      "delivery": "Title"
+    },
+    "vote.skip": {
+      "character": "Game",
+      "delivery": "Action bar"
+    },
+    "vote.skip.count": {
+      "character": "Game",
+      "delivery": "Action bar"
+    },
+    "bots.join.one": {
+      "character": "Game",
+      "delivery": "Chat, everyone"
+    },
+    "bots.join.many": {
+      "character": "Game",
+      "delivery": "Chat, everyone"
+    },
+    "join.late": {
+      "character": "Game",
+      "delivery": "Chat, everyone"
+    },
+    "join.choice.title": {
+      "character": "Game",
+      "delivery": "Form title"
+    },
+    "join.choice.body": {
+      "character": "Game",
+      "delivery": "Form text"
+    },
+    "join.choice.join": {
+      "character": "Game",
+      "delivery": "Form button"
+    },
+    "join.choice.watch": {
+      "character": "Game",
+      "delivery": "Form button"
+    },
+    "join.vote.body": {
+      "character": "Game",
+      "delivery": "Form text"
+    },
+    "join.vote.yes": {
+      "character": "Game",
+      "delivery": "Form button"
+    },
+    "join.vote.no": {
+      "character": "Game",
+      "delivery": "Form button"
+    },
+    "join.refused": {
+      "character": "Game",
+      "delivery": "Chat, one player"
+    },
+    "idle.vote.body": {
+      "character": "Game",
+      "delivery": "Form text"
+    },
+    "idle.skipped": {
+      "character": "Game",
+      "delivery": "Chat, everyone"
+    },
+    "leave.player": {
+      "character": "Game",
+      "delivery": "Chat, everyone"
+    },
+    "leave.back": {
+      "character": "Game",
+      "delivery": "Chat, everyone"
+    },
+    "dialogue.next": {
+      "character": "Game",
+      "delivery": "Dialogue button"
+    },
+    "dialogue.skip": {
+      "character": "Game",
+      "delivery": "Dialogue button"
+    },
+    "end.chris.over": {
+      "character": "Chris",
+      "delivery": "NPC"
+    },
+    "end.bonus.intro": {
+      "character": "Chris",
+      "delivery": "NPC"
+    },
+    "end.allay.hello": {
+      "character": "Allay",
+      "delivery": "NPC"
+    },
+    "end.bonus.award": {
+      "character": "Allay",
+      "delivery": "NPC"
+    },
+    "award.hazards": {
+      "character": "Game",
+      "delivery": "Title"
+    },
+    "award.coin-swing": {
+      "character": "Game",
+      "delivery": "Title"
+    },
+    "award.luckiest-roll": {
+      "character": "Game",
+      "delivery": "Title"
+    },
+    "award.lucky-wins": {
+      "character": "Game",
+      "delivery": "Title"
+    },
+    "award.kills": {
+      "character": "Game",
+      "delivery": "Title"
+    },
+    "award.wins": {
+      "character": "Game",
+      "delivery": "Title"
+    },
+    "award.streak": {
+      "character": "Game",
+      "delivery": "Title"
+    },
+    "award.seconds": {
+      "character": "Game",
+      "delivery": "Title"
+    },
+    "award.clutch": {
+      "character": "Game",
+      "delivery": "Title"
+    },
+    "award.items-used": {
+      "character": "Game",
+      "delivery": "Title"
+    },
+    "award.fewest-deaths": {
+      "character": "Game",
+      "delivery": "Title"
+    },
+    "award.most-deaths": {
+      "character": "Game",
+      "delivery": "Title"
+    },
+    "award.unused-items": {
+      "character": "Game",
+      "delivery": "Title"
+    },
+    "award.risk": {
+      "character": "Game",
+      "delivery": "Title"
+    },
+    "award.comeback": {
+      "character": "Game",
+      "delivery": "Title"
+    },
+    "award.last-place": {
+      "character": "Game",
+      "delivery": "Title"
+    },
+    "award.improved": {
+      "character": "Game",
+      "delivery": "Title"
+    },
+    "award.late-jump": {
+      "character": "Game",
+      "delivery": "Title"
+    },
+    "award.team": {
+      "character": "Game",
+      "delivery": "Title"
+    },
+    "end.tie": {
+      "character": "Game",
+      "delivery": "Chat, everyone"
+    },
+    "end.tie.chris": {
+      "character": "Chris",
+      "delivery": "NPC"
+    },
+    "end.tie.allay": {
+      "character": "Allay",
+      "delivery": "NPC"
+    },
+    "end.title": {
+      "character": "Game",
+      "delivery": "Title"
+    },
+    "end.subtitle": {
+      "character": "Game",
+      "delivery": "Subtitle"
+    },
+    "end.standings": {
+      "character": "Game",
+      "delivery": "Chat, everyone"
+    },
+    "end.podium": {
+      "character": "Chris",
+      "delivery": "NPC"
+    },
+    "end.thanks": {
+      "character": "Chris",
+      "delivery": "NPC"
+    }
   }
 }

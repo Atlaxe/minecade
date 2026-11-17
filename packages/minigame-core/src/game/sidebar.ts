@@ -17,16 +17,24 @@ export class Sidebar {
   private readonly objective: ScoreboardObjective;
   private readonly shown = new Map<string, number>();
 
-  /** Shows a new sidebar until `scope` is disposed. */
+  /**
+   * Shows a new sidebar until `scope` is disposed. Going, it leaves the sidebar slot alone when
+   * another one has taken it meanwhile.
+   */
   constructor(scope: Scope, id: string, title: string) {
     const objectiveId = `${PREFIX}${id}`;
     if (world.scoreboard.getObjective(objectiveId)) world.scoreboard.removeObjective(objectiveId);
     this.objective = world.scoreboard.addObjective(objectiveId, title);
-    world.scoreboard.setObjectiveAtDisplaySlot(DisplaySlotId.Sidebar, { objective: this.objective, sortOrder: ObjectiveSortOrder.Descending });
+    this.display();
     scope.add(() => {
-      world.scoreboard.clearObjectiveAtDisplaySlot(DisplaySlotId.Sidebar);
+      if (world.scoreboard.getObjectiveAtDisplaySlot(DisplaySlotId.Sidebar)?.objective?.id === objectiveId) world.scoreboard.clearObjectiveAtDisplaySlot(DisplaySlotId.Sidebar);
       world.scoreboard.removeObjective(objectiveId);
     });
+  }
+
+  /** Puts it in the sidebar slot again, after another sidebar had it for a while. */
+  display(): void {
+    world.scoreboard.setObjectiveAtDisplaySlot(DisplaySlotId.Sidebar, { objective: this.objective, sortOrder: ObjectiveSortOrder.Descending });
   }
 
   /** Shows exactly these lines, changing only what differs from last time. */
@@ -64,5 +72,10 @@ export class Notes {
   /** Shows these lines, top to bottom (none to show nothing). Two lines the same show once. */
   show(lines: readonly string[]): void {
     this.sidebar.show(lines.map((line, index): [string, number] => [line, lines.length - index]));
+  }
+
+  /** Back in the sidebar slot after another sidebar (a game's own) had it. */
+  display(): void {
+    this.sidebar.display();
   }
 }

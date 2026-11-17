@@ -65,6 +65,13 @@ export const NOTES_MARK = "§r§m§n§r";
  */
 export const PICTURES_MARK = "§r§m§p§r";
 
+/**
+ * The title of a sidebar a game's own pack draws (Block Party's dialogue box): the core pack hides
+ * the vanilla sidebar for it (ui/hud_screen.json), and the game's pack shows the sidebar's title and
+ * participants its own way. What follows the mark is the game's.
+ */
+export const GAME_SIDEBAR_MARK = "§r§m§g§r";
+
 /** The mode box's line in a game previewed from the map editor: "Preview   Sumo: Arena". */
 export function previewLine(label: string): string {
   return `${MODE_MARK}§dPreview${label ? `§7   ${label}` : ""}`;

@@ -7,6 +7,7 @@ import {
   CLOCK_PLACES,
   CLOCK_URGENT,
   COUNT_PLACES,
+  GAME_SIDEBAR_MARK,
   HUD_MARK,
   NOTES_MARK,
   PICTURES_MARK,
@@ -172,9 +173,10 @@ describe("notes top left", () => {
     expect(stripColors(NOTES_MARK)).toBe("");
     const hud = readFileSync(new URL("../resource_pack/ui/hud_screen.json", import.meta.url), "utf8");
     expect(hud).toContain(`"source_property_name": "(not ((#objective_sidebar_name - '${NOTES_MARK}') = #objective_sidebar_name))"`);
-    // Vanilla's sidebar is put in again, hidden while it holds notes or pictures.
+    // Vanilla's sidebar is put in again, hidden while it holds notes, pictures or a game's own.
+    expect(stripColors(GAME_SIDEBAR_MARK)).toBe("");
     expect(hud).toContain(
-      `"source_property_name": "(#scoreboard_sidebar_visible and ((#objective_sidebar_name - '${NOTES_MARK}') = #objective_sidebar_name) and ((#objective_sidebar_name - '${PICTURES_MARK}') = #objective_sidebar_name))"`,
+      `"source_property_name": "(#scoreboard_sidebar_visible and ((#objective_sidebar_name - '${NOTES_MARK}') = #objective_sidebar_name) and ((#objective_sidebar_name - '${PICTURES_MARK}') = #objective_sidebar_name) and ((#objective_sidebar_name - '${GAME_SIDEBAR_MARK}') = #objective_sidebar_name))"`,
     );
   });
 

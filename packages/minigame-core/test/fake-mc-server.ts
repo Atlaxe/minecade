@@ -1141,6 +1141,10 @@ class FakeScoreboard {
     this.sidebar = options.objective;
   }
 
+  getObjectiveAtDisplaySlot(): { objective: FakeObjective } | undefined {
+    return this.sidebar ? { objective: this.sidebar } : undefined;
+  }
+
   clearObjectiveAtDisplaySlot(): FakeObjective | undefined {
     writable("Scoreboard::clearObjectiveAtDisplaySlot");
     const was = this.sidebar;

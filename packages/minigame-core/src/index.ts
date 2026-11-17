@@ -19,6 +19,7 @@ export {
   CLOCK_URGENT,
   COUNT_PLACES,
   FLAG_CODE,
+  GAME_SIDEBAR_MARK,
   HUD_MARK,
   MODE_MARK,
   NOTES_MARK,
@@ -63,7 +64,7 @@ export type { Hit } from "./game/combat.ts";
 export { aborted, draw, type Result } from "./game/results.ts";
 export { Score } from "./game/score.ts";
 export { pickSpawn, rankSpawns } from "./game/spawns.ts";
-export { Notes } from "./game/sidebar.ts";
+export { Notes, Sidebar } from "./game/sidebar.ts";
 export { MapView, inside } from "./game/map-view.ts";
 export { ArenaTiles, STRUCTURE_PIECE, shiftBox, shiftPosition, structurePieces, tileColumns, tileOffset, type ArenaTile } from "./game/arenas.ts";
 export { PromptBank } from "./game/prompt-bank.ts";
