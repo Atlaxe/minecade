@@ -444,8 +444,11 @@ sees the same shot unless marked **(P)**, a private shot for one player.
 **Pre-game**
 - Intro flyover of the board (D, spline).
 - Player introductions, one at a time (S close-up or slow orbit).
-- Turn-order roll: a group shot, each player's die on its own pedestal (S).
-- Turn-order reveal (S, podium).
+- Turn-order roll: a group shot, each player's die on its own pedestal (S). The user's picture
+  (2026-11-17): the starting podium shows everyone, through one static camera set when the map is
+  built, while they roll for the order.
+- Turn-order reveal: once everyone has rolled, the camera pans to each player in turn order (1st,
+  then 2nd, and on), each with their place (D, between the lineup's spots).
 - Chris explaining the rules (S, NPC dialog view).
 - Chris hands out the starting coins (S).
 
@@ -832,12 +835,24 @@ reward was dropped.
      **Hunter** (1v3, a small Hunter vs. Runners: half the runners home wins it for them).
    - **Bots** (the user's idea, 2026-11-17, to watch a whole game flow): a game one player starts
      gets bots in the empty seats (the lobby's Bots option, 3 by default). A bot is a Steve on
-     vanilla's zombie model (`blockparty:bot`), its piece its own body, walked like a player's. It
+     the player's model (`blockparty:bot`), its piece its own body, walked like a player's. It
      rolls (the die over its head, a moment's thought, a hop), heads for the Star at a branch, buys
      a Star when it can, picks the leader to duel, and plays every minigame, each step after a delay.
+     After the user's seventh look: the player's model (vanilla's zombie model maps a 64 x 32 skin
+     and stretched Steve's), and a bot that goes into an arena and back is made again there a moment
+     after the players (a body moved in the same tick as a player was dropped by that player's
+     screen, so the bots vanished at the first minigame while still playing).
    - **Test help** (the user asked): the One Die (always 1) in place of the Slow Die, Get star in
      Tests (on your roll, the roll is the number of spaces to the nearest Star and the branches go
      that way), and 30 starting coins while Block Party is a test game or `DEV_MIN_PLAYERS` is 1.
+     After the seventh look: Go to a space (Get star's way to the nearest space of a type, Versus
+     for a duel), Skip to a round (straight to its minigame or with its turns) and Play a minigame
+     now (any minigame in any of its formats, then the turns go on).
+   - **Results** (seventh look: the winners' title ran off the screen and the titles flickered): a
+     short title for everyone (one name, Red or Blue, a tie counted) with each player's own place
+     and coins under it, the whole list in chat; titles that follow each other quickly (the
+     roulette, the countdown) come in at once instead of fading in. They move onto the board's
+     podium set with the cameras (pass 6).
    - **Part B, next:** arena maps. Each minigame its own entry in the editor's map list with its own
      checklist, its published arena turned into a structure the board's server loads, placed fresh
      into the arena slot in place of the test arena. Then spectator bets on duels and the Dueling

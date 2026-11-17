@@ -4,13 +4,13 @@
     "description": {
       "identifier": "blockparty:bot",
       "materials": {
-        "default": "zombie"
+        "default": "entity_alphatest"
       },
       "textures": {
         "default": "textures/entity/steve"
       },
       "geometry": {
-        "default": "geometry.zombie.v1.8"
+        "default": "geometry.humanoid.custom"
       },
       "render_controllers": [
         "controller.render.blockparty.bot"
@@ -22,6 +22,7 @@
         "bob": "animation.humanoid.bob"
       },
       "scripts": {
+        "scale": "0.9375",
         "initialize": [
           "v.gliding_speed_value = 1.0;"
         ],

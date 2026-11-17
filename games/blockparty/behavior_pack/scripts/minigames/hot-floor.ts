@@ -2,10 +2,12 @@
 // countdown every other tile vanishes, and whoever isn't on the color falls and is out. The tiles
 // come back in new colors and the countdown gets shorter each round. The last one standing wins;
 // the rest place by when they fell (falling together is a tie). Bots pick a tile of the color after
-// a moment's reaction, now and then the wrong one.
+// a moment's reaction, now and then a wrong one. A bot off the color when the tiles go is out by the
+// tile it stood on, not by waiting to see it fall: in the user's first games no bot ever dropped (two
+// Hot Floors, the three bots tied first both times).
 import { system, type Dimension, type Vector3 } from "@minecraft/server";
-import { BOT_WALK, isPlayer, stepToward, thinkTicks } from "../bots.ts";
-import { at, fill, secondsText, spread, type MinigameDef, type Outcome, type Play } from "./kit.ts";
+import { BOT_WALK, isPlayer, stepToward, thinkTicks, type Who } from "../bots.ts";
+import { at, fill, secondsText, spread, TITLE, type MinigameDef, type Outcome, type Play } from "./kit.ts";
 
 const COLORS = [
   { block: "minecraft:red_concrete", name: "§cRed" },
@@ -31,9 +33,18 @@ const GONE = 40;
 const MAX_ROUNDS = 12;
 /** How often a bot heads for a wrong tile. */
 const BOT_MISTAKE = 0.12;
+/** Ticks after the tiles go before a bot that was off the color is taken out (if it hasn't fallen out already). */
+const BOT_DROP = 8;
 
 function tileMin(min: Vector3, tx: number, tz: number): Vector3 {
   return { x: min.x + EDGE + tx * TILE, y: min.y + FLOOR_Y, z: min.z + EDGE + tz * TILE };
+}
+
+/** The tile under a spot, if it's over the floor: [tx, tz]. */
+function tileAt(min: Vector3, spot: Vector3): [number, number] | undefined {
+  const tx = Math.floor((spot.x - (min.x + EDGE)) / TILE);
+  const tz = Math.floor((spot.z - (min.z + EDGE)) / TILE);
+  return tx >= 0 && tz >= 0 && tx < TILES && tz < TILES ? [tx, tz] : undefined;
 }
 
 function layTiles(dimension: Dimension, min: Vector3, colors: readonly number[]): void {
@@ -72,14 +83,17 @@ export const HOT_FLOOR: MinigameDef = {
     /** Who fell in which round, by key. */
     const fellIn = new Map<string, number>();
     let round = 0;
+    /** Bots that stood off the color when the tiles went, by key. */
+    const dropping = new Set<string>();
+    const fell = (who: Who, said: boolean) => {
+      fellIn.set(who.key, round);
+      play.out(who);
+      if (said) play.say(`${who.name} fell.`);
+    };
     const checkFalls = () => {
       for (const who of play.inPlay()) {
         const body = play.bodyOf(who);
-        if (!body || body.location.y < floorY - 1.5) {
-          fellIn.set(who.key, round);
-          play.out(who);
-          if (body) play.say(`${who.name} fell.`);
-        }
+        if (!body || body.location.y < floorY - 1.5) fell(who, body !== undefined);
       }
     };
     for (round = 1; round <= MAX_ROUNDS; round++) {
@@ -89,8 +103,9 @@ export const HOT_FLOOR: MinigameDef = {
       for (let i = 0; i < 4; i++) colors[Math.floor(play.random() * colors.length)] = color;
       layTiles(dimension, min, colors);
       const count = Math.max(LAST_COUNT, FIRST_COUNT - COUNT_STEP * (round - 1));
-      play.title(COLORS[color].name, `Round ${round}`);
-      // Each bot's tile: the nearest of the color, now and then any.
+      play.title(COLORS[color].name, `Round ${round}`, TITLE.land);
+      dropping.clear();
+      // Each bot's tile: the nearest of the color, now and then a wrong one near it.
       const targets = new Map<string, { at: Vector3; from: number }>();
       for (const who of play.inPlay()) {
         if (isPlayer(who.body)) continue;
@@ -99,7 +114,7 @@ export const HOT_FLOOR: MinigameDef = {
         const wrong = play.random() < BOT_MISTAKE;
         for (let tx = 0; tx < TILES; tx++) {
           for (let tz = 0; tz < TILES; tz++) {
-            if (!wrong && colors[tx * TILES + tz] !== color) continue;
+            if ((colors[tx * TILES + tz] === color) === wrong) continue;
             const corner = tileMin(min, tx, tz);
             const middle = { x: corner.x + TILE / 2, y: corner.y + 1, z: corner.z + TILE / 2 };
             const gap = Math.hypot(middle.x - here.x, middle.z - here.z) + (wrong ? play.random() * 20 : 0);
@@ -117,7 +132,13 @@ export const HOT_FLOOR: MinigameDef = {
               fill(dimension, corner, { x: corner.x + TILE - 1, y: corner.y, z: corner.z + TILE - 1 }, "minecraft:air");
             }
           }
+          for (const who of play.inPlay()) {
+            if (isPlayer(who.body)) continue;
+            const tile = tileAt(min, who.body.location);
+            if (!tile || colors[tile[0] * TILES + tile[1]] !== color) dropping.add(who.key);
+          }
         }
+        if (tick === count + BOT_DROP) for (const who of play.inPlay()) if (dropping.has(who.key)) fell(who, true);
         play.status(tick < count ? `${COLORS[color].name.slice(2)} in ${secondsText(count - tick)}` : `Round ${round}`);
         for (const who of play.inPlay()) {
           const target = targets.get(who.key);

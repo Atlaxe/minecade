@@ -1,11 +1,16 @@
 // Bots (the user's idea, 2026-11-17): a game one player starts gets bots in the empty seats (the
 // lobby's Bots option), so a whole game can be watched to work out how it flows. A bot is a
-// Steve-looking entity of the game's own (blockparty:bot, on vanilla's zombie model with Steve's
-// skin), named "Bot 1" and on (its name shows when you look at it). It sits in a seat like a player:
-// its piece walks the board, it rolls (the die over its head, a short think, a hop), picks a way at a
-// branch, buys a Star when it has the coins, and plays the minigames, each step after a delay so you
-// can see it happen. Bots move by a set speed each tick (clearVelocity, then applyImpulse), keeping
-// their fall.
+// Steve-looking entity of the game's own (blockparty:bot, on the player's model and Steve's skin;
+// vanilla's zombie model maps a 64 x 32 skin and stretched Steve's), named "Bot 1" and on (its name
+// shows when you look at it). It sits in a seat like a player: its piece walks the board, it rolls
+// (the die over its head, a short think, a hop), picks a way at a branch, buys a Star when it has the
+// coins, and plays the minigames, each step after a delay so you can see it happen. Bots move by a set
+// speed each tick (clearVelocity, then applyImpulse), keeping their fall.
+//
+// A bot that goes a long way with a player (into a minigame's arena and back) is made again where it
+// goes, after the player has got there (respawn): a body teleported in the same tick as a player is
+// dropped by that player's screen with the place they left and never sent again, so the user saw the
+// bots vanish at the first minigame while the server still had them playing.
 import type { Dimension, Entity, Player, Vector3 } from "@minecraft/server";
 import { describeError, log, type Scope } from "@minecade/minigame-core";
 
@@ -126,6 +131,25 @@ export class Bots {
   /** Every bot with a body. */
   all(): Who[] {
     return [...this.bodies.values()].flatMap((entry) => (entry.body?.isValid ? [{ name: entry.name, key: entry.name.toLowerCase(), body: entry.body }] : []));
+  }
+
+  /** A bot's body made again at `at` facing `yaw` (the old one taken away); `who` gets the new body. */
+  respawn(who: Who, at: Vector3, yaw = 180): void {
+    const entry = this.bodies.get(who.key);
+    if (!entry) return;
+    try {
+      if (entry.body?.isValid) entry.body.remove();
+    } catch {
+      // gone already
+    }
+    const body = this.spawn(entry.name, at);
+    if (!body) return;
+    try {
+      body.setRotation({ x: 0, y: yaw });
+    } catch {
+      // gone
+    }
+    who.body = body;
   }
 
   private spawn(name: string, at: Vector3): Entity | undefined {

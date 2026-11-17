@@ -113,6 +113,12 @@ export class Pieces {
     }
   }
 
+  /** Where `name`'s piece stands on its space. */
+  spotOf(name: string): Vector3 {
+    const state = this.states.get(name.toLowerCase());
+    return vec(standAt(this.host.spaces()[state?.space ?? 0], state?.corner ?? 0));
+  }
+
   /** Back to Start. */
   reset(body: Entity): void {
     this.state(body).space = 0;

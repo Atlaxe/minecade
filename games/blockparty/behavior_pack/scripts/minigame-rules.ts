@@ -25,6 +25,14 @@ export function formatFor(round: number, players: number, random: () => number):
   return players >= 2 && random() < BATTLE_CHANCE ? "battle" : "ffa";
 }
 
+/** Whether a format can be played by `players`: 2v2 needs 4, 1v3 (1v2) at least 3, a Battle or a duel 2. */
+export function fits(format: Format, players: number): boolean {
+  if (format === "2v2") return players === 4;
+  if (format === "1v3") return players >= 3;
+  if (format === "battle" || format === "duel") return players >= 2;
+  return players >= 1;
+}
+
 /** Picks one of `choices` at random; ties broken by `random`. */
 function anyOf<T>(choices: readonly T[], random: () => number): T {
   return choices[Math.floor(random() * choices.length)];

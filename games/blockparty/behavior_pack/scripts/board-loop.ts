@@ -27,8 +27,8 @@ import type { Space } from "./board.ts";
 import { activeStars, addCoins, coinsFor, count, firstStars, leaders, nextStar, ranked, starDistance, starPrice, turnOrder, type Standing } from "./board-rules.ts";
 import type { Who } from "./bots.ts";
 import { line } from "./lines.ts";
-import { VERSUS_STAKE, battleBets, ffaCoins, firstDoubled, formatFor, isDoubled, kindOf, pairingKey, pickMinigame, pickPairs, pickSolo, splitPot, teamCoins, type Format } from "./minigame-rules.ts";
-import type { Settle } from "./minigame-runner.ts";
+import { VERSUS_STAKE, battleBets, ffaCoins, firstDoubled, fits, formatFor, isDoubled, kindOf, pairingKey, pickMinigame, pickPairs, pickSolo, splitPot, teamCoins, type Format } from "./minigame-rules.ts";
+import type { Results, Settle } from "./minigame-runner.ts";
 import type { MinigameDef, Outcome } from "./minigames/kit.ts";
 import type { Pieces } from "./pieces.ts";
 
@@ -57,6 +57,9 @@ export interface LoopHost {
   random(): number;
 }
 
+/** A test's jump (the Tests menu): to a round, straight to its minigame or not, or a minigame played next. */
+export type TestJump = { kind: "round"; round: number; minigameOnly: boolean } | { kind: "minigame"; format: Format; def: MinigameDef };
+
 interface Seat {
   name: string;
   coins: number;
@@ -82,6 +85,8 @@ export class BoardLoop {
   private readonly played = new Map<string, number>();
   private readonly solos = new Map<string, number>();
   private readonly pairings = new Map<string, number>();
+  /** A test's jump, waiting for the turn going on to end. */
+  private jump: TestJump | undefined;
   private readonly host: LoopHost;
 
   constructor(host: LoopHost) {
@@ -111,6 +116,11 @@ export class BoardLoop {
 
   /** The way from `from` to the nearest Star ahead, by the links (the spaces after `from`, the Star last), if any. */
   pathToStar(from: number): number[] | undefined {
+    return this.pathTo(from, (index) => this.stars.includes(index));
+  }
+
+  /** The way from `from` to the nearest space ahead that `wanted` picks (the spaces after `from`, that one last), if any. */
+  pathTo(from: number, wanted: (index: number, space: Space) => boolean): number[] | undefined {
     const spaces = this.host.spaces();
     const before = new Map<number, number>([[from, -1]]);
     const queue = [from];
@@ -119,7 +129,7 @@ export class BoardLoop {
       for (const next of spaces[at]?.next ?? []) {
         if (before.has(next)) continue;
         before.set(next, at);
-        if (this.stars.includes(next)) {
+        if (spaces[next] && wanted(next, spaces[next])) {
           const path = [next];
           for (let back = at; back !== from; back = before.get(back)!) path.unshift(back);
           return path;
@@ -133,6 +143,26 @@ export class BoardLoop {
   /** The way a player's next walk takes at each branch (the spaces in order). */
   steer(key: string, path: number[]): void {
     this.steering.set(key, path);
+  }
+
+  /** The round now (0 while rolling for turn order) and the game's length. */
+  get rounds(): { now: number; of: number } {
+    return { now: this.round, of: this.host.turns };
+  }
+
+  /** How many are seated and here: what a test minigame's format has to fit. */
+  get seated(): number {
+    return this.host.present().filter((who) => this.seats.has(who.key)).length;
+  }
+
+  /**
+   * Tests (the user asked, to try late rounds without playing up to them): jumps to a round (straight
+   * to its minigame, or its turns first), or plays a minigame next. It happens when the turn going on
+   * ends; a player's roll that's waiting is called off by the caller, and that turn is played again
+   * after a test minigame.
+   */
+  testJump(jump: TestJump): void {
+    this.jump = jump;
   }
 
   async run(): Promise<Result> {
@@ -149,33 +179,51 @@ export class BoardLoop {
     this.order = turnOrder(rolls);
     this.host.everyone(line("order.result", { order: this.order.map((key) => `${this.seats.get(key)?.name ?? key} (${rolls.find((entry) => entry.name === key)?.roll})`).join(", ") }));
 
-    for (this.round = 1; this.round <= this.host.turns; this.round++) {
+    let next = 1;
+    /** False for a round a test jumped straight to the minigame of. */
+    let withTurns = true;
+    while (next <= this.host.turns) {
+      this.round = next;
       this.seatLateJoiners();
       const doubling = this.round === firstDoubled(this.host.turns);
       this.host.title(line("round.title", { round: this.round, rounds: this.host.turns }), doubling ? line("round.doubled.subtitle") : "");
       if (doubling) this.host.everyone(line("announce.doubled"));
       this.host.changed();
       await this.host.scope.wait(30);
-      for (const key of [...this.order]) {
+      let jumped: { round: number; minigameOnly: boolean } | undefined = withTurns ? undefined : await this.takeJump();
+      for (let i = 0; withTurns && i < this.order.length; i++) {
+        jumped = await this.takeJump();
+        if (jumped) break;
+        const key = this.order[i];
         const who = this.host.present().find((candidate) => candidate.key === key);
         if (!who) {
           this.host.everyone(line("turn.skipped", { player: this.seats.get(key)?.name ?? key }));
           continue;
         }
         try {
-          await this.playTurn(who);
+          // A turn called off for a test minigame is played again after it.
+          if (await this.playTurn(who)) i--;
         } catch (error) {
           log.warn(`blockparty: ${who.name}'s turn failed: ${describeError(error)}`);
         }
       }
       this.turn = undefined;
       this.host.changed();
+      jumped ??= await this.takeJump();
+      if (jumped) {
+        this.host.everyone(`Test: on to round ${jumped.round}${jumped.minigameOnly ? ", straight to its minigame" : ""}.`);
+        next = jumped.round;
+        withTurns = !jumped.minigameOnly;
+        continue;
+      }
       try {
         await this.minigameRound();
       } catch (error) {
         log.warn(`blockparty: round ${this.round}'s minigame failed: ${describeError(error)}`);
         this.host.everyone(`The minigame failed: ${describeError(error)}`);
       }
+      next++;
+      withTurns = true;
     }
     this.round = this.host.turns;
     return this.finish();
@@ -199,19 +247,39 @@ export class BoardLoop {
     }
   }
 
-  private async playTurn(who: Who): Promise<void> {
+  /** A test's jump, if one was asked: a minigame is played here and now; a round jump comes back to be taken. */
+  private async takeJump(): Promise<{ round: number; minigameOnly: boolean } | undefined> {
+    const jump = this.jump;
+    this.jump = undefined;
+    if (!jump) return undefined;
+    if (jump.kind === "round") return { round: Math.max(1, Math.min(this.host.turns, jump.round)), minigameOnly: jump.minigameOnly };
+    this.turn = undefined;
+    this.host.changed();
+    try {
+      await this.minigameRound(jump);
+    } catch (error) {
+      log.warn(`blockparty: the test minigame failed: ${describeError(error)}`);
+      this.host.everyone(`The minigame failed: ${describeError(error)}`);
+    }
+    return undefined;
+  }
+
+  /** A turn; true when it was called off for a test (it's played again). */
+  private async playTurn(who: Who): Promise<boolean> {
     this.turn = who.key;
     this.host.changed();
     this.host.title(line("turn.title", { player: who.name }), who.player ? line("turn.subtitle") : "");
     const rolled = await this.host.roll(who, true);
-    if (rolled === undefined || !who.body.isValid) return;
+    if (rolled === undefined) return this.jump !== undefined;
+    if (!who.body.isValid) return false;
     this.host.everyone(line("turn.rolled", { player: who.name, roll: rolled }));
     await this.move(who, rolled);
     this.steering.delete(who.key);
-    if (!who.body.isValid) return;
+    if (!who.body.isValid) return false;
     await this.land(who);
     for (const watcher of world.getAllPlayers()) watcher.camera.clear();
     await this.host.scope.wait(20);
+    return false;
   }
 
   /** Walks the piece `steps` spaces, stopping to pick a way at each branch and at each Star it passes. */
@@ -322,7 +390,7 @@ export class BoardLoop {
     const onlookers = this.host.present().filter((other) => other.key !== who.key && other.key !== rival.key);
     await this.host.playMinigame("duel", def, [[who], [rival]], pool, onlookers, (outcome) => {
       const winners = "places" in outcome ? (outcome.places[0] ?? []) : [];
-      if (winners.length !== 1) return { title: line("versus.draw.title"), subtitle: line("versus.draw.subtitle") };
+      if (winners.length !== 1) return { title: line("versus.draw.title"), subtitle: () => line("versus.draw.subtitle") };
       const winner = winners[0] === who.key ? who : rival;
       const loser = winner === who ? rival : who;
       const loserSeat = this.seats.get(loser.key);
@@ -333,21 +401,29 @@ export class BoardLoop {
       const result = { player: winner.name, other: loser.name, coins: count(paid, "coin") };
       this.host.everyone(line("versus.won", result));
       this.host.changed();
-      return { title: line("versus.won.title", result), subtitle: line("versus.won.subtitle", result) };
+      return {
+        title: line("versus.won.title", result),
+        // The winner and the loser each see what it means for them; onlookers who paid whom.
+        subtitle: (key) => (key === winner.key ? line("versus.you.won", result) : key === loser.key ? line("versus.you.lost", result) : line("versus.won.subtitle", result)),
+      };
     });
   }
 
   /** The round's minigame: its format and sides, the pick, and the coins it pays. */
-  private async minigameRound(): Promise<void> {
+  private async minigameRound(test?: { format: Format; def: MinigameDef }): Promise<void> {
     const here = this.host.present().filter((who) => this.seats.has(who.key));
     if (here.length === 0) return;
-    let format = formatFor(this.round, here.length, this.host.random);
+    let format = test?.format ?? formatFor(this.round, here.length, this.host.random);
+    if (!fits(format, here.length)) {
+      if (test) this.host.everyone(`Test: ${test.def.name} as ${format} doesn't fit ${here.length} players.`);
+      return;
+    }
     let pool = this.host.minigames.filter((minigame) => minigame.kind === kindOf(format));
     if (pool.length === 0) {
       format = "ffa";
       pool = this.host.minigames.filter((minigame) => minigame.kind === "ffa");
     }
-    const def = pickMinigame(pool, this.played, this.host.random);
+    const def = test?.def ?? pickMinigame(pool, this.played, this.host.random);
     if (!def) return;
     this.played.set(def.id, (this.played.get(def.id) ?? 0) + 1);
     const sides = this.sidesFor(format, here);
@@ -384,37 +460,57 @@ export class BoardLoop {
     return here.map((who) => [who]);
   }
 
-  /** Pays a minigame's coins (doubled late on; a Battle's pot to its winners) and says so. */
-  private pay(format: Format, def: MinigameDef, sides: readonly Who[][], outcome: Outcome, doubled: boolean, pot: number): { title: string; subtitle: string } {
+  /**
+   * Pays a minigame's coins (doubled late on; a Battle's pot to its winners) and says so: the places
+   * and coins in chat, and the results over the arena, a short title (one name, a team, a tie: names
+   * joined in a title ran off the screen) with each player's own place and coins under it.
+   */
+  private pay(format: Format, def: MinigameDef, sides: readonly Who[][], outcome: Outcome, doubled: boolean, pot: number): Results {
     const names = new Map(sides.flat().map((who) => [who.key, who.name]));
     const nameOf = (key: string) => names.get(key) ?? this.seats.get(key)?.name ?? key;
     let coins: Map<string, number>;
     let title: string;
+    let own: (key: string, coins: string, amount: number) => string;
     if ("places" in outcome) {
       const winners = outcome.places[0] ?? [];
-      title = winners.length === 0 ? line("minigame.nobody") : this.wonTitle(winners.map(nameOf));
+      title = winners.length === 0 ? line("minigame.nobody") : winners.length === 1 ? line("minigame.won.one", { player: nameOf(winners[0]) }) : line("minigame.won.tie", { count: winners.length });
       coins = format === "battle" ? splitPot(pot, winners) : ffaCoins(outcome.places);
-      if (format !== "battle") {
-        let place = 0;
-        const places = outcome.places.map((group) => {
-          const entry = `${PLACES[place] ?? `${place + 1}th`}: ${group.map(nameOf).join(", ")}`;
-          place += group.length;
-          return entry;
-        });
-        this.host.everyone(line("minigame.places", { minigame: def.name, places: places.join("; ") }));
-      }
+      const placeOf = new Map<string, string>();
+      let place = 0;
+      const places = outcome.places.map((group) => {
+        const name = PLACES[place] ?? `${place + 1}th`;
+        for (const key of group) placeOf.set(key, name);
+        place += group.length;
+        return `${name}: ${group.map(nameOf).join(", ")}`;
+      });
+      this.host.everyone(line("minigame.places", { minigame: def.name, places: places.join("; ") }));
+      own = (key, coins, amount) => {
+        const place = placeOf.get(key);
+        if (!place) return "";
+        return amount > 0 ? line("minigame.you.place", { place, coins }) : line("minigame.you.nothing", { place });
+      };
     } else {
       const team = format === "2v2" ? "2v2" : "1v3";
       const keys = sides.map((side) => side.map((who) => who.key));
       coins = teamCoins(team, keys, outcome.winner);
-      title = outcome.winner === undefined ? line("minigame.draw") : this.wonTitle(sides[outcome.winner].map((who) => who.name));
+      // 2v2's sides are Red and Blue; 1v3's the solo and the rest.
+      if (outcome.winner === undefined) title = line("minigame.draw");
+      else if (format === "2v2") title = line(outcome.winner === 0 ? "minigame.won.red" : "minigame.won.blue");
+      else title = outcome.winner === 0 ? line("minigame.won.one", { player: sides[0][0]?.name ?? "?" }) : line("minigame.won.group", { count: sides[1].length });
+      own = (key, coins) => {
+        const side = keys.findIndex((members) => members.includes(key));
+        if (side < 0) return "";
+        return outcome.winner === undefined ? line("minigame.you.draw", { coins }) : side === outcome.winner ? line("minigame.you.won", { coins }) : line("minigame.you.lost", { coins });
+      };
     }
     const factor = doubled && format !== "battle" ? 2 : 1;
     const paid: string[] = [];
+    const got = new Map<string, number>();
     for (const [key, amount] of coins) {
       const seat = this.seats.get(key);
       if (!seat || amount <= 0) continue;
       seat.coins += amount * factor;
+      got.set(key, amount * factor);
       paid.push(`${nameOf(key)} +${amount * factor}`);
     }
     if (paid.length > 0) {
@@ -422,12 +518,13 @@ export class BoardLoop {
       this.host.everyone(format === "battle" ? line("minigame.pot", list) : factor > 1 ? line("minigame.coins.doubled", list) : line("minigame.coins", list));
     }
     this.host.changed();
-    return { title, subtitle: paid.join(", ") };
-  }
-
-  /** The results' title: one winner, or several (a team, a tie). */
-  private wonTitle(names: readonly string[]): string {
-    return names.length === 1 ? line("minigame.won.one", { player: names[0] }) : line("minigame.won.many", { players: names.join(" and ") });
+    return {
+      title,
+      subtitle: (key) => {
+        const amount = got.get(key) ?? 0;
+        return own(key, count(amount, "coin"), amount);
+      },
+    };
   }
 
   /** The end: most Stars, then coins; a tie still standing goes to chance. */

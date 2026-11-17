@@ -50,7 +50,7 @@ export const HUNTER: MinigameDef = {
     const safe = new Set<string>();
     const caught = new Set<string>();
     const runnerKeys = new Set(runners.map((who) => who.key));
-    play.title("Run!", `${hunter.name} hunts. ${needed} of ${runners.length} home wins it for the runners.`);
+    play.titleEach("Run!", (key) => (key === hunter.key ? "You hunt: catch them" : runners.some((who) => who.key === key) ? `Reach the gold: ${needed} home wins` : ""));
     const catchRunner = (who: Who) => {
       if (caught.has(who.key) || safe.has(who.key)) return;
       caught.add(who.key);

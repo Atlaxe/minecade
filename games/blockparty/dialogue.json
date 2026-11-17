@@ -491,6 +491,12 @@
     "versus.won.subtitle": [
       "{other} pays {coins}"
     ],
+    "versus.you.won": [
+      "{other} pays you {coins}"
+    ],
+    "versus.you.lost": [
+      "You pay {player} {coins}"
+    ],
     "versus.draw.title": [
       "A draw"
     ],
@@ -565,6 +571,33 @@
     ],
     "minigame.won.many": [
       "{players} win!"
+    ],
+    "minigame.won.tie": [
+      "A {count}-way tie!"
+    ],
+    "minigame.won.red": [
+      "Red wins!"
+    ],
+    "minigame.won.blue": [
+      "Blue wins!"
+    ],
+    "minigame.won.group": [
+      "The team of {count} wins!"
+    ],
+    "minigame.you.place": [
+      "You came {place}: +{coins}"
+    ],
+    "minigame.you.nothing": [
+      "You came {place}: no coins"
+    ],
+    "minigame.you.won": [
+      "You won: +{coins}"
+    ],
+    "minigame.you.lost": [
+      "You lost: +{coins}"
+    ],
+    "minigame.you.draw": [
+      "A draw: +{coins}"
     ],
     "minigame.nobody": [
       "Nobody won"

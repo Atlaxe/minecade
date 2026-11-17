@@ -3,19 +3,22 @@
 //   1. The roulette: the format's minigames go by in a title, slowing down, and stop on the pick.
 //   2. Behind the loading screen: the minigame's arena is laid where arenas go (its test arena for
 //      now; minigames/kit.ts), with a stand beside it for bots that are out, and everyone is put on
-//      its spawns, off their pieces. Anyone not playing (a duel's onlookers) watches from over it.
+//      its spawns, off their pieces: the players, then a moment later the bots, made again there
+//      (bots.ts, respawn). Anyone not playing (a duel's onlookers) watches from over it.
 //   3. The rules, through a camera over the arena, until everyone has jumped to say they're ready
 //      (bots after a moment); nobody moves till Go.
 //   4. 3, 2, 1, Go, and the minigame plays (its play()). A player who's out watches as a spectator
 //      over the arena; a bot stands on the stand.
-//   5. The results (what the loop pays, settle()) over the arena, then behind the loading screen
-//      again the arena is cleared and everyone is back on their pieces.
+//   5. The results (what the loop pays, settle()) over the arena: a short title for everyone and
+//      each player's own place and coins under it. Then behind the loading screen again everyone is
+//      back on their pieces (the bots a moment after the players) and the arena is cleared.
+// Titles that follow each other quickly (the roulette, the countdown) come in at once (TITLE).
 import { GameMode, InputPermissionCategory, world, type Dimension, type Entity, type Player, type Vector3 } from "@minecraft/server";
 import { describeError, log, type Scope } from "@minecade/minigame-core";
 import { isPlayer, thinkTicks, type Who } from "./bots.ts";
 import { line } from "./lines.ts";
 import type { Format } from "./minigame-rules.ts";
-import { fill, type MinigameDef, type Outcome, type Play, type Vec3 } from "./minigames/kit.ts";
+import { fill, TITLE, type MinigameDef, type Outcome, type Play, type TitleTiming, type Vec3 } from "./minigames/kit.ts";
 
 export interface RunnerHost {
   scope: Scope;
@@ -24,18 +27,31 @@ export interface RunnerHost {
   arenaMiddle(): Vector3;
   /** A move behind the loading screen. */
   behindBlack(work: () => void | Promise<void>): Promise<void>;
-  /** Off the board (a player gets their movement back), and back on it (on their space). */
+  /** Off the board (a player gets their movement back), and back on it (on their space; a bot made again there). */
   leaveBoard(who: Who): void;
   backToBoard(who: Who): void;
-  title(text: string, subtitle?: string): void;
+  /** A bot made again at `at` facing `yaw` (bots.ts, respawn); `who` gets the new body. */
+  respawnBot(who: Who, at: Vector3, yaw: number): void;
+  /** A big line on everyone's screen, or on one player's. */
+  title(text: string, subtitle?: string, timing?: TitleTiming): void;
+  titleTo(player: Player, text: string, subtitle: string, timing?: TitleTiming): void;
   say(text: string): void;
   random(): number;
   /** The line top right for everyone, while a minigame is on (undefined: the board's again). */
   status(text: string | undefined): void;
 }
 
-/** What the loop makes of an outcome: the results to show over the arena. */
-export type Settle = (outcome: Outcome) => { title: string; subtitle: string };
+/**
+ * What the loop makes of an outcome: the results to show over the arena, the same title for
+ * everyone (short: one name, a team, a tie) and each player's own line under it (their place and
+ * coins). The whole list goes to chat.
+ */
+export interface Results {
+  title: string;
+  /** A player's own line, by key ("" for someone who didn't play). */
+  subtitle(key: string): string;
+}
+export type Settle = (outcome: Outcome) => Results;
 
 const ARENA_AREA = "minecade:blockparty_minigame";
 /** The roulette's waits between names, in ticks: quick, then slowing to the pick. */
@@ -44,6 +60,8 @@ const ROULETTE = [2, 2, 2, 2, 3, 3, 4, 5, 6, 8];
 const RESULTS_TICKS = 70;
 /** How far over the arena onlookers and players who are out watch from. */
 const WATCH_HEIGHT = 6;
+/** Ticks after the players have moved before the bots are made again beside them (their screens are there by then). */
+const BOTS_AFTER = 10;
 
 export function formatLabel(format: Format, sides: readonly (readonly Who[])[]): string {
   if (format === "2v2") return line("format.2v2");
@@ -104,26 +122,36 @@ export class MinigameRunner {
           min,
           sides.map((side) => side.length),
         );
+        const spotOf = (s: number, m: number) => spawns[s]?.[m] ?? { x: middle.x, y: min.y + size[1], z: middle.z };
+        for (const who of everyone) this.host.leaveBoard(who);
+        // The players first; the bots once the players' screens are there (bots.ts, respawn).
         sides.forEach((side, s) =>
           side.forEach((who, m) => {
-            const spot = spawns[s]?.[m] ?? { x: middle.x, y: min.y + size[1], z: middle.z };
-            this.host.leaveBoard(who);
-            this.put(who.body, spot, middle, GameMode.Adventure);
-            if (who.player) setMoving(who.player, false);
+            if (!who.player) return;
+            this.put(who.player, spotOf(s, m), middle, GameMode.Adventure);
+            setMoving(who.player, false);
           }),
         );
         for (const who of onlookers) if (who.player) this.put(who.player, watchSpot, middle, GameMode.Spectator);
         this.rulesCamera([...everyone, ...onlookers], min, size);
+        await this.host.scope.wait(BOTS_AFTER);
+        sides.forEach((side, s) =>
+          side.forEach((who, m) => {
+            if (who.player) return;
+            const spot = spotOf(s, m);
+            this.host.respawnBot(who, spot, yawToward(spot, middle));
+          }),
+        );
       });
       this.host.title(def.name, formatLabel(format, sides));
       this.host.say(line("minigame.rules", { minigame: def.name, format: formatLabel(format, sides), rules: def.rules }));
       await this.readyVote(everyone);
       for (const who of [...everyone, ...onlookers]) clearCamera(who.player);
       for (const count of ["3", "2", "1"]) {
-        this.host.title(count, def.name);
+        this.host.title(count, def.name, TITLE.count);
         await this.host.scope.wait(20);
       }
-      this.host.title(line("minigame.go"), "");
+      this.host.title(line("minigame.go"), "", TITLE.land);
       for (const who of everyone) if (who.player) setMoving(who.player, true);
       const scope = this.host.scope.child(`minigame ${def.id}`);
       const play: Play = {
@@ -142,7 +170,10 @@ export class MinigameRunner {
           setMoving(who.player, false);
           scope.timeout(() => who.player && setMoving(who.player, true), ticks);
         },
-        title: (text, subtitle) => this.host.title(text, subtitle),
+        title: (text, subtitle, timing) => this.host.title(text, subtitle, timing),
+        titleEach: (text, subtitleOf, timing) => {
+          for (const player of world.getAllPlayers()) this.host.titleTo(player, text, subtitleOf(player.name.toLowerCase()), timing);
+        },
         say: (text) => this.host.say(text),
         status: (text) => this.host.status(text),
       };
@@ -158,17 +189,21 @@ export class MinigameRunner {
       for (const who of everyone) if (who.player) setMoving(who.player, false);
       const results = settle(outcome);
       this.host.status(undefined);
-      this.host.title(results.title, results.subtitle);
+      for (const player of world.getAllPlayers()) this.host.titleTo(player, results.title, results.subtitle(player.name.toLowerCase()), TITLE.results);
       await this.host.scope.wait(RESULTS_TICKS);
-      await this.host.behindBlack(() => {
+      await this.host.behindBlack(async () => {
+        // The players first; the bots that played once the players' screens are back (onlookers never left).
         for (const who of [...everyone, ...onlookers]) {
-          if (who.player?.isValid) {
+          if (!who.player) continue;
+          if (who.player.isValid) {
             setMoving(who.player, true);
             clearCamera(who.player);
             if (who.player.getGameMode() !== GameMode.Adventure) who.player.setGameMode(GameMode.Adventure);
           }
           this.host.backToBoard(who);
         }
+        await this.host.scope.wait(BOTS_AFTER);
+        for (const who of everyone) if (!who.player) this.host.backToBoard(who);
         this.clearArena(min, size);
       });
     } finally {
@@ -184,11 +219,11 @@ export class MinigameRunner {
     const names = pool.length > 1 ? pool.map((minigame) => minigame.name) : [def.name];
     let index = Math.floor(this.host.random() * names.length);
     for (const wait of ROULETTE) {
-      this.host.title(`§7${names[index % names.length]}`, formatLabel(format, sides));
+      this.host.title(`§7${names[index % names.length]}`, formatLabel(format, sides), TITLE.swap);
       index++;
       await this.host.scope.wait(wait);
     }
-    this.host.title(def.name, formatLabel(format, sides));
+    this.host.title(def.name, formatLabel(format, sides), TITLE.land);
     await this.host.scope.wait(30);
   }
 
@@ -210,13 +245,11 @@ export class MinigameRunner {
     }
   }
 
-  /** Puts a body at `spot` facing `toward` (a player in `mode`). */
-  private put(body: Entity, spot: Vector3, toward: Vector3, mode: GameMode): void {
+  /** Puts a player at `spot` facing `toward`, in `mode`. */
+  private put(player: Player, spot: Vector3, toward: Vector3, mode: GameMode): void {
     try {
-      const yaw = (Math.atan2(-(toward.x - spot.x), toward.z - spot.z) * 180) / Math.PI;
-      if (isPlayer(body) && body.getGameMode() !== mode) body.setGameMode(mode);
-      body.teleport(spot, { rotation: { x: 0, y: yaw } });
-      if (!isPlayer(body)) body.clearVelocity();
+      if (player.getGameMode() !== mode) player.setGameMode(mode);
+      player.teleport(spot, { rotation: { x: 0, y: yawToward(spot, toward) } });
     } catch (error) {
       log.warn(`blockparty: putting someone in the arena failed: ${describeError(error)}`);
     }
@@ -290,6 +323,11 @@ export class MinigameRunner {
       return undefined;
     }
   }
+}
+
+/** The yaw from `from` toward `to`. */
+function yawToward(from: Vector3, to: Vector3): number {
+  return (Math.atan2(-(to.x - from.x), to.z - from.z) * 180) / Math.PI;
 }
 
 /** A player can walk (and jump) or not; a jump still comes through to the script either way. */

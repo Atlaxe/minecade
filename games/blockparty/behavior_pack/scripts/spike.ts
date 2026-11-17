@@ -38,6 +38,7 @@ import {
 } from "@minecraft/server";
 import { ActionFormData, ModalFormData } from "@minecraft/server-ui";
 import { ARENA_SLOT, Minigame, Notes, describeError, draw, hudLine, log, say, showForm, spacesOf, type GameContext, type Result, type SpawnReason } from "@minecade/minigame-core";
+import { BLOCK_PARTY_BOARD } from "@minecade/minigame-core/config";
 import registry from "#registry";
 import { HOTBAR_SIZE, LOADING_LEVELS, barCodes, loadingCode, type BarIcon } from "./bar-codes.ts";
 import type config from "../../game.config.ts";
@@ -46,8 +47,10 @@ import { BoardLoop } from "./board-loop.ts";
 import { line } from "./lines.ts";
 import { BOT_COUNTS, LENGTHS, START_COINS } from "./board-rules.ts";
 import { Bots, hop, isPlayer, thinkTicks, whoOf, type Who } from "./bots.ts";
+import { fits, type Format } from "./minigame-rules.ts";
 import { MinigameRunner } from "./minigame-runner.ts";
 import { MINIGAMES } from "./minigames/index.ts";
+import { TITLE, type TitleTiming } from "./minigames/kit.ts";
 import { Npcs } from "./npcs.ts";
 import { DEFAULT_SETTINGS, Pieces, WALK_CAMERAS, lock, unlock, type PieceSettings } from "./pieces.ts";
 import { SHOTS, Shots, type ShotId } from "./shots.ts";
@@ -243,8 +246,18 @@ export class BlockPartySpike extends Minigame<Config> {
       arenaMiddle: () => this.arenaMiddle(),
       behindBlack: (work) => this.behindBlack(work),
       leaveBoard: (who) => this.pieces.release(who.body),
-      backToBoard: (who) => who.body.isValid && this.pieces.place(who.body),
-      title: (text, subtitle) => this.titleAll(text, subtitle),
+      backToBoard: (who) => {
+        if (who.player) {
+          if (who.player.isValid) this.pieces.place(who.player);
+          return;
+        }
+        // A bot is made again on its space (bots.ts, respawn).
+        this.bots.respawn(who, this.pieces.spotOf(who.name));
+        if (who.body.isValid) this.pieces.place(who.body);
+      },
+      respawnBot: (who, at, yaw) => this.bots.respawn(who, at, yaw),
+      title: (text, subtitle, timing) => this.titleAll(text, subtitle, timing),
+      titleTo: (player, text, subtitle, timing) => this.titleTo(player, text, subtitle, timing),
       say: (text) => this.everyone(text),
       random: () => this.ctx.random(),
       status: (text) => (this.minigameStatus = text),
@@ -350,8 +363,17 @@ export class BlockPartySpike extends Minigame<Config> {
   }
 
   /** A big line on everyone's screen. */
-  private titleAll(text: string, subtitle?: string): void {
-    for (const player of world.getAllPlayers()) player.onScreenDisplay.setTitle(text, { subtitle: subtitle ?? "", fadeInDuration: 4, stayDuration: 40, fadeOutDuration: 10 });
+  private titleAll(text: string, subtitle?: string, timing: TitleTiming = TITLE.show): void {
+    for (const player of world.getAllPlayers()) this.titleTo(player, text, subtitle ?? "", timing);
+  }
+
+  /** A big line on one player's screen. */
+  private titleTo(player: Player, text: string, subtitle: string, timing: TitleTiming = TITLE.show): void {
+    try {
+      player.onScreenDisplay.setTitle(text, { subtitle, fadeInDuration: timing.fadeIn, stayDuration: timing.stay, fadeOutDuration: timing.fadeOut });
+    } catch {
+      // gone
+    }
   }
 
   /** Where an arena goes: the middle of the map's arena slot's floor, else far east of the board. */
@@ -635,6 +657,9 @@ export class BlockPartySpike extends Minigame<Config> {
   private async menu(player: Player): Promise<void> {
     const items: [string, () => void | Promise<void>][] = [
       ["Get star (on your roll)", () => this.getStar(player)],
+      ["Go to a space (on your roll)", () => this.goToSpace(player)],
+      ["Skip to a round", () => this.skipForm(player)],
+      ["Play a minigame now", () => this.minigameForm(player)],
       ["Piece settings", () => this.settingsForm(player)],
       ["Camera shots", () => this.shotsMenu(player)],
       ["Jump test", () => this.jumpMenu(player)],
@@ -666,12 +691,87 @@ export class BlockPartySpike extends Minigame<Config> {
     if (!pending?.shot) return this.tell(player, "Get star works on your turn, while your roll waits.");
     const path = this.loop.pathToStar(this.pieces.spaceOf(player));
     if (!path) return this.tell(player, "There's no Star ahead to get to.");
+    this.walkPath(player, path, `Get star: ${path.length} space${path.length === 1 ? "" : "s"} to the Star.`);
+  }
+
+  /**
+   * Go to a space (the user asked, to try Versus and the rest without luck): Get star's way, to the
+   * nearest space of a type ahead.
+   */
+  private async goToSpace(player: Player): Promise<void> {
+    const key = player.name.toLowerCase();
+    if (!this.pendingRolls.get(key)?.shot) return this.tell(player, "Go to a space works on your turn, while your roll waits.");
+    const types = BLOCK_PARTY_BOARD.types.filter((type) => type.id !== "start" && this.spaces.some((space) => space.type === type.id));
+    const form = new ActionFormData().title("Go to a space");
+    for (const type of types) form.button(type.name);
+    const picked = (await showForm(this.scope, player, form))?.selection;
+    if (picked === undefined || !this.pendingRolls.get(key)?.shot) return;
+    const type = types[picked];
+    const path = this.loop.pathTo(this.pieces.spaceOf(player), (_, space) => space.type === type.id);
+    if (!path) return this.tell(player, `There's no ${type.name} space ahead.`);
+    this.walkPath(player, path, `Go to a space: ${path.length} space${path.length === 1 ? "" : "s"} to ${type.name}.`);
+  }
+
+  /** The waiting roll is `path`'s length, and the walk takes `path`'s way at each branch. */
+  private walkPath(player: Player, path: number[], text: string): void {
+    const key = player.name.toLowerCase();
+    const pending = this.pendingRolls.get(key);
+    if (!pending) return;
     this.loop.steer(key, path);
     this.pendingRolls.delete(key);
     this.endRoll(player);
     this.openBar(player, "main");
-    this.tell(player, `Get star: ${path.length} space${path.length === 1 ? "" : "s"} to the Star.`);
+    this.tell(player, text);
     pending.resolve(path.length);
+  }
+
+  /** Skip to a round (the user asked, to try late rounds without playing up to them). */
+  private async skipForm(player: Player): Promise<void> {
+    if (!this.loop.active) return this.tell(player, "Skip to a round works once the board game is on.");
+    const { now, of } = this.loop.rounds;
+    const form = new ModalFormData()
+      .title("Skip to a round")
+      .dropdown(
+        "Round",
+        Array.from({ length: of }, (_, i) => `Round ${i + 1} of ${of}`),
+        { defaultValueIndex: Math.min(of - 1, now) },
+      )
+      .toggle("Straight to its minigame", { defaultValue: true });
+    const values = (await showForm(this.scope, player, form))?.formValues;
+    if (!values) return;
+    const [index, minigameOnly] = values as [number, boolean];
+    this.loop.testJump({ kind: "round", round: index + 1, minigameOnly });
+    this.callOffRoll(player);
+    this.tell(player, `On to round ${index + 1}${minigameOnly ? "'s minigame" : ""} once the turn going on ends.`);
+  }
+
+  /** Play a minigame now (the user asked): any minigame in any of its formats, next, then the turns go on. */
+  private async minigameForm(player: Player): Promise<void> {
+    if (!this.loop.active) return this.tell(player, "Play a minigame works once the board game is on.");
+    const formatName: Record<Format, string> = { ffa: "free for all", battle: "Battle", "2v2": "2 vs 2", "1v3": "1 vs 3", duel: "duel" };
+    const entries = MINIGAMES.flatMap((def) =>
+      (def.kind === "ffa" ? (["ffa", "battle"] as const) : [def.kind]).map((format: Format) => ({ def, format, label: `${def.name}: ${formatName[format]}` })),
+    );
+    const form = new ActionFormData().title("Play a minigame now");
+    for (const entry of entries) form.button(entry.label);
+    const picked = (await showForm(this.scope, player, form))?.selection;
+    if (picked === undefined) return;
+    const entry = entries[picked];
+    if (!fits(entry.format, this.loop.seated)) return this.tell(player, `${entry.label} doesn't fit ${this.loop.seated} players.`);
+    this.loop.testJump({ kind: "minigame", format: entry.format, def: entry.def });
+    this.callOffRoll(player);
+    this.tell(player, `${entry.label} comes once the turn going on ends (a roll you were waiting on is played again after).`);
+  }
+
+  /** A test that can't wait: the player's own turn roll, if it's waiting, is called off. */
+  private callOffRoll(player: Player): void {
+    const key = player.name.toLowerCase();
+    const pending = this.pendingRolls.get(key);
+    if (!pending?.shot) return;
+    this.pendingRolls.delete(key);
+    this.endRoll(player);
+    this.openBar(player, "main");
+    pending.resolve(undefined);
   }
 
   private async settingsForm(player: Player): Promise<void> {

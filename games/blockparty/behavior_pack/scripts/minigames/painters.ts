@@ -42,7 +42,10 @@ export const PAINTERS: MinigameDef = {
     const floorY = min.y + FLOOR_Y;
     const x0 = min.x + EDGE;
     const z0 = min.z + EDGE;
-    play.title("Paint!", `${TEAMS[0].name}: ${sides[0].map((who) => who.name).join(" and ")}  §f${TEAMS[1].name}: ${sides[1].map((who) => who.name).join(" and ")}`);
+    play.titleEach("Paint!", (key) => {
+      const side = sides.findIndex((members) => members.some((who) => who.key === key));
+      return side < 0 ? "" : `You're ${TEAMS[side].name}`;
+    });
     /** Each floor block's team (by x * FLOOR + z), -1 while white. */
     const painted = new Int8Array(FLOOR * FLOOR).fill(-1);
     const counts = [0, 0];

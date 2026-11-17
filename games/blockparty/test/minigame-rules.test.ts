@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { battleBets, ffaCoins, firstDoubled, formatFor, isDoubled, kindOf, pairingKey, pickMinigame, pickPairs, pickSolo, splitPot, teamCoins } from "../behavior_pack/scripts/minigame-rules.ts";
+import { battleBets, ffaCoins, firstDoubled, fits, formatFor, isDoubled, kindOf, pairingKey, pickMinigame, pickPairs, pickSolo, splitPot, teamCoins } from "../behavior_pack/scripts/minigame-rules.ts";
 
 /** Always the first choice. */
 const first = () => 0;
@@ -16,6 +16,14 @@ describe("Block Party's minigame rules", () => {
     expect(kindOf("battle")).toBe("ffa");
     expect(kindOf("duel")).toBe("ffa");
     expect(kindOf("1v3")).toBe("1v3");
+  });
+
+  it("says which formats the players fit (the Tests menu checks before playing one)", () => {
+    expect([1, 2, 3, 4].map((players) => fits("2v2", players))).toEqual([false, false, false, true]);
+    expect([1, 2, 3, 4].map((players) => fits("1v3", players))).toEqual([false, false, true, true]);
+    expect([1, 2].map((players) => fits("battle", players))).toEqual([false, true]);
+    expect(fits("ffa", 1)).toBe(true);
+    for (let round = 1; round <= 20; round++) for (const players of [1, 2, 3, 4]) expect(fits(formatFor(round, players, () => 0), players)).toBe(true);
   });
 
   it("rotates the solo and the pairs so everyone gets an equal share", () => {
