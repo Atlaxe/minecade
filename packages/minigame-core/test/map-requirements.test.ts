@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { possibleTeams } from "../src/game/teams.ts";
 import { MapView } from "../src/game/map-view.ts";
 import { worldSpawnOf, type MapConfig } from "../src/map-config.ts";
-import { mapRequirements, uncoveredRequirements, usesPlainSpawns } from "../src/map-requirements.ts";
+import { mapRequirements, optionKey, requirementOptions, uncoveredRequirements, usesPlainSpawns } from "../src/map-requirements.ts";
 import { validateMapConfig, type MapRules } from "../src/map-validate.ts";
 
 const TEAMS = [
@@ -66,6 +66,18 @@ describe("mapRequirements", () => {
     expect(keys({ queueSpawn: true })).toEqual(["spawns", "queueSpawn"]);
     expect(keys({ spectatorSpawn: true, queueSpawn: true })).toEqual(["spawns", "spectatorSpawn", "queueSpawn"]);
     expect(keys({ spectatorSpawn: false })).toEqual(["spawns"]);
+  });
+
+  it("makes a row for each of a point's types, one map choice covering them all", () => {
+    const map = { points: { chris: { label: "Chris", marker: "player" as const, types: [{ id: "pregame", name: "Pre-game" }, { id: "star", name: "Star", count: 2 }] } }, adjustable: { "points.chris": { off: true } } };
+    const rows = mapRequirements(map, { kind: "game", maxPlayers: 2 }).filter((row) => row.field === "points");
+    expect(rows).toEqual([
+      { key: "points.chris.pregame", label: "Chris (Pre-game)", field: "points", name: "chris.pregame", type: "pregame", typeName: "Pre-game", min: 1, marker: "player", floor: 0 },
+      { key: "points.chris.star", label: "Chris (Star)", field: "points", name: "chris.star", type: "star", typeName: "Star", min: 2, marker: "player", floor: 0 },
+    ]);
+    expect(rows.map(optionKey)).toEqual(["points.chris", "points.chris"]);
+    expect(requirementOptions(map, { kind: "game", maxPlayers: 2 })).toEqual([{ key: "points.chris", label: "Chris", count: 1, off: true }]);
+    expect(mapRequirements(map, { kind: "game", maxPlayers: 2, choices: { "points.chris": false } }).some((row) => row.field === "points")).toBe(false);
   });
 
   it("treats per-team entries as one when the game has no teams", () => {

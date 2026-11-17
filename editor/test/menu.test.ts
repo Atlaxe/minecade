@@ -636,6 +636,27 @@ describe("tool screens", () => {
     expect(entries.at(-1)?.text).toBe(saveBarText("Place Hole (Blue)"));
   });
 
+  it("picks a marker's type in a Type list when its point has types", () => {
+    const typeRules = { kind: "game" as const, maxPlayers: 4, requires: { points: { chris: { label: "Chris", marker: "player" as const, types: [{ id: "pregame", name: "Pre-game" }, { id: "star", name: "Star" }] }, flag: { label: "Flag" } } } };
+    const markers = toolLists(spawnLists({ ...draft, spawns: [] }, typeRules), "marker");
+    expect(markers.map((list) => [list.key, list.group, list.groupLabel, list.teamLabel, list.sublist])).toEqual([
+      ["points.chris.pregame", "points.chris", "Chris", "Pre-game", "Type"],
+      ["points.chris.star", "points.chris", "Chris", "Star", "Type"],
+      ["points.flag", "points.flag", "Flag", undefined, undefined],
+    ]);
+    const closed = entryScreenEntries({ lists: markers, list: "points.chris.pregame", at, snap: "exact", center: false, step: 1 });
+    expect(closed.slice(0, 2)).toEqual([
+      { action: { kind: "open", which: "group" }, text: `${MARK.lead}${dropdownText("Marker", "Chris", false)}` },
+      { action: { kind: "open", which: "team" }, text: `${MARK.lead}${dropdownText("Type", "Pre-game", false)}` },
+    ]);
+    const open = entryScreenEntries({ lists: markers, list: "points.chris.pregame", open: "team", at, snap: "exact", center: false, step: 1 });
+    expect(open.slice(2, 4)).toEqual([
+      { action: { kind: "list", key: "points.chris.pregame" }, text: `${MARK.lead}${optionText("Pre-game", true)}` },
+      { action: { kind: "list", key: "points.chris.star" }, text: `${MARK.lead}${optionText("Star", false)}` },
+    ]);
+    expect(closed.at(-1)?.text).toBe(saveBarText("Place Chris (Pre-game)"));
+  });
+
   it("offers the queue's settings, Renumber and Delete on one the map has, and Save at the bottom", () => {
     const entries = entryScreenEntries({ lists, list: "queueSpawn", at, facing: { yaw: 180, pitch: 0 }, snap: "90", center: true, step: 0.5, existing: { index: 0, count: 2 }, queue: { mode: "lock", countdown: 5 } });
     const kinds = entries.map((entry) => entry.action.kind);

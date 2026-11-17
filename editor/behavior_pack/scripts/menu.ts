@@ -396,7 +396,8 @@ export function listInGroup(lists: SpawnList[], group: string, team?: string): S
 
 /**
  * A spawn or marker's screen: what it is (the Spawn tool's tiles: Spawn, Spectator, Queue; the Game
- * marker tool's Marker list) and its team (a Team list, for a team's spawns or markers), its
+ * marker tool's Marker list) and its team (a Team list, for a team's spawns or markers) or type (a
+ * Type list, for a marker with types), its
  * position and facing, the queue's settings for the queue spawn, nudge rows for each axis, Step,
  * Renumber and Delete (one the map has), and Place or Save, green, at the bottom. A list opens
  * under its row, the one in use outlined, and closes once one is picked.
@@ -418,7 +419,7 @@ export function entryScreenEntries(view: EntryScreenView): { action: EntryScreen
   }
   const teams = view.lists.filter((list) => list.group === current?.group && list.teamLabel !== undefined);
   if (current?.teamLabel !== undefined && teams.length > 0) {
-    dropdown("team", "Team", teams.map((list) => ({ key: list.key, label: list.teamLabel ?? "", on: list.key === current.key })));
+    dropdown("team", current.sublist ?? "Team", teams.map((list) => ({ key: list.key, label: list.teamLabel ?? "", on: list.key === current.key })));
   }
   const snap = SNAPS.find((candidate) => candidate.snap === view.snap)?.label ?? "Exact";
   lead({ kind: "none" }, headingText("Position"));

@@ -10,19 +10,23 @@
   //   title   '§k§1' one player (the words, the buttons beside them), '§k§2' everyone (the words the
   //           whole width), '§k§8' it has a speaker's name
   //   rows    '§k§1' a sentence of the words, '§k§2' a button, '§k§3' the selected button,
-  //           '§k§4' the skip strip (bottom right)
+  //           '§k§4' the skip strip (a tab on the box's top border, at the right)
   // Codes never render, so each row shows as its text, colors and all.
   //
   // The look is in the variables on "box" (sizes in screen units, colors 0 to 1), for the user or
-  // their JSON UI tool to change; the controls below them only wire the rows in.
+  // their JSON UI tool to change; the controls below them only wire the rows in. A size or offset
+  // variable is always the whole pair, [width, height] or [x, y]: the game rejects a variable as one
+  // part of one ("Dangling number (no % or px in Size)" in the content log), and the control then
+  // has no size (the box once drew only the speaker's name that way). The plain fills (the tabs, the
+  // highlight) say "keep_ratio": false, or the game draws their square texture as a square.
 
   "box": {
     "type": "panel",
     "size": [ "100%", "100%" ],
-    "$box_width": 330,
-    "$box_bottom": -12,
-    "$buttons_width": 96,
-    "$button_height": 13,
+    "$box_size": [ 330, "100%cm + 16px" ],
+    "$box_offset": [ 0, -12 ],
+    "$buttons_size": [ 96, "100%c" ],
+    "$button_size": [ "100%", 13 ],
     "$text_color": [ 1.0, 1.0, 1.0 ],
     "$name_color": [ 1.0, 1.0, 1.0 ],
     "$tab_color": [ 0.0, 0.0, 0.0 ],
@@ -30,7 +34,7 @@
     "$highlight_color": [ 0.282, 0.753, 0.941 ],
     "$highlight_alpha": 0.9,
     "$skip_color": [ 0.0, 0.0, 0.0 ],
-    "$skip_alpha": 0.55,
+    "$skip_alpha": 0.9,
     "visible": false,
     "bindings": [
       { "binding_name": "#scoreboard_sidebar_visible", "binding_type": "global" },
@@ -42,24 +46,24 @@
       }
     ],
     "controls": [
-      { "frame@blockparty_dialogue.frame": {} },
-      { "skip@blockparty_dialogue.skip_strip": {} }
+      { "frame@blockparty_dialogue.frame": {} }
     ]
   },
 
   // The box: an outline round a see-through middle (a nine-slice), as tall as what's in it, with the
-  // speaker's name on its top border.
+  // speaker's name on its top border at the left and the skip strip on it at the right.
   "frame": {
     "type": "image",
     "texture": "textures/blockparty/ui/dialogue_box",
     "anchor_from": "bottom_middle",
     "anchor_to": "bottom_middle",
-    "offset": [ 0, "$box_bottom" ],
-    "size": [ "$box_width", "100%c + 16px" ],
+    "offset": "$box_offset",
+    "size": "$box_size",
     "layer": 20,
     "controls": [
       { "columns@blockparty_dialogue.columns": {} },
-      { "name_tab@blockparty_dialogue.name_tab": {} }
+      { "name_tab@blockparty_dialogue.name_tab": {} },
+      { "skip@blockparty_dialogue.skip_strip": {} }
     ]
   },
 
@@ -96,7 +100,7 @@
         "buttons": {
           "type": "stack_panel",
           "orientation": "vertical",
-          "size": [ "$buttons_width", "100%c" ],
+          "size": "$buttons_size",
           "visible": false,
           "collection_name": "scoreboard_players",
           "factory": { "name": "player_list_factory", "control_name": "blockparty_dialogue.button_row" },
@@ -140,7 +144,7 @@
   // One button (a row with '§k§2', or '§k§3' while it's selected: the highlight behind it).
   "button_row": {
     "type": "panel",
-    "size": [ "100%", "$button_height" ],
+    "size": "$button_size",
     "visible": false,
     "bindings": [
       { "binding_name": "#player_name_sidebar", "binding_type": "collection", "binding_collection_name": "scoreboard_players" },
@@ -155,6 +159,7 @@
         "highlight": {
           "type": "image",
           "texture": "textures/blockparty/ui/white",
+          "keep_ratio": false,
           "size": [ "100%", "100% - 1px" ],
           "anchor_from": "top_left",
           "anchor_to": "top_left",
@@ -191,6 +196,7 @@
   "name_tab": {
     "type": "image",
     "texture": "textures/blockparty/ui/white",
+    "keep_ratio": false,
     "anchor_from": "top_left",
     "anchor_to": "top_left",
     "offset": [ 8, -6 ],
@@ -220,13 +226,14 @@
     ]
   },
 
-  // The skip strip bottom right (a row with '§k§4'): the words, then who's jumped to skip.
+  // The skip strip (a row with '§k§4'): the words, then who's jumped to skip, on a tab of the box's
+  // top border at the right, like the name's at the left.
   "skip_strip": {
     "type": "stack_panel",
     "orientation": "vertical",
-    "anchor_from": "bottom_right",
-    "anchor_to": "bottom_right",
-    "offset": [ -6, -6 ],
+    "anchor_from": "top_right",
+    "anchor_to": "top_right",
+    "offset": [ -8, -6 ],
     "size": [ 200, "100%c" ],
     "collection_name": "scoreboard_players",
     "factory": { "name": "player_list_factory", "control_name": "blockparty_dialogue.skip_row" },
@@ -235,7 +242,7 @@
 
   "skip_row": {
     "type": "panel",
-    "size": [ "100%", "100%c" ],
+    "size": [ "100%", 11 ],
     "visible": false,
     "bindings": [
       { "binding_name": "#player_name_sidebar", "binding_type": "collection", "binding_collection_name": "scoreboard_players" },
@@ -246,12 +253,13 @@
         "bubble": {
           "type": "image",
           "texture": "textures/blockparty/ui/white",
-          "anchor_from": "bottom_right",
-          "anchor_to": "bottom_right",
-          "size": [ "100%c + 8px", "100%c + 4px" ],
+          "keep_ratio": false,
+          "anchor_from": "top_right",
+          "anchor_to": "top_right",
+          "size": [ "100%c + 8px", 11 ],
           "color": "$skip_color",
           "alpha": "$skip_alpha",
-          "layer": 20,
+          "layer": 23,
           "controls": [
             {
               "text": {
@@ -259,7 +267,7 @@
                 "anchor_from": "center",
                 "anchor_to": "center",
                 "color": "$text_color",
-                "layer": 21,
+                "layer": 1,
                 "text": "#player_name_sidebar",
                 "shadow": true,
                 "localize": false,

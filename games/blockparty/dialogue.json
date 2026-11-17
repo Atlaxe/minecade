@@ -1,38 +1,45 @@
 {
   "about": "Block Party's lines, from the user's dialogue editor (not in this repo). Change them there, not here.",
   "lines": {
-    "board.start": [
-      "Everyone starts with {coins}. {starWhere}"
-    ],
-    "order.result": [
-      "Turn order: {order}."
-    ],
     "pregame.welcome": [
-      "Welcome to Block Party! I'm Chris, and I keep the coins. Lots of coins. Let's have a look at tonight's board!",
-      "Oink, and welcome! I'm Chris, your host and your bank. Take a look around: this is where it all happens."
+      "Welcome to Block Party! I'm Chris P. Bacon, and it's time to start a new adventure!",
+      "Hello travelers, and welcome! I'm Chris P. Bacon, your friend and guide, to follow you on your adventures!"
     ],
     "pregame.length": [
-      "We're playing {rounds} rounds tonight. Whoever has the most Stars at the end wins!"
-    ],
-    "pregame.intro": [
-      "Give it up for {player}!",
-      "Here's {player}, ready to party!",
-      "And now, {player}! Look at that confidence."
+      "Okay! We're playing {rounds} rounds tonight. Whoever has the most Stars at the end wins!"
     ],
     "pregame.order": [
-      "First things first: who goes first? Everybody roll! The highest number leads the way."
-    ],
-    "pregame.order.reveal": [
-      "{player} goes first! Everyone else, line up behind."
-    ],
-    "order.place": [
-      "{player}: {place}"
+      "Let's get this started by rolling the dice to figure out the order.",
+      "Now, let's roll dice to figure out turn order."
     ],
     "pregame.star": [
-      "And here's what you're all after: the first Star, waiting on {space}!"
+      "And here's what you're all after: the first Star, waiting on {space}! make sure to get as many as you can!"
+    ],
+    "pregame.rules": [
+      "Would you like to me to oink-splain the rules?",
+      "Want a rundown of the rules before we start?"
+    ],
+    "pregame.rules.yes": [
+      "Yes, please!"
+    ],
+    "pregame.rules.no": [
+      "No, let's play!"
+    ],
+    "pregame.place.1": [
+      "First, {player}."
+    ],
+    "pregame.place.2": [
+      "Second, {player}."
+    ],
+    "pregame.place.3": [
+      "Third, {player}."
+    ],
+    "pregame.place.4": [
+      "And fourth, {player}"
     ],
     "pregame.coins": [
-      "Everybody gets {coins} from me to start. Spend them wisely. Or don't, I won't tell."
+      "Here are {coins} as gift! Spend them wisely, or don't...",
+      "Here's some {coins} just for you to get you started! Get yourself something nice, on me!"
     ],
     "tutorial.goal": [
       "Here's the deal: collect the most Stars by the end of the game. Coins buy Stars, and Stars win."
@@ -815,77 +822,85 @@
     ]
   },
   "moments": {
-    "board.start": {
-      "character": "Game",
-      "delivery": "Chat, everyone"
-    },
-    "order.result": {
-      "character": "Game",
-      "delivery": "Chat, everyone"
-    },
     "pregame.welcome": {
       "character": "Chris",
-      "delivery": "NPC"
+      "delivery": "Dialogue box"
     },
     "pregame.length": {
       "character": "Chris",
-      "delivery": "NPC"
-    },
-    "pregame.intro": {
-      "character": "Chris",
-      "delivery": "NPC"
+      "delivery": "Dialogue box"
     },
     "pregame.order": {
       "character": "Chris",
-      "delivery": "NPC"
-    },
-    "pregame.order.reveal": {
-      "character": "Chris",
-      "delivery": "NPC"
-    },
-    "order.place": {
-      "character": "Game",
-      "delivery": "Title"
+      "delivery": "Dialogue box"
     },
     "pregame.star": {
       "character": "Chris",
-      "delivery": "NPC"
+      "delivery": "Dialogue box"
+    },
+    "pregame.rules": {
+      "character": "Chris",
+      "delivery": "Dialogue box"
+    },
+    "pregame.rules.yes": {
+      "character": "Game",
+      "delivery": "HUD"
+    },
+    "pregame.rules.no": {
+      "character": "Game",
+      "delivery": "HUD"
+    },
+    "pregame.place.1": {
+      "character": "Chris",
+      "delivery": "Dialogue box"
+    },
+    "pregame.place.2": {
+      "character": "Chris",
+      "delivery": "Dialogue box"
+    },
+    "pregame.place.3": {
+      "character": "Chris",
+      "delivery": "Dialogue box"
+    },
+    "pregame.place.4": {
+      "character": "Chris",
+      "delivery": "Dialogue box"
     },
     "pregame.coins": {
       "character": "Chris",
-      "delivery": "NPC"
+      "delivery": "Dialogue box"
     },
     "tutorial.goal": {
       "character": "Chris",
-      "delivery": "NPC"
+      "delivery": "Dialogue box"
     },
     "tutorial.turns": {
       "character": "Chris",
-      "delivery": "NPC"
+      "delivery": "Dialogue box"
     },
     "tutorial.branches": {
       "character": "Chris",
-      "delivery": "NPC"
+      "delivery": "Dialogue box"
     },
     "tutorial.spaces": {
       "character": "Chris",
-      "delivery": "NPC"
+      "delivery": "Dialogue box"
     },
     "tutorial.stars": {
       "character": "Chris",
-      "delivery": "NPC"
+      "delivery": "Dialogue box"
     },
     "tutorial.items": {
       "character": "Chris",
-      "delivery": "NPC"
+      "delivery": "Dialogue box"
     },
     "tutorial.minigames": {
       "character": "Chris",
-      "delivery": "NPC"
+      "delivery": "Dialogue box"
     },
     "tutorial.end": {
       "character": "Chris",
-      "delivery": "NPC"
+      "delivery": "Dialogue box"
     },
     "round.title": {
       "character": "Game",
@@ -901,39 +916,39 @@
     },
     "turn.roll.hint": {
       "character": "Game",
-      "delivery": "Chat, one player"
+      "delivery": "Dialogue box"
     },
     "turn.roll.pick": {
       "character": "Game",
-      "delivery": "Chat, one player"
+      "delivery": "Dialogue box"
     },
     "turn.dice.wait": {
       "character": "Game",
-      "delivery": "Chat, one player"
+      "delivery": "Dialogue box"
     },
     "turn.dice.later": {
       "character": "Game",
-      "delivery": "Chat, one player"
+      "delivery": "Dialogue box"
     },
     "turn.chris": {
       "character": "Chris",
-      "delivery": "NPC"
+      "delivery": "Dialogue box"
     },
     "turn.rolled": {
       "character": "Game",
-      "delivery": "Chat, everyone"
+      "delivery": "Dialogue box"
     },
     "turn.rolled.high": {
       "character": "Chris",
-      "delivery": "NPC"
+      "delivery": "Dialogue box"
     },
     "turn.rolled.one": {
       "character": "Chris",
-      "delivery": "NPC"
+      "delivery": "Dialogue box"
     },
     "turn.skipped": {
       "character": "Game",
-      "delivery": "Chat, everyone"
+      "delivery": "Dialogue box"
     },
     "branch.title": {
       "character": "Game",
@@ -949,55 +964,55 @@
     },
     "branch.bot": {
       "character": "Game",
-      "delivery": "Chat, everyone"
+      "delivery": "Dialogue box"
     },
     "land.blue": {
       "character": "Game",
-      "delivery": "Chat, everyone"
+      "delivery": "Dialogue box"
     },
     "land.red": {
       "character": "Game",
-      "delivery": "Chat, everyone"
+      "delivery": "Dialogue box"
     },
     "land.item": {
       "character": "Game",
-      "delivery": "Chat, everyone"
+      "delivery": "Dialogue box"
     },
     "land.shop": {
       "character": "Game",
-      "delivery": "Chat, everyone"
+      "delivery": "Dialogue box"
     },
     "land.chance": {
       "character": "Game",
-      "delivery": "Chat, everyone"
+      "delivery": "Dialogue box"
     },
     "land.warden": {
       "character": "Game",
-      "delivery": "Chat, everyone"
+      "delivery": "Dialogue box"
     },
     "land.happening": {
       "character": "Game",
-      "delivery": "Chat, everyone"
+      "delivery": "Dialogue box"
     },
     "land.start": {
       "character": "Game",
-      "delivery": "Chat, everyone"
+      "delivery": "Dialogue box"
     },
     "star.where.one": {
       "character": "Game",
-      "delivery": "Chat, everyone"
+      "delivery": "Dialogue box"
     },
     "star.where.two": {
       "character": "Game",
-      "delivery": "Chat, everyone"
+      "delivery": "Dialogue box"
     },
     "star.short": {
       "character": "Game",
-      "delivery": "Chat, one player"
+      "delivery": "Dialogue box"
     },
     "star.short.bot": {
       "character": "Game",
-      "delivery": "Chat, everyone"
+      "delivery": "Dialogue box"
     },
     "star.form.title": {
       "character": "Game",
@@ -1017,7 +1032,7 @@
     },
     "star.bought": {
       "character": "Game",
-      "delivery": "Chat, everyone"
+      "delivery": "Dialogue box"
     },
     "star.bought.title": {
       "character": "Game",
@@ -1029,31 +1044,31 @@
     },
     "star.chris.offer": {
       "character": "Chris",
-      "delivery": "NPC"
+      "delivery": "Dialogue box"
     },
     "star.chris.short": {
       "character": "Chris",
-      "delivery": "NPC"
+      "delivery": "Dialogue box"
     },
     "star.chris.sold": {
       "character": "Chris",
-      "delivery": "NPC"
+      "delivery": "Dialogue box"
     },
     "star.chris.declined": {
       "character": "Chris",
-      "delivery": "NPC"
+      "delivery": "Dialogue box"
     },
     "star.chris.moves": {
       "character": "Chris",
-      "delivery": "NPC"
+      "delivery": "Dialogue box"
     },
     "star.chris.half-price": {
       "character": "Chris",
-      "delivery": "NPC"
+      "delivery": "Dialogue box"
     },
     "shop.welcome": {
       "character": "Villager",
-      "delivery": "NPC"
+      "delivery": "Dialogue box"
     },
     "shop.form.title": {
       "character": "Game",
@@ -1077,35 +1092,35 @@
     },
     "shop.bought": {
       "character": "Villager",
-      "delivery": "NPC"
+      "delivery": "Dialogue box"
     },
     "shop.short": {
       "character": "Villager",
-      "delivery": "NPC"
+      "delivery": "Dialogue box"
     },
     "shop.full": {
       "character": "Villager",
-      "delivery": "NPC"
+      "delivery": "Dialogue box"
     },
     "shop.sold": {
       "character": "Villager",
-      "delivery": "NPC"
+      "delivery": "Dialogue box"
     },
     "shop.bye": {
       "character": "Villager",
-      "delivery": "NPC"
+      "delivery": "Dialogue box"
     },
     "shop.nothing": {
       "character": "Villager",
-      "delivery": "NPC"
+      "delivery": "Dialogue box"
     },
     "trader.arrives": {
       "character": "Chris",
-      "delivery": "NPC"
+      "delivery": "Dialogue box"
     },
     "trader.offer": {
       "character": "Wandering Trader",
-      "delivery": "NPC"
+      "delivery": "Dialogue box"
     },
     "trader.form.title": {
       "character": "Game",
@@ -1117,35 +1132,35 @@
     },
     "trader.sold": {
       "character": "Wandering Trader",
-      "delivery": "NPC"
+      "delivery": "Dialogue box"
     },
     "trader.short": {
       "character": "Wandering Trader",
-      "delivery": "NPC"
+      "delivery": "Dialogue box"
     },
     "trader.sold-out": {
       "character": "Chris",
-      "delivery": "NPC"
+      "delivery": "Dialogue box"
     },
     "trader.leaves": {
       "character": "Chris",
-      "delivery": "NPC"
+      "delivery": "Dialogue box"
     },
     "chance.welcome": {
       "character": "Witch",
-      "delivery": "NPC"
+      "delivery": "Dialogue box"
     },
     "chance.potions": {
       "character": "Witch",
-      "delivery": "NPC"
+      "delivery": "Dialogue box"
     },
     "chance.reroll.offer": {
       "character": "Witch",
-      "delivery": "NPC"
+      "delivery": "Dialogue box"
     },
     "chance.reroll.done": {
       "character": "Witch",
-      "delivery": "NPC"
+      "delivery": "Dialogue box"
     },
     "chance.form.title": {
       "character": "Game",
@@ -1161,11 +1176,11 @@
     },
     "chance.coin-rain": {
       "character": "Witch",
-      "delivery": "NPC"
+      "delivery": "Dialogue box"
     },
     "chance.coin-swap": {
       "character": "Witch",
-      "delivery": "NPC"
+      "delivery": "Dialogue box"
     },
     "chance.coin-swap.form": {
       "character": "Game",
@@ -1173,11 +1188,11 @@
     },
     "chance.reverse-fortune": {
       "character": "Witch",
-      "delivery": "NPC"
+      "delivery": "Dialogue box"
     },
     "chance.double": {
       "character": "Witch",
-      "delivery": "NPC"
+      "delivery": "Dialogue box"
     },
     "chance.double.form": {
       "character": "Game",
@@ -1185,119 +1200,119 @@
     },
     "chance.double.won": {
       "character": "Witch",
-      "delivery": "NPC"
+      "delivery": "Dialogue box"
     },
     "chance.double.lost": {
       "character": "Witch",
-      "delivery": "NPC"
+      "delivery": "Dialogue box"
     },
     "chance.gift-exchange": {
       "character": "Witch",
-      "delivery": "NPC"
+      "delivery": "Dialogue box"
     },
     "chance.lucky-draw": {
       "character": "Witch",
-      "delivery": "NPC"
+      "delivery": "Dialogue box"
     },
     "chance.shuffle": {
       "character": "Witch",
-      "delivery": "NPC"
+      "delivery": "Dialogue box"
     },
     "chance.battle-royale": {
       "character": "Witch",
-      "delivery": "NPC"
+      "delivery": "Dialogue box"
     },
     "chance.zombie": {
       "character": "Witch",
-      "delivery": "NPC"
+      "delivery": "Dialogue box"
     },
     "chance.half-price": {
       "character": "Witch",
-      "delivery": "NPC"
+      "delivery": "Dialogue box"
     },
     "chance.shooting-star": {
       "character": "Witch",
-      "delivery": "NPC"
+      "delivery": "Dialogue box"
     },
     "chance.bye": {
       "character": "Witch",
-      "delivery": "NPC"
+      "delivery": "Dialogue box"
     },
     "warden.arrives": {
       "character": "Warden",
-      "delivery": "NPC"
+      "delivery": "Dialogue box"
     },
     "warden.sculk-tax": {
       "character": "Warden",
-      "delivery": "NPC"
+      "delivery": "Dialogue box"
     },
     "warden.hush-money": {
       "character": "Warden",
-      "delivery": "NPC"
+      "delivery": "Dialogue box"
     },
     "warden.star-tax": {
       "character": "Warden",
-      "delivery": "NPC"
+      "delivery": "Dialogue box"
     },
     "warden.silenced": {
       "character": "Warden",
-      "delivery": "NPC"
+      "delivery": "Dialogue box"
     },
     "warden.slow-curse": {
       "character": "Warden",
-      "delivery": "NPC"
+      "delivery": "Dialogue box"
     },
     "warden.zombie-curse": {
       "character": "Warden",
-      "delivery": "NPC"
+      "delivery": "Dialogue box"
     },
     "warden.sonic-boom": {
       "character": "Warden",
-      "delivery": "NPC"
+      "delivery": "Dialogue box"
     },
     "warden.leaves": {
       "character": "Game",
-      "delivery": "Chat, everyone"
+      "delivery": "Dialogue box"
     },
     "happening.coins": {
       "character": "Game",
-      "delivery": "Chat, everyone"
+      "delivery": "Dialogue box"
     },
     "happening.item": {
       "character": "Game",
-      "delivery": "Chat, everyone"
+      "delivery": "Dialogue box"
     },
     "happening.forward": {
       "character": "Game",
-      "delivery": "Chat, everyone"
+      "delivery": "Dialogue box"
     },
     "happening.back": {
       "character": "Game",
-      "delivery": "Chat, everyone"
+      "delivery": "Dialogue box"
     },
     "happening.lose": {
       "character": "Game",
-      "delivery": "Chat, everyone"
+      "delivery": "Dialogue box"
     },
     "happening.nothing": {
       "character": "Game",
-      "delivery": "Chat, everyone"
+      "delivery": "Dialogue box"
     },
     "happening.swap-item": {
       "character": "Game",
-      "delivery": "Chat, everyone"
+      "delivery": "Dialogue box"
     },
     "happening.roll-again": {
       "character": "Game",
-      "delivery": "Chat, everyone"
+      "delivery": "Dialogue box"
     },
     "items.got": {
       "character": "Game",
-      "delivery": "Chat, everyone"
+      "delivery": "Dialogue box"
     },
     "items.full": {
       "character": "Game",
-      "delivery": "Chat, one player"
+      "delivery": "Dialogue box"
     },
     "items.pick.title": {
       "character": "Game",
@@ -1305,127 +1320,127 @@
     },
     "items.stone-totem": {
       "character": "Game",
-      "delivery": "Chat, everyone"
+      "delivery": "Dialogue box"
     },
     "items.golden-totem": {
       "character": "Game",
-      "delivery": "Chat, everyone"
+      "delivery": "Dialogue box"
     },
     "items.ender-pearl": {
       "character": "Enderman",
-      "delivery": "Chat, everyone"
+      "delivery": "Dialogue box"
     },
     "items.cursed-totem": {
       "character": "Game",
-      "delivery": "Chat, everyone"
+      "delivery": "Dialogue box"
     },
     "items.lightning": {
       "character": "Game",
-      "delivery": "Chat, everyone"
+      "delivery": "Dialogue box"
     },
     "items.lightning.self": {
       "character": "Game",
-      "delivery": "Chat, everyone"
+      "delivery": "Dialogue box"
     },
     "items.zombie-spawn": {
       "character": "Game",
-      "delivery": "Chat, everyone"
+      "delivery": "Dialogue box"
     },
     "items.iron-golem": {
       "character": "Iron Golem",
-      "delivery": "Chat, everyone"
+      "delivery": "Dialogue box"
     },
     "items.iron-golem.zombie": {
       "character": "Iron Golem",
-      "delivery": "Chat, everyone"
+      "delivery": "Dialogue box"
     },
     "items.villager": {
       "character": "Villager",
-      "delivery": "NPC"
+      "delivery": "Dialogue box"
     },
     "items.villager.final": {
       "character": "Game",
-      "delivery": "Chat, one player"
+      "delivery": "Dialogue box"
     },
     "zombie.arrives": {
       "character": "Zombie",
-      "delivery": "NPC"
+      "delivery": "Dialogue box"
     },
     "zombie.takes": {
       "character": "Zombie",
-      "delivery": "NPC"
+      "delivery": "Dialogue box"
     },
     "zombie.takes.chat": {
       "character": "Game",
-      "delivery": "Chat, everyone"
+      "delivery": "Dialogue box"
     },
     "zombie.leaves": {
       "character": "Game",
-      "delivery": "Chat, everyone"
+      "delivery": "Dialogue box"
     },
     "dice.full": {
       "character": "Game",
-      "delivery": "Chat, one player"
+      "delivery": "Dialogue box"
     },
     "dice.slow-curse": {
       "character": "Game",
-      "delivery": "Chat, everyone"
+      "delivery": "Dialogue box"
     },
     "dice.triple": {
       "character": "Game",
-      "delivery": "Chat, everyone"
+      "delivery": "Dialogue box"
     },
     "dice.risk.zero": {
       "character": "Game",
-      "delivery": "Chat, everyone"
+      "delivery": "Dialogue box"
     },
     "dice.golden": {
       "character": "Game",
-      "delivery": "Chat, everyone"
+      "delivery": "Dialogue box"
     },
     "dice.halved": {
       "character": "Game",
-      "delivery": "Chat, everyone"
+      "delivery": "Dialogue box"
     },
     "dice.cursed.given": {
       "character": "Game",
-      "delivery": "Chat, everyone"
+      "delivery": "Dialogue box"
     },
     "dice.cursed.lucky": {
       "character": "Game",
-      "delivery": "Chat, everyone"
+      "delivery": "Dialogue box"
     },
     "dice.cursed.unlucky": {
       "character": "Game",
-      "delivery": "Chat, everyone"
+      "delivery": "Dialogue box"
     },
     "dice.mystery.swap": {
       "character": "Game",
-      "delivery": "Chat, everyone"
+      "delivery": "Dialogue box"
     },
     "dice.mystery.coin-swap": {
       "character": "Game",
-      "delivery": "Chat, everyone"
+      "delivery": "Dialogue box"
     },
     "dice.mystery.double": {
       "character": "Game",
-      "delivery": "Chat, everyone"
+      "delivery": "Dialogue box"
     },
     "dice.mystery.coins": {
       "character": "Game",
-      "delivery": "Chat, everyone"
+      "delivery": "Dialogue box"
     },
     "dice.mystery.back": {
       "character": "Game",
-      "delivery": "Chat, everyone"
+      "delivery": "Dialogue box"
     },
     "dice.mystery.again": {
       "character": "Game",
-      "delivery": "Chat, everyone"
+      "delivery": "Dialogue box"
     },
     "versus.nobody": {
       "character": "Game",
-      "delivery": "Chat, everyone"
+      "delivery": "Dialogue box"
     },
     "versus.form.title": {
       "character": "Game",
@@ -1441,15 +1456,15 @@
     },
     "versus.start": {
       "character": "Game",
-      "delivery": "Chat, everyone"
+      "delivery": "Dialogue box"
     },
     "versus.start.doubled": {
       "character": "Game",
-      "delivery": "Chat, everyone"
+      "delivery": "Dialogue box"
     },
     "versus.won": {
       "character": "Game",
-      "delivery": "Chat, everyone"
+      "delivery": "Dialogue box"
     },
     "versus.won.title": {
       "character": "Game",
@@ -1477,23 +1492,23 @@
     },
     "versus.announce": {
       "character": "Referee",
-      "delivery": "NPC"
+      "delivery": "Dialogue box"
     },
     "versus.faceoff": {
       "character": "Referee",
-      "delivery": "NPC"
+      "delivery": "Dialogue box"
     },
     "versus.glove": {
       "character": "Referee",
-      "delivery": "NPC"
+      "delivery": "Dialogue box"
     },
     "versus.doubled": {
       "character": "Referee",
-      "delivery": "NPC"
+      "delivery": "Dialogue box"
     },
     "versus.bets.open": {
       "character": "Referee",
-      "delivery": "NPC"
+      "delivery": "Dialogue box"
     },
     "versus.bets.form.title": {
       "character": "Game",
@@ -1505,19 +1520,19 @@
     },
     "versus.bets.closed": {
       "character": "Referee",
-      "delivery": "NPC"
+      "delivery": "Dialogue box"
     },
     "versus.referee.winner": {
       "character": "Referee",
-      "delivery": "NPC"
+      "delivery": "Dialogue box"
     },
     "versus.bet.won": {
       "character": "Game",
-      "delivery": "Chat, one player"
+      "delivery": "Dialogue box"
     },
     "versus.bet.lost": {
       "character": "Game",
-      "delivery": "Chat, one player"
+      "delivery": "Dialogue box"
     },
     "format.ffa": {
       "character": "Game",
@@ -1541,11 +1556,11 @@
     },
     "minigame.battle.pot": {
       "character": "Game",
-      "delivery": "Chat, everyone"
+      "delivery": "Dialogue box"
     },
     "minigame.rules": {
       "character": "Game",
-      "delivery": "Chat, everyone"
+      "delivery": "Dialogue box"
     },
     "minigame.ready.status": {
       "character": "Game",
@@ -1557,7 +1572,7 @@
     },
     "minigame.places": {
       "character": "Game",
-      "delivery": "Chat, everyone"
+      "delivery": "Dialogue box"
     },
     "minigame.won.one": {
       "character": "Game",
@@ -1613,59 +1628,59 @@
     },
     "minigame.coins": {
       "character": "Game",
-      "delivery": "Chat, everyone"
+      "delivery": "Dialogue box"
     },
     "minigame.coins.doubled": {
       "character": "Game",
-      "delivery": "Chat, everyone"
+      "delivery": "Dialogue box"
     },
     "minigame.pot": {
       "character": "Game",
-      "delivery": "Chat, everyone"
+      "delivery": "Dialogue box"
     },
     "minigame.chris": {
       "character": "Chris",
-      "delivery": "NPC"
+      "delivery": "Dialogue box"
     },
     "minigame.chris.2v2": {
       "character": "Chris",
-      "delivery": "NPC"
+      "delivery": "Dialogue box"
     },
     "minigame.chris.1v3": {
       "character": "Chris",
-      "delivery": "NPC"
+      "delivery": "Dialogue box"
     },
     "minigame.chris.battle": {
       "character": "Chris",
-      "delivery": "NPC"
+      "delivery": "Dialogue box"
     },
     "minigame.chris.winner": {
       "character": "Chris",
-      "delivery": "NPC"
+      "delivery": "Dialogue box"
     },
     "minigame.chris.pot": {
       "character": "Chris",
-      "delivery": "NPC"
+      "delivery": "Dialogue box"
     },
     "minigame.chris.pot-split": {
       "character": "Chris",
-      "delivery": "NPC"
+      "delivery": "Dialogue box"
     },
     "announce.halfway": {
       "character": "Chris",
-      "delivery": "NPC"
+      "delivery": "Dialogue box"
     },
     "announce.standings": {
       "character": "Chris",
-      "delivery": "NPC"
+      "delivery": "Dialogue box"
     },
     "announce.lead": {
       "character": "Chris",
-      "delivery": "NPC"
+      "delivery": "Dialogue box"
     },
     "announce.comeback": {
       "character": "Chris",
-      "delivery": "NPC"
+      "delivery": "Dialogue box"
     },
     "round.doubled.subtitle": {
       "character": "Game",
@@ -1673,15 +1688,15 @@
     },
     "announce.doubled": {
       "character": "Game",
-      "delivery": "Chat, everyone"
+      "delivery": "Dialogue box"
     },
     "announce.doubling": {
       "character": "Chris",
-      "delivery": "NPC"
+      "delivery": "Dialogue box"
     },
     "announce.final": {
       "character": "Chris",
-      "delivery": "NPC"
+      "delivery": "Dialogue box"
     },
     "announce.final.title": {
       "character": "Game",
@@ -1697,15 +1712,15 @@
     },
     "bots.join.one": {
       "character": "Game",
-      "delivery": "Chat, everyone"
+      "delivery": "Dialogue box"
     },
     "bots.join.many": {
       "character": "Game",
-      "delivery": "Chat, everyone"
+      "delivery": "Dialogue box"
     },
     "join.late": {
       "character": "Game",
-      "delivery": "Chat, everyone"
+      "delivery": "Dialogue box"
     },
     "join.choice.title": {
       "character": "Game",
@@ -1737,7 +1752,7 @@
     },
     "join.refused": {
       "character": "Game",
-      "delivery": "Chat, one player"
+      "delivery": "Dialogue box"
     },
     "idle.vote.body": {
       "character": "Game",
@@ -1745,39 +1760,39 @@
     },
     "idle.skipped": {
       "character": "Game",
-      "delivery": "Chat, everyone"
+      "delivery": "Dialogue box"
     },
     "leave.player": {
       "character": "Game",
-      "delivery": "Chat, everyone"
+      "delivery": "Dialogue box"
     },
     "leave.back": {
       "character": "Game",
-      "delivery": "Chat, everyone"
+      "delivery": "Dialogue box"
     },
     "dialogue.next": {
       "character": "Game",
-      "delivery": "Dialogue button"
+      "delivery": "HUD"
     },
     "dialogue.skip": {
       "character": "Game",
-      "delivery": "Dialogue button"
+      "delivery": "HUD"
     },
     "end.chris.over": {
       "character": "Chris",
-      "delivery": "NPC"
+      "delivery": "Dialogue box"
     },
     "end.bonus.intro": {
       "character": "Chris",
-      "delivery": "NPC"
+      "delivery": "Dialogue box"
     },
     "end.allay.hello": {
       "character": "Allay",
-      "delivery": "NPC"
+      "delivery": "Dialogue box"
     },
     "end.bonus.award": {
       "character": "Allay",
-      "delivery": "NPC"
+      "delivery": "Dialogue box"
     },
     "award.hazards": {
       "character": "Game",
@@ -1857,15 +1872,15 @@
     },
     "end.tie": {
       "character": "Game",
-      "delivery": "Chat, everyone"
+      "delivery": "Dialogue box"
     },
     "end.tie.chris": {
       "character": "Chris",
-      "delivery": "NPC"
+      "delivery": "Dialogue box"
     },
     "end.tie.allay": {
       "character": "Allay",
-      "delivery": "NPC"
+      "delivery": "Dialogue box"
     },
     "end.title": {
       "character": "Game",
@@ -1877,15 +1892,15 @@
     },
     "end.standings": {
       "character": "Game",
-      "delivery": "Chat, everyone"
+      "delivery": "Dialogue box"
     },
     "end.podium": {
       "character": "Chris",
-      "delivery": "NPC"
+      "delivery": "Dialogue box"
     },
     "end.thanks": {
       "character": "Chris",
-      "delivery": "NPC"
+      "delivery": "Dialogue box"
     }
   }
 }

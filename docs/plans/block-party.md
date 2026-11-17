@@ -32,7 +32,7 @@ player animations and the sounds for pass 10: `block-party-ui.md`.
 | Players | 2 to 4 |
 | Pieces | The player, pushed from space to space by the script (vanilla's walk plays), easing into every corner, while everyone watches through the scripted camera (see "Pieces"). No names over the pieces: a HUD says whose turn it is |
 | Duels | 1v1 minigames, and FFA minigames played by 2 |
-| In the lobby | The board, the length (10, 15 or 20 turns) and Chris's tutorial, as game options |
+| In the lobby | The board and the length (10, 15 or 20 turns), as game options. Chris's tutorial is a question in the pre-game, not an option (the user's call, 2026-11-17) |
 | Starting coins | 10, handed out by Chris |
 | Bonus Stars | 3 with 3 or 4 players; 2 with 2 players (at most 1 each) |
 | Rolling | Jump to hit the die |
@@ -655,7 +655,7 @@ Each also has an event camera.
 | Intro flyover path (its cameras in order) | Camera tool |
 | Special event camera (a map with an event) | Camera tool |
 | Podium set: 4 spots, 1st to 4th, facing front | Game marker tool |
-| Pre-game lineup, one spot per player, and the turn-order pedestals (the starting podium in `block-party-ui.md`: a wider gap between the 2nd and 3rd spots, Chris's spot further back, a fixed podium camera). **Built in pass 6** as Podium lineup (4), Chris at the podium and Podium camera (`stage-markup.ts`) | Game marker tool |
+| Pre-game lineup, one spot per player, and the turn-order pedestals (the starting podium in `block-party-ui.md`: a wider gap between the 2nd and 3rd spots, Chris's spot further back, a fixed podium camera). **Built in pass 6** as **Pre-game podium** (4 spots, 1 to 4), **Chris** with the type **Pre-game** (the marker's Type list; more types come with later stages), and **Podium camera** (`stage-markup.ts`). Without a podium camera, the shot is from behind the podium looking at Chris | Game marker tool |
 | **Intro shots** (pass 6): the intro's cameras in order, each placed standing where the camera goes with your facing taken (the shot is what you saw); the camera eases from each to the next. They stand in for the intro flyover path above | Game marker tool |
 | NPC stages: Chris, Villager (the shop counter), Witch (the cauldron), Referee, and the Allay's landing spot. Each is the NPC's spot and the guest's spot (where the player stands to talk), both with a facing; the conversation shots are worked out from the two, and a camera named for the stage replaces the default | Game marker tool |
 | A spectator or queue spawn | Spawn tool |
@@ -926,14 +926,17 @@ reward was dropped.
      mobs' models with no AI, placed and turned by the game; shots for everyone, a pan or a cut
      (each moment's Camera in the user's file wins over its default). The board stays loaded
      (its ticking area takes in the podium), so NPCs can be placed anywhere on it.
-   - **The pre-game:** the intro (the map's intro shots or high ones round the board) under
-     Chris's welcome, a cut to the starting podium (everyone in the lineup facing Chris), how long
-     the game is, Chris's tutorial (the lobby's new **Chris's tutorial** option, on by default), the
-     starting coins, everyone turning to the camera and rolling for the order, then the reveal (the
-     camera moves to each player in turn order, their place as a title, Chris turning to them and
-     introducing them) and the Star reveal (the camera pans to each Star's space and a Chris drops
-     in beside it with slow falling). Everything but the roll is a cutscene everyone can vote to
-     skip; skipped, everyone still ends on Start and every Star has its Chris.
+   - **The pre-game,** in the order of the user's Pre-game flow chart in the dialogue tool: the
+     intro (the map's intro shots or high ones round the board) under Chris's welcome, a cut to
+     the starting podium (everyone on the pre-game podium facing Chris), Chris asking the first
+     player on the podium whether to go over the rules (`pregame.rules`, Yes plays the Tutorial
+     scene, No or sneak skips it; it was a lobby option until the user's look), how long the game
+     is, the call to roll, everyone turning to the camera and rolling for the order, then the
+     reveal (the camera moves to each player in turn order as Chris calls their place,
+     `pregame.place.1` to `.4`), the starting coins (`pregame.coins`), and the Star reveal (the
+     camera pans to each Star's space and a Chris drops in beside it with slow falling).
+     Everything but the roll is a cutscene everyone can vote to skip; skipped, everyone still ends
+     on Start and every Star has its Chris.
    - **Chris at the Star:** he stands beside each Star all game. Passing or landing on it, the
      camera pans to the player and Chris, and he offers it in the dialogue box (Buy a Star, Not
      now; sneak is Not now), or says the player can't afford it. Bought, he thanks them, the camera
@@ -946,7 +949,16 @@ reward was dropped.
    - **Not yet:** player animations (Celebrate on the reveal, `block-party-ui.md` "Player
      animations"), line actions and blocks from the dialogue tool, the other NPCs' stages (the
      Villager, the Witch, the Allay: with their passes), the board view's modes and the turn shot,
-     button prompts per device, heads in the skip strip (names for now). Not yet seen in game.
+     button prompts per device, heads in the skip strip (names for now).
+   - **After the user's first look (2026-11-17):** the dialogue box showed only Chris's name. Its
+     size variables were single parts of a size (`"$box_width": 330`), which the game rejects
+     ("Dangling number" in the client's content log), so the box had no width; they're whole pairs
+     now, the tabs and the highlight stretch (`keep_ratio`), and the skip strip is a tab on the
+     box's top border at the right (bottom right, it overlapped the box on 16:9 screens). The
+     workshop's JSON UI tool now draws the box (its Game preview list) and reports that error. A
+     sentence no longer ends at an initial or a title ("Chris P. Bacon"). The pre-game follows the
+     user's flow chart, with the tutorial as Chris's question; the markers are Pre-game podium and
+     Chris by type. Not yet seen in game.
 7. **Items, dice, Chance Time, the Warden, the shop and the Trader.**
 8. **End of game:** bonus Stars, the tiebreaker, the podium.
 9. **The rest of the minigames.**

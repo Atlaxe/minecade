@@ -238,7 +238,9 @@ player.
 Replaces the x / y count: the word, then the heads of the players who've voted, `Skip [head]
 [head]`, or `Ready [head] [head]` in the minigame tutorial. Beside it, what to press for the viewer's
 device where the game can tell, otherwise the word ("Button prompts"). Every skippable cutscene (the
-intro), every skippable line spoken to everyone, and every Ready uses it.
+intro), every skippable line spoken to everyone, and every Ready uses it. While the dialogue box is
+up, the Skip strip is a tab on its top border at the right, like the speaker's name at the left
+(2026-11-17: bottom right, it overlapped the box on 16:9 screens).
 
 ## The minigame tutorial (left third)
 
@@ -351,8 +353,8 @@ stays as proposals.
 
 | Shot | What it is |
 |---|---|
-| **Intro** | A pan through several camera shots showing off the map. A cutscene that can be skipped (the skip strip bottom right). Then a jump cut to the podium. |
-| **Starting podium** | A fixed camera on the players and Chris. The players stand in a line looking at Chris, with a bigger gap between the 2nd and the 3rd so the camera sees Chris, who stands in the middle, further away. Chris's dialogue is here: the rules, the walk-through if the lobby's tutorial option is on, then the dice roll. Players can punch, jump and sneak but not walk, and nobody can hurt anyone. |
+| **Intro** | A pan through several camera shots showing off the map. A cutscene that can be skipped (the skip strip, on the dialogue box's top border at the right). Then a jump cut to the podium. |
+| **Starting podium** | A fixed camera on the players and Chris. The players stand in a line looking at Chris, with a bigger gap between the 2nd and the 3rd so the camera sees Chris, who stands in the middle, further away. Chris's dialogue is here: the rules question (the walk-through if the first player says yes), the game's length, then the dice roll. Players can punch, jump and sneak but not walk, and nobody can hurt anyone. |
 | **Order rolls** | Still the podium. The players stop facing Chris and turn the camera's way: facing away from Chris, along the camera's line of sight (not looking straight at it). Each jumps to hit their die. |
 | **Order reveal** | The camera moves (never cuts) to each player in turn order. After each, the action bar shows the player's name and place, their card appears, they celebrate, and Chris looks at them. |
 | **Star reveal** | Chris says where the first Star will be. The camera pans to the spot, where a pig (Chris's variant) slowly falls down beside the marker. Then the game starts with everyone on Start. |

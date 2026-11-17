@@ -70,10 +70,20 @@ function carried(text: string): string {
   return codes;
 }
 
+/** Words a period follows without ending the sentence: titles ("Dr. Oink"). A single capital ("Chris P. Bacon") is one too. */
+const TITLES = new Set(["mr", "mrs", "ms", "dr", "st", "mt", "jr", "sr", "vs"]);
+
+/** Whether the period at `at` ends a short word that doesn't end a sentence (an initial, a title). */
+function abbreviation(text: string, at: number): boolean {
+  const word = /([A-Za-z]+)$/.exec(text.slice(Math.max(0, at - 4), at).replace(/§./g, ""))?.[1] ?? "";
+  if (!word || /[A-Za-z]/.test(text[at - word.length - 1] ?? "")) return false;
+  return /^[A-Z]$/.test(word) || TITLES.has(word.toLowerCase());
+}
+
 /**
  * A line's sentences, each one voice in the dialogue box: split after ., ! or ? (and a closing quote
- * or bracket) where a space follows, and at line breaks. A color that runs on carries into the next
- * sentence.
+ * or bracket) where a space follows, and at line breaks; not after an initial or a title ("Chris P.
+ * Bacon", "Dr. Oink"). A color that runs on carries into the next sentence.
  */
 export function sentences(text: string): string[] {
   const out: string[] = [];
@@ -90,6 +100,7 @@ export function sentences(text: string): string[] {
       continue;
     }
     if (char !== "." && char !== "!" && char !== "?") continue;
+    if (char === "." && text[i + 1] !== "." && text[i - 1] !== "." && abbreviation(text, i)) continue;
     let end = i + 1;
     // Closing punctuation and formatting codes stay with the sentence.
     while (end < text.length && (/[.!?"')\]]/.test(text[end]) || (text[end] === "§" && end + 1 < text.length))) end += text[end] === "§" ? 2 : 1;

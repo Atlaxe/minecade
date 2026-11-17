@@ -47,7 +47,7 @@ import { BoardLoop } from "./board-loop.ts";
 import { Dialogue } from "./dialogue.ts";
 import { Stage, type StageMarkup } from "./stage.ts";
 import type { Marker } from "./stage-layout.ts";
-import { STAGE_POINTS } from "./stage-markup.ts";
+import { STAGE_POINTS, chrisKey } from "./stage-markup.ts";
 import { line } from "./lines.ts";
 import { BOT_COUNTS, LENGTHS, START_COINS } from "./board-rules.ts";
 import { Bots, hop, isPlayer, thinkTicks, whoOf, type Who } from "./bots.ts";
@@ -310,7 +310,6 @@ export class BlockPartySpike extends Minigame<Config> {
       talk: (id, fills, options) => this.dialogue.talk(id, fills, options),
       cutscene: (skippable, work) => this.dialogue.cutscene(skippable, work),
       stage: this.staging,
-      tutorial: this.ctx.vars.settings.tutorial !== "off",
       minigames: MINIGAMES,
       playMinigame: (format, def, sides, pool, onlookers, settle) => this.runner.play(format, def, sides, pool, onlookers, settle),
       everyone: (text) => this.everyone(text),
@@ -430,7 +429,7 @@ export class BlockPartySpike extends Minigame<Config> {
     this.scope.timeout(() => this.bots.respawn(who, spot, yaw), BOTS_AFTER);
   }
 
-  /** The map's stage markup (stage-markup.ts): its podium and its intro, each marker with its facing. */
+  /** The map's stage markup (stage-markup.ts): its pre-game podium, Chris's pre-game spot, the podium camera and the intro, each marker with its facing. */
   private stageMarkup(): StageMarkup {
     const marker = (position: MapPosition): Marker => {
       const at = worldPoint(position);
@@ -438,8 +437,8 @@ export class BlockPartySpike extends Minigame<Config> {
       return { at: [at.x, at.y, at.z], ...(facing ? { yaw: facing.yaw, pitch: facing.pitch } : {}) };
     };
     return {
-      lineup: this.map.points(STAGE_POINTS.lineup).map(marker),
-      chris: this.map.points(STAGE_POINTS.chris).map(marker)[0],
+      lineup: this.map.points(STAGE_POINTS.podium).map(marker),
+      chris: this.map.points(chrisKey("pregame")).map(marker)[0],
       podiumCamera: this.map.points(STAGE_POINTS.podiumCamera).map(marker)[0],
       intro: this.map.points(STAGE_POINTS.intro).map(marker),
     };

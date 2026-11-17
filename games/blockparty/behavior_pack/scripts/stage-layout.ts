@@ -108,12 +108,19 @@ export function podiumOnStart(start: Space, spaces: readonly Space[]): Podium {
 }
 
 /**
- * The podium from the map's markup: the lineup spots in order, Chris's spot, and the podium camera
- * (its own facing, or looking at Chris). Undefined unless all three are there (with a spot for every seat).
+ * The podium from the map's markup: the pre-game podium's spots in order, Chris's pre-game spot, and
+ * the podium camera (its own facing, or looking at Chris). Without a podium camera, the camera
+ * stands behind the podium's middle, up a little, looking at Chris over the players, like the
+ * stand-in's. Undefined unless the podium (a spot for every seat) and Chris are there.
  */
 export function podiumFromMarkup(lineup: readonly Marker[], chris: Marker | undefined, camera: Marker | undefined, seats: number): Podium | undefined {
-  if (!chris || !camera || lineup.length < seats) return undefined;
-  return { lineup: lineup.map((spot) => spot.at), chris: chris.at, camera: markerShot(camera, [chris.at[0], chris.at[1] + 0.8, chris.at[2]]) };
+  if (!chris || lineup.length < seats) return undefined;
+  const look: Vec3 = [chris.at[0], chris.at[1] + 0.8, chris.at[2]];
+  const spots = lineup.map((spot) => spot.at);
+  if (camera) return { lineup: spots, chris: chris.at, camera: markerShot(camera, look) };
+  const middle: Vec3 = [0, 1, 2].map((axis) => spots.reduce((sum, spot) => sum + spot[axis], 0) / spots.length) as Vec3;
+  const [dx, dz] = flat(middle, chris.at);
+  return { lineup: spots, chris: chris.at, camera: { location: [middle[0] - dx * 6, middle[1] + 3.2, middle[2] - dz * 6], facing: look } };
 }
 
 /** The box around the spaces. */

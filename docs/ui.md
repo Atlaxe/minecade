@@ -141,7 +141,11 @@ Block Party's dialogue box rides it (`games/blockparty/behavior_pack/scripts/dia
 `ui/blockparty_dialogue.json`): the title says who the box is for and the speaker's name, and each
 participant is a row whose first code says what it is (a sentence, a button, the selected button,
 the skip strip). A game that shows its own sidebar puts its notes back afterward
-(`Notes.display()`; a `Sidebar` going away leaves the slot alone if another has taken it).
+(`Notes.display()`; a `Sidebar` going away leaves the slot alone if another has taken it). The
+workshop's JSON UI tool draws the box: its Preview page's **Game preview** list (with the
+blockparty packs) has its states, from `games/blockparty/ui-previews.json`, which
+`games/blockparty/test/ui-previews.test.ts` writes from the game's own codes (run it with `-u`
+after changing them).
 
 **Own score:** a game whose `scoring` has `display: "own"` (One in the Quiver) has no sidebar.
 Each player sees only their own score (their team's in team games) in a box left of the clock's,
@@ -645,6 +649,17 @@ which draws nothing: blank values didn't take in the client (it kept vanilla's t
 name above the hotbar (`hud.item_name_text_root` in `ui/hud_screen.json`) shows only its first line
 too, so the box stays one line tall whatever the lines say. A game never needs to do anything for
 this: lock items as usual (`lockMode`, `keepOnDeath`).
+
+**A size or offset variable is the whole pair.** `"size": "$box_size"` with
+`"$box_size": [ 330, "100%c" ]` works (vanilla does it everywhere); a variable as one part,
+`"size": [ "$width", "100%c" ]` with `"$width": 330`, doesn't: the game reads the part as text, a
+number with no unit, logs "Dangling number (no % or px in Size)" in the client's content log, and
+the control gets no size (Block Party's dialogue box first drew only its name tab that way). A test
+(`tools/build/test/pack-json.test.ts`) checks every UI file for it. Also: an image's texture keeps
+its own shape unless the image says `"keep_ratio": false`, so a plain fill stretched from a small
+square texture needs it. The client's content log
+(`%APPDATA%\Minecraft Bedrock\logs\ContentLog*.txt`) names the control and the error for any UI
+file the game can't read; look there first when a piece of JSON UI doesn't show.
 
 **Effect icons are hidden on every server** (the core pack's `ui/hud_screen.json` removes
 `mob_effects_renderer` from the HUD). A lock-in queue (and the camera view, and a shared spawn)

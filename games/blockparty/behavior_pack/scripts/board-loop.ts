@@ -1,14 +1,16 @@
 // Block Party's board loop (docs/plans/block-party.md, "Core loop"; passes 4 to 6 of "Suggested
 // order"):
-//   1. The pre-game (pass 6, block-party-ui.md "Cameras"), a cutscene everyone can vote to skip:
-//      the intro over the board while Chris welcomes everyone, the starting podium (everyone in the
-//      lineup facing Chris), how long the game is, Chris's tutorial when the lobby's option is on,
-//      and the starting coins (10; 30 while Block Party is a test game or a server plays it alone, so
-//      Stars can be tried without a long game), which Chris hands out.
+//   1. The pre-game (pass 6, block-party-ui.md "Cameras"), in the order of the user's Pre-game flow
+//      chart (the dialogue tool), a cutscene everyone can vote to skip: the intro over the board
+//      while Chris welcomes everyone, the starting podium (everyone on the pre-game podium facing
+//      Chris), Chris asking the first player whether to go over the rules (Yes plays the Tutorial
+//      scene), how long the game is, and the call to roll.
 //   2. Turn order: everyone turns to the camera and rolls at once (their dice open, a jump each),
 //      highest first. Then the reveal: the camera goes to each player in turn order as Chris
-//      introduces them, and to each Star's space (two in a 10-turn game, else one, on the board's
-//      opening spots) as a Chris drops in beside it. Then everyone is on Start.
+//      calls their place ("First, {player}."), Chris hands out the starting coins (10; 30 while
+//      Block Party is a test game or a server plays it alone, so Stars can be tried without a long
+//      game), and the camera goes to each Star's space (two in a 10-turn game, else one, on the
+//      board's opening spots) as a Chris drops in beside it. Then everyone is on Start.
 //   3. Each round, each in turn opens their dice, rolls by jumping, and their piece walks the number:
 //      at a branch they pick the way (a form), and passing or landing on a Star, Chris (beside it)
 //      offers it for its price (15, 20 or 25 coins by the game's length) in the dialogue box, after
@@ -62,8 +64,6 @@ export interface LoopHost {
   cutscene<T>(skippable: boolean, work: () => Promise<T>): Promise<T>;
   /** The NPCs and the shots (stage.ts). */
   stage: Stage;
-  /** Chris's tutorial in the pre-game (the lobby's option). */
-  tutorial: boolean;
   minigames: readonly MinigameDef[];
   /** Plays a minigame (minigame-runner.ts) and resolves with its outcome once everyone is back. */
   playMinigame(format: Format, def: MinigameDef, sides: Who[][], pool: readonly MinigameDef[], onlookers: readonly Who[], settle: Settle): Promise<Outcome>;
@@ -244,31 +244,21 @@ export class BoardLoop {
   }
 
   /**
-   * The pre-game (block-party-ui.md, "Cameras"): the intro and the podium (a cutscene everyone can
-   * vote to skip), the order roll (never skipped: everyone jumps), then the reveal of the order and
-   * the Stars (skippable too). Skipped or not, everyone ends up on Start, and every Star has its Chris.
+   * The pre-game (block-party-ui.md, "Cameras"; the user's Pre-game flow chart): the intro, the
+   * podium and Chris's rules question (a cutscene everyone can vote to skip), the order roll (never
+   * skipped: everyone jumps), then the reveal of the order, the starting coins and the Stars
+   * (skippable too). Skipped or not, everyone ends up on Start, and every Star has its Chris.
    */
   private async pregame(): Promise<void> {
     const { stage } = this.host;
     const spaces = this.host.spaces();
     const seats = this.host.present();
     await stage.loadBoard();
-    const price = count(starPrice(this.host.turns), "coin");
     await this.host.cutscene(true, async () => {
       await Promise.all([stage.intro(), this.host.say("pregame.welcome")]);
       await stage.podium(seats);
+      if (await this.wantsRules(seats)) await this.tutorial();
       await this.host.say("pregame.length", { rounds: this.host.turns });
-      if (this.host.tutorial) {
-        await this.host.say("tutorial.goal");
-        await this.host.say("tutorial.turns");
-        await this.host.say("tutorial.branches");
-        await this.host.say("tutorial.spaces");
-        await this.host.say("tutorial.stars", { price });
-        await this.host.say("tutorial.items");
-        await this.host.say("tutorial.minigames");
-        await this.host.say("tutorial.end");
-      }
-      await this.host.say("pregame.coins", { coins: count(this.host.startCoins, "coin") });
       await this.host.say("pregame.order");
     });
 
@@ -277,7 +267,6 @@ export class BoardLoop {
     stage.podiumShot();
     const rolls = await Promise.all(seats.map(async (who) => ({ name: who.key, roll: (await this.host.roll(who, false)) ?? 0 })));
     this.order = turnOrder(rolls);
-    this.host.everyone(line("order.result", { order: this.order.map((key) => `${this.seats.get(key)?.name ?? key} (${rolls.find((entry) => entry.name === key)?.roll})`).join(", ") }));
     this.host.changed();
 
     await this.host.cutscene(true, async () => {
@@ -285,16 +274,35 @@ export class BoardLoop {
         const seat = seats.findIndex((who) => who.key === this.order[place]);
         const name = this.seats.get(this.order[place])?.name ?? this.order[place];
         if (seat >= 0) await stage.reveal(seat);
-        this.host.title(line("order.place", { player: name, place: PLACES[place] ?? `${place + 1}th` }), "");
-        await this.host.say("pregame.intro", { player: name });
+        await this.host.say(`pregame.place.${place + 1}`, { player: name });
       }
-      await this.host.say("pregame.order.reveal", { player: this.seats.get(this.order[0])?.name ?? "" });
+      await this.host.say("pregame.coins", { coins: count(this.host.startCoins, "coin") });
       for (const star of this.stars) {
         await stage.starReveal(spaces[star]);
         await this.host.say("pregame.star", { space: this.spaceName(spaces[star]) });
       }
     });
     stage.toBoard(this.host.present());
+  }
+
+  /**
+   * Chris asks the first player on the podium (the first that isn't a bot) whether to go over the
+   * rules (pregame.rules): Yes plays the Tutorial scene, No (sneak picks it) skips it. Skipping the
+   * pre-game skips the question too.
+   */
+  private async wantsRules(seats: readonly Who[]): Promise<boolean> {
+    const asked = seats.find((who) => who.player !== undefined) ?? seats[0];
+    if (!asked) return false;
+    const picked = await this.host.talk("pregame.rules", { player: asked.name }, { to: asked, buttons: [button("pregame.rules.yes"), button("pregame.rules.no")], back: 1, botPick: 1 });
+    return picked === 0;
+  }
+
+  /** Chris's tutorial: the Tutorial scene's lines, in order. */
+  private async tutorial(): Promise<void> {
+    const price = count(starPrice(this.host.turns), "coin");
+    for (const id of ["tutorial.goal", "tutorial.turns", "tutorial.branches", "tutorial.spaces", "tutorial.stars", "tutorial.items", "tutorial.minigames", "tutorial.end"]) {
+      await this.host.say(id, { price });
+    }
   }
 
   /** Chris's announcements as a round starts: halfway, coins doubling from now on, the final round. Each can be skipped. */

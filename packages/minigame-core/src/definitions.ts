@@ -25,6 +25,7 @@ export {
   type MapRequirementsConfig,
   type MapSettingConfig,
   type MarkerStyle,
+  type MarkerType,
   type RespawnConfig,
   type ScoringConfig,
   type StatsConfig,

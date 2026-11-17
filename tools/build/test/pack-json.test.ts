@@ -79,6 +79,21 @@ function visibleBeforeBindings(file: string): string[] {
   return found;
 }
 
+/** The sizes and offsets in a UI file whose parts include a variable ("size": [ "$w", 10 ]), anywhere in it. */
+function variableParts(file: string): string[] {
+  const found: string[] = [];
+  const visit = (value: Json, path: string): void => {
+    if (Array.isArray(value)) return value.forEach((item, index) => visit(item, `${path}[${index}]`));
+    if (!isObject(value)) return;
+    for (const [key, child] of Object.entries(value)) {
+      if (["size", "offset", "min_size", "max_size"].includes(key) && Array.isArray(child) && child.some((part) => typeof part === "string" && part.includes("$"))) found.push(`${path}.${key}`);
+      visit(child, `${path}.${key}`);
+    }
+  };
+  visit(readPackJson(file), "");
+  return found;
+}
+
 describe("pack JSON", () => {
   const files = packDirs().flatMap(jsonFiles);
 
@@ -99,6 +114,16 @@ describe("pack JSON", () => {
     const uiFiles = files.filter((file) => /[\\/]ui[\\/][^\\/]+\.json$/.test(file));
     expect(uiFiles.length).toBeGreaterThan(3);
     const found = uiFiles.flatMap((file) => visibleBeforeBindings(file).map((key) => `${relative(ROOT, file)}: ${key}`));
+    expect(found).toEqual([]);
+  });
+
+  // The game reads a variable inside a size or offset as text: a number there has no unit, the
+  // client logs "Dangling number (no % or px in Size)", and the control gets no size (Block Party's
+  // dialogue box drew only its name tab). A whole size through a variable ("size": "$box_size",
+  // holding [ 330, "100%c" ]) is fine, as vanilla does.
+  it("never puts a variable in one part of a JSON UI size or offset", () => {
+    const uiFiles = files.filter((file) => /[\\/]ui[\\/][^\\/]+\.json$/.test(file));
+    const found = uiFiles.flatMap((file) => variableParts(file).map((at) => `${relative(ROOT, file)}: ${at}`));
     expect(found).toEqual([]);
   });
 });

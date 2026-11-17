@@ -14,6 +14,9 @@ export interface MapRequirement {
   /** The point or region key (with ".<team>" for one team's), or the team id for team spawns. */
   name?: string;
   team?: string;
+  /** Points only: the type's id and name, for a point with types ("chris.pregame", "Chris (Pre-game)"). */
+  type?: string;
+  typeName?: string;
   /** Entries needed; for the spectator and queue spawns, bounds, killY and a build limit side, 1 means "set". */
   min: number;
   /** Spawns only: the minimum is one per player slot. */
@@ -156,7 +159,12 @@ export function mapRequirements(map: MapRequirementsConfig | undefined, options:
               ...(entry.maxHeight !== undefined ? { maxHeight: entry.maxHeight } : {}),
             }
           : {};
-      if (entry.perTeam && teams.length > 0) {
+      if (field === "points" && entry.types && entry.types.length > 0) {
+        for (const type of entry.types) {
+          const key = teamKey(name, type.id);
+          list.push({ key: `${field}.${key}`, label: `${label} (${type.name})`, field, name: key, type: type.id, typeName: type.name, min: type.count ?? 1, ...marker });
+        }
+      } else if (entry.perTeam && teams.length > 0) {
         for (const team of teams) {
           const key = teamKey(name, team.id);
           list.push({ key: `${field}.${key}`, label: `${label} (${team.name})`, field, name: key, team: team.id, min, ...marker, ...size });
@@ -182,11 +190,13 @@ export function mapRequirements(map: MapRequirementsConfig | undefined, options:
 
 /**
  * The key a row is changed by (map.adjustable in the game's config, "requirements" in map.json):
- * its key without a team, so one choice covers every team's row ("points.hole", "teamSpawns").
+ * its key without a team or a type, so one choice covers every team's row ("points.hole",
+ * "teamSpawns") and every type's ("points.chris").
  */
 export function optionKey(row: MapRequirement): string {
   if (row.field === "teamSpawns") return "teamSpawns";
-  if (row.team !== undefined && (row.field === "points" || row.field === "regions")) return row.key.slice(0, -(row.team.length + 1));
+  const part = row.team ?? row.type;
+  if (part !== undefined && (row.field === "points" || row.field === "regions")) return row.key.slice(0, -(part.length + 1));
   return row.key;
 }
 
@@ -232,10 +242,10 @@ function optionsOf(rows: readonly MapRequirement[], adjustable: Record<string, M
   return [...found.values()];
 }
 
-/** A row's name without its team: "Hole" for "Hole (Red)", "Team spawns" for "Red spawns". */
+/** A row's name without its team or type: "Hole" for "Hole (Red)", "Chris" for "Chris (Pre-game)", "Team spawns" for "Red spawns". */
 function optionLabel(row: MapRequirement): string {
   if (row.field === "teamSpawns") return "Team spawns";
-  return row.team === undefined ? row.label : row.label.replace(/ \([^()]*\)$/, "");
+  return row.team === undefined && row.type === undefined ? row.label : row.label.replace(/ \([^()]*\)$/, "");
 }
 
 /** Why a map's choice for a row doesn't fit what its game allows, or undefined when it does. */

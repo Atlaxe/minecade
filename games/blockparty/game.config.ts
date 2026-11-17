@@ -41,8 +41,6 @@ export default defineGame({
   options: [
     { id: "length", label: "Length", values: LENGTHS.map((turns) => ({ value: String(turns), label: `${turns} turns` })) },
     { id: "bots", label: "Bots (playing alone)", values: BOT_COUNTS.map((bots) => ({ value: String(bots), label: bots === 0 ? "No bots" : bots === 1 ? "1 bot" : `${bots} bots` })) },
-    // Chris's tutorial in the pre-game (the plan's "In the lobby"), on unless the lobby turns it off.
-    { id: "tutorial", label: "Chris's tutorial", values: [ { value: "on", label: "On" }, { value: "off", label: "Off" } ] },
   ],
   map: {
     borrow: ["probe"],

@@ -308,6 +308,16 @@ export function defineGame<C extends GameConfig>(config: C): C {
  */
 export type MarkerStyle = "player" | "post" | { model: string };
 
+/** One of a point's types (MapEntryRequirement.types). */
+export interface MarkerType {
+  /** Lower case letters and digits: the key's last part ("chris.pregame"). */
+  id: string;
+  /** In the Type list and the checklist ("Pre-game"). */
+  name: string;
+  /** How many of this type a map needs. Default 1. */
+  count?: number;
+}
+
 /** A named point or region a map needs. */
 export interface MapEntryRequirement {
   /** Shown in the map editor's checklist. Default: the name. */
@@ -316,6 +326,13 @@ export interface MapEntryRequirement {
   count?: number;
   /** One per team ("<name>.<team>" keys), for every team the game can have. */
   perTeam?: boolean;
+  /**
+   * Points only: what each entry is for, picked from a Type list on its marker's screen (Block
+   * Party's Chris, whose type says when he stands there: "Pre-game" at the podium). Kept as
+   * "<name>.<type>" keys like a team's ("chris.pregame"), each type a checklist row of its own.
+   * Not with perTeam.
+   */
+  types?: MarkerType[];
   /** Points only: how the map editor draws them. Default "post". */
   marker?: MarkerStyle;
   /** Regions only: the fewest blocks each box spans along every side (Build Swap's 24 for 24x24x24 build areas). */

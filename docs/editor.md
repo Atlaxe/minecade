@@ -333,7 +333,8 @@ you back in creative at every spawn).
   spawns unless its config names them (`docs/maps.md`): its spawns are its teams'.
 - **Game marker tool:** only for a game (or the lobby) whose config asks for points, such as the
   lobby's terminal or Bridges' holes. It works like the Spawn tool, but its screen starts with a
-  **Marker** list (the game's markers), then a **Team** list for a per-team one, then the same
+  **Marker** list (the game's markers), then a **Team** list for a per-team one (or a **Type**
+  list for a marker with types, such as Block Party's Chris: what that spot is for), then the same
   position, facing and nudge rows. A list is a row with an arrow: tap it and its options open under
   it, the one picked outlined; tap one to pick it and close the list.
 - **Markers:** every entry shows as a marker with a name tag: its list, its number, and the way it

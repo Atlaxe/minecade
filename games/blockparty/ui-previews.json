@@ -1,0 +1,79 @@
+{
+  "about": "Block Party's HUD states for the workshop's JSON UI tool. Written by games/blockparty/test/ui-previews.test.ts (run it with -u after changing it); don't edit by hand.",
+  "previews": [
+    {
+      "name": "Dialogue box: Chris to everyone",
+      "about": "A line said to everyone: the words the whole width, Chris's name on the border.",
+      "hud": {
+        "actionbar": "§r§m§c§r",
+        "sidebar": {
+          "title": "§r§m§g§r§k§2§k§8§rChris",
+          "lines": [
+            "§k§1§0§rHello travelers, and welcome!",
+            "§k§1§1§rI'm Chris P. Bacon, your friend and guide."
+          ]
+        }
+      }
+    },
+    {
+      "name": "Dialogue box: Chris asks one player",
+      "about": "A line said to one player, with buttons beside the words, the first selected.",
+      "hud": {
+        "actionbar": "§r§m§c§r",
+        "sidebar": {
+          "title": "§r§m§g§r§k§1§k§8§rChris",
+          "lines": [
+            "§k§1§0§rWant a rundown of the rules before we start?",
+            "§k§3§0§rYes, please!",
+            "§k§2§1§rNo, let's play!"
+          ]
+        }
+      }
+    },
+    {
+      "name": "Dialogue box: a long line",
+      "about": "A page at its fullest: four sentences, one long enough to wrap.",
+      "hud": {
+        "actionbar": "§r§m§c§r",
+        "sidebar": {
+          "title": "§r§m§g§r§k§2§k§8§rChris",
+          "lines": [
+            "§k§1§0§rHere's the deal.",
+            "§k§1§1§rCollect the most Stars by the end of the game, because coins buy Stars and Stars win, and nobody remembers who",
+            "§k§1§2§rhad the most coins.",
+            "§k§1§3§rOn your turn, open your Dice and jump to hit it.",
+            "§k§1§4§rGood luck!"
+          ]
+        }
+      }
+    },
+    {
+      "name": "Dialogue box: the skip strip",
+      "about": "A skippable line: the strip bottom right names who has jumped to skip.",
+      "hud": {
+        "actionbar": "§r§m§c§r",
+        "sidebar": {
+          "title": "§r§m§g§r§k§2§k§8§rChris",
+          "lines": [
+            "§k§1§0§rOkay!",
+            "§k§1§1§rWe're playing 15 rounds tonight.",
+            "§k§4§0§rJump to skip  Alex  Sam"
+          ]
+        }
+      }
+    },
+    {
+      "name": "Dialogue box: the game's own line",
+      "about": "A line with no speaker: no name tab.",
+      "hud": {
+        "actionbar": "§r§m§c§r",
+        "sidebar": {
+          "title": "§r§m§g§r§k§2§r",
+          "lines": [
+            "§k§1§0§rEveryone, get ready!"
+          ]
+        }
+      }
+    }
+  ]
+}

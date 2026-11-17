@@ -52,6 +52,8 @@ describe("the dialogue box's codes", () => {
     expect(sentences("Welcome to Block Party! I'm Chris, and I keep the coins. Lots of coins.")).toEqual(["Welcome to Block Party!", "I'm Chris, and I keep the coins.", "Lots of coins."]);
     expect(sentences("Wait... what?! Really.")).toEqual(["Wait...", "what?!", "Really."]);
     expect(sentences("A 1.5 coin? No.")).toEqual(["A 1.5 coin?", "No."]);
+    // A capital alone before a period is an initial, so "Plan A." doesn't end its sentence.
+    expect(sentences("I'm Chris P. Bacon, your guide. Ask Dr. Oink. Plan A. Then B.")).toEqual(["I'm Chris P. Bacon, your guide.", "Ask Dr. Oink.", "Plan A. Then B."]);
     expect(sentences("§eGold! Shiny.§r Plain.")).toEqual(["§eGold!", "§eShiny.§r", "Plain."]);
     expect(sentences("One line\nand another")).toEqual(["One line", "and another"]);
     expect(sentences("")).toEqual([]);
@@ -186,6 +188,20 @@ describe("the dialogue box", () => {
     await until(scene, 10);
     expect(after).toBe(true);
     expect(dialogue.skipping).toBe(false);
+  });
+
+  it("asks no question in a cutscene that's being skipped", async () => {
+    const who: Who = whoOf(alex as never);
+    let asked: number | undefined = -1;
+    const scene = dialogue.cutscene(true, async () => {
+      await dialogue.say("pregame.welcome");
+      asked = await dialogue.talk("pregame.rules", { player: "Alex" }, { to: who, buttons: ["Yes", "No"], back: 1 });
+    });
+    await ticks(3);
+    dialogue.jumped(alex as never);
+    dialogue.jumped(sam as never);
+    await until(scene, 10);
+    expect(asked).toBeUndefined();
   });
 
   it("shows nothing for a line the user hasn't written", async () => {

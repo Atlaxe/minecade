@@ -4,7 +4,7 @@ import { describe, expect, it } from "vitest";
 import { mapRequirements } from "@minecade/minigame-core/config";
 import type { Space, Vec3 } from "../behavior_pack/scripts/board.ts";
 import { EYE, besideSpace, faceShot, introAround, markerShot, pathWay, podiumFromMarkup, podiumOnStart, spaceShot, twoShot, yawFrom } from "../behavior_pack/scripts/stage-layout.ts";
-import { STAGE_ADJUSTABLE, STAGE_MARKUP } from "../behavior_pack/scripts/stage-markup.ts";
+import { STAGE_ADJUSTABLE, STAGE_MARKUP, chrisKey } from "../behavior_pack/scripts/stage-markup.ts";
 import config from "../game.config.ts";
 
 /** A straight run of spaces east (+x), 5 apart, Start first, looping back. */
@@ -47,7 +47,7 @@ describe("Block Party's stage", () => {
     expect(podium.camera.facing?.[0]).toBe(spaces[1].at[0]);
   });
 
-  it("takes the board's own podium when it marks one with a spot for every seat", () => {
+  it("takes the board's own podium when it marks one with a spot for every seat and Chris", () => {
     const lineup = [0, 1, 3, 4].map((x) => ({ at: [x, 70, 0] as Vec3 }));
     const chris = { at: [2, 70, 5] as Vec3 };
     const camera = { at: [2, 70, -6] as Vec3, yaw: 0, pitch: 10 };
@@ -56,6 +56,13 @@ describe("Block Party's stage", () => {
     expect(podium?.camera).toEqual({ location: [2, 70 + EYE, -6], rotation: { yaw: 0, pitch: 10 } });
     expect(podiumFromMarkup(lineup.slice(0, 3), chris, camera, 4)).toBeUndefined();
     expect(podiumFromMarkup(lineup, undefined, camera, 4)).toBeUndefined();
+    // No podium camera: behind the podium's middle, away from Chris and up, looking at him.
+    const behind = podiumFromMarkup(lineup, chris, undefined, 4);
+    expect(behind?.chris).toEqual([2, 70, 5]);
+    expect(behind?.camera.facing).toEqual([2, 70.8, 5]);
+    expect(behind?.camera.location[0]).toBeCloseTo(2);
+    expect(behind?.camera.location[1]).toBeCloseTo(73.2);
+    expect(behind?.camera.location[2]).toBeCloseTo(-6);
     // A camera with no facing looks at Chris.
     expect(markerShot({ at: [0, 64, 0] }, [5, 64, 5]).facing).toEqual([5, 64, 5]);
   });
@@ -84,15 +91,16 @@ describe("Block Party's stage", () => {
     expect(yawFrom([0, 64, 0], [-5, 64, 0])).toBeCloseTo(90);
   });
 
-  it("asks a board for its podium and intro, each a row a map can turn off", () => {
+  it("asks a board for its pre-game podium, Chris by type, the podium camera and the intro, each a row a map can turn off", () => {
     expect(config.map.points).toBe(STAGE_MARKUP);
     const rows = mapRequirements(config.map, { kind: "game", maxPlayers: config.maxPlayers });
-    expect(rows.filter((row) => row.field === "points").map((row) => [row.label, row.min, row.floor])).toEqual([
-      ["Podium lineup", 4, 0],
-      ["Chris at the podium", 1, 0],
-      ["Podium camera", 1, 0],
-      ["Intro shots", 2, 0],
+    expect(rows.filter((row) => row.field === "points").map((row) => [row.key, row.label, row.min, row.floor])).toEqual([
+      ["points.podium", "Pre-game podium", 4, 0],
+      ["points.chris.pregame", "Chris (Pre-game)", 1, 0],
+      ["points.podiumCamera", "Podium camera", 1, 0],
+      ["points.intro", "Intro shots", 2, 0],
     ]);
-    expect(Object.keys(STAGE_ADJUSTABLE)).toEqual(["points.lineup", "points.chris", "points.podiumCamera", "points.intro"]);
+    expect(chrisKey("pregame")).toBe("chris.pregame");
+    expect(Object.keys(STAGE_ADJUSTABLE)).toEqual(["points.podium", "points.chris", "points.podiumCamera", "points.intro"]);
   });
 });

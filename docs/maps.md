@@ -198,8 +198,13 @@ asks for at most that across, either way round, and `maxHeight: 48` for at most 
 arena map's Arena box, below); a box past either doesn't count, and the checklist says so.
 
 `perTeam` entries are needed once for every team the game can have (`"buyZone.red"`,
-`"buyZone.blue"`). The short forms still work: `points: ["bombA", "bombB"]`,
-`regions: ["floor"]`, `teamSpawns: true`.
+`"buyZone.blue"`). A point's `types` are what each of its markers is for, picked from a **Type**
+list on the marker's screen and kept the same way (`"<name>.<type>"`): Block Party's
+`chris: { label: "Chris", types: [{ id: "pregame", name: "Pre-game" }] }` is the checklist row
+"Chris (Pre-game)" and the map key `"chris.pregame"`, and each type can ask its own `count`
+(default 1). One `map.adjustable` choice (`"points.chris"`) covers every type, as it covers every
+team. The short forms still work: `points: ["bombA", "bombB"]`, `regions: ["floor"]`,
+`teamSpawns: true`.
 
 **Plain spawns in team games:** a game that asks for `teamSpawns` and doesn't name `spawns` has no
 plain spawns: its maps need none, and the map editor's Spawn tool only places team spawns (its Team

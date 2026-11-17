@@ -146,6 +146,8 @@ export class Dialogue {
    * pick, or undefined if they leave first. Everyone sees it; only they steer it.
    */
   async talk(id: string, fills: Fills, options: TalkOptions): Promise<number | undefined> {
+    // A question in a cutscene that's being skipped isn't asked.
+    if (this.skipping) return undefined;
     const text = line(id, fills, () => this.host.random());
     const buttons = options.buttons && options.buttons.length > 0 ? [...options.buttons] : [button("dialogue.next")];
     if (!text && !options.buttons) return 0;

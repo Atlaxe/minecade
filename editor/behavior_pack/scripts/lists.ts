@@ -46,8 +46,13 @@ export interface SpawnList {
   group: string;
   /** Its group's name there: "Spawn", "Spectator", "Queue", "Hole". */
   groupLabel: string;
-  /** Its name in the Team list, when its group has one: the team's, or "No team" for plain spawns in a team game. */
+  /**
+   * Its name in the Team list, when its group has one: the team's, or "No team" for plain spawns in
+   * a team game. For a point with types (Block Party's Chris), its type's name in the Type list.
+   */
   teamLabel?: string;
+  /** "Type" when the list under the Marker list is a point's types, not its teams. */
+  sublist?: "Type";
   /** Its markers' color (0xRRGGBB): a team's spawns and points take the team's. */
   tint?: number;
 }
@@ -94,6 +99,14 @@ export function spawnLists(config: MapConfig, rules: EditorRules): SpawnList[] {
     named.add(requirement.name);
     const team = teams.find((candidate) => candidate.id === requirement.team);
     const style = markerStyle(requirement.marker, MARKER_STYLES.post, rules);
+    if (requirement.type !== undefined) {
+      // A point's type: "chris.pregame", labeled "Chris (Pre-game)" (mapRequirements adds the type's name).
+      const base = requirement.name.slice(0, -(requirement.type.length + 1));
+      const typeName = requirement.typeName ?? requirement.type;
+      const baseLabel = requirement.label.endsWith(` (${typeName})`) ? requirement.label.slice(0, -(typeName.length + 3)) : base;
+      lists.push({ ...pointList(requirement.name, requirement.label, base, baseLabel, "§e", style), teamLabel: typeName, sublist: "Type" });
+      continue;
+    }
     if (!team) {
       lists.push(pointList(requirement.name, requirement.label, requirement.name, requirement.label, "§e", style));
       continue;
