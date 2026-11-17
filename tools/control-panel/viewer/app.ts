@@ -46,7 +46,7 @@ import { Sidebar, el, swatch } from "./sidebar.ts";
 import { ViewCube } from "./viewcube.ts";
 import type { CustomShape } from "./shapes.ts";
 import { buildVolume, spotsOf, type FaceColors } from "./volume.ts";
-import { placeSpace, spaceIdOf, spaceKey, spacePanel, spacePosition, spacesToolPanel, type SpacePanelOptions } from "./spaces.ts";
+import { linkLabel, linkOf, linkPanel, placeSpace, spaceIdOf, spaceKey, spacePanel, spacePosition, spacesToolPanel, type SpacePanelOptions } from "./spaces.ts";
 
 const $ = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id) as T;
 const params = new URLSearchParams(location.search);
@@ -309,8 +309,10 @@ async function main(): Promise<void> {
   });
   const redraw = () => {
     markup = buildMarkup(config, data.rules);
-    if (picked && !findEntry(markup, picked)) picked = undefined;
-    for (const key of [...also]) if (!findEntry(markup, key)) also.delete(key);
+    // A board's links aren't list entries, but they're picked like them.
+    const found = (key: string) => findEntry(markup, key) !== undefined || markup.links.some((link) => link.key === key);
+    if (picked && !found(picked)) picked = undefined;
+    for (const key of [...also]) if (!found(key)) also.delete(key);
     if (!picked && also.size > 0) {
       picked = [...also][0];
       also.delete(picked);
@@ -416,9 +418,15 @@ async function main(): Promise<void> {
     const list = findEntry(markup, point.key)?.list;
     return list?.spawn ? listOf(config, list.spawn.target)[point.index] : undefined;
   };
+  /** An entry's name, or a board link's ("Space 3 to space 4"), which has no list entry. */
+  const labelOf = (key: string | undefined): string | undefined => {
+    const link = linkOf(key);
+    return link ? linkLabel(link) : key ? findEntry(markup, key)?.entry.label : undefined;
+  };
   const showPicked = () => {
     const found = picked ? findEntry(markup, picked) : undefined;
-    $("picked").textContent = found ? `${found.entry.label}: ${found.entry.detail}` : "";
+    const link = linkOf(picked);
+    $("picked").textContent = found ? `${found.entry.label}: ${found.entry.detail}` : link ? linkLabel(link) : "";
     renderPanel();
     placeGizmo();
   };
@@ -604,7 +612,9 @@ async function main(): Promise<void> {
         const box = boxOf(key);
         const height = heightMarkOf(key);
         const space = spaceIdOf(key);
-        if (space !== undefined) removals.push({ list: point?.list ?? "spaces", index: space, edit: { op: "removeSpace", id: space } });
+        const link = linkOf(key);
+        if (link) removals.push({ list: "links", index: 0, edit: { op: "unlinkSpace", ...link } });
+        else if (space !== undefined) removals.push({ list: point?.list ?? "spaces", index: space, edit: { op: "removeSpace", id: space } });
         else if (point && pointList?.spawn) removals.push({ list: point.list, index: point.index, edit: { op: "remove", target: pointList.spawn.target, index: point.index } });
         else if (box) removals.push({ list: box.list, index: box.entry.region?.index ?? box.entry.bounds ?? 0, edit: removeBoxEdit(box.entry) });
         else if (height) removals.push({ list: height.key, index: 0, edit: heightEdit(height.line) });
@@ -621,7 +631,9 @@ async function main(): Promise<void> {
     const box = boxOf(picked);
     const height = heightMarkOf(picked);
     const space = spaceIdOf(picked);
-    if (space !== undefined) edit({ op: "removeSpace", id: space });
+    const link = linkOf(picked);
+    if (link) edit({ op: "unlinkSpace", ...link });
+    else if (space !== undefined) edit({ op: "removeSpace", id: space });
     else if (point && pointList?.spawn) edit({ op: "remove", target: pointList.spawn.target, index: point.index });
     else if (box) edit(removeBoxEdit(box.entry));
     else if (height) edit(heightEdit(height.line));
@@ -1393,7 +1405,8 @@ async function main(): Promise<void> {
     const space = spaceId === undefined ? undefined : spacesOf(config).find((candidate) => candidate.id === spaceId);
     const spaces = spaceOptions();
     let content: HTMLElement | null = null;
-    if (tool === "select") content = also.size > 0 ? manyPanel() : space && spaces ? spacePanel(space, spaces) : point ? pointEditor(point) : box ? boxEditor(box) : height ? heightEditor(height) : null;
+    const link = linkOf(picked);
+    if (tool === "select") content = also.size > 0 ? manyPanel() : link && spaces ? linkPanel(link, spaces) : space && spaces ? spacePanel(space, spaces) : point ? pointEditor(point) : box ? boxEditor(box) : height ? heightEditor(height) : null;
     else if (tool === "spaces") content = spaces ? spacesToolPanel(spaces) : null;
     else if (tool === "spawn" || tool === "marker") content = placeToolPanel(tool);
     else if (tool === "region") content = regionToolPanel();
@@ -2151,7 +2164,7 @@ async function main(): Promise<void> {
       // With Select (or Mirror picking), the box or height a click would pick, then the block.
       const picking = !arming && (tool === "select" || (tool === "mirror" && mirrorStep === "pick"));
       const under = picking ? markupAt(last.clientX, last.clientY, tool === "select", hit?.distance ?? Infinity) : undefined;
-      const label = under ? findEntry(markup, under)?.entry.label : undefined;
+      const label = labelOf(under);
       if (!hit) return void ($("hover").textContent = label ?? "");
       const look = volume.looks[hit.look];
       const states = look.states ? ` ${Object.entries(look.states).map(([key, value]) => `${key}=${value}`).join(" ")}` : "";

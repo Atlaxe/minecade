@@ -155,6 +155,25 @@
   .modes button { display: flex; align-items: center; justify-content: center; gap: 6px; }
   .modes.three { grid-template-columns: repeat(3, 1fr); }
 
+  /* A space's paths as a flow diagram (spaces.ts): what leads in, the space, where it leads. */
+  .flow { display: grid; justify-items: center; gap: 2px; padding: 10px 6px; background: var(--inset); border: 1px solid var(--line); border-radius: var(--radius-lg); }
+  .flow-row { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; }
+  .flow-tile { position: relative; }
+  .flow-node { display: grid; align-content: center; justify-items: center; gap: 1px; width: 82px; min-height: 58px; padding: 6px 4px; background: var(--raised); color: var(--text); border: 1px solid var(--line-strong); border-top: 4px solid var(--node-color, var(--line-strong)); border-radius: var(--radius); font-size: var(--fs-meta); line-height: 1.2; }
+  button.flow-node:hover { background: var(--raised-hover); }
+  .flow-node b { font-weight: 700; }
+  .flow-node span { color: var(--muted); }
+  .flow-node.self { width: 104px; border: 2px solid var(--primary); border-top: 6px solid var(--node-color, var(--primary)); background: var(--surface); }
+  .flow-node .flow-star { color: var(--yellow); }
+  .flow-node.add { border-style: dashed; border-top-width: 1px; background: transparent; }
+  .flow-node.add b { font-size: var(--fs-h3); color: var(--primary); }
+  .flow-node.add.on { background: var(--selected); color: var(--on-selected); border-color: var(--primary); }
+  .flow-unlink { position: absolute; top: -7px; right: -7px; display: grid; place-items: center; width: 20px; height: 20px; padding: 0; border-radius: 50%; background: var(--surface); color: var(--bad); border: 1px solid var(--line-strong); font-size: 14px; line-height: 1; }
+  .flow-unlink:hover { background: var(--bad); color: var(--on-primary); border-color: var(--bad); }
+  .flow-empty { padding: 8px 10px; color: var(--muted); font-size: var(--fs-meta); border: 1px dashed var(--line-strong); border-radius: var(--radius); }
+  .flow-arrow { width: 2px; height: 18px; background: var(--line-strong); position: relative; margin-bottom: 6px; }
+  .flow-arrow::after { content: ""; position: absolute; left: -5px; bottom: -6px; border: 6px solid transparent; border-bottom: 0; border-top-color: var(--line-strong); }
+
   .cut { display: grid; gap: 6px; }
   .cut + .cut { margin-top: 14px; }
   .cut-head { display: flex; align-items: baseline; gap: 8px; }

@@ -233,11 +233,15 @@ a second.
   says what the next click does, has **Deal again** (new types for every unlocked space but Start),
   and the **Board check**: its errors (red) and warnings, each one flying to its first space, then
   the counts by type, the loop and its shortcuts. A space picked with Select has its panel:
-  **Type**, **Lock**, **Star candidate**, **Opening spot**, then **Paths**: **Create path** (the
-  Spaces tool, the next space placed leading on from this one), **Lead to** (then click the space
-  it leads to, in the view or the list), each space it leads to (with **Unlink**), and **Delete**.
+  **Type**, **Lock**, **Star candidate**, **Opening spot**, then **Paths**, a flow diagram: the
+  spaces that lead into it on top, the space in the middle, the spaces it leads to below, each a
+  tile in its type's color that picks its space, each link with an X that takes it away; the row
+  below ends with **Create path** (the Spaces tool, the next space placed leading on from this one)
+  and **Lead to** (then click the space it leads to, in the view or the list). Then **Delete space**.
   A Star candidate's name says so ("Space 3: Blue, Star"), in the list and over its post. Select
   moves a space with its gizmo (onto a block's middle) and deletes it with Delete; its links go too.
+  Select also picks a link by its arrow (it turns yellow): its panel names both ends (each picks its
+  space) and has **Delete link**, as does the Delete key.
 - **Center on block** (on at first, remembered) puts an entry at its block's middle; off, it goes
   exactly where you click. Switching it on with a marker picked that stands at an exact spot moves
   that marker to its block's middle, at the same height and facing the same way, as game Edit's

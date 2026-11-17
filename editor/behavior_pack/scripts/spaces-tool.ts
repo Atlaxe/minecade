@@ -5,11 +5,11 @@
 //     previous space (the one placed or picked last), and dealt its type (the one furthest under its
 //     share that breaks no placement rule there; the first space is Start). It becomes the previous.
 //   - Hitting a space opens its screen: its type, Lock (Deal again leaves it alone), Star candidate,
-//     Opening spot, then Paths: Create path (the Spaces tool goes in hand, and the next space placed
+//     Opening spot, then its paths as a flow (the user asked): Comes in from (each space that leads
+//     here) and Leads to (each space it leads to), each a button whose screen opens that space or
+//     takes the link away; then Create path (the Spaces tool goes in hand, and the next space placed
 //     leads on from this one: from a space that already leads somewhere, that starts a branch), Lead
-//     to (then hit the space it should lead to: closes the loop, rejoins a shortcut), a button per
-//     space it leads to (tap to take that link away), and Delete. The user asked for these in place
-//     of Make it the previous and Link the previous here.
+//     to (then hit the space it should lead to: closes the loop, rejoins a shortcut), and Delete.
 //   - The map menu's settings for the tool: Deal again (every unlocked space), Board check (the
 //     report in chat, as /boardcheck), and every space (tap one for its screen).
 // Spaces are markers in their type's color; while the tool is out, dots show each link with an
@@ -62,7 +62,7 @@ type SpaceAction =
   | { kind: "flag"; flag: "locked" | "star" | "opening" }
   | { kind: "createPath" }
   | { kind: "leadTo" }
-  | { kind: "unlink"; to: number }
+  | { kind: "link"; from: number; to: number }
   | { kind: "delete" };
 
 export class SpacesTool {
@@ -168,6 +168,18 @@ export class SpacesTool {
     ];
   }
 
+  /** A link's screen: go to the space at its other end, or take the link away. */
+  private async linkScreen(player: Player, from: number, to: number, other: number): Promise<"open" | undefined> {
+    const form = new ActionFormData().title(sideTitle(`Space ${from} to space ${to}`));
+    form.button(BACK_TEXT, ICONS.back);
+    form.button(`Open space ${other}`);
+    form.button(dangerText("Remove link"));
+    const response = await this.host.show(player, form);
+    if (response?.selection === 1) return "open";
+    if (response?.selection === 2) this.host.edit(player, { op: "unlinkSpace", from, to }, `Space ${from} no longer leads to space ${to}`);
+    return undefined;
+  }
+
   /** A space's screen (it was hit, or picked in the map menu, which `back` opens again). */
   async menu(player: Player, id: number, back?: () => Promise<void>): Promise<void> {
     const board = this.board;
@@ -180,10 +192,19 @@ export class SpacesTool {
       entries.push({ action: { kind: "flag", flag: "locked" }, text: switchText("Lock", "Deal again leaves it alone", space.locked === true) });
       entries.push({ action: { kind: "flag", flag: "star" }, text: switchText("Star candidate", "the Star can be here", space.star === true) });
       if (space.star) entries.push({ action: { kind: "flag", flag: "opening" }, text: switchText("Opening spot", "the first Star can be here", space.opening === true) });
-      entries.push({ action: { kind: "none" }, text: headingText("Paths") });
+      // Its paths as a flow: what leads in, then where it leads, each link a screen of its own.
+      const all = this.spaces();
+      const incoming = all.filter((other) => (other.next ?? []).includes(id));
+      entries.push({ action: { kind: "none" }, text: headingText("Comes in from") });
+      for (const other of incoming) entries.push({ action: { kind: "link", from: other.id, to: id }, text: spaceLabel(other, board) });
+      if (incoming.length === 0) entries.push({ action: { kind: "none" }, text: "§7Nothing leads here" });
+      entries.push({ action: { kind: "none" }, text: headingText("Leads to") });
+      for (const to of space.next ?? []) {
+        const other = all.find((candidate) => candidate.id === to);
+        entries.push({ action: { kind: "link", from: id, to }, text: other ? spaceLabel(other, board) : `Space ${to}` });
+      }
       entries.push({ action: { kind: "createPath" }, text: "Create path\n§7the next space you place leads on from here" });
       entries.push({ action: { kind: "leadTo" }, text: "Lead to\n§7then hit the space it leads to" });
-      for (const to of space.next ?? []) entries.push({ action: { kind: "unlink", to }, text: `Leads to space ${to}\n§7tap to take the link away` });
       entries.push({ action: { kind: "delete" }, text: dangerText("Delete space") });
       const form = new ActionFormData().title(sideTitle(`Space ${id}`));
       for (const entry of entries) form.button(entry.text, entry.icon);
@@ -213,9 +234,11 @@ export class SpacesTool {
           this.leading.set(player.name.toLowerCase(), id);
           actionBar(player, `Hit the space that space ${id} leads to`);
           return;
-        case "unlink":
-          this.host.edit(player, { op: "unlinkSpace", from: id, to: action.to }, `Space ${id} no longer leads to space ${action.to}`);
+        case "link": {
+          const other = action.from === id ? action.to : action.from;
+          if ((await this.linkScreen(player, action.from, action.to, other)) === "open") return this.menu(player, other, () => this.menu(player, id, back));
           break;
+        }
         case "delete":
           this.host.edit(player, { op: "removeSpace", id }, `Space ${id} deleted`);
           return back?.();

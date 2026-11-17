@@ -30,6 +30,8 @@ const LINE_LENGTH = 2;
 /** A board's links: how high over the spaces' floor, and their color. */
 const LINK_HEIGHT = 0.4;
 const LINK_COLOR = 0xffffff;
+/** A picked link's color. */
+const LINK_PICKED = 0xffd23f;
 const FADED = 0.2;
 /** How see-through a point that's being placed is. */
 const GHOST = 0.45;
@@ -78,12 +80,19 @@ interface PlaneObject {
   edge: THREE.LineLoop<THREE.BufferGeometry, THREE.LineBasicMaterial>;
 }
 
+interface LinkObject {
+  mark: LinkMark;
+  objects: THREE.Object3D[];
+  materials: (THREE.LineBasicMaterial | THREE.MeshBasicMaterial)[];
+  ends: [[number, number, number], [number, number, number]];
+}
+
 export class Overlay {
   private readonly root = new THREE.Group();
   private readonly shapes = new Map<string, ShapeModel>();
   private points: PointObject[] = [];
-  /** A board's links' lines and arrowheads. */
-  private links: THREE.Object3D[] = [];
+  /** A board's links: each one's line and arrowhead, and where its line runs (it's picked by that). */
+  private links: LinkObject[] = [];
   private boxes: BoxObject[] = [];
   private planes: PlaneObject[] = [];
   private readonly ring: THREE.Mesh;
@@ -269,7 +278,10 @@ export class Overlay {
     for (const mark of markup.points) this.points.push(this.point(mark));
     for (const mark of markup.boxes) this.boxes.push(this.box(mark));
     for (const mark of markup.planes) this.planes.push(this.plane(mark));
-    for (const mark of markup.links) this.links.push(...this.link(mark));
+    for (const mark of markup.links) {
+      const link = this.link(mark);
+      if (link) this.links.push(link);
+    }
     this.refresh();
   }
 
@@ -277,23 +289,24 @@ export class Overlay {
    * A board's link: a line from one space toward the next, stopping short of both, with a cone at
    * its end, drawn through blocks so the way shows from anywhere.
    */
-  private link(mark: LinkMark): THREE.Object3D[] {
+  private link(mark: LinkMark): LinkObject | undefined {
     const from = new THREE.Vector3(mark.from.x, mark.from.y + LINK_HEIGHT, mark.from.z);
     const to = new THREE.Vector3(mark.to.x, mark.to.y + LINK_HEIGHT, mark.to.z);
     const length = from.distanceTo(to);
-    if (length < 1.5) return [];
+    if (length < 1.5) return undefined;
     const way = to.clone().sub(from).normalize();
     const start = from.clone().addScaledVector(way, 0.7);
     const tip = to.clone().addScaledVector(way, -0.7);
     const material = new THREE.LineBasicMaterial({ color: LINK_COLOR, transparent: true, opacity: 0.9, depthTest: false });
     const line = new THREE.Line(new THREE.BufferGeometry().setFromPoints([start, tip]), material);
-    const head = new THREE.Mesh(new THREE.ConeGeometry(0.22, 0.6, 12).translate(0, -0.3, 0), new THREE.MeshBasicMaterial({ color: LINK_COLOR, depthTest: false }));
+    const headMaterial = new THREE.MeshBasicMaterial({ color: LINK_COLOR, depthTest: false });
+    const head = new THREE.Mesh(new THREE.ConeGeometry(0.22, 0.6, 12).translate(0, -0.3, 0), headMaterial);
     head.position.copy(tip);
     head.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), way);
     line.renderOrder = 4;
     head.renderOrder = 4;
     this.root.add(line, head);
-    return [line, head];
+    return { mark, objects: [line, head], materials: [material, headMaterial], ends: [start.toArray(), tip.toArray()] };
   }
 
   /** Shows an entry as picked (or none): a ring around a point, brighter edges and faces on a box; and any others picked with it. */
@@ -352,6 +365,8 @@ export class Overlay {
       }
     };
     for (const box of this.boxes) consider(box.mark.key, boxEdges(box.mark.box));
+    // A board's links show through blocks, so they're picked through them too.
+    for (const link of this.links) consider(link.mark.key, [link.ends]);
     if (heights) {
       const rect = this.sheetRect();
       for (const plane of this.planes) if (this.scene.isHeightKept(plane.mark.y)) consider(plane.mark.key, sheetEdges(plane.mark.y, rect));
@@ -484,6 +499,10 @@ export class Overlay {
       const yaw = THREE.MathUtils.degToRad(ring.mark.yaw);
       this.knob.position.set(x - Math.sin(yaw) * KNOB_DISTANCE, y + 0.15, z + Math.cos(yaw) * KNOB_DISTANCE);
     }
+    for (const link of this.links) {
+      const picked = this.isPicked(link.mark.key);
+      for (const material of link.materials) material.color.setHex(picked ? LINK_PICKED : LINK_COLOR);
+    }
     for (const box of this.boxes) {
       const picked = this.isPicked(box.mark.key);
       for (const object of [box.faces, box.edges, box.through]) object.visible = box.mark.key !== this.editing;
@@ -507,11 +526,13 @@ export class Overlay {
   }
 
   private clear(): void {
-    for (const object of this.links) {
-      this.root.remove(object);
-      const shape = object as THREE.Mesh;
-      shape.geometry?.dispose();
-      (shape.material as THREE.Material | undefined)?.dispose();
+    for (const link of this.links) {
+      for (const object of link.objects) {
+        this.root.remove(object);
+        const shape = object as THREE.Mesh;
+        shape.geometry?.dispose();
+        (shape.material as THREE.Material | undefined)?.dispose();
+      }
     }
     this.links = [];
     for (const point of this.points) {

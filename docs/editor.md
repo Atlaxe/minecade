@@ -430,11 +430,12 @@ you back in creative at every spawn).
   linked from your previous space (the one you placed or picked last), and deals its type (the one
   furthest under its share that breaks no placement rule there; the first space is Start); it
   becomes your previous space. Hit a space for its screen: **Type** (pick another), **Lock** (Deal
-  again leaves it alone), **Star candidate**, **Opening spot** (on a Star candidate), then
-  **Paths**: **Create path** (the Spaces tool goes in your hand, and the next space you place
-  leads on from this one, so from a space that already leads somewhere it starts a branch),
-  **Lead to** (then hit the space it should lead to: closes the loop, rejoins a shortcut; hit the
-  same space again to call it off), a button per space it leads to (tap to take that link away),
+  again leaves it alone), **Star candidate**, **Opening spot** (on a Star candidate), then its
+  paths as a flow: **Comes in from** (each space that leads here) and **Leads to** (each space it
+  leads to), each a button whose screen opens that space or removes the link; **Create path**
+  (the Spaces tool goes in your hand, and the next space you place leads on from this one, so from
+  a space that already leads somewhere it starts a branch), **Lead to** (then hit the space it
+  should lead to: closes the loop, rejoins a shortcut; hit the same space again to call it off),
   and **Delete space** (its links go too). A Star candidate's name says so: "Space 3: Blue, Star". Spaces are markers in their type's color; holding the tool shows each link as
   dots with an arrowhead at the space it leads to, and a green ring around your previous space.
   The tool's settings in the map menu have **Deal again** (new types for every unlocked space

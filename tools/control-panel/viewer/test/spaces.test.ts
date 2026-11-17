@@ -1,6 +1,6 @@
 import { BLOCK_PARTY_BOARD, type MapConfig } from "@minecade/minigame-core/config";
 import { describe, expect, it } from "vitest";
-import { placeSpace, spaceIdOf, spaceKey, spaceMarkup, spacePosition } from "../spaces.ts";
+import { linkKey, linkLabel, linkOf, placeSpace, spaceIdOf, spaceKey, spaceMarkup, spacePosition } from "../spaces.ts";
 
 const BOARD = BLOCK_PARTY_BOARD;
 
@@ -24,10 +24,18 @@ describe("a board's spaces in the viewer", () => {
     expect(list?.entries.map((entry) => entry.label)).toEqual(["Space 1: Start", "Space 2: Red, Star"]);
     expect(list).toMatchObject({ key: "spaces", need: 12, done: false });
     expect(links).toEqual([
-      { from: { x: 0.5, y: 64, z: 0.5 }, to: { x: 4.5, y: 64, z: 0.5 } },
-      { from: { x: 4.5, y: 64, z: 0.5 }, to: { x: 0.5, y: 64, z: 0.5 } },
+      { key: "link:1>2", from: { x: 0.5, y: 64, z: 0.5 }, to: { x: 4.5, y: 64, z: 0.5 } },
+      { key: "link:2>1", from: { x: 4.5, y: 64, z: 0.5 }, to: { x: 0.5, y: 64, z: 0.5 } },
     ]);
     expect(spaceMarkup(config, undefined, {})).toEqual({ points: [], links: [] });
+  });
+
+  it("names a link by its key, which Select picks and Delete takes away", () => {
+    expect(linkKey(3, 14)).toBe("link:3>14");
+    expect(linkOf("link:3>14")).toEqual({ from: 3, to: 14 });
+    expect(linkOf("space:3")).toBeUndefined();
+    expect(linkOf("link:3")).toBeUndefined();
+    expect(linkLabel({ from: 3, to: 14 })).toBe("Space 3 to space 14");
   });
 
   it("places a space on a block's middle, after the previous one, its type dealt; the first is Start", () => {

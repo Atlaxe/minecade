@@ -1,13 +1,16 @@
 // A board's spaces in the map viewer (the board kit, a game whose config has map.board: Block
 // Party's boards), as game Edit's Spaces tool has them (editor/behavior_pack/scripts/spaces-tool.ts):
 //   - markup: each space a post in its type's color (a point the Select tool picks, drags and
-//     deletes like any other), an arrow for each link, and a Spaces list in a Board section;
+//     deletes like any other), an arrow for each link (Select picks one by its line: its panel has
+//     Delete, and so does the Delete key), and a Spaces list in a Board section;
 //   - the Spaces tool: a click on a block places a space on its middle, linked from the previous
 //     space (the one placed or picked last) and dealt its type; its panel has the previous space,
 //     Deal again, and the board check (each finding flies to its first space);
-//   - a picked space's panel: Type, Lock, Star candidate, Opening spot, then Paths: Create path (the
-//     Spaces tool, the next space placed leading on from this one), Lead to (then click the space
-//     it leads to, in the view or the list), each space it leads to (with Unlink), and Delete.
+//   - a picked space's panel: Type, Lock, Star candidate, Opening spot, then Paths, a flow diagram
+//     (the user's idea): the spaces that lead into it, the space, and the spaces it leads to, each a
+//     tile that picks its space, each link with an X that takes it away, then Create path (the Spaces
+//     tool, the next space placed leading on from this one) and Lead to (then click the space it
+//     leads to, in the view or the list) as tiles of their own; then Delete.
 // A Star candidate's name says so ("Space 3: Blue, Star"), in the list and over its post.
 import {
   checkBoard,
@@ -26,7 +29,7 @@ import {
   type MapEdit,
   type MapPosition,
 } from "@minecade/minigame-core/config";
-import { el } from "./sidebar.ts";
+import { colorText, el } from "./sidebar.ts";
 import type { MarkupList, PointMark } from "./markup.ts";
 
 /** A space's key in the viewer's markup. */
@@ -43,8 +46,23 @@ export function spaceIdOf(key: string | undefined): number | undefined {
   return Number.isInteger(id) ? id : undefined;
 }
 
+/** A link's key in the viewer's markup: "link:3>4" (space 3 leads to space 4). */
+export const LINK_KEY = "link:";
+
+export const linkKey = (from: number, to: number) => `${LINK_KEY}${from}>${to}`;
+
+/** The link a markup key names, if it's a link's. */
+export function linkOf(key: string | undefined): { from: number; to: number } | undefined {
+  const match = key?.startsWith(LINK_KEY) ? /^(-?\d+)>(-?\d+)$/.exec(key.slice(LINK_KEY.length)) : null;
+  return match ? { from: Number(match[1]), to: Number(match[2]) } : undefined;
+}
+
+/** A link's name: "Space 3 to space 4". */
+export const linkLabel = (link: { from: number; to: number }) => `Space ${link.from} to space ${link.to}`;
+
 /** An arrow from one space toward the next. */
 export interface LinkMark {
+  key: string;
   from: { x: number; y: number; z: number };
   to: { x: number; y: number; z: number };
 }
@@ -68,7 +86,7 @@ export function spaceMarkup(config: MapConfig, board: BoardConfig | undefined, n
     noLine: true,
   }));
   const at = new Map(spaces.map((space) => [space.id, worldPoint(space.at)]));
-  const links: LinkMark[] = spaces.flatMap((space) => (space.next ?? []).flatMap((id) => (at.has(id) ? [{ from: at.get(space.id)!, to: at.get(id)! }] : [])));
+  const links: LinkMark[] = spaces.flatMap((space) => (space.next ?? []).flatMap((id) => (at.has(id) ? [{ key: linkKey(space.id, id), from: at.get(space.id)!, to: at.get(id)! }] : [])));
   const list: MarkupList = {
     key: SPACES_LIST,
     label: board.label ?? "Spaces",
@@ -131,21 +149,83 @@ export function spacePanel(space: BoardSpace, options: SpacePanelOptions): HTMLE
     flag("star", "Star candidate"),
     space.star ? flag("opening", "Opening spot") : null,
     el("div", { className: "group-label" }, "Paths"),
+    pathsFlow(space, options),
+    el("div", { className: "buttons" }, el("button", { className: "small danger", onclick: () => edit({ op: "removeSpace", id }) }, "Delete space")),
+  );
+}
+
+/**
+ * A space's paths as a flow diagram, top to bottom: the spaces that lead into it, the space, the
+ * spaces it leads to. Each is a tile in its type's color that picks its space; each link has an X
+ * that takes it away; Create path and Lead to are tiles at the end of the row it leads to.
+ */
+function pathsFlow(space: BoardSpace, options: SpacePanelOptions): HTMLElement {
+  const { config, board, previous, edit } = options;
+  const id = space.id;
+  const spaces = spacesOf(config);
+  const types = new Map(board.types.map((type) => [type.id, type]));
+  const byId = new Map(spaces.map((candidate) => [candidate.id, candidate]));
+  const colored = <T extends HTMLElement>(node: T, type: string | undefined): T => {
+    node.style.setProperty("--node-color", colorText(types.get(type ?? "")?.color ?? 0xffffff));
+    return node;
+  };
+  const tile = (other: BoardSpace | undefined, otherId: number, unlink?: { from: number; to: number }) => {
+    const kind = types.get(other?.type ?? "");
+    return el(
+      "div",
+      { className: "flow-tile" },
+      colored(
+        el(
+          "button",
+          { className: "flow-node", onclick: () => options.show(otherId) },
+          el("b", {}, `Space ${otherId}`),
+          el("span", {}, kind?.name ?? "No type"),
+          other?.star ? el("span", { className: "flow-star" }, "Star") : null,
+        ),
+        other?.type,
+      ),
+      unlink ? el("button", { className: "flow-unlink", dataset: { tip: `Take away ${linkLabel(unlink).toLowerCase()}` }, onclick: () => edit({ op: "unlinkSpace", ...unlink }) }, "×") : null,
+    );
+  };
+  const incoming = spaces.filter((other) => (other.next ?? []).includes(id));
+  const outgoing = space.next ?? [];
+  const arrow = () => el("div", { className: "flow-arrow" });
+  const kind = types.get(space.type ?? "");
+  return el(
+    "div",
+    { className: "flow" },
+    el("div", { className: "flow-row" }, incoming.length > 0 ? incoming.map((other) => tile(other, other.id, { from: other.id, to: id })) : el("div", { className: "flow-empty" }, "Nothing leads here")),
+    arrow(),
+    el(
+      "div",
+      { className: "flow-row" },
+      colored(el("div", { className: "flow-node self" }, el("b", {}, `Space ${id}`), el("span", {}, kind?.name ?? "No type"), space.star ? el("span", { className: "flow-star" }, "Star") : null), space.type),
+    ),
+    arrow(),
+    el(
+      "div",
+      { className: "flow-row" },
+      outgoing.map((to) => tile(byId.get(to), to, { from: id, to })),
+      el("button", { className: `flow-node add${previous === id ? " on" : ""}`, dataset: { tip: "The next space you place leads on from this one" }, onclick: () => options.createPath(id) }, el("b", {}, "+"), el("span", {}, "Create path")),
+      el("button", { className: `flow-node add${options.leading === id ? " on" : ""}`, dataset: { tip: "Then click the space it leads to" }, onclick: () => options.leadTo(id) }, el("b", {}, "→"), el("span", {}, options.leading === id ? "Click a space" : "Lead to")),
+    ),
+  );
+}
+
+/** A picked link's panel: where it runs (each end picks its space), and Delete. */
+export function linkPanel(link: { from: number; to: number }, options: SpacePanelOptions): HTMLElement {
+  return el(
+    "section",
+    {},
+    el("h2", {}, "Link"),
     el(
       "div",
       { className: "buttons" },
-      el("button", { className: `small${previous === id ? " on" : ""}`, dataset: { tip: "The next space you place leads on from this one" }, onclick: () => options.createPath(id) }, "Create path"),
-      el("button", { className: `small${options.leading === id ? " on" : ""}`, dataset: { tip: "Then click the space it leads to" }, onclick: () => options.leadTo(id) }, options.leading === id ? "Click a space..." : "Lead to"),
+      el("button", { className: "small", onclick: () => options.show(link.from) }, `Space ${link.from}`),
+      el("span", { className: "sub" }, "leads to"),
+      el("button", { className: "small", onclick: () => options.show(link.to) }, `Space ${link.to}`),
     ),
-    (space.next ?? []).map((to) =>
-      el(
-        "div",
-        { className: "field-row" },
-        el("button", { className: "small", onclick: () => options.show(to) }, `Space ${to}`),
-        el("button", { className: "small danger", onclick: () => edit({ op: "unlinkSpace", from: id, to }) }, "Unlink"),
-      ),
-    ),
-    el("div", { className: "buttons" }, el("button", { className: "small danger", onclick: () => edit({ op: "removeSpace", id }) }, "Delete")),
+    el("div", { className: "buttons" }, el("button", { className: "small danger", onclick: () => options.edit({ op: "unlinkSpace", ...link }) }, "Delete link")),
   );
 }
 
