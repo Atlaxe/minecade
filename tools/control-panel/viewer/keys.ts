@@ -75,7 +75,7 @@ export const ACTIONS: readonly Action[] = [
   { id: "boxResize", group: "Changes", label: "Picked box: Resize", keys: [key("KeyE")] },
   { id: "nudgeOut", group: "Changes", label: "Picked face out, or height up", keys: [key("ArrowUp"), key("ArrowRight")], steps: true },
   { id: "nudgeIn", group: "Changes", label: "Picked face in, or height down", keys: [key("ArrowDown"), key("ArrowLeft")], steps: true },
-  { id: "frame", group: "View", label: "Frame the picked entry", keys: [key("KeyF")] },
+  { id: "frame", group: "View", label: "Frame what's picked", keys: [key("KeyF")] },
   { id: "home", group: "View", label: "Home (the whole map)", keys: [key("Home")] },
   { id: "cutDown", group: "View", label: "Y cut down a layer", keys: [key("PageDown"), key("BracketLeft")], steps: true },
   { id: "cutUp", group: "View", label: "Y cut up a layer", keys: [key("PageUp"), key("BracketRight")], steps: true },

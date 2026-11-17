@@ -407,6 +407,14 @@ export class Overlay {
     this.refresh();
   }
 
+  /** Draws a box moved by whole blocks while it's dragged with others picked (the map isn't changed; drawing the markup again puts it back). */
+  previewBoxOffset(key: string, offset: readonly number[]): void {
+    const box = this.boxes.find((candidate) => candidate.mark.key === key);
+    if (!box) return;
+    for (const object of [box.faces, box.edges, box.through]) object.position.set(offset[0], offset[1], offset[2]);
+    this.scene.requestRender();
+  }
+
   /** Where an entry is, to frame it: a middle and a radius. */
   extent(key: string): { center: THREE.Vector3; radius: number; floor: number } | undefined {
     const point = this.points.find((candidate) => candidate.mark.key === key);

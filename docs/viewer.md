@@ -112,7 +112,7 @@ only a first use needs goes in the button's tooltip, or in these docs.
 | Double click a block | Center the view on it |
 | **The view cube** | Turned the way you look. Click a face (N, S, E, W, Top, Bottom), an edge or a corner to look from that side; Top is a flat floor plan, north up |
 | **Home** (beside the cube, or the Home key) | The whole map |
-| F | Frame the picked entry |
+| F | Frame what's picked (all of it, with several picked) |
 
 **WASD flying** (in Settings, off at first): W, A, S and D move along the ground the way you
 look, Space goes up and Shift down, at the speed the settings say. Turning and the wheel work as
@@ -153,7 +153,8 @@ D):
 | **Time** | T | Nothing: its panel sets the map's time of day (see "Map settings") |
 
 Esc goes back to Select (and, in Select, picks nothing). Clicking an entry in the overview picks it
-with Select and frames it in the view.
+with Select and frames it in the view. Shift + click in the overview picks a run, Ctrl + click adds
+one, and a click on a list's name picks the whole list (see "Picking several and editing in bulk").
 
 ### Picking with a click
 
@@ -169,7 +170,8 @@ With Select, a click picks the first of these under the pointer:
 
 The bounds and the spectator bounds usually hold the whole map, so a click on a block inside them
 still picks nothing: click their edges. The status line names what a click would pick, before the
-block. Shift + click adds it to the pick, or takes it out. What's past a cut isn't picked.
+block. Shift + click (or Ctrl + click) adds it to the pick, or takes it out. What's past a cut isn't
+picked.
 
 ## The map's markup
 
@@ -302,14 +304,36 @@ a second.
   moved.
 - **Delete** removes it.
 
-## Picking several and copying
+## Picking several and editing in bulk
 
-- **Pick several:** with Select, Shift + click markers, boxes or heights in the view, or entries in
-  the overview, to add them to the pick (Shift + click a picked one to take it out). In Top view (the cube's top), drag a
-  rectangle from anywhere that isn't a marker: it picks every marker and box whose middle is inside
-  (Shift: adds them). Esc picks nothing.
-- With several picked, the right panel names them and acts on them all: **Delete** (the key too)
-  removes them as one change, which one undo brings back.
+- **In the view:** with Select, Shift + click (or Ctrl + click) markers, boxes or heights to add
+  them to the pick, and again to take one out. In Top view (the cube's top), drag a rectangle from
+  anywhere that isn't a marker: it picks every marker and box whose middle is inside (Shift or Ctrl:
+  adds them).
+- **In the overview:** a click picks one entry. **Shift + click** adds every entry from the last
+  one clicked (or the picked one) to this one, across lists, as the overview shows them (a search
+  narrows the run to what it shows). **Ctrl + click** adds one entry, or takes it out. A click on a
+  **list's name** ("Red spawns", "Spawn guard (Red)") picks every entry in it; Shift or Ctrl + click
+  on a list's name adds them to the pick.
+- Esc picks nothing. F frames everything picked.
+- **Moving them together:** with several picked, the gizmo sits in the middle of them. Drag its
+  arrows (or its middle, level) to move every picked spawn, marker, space and box by whole blocks, or
+  click an arrow to step them a block; dragging one of the picked markers moves them all the same
+  way. Each keeps its facing and where it stands from the others. Heights stay where they are (each
+  spans the whole map).
+- **Editing in bulk:** the right panel shows each value the picked entries share; where they differ
+  it says **Mixed**. A value typed (or picked) there goes to every one of them as one change, which
+  one undo takes back:
+  - Spawns and game markers: **Type** (moves them all into one list, last in it, keeping their
+    places; a list that holds one entry, like the queue spawn, takes only one, so pick that one
+    alone), **Position** X, Y and Z, **Faces a fixed way** (half ticked when only some do), **Yaw**
+    and **Pitch** once they all face a fixed way, and **Center on block**.
+  - Spaces (a board's): **Type**, **Lock**, **Star candidate**, and **Opening spot** once they're all
+    Star candidates; their Position X, Y and Z too.
+  - Boxes: **Type** (unless one is too small for that list), and the **From** and **To** corners'
+    X, Y and Z (one too small for its list after the change stops it, and the viewer says which).
+  - One change holds up to 64 edits: a Type takes two per entry, so move at most 32 at a time.
+- **Delete** (the key too) removes every picked entry as one change, which one undo brings back.
 - **Copy to another team** (under a picked team entry's values, or in the panel for several): adds a
   copy of each picked team entry (team spawns, a team's markers and regions) to that team's list,
   in the same place.

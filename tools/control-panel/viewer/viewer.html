@@ -121,7 +121,8 @@
   .overview h3 { font-size: var(--fs-meta); color: var(--muted); text-transform: uppercase; letter-spacing: .06em; margin: 0 4px 6px; }
   .overview h3 ~ h3 { margin-top: 14px; }
   .list { margin-bottom: 6px; }
-  .list-head { display: flex; align-items: center; gap: 8px; font-weight: 700; padding: 4px; }
+  .list-head { display: flex; width: 100%; align-items: center; gap: 8px; text-align: left; background: none; border: 0; color: inherit; font-size: var(--fs-body); font-weight: 700; padding: 4px; }
+  .list-head:hover { background: var(--raised); }
   .list.todo .count { color: var(--warn); }
   .swatch { width: 10px; height: 10px; flex: none; box-shadow: 0 0 0 1px rgba(0, 0, 0, .4); }
   .entry { display: flex; width: 100%; gap: 8px; align-items: baseline; text-align: left; background: none; font-size: var(--fs-body); font-weight: 400; padding: 4px 6px 4px 22px; border: 0; }

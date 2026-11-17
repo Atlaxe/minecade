@@ -3,7 +3,10 @@
 // a 3D view makes (warnings: checks.ts) and the blocks that have no look. Overview: what the map
 // has, by game Edit's lists, with only the lists that have entries (a map with no spawns yet has
 // no Spawns section). Clicking an entry or a warning about one picks it (the page frames it in
-// the view); clicking a block's name shows the first of them.
+// the view); clicking a block's name shows the first of them. In the overview, Shift + click picks
+// every entry from the last one clicked to this one, Ctrl + click adds one or takes it out, and a
+// click on a list's name picks the whole list (Shift or Ctrl: adds it).
+import { runOf } from "./bulk.ts";
 import type { MapWarning } from "./checks.ts";
 import type { Markup, MarkupEntry, MarkupList } from "./markup.ts";
 
@@ -36,8 +39,10 @@ export function swatch(color: number): HTMLSpanElement {
 }
 
 export interface SidebarHandlers {
-  /** An entry was clicked (with Shift: added to the pick, or taken out of it). */
-  pick(key: string, add: boolean): void;
+  /** An entry was clicked: picked alone, or (`toggle`, Ctrl + click) added to the pick or taken out of it. */
+  pick(key: string, toggle: boolean): void;
+  /** Several were picked at once: a run (Shift + click) or a list (its name), added to the pick or (not `add`) alone. */
+  pickMany(keys: string[], add: boolean): void;
   /** A block's name was clicked. */
   find(block: string): void;
 }
@@ -82,6 +87,8 @@ export function overviewLists(markup: Markup, query: string): { title: string; l
 export class Sidebar {
   private picked: string | undefined;
   private also: ReadonlySet<string> = new Set();
+  /** The overview entry clicked last (without Shift): a Shift + click picks the run from it. */
+  private anchor: string | undefined;
   private tab: SideTab;
   private readonly queries: Record<SideTab, string> = { checklist: "", overview: "" };
   private readonly scrolls: Record<SideTab, number> = { checklist: 0, overview: 0 };
@@ -289,22 +296,45 @@ export class Sidebar {
 
   private list({ list, entries }: ShownList): HTMLElement {
     const count = list.need !== undefined ? `${list.entries.length} of ${list.need}` : String(list.entries.length);
+    const keys = entries.map((entry) => entry.key);
     return el(
       "div",
       { className: `list${list.done === false ? " todo" : ""}`, dataset: { list: list.key } },
-      el("div", { className: "list-head" }, swatch(list.color), el("span", { className: "grow" }, list.label), el("span", { className: "count" }, count)),
-      entries.map((entry) =>
-        el(
-          "button",
-          { className: "entry", dataset: { key: entry.key }, title: entry.detail, onclick: (event: MouseEvent) => this.handlers.pick(entry.key, event.shiftKey) },
-          el("span", { className: "entry-label" }, entry.label),
-          el("span", { className: "entry-detail" }, entry.detail),
-        ),
+      el(
+        "button",
+        { className: "list-head", title: `Pick every ${list.label} shown (Shift or Ctrl: add them)`, onclick: (event: MouseEvent) => this.handlers.pickMany(keys, event.shiftKey || event.ctrlKey || event.metaKey) },
+        swatch(list.color),
+        el("span", { className: "grow" }, list.label),
+        el("span", { className: "count" }, count),
       ),
+      entries.map((entry) => el("button", { className: "entry", dataset: { key: entry.key }, title: entry.detail, onclick: (event: MouseEvent) => this.clickEntry(entry.key, event) }, el("span", { className: "entry-label" }, entry.label), el("span", { className: "entry-detail" }, entry.detail))),
     );
   }
 
+  /**
+   * A click on an overview entry: alone, it picks the entry; with Ctrl, adds it or takes it out;
+   * with Shift, adds every entry shown from the last one clicked (or the picked one) to this one.
+   */
+  private clickEntry(key: string, event: MouseEvent): void {
+    if (event.shiftKey) {
+      const from = this.anchor !== undefined && this.isPicked(this.anchor) ? this.anchor : this.picked;
+      return this.handlers.pickMany(runOf(this.shownKeys(), from, key), true);
+    }
+    this.anchor = key;
+    this.handlers.pick(key, event.ctrlKey || event.metaKey);
+  }
+
+  /** The overview's entries as shown (the search's), in order. */
+  private shownKeys(): string[] {
+    if (!this.markup) return [];
+    return overviewLists(this.markup, this.queries.overview).flatMap((section) => section.lists.flatMap((shown) => shown.entries.map((entry) => entry.key)));
+  }
+
+  private isPicked(key: string): boolean {
+    return key === this.picked || this.also.has(key);
+  }
+
   private mark(): void {
-    for (const entry of this.body.querySelectorAll<HTMLElement>(".entry")) entry.classList.toggle("on", entry.dataset.key === this.picked || this.also.has(entry.dataset.key ?? ""));
+    for (const entry of this.body.querySelectorAll<HTMLElement>(".entry")) entry.classList.toggle("on", this.isPicked(entry.dataset.key ?? ""));
   }
 }
