@@ -143,6 +143,7 @@ export {
   removeSpace,
   retypeSpaces,
   setSpace,
+  spaceLabel,
   spaceProblems,
   spacesOf,
   startType,

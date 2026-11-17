@@ -631,16 +631,18 @@ export class BlockPartySpike extends Minigame<Config> {
    * A move behind the loading screen, for everyone: the screen fades to black (a camera fade), the
    * loading screen fades in over the black a level a tick (the HUD draws over a camera fade: the
    * user saw it pop in), the work is done (a long placement stalls the server, the screen holding),
-   * it holds CLIENT_LOAD ticks more while clients load the new place's chunks, the loading screen
-   * fades out to the black, and the black fades away on the new place. A fade's
-   * hold is at most 10 s; the last fade replaces it.
+   * it holds CLIENT_LOAD ticks more while clients load the new place's chunks, then a second black
+   * comes up under it, the loading screen fades out to that black, and the black fades away on the
+   * new place. Each fade holds only as long as it's needed: a fade started while another holds
+   * doesn't cut that one short (a 10 s hold kept players in black after the loading screen went).
    */
   private async behindBlack(work: () => void | Promise<void>): Promise<void> {
     const black = { red: 0, green: 0, blue: 0 };
     const fade = (fadeInTime: number, holdTime: number, fadeOutTime: number) => {
       for (const player of world.getAllPlayers()) player.camera.fade({ fadeTime: { fadeInTime, holdTime, fadeOutTime }, fadeColor: black });
     };
-    fade(0.4, 10, 0.6);
+    // Black, held until the loading screen is fully up over it, then gone behind it.
+    fade(0.4, 0.4 + (LOADING_AFTER + LOADING_LEVELS + 4) / 20, 0.2);
     await this.scope.wait(8 + LOADING_AFTER);
     try {
       for (let level = 1; level <= LOADING_LEVELS; level++) await this.loadingAt(level);
@@ -650,8 +652,10 @@ export class BlockPartySpike extends Minigame<Config> {
       await work();
       await this.scope.wait(CLIENT_LOAD);
     } finally {
+      // Black again behind the loading screen, held while it fades out to it, then gone on the new place.
+      fade(0.2, (LOADING_LEVELS + 6) / 20, 0.6);
+      await this.scope.wait(5);
       for (let level = LOADING_LEVELS - 1; level >= 0; level--) await this.loadingAt(level);
-      fade(0, 0.1, 0.6);
     }
   }
 

@@ -241,6 +241,8 @@ async function main(): Promise<void> {
   /** A board's game (its config's map.board): the Spaces tool, and the space a new one links from (placed or picked last). */
   const board = data.rules.requires?.board;
   let previousSpace: number | undefined;
+  /** Lead to: the space whose next one the next space clicked (in the view or the list) becomes. */
+  let leadingFrom: number | undefined;
   /** Entries picked with `picked` (Shift + click, or a rectangle in Top view). */
   const also = new Set<string>();
   /**
@@ -414,6 +416,15 @@ async function main(): Promise<void> {
   };
   /** Picks an entry (or none), alone; from the overview, the view frames it, moving a Y cut that hides it. */
   const pickEntry = (key: string | undefined, frame = false) => {
+    // Lead to's second step: a space clicked becomes the next one (the same one again calls it off).
+    const to = spaceIdOf(key);
+    if (leadingFrom !== undefined && to !== undefined) {
+      const from = leadingFrom;
+      leadingFrom = undefined;
+      if (from === to) notice("Lead to called off.");
+      else if (edit({ op: "linkSpace", from, to })) notice(`Space ${from} leads to space ${to}.`);
+      key = spaceKey(from);
+    }
     if (key !== picked) activeFace = undefined;
     picked = key;
     also.clear();
@@ -1126,11 +1137,18 @@ async function main(): Promise<void> {
       board,
       previous: previousSpace,
       edit,
-      setPrevious: (id) => {
+      createPath: (id) => {
         previousSpace = id;
-        renderPanel();
-        notice(`Space ${id} is the previous space: the next one placed links from it.`);
+        leadingFrom = undefined;
+        setTool("spaces");
+        notice(`Place the next space: it leads on from space ${id}.`);
       },
+      leadTo: (id) => {
+        leadingFrom = leadingFrom === id ? undefined : id;
+        renderPanel();
+        if (leadingFrom !== undefined) notice(`Click the space that space ${id} leads to.`);
+      },
+      leading: leadingFrom,
       show: (id) => pickEntry(spaceKey(id), true),
       note: notice,
     };

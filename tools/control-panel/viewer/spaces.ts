@@ -5,8 +5,10 @@
 //   - the Spaces tool: a click on a block places a space on its middle, linked from the previous
 //     space (the one placed or picked last) and dealt its type; its panel has the previous space,
 //     Deal again, and the board check (each finding flies to its first space);
-//   - a picked space's panel: Type, Lock, Star candidate, Opening spot, Make it the previous, Link
-//     the previous here, its links (each with a button to take it away), and Delete.
+//   - a picked space's panel: Type, Lock, Star candidate, Opening spot, then Paths: Create path (the
+//     Spaces tool, the next space placed leading on from this one), Lead to (then click the space
+//     it leads to, in the view or the list), each space it leads to (with Unlink), and Delete.
+// A Star candidate's name says so ("Space 3: Blue, Star"), in the list and over its post.
 import {
   checkBoard,
   dealAgain,
@@ -14,6 +16,7 @@ import {
   positionText,
   reportLines,
   retypeSpaces,
+  spaceLabel,
   spacesOf,
   typeForNewSpace,
   worldPoint,
@@ -55,7 +58,7 @@ export function spaceMarkup(config: MapConfig, board: BoardConfig | undefined, n
     key: spaceKey(space.id),
     list: SPACES_LIST,
     index,
-    label: `Space ${space.id}: ${types.get(space.type ?? "")?.name ?? "no type"}`,
+    label: spaceLabel(space, board),
     at: worldPoint(space.at),
     yaw: 0,
     pitch: 0,
@@ -97,7 +100,11 @@ export interface SpacePanelOptions {
   board: BoardConfig;
   previous: number | undefined;
   edit(change: MapEdit): unknown;
-  setPrevious(id: number): void;
+  /** Create path: the Spaces tool, the next space placed leading on from `id`. */
+  createPath(id: number): void;
+  /** Lead to: the next space clicked is where `id` leads (or none while nothing waits). */
+  leadTo(id: number): void;
+  leading: number | undefined;
   /** Picks a space and flies to it. */
   show(id: number): void;
   /** Says something over the view. */
@@ -115,8 +122,6 @@ export function spacePanel(space: BoardSpace, options: SpacePanelOptions): HTMLE
   );
   const flag = (name: "locked" | "star" | "opening", label: string) =>
     el("label", { className: "field-row" }, el("input", { type: "checkbox", checked: space[name] === true, onchange: (event: Event) => edit({ op: "setSpace", id, [name]: (event.target as HTMLInputElement).checked }) }), ` ${label}`);
-  const previousSpace = spacesOf(options.config).find((candidate) => candidate.id === previous);
-  const canLink = previousSpace && previous !== id && !previousSpace.next?.includes(id);
   return el(
     "section",
     {},
@@ -125,13 +130,13 @@ export function spacePanel(space: BoardSpace, options: SpacePanelOptions): HTMLE
     flag("locked", "Lock"),
     flag("star", "Star candidate"),
     space.star ? flag("opening", "Opening spot") : null,
+    el("div", { className: "group-label" }, "Paths"),
     el(
       "div",
       { className: "buttons" },
-      el("button", { className: `small${previous === id ? " on" : ""}`, onclick: () => options.setPrevious(id) }, previous === id ? "The previous space" : "Make it the previous"),
-      canLink ? el("button", { className: "small", onclick: () => edit({ op: "linkSpace", from: previous!, to: id }) }, `Link space ${previous} here`) : null,
+      el("button", { className: `small${previous === id ? " on" : ""}`, dataset: { tip: "The next space you place leads on from this one" }, onclick: () => options.createPath(id) }, "Create path"),
+      el("button", { className: `small${options.leading === id ? " on" : ""}`, dataset: { tip: "Then click the space it leads to" }, onclick: () => options.leadTo(id) }, options.leading === id ? "Click a space..." : "Lead to"),
     ),
-    (space.next ?? []).length > 0 ? el("div", { className: "group-label" }, "Leads to") : null,
     (space.next ?? []).map((to) =>
       el(
         "div",

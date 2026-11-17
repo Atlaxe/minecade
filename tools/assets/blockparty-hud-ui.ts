@@ -24,7 +24,7 @@ type Control = Record<string, unknown>;
 const SLOT = 22;
 const TILE: [number, number] = [20, 22];
 const FRAME: [number, number] = [24, 24];
-const ICON: [number, number] = [16, 16];
+const ICON: [number, number] = [12, 12];
 /** Room over the bar for the selected item's name and what it does. */
 const NAME_HEIGHT = 20;
 const ATEXT = { $atext: "$actionbar_text" };

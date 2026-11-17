@@ -299,7 +299,10 @@ export class Editor {
       if (hitEntity.typeId !== MARKER) return;
       const spec = this.markers.specOf(hitEntity);
       if (!spec) return;
-      if ("space" in spec) void this.spacesTool.menu(player, spec.space);
+      if ("space" in spec) {
+        if (this.spacesTool.isLeading(player)) this.spacesTool.leadTo(player, spec.space);
+        else void this.spacesTool.menu(player, spec.space);
+      }
       else void ("camera" in spec ? this.cameraTool.snapshotOf(player, spec.camera) : this.markerMenu(player, spec));
     });
     // Shift brings a player looking through a camera back to their own view (the button, so it works

@@ -102,8 +102,8 @@
           "type": "image",
           "texture": "textures/items/book_normal",
           "size": [
-            16,
-            16
+            12,
+            12
           ],
           "layer": 2,
           "$atext": "$actionbar_text",
@@ -115,8 +115,8 @@
           "type": "image",
           "texture": "textures/items/quartz",
           "size": [
-            16,
-            16
+            12,
+            12
           ],
           "layer": 2,
           "$atext": "$actionbar_text",
@@ -128,8 +128,8 @@
           "type": "image",
           "texture": "textures/items/compass_item",
           "size": [
-            16,
-            16
+            12,
+            12
           ],
           "layer": 2,
           "$atext": "$actionbar_text",
@@ -141,8 +141,8 @@
           "type": "image",
           "texture": "textures/items/arrow",
           "size": [
-            16,
-            16
+            12,
+            12
           ],
           "layer": 2,
           "$atext": "$actionbar_text",
@@ -154,8 +154,8 @@
           "type": "image",
           "texture": "textures/blocks/concrete_white",
           "size": [
-            16,
-            16
+            12,
+            12
           ],
           "layer": 2,
           "$atext": "$actionbar_text",
@@ -167,8 +167,8 @@
           "type": "image",
           "texture": "textures/blocks/concrete_light_blue",
           "size": [
-            16,
-            16
+            12,
+            12
           ],
           "layer": 2,
           "$atext": "$actionbar_text",
@@ -180,8 +180,8 @@
           "type": "image",
           "texture": "textures/blocks/gold_block",
           "size": [
-            16,
-            16
+            12,
+            12
           ],
           "layer": 2,
           "$atext": "$actionbar_text",
@@ -193,8 +193,8 @@
           "type": "image",
           "texture": "textures/items/flint",
           "size": [
-            16,
-            16
+            12,
+            12
           ],
           "layer": 2,
           "$atext": "$actionbar_text",
@@ -206,8 +206,8 @@
           "type": "image",
           "texture": "textures/items/blaze_rod",
           "size": [
-            16,
-            16
+            12,
+            12
           ],
           "layer": 2,
           "$atext": "$actionbar_text",
@@ -219,8 +219,8 @@
           "type": "image",
           "texture": "textures/items/leather",
           "size": [
-            16,
-            16
+            12,
+            12
           ],
           "layer": 2,
           "$atext": "$actionbar_text",
@@ -273,8 +273,8 @@
           "type": "image",
           "texture": "textures/items/book_normal",
           "size": [
-            16,
-            16
+            12,
+            12
           ],
           "layer": 2,
           "$atext": "$actionbar_text",
@@ -286,8 +286,8 @@
           "type": "image",
           "texture": "textures/items/quartz",
           "size": [
-            16,
-            16
+            12,
+            12
           ],
           "layer": 2,
           "$atext": "$actionbar_text",
@@ -299,8 +299,8 @@
           "type": "image",
           "texture": "textures/items/compass_item",
           "size": [
-            16,
-            16
+            12,
+            12
           ],
           "layer": 2,
           "$atext": "$actionbar_text",
@@ -312,8 +312,8 @@
           "type": "image",
           "texture": "textures/items/arrow",
           "size": [
-            16,
-            16
+            12,
+            12
           ],
           "layer": 2,
           "$atext": "$actionbar_text",
@@ -325,8 +325,8 @@
           "type": "image",
           "texture": "textures/blocks/concrete_white",
           "size": [
-            16,
-            16
+            12,
+            12
           ],
           "layer": 2,
           "$atext": "$actionbar_text",
@@ -338,8 +338,8 @@
           "type": "image",
           "texture": "textures/blocks/concrete_light_blue",
           "size": [
-            16,
-            16
+            12,
+            12
           ],
           "layer": 2,
           "$atext": "$actionbar_text",
@@ -351,8 +351,8 @@
           "type": "image",
           "texture": "textures/blocks/gold_block",
           "size": [
-            16,
-            16
+            12,
+            12
           ],
           "layer": 2,
           "$atext": "$actionbar_text",
@@ -364,8 +364,8 @@
           "type": "image",
           "texture": "textures/items/flint",
           "size": [
-            16,
-            16
+            12,
+            12
           ],
           "layer": 2,
           "$atext": "$actionbar_text",
@@ -377,8 +377,8 @@
           "type": "image",
           "texture": "textures/items/blaze_rod",
           "size": [
-            16,
-            16
+            12,
+            12
           ],
           "layer": 2,
           "$atext": "$actionbar_text",
@@ -390,8 +390,8 @@
           "type": "image",
           "texture": "textures/items/leather",
           "size": [
-            16,
-            16
+            12,
+            12
           ],
           "layer": 2,
           "$atext": "$actionbar_text",
@@ -444,8 +444,8 @@
           "type": "image",
           "texture": "textures/items/book_normal",
           "size": [
-            16,
-            16
+            12,
+            12
           ],
           "layer": 2,
           "$atext": "$actionbar_text",
@@ -457,8 +457,8 @@
           "type": "image",
           "texture": "textures/items/quartz",
           "size": [
-            16,
-            16
+            12,
+            12
           ],
           "layer": 2,
           "$atext": "$actionbar_text",
@@ -470,8 +470,8 @@
           "type": "image",
           "texture": "textures/items/compass_item",
           "size": [
-            16,
-            16
+            12,
+            12
           ],
           "layer": 2,
           "$atext": "$actionbar_text",
@@ -483,8 +483,8 @@
           "type": "image",
           "texture": "textures/items/arrow",
           "size": [
-            16,
-            16
+            12,
+            12
           ],
           "layer": 2,
           "$atext": "$actionbar_text",
@@ -496,8 +496,8 @@
           "type": "image",
           "texture": "textures/blocks/concrete_white",
           "size": [
-            16,
-            16
+            12,
+            12
           ],
           "layer": 2,
           "$atext": "$actionbar_text",
@@ -509,8 +509,8 @@
           "type": "image",
           "texture": "textures/blocks/concrete_light_blue",
           "size": [
-            16,
-            16
+            12,
+            12
           ],
           "layer": 2,
           "$atext": "$actionbar_text",
@@ -522,8 +522,8 @@
           "type": "image",
           "texture": "textures/blocks/gold_block",
           "size": [
-            16,
-            16
+            12,
+            12
           ],
           "layer": 2,
           "$atext": "$actionbar_text",
@@ -535,8 +535,8 @@
           "type": "image",
           "texture": "textures/items/flint",
           "size": [
-            16,
-            16
+            12,
+            12
           ],
           "layer": 2,
           "$atext": "$actionbar_text",
@@ -548,8 +548,8 @@
           "type": "image",
           "texture": "textures/items/blaze_rod",
           "size": [
-            16,
-            16
+            12,
+            12
           ],
           "layer": 2,
           "$atext": "$actionbar_text",
@@ -561,8 +561,8 @@
           "type": "image",
           "texture": "textures/items/leather",
           "size": [
-            16,
-            16
+            12,
+            12
           ],
           "layer": 2,
           "$atext": "$actionbar_text",
@@ -615,8 +615,8 @@
           "type": "image",
           "texture": "textures/items/book_normal",
           "size": [
-            16,
-            16
+            12,
+            12
           ],
           "layer": 2,
           "$atext": "$actionbar_text",
@@ -628,8 +628,8 @@
           "type": "image",
           "texture": "textures/items/quartz",
           "size": [
-            16,
-            16
+            12,
+            12
           ],
           "layer": 2,
           "$atext": "$actionbar_text",
@@ -641,8 +641,8 @@
           "type": "image",
           "texture": "textures/items/compass_item",
           "size": [
-            16,
-            16
+            12,
+            12
           ],
           "layer": 2,
           "$atext": "$actionbar_text",
@@ -654,8 +654,8 @@
           "type": "image",
           "texture": "textures/items/arrow",
           "size": [
-            16,
-            16
+            12,
+            12
           ],
           "layer": 2,
           "$atext": "$actionbar_text",
@@ -667,8 +667,8 @@
           "type": "image",
           "texture": "textures/blocks/concrete_white",
           "size": [
-            16,
-            16
+            12,
+            12
           ],
           "layer": 2,
           "$atext": "$actionbar_text",
@@ -680,8 +680,8 @@
           "type": "image",
           "texture": "textures/blocks/concrete_light_blue",
           "size": [
-            16,
-            16
+            12,
+            12
           ],
           "layer": 2,
           "$atext": "$actionbar_text",
@@ -693,8 +693,8 @@
           "type": "image",
           "texture": "textures/blocks/gold_block",
           "size": [
-            16,
-            16
+            12,
+            12
           ],
           "layer": 2,
           "$atext": "$actionbar_text",
@@ -706,8 +706,8 @@
           "type": "image",
           "texture": "textures/items/flint",
           "size": [
-            16,
-            16
+            12,
+            12
           ],
           "layer": 2,
           "$atext": "$actionbar_text",
@@ -719,8 +719,8 @@
           "type": "image",
           "texture": "textures/items/blaze_rod",
           "size": [
-            16,
-            16
+            12,
+            12
           ],
           "layer": 2,
           "$atext": "$actionbar_text",
@@ -732,8 +732,8 @@
           "type": "image",
           "texture": "textures/items/leather",
           "size": [
-            16,
-            16
+            12,
+            12
           ],
           "layer": 2,
           "$atext": "$actionbar_text",
@@ -786,8 +786,8 @@
           "type": "image",
           "texture": "textures/items/book_normal",
           "size": [
-            16,
-            16
+            12,
+            12
           ],
           "layer": 2,
           "$atext": "$actionbar_text",
@@ -799,8 +799,8 @@
           "type": "image",
           "texture": "textures/items/quartz",
           "size": [
-            16,
-            16
+            12,
+            12
           ],
           "layer": 2,
           "$atext": "$actionbar_text",
@@ -812,8 +812,8 @@
           "type": "image",
           "texture": "textures/items/compass_item",
           "size": [
-            16,
-            16
+            12,
+            12
           ],
           "layer": 2,
           "$atext": "$actionbar_text",
@@ -825,8 +825,8 @@
           "type": "image",
           "texture": "textures/items/arrow",
           "size": [
-            16,
-            16
+            12,
+            12
           ],
           "layer": 2,
           "$atext": "$actionbar_text",
@@ -838,8 +838,8 @@
           "type": "image",
           "texture": "textures/blocks/concrete_white",
           "size": [
-            16,
-            16
+            12,
+            12
           ],
           "layer": 2,
           "$atext": "$actionbar_text",
@@ -851,8 +851,8 @@
           "type": "image",
           "texture": "textures/blocks/concrete_light_blue",
           "size": [
-            16,
-            16
+            12,
+            12
           ],
           "layer": 2,
           "$atext": "$actionbar_text",
@@ -864,8 +864,8 @@
           "type": "image",
           "texture": "textures/blocks/gold_block",
           "size": [
-            16,
-            16
+            12,
+            12
           ],
           "layer": 2,
           "$atext": "$actionbar_text",
@@ -877,8 +877,8 @@
           "type": "image",
           "texture": "textures/items/flint",
           "size": [
-            16,
-            16
+            12,
+            12
           ],
           "layer": 2,
           "$atext": "$actionbar_text",
@@ -890,8 +890,8 @@
           "type": "image",
           "texture": "textures/items/blaze_rod",
           "size": [
-            16,
-            16
+            12,
+            12
           ],
           "layer": 2,
           "$atext": "$actionbar_text",
@@ -903,8 +903,8 @@
           "type": "image",
           "texture": "textures/items/leather",
           "size": [
-            16,
-            16
+            12,
+            12
           ],
           "layer": 2,
           "$atext": "$actionbar_text",
@@ -957,8 +957,8 @@
           "type": "image",
           "texture": "textures/items/book_normal",
           "size": [
-            16,
-            16
+            12,
+            12
           ],
           "layer": 2,
           "$atext": "$actionbar_text",
@@ -970,8 +970,8 @@
           "type": "image",
           "texture": "textures/items/quartz",
           "size": [
-            16,
-            16
+            12,
+            12
           ],
           "layer": 2,
           "$atext": "$actionbar_text",
@@ -983,8 +983,8 @@
           "type": "image",
           "texture": "textures/items/compass_item",
           "size": [
-            16,
-            16
+            12,
+            12
           ],
           "layer": 2,
           "$atext": "$actionbar_text",
@@ -996,8 +996,8 @@
           "type": "image",
           "texture": "textures/items/arrow",
           "size": [
-            16,
-            16
+            12,
+            12
           ],
           "layer": 2,
           "$atext": "$actionbar_text",
@@ -1009,8 +1009,8 @@
           "type": "image",
           "texture": "textures/blocks/concrete_white",
           "size": [
-            16,
-            16
+            12,
+            12
           ],
           "layer": 2,
           "$atext": "$actionbar_text",
@@ -1022,8 +1022,8 @@
           "type": "image",
           "texture": "textures/blocks/concrete_light_blue",
           "size": [
-            16,
-            16
+            12,
+            12
           ],
           "layer": 2,
           "$atext": "$actionbar_text",
@@ -1035,8 +1035,8 @@
           "type": "image",
           "texture": "textures/blocks/gold_block",
           "size": [
-            16,
-            16
+            12,
+            12
           ],
           "layer": 2,
           "$atext": "$actionbar_text",
@@ -1048,8 +1048,8 @@
           "type": "image",
           "texture": "textures/items/flint",
           "size": [
-            16,
-            16
+            12,
+            12
           ],
           "layer": 2,
           "$atext": "$actionbar_text",
@@ -1061,8 +1061,8 @@
           "type": "image",
           "texture": "textures/items/blaze_rod",
           "size": [
-            16,
-            16
+            12,
+            12
           ],
           "layer": 2,
           "$atext": "$actionbar_text",
@@ -1074,8 +1074,8 @@
           "type": "image",
           "texture": "textures/items/leather",
           "size": [
-            16,
-            16
+            12,
+            12
           ],
           "layer": 2,
           "$atext": "$actionbar_text",
@@ -1128,8 +1128,8 @@
           "type": "image",
           "texture": "textures/items/book_normal",
           "size": [
-            16,
-            16
+            12,
+            12
           ],
           "layer": 2,
           "$atext": "$actionbar_text",
@@ -1141,8 +1141,8 @@
           "type": "image",
           "texture": "textures/items/quartz",
           "size": [
-            16,
-            16
+            12,
+            12
           ],
           "layer": 2,
           "$atext": "$actionbar_text",
@@ -1154,8 +1154,8 @@
           "type": "image",
           "texture": "textures/items/compass_item",
           "size": [
-            16,
-            16
+            12,
+            12
           ],
           "layer": 2,
           "$atext": "$actionbar_text",
@@ -1167,8 +1167,8 @@
           "type": "image",
           "texture": "textures/items/arrow",
           "size": [
-            16,
-            16
+            12,
+            12
           ],
           "layer": 2,
           "$atext": "$actionbar_text",
@@ -1180,8 +1180,8 @@
           "type": "image",
           "texture": "textures/blocks/concrete_white",
           "size": [
-            16,
-            16
+            12,
+            12
           ],
           "layer": 2,
           "$atext": "$actionbar_text",
@@ -1193,8 +1193,8 @@
           "type": "image",
           "texture": "textures/blocks/concrete_light_blue",
           "size": [
-            16,
-            16
+            12,
+            12
           ],
           "layer": 2,
           "$atext": "$actionbar_text",
@@ -1206,8 +1206,8 @@
           "type": "image",
           "texture": "textures/blocks/gold_block",
           "size": [
-            16,
-            16
+            12,
+            12
           ],
           "layer": 2,
           "$atext": "$actionbar_text",
@@ -1219,8 +1219,8 @@
           "type": "image",
           "texture": "textures/items/flint",
           "size": [
-            16,
-            16
+            12,
+            12
           ],
           "layer": 2,
           "$atext": "$actionbar_text",
@@ -1232,8 +1232,8 @@
           "type": "image",
           "texture": "textures/items/blaze_rod",
           "size": [
-            16,
-            16
+            12,
+            12
           ],
           "layer": 2,
           "$atext": "$actionbar_text",
@@ -1245,8 +1245,8 @@
           "type": "image",
           "texture": "textures/items/leather",
           "size": [
-            16,
-            16
+            12,
+            12
           ],
           "layer": 2,
           "$atext": "$actionbar_text",
@@ -1299,8 +1299,8 @@
           "type": "image",
           "texture": "textures/items/book_normal",
           "size": [
-            16,
-            16
+            12,
+            12
           ],
           "layer": 2,
           "$atext": "$actionbar_text",
@@ -1312,8 +1312,8 @@
           "type": "image",
           "texture": "textures/items/quartz",
           "size": [
-            16,
-            16
+            12,
+            12
           ],
           "layer": 2,
           "$atext": "$actionbar_text",
@@ -1325,8 +1325,8 @@
           "type": "image",
           "texture": "textures/items/compass_item",
           "size": [
-            16,
-            16
+            12,
+            12
           ],
           "layer": 2,
           "$atext": "$actionbar_text",
@@ -1338,8 +1338,8 @@
           "type": "image",
           "texture": "textures/items/arrow",
           "size": [
-            16,
-            16
+            12,
+            12
           ],
           "layer": 2,
           "$atext": "$actionbar_text",
@@ -1351,8 +1351,8 @@
           "type": "image",
           "texture": "textures/blocks/concrete_white",
           "size": [
-            16,
-            16
+            12,
+            12
           ],
           "layer": 2,
           "$atext": "$actionbar_text",
@@ -1364,8 +1364,8 @@
           "type": "image",
           "texture": "textures/blocks/concrete_light_blue",
           "size": [
-            16,
-            16
+            12,
+            12
           ],
           "layer": 2,
           "$atext": "$actionbar_text",
@@ -1377,8 +1377,8 @@
           "type": "image",
           "texture": "textures/blocks/gold_block",
           "size": [
-            16,
-            16
+            12,
+            12
           ],
           "layer": 2,
           "$atext": "$actionbar_text",
@@ -1390,8 +1390,8 @@
           "type": "image",
           "texture": "textures/items/flint",
           "size": [
-            16,
-            16
+            12,
+            12
           ],
           "layer": 2,
           "$atext": "$actionbar_text",
@@ -1403,8 +1403,8 @@
           "type": "image",
           "texture": "textures/items/blaze_rod",
           "size": [
-            16,
-            16
+            12,
+            12
           ],
           "layer": 2,
           "$atext": "$actionbar_text",
@@ -1416,8 +1416,8 @@
           "type": "image",
           "texture": "textures/items/leather",
           "size": [
-            16,
-            16
+            12,
+            12
           ],
           "layer": 2,
           "$atext": "$actionbar_text",
@@ -1470,8 +1470,8 @@
           "type": "image",
           "texture": "textures/items/book_normal",
           "size": [
-            16,
-            16
+            12,
+            12
           ],
           "layer": 2,
           "$atext": "$actionbar_text",
@@ -1483,8 +1483,8 @@
           "type": "image",
           "texture": "textures/items/quartz",
           "size": [
-            16,
-            16
+            12,
+            12
           ],
           "layer": 2,
           "$atext": "$actionbar_text",
@@ -1496,8 +1496,8 @@
           "type": "image",
           "texture": "textures/items/compass_item",
           "size": [
-            16,
-            16
+            12,
+            12
           ],
           "layer": 2,
           "$atext": "$actionbar_text",
@@ -1509,8 +1509,8 @@
           "type": "image",
           "texture": "textures/items/arrow",
           "size": [
-            16,
-            16
+            12,
+            12
           ],
           "layer": 2,
           "$atext": "$actionbar_text",
@@ -1522,8 +1522,8 @@
           "type": "image",
           "texture": "textures/blocks/concrete_white",
           "size": [
-            16,
-            16
+            12,
+            12
           ],
           "layer": 2,
           "$atext": "$actionbar_text",
@@ -1535,8 +1535,8 @@
           "type": "image",
           "texture": "textures/blocks/concrete_light_blue",
           "size": [
-            16,
-            16
+            12,
+            12
           ],
           "layer": 2,
           "$atext": "$actionbar_text",
@@ -1548,8 +1548,8 @@
           "type": "image",
           "texture": "textures/blocks/gold_block",
           "size": [
-            16,
-            16
+            12,
+            12
           ],
           "layer": 2,
           "$atext": "$actionbar_text",
@@ -1561,8 +1561,8 @@
           "type": "image",
           "texture": "textures/items/flint",
           "size": [
-            16,
-            16
+            12,
+            12
           ],
           "layer": 2,
           "$atext": "$actionbar_text",
@@ -1574,8 +1574,8 @@
           "type": "image",
           "texture": "textures/items/blaze_rod",
           "size": [
-            16,
-            16
+            12,
+            12
           ],
           "layer": 2,
           "$atext": "$actionbar_text",
@@ -1587,8 +1587,8 @@
           "type": "image",
           "texture": "textures/items/leather",
           "size": [
-            16,
-            16
+            12,
+            12
           ],
           "layer": 2,
           "$atext": "$actionbar_text",

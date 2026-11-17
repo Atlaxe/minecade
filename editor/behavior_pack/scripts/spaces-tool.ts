@@ -5,9 +5,11 @@
 //     previous space (the one placed or picked last), and dealt its type (the one furthest under its
 //     share that breaks no placement rule there; the first space is Start). It becomes the previous.
 //   - Hitting a space opens its screen: its type, Lock (Deal again leaves it alone), Star candidate,
-//     Opening spot, Make it the previous (the next space placed links from it: from a space that
-//     already leads somewhere, that starts a branch), Link the previous here (closes the loop,
-//     rejoins a shortcut), a button per link to take it away, and Delete.
+//     Opening spot, then Paths: Create path (the Spaces tool goes in hand, and the next space placed
+//     leads on from this one: from a space that already leads somewhere, that starts a branch), Lead
+//     to (then hit the space it should lead to: closes the loop, rejoins a shortcut), a button per
+//     space it leads to (tap to take that link away), and Delete. The user asked for these in place
+//     of Make it the previous and Link the previous here.
 //   - The map menu's settings for the tool: Deal again (every unlocked space), Board check (the
 //     report in chat, as /boardcheck), and every space (tap one for its screen).
 // Spaces are markers in their type's color; while the tool is out, dots show each link with an
@@ -21,6 +23,7 @@ import {
   outlineColor,
   reportLines,
   retypeSpaces,
+  spaceLabel,
   spacesOf,
   typeForNewSpace,
   worldPoint,
@@ -54,16 +57,19 @@ const PREVIOUS_COLOR = outlineColor(0x7cf06c);
 
 type SpaceAction =
   | { kind: "back" }
+  | { kind: "none" }
   | { kind: "type" }
   | { kind: "flag"; flag: "locked" | "star" | "opening" }
-  | { kind: "previous" }
-  | { kind: "linkHere" }
+  | { kind: "createPath" }
+  | { kind: "leadTo" }
   | { kind: "unlink"; to: number }
   | { kind: "delete" };
 
 export class SpacesTool {
   /** Each player's previous space (the next placed links from it), by lowercased gamertag. */
   private readonly previous = new Map<string, number>();
+  /** The space a player is linking from with Lead to: their next hit on a space links to it. */
+  private readonly leading = new Map<string, number>();
   private readonly host: ToolHost;
   /** Where a use of a placing tool aims (the editor's own aim: on top of a block, or the floor in front of its side). */
   private readonly aim: (player: Player) => Vector3 | undefined;
@@ -93,9 +99,26 @@ export class SpacesTool {
     return this.board?.types.find((candidate) => candidate.id === type)?.name ?? type ?? "no type";
   }
 
+  /** Whether the player's next hit on a space finishes a Lead to. */
+  isLeading(player: Player): boolean {
+    return this.leading.has(player.name.toLowerCase());
+  }
+
+  /** Lead to's second step: the space hit is where the first one leads (hitting the first again calls it off). */
+  leadTo(player: Player, to: number): void {
+    const key = player.name.toLowerCase();
+    const from = this.leading.get(key);
+    this.leading.delete(key);
+    if (from === undefined) return;
+    if (from === to) return actionBar(player, "Lead to called off");
+    this.host.edit(player, { op: "linkSpace", from, to }, `Space ${from} leads to space ${to}`);
+  }
+
   /** The action bar line while the tool is held. */
   hint(player: Player): string {
     if (!this.board) return "This map's game has no board";
+    const leading = this.leading.get(player.name.toLowerCase());
+    if (leading !== undefined) return `Hit the space that space ${leading} leads to (space ${leading} again: call it off)`;
     const previous = this.previousOf(player);
     return previous === undefined ? "Use: place a space   Hit a space: its screen" : `Use: place a space after space ${previous}   Hit a space: its screen`;
   }
@@ -121,12 +144,11 @@ export class SpacesTool {
   markers(config: MapConfig): SpaceMarker[] {
     const types = new Map((this.board?.types ?? []).map((type) => [type.id, type]));
     return spacesOf(config).map((space) => {
-      const flags = [space.star ? (space.opening ? "Star candidate, opening spot" : "Star candidate") : "", space.locked ? "locked" : ""].filter(Boolean).join(", ");
       const type = types.get(space.type ?? "");
       return {
         key: `space:${space.id}`,
         space: space.id,
-        label: `Space ${space.id}: ${type?.name ?? "no type"}${flags ? `\n§7${flags}` : ""}`,
+        label: `${spaceLabel(space, this.board)}${space.locked ? "\n§7locked" : ""}`,
         at: worldPoint(space.at),
         kind: MARKER_KINDS.points,
         style: MARKER_STYLES.post,
@@ -142,7 +164,7 @@ export class SpacesTool {
       { action: { kind: "dealAgain" }, text: switchText("Deal again", "new types for every unlocked space", false) },
       { action: { kind: "boardCheck" }, text: switchText("Board check", "the board's errors and warnings, in chat", false) },
       { action: { kind: "none" }, text: headingText(spaces.length > 0 ? `Spaces (${spaces.length})` : "No spaces yet") },
-      ...spaces.map((space): MenuEntry => ({ action: { kind: "space", id: space.id }, text: `Space ${space.id}: ${this.typeName(space.type)}\n§7${space.at.slice(0, 3).join(", ")}` })),
+      ...spaces.map((space): MenuEntry => ({ action: { kind: "space", id: space.id }, text: `${spaceLabel(space, this.board)}\n§7${space.at.slice(0, 3).join(", ")}` })),
     ];
   }
 
@@ -153,16 +175,14 @@ export class SpacesTool {
     for (;;) {
       const space = this.spaces().find((candidate) => candidate.id === id);
       if (!space || !player.isValid) return;
-      const previous = this.previousOf(player);
       const entries: { action: SpaceAction; text: string; icon?: string }[] = back ? [{ action: { kind: "back" }, text: BACK_TEXT, icon: ICONS.back }] : [];
       entries.push({ action: { kind: "type" }, text: `Type: ${this.typeName(space.type)}\n§7pick another` });
       entries.push({ action: { kind: "flag", flag: "locked" }, text: switchText("Lock", "Deal again leaves it alone", space.locked === true) });
       entries.push({ action: { kind: "flag", flag: "star" }, text: switchText("Star candidate", "the Star can be here", space.star === true) });
       if (space.star) entries.push({ action: { kind: "flag", flag: "opening" }, text: switchText("Opening spot", "the first Star can be here", space.opening === true) });
-      entries.push({ action: { kind: "previous" }, text: previous === id ? "The previous space\n§7the next one placed links from it" : "Make it the previous\n§7the next space placed links from it" });
-      if (previous !== undefined && previous !== id && !this.spaces().find((candidate) => candidate.id === previous)?.next?.includes(id)) {
-        entries.push({ action: { kind: "linkHere" }, text: `Link space ${previous} here\n§7closes a loop, rejoins a shortcut` });
-      }
+      entries.push({ action: { kind: "none" }, text: headingText("Paths") });
+      entries.push({ action: { kind: "createPath" }, text: "Create path\n§7the next space you place leads on from here" });
+      entries.push({ action: { kind: "leadTo" }, text: "Lead to\n§7then hit the space it leads to" });
       for (const to of space.next ?? []) entries.push({ action: { kind: "unlink", to }, text: `Leads to space ${to}\n§7tap to take the link away` });
       entries.push({ action: { kind: "delete" }, text: dangerText("Delete space") });
       const form = new ActionFormData().title(sideTitle(`Space ${id}`));
@@ -181,13 +201,18 @@ export class SpacesTool {
         case "flag":
           this.host.edit(player, { op: "setSpace", id, [action.flag]: !(space[action.flag] === true) });
           break;
-        case "previous":
-          this.previous.set(player.name.toLowerCase(), id);
-          actionBar(player, `Space ${id} is your previous space`);
-          return;
-        case "linkHere":
-          if (previous !== undefined) this.host.edit(player, { op: "linkSpace", from: previous, to: id }, `Space ${previous} leads to space ${id}`);
+        case "none":
           break;
+        case "createPath":
+          this.previous.set(player.name.toLowerCase(), id);
+          this.leading.delete(player.name.toLowerCase());
+          this.host.equip(player, "spaces");
+          actionBar(player, `Place the next space: it leads on from space ${id}`);
+          return;
+        case "leadTo":
+          this.leading.set(player.name.toLowerCase(), id);
+          actionBar(player, `Hit the space that space ${id} leads to`);
+          return;
         case "unlink":
           this.host.edit(player, { op: "unlinkSpace", from: id, to: action.to }, `Space ${id} no longer leads to space ${action.to}`);
           break;

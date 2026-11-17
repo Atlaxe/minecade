@@ -18,10 +18,10 @@ describe("a board's spaces in the viewer", () => {
     const { points, list, links } = spaceMarkup(config, BOARD, { need: 12, done: false });
     expect(points.map((point) => [point.key, point.label, point.color, point.noLine])).toEqual([
       ["space:1", "Space 1: Start", 0xf0f0f0, true],
-      ["space:2", "Space 2: Red", 0xd23c32, true],
+      ["space:2", "Space 2: Red, Star", 0xd23c32, true],
     ]);
     expect(points[0].at).toEqual({ x: 0.5, y: 64, z: 0.5 });
-    expect(list?.entries.map((entry) => entry.label)).toEqual(["Space 1: Start", "Space 2: Red"]);
+    expect(list?.entries.map((entry) => entry.label)).toEqual(["Space 1: Start", "Space 2: Red, Star"]);
     expect(list).toMatchObject({ key: "spaces", need: 12, done: false });
     expect(links).toEqual([
       { from: { x: 0.5, y: 64, z: 0.5 }, to: { x: 4.5, y: 64, z: 0.5 } },

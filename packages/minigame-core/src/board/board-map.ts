@@ -105,6 +105,12 @@ export const BLOCK_PARTY_BOARD: BoardConfig = {
   },
 };
 
+/** A space's name in the editors: "Space 3: Blue", with ", Star" on a Star candidate (", Star, opening" on an opening spot). */
+export function spaceLabel(space: BoardSpace, board: BoardConfig | undefined): string {
+  const type = board?.types.find((candidate) => candidate.id === space.type)?.name ?? space.type ?? "no type";
+  return `Space ${space.id}: ${type}${space.star ? (space.opening ? ", Star, opening" : ", Star") : ""}`;
+}
+
 /** The board's Start type: its first. */
 export function startType(board: BoardConfig): string {
   return board.types[0].id;
