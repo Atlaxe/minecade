@@ -64,13 +64,13 @@ type SpaceAction =
 export class SpacesTool {
   /** Each player's previous space (the next placed links from it), by lowercased gamertag. */
   private readonly previous = new Map<string, number>();
+  private readonly host: ToolHost;
+  /** Where a use of a placing tool aims (the editor's own aim: on top of a block, or the floor in front of its side). */
+  private readonly aim: (player: Player) => Vector3 | undefined;
 
-  constructor(
-    scope: Scope,
-    private readonly host: ToolHost,
-    /** Where a use of a placing tool aims (the editor's own aim: on top of a block, or the floor in front of its side). */
-    private readonly aim: (player: Player) => Vector3 | undefined,
-  ) {
+  constructor(scope: Scope, host: ToolHost, aim: (player: Player) => Vector3 | undefined) {
+    this.host = host;
+    this.aim = aim;
     scope.interval(() => this.drawLinks(), ARROW_TICKS);
   }
 

@@ -1,6 +1,6 @@
 {
   "extends": "./tsconfig.base.json",
-  "compilerOptions": { "types": ["node"] },
+  "compilerOptions": { "types": ["node"], "erasableSyntaxOnly": true },
   "include": [
     "tools/**/*.ts",
     "spike/*.ts",
