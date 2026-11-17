@@ -24,7 +24,14 @@ export interface Space {
   next: number[];
   /** Its id on the map (a map's spaces only). */
   id?: number;
+  /** A spot the Star can be at, and one the first Star can be at. */
+  star?: boolean;
+  opening?: boolean;
 }
+
+/** The test board's Star candidates, by index, and its two opening spots among them. */
+export const TEST_STARS: readonly number[] = [3, 6, 9];
+export const TEST_OPENINGS: readonly number[] = [3, 9];
 
 /**
  * The spaces around a square of 4 a side, `spacing` blocks apart, `middle` the square's middle (y the
@@ -39,7 +46,14 @@ export function testSpaces(middle: Vec3, spacing: number): Space[] {
     ...offsets.slice(0, 3).reverse().map((x): [number, number] => [x, offsets[3]]),
     ...offsets.slice(1, 3).reverse().map((z): [number, number] => [offsets[0], z]),
   ];
-  return ring.map(([dx, dz], index) => ({ index, type: TEST_TYPES[index % TEST_TYPES.length], at: [Math.floor(mx + dx) + 0.5, y, Math.floor(mz + dz) + 0.5], next: [(index + 1) % ring.length] }));
+  return ring.map(([dx, dz], index) => ({
+    index,
+    type: TEST_TYPES[index % TEST_TYPES.length],
+    at: [Math.floor(mx + dx) + 0.5, y, Math.floor(mz + dz) + 0.5],
+    next: [(index + 1) % ring.length],
+    ...(TEST_STARS.includes(index) ? { star: true } : {}),
+    ...(TEST_OPENINGS.includes(index) ? { opening: true } : {}),
+  }));
 }
 
 /**
@@ -57,6 +71,8 @@ export function mapSpaces(list: readonly BoardSpace[]): Space[] {
     type: space.type ?? "blue",
     at: [middle(space.at[0]), space.at[1], middle(space.at[2])],
     next: (space.next ?? []).flatMap((id) => (index.has(id) ? [index.get(id)!] : [])),
+    ...(space.star ? { star: true } : {}),
+    ...(space.opening ? { opening: true } : {}),
   }));
 }
 

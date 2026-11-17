@@ -795,7 +795,13 @@ reward was dropped.
    Chameleon's pack does.
 2. **Requirement options** in the Panel, for any game.
 3. **Board markup:** chained spaces, dealt types, the space menu, the Arena slot, `/boardcheck`.
-4. **The board loop:** turns, dice, moving pieces, branches, spaces, Stars, coins.
+4. **The board loop:** turns, dice, moving pieces, branches, spaces, Stars, coins. Built 2026-11-16
+   (`games/blockparty/behavior_pack/scripts/board-loop.ts` and `board-rules.ts`): the Length option
+   (15, 10 or 20 turns), 10 starting coins, the turn order rolled by everyone at once, each turn's
+   roll and walk (a form at each branch, the Star offered on passing or landing, then moved to a
+   far candidate), Blue and Red coins, the standings top left and each player's line top right, a
+   pause where the minigame goes, and the winner (a tie at random until the Allay, pass 8). Late
+   joiners come in at Start with last place's coins (no vote yet); an absent player is skipped.
 5. **Minigame plumbing:** formats, placing arenas into the arena background's slot, results and payouts, with a first few minigames.
 6. **NPCs and cameras:** stages, conversations, the shot list.
 7. **Items, dice, Chance Time, the Warden, the shop and the Trader.**

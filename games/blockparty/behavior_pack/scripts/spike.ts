@@ -37,11 +37,13 @@ import {
   type Vector3,
 } from "@minecraft/server";
 import { ActionFormData, ModalFormData } from "@minecraft/server-ui";
-import { ARENA_SLOT, Minigame, describeError, draw, hudLine, log, say, showForm, spacesOf, type GameContext, type Result, type SpawnReason } from "@minecade/minigame-core";
+import { ARENA_SLOT, Minigame, Notes, describeError, draw, hudLine, log, say, showForm, spacesOf, type GameContext, type Result, type SpawnReason } from "@minecade/minigame-core";
 import registry from "#registry";
 import { HOTBAR_SIZE, LOADING_LEVELS, barCodes, loadingCode, type BarIcon } from "./bar-codes.ts";
 import type config from "../../game.config.ts";
 import { boardBox, build, mapSpaces, testSpaces, type Space, type Vec3 } from "./board.ts";
+import { BoardLoop } from "./board-loop.ts";
+import { LENGTHS } from "./board-rules.ts";
 import { Npcs } from "./npcs.ts";
 import { DEFAULT_SETTINGS, Pieces, WALK_CAMERAS, lock, unlock, type PieceSettings } from "./pieces.ts";
 import { SHOTS, Shots, type ShotId } from "./shots.ts";
@@ -158,6 +160,13 @@ export class BlockPartySpike extends Minigame<Config> {
   private readonly lastUse = new Map<string, number>();
   /** The loading screen's strength for everyone (0 off, up to LOADING_LEVELS). */
   private loadingLevel = 0;
+  /** The board loop (board-loop.ts), and the standings top left. */
+  private loop!: BoardLoop;
+  private notes!: Notes;
+  /** The rolls the loop is waiting for, by lowercased name: what a jump resolves, and whether everyone watches. */
+  private readonly pendingRolls = new Map<string, { resolve: (value: number | undefined) => void; shot: boolean }>();
+  /** The board's blocks are down (play waits for it). */
+  private boardLaid: Promise<void> = Promise.resolve();
 
   constructor(ctx: GameContext, gameConfig: Config) {
     super(ctx, gameConfig);
@@ -216,6 +225,28 @@ export class BlockPartySpike extends Minigame<Config> {
       chris: () => this.npcs.get("chris"),
       say: (text) => this.everyone(text),
     });
+    this.notes = new Notes(this.scope);
+    const length = Number(this.ctx.vars.settings.length);
+    this.loop = new BoardLoop({
+      scope: this.scope,
+      spaces: () => this.spaces,
+      pieces: this.pieces,
+      turns: (LENGTHS as readonly number[]).includes(length) ? length : LENGTHS[0],
+      roll: (player, shot) =>
+        new Promise((resolve) => {
+          const key = player.name.toLowerCase();
+          this.pendingRolls.get(key)?.resolve(undefined);
+          this.pendingRolls.set(key, { resolve, shot });
+          this.openDice(player);
+        }),
+      everyone: (text) => this.everyone(text),
+      tell: (player, text) => this.tell(player, text),
+      title: (text, subtitle) => {
+        for (const player of world.getAllPlayers()) player.onScreenDisplay.setTitle(text, { subtitle: subtitle ?? "", fadeInDuration: 4, stayDuration: 40, fadeOutDuration: 10 });
+      },
+      changed: () => this.loopChanged(),
+      random: () => this.ctx.random(),
+    });
     this.scope.subscribe(world.afterEvents.itemUse, ({ source, itemStack }) => this.used(source, itemStack.typeId));
     this.scope.subscribe(world.afterEvents.playerInteractWithBlock, ({ player, itemStack }) => {
       if (itemStack) this.used(player, itemStack.typeId);
@@ -231,6 +262,8 @@ export class BlockPartySpike extends Minigame<Config> {
       { buttons: [InputButton.Jump], state: ButtonState.Pressed },
     );
     this.scope.subscribe(world.afterEvents.playerLeave, ({ playerName }) => {
+      this.pendingRolls.get(playerName.toLowerCase())?.resolve(undefined);
+      this.pendingRolls.delete(playerName.toLowerCase());
       const tests = this.tests.get(playerName.toLowerCase());
       if (tests?.rolling?.placed) this.clearDie(tests.rolling.at);
       this.tests.delete(playerName.toLowerCase());
@@ -241,12 +274,23 @@ export class BlockPartySpike extends Minigame<Config> {
   }
 
   protected override onStart(): void {
-    void this.layBoard();
+    this.boardLaid = this.layBoard();
   }
 
+  /** The board loop (board-loop.ts), once the board is down; the Tests stay in the hotbar beside it. */
   protected override async play(): Promise<Result | void> {
-    await this.stage("Tests");
-    return draw("the tests are over");
+    await this.boardLaid;
+    if (!this.boardReady) return draw("the board couldn't be laid");
+    return this.loop.run();
+  }
+
+  /** The loop's state changed: everyone's HUD line, and the standings top left. */
+  private loopChanged(): void {
+    for (const player of world.getAllPlayers()) {
+      const container = player.getComponent(EntityComponentTypes.Inventory)?.container;
+      if (container) this.sendLine(player, this.testsOf(player), container, true);
+    }
+    this.notes.show(this.loop.standings());
   }
 
   protected override onSpawn(player: Player, _why: SpawnReason): void {
@@ -280,7 +324,7 @@ export class BlockPartySpike extends Minigame<Config> {
     }
     this.boardReady = true;
     for (const player of world.getAllPlayers()) this.pieces.place(player);
-    this.everyone("Block Party spike: you're your piece on the test board. Use Dice to roll, Tests for every test, and hit an NPC for its menu. Every jump is reported in chat.");
+    this.everyone(this.ownBoard ? "Block Party on this map's own board. Tests (the compass) has the spike's tests; hit an NPC for its menu." : "Block Party on the test board. Tests (the compass) has the spike's tests; hit an NPC for its menu.");
   }
 
   // ---- The hotbar -------------------------------------------------------------------------
@@ -368,15 +412,15 @@ export class BlockPartySpike extends Minigame<Config> {
    * icon, the selected one) and the loading screen's level, when it's up. Sent when it changes, and
    * every BAR_RESEND ticks so it doesn't fade.
    */
-  private sendLine(player: Player, tests: PlayerTests, container: Container): void {
+  private sendLine(player: Player, tests: PlayerTests, container: Container, force = false): void {
     const slots: { slot: number; icon: BarIcon }[] = [];
     const icons = new Map([...MAIN_BAR, ...DICE, ...ITEMS, BACK].map((item) => [item.id, item.icon]));
     for (let slot = 0; slot < HOTBAR_SIZE; slot++) {
       const icon = icons.get(container.getItem(slot)?.typeId ?? "");
       if (icon) slots.push({ slot, icon });
     }
-    const line = hudLine(undefined, "", undefined, "", barCodes(slots, player.selectedSlotIndex) + loadingCode(this.loadingLevel));
-    if (line === tests.sentLine && system.currentTick - (tests.sentAt ?? 0) < BAR_RESEND) return;
+    const line = hudLine(undefined, this.loop?.hudText(player) ?? "", undefined, "", barCodes(slots, player.selectedSlotIndex) + loadingCode(this.loadingLevel));
+    if (!force && line === tests.sentLine && system.currentTick - (tests.sentAt ?? 0) < BAR_RESEND) return;
     tests.sentLine = line;
     tests.sentAt = system.currentTick;
     player.onScreenDisplay.setActionBar(line);
@@ -391,7 +435,10 @@ export class BlockPartySpike extends Minigame<Config> {
     const tests = this.testsOf(player);
     if (typeId === MENU_ITEM) void this.menu(player);
     else if (typeId === ITEMS_ITEM) this.openBar(player, "items");
-    else if (typeId === DICE_ITEM) this.openDice(player);
+    else if (typeId === DICE_ITEM) {
+      if (this.pendingRolls.has(key)) this.openDice(player);
+      else this.tell(player, this.loop.active ? "Wait for your turn: your dice open when it comes." : "Your dice open when the game asks for a roll.");
+    }
     else if (typeId === BACK_ITEM) {
       if (tests.rolling) this.endRoll(player);
       this.openBar(player, "main");
@@ -429,11 +476,13 @@ export class BlockPartySpike extends Minigame<Config> {
     if (placed) block?.setType(DICE[0].block);
     tests.rolling = { at: die, placed, shown: placed ? DICE[0].block : undefined };
     lock(player);
+    // The roll camera: everyone watches a turn's roll; each player their own while everyone rolls for turn order.
     const yaw = (player.getRotation().y * Math.PI) / 180;
-    for (const watcher of world.getAllPlayers()) {
+    const watchers = this.pendingRolls.get(player.name.toLowerCase())?.shot === false ? [player] : world.getAllPlayers();
+    for (const watcher of watchers) {
       watcher.camera.setCamera("minecraft:free", { location: { x: at.x - Math.sin(yaw) * 3.5, y: at.y + 0.5, z: at.z + Math.cos(yaw) * 3.5 }, facingLocation: { x: die.x + 0.5, y: die.y, z: die.z + 0.5 } });
     }
-    this.everyone(`${player.name} is rolling: pick a die in the hotbar, then jump to hit it.`);
+    this.tell(player, "Pick a die in the hotbar, then jump to hit it.");
   }
 
   /** Takes the die away and gives everyone their own view back (the roll is over or called off). */
@@ -461,25 +510,27 @@ export class BlockPartySpike extends Minigame<Config> {
       return;
     }
     const tests = this.testsOf(player);
-    const rolled = die.faces[Math.floor(Math.random() * die.faces.length)];
+    const key = player.name.toLowerCase();
+    const pending = this.pendingRolls.get(key);
+    const rolled = die.faces[Math.floor(this.ctx.random() * die.faces.length)];
     const rolling = tests.rolling;
     tests.rolling = undefined;
-    for (const watcher of world.getAllPlayers()) watcher.onScreenDisplay.setTitle(`${rolled}`, { subtitle: `${player.name}, ${die.name}`, fadeInDuration: 2, stayDuration: 25, fadeOutDuration: 8 });
+    this.pendingRolls.delete(key);
+    const watchers = pending?.shot === false ? [player] : world.getAllPlayers();
+    for (const watcher of watchers) watcher.onScreenDisplay.setTitle(`${rolled}`, { subtitle: `${player.name}, ${die.name}`, fadeInDuration: 2, stayDuration: 25, fadeOutDuration: 8 });
     await this.scope.wait(12);
     if (rolling?.placed) this.clearDie(rolling.at);
     await this.scope.wait(8);
-    for (const watcher of world.getAllPlayers()) watcher.camera.clear();
+    for (const watcher of watchers) watcher.camera.clear();
+    unlock(player);
     this.openBar(player, "main");
-    await this.pieces.walk(player, rolled);
+    pending?.resolve(rolled);
   }
 
   // ---- The menu ---------------------------------------------------------------------------
 
   private async menu(player: Player): Promise<void> {
     const items: [string, () => void | Promise<void>][] = [
-      ["Roll: the dice bar", () => this.openDice(player)],
-      ["Walk 1 space", () => this.pieces.walk(player, 1)],
-      ["Walk 6 spaces", () => this.pieces.walk(player, 6)],
       ["Piece settings", () => this.settingsForm(player)],
       ["Camera shots", () => this.shotsMenu(player)],
       ["Jump test", () => this.jumpMenu(player)],
@@ -487,7 +538,6 @@ export class BlockPartySpike extends Minigame<Config> {
       [this.npcs.spawned ? "Take the NPCs away" : "Put the NPCs out", () => this.toggleNpcs()],
       ["Arenas from other maps", () => this.arenaMenu(player)],
       ["Ride and lead (two players)", () => this.rideMenu(player)],
-      ["Back to Start", () => this.pieces.reset(player)],
       ["End the test game", () => this.finish(draw("ended from the Tests menu"))],
     ];
     const form = new ActionFormData().title("Block Party tests");

@@ -128,13 +128,28 @@ export class Pieces {
 
   /** Walks the player's piece `steps` spaces ahead. Resolves when it has landed. */
   async walk(player: Player, steps: number): Promise<void> {
+    return this.walkThrough(player, route(this.host.spaces(), this.state(player).space, steps));
+  }
+
+  /** The space the player's piece is on (its index). */
+  spaceOf(player: Player): number {
+    return this.state(player).space;
+  }
+
+  /**
+   * Walks the player's piece through `passed`, in order, from where it is. `land`: the last is where
+   * it lands (on its corner of the spot), else it stops on that space's middle (at a branch, or the
+   * Star) to go on later. `quiet`: no chat report, and the camera is left as it is for the next
+   * stretch (the board loop's walks).
+   */
+  async walkThrough(player: Player, passed: readonly Space[], options: { land?: boolean; quiet?: boolean } = {}): Promise<void> {
     const state = this.state(player);
-    if (state.walking) return;
+    if (state.walking || passed.length === 0) return;
+    const land = options.land !== false;
+    const steps = passed.length;
     const settings = this.host.settings(player);
-    const spaces = this.host.spaces();
-    const passed = route(spaces, state.space, steps);
     const landing = passed[passed.length - 1];
-    const end = standAt(landing, state.corner);
+    const end = land ? standAt(landing, state.corner) : landing.at;
     const here = player.location;
     const points: Vec3[] = [[here.x, here.y, here.z], ...passed.slice(0, -1).map((space) => space.at), end];
     const length = points.slice(1).reduce((sum, point, i) => sum + distance(points[i], point), 0);
@@ -200,6 +215,7 @@ export class Pieces {
       this.stop(player);
       state.space = landing.index;
       const seconds = ((system.currentTick - startedAt) / 20).toFixed(1);
+      if (options.quiet) return;
       this.host.report(player, `Walked ${steps} to space ${landing.index + 1} (${landing.type}) in ${seconds} s, ${length.toFixed(1)} blocks (${(length / ((system.currentTick - startedAt) / 20)).toFixed(1)} a second), ${turns} turns; at most ${drift.toFixed(2)} off a leg's line; ${miss.toFixed(2)} off the spot before it was put on it.`);
       await this.scope.wait(20);
       if (settings.camera !== "none") for (const watcher of this.host.watchers()) watcher.camera.clear();

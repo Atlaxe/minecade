@@ -1,9 +1,11 @@
 import { ARENA_SLOT, ARENA_SLOT_FOOTPRINT, BLOCK_PARTY_BOARD, defineGame } from "@minecade/minigame-core/config";
+import { LENGTHS } from "./behavior_pack/scripts/board-rules.ts";
 
-// Block Party (docs/plans/block-party.md): a board game with minigames between turns. For now it is
-// the plan's spike, a test game the lobby lists only while DEV_TEST_GAMES is 1: on Probe's map it
-// lays a small test board (12 spaces in a loop) beside the platform, or plays a board map's own
-// spaces, and hands out a Tests menu (the hotbar's), which tries what the game will need from
+// Block Party (docs/plans/block-party.md): a board game with minigames between turns, a test game
+// the lobby lists only while DEV_TEST_GAMES is 1 until it's whole. It plays the board loop
+// (board-loop.ts: turn order, rolls, walking with branches, Stars, coins, rounds, the winner) on a
+// board map's own spaces, or on Probe's map a small test board (12 spaces in a loop) it lays beside
+// the platform. The spike's Tests menu (the hotbar's) is still there, trying what the game needs from
 // Bedrock: scripted cameras, walking a piece from space to space, the jump button while a player is
 // locked, a restyled hotbar, the NPCs on the vanilla mobs' models, an arena from another map placed
 // beside the board (or in the map's arena slot), and a player riding a player or on a lead. Every
@@ -31,6 +33,8 @@ export default defineGame({
   // test board, so a map can turn spaces and the slot off (Checklist Features), as the build's
   // borrow check asks; Probe's maps can do without a spectator or queue spawn, so this game can
   // too (players then watch from over the first spawn). A map with spaces plays on them.
+  // The game's length in rounds (the plan's 10, 15 or 20 turns), 15 unless the lobby picks another.
+  options: [{ id: "length", label: "Length", values: LENGTHS.map((turns) => ({ value: String(turns), label: `${turns} turns` })) }],
   map: {
     borrow: ["probe"],
     board: BLOCK_PARTY_BOARD,
