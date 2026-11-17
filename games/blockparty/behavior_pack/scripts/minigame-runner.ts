@@ -1,30 +1,41 @@
 // Plays one minigame (docs/plans/block-party.md, "Minigame formats": the roulette, rules then Ready,
 // and the arenas' "At play time"), from the board and back:
 //   1. The roulette: the format's minigames go by in a title, slowing down, and stop on the pick.
-//   2. Behind the loading screen: the minigame's arena is laid where arenas go (its test arena for
-//      now; minigames/kit.ts), with a stand beside it for bots that are out, and everyone is put on
+//   2. Behind the loading screen: the minigame's arena is laid where arenas go, and everyone is put on
 //      its spawns, off their pieces: the players, then a moment later the bots, made again there
-//      (bots.ts, respawn). Anyone not playing (a duel's onlookers) watches from over it.
-//   3. The rules, through a camera over the arena, until everyone has jumped to say they're ready
-//      (bots after a moment); nobody moves till Go.
+//      (bots.ts, respawn). The arena is one of the minigame's published arena maps (minigames/
+//      arenas.ts), its structure placed fresh, turned a quarter when that's how it fits the board's
+//      arena slot, with the arena's own time of day; or, while the minigame has none, its test
+//      arena, laid in code (minigames/kit.ts). Anyone not playing (a duel's onlookers) watches from
+//      the arena's spectator spawn, or over it.
+//   3. The rules, through the arena map's Start view camera (or one over the arena), until everyone
+//      has jumped to say they're ready (bots after a moment); nobody moves till Go.
 //   4. 3, 2, 1, Go, and the minigame plays (its play()). A player who's out watches as a spectator
-//      over the arena; a bot stands on the stand.
+//      from the spectator spawn; a bot floats there.
 //   5. The results (what the loop pays, settle()) over the arena: a short title for everyone and
 //      each player's own place and coins under it. Then behind the loading screen again everyone is
-//      back on their pieces (the bots a moment after the players) and the arena is cleared.
+//      back on their pieces (the bots a moment after the players), the arena is cleared and the
+//      board's time is back.
 // Titles that follow each other quickly (the roulette, the countdown) come in at once (TITLE).
-import { GameMode, InputPermissionCategory, world, type Dimension, type Entity, type Player, type Vector3 } from "@minecraft/server";
-import { describeError, log, type Scope } from "@minecade/minigame-core";
+import { GameMode, InputPermissionCategory, StructureRotation, world, type Dimension, type Entity, type Player, type Vector3 } from "@minecraft/server";
+import { describeError, log, placeArena, turnedSize, turnsToFit, type ArenaMap, type QuarterTurns, type Scope } from "@minecade/minigame-core";
 import { isPlayer, thinkTicks, type Who } from "./bots.ts";
 import { line } from "./lines.ts";
 import type { Format } from "./minigame-rules.ts";
-import { fill, TITLE, type MinigameDef, type Outcome, type Play, type TitleTiming, type Vec3 } from "./minigames/kit.ts";
+import { arenaSize, fill, mapField, TITLE, type Field, type MinigameDef, type Outcome, type Play, type Spot, type TitleTiming } from "./minigames/kit.ts";
+
+/** Where arenas go: the middle of the floor (the map's arena slot's, or far east of the board), and the slot's size across (x by z) when there is one. */
+export interface ArenaPlace {
+  middle: Vector3;
+  slot?: [number, number];
+}
 
 export interface RunnerHost {
   scope: Scope;
   dimension: Dimension;
-  /** Where an arena goes: the middle of its floor (the map's arena slot's, or far east of the board). */
-  arenaMiddle(): Vector3;
+  arenaPlace(): ArenaPlace;
+  /** A minigame's published arena maps (the "arenas" server variable). */
+  arenaMaps(id: string): readonly ArenaMap[];
   /** A move behind the loading screen. */
   behindBlack(work: () => void | Promise<void>): Promise<void>;
   /** Off the board (a player gets their movement back), and back on it (on their space; a bot made again there). */
@@ -58,10 +69,17 @@ const ARENA_AREA = "minecade:blockparty_minigame";
 const ROULETTE = [2, 2, 2, 2, 3, 3, 4, 5, 6, 8];
 /** Ticks the results stay up before everyone goes back. */
 const RESULTS_TICKS = 70;
-/** How far over the arena onlookers and players who are out watch from. */
+/** How far over the arena onlookers and players who are out watch from, when its map has no spectator spawn. */
 const WATCH_HEIGHT = 6;
 /** Ticks after the players have moved before the bots are made again beside them (their screens are there by then). */
 const BOTS_AFTER = 10;
+const ROTATIONS: Record<QuarterTurns, StructureRotation> = { 0: StructureRotation.None, 1: StructureRotation.Rotate90, 2: StructureRotation.Rotate180, 3: StructureRotation.Rotate270 };
+
+/** The arena a minigame is played on this time: where, its markup there, and the structure placed for it (none: its test arena). */
+interface Laid {
+  field: Field;
+  structure?: { id: string; turns: QuarterTurns; map: string };
+}
 
 export function formatLabel(format: Format, sides: readonly (readonly Who[])[]): string {
   if (format === "2v2") return line("format.2v2");
@@ -107,39 +125,47 @@ export class MinigameRunner {
     this.outs.clear();
     const everyone = sides.flat();
     const { dimension } = this.host;
-    const size = def.size;
-    const middle = this.host.arenaMiddle();
-    const min = { x: Math.floor(middle.x - size[0] / 2), y: Math.floor(middle.y), z: Math.floor(middle.z - size[2] / 2) };
-    const stand = { x: min.x - 4.5, y: min.y + 3, z: min.z + Math.floor(size[2] / 2) + 0.5 };
-    const watchSpot = { x: min.x + size[0] / 2, y: min.y + size[1] + WATCH_HEIGHT, z: min.z + size[2] / 2 };
+    // Picked before the roulette, so a map that can't be played is named while it spins.
+    const laid = this.lay(def);
+    let field = laid.field;
+    let watchSpot = watchSpotOf(field);
+    let boardTime: number | undefined;
     let outcome: Outcome = { places: [] };
     try {
       await this.roulette(def, pool, format, sides);
       await this.host.behindBlack(async () => {
-        await this.loadArena(min, size, stand);
-        def.build(dimension, min, this.host.random);
+        field = await this.layDown(def, laid);
+        watchSpot = watchSpotOf(field);
+        const { min, size } = field;
+        const middle = middleOf(field);
+        if (field.time !== undefined) {
+          boardTime = world.getTimeOfDay();
+          world.setTimeOfDay(field.time);
+        }
         const spawns = def.spawns(
-          min,
+          field,
           sides.map((side) => side.length),
         );
-        const spotOf = (s: number, m: number) => spawns[s]?.[m] ?? { x: middle.x, y: min.y + size[1], z: middle.z };
+        const spotOf = (s: number, m: number): Spot => spawns[s]?.[m] ?? { x: middle.x, y: min.y + size[1], z: middle.z };
+        const facing = (spot: Spot) => spot.yaw ?? yawToward(spot, middle);
         for (const who of everyone) this.host.leaveBoard(who);
         // The players first; the bots once the players' screens are there (bots.ts, respawn).
         sides.forEach((side, s) =>
           side.forEach((who, m) => {
             if (!who.player) return;
-            this.put(who.player, spotOf(s, m), middle, GameMode.Adventure);
+            const spot = spotOf(s, m);
+            this.put(who.player, spot, facing(spot), GameMode.Adventure);
             setMoving(who.player, false);
           }),
         );
-        for (const who of onlookers) if (who.player) this.put(who.player, watchSpot, middle, GameMode.Spectator);
-        this.rulesCamera([...everyone, ...onlookers], min, size);
+        for (const who of onlookers) if (who.player) this.put(who.player, watchSpot, watchSpot.yaw ?? yawToward(watchSpot, middle), GameMode.Spectator);
+        this.rulesCamera([...everyone, ...onlookers], field);
         await this.host.scope.wait(BOTS_AFTER);
         sides.forEach((side, s) =>
           side.forEach((who, m) => {
             if (who.player) return;
             const spot = spotOf(s, m);
-            this.host.respawnBot(who, spot, yawToward(spot, middle));
+            this.host.respawnBot(who, spot, facing(spot));
           }),
         );
       });
@@ -157,12 +183,11 @@ export class MinigameRunner {
       const play: Play = {
         scope,
         dimension,
-        min,
-        size,
+        field,
         sides,
         random: this.host.random,
         inPlay: () => everyone.filter((who) => !this.outs.has(who.key) && this.bodyOf(who) !== undefined),
-        out: (who) => this.takeOut(who, watchSpot, stand),
+        out: (who) => this.takeOut(who, watchSpot),
         isOut: (who) => this.outs.has(who.key),
         bodyOf: (who) => this.bodyOf(who),
         freeze: (who, ticks) => {
@@ -204,14 +229,75 @@ export class MinigameRunner {
         }
         await this.host.scope.wait(BOTS_AFTER);
         for (const who of everyone) if (!who.player) this.host.backToBoard(who);
-        this.clearArena(min, size);
+        this.clearArena(field);
+        if (boardTime !== undefined) world.setTimeOfDay(boardTime);
+        boardTime = undefined;
       });
     } finally {
       this.on = false;
       this.waiting = undefined;
       this.host.status(undefined);
+      if (boardTime !== undefined) world.setTimeOfDay(boardTime);
     }
     return outcome;
+  }
+
+  /**
+   * Lays the arena behind the loading screen: loads its chunks, then places its map's structure, or
+   * lays its test arena. A structure that won't place is named in chat and the test arena stands in.
+   * Resolves with the field that was laid.
+   */
+  private async layDown(def: MinigameDef, laid: Laid): Promise<Field> {
+    const { dimension } = this.host;
+    await this.loadArena(laid.field);
+    const { structure } = laid;
+    if (structure) {
+      try {
+        world.structureManager.place(structure.id, dimension, laid.field.min, { rotation: ROTATIONS[structure.turns], includeEntities: false });
+        log.info(`blockparty: ${def.name} on its arena map ${structure.map}${structure.turns > 0 ? `, turned ${structure.turns * 90} degrees to fit the arena slot` : ""}`);
+        return laid.field;
+      } catch (error) {
+        log.warn(`blockparty: placing ${def.name}'s arena map ${structure.map} failed: ${describeError(error)}`);
+        this.host.say(`${def.name}'s arena map ${structure.map} couldn't be placed (${describeError(error)}), so its test arena stands in.`);
+        this.clearArena(laid.field);
+        const test = this.testLaid(def);
+        await this.loadArena(test.field);
+        def.build(dimension, test.field.min, this.host.random);
+        return test.field;
+      }
+    }
+    def.build(dimension, laid.field.min, this.host.random);
+    return laid.field;
+  }
+
+  /** The minigame's test arena, centered where arenas go. */
+  private testLaid(def: MinigameDef): Laid {
+    const { middle } = this.host.arenaPlace();
+    const min = { x: Math.floor(middle.x - def.size[0] / 2), y: Math.floor(middle.y), z: Math.floor(middle.z - def.size[2] / 2) };
+    return { field: def.testField(min) };
+  }
+
+  /**
+   * Where `def` is played this time: one of its arena maps (at random, when there are more), its
+   * Arena box centered where arenas go, turned a quarter when only that fits the arena slot; or its
+   * test arena, while it has no arena map, or none it can be played on (it says why).
+   */
+  private lay(def: MinigameDef): Laid {
+    const place = this.host.arenaPlace();
+    const maps = this.host.arenaMaps(def.id);
+    const arena = maps.length > 0 ? maps[Math.floor(this.host.random() * maps.length)] : undefined;
+    const size = arena && arenaSize(arena.config);
+    if (arena && size) {
+      const turns: QuarterTurns = place.slot ? (turnsToFit(size, place.slot) ?? 0) : 0;
+      const turned = turnedSize(size, turns);
+      const min = { x: Math.floor(place.middle.x - turned[0] / 2), y: Math.floor(place.middle.y), z: Math.floor(place.middle.z - turned[2] / 2) };
+      const field = mapField(arena.config, placeArena(arena.config, [min.x, min.y, min.z], turns));
+      const problem = world.structureManager.get(arena.structure) ? def.problem?.(field) : `its structure ${arena.structure} isn't on this server`;
+      if (!problem) return { field, structure: { id: arena.structure, turns, map: arena.map } };
+      log.warn(`blockparty: ${def.name}'s arena map ${arena.map} can't be played: ${problem}`);
+      this.host.say(`${def.name}'s arena map ${arena.map} can't be played (${problem}), so its test arena stands in.`);
+    }
+    return this.testLaid(def);
   }
 
   /** The roulette: the format's minigames in a title, slowing down to the pick. */
@@ -227,17 +313,19 @@ export class MinigameRunner {
     await this.host.scope.wait(30);
   }
 
-  /** Loads the arena's chunks (and the stand's) and lays the stand. */
-  private async loadArena(min: Vector3, size: Vec3, stand: Vector3): Promise<void> {
+  /** Loads the arena's chunks. */
+  private async loadArena(field: Field): Promise<void> {
+    const { min, size } = field;
     const manager = world.tickingAreaManager;
     if (manager.hasTickingArea(ARENA_AREA)) manager.removeTickingArea(ARENA_AREA);
-    await manager.createTickingArea(ARENA_AREA, { dimension: this.host.dimension, from: { x: min.x - 7, y: min.y, z: min.z }, to: { x: min.x + size[0] - 1, y: min.y + size[1] - 1, z: min.z + size[2] - 1 } });
-    fill(this.host.dimension, { x: stand.x - 2.5, y: stand.y - 1, z: stand.z - 2.5 }, { x: stand.x + 1.5, y: stand.y - 1, z: stand.z + 1.5 }, "minecraft:smooth_stone");
+    await manager.createTickingArea(ARENA_AREA, { dimension: this.host.dimension, from: min, to: { x: min.x + size[0] - 1, y: min.y + size[1] - 1, z: min.z + size[2] - 1 } });
   }
 
-  private clearArena(min: Vector3, size: Vec3): void {
+  /** Clears the arena's box, so the next one is laid on nothing. */
+  private clearArena(field: Field): void {
+    const { min, size } = field;
     try {
-      fill(this.host.dimension, { x: min.x - 7, y: min.y, z: min.z }, { x: min.x + size[0] - 1, y: min.y + size[1] - 1, z: min.z + size[2] - 1 }, "minecraft:air");
+      fill(this.host.dimension, min, { x: min.x + size[0] - 1, y: min.y + size[1] - 1, z: min.z + size[2] - 1 }, "minecraft:air");
       const manager = world.tickingAreaManager;
       if (manager.hasTickingArea(ARENA_AREA)) manager.removeTickingArea(ARENA_AREA);
     } catch (error) {
@@ -245,23 +333,25 @@ export class MinigameRunner {
     }
   }
 
-  /** Puts a player at `spot` facing `toward`, in `mode`. */
-  private put(player: Player, spot: Vector3, toward: Vector3, mode: GameMode): void {
+  /** Puts a player at `spot` facing `yaw`, in `mode`. */
+  private put(player: Player, spot: Vector3, yaw: number, mode: GameMode): void {
     try {
       if (player.getGameMode() !== mode) player.setGameMode(mode);
-      player.teleport(spot, { rotation: { x: 0, y: yawToward(spot, toward) } });
+      player.teleport({ x: spot.x, y: spot.y, z: spot.z }, { rotation: { x: 0, y: yaw } });
     } catch (error) {
       log.warn(`blockparty: putting someone in the arena failed: ${describeError(error)}`);
     }
   }
 
-  /** The rules camera: over the arena, behind its near side, looking at its middle. */
-  private rulesCamera(who: readonly Who[], min: Vector3, size: Vec3): void {
+  /** The rules camera: the arena map's Start view, else over the arena, behind its near side, looking at its middle. */
+  private rulesCamera(who: readonly Who[], field: Field): void {
+    const { min, size, camera } = field;
     const middle = { x: min.x + size[0] / 2, y: min.y + 1, z: min.z + size[2] / 2 };
     const location = { x: middle.x, y: min.y + size[1] + 10, z: min.z - Math.max(8, size[2] * 0.4) };
     for (const one of who) {
       try {
-        one.player?.camera.setCamera("minecraft:free", { location, facingLocation: middle });
+        if (camera) one.player?.camera.setCamera("minecraft:free", { location: { x: camera.x, y: camera.y, z: camera.z }, rotation: { x: camera.pitch, y: camera.yaw } });
+        else one.player?.camera.setCamera("minecraft:free", { location, facingLocation: middle });
       } catch {
         // gone
       }
@@ -297,18 +387,24 @@ export class MinigameRunner {
     this.host.status(line("minigame.ready.status", { votes: `${Math.min(this.readyCount, this.readyTotal)} of ${this.readyTotal}` }));
   }
 
-  /** Off the field: a player watches over the arena as a spectator, a bot from the stand. */
-  private takeOut(who: Who, watchSpot: Vector3, stand: Vector3): void {
+  /**
+   * Off the field: a player watches from the spectator spawn (or over the arena) as a spectator, and
+   * a bot floats there too, each a little apart (it's made again on the board after).
+   */
+  private takeOut(who: Who, watchSpot: Spot): void {
     if (this.outs.has(who.key)) return;
+    const apart = this.outs.size;
     this.outs.add(who.key);
     const body = this.bodyOf(who);
     if (!body) return;
+    const spot = { x: watchSpot.x, y: watchSpot.y, z: watchSpot.z };
     try {
       if (isPlayer(body)) {
         body.setGameMode(GameMode.Spectator);
-        body.teleport(watchSpot);
+        body.teleport(spot, watchSpot.yaw !== undefined ? { rotation: { x: watchSpot.pitch ?? 0, y: watchSpot.yaw } } : undefined);
       } else {
-        body.teleport(stand);
+        body.triggerEvent("blockparty:float");
+        body.teleport({ x: spot.x + ((apart % 3) - 1) * 1.2, y: spot.y, z: spot.z + Math.floor(apart / 3) * 1.2 });
         body.clearVelocity();
       }
     } catch (error) {
@@ -323,6 +419,17 @@ export class MinigameRunner {
       return undefined;
     }
   }
+}
+
+/** An arena's middle, on its floor. */
+function middleOf(field: Field): Vector3 {
+  return { x: field.min.x + field.size[0] / 2, y: field.min.y, z: field.min.z + field.size[2] / 2 };
+}
+
+/** Where players who are out watch from: the arena map's spectator spawn, else over the arena's middle. */
+function watchSpotOf(field: Field): Spot {
+  const middle = middleOf(field);
+  return field.watch ?? { x: middle.x, y: field.min.y + field.size[1] + WATCH_HEIGHT, z: middle.z };
 }
 
 /** The yaw from `from` toward `to`. */

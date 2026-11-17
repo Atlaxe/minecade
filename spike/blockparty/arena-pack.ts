@@ -1,5 +1,5 @@
 // Installs published maps' arenas into Block Party's private arenas pack, for the spike's Arenas
-// test: each map's box around its bounds becomes a .mcstructure file (mcstructure.ts, read from the
+// test: each map's box around its bounds becomes a .mcstructure file (tools/maps/structure.ts, read from the
 // map store with no server) named minecade:arena_<game>_<map>, in
 // games/blockparty/private_packs/arenas/behavior_pack/structures/minecade/ (git-ignored: maps aren't
 // in git). The build ships the pack with Block Party's server; Start the network again after.
@@ -8,7 +8,7 @@
 import { mkdir, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { repoRoot } from "../../tools/maps/paths.ts";
-import { worldToStructure } from "./mcstructure.ts";
+import { worldToStructure } from "../../tools/maps/structure.ts";
 import { publishedMap } from "./published.ts";
 
 const DEFAULTS = ["sumo/sinkhole", "sumo/sewer", "gunfight/kgb", "buildswap/roman"];

@@ -193,7 +193,9 @@ spots) and its warnings show (shares off target, Reds in a row, Wardens or Versu
 long stretch with no Item, shortcuts saving too much or too little, Star candidates bunched).
 
 A region can also ask for an exact footprint: `footprint: [40, 60]` means every box is 40 by 60
-blocks across, either way round, any height (Block Party's arena slot).
+blocks across, either way round, any height (Block Party's arena slot). `maxFootprint: [40, 60]`
+asks for at most that across, either way round, and `maxHeight: 48` for at most that tall (an
+arena map's Arena box, below); a box past either doesn't count, and the checklist says so.
 
 `perTeam` entries are needed once for every team the game can have (`"buyZone.red"`,
 `"buyZone.blue"`). The short forms still work: `points: ["bombA", "bombB"]`,
@@ -297,6 +299,50 @@ fresh copy.
 `.env` picks which published lobby map is the live lobby (default `spaceship`), and the Panel has a
 picker for it on the Servers page. A restart applies it.
 
+### Arena maps
+
+A game can have maps it places into its own world while it plays, such as Block Party's minigame
+arenas, laid into the board's arena slot each time a minigame comes up. Each kind is an arena in
+the game's config, with what its maps need:
+
+```ts
+arenas: [
+  {
+    id: "hotfloor",
+    name: "Hot Floor",
+    maxPlayers: 4,
+    box: { footprint: [40, 60], height: 48 },
+    map: { spawns: { min: 4, inside: "structure" }, spectatorSpawn: true, regions: { floor: { label: "Floor (tiles)" } } },
+  },
+],
+```
+
+- **Its own entry:** each arena is an entry of its own in the map editor's list and on the Panel's
+  Maps page, after its game: **Hot Floor (Block Party)**, kept in the map store as
+  `blockparty-hotfloor` (`<game>-<id>`, so an arena's id is lower case letters and digits). Its maps
+  are made, checked and published there like any map, against the arena's own checklist.
+- **The Arena box:** every arena map has one more region, **Arena** (`structure` in map.json), one
+  box no bigger than the arena's `box` (at most `footprint` across, either way round, and `height`
+  tall). It's what the game places: build the arena inside it, and put everything the arena's
+  checklist asks for inside it too (`inside: "structure"` makes the checklist check a region or the
+  spawns).
+- **Publish** writes the box out of the world as a structure, `structure.mcstructure`, beside the
+  published world (`tools/maps/structure.ts`, no server needed). A version published before this
+  existed gets its structure at the store's next export.
+- **The game's servers** get every published map of each of its arenas when they start: the build
+  writes `arenas.json` into the game's template (each arena's entry), and the entrypoint copies each
+  structure into the game's behavior pack as `arena:<arena>_<n>` and passes the maps' `map.json`
+  in the `arenas` server variable (`ctx.vars.arenas`, by arena). A new Publish needs no Start: the
+  next game has it. A Preview of the game brings its own copy of them.
+- **In the game,** minigame-core's `placeArena` says where the map's markup lands once its box is
+  placed at a spot, turned a quarter or not (`turnsToFit` says which fits a slot): positions,
+  facings and boxes, so the game reads the map's spawns, points and regions as usual. Its time of
+  day and its Start view camera come along.
+- **No Preview of its own:** an arena map only plays inside its game, so Preview on one says so;
+  publish it and preview or play the game instead.
+- **One each:** the game plays one map per arena; the build warns about a second.
+- The blocks pack's cut keeps the custom blocks arena maps use, as it does the game's own maps'.
+
 ### Borrowing another game's maps
 
 A game can play another game's published maps as they are, beside any of its own, by naming that
@@ -334,11 +380,11 @@ never go to GitHub. It's `..\maps` from the repo root, so the main checkout and 
 
 | In the store | What it is |
 | --- | --- |
-| `working\<target>\<map>\` | The map the map editor works on: `map.json`, `preview.png`, `world\`. `<target>` is `lobby` or a game id. |
+| `working\<target>\<map>\` | The map the map editor works on: `map.json`, `preview.png`, `world\`. `<target>` is `lobby`, a game id, or a game's arena (`blockparty-hotfloor`, "Arena maps" above). |
 | `working\<game>\icon.png` | The game's picture, taken with the editor's Camera tool. It needs no Publish: every export takes the saved one (below). |
 | `maps.db` | Every map's versions and which one is published (node:sqlite). A version is the map's folder as it was; files that didn't change are stored once. |
 | `published\catalog\` | What the network's build reads: each published map's card (`<target>\<map>.json`: its name, its kits, and the custom blocks its world uses, for the network's cut of the blocks pack), its preview (`<target>\<map>.png`), and each game's picture (`<game>\icon.png`). |
-| `published\worlds\` | What the servers read, mounted at `/maps` in the lobby, the orchestrator and every game: each published version in a folder of its own (`<target>\<map>\<version>\`, the world with Beta APIs on and `map.json` as servers read it), and `index.json`, which names each map's published version. |
+| `published\worlds\` | What the servers read, mounted at `/maps` in the lobby, the orchestrator and every game: each published version in a folder of its own (`<target>\<map>\<version>\`, the world with Beta APIs on and `map.json` as servers read it, and an arena map's `structure.mcstructure`), and `index.json`, which names each map's published version. |
 | `backups\` | A copy of `maps.db` after every publish and delete, the newest 30. |
 
 The map editor keeps a version each time it saves the world and each time it stops, and Publish

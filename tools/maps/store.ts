@@ -5,7 +5,8 @@
 //   maps.db                   node:sqlite: each map's versions (its folder's files, stored once
 //                             each by content), and what's published
 //   published\                the published maps (exportPublished): catalog\, what the network's
-//                             build reads, and worlds\, what its servers read (mounted at /maps)
+//                             build reads, and worlds\, what its servers read (mounted at /maps),
+//                             an arena map's with its Arena box as structure.mcstructure
 //   backups\                  a copy of maps.db after every publish and delete, the newest 30
 // A map is known here from its first version; a working folder alone (a map just made) is a draft
 // nobody saved yet. Publishing points the map at a version (its newest), and a map given another
@@ -14,10 +15,11 @@ import { createHash } from "node:crypto";
 import { existsSync, mkdirSync, readdirSync, readFileSync, renameSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
-import { runtimeMapConfig, type MapConfig } from "@minecade/minigame-core/config";
+import { arenaBox, runtimeMapConfig, type MapConfig } from "@minecade/minigame-core/config";
 import { enableBetaApis, patchLevelDatSync } from "../build/leveldat.ts";
 import { worldNames } from "./blocks.ts";
 import { workingDir } from "./paths.ts";
+import { worldToStructure } from "./structure.ts";
 
 /** Saves kept per map besides its publishes, the newest first. */
 export const KEEP_SAVES = 20;
@@ -305,8 +307,9 @@ export class MapStore {
    *   Publish, the user's rule). A file is written only when its bytes change, so the build stays
    *   cached while no map's name, kits or pictures did.
    * - worlds\: what the servers read (mounted at /maps): each published version in a folder of its
-   *   own, <target>\<map>\<version>\ (world\ with Beta APIs on, and map.json as servers read it),
-   *   written once and never changed, and index.json naming each map's published version, swapped
+   *   own, <target>\<map>\<version>\ (world\ with Beta APIs on, map.json as servers read it, and
+   *   for an arena map its Arena box as structure.mcstructure, writeArenaStructure), written once and
+   *   never changed but for what servers newly get, and index.json naming each map's published version, swapped
    *   in whole. A server starting meanwhile reads the old index or the new one, and both versions'
    *   folders are there: the one before the published one stays, older ones go.
    * Anything else in `dest` (the layout before) goes. `written` is how many version folders were new,
@@ -343,8 +346,9 @@ export class MapStore {
         written++;
       } else {
         // A world written before servers got something new from map.json (the cameras' startView)
-        // gets its runtime map.json again; the world itself stays as it is.
+        // gets its runtime map.json again (and an arena map its structure); the world itself stays as it is.
         writeRuntimeConfig(folder, config);
+        writeArenaStructure(folder, config);
       }
       const card: MapCard = { name: config.name, ...(config.kits ? { kits: config.kits } : {}), customNames: versionNames(folder) };
       keep(join(catalog, row.target, `${map}.json`), JSON.stringify(card, null, 2));
@@ -430,6 +434,7 @@ export class MapStore {
       // Worlds built by hand in the client usually lack Beta APIs.
       const levelDat = join(fresh, "world", "level.dat");
       if (existsSync(levelDat)) patchLevelDatSync(levelDat, enableBetaApis);
+      writeArenaStructure(fresh, config);
       removeTree(folder);
       renameSync(fresh, folder);
     } catch (error) {
@@ -565,6 +570,29 @@ function versionNames(folder: string): string[] {
 function removeTree(path: string): void {
   rmSync(path, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
 }
+
+/**
+ * An arena map's Arena box (arena-map.ts) as structure.mcstructure in its published folder, from its
+ * world there, once: what a server of the game the arena is for places into its own world. A box
+ * that can't be written is left out with a warning (the game then has no structure for that map),
+ * so one odd world never stops an export.
+ */
+export function writeArenaStructure(folder: string, config: MapConfig): void {
+  const box = arenaBox(config);
+  const out = join(folder, STRUCTURE_FILE);
+  if (!box || existsSync(out) || !existsSync(join(folder, "world", "db"))) return;
+  try {
+    const { file } = worldToStructure(join(folder, "world"), box);
+    writeFileSync(`${out}.new`, file);
+    renameSync(`${out}.new`, out);
+  } catch (error) {
+    rmSync(`${out}.new`, { force: true });
+    console.warn(`${folder}: its Arena box couldn't be written as a structure: ${error instanceof Error ? error.message : String(error)}`);
+  }
+}
+
+/** A published arena map's structure, beside its world. */
+export const STRUCTURE_FILE = "structure.mcstructure";
 
 /** A published world's map.json as servers read it (runtimeMapConfig), written only when it changed, and whole (renamed into place). */
 function writeRuntimeConfig(folder: string, config: MapConfig): void {

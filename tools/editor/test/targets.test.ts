@@ -1,6 +1,7 @@
+import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
-import { loadTarget } from "../targets.ts";
+import { listTargets, loadTarget } from "../targets.ts";
 
 const root = fileURLToPath(new URL("../../../", import.meta.url));
 
@@ -10,6 +11,18 @@ describe("the editor's targets", () => {
     expect((await loadTarget(root, "quiver")).borrowers).toEqual([{ id: "gungame", name: "Gun Game", maxPlayers: 8 }]);
     expect((await loadTarget(root, "bridges")).borrowers).toBeUndefined();
     expect((await loadTarget(root, "lobby")).borrowers).toBeUndefined();
+  });
+
+  it("give each of a game's arenas an entry of its own, after the game, checked against the arena's rules", async () => {
+    const ids = (await listTargets(root)).map((target) => target.id);
+    const game = ids.indexOf("blockparty");
+    expect(ids.slice(game, game + 4)).toEqual(["blockparty", "blockparty-hotfloor", "blockparty-painters", "blockparty-hunter"]);
+    const painters = await loadTarget(root, "blockparty-painters");
+    expect(painters).toMatchObject({ name: "Co-op Painters (Block Party)", arena: { game: "blockparty", gameName: "Block Party", id: "painters" }, rules: { kind: "game", maxPlayers: 4 } });
+    expect(painters.rules.teams?.map((team) => team.id)).toEqual(["red", "blue"]);
+    expect(painters.mapsDir.endsWith(join("working", "blockparty-painters"))).toBe(true);
+    expect(Object.keys((painters.rules.requires?.regions ?? {}) as object)).toEqual(["structure", "floor"]);
+    await expect(loadTarget(root, "blockparty-nothing")).rejects.toThrow('there is no game "blockparty-nothing"');
   });
 
   it("give the gun games' mannequins the guns the games hand out, not only their kits' items", async () => {

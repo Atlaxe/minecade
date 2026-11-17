@@ -1,7 +1,19 @@
 // Checks for game configs and map.json files. Each function returns a list of problems (empty
 // when valid) so the build can report everything at once instead of stopping at the first. The
 // map checks live in minigame-core, so the map editor shows the same problems live.
-import { MAX_ROUND_ICONS, MAX_SCORE_SIDES, MIN_BEST_OF, adjustableProblems, isMapKey, mapSettings, possibleTeams, settingFits, type GameConfig } from "@minecade/minigame-core/config";
+import {
+  MAX_ROUND_ICONS,
+  MAX_SCORE_SIDES,
+  MIN_BEST_OF,
+  STRUCTURE_REGION,
+  adjustableProblems,
+  arenaRequirements,
+  isMapKey,
+  mapSettings,
+  possibleTeams,
+  settingFits,
+  type GameConfig,
+} from "@minecade/minigame-core/config";
 
 export { mapWarnings, validateMapConfig, type MapRules } from "@minecade/minigame-core/config";
 
@@ -60,7 +72,35 @@ export function validateGameConfig(config: GameConfig, folder: string): string[]
   // Requirement options: what each map may change of its checklist (map.adjustable).
   problems.push(...adjustableProblems(config.map, { kind: "game", maxPlayers: config.maxPlayers, teams: config.teams ? possibleTeams(config.teams) : [] }));
   problems.push(...validateBorrow(config));
+  problems.push(...validateArenas(config));
   if (config.blocks !== undefined && config.blocks !== "full") problems.push('blocks must be "full" or left out');
+  return problems;
+}
+
+/** The game's arenas (arena-map.ts): ids that make editor entries of their own, players, the Arena box's most, and what their maps need. */
+export function validateArenas(config: GameConfig): string[] {
+  const arenas = config.arenas;
+  if (arenas === undefined) return [];
+  if (!Array.isArray(arenas)) return ["arenas must be a list"];
+  const problems: string[] = [];
+  const ids = arenas.map((arena) => arena?.id);
+  if (new Set(ids).size !== ids.length) problems.push("arena ids must be unique");
+  for (const arena of arenas) {
+    const where = `arenas "${arena?.id}"`;
+    if (typeof arena?.id !== "string" || !/^[a-z0-9]+$/.test(arena.id)) {
+      problems.push(`${where}: the id must be lower case letters and digits (the map editor's entry is "${config.id}-<id>")`);
+      continue;
+    }
+    if (typeof arena.name !== "string" || !arena.name.trim()) problems.push(`${where}: name is required`);
+    if (!Number.isInteger(arena.maxPlayers) || arena.maxPlayers < 1) problems.push(`${where}: maxPlayers must be a whole number of at least 1`);
+    const [x, z]: unknown[] = Array.isArray(arena.box?.footprint) ? arena.box.footprint : [];
+    if (!(typeof x === "number" && typeof z === "number" && Number.isInteger(x) && Number.isInteger(z) && x > 0 && z > 0)) problems.push(`${where}: box.footprint must be two whole numbers of blocks across`);
+    if (arena.box?.height !== undefined && !(Number.isInteger(arena.box.height) && arena.box.height > 0)) problems.push(`${where}: box.height must be a whole number of blocks`);
+    const own = arena.map?.regions;
+    if (own && (Array.isArray(own) ? own.includes(STRUCTURE_REGION) : Object.hasOwn(own, STRUCTURE_REGION))) problems.push(`${where}: map.regions can't name "${STRUCTURE_REGION}", the Arena box every arena map has`);
+    if (arena.map?.borrow || arena.map?.board) problems.push(`${where}: an arena's map block can't borrow maps or have a board`);
+    problems.push(...adjustableProblems(arenaRequirements(arena), { kind: "game", maxPlayers: arena.maxPlayers, teams: arena.teams ? possibleTeams(arena.teams) : [] }).map((problem) => `${where}: ${problem}`));
+  }
   return problems;
 }
 

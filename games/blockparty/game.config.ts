@@ -1,5 +1,6 @@
 import { ARENA_SLOT, ARENA_SLOT_FOOTPRINT, BLOCK_PARTY_BOARD, defineGame } from "@minecade/minigame-core/config";
 import { BOT_COUNTS, LENGTHS } from "./behavior_pack/scripts/board-rules.ts";
+import { ARENAS } from "./behavior_pack/scripts/minigames/arenas.ts";
 
 // Block Party (docs/plans/block-party.md): a board game with minigames between turns, a test game
 // the lobby lists only while DEV_TEST_GAMES is 1 until it's whole. It plays the board loop
@@ -46,6 +47,10 @@ export default defineGame({
     regions: { [ARENA_SLOT]: { label: "Arena slot", footprint: ARENA_SLOT_FOOTPRINT } },
     adjustable: { spectatorOrQueue: { off: true }, spaces: { off: true }, [`regions.${ARENA_SLOT}`]: { off: true } },
   },
+  // The minigames' arenas (minigames/arenas.ts): each its own entry in the map editor, its published
+  // maps placed into the board's arena slot when it's played. A minigame without one plays on its
+  // test arena, laid in code.
+  arenas: ARENAS,
   /**
    * The test board: 12 spaces around a square, `spacing` blocks apart, its middle `at` (x, y of the
    * spaces' top, z), out beside Probe's platform. Pieces walk at `speed` blocks a second.

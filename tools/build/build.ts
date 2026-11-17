@@ -22,6 +22,7 @@ import { dirname, join, relative } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { build } from "esbuild";
 import {
+  arenaTargetId,
   holoPictures,
   holoPortraits,
   mapRequirements,
@@ -71,6 +72,8 @@ interface Target {
   icon?: string;
   /** The published maps, by their cards in the catalog: its own, then the ones it borrows (with their owner game). */
   maps: { id: string; card: MapCard; preview?: string; owner?: string }[];
+  /** Its arenas' published maps' cards (arena-map.ts), by arena id: their servers get the maps' structures at start. */
+  arenaMaps: Map<string, MapCard[]>;
 }
 
 const problems: string[] = [];
@@ -114,7 +117,7 @@ async function loadManifest(packDir: string): Promise<Manifest | undefined> {
 }
 
 async function loadTarget(id: string, dir: string, configPath?: string): Promise<Target> {
-  const target: Target = { id, dir, teams: [], maps: [], privatePacks: [] };
+  const target: Target = { id, dir, teams: [], maps: [], privatePacks: [], arenaMaps: new Map() };
   const kind = id === "lobby" ? "lobby" : "game";
   if (configPath && kind === "lobby") {
     target.lobby = (await import(pathToFileURL(configPath).href)).default as LobbyConfig;
@@ -151,6 +154,14 @@ async function loadTarget(id: string, dir: string, configPath?: string): Promise
     target.skip = true;
   } else if (target.maps.length === 0) {
     report(dir, [`needs at least one published map (none in ${mapsDir}: publish one in the map editor, or npm run maps -- export)`]);
+  }
+  // Arena maps aren't the game's maps: its servers get every published one at start (the entrypoint,
+  // from /maps). Only one is played per arena (the plan's "no variants"); a second is a warning.
+  for (const arena of target.game?.arenas ?? []) {
+    const arenaTarget = arenaTargetId(id, arena.id);
+    const maps = await publishedMaps(arenaTarget);
+    target.arenaMaps.set(arena.id, maps.map((map) => map.card));
+    if (maps.length > 1) warn(join(catalog, arenaTarget), [`${arena.name} has ${maps.length} published arena maps (${maps.map((map) => map.id).join(", ")}): each game picks one of them at random, where one is the plan`]);
   }
   if (target.game && !target.skip) {
     const icon = join(mapsDir, "icon.png");
@@ -311,7 +322,8 @@ const CUT_NAMES = [`${PACK_PREFIX}blocks_cut_bp`, `${PACK_PREFIX}blocks_cut_rp`]
 async function cutBlocks(): Promise<boolean> {
   const whole = shared.filter(({ pack }) => pack.name === "blocks_bp" || pack.name === "blocks_rp");
   if (whole.length !== 2) return false;
-  const cards = targets.flatMap((target) => target.maps.map((map) => map.card));
+  // Arena maps too: their structures are placed in their game's world, custom blocks and all.
+  const cards = targets.flatMap((target) => [...target.maps.map((map) => map.card), ...[...target.arenaMaps.values()].flat()]);
   if (cards.some((card) => !Array.isArray(card.customNames))) {
     console.warn("the map catalog doesn't say which blocks the maps use (npm run maps -- export writes it again), so every server gets the whole blocks pack");
     return false;
@@ -405,6 +417,12 @@ for (const target of targets) {
     await buildResourcePack(join(target.dir, "resource_pack"), join(out, "resource_packs", `${target.id}_rp`), target.resourcePack, extra);
   }
   await addSharedPacks(out, target.privatePacks);
+  // A game with arenas: which editor entries (the map store's targets) hold each arena's maps, for
+  // the entrypoint, which copies their structures into the game's pack at every start.
+  if (target.game?.arenas?.length) {
+    const arenas = Object.fromEntries(target.game.arenas.map((arena) => [arena.id, arenaTargetId(target.id, arena.id)]));
+    await writeFile(join(out, "arenas.json"), `${JSON.stringify(arenas, null, 2)}\n`);
+  }
   // Each server loads one blocks pack: the cut, or the whole one for a game that asks (and the editor).
   const full = target.game?.blocks === "full" || target.id === EDITOR;
   await writePackLists(out, sharedOut, (name) => cut && (full ? CUT_NAMES.includes(name) : FULL_NAMES.includes(name)));

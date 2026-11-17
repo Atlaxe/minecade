@@ -48,7 +48,7 @@ import { line } from "./lines.ts";
 import { BOT_COUNTS, LENGTHS, START_COINS } from "./board-rules.ts";
 import { Bots, hop, isPlayer, thinkTicks, whoOf, type Who } from "./bots.ts";
 import { fits, type Format } from "./minigame-rules.ts";
-import { MinigameRunner } from "./minigame-runner.ts";
+import { MinigameRunner, type ArenaPlace } from "./minigame-runner.ts";
 import { MINIGAMES } from "./minigames/index.ts";
 import { TITLE, type TitleTiming } from "./minigames/kit.ts";
 import { Npcs } from "./npcs.ts";
@@ -243,7 +243,8 @@ export class BlockPartySpike extends Minigame<Config> {
     this.runner = new MinigameRunner({
       scope: this.scope,
       dimension,
-      arenaMiddle: () => this.arenaMiddle(),
+      arenaPlace: () => this.arenaPlace(),
+      arenaMaps: (id) => this.ctx.vars.arenas[id] ?? [],
       behindBlack: (work) => this.behindBlack(work),
       leaveBoard: (who) => this.pieces.release(who.body),
       backToBoard: (who) => {
@@ -376,10 +377,14 @@ export class BlockPartySpike extends Minigame<Config> {
     }
   }
 
-  /** Where an arena goes: the middle of the map's arena slot's floor, else far east of the board. */
-  private arenaMiddle(): Vector3 {
+  /** Where an arena goes: the middle of the map's arena slot's floor (and the slot's size across), else far east of the board. */
+  private arenaPlace(): ArenaPlace {
     const slot = this.map.regions(ARENA_SLOT)[0];
-    return slot ? { x: (slot.min[0] + slot.max[0] + 1) / 2, y: slot.min[1], z: (slot.min[2] + slot.max[2] + 1) / 2 } : { x: ARENA_AT[0], y: ARENA_AT[1], z: ARENA_AT[2] };
+    if (!slot) return { middle: { x: ARENA_AT[0], y: ARENA_AT[1], z: ARENA_AT[2] } };
+    return {
+      middle: { x: (slot.min[0] + slot.max[0] + 1) / 2, y: slot.min[1], z: (slot.min[2] + slot.max[2] + 1) / 2 },
+      slot: [slot.max[0] - slot.min[0] + 1, slot.max[2] - slot.min[2] + 1],
+    };
   }
 
   /** A bot's roll: the die over its head (everyone watching through the roll camera on a turn), a moment's thought, a hop, the number. */

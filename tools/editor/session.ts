@@ -125,6 +125,11 @@ export class EditorSession extends ServerSession {
     await super.forceStop();
   }
 
+  /** For an arena's map (Block Party's minigames): the game it's placed into, which a preview would have to play. */
+  get arena(): EditorTarget["arena"] {
+    return this.target.arena;
+  }
+
   /** What a Preview builds: the game, the map (its folder and map.json as it is now), and its label. */
   /** What a preview of this map plays: its own game, or `as`, a game that borrows its maps (Gunfight, for a Siege map). */
   previewSource(as?: string): { map: PreviewMap; label: string; maxPlayers: number } {

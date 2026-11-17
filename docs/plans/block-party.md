@@ -567,8 +567,9 @@ minigame has to come to the board's world instead.
 - **Boards** are maps of the Block Party game, made, checked and published like any game's map.
 - **Each minigame** is its own entry in the editor's map list, with its own checklist, holding its
   one arena map. No variants: the build warns about a second map for one minigame.
-- **At play time** the board's server has every published arena with it (how is a build question:
-  saved as structures the server loads). When a minigame is picked, the game places its arena in
+- **At play time** the board's server has every published arena with it: Publish cuts each arena
+  map's Arena box out as a structure, and the server's start copies them into the game's pack
+  (pass 5 part B, `docs/maps.md` "Arena maps"). When a minigame is picked, the game places its arena in
   the slot of the board's arena background (see "Arena backgrounds"), loads it with a ticking area,
   moves the players in behind a fade (Minecade's logo fades in on the black if it lasts), and
   clears it afterward. The next play places a fresh copy, so floors that fall away or get mined
@@ -700,6 +701,29 @@ board it's played from, and the same arena map works on every board.
 
 ### Minigame arena maps
 
+**Built in pass 5 part B (2026-11-17):** each minigame is an arena in Block Party's config
+(`minigames/arenas.ts`, core's `arena-map.ts`, `docs/maps.md` "Arena maps"), so its maps are an
+entry of their own in the map editor and the Panel ("Hot Floor (Block Party)", `blockparty-hotfloor`),
+with their own checklist. A minigame plays on its arena map when one is published, placed fresh
+into the arena slot (or far east of a board without one), and on its test arena laid in code while
+it has none. The checklists so far, each with the Arena box and a spectator spawn:
+
+| Minigame | Its arena map marks |
+|---|---|
+| Hot Floor | 4 spawns on the floor (a duel uses the first 2); **Floor (tiles)**, a box whose lowest layer the game lays its 3 x 3 tiles in, as many as fit each way from its lowest corner (at least 2 x 2) |
+| Co-op Painters | Red and Blue team spawns, 2 each; **Floor**, a box whose lowest layer is what gets painted |
+| Hunter | **Hunter spawn** and 3 **Runner spawns** (1v2 uses the first 2), and the **Goal** box: a runner over it is home |
+
+- **The rules camera** is the arena map's Start view camera (the Camera tool's), else one over the
+  arena. The slow pan between two cameras is for pass 10.
+- **Out players** watch from the spectator spawn, and bots that are out float there (the stand
+  beside the arena is gone, so nothing outside the Arena box is ever touched).
+- **Turned to fit:** an arena that only fits the slot the other way round is placed a quarter turn
+  clockwise, its markup turned with it (seen working only in tests so far).
+- **The arena's time of day** is set while it's played and the board's put back after.
+- **A map that can't be played** (no Floor box, one too small for 2 x 2 tiles, no Goal, its
+  structure missing) is named in chat and the test arena stands in.
+
 - **One box, the Arena, made to fit the arena background's slot:** 40 x 60 blocks across at most
   (see "Arena backgrounds"), one structure copy. Before the user's arena background idea this was
   64 x 64, with the few that need room (Boss Fight, Hunter vs. Runners, Minecart Dodge) up to about
@@ -755,7 +779,7 @@ arena that ends by falling into the void, or ask for 3 kill regions instead of 1
 ## Minigames
 
 From the first draft; each gets its own arena map. Its checklist is written when the minigame is
-designed.
+designed (the first three: "Minigame arena maps").
 
 **FFA: reflex and quick reaction (10-20 seconds)**
 - **Hot Floor:** a block color is announced, and everything else vanishes after a countdown.
@@ -864,10 +888,14 @@ reward was dropped.
      and coins under it, the whole list in chat; titles that follow each other quickly (the
      roulette, the countdown) come in at once instead of fading in. They move onto the board's
      podium set with the cameras (pass 6).
-   - **Part B, next:** arena maps. Each minigame its own entry in the editor's map list with its own
-     checklist, its published arena turned into a structure the board's server loads, placed fresh
-     into the arena slot in place of the test arena. Then spectator bets on duels and the Dueling
-     Glove (pass 7, with the items).
+   - **Part B, built 2026-11-17:** arena maps. Each minigame its own entry in the editor's map list
+     with its own checklist (see "Minigame arena maps": Hot Floor's floor, Co-op Painters' floor
+     and team spawns, Hunter's spawns and goal), its published Arena box written as a structure at
+     Publish and copied into the board's server at its start (and into a preview's), placed fresh
+     into the arena slot, turned a quarter when only that fits, in place of the test arena, which
+     still plays a minigame with no arena map. Out bots float at the spectator spawn. Not yet seen:
+     the user builds the three arena maps. Then spectator bets on duels and the Dueling Glove
+     (pass 7, with the items).
 6. **NPCs and cameras:** stages, conversations, the shot list.
 7. **Items, dice, Chance Time, the Warden, the shop and the Trader.**
 8. **End of game:** bonus Stars, the tiebreaker, the podium.

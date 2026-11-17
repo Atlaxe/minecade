@@ -1,12 +1,13 @@
 // What a Block Party minigame is (docs/plans/block-party.md, "Minigames"), and what it gets to play
-// with. Until minigames have arena maps of their own (pass 5's next part: each minigame its own entry
-// in the editor's map list, its arena copied into the board's world), each lays a test arena of its
-// own in code where the arena goes: the board map's arena slot, or the empty space far east of the
-// board. The runner (minigame-runner.ts) builds it behind the loading screen, puts everyone on its
-// spawns, shows the rules until everyone is ready, counts down, calls play(), and takes everyone
-// back to the board; play() says how it went.
+// with. A minigame plays on its arena map (arenas.ts: each minigame its own entry in the map editor,
+// its published Arena box placed where the arena goes, the board map's arena slot or the empty space
+// far east of the board), or, while it has none, on a test arena of its own laid in code there. Both
+// come to the minigame as a Field: the arena's box and its markup where it now is in the world. The
+// runner (minigame-runner.ts) lays it behind the loading screen, puts everyone on its spawns, shows
+// the rules until everyone is ready, counts down, calls play(), and takes everyone back to the
+// board; play() says how it went.
 import { BlockVolume, type Dimension, type Entity, type Vector3 } from "@minecraft/server";
-import type { Scope } from "@minecade/minigame-core";
+import { arenaBox, mapTimeTicks, type Box, type MapConfig, type MapPosition, type PlacedArena, type Scope } from "@minecade/minigame-core";
 import type { Who } from "../bots.ts";
 import type { Kind } from "../minigame-rules.ts";
 
@@ -38,14 +39,90 @@ export const TITLE = {
 /** How a minigame went: places best first (each a group of keys tied for it), or the side that won (undefined: a draw). */
 export type Outcome = { places: string[][] } | { winner: number | undefined };
 
+/** A spot in the world, and its facing when the map gave it one. */
+export interface Spot extends Vector3 {
+  yaw?: number;
+  pitch?: number;
+}
+
+/** A box in the world: whole blocks, both corners inside. */
+export interface WorldBox {
+  min: Vector3;
+  max: Vector3;
+}
+
+/** The arena being played, where it is in the world: its box, and its markup there. */
+export interface Field {
+  /** The arena's lowest corner, and its size. */
+  min: Vector3;
+  size: Vec3;
+  /** Its plain spawns, in order. */
+  spawns: Spot[];
+  /** A team's spawns ("red"). */
+  teamSpawns(team: string): Spot[];
+  /** A named point's spots, a named region's boxes. */
+  points(name: string): Spot[];
+  regions(name: string): WorldBox[];
+  /** Where players who are out watch from (the map's spectator spawn). */
+  watch?: Spot;
+  /** What everyone looks through while the rules show (the map's Start view camera). */
+  camera?: Required<Spot>;
+  /** The arena's own time of day, in ticks. */
+  time?: number;
+}
+
+/** A test arena's markup (made in code, already in the world's terms) as a Field. */
+export function testField(
+  min: Vector3,
+  size: Vec3,
+  markup: { spawns?: Spot[]; teamSpawns?: Record<string, Spot[]>; points?: Record<string, Spot[]>; regions?: Record<string, WorldBox[]> },
+): Field {
+  return {
+    min,
+    size,
+    spawns: markup.spawns ?? [],
+    teamSpawns: (team) => markup.teamSpawns?.[team] ?? [],
+    points: (name) => markup.points?.[name] ?? [],
+    regions: (name) => markup.regions?.[name] ?? [],
+  };
+}
+
+/** An arena map's markup, its Arena box placed (placeArena), as a Field. */
+export function mapField(config: MapConfig, placed: PlacedArena): Field {
+  const spot = (position: MapPosition): Spot => placed.point(position);
+  const world = (box: Box): WorldBox => {
+    const turned = placed.box(box);
+    return { min: { x: turned.min[0], y: turned.min[1], z: turned.min[2] }, max: { x: turned.max[0], y: turned.max[1], z: turned.max[2] } };
+  };
+  const time = mapTimeTicks(config.time);
+  // The Start view, as servers get it: the lens of the camera players wait looking through.
+  const view = config.startView ? placed.point(config.startView) : undefined;
+  return {
+    min: { x: placed.min[0], y: placed.min[1], z: placed.min[2] },
+    size: placed.size,
+    spawns: (config.spawns ?? []).map(spot),
+    teamSpawns: (team) => (config.teamSpawns?.[team] ?? []).map(spot),
+    points: (name) => (config.points?.[name] ?? []).map(spot),
+    regions: (name) => (config.regions?.[name] ?? []).map(world),
+    ...(config.spectatorSpawn ? { watch: spot(config.spectatorSpawn) } : {}),
+    ...(view ? { camera: { x: view.x, y: view.y, z: view.z, yaw: view.yaw ?? 0, pitch: view.pitch ?? 0 } } : {}),
+    ...(time !== undefined ? { time } : {}),
+  };
+}
+
+/** An arena map's Arena box size (x, y, z), before any turning. */
+export function arenaSize(config: MapConfig): Vec3 | undefined {
+  const box = arenaBox(config);
+  return box ? [box.max[0] - box.min[0] + 1, box.max[1] - box.min[1] + 1, box.max[2] - box.min[2] + 1] : undefined;
+}
+
 /** What a minigame plays with. */
 export interface Play {
   /** The minigame's own: everything in it ends with the minigame. */
   scope: Scope;
   dimension: Dimension;
-  /** The arena's lowest corner, and its size. */
-  min: Vector3;
-  size: Vec3;
+  /** The arena, where it is: its box and its markup. */
+  field: Field;
   /** FFA and duels: each alone. 2v2: two pairs. 1v3: the solo, then the rest. */
   sides: Who[][];
   random(): number;
@@ -67,18 +144,37 @@ export interface Play {
 }
 
 export interface MinigameDef {
+  /** Its arena's id too (arenas.ts): its arena maps are blockparty-<id>'s. */
   id: string;
   name: string;
   kind: Kind;
   /** The rules, one line, shown before Ready. */
   rules: string;
-  /** Its test arena's size: x, y, z. */
+  /** Its test arena (while it has no arena map): its size (x, y, z), laying it from `min`, and its markup there. */
   size: Vec3;
-  /** Lays its test arena from `min`. */
   build(dimension: Dimension, min: Vector3, random: () => number): void;
-  /** Where each member of each side starts: [side][member]. */
-  spawns(min: Vector3, sides: readonly number[]): Vector3[][];
+  testField(min: Vector3): Field;
+  /** Why it can't be played on a field (an arena map's floor too small), or undefined. */
+  problem?(field: Field): string | undefined;
+  /** Where each member of each side starts on a field: [side][member]. */
+  spawns(field: Field, sides: readonly number[]): Spot[][];
   play(play: Play): Promise<Outcome>;
+}
+
+/** Hands out spawns in order, each side its own players' worth (FFA and duels: one each). */
+export function inOrder(spawns: readonly Spot[], sides: readonly number[]): Spot[][] {
+  let next = 0;
+  return sides.map((count) => spawns.slice(next, (next += count)));
+}
+
+/** Whether a spot is over a box's footprint, from `below` under its lowest layer to `above` over its top. */
+export function over(box: WorldBox, at: Vector3, below = 1, above = 3): boolean {
+  return at.x >= box.min.x && at.x < box.max.x + 1 && at.z >= box.min.z && at.z < box.max.z + 1 && at.y >= box.min.y - below && at.y <= box.max.y + 1 + above;
+}
+
+/** A box's middle, standing on its top. */
+export function middleOf(box: WorldBox): Vector3 {
+  return { x: (box.min.x + box.max.x + 1) / 2, y: box.max.y + 1, z: (box.min.z + box.max.z + 1) / 2 };
 }
 
 /** Most blocks one fill may set (the game's limit for a fill command, kept to here too). */

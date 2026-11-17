@@ -5,6 +5,7 @@ export {
   defineGame,
   defineLobby,
   playerWaypoints,
+  type ArenaConfig,
   type BestOfConfig,
   type BuildConfig,
   type CombatConfig,
@@ -112,6 +113,7 @@ export {
   choiceProblems,
   fitsFootprint,
   fitsSize,
+  fitsWithin,
   hasCount,
   mapRequirements,
   mapSettings,
@@ -130,6 +132,20 @@ export {
   type RequirementOptions,
 } from "./map-requirements.ts";
 export { mapWarnings, validateMapConfig, type MapRules } from "./map-validate.ts";
+export {
+  STRUCTURE_REGION,
+  arenaBox,
+  arenaRequirements,
+  arenaTargetId,
+  placeArena,
+  turnedSize,
+  turnsToFit,
+  type ArenaMap,
+  type ArenaMaps,
+  type PlacedArena,
+  type PlacedPoint,
+  type QuarterTurns,
+} from "./arena-map.ts";
 export { ARENA_MAX_SIZE, ARENA_REGION, BUILD_AREA_MIN_SIZE, BUILD_PADDING, BUILDING_MAP, BUILDING_SETTINGS, PLOT_REGION, RETURN_DELAY } from "./building/building-map.ts";
 export {
   ARENA_SLOT,

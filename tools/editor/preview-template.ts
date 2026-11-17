@@ -5,12 +5,15 @@
 // shows top center) and its side panel forms (the fake player's panel). Drafts are fine: a
 // preview is how a map gets checked before it's published. A map whose mannequins show in its
 // previews (Edit's Mannequin tool) gets them in its map.json as previewMannequins, each look worked
-// out for the preview's pack (which gets the players' skins for them).
+// out for the preview's pack (which gets the players' skins for them). A game with arenas (Block
+// Party's minigames) gets a copy of their published maps (arena-maps.ts), as its servers get them
+// from /maps.
 import { existsSync } from "node:fs";
 import { cp, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
+  arenaTargetId,
   FAKE_COLORS,
   FAKE_SKINS,
   kitItemId,
@@ -27,6 +30,8 @@ import { addGameKitPictures } from "../build/kit-pictures.ts";
 import { enableBetaApis, patchLevelDat } from "../build/leveldat.ts";
 import { buildBehaviorPack, buildResourcePack, readPinnedManifest, writePackLists } from "../build/packs.ts";
 import { EDITOR_SHARED } from "./editor-image.ts";
+import { copyArenaMaps } from "../maps/arena-maps.ts";
+import { publishedDir } from "../maps/paths.ts";
 import { addFakeSkins, addPlayerSkins, mannequinSkins, type MannequinSkin } from "./fake-player.ts";
 import { importConfig } from "./import-config.ts";
 
@@ -49,10 +54,15 @@ export async function buildPreviewTemplate(map: PreviewMap, out: string): Promis
   const bp = join(gameDir, "behavior_pack");
   // A game's pack reads neither the registry nor the skins.
   await buildBehaviorPack(bp, join(out, "behavior_packs", `${map.game}_bp`), await readPinnedManifest(bp), { games: [] }, []);
+  const game = await importConfig<GameConfig>(join(gameDir, "game.config.ts"));
+  if (game.arenas?.length) {
+    const arenas = Object.fromEntries(game.arenas.map((arena) => [arena.id, arenaTargetId(game.id, arena.id)]));
+    await writeFile(join(out, "arenas.json"), JSON.stringify(arenas, null, 2));
+    await copyArenaMaps(join(publishedDir(root), "worlds"), join(out, "arena-maps"), Object.values(arenas));
+  }
   const rp = join(gameDir, "resource_pack");
   if (existsSync(join(rp, "manifest.json"))) {
     // With the kit form's pictures, for a game whose players pick kits.
-    const game = await importConfig<GameConfig>(join(gameDir, "game.config.ts"));
     await buildResourcePack(rp, join(out, "resource_packs", `${map.game}_rp`), await readPinnedManifest(rp), async (pack) => {
       await addGameKitPictures(pack, game, [{ id: map.mapId, config: map.config }]);
     });

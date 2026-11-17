@@ -197,6 +197,38 @@ fi
 set_prop texturepack-required "$([[ "$(jq length worlds/active/world_resource_packs.json)" -gt 0 ]] && echo true || echo false)"
 step packs
 
+# --- Arena maps: maps the game places into its world (minigame-core's arena-map.ts) ----------
+# The template's arenas.json names, for each of the game's arenas, the map editor entry its maps
+# are under (Block Party's minigames: {"hotfloor": "blockparty-hotfloor"}). Every published one's
+# structure (its Arena box, written at Publish) goes into the game's behavior pack as
+# arena:<arena>_<n>, and its map.json into the "arenas" server variable with that name. They come
+# from /maps, or from the template's own arena-maps/ (laid out the same), which a preview brings.
+arenas='{}'
+if [[ -f "$TEMPLATE/arenas.json" ]]; then
+  arena_root=/maps
+  [[ -f "$TEMPLATE/arena-maps/index.json" ]] && arena_root="$TEMPLATE/arena-maps"
+  game_pack="behavior_packs/minecade_${GAME}_bp"
+  if [[ -f "$arena_root/index.json" && -d "$game_pack" ]]; then
+    mkdir -p "$game_pack/structures/arena"
+    while IFS=$'\t' read -r arena target; do
+      n=0
+      while IFS=$'\t' read -r map version; do
+        src="$arena_root/$target/$map/$version"
+        if [[ ! -f "$src/structure.mcstructure" || ! -f "$src/map.json" ]]; then
+          echo "[minecade] the arena map $target/$map has no structure.mcstructure (publish it again): left out" >&2
+          continue
+        fi
+        n=$((n + 1))
+        cp "$src/structure.mcstructure" "$game_pack/structures/arena/${arena}_${n}.mcstructure"
+        arenas="$(jq -c --arg arena "$arena" --arg map "$map" --arg structure "arena:${arena}_${n}" --slurpfile config "$src/map.json" \
+          '.[$arena] += [{map: $map, structure: $structure, config: $config[0]}]' <<< "$arenas")"
+      done < <(jq -r --arg target "$target" '(.[$target] // {}) | to_entries[] | "\(.key)\t\(.value)"' "$arena_root/index.json")
+    done < <(jq -r 'to_entries[] | "\(.key)\t\(.value)"' "$TEMPLATE/arenas.json")
+  fi
+  echo "[minecade] arena maps: $(jq -r 'if length == 0 then "none" else to_entries | map("\(.key) \(.value | length)") | join(", ") end' <<< "$arenas")"
+fi
+step arenas
+
 # --- Script config ---------------------------------------------------------------------------
 mkdir -p config/default
 modules='["@minecraft/server-gametest","@minecraft/server","@minecraft/server-ui","@minecraft/server-admin","@minecraft/server-editor","@minecraft/debug-utilities"]'
@@ -245,6 +277,7 @@ jq -n \
   --arg guestLobbyPort "${GUEST_LOBBY_PORT:-}" \
   --arg watcher "${WATCHER_GAMERTAG:-}" \
   --arg settings "$game_settings" \
+  --arg arenas "$arenas" \
   --arg awaitStart "${AWAIT_START:-}" \
   --arg editor "$editor_info" \
   '$ARGS.named' > config/default/variables.json

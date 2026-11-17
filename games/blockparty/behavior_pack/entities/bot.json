@@ -6,6 +6,13 @@
       "is_spawnable": false,
       "is_summonable": true
     },
+    "component_groups": {
+      "blockparty:floating": {
+        "minecraft:physics": {
+          "has_gravity": false
+        }
+      }
+    },
     "components": {
       "minecraft:type_family": {
         "family": [
@@ -49,6 +56,15 @@
         "breathes_water": true
       },
       "minecraft:fire_immune": true
+    },
+    "events": {
+      "blockparty:float": {
+        "add": {
+          "component_groups": [
+            "blockparty:floating"
+          ]
+        }
+      }
     }
   }
 }

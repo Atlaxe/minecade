@@ -1,5 +1,5 @@
 // Block Party's arena check: can a minigame's arena, written as a .mcstructure file from another
-// map's world (spike/blockparty/mcstructure.ts) and shipped in a behavior pack's structures/
+// map's world (tools/maps/structure.ts) and shipped in a behavior pack's structures/
 // folder, be placed into a board's world far from the board, exactly? Prints BP|{json} lines;
 // spike/blockparty/run.ts reads them. The world is a copy of the arena's own map, so the original
 // blocks are right there to compare against.

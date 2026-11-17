@@ -287,6 +287,8 @@ export interface GameConfig {
   gameRules?: Record<string, boolean | number>;
   /** Map entries this game needs. The build checks every map has them, and the map editor lists them. */
   map?: MapRequirementsConfig;
+  /** Kinds of map the game places into its world while it plays, each its own entry in the map editor (ArenaConfig). */
+  arenas?: ArenaConfig[];
   /** Recorded to the stats service when set; games without it record nothing. */
   stats?: StatsConfig;
   /** Kill-feed wording: extra "was <verb> by" verbs (Paintball: "painted"), or lines of its own. */
@@ -324,6 +326,31 @@ export interface MapEntryRequirement {
   inside?: string;
   /** Regions only: exactly this many blocks across, x by z either way round, any height (Block Party's 40 x 60 arena slot). */
   footprint?: [number, number];
+  /** Regions only: at most this many blocks across, x by z either way round (an arena map's Arena box, which fits the slot). */
+  maxFootprint?: [number, number];
+  /** Regions only: at most this many blocks tall. */
+  maxHeight?: number;
+}
+
+/**
+ * A kind of map a game places into its own world while it plays (Block Party's minigame arenas):
+ * each is its own entry in the map editor's list, "<game>-<id>", with its own checklist, and its maps
+ * have an Arena box (the "structure" region) that Publish cuts out as a structure. The game's
+ * servers get every published one (arena-map.ts, docs/maps.md "Arena maps").
+ */
+export interface ArenaConfig {
+  /** Lower case letters and digits. The map editor's entry for it is "<game>-<id>". */
+  id: string;
+  /** Its name in the map editor ("Hot Floor"). */
+  name: string;
+  /** The most players it's played by (its spawns ask one each, unless its map block says otherwise). */
+  maxPlayers: number;
+  /** Its teams, for team spawns (Co-op Painters' Red and Blue). */
+  teams?: TeamsConfig;
+  /** The most the Arena box may be: blocks across, x by z either way round, and how tall. */
+  box: { footprint: [number, number]; height?: number };
+  /** What its maps need besides the Arena box. */
+  map?: MapRequirementsConfig;
 }
 
 /**

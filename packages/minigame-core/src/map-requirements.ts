@@ -28,6 +28,10 @@ export interface MapRequirement {
   inside?: string;
   /** Regions only: exactly this many blocks across, x by z either way round. */
   footprint?: [number, number];
+  /** Regions only: at most this many blocks across, x by z either way round. */
+  maxFootprint?: [number, number];
+  /** Regions only: at most this many blocks tall. */
+  maxHeight?: number;
   /**
    * When the game lets each map change the row (map.adjustable): the fewest entries one of its maps
    * can be left with, 0 when the row can be turned off. Rows that can't change have none: min.
@@ -57,9 +61,21 @@ export function fitsFootprint(box: Box, footprint: readonly [number, number] | u
   return (x === footprint[0] && z === footprint[1]) || (x === footprint[1] && z === footprint[0]);
 }
 
-/** Whether a box fits a region requirement's sizes: big enough, small enough, and its footprint. */
-export function fitsSize(box: Box, requirement: { minSize?: number; maxSize?: number; footprint?: readonly [number, number] }): boolean {
-  return bigEnough(box, requirement.minSize) && smallEnough(box, requirement.maxSize) && fitsFootprint(box, requirement.footprint);
+/** Whether a box is at most a footprint across (x by z, either way round) and a height tall, or any box without them. */
+export function fitsWithin(box: Box, maxFootprint: readonly [number, number] | undefined, maxHeight?: number): boolean {
+  const [x, y, z] = boxSize(box);
+  if (maxHeight !== undefined && y > maxHeight) return false;
+  if (!maxFootprint) return true;
+  const [a, b] = maxFootprint;
+  return (x <= a && z <= b) || (x <= b && z <= a);
+}
+
+/** Whether a box fits a region requirement's sizes: big enough, small enough, its footprint, and within its most. */
+export function fitsSize(
+  box: Box,
+  requirement: { minSize?: number; maxSize?: number; footprint?: readonly [number, number]; maxFootprint?: readonly [number, number]; maxHeight?: number },
+): boolean {
+  return bigEnough(box, requirement.minSize) && smallEnough(box, requirement.maxSize) && fitsFootprint(box, requirement.footprint) && fitsWithin(box, requirement.maxFootprint, requirement.maxHeight);
 }
 
 /** The `minSize` a game asks of a region's boxes (`name` may be one team's "<name>.<team>"), if any. */
@@ -136,6 +152,8 @@ export function mapRequirements(map: MapRequirementsConfig | undefined, options:
               ...(entry.maxSize !== undefined ? { maxSize: entry.maxSize } : {}),
               ...(entry.inside !== undefined ? { inside: entry.inside } : {}),
               ...(entry.footprint !== undefined ? { footprint: entry.footprint } : {}),
+              ...(entry.maxFootprint !== undefined ? { maxFootprint: entry.maxFootprint } : {}),
+              ...(entry.maxHeight !== undefined ? { maxHeight: entry.maxHeight } : {}),
             }
           : {};
       if (entry.perTeam && teams.length > 0) {

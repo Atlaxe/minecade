@@ -5,7 +5,7 @@ import { checkBoard } from "./board/board-check.ts";
 import { spaceProblems, spacesOf } from "./board/board-map.ts";
 import type { MapRequirementsConfig } from "./config.ts";
 import { BUILD_LIMIT_SIDES, MAP_TIMES, QUEUE_COUNTDOWN, QUEUE_MODES, enclosingBox, mapTimeTicks, type Box, type BuildLimitSide, type MapConfig, type MapPosition, type Vec3 } from "./map-config.ts";
-import { bigEnough, boxSize, choiceProblems, fitsFootprint, mapRequirements, mapSettings, settingFits, smallEnough, type MapRequirement } from "./map-requirements.ts";
+import { bigEnough, boxSize, choiceProblems, fitsFootprint, fitsWithin, mapRequirements, mapSettings, settingFits, smallEnough, type MapRequirement } from "./map-requirements.ts";
 
 /** Bedrock overworld height limits. */
 const MIN_Y = -64;
@@ -230,6 +230,8 @@ function missing(requirement: MapRequirement, map: Partial<MapConfig>, who: stri
         if (!bigEnough(box, requirement.minSize)) return [`regions.${name}[${i}] is ${size}, smaller than ${requirement.minSize} on a side`];
         if (!smallEnough(box, requirement.maxSize)) return [`regions.${name}[${i}] is ${size}, bigger than ${requirement.maxSize} on a side`];
         if (!fitsFootprint(box, requirement.footprint)) return [`regions.${name}[${i}] is ${size}; it must be ${requirement.footprint![0]} by ${requirement.footprint![1]} across`];
+        if (!fitsWithin(box, requirement.maxFootprint)) return [`regions.${name}[${i}] is ${size}; it must be at most ${requirement.maxFootprint![0]} by ${requirement.maxFootprint![1]} across`];
+        if (!fitsWithin(box, undefined, requirement.maxHeight)) return [`regions.${name}[${i}] is ${size}; it must be at most ${requirement.maxHeight} tall`];
         return [];
       });
       const region = requirement.inside;

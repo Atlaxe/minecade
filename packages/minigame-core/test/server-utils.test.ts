@@ -176,6 +176,7 @@ describe("readServerVars", () => {
       guestLobbyPort: undefined,
       watcher: "",
       awaitStart: false,
+      arenas: {},
       settings: {},
     });
     expect(console.warn).toHaveBeenCalledWith(expect.stringContaining('"lanPlayers" is not valid JSON'));

@@ -89,6 +89,7 @@ export function createHarness(): Harness {
         guestLobbyPort: undefined,
         watcher: "",
         settings,
+        arenas: {},
         awaitStart: false,
       };
       const server: ServerContext = {

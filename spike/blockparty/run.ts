@@ -1,6 +1,6 @@
 // Block Party's arena check, headless: can a minigame's arena come from another map into a board's
 // world at play time? It writes a published map's arena (the box around its bounds) as a
-// .mcstructure file with no server (mcstructure.ts), plus a 130 by 8 by 130 test pattern bigger
+// .mcstructure file with no server (tools/maps/structure.ts), plus a 130 by 8 by 130 test pattern bigger
 // than the 64 a script can save at once, puts both in a behavior pack's structures/ folder, and
 // boots a throwaway BDS (minecade-bpcheck, no published ports) on a copy of the map's own world.
 // The pack's script places the arena 3000 blocks east and compares every block with the original
@@ -14,7 +14,7 @@ import { fileURLToPath } from "node:url";
 import * as tar from "tar";
 import { attachConsole, connectDocker, findContainerByName } from "../../tools/build/docker-util.ts";
 import { enableBetaApis, readLevelDat, writeLevelDat } from "../../tools/build/leveldat.ts";
-import { plainBlock, worldToStructure, writeStructure, type Vec3 } from "./mcstructure.ts";
+import { plainBlock, worldToStructure, writeStructure, type Vec3 } from "../../tools/maps/structure.ts";
 import { publishedMap } from "./published.ts";
 
 const here = fileURLToPath(new URL(".", import.meta.url));

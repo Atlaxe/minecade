@@ -20,6 +20,34 @@ describe("validateGameConfig", () => {
     expect(validateGameConfig({ ...game, blocks: "all" as "full" }, "sumo")).toEqual(['blocks must be "full" or left out']);
   });
 
+  it("takes arenas with ids of their own, players, the Arena box's most and what their maps need", () => {
+    const arena = { id: "hotfloor", name: "Hot Floor", maxPlayers: 4, box: { footprint: [40, 60] as [number, number], height: 48 }, map: { spectatorSpawn: true, regions: ["floor"] } };
+    expect(validateGameConfig({ ...game, arenas: [arena] }, "sumo")).toEqual([]);
+    expect(
+      validateGameConfig(
+        {
+          ...game,
+          arenas: [
+            arena,
+            arena,
+            { ...arena, id: "Hot-Floor" },
+            { ...arena, id: "big", name: "", maxPlayers: 0, box: { footprint: [40, 0] as [number, number], height: 1.5 }, map: { regions: { structure: {} }, borrow: ["siege"] } },
+          ],
+        },
+        "sumo",
+      ),
+    ).toEqual([
+      "arena ids must be unique",
+      `arenas "Hot-Floor": the id must be lower case letters and digits (the map editor's entry is "sumo-<id>")`,
+      'arenas "big": name is required',
+      'arenas "big": maxPlayers must be a whole number of at least 1',
+      'arenas "big": box.footprint must be two whole numbers of blocks across',
+      'arenas "big": box.height must be a whole number of blocks',
+      `arenas "big": map.regions can't name "structure", the Arena box every arena map has`,
+      `arenas "big": an arena's map block can't borrow maps or have a board`,
+    ]);
+  });
+
   it("takes item ids for the mannequins to hold, named or not", () => {
     expect(validateGameConfig({ ...game, mannequinItems: ["minecraft:bow", { item: "minecade:{color}_paintball_rifle", name: "Rifle" }] }, "sumo")).toEqual([]);
     expect(validateGameConfig({ ...game, mannequinItems: ["bow", { name: "Rifle" } as unknown as { item: string }] }, "sumo")).toEqual([

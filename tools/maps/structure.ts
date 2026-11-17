@@ -1,7 +1,8 @@
 // A box of a Bedrock world as a .mcstructure file, read straight from the world's LevelDB with no
-// server (Block Party's spike: a minigame's arena brought into a board's world). The file is what
-// BDS loads from a behavior pack's structures/ folder and places with structureManager.place: one
-// little-endian NBT compound with the box's size, every block's palette index in two layers (the
+// server: an arena map's Arena box, written when it's published (store.ts; Block Party's minigame
+// arenas), and the Block Party spike's arenas from other maps. The file is what BDS loads from a
+// behavior pack's structures/ folder and places with structureManager.place: one little-endian NBT
+// compound with the box's size, every block's palette index in two layers (the
 // blocks, then mostly the water in waterlogged blocks; -1 for none), the palette (each entry the
 // world's own name, states and version, unchanged), and the block entities (chests, signs) by
 // index. Indices run z fastest, then y, then x. No entities: arenas spawn theirs from map points.
@@ -10,7 +11,7 @@
 // entries are kept as the world wrote them, version included, which the viewer drops.
 import { join } from "node:path";
 import nbt from "prismarine-nbt";
-import { readWorldDb } from "../../tools/viewer/world-reader.ts";
+import { readWorldDb } from "../viewer/world-reader.ts";
 
 export type Vec3 = [number, number, number];
 export interface Box {

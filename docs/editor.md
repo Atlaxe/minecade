@@ -90,7 +90,9 @@ closes. Its top row is icons (point at one for its name):
   running; join again to come back.
 
 Under them, **Recent**, with a **Search** link (a magnifying glass) on its right: the lobby or a
-game, then one of its maps (drafts are marked), which opens in Edit. Then a card for each map
+game, then one of its maps (drafts are marked), which opens in Edit. A game's arenas follow it in
+that list, each an entry of its own (Block Party's minigames: **Hot Floor (Block Party)** and on;
+"Arena maps" in [maps.md](maps.md)). Then a card for each map
 opened lately (up to 8, from `work/editor/recent.json`, newest first): its game with three icons on
 its right, each with a tooltip, and the map's name under them, across the card:
 
@@ -495,7 +497,9 @@ previewed yet), **Preview** on the Panel's Edit row, or `npm run editor -- previ
 first how many **fake players** the match starts with (a toggle from 0 up to what fits beside
 everyone going, at most 7), then **Start preview** (green). When other games play this game's maps
 (`map.borrow`: Gunfight plays Siege's, Gun Game One in the Quiver's), it also asks which game to **Play as**: the map's own game at
-first, or one that borrows it (the fake players then fit that game's player count).
+first, or one that borrows it (the fake players then fit that game's player count). An arena map
+(Block Party's minigames) has no Preview of its own: it only plays inside its game, so Preview says
+so. Publish it, then preview a map of the game: the preview brings every published arena map along.
 
 1. The editor saves the world (when blocks changed) and builds the game from this checkout, with
    the map as it is now, draft or not. Its mannequins stand in it only when the Mannequin tool's
@@ -669,7 +673,8 @@ Panel it asks first. Then it:
    map given another id since its last Publish moves to the new id here);
 5. copies the store's database into its `backups\` and writes the store's `published\`: the
    catalog the network's build reads and the worlds its servers read (see "The map store" in
-   [maps.md](maps.md)).
+   [maps.md](maps.md)); an arena map's Arena box also goes out as a structure, which its game's
+   next server places (no Start needed: "Arena maps" in [maps.md](maps.md)).
 
 Nothing goes to git or GitHub. Chat says when it's done, with the version, and map editors hear a
 chime and see "Sewer is published" above the hotbar. The lobby lists the map from the network's

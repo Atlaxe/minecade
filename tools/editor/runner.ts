@@ -763,6 +763,8 @@ export class EditorRunner {
     const status = this.work.edit?.status();
     if (!status || status.state !== "ready") return "no map is open in Edit";
     if (status.target === "lobby") return "a lobby map can't be previewed yet: publish it, then start the network";
+    const arena = this.work.edit?.arena;
+    if (arena) return arenaPreviewProblem(arena.gameName);
     if (!status.checklist.ready) return `finish the checklist first: ${status.checklist.problems.join("; ")}`;
     return undefined;
   }
@@ -825,6 +827,7 @@ export class EditorRunner {
   private async lobbyPreviewPlan(request: Extract<OpenRequest, { to: "preview" }>): Promise<PreviewPlan> {
     const target = await loadTarget(this.root, request.target);
     if (target.id === "lobby") throw new Error("a lobby map can't be previewed yet: publish it, then start the network");
+    if (target.arena) throw new Error(arenaPreviewProblem(target.arena.gameName));
     if (!isMapId(request.map)) throw new Error(`"${request.map}" is not a map id`);
     const mapDir = join(target.mapsDir, request.map);
     const path = join(mapDir, "map.json");
@@ -1172,4 +1175,9 @@ export class EditorRunner {
     if (slot === "select") this.work.select = session as SelectSession | undefined;
     else this.work.edit = session as EditorSession | undefined;
   }
+}
+
+/** Why an arena's map has no Preview of its own: it's only ever played placed into its game's world. */
+export function arenaPreviewProblem(gameName: string): string {
+  return `an arena map plays inside ${gameName}: publish it, then preview or play a ${gameName} map, where it comes up as that minigame`;
 }

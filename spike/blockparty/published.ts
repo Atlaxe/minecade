@@ -3,7 +3,7 @@
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { publishedDir } from "../../tools/maps/paths.ts";
-import type { Box, Vec3 } from "./mcstructure.ts";
+import type { Box, Vec3 } from "../../tools/maps/structure.ts";
 
 export interface PublishedMap {
   game: string;

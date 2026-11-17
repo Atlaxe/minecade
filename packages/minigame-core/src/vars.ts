@@ -1,6 +1,7 @@
 // Server variables written by the container entrypoint (config/default/variables.json) and
 // read through @minecraft/server-admin. Lists and objects arrive as JSON strings.
 import { variables } from "@minecraft/server-admin";
+import type { ArenaMaps } from "./arena-map.ts";
 import { log } from "./log.ts";
 import type { MapConfig } from "./map-config.ts";
 import type { ServerRole, TransportKind } from "./protocol/index.ts";
@@ -44,6 +45,8 @@ export interface ServerVars {
   watcher: string;
   /** Choices from the lobby's game screen, such as { teams: "random" }. */
   settings: Record<string, string>;
+  /** The game's published arena maps, by arena (arena-map.ts): their structures are in the game's behavior pack. */
+  arenas: ArenaMaps;
   /**
    * Booted ahead while a player looked at the game's screen (AWAIT_START): the settings and the
    * players come later, in the orchestrator's configure, and the match is built then.
@@ -78,6 +81,7 @@ export function readServerVars(): ServerVars {
     guestLobbyPort: Number(text("guestLobbyPort")) || undefined,
     watcher: text("watcher").trim(),
     settings: json("settings", {}),
+    arenas: json("arenas", {}),
     awaitStart: ["1", "true", "yes"].includes(text("awaitStart").toLowerCase()),
   };
 }
