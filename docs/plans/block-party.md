@@ -81,6 +81,22 @@ with no AI (proposed). Nothing is copied, so nothing has to stay out of git, and
 textured. Each NPC stands still, plays a vanilla animation when the game says (the Warden's roar and
 sonic boom), and moves only when the script moves it.
 
+### Dialogue
+
+Everything the game says (titles, chat lines, forms, the HUD's status line during a minigame, and
+what each NPC says) is a line in `games/blockparty/dialogue.json`, by id, and the code says it with
+`line(id, fills)` (`behavior_pack/scripts/lines.ts`). `{player}`, `{coins}` and the like are filled in
+by the code ("12 coins" with its word); a moment with several lines picks one at random. An id with
+no line shows as the id, and `test/lines.test.ts` checks that every id the code says has one.
+
+The lines are the user's: `dialogue.json` is written by their dialogue editor (not in this repo),
+which keeps every line with its scene, character, when it's said, how it shows, a review status and
+notes, including the ones no pass has built yet (Chris's tutorial, the Witch's outcomes, the
+Referee's calls). Never edit `dialogue.json` by hand: a pass that adds something the game says adds
+its lines in the editor's file (with the fills its code hands over) and installs them. Left in code
+for now: the HUD's line and the standings (built from parts), space type names (the board config),
+each minigame's own name, rules and play messages, error messages, and the Tests menu.
+
 ## Core loop
 
 1. In the lobby, pick a board, a game length of 10, 15 or 20 turns, and whether Chris gives the

@@ -1,0 +1,778 @@
+{
+  "about": "Block Party's lines, from the user's dialogue editor (not in this repo). Change them there, not here.",
+  "lines": {
+    "board.start": [
+      "Everyone starts with {coins}. {starWhere}"
+    ],
+    "order.title": [
+      "Roll for turn order"
+    ],
+    "order.subtitle": [
+      "Jump to hit your die"
+    ],
+    "order.result": [
+      "Turn order: {order}."
+    ],
+    "pregame.welcome": [
+      "Welcome to Block Party! I'm Chris, and I keep the coins. Lots of coins. Let's have a look at tonight's board!",
+      "Oink, and welcome! I'm Chris, your host and your bank. Take a look around: this is where it all happens."
+    ],
+    "pregame.length": [
+      "We're playing {rounds} rounds tonight. Whoever has the most Stars at the end wins!"
+    ],
+    "pregame.intro": [
+      "Give it up for {player}!",
+      "Here's {player}, ready to party!",
+      "And now, {player}! Look at that confidence."
+    ],
+    "pregame.order": [
+      "First things first: who goes first? Everybody roll! The highest number leads the way."
+    ],
+    "pregame.order.reveal": [
+      "{player} goes first! Everyone else, line up behind."
+    ],
+    "pregame.coins": [
+      "Everybody gets {coins} from me to start. Spend them wisely. Or don't, I won't tell."
+    ],
+    "tutorial.goal": [
+      "Here's the deal: collect the most Stars by the end of the game. Coins buy Stars, and Stars win."
+    ],
+    "tutorial.turns": [
+      "On your turn, open your Dice, pick one, and jump to hit it. Your piece walks that many spaces."
+    ],
+    "tutorial.branches": [
+      "Where the path splits, you pick the way. Shortcuts are quicker, but they can bite."
+    ],
+    "tutorial.spaces": [
+      "Blue spaces give you 3 coins. Red spaces take 3 away. The rest? You'll find out."
+    ],
+    "tutorial.stars": [
+      "When you pass a Star, I'll be there to sell it to you for {price}. Then it flies off somewhere new."
+    ],
+    "tutorial.items": [
+      "Item and Shop spaces get you items and special dice. Use them before you roll."
+    ],
+    "tutorial.minigames": [
+      "After everyone has moved, we all play a minigame. Winners get coins!"
+    ],
+    "tutorial.end": [
+      "That's all you need to know. Good luck, and may the best pig... I mean player, win!"
+    ],
+    "round.title": [
+      "Round {round} of {rounds}"
+    ],
+    "turn.title": [
+      "{player}'s turn"
+    ],
+    "turn.subtitle": [
+      "Pick a die and jump to roll"
+    ],
+    "turn.roll.hint": [
+      "Pick a die in the hotbar, then jump to hit it."
+    ],
+    "turn.roll.pick": [
+      "Pick a die in the hotbar, then jump."
+    ],
+    "turn.dice.wait": [
+      "Wait for your turn: your dice open when it comes."
+    ],
+    "turn.dice.later": [
+      "Your dice open when the game asks for a roll."
+    ],
+    "turn.chris": [
+      "You're up, {player}!",
+      "{player}, the dice are waiting."
+    ],
+    "turn.rolled": [
+      "{player} rolled {roll}."
+    ],
+    "turn.rolled.high": [
+      "A {roll}! {player} is on the move!"
+    ],
+    "turn.rolled.one": [
+      "A 1? Oof. Baby steps, {player}."
+    ],
+    "turn.skipped": [
+      "{player} isn't here: their turn is skipped."
+    ],
+    "branch.title": [
+      "Which way?"
+    ],
+    "branch.button": [
+      "Toward {space}: {type}"
+    ],
+    "branch.button.star": [
+      "Toward {space}: {type}, the Star"
+    ],
+    "branch.bot": [
+      "{player} goes toward {space}."
+    ],
+    "land.blue": [
+      "{player} landed on Blue: +{coins}."
+    ],
+    "land.red": [
+      "{player} landed on Red: -{coins}."
+    ],
+    "land.item": [
+      "{player} landed on Item: an item (items come with pass 7)."
+    ],
+    "land.shop": [
+      "{player} landed on Shop: the Villager's shop (pass 7)."
+    ],
+    "land.chance": [
+      "{player} landed on Chance Time: Chance Time with the Witch (pass 7)."
+    ],
+    "land.warden": [
+      "{player} landed on Warden: the Warden (pass 7)."
+    ],
+    "land.happening": [
+      "{player} landed on Happening: a Happening (pass 7)."
+    ],
+    "land.start": [
+      "{player} landed on Start."
+    ],
+    "star.where.one": [
+      "The Star is on {space}."
+    ],
+    "star.where.two": [
+      "The Stars are on {space} and {space2}."
+    ],
+    "star.short": [
+      "A Star costs {price}: you have {coins}."
+    ],
+    "star.short.bot": [
+      "{player} can't afford the Star: {coins} of {price}."
+    ],
+    "star.form.title": [
+      "The Star"
+    ],
+    "star.form.body": [
+      "Buy a Star for {price}? You have {coins}."
+    ],
+    "star.form.buy": [
+      "Buy a Star"
+    ],
+    "star.form.skip": [
+      "Not now"
+    ],
+    "star.bought": [
+      "{player} bought a Star for {price}. {starWhere}"
+    ],
+    "star.bought.title": [
+      "{player} got a Star!"
+    ],
+    "star.bought.subtitle": [
+      "It moves to {space}"
+    ],
+    "star.chris.offer": [
+      "Well hello, {player}! One shiny Star, just {price}. Interested?",
+      "A Star for {price}! You know you want it, {player}."
+    ],
+    "star.chris.short": [
+      "Ooh, a Star costs {price}, and your pockets are light. Come back richer!"
+    ],
+    "star.chris.sold": [
+      "Pleasure doing business! Congratulations, {player}!"
+    ],
+    "star.chris.declined": [
+      "Suit yourself! It'll be here... for now."
+    ],
+    "star.chris.moves": [
+      "And off it goes! The next Star is waiting at {space}."
+    ],
+    "star.chris.half-price": [
+      "You've got a half-price coupon! That's just {price} for you."
+    ],
+    "shop.welcome": [
+      "Hrmm! Welcome, welcome. Today's stock is right here.",
+      "Hrm? A customer! Come, come, take a look."
+    ],
+    "shop.form.title": [
+      "The Villager's shop"
+    ],
+    "shop.form.body": [
+      "You have {coins}. Pick what to buy."
+    ],
+    "shop.form.item": [
+      "{item}: {price}"
+    ],
+    "shop.form.sell": [
+      "Sell something"
+    ],
+    "shop.form.leave": [
+      "Leave"
+    ],
+    "shop.bought": [
+      "Hrm, an excellent choice. {item} is yours."
+    ],
+    "shop.short": [
+      "Hrmm... that's {price}. Come back with more coins."
+    ],
+    "shop.full": [
+      "Your hands are full, friend. Sell something first?"
+    ],
+    "shop.sold": [
+      "I'll take {item} off your hands for {coins}."
+    ],
+    "shop.bye": [
+      "Hrm! Come again."
+    ],
+    "shop.nothing": [
+      "Just looking? Hrmm."
+    ],
+    "trader.arrives": [
+      "Psst! The Wandering Trader is in town, over at {space}. Only for one round!"
+    ],
+    "trader.offer": [
+      "Rare goods from far away. {item}, just {price}. One buyer only."
+    ],
+    "trader.form.title": [
+      "The Wandering Trader"
+    ],
+    "trader.form.body": [
+      "Buy {item} for {price}? You have {coins}."
+    ],
+    "trader.sold": [
+      "A fine deal. Safe travels, {player}."
+    ],
+    "trader.short": [
+      "No coin, no trade. Off you go."
+    ],
+    "trader.sold-out": [
+      "{player} snagged the Trader's goods! That's gone for good."
+    ],
+    "trader.leaves": [
+      "And just like that, the Wandering Trader has wandered off."
+    ],
+    "chance.welcome": [
+      "Heh heh heh. Come closer, {player}. It's Chance Time!"
+    ],
+    "chance.potions": [
+      "Three potions, three fates. Pick one, if you dare."
+    ],
+    "chance.reroll.offer": [
+      "Don't like them? For {price}, I'll brew three new ones."
+    ],
+    "chance.reroll.done": [
+      "Bubble, bubble... there. Fresh potions."
+    ],
+    "chance.form.title": [
+      "Chance Time"
+    ],
+    "chance.form.body": [
+      "Pick a potion."
+    ],
+    "chance.form.reroll": [
+      "Brew new ones ({price})"
+    ],
+    "chance.coin-rain": [
+      "Coin Rain! Everybody gets {coins}. Aren't I generous?"
+    ],
+    "chance.coin-swap": [
+      "Coin Swap! {player} and {other} trade purses. Heh heh."
+    ],
+    "chance.coin-swap.form": [
+      "Pick a player to swap coins with."
+    ],
+    "chance.reverse-fortune": [
+      "Reverse Fortune! {player} gives {coins} to {other}. The rich get poorer!"
+    ],
+    "chance.double": [
+      "Double or Nothing! Bet your coins on a coin flip."
+    ],
+    "chance.double.form": [
+      "Bet up to {coins} on a coin flip. Heads, you double it. Tails, it's the Witch's."
+    ],
+    "chance.double.won": [
+      "Heads! {player} wins {coins}. Hmph."
+    ],
+    "chance.double.lost": [
+      "Tails! {coins} into my cauldron. Thank you, {player}."
+    ],
+    "chance.gift-exchange": [
+      "Gift Exchange! Everyone passes an item to the next player."
+    ],
+    "chance.lucky-draw": [
+      "Lucky Draw! {player} gets {item}."
+    ],
+    "chance.shuffle": [
+      "Position Shuffle! Everyone swaps places. Try not to get dizzy."
+    ],
+    "chance.battle-royale": [
+      "Battle Royale! The next minigame is a Battle: everyone bets, winner takes the pot."
+    ],
+    "chance.zombie": [
+      "Zombie Outbreak! A hungry friend is coming for you, {player}."
+    ],
+    "chance.half-price": [
+      "Half-price Star! {player}, your next Star is {coins} off."
+    ],
+    "chance.shooting-star": [
+      "Shooting Star! {player}'s Star flies away... and lands with {other}!"
+    ],
+    "chance.bye": [
+      "Come back soon, dearie. Heh heh heh."
+    ],
+    "warden.arrives": [
+      "...You woke me, {player}.",
+      "Too loud. Far too loud."
+    ],
+    "warden.sculk-tax": [
+      "Sculk Tax. {coins}. Now."
+    ],
+    "warden.hush-money": [
+      "Hush Money. Pay each of them {coins}, and keep quiet."
+    ],
+    "warden.star-tax": [
+      "Star Tax. {coins} for every Star you hold."
+    ],
+    "warden.silenced": [
+      "Silenced. The next item you get is mine."
+    ],
+    "warden.slow-curse": [
+      "Slow Curse. Your next roll crawls."
+    ],
+    "warden.zombie-curse": [
+      "Zombie Curse. Something will follow you. For three rounds."
+    ],
+    "warden.sonic-boom": [
+      "SONIC BOOM. {player}, your Star is gone."
+    ],
+    "warden.leaves": [
+      "The Warden sinks back into the sculk."
+    ],
+    "happening.coins": [
+      "{player} gets {coins}."
+    ],
+    "happening.item": [
+      "{player} gets {item} for free."
+    ],
+    "happening.forward": [
+      "{player} moves forward 2."
+    ],
+    "happening.back": [
+      "{player} moves back 2."
+    ],
+    "happening.lose": [
+      "{player} loses {coins}."
+    ],
+    "happening.nothing": [
+      "Nothing else happens. Enjoy the view."
+    ],
+    "happening.swap-item": [
+      "{player} swaps an item with {other}."
+    ],
+    "happening.roll-again": [
+      "Bonus move! {player} rolls again."
+    ],
+    "items.got": [
+      "{player} found {item}!"
+    ],
+    "items.full": [
+      "You can carry 3 items. Pick one to drop for {item}."
+    ],
+    "items.pick.title": [
+      "Pick a player"
+    ],
+    "items.stone-totem": [
+      "{player} used a Stone Totem: an extra die next roll."
+    ],
+    "items.golden-totem": [
+      "{player} used a Golden Totem: an extra die that doubles, next roll."
+    ],
+    "items.ender-pearl": [
+      "{player} threw an Ender Pearl! The Enderman swaps {player} and {other}."
+    ],
+    "items.cursed-totem": [
+      "{player} cursed {other}: their next roll is halved."
+    ],
+    "items.lightning": [
+      "Lightning Strike! {player} gives {coins} to {other}."
+    ],
+    "items.lightning.self": [
+      "{player} called lightning on themselves: the zombie's gone, and so are {coins}."
+    ],
+    "items.zombie-spawn": [
+      "{player} sent a zombie after {other}!"
+    ],
+    "items.iron-golem": [
+      "{player}'s Iron Golem shakes down {other} for {coins}."
+    ],
+    "items.iron-golem.zombie": [
+      "{player}'s Iron Golem sends the zombie packing."
+    ],
+    "items.villager": [
+      "Hrm, I'll give you {coins} for that {item}."
+    ],
+    "items.villager.final": [
+      "The Villager doesn't trade on the final turn."
+    ],
+    "zombie.arrives": [
+      "Uuurgh... coins..."
+    ],
+    "zombie.takes": [
+      "Cooooins. Mine."
+    ],
+    "zombie.takes.chat": [
+      "The zombie took {coins} from {player}."
+    ],
+    "zombie.leaves": [
+      "The zombie lost interest in {player}."
+    ],
+    "dice.full": [
+      "You can hold 2 special dice. Pick one to drop for {die}."
+    ],
+    "dice.slow-curse": [
+      "{player}'s Slow Curse kicks in: the Slow Die this time."
+    ],
+    "dice.triple": [
+      "Triple Die! {player} rolls three dice for {roll}."
+    ],
+    "dice.risk.zero": [
+      "{player} rolled a 0 on the Risk Die. Ouch."
+    ],
+    "dice.golden": [
+      "Golden Die! {player} rolled {roll}."
+    ],
+    "dice.halved": [
+      "Cursed! {player}'s roll is halved to {roll}."
+    ],
+    "dice.cursed.given": [
+      "{player} makes {other} roll the Cursed Die!"
+    ],
+    "dice.cursed.lucky": [
+      "The Cursed Die's lucky face! {player} moves 12 and gets {coins}."
+    ],
+    "dice.cursed.unlucky": [
+      "The Cursed Die strikes: {player} moves 1 and loses {coins}."
+    ],
+    "dice.mystery.swap": [
+      "Mystery Die: everyone swaps places!"
+    ],
+    "dice.mystery.coin-swap": [
+      "Mystery Die: {player} and {other} swap coins!"
+    ],
+    "dice.mystery.double": [
+      "Mystery Die: the next minigame pays double!"
+    ],
+    "dice.mystery.coins": [
+      "Mystery Die: everyone gets {coins}!"
+    ],
+    "dice.mystery.back": [
+      "Mystery Die: everyone goes back 3!"
+    ],
+    "dice.mystery.again": [
+      "Mystery Die: {player} rolls again!"
+    ],
+    "versus.nobody": [
+      "{player} landed on Versus, but there's nobody to duel."
+    ],
+    "versus.form.title": [
+      "Versus"
+    ],
+    "versus.form.body": [
+      "Pick who you duel. The loser pays the winner {coins}."
+    ],
+    "versus.form.button": [
+      "{player}: {coins}"
+    ],
+    "versus.start": [
+      "{player} duels {other} for {coins}."
+    ],
+    "versus.start.doubled": [
+      "{player} duels {other} for {coins} (doubled)."
+    ],
+    "versus.won": [
+      "{player} wins the duel: {other} pays {coins}."
+    ],
+    "versus.won.title": [
+      "{player} wins!"
+    ],
+    "versus.won.subtitle": [
+      "{other} pays {coins}"
+    ],
+    "versus.draw.title": [
+      "A draw"
+    ],
+    "versus.draw.subtitle": [
+      "Nobody pays"
+    ],
+    "versus.announce": [
+      "Versus! {player}, choose your opponent!"
+    ],
+    "versus.faceoff": [
+      "{player} versus {other}! The loser pays the winner {coins}."
+    ],
+    "versus.glove": [
+      "A challenge! {player} throws down the Dueling Glove. {other}, you're up. {coins} on the line!"
+    ],
+    "versus.doubled": [
+      "It's the final stretch, so the stakes are doubled: {coins}!"
+    ],
+    "versus.bets.open": [
+      "Place your bets! Back {player} or {other}: 0, 3 or 5 coins."
+    ],
+    "versus.bets.form.title": [
+      "Your bet"
+    ],
+    "versus.bets.form.body": [
+      "Who wins, {player} or {other}?"
+    ],
+    "versus.bets.closed": [
+      "Bets are locked! The crowd says: {odds}."
+    ],
+    "versus.referee.winner": [
+      "{player} wins! {other} pays {coins}."
+    ],
+    "versus.bet.won": [
+      "Your bet paid off: +{coins}."
+    ],
+    "versus.bet.lost": [
+      "Your bet missed: -{coins}."
+    ],
+    "format.ffa": [
+      "Free for all"
+    ],
+    "format.2v2": [
+      "2 vs 2"
+    ],
+    "format.1v3": [
+      "1 vs {count}"
+    ],
+    "format.battle": [
+      "Battle: 5 coins each in the pot"
+    ],
+    "format.duel": [
+      "Duel"
+    ],
+    "minigame.battle.pot": [
+      "A Battle: everyone puts in up to 5 coins. The pot is {coins}, and the winner takes it."
+    ],
+    "minigame.rules": [
+      "{minigame} ({format}): {rules}"
+    ],
+    "minigame.ready.status": [
+      "Jump when you're ready: {votes} ready"
+    ],
+    "minigame.go": [
+      "Go!"
+    ],
+    "minigame.places": [
+      "{minigame}: {places}."
+    ],
+    "minigame.won.one": [
+      "{player} wins!"
+    ],
+    "minigame.won.many": [
+      "{players} win!"
+    ],
+    "minigame.nobody": [
+      "Nobody won"
+    ],
+    "minigame.draw": [
+      "A draw"
+    ],
+    "minigame.coins": [
+      "Coins: {paid}."
+    ],
+    "minigame.coins.doubled": [
+      "Coins (doubled): {paid}."
+    ],
+    "minigame.pot": [
+      "The pot: {paid}."
+    ],
+    "minigame.chris": [
+      "It's {minigame}! Show me what you've got."
+    ],
+    "minigame.chris.2v2": [
+      "Team game! {players} against {others}."
+    ],
+    "minigame.chris.1v3": [
+      "One against three! {player} takes on {players}."
+    ],
+    "minigame.chris.battle": [
+      "Battle! Everyone puts {coins} in the pot. Winner takes all!"
+    ],
+    "minigame.chris.winner": [
+      "What a performance from {player}!"
+    ],
+    "minigame.chris.pot": [
+      "{player} takes the whole pot: {coins}!"
+    ],
+    "minigame.chris.pot-split": [
+      "{players} split the pot: {coins} each!"
+    ],
+    "announce.halfway": [
+      "We're halfway there! {left} rounds to go."
+    ],
+    "announce.standings": [
+      "Here's where we stand. {player} is out in front!"
+    ],
+    "announce.lead": [
+      "{player} takes the lead!",
+      "New leader: {player}! Everyone else, catch up."
+    ],
+    "announce.comeback": [
+      "Look at {player} climb!"
+    ],
+    "round.doubled.subtitle": [
+      "Coins double from now on!"
+    ],
+    "announce.doubled": [
+      "From now on, minigame coins and duel stakes are doubled."
+    ],
+    "announce.doubling": [
+      "Big news! From now on, every minigame pays double!"
+    ],
+    "announce.final": [
+      "This is it: the final round! Make it count."
+    ],
+    "announce.final.title": [
+      "Final round!"
+    ],
+    "vote.skip": [
+      "Jump to skip"
+    ],
+    "vote.skip.count": [
+      "Skip: {votes}"
+    ],
+    "bots.join.one": [
+      "A bot joins you: {players}. They take their turns and play the minigames, a moment's thought at each step."
+    ],
+    "bots.join.many": [
+      "{count} bots join you: {players}. They take their turns and play the minigames, a moment's thought at each step."
+    ],
+    "join.late": [
+      "{player} joins at Start with {coins}, last in the turn order."
+    ],
+    "join.choice.title": [
+      "Join or watch?"
+    ],
+    "join.choice.body": [
+      "A game is on. Ask to join (everyone has to say yes), or watch."
+    ],
+    "join.choice.join": [
+      "Ask to join"
+    ],
+    "join.choice.watch": [
+      "Watch"
+    ],
+    "join.vote.body": [
+      "{player} wants to join. Let them in?"
+    ],
+    "join.vote.yes": [
+      "Let them in"
+    ],
+    "join.vote.no": [
+      "Not now"
+    ],
+    "join.refused": [
+      "Not everyone said yes. You can watch for now."
+    ],
+    "idle.vote.body": [
+      "{player} has been away for a minute. Go on without them?"
+    ],
+    "idle.skipped": [
+      "{player}'s turn is skipped. They keep their place."
+    ],
+    "leave.player": [
+      "{player} left. Their piece waits for them."
+    ],
+    "leave.back": [
+      "{player} is back!"
+    ],
+    "end.chris.over": [
+      "That's the game! But wait, it's not over yet..."
+    ],
+    "end.bonus.intro": [
+      "Time for the bonus Stars! The Allay has {stars} to hand out."
+    ],
+    "end.allay.hello": [
+      "Hello, hello! I brought Stars!"
+    ],
+    "end.bonus.award": [
+      "For {award}... this Star goes to {player}!"
+    ],
+    "award.hazards": [
+      "Most Hazards Hit"
+    ],
+    "award.coin-swing": [
+      "Biggest Coin Swing"
+    ],
+    "award.luckiest-roll": [
+      "Luckiest Roll"
+    ],
+    "award.lucky-wins": [
+      "Born Lucky"
+    ],
+    "award.kills": [
+      "Most Knockouts"
+    ],
+    "award.wins": [
+      "Minigame Master"
+    ],
+    "award.streak": [
+      "Longest Win Streak"
+    ],
+    "award.seconds": [
+      "So Close"
+    ],
+    "award.clutch": [
+      "Clutch Player"
+    ],
+    "award.items-used": [
+      "Item Lover"
+    ],
+    "award.fewest-deaths": [
+      "Survivor"
+    ],
+    "award.most-deaths": [
+      "Never Gives Up"
+    ],
+    "award.unused-items": [
+      "Hoarder"
+    ],
+    "award.risk": [
+      "Risk Taker"
+    ],
+    "award.comeback": [
+      "Biggest Comeback"
+    ],
+    "award.last-place": [
+      "Underdog"
+    ],
+    "award.improved": [
+      "Most Improved"
+    ],
+    "award.late-jump": [
+      "Strong Finish"
+    ],
+    "award.team": [
+      "Team Player"
+    ],
+    "end.tie": [
+      "{players} are tied: the winner is picked at random (the Allay picks once it's built, pass 8)."
+    ],
+    "end.tie.chris": [
+      "A tie! {players}, settle it in a sudden-death minigame!"
+    ],
+    "end.tie.allay": [
+      "Hmm, hmm... I pick {player}!"
+    ],
+    "end.title": [
+      "{player} wins!"
+    ],
+    "end.subtitle": [
+      "{stars}, {coins}"
+    ],
+    "end.standings": [
+      "Final standings: {standings}."
+    ],
+    "end.podium": [
+      "Your Block Party champion: {player}!"
+    ],
+    "end.thanks": [
+      "Thanks for playing! Same time next round?"
+    ]
+  }
+}

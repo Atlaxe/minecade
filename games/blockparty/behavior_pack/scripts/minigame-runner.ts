@@ -13,6 +13,7 @@
 import { GameMode, InputPermissionCategory, world, type Dimension, type Entity, type Player, type Vector3 } from "@minecraft/server";
 import { describeError, log, type Scope } from "@minecade/minigame-core";
 import { isPlayer, thinkTicks, type Who } from "./bots.ts";
+import { line } from "./lines.ts";
 import type { Format } from "./minigame-rules.ts";
 import { fill, type MinigameDef, type Outcome, type Play, type Vec3 } from "./minigames/kit.ts";
 
@@ -45,11 +46,11 @@ const RESULTS_TICKS = 70;
 const WATCH_HEIGHT = 6;
 
 export function formatLabel(format: Format, sides: readonly (readonly Who[])[]): string {
-  if (format === "2v2") return "2 vs 2";
-  if (format === "1v3") return `1 vs ${sides[1]?.length ?? 3}`;
-  if (format === "battle") return "Battle: 5 coins each in the pot";
-  if (format === "duel") return "Duel";
-  return "Free for all";
+  if (format === "2v2") return line("format.2v2");
+  if (format === "1v3") return line("format.1v3", { count: sides[1]?.length ?? 3 });
+  if (format === "battle") return line("format.battle");
+  if (format === "duel") return line("format.duel");
+  return line("format.ffa");
 }
 
 export class MinigameRunner {
@@ -115,14 +116,14 @@ export class MinigameRunner {
         this.rulesCamera([...everyone, ...onlookers], min, size);
       });
       this.host.title(def.name, formatLabel(format, sides));
-      this.host.say(`${def.name} (${formatLabel(format, sides)}): ${def.rules}`);
+      this.host.say(line("minigame.rules", { minigame: def.name, format: formatLabel(format, sides), rules: def.rules }));
       await this.readyVote(everyone);
       for (const who of [...everyone, ...onlookers]) clearCamera(who.player);
       for (const count of ["3", "2", "1"]) {
         this.host.title(count, def.name);
         await this.host.scope.wait(20);
       }
-      this.host.title("Go!", "");
+      this.host.title(line("minigame.go"), "");
       for (const who of everyone) if (who.player) setMoving(who.player, true);
       const scope = this.host.scope.child(`minigame ${def.id}`);
       const play: Play = {
@@ -260,7 +261,7 @@ export class MinigameRunner {
   /** Someone's ready (or, with 0, just the count again). */
   private ready(add = 1): void {
     this.readyCount += add;
-    this.host.status(`Jump when you're ready: ${Math.min(this.readyCount, this.readyTotal)} of ${this.readyTotal} ready`);
+    this.host.status(line("minigame.ready.status", { votes: `${Math.min(this.readyCount, this.readyTotal)} of ${this.readyTotal}` }));
   }
 
   /** Off the field: a player watches over the arena as a spectator, a bot from the stand. */

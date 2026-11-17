@@ -19,13 +19,14 @@
 // dice and forms, a bot by thinking a moment and picking. A player who isn't there when their turn
 // comes is skipped and keeps their place. Someone new comes in at the start of the next round, at
 // Start, last in the turn order, with as many coins as last place and no Stars. No timers: the game
-// waits for each roll and choice.
+// waits for each roll and choice. Everything it says is a line from dialogue.json (lines.ts).
 import { world, type Player } from "@minecraft/server";
 import { describeError, log, type Result, type Scope } from "@minecade/minigame-core";
 import { BLOCK_PARTY_BOARD } from "@minecade/minigame-core/config";
 import type { Space } from "./board.ts";
 import { activeStars, addCoins, coinsFor, count, firstStars, leaders, nextStar, ranked, starDistance, starPrice, turnOrder, type Standing } from "./board-rules.ts";
 import type { Who } from "./bots.ts";
+import { line } from "./lines.ts";
 import { VERSUS_STAKE, battleBets, ffaCoins, firstDoubled, formatFor, isDoubled, kindOf, pairingKey, pickMinigame, pickPairs, pickSolo, splitPot, teamCoins, type Format } from "./minigame-rules.ts";
 import type { Settle } from "./minigame-runner.ts";
 import type { MinigameDef, Outcome } from "./minigames/kit.ts";
@@ -139,25 +140,26 @@ export class BoardLoop {
     const spaces = this.host.spaces();
     for (const who of this.host.present()) this.seat(who, this.host.startCoins);
     this.stars = firstStars(spaces, activeStars(this.host.turns), this.host.random);
-    this.host.everyone(`Everyone starts with ${count(this.host.startCoins, "coin")}. ${this.starsText()}`);
+    this.host.everyone(line("board.start", { coins: count(this.host.startCoins, "coin"), starWhere: this.starsText() }));
     this.host.changed();
 
     // Turn order: everyone rolls at once.
-    this.host.title("Roll for turn order", "Jump to hit your die");
+    this.host.title(line("order.title"), line("order.subtitle"));
     const rolls = await Promise.all(this.host.present().map(async (who) => ({ name: who.key, roll: (await this.host.roll(who, false)) ?? 0 })));
     this.order = turnOrder(rolls);
-    this.host.everyone(`Turn order: ${this.order.map((key) => `${this.seats.get(key)?.name ?? key} (${rolls.find((entry) => entry.name === key)?.roll})`).join(", ")}.`);
+    this.host.everyone(line("order.result", { order: this.order.map((key) => `${this.seats.get(key)?.name ?? key} (${rolls.find((entry) => entry.name === key)?.roll})`).join(", ") }));
 
     for (this.round = 1; this.round <= this.host.turns; this.round++) {
       this.seatLateJoiners();
-      this.host.title(`Round ${this.round} of ${this.host.turns}`, this.round === firstDoubled(this.host.turns) ? "Coins double from now on!" : "");
-      if (this.round === firstDoubled(this.host.turns)) this.host.everyone("From now on, minigame coins and duel stakes are doubled.");
+      const doubling = this.round === firstDoubled(this.host.turns);
+      this.host.title(line("round.title", { round: this.round, rounds: this.host.turns }), doubling ? line("round.doubled.subtitle") : "");
+      if (doubling) this.host.everyone(line("announce.doubled"));
       this.host.changed();
       await this.host.scope.wait(30);
       for (const key of [...this.order]) {
         const who = this.host.present().find((candidate) => candidate.key === key);
         if (!who) {
-          this.host.everyone(`${this.seats.get(key)?.name ?? key} isn't here: their turn is skipped.`);
+          this.host.everyone(line("turn.skipped", { player: this.seats.get(key)?.name ?? key }));
           continue;
         }
         try {
@@ -193,17 +195,17 @@ export class BoardLoop {
       if (this.seats.has(who.key)) continue;
       this.seat(who, last);
       this.host.pieces.reset(who.body);
-      this.host.everyone(`${who.name} joins at Start with ${count(last, "coin")}, last in the turn order.`);
+      this.host.everyone(line("join.late", { player: who.name, coins: count(last, "coin") }));
     }
   }
 
   private async playTurn(who: Who): Promise<void> {
     this.turn = who.key;
     this.host.changed();
-    this.host.title(`${who.name}'s turn`, who.player ? "Pick a die and jump to roll" : "");
+    this.host.title(line("turn.title", { player: who.name }), who.player ? line("turn.subtitle") : "");
     const rolled = await this.host.roll(who, true);
     if (rolled === undefined || !who.body.isValid) return;
-    this.host.everyone(`${who.name} rolled ${rolled}.`);
+    this.host.everyone(line("turn.rolled", { player: who.name, roll: rolled }));
     await this.move(who, rolled);
     this.steering.delete(who.key);
     if (!who.body.isValid) return;
@@ -243,10 +245,13 @@ export class BoardLoop {
     const spaces = this.host.spaces();
     const toStar = this.pathToStar(space.index);
     const botPick = Math.max(0, toStar ? space.next.indexOf(toStar[0]) : Math.floor(this.host.random() * space.next.length));
-    const options = space.next.map((next) => `Toward ${this.spaceName(spaces[next])}: ${this.typeName(spaces[next].type)}${this.stars.includes(next) ? ", the Star" : ""}`);
-    const picked = await this.host.choose(who, "Which way?", "", options, botPick);
+    const options = space.next.map((next) => {
+      const way = { space: this.spaceName(spaces[next]), type: this.typeName(spaces[next].type) };
+      return this.stars.includes(next) ? line("branch.button.star", way) : line("branch.button", way);
+    });
+    const picked = await this.host.choose(who, line("branch.title"), "", options, botPick);
     const next = space.next[picked ?? 0] ?? space.next[0];
-    if (!who.player) this.host.everyone(`${who.name} goes toward ${this.spaceName(spaces[next])}.`);
+    if (!who.player) this.host.everyone(line("branch.bot", { player: who.name, space: this.spaceName(spaces[next]) }));
     return next;
   }
 
@@ -255,12 +260,13 @@ export class BoardLoop {
     const seat = this.seats.get(who.key);
     if (!seat) return;
     const price = starPrice(this.host.turns);
+    const money = { player: who.name, price: count(price, "coin"), coins: count(seat.coins, "coin") };
     if (seat.coins < price) {
-      if (who.player) this.host.tell(who, `A Star costs ${count(price, "coin")}: you have ${count(seat.coins, "coin")}.`);
-      else this.host.everyone(`${who.name} can't afford the Star (${count(seat.coins, "coin")} of ${price}).`);
+      if (who.player) this.host.tell(who, line("star.short", money));
+      else this.host.everyone(line("star.short.bot", money));
       return;
     }
-    const picked = await this.host.choose(who, "The Star", `Buy a Star for ${count(price, "coin")}? You have ${count(seat.coins, "coin")}.`, ["Buy a Star", "Not now"], 0);
+    const picked = await this.host.choose(who, line("star.form.title"), line("star.form.body", money), [line("star.form.buy"), line("star.form.skip")], 0);
     if (picked !== 0) return;
     seat.coins -= price;
     seat.stars++;
@@ -268,8 +274,8 @@ export class BoardLoop {
     const index = this.stars.indexOf(at);
     const moved = nextStar(spaces, at, this.stars.filter((star) => star !== at), starDistance(spaces.length), this.host.random);
     if (index >= 0) this.stars[index] = moved;
-    this.host.title(`${who.name} got a Star!`, `It moves to ${this.spaceName(spaces[moved])}`);
-    this.host.everyone(`${who.name} bought a Star for ${count(price, "coin")}. ${this.starsText()}`);
+    this.host.title(line("star.bought.title", { player: who.name }), line("star.bought.subtitle", { space: this.spaceName(spaces[moved]) }));
+    this.host.everyone(line("star.bought", { player: who.name, price: count(price, "coin"), starWhere: this.starsText() }));
     this.host.changed();
   }
 
@@ -279,21 +285,12 @@ export class BoardLoop {
     const space = this.host.spaces()[this.host.pieces.spaceOf(who.body)];
     if (!seat || !space) return;
     const change = coinsFor(space.type);
-    if (change !== 0) {
-      seat.coins = addCoins(seat.coins, change);
-      this.host.everyone(`${who.name} landed on ${this.typeName(space.type)}: ${change > 0 ? "+" : ""}${change} coins.`);
-    } else if (space.type === "versus") {
+    if (space.type === "versus") {
       await this.versus(who);
     } else {
-      const later: Record<string, string> = {
-        item: "an item (items come with pass 7)",
-        shop: "the Villager's shop (pass 7)",
-        chance: "Chance Time with the Witch (pass 7)",
-        warden: "the Warden (pass 7)",
-        happening: "a Happening (pass 7)",
-        start: "Start",
-      };
-      this.host.everyone(`${who.name} landed on ${this.typeName(space.type)}${later[space.type] ? `: ${later[space.type]}` : ""}.`);
+      // Blue and Red pay; the other types say what they'll do, as their passes come.
+      if (change !== 0) seat.coins = addCoins(seat.coins, change);
+      this.host.everyone(line(`land.${space.type}`, { player: who.name, coins: count(Math.abs(change), "coin") }));
     }
     this.host.changed();
   }
@@ -302,7 +299,7 @@ export class BoardLoop {
   private async versus(who: Who): Promise<void> {
     const others = this.host.present().filter((other) => other.key !== who.key && this.seats.has(other.key));
     if (others.length === 0) {
-      this.host.everyone(`${who.name} landed on Versus, but there's nobody to duel.`);
+      this.host.everyone(line("versus.nobody", { player: who.name }));
       return;
     }
     const doubled = isDoubled(this.round, this.host.turns);
@@ -310,9 +307,9 @@ export class BoardLoop {
     const leader = others.reduce((best, other) => ((this.seats.get(other.key)?.coins ?? 0) > (this.seats.get(best.key)?.coins ?? 0) ? other : best), others[0]);
     const picked = await this.host.choose(
       who,
-      "Versus",
-      `Pick who you duel. The loser pays the winner ${count(stake, "coin")}.`,
-      others.map((other) => `${other.name}: ${count(this.seats.get(other.key)?.coins ?? 0, "coin")}`),
+      line("versus.form.title"),
+      line("versus.form.body", { coins: count(stake, "coin") }),
+      others.map((other) => line("versus.form.button", { player: other.name, coins: count(this.seats.get(other.key)?.coins ?? 0, "coin") })),
       others.indexOf(leader),
     );
     const rival = others[picked ?? 0];
@@ -320,11 +317,12 @@ export class BoardLoop {
     const def = pickMinigame(pool, this.played, this.host.random);
     if (!def) return;
     this.played.set(def.id, (this.played.get(def.id) ?? 0) + 1);
-    this.host.everyone(`${who.name} duels ${rival.name} for ${count(stake, "coin")}${doubled ? " (doubled)" : ""}.`);
+    const duel = { player: who.name, other: rival.name, coins: count(stake, "coin") };
+    this.host.everyone(doubled ? line("versus.start.doubled", duel) : line("versus.start", duel));
     const onlookers = this.host.present().filter((other) => other.key !== who.key && other.key !== rival.key);
     await this.host.playMinigame("duel", def, [[who], [rival]], pool, onlookers, (outcome) => {
       const winners = "places" in outcome ? (outcome.places[0] ?? []) : [];
-      if (winners.length !== 1) return { title: "A draw", subtitle: "Nobody pays" };
+      if (winners.length !== 1) return { title: line("versus.draw.title"), subtitle: line("versus.draw.subtitle") };
       const winner = winners[0] === who.key ? who : rival;
       const loser = winner === who ? rival : who;
       const loserSeat = this.seats.get(loser.key);
@@ -332,9 +330,10 @@ export class BoardLoop {
       const paid = Math.min(stake, loserSeat?.coins ?? 0);
       if (loserSeat) loserSeat.coins -= paid;
       if (winnerSeat) winnerSeat.coins += paid;
-      this.host.everyone(`${winner.name} wins the duel: ${loser.name} pays ${count(paid, "coin")}.`);
+      const result = { player: winner.name, other: loser.name, coins: count(paid, "coin") };
+      this.host.everyone(line("versus.won", result));
       this.host.changed();
-      return { title: `${winner.name} wins!`, subtitle: `${loser.name} pays ${count(paid, "coin")}` };
+      return { title: line("versus.won.title", result), subtitle: line("versus.won.subtitle", result) };
     });
   }
 
@@ -362,7 +361,7 @@ export class BoardLoop {
         if (seat) seat.coins -= bet;
         pot += bet;
       }
-      this.host.everyone(`A Battle: everyone puts in up to 5 coins. The pot is ${count(pot, "coin")}, and the winner takes it.`);
+      this.host.everyone(line("minigame.battle.pot", { coins: count(pot, "coin") }));
       this.host.changed();
     }
     await this.host.playMinigame(format, def, sides, pool, [], (outcome) => this.pay(format, def, sides, outcome, doubled, pot));
@@ -393,22 +392,22 @@ export class BoardLoop {
     let title: string;
     if ("places" in outcome) {
       const winners = outcome.places[0] ?? [];
-      title = winners.length === 0 ? "Nobody won" : `${winners.map(nameOf).join(" and ")} ${winners.length === 1 ? "wins" : "win"}!`;
+      title = winners.length === 0 ? line("minigame.nobody") : this.wonTitle(winners.map(nameOf));
       coins = format === "battle" ? splitPot(pot, winners) : ffaCoins(outcome.places);
       if (format !== "battle") {
         let place = 0;
-        const lines = outcome.places.map((group) => {
-          const line = `${PLACES[place] ?? `${place + 1}th`}: ${group.map(nameOf).join(", ")}`;
+        const places = outcome.places.map((group) => {
+          const entry = `${PLACES[place] ?? `${place + 1}th`}: ${group.map(nameOf).join(", ")}`;
           place += group.length;
-          return line;
+          return entry;
         });
-        this.host.everyone(`${def.name}: ${lines.join("; ")}.`);
+        this.host.everyone(line("minigame.places", { minigame: def.name, places: places.join("; ") }));
       }
     } else {
       const team = format === "2v2" ? "2v2" : "1v3";
       const keys = sides.map((side) => side.map((who) => who.key));
       coins = teamCoins(team, keys, outcome.winner);
-      title = outcome.winner === undefined ? "A draw" : `${sides[outcome.winner].map((who) => who.name).join(" and ")} ${sides[outcome.winner].length === 1 ? "wins" : "win"}!`;
+      title = outcome.winner === undefined ? line("minigame.draw") : this.wonTitle(sides[outcome.winner].map((who) => who.name));
     }
     const factor = doubled && format !== "battle" ? 2 : 1;
     const paid: string[] = [];
@@ -418,9 +417,17 @@ export class BoardLoop {
       seat.coins += amount * factor;
       paid.push(`${nameOf(key)} +${amount * factor}`);
     }
-    if (paid.length > 0) this.host.everyone(`${format === "battle" ? "The pot" : "Coins"}${factor > 1 ? " (doubled)" : ""}: ${paid.join(", ")}.`);
+    if (paid.length > 0) {
+      const list = { paid: paid.join(", ") };
+      this.host.everyone(format === "battle" ? line("minigame.pot", list) : factor > 1 ? line("minigame.coins.doubled", list) : line("minigame.coins", list));
+    }
     this.host.changed();
     return { title, subtitle: paid.join(", ") };
+  }
+
+  /** The results' title: one winner, or several (a team, a tie). */
+  private wonTitle(names: readonly string[]): string {
+    return names.length === 1 ? line("minigame.won.one", { player: names[0] }) : line("minigame.won.many", { players: names.join(" and ") });
   }
 
   /** The end: most Stars, then coins; a tie still standing goes to chance. */
@@ -429,9 +436,9 @@ export class BoardLoop {
     const tied = leaders(standings);
     if (tied.length === 0) return { kind: "draw", reason: "nobody played" };
     const winner = tied.length === 1 ? tied[0] : tied[Math.floor(this.host.random() * tied.length)];
-    if (tied.length > 1) this.host.everyone(`${tied.map((seat) => seat.name).join(" and ")} are tied: the winner is picked at random (the Allay picks once it's built, pass 8).`);
-    this.host.title(`${winner.name} wins!`, `${count(winner.stars, "Star")}, ${count(winner.coins, "coin")}`);
-    this.host.everyone(`Final standings: ${this.standings().join("; ")}.`);
+    if (tied.length > 1) this.host.everyone(line("end.tie", { players: tied.map((seat) => seat.name).join(" and ") }));
+    this.host.title(line("end.title", { player: winner.name }), line("end.subtitle", { stars: count(winner.stars, "Star"), coins: count(winner.coins, "coin") }));
+    this.host.everyone(line("end.standings", { standings: this.standings().join("; ") }));
     this.running = false;
     return { kind: "win", players: [winner.name], reason: `${count(winner.stars, "Star")} and ${count(winner.coins, "coin")}` };
   }
@@ -448,7 +455,7 @@ export class BoardLoop {
   private starsText(): string {
     const spaces = this.host.spaces();
     const at = this.stars.map((index) => this.spaceName(spaces[index]));
-    return at.length === 1 ? `The Star is on ${at[0]}.` : `The Stars are on ${at.join(" and ")}.`;
+    return at.length === 1 ? line("star.where.one", { space: at[0] }) : line("star.where.two", { space: at[0], space2: at.slice(1).join(" and ") });
   }
 
   /** A column of light over each Star (the plan's beacon beam is a model, pass 6). */

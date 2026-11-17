@@ -43,6 +43,7 @@ import { HOTBAR_SIZE, LOADING_LEVELS, barCodes, loadingCode, type BarIcon } from
 import type config from "../../game.config.ts";
 import { boardBox, build, mapSpaces, standAt, testSpaces, type Space, type Vec3 } from "./board.ts";
 import { BoardLoop } from "./board-loop.ts";
+import { line } from "./lines.ts";
 import { BOT_COUNTS, LENGTHS, START_COINS } from "./board-rules.ts";
 import { Bots, hop, isPlayer, thinkTicks, whoOf, type Who } from "./bots.ts";
 import { MinigameRunner } from "./minigame-runner.ts";
@@ -331,7 +332,8 @@ export class BlockPartySpike extends Minigame<Config> {
     if (players !== 1 || wanted <= 0) return;
     const [x, y, z] = standAt(this.spaces[0], 0);
     for (const bot of this.bots.add(wanted, { x, y, z })) this.pieces.place(bot.body);
-    this.everyone(`${wanted === 1 ? "A bot joins" : `${wanted} bots join`} you: ${this.bots.all().map((bot) => bot.name).join(", ")}. They take their turns and play the minigames, a moment's thought at each step.`);
+    const joined = { count: wanted, players: this.bots.all().map((bot) => bot.name).join(", ") };
+    this.everyone(wanted === 1 ? line("bots.join.one", joined) : line("bots.join.many", joined));
   }
 
   /** A choice: a player's form, or a bot's moment of thought and its pick. */
@@ -538,7 +540,7 @@ export class BlockPartySpike extends Minigame<Config> {
     else if (typeId === ITEMS_ITEM) this.openBar(player, "items");
     else if (typeId === DICE_ITEM) {
       if (this.pendingRolls.has(key)) this.openDice(player);
-      else this.tell(player, this.loop.active ? "Wait for your turn: your dice open when it comes." : "Your dice open when the game asks for a roll.");
+      else this.tell(player, this.loop.active ? line("turn.dice.wait") : line("turn.dice.later"));
     }
     else if (typeId === BACK_ITEM) {
       if (tests.rolling) this.endRoll(player);
@@ -583,7 +585,7 @@ export class BlockPartySpike extends Minigame<Config> {
     for (const watcher of watchers) {
       watcher.camera.setCamera("minecraft:free", { location: { x: at.x - Math.sin(yaw) * 3.5, y: at.y + 0.5, z: at.z + Math.cos(yaw) * 3.5 }, facingLocation: { x: die.x + 0.5, y: die.y, z: die.z + 0.5 } });
     }
-    this.tell(player, "Pick a die in the hotbar, then jump to hit it.");
+    this.tell(player, line("turn.roll.hint"));
   }
 
   /** Takes the die away and gives everyone their own view back (the roll is over or called off). */
@@ -607,7 +609,7 @@ export class BlockPartySpike extends Minigame<Config> {
   private async roll(player: Player): Promise<void> {
     const die = DICE.find((d) => d.id === this.selected(player));
     if (!die) {
-      this.tell(player, "Pick a die in the hotbar, then jump.");
+      this.tell(player, line("turn.roll.pick"));
       return;
     }
     const tests = this.testsOf(player);
