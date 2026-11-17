@@ -12,7 +12,9 @@ the pieces, picking in the lobby, Chris handing out the starting coins, rolling 
 restyled hotbar, no timers, votes (to skip a cutscene, to start a minigame, to let a late joiner
 in), and NPCs that are the vanilla mobs' own models. Then the last five: 2 bonus Stars in a 2-player
 game (at most 1 each), the Cursed Totem, the Mystery Die, a late joiner's start, and players who go
-idle. Nothing is open; "Defaults" at the end lists what was taken without a question.
+idle. Nothing is open; "Defaults" at the end lists what was taken without a question. On
+2026-11-17 the user replaced the hotbar (minigames need it) and set out the UI, the cameras, the
+player animations and the sounds for pass 10: `block-party-ui.md`.
 
 **For the session that implements this:**
 - Work in a worktree of your own (`CLAUDE.md`, "Branch and merge").
@@ -34,7 +36,7 @@ idle. Nothing is open; "Defaults" at the end lists what was taken without a ques
 | Starting coins | 10, handed out by Chris |
 | Bonus Stars | 3 with 3 or 4 players; 2 with 2 players (at most 1 each) |
 | Rolling | Jump to hit the die |
-| Hotbar | A Block Party look drawn with JSON UI: Items and Dice open bars of their own, only the slots in use show, and health, hunger and XP are hidden (see "Turns and controls") |
+| Hotbar | None on the board (2026-11-17: minigames need the hotbar for their own items). The game's own JSON UI instead: a menu top left (Dice block, Items, Board) steered with the movement keys, jump and sneak, player cards top right, a dialogue box; health, hunger and XP hidden (see `block-party-ui.md`) |
 | Timers | None: the game waits for the player |
 | Votes | Every player: to skip a cutscene, to start a minigame after its rules, to let a late joiner in |
 | NPC looks | The vanilla mobs' own models, nothing textured |
@@ -406,6 +408,10 @@ some spots showed) is settled with the board markup's spaces (pass 3).
 
 ### Turns and controls
 
+- **Replaced (2026-11-17):** the hotbar below worked, but minigames need the hotbar for their own
+  items, so the board's controls move to JSON UI of the game's own: the board menu, the item panel
+  and the rest in `block-party-ui.md`. Rolling and items below follow it: pick Dice block or Items in
+  the menu, step through the item panel, jump to roll or use. Kept for the record:
 - **The hotbar** (the user's idea): a Block Party look drawn with JSON UI, the vanilla hotbar
   restyled rather than hidden and replaced, so scrolling, number keys, controller bumpers and
   tapping on a touch screen all still pick a slot. The selected item's name and what it does show
@@ -440,6 +446,11 @@ some spots showed) is settled with the board markup's spaces (pass 3).
 
 **(S)** a static authored position, **(D)** dynamic (follow, pan, orbit, push-in, spline). Everyone
 sees the same shot unless marked **(P)**, a private shot for one player.
+
+The user's camera list (2026-11-17, `block-party-ui.md`, "Cameras") wins where it overlaps this
+one: the intro, the starting podium, the order rolls and reveal, the Star reveal, the board view's
+two modes, the turn shot, NPC pans and cuts, and the minigame announcement. It is shared by everyone,
+so private shots become shared ones there.
 
 **Pre-game**
 - Intro flyover of the board (D, spline).
@@ -631,7 +642,7 @@ Each also has an event camera.
 | Intro flyover path (its cameras in order) | Camera tool |
 | Special event camera (a map with an event) | Camera tool |
 | Podium set: 4 spots, 1st to 4th, facing front | Game marker tool |
-| Pre-game lineup, one spot per player, and the turn-order pedestals | Game marker tool |
+| Pre-game lineup, one spot per player, and the turn-order pedestals (the starting podium in `block-party-ui.md`: a wider gap between the 2nd and 3rd spots, Chris's spot further back, a fixed podium camera) | Game marker tool |
 | NPC stages: Chris, Villager (the shop counter), Witch (the cauldron), Referee, and the Allay's landing spot. Each is the NPC's spot and the guest's spot (where the player stands to talk), both with a facing; the conversation shots are worked out from the two, and a camera named for the stage replaces the default | Game marker tool |
 | A spectator or queue spawn | Spawn tool |
 
@@ -863,7 +874,9 @@ reward was dropped.
 9. **The rest of the minigames.**
 10. **Refinement: cameras and UI** (the user, 2026-11-17): everything that works made to work and
     look better: the cameras, the titles and the HUD, and showing coins as they're won and lost
-    (the user couldn't tell when coins came in; more on this from them later).
+    (the user couldn't tell when coins came in; more on this from them later). The user's spec,
+    2026-11-17: `block-party-ui.md` (the hotbar replaced by the game's own JSON UI, the cameras,
+    player animations, gain and loss pops, sounds).
 
 ## Defaults
 
@@ -876,8 +889,8 @@ Every question is answered. These were taken without one; the user can change an
 - A Half-price Star lasts until it's used.
 - Chance Time growing later: coin amounts go up by half in the last third of the game; Coin Swap,
   Position Shuffle and Shooting Star come only in the last third.
-- Reduced motion is each player's own setting, in the hotbar's menu.
+- Reduced motion is each player's own setting, in their settings (`/blockparty:settings`).
 - Jump is the one button for going ahead: hitting the die, Ready, and voting to skip.
 - The plan's other "proposed" items: Happening's share goes to Blue on maps without it, the Star
   moves at least ~30% of the loop away on bigger boards, the beacon beam is a model, results play on
-  the board's podium, the space blocks, the restyled hotbar, and the NPC entities.
+  the board's podium, the space blocks, and the NPC entities.
