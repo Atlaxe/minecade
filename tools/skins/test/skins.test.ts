@@ -6,7 +6,7 @@ import { LEGACY, SLIM, WIDE, faceModelFor, modelFor, parseGeometry } from "../ge
 import { hologramLook } from "../look.ts";
 import { blankImage, decodePng, encodePng, type Image } from "../png.ts";
 import { renderModel } from "../render.ts";
-import { renderPreviews, renderSkinSet } from "../skin-set.ts";
+import { FACE_SIZE, renderFace, renderPreviews, renderSkinSet } from "../skin-set.ts";
 import { readSkins } from "../store.ts";
 
 /** A 64x64 classic skin with every part a different color (only what these tests look at). */
@@ -185,6 +185,34 @@ describe("saved skins", () => {
     expect([set.holo.width, set.holo.height, set.holo_head.width, set.holo_head.height]).toEqual([128, 128, 64, 64]);
     expect(pixel(set.holo, 0, 0)[3]).toBe(0);
     expect(strongest(set.holo_head, 32, 32)).toBe("blue");
-    expect(Object.keys(renderPreviews(skins[0]))).toEqual(["holo", "holo-head", "portrait", "head"]);
+    expect(Object.keys(renderPreviews(skins[0]))).toEqual(["holo", "holo-head", "portrait", "head", "face"]);
+  });
+});
+
+describe("the flat face", () => {
+  const stored = (image: Image, meta: Record<string, unknown> = {}) => ({ meta: { xuid: "1", name: "Steve", width: image.width, height: image.height, hash: "h", updatedAt: "now", ...meta }, image });
+
+  it("is a classic skin's face with its hat over it, solid, each skin pixel a hard block", () => {
+    const skin = testSkin();
+    // A hat pixel over the face's top left corner, and a see-through face pixel (the head is solid).
+    skin.data.set([10, 20, 230, 255], (8 * 64 + 40) * 4);
+    skin.data.set([250, 210, 170, 0], (15 * 64 + 15) * 4);
+    const face = renderFace(stored(skin));
+    const block = FACE_SIZE / 8;
+    expect([face.width, face.height]).toEqual([FACE_SIZE, FACE_SIZE]);
+    expect(pixel(face, 0, 0)).toEqual([10, 20, 230, 255]);
+    expect(pixel(face, block - 1, block - 1)).toEqual([10, 20, 230, 255]);
+    expect(pixel(face, block, 0)).toEqual([250, 210, 170, 255]);
+    expect(pixel(face, FACE_SIZE - 1, FACE_SIZE - 1)).toEqual([250, 210, 170, 255]);
+  });
+
+  it("leaves out an old skin's hat when it's one solid color, and reads a bigger skin at its scale", () => {
+    const old = blankImage(64, 32);
+    for (let y = 0; y < 16; y++) for (let x = 0; x < 64; x++) old.data.set([0, 0, 0, 255], (y * 64 + x) * 4);
+    for (let y = 8; y < 16; y++) for (let x = 8; x < 16; x++) old.data.set([250, 210, 170, 255], (y * 64 + x) * 4);
+    expect(pixel(renderFace(stored(old)), 30, 30)).toEqual([250, 210, 170, 255]);
+    const big = blankImage(128, 128);
+    for (let y = 16; y < 32; y++) for (let x = 16; x < 32; x++) big.data.set([200, 100, 50, 255], (y * 128 + x) * 4);
+    expect(pixel(renderFace(stored(big)), FACE_SIZE / 2, FACE_SIZE / 2)).toEqual([200, 100, 50, 255]);
   });
 });

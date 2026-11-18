@@ -283,6 +283,13 @@ export interface GameConfig {
    * creative's menu (Build Swap). Only its players load the bigger pack.
    */
   blocks?: "full";
+  /**
+   * Each player's face in the game's own resource pack, for its screens (Block Party's player cards
+   * and results): every skin the watcher saved, its face flat with the hat layer over it, at
+   * skinTexture(key, "face") (tools/skins/skin-set.ts renderFace). The scripts know whose faces the
+   * pack has from "#skins"; a player the watcher hasn't seen has none until the next build.
+   */
+  playerFaces?: boolean;
   /** Game rules for the match (world.gameRules keys). Restored afterwards. */
   gameRules?: Record<string, boolean | number>;
   /** Map entries this game needs. The build checks every map has them, and the map editor lists them. */

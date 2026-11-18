@@ -27,6 +27,8 @@ export default defineGame({
   endDelaySeconds: 3,
   lateJoin: "join",
   nameTags: true,
+  // Each player's face on the cards and the results (heads.ts): the build renders it from their saved skin.
+  playerFaces: true,
   combat: { damage: "none", fall: false, outOfBounds: "ignore" },
   respawn: { mode: "none" },
   win: "custom",

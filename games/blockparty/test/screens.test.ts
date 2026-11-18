@@ -131,12 +131,17 @@ describe("Block Party's sidebar", () => {
 });
 
 describe("Block Party's screens' JSON UI (the workshop builder's components, installed)", () => {
-  /** A field's expression as the builder writes it (its compile.mjs fieldExpression). */
+  /**
+   * A field's expression as the builder writes it (its compile.mjs fieldExpression). A trimmed one
+   * takes the spaces out of both cuts before one comes out of the other: the game reads a field
+   * that starts with a number (" 2", "1st") as one and shows nothing for (' 2' - ' ').
+   */
   const expression = (field: { from: number; length: number }, trim: boolean) => {
     const row = "#player_name_sidebar";
     const first = (n: number) => `('%.${n}s' * ${row})`;
-    const cut = field.length === 0 ? (field.from === 0 ? row : `(${row} - ${first(field.from)})`) : field.from === 0 ? first(field.length) : `(${first(field.from + field.length)} - ${first(field.from)})`;
-    return trim ? `(${cut} - ' ')` : cut;
+    const spaced = (text: string) => (trim ? `(${text} - ' ')` : text);
+    const end = field.length === 0 ? row : first(field.from + field.length);
+    return field.from === 0 ? spaced(end) : `(${spaced(end)} - ${spaced(first(field.from))})`;
   };
   const files = { cards: "jui_blockparty_cards", menu: "jui_blockparty_menu", panel: "jui_blockparty_panel", results: "jui_blockparty_results" } as const;
 

@@ -67,7 +67,7 @@
             0,
             -12
           ],
-          "layer": 20,
+          "layer": 1,
           "controls": [
             {
               "b_d1a10017_bg": {
@@ -78,7 +78,7 @@
                 ],
                 "anchor_from": "top_left",
                 "anchor_to": "top_left",
-                "layer": 0,
+                "layer": 1,
                 "texture": "textures/jsonui/a_0f03755b4c3618f1",
                 "alpha": 1,
                 "keep_ratio": false
@@ -129,7 +129,8 @@
                                       "binding_type": "global",
                                       "binding_name_override": "#collection_length"
                                     }
-                                  ]
+                                  ],
+                                  "layer": 1
                                 }
                               },
                               {
@@ -150,10 +151,12 @@
                                       "source_property_name": "(not ((#objective_sidebar_name - '§k§2') = #objective_sidebar_name))",
                                       "target_property_name": "#visible"
                                     }
-                                  ]
+                                  ],
+                                  "layer": 4
                                 }
                               }
-                            ]
+                            ],
+                            "layer": 1
                           }
                         },
                         {
@@ -162,7 +165,8 @@
                             "size": [
                               6,
                               0
-                            ]
+                            ],
+                            "layer": 6
                           }
                         },
                         {
@@ -193,7 +197,8 @@
                                       "binding_type": "global",
                                       "binding_name_override": "#collection_length"
                                     }
-                                  ]
+                                  ],
+                                  "layer": 1
                                 }
                               },
                               {
@@ -202,7 +207,8 @@
                                   "size": [
                                     1,
                                     12
-                                  ]
+                                  ],
+                                  "layer": 5
                                 }
                               }
                             ],
@@ -217,12 +223,14 @@
                                 "source_property_name": "((#objective_sidebar_name - '§k§2') = #objective_sidebar_name)",
                                 "target_property_name": "#visible"
                               }
-                            ]
+                            ],
+                            "layer": 7
                           }
                         }
                       ],
                       "anchor_from": "top_left",
-                      "anchor_to": "top_left"
+                      "anchor_to": "top_left",
+                      "layer": 1
                     }
                   },
                   {
@@ -250,7 +258,7 @@
                           "target_property_name": "#visible"
                         }
                       ],
-                      "layer": 3,
+                      "layer": 14,
                       "controls": [
                         {
                           "b_d1a1000c_bg": {
@@ -261,7 +269,7 @@
                             ],
                             "anchor_from": "top_left",
                             "anchor_to": "top_left",
-                            "layer": 0,
+                            "layer": 1,
                             "texture": "textures/ui/White",
                             "color": "$v_tab",
                             "alpha": 0.9
@@ -305,10 +313,12 @@
                                           }
                                         ],
                                         "anchor_from": "left_middle",
-                                        "anchor_to": "left_middle"
+                                        "anchor_to": "left_middle",
+                                        "layer": 1
                                       }
                                     }
-                                  ]
+                                  ],
+                                  "layer": 1
                                 }
                               },
                               {
@@ -317,7 +327,8 @@
                                   "size": [
                                     3,
                                     0
-                                  ]
+                                  ],
+                                  "layer": 5
                                 }
                               },
                               {
@@ -345,10 +356,12 @@
                                         "shadow": true,
                                         "localize": false,
                                         "anchor_from": "left_middle",
-                                        "anchor_to": "left_middle"
+                                        "anchor_to": "left_middle",
+                                        "layer": 1
                                       }
                                     }
-                                  ]
+                                  ],
+                                  "layer": 6
                                 }
                               }
                             ],
@@ -358,7 +371,7 @@
                               4,
                               0
                             ],
-                            "layer": 1
+                            "layer": 44
                           }
                         }
                       ]
@@ -390,7 +403,7 @@
                         0,
                         -14
                       ],
-                      "layer": 3
+                      "layer": 16
                     }
                   },
                   {
@@ -415,7 +428,7 @@
                       ],
                       "anchor_from": "bottom_right",
                       "anchor_to": "bottom_right",
-                      "layer": 3
+                      "layer": 41
                     }
                   }
                 ],
@@ -425,7 +438,7 @@
                   8,
                   8
                 ],
-                "layer": 1
+                "layer": 2
               }
             }
           ]
@@ -459,7 +472,8 @@
           "shadow": true,
           "localize": false,
           "anchor_from": "top_left",
-          "anchor_to": "top_left"
+          "anchor_to": "top_left",
+          "layer": 1
         }
       }
     ],
@@ -510,7 +524,8 @@
             }
           ],
           "alpha": 0.9,
-          "propagate_alpha": true
+          "propagate_alpha": true,
+          "layer": 1
         }
       },
       {
@@ -578,12 +593,13 @@
             },
             {
               "binding_type": "view",
-              "source_property_name": "('textures/blockparty/faces/' + ((#player_name_sidebar - ('%.12s' * #player_name_sidebar)) - ' '))",
+              "source_property_name": "('textures/blockparty/faces/' + ((#player_name_sidebar - ' ') - (('%.12s' * #player_name_sidebar) - ' ')))",
               "target_property_name": "#texture"
             }
           ],
           "anchor_from": "top_left",
-          "anchor_to": "top_left"
+          "anchor_to": "top_left",
+          "layer": 1
         }
       }
     ],
@@ -627,7 +643,7 @@
                 ],
                 "anchor_from": "top_left",
                 "anchor_to": "top_left",
-                "layer": 0,
+                "layer": 1,
                 "texture": "textures/ui/White",
                 "color": "$v_skip",
                 "alpha": 0.9
@@ -662,10 +678,12 @@
                             "shadow": true,
                             "localize": false,
                             "anchor_from": "left_middle",
-                            "anchor_to": "left_middle"
+                            "anchor_to": "left_middle",
+                            "layer": 1
                           }
                         }
-                      ]
+                      ],
+                      "layer": 1
                     }
                   },
                   {
@@ -674,7 +692,8 @@
                       "size": [
                         3,
                         0
-                      ]
+                      ],
+                      "layer": 3
                     }
                   },
                   {
@@ -706,10 +725,12 @@
                             ],
                             "visible": false,
                             "anchor_from": "left_middle",
-                            "anchor_to": "left_middle"
+                            "anchor_to": "left_middle",
+                            "layer": 1
                           }
                         }
-                      ]
+                      ],
+                      "layer": 4
                     }
                   },
                   {
@@ -718,7 +739,8 @@
                       "size": [
                         3,
                         0
-                      ]
+                      ],
+                      "layer": 6
                     }
                   },
                   {
@@ -746,10 +768,12 @@
                               }
                             ],
                             "anchor_from": "left_middle",
-                            "anchor_to": "left_middle"
+                            "anchor_to": "left_middle",
+                            "layer": 1
                           }
                         }
-                      ]
+                      ],
+                      "layer": 7
                     }
                   },
                   {
@@ -758,7 +782,8 @@
                       "size": [
                         3,
                         0
-                      ]
+                      ],
+                      "layer": 9
                     }
                   },
                   {
@@ -800,7 +825,7 @@
                                   ],
                                   "anchor_from": "top_left",
                                   "anchor_to": "top_left",
-                                  "layer": 0,
+                                  "layer": 1,
                                   "texture": "textures/ui/keyboard_tooltip_background",
                                   "alpha": 1,
                                   "keep_ratio": false
@@ -829,7 +854,8 @@
                                         ],
                                         "localize": false,
                                         "anchor_from": "left_middle",
-                                        "anchor_to": "left_middle"
+                                        "anchor_to": "left_middle",
+                                        "layer": 1
                                       }
                                     }
                                   ],
@@ -839,15 +865,17 @@
                                     3,
                                     0
                                   ],
-                                  "layer": 1
+                                  "layer": 8
                                 }
                               }
                             ],
                             "anchor_from": "left_middle",
-                            "anchor_to": "left_middle"
+                            "anchor_to": "left_middle",
+                            "layer": 1
                           }
                         }
-                      ]
+                      ],
+                      "layer": 10
                     }
                   },
                   {
@@ -856,7 +884,8 @@
                       "size": [
                         3,
                         0
-                      ]
+                      ],
+                      "layer": 13
                     }
                   },
                   {
@@ -879,10 +908,12 @@
                             "shadow": true,
                             "localize": false,
                             "anchor_from": "left_middle",
-                            "anchor_to": "left_middle"
+                            "anchor_to": "left_middle",
+                            "layer": 1
                           }
                         }
-                      ]
+                      ],
+                      "layer": 14
                     }
                   },
                   {
@@ -891,7 +922,8 @@
                       "size": [
                         3,
                         0
-                      ]
+                      ],
+                      "layer": 16
                     }
                   },
                   {
@@ -921,10 +953,12 @@
                             "shadow": true,
                             "localize": false,
                             "anchor_from": "left_middle",
-                            "anchor_to": "left_middle"
+                            "anchor_to": "left_middle",
+                            "layer": 1
                           }
                         }
-                      ]
+                      ],
+                      "layer": 17
                     }
                   }
                 ],
@@ -934,10 +968,11 @@
                   4,
                   0
                 ],
-                "layer": 1
+                "layer": 2
               }
             }
-          ]
+          ],
+          "layer": 1
         }
       }
     ],
@@ -998,10 +1033,12 @@
                       "shadow": true,
                       "localize": false,
                       "anchor_from": "left_middle",
-                      "anchor_to": "left_middle"
+                      "anchor_to": "left_middle",
+                      "layer": 1
                     }
                   }
-                ]
+                ],
+                "layer": 1
               }
             },
             {
@@ -1010,7 +1047,8 @@
                 "size": [
                   3,
                   0
-                ]
+                ],
+                "layer": 3
               }
             },
             {
@@ -1042,10 +1080,12 @@
                       ],
                       "visible": false,
                       "anchor_from": "left_middle",
-                      "anchor_to": "left_middle"
+                      "anchor_to": "left_middle",
+                      "layer": 1
                     }
                   }
-                ]
+                ],
+                "layer": 4
               }
             },
             {
@@ -1054,7 +1094,8 @@
                 "size": [
                   3,
                   0
-                ]
+                ],
+                "layer": 6
               }
             },
             {
@@ -1082,10 +1123,12 @@
                         }
                       ],
                       "anchor_from": "left_middle",
-                      "anchor_to": "left_middle"
+                      "anchor_to": "left_middle",
+                      "layer": 1
                     }
                   }
-                ]
+                ],
+                "layer": 7
               }
             },
             {
@@ -1094,7 +1137,8 @@
                 "size": [
                   3,
                   0
-                ]
+                ],
+                "layer": 9
               }
             },
             {
@@ -1136,7 +1180,7 @@
                             ],
                             "anchor_from": "top_left",
                             "anchor_to": "top_left",
-                            "layer": 0,
+                            "layer": 1,
                             "texture": "textures/ui/keyboard_tooltip_background",
                             "alpha": 1,
                             "keep_ratio": false
@@ -1165,7 +1209,8 @@
                                   ],
                                   "localize": false,
                                   "anchor_from": "left_middle",
-                                  "anchor_to": "left_middle"
+                                  "anchor_to": "left_middle",
+                                  "layer": 1
                                 }
                               }
                             ],
@@ -1175,20 +1220,23 @@
                               3,
                               0
                             ],
-                            "layer": 1
+                            "layer": 2
                           }
                         }
                       ],
                       "anchor_from": "left_middle",
-                      "anchor_to": "left_middle"
+                      "anchor_to": "left_middle",
+                      "layer": 1
                     }
                   }
-                ]
+                ],
+                "layer": 10
               }
             }
           ],
           "anchor_from": "right_middle",
-          "anchor_to": "right_middle"
+          "anchor_to": "right_middle",
+          "layer": 1
         }
       }
     ],

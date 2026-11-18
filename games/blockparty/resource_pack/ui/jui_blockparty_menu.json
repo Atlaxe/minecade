@@ -13,9 +13,9 @@
       1
     ],
     "$v_secondary|default": [
-      0.961,
-      0.569,
-      0.235
+      0.725,
+      0.004,
+      0.365
     ],
     "$v_dim|default": [
       0.604,
@@ -64,7 +64,8 @@
           "offset": [
             6,
             6
-          ]
+          ],
+          "layer": 1
         }
       }
     ]
@@ -97,7 +98,7 @@
                     "b_16c3c16d": {
                       "type": "image",
                       "size": [
-                        "100%",
+                        57,
                         "100%"
                       ],
                       "keep_ratio": false,
@@ -118,8 +119,7 @@
                           "target_property_name": "#visible"
                         }
                       ],
-                      "alpha": 0.45,
-                      "propagate_alpha": true
+                      "layer": 1
                     }
                   },
                   {
@@ -138,7 +138,7 @@
                       "anchor_to": "left_middle",
                       "offset": [
                         4,
-                        0
+                        -1
                       ],
                       "visible": false,
                       "bindings": [
@@ -154,7 +154,8 @@
                         }
                       ],
                       "alpha": 0.85,
-                      "propagate_alpha": true
+                      "propagate_alpha": true,
+                      "layer": 2
                     }
                   },
                   {
@@ -189,10 +190,12 @@
                         }
                       ],
                       "alpha": 0.4,
-                      "propagate_alpha": true
+                      "propagate_alpha": true,
+                      "layer": 3
                     }
                   }
-                ]
+                ],
+                "layer": 1
               }
             },
             {
@@ -201,7 +204,8 @@
                 "size": [
                   0,
                   1
-                ]
+                ],
+                "layer": 5
               }
             },
             {
@@ -216,7 +220,7 @@
                     "b_72b67ab7": {
                       "type": "image",
                       "size": [
-                        "100%",
+                        57,
                         "100%"
                       ],
                       "keep_ratio": false,
@@ -237,8 +241,7 @@
                           "target_property_name": "#visible"
                         }
                       ],
-                      "alpha": 0.45,
-                      "propagate_alpha": true
+                      "layer": 1
                     }
                   },
                   {
@@ -257,7 +260,7 @@
                       "anchor_to": "left_middle",
                       "offset": [
                         4,
-                        0
+                        -1
                       ],
                       "visible": false,
                       "bindings": [
@@ -273,7 +276,8 @@
                         }
                       ],
                       "alpha": 0.85,
-                      "propagate_alpha": true
+                      "propagate_alpha": true,
+                      "layer": 2
                     }
                   },
                   {
@@ -308,10 +312,12 @@
                         }
                       ],
                       "alpha": 0.4,
-                      "propagate_alpha": true
+                      "propagate_alpha": true,
+                      "layer": 3
                     }
                   }
-                ]
+                ],
+                "layer": 6
               }
             },
             {
@@ -320,7 +326,8 @@
                 "size": [
                   0,
                   1
-                ]
+                ],
+                "layer": 10
               }
             },
             {
@@ -335,7 +342,7 @@
                     "b_321773ad": {
                       "type": "image",
                       "size": [
-                        "100%",
+                        57,
                         "100%"
                       ],
                       "keep_ratio": false,
@@ -356,8 +363,7 @@
                           "target_property_name": "#visible"
                         }
                       ],
-                      "alpha": 0.45,
-                      "propagate_alpha": true
+                      "layer": 1
                     }
                   },
                   {
@@ -376,7 +382,7 @@
                       "anchor_to": "left_middle",
                       "offset": [
                         4,
-                        0
+                        -1
                       ],
                       "visible": false,
                       "bindings": [
@@ -392,7 +398,8 @@
                         }
                       ],
                       "alpha": 0.85,
-                      "propagate_alpha": true
+                      "propagate_alpha": true,
+                      "layer": 2
                     }
                   },
                   {
@@ -427,15 +434,18 @@
                         }
                       ],
                       "alpha": 0.4,
-                      "propagate_alpha": true
+                      "propagate_alpha": true,
+                      "layer": 3
                     }
                   }
-                ]
+                ],
+                "layer": 11
               }
             }
           ],
           "anchor_from": "top_left",
-          "anchor_to": "top_left"
+          "anchor_to": "top_left",
+          "layer": 1
         }
       }
     ],

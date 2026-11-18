@@ -44,6 +44,7 @@ import { ActionFormData, ModalFormData } from "@minecraft/server-ui";
 import { ARENA_SLOT, Minigame, describeError, draw, facingOf, hudLine, log, say, showForm, spacesOf, worldPoint, type GameContext, type MapPosition, type Result, type SpawnReason } from "@minecade/minigame-core";
 import { BLOCK_PARTY_BOARD } from "@minecade/minigame-core/config";
 import registry from "#registry";
+import skins from "#skins";
 import { HOTBAR_SIZE, LOADING_LEVELS, loadingCode } from "./bar-codes.ts";
 import type config from "../../game.config.ts";
 import { boardBox, build, mapSpaces, standAt, testSpaces, type Space, type Vec3 } from "./board.ts";
@@ -55,6 +56,7 @@ import { DICE, ITEMS, holdings, type DieDef, type DieId, type Holdings, type Ite
 import { ResultsScreen } from "./results.ts";
 import { SCREEN_WORDS, cardRows, codesOf } from "./screen-codes.ts";
 import { GameSidebar } from "./sidebar-rows.ts";
+import { Heads } from "./heads.ts";
 import { Dialogue } from "./dialogue.ts";
 import { Stage, type StageMarkup } from "./stage.ts";
 import type { Marker } from "./stage-layout.ts";
@@ -197,6 +199,8 @@ export class BlockPartySpike extends Minigame<Config> {
   private boardLaid: Promise<void> = Promise.resolve();
   /** The bots in a game one player started (bots.ts), and the minigames' runner. */
   private bots!: Bots;
+  /** The heads on the cards and the results: players' faces from the build, Steve's for bots. */
+  private readonly heads = new Heads(skins);
   private runner!: MinigameRunner;
   /** The dialogue box (dialogue.ts) and the stage: the NPCs and the shots (stage.ts). */
   private dialogue!: Dialogue;
@@ -318,7 +322,7 @@ export class BlockPartySpike extends Minigame<Config> {
       boardView: (on) => this.boardView(on),
       busy: (player) => this.dialogue.steerer === player.name.toLowerCase(),
     });
-    this.results = new ResultsScreen({ scope: this.scope, sidebar: this.gameSidebar, headOf: () => undefined });
+    this.results = new ResultsScreen({ scope: this.scope, sidebar: this.gameSidebar, headOf: (name) => this.headOf(name) });
     this.staging = new Stage({
       scope: this.scope,
       dimension,
@@ -596,13 +600,20 @@ export class BlockPartySpike extends Minigame<Config> {
           seats.map((seat) => {
             const player = world.getAllPlayers().find((candidate) => candidate.name.toLowerCase() === seat.key);
             const items = player ? this.holdingsOf(whoOf(player)).items : [];
-            return { ...seat, items: items.map((id) => ITEMS[id].letters) };
+            return { ...seat, items: items.map((id) => ITEMS[id].letters), head: this.headOf(seat.name) };
           }),
         );
     const key = rows.join("\n");
     if (key === this.cardsShown) return;
     this.cardsShown = key;
     this.gameSidebar.set("cards", rows.length ? { title: codesOf(SCREEN_WORDS.cards), rows } : undefined);
+  }
+
+  /** A seat's head picture by name: a bot's is Steve's, unless a player here has that name. */
+  private headOf(name: string): string | undefined {
+    const lower = name.toLowerCase();
+    const bot = this.bots.has(name) && !world.getAllPlayers().some((player) => player.name.toLowerCase() === lower);
+    return this.heads.of(name, bot);
   }
 
   protected override onSpawn(player: Player, _why: SpawnReason): void {

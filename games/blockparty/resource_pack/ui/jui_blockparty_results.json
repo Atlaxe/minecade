@@ -66,7 +66,8 @@
           "anchor_from": "center",
           "anchor_to": "center",
           "alpha": 0.55,
-          "propagate_alpha": true
+          "propagate_alpha": true,
+          "layer": 1
         }
       },
       {
@@ -82,12 +83,13 @@
           "shadow": true,
           "font_type": "MinecraftTen",
           "localize": false,
-          "anchor_from": "top_left",
-          "anchor_to": "top_left",
+          "anchor_from": "center",
+          "anchor_to": "center",
           "offset": [
-            16,
-            12
-          ]
+            -76,
+            -85
+          ],
+          "layer": 2
         }
       },
       {
@@ -110,12 +112,9 @@
               "binding_name_override": "#collection_length"
             }
           ],
-          "anchor_from": "top_left",
-          "anchor_to": "top_left",
-          "offset": [
-            16,
-            40
-          ]
+          "anchor_from": "center",
+          "anchor_to": "center",
+          "layer": 3
         }
       }
     ]
@@ -148,7 +147,8 @@
                 "anchor_from": "top_left",
                 "anchor_to": "top_left",
                 "alpha": 0.35,
-                "propagate_alpha": true
+                "propagate_alpha": true,
+                "layer": 1
               }
             },
             {
@@ -183,7 +183,7 @@
                       ],
                       "anchor_from": "top_left",
                       "anchor_to": "top_left",
-                      "layer": 0,
+                      "layer": 1,
                       "controls": [
                         {
                           "b_aa5b9921_bt": {
@@ -197,7 +197,7 @@
                             ],
                             "anchor_from": "top_left",
                             "anchor_to": "top_left",
-                            "layer": 20
+                            "layer": 18
                           }
                         },
                         {
@@ -212,7 +212,7 @@
                             ],
                             "anchor_from": "bottom_left",
                             "anchor_to": "bottom_left",
-                            "layer": 20
+                            "layer": 19
                           }
                         },
                         {
@@ -242,7 +242,7 @@
                             ],
                             "anchor_from": "top_right",
                             "anchor_to": "top_right",
-                            "layer": 20
+                            "layer": 21
                           }
                         }
                       ]
@@ -262,10 +262,11 @@
                         0,
                         0
                       ],
-                      "layer": 1
+                      "layer": 10
                     }
                   }
-                ]
+                ],
+                "layer": 2
               }
             },
             {
@@ -285,7 +286,7 @@
                   },
                   {
                     "binding_type": "view",
-                    "source_property_name": "(((('%.27s' * #player_name_sidebar) - ('%.24s' * #player_name_sidebar)) - ' '))",
+                    "source_property_name": "(((('%.27s' * #player_name_sidebar) - ' ') - (('%.24s' * #player_name_sidebar) - ' ')))",
                     "target_property_name": "#jui_text"
                   }
                 ],
@@ -297,7 +298,8 @@
                 "offset": [
                   8,
                   0
-                ]
+                ],
+                "layer": 4
               }
             },
             {
@@ -336,7 +338,7 @@
                       ],
                       "anchor_from": "top_left",
                       "anchor_to": "top_left",
-                      "layer": 0,
+                      "layer": 1,
                       "texture": "textures/ui/White",
                       "color": "$v_head",
                       "alpha": 1
@@ -367,7 +369,7 @@
                               },
                               {
                                 "binding_type": "view",
-                                "source_property_name": "(((('%.33s' * #player_name_sidebar) - ('%.32s' * #player_name_sidebar)) - ' '))",
+                                "source_property_name": "(((('%.33s' * #player_name_sidebar) - ' ') - (('%.32s' * #player_name_sidebar) - ' ')))",
                                 "target_property_name": "#jui_text"
                               }
                             ],
@@ -375,7 +377,8 @@
                             "shadow": true,
                             "localize": false,
                             "anchor_from": "center",
-                            "anchor_to": "center"
+                            "anchor_to": "center",
+                            "layer": 1
                           }
                         }
                       ],
@@ -385,10 +388,11 @@
                         0,
                         0
                       ],
-                      "layer": 1
+                      "layer": 8
                     }
                   }
-                ]
+                ],
+                "layer": 5
               }
             },
             {
@@ -427,7 +431,8 @@
                   46,
                   0
                 ],
-                "visible": false
+                "visible": false,
+                "layer": 7
               }
             },
             {
@@ -453,7 +458,7 @@
                       ],
                       "anchor_from": "top_left",
                       "anchor_to": "top_left",
-                      "layer": 0,
+                      "layer": 1,
                       "texture": "textures/ui/White",
                       "color": "$v_panel",
                       "alpha": 0.5
@@ -480,7 +485,8 @@
                             "shadow": true,
                             "localize": false,
                             "anchor_from": "center",
-                            "anchor_to": "center"
+                            "anchor_to": "center",
+                            "layer": 1
                           }
                         },
                         {
@@ -500,7 +506,7 @@
                               },
                               {
                                 "binding_type": "view",
-                                "source_property_name": "(((('%.29s' * #player_name_sidebar) - ('%.27s' * #player_name_sidebar)) - ' '))",
+                                "source_property_name": "(((('%.29s' * #player_name_sidebar) - ' ') - (('%.27s' * #player_name_sidebar) - ' ')))",
                                 "target_property_name": "#jui_text"
                               }
                             ],
@@ -511,7 +517,8 @@
                             "offset": [
                               1,
                               1
-                            ]
+                            ],
+                            "layer": 2
                           }
                         }
                       ],
@@ -521,10 +528,11 @@
                         0,
                         0
                       ],
-                      "layer": 1
+                      "layer": 7
                     }
                   }
-                ]
+                ],
+                "layer": 8
               }
             },
             {
@@ -550,7 +558,7 @@
                       ],
                       "anchor_from": "top_left",
                       "anchor_to": "top_left",
-                      "layer": 0,
+                      "layer": 1,
                       "texture": "textures/ui/White",
                       "color": "$v_panel",
                       "alpha": 0.5
@@ -577,7 +585,8 @@
                             "shadow": true,
                             "localize": false,
                             "anchor_from": "center",
-                            "anchor_to": "center"
+                            "anchor_to": "center",
+                            "layer": 1
                           }
                         },
                         {
@@ -597,7 +606,7 @@
                               },
                               {
                                 "binding_type": "view",
-                                "source_property_name": "(((('%.32s' * #player_name_sidebar) - ('%.29s' * #player_name_sidebar)) - ' '))",
+                                "source_property_name": "(((('%.32s' * #player_name_sidebar) - ' ') - (('%.29s' * #player_name_sidebar) - ' ')))",
                                 "target_property_name": "#jui_text"
                               }
                             ],
@@ -608,7 +617,8 @@
                             "offset": [
                               1,
                               1
-                            ]
+                            ],
+                            "layer": 2
                           }
                         }
                       ],
@@ -618,15 +628,17 @@
                         0,
                         0
                       ],
-                      "layer": 1
+                      "layer": 8
                     }
                   }
-                ]
+                ],
+                "layer": 10
               }
             }
           ],
           "anchor_from": "top_left",
-          "anchor_to": "top_left"
+          "anchor_to": "top_left",
+          "layer": 1
         }
       }
     ],

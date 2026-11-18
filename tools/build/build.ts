@@ -36,7 +36,7 @@ import {
   type RegistryGame,
 } from "@minecade/minigame-core/config";
 import { encodePng } from "../skins/png.ts";
-import { RENDERS, renderSkinSet } from "../skins/skin-set.ts";
+import { RENDERS, renderFace, renderSkinSet } from "../skins/skin-set.ts";
 import { readSkins } from "../skins/store.ts";
 import { writeArmorPack } from "../assets/armor.ts";
 import { catalogDir } from "../maps/paths.ts";
@@ -234,23 +234,34 @@ const MAX_HOLO_PICTURES = 256;
 const MAX_HOLO_PORTRAITS = 256;
 
 /**
- * Renders of every player skin the watcher saved (skins/<xuid>/), for the lobby pack, by texture
- * path, and the list the lobby looks them up in ("#skins"). A skin that can't be drawn is left
- * out, so its player keeps their letter badge.
+ * Renders of every player skin the watcher saved (skins/<xuid>/), by texture path: the lobby pack's
+ * (`files`) and the flat faces for games with playerFaces (`faces`), and the list the packs look
+ * them up in ("#skins"). A skin that can't be drawn is left out, so its player keeps their letter.
  */
-async function renderPlayerSkins(): Promise<{ list: PlayerSkin[]; files: Map<string, Buffer> }> {
+async function renderPlayerSkins(): Promise<{ list: PlayerSkin[]; files: Map<string, Buffer>; faces: Map<string, Buffer> }> {
   const list: PlayerSkin[] = [];
   const files = new Map<string, Buffer>();
+  const faces = new Map<string, Buffer>();
   for (const skin of await readSkins(join(root, "skins"))) {
     try {
       const renders = renderSkinSet(skin);
+      const face = encodePng(renderFace(skin));
       for (const kind of RENDERS) files.set(`${skinTexture(skin.meta.xuid, kind)}.png`, encodePng(renders[kind]));
+      faces.set(`${skinTexture(skin.meta.xuid, "face")}.png`, face);
       list.push({ name: skin.meta.name, key: skin.meta.xuid });
     } catch (error) {
       console.warn(`left out ${skin.meta.name}'s skin: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
-  return { list, files };
+  return { list, files, faces };
+}
+
+/** The players' flat faces, into the resource pack of a game with playerFaces (out of git, like every render). */
+async function addPlayerFaces(out: string): Promise<void> {
+  for (const [path, png] of playerSkins.faces) {
+    await mkdir(dirname(join(out, path)), { recursive: true });
+    await writeFile(join(out, path), png);
+  }
 }
 
 /**
@@ -413,7 +424,11 @@ for (const target of targets) {
   if (target.resourcePack) {
     const game = target.game;
     const maps = target.maps.map((map) => ({ id: map.id, config: map.card }));
-    const extra = target.id === "lobby" ? addGameIcons : game?.kits?.select ? (pack: string) => addGameKitPictures(pack, game, maps).then(() => {}) : undefined;
+    const steps: ((pack: string) => Promise<void>)[] = [];
+    if (target.id === "lobby") steps.push(addGameIcons);
+    else if (game?.kits?.select) steps.push((pack) => addGameKitPictures(pack, game, maps).then(() => {}));
+    if (game?.playerFaces) steps.push(addPlayerFaces);
+    const extra = steps.length > 0 ? async (pack: string) => { for (const step of steps) await step(pack); } : undefined;
     await buildResourcePack(join(target.dir, "resource_pack"), join(out, "resource_packs", `${target.id}_rp`), target.resourcePack, extra);
   }
   await addSharedPacks(out, target.privatePacks);
