@@ -358,6 +358,44 @@ price divided by 1.5, rounded down. Selling pays half the value, rounded down. I
 Draw and the Happening's free item all draw from one pool of items and dice, weighted by standing.
 The Shop's 3 random slots can hold Slow and Risk dice.
 
+### The dice file
+
+Every die is an entry in `games/blockparty/dice.json` (the user, 2026-11-18: one place to add dice
+and say how each looks and what it does); the game reads it (`dice.ts`), and `test/dice.test.ts`
+names any mistake in it. Add a die by adding an entry; its key is its id (lowercase letters, digits
+and underscores). Each die:
+
+| Setting | What it does |
+|---|---|
+| `name` | Its name, in the item panel and the roll's title |
+| `letters` | One or two characters standing in for its icon in the item panel |
+| `block` | The block floating over the roller's head while it's out, until it has a texture |
+| `texture` | Its model's picture, a path in a pack (`textures/blockparty/dice/golden`, no `.png`): 48 x 32, six 16 x 16 squares, faces 1 to 3 on the top row and 4 to 6 under them. With one, the die over the head is a spinning cube showing it (1 up, 6 down, the others round the sides, opposite faces adding up to 7 for a standard die) instead of the block. After adding or taking away a texture, run `npx tsx tools/blockparty/dice-pack.ts` (it lists the textures in the model's files; the tests fail until it has run) |
+| `panel` | What the item panel shows for it: `faces` (its six faces), `description` (its description in the faces' place) or `both` |
+| `description` | The text the panel shows under its name (needed unless `panel` is `faces`) |
+| `count` | How many times it's rolled at once, the moves added up (the Triple Die's 3; 1 if left out) |
+| `say` | A line from the user's dialogue file said in the dialogue box when it's rolled (fills: player, die, roll) |
+| `value` | What the Shop works from |
+| `test` | `true`: a die for the Tests only (the One Die) |
+| `faces` | Six faces, below |
+
+Each face:
+
+| Setting | What it does |
+|---|---|
+| `move` | The spaces it moves (0 to 99) |
+| `coins` | Coins for the roller, or taken from them with a minus (never below 0) |
+| `event` | What else happens: `again` (roll the same die once more and add it, at most 3 more), `everyone_coins` (everyone gets `amount` coins, 5 if left out), `coin_swap` (the roller's coins swap with a random other player's), `double_minigame` (the round's minigame pays double), `swap_places` (everyone's pieces swap spaces at random), `everyone_back` (everyone, the roller too, goes back `amount` spaces, 3 if left out) |
+| `amount` | The event's number |
+| `say` | A line said in the dialogue box when it comes up (fills: player, die, roll, coins, other: coin_swap's other player) |
+| `show` | What the item panel shows on it, up to two characters: its move if left out. For pictures on the faces, give each face slot in the item panel (the workshop JSON UI builder's blockparty_panel) an image whose source is `text:textures/blockparty/dice/faces/{{row.face1}}` (face2 to face6 likewise): a face showing `S+` then shows `textures/blockparty/dice/faces/S+.png` |
+
+A roll's coins, events and lines come right after the roll's title, face by face, before the walk.
+The lines the dice say now are the user's Dice texts (`dice.triple`, `dice.golden`,
+`dice.risk.zero`, `dice.cursed.lucky` and `.unlucky`, `dice.mystery.*`). Bots hold only the standard
+die until items and the Shop hand dice out; the Tests' Dice and items held picks any two of the
+file's dice.
+
 ## Items
 
 At most 3 held.
@@ -446,6 +484,14 @@ some spots showed) is settled with the board markup's spaces (pass 3).
 - **No timers:** the game waits for the player, at the roll and at every choice. If one player
   holds everyone up for a minute (at their turn, or by not voting), the others can vote to go on
   without them: their turn is skipped, or the vote goes ahead without theirs. They keep their place.
+- **The turn fade** (the user, 2026-11-18): on a player's turn everyone else fades away, so the
+  turn's player is alone on the board; they come back when the turn is over (`fade.ts`). Not on the
+  pre-game podium, and not while a minigame has the players (a Versus duel too). Whatever follows a
+  player (the Zombie Spawn's zombie) fades with them, and stays when it's that player's turn. The
+  board's NPCs (Chris at the Stars, the Referee) stay. A bot or the zombie eases out over 0.4 s (an
+  alpha on a color-masked blended material, as vanilla's warden pulses its spots) and then goes
+  invisible, which takes its shadow away; a player goes invisible at once (a fade would need
+  vanilla's player model copied into a pack and changed).
 - **Votes, by every player:** a jump during a cutscene votes to skip it, and it's skipped once
   everyone has voted. A minigame starts once everyone is ready. A late joiner comes in once
   everyone has said yes.

@@ -1,21 +1,11 @@
-// Block Party's dice and items (docs/plans/block-party.md, "Dice" and "Items"), as the board's
-// screens show them (docs/plans/block-party-ui.md, "Icons" and "The item panel"): each one's id, its
-// name, the letters that stand in for its icon until the user adds a picture, what it does, and for
-// a die its six faces. Pure, so the tests can check it.
+// Block Party's items (docs/plans/block-party.md, "Items"), as the board's screens show them
+// (docs/plans/block-party-ui.md, "Icons" and "The item panel"): each one's id, its name, the letters
+// that stand in for its icon until the user adds a picture, and what it does; and what a seat holds.
+// The dice are the dice file's (dice.ts, games/blockparty/dice.json). Pure, so the tests can check it.
 //
 // The names and what each does are the game's own words for now, like the old bar's; they can move
 // to the user's dialogue file when the user wants to word them there.
-
-interface DieSpec {
-  id: string;
-  name: string;
-  /** The icon's stand-in: one or two capital letters (the plan's "Icons"). */
-  letters: string;
-  /** The six faces the item panel shows (a die whose faces do more shows numbers for now). */
-  faces: readonly [number, number, number, number, number, number];
-  /** What a roll can come up: the faces, unless a die rolls something else. */
-  rolls: readonly number[];
-}
+import { STANDARD_DIE } from "./dice.ts";
 
 interface ItemSpec {
   id: string;
@@ -24,20 +14,6 @@ interface ItemSpec {
   /** What it does, under its name in the item panel. */
   what: string;
 }
-
-export const DICE = {
-  standard: { id: "standard", name: "Standard Die", letters: "D", faces: [1, 2, 3, 4, 5, 6], rolls: [1, 2, 3, 4, 5, 6] },
-  slow: { id: "slow", name: "Slow Die", letters: "SD", faces: [1, 2, 3, 1, 2, 3], rolls: [1, 2, 3] },
-  triple: { id: "triple", name: "Triple Die", letters: "TD", faces: [1, 2, 3, 4, 5, 6], rolls: [1, 2, 3, 4, 5, 6] },
-  risk: { id: "risk", name: "Risk Die", letters: "RD", faces: [0, 0, 1, 6, 7, 8], rolls: [0, 0, 1, 6, 7, 8] },
-  golden: { id: "golden", name: "Golden Die", letters: "GD", faces: [5, 6, 7, 8, 9, 10], rolls: [5, 6, 7, 8, 9, 10] },
-  mystery: { id: "mystery", name: "Mystery Die", letters: "MD", faces: [1, 2, 3, 4, 5, 6], rolls: [1, 2, 3, 4, 5, 6] },
-  cursed: { id: "cursed", name: "Cursed Die", letters: "CD", faces: [12, 1, 1, 1, 1, 1], rolls: [12, 1, 1, 1, 1, 1] },
-  // The Tests' die (the user asked): always 1, to step up to a space.
-  one: { id: "one", name: "One Die", letters: "1D", faces: [1, 1, 1, 1, 1, 1], rolls: [1] },
-} as const satisfies Record<string, DieSpec>;
-export type DieId = keyof typeof DICE;
-export type DieDef = (typeof DICE)[DieId];
 
 export const ITEMS = {
   stone_totem: { id: "stone_totem", name: "Stone Totem", letters: "ST", what: "Roll an extra die next turn." },
@@ -53,9 +29,9 @@ export const ITEMS = {
 export type ItemId = keyof typeof ITEMS;
 export type ItemDef = (typeof ITEMS)[ItemId];
 
-/** What a seat holds: the standard die always first, at most 2 special dice, at most 3 items. */
+/** What a seat holds: the standard die always first, at most 2 special dice (by their ids in the dice file), at most 3 items. */
 export interface Holdings {
-  dice: readonly DieId[];
+  dice: readonly string[];
   items: readonly ItemId[];
 }
 
@@ -63,6 +39,6 @@ export const MAX_SPECIAL_DICE = 2;
 export const MAX_ITEMS = 3;
 
 /** A seat's holdings with the standard die first and the limits kept. */
-export function holdings(special: readonly DieId[], items: readonly ItemId[]): Holdings {
-  return { dice: ["standard", ...special.filter((id) => id !== "standard").slice(0, MAX_SPECIAL_DICE)], items: items.slice(0, MAX_ITEMS) };
+export function holdings(special: readonly string[], items: readonly ItemId[]): Holdings {
+  return { dice: [STANDARD_DIE, ...special.filter((id) => id !== STANDARD_DIE).slice(0, MAX_SPECIAL_DICE)], items: items.slice(0, MAX_ITEMS) };
 }

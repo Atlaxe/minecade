@@ -227,7 +227,11 @@ export function menuRow(state: MenuState): string {
 
 // ---- The item panel -------------------------------------------------------------------------
 
-/** The panel's main row: chevrons (more than one to pick from), a die (its faces) or an item, its icon's letters, six faces, its name. */
+/**
+ * The panel's main row: chevrons (more than one to pick from), its faces showing (a die whose dice
+ * file entry shows them), its icon's letters, six faces (each what the dice file says it shows: its
+ * move, or up to two characters), its name.
+ */
 export const PANEL: Layout = {
   parts: [
     { kind: "code", word: "ki" },
@@ -244,7 +248,7 @@ export const PANEL: Layout = {
   ],
 };
 
-/** The panel's second row, an item's: what it does. */
+/** The panel's second row: what an item does, or a die's description (a die whose panel shows it). */
 export const PANEL_TEXT: Layout = {
   parts: [
     { kind: "code", word: "kj" },
@@ -252,13 +256,25 @@ export const PANEL_TEXT: Layout = {
   ],
 };
 
-export type PanelShow = { die: { name: string; letters: string; faces: readonly number[] } } | { item: { name: string; letters: string; what: string } };
+/** A die as the panel shows it (dice.ts's DieDef): its faces, its description, or both, as its panel says. */
+export interface PanelDie {
+  name: string;
+  letters: string;
+  panel: "faces" | "description" | "both";
+  description: string;
+  faces: readonly { show: string }[];
+}
+
+export type PanelShow = { die: PanelDie } | { item: { name: string; letters: string; what: string } };
 
 /** The panel's rows: the thing showing now, with chevrons when there's more than one to step through. */
 export function panelRows(show: PanelShow, chevrons: boolean): string[] {
   if ("die" in show) {
-    const faces = Object.fromEntries(show.die.faces.slice(0, 6).map((face, i) => [`face${i + 1}`, amount(face, 2)]));
-    return [encode(PANEL, { chevrons, die: true, icon: show.die.letters, ...faces, name: show.die.name })];
+    const { die } = show;
+    const faces = die.panel !== "description";
+    const shown = Object.fromEntries(die.faces.slice(0, 6).map((face, i) => [`face${i + 1}`, faces ? face.show : ""]));
+    const main = encode(PANEL, { chevrons, die: faces, icon: die.letters, ...shown, name: die.name });
+    return die.panel === "faces" || die.description === "" ? [main] : [main, encode(PANEL_TEXT, { what: die.description })];
   }
   return [encode(PANEL, { chevrons, die: false, icon: show.item.letters, name: show.item.name }), encode(PANEL_TEXT, { what: show.item.what })];
 }

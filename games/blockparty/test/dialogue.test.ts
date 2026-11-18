@@ -298,6 +298,34 @@ describe("the dialogue box", () => {
     expect(dialogue.skipping).toBe(false);
   });
 
+  it("counts the sneak button held down even when the player isn't sneaking (held on the board)", async () => {
+    const done = dialogue.say("announce.final", {}, true);
+    await ticks(2);
+    alex.buttonsHeld.add("Sneak");
+    await ticks(81);
+    alex.buttonsHeld.delete("Sneak");
+    expect(alex.isSneaking).toBe(false);
+    expect(rowsOfKind(ROW.skip)).toEqual(["1/2"]);
+    sam.buttonsHeld.add("Sneak");
+    await until(done, 85);
+    sam.buttonsHeld.delete("Sneak");
+  });
+
+  it("drops a question that's up once its cutscene is skipped", async () => {
+    const who: Who = whoOf(sam as never);
+    let asked: number | undefined = -1;
+    const scene = dialogue.cutscene(true, async () => {
+      asked = await dialogue.talk("pregame.rules", { player: "Sam" }, { to: who, buttons: ["Yes", "No"], back: 1 });
+    });
+    await ticks(3);
+    alex.buttonsHeld.add("Sneak");
+    sam.buttonsHeld.add("Sneak");
+    await until(scene, 90);
+    alex.buttonsHeld.delete("Sneak");
+    sam.buttonsHeld.delete("Sneak");
+    expect(asked).toBeUndefined();
+  });
+
   it("asks no question in a cutscene that's being skipped", async () => {
     const who: Who = whoOf(alex as never);
     let asked: number | undefined = -1;

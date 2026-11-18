@@ -4,7 +4,8 @@
     "description": {
       "identifier": "blockparty:bot",
       "materials": {
-        "default": "entity_alphatest"
+        "default": "entity_alphatest",
+        "fade": "guardian_ghost"
       },
       "textures": {
         "default": "textures/entity/steve"
@@ -13,7 +14,7 @@
         "default": "geometry.humanoid.custom"
       },
       "render_controllers": [
-        "controller.render.blockparty.bot"
+        "controller.render.blockparty.fading"
       ],
       "animations": {
         "humanoid_base_pose": "animation.humanoid.base_pose",
@@ -24,10 +25,12 @@
       "scripts": {
         "scale": "0.9375",
         "initialize": [
-          "v.gliding_speed_value = 1.0;"
+          "v.gliding_speed_value = 1.0;",
+          "v.fade = q.property('blockparty:faded') ? 0.0 : 1.0;"
         ],
         "pre_animation": [
-          "v.tcos0 = (math.cos(q.modified_distance_moved * 38.17) * q.modified_move_speed / v.gliding_speed_value) * 57.3;"
+          "v.tcos0 = (math.cos(q.modified_distance_moved * 38.17) * q.modified_move_speed / v.gliding_speed_value) * 57.3;",
+          "v.fade = math.clamp(v.fade + (q.property('blockparty:faded') ? -1.0 : 1.0) * q.delta_time * 2.5, 0.0, 1.0);"
         ],
         "animate": [
           "humanoid_base_pose",

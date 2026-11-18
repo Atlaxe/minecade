@@ -11,7 +11,8 @@
 //      Block Party is a test game or a server plays it alone, so Stars can be tried without a long
 //      game), and the camera goes to each Star's space (two in a 10-turn game, else one, on the
 //      board's opening spots) as a Chris drops in beside it. Then everyone is on Start.
-//   3. Each round, each in turn opens their dice, rolls by jumping, and their piece walks the number:
+//   3. Each round, each in turn opens their dice, rolls by jumping, the faces they threw do what the
+//      dice file says (dice.ts: coins, an event, a line), and their piece walks the number:
 //      at a branch they pick the way (a form), and passing or landing on a Star, Chris (beside it)
 //      offers it for its price (15, 20 or 25 coins by the game's length) in the dialogue box, after
 //      which it moves to a candidate far away and a Chris drops in there. Landing: Blue +3 coins, Red
@@ -32,11 +33,12 @@
 import { world, type Player } from "@minecraft/server";
 import { describeError, log, type Result, type Scope } from "@minecade/minigame-core";
 import { BLOCK_PARTY_BOARD } from "@minecade/minigame-core/config";
-import type { Space } from "./board.ts";
+import { back, type Space } from "./board.ts";
 import type { TalkOptions } from "./dialogue.ts";
 import type { Stage } from "./stage.ts";
 import { activeStars, addCoins, coinsFor, count, firstStars, leaders, nextStar, ranked, starDistance, starPrice, turnOrder, type Standing } from "./board-rules.ts";
 import type { Who } from "./bots.ts";
+import { thrown, type DieFace, type RollOutcome } from "./dice.ts";
 import { button, line, type Fills } from "./lines.ts";
 import { VERSUS_STAKE, battleBets, ffaCoins, firstDoubled, fits, formatFor, isDoubled, kindOf, pairingKey, pickMinigame, pickPairs, pickSolo, splitPot, teamCoins, type Format } from "./minigame-rules.ts";
 import type { Results, Settle } from "./minigame-runner.ts";
@@ -56,7 +58,7 @@ export interface LoopHost {
   /** The party leader's key (the player who started the game, or who stands in for them), if a player is here. */
   leader(): string | undefined;
   /** Opens their dice and resolves with what they roll (undefined if they leave first); `shot`: everyone watches through the roll camera. */
-  roll(who: Who, shot: boolean): Promise<number | undefined>;
+  roll(who: Who, shot: boolean): Promise<RollOutcome | undefined>;
   /** A choice: a player's form (closed: undefined), or a bot's moment of thought and then `botPick`. */
   choose(who: Who, title: string, body: string, options: readonly string[], botPick: number): Promise<number | undefined>;
   /**
@@ -133,6 +135,8 @@ export class BoardLoop {
   private readonly revealed = new Set<string>();
   /** Places show on the cards once the first results have been shown. */
   private placesKnown = false;
+  /** A die's face said the next minigame pays double (the dice file's double_minigame). */
+  private doubleNext = false;
   private readonly host: LoopHost;
 
   constructor(host: LoopHost) {
@@ -343,7 +347,7 @@ export class BoardLoop {
     // Turn order: everyone turns to the camera and rolls at once.
     stage.turnToCamera(seats);
     stage.podiumShot();
-    const rolls = await Promise.all(seats.map(async (who) => ({ name: who.key, roll: (await this.host.roll(who, false)) ?? 0 })));
+    const rolls = await Promise.all(seats.map(async (who) => ({ name: who.key, roll: (await this.host.roll(who, false))?.move ?? 0 })));
     this.order = turnOrder(rolls);
     this.host.changed();
 
@@ -449,8 +453,10 @@ export class BoardLoop {
     const rolled = await this.host.roll(who, true);
     if (rolled === undefined) return this.jump !== undefined;
     if (!who.body.isValid) return false;
-    this.host.everyone(line("turn.rolled", { player: who.name, roll: rolled }));
-    await this.move(who, rolled);
+    this.host.everyone(line("turn.rolled", { player: who.name, roll: rolled.move }));
+    await this.rolledFaces(who, rolled);
+    if (!who.body.isValid) return false;
+    await this.move(who, rolled.move);
     this.steering.delete(who.key);
     if (!who.body.isValid) return false;
     await this.land(who);
@@ -458,6 +464,67 @@ export class BoardLoop {
     this.host.stage.clear();
     await this.host.scope.wait(20);
     return false;
+  }
+
+  /**
+   * What the roll does besides moving (the dice file, dice.ts): the die's own line, then each face
+   * thrown in turn, its coins for the roller and its event, and its line. All before the walk.
+   */
+  private async rolledFaces(who: Who, outcome: RollOutcome): Promise<void> {
+    const die = outcome.die;
+    const fills = { player: who.name, die: die.name, roll: outcome.move };
+    if (die.say) await this.host.say(die.say, fills, false, who);
+    for (const face of thrown(outcome)) {
+      const seat = this.seats.get(who.key);
+      if (!seat || !who.body.isValid) return;
+      if (face.coins !== 0) seat.coins = addCoins(seat.coins, face.coins);
+      const other = face.event ? this.faceEvent(who, face) : undefined;
+      this.host.changed();
+      if (face.say) await this.host.say(face.say, { ...fills, coins: count(Math.abs(face.coins || face.amount), "coin"), other: other ?? "" }, false, who);
+    }
+  }
+
+  /**
+   * A face's event (dice.ts, FACE_EVENTS), for everyone seated: the name of the player it picked
+   * (Coin swap's), if any. Roll again was rolled already (rollDie).
+   */
+  private faceEvent(who: Who, face: DieFace): string | undefined {
+    const here = this.host.present().filter((other) => this.seats.has(other.key) && other.body.isValid && !this.host.pieces.isOff(other.body));
+    const spaces = this.host.spaces();
+    switch (face.event) {
+      case "everyone_coins":
+        for (const seat of this.seats.values()) seat.coins = addCoins(seat.coins, face.amount);
+        return undefined;
+      case "coin_swap": {
+        const others = here.filter((other) => other.key !== who.key);
+        const other = others[Math.floor(this.host.random() * others.length)];
+        const mine = this.seats.get(who.key);
+        const theirs = other ? this.seats.get(other.key) : undefined;
+        if (!other || !mine || !theirs) return undefined;
+        [mine.coins, theirs.coins] = [theirs.coins, mine.coins];
+        return other.name;
+      }
+      case "double_minigame":
+        this.doubleNext = true;
+        return undefined;
+      case "swap_places": {
+        // Everyone's spaces dealt out again at random (each to someone else's, when that can be).
+        const at = here.map((other) => this.host.pieces.spaceOf(other.body));
+        const dealt = [...at];
+        for (let i = dealt.length - 1; i > 0; i--) {
+          const j = Math.floor(this.host.random() * (i + 1));
+          [dealt[i], dealt[j]] = [dealt[j], dealt[i]];
+        }
+        if (dealt.length > 1 && dealt.every((space, i) => space === at[i])) dealt.push(dealt.shift()!);
+        here.forEach((other, i) => this.host.pieces.moveTo(other.body, dealt[i]));
+        return undefined;
+      }
+      case "everyone_back":
+        for (const other of here) this.host.pieces.moveTo(other.body, back(spaces, this.host.pieces.spaceOf(other.body), face.amount));
+        return undefined;
+      default:
+        return undefined;
+    }
   }
 
   /** Walks the piece `steps` spaces, stopping to pick a way at each branch and at each Star it passes. */
@@ -626,6 +693,9 @@ export class BoardLoop {
     this.played.set(def.id, (this.played.get(def.id) ?? 0) + 1);
     const sides = this.sidesFor(format, here);
     const doubled = isDoubled(this.round, this.host.turns);
+    // A die's face asked for this one to pay double (on top of the last rounds' doubling).
+    const bonus = this.doubleNext;
+    this.doubleNext = false;
     // The results start from before the Battle's pot is taken.
     const before = this.snapshot();
     // A Battle's pot: 5 coins from each, capped at what they have.
@@ -640,7 +710,7 @@ export class BoardLoop {
       this.host.everyone(line("minigame.battle.pot", { coins: count(pot, "coin") }));
       this.host.changed();
     }
-    await this.host.playMinigame(format, def, sides, pool, [], (outcome) => this.pay(format, def, sides, outcome, doubled, pot));
+    await this.host.playMinigame(format, def, sides, pool, [], (outcome) => this.pay(format, def, sides, outcome, doubled, pot, bonus));
     await this.showResults(before);
   }
 
@@ -666,7 +736,7 @@ export class BoardLoop {
    * and coins in chat, and the results over the arena, a short title (one name, a team, a tie: names
    * joined in a title ran off the screen) with each player's own place and coins under it.
    */
-  private pay(format: Format, def: MinigameDef, sides: readonly Who[][], outcome: Outcome, doubled: boolean, pot: number): Results {
+  private pay(format: Format, def: MinigameDef, sides: readonly Who[][], outcome: Outcome, doubled: boolean, pot: number, bonus = false): Results {
     const names = new Map(sides.flat().map((who) => [who.key, who.name]));
     const nameOf = (key: string) => names.get(key) ?? this.seats.get(key)?.name ?? key;
     let coins: Map<string, number>;
@@ -704,7 +774,7 @@ export class BoardLoop {
         return outcome.winner === undefined ? line("minigame.you.draw", { coins }) : side === outcome.winner ? line("minigame.you.won", { coins }) : line("minigame.you.lost", { coins });
       };
     }
-    const factor = doubled && format !== "battle" ? 2 : 1;
+    const factor = (doubled && format !== "battle" ? 2 : 1) * (bonus ? 2 : 1);
     const paid: string[] = [];
     const got = new Map<string, number>();
     for (const [key, amount] of coins) {

@@ -87,6 +87,17 @@ export function route(spaces: readonly Space[], from: number, steps: number): Sp
   return out;
 }
 
+/** The space `steps` back from `from`, against the links (where two ways meet, the first space leading in). */
+export function back(spaces: readonly Space[], from: number, steps: number): number {
+  let at = from;
+  for (let step = 0; step < steps; step++) {
+    const before = spaces.find((space) => space.next.includes(at));
+    if (!before) break;
+    at = before.index;
+  }
+  return at;
+}
+
 /** Where a piece stands on a space: one corner of its pad each, so four can share it (`corner` 0 to 3; -1 the middle). */
 export function standAt(space: Space, corner: number): Vec3 {
   if (corner < 0) return space.at;

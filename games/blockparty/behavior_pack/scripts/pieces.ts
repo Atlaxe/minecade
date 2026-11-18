@@ -130,6 +130,13 @@ export class Pieces {
     return vec(standAt(this.host.spaces()[state?.space ?? 0], state?.corner ?? 0));
   }
 
+  /** Puts the piece on space `index` at once (a die's face: everyone swapping places, going back). */
+  moveTo(body: Entity, index: number): void {
+    if (index < 0 || index >= this.host.spaces().length) return;
+    this.state(body).space = index;
+    this.place(body);
+  }
+
   /** Back to Start. */
   reset(body: Entity): void {
     this.state(body).space = 0;

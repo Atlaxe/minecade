@@ -21,9 +21,12 @@
 //   - A jump in a card's first moments doesn't count (it was meant for the one before).
 //   - A skippable line or cutscene shows the skip strip on the box's top border: "Hold [sneak] to
 //     skip" and how many players have voted, "1/3". Holding sneak for 4 seconds is a vote; once every
-//     player has voted, the rest of it is skipped. Bots don't vote and don't count.
+//     player has voted, the rest of it is skipped (a question in it too). Bots don't vote and don't
+//     count. Holding is read from the sneak button itself (inputInfo), not from whether the player
+//     sneaks: the user saw holding do nothing, since a player held on the board (their walking
+//     locked, a scripted camera) doesn't always sneak while the button is down.
 // A line the user hasn't written isn't shown (line() gives "").
-import { system, world, type Player } from "@minecraft/server";
+import { ButtonState, InputButton, system, world, type Player } from "@minecraft/server";
 import { describeError, log, type Scope } from "@minecade/minigame-core";
 import { thinkTicks, type Who } from "./bots.ts";
 import { boxRows, boxTitle, readTicks, rowsOf, sentences, Steering, type BoxMode } from "./dialogue-codes.ts";
@@ -325,7 +328,8 @@ export class Dialogue {
       return this.open === open ? open.selected : undefined;
     }
     while (open.picked === undefined) {
-      if (this.open !== open || this.host.scope.disposed) return undefined;
+      // Gone, or skipped with the rest of its cutscene.
+      if (this.done(open)) return undefined;
       if (who?.player && !who.player.isValid) return undefined;
       await this.host.scope.wait(1);
     }
@@ -374,12 +378,7 @@ export class Dialogue {
     for (const player of players) {
       const name = player.name;
       if (voting.votes.includes(name)) continue;
-      let sneaking = false;
-      try {
-        sneaking = player.isSneaking;
-      } catch {
-        // gone
-      }
+      const sneaking = holdsSneak(player);
       if (!sneaking) {
         this.holding.delete(name);
         continue;
@@ -426,5 +425,14 @@ export class Dialogue {
     } catch (error) {
       log.warn(`blockparty: drawing the dialogue box failed: ${describeError(error)}`);
     }
+  }
+}
+
+/** Whether the player has sneak held down now: the button itself, or sneaking (a sneak toggled on). */
+function holdsSneak(player: Player): boolean {
+  try {
+    return player.inputInfo.getButtonState(InputButton.Sneak) === ButtonState.Pressed || player.isSneaking;
+  } catch {
+    return false;
   }
 }

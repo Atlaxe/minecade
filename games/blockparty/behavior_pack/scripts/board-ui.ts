@@ -16,7 +16,8 @@ import type { Scope } from "@minecade/minigame-core";
 import { pushOf, sidewaysOf, stepThrough } from "./board-view.ts";
 import type { Who } from "./bots.ts";
 import { Steering } from "./dialogue-codes.ts";
-import { DICE, ITEMS, type DieDef, type Holdings, type ItemDef } from "./dice-items.ts";
+import { dieOf, type DieDef } from "./dice.ts";
+import { ITEMS, type Holdings, type ItemDef } from "./dice-items.ts";
 import { MENU_BUTTONS, SCREEN_WORDS, codesOf, menuRow, panelRows, type MenuButton } from "./screen-codes.ts";
 import type { GameSidebar } from "./sidebar-rows.ts";
 import { eventCue, playCue } from "./sounds.ts";
@@ -124,7 +125,7 @@ export class BoardMenu {
       this.draw();
       await this.host.scope.wait(BOT_DICE);
     }
-    const die = DICE[dice[turn?.dice ?? 0] ?? "standard"];
+    const die = dieOf(dice[turn?.dice ?? 0]);
     if (this.turn?.who.key === who.key) this.close(true);
     return die;
   }
@@ -201,7 +202,7 @@ export class BoardMenu {
 
   private die(turn: Turn): DieDef {
     const dice = this.held(turn).dice;
-    return DICE[dice[Math.min(turn.dice, dice.length - 1)] ?? "standard"];
+    return dieOf(dice[Math.min(turn.dice, dice.length - 1)]);
   }
 
   private item(turn: Turn): ItemDef | undefined {

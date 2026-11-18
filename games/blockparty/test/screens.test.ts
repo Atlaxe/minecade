@@ -2,7 +2,8 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { GAME_SIDEBAR_MARK } from "@minecade/minigame-core";
 import { boxRows, boxTitle } from "../behavior_pack/scripts/dialogue-codes.ts";
-import { DICE, ITEMS, holdings } from "../behavior_pack/scripts/dice-items.ts";
+import { DICE } from "../behavior_pack/scripts/dice.ts";
+import { ITEMS, holdings } from "../behavior_pack/scripts/dice-items.ts";
 import { CARD, MENU, PANEL, PANEL_TEXT, RESULT, SCREEN_LAYOUTS, SCREEN_WORDS, bytes, cardRows, codesOf, fieldsOf, initialOf, menuRow, panelRows, placeText, resultRows, wordsOf } from "../behavior_pack/scripts/screen-codes.ts";
 import { MAX_ROWS, compose } from "../behavior_pack/scripts/sidebar-rows.ts";
 
@@ -77,6 +78,24 @@ describe("Block Party's screen rows", () => {
     expect(cut(item[0], fields.icon)).toBe("V");
     expect(item[1]).toBe(`§k§j${ITEMS.villager.what}`);
     expect(fieldsOf(PANEL_TEXT).what).toEqual({ from: 6, length: 0 });
+  });
+
+  it("shows a die's faces, its description or both, as the dice file says, each face what it says it shows", () => {
+    const fields = fieldsOf(PANEL);
+    const die = { ...DICE.golden, panel: "faces" as const };
+    expect(panelRows({ die }, false)).toHaveLength(1);
+    // Its description instead: the faces are hidden (no die switch), and the second row says it.
+    const told = panelRows({ die: { ...die, panel: "description" } }, false);
+    expect(told).toHaveLength(2);
+    expect(told[0].startsWith("§k§i§a§0§f§0")).toBe(true);
+    expect(cut(told[0], fields.face1)).toBe("");
+    expect(told[1]).toBe(`§k§j${die.description}`);
+    const both = panelRows({ die: { ...die, panel: "both" } }, false);
+    expect(both[0].startsWith("§k§i§a§0§f§1")).toBe(true);
+    expect(both[1]).toBe(`§k§j${die.description}`);
+    // A face can show letters in place of its move.
+    const faces = die.faces.map((face, i) => (i === 0 ? { ...face, show: "S" } : face));
+    expect(cut(panelRows({ die: { ...die, faces } }, false)[0], fields.face1)).toBe("S");
   });
 
   it("writes the results' rows", () => {

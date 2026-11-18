@@ -1,15 +1,26 @@
 {
   "format_version": "1.8.0",
   "render_controllers": {
-    "controller.render.blockparty.bot": {
+    "controller.render.blockparty.fading": {
       "geometry": "Geometry.default",
       "materials": [
         {
-          "*": "Material.default"
+          "*": "v.fade < 1.0 ? Material.fade : Material.default"
         }
       ],
       "textures": [
         "Texture.default"
+      ],
+      "color": {
+        "r": 1,
+        "g": 1,
+        "b": 1,
+        "a": "v.fade"
+      },
+      "part_visibility": [
+        {
+          "*": "v.fade > 0.0"
+        }
       ]
     },
     "controller.render.blockparty.villager_base": {
@@ -115,6 +126,24 @@
       ],
       "textures": [
         "Texture.default"
+      ]
+    },
+    "controller.render.blockparty.die": {
+      "arrays": {
+        "textures": {
+          "Array.dice": [
+            "Texture.default"
+          ]
+        }
+      },
+      "geometry": "Geometry.default",
+      "materials": [
+        {
+          "*": "Material.default"
+        }
+      ],
+      "textures": [
+        "Array.dice[q.property('blockparty:die')]"
       ]
     }
   }

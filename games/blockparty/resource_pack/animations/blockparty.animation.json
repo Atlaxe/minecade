@@ -35,6 +35,16 @@
           "position": { "0.0": [0, "-3.0 - this", "-1.0 - this"], "0.3": [0, "-1.0 - this", "-2.0 - this"] }
         }
       }
+    },
+    "animation.blockparty.die_spin": {
+      "loop": true,
+      "bones": {
+        "die": {
+          "rotation": ["math.sin(q.life_time * 140) * 25", "q.life_time * 160", "math.cos(q.life_time * 110) * 20"],
+          "position": [0, "math.sin(q.life_time * 200)", 0],
+          "scale": "math.min(1, q.life_time * 5)"
+        }
+      }
     }
   }
 }

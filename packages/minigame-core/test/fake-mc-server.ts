@@ -367,7 +367,12 @@ export class FakePlayer {
   velocity: Vector3 = { x: 0, y: 0, z: 0 };
   /** The movement keys or stick: x left and right, y forward (1) and back (-1). */
   movementVector = { x: 0, y: 0 };
-  readonly inputInfo = { getMovementVector: () => ({ ...this.movementVector }) };
+  /** The buttons held down now (pressButton keeps it, as getButtonState reports it). */
+  readonly buttonsHeld = new Set<string>();
+  readonly inputInfo = {
+    getMovementVector: () => ({ ...this.movementVector }),
+    getButtonState: (button: string) => (this.buttonsHeld.has(button) ? ButtonState.Pressed : ButtonState.Released),
+  };
   /** The item ids whose cooldowns a script started for this player through an item, oldest first. */
   readonly cooldownsStarted: string[] = [];
   /** The cooldowns a script started for this player by category (startItemCooldown), oldest first. */
@@ -1302,6 +1307,8 @@ class FakeWorld {
 
   /** A player presses (or lets go of) a button, as playerButtonInput reports it to listeners whose options accept it. */
   pressButton(player: FakePlayer, button: string = InputButton.Jump, state: string = ButtonState.Pressed): void {
+    if (state === ButtonState.Pressed) player.buttonsHeld.add(button);
+    else player.buttonsHeld.delete(button);
     this.afterEvents.playerButtonInput.emit(
       { player, button, newButtonState: state },
       (options) => (options?.buttons === undefined || options.buttons.includes(button)) && (options?.state === undefined || options.state === state),

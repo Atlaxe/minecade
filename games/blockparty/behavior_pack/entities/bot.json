@@ -4,7 +4,14 @@
     "description": {
       "identifier": "blockparty:bot",
       "is_spawnable": false,
-      "is_summonable": true
+      "is_summonable": true,
+      "properties": {
+        "blockparty:faded": {
+          "type": "bool",
+          "default": false,
+          "client_sync": true
+        }
+      }
     },
     "component_groups": {
       "blockparty:floating": {

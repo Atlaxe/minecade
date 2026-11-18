@@ -1,0 +1,28 @@
+{
+  "format_version": "1.10.0",
+  "minecraft:client_entity": {
+    "description": {
+      "identifier": "blockparty:die",
+      "materials": {
+        "default": "entity_alphatest"
+      },
+      "textures": {
+        "default": "textures/blocks/concrete_white"
+      },
+      "geometry": {
+        "default": "geometry.blockparty.die"
+      },
+      "render_controllers": [
+        "controller.render.blockparty.die"
+      ],
+      "animations": {
+        "spin": "animation.blockparty.die_spin"
+      },
+      "scripts": {
+        "animate": [
+          "spin"
+        ]
+      }
+    }
+  }
+}

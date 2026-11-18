@@ -1,0 +1,100 @@
+{
+  "about": "Block Party's dice. Add a die by adding an entry; docs/plans/block-party.md, \"The dice file\", says what each setting does. After changing a texture, run: npx tsx tools/blockparty/dice-pack.ts",
+  "dice": {
+    "standard": {
+      "name": "Standard Die",
+      "letters": "D",
+      "block": "minecraft:white_concrete",
+      "panel": "faces",
+      "description": "Moves 1 to 6.",
+      "faces": [{ "move": 1 }, { "move": 2 }, { "move": 3 }, { "move": 4 }, { "move": 5 }, { "move": 6 }]
+    },
+    "slow": {
+      "name": "Slow Die",
+      "letters": "SD",
+      "block": "minecraft:light_blue_concrete",
+      "panel": "faces",
+      "description": "Moves 1 to 3, to land just where you want.",
+      "value": 3,
+      "faces": [{ "move": 1 }, { "move": 2 }, { "move": 3 }, { "move": 1 }, { "move": 2 }, { "move": 3 }]
+    },
+    "triple": {
+      "name": "Triple Die",
+      "letters": "TD",
+      "block": "minecraft:iron_block",
+      "panel": "both",
+      "description": "Rolls three times and moves the total.",
+      "count": 3,
+      "say": "dice.triple",
+      "value": 10,
+      "faces": [{ "move": 1 }, { "move": 2 }, { "move": 3 }, { "move": 4 }, { "move": 5 }, { "move": 6 }]
+    },
+    "risk": {
+      "name": "Risk Die",
+      "letters": "RD",
+      "block": "minecraft:red_concrete",
+      "panel": "faces",
+      "description": "Nothing, a little, or a lot.",
+      "value": 6,
+      "faces": [
+        { "move": 0, "say": "dice.risk.zero" },
+        { "move": 0, "say": "dice.risk.zero" },
+        { "move": 1 },
+        { "move": 6 },
+        { "move": 7 },
+        { "move": 8 }
+      ]
+    },
+    "golden": {
+      "name": "Golden Die",
+      "letters": "GD",
+      "block": "minecraft:gold_block",
+      "panel": "faces",
+      "description": "Moves 5 to 10.",
+      "value": 13,
+      "say": "dice.golden",
+      "faces": [{ "move": 5 }, { "move": 6 }, { "move": 7 }, { "move": 8 }, { "move": 9 }, { "move": 10 }]
+    },
+    "mystery": {
+      "name": "Mystery Die",
+      "letters": "MD",
+      "block": "minecraft:purple_concrete",
+      "panel": "both",
+      "description": "Every face also shakes up the board.",
+      "value": 12,
+      "faces": [
+        { "move": 1, "event": "swap_places", "say": "dice.mystery.swap" },
+        { "move": 2, "event": "coin_swap", "say": "dice.mystery.coin-swap" },
+        { "move": 3, "event": "double_minigame", "say": "dice.mystery.double" },
+        { "move": 4, "event": "everyone_coins", "amount": 5, "say": "dice.mystery.coins" },
+        { "move": 5, "event": "everyone_back", "amount": 3, "say": "dice.mystery.back" },
+        { "move": 6, "event": "again", "say": "dice.mystery.again" }
+      ]
+    },
+    "cursed": {
+      "name": "Cursed Die",
+      "letters": "CD",
+      "block": "minecraft:black_concrete",
+      "panel": "both",
+      "description": "12 and 10 coins, or 1 and lose 3 coins.",
+      "value": 10,
+      "faces": [
+        { "move": 12, "coins": 10, "say": "dice.cursed.lucky" },
+        { "move": 1, "coins": -3, "say": "dice.cursed.unlucky" },
+        { "move": 1, "coins": -3, "say": "dice.cursed.unlucky" },
+        { "move": 1, "coins": -3, "say": "dice.cursed.unlucky" },
+        { "move": 1, "coins": -3, "say": "dice.cursed.unlucky" },
+        { "move": 1, "coins": -3, "say": "dice.cursed.unlucky" }
+      ]
+    },
+    "one": {
+      "name": "One Die",
+      "letters": "1D",
+      "block": "minecraft:light_blue_concrete",
+      "panel": "faces",
+      "description": "Always 1, to step up to a space.",
+      "test": true,
+      "faces": [{ "move": 1 }, { "move": 1 }, { "move": 1 }, { "move": 1 }, { "move": 1 }, { "move": 1 }]
+    }
+  }
+}

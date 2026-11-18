@@ -278,7 +278,10 @@ The user, 2026-11-18 (changing their mind about heads): `Hold [sneak] to skip 1/
 button for the viewer's way of playing (the Shift key, the controller's B or circle, the touch
 sneak button: the client picks, as for the jump icon), then how many of the players here have
 voted, as a fraction: no names, no heads, no percentage. A skip vote is holding sneak for 4
-seconds; bots don't vote and don't count. A Ready in the minigame tutorial would count the same
+seconds; bots don't vote and don't count. Holding is read from the sneak button itself
+(`inputInfo.getButtonState`), not from whether the player sneaks: the user saw holding do nothing
+(2026-11-18), as a player held on the board doesn't always sneak while the button is down. Skipped,
+a question in the cutscene goes too. A Ready in the minigame tutorial would count the same
 way. Every skippable cutscene (the
 intro), every skippable line spoken to everyone, and every Ready uses it. While the dialogue box is
 up, the Skip strip is a tab on its top border at the right, like the speaker's name at the left
@@ -575,8 +578,10 @@ top 15 sidebar rows and the screens share them with the dialogue box:
   the game writes them. The labels Dice block, Items, Board and Results are part of each design.
 - **Previews:** `ui-previews.json` has each screen's states (the cards, the menu with dice or an
   item, Board's view, the results, the cards with the dialogue box), for the tool's Game preview.
-- **Who holds what:** the spike's Tests (Dice and items held) still pick a player's dice and items
-  (`dice-items.ts` names every die and item, its letters and its faces); bots hold the standard die.
+- **Who holds what:** the spike's Tests (Dice and items held) still pick a player's dice (any two
+  from the dice file, `games/blockparty/dice.json`: each die's letters, faces and what the panel
+  shows, block-party.md "The dice file") and items (`dice-items.ts` names every item and its
+  letters); bots hold the standard die.
   Using an item says so and does nothing yet.
 - **Sound events** (the user's sound map, silent until mapped): `menu.step`, `menu.select`,
   `menu.back`, `menu.disabled`, `panel.step`, `panel.use`, `panel.switch-die`, `results.open`,
