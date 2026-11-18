@@ -79,7 +79,7 @@ describe("LobbyController: starting a game", () => {
     const t = setup();
     startSumo(t, { teams: "random" });
     expect(t.sent).toEqual([
-      { t: "start_game", requestId: "r1", game: "sumo", map: "arena_1", players: ["Steve", "Alex"], settings: { teams: "random" } },
+      { t: "start_game", requestId: "r1", game: "sumo", map: "arena_1", players: ["Steve", "Alex"], settings: { leader: "Steve", teams: "random" } },
     ]);
     expect(t.notesTo("all")).toEqual(["Steve is starting Sumo on Arena 1."]);
     // The hologram's countdown screen, while the server boots (no titles on players' screens).
@@ -160,7 +160,7 @@ describe("LobbyController: starting a game", () => {
     t.lobby.cancelPrepare(); // the start took it over
     expect(t.sent).toEqual([
       { t: "prepare_game", game: "sumo", map: "arena_2" },
-      { t: "start_game", requestId: "r1", game: "sumo", map: "arena_2", players: ["Steve", "Alex"], settings: {} },
+      { t: "start_game", requestId: "r1", game: "sumo", map: "arena_2", players: ["Steve", "Alex"], settings: { leader: "Steve" } },
     ]);
     expect(t.notesTo("all")).toEqual(["Steve is starting Sumo on a random map."]);
     t.lobby.prepare("sumo", "arena_1"); // a game is starting: nothing more boots ahead
@@ -328,7 +328,7 @@ describe("LobbyController: team picks", () => {
   it("lets everyone pick a team while the game server boots, then sends the picks before the players", async () => {
     const t = setup(trio, { registry: teamGame });
     expect(t.lobby.request("Steve", "paint", "yard", { teams: "pick" })).toBeUndefined();
-    expect(t.sent).toEqual([{ t: "start_game", requestId: "r1", game: "paint", map: "yard", players: trio, settings: { teams: "pick" } }]);
+    expect(t.sent).toEqual([{ t: "start_game", requestId: "r1", game: "paint", map: "yard", players: trio, settings: { leader: "Steve", teams: "pick" } }]);
     expect(t.teamForms).toEqual(trio);
     t.say({ t: "game_starting", requestId: "r1", sessionId: "s1", game: "paint", map: "yard" });
     t.lobby.pickTeam("Steve", "blue");
@@ -358,7 +358,7 @@ describe("LobbyController: team picks", () => {
   it("deals two players' teams at random, with no team form", () => {
     const t = setup(["Steve", "Alex"], { registry: teamGame });
     t.lobby.request("Steve", "paint", "yard", { teams: "pick" });
-    expect(t.sent).toEqual([{ t: "start_game", requestId: "r1", game: "paint", map: "yard", players: ["Steve", "Alex"], settings: { teams: "random" } }]);
+    expect(t.sent).toEqual([{ t: "start_game", requestId: "r1", game: "paint", map: "yard", players: ["Steve", "Alex"], settings: { leader: "Steve", teams: "random" } }]);
     expect(t.teamForms).toEqual([]);
     expect(t.countdowns).toEqual([{ game: "Paint", map: "Yard" }]);
     t.say(ready);

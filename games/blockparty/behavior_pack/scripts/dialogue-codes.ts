@@ -1,9 +1,9 @@
 // The dialogue box's codes (docs/plans/block-party-ui.md, "The dialogue box"), pure so the tests can
 // check what goes on screen. The box rides the scoreboard sidebar, which everyone sees alike: its
 // title is the core's GAME_SIDEBAR_MARK (the core pack hides the vanilla sidebar for it), who the box
-// is for, and the speaker's name; its participants are the box's rows, top to bottom, each starting
-// with a code that says what it is: the sentence on show, a button (the selected one marked), who
-// has jumped, the jump button's prompt, or the skip strip. Codes are formatting codes, which never
+// is for, and the speaker's name in their color; its participants are the box's rows, top to
+// bottom, each starting with a code that says what it is: the speaker's face, the line on show, a
+// button (the selected one marked), the jump button's prompt, or the skip strip. Codes are formatting codes, which never
 // render, so each row shows as its text. Each thing the box draws tests for one code (the workshop's
 // JSON UI tool shows a block when its row "has a word"), so the selected button carries the
 // button's code too. The pack's ui/jui_blockparty_dialogue.json (built by that tool from its
@@ -18,57 +18,68 @@ export const BOX_ONE = "§k§1";
 export const BOX_EVERYONE = "§k§2";
 /** The title has the speaker's name after it (a Game line has no name tab). */
 export const NAMED = "§k§8";
+/** A name color: one color code, then bold or italic (the workshop's characters.json). */
+const NAME_COLOR = /^§[0-9a-jmnpqstuv](?:§[lo]){0,2}$/;
+/** A face's name: the pack's textures/blockparty/faces/<face> (Block Party's private faces pack). */
+const FACE = /^[a-z0-9_]+$/;
 
 /**
- * What each row is: a row of the sentence on show, a button, the selected button (a button that's
- * also marked selected), the skip strip, who has jumped (a line to everyone; one row of names), the jump
- * button's prompt (with the name of the one it's waiting for, on a line to one player).
+ * What each row is: a row of the line on show, a button, the selected button (a button that's also
+ * marked selected), the skip strip (its text is the votes, "1/3"), the jump button's prompt (its
+ * text is empty: only the leader goes on, so it names nobody), and the speaker's face (its text is
+ * the face's name, which the UI cuts out at FACE_AT to name the picture). §k§5 was who had jumped,
+ * before only the leader went on.
  */
 export const ROW = {
   words: "§k§1",
   button: "§k§2",
   selected: "§k§2§k§3",
   skip: "§k§4",
-  jumped: "§k§5",
   prompt: "§k§6",
+  face: "§k§7",
 } as const;
+/** Where a face row's face name starts, in bytes (the UI's {{row.face}} field): its code, its index and §r, 4 codes of 3 bytes. */
+export const FACE_AT = 12;
 /** The code a selected button has besides the button's own. */
 export const SELECTED = "§k§3";
 
 /** Each row's place among its kind, as a code, so two rows with the same text stay two rows. */
 const INDEX = "0123456789abcdef";
 
-/** The most of a sentence one row holds (a longer one goes on in the next row). */
+/** The most of a line one row holds (a longer one goes on in the next row). */
 export const ROW_CHARS = 110;
 
 export type BoxMode = "one" | "everyone";
 
-/** The sidebar's title: the marks, who the box is for, and the speaker's name. */
-export function boxTitle(mode: BoxMode, name: string): string {
-  return `${GAME_SIDEBAR_MARK}${BOX_MARK}${mode === "one" ? BOX_ONE : BOX_EVERYONE}${name ? NAMED : ""}§r${name}`;
+/**
+ * The sidebar's title: the marks, who the box is for, and the speaker's name in their color (a name
+ * color that isn't one is left out, so it can't be read as the title's codes).
+ */
+export function boxTitle(mode: BoxMode, name: string, color = ""): string {
+  return `${GAME_SIDEBAR_MARK}${BOX_MARK}${mode === "one" ? BOX_ONE : BOX_EVERYONE}${name ? NAMED : ""}§r${name && NAME_COLOR.test(color) ? color : ""}${name}`;
 }
 
 export interface BoxRows {
-  /** The sentence on show, a row each. */
+  /** The speaker's face (its name: textures/blockparty/faces/<face>), if they have one. */
+  face?: string;
+  /** The line on show, a row each. */
   words: readonly string[];
-  /** The buttons, at the line's last sentence. */
+  /** The buttons, if the line asks something. */
   buttons?: readonly string[];
   /** Which button is picked now. */
   selected?: number;
-  /** The skip strip, while everyone can vote to skip. */
+  /** The skip strip, while everyone can vote to skip: the votes ("1/3"). */
   skip?: string;
-  /** Who has jumped to go on (a line to everyone), in order: one row (the client shows only 15 sidebar rows, and others share them). */
-  jumped?: readonly string[];
-  /** The jump button's prompt, while a jump goes on: its text is who it waits for ("" for everyone). */
+  /** The jump button's prompt, while a jump goes on (its text: "", it names nobody). */
   prompt?: string;
 }
 
 /** The sidebar's rows, top to bottom. */
 export function boxRows(rows: BoxRows): string[] {
   const row = (code: string, i: number, text: string) => `${code}§${INDEX[i % INDEX.length]}§r${safe(text)}`;
-  const out = rows.words.map((text, i) => row(ROW.words, i, text));
+  const out = rows.face && FACE.test(rows.face) ? [row(ROW.face, 0, rows.face)] : [];
+  rows.words.forEach((text, i) => out.push(row(ROW.words, i, text)));
   (rows.buttons ?? []).forEach((text, i) => out.push(row(i === rows.selected ? ROW.selected : ROW.button, i, text)));
-  if (rows.jumped && rows.jumped.length > 0) out.push(row(ROW.jumped, 0, rows.jumped.join("  ")));
   if (rows.prompt !== undefined) out.push(row(ROW.prompt, 0, rows.prompt));
   if (rows.skip) out.push(row(ROW.skip, 0, rows.skip));
   return out;
@@ -117,7 +128,8 @@ function abbreviation(text: string, at: number): boolean {
 }
 
 /**
- * A line's sentences, each one voice in the dialogue box: split after ., ! or ? (and a closing quote
+ * A line's sentences, each one sound of the speaker's voice while the line is in the dialogue box
+ * (the box shows the whole line at once): split after ., ! or ? (and a closing quote
  * or bracket) where a space follows, and at line breaks; not after an initial or a title ("Chris P.
  * Bacon", "Dr. Oink"). A color that runs on carries into the next sentence.
  */
@@ -155,7 +167,7 @@ export function sentences(text: string): string[] {
   return out;
 }
 
-/** A sentence in rows of at most ROW_CHARS that show, cut at spaces. */
+/** A line in rows of at most ROW_CHARS that show, cut at spaces. */
 export function rowsOf(sentence: string): string[] {
   const rows: string[] = [];
   let rest = sentence;
@@ -179,7 +191,7 @@ export function rowsOf(sentence: string): string[] {
   return rows;
 }
 
-/** Ticks to read a sentence: a moment, and a little for each letter (how long a bot takes before it goes on). */
+/** Ticks to read a sentence: a moment, and a little for each letter (the time between voice sounds, and how long a line waits with no player to go on). */
 export function readTicks(sentence: string): number {
   return Math.round(Math.min(100, Math.max(24, 16 + visible(sentence).length * 1.1)));
 }

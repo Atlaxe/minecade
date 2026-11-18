@@ -14,5 +14,11 @@ ships as it is.
   private block-party-players project in the workshop folder beside this repo
   (`..\workshop\block-party-players`: `tools\build.py`, then `tools\install.py`), which copies the
   file out of the installed game, so it stays out of git.
+- `faces/`: the dialogue box's character faces (`textures/blockparty/faces/<face>.png`), from the
+  workshop's dialogue tool (`..\workshop\dialogue`: `characters.json` names each character's face,
+  `faces\` holds the pictures, starters cut from the game's own mob textures by
+  `tools\make_faces.py`), installed by its `tools\install-faces.mjs`.
+- `sounds/`: the user's own sounds, from the same tool's Sounds view, installed by its
+  `tools\install-sounds.mjs`.
 
 Run the network's build (Start in the Panel) after installing to put a change on the server.

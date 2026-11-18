@@ -10,6 +10,9 @@ a component of the workshop's JSON UI builder ("The board's screens, as built");
 are gone. Then (2026-11-18, the user's look at the controls and their camera ask): no jumping on the
 board but the roll's, the item panel on A and D only, and the cameras ("Cameras": the board view,
 the turn shot, other shots handing the camera back, and the minigame announcement's camera moves).
+Then (2026-11-18, the user's look at the dialogue box): one card of the dialogue tool's scenes per
+box instead of a sentence, only the party leader goes on, the speaker's face and name color, and
+the skip strip as "Hold [sneak] to skip" with an x / y count ("The dialogue box", "Skip").
 The rest isn't built yet. It is the content of pass 10 in `block-party.md` ("Refinement: cameras and UI"), and
 it replaces that plan's hotbar: the board can't use the hotbar for its controls, because minigames
 need the hotbar for their own items. Everything the board shows moves to JSON UI the game draws
@@ -49,7 +52,7 @@ cutscene and camera, each line's actions, and the sound map ("The dialogue tool'
 | The Tests menu on a compass in the bar (with the spike's walk settings) | `/blockparty:tests`, and settings out of the HUD (`/blockparty:settings`) |
 | Results as titles and chat | The results screen |
 | The roulette in titles, the loading screen's fade | The minigame announcement |
-| Skip and ready counted as x / y | Skip and Ready with the voters' heads |
+| Skip and ready counted as x / y | The skip strip: Hold [sneak] to skip, and x / y (the user, 2026-11-18: no heads, no names) |
 
 ## Everyone sees the same
 
@@ -225,21 +228,34 @@ player.
 ## The dialogue box (bottom middle)
 
 - A box with an outline and a semi-transparent background, at the bottom middle of the screen.
-- **The speaker's name** sits on the top border, on a background of its own, so the outline looks
-  broken where the name is.
+- **The speaker's face and name** sit on the top border, on a background of their own, so the
+  outline looks broken where they are (the user, 2026-11-18): the face a picture left of the name,
+  the name in the character's color. Both are set per character in the workshop's dialogue tool,
+  `characters.json` (a § color code, then bold or italic if wanted, and a face picture), installed
+  into `dialogue.json`'s `characters` (lines.ts `look()`). The faces are Block Party's private faces
+  pack (`private_packs/faces/`, `textures/blockparty/faces/<face>`: starters cut from the game's own
+  mob textures, so they stay out of git); the box shows a face row (`§k§7`) whose text names the
+  picture, cut out of the row at byte 12.
 - **Two columns inside** (the user's "60/30": the words about two thirds of the width, the buttons
   the rest):
   - **The words:** what the NPC says, with color codes and inline icons ("Icons").
   - **The buttons:** a column on the right (Next, Buy, Leave, ...), steered with W and S, picked
     with jump; the selected one has the highlight color, the same as a card on its player's turn.
-- **Spoken to everyone** (Chris to all players, not one): the right column names who has jumped,
-  and where the moment allows it, players can vote to skip with the skip strip ("Skip and Ready").
-- **One sentence at a time** (the user, 2026-11-17): nothing said before stays in the box. A jump
-  goes on to the next sentence (or the next line, or block in the dialogue tool's scenes): every
-  player's jump for a line to everyone (bots don't count), the one it's said to for a question.
-  The jump button's icon sits at the bottom right of the right column, the viewer's own (the Space
-  key, the controller's A or cross, the touch jump: the client knows its own input), with the name
-  of the one it waits for on a question. No Next button and no timer.
+- **Spoken to everyone** (Chris to all players, not one): the words take the whole width (no right
+  column), and where the moment allows it, players can vote to skip with the skip strip ("Skip and
+  Ready").
+- **One card at a time** (the user, 2026-11-18, replacing 2026-11-17's one sentence at a time):
+  each line as the user built it in the dialogue tool's scene builder is one box, all its words at
+  once; nothing said before stays. While it's up the speaker's voice plays once per sentence, one
+  after another.
+- **Only the party leader goes on** (the user, 2026-11-18): the player who started the game from the
+  lobby (the lobby sends them as the start's `leader` setting), or, while they're away, the first
+  player the lobby sent who's here, else the first player here. Their jump shows the next card;
+  nobody else's does, and nobody's name shows (no "who has jumped"). A question to one player (the
+  Star, Versus) is still theirs to answer: they steer its buttons. The pre-game's rules question
+  goes to the leader. The jump button's icon sits at the bottom right, the viewer's own (the Space
+  key, the controller's A or cross, the touch jump: the client knows its own input), naming nobody.
+  No Next button and no timer; with no player at all a card waits the time it takes to read.
 - A line can play a sound ("Sounds").
 - **The words come from the dialogue file,** with how each shows: its delivery ("Dialogue box" to
   one player, "Dialogue box, everyone", "Dialogue button" for its buttons), whether it can be
@@ -250,11 +266,12 @@ player.
 
 ## Skip and Ready (bottom right)
 
-Replaces the x / y count: the word, then the heads of the players who've voted, `Skip [head]
-[head]`, or `Ready [head] [head]` in the minigame tutorial. A skip vote is holding sneak for 4
-seconds (the user, 2026-11-17: jump goes on to the next sentence), the strip showing how far along
-anyone holding is. Beside it, what to press for the viewer's
-device where the game can tell, otherwise the word ("Button prompts"). Every skippable cutscene (the
+The user, 2026-11-18 (changing their mind about heads): `Hold [sneak] to skip 1/3`, the sneak
+button for the viewer's way of playing (the Shift key, the controller's B or circle, the touch
+sneak button: the client picks, as for the jump icon), then how many of the players here have
+voted, as a fraction: no names, no heads, no percentage. A skip vote is holding sneak for 4
+seconds; bots don't vote and don't count. A Ready in the minigame tutorial would count the same
+way. Every skippable cutscene (the
 intro), every skippable line spoken to everyone, and every Ready uses it. While the dialogue box is
 up, the Skip strip is a tab on its top border at the right, like the speaker's name at the left
 (2026-11-17: bottom right, it overlapped the box on 16:9 screens).

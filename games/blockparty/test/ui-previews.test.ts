@@ -20,13 +20,16 @@ import { compose, type PartId, type SidebarPart } from "../behavior_pack/scripts
 interface Box {
   mode: BoxMode;
   name: string;
-  /** The sentence on show (the box shows one at a time). */
+  /** The speaker's name color and face, as the workshop's characters.json sets them (lines.ts look()). */
+  color?: string;
+  face?: string;
+  /** The line on show (the box shows one card, the whole line, at a time). */
   text: string;
   buttons?: string[];
   selected?: number;
+  /** The skip strip's votes ("1/3"). */
   skip?: string;
-  jumped?: string[];
-  /** The jump prompt's text: who it waits for ("" for everyone); none, no prompt. */
+  /** The jump prompt (its text is always ""); none, no prompt. */
   prompt?: string;
 }
 
@@ -36,8 +39,8 @@ const box = (preview: string, about: string, sample: Box) => ({
   hud: {
     actionbar: HUD_MARK,
     sidebar: {
-      title: boxTitle(sample.mode, sample.name),
-      lines: boxRows({ words: rowsOf(sample.text), buttons: sample.buttons, selected: sample.selected ?? 0, skip: sample.skip, jumped: sample.jumped, prompt: sample.prompt }),
+      title: boxTitle(sample.mode, sample.name, sample.color),
+      lines: boxRows({ face: sample.face, words: rowsOf(sample.text), buttons: sample.buttons, selected: sample.selected ?? 0, skip: sample.skip, prompt: sample.prompt }),
     },
   },
 });
@@ -75,32 +78,46 @@ const finalResults = resultFrames(
 const PREVIEWS = {
   about: "Block Party's HUD states for the workshop's JSON UI tool. Written by games/blockparty/test/ui-previews.test.ts (run it with WRITE_PREVIEWS=1 after changing it); don't edit by hand.",
   previews: [
-    box("Dialogue box: Chris to everyone", "A sentence said to everyone: the words on the left, who has jumped in the right column, the jump prompt at its bottom right.", {
+    box("Dialogue box: Chris to everyone", "A line said to everyone, whole: Chris's face and pink name on the border, the words (colors and all) on the left, the jump prompt at the bottom right (only the leader's jump goes on).", {
       mode: "everyone",
       name: "Chris",
-      text: "Hello travelers, and welcome!",
-      jumped: ["Alex"],
+      color: "§d",
+      face: "chris",
+      text: "Welcome to Block Party! I'm §dChris P. Bacon§r, and it's time to start a new adventure!",
       prompt: "",
     }),
-    box("Dialogue box: Chris asks one player", "The last sentence of a question to one player: its buttons in the right column, the first selected, the prompt naming who it waits for.", {
+    box("Dialogue box: Chris asks one player", "A question to one player: the line and its buttons in the right column at once, the first selected, and the prompt.", {
       mode: "one",
       name: "Chris",
-      text: "Want a rundown of the rules before we start?",
+      color: "§d",
+      face: "chris",
+      text: "Would you like me to oink-splain the rules?",
       buttons: ["Yes, please!", "No, let's play!"],
-      prompt: "Alex",
-    }),
-    box("Dialogue box: a long sentence", "A sentence long enough to wrap over two rows.", {
-      mode: "everyone",
-      name: "Chris",
-      text: "Collect the most Stars by the end of the game, because coins buy Stars and Stars win, and nobody remembers who had the most coins at the end.",
       prompt: "",
     }),
-    box("Dialogue box: the skip strip", "A skippable line: the strip on the top border names who has held sneak to skip, and how far along anyone holding it is.", {
+    box("Dialogue box: a long line", "A line long enough to wrap over two rows.", {
       mode: "everyone",
       name: "Chris",
-      text: "Okay! We're playing 15 rounds tonight.",
-      skip: "Hold sneak to skip  Alex  Sam 50%",
-      jumped: ["Sam"],
+      color: "§d",
+      face: "chris",
+      text: "Here's the deal: collect the most §eStars §rby the end of the game. §gCoins §rbuy §eStars§r, and Stars win. Nobody remembers who had the most coins.",
+      prompt: "",
+    }),
+    box("Dialogue box: the skip strip", "A skippable line: the strip on the top border, Hold, the sneak button for the player's way of playing, to skip, and how many players have voted.", {
+      mode: "everyone",
+      name: "Chris",
+      color: "§d",
+      face: "chris",
+      text: "Okay! We're playing §615§r rounds tonight. Whoever has the most Stars at the end wins!",
+      skip: "1/3",
+      prompt: "",
+    }),
+    box("Dialogue box: the Witch", "Another character: her face and her color from characters.json.", {
+      mode: "everyone",
+      name: "Witch",
+      color: "§5",
+      face: "witch",
+      text: "Heh heh heh... Chance Time! Pick a potion, any potion.",
       prompt: "",
     }),
     box("Dialogue box: the game's own line", "A line with no speaker: no name tab.", {
@@ -120,7 +137,7 @@ const PREVIEWS = {
     screens("Results: the end of a minigame", "The results screen's last step: the new order, 1st with its border.", { results: { title: codesOf(SCREEN_WORDS.results), rows: resultRows(finalResults) } }),
     screens("Board: cards with the dialogue box", "Chris talking while the cards are up: both on the one sidebar.", {
       cards: cards(),
-      dialogue: { title: boxTitle("everyone", "Chris"), rows: boxRows({ words: rowsOf("Sam is in the lead! Who will catch up?"), jumped: ["Alex"], prompt: "" }) },
+      dialogue: { title: boxTitle("everyone", "Chris", "§d"), rows: boxRows({ face: "chris", words: rowsOf("Sam is in the lead! Who will catch up?"), prompt: "" }) },
     }),
   ],
 };

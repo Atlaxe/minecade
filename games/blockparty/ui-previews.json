@@ -3,14 +3,14 @@
   "previews": [
     {
       "name": "Dialogue box: Chris to everyone",
-      "about": "A sentence said to everyone: the words on the left, who has jumped in the right column, the jump prompt at its bottom right.",
+      "about": "A line said to everyone, whole: Chris's face and pink name on the border, the words (colors and all) on the left, the jump prompt at the bottom right (only the leader's jump goes on).",
       "hud": {
         "actionbar": "§r§m§c§r",
         "sidebar": {
-          "title": "§r§m§g§r§d§l§g§k§2§k§8§rChris",
+          "title": "§r§m§g§r§d§l§g§k§2§k§8§r§dChris",
           "lines": [
-            "§k§1§0§rHello travelers, and welcome!",
-            "§k§5§0§rAlex",
+            "§k§7§0§rchris",
+            "§k§1§0§rWelcome to Block Party! I'm §dChris P. Bacon§r, and it's time to start a new adventure!",
             "§k§6§0§r"
           ]
         }
@@ -18,30 +18,32 @@
     },
     {
       "name": "Dialogue box: Chris asks one player",
-      "about": "The last sentence of a question to one player: its buttons in the right column, the first selected, the prompt naming who it waits for.",
+      "about": "A question to one player: the line and its buttons in the right column at once, the first selected, and the prompt.",
       "hud": {
         "actionbar": "§r§m§c§r",
         "sidebar": {
-          "title": "§r§m§g§r§d§l§g§k§1§k§8§rChris",
+          "title": "§r§m§g§r§d§l§g§k§1§k§8§r§dChris",
           "lines": [
-            "§k§1§0§rWant a rundown of the rules before we start?",
+            "§k§7§0§rchris",
+            "§k§1§0§rWould you like me to oink-splain the rules?",
             "§k§2§k§3§0§rYes, please!",
             "§k§2§1§rNo, let's play!",
-            "§k§6§0§rAlex"
+            "§k§6§0§r"
           ]
         }
       }
     },
     {
-      "name": "Dialogue box: a long sentence",
-      "about": "A sentence long enough to wrap over two rows.",
+      "name": "Dialogue box: a long line",
+      "about": "A line long enough to wrap over two rows.",
       "hud": {
         "actionbar": "§r§m§c§r",
         "sidebar": {
-          "title": "§r§m§g§r§d§l§g§k§2§k§8§rChris",
+          "title": "§r§m§g§r§d§l§g§k§2§k§8§r§dChris",
           "lines": [
-            "§k§1§0§rCollect the most Stars by the end of the game, because coins buy Stars and Stars win, and nobody remembers who",
-            "§k§1§1§rhad the most coins at the end.",
+            "§k§7§0§rchris",
+            "§k§1§0§rHere's the deal: collect the most §eStars §rby the end of the game. §gCoins §rbuy §eStars§r, and Stars win. Nobody",
+            "§k§1§1§rremembers who had the most coins.",
             "§k§6§0§r"
           ]
         }
@@ -49,16 +51,31 @@
     },
     {
       "name": "Dialogue box: the skip strip",
-      "about": "A skippable line: the strip on the top border names who has held sneak to skip, and how far along anyone holding it is.",
+      "about": "A skippable line: the strip on the top border, Hold, the sneak button for the player's way of playing, to skip, and how many players have voted.",
       "hud": {
         "actionbar": "§r§m§c§r",
         "sidebar": {
-          "title": "§r§m§g§r§d§l§g§k§2§k§8§rChris",
+          "title": "§r§m§g§r§d§l§g§k§2§k§8§r§dChris",
           "lines": [
-            "§k§1§0§rOkay! We're playing 15 rounds tonight.",
-            "§k§5§0§rSam",
+            "§k§7§0§rchris",
+            "§k§1§0§rOkay! We're playing §615§r rounds tonight. Whoever has the most Stars at the end wins!",
             "§k§6§0§r",
-            "§k§4§0§rHold sneak to skip  Alex  Sam 50%"
+            "§k§4§0§r1/3"
+          ]
+        }
+      }
+    },
+    {
+      "name": "Dialogue box: the Witch",
+      "about": "Another character: her face and her color from characters.json.",
+      "hud": {
+        "actionbar": "§r§m§c§r",
+        "sidebar": {
+          "title": "§r§m§g§r§d§l§g§k§2§k§8§r§5Witch",
+          "lines": [
+            "§k§7§0§rwitch",
+            "§k§1§0§rHeh heh heh... Chance Time! Pick a potion, any potion.",
+            "§k§6§0§r"
           ]
         }
       }
@@ -237,10 +254,10 @@
       "hud": {
         "actionbar": "§r§m§c§r",
         "sidebar": {
-          "title": "§r§m§g§r§b§p§c§d§l§g§k§2§k§8§rChris",
+          "title": "§r§m§g§r§b§p§c§d§l§g§k§2§k§8§r§dChris",
           "lines": [
+            "§k§7§0§rchris",
             "§k§1§0§rSam is in the lead! Who will catch up?",
-            "§k§5§0§rAlex",
             "§k§6§0§r",
             "§k§c§c§0§t§0§h§0§b§1§g§0 2 141stSTEP  A",
             "§k§c§c§1§t§1§h§0§b§1§g§0 1 222nd      S",

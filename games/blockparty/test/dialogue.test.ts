@@ -1,17 +1,17 @@
-// The dialogue box (dialogue-codes.ts, dialogue.ts): what goes on the sidebar, one sentence at a time
-// with one voice each, going on by jumps (everyone's, or the one it's said to), the steerer's
-// buttons, skip votes by holding sneak, and skipped cutscenes; and the pack's JSON UI reading the
-// same codes.
+// The dialogue box (dialogue-codes.ts, dialogue.ts): what goes on the sidebar, one card (a whole
+// line) at a time with its speaker's color and face, going on at the party leader's jump only, a
+// question's buttons steered by the one it's asked of, skip votes by holding sneak counted as "1/2",
+// and skipped cutscenes; and the pack's JSON UI reading the same codes.
 import { readFileSync } from "node:fs";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { GAME_SIDEBAR_MARK, Scope } from "@minecade/minigame-core";
 import { system, world, type FakePlayer } from "../../../packages/minigame-core/test/fake-mc-server.ts";
 import { flushPromises } from "../../../packages/minigame-core/test/util.ts";
 import { whoOf, type Who } from "../behavior_pack/scripts/bots.ts";
-import { BOX_EVERYONE, BOX_MARK, BOX_ONE, NAMED, ROW, SELECTED, Steering, STEER_HOLD, STEER_REPEAT, boxRows, boxTitle, readTicks, rowsOf, safe, sentences, visible } from "../behavior_pack/scripts/dialogue-codes.ts";
+import { BOX_EVERYONE, BOX_MARK, BOX_ONE, FACE_AT, NAMED, ROW, SELECTED, Steering, STEER_HOLD, STEER_REPEAT, boxRows, boxTitle, readTicks, rowsOf, safe, sentences, visible } from "../behavior_pack/scripts/dialogue-codes.ts";
 import { Dialogue } from "../behavior_pack/scripts/dialogue.ts";
 import { GameSidebar } from "../behavior_pack/scripts/sidebar-rows.ts";
-import { line, moment } from "../behavior_pack/scripts/lines.ts";
+import { line, look, moment } from "../behavior_pack/scripts/lines.ts";
 import { hasCue, voiceCue } from "../behavior_pack/scripts/sounds.ts";
 
 const first = () => 0;
@@ -37,29 +37,28 @@ async function until<T>(promise: Promise<T>, most = 2000): Promise<T> {
 }
 
 describe("the dialogue box's codes", () => {
-  it("title the sidebar with the mark, who it's for and the speaker", () => {
+  it("title the sidebar with the mark, who it's for and the speaker in their color", () => {
     expect(boxTitle("one", "Chris")).toBe(`${GAME_SIDEBAR_MARK}${BOX_MARK}${BOX_ONE}${NAMED}§rChris`);
+    expect(boxTitle("one", "Chris", "§d§l")).toBe(`${GAME_SIDEBAR_MARK}${BOX_MARK}${BOX_ONE}${NAMED}§r§d§lChris`);
     expect(boxTitle("everyone", "")).toBe(`${GAME_SIDEBAR_MARK}${BOX_MARK}${BOX_EVERYONE}§r`);
-    expect(visible(boxTitle("one", "Chris"))).toBe("Chris");
+    expect(visible(boxTitle("one", "Chris", "§d"))).toBe("Chris");
+    // Something that isn't a name color is left out, so it can't read as the title's codes.
+    expect(boxTitle("one", "Chris", "§k§1")).toBe(boxTitle("one", "Chris"));
+    expect(boxTitle("everyone", "", "§d")).toBe(boxTitle("everyone", ""));
   });
 
-  it("make a row of each row of the sentence, each button (the selected one marked), who has jumped, the prompt and the skip strip", () => {
-    const rows = boxRows({ words: ["Hi!", "Hi!"], buttons: ["Buy", "Not now"], selected: 1, jumped: ["Alex"], prompt: "Sam", skip: "Hold sneak to skip  Alex" });
-    expect(rows).toEqual([
-      `${ROW.words}§0§rHi!`,
-      `${ROW.words}§1§rHi!`,
-      `${ROW.button}§0§rBuy`,
-      `${ROW.selected}§1§rNot now`,
-      `${ROW.jumped}§0§rAlex`,
-      `${ROW.prompt}§0§rSam`,
-      `${ROW.skip}§0§rHold sneak to skip  Alex`,
-    ]);
+  it("make a row of the face, each row of the line, each button (the selected one marked), the prompt and the skip strip", () => {
+    const rows = boxRows({ face: "chris", words: ["Hi!", "Hi!"], buttons: ["Buy", "Not now"], selected: 1, prompt: "", skip: "1/2" });
+    expect(rows).toEqual([`${ROW.face}§0§rchris`, `${ROW.words}§0§rHi!`, `${ROW.words}§1§rHi!`, `${ROW.button}§0§rBuy`, `${ROW.selected}§1§rNot now`, `${ROW.prompt}§0§r`, `${ROW.skip}§0§r1/2`]);
     expect(new Set(rows).size).toBe(rows.length);
-    expect(rows.map(visible)).toEqual(["Hi!", "Hi!", "Buy", "Not now", "Alex", "Sam", "Hold sneak to skip  Alex"]);
+    expect(rows.map(visible)).toEqual(["chris", "Hi!", "Hi!", "Buy", "Not now", "", "1/2"]);
     // The UI tests one code per thing it draws: a selected button is a button too.
     expect(ROW.selected).toContain(ROW.button);
     expect(ROW.selected).toContain(SELECTED);
-    expect(boxRows({ words: [], prompt: "" })).toEqual([`${ROW.prompt}§0§r`]);
+    // The UI cuts the face's name out of its row at FACE_AT bytes.
+    expect(Buffer.from(rows[0], "utf8").subarray(FACE_AT).toString("utf8")).toBe("chris");
+    // No face for a name that can't be a picture's.
+    expect(boxRows({ face: "Chris P", words: [] })).toEqual([]);
   });
 
   it("never let a row's text read as a row's code", () => {
@@ -76,7 +75,7 @@ describe("the dialogue box's codes", () => {
     expect(rows[0].slice(ROW.words.length)).not.toContain("§k§");
   });
 
-  it("split a line into sentences, keeping a color that runs on", () => {
+  it("split a line into sentences (one voice sound each), keeping a color that runs on", () => {
     expect(sentences("Welcome to Block Party! I'm Chris, and I keep the coins. Lots of coins.")).toEqual(["Welcome to Block Party!", "I'm Chris, and I keep the coins.", "Lots of coins."]);
     expect(sentences("Wait... what?! Really.")).toEqual(["Wait...", "what?!", "Really."]);
     expect(sentences("A 1.5 coin? No.")).toEqual(["A 1.5 coin?", "No."]);
@@ -89,12 +88,14 @@ describe("the dialogue box's codes", () => {
     expect(sentences("§2§kfoo§4§l bar. Next")).toEqual(["§2§kfoo§4§l bar.", "§4§l§kNext"]);
   });
 
-  it("cut a long sentence into rows at spaces", () => {
+  it("cut a long line into rows at spaces, a color carrying into the next row", () => {
     const long = `${"word ".repeat(40)}end.`;
     const rows = rowsOf(long);
     expect(rows.length).toBeGreaterThan(1);
     for (const row of rows) expect(visible(row).length).toBeLessThanOrEqual(110);
     expect(rows.join(" ")).toBe(long);
+    const colored = rowsOf(`§d${"pink ".repeat(30)}end.`);
+    expect(colored[1].startsWith("§d")).toBe(true);
     expect(readTicks("Hi!")).toBe(24);
     expect(readTicks("x".repeat(500))).toBe(100);
   });
@@ -118,12 +119,15 @@ describe("the dialogue box", () => {
   let closed: number;
   let alex: FakePlayer;
   let sam: FakePlayer;
+  /** The party leader's name (Alex, unless a test says otherwise). */
+  let leaderName: string | undefined;
 
   beforeEach(() => {
     world.reset();
     system.reset();
     scope = new Scope("test");
     closed = 0;
+    leaderName = "Alex";
     // The box hands its rows to the game's one sidebar, as in game (sidebar-rows.ts).
     const sidebar = new GameSidebar(scope);
     dialogue = new Dialogue({
@@ -133,6 +137,7 @@ describe("the dialogue box", () => {
         if (!box) closed++;
         sidebar.set("dialogue", box);
       },
+      leader: () => world.getAllPlayers().find((player) => player.name === leaderName) as never,
     });
     alex = world.join("Alex");
     sam = world.join("Sam");
@@ -148,72 +153,62 @@ describe("the dialogue box", () => {
   const rowsOfKind = (code: string) => (shown()?.rows ?? []).filter((row) => row.startsWith(code)).map(visible);
   const words = () => (shown()?.rows ?? []).filter((row) => row.startsWith(ROW.words)).map(visible);
 
-  it("shows one sentence at a time to everyone, going on once every player has jumped", async () => {
+  it("shows the whole line at once, in its speaker's color with their face, and only the leader's jump goes on", async () => {
     const id = "pregame.welcome";
-    const said = sentences(line(id, {}, first));
-    expect(said.length).toBeGreaterThan(1);
+    const text = line(id, {}, first);
+    expect(sentences(text).length).toBeGreaterThan(1);
     const done = dialogue.say(id);
     await ticks(2);
-    expect(shown()?.title).toBe(boxTitle("everyone", moment(id).character));
-    expect(words()).toEqual([said[0]]);
+    const chris = look(moment(id).character);
+    expect(shown()?.title).toBe(boxTitle("everyone", moment(id).character, chris.color));
+    expect(words()).toEqual(rowsOf(text).map(visible));
+    if (chris.face) expect(rowsOfKind(ROW.face)).toEqual([chris.face]);
     expect(rowsOfKind(ROW.prompt)).toEqual([""]);
-    // A jump in the sentence's first moments doesn't count.
+    // A jump in the card's first moments doesn't count.
     dialogue.jumped(alex as never);
-    await ticks(1);
-    expect(rowsOfKind(ROW.jumped)).toEqual([]);
     await ticks(10);
-    dialogue.jumped(alex as never);
-    await ticks(1);
-    expect(rowsOfKind(ROW.jumped)).toEqual(["Alex"]);
-    // Nobody waits forever but it doesn't go on by itself.
+    expect(words()).toEqual(rowsOf(text).map(visible));
+    // Anyone but the leader: nothing, however long.
+    expect(dialogue.jumped(sam as never)).toBe(true);
     await ticks(200);
-    expect(words()).toEqual([said[0]]);
-    dialogue.jumped(sam as never);
-    await ticks(2);
-    // The next sentence alone, and nobody has jumped for it yet.
-    expect(words()).toEqual([said[1]]);
-    expect(rowsOfKind(ROW.jumped)).toEqual([]);
-    for (let s = 1; s < said.length; s++) {
-      await ticks(10);
-      dialogue.jumped(alex as never);
-      dialogue.jumped(sam as never);
-      await ticks(2);
-    }
-    await until(done, 10);
-    if (hasCue(voiceCue("Chris"))) expect(alex.sounds.length).toBeGreaterThanOrEqual(said.length);
+    expect(words()).toEqual(rowsOf(text).map(visible));
+    dialogue.jumped(alex as never);
+    await until(done, 3);
+    if (hasCue(voiceCue("Chris"))) expect(alex.sounds.length).toBeGreaterThanOrEqual(1);
     await ticks(5);
     expect(shown()).toBeUndefined();
     expect(closed).toBe(1);
   });
 
-  it("goes on at the jumps of the one it's said to, then lets them steer its buttons with W and S and pick with jump", async () => {
-    const who: Who = whoOf(alex as never);
-    const fills = { player: "Alex", price: "20 coins", coins: "25 coins" };
-    const said = sentences(line("star.chris.offer", fills, first));
+  it("goes on by itself after the time to read it when no player is here", async () => {
+    leaderName = undefined;
+    const done = dialogue.say("pregame.length", { rounds: 15 });
+    await ticks(2);
+    expect(rowsOfKind(ROW.prompt)).toEqual([]);
+    await until(done, 400);
+  });
+
+  it("lets the one it's asked of steer its buttons with W and S and pick with jump", async () => {
+    const who: Who = whoOf(sam as never);
+    const fills = { player: "Sam", price: "20 coins", coins: "25 coins" };
     const picked = dialogue.talk("star.chris.offer", fills, { to: who, buttons: ["Buy a Star", "Not now"], back: 1 });
     await ticks(2);
-    expect(rowsOfKind(ROW.prompt)).toEqual(["Alex"]);
-    expect(dialogue.steerer).toBe("alex");
-    // Someone else can't go on, steer or pick.
-    expect(dialogue.jumped(sam as never)).toBe(false);
-    for (let s = 0; s < said.length - 1; s++) {
-      expect(words()).toEqual([said[s]]);
-      expect(rowsOfKind(ROW.button)).toEqual([]);
-      await ticks(10);
-      dialogue.jumped(alex as never);
-      await ticks(2);
-    }
-    expect(words()).toEqual([said[said.length - 1]]);
+    // The whole line and the buttons at once, and a prompt that names nobody.
+    expect(words()).toEqual(rowsOf(line("star.chris.offer", fills, first)).map(visible));
     expect(rowsOfKind(ROW.selected)).toEqual(["Buy a Star"]);
-    alex.movementVector = { x: 0, y: -1 };
+    expect(rowsOfKind(ROW.prompt)).toEqual([""]);
+    expect(dialogue.steerer).toBe("sam");
+    // Someone else (the leader too) can't steer or pick.
+    expect(dialogue.jumped(alex as never)).toBe(false);
+    sam.movementVector = { x: 0, y: -1 };
     await ticks(1);
-    alex.movementVector = { x: 0, y: 0 };
+    sam.movementVector = { x: 0, y: 0 };
     await ticks(1);
     expect(rowsOfKind(ROW.selected)).toEqual(["Not now"]);
     // The selected one is a button too.
     expect(rowsOfKind(ROW.button)).toEqual(["Buy a Star", "Not now"]);
     await ticks(10);
-    expect(dialogue.jumped(alex as never)).toBe(true);
+    expect(dialogue.jumped(sam as never)).toBe(true);
     expect(await until(picked)).toBe(1);
   });
 
@@ -221,46 +216,37 @@ describe("the dialogue box", () => {
     const who: Who = whoOf(alex as never);
     const picked = dialogue.talk("pregame.rules", { player: "Alex" }, { to: who, buttons: ["Yes", "No"], back: 1 });
     await ticks(2);
-    for (let s = 0; s < 5 && rowsOfKind(ROW.button).length === 0; s++) {
-      await ticks(10);
-      dialogue.jumped(alex as never);
-      await ticks(2);
-    }
     expect(dialogue.sneaked(alex as never)).toBe(true);
     expect(await until(picked)).toBe(1);
   });
 
-  it("goes on at a jump when a line to one player has no choice (no Next button)", async () => {
-    const who: Who = whoOf(alex as never);
-    const said = sentences(line("star.chris.short", { price: "20 coins" }, first));
+  it("says a line to one player with no buttons like any line: the leader goes on", async () => {
+    const who: Who = whoOf(sam as never);
     const done = dialogue.talk("star.chris.short", { price: "20 coins" }, { to: who });
-    await ticks(300);
-    for (let s = 0; s < said.length; s++) {
-      expect(words()).toEqual([said[s]]);
-      expect(rowsOfKind(ROW.button)).toEqual([]);
-      expect(rowsOfKind(ROW.prompt)).toEqual(["Alex"]);
-      await ticks(10);
-      dialogue.jumped(alex as never);
-      await ticks(2);
-    }
+    await ticks(12);
+    expect(rowsOfKind(ROW.button)).toEqual([]);
+    dialogue.jumped(sam as never);
+    await ticks(5);
+    expect(words().length).toBeGreaterThan(0);
+    dialogue.jumped(alex as never);
     expect(await until(done, 5)).toBe(0);
   });
 
-  it("votes to skip a skippable line by holding sneak 4 seconds, naming who has", async () => {
+  it("counts skip votes from holding sneak 4 seconds as a fraction of the players, with no names", async () => {
     const done = dialogue.say("announce.final", {}, true);
     await ticks(2);
-    expect(rowsOfKind(ROW.skip)).toEqual([line("dialogue.skip")]);
+    expect(rowsOfKind(ROW.skip)).toEqual(["0/2"]);
     alex.isSneaking = true;
-    await ticks(20);
-    expect(rowsOfKind(ROW.skip)).toEqual([`${line("dialogue.skip")}  Alex 25%`]);
+    await ticks(40);
+    // Holding isn't a vote yet, and shows nothing.
+    expect(rowsOfKind(ROW.skip)).toEqual(["0/2"]);
     // Letting go starts again.
     alex.isSneaking = false;
     await ticks(1);
     alex.isSneaking = true;
     await ticks(80);
     alex.isSneaking = false;
-    expect(rowsOfKind(ROW.skip)).toEqual([`${line("dialogue.skip")}  Alex`]);
-    // A jump isn't a skip vote.
+    expect(rowsOfKind(ROW.skip)).toEqual(["1/2"]);
     await ticks(2);
     sam.isSneaking = true;
     await until(done, 85);
@@ -307,7 +293,10 @@ describe("the pack's dialogue box", () => {
 
   it("reads the same codes the game writes", () => {
     const ui = read("../resource_pack/ui/jui_blockparty_dialogue.json");
-    for (const code of [BOX_MARK, NAMED, ROW.words, ROW.button, SELECTED, ROW.skip, ROW.jumped, ROW.prompt]) expect(ui).toContain(`'${code}'`);
+    for (const code of [BOX_MARK, NAMED, ROW.words, ROW.button, SELECTED, ROW.skip, ROW.prompt, ROW.face]) expect(ui).toContain(`'${code}'`);
+    // The face's picture is named from its row, cut at FACE_AT bytes.
+    expect(ui).toContain(`'%.${FACE_AT}s'`);
+    expect(ui).toContain("textures/blockparty/faces/");
     expect(read("../resource_pack/ui/_ui_defs.json")).toContain("ui/jui_blockparty_dialogue.json");
     expect(read("../resource_pack/ui/hud_screen.json")).toContain("@jui_blockparty_dialogue.layout");
   });

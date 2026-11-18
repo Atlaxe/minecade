@@ -239,7 +239,8 @@ export class LobbyController {
     const roles = hasRoles(game);
     const picking = choose && players.length > (roles ? 1 : PICK_AFTER) && this.ports.teamPicks !== undefined;
     if (!picking) this.ports.countdown?.({ game: game.name, map: mapName });
-    const sent = picking ? { ...settings, teams: "pick" } : choose ? { ...settings, teams: "random" } : settings;
+    // The player who started it goes too, as the game's leader (Block Party: only they move its dialogue on).
+    const sent = { leader: starter, ...(picking ? { ...settings, teams: "pick" } : choose ? { ...settings, teams: "random" } : settings) };
     this.ports.send({ t: "start_game", requestId: pending.requestId, game: game.id, map: mapId, players, settings: sent });
     if (picking && game.teams && this.ports.teamPicks) {
       pending.teamPick = new TeamPickController(this.ports.teamPicks, pending.scope.child("teams"), {

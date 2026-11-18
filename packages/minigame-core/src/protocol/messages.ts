@@ -47,7 +47,10 @@ export interface StartGame {
   game: string;
   map: string;
   players: string[];
-  /** Choices made on the game screen, such as { teams: "random" }. Passed to the game as is. */
+  /**
+   * Choices made on the game screen, such as { teams: "random" }, and `leader`: the player who
+   * started the game (the party leader). Passed to the game as is.
+   */
   settings?: Record<string, string>;
 }
 

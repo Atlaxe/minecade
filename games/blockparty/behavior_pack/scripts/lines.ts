@@ -8,7 +8,8 @@
 // falls back to the id.
 //
 // Each moment also says who says it and how it shows (moment(): its character, its delivery, and the
-// dialogue box's switches, docs/plans/block-party-ui.md "The dialogue tool's data").
+// dialogue box's switches, docs/plans/block-party-ui.md "The dialogue tool's data"), and each
+// character how its name and face look in the dialogue box (look()).
 import { log } from "@minecade/minigame-core";
 import dialogue from "../../dialogue.json";
 
@@ -40,6 +41,20 @@ export function moment(id: string): Moment {
     cutscene: found?.cutscene === true,
     camera: found?.camera ?? "",
   };
+}
+
+/** How a character looks in the dialogue box (the workshop's characters.json): the name's § color, and its face's name. */
+export interface Look {
+  color: string;
+  face: string;
+}
+
+const LOOKS: Readonly<Record<string, Partial<Look>>> = (dialogue as { characters?: Record<string, Partial<Look>> }).characters ?? {};
+
+/** How `character` looks: no color and no face when the file doesn't say. */
+export function look(character: string): Look {
+  const found = LOOKS[character];
+  return { color: found?.color ?? "", face: found?.face ?? "" };
 }
 
 /** What a line's {name}s are filled with: {player} takes fills.player. */

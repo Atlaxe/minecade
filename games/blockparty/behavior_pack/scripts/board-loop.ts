@@ -53,6 +53,8 @@ export interface LoopHost {
   startCoins: number;
   /** Everyone here now: the players online, and the bots. */
   present(): Who[];
+  /** The party leader's key (the player who started the game, or who stands in for them), if a player is here. */
+  leader(): string | undefined;
   /** Opens their dice and resolves with what they roll (undefined if they leave first); `shot`: everyone watches through the roll camera. */
   roll(who: Who, shot: boolean): Promise<number | undefined>;
   /** A choice: a player's form (closed: undefined), or a bot's moment of thought and then `botPick`. */
@@ -359,12 +361,13 @@ export class BoardLoop {
   }
 
   /**
-   * Chris asks the first player on the podium (the first that isn't a bot) whether to go over the
-   * rules (pregame.rules): Yes plays the Tutorial scene, No (sneak picks it) skips it. Skipping the
-   * pre-game skips the question too.
+   * Chris asks the party leader whether to go over the rules (pregame.rules; the first player on the
+   * podium that isn't a bot if the leader isn't seated): Yes plays the tutorial's lines, No (sneak
+   * picks it) skips them. Skipping the pre-game skips the question too.
    */
   private async wantsRules(seats: readonly Who[]): Promise<boolean> {
-    const asked = seats.find((who) => who.player !== undefined) ?? seats[0];
+    const leader = this.host.leader();
+    const asked = seats.find((who) => who.key === leader) ?? seats.find((who) => who.player !== undefined) ?? seats[0];
     if (!asked) return false;
     const picked = await this.host.talk("pregame.rules", { player: asked.name }, { to: asked, buttons: [button("pregame.rules.yes"), button("pregame.rules.no")], back: 1, botPick: 1 });
     return picked === 0;

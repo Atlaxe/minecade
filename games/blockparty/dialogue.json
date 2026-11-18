@@ -2,41 +2,41 @@
   "about": "Block Party's lines, from the user's dialogue editor (not in this repo). Change them there, not here.",
   "lines": {
     "pregame.welcome": [
-      "Welcome to Block Party! I'm Chris P. Bacon, and it's time to start a new adventure!",
-      "Hello travelers, and welcome! I'm Chris P. Bacon, your friend and guide, to follow you on your adventures!"
+      "Welcome to Block Party! I'm §dChris P. Bacon§r, and it's time to start a new adventure!",
+      "Hello travelers, and welcome! I'm §dChris P. Bacon§r, your friend and guide, to follow you on your adventures!"
     ],
     "pregame.length": [
-      "Okay! We're playing {rounds} rounds tonight. Whoever has the most Stars at the end wins!"
+      "Okay! We're playing §6{rounds}§r rounds tonight. Whoever has the most Stars at the end wins!"
     ],
     "pregame.order": [
       "Let's get this started by rolling the dice to figure out the order.",
       "Now, let's roll dice to figure out turn order."
     ],
     "pregame.star": [
-      "And here's what you're all after: the first Star, waiting on {space}! make sure to get as many as you can!"
+      "And here's what you're all after: the first Star, waiting on §l{space}§r! make sure to get as many as you can!"
     ],
     "pregame.rules": [
       "Would you like to me to oink-splain the rules?",
       "Want a rundown of the rules before we start?"
     ],
     "pregame.place.1": [
-      "First, {player}."
+      "First, §b{player}§r."
     ],
     "pregame.place.2": [
-      "Second, {player}."
+      "Second, §b{player}."
     ],
     "pregame.place.3": [
-      "Third, {player}."
+      "Third, §b{player}§r."
     ],
     "pregame.place.4": [
-      "And fourth, {player}"
+      "And fourth, §b{player}"
     ],
     "pregame.coins": [
-      "Here are {coins} as a gift! Spend them wisely, or don't...",
-      "Here's {coins} just for you to get you started! Get yourself something nice, on me!"
+      "Here are §6{coins}§r as a gift! Spend them wisely, or don't...",
+      "Here's §6{coins}§r just for you to get you started! Get yourself something nice, on me!"
     ],
     "tutorial.goal": [
-      "Here's the deal: collect the most Stars by the end of the game. Coins buy Stars, and Stars win."
+      "Here's the deal: collect the most §eStars §rby the end of the game. §gCoins §rbuy §eStars§r, and Stars win."
     ],
     "tutorial.turns": [
       "On your turn, open your Dice, pick one, and jump to hit it. Your piece walks that many spaces."
@@ -45,16 +45,16 @@
       "Where the path splits, you pick the way. Shortcuts are quicker, but they can bite."
     ],
     "tutorial.spaces": [
-      "Blue spaces give you 3 coins. Red spaces take 3 away. The rest? You'll find out."
+      "§tBlue§r spaces give you 3 coins. §mRed §rspaces take 3 away. The rest? You'll find out."
     ],
     "tutorial.stars": [
-      "When you pass a Star, I'll be there to sell it to you for {price}. Then it flies off somewhere new."
+      "When you pass a §eStar§r, I'll be there to sell it to you for §6{price}§r. Then it flies off somewhere new."
     ],
     "tutorial.items": [
       "Item and Shop spaces get you items and special dice. Use them before you roll."
     ],
     "tutorial.minigames": [
-      "After everyone has moved, we all play a minigame. Winners get coins!"
+      "After everyone has moved, we all play a minigame. Winners get §6coins§r!"
     ],
     "tutorial.end": [
       "That's all you need to know. Good luck, and may the best pig... I mean player, win!"
@@ -73,9 +73,6 @@
       "Well hello, {player}! One shiny Star, just {price}. Interested?",
       "A Star for {price}! You know you want it, {player}."
     ],
-    "star.chris.short": [
-      "Ooh, a Star costs {price}, and your pockets are light. Come back richer!"
-    ],
     "star.chris.sold": [
       "Pleasure doing business! Congratulations, {player}!"
     ],
@@ -84,6 +81,9 @@
     ],
     "star.chris.moves": [
       "And off it goes! The next Star is waiting at {space}."
+    ],
+    "star.chris.short": [
+      "Ooh, a Star costs {price}, and your pockets are light. Come back richer!"
     ],
     "star.chris.half-price": [
       "You've got a half-price coupon! That's just {price} for you."
@@ -95,12 +95,6 @@
     "shop.bought": [
       "Hrm, an excellent choice. {item} is yours."
     ],
-    "shop.short": [
-      "Hrmm... that's {price}. Come back with more coins."
-    ],
-    "shop.full": [
-      "Your hands are full, friend. Sell something first?"
-    ],
     "shop.sold": [
       "I'll take {item} off your hands for {coins}."
     ],
@@ -109,6 +103,12 @@
     ],
     "shop.nothing": [
       "Just looking? Hrmm."
+    ],
+    "shop.short": [
+      "Hrmm... that's {price}. Come back with more coins."
+    ],
+    "shop.full": [
+      "Your hands are full, friend. Sell something first?"
     ],
     "trader.arrives": [
       "Psst! The Wandering Trader is in town, over at {space}. Only for one round!"
@@ -119,11 +119,11 @@
     "trader.sold": [
       "A fine deal. Safe travels, {player}."
     ],
-    "trader.short": [
-      "No coin, no trade. Off you go."
-    ],
     "trader.sold-out": [
       "{player} snagged the Trader's goods! That's gone for good."
+    ],
+    "trader.short": [
+      "No coin, no trade. Off you go."
     ],
     "trader.leaves": [
       "And just like that, the Wandering Trader has wandered off."
@@ -231,12 +231,6 @@
     "versus.faceoff": [
       "{player} versus {other}! The loser pays the winner {coins}."
     ],
-    "versus.glove": [
-      "A challenge! {player} throws down the Dueling Glove. {other}, you're up. {coins} on the line!"
-    ],
-    "versus.doubled": [
-      "It's the final stretch, so the stakes are doubled: {coins}!"
-    ],
     "versus.bets.open": [
       "Place your bets! Back {player} or {other}: 0, 3 or 5 coins."
     ],
@@ -245,6 +239,12 @@
     ],
     "versus.referee.winner": [
       "{player} wins! {other} pays {coins}."
+    ],
+    "versus.doubled": [
+      "It's the final stretch, so the stakes are doubled: {coins}!"
+    ],
+    "versus.glove": [
+      "A challenge! {player} throws down the Dueling Glove. {other}, you're up. {coins} on the line!"
     ],
     "minigame.chris": [
       "It's {minigame}! Show me what you've got."
@@ -298,17 +298,17 @@
     "end.bonus.award": [
       "For {award}... this Star goes to {player}!"
     ],
-    "end.tie.chris": [
-      "A tie! {players}, settle it in a sudden-death minigame!"
-    ],
-    "end.tie.allay": [
-      "Hmm, hmm... I pick {player}!"
-    ],
     "end.podium": [
       "Your Block Party champion: {player}!"
     ],
     "end.thanks": [
       "Thanks for playing! Same time next round?"
+    ],
+    "end.tie.chris": [
+      "A tie! {players}, settle it in a sudden-death minigame!"
+    ],
+    "end.tie.allay": [
+      "Hmm, hmm... I pick {player}!"
     ],
     "pregame.rules.yes": [
       "Yes, please!"
@@ -749,7 +749,7 @@
       "Next"
     ],
     "dialogue.skip": [
-      "Hold sneak to skip"
+      "Jump to skip"
     ],
     "award.hazards": [
       "Most Hazards Hit"
@@ -919,11 +919,18 @@
     },
     "star.chris.offer": {
       "character": "Chris",
-      "delivery": "Dialogue box"
-    },
-    "star.chris.short": {
-      "character": "Chris",
-      "delivery": "Dialogue box"
+      "delivery": "Dialogue box",
+      "choices": [
+        {
+          "key": "c1",
+          "text": "Buy a Star"
+        },
+        {
+          "key": "c2",
+          "text": "Not now"
+        }
+      ],
+      "chooser": "Player"
     },
     "star.chris.sold": {
       "character": "Chris",
@@ -937,23 +944,34 @@
       "character": "Chris",
       "delivery": "Dialogue box"
     },
+    "star.chris.short": {
+      "character": "Chris",
+      "delivery": "Dialogue box"
+    },
     "star.chris.half-price": {
       "character": "Chris",
       "delivery": "Dialogue box"
     },
     "shop.welcome": {
       "character": "Villager",
-      "delivery": "Dialogue box"
+      "delivery": "Dialogue box",
+      "choices": [
+        {
+          "key": "c1",
+          "text": "Buy"
+        },
+        {
+          "key": "c2",
+          "text": "Sell something"
+        },
+        {
+          "key": "c3",
+          "text": "Leave"
+        }
+      ],
+      "chooser": "Player"
     },
     "shop.bought": {
-      "character": "Villager",
-      "delivery": "Dialogue box"
-    },
-    "shop.short": {
-      "character": "Villager",
-      "delivery": "Dialogue box"
-    },
-    "shop.full": {
       "character": "Villager",
       "delivery": "Dialogue box"
     },
@@ -969,24 +987,43 @@
       "character": "Villager",
       "delivery": "Dialogue box"
     },
+    "shop.short": {
+      "character": "Villager",
+      "delivery": "Dialogue box"
+    },
+    "shop.full": {
+      "character": "Villager",
+      "delivery": "Dialogue box"
+    },
     "trader.arrives": {
       "character": "Chris",
       "delivery": "Dialogue box"
     },
     "trader.offer": {
       "character": "Wandering Trader",
-      "delivery": "Dialogue box"
+      "delivery": "Dialogue box",
+      "choices": [
+        {
+          "key": "c1",
+          "text": "Buy"
+        },
+        {
+          "key": "c2",
+          "text": "Not now"
+        }
+      ],
+      "chooser": "Player"
     },
     "trader.sold": {
       "character": "Wandering Trader",
       "delivery": "Dialogue box"
     },
-    "trader.short": {
-      "character": "Wandering Trader",
-      "delivery": "Dialogue box"
-    },
     "trader.sold-out": {
       "character": "Chris",
+      "delivery": "Dialogue box"
+    },
+    "trader.short": {
+      "character": "Wandering Trader",
       "delivery": "Dialogue box"
     },
     "trader.leaves": {
@@ -1003,7 +1040,18 @@
     },
     "chance.reroll.offer": {
       "character": "Witch",
-      "delivery": "Dialogue box"
+      "delivery": "Dialogue box",
+      "choices": [
+        {
+          "key": "c1",
+          "text": "Brew new ones"
+        },
+        {
+          "key": "c2",
+          "text": "Keep these"
+        }
+      ],
+      "chooser": "Player"
     },
     "chance.reroll.done": {
       "character": "Witch",
@@ -1129,14 +1177,6 @@
       "character": "Referee",
       "delivery": "Dialogue box"
     },
-    "versus.glove": {
-      "character": "Referee",
-      "delivery": "Dialogue box"
-    },
-    "versus.doubled": {
-      "character": "Referee",
-      "delivery": "Dialogue box"
-    },
     "versus.bets.open": {
       "character": "Referee",
       "delivery": "Dialogue box"
@@ -1146,6 +1186,14 @@
       "delivery": "Dialogue box"
     },
     "versus.referee.winner": {
+      "character": "Referee",
+      "delivery": "Dialogue box"
+    },
+    "versus.doubled": {
+      "character": "Referee",
+      "delivery": "Dialogue box"
+    },
+    "versus.glove": {
       "character": "Referee",
       "delivery": "Dialogue box"
     },
@@ -1217,20 +1265,20 @@
       "character": "Allay",
       "delivery": "Dialogue box"
     },
-    "end.tie.chris": {
-      "character": "Chris",
-      "delivery": "Dialogue box"
-    },
-    "end.tie.allay": {
-      "character": "Allay",
-      "delivery": "Dialogue box"
-    },
     "end.podium": {
       "character": "Chris",
       "delivery": "Dialogue box"
     },
     "end.thanks": {
       "character": "Chris",
+      "delivery": "Dialogue box"
+    },
+    "end.tie.chris": {
+      "character": "Chris",
+      "delivery": "Dialogue box"
+    },
+    "end.tie.allay": {
+      "character": "Allay",
       "delivery": "Dialogue box"
     },
     "pregame.rules.yes": {
@@ -1912,6 +1960,48 @@
     "end.standings": {
       "character": "Game",
       "delivery": "Dialogue box"
+    }
+  },
+  "characters": {
+    "Chris": {
+      "color": "§d",
+      "face": "chris"
+    },
+    "Villager": {
+      "color": "§6",
+      "face": "villager"
+    },
+    "Witch": {
+      "color": "§5",
+      "face": "witch"
+    },
+    "Warden": {
+      "color": "§3",
+      "face": "warden"
+    },
+    "Enderman": {
+      "color": "§u",
+      "face": "enderman"
+    },
+    "Wandering Trader": {
+      "color": "§9",
+      "face": "wandering_trader"
+    },
+    "Referee": {
+      "color": "§e",
+      "face": "referee"
+    },
+    "Allay": {
+      "color": "§b",
+      "face": "allay"
+    },
+    "Iron Golem": {
+      "color": "§i",
+      "face": "iron_golem"
+    },
+    "Zombie": {
+      "color": "§2",
+      "face": "zombie"
     }
   }
 }

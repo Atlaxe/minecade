@@ -223,6 +223,17 @@ export class BlockPartySpike extends Minigame<Config> {
     log.info(`blockparty test: to ${player.isValid ? player.name : "?"}: ${text}`);
   }
 
+  /**
+   * The party leader (the user, 2026-11-18): the player who started the game from the lobby (the
+   * lobby's `leader` setting). While they're away, the first player the lobby sent who's here, else
+   * the first player here. Only they move the dialogue box on.
+   */
+  private leader(): Player | undefined {
+    const players = world.getAllPlayers();
+    const named = (name: string | undefined) => (name ? players.find((player) => player.name.toLowerCase() === name.toLowerCase()) : undefined);
+    return named(this.ctx.vars.settings.leader) ?? this.ctx.vars.expectedPlayers.map(named).find((player) => player !== undefined) ?? players[0];
+  }
+
   private everyone(text: string): void {
     if (text === "") return;
     this.broadcast(say.info(text));
@@ -281,7 +292,7 @@ export class BlockPartySpike extends Minigame<Config> {
       say: (text) => this.everyone(text),
     });
     this.gameSidebar = new GameSidebar(this.scope);
-    this.dialogue = new Dialogue({ scope: this.scope, random: () => this.ctx.random(), show: (box) => this.gameSidebar.set("dialogue", box) });
+    this.dialogue = new Dialogue({ scope: this.scope, random: () => this.ctx.random(), show: (box) => this.gameSidebar.set("dialogue", box), leader: () => this.leader() });
     this.boardMenu = new BoardMenu({
       scope: this.scope,
       sidebar: this.gameSidebar,
@@ -321,6 +332,7 @@ export class BlockPartySpike extends Minigame<Config> {
       // 30 coins while Block Party is a test game or a server plays it alone (the user asked), so Stars can be tried.
       startCoins: this.config.test || this.ctx.vars.devMinPlayers === 1 ? TEST_COINS : START_COINS,
       present: () => [...world.getAllPlayers().map(whoOf), ...this.bots.all()],
+      leader: () => this.leader()?.name.toLowerCase(),
       // A turn's roll opens the board menu (everyone watching); the turn order's roll (each their own) goes straight to the standard die.
       roll: (who, shot) => {
         const player = who.player;
