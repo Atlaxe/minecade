@@ -97,6 +97,16 @@ const DIE_ENTITY = "blockparty:die";
 const DIE_PROPERTY = "blockparty:die";
 
 /**
+ * The coin and Star models, for the board's animations later: each its picture one pixel thick (the
+ * workshop's block-party-icons builds them into the private icons pack). TURNING_PROPERTY turns one
+ * slowly about its middle (animation.blockparty.icon_turn).
+ */
+const ICON_MODELS = ["blockparty:coin", "blockparty:star"] as const;
+const TURNING_PROPERTY = "blockparty:turning";
+/** How long the Tests menu's Coin and Star models stay out. */
+const ICON_TEST_TICKS = 400;
+
+/**
  * What Block Party hides: everything a survival player watches that it has no use for, the hotbar
  * with its item names (MINIGAME_HUD), and the chat (CHAT_HUD).
  */
@@ -1002,6 +1012,24 @@ export class BlockPartySpike extends Minigame<Config> {
     this.tell(player, came ? "The Wandering Trader is here till the round ends: pass or land on his space (the green beam) to trade." : "He can't come: this board has no Item space without a Star on it.");
   }
 
+  /** Coin and Star models (the user asked for them, for animations later): both turning side by side over the player's head for a while. */
+  private iconModels(player: Player): void {
+    const view = player.getViewDirection();
+    const level = Math.hypot(view.x, view.z) || 1;
+    // The player's right, level: their view turned a quarter about up.
+    const right = { x: -view.z / level, z: view.x / level };
+    const at = player.location;
+    const shown = ICON_MODELS.map((id, index) => {
+      const side = index === 0 ? -0.7 : 0.7;
+      const model = player.dimension.spawnEntity(id, { x: at.x + right.x * side, y: at.y + 2, z: at.z + right.z * side });
+      model.setProperty(TURNING_PROPERTY, true);
+      return model;
+    });
+    this.scope.timeout(() => {
+      for (const model of shown) if (model.isValid) model.remove();
+    }, ICON_TEST_TICKS);
+  }
+
   // ---- Rolling ----------------------------------------------------------------------------
 
   /**
@@ -1117,6 +1145,7 @@ export class BlockPartySpike extends Minigame<Config> {
       ["Dice and items held", () => this.contentsForm(player)],
       ["Next space outcomes", () => this.outcomeForm(player)],
       ["Bring the Wandering Trader", () => this.traderTest(player)],
+      ["Coin and Star models", () => this.iconModels(player)],
       [this.npcs.spawned ? "Take the NPCs away" : "Put the NPCs out", () => this.toggleNpcs()],
       ["Arenas from other maps", () => this.arenaMenu(player)],
       ["Ride and lead (two players)", () => this.rideMenu(player)],

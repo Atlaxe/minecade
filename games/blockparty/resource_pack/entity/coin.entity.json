@@ -1,0 +1,30 @@
+{
+  "format_version": "1.10.0",
+  "minecraft:client_entity": {
+    "description": {
+      "identifier": "blockparty:coin",
+      "materials": {
+        "default": "entity_alphatest"
+      },
+      "textures": {
+        "default": "textures/blockparty/ui/coin"
+      },
+      "geometry": {
+        "default": "geometry.blockparty.coin"
+      },
+      "render_controllers": [
+        "controller.render.default"
+      ],
+      "animations": {
+        "turn": "animation.blockparty.icon_turn"
+      },
+      "scripts": {
+        "animate": [
+          {
+            "turn": "q.property('blockparty:turning')"
+          }
+        ]
+      }
+    }
+  }
+}

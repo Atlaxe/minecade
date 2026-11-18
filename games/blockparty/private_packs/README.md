@@ -20,5 +20,11 @@ ships as it is.
   `tools\make_faces.py`), installed by its `tools\install-faces.mjs`.
 - `sounds/`: the user's own sounds, from the same tool's Sounds view, installed by its
   `tools\install-sounds.mjs`.
+- `icons/`: the coin picture (`textures/blockparty/ui/coin.png`, the user's Minecoin, which the
+  player cards and the results show) and the coin and Star models (`geometry.blockparty.coin` and
+  `geometry.blockparty.star`, each its picture one pixel thick, for the `blockparty:coin` and
+  `blockparty:star` entities). The Star is the game's own nether star (`textures/items/nether_star`),
+  so only its model is here. Built and installed by the private block-party-icons project in the
+  workshop folder (`..\workshop\block-party-icons`: `tools\build.py`, then `tools\install.py`).
 
 Run the network's build (Start in the Panel) after installing to put a change on the server.

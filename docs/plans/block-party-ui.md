@@ -141,13 +141,18 @@ generator). Proposed letters and paths:
 
 | Icon | Letter | Picture the user adds |
 |---|---|---|
-| Star | S | `textures/blockparty/ui/star` |
-| Coin | C | `textures/blockparty/ui/coin` |
+| Star | (done) | the game's nether star, `textures/items/nether_star` (the user's call, 2026-11-18) |
+| Coin | (done) | `textures/blockparty/ui/coin`, the user's Minecoin, in the private icons pack |
 | Items | Stone Totem ST, Golden Totem GT, Ender Pearl EP, Cursed Totem CT, Dueling Glove DG, Lightning Strike LS, Zombie Spawn ZS, Iron Golem IG, Villager V | `textures/blockparty/icons/<letters>`, which the build writes from each item's `texture` in `games/blockparty/items.json` (block-party.md, "The items file") |
 | Dice | Standard D, Slow SD, Triple TD, Risk RD, Golden GD, Mystery MD, Cursed CD, the test One Die 1D | `textures/blockparty/ui/dice/<id>` |
 | A die's face | its number | `textures/blockparty/ui/dice/<id>_<face>` |
 | Chevrons | `<` and `>`, yellow, regular font (the user's call for now) | |
 | Player heads | see "Player heads" | |
+
+**The coin and the Star in the world** (gain and loss pops, the board's animations) are the
+entities `blockparty:coin` and `blockparty:star`: each its picture as a solid piece one pixel thick,
+16 pixels to a block, one bone (`root`) about the middle. Their models are in the private icons
+pack (`games/blockparty/private_packs/README.md`). The Tests menu's Coin and Star models shows both.
 
 ## Player cards (top right)
 

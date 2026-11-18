@@ -45,6 +45,14 @@
           "scale": "math.min(1, q.life_time * 5)"
         }
       }
+    },
+    "animation.blockparty.icon_turn": {
+      "loop": true,
+      "bones": {
+        "root": {
+          "rotation": [0, "q.life_time * 90", 0]
+        }
+      }
     }
   }
 }
