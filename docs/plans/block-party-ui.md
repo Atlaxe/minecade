@@ -49,8 +49,8 @@ cutscene and camera, each line's actions, and the sound map ("The dialogue tool'
 | The Items and Dice bars | The item panel bottom left, one item or die at a time |
 | Standings top left, each player's line top right | Player cards top right |
 | Chat for much of what the game says | The dialogue box bottom middle; vanilla chat hidden, `/chat` brings it back for the player who types it (the user, 2026-11-18) |
-| Titles and subtitles: whose turn, the round, a roll, the countdown, who won | Notices: the dialogue box with no speaker (the user, 2026-11-18: no titles or subtitles at all) |
-| The board's line above the hotbar: the round, whose turn, the player's coins and Stars | Nothing (the user, 2026-11-18); a minigame's status line still shows while it's on |
+| Titles and subtitles: whose turn, the round, a roll, the countdown, who won | Notices: the dialogue box with no speaker (the user, 2026-11-18), except whose turn and the round, which are the only titles (the user, later that day): the player's name ("Alex's") with "turn" under it, and "Round 3 / 10" alone |
+| The board's line above the hotbar: the round, whose turn, the player's coins and Stars | The round alone, as plain text bottom right ("Round 3 / 10", component `blockparty_round`, the user, 2026-11-18); a minigame's status line still shows while it's on |
 | The Tests menu on a compass in the bar (with the spike's walk settings) | `/blockparty:tests`, and settings out of the HUD (`/blockparty:settings`) |
 | Results as titles and chat | The results screen; a drop shows it to that player alone (the user, 2026-11-18) |
 | The roulette in titles, the loading screen's fade | The minigame announcement |
@@ -253,14 +253,20 @@ player.
   - **The words:** what the NPC says, with color codes and inline icons ("Icons").
   - **The buttons:** a column on the right (Next, Buy, Leave, ...), steered with W and S, picked
     with jump; the selected one has the highlight color, the same as a card on its player's turn.
-- **Notices** (the user, 2026-11-18: no titles or subtitles): what the game itself says to everyone
-  (whose turn it is and "Pick a die and jump to roll", the round and coins doubling, a roll's
-  number, the roulette, a minigame's rules, its 3, 2, 1 and Go, who won, the end) shows in the box
-  with no name tab, no face, no jump prompt and no skip strip, a row for each line of it
-  (`dialogue.ts`, `notify`). It stays for its time, or until the game takes it down (the turn's,
-  once the player has rolled). A line said meanwhile takes the box, and the notice comes back after
-  it while it's still up. The core's own titles (the start's countdown, Go) become notices too. The
-  dialogue tool's Title and Subtitle deliveries show this way.
+- **Notices** (the user, 2026-11-18): what the game itself says to everyone (a roll's number, the
+  roulette, a minigame's rules, its 3, 2, 1 and Go, who won, the end) shows in the box with no name
+  tab, no face, no jump prompt and no skip strip, a row for each line of it (`dialogue.ts`,
+  `notify`). It stays for its time, or until the game takes it down. A line said meanwhile takes
+  the box, and the notice comes back after it while it's still up. The core's own titles (the
+  start's countdown, Go) become notices too.
+- **Titles,** only two (the user, 2026-11-18): a turn's start (`turn.title`, "Alex's", with
+  `turn.subtitle`, "turn", under it) and a round's start (`round.title`, "Round 3 / 10", no
+  subtitle), sent as real titles (`spike.ts`, `headline`). Coins doubling and the final round are
+  Chris's announcements right after.
+- **Out of the way of the item panel** (the user, 2026-11-18): while the item panel is up (a die or
+  an item to pick), the box doesn't show; it comes back as the panel goes (`sidebar-rows.ts`,
+  `compose`). Using an item goes back to the menu before any question, so no question waits behind
+  the panel.
 - **Spoken to everyone** (Chris to all players, not one): the words take the whole width (no right
   column), and where the moment allows it, players can vote to skip with the skip strip ("Skip and
   Ready").
@@ -630,8 +636,8 @@ Known, from the HUD as it is, the core's `hud.ts` and the workshop json-ui calib
 - **The sidebar, the same for everyone:** its title (`#objective_sidebar_name`) is readable (the
   calibration picks its cases by it), and its entries are a list. The shared screens (cards, results,
   the wheel) could ride it, with vanilla's sidebar not drawn ("Checks first").
-- **Titles and subtitles,** per player, with their own fade times: not used (the user, 2026-11-18:
-  no titles or subtitles; notices in the dialogue box instead).
+- **Titles and subtitles,** per player, with their own fade times: only a turn's and a round's (the
+  user, 2026-11-18); everything else is a notice in the dialogue box.
 - **HUD element switches, per player:** `setHudVisibility` drives bindings the pack can read
   (`#hotbar_visible`, `#status_effects_visible`, ...); one whose vanilla drawing is gone can carry a
   switch (the chat's, above). The action bar line must never be empty: every screen rides its panel.
@@ -686,6 +692,13 @@ top 15 sidebar rows and the screens share them with the dialogue box:
   (`heads.ts`): the build renders it from their saved skin into the game's pack (`playerPortraits`
   in `game.config.ts`, `docs/skins.md`), a bot shows Steve's (rendered from Minecraft's own skin),
   and a player the watcher hasn't seen yet keeps their letter.
+- **Item and dice pictures** (2026-11-18): the cards' three item slots and the item panel's icon are
+  pictures, `textures/blockparty/icons/<letters>`, which the build writes from each item's and
+  die's texture (`tools/blockparty/item-icons.ts`; a die's is its body, face 1 of a six-face one).
+  An empty item slot holds `__` (`EMPTY_ICON`), whose picture is clear.
+- **The round** (2026-11-18): `blockparty_round` (word `bpn`, row `§k§n` then the text) shows the
+  user's `round.hud` line ("Round 3 / 10") bottom right, plain text, whenever the cards show from
+  the first round on.
 - **Not yet:** the gain and loss pops, the count stepping on the
   cards, places on the cards before the first results (none, as proposed).
 

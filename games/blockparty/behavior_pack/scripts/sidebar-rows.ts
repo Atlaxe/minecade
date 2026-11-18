@@ -5,9 +5,11 @@
 // here, and this puts them on one sidebar:
 //   - the title: the mark, each screen's word that's up (screen-codes.ts), then the dialogue box's
 //     part (its codes, then §r and the speaker's name, which is what shows);
-//   - the rows: the dialogue box's first, then the cards, the menu, the item panel, the results, each
-//     part's rows in its own order. Each kind of row has its own codes, so each screen picks out its
-//     own rows.
+//   - the rows: the dialogue box's first, then the cards, the round, the menu, the item panel, the
+//     results, each part's rows in its own order. Each kind of row has its own codes, so each screen
+//     picks out its own rows.
+// While the item panel is up (a die or an item to pick), the dialogue box makes way: neither its
+// title part nor its rows go on (the user, 2026-11-18), and it comes back as the panel goes.
 // The client shows only the top 15 rows (by score), so the parts are budgeted in that order and what
 // doesn't fit is left out (and logged). Bedrock can't rename an objective, so a new title is a new
 // objective with every row on it again.
@@ -17,7 +19,7 @@ import { GAME_SIDEBAR_MARK, Sidebar, describeError, log, type Scope } from "@min
 export const MAX_ROWS = 15;
 
 /** The parts, in the order their rows go (the first gets the top rows). */
-export const PARTS = ["dialogue", "cards", "menu", "panel", "results"] as const;
+export const PARTS = ["dialogue", "cards", "round", "menu", "panel", "results"] as const;
 export type PartId = (typeof PARTS)[number];
 
 export interface SidebarPart {
@@ -27,7 +29,9 @@ export interface SidebarPart {
 }
 
 /** The sidebar's title and rows (top first) for these parts. */
-export function compose(parts: Partial<Record<PartId, SidebarPart>>): { title: string; rows: string[]; dropped: number } {
+export function compose(given: Partial<Record<PartId, SidebarPart>>): { title: string; rows: string[]; dropped: number } {
+  // The dialogue box makes way for the item panel.
+  const parts: Partial<Record<PartId, SidebarPart>> = given.panel ? { ...given, dialogue: undefined } : given;
   // The dialogue's part goes last in the title: its speaker's name is the title's only text. A part's
   // title may start with the mark already (the dialogue box's boxTitle does): it's there once.
   const own = (id: PartId) => {

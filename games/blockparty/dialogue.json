@@ -353,13 +353,16 @@
       "No, let's play!"
     ],
     "round.title": [
-      "Round §2{round}§r of §q{rounds}"
+      "Round §2{round}§r / §q{rounds}"
     ],
     "turn.title": [
-      "§b{player}§r's turn"
+      "§b{player}§r's"
     ],
     "turn.subtitle": [
-      "Pick a die and jump to roll"
+      "turn"
+    ],
+    "round.hud": [
+      "Round §2{round}§r / §q{rounds}"
     ],
     "turn.roll.hint": [
       "Pick a die in the hotbar, then jump to hit it."
@@ -1510,6 +1513,10 @@
     "turn.subtitle": {
       "character": "Game",
       "delivery": "Subtitle"
+    },
+    "round.hud": {
+      "character": "Game",
+      "delivery": "HUD"
     },
     "turn.roll.hint": {
       "character": "Game",

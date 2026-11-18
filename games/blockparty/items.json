@@ -4,14 +4,14 @@
     "stone_totem": {
       "name": "Stone Totem",
       "letters": "ST",
-      "texture": "textures/items/totem",
+      "texture": "textures/blockparty/items/stone_totem",
       "description": "Roll an extra die this turn.",
       "value": 5
     },
     "golden_totem": {
       "name": "Golden Totem",
       "letters": "GT",
-      "texture": "textures/items/totem",
+      "texture": "textures/blockparty/items/golden_totem",
       "description": "Roll an extra die that counts double, this turn.",
       "value": 10
     },
@@ -25,42 +25,42 @@
     "cursed_totem": {
       "name": "Cursed Totem",
       "letters": "CT",
-      "texture": "textures/items/totem",
+      "texture": "textures/blockparty/items/cursed_totem",
       "description": "A rival's next roll is halved.",
       "value": 8
     },
     "glove": {
       "name": "Dueling Glove",
       "letters": "DG",
-      "texture": "textures/items/snowball",
+      "texture": "textures/blockparty/items/dueling_glove",
       "description": "A 1v1 duel for 10 coins.",
       "value": 10
     },
     "lightning": {
       "name": "Lightning Strike",
       "letters": "LS",
-      "texture": "textures/items/snowball",
+      "texture": "textures/blockparty/items/lightning_bolt",
       "description": "The leader gives 10 coins to last place.",
       "value": 12
     },
     "zombie": {
       "name": "Zombie Spawn",
       "letters": "ZS",
-      "texture": "textures/items/snowball",
+      "texture": "textures/blockparty/items/zombie",
       "description": "A zombie follows a rival and takes 3 coins a round.",
       "value": 8
     },
     "iron_golem": {
       "name": "Iron Golem",
       "letters": "IG",
-      "texture": "textures/items/snowball",
+      "texture": "textures/blockparty/items/iron_golem",
       "description": "Shake a player down for 5 coins, or send your zombie away.",
       "value": 10
     },
     "villager": {
       "name": "Villager",
       "letters": "V",
-      "texture": "textures/items/snowball",
+      "texture": "textures/blockparty/items/villager",
       "description": "Trade a die or an item for half its value.",
       "value": 6
     }

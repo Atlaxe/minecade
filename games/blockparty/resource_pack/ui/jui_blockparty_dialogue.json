@@ -33,9 +33,9 @@
       0
     ],
     "$v_highlight|default": [
-      0.282,
-      0.753,
-      0.941
+      0.725,
+      0.004,
+      0.365
     ],
     "visible": false,
     "bindings": [
@@ -244,7 +244,7 @@
                       "anchor_to": "top_left",
                       "offset": [
                         0,
-                        -16
+                        -14
                       ],
                       "visible": false,
                       "bindings": [
@@ -264,7 +264,7 @@
                           "b_d1a1000c_bg": {
                             "type": "image",
                             "size": [
-                              "100%sm + 8px",
+                              "100%sm + 0px",
                               "100%"
                             ],
                             "anchor_from": "top_left",
@@ -272,7 +272,7 @@
                             "layer": 1,
                             "texture": "textures/ui/White",
                             "color": "$v_tab",
-                            "alpha": 0.9
+                            "alpha": 0
                           }
                         },
                         {
@@ -368,7 +368,7 @@
                             "anchor_from": "top_left",
                             "anchor_to": "top_left",
                             "offset": [
-                              4,
+                              0,
                               0
                             ],
                             "layer": 44
@@ -633,6 +633,10 @@
           ],
           "anchor_from": "top_right",
           "anchor_to": "top_right",
+          "offset": [
+            8,
+            -13
+          ],
           "controls": [
             {
               "b_d1a1000e_bg": {

@@ -4,7 +4,7 @@ import { GAME_SIDEBAR_MARK } from "@minecade/minigame-core";
 import { boxRows, boxTitle } from "../behavior_pack/scripts/dialogue-codes.ts";
 import { DICE } from "../behavior_pack/scripts/dice.ts";
 import { ITEMS, holdings } from "../behavior_pack/scripts/dice-items.ts";
-import { CARD, MENU, PANEL, PANEL_TEXT, RESULT, SCREEN_LAYOUTS, SCREEN_WORDS, STANDINGS_WORD, bytes, cardRows, codesOf, fieldsOf, initialOf, menuRow, panelRows, placeText, resultRows, wordsOf } from "../behavior_pack/scripts/screen-codes.ts";
+import { CARD, EMPTY_ICON, MENU, PANEL, PANEL_TEXT, RESULT, ROUND, SCREEN_LAYOUTS, SCREEN_WORDS, STANDINGS_WORD, bytes, cardRows, codesOf, fieldsOf, initialOf, menuRow, panelRows, placeText, resultRows, roundRow, wordsOf } from "../behavior_pack/scripts/screen-codes.ts";
 import { MAX_ROWS, compose } from "../behavior_pack/scripts/sidebar-rows.ts";
 import { STANDINGS_CODE } from "../behavior_pack/scripts/bar-codes.ts";
 import { standingRows } from "../behavior_pack/scripts/results.ts";
@@ -25,7 +25,8 @@ describe("Block Party's screen rows", () => {
     expect(cut(row, fields.place)).toBe("1st");
     expect(cut(row, fields.item1)).toBe("ST");
     expect(cut(row, fields.item2)).toBe("EP");
-    expect(cut(row, fields.item3)).toBe("");
+    // An empty slot's picture is the clear one (the screens show items by their letters' pictures).
+    expect(cut(row, fields.item3)).toBe(EMPTY_ICON);
     expect(cut(row, fields.letter)).toBe("A");
     expect(cut(row, fields.head)).toBe("textures/blockparty/heads/123");
     expect(row.startsWith("§k§c§c§0")).toBe(true);
@@ -129,6 +130,13 @@ describe("Block Party's screen rows", () => {
     expect(cut(panelRows({ die: { ...die, faces } }, false)[0], fields.face1)).toBe("S");
   });
 
+  it("writes the round's row without the line's colors", () => {
+    const row = roundRow("Round §23§r / §q10");
+    expect(row).toBe("§k§nRound 3 / 10");
+    expect(cut(row, fieldsOf(ROUND).text)).toBe("Round3/10");
+    expect(Buffer.from(row, "utf8").subarray(fieldsOf(ROUND).text.from).toString("utf8")).toBe("Round 3 / 10");
+  });
+
   it("writes the results' rows", () => {
     const rows = resultRows([{ seat: 2, name: "Alex", place: 1, stars: 2, coins: 30, border: true }]);
     const fields = fieldsOf(RESULT);
@@ -146,7 +154,7 @@ describe("Block Party's screen rows", () => {
   it("gives no two screens' words, nor their rows' codes, one inside another", () => {
     const words = Object.values(SCREEN_WORDS).map(codesOf);
     for (const a of words) for (const b of words) if (a !== b) expect(a.includes(b)).toBe(false);
-    const kinds = ["kc", "km", "ki", "kj", "ks"].map(codesOf);
+    const kinds = ["kc", "km", "ki", "kj", "ks", "kn"].map(codesOf);
     for (const a of kinds) for (const b of kinds) if (a !== b) expect(a.includes(b)).toBe(false);
     // The dialogue box's codes (§k§1 to §k§6, §d§l§g) aren't any of these.
     const box = boxRows({ words: ["Hi."], buttons: ["Yes", "No"], selected: 0, skip: "Skip", jumped: ["Alex"], prompt: "" }).join("");
@@ -175,6 +183,16 @@ describe("Block Party's sidebar", () => {
     expect(dropped).toBe(2);
   });
 
+  it("leaves the dialogue box out while the item panel is up, and brings it back after", () => {
+    const box = boxTitle("everyone", "Chris");
+    const dialogue = { title: box, rows: ["§k§1§0§rHello."] };
+    const panel = { title: codesOf(SCREEN_WORDS.panel), rows: ["§k§i§a§0§f§1"] };
+    const up = compose({ dialogue, panel });
+    expect(up.title).toBe(`${GAME_SIDEBAR_MARK}${codesOf(SCREEN_WORDS.panel)}`);
+    expect(up.rows).toEqual(panel.rows);
+    expect(compose({ dialogue }).rows).toEqual(dialogue.rows);
+  });
+
   it("is only the mark with nothing in it", () => {
     expect(compose({})).toEqual({ title: GAME_SIDEBAR_MARK, rows: [], dropped: 0 });
   });
@@ -196,7 +214,7 @@ describe("Block Party's screens' JSON UI (the workshop builder's components, ins
     const led = lead ? `('${lead}' + ${spaced(end)})` : spaced(end);
     return field.from === 0 ? led : `(${led} - ${spaced(first(field.from))})`;
   };
-  const files = { cards: "jui_blockparty_cards", menu: "jui_blockparty_menu", panel: "jui_blockparty_panel", results: "jui_blockparty_results" } as const;
+  const files = { cards: "jui_blockparty_cards", menu: "jui_blockparty_menu", panel: "jui_blockparty_panel", results: "jui_blockparty_results", round: "jui_blockparty_round" } as const;
 
   for (const [screen, name] of Object.entries(files) as [keyof typeof files, string][]) {
     it(`${name} shows for its word and cuts each field where the game writes it`, () => {
@@ -228,6 +246,18 @@ describe("Block Party's screens' JSON UI (the workshop builder's components, ins
     expect(hud).toContain(`(not (($atext - '${STANDINGS_CODE}') = $atext))`);
     expect(hud).toContain(`(#objective_sidebar_name - '${codesOf(STANDINGS_WORD)}')`);
     expect(hud).toContain(`(($atext - '${STANDINGS_CODE}') = $atext)`);
+  });
+
+  it("shows items and dice as their icons' pictures, by the letters the game writes", () => {
+    const path = (from: number, to: number) => `('textures/blockparty/icons/' + ((('%.${to}s' * #player_name_sidebar) - ' ') - (('%.${from}s' * #player_name_sidebar) - ' ')))`;
+    const cards = readFileSync(new URL("../resource_pack/ui/jui_blockparty_cards.json", import.meta.url), "utf8");
+    for (const slot of ["item1", "item2", "item3"]) {
+      const field = fieldsOf(CARD)[slot];
+      expect(cards, slot).toContain(JSON.stringify(path(field.from, field.from + field.length)).slice(1, -1));
+    }
+    const panel = readFileSync(new URL("../resource_pack/ui/jui_blockparty_panel.json", import.meta.url), "utf8");
+    const icon = fieldsOf(PANEL).icon;
+    expect(panel).toContain(JSON.stringify(path(icon.from, icon.from + icon.length)).slice(1, -1));
   });
 
   it("slides the results' rows on the code the game writes", () => {

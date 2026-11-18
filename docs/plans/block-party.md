@@ -480,13 +480,13 @@ add a new one. Each item:
 | `description` | What it does, under its name in the item panel |
 | `value` | What the Shop works from: its price, and half of it to sell (1 to 999) |
 
-The pictures for now are Minecraft's (the user, 2026-11-18): the totems the Totem of Undying, the
-Ender Pearl the ender pearl, the rest the snowball, until the user draws them. **To show them**, the
-cards' three item slots and the item panel's icon (the workshop JSON UI builder's blockparty_cards
-and blockparty_panel) each need an image whose source is
+The pictures are the user's own (2026-11-18, `resource_pack/textures/blockparty/items/`), but the
+Ender Pearl's, which is still Minecraft's. The cards' three item slots and the item panel's icon
+(the workshop JSON UI builder's blockparty_cards and blockparty_panel) are images whose source is
 `text:textures/blockparty/icons/{{row.item1}}` (`item2`, `item3`; the panel's `{{row.icon}}`): an
-item showing `ST` then shows `textures/blockparty/icons/ST.png`. The panel's icon slot is the dice's
-too, and a die has no icon there yet.
+item showing `ST` shows `textures/blockparty/icons/ST.png`. The panel's icon slot is the dice's too:
+the build writes each die's icon by its letters the same way, from its body's picture (face 1 of a
+six-face one). An empty slot on a card holds `__`, whose picture is clear.
 
 ## Presentation and cameras
 

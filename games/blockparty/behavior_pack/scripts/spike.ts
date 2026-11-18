@@ -65,7 +65,7 @@ import { CURSED_DIE } from "./item-play.ts";
 import { CHANCE, HAPPENING, WARDEN, type ChanceId, type HappeningId, type WardenId } from "./space-rules.ts";
 import { Zombies } from "./zombies.ts";
 import { ResultsScreen, type ResultSeat } from "./results.ts";
-import { SCREEN_WORDS, cardRows, codesOf } from "./screen-codes.ts";
+import { SCREEN_WORDS, cardRows, codesOf, roundRow } from "./screen-codes.ts";
 import { GameSidebar } from "./sidebar-rows.ts";
 import { Heads } from "./heads.ts";
 import { Dialogue, type SaidLine } from "./dialogue.ts";
@@ -235,6 +235,8 @@ export class BlockPartySpike extends Minigame<Config> {
   private results!: ResultsScreen;
   /** The cards' rows last put on the sidebar, so they're sent only when they change. */
   private cardsShown = "";
+  /** The round's text last put on the sidebar (bottom right), likewise. */
+  private roundShown = "";
   /** The board's own camera (board-camera.ts), and the way a fixed one looks when the map doesn't say. */
   private boardCamera!: BoardCamera;
   private autoYaw: number | undefined;
@@ -451,6 +453,7 @@ export class BlockPartySpike extends Minigame<Config> {
       everyone: (text) => this.everyone(text),
       tell: (who, text) => who.player && this.tell(who.player, text),
       notice: (text, more, ticks) => this.notice(text, more, ticks),
+      headline: (title, subtitle, ticks) => this.headline(title, subtitle, ticks),
       changed: () => this.loopChanged(),
       results: (before, after) => this.results.show(before, after),
       react: (who, set) => this.moves.player(who.body, set),
@@ -585,12 +588,22 @@ export class BlockPartySpike extends Minigame<Config> {
 
   /**
    * The game's own words in the dialogue box with no speaker (dialogue.ts, notify), `more` in a row
-   * under `text`: Block Party has no titles or subtitles (the user, 2026-11-18). Nothing for empty
+   * under `text`: Block Party's titles are only a turn's and a round's (headline). Nothing for empty
    * text (lines the user hasn't written).
    */
   private notice(text: string, more = "", ticks?: number): () => void {
     const joined = [text, more].filter((part) => part.trim() !== "").join("\n");
     return this.dialogue && joined ? this.dialogue.notify(joined, ticks) : () => undefined;
+  }
+
+  /**
+   * A real title for everyone, up `ticks` then fading: a turn's start ("Alex's", "turn" under it) and
+   * a round's ("Round 3 / 10", alone) are the only ones (the user, 2026-11-18). Nothing for a title
+   * the user hasn't written.
+   */
+  private headline(title: string, subtitle: string, ticks: number): void {
+    if (title.trim() === "") return;
+    super.title(title, subtitle.trim() === "" ? undefined : subtitle, undefined, ticks);
   }
 
   /**
@@ -794,9 +807,23 @@ export class BlockPartySpike extends Minigame<Config> {
           }),
         );
     const key = rows.join("\n");
+    this.drawRound(hidden);
     if (key === this.cardsShown) return;
     this.cardsShown = key;
     this.gameSidebar.set("cards", rows.length ? { title: codesOf(SCREEN_WORDS.cards), rows } : undefined);
+  }
+
+  /**
+   * The round bottom right ("Round 3 / 10", the user's round.hud line; component blockparty_round):
+   * from the first round to the end, whenever the cards show. Sent when it changes.
+   */
+  private drawRound(cardsHidden: boolean): void {
+    const rounds = this.loop?.rounds;
+    const shown = !cardsHidden && this.loop?.active === true && rounds !== undefined && rounds.now >= 1;
+    const text = shown ? line("round.hud", { round: rounds.now, rounds: rounds.of }) : "";
+    if (text === this.roundShown) return;
+    this.roundShown = text;
+    this.gameSidebar.set("round", text ? { title: codesOf(SCREEN_WORDS.round), rows: [roundRow(text)] } : undefined);
   }
 
   /** A seat's head picture by name: a bot's is Steve's, unless a player here has that name. */

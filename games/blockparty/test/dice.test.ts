@@ -128,7 +128,7 @@ describe("the die model", () => {
   const cubesOf = (geometry: object) => (geometry as { bones: { cubes?: Cube[] }[] }).bones[0].cubes ?? [];
 
   it("lists every die with a texture after its blank default, in the file's order", () => {
-    const dice = [DICE.standard, { ...DICE.golden, texture: "textures/blockparty/dice/golden" }, { ...DICE.risk, texture: "textures/blocks/concrete_red" }];
+    const dice = [{ ...DICE.standard, texture: "textures/blocks/concrete_white" }, { ...DICE.golden, texture: "textures/blockparty/dice/golden" }, { ...DICE.risk, texture: "textures/blocks/concrete_red" }];
     const root = pack("order", { "textures/blockparty/dice/golden": [24, 16] });
     const { plan, problems } = modelPlan(modelDice(dice), root);
     expect(problems).toEqual([]);
@@ -160,7 +160,7 @@ describe("the die model", () => {
     const { plan } = modelPlan([{ ...STANDARD, texture: "textures/blocks/stone", faces }], root);
     expect(plan.dice[0].faces[0]).toEqual({ picture: "S+", hash: expect.stringMatching(/^[0-9a-f]{12}$/) });
     expect(plan.dice[0].faces[1]).toEqual({});
-    expect(plan.dice[0].faces[2]).toEqual({ text: "3", ink: DEFAULT_INK });
+    expect(plan.dice[0].faces[2]).toEqual({ text: "3", ink: STANDARD.faces[2].ink });
     // The see-through pixel stays empty, so the 4 x 3 picture is 2 cubes; its red is the palette's first pixel.
     const font: TenFont = { glyph: () => undefined, text: () => ({ width: 0, height: 0, filled: [] }) };
     const built = buildFaces({ maker: 1, dice: [{ id: "x", texture: "textures/blocks/stone", layout: "plain", faces: [plan.dice[0].faces[0], {}, {}, {}, {}, {}] }] }, font, root);

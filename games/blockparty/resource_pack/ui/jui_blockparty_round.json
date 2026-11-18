@@ -1,0 +1,114 @@
+// Built by the workshop's JSON UI tool from its blockparty_round component (tools\install-component.mjs): change it in the builder and install it again, not here.
+{
+  "namespace": "jui_blockparty_round",
+  "layout": {
+    "type": "panel",
+    "size": [
+      "100%",
+      "100%"
+    ],
+    "$v_text|default": [
+      1,
+      1,
+      1
+    ],
+    "visible": false,
+    "bindings": [
+      {
+        "binding_name": "#scoreboard_sidebar_visible",
+        "binding_type": "global"
+      },
+      {
+        "binding_name": "#objective_sidebar_name",
+        "binding_type": "global"
+      },
+      {
+        "binding_type": "view",
+        "source_property_name": "(#scoreboard_sidebar_visible and (not ((#objective_sidebar_name - '§b§p§n') = #objective_sidebar_name)))",
+        "target_property_name": "#visible"
+      }
+    ],
+    "controls": [
+      {
+        "b_02887758": {
+          "type": "stack_panel",
+          "orientation": "vertical",
+          "size": [
+            "100%cm",
+            "100%c"
+          ],
+          "collection_name": "scoreboard_players",
+          "factory": {
+            "name": "player_list_factory",
+            "control_name": "jui_blockparty_round.b_02887758_row"
+          },
+          "bindings": [
+            {
+              "binding_name": "#scoreboard_sidebar_size",
+              "binding_type": "global",
+              "binding_name_override": "#collection_length"
+            }
+          ],
+          "anchor_from": "bottom_right",
+          "anchor_to": "bottom_right",
+          "offset": [
+            -8,
+            -6
+          ],
+          "layer": 1
+        }
+      }
+    ]
+  },
+  "b_02887758_row": {
+    "type": "panel",
+    "size": [
+      "100%cm",
+      "100%cm"
+    ],
+    "controls": [
+      {
+        "b_e18af82a": {
+          "type": "label",
+          "text": "#jui_text",
+          "size": [
+            "default",
+            "default"
+          ],
+          "color": "$v_text",
+          "bindings": [
+            {
+              "binding_name": "#player_name_sidebar",
+              "binding_type": "collection",
+              "binding_collection_name": "scoreboard_players"
+            },
+            {
+              "binding_type": "view",
+              "source_property_name": "((('§r' + #player_name_sidebar) - ('%.6s' * #player_name_sidebar)))",
+              "target_property_name": "#jui_text"
+            }
+          ],
+          "text_alignment": "right",
+          "shadow": true,
+          "localize": false,
+          "anchor_from": "top_left",
+          "anchor_to": "top_left",
+          "layer": 1
+        }
+      }
+    ],
+    "visible": false,
+    "bindings": [
+      {
+        "binding_name": "#player_name_sidebar",
+        "binding_type": "collection",
+        "binding_collection_name": "scoreboard_players"
+      },
+      {
+        "binding_type": "view",
+        "source_property_name": "(not ((#player_name_sidebar - '§k§n') = #player_name_sidebar))",
+        "target_property_name": "#visible"
+      }
+    ]
+  }
+}

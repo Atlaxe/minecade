@@ -4,9 +4,9 @@
   "dice": [
     {
       "id": "standard",
-      "texture": "textures/blocks/concrete_white",
+      "texture": "textures/blockparty/dice/standard",
       "layout": "plain",
-      "faces": [{"text":"1","ink":"#1e1e1e"},{"text":"2","ink":"#1e1e1e"},{"text":"3","ink":"#1e1e1e"},{"text":"4","ink":"#1e1e1e"},{"text":"5","ink":"#1e1e1e"},{"text":"6","ink":"#1e1e1e"}]
+      "faces": [{"text":"1","ink":"#d83a3a"},{"text":"2","ink":"#d83a3a"},{"text":"3","ink":"#d83a3a"},{"text":"4","ink":"#d83a3a"},{"text":"5","ink":"#d83a3a"},{"text":"6","ink":"#d83a3a"}]
     },
     {
       "id": "slow",

@@ -5,11 +5,13 @@ import { existsSync } from "node:fs";
 import { mkdir, mkdtemp, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import { decodePng, encodePng, blankImage } from "../../../tools/skins/png.ts";
 import { VanillaTextures } from "../../../tools/build/vanilla-textures.ts";
-import { addItemIcons, scaleUp } from "../../../tools/blockparty/item-icons.ts";
-import { DICE } from "../behavior_pack/scripts/dice.ts";
+import { addBoardIcons, addDiceIcons, addItemIcons, itemIcon, scaleUp } from "../../../tools/blockparty/item-icons.ts";
+import { DICE, STANDARD } from "../behavior_pack/scripts/dice.ts";
+import { EMPTY_ICON } from "../behavior_pack/scripts/screen-codes.ts";
 import { ITEMS, ITEM_IDS, ITEM_PROBLEMS, iconPath, itemInFile, readItems, type ItemDef } from "../behavior_pack/scripts/items.ts";
 
 describe("the items file", () => {
@@ -88,5 +90,40 @@ describe("the item icons", () => {
     const mine = decodePng(await readFile(join(out, "textures/blockparty/icons/MI.png")));
     expect([mine.width, mine.data[0]]).toEqual([128, 10]);
     expect(existsSync(join(out, "textures/blockparty/icons/NO.png"))).toBe(false);
+  });
+
+  it("draws a palette picture (the user's own art) larger too", () => {
+    const pack = fileURLToPath(new URL("../resource_pack/", import.meta.url));
+    for (const item of Object.values(ITEMS)) {
+      if (!item.texture?.startsWith("textures/blockparty/")) continue;
+      const icon = itemIcon(item, pack, undefined);
+      expect(icon, item.id).toBeDefined();
+      expect(decodePng(icon!).width, item.id).toBeGreaterThanOrEqual(64);
+    }
+  });
+
+  it("writes each die's icon by its letters, face 1 of a six-face picture", async () => {
+    const out = await mkdtemp(join(tmpdir(), "dice-icons-"));
+    const six = blankImage(24, 16);
+    six.data.set([200, 0, 0, 255], 0);
+    six.data.set([0, 200, 0, 255], 8 * 4);
+    const own = join(out, "textures/blockparty/dice/six.png");
+    await mkdir(dirname(own), { recursive: true });
+    await writeFile(own, encodePng(six));
+    const vanilla = new VanillaTextures({ items: new Map(), blocks: new Map() });
+    const missing = await addDiceIcons(out, [{ ...STANDARD, letters: "SX", texture: "textures/blockparty/dice/six" }, { ...STANDARD, letters: "NO", texture: "textures/blocks/nothing" }], vanilla);
+    expect(missing).toEqual(["Standard Die (textures/blocks/nothing)"]);
+    const icon = decodePng(await readFile(join(out, "textures/blockparty/icons/SX.png")));
+    expect([icon.width, icon.height]).toEqual([64, 64]);
+    expect([...icon.data.subarray(0, 4)]).toEqual([200, 0, 0, 255]);
+    // Face 2's green is left out.
+    expect([...icon.data].some((value, i) => i % 4 === 1 && value === 200)).toBe(false);
+  });
+
+  it("gives an empty item slot a clear picture", async () => {
+    const out = await mkdtemp(join(tmpdir(), "board-icons-"));
+    await addBoardIcons(out);
+    const clear = decodePng(await readFile(join(out, `${iconPath({ letters: EMPTY_ICON })}.png`)));
+    expect([...clear.data].every((value) => value === 0)).toBe(true);
   });
 });

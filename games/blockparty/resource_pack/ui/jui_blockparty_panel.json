@@ -175,13 +175,12 @@
                             "controls": [
                               {
                                 "b_3aee72de": {
-                                  "type": "label",
-                                  "text": "#jui_text",
+                                  "type": "image",
                                   "size": [
-                                    "default",
-                                    "default"
+                                    20,
+                                    20
                                   ],
-                                  "color": "$v_text",
+                                  "keep_ratio": true,
                                   "bindings": [
                                     {
                                       "binding_name": "#player_name_sidebar",
@@ -190,13 +189,10 @@
                                     },
                                     {
                                       "binding_type": "view",
-                                      "source_property_name": "((('§r' + (('%.20s' * #player_name_sidebar) - ' ')) - (('%.18s' * #player_name_sidebar) - ' ')))",
-                                      "target_property_name": "#jui_text"
+                                      "source_property_name": "('textures/blockparty/icons/' + ((('%.20s' * #player_name_sidebar) - ' ') - (('%.18s' * #player_name_sidebar) - ' ')))",
+                                      "target_property_name": "#texture"
                                     }
                                   ],
-                                  "text_alignment": "center",
-                                  "shadow": true,
-                                  "localize": false,
                                   "anchor_from": "center",
                                   "anchor_to": "center",
                                   "layer": 1

@@ -11,12 +11,12 @@
 // game counts with '%.Ns') and takes the spaces out. The last field runs to the end of the row.
 //
 // The look is the user's: each screen is a component of the workshop's JSON UI builder
-// (blockparty_cards, blockparty_menu, blockparty_panel, blockparty_results), shown while the sidebar's
+// (blockparty_cards, blockparty_menu, blockparty_panel, blockparty_results, blockparty_round), shown while the sidebar's
 // title holds the screen's word, with its rows' fields as {{row.<field>}}. The fields' places here
 // and in the components must agree; test/screens.test.ts checks the installed files against this.
 
 /** Each screen's word: its codes in the sidebar's title show the screen (its component's word). */
-export const SCREEN_WORDS = { cards: "bpc", menu: "bpm", panel: "bpi", results: "bpr" } as const;
+export const SCREEN_WORDS = { cards: "bpc", menu: "bpm", panel: "bpi", results: "bpr", round: "bpn" } as const;
 /**
  * The results' rows under this word instead show only to a player whose action bar line asks for
  * them (their own results screen after a drop: STANDINGS_CODE, ui/hud_screen.json's bp_standings).
@@ -135,6 +135,13 @@ export function initialOf(name: string): string {
 // ---- Player cards ---------------------------------------------------------------------------
 
 /**
+ * What an empty item slot on a card holds: the screens show items as pictures by their letters
+ * (textures/blockparty/icons/<letters>, tools/blockparty/item-icons.ts), and this one's picture is
+ * clear, so an empty slot draws nothing rather than a picture the pack doesn't have.
+ */
+export const EMPTY_ICON = "__";
+
+/**
  * A card: which seat (so each row is its own), whose turn (the highlight), not shown yet (the card
  * keeps its place but draws nothing), the row under the line (a place or items), the head picture
  * (else the letter); then the Stars, the coins, the place, three item icons' letters, the letter, and
@@ -186,9 +193,9 @@ export function cardRows(seats: readonly CardSeat[]): string[] {
       stars: amount(seat.stars, 2),
       coins: amount(seat.coins, 3),
       place: placeText(seat.place),
-      item1: seat.items[0],
-      item2: seat.items[1],
-      item3: seat.items[2],
+      item1: seat.items[0] ?? EMPTY_ICON,
+      item2: seat.items[1] ?? EMPTY_ICON,
+      item3: seat.items[2] ?? EMPTY_ICON,
       letter: initialOf(seat.name),
       head: seat.head ?? "",
     }),
@@ -341,10 +348,26 @@ export function resultRows(rows: readonly ResultRow[]): string[] {
   );
 }
 
+// ---- The round, bottom right ----------------------------------------------------------------
+
+/** The round's one row: its text ("Round 3 / 10", the user's round.hud line). */
+export const ROUND: Layout = {
+  parts: [
+    { kind: "code", word: "kn" },
+    { kind: "rest", name: "text" },
+  ],
+};
+
+/** The round's row: `text` with its formatting codes taken out (a fill's color would leave its letter). */
+export function roundRow(text: string): string {
+  return encode(ROUND, { text: text.replace(/§./g, "") });
+}
+
 /** Every screen's row layouts, for the tests and the builder's components (the fields each one cuts). */
 export const SCREEN_LAYOUTS = {
   cards: { rows: { card: CARD } },
   menu: { rows: { menu: MENU } },
   panel: { rows: { panel: PANEL, text: PANEL_TEXT } },
   results: { rows: { result: RESULT } },
+  round: { rows: { round: ROUND } },
 } as const satisfies Record<ScreenId, { rows: Record<string, Layout> }>;
