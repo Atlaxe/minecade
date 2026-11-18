@@ -1,7 +1,7 @@
 // The Mannequin tool's pure parts: mannequin names, where a new one stands and how it's turned,
 // nudges, its skins, and its look as map.json keeps it, so they can be tested without a server. A
 // mannequin is a stand-in for players in a game's picture, saved in map.json's "mannequins"
-// (editor-only: servers never get it) as { at: [x, y, z, yaw], skin, color?, pose, hold? }.
+// (editor-only: servers never get it) as { at: [x, y, z, yaw], skin, color?, size?, pose, hold? }.
 import { FAKE_COLORS, FAKE_SKINS, lookFromIds, lookIds, type FakeLook, type FakeSkin, type MapConfig, type MapMannequin, type PlayerSkin } from "@minecade/minigame-core/config";
 
 /** Its skins: the fake player's own, then the players' skins the build put in Edit's pack. */

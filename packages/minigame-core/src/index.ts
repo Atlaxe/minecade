@@ -70,5 +70,5 @@ export { ArenaTiles, STRUCTURE_PIECE, shiftBox, shiftPosition, structurePieces, 
 export { PromptBank } from "./game/prompt-bank.ts";
 export { kitStack } from "./game/kits.ts";
 export { LevelSeconds } from "./game/level-seconds.ts";
-export { FAKE_PLAYER, dressFake } from "./game/fakes.ts";
+export { FAKE_PLAYER, dressFake, sizeFake } from "./game/fakes.ts";
 export type { Participant, ParticipantState } from "./game/roster.ts";

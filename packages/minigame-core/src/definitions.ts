@@ -223,6 +223,7 @@ export {
   DEFAULT_FAKE_LOOK,
   FAKE_COLORS,
   FAKE_POSES,
+  FAKE_SIZES,
   FAKE_SKINS,
   NEW_MANNEQUIN_LOOK,
   lookFromIds,
@@ -230,6 +231,7 @@ export {
   lookProperties,
   lookText,
   nextPose,
+  sizeOf,
   type FakeLook,
   type FakeSkin,
 } from "./fake-looks.ts";

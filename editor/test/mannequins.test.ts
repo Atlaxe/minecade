@@ -27,6 +27,13 @@ describe("mannequins", () => {
     expect(withLook(red, { ...mannequinLook(red), skin: 1 })).toEqual({ at: red.at, skin: "steve", pose: "standing" });
   });
 
+  it("is Small as a Chameleon hider is, kept in map.json only then, and poses as one", () => {
+    const small = withLook(red, { ...mannequinLook(red), size: 1, pose: 8 });
+    expect(small).toEqual({ at: red.at, skin: "color", color: "red", size: "small", pose: "sitting" });
+    expect(mannequinLook(small)).toEqual({ skin: 0, color: 0, size: 1, pose: 8 });
+    expect(withLook(small, { ...mannequinLook(small), size: 0 })).toEqual({ ...red, pose: "sitting" });
+  });
+
   it("takes the player's facing where it stands", () => {
     expect(facingMannequin(red, -90.4).at).toEqual([1.5, 65, -2.25, -90]);
     expect(facingMannequin(red, 270).at[3]).toBe(-90);
@@ -70,13 +77,23 @@ describe("the Mannequin tool's menus", () => {
     expect(mannequinSettings({ ...map, mannequinsInPreview: true }, items)[0].text).toBe(switchText("Show in previews", "they stand in this map's previews", true));
   });
 
-  it("has Skin first, Color under it only for the plain color, Hold for the kit items, Pose, then Position and Delete", () => {
-    const screen = (mannequin: MapMannequin, open?: "skin" | "color", withItems = items) =>
+  it("has Skin first, Color under it only for the plain color, Size, Hold for the kit items, Pose, then Position and Delete", () => {
+    const screen = (mannequin: MapMannequin, open?: "skin" | "color" | "size" | "pose", withItems = items) =>
       mannequinScreenEntries({ look: mannequinLook(mannequin), items: withItems, at: mannequin.at, step: 1, ...(open ? { open } : {}), back: true });
     const rows = (entries: { text: string }[]) => entries.map((entry) => stripColors(entry.text)).filter((text) => text.includes(":") && !text.includes("("));
-    expect(rows(screen(red))).toEqual(["Skin: Color", "Color: Red", "Hold: Nothing", "Pose: Standing"]);
+    expect(rows(screen(red))).toEqual(["Skin: Color", "Color: Red", "Size: Normal", "Hold: Nothing", "Pose: Standing"]);
+    expect(rows(screen({ ...red, size: "small", pose: "curled" }))).toEqual(["Skin: Color", "Color: Red", "Size: Small", "Hold: Nothing", "Pose: Curled up"]);
     useMannequinSkins([{ name: "Noor", key: "p0123456789" }]);
-    expect(rows(screen({ ...red, skin: "p0123456789" }, undefined, []))).toEqual(["Skin: Noor", "Pose: Standing"]);
+    expect(rows(screen({ ...red, skin: "p0123456789" }, undefined, []))).toEqual(["Skin: Noor", "Size: Normal", "Pose: Standing"]);
+    const sizes = screen(red, "size");
+    const sizeRow = sizes.findIndex((entry) => stripColors(entry.text) === "Size: Normal");
+    expect(sizes.slice(sizeRow + 1, sizeRow + 3).map((entry) => [stripColors(entry.text), entry.action])).toEqual([
+      ["Normal", { kind: "size", size: 0 }],
+      ["Small", { kind: "size", size: 1 }],
+    ]);
+    const poses = screen(red, "pose").map((entry) => stripColors(entry.text));
+    const poseRow = poses.indexOf("Pose: Standing");
+    expect(poses.slice(poseRow + 9, poseRow + 12)).toEqual(["Sitting", "Lying down", "Curled up"]);
     const open = screen(red, "skin");
     expect(open.map((entry) => stripColors(entry.text)).slice(3, 7)).toEqual(["Color", "Steve", "Alex", "Noor"]);
     expect(open[3].text).toBe(`${MARK.lead}${MARK.picked}Color`);
@@ -84,7 +101,7 @@ describe("the Mannequin tool's menus", () => {
     expect(colors.slice(colors.indexOf("Color: Red") + 1, colors.indexOf("Color: Red") + 8)).toEqual(["Red", "Blue", "Green", "Yellow", "White", "Black", "Gray"]);
     const all = screen(red);
     expect(all[0].action).toEqual({ kind: "back" });
-    expect(all.map((entry) => entry.action.kind)).toEqual(["back", "none", "open", "open", "open", "open", "none", "here", "facing", "move", "move", "move", "move", "move", "move", "turn", "turn", "step", "step", "step", "delete"]);
+    expect(all.map((entry) => entry.action.kind)).toEqual(["back", "none", "open", "open", "open", "open", "open", "none", "here", "facing", "move", "move", "move", "move", "move", "move", "turn", "turn", "step", "step", "step", "delete"]);
     expect(all.at(-1)?.text).toBe(dangerText("Delete"));
     expect(stripColors(all.find((entry) => entry.action.kind === "turn")?.text ?? "")).toBe("Turn (right +): 180°");
   });

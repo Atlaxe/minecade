@@ -36,7 +36,11 @@ export const FAKE_COLORS = [
   { id: "gray", label: "Gray", tint: 0x373a3e, code: "§8" },
 ] as const;
 
-/** Its poses, in the client entity's order (editor/preview/resource_pack/animations/fake_player.animation.json). */
+/**
+ * Its poses, in the client entity's order (editor/preview/resource_pack/animations/fake_player.animation.json).
+ * Sitting, Lying down and Curled up are the Chameleon hiders' poses (the chameleon pack's Sit, Lay
+ * down and Curl up), bone for bone.
+ */
 export const FAKE_POSES = [
   { id: "standing", label: "Standing" },
   { id: "walking", label: "Walking" },
@@ -46,13 +50,31 @@ export const FAKE_POSES = [
   { id: "placing", label: "Placing a block" },
   { id: "falling", label: "Falling" },
   { id: "cheering", label: "Cheering" },
+  { id: "sitting", label: "Sitting" },
+  { id: "lying", label: "Lying down" },
+  { id: "curled", label: "Curled up" },
 ] as const;
 
-/** How a fake player looks: its skin list's (FAKE_SKINS'), FAKE_COLORS' and FAKE_POSES' index, and what it holds (an item id, "{color}" filled in with its color's dye). */
+/**
+ * Its sizes: full size, then Small, a Chameleon hider's size (half as tall, its hitbox too). `event`
+ * is the fake player's behavior pack event that gives it the size (editor/preview/behavior_pack),
+ * `scale` what its minecraft:scale reads then.
+ */
+export const FAKE_SIZES = [
+  { id: "normal", label: "Normal", scale: 1, event: "minecade:full_size" },
+  { id: "small", label: "Small", scale: 0.5, event: "minecade:small" },
+] as const;
+
+/**
+ * How a fake player looks: its skin list's (FAKE_SKINS'), FAKE_COLORS' and FAKE_POSES' index, its
+ * size (FAKE_SIZES' index, none for Normal), and what it holds (an item id, "{color}" filled in
+ * with its color's dye).
+ */
 export interface FakeLook {
   skin: number;
   color: number;
   pose: number;
+  size?: number;
   hold?: string;
 }
 
@@ -67,39 +89,51 @@ export function nextPose(pose: number): number {
   return (pose + 1) % FAKE_POSES.length;
 }
 
-/** The skin property's value and the tint the pack draws it with (0xRRGGBB + 1, 0 for none: only the plain color is tinted). */
-export function lookProperties(look: FakeLook, skins: readonly FakeSkin[] = FAKE_SKINS): { skin: number; tint: number; pose: number } {
-  const skin = skins[look.skin] ? look.skin : 0;
-  const color = FAKE_COLORS[look.color] ?? FAKE_COLORS[0];
-  return { skin, tint: skin === 0 ? color.tint + 1 : 0, pose: FAKE_POSES[look.pose] ? look.pose : 0 };
+/** A look's size, FAKE_SIZES' index: 0 (Normal) for none or one it doesn't know. */
+export function sizeOf(look: FakeLook): number {
+  return look.size !== undefined && FAKE_SIZES[look.size] ? look.size : 0;
 }
 
-/** A look as map.json keeps a mannequin's: by ids, the color only for the plain color skin. */
-export function lookIds(look: FakeLook, skins: readonly FakeSkin[] = FAKE_SKINS): { skin: string; color?: string; pose: string; hold?: string } {
+/** The skin property's value and the tint the pack draws it with (0xRRGGBB + 1, 0 for none: only the plain color is tinted), the pose, and the size. */
+export function lookProperties(look: FakeLook, skins: readonly FakeSkin[] = FAKE_SKINS): { skin: number; tint: number; pose: number; size: number } {
+  const skin = skins[look.skin] ? look.skin : 0;
+  const color = FAKE_COLORS[look.color] ?? FAKE_COLORS[0];
+  return { skin, tint: skin === 0 ? color.tint + 1 : 0, pose: FAKE_POSES[look.pose] ? look.pose : 0, size: sizeOf(look) };
+}
+
+/** A look as map.json keeps a mannequin's: by ids, the color only for the plain color skin, the size only when it's not Normal. */
+export function lookIds(look: FakeLook, skins: readonly FakeSkin[] = FAKE_SKINS): { skin: string; color?: string; size?: string; pose: string; hold?: string } {
   const skin = skins[look.skin] ?? FAKE_SKINS[0];
+  const size = sizeOf(look);
   return {
     skin: skin.id,
     ...(skin.id === "color" ? { color: (FAKE_COLORS[look.color] ?? FAKE_COLORS[0]).id } : {}),
+    ...(size > 0 ? { size: FAKE_SIZES[size].id } : {}),
     pose: (FAKE_POSES[look.pose] ?? FAKE_POSES[0]).id,
     ...(look.hold !== undefined ? { hold: look.hold } : {}),
   };
 }
 
 /** A look from map.json's ids; ones it doesn't know are the first choices. */
-export function lookFromIds(ids: { skin?: unknown; color?: unknown; pose?: unknown; hold?: unknown }, skins: readonly FakeSkin[] = FAKE_SKINS): FakeLook {
+export function lookFromIds(ids: { skin?: unknown; color?: unknown; size?: unknown; pose?: unknown; hold?: unknown }, skins: readonly FakeSkin[] = FAKE_SKINS): FakeLook {
   const index = (list: readonly { id: string }[], id: unknown) => Math.max(0, list.findIndex((entry) => entry.id === id));
+  const size = index(FAKE_SIZES, ids.size);
   return {
     skin: index(skins, ids.skin),
     color: index(FAKE_COLORS, ids.color),
     pose: index(FAKE_POSES, ids.pose),
+    ...(size > 0 ? { size } : {}),
     ...(typeof ids.hold === "string" && ids.hold !== "" ? { hold: ids.hold } : {}),
   };
 }
 
-/** A look in a few words: "Red, Standing", "Alex, Running, holding Bow". */
+/** A look in a few words: "Red, Standing", "Alex, Small, Sitting, holding Bow". */
 export function lookText(look: FakeLook, holdLabel?: string, skins: readonly FakeSkin[] = FAKE_SKINS): string {
   const skin = skins[look.skin] ?? FAKE_SKINS[0];
-  const parts: string[] = [skin.id === "color" ? (FAKE_COLORS[look.color] ?? FAKE_COLORS[0]).label : skin.label, (FAKE_POSES[look.pose] ?? FAKE_POSES[0]).label];
+  const size = sizeOf(look);
+  const parts: string[] = [skin.id === "color" ? (FAKE_COLORS[look.color] ?? FAKE_COLORS[0]).label : skin.label];
+  if (size > 0) parts.push(FAKE_SIZES[size].label);
+  parts.push((FAKE_POSES[look.pose] ?? FAKE_POSES[0]).label);
   if (look.hold !== undefined) parts.push(`holding ${holdLabel ?? look.hold}`);
   return parts.join(", ");
 }

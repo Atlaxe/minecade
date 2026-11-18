@@ -10,7 +10,7 @@ import { world, type Dimension, type Entity } from "@minecraft/server";
 import { describeError, log } from "../log.ts";
 import type { PreviewMannequin } from "../map-config.ts";
 import type { Scope } from "../scope.ts";
-import { FAKE_PLAYER } from "./fakes.ts";
+import { FAKE_PLAYER, sizeFake } from "./fakes.ts";
 
 /** On each body: its place in the list. */
 const INDEX_PROPERTY = "minecade:previewMannequin";
@@ -53,5 +53,6 @@ function dress(body: Entity, mannequin: PreviewMannequin): void {
   body.setProperty("minecade:skin", mannequin.skin);
   body.setProperty("minecade:tint", mannequin.tint);
   body.setProperty("minecade:pose", mannequin.pose);
+  if (mannequin.size) sizeFake(body, mannequin.size);
   if (mannequin.hold) body.runCommand(`replaceitem entity @s slot.weapon.mainhand 0 ${mannequin.hold}`);
 }

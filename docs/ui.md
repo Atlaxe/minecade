@@ -491,7 +491,10 @@ hiding. `games/chameleon`.
   (`minecade:chameleon_<ability>`, `scripts/abilities.ts`) with its own icon in the ability's old
   wool color: a block, a figure striking a pose, a padlock, a megaphone, an eye and a radar screen
   (`tools/assets/chameleon-items.ts` draws them into the game's packs). The map editor's mannequins
-  hold only the shotgun, since Edit mode doesn't load a game's own items.
+  hold only the shotgun, since Edit mode doesn't load a game's own items, but they can stand in for
+  hiders: Size Small is a hider's size, and the hiders' Sit, Lay down and Curl up are the
+  mannequins' Sitting, Lying down and Curled up (`docs/editor.md`, "Mannequins"). They don't wear
+  blocks.
 - **Finding:** the seekers' Pump Shotgun never runs out or reloads (only its fire rate holds it
   back) and hits only hiders, or a hider's free look stand-in, which brings that hider back to it;
   shots pass through other seekers. One pellet that lands finds a hider, at any range (the user's

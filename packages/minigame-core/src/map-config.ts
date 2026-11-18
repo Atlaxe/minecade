@@ -152,12 +152,13 @@ export const BUILD_LIMIT_SIDES: readonly BuildLimitSide[] = ["above", "below"];
 /**
  * A mannequin placed in the map editor: a player-shaped stand-in for game pictures, standing (or
  * floating) at `at`, turned to `yaw`, in a look of fake-looks.ts's ids (`color` for the plain color
- * skin; `hold` an item id, "{color}" in its color's dye).
+ * skin; `size` only when it's not Normal; `hold` an item id, "{color}" in its color's dye).
  */
 export interface MapMannequin {
   at: [x: number, y: number, z: number, yaw: number];
   skin: string;
   color?: string;
+  size?: string;
   pose: string;
   hold?: string;
 }
@@ -165,13 +166,15 @@ export interface MapMannequin {
 /**
  * A mannequin as a preview's server gets it (map.json's previewMannequins, written by the map
  * editor's preview build only): where it stands, and its look as the fake player's properties in
- * the preview's pack, with the item in its hand as an item id.
+ * the preview's pack, its size (FAKE_SIZES' index, only when it's not Normal), with the item in its
+ * hand as an item id.
  */
 export interface PreviewMannequin {
   at: [x: number, y: number, z: number, yaw: number];
   skin: number;
   tint: number;
   pose: number;
+  size?: number;
   hold?: string;
 }
 

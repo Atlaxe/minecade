@@ -7,6 +7,7 @@
 import {
   FAKE_COLORS,
   FAKE_POSES,
+  FAKE_SIZES,
   QUEUE_COUNTDOWN,
   listOf,
   lookText,
@@ -15,6 +16,7 @@ import {
   positionText,
   queueSettings,
   settingText,
+  sizeOf,
   type Box,
   type Facing,
   type FakeLook,
@@ -671,7 +673,7 @@ export function gameSettingScreenEntries(view: { settings: GameSetting[]; key: s
 /** How far a turn turns a mannequin, in degrees. */
 export const MANNEQUIN_TURN = 15;
 
-export type MannequinList = "skin" | "color" | "hold" | "pose";
+export type MannequinList = "skin" | "color" | "size" | "hold" | "pose";
 
 export interface MannequinScreenView {
   look: FakeLook;
@@ -689,6 +691,7 @@ export type MannequinAction =
   | { kind: "open"; which: MannequinList }
   | { kind: "skin"; skin: number }
   | { kind: "color"; color: number }
+  | { kind: "size"; size: number }
   | { kind: "hold"; item?: string }
   | { kind: "pose"; pose: number }
   | { kind: "here" }
@@ -700,9 +703,10 @@ export type MannequinAction =
   | { kind: "none" };
 
 /**
- * A mannequin's screen: Display (the Skin list, Color for the plain color skin, Hold for the game's
- * kit items, and Pose, each opening under its row), Position (Move here, Take my facing, nudge rows
- * for each axis and a turn, and Step), and Delete (red).
+ * A mannequin's screen: Display (the Skin list, Color for the plain color skin, Size (Normal, or
+ * Small as a Chameleon hider is), Hold for the game's kit items, and Pose, each opening under its
+ * row), Position (Move here, Take my facing, nudge rows for each axis and a turn, and Step), and
+ * Delete (red).
  */
 export function mannequinScreenEntries(view: MannequinScreenView): { action: MannequinAction; text: string; icon?: string }[] {
   const entries: { action: MannequinAction; text: string; icon?: string }[] = view.back ? [{ action: { kind: "back" }, text: BACK_TEXT, icon: ICONS.back }] : [];
@@ -715,6 +719,7 @@ export function mannequinScreenEntries(view: MannequinScreenView): { action: Man
   if (skins[view.look.skin]?.id === "color") {
     list("color", "Color", FAKE_COLORS.map((color, i) => ({ action: { kind: "color", color: i }, label: color.label, on: view.look.color === i })));
   }
+  list("size", "Size", FAKE_SIZES.map((size, i) => ({ action: { kind: "size", size: i }, label: size.label, on: sizeOf(view.look) === i })));
   if (view.items.length > 0) {
     const items = view.items.map(({ item, label }) => ({ action: { kind: "hold", item } as const, label, on: view.look.hold === item }));
     list("hold", "Hold", [{ action: { kind: "hold" }, label: "Nothing", on: view.look.hold === undefined }, ...items]);

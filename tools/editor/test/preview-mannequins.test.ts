@@ -13,6 +13,7 @@ const config: MapConfig = {
     "Mannequin 1": { at: [1.5, 65, 2, 90], skin: "color", color: "blue", pose: "running", hold: "minecraft:{color}_wool" },
     "Mannequin 2": { at: [3, 65, 4, 0], skin: "pabc", pose: "standing", hold: "minecraft:bow" },
     "Mannequin 3": { at: [5, 65, 6, 0], skin: "pgone", pose: "standing" },
+    "Mannequin 4": { at: [7, 65, 8, 0], skin: "steve", size: "small", pose: "curled" },
   },
 };
 
@@ -25,6 +26,8 @@ describe("a preview's mannequins", () => {
       { at: [3, 65, 4, 0], skin: FAKE_SKINS.length, tint: 0, pose: 0, hold: "minecraft:bow" },
       // A skin this PC doesn't have: the plain color.
       { at: [5, 65, 6, 0], skin: 0, tint: FAKE_COLORS[0].tint + 1, pose: 0 },
+      // Small, as a Chameleon hider is: its size by FAKE_SIZES' place, there only when it's not Normal.
+      { at: [7, 65, 8, 0], skin: 1, tint: 0, pose: 10, size: 1 },
     ]);
   });
 

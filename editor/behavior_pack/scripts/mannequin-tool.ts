@@ -1,10 +1,11 @@
 // The Mannequin tool (Edit, on a game's map): stand-ins for players in the game's picture. A use on
 // a block places a mannequin there at once ("Mannequin 1", "Mannequin 2" and on), facing you, in the
 // first choices (a plain red, standing, holding nothing). Hit or right click one for its screen
-// (menu.ts mannequinScreenEntries): its skin (a plain color, Steve or Alex, or a player's), what it
-// holds (the game's kit items), its pose, and where it stands; each tap changes it at once (Undo
-// takes it back). Sneaking, a right click gives it its next pose instead (the first again after the
-// last). The tool's settings in the map menu list them.
+// (menu.ts mannequinScreenEntries): its skin (a plain color, Steve or Alex, or a player's), its size
+// (Normal, or Small as a Chameleon hider is), what it holds (the game's kit items), its pose
+// (Chameleon's Sitting, Lying down and Curled up among them), and where it stands; each tap changes
+// it at once (Undo takes it back). Sneaking, a right click gives it its next pose instead (the first
+// again after the last). The tool's settings in the map menu list them.
 //
 // A mannequin is the preview's fake player (minecade:fake_player, its "minecade:mannequin" group:
 // no gravity, can't be hurt or pushed), without a name tag, and it stays in a game picture's shot
@@ -221,10 +222,11 @@ export class MannequinTool {
         return;
       }
       if (action.kind === "open") open = open === action.which ? undefined : action.which;
-      else if (action.kind === "skin" || action.kind === "color" || action.kind === "hold" || action.kind === "pose") open = undefined;
+      else if (action.kind === "skin" || action.kind === "color" || action.kind === "size" || action.kind === "hold" || action.kind === "pose") open = undefined;
       let next: MapMannequin | undefined;
       if (action.kind === "skin") next = withLook(mannequin, { ...look, skin: action.skin });
       else if (action.kind === "color") next = withLook(mannequin, { ...look, color: action.color });
+      else if (action.kind === "size") next = withLook(mannequin, { ...look, size: action.size });
       else if (action.kind === "hold") next = withLook(mannequin, { ...look, hold: action.item });
       else if (action.kind === "pose") next = withLook(mannequin, { ...look, pose: action.pose });
       else if (action.kind === "move") next = nudgeMannequin(mannequin, { axis: action.axis, by: action.by * step });

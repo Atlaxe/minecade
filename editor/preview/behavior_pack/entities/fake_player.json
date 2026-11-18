@@ -46,6 +46,12 @@
         "minecraft:damage_sensor": { "triggers": [{ "cause": "all", "deals_damage": "no" }] },
         "minecraft:knockback_resistance": { "value": 1 },
         "minecraft:fire_immune": true
+      },
+      "minecade:small": {
+        "minecraft:scale": { "value": 0.5 }
+      },
+      "minecade:full_size": {
+        "minecraft:scale": { "value": 1 }
       }
     },
     "events": {
@@ -53,6 +59,8 @@
       "minecade:walk": { "remove": { "component_groups": ["minecade:floating"] }, "add": { "component_groups": ["minecade:walking"] } },
       "minecade:float": { "remove": { "component_groups": ["minecade:walking"] }, "add": { "component_groups": ["minecade:floating"] } },
       "minecade:mannequin": { "remove": { "component_groups": ["minecade:walking", "minecade:floating"] }, "add": { "component_groups": ["minecade:mannequin"] } },
+      "minecade:small": { "remove": { "component_groups": ["minecade:full_size"] }, "add": { "component_groups": ["minecade:small"] } },
+      "minecade:full_size": { "remove": { "component_groups": ["minecade:small"] }, "add": { "component_groups": ["minecade:full_size"] } },
       "minecade:poked": {}
     }
   }

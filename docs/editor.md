@@ -620,12 +620,13 @@ the hotbar, the first again after the last):
 
 - **Display:** **Skin** (**Color**, then Minecraft's Steve and Alex, then the players' skins the
   lobby's watcher saved, by gamertag), **Color** under it while the skin is Color (Red, Blue, Green
-  and Yellow, White, Black and Gray, each as dark as its concrete), **Hold** (Nothing, or any item
-  from the game's kits, such as Bridges' wool in the mannequin's color, then the items the game
-  hands out itself, its `mannequinItems`: Gunfight's and Gun Game's weapons, Paintball's power-ups
-  in the mannequin's color) and **Pose** (Standing,
-  Walking, Running, Swinging, Aiming a bow, Placing a block, Falling, Cheering). Each is a list that
-  opens under its row.
+  and Yellow, White, Black and Gray, each as dark as its concrete), **Size** (Normal, or Small: half
+  as tall, as a Chameleon hider is, its hitbox too), **Hold** (Nothing, or any item from the game's
+  kits, such as Bridges' wool in the mannequin's color, then the items the game hands out itself,
+  its `mannequinItems`: Gunfight's and Gun Game's weapons, Paintball's power-ups in the mannequin's
+  color) and **Pose** (Standing, Walking, Running, Swinging, Aiming a bow, Placing a block,
+  Falling, Cheering, then Chameleon's hider poses: Sitting, Lying down and Curled up). Each is a
+  list that opens under its row.
 - **Position:** **Move here** (where you stand, facing your way), **Take my facing** (where it
   stands, facing your way), X, Y and Z nudge rows, **Turn** (15 degrees a tap, right is +) and
   **Step** (1, 0.5 or 5 blocks). Mannequins float where they're put and can't be hurt or pushed.

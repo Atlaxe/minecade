@@ -85,16 +85,16 @@ export async function buildPreviewTemplate(map: PreviewMap, out: string): Promis
 /**
  * The map's mannequins as a preview's server stands them (minigame-core preview-mannequins.ts): the
  * skin by its place in the preview pack's list (the fake player's own, then `players`), the plain
- * color's tint, the pose, and the item in hand in the plain color's dye.
+ * color's tint, the pose, the size when it's not Normal, and the item in hand in the plain color's dye.
  */
 export function previewMannequins(config: MapConfig, players: MannequinSkin[]): PreviewMannequin[] {
   const skins: FakeSkin[] = [...FAKE_SKINS, ...players.map(({ skin }) => ({ id: skin.key, label: skin.name, slim: skin.slim === true }))];
   const mannequins = Object.values(config.mannequins ?? {}).filter((mannequin): mannequin is MapMannequin => Array.isArray(mannequin?.at) && mannequin.at.length === 4);
   return mannequins.map((mannequin) => {
     const look = lookFromIds(mannequin, skins);
-    const { skin, tint, pose } = lookProperties(look, skins);
+    const { skin, tint, pose, size } = lookProperties(look, skins);
     const dye = skins[skin]?.id === "color" ? (FAKE_COLORS[look.color] ?? FAKE_COLORS[0]).code : undefined;
-    return { at: mannequin.at, skin, tint, pose, ...(look.hold ? { hold: kitItemId({ item: look.hold }, dye) } : {}) };
+    return { at: mannequin.at, skin, tint, pose, ...(size > 0 ? { size } : {}), ...(look.hold ? { hold: kitItemId({ item: look.hold }, dye) } : {}) };
   });
 }
 

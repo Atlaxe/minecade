@@ -54,6 +54,35 @@
       "bones": {
         "rightarm": { "rotation": [-170, 0, 0] }
       }
+    },
+    "animation.minecade.fake_player.sitting": {
+      "loop": true,
+      "bones": {
+        "root": { "position": [0, -10, 0] },
+        "rightleg": { "rotation": [-90, 10, 0] },
+        "leftleg": { "rotation": [-90, -10, 0] },
+        "rightarm": { "rotation": [-35, 0, 0] },
+        "leftarm": { "rotation": [-35, 0, 0] }
+      }
+    },
+    "animation.minecade.fake_player.lying": {
+      "loop": true,
+      "bones": {
+        "root": { "rotation": [-90, 0, 0], "position": [0, 2, -16] },
+        "rightarm": { "rotation": [0, 0, 5] },
+        "leftarm": { "rotation": [0, 0, -5] }
+      }
+    },
+    "animation.minecade.fake_player.curled": {
+      "loop": true,
+      "bones": {
+        "root": { "position": [0, -10, 0] },
+        "body": { "rotation": [25, 0, 0] },
+        "rightleg": { "rotation": [-120, 5, 0] },
+        "leftleg": { "rotation": [-120, -5, 0] },
+        "rightarm": { "rotation": [-80, 0, -15] },
+        "leftarm": { "rotation": [-80, 0, 15] }
+      }
     }
   }
 }

@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { FAKE_COLORS, FAKE_POSES, FAKE_SKINS, NEW_MANNEQUIN_LOOK, lookFromIds, lookIds, lookProperties, lookText, nextPose } from "../src/fake-looks.ts";
+import { FAKE_COLORS, FAKE_POSES, FAKE_SIZES, FAKE_SKINS, NEW_MANNEQUIN_LOOK, lookFromIds, lookIds, lookProperties, lookText, nextPose } from "../src/fake-looks.ts";
 import { applyEdit, describeEdit } from "../src/map-edit.ts";
 import { runtimeMapConfig, type MapConfig } from "../src/map-config.ts";
 import { validateMapConfig } from "../src/map-validate.ts";
@@ -9,9 +9,9 @@ const preview = (path: string) => JSON.parse(readFileSync(new URL(`../../../edit
 
 describe("fake player looks", () => {
   it("tints only the plain color skin, in its color, as dark as its concrete", () => {
-    expect(lookProperties({ skin: 0, color: 1, pose: 2 })).toEqual({ skin: 0, tint: 0x2d2f8f + 1, pose: 2 });
-    expect(lookProperties({ skin: 2, color: 1, pose: 0 })).toEqual({ skin: 2, tint: 0, pose: 0 });
-    expect(lookProperties({ skin: 99, color: 99, pose: 99 })).toEqual({ skin: 0, tint: FAKE_COLORS[0].tint + 1, pose: 0 });
+    expect(lookProperties({ skin: 0, color: 1, pose: 2 })).toEqual({ skin: 0, tint: 0x2d2f8f + 1, pose: 2, size: 0 });
+    expect(lookProperties({ skin: 2, color: 1, pose: 0, size: 1 })).toEqual({ skin: 2, tint: 0, pose: 0, size: 1 });
+    expect(lookProperties({ skin: 99, color: 99, pose: 99, size: 99 })).toEqual({ skin: 0, tint: FAKE_COLORS[0].tint + 1, pose: 0, size: 0 });
     // A skin from a longer list (Edit's, with the players' skins).
     const skins = [...FAKE_SKINS, { id: "p0123456789", label: "Sam", slim: false }];
     expect(lookProperties({ skin: 3, color: 0, pose: 0 }, skins).skin).toBe(3);
@@ -27,6 +27,14 @@ describe("fake player looks", () => {
     expect(lookFromIds({ skin: "nobody", pose: 3 })).toEqual(NEW_MANNEQUIN_LOOK);
   });
 
+  it("keeps the size only when it's Small, as a Chameleon hider is", () => {
+    expect(lookIds({ skin: 1, color: 0, pose: 9, size: 1 })).toEqual({ skin: "steve", size: "small", pose: "lying" });
+    expect(lookIds({ skin: 1, color: 0, pose: 0, size: 0 })).toEqual({ skin: "steve", pose: "standing" });
+    expect(lookFromIds({ skin: "steve", size: "small", pose: "curled" })).toEqual({ skin: 1, color: 0, pose: 10, size: 1 });
+    expect(lookFromIds({ skin: "steve", size: "normal", pose: "sitting" })).toEqual({ skin: 1, color: 0, pose: 8 });
+    expect(lookFromIds({ skin: "steve", size: "giant", pose: "standing" })).toEqual({ skin: 1, color: 0, pose: 0 });
+  });
+
   it("cycles the poses back to the first after the last", () => {
     expect(nextPose(0)).toBe(1);
     expect(nextPose(FAKE_POSES.length - 1)).toBe(0);
@@ -35,6 +43,7 @@ describe("fake player looks", () => {
   it("says a look in a few words", () => {
     expect(lookText(NEW_MANNEQUIN_LOOK)).toBe("Red, Standing");
     expect(lookText({ skin: 2, color: 0, pose: 2, hold: "minecraft:bow" }, "Bow")).toBe("Alex, Running, holding Bow");
+    expect(lookText({ skin: 0, color: 1, pose: 8, size: 1 })).toBe("Blue, Small, Sitting");
   });
 
   it("has the pack draw each skin on its own model, in the same order, and every pose", () => {
@@ -44,9 +53,26 @@ describe("fake player looks", () => {
     const entity = preview("resource_pack/entity/fake_player.entity.json")["minecraft:client_entity"].description;
     expect(Object.keys(entity.textures)).toEqual(FAKE_SKINS.map((skin) => skin.id));
     expect(entity.scripts.animate).toHaveLength(FAKE_POSES.length - 1);
-    const properties = preview("behavior_pack/entities/fake_player.json")["minecraft:entity"].description.properties;
+    // Each pose after Standing plays its own animation, named by its id.
+    FAKE_POSES.slice(1).forEach((pose, i) => {
+      expect(entity.scripts.animate[i]).toEqual({ [pose.id]: "query.property('minecade:pose') == " + (i + 1) });
+      expect(entity.animations[pose.id]).toBe("animation.minecade.fake_player." + pose.id);
+    });
+    const animations = preview("resource_pack/animations/fake_player.animation.json").animations;
+    for (const name of Object.values(entity.animations)) expect(animations[name as string]).toBeDefined();
+    const behavior = preview("behavior_pack/entities/fake_player.json")["minecraft:entity"];
+    const properties = behavior.description.properties;
     expect(properties["minecade:skin"].range[1]).toBeGreaterThanOrEqual(FAKE_SKINS.length - 1);
     expect(properties["minecade:skin"].default).toBe(1);
+    expect(properties["minecade:pose"].range[1]).toBeGreaterThanOrEqual(FAKE_POSES.length - 1);
+    // Each size's event adds a group with its scale and takes the other sizes' away.
+    for (const size of FAKE_SIZES) {
+      const event = behavior.events[size.event];
+      expect(event.add.component_groups).toHaveLength(1);
+      expect(behavior.component_groups[event.add.component_groups[0]]["minecraft:scale"].value).toBe(size.scale);
+      const others = FAKE_SIZES.filter((other) => other !== size).map((other) => behavior.events[other.event].add.component_groups[0]);
+      expect(event.remove.component_groups).toEqual(others);
+    }
   });
 });
 

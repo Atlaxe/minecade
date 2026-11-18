@@ -22,7 +22,10 @@
         "aiming": "animation.minecade.fake_player.aiming",
         "placing": "animation.minecade.fake_player.placing",
         "falling": "animation.minecade.fake_player.falling",
-        "cheering": "animation.minecade.fake_player.cheering"
+        "cheering": "animation.minecade.fake_player.cheering",
+        "sitting": "animation.minecade.fake_player.sitting",
+        "lying": "animation.minecade.fake_player.lying",
+        "curled": "animation.minecade.fake_player.curled"
       },
       "scripts": {
         "animate": [
@@ -46,6 +49,15 @@
           },
           {
             "cheering": "query.property('minecade:pose') == 7"
+          },
+          {
+            "sitting": "query.property('minecade:pose') == 8"
+          },
+          {
+            "lying": "query.property('minecade:pose') == 9"
+          },
+          {
+            "curled": "query.property('minecade:pose') == 10"
           }
         ]
       },

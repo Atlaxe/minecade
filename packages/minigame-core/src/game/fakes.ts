@@ -17,7 +17,7 @@
 // are (the servers' tick distance is 4 chunks). So a fake's body gets a one-chunk ticking area
 // where it stands, made before it's placed there and dropped once it moves on or is removed.
 import { EntityComponentTypes, world, type Dimension, type Entity, type Vector3 } from "@minecraft/server";
-import { DEFAULT_FAKE_LOOK, FAKE_SKINS, lookProperties, type FakeLook, type FakeSkin } from "../fake-looks.ts";
+import { DEFAULT_FAKE_LOOK, FAKE_SIZES, FAKE_SKINS, lookProperties, type FakeLook, type FakeSkin } from "../fake-looks.ts";
 import { kitItemId } from "../kit-defs.ts";
 import { describeError, log } from "../log.ts";
 
@@ -31,19 +31,30 @@ const TINT_PROPERTY = "minecade:tint";
 
 /**
  * Puts a look on a fake player's body: the skin (from `skins`, the pack's list), the plain color's
- * tint and the pose for the pack to draw, and the item in its hand when `holding` (it holds one, or
- * that changed), "{color}" in `itemColor`'s dye (a § color).
+ * tint and the pose for the pack to draw, its size, and the item in its hand when `holding` (it
+ * holds one, or that changed), "{color}" in `itemColor`'s dye (a § color).
  */
 export function dressFake(body: Entity, look: FakeLook, holding: boolean, itemColor?: string, skins: readonly FakeSkin[] = FAKE_SKINS): void {
-  const { skin, tint, pose } = lookProperties(look, skins);
+  const { skin, tint, pose, size } = lookProperties(look, skins);
   try {
     if (body.getProperty(SKIN_PROPERTY) !== skin) body.setProperty(SKIN_PROPERTY, skin);
     if (body.getProperty(POSE_PROPERTY) !== pose) body.setProperty(POSE_PROPERTY, pose);
     if (body.getProperty(TINT_PROPERTY) !== tint) body.setProperty(TINT_PROPERTY, tint);
+    sizeFake(body, size);
     if (holding) body.runCommand(`replaceitem entity @s slot.weapon.mainhand 0 ${look.hold === undefined ? "air" : kitItemId({ item: look.hold }, itemColor)}`);
   } catch (error) {
     log.warn(`could not dress a fake player: ${describeError(error)}`);
   }
+}
+
+/**
+ * Gives a fake player's body FAKE_SIZES[size]'s size (Small: half as tall, its hitbox too), by the
+ * entity's own event, when its minecraft:scale doesn't read that already.
+ */
+export function sizeFake(body: Entity, size: number): void {
+  const wanted = FAKE_SIZES[size] ?? FAKE_SIZES[0];
+  const scale = body.getComponent(EntityComponentTypes.Scale)?.value ?? 1;
+  if (Math.abs(scale - wanted.scale) > 0.001) body.triggerEvent(wanted.event);
 }
 
 /** The hearts (editor/preview/resource_pack/font/glyph_E4.png, U+E400 on): full, half and empty. */
