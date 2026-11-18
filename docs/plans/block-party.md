@@ -203,15 +203,32 @@ Outcomes get bigger later in the game, so late ones help trailing players.
 - **Shooting Star** (rare, late game only): the leader's Star flies to last place. The leader is
   the one with the most Stars, then coins. It's never drawn while the leader has no Star.
 
+**Built in pass 7** (`space-play.ts`, `space-rules.ts`): the Witch comes to the lander's space with
+three potions, three different outcomes drawn by weight from those that can do something now. Each
+potion's color says what kind of outcome is inside (proposed, so a reroll means something): gold
+for coins (Coin Rain, Coin Swap, Reverse Fortune, Double or Nothing), green for items (Gift Exchange,
+Lucky Draw), purple for the board (Position Shuffle, Battle Royale, Zombie Outbreak), white for Stars
+(Half-price Star, Shooting Star). Brew new ones (3 coins) is a fourth button, once a visit. Weights
+(proposed): Coin Rain 12, Lucky Draw 12, Reverse Fortune 10, Double or Nothing 10, Gift Exchange 8,
+Battle Royale 8, Zombie Outbreak 8, Half-price Star 8, Coin Swap 6, Position Shuffle 4, Shooting Star
+3. Double or Nothing bets 2, 5 or 10 coins (15 late), never more than the lander has; Gift Exchange
+passes a random item of each holder's to the next in turn order, all at once.
+
 ## The Warden
 
 - **Sculk Tax:** lose 5-10 coins to the bank.
 - **Hush Money:** pay 3 coins to each other player.
 - **Star Tax:** pay 3 coins per Star you hold.
-- **Silenced:** lose your next item.
+- **Silenced:** lose your next item (built: the next item or die they'd get from an Item space,
+  Lucky Draw or a Happening goes to the Warden; what they buy is theirs).
 - **Slow Curse:** your next roll uses the Slow Die.
 - **Zombie Curse:** a zombie follows you for 3 rounds.
 - **Sonic Boom** (rare): the leader loses 1 Star.
+
+**Built in pass 7:** the Warden comes up beside the lander (the emerge animation), roars (Sonic
+Boom's own animation for that), does his event and digs away. Weights (proposed): Sculk Tax 20,
+Hush Money 16, Slow Curse 14, Star Tax 12, Silenced 12, Zombie Curse 12, Sonic Boom 4; Star Tax
+needs a Star, Hush Money another player, Sonic Boom a leader with a Star.
 
 ## Happening
 
@@ -230,6 +247,12 @@ One shared table of small effects, weighted, with no Stars and no big swings:
 
 Each map gives only the flavor text and visuals (a conductor handing you a ticket on the train, a
 sculk shrieker going off in the Ancient City).
+
+**Built in pass 7:** the camera cuts to the space, `happening.flavor` is said (one line for every
+board until map settings can hold text), then the effect. Move forward walks 2 (a Star or the Trader
+passed on the way still stops it, a branch still asks) without landing again; Move back walks back the
+way the links came; Roll again is a standard-die roll with no items, then the walk and the space it
+lands on (never a second one in a turn); Swap an item needs the lander and someone else to hold one.
 
 ## Shop, Villager and Wandering Trader
 
@@ -407,13 +430,27 @@ At most 3 held.
 - **Dueling Glove:** forces a 1v1 with 10 coins at stake.
 - **Lightning Strike:** the player with the most Stars (then coins) gives 10 coins (capped at what they have) to the player with
   the fewest. Used on yourself, it gets rid of a zombie, but you still lose coins. Coins only, never
-  Stars.
+  Stars. (Built: a user with a zombie picks Strike the leader or Strike me; struck themselves, their
+  10 coins go to last place, or the bank if they're last.)
 - **Zombie Spawn:** a zombie follows a rival and takes 3 coins every round. It leaves when the
   target finishes top 2 in a minigame, after 3 rounds, when the target has no coins left to take, or
   when the target uses an Iron Golem or a Lightning Strike.
 - **Iron Golem:** shakes down a player for up to 5 coins, or removes a zombie from you.
 - **Villager:** trade a die or an item for coins: half its value, rounded down (see "Dice"). Not
   on the final turn.
+
+**Built in pass 7** (`item-play.ts`): on their turn, before the roll, a player picks Items in the
+board menu, steps to an item and jumps; the menu goes while it works and comes back for the roll.
+One item a turn (proposed): Items is dim after one. An item that needs a rival asks in the dialogue
+box (each player with their Stars and coins, and Never mind, which keeps the item). A totem is the
+turn's movement boost, so after one only the standard die shows in Dice block; its extra die is
+rolled after the main roll and shown under the total. The Enderman, the Iron Golem and the Villager
+come to do theirs; the Lightning Strike is a flash and a crack, no real bolt. A zombie (zombies.ts)
+walks behind its target, fades with them on others' turns, and takes 3 coins as each of their turns
+starts (to the bank, proposed). Using the Cursed Die from your own hands asks first: roll it, or make
+a rival roll it (their next roll is it). The Warden's Slow Curse and a handed-on Cursed Die are said
+as the turn starts, and Dice block shows only that die. Bots use an item 60% of the turns they hold
+one: their zombie sent away first, a rival item on the leader when they aren't it, then a totem.
 
 ## Presentation and cameras
 
@@ -1018,7 +1055,40 @@ reward was dropped.
      sentence no longer ends at an initial or a title ("Chris P. Bacon"). The pre-game follows the
      user's flow chart, with the tutorial as Chris's question; the markers are Pre-game podium and
      Chris by type. Not yet seen in game.
-7. **Items, dice, Chance Time, the Warden, the shop and the Trader.**
+7. **Items, dice, Chance Time, the Warden, the shop and the Trader.** The dice (a dice file, models,
+   faces that do more) came first (2026-11-18, "The dice file"). **The rest built 2026-11-18**
+   (`space-rules.ts` pure, `seats.ts`, `space-play.ts`, `item-play.ts`, `zombies.ts`), not yet seen
+   in game:
+   - **Seats hold things for real:** up to 2 special dice and 3 items each (bots too), on the cards
+     and in the board menu; a special die is used up when it's rolled. Tests' Dice and items held
+     sets your seat's (any two dice, any three items).
+   - **Item spaces:** a prize from one pool of items and dice (Item spaces, Lucky Draw, a
+     Happening's free item), weak things likelier for the leader and strong ones for those behind;
+     the Golden Die only for last place, the Mystery Die only from Lucky Draw. Full hands pick what
+     to drop, or keep what they have.
+   - **The Shop:** the Villager comes beside the lander: Buy (the round's stock of 3, said to
+     everyone as each round starts), Sell something (half its value) or Leave, again after each
+     trade until they leave.
+   - **The Wandering Trader:** first in round 3 or 4, then every 3 or 4 rounds, for one round on a
+     random Item space without a Star (Chris announces it as a skippable cutscene, he drops in, a
+     green beam marks it). Passing or landing there stops the walk like a Star; one buyer, then he
+     goes.
+   - **Chance Time, the Warden, Happening:** as their sections say ("Built in pass 7").
+   - **Items:** every item, the zombies, the totems' and the Cursed Totem's rolls ("Items").
+   - **Duels:** a Versus space and the Dueling Glove are one duel now: the Referee comes, the
+     onlookers bet 3 or 5 coins on either duelist or nothing, one after another in his buttons, he
+     reads the odds, and after the duel a right bet wins as much again from the bank and a wrong one
+     loses it. The Glove's stake is 10 (doubled in the last rounds like Versus).
+   - **The turn fade** keeps in sight the seats a turn's scene is about (an item's rival, Chance's
+     leader and last place).
+   - **Tests:** Next space outcomes (what the next Chance Time, Warden and Happening do) and Bring
+     the Wandering Trader, beside Go to a space.
+   - **Lines:** every new thing said is a Draft row in the workshop's dialogue file (5dfb524): the
+     NPCs' as one-card scenes, the buttons and the game's own words as texts.
+   - **Not yet:** NPC stages for the Villager and the Witch (they stand beside the lander's space),
+     the map's own Happening flavor (map settings hold only numbers), shots beyond the two-shots and
+     a space cut (the Witch's cauldron close-up, the Trader's pan in), Gift Exchange's passes shown
+     anywhere but chat.
 8. **End of game:** bonus Stars, the tiebreaker, the podium.
 9. **The rest of the minigames.**
 10. **Refinement: cameras and UI** (the user, 2026-11-17): everything that works made to work and
@@ -1043,3 +1113,8 @@ Every question is answered. These were taken without one; the user can change an
 - The plan's other "proposed" items: Happening's share goes to Blue on maps without it, the Star
   moves at least ~30% of the loop away on bigger boards, the beacon beam is a model, results play on
   the board's podium, the space blocks, and the NPC entities.
+- Pass 7 (2026-11-18): one item a turn; Chance's potions colored by kind; the Chance, Warden and
+  prize weights above; the Villager item worth 6 (it isn't in the Shop); a zombie's 3 coins go to the
+  bank; Silenced takes the next prize, not a purchase; the Golden Totem's extra die counts double
+  (not the whole roll); the Cursed Totem halves the whole roll after a totem; Coin Swap is the
+  lander's pick; a bot buys in the Shop or from the Trader only when it keeps 5 coins over.

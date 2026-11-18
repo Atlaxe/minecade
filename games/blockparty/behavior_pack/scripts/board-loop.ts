@@ -15,11 +15,12 @@
 //      dice file says (dice.ts: coins, an event, a line), and their piece walks the number:
 //      at a branch they pick the way (a form), and passing or landing on a Star, Chris (beside it)
 //      offers it for its price (15, 20 or 25 coins by the game's length) in the dialogue box, after
-//      which it moves to a candidate far away and a Chris drops in there. Landing: Blue +3 coins, Red
-//      -3 (never below 0), Versus a duel with a player the lander picks from the Referee's buttons
-//      (the loser pays the winner 5 coins); the other types say what they'll do, as their passes
-//      come. Chris says when the game is halfway, when coins start doubling and when the last round
-//      starts.
+//      which it moves to a candidate far away and a Chris drops in there. Before the roll they may use
+//      one item (item-play.ts), and a zombie on them takes its coins. Landing: Blue +3 coins, Red -3
+//      (never below 0), Versus a duel with a player the lander picks from the Referee's buttons (the
+//      loser pays the winner 5 coins, onlookers bet on it), and Item, Shop, Chance Time, Warden and
+//      Happening as space-play.ts plays them; the Wandering Trader stops a walk like a Star. Chris
+//      says when the game is halfway, when coins start doubling and when the last round starts.
 //   4. After everyone has moved, a minigame (minigame-rules.ts picks the format and the minigame,
 //      minigame-runner.ts plays it), and its coins are paid; coins awarded and duel stakes double in
 //      the last 2 rounds (the last one in a 10-turn game).
@@ -34,6 +35,11 @@ import { world, type Player } from "@minecraft/server";
 import { describeError, log, type Result, type Scope } from "@minecade/minigame-core";
 import { BLOCK_PARTY_BOARD } from "@minecade/minigame-core/config";
 import { back, type Space } from "./board.ts";
+import { ITEMS, type Holdings, type ItemId } from "./dice-items.ts";
+import { ItemPlay } from "./item-play.ts";
+import { SpacePlay } from "./space-play.ts";
+import { mayUseItem, newSeat, turnDice, type Seat, type TurnState } from "./seats.ts";
+import { BETS, GLOVE_STAKE, betResult, trailOf } from "./space-rules.ts";
 import type { TalkOptions } from "./dialogue.ts";
 import type { Stage } from "./stage.ts";
 import { activeStars, addCoins, coinsFor, count, firstStars, leaders, nextStar, ranked, starDistance, starPrice, turnOrder, type Standing } from "./board-rules.ts";
@@ -84,6 +90,8 @@ export interface LoopHost {
   changed(): void;
   /** The results screen (results.ts) from the standings `before` to `after`; resolves once it's gone. */
   results(before: readonly ResultSeat[], after: readonly ResultSeat[]): Promise<void>;
+  /** The zombies that follow seats (zombies.ts): their bodies; how long they stay is the loop's. */
+  zombies: { add(key: string): unknown; remove(key: string): void };
   random(): number;
 }
 
@@ -102,12 +110,6 @@ export interface CardInfo {
 
 /** A test's jump (the Tests menu): to a round, straight to its minigame or not, or a minigame played next. */
 export type TestJump = { kind: "round"; round: number; minigameOnly: boolean } | { kind: "minigame"; format: Format; def: MinigameDef };
-
-interface Seat {
-  name: string;
-  coins: number;
-  stars: number;
-}
 
 /** Ticks between drawings of the Stars' beams. */
 const BEAM_TICKS = 10;
@@ -137,11 +139,199 @@ export class BoardLoop {
   private placesKnown = false;
   /** A die's face said the next minigame pays double (the dice file's double_minigame). */
   private doubleNext = false;
+  /** Chance Time's Battle Royale: the round's minigame is a Battle. */
+  private battleNext = false;
+  /** The turn going on: an item used, a totem's die, a bonus roll. */
+  private turnNow: TurnState | undefined;
+  /** Seats the turn's scene is about besides the player whose turn it is (they don't fade: fade.ts). */
+  private readonly featuring = new Set<string>();
   private readonly host: LoopHost;
+  /** The items in play, and the spaces past Blue, Red and Versus (pass 7). */
+  readonly items: ItemPlay;
+  readonly spacePlay: SpacePlay;
 
   constructor(host: LoopHost) {
     this.host = host;
+    this.items = new ItemPlay(this, host);
+    this.spacePlay = new SpacePlay(this, host, this.items);
     host.scope.interval(() => this.drawBeams(), BEAM_TICKS);
+  }
+
+  // ---- What the items and spaces use (item-play.ts, space-play.ts) ----------------------------
+
+  /** A seat by key. */
+  seatOf(key: string): Seat | undefined {
+    return this.seats.get(key);
+  }
+
+  /** The turn going on, if any. */
+  get turnState(): TurnState | undefined {
+    return this.turnNow;
+  }
+
+  /** The seats the turn's scene is about (a rival an item picked, Chance Time's leader): they stay in sight. */
+  get featured(): string[] {
+    return [...this.featuring];
+  }
+
+  /** Keeps `seats` in sight for the rest of the scene (until unfeature). */
+  feature(...seats: (Who | undefined)[]): void {
+    for (const who of seats) if (who) this.featuring.add(who.key);
+  }
+
+  unfeature(): void {
+    this.featuring.clear();
+  }
+
+  /** The seats here and on the board now (bodies there, not off in a minigame), in turn order. */
+  here(): Who[] {
+    const present = this.host.present().filter((who) => this.seats.has(who.key) && who.body.isValid && !this.host.pieces.isOff(who.body));
+    const at = (who: Who) => {
+      const index = this.order.indexOf(who.key);
+      return index < 0 ? this.order.length : index;
+    };
+    return present.sort((a, b) => at(a) - at(b));
+  }
+
+  /** The turn order, by key. */
+  turnOrder(): readonly string[] {
+    return this.order;
+  }
+
+  /** Among those here: the leader (most Stars, then coins), last place, and whether everyone is level. */
+  ends(): { leader?: Who; last?: Who; level: boolean } {
+    const here = this.here();
+    const best = ranked(here.map((who) => ({ name: who.key, stars: this.seats.get(who.key)?.stars ?? 0, coins: this.seats.get(who.key)?.coins ?? 0 })));
+    if (best.length === 0) return { level: true };
+    const top = best[0];
+    const bottom = best[best.length - 1];
+    const level = top.stars === bottom.stars && top.coins === bottom.coins;
+    return { leader: here.find((who) => who.key === top.name), last: here.find((who) => who.key === bottom.name), level };
+  }
+
+  /** How far behind a seat stands among those here: 0 for the leader, 1 for last place (ties share the better place). */
+  trailOf(key: string): number {
+    const here = this.here();
+    const best = ranked(here.map((who) => ({ name: who.key, stars: this.seats.get(who.key)?.stars ?? 0, coins: this.seats.get(who.key)?.coins ?? 0 })));
+    const mine = best.find((entry) => entry.name === key);
+    if (!mine) return 0.5;
+    const place = best.findIndex((entry) => entry.stars === mine.stars && entry.coins === mine.coins);
+    return trailOf(place, best.length);
+  }
+
+  /** The space a seat's piece is on. */
+  spaceOf(who: Who): Space | undefined {
+    return this.host.spaces()[this.host.pieces.spaceOf(who.body)];
+  }
+
+  /** The spaces the Stars are on. */
+  starSpaces(): readonly number[] {
+    return this.stars;
+  }
+
+  /** Coins from one seat to another, at most `amount` and never more than the payer has: what was paid. */
+  pay(from: string, to: string, amount: number): number {
+    const payer = this.seats.get(from);
+    const payee = this.seats.get(to);
+    if (!payer || !payee || from === to) return 0;
+    const paid = Math.min(amount, payer.coins);
+    payer.coins -= paid;
+    payee.coins += paid;
+    this.host.changed();
+    return paid;
+  }
+
+  /** What a seat holds as the board menu shows it: the dice it may roll now, its items, and whether Items is spent this turn. */
+  holdingsOf(who: Who): Holdings {
+    const seat = this.seats.get(who.key);
+    if (!seat) return { dice: turnDice(newSeat(who.name, 0), undefined), items: [] };
+    const turn = this.turnNow?.key === who.key ? this.turnNow : undefined;
+    return { dice: turnDice(seat, turn), items: [...seat.hands.items], ...(mayUseItem(turn) ? {} : { spent: true }) };
+  }
+
+  /** The item letters a seat's card shows. */
+  itemLetters(key: string): string[] {
+    return (this.seats.get(key)?.hands.items ?? []).map((id) => ITEMS[id].letters);
+  }
+
+  /** Tests: sets what a seat holds (special dice and items). */
+  setHands(key: string, dice: readonly string[], items: readonly ItemId[]): boolean {
+    const seat = this.seats.get(key);
+    if (!seat) return false;
+    seat.hands = { dice: [...dice], items: [...items] };
+    this.host.changed();
+    return true;
+  }
+
+  /** A seat uses an item on its turn (the item panel's jump): resolves once it's done, true if it was used. */
+  async useItem(who: Who, id: ItemId): Promise<boolean> {
+    try {
+      return await this.items.use(who, id);
+    } catch (error) {
+      log.warn(`blockparty: ${who.name}'s ${id} failed: ${describeError(error)}`);
+      return false;
+    } finally {
+      this.unfeature();
+      this.host.stage.clear();
+      this.host.changed();
+    }
+  }
+
+  /** Two seats' pieces swap spaces (an Ender Pearl). */
+  swap(a: Who, b: Who): void {
+    const at = this.host.pieces.spaceOf(a.body);
+    this.host.pieces.moveTo(a.body, this.host.pieces.spaceOf(b.body));
+    this.host.pieces.moveTo(b.body, at);
+  }
+
+  /** Everyone's spaces dealt out again at random, each to someone else's when that can be (the Mystery Die, Position Shuffle). */
+  shuffle(here: readonly Who[]): void {
+    const at = here.map((other) => this.host.pieces.spaceOf(other.body));
+    const dealt = [...at];
+    for (let i = dealt.length - 1; i > 0; i--) {
+      const j = Math.floor(this.host.random() * (i + 1));
+      [dealt[i], dealt[j]] = [dealt[j], dealt[i]];
+    }
+    if (dealt.length > 1 && dealt.every((space, i) => space === at[i])) dealt.push(dealt.shift()!);
+    here.forEach((other, i) => this.host.pieces.moveTo(other.body, dealt[i]));
+  }
+
+  /** The round's minigame is a Battle (Chance Time's Battle Royale). */
+  forceBattle(): void {
+    this.battleNext = true;
+  }
+
+  /** Walks a seat forward (a Happening): branches and Stars on the way as any walk, no landing. */
+  async walk(who: Who, steps: number): Promise<void> {
+    await this.move(who, steps);
+  }
+
+  /** Walks a seat back the way the links came (a Happening), no landing. */
+  async walkBack(who: Who, steps: number): Promise<void> {
+    const spaces = this.host.spaces();
+    const stretch: Space[] = [];
+    let at = this.host.pieces.spaceOf(who.body);
+    for (let i = 0; i < steps; i++) {
+      const before = back(spaces, at, 1);
+      if (before === at) break;
+      at = before;
+      stretch.push(spaces[at]);
+    }
+    if (stretch.length === 0) return;
+    this.host.stage.clear();
+    await this.host.pieces.walkThrough(who.body, stretch, { land: true, quiet: true });
+  }
+
+  /** A bonus roll now (a Happening's Roll again): the standard die, the walk, and the space it lands on. */
+  async bonusRoll(who: Who): Promise<void> {
+    if (this.turnNow?.key === who.key) this.turnNow.bonus = true;
+    this.host.stage.clear();
+    const rolled = await this.host.roll(who, true);
+    if (rolled === undefined || !who.body.isValid) return;
+    this.host.everyone(line("turn.rolled", { player: who.name, roll: rolled.move }));
+    await this.move(who, rolled.move);
+    if (!who.body.isValid) return;
+    await this.land(who);
   }
 
   /** Whose turn it is now (by key), if anybody's. */
@@ -191,7 +381,7 @@ export class BoardLoop {
   }
 
   /** Every seat's standing now, for the results screen. */
-  private snapshot(): ResultSeat[] {
+  snapshot(): ResultSeat[] {
     return this.order.flatMap((key) => {
       const seat = this.seats.get(key);
       return seat ? [{ key, name: seat.name, stars: seat.stars, coins: seat.coins }] : [];
@@ -199,7 +389,7 @@ export class BoardLoop {
   }
 
   /** The results screen from `before` to now; places show on the cards from then on. */
-  private async showResults(before: readonly ResultSeat[]): Promise<void> {
+  async showResults(before: readonly ResultSeat[]): Promise<void> {
     this.placesKnown = true;
     this.host.changed();
     try {
@@ -286,6 +476,11 @@ export class BoardLoop {
       this.host.changed();
       await this.host.scope.wait(30);
       await this.announce(doubling);
+      try {
+        await this.spacePlay.roundStart();
+      } catch (error) {
+        log.warn(`blockparty: round ${this.round}'s start failed: ${describeError(error)}`);
+      }
       let jumped: { round: number; minigameOnly: boolean } | undefined = withTurns ? undefined : await this.takeJump();
       for (let i = 0; withTurns && i < this.order.length; i++) {
         jumped = await this.takeJump();
@@ -304,7 +499,13 @@ export class BoardLoop {
         }
       }
       this.turn = undefined;
+      this.turnNow = undefined;
       this.host.changed();
+      try {
+        await this.spacePlay.roundEnd();
+      } catch (error) {
+        log.warn(`blockparty: round ${this.round}'s end failed: ${describeError(error)}`);
+      }
       jumped ??= await this.takeJump();
       if (jumped) {
         this.host.everyone(`Test: on to round ${jumped.round}${jumped.minigameOnly ? ", straight to its minigame" : ""}.`);
@@ -408,7 +609,7 @@ export class BoardLoop {
   /** Someone sits down with `coins` and no Stars, last in the turn order. */
   private seat(who: Who, coins: number): void {
     if (this.seats.has(who.key)) return;
-    this.seats.set(who.key, { name: who.name, coins, stars: 0 });
+    this.seats.set(who.key, newSeat(who.name, coins));
     if (this.order.length > 0 && !this.order.includes(who.key)) {
       this.order.push(who.key);
       // A late joiner's card comes in at once.
@@ -448,11 +649,20 @@ export class BoardLoop {
   private async playTurn(who: Who): Promise<boolean> {
     this.turn = who.key;
     this.lastTurn = who.key;
+    this.turnNow = { key: who.key, item: false, bonus: false };
     this.host.changed();
     this.host.title(line("turn.title", { player: who.name }), who.player ? line("turn.subtitle") : "");
+    // A zombie on them takes its coins; a curse says which die they'll roll; a bot may use an item.
+    await this.items.zombieBite(who);
+    const seat = this.seats.get(who.key);
+    if (seat?.effects.cursedDie) await this.host.say("dice.cursed.forced", { player: who.name }, false, who);
+    else if (seat?.effects.slow) await this.host.say("dice.slow-curse", { player: who.name }, false, who);
+    if (!who.player) await this.items.botTurn(who);
+    if (!who.body.isValid) return false;
     const rolled = await this.host.roll(who, true);
     if (rolled === undefined) return this.jump !== undefined;
     if (!who.body.isValid) return false;
+    await this.items.afterRoll(who, rolled);
     this.host.everyone(line("turn.rolled", { player: who.name, roll: rolled.move }));
     await this.rolledFaces(who, rolled);
     if (!who.body.isValid) return false;
@@ -507,18 +717,10 @@ export class BoardLoop {
       case "double_minigame":
         this.doubleNext = true;
         return undefined;
-      case "swap_places": {
+      case "swap_places":
         // Everyone's spaces dealt out again at random (each to someone else's, when that can be).
-        const at = here.map((other) => this.host.pieces.spaceOf(other.body));
-        const dealt = [...at];
-        for (let i = dealt.length - 1; i > 0; i--) {
-          const j = Math.floor(this.host.random() * (i + 1));
-          [dealt[i], dealt[j]] = [dealt[j], dealt[i]];
-        }
-        if (dealt.length > 1 && dealt.every((space, i) => space === at[i])) dealt.push(dealt.shift()!);
-        here.forEach((other, i) => this.host.pieces.moveTo(other.body, dealt[i]));
+        this.shuffle(here);
         return undefined;
-      }
       case "everyone_back":
         for (const other of here) this.host.pieces.moveTo(other.body, back(spaces, this.host.pieces.spaceOf(other.body), face.amount));
         return undefined;
@@ -527,7 +729,7 @@ export class BoardLoop {
     }
   }
 
-  /** Walks the piece `steps` spaces, stopping to pick a way at each branch and at each Star it passes. */
+  /** Walks the piece `steps` spaces, stopping to pick a way at each branch and at each Star (and the Wandering Trader) it passes. */
   private async move(who: Who, steps: number): Promise<void> {
     const spaces = this.host.spaces();
     let left = steps;
@@ -542,7 +744,7 @@ export class BoardLoop {
         here = next;
         stretch.push(spaces[here]);
         left--;
-        if (this.stars.includes(here) && left > 0) break;
+        if ((this.stars.includes(here) || this.spacePlay.traderSpace === here) && left > 0) break;
       }
       if (!who.body.isValid) return;
       // The board's camera follows the walk (after the Star's shot, for one).
@@ -550,6 +752,7 @@ export class BoardLoop {
       await this.host.pieces.walkThrough(who.body, stretch, { land: left === 0, quiet: true });
       at = here;
       if (this.stars.includes(at)) await this.offerStar(who, at);
+      if (this.spacePlay.traderSpace === at) await this.spacePlay.trader(who);
     }
   }
 
@@ -580,9 +783,11 @@ export class BoardLoop {
     if (!seat) return;
     const spaces = this.host.spaces();
     const { stage } = this.host;
-    const price = starPrice(this.host.turns);
+    // Chance Time's Half-price Star: coins off, until they buy one.
+    const price = Math.max(0, starPrice(this.host.turns) - seat.effects.discount);
     const money = { player: who.name, price: count(price, "coin"), coins: count(seat.coins, "coin") };
     await stage.starVisit(who, spaces[at]);
+    if (seat.effects.discount > 0) await this.host.say("star.chris.half-price", money, false, who);
     if (seat.coins < price) {
       await this.host.say("star.chris.short", money, false, who);
       return;
@@ -595,6 +800,7 @@ export class BoardLoop {
     const before = this.snapshot();
     seat.coins -= price;
     seat.stars++;
+    seat.effects.discount = 0;
     const index = this.stars.indexOf(at);
     const moved = nextStar(spaces, at, this.stars.filter((star) => star !== at), starDistance(spaces.length), this.host.random);
     if (index >= 0) this.stars[index] = moved;
@@ -613,19 +819,27 @@ export class BoardLoop {
     const space = this.host.spaces()[this.host.pieces.spaceOf(who.body)];
     if (!seat || !space) return;
     const change = coinsFor(space.type);
-    if (space.type === "versus") {
-      await this.versus(who);
-    } else {
-      // Blue and Red pay; the other types say what they'll do, as their passes come.
-      if (change !== 0) seat.coins = addCoins(seat.coins, change);
-      this.host.everyone(line(`land.${space.type}`, { player: who.name, coins: count(Math.abs(change), "coin") }));
+    // Blue and Red pay; every type is said in chat.
+    if (change !== 0) seat.coins = addCoins(seat.coins, change);
+    if (space.type !== "versus") this.host.everyone(line(`land.${space.type}`, { player: who.name, coins: count(Math.abs(change), "coin") }));
+    this.host.changed();
+    try {
+      if (space.type === "versus") await this.versus(who);
+      else if (space.type === "item") await this.spacePlay.itemSpace(who);
+      else if (space.type === "shop") await this.spacePlay.shop(who);
+      else if (space.type === "chance") await this.spacePlay.chance(who);
+      else if (space.type === "warden") await this.spacePlay.warden(who);
+      else if (space.type === "happening") await this.spacePlay.happening(who);
+    } catch (error) {
+      log.warn(`blockparty: ${who.name}'s ${space.type} space failed: ${describeError(error)}`);
     }
+    this.unfeature();
     this.host.changed();
   }
 
-  /** A Versus space: the lander picks who to duel (a bot picks the leader), and the loser pays the winner. */
+  /** A Versus space: the lander picks who to duel (a bot picks the leader) from the Referee's buttons. */
   private async versus(who: Who): Promise<void> {
-    const others = this.host.present().filter((other) => other.key !== who.key && this.seats.has(other.key));
+    const others = this.here().filter((other) => other.key !== who.key);
     if (others.length === 0) {
       this.host.everyone(line("versus.nobody", { player: who.name }));
       return;
@@ -634,34 +848,46 @@ export class BoardLoop {
     const stake = VERSUS_STAKE * (doubled ? 2 : 1);
     const leader = others.reduce((best, other) => ((this.seats.get(other.key)?.coins ?? 0) > (this.seats.get(best.key)?.coins ?? 0) ? other : best), others[0]);
     // The Referee comes to the lander, and they pick a rival from its buttons.
-    await this.host.stage.referee(who, this.host.spaces()[this.host.pieces.spaceOf(who.body)]);
+    await this.host.stage.referee(who, this.spaceOf(who));
     if (doubled) await this.host.say("versus.doubled", { coins: count(stake, "coin") }, false, who);
     const picked = await this.host.talk("versus.announce", { player: who.name }, {
       to: who,
       buttons: others.map((other) => button("versus.form.button", { player: other.name, coins: count(this.seats.get(other.key)?.coins ?? 0, "coin") })),
       botPick: others.indexOf(leader),
     });
-    const rival = others[picked ?? 0];
+    await this.duel(who, others[picked ?? 0], stake, "versus");
+  }
+
+  /**
+   * A duel (a Versus space, or the Dueling Glove): an FFA minigame for the two, the loser paying the
+   * winner `stake` (capped at what they have). The Referee states it, the onlookers bet on it
+   * (takeBets), and the bets are paid from the bank or lost to it.
+   */
+  async duel(who: Who, rival: Who, stake: number, kind: "versus" | "glove"): Promise<void> {
     const pool = this.host.minigames.filter((minigame) => minigame.kind === "ffa");
     const def = pickMinigame(pool, this.played, this.host.random);
     if (!def) return;
     this.played.set(def.id, (this.played.get(def.id) ?? 0) + 1);
     const duel = { player: who.name, other: rival.name, coins: count(stake, "coin") };
-    this.host.everyone(doubled ? line("versus.start.doubled", duel) : line("versus.start", duel));
+    if (kind === "glove") {
+      await this.host.stage.referee(who, this.spaceOf(who));
+      await this.host.say("versus.glove", duel, false, who);
+    }
+    this.host.everyone(stake > (kind === "glove" ? GLOVE_STAKE : VERSUS_STAKE) ? line("versus.start.doubled", duel) : line("versus.start", duel));
     await this.host.say("versus.faceoff", duel, false, who);
+    const bets = await this.takeBets(who, rival);
     this.host.stage.refereeGone();
     const onlookers = this.host.present().filter((other) => other.key !== who.key && other.key !== rival.key);
     const before = this.snapshot();
+    let winnerKey: string | undefined;
     await this.host.playMinigame("duel", def, [[who], [rival]], pool, onlookers, (outcome) => {
       const winners = "places" in outcome ? (outcome.places[0] ?? []) : [];
-      if (winners.length !== 1) return { title: line("versus.draw.title"), subtitle: () => line("versus.draw.subtitle") };
-      const winner = winners[0] === who.key ? who : rival;
+      winnerKey = winners.length === 1 ? winners[0] : undefined;
+      this.settleBets(bets, winnerKey);
+      if (winnerKey === undefined) return { title: line("versus.draw.title"), subtitle: () => line("versus.draw.subtitle") };
+      const winner = winnerKey === who.key ? who : rival;
       const loser = winner === who ? rival : who;
-      const loserSeat = this.seats.get(loser.key);
-      const winnerSeat = this.seats.get(winner.key);
-      const paid = Math.min(stake, loserSeat?.coins ?? 0);
-      if (loserSeat) loserSeat.coins -= paid;
-      if (winnerSeat) winnerSeat.coins += paid;
+      const paid = this.pay(loser.key, winner.key, stake);
       const result = { player: winner.name, other: loser.name, coins: count(paid, "coin") };
       this.host.everyone(line("versus.won", result));
       this.host.changed();
@@ -671,7 +897,53 @@ export class BoardLoop {
         subtitle: (key) => (key === winner.key ? line("versus.you.won", result) : key === loser.key ? line("versus.you.lost", result) : line("versus.won.subtitle", result)),
       };
     });
+    // A zombie leaves the duel's winner (a win is a top 2 finish).
+    if (winnerKey) this.items.shakeOff([winnerKey]);
     await this.showResults(before);
+  }
+
+  /**
+   * The onlookers' bets (docs/plans/block-party.md, "Versus and the Dueling Glove"): each seat on the
+   * board but the duelists, with coins to bet, picks 3 or 5 on either of them, or no bet, from the
+   * Referee's buttons one after another (a bot sometimes backs the richer); then the Referee reads
+   * the odds. Bets lock as the duel starts.
+   */
+  private async takeBets(a: Who, b: Who): Promise<{ who: Who; side: string; amount: number }[]> {
+    const bets: { who: Who; side: string; amount: number }[] = [];
+    const bettors = this.here().filter((other) => other.key !== a.key && other.key !== b.key && (this.seats.get(other.key)?.coins ?? 0) >= BETS[0]);
+    if (bettors.length > 0) await this.host.say("versus.bets.open", { player: a.name, other: b.name }, false, a);
+    for (const bettor of bettors) {
+      const coins = this.seats.get(bettor.key)?.coins ?? 0;
+      const options = [a, b].flatMap((side) => BETS.filter((amount) => amount <= coins).map((amount) => ({ side, amount })));
+      const favorite = (this.seats.get(a.key)?.coins ?? 0) >= (this.seats.get(b.key)?.coins ?? 0) ? a : b;
+      const botPick = this.host.random() < 0.5 ? options.length : Math.max(0, options.findIndex((option) => option.side === favorite));
+      const picked = await this.host.talk("versus.bet.ask", { player: bettor.name, other: a.name, coins: count(coins, "coin") }, {
+        to: bettor,
+        buttons: [...options.map((option) => button("versus.bet.button", { player: option.side.name, coins: count(option.amount, "coin") })), button("versus.bet.none")],
+        back: options.length,
+        botPick,
+      });
+      if (picked === undefined || picked >= options.length) continue;
+      bets.push({ who: bettor, side: options[picked].side.key, amount: options[picked].amount });
+    }
+    if (bets.length > 0) {
+      const odds = [a, b].map((side) => `${side.name} ${bets.filter((bet) => bet.side === side.key).length}`).join(", ");
+      await this.host.say("versus.bets.closed", { odds, player: a.name, other: b.name }, false, a);
+    } else if (bettors.length > 0) await this.host.say("versus.bets.none", { player: a.name, other: b.name }, false, a);
+    return bets;
+  }
+
+  /** Each bet won back as much again from the bank, or lost to it; a draw leaves them be. */
+  private settleBets(bets: readonly { who: Who; side: string; amount: number }[], winner: string | undefined): void {
+    for (const bet of bets) {
+      const seat = this.seats.get(bet.who.key);
+      const change = betResult(bet.amount, bet.side, winner);
+      if (!seat || change === 0) continue;
+      const before = seat.coins;
+      seat.coins = addCoins(seat.coins, change);
+      this.host.everyone(line(change > 0 ? "versus.bet.won" : "versus.bet.lost", { player: bet.who.name, coins: count(Math.abs(seat.coins - before), "coin") }));
+    }
+    this.host.changed();
   }
 
   /** The round's minigame: its format and sides, the pick, and the coins it pays. */
@@ -679,6 +951,9 @@ export class BoardLoop {
     const here = this.host.present().filter((who) => this.seats.has(who.key));
     if (here.length === 0) return;
     let format = test?.format ?? formatFor(this.round, here.length, this.host.random);
+    // Chance Time's Battle Royale makes it a Battle.
+    if (!test && this.battleNext && fits("battle", here.length)) format = "battle";
+    this.battleNext = false;
     if (!fits(format, here.length)) {
       if (test) this.host.everyone(`Test: ${test.def.name} as ${format} doesn't fit ${here.length} players.`);
       return;
@@ -710,7 +985,9 @@ export class BoardLoop {
       this.host.everyone(line("minigame.battle.pot", { coins: count(pot, "coin") }));
       this.host.changed();
     }
-    await this.host.playMinigame(format, def, sides, pool, [], (outcome) => this.pay(format, def, sides, outcome, doubled, pot, bonus));
+    const outcome = await this.host.playMinigame(format, def, sides, pool, [], (outcome) => this.payOut(format, def, sides, outcome, doubled, pot, bonus));
+    // Zombies leave those who finished in the top 2 (the winning side, in a team game).
+    this.items.shakeOff(topTwo(outcome, sides));
     await this.showResults(before);
   }
 
@@ -736,7 +1013,7 @@ export class BoardLoop {
    * and coins in chat, and the results over the arena, a short title (one name, a team, a tie: names
    * joined in a title ran off the screen) with each player's own place and coins under it.
    */
-  private pay(format: Format, def: MinigameDef, sides: readonly Who[][], outcome: Outcome, doubled: boolean, pot: number, bonus = false): Results {
+  private payOut(format: Format, def: MinigameDef, sides: readonly Who[][], outcome: Outcome, doubled: boolean, pot: number, bonus = false): Results {
     const names = new Map(sides.flat().map((who) => [who.key, who.name]));
     const nameOf = (key: string) => names.get(key) ?? this.seats.get(key)?.name ?? key;
     let coins: Map<string, number>;
@@ -812,7 +1089,7 @@ export class BoardLoop {
   }
 
   /** A space's name: its id on a map, else its place on the test board. */
-  private spaceName(space: Space): string {
+  spaceName(space: Space): string {
     return `space ${space.id ?? space.index + 1}`;
   }
 
@@ -826,21 +1103,40 @@ export class BoardLoop {
     return at.length === 1 ? line("star.where.one", { space: at[0] }) : line("star.where.two", { space: at[0], space2: at.slice(1).join(" and ") });
   }
 
-  /** A column of light over each Star (the plan's beacon beam is a model, pass 6). */
+  /** A column of light over each Star (the plan's beacon beam is a model, pass 6), and a green one over the Wandering Trader's space. */
   private drawBeams(): void {
     if (!this.running) return;
     const spaces = this.host.spaces();
     const dimension = world.getDimension("overworld");
-    for (const index of this.stars) {
+    const beams: [number, string][] = this.stars.map((index) => [index, "minecraft:endrod"]);
+    const trader = this.spacePlay.traderSpace;
+    if (trader !== undefined) beams.push([trader, "minecraft:villager_happy"]);
+    for (const [index, particle] of beams) {
       const space = spaces[index];
       if (!space) continue;
       for (let y = 0.5; y <= 8; y += 0.75) {
         try {
-          dimension.spawnParticle("minecraft:endrod", { x: space.at[0], y: space.at[1] + y, z: space.at[2] });
+          dimension.spawnParticle(particle, { x: space.at[0], y: space.at[1] + y, z: space.at[2] });
         } catch {
           // unloaded
         }
       }
     }
   }
+}
+
+/**
+ * Who finished a minigame in the top 2 (zombies leave them): the first two places' players (ties
+ * share a place, so it can be more), or the winning side of a team game.
+ */
+export function topTwo(outcome: Outcome, sides: readonly (readonly { key: string }[])[]): string[] {
+  if ("places" in outcome) {
+    const out: string[] = [];
+    for (const group of outcome.places) {
+      if (out.length >= 2) break;
+      out.push(...group);
+    }
+    return out;
+  }
+  return outcome.winner === undefined ? [] : (sides[outcome.winner] ?? []).map((who) => who.key);
 }

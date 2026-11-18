@@ -2,8 +2,9 @@
 // away, so the board camera shows the player whose turn it is alone; when the turn is over they come
 // back. Not on the pre-game podium (its turn order roll isn't a turn), and not while a minigame has
 // the players (a Versus duel in the middle of a turn shows everyone in the arena).
-//   - Who fades: every other seat (players and bots), and whatever follows one of them (the Zombie
-//     Spawn item's zombie, registered with follow()). Something following the player whose turn it
+//   - Who fades: every other seat (players and bots), but those the turn's scene is about (a rival an
+//     item picked, Chance Time's leader and last place: the board loop's featured seats), and
+//     whatever follows one of them (the Zombie Spawn item's zombie, registered with follow()). Something following the player whose turn it
 //     is stays, as they do (the user: a zombie following the player mustn't fade). The board's NPCs
 //     (Chris at the Stars, the Referee) stay too: the turn talks to them.
 //   - How: an entity of the game's own that has the FADED property (bots, the zombie) fades on its
@@ -34,12 +35,12 @@ interface Follower {
 }
 
 /**
- * Which seats fade now (their keys): everyone but `turn`, while there's a turn; nobody without one.
- * A follower fades with its owner.
+ * Which seats fade now (their keys): everyone but `turn` and the seats its scene is about
+ * (`featured`), while there's a turn; nobody without one. A follower fades with its owner.
  */
-export function fadedKeys(seats: readonly string[], turn: string | undefined): Set<string> {
+export function fadedKeys(seats: readonly string[], turn: string | undefined, featured: readonly string[] = []): Set<string> {
   if (turn === undefined) return new Set();
-  return new Set(seats.filter((key) => key !== turn));
+  return new Set(seats.filter((key) => key !== turn && !featured.includes(key)));
 }
 
 interface State {
@@ -80,10 +81,11 @@ export class TurnFade {
    * Each tick: `seats` (everyone sitting at the board, here now) fade but the seat whose turn it is
    * (`turn`; undefined: nobody fades), with their followers.
    */
-  update(seats: readonly Who[], turn: string | undefined): void {
+  update(seats: readonly Who[], turn: string | undefined, featured: readonly string[] = []): void {
     const faded = fadedKeys(
       seats.map((who) => who.key),
       turn,
+      featured,
     );
     for (const who of seats) this.set(who.body, faded.has(who.key));
     for (let i = this.followers.length - 1; i >= 0; i--) {

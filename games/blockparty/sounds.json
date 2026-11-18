@@ -1,6 +1,88 @@
 {
   "about": "Block Party's sound cues, from the user's dialogue editor (Sounds; not in this repo). Change them there, not here.",
   "cues": {
+    "event:music.board": [
+      {
+        "sound": "record.mall",
+        "volume": 0.7,
+        "pitch": 1,
+        "delay": 0,
+        "fade": 2,
+        "loop": true
+      },
+      {
+        "sound": "record.far",
+        "volume": 0.7,
+        "pitch": 1,
+        "delay": 0,
+        "fade": 2,
+        "loop": true
+      },
+      {
+        "sound": "record.ward",
+        "volume": 1,
+        "pitch": 1,
+        "delay": 0,
+        "fade": 2,
+        "loop": true
+      }
+    ],
+    "event:music.end": [
+      {
+        "sound": "record.stal",
+        "volume": 1,
+        "pitch": 1,
+        "delay": 0,
+        "fade": 2,
+        "loop": false
+      },
+      {
+        "sound": "record.lava_chicken",
+        "volume": 1,
+        "pitch": 1,
+        "delay": 0,
+        "fade": 2,
+        "loop": false
+      }
+    ],
+    "event:music.intro": [
+      {
+        "sound": "record.otherside",
+        "volume": 0.5,
+        "pitch": 1,
+        "delay": 0,
+        "fade": 2,
+        "loop": false
+      }
+    ],
+    "event:music.minigame": [
+      {
+        "sound": "record.chirp",
+        "volume": 1,
+        "pitch": 1,
+        "delay": 0,
+        "fade": 2,
+        "loop": true
+      },
+      {
+        "sound": "record.wait",
+        "volume": 1,
+        "pitch": 1,
+        "delay": 0,
+        "fade": 2,
+        "loop": true
+      }
+    ],
+    "event:music.podium": [
+      {
+        "sound": "record.otherside",
+        "volume": 1,
+        "pitch": 1,
+        "delay": 0,
+        "fade": 2,
+        "loop": true
+      }
+    ],
     "voice:Allay": [
       {
         "sound": "mob.allay.idle_holding",
@@ -159,5 +241,8 @@
         "delay": 0
       }
     ]
+  },
+  "modes": {
+    "event:music.board": "shuffle"
   }
 }

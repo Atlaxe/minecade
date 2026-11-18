@@ -5,8 +5,9 @@ import { STAGE_ADJUSTABLE, STAGE_MARKUP } from "./behavior_pack/scripts/stage-ma
 
 // Block Party (docs/plans/block-party.md): a board game with minigames between turns, a test game
 // the lobby lists only while DEV_TEST_GAMES is 1 until it's whole. It plays the board loop
-// (board-loop.ts: turn order, rolls, walking with branches, Stars, coins, rounds, a minigame after
-// each round, Versus duels, the winner) on a board map's own spaces, or on Probe's map a small test
+// (board-loop.ts: turn order, rolls, walking with branches, Stars, coins, items and every space
+// type, rounds, a minigame after each round, Versus duels, the winner) on a board map's own spaces,
+// or on Probe's map a small test
 // board (12 spaces in a loop) it lays beside the platform. A game one player starts gets bots
 // (bots.ts). The spike's Tests menu (the hotbar's) is still there, trying what the game needs from
 // Bedrock: scripted cameras, walking a piece from space to space, the jump button while a player is

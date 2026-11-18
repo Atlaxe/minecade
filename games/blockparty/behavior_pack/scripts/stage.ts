@@ -19,6 +19,7 @@ import { boardBox, type Space, type Vec3 } from "./board.ts";
 import type { Who } from "./bots.ts";
 import type { Dialogue } from "./dialogue.ts";
 import { moment } from "./lines.ts";
+import { NPC_ANIMATION } from "./npcs.ts";
 import { besideSpace, faceShot, introAround, markerShot, podiumFromMarkup, podiumOnStart, spaceShot, twoShot, yawFrom, type Marker, type Podium, type Shot } from "./stage-layout.ts";
 
 /** The map's podium and intro markup (Block Party's config, map.points). */
@@ -316,6 +317,82 @@ export class Stage {
 
   refereeGone(): void {
     this.remove("referee");
+  }
+
+  /**
+   * An NPC comes to a seat on its space (pass 7: the Villager at a Shop, the Witch at Chance Time,
+   * the Warden, the Enderman, the Iron Golem): `role`'s entity beside the space, turned to them, the
+   * two in shot (the moment `lineId`'s camera, else `fallback`). Gone with remove(key).
+   */
+  async visit(key: string, role: string, who: Who, space: Space | undefined, lineId: string, fallback: Move = "Cut"): Promise<Entity | undefined> {
+    if (!space || !who.body.isValid) return undefined;
+    const at = this.besideSpace(space);
+    const them = arr(who.body.location);
+    const entity = this.put(key, role, at, yawFrom(at, them));
+    this.shot(twoShot(them, at, sideOf(who)), this.moveFor(lineId, fallback));
+    await this.deps.dialogue.wait(10);
+    return entity;
+  }
+
+  /** A part beside a space, facing it (the Wandering Trader by its Item space); dropping in when `drop`. */
+  async beside(key: string, role: string, space: Space, drop: boolean): Promise<void> {
+    const at = this.besideSpace(space);
+    const yaw = yawFrom(at, space.at);
+    if (drop) await this.fallIn(key, role, at, yaw);
+    else this.put(key, role, at, yaw);
+  }
+
+  /** A seat comes to a part already on stage (the Trader by his space): it turns to them, the two in shot (a pan by default). */
+  async meet(key: string, who: Who, lineId: string, fallback: Move = "Pan"): Promise<void> {
+    const part = this.get(key);
+    if (!part || !who.body.isValid) return;
+    const them = arr(who.body.location);
+    this.face(key, them);
+    const move = this.moveFor(lineId, fallback);
+    this.shot(twoShot(them, arr(part.location), sideOf(who)), move);
+    if (move === "Pan") await this.deps.dialogue.wait(Math.round(PAN * 20));
+  }
+
+  /** The camera to a space (a pan by default, or the moment `lineId`'s camera), given time to get there. */
+  async toSpace(space: Space, lineId: string, fallback: Move = "Pan"): Promise<void> {
+    const move = this.moveFor(lineId, fallback);
+    this.shot(spaceShot(space, this.deps.spaces()), move);
+    if (move === "Pan") await this.deps.dialogue.wait(Math.round(PAN * 20));
+  }
+
+  /** Two seats in one shot (an Ender Pearl's swap, Coin Swap): a cut by default. */
+  async twoSeats(a: Who, b: Who, lineId: string, fallback: Move = "Cut"): Promise<void> {
+    if (!a.body.isValid || !b.body.isValid) return;
+    this.shot(twoShot(arr(a.body.location), arr(b.body.location), sideOf(a)), this.moveFor(lineId, fallback));
+    await this.deps.dialogue.wait(10);
+  }
+
+  /**
+   * A Lightning Strike on a seat: the camera looks up from beside them, a flash of light and the
+   * thunder's crack. No real bolt (it would set the board alight).
+   */
+  lightning(who: Who): void {
+    if (!who.body.isValid) return;
+    const at = who.body.location;
+    if (!this.deps.dialogue.skipping) this.shot({ location: [at.x + 3, at.y + 1, at.z + 3], facing: [at.x, at.y + 6, at.z] }, "Cut");
+    try {
+      for (let y = 0; y <= 12; y += 0.5) this.deps.dimension.spawnParticle("minecraft:electric_spark_particle", { x: at.x, y: at.y + y, z: at.z });
+      this.deps.dimension.spawnParticle("minecraft:huge_explosion_emitter", { x: at.x, y: at.y + 1, z: at.z });
+      for (const player of world.getAllPlayers()) player.playSound("ambient.weather.lightning.impact", { volume: 0.8 });
+    } catch {
+      // unloaded
+    }
+  }
+
+  /** A part plays a vanilla animation (the Warden's roar, the golem's hit), held when `hold`. */
+  act(key: string, animation: string, hold = false): void {
+    const entity = this.get(key);
+    if (!entity) return;
+    try {
+      entity.playAnimation(animation, { controller: NPC_ANIMATION, stopExpression: hold ? "0" : "q.any_animation_finished", blendOutTime: 0.2 });
+    } catch (error) {
+      log.warn(`blockparty: ${key}'s ${animation} failed: ${describeError(error)}`);
+    }
   }
 
   private podiumFor(seats: number): Podium {

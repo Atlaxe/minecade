@@ -139,7 +139,7 @@ export class BoardMenu {
         turn.view = "board";
         this.host.boardView(true);
       } else if (turn.selected === "items") {
-        if (this.held(turn).items.length === 0) {
+        if (this.disabled(this.held(turn)).includes("items")) {
           playCue(eventCue(MENU_EVENTS.disabled));
           return true;
         }
@@ -252,16 +252,17 @@ export class BoardMenu {
     this.draw();
   }
 
+  /** Items is dim with nothing held, or once an item has been used this turn (one a turn). */
   private disabled(held: Holdings): MenuButton[] {
-    return held.items.length === 0 ? ["items"] : [];
+    return held.items.length === 0 || held.spent ? ["items"] : [];
   }
 
   private draw(): void {
     const turn = this.turn;
     if (!turn) return;
     const held = this.held(turn);
-    // Items gone while the panel showed them: back to the menu.
-    if (turn.view === "items" && held.items.length === 0) turn.view = "menu";
+    // Items gone (or spent) while the panel showed them: back to the menu.
+    if (turn.view === "items" && this.disabled(held).includes("items")) turn.view = "menu";
     turn.dice = Math.min(turn.dice, Math.max(0, held.dice.length - 1));
     turn.items = Math.min(turn.items, Math.max(0, held.items.length - 1));
     if (this.disabled(held).includes(turn.selected)) turn.selected = "dice";

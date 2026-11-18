@@ -39,7 +39,7 @@
       "Here's the deal: collect the most §eStars §rby the end of the game. §gCoins §rbuy §eStars§r, and Stars win."
     ],
     "tutorial.turns": [
-      "On your turn, open your Dice, pick one, and jump to hit it. Your piece walks that many spaces."
+      "On your turn, open your §vDice§r, pick one, and §bjump§r to hit it. Your piece walks that many spaces."
     ],
     "tutorial.branches": [
       "Where the path splits, you pick the way. Shortcuts are quicker, but they can bite."
@@ -51,7 +51,7 @@
       "When you pass a §eStar§r, I'll be there to sell it to you for §6{price}§r. Then it flies off somewhere new."
     ],
     "tutorial.items": [
-      "Item and Shop spaces get you items and special dice. Use them before you roll."
+      "§uItem§r and §qShop §rspaces get you §5items §rand §vspecial dice§r. Use them before you roll."
     ],
     "tutorial.minigames": [
       "After everyone has moved, we all play a minigame. Winners get §6coins§r!"
@@ -61,7 +61,7 @@
     ],
     "turn.chris": [
       "You're up, {player}!",
-      "{player}, the dice are waiting."
+      "{player}'s turn!"
     ],
     "turn.rolled.high": [
       "A {roll}! {player} is on the move!"
@@ -70,23 +70,23 @@
       "A 1? Oof. Baby steps, {player}."
     ],
     "star.chris.offer": [
-      "Well hello, {player}! One shiny Star, just {price}. Interested?",
-      "A Star for {price}! You know you want it, {player}."
+      "Well hello, §b{player}§r! One shiny §eStar§r, just §6{price}§r. Interested?",
+      "A §eStar§r for §6{price}§r! You know you want it, §b{player}§r."
     ],
     "star.chris.sold": [
-      "Pleasure doing business! Congratulations, {player}!"
+      "Pleasure doing business! Congratulations, §b{player}§r!"
     ],
     "star.chris.declined": [
       "Suit yourself! It'll be here... for now."
     ],
     "star.chris.moves": [
-      "And off it goes! The next Star is waiting at {space}."
+      "And off it goes! The next Star is waiting at §l{space}§r."
     ],
     "star.chris.short": [
-      "Ooh, a Star costs {price}, and your pockets are light. Come back richer!"
+      "Ooh, a §eStar §rcosts §6{price}§r, and your pockets are light. Come back richer!"
     ],
     "star.chris.half-price": [
-      "You've got a half-price coupon! That's just {price} for you."
+      "You've got a half-price coupon! That's just §6{price}§r for you."
     ],
     "shop.welcome": [
       "Hrmm! Welcome, welcome. Today's stock is right here.",
@@ -110,6 +110,18 @@
     "shop.full": [
       "Your hands are full, friend. Sell something first?"
     ],
+    "shop.stock": [
+      "Today's stock. You have §6{coins}§r."
+    ],
+    "shop.more": [
+      "Hrm! Anything else?"
+    ],
+    "shop.sell": [
+      "Hrrm. What are you selling?"
+    ],
+    "shop.sell.nothing": [
+      "Hrm? Your pockets are empty, friend."
+    ],
     "trader.arrives": [
       "Psst! The Wandering Trader is in town, over at {space}. Only for one round!"
     ],
@@ -127,6 +139,12 @@
     ],
     "trader.leaves": [
       "And just like that, the Wandering Trader has wandered off."
+    ],
+    "trader.declined": [
+      "Suit yourself. Someone else will want it."
+    ],
+    "trader.full": [
+      "No room in your pack for {item}. Pity."
     ],
     "chance.welcome": [
       "Heh heh heh. Come closer, {player}. It's Chance Time!"
@@ -182,6 +200,12 @@
     "chance.bye": [
       "Come back soon, dearie. Heh heh heh."
     ],
+    "chance.coin-swap.ask": [
+      "Whose purse do you fancy, §b{player}§r?"
+    ],
+    "chance.double.ask": [
+      "How much will you risk? Up to §6{coins}§r."
+    ],
     "warden.arrives": [
       "...You woke me, {player}.",
       "Too loud. Far too loud."
@@ -207,6 +231,9 @@
     "warden.sonic-boom": [
       "SONIC BOOM. {player}, your Star is gone."
     ],
+    "warden.takes": [
+      "...Mine. {item} is mine."
+    ],
     "items.ender-pearl": [
       "{player} threw an Ender Pearl! The Enderman swaps {player} and {other}."
     ],
@@ -219,6 +246,9 @@
     "items.villager": [
       "Hrm, I'll give you {coins} for that {item}."
     ],
+    "items.villager.ask": [
+      "Hrm. What will you trade?"
+    ],
     "zombie.arrives": [
       "Uuurgh... coins..."
     ],
@@ -226,25 +256,31 @@
       "Cooooins. Mine."
     ],
     "versus.announce": [
-      "Versus! {player}, choose your opponent!"
+      "Versus! §b{player}§r, choose your opponent!"
     ],
     "versus.faceoff": [
-      "{player} versus {other}! The loser pays the winner {coins}."
+      "§b{player}§r versus §s{other}§r! The loser pays the winner §6{coins}§r."
     ],
     "versus.bets.open": [
-      "Place your bets! Back {player} or {other}: 0, 3 or 5 coins."
+      "Place your bets! Back §b{player}§r or §s{other}§r: 0, 3 or 5 coins."
     ],
     "versus.bets.closed": [
-      "Bets are locked! The crowd says: {odds}."
+      "Bets are locked! The crowd says: §9{odds}§r."
     ],
     "versus.referee.winner": [
-      "{player} wins! {other} pays {coins}."
+      "§b{player}§r wins! §s{other}§r, time to pay up §6{coins}§r."
     ],
     "versus.doubled": [
-      "It's the final stretch, so the stakes are doubled: {coins}!"
+      "It's the final stretch, so the stakes are doubled: §6{coins}§r!"
     ],
     "versus.glove": [
-      "A challenge! {player} throws down the Dueling Glove. {other}, you're up. {coins} on the line!"
+      "A challenge! §b{player}§r throws down§s §rthe Dueling Glove. §s{other}§r, you're up. §6{coins}§r on the line!"
+    ],
+    "versus.bet.ask": [
+      "§b{player}§r, where's your money?"
+    ],
+    "versus.bets.none": [
+      "No bets? Suit yourselves!"
     ],
     "minigame.chris": [
       "It's {minigame}! Show me what you've got."
@@ -362,19 +398,19 @@
       "{player} landed on Red: -{coins}."
     ],
     "land.item": [
-      "{player} landed on Item: an item (items come with pass 7)."
+      "{player} landed on an Item space."
     ],
     "land.shop": [
-      "{player} landed on Shop: the Villager's shop (pass 7)."
+      "{player} landed on a Shop space."
     ],
     "land.chance": [
-      "{player} landed on Chance Time: Chance Time with the Witch (pass 7)."
+      "{player} landed on Chance Time!"
     ],
     "land.warden": [
-      "{player} landed on Warden: the Warden (pass 7)."
+      "{player} landed on a Warden space..."
     ],
     "land.happening": [
-      "{player} landed on Happening: a Happening (pass 7)."
+      "{player} landed on a Happening space."
     ],
     "land.start": [
       "{player} landed on Start."
@@ -427,11 +463,29 @@
     "shop.form.leave": [
       "Leave"
     ],
+    "shop.button.buy": [
+      "Buy"
+    ],
+    "shop.button.back": [
+      "Back"
+    ],
+    "shop.sell.button": [
+      "{item}: {coins}"
+    ],
+    "shop.stock.today": [
+      "The Villager's stock this round: {items}."
+    ],
     "trader.form.title": [
       "The Wandering Trader"
     ],
     "trader.form.body": [
       "Buy {item} for {price}? You have {coins}."
+    ],
+    "trader.button.buy": [
+      "Buy"
+    ],
+    "trader.button.skip": [
+      "Not now"
     ],
     "chance.form.title": [
       "Chance Time"
@@ -447,6 +501,24 @@
     ],
     "chance.double.form": [
       "Bet up to {coins} on a coin flip. Heads, you double it. Tails, it's the Witch's."
+    ],
+    "chance.potion.coins": [
+      "§6Gold potion§r"
+    ],
+    "chance.potion.items": [
+      "§aGreen potion§r"
+    ],
+    "chance.potion.board": [
+      "§5Purple potion§r"
+    ],
+    "chance.potion.stars": [
+      "§fWhite potion§r"
+    ],
+    "chance.double.bet": [
+      "{coins}"
+    ],
+    "chance.gift.passed": [
+      "{player} passed {item} to {other}."
     ],
     "warden.leaves": [
       "The Warden sinks back into the sculk."
@@ -474,6 +546,9 @@
     ],
     "happening.roll-again": [
       "Bonus move! {player} rolls again."
+    ],
+    "happening.flavor": [
+      "Something's happening on {space}!"
     ],
     "items.got": [
       "{player} found {item}!"
@@ -510,6 +585,60 @@
     ],
     "zombie.leaves": [
       "The zombie lost interest in {player}."
+    ],
+    "items.pick": [
+      "Use the {item} on who?"
+    ],
+    "items.pick.button": [
+      "{player}: {stars}, {coins}"
+    ],
+    "items.pick.back": [
+      "Never mind"
+    ],
+    "items.no-rival": [
+      "There's nobody to use it on."
+    ],
+    "items.drop": [
+      "Drop {item}"
+    ],
+    "items.keep": [
+      "Keep what I have"
+    ],
+    "items.kept": [
+      "{player} passed on {item}."
+    ],
+    "items.dropped": [
+      "{player} dropped {item} to make room."
+    ],
+    "items.totem.extra": [
+      "Extra die: {roll}. {total} in all."
+    ],
+    "items.golden-totem.extra": [
+      "Golden extra die: {roll}, doubled to {count}. {total} in all."
+    ],
+    "items.lightning.ask": [
+      "Strike {other}, or yourself to chase the zombie off?"
+    ],
+    "items.lightning.leader": [
+      "Strike {player}"
+    ],
+    "items.lightning.me": [
+      "Strike me"
+    ],
+    "items.lightning.none": [
+      "Everyone's level: the lightning has nobody to strike."
+    ],
+    "items.iron-golem.ask": [
+      "Shake someone down, or send your zombie away?"
+    ],
+    "items.iron-golem.shake": [
+      "Shake someone down"
+    ],
+    "items.iron-golem.zombie.button": [
+      "Send the zombie away"
+    ],
+    "items.villager.nothing": [
+      "There's nothing to trade: the Villager wants a die or another item."
     ],
     "dice.full": [
       "You can hold 2 special dice. Pick one to drop for {die}."
@@ -555,6 +684,18 @@
     ],
     "dice.mystery.again": [
       "Mystery Die: {player} rolls again!"
+    ],
+    "dice.cursed.ask": [
+      "Roll the Cursed Die yourself, or make a rival roll it?"
+    ],
+    "dice.cursed.self": [
+      "Roll it myself"
+    ],
+    "dice.cursed.give": [
+      "Make a rival roll it"
+    ],
+    "dice.cursed.forced": [
+      "{player} has to roll the Cursed Die this time."
     ],
     "versus.nobody": [
       "{player} landed on Versus, but there's nobody to duel."
@@ -606,6 +747,12 @@
     ],
     "versus.bet.lost": [
       "Your bet missed: -{coins}."
+    ],
+    "versus.bet.button": [
+      "{player}, {coins}"
+    ],
+    "versus.bet.none": [
+      "No bet"
     ],
     "format.ffa": [
       "Free for all"
@@ -995,6 +1142,37 @@
       "character": "Villager",
       "delivery": "Dialogue box"
     },
+    "shop.stock": {
+      "character": "Villager",
+      "delivery": "Dialogue box"
+    },
+    "shop.more": {
+      "character": "Villager",
+      "delivery": "Dialogue box",
+      "choices": [
+        {
+          "key": "c1",
+          "text": "Buy"
+        },
+        {
+          "key": "c2",
+          "text": "Sell something"
+        },
+        {
+          "key": "c3",
+          "text": "Leave"
+        }
+      ],
+      "chooser": "Player"
+    },
+    "shop.sell": {
+      "character": "Villager",
+      "delivery": "Dialogue box"
+    },
+    "shop.sell.nothing": {
+      "character": "Villager",
+      "delivery": "Dialogue box"
+    },
     "trader.arrives": {
       "character": "Chris",
       "delivery": "Dialogue box"
@@ -1028,6 +1206,14 @@
     },
     "trader.leaves": {
       "character": "Chris",
+      "delivery": "Dialogue box"
+    },
+    "trader.declined": {
+      "character": "Wandering Trader",
+      "delivery": "Dialogue box"
+    },
+    "trader.full": {
+      "character": "Wandering Trader",
       "delivery": "Dialogue box"
     },
     "chance.welcome": {
@@ -1113,6 +1299,14 @@
       "character": "Witch",
       "delivery": "Dialogue box"
     },
+    "chance.coin-swap.ask": {
+      "character": "Witch",
+      "delivery": "Dialogue box"
+    },
+    "chance.double.ask": {
+      "character": "Witch",
+      "delivery": "Dialogue box"
+    },
     "warden.arrives": {
       "character": "Warden",
       "delivery": "Dialogue box"
@@ -1145,6 +1339,10 @@
       "character": "Warden",
       "delivery": "Dialogue box"
     },
+    "warden.takes": {
+      "character": "Warden",
+      "delivery": "Dialogue box"
+    },
     "items.ender-pearl": {
       "character": "Enderman",
       "delivery": "Dialogue box"
@@ -1158,6 +1356,10 @@
       "delivery": "Dialogue box"
     },
     "items.villager": {
+      "character": "Villager",
+      "delivery": "Dialogue box"
+    },
+    "items.villager.ask": {
       "character": "Villager",
       "delivery": "Dialogue box"
     },
@@ -1194,6 +1396,14 @@
       "delivery": "Dialogue box"
     },
     "versus.glove": {
+      "character": "Referee",
+      "delivery": "Dialogue box"
+    },
+    "versus.bet.ask": {
+      "character": "Referee",
+      "delivery": "Dialogue box"
+    },
+    "versus.bets.none": {
       "character": "Referee",
       "delivery": "Dialogue box"
     },
@@ -1437,6 +1647,22 @@
       "character": "Game",
       "delivery": "Form button"
     },
+    "shop.button.buy": {
+      "character": "Game",
+      "delivery": "HUD"
+    },
+    "shop.button.back": {
+      "character": "Game",
+      "delivery": "HUD"
+    },
+    "shop.sell.button": {
+      "character": "Game",
+      "delivery": "HUD"
+    },
+    "shop.stock.today": {
+      "character": "Game",
+      "delivery": "Dialogue box"
+    },
     "trader.form.title": {
       "character": "Game",
       "delivery": "Form title"
@@ -1444,6 +1670,14 @@
     "trader.form.body": {
       "character": "Game",
       "delivery": "Form text"
+    },
+    "trader.button.buy": {
+      "character": "Game",
+      "delivery": "HUD"
+    },
+    "trader.button.skip": {
+      "character": "Game",
+      "delivery": "HUD"
     },
     "chance.form.title": {
       "character": "Game",
@@ -1464,6 +1698,30 @@
     "chance.double.form": {
       "character": "Game",
       "delivery": "Form text"
+    },
+    "chance.potion.coins": {
+      "character": "Game",
+      "delivery": "HUD"
+    },
+    "chance.potion.items": {
+      "character": "Game",
+      "delivery": "HUD"
+    },
+    "chance.potion.board": {
+      "character": "Game",
+      "delivery": "HUD"
+    },
+    "chance.potion.stars": {
+      "character": "Game",
+      "delivery": "HUD"
+    },
+    "chance.double.bet": {
+      "character": "Game",
+      "delivery": "HUD"
+    },
+    "chance.gift.passed": {
+      "character": "Game",
+      "delivery": "Dialogue box"
     },
     "warden.leaves": {
       "character": "Game",
@@ -1498,6 +1756,10 @@
       "delivery": "Dialogue box"
     },
     "happening.roll-again": {
+      "character": "Game",
+      "delivery": "Dialogue box"
+    },
+    "happening.flavor": {
       "character": "Game",
       "delivery": "Dialogue box"
     },
@@ -1546,6 +1808,78 @@
       "delivery": "Dialogue box"
     },
     "zombie.leaves": {
+      "character": "Game",
+      "delivery": "Dialogue box"
+    },
+    "items.pick": {
+      "character": "Game",
+      "delivery": "Dialogue box"
+    },
+    "items.pick.button": {
+      "character": "Game",
+      "delivery": "HUD"
+    },
+    "items.pick.back": {
+      "character": "Game",
+      "delivery": "HUD"
+    },
+    "items.no-rival": {
+      "character": "Game",
+      "delivery": "Dialogue box"
+    },
+    "items.drop": {
+      "character": "Game",
+      "delivery": "HUD"
+    },
+    "items.keep": {
+      "character": "Game",
+      "delivery": "HUD"
+    },
+    "items.kept": {
+      "character": "Game",
+      "delivery": "Dialogue box"
+    },
+    "items.dropped": {
+      "character": "Game",
+      "delivery": "Dialogue box"
+    },
+    "items.totem.extra": {
+      "character": "Game",
+      "delivery": "Subtitle"
+    },
+    "items.golden-totem.extra": {
+      "character": "Game",
+      "delivery": "Subtitle"
+    },
+    "items.lightning.ask": {
+      "character": "Game",
+      "delivery": "Dialogue box"
+    },
+    "items.lightning.leader": {
+      "character": "Game",
+      "delivery": "HUD"
+    },
+    "items.lightning.me": {
+      "character": "Game",
+      "delivery": "HUD"
+    },
+    "items.lightning.none": {
+      "character": "Game",
+      "delivery": "Dialogue box"
+    },
+    "items.iron-golem.ask": {
+      "character": "Game",
+      "delivery": "Dialogue box"
+    },
+    "items.iron-golem.shake": {
+      "character": "Game",
+      "delivery": "HUD"
+    },
+    "items.iron-golem.zombie.button": {
+      "character": "Game",
+      "delivery": "HUD"
+    },
+    "items.villager.nothing": {
       "character": "Game",
       "delivery": "Dialogue box"
     },
@@ -1606,6 +1940,22 @@
       "delivery": "Dialogue box"
     },
     "dice.mystery.again": {
+      "character": "Game",
+      "delivery": "Dialogue box"
+    },
+    "dice.cursed.ask": {
+      "character": "Game",
+      "delivery": "Dialogue box"
+    },
+    "dice.cursed.self": {
+      "character": "Game",
+      "delivery": "HUD"
+    },
+    "dice.cursed.give": {
+      "character": "Game",
+      "delivery": "HUD"
+    },
+    "dice.cursed.forced": {
       "character": "Game",
       "delivery": "Dialogue box"
     },
@@ -1676,6 +2026,14 @@
     "versus.bet.lost": {
       "character": "Game",
       "delivery": "Dialogue box"
+    },
+    "versus.bet.button": {
+      "character": "Game",
+      "delivery": "HUD"
+    },
+    "versus.bet.none": {
+      "character": "Game",
+      "delivery": "HUD"
     },
     "format.ffa": {
       "character": "Game",

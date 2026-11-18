@@ -11,6 +11,8 @@ describe("who fades on a turn", () => {
   it("is everyone but the seat whose turn it is, and nobody without a turn", () => {
     expect([...fadedKeys(["alex", "sam", "bot 1"], "sam")]).toEqual(["alex", "bot 1"]);
     expect(fadedKeys(["alex", "sam"], undefined).size).toBe(0);
+    // The seats a turn's scene is about (an item's rival) stay in sight.
+    expect([...fadedKeys(["alex", "sam", "bot 1"], "sam", ["bot 1"])]).toEqual(["alex"]);
   });
 });
 

@@ -54,7 +54,10 @@ import { BoardCamera, autoDirection, cameraSettings, type BoardCameraSettings } 
 import { BoardMenu } from "./board-ui.ts";
 import { boardOverview } from "./board-view.ts";
 import { DICE, DICE_PROBLEMS, STANDARD, STANDARD_DIE, modelIndex, rollDie, throwsText, type DieDef, type RollOutcome } from "./dice.ts";
-import { ITEMS, holdings, type Holdings, type ItemDef, type ItemId } from "./dice-items.ts";
+import { ITEMS, type ItemDef } from "./dice-items.ts";
+import { CURSED_DIE } from "./item-play.ts";
+import { CHANCE, HAPPENING, WARDEN, type ChanceId, type HappeningId, type WardenId } from "./space-rules.ts";
+import { Zombies } from "./zombies.ts";
 import { ResultsScreen } from "./results.ts";
 import { SCREEN_WORDS, cardRows, codesOf } from "./screen-codes.ts";
 import { GameSidebar } from "./sidebar-rows.ts";
@@ -91,9 +94,6 @@ interface DieShown {
 }
 const DIE_ENTITY = "blockparty:die";
 const DIE_PROPERTY = "blockparty:die";
-/** The special dice a player holds in the spike until Tests (Dice and items held) says, those of these in the dice file. */
-const TEST_DICE: readonly string[] = ["one", "golden"];
-const TEST_ITEMS: readonly ItemId[] = ["stone_totem", "lightning", "glove"];
 
 /** What Block Party hides: everything a survival player watches that it has no use for, and the hotbar with its item names (MINIGAME_HUD). */
 const HIDDEN_HUD = [HudElement.Hotbar, HudElement.ItemText, HudElement.Health, HudElement.Hunger, HudElement.ProgressBar, HudElement.Armor, HudElement.AirBubbles];
@@ -155,9 +155,6 @@ interface PlayerTests {
   settings: PieceSettings;
   jumpMode: JumpMode;
   reportJumps: boolean;
-  /** Special dice held besides the standard die (at most 2, by id) and items held (0 to 3): Tests, Dice and items held. */
-  specialDice: string[];
-  items: number;
   /** The action bar line last sent, and when: sent again when it changes or every BAR_RESEND ticks. */
   sentLine?: string;
   sentAt?: number;
@@ -215,6 +212,8 @@ export class BlockPartySpike extends Minigame<Config> {
   private readonly podium = new Set<string>();
   /** On a turn, everyone else fades away (fade.ts). */
   private fade!: TurnFade;
+  /** The zombies that follow seats (zombies.ts: the Zombie Spawn, the Warden's curse, Chance's outbreak). */
+  private zombies!: Zombies;
 
   constructor(ctx: GameContext, gameConfig: Config) {
     super(ctx, gameConfig);
@@ -224,7 +223,7 @@ export class BlockPartySpike extends Minigame<Config> {
     const key = player.name.toLowerCase();
     let tests = this.tests.get(key);
     if (!tests) {
-      tests = { settings: { ...DEFAULT_SETTINGS, speed: this.config.board.speed }, jumpMode: "free", reportJumps: true, specialDice: TEST_DICE.filter((id) => DICE[id] !== undefined), items: 3 };
+      tests = { settings: { ...DEFAULT_SETTINGS, speed: this.config.board.speed }, jumpMode: "free", reportJumps: true };
       this.tests.set(key, tests);
     }
     return tests;
@@ -312,20 +311,30 @@ export class BlockPartySpike extends Minigame<Config> {
     });
     this.gameSidebar = new GameSidebar(this.scope);
     this.fade = new TurnFade(this.scope, () => system.currentTick);
+    this.zombies = new Zombies({
+      scope: this.scope,
+      dimension,
+      bodyOf: (key) => this.bodyOf(key),
+      offBoard: (key) => {
+        const body = this.bodyOf(key);
+        return !body || this.pieces.isOff(body);
+      },
+      fade: this.fade,
+    });
     this.dialogue = new Dialogue({ scope: this.scope, random: () => this.ctx.random(), show: (box) => this.gameSidebar.set("dialogue", box), leader: () => this.leader() });
     this.boardMenu = new BoardMenu({
       scope: this.scope,
       sidebar: this.gameSidebar,
       random: () => this.ctx.random(),
-      holdingsOf: (who) => this.holdingsOf(who),
+      holdingsOf: (who) => this.loop.holdingsOf(who),
       showDie: (who, die) => {
         if (who.player) this.showDie(who.player, die);
       },
       roll: (who, die) => {
-        if (who.player) void this.roll(who.player, die);
+        if (who.player) void this.rollOrGive(who, die);
       },
       use: (who, item) => {
-        if (who.player) this.useItem(who.player, item);
+        if (who.player) void this.useItem(who, item);
       },
       boardView: (on) => this.boardView(on),
       busy: (player) => this.dialogue.steerer === player.name.toLowerCase(),
@@ -381,6 +390,7 @@ export class BlockPartySpike extends Minigame<Config> {
       title: (text, subtitle) => this.titleAll(text, subtitle),
       changed: () => this.loopChanged(),
       results: (before, after) => this.results.show(before, after),
+      zombies: this.zombies,
       random: () => this.ctx.random(),
     });
     this.boardCamera = new BoardCamera({
@@ -637,13 +647,6 @@ export class BlockPartySpike extends Minigame<Config> {
     return world.getAllPlayers().find((player) => player.name.toLowerCase() === key) ?? this.bots.all().find((who) => who.key === key)?.body;
   }
 
-  /** What a seat holds: a player what Tests set (Dice and items held), a bot the standard die. */
-  private holdingsOf(who: Who): Holdings {
-    if (!who.player) return holdings([], []);
-    const tests = this.testsOf(who.player);
-    return holdings(tests.specialDice, TEST_ITEMS.slice(0, tests.items));
-  }
-
   /**
    * The player cards top right (block-party-ui.md, "Player cards"), from the loop's seats in turn
    * order: on the board and the podium, never during a minigame or the results screen. Sent when
@@ -656,9 +659,7 @@ export class BlockPartySpike extends Minigame<Config> {
       ? []
       : cardRows(
           seats.map((seat) => {
-            const player = world.getAllPlayers().find((candidate) => candidate.name.toLowerCase() === seat.key);
-            const items = player ? this.holdingsOf(whoOf(player)).items : [];
-            return { ...seat, items: items.map((id) => ITEMS[id].letters), head: this.headOf(seat.name) };
+            return { ...seat, items: this.loop.itemLetters(seat.key), head: this.headOf(seat.name) };
           }),
         );
     const key = rows.join("\n");
@@ -732,7 +733,7 @@ export class BlockPartySpike extends Minigame<Config> {
   private keepFade(): void {
     if (!this.loop?.active) return;
     const turn = this.runner.active ? undefined : this.loop.whoseTurn;
-    this.fade.update([...world.getAllPlayers().map(whoOf), ...this.bots.all()], turn);
+    this.fade.update([...world.getAllPlayers().map(whoOf), ...this.bots.all()], turn, this.loop.featured);
   }
 
   /**
@@ -796,25 +797,67 @@ export class BlockPartySpike extends Minigame<Config> {
     player.onScreenDisplay.setActionBar(line);
   }
 
-  /** Dice and items held (Tests): any two of the dice file's dice beside the standard die, and up to 3 items. */
+  /** Dice and items held (Tests): sets what your seat holds, any two of the dice file's special dice and any three items. */
   private async contentsForm(player: Player): Promise<void> {
-    const tests = this.testsOf(player);
+    const key = player.name.toLowerCase();
+    const seat = this.loop.seatOf(key);
+    if (!seat) return this.tell(player, "Dice and items held works once you're seated in the board game.");
     const special = Object.values(DICE).filter((die) => die.id !== STANDARD_DIE);
-    const options = ["None", ...special.map((die) => die.name)];
-    const pick = (slot: number) => Math.max(0, special.findIndex((die) => die.id === tests.specialDice[slot]) + 1);
+    const items = Object.values(ITEMS);
+    const dieAt = (slot: number) => Math.max(0, special.findIndex((die) => die.id === seat.hands.dice[slot]) + 1);
+    const itemAt = (slot: number) => Math.max(0, items.findIndex((item) => item.id === seat.hands.items[slot]) + 1);
+    const dieNames = ["None", ...special.map((die) => die.name)];
+    const itemNames = ["None", ...items.map((item) => item.name)];
     const form = new ModalFormData()
       .title("Dice and items held")
-      .dropdown("Special die 1", options, { defaultValueIndex: pick(0) })
-      .dropdown("Special die 2", options, { defaultValueIndex: pick(1) })
-      .slider("Items", 0, 3, { valueStep: 1, defaultValue: tests.items });
+      .dropdown("Special die 1", dieNames, { defaultValueIndex: dieAt(0) })
+      .dropdown("Special die 2", dieNames, { defaultValueIndex: dieAt(1) })
+      .dropdown("Item 1", itemNames, { defaultValueIndex: itemAt(0) })
+      .dropdown("Item 2", itemNames, { defaultValueIndex: itemAt(1) })
+      .dropdown("Item 3", itemNames, { defaultValueIndex: itemAt(2) });
     const values = (await showForm(this.scope, player, form))?.formValues;
     if (!values) return;
-    tests.specialDice = [values[0], values[1]].flatMap((index) => (typeof index === "number" && index > 0 && special[index - 1] ? [special[index - 1].id] : []));
-    tests.items = values[2] as number;
+    const picked = <T>(list: readonly T[], slots: readonly unknown[]) => slots.flatMap((index) => (typeof index === "number" && index > 0 && list[index - 1] ? [list[index - 1]] : []));
+    const dice = picked(special, [values[0], values[1]]);
+    const held = picked(items, [values[2], values[3], values[4]]);
+    this.loop.setHands(
+      key,
+      dice.map((die) => die.id),
+      held.map((item) => item.id),
+    );
     this.boardMenu.refresh();
     this.drawCards();
-    const dice = this.holdingsOf(whoOf(player)).dice.map((id) => DICE[id]?.name ?? id);
-    this.tell(player, `You hold ${dice.join(", ")}, and ${tests.items} item${tests.items === 1 ? "" : "s"}. On your turn the board menu's Dice block and Items show them.`);
+    this.tell(player, `You hold ${[STANDARD.name, ...dice.map((die) => die.name)].join(", ")}, and ${held.length > 0 ? held.map((item) => item.name).join(", ") : "no items"}. On your turn the board menu's Dice block and Items show them.`);
+  }
+
+  /** Next space outcomes (Tests): what the next Chance Time (all three potions), Warden and Happening do, to try each without luck. */
+  private async outcomeForm(player: Player): Promise<void> {
+    const forced = this.loop.spacePlay.forced;
+    const chance = Object.keys(CHANCE) as ChanceId[];
+    const warden = Object.keys(WARDEN) as WardenId[];
+    const happening = Object.keys(HAPPENING) as HappeningId[];
+    const at = <T>(list: readonly T[], value: T | undefined) => (value === undefined ? 0 : list.indexOf(value) + 1);
+    const form = new ModalFormData()
+      .title("Next space outcomes")
+      .dropdown("Chance Time (all three potions)", ["At random", ...chance.map((id) => CHANCE[id].name)], { defaultValueIndex: at(chance, forced.chance) })
+      .dropdown("Warden", ["At random", ...warden.map((id) => WARDEN[id].name)], { defaultValueIndex: at(warden, forced.warden) })
+      .dropdown("Happening", ["At random", ...happening.map((id) => HAPPENING[id].name)], { defaultValueIndex: at(happening, forced.happening) });
+    const values = (await showForm(this.scope, player, form))?.formValues;
+    if (!values) return;
+    const [c, w, h] = values as [number, number, number];
+    forced.chance = c > 0 ? chance[c - 1] : undefined;
+    forced.warden = w > 0 ? warden[w - 1] : undefined;
+    forced.happening = h > 0 ? happening[h - 1] : undefined;
+    const said = [forced.chance && `Chance Time: ${CHANCE[forced.chance].name}`, forced.warden && `Warden: ${WARDEN[forced.warden].name}`, forced.happening && `Happening: ${HAPPENING[forced.happening].name}`].filter(Boolean);
+    this.tell(player, said.length > 0 ? `Next time each comes up: ${said.join("; ")}. Go to a space gets you there.` : "Every space outcome is at random again.");
+  }
+
+  /** Bring the Wandering Trader (Tests): he comes now to a random Item space, for the rest of this round. */
+  private async traderTest(player: Player): Promise<void> {
+    if (!this.loop.active || this.loop.rounds.now < 1) return this.tell(player, "The Wandering Trader comes once the rounds have started.");
+    if (this.loop.spacePlay.traderSpace !== undefined) return this.tell(player, "The Wandering Trader is on the board already (the green beam).");
+    const came = await this.loop.spacePlay.traderArrives();
+    this.tell(player, came ? "The Wandering Trader is here till the round ends: pass or land on his space (the green beam) to trade." : "He can't come: this board has no Item space without a Star on it.");
   }
 
   // ---- Rolling ----------------------------------------------------------------------------
@@ -850,9 +893,40 @@ export class BlockPartySpike extends Minigame<Config> {
     this.tell(player, line("turn.roll.hint"));
   }
 
-  /** An item used from the item panel (a test: nothing happens yet). */
-  private useItem(player: Player, item: ItemDef): void {
-    this.tell(player, `Used ${item.name} (a test: nothing happens yet).`);
+  /**
+   * An item used from the item panel: the menu goes while it works (a rival picked in the dialogue
+   * box, its NPC's shot), then the turn shot and the menu come back for the roll.
+   */
+  private async useItem(who: Who, item: ItemDef): Promise<void> {
+    const player = who.player;
+    if (!player) return;
+    this.boardMenu.close();
+    await this.loop.useItem(who, item.id);
+    this.backToMenu(who);
+  }
+
+  /** The turn's roll still waits after something in the middle of it (an item, the Cursed Die handed on): the turn shot and the menu again. */
+  private backToMenu(who: Who): void {
+    const player = who.player;
+    if (!player?.isValid || !this.pendingRolls.get(who.key)?.shot) return;
+    this.keepControls(player, this.testsOf(player));
+    this.boardCamera.turnShot(who.body);
+    this.boardMenu.open(who);
+  }
+
+  /**
+   * The jump on a die: the roll, unless it's the Cursed Die from their own hands and they make a rival
+   * roll it instead (item-play.ts, offerCursedDie): then the die goes and the menu comes back.
+   */
+  private async rollOrGive(who: Who, die: DieDef): Promise<void> {
+    const player = who.player;
+    if (!player) return;
+    if (die.id === CURSED_DIE && (await this.loop.items.offerCursedDie(who))) {
+      this.endRoll(player);
+      this.backToMenu(who);
+      return;
+    }
+    await this.roll(player, die);
   }
 
   /** Board's view: the whole board for everyone, still (board-view.ts), or everyone's own view again. */
@@ -900,6 +974,8 @@ export class BlockPartySpike extends Minigame<Config> {
       ["Camera shots", () => this.shotsMenu(player)],
       ["Jump test", () => this.jumpMenu(player)],
       ["Dice and items held", () => this.contentsForm(player)],
+      ["Next space outcomes", () => this.outcomeForm(player)],
+      ["Bring the Wandering Trader", () => this.traderTest(player)],
       [this.npcs.spawned ? "Take the NPCs away" : "Put the NPCs out", () => this.toggleNpcs()],
       ["Arenas from other maps", () => this.arenaMenu(player)],
       ["Ride and lead (two players)", () => this.rideMenu(player)],

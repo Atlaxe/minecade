@@ -16,15 +16,15 @@ interface ItemSpec {
 }
 
 export const ITEMS = {
-  stone_totem: { id: "stone_totem", name: "Stone Totem", letters: "ST", what: "Roll an extra die next turn." },
-  golden_totem: { id: "golden_totem", name: "Golden Totem", letters: "GT", what: "Roll an extra die that doubles, next turn." },
+  stone_totem: { id: "stone_totem", name: "Stone Totem", letters: "ST", what: "Roll an extra die this turn." },
+  golden_totem: { id: "golden_totem", name: "Golden Totem", letters: "GT", what: "Roll an extra die that counts double, this turn." },
   ender_pearl: { id: "ender_pearl", name: "Ender Pearl", letters: "EP", what: "Switch places with a player." },
   cursed_totem: { id: "cursed_totem", name: "Cursed Totem", letters: "CT", what: "A rival's next roll is halved." },
   glove: { id: "glove", name: "Dueling Glove", letters: "DG", what: "A 1v1 duel for 10 coins." },
   lightning: { id: "lightning", name: "Lightning Strike", letters: "LS", what: "The leader gives 10 coins to last place." },
   zombie: { id: "zombie", name: "Zombie Spawn", letters: "ZS", what: "A zombie follows a rival and takes 3 coins a round." },
-  iron_golem: { id: "iron_golem", name: "Iron Golem", letters: "IG", what: "Shake a player down for 5 coins, or send a zombie away." },
-  villager: { id: "villager", name: "Villager", letters: "V", what: "Trade a die or an item for coins." },
+  iron_golem: { id: "iron_golem", name: "Iron Golem", letters: "IG", what: "Shake a player down for 5 coins, or send your zombie away." },
+  villager: { id: "villager", name: "Villager", letters: "V", what: "Trade a die or an item for half its value." },
 } as const satisfies Record<string, ItemSpec>;
 export type ItemId = keyof typeof ITEMS;
 export type ItemDef = (typeof ITEMS)[ItemId];
@@ -33,6 +33,8 @@ export type ItemDef = (typeof ITEMS)[ItemId];
 export interface Holdings {
   dice: readonly string[];
   items: readonly ItemId[];
+  /** Items can't be used now: one was used this turn already, or it's a bonus roll. */
+  spent?: boolean;
 }
 
 export const MAX_SPECIAL_DICE = 2;

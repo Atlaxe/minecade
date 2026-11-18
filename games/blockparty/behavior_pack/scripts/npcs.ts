@@ -101,7 +101,8 @@ export const NPC_ROLES: readonly NpcRole[] = [
   },
 ];
 
-const NPC_ANIMATION = "blockparty.npc";
+/** The animation controller NPC animations play on (playAnimation). */
+export const NPC_ANIMATION = "blockparty.npc";
 const REST = "animation.blockparty.rest";
 
 export class Npcs {
