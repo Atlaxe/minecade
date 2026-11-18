@@ -4,16 +4,37 @@
     "description": {
       "identifier": "blockparty:die",
       "materials": {
-        "default": "entity_alphatest"
+        "default": "entity_alphatest",
+        "faces": "entity"
       },
       "textures": {
-        "default": "textures/blocks/concrete_white"
+        "default": "textures/blocks/concrete_white",
+        "palette": "textures/blockparty/die_palette",
+        "die_standard": "textures/blocks/concrete_white",
+        "die_slow": "textures/blocks/concrete_light_blue",
+        "die_triple": "textures/blocks/iron_block",
+        "die_risk": "textures/blocks/concrete_red",
+        "die_golden": "textures/blocks/gold_block",
+        "die_mystery": "textures/blocks/concrete_purple",
+        "die_cursed": "textures/blocks/concrete_black",
+        "die_one": "textures/blocks/concrete_light_blue"
       },
       "geometry": {
-        "default": "geometry.blockparty.die"
+        "default": "geometry.blockparty.die",
+        "plain": "geometry.blockparty.die_plain",
+        "faces": "geometry.blockparty.die_faces",
+        "faces_standard": "geometry.blockparty.die_faces.standard",
+        "faces_slow": "geometry.blockparty.die_faces.slow",
+        "faces_triple": "geometry.blockparty.die_faces.triple",
+        "faces_risk": "geometry.blockparty.die_faces.risk",
+        "faces_golden": "geometry.blockparty.die_faces.golden",
+        "faces_mystery": "geometry.blockparty.die_faces.mystery",
+        "faces_cursed": "geometry.blockparty.die_faces.cursed",
+        "faces_one": "geometry.blockparty.die_faces.one"
       },
       "render_controllers": [
-        "controller.render.blockparty.die"
+        "controller.render.blockparty.die",
+        "controller.render.blockparty.die_faces"
       ],
       "animations": {
         "spin": "animation.blockparty.die_spin"

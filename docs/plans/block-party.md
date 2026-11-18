@@ -393,7 +393,8 @@ and underscores). Each die:
 | `name` | Its name, in the item panel and the roll's title |
 | `letters` | One or two characters standing in for its icon in the item panel |
 | `block` | The block floating over the roller's head while it's out, until it has a texture |
-| `texture` | Its model's picture, a path in a pack (`textures/blockparty/dice/golden`, no `.png`): 48 x 32, six 16 x 16 squares, faces 1 to 3 on the top row and 4 to 6 under them. With one, the die over the head is a spinning cube showing it (1 up, 6 down, the others round the sides, opposite faces adding up to 7 for a standard die) instead of the block. After adding or taking away a texture, run `npx tsx tools/blockparty/dice-pack.ts` (it lists the textures in the model's files; the tests fail until it has run) |
+| `ink` | The color of the numbers on its model's faces, `"#rrggbb"` (`#1e1e1e` if left out); a face can have its own |
+| `texture` | Its model's body, a path in a pack (`textures/blockparty/dice/golden`, no `.png`): one 8 x 8 square worn on every face, or 24 x 16, six 8 x 8 squares, faces 1 to 3 on the top row and 4 to 6 under them (2x or 3x those sizes work too, for finer pixels). A path that isn't in Block Party's pack is one of Minecraft's own textures (`textures/blocks/gold_block`), worn on every face. With one, the die over the head is a spinning die the size of a player head (1 up, 6 down, the others round the sides, opposite faces adding up to 7 for a standard die), each face's value raised off it ("The die model", below), instead of the block. Every die has a stand-in for now: the vanilla texture of its block. After changing a texture, run `npx tsx tools/blockparty/dice-pack.ts` (the tests fail until it has run) |
 | `panel` | What the item panel shows for it: `faces` (its six faces), `description` (its description in the faces' place) or `both` |
 | `description` | The text the panel shows under its name (needed unless `panel` is `faces`) |
 | `count` | How many times it's rolled at once, the moves added up (the Triple Die's 3; 1 if left out) |
@@ -411,13 +412,23 @@ Each face:
 | `event` | What else happens: `again` (roll the same die once more and add it, at most 3 more), `everyone_coins` (everyone gets `amount` coins, 5 if left out), `coin_swap` (the roller's coins swap with a random other player's), `double_minigame` (the round's minigame pays double), `swap_places` (everyone's pieces swap spaces at random), `everyone_back` (everyone, the roller too, goes back `amount` spaces, 3 if left out) |
 | `amount` | The event's number |
 | `say` | A line said in the dialogue box when it comes up (fills: player, die, roll, coins, other: coin_swap's other player) |
-| `show` | What the item panel shows on it, up to two characters: its move if left out. For pictures on the faces, give each face slot in the item panel (the workshop JSON UI builder's blockparty_panel) an image whose source is `text:textures/blockparty/dice/faces/{{row.face1}}` (face2 to face6 likewise): a face showing `S+` then shows `textures/blockparty/dice/faces/S+.png` |
+| `show` | What the item panel and the die model show on it, up to two characters: its move if left out (`""` for a blank face). For a picture instead, put `textures/blockparty/dice/faces/<show>.png` in Block Party's resource pack: the die model shows it on every face with that show text, and so can the item panel, by giving each face slot in the workshop JSON UI builder's blockparty_panel an image whose source is `text:textures/blockparty/dice/faces/{{row.face1}}` (face2 to face6 likewise) |
+| `ink` | This face's number color, over the die's (the Cursed Die's lucky 12) |
 
 A roll's coins, events and lines come right after the roll's title, face by face, before the walk.
 The lines the dice say now are the user's Dice texts (`dice.triple`, `dice.golden`,
 `dice.risk.zero`, `dice.cursed.lucky` and `.unlucky`, `dice.mystery.*`). Bots hold only the standard
 die until items and the Shop hand dice out; the Tests' Dice and items held picks any two of the
 file's dice.
+
+#### The die model
+
+The die over the roller's head (`blockparty:die`) is drawn in two layers, each its own render controller on the one entity, both turning with the spin (they share the bone `die`):
+
+1. **The body:** the die's `texture` on an 8 x 8 x 8 cube (`geometry.blockparty.die_plain` for one square on every face, `geometry.blockparty.die` for six).
+2. **The faces:** each face's value stands half a body pixel off it, in pixels half a body pixel wide. A face's `show` text is drawn in the game's own Minecraft Ten font (the "10" font: digits are 7 x 10 pixels, so they come out 5 units high on the 8-unit face, two of them side by side a pixel apart) in its ink; a face with a picture (`textures/blockparty/dice/faces/<show>.png`, best 16 x 16 with the picture inside a margin, see-through around it) shows the picture, each pixel a small block of its color (a picture over 16 pixels across is shrunk to fit the face). Text wider than 14 pixels (some letter pairs) is shrunk to fit.
+
+`tools/blockparty/dice-pack.ts` makes the faces from the dice file: one geometry per die (`resource_pack/models/entity/die_faces.geo.json`, cubes colored from `textures/blockparty/die_palette.png`, one pixel per color), and the lists in the client entity and render controllers. It reads the font from Minecraft on this PC (`resource_packs/vanilla/font/minecraft-ten.ttf`, or `MINECRAFT_TEN`), never copying the font itself into the repo. `tools/blockparty/dice-model.json` keeps what it last made the model from; `test/dice.test.ts` compares it with the dice file and the pictures, so the tests fail until the tool has run again.
 
 ## Items
 

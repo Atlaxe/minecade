@@ -1,0 +1,54 @@
+{
+  "about": "What tools/blockparty/dice-pack.ts last made Block Party's die model from (the tests compare it with dice.json).",
+  "maker": 1,
+  "dice": [
+    {
+      "id": "standard",
+      "texture": "textures/blocks/concrete_white",
+      "layout": "plain",
+      "faces": [{"text":"1","ink":"#1e1e1e"},{"text":"2","ink":"#1e1e1e"},{"text":"3","ink":"#1e1e1e"},{"text":"4","ink":"#1e1e1e"},{"text":"5","ink":"#1e1e1e"},{"text":"6","ink":"#1e1e1e"}]
+    },
+    {
+      "id": "slow",
+      "texture": "textures/blocks/concrete_light_blue",
+      "layout": "plain",
+      "faces": [{"text":"1","ink":"#1e1e1e"},{"text":"2","ink":"#1e1e1e"},{"text":"3","ink":"#1e1e1e"},{"text":"1","ink":"#1e1e1e"},{"text":"2","ink":"#1e1e1e"},{"text":"3","ink":"#1e1e1e"}]
+    },
+    {
+      "id": "triple",
+      "texture": "textures/blocks/iron_block",
+      "layout": "plain",
+      "faces": [{"text":"1","ink":"#1e1e1e"},{"text":"2","ink":"#1e1e1e"},{"text":"3","ink":"#1e1e1e"},{"text":"4","ink":"#1e1e1e"},{"text":"5","ink":"#1e1e1e"},{"text":"6","ink":"#1e1e1e"}]
+    },
+    {
+      "id": "risk",
+      "texture": "textures/blocks/concrete_red",
+      "layout": "plain",
+      "faces": [{"text":"0","ink":"#ffffff"},{"text":"0","ink":"#ffffff"},{"text":"1","ink":"#ffffff"},{"text":"6","ink":"#ffffff"},{"text":"7","ink":"#ffffff"},{"text":"8","ink":"#ffffff"}]
+    },
+    {
+      "id": "golden",
+      "texture": "textures/blocks/gold_block",
+      "layout": "plain",
+      "faces": [{"text":"5","ink":"#5c3b00"},{"text":"6","ink":"#5c3b00"},{"text":"7","ink":"#5c3b00"},{"text":"8","ink":"#5c3b00"},{"text":"9","ink":"#5c3b00"},{"text":"10","ink":"#5c3b00"}]
+    },
+    {
+      "id": "mystery",
+      "texture": "textures/blocks/concrete_purple",
+      "layout": "plain",
+      "faces": [{"text":"1","ink":"#ffffff"},{"text":"2","ink":"#ffffff"},{"text":"3","ink":"#ffffff"},{"text":"4","ink":"#ffffff"},{"text":"5","ink":"#ffffff"},{"text":"6","ink":"#ffffff"}]
+    },
+    {
+      "id": "cursed",
+      "texture": "textures/blocks/concrete_black",
+      "layout": "plain",
+      "faces": [{"text":"12","ink":"#ffd83d"},{"text":"1","ink":"#d83a3a"},{"text":"1","ink":"#d83a3a"},{"text":"1","ink":"#d83a3a"},{"text":"1","ink":"#d83a3a"},{"text":"1","ink":"#d83a3a"}]
+    },
+    {
+      "id": "one",
+      "texture": "textures/blocks/concrete_light_blue",
+      "layout": "plain",
+      "faces": [{"text":"1","ink":"#1e1e1e"},{"text":"1","ink":"#1e1e1e"},{"text":"1","ink":"#1e1e1e"},{"text":"1","ink":"#1e1e1e"},{"text":"1","ink":"#1e1e1e"},{"text":"1","ink":"#1e1e1e"}]
+    }
+  ]
+}

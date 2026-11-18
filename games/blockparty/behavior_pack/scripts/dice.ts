@@ -2,16 +2,20 @@
 // say how each looks and what it does; docs/plans/block-party.md, "The dice file"). Each die has:
 //   - name, and letters: the one or two capitals standing in for its icon in the item panel;
 //   - block: the block floating over the roller's head while it's out, until it has a texture;
-//   - texture: its model's picture (48 x 32: six 16 x 16 squares, faces 1 to 3 on the top row and 4
-//     to 6 under them), once the user has painted one. tools/blockparty/dice-pack.ts writes the
-//     model's texture list from this file (test/dice.test.ts says when it has to run again);
+//   - texture: its model's body (a die the size of a player head): one 8 x 8 square worn on every
+//     face, or 24 x 16, six 8 x 8 squares, faces 1 to 3 on the top row and 4 to 6 under them (or the
+//     same at 2x, 3x...). Each face's value is a layer over it: its show text in the game's Minecraft
+//     Ten font, raised off the face in the die's ink color, or the face's picture raised the same way.
+//     tools/blockparty/dice-pack.ts makes the model's files from this file (test/dice.test.ts says
+//     when it has to run again);
+//   - ink: the color of the numbers on its faces ("#rrggbb"; a face can have its own);
 //   - panel: what the item panel shows for it: its six "faces", its "description", or "both";
 //   - count: how many times it's rolled at once, the moves added up (the Triple Die's 3);
 //   - value: what the Shop works from (it pays half to buy it back); test: only the Tests hand it out;
 //   - say: a line (its id in the user's dialogue file) the dialogue box says when it's rolled;
 //   - faces: six, each its move, and what else it does: coins for the roller (or taken from them),
-//     an event (FACE_EVENTS), a line to say when it comes up, and what the item panel shows on it (up
-//     to two characters; its move unless it says).
+//     an event (FACE_EVENTS), a line to say when it comes up, what the item panel and the die model
+//     show on it (up to two characters; its move unless it says), and its own ink.
 // Pure (no Minecraft), so the tests and the dice pack tool read it too.
 import file from "../../dice.json";
 
@@ -43,8 +47,10 @@ export interface DieFace {
   event?: FaceEvent;
   /** The event's amount (everyone_coins' coins, others_back's spaces). */
   amount: number;
-  /** What the item panel shows on this face: up to 2 characters. */
+  /** What the item panel and the die model show on this face: up to 2 characters. */
   show: string;
+  /** The color of its number on the die model ("#rrggbb"): its own, else its die's. */
+  ink: string;
   /** A line said when it comes up (fills: player, die, roll, coins, other). */
   say?: string;
 }
@@ -54,8 +60,10 @@ export interface DieDef {
   name: string;
   letters: string;
   block: string;
-  /** Its model's picture, if the user has made one (else its block floats). */
+  /** Its model's body picture, if it has one (else its block floats). */
   texture?: string;
+  /** The color of the numbers on its model's faces ("#rrggbb"). */
+  ink: string;
   panel: PanelShows;
   description: string;
   count: number;
@@ -74,6 +82,10 @@ const DEFAULT_AMOUNTS: Partial<Record<FaceEvent, number>> = { everyone_coins: 5,
 const LINE_ID = /^[a-z0-9][a-z0-9._-]*$/;
 /** The most extra rolls Roll again adds to one roll. */
 export const MAX_AGAIN = 3;
+/** The numbers' color on a die that doesn't say. */
+export const DEFAULT_INK = "#1e1e1e";
+/** An ink color, as the dice file writes one. */
+const INK = /^#[0-9a-fA-F]{6}$/;
 
 /** The dice in a dice file, and what's wrong with it (each problem in words; a die with one is left out). */
 export function readDice(raw: unknown): { dice: DieDef[]; problems: string[] } {
@@ -114,6 +126,9 @@ function readDie(id: string, entry: unknown, problem: (text: string) => void): D
   const block = text("block");
   const texture = die.texture === undefined || die.texture === "" ? undefined : text("texture");
   if (texture !== undefined && (!texture.startsWith("textures/") || texture.endsWith(".png"))) problem('"texture" is a path in the pack, like "textures/blockparty/dice/golden" (no .png)');
+  const ink = die.ink ?? DEFAULT_INK;
+  if (typeof ink !== "string" || !INK.test(ink)) problem('"ink" is a color like "#1e1e1e"');
+  const dieInk = typeof ink === "string" && INK.test(ink) ? ink.toLowerCase() : DEFAULT_INK;
   const panel = die.panel ?? "faces";
   if (!PANEL_SHOWS.includes(panel as PanelShows)) problem(`"panel" must be ${PANEL_SHOWS.map((show) => `"${show}"`).join(", ")}`);
   const description = text("description", "");
@@ -131,17 +146,18 @@ function readDie(id: string, entry: unknown, problem: (text: string) => void): D
     letters,
     block,
     ...(texture !== undefined ? { texture } : {}),
+    ink: dieInk,
     panel: panel as PanelShows,
     description,
     count,
     value,
     test: die.test === true,
     ...(say !== undefined ? { say } : {}),
-    faces: faces.slice(0, 6).map((face, i) => readFace(face, (text) => problem(`face ${i + 1}: ${text}`))),
+    faces: faces.slice(0, 6).map((face, i) => readFace(face, dieInk, (text) => problem(`face ${i + 1}: ${text}`))),
   };
 }
 
-function readFace(value: unknown, problem: (text: string) => void): DieFace {
+function readFace(value: unknown, dieInk: string, problem: (text: string) => void): DieFace {
   const face = (value && typeof value === "object" ? value : {}) as Record<string, unknown>;
   const move = face.move;
   if (typeof move !== "number" || !Number.isInteger(move) || move < 0 || move > 99) problem('"move" must be a whole number from 0 to 99');
@@ -155,6 +171,8 @@ function readFace(value: unknown, problem: (text: string) => void): DieFace {
   const moves = typeof move === "number" ? move : 0;
   const show = face.show ?? String(moves);
   if (typeof show !== "string" || !/^[\x20-\x7e]{0,2}$/.test(show)) problem('"show" must be at most two plain characters');
+  const ink = face.ink ?? dieInk;
+  if (typeof ink !== "string" || !INK.test(ink)) problem('"ink" is a color like "#1e1e1e"');
   const say = face.say;
   if (say !== undefined && !(typeof say === "string" && LINE_ID.test(say))) problem('"say" is a line id from the dialogue file, like "dice.cursed.lucky"');
   return {
@@ -163,6 +181,7 @@ function readFace(value: unknown, problem: (text: string) => void): DieFace {
     ...(known ? { event: known } : {}),
     amount: typeof amount === "number" ? amount : 0,
     show: typeof show === "string" ? show : String(moves),
+    ink: typeof ink === "string" && INK.test(ink) ? ink.toLowerCase() : dieInk,
     ...(typeof say === "string" && say !== "" ? { say } : {}),
   };
 }
@@ -178,12 +197,13 @@ export const STANDARD: DieDef = DICE[STANDARD_DIE] ?? {
   name: "Standard Die",
   letters: "D",
   block: "minecraft:white_concrete",
+  ink: DEFAULT_INK,
   panel: "faces",
   description: "",
   count: 1,
   value: 0,
   test: false,
-  faces: [1, 2, 3, 4, 5, 6].map((move) => ({ move, coins: 0, amount: 0, show: String(move) })),
+  faces: [1, 2, 3, 4, 5, 6].map((move) => ({ move, coins: 0, amount: 0, show: String(move), ink: DEFAULT_INK })),
 };
 
 /** A die by id: the standard die for one that isn't in the file. */
@@ -222,31 +242,13 @@ export function throwsText(outcome: RollOutcome): string {
   return outcome.faces.length > 1 ? outcome.faces.map((face) => outcome.die.faces[face].move).join(" + ") : "";
 }
 
-/** The dice with a model (a texture), in the file's order: the model's texture list, after its blank default. */
+/** The dice with a model (a texture), in the file's order, after the model's blank default (tools/blockparty/dice-model.ts lists them). */
 export function modelDice(dice: readonly DieDef[] = Object.values(DICE)): DieDef[] {
   return dice.filter((die) => die.texture !== undefined);
 }
 
-/** The die model's property value for `die` (its texture, 1 on; 0 is the blank default), or undefined for a die with no texture. */
+/** The die model's property value for `die` (its body and faces, 1 on; 0 is the blank default), or undefined for a die with no texture. */
 export function modelIndex(die: DieDef, dice: readonly DieDef[] = Object.values(DICE)): number | undefined {
   const at = modelDice(dice).findIndex((candidate) => candidate.id === die.id);
   return at < 0 ? undefined : at + 1;
-}
-
-/** The die model's picture for no die in particular (vanilla's white concrete: one color, so any face of it is plain). */
-export const BLANK_DIE = "textures/blocks/concrete_white";
-
-/**
- * What the die model's files list for the dice with a texture (tools/blockparty/dice-pack.ts writes
- * them): its client entity's textures by name (die.entity.json), and its render controller's
- * Array.dice, which DIE_PROPERTY (modelIndex) picks from, the blank default first.
- */
-export function modelFiles(dice: readonly DieDef[] = Object.values(DICE)): { textures: Record<string, string>; list: string[] } {
-  const textures: Record<string, string> = { default: BLANK_DIE };
-  const list = ["Texture.default"];
-  for (const die of modelDice(dice)) {
-    textures[die.id] = die.texture ?? BLANK_DIE;
-    list.push(`Texture.${die.id}`);
-  }
-  return { textures, list };
 }

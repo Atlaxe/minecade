@@ -132,11 +132,32 @@
       "arrays": {
         "textures": {
           "Array.dice": [
-            "Texture.default"
+            "Texture.default",
+            "Texture.die_standard",
+            "Texture.die_slow",
+            "Texture.die_triple",
+            "Texture.die_risk",
+            "Texture.die_golden",
+            "Texture.die_mystery",
+            "Texture.die_cursed",
+            "Texture.die_one"
+          ]
+        },
+        "geometries": {
+          "Array.bodies": [
+            "Geometry.plain",
+            "Geometry.plain",
+            "Geometry.plain",
+            "Geometry.plain",
+            "Geometry.plain",
+            "Geometry.plain",
+            "Geometry.plain",
+            "Geometry.plain",
+            "Geometry.plain"
           ]
         }
       },
-      "geometry": "Geometry.default",
+      "geometry": "Array.bodies[q.property('blockparty:die')]",
       "materials": [
         {
           "*": "Material.default"
@@ -144,6 +165,32 @@
       ],
       "textures": [
         "Array.dice[q.property('blockparty:die')]"
+      ]
+    },
+    "controller.render.blockparty.die_faces": {
+      "arrays": {
+        "geometries": {
+          "Array.faces": [
+            "Geometry.faces",
+            "Geometry.faces_standard",
+            "Geometry.faces_slow",
+            "Geometry.faces_triple",
+            "Geometry.faces_risk",
+            "Geometry.faces_golden",
+            "Geometry.faces_mystery",
+            "Geometry.faces_cursed",
+            "Geometry.faces_one"
+          ]
+        }
+      },
+      "geometry": "Array.faces[q.property('blockparty:die')]",
+      "materials": [
+        {
+          "*": "Material.faces"
+        }
+      ],
+      "textures": [
+        "Texture.palette"
       ]
     }
   }
