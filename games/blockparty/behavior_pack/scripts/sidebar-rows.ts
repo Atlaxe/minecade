@@ -5,8 +5,8 @@
 // here, and this puts them on one sidebar:
 //   - the title: the mark, each screen's word that's up (screen-codes.ts), then the dialogue box's
 //     part (its codes, then §r and the speaker's name, which is what shows);
-//   - the rows: the dialogue box's first, then the cards, the round, the menu, the item panel, the
-//     results, each part's rows in its own order. Each kind of row has its own codes, so each screen
+//   - the rows: the dialogue box's first, then the minigame announcement and tutorial, the cards,
+//     the round, the menu, the item panel, the results, each part's rows in its own order. Each kind of row has its own codes, so each screen
 //     picks out its own rows.
 // While the item panel is up (a die or an item to pick), the dialogue box makes way: neither its
 // title part nor its rows go on (the user, 2026-11-18), and it comes back as the panel goes.
@@ -18,8 +18,11 @@ import { GAME_SIDEBAR_MARK, Sidebar, describeError, log, type Scope } from "@min
 /** Most rows the client shows. */
 export const MAX_ROWS = 15;
 
-/** The parts, in the order their rows go (the first gets the top rows). */
-export const PARTS = ["dialogue", "cards", "round", "menu", "panel", "results"] as const;
+/**
+ * The parts, in the order their rows go (the first gets the top rows). The minigame announcement and
+ * tutorial (minigame-runner.ts) come right after the dialogue box, so the cards make way for them.
+ */
+export const PARTS = ["dialogue", "announce", "tutorial", "cards", "round", "menu", "panel", "results"] as const;
 export type PartId = (typeof PARTS)[number];
 
 export interface SidebarPart {

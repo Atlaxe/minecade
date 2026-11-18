@@ -4,9 +4,9 @@ import { GAME_SIDEBAR_MARK } from "@minecade/minigame-core";
 import { boxRows, boxTitle } from "../behavior_pack/scripts/dialogue-codes.ts";
 import { DICE } from "../behavior_pack/scripts/dice.ts";
 import { ITEMS, holdings } from "../behavior_pack/scripts/dice-items.ts";
-import { CARD, EMPTY_ICON, MENU, PANEL, PANEL_TEXT, RESULT, ROUND, SCREEN_LAYOUTS, SCREEN_WORDS, STANDINGS_WORD, bytes, cardRows, codesOf, fieldsOf, initialOf, menuRow, panelRows, placeText, resultRows, roundRow, wordsOf } from "../behavior_pack/scripts/screen-codes.ts";
+import { ANNOUNCE_HEAD, ANNOUNCE_WHEEL, CARD, EMPTY_ICON, MAX_CONTROLS, MENU, PANEL, PANEL_TEXT, RESULT, ROUND, SCREEN_LAYOUTS, SCREEN_WORDS, STANDINGS_WORD, TUTORIAL_CONTROL, TUTORIAL_READY, announceRows, bytes, cardRows, codesOf, fieldsOf, initialOf, menuRow, panelRows, placeText, resultRows, roundRow, tutorialRows, wordsOf } from "../behavior_pack/scripts/screen-codes.ts";
 import { MAX_ROWS, compose } from "../behavior_pack/scripts/sidebar-rows.ts";
-import { STANDINGS_CODE } from "../behavior_pack/scripts/bar-codes.ts";
+import { READY_CODE, SIDE_TWO_CODE, STANDINGS_CODE } from "../behavior_pack/scripts/bar-codes.ts";
 import { standingRows } from "../behavior_pack/scripts/results.ts";
 
 /** A field cut out of a row the way the UI does: its bytes, spaces out. */
@@ -145,6 +145,40 @@ describe("Block Party's screen rows", () => {
     expect(cut(rows[0], fields.coins)).toBe("30");
   });
 
+  it("writes the minigame announcement: the heading, the format once it shows, and the wheel with its light and its pick", () => {
+    const head = fieldsOf(ANNOUNCE_HEAD);
+    expect(announceRows({})).toEqual(["§k§a§f§0"]);
+    const [withFormat, ...wheel] = announceRows({ format: "§bFree for all", wheel: { names: ["Hot Floor", "Mob Freeze", "TNT Run"], at: 1, landed: false } });
+    expect(withFormat.startsWith("§k§a§f§1")).toBe(true);
+    expect(Buffer.from(withFormat, "utf8").subarray(head.format.from).toString("utf8")).toBe("Free for all");
+    expect(wheel.map((row) => cut(row, fieldsOf(ANNOUNCE_WHEEL).name))).toEqual(["HotFloor", "MobFreeze", "TNTRun"]);
+    expect(wheel.map((row) => row.slice(0, 16))).toEqual(["§k§w§w§0§s§0§l§0", "§k§w§w§1§s§1§l§0", "§k§w§w§2§s§0§l§0"]);
+    const landed = announceRows({ format: "Free for all", wheel: { names: ["Hot Floor", "Mob Freeze"], at: 0, landed: true } });
+    expect(landed[1]).toContain("§s§0§l§1");
+    expect(landed[2]).toContain("§s§0§l§0");
+  });
+
+  it("writes the minigame tutorial: the name, each side's objective and controls, and the Ready strip", () => {
+    const rows = tutorialRows({
+      name: "Hunter",
+      sides: [
+        { objective: "Catch them.", controls: [{ action: "Attack", what: "Catch a runner" }] },
+        { objective: "Get home.", controls: [{ action: "Move", what: "Run" }, { action: "Jump", what: "Hop" }] },
+      ],
+      ready: 1,
+      total: 4,
+    });
+    expect(rows).toEqual(["§k§tHunter", "§k§oCatch them.", `§k§x§x§0Attack    Catch a runner`, "§k§pGet home.", "§k§q§x§0Move      Run", "§k§q§x§1Jump      Hop", "§k§r1/4"]);
+    const control = fieldsOf(TUTORIAL_CONTROL);
+    expect(cut(rows[2], control.action)).toBe("Attack");
+    expect(Buffer.from(rows[2], "utf8").subarray(control.what.from).toString("utf8")).toBe("Catch a runner");
+    expect(cut(rows[6], fieldsOf(TUTORIAL_READY).votes)).toBe("1/4");
+    // At most MAX_CONTROLS controls a side, and no more than everyone ready.
+    const many = tutorialRows({ name: "X", sides: [{ objective: "Go.", controls: Array.from({ length: 5 }, (_, i) => ({ action: `A${i}`, what: "w" })) }], ready: 5, total: 4 });
+    expect(many.filter((row) => row.startsWith("§k§x"))).toHaveLength(MAX_CONTROLS);
+    expect(many.at(-1)).toBe("§k§r4/4");
+  });
+
   it("says places and initials", () => {
     expect([1, 2, 3, 4, undefined].map(placeText)).toEqual(["1st", "2nd", "3rd", "4th", ""]);
     expect(initialOf("xX_Sam")).toBe("X");
@@ -154,7 +188,7 @@ describe("Block Party's screen rows", () => {
   it("gives no two screens' words, nor their rows' codes, one inside another", () => {
     const words = Object.values(SCREEN_WORDS).map(codesOf);
     for (const a of words) for (const b of words) if (a !== b) expect(a.includes(b)).toBe(false);
-    const kinds = ["kc", "km", "ki", "kj", "ks", "kn"].map(codesOf);
+    const kinds = ["kc", "km", "ki", "kj", "ks", "kn", "ka", "kw", "kt", "ko", "kp", "kx", "kq", "kr"].map(codesOf);
     for (const a of kinds) for (const b of kinds) if (a !== b) expect(a.includes(b)).toBe(false);
     // The dialogue box's codes (§k§1 to §k§6, §d§l§g) aren't any of these.
     const box = boxRows({ words: ["Hi."], buttons: ["Yes", "No"], selected: 0, skip: "Skip", jumped: ["Alex"], prompt: "" }).join("");
@@ -214,7 +248,15 @@ describe("Block Party's screens' JSON UI (the workshop builder's components, ins
     const led = lead ? `('${lead}' + ${spaced(end)})` : spaced(end);
     return field.from === 0 ? led : `(${led} - ${spaced(first(field.from))})`;
   };
-  const files = { cards: "jui_blockparty_cards", menu: "jui_blockparty_menu", panel: "jui_blockparty_panel", results: "jui_blockparty_results", round: "jui_blockparty_round" } as const;
+  const files = {
+    cards: "jui_blockparty_cards",
+    menu: "jui_blockparty_menu",
+    panel: "jui_blockparty_panel",
+    results: "jui_blockparty_results",
+    round: "jui_blockparty_round",
+    announce: "jui_blockparty_announce",
+    tutorial: "jui_blockparty_tutorial",
+  } as const;
 
   for (const [screen, name] of Object.entries(files) as [keyof typeof files, string][]) {
     it(`${name} shows for its word and cuts each field where the game writes it`, () => {
@@ -239,6 +281,20 @@ describe("Block Party's screens' JSON UI (the workshop builder's components, ins
     for (const name of Object.values(files)) expect(at(name)).toBeGreaterThan(0);
     expect(at("jui_blockparty_results")).toBeLessThan(at("jui_blockparty_cards"));
     expect(at("jui_blockparty_panel")).toBeLessThan(at("jui_blockparty_dialogue"));
+  });
+
+  it("shows the tutorial's second side and its Ready! strip by each player's action bar codes, and the announcement over the star field", () => {
+    const tutorial = readFileSync(new URL("../resource_pack/ui/jui_blockparty_tutorial.json", import.meta.url), "utf8");
+    for (const code of [SIDE_TWO_CODE, READY_CODE]) {
+      expect(tutorial).toContain(`(($actionbar_text - '${code}') = $actionbar_text)`);
+      expect(tutorial).toContain(`(not (($actionbar_text - '${code}') = $actionbar_text))`);
+    }
+    const hud = readFileSync(new URL("../resource_pack/ui/hud_screen.json", import.meta.url), "utf8");
+    const at = (name: string) => hud.indexOf(name);
+    expect(at("@blockparty_hud.stars")).toBeGreaterThan(0);
+    expect(at("@blockparty_hud.stars")).toBeLessThan(at("@jui_blockparty_announce.layout"));
+    // Lifted over the stars, as the dialogue box is.
+    expect(hud).toContain('{ "jui_blockparty_announce@jui_blockparty_announce.layout": { "layer": 200 } }');
   });
 
   it("shows a player their own results screen for the standings word while their line has the standings code, and hides their cards", () => {

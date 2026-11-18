@@ -266,6 +266,97 @@
           ]
         }
       }
+    },
+    {
+      "name": "Minigame: the announcement",
+      "about": "Minigame! over the full star field (its layers slide in game, not here), the format under it, the wheel's light on its way down.",
+      "hud": {
+        "actionbar": "§r§m§c§r§k§d§8§k§g§0§0",
+        "sidebar": {
+          "title": "§r§m§g§r§b§p§a§b§p§c",
+          "lines": [
+            "§k§a§f§1Free for all",
+            "§k§w§w§0§s§0§l§0Hot Floor",
+            "§k§w§w§1§s§0§l§0Mob Freeze",
+            "§k§w§w§2§s§1§l§0Item Scramble",
+            "§k§w§w§3§s§0§l§0Anvil Rain",
+            "§k§w§w§4§s§0§l§0TNT Run",
+            "§k§w§w§5§s§0§l§0King of the Hill",
+            "§k§c§c§0§t§0§h§0§b§1§g§0 2 141stSTEP__A",
+            "§k§c§c§1§t§1§h§0§b§1§g§0 1 222nd______S",
+            "§k§c§c§2§t§0§h§0§b§1§g§0 1  93rdDGLSV R",
+            "§k§c§c§3§t§0§h§0§b§1§g§0 0  54th______B"
+          ]
+        }
+      }
+    },
+    {
+      "name": "Minigame: the wheel lands",
+      "about": "The wheel has landed on the pick.",
+      "hud": {
+        "actionbar": "§r§m§c§r§k§d§8§k§g§0§0",
+        "sidebar": {
+          "title": "§r§m§g§r§b§p§a§b§p§c",
+          "lines": [
+            "§k§a§f§1Free for all",
+            "§k§w§w§0§s§0§l§1Hot Floor",
+            "§k§w§w§1§s§0§l§0Mob Freeze",
+            "§k§w§w§2§s§0§l§0Item Scramble",
+            "§k§w§w§3§s§0§l§0Anvil Rain",
+            "§k§w§w§4§s§0§l§0TNT Run",
+            "§k§w§w§5§s§0§l§0King of the Hill",
+            "§k§c§c§0§t§0§h§0§b§1§g§0 2 141stSTEP__A",
+            "§k§c§c§1§t§1§h§0§b§1§g§0 1 222nd______S",
+            "§k§c§c§2§t§0§h§0§b§1§g§0 1  93rdDGLSV R",
+            "§k§c§c§3§t§0§h§0§b§1§g§0 0  54th______B"
+          ]
+        }
+      }
+    },
+    {
+      "name": "Minigame: the tutorial",
+      "about": "Over the rules camera: the minigame's name, what to do and its controls on the left, the Ready strip bottom right (one of four ready).",
+      "hud": {
+        "actionbar": "§r§m§c§r",
+        "sidebar": {
+          "title": "§r§m§g§r§b§p§t§b§p§c",
+          "lines": [
+            "§k§tHot Floor",
+            "§k§oA color is called. Get onto it before the rest of the floor drops away. Last one standing wins.",
+            "§k§x§x§0Move      Get to the color",
+            "§k§x§x§1Jump      Hop across a gap",
+            "§k§r1/4",
+            "§k§c§c§0§t§0§h§0§b§1§g§0 2 141stSTEP__A",
+            "§k§c§c§1§t§1§h§0§b§1§g§0 1 222nd______S",
+            "§k§c§c§2§t§0§h§0§b§1§g§0 1  93rdDGLSV R",
+            "§k§c§c§3§t§0§h§0§b§1§g§0 0  54th______B"
+          ]
+        }
+      }
+    },
+    {
+      "name": "Minigame: a 1v3's runner, ready",
+      "about": "Hunter's tutorial as a runner sees it (the second side's objective and controls) once they've jumped: Ready!",
+      "hud": {
+        "actionbar": "§r§m§c§r§k§y§k§z",
+        "sidebar": {
+          "title": "§r§m§g§r§b§p§t§b§p§c",
+          "lines": [
+            "§k§tHunter",
+            "§k§oCatch the runners before they reach the goal. Stop half of them and you win.",
+            "§k§x§x§0Move      Chase the runners",
+            "§k§x§x§1Attack    Catch the runner you hit",
+            "§k§pGet to the goal without being hit by the hunter. Half of you home wins it.",
+            "§k§q§x§0Move      Run past the hunter",
+            "§k§q§x§1Jump      Hop out of reach",
+            "§k§r3/4",
+            "§k§c§c§0§t§0§h§0§b§1§g§0 2 141stSTEP__A",
+            "§k§c§c§1§t§1§h§0§b§1§g§0 1 222nd______S",
+            "§k§c§c§2§t§0§h§0§b§1§g§0 1  93rdDGLSV R",
+            "§k§c§c§3§t§0§h§0§b§1§g§0 0  54th______B"
+          ]
+        }
+      }
     }
   ]
 }

@@ -35,6 +35,22 @@ export const HUNTER: MinigameDef = {
   name: "Hunter",
   kind: "1v3",
   rules: "Runners: reach the goal. Hunter: hit the runners first. Half of the runners home wins it for them.",
+  tutorial: [
+    {
+      objective: "Catch the runners before they reach the goal. Stop half of them and you win.",
+      controls: [
+        { action: "Move", what: "Chase the runners" },
+        { action: "Attack", what: "Catch the runner you hit" },
+      ],
+    },
+    {
+      objective: "Get to the goal without being hit by the hunter. Half of you home wins it.",
+      controls: [
+        { action: "Move", what: "Run past the hunter" },
+        { action: "Jump", what: "Hop out of reach" },
+      ],
+    },
+  ],
   size: [LENGTH + 2, 6, WIDTH + 2],
   build(dimension, min) {
     const far = { x: min.x + LENGTH + 1, y: min.y, z: min.z + WIDTH + 1 };

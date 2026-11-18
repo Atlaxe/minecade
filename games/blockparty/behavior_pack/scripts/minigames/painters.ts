@@ -32,6 +32,12 @@ export const PAINTERS: MinigameDef = {
   name: "Co-op Painters",
   kind: "2v2",
   rules: "Walk over the floor to paint it your team's color. The team with the most floor wins.",
+  tutorial: [
+    {
+      objective: "Walk over the floor to paint it your team's color. The team with the most floor at the end wins.",
+      controls: [{ action: "Move", what: "Paint where you walk" }],
+    },
+  ],
   size: [FLOOR + EDGE * 2, 6, FLOOR + EDGE * 2],
   build(dimension, min) {
     const floor = { x: min.x + EDGE, y: min.y + FLOOR_Y, z: min.z + EDGE };

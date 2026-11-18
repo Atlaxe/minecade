@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { battleBets, ffaCoins, firstDoubled, fits, forcedOutcome, formatFor, isDoubled, kindOf, pairingKey, pickMinigame, pickName, pickPairs, pickSolo, splitPot, teamCoins } from "../behavior_pack/scripts/minigame-rules.ts";
+import { WHEEL_SIZE, battleBets, ffaCoins, firstDoubled, fits, forcedOutcome, formatFor, isDoubled, kindOf, pairingKey, pickMinigame, pickName, pickPairs, pickSolo, spinStart, splitPot, teamCoins, wheelOf } from "../behavior_pack/scripts/minigame-rules.ts";
 
 /** Always the first choice. */
 const first = () => 0;
@@ -83,5 +83,38 @@ describe("Block Party's minigame rules", () => {
     expect(forcedOutcome("2v2", [["a", "b"], ["c", "d"]], "d")).toEqual({ winner: 1 });
     expect(forcedOutcome("1v3", [["a"], ["b", "c", "d"]], "a")).toEqual({ winner: 0 });
     expect(forcedOutcome("ffa", [["a"], ["b"]], "z")).toBeUndefined();
+  });
+});
+
+describe("the minigame announcement's wheel", () => {
+  /** A steady stream of "random" numbers, for a repeatable shuffle. */
+  const stream = (seed: number) => () => {
+    seed = (seed * 9301 + 49297) % 233280;
+    return seed / 233280;
+  };
+
+  it("holds the format's minigames, the pick always among them, at most 6", () => {
+    const names = Array.from({ length: 9 }, (_, i) => `Game ${i}`);
+    for (let seed = 1; seed < 40; seed++) {
+      const wheel = wheelOf(names, "Game 7", stream(seed));
+      expect(wheel).toHaveLength(WHEEL_SIZE);
+      expect(wheel).toContain("Game 7");
+      expect(new Set(wheel).size).toBe(WHEEL_SIZE);
+    }
+    expect(wheelOf(["Hot Floor"], "Hot Floor", stream(3))).toEqual(["Hot Floor"]);
+    expect(wheelOf(["A", "B", "A"], "B", stream(5)).sort()).toEqual(["A", "B"]);
+  });
+
+  it("starts where its steps land on the pick", () => {
+    for (const [size, pick, steps] of [
+      [6, 2, 17],
+      [3, 0, 17],
+      [1, 0, 17],
+      [5, 4, 3],
+    ]) {
+      const start = spinStart(size, pick, steps);
+      expect((start + steps) % size).toBe(pick);
+      expect(start).toBeGreaterThanOrEqual(0);
+    }
   });
 });

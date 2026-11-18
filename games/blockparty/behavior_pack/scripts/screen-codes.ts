@@ -1,6 +1,7 @@
 // Block Party's board screens (docs/plans/block-party-ui.md): the player cards top right, the board
-// menu top left, the item panel bottom left and the results screen, each as the rows it puts on the
-// game's sidebar. Pure, so the tests can check what goes on screen.
+// menu top left, the item panel bottom left and the results screen, and before a minigame its
+// announcement and its tutorial, each as the rows it puts on the game's sidebar. Pure, so the tests
+// can check what goes on screen.
 //
 // Everyone sees the same screens, so they ride the scoreboard sidebar under the core's
 // GAME_SIDEBAR_MARK, beside the dialogue box's rows (sidebar-rows.ts puts them together). The client
@@ -11,12 +12,13 @@
 // game counts with '%.Ns') and takes the spaces out. The last field runs to the end of the row.
 //
 // The look is the user's: each screen is a component of the workshop's JSON UI builder
-// (blockparty_cards, blockparty_menu, blockparty_panel, blockparty_results, blockparty_round), shown while the sidebar's
+// (blockparty_cards, blockparty_menu, blockparty_panel, blockparty_results, blockparty_round,
+// blockparty_announce, blockparty_tutorial), shown while the sidebar's
 // title holds the screen's word, with its rows' fields as {{row.<field>}}. The fields' places here
 // and in the components must agree; test/screens.test.ts checks the installed files against this.
 
 /** Each screen's word: its codes in the sidebar's title show the screen (its component's word). */
-export const SCREEN_WORDS = { cards: "bpc", menu: "bpm", panel: "bpi", results: "bpr", round: "bpn" } as const;
+export const SCREEN_WORDS = { cards: "bpc", menu: "bpm", panel: "bpi", results: "bpr", round: "bpn", announce: "bpa", tutorial: "bpt" } as const;
 /**
  * The results' rows under this word instead show only to a player whose action bar line asks for
  * them (their own results screen after a drop: STANDINGS_CODE, ui/hud_screen.json's bp_standings).
@@ -363,6 +365,125 @@ export function roundRow(text: string): string {
   return encode(ROUND, { text: text.replace(/§./g, "") });
 }
 
+// ---- The minigame announcement (block-party-ui.md) --------------------------------------------
+
+/**
+ * The heading: the component's own "Minigame!", and under it the format ("Free for all") once it
+ * shows (its switch on).
+ */
+export const ANNOUNCE_HEAD: Layout = {
+  parts: [
+    { kind: "code", word: "ka" },
+    { kind: "flag", name: "showFormat", letter: "f" },
+    { kind: "rest", name: "format" },
+  ],
+};
+
+/** A minigame on the wheel: its place (each row its own), under the pointer while it spins, the pick once it's landed, its name. */
+export const ANNOUNCE_WHEEL: Layout = {
+  parts: [
+    { kind: "code", word: "kw" },
+    { kind: "pick", name: "slot", letter: "w" },
+    { kind: "flag", name: "spinning", letter: "s" },
+    { kind: "flag", name: "landed", letter: "l" },
+    { kind: "rest", name: "name" },
+  ],
+};
+
+/** The announcement as it stands: the heading alone, then the format, then the wheel spinning and landed. */
+export interface AnnounceScreen {
+  format?: string;
+  wheel?: { names: readonly string[]; at: number; landed: boolean };
+}
+
+/** The announcement's rows: the heading, then the wheel's top to bottom. */
+export function announceRows(screen: AnnounceScreen): string[] {
+  const head = encode(ANNOUNCE_HEAD, { showFormat: screen.format !== undefined, format: plain(screen.format ?? "") });
+  const wheel = screen.wheel;
+  if (!wheel) return [head];
+  return [head, ...wheel.names.map((name, slot) => encode(ANNOUNCE_WHEEL, { slot, spinning: slot === wheel.at && !wheel.landed, landed: slot === wheel.at && wheel.landed, name: plain(name) }))];
+}
+
+// ---- The minigame tutorial (block-party-ui.md, "The minigame tutorial") ------------------------
+
+/** The minigame's name, top of the panel. */
+export const TUTORIAL_NAME: Layout = {
+  parts: [
+    { kind: "code", word: "kt" },
+    { kind: "rest", name: "name" },
+  ],
+};
+/** What to do: the first side's (or everyone's), and the second side's (the action bar's SIDE_TWO_CODE shows it). */
+export const TUTORIAL_GOAL: Layout = {
+  parts: [
+    { kind: "code", word: "ko" },
+    { kind: "rest", name: "text" },
+  ],
+};
+export const TUTORIAL_GOAL_TWO: Layout = {
+  parts: [
+    { kind: "code", word: "kp" },
+    { kind: "rest", name: "text" },
+  ],
+};
+/** A control: which (each row its own), the action ("Jump") in its key box, and what it does. */
+export const TUTORIAL_CONTROL: Layout = {
+  parts: [
+    { kind: "code", word: "kx" },
+    { kind: "pick", name: "index", letter: "x" },
+    { kind: "field", name: "action", length: 10, align: "left" },
+    { kind: "rest", name: "what" },
+  ],
+};
+export const TUTORIAL_CONTROL_TWO: Layout = {
+  parts: [
+    { kind: "code", word: "kq" },
+    { kind: "pick", name: "index", letter: "x" },
+    { kind: "field", name: "action", length: 10, align: "left" },
+    { kind: "rest", name: "what" },
+  ],
+};
+/** The Ready strip, bottom right: how many are ready ("1/4"). The action bar's READY_CODE says "Ready!" to a player who is. */
+export const TUTORIAL_READY: Layout = {
+  parts: [
+    { kind: "code", word: "kr" },
+    { kind: "rest", name: "votes" },
+  ],
+};
+
+/** One side's part of a minigame's tutorial: what to do, and its controls (an action and what it does). */
+export interface TutorialSide {
+  objective: string;
+  controls?: readonly { action: string; what: string }[];
+}
+
+export interface TutorialScreen {
+  name: string;
+  /** The first side's (or everyone's), then the second side's if it has one of its own. */
+  sides: readonly TutorialSide[];
+  ready: number;
+  total: number;
+}
+
+/** Most controls a side shows (the sidebar's rows are few). */
+export const MAX_CONTROLS = 3;
+
+/** The tutorial's rows: the name, each side's objective and controls, and the Ready strip. */
+export function tutorialRows(screen: TutorialScreen): string[] {
+  const rows = [encode(TUTORIAL_NAME, { name: plain(screen.name) })];
+  screen.sides.slice(0, 2).forEach((side, index) => {
+    rows.push(encode(index === 0 ? TUTORIAL_GOAL : TUTORIAL_GOAL_TWO, { text: plain(side.objective) }));
+    (side.controls ?? []).slice(0, MAX_CONTROLS).forEach((control, i) => rows.push(encode(index === 0 ? TUTORIAL_CONTROL : TUTORIAL_CONTROL_TWO, { index: i, action: control.action, what: plain(control.what) })));
+  });
+  rows.push(encode(TUTORIAL_READY, { votes: `${Math.min(screen.ready, screen.total)}/${screen.total}` }));
+  return rows;
+}
+
+/** Text with its formatting codes taken out (a name's color would leave its letter in a row). */
+function plain(text: string): string {
+  return text.replace(/§./g, "");
+}
+
 /** Every screen's row layouts, for the tests and the builder's components (the fields each one cuts). */
 export const SCREEN_LAYOUTS = {
   cards: { rows: { card: CARD } },
@@ -370,4 +491,6 @@ export const SCREEN_LAYOUTS = {
   panel: { rows: { panel: PANEL, text: PANEL_TEXT } },
   results: { rows: { result: RESULT } },
   round: { rows: { round: ROUND } },
+  announce: { rows: { head: ANNOUNCE_HEAD, wheel: ANNOUNCE_WHEEL } },
+  tutorial: { rows: { name: TUTORIAL_NAME, goal: TUTORIAL_GOAL, goalTwo: TUTORIAL_GOAL_TWO, control: TUTORIAL_CONTROL, controlTwo: TUTORIAL_CONTROL_TWO, ready: TUTORIAL_READY } },
 } as const satisfies Record<ScreenId, { rows: Record<string, Layout> }>;

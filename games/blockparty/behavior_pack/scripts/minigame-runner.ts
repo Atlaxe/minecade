@@ -1,9 +1,10 @@
-// Plays one minigame (docs/plans/block-party.md, "Minigame formats": the roulette, rules then Ready,
-// and the arenas' "At play time"), from the board and back:
-//   1. The announcement (block-party-ui.md, "The minigame announcement"): the board's camera rises and
-//      pulls back, a second later the star field fades in over the view, its layers sliding as if
-//      the camera still rises (stars.ts), and the roulette plays on the stars: the format's minigames
-//      go by in the dialogue box, slowing down, and stop on the pick.
+// Plays one minigame (docs/plans/block-party.md, "Minigame formats"; block-party-ui.md, "The
+// minigame announcement" and "The minigame tutorial"), from the board and back:
+//   1. The announcement: the board's camera rises and pulls back, a second later the star field
+//      fades in over the view, its layers sliding as if the camera still rises (stars.ts), and on the
+//      stars "Minigame!", then the format under it, then the wheel: up to 6 of the format's
+//      minigames, the light stepping down them, slowing, until it lands on the pick (screen-codes.ts,
+//      announceRows; the blockparty_announce component).
 //   2. Behind the stars: the minigame's arena is laid where arenas go, and everyone is put on
 //      its spawns, off their pieces: the players, then a moment later the bots, made again there
 //      (bots.ts, respawn). The arena is one of the minigame's published arena maps (minigames/
@@ -13,8 +14,10 @@
 //      the arena's spectator spawn, or over it.
 //      Then the stars turn and slide up, as if coming down, and fade out as the camera eases down
 //      into the arena to its rules camera.
-//   3. The rules, through the arena map's Start view camera (or one over the arena), until everyone
-//      has jumped to say they're ready (bots after a moment); nobody moves till Go.
+//   3. Through the arena map's Start view camera (or one over the arena), the tutorial panel over
+//      the left third: the minigame's name, what to do and its controls (each side its own in a 1v3),
+//      with the Ready strip bottom right, until everyone has jumped to say they're ready (bots after
+//      a moment; the strip says how many are). Nobody moves till Go.
 //   4. 3, 2, 1, Go, and the minigame plays (its play()). A player who's out watches as a spectator
 //      from the spectator spawn; a bot floats there. Only while it plays do the players have
 //      vanilla's hotbar (isPlaying; spike.ts shows it, the user's call).
@@ -29,14 +32,17 @@
 //      everyone is back on their pieces (the bots a moment after the players), the arena is
 //      cleared, the board's time is back and the board's camera waits high over the board view;
 //      the stars turn and fade as it comes down into the board view.
-// Nothing is a title (the user, 2026-11-18): the roulette, the rules, the countdown and the results
-// are notices in the dialogue box with no speaker (dialogue.ts, notify; NOTICE for how long).
+// Nothing is a title (the user, 2026-11-18): the countdown and the results are notices in the
+// dialogue box with no speaker (dialogue.ts, notify; NOTICE for how long). The announcement's steps,
+// the countdown and Go play the user's sound map's minigame.* events.
 import { EasingType, GameMode, InputPermissionCategory, StructureRotation, world, type Dimension, type Entity, type Player, type Vector3 } from "@minecraft/server";
 import { describeError, log, placeArena, turnedSize, turnsToFit, type ArenaMap, type QuarterTurns, type Scope } from "@minecade/minigame-core";
 import { isPlayer, thinkTicks, type Who } from "./bots.ts";
 import { line } from "./lines.ts";
 import { podiumLayout, podiumOrder, podiumPlaces, standInPodium, type PodiumLayout } from "./minigame-podium.ts";
-import { forcedOutcome, pickName, type Format } from "./minigame-rules.ts";
+import { forcedOutcome, pickName, spinStart, wheelOf, type Format } from "./minigame-rules.ts";
+import type { AnnounceScreen, TutorialScreen, TutorialSide } from "./screen-codes.ts";
+import { eventCue, playCue } from "./sounds.ts";
 import { arenaSize, fill, mapField, NOTICE, type Field, type MinigameDef, type Outcome, type Play, type Spot } from "./minigames/kit.ts";
 
 /** Where arenas go: the middle of the floor (the map's arena slot's, or far east of the board), and the slot's size across (x by z) when there is one. */
@@ -84,6 +90,16 @@ export interface RunnerHost {
   boardAbove?(): void;
   /** Then down into the board view over `seconds`, as the stars go. */
   boardIn?(seconds: number): void;
+  /** The announcement on the stars (screen-codes.ts, announceRows), or undefined to take it away. */
+  announce(screen: AnnounceScreen | undefined): void;
+  /** The tutorial panel and its Ready strip, or undefined to take them away. */
+  tutorial(screen: TutorialView | undefined): void;
+}
+
+/** The tutorial as it stands, and each player's own part of it (their action bar's codes): who's on the second side, who's ready. */
+export interface TutorialView extends TutorialScreen {
+  secondSide: ReadonlySet<string>;
+  readyKeys: ReadonlySet<string>;
 }
 
 /**
@@ -110,8 +126,13 @@ const EASE_IN_BACK = 14;
 /** How far over and behind the podium camera the ease down into it starts, in blocks (closer than the arena's). */
 const PODIUM_RISE = 8;
 const PODIUM_BACK = 6;
-/** The roulette's waits between names, in ticks: quick, then slowing to the pick. */
-const ROULETTE = [2, 2, 2, 2, 3, 3, 4, 5, 6, 8];
+/** Ticks "Minigame!" is up alone, and then with the format under it, before the wheel. */
+const HEADING_TICKS = 24;
+const FORMAT_TICKS = 24;
+/** The wheel's waits between steps, in ticks: quick, then slowing to the pick. */
+const SPIN = [2, 2, 2, 2, 2, 2, 2, 3, 3, 3, 4, 4, 5, 6, 7, 9, 11];
+/** Ticks the pick stays lit before the announcement goes. */
+const LANDED_TICKS = 36;
 /** Ticks the results stay up on the podium before everyone goes back: the coins land and the poses are struck. */
 export const PODIUM_TICKS = 110;
 /** How far over the arena onlookers and players who are out watch from, when its map has no spectator spawn. */
@@ -145,10 +166,12 @@ export function formatLabel(format: Format, sides: readonly (readonly Who[])[]):
 export class MinigameRunner {
   private readonly host: RunnerHost;
   private on = false;
-  /** Players who haven't said they're ready yet (lowercased), while the rules show. */
+  /** Players who haven't said they're ready yet (lowercased), while the tutorial shows. */
   private waiting: Set<string> | undefined;
   private readyCount = 0;
   private readyTotal = 0;
+  /** The tutorial up now: what it says, who's on its second side, and the players voting. */
+  private tutorialUp: { screen: Omit<TutorialScreen, "ready" | "total">; secondSide: ReadonlySet<string>; voters: readonly string[] } | undefined;
   /** Who's out this minigame, by key. */
   private readonly outs = new Set<string>();
   /** Who's playing it now, from Go until it ends (by key): they get the hotbar. */
@@ -177,7 +200,7 @@ export class MinigameRunner {
     return this.playing.has(key);
   }
 
-  /** A player jumped: while the rules show, that's their Ready. True when it was. */
+  /** A player jumped: while the tutorial shows, that's their Ready. True when it was. */
   jumped(player: Player): boolean {
     if (!this.waiting) return false;
     if (this.waiting.delete(player.name.toLowerCase())) this.ready();
@@ -219,7 +242,7 @@ export class MinigameRunner {
     this.current = current;
     const everyone = sides.flat();
     const { dimension } = this.host;
-    // Picked before the roulette, so a map that can't be played is named while it spins.
+    // Picked before the announcement, so a map that can't be played is named while the wheel spins.
     const laid = this.lay(def);
     let field = laid.field;
     let watchSpot = watchSpotOf(field);
@@ -227,11 +250,12 @@ export class MinigameRunner {
     let outcome: Outcome = { places: [] };
     const watching = [...everyone, ...onlookers];
     try {
-      // The camera rises from the board, the stars come over it a second later, and the roulette plays on them.
+      // The camera rises from the board, the stars come over it a second later, and the announcement plays on them.
       this.host.zoomOut?.(ZOOM_OUT);
+      playCue(eventCue("minigame.zoom-out"));
       await this.host.scope.wait(STARS_AFTER);
       await this.host.starsIn();
-      await this.roulette(def, pool, format, sides);
+      await this.announce(def, pool, format, sides);
       await this.host.behindStars(async () => {
         field = await this.layDown(def, laid);
         watchSpot = watchSpotOf(field);
@@ -268,19 +292,23 @@ export class MinigameRunner {
             this.host.respawnBot(who, spot, facing(spot));
           }),
         );
-      }, () => this.rulesCamera(watching, field, "ease"));
-      // The rules stay in the box through the ready vote (the countdown takes their place).
-      this.host.notice(line("minigame.rules", { minigame: def.name, format: formatLabel(format, sides), rules: def.rules }));
-      await this.readyVote(everyone, current);
+      }, () => {
+        this.rulesCamera(watching, field, "ease");
+        playCue(eventCue("minigame.zoom-in"));
+      });
+      // The tutorial and its Ready strip through the ready vote (the countdown comes after).
+      await this.readyVote(everyone, current, def, sides);
       for (const who of [...everyone, ...onlookers]) clearCamera(who.player);
       for (const count of ["3", "2", "1"]) {
         if (current.forced) break;
         this.host.notice(`${def.name}\n${count}`, NOTICE.count + 5);
+        playCue(eventCue("minigame.countdown"));
         await this.host.scope.wait(20);
       }
       if (current.forced) outcome = current.forced;
       else {
         this.host.notice(line("minigame.go"), NOTICE.land);
+        playCue(eventCue("minigame.go"));
         for (const who of everyone) if (who.player) setMoving(who.player, true);
         for (const who of everyone) this.playing.add(who.key);
         const scope = this.host.scope.child(`minigame ${def.id}`);
@@ -352,6 +380,8 @@ export class MinigameRunner {
     } finally {
       this.on = false;
       this.podiumUp = false;
+      this.host.announce(undefined);
+      this.closeTutorial();
       if (this.current === current) this.current = undefined;
       this.playing.clear();
       this.waiting = undefined;
@@ -419,17 +449,38 @@ export class MinigameRunner {
     return this.testLaid(def);
   }
 
-  /** The roulette: the format's minigames go by in the dialogue box, slowing down to the pick. */
-  private async roulette(def: MinigameDef, pool: readonly MinigameDef[], format: Format, sides: readonly (readonly Who[])[]): Promise<void> {
-    const names = pool.length > 1 ? pool.map((minigame) => minigame.name) : [def.name];
-    let index = Math.floor(this.host.random() * names.length);
-    for (const wait of ROULETTE) {
-      this.host.notice(`§7${names[index % names.length]}\n${formatLabel(format, sides)}`, NOTICE.swap);
-      index++;
-      await this.host.scope.wait(wait);
+  /**
+   * The announcement on the stars (block-party-ui.md, "The minigame announcement"): "Minigame!"; the
+   * format under it; then the wheel of the format's minigames (up to 6, the pick among them), the
+   * light stepping down it, slowing, until it lands on the pick. Then the wheel and the titles go,
+   * the stars staying for the move into the arena.
+   */
+  private async announce(def: MinigameDef, pool: readonly MinigameDef[], format: Format, sides: readonly (readonly Who[])[]): Promise<void> {
+    const { host } = this;
+    host.announce({});
+    playCue(eventCue("minigame.title"));
+    await host.scope.wait(HEADING_TICKS);
+    const label = formatLabel(format, sides);
+    host.announce({ format: label });
+    playCue(eventCue("minigame.format"));
+    await host.scope.wait(FORMAT_TICKS);
+    const names = wheelOf(
+      pool.map((minigame) => minigame.name),
+      def.name,
+      host.random,
+    );
+    const pick = names.indexOf(def.name);
+    let at = spinStart(names.length, pick, SPIN.length);
+    for (const wait of SPIN) {
+      host.announce({ format: label, wheel: { names, at, landed: false } });
+      playCue(eventCue("minigame.wheel-tick"));
+      at = (at + 1) % names.length;
+      await host.scope.wait(wait);
     }
-    this.host.notice(`${def.name}\n${formatLabel(format, sides)}`, NOTICE.land);
-    await this.host.scope.wait(30);
+    host.announce({ format: label, wheel: { names, at: pick, landed: true } });
+    playCue(eventCue("minigame.wheel-land"));
+    await host.scope.wait(LANDED_TICKS);
+    host.announce(undefined);
   }
 
   /** Loads the arena's chunks. */
@@ -556,10 +607,22 @@ export class MinigameRunner {
     }
   }
 
-  /** Waits until every player has jumped and every bot has had its moment, or /minigame win ends the minigame. */
-  private async readyVote(everyone: readonly Who[], current: Running): Promise<void> {
+  /**
+   * The tutorial panel (block-party-ui.md, "The minigame tutorial") with its Ready strip, until every
+   * player has jumped and every bot has had its moment, or /minigame win ends the minigame. Each
+   * side sees its own objective and controls when its minigame gives the second side its own (a
+   * 1v3's trio); a minigame with no tutorial shows its rules.
+   */
+  private async readyVote(everyone: readonly Who[], current: Running, def: MinigameDef, sides: readonly (readonly Who[])[]): Promise<void> {
     const players = everyone.filter((who) => who.player?.isValid);
     const bots = everyone.filter((who) => !who.player);
+    const own: readonly TutorialSide[] = def.tutorial && def.tutorial.length > 0 ? def.tutorial : [{ objective: def.rules }];
+    const twoSides = own.length > 1 && sides.length > 1;
+    this.tutorialUp = {
+      screen: { name: def.name, sides: twoSides ? own.slice(0, 2) : own.slice(0, 1) },
+      secondSide: new Set(twoSides ? sides.slice(1).flatMap((side) => side.map((who) => who.key)) : []),
+      voters: players.map((who) => who.key),
+    };
     this.waiting = new Set(players.map((who) => who.key));
     this.readyTotal = everyone.length;
     this.readyCount = 0;
@@ -578,12 +641,31 @@ export class MinigameRunner {
       await this.host.scope.wait(2);
     }
     this.waiting = undefined;
+    if (!current.forced) playCue(eventCue("vote.done"));
+    this.closeTutorial();
   }
 
-  /** Someone's ready (or, with 0, just the count again). */
+  /** Someone's ready (or, with 0, just the count again): the tutorial's Ready strip shows it. */
   private ready(add = 1): void {
     this.readyCount += add;
-    this.host.status(line("minigame.ready.status", { votes: `${Math.min(this.readyCount, this.readyTotal)} of ${this.readyTotal}` }));
+    if (add > 0) playCue(eventCue("vote.ready"));
+    const up = this.tutorialUp;
+    if (!up) return;
+    const waiting = this.waiting;
+    this.host.tutorial({
+      ...up.screen,
+      ready: Math.min(this.readyCount, this.readyTotal),
+      total: this.readyTotal,
+      secondSide: up.secondSide,
+      readyKeys: new Set(up.voters.filter((key) => !waiting?.has(key))),
+    });
+  }
+
+  /** The tutorial and its Ready strip go. */
+  private closeTutorial(): void {
+    if (!this.tutorialUp) return;
+    this.tutorialUp = undefined;
+    this.host.tutorial(undefined);
   }
 
   /**

@@ -78,6 +78,15 @@ export const HOT_FLOOR: MinigameDef = {
   name: "Hot Floor",
   kind: "ffa",
   rules: "A color is called: get onto it before the others vanish. Last one standing wins.",
+  tutorial: [
+    {
+      objective: "A color is called. Get onto it before the rest of the floor drops away. Last one standing wins.",
+      controls: [
+        { action: "Move", what: "Get to the color" },
+        { action: "Jump", what: "Hop across a gap" },
+      ],
+    },
+  ],
   size: [EDGE * 2 + TEST_TILES * TILE, FLOOR_Y + 6, EDGE * 2 + TEST_TILES * TILE],
   build(dimension, min) {
     const tiles = tilesOf(this.testField(min))!;

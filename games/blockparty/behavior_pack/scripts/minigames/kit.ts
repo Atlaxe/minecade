@@ -10,6 +10,7 @@ import { BlockVolume, type Dimension, type Entity, type Vector3 } from "@minecra
 import { arenaBox, mapTimeTicks, type Box, type MapConfig, type MapPosition, type PlacedArena, type Scope } from "@minecade/minigame-core";
 import type { Who } from "../bots.ts";
 import type { Kind } from "../minigame-rules.ts";
+import type { TutorialSide } from "../screen-codes.ts";
 
 export type Vec3 = [number, number, number];
 
@@ -142,8 +143,14 @@ export interface MinigameDef {
   id: string;
   name: string;
   kind: Kind;
-  /** The rules, one line, shown before Ready. */
+  /** The rules, one line: the tutorial's objective when it has no tutorial of its own. */
   rules: string;
+  /**
+   * The tutorial panel while everyone gets ready (block-party-ui.md, "The minigame tutorial"): what
+   * to do and its controls, the first side's (or everyone's), then the second side's when it has its
+   * own (a 1v3's trio). In code with its name and rules while the minigames are test ones.
+   */
+  tutorial?: readonly TutorialSide[];
   /** Its test arena (while it has no arena map): its size (x, y, z), laying it from `min`, and its markup there. */
   size: Vec3;
   build(dimension: Dimension, min: Vector3, random: () => number): void;

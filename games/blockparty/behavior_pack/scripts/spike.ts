@@ -51,7 +51,7 @@ import { ARENA_SLOT, Minigame, describeError, draw, facingOf, hudLine, log, say,
 import { BLOCK_PARTY_BOARD } from "@minecade/minigame-core/config";
 import registry from "#registry";
 import skins from "#skins";
-import { HOTBAR_SIZE, KEEP_UP, SKIPPING_CODE, STANDINGS_CODE, STAR_LEVELS } from "./bar-codes.ts";
+import { HOTBAR_SIZE, KEEP_UP, READY_CODE, SIDE_TWO_CODE, SKIPPING_CODE, STANDINGS_CODE, STAR_LEVELS } from "./bar-codes.ts";
 import type config from "../../game.config.ts";
 import { boardBox, floorOf, layPaths, mapSpaces, standAt, testSpaces, type Space, type Vec3 } from "./board.ts";
 import { BoardLoop } from "./board-loop.ts";
@@ -68,7 +68,7 @@ import { CURSED_DIE } from "./item-play.ts";
 import { CHANCE, HAPPENING, WARDEN, type ChanceId, type HappeningId, type WardenId } from "./space-rules.ts";
 import { Zombies } from "./zombies.ts";
 import { ResultsScreen, type ResultSeat } from "./results.ts";
-import { SCREEN_WORDS, cardRows, codesOf, roundRow } from "./screen-codes.ts";
+import { SCREEN_WORDS, announceRows, cardRows, codesOf, roundRow, tutorialRows } from "./screen-codes.ts";
 import { GameSidebar } from "./sidebar-rows.ts";
 import { Heads } from "./heads.ts";
 import { Dialogue, type SaidLine } from "./dialogue.ts";
@@ -87,7 +87,7 @@ import { line } from "./lines.ts";
 import { BOT_COUNTS, LENGTHS, START_COINS } from "./board-rules.ts";
 import { Bots, hop, isPlayer, thinkTicks, whoOf, type Who } from "./bots.ts";
 import { fits, type Format } from "./minigame-rules.ts";
-import { MinigameRunner, type ArenaPlace } from "./minigame-runner.ts";
+import { MinigameRunner, type ArenaPlace, type TutorialView } from "./minigame-runner.ts";
 import { MINIGAMES } from "./minigames/index.ts";
 import { Npcs } from "./npcs.ts";
 import { DEFAULT_SETTINGS, Pieces, WALK_CAMERAS, hold, lock, resendLocks, unlock, type PieceSettings } from "./pieces.ts";
@@ -246,6 +246,8 @@ export class BlockPartySpike extends Minigame<Config> {
   /** Whether the test board's blocks are down: nobody is put on it before. */
   private boardReady = false;
   private slowLoads = false;
+  /** The minigame tutorial up now (its second side's players and who's ready ride each one's action bar). */
+  private tutorialView: TutorialView | undefined;
   /** Whether the board is the map's own spaces (else the test board is laid beside Probe's platform). */
   private ownBoard = false;
   /** The board's middle: the test board's, or the middle of the map's spaces. */
@@ -396,6 +398,11 @@ export class BlockPartySpike extends Minigame<Config> {
       },
       boardIn: (seconds) => {
         if (this.boardCameraBack()) this.boardCamera.comeIn(seconds);
+      },
+      announce: (screen) => this.gameSidebar.set("announce", screen ? { title: codesOf(SCREEN_WORDS.announce), rows: announceRows(screen) } : undefined),
+      tutorial: (view) => {
+        this.tutorialView = view;
+        this.gameSidebar.set("tutorial", view ? { title: codesOf(SCREEN_WORDS.tutorial), rows: tutorialRows(view) } : undefined);
       },
     });
     this.npcs = new Npcs(this.scope);
@@ -1156,7 +1163,13 @@ export class BlockPartySpike extends Minigame<Config> {
    */
   private sendLine(player: Player, tests: PlayerTests, force = false): void {
     const status = this.minigameStatus ?? "";
-    const own = (this.viewing.has(player.name.toLowerCase()) ? STANDINGS_CODE : "") + (this.dialogue?.skippingBy(player.name) ? SKIPPING_CODE : "");
+    const name = player.name.toLowerCase();
+    const tutorial = this.tutorialView;
+    const own =
+      (this.viewing.has(name) ? STANDINGS_CODE : "") +
+      (this.dialogue?.skippingBy(player.name) ? SKIPPING_CODE : "") +
+      (tutorial?.secondSide.has(name) ? SIDE_TWO_CODE : "") +
+      (tutorial?.readyKeys.has(name) ? READY_CODE : "");
     const lineWith = (stars: string) => hudLine(undefined, status, undefined, "", stars + own || (status ? "" : KEEP_UP));
     const key = lineWith(this.stars.key());
     if (!force && key === tests.sentLine && system.currentTick - (tests.sentAt ?? 0) < BAR_RESEND) return;

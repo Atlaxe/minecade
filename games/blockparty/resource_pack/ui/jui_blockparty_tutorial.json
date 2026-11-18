@@ -1,0 +1,1373 @@
+// Built by the workshop's JSON UI tool from its blockparty_tutorial component (tools\install-component.mjs): change it in the builder and install it again, not here.
+{
+  "namespace": "jui_blockparty_tutorial",
+  "layout": {
+    "type": "panel",
+    "size": [
+      "100%",
+      "100%"
+    ],
+    "$v_text|default": [
+      1,
+      1,
+      1
+    ],
+    "$v_title|default": [
+      1,
+      1,
+      1
+    ],
+    "$v_key|default": [
+      1,
+      1,
+      1
+    ],
+    "$v_muted|default": [
+      0.753,
+      0.753,
+      0.753
+    ],
+    "$v_tab|default": [
+      0,
+      0,
+      0
+    ],
+    "visible": false,
+    "bindings": [
+      {
+        "binding_name": "#scoreboard_sidebar_visible",
+        "binding_type": "global"
+      },
+      {
+        "binding_name": "#objective_sidebar_name",
+        "binding_type": "global"
+      },
+      {
+        "binding_type": "view",
+        "source_property_name": "(#scoreboard_sidebar_visible and (not ((#objective_sidebar_name - '§b§p§t') = #objective_sidebar_name)))",
+        "target_property_name": "#visible"
+      }
+    ],
+    "controls": [
+      {
+        "b_a1b00001": {
+          "type": "panel",
+          "size": [
+            180,
+            "100%cm"
+          ],
+          "anchor_from": "left_middle",
+          "anchor_to": "left_middle",
+          "offset": [
+            10,
+            -10
+          ],
+          "controls": [
+            {
+              "b_a1b00001_bg": {
+                "type": "image",
+                "size": [
+                  "100%",
+                  "100%sm + 16px"
+                ],
+                "anchor_from": "top_left",
+                "anchor_to": "top_left",
+                "layer": 1,
+                "texture": "textures/jsonui/a_0f03755b4c3618f1",
+                "alpha": 1,
+                "keep_ratio": false
+              }
+            },
+            {
+              "b_a1b00001_in": {
+                "type": "stack_panel",
+                "orientation": "vertical",
+                "size": [
+                  "100% - 16px",
+                  "100%c"
+                ],
+                "controls": [
+                  {
+                    "b_a1b00010": {
+                      "type": "stack_panel",
+                      "orientation": "vertical",
+                      "size": [
+                        "100%",
+                        "100%c"
+                      ],
+                      "collection_name": "scoreboard_players",
+                      "factory": {
+                        "name": "player_list_factory",
+                        "control_name": "jui_blockparty_tutorial.b_a1b00010_row"
+                      },
+                      "bindings": [
+                        {
+                          "binding_name": "#scoreboard_sidebar_size",
+                          "binding_type": "global",
+                          "binding_name_override": "#collection_length"
+                        }
+                      ],
+                      "layer": 1
+                    }
+                  },
+                  {
+                    "b_a1b00001_gap1": {
+                      "type": "panel",
+                      "size": [
+                        0,
+                        6
+                      ],
+                      "layer": 4
+                    }
+                  },
+                  {
+                    "b_a1b00020": {
+                      "type": "stack_panel",
+                      "orientation": "vertical",
+                      "size": [
+                        "100%",
+                        "100%c"
+                      ],
+                      "controls": [
+                        {
+                          "b_a1b00021": {
+                            "type": "stack_panel",
+                            "orientation": "vertical",
+                            "size": [
+                              "100%",
+                              "100%c"
+                            ],
+                            "collection_name": "scoreboard_players",
+                            "factory": {
+                              "name": "player_list_factory",
+                              "control_name": "jui_blockparty_tutorial.b_a1b00021_row"
+                            },
+                            "bindings": [
+                              {
+                                "binding_name": "#scoreboard_sidebar_size",
+                                "binding_type": "global",
+                                "binding_name_override": "#collection_length"
+                              }
+                            ],
+                            "layer": 1
+                          }
+                        },
+                        {
+                          "b_a1b00020_gap1": {
+                            "type": "panel",
+                            "size": [
+                              0,
+                              6
+                            ],
+                            "layer": 4
+                          }
+                        },
+                        {
+                          "b_a1b00023": {
+                            "type": "stack_panel",
+                            "orientation": "vertical",
+                            "size": [
+                              "100%",
+                              "100%c"
+                            ],
+                            "collection_name": "scoreboard_players",
+                            "factory": {
+                              "name": "player_list_factory",
+                              "control_name": "jui_blockparty_tutorial.b_a1b00023_row"
+                            },
+                            "bindings": [
+                              {
+                                "binding_name": "#scoreboard_sidebar_size",
+                                "binding_type": "global",
+                                "binding_name_override": "#collection_length"
+                              }
+                            ],
+                            "layer": 5
+                          }
+                        }
+                      ],
+                      "visible": "(($actionbar_text - '§k§y') = $actionbar_text)",
+                      "layer": 5
+                    }
+                  },
+                  {
+                    "b_a1b00001_gap2": {
+                      "type": "panel",
+                      "size": [
+                        0,
+                        6
+                      ],
+                      "layer": 21
+                    }
+                  },
+                  {
+                    "b_a1b00030": {
+                      "type": "stack_panel",
+                      "orientation": "vertical",
+                      "size": [
+                        "100%",
+                        "100%c"
+                      ],
+                      "controls": [
+                        {
+                          "b_a1b00031": {
+                            "type": "stack_panel",
+                            "orientation": "vertical",
+                            "size": [
+                              "100%",
+                              "100%c"
+                            ],
+                            "collection_name": "scoreboard_players",
+                            "factory": {
+                              "name": "player_list_factory",
+                              "control_name": "jui_blockparty_tutorial.b_a1b00031_row"
+                            },
+                            "bindings": [
+                              {
+                                "binding_name": "#scoreboard_sidebar_size",
+                                "binding_type": "global",
+                                "binding_name_override": "#collection_length"
+                              }
+                            ],
+                            "layer": 1
+                          }
+                        },
+                        {
+                          "b_a1b00030_gap1": {
+                            "type": "panel",
+                            "size": [
+                              0,
+                              6
+                            ],
+                            "layer": 4
+                          }
+                        },
+                        {
+                          "b_a1b00033": {
+                            "type": "stack_panel",
+                            "orientation": "vertical",
+                            "size": [
+                              "100%",
+                              "100%c"
+                            ],
+                            "collection_name": "scoreboard_players",
+                            "factory": {
+                              "name": "player_list_factory",
+                              "control_name": "jui_blockparty_tutorial.b_a1b00033_row"
+                            },
+                            "bindings": [
+                              {
+                                "binding_name": "#scoreboard_sidebar_size",
+                                "binding_type": "global",
+                                "binding_name_override": "#collection_length"
+                              }
+                            ],
+                            "layer": 5
+                          }
+                        }
+                      ],
+                      "visible": "(not (($actionbar_text - '§k§y') = $actionbar_text))",
+                      "layer": 22
+                    }
+                  }
+                ],
+                "anchor_from": "top_left",
+                "anchor_to": "top_left",
+                "offset": [
+                  8,
+                  8
+                ],
+                "layer": 37
+              }
+            }
+          ],
+          "layer": 1
+        }
+      },
+      {
+        "b_a1b00040": {
+          "type": "stack_panel",
+          "orientation": "vertical",
+          "size": [
+            200,
+            "100%c"
+          ],
+          "collection_name": "scoreboard_players",
+          "factory": {
+            "name": "player_list_factory",
+            "control_name": "jui_blockparty_tutorial.b_a1b00040_row"
+          },
+          "bindings": [
+            {
+              "binding_name": "#scoreboard_sidebar_size",
+              "binding_type": "global",
+              "binding_name_override": "#collection_length"
+            }
+          ],
+          "anchor_from": "bottom_right",
+          "anchor_to": "bottom_right",
+          "offset": [
+            -10,
+            -10
+          ],
+          "visible": "(($actionbar_text - '§k§z') = $actionbar_text)",
+          "layer": 3
+        }
+      },
+      {
+        "b_a1b00050": {
+          "type": "stack_panel",
+          "orientation": "vertical",
+          "size": [
+            200,
+            "100%c"
+          ],
+          "collection_name": "scoreboard_players",
+          "factory": {
+            "name": "player_list_factory",
+            "control_name": "jui_blockparty_tutorial.b_a1b00050_row"
+          },
+          "bindings": [
+            {
+              "binding_name": "#scoreboard_sidebar_size",
+              "binding_type": "global",
+              "binding_name_override": "#collection_length"
+            }
+          ],
+          "anchor_from": "bottom_right",
+          "anchor_to": "bottom_right",
+          "offset": [
+            -10,
+            -10
+          ],
+          "visible": "(not (($actionbar_text - '§k§z') = $actionbar_text))",
+          "layer": 28
+        }
+      }
+    ]
+  },
+  "b_a1b00010_row": {
+    "type": "panel",
+    "size": [
+      "100%",
+      16
+    ],
+    "controls": [
+      {
+        "b_a1b00011": {
+          "type": "label",
+          "text": "#jui_text",
+          "size": [
+            "default",
+            "default"
+          ],
+          "color": "$v_title",
+          "bindings": [
+            {
+              "binding_name": "#player_name_sidebar",
+              "binding_type": "collection",
+              "binding_collection_name": "scoreboard_players"
+            },
+            {
+              "binding_type": "view",
+              "source_property_name": "((('§r' + #player_name_sidebar) - ('%.6s' * #player_name_sidebar)))",
+              "target_property_name": "#jui_text"
+            }
+          ],
+          "font_scale_factor": 1.5,
+          "shadow": true,
+          "font_type": "MinecraftTen",
+          "localize": false,
+          "anchor_from": "left_middle",
+          "anchor_to": "left_middle",
+          "layer": 1
+        }
+      }
+    ],
+    "visible": false,
+    "bindings": [
+      {
+        "binding_name": "#player_name_sidebar",
+        "binding_type": "collection",
+        "binding_collection_name": "scoreboard_players"
+      },
+      {
+        "binding_type": "view",
+        "source_property_name": "(not ((#player_name_sidebar - '§k§t') = #player_name_sidebar))",
+        "target_property_name": "#visible"
+      }
+    ]
+  },
+  "b_a1b00021_row": {
+    "type": "panel",
+    "size": [
+      "100%",
+      "100%cm"
+    ],
+    "controls": [
+      {
+        "b_a1b00022": {
+          "type": "label",
+          "text": "#jui_text",
+          "size": [
+            "100%",
+            "default"
+          ],
+          "color": "$v_text",
+          "bindings": [
+            {
+              "binding_name": "#player_name_sidebar",
+              "binding_type": "collection",
+              "binding_collection_name": "scoreboard_players"
+            },
+            {
+              "binding_type": "view",
+              "source_property_name": "((('§r' + #player_name_sidebar) - ('%.6s' * #player_name_sidebar)))",
+              "target_property_name": "#jui_text"
+            }
+          ],
+          "shadow": true,
+          "localize": false,
+          "anchor_from": "top_left",
+          "anchor_to": "top_left",
+          "layer": 1
+        }
+      }
+    ],
+    "visible": false,
+    "bindings": [
+      {
+        "binding_name": "#player_name_sidebar",
+        "binding_type": "collection",
+        "binding_collection_name": "scoreboard_players"
+      },
+      {
+        "binding_type": "view",
+        "source_property_name": "(not ((#player_name_sidebar - '§k§o') = #player_name_sidebar))",
+        "target_property_name": "#visible"
+      }
+    ]
+  },
+  "b_a1b00023_row": {
+    "type": "panel",
+    "size": [
+      "100%",
+      14
+    ],
+    "controls": [
+      {
+        "b_a1b00024": {
+          "type": "stack_panel",
+          "orientation": "horizontal",
+          "size": [
+            "100%c",
+            12
+          ],
+          "controls": [
+            {
+              "b_a1b00025_slot": {
+                "type": "panel",
+                "size": [
+                  "100%cm",
+                  "100%"
+                ],
+                "controls": [
+                  {
+                    "b_a1b00025": {
+                      "type": "panel",
+                      "size": [
+                        "100%cm",
+                        11
+                      ],
+                      "controls": [
+                        {
+                          "b_a1b00025_bg": {
+                            "type": "image",
+                            "size": [
+                              "100%sm + 6px",
+                              "100%"
+                            ],
+                            "anchor_from": "top_left",
+                            "anchor_to": "top_left",
+                            "layer": 1,
+                            "texture": "textures/ui/keyboard_tooltip_background",
+                            "alpha": 1,
+                            "keep_ratio": false
+                          }
+                        },
+                        {
+                          "b_a1b00025_in": {
+                            "type": "panel",
+                            "size": [
+                              "100%cm",
+                              "100% - 0px"
+                            ],
+                            "controls": [
+                              {
+                                "b_a1b00026": {
+                                  "type": "label",
+                                  "text": "#jui_text",
+                                  "size": [
+                                    "default",
+                                    "default"
+                                  ],
+                                  "color": "$v_key",
+                                  "bindings": [
+                                    {
+                                      "binding_name": "#player_name_sidebar",
+                                      "binding_type": "collection",
+                                      "binding_collection_name": "scoreboard_players"
+                                    },
+                                    {
+                                      "binding_type": "view",
+                                      "source_property_name": "((('§r' + (('%.22s' * #player_name_sidebar) - ' ')) - (('%.12s' * #player_name_sidebar) - ' ')))",
+                                      "target_property_name": "#jui_text"
+                                    }
+                                  ],
+                                  "localize": false,
+                                  "anchor_from": "left_middle",
+                                  "anchor_to": "left_middle",
+                                  "layer": 1
+                                }
+                              }
+                            ],
+                            "anchor_from": "top_left",
+                            "anchor_to": "top_left",
+                            "offset": [
+                              3,
+                              0
+                            ],
+                            "layer": 5
+                          }
+                        }
+                      ],
+                      "anchor_from": "left_middle",
+                      "anchor_to": "left_middle",
+                      "layer": 1
+                    }
+                  }
+                ],
+                "layer": 1
+              }
+            },
+            {
+              "b_a1b00024_gap1": {
+                "type": "panel",
+                "size": [
+                  4,
+                  0
+                ],
+                "layer": 4
+              }
+            },
+            {
+              "b_a1b00027_slot": {
+                "type": "panel",
+                "size": [
+                  "100%cm",
+                  "100%"
+                ],
+                "controls": [
+                  {
+                    "b_a1b00027": {
+                      "type": "label",
+                      "text": "#jui_text",
+                      "size": [
+                        "default",
+                        "default"
+                      ],
+                      "color": "$v_text",
+                      "bindings": [
+                        {
+                          "binding_name": "#player_name_sidebar",
+                          "binding_type": "collection",
+                          "binding_collection_name": "scoreboard_players"
+                        },
+                        {
+                          "binding_type": "view",
+                          "source_property_name": "((('§r' + #player_name_sidebar) - ('%.22s' * #player_name_sidebar)))",
+                          "target_property_name": "#jui_text"
+                        }
+                      ],
+                      "shadow": true,
+                      "localize": false,
+                      "anchor_from": "left_middle",
+                      "anchor_to": "left_middle",
+                      "layer": 1
+                    }
+                  }
+                ],
+                "layer": 5
+              }
+            }
+          ],
+          "anchor_from": "left_middle",
+          "anchor_to": "left_middle",
+          "layer": 1
+        }
+      }
+    ],
+    "visible": false,
+    "bindings": [
+      {
+        "binding_name": "#player_name_sidebar",
+        "binding_type": "collection",
+        "binding_collection_name": "scoreboard_players"
+      },
+      {
+        "binding_type": "view",
+        "source_property_name": "(not ((#player_name_sidebar - '§k§x') = #player_name_sidebar))",
+        "target_property_name": "#visible"
+      }
+    ]
+  },
+  "b_a1b00031_row": {
+    "type": "panel",
+    "size": [
+      "100%",
+      "100%cm"
+    ],
+    "controls": [
+      {
+        "b_a1b00032": {
+          "type": "label",
+          "text": "#jui_text",
+          "size": [
+            "100%",
+            "default"
+          ],
+          "color": "$v_text",
+          "bindings": [
+            {
+              "binding_name": "#player_name_sidebar",
+              "binding_type": "collection",
+              "binding_collection_name": "scoreboard_players"
+            },
+            {
+              "binding_type": "view",
+              "source_property_name": "((('§r' + #player_name_sidebar) - ('%.6s' * #player_name_sidebar)))",
+              "target_property_name": "#jui_text"
+            }
+          ],
+          "shadow": true,
+          "localize": false,
+          "anchor_from": "top_left",
+          "anchor_to": "top_left",
+          "layer": 1
+        }
+      }
+    ],
+    "visible": false,
+    "bindings": [
+      {
+        "binding_name": "#player_name_sidebar",
+        "binding_type": "collection",
+        "binding_collection_name": "scoreboard_players"
+      },
+      {
+        "binding_type": "view",
+        "source_property_name": "(not ((#player_name_sidebar - '§k§p') = #player_name_sidebar))",
+        "target_property_name": "#visible"
+      }
+    ]
+  },
+  "b_a1b00033_row": {
+    "type": "panel",
+    "size": [
+      "100%",
+      14
+    ],
+    "controls": [
+      {
+        "b_a1b00034": {
+          "type": "stack_panel",
+          "orientation": "horizontal",
+          "size": [
+            "100%c",
+            12
+          ],
+          "controls": [
+            {
+              "b_a1b00035_slot": {
+                "type": "panel",
+                "size": [
+                  "100%cm",
+                  "100%"
+                ],
+                "controls": [
+                  {
+                    "b_a1b00035": {
+                      "type": "panel",
+                      "size": [
+                        "100%cm",
+                        11
+                      ],
+                      "controls": [
+                        {
+                          "b_a1b00035_bg": {
+                            "type": "image",
+                            "size": [
+                              "100%sm + 6px",
+                              "100%"
+                            ],
+                            "anchor_from": "top_left",
+                            "anchor_to": "top_left",
+                            "layer": 1,
+                            "texture": "textures/ui/keyboard_tooltip_background",
+                            "alpha": 1,
+                            "keep_ratio": false
+                          }
+                        },
+                        {
+                          "b_a1b00035_in": {
+                            "type": "panel",
+                            "size": [
+                              "100%cm",
+                              "100% - 0px"
+                            ],
+                            "controls": [
+                              {
+                                "b_a1b00036": {
+                                  "type": "label",
+                                  "text": "#jui_text",
+                                  "size": [
+                                    "default",
+                                    "default"
+                                  ],
+                                  "color": "$v_key",
+                                  "bindings": [
+                                    {
+                                      "binding_name": "#player_name_sidebar",
+                                      "binding_type": "collection",
+                                      "binding_collection_name": "scoreboard_players"
+                                    },
+                                    {
+                                      "binding_type": "view",
+                                      "source_property_name": "((('§r' + (('%.22s' * #player_name_sidebar) - ' ')) - (('%.12s' * #player_name_sidebar) - ' ')))",
+                                      "target_property_name": "#jui_text"
+                                    }
+                                  ],
+                                  "localize": false,
+                                  "anchor_from": "left_middle",
+                                  "anchor_to": "left_middle",
+                                  "layer": 1
+                                }
+                              }
+                            ],
+                            "anchor_from": "top_left",
+                            "anchor_to": "top_left",
+                            "offset": [
+                              3,
+                              0
+                            ],
+                            "layer": 5
+                          }
+                        }
+                      ],
+                      "anchor_from": "left_middle",
+                      "anchor_to": "left_middle",
+                      "layer": 1
+                    }
+                  }
+                ],
+                "layer": 1
+              }
+            },
+            {
+              "b_a1b00034_gap1": {
+                "type": "panel",
+                "size": [
+                  4,
+                  0
+                ],
+                "layer": 4
+              }
+            },
+            {
+              "b_a1b00037_slot": {
+                "type": "panel",
+                "size": [
+                  "100%cm",
+                  "100%"
+                ],
+                "controls": [
+                  {
+                    "b_a1b00037": {
+                      "type": "label",
+                      "text": "#jui_text",
+                      "size": [
+                        "default",
+                        "default"
+                      ],
+                      "color": "$v_text",
+                      "bindings": [
+                        {
+                          "binding_name": "#player_name_sidebar",
+                          "binding_type": "collection",
+                          "binding_collection_name": "scoreboard_players"
+                        },
+                        {
+                          "binding_type": "view",
+                          "source_property_name": "((('§r' + #player_name_sidebar) - ('%.22s' * #player_name_sidebar)))",
+                          "target_property_name": "#jui_text"
+                        }
+                      ],
+                      "shadow": true,
+                      "localize": false,
+                      "anchor_from": "left_middle",
+                      "anchor_to": "left_middle",
+                      "layer": 1
+                    }
+                  }
+                ],
+                "layer": 5
+              }
+            }
+          ],
+          "anchor_from": "left_middle",
+          "anchor_to": "left_middle",
+          "layer": 1
+        }
+      }
+    ],
+    "visible": false,
+    "bindings": [
+      {
+        "binding_name": "#player_name_sidebar",
+        "binding_type": "collection",
+        "binding_collection_name": "scoreboard_players"
+      },
+      {
+        "binding_type": "view",
+        "source_property_name": "(not ((#player_name_sidebar - '§k§q') = #player_name_sidebar))",
+        "target_property_name": "#visible"
+      }
+    ]
+  },
+  "b_a1b00040_row": {
+    "type": "panel",
+    "size": [
+      "100%",
+      13
+    ],
+    "controls": [
+      {
+        "b_a1b00041": {
+          "type": "panel",
+          "size": [
+            "100%cm",
+            13
+          ],
+          "anchor_from": "right_middle",
+          "anchor_to": "right_middle",
+          "controls": [
+            {
+              "b_a1b00041_bg": {
+                "type": "image",
+                "size": [
+                  "100%sm + 8px",
+                  "100%"
+                ],
+                "anchor_from": "top_left",
+                "anchor_to": "top_left",
+                "layer": 1,
+                "texture": "textures/ui/White",
+                "color": "$v_tab",
+                "alpha": 0.9
+              }
+            },
+            {
+              "b_a1b00041_in": {
+                "type": "stack_panel",
+                "orientation": "horizontal",
+                "size": [
+                  "100%c",
+                  "100% - 0px"
+                ],
+                "controls": [
+                  {
+                    "b_a1b00042_slot": {
+                      "type": "panel",
+                      "size": [
+                        "100%cm",
+                        "100%"
+                      ],
+                      "controls": [
+                        {
+                          "b_a1b00042": {
+                            "type": "label",
+                            "text": "Press",
+                            "size": [
+                              "default",
+                              "default"
+                            ],
+                            "color": "$v_text",
+                            "shadow": true,
+                            "localize": false,
+                            "anchor_from": "left_middle",
+                            "anchor_to": "left_middle",
+                            "layer": 1
+                          }
+                        }
+                      ],
+                      "layer": 1
+                    }
+                  },
+                  {
+                    "b_a1b00041_gap1": {
+                      "type": "panel",
+                      "size": [
+                        3,
+                        0
+                      ],
+                      "layer": 3
+                    }
+                  },
+                  {
+                    "b_a1b00043_slot": {
+                      "type": "panel",
+                      "size": [
+                        "100%cm",
+                        "100%"
+                      ],
+                      "controls": [
+                        {
+                          "b_a1b00043": {
+                            "type": "image",
+                            "size": [
+                              10,
+                              10
+                            ],
+                            "keep_ratio": true,
+                            "texture": "#controller_face_down_icon",
+                            "bindings": [
+                              {
+                                "binding_name": "#controller_face_down_icon",
+                                "binding_name_override": "#texture"
+                              },
+                              {
+                                "binding_name": "#is_using_gamepad",
+                                "binding_name_override": "#visible"
+                              }
+                            ],
+                            "visible": false,
+                            "anchor_from": "left_middle",
+                            "anchor_to": "left_middle",
+                            "layer": 1
+                          }
+                        }
+                      ],
+                      "layer": 4
+                    }
+                  },
+                  {
+                    "b_a1b00041_gap2": {
+                      "type": "panel",
+                      "size": [
+                        3,
+                        0
+                      ],
+                      "layer": 6
+                    }
+                  },
+                  {
+                    "b_a1b00044_slot": {
+                      "type": "panel",
+                      "size": [
+                        "100%cm",
+                        "100%"
+                      ],
+                      "controls": [
+                        {
+                          "b_a1b00044": {
+                            "type": "image",
+                            "size": [
+                              10,
+                              10
+                            ],
+                            "keep_ratio": true,
+                            "texture": "textures/ui/jump",
+                            "visible": false,
+                            "bindings": [
+                              {
+                                "binding_name": "#hud_visible_centered_touch",
+                                "binding_name_override": "#visible"
+                              }
+                            ],
+                            "anchor_from": "left_middle",
+                            "anchor_to": "left_middle",
+                            "layer": 1
+                          }
+                        }
+                      ],
+                      "layer": 7
+                    }
+                  },
+                  {
+                    "b_a1b00041_gap3": {
+                      "type": "panel",
+                      "size": [
+                        3,
+                        0
+                      ],
+                      "layer": 9
+                    }
+                  },
+                  {
+                    "b_a1b00045_slot": {
+                      "type": "panel",
+                      "size": [
+                        "100%cm",
+                        "100%"
+                      ],
+                      "controls": [
+                        {
+                          "b_a1b00045": {
+                            "type": "panel",
+                            "size": [
+                              "100%cm",
+                              10
+                            ],
+                            "visible": false,
+                            "bindings": [
+                              {
+                                "binding_name": "#is_using_gamepad"
+                              },
+                              {
+                                "binding_name": "#hud_visible_centered_touch"
+                              },
+                              {
+                                "binding_type": "view",
+                                "source_property_name": "((not #is_using_gamepad) and (not #hud_visible_centered_touch))",
+                                "target_property_name": "#visible"
+                              }
+                            ],
+                            "controls": [
+                              {
+                                "b_a1b00045_bg": {
+                                  "type": "image",
+                                  "size": [
+                                    "100%sm + 6px",
+                                    "100%"
+                                  ],
+                                  "anchor_from": "top_left",
+                                  "anchor_to": "top_left",
+                                  "layer": 1,
+                                  "texture": "textures/ui/keyboard_tooltip_background",
+                                  "alpha": 1,
+                                  "keep_ratio": false
+                                }
+                              },
+                              {
+                                "b_a1b00045_in": {
+                                  "type": "panel",
+                                  "size": [
+                                    "100%cm",
+                                    "100% - 0px"
+                                  ],
+                                  "controls": [
+                                    {
+                                      "b_a1b00048": {
+                                        "type": "label",
+                                        "text": "Space",
+                                        "size": [
+                                          "default",
+                                          "default"
+                                        ],
+                                        "color": [
+                                          1,
+                                          1,
+                                          1
+                                        ],
+                                        "localize": false,
+                                        "anchor_from": "left_middle",
+                                        "anchor_to": "left_middle",
+                                        "layer": 1
+                                      }
+                                    }
+                                  ],
+                                  "anchor_from": "top_left",
+                                  "anchor_to": "top_left",
+                                  "offset": [
+                                    3,
+                                    0
+                                  ],
+                                  "layer": 8
+                                }
+                              }
+                            ],
+                            "anchor_from": "left_middle",
+                            "anchor_to": "left_middle",
+                            "layer": 1
+                          }
+                        }
+                      ],
+                      "layer": 10
+                    }
+                  },
+                  {
+                    "b_a1b00041_gap4": {
+                      "type": "panel",
+                      "size": [
+                        3,
+                        0
+                      ],
+                      "layer": 13
+                    }
+                  },
+                  {
+                    "b_a1b00046_slot": {
+                      "type": "panel",
+                      "size": [
+                        "100%cm",
+                        "100%"
+                      ],
+                      "controls": [
+                        {
+                          "b_a1b00046": {
+                            "type": "label",
+                            "text": "when ready",
+                            "size": [
+                              "default",
+                              "default"
+                            ],
+                            "color": "$v_text",
+                            "shadow": true,
+                            "localize": false,
+                            "anchor_from": "left_middle",
+                            "anchor_to": "left_middle",
+                            "layer": 1
+                          }
+                        }
+                      ],
+                      "layer": 14
+                    }
+                  },
+                  {
+                    "b_a1b00041_gap5": {
+                      "type": "panel",
+                      "size": [
+                        3,
+                        0
+                      ],
+                      "layer": 16
+                    }
+                  },
+                  {
+                    "b_a1b00047_slot": {
+                      "type": "panel",
+                      "size": [
+                        "100%cm",
+                        "100%"
+                      ],
+                      "controls": [
+                        {
+                          "b_a1b00047": {
+                            "type": "label",
+                            "text": "#jui_text",
+                            "size": [
+                              "default",
+                              "default"
+                            ],
+                            "color": "$v_muted",
+                            "bindings": [
+                              {
+                                "binding_name": "#player_name_sidebar",
+                                "binding_type": "collection",
+                                "binding_collection_name": "scoreboard_players"
+                              },
+                              {
+                                "binding_type": "view",
+                                "source_property_name": "((('§r' + #player_name_sidebar) - ('%.6s' * #player_name_sidebar)))",
+                                "target_property_name": "#jui_text"
+                              }
+                            ],
+                            "shadow": true,
+                            "localize": false,
+                            "anchor_from": "left_middle",
+                            "anchor_to": "left_middle",
+                            "layer": 1
+                          }
+                        }
+                      ],
+                      "layer": 17
+                    }
+                  }
+                ],
+                "anchor_from": "top_left",
+                "anchor_to": "top_left",
+                "offset": [
+                  4,
+                  0
+                ],
+                "layer": 2
+              }
+            }
+          ],
+          "layer": 1
+        }
+      }
+    ],
+    "visible": false,
+    "bindings": [
+      {
+        "binding_name": "#player_name_sidebar",
+        "binding_type": "collection",
+        "binding_collection_name": "scoreboard_players"
+      },
+      {
+        "binding_type": "view",
+        "source_property_name": "(not ((#player_name_sidebar - '§k§r') = #player_name_sidebar))",
+        "target_property_name": "#visible"
+      }
+    ]
+  },
+  "b_a1b00050_row": {
+    "type": "panel",
+    "size": [
+      "100%",
+      13
+    ],
+    "controls": [
+      {
+        "b_a1b00051": {
+          "type": "panel",
+          "size": [
+            "100%cm",
+            13
+          ],
+          "anchor_from": "right_middle",
+          "anchor_to": "right_middle",
+          "controls": [
+            {
+              "b_a1b00051_bg": {
+                "type": "image",
+                "size": [
+                  "100%sm + 8px",
+                  "100%"
+                ],
+                "anchor_from": "top_left",
+                "anchor_to": "top_left",
+                "layer": 1,
+                "texture": "textures/ui/White",
+                "color": "$v_tab",
+                "alpha": 0.9
+              }
+            },
+            {
+              "b_a1b00051_in": {
+                "type": "stack_panel",
+                "orientation": "horizontal",
+                "size": [
+                  "100%c",
+                  "100% - 0px"
+                ],
+                "controls": [
+                  {
+                    "b_a1b00052_slot": {
+                      "type": "panel",
+                      "size": [
+                        "100%cm",
+                        "100%"
+                      ],
+                      "controls": [
+                        {
+                          "b_a1b00052": {
+                            "type": "label",
+                            "text": "Ready! Waiting for the others",
+                            "size": [
+                              "default",
+                              "default"
+                            ],
+                            "color": "$v_text",
+                            "shadow": true,
+                            "localize": false,
+                            "anchor_from": "left_middle",
+                            "anchor_to": "left_middle",
+                            "layer": 1
+                          }
+                        }
+                      ],
+                      "layer": 1
+                    }
+                  },
+                  {
+                    "b_a1b00051_gap1": {
+                      "type": "panel",
+                      "size": [
+                        3,
+                        0
+                      ],
+                      "layer": 3
+                    }
+                  },
+                  {
+                    "b_a1b00053_slot": {
+                      "type": "panel",
+                      "size": [
+                        "100%cm",
+                        "100%"
+                      ],
+                      "controls": [
+                        {
+                          "b_a1b00053": {
+                            "type": "label",
+                            "text": "#jui_text",
+                            "size": [
+                              "default",
+                              "default"
+                            ],
+                            "color": "$v_muted",
+                            "bindings": [
+                              {
+                                "binding_name": "#player_name_sidebar",
+                                "binding_type": "collection",
+                                "binding_collection_name": "scoreboard_players"
+                              },
+                              {
+                                "binding_type": "view",
+                                "source_property_name": "((('§r' + #player_name_sidebar) - ('%.6s' * #player_name_sidebar)))",
+                                "target_property_name": "#jui_text"
+                              }
+                            ],
+                            "shadow": true,
+                            "localize": false,
+                            "anchor_from": "left_middle",
+                            "anchor_to": "left_middle",
+                            "layer": 1
+                          }
+                        }
+                      ],
+                      "layer": 4
+                    }
+                  }
+                ],
+                "anchor_from": "top_left",
+                "anchor_to": "top_left",
+                "offset": [
+                  4,
+                  0
+                ],
+                "layer": 2
+              }
+            }
+          ],
+          "layer": 1
+        }
+      }
+    ],
+    "visible": false,
+    "bindings": [
+      {
+        "binding_name": "#player_name_sidebar",
+        "binding_type": "collection",
+        "binding_collection_name": "scoreboard_players"
+      },
+      {
+        "binding_type": "view",
+        "source_property_name": "(not ((#player_name_sidebar - '§k§r') = #player_name_sidebar))",
+        "target_property_name": "#visible"
+      }
+    ]
+  }
+}

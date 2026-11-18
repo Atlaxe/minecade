@@ -15,7 +15,10 @@ import { boxRows, boxTitle, rowsOf, type BoxMode } from "../behavior_pack/script
 import { DICE } from "../behavior_pack/scripts/dice.ts";
 import { ITEMS } from "../behavior_pack/scripts/dice-items.ts";
 import { resultFrames } from "../behavior_pack/scripts/results.ts";
-import { SCREEN_WORDS, cardRows, codesOf, menuRow, panelRows, resultRows, type CardSeat, type MenuState, type PanelShow } from "../behavior_pack/scripts/screen-codes.ts";
+import { SCREEN_WORDS, announceRows, cardRows, codesOf, menuRow, panelRows, resultRows, tutorialRows, type AnnounceScreen, type CardSeat, type MenuState, type PanelShow, type TutorialScreen } from "../behavior_pack/scripts/screen-codes.ts";
+import { READY_CODE, SIDE_TWO_CODE, starsCode } from "../behavior_pack/scripts/bar-codes.ts";
+import { HOT_FLOOR } from "../behavior_pack/scripts/minigames/hot-floor.ts";
+import { HUNTER } from "../behavior_pack/scripts/minigames/hunter.ts";
 import { compose, type PartId, type SidebarPart } from "../behavior_pack/scripts/sidebar-rows.ts";
 
 interface Box {
@@ -46,11 +49,16 @@ const box = (preview: string, about: string, sample: Box) => ({
   },
 });
 
-/** A state of the board's screens, put together as the game's sidebar does (sidebar-rows.ts). */
-const screens = (preview: string, about: string, parts: Partial<Record<PartId, SidebarPart>>) => {
+/** A state of the board's screens, put together as the game's sidebar does (sidebar-rows.ts), with any action bar codes of the player looking. */
+const screens = (preview: string, about: string, parts: Partial<Record<PartId, SidebarPart>>, codes = "") => {
   const { title, rows } = compose(parts);
-  return { name: preview, about, hud: { actionbar: HUD_MARK, sidebar: { title, lines: rows } } };
+  return { name: preview, about, hud: { actionbar: HUD_MARK + codes, sidebar: { title, lines: rows } } };
 };
+
+/** The minigame announcement's part, and the tutorial's. */
+const announce = (screen: AnnounceScreen): SidebarPart => ({ title: codesOf(SCREEN_WORDS.announce), rows: announceRows(screen) });
+const tutorial = (screen: TutorialScreen): SidebarPart => ({ title: codesOf(SCREEN_WORDS.tutorial), rows: tutorialRows(screen) });
+const WHEEL = ["Hot Floor", "Mob Freeze", "Item Scramble", "Anvil Rain", "TNT Run", "King of the Hill"];
 
 const SEATS: CardSeat[] = [
   { name: "Alex", stars: 2, coins: 14, place: 1, items: ["ST", "EP"], turn: false, shown: true },
@@ -140,6 +148,10 @@ const PREVIEWS = {
       cards: cards(),
       dialogue: { title: boxTitle("everyone", "Chris", "§d"), rows: boxRows({ face: "chris", words: rowsOf("Sam is in the lead! Who will catch up?"), prompt: "" }) },
     }),
+    screens("Minigame: the announcement", "Minigame! over the full star field (its layers slide in game, not here), the format under it, the wheel's light on its way down.", { cards: cards(), announce: announce({ format: "Free for all", wheel: { names: WHEEL, at: 2, landed: false } }) }, starsCode(8, "down", 0)),
+    screens("Minigame: the wheel lands", "The wheel has landed on the pick.", { cards: cards(), announce: announce({ format: "Free for all", wheel: { names: WHEEL, at: 0, landed: true } }) }, starsCode(8, "down", 0)),
+    screens("Minigame: the tutorial", "Over the rules camera: the minigame's name, what to do and its controls on the left, the Ready strip bottom right (one of four ready).", { cards: cards(), tutorial: tutorial({ name: HOT_FLOOR.name, sides: HOT_FLOOR.tutorial ?? [], ready: 1, total: 4 }) }),
+    screens("Minigame: a 1v3's runner, ready", "Hunter's tutorial as a runner sees it (the second side's objective and controls) once they've jumped: Ready!", { cards: cards(), tutorial: tutorial({ name: HUNTER.name, sides: HUNTER.tutorial ?? [], ready: 3, total: 4 }) }, SIDE_TWO_CODE + READY_CODE),
   ],
 };
 

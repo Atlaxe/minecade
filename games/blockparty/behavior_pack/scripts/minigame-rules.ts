@@ -211,3 +211,34 @@ export function forcedOutcome(kind: Kind, sides: readonly (readonly string[])[],
   const rest = sides.flat().filter((key) => key !== winner);
   return { places: rest.length > 0 ? [[winner], rest] : [[winner]] };
 }
+
+/** Most minigames on the announcement's wheel (block-party-ui.md, "The minigame announcement"). */
+export const WHEEL_SIZE = 6;
+
+/**
+ * The announcement's wheel: the format's minigames in a random order, the pick always among them,
+ * at most WHEEL_SIZE (a format with more shows that many at random).
+ */
+export function wheelOf(names: readonly string[], pick: string, random: () => number): string[] {
+  const others = shuffled(
+    [...new Set(names)].filter((name) => name !== pick),
+    random,
+  ).slice(0, WHEEL_SIZE - 1);
+  return shuffled([pick, ...others], random);
+}
+
+/** Where a wheel of `size` starts so that `steps` moves on it lands on `landAt`. */
+export function spinStart(size: number, landAt: number, steps: number): number {
+  if (size <= 0) return 0;
+  return (((landAt - steps) % size) + size) % size;
+}
+
+/** A copy of `list` in a random order. */
+function shuffled<T>(list: readonly T[], random: () => number): T[] {
+  const out = [...list];
+  for (let i = out.length - 1; i > 0; i--) {
+    const j = Math.min(i, Math.floor(random() * (i + 1)));
+    [out[i], out[j]] = [out[j], out[i]];
+  }
+  return out;
+}

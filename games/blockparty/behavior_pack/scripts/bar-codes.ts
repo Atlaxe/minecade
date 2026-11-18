@@ -8,6 +8,11 @@
 //     and the phase in two hex digits).
 //   - A player's own results screen (STANDINGS_CODE): the standings, shown to them alone after a
 //     drop (ui/hud_screen.json's bp_standings).
+//   - The minigame tutorial's per-player parts (the blockparty_tutorial component reads them): the
+//     second side's objective and controls for a player on it (SIDE_TWO_CODE), and "Ready!" for a
+//     player who has jumped (READY_CODE).
+// The core's own action bar codes (minigame-core hud.ts) use §k with a, b, c, e, g, h, i, j, l, m,
+// n, p, q, s, t and u, but its clock and count show only with their last places' (§k§a, §k§u).
 // The line is never empty, even with nothing to show (KEEP_UP): every Block Party screen rides the
 // action bar's panel, which goes when the line does. The board sends no text of its own (the user
 // took the round and totals line away, 2026-11-18); a minigame's status line still shows.
@@ -25,6 +30,10 @@ export const STANDINGS_CODE = "§k§f";
  * The sidebar is everyone's, so this per-player difference rides the action bar.
  */
 export const SKIPPING_CODE = "§k§e";
+/** The minigame tutorial's second side is this player's (a 1v3's trio, a 2v2's Blue). */
+export const SIDE_TWO_CODE = "§k§y";
+/** This player has jumped to say they're ready for the minigame. */
+export const READY_CODE = "§k§z";
 /** A code alone, so a line with nothing else in it is still marked and keeps the panel up. */
 export const KEEP_UP = "§r";
 export const STAR_LEVELS = 8;

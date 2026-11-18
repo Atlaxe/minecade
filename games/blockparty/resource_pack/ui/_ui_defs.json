@@ -7,6 +7,8 @@
     "ui/jui_blockparty_panel.json",
     "ui/jui_blockparty_results.json",
     "ui/jui_blockparty_round.json",
-    "ui/jui_blockparty_fork.json"
+    "ui/jui_blockparty_fork.json",
+    "ui/jui_blockparty_announce.json",
+    "ui/jui_blockparty_tutorial.json"
   ]
 }
