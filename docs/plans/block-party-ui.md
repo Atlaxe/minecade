@@ -3,7 +3,11 @@
 **Status:** the user's spec, 2026-11-17, written down for the session that builds it. Built so far
 (pass 6 of `block-party.md`, 2026-11-17): the dialogue box with its buttons, steering and voices,
 the skip strip (names for now, heads later), the NPC pans and cuts, and the pre-game shots (intro,
-podium, order rolls and reveal, Star reveal). The rest isn't built yet. It is the content of pass 10 in `block-party.md` ("Refinement: cameras and UI"), and
+podium, order rolls and reveal, Star reveal). Then (2026-11-17, the board's screens): the shared
+sidebar every screen rides (`sidebar-rows.ts`), the player cards (letters in place of heads for now),
+the board menu with Board's view, the item panel for dice and items, and the results screen, each
+a component of the workshop's JSON UI builder ("The board's screens, as built"); the old bar's items
+are gone. The rest isn't built yet. It is the content of pass 10 in `block-party.md` ("Refinement: cameras and UI"), and
 it replaces that plan's hotbar: the board can't use the hotbar for its controls, because minigames
 need the hotbar for their own items. Everything the board shows moves to JSON UI the game draws
 itself, steered with the movement keys, jump and sneak.
@@ -177,9 +181,11 @@ generator). Proposed letters and paths:
   background until it's selected, then the secondary highlight.
 - **Disabled** (dimmer text, steps skip it): Items while the player holds no items. Dice block
   always opens (the user): with only the standard die, the item panel shows it with no chevrons.
-- **Jump:** Dice block and Items open the item panel for dice or items. Board isn't decided yet:
-  proposed, the board overview camera to look the board over (where the Star is, where everyone
-  stands), sneak back. An open point.
+- **Jump:** Dice block and Items open the item panel for dice or items. Board shows the whole
+  board (the user, 2026-11-17: a wide, still view of the entire board, nothing to move): one camera
+  high over the board's middle, looking down from the side that puts the board's longer way across
+  the screen, far enough back to fit a 4:3 screen (`board-view.ts`, `boardOverview`). Sneak goes
+  back to the menu.
 - Opens on Dice block (proposed). Sneak here does nothing.
 
 ## The item panel (bottom left)
@@ -495,6 +501,40 @@ Proposed shape, following the existing pattern:
 - **Preview** each screen in the workshop's json-ui page (`json-ui.cmd`, port 8769), which reads any
   network worktree, before trying it in game.
 
+### The board's screens, as built (2026-11-17)
+
+The cards, the board menu, the item panel and the results screen ride the sidebar beside the
+dialogue box. Rows instead of the proposed generated templates, because the client shows only the
+top 15 sidebar rows and the screens share them with the dialogue box:
+- **One sidebar** (`sidebar-rows.ts`, `GameSidebar`): every part hands it its title codes and rows
+  (the dialogue box, the cards, the menu, the item panel, the results); the title is the core's
+  mark, each screen's word that's up, then the dialogue box's codes, `§r` and the speaker's name. The
+  dialogue box's rows get the top scores, then the cards, the menu, the panel and the results; past
+  15 rows the rest is left out (logged). It replaces the standings top left (Notes).
+- **A row per thing** (`screen-codes.ts`): a card per seat (up to 4), one for the menu, two for the
+  item panel (the thing, then what an item does), one per player on the results screen. A row is
+  codes, which never render, that say what it is and switch its parts (the turn, a hidden card, the
+  selected button, the chevrons...), then fields at fixed places padded with spaces, the last
+  running to the row's end. The JSON UI cuts each field out by its place in bytes, as the game
+  counts with `'%.Ns'` (a § code is 3 bytes), and takes the spaces out of numbers.
+- **The look is the user's,** in the builder (`..\workshop\json-ui`): components `blockparty_cards`,
+  `blockparty_menu`, `blockparty_panel` and `blockparty_results`, each a sidebar piece shown by its
+  word (`bpc`, `bpm`, `bpi`, `bpr`), its rows' fields as `{{row.<field>}}` (the builder's Data tab,
+  Row fields). Installed into `resource_pack/ui/jui_<slug>.json` by the tool's
+  `install-component.mjs`; `test/screens.test.ts` checks each installed file cuts its fields where
+  the game writes them. The labels Dice block, Items, Board and Results are part of each design.
+- **Previews:** `ui-previews.json` has each screen's states (the cards, the menu with dice or an
+  item, Board's view, the results, the cards with the dialogue box), for the tool's Game preview.
+- **Who holds what:** the spike's Tests (Dice and items held) still pick a player's dice and items
+  (`dice-items.ts` names every die and item, its letters and its faces); bots hold the standard die.
+  Using an item says so and does nothing yet.
+- **Sound events** (the user's sound map, silent until mapped): `menu.step`, `menu.select`,
+  `menu.back`, `menu.disabled`, `panel.step`, `panel.use`, `panel.switch-die`, `results.open`,
+  `results.count`, `results.swap`, `results.first`, `results.close`.
+- **Not yet:** heads (each card and result row draws the player's letter, with a picture slot that
+  shows `{{row.head}}` once the pack has heads), the gain and loss pops, the count stepping on the
+  cards, places on the cards before the first results (none, as proposed).
+
 ## Checks first
 
 Short checks, in game or in the previewer, before building on each:
@@ -530,4 +570,4 @@ Short checks, in game or in the previewer, before building on each:
 
 ## Open points for the user
 
-- What Board does (proposed: the board overview, to look the board over).
+- None now (Board: a wide, still view of the whole board, the user's answer 2026-11-17).

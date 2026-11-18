@@ -10,6 +10,7 @@ import { flushPromises } from "../../../packages/minigame-core/test/util.ts";
 import { whoOf, type Who } from "../behavior_pack/scripts/bots.ts";
 import { BOX_EVERYONE, BOX_MARK, BOX_ONE, NAMED, ROW, SELECTED, Steering, STEER_HOLD, STEER_REPEAT, boxRows, boxTitle, readTicks, rowsOf, safe, sentences, visible } from "../behavior_pack/scripts/dialogue-codes.ts";
 import { Dialogue } from "../behavior_pack/scripts/dialogue.ts";
+import { GameSidebar } from "../behavior_pack/scripts/sidebar-rows.ts";
 import { line, moment } from "../behavior_pack/scripts/lines.ts";
 import { hasCue, voiceCue } from "../behavior_pack/scripts/sounds.ts";
 
@@ -113,7 +114,8 @@ describe("the dialogue box's codes", () => {
 describe("the dialogue box", () => {
   let scope: Scope;
   let dialogue: Dialogue;
-  let restored: number;
+  /** How often the box has gone from the sidebar. */
+  let closed: number;
   let alex: FakePlayer;
   let sam: FakePlayer;
 
@@ -121,8 +123,17 @@ describe("the dialogue box", () => {
     world.reset();
     system.reset();
     scope = new Scope("test");
-    restored = 0;
-    dialogue = new Dialogue({ scope, random: first, restore: () => restored++ });
+    closed = 0;
+    // The box hands its rows to the game's one sidebar, as in game (sidebar-rows.ts).
+    const sidebar = new GameSidebar(scope);
+    dialogue = new Dialogue({
+      scope,
+      random: first,
+      show: (box) => {
+        if (!box) closed++;
+        sidebar.set("dialogue", box);
+      },
+    });
     alex = world.join("Alex");
     sam = world.join("Sam");
   });
@@ -172,7 +183,7 @@ describe("the dialogue box", () => {
     if (hasCue(voiceCue("Chris"))) expect(alex.sounds.length).toBeGreaterThanOrEqual(said.length);
     await ticks(5);
     expect(shown()).toBeUndefined();
-    expect(restored).toBe(1);
+    expect(closed).toBe(1);
   });
 
   it("goes on at the jumps of the one it's said to, then lets them steer its buttons with W and S and pick with jump", async () => {

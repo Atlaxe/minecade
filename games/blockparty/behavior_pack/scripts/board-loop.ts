@@ -42,6 +42,7 @@ import { VERSUS_STAKE, battleBets, ffaCoins, firstDoubled, fits, formatFor, isDo
 import type { Results, Settle } from "./minigame-runner.ts";
 import type { MinigameDef, Outcome } from "./minigames/kit.ts";
 import type { Pieces } from "./pieces.ts";
+import { placesOf, type ResultSeat } from "./results.ts";
 
 export interface LoopHost {
   scope: Scope;
@@ -71,9 +72,24 @@ export interface LoopHost {
   tell(who: Who, text: string): void;
   /** A big line on everyone's screen. */
   title(text: string, subtitle?: string): void;
-  /** Whose turn, coins or Stars changed: the HUD and the standings follow. */
+  /** Whose turn, coins or Stars changed: the HUD and the cards follow. */
   changed(): void;
+  /** The results screen (results.ts) from the standings `before` to `after`; resolves once it's gone. */
+  results(before: readonly ResultSeat[], after: readonly ResultSeat[]): Promise<void>;
   random(): number;
+}
+
+/** A seat as its card shows it (block-party-ui.md, "Player cards"), in turn order. */
+export interface CardInfo {
+  key: string;
+  name: string;
+  stars: number;
+  coins: number;
+  /** Their place (ties share one), once the first results have been shown. */
+  place?: number;
+  turn: boolean;
+  /** Revealed yet: the turn order reveal shows the cards one by one. */
+  shown: boolean;
 }
 
 /** A test's jump (the Tests menu): to a round, straight to its minigame or not, or a minigame played next. */
@@ -106,6 +122,10 @@ export class BoardLoop {
   private readonly pairings = new Map<string, number>();
   /** A test's jump, waiting for the turn going on to end. */
   private jump: TestJump | undefined;
+  /** The seats whose cards the turn order reveal has shown, by key. */
+  private readonly revealed = new Set<string>();
+  /** Places show on the cards once the first results have been shown. */
+  private placesKnown = false;
   private readonly host: LoopHost;
 
   constructor(host: LoopHost) {
@@ -125,6 +145,47 @@ export class BoardLoop {
     const turn = this.turn ? (this.turn === player.name.toLowerCase() ? "your turn" : `${this.seats.get(this.turn)?.name ?? this.turn}'s turn`) : this.round === 0 ? "rolling for turns" : "everyone's moved";
     const round = this.round === 0 ? "" : `Round ${this.round} of ${this.host.turns}, `;
     return seat ? `${round}${turn}. You: ${count(seat.coins, "coin")}, ${count(seat.stars, "Star")}` : `${round}${turn}`;
+  }
+
+  /**
+   * The player cards, in turn order (none before the order is rolled): each seat's Stars, coins,
+   * place, whether it's their turn, and whether their card has been revealed yet.
+   */
+  cards(): CardInfo[] {
+    if (!this.running) return [];
+    const seats = this.order.flatMap((key) => {
+      const seat = this.seats.get(key);
+      return seat ? [{ key, ...seat }] : [];
+    });
+    const places = placesOf(seats);
+    return seats.map((seat, i) => ({
+      key: seat.key,
+      name: seat.name,
+      stars: seat.stars,
+      coins: seat.coins,
+      ...(this.placesKnown ? { place: places[i] } : {}),
+      turn: this.turn === seat.key,
+      shown: this.revealed.has(seat.key),
+    }));
+  }
+
+  /** Every seat's standing now, for the results screen. */
+  private snapshot(): ResultSeat[] {
+    return this.order.flatMap((key) => {
+      const seat = this.seats.get(key);
+      return seat ? [{ key, name: seat.name, stars: seat.stars, coins: seat.coins }] : [];
+    });
+  }
+
+  /** The results screen from `before` to now; places show on the cards from then on. */
+  private async showResults(before: readonly ResultSeat[]): Promise<void> {
+    this.placesKnown = true;
+    this.host.changed();
+    try {
+      await this.host.results(before, this.snapshot());
+    } catch (error) {
+      log.warn(`blockparty: the results screen failed: ${describeError(error)}`);
+    }
   }
 
   /** The standings for everyone, best first: "1. Alex: 2 Stars, 14 coins". */
@@ -274,6 +335,9 @@ export class BoardLoop {
         const seat = seats.findIndex((who) => who.key === this.order[place]);
         const name = this.seats.get(this.order[place])?.name ?? this.order[place];
         if (seat >= 0) await stage.reveal(seat);
+        // Their card comes in as they're shown.
+        this.revealed.add(this.order[place]);
+        this.host.changed();
         await this.host.say(`pregame.place.${place + 1}`, { player: name });
       }
       await this.host.say("pregame.coins", { coins: count(this.host.startCoins, "coin") });
@@ -282,6 +346,9 @@ export class BoardLoop {
         await this.host.say("pregame.star", { space: this.spaceName(spaces[star]) });
       }
     });
+    // Skipped or not, every card is out by now.
+    for (const key of this.order) this.revealed.add(key);
+    this.host.changed();
     stage.toBoard(this.host.present());
   }
 
@@ -320,7 +387,11 @@ export class BoardLoop {
   private seat(who: Who, coins: number): void {
     if (this.seats.has(who.key)) return;
     this.seats.set(who.key, { name: who.name, coins, stars: 0 });
-    if (this.order.length > 0 && !this.order.includes(who.key)) this.order.push(who.key);
+    if (this.order.length > 0 && !this.order.includes(who.key)) {
+      this.order.push(who.key);
+      // A late joiner's card comes in at once.
+      this.revealed.add(who.key);
+    }
   }
 
   /** Anyone new comes in at Start, last in the turn order, with as many coins as last place. */
@@ -432,6 +503,7 @@ export class BoardLoop {
       await this.host.say("star.chris.declined");
       return;
     }
+    const before = this.snapshot();
     seat.coins -= price;
     seat.stars++;
     const index = this.stars.indexOf(at);
@@ -443,6 +515,7 @@ export class BoardLoop {
     await this.host.say("star.chris.sold", { player: who.name });
     await stage.starMoved(spaces[at], spaces[moved]);
     await this.host.say("star.chris.moves", { space: this.spaceName(spaces[moved]) });
+    await this.showResults(before);
   }
 
   /** Landing: the space's effect. */
@@ -489,6 +562,7 @@ export class BoardLoop {
     await this.host.say("versus.faceoff", duel);
     this.host.stage.refereeGone();
     const onlookers = this.host.present().filter((other) => other.key !== who.key && other.key !== rival.key);
+    const before = this.snapshot();
     await this.host.playMinigame("duel", def, [[who], [rival]], pool, onlookers, (outcome) => {
       const winners = "places" in outcome ? (outcome.places[0] ?? []) : [];
       if (winners.length !== 1) return { title: line("versus.draw.title"), subtitle: () => line("versus.draw.subtitle") };
@@ -508,6 +582,7 @@ export class BoardLoop {
         subtitle: (key) => (key === winner.key ? line("versus.you.won", result) : key === loser.key ? line("versus.you.lost", result) : line("versus.won.subtitle", result)),
       };
     });
+    await this.showResults(before);
   }
 
   /** The round's minigame: its format and sides, the pick, and the coins it pays. */
@@ -529,6 +604,8 @@ export class BoardLoop {
     this.played.set(def.id, (this.played.get(def.id) ?? 0) + 1);
     const sides = this.sidesFor(format, here);
     const doubled = isDoubled(this.round, this.host.turns);
+    // The results start from before the Battle's pot is taken.
+    const before = this.snapshot();
     // A Battle's pot: 5 coins from each, capped at what they have.
     let pot = 0;
     if (format === "battle") {
@@ -542,6 +619,7 @@ export class BoardLoop {
       this.host.changed();
     }
     await this.host.playMinigame(format, def, sides, pool, [], (outcome) => this.pay(format, def, sides, outcome, doubled, pot));
+    await this.showResults(before);
   }
 
   /** The sides a format plays in: each alone, the 2v2 pairs, or the 1v3 solo and the rest, rotating so everyone gets a share. */

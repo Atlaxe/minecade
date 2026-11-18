@@ -1,9 +1,0 @@
-{
-  "resource_pack_name": "blockparty",
-  "texture_name": "atlas.items",
-  "texture_data": {
-    "blockparty_blank": {
-      "textures": "textures/blockparty/items/blank"
-    }
-  }
-}

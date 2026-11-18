@@ -12,6 +12,10 @@ import { readFileSync, writeFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { HUD_MARK } from "@minecade/minigame-core";
 import { boxRows, boxTitle, rowsOf, type BoxMode } from "../behavior_pack/scripts/dialogue-codes.ts";
+import { DICE, ITEMS } from "../behavior_pack/scripts/dice-items.ts";
+import { resultFrames } from "../behavior_pack/scripts/results.ts";
+import { SCREEN_WORDS, cardRows, codesOf, menuRow, panelRows, resultRows, type CardSeat, type MenuState, type PanelShow } from "../behavior_pack/scripts/screen-codes.ts";
+import { compose, type PartId, type SidebarPart } from "../behavior_pack/scripts/sidebar-rows.ts";
 
 interface Box {
   mode: BoxMode;
@@ -37,6 +41,36 @@ const box = (preview: string, about: string, sample: Box) => ({
     },
   },
 });
+
+/** A state of the board's screens, put together as the game's sidebar does (sidebar-rows.ts). */
+const screens = (preview: string, about: string, parts: Partial<Record<PartId, SidebarPart>>) => {
+  const { title, rows } = compose(parts);
+  return { name: preview, about, hud: { actionbar: HUD_MARK, sidebar: { title, lines: rows } } };
+};
+
+const SEATS: CardSeat[] = [
+  { name: "Alex", stars: 2, coins: 14, place: 1, items: ["ST", "EP"], turn: false, shown: true },
+  { name: "Sam", stars: 1, coins: 22, place: 2, items: [], turn: true, shown: true },
+  { name: "Robin", stars: 1, coins: 9, place: 3, items: ["DG", "LS", "V"], turn: false, shown: true },
+  { name: "Bot", stars: 0, coins: 5, place: 4, items: [], turn: false, shown: true },
+];
+const cards = (seats: CardSeat[] = SEATS): SidebarPart => ({ title: codesOf(SCREEN_WORDS.cards), rows: cardRows(seats) });
+const menu = (state: MenuState): SidebarPart => ({ title: codesOf(SCREEN_WORDS.menu), rows: [menuRow(state)] });
+const panel = (show: PanelShow, chevrons: boolean): SidebarPart => ({ title: codesOf(SCREEN_WORDS.panel), rows: panelRows(show, chevrons) });
+const finalResults = resultFrames(
+  [
+    { key: "alex", name: "Alex", stars: 2, coins: 14 },
+    { key: "sam", name: "Sam", stars: 1, coins: 22 },
+    { key: "robin", name: "Robin", stars: 1, coins: 9 },
+    { key: "bot", name: "Bot", stars: 0, coins: 5 },
+  ],
+  [
+    { key: "alex", name: "Alex", stars: 2, coins: 14 },
+    { key: "sam", name: "Sam", stars: 2, coins: 7 },
+    { key: "robin", name: "Robin", stars: 1, coins: 19 },
+    { key: "bot", name: "Bot", stars: 0, coins: 8 },
+  ],
+).at(-1)!.rows;
 
 const PREVIEWS = {
   about: "Block Party's HUD states for the workshop's JSON UI tool. Written by games/blockparty/test/ui-previews.test.ts (run it with WRITE_PREVIEWS=1 after changing it); don't edit by hand.",
@@ -74,6 +108,19 @@ const PREVIEWS = {
       name: "",
       text: "Everyone, get ready!",
       prompt: "",
+    }),
+    screens("Board: the player cards", "The cards top right in turn order: Sam's turn (the highlight), places and items under the line, letters standing in for heads.", { cards: cards() }),
+    screens("Board: cards being revealed", "The turn order reveal: two cards out, the other two keeping their places.", { cards: cards(SEATS.map((seat, i) => ({ ...seat, place: undefined, turn: false, shown: i < 2 }))) }),
+    screens("Board: the menu on Dice block", "Sam's turn: the board menu top left, Dice block selected, the cards top right.", { cards: cards(), menu: menu({ selected: "dice", disabled: [], open: false }) }),
+    screens("Board: the menu, no items", "Items disabled (nothing held): dimmed, and the steps skip it.", { cards: cards(), menu: menu({ selected: "board", disabled: ["items"], open: false }) }),
+    screens("Board: the dice", "The item panel bottom left on a die: its letters, the name between the chevrons, its six faces.", { cards: cards(), menu: menu({ selected: "dice", disabled: [], open: true }), panel: panel({ die: DICE.golden }, true) }),
+    screens("Board: the standard die alone", "Only the standard die: no chevrons.", { cards: cards(), menu: menu({ selected: "dice", disabled: [], open: true }), panel: panel({ die: DICE.standard }, false) }),
+    screens("Board: an item", "The item panel on an item: what it does under its name.", { cards: cards(), menu: menu({ selected: "items", disabled: [], open: true }), panel: panel({ item: ITEMS.ender_pearl }, true) }),
+    screens("Board: Board's view", "Board picked: the whole board from above (the camera), the menu waiting.", { cards: cards(), menu: menu({ selected: "board", disabled: [], open: true }) }),
+    screens("Results: the end of a minigame", "The results screen's last step: the new order, 1st with its border.", { results: { title: codesOf(SCREEN_WORDS.results), rows: resultRows(finalResults) } }),
+    screens("Board: cards with the dialogue box", "Chris talking while the cards are up: both on the one sidebar.", {
+      cards: cards(),
+      dialogue: { title: boxTitle("everyone", "Chris"), rows: boxRows({ words: rowsOf("Sam is in the lead! Who will catch up?"), jumped: ["Alex"], prompt: "" }) },
     }),
   ],
 };

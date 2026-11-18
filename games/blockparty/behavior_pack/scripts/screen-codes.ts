@@ -1,0 +1,315 @@
+// Block Party's board screens (docs/plans/block-party-ui.md): the player cards top right, the board
+// menu top left, the item panel bottom left and the results screen, each as the rows it puts on the
+// game's sidebar. Pure, so the tests can check what goes on screen.
+//
+// Everyone sees the same screens, so they ride the scoreboard sidebar under the core's
+// GAME_SIDEBAR_MARK, beside the dialogue box's rows (sidebar-rows.ts puts them together). The client
+// shows only the top 15 rows, so each screen packs into few: one row per card, one for the menu, two
+// for the item panel, one per player for the results. A row is formatting codes (which never render)
+// that say what it is and switch its parts on and off, then fields at fixed places, each padded with
+// spaces to its width: the screen's JSON UI cuts each field out by its place in bytes (UTF-8, as the
+// game counts with '%.Ns') and takes the spaces out. The last field runs to the end of the row.
+//
+// The look is the user's: each screen is a component of the workshop's JSON UI builder
+// (blockparty_cards, blockparty_menu, blockparty_panel, blockparty_results), shown while the sidebar's
+// title holds the screen's word, with its rows' fields as {{row.<field>}}. The fields' places here
+// and in the components must agree; test/screens.test.ts checks the installed files against this.
+
+/** Each screen's word: its codes in the sidebar's title show the screen (its component's word). */
+export const SCREEN_WORDS = { cards: "bpc", menu: "bpm", panel: "bpi", results: "bpr" } as const;
+export type ScreenId = keyof typeof SCREEN_WORDS;
+
+/** A word's letters as formatting codes: "bpc" is "§b§p§c". */
+export const codesOf = (word: string): string => [...word].map((ch) => `§${ch}`).join("");
+
+/** A part of a row's layout. */
+type Part =
+  /** Codes that are always there (what the row is). */
+  | { kind: "code"; word: string }
+  /** A code letter then a digit's code: "§s§2" (a picked number, 0 to 9). */
+  | { kind: "pick"; name: string; letter: string }
+  /** A code letter then §1 or §0: a switch, shown in the UI as the word "<letter>1". */
+  | { kind: "flag"; name: string; letter: string }
+  /** Plain text padded with spaces to `length` bytes (numbers to the right, text to the left). */
+  | { kind: "field"; name: string; length: number; align: "left" | "right" }
+  /** The rest of the row (the last part). */
+  | { kind: "rest"; name: string };
+
+/** Where a field sits in its row, as the UI cuts it: `from` bytes in, `length` long (0: to the row's end). */
+export interface Field {
+  from: number;
+  length: number;
+}
+
+/** A row's layout. */
+export interface Layout {
+  parts: readonly Part[];
+}
+
+const PART_BYTES = { code: 0, pick: 6, flag: 6 } as const;
+
+/** Each field's place in a row of `layout`. */
+export function fieldsOf(layout: Layout): Record<string, Field> {
+  const out: Record<string, Field> = {};
+  let at = 0;
+  for (const part of layout.parts) {
+    if (part.kind === "code") at += bytes(codesOf(part.word));
+    else if (part.kind === "pick" || part.kind === "flag") at += PART_BYTES[part.kind];
+    else if (part.kind === "field") {
+      out[part.name] = { from: at, length: part.length };
+      at += part.length;
+    } else out[part.name] = { from: at, length: 0 };
+  }
+  return out;
+}
+
+/** The words a row's switches and picks show as in the UI ("t1" while `turn` is on, "s2" for selected 2). */
+export function wordsOf(layout: Layout): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const part of layout.parts) {
+    if (part.kind === "code") out[part.word] = part.word;
+    else if (part.kind === "flag") out[part.name] = `${part.letter}1`;
+    else if (part.kind === "pick") out[part.name] = part.letter;
+  }
+  return out;
+}
+
+type Values = Readonly<Record<string, string | number | boolean | undefined>>;
+
+/** A row of `layout` with `values` in it. */
+export function encode(layout: Layout, values: Values): string {
+  let out = "";
+  for (const part of layout.parts) {
+    const value = "name" in part ? values[part.name] : undefined;
+    if (part.kind === "code") out += codesOf(part.word);
+    else if (part.kind === "pick") out += `§${part.letter}§${Math.max(0, Math.min(9, Math.floor(Number(value) || 0)))}`;
+    else if (part.kind === "flag") out += `§${part.letter}§${value ? 1 : 0}`;
+    else if (part.kind === "field") out += pad(ascii(String(value ?? "")), part.length, part.align);
+    else out += String(value ?? "").replace(/§/g, "");
+  }
+  return out;
+}
+
+/** UTF-8 bytes in `text`. */
+export function bytes(text: string): number {
+  let n = 0;
+  for (const ch of text) {
+    const code = ch.codePointAt(0) ?? 0;
+    n += code < 0x80 ? 1 : code < 0x800 ? 2 : code < 0x10000 ? 3 : 4;
+  }
+  return n;
+}
+
+/** Text for a field: printable ASCII only (one byte each), so the places hold; anything else is "?". */
+function ascii(text: string): string {
+  return text.replace(/[^\x20-\x7e]/g, "?");
+}
+
+function pad(text: string, length: number, align: "left" | "right"): string {
+  const cut = text.slice(0, length);
+  return align === "right" ? cut.padStart(length, " ") : cut.padEnd(length, " ");
+}
+
+/** A number for a field `length` wide: 0 or more, at most all nines. */
+function amount(value: number, length: number): number {
+  return Math.max(0, Math.min(10 ** length - 1, Math.floor(value)));
+}
+
+/** "1st" to "4th". */
+export function placeText(place: number | undefined): string {
+  if (place === undefined || place < 1) return "";
+  return `${place}${place === 1 ? "st" : place === 2 ? "nd" : place === 3 ? "rd" : "th"}`;
+}
+
+/** The letter on a player's stand-in head: the first letter or digit of their name, as a capital. */
+export function initialOf(name: string): string {
+  const first = [...name].find((ch) => /[a-z0-9]/i.test(ch));
+  return first ? first.toUpperCase() : "?";
+}
+
+// ---- Player cards ---------------------------------------------------------------------------
+
+/**
+ * A card: which seat (so each row is its own), whose turn (the highlight), not shown yet (the card
+ * keeps its place but draws nothing), the row under the line (a place or items), the head picture
+ * (else the letter); then the Stars, the coins, the place, three item icons' letters, the letter, and
+ * the head picture's path.
+ */
+export const CARD: Layout = {
+  parts: [
+    { kind: "code", word: "kc" },
+    { kind: "pick", name: "seat", letter: "c" },
+    { kind: "flag", name: "turn", letter: "t" },
+    { kind: "flag", name: "hidden", letter: "h" },
+    { kind: "flag", name: "bottom", letter: "b" },
+    { kind: "flag", name: "picture", letter: "g" },
+    { kind: "field", name: "stars", length: 2, align: "right" },
+    { kind: "field", name: "coins", length: 3, align: "right" },
+    { kind: "field", name: "place", length: 3, align: "left" },
+    { kind: "field", name: "item1", length: 2, align: "left" },
+    { kind: "field", name: "item2", length: 2, align: "left" },
+    { kind: "field", name: "item3", length: 2, align: "left" },
+    { kind: "field", name: "letter", length: 1, align: "left" },
+    { kind: "rest", name: "head" },
+  ],
+};
+
+export interface CardSeat {
+  name: string;
+  stars: number;
+  coins: number;
+  /** Their place in the standings (ties share one), once there are standings. */
+  place?: number;
+  /** The letters of each item they hold. */
+  items: readonly string[];
+  /** Their head's picture (a texture path), once the pack has one. */
+  head?: string;
+  turn: boolean;
+  /** Revealed yet (the turn order reveal shows the cards one by one). */
+  shown: boolean;
+}
+
+/** The cards, one row per seat in turn order (first on the left). */
+export function cardRows(seats: readonly CardSeat[]): string[] {
+  return seats.map((seat, index) =>
+    encode(CARD, {
+      seat: index,
+      turn: seat.turn && seat.shown,
+      hidden: !seat.shown,
+      bottom: seat.place !== undefined || seat.items.length > 0,
+      picture: seat.head !== undefined && seat.head !== "",
+      stars: amount(seat.stars, 2),
+      coins: amount(seat.coins, 3),
+      place: placeText(seat.place),
+      item1: seat.items[0],
+      item2: seat.items[1],
+      item3: seat.items[2],
+      letter: initialOf(seat.name),
+      head: seat.head ?? "",
+    }),
+  );
+}
+
+// ---- The board menu -------------------------------------------------------------------------
+
+/** The board menu's buttons, top to bottom. */
+export const MENU_BUTTONS = ["dice", "items", "board"] as const;
+export type MenuButton = (typeof MENU_BUTTONS)[number];
+
+/** The menu: which button is selected, and which are disabled (dimmer, skipped). */
+export const MENU: Layout = {
+  parts: [
+    { kind: "code", word: "km" },
+    { kind: "pick", name: "selected", letter: "s" },
+    { kind: "flag", name: "diceOff", letter: "u" },
+    { kind: "flag", name: "itemsOff", letter: "v" },
+    { kind: "flag", name: "boardOff", letter: "j" },
+    { kind: "flag", name: "open", letter: "n" },
+  ],
+};
+
+export interface MenuState {
+  selected: MenuButton;
+  disabled: readonly MenuButton[];
+  /** Something the menu opened is up (the item panel, the board view): the menu waits behind it. */
+  open: boolean;
+}
+
+export function menuRow(state: MenuState): string {
+  return encode(MENU, {
+    selected: MENU_BUTTONS.indexOf(state.selected),
+    diceOff: state.disabled.includes("dice"),
+    itemsOff: state.disabled.includes("items"),
+    boardOff: state.disabled.includes("board"),
+    open: state.open,
+  });
+}
+
+// ---- The item panel -------------------------------------------------------------------------
+
+/** The panel's main row: chevrons (more than one to pick from), a die (its faces) or an item, its icon's letters, six faces, its name. */
+export const PANEL: Layout = {
+  parts: [
+    { kind: "code", word: "ki" },
+    { kind: "flag", name: "chevrons", letter: "a" },
+    { kind: "flag", name: "die", letter: "f" },
+    { kind: "field", name: "icon", length: 2, align: "left" },
+    { kind: "field", name: "face1", length: 2, align: "right" },
+    { kind: "field", name: "face2", length: 2, align: "right" },
+    { kind: "field", name: "face3", length: 2, align: "right" },
+    { kind: "field", name: "face4", length: 2, align: "right" },
+    { kind: "field", name: "face5", length: 2, align: "right" },
+    { kind: "field", name: "face6", length: 2, align: "right" },
+    { kind: "rest", name: "name" },
+  ],
+};
+
+/** The panel's second row, an item's: what it does. */
+export const PANEL_TEXT: Layout = {
+  parts: [
+    { kind: "code", word: "kj" },
+    { kind: "rest", name: "what" },
+  ],
+};
+
+export type PanelShow = { die: { name: string; letters: string; faces: readonly number[] } } | { item: { name: string; letters: string; what: string } };
+
+/** The panel's rows: the thing showing now, with chevrons when there's more than one to step through. */
+export function panelRows(show: PanelShow, chevrons: boolean): string[] {
+  if ("die" in show) {
+    const faces = Object.fromEntries(show.die.faces.slice(0, 6).map((face, i) => [`face${i + 1}`, amount(face, 2)]));
+    return [encode(PANEL, { chevrons, die: true, icon: show.die.letters, ...faces, name: show.die.name })];
+  }
+  return [encode(PANEL, { chevrons, die: false, icon: show.item.letters, name: show.item.name }), encode(PANEL_TEXT, { what: show.item.what })];
+}
+
+// ---- The results screen ---------------------------------------------------------------------
+
+/** A player's row: which seat (each row its own), 1st's border, the head picture; the place, Stars, coins, the letter, the picture's path. */
+export const RESULT: Layout = {
+  parts: [
+    { kind: "code", word: "ks" },
+    { kind: "pick", name: "seat", letter: "q" },
+    { kind: "flag", name: "border", letter: "e" },
+    { kind: "flag", name: "picture", letter: "g" },
+    { kind: "field", name: "place", length: 3, align: "left" },
+    { kind: "field", name: "stars", length: 2, align: "right" },
+    { kind: "field", name: "coins", length: 3, align: "right" },
+    { kind: "field", name: "letter", length: 1, align: "left" },
+    { kind: "rest", name: "head" },
+  ],
+};
+
+export interface ResultRow {
+  seat: number;
+  name: string;
+  place: number;
+  stars: number;
+  coins: number;
+  border: boolean;
+  head?: string;
+}
+
+/** The results' rows, top to bottom as shown. */
+export function resultRows(rows: readonly ResultRow[]): string[] {
+  return rows.map((row) =>
+    encode(RESULT, {
+      seat: row.seat,
+      border: row.border,
+      picture: row.head !== undefined && row.head !== "",
+      place: placeText(row.place),
+      stars: amount(row.stars, 2),
+      coins: amount(row.coins, 3),
+      letter: initialOf(row.name),
+      head: row.head ?? "",
+    }),
+  );
+}
+
+/** Every screen's row layouts, for the tests and the builder's components (the fields each one cuts). */
+export const SCREEN_LAYOUTS = {
+  cards: { rows: { card: CARD } },
+  menu: { rows: { menu: MENU } },
+  panel: { rows: { panel: PANEL, text: PANEL_TEXT } },
+  results: { rows: { result: RESULT } },
+} as const satisfies Record<ScreenId, { rows: Record<string, Layout> }>;

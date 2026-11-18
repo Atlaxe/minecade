@@ -10,11 +10,22 @@
   // (packages/minigame-core's hud_screen.json). The dialogue box (ui/jui_blockparty_dialogue.json,
   // built by the workshop's JSON UI tool from its blockparty_dialogue component) rides there too,
   // under the loading screen: it reads the sidebar, not the action bar, but this panel is always up
-  // while the game sends its HUD line.
+  // while the game sends its HUD line. The board's screens ride the sidebar the same way (built by
+  // the same tool from its blockparty_results, blockparty_cards, blockparty_menu and
+  // blockparty_panel components, docs/plans/block-party-ui.md): the results screen first (its
+  // darkened view under everything else), then the player cards, the board menu and the item panel,
+  // then the dialogue box over them.
 
   "hud_actionbar_text": {
     "modifications": [
-      { "array_name": "controls", "operation": "insert_back", "value": [ { "jui_blockparty_dialogue@jui_blockparty_dialogue.layout": {} }, { "bp_loading@blockparty_hud.loading": {} } ] }
+      { "array_name": "controls", "operation": "insert_back", "value": [
+        { "jui_blockparty_results@jui_blockparty_results.layout": {} },
+        { "jui_blockparty_cards@jui_blockparty_cards.layout": {} },
+        { "jui_blockparty_menu@jui_blockparty_menu.layout": {} },
+        { "jui_blockparty_panel@jui_blockparty_panel.layout": {} },
+        { "jui_blockparty_dialogue@jui_blockparty_dialogue.layout": {} },
+        { "bp_loading@blockparty_hud.loading": {} }
+      ] }
     ]
   }
 }

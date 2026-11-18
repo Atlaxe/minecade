@@ -1,18 +1,17 @@
 // Block Party's spike (docs/plans/block-party.md, "Suggested order" 1), played as a test game on
 // Probe's map. It lays a 12-space test board beside the platform, makes each player their own piece
-// on it, and gives them the game's bar items with a Tests menu (/blockparty:tests, or the compass).
-// The menu tries what the game will need:
+// on it, with a Tests menu (/blockparty:tests). The menu tries what the game will need:
 //   - walking a piece (pieces.ts: the player pushed along the path, easing into corners; each walk
 //     says in chat how it went), watched by everyone through the chase or watch camera;
 //   - camera shots (shots.ts), skipped by everyone jumping (a vote);
 //   - the jump button: every jump is reported in chat with what was locked at the time;
-//   - the bar: Items, Dice and Tests in the hotbar's first slots. Vanilla's hotbar shows only while a
-//     minigame plays (the user's call: never on the board or in cutscenes), and the bar's items are
-//     taken away for the minigame, so on the board they're picked blind (scrolling, number keys)
-//     until the board menu of the UI pass. Using Items or Dice swaps the bar for that set (the items
-//     held, or the dice, each with a Back slot); in the dice, the die picked floats over your head
-//     (its name top right) and a jump hits it, and your piece walks the number. Health, hunger and
-//     the XP bar are hidden;
+//   - the board's screens (block-party-ui.md), the same for everyone, on the game's sidebar
+//     (sidebar-rows.ts): the player cards top right, and on a turn the board menu top left (Dice
+//     block, Items, Board) and the item panel bottom left (board-ui.ts), steered with the movement
+//     keys, jump to pick, sneak to go back; the die shown floats over the roller's head and a jump
+//     hits it, and the piece walks the number. The results screen after every minigame and Star
+//     (results.ts). Nothing is in a player's hands on the board: vanilla's hotbar shows only while a
+//     minigame plays (the user's call). Health, hunger and the XP bar are hidden;
 //   - nobody walks the board by themselves (the user's call): the movement keys move a player only
 //     off the board (a minigame, a ride) and on the pre-game podium until they roll (keepControls);
 //   - the NPCs on the vanilla mobs' models (npcs.ts): hit one for its animations and variants;
@@ -30,23 +29,26 @@ import {
   HudVisibility,
   InputButton,
   InputPermissionCategory,
-  ItemLockMode,
-  ItemStack,
   BlockVolume,
   system,
   world,
-  type Container,
   type Player,
   type Vector3,
 } from "@minecraft/server";
 import { ActionFormData, ModalFormData } from "@minecraft/server-ui";
-import { ARENA_SLOT, Minigame, Notes, describeError, draw, facingOf, hudLine, log, say, showForm, spacesOf, worldPoint, type GameContext, type MapPosition, type Result, type SpawnReason } from "@minecade/minigame-core";
+import { ARENA_SLOT, Minigame, describeError, draw, facingOf, hudLine, log, say, showForm, spacesOf, worldPoint, type GameContext, type MapPosition, type Result, type SpawnReason } from "@minecade/minigame-core";
 import { BLOCK_PARTY_BOARD } from "@minecade/minigame-core/config";
 import registry from "#registry";
-import { HOTBAR_SIZE, LOADING_LEVELS, loadingCode, type BarIcon } from "./bar-codes.ts";
+import { HOTBAR_SIZE, LOADING_LEVELS, loadingCode } from "./bar-codes.ts";
 import type config from "../../game.config.ts";
 import { boardBox, build, mapSpaces, standAt, testSpaces, type Space, type Vec3 } from "./board.ts";
 import { BoardLoop } from "./board-loop.ts";
+import { BoardMenu } from "./board-ui.ts";
+import { boardOverview } from "./board-view.ts";
+import { DICE, ITEMS, holdings, type DieDef, type DieId, type Holdings, type ItemDef, type ItemId } from "./dice-items.ts";
+import { ResultsScreen } from "./results.ts";
+import { SCREEN_WORDS, cardRows, codesOf } from "./screen-codes.ts";
+import { GameSidebar } from "./sidebar-rows.ts";
 import { Dialogue } from "./dialogue.ts";
 import { Stage, type StageMarkup } from "./stage.ts";
 import type { Marker } from "./stage-layout.ts";
@@ -64,55 +66,29 @@ import { SHOTS, Shots, type ShotId } from "./shots.ts";
 
 type Config = typeof config;
 
-// ---- The bar -------------------------------------------------------------------------------
-// The bar's items are the pack's own (behavior_pack/items/bar_<icon>.json), with a clear texture so
-// nothing shows in the player's hand (the user asked). Each has a name and a line saying what it does.
+// ---- Dice and items ------------------------------------------------------------------------
 
-interface BarItem {
-  id: string;
-  name: string;
-  what: string;
-  /** Its icon on the pack's bar. */
-  icon: BarIcon;
-}
-interface Die extends BarItem {
-  faces: readonly number[];
-  /** The block that floats over the roller's head while it's picked. */
-  block: string;
-}
+/** The block that floats over the roller's head while each die shows in the item panel (stand-ins until the dice have models). */
+const DIE_BLOCKS: Readonly<Record<DieId, string>> = {
+  standard: "minecraft:white_concrete",
+  slow: "minecraft:light_blue_concrete",
+  triple: "minecraft:iron_block",
+  risk: "minecraft:red_concrete",
+  golden: "minecraft:gold_block",
+  mystery: "minecraft:purple_concrete",
+  cursed: "minecraft:black_concrete",
+  one: "minecraft:light_blue_concrete",
+};
+/** What a player holds in the spike, picked in Tests (Dice and items held): the first of these. */
+const TEST_DICE: readonly DieId[] = ["one", "golden"];
+const TEST_ITEMS: readonly ItemId[] = ["stone_totem", "lightning", "glove"];
 
-/** A bar item's id: the pack's item for its icon. */
-const barItem = (icon: BarIcon) => `blockparty:bar_${icon}`;
-const MENU_ITEM = barItem("tests");
-const ITEMS_ITEM = barItem("items");
-const DICE_ITEM = barItem("dice");
-const BACK_ITEM = barItem("back");
-
-const MAIN_BAR: readonly BarItem[] = [
-  { id: ITEMS_ITEM, name: "Items", what: "Use it: your items", icon: "items" },
-  { id: DICE_ITEM, name: "Dice", what: "Use it: pick a die, then jump to roll", icon: "dice" },
-  { id: MENU_ITEM, name: "Tests", what: "Every Block Party test", icon: "tests" },
-];
-const DICE: readonly Die[] = [
-  { id: barItem("die"), name: "Die", what: "Jump to hit it: 1 to 6", icon: "die", faces: [1, 2, 3, 4, 5, 6], block: "minecraft:white_concrete" },
-  // A test die (the user asked): always 1, to step up to a space.
-  { id: barItem("slow_die"), name: "One Die", what: "Jump to hit it: always 1 (a test die)", icon: "slow_die", faces: [1], block: "minecraft:light_blue_concrete" },
-  { id: barItem("golden_die"), name: "Golden Die", what: "Jump to hit it: 5 to 10", icon: "golden_die", faces: [5, 6, 7, 8, 9, 10], block: "minecraft:gold_block" },
-];
-const ITEMS: readonly BarItem[] = [
-  { id: barItem("stone_totem"), name: "Stone Totem", what: "Roll an extra die next turn", icon: "stone_totem" },
-  { id: barItem("lightning"), name: "Lightning Strike", what: "The leader gives 10 coins to last place", icon: "lightning" },
-  { id: barItem("glove"), name: "Dueling Glove", what: "A 1v1 duel for 10 coins", icon: "glove" },
-];
-const BACK: BarItem = { id: BACK_ITEM, name: "Back", what: "Use it: back to the hotbar", icon: "back" };
 /** What Block Party hides: everything a survival player watches that it has no use for, and the hotbar with its item names (MINIGAME_HUD). */
 const HIDDEN_HUD = [HudElement.Hotbar, HudElement.ItemText, HudElement.Health, HudElement.Hunger, HudElement.ProgressBar, HudElement.Armor, HudElement.AirBubbles];
 /** What comes back while a player plays a minigame: vanilla's hotbar (the user: only in minigames, never on the board or in cutscenes). */
 const MINIGAME_HUD = [HudElement.Hotbar, HudElement.ItemText];
 /** Ticks between sends of each player's HUD line (the action bar fades unless it's sent again). */
 const BAR_RESEND = 20;
-
-type Bar = "main" | "items" | "dice";
 
 /**
  * What a player's keys may do now (keepControls): walk ("free": off the board, or on the pre-game
@@ -161,22 +137,17 @@ interface PlayerTests {
   settings: PieceSettings;
   jumpMode: JumpMode;
   reportJumps: boolean;
-  bar: Bar;
-  /** Special dice held besides the standard die (0 to 2) and items held (0 to 3): "Hotbar contents". */
+  /** Special dice held besides the standard die (0 to 2) and items held (0 to 3): Tests, Dice and items held. */
   specialDice: number;
   items: number;
-  /** The slot selected last tick, to tell which way a scroll went. */
-  lastSlot: number;
-  /** The action bar line last sent, and when: the bar's codes, sent again when they change or every BAR_RESEND ticks. */
+  /** The action bar line last sent, and when: sent again when it changes or every BAR_RESEND ticks. */
   sentLine?: string;
   sentAt?: number;
-  /** The open dice bar: the die floating over the player's head. */
-  rolling?: { at: Vector3; placed: boolean; shown?: string };
+  /** Their die out: the block floating over their head, and which die it is. */
+  rolling?: { at: Vector3; placed: boolean; shown?: string; die: DieDef };
   /** What their keys were last set to do, and whether vanilla's hotbar was last shown (undefined: set them again). */
   controls?: Controls;
   hotbar?: boolean;
-  /** A minigame took the bar away: it comes back with the player onto the board. */
-  barTaken?: boolean;
 }
 
 export class BlockPartySpike extends Minigame<Config> {
@@ -193,13 +164,16 @@ export class BlockPartySpike extends Minigame<Config> {
   private ownBoard = false;
   /** The board's middle: the test board's, or the middle of the map's spaces. */
   private boardMiddle: Vec3 = [0, 64, 0];
-  /** The tick each player last used a hotbar item: a click on a block and in the air both report. */
-  private readonly lastUse = new Map<string, number>();
   /** The loading screen's strength for everyone (0 off, up to LOADING_LEVELS). */
   private loadingLevel = 0;
-  /** The board loop (board-loop.ts), and the standings top left. */
+  /** The board loop (board-loop.ts). */
   private loop!: BoardLoop;
-  private notes!: Notes;
+  /** The game's one sidebar (the dialogue box and the board's screens), the board menu and item panel, the results screen. */
+  private gameSidebar!: GameSidebar;
+  private boardMenu!: BoardMenu;
+  private results!: ResultsScreen;
+  /** The cards' rows last put on the sidebar, so they're sent only when they change. */
+  private cardsShown = "";
   /** The rolls the loop is waiting for, by lowercased name: what a jump resolves, and whether everyone watches. */
   private readonly pendingRolls = new Map<string, { resolve: (value: number | undefined) => void; shot: boolean }>();
   /** The board's blocks are down (play waits for it). */
@@ -223,7 +197,7 @@ export class BlockPartySpike extends Minigame<Config> {
     const key = player.name.toLowerCase();
     let tests = this.tests.get(key);
     if (!tests) {
-      tests = { settings: { ...DEFAULT_SETTINGS, speed: this.config.board.speed }, jumpMode: "free", reportJumps: true, bar: "main", specialDice: 2, items: 3, lastSlot: 0 };
+      tests = { settings: { ...DEFAULT_SETTINGS, speed: this.config.board.speed }, jumpMode: "free", reportJumps: true, specialDice: 2, items: 3 };
       this.tests.set(key, tests);
     }
     return tests;
@@ -292,8 +266,26 @@ export class BlockPartySpike extends Minigame<Config> {
       chris: () => this.npcs.get("chris"),
       say: (text) => this.everyone(text),
     });
-    this.notes = new Notes(this.scope);
-    this.dialogue = new Dialogue({ scope: this.scope, random: () => this.ctx.random(), restore: () => this.notes.display() });
+    this.gameSidebar = new GameSidebar(this.scope);
+    this.dialogue = new Dialogue({ scope: this.scope, random: () => this.ctx.random(), show: (box) => this.gameSidebar.set("dialogue", box) });
+    this.boardMenu = new BoardMenu({
+      scope: this.scope,
+      sidebar: this.gameSidebar,
+      random: () => this.ctx.random(),
+      holdingsOf: (who) => this.holdingsOf(who),
+      showDie: (who, die) => {
+        if (who.player) this.showDie(who.player, die);
+      },
+      roll: (who, die) => {
+        if (who.player) void this.roll(who.player, die);
+      },
+      use: (who, item) => {
+        if (who.player) this.useItem(who.player, item);
+      },
+      boardView: (on) => this.boardView(on),
+      busy: (player) => this.dialogue.steerer === player.name.toLowerCase(),
+    });
+    this.results = new ResultsScreen({ scope: this.scope, sidebar: this.gameSidebar, headOf: () => undefined });
     this.staging = new Stage({
       scope: this.scope,
       dimension,
@@ -313,14 +305,16 @@ export class BlockPartySpike extends Minigame<Config> {
       // 30 coins while Block Party is a test game or a server plays it alone (the user asked), so Stars can be tried.
       startCoins: this.config.test || this.ctx.vars.devMinPlayers === 1 ? TEST_COINS : START_COINS,
       present: () => [...world.getAllPlayers().map(whoOf), ...this.bots.all()],
+      // A turn's roll opens the board menu (everyone watching); the turn order's roll (each their own) goes straight to the standard die.
       roll: (who, shot) => {
         const player = who.player;
-        if (!player) return this.botRoll(who, shot);
+        if (!player) return shot ? this.boardMenu.botTurn(who).then((die) => this.botRoll(who, shot, die)) : this.botRoll(who, shot, DICE.standard);
         return new Promise((resolve) => {
           const key = player.name.toLowerCase();
           this.pendingRolls.get(key)?.resolve(undefined);
           this.pendingRolls.set(key, { resolve, shot });
-          this.openDice(player);
+          if (shot) this.boardMenu.open(who);
+          else this.showDie(player, DICE.standard);
         });
       },
       choose: (who, title, body, options, botPick) => this.choose(who, title, body, options, botPick),
@@ -334,11 +328,8 @@ export class BlockPartySpike extends Minigame<Config> {
       tell: (who, text) => who.player && this.tell(who.player, text),
       title: (text, subtitle) => this.titleAll(text, subtitle),
       changed: () => this.loopChanged(),
+      results: (before, after) => this.results.show(before, after),
       random: () => this.ctx.random(),
-    });
-    this.scope.subscribe(world.afterEvents.itemUse, ({ source, itemStack }) => this.used(source, itemStack.typeId));
-    this.scope.subscribe(world.afterEvents.playerInteractWithBlock, ({ player, itemStack }) => {
-      if (itemStack) this.used(player, itemStack.typeId);
     });
     this.scope.subscribe(world.afterEvents.entityHitEntity, ({ damagingEntity, hitEntity }) => {
       if (damagingEntity.typeId !== "minecraft:player") return;
@@ -350,13 +341,14 @@ export class BlockPartySpike extends Minigame<Config> {
       ({ player }) => this.jumped(player),
       { buttons: [InputButton.Jump], state: ButtonState.Pressed },
     );
-    // Sneak is the dialogue box's back button (Not now).
+    // Sneak is the dialogue box's back button (Not now), else the board menu's back.
     this.scope.subscribe(
       world.afterEvents.playerButtonInput,
-      ({ player }) => void this.dialogue.sneaked(player),
+      ({ player }) => void (this.dialogue.sneaked(player) || this.boardMenu.sneaked(player)),
       { buttons: [InputButton.Sneak], state: ButtonState.Pressed },
     );
     this.scope.subscribe(world.afterEvents.playerLeave, ({ playerName }) => {
+      if (this.boardMenu.active === playerName.toLowerCase()) this.boardMenu.close();
       this.pendingRolls.get(playerName.toLowerCase())?.resolve(undefined);
       this.pendingRolls.delete(playerName.toLowerCase());
       const tests = this.tests.get(playerName.toLowerCase());
@@ -428,28 +420,19 @@ export class BlockPartySpike extends Minigame<Config> {
     }
   }
 
-  /** Off the board for a minigame: a player gets their movement back, and the bar goes (the minigame has the hotbar). */
+  /** Off the board for a minigame: a player gets their movement back (the minigame has the hotbar). */
   private leaveBoard(who: Who): void {
     this.pieces.release(who.body);
-    const player = who.player;
-    if (!player?.isValid) return;
-    const container = player.getComponent(EntityComponentTypes.Inventory)?.container;
-    if (!container) return;
-    for (let slot = 0; slot < HOTBAR_SIZE; slot++) container.setItem(slot, undefined);
-    this.testsOf(player).barTaken = true;
   }
 
-  /** A seat back on its space: a player put there with the bar again, a bot made again there (bots.ts, respawn). */
+  /** A seat back on its space: a player put there with empty hands (whatever a minigame gave them goes), a bot made again there (bots.ts, respawn). */
   private backOnBoard(who: Who): void {
     if (who.player) {
       if (!who.player.isValid) return;
       this.pieces.place(who.player);
       this.podium.delete(who.key);
-      const tests = this.testsOf(who.player);
-      if (tests.barTaken) {
-        tests.barTaken = false;
-        this.openBar(who.player, "main");
-      }
+      const container = who.player.getComponent(EntityComponentTypes.Inventory)?.container;
+      for (let slot = 0; container && slot < HOTBAR_SIZE; slot++) container.setItem(slot, undefined);
       return;
     }
     this.bots.respawn(who, this.pieces.spotOf(who.name));
@@ -500,14 +483,14 @@ export class BlockPartySpike extends Minigame<Config> {
   }
 
   /** A bot's roll: the die over its head (everyone watching through the roll camera on a turn), a moment's thought, a hop, the number. */
-  private async botRoll(who: Who, shot: boolean): Promise<number | undefined> {
+  private async botRoll(who: Who, shot: boolean, picked: DieDef): Promise<number | undefined> {
     const body = who.body;
     if (!body.isValid) return undefined;
     const at = body.location;
     const die = { x: Math.floor(at.x), y: Math.floor(at.y) + 3, z: Math.floor(at.z) };
     const block = body.dimension.getBlock(die);
     const placed = block?.isAir === true;
-    if (placed) block?.setType(DICE[0].block);
+    if (placed) block?.setType(DIE_BLOCKS[picked.id]);
     const watchers = shot ? world.getAllPlayers() : [];
     const yaw = (body.getRotation().y * Math.PI) / 180;
     for (const watcher of watchers) {
@@ -517,8 +500,8 @@ export class BlockPartySpike extends Minigame<Config> {
     if (!body.isValid) return undefined;
     hop(body);
     await this.scope.wait(5);
-    const rolled = DICE[0].faces[Math.floor(this.ctx.random() * DICE[0].faces.length)];
-    for (const watcher of watchers) watcher.onScreenDisplay.setTitle(`${rolled}`, { subtitle: `${who.name}, ${DICE[0].name}`, fadeInDuration: 2, stayDuration: 25, fadeOutDuration: 8 });
+    const rolled = picked.rolls[Math.floor(this.ctx.random() * picked.rolls.length)];
+    for (const watcher of watchers) watcher.onScreenDisplay.setTitle(`${rolled}`, { subtitle: `${who.name}, ${picked.name}`, fadeInDuration: 2, stayDuration: 25, fadeOutDuration: 8 });
     await this.scope.wait(12);
     if (placed) this.clearDie(die);
     await this.scope.wait(8);
@@ -526,20 +509,44 @@ export class BlockPartySpike extends Minigame<Config> {
     return rolled;
   }
 
-  /** The loop's state changed: everyone's HUD line, and the standings top left. */
+  /** The loop's state changed: everyone's HUD line, and the cards. */
   private loopChanged(): void {
-    for (const player of world.getAllPlayers()) {
-      const container = player.getComponent(EntityComponentTypes.Inventory)?.container;
-      if (container) this.sendLine(player, this.testsOf(player), container, true);
-    }
-    this.notes.show(this.loop.standings());
+    for (const player of world.getAllPlayers()) this.sendLine(player, this.testsOf(player), true);
+    this.drawCards();
+  }
+
+  /** What a seat holds: a player what Tests set (Dice and items held), a bot the standard die. */
+  private holdingsOf(who: Who): Holdings {
+    if (!who.player) return holdings([], []);
+    const tests = this.testsOf(who.player);
+    return holdings(TEST_DICE.slice(0, tests.specialDice), TEST_ITEMS.slice(0, tests.items));
+  }
+
+  /**
+   * The player cards top right (block-party-ui.md, "Player cards"), from the loop's seats in turn
+   * order: on the board and the podium, never during a minigame or the results screen. Sent when
+   * they change.
+   */
+  private drawCards(): void {
+    const seats = this.loop?.cards() ?? [];
+    const hidden = seats.length === 0 || this.runner.active || this.results.showing;
+    const rows = hidden
+      ? []
+      : cardRows(
+          seats.map((seat) => {
+            const player = world.getAllPlayers().find((candidate) => candidate.name.toLowerCase() === seat.key);
+            const items = player ? this.holdingsOf(whoOf(player)).items : [];
+            return { ...seat, items: items.map((id) => ITEMS[id].letters) };
+          }),
+        );
+    const key = rows.join("\n");
+    if (key === this.cardsShown) return;
+    this.cardsShown = key;
+    this.gameSidebar.set("cards", rows.length ? { title: codesOf(SCREEN_WORDS.cards), rows } : undefined);
   }
 
   protected override onSpawn(player: Player, _why: SpawnReason): void {
     const tests = this.testsOf(player);
-    tests.bar = "main";
-    tests.barTaken = false;
-    this.giveBar(player);
     // Their keys and HUD are set again on the next tick (keepPlayers).
     tests.controls = undefined;
     tests.hotbar = undefined;
@@ -573,83 +580,17 @@ export class BlockPartySpike extends Minigame<Config> {
     this.everyone(`Block Party on ${this.ownBoard ? "this map's own board" : "the test board"}. /blockparty:tests has the spike's tests; hit an NPC for its menu.`);
   }
 
-  // ---- The hotbar -------------------------------------------------------------------------
+  // ---- Each tick ---------------------------------------------------------------------------
 
-  /** What a bar holds, left to right. */
-  private barItems(player: Player): readonly BarItem[] {
-    const tests = this.testsOf(player);
-    if (tests.bar === "items") return [...ITEMS.slice(0, tests.items), BACK];
-    if (tests.bar === "dice") return [...DICE.slice(0, 1 + tests.specialDice), BACK];
-    return MAIN_BAR;
-  }
-
-  /** Puts the player's bar in the first slots of their hotbar (the number keys from 1), the first selected. */
-  private giveBar(player: Player): void {
-    const container = player.getComponent(EntityComponentTypes.Inventory)?.container;
-    if (!container) return;
-    const items = this.barItems(player);
-    const first = 0;
-    for (let slot = 0; slot < HOTBAR_SIZE; slot++) container.setItem(slot, undefined);
-    items.forEach(({ id, name, what }, i) => {
-      const item = new ItemStack(id, 1);
-      item.nameTag = name;
-      item.setLore([what]);
-      item.lockMode = ItemLockMode.slot;
-      item.keepOnDeath = true;
-      container.setItem(first + i, item);
-    });
-    try {
-      player.selectedSlotIndex = first;
-    } catch {
-      // gone
-    }
-    this.testsOf(player).lastSlot = first;
-  }
-
-  private openBar(player: Player, bar: Bar): void {
-    this.testsOf(player).bar = bar;
-    this.giveBar(player);
-  }
-
-  /** The selected item's id, if any. */
-  private selected(player: Player): string | undefined {
-    return player.getComponent(EntityComponentTypes.Inventory)?.container?.getItem(player.selectedSlotIndex)?.typeId;
-  }
-
-  /**
-   * Every tick, for each player: what their keys may do and whether vanilla's hotbar shows
-   * (keepControls), and on the board, a selection that lands on an empty slot moves on to the next
-   * slot in use, the way the scroll went, wrapping round, so scrolling only ever stops on the bar;
-   * the die over a rolling player's head follows the die they pick.
-   */
+  /** Every tick, for each player: what their keys may do and whether vanilla's hotbar shows (keepControls), and their HUD line; and the cards. */
   private keepPlayers(): void {
     for (const player of world.getAllPlayers()) {
       const tests = this.tests.get(player.name.toLowerCase());
-      const container = player.getComponent(EntityComponentTypes.Inventory)?.container;
-      if (!tests || !container) continue;
+      if (!tests) continue;
       this.keepControls(player, tests);
-      let slot = player.selectedSlotIndex;
-      if (!this.pieces.isOff(player) && !container.getItem(slot)) {
-        const step = slot > tests.lastSlot || (tests.lastSlot === HOTBAR_SIZE - 1 && slot === 0) ? 1 : -1;
-        for (let i = 1; i < HOTBAR_SIZE; i++) {
-          const next = (((slot + step * i) % HOTBAR_SIZE) + HOTBAR_SIZE) % HOTBAR_SIZE;
-          if (container.getItem(next)) {
-            slot = next;
-            player.selectedSlotIndex = next;
-            break;
-          }
-        }
-      }
-      tests.lastSlot = slot;
-      this.sendLine(player, tests, container);
-      if (tests.rolling?.placed) {
-        const die = DICE.find((d) => d.id === container.getItem(slot)?.typeId);
-        if (die && tests.rolling.shown !== die.block) {
-          player.dimension.getBlock(tests.rolling.at)?.setType(die.block);
-          tests.rolling.shown = die.block;
-        }
-      }
+      this.sendLine(player, tests);
     }
+    this.drawCards();
   }
 
   /**
@@ -691,14 +632,12 @@ export class BlockPartySpike extends Minigame<Config> {
   }
 
   /**
-   * The player's action bar: the core's HUD mark, the line top right (the minigame's, the board's,
-   * or while their die is out, the die they've picked: the hotbar doesn't show on the board) and the
-   * loading screen's level, when it's up. Sent when it changes, and every BAR_RESEND ticks so it
-   * doesn't fade.
+   * The player's action bar: the core's HUD mark, the line top right (the minigame's or the board's)
+   * and the loading screen's level, when it's up. Sent when it changes, and every BAR_RESEND ticks so
+   * it doesn't fade.
    */
-  private sendLine(player: Player, tests: PlayerTests, container: Container, force = false): void {
-    const die = tests.rolling ? DICE.find((d) => d.id === container.getItem(player.selectedSlotIndex)?.typeId) : undefined;
-    const status = die ? `${die.name}: ${die.what}` : (this.minigameStatus ?? this.loop?.hudText(player) ?? "");
+  private sendLine(player: Player, tests: PlayerTests, force = false): void {
+    const status = this.minigameStatus ?? this.loop?.hudText(player) ?? "";
     const line = hudLine(undefined, status, undefined, "", loadingCode(this.loadingLevel));
     if (!force && line === tests.sentLine && system.currentTick - (tests.sentAt ?? 0) < BAR_RESEND) return;
     tests.sentLine = line;
@@ -706,55 +645,49 @@ export class BlockPartySpike extends Minigame<Config> {
     player.onScreenDisplay.setActionBar(line);
   }
 
-  /** A hotbar item was used (right click, or a tap on a touch screen). */
-  private used(player: Player, typeId: string): void {
-    const key = player.name.toLowerCase();
-    const last = this.lastUse.get(key) ?? -10;
-    if (system.currentTick - last < 4) return;
-    this.lastUse.set(key, system.currentTick);
-    const tests = this.testsOf(player);
-    if (typeId === MENU_ITEM) void this.menu(player);
-    else if (typeId === ITEMS_ITEM) this.openBar(player, "items");
-    else if (typeId === DICE_ITEM) {
-      if (this.pendingRolls.has(key)) this.openDice(player);
-      else this.tell(player, this.loop.active ? line("turn.dice.wait") : line("turn.dice.later"));
-    }
-    else if (typeId === BACK_ITEM) {
-      if (tests.rolling) this.endRoll(player);
-      this.openBar(player, "main");
-    } else {
-      const item = ITEMS.find((i) => i.id === typeId);
-      if (item && tests.bar === "items") this.tell(player, `Used ${item.name} (a test: nothing happens yet).`);
-    }
-  }
-
   private async contentsForm(player: Player): Promise<void> {
     const tests = this.testsOf(player);
     const form = new ModalFormData()
-      .title("Hotbar contents")
+      .title("Dice and items held")
       .slider("Special dice (besides the standard die)", 0, 2, { valueStep: 1, defaultValue: tests.specialDice })
       .slider("Items", 0, 3, { valueStep: 1, defaultValue: tests.items });
     const values = (await showForm(this.scope, player, form))?.formValues;
     if (!values) return;
     tests.specialDice = values[0] as number;
     tests.items = values[1] as number;
-    this.giveBar(player);
-    this.tell(player, `Hotbar: the standard die and ${tests.specialDice} special, ${tests.items} items. Use Items or Dice to see them.`);
+    this.boardMenu.refresh();
+    this.drawCards();
+    this.tell(player, `You hold the standard die and ${tests.specialDice} special, and ${tests.items} item${tests.items === 1 ? "" : "s"}. On your turn the board menu's Dice block and Items show them.`);
   }
 
   // ---- Rolling ----------------------------------------------------------------------------
 
-  /** The dice bar: the picked die floats over your head, a low camera looks up at it, and a jump hits it. */
-  private openDice(player: Player): void {
+  /**
+   * The die the item panel shows floats over the player's head (`die`), a low camera looks up at it,
+   * and a jump hits it; undefined takes it away (the panel closed), the roll still waiting. Switching
+   * dice swaps the block over the head.
+   */
+  private showDie(player: Player, die: DieDef | undefined): void {
     const tests = this.testsOf(player);
-    if (tests.rolling || this.pieces.isWalking(player)) return;
-    this.openBar(player, "dice");
+    if (!die) {
+      if (tests.rolling) this.endRoll(player);
+      return;
+    }
+    if (tests.rolling) {
+      if (tests.rolling.placed && tests.rolling.shown !== DIE_BLOCKS[die.id]) {
+        player.dimension.getBlock(tests.rolling.at)?.setType(DIE_BLOCKS[die.id]);
+        tests.rolling.shown = DIE_BLOCKS[die.id];
+      }
+      tests.rolling.die = die;
+      return;
+    }
+    if (this.pieces.isWalking(player)) return;
     const at = player.location;
-    const die = { x: Math.floor(at.x), y: Math.floor(at.y) + 3, z: Math.floor(at.z) };
-    const block = player.dimension.getBlock(die);
+    const spot = { x: Math.floor(at.x), y: Math.floor(at.y) + 3, z: Math.floor(at.z) };
+    const block = player.dimension.getBlock(spot);
     const placed = block?.isAir === true;
-    if (placed) block?.setType(DICE[0].block);
-    tests.rolling = { at: die, placed, shown: placed ? DICE[0].block : undefined };
+    if (placed) block?.setType(DIE_BLOCKS[die.id]);
+    tests.rolling = { at: spot, placed, shown: placed ? DIE_BLOCKS[die.id] : undefined, die };
     // Rolling for turn order ends the pre-game podium's walking.
     this.podium.delete(player.name.toLowerCase());
     lock(player);
@@ -762,9 +695,21 @@ export class BlockPartySpike extends Minigame<Config> {
     const yaw = (player.getRotation().y * Math.PI) / 180;
     const watchers = this.pendingRolls.get(player.name.toLowerCase())?.shot === false ? [player] : world.getAllPlayers();
     for (const watcher of watchers) {
-      watcher.camera.setCamera("minecraft:free", { location: { x: at.x - Math.sin(yaw) * 3.5, y: at.y + 0.5, z: at.z + Math.cos(yaw) * 3.5 }, facingLocation: { x: die.x + 0.5, y: die.y, z: die.z + 0.5 } });
+      watcher.camera.setCamera("minecraft:free", { location: { x: at.x - Math.sin(yaw) * 3.5, y: at.y + 0.5, z: at.z + Math.cos(yaw) * 3.5 }, facingLocation: { x: spot.x + 0.5, y: spot.y, z: spot.z + 0.5 } });
     }
     this.tell(player, line("turn.roll.hint"));
+  }
+
+  /** An item used from the item panel (a test: nothing happens yet). */
+  private useItem(player: Player, item: ItemDef): void {
+    this.tell(player, `Used ${item.name} (a test: nothing happens yet).`);
+  }
+
+  /** Board's view: the whole board for everyone, still (board-view.ts), or everyone's own view again. */
+  private boardView(on: boolean): void {
+    const shot = on ? boardOverview(this.spaces) : undefined;
+    if (shot) this.staging.shot(shot, "Cut");
+    else this.staging.clear();
   }
 
   /** Takes the die away and gives everyone their own view back (the roll is over or called off); keepControls holds the player again. */
@@ -778,22 +723,18 @@ export class BlockPartySpike extends Minigame<Config> {
   private clearDie(at: Vector3): void {
     try {
       const block = world.getDimension("overworld").getBlock(at);
-      if (block && DICE.some((d) => d.block === block.typeId)) block.setType("minecraft:air");
+      if (block && Object.values(DIE_BLOCKS).includes(block.typeId)) block.setType("minecraft:air");
     } catch {
       // unloaded
     }
   }
 
-  private async roll(player: Player): Promise<void> {
-    const die = DICE.find((d) => d.id === this.selected(player));
-    if (!die) {
-      this.tell(player, line("turn.roll.pick"));
-      return;
-    }
+  /** The jump that hits the die: the number, then the die goes and the walk follows. */
+  private async roll(player: Player, die: DieDef): Promise<void> {
     const tests = this.testsOf(player);
     const key = player.name.toLowerCase();
     const pending = this.pendingRolls.get(key);
-    const rolled = die.faces[Math.floor(this.ctx.random() * die.faces.length)];
+    const rolled = die.rolls[Math.floor(this.ctx.random() * die.rolls.length)];
     const rolling = tests.rolling;
     tests.rolling = undefined;
     this.pendingRolls.delete(key);
@@ -803,7 +744,6 @@ export class BlockPartySpike extends Minigame<Config> {
     if (rolling?.placed) this.clearDie(rolling.at);
     await this.scope.wait(8);
     for (const watcher of watchers) watcher.camera.clear();
-    this.openBar(player, "main");
     pending?.resolve(rolled);
   }
 
@@ -818,7 +758,7 @@ export class BlockPartySpike extends Minigame<Config> {
       ["Piece settings", () => this.settingsForm(player)],
       ["Camera shots", () => this.shotsMenu(player)],
       ["Jump test", () => this.jumpMenu(player)],
-      ["Hotbar contents", () => this.contentsForm(player)],
+      ["Dice and items held", () => this.contentsForm(player)],
       [this.npcs.spawned ? "Take the NPCs away" : "Put the NPCs out", () => this.toggleNpcs()],
       ["Arenas from other maps", () => this.arenaMenu(player)],
       ["Ride and lead (two players)", () => this.rideMenu(player)],
@@ -874,8 +814,8 @@ export class BlockPartySpike extends Minigame<Config> {
     if (!pending) return;
     this.loop.steer(key, path);
     this.pendingRolls.delete(key);
+    this.boardMenu.close();
     this.endRoll(player);
-    this.openBar(player, "main");
     this.tell(player, text);
     pending.resolve(path.length);
   }
@@ -924,8 +864,8 @@ export class BlockPartySpike extends Minigame<Config> {
     const pending = this.pendingRolls.get(key);
     if (!pending?.shot) return;
     this.pendingRolls.delete(key);
+    this.boardMenu.close();
     this.endRoll(player);
-    this.openBar(player, "main");
     pending.resolve(undefined);
   }
 
@@ -971,9 +911,12 @@ export class BlockPartySpike extends Minigame<Config> {
     if (this.dialogue.jumped(player)) return;
     // A minigame's rules: a jump is Ready.
     if (this.runner.jumped(player)) return;
+    // The board menu and item panel: the active player's pick.
+    if (this.boardMenu.jumped(player)) return;
     const tests = this.testsOf(player);
+    // The turn order's roll (no menu): the standard die.
     if (tests.rolling) {
-      void this.roll(player);
+      void this.roll(player, tests.rolling.die);
       return;
     }
     if (this.shots.vote(player)) return;
@@ -1096,10 +1039,7 @@ export class BlockPartySpike extends Minigame<Config> {
   /** The loading screen at `level` for everyone, then a tick's wait. */
   private async loadingAt(level: number): Promise<void> {
     this.loadingLevel = level;
-    for (const player of world.getAllPlayers()) {
-      const container = player.getComponent(EntityComponentTypes.Inventory)?.container;
-      if (container) this.sendLine(player, this.testsOf(player), container);
-    }
+    for (const player of world.getAllPlayers()) this.sendLine(player, this.testsOf(player));
     await this.scope.wait(1);
   }
 

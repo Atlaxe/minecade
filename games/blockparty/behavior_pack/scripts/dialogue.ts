@@ -20,7 +20,7 @@
 //     once every player has, the rest of it is skipped.
 // A line the user hasn't written isn't shown (line() gives "").
 import { system, world, type Player } from "@minecraft/server";
-import { describeError, log, Sidebar, type Scope } from "@minecade/minigame-core";
+import { describeError, log, type Scope } from "@minecade/minigame-core";
 import { thinkTicks, type Who } from "./bots.ts";
 import { boxRows, boxTitle, readTicks, rowsOf, sentences, Steering, type BoxMode } from "./dialogue-codes.ts";
 import { line, moment, type Fills } from "./lines.ts";
@@ -29,8 +29,11 @@ import { eventCue, hasCue, lineCue, playCue, voiceCue } from "./sounds.ts";
 export interface DialogueHost {
   scope: Scope;
   random(): number;
-  /** The sidebar's own use again (the standings top left) once the box has gone. */
-  restore(): void;
+  /**
+   * The box's title and rows on the game's sidebar (sidebar-rows.ts, which shares it with the board's
+   * screens), or undefined once the box has gone.
+   */
+  show(box: { title: string; rows: readonly string[] } | undefined): void;
 }
 
 export interface TalkOptions {
@@ -88,8 +91,8 @@ const BOT_SHOW = 10;
 export class Dialogue {
   private readonly host: DialogueHost;
   private open: Open | undefined;
-  /** The box on screen: its own scope (its sidebar goes with it) and its title. */
-  private box: { scope: Scope; sidebar: Sidebar; title: string } | undefined;
+  /** The box on screen, by its title. */
+  private box: { title: string } | undefined;
   private serial = 0;
   /** The box's going, a moment after its line ends (a token; 0 for none): a line that comes meanwhile calls it off. */
   private closing = 0;
@@ -227,20 +230,14 @@ export class Dialogue {
     this.closing = 0;
     this.open = undefined;
     if (!this.box) return;
-    const box = this.box;
     this.box = undefined;
+    if (this.host.scope.disposed) return;
     try {
-      box.scope.dispose();
+      this.host.show(undefined);
     } catch (error) {
       log.warn(`blockparty: the dialogue box didn't go: ${describeError(error)}`);
     }
-    if (this.host.scope.disposed) return;
     playCue(eventCue("dialogue.close"));
-    try {
-      this.host.restore();
-    } catch (error) {
-      log.warn(`blockparty: putting the standings back failed: ${describeError(error)}`);
-    }
   }
 
   /** Puts `open` on screen (in place of the box there). */
@@ -392,17 +389,12 @@ export class Dialogue {
     if (changed && open) this.draw(open);
   }
 
-  /** Puts the box as it is now on the sidebar: a new one when the title changes. */
+  /** Puts the box as it is now on the sidebar. */
   private draw(open: Open): void {
     if (this.open !== open) return;
     try {
       const title = boxTitle(open.mode, open.name);
-      if (!this.box || this.box.title !== title) {
-        const old = this.box;
-        const scope = this.host.scope.child(`dialogue box ${++this.serial}`);
-        this.box = { scope, sidebar: new Sidebar(scope, `dialogue_${this.serial}`, title), title };
-        old?.scope.dispose();
-      }
+      this.box = { title };
       const voting = this.voting(open);
       // Anyone holding sneak: how far along, a quarter at a time.
       const holders = [...this.holding].filter(([, held]) => held >= SKIP_HOLD / 4).map(([name, held]) => `${name} ${Math.floor((held / SKIP_HOLD) * 4) * 25}%`);
@@ -411,7 +403,7 @@ export class Dialogue {
       const steerer = open.steerer;
       const prompt = open.mode === "everyone" ? "" : steerer?.player ? steerer.name : undefined;
       const rows = boxRows({ words: open.words, buttons: open.buttons, selected: open.selected, skip, jumped: open.mode === "everyone" ? open.jumped : undefined, prompt });
-      this.box.sidebar.show(rows.map((row, i): [string, number] => [row, rows.length - i]));
+      this.host.show({ title, rows });
     } catch (error) {
       log.warn(`blockparty: drawing the dialogue box failed: ${describeError(error)}`);
     }

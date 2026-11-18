@@ -1,0 +1,456 @@
+// Built by the workshop's JSON UI tool from its blockparty_menu component (tools\install-component.mjs): change it in the builder and install it again, not here.
+{
+  "namespace": "jui_blockparty_menu",
+  "layout": {
+    "type": "panel",
+    "size": [
+      "100%",
+      "100%"
+    ],
+    "$v_text|default": [
+      1,
+      1,
+      1
+    ],
+    "$v_secondary|default": [
+      0.961,
+      0.569,
+      0.235
+    ],
+    "$v_dim|default": [
+      0.604,
+      0.604,
+      0.604
+    ],
+    "visible": false,
+    "bindings": [
+      {
+        "binding_name": "#scoreboard_sidebar_visible",
+        "binding_type": "global"
+      },
+      {
+        "binding_name": "#objective_sidebar_name",
+        "binding_type": "global"
+      },
+      {
+        "binding_type": "view",
+        "source_property_name": "(#scoreboard_sidebar_visible and (not ((#objective_sidebar_name - '§b§p§m') = #objective_sidebar_name)))",
+        "target_property_name": "#visible"
+      }
+    ],
+    "controls": [
+      {
+        "b_edcb6362": {
+          "type": "stack_panel",
+          "orientation": "vertical",
+          "size": [
+            "100%cm",
+            "100%c"
+          ],
+          "collection_name": "scoreboard_players",
+          "factory": {
+            "name": "player_list_factory",
+            "control_name": "jui_blockparty_menu.b_edcb6362_row"
+          },
+          "bindings": [
+            {
+              "binding_name": "#scoreboard_sidebar_size",
+              "binding_type": "global",
+              "binding_name_override": "#collection_length"
+            }
+          ],
+          "anchor_from": "top_left",
+          "anchor_to": "top_left",
+          "offset": [
+            6,
+            6
+          ]
+        }
+      }
+    ]
+  },
+  "b_edcb6362_row": {
+    "type": "panel",
+    "size": [
+      "100%cm",
+      "100%cm"
+    ],
+    "controls": [
+      {
+        "b_52fb2418": {
+          "type": "stack_panel",
+          "orientation": "vertical",
+          "size": [
+            "100%cm",
+            "100%c"
+          ],
+          "controls": [
+            {
+              "b_c7f25047": {
+                "type": "panel",
+                "size": [
+                  86,
+                  16
+                ],
+                "controls": [
+                  {
+                    "b_16c3c16d": {
+                      "type": "image",
+                      "size": [
+                        "100%",
+                        "100%"
+                      ],
+                      "keep_ratio": false,
+                      "color": "$v_secondary",
+                      "texture": "textures/ui/White",
+                      "anchor_from": "top_left",
+                      "anchor_to": "top_left",
+                      "visible": false,
+                      "bindings": [
+                        {
+                          "binding_name": "#player_name_sidebar",
+                          "binding_type": "collection",
+                          "binding_collection_name": "scoreboard_players"
+                        },
+                        {
+                          "binding_type": "view",
+                          "source_property_name": "(not ((#player_name_sidebar - '§s§0') = #player_name_sidebar))",
+                          "target_property_name": "#visible"
+                        }
+                      ],
+                      "alpha": 0.45,
+                      "propagate_alpha": true
+                    }
+                  },
+                  {
+                    "b_7660bc19": {
+                      "type": "label",
+                      "text": "Dice block",
+                      "size": [
+                        "default",
+                        "default"
+                      ],
+                      "color": "$v_text",
+                      "shadow": true,
+                      "font_type": "MinecraftTen",
+                      "localize": false,
+                      "anchor_from": "left_middle",
+                      "anchor_to": "left_middle",
+                      "offset": [
+                        4,
+                        0
+                      ],
+                      "visible": false,
+                      "bindings": [
+                        {
+                          "binding_name": "#player_name_sidebar",
+                          "binding_type": "collection",
+                          "binding_collection_name": "scoreboard_players"
+                        },
+                        {
+                          "binding_type": "view",
+                          "source_property_name": "((#player_name_sidebar - '§u§1') = #player_name_sidebar)",
+                          "target_property_name": "#visible"
+                        }
+                      ],
+                      "alpha": 0.85,
+                      "propagate_alpha": true
+                    }
+                  },
+                  {
+                    "b_223015f7": {
+                      "type": "label",
+                      "text": "Dice block",
+                      "size": [
+                        "default",
+                        "default"
+                      ],
+                      "color": "$v_dim",
+                      "shadow": true,
+                      "font_type": "MinecraftTen",
+                      "localize": false,
+                      "anchor_from": "left_middle",
+                      "anchor_to": "left_middle",
+                      "offset": [
+                        4,
+                        0
+                      ],
+                      "visible": false,
+                      "bindings": [
+                        {
+                          "binding_name": "#player_name_sidebar",
+                          "binding_type": "collection",
+                          "binding_collection_name": "scoreboard_players"
+                        },
+                        {
+                          "binding_type": "view",
+                          "source_property_name": "(not ((#player_name_sidebar - '§u§1') = #player_name_sidebar))",
+                          "target_property_name": "#visible"
+                        }
+                      ],
+                      "alpha": 0.4,
+                      "propagate_alpha": true
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "b_52fb2418_gap1": {
+                "type": "panel",
+                "size": [
+                  0,
+                  1
+                ]
+              }
+            },
+            {
+              "b_5c2000e8": {
+                "type": "panel",
+                "size": [
+                  86,
+                  16
+                ],
+                "controls": [
+                  {
+                    "b_72b67ab7": {
+                      "type": "image",
+                      "size": [
+                        "100%",
+                        "100%"
+                      ],
+                      "keep_ratio": false,
+                      "color": "$v_secondary",
+                      "texture": "textures/ui/White",
+                      "anchor_from": "top_left",
+                      "anchor_to": "top_left",
+                      "visible": false,
+                      "bindings": [
+                        {
+                          "binding_name": "#player_name_sidebar",
+                          "binding_type": "collection",
+                          "binding_collection_name": "scoreboard_players"
+                        },
+                        {
+                          "binding_type": "view",
+                          "source_property_name": "(not ((#player_name_sidebar - '§s§1') = #player_name_sidebar))",
+                          "target_property_name": "#visible"
+                        }
+                      ],
+                      "alpha": 0.45,
+                      "propagate_alpha": true
+                    }
+                  },
+                  {
+                    "b_27d24673": {
+                      "type": "label",
+                      "text": "Items",
+                      "size": [
+                        "default",
+                        "default"
+                      ],
+                      "color": "$v_text",
+                      "shadow": true,
+                      "font_type": "MinecraftTen",
+                      "localize": false,
+                      "anchor_from": "left_middle",
+                      "anchor_to": "left_middle",
+                      "offset": [
+                        4,
+                        0
+                      ],
+                      "visible": false,
+                      "bindings": [
+                        {
+                          "binding_name": "#player_name_sidebar",
+                          "binding_type": "collection",
+                          "binding_collection_name": "scoreboard_players"
+                        },
+                        {
+                          "binding_type": "view",
+                          "source_property_name": "((#player_name_sidebar - '§v§1') = #player_name_sidebar)",
+                          "target_property_name": "#visible"
+                        }
+                      ],
+                      "alpha": 0.85,
+                      "propagate_alpha": true
+                    }
+                  },
+                  {
+                    "b_0b68d405": {
+                      "type": "label",
+                      "text": "Items",
+                      "size": [
+                        "default",
+                        "default"
+                      ],
+                      "color": "$v_dim",
+                      "shadow": true,
+                      "font_type": "MinecraftTen",
+                      "localize": false,
+                      "anchor_from": "left_middle",
+                      "anchor_to": "left_middle",
+                      "offset": [
+                        4,
+                        0
+                      ],
+                      "visible": false,
+                      "bindings": [
+                        {
+                          "binding_name": "#player_name_sidebar",
+                          "binding_type": "collection",
+                          "binding_collection_name": "scoreboard_players"
+                        },
+                        {
+                          "binding_type": "view",
+                          "source_property_name": "(not ((#player_name_sidebar - '§v§1') = #player_name_sidebar))",
+                          "target_property_name": "#visible"
+                        }
+                      ],
+                      "alpha": 0.4,
+                      "propagate_alpha": true
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "b_52fb2418_gap2": {
+                "type": "panel",
+                "size": [
+                  0,
+                  1
+                ]
+              }
+            },
+            {
+              "b_5dac350d": {
+                "type": "panel",
+                "size": [
+                  86,
+                  16
+                ],
+                "controls": [
+                  {
+                    "b_321773ad": {
+                      "type": "image",
+                      "size": [
+                        "100%",
+                        "100%"
+                      ],
+                      "keep_ratio": false,
+                      "color": "$v_secondary",
+                      "texture": "textures/ui/White",
+                      "anchor_from": "top_left",
+                      "anchor_to": "top_left",
+                      "visible": false,
+                      "bindings": [
+                        {
+                          "binding_name": "#player_name_sidebar",
+                          "binding_type": "collection",
+                          "binding_collection_name": "scoreboard_players"
+                        },
+                        {
+                          "binding_type": "view",
+                          "source_property_name": "(not ((#player_name_sidebar - '§s§2') = #player_name_sidebar))",
+                          "target_property_name": "#visible"
+                        }
+                      ],
+                      "alpha": 0.45,
+                      "propagate_alpha": true
+                    }
+                  },
+                  {
+                    "b_e5fa22bc": {
+                      "type": "label",
+                      "text": "Board",
+                      "size": [
+                        "default",
+                        "default"
+                      ],
+                      "color": "$v_text",
+                      "shadow": true,
+                      "font_type": "MinecraftTen",
+                      "localize": false,
+                      "anchor_from": "left_middle",
+                      "anchor_to": "left_middle",
+                      "offset": [
+                        4,
+                        0
+                      ],
+                      "visible": false,
+                      "bindings": [
+                        {
+                          "binding_name": "#player_name_sidebar",
+                          "binding_type": "collection",
+                          "binding_collection_name": "scoreboard_players"
+                        },
+                        {
+                          "binding_type": "view",
+                          "source_property_name": "((#player_name_sidebar - '§j§1') = #player_name_sidebar)",
+                          "target_property_name": "#visible"
+                        }
+                      ],
+                      "alpha": 0.85,
+                      "propagate_alpha": true
+                    }
+                  },
+                  {
+                    "b_0071c2d1": {
+                      "type": "label",
+                      "text": "Board",
+                      "size": [
+                        "default",
+                        "default"
+                      ],
+                      "color": "$v_dim",
+                      "shadow": true,
+                      "font_type": "MinecraftTen",
+                      "localize": false,
+                      "anchor_from": "left_middle",
+                      "anchor_to": "left_middle",
+                      "offset": [
+                        4,
+                        0
+                      ],
+                      "visible": false,
+                      "bindings": [
+                        {
+                          "binding_name": "#player_name_sidebar",
+                          "binding_type": "collection",
+                          "binding_collection_name": "scoreboard_players"
+                        },
+                        {
+                          "binding_type": "view",
+                          "source_property_name": "(not ((#player_name_sidebar - '§j§1') = #player_name_sidebar))",
+                          "target_property_name": "#visible"
+                        }
+                      ],
+                      "alpha": 0.4,
+                      "propagate_alpha": true
+                    }
+                  }
+                ]
+              }
+            }
+          ],
+          "anchor_from": "top_left",
+          "anchor_to": "top_left"
+        }
+      }
+    ],
+    "visible": false,
+    "bindings": [
+      {
+        "binding_name": "#player_name_sidebar",
+        "binding_type": "collection",
+        "binding_collection_name": "scoreboard_players"
+      },
+      {
+        "binding_type": "view",
+        "source_property_name": "(not ((#player_name_sidebar - '§k§m') = #player_name_sidebar))",
+        "target_property_name": "#visible"
+      }
+    ]
+  }
+}

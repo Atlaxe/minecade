@@ -1,0 +1,1062 @@
+// Built by the workshop's JSON UI tool from its blockparty_panel component (tools\install-component.mjs): change it in the builder and install it again, not here.
+{
+  "namespace": "jui_blockparty_panel",
+  "layout": {
+    "type": "panel",
+    "size": [
+      "100%",
+      "100%"
+    ],
+    "$v_text|default": [
+      1,
+      1,
+      1
+    ],
+    "$v_panel|default": [
+      0,
+      0,
+      0
+    ],
+    "$v_chevron|default": [
+      1,
+      1,
+      0.333
+    ],
+    "visible": false,
+    "bindings": [
+      {
+        "binding_name": "#scoreboard_sidebar_visible",
+        "binding_type": "global"
+      },
+      {
+        "binding_name": "#objective_sidebar_name",
+        "binding_type": "global"
+      },
+      {
+        "binding_type": "view",
+        "source_property_name": "(#scoreboard_sidebar_visible and (not ((#objective_sidebar_name - '§b§p§i') = #objective_sidebar_name)))",
+        "target_property_name": "#visible"
+      }
+    ],
+    "controls": [
+      {
+        "b_82e48740": {
+          "type": "stack_panel",
+          "orientation": "vertical",
+          "size": [
+            "100%cm",
+            "100%c"
+          ],
+          "controls": [
+            {
+              "b_d0ccc825": {
+                "type": "stack_panel",
+                "orientation": "vertical",
+                "size": [
+                  150,
+                  "100%c"
+                ],
+                "collection_name": "scoreboard_players",
+                "factory": {
+                  "name": "player_list_factory",
+                  "control_name": "jui_blockparty_panel.b_d0ccc825_row"
+                },
+                "bindings": [
+                  {
+                    "binding_name": "#scoreboard_sidebar_size",
+                    "binding_type": "global",
+                    "binding_name_override": "#collection_length"
+                  }
+                ]
+              }
+            },
+            {
+              "b_82e48740_gap1": {
+                "type": "panel",
+                "size": [
+                  0,
+                  3
+                ]
+              }
+            },
+            {
+              "b_5a2d3858": {
+                "type": "stack_panel",
+                "orientation": "vertical",
+                "size": [
+                  150,
+                  "100%c"
+                ],
+                "collection_name": "scoreboard_players",
+                "factory": {
+                  "name": "player_list_factory",
+                  "control_name": "jui_blockparty_panel.b_5a2d3858_row"
+                },
+                "bindings": [
+                  {
+                    "binding_name": "#scoreboard_sidebar_size",
+                    "binding_type": "global",
+                    "binding_name_override": "#collection_length"
+                  }
+                ]
+              }
+            }
+          ],
+          "anchor_from": "bottom_left",
+          "anchor_to": "bottom_left",
+          "offset": [
+            8,
+            -8
+          ]
+        }
+      }
+    ]
+  },
+  "b_d0ccc825_row": {
+    "type": "panel",
+    "size": [
+      "100%",
+      "100%cm"
+    ],
+    "controls": [
+      {
+        "b_a09beb01": {
+          "type": "stack_panel",
+          "orientation": "vertical",
+          "size": [
+            "100%cm",
+            "100%c"
+          ],
+          "controls": [
+            {
+              "b_00cbce13": {
+                "type": "panel",
+                "size": [
+                  150,
+                  28
+                ],
+                "controls": [
+                  {
+                    "b_3ed963db": {
+                      "type": "panel",
+                      "size": [
+                        26,
+                        26
+                      ],
+                      "anchor_from": "center",
+                      "anchor_to": "center",
+                      "controls": [
+                        {
+                          "b_3ed963db_bg": {
+                            "type": "image",
+                            "size": [
+                              "100%",
+                              "100%"
+                            ],
+                            "anchor_from": "top_left",
+                            "anchor_to": "top_left",
+                            "layer": 0,
+                            "texture": "textures/ui/White",
+                            "color": "$v_panel",
+                            "alpha": 0.5
+                          }
+                        },
+                        {
+                          "b_3ed963db_in": {
+                            "type": "panel",
+                            "size": [
+                              "100% - 0px",
+                              "100% - 0px"
+                            ],
+                            "controls": [
+                              {
+                                "b_3aee72de": {
+                                  "type": "label",
+                                  "text": "#jui_text",
+                                  "size": [
+                                    "default",
+                                    "default"
+                                  ],
+                                  "color": "$v_text",
+                                  "bindings": [
+                                    {
+                                      "binding_name": "#player_name_sidebar",
+                                      "binding_type": "collection",
+                                      "binding_collection_name": "scoreboard_players"
+                                    },
+                                    {
+                                      "binding_type": "view",
+                                      "source_property_name": "(((('%.20s' * #player_name_sidebar) - ('%.18s' * #player_name_sidebar)) - ' '))",
+                                      "target_property_name": "#jui_text"
+                                    }
+                                  ],
+                                  "text_alignment": "center",
+                                  "shadow": true,
+                                  "localize": false,
+                                  "anchor_from": "center",
+                                  "anchor_to": "center"
+                                }
+                              }
+                            ],
+                            "anchor_from": "top_left",
+                            "anchor_to": "top_left",
+                            "offset": [
+                              0,
+                              0
+                            ],
+                            "layer": 1
+                          }
+                        }
+                      ]
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "b_a09beb01_gap1": {
+                "type": "panel",
+                "size": [
+                  0,
+                  3
+                ]
+              }
+            },
+            {
+              "b_02ca6f64": {
+                "type": "panel",
+                "size": [
+                  150,
+                  14
+                ],
+                "controls": [
+                  {
+                    "b_a5f90520": {
+                      "type": "stack_panel",
+                      "orientation": "horizontal",
+                      "size": [
+                        "100%c",
+                        "100%cm"
+                      ],
+                      "controls": [
+                        {
+                          "b_eff21909": {
+                            "type": "image",
+                            "size": [
+                              21.428571428571427,
+                              14
+                            ],
+                            "keep_ratio": false,
+                            "color": [
+                              0,
+                              0,
+                              0
+                            ],
+                            "texture": "textures/ui/White",
+                            "alpha": 0.1,
+                            "propagate_alpha": true
+                          }
+                        },
+                        {
+                          "b_eb960ccd": {
+                            "type": "image",
+                            "size": [
+                              21.428571428571427,
+                              14
+                            ],
+                            "keep_ratio": false,
+                            "color": [
+                              0,
+                              0,
+                              0
+                            ],
+                            "texture": "textures/ui/White",
+                            "alpha": 0.25,
+                            "propagate_alpha": true
+                          }
+                        },
+                        {
+                          "b_eb646bee": {
+                            "type": "image",
+                            "size": [
+                              21.428571428571427,
+                              14
+                            ],
+                            "keep_ratio": false,
+                            "color": [
+                              0,
+                              0,
+                              0
+                            ],
+                            "texture": "textures/ui/White",
+                            "alpha": 0.45,
+                            "propagate_alpha": true
+                          }
+                        },
+                        {
+                          "b_39183d64": {
+                            "type": "image",
+                            "size": [
+                              21.428571428571427,
+                              14
+                            ],
+                            "keep_ratio": false,
+                            "color": [
+                              0,
+                              0,
+                              0
+                            ],
+                            "texture": "textures/ui/White",
+                            "alpha": 0.6,
+                            "propagate_alpha": true
+                          }
+                        },
+                        {
+                          "b_bd595b19": {
+                            "type": "image",
+                            "size": [
+                              21.428571428571427,
+                              14
+                            ],
+                            "keep_ratio": false,
+                            "color": [
+                              0,
+                              0,
+                              0
+                            ],
+                            "texture": "textures/ui/White",
+                            "alpha": 0.45,
+                            "propagate_alpha": true
+                          }
+                        },
+                        {
+                          "b_30ad0147": {
+                            "type": "image",
+                            "size": [
+                              21.428571428571427,
+                              14
+                            ],
+                            "keep_ratio": false,
+                            "color": [
+                              0,
+                              0,
+                              0
+                            ],
+                            "texture": "textures/ui/White",
+                            "alpha": 0.25,
+                            "propagate_alpha": true
+                          }
+                        },
+                        {
+                          "b_8ed77c83": {
+                            "type": "image",
+                            "size": [
+                              21.428571428571427,
+                              14
+                            ],
+                            "keep_ratio": false,
+                            "color": [
+                              0,
+                              0,
+                              0
+                            ],
+                            "texture": "textures/ui/White",
+                            "alpha": 0.1,
+                            "propagate_alpha": true
+                          }
+                        }
+                      ],
+                      "anchor_from": "top_left",
+                      "anchor_to": "top_left"
+                    }
+                  },
+                  {
+                    "b_56374202": {
+                      "type": "label",
+                      "text": "<",
+                      "size": [
+                        "default",
+                        "default"
+                      ],
+                      "color": "$v_chevron",
+                      "shadow": true,
+                      "localize": false,
+                      "anchor_from": "left_middle",
+                      "anchor_to": "left_middle",
+                      "offset": [
+                        6,
+                        0
+                      ],
+                      "visible": false,
+                      "bindings": [
+                        {
+                          "binding_name": "#player_name_sidebar",
+                          "binding_type": "collection",
+                          "binding_collection_name": "scoreboard_players"
+                        },
+                        {
+                          "binding_type": "view",
+                          "source_property_name": "(not ((#player_name_sidebar - '§a§1') = #player_name_sidebar))",
+                          "target_property_name": "#visible"
+                        }
+                      ]
+                    }
+                  },
+                  {
+                    "b_7293d013": {
+                      "type": "label",
+                      "text": "#jui_text",
+                      "size": [
+                        "default",
+                        "default"
+                      ],
+                      "color": "$v_text",
+                      "bindings": [
+                        {
+                          "binding_name": "#player_name_sidebar",
+                          "binding_type": "collection",
+                          "binding_collection_name": "scoreboard_players"
+                        },
+                        {
+                          "binding_type": "view",
+                          "source_property_name": "((#player_name_sidebar - ('%.32s' * #player_name_sidebar)))",
+                          "target_property_name": "#jui_text"
+                        }
+                      ],
+                      "text_alignment": "center",
+                      "shadow": true,
+                      "localize": false,
+                      "anchor_from": "center",
+                      "anchor_to": "center"
+                    }
+                  },
+                  {
+                    "b_597f458c": {
+                      "type": "label",
+                      "text": ">",
+                      "size": [
+                        "default",
+                        "default"
+                      ],
+                      "color": "$v_chevron",
+                      "shadow": true,
+                      "localize": false,
+                      "anchor_from": "right_middle",
+                      "anchor_to": "right_middle",
+                      "offset": [
+                        -6,
+                        0
+                      ],
+                      "visible": false,
+                      "bindings": [
+                        {
+                          "binding_name": "#player_name_sidebar",
+                          "binding_type": "collection",
+                          "binding_collection_name": "scoreboard_players"
+                        },
+                        {
+                          "binding_type": "view",
+                          "source_property_name": "(not ((#player_name_sidebar - '§a§1') = #player_name_sidebar))",
+                          "target_property_name": "#visible"
+                        }
+                      ]
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "b_a09beb01_gap2": {
+                "type": "panel",
+                "size": [
+                  0,
+                  3
+                ]
+              }
+            },
+            {
+              "b_d48cac8f": {
+                "type": "panel",
+                "size": [
+                  150,
+                  16
+                ],
+                "controls": [
+                  {
+                    "b_c55c7091": {
+                      "type": "stack_panel",
+                      "orientation": "horizontal",
+                      "size": [
+                        "100%c",
+                        "100%cm"
+                      ],
+                      "controls": [
+                        {
+                          "b_440c257f": {
+                            "type": "panel",
+                            "size": [
+                              20,
+                              14
+                            ],
+                            "controls": [
+                              {
+                                "b_440c257f_bg": {
+                                  "type": "image",
+                                  "size": [
+                                    "100%",
+                                    "100%"
+                                  ],
+                                  "anchor_from": "top_left",
+                                  "anchor_to": "top_left",
+                                  "layer": 0,
+                                  "texture": "textures/ui/White",
+                                  "color": "$v_panel",
+                                  "alpha": 0.55
+                                }
+                              },
+                              {
+                                "b_440c257f_in": {
+                                  "type": "panel",
+                                  "size": [
+                                    "100% - 0px",
+                                    "100% - 0px"
+                                  ],
+                                  "controls": [
+                                    {
+                                      "b_dc26e593": {
+                                        "type": "label",
+                                        "text": "#jui_text",
+                                        "size": [
+                                          "default",
+                                          "default"
+                                        ],
+                                        "color": "$v_text",
+                                        "bindings": [
+                                          {
+                                            "binding_name": "#player_name_sidebar",
+                                            "binding_type": "collection",
+                                            "binding_collection_name": "scoreboard_players"
+                                          },
+                                          {
+                                            "binding_type": "view",
+                                            "source_property_name": "(((('%.22s' * #player_name_sidebar) - ('%.20s' * #player_name_sidebar)) - ' '))",
+                                            "target_property_name": "#jui_text"
+                                          }
+                                        ],
+                                        "text_alignment": "center",
+                                        "shadow": true,
+                                        "localize": false,
+                                        "anchor_from": "center",
+                                        "anchor_to": "center"
+                                      }
+                                    }
+                                  ],
+                                  "anchor_from": "top_left",
+                                  "anchor_to": "top_left",
+                                  "offset": [
+                                    0,
+                                    0
+                                  ],
+                                  "layer": 1
+                                }
+                              }
+                            ]
+                          }
+                        },
+                        {
+                          "b_c55c7091_gap1": {
+                            "type": "panel",
+                            "size": [
+                              3,
+                              0
+                            ]
+                          }
+                        },
+                        {
+                          "b_4fe24890": {
+                            "type": "panel",
+                            "size": [
+                              20,
+                              14
+                            ],
+                            "controls": [
+                              {
+                                "b_4fe24890_bg": {
+                                  "type": "image",
+                                  "size": [
+                                    "100%",
+                                    "100%"
+                                  ],
+                                  "anchor_from": "top_left",
+                                  "anchor_to": "top_left",
+                                  "layer": 0,
+                                  "texture": "textures/ui/White",
+                                  "color": "$v_panel",
+                                  "alpha": 0.55
+                                }
+                              },
+                              {
+                                "b_4fe24890_in": {
+                                  "type": "panel",
+                                  "size": [
+                                    "100% - 0px",
+                                    "100% - 0px"
+                                  ],
+                                  "controls": [
+                                    {
+                                      "b_39c8c476": {
+                                        "type": "label",
+                                        "text": "#jui_text",
+                                        "size": [
+                                          "default",
+                                          "default"
+                                        ],
+                                        "color": "$v_text",
+                                        "bindings": [
+                                          {
+                                            "binding_name": "#player_name_sidebar",
+                                            "binding_type": "collection",
+                                            "binding_collection_name": "scoreboard_players"
+                                          },
+                                          {
+                                            "binding_type": "view",
+                                            "source_property_name": "(((('%.24s' * #player_name_sidebar) - ('%.22s' * #player_name_sidebar)) - ' '))",
+                                            "target_property_name": "#jui_text"
+                                          }
+                                        ],
+                                        "text_alignment": "center",
+                                        "shadow": true,
+                                        "localize": false,
+                                        "anchor_from": "center",
+                                        "anchor_to": "center"
+                                      }
+                                    }
+                                  ],
+                                  "anchor_from": "top_left",
+                                  "anchor_to": "top_left",
+                                  "offset": [
+                                    0,
+                                    0
+                                  ],
+                                  "layer": 1
+                                }
+                              }
+                            ]
+                          }
+                        },
+                        {
+                          "b_c55c7091_gap2": {
+                            "type": "panel",
+                            "size": [
+                              3,
+                              0
+                            ]
+                          }
+                        },
+                        {
+                          "b_fd376c5f": {
+                            "type": "panel",
+                            "size": [
+                              20,
+                              14
+                            ],
+                            "controls": [
+                              {
+                                "b_fd376c5f_bg": {
+                                  "type": "image",
+                                  "size": [
+                                    "100%",
+                                    "100%"
+                                  ],
+                                  "anchor_from": "top_left",
+                                  "anchor_to": "top_left",
+                                  "layer": 0,
+                                  "texture": "textures/ui/White",
+                                  "color": "$v_panel",
+                                  "alpha": 0.55
+                                }
+                              },
+                              {
+                                "b_fd376c5f_in": {
+                                  "type": "panel",
+                                  "size": [
+                                    "100% - 0px",
+                                    "100% - 0px"
+                                  ],
+                                  "controls": [
+                                    {
+                                      "b_f8d66e92": {
+                                        "type": "label",
+                                        "text": "#jui_text",
+                                        "size": [
+                                          "default",
+                                          "default"
+                                        ],
+                                        "color": "$v_text",
+                                        "bindings": [
+                                          {
+                                            "binding_name": "#player_name_sidebar",
+                                            "binding_type": "collection",
+                                            "binding_collection_name": "scoreboard_players"
+                                          },
+                                          {
+                                            "binding_type": "view",
+                                            "source_property_name": "(((('%.26s' * #player_name_sidebar) - ('%.24s' * #player_name_sidebar)) - ' '))",
+                                            "target_property_name": "#jui_text"
+                                          }
+                                        ],
+                                        "text_alignment": "center",
+                                        "shadow": true,
+                                        "localize": false,
+                                        "anchor_from": "center",
+                                        "anchor_to": "center"
+                                      }
+                                    }
+                                  ],
+                                  "anchor_from": "top_left",
+                                  "anchor_to": "top_left",
+                                  "offset": [
+                                    0,
+                                    0
+                                  ],
+                                  "layer": 1
+                                }
+                              }
+                            ]
+                          }
+                        },
+                        {
+                          "b_c55c7091_gap3": {
+                            "type": "panel",
+                            "size": [
+                              3,
+                              0
+                            ]
+                          }
+                        },
+                        {
+                          "b_4fcf9b4b": {
+                            "type": "panel",
+                            "size": [
+                              20,
+                              14
+                            ],
+                            "controls": [
+                              {
+                                "b_4fcf9b4b_bg": {
+                                  "type": "image",
+                                  "size": [
+                                    "100%",
+                                    "100%"
+                                  ],
+                                  "anchor_from": "top_left",
+                                  "anchor_to": "top_left",
+                                  "layer": 0,
+                                  "texture": "textures/ui/White",
+                                  "color": "$v_panel",
+                                  "alpha": 0.55
+                                }
+                              },
+                              {
+                                "b_4fcf9b4b_in": {
+                                  "type": "panel",
+                                  "size": [
+                                    "100% - 0px",
+                                    "100% - 0px"
+                                  ],
+                                  "controls": [
+                                    {
+                                      "b_c177cf02": {
+                                        "type": "label",
+                                        "text": "#jui_text",
+                                        "size": [
+                                          "default",
+                                          "default"
+                                        ],
+                                        "color": "$v_text",
+                                        "bindings": [
+                                          {
+                                            "binding_name": "#player_name_sidebar",
+                                            "binding_type": "collection",
+                                            "binding_collection_name": "scoreboard_players"
+                                          },
+                                          {
+                                            "binding_type": "view",
+                                            "source_property_name": "(((('%.28s' * #player_name_sidebar) - ('%.26s' * #player_name_sidebar)) - ' '))",
+                                            "target_property_name": "#jui_text"
+                                          }
+                                        ],
+                                        "text_alignment": "center",
+                                        "shadow": true,
+                                        "localize": false,
+                                        "anchor_from": "center",
+                                        "anchor_to": "center"
+                                      }
+                                    }
+                                  ],
+                                  "anchor_from": "top_left",
+                                  "anchor_to": "top_left",
+                                  "offset": [
+                                    0,
+                                    0
+                                  ],
+                                  "layer": 1
+                                }
+                              }
+                            ]
+                          }
+                        },
+                        {
+                          "b_c55c7091_gap4": {
+                            "type": "panel",
+                            "size": [
+                              3,
+                              0
+                            ]
+                          }
+                        },
+                        {
+                          "b_dfd0401a": {
+                            "type": "panel",
+                            "size": [
+                              20,
+                              14
+                            ],
+                            "controls": [
+                              {
+                                "b_dfd0401a_bg": {
+                                  "type": "image",
+                                  "size": [
+                                    "100%",
+                                    "100%"
+                                  ],
+                                  "anchor_from": "top_left",
+                                  "anchor_to": "top_left",
+                                  "layer": 0,
+                                  "texture": "textures/ui/White",
+                                  "color": "$v_panel",
+                                  "alpha": 0.55
+                                }
+                              },
+                              {
+                                "b_dfd0401a_in": {
+                                  "type": "panel",
+                                  "size": [
+                                    "100% - 0px",
+                                    "100% - 0px"
+                                  ],
+                                  "controls": [
+                                    {
+                                      "b_6afefee2": {
+                                        "type": "label",
+                                        "text": "#jui_text",
+                                        "size": [
+                                          "default",
+                                          "default"
+                                        ],
+                                        "color": "$v_text",
+                                        "bindings": [
+                                          {
+                                            "binding_name": "#player_name_sidebar",
+                                            "binding_type": "collection",
+                                            "binding_collection_name": "scoreboard_players"
+                                          },
+                                          {
+                                            "binding_type": "view",
+                                            "source_property_name": "(((('%.30s' * #player_name_sidebar) - ('%.28s' * #player_name_sidebar)) - ' '))",
+                                            "target_property_name": "#jui_text"
+                                          }
+                                        ],
+                                        "text_alignment": "center",
+                                        "shadow": true,
+                                        "localize": false,
+                                        "anchor_from": "center",
+                                        "anchor_to": "center"
+                                      }
+                                    }
+                                  ],
+                                  "anchor_from": "top_left",
+                                  "anchor_to": "top_left",
+                                  "offset": [
+                                    0,
+                                    0
+                                  ],
+                                  "layer": 1
+                                }
+                              }
+                            ]
+                          }
+                        },
+                        {
+                          "b_c55c7091_gap5": {
+                            "type": "panel",
+                            "size": [
+                              3,
+                              0
+                            ]
+                          }
+                        },
+                        {
+                          "b_822a94bf": {
+                            "type": "panel",
+                            "size": [
+                              20,
+                              14
+                            ],
+                            "controls": [
+                              {
+                                "b_822a94bf_bg": {
+                                  "type": "image",
+                                  "size": [
+                                    "100%",
+                                    "100%"
+                                  ],
+                                  "anchor_from": "top_left",
+                                  "anchor_to": "top_left",
+                                  "layer": 0,
+                                  "texture": "textures/ui/White",
+                                  "color": "$v_panel",
+                                  "alpha": 0.55
+                                }
+                              },
+                              {
+                                "b_822a94bf_in": {
+                                  "type": "panel",
+                                  "size": [
+                                    "100% - 0px",
+                                    "100% - 0px"
+                                  ],
+                                  "controls": [
+                                    {
+                                      "b_5f153f7a": {
+                                        "type": "label",
+                                        "text": "#jui_text",
+                                        "size": [
+                                          "default",
+                                          "default"
+                                        ],
+                                        "color": "$v_text",
+                                        "bindings": [
+                                          {
+                                            "binding_name": "#player_name_sidebar",
+                                            "binding_type": "collection",
+                                            "binding_collection_name": "scoreboard_players"
+                                          },
+                                          {
+                                            "binding_type": "view",
+                                            "source_property_name": "(((('%.32s' * #player_name_sidebar) - ('%.30s' * #player_name_sidebar)) - ' '))",
+                                            "target_property_name": "#jui_text"
+                                          }
+                                        ],
+                                        "text_alignment": "center",
+                                        "shadow": true,
+                                        "localize": false,
+                                        "anchor_from": "center",
+                                        "anchor_to": "center"
+                                      }
+                                    }
+                                  ],
+                                  "anchor_from": "top_left",
+                                  "anchor_to": "top_left",
+                                  "offset": [
+                                    0,
+                                    0
+                                  ],
+                                  "layer": 1
+                                }
+                              }
+                            ]
+                          }
+                        }
+                      ],
+                      "anchor_from": "center",
+                      "anchor_to": "center"
+                    }
+                  }
+                ],
+                "visible": false,
+                "bindings": [
+                  {
+                    "binding_name": "#player_name_sidebar",
+                    "binding_type": "collection",
+                    "binding_collection_name": "scoreboard_players"
+                  },
+                  {
+                    "binding_type": "view",
+                    "source_property_name": "(not ((#player_name_sidebar - '§f§1') = #player_name_sidebar))",
+                    "target_property_name": "#visible"
+                  }
+                ]
+              }
+            }
+          ],
+          "anchor_from": "top_left",
+          "anchor_to": "top_left"
+        }
+      }
+    ],
+    "visible": false,
+    "bindings": [
+      {
+        "binding_name": "#player_name_sidebar",
+        "binding_type": "collection",
+        "binding_collection_name": "scoreboard_players"
+      },
+      {
+        "binding_type": "view",
+        "source_property_name": "(not ((#player_name_sidebar - '§k§i') = #player_name_sidebar))",
+        "target_property_name": "#visible"
+      }
+    ]
+  },
+  "b_5a2d3858_row": {
+    "type": "panel",
+    "size": [
+      "100%",
+      "100%cm"
+    ],
+    "controls": [
+      {
+        "b_54dde1ea": {
+          "type": "label",
+          "text": "#jui_text",
+          "size": [
+            "100%",
+            "default"
+          ],
+          "color": "$v_text",
+          "bindings": [
+            {
+              "binding_name": "#player_name_sidebar",
+              "binding_type": "collection",
+              "binding_collection_name": "scoreboard_players"
+            },
+            {
+              "binding_type": "view",
+              "source_property_name": "((#player_name_sidebar - ('%.6s' * #player_name_sidebar)))",
+              "target_property_name": "#jui_text"
+            }
+          ],
+          "text_alignment": "center",
+          "shadow": true,
+          "localize": false,
+          "anchor_from": "top_left",
+          "anchor_to": "top_left"
+        }
+      }
+    ],
+    "visible": false,
+    "bindings": [
+      {
+        "binding_name": "#player_name_sidebar",
+        "binding_type": "collection",
+        "binding_collection_name": "scoreboard_players"
+      },
+      {
+        "binding_type": "view",
+        "source_property_name": "(not ((#player_name_sidebar - '§k§j') = #player_name_sidebar))",
+        "target_property_name": "#visible"
+      }
+    ]
+  }
+}
