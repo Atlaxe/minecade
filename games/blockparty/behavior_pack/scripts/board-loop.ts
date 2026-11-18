@@ -140,6 +140,11 @@ export class BoardLoop {
     host.scope.interval(() => this.drawBeams(), BEAM_TICKS);
   }
 
+  /** Whose turn it is now (by key), if anybody's. */
+  get whoseTurn(): string | undefined {
+    return this.turn;
+  }
+
   /** Whose turn it is now, or was last (by key); the first in the order before any turn. */
   get focus(): string | undefined {
     return this.turn ?? this.lastTurn ?? this.order[0];

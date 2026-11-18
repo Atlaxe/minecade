@@ -67,7 +67,7 @@ import { MinigameRunner, type ArenaPlace } from "./minigame-runner.ts";
 import { MINIGAMES } from "./minigames/index.ts";
 import { TITLE, type TitleTiming } from "./minigames/kit.ts";
 import { Npcs } from "./npcs.ts";
-import { DEFAULT_SETTINGS, Pieces, WALK_CAMERAS, hold, lock, unlock, type PieceSettings } from "./pieces.ts";
+import { DEFAULT_SETTINGS, Pieces, WALK_CAMERAS, hold, lock, resendLocks, unlock, type PieceSettings } from "./pieces.ts";
 import { SHOTS, Shots, type ShotId } from "./shots.ts";
 
 type Config = typeof config;
@@ -98,10 +98,16 @@ const BAR_RESEND = 20;
 
 /**
  * What a player's keys may do now (keepControls): walk ("free": off the board, or on the pre-game
- * podium before their roll), only look round, jump and sneak ("held": the board), or not even look
- * round ("locked": their piece walking, their die out).
+ * podium before their roll); only look round, a jump and sneak being the game's buttons ("held": the
+ * board); not even look round ("turn": their turn, facing the turn shot, the user's call; "locked":
+ * their piece walking); or that with a real jump ("rolling": their die out, the jump hits it).
  */
-type Controls = "free" | "held" | "locked" | "rolling";
+type Controls = "free" | "held" | "turn" | "locked" | "rolling";
+/**
+ * Ticks after a player is back on the board from a minigame when their locks are sent again
+ * (resendLocks in pieces.ts): the client can miss the ones sent while it loads after the long teleport.
+ */
+const LOCKS_RESEND = [5, 20, 40];
 
 // ---- Jumps and arenas ----------------------------------------------------------------------
 
@@ -154,6 +160,8 @@ interface PlayerTests {
   /** What their keys were last set to do, and whether vanilla's hotbar was last shown (undefined: set them again). */
   controls?: Controls;
   hotbar?: boolean;
+  /** Ticks at which their locks are sent again (LOCKS_RESEND), soonest first. */
+  resendAt?: number[];
 }
 
 export class BlockPartySpike extends Minigame<Config> {
@@ -336,7 +344,9 @@ export class BlockPartySpike extends Minigame<Config> {
       // A turn's roll opens the board menu (everyone watching); the turn order's roll (each their own) goes straight to the standard die.
       roll: (who, shot) => {
         const player = who.player;
-        // A turn: the turn shot zooms in on them (they turn to face it) while their menu is up.
+        // A turn: the turn shot zooms in on them while their menu is up, and they turn to face it,
+        // their keys locked first so they keep facing it (the user: nobody moves round on their turn).
+        if (shot && player) this.keepControls(player, this.testsOf(player));
         if (shot) this.boardCamera.turnShot(who.body);
         if (!player) return shot ? this.boardMenu.botTurn(who).then((die) => this.botRoll(who, shot, die)) : this.botRoll(who, shot, DICE.standard);
         return new Promise((resolve) => {
@@ -469,6 +479,7 @@ export class BlockPartySpike extends Minigame<Config> {
       if (!who.player.isValid) return;
       this.pieces.place(who.player);
       this.podium.delete(who.key);
+      this.testsOf(who.player).resendAt = LOCKS_RESEND.map((after) => system.currentTick + after);
       const container = who.player.getComponent(EntityComponentTypes.Inventory)?.container;
       for (let slot = 0; container && slot < HOTBAR_SIZE; slot++) container.setItem(slot, undefined);
       return;
@@ -646,8 +657,10 @@ export class BlockPartySpike extends Minigame<Config> {
    * What the player's keys may do (Controls), set when it changes: walking only off the board (a
    * minigame, where its runner also stops everything till Go, or a ride) and on the pre-game podium
    * until their roll, unless Chris is asking them something (the movement keys steer the box's
-   * buttons); nothing but jumping while their piece walks or their die is out; else only looking
-   * round, jumping and sneaking. A jump test's lock stands in until it's set back to Nothing locked.
+   * buttons); nothing at all on their turn (they face the turn shot) or while their piece walks, but
+   * a real jump while their die is out; else only looking round, a jump and sneak being buttons. Back
+   * from a minigame the locks go out again a few times (LOCKS_RESEND). A jump test's lock stands in
+   * until it's set back to Nothing locked.
    * And vanilla's hotbar, shown only while they play a minigame.
    */
   private keepControls(player: Player, tests: PlayerTests): void {
@@ -666,9 +679,14 @@ export class BlockPartySpike extends Minigame<Config> {
     if (tests.rolling) controls = "rolling";
     else if (this.pieces.isWalking(player)) controls = "locked";
     else if (this.pieces.isOff(player) || (this.podium.has(key) && this.dialogue.steerer !== key)) controls = "free";
-    if (tests.controls === controls) return;
+    else if (this.loop?.whoseTurn === key) controls = "turn";
+    const due = tests.resendAt?.[0];
+    const resend = due !== undefined && system.currentTick >= due;
+    if (resend) tests.resendAt?.shift();
+    if (tests.controls === controls && !resend) return;
     tests.controls = controls;
-    if (controls === "locked") lock(player);
+    if (resend) resendLocks(player);
+    if (controls === "locked" || controls === "turn") lock(player);
     else if (controls === "rolling") lock(player, true);
     else if (controls === "held") hold(player);
     else {

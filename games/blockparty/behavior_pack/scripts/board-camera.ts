@@ -115,6 +115,13 @@ export function viewShot(at: Vec3, yaw: number, settings: BoardCameraSettings, z
   return { location: [at[0] - forward[0] * back, at[1] + lift + up, at[2] - forward[1] * back], yaw: normal(yaw), pitch: settings.pitch };
 }
 
+/** The rotation that looks from `eye` straight at `point` (pitch: below 0 looks up). */
+export function lookInto(eye: { x: number; y: number; z: number }, point: Vec3): { x: number; y: number } {
+  const flat = Math.hypot(point[0] - eye.x, point[2] - eye.z);
+  const pitch = -(Math.atan2(point[1] - eye.y, flat) * 180) / Math.PI;
+  return { x: Math.max(-89, Math.min(89, pitch)), y: yawToward(eye.x, eye.z, point[0], point[2]) };
+}
+
 /** Into a minigame: from `shot`, risen and pulled back along its line to `point`, still aimed at it. */
 export function zoomOutShot(shot: CameraShot, point: Vec3, rise = 10, back = 1.6): { location: Vec3; facing: Vec3 } {
   const [x, y, z] = shot.location;
@@ -164,13 +171,15 @@ export class BoardCamera {
     return this.wasEngaged && !this.taken ? this.last : undefined;
   }
 
-  /** The turn shot on `body`: eased in, and they turn to face it. */
+  /** The turn shot on `body`: eased in, and they turn to face it, looking up into it (their keys locked: spike.ts, keepControls). */
   turnShot(body: Entity): void {
     this.zoom = "turn";
     this.fresh = true;
     const yaw = this.yawFor(body);
     try {
-      body.teleport(body.location, { rotation: { x: 0, y: normal(yaw + 180) } });
+      const at = body.location;
+      const shot = viewShot([at.x, at.y, at.z], yaw, this.host.settings(), "turn");
+      body.teleport(at, { rotation: lookInto(body.getHeadLocation(), shot.location) });
     } catch {
       // gone
     }

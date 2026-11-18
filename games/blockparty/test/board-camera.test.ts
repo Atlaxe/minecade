@@ -5,10 +5,10 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { Scope } from "@minecade/minigame-core";
 import { InputPermissionCategory, system, world, type FakePlayer } from "../../../packages/minigame-core/test/fake-mc-server.ts";
 import { flushPromises } from "../../../packages/minigame-core/test/util.ts";
-import { BoardCamera, DEFAULT_BOARD_CAMERA, autoDirection, cameraSettings, normal, turnBetween, viewShot, yawToward, zoomOutShot, type BoardCameraSettings } from "../behavior_pack/scripts/board-camera.ts";
+import { BoardCamera, DEFAULT_BOARD_CAMERA, autoDirection, cameraSettings, lookInto, normal, turnBetween, viewShot, yawToward, zoomOutShot, type BoardCameraSettings } from "../behavior_pack/scripts/board-camera.ts";
 import { RIGHT_X, sidewaysOf } from "../behavior_pack/scripts/board-view.ts";
 import { testSpaces } from "../behavior_pack/scripts/board.ts";
-import { hold, lock } from "../behavior_pack/scripts/pieces.ts";
+import { hold, lock, resendLocks } from "../behavior_pack/scripts/pieces.ts";
 import config from "../game.config.ts";
 
 async function ticks(count: number): Promise<void> {
@@ -54,6 +54,10 @@ describe("the board camera's shots", () => {
     expect(normal(-90)).toBe(270);
     expect(turnBetween(350, 10)).toBe(20);
     expect(turnBetween(10, 350)).toBe(-20);
+    // Up and to the south: yaw 0, pitched up (below 0) by 45 degrees.
+    const look = lookInto({ x: 0, y: 64, z: 0 }, [0, 67, 3]);
+    expect(look.y).toBeCloseTo(0);
+    expect(look.x).toBeCloseTo(-45);
   });
 
   it("looks across the board's longer way when the map doesn't say", () => {
@@ -113,8 +117,12 @@ describe("the board camera", () => {
   it("zooms in for the turn shot, the player turned to face it, and out again", async () => {
     await ticks(1);
     camera.turnShot(alex as never);
-    // Looking north: they turn south, to the camera.
+    // Looking north: they turn south, to the camera, and look up into it from their eyes.
     expect(alex.getRotation().y).toBeCloseTo(0);
+    const shot = viewShot([10, 64, 20], 180, settings, "turn");
+    const up = (Math.atan2(shot.location[1] - (64 + 1.62), settings.turnDistance) * 180) / Math.PI;
+    expect(alex.getRotation().x).toBeCloseTo(-up);
+    expect(alex.getRotation().x).toBeLessThan(0);
     await ticks(1);
     expect(sam.camera.view?.location?.z).toBeCloseTo(20 + settings.turnDistance);
     expect(sam.camera.fovs.at(-1)).toBe(settings.turnFov);
@@ -182,6 +190,10 @@ describe("the board's controls", () => {
     expect(alex.inputPermissions.isPermissionCategoryEnabled(InputPermissionCategory.Jump)).toBe(true);
     lock(alex as never);
     expect(alex.inputPermissions.isPermissionCategoryEnabled(InputPermissionCategory.Jump)).toBe(false);
+    // Sent again after a minigame, the locks stay as they were.
+    resendLocks(alex as never);
+    expect(alex.inputPermissions.isPermissionCategoryEnabled(InputPermissionCategory.Jump)).toBe(false);
+    expect(alex.inputPermissions.isPermissionCategoryEnabled(InputPermissionCategory.Camera)).toBe(false);
   });
 
   it("step the item panel with A and D only", () => {

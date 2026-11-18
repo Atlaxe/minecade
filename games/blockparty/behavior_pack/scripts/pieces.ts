@@ -360,6 +360,22 @@ export function hold(player: Player): void {
   }
 }
 
+/**
+ * Sends the player's input locks again as they stand. The user saw a turn's first button press after
+ * a minigame really jump, though jumping was off: a client back from a long teleport seems to miss
+ * the locks sent while it loads (the next press didn't jump). Jumping flipped and set back makes the
+ * server send the whole set again (spike.ts, keepControls, a few times after a minigame).
+ */
+export function resendLocks(player: Player): void {
+  try {
+    const jump = player.inputPermissions.isPermissionCategoryEnabled(InputPermissionCategory.Jump);
+    player.inputPermissions.setPermissionCategory(InputPermissionCategory.Jump, !jump);
+    player.inputPermissions.setPermissionCategory(InputPermissionCategory.Jump, jump);
+  } catch {
+    // gone
+  }
+}
+
 export function unlock(player: Player): void {
   try {
     for (const category of [InputPermissionCategory.Movement, InputPermissionCategory.LateralMovement, InputPermissionCategory.Camera, InputPermissionCategory.Jump]) {

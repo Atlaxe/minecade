@@ -76,13 +76,18 @@ going.
 - **Select:** jump (`playerButtonInput`, as now). Picking a button doesn't make the player jump (the
   user, 2026-11-18, after the first ask the other way): on the board jumping is off (`hold()` in
   `pieces.ts`; the jump still reaches the script, as the spike found with jumping off). The one real
-  jump is the roll: while the die is out, the jump hits it (`lock(player, true)`).
+  jump is the roll: while the die is out, the jump hits it (`lock(player, true)`). Back from a
+  minigame the user saw a turn's first press really jump (the next didn't): the client seems to miss
+  the locks sent while it loads after the long teleport, so they go out again 5, 20 and 40 ticks
+  after a player is back on the board (`resendLocks()` in `pieces.ts`).
 - **Back:** sneak. Sneaking is fine here: players stand on the board, they don't fly (the "no sneak
   controls" rule is for the editor's creative flight).
 - **Steering never moves the piece:** walking stays locked (`lock()` in `pieces.ts`), and "Checks
   first" makes sure the vector still reads under that lock.
 - On the board players can punch and sneak freely (a jump is only a button) but not walk, and nobody can hurt anybody
-  (no damage, no knockback) outside minigames.
+  (no damage, no knockback) outside minigames. On their own turn they can't look round either (the
+  user, 2026-11-18): they face the turn shot from the menu opening till the turn is over, the walk
+  and the die aside (`"turn"` in `spike.ts`, `keepControls`).
 
 ### Button prompts
 
@@ -415,7 +420,8 @@ stays as proposals.
     following their walk (the Tests' walk cameras only before the board game starts), except while
     a minigame has the players.
   - The turn shot eases in when their board menu opens (a bot's too) and they turn to face the
-    camera; it eases out to the board view once they roll. Body and head turn together: a script
+    camera, looking up into it, their keys locked so they keep facing it; it eases out to the
+    board view once they roll. Body and head turn together: a script
     can't turn a player's head apart from their body (an animation of the game's own could, with
     the player animations).
   - Any stage shot (an NPC's, Board's view of the whole board) takes the camera, and `stage.clear()`
