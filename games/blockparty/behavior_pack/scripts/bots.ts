@@ -44,12 +44,24 @@ export const BOT_WALK = 0.215;
 /** A bot's run in blocks a tick: a player's sprint (5.6 a second). */
 export const BOT_RUN = 0.28;
 
-/** One tick's step for a bot: `x` and `z` blocks this tick, keeping whatever it's falling at. */
-export function stepBot(body: Entity, x: number, z: number): void {
+/** Gravity on a bot, blocks a tick each tick. */
+const BOT_GRAVITY = 0.08;
+
+/** The upward speed that takes a bot up `climb` blocks with a little to spare (a hop up a step), at most a jump's. */
+export function hopUp(climb: number): number {
+  return Math.min(0.42, Math.sqrt(2 * BOT_GRAVITY * (climb + 0.15)));
+}
+
+/**
+ * One tick's step for a bot: `x` and `z` blocks this tick, keeping whatever it's falling at; `climb`
+ * (blocks) a step up ahead, which it hops up when it isn't on its way up already (a bot set moving
+ * doesn't step up on its own).
+ */
+export function stepBot(body: Entity, x: number, z: number, climb = 0): void {
   try {
     const fall = body.getVelocity().y;
     body.clearVelocity();
-    body.applyImpulse({ x, y: fall, z });
+    body.applyImpulse({ x, y: climb > 0 && fall <= 0.01 ? hopUp(climb) : fall, z });
     if (Math.hypot(x, z) > 0.01) body.setRotation({ x: 0, y: (Math.atan2(-x, z) * 180) / Math.PI });
   } catch {
     // gone
@@ -72,7 +84,9 @@ export function stepToward(body: Entity, target: Vector3, speed: number, near = 
     return true;
   }
   const step = Math.min(speed, gap);
-  stepBot(body, (dx / gap) * step, (dz / gap) * step);
+  // A step up close ahead (a zombie after its target onto a space's marker): hop up it.
+  const climb = target.y - at.y;
+  stepBot(body, (dx / gap) * step, (dz / gap) * step, gap < 1.5 && climb > 0.05 && climb <= 0.6 ? climb : 0);
   return false;
 }
 

@@ -13,8 +13,8 @@ describe("the test board", () => {
     expect(new Set(spaces.map((space) => space.at.join(","))).size).toBe(12);
   });
 
-  it("puts spaces on block middles, a piece on the pedestal's top over the floor", () => {
-    expect(STAND).toBe(0.5);
+  it("puts spaces on block middles, a piece on the marker's top over the floor", () => {
+    expect(STAND).toBe(0.375);
     for (const space of spaces) {
       expect(floorOf(space)).toBe(64);
       expect(space.at[1]).toBe(64 + STAND);
@@ -89,11 +89,11 @@ describe("a map's own spaces", () => {
     { id: 2, at: [0, 64, 0], type: "start", next: [4] },
   ]);
 
-  it("puts Start first, whole x and z at a block's middle, a piece on the pedestal's top, links as indices, and Blue for no type", () => {
+  it("puts Start first, whole x and z at a block's middle, a piece on the marker's top, links as indices, and Blue for no type", () => {
     expect(spaces.map((space) => [space.id, space.type, space.at, space.next])).toEqual([
-      [2, "start", [0.5, 64.5, 0.5], [1]],
-      [4, "blue", [10.5, 64.5, 0.5], [2]],
-      [9, "blue", [10.3, 64.5, 5.5], [0, 1]],
+      [2, "start", [0.5, 64 + STAND, 0.5], [1]],
+      [4, "blue", [10.5, 64 + STAND, 0.5], [2]],
+      [9, "blue", [10.3, 64 + STAND, 5.5], [0, 1]],
     ]);
     expect(spaces.map(floorOf)).toEqual([64, 64, 64]);
   });

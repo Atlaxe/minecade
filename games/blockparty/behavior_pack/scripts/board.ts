@@ -1,7 +1,7 @@
 // The spike's board: a map's own spaces (the board kit's, placed with the Spaces tool), or on a map
 // without any, a test board of 12 spaces around a square on a 3-wide path. Either way each space is
 // a marker the game puts there at the start, its type's model standing on the floor (space-markers.ts;
-// the plan's "Space markers"), and a piece stands on the marker's pedestal, STAND over the floor.
+// the plan's "Space markers"), and a piece stands on the marker's top, STAND over the floor.
 // Pure, apart from layPaths(), so the tests can check the layout and the paths.
 import { BlockVolume, type Dimension } from "@minecraft/server";
 import type { BoardSpace } from "@minecade/minigame-core/config";
@@ -9,8 +9,8 @@ import model from "../../space-model.json";
 
 export type Vec3 = [number, number, number];
 
-/** How high a piece stands over the floor on a space: the top of its marker's pedestal, in blocks (space-model.json, from the model). */
-export const STAND = model.pedestal.top / 16;
+/** How high a piece stands over the floor on a space: the top of its marker, in blocks (space-model.json, from the model). */
+export const STAND = model.top / 16;
 
 /** The test board's 12 types, Start first, going around. */
 export const TEST_TYPES: readonly string[] = ["start", "blue", "blue", "item", "blue", "red", "chance", "blue", "warden", "shop", "versus", "happening"];
@@ -20,7 +20,7 @@ export const PATH_BLOCK = "minecraft:smooth_stone";
 export interface Space {
   index: number;
   type: string;
-  /** The middle of its marker, where a piece stands: x and z a block's middle, y the top of the pedestal (the floor and STAND). */
+  /** The middle of its marker, where a piece stands: x and z a block's middle, y the marker's top (the floor and STAND). */
   at: Vec3;
   /** The floor the marker stands on (the top of the block under it), when it isn't at's y less STAND. */
   floor?: number;
@@ -105,7 +105,7 @@ export function back(spaces: readonly Space[], from: number, steps: number): num
   return at;
 }
 
-/** Where a piece stands on a space: one corner of its pedestal each, so four can share it (`corner` 0 to 3; -1 the middle). */
+/** Where a piece stands on a space: one corner of its marker each, so four can share it (`corner` 0 to 3; -1 the middle). */
 export function standAt(space: Space, corner: number): Vec3 {
   if (corner < 0) return space.at;
   const [x, y, z] = space.at;

@@ -1,5 +1,5 @@
 {
-  "about": "Block Party's space markers (docs/plans/block-party.md, \"Space markers\"). Each type's two textures: the pedestal (where the pieces stand) and the perimeter (the thin plate around it), each any block texture of Minecraft's by its path (textures/blocks/...) or a 16 x 16 picture of your own in resource_pack/textures/blockparty/spaces/. The highlight is how a space lights up while a piece stands on it or a cutscene shows it: drawn at full light with color laid over it, strength plus or minus pulse, once every seconds. The model is resource_pack/models/entity/space.geo.json. After changing this file or the model, run: npx tsx tools/blockparty/space-pack.ts",
+  "about": "Block Party's space markers (docs/plans/block-party.md, \"Space markers\"). Each type's texture, stretched once over each face of the marker: any block texture of Minecraft's by its path (textures/blocks/...) or a 16 x 16 picture of your own in resource_pack/textures/blockparty/spaces/. The highlight is how a space lights up while a piece stands on it or a cutscene shows it: drawn at full light with color laid over it, strength plus or minus pulse, once every seconds. The model is resource_pack/models/entity/space.geo.json. After changing this file or the model, run: npx tsx tools/blockparty/space-pack.ts",
   "highlight": {
     "color": "#FFFFFF",
     "strength": 0.25,
@@ -7,41 +7,14 @@
     "seconds": 1.2
   },
   "types": {
-    "start": {
-      "pedestal": "textures/blocks/concrete_white",
-      "perimeter": "textures/blocks/gold_block"
-    },
-    "blue": {
-      "pedestal": "textures/blocks/concrete_blue",
-      "perimeter": "textures/blocks/quartz_block_bottom"
-    },
-    "red": {
-      "pedestal": "textures/blocks/concrete_red",
-      "perimeter": "textures/blocks/quartz_block_bottom"
-    },
-    "item": {
-      "pedestal": "textures/blocks/gold_block",
-      "perimeter": "textures/blocks/quartz_block_bottom"
-    },
-    "shop": {
-      "pedestal": "textures/blocks/emerald_block",
-      "perimeter": "textures/blocks/quartz_block_bottom"
-    },
-    "chance": {
-      "pedestal": "textures/blocks/concrete_purple",
-      "perimeter": "textures/blocks/quartz_block_bottom"
-    },
-    "warden": {
-      "pedestal": "textures/blocks/concrete_cyan",
-      "perimeter": "textures/blocks/quartz_block_bottom"
-    },
-    "versus": {
-      "pedestal": "textures/blocks/concrete_orange",
-      "perimeter": "textures/blocks/quartz_block_bottom"
-    },
-    "happening": {
-      "pedestal": "textures/blocks/concrete_pink",
-      "perimeter": "textures/blocks/quartz_block_bottom"
-    }
+    "start": "textures/blocks/concrete_white",
+    "blue": "textures/blocks/concrete_blue",
+    "red": "textures/blocks/concrete_red",
+    "item": "textures/blocks/gold_block",
+    "shop": "textures/blocks/emerald_block",
+    "chance": "textures/blocks/concrete_purple",
+    "warden": "textures/blocks/concrete_cyan",
+    "versus": "textures/blocks/concrete_orange",
+    "happening": "textures/blocks/concrete_pink"
   }
 }

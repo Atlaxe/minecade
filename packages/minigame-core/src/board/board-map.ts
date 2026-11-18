@@ -55,7 +55,7 @@ export interface BoardRules {
   stars?: { every: readonly [number, number]; openings: number; openingFrom: readonly [number, number]; apart: number; others: readonly [number, number] };
   /** What a shortcut saves of the loop's length, about: more or less than `slack` off is a warning. */
   shortcut?: { saves: number; slack: number };
-  /** How many blocks across each space's marker is (Block Party's 3): two spaces closer than that both ways, on one level, overlap. */
+  /** How many blocks across each space's marker takes (Block Party's 3, the blocks under its 2.5): two spaces closer than that both ways, on one level, overlap. */
   footprint?: number;
 }
 

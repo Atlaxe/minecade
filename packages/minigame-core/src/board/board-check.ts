@@ -164,7 +164,7 @@ export function checkBoard(spaces: readonly BoardSpace[], board: BoardConfig): B
     for (const [i, space] of spaces.entries()) {
       for (const other of spaces.slice(i + 1)) {
         const near = Math.abs(space.at[0] - other.at[0]) < across && Math.abs(space.at[2] - other.at[2]) < across && Math.abs(space.at[1] - other.at[1]) < 2;
-        if (near) warnings.push({ text: `Spaces ${space.id} and ${other.id} are closer than ${plural(across, "block")}, so their markers (${across} blocks across) overlap; move them apart.`, spaces: [space.id, other.id] });
+        if (near) warnings.push({ text: `Spaces ${space.id} and ${other.id} are closer than ${plural(across, "block")}, so their markers overlap; move them apart.`, spaces: [space.id, other.id] });
       }
     }
   }

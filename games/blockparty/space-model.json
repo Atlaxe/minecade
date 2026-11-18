@@ -12,17 +12,10 @@
     "happening"
   ],
   "reach": [
-    24,
-    24
+    20,
+    20
   ],
-  "height": 8,
-  "pedestal": {
-    "reach": [
-      20,
-      20
-    ],
-    "top": 8
-  },
+  "top": 6,
   "floor": [
     {
       "dx": -1,

@@ -193,19 +193,19 @@
         "Texture.palette"
       ]
     },
-    "controller.render.blockparty.space_perimeter": {
+    "controller.render.blockparty.space": {
       "arrays": {
         "textures": {
-          "Array.perimeter": [
-            "Texture.perimeter_start",
-            "Texture.perimeter_blue",
-            "Texture.perimeter_red",
-            "Texture.perimeter_item",
-            "Texture.perimeter_shop",
-            "Texture.perimeter_chance",
-            "Texture.perimeter_warden",
-            "Texture.perimeter_versus",
-            "Texture.perimeter_happening"
+          "Array.types": [
+            "Texture.type_start",
+            "Texture.type_blue",
+            "Texture.type_red",
+            "Texture.type_item",
+            "Texture.type_shop",
+            "Texture.type_chance",
+            "Texture.type_warden",
+            "Texture.type_versus",
+            "Texture.type_happening"
           ]
         }
       },
@@ -216,30 +216,27 @@
         }
       ],
       "textures": [
-        "Array.perimeter[q.property('blockparty:type')]"
+        "Array.types[q.property('blockparty:type')]"
       ],
       "part_visibility": [
         {
-          "*": false
-        },
-        {
-          "perimeter": "!q.property('blockparty:lit')"
+          "*": "!q.property('blockparty:lit')"
         }
       ]
     },
-    "controller.render.blockparty.space_perimeter_lit": {
+    "controller.render.blockparty.space_lit": {
       "arrays": {
         "textures": {
-          "Array.perimeter": [
-            "Texture.perimeter_start",
-            "Texture.perimeter_blue",
-            "Texture.perimeter_red",
-            "Texture.perimeter_item",
-            "Texture.perimeter_shop",
-            "Texture.perimeter_chance",
-            "Texture.perimeter_warden",
-            "Texture.perimeter_versus",
-            "Texture.perimeter_happening"
+          "Array.types": [
+            "Texture.type_start",
+            "Texture.type_blue",
+            "Texture.type_red",
+            "Texture.type_item",
+            "Texture.type_shop",
+            "Texture.type_chance",
+            "Texture.type_warden",
+            "Texture.type_versus",
+            "Texture.type_happening"
           ]
         }
       },
@@ -250,89 +247,11 @@
         }
       ],
       "textures": [
-        "Array.perimeter[q.property('blockparty:type')]"
+        "Array.types[q.property('blockparty:type')]"
       ],
       "part_visibility": [
         {
-          "*": false
-        },
-        {
-          "perimeter": "q.property('blockparty:lit')"
-        }
-      ],
-      "ignore_lighting": true,
-      "overlay_color": {
-        "r": 1,
-        "g": 1,
-        "b": 1,
-        "a": "0.25 + 0.15 * math.sin(q.life_time * 300)"
-      }
-    },
-    "controller.render.blockparty.space_pedestal": {
-      "arrays": {
-        "textures": {
-          "Array.pedestal": [
-            "Texture.pedestal_start",
-            "Texture.pedestal_blue",
-            "Texture.pedestal_red",
-            "Texture.pedestal_item",
-            "Texture.pedestal_shop",
-            "Texture.pedestal_chance",
-            "Texture.pedestal_warden",
-            "Texture.pedestal_versus",
-            "Texture.pedestal_happening"
-          ]
-        }
-      },
-      "geometry": "Geometry.default",
-      "materials": [
-        {
-          "*": "Material.default"
-        }
-      ],
-      "textures": [
-        "Array.pedestal[q.property('blockparty:type')]"
-      ],
-      "part_visibility": [
-        {
-          "*": false
-        },
-        {
-          "pedestal": "!q.property('blockparty:lit')"
-        }
-      ]
-    },
-    "controller.render.blockparty.space_pedestal_lit": {
-      "arrays": {
-        "textures": {
-          "Array.pedestal": [
-            "Texture.pedestal_start",
-            "Texture.pedestal_blue",
-            "Texture.pedestal_red",
-            "Texture.pedestal_item",
-            "Texture.pedestal_shop",
-            "Texture.pedestal_chance",
-            "Texture.pedestal_warden",
-            "Texture.pedestal_versus",
-            "Texture.pedestal_happening"
-          ]
-        }
-      },
-      "geometry": "Geometry.default",
-      "materials": [
-        {
-          "*": "Material.default"
-        }
-      ],
-      "textures": [
-        "Array.pedestal[q.property('blockparty:type')]"
-      ],
-      "part_visibility": [
-        {
-          "*": false
-        },
-        {
-          "pedestal": "q.property('blockparty:lit')"
+          "*": "q.property('blockparty:lit')"
         }
       ],
       "ignore_lighting": true,

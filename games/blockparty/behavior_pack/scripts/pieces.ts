@@ -25,6 +25,7 @@ import { EasingType, InputPermissionCategory, system, world, type Entity, type P
 import { describeError, log, type Scope } from "@minecade/minigame-core";
 import { angleGap, distance, route, standAt, yawTo, type Space, type Vec3 } from "./board.ts";
 import { isPlayer, nameOf, stepBot } from "./bots.ts";
+import { stepUp } from "./space-markers.ts";
 
 export type WalkCamera = "chase" | "watch" | "none";
 
@@ -48,6 +49,10 @@ const KNOCKBACK_SPEED = 0.4;
 const PUSH_GAIN = 1.375;
 /** How much of the sideways drift off a leg's line is taken back each tick. */
 const STEER = 0.4;
+/** How many ticks ahead of meeting a space's marker the walk starts lifting a piece up onto it; a player's lift a tick at most (a jump's), and gravity's pull a tick. */
+const LIFT_AHEAD = 2;
+const MAX_LIFT = 0.42;
+const GRAVITY = 0.08;
 /** Ticks a leg may run past its length at full speed before the piece is put at its end (something in the way). */
 const STUCK_SLACK = 30;
 /** A change of direction bigger than this (degrees) is a turn. */
@@ -221,7 +226,9 @@ export class Pieces {
           if (span - along <= perTick) break;
           const side = (at.x - a[0]) * -uz + (at.z - a[2]) * ux;
           drift = Math.max(drift, Math.abs(side));
-          this.push(player, { x: ux * perTick + uz * side * STEER, z: uz * perTick - ux * side * STEER });
+          // Up onto a space's marker as its edge comes (a pushed piece doesn't step up on its own).
+          const climb = stepUp(this.host.spaces(), [at.x, at.y, at.z], ux, uz, perTick * LIFT_AHEAD + 0.1);
+          this.push(player, { x: ux * perTick + uz * side * STEER, z: uz * perTick - ux * side * STEER }, climb);
           if (settings.camera === "chase" && tick % CHASE_EVERY === 0) {
             cameraYaw += Math.max(-CAMERA_TURN * CHASE_EVERY, Math.min(CAMERA_TURN * CHASE_EVERY, angleGap(cameraYaw, yaw)));
             this.chaseCamera(at, cameraYaw);
@@ -261,11 +268,16 @@ export class Pieces {
     }
   }
 
-  /** One tick's push: `step` blocks this tick (asked for a little less, as a player's pushes overshoot; a bot is set moving at it). */
-  private push(player: Entity, step: { x: number; z: number }): void {
-    if (!isPlayer(player)) return stepBot(player, step.x, step.z);
+  /**
+   * One tick's push: `step` blocks this tick (asked for a little less, as a player's pushes overshoot;
+   * a bot is set moving at it), and up when there's a step to `climb` (blocks) ahead. A push sets a
+   * player's upward speed (docs/spike-results.md, "Knockback"), so a player is lifted each tick till
+   * they're up, as fast as the step is high (gravity's 0.08 on top); a bot hops it once.
+   */
+  private push(player: Entity, step: { x: number; z: number }, climb = 0): void {
+    if (!isPlayer(player)) return stepBot(player, step.x, step.z, climb);
     try {
-      player.applyKnockback({ x: step.x / PUSH_GAIN / KNOCKBACK_SPEED, z: step.z / PUSH_GAIN / KNOCKBACK_SPEED }, 0);
+      player.applyKnockback({ x: step.x / PUSH_GAIN / KNOCKBACK_SPEED, z: step.z / PUSH_GAIN / KNOCKBACK_SPEED }, climb > 0 ? Math.min(MAX_LIFT, climb + GRAVITY) : 0);
     } catch (error) {
       log.warn(`blockparty: pushing a piece failed: ${describeError(error)}`);
     }

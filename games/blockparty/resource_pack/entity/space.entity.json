@@ -7,33 +7,22 @@
         "default": "entity_alphatest"
       },
       "textures": {
-        "perimeter_start": "textures/blocks/gold_block",
-        "perimeter_blue": "textures/blocks/quartz_block_bottom",
-        "perimeter_red": "textures/blocks/quartz_block_bottom",
-        "perimeter_item": "textures/blocks/quartz_block_bottom",
-        "perimeter_shop": "textures/blocks/quartz_block_bottom",
-        "perimeter_chance": "textures/blocks/quartz_block_bottom",
-        "perimeter_warden": "textures/blocks/quartz_block_bottom",
-        "perimeter_versus": "textures/blocks/quartz_block_bottom",
-        "perimeter_happening": "textures/blocks/quartz_block_bottom",
-        "pedestal_start": "textures/blocks/concrete_white",
-        "pedestal_blue": "textures/blocks/concrete_blue",
-        "pedestal_red": "textures/blocks/concrete_red",
-        "pedestal_item": "textures/blocks/gold_block",
-        "pedestal_shop": "textures/blocks/emerald_block",
-        "pedestal_chance": "textures/blocks/concrete_purple",
-        "pedestal_warden": "textures/blocks/concrete_cyan",
-        "pedestal_versus": "textures/blocks/concrete_orange",
-        "pedestal_happening": "textures/blocks/concrete_pink"
+        "type_start": "textures/blocks/concrete_white",
+        "type_blue": "textures/blocks/concrete_blue",
+        "type_red": "textures/blocks/concrete_red",
+        "type_item": "textures/blocks/gold_block",
+        "type_shop": "textures/blocks/emerald_block",
+        "type_chance": "textures/blocks/concrete_purple",
+        "type_warden": "textures/blocks/concrete_cyan",
+        "type_versus": "textures/blocks/concrete_orange",
+        "type_happening": "textures/blocks/concrete_pink"
       },
       "geometry": {
         "default": "geometry.blockparty.space"
       },
       "render_controllers": [
-        "controller.render.blockparty.space_perimeter",
-        "controller.render.blockparty.space_perimeter_lit",
-        "controller.render.blockparty.space_pedestal",
-        "controller.render.blockparty.space_pedestal_lit"
+        "controller.render.blockparty.space",
+        "controller.render.blockparty.space_lit"
       ]
     }
   }

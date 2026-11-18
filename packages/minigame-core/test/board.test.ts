@@ -174,7 +174,7 @@ describe("the board's checks", () => {
   it("warns about spaces whose markers would overlap", () => {
     const close = addSpace(addSpace([], [0, 64, 0], "start").spaces, [2, 64, 1], "blue", 1).spaces;
     const warning = checkBoard(close, BOARD).warnings.find((found) => found.text.startsWith("Spaces 1 and 2"));
-    expect(warning).toEqual({ text: "Spaces 1 and 2 are closer than 3 blocks, so their markers (3 blocks across) overlap; move them apart.", spaces: [1, 2] });
+    expect(warning).toEqual({ text: "Spaces 1 and 2 are closer than 3 blocks, so their markers overlap; move them apart.", spaces: [1, 2] });
     // Side by side, 3 apart, and one over the other's level: no overlap.
     const fine = addSpace(addSpace(addSpace([], [0, 64, 0], "start").spaces, [3, 64, 0], "blue", 1).spaces, [1, 70, 1], "blue", 2).spaces;
     expect(checkBoard(fine, BOARD).warnings.some((found) => found.text.includes("overlap"))).toBe(false);

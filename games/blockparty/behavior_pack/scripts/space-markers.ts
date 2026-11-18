@@ -1,17 +1,19 @@
 // Block Party's space markers (docs/plans/block-party.md, "Space markers"): every space on the board
-// is the game's own model, blockparty:space, put there at the start. It has two parts, a thin
-// perimeter the marker's whole footprint and a pedestal on it where the pieces stand, each in its
-// type's block texture (games/blockparty/spaces.json; tools/blockparty/space-pack.ts makes the model,
-// resource_pack/models/entity/space.geo.json, and space-model.json, which this reads).
-//   - The pedestal is stood on for real: an invisible block, blockparty:space_floor, in each block it
-//     covers, as tall as the pedestal (its cell state picks how much of the block), so a walking piece
-//     steps up onto it as onto a slab, and a piece put on a space stands on its top (board.ts, STAND).
-//     A block already there (the map's own) is left as it is.
+// is the game's own model, blockparty:space, put there at the start: a pedestal 6 pixels tall where
+// the pieces stand, in its type's block texture (games/blockparty/spaces.json; tools/blockparty/
+// space-pack.ts makes the model, resource_pack/models/entity/space.geo.json, and space-model.json,
+// which this reads).
+//   - The marker is stood on for real: an invisible block, blockparty:space_floor, in each block it
+//     covers, as tall as the marker (its cell state picks how much of the block), and a piece put on
+//     a space stands on its top (board.ts, STAND). A block already there (the map's own) is left as
+//     it is.
+//   - A pushed piece doesn't step up on its own (each push sets its upward speed, to 0: pieces.ts),
+//     so the walk lifts it as it comes to a marker's edge (stepUp), as a stair would.
 //   - A space lights up (blockparty:lit: drawn at full light with the highlight's pulsing color over
-//     it) while a piece anyone can see stands on it, its middle over the pedestal (so a walk lights
+//     it) while a piece anyone can see stands on it, its middle over the marker (so a walk lights
 //     each space as it crosses it), and while the stage's shot is on it (select(): a Star's reveal or
 //     move, the Wandering Trader's space, a Happening).
-// Pure apart from SpaceMarkers, so the tests can check what lights.
+// Pure apart from SpaceMarkers, so the tests can check what lights and lifts.
 import { BlockPermutation, type Dimension, type Entity } from "@minecraft/server";
 import { describeError, log, type Scope } from "@minecade/minigame-core";
 import model from "../../space-model.json";
@@ -24,10 +26,12 @@ const TYPE_PROPERTY = "blockparty:type";
 const LIT_PROPERTY = "blockparty:lit";
 /** How often (ticks) who stands where is looked at. */
 const LIT_EVERY = 2;
+/** Half a piece's width: its side meets a marker's edge this far from its middle. */
+const PIECE_HALF = 0.3;
 
-/** How far the pedestal reaches from a space's middle, x and z, in blocks. */
-export const PEDESTAL: readonly [number, number] = [model.pedestal.reach[0] / 16, model.pedestal.reach[1] / 16];
-/** The blocks of the pedestal's floor, from the space's own block (east +x, south +z), and each one's cell state. */
+/** How far the marker reaches from a space's middle, x and z, in blocks. */
+export const MARKER_REACH: readonly [number, number] = [model.reach[0] / 16, model.reach[1] / 16];
+/** The blocks of the marker's floor, from the space's own block (east +x, south +z), and each one's cell state. */
 export const FLOOR_CELLS: readonly { dx: number; dz: number; cell: number }[] = model.floor;
 
 /** A type's place in the render controllers' texture arrays (Blue's for a type the model doesn't have). */
@@ -36,9 +40,27 @@ export function typeIndex(type: string): number {
   return index >= 0 ? index : Math.max(0, model.types.indexOf("blue"));
 }
 
-/** Whether a piece at `at` (its feet) stands on `space`: its middle over the pedestal, its feet about the marker's height. */
+/** Whether a piece at `at` (its feet) stands on `space`: its middle over the marker, its feet about the marker's height. */
 export function standsOn(space: Space, at: Vec3): boolean {
-  return Math.abs(at[0] - space.at[0]) <= PEDESTAL[0] && Math.abs(at[2] - space.at[2]) <= PEDESTAL[1] && at[1] >= floorOf(space) - 0.5 && at[1] <= space.at[1] + 1.5;
+  return Math.abs(at[0] - space.at[0]) <= MARKER_REACH[0] && Math.abs(at[2] - space.at[2]) <= MARKER_REACH[1] && at[1] >= floorOf(space) - 0.5 && at[1] <= space.at[1] + 1.5;
+}
+
+/**
+ * How far a walking piece at `at` (its feet) going along (ux, uz) has to come up this tick: to the top
+ * of a marker its side will meet within `ahead` blocks, if its feet are under that top; 0 otherwise
+ * (on a marker already, or nowhere near one). The walk turns it into a lift (pieces.ts, bots.ts).
+ */
+export function stepUp(spaces: readonly Space[], at: Vec3, ux: number, uz: number, ahead: number): number {
+  const x = at[0] + ux * ahead;
+  const z = at[2] + uz * ahead;
+  for (const space of spaces) {
+    const top = space.at[1];
+    const below = top - at[1];
+    // Already up (or a marker on another level).
+    if (below <= 0.01 || at[1] < floorOf(space) - 0.5) continue;
+    if (Math.abs(x - space.at[0]) <= MARKER_REACH[0] + PIECE_HALF && Math.abs(z - space.at[2]) <= MARKER_REACH[1] + PIECE_HALF) return below;
+  }
+  return 0;
 }
 
 /** The spaces that are lit: each a piece at `pieces` stands on, and each of `selected`. */
@@ -52,7 +74,7 @@ export function litSpaces(spaces: readonly Space[], pieces: readonly Vec3[], sel
   return lit;
 }
 
-/** The blocks of a space's pedestal floor: where each goes and its cell state. */
+/** The blocks of a space's marker floor: where each goes and its cell state. */
 export function floorBlocks(space: Space): { at: Vec3; cell: number }[] {
   const x = Math.floor(space.at[0]);
   const z = Math.floor(space.at[2]);
@@ -83,7 +105,7 @@ export class SpaceMarkers {
     deps.scope.interval(() => this.keep(), LIT_EVERY);
   }
 
-  /** Puts every space's marker and its pedestal's floor on the board (any left from before go first). */
+  /** Puts every space's marker and its floor on the board (any left from before go first). */
   lay(): void {
     this.clear();
     const { dimension } = this.deps;

@@ -745,7 +745,7 @@ board there should be nothing: the game uses the empty space around it for the a
 
 - Leave a flat 3 x 3 spot for each space, its middle block the space's, with the layer above it
   empty (air): the game stands the space's marker there at the start, in its type's look ("Space
-  markers", below), and four pieces share its pedestal, one on each corner. A re-deal never means
+  markers", below), and four pieces share its top, one on each corner. A re-deal never means
   rebuilding. Build the path, not colored pads.
 - Space them 4-5 blocks apart, center to center, 4.5 by default on a straight stretch (a gap of 1
   or 2 blocks between markers). Never closer than 3 along both x and z: the markers would overlap
@@ -799,64 +799,61 @@ anchors.
 
 ### Space markers
 
-**Built 2026-11-18** (the user asked for 3D markers in place of the colored block pads). Every space
-is a model the game stands on the floor at the start (`blockparty:space`, `space-markers.ts`), in
-two parts, each in its type's block texture:
-
-| Part | Size | Where |
-|---|---|---|
-| **Perimeter** | 48 x 48 pixels (3 x 3 blocks), 2 pixels tall | On the floor: the marker's whole footprint, its middle on the space's block |
-| **Pedestal** | 40 x 40 pixels (2.5 x 2.5 blocks), 6 pixels tall | On the perimeter, centered: its top 8 pixels (half a block) over the floor. The pieces stand on it |
-
-A pixel is a sixteenth of a block, as in a block's texture. The user's ranges: the perimeter 1-2
-pixels tall, the pedestal 6-8.
+**Built 2026-11-18** (the user asked for 3D markers in place of the colored block pads), and
+**changed the same day** after their look: the perimeter plate is gone, the block texture is stretched
+once over each face, and the marker is low enough to walk up like a slab or a stair. Every space is a
+model the game stands on the floor at the start (`blockparty:space`, `space-markers.ts`): a
+**pedestal** 40 x 40 pixels (2.5 x 2.5 blocks) and 6 pixels tall, its middle on the space's block,
+the pieces standing on its top. A pixel is a sixteenth of a block, as in a block's texture. It wears
+its type's block texture, the whole picture stretched once over the top and once over each side (one
+block's worth over the whole face, not a block every 16 pixels).
 
 **Spacing and room:**
 
-- Spaces 4-5 blocks apart, center to center (a gap of 1 or 2 blocks between footprints); 3 at the
-  least, where two markers touch. `/boardcheck` warns about any closer (the board config's
-  `footprint`, 3).
+- Spaces 4-5 blocks apart, center to center (a gap of 1.5 to 2.5 blocks between markers); 3 at the
+  least. `/boardcheck` warns about any closer (the board config's `footprint`, 3: the blocks a
+  marker's floor takes).
 - A flat 3 x 3 floor under each, the layer above it empty, and room to stand over that.
 - The pieces: each one's middle 0.7 blocks from the space's middle on a corner, so the four take 2 x 2
-  blocks of the pedestal's 2.5 x 2.5 (a piece is 0.6 wide). They stand on its top, 0.5 over the floor.
+  blocks of the marker's 2.5 x 2.5 (a piece is 0.6 wide). They stand on its top, 0.375 over the floor.
 - NPCs beside a space (Chris by the Star, the Wandering Trader, the Villager, the Witch) stand on the
-  floor 2.5 blocks from its middle, outside the footprint: leave that block free.
+  floor 2.5 blocks from its middle, clear of the marker: leave that block free.
 
-**Standing on it.** The pedestal is stood on for real: under it the game puts an invisible block,
-`blockparty:space_floor`, in each block the pedestal covers, as tall as its top (a slab's height), so
-a walking piece steps up onto it and down off it. A block the map already has in that layer is left
-alone.
+**Standing on it.** The marker is stood on for real: under it the game puts an invisible block,
+`blockparty:space_floor`, in each block the marker covers, as tall as its top, so pieces stand on it.
+A block the map already has in that layer is left alone. A walking piece is pushed each tick, and a
+push sets how fast it goes up (to nothing), so it never stepped up on its own: it stood at the edge
+until the walk gave up and put it on the space (the user saw it stick there a moment). Now the walk
+lifts it as its side comes to a marker's edge (`stepUp`): a player is lifted as fast as the step is
+high until they're up, a bot (and a zombie following its target) hops it once.
 
 **Lit up** (emissive, to show the difference): a marker lights while a piece anyone can see stands
-on it (its middle over the pedestal, so a walk lights each space it crosses; a seat faded out on
+on it (its middle over the marker, so a walk lights each space it crosses; a seat faded out on
 someone else's turn doesn't count) and while a cutscene's shot is on the space (a Star's reveal and
 its move, the Wandering Trader arriving, a Happening). Lit is drawn at full light, unshaded, with the
 highlight's color laid over it, pulsing. The Tests menu's **Light every space** lights them all, to
 look at.
 
-**Editing the textures:** `games/blockparty/spaces.json`. Each type has a `pedestal` and a
-`perimeter`: any of Minecraft's block textures by its path (`textures/blocks/concrete_blue`, no
-`.png`), or a 16 x 16 picture of your own put in
-`games/blockparty/resource_pack/textures/blockparty/spaces/` and named
+**Editing the textures:** `games/blockparty/spaces.json`. Each type has one texture: any of
+Minecraft's block textures by its path (`textures/blocks/concrete_blue`, no `.png`), or a 16 x 16
+picture of your own put in `games/blockparty/resource_pack/textures/blockparty/spaces/` and named
 `textures/blockparty/spaces/<name>`. Pictures must be square: an animated texture (sculk's) is its
 frames one under another and shows squashed, which is why the Warden is cyan concrete. Its
 `highlight`: `color` (`"#rrggbb"`), `strength` (how much of the color, 0 to 1), `pulse` (up and down
 by this much) and `seconds` (one pulse).
 
 **Editing the model:** `games/blockparty/resource_pack/models/entity/space.geo.json`, a Bedrock
-entity model: open it in Blockbench (File, Open Model). Its two bones are `perimeter` and
-`pedestal`; a cube is in the part its bone's name starts with, or the bone it's inside. Use cubes of
-any size, turned or not: the tool cuts every cube on the block grid (the model's middle on a block's
-middle) and maps the block texture onto each piece as the block there would show it, so the marker
-looks laid in real blocks. A face taken off a cube in Blockbench stays off. To see it textured in
-Blockbench, give it any 16 x 16 block texture. The game reads its sizes from the model: the floor is
-the pedestal's widest reach from the middle (the same both sides) and as tall as its top. Limits:
-within 24 pixels of the middle (3 blocks across), the pedestal's top at most 16 (more than 9 and a
-walking piece may stop at its edge: the tool warns).
+entity model: open it in Blockbench (File, Open Model). It's one cube in the bone `pedestal`; change
+its size, or add cubes and bones of any size, turned or not. Every face of every cube gets the whole
+texture stretched over it, and a face taken off a cube in Blockbench stays off. To see it textured
+in Blockbench, give it any 16 x 16 block texture. The game reads its sizes from the model: the floor
+is its widest reach from the middle (the same both sides) and as tall as its top. Limits: within 24
+pixels of the middle (3 blocks across), the top at most 16 (more than 8, a slab's height, and the
+tool warns, since the walk's lift is sized for a step).
 
-**After a change** to either: `npx tsx tools/blockparty/space-pack.ts`. It checks both, cuts the
-model in place and writes the client entity's textures, its four render controllers (each part
-plain and lit), the floor block (`behavior_pack/blocks/space_floor.json`) and
+**After a change** to either: `npx tsx tools/blockparty/space-pack.ts`. It checks both, sets the
+model's texture mapping in place and writes the client entity's textures, its two render
+controllers (plain and lit), the floor block (`behavior_pack/blocks/space_floor.json`) and
 `games/blockparty/space-model.json` (what the game reads). `test/spaces.test.ts` fails until it has
 run. Then merge and Restart.
 
@@ -1219,10 +1216,10 @@ Every question is answered. These were taken without one; the user can change an
 - The plan's other "proposed" items: Happening's share goes to Blue on maps without it, the Star
   moves at least ~30% of the loop away on bigger boards, the beacon beam is a model, results play on
   the board's podium, the space blocks (since replaced by the space markers), and the NPC entities.
-- Space markers (2026-11-18): the sizes above ("Space markers"); every perimeter smooth quartz but
-  Start's, which is gold; the Warden's pedestal cyan concrete (sculk's texture is animated); a space
-  lights for any piece in sight on it, not only the turn's; the highlight white, pulsing between 0.1
-  and 0.4 over 1.2 s.
+- Space markers (2026-11-18): the size above ("Space markers"), 6 pixels tall, the bottom of the
+  user's 6 to 8; the Warden's cyan concrete (sculk's texture is animated); a space lights for any
+  piece in sight on it, not only the turn's; the highlight white, pulsing between 0.1 and 0.4 over
+  1.2 s.
 - Pass 7 (2026-11-18): one item a turn; Chance's potions colored by kind; the Chance, Warden and
   prize weights above; the Villager item worth 6 (it isn't in the Shop); a zombie's 3 coins go to the
   bank; Silenced takes the next prize, not a purchase; the Golden Totem's extra die counts double
