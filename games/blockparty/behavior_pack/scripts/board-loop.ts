@@ -65,8 +65,13 @@ export interface LoopHost {
   present(): Who[];
   /** The party leader's key (the player who started the game, or who stands in for them), if a player is here. */
   leader(): string | undefined;
-  /** Opens their dice and resolves with what they roll (undefined if they leave first); `shot`: everyone watches through the roll camera. */
+  /**
+   * Opens their dice and resolves with what they roll (undefined if they leave first); `shot`:
+   * everyone watches through the roll camera. The die bursts, leaving its number over their head.
+   */
   roll(who: Who, shot: boolean): Promise<RollOutcome | undefined>;
+  /** The moves left over a seat's head (counts.ts): the number, or undefined to take it away. */
+  count?(who: Who, left: number | undefined): void;
   /** A choice: a player's form (closed: undefined), or a bot's moment of thought and then `botPick`. */
   choose(who: Who, title: string, body: string, options: readonly string[], botPick: number): Promise<number | undefined>;
   /**
@@ -713,6 +718,8 @@ export class BoardLoop {
         this.host.changed();
         if (!stage.skipping) this.react(this.order[place], "Celebration");
         await this.host.say(`pregame.place.${place + 1}`, { player: name });
+        // Their roll's number over their head goes once their place is said.
+        if (seat >= 0) this.host.count?.(seats[seat], undefined);
       }
       // Chris hands everyone their starting coins (shown only: the seats have them already).
       const chris = stage.speaker("chris");
@@ -723,7 +730,8 @@ export class BoardLoop {
         await this.host.say("pregame.star", { space: this.spaceName(spaces[star]) });
       }
     });
-    // Skipped or not, every card is out by now.
+    // Skipped or not, every card is out by now, and every roll's number gone.
+    for (const who of seats) this.host.count?.(who, undefined);
     for (const key of this.order) this.revealed.add(key);
     this.host.changed();
     stage.toBoard(this.host.present());
@@ -927,30 +935,44 @@ export class BoardLoop {
     }
   }
 
-  /** Walks the piece `steps` spaces, stopping to pick a way at each branch and at each Star (and the Wandering Trader) it passes. */
+  /**
+   * Walks the piece `steps` spaces, stopping to pick a way at each branch and at each Star (and the
+   * Wandering Trader) it passes. The moves left ride over their head (the roll's burst put them
+   * there), one fewer at each space reached, gone as they land.
+   */
   private async move(who: Who, steps: number): Promise<void> {
     const spaces = this.host.spaces();
     let left = steps;
+    let shown = steps;
     let at = this.host.pieces.spaceOf(who.body);
-    while (left > 0 && who.body.isValid) {
-      const stretch: Space[] = [];
-      let here = at;
-      while (left > 0) {
-        const space = spaces[here];
-        if (space.next.length > 1 && stretch.length > 0) break;
-        const next = space.next.length > 1 ? await this.choosePath(who, space) : (space.next[0] ?? here);
-        here = next;
-        stretch.push(spaces[here]);
-        left--;
-        if ((this.stars.includes(here) || this.spacePlay.traderSpace === here) && left > 0) break;
+    this.host.count?.(who, steps);
+    const reached = () => {
+      shown--;
+      this.host.count?.(who, shown > 0 ? shown : undefined);
+    };
+    try {
+      while (left > 0 && who.body.isValid) {
+        const stretch: Space[] = [];
+        let here = at;
+        while (left > 0) {
+          const space = spaces[here];
+          if (space.next.length > 1 && stretch.length > 0) break;
+          const next = space.next.length > 1 ? await this.choosePath(who, space) : (space.next[0] ?? here);
+          here = next;
+          stretch.push(spaces[here]);
+          left--;
+          if ((this.stars.includes(here) || this.spacePlay.traderSpace === here) && left > 0) break;
+        }
+        if (!who.body.isValid) return;
+        // The board's camera follows the walk (after the Star's shot, for one).
+        this.host.stage.clear();
+        await this.host.pieces.walkThrough(who.body, stretch, { land: left === 0, quiet: true, reached });
+        at = here;
+        if (this.stars.includes(at)) await this.offerStar(who, at);
+        if (this.spacePlay.traderSpace === at) await this.spacePlay.trader(who);
       }
-      if (!who.body.isValid) return;
-      // The board's camera follows the walk (after the Star's shot, for one).
-      this.host.stage.clear();
-      await this.host.pieces.walkThrough(who.body, stretch, { land: left === 0, quiet: true });
-      at = here;
-      if (this.stars.includes(at)) await this.offerStar(who, at);
-      if (this.spacePlay.traderSpace === at) await this.spacePlay.trader(who);
+    } finally {
+      this.host.count?.(who, undefined);
     }
   }
 

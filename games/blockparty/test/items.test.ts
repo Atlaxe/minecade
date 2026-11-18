@@ -9,7 +9,8 @@ import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import { decodePng, encodePng, blankImage } from "../../../tools/skins/png.ts";
 import { VanillaTextures } from "../../../tools/build/vanilla-textures.ts";
-import { addBoardIcons, addDiceIcons, addItemIcons, itemIcon, scaleUp } from "../../../tools/blockparty/item-icons.ts";
+import { addBoardIcons, addDiceIcons, addItemIcons, dieIcon, itemIcon, scaleUp } from "../../../tools/blockparty/item-icons.ts";
+import { fontOf } from "../../../tools/blockparty/ten-font.ts";
 import { DICE, STANDARD } from "../behavior_pack/scripts/dice.ts";
 import { EMPTY_ICON } from "../behavior_pack/scripts/screen-codes.ts";
 import { ITEMS, ITEM_IDS, ITEM_PROBLEMS, iconPath, itemInFile, readItems, type ItemDef } from "../behavior_pack/scripts/items.ts";
@@ -118,6 +119,26 @@ describe("the item icons", () => {
     expect([...icon.data.subarray(0, 4)]).toEqual([200, 0, 0, 255]);
     // Face 2's green is left out.
     expect([...icon.data].some((value, i) => i % 4 === 1 && value === 200)).toBe(false);
+  });
+
+  it("draws face 1's value on a die's icon as the model shows it, its shadow a pixel right and down", async () => {
+    const out = await mkdtemp(join(tmpdir(), "dice-number-"));
+    const own = join(out, "textures/blockparty/dice/white.png");
+    const white = blankImage(8, 8);
+    for (let i = 0; i < 64; i++) white.data.set([255, 255, 255, 255], i * 4);
+    await mkdir(dirname(own), { recursive: true });
+    await writeFile(own, encodePng(white));
+    // A font whose "1" is a 2 x 2 square: with its shadow a 3 x 3 grid, half a unit a pixel on the
+    // model, so 4 icon pixels each on a 64-pixel icon (8 units across), 12 x 12 in the middle.
+    const font = fontOf((char) => (char === "1" ? { columns: 2, filled: [[0, 0], [1, 0], [0, 1], [1, 1]] } : undefined));
+    const faces = STANDARD.faces.map((face, i) => (i === 0 ? { ...face, show: "1", ink: "#102030", shadow: "#010203" } : face));
+    const icon = decodePng(dieIcon({ ...STANDARD, texture: "textures/blockparty/dice/white", faces }, out, undefined, font)!);
+    const at = (x: number, y: number) => [...icon.data.subarray((y * 64 + x) * 4, (y * 64 + x) * 4 + 4)];
+    expect(at(0, 0)).toEqual([255, 255, 255, 255]);
+    expect(at(26, 26)).toEqual([16, 32, 48, 255]);
+    expect(at(33, 33)).toEqual([16, 32, 48, 255]);
+    expect(at(37, 37)).toEqual([1, 2, 3, 255]);
+    expect(at(26, 37)).toEqual([255, 255, 255, 255]);
   });
 
   it("gives an empty item slot a clear picture", async () => {

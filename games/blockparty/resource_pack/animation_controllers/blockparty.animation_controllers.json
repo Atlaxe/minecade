@@ -1,0 +1,17 @@
+{
+  "format_version": "1.10.0",
+  "animation_controllers": {
+    "controller.animation.blockparty.die": {
+      "initial_state": "spin",
+      "states": {
+        "spin": {
+          "animations": ["spin"],
+          "transitions": [{ "burst": "q.property('blockparty:burst')" }]
+        },
+        "burst": {
+          "animations": ["burst"]
+        }
+      }
+    }
+  }
+}

@@ -7,6 +7,7 @@
 // (resource_packs/vanilla/font/minecraft-ten.ttf), or from MINECRAFT_TEN.
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { VANILLA_PACK } from "../build/vanilla-textures.ts";
 
 /** Where the font is: MINECRAFT_TEN, else the Windows client's vanilla pack. */
@@ -138,10 +139,14 @@ export function readTenFont(file: Uint8Array): TenFont {
     return pixels;
   };
 
+  return fontOf(glyph);
+}
+
+/** A font from its glyphs: text set the way the game sets Minecraft Ten, each character's pixels side by side with a pixel between. */
+export function fontOf(glyph: (char: string) => GlyphPixels | undefined): TenFont {
   return {
     glyph,
     text(text: string): TextPixels {
-      // Each character's filled columns, side by side with a pixel between.
       const placed: [number, number][] = [];
       let x = 0;
       for (const char of text) {
@@ -165,6 +170,32 @@ export function readTenFont(file: Uint8Array): TenFont {
       return { width, height, filled };
     },
   };
+}
+
+// ---- The glyphs the dice use, kept in the repo ------------------------------------------------
+
+/**
+ * The glyphs the dice tool last read for the characters Block Party draws (every digit, and every
+ * face's show text), so the build can draw a die's number on its icon in the item panel without the
+ * font (it isn't on the server, and never goes in git). The dice tool writes it.
+ */
+export const GLYPH_FILE = fileURLToPath(new URL("./ten-glyphs.json", import.meta.url));
+
+/** Every glyph `chars` need, from `font`, as the glyph file keeps them. */
+export function glyphTable(font: TenFont, chars: Iterable<string>): Record<string, GlyphPixels> {
+  const table: Record<string, GlyphPixels> = {};
+  for (const char of [...new Set(chars)].sort()) {
+    const pixels = char === " " ? undefined : font.glyph(char);
+    if (pixels) table[char] = pixels;
+  }
+  return table;
+}
+
+/** The glyph file's font (undefined if the dice tool hasn't written one): characters it doesn't hold are blanks. */
+export function storedFont(path: string = GLYPH_FILE): TenFont | undefined {
+  if (!existsSync(path)) return undefined;
+  const glyphs = (JSON.parse(readFileSync(path, "utf8")) as { glyphs?: Record<string, GlyphPixels> }).glyphs ?? {};
+  return fontOf((char) => glyphs[char]);
 }
 
 /** The character to glyph table (format 4, the Basic Multilingual Plane). */

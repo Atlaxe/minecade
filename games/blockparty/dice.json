@@ -1,5 +1,6 @@
 {
-  "about": "Block Party's dice. Add a die by adding an entry; docs/plans/block-party.md, \"The dice file\", says what each setting does. After changing a texture, an ink, a face's show or a face picture, run: npx tsx tools/blockparty/dice-pack.ts",
+  "about": "Block Party's dice. Add a die by adding an entry; docs/plans/block-party.md, \"The dice file\", says what each setting does. After changing a texture, an ink, a shadow, a face's show, a face picture or the number, run: npx tsx tools/blockparty/dice-pack.ts",
+  "number": { "ink": "#ffffff", "shadow": true },
   "dice": {
     "standard": {
       "name": "Standard Die",
@@ -9,7 +10,8 @@
       "panel": "faces",
       "description": "Moves 1 to 6.",
       "faces": [{ "move": 1 }, { "move": 2 }, { "move": 3 }, { "move": 4 }, { "move": 5 }, { "move": 6 }],
-      "ink": "#D83A3A"
+      "ink": "#D83A3A",
+      "shadow": true
     },
     "slow": {
       "name": "Slow Die",

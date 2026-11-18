@@ -1,25 +1,30 @@
 // Writes Block Party's die model from games/blockparty/dice.json (dice-model.ts says how the model is
 // made): every die with a texture gets its body texture and its faces geometry in the model's client
-// entity (resource_pack/entity/die.entity.json) and a place in its render controllers' arrays (the
-// blockparty:die property picks it; dice.ts, modelIndex); the faces' values are drawn in the game's
-// Minecraft Ten font, read from Minecraft on this PC (ten-font.ts), or from the face pictures in
-// resource_pack/textures/blockparty/dice/faces. Run it after changing a die's texture, ink or faces,
-// or a face picture:
+// entity (resource_pack/entity/die.entity.json), a place in its render controllers' arrays (the
+// blockparty:die property picks it; dice.ts, modelIndex) and its burst particle (particles/); the
+// faces' values are drawn in the game's Minecraft Ten font, read from Minecraft on this PC
+// (ten-font.ts), or from the face pictures in resource_pack/textures/blockparty/dice/faces. It also
+// writes the number over a walker's head (geometry.blockparty.count and its render controller, in the
+// file's "number" look) and the glyphs the build draws the dice icons' numbers with
+// (tools/blockparty/ten-glyphs.json). Run it after changing a die's texture, ink, shadow or faces, the
+// number's look, or a face picture:
 //
 //   npx tsx tools/blockparty/dice-pack.ts
 //
 // It checks the dice file first and writes nothing if it has problems. games/blockparty/test/dice.test.ts
 // fails while the files and the dice file disagree.
-import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
-import { DICE_PROBLEMS } from "../../games/blockparty/behavior_pack/scripts/dice.ts";
+import { DICE, DICE_PROBLEMS } from "../../games/blockparty/behavior_pack/scripts/dice.ts";
 import { encodePng } from "../skins/png.ts";
-import { PACK, PALETTE, PLAN_FILE, buildFaces, modelFiles, modelPlan } from "./dice-model.ts";
-import { loadTenFont } from "./ten-font.ts";
+import { COUNT_CONTROLLER, PACK, PALETTE, PLAN_FILE, buildFaces, burstEffect, burstFile, countController, modelFiles, modelPlan } from "./dice-model.ts";
+import { GLYPH_FILE, glyphTable, loadTenFont } from "./ten-font.ts";
 
 const ENTITY = join(PACK, "entity", "die.entity.json");
 const CONTROLLERS = join(PACK, "render_controllers", "blockparty.render_controllers.json");
 const FACES = join(PACK, "models", "entity", "die_faces.geo.json");
+const COUNT = join(PACK, "models", "entity", "count.geo.json");
+const PARTICLES = join(PACK, "particles");
 const BODY = "controller.render.blockparty.die";
 const FACE_LAYER = "controller.render.blockparty.die_faces";
 
@@ -34,7 +39,7 @@ if (problems.length > 0) {
 }
 
 const font = loadTenFont();
-const { geometries, palette } = buildFaces(plan, font);
+const { geometries, count, palette } = buildFaces(plan, font);
 const files = modelFiles(plan);
 const json = (value: unknown) => `${JSON.stringify(value, null, 2)}\n`;
 /** JSON with anything that fits in `width` characters on one line (a cube a line). */
@@ -47,6 +52,7 @@ const compact = (value: unknown, indent = "", width = 320): string => {
 };
 
 writeFileSync(FACES, `${compact({ format_version: "1.12.0", "minecraft:geometry": geometries })}\n`);
+writeFileSync(COUNT, `${compact({ format_version: "1.12.0", "minecraft:geometry": [count] })}\n`);
 const paletteFile = join(PACK, `${PALETTE}.png`);
 mkdirSync(dirname(paletteFile), { recursive: true });
 writeFileSync(paletteFile, encodePng(palette));
@@ -73,10 +79,26 @@ controllers.render_controllers[FACE_LAYER] = {
   materials: [{ "*": "Material.faces" }],
   textures: ["Texture.palette"],
 };
+controllers.render_controllers[COUNT_CONTROLLER] = countController();
 writeFileSync(CONTROLLERS, json(controllers));
+
+// Each die's burst, and none for a die that's gone.
+mkdirSync(PARTICLES, { recursive: true });
+const bursts = new Set(plan.dice.map((entry) => burstFile(entry.id)));
+for (const name of readdirSync(PARTICLES)) {
+  if (name.startsWith("die_burst_") && !bursts.has(`particles/${name}`)) rmSync(join(PARTICLES, name));
+}
+for (const entry of plan.dice) writeFileSync(join(PACK, burstFile(entry.id)), json(burstEffect(entry)));
 
 writeFileSync(PLAN_FILE, `${compact({ about: "What tools/blockparty/dice-pack.ts last made Block Party's die model from (the tests compare it with dice.json).", ...plan }, "", 200)}
 `);
+
+// The glyphs for every digit and every face's text (the dice icons' numbers, drawn by the build).
+const chars = ["0123456789", ...Object.values(DICE).flatMap((entry) => entry.faces.map((face) => face.show))].join("");
+writeFileSync(
+  GLYPH_FILE,
+  `${compact({ about: "Minecraft Ten's glyphs for the characters Block Party's dice draw, written by tools/blockparty/dice-pack.ts from the game's font so the build can draw the dice icons' numbers (tools/blockparty/item-icons.ts). Each is its columns, and its filled pixels as [column, row], row 0 on the baseline.", glyphs: glyphTable(font, chars) }, "", 200)}\n`,
+);
 
 const cubes = geometries.reduce((sum, geometry) => sum + ((geometry as { bones: { cubes?: unknown[] }[] }).bones[0].cubes?.length ?? 0), 0);
 console.log(

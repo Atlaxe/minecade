@@ -9,13 +9,18 @@
 //     tools/blockparty/dice-pack.ts makes the model's files from this file (test/dice.test.ts says
 //     when it has to run again);
 //   - ink: the color of the numbers on its faces ("#rrggbb"; a face can have its own);
+//   - shadow: a shadow under the numbers on its faces, as Minecraft draws one under text: true for
+//     Minecraft's own (the ink at a quarter of its brightness), a color, or false (none, the
+//     default); a face can have its own. It sits a pixel right of and below the number, lower;
 //   - panel: what the item panel shows for it: its six "faces", its "description", or "both";
 //   - count: how many times it's rolled at once, the moves added up (the Triple Die's 3);
 //   - value: what the Shop works from (it pays half to buy it back); test: only the Tests hand it out;
 //   - say: a line (its id in the user's dialogue file) the dialogue box says when it's rolled;
 //   - faces: six, each its move, and what else it does: coins for the roller (or taken from them),
 //     an event (FACE_EVENTS), a line to say when it comes up, what the item panel and the die model
-//     show on it (up to two characters; its move unless it says), and its own ink.
+//     show on it (up to two characters; its move unless it says), and its own ink and shadow.
+// The file's "number" is the look of the moves left over a walker's head after a roll (counts.ts):
+// its ink and shadow, the same way.
 // Pure (no Minecraft), so the tests and the dice pack tool read it too.
 import file from "../../dice.json";
 
@@ -51,6 +56,8 @@ export interface DieFace {
   show: string;
   /** The color of its number on the die model ("#rrggbb"): its own, else its die's. */
   ink: string;
+  /** The color of its number's shadow ("#rrggbb"), if it has one: its own setting, else its die's. */
+  shadow?: string;
   /** A line said when it comes up (fills: player, die, roll, coins, other). */
   say?: string;
 }
@@ -64,6 +71,8 @@ export interface DieDef {
   texture?: string;
   /** The color of the numbers on its model's faces ("#rrggbb"). */
   ink: string;
+  /** Its faces' shadow setting: Minecraft's (true), a color, or none (left out). */
+  shadow?: Shadow;
   panel: PanelShows;
   description: string;
   count: number;
@@ -87,19 +96,66 @@ export const DEFAULT_INK = "#1e1e1e";
 /** An ink color, as the dice file writes one. */
 const INK = /^#[0-9a-fA-F]{6}$/;
 
-/** The dice in a dice file, and what's wrong with it (each problem in words; a die with one is left out). */
-export function readDice(raw: unknown): { dice: DieDef[]; problems: string[] } {
+/** A shadow setting: true for Minecraft's own under the ink, or a color ("#rrggbb"). */
+export type Shadow = true | string;
+
+/** The look of the moves left over a walker's head after a roll (the dice file's "number"). */
+export interface NumberLook {
+  ink: string;
+  /** Its shadow's color, if it has one. */
+  shadow?: string;
+}
+/** The number's look when the file doesn't say: white with Minecraft's shadow, as the game writes text. */
+export const DEFAULT_NUMBER: NumberLook = { ink: "#ffffff", shadow: "#3f3f3f" };
+
+/** Minecraft's text shadow under `ink`: each channel a quarter as bright (white's is #3f3f3f). */
+export function shadowOf(ink: string): string {
+  return `#${[1, 3, 5].map((at) => Math.floor(Number.parseInt(ink.slice(at, at + 2), 16) / 4).toString(16).padStart(2, "0")).join("")}`;
+}
+
+/** A shadow setting as the file writes it: true, false (none), or a color; undefined when left out. */
+function readShadow(value: unknown, problem: (text: string) => void): Shadow | false | undefined {
+  if (value === undefined || value === true || value === false) return value;
+  if (typeof value === "string" && INK.test(value)) return value.toLowerCase();
+  problem('"shadow" is true (Minecraft\'s), false (none) or a color like "#3f3f3f"');
+  return undefined;
+}
+
+/** The shadow's color for a setting over `ink`, if there is one. */
+function shadowColor(setting: Shadow | false | undefined, ink: string): string | undefined {
+  if (setting === true) return shadowOf(ink);
+  return typeof setting === "string" ? setting : undefined;
+}
+
+/** The dice in a dice file, the number's look, and what's wrong with it (each problem in words; a die with one is left out). */
+export function readDice(raw: unknown): { dice: DieDef[]; number: NumberLook; problems: string[] } {
   const problems: string[] = [];
   const dice: DieDef[] = [];
+  const number = readNumber((raw as { number?: unknown } | undefined)?.number, (problem) => problems.push(`number: ${problem}`));
   const list = (raw as { dice?: unknown } | undefined)?.dice;
-  if (!list || typeof list !== "object" || Array.isArray(list)) return { dice, problems: ['the file needs "dice": { "<id>": { ... } }'] };
+  if (!list || typeof list !== "object" || Array.isArray(list)) return { dice, number, problems: ['the file needs "dice": { "<id>": { ... } }'] };
   for (const [id, value] of Object.entries(list as Record<string, unknown>)) {
     const before = problems.length;
     const die = readDie(id, value, (problem) => problems.push(`${id}: ${problem}`));
     if (die && problems.length === before) dice.push(die);
   }
   if (!dice.some((die) => die.id === STANDARD_DIE)) problems.push(`there must be a "${STANDARD_DIE}" die: everyone always holds it`);
-  return { dice, problems };
+  return { dice, number, problems };
+}
+
+/** The number's look: its ink (white if left out) and shadow (Minecraft's if left out). */
+function readNumber(value: unknown, problem: (text: string) => void): NumberLook {
+  if (value === undefined) return DEFAULT_NUMBER;
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    problem('"number" is an object: { "ink": "#ffffff", "shadow": true }');
+    return DEFAULT_NUMBER;
+  }
+  const look = value as Record<string, unknown>;
+  const ink = look.ink ?? DEFAULT_NUMBER.ink;
+  if (typeof ink !== "string" || !INK.test(ink)) problem('"ink" is a color like "#ffffff"');
+  const color = typeof ink === "string" && INK.test(ink) ? ink.toLowerCase() : DEFAULT_NUMBER.ink;
+  const shadow = shadowColor(readShadow(look.shadow ?? true, problem), color);
+  return { ink: color, ...(shadow ? { shadow } : {}) };
 }
 
 function readDie(id: string, entry: unknown, problem: (text: string) => void): DieDef | undefined {
@@ -129,6 +185,7 @@ function readDie(id: string, entry: unknown, problem: (text: string) => void): D
   const ink = die.ink ?? DEFAULT_INK;
   if (typeof ink !== "string" || !INK.test(ink)) problem('"ink" is a color like "#1e1e1e"');
   const dieInk = typeof ink === "string" && INK.test(ink) ? ink.toLowerCase() : DEFAULT_INK;
+  const shadow = readShadow(die.shadow, problem);
   const panel = die.panel ?? "faces";
   if (!PANEL_SHOWS.includes(panel as PanelShows)) problem(`"panel" must be ${PANEL_SHOWS.map((show) => `"${show}"`).join(", ")}`);
   const description = text("description", "");
@@ -147,17 +204,18 @@ function readDie(id: string, entry: unknown, problem: (text: string) => void): D
     block,
     ...(texture !== undefined ? { texture } : {}),
     ink: dieInk,
+    ...(shadow ? { shadow } : {}),
     panel: panel as PanelShows,
     description,
     count,
     value,
     test: die.test === true,
     ...(say !== undefined ? { say } : {}),
-    faces: faces.slice(0, 6).map((face, i) => readFace(face, dieInk, (text) => problem(`face ${i + 1}: ${text}`))),
+    faces: faces.slice(0, 6).map((face, i) => readFace(face, dieInk, shadow, (text) => problem(`face ${i + 1}: ${text}`))),
   };
 }
 
-function readFace(value: unknown, dieInk: string, problem: (text: string) => void): DieFace {
+function readFace(value: unknown, dieInk: string, dieShadow: Shadow | false | undefined, problem: (text: string) => void): DieFace {
   const face = (value && typeof value === "object" ? value : {}) as Record<string, unknown>;
   const move = face.move;
   if (typeof move !== "number" || !Number.isInteger(move) || move < 0 || move > 99) problem('"move" must be a whole number from 0 to 99');
@@ -175,13 +233,17 @@ function readFace(value: unknown, dieInk: string, problem: (text: string) => voi
   if (typeof ink !== "string" || !INK.test(ink)) problem('"ink" is a color like "#1e1e1e"');
   const say = face.say;
   if (say !== undefined && !(typeof say === "string" && LINE_ID.test(say))) problem('"say" is a line id from the dialogue file, like "dice.cursed.lucky"');
+  const faceInk = typeof ink === "string" && INK.test(ink) ? ink.toLowerCase() : dieInk;
+  const own = readShadow(face.shadow, problem);
+  const shadow = shadowColor(own ?? dieShadow, faceInk);
   return {
     move: moves,
     coins: typeof coins === "number" ? coins : 0,
     ...(known ? { event: known } : {}),
     amount: typeof amount === "number" ? amount : 0,
     show: typeof show === "string" ? show : String(moves),
-    ink: typeof ink === "string" && INK.test(ink) ? ink.toLowerCase() : dieInk,
+    ink: faceInk,
+    ...(shadow ? { shadow } : {}),
     ...(typeof say === "string" && say !== "" ? { say } : {}),
   };
 }
@@ -191,6 +253,15 @@ const read = readDice(file);
 export const DICE_PROBLEMS: readonly string[] = read.problems;
 /** Every die, by id, in the file's order. */
 export const DICE: Readonly<Record<string, DieDef>> = Object.fromEntries(read.dice.map((die) => [die.id, die]));
+/** The look of the moves left over a walker's head (the file's "number"). */
+export const NUMBER: NumberLook = read.number;
+
+/** The moves left over a walker's head (counts.ts): its entity, and the property holding its number (0 to MAX_COUNT). */
+export const COUNT_ENTITY = "blockparty:count";
+export const COUNT_PROPERTY = "blockparty:count";
+export const MAX_COUNT = 99;
+/** A die's burst when it's hit: chips of its body (the dice tool writes one for every die with a model). */
+export const burstParticle = (id: string) => `blockparty:die_burst_${id}`;
 /** The die everyone always holds (a plain 1 to 6 if the file has none). */
 export const STANDARD: DieDef = DICE[STANDARD_DIE] ?? {
   id: STANDARD_DIE,
@@ -237,7 +308,7 @@ export function thrown(outcome: RollOutcome): DieFace[] {
   return outcome.faces.map((face) => outcome.die.faces[face]);
 }
 
-/** The roll as its title's subtitle shows it: "3 + 5 + 2" for more than one throw, else "". */
+/** The roll's throws in words: "3 + 5 + 2" for more than one throw, else "". */
 export function throwsText(outcome: RollOutcome): string {
   return outcome.faces.length > 1 ? outcome.faces.map((face) => outcome.die.faces[face].move).join(" + ") : "";
 }

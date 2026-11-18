@@ -319,6 +319,112 @@
       "textures": [
         "Array.looks[q.property('blockparty:look')]"
       ]
+    },
+    "controller.render.blockparty.count": {
+      "geometry": "Geometry.default",
+      "materials": [
+        {
+          "*": "Material.default"
+        }
+      ],
+      "textures": [
+        "Texture.default"
+      ],
+      "part_visibility": [
+        {
+          "*": false
+        },
+        {
+          "count": true
+        },
+        {
+          "one_0": "q.property('blockparty:count') == 0"
+        },
+        {
+          "one_1": "q.property('blockparty:count') == 1"
+        },
+        {
+          "one_2": "q.property('blockparty:count') == 2"
+        },
+        {
+          "one_3": "q.property('blockparty:count') == 3"
+        },
+        {
+          "one_4": "q.property('blockparty:count') == 4"
+        },
+        {
+          "one_5": "q.property('blockparty:count') == 5"
+        },
+        {
+          "one_6": "q.property('blockparty:count') == 6"
+        },
+        {
+          "one_7": "q.property('blockparty:count') == 7"
+        },
+        {
+          "one_8": "q.property('blockparty:count') == 8"
+        },
+        {
+          "one_9": "q.property('blockparty:count') == 9"
+        },
+        {
+          "tens_1": "q.property('blockparty:count') >= 10 && math.floor(q.property('blockparty:count') / 10) == 1"
+        },
+        {
+          "tens_2": "q.property('blockparty:count') >= 10 && math.floor(q.property('blockparty:count') / 10) == 2"
+        },
+        {
+          "tens_3": "q.property('blockparty:count') >= 10 && math.floor(q.property('blockparty:count') / 10) == 3"
+        },
+        {
+          "tens_4": "q.property('blockparty:count') >= 10 && math.floor(q.property('blockparty:count') / 10) == 4"
+        },
+        {
+          "tens_5": "q.property('blockparty:count') >= 10 && math.floor(q.property('blockparty:count') / 10) == 5"
+        },
+        {
+          "tens_6": "q.property('blockparty:count') >= 10 && math.floor(q.property('blockparty:count') / 10) == 6"
+        },
+        {
+          "tens_7": "q.property('blockparty:count') >= 10 && math.floor(q.property('blockparty:count') / 10) == 7"
+        },
+        {
+          "tens_8": "q.property('blockparty:count') >= 10 && math.floor(q.property('blockparty:count') / 10) == 8"
+        },
+        {
+          "tens_9": "q.property('blockparty:count') >= 10 && math.floor(q.property('blockparty:count') / 10) == 9"
+        },
+        {
+          "ones_0": "q.property('blockparty:count') >= 10 && math.mod(q.property('blockparty:count'), 10) == 0"
+        },
+        {
+          "ones_1": "q.property('blockparty:count') >= 10 && math.mod(q.property('blockparty:count'), 10) == 1"
+        },
+        {
+          "ones_2": "q.property('blockparty:count') >= 10 && math.mod(q.property('blockparty:count'), 10) == 2"
+        },
+        {
+          "ones_3": "q.property('blockparty:count') >= 10 && math.mod(q.property('blockparty:count'), 10) == 3"
+        },
+        {
+          "ones_4": "q.property('blockparty:count') >= 10 && math.mod(q.property('blockparty:count'), 10) == 4"
+        },
+        {
+          "ones_5": "q.property('blockparty:count') >= 10 && math.mod(q.property('blockparty:count'), 10) == 5"
+        },
+        {
+          "ones_6": "q.property('blockparty:count') >= 10 && math.mod(q.property('blockparty:count'), 10) == 6"
+        },
+        {
+          "ones_7": "q.property('blockparty:count') >= 10 && math.mod(q.property('blockparty:count'), 10) == 7"
+        },
+        {
+          "ones_8": "q.property('blockparty:count') >= 10 && math.mod(q.property('blockparty:count'), 10) == 8"
+        },
+        {
+          "ones_9": "q.property('blockparty:count') >= 10 && math.mod(q.property('blockparty:count'), 10) == 9"
+        }
+      ]
     }
   }
 }

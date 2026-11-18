@@ -46,6 +46,45 @@
         }
       }
     },
+    "animation.blockparty.die_burst": {
+      "loop": "hold_on_last_frame",
+      "animation_length": 0.35,
+      "bones": {
+        "die": {
+          "rotation": [
+            "math.sin(q.life_time * 140) * 25 + math.random(-14, 14)",
+            "q.life_time * 160 + q.anim_time * q.anim_time * 3000",
+            "math.cos(q.life_time * 110) * 20 + math.random(-14, 14)"
+          ],
+          "position": ["math.random(-0.7, 0.7)", "math.sin(q.life_time * 200) + math.random(-0.7, 0.7)", "math.random(-0.7, 0.7)"],
+          "scale": {
+            "0.0": [1, 1, 1],
+            "0.08": [1.35, 0.75, 1.35],
+            "0.17": [0.9, 1.3, 0.9],
+            "0.27": [1.45, 1.45, 1.45],
+            "0.33": [1.7, 1.7, 1.7],
+            "0.35": [0, 0, 0]
+          }
+        }
+      }
+    },
+    "animation.blockparty.count_face": {
+      "loop": true,
+      "bones": {
+        "count": {
+          "rotation": ["q.camera_rotation(0)", "q.camera_rotation(1)", 0]
+        }
+      }
+    },
+    "animation.blockparty.count_pop": {
+      "loop": true,
+      "bones": {
+        "count": {
+          "position": [0, "math.sin(q.life_time * 180) * 0.5", 0],
+          "scale": "math.min(1, q.life_time * 6) * (v.since < 0.1 ? 1 + v.since * 3.5 : (v.since < 0.25 ? 1.35 - (v.since - 0.1) * 2.33 : 1))"
+        }
+      }
+    },
     "animation.blockparty.icon_turn": {
       "loop": true,
       "bones": {

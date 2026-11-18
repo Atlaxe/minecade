@@ -11,6 +11,11 @@
           "range": [0, 64],
           "default": 0,
           "client_sync": true
+        },
+        "blockparty:burst": {
+          "type": "bool",
+          "default": false,
+          "client_sync": true
         }
       }
     },

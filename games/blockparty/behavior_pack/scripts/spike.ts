@@ -58,7 +58,9 @@ import { BoardLoop } from "./board-loop.ts";
 import { BoardCamera, autoDirection, cameraSettings, type BoardCameraSettings } from "./board-camera.ts";
 import { BoardMenu } from "./board-ui.ts";
 import { boardOverview } from "./board-view.ts";
-import { DICE, DICE_PROBLEMS, STANDARD, STANDARD_DIE, modelIndex, rollDie, throwsText, type DieDef, type RollOutcome } from "./dice.ts";
+import { COUNT_ENTITY, DICE, DICE_PROBLEMS, STANDARD, STANDARD_DIE, burstParticle, modelIndex, rollDie, type DieDef, type RollOutcome } from "./dice.ts";
+import { Counts } from "./counts.ts";
+import { eventCue, playCue } from "./sounds.ts";
 import { ITEMS, type ItemDef } from "./dice-items.ts";
 import { ITEM_PROBLEMS } from "./items.ts";
 import { CURSED_DIE } from "./item-play.ts";
@@ -96,8 +98,8 @@ type Config = typeof config;
 
 /**
  * A die over the roller's head while the item panel shows it: its model (DIE_ENTITY, a die with a
- * texture in the dice file, its texture picked by DIE_PROPERTY: dice.ts, modelIndex), or else its
- * block (the dice file's stand-in) in the block `at`.
+ * texture in the dice file, its texture picked by DIE_PROPERTY: dice.ts, modelIndex) right over
+ * their head, or else its block (the dice file's stand-in) in the block `at`.
  */
 interface DieShown {
   at: Vector3;
@@ -106,6 +108,21 @@ interface DieShown {
 }
 const DIE_ENTITY = "blockparty:die";
 const DIE_PROPERTY = "blockparty:die";
+/** Set when the jump hits the die: it shakes, swells and pops (animation.blockparty.die_burst, BURST_TICKS long). */
+const BURST_PROPERTY = "blockparty:burst";
+/**
+ * How far over the roller's feet the die's model stands: the die itself (a player head's size, the
+ * model's middle half a block up) clears their head by about half a block, so a jump hits it.
+ */
+const DIE_OVER = 2.15;
+/** Ticks from the jump to the head hitting the die, the burst's length, and the number's time over the head before the walk. */
+const HIT_AFTER = 4;
+const BURST_TICKS = 7;
+const NUMBER_TICKS = 16;
+/** The puff the die bursts in, with its own chips (dice.ts, burstParticle). */
+const BURST_PUFF = "minecraft:large_explosion";
+/** The sound cues (the user's Sounds view, Item panel): the jump hits the die, and its number shows. */
+const DICE_EVENTS = { hit: "dice.hit", number: "dice.number" } as const;
 
 /**
  * The coin and Star models, for the board's animations later: each its picture one pixel thick (the
@@ -131,8 +148,6 @@ const MINIGAME_HUD = [HudElement.Hotbar, HudElement.ItemText];
 const CHAT_HUD = [HudElement.StatusEffects];
 /** Ticks between sends of each player's HUD line (the action bar fades unless it's sent again). */
 const BAR_RESEND = 20;
-/** Ticks a roll's number stays in the dialogue box. */
-const ROLL_NOTICE = 45;
 /** Ticks after a turn starts before its player's Select (the turn shot eases in on them meanwhile). */
 const SELECT_AFTER = 10;
 /**
@@ -271,6 +286,8 @@ export class BlockPartySpike extends Minigame<Config> {
   private markers!: SpaceMarkers;
   /** The zombies that follow seats (zombies.ts: the Zombie Spawn, the Warden's curse, Chance's outbreak). */
   private zombies!: Zombies;
+  /** The moves left over a walker's head after a roll (counts.ts). */
+  private counts!: Counts;
   /** The board loop has ended (the core's own "wins" title is left out: the loop's end notice says it). */
   private loopOver = false;
   /** Who has turned chat on with /chat (by key): Block Party hides it for everyone else. */
@@ -393,6 +410,7 @@ export class BlockPartySpike extends Minigame<Config> {
       },
       fade: this.fade,
     });
+    this.counts = new Counts({ scope: this.scope, bodyOf: (key) => this.bodyOf(key) });
     this.moves = new Moves({ scope: this.scope, random: () => this.ctx.random(), fallIn: (entity) => void this.staging.fallAgain(entity) });
     this.transfers = new Transfers({ scope: this.scope, dimension: () => dimension, random: () => this.ctx.random() });
     this.dialogue = new Dialogue({
@@ -462,6 +480,7 @@ export class BlockPartySpike extends Minigame<Config> {
           else this.showDie(player, STANDARD);
         });
       },
+      count: (who, left) => this.counts.set(who.key, left),
       choose: (who, title, body, options, botPick) => this.choose(who, title, body, options, botPick),
       say: (id, fills, skippable, by) => this.dialogue.say(id, fills, skippable, by),
       talk: (id, fills, options) => this.dialogue.talk(id, fills, options),
@@ -513,6 +532,7 @@ export class BlockPartySpike extends Minigame<Config> {
       this.pendingRolls.delete(playerName.toLowerCase());
       const tests = this.tests.get(playerName.toLowerCase());
       this.takeDie(tests?.rolling?.over);
+      this.counts.set(playerName.toLowerCase(), undefined);
       this.tests.delete(playerName.toLowerCase());
       this.pieces.forget(playerName);
     });
@@ -699,11 +719,11 @@ export class BlockPartySpike extends Minigame<Config> {
     };
   }
 
-  /** A bot's roll: the die over its head (everyone watching through the turn shot on a turn), a moment's thought, a hop, the number. */
+  /** A bot's roll: the die over its head (everyone watching through the turn shot on a turn), a moment's thought, a hop, the burst and the number. */
   private async botRoll(who: Who, shot: boolean, picked: DieDef): Promise<RollOutcome | undefined> {
     const body = who.body;
     if (!body.isValid) return undefined;
-    const over = this.putDie(body.dimension, overHead(body.location), picked);
+    const over = this.putDie(body.dimension, body.location, picked);
     await this.scope.wait(thinkTicks(() => this.ctx.random(), 25, 45));
     if (!body.isValid) {
       this.takeDie(over);
@@ -711,21 +731,52 @@ export class BlockPartySpike extends Minigame<Config> {
     }
     hop(body);
     this.moves.player(body, "Dice roll");
-    await this.scope.wait(5);
     const rolled = rollDie(picked, () => this.ctx.random());
-    this.rollNotice(who.name, rolled);
-    await this.scope.wait(12);
-    this.takeDie(over);
-    await this.scope.wait(8);
+    await this.scope.wait(HIT_AFTER);
+    await this.burst(over, picked, who, rolled.move);
+    await this.scope.wait(NUMBER_TICKS);
     // Out to the board view for the walk.
     if (shot) this.boardCamera.boardShot();
     return rolled;
   }
 
-  /** A roll's number in the dialogue box for everyone (no titles), whose roll and which die under it (and each throw: "3 + 5 + 2"). */
-  private rollNotice(name: string, rolled: RollOutcome): void {
-    const throws = throwsText(rolled);
-    this.notice(`${rolled.move}`, `${name}, ${rolled.die.name}${throws ? `: ${throws}` : ""}`, ROLL_NOTICE);
+  /**
+   * The jump hits the die (the user: a fun little explosion, then the number over the head in the
+   * 10 font): it shakes, swells and pops, bursting into chips of itself in a puff, and the roll's
+   * number grows in where it was, to ride over the roller's head (counts.ts) until they've walked it.
+   */
+  private async burst(shown: DieShown | undefined, die: DieDef, who: Who, move: number): Promise<void> {
+    playCue(eventCue(DICE_EVENTS.hit));
+    const model = shown?.model;
+    try {
+      if (model?.isValid) model.setProperty(BURST_PROPERTY, true);
+    } catch {
+      // gone
+    }
+    await this.scope.wait(BURST_TICKS);
+    let at: Vector3 | undefined;
+    try {
+      // The die's middle: its model's, half a block over where it stands, or its block's.
+      if (model?.isValid) at = { ...model.location, y: model.location.y + 0.5 };
+      else if (shown) at = { x: shown.at.x + 0.5, y: shown.at.y + 0.5, z: shown.at.z + 0.5 };
+      else if (who.body.isValid) at = { ...who.body.location, y: who.body.location.y + DIE_OVER + 0.5 };
+    } catch {
+      // gone
+    }
+    this.takeDie(shown);
+    if (at) {
+      const dimension = who.body.isValid ? who.body.dimension : world.getDimension("overworld");
+      for (const particle of [...(model ? [burstParticle(die.id)] : []), BURST_PUFF]) {
+        try {
+          dimension.spawnParticle(particle, at);
+        } catch (error) {
+          log.warn(`blockparty: the die's burst (${particle}) failed: ${describeError(error)}`);
+        }
+      }
+    }
+    playCue(eventCue(DICE_EVENTS.number));
+    // The number's middle is half a block over its entity, as the die's is.
+    this.counts.set(who.key, move, at ? { ...at, y: at.y - 0.5 } : undefined);
   }
 
   /**
@@ -758,12 +809,16 @@ export class BlockPartySpike extends Minigame<Config> {
     if (entity) this.moves.npc(entity, character, action.action, about?.body);
   }
 
-  /** Puts `die` over the block `at` (the roller's head): its model if it has a texture, else its block if the place is empty. */
-  private putDie(dimension: Dimension, at: Vector3, die: DieDef): DieShown | undefined {
+  /**
+   * Puts `die` over the head of a body standing at `feet`: its model, right over them, if it has a
+   * texture, else its block in the block 3 over the one they stand in, if that's empty.
+   */
+  private putDie(dimension: Dimension, feet: Vector3, die: DieDef): DieShown | undefined {
+    const at = blockOverHead(feet);
     try {
       const index = modelIndex(die);
       if (index !== undefined) {
-        const model = dimension.spawnEntity(DIE_ENTITY, { x: at.x + 0.5, y: at.y, z: at.z + 0.5 });
+        const model = dimension.spawnEntity(DIE_ENTITY, { x: feet.x, y: feet.y + DIE_OVER, z: feet.z });
         model.setProperty(DIE_PROPERTY, index);
         return { at, model };
       }
@@ -1189,8 +1244,8 @@ export class BlockPartySpike extends Minigame<Config> {
       return;
     }
     if (this.pieces.isWalking(player)) return;
-    const spot = overHead(player.location);
-    tests.rolling = { die, at: spot, over: this.putDie(player.dimension, spot, die) };
+    const feet = player.location;
+    tests.rolling = { die, at: feet, over: this.putDie(player.dimension, feet, die) };
     // Rolling for turn order ends the pre-game podium's walking. The jump that hits the die is a real
     // jump (the plan's turn shot: a jump makes them jump). The camera stays: the turn shot on a turn,
     // the podium's while everyone rolls for turn order.
@@ -1249,7 +1304,7 @@ export class BlockPartySpike extends Minigame<Config> {
     tests.rolling = undefined;
   }
 
-  /** The jump that hits the die: the number, then the die goes and the walk follows. */
+  /** The jump that hits the die: it bursts, its number shows over their head, and the walk follows. */
   private async roll(player: Player, die: DieDef): Promise<void> {
     const tests = this.testsOf(player);
     const key = player.name.toLowerCase();
@@ -1260,10 +1315,9 @@ export class BlockPartySpike extends Minigame<Config> {
     this.pendingRolls.delete(key);
     // The jump that hits it: one or both fists up (the jump itself is their own).
     this.moves.player(player, "Dice roll");
-    this.rollNotice(player.name, rolled);
-    await this.scope.wait(12);
-    this.takeDie(rolling?.over);
-    await this.scope.wait(8);
+    await this.scope.wait(HIT_AFTER);
+    await this.burst(rolling?.over, die, whoOf(player), rolled.move);
+    await this.scope.wait(NUMBER_TICKS);
     // Out to the board view for the walk (a turn's roll).
     if (pending?.shot) this.boardCamera.boardShot();
     pending?.resolve(rolled);
@@ -1792,9 +1846,9 @@ export class BlockPartySpike extends Minigame<Config> {
       }
     }
     for (const tests of this.tests.values()) this.takeDie(tests.rolling?.over);
-    // A die model a bot's roll left (the game ended in the middle of it).
+    // A die model a bot's roll left, or a number over a head (the game ended in the middle of it).
     try {
-      for (const model of world.getDimension("overworld").getEntities({ type: DIE_ENTITY })) model.remove();
+      for (const type of [DIE_ENTITY, COUNT_ENTITY]) for (const model of world.getDimension("overworld").getEntities({ type })) model.remove();
     } catch {
       // gone with the server
     }
@@ -1810,9 +1864,9 @@ export class BlockPartySpike extends Minigame<Config> {
   }
 }
 
-/** The block a die floats in over a body standing at `at`: 3 over the block they stand in. */
-function overHead(at: Vector3): Vector3 {
-  return { x: Math.floor(at.x), y: Math.floor(at.y) + 3, z: Math.floor(at.z) };
+/** The block a die without a model floats in over a body standing at `feet`: 3 over the block they stand in. */
+function blockOverHead(feet: Vector3): Vector3 {
+  return { x: Math.floor(feet.x), y: Math.floor(feet.y) + 3, z: Math.floor(feet.z) };
 }
 
 /** The board's held item (STANDINGS_ITEM): one, kept on death. */

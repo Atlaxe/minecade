@@ -1,12 +1,19 @@
 {
   "about": "What tools/blockparty/dice-pack.ts last made Block Party's die model from (the tests compare it with dice.json).",
-  "maker": 1,
+  "maker": 2,
   "dice": [
     {
       "id": "standard",
       "texture": "textures/blockparty/dice/standard",
       "layout": "plain",
-      "faces": [{"text":"1","ink":"#d83a3a"},{"text":"2","ink":"#d83a3a"},{"text":"3","ink":"#d83a3a"},{"text":"4","ink":"#d83a3a"},{"text":"5","ink":"#d83a3a"},{"text":"6","ink":"#d83a3a"}]
+      "faces": [
+        {"text":"1","ink":"#d83a3a","shadow":"#360e0e"},
+        {"text":"2","ink":"#d83a3a","shadow":"#360e0e"},
+        {"text":"3","ink":"#d83a3a","shadow":"#360e0e"},
+        {"text":"4","ink":"#d83a3a","shadow":"#360e0e"},
+        {"text":"5","ink":"#d83a3a","shadow":"#360e0e"},
+        {"text":"6","ink":"#d83a3a","shadow":"#360e0e"}
+      ]
     },
     {
       "id": "slow",
@@ -50,5 +57,6 @@
       "layout": "plain",
       "faces": [{"text":"1","ink":"#1e1e1e"},{"text":"1","ink":"#1e1e1e"},{"text":"1","ink":"#1e1e1e"},{"text":"1","ink":"#1e1e1e"},{"text":"1","ink":"#1e1e1e"},{"text":"1","ink":"#1e1e1e"}]
     }
-  ]
+  ],
+  "number": {"ink":"#ffffff","shadow":"#3f3f3f"}
 }

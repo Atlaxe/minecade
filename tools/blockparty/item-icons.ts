@@ -4,7 +4,10 @@
 // where the board's screens show it by the letters in their fields (the workshop JSON UI builder's
 // cards, with pictures from `text:textures/blockparty/icons/{{row.item1}}`, and the item panel's
 // icon, which shows a die or an item). A die's icon is its body's picture: the whole square, or face
-// 1 of a six-face picture. An empty item slot on a card reads EMPTY_ICON's picture, which is clear.
+// 1 of a six-face picture, with face 1's value on it as the die model shows it (the user: its first
+// value): its text in Minecraft Ten in its ink and shadow, or its face picture. The font isn't on
+// the server, so the text is drawn from the glyphs the dice tool keeps (ten-font.ts, GLYPH_FILE).
+// An empty item slot on a card reads EMPTY_ICON's picture, which is clear.
 // Each icon is copied again to its slot of the transfers' token (tokens.ts: token_<slot>, items then
 // dice), the picture that flies when it changes hands.
 // Minecraft's textures are Mojang's, so they never go in git: the build reads them from the cache
@@ -20,6 +23,11 @@ import { TOKEN_SLOTS, slotLetters, slotPicture } from "../../games/blockparty/be
 import { blankImage, encodePng, type Image } from "../skins/png.ts";
 import { decodeAnyPng } from "../viewer/png.ts";
 import { VanillaTextures } from "../build/vanilla-textures.ts";
+import { facePixels, facePlan, type FacePixels } from "./dice-model.ts";
+import { storedFont, type TenFont } from "./ten-font.ts";
+
+/** A die's face is this many model units across: its value's pixel size is in them. */
+const FACE_UNITS = 8;
 
 /** An icon smaller than this many pixels across is drawn larger, a whole number of times. */
 export const ICON_MIN_SIZE = 64;
@@ -74,13 +82,50 @@ export function itemIcon(item: ItemDef, pack: string, vanilla: VanillaTextures |
   return item.texture === undefined ? undefined : iconOf(pictureOf(item.texture, pack, vanilla));
 }
 
-/** A die's icon as a PNG: its body's picture, face 1 of a six-face one (24 x 16: faces 1 to 3 on the top row). */
-export function dieIcon(die: DieDef, pack: string, vanilla: VanillaTextures | undefined): Buffer | undefined {
+/**
+ * A die's icon as a PNG: its body's picture, face 1 of a six-face one (24 x 16: faces 1 to 3 on the
+ * top row), drawn larger, with face 1's value on it (`font` draws its text; none, no text).
+ */
+export function dieIcon(die: DieDef, pack: string, vanilla: VanillaTextures | undefined, font: TenFont | undefined = glyphs()): Buffer | undefined {
   if (die.texture === undefined) return undefined;
   const picture = pictureOf(die.texture, pack, vanilla);
   if (picture === undefined || Buffer.isBuffer(picture)) return picture;
   const six = picture.width * 2 === picture.height * 3;
-  return iconOf(six ? crop(picture, 0, 0, picture.width / 3, picture.height / 2) : picture);
+  const body = six ? crop(picture, 0, 0, picture.width / 3, picture.height / 2) : picture;
+  const icon = scaleUp(body, Math.ceil(ICON_MIN_SIZE / Math.max(body.width, body.height)));
+  const face = die.faces[0];
+  const value = face && font ? facePixels(facePlan(face, pack), font, pack) : undefined;
+  if (value) {
+    // The value's pixels as the model has them (its pixel in face units), whole icon pixels each, in the middle.
+    const size = Math.max(1, Math.floor((value.pixel * icon.width) / FACE_UNITS));
+    for (const layer of [value.shadow, value.pixels]) if (layer) paint(icon, layer, size);
+  }
+  return encodePng(icon);
+}
+
+/** Paints `pixels` on `image`, `size` image pixels each, in the middle. */
+function paint(image: Image, pixels: FacePixels, size: number): void {
+  const left = Math.round((image.width - pixels.width * size) / 2);
+  const top = Math.round((image.height - pixels.height * size) / 2);
+  pixels.colors.forEach((color, i) => {
+    if (color === undefined) return;
+    const rgba = [...[1, 3, 5].map((at) => Number.parseInt(color.slice(at, at + 2), 16)), 255];
+    const column = i % pixels.width;
+    const row = Math.floor(i / pixels.width);
+    for (let y = top + row * size; y < top + (row + 1) * size; y++) {
+      for (let x = left + column * size; x < left + (column + 1) * size; x++) {
+        if (x >= 0 && y >= 0 && x < image.width && y < image.height) image.data.set(rgba, (y * image.width + x) * 4);
+      }
+    }
+  });
+}
+
+let font: TenFont | undefined | null = null;
+
+/** The glyphs the dice tool keeps, read once (undefined if it hasn't run: the icons go without their numbers). */
+function glyphs(): TenFont | undefined {
+  if (font === null) font = storedFont();
+  return font;
 }
 
 let vanilla: VanillaTextures | undefined | null = null;

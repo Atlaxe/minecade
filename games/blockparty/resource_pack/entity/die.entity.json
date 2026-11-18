@@ -37,11 +37,13 @@
         "controller.render.blockparty.die_faces"
       ],
       "animations": {
-        "spin": "animation.blockparty.die_spin"
+        "spin": "animation.blockparty.die_spin",
+        "burst": "animation.blockparty.die_burst",
+        "die": "controller.animation.blockparty.die"
       },
       "scripts": {
         "animate": [
-          "spin"
+          "die"
         ]
       }
     }

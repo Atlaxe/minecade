@@ -370,12 +370,14 @@ export class ItemPlay {
       const extra = rollDie(STANDARD, this.host.random).move;
       const added = turn.boost === "golden" ? extra * 2 : extra;
       rolled.move += added;
+      this.host.count?.(who, rolled.move);
       this.host.notice(`${rolled.move}`, line(turn.boost === "golden" ? "items.golden-totem.extra" : "items.totem.extra", { player: who.name, roll: extra, count: added, total: rolled.move }), 30);
       await this.host.scope.wait(30);
     }
     if (seat.effects.halved) {
       seat.effects.halved = false;
       rolled.move = Math.ceil(rolled.move / 2);
+      this.host.count?.(who, rolled.move);
       await this.host.say("dice.halved", { player: who.name, roll: rolled.move }, false, who);
     }
     this.host.changed();

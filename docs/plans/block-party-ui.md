@@ -253,10 +253,10 @@ player.
   - **The words:** what the NPC says, with color codes and inline icons ("Icons").
   - **The buttons:** a column on the right (Next, Buy, Leave, ...), steered with W and S, picked
     with jump; the selected one has the highlight color, the same as a card on its player's turn.
-- **Notices** (the user, 2026-11-18): what the game itself says to everyone (a roll's number, the
-  roulette, a minigame's rules, its 3, 2, 1 and Go, who won, the end) shows in the box with no name
-  tab, no face, no jump prompt and no skip strip, a row for each line of it (`dialogue.ts`,
-  `notify`). It stays for its time, or until the game takes it down. A line said meanwhile takes
+- **Notices** (the user, 2026-11-18): what the game itself says to everyone (the roulette, a
+  minigame's rules, its 3, 2, 1 and Go, who won, the end; a roll's number rides over the roller's
+  head instead) shows in the box with no name tab, no face, no jump prompt and no skip strip, a
+  row for each line of it (`dialogue.ts`, `notify`). It stays for its time, or until the game takes it down. A line said meanwhile takes
   the box, and the notice comes back after it while it's still up. The core's own titles (the
   start's countdown, Go) become notices too.
 - **Titles,** only two (the user, 2026-11-18): a turn's start (`turn.title`, "Alex's", with

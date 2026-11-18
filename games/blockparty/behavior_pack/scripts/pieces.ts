@@ -26,6 +26,10 @@ import { describeError, log, type Scope } from "@minecade/minigame-core";
 import { angleGap, distance, route, standAt, yawTo, type Space, type Vec3 } from "./board.ts";
 import { isPlayer, nameOf, stepBot } from "./bots.ts";
 import { stepUp } from "./space-markers.ts";
+import { eventCue, playCue } from "./sounds.ts";
+
+/** The sound cue for a piece getting to each space on its walk (the user's Sounds view, Board). */
+const WALK_STEP = "walk.step";
 
 export type WalkCamera = "chase" | "watch" | "none";
 
@@ -176,9 +180,10 @@ export class Pieces {
    * Walks the player's piece through `passed`, in order, from where it is. `land`: the last is where
    * it lands (on its corner of the spot), else it stops on that space's middle (at a branch, or the
    * Star) to go on later. `quiet`: no chat report, and the camera is left as it is for the next
-   * stretch (the board loop's walks).
+   * stretch (the board loop's walks). `reached` hears of each space as the piece gets to it (the
+   * moves left counting down), and each plays the walk.step sound cue.
    */
-  async walkThrough(player: Entity, passed: readonly Space[], options: { land?: boolean; quiet?: boolean } = {}): Promise<void> {
+  async walkThrough(player: Entity, passed: readonly Space[], options: { land?: boolean; quiet?: boolean; reached?: (space: Space) => void } = {}): Promise<void> {
     const state = this.state(player);
     if (state.walking || passed.length === 0) return;
     const land = options.land !== false;
@@ -206,7 +211,10 @@ export class Pieces {
         const a = points[leg];
         const b = points[leg + 1];
         const span = Math.hypot(b[0] - a[0], b[2] - a[2]);
-        if (span < 0.05) continue;
+        if (span < 0.05) {
+          this.reached(passed[leg], options.reached);
+          continue;
+        }
         const ux = (b[0] - a[0]) / span;
         const uz = (b[2] - a[2]) / span;
         const yaw = yawTo(a, b);
@@ -251,6 +259,7 @@ export class Pieces {
           facing = next ?? facing;
           stuck = 0;
         }
+        this.reached(passed[leg], options.reached);
       }
       this.stop(player);
       state.space = landing.index;
@@ -265,6 +274,17 @@ export class Pieces {
     } finally {
       // The game holds the player again (spike.ts, keepControls) now the walk is over.
       state.walking = false;
+    }
+  }
+
+  /** A walk got to `space`: its sound, and whoever's counting. */
+  private reached(space: Space | undefined, heard: ((space: Space) => void) | undefined): void {
+    if (!space) return;
+    playCue(eventCue(WALK_STEP));
+    try {
+      heard?.(space);
+    } catch (error) {
+      log.warn(`blockparty: a walk's step failed: ${describeError(error)}`);
     }
   }
 
