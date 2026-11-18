@@ -59,8 +59,12 @@ export interface LoopHost {
   roll(who: Who, shot: boolean): Promise<number | undefined>;
   /** A choice: a player's form (closed: undefined), or a bot's moment of thought and then `botPick`. */
   choose(who: Who, title: string, body: string, options: readonly string[], botPick: number): Promise<number | undefined>;
-  /** A line said to everyone in the dialogue box (dialogue.ts); a skippable one can be voted away. */
-  say(id: string, fills?: Fills, skippable?: boolean): Promise<void>;
+  /**
+   * A line said to everyone in the dialogue box (dialogue.ts); a skippable one can be voted away.
+   * `by`: the player whose turn brought it (a Star, Versus, an NPC's space), who goes on from it;
+   * without it (the global cutscenes), or for a bot, the party leader does.
+   */
+  say(id: string, fills?: Fills, skippable?: boolean, by?: Who): Promise<void>;
   /** A line said to one seat in the dialogue box, with buttons (Next when none): resolves with their pick. */
   talk(id: string, fills: Fills, options: TalkOptions): Promise<number | undefined>;
   /** A stretch everyone can vote to skip (dialogue.ts, cutscene). */
@@ -508,12 +512,12 @@ export class BoardLoop {
     const money = { player: who.name, price: count(price, "coin"), coins: count(seat.coins, "coin") };
     await stage.starVisit(who, spaces[at]);
     if (seat.coins < price) {
-      await this.host.say("star.chris.short", money);
+      await this.host.say("star.chris.short", money, false, who);
       return;
     }
     const picked = await this.host.talk("star.chris.offer", money, { to: who, buttons: [button("star.form.buy"), button("star.form.skip")], back: 1, botPick: 0 });
     if (picked !== 0) {
-      await this.host.say("star.chris.declined");
+      await this.host.say("star.chris.declined", {}, false, who);
       return;
     }
     const before = this.snapshot();
@@ -525,9 +529,9 @@ export class BoardLoop {
     this.host.changed();
     this.host.title(line("star.bought.title", { player: who.name }), line("star.bought.subtitle", { space: this.spaceName(spaces[moved]) }));
     this.host.everyone(line("star.bought", { player: who.name, price: count(price, "coin"), starWhere: this.starsText() }));
-    await this.host.say("star.chris.sold", { player: who.name });
+    await this.host.say("star.chris.sold", { player: who.name }, false, who);
     await stage.starMoved(spaces[at], spaces[moved]);
-    await this.host.say("star.chris.moves", { space: this.spaceName(spaces[moved]) });
+    await this.host.say("star.chris.moves", { space: this.spaceName(spaces[moved]) }, false, who);
     await this.showResults(before);
   }
 
@@ -559,7 +563,7 @@ export class BoardLoop {
     const leader = others.reduce((best, other) => ((this.seats.get(other.key)?.coins ?? 0) > (this.seats.get(best.key)?.coins ?? 0) ? other : best), others[0]);
     // The Referee comes to the lander, and they pick a rival from its buttons.
     await this.host.stage.referee(who, this.host.spaces()[this.host.pieces.spaceOf(who.body)]);
-    if (doubled) await this.host.say("versus.doubled", { coins: count(stake, "coin") });
+    if (doubled) await this.host.say("versus.doubled", { coins: count(stake, "coin") }, false, who);
     const picked = await this.host.talk("versus.announce", { player: who.name }, {
       to: who,
       buttons: others.map((other) => button("versus.form.button", { player: other.name, coins: count(this.seats.get(other.key)?.coins ?? 0, "coin") })),
@@ -572,7 +576,7 @@ export class BoardLoop {
     this.played.set(def.id, (this.played.get(def.id) ?? 0) + 1);
     const duel = { player: who.name, other: rival.name, coins: count(stake, "coin") };
     this.host.everyone(doubled ? line("versus.start.doubled", duel) : line("versus.start", duel));
-    await this.host.say("versus.faceoff", duel);
+    await this.host.say("versus.faceoff", duel, false, who);
     this.host.stage.refereeGone();
     const onlookers = this.host.present().filter((other) => other.key !== who.key && other.key !== rival.key);
     const before = this.snapshot();

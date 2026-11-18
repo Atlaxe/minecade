@@ -11,7 +11,7 @@ are gone. Then (2026-11-18, the user's look at the controls and their camera ask
 board but the roll's, the item panel on A and D only, and the cameras ("Cameras": the board view,
 the turn shot, other shots handing the camera back, and the minigame announcement's camera moves).
 Then (2026-11-18, the user's look at the dialogue box): one card of the dialogue tool's scenes per
-box instead of a sentence, only the party leader goes on, the speaker's face and name color, and
+box instead of a sentence, the party leader goes on in global cutscenes and a turn's player in their own, the speaker's face and name color, and
 the skip strip as "Hold [sneak] to skip" with an x / y count ("The dialogue box", "Skip").
 The rest isn't built yet. It is the content of pass 10 in `block-party.md` ("Refinement: cameras and UI"), and
 it replaces that plan's hotbar: the board can't use the hotbar for its controls, because minigames
@@ -248,12 +248,15 @@ player.
   each line as the user built it in the dialogue tool's scene builder is one box, all its words at
   once; nothing said before stays. While it's up the speaker's voice plays once per sentence, one
   after another.
-- **Only the party leader goes on** (the user, 2026-11-18): the player who started the game from the
-  lobby (the lobby sends them as the start's `leader` setting), or, while they're away, the first
-  player the lobby sent who's here, else the first player here. Their jump shows the next card;
-  nobody else's does, and nobody's name shows (no "who has jumped"). A question to one player (the
-  Star, Versus) is still theirs to answer: they steer its buttons. The pre-game's rules question
-  goes to the leader. The jump button's icon sits at the bottom right, the viewer's own (the Space
+- **Who goes on** (the user, 2026-11-18): in the global cutscenes, the ones no player's turn brings
+  (the pre-game, the announcements, the end of the game), only the party leader: the player who
+  started the game from the lobby (the lobby sends them as the start's `leader` setting), or, while
+  they're away, the first player the lobby sent who's here, else the first player here. A line a
+  player's turn brings (landing on a Star, the shop, Versus, any NPC's space) goes on at that
+  player's jump instead (`say(..., by)`), or the leader's for a bot or once that player has left.
+  Nobody else's jump does anything, and nobody's name shows (no "who has jumped"). A question to one
+  player is theirs to answer: they steer its buttons. The pre-game's rules question goes to the
+  leader. The jump button's icon sits at the bottom right, the viewer's own (the Space
   key, the controller's A or cross, the touch jump: the client knows its own input), naming nobody.
   No Next button and no timer; with no player at all a card waits the time it takes to read.
 - A line can play a sound ("Sounds").

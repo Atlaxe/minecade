@@ -9,9 +9,12 @@
 //     tool's scene builder, is one box with all its words; nothing said before stays. While it's up
 //     the speaker's voice plays once for each of its sentences, one after another (the user's sound
 //     map, sounds.ts), or the line's own sound once in place of them all.
-//   - Only the party leader goes on (the user): the player who started the game from the lobby, or
-//     who stands in for them while they're away (the host's leader()). Their jump shows the next
-//     card; nobody else's does. With no player at all, a card waits the time it takes to read.
+//   - Who goes on (the user, 2026-11-18): in the global cutscenes, the ones no player's turn brings
+//     (the pre-game, the announcements, the end), only the party leader: the player who started the
+//     game from the lobby, or who stands in for them while they're away (the host's leader()). A line
+//     a player's turn brings (landing on a Star, the shop, Versus, any NPC's space: say()'s `by`)
+//     goes on at that player's jump instead; at a bot's, or once they've left, the leader's. Nobody
+//     else's jump does anything. With no player at all, a card waits the time it takes to read.
 //   - A question to one player (talk, with buttons) is theirs to answer: they steer its buttons with
 //     the movement keys (W and S), jump picks, a tap of sneak picks its back button (Not now,
 //     Leave). A bot picks after a moment's thought.
@@ -72,6 +75,8 @@ interface Open extends Voting {
   selected: number;
   /** A question: who steers and picks, by key; a bot does by itself. */
   steerer?: Who;
+  /** A line a player's turn brought: they go on (the leader instead for a bot, or once they've gone). */
+  by?: Who;
   back?: number;
   /** The tick the card came in (a jump counts from JUMP_AFTER ticks after). */
   since: number;
@@ -149,18 +154,19 @@ export class Dialogue {
   }
 
   /**
-   * Says `id` to everyone: the whole line in the box, until the leader jumps. `skippable` (or the
-   * user's file) lets everyone vote it away.
+   * Says `id` to everyone: the whole line in the box, until the leader jumps, or `by` when their turn
+   * brought it (a player who landed on an NPC's space). `skippable` (or the user's file) lets
+   * everyone vote it away.
    */
-  async say(id: string, fills: Fills = {}, skippable = false): Promise<void> {
+  async say(id: string, fills: Fills = {}, skippable = false, by?: Who): Promise<void> {
     if (this.skipping) return;
     const text = line(id, fills, () => this.host.random());
     if (!text) return;
     const said = moment(id);
-    const open = this.show({ mode: "everyone", ...this.speaker(said.character), words: rowsOf(text), selected: 0, since: system.currentTick, skippable: skippable || said.skippable || this.scene?.skippable === true, votes: [], skipped: false });
+    const open = this.show({ mode: "everyone", ...this.speaker(said.character), words: rowsOf(text), selected: 0, by, since: system.currentTick, skippable: skippable || said.skippable || this.scene?.skippable === true, votes: [], skipped: false });
     try {
       this.voice(id, open, text, said.character);
-      await this.leaderJumped(open, text);
+      await this.goneOn(open, text);
       if (!this.done(open)) playCue(eventCue("dialogue.next"));
     } finally {
       this.release(open);
@@ -170,14 +176,14 @@ export class Dialogue {
   /**
    * Asks `id` of one player: the whole line with its buttons, which they steer and pick from.
    * Resolves with the button they pick, or undefined if they leave first. Everyone sees it; only they
-   * steer it. With no buttons it's said like any line (the leader goes on), and resolves with 0.
+   * steer it. With no buttons it's said like any line, going on at their jump, and resolves with 0.
    */
   async talk(id: string, fills: Fills, options: TalkOptions): Promise<number | undefined> {
     // A question in a cutscene that's being skipped isn't asked.
     if (this.skipping) return undefined;
     const buttons = options.buttons && options.buttons.length > 0 ? [...options.buttons] : undefined;
     if (!buttons) {
-      await this.say(id, fills);
+      await this.say(id, fills, false, options.to);
       return 0;
     }
     const text = line(id, fills, () => this.host.random());
@@ -193,7 +199,7 @@ export class Dialogue {
     }
   }
 
-  /** A jump: the leader going on, or a question's steerer picking. True when the box took it. */
+  /** A jump: the one who goes on (the leader, or the player whose turn brought the line) going on, or a question's steerer picking. True when the box took it. */
   jumped(player: Player): boolean {
     const open = this.open;
     if (!open) return false;
@@ -202,8 +208,8 @@ export class Dialogue {
       if (open.picked === undefined && this.counts(open)) open.picked = open.selected;
       return true;
     }
-    // A line to everyone: only the leader's jump goes on; anyone else's does nothing while it's up.
-    if (open.picked === undefined && this.counts(open) && this.isLeader(player)) open.picked = 0;
+    // A line to everyone: only the one who goes on; anyone else's jump does nothing while it's up.
+    if (open.picked === undefined && this.counts(open) && this.goer(open)?.name === player.name) open.picked = 0;
     return true;
   }
 
@@ -239,9 +245,10 @@ export class Dialogue {
     return { name: character, ...look(character) };
   }
 
-  private isLeader(player: Player): boolean {
-    const leader = this.host.leader();
-    return leader !== undefined && leader.name === player.name;
+  /** Who goes on from a line to everyone: the player whose turn brought it while they're here, else the leader. */
+  private goer(open: Open): Player | undefined {
+    const by = open.by?.player;
+    return by?.isValid ? by : this.host.leader();
   }
 
   /** Puts `open` on screen (in place of the box there). */
@@ -296,12 +303,12 @@ export class Dialogue {
     }
   }
 
-  /** Waits for the leader's jump (the line is skipped, or its box goes); with no player here, the time to read it. */
-  private async leaderJumped(open: Open, text: string): Promise<void> {
+  /** Waits for the jump that goes on (the line is skipped, or its box goes); with no player here, the time to read it. */
+  private async goneOn(open: Open, text: string): Promise<void> {
     const started = system.currentTick;
     const read = sentences(text).reduce((sum, sentence) => sum + readTicks(sentence), 0);
     while (!this.done(open) && open.picked === undefined) {
-      if (this.host.leader() === undefined && system.currentTick - started >= read) return;
+      if (this.goer(open) === undefined && system.currentTick - started >= read) return;
       await this.host.scope.wait(1);
     }
   }
@@ -412,8 +419,8 @@ export class Dialogue {
       this.box = { title };
       const voting = this.voting(open);
       const skip = voting ? this.votesText(voting) : undefined;
-      // The jump prompt, while a jump goes on: the leader's to everyone, the steerer's on a question (none while a bot picks).
-      const waiting = open.mode === "everyone" ? this.host.leader() !== undefined : open.steerer?.player !== undefined;
+      // The jump prompt, while a jump goes on: the leader's or the turn's player's to everyone, the steerer's on a question (none while a bot picks).
+      const waiting = open.mode === "everyone" ? this.goer(open) !== undefined : open.steerer?.player !== undefined;
       const rows = boxRows({ face: open.name ? open.face : undefined, words: open.words, buttons: open.buttons, selected: open.selected, skip, prompt: waiting ? "" : undefined });
       this.host.show({ title, rows });
     } catch (error) {

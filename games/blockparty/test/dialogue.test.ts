@@ -1,6 +1,7 @@
 // The dialogue box (dialogue-codes.ts, dialogue.ts): what goes on the sidebar, one card (a whole
-// line) at a time with its speaker's color and face, going on at the party leader's jump only, a
-// question's buttons steered by the one it's asked of, skip votes by holding sneak counted as "1/2",
+// line) at a time with its speaker's color and face, going on at the party leader's jump (or the
+// jump of the player whose turn brought the line), a question's buttons steered by the one it's
+// asked of, skip votes by holding sneak counted as "1/2",
 // and skipped cutscenes; and the pack's JSON UI reading the same codes.
 import { readFileSync } from "node:fs";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -180,6 +181,35 @@ describe("the dialogue box", () => {
     expect(closed).toBe(1);
   });
 
+  it("goes on at the jump of the player whose turn brought the line, not the leader's", async () => {
+    // Sam (not the leader) landed on the Star: the line is Sam's to go on from.
+    const done = dialogue.say("star.chris.declined", {}, false, whoOf(sam as never));
+    await ticks(12);
+    expect(rowsOfKind(ROW.prompt)).toEqual([""]);
+    expect(dialogue.jumped(alex as never)).toBe(true);
+    await ticks(5);
+    expect(words().length).toBeGreaterThan(0);
+    dialogue.jumped(sam as never);
+    await until(done, 3);
+  });
+
+  it("lets the leader go on from a line a bot's turn brought, or once its player has left", async () => {
+    const bot: Who = { name: "Bot", key: "bot", body: {} as never };
+    const done = dialogue.say("star.chris.declined", {}, false, bot);
+    await ticks(12);
+    dialogue.jumped(sam as never);
+    await ticks(5);
+    expect(words().length).toBeGreaterThan(0);
+    dialogue.jumped(alex as never);
+    await until(done, 3);
+    const gone = dialogue.say("star.chris.declined", {}, false, whoOf(sam as never));
+    await ticks(12);
+    world.leave("Sam");
+    await ticks(1);
+    dialogue.jumped(alex as never);
+    await until(gone, 3);
+  });
+
   it("goes on by itself after the time to read it when no player is here", async () => {
     leaderName = undefined;
     const done = dialogue.say("pregame.length", { rounds: 15 });
@@ -220,15 +250,15 @@ describe("the dialogue box", () => {
     expect(await until(picked)).toBe(1);
   });
 
-  it("says a line to one player with no buttons like any line: the leader goes on", async () => {
+  it("says a line to one player with no buttons like any line, going on at their jump", async () => {
     const who: Who = whoOf(sam as never);
     const done = dialogue.talk("star.chris.short", { price: "20 coins" }, { to: who });
     await ticks(12);
     expect(rowsOfKind(ROW.button)).toEqual([]);
-    dialogue.jumped(sam as never);
+    dialogue.jumped(alex as never);
     await ticks(5);
     expect(words().length).toBeGreaterThan(0);
-    dialogue.jumped(alex as never);
+    dialogue.jumped(sam as never);
     expect(await until(done, 5)).toBe(0);
   });
 

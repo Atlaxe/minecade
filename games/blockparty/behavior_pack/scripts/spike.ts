@@ -348,7 +348,7 @@ export class BlockPartySpike extends Minigame<Config> {
         });
       },
       choose: (who, title, body, options, botPick) => this.choose(who, title, body, options, botPick),
-      say: (id, fills, skippable) => this.dialogue.say(id, fills, skippable),
+      say: (id, fills, skippable, by) => this.dialogue.say(id, fills, skippable, by),
       talk: (id, fills, options) => this.dialogue.talk(id, fills, options),
       cutscene: (skippable, work) => this.dialogue.cutscene(skippable, work),
       stage: this.staging,
