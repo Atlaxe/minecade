@@ -31,7 +31,7 @@
 // comes is skipped and keeps their place. Someone new comes in at the start of the next round, at
 // Start, last in the turn order, with as many coins as last place and no Stars. No timers: the game
 // waits for each roll and choice. Everything it says is a line from dialogue.json (lines.ts).
-import { world } from "@minecraft/server";
+import { world, type Entity } from "@minecraft/server";
 import { describeError, log, type Result, type Scope } from "@minecade/minigame-core";
 import { BLOCK_PARTY_BOARD } from "@minecade/minigame-core/config";
 import { back, type Space } from "./board.ts";
@@ -44,6 +44,7 @@ import type { TalkOptions } from "./dialogue.ts";
 import type { Stage } from "./stage.ts";
 import { activeStars, addCoins, coinsFor, count, firstStars, leaders, nextStar, ranked, starDistance, starPrice, turnOrder, type Standing } from "./board-rules.ts";
 import { moodOf, type CoinsAndStars, type PlayerSet } from "./animations.ts";
+import { isSeat, type Party, type Token } from "./tokens.ts";
 import type { Who } from "./bots.ts";
 import { thrown, type DieFace, type RollOutcome } from "./dice.ts";
 import { button, line, type Fills } from "./lines.ts";
@@ -101,7 +102,7 @@ export interface LoopHost {
   /** The results screen (results.ts) from the standings `before` to `after`; resolves once it's gone. */
   results(before: readonly ResultSeat[], after: readonly ResultSeat[]): Promise<void>;
   /** The zombies that follow seats (zombies.ts): their bodies; how long they stay is the loop's. */
-  zombies: { add(key: string): unknown; remove(key: string): void };
+  zombies: { add(key: string): unknown; remove(key: string): void; of?(key: string): Entity | undefined };
   random(): number;
   /**
    * A seat's player (or bot) plays one of the players' animation sets (moves.ts): Celebration on
@@ -109,6 +110,12 @@ export interface LoopHost {
    * lost; Select when they're picked as a rival.
    */
   react?(who: Who, set: PlayerSet): void;
+  /**
+   * Shows `count` of `token` going from one to another (transfers.ts: a seat, an NPC, or nobody for
+   * the bank), like Super Mario Party's coins: they fly head to head with a count over the heads.
+   * Resolves once the last has landed.
+   */
+  transfer?(from: Party, to: Party, token: Token, count: number): Promise<void>;
 }
 
 /** A seat as its card shows it (block-party-ui.md, "Player cards"), in turn order. */
@@ -177,6 +184,8 @@ export class BoardLoop {
   /** Each seat's coins and Stars as watchMoods last saw them, and the coins each has spent of its own accord since. */
   private readonly seen = new Map<string, CoinsAndStars>();
   private readonly spentSince = new Map<string, number>();
+  /** Each seat's coins and Stars a transfer has shown coming in (above 0) or going out since watchMoods last looked: it shows only the rest. */
+  private readonly shownSince = new Map<string, CoinsAndStars>();
   private readonly host: LoopHost;
   /** The items in play, and the spaces past Blue, Red and Versus (pass 7). */
   readonly items: ItemPlay;
@@ -270,8 +279,56 @@ export class BoardLoop {
     const paid = Math.min(amount, payer.coins);
     payer.coins -= paid;
     payee.coins += paid;
+    // The coins fly from the payer's head to the payee's.
+    void this.transfer(this.whoOf(from), this.whoOf(to), "coin", paid);
     this.host.changed();
     return paid;
+  }
+
+  /** A seat by key, if they're here (else undefined: a transfer to or from them shows the bank's way). */
+  whoOf(key: string): Who | undefined {
+    return this.host.present().find((one) => one.key === key);
+  }
+
+  /**
+   * Shows `count` of `token` going from one to another (transfers.ts: a seat, an NPC's entity, or
+   * nobody for the bank), and marks the seats' coins and Stars it shows going in and out so the
+   * watcher (watchMoods) doesn't show them again: call it as the change is made, before anything
+   * waits. `gift`: shown only, for coins or Stars already in hand (the starting coins). Resolves once
+   * the last has landed.
+   */
+  transfer(from: Party, to: Party, token: Token, count: number, gift = false): Promise<void> {
+    if (count <= 0) return Promise.resolve();
+    if (!gift) this.markShown(from, to, token, count);
+    return this.fly(from, to, token, count);
+  }
+
+  /** Transfers one after another (a Star's coins to Chris, then the Star to the buyer), all marked at once: call it as the changes are made. */
+  async transferAll(steps: readonly (readonly [Party, Party, Token, number])[]): Promise<void> {
+    for (const [from, to, token, count] of steps) if (count > 0) this.markShown(from, to, token, count);
+    for (const [from, to, token, count] of steps) if (count > 0) await this.fly(from, to, token, count);
+  }
+
+  /**
+   * A transfer's tokens flying (the host's), and a Star's moods with it: a seat it leaves is sad as
+   * it goes, and the seat it flies to celebrates as it lands (the watcher leaves a shown Star's to it).
+   */
+  private async fly(from: Party, to: Party, token: Token, count: number): Promise<void> {
+    if (token === "star" && isSeat(from)) this.react(from.key, "Sad");
+    await (this.host.transfer?.(from, to, token, count) ?? Promise.resolve());
+    if (token === "star" && isSeat(to)) this.react(to.key, "Celebration");
+  }
+
+  /** A transfer's coins or Stars as shown for the seats on each side. */
+  private markShown(from: Party, to: Party, token: Token, count: number): void {
+    if (token !== "coin" && token !== "star") return;
+    const field = token === "coin" ? "coins" : "stars";
+    for (const [party, sign] of [[from, -1], [to, 1]] as const) {
+      if (!isSeat(party)) continue;
+      const shown = this.shownSince.get(party.key) ?? { coins: 0, stars: 0 };
+      shown[field] += sign * count;
+      this.shownSince.set(party.key, shown);
+    }
   }
 
   /** Coins a seat spends of its own accord (a shop, a reroll, a Battle's pot): losing them doesn't make them sad. */
@@ -289,11 +346,26 @@ export class BoardLoop {
       const now = { coins: seat.coins, stars: seat.stars };
       const before = this.seen.get(key);
       const spent = this.spentSince.get(key) ?? 0;
+      const shown = this.shownSince.get(key) ?? { coins: 0, stars: 0 };
       this.seen.set(key, now);
       this.spentSince.delete(key);
-      const mood = before ? moodOf(before, now, spent) : undefined;
+      this.shownSince.delete(key);
+      if (!before) continue;
+      // A Star a transfer shows brings its mood as it flies (fly), not here.
+      const mood = moodOf(before, { coins: now.coins, stars: now.stars - shown.stars }, spent);
       if (mood) this.react(key, mood);
+      // What no transfer showed (a Blue or Red space, a minigame's coins, a die's face): from the
+      // bank, dropping in over their head, or off their head into the air.
+      this.fromBank(key, "coin", now.coins - before.coins - shown.coins);
+      this.fromBank(key, "star", now.stars - before.stars - shown.stars);
     }
+  }
+
+  /** Coins or Stars a seat gained (above 0) from the bank, or lost to it, shown dropping in or flying off. */
+  private fromBank(key: string, token: "coin" | "star", change: number): void {
+    const who = this.whoOf(key);
+    if (change === 0 || !who?.body.isValid) return;
+    void (change > 0 ? this.host.transfer?.(undefined, who, token, change) : this.host.transfer?.(who, undefined, token, -change));
   }
 
   /** A seat's player or bot plays one of the players' sets, if they're here. */
@@ -642,6 +714,9 @@ export class BoardLoop {
         if (!stage.skipping) this.react(this.order[place], "Celebration");
         await this.host.say(`pregame.place.${place + 1}`, { player: name });
       }
+      // Chris hands everyone their starting coins (shown only: the seats have them already).
+      const chris = stage.speaker("chris");
+      if (!stage.skipping) for (const who of seats) void this.transfer(chris, who, "coin", this.host.startCoins, true);
       await this.host.say("pregame.coins", { coins: count(this.host.startCoins, "coin") });
       for (const star of this.stars) {
         await stage.starReveal(spaces[star]);
@@ -924,14 +999,21 @@ export class BoardLoop {
     seat.coins -= price;
     seat.stars++;
     seat.effects.discount = 0;
+    this.spent(who.key, price);
+    // The coins fly to Chris, then the Star flies to them (they celebrate as it lands).
+    const chris = stage.speaker("chris");
+    const paying = this.transferAll([
+      [who, chris, "coin", price],
+      [chris, who, "star", 1],
+    ]);
     const index = this.stars.indexOf(at);
     const moved = nextStar(spaces, at, this.stars.filter((star) => star !== at), starDistance(spaces.length), this.host.random);
     if (index >= 0) this.stars[index] = moved;
     this.host.changed();
     this.host.notice(line("star.bought.title", { player: who.name }), line("star.bought.subtitle", { space: this.spaceName(spaces[moved]) }), STAR_NOTICE);
     this.host.everyone(line("star.bought", { player: who.name, price: count(price, "coin"), starWhere: this.starsText() }));
-    // The notice has the box a moment before Chris speaks.
-    await this.host.scope.wait(STAR_NOTICE);
+    // The notice has the box a moment before Chris speaks (and the Star is theirs by then).
+    await Promise.all([this.host.scope.wait(STAR_NOTICE), paying]);
     await this.host.say("star.chris.sold", { player: who.name }, false, who);
     await stage.starMoved(spaces[at], spaces[moved]);
     await this.host.say("star.chris.moves", { space: this.spaceName(spaces[moved]) }, false, who);

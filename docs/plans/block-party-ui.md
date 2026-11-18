@@ -384,6 +384,46 @@ A pop over a piece for anything gained or lost: coins, a Star, an item, a die.
 - It plays with the card's number stepping and a sound. This is how coins coming in will show (the
   user couldn't tell when coins came in, `block-party.md` pass 10).
 
+### Transfers, as built (2026-11-18)
+
+The user's ask: coins, Stars and items flying between an NPC and a player, either way, in an arc
+from one head to the other, with a "+X" over the head when more than one comes, like Super Mario
+Party. Built for every change of hands, which also covers the pops above (`tokens.ts`,
+`transfers.ts`):
+- **The token** is one entity of the game's own (`blockparty:token`): the coin or the Star (the
+  private icons pack's models) or an item's or die's icon as a flat picture. The build copies each
+  item's and die's icon to a slot picture (`textures/blockparty/icons/token_<slot>`, items in the
+  game's order then the dice in the dice file's; 32 slots, clear past the last), so a new die needs
+  nothing run.
+- **The flight** is the token's own on each client: it's put at the middle of the way, facing where
+  it goes, its reach, rise and arc as properties, and the pack's animation
+  (`animation.blockparty.token.fly`) carries it over its own life from the giver's head up in an arc
+  and down into the taker's in 0.7 s, spinning, popping in as it leaves and shrinking away as it
+  lands. Nothing moves it from the server, so nothing jitters.
+- **Several** go one after another, a stream 3 ticks apart: up to 10 coins, 5 Stars, 3 items. With
+  two or more a count rides over the taker's head, gold "+1" up to "+X" as they land, and a red "-1"
+  to "-X" over a giving player's head as they leave: a name tag on an invisible entity
+  (`blockparty:label`) rising slowly, there a second after the last lands. Each landing on a player
+  plays the user's `gain.coins`, `gain.star` or `gain.item` sound, each leaving a player's head
+  `loss.*`.
+- **Who to whom:** the Star's price to Chris and then the Star to the buyer (who celebrates as it
+  lands); the Shop's and the Trader's price to them and the goods back; selling to the Villager (the
+  Shop's and the Villager item's), the goods to him and the coins back; the Witch's reroll price;
+  Coin Rain from the Witch to everyone; Double or Nothing either way; Lucky Draw's item from the
+  Witch; the Warden's Sculk Tax and Star Tax to him and his Sonic Boom's Star; the zombie's bite;
+  every payment between players (a duel's stake, Hush Money, the Iron Golem's shakedown, Reverse
+  Fortune, Lightning Strike); Coin Swap's difference; the Shooting Star; Happening's item swap; and
+  Chris handing everyone their starting coins in the pre-game (shown only).
+- **The bank:** coins or Stars that change with nobody giving or taking (a Blue or Red space, a
+  minigame's coins, a die's face, a Battle's pot, a bet) drop in from above the head or fly up off
+  it, found by the loop's watcher (it shows only what no transfer showed). Items from an Item space
+  or a Happening drop in from above too.
+- **Tests:** Transfer animations plays each kind round the player (shown only).
+- **Not checked in game yet:** that a model's animation can move it this far from its entity (the
+  token's picture has wide visible bounds, the coin's and Star's models 2 blocks), the facing (an
+  entity's front is its model's -z, from vanilla's sneaking pose), and that the label rises (an
+  impulse on an entity without gravity).
+
 ## The vanilla HUD
 
 - **On the board:** the hotbar, health, hunger, XP, armor, air, the paper doll, status effects and
@@ -418,6 +458,11 @@ A pop over a piece for anything gained or lost: coins, a Star, an item, a die.
   a custom command, registered the way `packages/minigame-core/src/building/commands.ts` does.
 - **`/blockparty:tests`** opens the Tests form the compass opens today, in test games
   (`DEV_TEST_GAMES`) or for operators (proposed).
+- **A test by name** (the user, 2026-11-18): `/blockparty:tests <word>` (or `/tests <word>`) runs that
+  button at once, a form opening as from the menu: getstar, gotospace, skiptoround, playminigame,
+  piecesettings, camerashots, jumptest, diceanditems, hold, outcomes, trader, models, lightspaces,
+  playeranimations, transfers, npcs, arenas, ride, end (`tests-menu.ts`; the game offers them as you
+  type).
 
 ## Player heads
 
@@ -523,8 +568,9 @@ animations where the mob has one, else the game's own.
   and so does a new action the user adds to a character in the dialogue tool, once the pack has an
   animation named after it. Until then a move is skipped and named once in the server's log.
 - **The first animations** (made by hand, to be replaced or joined by the user's): Celebration
-  (arms up with hops, a fist pump, a jumping spin), Sad (a slump, a head shake, a frustrated
-  stomp), Dice roll (a right, left or two-fisted punch up, a punch with a kick, a tuck), Select (a
+  (arms up with hops, a fist pump, a jumping spin), Sad (crying: bent over, hands over the face, the
+  head shaking and the shoulders heaving with sobs, the user's pick over a slump; a head shake; a
+  frustrated stomp), Dice roll (a right, left or two-fisted punch up, a punch with a kick, a tuck), Select (a
   wave with either hand, fists ready with a hop, a point at the camera). Chris talks (a snout bob),
   celebrates (two hops and a spin) and tilts his head as he looks at the player; the Villager and
   the Wandering Trader talk, nod and shake their heads, and the Trader and the Witch drink a potion
@@ -533,6 +579,11 @@ animations where the mob has one, else the game's own.
   raises its arms; the Enderman screams (jaw open, arms out) and blinks away and back; the Allay
   flies in from above and holds out a falling Star. Vanilla's own: the Warden's five, the Allay's
   dance, the Referee's cheer.
+- **The Warden** is hidden when he's put on the board (his entity's `blockparty:shown` is off, and
+  the pack's hide animation shrinks him to nothing), shown once his emerge has begun (he's 4 blocks
+  down then), and hidden again as his dig has him 2.5 blocks down, held there until he's taken away:
+  the user saw him standing before he emerged and after he dug away. The Tests' Warden is shown at
+  once.
 - **On whom and when** (the game's own moments): Select as a player's turn starts (as the turn shot
   gets to them) and when they're picked as a rival (an item, a Versus pick, Chance Time's Coin
   Swap); Dice roll on the jump that hits the die, the turn order's too, and a bot's hop; Celebration

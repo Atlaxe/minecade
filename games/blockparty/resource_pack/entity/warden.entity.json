@@ -29,7 +29,8 @@
       "animations": {
         "base_pose": "animation.humanoid.base_pose.v1.0",
         "bob": "animation.warden.bob",
-        "look_at_target": "animation.warden.look_at_target.default"
+        "look_at_target": "animation.warden.look_at_target.default",
+        "hide": "animation.blockparty.hide"
       },
       "scripts": {
         "pre_animation": [
@@ -43,7 +44,10 @@
         "animate": [
           "base_pose",
           "bob",
-          "look_at_target"
+          "look_at_target",
+          {
+            "hide": "!q.property('blockparty:shown')"
+          }
         ]
       }
     }

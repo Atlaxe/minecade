@@ -174,6 +174,11 @@ export class SpacePlay {
     seat.coins -= visit.price;
     this.loop.spent(who.key, visit.price);
     put(seat.hands, visit.goods);
+    const trader = stage.get(TRADER);
+    void this.loop.transferAll([
+      [who, trader, "coin", visit.price],
+      [trader, who, visit.goods, 1],
+    ]);
     this.host.changed();
     await this.host.say("trader.sold", fills, false, who);
     this.visit = undefined;
@@ -244,6 +249,11 @@ export class SpacePlay {
     seat.coins -= price;
     this.loop.spent(who.key, price);
     put(seat.hands, goods);
+    const villager = this.host.stage.get(VILLAGER);
+    void this.loop.transferAll([
+      [who, villager, "coin", price],
+      [villager, who, goods, 1],
+    ]);
     this.host.changed();
     await this.host.say("shop.bought", fills, false, who);
     return true;
@@ -268,6 +278,11 @@ export class SpacePlay {
     const prize = goods[picked];
     take(seat.hands, prize);
     seat.coins += sellPrice(prize);
+    const villager = this.host.stage.get(VILLAGER);
+    void this.loop.transferAll([
+      [who, villager, prize, 1],
+      [villager, who, "coin", sellPrice(prize)],
+    ]);
     this.host.changed();
     await this.host.say("shop.sold", { player: who.name, item: prizeName(prize), coins: count(sellPrice(prize), "coin") }, false, who);
     return true;
@@ -300,6 +315,7 @@ export class SpacePlay {
         if (canReroll && choice === potions.length) {
           seat.coins -= REROLL_PRICE;
           this.loop.spent(who.key, REROLL_PRICE);
+          void this.loop.transfer(who, this.host.stage.get(WITCH), "coin", REROLL_PRICE);
           rerolled = true;
           this.host.changed();
           stage.act(WITCH, "animation.witch.general");
@@ -346,7 +362,9 @@ export class SpacePlay {
         const coins = grown(COIN_RAIN, late);
         for (const other of here) {
           const theirs = this.loop.seatOf(other.key);
-          if (theirs) theirs.coins += coins;
+          if (!theirs) continue;
+          theirs.coins += coins;
+          void this.loop.transfer(this.host.stage.get(WITCH), other, "coin", coins);
         }
         this.host.changed();
         await this.host.say("chance.coin-rain", { player: who.name, coins: count(coins, "coin") }, false, who);
@@ -360,6 +378,10 @@ export class SpacePlay {
         const theirs = target ? this.loop.seatOf(target.key) : undefined;
         if (!target || !theirs) break;
         [seat.coins, theirs.coins] = [theirs.coins, seat.coins];
+        // The difference flies from the one who had more to the one who had less.
+        const gained = seat.coins - theirs.coins;
+        if (gained > 0) void this.loop.transfer(target, who, "coin", gained);
+        else if (gained < 0) void this.loop.transfer(who, target, "coin", -gained);
         this.host.changed();
         await this.host.stage.twoSeats(who, target, "chance.coin-swap");
         await this.host.say("chance.coin-swap", { player: who.name, other: target.name }, false, who);
@@ -384,7 +406,10 @@ export class SpacePlay {
         });
         const bet = options[Math.min(options.length - 1, Math.max(0, picked ?? 0))];
         const won = this.host.random() < 0.5;
+        const was = seat.coins;
         seat.coins = addCoins(seat.coins, won ? bet : -bet);
+        const witch = this.host.stage.get(WITCH);
+        void (won ? this.loop.transfer(witch, who, "coin", seat.coins - was) : this.loop.transfer(who, witch, "coin", was - seat.coins));
         this.host.changed();
         await this.host.say(won ? "chance.double.won" : "chance.double.lost", { player: who.name, coins: count(bet, "coin") }, false, who);
         results = true;
@@ -398,7 +423,7 @@ export class SpacePlay {
       case "lucky_draw": {
         const prize = drawPrize(this.loop.trailOf(who.key), "lucky", this.host.random);
         await this.host.say("chance.lucky-draw", { player: who.name, item: prizeName(prize) }, false, who);
-        await this.items.give(who, prize);
+        await this.items.give(who, prize, this.host.stage.get(WITCH));
         break;
       }
       case "position_shuffle":
@@ -429,6 +454,7 @@ export class SpacePlay {
         if (!from || !to || from.stars <= 0) break;
         from.stars--;
         to.stars++;
+        void this.loop.transfer(ends.leader, ends.last, "star", 1);
         this.host.changed();
         await this.host.stage.twoSeats(ends.leader, ends.last, "chance.shooting-star", "Pan");
         await this.host.say("chance.shooting-star", { player: ends.leader.name, other: ends.last.name }, false, who);
@@ -476,8 +502,9 @@ export class SpacePlay {
     const seat = this.loop.seatOf(who.key);
     if (!seat) return;
     const { stage } = this.host;
+    // He's put there hidden, and shows once his emerge has him coming up out of the ground.
     await stage.visit(WARDEN, "warden", who, this.loop.spaceOf(who), "warden.arrives");
-    stage.act(WARDEN, "animation.warden.emerge");
+    stage.move(WARDEN, "Warden", "Emerge", who.body);
     try {
       await this.host.say("warden.arrives", { player: who.name }, false, who);
       const ends = this.loop.ends();
@@ -496,11 +523,12 @@ export class SpacePlay {
         );
       const before = this.loop.snapshot();
       let results = false;
-      stage.act(WARDEN, event === "sonic_boom" ? "animation.warden.sonic_boom" : "animation.warden.roar");
+      stage.move(WARDEN, "Warden", event === "sonic_boom" ? "Sonic boom" : "Roar", who.body);
       switch (event) {
         case "sculk_tax": {
           const took = Math.min(sculkTax(this.host.random), seat.coins);
           seat.coins -= took;
+          void this.loop.transfer(who, stage.get(WARDEN), "coin", took);
           await this.host.say("warden.sculk-tax", { player: who.name, coins: count(took, "coin") }, false, who);
           results = took > 0;
           break;
@@ -516,6 +544,7 @@ export class SpacePlay {
         case "star_tax": {
           const took = Math.min(STAR_TAX * seat.stars, seat.coins);
           seat.coins -= took;
+          void this.loop.transfer(who, stage.get(WARDEN), "coin", took);
           await this.host.say("warden.star-tax", { player: who.name, coins: count(STAR_TAX, "coin") }, false, who);
           results = took > 0;
           break;
@@ -538,13 +567,15 @@ export class SpacePlay {
           const theirs = target ? this.loop.seatOf(target.key) : undefined;
           if (!target || !theirs || theirs.stars <= 0) break;
           theirs.stars--;
+          void this.loop.transfer(target, stage.get(WARDEN), "star", 1);
           await this.host.say("warden.sonic-boom", { player: target.name }, false, who);
           results = true;
           break;
         }
       }
       this.host.changed();
-      stage.act(WARDEN, "animation.warden.dig");
+      // He digs away and stays down, hidden, until he's taken away.
+      stage.move(WARDEN, "Warden", "Dig away", who.body);
       await this.host.say("warden.leaves", { player: who.name }, false, who);
       if (results) await this.loop.showResults(before);
     } finally {
@@ -608,6 +639,8 @@ export class SpacePlay {
         take(theirs.hands, { kind: "item", id: got });
         put(seat.hands, { kind: "item", id: got });
         put(theirs.hands, { kind: "item", id: mine });
+        void this.loop.transfer(who, other, { kind: "item", id: mine }, 1);
+        void this.loop.transfer(other, who, { kind: "item", id: got }, 1);
         this.host.changed();
         await this.host.say("happening.swap-item", { ...fills, other: other.name, item: prizeName({ kind: "item", id: got }) }, false, who);
         break;

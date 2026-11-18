@@ -112,7 +112,17 @@ export interface NpcMove {
   property?: string;
   /** What the script does too. */
   deed?: Deed;
+  /**
+   * It comes out of hiding (SHOWN): an NPC that starts hidden (the Warden, so he's never seen
+   * standing before he emerges) is shown once its animation has begun, out of sight underground.
+   */
+  appear?: boolean;
+  /** It's hidden (SHOWN off) this many seconds in, once its animation has it out of sight (the Warden dug in). */
+  vanish?: number;
 }
+
+/** The bool property that shows an NPC which starts hidden (the Warden's entity; npcs.ts NpcRole.shows). */
+export const SHOWN = "blockparty:shown";
 
 /**
  * The characters' moves that aren't just the pack's animation named after them, by character and
@@ -127,8 +137,10 @@ export const NPC_MOVES: Readonly<Record<string, Readonly<Record<string, NpcMove>
     Roar: { animation: "animation.warden.roar" },
     "Sonic boom": { animation: "animation.warden.sonic_boom" },
     Sniff: { animation: "animation.warden.sniff" },
-    Emerge: { animation: "animation.warden.emerge" },
-    "Dig away": { animation: "animation.warden.dig", hold: "stays" },
+    // He's hidden until his emerge has begun (it starts 4 blocks down), and hidden again as his dig
+    // has him 2.5 blocks down, held there: never seen standing before or after (the user's look).
+    Emerge: { animation: "animation.warden.emerge", appear: true },
+    "Dig away": { animation: "animation.warden.dig", hold: "stays", vanish: 4.6 },
   },
   Enderman: {
     Teleport: { deed: "teleport" },

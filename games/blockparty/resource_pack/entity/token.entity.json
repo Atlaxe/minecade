@@ -1,0 +1,63 @@
+{
+  "format_version": "1.10.0",
+  "minecraft:client_entity": {
+    "description": {
+      "identifier": "blockparty:token",
+      "materials": {
+        "default": "entity_alphatest"
+      },
+      "textures": {
+        "slot_0": "textures/blockparty/icons/token_0",
+        "slot_1": "textures/blockparty/icons/token_1",
+        "slot_2": "textures/blockparty/icons/token_2",
+        "slot_3": "textures/blockparty/icons/token_3",
+        "slot_4": "textures/blockparty/icons/token_4",
+        "slot_5": "textures/blockparty/icons/token_5",
+        "slot_6": "textures/blockparty/icons/token_6",
+        "slot_7": "textures/blockparty/icons/token_7",
+        "slot_8": "textures/blockparty/icons/token_8",
+        "slot_9": "textures/blockparty/icons/token_9",
+        "slot_10": "textures/blockparty/icons/token_10",
+        "slot_11": "textures/blockparty/icons/token_11",
+        "slot_12": "textures/blockparty/icons/token_12",
+        "slot_13": "textures/blockparty/icons/token_13",
+        "slot_14": "textures/blockparty/icons/token_14",
+        "slot_15": "textures/blockparty/icons/token_15",
+        "slot_16": "textures/blockparty/icons/token_16",
+        "slot_17": "textures/blockparty/icons/token_17",
+        "slot_18": "textures/blockparty/icons/token_18",
+        "slot_19": "textures/blockparty/icons/token_19",
+        "slot_20": "textures/blockparty/icons/token_20",
+        "slot_21": "textures/blockparty/icons/token_21",
+        "slot_22": "textures/blockparty/icons/token_22",
+        "slot_23": "textures/blockparty/icons/token_23",
+        "slot_24": "textures/blockparty/icons/token_24",
+        "slot_25": "textures/blockparty/icons/token_25",
+        "slot_26": "textures/blockparty/icons/token_26",
+        "slot_27": "textures/blockparty/icons/token_27",
+        "slot_28": "textures/blockparty/icons/token_28",
+        "slot_29": "textures/blockparty/icons/token_29",
+        "slot_30": "textures/blockparty/icons/token_30",
+        "slot_31": "textures/blockparty/icons/token_31",
+        "coin": "textures/blockparty/ui/coin",
+        "star": "textures/items/nether_star"
+      },
+      "geometry": {
+        "icon": "geometry.blockparty.token",
+        "coin": "geometry.blockparty.coin",
+        "star": "geometry.blockparty.star"
+      },
+      "render_controllers": [
+        "controller.render.blockparty.token"
+      ],
+      "animations": {
+        "fly": "animation.blockparty.token.fly"
+      },
+      "scripts": {
+        "animate": [
+          "fly"
+        ]
+      }
+    }
+  }
+}

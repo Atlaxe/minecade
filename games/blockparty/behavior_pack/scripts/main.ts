@@ -3,21 +3,30 @@ import { log, say } from "@minecade/minigame-core";
 import { runGameServer } from "@minecade/minigame-core/game";
 import config from "../../game.config.ts";
 import { BlockPartySpike } from "./spike.ts";
+import { TEST_ENUM, TEST_WORDS } from "./tests-menu.ts";
 
 let current: BlockPartySpike | undefined;
 
 system.beforeEvents.startup.subscribe(({ customCommandRegistry }) => {
   // The Tests menu by command (block-party-ui.md: Tests and settings as commands), since the bar's
-  // compass is out of sight on the board (the hotbar shows only in minigames).
+  // compass is out of sight on the board (the hotbar shows only in minigames). A word after it runs
+  // that button straight away (tests-menu.ts: /tests playeranimations opens the Player animations form).
+  customCommandRegistry.registerEnum(TEST_ENUM, [...TEST_WORDS]);
   customCommandRegistry.registerCommand(
-    { name: "blockparty:tests", description: "Open Block Party's Tests menu", permissionLevel: CommandPermissionLevel.Any, cheatsRequired: false },
-    (origin) => {
+    {
+      name: "blockparty:tests",
+      description: "Open Block Party's Tests menu, or one of its tests by name",
+      permissionLevel: CommandPermissionLevel.Any,
+      cheatsRequired: false,
+      optionalParameters: [{ name: TEST_ENUM, type: CustomCommandParamType.Enum }],
+    },
+    (origin, test?: string) => {
       const player = origin.sourceEntity;
       if (player?.typeId !== "minecraft:player") return { status: CustomCommandStatus.Failure, message: "Only a player can open the Tests menu." };
       // A tick later: a command runs where forms can't open.
       system.run(() => {
         if (!player.isValid) return;
-        if (current) current.openTests(player as Player);
+        if (current) current.openTests(player as Player, test);
         else (player as Player).sendMessage("Block Party isn't running yet.");
       });
       return { status: CustomCommandStatus.Success };

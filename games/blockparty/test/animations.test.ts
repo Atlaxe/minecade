@@ -6,12 +6,14 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { Scope } from "@minecade/minigame-core";
 import { system, world, type FakePlayer } from "../../../packages/minigame-core/test/fake-mc-server.ts";
 import { flushPromises } from "../../../packages/minigame-core/test/util.ts";
-import { CLIPS, NPC_MOVES, PLAYER, PLAYER_SETS, clipsIn, moodOf, movesOf, npcMove, pickClip, playerClips, roleOf, slug, talks, variantsOf, withTalk, type LineAction } from "../behavior_pack/scripts/animations.ts";
+import { CLIPS, NPC_MOVES, PLAYER, PLAYER_SETS, SHOWN, clipsIn, moodOf, movesOf, npcMove, pickClip, playerClips, roleOf, slug, talks, variantsOf, withTalk, type LineAction } from "../behavior_pack/scripts/animations.ts";
 import { Dialogue, type SaidLine } from "../behavior_pack/scripts/dialogue.ts";
 import { actionsOf, moment, pickLine } from "../behavior_pack/scripts/lines.ts";
 import { minigameMoods } from "../behavior_pack/scripts/minigame-rules.ts";
 import { NPC_ROLES } from "../behavior_pack/scripts/npcs.ts";
 import dialogue from "../dialogue.json";
+import wardenBehavior from "../behavior_pack/entities/warden.json";
+import wardenClient from "../resource_pack/entity/warden.entity.json";
 import playerPack from "../resource_pack/animations/blockparty.player.animation.json";
 import npcPack from "../resource_pack/animations/blockparty.npc.animation.json";
 
@@ -132,6 +134,19 @@ describe("Block Party's animation names", () => {
     for (const [owner, actions] of Object.entries(TOOL_ACTIONS)) if (owner !== PLAYER) expect(movesOf(CLIPS, owner), owner).toEqual(expect.arrayContaining(actions));
     expect(movesOf(CLIPS, "Chris").filter((move) => move === "Look at the player")).toHaveLength(1);
     expect(playerClips(CLIPS).length).toBe(PLAYER_SETS.reduce((sum, set) => sum + variantsOf(CLIPS, PLAYER, set).length, 0));
+  });
+
+  it("keep the Warden hidden until his emerge is under way, and hide him again as his dig has him down", () => {
+    const property = (wardenBehavior["minecraft:entity"].description as { properties?: Record<string, { default: unknown }> }).properties?.[SHOWN];
+    expect(property?.default).toBe(false);
+    const client = wardenClient["minecraft:client_entity"].description;
+    expect((client.animations as Record<string, string>).hide).toBe("animation.blockparty.hide");
+    expect(client.scripts.animate).toContainEqual({ hide: `!q.property('${SHOWN}')` });
+    expect(NPC_MOVES.Warden.Emerge.appear).toBe(true);
+    expect(NPC_MOVES.Warden["Dig away"]).toMatchObject({ hold: "stays" });
+    // Hidden before the dig's 5 seconds end (vanilla's dig has him 2.5 blocks down from 4.5 s).
+    expect(NPC_MOVES.Warden["Dig away"].vanish).toBeGreaterThanOrEqual(4.5);
+    expect(NPC_MOVES.Warden["Dig away"].vanish).toBeLessThan(5);
   });
 
   it("move only bones each model has", () => {

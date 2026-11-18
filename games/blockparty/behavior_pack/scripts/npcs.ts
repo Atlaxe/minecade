@@ -14,7 +14,7 @@
 import type { Dimension, Entity, Player } from "@minecraft/server";
 import { ActionFormData } from "@minecraft/server-ui";
 import { describeError, showForm, type Scope } from "@minecade/minigame-core";
-import { CLIPS, movesOf } from "./animations.ts";
+import { CLIPS, SHOWN, movesOf } from "./animations.ts";
 import type { Vec3 } from "./board.ts";
 import type { Moves } from "./moves.ts";
 
@@ -40,6 +40,8 @@ export interface NpcRole {
   role: string;
   animations: readonly NpcAnimation[];
   variants?: readonly Variant[];
+  /** A bool property that shows it: its entity starts hidden (the Warden's, until he emerges), so the Tests show it at once. */
+  shows?: string;
 }
 
 const VILLAGER_BIOMES = ["Plains", "Desert", "Jungle", "Savanna", "Snow", "Swamp", "Taiga"];
@@ -73,13 +75,9 @@ export const NPC_ROLES: readonly NpcRole[] = [
     id: "warden",
     name: "Warden",
     role: "The villain",
-    animations: [
-      { label: "Roar", animation: "animation.warden.roar" },
-      { label: "Sonic boom", animation: "animation.warden.sonic_boom" },
-      { label: "Sniff", animation: "animation.warden.sniff" },
-      { label: "Emerge", animation: "animation.warden.emerge" },
-      { label: "Dig", animation: "animation.warden.dig" },
-    ],
+    // His five are his moves (Move: buttons): Emerge shows him and Dig away hides him, as in game.
+    animations: [],
+    shows: SHOWN,
   },
   {
     id: "enderman",
@@ -135,6 +133,7 @@ export class Npcs {
         const entity = dimension.spawnEntity(`blockparty:${role.id}`, at);
         entity.nameTag = role.name;
         entity.setRotation({ x: 0, y: 0 });
+        if (role.shows) entity.setProperty(role.shows, true);
         this.out.set(role.id, entity);
       } catch (error) {
         failed.push(`${role.name}: ${describeError(error)}`);

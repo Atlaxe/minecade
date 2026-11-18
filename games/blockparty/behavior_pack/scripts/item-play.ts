@@ -18,6 +18,7 @@
 // special die used up, a curse's forced die gone), the zombie's bite as a turn starts, handing a seat
 // a prize (the Warden's Silenced takes it; full hands pick what to drop), and handing a rival the
 // Cursed Die. Everything said is the user's lines (lines.ts).
+import type { Entity } from "@minecraft/server";
 import { STANDARD, STANDARD_DIE, dieOf, rollDie, type RollOutcome } from "./dice.ts";
 import { ITEMS, type ItemId } from "./dice-items.ts";
 import type { BoardLoop, LoopHost } from "./board-loop.ts";
@@ -292,6 +293,11 @@ export class ItemPlay {
     this.spend(who, seat, "villager");
     take(seat.hands, prize);
     seat.coins += sellPrice(prize);
+    const villager = stage.get(ACTOR);
+    void this.loop.transferAll([
+      [who, villager, prize, 1],
+      [villager, who, "coin", sellPrice(prize)],
+    ]);
     this.host.changed();
     await this.host.say("items.villager", { player: who.name, item: prizeName(prize), coins: count(sellPrice(prize), "coin") }, false, who);
     return true;
@@ -327,6 +333,7 @@ export class ItemPlay {
     this.host.zombies.add(who.key);
     const took = Math.min(ZOMBIE_BITE, seat.coins);
     seat.coins -= took;
+    void this.loop.transfer(who, this.host.zombies.of?.(who.key), "coin", took);
     seat.effects.zombie--;
     this.host.changed();
     await this.host.say("zombie.takes", { player: who.name, coins: count(took, "coin") }, false, who);
@@ -399,7 +406,7 @@ export class ItemPlay {
    * `who` gets `prize` (an Item space, Lucky Draw, a Happening): the Warden takes it while they're
    * Silenced; with full hands they pick what to drop (or keep what they have). True when they kept it.
    */
-  async give(who: Who, prize: Prize): Promise<boolean> {
+  async give(who: Who, prize: Prize, from?: Entity): Promise<boolean> {
     const seat = this.loop.seatOf(who.key);
     if (!seat) return false;
     const name = prizeName(prize);
@@ -408,13 +415,17 @@ export class ItemPlay {
       await this.host.say("warden.takes", { player: who.name, item: name }, false, who);
       return false;
     }
-    return this.receive(who, seat, prize);
+    return this.receive(who, seat, prize, from);
   }
 
-  /** Puts `prize` in a seat's hands; with no room, they pick one of the same kind to drop, or keep what they have. */
-  async receive(who: Who, seat: Seat, prize: Prize): Promise<boolean> {
+  /**
+   * Puts `prize` in a seat's hands, flying in from `from` (an NPC; the sky with none); with no room,
+   * they pick one of the same kind to drop, or keep what they have.
+   */
+  async receive(who: Who, seat: Seat, prize: Prize, from?: Entity): Promise<boolean> {
     const name = prizeName(prize);
     if (put(seat.hands, prize)) {
+      void this.loop.transfer(from, who, prize, 1);
       this.host.changed();
       return true;
     }
@@ -437,6 +448,7 @@ export class ItemPlay {
     }
     take(seat.hands, same[picked]);
     put(seat.hands, prize);
+    void this.loop.transfer(from, who, prize, 1);
     this.host.everyone(line("items.dropped", { player: who.name, item: prizeName(same[picked]), other: name }));
     this.host.changed();
     return true;

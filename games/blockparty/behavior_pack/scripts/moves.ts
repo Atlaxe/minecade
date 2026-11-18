@@ -10,7 +10,7 @@
 //     the Enderman's blink with portal particles, the Allay's falling Star.
 import { system, type Entity, type Vector3 } from "@minecraft/server";
 import { describeError, log, type Scope } from "@minecade/minigame-core";
-import { CLIPS, npcMove, pickClip, PLAYER, variantsOf, type PlayerSet } from "./animations.ts";
+import { CLIPS, npcMove, pickClip, PLAYER, SHOWN, variantsOf, type PlayerSet } from "./animations.ts";
 import { NPC_ANIMATION } from "./npcs.ts";
 
 /** The animation controller the players' sets play on. */
@@ -25,6 +25,8 @@ const STAR_AFTER = 10;
 const STAR_TICKS = 40;
 /** The Enderman's blink: portal particles as he goes, and again as he's back. */
 const BLINK_BACK = 12;
+/** Ticks after a hidden NPC's animation is played before it's shown (the animation reaches the client first). */
+const APPEAR_AFTER = 2;
 
 export interface MovesDeps {
   scope: Scope;
@@ -105,6 +107,14 @@ export class Moves {
         }
       }, Math.max(1, Math.round(hold * 20)));
     }
+    // Shown once the animation has begun (the client has it a tick or two after the call), hidden
+    // once it has the NPC out of sight.
+    if (move?.appear) this.deps.scope.timeout(() => setShown(entity, true), APPEAR_AFTER);
+    if (move?.vanish !== undefined) {
+      this.deps.scope.timeout(() => {
+        if (this.latest.get(entity.id) === serial) setShown(entity, false);
+      }, Math.max(1, Math.round(move.vanish * 20)));
+    }
     switch (move?.deed) {
       case "look":
         if (toward?.isValid) face(entity, toward.location);
@@ -153,6 +163,15 @@ export class Moves {
     if (this.missing.has(what)) return;
     this.missing.add(what);
     log.info(`blockparty: ${what} has no animation in the pack and nothing for the script to do, so it's skipped`);
+  }
+}
+
+/** Shows or hides an NPC that starts hidden (SHOWN); nothing for one without the property. */
+function setShown(entity: Entity, shown: boolean): void {
+  try {
+    if (entity.isValid && entity.getProperty(SHOWN) !== undefined) entity.setProperty(SHOWN, shown);
+  } catch {
+    // gone, or it has no such property
   }
 }
 

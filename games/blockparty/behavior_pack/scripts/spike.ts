@@ -71,6 +71,10 @@ import { Heads } from "./heads.ts";
 import { Dialogue, type SaidLine } from "./dialogue.ts";
 import { CLIPS, playerClips, roleOf, type LineAction } from "./animations.ts";
 import { Moves, PLAYER_ANIMATION } from "./moves.ts";
+import { Transfers } from "./transfers.ts";
+import { ITEM_IDS } from "./items.ts";
+import type { Token } from "./tokens.ts";
+import { TEST_WORDS, type TestWord } from "./tests-menu.ts";
 import { TurnFade } from "./fade.ts";
 import { SpaceMarkers } from "./space-markers.ts";
 import { Stage, type StageMarkup } from "./stage.ts";
@@ -255,6 +259,8 @@ export class BlockPartySpike extends Minigame<Config> {
   private staging!: Stage;
   /** The players' and NPCs' animations (moves.ts). */
   private moves!: Moves;
+  /** Coins, Stars, items and dice flying from one to another (transfers.ts). */
+  private transfers!: Transfers;
   /** The minigame's line top right while one is on (it takes the board's place). */
   private minigameStatus: string | undefined;
   /** Players put on the pre-game podium who haven't rolled for turn order yet (by key): they may walk. */
@@ -388,6 +394,7 @@ export class BlockPartySpike extends Minigame<Config> {
       fade: this.fade,
     });
     this.moves = new Moves({ scope: this.scope, random: () => this.ctx.random(), fallIn: (entity) => void this.staging.fallAgain(entity) });
+    this.transfers = new Transfers({ scope: this.scope, dimension: () => dimension, random: () => this.ctx.random() });
     this.dialogue = new Dialogue({
       scope: this.scope,
       random: () => this.ctx.random(),
@@ -424,6 +431,7 @@ export class BlockPartySpike extends Minigame<Config> {
       toStart: (who) => (who.player ? this.backOnBoard(who) : this.scope.timeout(() => this.backOnBoard(who), BOTS_AFTER)),
       cameraTaken: () => this.boardCamera?.take(),
       cameraBack: () => this.boardCamera?.giveBack() ?? false,
+      moves: this.moves,
       select: (space) => this.markers.select(space),
     });
     const length = Number(this.ctx.vars.settings.length);
@@ -468,6 +476,7 @@ export class BlockPartySpike extends Minigame<Config> {
       changed: () => this.loopChanged(),
       results: (before, after) => this.results.show(before, after),
       react: (who, set) => this.moves.player(who.body, set),
+      transfer: (from, to, token, count) => this.transfers.give(from, to, token, count),
       zombies: this.zombies,
       random: () => this.ctx.random(),
     });
@@ -511,9 +520,9 @@ export class BlockPartySpike extends Minigame<Config> {
     this.scope.add(() => this.cleanUp());
   }
 
-  /** The Tests menu (/blockparty:tests, main.ts; the compass in the bar too). */
-  openTests(player: Player): void {
-    void this.menu(player);
+  /** The Tests menu (/blockparty:tests, main.ts; the compass in the bar too), or the test `word` names straight away (/tests playeranimations). */
+  openTests(player: Player, word?: string): void {
+    void this.menu(player, word);
   }
 
   /**
@@ -1262,33 +1271,43 @@ export class BlockPartySpike extends Minigame<Config> {
 
   // ---- The menu ---------------------------------------------------------------------------
 
-  private async menu(player: Player): Promise<void> {
-    const items: [string, () => void | Promise<void>][] = [
-      ["Get star (on your roll)", () => this.getStar(player)],
-      ["Go to a space (on your roll)", () => this.goToSpace(player)],
-      ["Skip to a round", () => this.skipForm(player)],
-      ["Play a minigame now", () => this.minigameForm(player)],
-      ["Piece settings", () => this.settingsForm(player)],
-      ["Camera shots", () => this.shotsMenu(player)],
-      ["Jump test", () => this.jumpMenu(player)],
-      ["Dice and items held", () => this.contentsForm(player)],
-      [this.loop?.heldBy === player.name.toLowerCase() ? "Let the game go on" : "Hold the game on my turns", () => this.holdFromMenu(player)],
-      ["Next space outcomes", () => this.outcomeForm(player)],
-      ["Bring the Wandering Trader", () => this.traderTest(player)],
-      ["Coin and Star models", () => this.iconModels(player)],
-      [this.markers.allLit ? "Space highlights back to normal" : "Light every space", () => this.markers.lightAll(!this.markers.allLit)],
-      ["Player animations", () => this.playerAnimationsForm(player)],
-      [this.npcs.spawned ? "Take the NPCs away" : "Put the NPCs out", () => this.toggleNpcs()],
-      ["Arenas from other maps", () => this.arenaMenu(player)],
-      ["Ride and lead (two players)", () => this.rideMenu(player)],
-      ["End the test game", () => this.finish(draw("ended from the Tests menu"))],
-    ];
-    const form = new ActionFormData().title("Block Party tests");
-    for (const [label] of items) form.button(label);
-    const response = await showForm(this.scope, player, form);
-    if (response?.selection === undefined) return;
+  /** The Tests menu, or with `word` (tests-menu.ts, /tests <word>) that test straight away. */
+  private async menu(player: Player, word?: string): Promise<void> {
+    const tests: Record<TestWord, [string, () => void | Promise<void>]> = {
+      getstar: ["Get star (on your roll)", () => this.getStar(player)],
+      gotospace: ["Go to a space (on your roll)", () => this.goToSpace(player)],
+      skiptoround: ["Skip to a round", () => this.skipForm(player)],
+      playminigame: ["Play a minigame now", () => this.minigameForm(player)],
+      piecesettings: ["Piece settings", () => this.settingsForm(player)],
+      camerashots: ["Camera shots", () => this.shotsMenu(player)],
+      jumptest: ["Jump test", () => this.jumpMenu(player)],
+      diceanditems: ["Dice and items held", () => this.contentsForm(player)],
+      hold: [this.loop?.heldBy === player.name.toLowerCase() ? "Let the game go on" : "Hold the game on my turns", () => this.holdFromMenu(player)],
+      outcomes: ["Next space outcomes", () => this.outcomeForm(player)],
+      trader: ["Bring the Wandering Trader", () => this.traderTest(player)],
+      models: ["Coin and Star models", () => this.iconModels(player)],
+      lightspaces: [this.markers.allLit ? "Space highlights back to normal" : "Light every space", () => this.markers.lightAll(!this.markers.allLit)],
+      playeranimations: ["Player animations", () => this.playerAnimationsForm(player)],
+      transfers: ["Transfer animations", () => this.transfersForm(player)],
+      npcs: [this.npcs.spawned ? "Take the NPCs away" : "Put the NPCs out", () => this.toggleNpcs()],
+      arenas: ["Arenas from other maps", () => this.arenaMenu(player)],
+      ride: ["Ride and lead (two players)", () => this.rideMenu(player)],
+      end: ["End the test game", () => this.finish(draw("ended from the Tests menu"))],
+    };
+    let picked: TestWord | undefined = TEST_WORDS.find((test) => test === word?.toLowerCase());
+    if (word !== undefined && !picked) {
+      this.tell(player, `No test called "${word}". The tests: ${TEST_WORDS.join(", ")}.`);
+      return;
+    }
+    if (!picked) {
+      const form = new ActionFormData().title("Block Party tests");
+      for (const test of TEST_WORDS) form.button(tests[test][0]);
+      const response = await showForm(this.scope, player, form);
+      if (response?.selection === undefined) return;
+      picked = TEST_WORDS[response.selection];
+    }
     try {
-      await items[response.selection][1]();
+      await tests[picked][1]();
     } catch (error) {
       this.tell(player, `That test failed: ${describeError(error)}`);
     }
@@ -1426,6 +1445,74 @@ export class BlockPartySpike extends Minigame<Config> {
     const clip = picked === undefined ? undefined : clips[picked];
     if (!clip || !player.isValid) return;
     player.playAnimation(clip.name, { controller: PLAYER_ANIMATION, stopExpression: "q.any_animation_finished", blendOutTime: 0.2 });
+  }
+
+  /**
+   * Transfer animations (Tests): each kind of transfer played round the player, shown only (nobody's
+   * coins or hands change). An NPC that gives or takes stands a few blocks in front of them for it.
+   */
+  private async transfersForm(player: Player): Promise<void> {
+    const random = () => this.ctx.random();
+    const item = (): Token => ({ kind: "item", id: ITEM_IDS[Math.floor(random() * ITEM_IDS.length)] });
+    const dieIds = Object.keys(DICE);
+    const die = (): Token => ({ kind: "die", id: dieIds[Math.floor(random() * dieIds.length)] });
+    const other = () => [...world.getAllPlayers().filter((one) => one.name !== player.name).map(whoOf), ...this.bots.all()][0];
+    const demos: [string, string | undefined, (npc: Entity | undefined, me: Who) => Promise<void>][] = [
+      ["10 coins from Chris", "chris", (npc, me) => this.transfers.give(npc, me, "coin", 10)],
+      ["25 coins to Chris", "chris", (npc, me) => this.transfers.give(me, npc, "coin", 25)],
+      ["A Star from Chris", "chris", (npc, me) => this.transfers.give(npc, me, "star", 1)],
+      ["An item from the Villager", "villager", (npc, me) => this.transfers.give(npc, me, item(), 1)],
+      ["A die from the Villager", "villager", (npc, me) => this.transfers.give(npc, me, die(), 1)],
+      ["An item to the Villager, coins back", "villager", async (npc, me) => {
+        await this.transfers.give(me, npc, item(), 1);
+        await this.transfers.give(npc, me, "coin", 4);
+      }],
+      ["7 coins to the Witch", "witch", (npc, me) => this.transfers.give(me, npc, "coin", 7)],
+      ["3 coins from the bank (a Blue space)", undefined, (_npc, me) => this.transfers.give(undefined, me, "coin", 3)],
+      ["3 coins lost (a Red space)", undefined, (_npc, me) => this.transfers.give(me, undefined, "coin", 3)],
+      ["A Star lost", undefined, (_npc, me) => this.transfers.give(me, undefined, "star", 1)],
+      ["5 coins to another player or a bot", undefined, async (_npc, me) => {
+        const them = other();
+        if (them) await this.transfers.give(me, them, "coin", 5);
+        else this.tell(player, "Nobody else is here: start with a bot, or have someone join.");
+      }],
+    ];
+    const form = new ActionFormData().title("Transfer animations").body("Each one plays round you. Shown only: nobody's coins change.");
+    for (const [label] of demos) form.button(label);
+    const picked = (await showForm(this.scope, player, form))?.selection;
+    const demo = picked === undefined ? undefined : demos[picked];
+    if (!demo || !player.isValid) return;
+    const [, role, run] = demo;
+    const npc = role ? this.demoNpc(player, role) : undefined;
+    // A moment for the NPC to be there on everyone's screen.
+    if (npc) await this.scope.wait(6);
+    try {
+      await run(npc, whoOf(player));
+    } finally {
+      this.scope.timeout(() => {
+        try {
+          if (npc?.isValid) npc.remove();
+        } catch {
+          // gone
+        }
+      }, 30);
+    }
+  }
+
+  /** An NPC for a test, a few blocks in front of the player, facing them. */
+  private demoNpc(player: Player, role: string): Entity | undefined {
+    const view = player.getViewDirection();
+    const level = Math.hypot(view.x, view.z) || 1;
+    const at = { x: player.location.x + (view.x / level) * 4, y: player.location.y, z: player.location.z + (view.z / level) * 4 };
+    try {
+      const npc = player.dimension.spawnEntity(`blockparty:${role}`, at);
+      const yaw = (Math.atan2(-(player.location.x - at.x), player.location.z - at.z) * 180) / Math.PI;
+      npc.setRotation({ x: 0, y: yaw });
+      return npc;
+    } catch (error) {
+      this.tell(player, `The ${role} couldn't stand there: ${describeError(error)}`);
+      return undefined;
+    }
   }
 
   private toggleNpcs(): void {

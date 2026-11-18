@@ -5,6 +5,8 @@
 // cards, with pictures from `text:textures/blockparty/icons/{{row.item1}}`, and the item panel's
 // icon, which shows a die or an item). A die's icon is its body's picture: the whole square, or face
 // 1 of a six-face picture. An empty item slot on a card reads EMPTY_ICON's picture, which is clear.
+// Each icon is copied again to its slot of the transfers' token (tokens.ts: token_<slot>, items then
+// dice), the picture that flies when it changes hands.
 // Minecraft's textures are Mojang's, so they never go in git: the build reads them from the cache
 // (tools/build/vanilla-textures.ts), as it does for kit pictures. Small pictures are drawn larger
 // with hard pixels, so they stay sharp on screen.
@@ -14,6 +16,7 @@ import { dirname, join } from "node:path";
 import { DICE, DICE_PROBLEMS, type DieDef } from "../../games/blockparty/behavior_pack/scripts/dice.ts";
 import { ITEMS, ITEM_PROBLEMS, iconPath, type ItemDef } from "../../games/blockparty/behavior_pack/scripts/items.ts";
 import { EMPTY_ICON } from "../../games/blockparty/behavior_pack/scripts/screen-codes.ts";
+import { TOKEN_SLOTS, slotLetters, slotPicture } from "../../games/blockparty/behavior_pack/scripts/tokens.ts";
 import { blankImage, encodePng, type Image } from "../skins/png.ts";
 import { decodeAnyPng } from "../viewer/png.ts";
 import { VanillaTextures } from "../build/vanilla-textures.ts";
@@ -141,9 +144,31 @@ export async function addDiceIcons(out: string, dice: readonly DieDef[] = Object
   return missing;
 }
 
-/** Every icon the board's screens read: the items', the dice's, and the clear one an empty item slot reads. */
+/**
+ * The transfers' token pictures (tokens.ts): each item's and die's icon, already written at `out`,
+ * copied to its slot's picture, items first in the game's order, then the dice in the dice file's;
+ * a slot with no icon, and every slot past the last, gets a clear one (the token's client entity
+ * names all of them). Returns how many slots have a picture.
+ */
+export async function addTokenSlots(out: string, letters: readonly string[] = slotLetters()): Promise<number> {
+  const clear = encodePng(blankImage(16, 16));
+  let filled = 0;
+  for (let slot = 0; slot < TOKEN_SLOTS; slot++) {
+    const icon = letters[slot] === undefined ? undefined : join(out, `${iconPath({ letters: letters[slot] })}.png`);
+    const picture = icon && existsSync(icon) ? readFileSync(icon) : undefined;
+    if (picture) filled++;
+    const path = join(out, `${slotPicture(slot)}.png`);
+    await mkdir(dirname(path), { recursive: true });
+    await writeFile(path, picture ?? clear);
+  }
+  if (letters.length > TOKEN_SLOTS) console.warn(`blockparty: ${letters.length} items and dice, but the transfers' token has ${TOKEN_SLOTS} pictures: the rest fly as nothing`);
+  return filled;
+}
+
+/** Every icon the board's screens read: the items', the dice's, and the clear one an empty item slot reads; then the transfers' token pictures. */
 export async function addBoardIcons(out: string): Promise<void> {
   await addItemIcons(out);
   await addDiceIcons(out);
   await writeIcon(out, EMPTY_ICON, encodePng(blankImage(16, 16)));
+  await addTokenSlots(out);
 }

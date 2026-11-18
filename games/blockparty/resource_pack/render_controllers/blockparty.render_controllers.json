@@ -342,6 +342,64 @@
         "b": 1,
         "a": "0.25 + 0.15 * math.sin(q.life_time * 300)"
       }
+    },
+    "controller.render.blockparty.token": {
+      "arrays": {
+        "geometries": {
+          "Array.shapes": [
+            "Geometry.icon",
+            "Geometry.coin",
+            "Geometry.star"
+          ]
+        },
+        "textures": {
+          "Array.looks": [
+            "Texture.slot_0",
+            "Texture.slot_1",
+            "Texture.slot_2",
+            "Texture.slot_3",
+            "Texture.slot_4",
+            "Texture.slot_5",
+            "Texture.slot_6",
+            "Texture.slot_7",
+            "Texture.slot_8",
+            "Texture.slot_9",
+            "Texture.slot_10",
+            "Texture.slot_11",
+            "Texture.slot_12",
+            "Texture.slot_13",
+            "Texture.slot_14",
+            "Texture.slot_15",
+            "Texture.slot_16",
+            "Texture.slot_17",
+            "Texture.slot_18",
+            "Texture.slot_19",
+            "Texture.slot_20",
+            "Texture.slot_21",
+            "Texture.slot_22",
+            "Texture.slot_23",
+            "Texture.slot_24",
+            "Texture.slot_25",
+            "Texture.slot_26",
+            "Texture.slot_27",
+            "Texture.slot_28",
+            "Texture.slot_29",
+            "Texture.slot_30",
+            "Texture.slot_31",
+            "Texture.coin",
+            "Texture.star"
+          ]
+        }
+      },
+      "geometry": "Array.shapes[q.property('blockparty:shape')]",
+      "materials": [
+        {
+          "*": "Material.default"
+        }
+      ],
+      "textures": [
+        "Array.looks[q.property('blockparty:look')]"
+      ]
     }
   }
 }

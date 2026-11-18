@@ -21,6 +21,7 @@ import { boardBox, type Space, type Vec3 } from "./board.ts";
 import type { Who } from "./bots.ts";
 import type { Dialogue } from "./dialogue.ts";
 import { moment } from "./lines.ts";
+import type { Moves } from "./moves.ts";
 import { NPC_ANIMATION } from "./npcs.ts";
 import { besideSpace, faceShot, introAround, markerShot, podiumFromMarkup, podiumOnStart, spaceShot, twoShot, yawFrom, type Marker, type Podium, type Shot } from "./stage-layout.ts";
 
@@ -48,6 +49,8 @@ export interface StageDeps {
   cameraBack?(): boolean;
   /** The space a shot is on lights up (space-markers.ts); undefined when the shot is on something else. */
   select?(space: Space | undefined): void;
+  /** The characters' moves (moves.ts): what move() plays. */
+  moves?: Moves;
 }
 
 /** How a shot comes in. */
@@ -431,6 +434,16 @@ export class Stage {
     } catch {
       // unloaded
     }
+  }
+
+  /**
+   * A part does one of its character's moves (`character` and `action` as the dialogue tool names
+   * them: moves.ts), as a line's action would: the Warden's Emerge shows him once he's under way,
+   * his Dig away hides him once he's down. `toward`: who it's about.
+   */
+  move(key: string, character: string, action: string, toward?: Entity): void {
+    const entity = this.get(key);
+    if (entity) this.deps.moves?.npc(entity, character, action, toward);
   }
 
   /** A part plays a vanilla animation (the Warden's roar, the golem's hit), held when `hold`. */

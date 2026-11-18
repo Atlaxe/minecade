@@ -106,6 +106,8 @@ function fake(round = 5, of = 15): Fake {
     },
     snapshot: () => [],
     spent: () => {},
+    transfer: async () => {},
+    transferAll: async () => {},
     spaceName: (space: Space) => `space ${space.index + 1}`,
     useItem: (one: Who, id: ItemId) => items.use(one, id),
     feature: () => {},
