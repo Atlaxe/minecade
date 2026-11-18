@@ -4,10 +4,14 @@
 // out: the Stars and then the coins count up (or down) a step at a time, the rows swap into their
 // new order a pair at a time, sliding past each other a quarter of a row at a time (the user: one
 // place at a time, no jump cut), and 1st gets its border. Each step plays its event's sound.
+// Once the changes have played, a jump goes on (the user, 2026-11-18: skippable after the place
+// changes): the party leader's or the turn's player's, while the screen shows the jump prompt (its
+// title has GO_ON_WORD); with no jump it goes after its hold, as before.
 // A player who drops gets the standings as they are now on this screen, for them alone
 // (standings(): the rows under STANDINGS_WORD, ui/hud_screen.json's bp_standings).
 // resultFrames() is the pure part (what each step shows); ResultsScreen puts the frames on the game's
 // sidebar (sidebar-rows.ts, screen-codes.ts's rows) one after another.
+import type { Player } from "@minecraft/server";
 import type { Scope } from "@minecade/minigame-core";
 import { SCREEN_WORDS, SLIDE_STEPS, STANDINGS_WORD, codesOf, resultRows, type ResultRow } from "./screen-codes.ts";
 import type { GameSidebar } from "./sidebar-rows.ts";
@@ -27,6 +31,9 @@ export interface Frame {
   ticks: number;
   sound?: string;
 }
+
+/** In the results' title once a jump can go on: the screen shows its jump prompt (the blockparty_results component's "Go on"). */
+export const GO_ON_WORD = "bpj";
 
 /** The screen's events (the user's sound map: event:<id>). */
 export const RESULT_EVENTS = { open: "results.open", count: "results.count", swap: "results.swap", first: "results.first", close: "results.close" } as const;
@@ -118,6 +125,8 @@ export interface ResultsHost {
   sidebar: GameSidebar;
   /** A player's head picture (a texture path), if the pack has one. */
   headOf(name: string): string | undefined;
+  /** Whether `player`'s jump goes on from the screen once its changes have played (the leader's, the turn's player's). */
+  mayGoOn?(player: Player): boolean;
 }
 
 export class ResultsScreen {
@@ -125,6 +134,8 @@ export class ResultsScreen {
   private on = false;
   /** The standings someone has up for themselves (standings()), if anyone does. */
   private standing: ResultSeat[] | undefined;
+  /** The changes have played and the screen holds: a jump goes on (gone set by jumped()). */
+  private holding: { gone: boolean } | undefined;
 
   constructor(host: ResultsHost) {
     this.host = host;
@@ -142,19 +153,39 @@ export class ResultsScreen {
     this.on = true;
     const title = codesOf(SCREEN_WORDS.results);
     try {
-      for (const frame of resultFrames(before, after)) {
+      const frames = resultFrames(before, after);
+      for (const [index, frame] of frames.entries()) {
         const rows = frame.rows.map((row) => ({ ...row, head: this.host.headOf(row.name) }));
-        this.host.sidebar.set("results", { title, rows: resultRows(rows) });
+        const last = index === frames.length - 1;
+        // The last frame holds: its jump prompt shows, and a jump goes on.
+        this.host.sidebar.set("results", { title: last ? title + codesOf(GO_ON_WORD) : title, rows: resultRows(rows) });
         if (frame.sound) playCue(eventCue(frame.sound));
-        await this.host.scope.wait(frame.ticks);
+        if (!last) {
+          await this.host.scope.wait(frame.ticks);
+          continue;
+        }
+        const holding = { gone: false };
+        this.holding = holding;
+        for (let tick = 0; tick < frame.ticks && !holding.gone && !this.host.scope.disposed; tick++) await this.host.scope.wait(1);
       }
     } finally {
+      this.holding = undefined;
       this.on = false;
       if (!this.host.scope.disposed) {
         this.drawStandings();
         playCue(eventCue(RESULT_EVENTS.close));
       }
     }
+  }
+
+  /** A jump: while the screen holds after its changes, the leader's (or the turn's player's) goes on. True when the screen took it. */
+  jumped(player: Player): boolean {
+    const holding = this.holding;
+    if (!holding) return false;
+    if (holding.gone || !(this.host.mayGoOn?.(player) ?? true)) return true;
+    holding.gone = true;
+    playCue(eventCue("dialogue.next"));
+    return true;
   }
 
   /**

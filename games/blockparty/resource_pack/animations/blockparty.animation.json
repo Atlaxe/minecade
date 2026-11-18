@@ -118,6 +118,24 @@
           "scale": "0.55 * math.clamp(q.life_time / 0.08, 0, 1) * math.clamp((0.85 - q.life_time) / 0.12, 0, 1)"
         }
       }
+    },
+    "animation.blockparty.balloon": {
+      "loop": true,
+      "bones": {
+        "balloon": {
+          "rotation": ["math.cos(q.life_time * 80.0) * 4.0", 0, "math.sin(q.life_time * 100.0) * 6.0"],
+          "scale": "v.balloon + math.sin(v.balloon * 180.0) * 0.4"
+        }
+      }
+    },
+    "animation.blockparty.star_hover": {
+      "loop": true,
+      "bones": {
+        "root": {
+          "position": [0, "math.sin(q.life_time * 120.0) * 1.5", 0],
+          "scale": "1.5 * math.min(1.0, q.life_time * 4.0) * (1.5 - v.fade * 0.5)"
+        }
+      }
     }
   }
 }

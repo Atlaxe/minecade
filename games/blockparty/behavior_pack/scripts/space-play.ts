@@ -1,22 +1,24 @@
 // Block Party's spaces in play (docs/plans/block-party.md, "Space types", "Shop, Villager and
 // Wandering Trader", "Chance Time (the Witch)", "The Warden", "Happening"; pass 7). Landing on:
 //   - Item: a prize from the pool, likelier strong the further behind the lander is (space-rules.ts).
-//   - Shop: the Villager comes to the lander's space. Buy (the round's stock of 3, as many as they
-//     can afford and carry), Sell something (half its value) or Leave, in the dialogue box.
-//   - Chance Time: the Witch comes with three potions, their colors saying what kind of outcome is
-//     in each (gold coins, green items, purple the board, white Stars; proposed): pick one, or pay 3
-//     coins once to brew three new ones. Late in the game the coin amounts grow by half and Coin
+//   - Shop: the Villager who stands at the Shop all game (stage.ts, residents) turns to the lander.
+//     Buy (the round's stock of 3, as many as they can afford and carry), Sell something (half its
+//     value) or Leave, in the dialogue box.
+//   - Chance Time: the Witch appears in a puff of smoke with three potions, their colors saying what
+//     kind of outcome is in each (gold coins, green items, purple the board, white Stars; proposed),
+//     each button with its potion's picture: pick one, or pay 3 coins once to brew three new ones. Late in the game the coin amounts grow by half and Coin
 //     Swap, Position Shuffle and Shooting Star can come up.
 //   - Warden: the Warden comes up out of the ground, roars, and does one of his events to the lander
 //     (Sonic Boom: to the leader).
 //   - Happening: something small from the shared table, in the board's flavor.
-// And the Wandering Trader: every 3 or 4 rounds he comes for one round to a random Item space, marked
-// by a beam, and anyone passing or landing there can buy his one rare thing at about 1.5 times its
+// And the Wandering Trader: every 3 or 4 rounds he comes for one round to a random Item space (he
+// walks in with his llamas, stage.ts traderArrives), marked by a beam, and anyone passing or landing there can buy his one rare thing at about 1.5 times its
 // value; once it's bought he's gone. Every choice is the dialogue box's (a bot picks after a moment);
 // everything said is the user's lines (lines.ts).
 import type { BoardLoop, LoopHost } from "./board-loop.ts";
 import { addCoins, count } from "./board-rules.ts";
 import type { Who } from "./bots.ts";
+import type { ButtonIcon } from "./dialogue-codes.ts";
 import type { ItemPlay } from "./item-play.ts";
 import { button, line } from "./lines.ts";
 import {
@@ -82,6 +84,8 @@ export class SpacePlay {
   private readonly items: ItemPlay;
   /** The Shop's stock this round. */
   private stock: Prize[] = [];
+  /** Who keeps the Shop while a seat is in it: the Villager standing there (his key), or one who came. */
+  private keeper = VILLAGER;
   /** The Trader while he's on the board, and the round he comes next. */
   private visit: TraderVisit | undefined;
   private traderNext: number;
@@ -124,7 +128,7 @@ export class SpacePlay {
     const visit = this.visit;
     if (!visit || visit.round !== this.loop.rounds.now) return;
     this.visit = undefined;
-    this.host.stage.remove(TRADER);
+    this.host.stage.traderGone(TRADER);
     await this.host.say("trader.leaves", {}, true);
   }
 
@@ -139,12 +143,12 @@ export class SpacePlay {
     this.visit = { space: space.index, goods, price: traderPrice(goods), round };
     const { stage } = this.host;
     await this.host.cutscene(true, async () => {
-      await stage.toSpace(space, "trader.arrives");
-      await stage.beside(TRADER, "wandering_trader", space, true);
+      // A cut to the space, and he walks in from out of the shot with his llamas.
+      await stage.traderArrives(TRADER, space, true);
       await this.host.say("trader.arrives", { space: this.loop.spaceName(space), item: prizeName(goods), price: count(this.visit?.price ?? 0, "coin") }, true);
     });
     // Skipped or not, he stands there.
-    if (!stage.get(TRADER)) await stage.beside(TRADER, "wandering_trader", space, false);
+    if (!stage.get(TRADER)) await stage.traderArrives(TRADER, space, false);
     stage.clear();
     return true;
   }
@@ -182,7 +186,7 @@ export class SpacePlay {
     this.host.changed();
     await this.host.say("trader.sold", fills, false, who);
     this.visit = undefined;
-    stage.remove(TRADER);
+    stage.traderGone(TRADER);
     await this.host.say("trader.sold-out", fills, false, who);
   }
 
@@ -201,7 +205,11 @@ export class SpacePlay {
     if (!seat) return;
     if (this.stock.length === 0) this.stock = shopStock(this.host.random);
     const { stage } = this.host;
-    await stage.visit(VILLAGER, "villager", who, this.loop.spaceOf(who), "shop.welcome");
+    // The Villager who stands at the Shop; one comes if this isn't a Shop space (a test).
+    const space = this.loop.spaceOf(who);
+    const resident = await stage.atResident(who, space, "shop.welcome");
+    this.keeper = resident ?? VILLAGER;
+    if (!resident) await stage.visit(VILLAGER, "villager", who, space, "shop.welcome");
     let traded = false;
     try {
       for (let asked = 0; asked < 20; asked++) {
@@ -219,7 +227,8 @@ export class SpacePlay {
       }
       await this.host.say(traded ? "shop.bye" : "shop.nothing", { player: who.name }, false, who);
     } finally {
-      stage.remove(VILLAGER);
+      if (resident) stage.backToSpace(resident);
+      else stage.remove(VILLAGER);
     }
   }
 
@@ -249,7 +258,7 @@ export class SpacePlay {
     seat.coins -= price;
     this.loop.spent(who.key, price);
     put(seat.hands, goods);
-    const villager = this.host.stage.get(VILLAGER);
+    const villager = this.host.stage.get(this.keeper);
     void this.loop.transferAll([
       [who, villager, "coin", price],
       [villager, who, goods, 1],
@@ -278,7 +287,7 @@ export class SpacePlay {
     const prize = goods[picked];
     take(seat.hands, prize);
     seat.coins += sellPrice(prize);
-    const villager = this.host.stage.get(VILLAGER);
+    const villager = this.host.stage.get(this.keeper);
     void this.loop.transferAll([
       [who, villager, prize, 1],
       [villager, who, "coin", sellPrice(prize)],
@@ -310,8 +319,10 @@ export class SpacePlay {
       while (!picked) {
         const canReroll = !rerolled && seat.coins >= REROLL_PRICE;
         const buttons = potions.map((id) => button(`chance.potion.${CHANCE[id].potion}`));
+        // Each potion's picture left of its name (the user): its color, what kind of outcome is inside.
+        const icons: (ButtonIcon | undefined)[] = potions.map((id) => `potion.${CHANCE[id].potion}` as const);
         if (canReroll) buttons.push(button("chance.form.reroll", { price: count(REROLL_PRICE, "coin") }));
-        const choice = await this.host.talk("chance.potions", { player: who.name }, { to: who, buttons, botPick: Math.floor(this.host.random() * potions.length) });
+        const choice = await this.host.talk("chance.potions", { player: who.name }, { to: who, buttons, icons, botPick: Math.floor(this.host.random() * potions.length) });
         if (canReroll && choice === potions.length) {
           seat.coins -= REROLL_PRICE;
           this.loop.spent(who.key, REROLL_PRICE);
@@ -328,7 +339,7 @@ export class SpacePlay {
       if (picked) await this.chanceOutcome(who, picked, late);
       await this.host.say("chance.bye", { player: who.name }, false, who);
     } finally {
-      stage.remove(WITCH);
+      stage.leave(WITCH);
     }
   }
 

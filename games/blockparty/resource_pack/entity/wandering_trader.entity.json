@@ -17,7 +17,8 @@
       ],
       "animations": {
         "general": "animation.villager.general",
-        "look_at_target": "animation.common.look_at_target"
+        "look_at_target": "animation.common.look_at_target",
+        "move": "animation.villager.move"
       },
       "scripts": {
         "scale": "0.9375",
@@ -26,6 +27,9 @@
         ],
         "animate": [
           "general",
+          {
+            "move": "q.modified_move_speed"
+          },
           "look_at_target"
         ]
       }

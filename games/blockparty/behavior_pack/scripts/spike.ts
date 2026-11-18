@@ -51,7 +51,7 @@ import { ARENA_SLOT, Minigame, describeError, draw, facingOf, hudLine, log, say,
 import { BLOCK_PARTY_BOARD } from "@minecade/minigame-core/config";
 import registry from "#registry";
 import skins from "#skins";
-import { HOTBAR_SIZE, KEEP_UP, LOADING_LEVELS, STANDINGS_CODE, loadingCode } from "./bar-codes.ts";
+import { HOTBAR_SIZE, KEEP_UP, LOADING_LEVELS, SKIPPING_CODE, STANDINGS_CODE, loadingCode } from "./bar-codes.ts";
 import type config from "../../game.config.ts";
 import { boardBox, floorOf, layPaths, mapSpaces, standAt, testSpaces, type Space, type Vec3 } from "./board.ts";
 import { BoardLoop } from "./board-loop.ts";
@@ -204,8 +204,6 @@ const TEST_COINS = 30;
 const SEATS = 4;
 /** Ticks after the players have moved before the bots are made again beside them (their screens are there by then). */
 const BOTS_AFTER = 10;
-/** Ticks a bot thinks before a choice. */
-const BOT_CHOICE: [number, number] = [20, 40];
 
 /** Ticks the slow-load test keeps the loading screen up longer. */
 const SLOW_LOAD = 80;
@@ -259,6 +257,8 @@ export class BlockPartySpike extends Minigame<Config> {
   private roundShown = "";
   /** The board's own camera (board-camera.ts), and the way a fixed one looks when the map doesn't say. */
   private boardCamera!: BoardCamera;
+  /** Board's view of the whole board is up (board-ui.ts's Board): nobody is faded meanwhile. */
+  private boardViewing = false;
   private autoYaw: number | undefined;
   /** The rolls the loop is waiting for, by lowercased name: what a jump resolves, and whether everyone watches. */
   private readonly pendingRolls = new Map<string, { resolve: (value: RollOutcome | undefined) => void; shot: boolean }>();
@@ -437,7 +437,13 @@ export class BlockPartySpike extends Minigame<Config> {
       boardView: (on) => this.boardView(on),
       busy: (player) => this.dialogue.steerer === player.name.toLowerCase(),
     });
-    this.results = new ResultsScreen({ scope: this.scope, sidebar: this.gameSidebar, headOf: (name) => this.headOf(name) });
+    this.results = new ResultsScreen({
+      scope: this.scope,
+      sidebar: this.gameSidebar,
+      headOf: (name) => this.headOf(name),
+      // Once the changes have played, the party leader's jump goes on, or the turn's player's (a Star they bought, a duel).
+      mayGoOn: (player) => player.name === this.leader()?.name || player.name.toLowerCase() === this.loop?.whoseTurn,
+    });
     this.staging = new Stage({
       scope: this.scope,
       dimension,
@@ -445,9 +451,10 @@ export class BlockPartySpike extends Minigame<Config> {
       spaces: () => this.spaces,
       markup: () => this.stageMarkup(),
       put: (who, at, yaw) => this.putSeat(who, at, yaw),
+      face: (who, toward) => this.faceSeat(who, toward),
       // Bots a moment after the players, as everywhere a body goes a long way with them (bots.ts).
       toStart: (who) => (who.player ? this.backOnBoard(who) : this.scope.timeout(() => this.backOnBoard(who), BOTS_AFTER)),
-      cameraTaken: () => this.boardCamera?.take(),
+      cameraTaken: (seconds) => this.boardCamera?.take(seconds),
       cameraBack: () => this.boardCamera?.giveBack() ?? false,
       moves: this.moves,
       select: (space) => this.markers.select(space),
@@ -481,7 +488,7 @@ export class BlockPartySpike extends Minigame<Config> {
         });
       },
       count: (who, left) => this.counts.set(who.key, left),
-      choose: (who, title, body, options, botPick) => this.choose(who, title, body, options, botPick),
+      fork: (options) => this.dialogue.fork(options),
       say: (id, fills, skippable, by) => this.dialogue.say(id, fills, skippable, by),
       talk: (id, fills, options) => this.dialogue.talk(id, fills, options),
       cutscene: (skippable, work) => this.dialogue.cutscene(skippable, work),
@@ -613,19 +620,6 @@ export class BlockPartySpike extends Minigame<Config> {
     this.everyone(wanted === 1 ? line("bots.join.one", joined) : line("bots.join.many", joined));
   }
 
-  /** A choice: a player's form, or a bot's moment of thought and its pick. */
-  private async choose(who: Who, title: string, body: string, options: readonly string[], botPick: number): Promise<number | undefined> {
-    const player = who.player;
-    if (!player) {
-      await this.scope.wait(thinkTicks(() => this.ctx.random(), ...BOT_CHOICE));
-      return botPick;
-    }
-    const form = new ActionFormData().title(title);
-    if (body) form.body(body);
-    for (const option of options) form.button(option);
-    return (await showForm(this.scope, player, form))?.selection;
-  }
-
   /**
    * The game's own words in the dialogue box with no speaker (dialogue.ts, notify), `more` in a row
    * under `text`: Block Party's titles are only a turn's and a round's (headline). Nothing for empty
@@ -692,6 +686,23 @@ export class BlockPartySpike extends Minigame<Config> {
       return;
     }
     this.scope.timeout(() => this.bots.respawn(who, spot, yaw), BOTS_AFTER);
+  }
+
+  /**
+   * A seat turns where it stands to look at `toward` (an NPC it talks with, the user: they look at
+   * each other): a player by a teleport to where they are (setRotation doesn't turn a player on their
+   * own client), a bot by turning.
+   */
+  private faceSeat(who: Who, toward: Vec3): void {
+    try {
+      if (!who.body.isValid) return;
+      const at = who.body.location;
+      const yaw = (Math.atan2(-(toward[0] - at.x), toward[2] - at.z) * 180) / Math.PI;
+      if (who.player) who.player.teleport(at, { rotation: { x: 0, y: yaw } });
+      else who.body.setRotation({ x: 0, y: yaw });
+    } catch {
+      // gone
+    }
   }
 
   /** The map's stage markup (stage-markup.ts): its pre-game podium, Chris's pre-game spot, the podium camera and the intro, each marker with its facing. */
@@ -1065,7 +1076,8 @@ export class BlockPartySpike extends Minigame<Config> {
    */
   private keepFade(): void {
     if (!this.loop?.active) return;
-    const turn = this.runner.active ? undefined : this.loop.whoseTurn;
+    // Board's view shows everyone (the user, 2026-11-18).
+    const turn = this.runner.active || this.boardViewing ? undefined : this.loop.whoseTurn;
     this.fade.update([...world.getAllPlayers().map(whoOf), ...this.bots.all()], turn, this.loop.featured);
   }
 
@@ -1126,7 +1138,7 @@ export class BlockPartySpike extends Minigame<Config> {
    */
   private sendLine(player: Player, tests: PlayerTests, force = false): void {
     const status = this.minigameStatus ?? "";
-    const codes = loadingCode(this.loadingLevel) + (this.viewing.has(player.name.toLowerCase()) ? STANDINGS_CODE : "");
+    const codes = loadingCode(this.loadingLevel) + (this.viewing.has(player.name.toLowerCase()) ? STANDINGS_CODE : "") + (this.dialogue?.skippingBy(player.name) ? SKIPPING_CODE : "");
     const line = hudLine(undefined, status, undefined, "", codes || (status ? "" : KEEP_UP));
     if (!force && line === tests.sentLine && system.currentTick - (tests.sentAt ?? 0) < BAR_RESEND) return;
     tests.sentLine = line;
@@ -1290,10 +1302,16 @@ export class BlockPartySpike extends Minigame<Config> {
     await this.roll(player, die);
   }
 
-  /** Board's view: the whole board for everyone, still (board-view.ts), or everyone's own view again. */
+  /**
+   * Board's view: the whole board for everyone, still (board-view.ts), or the board's camera again.
+   * Both ways ease over the board camera's ease (the user: the way out was a cut, the way back slow
+   * and cinematic; both are slow now), the field of view with it. While it's up nobody is faded
+   * (keepFade): every player, bot and zombie shows.
+   */
   private boardView(on: boolean): void {
     const shot = on ? boardOverview(this.spaces) : undefined;
-    if (shot) this.staging.shot(shot, "Cut");
+    this.boardViewing = shot !== undefined;
+    if (shot) this.staging.shot(shot, "Pan", Math.max(0.05, this.cameraSettingsNow().ease));
     else this.staging.clear();
   }
 
@@ -1582,6 +1600,8 @@ export class BlockPartySpike extends Minigame<Config> {
   // ---- Jumps ------------------------------------------------------------------------------
 
   private jumped(player: Player): void {
+    // The results screen once its changes have played: going on from it.
+    if (this.results.jumped(player)) return;
     // The dialogue box: its steerer's pick, or a vote to skip.
     if (this.dialogue.jumped(player)) return;
     // A minigame's rules: a jump is Ready.

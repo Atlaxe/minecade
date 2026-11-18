@@ -192,11 +192,14 @@ export class BoardCamera {
     this.fresh = true;
   }
 
-  /** Another shot takes the camera: the board view waits, and the field of view goes back to the player's own. */
-  take(): void {
+  /**
+   * Another shot takes the camera: the board view waits, and the field of view goes back to the
+   * player's own, eased over `seconds` (a pan's, so the view doesn't jump as the camera starts to move).
+   */
+  take(seconds = 0): void {
     if (this.taken) return;
     this.taken = true;
-    this.setFov(undefined, 0);
+    this.setFov(undefined, seconds);
   }
 
   /** The other shot is done: true when the board view takes over again (eased in), false when the board's camera isn't the game's now. */

@@ -1,0 +1,63 @@
+{
+  "format_version": "1.21.100",
+  "minecraft:entity": {
+    "description": {
+      "identifier": "blockparty:trader_llama",
+      "is_spawnable": false,
+      "is_summonable": true,
+      "properties": {
+        "blockparty:coat": {
+          "type": "int",
+          "range": [
+            0,
+            3
+          ],
+          "default": 0,
+          "client_sync": true
+        }
+      }
+    },
+    "components": {
+      "minecraft:type_family": {
+        "family": [
+          "blockparty_npc"
+        ]
+      },
+      "minecraft:collision_box": {
+        "width": 0.9,
+        "height": 1.87
+      },
+      "minecraft:health": {
+        "value": 100,
+        "max": 100
+      },
+      "minecraft:damage_sensor": {
+        "triggers": [
+          {
+            "cause": "all",
+            "deals_damage": "no"
+          }
+        ]
+      },
+      "minecraft:physics": {},
+      "minecraft:movement": {
+        "value": 0.1
+      },
+      "minecraft:movement.basic": {},
+      "minecraft:pushable": {
+        "is_pushable": false,
+        "is_pushable_by_piston": false
+      },
+      "minecraft:knockback_resistance": {
+        "value": 1
+      },
+      "minecraft:leashable": {
+        "soft_distance": 6,
+        "hard_distance": 8,
+        "max_distance": 14,
+        "can_be_stolen": false
+      },
+      "minecraft:fire_immune": true
+    }
+  }
+}

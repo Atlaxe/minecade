@@ -394,6 +394,15 @@
     "branch.bot": [
       "§b{player}§r goes toward §v§l{space}§r."
     ],
+    "branch.left": [
+      "Left"
+    ],
+    "branch.right": [
+      "Right"
+    ],
+    "branch.middle": [
+      "Middle"
+    ],
     "land.blue": [
       "§b{player}§r landed on Blue: +§6{coins}§r."
     ],
@@ -1557,6 +1566,18 @@
     "branch.bot": {
       "character": "Game",
       "delivery": "Dialogue box"
+    },
+    "branch.left": {
+      "character": "Game",
+      "delivery": "Form button"
+    },
+    "branch.right": {
+      "character": "Game",
+      "delivery": "Form button"
+    },
+    "branch.middle": {
+      "character": "Game",
+      "delivery": "Form button"
     },
     "land.blue": {
       "character": "Game",

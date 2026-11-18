@@ -18,6 +18,13 @@ export const BOX_ONE = "§k§1";
 export const BOX_EVERYONE = "§k§2";
 /** The title has the speaker's name after it (a Game line has no name tab). */
 export const NAMED = "§k§8";
+/**
+ * The fork box's mark (the word "bpf", the workshop's blockparty_fork component) in place of the
+ * dialogue box's: a choice of way at a fork, its buttons the only thing in it, side by side across
+ * the box. Then how many ways: the component lays out two (§q§2) or three (§q§3) across.
+ */
+export const FORK_MARK = "§b§p§f";
+export const FORK_WAYS = { two: "§q§2", three: "§q§3" } as const;
 /** A name color: one color code, then bold or italic (the workshop's characters.json). */
 const NAME_COLOR = /^§[0-9a-jmnpqstuv](?:§[lo]){0,2}$/;
 /** A face's name: the pack's textures/blockparty/faces/<face> (Block Party's private faces pack). */
@@ -42,6 +49,13 @@ export const ROW = {
 export const FACE_AT = 12;
 /** The code a selected button has besides the button's own. */
 export const SELECTED = "§k§3";
+/**
+ * A picture left of a button's words, as a code after its index (the dialogue box shows the
+ * picture for it): Chance Time's potions, each the color of what's inside (vanilla's fire
+ * resistance, leaping, nausea and slow falling bottles).
+ */
+export const BUTTON_ICONS = { "potion.coins": "§p§1", "potion.items": "§p§2", "potion.board": "§p§3", "potion.stars": "§p§4" } as const;
+export type ButtonIcon = keyof typeof BUTTON_ICONS;
 
 /** Each row's place among its kind, as a code, so two rows with the same text stay two rows. */
 const INDEX = "0123456789abcdef";
@@ -49,14 +63,20 @@ const INDEX = "0123456789abcdef";
 /** The most of a line one row holds (a longer one goes on in the next row). */
 export const ROW_CHARS = 110;
 
-export type BoxMode = "one" | "everyone";
+export type BoxMode = "one" | "everyone" | "fork";
 
 /**
  * The sidebar's title: the marks, who the box is for, and the speaker's name in their color (a name
  * color that isn't one is left out, so it can't be read as the title's codes).
  */
 export function boxTitle(mode: BoxMode, name: string, color = ""): string {
+  if (mode === "fork") return forkTitle(2);
   return `${GAME_SIDEBAR_MARK}${BOX_MARK}${mode === "one" ? BOX_ONE : BOX_EVERYONE}${name ? NAMED : ""}§r${name && NAME_COLOR.test(color) ? color : ""}${name}`;
+}
+
+/** The fork box's title: its mark and how many ways it lays out across (three for three or more). */
+export function forkTitle(ways: number): string {
+  return `${GAME_SIDEBAR_MARK}${FORK_MARK}${ways >= 3 ? FORK_WAYS.three : FORK_WAYS.two}§r`;
 }
 
 export interface BoxRows {
@@ -68,6 +88,8 @@ export interface BoxRows {
   buttons?: readonly string[];
   /** Which button is picked now. */
   selected?: number;
+  /** A picture left of each button's words, if it has one. */
+  icons?: readonly (ButtonIcon | undefined)[];
   /** The skip strip, while everyone can vote to skip: the votes ("1/3"). */
   skip?: string;
   /** The jump button's prompt, while a jump goes on (its text: "", it names nobody). */
@@ -76,10 +98,13 @@ export interface BoxRows {
 
 /** The sidebar's rows, top to bottom. */
 export function boxRows(rows: BoxRows): string[] {
-  const row = (code: string, i: number, text: string) => `${code}§${INDEX[i % INDEX.length]}§r${safe(text)}`;
+  const row = (code: string, i: number, text: string, icon = "") => `${code}§${INDEX[i % INDEX.length]}${icon}§r${safe(text)}`;
   const out = rows.face && FACE.test(rows.face) ? [row(ROW.face, 0, rows.face)] : [];
   rows.words.forEach((text, i) => out.push(row(ROW.words, i, text)));
-  (rows.buttons ?? []).forEach((text, i) => out.push(row(i === rows.selected ? ROW.selected : ROW.button, i, text)));
+  (rows.buttons ?? []).forEach((text, i) => {
+    const icon = rows.icons?.[i];
+    out.push(row(i === rows.selected ? ROW.selected : ROW.button, i, text, icon ? BUTTON_ICONS[icon] : ""));
+  });
   if (rows.prompt !== undefined) out.push(row(ROW.prompt, 0, rows.prompt));
   if (rows.skip) out.push(row(ROW.skip, 0, rows.skip));
   return out;

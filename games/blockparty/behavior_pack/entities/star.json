@@ -10,12 +10,19 @@
           "type": "bool",
           "default": false,
           "client_sync": true
+        },
+        "blockparty:faded": {
+          "type": "bool",
+          "default": false,
+          "client_sync": true
         }
       }
     },
     "components": {
       "minecraft:type_family": {
-        "family": ["blockparty_star"]
+        "family": [
+          "blockparty_star"
+        ]
       },
       "minecraft:collision_box": {
         "width": 0.6,

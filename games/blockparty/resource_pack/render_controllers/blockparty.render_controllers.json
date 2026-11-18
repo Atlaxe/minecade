@@ -425,6 +425,45 @@
           "ones_9": "q.property('blockparty:count') >= 10 && math.mod(q.property('blockparty:count'), 10) == 9"
         }
       ]
+    },
+    "controller.render.blockparty.balloon": {
+      "geometry": "Geometry.balloon",
+      "materials": [
+        {
+          "*": "Material.balloon"
+        }
+      ],
+      "textures": [
+        "Texture.balloon"
+      ]
+    },
+    "controller.render.blockparty.trader_llama": {
+      "arrays": {
+        "textures": {
+          "Array.coats": [
+            "Texture.creamy",
+            "Texture.white",
+            "Texture.brown",
+            "Texture.gray"
+          ]
+        }
+      },
+      "geometry": "Geometry.default",
+      "part_visibility": [
+        {
+          "chest*": false
+        }
+      ],
+      "materials": [
+        {
+          "*": "Material.default"
+        }
+      ],
+      "textures": [
+        "Array.coats[q.property('blockparty:coat')]",
+        "Texture.decor",
+        "Texture.decor_none"
+      ]
     }
   }
 }

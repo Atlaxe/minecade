@@ -14,6 +14,11 @@
           ],
           "default": 0,
           "client_sync": true
+        },
+        "blockparty:balloon": {
+          "type": "bool",
+          "default": false,
+          "client_sync": true
         }
       }
     },
@@ -39,7 +44,6 @@
           }
         ]
       },
-      "minecraft:physics": {},
       "minecraft:pushable": {
         "is_pushable": false,
         "is_pushable_by_piston": false
@@ -51,7 +55,55 @@
         "always_show": true,
         "allow_name_tag_renaming": false
       },
-      "minecraft:fire_immune": true
+      "minecraft:fire_immune": true,
+      "minecraft:movement": {
+        "value": 0.1
+      },
+      "minecraft:movement.basic": {}
+    },
+    "component_groups": {
+      "blockparty:walking": {
+        "minecraft:physics": {}
+      },
+      "blockparty:flying": {
+        "minecraft:physics": {
+          "has_gravity": false,
+          "has_collision": false
+        }
+      }
+    },
+    "events": {
+      "minecraft:entity_spawned": {
+        "add": {
+          "component_groups": [
+            "blockparty:walking"
+          ]
+        }
+      },
+      "blockparty:fly": {
+        "remove": {
+          "component_groups": [
+            "blockparty:walking"
+          ]
+        },
+        "add": {
+          "component_groups": [
+            "blockparty:flying"
+          ]
+        }
+      },
+      "blockparty:land": {
+        "remove": {
+          "component_groups": [
+            "blockparty:flying"
+          ]
+        },
+        "add": {
+          "component_groups": [
+            "blockparty:walking"
+          ]
+        }
+      }
     }
   }
 }

@@ -18,10 +18,15 @@
 //   - A question to one player (talk, with buttons) is theirs to answer: they steer its buttons with
 //     the movement keys (W and S), jump picks, a tap of sneak picks its back button (Not now,
 //     Leave). A bot picks after a moment's thought.
+//   - A fork in the path (fork(), the user, 2026-11-18): the fork box in place of the dialogue box,
+//     its buttons alone side by side (Left, Right), steered with A and D by the player whose walk it
+//     is and picked with jump; each way picked turns everyone's camera down it (the caller's focus).
 //   - A jump in a card's first moments doesn't count (it was meant for the one before).
 //   - A skippable line or cutscene shows the skip strip on the box's top border: "Hold [sneak] to
 //     skip" and how many players have voted, "1/3". Holding sneak for 4 seconds is a vote; once every
-//     player has voted, the rest of it is skipped (a question in it too). Bots don't vote and don't
+//     player has voted, the rest of it is skipped (a question in it too). A player holding sneak, or
+//     who has voted, sees "Skipping 1/3" in place of the hold prompt (skippingBy; the sidebar is
+//     everyone's, so spike.ts puts the switch on their own action bar). Bots don't vote and don't
 //     count. Holding is read from the sneak button itself (inputInfo), not from whether the player
 //     sneaks: the user saw holding do nothing, since a player held on the board (their walking
 //     locked, a scripted camera) doesn't always sneak while the button is down.
@@ -37,7 +42,8 @@ import { ButtonState, InputButton, system, world, type Player } from "@minecraft
 import { describeError, log, type Scope } from "@minecade/minigame-core";
 import { CLIPS, talks, withTalk, type LineAction } from "./animations.ts";
 import { thinkTicks, type Who } from "./bots.ts";
-import { boxRows, boxTitle, readTicks, rowsOf, sentences, Steering, type BoxMode } from "./dialogue-codes.ts";
+import { sidewaysOf } from "./board-view.ts";
+import { boxRows, boxTitle, forkTitle, readTicks, rowsOf, sentences, Steering, type BoxMode, type ButtonIcon } from "./dialogue-codes.ts";
 import { actionsOf, look, moment, pickLine, type Fills } from "./lines.ts";
 
 /** A line as it's said, for its actions: its id, who says it, its fills, and the seat it's to or about (a turn's player, a question's). */
@@ -74,6 +80,21 @@ export interface TalkOptions {
   selected?: number;
   /** What a bot picks. */
   botPick?: number;
+  /** A picture left of each button's words (Chance Time's potions), if it has one. */
+  icons?: readonly (ButtonIcon | undefined)[];
+}
+
+export interface ForkOptions {
+  /** Who picks the way: they steer the buttons. */
+  to: Who;
+  /** The ways' labels, left to right as they show ("Left", "Right"). */
+  labels: readonly string[];
+  /** The way picked first. */
+  selected?: number;
+  /** What a bot picks. */
+  botPick?: number;
+  /** The way picked now has changed (and as the box comes in): the camera looks down that way. */
+  focus?(index: number): void;
 }
 
 /** A skip vote going on: a skippable line, or a skippable cutscene. */
@@ -93,7 +114,11 @@ interface Open extends Voting {
   words: string[];
   /** The buttons of a question. */
   buttons?: string[];
+  /** A picture left of each button's words, if it has one. */
+  icons?: readonly (ButtonIcon | undefined)[];
   selected: number;
+  /** A fork's: told each time the picked way changes. */
+  onFocus?: (index: number) => void;
   /** A question: who steers and picks, by key; a bot does by itself. */
   steerer?: Who;
   /** A line a player's turn brought: they go on (the leader instead for a bot, or once they've gone). */
@@ -191,7 +216,8 @@ export class Dialogue {
 
   /** Who the box is waiting on to answer a question (their key), if anyone: their movement keys steer it. */
   get steerer(): string | undefined {
-    return this.open?.mode === "one" ? this.open.steerer?.key : undefined;
+    const mode = this.open?.mode;
+    return mode === "one" || mode === "fork" ? this.open?.steerer?.key : undefined;
   }
 
   /**
@@ -253,7 +279,7 @@ export class Dialogue {
     const { text, index } = pickLine(id, fills, () => this.host.random());
     const said = moment(id);
     const selected = Math.min(Math.max(0, options.selected ?? 0), buttons.length - 1);
-    const open = this.show({ mode: "one", ...this.speaker(said.character), words: text ? rowsOf(text) : [], buttons, selected, steerer: options.to, back: options.back, since: system.currentTick, skippable: false, votes: [], skipped: false });
+    const open = this.show({ mode: "one", ...this.speaker(said.character), words: text ? rowsOf(text) : [], buttons, icons: options.icons, selected, steerer: options.to, back: options.back, since: system.currentTick, skippable: false, votes: [], skipped: false });
     this.steering.reset();
     const ended = text ? this.actions(open, { id, character: said.character, fills, about: options.to }, index) : () => undefined;
     try {
@@ -266,11 +292,43 @@ export class Dialogue {
     }
   }
 
+  /**
+   * A fork in the path (the user, 2026-11-18: like the dialogue box, not a form): the fork box, its
+   * buttons the only thing in it, side by side across it ("Left", "Right"). The player whose walk it
+   * is steers with A and D (a stick's left and right) and jumps to pick; everyone sees the box and,
+   * through `focus`, the way it's on. A bot moves to its pick after a moment's thought. Resolves with
+   * the way picked, or undefined if they leave first.
+   */
+  async fork(options: ForkOptions): Promise<number | undefined> {
+    const labels = [...options.labels];
+    if (labels.length === 0) return undefined;
+    const selected = Math.min(Math.max(0, options.selected ?? 0), labels.length - 1);
+    const open = this.show({ mode: "fork", name: "", color: "", face: "", words: [], buttons: labels, selected, steerer: options.to, onFocus: options.focus, since: system.currentTick, skippable: false, votes: [], skipped: false });
+    this.steering.reset();
+    this.focused(open);
+    try {
+      return await this.pick(open, options.botPick);
+    } finally {
+      this.release(open);
+    }
+  }
+
+  /**
+   * Whether `name` (a player) holds sneak toward a skip vote now, or has voted: their own skip strip
+   * says Skipping in place of Hold sneak to skip (spike.ts puts SKIPPING_CODE on their action bar).
+   */
+  skippingBy(name: string): boolean {
+    const open = this.open;
+    if (!open) return false;
+    const voting = this.voting(open);
+    return voting !== undefined && (this.holding.has(name) || voting.votes.includes(name));
+  }
+
   /** A jump: the one who goes on (the leader, or the player whose turn brought the line) going on, or a question's steerer picking. True when the box took it. */
   jumped(player: Player): boolean {
     const open = this.open;
     if (!open) return false;
-    if (open.mode === "one") {
+    if (open.mode === "one" || open.mode === "fork") {
       if (open.steerer?.key !== player.name.toLowerCase()) return false;
       if (open.picked === undefined && this.counts(open)) open.picked = open.selected;
       return true;
@@ -283,6 +341,8 @@ export class Dialogue {
   /** A tap of sneak: the steerer's back button, if the box has one now. True when the box took it. (Holding it votes to skip: tick.) */
   sneaked(player: Player): boolean {
     const open = this.open;
+    // A fork has no back button: its steerer's sneak does nothing else meanwhile.
+    if (open?.mode === "fork") return open.steerer?.key === player.name.toLowerCase();
     if (open?.mode !== "one" || open.steerer?.key !== player.name.toLowerCase()) return false;
     if (open.back !== undefined && open.buttons && open.picked === undefined && open.back < open.buttons.length) {
       open.selected = open.back;
@@ -419,6 +479,7 @@ export class Dialogue {
       if (this.open !== open) return undefined;
       open.selected = Math.min(Math.max(0, botPick ?? 0), (open.buttons?.length ?? 1) - 1);
       this.draw(open);
+      this.focused(open);
       await this.host.scope.wait(BOT_SHOW);
       return this.open === open ? open.selected : undefined;
     }
@@ -464,15 +525,33 @@ export class Dialogue {
     if (!open?.buttons || open.buttons.length < 2 || open.picked !== undefined || !player?.isValid) return;
     let forward = 0;
     try {
-      forward = player.inputInfo.getMovementVector().y;
+      const vector = player.inputInfo.getMovementVector();
+      // A fork's ways are side by side: A and D step through them; a question's are a column (W and S).
+      forward = open.mode === "fork" ? sidewaysOf(vector) : vector.y;
     } catch {
       return;
     }
     const step = this.steering.step(forward);
     if (step === 0) return;
-    open.selected = (open.selected + step + open.buttons.length) % open.buttons.length;
+    if (open.mode === "fork") {
+      // Side by side, the ends don't wrap round: D on the rightmost way stays there.
+      const next = Math.min(open.buttons.length - 1, Math.max(0, open.selected + step));
+      if (next === open.selected) return;
+      open.selected = next;
+    } else open.selected = (open.selected + step + open.buttons.length) % open.buttons.length;
     playCue(eventCue("dialogue.button"));
     this.draw(open);
+    this.focused(open);
+  }
+
+  /** Tells a fork's watcher which way is picked now. */
+  private focused(open: Open): void {
+    if (this.open !== open || !open.onFocus) return;
+    try {
+      open.onFocus(open.selected);
+    } catch (error) {
+      log.warn(`blockparty: a fork's view failed: ${describeError(error)}`);
+    }
   }
 
   /** The skip vote going on now: the cutscene's, or the line's. */
@@ -529,13 +608,20 @@ export class Dialogue {
   private draw(open: Open): void {
     if (this.open !== open) return;
     try {
+      if (open.mode === "fork") {
+        // The fork box: its buttons alone, across it.
+        const title = forkTitle(open.buttons?.length ?? 2);
+        this.box = { title };
+        this.host.show({ title, rows: boxRows({ words: [], buttons: open.buttons, selected: open.selected }) });
+        return;
+      }
       const title = boxTitle(open.mode, open.name, open.color);
       this.box = { title };
       const voting = this.voting(open);
       const skip = voting ? this.votesText(voting) : undefined;
       // The jump prompt, while a jump goes on: the leader's or the turn's player's to everyone, the steerer's on a question (none while a bot picks).
       const waiting = open.mode === "everyone" ? this.goer(open) !== undefined : open.steerer?.player !== undefined;
-      const rows = boxRows({ face: open.name ? open.face : undefined, words: open.words, buttons: open.buttons, selected: open.selected, skip, prompt: waiting ? "" : undefined });
+      const rows = boxRows({ face: open.name ? open.face : undefined, words: open.words, buttons: open.buttons, icons: open.icons, selected: open.selected, skip, prompt: waiting ? "" : undefined });
       this.host.show({ title, rows });
     } catch (error) {
       log.warn(`blockparty: drawing the dialogue box failed: ${describeError(error)}`);

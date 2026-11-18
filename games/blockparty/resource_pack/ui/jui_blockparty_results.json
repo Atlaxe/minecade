@@ -116,6 +116,219 @@
           "anchor_to": "center",
           "layer": 3
         }
+      },
+      {
+        "b_5ae90010": {
+          "type": "stack_panel",
+          "orientation": "horizontal",
+          "size": [
+            "100%c",
+            11
+          ],
+          "controls": [
+            {
+              "b_5ae90011_slot": {
+                "type": "panel",
+                "size": [
+                  "100%cm",
+                  "100%"
+                ],
+                "controls": [
+                  {
+                    "b_5ae90011": {
+                      "type": "image",
+                      "size": [
+                        10,
+                        10
+                      ],
+                      "keep_ratio": true,
+                      "texture": "#controller_face_down_icon",
+                      "bindings": [
+                        {
+                          "binding_name": "#controller_face_down_icon",
+                          "binding_name_override": "#texture"
+                        },
+                        {
+                          "binding_name": "#is_using_gamepad",
+                          "binding_name_override": "#visible"
+                        }
+                      ],
+                      "visible": false,
+                      "anchor_from": "left_middle",
+                      "anchor_to": "left_middle",
+                      "layer": 1
+                    }
+                  }
+                ],
+                "layer": 1
+              }
+            },
+            {
+              "b_5ae90010_gap1": {
+                "type": "panel",
+                "size": [
+                  3,
+                  0
+                ],
+                "layer": 3
+              }
+            },
+            {
+              "b_5ae90012_slot": {
+                "type": "panel",
+                "size": [
+                  "100%cm",
+                  "100%"
+                ],
+                "controls": [
+                  {
+                    "b_5ae90012": {
+                      "type": "image",
+                      "size": [
+                        10,
+                        10
+                      ],
+                      "keep_ratio": true,
+                      "texture": "textures/ui/jump",
+                      "visible": false,
+                      "bindings": [
+                        {
+                          "binding_name": "#hud_visible_centered_touch",
+                          "binding_name_override": "#visible"
+                        }
+                      ],
+                      "anchor_from": "left_middle",
+                      "anchor_to": "left_middle",
+                      "layer": 1
+                    }
+                  }
+                ],
+                "layer": 4
+              }
+            },
+            {
+              "b_5ae90010_gap2": {
+                "type": "panel",
+                "size": [
+                  3,
+                  0
+                ],
+                "layer": 6
+              }
+            },
+            {
+              "b_5ae90013_slot": {
+                "type": "panel",
+                "size": [
+                  "100%cm",
+                  "100%"
+                ],
+                "controls": [
+                  {
+                    "b_5ae90013": {
+                      "type": "panel",
+                      "size": [
+                        "100%cm",
+                        10
+                      ],
+                      "visible": false,
+                      "bindings": [
+                        {
+                          "binding_name": "#is_using_gamepad"
+                        },
+                        {
+                          "binding_name": "#hud_visible_centered_touch"
+                        },
+                        {
+                          "binding_type": "view",
+                          "source_property_name": "((not #is_using_gamepad) and (not #hud_visible_centered_touch))",
+                          "target_property_name": "#visible"
+                        }
+                      ],
+                      "controls": [
+                        {
+                          "b_5ae90013_bg": {
+                            "type": "image",
+                            "size": [
+                              "100%sm + 6px",
+                              "100%"
+                            ],
+                            "anchor_from": "top_left",
+                            "anchor_to": "top_left",
+                            "layer": 1,
+                            "texture": "textures/ui/keyboard_tooltip_background",
+                            "alpha": 1,
+                            "keep_ratio": false
+                          }
+                        },
+                        {
+                          "b_5ae90013_in": {
+                            "type": "panel",
+                            "size": [
+                              "100%cm",
+                              "100% - 0px"
+                            ],
+                            "controls": [
+                              {
+                                "b_5ae90014": {
+                                  "type": "label",
+                                  "text": "Space",
+                                  "size": [
+                                    "default",
+                                    "default"
+                                  ],
+                                  "color": [
+                                    1,
+                                    1,
+                                    1
+                                  ],
+                                  "localize": false,
+                                  "anchor_from": "left_middle",
+                                  "anchor_to": "left_middle",
+                                  "layer": 1
+                                }
+                              }
+                            ],
+                            "anchor_from": "top_left",
+                            "anchor_to": "top_left",
+                            "offset": [
+                              3,
+                              0
+                            ],
+                            "layer": 2
+                          }
+                        }
+                      ],
+                      "anchor_from": "left_middle",
+                      "anchor_to": "left_middle",
+                      "layer": 1
+                    }
+                  }
+                ],
+                "layer": 7
+              }
+            }
+          ],
+          "anchor_from": "bottom_middle",
+          "anchor_to": "bottom_middle",
+          "offset": [
+            87,
+            -16
+          ],
+          "visible": false,
+          "bindings": [
+            {
+              "binding_name": "#objective_sidebar_name",
+              "binding_type": "global"
+            },
+            {
+              "binding_type": "view",
+              "source_property_name": "(not ((#objective_sidebar_name - '§b§p§j') = #objective_sidebar_name))",
+              "target_property_name": "#visible"
+            }
+          ],
+          "layer": 159
+        }
       }
     ]
   },

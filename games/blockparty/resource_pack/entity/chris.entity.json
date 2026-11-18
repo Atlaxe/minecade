@@ -4,7 +4,8 @@
     "description": {
       "identifier": "blockparty:chris",
       "materials": {
-        "default": "pig_v3"
+        "default": "pig_v3",
+        "balloon": "entity_alphatest"
       },
       "textures": {
         "default": "textures/entity/pig/pig_v3",
@@ -12,26 +13,37 @@
         "cold": "textures/entity/pig/pig_cold",
         "baby_default": "textures/entity/pig/pig_temperate_baby",
         "baby_warm": "textures/entity/pig/pig_warm_baby",
-        "baby_cold": "textures/entity/pig/pig_cold_baby"
+        "baby_cold": "textures/entity/pig/pig_cold_baby",
+        "balloon": "textures/blockparty/balloon"
       },
       "geometry": {
         "default": "geometry.pig.v3",
-        "baby": "geometry.pig.baby"
+        "baby": "geometry.pig.baby",
+        "balloon": "geometry.blockparty.balloon"
       },
       "render_controllers": [
-        "controller.render.pig.v4"
+        "controller.render.pig.v4",
+        {
+          "controller.render.blockparty.balloon": "v.balloon > 0.0"
+        }
       ],
       "animations": {
         "setup": "animation.pig.setup",
-        "look_at_target": "animation.common.look_at_target"
+        "look_at_target": "animation.common.look_at_target",
+        "balloon": "animation.blockparty.balloon"
       },
       "scripts": {
         "pre_animation": [
-          "v.index = q.property('blockparty:variant');"
+          "v.index = q.property('blockparty:variant');",
+          "v.balloon = math.clamp(v.balloon + (q.property('blockparty:balloon') ? 3.0 : -8.0) * q.delta_time, 0.0, 1.0);"
         ],
         "animate": [
           "setup",
-          "look_at_target"
+          "look_at_target",
+          "balloon"
+        ],
+        "initialize": [
+          "v.balloon = 0.0;"
         ]
       }
     }

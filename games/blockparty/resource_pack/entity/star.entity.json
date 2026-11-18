@@ -4,7 +4,8 @@
     "description": {
       "identifier": "blockparty:star",
       "materials": {
-        "default": "entity_alphatest"
+        "default": "entity_alphatest",
+        "fade": "guardian_ghost"
       },
       "textures": {
         "default": "textures/items/nether_star"
@@ -13,15 +14,25 @@
         "default": "geometry.blockparty.star"
       },
       "render_controllers": [
-        "controller.render.default"
+        "controller.render.blockparty.fading"
       ],
       "animations": {
-        "turn": "animation.blockparty.icon_turn"
+        "turn": "animation.blockparty.icon_turn",
+        "hover": "animation.blockparty.star_hover"
       },
       "scripts": {
+        "initialize": [
+          "v.fade = q.property('blockparty:faded') ? 0.0 : 1.0;"
+        ],
+        "pre_animation": [
+          "v.fade = math.clamp(v.fade + (q.property('blockparty:faded') ? -1.0 : 1.0) * q.delta_time * 2.5, 0.0, 1.0);"
+        ],
         "animate": [
           {
             "turn": "q.property('blockparty:turning')"
+          },
+          {
+            "hover": "q.property('blockparty:turning')"
           }
         ]
       }

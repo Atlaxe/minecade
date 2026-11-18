@@ -208,7 +208,7 @@
                                     1,
                                     12
                                   ],
-                                  "layer": 5
+                                  "layer": 14
                                 }
                               }
                             ],
@@ -258,7 +258,7 @@
                           "target_property_name": "#visible"
                         }
                       ],
-                      "layer": 14,
+                      "layer": 23,
                       "controls": [
                         {
                           "b_d1a1000c_bg": {
@@ -371,7 +371,7 @@
                               0,
                               0
                             ],
-                            "layer": 44
+                            "layer": 54
                           }
                         }
                       ]
@@ -403,7 +403,38 @@
                         0,
                         -14
                       ],
-                      "layer": 16
+                      "visible": "(($actionbar_text - '§k§e') = $actionbar_text)",
+                      "layer": 25
+                    }
+                  },
+                  {
+                    "b_d1a10030": {
+                      "type": "stack_panel",
+                      "orientation": "vertical",
+                      "size": [
+                        200,
+                        "100%c"
+                      ],
+                      "collection_name": "scoreboard_players",
+                      "factory": {
+                        "name": "player_list_factory",
+                        "control_name": "jui_blockparty_dialogue.b_d1a10030_row"
+                      },
+                      "bindings": [
+                        {
+                          "binding_name": "#scoreboard_sidebar_size",
+                          "binding_type": "global",
+                          "binding_name_override": "#collection_length"
+                        }
+                      ],
+                      "anchor_from": "top_right",
+                      "anchor_to": "top_right",
+                      "offset": [
+                        0,
+                        -14
+                      ],
+                      "visible": "(not (($actionbar_text - '§k§e') = $actionbar_text))",
+                      "layer": 50
                     }
                   },
                   {
@@ -428,7 +459,7 @@
                       ],
                       "anchor_from": "bottom_right",
                       "anchor_to": "bottom_right",
-                      "layer": 41
+                      "layer": 60
                     }
                   }
                 ],
@@ -529,23 +560,192 @@
         }
       },
       {
-        "b_d1a10004": {
-          "type": "label",
-          "text": "#player_name_sidebar",
+        "b_d1a10034": {
+          "type": "stack_panel",
+          "orientation": "horizontal",
           "size": [
-            "default",
-            "default"
+            "100%c",
+            "100%cm"
           ],
-          "color": "$v_text",
-          "bindings": [
+          "controls": [
             {
-              "binding_name": "#player_name_sidebar",
-              "binding_type": "collection",
-              "binding_collection_name": "scoreboard_players"
+              "b_d1a10050": {
+                "type": "panel",
+                "size": [
+                  13,
+                  10
+                ],
+                "controls": [
+                  {
+                    "b_d1a10040": {
+                      "type": "image",
+                      "size": [
+                        10,
+                        10
+                      ],
+                      "keep_ratio": true,
+                      "texture": "textures/items/potion_bottle_fireResistance",
+                      "anchor_from": "left_middle",
+                      "anchor_to": "left_middle",
+                      "layer": 1
+                    }
+                  }
+                ],
+                "visible": false,
+                "bindings": [
+                  {
+                    "binding_name": "#player_name_sidebar",
+                    "binding_type": "collection",
+                    "binding_collection_name": "scoreboard_players"
+                  },
+                  {
+                    "binding_type": "view",
+                    "source_property_name": "(not ((#player_name_sidebar - '§p§1') = #player_name_sidebar))",
+                    "target_property_name": "#visible"
+                  }
+                ],
+                "layer": 1
+              }
+            },
+            {
+              "b_d1a10051": {
+                "type": "panel",
+                "size": [
+                  13,
+                  10
+                ],
+                "controls": [
+                  {
+                    "b_d1a10041": {
+                      "type": "image",
+                      "size": [
+                        10,
+                        10
+                      ],
+                      "keep_ratio": true,
+                      "texture": "textures/items/potion_bottle_jump",
+                      "anchor_from": "left_middle",
+                      "anchor_to": "left_middle",
+                      "layer": 1
+                    }
+                  }
+                ],
+                "visible": false,
+                "bindings": [
+                  {
+                    "binding_name": "#player_name_sidebar",
+                    "binding_type": "collection",
+                    "binding_collection_name": "scoreboard_players"
+                  },
+                  {
+                    "binding_type": "view",
+                    "source_property_name": "(not ((#player_name_sidebar - '§p§2') = #player_name_sidebar))",
+                    "target_property_name": "#visible"
+                  }
+                ],
+                "layer": 3
+              }
+            },
+            {
+              "b_d1a10052": {
+                "type": "panel",
+                "size": [
+                  13,
+                  10
+                ],
+                "controls": [
+                  {
+                    "b_d1a10042": {
+                      "type": "image",
+                      "size": [
+                        10,
+                        10
+                      ],
+                      "keep_ratio": true,
+                      "texture": "textures/items/potion_bottle_confusion",
+                      "anchor_from": "left_middle",
+                      "anchor_to": "left_middle",
+                      "layer": 1
+                    }
+                  }
+                ],
+                "visible": false,
+                "bindings": [
+                  {
+                    "binding_name": "#player_name_sidebar",
+                    "binding_type": "collection",
+                    "binding_collection_name": "scoreboard_players"
+                  },
+                  {
+                    "binding_type": "view",
+                    "source_property_name": "(not ((#player_name_sidebar - '§p§3') = #player_name_sidebar))",
+                    "target_property_name": "#visible"
+                  }
+                ],
+                "layer": 5
+              }
+            },
+            {
+              "b_d1a10053": {
+                "type": "panel",
+                "size": [
+                  13,
+                  10
+                ],
+                "controls": [
+                  {
+                    "b_d1a10043": {
+                      "type": "image",
+                      "size": [
+                        10,
+                        10
+                      ],
+                      "keep_ratio": true,
+                      "texture": "textures/items/potion_bottle_slowFall",
+                      "anchor_from": "left_middle",
+                      "anchor_to": "left_middle",
+                      "layer": 1
+                    }
+                  }
+                ],
+                "visible": false,
+                "bindings": [
+                  {
+                    "binding_name": "#player_name_sidebar",
+                    "binding_type": "collection",
+                    "binding_collection_name": "scoreboard_players"
+                  },
+                  {
+                    "binding_type": "view",
+                    "source_property_name": "(not ((#player_name_sidebar - '§p§4') = #player_name_sidebar))",
+                    "target_property_name": "#visible"
+                  }
+                ],
+                "layer": 7
+              }
+            },
+            {
+              "b_d1a10004": {
+                "type": "label",
+                "text": "#player_name_sidebar",
+                "size": [
+                  "default",
+                  "default"
+                ],
+                "color": "$v_text",
+                "bindings": [
+                  {
+                    "binding_name": "#player_name_sidebar",
+                    "binding_type": "collection",
+                    "binding_collection_name": "scoreboard_players"
+                  }
+                ],
+                "shadow": true,
+                "localize": false,
+                "layer": 9
+              }
             }
           ],
-          "shadow": true,
-          "localize": false,
           "anchor_from": "left_middle",
           "anchor_to": "left_middle",
           "offset": [
@@ -963,6 +1163,153 @@
                         }
                       ],
                       "layer": 17
+                    }
+                  }
+                ],
+                "anchor_from": "top_left",
+                "anchor_to": "top_left",
+                "offset": [
+                  4,
+                  0
+                ],
+                "layer": 2
+              }
+            }
+          ],
+          "layer": 1
+        }
+      }
+    ],
+    "visible": false,
+    "bindings": [
+      {
+        "binding_name": "#player_name_sidebar",
+        "binding_type": "collection",
+        "binding_collection_name": "scoreboard_players"
+      },
+      {
+        "binding_type": "view",
+        "source_property_name": "(not ((#player_name_sidebar - '§k§4') = #player_name_sidebar))",
+        "target_property_name": "#visible"
+      }
+    ]
+  },
+  "b_d1a10030_row": {
+    "type": "panel",
+    "size": [
+      "100%",
+      11
+    ],
+    "controls": [
+      {
+        "b_d1a10031": {
+          "type": "panel",
+          "size": [
+            "100%cm",
+            11
+          ],
+          "anchor_from": "top_right",
+          "anchor_to": "top_right",
+          "offset": [
+            8,
+            -13
+          ],
+          "controls": [
+            {
+              "b_d1a10031_bg": {
+                "type": "image",
+                "size": [
+                  "100%sm + 8px",
+                  "100%"
+                ],
+                "anchor_from": "top_left",
+                "anchor_to": "top_left",
+                "layer": 1,
+                "texture": "textures/ui/White",
+                "color": "$v_skip",
+                "alpha": 0.9
+              }
+            },
+            {
+              "b_d1a10031_in": {
+                "type": "stack_panel",
+                "orientation": "horizontal",
+                "size": [
+                  "100%c",
+                  "100% - 0px"
+                ],
+                "controls": [
+                  {
+                    "b_d1a10032_slot": {
+                      "type": "panel",
+                      "size": [
+                        "100%cm",
+                        "100%"
+                      ],
+                      "controls": [
+                        {
+                          "b_d1a10032": {
+                            "type": "label",
+                            "text": "Skipping",
+                            "size": [
+                              "default",
+                              "default"
+                            ],
+                            "color": "$v_text",
+                            "shadow": true,
+                            "localize": false,
+                            "anchor_from": "left_middle",
+                            "anchor_to": "left_middle",
+                            "layer": 1
+                          }
+                        }
+                      ],
+                      "layer": 1
+                    }
+                  },
+                  {
+                    "b_d1a10031_gap1": {
+                      "type": "panel",
+                      "size": [
+                        3,
+                        0
+                      ],
+                      "layer": 3
+                    }
+                  },
+                  {
+                    "b_d1a10033_slot": {
+                      "type": "panel",
+                      "size": [
+                        "100%cm",
+                        "100%"
+                      ],
+                      "controls": [
+                        {
+                          "b_d1a10033": {
+                            "type": "label",
+                            "text": "#player_name_sidebar",
+                            "size": [
+                              "default",
+                              "default"
+                            ],
+                            "color": "$v_text",
+                            "bindings": [
+                              {
+                                "binding_name": "#player_name_sidebar",
+                                "binding_type": "collection",
+                                "binding_collection_name": "scoreboard_players"
+                              }
+                            ],
+                            "shadow": true,
+                            "localize": false,
+                            "anchor_from": "left_middle",
+                            "anchor_to": "left_middle",
+                            "layer": 1
+                          }
+                        }
+                      ],
+                      "layer": 4
                     }
                   }
                 ],

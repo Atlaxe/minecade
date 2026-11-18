@@ -708,6 +708,53 @@ so private shots become shared ones there.
 - Every cutscene can be skipped, and a reduced-motion option uses static cuts.
 - Always clear the camera at a minigame's start, on a disconnect, and on any script error.
 
+### The board's cast, forks and results, as built (2026-11-18)
+
+The user's asks after a look at pass 7, all in `stage.ts`, `entrances.ts` and `fork.ts`:
+
+- **Board view** eases both ways over the board camera's ease (`boardCameraEase`), the field of view
+  with it; going to it was a cut. While it's up nobody is faded: every player, bot and zombie shows.
+- **Talking with an NPC:** the seat and the NPC turn to each other (a player by a teleport where
+  they stand, a bot by turning), at the Star, the Shop, Versus, the Trader and every NPC visit.
+- **The Star over its space:** the Star model (`blockparty:star`) floats 2.5 blocks over a Star's
+  floor, 1.5 times its size, turning and bobbing, popping in when its Chris arrives. Bought, the
+  coins fly to Chris, then the floating Star fades (the bots' fade, `controller.render.blockparty.fading`)
+  as the bought one flies from it to the buyer. Passed up, it stays.
+- **Chris's balloon:** when the Star moves on, a balloon pops out of Chris (a property his client
+  reads: `geometry.blockparty.balloon`, `textures/blockparty/balloon.png`, a placeholder to repaint),
+  he rises 8 blocks over the higher end, crosses (at most 5.5 s however far) and comes down beside
+  the new Star's space, the camera following from the side; there the balloon pops and the Star
+  appears. He flies with no gravity and no collisions (`blockparty:fly` and `blockparty:land`), his
+  speed set each tick toward the planned spot, as bots move, so clients see it smooth.
+- **The Wandering Trader** comes with two llamas on leads (`blockparty:trader_llama`, vanilla's
+  llama with the trader's decor, a random coat): the camera cuts to his space, and he walks in
+  beside the board's path from at least 12 blocks back (out of the shot), the llamas keeping to his
+  trail 1.9 blocks apart. He leaves with them (llamas first, so no lead drops as an item).
+- **The Witch** appears and vanishes in a puff of smoke (`blockparty:smoke_puff`, the pack's own
+  particle, grayish purple).
+- **Residents:** the Referee beside every Versus space and the Villager beside every Shop space
+  stand there all game, at the default spot beside their space, facing it; a lander's scene turns
+  them to the lander and back after. Per-marker spots come with the editor later. The Dueling
+  Glove's Referee and the Villager item's Villager still come to the player.
+- **Sounds:** new events `npc.chris.balloon`, `npc.chris.balloon_pop`, `npc.witch.appear` and
+  `npc.witch.vanish`, silent until the user maps them in the dialogue tool's Sounds view.
+- **Forks** are the fork box (`dialogue.ts` fork, the workshop's `blockparty_fork` component, word
+  `bpf`): the buttons alone, side by side across the box (two or three: title codes `§q§2`, `§q§3`),
+  named Left, Middle and Right by where each way goes as the piece arrives (`fork.ts`; lines
+  `branch.left`, `branch.middle`, `branch.right`). The walker steers with A and D (the ends don't
+  wrap) and jumps to pick; the box and the camera are everyone's: each focused way turns the camera
+  (from 5 blocks behind the fork, 5 up) to look 2 spaces down it, its first space lit. A bot's focus
+  moves to its pick. The old branch form's lines (`branch.title`, `branch.button`,
+  `branch.button.star`) are no longer used.
+- **Results** take a jump once the changes have played: the party leader's or the turn's player's
+  goes on; the screen shows its jump prompt meanwhile (title word `bpj`, the `blockparty_results`
+  component's Go on, bottom middle). With no jump it goes after its hold, as before.
+- **The skip strip** says "Skipping 1/3" in place of "Hold [sneak] to skip 1/3" for a player holding
+  sneak toward a vote or who has voted (their action bar's `§k§e`, SKIPPING_CODE).
+- **Potions** show their pictures left of their names on Chance Time's buttons (vanilla's fire
+  resistance, leaping, nausea and slow falling bottles for gold, green, purple and white), by a code
+  after the button's index (`BUTTON_ICONS`).
+
 ## Maps
 
 ### How it fits
@@ -1245,3 +1292,7 @@ Every question is answered. These were taken without one; the user can change an
   bank; Silenced takes the next prize, not a purchase; the Golden Totem's extra die counts double
   (not the whole roll); the Cursed Totem halves the whole roll after a totem; Coin Swap is the
   lander's pick; a bot buys in the Shop or from the Trader only when it keeps 5 coins over.
+- The cast pass (2026-11-18, "The board's cast, forks and results, as built"): every height, speed
+  and distance there; a fork's focus starts on Left; Middle for any way between; a red balloon; the
+  Witch's smoke grayish purple; results go on at the leader's or the turn's player's jump and still
+  go by themselves after their hold; the seat turns to the NPC as well as the NPC to the seat.

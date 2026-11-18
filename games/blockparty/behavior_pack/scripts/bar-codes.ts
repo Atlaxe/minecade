@@ -14,6 +14,12 @@
 
 export const LOADING_CODE = "§k§d";
 export const STANDINGS_CODE = "§k§f";
+/**
+ * The player holds sneak toward a skip vote, or has voted (dialogue.ts, skippingBy): their dialogue
+ * box's skip strip says "Skipping 1/3" in place of "Hold [sneak] to skip 1/3" (the user, 2026-11-18).
+ * The sidebar is everyone's, so this per-player difference rides the action bar.
+ */
+export const SKIPPING_CODE = "§k§e";
 /** A code alone, so a line with nothing else in it is still marked and keeps the panel up. */
 export const KEEP_UP = "§r";
 export const LOADING_LEVELS = 8;

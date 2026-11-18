@@ -9,7 +9,9 @@ import { GAME_SIDEBAR_MARK, Scope } from "@minecade/minigame-core";
 import { system, world, type FakePlayer } from "../../../packages/minigame-core/test/fake-mc-server.ts";
 import { flushPromises } from "../../../packages/minigame-core/test/util.ts";
 import { whoOf, type Who } from "../behavior_pack/scripts/bots.ts";
-import { BOX_EVERYONE, BOX_MARK, BOX_ONE, FACE_AT, NAMED, ROW, SELECTED, Steering, STEER_HOLD, STEER_REPEAT, boxRows, boxTitle, readTicks, rowsOf, safe, sentences, visible } from "../behavior_pack/scripts/dialogue-codes.ts";
+import { SKIPPING_CODE } from "../behavior_pack/scripts/bar-codes.ts";
+import { RIGHT_X } from "../behavior_pack/scripts/board-view.ts";
+import { BOX_EVERYONE, BOX_MARK, BOX_ONE, BUTTON_ICONS, FACE_AT, FORK_MARK, FORK_WAYS, NAMED, ROW, SELECTED, Steering, STEER_HOLD, STEER_REPEAT, boxRows, boxTitle, forkTitle, readTicks, rowsOf, safe, sentences, visible } from "../behavior_pack/scripts/dialogue-codes.ts";
 import { Dialogue } from "../behavior_pack/scripts/dialogue.ts";
 import { GameSidebar } from "../behavior_pack/scripts/sidebar-rows.ts";
 import { line, look, moment } from "../behavior_pack/scripts/lines.ts";
@@ -60,6 +62,24 @@ describe("the dialogue box's codes", () => {
     expect(Buffer.from(rows[0], "utf8").subarray(FACE_AT).toString("utf8")).toBe("chris");
     // No face for a name that can't be a picture's.
     expect(boxRows({ face: "Chris P", words: [] })).toEqual([]);
+  });
+
+  it("put a button's picture (Chance Time's potions) as a code after its index", () => {
+    const rows = boxRows({ words: [], buttons: ["Gold potion", "Brew new ones"], icons: ["potion.coins", undefined], selected: 1 });
+    expect(rows).toEqual([`${ROW.button}§0${BUTTON_ICONS["potion.coins"]}§rGold potion`, `${ROW.selected}§1§rBrew new ones`]);
+    expect(rows.map(visible)).toEqual(["Gold potion", "Brew new ones"]);
+    // Each potion's code is its own, and none reads as a row's kind.
+    const codes = Object.values(BUTTON_ICONS);
+    expect(new Set(codes).size).toBe(codes.length);
+    for (const code of codes) for (const kind of Object.values(ROW)) expect(code).not.toContain(kind);
+  });
+
+  it("title the fork box with its own mark and how many ways go across, never the dialogue box's", () => {
+    expect(forkTitle(2)).toBe(`${GAME_SIDEBAR_MARK}${FORK_MARK}${FORK_WAYS.two}§r`);
+    expect(forkTitle(3)).toBe(`${GAME_SIDEBAR_MARK}${FORK_MARK}${FORK_WAYS.three}§r`);
+    expect(forkTitle(4)).toBe(forkTitle(3));
+    expect(forkTitle(2)).not.toContain(BOX_MARK);
+    expect(visible(forkTitle(2))).toBe("");
   });
 
   it("never let a row's text read as a row's code", () => {
@@ -291,6 +311,55 @@ describe("the dialogue box", () => {
     expect(await until(picked)).toBe(1);
   });
 
+  it("puts a fork's ways side by side in the fork box, A and D stepping through them, the camera told each one", async () => {
+    const who: Who = whoOf(sam as never);
+    const focused: number[] = [];
+    const picked = dialogue.fork({ to: who, labels: ["Left", "Right"], focus: (index) => focused.push(index) });
+    await ticks(2);
+    // Its buttons alone: no words, face, prompt or skip strip.
+    expect(shown()?.title).toBe(forkTitle(2));
+    expect(rowsOfKind(ROW.selected)).toEqual(["Left"]);
+    expect(rowsOfKind(ROW.button)).toEqual(["Left", "Right"]);
+    for (const kind of [ROW.words, ROW.face, ROW.prompt, ROW.skip]) expect(rowsOfKind(kind)).toEqual([]);
+    expect(focused).toEqual([0]);
+    expect(dialogue.steerer).toBe("sam");
+    const press = async (vector: { x: number; y: number }) => {
+      sam.movementVector = vector;
+      await ticks(1);
+      sam.movementVector = { x: 0, y: 0 };
+      await ticks(1);
+    };
+    // D: the way on the right.
+    await press({ x: RIGHT_X, y: 0 });
+    expect(rowsOfKind(ROW.selected)).toEqual(["Right"]);
+    expect(focused).toEqual([0, 1]);
+    // W and S do nothing here, and the ends don't wrap round.
+    await press({ x: 0, y: -1 });
+    await press({ x: RIGHT_X, y: 0 });
+    expect(rowsOfKind(ROW.selected)).toEqual(["Right"]);
+    expect(focused).toEqual([0, 1]);
+    // A: back to the left.
+    await press({ x: -RIGHT_X, y: 0 });
+    expect(focused).toEqual([0, 1, 0]);
+    // Nobody else picks, and sneak does nothing.
+    expect(dialogue.jumped(alex as never)).toBe(false);
+    expect(dialogue.sneaked(sam as never)).toBe(true);
+    await ticks(10);
+    expect(rowsOfKind(ROW.selected)).toEqual(["Left"]);
+    dialogue.jumped(sam as never);
+    expect(await until(picked)).toBe(0);
+  });
+
+  it("lays three ways across in threes, and moves a bot's pick to the way it takes", async () => {
+    const bot: Who = { name: "Bot", key: "bot", body: {} as never };
+    const focused: number[] = [];
+    const picked = dialogue.fork({ to: bot, labels: ["Left", "Middle", "Right"], botPick: 2, focus: (index) => focused.push(index) });
+    await ticks(2);
+    expect(shown()?.title).toBe(forkTitle(3));
+    expect(await until(picked)).toBe(2);
+    expect(focused).toEqual([0, 2]);
+  });
+
   it("says a line to one player with no buttons like any line, going on at their jump", async () => {
     const who: Who = whoOf(sam as never);
     const done = dialogue.talk("star.chris.short", { price: "20 coins" }, { to: who });
@@ -321,6 +390,26 @@ describe("the dialogue box", () => {
     await ticks(2);
     sam.isSneaking = true;
     await until(done, 85);
+  });
+
+  it("knows whose own strip says Skipping: a player holding sneak toward a vote, or who has voted", async () => {
+    const done = dialogue.say("announce.final", {}, true);
+    await ticks(2);
+    expect(dialogue.skippingBy("Alex")).toBe(false);
+    alex.isSneaking = true;
+    await ticks(2);
+    expect(dialogue.skippingBy("Alex")).toBe(true);
+    expect(dialogue.skippingBy("Sam")).toBe(false);
+    await ticks(80);
+    alex.isSneaking = false;
+    await ticks(1);
+    // Voted: still skipping, though they've let go.
+    expect(dialogue.skippingBy("Alex")).toBe(true);
+    sam.isSneaking = true;
+    await until(done, 85);
+    sam.isSneaking = false;
+    await ticks(5);
+    expect(dialogue.skippingBy("Alex")).toBe(false);
   });
 
   it("skips the rest of a cutscene once everyone has held sneak", async () => {
@@ -398,6 +487,18 @@ describe("the pack's dialogue box", () => {
     expect(ui).toContain("textures/blockparty/faces/");
     expect(read("../resource_pack/ui/_ui_defs.json")).toContain("ui/jui_blockparty_dialogue.json");
     expect(read("../resource_pack/ui/hud_screen.json")).toContain("@jui_blockparty_dialogue.layout");
+    // The potions' pictures, each shown by its button's code.
+    for (const code of Object.values(BUTTON_ICONS)) expect(ui).toContain(`'${code}'`);
+    // "Skipping" in place of "Hold [sneak] to skip" for a player whose action bar line asks for it.
+    expect(ui).toContain(`'${SKIPPING_CODE}'`);
+    expect(ui).toContain("$actionbar_text");
+  });
+
+  it("has the fork box, reading the codes the game writes", () => {
+    const ui = read("../resource_pack/ui/jui_blockparty_fork.json");
+    for (const code of [FORK_MARK, FORK_WAYS.two, FORK_WAYS.three, ROW.button, SELECTED]) expect(ui).toContain(`'${code}'`);
+    expect(read("../resource_pack/ui/_ui_defs.json")).toContain("ui/jui_blockparty_fork.json");
+    expect(read("../resource_pack/ui/hud_screen.json")).toContain("@jui_blockparty_fork.layout");
   });
 
   it("hides the vanilla sidebar for the mark (the core pack)", () => {

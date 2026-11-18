@@ -13,9 +13,11 @@
 //      board's opening spots) as a Chris drops in beside it. Then everyone is on Start.
 //   3. Each round, each in turn opens their dice, rolls by jumping, the faces they threw do what the
 //      dice file says (dice.ts: coins, an event, a line), and their piece walks the number:
-//      at a branch they pick the way (a form), and passing or landing on a Star, Chris (beside it)
-//      offers it for its price (15, 20 or 25 coins by the game's length) in the dialogue box, after
-//      which it moves to a candidate far away and a Chris drops in there. Before the roll they may use
+//      at a fork they pick Left or Right in the fork box (dialogue.ts fork, fork.ts; everyone's
+//      camera looks down the way picked), and passing or landing on a Star, Chris (beside it) offers
+//      it for its price (15, 20 or 25 coins by the game's length) in the dialogue box, after which
+//      the Star over the space fades as the bought one flies to the buyer, it moves to a candidate
+//      far away, and a balloon carries Chris there (stage.ts starMoved). Before the roll they may use
 //      one item (item-play.ts), and a zombie on them takes its coins. Landing: Blue +3 coins, Red -3
 //      (never below 0), Versus a duel with a player the lander picks from the Referee's buttons (the
 //      loser pays the winner 5 coins, onlookers bet on it), and Item, Shop, Chance Time, Warden and
@@ -40,7 +42,8 @@ import { ItemPlay } from "./item-play.ts";
 import { SpacePlay } from "./space-play.ts";
 import { mayUseItem, newSeat, turnDice, type Seat, type TurnState } from "./seats.ts";
 import { BETS, GLOVE_STAKE, betResult, trailOf, type Hands } from "./space-rules.ts";
-import type { TalkOptions } from "./dialogue.ts";
+import type { ForkOptions, TalkOptions } from "./dialogue.ts";
+import { forkLabelIds, forkOrder, headingInto, wayAhead } from "./fork.ts";
 import type { Stage } from "./stage.ts";
 import { activeStars, addCoins, coinsFor, count, firstStars, leaders, nextStar, ranked, starDistance, starPrice, turnOrder, type Standing } from "./board-rules.ts";
 import { moodOf, type CoinsAndStars, type PlayerSet } from "./animations.ts";
@@ -72,8 +75,8 @@ export interface LoopHost {
   roll(who: Who, shot: boolean): Promise<RollOutcome | undefined>;
   /** The moves left over a seat's head (counts.ts): the number, or undefined to take it away. */
   count?(who: Who, left: number | undefined): void;
-  /** A choice: a player's form (closed: undefined), or a bot's moment of thought and then `botPick`. */
-  choose(who: Who, title: string, body: string, options: readonly string[], botPick: number): Promise<number | undefined>;
+  /** A fork in the path: the fork box (dialogue.ts fork), its ways side by side; undefined when the player leaves first. */
+  fork(options: ForkOptions): Promise<number | undefined>;
   /**
    * A line said to everyone in the dialogue box (dialogue.ts); a skippable one can be voted away.
    * `by`: the player whose turn brought it (a Star, Versus, an NPC's space), who goes on from it;
@@ -308,10 +311,17 @@ export class BoardLoop {
     return this.fly(from, to, token, count);
   }
 
-  /** Transfers one after another (a Star's coins to Chris, then the Star to the buyer), all marked at once: call it as the changes are made. */
-  async transferAll(steps: readonly (readonly [Party, Party, Token, number])[]): Promise<void> {
+  /**
+   * Transfers one after another (a Star's coins to Chris, then the Star to the buyer), all marked at
+   * once: call it as the changes are made. `onStep` is told each step's index as it starts.
+   */
+  async transferAll(steps: readonly (readonly [Party, Party, Token, number])[], onStep?: (index: number) => void): Promise<void> {
     for (const [from, to, token, count] of steps) if (count > 0) this.markShown(from, to, token, count);
-    for (const [from, to, token, count] of steps) if (count > 0) await this.fly(from, to, token, count);
+    for (const [index, [from, to, token, count]] of steps.entries()) {
+      if (count <= 0) continue;
+      onStep?.(index);
+      await this.fly(from, to, token, count);
+    }
   }
 
   /**
@@ -950,6 +960,8 @@ export class BoardLoop {
       shown--;
       this.host.count?.(who, shown > 0 ? shown : undefined);
     };
+    // The space the piece came from (which way it faces at a fork).
+    let before: number | undefined;
     try {
       while (left > 0 && who.body.isValid) {
         const stretch: Space[] = [];
@@ -957,7 +969,8 @@ export class BoardLoop {
         while (left > 0) {
           const space = spaces[here];
           if (space.next.length > 1 && stretch.length > 0) break;
-          const next = space.next.length > 1 ? await this.choosePath(who, space) : (space.next[0] ?? here);
+          const next = space.next.length > 1 ? await this.choosePath(who, space, before) : (space.next[0] ?? here);
+          before = here;
           here = next;
           stretch.push(spaces[here]);
           left--;
@@ -976,19 +989,27 @@ export class BoardLoop {
     }
   }
 
-  /** A branch: the way Get star set, or the player picks (the first when they close the form); a bot heads for the Star. */
-  private async choosePath(who: Who, space: Space): Promise<number> {
+  /**
+   * A fork (the user, 2026-11-18): the way Get star set, or the fork box, its ways Left and Right as
+   * the piece faces arriving (fork.ts), everyone's camera looking down the way picked now (the first
+   * when they leave); a bot heads for the Star.
+   */
+  private async choosePath(who: Who, space: Space, from?: number): Promise<number> {
     const steered = this.steering.get(who.key)?.find((index) => space.next.includes(index));
     if (steered !== undefined) return steered;
     const spaces = this.host.spaces();
+    const heading = headingInto(spaces, space, from);
+    // Each button's way (an index into space.next), left to right.
+    const ways = forkOrder(spaces, space, heading);
     const toStar = this.pathToStar(space.index);
-    const botPick = Math.max(0, toStar ? space.next.indexOf(toStar[0]) : Math.floor(this.host.random() * space.next.length));
-    const options = space.next.map((next) => {
-      const way = { space: this.spaceName(spaces[next]), type: this.typeName(spaces[next].type) };
-      return this.stars.includes(next) ? button("branch.button.star", way) : button("branch.button", way);
+    const botWay = toStar ? space.next.indexOf(toStar[0]) : Math.floor(this.host.random() * space.next.length);
+    const picked = await this.host.fork({
+      to: who,
+      labels: forkLabelIds(ways.length).map((id) => button(id)),
+      botPick: Math.max(0, ways.indexOf(botWay)),
+      focus: (index) => this.host.stage.forkView(space, heading, wayAhead(spaces, space.next[ways[index]])),
     });
-    const picked = await this.host.choose(who, line("branch.title"), "", options, botPick);
-    const next = space.next[picked ?? 0] ?? space.next[0];
+    const next = space.next[ways[picked ?? 0] ?? 0] ?? space.next[0];
     if (!who.player) this.host.everyone(line("branch.bot", { player: who.name, space: this.spaceName(spaces[next]) }));
     return next;
   }
@@ -1022,12 +1043,19 @@ export class BoardLoop {
     seat.stars++;
     seat.effects.discount = 0;
     this.spent(who.key, price);
-    // The coins fly to Chris, then the Star flies to them (they celebrate as it lands).
+    // The coins fly to Chris; then the Star over the space fades as the bought one flies from it to
+    // them (the user, 2026-11-18), and they celebrate as it lands.
     const chris = stage.speaker("chris");
-    const paying = this.transferAll([
-      [who, chris, "coin", price],
-      [chris, who, "star", 1],
-    ]);
+    const model = stage.starModelAt(spaces[at]);
+    const paying = this.transferAll(
+      [
+        [who, chris, "coin", price],
+        [model ?? chris, who, "star", 1],
+      ],
+      (step) => {
+        if (step === 1) stage.starTaken(spaces[at]);
+      },
+    );
     const index = this.stars.indexOf(at);
     const moved = nextStar(spaces, at, this.stars.filter((star) => star !== at), starDistance(spaces.length), this.host.random);
     if (index >= 0) this.stars[index] = moved;

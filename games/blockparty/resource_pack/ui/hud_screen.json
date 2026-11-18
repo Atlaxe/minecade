@@ -15,7 +15,11 @@
   // blockparty_cards, blockparty_menu and blockparty_panel components, docs/plans/block-party-ui.md):
   // the results screen first (its darkened view under everything else), then the player cards, the
   // round bottom right (blockparty_round), the board menu and the item panel, then the dialogue box
-  // over them.
+  // over them, and the fork box (blockparty_fork: a fork's Left and Right, in the dialogue box's
+  // place; the two never show together, each needing its own word in the title).
+  //
+  // A player holding sneak toward a skip vote has '§k§e' on their action bar (SKIPPING_CODE in
+  // bar-codes.ts): the dialogue box's skip strip says "Skipping 1/3" for them alone.
   //
   // A player's own results screen (a drop, the user's ask): the sidebar is everyone's, so the game
   // puts the standings on it under the word "bpv" (not the results' "bpr", which shows them to
@@ -33,6 +37,7 @@
         { "jui_blockparty_menu@jui_blockparty_menu.layout": {} },
         { "jui_blockparty_panel@jui_blockparty_panel.layout": {} },
         { "jui_blockparty_dialogue@jui_blockparty_dialogue.layout": {} },
+        { "jui_blockparty_fork@jui_blockparty_fork.layout": {} },
         { "bp_loading@blockparty_hud.loading": {} }
       ] }
     ]
