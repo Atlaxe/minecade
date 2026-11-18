@@ -174,6 +174,19 @@ describe("the board menu", () => {
     expect(shown.at(-1)?.id).toBe("golden");
   });
 
+  it("steps the item panel with A and D only, not W and S", async () => {
+    menu.open(who);
+    menu.jumped(alex as never);
+    await ticks(1);
+    expect(name()).toBe("Standard Die");
+    await push(0, -1);
+    await push(0, 1);
+    expect(name()).toBe("Standard Die");
+    expect(shown).toHaveLength(1);
+    await push(-RIGHT_X, 0);
+    expect(name()).toBe("Golden Die");
+  });
+
   it("goes back from the panel with sneak, the die taken away", async () => {
     menu.open(who);
     menu.jumped(alex as never);

@@ -12,6 +12,10 @@
 //     hits it, and the piece walks the number. The results screen after every minigame and Star
 //     (results.ts). Nothing is in a player's hands on the board: vanilla's hotbar shows only while a
 //     minigame plays (the user's call). Health, hunger and the XP bar are hidden;
+//   - the board's camera (board-camera.ts): the board view on the player whose turn it is, fixed or
+//     turning by the map's settings, following their walk; the turn shot zoomed in on them while
+//     their menu is up; the NPCs' shots and Board's view take it and give it back; into a minigame
+//     it rises from the board and eases down into the arena;
 //   - nobody walks the board by themselves (the user's call): the movement keys move a player only
 //     off the board (a minigame, a ride) and on the pre-game podium until they roll (keepControls);
 //   - the NPCs on the vanilla mobs' models (npcs.ts): hit one for its animations and variants;
@@ -32,6 +36,7 @@ import {
   BlockVolume,
   system,
   world,
+  type Entity,
   type Player,
   type Vector3,
 } from "@minecraft/server";
@@ -43,6 +48,7 @@ import { HOTBAR_SIZE, LOADING_LEVELS, loadingCode } from "./bar-codes.ts";
 import type config from "../../game.config.ts";
 import { boardBox, build, mapSpaces, standAt, testSpaces, type Space, type Vec3 } from "./board.ts";
 import { BoardLoop } from "./board-loop.ts";
+import { BoardCamera, autoDirection, cameraSettings, type BoardCameraSettings } from "./board-camera.ts";
 import { BoardMenu } from "./board-ui.ts";
 import { boardOverview } from "./board-view.ts";
 import { DICE, ITEMS, holdings, type DieDef, type DieId, type Holdings, type ItemDef, type ItemId } from "./dice-items.ts";
@@ -95,7 +101,7 @@ const BAR_RESEND = 20;
  * podium before their roll), only look round, jump and sneak ("held": the board), or not even look
  * round ("locked": their piece walking, their die out).
  */
-type Controls = "free" | "held" | "locked";
+type Controls = "free" | "held" | "locked" | "rolling";
 
 // ---- Jumps and arenas ----------------------------------------------------------------------
 
@@ -174,6 +180,9 @@ export class BlockPartySpike extends Minigame<Config> {
   private results!: ResultsScreen;
   /** The cards' rows last put on the sidebar, so they're sent only when they change. */
   private cardsShown = "";
+  /** The board's own camera (board-camera.ts), and the way a fixed one looks when the map doesn't say. */
+  private boardCamera!: BoardCamera;
+  private autoYaw: number | undefined;
   /** The rolls the loop is waiting for, by lowercased name: what a jump resolves, and whether everyone watches. */
   private readonly pendingRolls = new Map<string, { resolve: (value: number | undefined) => void; shot: boolean }>();
   /** The board's blocks are down (play waits for it). */
@@ -236,7 +245,11 @@ export class BlockPartySpike extends Minigame<Config> {
     this.pieces = new Pieces(this.scope, {
       spaces: () => this.spaces,
       // A bot's walk is watched through the first player's camera setting.
-      settings: (body) => (isPlayer(body) ? this.testsOf(body).settings : (world.getAllPlayers().map((player) => this.testsOf(player).settings)[0] ?? { ...DEFAULT_SETTINGS, speed: this.config.board.speed })),
+      settings: (body) => {
+        const settings = isPlayer(body) ? this.testsOf(body).settings : (world.getAllPlayers().map((player) => this.testsOf(player).settings)[0] ?? { ...DEFAULT_SETTINGS, speed: this.config.board.speed });
+        // The board's camera follows a walk in the board game (the Tests' walk cameras only before it).
+        return this.boardCamera?.active ? { ...settings, camera: "none" } : settings;
+      },
       watchers,
       overview: () => [this.middle[0], this.middle[1] + 18, this.middle[2] - 22],
       report: (body, text) => isPlayer(body) && this.tell(body, text),
@@ -257,6 +270,7 @@ export class BlockPartySpike extends Minigame<Config> {
       say: (text) => this.everyone(text),
       random: () => this.ctx.random(),
       status: (text) => (this.minigameStatus = text),
+      zoomOut: (seconds) => this.boardCamera.zoomOut(seconds),
     });
     this.npcs = new Npcs(this.scope);
     this.shots = new Shots(this.scope, {
@@ -295,6 +309,8 @@ export class BlockPartySpike extends Minigame<Config> {
       put: (who, at, yaw) => this.putSeat(who, at, yaw),
       // Bots a moment after the players, as everywhere a body goes a long way with them (bots.ts).
       toStart: (who) => (who.player ? this.backOnBoard(who) : this.scope.timeout(() => this.backOnBoard(who), BOTS_AFTER)),
+      cameraTaken: () => this.boardCamera?.take(),
+      cameraBack: () => this.boardCamera?.giveBack() ?? false,
     });
     const length = Number(this.ctx.vars.settings.length);
     this.loop = new BoardLoop({
@@ -308,6 +324,8 @@ export class BlockPartySpike extends Minigame<Config> {
       // A turn's roll opens the board menu (everyone watching); the turn order's roll (each their own) goes straight to the standard die.
       roll: (who, shot) => {
         const player = who.player;
+        // A turn: the turn shot zooms in on them (they turn to face it) while their menu is up.
+        if (shot) this.boardCamera.turnShot(who.body);
         if (!player) return shot ? this.boardMenu.botTurn(who).then((die) => this.botRoll(who, shot, die)) : this.botRoll(who, shot, DICE.standard);
         return new Promise((resolve) => {
           const key = player.name.toLowerCase();
@@ -330,6 +348,14 @@ export class BlockPartySpike extends Minigame<Config> {
       changed: () => this.loopChanged(),
       results: (before, after) => this.results.show(before, after),
       random: () => this.ctx.random(),
+    });
+    this.boardCamera = new BoardCamera({
+      scope: this.scope,
+      watchers: () => world.getAllPlayers(),
+      settings: () => this.cameraSettingsNow(),
+      // The board game's own camera from its first round, except while a minigame has the players.
+      engaged: () => this.loop.active && this.loop.rounds.now >= 1 && !this.runner.active,
+      focus: () => this.bodyOf(this.loop.focus),
     });
     this.scope.subscribe(world.afterEvents.entityHitEntity, ({ damagingEntity, hitEntity }) => {
       if (damagingEntity.typeId !== "minecraft:player") return;
@@ -482,7 +508,7 @@ export class BlockPartySpike extends Minigame<Config> {
     };
   }
 
-  /** A bot's roll: the die over its head (everyone watching through the roll camera on a turn), a moment's thought, a hop, the number. */
+  /** A bot's roll: the die over its head (everyone watching through the turn shot on a turn), a moment's thought, a hop, the number. */
   private async botRoll(who: Who, shot: boolean, picked: DieDef): Promise<number | undefined> {
     const body = who.body;
     if (!body.isValid) return undefined;
@@ -492,10 +518,6 @@ export class BlockPartySpike extends Minigame<Config> {
     const placed = block?.isAir === true;
     if (placed) block?.setType(DIE_BLOCKS[picked.id]);
     const watchers = shot ? world.getAllPlayers() : [];
-    const yaw = (body.getRotation().y * Math.PI) / 180;
-    for (const watcher of watchers) {
-      watcher.camera.setCamera("minecraft:free", { location: { x: at.x - Math.sin(yaw) * 3.5, y: at.y + 0.5, z: at.z + Math.cos(yaw) * 3.5 }, facingLocation: { x: die.x + 0.5, y: die.y, z: die.z + 0.5 } });
-    }
     await this.scope.wait(thinkTicks(() => this.ctx.random(), 25, 45));
     if (!body.isValid) return undefined;
     hop(body);
@@ -505,7 +527,8 @@ export class BlockPartySpike extends Minigame<Config> {
     await this.scope.wait(12);
     if (placed) this.clearDie(die);
     await this.scope.wait(8);
-    for (const watcher of watchers) watcher.camera.clear();
+    // Out to the board view for the walk.
+    if (shot) this.boardCamera.boardShot();
     return rolled;
   }
 
@@ -513,6 +536,20 @@ export class BlockPartySpike extends Minigame<Config> {
   private loopChanged(): void {
     for (const player of world.getAllPlayers()) this.sendLine(player, this.testsOf(player), true);
     this.drawCards();
+  }
+
+  /** The board camera's settings: the map's (Game settings), a fixed one looking across the board's longer way unless the map says. */
+  private cameraSettingsNow(): BoardCameraSettings {
+    const settings = cameraSettings((key) => this.mapSetting(key));
+    if (settings.direction !== undefined) return settings;
+    this.autoYaw ??= autoDirection(this.spaces);
+    return { ...settings, direction: this.autoYaw };
+  }
+
+  /** A seat's body by key: the player, or the bot. */
+  private bodyOf(key: string | undefined): Entity | undefined {
+    if (!key) return undefined;
+    return world.getAllPlayers().find((player) => player.name.toLowerCase() === key) ?? this.bots.all().find((who) => who.key === key)?.body;
   }
 
   /** What a seat holds: a player what Tests set (Dice and items held), a bot the standard die. */
@@ -614,11 +651,13 @@ export class BlockPartySpike extends Minigame<Config> {
     }
     if (tests.jumpMode !== "free") return;
     let controls: Controls = "held";
-    if (this.pieces.isWalking(player) || tests.rolling) controls = "locked";
+    if (tests.rolling) controls = "rolling";
+    else if (this.pieces.isWalking(player)) controls = "locked";
     else if (this.pieces.isOff(player) || (this.podium.has(key) && this.dialogue.steerer !== key)) controls = "free";
     if (tests.controls === controls) return;
     tests.controls = controls;
     if (controls === "locked") lock(player);
+    else if (controls === "rolling") lock(player, true);
     else if (controls === "held") hold(player);
     else {
       // Not Movement: a minigame's runner holds everyone still with it till Go.
@@ -688,15 +727,11 @@ export class BlockPartySpike extends Minigame<Config> {
     const placed = block?.isAir === true;
     if (placed) block?.setType(DIE_BLOCKS[die.id]);
     tests.rolling = { at: spot, placed, shown: placed ? DIE_BLOCKS[die.id] : undefined, die };
-    // Rolling for turn order ends the pre-game podium's walking.
+    // Rolling for turn order ends the pre-game podium's walking. The jump that hits the die is a real
+    // jump (the plan's turn shot: a jump makes them jump). The camera stays: the turn shot on a turn,
+    // the podium's while everyone rolls for turn order.
     this.podium.delete(player.name.toLowerCase());
-    lock(player);
-    // The roll camera: everyone watches a turn's roll; each player their own while everyone rolls for turn order.
-    const yaw = (player.getRotation().y * Math.PI) / 180;
-    const watchers = this.pendingRolls.get(player.name.toLowerCase())?.shot === false ? [player] : world.getAllPlayers();
-    for (const watcher of watchers) {
-      watcher.camera.setCamera("minecraft:free", { location: { x: at.x - Math.sin(yaw) * 3.5, y: at.y + 0.5, z: at.z + Math.cos(yaw) * 3.5 }, facingLocation: { x: spot.x + 0.5, y: spot.y, z: spot.z + 0.5 } });
-    }
+    lock(player, true);
     this.tell(player, line("turn.roll.hint"));
   }
 
@@ -712,12 +747,11 @@ export class BlockPartySpike extends Minigame<Config> {
     else this.staging.clear();
   }
 
-  /** Takes the die away and gives everyone their own view back (the roll is over or called off); keepControls holds the player again. */
+  /** Takes the die away (the roll is over or called off); keepControls holds the player again. */
   private endRoll(player: Player): void {
     const tests = this.testsOf(player);
     if (tests.rolling?.placed) this.clearDie(tests.rolling.at);
     tests.rolling = undefined;
-    for (const watcher of world.getAllPlayers()) watcher.camera.clear();
   }
 
   private clearDie(at: Vector3): void {
@@ -743,7 +777,8 @@ export class BlockPartySpike extends Minigame<Config> {
     await this.scope.wait(12);
     if (rolling?.placed) this.clearDie(rolling.at);
     await this.scope.wait(8);
-    for (const watcher of watchers) watcher.camera.clear();
+    // Out to the board view for the walk (a turn's roll).
+    if (pending?.shot) this.boardCamera.boardShot();
     pending?.resolve(rolled);
   }
 

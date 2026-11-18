@@ -108,12 +108,15 @@ export class Pieces {
     return this.state(body).off;
   }
 
-  /** Puts the piece on its space (Start at first), facing south, a player's name tag hidden. */
+  /** Puts the piece on its space (Start at first), facing its next space (the plan: pieces stand facing where they go), a player's name tag hidden. */
   place(body: Entity): void {
     const state = this.state(body);
     state.off = false;
     try {
-      body.teleport(vec(standAt(this.host.spaces()[state.space], state.corner)), { rotation: { x: 0, y: 180 } });
+      const spaces = this.host.spaces();
+      const space = spaces[state.space];
+      const next = spaces[space.next[0] ?? -1];
+      body.teleport(vec(standAt(space, state.corner)), { rotation: { x: 0, y: next ? yawTo(space.at, next.at) : 180 } });
       if (isPlayer(body)) body.nameTag = "";
       else body.clearVelocity();
     } catch (error) {
@@ -225,9 +228,11 @@ export class Pieces {
         const next = last ? undefined : yawTo(b, points[leg + 2]);
         const at = player.location;
         if (last) miss = Math.hypot(at.x - b[0], at.z - b[2]);
-        // A corner (or the end): onto the space's block middle, facing the next leg. Straight on, no teleport.
+        // A corner (or the end): onto the space's block middle, facing the next leg. Straight on, no
+        // teleport. Landed, the piece faces its next space (the plan: pieces stand facing where they go).
+        const onward = last && land ? this.host.spaces()[landing.next[0] ?? -1] : undefined;
         if (last || stuck > 0 || (next !== undefined && Math.abs(angleGap(yaw, next)) > TURN_OVER)) {
-          this.face(player, { x: b[0], y: b[1], z: b[2] }, next ?? facing);
+          this.face(player, { x: b[0], y: b[1], z: b[2] }, onward ? yawTo(landing.at, onward.at) : (next ?? facing));
           if (next !== undefined && Math.abs(angleGap(yaw, next)) > TURN_OVER) turns++;
           facing = next ?? facing;
           stuck = 0;
@@ -322,11 +327,16 @@ export class Pieces {
   }
 }
 
-/** The player can't walk or turn (their piece is walked for them); jumping still reaches the script. */
-export function lock(player: Player): void {
+/**
+ * The player can't walk or turn (their piece is walked for them). `jump`: they can jump too (the
+ * roll: the jump hits their die); else a jump only reaches the script (the spike: a jump reaches it
+ * with jumping off).
+ */
+export function lock(player: Player, jump = false): void {
   try {
     player.inputPermissions.setPermissionCategory(InputPermissionCategory.LateralMovement, false);
     player.inputPermissions.setPermissionCategory(InputPermissionCategory.Camera, false);
+    player.inputPermissions.setPermissionCategory(InputPermissionCategory.Jump, jump);
   } catch {
     // gone
   }
@@ -334,12 +344,15 @@ export function lock(player: Player): void {
 
 /**
  * On the board between moves (the user: nobody walks the board by themselves): the movement keys
- * don't move the player, but they look round, jump and sneak (the game's buttons).
+ * don't move the player, but they look round, and jump and sneak are the game's buttons. A jump
+ * doesn't jump (the user: picking a button mustn't make the player jump); it still reaches the
+ * script.
  */
 export function hold(player: Player): void {
   try {
     player.inputPermissions.setPermissionCategory(InputPermissionCategory.LateralMovement, false);
-    for (const category of [InputPermissionCategory.Movement, InputPermissionCategory.Camera, InputPermissionCategory.Jump]) {
+    player.inputPermissions.setPermissionCategory(InputPermissionCategory.Jump, false);
+    for (const category of [InputPermissionCategory.Movement, InputPermissionCategory.Camera]) {
       player.inputPermissions.setPermissionCategory(category, true);
     }
   } catch {

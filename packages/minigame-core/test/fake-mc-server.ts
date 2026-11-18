@@ -23,6 +23,14 @@ export const InputPermissionCategory = {
   9: "MoveForward", 10: "MoveBackward", 11: "MoveLeft", 12: "MoveRight",
 } as const;
 
+/** Camera eases, by name (the values are the real enum's names). */
+export const EasingType = {
+  Linear: "Linear", Spring: "Spring", InQuad: "InQuad", OutQuad: "OutQuad", InOutQuad: "InOutQuad", InCubic: "InCubic", OutCubic: "OutCubic", InOutCubic: "InOutCubic",
+  InQuart: "InQuart", OutQuart: "OutQuart", InOutQuart: "InOutQuart", InQuint: "InQuint", OutQuint: "OutQuint", InOutQuint: "InOutQuint", InSine: "InSine", OutSine: "OutSine",
+  InOutSine: "InOutSine", InExpo: "InExpo", OutExpo: "OutExpo", InOutExpo: "InOutExpo", InCirc: "InCirc", OutCirc: "OutCirc", InOutCirc: "InOutCirc", InBounce: "InBounce",
+  OutBounce: "OutBounce", InOutBounce: "InOutBounce", InBack: "InBack", OutBack: "OutBack", InOutBack: "InOutBack", InElastic: "InElastic", OutElastic: "OutElastic", InOutElastic: "InOutElastic",
+} as const;
+
 export const EntityComponentTypes = {
   CursorInventory: "minecraft:cursor_inventory",
   Equippable: "minecraft:equippable",

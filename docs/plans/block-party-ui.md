@@ -7,7 +7,10 @@ podium, order rolls and reveal, Star reveal). Then (2026-11-17, the board's scre
 sidebar every screen rides (`sidebar-rows.ts`), the player cards (letters in place of heads for now),
 the board menu with Board's view, the item panel for dice and items, and the results screen, each
 a component of the workshop's JSON UI builder ("The board's screens, as built"); the old bar's items
-are gone. The rest isn't built yet. It is the content of pass 10 in `block-party.md` ("Refinement: cameras and UI"), and
+are gone. Then (2026-11-18, the user's look at the controls and their camera ask): no jumping on the
+board but the roll's, the item panel on A and D only, and the cameras ("Cameras": the board view,
+the turn shot, other shots handing the camera back, and the minigame announcement's camera moves).
+The rest isn't built yet. It is the content of pass 10 in `block-party.md` ("Refinement: cameras and UI"), and
 it replaces that plan's hotbar: the board can't use the hotbar for its controls, because minigames
 need the hotbar for their own items. Everything the board shows moves to JSON UI the game draws
 itself, steered with the movement keys, jump and sneak.
@@ -67,13 +70,15 @@ going.
   with `player.inputInfo.getMovementVector()` (in @minecraft/server 2.11.0). A step is the vector
   leaving the middle past about 0.5; holding it repeats after a moment (proposed: 0.4 s, then every
   0.15 s).
-- **Select:** jump (`playerButtonInput`, as now). When the active player selects, their piece really
-  jumps on the board (the user asked), so jump stays unlocked.
+- **Select:** jump (`playerButtonInput`, as now). Picking a button doesn't make the player jump (the
+  user, 2026-11-18, after the first ask the other way): on the board jumping is off (`hold()` in
+  `pieces.ts`; the jump still reaches the script, as the spike found with jumping off). The one real
+  jump is the roll: while the die is out, the jump hits it (`lock(player, true)`).
 - **Back:** sneak. Sneaking is fine here: players stand on the board, they don't fly (the "no sneak
   controls" rule is for the editor's creative flight).
 - **Steering never moves the piece:** walking stays locked (`lock()` in `pieces.ts`), and "Checks
   first" makes sure the vector still reads under that lock.
-- On the board players can punch, jump and sneak freely but not walk, and nobody can hurt anybody
+- On the board players can punch and sneak freely (a jump is only a button) but not walk, and nobody can hurt anybody
   (no damage, no knockback) outside minigames.
 
 ### Button prompts
@@ -210,7 +215,7 @@ player.
    for now; the user will settle those later.
 
 - **Steer:** A and D (left and right, the chevrons' way) step through what the player holds; W and S
-  step too. Wrapping round at the ends (proposed).
+  do nothing here (the user, 2026-11-18). Wrapping round at the ends.
 - No chevrons when there's only one choice.
 - **Jump uses it.** A die spins over the player's head while it shows in the panel (switching dice
   fades one out and the next in, `block-party.md`, "Dice"), and the jump is the roll: the player
@@ -380,9 +385,28 @@ stays as proposals.
 | **Minigame camera** | Fixed: the arena's rules camera, with the tutorial, until everyone is ready. |
 
 - **Board view settings** are per map: `map.settings` in Block Party's config and the Game settings
-  tool, so both editors have them (the repo's rule for per-map values). Proposed: mode (follow or
-  fixed), distance, height, pitch, field of view, the turn shot's distance and field of view, and the
-  ease time.
+  tool, so both editors have them (the repo's rule for per-map values): Board camera turns (0 fixed,
+  the default, the user's pick; 1 follow), Board camera direction (a fixed view's yaw, -1 for the
+  side that shows the board's longer way across, the default), distance (10), height (7), pitch (35),
+  field of view (70), Turn camera distance (4) and field of view (50), and Board camera ease (in
+  tenths of a second, 10).
+- **As built (2026-11-18, `board-camera.ts`):**
+  - The board view watches the player whose turn it is (or was last) from the first round on,
+    following their walk (the Tests' walk cameras only before the board game starts), except while
+    a minigame has the players.
+  - The turn shot eases in when their board menu opens (a bot's too) and they turn to face the
+    camera; it eases out to the board view once they roll. Body and head turn together: a script
+    can't turn a player's head apart from their body (an animation of the game's own could, with
+    the player animations).
+  - Any stage shot (an NPC's, Board's view of the whole board) takes the camera, and `stage.clear()`
+    gives it back, the board view easing in; the board loop clears before each walk and after each
+    turn. Back from a minigame, the board view comes in by itself.
+  - The turn order rolls keep the podium's shot (before, each player had a low camera of their own).
+  - Into a minigame: the camera rises and pulls back over 3 s while the roulette spins, still aimed
+    at the same point; behind the black it's put high over the arena's rules camera, and it eases
+    down into it (2.5 s) as the black lifts. The star field, Minigame!, the format and the wheel are
+    still to come (the user: camera moves only for now).
+  - Pieces stand facing their next space, on landing and when placed.
 - **Facing:** a teleport with the facing; `setRotation` doesn't reach the player's screen (the
   spike).
 - **The falling pig:** proposed, an NPC with gravity and slow falling, so each client moves it

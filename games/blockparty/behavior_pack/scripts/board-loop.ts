@@ -109,8 +109,9 @@ export class BoardLoop {
   private readonly seats = new Map<string, Seat>();
   private order: string[] = [];
   private round = 0;
-  /** Whose turn it is, by key. */
+  /** Whose turn it is, by key, and whose was last. */
   private turn: string | undefined;
+  private lastTurn: string | undefined;
   /** The spaces the Stars are on, by index. */
   private stars: number[] = [];
   private running = false;
@@ -131,6 +132,11 @@ export class BoardLoop {
   constructor(host: LoopHost) {
     this.host = host;
     host.scope.interval(() => this.drawBeams(), BEAM_TICKS);
+  }
+
+  /** Whose turn it is now, or was last (by key); the first in the order before any turn. */
+  get focus(): string | undefined {
+    return this.turn ?? this.lastTurn ?? this.order[0];
   }
 
   /** Whether the loop has started (the board is the game's now). */
@@ -425,6 +431,7 @@ export class BoardLoop {
   /** A turn; true when it was called off for a test (it's played again). */
   private async playTurn(who: Who): Promise<boolean> {
     this.turn = who.key;
+    this.lastTurn = who.key;
     this.host.changed();
     this.host.title(line("turn.title", { player: who.name }), who.player ? line("turn.subtitle") : "");
     const rolled = await this.host.roll(who, true);
@@ -435,7 +442,8 @@ export class BoardLoop {
     this.steering.delete(who.key);
     if (!who.body.isValid) return false;
     await this.land(who);
-    for (const watcher of world.getAllPlayers()) watcher.camera.clear();
+    // Back to the board's own camera after any NPC's shot.
+    this.host.stage.clear();
     await this.host.scope.wait(20);
     return false;
   }
@@ -458,6 +466,8 @@ export class BoardLoop {
         if (this.stars.includes(here) && left > 0) break;
       }
       if (!who.body.isValid) return;
+      // The board's camera follows the walk (after the Star's shot, for one).
+      this.host.stage.clear();
       await this.host.pieces.walkThrough(who.body, stretch, { land: left === 0, quiet: true });
       at = here;
       if (this.stars.includes(at)) await this.offerStar(who, at);

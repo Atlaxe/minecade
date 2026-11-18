@@ -39,6 +39,10 @@ export interface StageDeps {
   put(who: Who, at: Vec3, yaw: number): void;
   /** Everyone back on Start, as the board loop places them. */
   toStart(who: Who): void;
+  /** A shot of the stage's takes the camera from the board's own (board-camera.ts). */
+  cameraTaken?(): void;
+  /** The stage is done with the camera: true when the board's own takes it back (else everyone gets their own view). */
+  cameraBack?(): boolean;
 }
 
 /** How a shot comes in. */
@@ -95,6 +99,7 @@ export class Stage {
   /** Everyone's camera to `shot`: eased there (Pan), at once (Cut), or left as it is (Stay). Nothing while a cutscene is skipped. */
   shot(shot: Shot, move: Move = "Cut", ease = PAN): void {
     if (move === "Stay" || this.deps.dialogue.skipping) return;
+    this.deps.cameraTaken?.();
     const location = vec(shot.location);
     const easeOptions = move === "Pan" ? { easeOptions: { easeTime: ease, easeType: EasingType.InOutSine } } : {};
     for (const player of world.getAllPlayers()) {
@@ -107,8 +112,9 @@ export class Stage {
     }
   }
 
-  /** Everyone's own camera again (the board's, until the walk or the roll sets theirs). */
+  /** The board's own camera again (board-camera.ts) while the board game is on, else everyone's own view. */
   clear(): void {
+    if (this.deps.cameraBack?.()) return;
     for (const player of world.getAllPlayers()) {
       try {
         player.camera.clear();

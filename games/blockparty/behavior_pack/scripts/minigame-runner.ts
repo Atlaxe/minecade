@@ -18,7 +18,7 @@
 //      back on their pieces (the bots a moment after the players), the arena is cleared and the
 //      board's time is back.
 // Titles that follow each other quickly (the roulette, the countdown) come in at once (TITLE).
-import { GameMode, InputPermissionCategory, StructureRotation, world, type Dimension, type Entity, type Player, type Vector3 } from "@minecraft/server";
+import { EasingType, GameMode, InputPermissionCategory, StructureRotation, world, type Dimension, type Entity, type Player, type Vector3 } from "@minecraft/server";
 import { describeError, log, placeArena, turnedSize, turnsToFit, type ArenaMap, type QuarterTurns, type Scope } from "@minecade/minigame-core";
 import { isPlayer, thinkTicks, type Who } from "./bots.ts";
 import { line } from "./lines.ts";
@@ -51,6 +51,11 @@ export interface RunnerHost {
   random(): number;
   /** The line top right for everyone, while a minigame is on (undefined: the board's again). */
   status(text: string | undefined): void;
+  /**
+   * Into a minigame (block-party-ui.md, "The minigame announcement", its camera only for now): the
+   * board's camera rises and pulls back over `seconds`, still aimed at the same point.
+   */
+  zoomOut?(seconds: number): void;
 }
 
 /**
@@ -66,6 +71,12 @@ export interface Results {
 export type Settle = (outcome: Outcome) => Results;
 
 const ARENA_AREA = "minecade:blockparty_minigame";
+/** Seconds the camera takes to rise from the board as a minigame comes, and to ease down into its arena. */
+const ZOOM_OUT = 3;
+const EASE_IN = 2.5;
+/** How far over and behind the rules camera the ease down into the arena starts, in blocks. */
+const EASE_IN_RISE = 18;
+const EASE_IN_BACK = 14;
 /** The roulette's waits between names, in ticks: quick, then slowing to the pick. */
 const ROULETTE = [2, 2, 2, 2, 3, 3, 4, 5, 6, 8];
 /** Ticks the results stay up before everyone goes back. */
@@ -140,6 +151,8 @@ export class MinigameRunner {
     let boardTime: number | undefined;
     let outcome: Outcome = { places: [] };
     try {
+      // The camera rises from the board while the roulette spins.
+      this.host.zoomOut?.(ZOOM_OUT);
       await this.roulette(def, pool, format, sides);
       await this.host.behindBlack(async () => {
         field = await this.layDown(def, laid);
@@ -167,7 +180,8 @@ export class MinigameRunner {
           }),
         );
         for (const who of onlookers) if (who.player) this.put(who.player, watchSpot, watchSpot.yaw ?? yawToward(watchSpot, middle), GameMode.Spectator);
-        this.rulesCamera([...everyone, ...onlookers], field);
+        // Behind the black, high over the rules camera; it eases down once the black has gone.
+        this.rulesCamera([...everyone, ...onlookers], field, "above");
         await this.host.scope.wait(BOTS_AFTER);
         sides.forEach((side, s) =>
           side.forEach((who, m) => {
@@ -177,6 +191,7 @@ export class MinigameRunner {
           }),
         );
       });
+      this.rulesCamera([...everyone, ...onlookers], field, "ease");
       this.host.title(def.name, formatLabel(format, sides));
       this.host.say(line("minigame.rules", { minigame: def.name, format: formatLabel(format, sides), rules: def.rules }));
       await this.readyVote(everyone);
@@ -354,15 +369,25 @@ export class MinigameRunner {
     }
   }
 
-  /** The rules camera: the arena map's Start view, else over the arena, behind its near side, looking at its middle. */
-  private rulesCamera(who: readonly Who[], field: Field): void {
+  /**
+   * The rules camera: the arena map's Start view, else over the arena, behind its near side, looking
+   * at its middle. "above": where the ease down into it starts, high over it and further back, at
+   * once (behind the black); "ease": down into it from there (block-party-ui.md, "The minigame
+   * announcement": the camera eases down into the arena to its rules camera).
+   */
+  private rulesCamera(who: readonly Who[], field: Field, step: "above" | "ease"): void {
     const { min, size, camera } = field;
     const middle = { x: min.x + size[0] / 2, y: min.y + 1, z: min.z + size[2] / 2 };
-    const location = { x: middle.x, y: min.y + size[1] + 10, z: min.z - Math.max(8, size[2] * 0.4) };
+    const location = camera ? { x: camera.x, y: camera.y, z: camera.z } : { x: middle.x, y: min.y + size[1] + 10, z: min.z - Math.max(8, size[2] * 0.4) };
+    // Back along the way it looks, and up.
+    const away = { x: location.x - middle.x, z: location.z - middle.z };
+    const length = Math.hypot(away.x, away.z) || 1;
+    const above = { x: location.x + (away.x / length) * EASE_IN_BACK, y: location.y + EASE_IN_RISE, z: location.z + (away.z / length) * EASE_IN_BACK };
     for (const one of who) {
       try {
-        if (camera) one.player?.camera.setCamera("minecraft:free", { location: { x: camera.x, y: camera.y, z: camera.z }, rotation: { x: camera.pitch, y: camera.yaw } });
-        else one.player?.camera.setCamera("minecraft:free", { location, facingLocation: middle });
+        if (step === "above") one.player?.camera.setCamera("minecraft:free", { location: above, facingLocation: middle });
+        else if (camera) one.player?.camera.setCamera("minecraft:free", { location, rotation: { x: camera.pitch, y: camera.yaw }, easeOptions: { easeTime: EASE_IN, easeType: EasingType.InOutSine } });
+        else one.player?.camera.setCamera("minecraft:free", { location, facingLocation: middle, easeOptions: { easeTime: EASE_IN, easeType: EasingType.InOutSine } });
       } catch {
         // gone
       }

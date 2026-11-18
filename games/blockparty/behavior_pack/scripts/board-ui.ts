@@ -2,9 +2,9 @@
 // panel"), the same for everyone: on the active player's turn, until they roll.
 //   - The menu, top left: Dice block, Items and Board. The movement keys step through it (Items is
 //     skipped while they hold no items), jump picks, sneak does nothing.
-//   - Dice block and Items open the item panel, bottom left: one die or item at a time, the movement
-//     keys step through what they hold (wrapping round), jump rolls the die (the one shown floats over
-//     their head) or uses the item, sneak goes back to the menu.
+//   - Dice block and Items open the item panel, bottom left: one die or item at a time, A and D step
+//     through what they hold (wrapping round; W and S do nothing there, the user's call), jump rolls
+//     the die (the one shown floats over their head) or uses the item, sneak goes back to the menu.
 //   - Board shows the whole board from above for everyone (the user: a wide, still view, nothing to
 //     move); sneak goes back.
 // Only the player whose turn it is steers it, and not while the dialogue box is theirs to steer. A
@@ -13,7 +13,7 @@
 // pick and back plays its event's sound (the user's sound map, sounds.ts).
 import type { Player } from "@minecraft/server";
 import type { Scope } from "@minecade/minigame-core";
-import { pushOf, stepThrough } from "./board-view.ts";
+import { pushOf, sidewaysOf, stepThrough } from "./board-view.ts";
 import type { Who } from "./bots.ts";
 import { Steering } from "./dialogue-codes.ts";
 import { DICE, ITEMS, type DieDef, type Holdings, type ItemDef } from "./dice-items.ts";
@@ -217,7 +217,9 @@ export class BoardMenu {
     }
     let push = 0;
     try {
-      push = pushOf(player.inputInfo.getMovementVector());
+      // The menu steps with any movement key; the item panel only with A and D.
+      const vector = player.inputInfo.getMovementVector();
+      push = turn.view === "menu" ? pushOf(vector) : sidewaysOf(vector);
     } catch {
       return;
     }

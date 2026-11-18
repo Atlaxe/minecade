@@ -28,6 +28,15 @@ export function pushOf(vector: { x: number; y: number }): number {
 }
 
 /**
+ * A push of A or D alone, as pushOf gives it (W and S count for nothing): the item panel steps only
+ * left and right, the chevrons' way (the user).
+ */
+export function sidewaysOf(vector: { x: number; y: number }): number {
+  const right = vector.x * RIGHT_X;
+  return Math.abs(right) < PUSHED ? 0 : -right;
+}
+
+/**
  * The next index from `at` stepping `step` (-1 or 1) through `count` choices, wrapping round and
  * skipping any `disabled`; `at` itself when nothing else can be picked.
  */

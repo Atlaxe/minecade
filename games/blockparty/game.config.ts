@@ -49,6 +49,19 @@ export default defineGame({
     // The stage (stage-markup.ts): the podium's lineup, Chris's spot and camera, and the intro's shots.
     points: STAGE_MARKUP,
     adjustable: { spectatorOrQueue: { off: true }, spaces: { off: true }, [`regions.${ARENA_SLOT}`]: { off: true }, ...STAGE_ADJUSTABLE },
+    // The board's camera (board-camera.ts; docs/plans/block-party-ui.md, "Cameras"): the board view
+    // on the player whose turn it is, and the turn shot zoomed in on them while their menu is up.
+    settings: {
+      boardCameraTurns: { label: "Board camera turns", hint: "1: the board view stays behind the player as the path turns. 0: it follows them but always looks the same way", default: 0, min: 0, max: 1 },
+      boardCameraDirection: { label: "Board camera direction", hint: "Which way a board view that doesn't turn looks: 0 south, 90 west, 180 north, 270 east. -1 picks the side that shows the board's longer way across", default: -1, min: -1, max: 359, unit: "degrees" },
+      boardCameraDistance: { label: "Board camera distance", hint: "How far behind the player the board view is", default: 10, min: 3, max: 60, unit: "blocks" },
+      boardCameraHeight: { label: "Board camera height", hint: "How high over the player the board view is", default: 7, min: 1, max: 60, unit: "blocks" },
+      boardCameraPitch: { label: "Board camera pitch", hint: "How far the board view and the turn shot look down", default: 35, min: 0, max: 89, unit: "degrees" },
+      boardCameraFov: { label: "Board camera field of view", hint: "The board view's zoom (smaller is closer)", default: 70, min: 30, max: 110, unit: "degrees" },
+      turnCameraDistance: { label: "Turn camera distance", hint: "How far from the player the turn shot is, while their board menu is up (it rises as much less as it comes closer)", default: 4, min: 2, max: 30, unit: "blocks" },
+      turnCameraFov: { label: "Turn camera field of view", hint: "The turn shot's zoom", default: 50, min: 20, max: 110, unit: "degrees" },
+      boardCameraEase: { label: "Board camera ease", hint: "How long the camera takes to move between the board view, the turn shot and other shots", default: 10, min: 0, max: 50, unit: "tenths of a second" },
+    },
   },
   // The minigames' arenas (minigames/arenas.ts): each its own entry in the map editor, its published
   // maps placed into the board's arena slot when it's played. A minigame without one plays on its
