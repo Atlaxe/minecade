@@ -8,7 +8,7 @@
 //     while and then the NPC rests again when it loops, a property switched on for a while (the
 //     Referee's cheer), and what the script does with it: turning to the player, falling in again,
 //     the Enderman's blink with portal particles, the Allay's falling Star.
-import { system, type Entity, type Vector3 } from "@minecraft/server";
+import { system, type Dimension, type Entity, type Vector3 } from "@minecraft/server";
 import { describeError, log, type Scope } from "@minecade/minigame-core";
 import { CLIPS, npcMove, pickClip, PLAYER, SHOWN, variantsOf, type PlayerSet } from "./animations.ts";
 import { NPC_ANIMATION } from "./npcs.ts";
@@ -189,10 +189,18 @@ function face(entity: Entity, toward: Vector3): void {
 /** Portal particles round an entity, head to foot. */
 function portal(entity: Entity): void {
   try {
-    const at = entity.location;
+    portalRing(entity.dimension, entity.location);
+  } catch {
+    // gone
+  }
+}
+
+/** Portal particles in a ring round a spot, feet to head height (the Enderman's blink, and his coming and going: stage.ts). */
+export function portalRing(dimension: Dimension, at: Vector3): void {
+  try {
     for (let i = 0; i < 24; i++) {
       const angle = (i / 24) * Math.PI * 2;
-      entity.dimension.spawnParticle("minecraft:mob_portal", { x: at.x + Math.cos(angle) * 0.5, y: at.y + (i % 6) * 0.5, z: at.z + Math.sin(angle) * 0.5 });
+      dimension.spawnParticle("minecraft:mob_portal", { x: at.x + Math.cos(angle) * 0.5, y: at.y + (i % 6) * 0.5, z: at.z + Math.sin(angle) * 0.5 });
     }
   } catch {
     // unloaded

@@ -11,7 +11,7 @@ import { flushPromises } from "../../../packages/minigame-core/test/util.ts";
 import { whoOf, type Who } from "../behavior_pack/scripts/bots.ts";
 import { SKIPPING_CODE } from "../behavior_pack/scripts/bar-codes.ts";
 import { RIGHT_X } from "../behavior_pack/scripts/board-view.ts";
-import { BOX_EVERYONE, BOX_MARK, BOX_ONE, BUTTON_ICONS, FACE_AT, FORK_MARK, FORK_WAYS, NAMED, ROW, SELECTED, Steering, STEER_HOLD, STEER_REPEAT, boxRows, boxTitle, forkTitle, readTicks, rowsOf, safe, sentences, visible } from "../behavior_pack/scripts/dialogue-codes.ts";
+import { BOX_EVERYONE, BOX_MARK, BOX_ONE, BUTTON_ICONS, FACE_AT, FORK_MARK, FORK_WAYS, NAMED, ROW, SELECTED, WIDE_FACE_WORD, Steering, STEER_HOLD, STEER_REPEAT, boxRows, boxTitle, forkTitle, readTicks, rowsOf, safe, sentences, visible } from "../behavior_pack/scripts/dialogue-codes.ts";
 import { Dialogue } from "../behavior_pack/scripts/dialogue.ts";
 import { GameSidebar } from "../behavior_pack/scripts/sidebar-rows.ts";
 import { line, look, moment } from "../behavior_pack/scripts/lines.ts";
@@ -62,6 +62,16 @@ describe("the dialogue box's codes", () => {
     expect(Buffer.from(rows[0], "utf8").subarray(FACE_AT).toString("utf8")).toBe("chris");
     // No face for a name that can't be a picture's.
     expect(boxRows({ face: "Chris P", words: [] })).toEqual([]);
+  });
+
+  it("mark a wide face (the Warden's) by its row's index, its name still where the UI cuts it", () => {
+    const codes = [...WIDE_FACE_WORD].map((ch) => `§${ch}`).join("");
+    const [wide] = boxRows({ face: "warden", faceWide: true, words: [] });
+    const [square] = boxRows({ face: "chris", words: [] });
+    expect(wide).toContain(codes);
+    expect(square).not.toContain(codes);
+    expect(Buffer.from(wide, "utf8").subarray(FACE_AT).toString("utf8")).toBe("warden");
+    expect(wide.startsWith(ROW.face)).toBe(true);
   });
 
   it("put a button's picture (Chance Time's potions) as a code after its index", () => {
@@ -489,6 +499,8 @@ describe("the pack's dialogue box", () => {
     expect(read("../resource_pack/ui/hud_screen.json")).toContain("@jui_blockparty_dialogue.layout");
     // The potions' pictures, each shown by its button's code.
     for (const code of Object.values(BUTTON_ICONS)) expect(ui).toContain(`'${code}'`);
+    // A wide face's own slot, shown by its row's word.
+    expect(ui).toContain(`'${[...WIDE_FACE_WORD].map((ch) => `§${ch}`).join("")}'`);
     // "Skipping" in place of "Hold [sneak] to skip" for a player whose action bar line asks for it.
     expect(ui).toContain(`'${SKIPPING_CODE}'`);
     expect(ui).toContain("$actionbar_text");

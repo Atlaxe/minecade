@@ -92,7 +92,8 @@ export class ItemPlay {
           break;
       }
     } finally {
-      this.host.stage.remove(ACTOR);
+      // Whoever the item brought leaves their way (the Enderman teleports away; the rest just go).
+      this.host.stage.leave(ACTOR);
     }
     return used;
   }
@@ -152,7 +153,7 @@ export class ItemPlay {
     stage.act(ACTOR, "animation.enderman.scary_face");
     await this.host.say("items.ender-pearl", { player: who.name, other: rival.name }, false, who);
     this.loop.swap(who, rival);
-    stage.remove(ACTOR);
+    stage.leave(ACTOR);
     await stage.twoSeats(who, rival, "items.ender-pearl");
     return true;
   }

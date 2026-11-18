@@ -731,13 +731,21 @@ The user's asks after a look at pass 7, all in `stage.ts`, `entrances.ts` and `f
   beside the board's path from at least 12 blocks back (out of the shot), the llamas keeping to his
   trail 1.9 blocks apart. He leaves with them (llamas first, so no lead drops as an item).
 - **The Witch** appears and vanishes in a puff of smoke (`blockparty:smoke_puff`, the pack's own
-  particle, grayish purple).
+  particle, grayish purple), and **the Enderman** (the Ender Pearl) teleports in and away in his
+  blink's portal particles. Everyone else an item brings (the Iron Golem, the Villager, the Glove's
+  Referee, the Zombie) just appears (the user).
 - **Residents:** the Referee beside every Versus space and the Villager beside every Shop space
   stand there all game, at the default spot beside their space, facing it; a lander's scene turns
   them to the lander and back after. Per-marker spots come with the editor later. The Dueling
   Glove's Referee and the Villager item's Villager still come to the player.
-- **Sounds:** new events `npc.chris.balloon`, `npc.chris.balloon_pop`, `npc.witch.appear` and
-  `npc.witch.vanish`, silent until the user maps them in the dialogue tool's Sounds view.
+- **Sounds:** new events `npc.chris.balloon`, `npc.chris.balloon_pop`, `npc.witch.appear`,
+  `npc.witch.vanish`, `npc.enderman.appear` and `npc.enderman.vanish`, silent until the user maps
+  them in the dialogue tool's Sounds view.
+- **Wide faces:** the Warden's face, tendrils and all, is a picture twice as wide as it's tall
+  (the workshop's make_faces.py WIDE), and the dialogue box's name tab widens for it (the user): the
+  workshop install marks a character `wide` when its face's picture is wider than it's tall, and the
+  game puts index 1 on its face row (`WIDE_FACE_WORD`, "71"), which shows the 22 x 11 slot in place
+  of the 11 x 11 one.
 - **Forks** are the fork box (`dialogue.ts` fork, the workshop's `blockparty_fork` component, word
   `bpf`): the buttons alone, side by side across the box (two or three: title codes `§q§2`, `§q§3`),
   named Left, Middle and Right by where each way goes as the piece arrives (`fork.ts`; lines

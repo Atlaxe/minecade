@@ -2363,7 +2363,8 @@
     },
     "Warden": {
       "color": "§3",
-      "face": "warden"
+      "face": "warden",
+      "wide": true
     },
     "Enderman": {
       "color": "§u",

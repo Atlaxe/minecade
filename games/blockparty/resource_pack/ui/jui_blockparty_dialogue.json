@@ -328,7 +328,7 @@
                                     3,
                                     0
                                   ],
-                                  "layer": 5
+                                  "layer": 7
                                 }
                               },
                               {
@@ -361,7 +361,7 @@
                                       }
                                     }
                                   ],
-                                  "layer": 6
+                                  "layer": 8
                                 }
                               }
                             ],
@@ -778,23 +778,81 @@
     ],
     "controls": [
       {
-        "b_d1a10019": {
-          "type": "image",
+        "b_d1a10061": {
+          "type": "stack_panel",
+          "orientation": "horizontal",
           "size": [
-            11,
+            "100%c",
             11
           ],
-          "keep_ratio": true,
-          "bindings": [
+          "controls": [
             {
-              "binding_name": "#player_name_sidebar",
-              "binding_type": "collection",
-              "binding_collection_name": "scoreboard_players"
+              "b_d1a10019": {
+                "type": "image",
+                "size": [
+                  11,
+                  11
+                ],
+                "keep_ratio": true,
+                "bindings": [
+                  {
+                    "binding_name": "#player_name_sidebar",
+                    "binding_type": "collection",
+                    "binding_collection_name": "scoreboard_players"
+                  },
+                  {
+                    "binding_type": "view",
+                    "source_property_name": "('textures/blockparty/faces/' + ((#player_name_sidebar - ' ') - (('%.12s' * #player_name_sidebar) - ' ')))",
+                    "target_property_name": "#texture"
+                  },
+                  {
+                    "binding_name": "#player_name_sidebar",
+                    "binding_type": "collection",
+                    "binding_collection_name": "scoreboard_players"
+                  },
+                  {
+                    "binding_type": "view",
+                    "source_property_name": "((#player_name_sidebar - '§7§1') = #player_name_sidebar)",
+                    "target_property_name": "#visible"
+                  }
+                ],
+                "visible": false,
+                "layer": 1
+              }
             },
             {
-              "binding_type": "view",
-              "source_property_name": "('textures/blockparty/faces/' + ((#player_name_sidebar - ' ') - (('%.12s' * #player_name_sidebar) - ' ')))",
-              "target_property_name": "#texture"
+              "b_d1a10060": {
+                "type": "image",
+                "size": [
+                  22,
+                  11
+                ],
+                "keep_ratio": true,
+                "bindings": [
+                  {
+                    "binding_name": "#player_name_sidebar",
+                    "binding_type": "collection",
+                    "binding_collection_name": "scoreboard_players"
+                  },
+                  {
+                    "binding_type": "view",
+                    "source_property_name": "('textures/blockparty/faces/' + ((#player_name_sidebar - ' ') - (('%.12s' * #player_name_sidebar) - ' ')))",
+                    "target_property_name": "#texture"
+                  },
+                  {
+                    "binding_name": "#player_name_sidebar",
+                    "binding_type": "collection",
+                    "binding_collection_name": "scoreboard_players"
+                  },
+                  {
+                    "binding_type": "view",
+                    "source_property_name": "(not ((#player_name_sidebar - '§7§1') = #player_name_sidebar))",
+                    "target_property_name": "#visible"
+                  }
+                ],
+                "visible": false,
+                "layer": 2
+              }
             }
           ],
           "anchor_from": "top_left",

@@ -9,7 +9,8 @@
 //     the Star floats over its space, fading away as it's bought (its transfer flies from it); when
 //     the Star moves on, a balloon carries Chris over to it (entrances.ts plans the flight; he moves
 //     by his speed each tick, as bots do, so it's smooth); the Wandering Trader walks in with his
-//     llamas on leads; the Witch comes and goes in a puff of smoke.
+//     llamas on leads; the Witch comes and goes in a puff of smoke, the Enderman by teleporting; the
+//     rest an item brings just appear (the user).
 //   - The shots, for everyone at once: a cut, or a pan (the camera eases there). A line's camera in
 //     the user's file (Pan, Cut, Stay) picks how a conversation's shot comes in; each moment has its
 //     own default.
@@ -29,7 +30,7 @@ import type { Dialogue } from "./dialogue.ts";
 import { extendTrail, flightPlan, residentRole, trailPoint, walkInPath, type TrailPoint } from "./entrances.ts";
 import { forkShot } from "./fork.ts";
 import { moment } from "./lines.ts";
-import type { Moves } from "./moves.ts";
+import { portalRing, type Moves } from "./moves.ts";
 import { NPC_ANIMATION } from "./npcs.ts";
 import { eventCue, playCue } from "./sounds.ts";
 import { besideSpace, faceShot, introAround, markerShot, podiumFromMarkup, podiumOnStart, spaceShot, twoShot, yawFrom, type Marker, type Podium, type Shot } from "./stage-layout.ts";
@@ -91,10 +92,14 @@ const LAND_EVENT = "blockparty:land";
 const CAMERA_EVERY = 2;
 const FOLLOW_AWAY = 9;
 const FOLLOW_UP = 3;
-/** Who comes and goes in a puff of smoke (the user: like a magician), the pack's particle, and the ticks the smoke hides them before they're there. */
-const SMOKE_ROLES: ReadonlySet<string> = new Set(["witch"]);
+/**
+ * Who comes and goes their own way (the user, 2026-11-18): the Witch in a puff of smoke, like a
+ * magician (the pack's particle); the Enderman by teleporting (his blink's portal particles).
+ * Everyone else an item or a space brings just appears. Then the ticks the effect hides them before they're there.
+ */
+const ENTRANCES: Readonly<Record<string, "smoke" | "teleport">> = { witch: "smoke", enderman: "teleport" };
 const SMOKE_PARTICLE = "blockparty:smoke_puff";
-const SMOKE_HIDES = 3;
+const ENTRANCE_HIDES = 3;
 /** The Trader's walk in: his speed (blocks a tick), the longest it may take, his llamas and the gap between each and the one ahead. */
 const TRADER_WALK = 0.16;
 const WALK_MOST = 400;
@@ -610,37 +615,42 @@ export class Stage {
    * An NPC comes to a seat on its space (pass 7: the Witch at Chance Time, the Warden, the Enderman,
    * the Iron Golem, the Villager an item brings): `role`'s entity beside the space, the two turned
    * to each other, in shot (the moment `lineId`'s camera, else `fallback`). The Witch appears in a
-   * puff of smoke. Gone with leave(key) (or remove(key) for no exit at all).
+   * puff of smoke, the Enderman teleports in (ENTRANCES). Gone with leave(key) (or remove(key) for
+   * no exit at all).
    */
   async visit(key: string, role: string, who: Who, space: Space | undefined, lineId: string, fallback: Move = "Cut"): Promise<Entity | undefined> {
     if (!space || !who.body.isValid) return undefined;
     const at = this.besideSpace(space);
     const them = arr(who.body.location);
-    const smoke = SMOKE_ROLES.has(role) && !this.deps.dialogue.skipping;
+    const entrance = this.deps.dialogue.skipping ? undefined : ENTRANCES[role];
     this.shot(twoShot(them, at, sideOf(who)), this.moveFor(lineId, fallback));
-    if (smoke) {
-      // The shot first, then the puff, and out of it the NPC.
+    if (entrance) {
+      // The shot first, then the smoke or the portal's sparks, and out of them the NPC.
       await this.deps.dialogue.wait(4);
-      this.puff(at, role, "appear");
-      await this.deps.dialogue.wait(SMOKE_HIDES);
+      this.effect(at, role, "appear");
+      await this.deps.dialogue.wait(ENTRANCE_HIDES);
     }
     const entity = this.put(key, role, at, yawFrom(at, them));
     this.deps.face?.(who, at);
-    await this.deps.dialogue.wait(smoke ? 16 : 10);
+    await this.deps.dialogue.wait(entrance ? 16 : 10);
     return entity;
   }
 
-  /** A part leaves the stage its way: the Witch in a puff of smoke, anyone else at once. */
+  /** A part leaves the stage its way: the Witch in a puff of smoke, the Enderman teleporting away, anyone else at once. */
   leave(key: string): void {
     const part = this.get(key);
     const role = this.roles.get(key);
-    if (part && role && SMOKE_ROLES.has(role) && !this.deps.scope.disposed) this.puff(arr(part.location), role, "vanish");
+    if (part && role && ENTRANCES[role] && !this.deps.scope.disposed) this.effect(arr(part.location), role, "vanish");
     this.remove(key);
   }
 
-  /** A magician's puff of smoke where someone stands (blockparty:smoke_puff, the pack's own), with the role's sound. */
-  private puff(at: Vec3, role: string, how: "appear" | "vanish"): void {
+  /** A role's way in or out where it stands, with its sound (event npc.<role>.appear or .vanish): a puff of smoke, or a teleport's portal sparks. */
+  private effect(at: Vec3, role: string, how: "appear" | "vanish"): void {
     playCue(eventCue(`npc.${role}.${how}`));
+    if (ENTRANCES[role] === "teleport") {
+      portalRing(this.deps.dimension, vec(at));
+      return;
+    }
     try {
       for (const up of [0.2, 0.9, 1.6]) this.deps.dimension.spawnParticle(SMOKE_PARTICLE, { x: at[0], y: at[1] + up, z: at[2] });
     } catch {

@@ -47,10 +47,15 @@ export function moment(id: string): Moment {
   };
 }
 
-/** How a character looks in the dialogue box (the workshop's characters.json): the name's § color, and its face's name. */
+/**
+ * How a character looks in the dialogue box (the workshop's characters.json): the name's § color,
+ * its face's name, and whether the face's picture is wide (twice as wide as it's tall, the Warden's
+ * with his tendrils: the install sees it from the picture), which the box gives a wide slot.
+ */
 export interface Look {
   color: string;
   face: string;
+  wide: boolean;
 }
 
 const LOOKS: Readonly<Record<string, Partial<Look>>> = (dialogue as { characters?: Record<string, Partial<Look>> }).characters ?? {};
@@ -58,7 +63,7 @@ const LOOKS: Readonly<Record<string, Partial<Look>>> = (dialogue as { characters
 /** How `character` looks: no color and no face when the file doesn't say. */
 export function look(character: string): Look {
   const found = LOOKS[character];
-  return { color: found?.color ?? "", face: found?.face ?? "" };
+  return { color: found?.color ?? "", face: found?.face ?? "", wide: found?.wide === true };
 }
 
 /** What a line's {name}s are filled with: {player} takes fills.player. */

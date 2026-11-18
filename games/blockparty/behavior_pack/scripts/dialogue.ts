@@ -108,8 +108,9 @@ interface Open extends Voting {
   /** The speaker's name on the border ("" for none), and its color code. */
   name: string;
   color: string;
-  /** The speaker's face's name ("" for none). */
+  /** The speaker's face's name ("" for none), and whether its picture is wide (the box's wide slot). */
   face: string;
+  wide?: boolean;
   /** The line, in rows. */
   words: string[];
   /** The buttons of a question. */
@@ -371,8 +372,8 @@ export class Dialogue {
   }
 
   /** The speaker's name on the border (none for the game's own lines), its color and face. */
-  private speaker(character: string): { name: string; color: string; face: string } {
-    if (character === "Game") return { name: "", color: "", face: "" };
+  private speaker(character: string): { name: string; color: string; face: string; wide: boolean } {
+    if (character === "Game") return { name: "", color: "", face: "", wide: false };
     return { name: character, ...look(character) };
   }
 
@@ -621,7 +622,7 @@ export class Dialogue {
       const skip = voting ? this.votesText(voting) : undefined;
       // The jump prompt, while a jump goes on: the leader's or the turn's player's to everyone, the steerer's on a question (none while a bot picks).
       const waiting = open.mode === "everyone" ? this.goer(open) !== undefined : open.steerer?.player !== undefined;
-      const rows = boxRows({ face: open.name ? open.face : undefined, words: open.words, buttons: open.buttons, icons: open.icons, selected: open.selected, skip, prompt: waiting ? "" : undefined });
+      const rows = boxRows({ face: open.name ? open.face : undefined, faceWide: open.wide, words: open.words, buttons: open.buttons, icons: open.icons, selected: open.selected, skip, prompt: waiting ? "" : undefined });
       this.host.show({ title, rows });
     } catch (error) {
       log.warn(`blockparty: drawing the dialogue box failed: ${describeError(error)}`);

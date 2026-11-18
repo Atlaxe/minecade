@@ -47,6 +47,12 @@ export const ROW = {
 } as const;
 /** Where a face row's face name starts, in bytes (the UI's {{row.face}} field): its code, its index and §r, 4 codes of 3 bytes. */
 export const FACE_AT = 12;
+/**
+ * A face row with a wide picture (twice as wide as it's tall: the Warden's tendrils) has index 1 in
+ * place of 0, so the row holds this word's codes ("71": §7§1) and the box draws it in its wide slot
+ * (the user, 2026-11-18: make the name tab wider). The face name stays at FACE_AT.
+ */
+export const WIDE_FACE_WORD = "71";
 /** The code a selected button has besides the button's own. */
 export const SELECTED = "§k§3";
 /**
@@ -82,6 +88,8 @@ export function forkTitle(ways: number): string {
 export interface BoxRows {
   /** The speaker's face (its name: textures/blockparty/faces/<face>), if they have one. */
   face?: string;
+  /** Its picture is wide (the box's wide slot). */
+  faceWide?: boolean;
   /** The line on show, a row each. */
   words: readonly string[];
   /** The buttons, if the line asks something. */
@@ -99,7 +107,7 @@ export interface BoxRows {
 /** The sidebar's rows, top to bottom. */
 export function boxRows(rows: BoxRows): string[] {
   const row = (code: string, i: number, text: string, icon = "") => `${code}§${INDEX[i % INDEX.length]}${icon}§r${safe(text)}`;
-  const out = rows.face && FACE.test(rows.face) ? [row(ROW.face, 0, rows.face)] : [];
+  const out = rows.face && FACE.test(rows.face) ? [row(ROW.face, rows.faceWide ? 1 : 0, rows.face)] : [];
   rows.words.forEach((text, i) => out.push(row(ROW.words, i, text)));
   (rows.buttons ?? []).forEach((text, i) => {
     const icon = rows.icons?.[i];
