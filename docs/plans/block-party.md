@@ -984,7 +984,8 @@ board it's played from, and the same arena map works on every board.
 entry of their own in the map editor and the Panel ("Hot Floor (Block Party)", `blockparty-hotfloor`),
 with their own checklist. A minigame plays on its arena map when one is published, placed fresh
 into the arena slot (or far east of a board without one), and on its test arena laid in code while
-it has none. The checklists so far, each with the Arena box and a spectator spawn:
+it has none. The checklists so far, each with the Arena box, a spectator spawn and (since
+2026-11-18) the **Minigame podium** and its **Podium camera** ("The minigame podium" below):
 
 | Minigame | Its arena map marks |
 |---|---|
@@ -1015,14 +1016,48 @@ it has none. The checklists so far, each with the Arena box and a spectator spaw
 - **The rules camera** (the Camera tool): what players look through while the rules show; a slow pan
   is two cameras, start and end.
 - **The Battle pot** lands at the arena's middle, or at a Pot point if the map has one.
-- **Results and the winner highlight** play back on the board's podium set, so arenas need no podium
-  (proposed).
+- **Results** play on the arena's own Minigame podium (the user, 2026-11-18; "The minigame podium"
+  below). Before, the plan had them on the board's podium set, so arenas would need none.
 - **Its own time of day:** the game sets the world's time when the minigame starts and puts the
   board's back after.
 - **No saved mobs or loose entities:** the game spawns chickens, carts and targets at points the map
   marks.
 - **Kill Y, kill regions, bounds** and the minigame's own points and regions, as its checklist asks,
   within the options below.
+
+### The minigame podium
+
+**Built 2026-11-18** (the user asked: "minigame podium, where players go for minigame results,
+shows players losing and gaining coins, and doing winning and sad emotes and then holding them";
+`minigame-podium.ts`, `minigame-runner.ts`, `moves.ts`), not yet seen in game:
+
+- **On every arena map,** marked with the Game marker tool like the board's Pre-game podium:
+  **Minigame podium**, 4 spots, 1st place to 4th in order, each placed standing where the player
+  stands with your facing taken; and **Podium camera**, placed standing where the camera goes with
+  your facing taken (Take my facing). Build the podium itself (steps, blocks, a backdrop) inside the
+  Arena box. The Podium camera can be turned off in the Panel's Checklist Features: the shot then
+  stands in front of the spots, the way they face, looking at them.
+- **After a minigame,** the star field comes over the arena (the way in's, `block-party-ui.md`), and
+  behind it everyone who played stands on the podium best first: an FFA's places (ties side by
+  side, in the order they're given), a team minigame's winning side and then the rest, everyone
+  together after a draw. A duel uses spots 1 and 2. The players go first, the bots a moment after;
+  everyone, a duel's onlookers too, comes down into the podium camera as the stars go. After the
+  hold, the way back to the board starts from there (the camera rises over the arena, the stars).
+- **There the results come:** who won in the dialogue box, the coins each wins dropping in over
+  their head with the count (+3) rising over it, a duel's stake flying from the loser's head to the
+  winner's, and a bet lost flying off; the winners celebrate and those who came away with nothing
+  are sad (`minigameMoods`), and each **holds the pose** until everyone goes back to the board,
+  5.5 seconds on. Then the results screen on the board, as before.
+- **Held poses:** a Celebration or Sad animation plays to the point where its last move back to
+  the resting pose starts (`animations.ts` holdPoint: arms still up, a head still hung), and the
+  player goes into its held pose there, an animation named after it with `.hold` on the end
+  (`animation.blockparty.player.celebration.arms_up.hold`), which loops until they're let go. The
+  pack has one for each of the six Celebration and Sad animations, made from the clip's own pose at
+  that point; one the user makes in Blockbench, named that way, holds with no code change, and an
+  animation without one plays again each time it ends.
+- **No podium marked** (a minigame's test arena, or an arena map from before): a stand-in is laid in
+  code in the arena's middle, facing the rules camera's side: four columns, 1st (gold, 3 high)
+  between 2nd (iron, 2) and 3rd (copper, 1), 4th (smooth stone) beside 3rd, cleared with the arena.
 
 ### Requirement options (Panel only)
 
@@ -1278,6 +1313,37 @@ reward was dropped.
     (the user couldn't tell when coins came in; more on this from them later). The user's spec,
     2026-11-17: `block-party-ui.md` (the hotbar replaced by the game's own JSON UI, the cameras,
     player animations, gain and loss pops, sounds).
+11. **The minigame editor** (the user asked for this pass, 2026-11-18): what the map editor and the
+    Panel give a minigame's arena maps, so each minigame of pass 9 is built, marked and tried there.
+    Best done before most of pass 9. Everything but the first item is proposed, for the user to
+    pick from:
+    - **The Minigame podium and its Podium camera** on every arena map. **Built 2026-11-18** ("The
+      minigame podium").
+    - **Try a minigame from its map:** Preview on an arena map is refused today (an arena plays only
+      inside Block Party, `docs/editor.md` "Preview"). It would start a Block Party preview straight
+      into that minigame on this map (as Tests' Play a minigame now), bots in the empty seats and
+      `/minigame win` at hand, on the test board when no board map is published, and back in Edit
+      when it ends.
+    - **Covered arena:** a Game setting on the arena map (the Game settings tool, `map.settings`)
+      that cuts straight to the arena, the stars fading in and out with no camera zoom out or in
+      (`block-party-ui.md`, "The minigame announcement"), for indoor arenas a camera can't come down
+      into from above.
+    - **The rules camera pan:** a second camera, **Rules camera end**, and the rules camera pans
+      slowly from the Start view to it while the tutorial is up.
+    - **Points the minigames will need,** as each is written: a **Pot** point (where a Battle's pot
+      lands; the arena's middle without one), spots where the game spawns its chickens, carts and
+      targets (arena maps keep no mobs), kill regions or Kill Y for a minigame that ends in a fall.
+    - **Per-minigame settings:** numbers a minigame reads from each of its maps in the Game settings
+      tool (a time limit, a round count, how fast the floor drops), so one minigame can play
+      differently on two maps.
+    - **The tutorial's words in the dialogue tool:** each minigame's name, its objective per side and
+      its controls as texts with the Tutorial panel delivery (`block-party-ui.md`, "The minigame
+      tutorial"), in place of the code's (`minigames/kit.ts`, tutorial), so the user words them.
+    - **A picture on the wheel:** the announcement's wheel shows names only; it could show each
+      minigame's picture, the Minigame Thumbnail the user takes on its arena map (`docs/editor.md`,
+      "Pictures").
+    - **Rows a map can do without** (the Panel's Checklist Features): the Podium camera now, more as
+      each minigame's checklist is written.
 
 ## Defaults
 
@@ -1308,3 +1374,14 @@ Every question is answered. These were taken without one; the user can change an
   and distance there; a fork's focus starts on Left; Middle for any way between; a red balloon; the
   Witch's smoke grayish purple; results go on at the leader's or the turn's player's jump and still
   go by themselves after their hold; the seat turns to the NPC as well as the NPC to the seat.
+- The minigame podium (2026-11-18): 4 spots, 1st to 4th; the Podium camera can be turned off; the
+  results stay 5.5 seconds on it with no jump to go on (the results screen on the board after has
+  one); a pose is held from where the clip starts back to rest, the held poses made from the clips
+  themselves; the stand-in podium's columns (gold 3, iron 2, copper 1, smooth stone) facing the
+  rules camera's side; middle places neither celebrate nor are sad (as `minigameMoods` already had).
+- The screens before a minigame (2026-11-18): "Minigame!" 1.2 s alone, then the format 1.2 s, then the
+  wheel's 17 steps slowing from 2 to 11 ticks and 1.8 s on the pick; the wheel's names in a column
+  (a list, not a round wheel: JSON UI can't turn text) with the user's magenta highlight while it
+  spins and Minecade blue on the pick; the tutorial panel 180 units wide at the left; the Ready strip
+  "Press [jump] when ready 1/4", "Ready! Waiting for the others 3/4" once jumped; each test
+  minigame's objective and controls as written in its code.

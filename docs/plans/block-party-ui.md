@@ -321,6 +321,25 @@ On the HUD while the minigame's rules camera waits for everyone to be ready:
   place of its rules text, as lines in the dialogue file with the "Tutorial panel" delivery
   (proposed; today each test minigame's name and rules are in code).
 
+### As built (2026-11-18)
+
+Not yet seen in game. The panel is the workshop JSON UI builder's `blockparty_tutorial` component
+(word `bpt`), the user's to restyle: a box over the left third (the dialogue box's frame), the name
+in MinecraftTen, the objective wrapped under it, then each control as its action in a key box and
+what it does. It comes up once the camera has come down into the arena and the stars have gone,
+in place of the rules in the dialogue box. Rows (`screen-codes.ts`): `kt` the name, `ko` and `kx`
+the first side's objective and controls (everyone's in an FFA), `kp` and `kq` the second side's,
+`kr` the Ready strip's votes. The sidebar is everyone's, so a player on the second side (a 1v3's
+trio) has `§k§y` on their action bar (`SIDE_TWO_CODE`) and the panel shows them that side's rows.
+The words are each minigame's `tutorial` in its code (`minigames/kit.ts`; a minigame without one
+shows its rules), until the dialogue tool has them (`block-party.md` pass 11).
+
+The Ready strip, bottom right: "Press [jump] when ready 1/4", the jump button as the player's own
+device draws it (as the dialogue box's prompt), and "Ready! Waiting for the others 3/4" for a player
+who has jumped (`§k§z`, `READY_CODE`), with the sound map's `vote.ready` and `vote.done`. Bots count
+once they've had their moment. It replaces the ready count that was top right. The countdown and
+Go are still notices in the dialogue box.
+
 ## The results screen
 
 After every minigame, and when a player gets a Star.
@@ -373,7 +392,7 @@ Replaces the roulette titles and the loading screen's plain fade. The user's spe
 ### The star field, as built (2026-11-18)
 
 The fade both ways, steps 1, 2, 6 and 7 (`stars.ts`, `minigame-runner.ts`, `spike.ts`); steps 3 to 5
-are still the roulette in the dialogue box, now played on the stars. It replaces the loading screen
+were the roulette in the dialogue box, played on the stars, until the titles and the wheel below. It replaces the loading screen
 (the camera's fade to black, then the star field and Minecade's logo): no black and no logo.
 - **Into a minigame:** the camera rises and pulls back over 3 s; after 1 s the star field fades in
   over the view (8 strengths, one every 2 ticks, 0.8 s), its layers sliding down the screen as if the
@@ -408,6 +427,26 @@ are still the roulette in the dialogue box, now played on the stars. It replaces
 - Not yet seen in game. If the stars hop once a second rather than glide, the offset animations
   aren't playing in the action bar's controls (or the tiles aren't the texture's size in GUI
   pixels): what to check first.
+
+### The titles and the wheel, as built (2026-11-18)
+
+Steps 3 to 5, in place of the roulette in the dialogue box (`minigame-runner.ts` announce), not yet
+seen in game. They're the workshop JSON UI builder's `blockparty_announce` component (word `bpa`),
+the user's to restyle, lifted to layer 200 over the stars like the dialogue box:
+- **Minigame!** in MinecraftTen three times the size, alone for 1.2 s, then the format under it in
+  the regular font for 1.2 s.
+- **The wheel:** a column of up to 6 of the format's names (JSON UI can't turn text, so it's a list
+  rather than a round wheel), the pick among them in a random order (`minigame-rules.ts` wheelOf;
+  fewer when the format has fewer minigames), the light stepping down it 17 times, slowing from 2
+  ticks to 11, and landing on the pick (`spinStart` sets where it starts), which stays lit 1.8 s.
+  The light is the user's highlight color while it spins and Minecade blue on the pick.
+- **Rows** (`screen-codes.ts`): `ka` the heading (`f1` once the format shows, then the format), `kw`
+  each name (its place, `s1` under the light, `l1` the pick).
+- **Sounds:** the user's sound map's `minigame.zoom-out` (as the camera rises), `minigame.title`,
+  `minigame.format`, `minigame.wheel-tick` (each step), `minigame.wheel-land` and `minigame.zoom-in`
+  (as the camera comes down into the arena), then `minigame.countdown` and `minigame.go`; each silent
+  until mapped.
+- **Covered arenas** aren't built (`block-party.md` pass 11).
 
 ## Gain and loss
 
@@ -635,7 +674,8 @@ animations where the mob has one, else the game's own.
 - **On whom and when** (the game's own moments): Select as a player's turn starts (as the turn shot
   gets to them) and when they're picked as a rival (an item, a Versus pick, Chance Time's Coin
   Swap); Dice roll on the jump that hits the die, the turn order's too, and a bot's hop; Celebration
-  on the turn order reveal, a minigame won (over the arena as the results show), a duel won, a Star
+  on the turn order reveal, a minigame won (on the minigame podium as the results show, held there
+  till everyone goes back: `block-party.md`, "The minigame podium"), a duel won, a Star
   gained and the game won; Sad on a minigame lost (last place, the losing side, a Battle's losers,
   a duel's loser), a Star lost, and coins lost. Coins and Stars are watched (every 2 ticks), so
   every change counts whatever made it; coins a player spends of their own accord (a shop, the
