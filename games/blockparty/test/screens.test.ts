@@ -4,7 +4,7 @@ import { GAME_SIDEBAR_MARK } from "@minecade/minigame-core";
 import { boxRows, boxTitle } from "../behavior_pack/scripts/dialogue-codes.ts";
 import { DICE } from "../behavior_pack/scripts/dice.ts";
 import { ITEMS, holdings } from "../behavior_pack/scripts/dice-items.ts";
-import { ANNOUNCE_HEAD, ANNOUNCE_WHEEL, CARD, EMPTY_ICON, MAX_CONTROLS, MENU, PANEL, PANEL_TEXT, RESULT, ROUND, SCREEN_LAYOUTS, SCREEN_WORDS, STANDINGS_WORD, TUTORIAL_CONTROL, TUTORIAL_READY, announceRows, bytes, cardRows, codesOf, fieldsOf, initialOf, menuRow, panelRows, placeText, resultRows, roundRow, tutorialRows, wordsOf } from "../behavior_pack/scripts/screen-codes.ts";
+import { ANNOUNCE_HEAD, ANNOUNCE_WHEEL, CARD, EMPTY_ICON, MAX_CONTROLS, MENU, PANEL, PANEL_TEXT, RESULT, ROUND, ROUND_COLORS, SCREEN_LAYOUTS, SCREEN_WORDS, STANDINGS_WORD, TUTORIAL_CONTROL, TUTORIAL_READY, announceRows, bytes, cardRows, codesOf, fieldsOf, initialOf, menuRow, panelRows, placeText, resultRows, roundRow, roundText, tutorialRows, wordsOf } from "../behavior_pack/scripts/screen-codes.ts";
 import { MAX_ROWS, compose } from "../behavior_pack/scripts/sidebar-rows.ts";
 import { READY_CODE, SIDE_TWO_CODE, STANDINGS_CODE } from "../behavior_pack/scripts/bar-codes.ts";
 import { standingRows } from "../behavior_pack/scripts/results.ts";
@@ -130,11 +130,17 @@ describe("Block Party's screen rows", () => {
     expect(cut(panelRows({ die: { ...die, faces } }, false)[0], fields.face1)).toBe("S");
   });
 
-  it("writes the round's row without the line's colors", () => {
-    const row = roundRow("Round §23§r / §q10");
-    expect(row).toBe("§k§nRound 3 / 10");
-    expect(cut(row, fieldsOf(ROUND).text)).toBe("Round3/10");
-    expect(Buffer.from(row, "utf8").subarray(fieldsOf(ROUND).text.from).toString("utf8")).toBe("Round 3 / 10");
+  it("writes the round's row in its own colors, not the line's: the round light gray, the rounds in all dark gray", () => {
+    // The line with a fill style on each fill (the dialogue tool's), as line() gives it.
+    const say = (fills: { round: number; rounds: string }) => `Round §2${fills.round}§r / §q${fills.rounds}§r`;
+    const text = roundText(say, 3, 10);
+    expect(text).toBe(`${ROUND_COLORS.round}Round 3 / ${ROUND_COLORS.rounds}10`);
+    expect([ROUND_COLORS.round, ROUND_COLORS.rounds]).toEqual(["§7", "§8"]);
+    // Worded another way, the rounds' color still goes on the rounds.
+    expect(roundText((fills) => `${fills.rounds} rounds, this is ${fills.round}`, 3, 10)).toBe("§7§810 rounds, this is 3");
+    const row = roundRow(text);
+    expect(row).toBe("§k§n§7Round 3 / §810");
+    expect(Buffer.from(row, "utf8").subarray(fieldsOf(ROUND).text.from).toString("utf8")).toBe("§7Round 3 / §810");
   });
 
   it("writes the results' rows", () => {

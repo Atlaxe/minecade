@@ -498,7 +498,6 @@ export class BoardLoop {
     this.host.stage.clear();
     const rolled = await this.host.roll(who, true);
     if (rolled === undefined || !who.body.isValid) return;
-    this.host.everyone(line("turn.rolled", { player: who.name, roll: rolled.move }));
     await this.move(who, rolled.move);
     if (!who.body.isValid) return;
     await this.land(who);
@@ -879,7 +878,6 @@ export class BoardLoop {
     if (rolled === undefined) return this.jump !== undefined;
     if (!who.body.isValid) return false;
     await this.items.afterRoll(who, rolled);
-    this.host.everyone(line("turn.rolled", { player: who.name, roll: rolled.move }));
     await this.rolledFaces(who, rolled);
     if (!who.body.isValid) return false;
     await this.move(who, rolled.move);
@@ -1154,9 +1152,9 @@ export class BoardLoop {
       // One box for everyone: who won, and who paid whom.
       return { title: line("versus.won.title", result), subtitle: line("versus.won.subtitle", result) };
     });
-    // A zombie leaves the duel's winner (a win is a top 2 finish).
-    if (winnerKey) this.items.shakeOff([winnerKey]);
     await this.showResults(before);
+    // A zombie leaves the duel's winner (a win is a top 2 finish), once the results have gone.
+    if (winnerKey) await this.items.shakeOff([winnerKey]);
   }
 
   /**
@@ -1244,9 +1242,9 @@ export class BoardLoop {
       this.host.changed();
     }
     const outcome = await this.host.playMinigame(format, def, sides, pool, [], (outcome) => this.payOut(format, def, sides, outcome, doubled, pot, bonus));
-    // Zombies leave those who finished in the top 2 (the winning side, in a team game).
-    this.items.shakeOff(topTwo(outcome, sides));
     await this.showResults(before);
+    // Zombies leave those who finished in the top 2 (the winning side, in a team game), once the results have gone.
+    await this.items.shakeOff(topTwo(outcome, sides));
   }
 
   /** The sides a format plays in: each alone, the 2v2 pairs, or the 1v3 solo and the rest, rotating so everyone gets a share. */

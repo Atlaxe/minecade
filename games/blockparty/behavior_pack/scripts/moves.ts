@@ -25,8 +25,10 @@ const STAR_AFTER = 10;
 const STAR_TICKS = 40;
 /** The Enderman's blink: portal particles as he goes, and again as he's back. */
 const BLINK_BACK = 12;
-/** Ticks after a hidden NPC's animation is played before it's shown (the animation reaches the client first). */
-const APPEAR_AFTER = 2;
+/** Ticks after a hidden NPC's animation is played before it's shown: the animation must be going on the client first (2 ticks showed the Warden standing). */
+const APPEAR_AFTER = 9;
+/** The controller a move's second animation plays on (NpcMove.also), beside its first. */
+const NPC_ALSO = "blockparty_npc_also";
 
 export interface MovesDeps {
   scope: Scope;
@@ -133,6 +135,7 @@ export class Moves {
     try {
       if (move?.property) entity.setProperty(move.property, true);
       if (clip) entity.playAnimation(clip.name, { controller: NPC_ANIMATION, stopExpression: hold !== undefined ? "0" : "q.any_animation_finished", blendOutTime: 0.2 });
+      if (move?.also) entity.playAnimation(move.also, { controller: NPC_ALSO, stopExpression: "0" });
     } catch (error) {
       log.warn(`blockparty: ${character}'s ${action} failed: ${describeError(error)}`);
     }

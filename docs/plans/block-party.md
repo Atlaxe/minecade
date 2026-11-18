@@ -761,11 +761,61 @@ The user's asks after a look at pass 7, all in `stage.ts`, `entrances.ts` and `f
 - **Results** take a jump once the changes have played: the party leader's or the turn's player's
   goes on; the screen shows its jump prompt meanwhile (title word `bpj`, the `blockparty_results`
   component's Go on, bottom middle). With no jump it goes after its hold, as before.
-- **The skip strip** says "Skipping 1/3" in place of "Hold [sneak] to skip 1/3" for a player holding
-  sneak toward a vote or who has voted (their action bar's `§k§e`, SKIPPING_CODE).
+- **The skip strip** (since replaced: "The user's look at the board, as built", below) said
+  "Skipping 1/3" in place of "Hold [sneak] to skip 1/3" for a player holding sneak.
 - **Potions** show their pictures left of their names on Chance Time's buttons (vanilla's fire
   resistance, leaping, nausea and slow falling bottles for gold, green, purple and white), by a code
   after the button's index (`BUTTON_ICONS`).
+
+### The user's look at the board, as built (2026-11-18, evening)
+
+- **The board's button is a punch** (left click, `playerSwingStart`): picking in the board menu
+  (Dice, Items, Board, an item to use, back from Board), a dialogue box's choice or going on, the
+  results' Go on, and Ready before a minigame. The jump only hits the die over the head (the dice
+  panel's, the turn order's, and each throw after the first). A swing within 8 ticks of the last is
+  the same press (holding left click on a block swings again and again). The board's item
+  (`blockparty:standings`) swings in a blink (`swing_duration` 0.05 s), so the arm hardly moves. The
+  prompts (the dialogue box's, the results') are a "Punch" key cap on every device: Minecraft has no
+  picture for a trigger or a mouse button.
+- **Skipping is holding use** (right click) for 4 seconds: the board's item has a use that lasts
+  (`use_modifiers`), so `itemStartUse` and `itemStopUse` say when it's held (a right click on a
+  block counts while it repeats). The skip strip says, for everyone (`skipText`): "Hold use to skip"
+  before anyone has voted, "Waiting to skip 1 / 3" while some have, "Waiting for Alex to skip" when
+  one is left, "Skipping" once all have. A player holding use sees "Skipping..." instead, its three
+  dots lighting up white as the hold goes on (their action bar's `§k§v` and the step's digit,
+  `holdingCode`; four strips in the `blockparty_dialogue` component). The old code, `§k§e`, was the
+  core's "Capture the flag!" bubble, which showed whenever a player held sneak to skip.
+- **Long button labels** (over 14 characters: the Shop's goods, a rival to pick, a trade) put a
+  question in the wide box (title code `§k§9`, BOX_WIDE): the words on top and the buttons under
+  them, the box's whole width, in place of the narrow column beside the words.
+- **Every throw is a hit:** a Triple Die (and a Roll again face) brings the die back over the head
+  after each burst, for the next jump (bots hop each time), and the number over the head is the total
+  so far. The roll's words are gone (`turn.rolled`, the Triple and Golden Dice's `say`, the totem's
+  "Extra die" notice): the number over the head says it. Effects still have their lines (a 0 on the
+  Risk Die, a halved roll, the Mystery and Cursed Dice's faces).
+- **The dice look like the standard die:** the user's textures for every die (`dice/<id>.png`), each
+  die's `"number": { "ink", "shadow" }` read as its faces' ink and shadow (the look the file's
+  top-level `number` has), and the Mystery Die's faces show "?".
+- **The numbers over heads** were mirrored (their backs to the camera): they're drawn on the
+  model's north side now, the side the billboard turns to the camera. A transfer's count is half
+  the size of the moves left.
+- **Players stand square** to where they look on the board: a teleport turns only the head, so the
+  pack's `animation.blockparty.square_up` (on controller `blockparty.square`, played again every 5
+  seconds, stopped in minigames) turns the whole model by the head's turn from the body
+  (`q.target_y_rotation`); the head, turned relative to the entity, stays where it looks.
+- **The Shop** sells once and buys once a visit: each button goes once it's used, and with both
+  used the visit is over.
+- **Zombies** come and go in the Witch's puff of smoke (events `npc.zombie.appear` and `.vanish`),
+  and one leaving says `zombie.leaves` in the dialogue box (chat is hidden on the board), after the
+  results when a minigame shakes it off.
+- **The Warden** is shown 9 ticks into his emerge (still 3.5 blocks down; 2 ticks could show him
+  standing first) and hidden 5.1 seconds into his dig, after the pack's `warden.sink` (played with
+  the dig on a second controller, `NpcMove.also`) has carried his body and legs 3 blocks under the
+  2.5 vanilla's dig leaves him, where the top of his head still showed.
+- **The crying Sad** has its arms come in over the face (their sideways turn had the wrong sign, so
+  a raised arm swung out), a little lower.
+- **The round bottom right** is "Round 3 /" light gray (`§7`) and the rounds in all dark gray (`§8`),
+  whatever the user's `round.hud` line says around its fills (`roundText`).
 
 ## Maps
 

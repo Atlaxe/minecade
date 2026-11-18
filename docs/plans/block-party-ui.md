@@ -295,7 +295,10 @@ player.
 
 ## Skip and Ready (bottom right)
 
-The user, 2026-11-18 (changing their mind about heads): `Hold [sneak] to skip 1/3`, the sneak
+Since the user's evening look (2026-11-18), skipping is holding use (right click), and the strip
+says "Hold use to skip", "Waiting to skip 1 / 3", "Waiting for Alex to skip" or "Skipping", with
+"Skipping..." for a player holding (block-party.md, "The user's look at the board, as built"). Before
+that, the user, 2026-11-18 (changing their mind about heads): `Hold [sneak] to skip 1/3`, the sneak
 button for the viewer's way of playing (the Shift key, the controller's B or circle, the touch
 sneak button: the client picks, as for the jump icon), then how many of the players here have
 voted, as a fraction: no names, no heads, no percentage. A skip vote is holding sneak for 4

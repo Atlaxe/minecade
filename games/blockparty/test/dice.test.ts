@@ -154,6 +154,21 @@ describe("the dice file", () => {
     expect(readDice({ number: { ink: "white" }, dice: { standard } }).problems).toEqual([expect.stringMatching(/^number: "ink"/)]);
   });
 
+  it("reads a die's \"number\" look as its faces' ink and shadow, as the user writes the dice", () => {
+    const faces = [1, 2, 3, 4, 5, 6].map((move) => ({ move }));
+    const standard = { name: "S", letters: "S", block: "minecraft:stone", faces };
+    const read = readDice({ dice: { standard, slow: { name: "Slow", letters: "SL", block: "minecraft:stone", number: { ink: "#02B8DB", shadow: true }, faces } } });
+    expect(read.problems).toEqual([]);
+    const slow = read.dice.find((die) => die.id === "slow")!;
+    expect([slow.ink, slow.shadow]).toEqual(["#02b8db", true]);
+    expect(slow.faces[0]).toMatchObject({ ink: "#02b8db", shadow: shadowOf("#02b8db") });
+    // "ink" and "shadow" win over it; a "number" that isn't an object is named.
+    const both = readDice({ dice: { standard: { ...standard, ink: "#111111", number: { ink: "#222222", shadow: false } } } });
+    expect(both.dice[0].ink).toBe("#111111");
+    expect(both.dice[0].shadow).toBeUndefined();
+    expect(readDice({ dice: { standard: { ...standard, number: "red" } } }).problems).toContainEqual(expect.stringMatching(/^standard: "number" is an object/));
+  });
+
   it("reads a transfer's count's looks, Minecraft's gold coming in and its red going out when the file doesn't say", () => {
     const standard = { name: "S", letters: "S", block: "minecraft:stone", faces: [1, 2, 3, 4, 5, 6].map((move) => ({ move })) };
     const plain = readDice({ dice: { standard } });
@@ -317,10 +332,11 @@ describe("the die model", () => {
       [COUNT_ROOT, UPRIGHT_BONE],
     ]);
     expect(bones.map((bone) => bone.name)).toEqual([UPRIGHT_BONE, "count", ...[0, 1, 2, 3, 4, 5, 6, 7, 8, 9].map((d) => countBone("one", d)), ...[1, 2, 3, 4, 5, 6, 7, 8, 9].map((d) => countBone("tens", d)), ...[0, 1, 2, 3, 4, 5, 6, 7, 8, 9].map((d) => countBone("ones", d))]);
-    // A 2 x 2 digit: alone, it's centered (file x is turned over, so its edges are -1.25 and 1.25 either way).
-    const xs = (name: string) => bones.find((bone) => bone.name === name)!.cubes!.flatMap((cube) => [-cube.origin[0] - cube.size[0], -cube.origin[0]]);
+    // A 2 x 2 digit: alone, it's centered. Seen from the north (the side the billboard turns to the
+    // camera), right is the file's +x.
+    const xs = (name: string) => bones.find((bone) => bone.name === name)!.cubes!.flatMap((cube) => [cube.origin[0], cube.origin[0] + cube.size[0]]);
     expect([Math.min(...xs("one_5")), Math.max(...xs("one_5"))]).toEqual([-1.25, 1.25]);
-    // Tens end half a pixel left of the middle, ones start half a pixel right of it (as Blockbench sees it, from the south).
+    // Tens end half a pixel left of the middle, ones start half a pixel right of it (seen from the north).
     expect(Math.max(...xs("tens_1"))).toBeCloseTo(-0.625);
     expect(Math.min(...xs("ones_2"))).toBeCloseTo(0.625);
     const parts = (countController() as { part_visibility: Record<string, unknown>[] }).part_visibility;
@@ -351,10 +367,10 @@ describe("the die model", () => {
       ...[1, 2, 3, 4, 5, 6, 7, 8, 9].map((d) => countBone("tens", d)),
       ...[0, 1, 2, 3, 4, 5, 6, 7, 8, 9].map((d) => countBone("ones", d)),
     ]);
-    // Edges as Blockbench sees them from the south, in pixels (1.25 units each).
+    // Edges seen from the north, in pixels: a transfer's count is half the moves left's size (0.625 units a pixel).
     const edges = (bones: Bone[], name: string) => {
-      const xs = bones.find((bone) => bone.name === name)!.cubes!.flatMap((cube) => [-cube.origin[0] - cube.size[0], -cube.origin[0]]);
-      return [Math.min(...xs) / 1.25 + 0, Math.max(...xs) / 1.25 + 0];
+      const xs = bones.find((bone) => bone.name === name)!.cubes!.flatMap((cube) => [cube.origin[0], cube.origin[0] + cube.size[0]]);
+      return [Math.min(...xs) / 0.625 + 0, Math.max(...xs) / 0.625 + 0];
     };
     // "+5": the + (3), a pixel, a cell as wide as the widest digit (2): 6 across, from -3 to 3.
     expect(edges(gain.bones, signBone(1))).toEqual([-3, 0]);
@@ -367,7 +383,7 @@ describe("the die model", () => {
     expect(edges(loss.bones, signBone(1))).toEqual([-2.5, -0.5]);
     // Each tone in its own ink, from the numbers' palette, nearly see-through (drawn unshaded).
     const ink = (bones: Bone[]) => {
-      const [u, v] = bones.find((bone) => bone.name === "one_5")!.cubes![0].uv.south.uv;
+      const [u, v] = bones.find((bone) => bone.name === "one_5")!.cubes![0].uv.north.uv;
       return [...numberPalette.data.subarray((Math.floor(v) * numberPalette.width + Math.floor(u)) * 4, (Math.floor(v) * numberPalette.width + Math.floor(u)) * 4 + 4)];
     };
     expect(ink(gain.bones)).toEqual([255, 170, 0, NUMBER_ALPHA]);

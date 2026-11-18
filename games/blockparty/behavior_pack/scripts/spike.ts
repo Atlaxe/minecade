@@ -33,6 +33,7 @@
 import {
   ButtonState,
   EntityComponentTypes,
+  EntitySwingSource,
   HudElement,
   HudVisibility,
   InputButton,
@@ -51,7 +52,7 @@ import { ARENA_SLOT, Minigame, describeError, draw, facingOf, hudLine, log, say,
 import { BLOCK_PARTY_BOARD } from "@minecade/minigame-core/config";
 import registry from "#registry";
 import skins from "#skins";
-import { HOTBAR_SIZE, KEEP_UP, READY_CODE, SIDE_TWO_CODE, SKIPPING_CODE, STANDINGS_CODE, STAR_LEVELS } from "./bar-codes.ts";
+import { HOTBAR_SIZE, KEEP_UP, READY_CODE, SIDE_TWO_CODE, STANDINGS_CODE, STAR_LEVELS, holdingCode } from "./bar-codes.ts";
 import type config from "../../game.config.ts";
 import { boardBox, floorOf, layPaths, mapSpaces, standAt, testSpaces, type Space, type Vec3 } from "./board.ts";
 import { BoardLoop } from "./board-loop.ts";
@@ -68,7 +69,7 @@ import { CURSED_DIE } from "./item-play.ts";
 import { CHANCE, HAPPENING, WARDEN, type ChanceId, type HappeningId, type WardenId } from "./space-rules.ts";
 import { Zombies } from "./zombies.ts";
 import { ResultsScreen, type ResultSeat } from "./results.ts";
-import { SCREEN_WORDS, announceRows, cardRows, codesOf, roundRow, tutorialRows } from "./screen-codes.ts";
+import { SCREEN_WORDS, announceRows, cardRows, codesOf, roundRow, roundText, tutorialRows } from "./screen-codes.ts";
 import { GameSidebar } from "./sidebar-rows.ts";
 import { Heads } from "./heads.ts";
 import { Dialogue, type SaidLine } from "./dialogue.ts";
@@ -120,6 +121,8 @@ const DIE_OVER = 2.15;
 const HIT_AFTER = 4;
 const BURST_TICKS = 7;
 const NUMBER_TICKS = 16;
+/** Ticks between one throw's number and the die coming back for the next (a Triple Die's, Roll again's). */
+const NEXT_THROW_AFTER = 12;
 /** The puff the die bursts in, with its own chips (dice.ts, burstParticle). */
 const BURST_PUFF = "minecraft:large_explosion";
 /** The sound cues (the user's Sounds view, Item panel): the jump hits the die, and its number shows. */
@@ -157,10 +160,22 @@ const SELECT_AFTER = 10;
  * own results screen (the user's ask); the item never leaves.
  */
 const STANDINGS_ITEM = "blockparty:standings";
+/** A punch within this many ticks of the last swing is the same press (holding left click on a block swings again and again). */
+const PUNCH_GAP = 8;
+/** Ticks a right click on a block counts as use held (it repeats while the button stays down). */
+const USE_ON_BLOCK = 6;
+/** The swings that are a punch: at the air, at a block, at an entity. */
+const PUNCHES = new Set<string>([EntitySwingSource.Attack, EntitySwingSource.Mine, EntitySwingSource.None]);
 /** Ticks a player's own results screen stays up unless they drop again. */
 const STANDINGS_TICKS = 160;
 /** Ticks between checks that every player on the board has STANDINGS_ITEM in every hotbar slot. */
 const STANDINGS_EVERY = 10;
+/** A player's body square to where they look on the board (keepSquared): the pack's animation, its controller, and how often it's played again. */
+const SQUARE_UP = "animation.blockparty.square_up";
+const SQUARE_CONTROLLER = "blockparty.square";
+const SQUARE_EVERY = 100;
+/** The pack's animation that does nothing, played to stop another on its controller. */
+const REST_ANIMATION = "animation.blockparty.rest";
 /** How far from a dropped STANDINGS_ITEM its dropper can be, in blocks. */
 const DROP_REACH = 4;
 
@@ -227,8 +242,11 @@ interface PlayerTests {
   sentAt?: number;
   /** Ticks the line has waited for the star field's phase to come right. */
   starsWaited?: number;
-  /** Their die out: which die it is, the block over their head it floats in, and what shows there. */
-  rolling?: { die: DieDef; at: Vector3; over?: DieShown };
+  /**
+   * Their die out: which die it is, the block over their head it floats in, and what shows there;
+   * `next` when it's back for another throw of the same roll (a Triple Die's), the jump that hits it.
+   */
+  rolling?: { die: DieDef; at: Vector3; over?: DieShown; next?: () => void };
   /** What their keys were last set to do, and whether vanilla's hotbar was last shown (undefined: set them again). */
   controls?: Controls;
   hotbar?: boolean;
@@ -301,6 +319,13 @@ export class BlockPartySpike extends Minigame<Config> {
   private loopOver = false;
   /** Who has turned chat on with /chat (by key): Block Party hides it for everyone else. */
   private readonly chatOn = new Set<string>();
+  /** Who stands square to where they look (keepSquared), by key, and the tick it was last played. */
+  private readonly squared = new Map<string, number>();
+  /** Who holds use (right click) with the board's item now, by key (the skip vote's button), and until when a right click on a block counts. */
+  private readonly usingItem = new Set<string>();
+  private readonly usingOnBlock = new Map<string, number>();
+  /** Each player's last swing, by key: a punch is a swing after a pause (PUNCH_GAP). */
+  private readonly lastSwing = new Map<string, number>();
   /** Who has the results screen up for themselves (a drop), by key, and the tick it goes. */
   private readonly viewing = new Map<string, number>();
   /** The standings last put on the sidebar for them, so they're sent only when they change. */
@@ -441,6 +466,7 @@ export class BlockPartySpike extends Minigame<Config> {
       show: (box) => this.gameSidebar.set("dialogue", box),
       leader: () => this.leader(),
       act: (action, said) => this.lineAction(action, said),
+      holdingUse: (player) => this.holdingUse(player),
     });
     this.boardMenu = new BoardMenu({
       scope: this.scope,
@@ -547,6 +573,30 @@ export class BlockPartySpike extends Minigame<Config> {
       ({ player }) => this.jumped(player),
       { buttons: [InputButton.Jump], state: ButtonState.Pressed },
     );
+    // A punch (left click) is the board's button (the user, 2026-11-18): picks in the board menu, the
+    // dialogue box, the results and a minigame's rules. The board's item swings in a blink
+    // (items/standings.json, swing_duration), so the arm hardly moves.
+    this.scope.subscribe(world.afterEvents.playerSwingStart, ({ player, swingSource }) => {
+      if (!PUNCHES.has(swingSource)) return;
+      const key = player.name.toLowerCase();
+      const last = this.lastSwing.get(key);
+      this.lastSwing.set(key, system.currentTick);
+      if (last !== undefined && system.currentTick - last <= PUNCH_GAP) return;
+      this.punched(player);
+    });
+    // Holding use (right click) with the board's item is the skip vote's button: the item has a use
+    // that lasts (items/standings.json, use_modifiers), so its start and stop say when it's held.
+    this.scope.subscribe(world.afterEvents.itemStartUse, ({ source, itemStack }) => {
+      if (itemStack.typeId === STANDINGS_ITEM) this.usingItem.add(source.name.toLowerCase());
+    });
+    for (const signal of [world.afterEvents.itemStopUse, world.afterEvents.itemReleaseUse, world.afterEvents.itemCompleteUse]) {
+      this.scope.subscribe(signal, ({ source }: { source: Player }) => this.usingItem.delete(source.name.toLowerCase()));
+    }
+    this.scope.subscribe(world.afterEvents.playerHotbarSelectedSlotChange, ({ player }) => this.usingItem.delete(player.name.toLowerCase()));
+    // A right click on a block uses the block instead, again and again while it's held.
+    this.scope.subscribe(world.afterEvents.playerInteractWithBlock, ({ player }) => {
+      this.usingOnBlock.set(player.name.toLowerCase(), system.currentTick + USE_ON_BLOCK);
+    });
     // Sneak is the dialogue box's back button (Not now), else the board menu's back.
     this.scope.subscribe(
       world.afterEvents.playerButtonInput,
@@ -557,10 +607,15 @@ export class BlockPartySpike extends Minigame<Config> {
     this.scope.subscribe(world.afterEvents.entitySpawn, ({ entity }) => this.dropped(entity));
     this.scope.subscribe(world.afterEvents.playerLeave, ({ playerName }) => {
       this.viewing.delete(playerName.toLowerCase());
+      this.usingItem.delete(playerName.toLowerCase());
+      this.usingOnBlock.delete(playerName.toLowerCase());
+      this.lastSwing.delete(playerName.toLowerCase());
       if (this.boardMenu.active === playerName.toLowerCase()) this.boardMenu.close();
       this.pendingRolls.get(playerName.toLowerCase())?.resolve(undefined);
       this.pendingRolls.delete(playerName.toLowerCase());
       const tests = this.tests.get(playerName.toLowerCase());
+      // A roll waiting on their next throw goes on, and finds them gone.
+      tests?.rolling?.next?.();
       this.takeDie(tests?.rolling?.over);
       this.counts.set(playerName.toLowerCase(), undefined);
       this.tests.delete(playerName.toLowerCase());
@@ -763,11 +818,28 @@ export class BlockPartySpike extends Minigame<Config> {
       this.takeDie(over);
       return undefined;
     }
-    hop(body);
-    this.moves.player(body, "Dice roll");
     const rolled = rollDie(picked, () => this.ctx.random());
-    await this.scope.wait(HIT_AFTER);
-    await this.burst(over, picked, who, rolled.move);
+    // Each throw is a hit of its own (the user, 2026-11-18: a Triple Die rolled three times in a
+    // row), the number over the head the total so far.
+    let total = 0;
+    let die = over;
+    for (let i = 0; i < rolled.faces.length; i++) {
+      if (i > 0) {
+        await this.scope.wait(NEXT_THROW_AFTER);
+        if (!body.isValid) return rolled;
+        die = this.putDie(body.dimension, body.location, picked);
+        await this.scope.wait(thinkTicks(() => this.ctx.random(), 10, 20));
+        if (!body.isValid) {
+          this.takeDie(die);
+          return rolled;
+        }
+      }
+      hop(body);
+      this.moves.player(body, "Dice roll");
+      total += picked.faces[rolled.faces[i]].move;
+      await this.scope.wait(HIT_AFTER);
+      await this.burst(die, picked, who, total);
+    }
     await this.scope.wait(NUMBER_TICKS);
     // Out to the board view for the walk.
     if (shot) this.boardCamera.boardShot();
@@ -924,12 +996,13 @@ export class BlockPartySpike extends Minigame<Config> {
 
   /**
    * The round bottom right ("Round 3 / 10", the user's round.hud line; component blockparty_round):
-   * from the first round to the end, whenever the cards show. Sent when it changes.
+   * from the first round to the end, whenever the cards show, "Round 3 /" light gray and "10" dark
+   * gray (roundText). Sent when it changes.
    */
   private drawRound(cardsHidden: boolean): void {
     const rounds = this.loop?.rounds;
     const shown = !cardsHidden && this.loop?.active === true && rounds !== undefined && rounds.now >= 1;
-    const text = shown ? line("round.hud", { round: rounds.now, rounds: rounds.of }) : "";
+    const text = shown ? roundText((fills) => line("round.hud", fills), rounds.now, rounds.of) : "";
     if (text === this.roundShown) return;
     this.roundShown = text;
     this.gameSidebar.set("round", text ? { title: codesOf(SCREEN_WORDS.round), rows: [roundRow(text)] } : undefined);
@@ -947,6 +1020,7 @@ export class BlockPartySpike extends Minigame<Config> {
     // Their keys and HUD are set again on the next tick (keepPlayers), and whether they're faded.
     tests.controls = undefined;
     tests.hotbar = undefined;
+    this.squared.delete(player.name.toLowerCase());
     this.fade?.reset(player);
     try {
       player.onScreenDisplay.setHudVisibility(HudVisibility.Hide, HIDDEN_HUD);
@@ -999,6 +1073,35 @@ export class BlockPartySpike extends Minigame<Config> {
     this.drawCards();
     this.keepFade();
     if (system.currentTick % STANDINGS_EVERY === 0) this.keepStandingsItems();
+    this.keepSquared();
+  }
+
+  /**
+   * Every player on the board stands square to where they look (the user: turned to an NPC or the
+   * camera, the body turns too, not just the head). Teleporting a player turns only their head, and
+   * Minecraft brings the body round only once they walk, so the pack's animation.blockparty.square_up
+   * turns their whole model by their head's turn from the body (q.target_y_rotation) on a controller
+   * of its own; the head, turned relative to the entity, stays where it looks. Played again every
+   * SQUARE_EVERY ticks (it's lost on a respawn), and stopped while they play a minigame.
+   */
+  private keepSquared(): void {
+    const now = system.currentTick;
+    for (const player of world.getAllPlayers()) {
+      const key = player.name.toLowerCase();
+      const onBoard = !this.runner.isPlaying(key);
+      const since = this.squared.get(key);
+      try {
+        if (onBoard && (since === undefined || now - since >= SQUARE_EVERY)) {
+          player.playAnimation(SQUARE_UP, { controller: SQUARE_CONTROLLER, stopExpression: "0" });
+          this.squared.set(key, now);
+        } else if (!onBoard && since !== undefined) {
+          player.playAnimation(REST_ANIMATION, { controller: SQUARE_CONTROLLER, stopExpression: "q.any_animation_finished" });
+          this.squared.delete(key);
+        }
+      } catch {
+        // gone
+      }
+    }
   }
 
   // ---- Chat and a player's own results screen -------------------------------------------
@@ -1167,7 +1270,7 @@ export class BlockPartySpike extends Minigame<Config> {
     const tutorial = this.tutorialView;
     const own =
       (this.viewing.has(name) ? STANDINGS_CODE : "") +
-      (this.dialogue?.skippingBy(player.name) ? SKIPPING_CODE : "") +
+      holdingCode(this.dialogue?.holdStep(player.name)) +
       (tutorial?.secondSide.has(name) ? SIDE_TWO_CODE : "") +
       (tutorial?.readyKeys.has(name) ? READY_CODE : "");
     const lineWith = (stars: string) => hudLine(undefined, status, undefined, "", stars + own || (status ? "" : KEEP_UP));
@@ -1370,14 +1473,49 @@ export class BlockPartySpike extends Minigame<Config> {
     const rolling = tests.rolling;
     tests.rolling = undefined;
     this.pendingRolls.delete(key);
-    // The jump that hits it: one or both fists up (the jump itself is their own).
-    this.moves.player(player, "Dice roll");
-    await this.scope.wait(HIT_AFTER);
-    await this.burst(rolling?.over, die, whoOf(player), rolled.move);
+    // The jump that hits it: one or both fists up (the jump itself is their own). Each throw of the
+    // roll is a hit of its own (the user, 2026-11-18: a Triple Die rolled three times in a row, a
+    // Roll again face once more): the die comes back over their head for the next jump, and the
+    // number over their head is the total so far.
+    let total = 0;
+    let over = rolling?.over;
+    for (let i = 0; i < rolled.faces.length; i++) {
+      if (i > 0) {
+        await this.scope.wait(NEXT_THROW_AFTER);
+        if (!player.isValid) return pending?.resolve(undefined);
+        over = await this.nextThrow(player, die);
+        if (!player.isValid) {
+          this.takeDie(over);
+          return pending?.resolve(undefined);
+        }
+      }
+      this.moves.player(player, "Dice roll");
+      total += die.faces[rolled.faces[i]].move;
+      await this.scope.wait(HIT_AFTER);
+      await this.burst(over, die, whoOf(player), total);
+    }
     await this.scope.wait(NUMBER_TICKS);
     // Out to the board view for the walk (a turn's roll).
     if (pending?.shot) this.boardCamera.boardShot();
     pending?.resolve(rolled);
+  }
+
+  /** The die back over a player's head for another throw of their roll: resolves with it once their jump hits it (or they've gone). */
+  private nextThrow(player: Player, die: DieDef): Promise<DieShown | undefined> {
+    const tests = this.testsOf(player);
+    const feet = player.location;
+    const over = this.putDie(player.dimension, feet, die);
+    return new Promise((resolve) => {
+      tests.rolling = {
+        die,
+        at: feet,
+        over,
+        next: () => {
+          tests.rolling = undefined;
+          resolve(over);
+        },
+      };
+    });
   }
 
   // ---- The menu ---------------------------------------------------------------------------
@@ -1636,18 +1774,36 @@ export class BlockPartySpike extends Minigame<Config> {
     this.everyone(failed.length === 0 ? "NPCs out in the middle of the board. Hit one for its animations and variants." : `Some NPCs failed: ${failed.join("; ")}`);
   }
 
-  // ---- Jumps ------------------------------------------------------------------------------
+  // ---- Punches, jumps and use ---------------------------------------------------------------
 
-  private jumped(player: Player): void {
+  /** A punch: the board's button (the user, 2026-11-18; it was a jump). */
+  private punched(player: Player): void {
     // The results screen once its changes have played: going on from it.
     if (this.results.jumped(player)) return;
-    // The dialogue box: its steerer's pick, or a vote to skip.
+    // The dialogue box: its steerer's pick, or going on.
     if (this.dialogue.jumped(player)) return;
-    // A minigame's rules: a jump is Ready.
+    // A minigame's rules: a punch is Ready.
     if (this.runner.jumped(player)) return;
     // The board menu and item panel: the active player's pick.
-    if (this.boardMenu.jumped(player)) return;
+    this.boardMenu.punched(player);
+  }
+
+  /** Whether a player holds use down now: the board's item in use, or a right click on a block still repeating. */
+  private holdingUse(player: Player): boolean {
+    const key = player.name.toLowerCase();
+    return this.usingItem.has(key) || (this.usingOnBlock.get(key) ?? 0) >= system.currentTick;
+  }
+
+  /** A jump: the one that hits the die over their head (the dice panel's, the turn order's), or a test's. */
+  private jumped(player: Player): void {
     const tests = this.testsOf(player);
+    // The die back for another throw of the same roll: the jump hits it.
+    if (tests.rolling?.next) {
+      tests.rolling.next();
+      return;
+    }
+    // The dice panel: the jump hits the die.
+    if (this.boardMenu.jumped(player)) return;
     // The turn order's roll (no menu): the standard die.
     if (tests.rolling) {
       void this.roll(player, tests.rolling.die);

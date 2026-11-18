@@ -5,7 +5,7 @@
       "identifier": "blockparty:die_burst_golden",
       "basic_render_parameters": {
         "material": "particles_alpha",
-        "texture": "textures/blocks/gold_block"
+        "texture": "textures/blockparty/dice/golden"
       }
     },
     "components": {

@@ -4,6 +4,12 @@
     "animation.blockparty.rest": {
       "animation_length": 0.05
     },
+    "animation.blockparty.square_up": {
+      "loop": true,
+      "bones": {
+        "root": { "rotation": [0, "q.target_y_rotation", 0] }
+      }
+    },
     "animation.blockparty.golem_hit": {
       "animation_length": 0.6,
       "bones": {
@@ -110,6 +116,15 @@
         "root": {
           "scale": 0
         }
+      }
+    },
+    "animation.blockparty.warden.sink": {
+      "loop": "hold_on_last_frame",
+      "animation_length": 5.0,
+      "bones": {
+        "body": { "position": { "0.0": [0, 0, 0], "4.3": [0, 0, 0], "5.0": [0, -48, 0] } },
+        "right_leg": { "position": { "0.0": [0, 0, 0], "4.3": [0, 0, 0], "5.0": [0, -48, 0] } },
+        "left_leg": { "position": { "0.0": [0, 0, 0], "4.3": [0, 0, 0], "5.0": [0, -48, 0] } }
       }
     },
     "animation.blockparty.token.fly": {

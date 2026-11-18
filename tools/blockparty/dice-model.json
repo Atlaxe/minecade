@@ -1,6 +1,6 @@
 {
   "about": "What tools/blockparty/dice-pack.ts last made Block Party's die model from (the tests compare it with dice.json).",
-  "maker": 3,
+  "maker": 4,
   "dice": [
     {
       "id": "standard",
@@ -17,45 +17,87 @@
     },
     {
       "id": "slow",
-      "texture": "textures/blocks/concrete_light_blue",
+      "texture": "textures/blockparty/dice/slow",
       "layout": "plain",
-      "faces": [{"text":"1","ink":"#1e1e1e"},{"text":"2","ink":"#1e1e1e"},{"text":"3","ink":"#1e1e1e"},{"text":"1","ink":"#1e1e1e"},{"text":"2","ink":"#1e1e1e"},{"text":"3","ink":"#1e1e1e"}]
+      "faces": [
+        {"text":"1","ink":"#02b8db","shadow":"#002e36"},
+        {"text":"2","ink":"#02b8db","shadow":"#002e36"},
+        {"text":"3","ink":"#02b8db","shadow":"#002e36"},
+        {"text":"1","ink":"#02b8db","shadow":"#002e36"},
+        {"text":"2","ink":"#02b8db","shadow":"#002e36"},
+        {"text":"3","ink":"#02b8db","shadow":"#002e36"}
+      ]
     },
     {
       "id": "triple",
-      "texture": "textures/blocks/iron_block",
+      "texture": "textures/blockparty/dice/triple",
       "layout": "plain",
-      "faces": [{"text":"1","ink":"#1e1e1e"},{"text":"2","ink":"#1e1e1e"},{"text":"3","ink":"#1e1e1e"},{"text":"4","ink":"#1e1e1e"},{"text":"5","ink":"#1e1e1e"},{"text":"6","ink":"#1e1e1e"}]
+      "faces": [
+        {"text":"1","ink":"#92e040","shadow":"#243810"},
+        {"text":"2","ink":"#92e040","shadow":"#243810"},
+        {"text":"3","ink":"#92e040","shadow":"#243810"},
+        {"text":"4","ink":"#92e040","shadow":"#243810"},
+        {"text":"5","ink":"#92e040","shadow":"#243810"},
+        {"text":"6","ink":"#92e040","shadow":"#243810"}
+      ]
     },
     {
       "id": "risk",
-      "texture": "textures/blocks/concrete_red",
+      "texture": "textures/blockparty/dice/risk",
       "layout": "plain",
-      "faces": [{"text":"0","ink":"#ffffff"},{"text":"0","ink":"#ffffff"},{"text":"1","ink":"#ffffff"},{"text":"6","ink":"#ffffff"},{"text":"7","ink":"#ffffff"},{"text":"8","ink":"#ffffff"}]
+      "faces": [
+        {"text":"0","ink":"#58affb","shadow":"#162b3e"},
+        {"text":"0","ink":"#58affb","shadow":"#162b3e"},
+        {"text":"1","ink":"#58affb","shadow":"#162b3e"},
+        {"text":"6","ink":"#58affb","shadow":"#162b3e"},
+        {"text":"7","ink":"#58affb","shadow":"#162b3e"},
+        {"text":"8","ink":"#58affb","shadow":"#162b3e"}
+      ]
     },
     {
       "id": "golden",
-      "texture": "textures/blocks/gold_block",
+      "texture": "textures/blockparty/dice/golden",
       "layout": "plain",
-      "faces": [{"text":"5","ink":"#5c3b00"},{"text":"6","ink":"#5c3b00"},{"text":"7","ink":"#5c3b00"},{"text":"8","ink":"#5c3b00"},{"text":"9","ink":"#5c3b00"},{"text":"10","ink":"#5c3b00"}]
+      "faces": [
+        {"text":"5","ink":"#ffec4f","shadow":"#3f3b13"},
+        {"text":"6","ink":"#ffec4f","shadow":"#3f3b13"},
+        {"text":"7","ink":"#ffec4f","shadow":"#3f3b13"},
+        {"text":"8","ink":"#ffec4f","shadow":"#3f3b13"},
+        {"text":"9","ink":"#ffec4f","shadow":"#3f3b13"},
+        {"text":"10","ink":"#ffec4f","shadow":"#3f3b13"}
+      ]
     },
     {
       "id": "mystery",
-      "texture": "textures/blocks/concrete_purple",
+      "texture": "textures/blockparty/dice/mystery",
       "layout": "plain",
-      "faces": [{"text":"1","ink":"#ffffff"},{"text":"2","ink":"#ffffff"},{"text":"3","ink":"#ffffff"},{"text":"4","ink":"#ffffff"},{"text":"5","ink":"#ffffff"},{"text":"6","ink":"#ffffff"}]
+      "faces": [
+        {"text":"?","ink":"#0f8a86","shadow":"#032221"},
+        {"text":"?","ink":"#0f8a86","shadow":"#032221"},
+        {"text":"?","ink":"#0f8a86","shadow":"#032221"},
+        {"text":"?","ink":"#0f8a86","shadow":"#032221"},
+        {"text":"?","ink":"#0f8a86","shadow":"#032221"},
+        {"text":"?","ink":"#0f8a86","shadow":"#032221"}
+      ]
     },
     {
       "id": "cursed",
-      "texture": "textures/blocks/concrete_black",
+      "texture": "textures/blockparty/dice/cursed",
       "layout": "plain",
-      "faces": [{"text":"12","ink":"#ffd83d"},{"text":"1","ink":"#d83a3a"},{"text":"1","ink":"#d83a3a"},{"text":"1","ink":"#d83a3a"},{"text":"1","ink":"#d83a3a"},{"text":"1","ink":"#d83a3a"}]
+      "faces": [
+        {"text":"12","ink":"#ffd83d","shadow":"#3f360f"},
+        {"text":"1","ink":"#ff6200","shadow":"#3f1800"},
+        {"text":"1","ink":"#ff6200","shadow":"#3f1800"},
+        {"text":"1","ink":"#ff6200","shadow":"#3f1800"},
+        {"text":"1","ink":"#ff6200","shadow":"#3f1800"},
+        {"text":"1","ink":"#ff6200","shadow":"#3f1800"}
+      ]
     },
     {
       "id": "one",
-      "texture": "textures/blocks/concrete_light_blue",
+      "texture": "textures/blockparty/dice/one",
       "layout": "plain",
-      "faces": [{"text":"1","ink":"#1e1e1e"},{"text":"1","ink":"#1e1e1e"},{"text":"1","ink":"#1e1e1e"},{"text":"1","ink":"#1e1e1e"},{"text":"1","ink":"#1e1e1e"},{"text":"1","ink":"#1e1e1e"}]
+      "faces": [{"text":"1","ink":"#ffffff"},{"text":"1","ink":"#ffffff"},{"text":"1","ink":"#ffffff"},{"text":"1","ink":"#ffffff"},{"text":"1","ink":"#ffffff"},{"text":"1","ink":"#ffffff"}]
     }
   ],
   "number": {"ink":"#ffffff","shadow":"#3f3f3f"},

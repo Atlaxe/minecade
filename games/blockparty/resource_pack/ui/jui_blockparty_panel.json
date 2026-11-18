@@ -162,7 +162,7 @@
                             "layer": 1,
                             "texture": "textures/ui/White",
                             "color": "$v_panel",
-                            "alpha": 0.5
+                            "alpha": 0
                           }
                         },
                         {

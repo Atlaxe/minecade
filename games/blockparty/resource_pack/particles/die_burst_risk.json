@@ -5,7 +5,7 @@
       "identifier": "blockparty:die_burst_risk",
       "basic_render_parameters": {
         "material": "particles_alpha",
-        "texture": "textures/blocks/concrete_red"
+        "texture": "textures/blockparty/dice/risk"
       }
     },
     "components": {

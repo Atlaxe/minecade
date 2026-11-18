@@ -22,14 +22,14 @@
 //     its buttons alone side by side (Left, Right), steered with A and D by the player whose walk it
 //     is and picked with jump; each way picked turns everyone's camera down it (the caller's focus).
 //   - A jump in a card's first moments doesn't count (it was meant for the one before).
-//   - A skippable line or cutscene shows the skip strip on the box's top border: "Hold [sneak] to
-//     skip" and how many players have voted, "1/3". Holding sneak for 4 seconds is a vote; once every
-//     player has voted, the rest of it is skipped (a question in it too). A player holding sneak, or
-//     who has voted, sees "Skipping 1/3" in place of the hold prompt (skippingBy; the sidebar is
-//     everyone's, so spike.ts puts the switch on their own action bar). Bots don't vote and don't
-//     count. Holding is read from the sneak button itself (inputInfo), not from whether the player
-//     sneaks: the user saw holding do nothing, since a player held on the board (their walking
-//     locked, a scripted camera) doesn't always sneak while the button is down.
+//   - A skippable line or cutscene shows the skip strip on the box's top border. Holding use (right
+//     click: the board's item, spike.ts, holdingUse) for 4 seconds is a vote; once every player has
+//     voted, the rest of it is skipped (a question in it too). The strip says (the user, 2026-11-18;
+//     skipText): "Hold use to skip" before anyone has voted, "Waiting to skip 1 / 3" while some have,
+//     "Waiting for Alex to skip" when one is left, and "Skipping" once everyone has. A player holding
+//     use toward their vote sees "Skipping..." instead, its dots lighting up as the hold goes on
+//     (holdStep; the sidebar is everyone's, so spike.ts puts the step on their own action bar). Bots
+//     don't vote and don't count.
 //   - Notices (the user, 2026-11-18: no titles or subtitles at all): what the game itself tells
 //     everyone (whose turn it is, a round starting, a minigame's countdown) shows in the box with no
 //     speaker, no jump prompt and no skip strip, for a time or until the game takes it down. A line
@@ -38,12 +38,12 @@
 //     comes in, some seconds in, or once it's gone on (not when it's skipped). The speaker talks as
 //     the card comes in unless the line gives them something else to do then.
 // A line the user hasn't written isn't shown (line() gives "").
-import { ButtonState, InputButton, system, world, type Player } from "@minecraft/server";
+import { system, world, type Player } from "@minecraft/server";
 import { describeError, log, type Scope } from "@minecade/minigame-core";
 import { CLIPS, talks, withTalk, type LineAction } from "./animations.ts";
 import { thinkTicks, type Who } from "./bots.ts";
 import { sidewaysOf } from "./board-view.ts";
-import { boxRows, boxTitle, forkTitle, readTicks, rowsOf, sentences, Steering, type BoxMode, type ButtonIcon } from "./dialogue-codes.ts";
+import { boxRows, boxTitle, forkTitle, readTicks, rowsOf, sentences, skipText, Steering, wideButtons, type BoxMode, type ButtonIcon } from "./dialogue-codes.ts";
 import { actionsOf, look, moment, pickLine, type Fills } from "./lines.ts";
 
 /** A line as it's said, for its actions: its id, who says it, its fills, and the seat it's to or about (a turn's player, a question's). */
@@ -67,6 +67,8 @@ export interface DialogueHost {
   leader(): Player | undefined;
   /** Plays one of a line's actions (who does it is the host's to find: the speaker, a seat, a character). */
   act?(action: LineAction, said: SaidLine): void;
+  /** Whether a player holds use (right click) down now: the skip vote's button. */
+  holdingUse?(player: Player): boolean;
 }
 
 export interface TalkOptions {
@@ -136,8 +138,9 @@ interface Open extends Voting {
 
 /** Ticks after a card comes in before a jump counts (a jump still meant for the one before). */
 const JUMP_AFTER = 6;
-/** Ticks sneak is held to vote to skip (the user's 4 seconds). */
+/** Ticks use is held to vote to skip (the user's 4 seconds), and the steps its dots light up in. */
 const SKIP_HOLD = 80;
+const HOLD_STEPS = 4;
 /** Ticks the box waits before going, so the next line (if one comes at once) takes its place without a flicker. */
 const LINGER = 3;
 /** A bot's think before picking, and how long its pick shows before it goes. */
@@ -169,7 +172,7 @@ export class Dialogue {
   private readonly steering = new Steering();
   /** A cutscene running: whether it can be skipped, who voted, and whether it's being skipped. */
   private scene: (Voting & { skippable: boolean; skipping: boolean }) | undefined;
-  /** How long each player has held sneak toward a skip vote, in ticks, by name. */
+  /** How long each player has held use toward a skip vote, in ticks, by name. */
   private readonly holding = new Map<string, number>();
   /** The notice up now, if any: the box shows it whenever no line is up. */
   private notice: Notice | undefined;
@@ -315,14 +318,15 @@ export class Dialogue {
   }
 
   /**
-   * Whether `name` (a player) holds sneak toward a skip vote now, or has voted: their own skip strip
-   * says Skipping in place of Hold sneak to skip (spike.ts puts SKIPPING_CODE on their action bar).
+   * How far `name` (a player) is through holding use toward a skip vote (0 to HOLD_STEPS - 1), or
+   * undefined when they aren't holding toward one: their own strip says "Skipping...", its dots lit
+   * that far (spike.ts puts holdingCode(step) on their action bar).
    */
-  skippingBy(name: string): boolean {
-    const open = this.open;
-    if (!open) return false;
-    const voting = this.voting(open);
-    return voting !== undefined && (this.holding.has(name) || voting.votes.includes(name));
+  holdStep(name: string): number | undefined {
+    const voting = this.voting(this.open);
+    const held = this.holding.get(name);
+    if (!voting || held === undefined || voting.votes.includes(name)) return undefined;
+    return Math.min(HOLD_STEPS - 1, Math.floor((held / SKIP_HOLD) * HOLD_STEPS));
   }
 
   /** A jump: the one who goes on (the leader, or the player whose turn brought the line) going on, or a question's steerer picking. True when the box took it. */
@@ -560,7 +564,7 @@ export class Dialogue {
     return this.scene?.skippable ? this.scene : open?.skippable ? open : undefined;
   }
 
-  /** Sneak held SKIP_HOLD ticks is a vote to skip; once every player here has voted, it's skipped. */
+  /** Use held SKIP_HOLD ticks is a vote to skip; once every player here has voted, it's skipped. */
   private holds(): void {
     const open = this.open;
     const voting = this.voting(open);
@@ -573,8 +577,7 @@ export class Dialogue {
     for (const player of players) {
       const name = player.name;
       if (voting.votes.includes(name)) continue;
-      const sneaking = holdsSneak(player);
-      if (!sneaking) {
+      if (this.host.holdingUse?.(player) !== true) {
         this.holding.delete(name);
         continue;
       }
@@ -599,10 +602,9 @@ export class Dialogue {
     if (changed && open) this.draw(open);
   }
 
-  /** The skip strip's count: how many of the players here have voted, of how many ("1/3"). */
+  /** The skip strip's words for the players here and their votes (skipText). */
   private votesText(voting: Voting): string {
-    const players = world.getAllPlayers().map((player) => player.name);
-    return `${voting.votes.filter((name) => players.includes(name)).length}/${players.length}`;
+    return skipText(voting.votes, world.getAllPlayers().map((player) => player.name));
   }
 
   /** Puts the box as it is now on the sidebar. */
@@ -616,7 +618,8 @@ export class Dialogue {
         this.host.show({ title, rows: boxRows({ words: [], buttons: open.buttons, selected: open.selected }) });
         return;
       }
-      const title = boxTitle(open.mode, open.name, open.color);
+      // A question with long labels: its buttons under the words, the box's whole width.
+      const title = boxTitle(open.mode, open.name, open.color, open.mode === "one" && wideButtons(open.buttons));
       this.box = { title };
       const voting = this.voting(open);
       const skip = voting ? this.votesText(voting) : undefined;
@@ -630,11 +633,3 @@ export class Dialogue {
   }
 }
 
-/** Whether the player has sneak held down now: the button itself, or sneaking (a sneak toggled on). */
-function holdsSneak(player: Player): boolean {
-  try {
-    return player.inputInfo.getButtonState(InputButton.Sneak) === ButtonState.Pressed || player.isSneaking;
-  } catch {
-    return false;
-  }
-}

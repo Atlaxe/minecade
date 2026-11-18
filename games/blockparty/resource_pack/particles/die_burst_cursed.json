@@ -5,7 +5,7 @@
       "identifier": "blockparty:die_burst_cursed",
       "basic_render_parameters": {
         "material": "particles_alpha",
-        "texture": "textures/blocks/concrete_black"
+        "texture": "textures/blockparty/dice/cursed"
       }
     },
     "components": {

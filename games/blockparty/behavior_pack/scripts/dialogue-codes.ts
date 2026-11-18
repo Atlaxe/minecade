@@ -16,6 +16,13 @@ export const BOX_MARK = "§d§l§g";
 export const BOX_ONE = "§k§1";
 /** The box is spoken to everyone: the words take the whole width, no buttons. */
 export const BOX_EVERYONE = "§k§2";
+/**
+ * A question whose buttons have long labels (the Shop's goods, a rival to pick, a trade): the words
+ * on top and the buttons under them, the box's whole width, in place of the narrow column beside the
+ * words (the user, 2026-11-18). WIDE_LABEL is how long a label can be in the column.
+ */
+export const BOX_WIDE = "§k§9";
+export const WIDE_LABEL = 14;
 /** The title has the speaker's name after it (a Game line has no name tab). */
 export const NAMED = "§k§8";
 /**
@@ -75,9 +82,9 @@ export type BoxMode = "one" | "everyone" | "fork";
  * The sidebar's title: the marks, who the box is for, and the speaker's name in their color (a name
  * color that isn't one is left out, so it can't be read as the title's codes).
  */
-export function boxTitle(mode: BoxMode, name: string, color = ""): string {
+export function boxTitle(mode: BoxMode, name: string, color = "", wide = false): string {
   if (mode === "fork") return forkTitle(2);
-  return `${GAME_SIDEBAR_MARK}${BOX_MARK}${mode === "one" ? BOX_ONE : BOX_EVERYONE}${name ? NAMED : ""}§r${name && NAME_COLOR.test(color) ? color : ""}${name}`;
+  return `${GAME_SIDEBAR_MARK}${BOX_MARK}${mode === "one" ? (wide ? BOX_WIDE : BOX_ONE) : BOX_EVERYONE}${name ? NAMED : ""}§r${name && NAME_COLOR.test(color) ? color : ""}${name}`;
 }
 
 /** The fork box's title: its mark and how many ways it lays out across (three for three or more). */
@@ -98,7 +105,7 @@ export interface BoxRows {
   selected?: number;
   /** A picture left of each button's words, if it has one. */
   icons?: readonly (ButtonIcon | undefined)[];
-  /** The skip strip, while everyone can vote to skip: the votes ("1/3"). */
+  /** The skip strip, while everyone can vote to skip: its words (skipText). */
   skip?: string;
   /** The jump button's prompt, while a jump goes on (its text: "", it names nobody). */
   prompt?: string;
@@ -116,6 +123,32 @@ export function boxRows(rows: BoxRows): string[] {
   if (rows.prompt !== undefined) out.push(row(ROW.prompt, 0, rows.prompt));
   if (rows.skip) out.push(row(ROW.skip, 0, rows.skip));
   return out;
+}
+
+/** Whether a question's buttons need the wide box: any label (its codes aside) longer than WIDE_LABEL. */
+export function wideButtons(labels: readonly string[] | undefined): boolean {
+  return (labels ?? []).some((label) => visible(label).length > WIDE_LABEL);
+}
+
+/** The skip strip's words (the user, 2026-11-18). */
+export const SKIP_WORDS = {
+  hold: "Hold use to skip",
+  waiting: (voted: number, of: number) => `Waiting to skip ${voted} / ${of}`,
+  waitingFor: (name: string) => `Waiting for ${name} to skip`,
+  skipping: "Skipping",
+} as const;
+
+/**
+ * What the skip strip says for `players` (the players here, by name) and their `votes`: "Hold use
+ * to skip" before anyone has voted, "Waiting to skip 1 / 3" while some have, "Waiting for Alex to
+ * skip" when one is left, and "Skipping" once everyone has. Votes from players who left don't count.
+ */
+export function skipText(votes: readonly string[], players: readonly string[]): string {
+  const voted = players.filter((name) => votes.includes(name));
+  if (voted.length === 0) return SKIP_WORDS.hold;
+  if (voted.length >= players.length) return SKIP_WORDS.skipping;
+  const left = players.filter((name) => !votes.includes(name));
+  return left.length === 1 ? SKIP_WORDS.waitingFor(left[0]) : SKIP_WORDS.waiting(voted.length, players.length);
 }
 
 /**

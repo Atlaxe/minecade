@@ -16,7 +16,14 @@
       "minecraft:display_name": {
         "value": "Standings"
       },
-      "minecraft:max_stack_size": 1
+      "minecraft:max_stack_size": 1,
+      "minecraft:use_modifiers": {
+        "use_duration": 3600,
+        "movement_modifier": 1
+      },
+      "minecraft:swing_duration": {
+        "value": 0.05
+      }
     }
   }
 }

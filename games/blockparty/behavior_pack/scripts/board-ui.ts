@@ -130,10 +130,15 @@ export class BoardMenu {
     return die;
   }
 
-  /** A jump: the active player picking. True when the menu took it. */
-  jumped(player: Player): boolean {
+  /**
+   * A punch (left click; the user, 2026-11-18, in place of a jump): the active player picking in the
+   * menu, using an item from the panel, or going back from Board. In the dice panel the die is hit
+   * with a jump (jumped), so a punch does nothing there. True when the menu took it.
+   */
+  punched(player: Player): boolean {
     const turn = this.mine(player);
     if (!turn) return false;
+    if (turn.view === "dice") return true;
     if (turn.view === "menu") {
       if (turn.selected === "board") {
         turn.view = "board";
@@ -154,12 +159,6 @@ export class BoardMenu {
       this.draw();
       return true;
     }
-    if (turn.view === "dice") {
-      const die = this.die(turn);
-      this.close(true);
-      this.host.roll(turn.who, die);
-      return true;
-    }
     if (turn.view === "items") {
       const item = this.item(turn);
       if (!item) return true;
@@ -169,11 +168,21 @@ export class BoardMenu {
       this.host.use(turn.who, item);
       return true;
     }
-    // Board is a toggle: a jump goes back to the menu.
+    // Board is a toggle: a punch goes back to the menu.
     this.host.boardView(false);
     turn.view = "menu";
     playCue(eventCue(MENU_EVENTS.back));
     this.draw();
+    return true;
+  }
+
+  /** A jump: in the dice panel, the jump that hits the die over their head (the roll). True when the menu took it. */
+  jumped(player: Player): boolean {
+    const turn = this.mine(player);
+    if (!turn || turn.view !== "dice") return false;
+    const die = this.die(turn);
+    this.close(true);
+    this.host.roll(turn.who, die);
     return true;
   }
 

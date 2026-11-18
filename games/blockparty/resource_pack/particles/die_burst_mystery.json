@@ -5,7 +5,7 @@
       "identifier": "blockparty:die_burst_mystery",
       "basic_render_parameters": {
         "material": "particles_alpha",
-        "texture": "textures/blocks/concrete_purple"
+        "texture": "textures/blockparty/dice/mystery"
       }
     },
     "components": {

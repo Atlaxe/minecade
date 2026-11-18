@@ -201,7 +201,7 @@ export class ItemPlay {
     const before = this.loop.snapshot();
     if (self) {
       this.host.stage.lightning(who);
-      this.zombieOff(who, false);
+      void this.zombieOff(who, false);
       let paid: number;
       if (last && last.key !== who.key) paid = this.loop.pay(who.key, last.key, LIGHTNING);
       else {
@@ -241,7 +241,7 @@ export class ItemPlay {
       this.spend(who, seat, "iron_golem");
       await stage.visit(ACTOR, "iron_golem", who, this.loop.spaceOf(who), "items.iron-golem.zombie");
       stage.act(ACTOR, "animation.blockparty.golem_hit");
-      this.zombieOff(who, false);
+      void this.zombieOff(who, false);
       await this.host.say("items.iron-golem.zombie", { player: who.name }, false, who);
       return true;
     }
@@ -315,12 +315,16 @@ export class ItemPlay {
     await this.host.say("zombie.arrives", { player: target.name }, false, by ?? target);
   }
 
-  /** The zombie on `who` leaves (said in chat unless `quiet`). */
-  zombieOff(who: Pick<Who, "key" | "name">, say = true): void {
+  /**
+   * The zombie on `who` leaves in a puff of smoke (zombies.ts), and unless `say` is false the dialogue
+   * box says so (the user: chat is hidden on the board, so it went unseen). Resolves once it's said.
+   */
+  async zombieOff(who: Pick<Who, "key" | "name">, say = true): Promise<void> {
     const seat = this.loop.seatOf(who.key);
+    const had = seat !== undefined && seat.effects.zombie > 0;
     if (seat) seat.effects.zombie = 0;
     this.host.zombies.remove(who.key);
-    if (say) this.host.everyone(line("zombie.leaves", { player: who.name }));
+    if (say && had) await this.host.say("zombie.leaves", { player: who.name }, false, this.loop.whoOf(who.key));
   }
 
   /** As `who`'s turn starts, their zombie takes its coins (a round of its stay); with nothing left to take, it leaves. */
@@ -328,7 +332,7 @@ export class ItemPlay {
     const seat = this.loop.seatOf(who.key);
     if (!seat || seat.effects.zombie <= 0) return;
     if (seat.coins <= 0) {
-      this.zombieOff(who);
+      await this.zombieOff(who);
       return;
     }
     this.host.zombies.add(who.key);
@@ -339,14 +343,14 @@ export class ItemPlay {
     this.host.changed();
     await this.host.say("zombie.takes", { player: who.name, coins: count(took, "coin") }, false, who);
     this.host.everyone(line("zombie.takes.chat", { player: who.name, coins: count(took, "coin") }));
-    if (seat.effects.zombie <= 0 || seat.coins <= 0) this.zombieOff(who);
+    if (seat.effects.zombie <= 0 || seat.coins <= 0) await this.zombieOff(who);
   }
 
-  /** After a minigame: the zombies leave those who finished in the top 2 (`keys`). */
-  shakeOff(keys: readonly string[]): void {
+  /** After a minigame: the zombies leave those who finished in the top 2 (`keys`), one after another. */
+  async shakeOff(keys: readonly string[]): Promise<void> {
     for (const key of keys) {
       const seat = this.loop.seatOf(key);
-      if (seat && seat.effects.zombie > 0) this.zombieOff({ key, name: seat.name });
+      if (seat && seat.effects.zombie > 0) await this.zombieOff({ key, name: seat.name });
     }
   }
 
@@ -371,8 +375,8 @@ export class ItemPlay {
       const extra = rollDie(STANDARD, this.host.random).move;
       const added = turn.boost === "golden" ? extra * 2 : extra;
       rolled.move += added;
+      // The number over their head grows to the new total (no words: the user reads the number, 2026-11-18).
       this.host.count?.(who, rolled.move);
-      this.host.notice(`${rolled.move}`, line(turn.boost === "golden" ? "items.golden-totem.extra" : "items.totem.extra", { player: who.name, roll: extra, count: added, total: rolled.move }), 30);
       await this.host.scope.wait(30);
     }
     if (seat.effects.halved) {

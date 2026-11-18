@@ -134,6 +134,74 @@
                                 }
                               },
                               {
+                                "b_c0de1001": {
+                                  "type": "stack_panel",
+                                  "orientation": "vertical",
+                                  "size": [
+                                    "100%",
+                                    "100%c"
+                                  ],
+                                  "controls": [
+                                    {
+                                      "b_c0de1002": {
+                                        "type": "panel",
+                                        "size": [
+                                          1,
+                                          4
+                                        ],
+                                        "layer": 1
+                                      }
+                                    },
+                                    {
+                                      "b_c0de2001": {
+                                        "type": "stack_panel",
+                                        "orientation": "vertical",
+                                        "size": [
+                                          "100%",
+                                          "100%c"
+                                        ],
+                                        "collection_name": "scoreboard_players",
+                                        "factory": {
+                                          "name": "player_list_factory",
+                                          "control_name": "jui_blockparty_dialogue.b_c0de2001_row"
+                                        },
+                                        "bindings": [
+                                          {
+                                            "binding_name": "#scoreboard_sidebar_size",
+                                            "binding_type": "global",
+                                            "binding_name_override": "#collection_length"
+                                          }
+                                        ],
+                                        "layer": 2
+                                      }
+                                    },
+                                    {
+                                      "b_c0de1003": {
+                                        "type": "panel",
+                                        "size": [
+                                          1,
+                                          12
+                                        ],
+                                        "layer": 15
+                                      }
+                                    }
+                                  ],
+                                  "visible": false,
+                                  "bindings": [
+                                    {
+                                      "binding_name": "#objective_sidebar_name",
+                                      "binding_type": "global"
+                                    },
+                                    {
+                                      "binding_type": "view",
+                                      "source_property_name": "(not ((#objective_sidebar_name - '§k§9') = #objective_sidebar_name))",
+                                      "target_property_name": "#visible"
+                                    }
+                                  ],
+                                  "layer": 4
+                                }
+                              },
+                              {
                                 "b_d1a10021": {
                                   "type": "panel",
                                   "size": [
@@ -152,7 +220,7 @@
                                       "target_property_name": "#visible"
                                     }
                                   ],
-                                  "layer": 4
+                                  "layer": 20
                                 }
                               }
                             ],
@@ -166,7 +234,7 @@
                               6,
                               0
                             ],
-                            "layer": 6
+                            "layer": 22
                           }
                         },
                         {
@@ -220,11 +288,11 @@
                               },
                               {
                                 "binding_type": "view",
-                                "source_property_name": "((#objective_sidebar_name - '§k§2') = #objective_sidebar_name)",
+                                "source_property_name": "(not ((#objective_sidebar_name - '§k§1') = #objective_sidebar_name))",
                                 "target_property_name": "#visible"
                               }
                             ],
-                            "layer": 7
+                            "layer": 23
                           }
                         }
                       ],
@@ -258,7 +326,7 @@
                           "target_property_name": "#visible"
                         }
                       ],
-                      "layer": 23,
+                      "layer": 39,
                       "controls": [
                         {
                           "b_d1a1000c_bg": {
@@ -371,7 +439,7 @@
                               0,
                               0
                             ],
-                            "layer": 54
+                            "layer": 48
                           }
                         }
                       ]
@@ -403,8 +471,8 @@
                         0,
                         -14
                       ],
-                      "visible": "(($actionbar_text - '§k§e') = $actionbar_text)",
-                      "layer": 25
+                      "visible": "(($actionbar_text - '§k§v') = $actionbar_text)",
+                      "layer": 41
                     }
                   },
                   {
@@ -433,8 +501,98 @@
                         0,
                         -14
                       ],
-                      "visible": "(not (($actionbar_text - '§k§e') = $actionbar_text))",
-                      "layer": 50
+                      "visible": "(not (($actionbar_text - '§k§v§0') = $actionbar_text))",
+                      "layer": 48
+                    }
+                  },
+                  {
+                    "b_c0de0110": {
+                      "type": "stack_panel",
+                      "orientation": "vertical",
+                      "size": [
+                        200,
+                        "100%c"
+                      ],
+                      "collection_name": "scoreboard_players",
+                      "factory": {
+                        "name": "player_list_factory",
+                        "control_name": "jui_blockparty_dialogue.b_c0de0110_row"
+                      },
+                      "bindings": [
+                        {
+                          "binding_name": "#scoreboard_sidebar_size",
+                          "binding_type": "global",
+                          "binding_name_override": "#collection_length"
+                        }
+                      ],
+                      "anchor_from": "top_right",
+                      "anchor_to": "top_right",
+                      "offset": [
+                        0,
+                        -14
+                      ],
+                      "visible": "(not (($actionbar_text - '§k§v§1') = $actionbar_text))",
+                      "layer": 55
+                    }
+                  },
+                  {
+                    "b_c0de0210": {
+                      "type": "stack_panel",
+                      "orientation": "vertical",
+                      "size": [
+                        200,
+                        "100%c"
+                      ],
+                      "collection_name": "scoreboard_players",
+                      "factory": {
+                        "name": "player_list_factory",
+                        "control_name": "jui_blockparty_dialogue.b_c0de0210_row"
+                      },
+                      "bindings": [
+                        {
+                          "binding_name": "#scoreboard_sidebar_size",
+                          "binding_type": "global",
+                          "binding_name_override": "#collection_length"
+                        }
+                      ],
+                      "anchor_from": "top_right",
+                      "anchor_to": "top_right",
+                      "offset": [
+                        0,
+                        -14
+                      ],
+                      "visible": "(not (($actionbar_text - '§k§v§2') = $actionbar_text))",
+                      "layer": 62
+                    }
+                  },
+                  {
+                    "b_c0de0310": {
+                      "type": "stack_panel",
+                      "orientation": "vertical",
+                      "size": [
+                        200,
+                        "100%c"
+                      ],
+                      "collection_name": "scoreboard_players",
+                      "factory": {
+                        "name": "player_list_factory",
+                        "control_name": "jui_blockparty_dialogue.b_c0de0310_row"
+                      },
+                      "bindings": [
+                        {
+                          "binding_name": "#scoreboard_sidebar_size",
+                          "binding_type": "global",
+                          "binding_name_override": "#collection_length"
+                        }
+                      ],
+                      "anchor_from": "top_right",
+                      "anchor_to": "top_right",
+                      "offset": [
+                        0,
+                        -14
+                      ],
+                      "visible": "(not (($actionbar_text - '§k§v§3') = $actionbar_text))",
+                      "layer": 69
                     }
                   },
                   {
@@ -459,7 +617,7 @@
                       ],
                       "anchor_from": "bottom_right",
                       "anchor_to": "bottom_right",
-                      "layer": 60
+                      "layer": 76
                     }
                   }
                 ],
@@ -518,6 +676,254 @@
       {
         "binding_type": "view",
         "source_property_name": "(not ((#player_name_sidebar - '§k§1') = #player_name_sidebar))",
+        "target_property_name": "#visible"
+      }
+    ]
+  },
+  "b_c0de2001_row": {
+    "type": "panel",
+    "size": [
+      "100%",
+      13
+    ],
+    "controls": [
+      {
+        "b_c0de2002": {
+          "type": "image",
+          "size": [
+            "100%",
+            12
+          ],
+          "keep_ratio": false,
+          "color": "$v_highlight",
+          "texture": "textures/jsonui/a_60ffd2c283635d98",
+          "anchor_from": "top_left",
+          "anchor_to": "top_left",
+          "visible": false,
+          "bindings": [
+            {
+              "binding_name": "#player_name_sidebar",
+              "binding_type": "collection",
+              "binding_collection_name": "scoreboard_players"
+            },
+            {
+              "binding_type": "view",
+              "source_property_name": "(not ((#player_name_sidebar - '§k§3') = #player_name_sidebar))",
+              "target_property_name": "#visible"
+            }
+          ],
+          "alpha": 0.9,
+          "propagate_alpha": true,
+          "layer": 1
+        }
+      },
+      {
+        "b_c0de2003": {
+          "type": "stack_panel",
+          "orientation": "horizontal",
+          "size": [
+            "100%c",
+            "100%cm"
+          ],
+          "controls": [
+            {
+              "b_c0de2004": {
+                "type": "panel",
+                "size": [
+                  13,
+                  10
+                ],
+                "controls": [
+                  {
+                    "b_c0de2005": {
+                      "type": "image",
+                      "size": [
+                        10,
+                        10
+                      ],
+                      "keep_ratio": true,
+                      "texture": "textures/items/potion_bottle_fireResistance",
+                      "anchor_from": "left_middle",
+                      "anchor_to": "left_middle",
+                      "layer": 1
+                    }
+                  }
+                ],
+                "visible": false,
+                "bindings": [
+                  {
+                    "binding_name": "#player_name_sidebar",
+                    "binding_type": "collection",
+                    "binding_collection_name": "scoreboard_players"
+                  },
+                  {
+                    "binding_type": "view",
+                    "source_property_name": "(not ((#player_name_sidebar - '§p§1') = #player_name_sidebar))",
+                    "target_property_name": "#visible"
+                  }
+                ],
+                "layer": 1
+              }
+            },
+            {
+              "b_c0de2006": {
+                "type": "panel",
+                "size": [
+                  13,
+                  10
+                ],
+                "controls": [
+                  {
+                    "b_c0de2007": {
+                      "type": "image",
+                      "size": [
+                        10,
+                        10
+                      ],
+                      "keep_ratio": true,
+                      "texture": "textures/items/potion_bottle_jump",
+                      "anchor_from": "left_middle",
+                      "anchor_to": "left_middle",
+                      "layer": 1
+                    }
+                  }
+                ],
+                "visible": false,
+                "bindings": [
+                  {
+                    "binding_name": "#player_name_sidebar",
+                    "binding_type": "collection",
+                    "binding_collection_name": "scoreboard_players"
+                  },
+                  {
+                    "binding_type": "view",
+                    "source_property_name": "(not ((#player_name_sidebar - '§p§2') = #player_name_sidebar))",
+                    "target_property_name": "#visible"
+                  }
+                ],
+                "layer": 3
+              }
+            },
+            {
+              "b_c0de2008": {
+                "type": "panel",
+                "size": [
+                  13,
+                  10
+                ],
+                "controls": [
+                  {
+                    "b_c0de2009": {
+                      "type": "image",
+                      "size": [
+                        10,
+                        10
+                      ],
+                      "keep_ratio": true,
+                      "texture": "textures/items/potion_bottle_confusion",
+                      "anchor_from": "left_middle",
+                      "anchor_to": "left_middle",
+                      "layer": 1
+                    }
+                  }
+                ],
+                "visible": false,
+                "bindings": [
+                  {
+                    "binding_name": "#player_name_sidebar",
+                    "binding_type": "collection",
+                    "binding_collection_name": "scoreboard_players"
+                  },
+                  {
+                    "binding_type": "view",
+                    "source_property_name": "(not ((#player_name_sidebar - '§p§3') = #player_name_sidebar))",
+                    "target_property_name": "#visible"
+                  }
+                ],
+                "layer": 5
+              }
+            },
+            {
+              "b_c0de200a": {
+                "type": "panel",
+                "size": [
+                  13,
+                  10
+                ],
+                "controls": [
+                  {
+                    "b_c0de200b": {
+                      "type": "image",
+                      "size": [
+                        10,
+                        10
+                      ],
+                      "keep_ratio": true,
+                      "texture": "textures/items/potion_bottle_slowFall",
+                      "anchor_from": "left_middle",
+                      "anchor_to": "left_middle",
+                      "layer": 1
+                    }
+                  }
+                ],
+                "visible": false,
+                "bindings": [
+                  {
+                    "binding_name": "#player_name_sidebar",
+                    "binding_type": "collection",
+                    "binding_collection_name": "scoreboard_players"
+                  },
+                  {
+                    "binding_type": "view",
+                    "source_property_name": "(not ((#player_name_sidebar - '§p§4') = #player_name_sidebar))",
+                    "target_property_name": "#visible"
+                  }
+                ],
+                "layer": 7
+              }
+            },
+            {
+              "b_c0de200c": {
+                "type": "label",
+                "text": "#player_name_sidebar",
+                "size": [
+                  "default",
+                  "default"
+                ],
+                "color": "$v_text",
+                "bindings": [
+                  {
+                    "binding_name": "#player_name_sidebar",
+                    "binding_type": "collection",
+                    "binding_collection_name": "scoreboard_players"
+                  }
+                ],
+                "shadow": true,
+                "localize": false,
+                "layer": 9
+              }
+            }
+          ],
+          "anchor_from": "left_middle",
+          "anchor_to": "left_middle",
+          "offset": [
+            4,
+            0
+          ],
+          "layer": 2
+        }
+      }
+    ],
+    "visible": false,
+    "bindings": [
+      {
+        "binding_name": "#player_name_sidebar",
+        "binding_type": "collection",
+        "binding_collection_name": "scoreboard_players"
+      },
+      {
+        "binding_type": "view",
+        "source_property_name": "(not ((#player_name_sidebar - '§k§2') = #player_name_sidebar))",
         "target_property_name": "#visible"
       }
     ]
@@ -921,274 +1327,6 @@
                 ],
                 "controls": [
                   {
-                    "b_d1a1001a_slot": {
-                      "type": "panel",
-                      "size": [
-                        "100%cm",
-                        "100%"
-                      ],
-                      "controls": [
-                        {
-                          "b_d1a1001a": {
-                            "type": "label",
-                            "text": "Hold",
-                            "size": [
-                              "default",
-                              "default"
-                            ],
-                            "color": "$v_text",
-                            "shadow": true,
-                            "localize": false,
-                            "anchor_from": "left_middle",
-                            "anchor_to": "left_middle",
-                            "layer": 1
-                          }
-                        }
-                      ],
-                      "layer": 1
-                    }
-                  },
-                  {
-                    "b_d1a1000e_gap1": {
-                      "type": "panel",
-                      "size": [
-                        3,
-                        0
-                      ],
-                      "layer": 3
-                    }
-                  },
-                  {
-                    "b_d1a1001b_slot": {
-                      "type": "panel",
-                      "size": [
-                        "100%cm",
-                        "100%"
-                      ],
-                      "controls": [
-                        {
-                          "b_d1a1001b": {
-                            "type": "image",
-                            "size": [
-                              10,
-                              10
-                            ],
-                            "keep_ratio": true,
-                            "texture": "#controller_face_right_icon",
-                            "bindings": [
-                              {
-                                "binding_name": "#controller_face_right_icon",
-                                "binding_name_override": "#texture"
-                              },
-                              {
-                                "binding_name": "#is_using_gamepad",
-                                "binding_name_override": "#visible"
-                              }
-                            ],
-                            "visible": false,
-                            "anchor_from": "left_middle",
-                            "anchor_to": "left_middle",
-                            "layer": 1
-                          }
-                        }
-                      ],
-                      "layer": 4
-                    }
-                  },
-                  {
-                    "b_d1a1000e_gap2": {
-                      "type": "panel",
-                      "size": [
-                        3,
-                        0
-                      ],
-                      "layer": 6
-                    }
-                  },
-                  {
-                    "b_d1a1001c_slot": {
-                      "type": "panel",
-                      "size": [
-                        "100%cm",
-                        "100%"
-                      ],
-                      "controls": [
-                        {
-                          "b_d1a1001c": {
-                            "type": "image",
-                            "size": [
-                              10,
-                              10
-                            ],
-                            "keep_ratio": true,
-                            "texture": "textures/ui/sneak",
-                            "visible": false,
-                            "bindings": [
-                              {
-                                "binding_name": "#hud_visible_centered_touch",
-                                "binding_name_override": "#visible"
-                              }
-                            ],
-                            "anchor_from": "left_middle",
-                            "anchor_to": "left_middle",
-                            "layer": 1
-                          }
-                        }
-                      ],
-                      "layer": 7
-                    }
-                  },
-                  {
-                    "b_d1a1000e_gap3": {
-                      "type": "panel",
-                      "size": [
-                        3,
-                        0
-                      ],
-                      "layer": 9
-                    }
-                  },
-                  {
-                    "b_d1a1001d_slot": {
-                      "type": "panel",
-                      "size": [
-                        "100%cm",
-                        "100%"
-                      ],
-                      "controls": [
-                        {
-                          "b_d1a1001d": {
-                            "type": "panel",
-                            "size": [
-                              "100%cm",
-                              10
-                            ],
-                            "visible": false,
-                            "bindings": [
-                              {
-                                "binding_name": "#is_using_gamepad"
-                              },
-                              {
-                                "binding_name": "#hud_visible_centered_touch"
-                              },
-                              {
-                                "binding_type": "view",
-                                "source_property_name": "((not #is_using_gamepad) and (not #hud_visible_centered_touch))",
-                                "target_property_name": "#visible"
-                              }
-                            ],
-                            "controls": [
-                              {
-                                "b_d1a1001d_bg": {
-                                  "type": "image",
-                                  "size": [
-                                    "100%sm + 6px",
-                                    "100%"
-                                  ],
-                                  "anchor_from": "top_left",
-                                  "anchor_to": "top_left",
-                                  "layer": 1,
-                                  "texture": "textures/ui/keyboard_tooltip_background",
-                                  "alpha": 1,
-                                  "keep_ratio": false
-                                }
-                              },
-                              {
-                                "b_d1a1001d_in": {
-                                  "type": "panel",
-                                  "size": [
-                                    "100%cm",
-                                    "100% - 0px"
-                                  ],
-                                  "controls": [
-                                    {
-                                      "b_d1a1001e": {
-                                        "type": "label",
-                                        "text": "Shift",
-                                        "size": [
-                                          "default",
-                                          "default"
-                                        ],
-                                        "color": [
-                                          1,
-                                          1,
-                                          1
-                                        ],
-                                        "localize": false,
-                                        "anchor_from": "left_middle",
-                                        "anchor_to": "left_middle",
-                                        "layer": 1
-                                      }
-                                    }
-                                  ],
-                                  "anchor_from": "top_left",
-                                  "anchor_to": "top_left",
-                                  "offset": [
-                                    3,
-                                    0
-                                  ],
-                                  "layer": 8
-                                }
-                              }
-                            ],
-                            "anchor_from": "left_middle",
-                            "anchor_to": "left_middle",
-                            "layer": 1
-                          }
-                        }
-                      ],
-                      "layer": 10
-                    }
-                  },
-                  {
-                    "b_d1a1000e_gap4": {
-                      "type": "panel",
-                      "size": [
-                        3,
-                        0
-                      ],
-                      "layer": 13
-                    }
-                  },
-                  {
-                    "b_d1a1001f_slot": {
-                      "type": "panel",
-                      "size": [
-                        "100%cm",
-                        "100%"
-                      ],
-                      "controls": [
-                        {
-                          "b_d1a1001f": {
-                            "type": "label",
-                            "text": "to skip",
-                            "size": [
-                              "default",
-                              "default"
-                            ],
-                            "color": "$v_text",
-                            "shadow": true,
-                            "localize": false,
-                            "anchor_from": "left_middle",
-                            "anchor_to": "left_middle",
-                            "layer": 1
-                          }
-                        }
-                      ],
-                      "layer": 14
-                    }
-                  },
-                  {
-                    "b_d1a1000e_gap5": {
-                      "type": "panel",
-                      "size": [
-                        3,
-                        0
-                      ],
-                      "layer": 16
-                    }
-                  },
-                  {
                     "b_d1a1000d_slot": {
                       "type": "panel",
                       "size": [
@@ -1220,7 +1358,7 @@
                           }
                         }
                       ],
-                      "layer": 17
+                      "layer": 1
                     }
                   }
                 ],
@@ -1308,7 +1446,7 @@
                         {
                           "b_d1a10032": {
                             "type": "label",
-                            "text": "Skipping",
+                            "text": "Skipping§8...",
                             "size": [
                               "default",
                               "default"
@@ -1324,19 +1462,83 @@
                       ],
                       "layer": 1
                     }
-                  },
+                  }
+                ],
+                "anchor_from": "top_left",
+                "anchor_to": "top_left",
+                "offset": [
+                  4,
+                  0
+                ],
+                "layer": 2
+              }
+            }
+          ],
+          "layer": 1
+        }
+      }
+    ],
+    "visible": false,
+    "bindings": [
+      {
+        "binding_name": "#player_name_sidebar",
+        "binding_type": "collection",
+        "binding_collection_name": "scoreboard_players"
+      },
+      {
+        "binding_type": "view",
+        "source_property_name": "(not ((#player_name_sidebar - '§k§4') = #player_name_sidebar))",
+        "target_property_name": "#visible"
+      }
+    ]
+  },
+  "b_c0de0110_row": {
+    "type": "panel",
+    "size": [
+      "100%",
+      11
+    ],
+    "controls": [
+      {
+        "b_c0de0120": {
+          "type": "panel",
+          "size": [
+            "100%cm",
+            11
+          ],
+          "anchor_from": "top_right",
+          "anchor_to": "top_right",
+          "offset": [
+            8,
+            -13
+          ],
+          "controls": [
+            {
+              "b_c0de0120_bg": {
+                "type": "image",
+                "size": [
+                  "100%sm + 8px",
+                  "100%"
+                ],
+                "anchor_from": "top_left",
+                "anchor_to": "top_left",
+                "layer": 1,
+                "texture": "textures/ui/White",
+                "color": "$v_skip",
+                "alpha": 0.9
+              }
+            },
+            {
+              "b_c0de0120_in": {
+                "type": "stack_panel",
+                "orientation": "horizontal",
+                "size": [
+                  "100%c",
+                  "100% - 0px"
+                ],
+                "controls": [
                   {
-                    "b_d1a10031_gap1": {
-                      "type": "panel",
-                      "size": [
-                        3,
-                        0
-                      ],
-                      "layer": 3
-                    }
-                  },
-                  {
-                    "b_d1a10033_slot": {
+                    "b_c0de0130_slot": {
                       "type": "panel",
                       "size": [
                         "100%cm",
@@ -1344,21 +1546,14 @@
                       ],
                       "controls": [
                         {
-                          "b_d1a10033": {
+                          "b_c0de0130": {
                             "type": "label",
-                            "text": "#player_name_sidebar",
+                            "text": "Skipping§f.§8..",
                             "size": [
                               "default",
                               "default"
                             ],
                             "color": "$v_text",
-                            "bindings": [
-                              {
-                                "binding_name": "#player_name_sidebar",
-                                "binding_type": "collection",
-                                "binding_collection_name": "scoreboard_players"
-                              }
-                            ],
                             "shadow": true,
                             "localize": false,
                             "anchor_from": "left_middle",
@@ -1367,7 +1562,211 @@
                           }
                         }
                       ],
-                      "layer": 4
+                      "layer": 1
+                    }
+                  }
+                ],
+                "anchor_from": "top_left",
+                "anchor_to": "top_left",
+                "offset": [
+                  4,
+                  0
+                ],
+                "layer": 2
+              }
+            }
+          ],
+          "layer": 1
+        }
+      }
+    ],
+    "visible": false,
+    "bindings": [
+      {
+        "binding_name": "#player_name_sidebar",
+        "binding_type": "collection",
+        "binding_collection_name": "scoreboard_players"
+      },
+      {
+        "binding_type": "view",
+        "source_property_name": "(not ((#player_name_sidebar - '§k§4') = #player_name_sidebar))",
+        "target_property_name": "#visible"
+      }
+    ]
+  },
+  "b_c0de0210_row": {
+    "type": "panel",
+    "size": [
+      "100%",
+      11
+    ],
+    "controls": [
+      {
+        "b_c0de0220": {
+          "type": "panel",
+          "size": [
+            "100%cm",
+            11
+          ],
+          "anchor_from": "top_right",
+          "anchor_to": "top_right",
+          "offset": [
+            8,
+            -13
+          ],
+          "controls": [
+            {
+              "b_c0de0220_bg": {
+                "type": "image",
+                "size": [
+                  "100%sm + 8px",
+                  "100%"
+                ],
+                "anchor_from": "top_left",
+                "anchor_to": "top_left",
+                "layer": 1,
+                "texture": "textures/ui/White",
+                "color": "$v_skip",
+                "alpha": 0.9
+              }
+            },
+            {
+              "b_c0de0220_in": {
+                "type": "stack_panel",
+                "orientation": "horizontal",
+                "size": [
+                  "100%c",
+                  "100% - 0px"
+                ],
+                "controls": [
+                  {
+                    "b_c0de0230_slot": {
+                      "type": "panel",
+                      "size": [
+                        "100%cm",
+                        "100%"
+                      ],
+                      "controls": [
+                        {
+                          "b_c0de0230": {
+                            "type": "label",
+                            "text": "Skipping§f..§8.",
+                            "size": [
+                              "default",
+                              "default"
+                            ],
+                            "color": "$v_text",
+                            "shadow": true,
+                            "localize": false,
+                            "anchor_from": "left_middle",
+                            "anchor_to": "left_middle",
+                            "layer": 1
+                          }
+                        }
+                      ],
+                      "layer": 1
+                    }
+                  }
+                ],
+                "anchor_from": "top_left",
+                "anchor_to": "top_left",
+                "offset": [
+                  4,
+                  0
+                ],
+                "layer": 2
+              }
+            }
+          ],
+          "layer": 1
+        }
+      }
+    ],
+    "visible": false,
+    "bindings": [
+      {
+        "binding_name": "#player_name_sidebar",
+        "binding_type": "collection",
+        "binding_collection_name": "scoreboard_players"
+      },
+      {
+        "binding_type": "view",
+        "source_property_name": "(not ((#player_name_sidebar - '§k§4') = #player_name_sidebar))",
+        "target_property_name": "#visible"
+      }
+    ]
+  },
+  "b_c0de0310_row": {
+    "type": "panel",
+    "size": [
+      "100%",
+      11
+    ],
+    "controls": [
+      {
+        "b_c0de0320": {
+          "type": "panel",
+          "size": [
+            "100%cm",
+            11
+          ],
+          "anchor_from": "top_right",
+          "anchor_to": "top_right",
+          "offset": [
+            8,
+            -13
+          ],
+          "controls": [
+            {
+              "b_c0de0320_bg": {
+                "type": "image",
+                "size": [
+                  "100%sm + 8px",
+                  "100%"
+                ],
+                "anchor_from": "top_left",
+                "anchor_to": "top_left",
+                "layer": 1,
+                "texture": "textures/ui/White",
+                "color": "$v_skip",
+                "alpha": 0.9
+              }
+            },
+            {
+              "b_c0de0320_in": {
+                "type": "stack_panel",
+                "orientation": "horizontal",
+                "size": [
+                  "100%c",
+                  "100% - 0px"
+                ],
+                "controls": [
+                  {
+                    "b_c0de0330_slot": {
+                      "type": "panel",
+                      "size": [
+                        "100%cm",
+                        "100%"
+                      ],
+                      "controls": [
+                        {
+                          "b_c0de0330": {
+                            "type": "label",
+                            "text": "Skipping§f...",
+                            "size": [
+                              "default",
+                              "default"
+                            ],
+                            "color": "$v_text",
+                            "shadow": true,
+                            "localize": false,
+                            "anchor_from": "left_middle",
+                            "anchor_to": "left_middle",
+                            "layer": 1
+                          }
+                        }
+                      ],
+                      "layer": 1
                     }
                   }
                 ],
@@ -1461,96 +1860,6 @@
               }
             },
             {
-              "b_d1a10011_slot": {
-                "type": "panel",
-                "size": [
-                  "100%cm",
-                  "100%"
-                ],
-                "controls": [
-                  {
-                    "b_d1a10011": {
-                      "type": "image",
-                      "size": [
-                        10,
-                        10
-                      ],
-                      "keep_ratio": true,
-                      "texture": "#controller_face_down_icon",
-                      "bindings": [
-                        {
-                          "binding_name": "#controller_face_down_icon",
-                          "binding_name_override": "#texture"
-                        },
-                        {
-                          "binding_name": "#is_using_gamepad",
-                          "binding_name_override": "#visible"
-                        }
-                      ],
-                      "visible": false,
-                      "anchor_from": "left_middle",
-                      "anchor_to": "left_middle",
-                      "layer": 1
-                    }
-                  }
-                ],
-                "layer": 4
-              }
-            },
-            {
-              "b_d1a10015_gap2": {
-                "type": "panel",
-                "size": [
-                  3,
-                  0
-                ],
-                "layer": 6
-              }
-            },
-            {
-              "b_d1a10012_slot": {
-                "type": "panel",
-                "size": [
-                  "100%cm",
-                  "100%"
-                ],
-                "controls": [
-                  {
-                    "b_d1a10012": {
-                      "type": "image",
-                      "size": [
-                        10,
-                        10
-                      ],
-                      "keep_ratio": true,
-                      "texture": "textures/ui/jump",
-                      "visible": false,
-                      "bindings": [
-                        {
-                          "binding_name": "#hud_visible_centered_touch",
-                          "binding_name_override": "#visible"
-                        }
-                      ],
-                      "anchor_from": "left_middle",
-                      "anchor_to": "left_middle",
-                      "layer": 1
-                    }
-                  }
-                ],
-                "layer": 7
-              }
-            },
-            {
-              "b_d1a10015_gap3": {
-                "type": "panel",
-                "size": [
-                  3,
-                  0
-                ],
-                "layer": 9
-              }
-            },
-            {
               "b_d1a10014_slot": {
                 "type": "panel",
                 "size": [
@@ -1564,20 +1873,6 @@
                       "size": [
                         "100%cm",
                         10
-                      ],
-                      "visible": false,
-                      "bindings": [
-                        {
-                          "binding_name": "#is_using_gamepad"
-                        },
-                        {
-                          "binding_name": "#hud_visible_centered_touch"
-                        },
-                        {
-                          "binding_type": "view",
-                          "source_property_name": "((not #is_using_gamepad) and (not #hud_visible_centered_touch))",
-                          "target_property_name": "#visible"
-                        }
                       ],
                       "controls": [
                         {
@@ -1606,7 +1901,7 @@
                               {
                                 "b_d1a10013": {
                                   "type": "label",
-                                  "text": "Space",
+                                  "text": "Punch",
                                   "size": [
                                     "default",
                                     "default"
@@ -1639,7 +1934,7 @@
                     }
                   }
                 ],
-                "layer": 10
+                "layer": 4
               }
             }
           ],

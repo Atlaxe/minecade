@@ -260,16 +260,17 @@ describe("Block Party's Item spaces, Shop and Trader", () => {
     expect(g.seats.get("alex")!.hands.items).toEqual(["villager", "glove", "lightning"]);
   });
 
-  it("sells the round's stock, buys back at half, and won't sell what they can't afford", async () => {
+  it("sells the round's stock, buys back at half, once each a visit, and won't sell what they can't afford", async () => {
     const f = fake();
     const seat = f.seats.get("alex")!;
     seat.coins = 30;
     await f.spaces.roundStart();
     f.said.length = 0;
-    // Buy, the first in stock; Sell something, the first held; Leave.
-    f.answers.push(0, 0, 1, 0, 2);
+    // Buy, the first in stock; then Sell (Buy is gone: the first button), the first held. Bought and sold, the visit is over.
+    f.answers.push(0, 0, 0, 0);
     await f.spaces.shop(f.who.alex);
-    expect(f.said).toEqual(["shop.welcome", "shop.stock", "shop.bought", "shop.more", "shop.sell", "shop.sold", "shop.more", "shop.bye"]);
+    expect(f.said).toEqual(["shop.welcome", "shop.stock", "shop.bought", "shop.more", "shop.sell", "shop.sold", "shop.bye"]);
+    expect(f.answers).toEqual([]);
     expect(seat.hands.items.length + seat.hands.dice.length).toBe(0);
     expect(seat.coins).toBeLessThan(30);
     const g = fake();

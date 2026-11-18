@@ -1,17 +1,17 @@
 // The dialogue box (dialogue-codes.ts, dialogue.ts): what goes on the sidebar, one card (a whole
 // line) at a time with its speaker's color and face, going on at the party leader's jump (or the
 // jump of the player whose turn brought the line), a question's buttons steered by the one it's
-// asked of, skip votes by holding sneak counted as "1/2",
-// and skipped cutscenes; and the pack's JSON UI reading the same codes.
+// asked of, skip votes by holding use (the strip's words as the votes come in), a wide box for long
+// button labels, and skipped cutscenes; and the pack's JSON UI reading the same codes.
 import { readFileSync } from "node:fs";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { GAME_SIDEBAR_MARK, Scope } from "@minecade/minigame-core";
 import { system, world, type FakePlayer } from "../../../packages/minigame-core/test/fake-mc-server.ts";
 import { flushPromises } from "../../../packages/minigame-core/test/util.ts";
 import { whoOf, type Who } from "../behavior_pack/scripts/bots.ts";
-import { SKIPPING_CODE } from "../behavior_pack/scripts/bar-codes.ts";
+import { HOLDING_CODE, holdingCode } from "../behavior_pack/scripts/bar-codes.ts";
 import { RIGHT_X } from "../behavior_pack/scripts/board-view.ts";
-import { BOX_EVERYONE, BOX_MARK, BOX_ONE, BUTTON_ICONS, FACE_AT, FORK_MARK, FORK_WAYS, NAMED, ROW, SELECTED, WIDE_FACE_WORD, Steering, STEER_HOLD, STEER_REPEAT, boxRows, boxTitle, forkTitle, readTicks, rowsOf, safe, sentences, visible } from "../behavior_pack/scripts/dialogue-codes.ts";
+import { BOX_EVERYONE, BOX_MARK, BOX_ONE, BOX_WIDE, BUTTON_ICONS, FACE_AT, FORK_MARK, FORK_WAYS, NAMED, ROW, SELECTED, SKIP_WORDS, WIDE_FACE_WORD, WIDE_LABEL, Steering, STEER_HOLD, STEER_REPEAT, boxRows, boxTitle, forkTitle, readTicks, rowsOf, safe, sentences, skipText, visible, wideButtons } from "../behavior_pack/scripts/dialogue-codes.ts";
 import { Dialogue } from "../behavior_pack/scripts/dialogue.ts";
 import { GameSidebar } from "../behavior_pack/scripts/sidebar-rows.ts";
 import { line, look, moment } from "../behavior_pack/scripts/lines.ts";
@@ -148,6 +148,8 @@ describe("the dialogue box", () => {
   let dialogue: Dialogue;
   /** How often the box has gone from the sidebar. */
   let closed: number;
+  /** Who holds use down now (the host's holdingUse). */
+  const using = new Set<string>();
   let alex: FakePlayer;
   let sam: FakePlayer;
   /** The party leader's name (Alex, unless a test says otherwise). */
@@ -169,7 +171,9 @@ describe("the dialogue box", () => {
         sidebar.set("dialogue", box);
       },
       leader: () => world.getAllPlayers().find((player) => player.name === leaderName) as never,
+      holdingUse: (player) => using.has(player.name),
     });
+    using.clear();
     alex = world.join("Alex");
     sam = world.join("Sam");
   });
@@ -382,47 +386,59 @@ describe("the dialogue box", () => {
     expect(await until(done, 5)).toBe(0);
   });
 
-  it("counts skip votes from holding sneak 4 seconds as a fraction of the players, with no names", async () => {
+  it("counts skip votes from holding use 4 seconds, its words changing as they come in", async () => {
     const done = dialogue.say("announce.final", {}, true);
     await ticks(2);
-    expect(rowsOfKind(ROW.skip)).toEqual(["0/2"]);
-    alex.isSneaking = true;
+    expect(rowsOfKind(ROW.skip)).toEqual([SKIP_WORDS.hold]);
+    using.add("Alex");
     await ticks(40);
-    // Holding isn't a vote yet, and shows nothing.
-    expect(rowsOfKind(ROW.skip)).toEqual(["0/2"]);
+    // Holding isn't a vote yet: everyone's strip is as it was.
+    expect(rowsOfKind(ROW.skip)).toEqual([SKIP_WORDS.hold]);
     // Letting go starts again.
-    alex.isSneaking = false;
+    using.delete("Alex");
     await ticks(1);
-    alex.isSneaking = true;
+    using.add("Alex");
     await ticks(80);
-    alex.isSneaking = false;
-    expect(rowsOfKind(ROW.skip)).toEqual(["1/2"]);
+    using.delete("Alex");
+    // One of two has voted: waiting for the other, by name.
+    expect(rowsOfKind(ROW.skip)).toEqual([SKIP_WORDS.waitingFor("Sam")]);
     await ticks(2);
-    sam.isSneaking = true;
+    using.add("Sam");
     await until(done, 85);
   });
 
-  it("knows whose own strip says Skipping: a player holding sneak toward a vote, or who has voted", async () => {
+  it("says Hold, Waiting to skip, Waiting for the last one, and Skipping, for the players here", () => {
+    const three = ["Alex", "Sam", "Kai"];
+    expect(skipText([], three)).toBe("Hold use to skip");
+    expect(skipText(["Alex"], three)).toBe("Waiting to skip 1 / 3");
+    expect(skipText(["Alex", "Kai"], three)).toBe("Waiting for Sam to skip");
+    expect(skipText(three, three)).toBe("Skipping");
+    // A vote from someone who left doesn't count.
+    expect(skipText(["Gone"], three)).toBe("Hold use to skip");
+    expect(skipText(["Alex"], ["Alex"])).toBe("Skipping");
+  });
+
+  it("shows a player holding use their own Skipping, its dots lit as they hold, until their vote is in", async () => {
     const done = dialogue.say("announce.final", {}, true);
     await ticks(2);
-    expect(dialogue.skippingBy("Alex")).toBe(false);
-    alex.isSneaking = true;
+    expect(dialogue.holdStep("Alex")).toBeUndefined();
+    using.add("Alex");
     await ticks(2);
-    expect(dialogue.skippingBy("Alex")).toBe(true);
-    expect(dialogue.skippingBy("Sam")).toBe(false);
-    await ticks(80);
-    alex.isSneaking = false;
-    await ticks(1);
-    // Voted: still skipping, though they've let go.
-    expect(dialogue.skippingBy("Alex")).toBe(true);
-    sam.isSneaking = true;
+    expect(dialogue.holdStep("Alex")).toBe(0);
+    expect(dialogue.holdStep("Sam")).toBeUndefined();
+    await ticks(40);
+    expect(dialogue.holdStep("Alex")).toBe(2);
+    expect(holdingCode(2)).toBe(`${HOLDING_CODE}§2`);
+    expect(holdingCode(undefined)).toBe("");
+    await ticks(40);
+    // Voted: the strip says what everyone's says again.
+    expect(dialogue.holdStep("Alex")).toBeUndefined();
+    using.delete("Alex");
+    using.add("Sam");
     await until(done, 85);
-    sam.isSneaking = false;
-    await ticks(5);
-    expect(dialogue.skippingBy("Alex")).toBe(false);
   });
 
-  it("skips the rest of a cutscene once everyone has held sneak", async () => {
+  it("skips the rest of a cutscene once everyone has held use", async () => {
     let after = false;
     const scene = dialogue.cutscene(true, async () => {
       await dialogue.say("pregame.welcome");
@@ -431,24 +447,11 @@ describe("the dialogue box", () => {
       after = true;
     });
     await ticks(3);
-    alex.isSneaking = true;
-    sam.isSneaking = true;
+    using.add("Alex");
+    using.add("Sam");
     await until(scene, 90);
     expect(after).toBe(true);
     expect(dialogue.skipping).toBe(false);
-  });
-
-  it("counts the sneak button held down even when the player isn't sneaking (held on the board)", async () => {
-    const done = dialogue.say("announce.final", {}, true);
-    await ticks(2);
-    alex.buttonsHeld.add("Sneak");
-    await ticks(81);
-    alex.buttonsHeld.delete("Sneak");
-    expect(alex.isSneaking).toBe(false);
-    expect(rowsOfKind(ROW.skip)).toEqual(["1/2"]);
-    sam.buttonsHeld.add("Sneak");
-    await until(done, 85);
-    sam.buttonsHeld.delete("Sneak");
   });
 
   it("drops a question that's up once its cutscene is skipped", async () => {
@@ -458,11 +461,9 @@ describe("the dialogue box", () => {
       asked = await dialogue.talk("pregame.rules", { player: "Sam" }, { to: who, buttons: ["Yes", "No"], back: 1 });
     });
     await ticks(3);
-    alex.buttonsHeld.add("Sneak");
-    sam.buttonsHeld.add("Sneak");
+    using.add("Alex");
+    using.add("Sam");
     await until(scene, 90);
-    alex.buttonsHeld.delete("Sneak");
-    sam.buttonsHeld.delete("Sneak");
     expect(asked).toBeUndefined();
   });
 
@@ -474,10 +475,24 @@ describe("the dialogue box", () => {
       asked = await dialogue.talk("pregame.rules", { player: "Alex" }, { to: who, buttons: ["Yes", "No"], back: 1 });
     });
     await ticks(3);
-    alex.isSneaking = true;
-    sam.isSneaking = true;
+    using.add("Alex");
+    using.add("Sam");
     await until(scene, 90);
     expect(asked).toBeUndefined();
+  });
+
+  it("asks a question with long button labels in the wide box, the buttons under the words", async () => {
+    const who: Who = whoOf(alex as never);
+    void dialogue.talk("pregame.rules", { player: "Alex" }, { to: who, buttons: ["Yes", "No"], back: 1 });
+    await ticks(2);
+    expect(shown()?.title).toContain(BOX_ONE);
+    dialogue.close();
+    void dialogue.talk("pregame.rules", { player: "Alex" }, { to: who, buttons: ["Buy the Golden Totem for 15 coins", "Back"], back: 1 });
+    await ticks(2);
+    expect(shown()?.title).toContain(BOX_WIDE);
+    expect(shown()?.title).not.toContain(BOX_ONE);
+    expect(wideButtons(["§lShort one"])).toBe(false);
+    expect(wideButtons([`${"x".repeat(WIDE_LABEL + 1)}`])).toBe(true);
   });
 
   it("shows nothing for a line the user hasn't written", async () => {
@@ -501,9 +516,13 @@ describe("the pack's dialogue box", () => {
     for (const code of Object.values(BUTTON_ICONS)) expect(ui).toContain(`'${code}'`);
     // A wide face's own slot, shown by its row's word.
     expect(ui).toContain(`'${[...WIDE_FACE_WORD].map((ch) => `§${ch}`).join("")}'`);
-    // "Skipping" in place of "Hold [sneak] to skip" for a player whose action bar line asks for it.
-    expect(ui).toContain(`'${SKIPPING_CODE}'`);
+    // "Skipping..." in place of everyone's words for a player holding use, a strip for each step of the hold.
+    for (let step = 0; step < 4; step++) expect(ui).toContain(`'${holdingCode(step)}'`);
+    expect(ui).toContain(`'${HOLDING_CODE}'`);
     expect(ui).toContain("$actionbar_text");
+    // The wide box for long button labels, and the prompt is a punch now.
+    expect(ui).toContain(`'${BOX_WIDE}'`);
+    expect(ui).toContain('"Punch"');
   });
 
   it("has the fork box, reading the codes the game writes", () => {

@@ -8,7 +8,9 @@
 //     Ten font, raised off the face in the die's ink color, or the face's picture raised the same way.
 //     tools/blockparty/dice-pack.ts makes the model's files from this file (test/dice.test.ts says
 //     when it has to run again);
-//   - ink: the color of the numbers on its faces ("#rrggbb"; a face can have its own);
+//   - ink: the color of the numbers on its faces ("#rrggbb"; a face can have its own), or
+//     number: { ink, shadow }, the same two in the look the file's top-level "number" has (the user
+//     writes the dice that way; "ink" and "shadow" win if both are there);
 //   - shadow: a shadow under the numbers on its faces, as Minecraft draws one under text: true for
 //     Minecraft's own (the ink at a quarter of its brightness), a color, or false (none, the
 //     default); a face can have its own. It sits a pixel right of and below the number, lower;
@@ -195,10 +197,13 @@ function readDie(id: string, entry: unknown, problem: (text: string) => void): D
   const block = text("block");
   const texture = die.texture === undefined || die.texture === "" ? undefined : text("texture");
   if (texture !== undefined && (!texture.startsWith("textures/") || texture.endsWith(".png"))) problem('"texture" is a path in the pack, like "textures/blockparty/dice/golden" (no .png)');
-  const ink = die.ink ?? DEFAULT_INK;
+  // "number": { ink, shadow } says the same as "ink" and "shadow" (the look the file's top-level number has).
+  const number = die.number === undefined ? undefined : die.number && typeof die.number === "object" && !Array.isArray(die.number) ? (die.number as Record<string, unknown>) : undefined;
+  if (die.number !== undefined && !number) problem('"number" is an object: { "ink": "#1e1e1e", "shadow": true }');
+  const ink = die.ink ?? number?.ink ?? DEFAULT_INK;
   if (typeof ink !== "string" || !INK.test(ink)) problem('"ink" is a color like "#1e1e1e"');
   const dieInk = typeof ink === "string" && INK.test(ink) ? ink.toLowerCase() : DEFAULT_INK;
-  const shadow = readShadow(die.shadow, problem);
+  const shadow = readShadow(die.shadow ?? number?.shadow, problem);
   const panel = die.panel ?? "faces";
   if (!PANEL_SHOWS.includes(panel as PanelShows)) problem(`"panel" must be ${PANEL_SHOWS.map((show) => `"${show}"`).join(", ")}`);
   const description = text("description", "");

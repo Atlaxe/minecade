@@ -68,7 +68,7 @@ export const NUMBER_ALPHA = 1;
 /** The body for no die in particular (property 0). */
 export const BLANK_DIE = "textures/blocks/concrete_white";
 /** Bumped when the way the faces are made changes, so the tests ask for a new run. */
-const MAKER = 3;
+const MAKER = 4;
 
 /** The body's geometries: one square on every face, or six. */
 export const BODY_GEOMETRY = { plain: "geometry.blockparty.die_plain", six: "geometry.blockparty.die" } as const;
@@ -211,7 +211,7 @@ export const SIDES: readonly { name: string; out: Vector; up: Vector }[] = [
   { name: "south", out: [0, 0, 1], up: [0, 1, 0] },
   { name: "down", out: [0, -1, 0], up: [0, 0, 1] },
 ];
-const SOUTH = 4;
+const NORTH = 1;
 const FACE_NAMES: Record<string, string> = { "1,0,0": "east", "-1,0,0": "west", "0,1,0": "up", "0,-1,0": "down", "0,0,-1": "north", "0,0,1": "south" };
 
 /**
@@ -340,10 +340,15 @@ export const TALLY_GEOMETRY = { gain: "geometry.blockparty.tally_gain", loss: "g
 export const TALLY_CONTROLLER = "controller.render.blockparty.tally";
 /** The sign before a transfer's count, in each tone. */
 export const TALLY_SIGN = { gain: "+", loss: "-" } as const;
-/** The number's pixel (model units: a digit is 7 of them across, 10 high), its depth, and its shadow's behind it. */
+/**
+ * The number's pixel (model units: a digit is 7 of them across, 10 high), its depth, and its
+ * shadow's behind it, as parts of a pixel. A transfer's count is half the size of the moves left (the
+ * user, 2026-11-18).
+ */
 const COUNT_PIXEL = 1.25;
-const COUNT_DEPTH = 1;
-const COUNT_SHADOW_DEPTH = 0.5;
+const TALLY_PIXEL = COUNT_PIXEL / 2;
+const DEPTH = 0.8;
+const SHADOW_DEPTH = 0.4;
 /** The number's middle over the entity (model units), which it turns about to face the camera. */
 const COUNT_MIDDLE = 8;
 /** The pixels between a sign and its number, and between two digits, as Minecraft Ten sets them. */
@@ -362,14 +367,16 @@ const TENS = [1, 2, 3, 4, 5, 6, 7, 8, 9];
 const DIGITS = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
 
 /**
- * A number's bones: every digit in `look`'s ink, facing south (the side a camera-facing bone shows),
- * and its shadow behind it. With no sign (the moves left) a digit alone is centered, and a
+ * A number's bones: every digit in `look`'s ink, `pixel` units a pixel, on the model's north side,
+ * the right way round from there, and its shadow behind it. Minecraft's billboard (the count bone,
+ * animation.blockparty.count_face) turns the model's north side to the camera: drawn on the south
+ * side, the numbers read mirrored, their backs to the player (seen 2026-11-18). With no sign (the moves left) a digit alone is centered, and a
  * two-digit number's tens end half a pixel left of the middle and its ones start half a pixel right
  * of it, a pixel apart as the font sets them. With a sign (a transfer's count) the sign comes first,
  * then each digit centered in a cell as wide as the font's widest digit, a pixel between each, the
  * whole centered.
  */
-function numberBones(look: NumberLook, font: TenFont, uvOf: (color: string) => [number, number], sign?: string): object[] {
+function numberBones(look: NumberLook, font: TenFont, uvOf: (color: string) => [number, number], pixel: number, sign?: string): object[] {
   const bones: object[] = [
     { name: UPRIGHT_BONE, pivot: [0, COUNT_MIDDLE, 0] },
     { name: COUNT_ROOT, parent: UPRIGHT_BONE, pivot: [0, COUNT_MIDDLE, 0] },
@@ -379,10 +386,10 @@ function numberBones(look: NumberLook, font: TenFont, uvOf: (color: string) => [
   const bone = (name: string, text: TextPixels, left: (width: number) => number) => {
     const drawn = inkPixels(text, look.ink, look.shadow);
     // In pixels: how far right the grid's middle goes (the text is its first columns), and down by half the shadow's lift, so the text (not its shadow) is where it's meant to be.
-    const shift: [number, number] = [(left(text.width) + drawn.pixels.width / 2) * COUNT_PIXEL, (-lift / 2) * COUNT_PIXEL];
+    const shift: [number, number] = [(left(text.width) + drawn.pixels.width / 2) * pixel, (-lift / 2) * pixel];
     const cubes = [
-      ...faceCubes(drawn.pixels, SOUTH, COUNT_PIXEL, uvOf, { half: 0, relief: COUNT_DEPTH, middle: COUNT_MIDDLE, shift }),
-      ...(drawn.shadow ? faceCubes(drawn.shadow, SOUTH, COUNT_PIXEL, uvOf, { half: -COUNT_SHADOW_DEPTH, relief: COUNT_SHADOW_DEPTH, middle: COUNT_MIDDLE, shift }) : []),
+      ...faceCubes(drawn.pixels, NORTH, pixel, uvOf, { half: 0, relief: DEPTH * pixel, middle: COUNT_MIDDLE, shift }),
+      ...(drawn.shadow ? faceCubes(drawn.shadow, NORTH, pixel, uvOf, { half: -SHADOW_DEPTH * pixel, relief: SHADOW_DEPTH * pixel, middle: COUNT_MIDDLE, shift }) : []),
     ];
     bones.push({ name, parent: COUNT_ROOT, pivot: [0, COUNT_MIDDLE, 0], ...(cubes.length ? { cubes } : {}) });
   };
@@ -519,9 +526,9 @@ export function buildFaces(plan: ModelPlan, font: TenFont, pack: string = PACK):
     return { id: facesGeometry(die.id), cubes };
   });
   const numbers = paletteOf(NUMBER_ALPHA);
-  const countBones = numberBones(plan.number, font, numbers.uvOf);
-  const gainBones = numberBones(plan.gain, font, numbers.uvOf, TALLY_SIGN.gain);
-  const lossBones = numberBones(plan.loss, font, numbers.uvOf, TALLY_SIGN.loss);
+  const countBones = numberBones(plan.number, font, numbers.uvOf, COUNT_PIXEL);
+  const gainBones = numberBones(plan.gain, font, numbers.uvOf, TALLY_PIXEL, TALLY_SIGN.gain);
+  const lossBones = numberBones(plan.loss, font, numbers.uvOf, TALLY_PIXEL, TALLY_SIGN.loss);
   const description = (identifier: string, size: number, rows: number) => ({
     identifier,
     texture_width: PALETTE_WIDTH,

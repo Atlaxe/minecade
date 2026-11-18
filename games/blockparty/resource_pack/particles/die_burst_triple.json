@@ -5,7 +5,7 @@
       "identifier": "blockparty:die_burst_triple",
       "basic_render_parameters": {
         "material": "particles_alpha",
-        "texture": "textures/blocks/iron_block"
+        "texture": "textures/blockparty/dice/triple"
       }
     },
     "components": {

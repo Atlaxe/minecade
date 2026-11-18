@@ -3,13 +3,19 @@
 // model walks behind its target's piece, at a walk when it's near, and turns up beside them at once
 // when they've gone far (a swap, back from a minigame). It fades with its target on others' turns
 // (fade.ts, follow). How many rounds it stays and the coins it takes are the board loop's
-// (seats.ts, item-play.ts); this only keeps the body.
+// (seats.ts, item-play.ts); this only keeps the body. It comes and goes in the Witch's puff of smoke
+// (the user, 2026-11-18), with the sounds of the dialogue tool's events npc.zombie.appear and
+// npc.zombie.vanish.
 import type { Dimension, Entity, Vector3 } from "@minecraft/server";
 import { describeError, log, type Scope } from "@minecade/minigame-core";
 import { BOT_WALK, stepToward } from "./bots.ts";
 import type { TurnFade } from "./fade.ts";
+import { eventCue, playCue } from "./sounds.ts";
 
 export const ZOMBIE_ENTITY = "blockparty:zombie";
+/** The puff a zombie comes and goes in (the Witch's: stage.ts), at its feet, middle and head. */
+const PUFF = "blockparty:smoke_puff";
+const PUFF_HEIGHTS = [0.2, 0.9, 1.6];
 /** How far behind its target a zombie stands, and how far off it may get before it turns up beside them. */
 const BEHIND = 1.6;
 const FAR = 7;
@@ -31,8 +37,9 @@ export class Zombies {
   constructor(deps: ZombiesDeps) {
     this.deps = deps;
     deps.scope.interval(() => this.tick(), 1);
+    // The game's end takes them away quietly.
     deps.scope.add(() => {
-      for (const key of [...this.following.keys()]) this.remove(key);
+      for (const key of [...this.following.keys()]) this.remove(key, false);
     });
   }
 
@@ -53,7 +60,9 @@ export class Zombies {
     const body = this.deps.bodyOf(key);
     if (!body?.isValid) return undefined;
     try {
-      const entity = this.deps.dimension.spawnEntity(ZOMBIE_ENTITY, this.behind(body));
+      const spot = this.behind(body);
+      this.puff(spot, "appear");
+      const entity = this.deps.dimension.spawnEntity(ZOMBIE_ENTITY, spot);
       this.following.set(key, entity);
       this.deps.fade.follow(entity, key);
       return entity;
@@ -63,16 +72,31 @@ export class Zombies {
     }
   }
 
-  /** The zombie on `key` goes. */
-  remove(key: string): void {
+  /** The zombie on `key` goes, in a puff of smoke unless `puff` is false. */
+  remove(key: string, puff = true): void {
     const entity = this.following.get(key);
     this.following.delete(key);
     if (!entity) return;
     try {
       this.deps.fade.unfollow(entity);
-      if (entity.isValid) entity.remove();
+      if (entity.isValid) {
+        if (puff) this.puff(entity.location, "vanish");
+        entity.remove();
+      }
     } catch {
       // gone
+    }
+  }
+
+  /** The Witch's puff of smoke where a zombie comes or goes, and its sound. */
+  private puff(at: Vector3, how: "appear" | "vanish"): void {
+    playCue(eventCue(`npc.zombie.${how}`));
+    for (const up of PUFF_HEIGHTS) {
+      try {
+        this.deps.dimension.spawnParticle(PUFF, { x: at.x, y: at.y + up, z: at.z });
+      } catch {
+        // unloaded
+      }
     }
   }
 

@@ -167,6 +167,8 @@ export interface NpcMove {
   appear?: boolean;
   /** It's hidden (SHOWN off) this many seconds in, once its animation has it out of sight (the Warden dug in). */
   vanish?: number;
+  /** A second animation of the pack's played with it on a controller of its own, held (the Warden's sink under the floor as his dig ends). */
+  also?: string;
 }
 
 /** The bool property that shows an NPC which starts hidden (the Warden's entity; npcs.ts NpcRole.shows). */
@@ -185,10 +187,13 @@ export const NPC_MOVES: Readonly<Record<string, Readonly<Record<string, NpcMove>
     Roar: { animation: "animation.warden.roar" },
     "Sonic boom": { animation: "animation.warden.sonic_boom" },
     Sniff: { animation: "animation.warden.sniff" },
-    // He's hidden until his emerge has begun (it starts 4 blocks down), and hidden again as his dig
-    // has him 2.5 blocks down, held there: never seen standing before or after (the user's look).
+    // He's hidden until his emerge is well under way (it starts 4 blocks down and is still 3.5 down
+    // at half a second; moves.ts shows him APPEAR_AFTER ticks in, so a late start on the client never
+    // shows him standing first), and hidden once his dig has him all the way under: vanilla's dig ends
+    // 2.5 blocks down with the top of his head still out, so the pack's sink carries his body and legs
+    // 3 blocks further down over its last 0.7 s (the user saw his head over the floor before and after).
     Emerge: { animation: "animation.warden.emerge", appear: true },
-    "Dig away": { animation: "animation.warden.dig", hold: "stays", vanish: 4.6 },
+    "Dig away": { animation: "animation.warden.dig", also: "animation.blockparty.warden.sink", hold: "stays", vanish: 5.1 },
   },
   Enderman: {
     Teleport: { deed: "teleport" },

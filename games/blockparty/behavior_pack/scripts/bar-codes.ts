@@ -25,14 +25,17 @@ export const STARS_DOWN_CODE = "§k§g";
 export const STARS_UP_CODE = "§k§h";
 export const STANDINGS_CODE = "§k§f";
 /**
- * The player holds sneak toward a skip vote, or has voted (dialogue.ts, skippingBy): their dialogue
- * box's skip strip says "Skipping 1/3" in place of "Hold [sneak] to skip 1/3" (the user, 2026-11-18).
- * The sidebar is everyone's, so this per-player difference rides the action bar.
+ * The player holds use toward a skip vote (dialogue.ts, holdStep): their dialogue box's skip strip
+ * says "Skipping..." in place of everyone's words, its dots lit as far as the step's digit after it
+ * (holdingCode; the user, 2026-11-18). The sidebar is everyone's, so this per-player difference rides
+ * the action bar. It was §k§e, the core's "Capture the flag!" bubble (minigame-core hud.ts, FLAG_CODE),
+ * which showed whenever a player held sneak to skip. The core's codes are §k with a, b, c, e, g, h,
+ * i, j, l, m, n, p, q, s, t and u.
  */
-export const SKIPPING_CODE = "§k§e";
+export const HOLDING_CODE = "§k§v";
 /** The minigame tutorial's second side is this player's (a 1v3's trio, a 2v2's Blue). */
 export const SIDE_TWO_CODE = "§k§y";
-/** This player has jumped to say they're ready for the minigame. */
+/** This player has said they're ready for the minigame (a punch, since the user's evening look). */
 export const READY_CODE = "§k§z";
 /** A code alone, so a line with nothing else in it is still marked and keeps the panel up. */
 export const KEEP_UP = "§r";
@@ -40,6 +43,11 @@ export const STAR_LEVELS = 8;
 /** Where the star field's layers can be, a phase each: two hex digits' worth. */
 export const STAR_PHASES = 256;
 export const HOTBAR_SIZE = 9;
+
+/** A player holding use toward a skip vote, `step` of the way (0 to 3), or nothing when they aren't (undefined). */
+export function holdingCode(step: number | undefined): string {
+  return step === undefined ? "" : `${HOLDING_CODE}§${Math.max(0, Math.min(3, Math.floor(step)))}`;
+}
 
 export type StarDirection = "down" | "up";
 

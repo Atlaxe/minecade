@@ -5,7 +5,7 @@
       "identifier": "blockparty:die_burst_slow",
       "basic_render_parameters": {
         "material": "particles_alpha",
-        "texture": "textures/blocks/concrete_light_blue"
+        "texture": "textures/blockparty/dice/slow"
       }
     },
     "components": {

@@ -360,9 +360,26 @@ export const ROUND: Layout = {
   ],
 };
 
-/** The round's row: `text` with its formatting codes taken out (a fill's color would leave its letter). */
+/**
+ * The round's row: `text` as roundText gives it, its colors kept (a row's free text loses every §
+ * otherwise, encode's "rest"), all but §k: the rows' codes are §k and a letter, so text can't fake one.
+ */
 export function roundRow(text: string): string {
-  return encode(ROUND, { text: text.replace(/§./g, "") });
+  return `${encode(ROUND, { text: "" })}${text.replace(/§k/g, "")}`;
+}
+
+/** The round's colors (the user, 2026-11-18): "Round 3 /" light gray, the rounds in all ("10") dark gray. */
+export const ROUND_COLORS = { round: "§7", rounds: "§8" } as const;
+/** Marks where the {rounds} fill is in the said line, so its color goes in there whatever the line says around it. */
+const ROUNDS_MARK = "\u0001";
+
+/**
+ * The round's text from the user's round.hud line (`say` fills it: "Round {round} / {rounds}"): the
+ * line's own colors taken out (a fill's style), then the round's put in, the rounds in all darker.
+ */
+export function roundText(say: (fills: { round: number; rounds: string }) => string, round: number, rounds: number): string {
+  const said = say({ round, rounds: `${ROUNDS_MARK}${rounds}` }).replace(/§./g, "");
+  return said === "" ? "" : `${ROUND_COLORS.round}${said.replace(ROUNDS_MARK, ROUND_COLORS.rounds)}`;
 }
 
 // ---- The minigame announcement (block-party-ui.md) --------------------------------------------

@@ -154,10 +154,12 @@ describe("the board menu", () => {
     expect(menuRow()).toContain(codesOf("s2"));
   });
 
-  it("opens the dice, steps through them with the die over the head following, and rolls with a jump", async () => {
+  it("opens the dice, steps through them with the die over the head following, and rolls with a jump (picked with a punch)", async () => {
     menu.open(who);
     await ticks(1);
-    expect(menu.jumped(alex as never)).toBe(true);
+    // A jump in the menu picks nothing (the user: a punch is the board's button).
+    expect(menu.jumped(alex as never)).toBe(false);
+    expect(menu.punched(alex as never)).toBe(true);
     await ticks(1);
     expect(shown.map((die) => die?.id)).toEqual(["standard"]);
     expect(name()).toBe("Standard Die");
@@ -166,6 +168,10 @@ describe("the board menu", () => {
     await push(RIGHT_X, 0);
     expect(name()).toBe("Golden Die");
     expect(shown.at(-1)?.id).toBe("golden");
+    // A punch in the dice panel does nothing: the die is hit with a jump.
+    expect(menu.punched(alex as never)).toBe(true);
+    await ticks(1);
+    expect(rolled).toEqual([]);
     menu.jumped(alex as never);
     await ticks(1);
     expect(rolled.map((die) => die.id)).toEqual(["golden"]);
@@ -177,7 +183,7 @@ describe("the board menu", () => {
 
   it("steps the item panel with A and D only, not W and S", async () => {
     menu.open(who);
-    menu.jumped(alex as never);
+    menu.punched(alex as never);
     await ticks(1);
     expect(name()).toBe("Standard Die");
     await push(0, -1);
@@ -190,7 +196,7 @@ describe("the board menu", () => {
 
   it("goes back from the panel with sneak, the die taken away", async () => {
     menu.open(who);
-    menu.jumped(alex as never);
+    menu.punched(alex as never);
     await ticks(1);
     expect(menu.sneaked(alex as never)).toBe(true);
     await ticks(1);
@@ -199,16 +205,16 @@ describe("the board menu", () => {
     expect(menuRow()).toContain(codesOf("n0"));
   });
 
-  it("shows an item with what it does, and uses it with a jump", async () => {
+  it("shows an item with what it does, and uses it with a punch", async () => {
     menu.open(who);
     await push(0, -1);
-    menu.jumped(alex as never);
+    menu.punched(alex as never);
     await ticks(1);
     expect(name()).toBe("Stone Totem");
     expect(rows().some((row) => row.startsWith(codesOf("kj")) && row.includes("extra die"))).toBe(true);
     await push(-RIGHT_X, 0);
     expect(name()).toBe("Dueling Glove");
-    menu.jumped(alex as never);
+    menu.punched(alex as never);
     await ticks(1);
     expect(used.map((item) => item.id)).toEqual(["glove"]);
     expect(panelRow()).toBeUndefined();
@@ -218,30 +224,31 @@ describe("the board menu", () => {
     menu.open(who);
     await push(0, 1);
     expect(menuRow()).toContain(codesOf("s2"));
-    menu.jumped(alex as never);
+    menu.punched(alex as never);
     menu.sneaked(alex as never);
     expect(views).toEqual([true, false]);
   });
 
-  it("toggles Board with a jump: one opens it, the next goes back to the menu", async () => {
+  it("toggles Board with a punch: one opens it, the next goes back to the menu", async () => {
     menu.open(who);
     await push(0, 1);
-    menu.jumped(alex as never);
+    menu.punched(alex as never);
     await ticks(1);
     expect(menuRow()).toContain(codesOf("n1"));
-    menu.jumped(alex as never);
+    menu.punched(alex as never);
     await ticks(1);
     expect(views).toEqual([true, false]);
     expect(menuRow()).toContain(codesOf("n0"));
     expect(menuRow()).toContain(codesOf("s2"));
   });
 
-  it("leaves the keys alone while the player steers the dialogue box, and takes no one else's jumps", async () => {
+  it("leaves the keys alone while the player steers the dialogue box, and takes no one else's punches", async () => {
     menu.open(who);
     busy = true;
     await push(0, -1);
     expect(menuRow()).toContain(codesOf("s0"));
     const sam = world.join("Sam");
+    expect(menu.punched(sam as never)).toBe(false);
     expect(menu.jumped(sam as never)).toBe(false);
     expect(menu.sneaked(sam as never)).toBe(false);
   });

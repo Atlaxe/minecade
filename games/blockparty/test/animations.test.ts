@@ -16,6 +16,7 @@ import wardenBehavior from "../behavior_pack/entities/warden.json";
 import wardenClient from "../resource_pack/entity/warden.entity.json";
 import playerPack from "../resource_pack/animations/blockparty.player.animation.json";
 import npcPack from "../resource_pack/animations/blockparty.npc.animation.json";
+import gamePack from "../resource_pack/animations/blockparty.animation.json";
 
 /**
  * The dialogue tool's actions (its seed list, block-party-ui.md "Player animations"): each must
@@ -144,9 +145,14 @@ describe("Block Party's animation names", () => {
     expect(client.scripts.animate).toContainEqual({ hide: `!q.property('${SHOWN}')` });
     expect(NPC_MOVES.Warden.Emerge.appear).toBe(true);
     expect(NPC_MOVES.Warden["Dig away"]).toMatchObject({ hold: "stays" });
-    // Hidden before the dig's 5 seconds end (vanilla's dig has him 2.5 blocks down from 4.5 s).
-    expect(NPC_MOVES.Warden["Dig away"].vanish).toBeGreaterThanOrEqual(4.5);
-    expect(NPC_MOVES.Warden["Dig away"].vanish).toBeLessThan(5);
+    // Vanilla's dig leaves him 2.5 blocks down with the top of his head out: the pack's sink, played
+    // with it, carries him 3 blocks further by 5 s, held, and he's hidden only after that.
+    const sink = NPC_MOVES.Warden["Dig away"].also;
+    expect(sink).toBe("animation.blockparty.warden.sink");
+    const clip = (gamePack.animations as Record<string, { loop?: unknown; animation_length?: number; bones: Record<string, { position: Record<string, number[]> }> }>)[sink!];
+    expect(clip.loop).toBe("hold_on_last_frame");
+    for (const bone of ["body", "right_leg", "left_leg"]) expect(Object.values(clip.bones[bone].position).at(-1)![1]).toBeLessThanOrEqual(-48);
+    expect(NPC_MOVES.Warden["Dig away"].vanish).toBeGreaterThanOrEqual(clip.animation_length!);
   });
 
   it("move only bones each model has", () => {

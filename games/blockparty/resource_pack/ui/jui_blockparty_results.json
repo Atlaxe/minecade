@@ -127,96 +127,6 @@
           ],
           "controls": [
             {
-              "b_5ae90011_slot": {
-                "type": "panel",
-                "size": [
-                  "100%cm",
-                  "100%"
-                ],
-                "controls": [
-                  {
-                    "b_5ae90011": {
-                      "type": "image",
-                      "size": [
-                        10,
-                        10
-                      ],
-                      "keep_ratio": true,
-                      "texture": "#controller_face_down_icon",
-                      "bindings": [
-                        {
-                          "binding_name": "#controller_face_down_icon",
-                          "binding_name_override": "#texture"
-                        },
-                        {
-                          "binding_name": "#is_using_gamepad",
-                          "binding_name_override": "#visible"
-                        }
-                      ],
-                      "visible": false,
-                      "anchor_from": "left_middle",
-                      "anchor_to": "left_middle",
-                      "layer": 1
-                    }
-                  }
-                ],
-                "layer": 1
-              }
-            },
-            {
-              "b_5ae90010_gap1": {
-                "type": "panel",
-                "size": [
-                  3,
-                  0
-                ],
-                "layer": 3
-              }
-            },
-            {
-              "b_5ae90012_slot": {
-                "type": "panel",
-                "size": [
-                  "100%cm",
-                  "100%"
-                ],
-                "controls": [
-                  {
-                    "b_5ae90012": {
-                      "type": "image",
-                      "size": [
-                        10,
-                        10
-                      ],
-                      "keep_ratio": true,
-                      "texture": "textures/ui/jump",
-                      "visible": false,
-                      "bindings": [
-                        {
-                          "binding_name": "#hud_visible_centered_touch",
-                          "binding_name_override": "#visible"
-                        }
-                      ],
-                      "anchor_from": "left_middle",
-                      "anchor_to": "left_middle",
-                      "layer": 1
-                    }
-                  }
-                ],
-                "layer": 4
-              }
-            },
-            {
-              "b_5ae90010_gap2": {
-                "type": "panel",
-                "size": [
-                  3,
-                  0
-                ],
-                "layer": 6
-              }
-            },
-            {
               "b_5ae90013_slot": {
                 "type": "panel",
                 "size": [
@@ -230,20 +140,6 @@
                       "size": [
                         "100%cm",
                         10
-                      ],
-                      "visible": false,
-                      "bindings": [
-                        {
-                          "binding_name": "#is_using_gamepad"
-                        },
-                        {
-                          "binding_name": "#hud_visible_centered_touch"
-                        },
-                        {
-                          "binding_type": "view",
-                          "source_property_name": "((not #is_using_gamepad) and (not #hud_visible_centered_touch))",
-                          "target_property_name": "#visible"
-                        }
                       ],
                       "controls": [
                         {
@@ -272,7 +168,7 @@
                               {
                                 "b_5ae90014": {
                                   "type": "label",
-                                  "text": "Space",
+                                  "text": "Punch",
                                   "size": [
                                     "default",
                                     "default"
@@ -305,7 +201,7 @@
                     }
                   }
                 ],
-                "layer": 7
+                "layer": 1
               }
             }
           ],

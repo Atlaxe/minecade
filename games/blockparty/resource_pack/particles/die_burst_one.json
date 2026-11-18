@@ -5,7 +5,7 @@
       "identifier": "blockparty:die_burst_one",
       "basic_render_parameters": {
         "material": "particles_alpha",
-        "texture": "textures/blocks/concrete_light_blue"
+        "texture": "textures/blockparty/dice/one"
       }
     },
     "components": {

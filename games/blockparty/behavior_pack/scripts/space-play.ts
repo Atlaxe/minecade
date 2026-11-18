@@ -2,8 +2,8 @@
 // Wandering Trader", "Chance Time (the Witch)", "The Warden", "Happening"; pass 7). Landing on:
 //   - Item: a prize from the pool, likelier strong the further behind the lander is (space-rules.ts).
 //   - Shop: the Villager who stands at the Shop all game (stage.ts, residents) turns to the lander.
-//     Buy (the round's stock of 3, as many as they can afford and carry), Sell something (half its
-//     value) or Leave, in the dialogue box.
+//     Buy (the round's stock of 3) and Sell something (half its value) once each a visit, or Leave,
+//     in the dialogue box; once they've bought and sold, the visit is over (the user, 2026-11-18).
 //   - Chance Time: the Witch appears in a puff of smoke with three potions, their colors saying what
 //     kind of outcome is in each (gold coins, green items, purple the board, white Stars; proposed),
 //     each button with its potion's picture: pick one, or pay 3 coins once to brew three new ones. Late in the game the coin amounts grow by half and Coin
@@ -210,22 +210,28 @@ export class SpacePlay {
     const resident = await stage.atResident(who, space, "shop.welcome");
     this.keeper = resident ?? VILLAGER;
     if (!resident) await stage.visit(VILLAGER, "villager", who, space, "shop.welcome");
-    let traded = false;
+    // One buy and one sell a visit (the user): each button goes once it's done, and with both done the visit is over.
+    let bought = false;
+    let sold = false;
     try {
-      for (let asked = 0; asked < 20; asked++) {
+      for (let asked = 0; asked < 20 && !(bought && sold); asked++) {
         // A bot buys one thing it can afford and has room for, keeping a few coins.
         const wanted = this.stock.findIndex((goods) => seat.coins - valueOf(goods) >= 5 && hasRoom(seat.hands, goods));
-        const picked = await this.host.talk(traded ? "shop.more" : "shop.welcome", { player: who.name, coins: count(seat.coins, "coin") }, {
+        const actions = [...(bought ? [] : ["buy" as const]), ...(sold ? [] : ["sell" as const]), "leave" as const];
+        const labels = { buy: button("shop.button.buy"), sell: button("shop.form.sell"), leave: button("shop.form.leave") };
+        const leave = actions.length - 1;
+        const picked = await this.host.talk(bought || sold ? "shop.more" : "shop.welcome", { player: who.name, coins: count(seat.coins, "coin") }, {
           to: who,
-          buttons: [button("shop.button.buy"), button("shop.form.sell"), button("shop.form.leave")],
-          back: 2,
-          botPick: !traded && wanted >= 0 ? 0 : 2,
+          buttons: actions.map((action) => labels[action]),
+          back: leave,
+          botPick: !bought && wanted >= 0 ? 0 : leave,
         });
-        if (picked === 0) traded = (await this.buy(who, wanted)) || traded;
-        else if (picked === 1) traded = (await this.sell(who)) || traded;
+        const action = picked === undefined ? "leave" : actions[picked];
+        if (action === "buy") bought = (await this.buy(who, wanted)) || bought;
+        else if (action === "sell") sold = (await this.sell(who)) || sold;
         else break;
       }
-      await this.host.say(traded ? "shop.bye" : "shop.nothing", { player: who.name }, false, who);
+      await this.host.say(bought || sold ? "shop.bye" : "shop.nothing", { player: who.name }, false, who);
     } finally {
       if (resident) stage.backToSpace(resident);
       else stage.remove(VILLAGER);
