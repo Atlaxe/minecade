@@ -277,20 +277,18 @@
             },
             {
               "b_63357205": {
-                "type": "label",
-                "text": "S",
+                "type": "image",
                 "size": [
-                  "default",
-                  "default"
+                  10,
+                  10
                 ],
-                "color": "$v_icon",
-                "shadow": true,
-                "localize": false,
+                "keep_ratio": true,
+                "texture": "textures/items/nether_star",
                 "anchor_from": "top_left",
                 "anchor_to": "top_left",
                 "offset": [
-                  32,
-                  4
+                  31,
+                  3
                 ],
                 "layer": 6
               }
@@ -330,20 +328,18 @@
             },
             {
               "b_9c62f65a": {
-                "type": "label",
-                "text": "C",
+                "type": "image",
                 "size": [
-                  "default",
-                  "default"
+                  10,
+                  10
                 ],
-                "color": "$v_icon",
-                "shadow": true,
-                "localize": false,
+                "keep_ratio": true,
+                "texture": "textures/blockparty/ui/coin",
                 "anchor_from": "top_left",
                 "anchor_to": "top_left",
                 "offset": [
-                  32,
-                  16
+                  31,
+                  15
                 ],
                 "layer": 8
               }

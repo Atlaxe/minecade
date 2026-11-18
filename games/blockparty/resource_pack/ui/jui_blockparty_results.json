@@ -501,16 +501,13 @@
                             "controls": [
                               {
                                 "b_904163eb": {
-                                  "type": "label",
-                                  "text": "S",
+                                  "type": "image",
                                   "size": [
-                                    "default",
-                                    "default"
+                                    16,
+                                    16
                                   ],
-                                  "color": "$v_icon",
-                                  "text_alignment": "center",
-                                  "shadow": true,
-                                  "localize": false,
+                                  "keep_ratio": true,
+                                  "texture": "textures/items/nether_star",
                                   "anchor_from": "center",
                                   "anchor_to": "center",
                                   "layer": 1
@@ -601,16 +598,13 @@
                             "controls": [
                               {
                                 "b_0b04545b": {
-                                  "type": "label",
-                                  "text": "C",
+                                  "type": "image",
                                   "size": [
-                                    "default",
-                                    "default"
+                                    16,
+                                    16
                                   ],
-                                  "color": "$v_icon",
-                                  "text_alignment": "center",
-                                  "shadow": true,
-                                  "localize": false,
+                                  "keep_ratio": true,
+                                  "texture": "textures/blockparty/ui/coin",
                                   "anchor_from": "center",
                                   "anchor_to": "center",
                                   "layer": 1
@@ -1047,16 +1041,13 @@
                             "controls": [
                               {
                                 "b_904163eb": {
-                                  "type": "label",
-                                  "text": "S",
+                                  "type": "image",
                                   "size": [
-                                    "default",
-                                    "default"
+                                    16,
+                                    16
                                   ],
-                                  "color": "$v_icon",
-                                  "text_alignment": "center",
-                                  "shadow": true,
-                                  "localize": false,
+                                  "keep_ratio": true,
+                                  "texture": "textures/items/nether_star",
                                   "anchor_from": "center",
                                   "anchor_to": "center",
                                   "layer": 1
@@ -1147,16 +1138,13 @@
                             "controls": [
                               {
                                 "b_0b04545b": {
-                                  "type": "label",
-                                  "text": "C",
+                                  "type": "image",
                                   "size": [
-                                    "default",
-                                    "default"
+                                    16,
+                                    16
                                   ],
-                                  "color": "$v_icon",
-                                  "text_alignment": "center",
-                                  "shadow": true,
-                                  "localize": false,
+                                  "keep_ratio": true,
+                                  "texture": "textures/blockparty/ui/coin",
                                   "anchor_from": "center",
                                   "anchor_to": "center",
                                   "layer": 1
@@ -1593,16 +1581,13 @@
                             "controls": [
                               {
                                 "b_904163eb": {
-                                  "type": "label",
-                                  "text": "S",
+                                  "type": "image",
                                   "size": [
-                                    "default",
-                                    "default"
+                                    16,
+                                    16
                                   ],
-                                  "color": "$v_icon",
-                                  "text_alignment": "center",
-                                  "shadow": true,
-                                  "localize": false,
+                                  "keep_ratio": true,
+                                  "texture": "textures/items/nether_star",
                                   "anchor_from": "center",
                                   "anchor_to": "center",
                                   "layer": 1
@@ -1693,16 +1678,13 @@
                             "controls": [
                               {
                                 "b_0b04545b": {
-                                  "type": "label",
-                                  "text": "C",
+                                  "type": "image",
                                   "size": [
-                                    "default",
-                                    "default"
+                                    16,
+                                    16
                                   ],
-                                  "color": "$v_icon",
-                                  "text_alignment": "center",
-                                  "shadow": true,
-                                  "localize": false,
+                                  "keep_ratio": true,
+                                  "texture": "textures/blockparty/ui/coin",
                                   "anchor_from": "center",
                                   "anchor_to": "center",
                                   "layer": 1
@@ -2139,16 +2121,13 @@
                             "controls": [
                               {
                                 "b_904163eb": {
-                                  "type": "label",
-                                  "text": "S",
+                                  "type": "image",
                                   "size": [
-                                    "default",
-                                    "default"
+                                    16,
+                                    16
                                   ],
-                                  "color": "$v_icon",
-                                  "text_alignment": "center",
-                                  "shadow": true,
-                                  "localize": false,
+                                  "keep_ratio": true,
+                                  "texture": "textures/items/nether_star",
                                   "anchor_from": "center",
                                   "anchor_to": "center",
                                   "layer": 1
@@ -2239,16 +2218,13 @@
                             "controls": [
                               {
                                 "b_0b04545b": {
-                                  "type": "label",
-                                  "text": "C",
+                                  "type": "image",
                                   "size": [
-                                    "default",
-                                    "default"
+                                    16,
+                                    16
                                   ],
-                                  "color": "$v_icon",
-                                  "text_alignment": "center",
-                                  "shadow": true,
-                                  "localize": false,
+                                  "keep_ratio": true,
+                                  "texture": "textures/blockparty/ui/coin",
                                   "anchor_from": "center",
                                   "anchor_to": "center",
                                   "layer": 1
@@ -2685,16 +2661,13 @@
                             "controls": [
                               {
                                 "b_904163eb": {
-                                  "type": "label",
-                                  "text": "S",
+                                  "type": "image",
                                   "size": [
-                                    "default",
-                                    "default"
+                                    16,
+                                    16
                                   ],
-                                  "color": "$v_icon",
-                                  "text_alignment": "center",
-                                  "shadow": true,
-                                  "localize": false,
+                                  "keep_ratio": true,
+                                  "texture": "textures/items/nether_star",
                                   "anchor_from": "center",
                                   "anchor_to": "center",
                                   "layer": 1
@@ -2785,16 +2758,13 @@
                             "controls": [
                               {
                                 "b_0b04545b": {
-                                  "type": "label",
-                                  "text": "C",
+                                  "type": "image",
                                   "size": [
-                                    "default",
-                                    "default"
+                                    16,
+                                    16
                                   ],
-                                  "color": "$v_icon",
-                                  "text_alignment": "center",
-                                  "shadow": true,
-                                  "localize": false,
+                                  "keep_ratio": true,
+                                  "texture": "textures/blockparty/ui/coin",
                                   "anchor_from": "center",
                                   "anchor_to": "center",
                                   "layer": 1
@@ -3231,16 +3201,13 @@
                             "controls": [
                               {
                                 "b_904163eb": {
-                                  "type": "label",
-                                  "text": "S",
+                                  "type": "image",
                                   "size": [
-                                    "default",
-                                    "default"
+                                    16,
+                                    16
                                   ],
-                                  "color": "$v_icon",
-                                  "text_alignment": "center",
-                                  "shadow": true,
-                                  "localize": false,
+                                  "keep_ratio": true,
+                                  "texture": "textures/items/nether_star",
                                   "anchor_from": "center",
                                   "anchor_to": "center",
                                   "layer": 1
@@ -3331,16 +3298,13 @@
                             "controls": [
                               {
                                 "b_0b04545b": {
-                                  "type": "label",
-                                  "text": "C",
+                                  "type": "image",
                                   "size": [
-                                    "default",
-                                    "default"
+                                    16,
+                                    16
                                   ],
-                                  "color": "$v_icon",
-                                  "text_alignment": "center",
-                                  "shadow": true,
-                                  "localize": false,
+                                  "keep_ratio": true,
+                                  "texture": "textures/blockparty/ui/coin",
                                   "anchor_from": "center",
                                   "anchor_to": "center",
                                   "layer": 1
@@ -3777,16 +3741,13 @@
                             "controls": [
                               {
                                 "b_904163eb": {
-                                  "type": "label",
-                                  "text": "S",
+                                  "type": "image",
                                   "size": [
-                                    "default",
-                                    "default"
+                                    16,
+                                    16
                                   ],
-                                  "color": "$v_icon",
-                                  "text_alignment": "center",
-                                  "shadow": true,
-                                  "localize": false,
+                                  "keep_ratio": true,
+                                  "texture": "textures/items/nether_star",
                                   "anchor_from": "center",
                                   "anchor_to": "center",
                                   "layer": 1
@@ -3877,16 +3838,13 @@
                             "controls": [
                               {
                                 "b_0b04545b": {
-                                  "type": "label",
-                                  "text": "C",
+                                  "type": "image",
                                   "size": [
-                                    "default",
-                                    "default"
+                                    16,
+                                    16
                                   ],
-                                  "color": "$v_icon",
-                                  "text_alignment": "center",
-                                  "shadow": true,
-                                  "localize": false,
+                                  "keep_ratio": true,
+                                  "texture": "textures/blockparty/ui/coin",
                                   "anchor_from": "center",
                                   "anchor_to": "center",
                                   "layer": 1
