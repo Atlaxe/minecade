@@ -6,7 +6,6 @@ import { forcedDie, mayUseItem, newSeat, turnDice } from "../behavior_pack/scrip
 import {
   CHANCE,
   HAPPENING,
-  ITEM_VALUES,
   PRIZE_POOL,
   SHOP_GOODS,
   TRADER_GOODS,
@@ -57,7 +56,7 @@ const everything: ChanceContext = { late: true, coins: 10, others: 3, anyItems: 
 
 describe("Block Party's prices and values", () => {
   it("prices every item, sells at half rounded down, and values dice from the dice file", () => {
-    for (const id of Object.keys(ITEMS) as ItemId[]) expect(ITEM_VALUES[id]).toBeGreaterThan(0);
+    for (const id of Object.keys(ITEMS) as ItemId[]) expect(ITEMS[id].value).toBeGreaterThan(0);
     expect(valueOf(item("lightning"))).toBe(12);
     expect(sellPrice(item("lightning"))).toBe(6);
     expect(sellPrice(item("stone_totem"))).toBe(2);

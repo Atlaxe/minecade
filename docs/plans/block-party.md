@@ -452,6 +452,31 @@ a rival roll it (their next roll is it). The Warden's Slow Curse and a handed-on
 as the turn starts, and Dice block shows only that die. Bots use an item 60% of the turns they hold
 one: their zombie sent away first, a rival item on the leader when they aren't it, then a totem.
 
+### The items file
+
+Each item's name and look are an entry in `games/blockparty/items.json` (the user, 2026-11-18: the
+items' config and textures in one file, as the dice have); the game reads it (`items.ts`), and
+`test/items.test.ts` names any mistake in it. What an item does is code (`item-play.ts`), so the file
+has an entry for each item the game knows (its key is the item's id: `stone_totem`, `golden_totem`,
+`ender_pearl`, `cursed_totem`, `glove`, `lightning`, `zombie`, `iron_golem`, `villager`) and can't
+add a new one. Each item:
+
+| Setting | What it does |
+|---|---|
+| `name` | Its name, in the item panel, the dialogue box and the Shop |
+| `letters` | One or two capitals (a digit can be the second), never another item's or a die's: they stand in for its icon on the cards and in the item panel, and name its icon file |
+| `texture` | Its icon's picture: a path in Block Party's pack (`textures/blockparty/items/stone_totem`, no `.png`) or Minecraft's own (`textures/items/totem`, `textures/blocks/...`). The build copies it to `textures/blockparty/icons/<letters>.png` in the built pack, a picture smaller than 64 pixels drawn larger with hard pixels; Minecraft's come from the build's copy of the game's textures and never go in git. Nothing to run after a change |
+| `description` | What it does, under its name in the item panel |
+| `value` | What the Shop works from: its price, and half of it to sell (1 to 999) |
+
+The pictures for now are Minecraft's (the user, 2026-11-18): the totems the Totem of Undying, the
+Ender Pearl the ender pearl, the rest the snowball, until the user draws them. **To show them**, the
+cards' three item slots and the item panel's icon (the workshop JSON UI builder's blockparty_cards
+and blockparty_panel) each need an image whose source is
+`text:textures/blockparty/icons/{{row.item1}}` (`item2`, `item3`; the panel's `{{row.icon}}`): an
+item showing `ST` then shows `textures/blockparty/icons/ST.png`. The panel's icon slot is the dice's
+too, and a die has no icon there yet.
+
 ## Presentation and cameras
 
 Players don't walk the board: a script moves each piece space to space. The camera follows the

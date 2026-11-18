@@ -44,6 +44,7 @@ import { catalogDir } from "../maps/paths.ts";
 import type { MapCard } from "../maps/store.ts";
 import { cutBlocksPack } from "./blocks-cut.ts";
 import { addGameKitPictures } from "./kit-pictures.ts";
+import { addItemIcons } from "../blockparty/item-icons.ts";
 import { VanillaTextures } from "./vanilla-textures.ts";
 import { addTeamButtons } from "./team-buttons.ts";
 import { pinManifest, type Manifest } from "./mc-versions.ts";
@@ -435,6 +436,8 @@ for (const target of targets) {
     if (target.id === "lobby") steps.push(addGameIcons);
     else if (game?.kits?.select) steps.push((pack) => addGameKitPictures(pack, game, maps).then(() => {}));
     if (game?.playerPortraits) steps.push(addPlayerPortraits);
+    // Block Party's item icons, from its items file (Minecraft's textures among them, so never in git).
+    if (target.id === "blockparty") steps.push((pack) => addItemIcons(pack).then(() => {}));
     const extra = steps.length > 0 ? async (pack: string) => { for (const step of steps) await step(pack); } : undefined;
     await buildResourcePack(join(target.dir, "resource_pack"), join(out, "resource_packs", `${target.id}_rp`), target.resourcePack, extra);
   }

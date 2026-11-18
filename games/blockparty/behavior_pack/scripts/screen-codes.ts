@@ -265,7 +265,7 @@ export interface PanelDie {
   faces: readonly { show: string }[];
 }
 
-export type PanelShow = { die: PanelDie } | { item: { name: string; letters: string; what: string } };
+export type PanelShow = { die: PanelDie } | { item: { name: string; letters: string; description: string } };
 
 /** The panel's rows: the thing showing now, with chevrons when there's more than one to step through. */
 export function panelRows(show: PanelShow, chevrons: boolean): string[] {
@@ -276,7 +276,7 @@ export function panelRows(show: PanelShow, chevrons: boolean): string[] {
     const main = encode(PANEL, { chevrons, die: faces, icon: die.letters, ...shown, name: die.name });
     return die.panel === "faces" || die.description === "" ? [main] : [main, encode(PANEL_TEXT, { what: die.description })];
   }
-  return [encode(PANEL, { chevrons, die: false, icon: show.item.letters, name: show.item.name }), encode(PANEL_TEXT, { what: show.item.what })];
+  return [encode(PANEL, { chevrons, die: false, icon: show.item.letters, name: show.item.name }), encode(PANEL_TEXT, { what: show.item.description })];
 }
 
 // ---- The results screen ---------------------------------------------------------------------

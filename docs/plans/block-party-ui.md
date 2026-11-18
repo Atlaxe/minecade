@@ -141,7 +141,7 @@ generator). Proposed letters and paths:
 |---|---|---|
 | Star | S | `textures/blockparty/ui/star` |
 | Coin | C | `textures/blockparty/ui/coin` |
-| Items | Stone Totem ST, Golden Totem GT, Ender Pearl EP, Cursed Totem CT, Dueling Glove DG, Lightning Strike LS, Zombie Spawn ZS, Iron Golem IG, Villager V | `textures/blockparty/ui/items/<id>` |
+| Items | Stone Totem ST, Golden Totem GT, Ender Pearl EP, Cursed Totem CT, Dueling Glove DG, Lightning Strike LS, Zombie Spawn ZS, Iron Golem IG, Villager V | `textures/blockparty/icons/<letters>`, which the build writes from each item's `texture` in `games/blockparty/items.json` (block-party.md, "The items file") |
 | Dice | Standard D, Slow SD, Triple TD, Risk RD, Golden GD, Mystery MD, Cursed CD, the test One Die 1D | `textures/blockparty/ui/dice/<id>` |
 | A die's face | its number | `textures/blockparty/ui/dice/<id>_<face>` |
 | Chevrons | `<` and `>`, yellow, regular font (the user's call for now) | |

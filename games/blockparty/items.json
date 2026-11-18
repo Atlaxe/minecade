@@ -1,0 +1,68 @@
+{
+  "about": "Block Party's items. What each one does is the game's code; this file says what it's called and how it looks. docs/plans/block-party.md, \"The items file\", says what each setting does. A texture is a path in Block Party's pack or Minecraft's own (textures/items/totem); the build makes the screens' icons from it, so there is nothing to run.",
+  "items": {
+    "stone_totem": {
+      "name": "Stone Totem",
+      "letters": "ST",
+      "texture": "textures/items/totem",
+      "description": "Roll an extra die this turn.",
+      "value": 5
+    },
+    "golden_totem": {
+      "name": "Golden Totem",
+      "letters": "GT",
+      "texture": "textures/items/totem",
+      "description": "Roll an extra die that counts double, this turn.",
+      "value": 10
+    },
+    "ender_pearl": {
+      "name": "Ender Pearl",
+      "letters": "EP",
+      "texture": "textures/items/ender_pearl",
+      "description": "Switch places with a player.",
+      "value": 8
+    },
+    "cursed_totem": {
+      "name": "Cursed Totem",
+      "letters": "CT",
+      "texture": "textures/items/totem",
+      "description": "A rival's next roll is halved.",
+      "value": 8
+    },
+    "glove": {
+      "name": "Dueling Glove",
+      "letters": "DG",
+      "texture": "textures/items/snowball",
+      "description": "A 1v1 duel for 10 coins.",
+      "value": 10
+    },
+    "lightning": {
+      "name": "Lightning Strike",
+      "letters": "LS",
+      "texture": "textures/items/snowball",
+      "description": "The leader gives 10 coins to last place.",
+      "value": 12
+    },
+    "zombie": {
+      "name": "Zombie Spawn",
+      "letters": "ZS",
+      "texture": "textures/items/snowball",
+      "description": "A zombie follows a rival and takes 3 coins a round.",
+      "value": 8
+    },
+    "iron_golem": {
+      "name": "Iron Golem",
+      "letters": "IG",
+      "texture": "textures/items/snowball",
+      "description": "Shake a player down for 5 coins, or send your zombie away.",
+      "value": 10
+    },
+    "villager": {
+      "name": "Villager",
+      "letters": "V",
+      "texture": "textures/items/snowball",
+      "description": "Trade a die or an item for half its value.",
+      "value": 6
+    }
+  }
+}

@@ -136,6 +136,12 @@ export class VanillaTextures {
     return this.texture("items", itemName, "item") ?? this.texture("blocks", BLOCK_TEXTURES[name] ?? name, "block");
   }
 
+  /** A texture by its path in Minecraft's pack ("textures/items/totem", "textures/blocks/stone", "textures/entity/steve"), if it's one this reads. */
+  picture(path: string): Image | undefined {
+    const match = /^textures\/(items|blocks|entity)\/([\w.-]+)$/.exec(path);
+    return match ? this.texture(match[1] as Folder, match[2], "item")?.image : undefined;
+  }
+
   /** A texture as a PNG, else a TGA (leather armor's are). */
   private texture(folder: Folder, name: string, kind: VanillaTexture["kind"]): VanillaTexture | undefined {
     const png = this.folders[folder].get(`${name}.png`);

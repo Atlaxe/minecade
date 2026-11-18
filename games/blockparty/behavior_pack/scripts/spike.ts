@@ -55,6 +55,7 @@ import { BoardMenu } from "./board-ui.ts";
 import { boardOverview } from "./board-view.ts";
 import { DICE, DICE_PROBLEMS, STANDARD, STANDARD_DIE, modelIndex, rollDie, throwsText, type DieDef, type RollOutcome } from "./dice.ts";
 import { ITEMS, type ItemDef } from "./dice-items.ts";
+import { ITEM_PROBLEMS } from "./items.ts";
 import { CURSED_DIE } from "./item-play.ts";
 import { CHANCE, HAPPENING, WARDEN, type ChanceId, type HappeningId, type WardenId } from "./space-rules.ts";
 import { Zombies } from "./zombies.ts";
@@ -259,6 +260,7 @@ export class BlockPartySpike extends Minigame<Config> {
 
   protected override setup(): void {
     for (const problem of DICE_PROBLEMS) log.warn(`blockparty: dice.json: ${problem}`);
+    for (const problem of ITEM_PROBLEMS) log.warn(`blockparty: items.json: ${problem}`);
     const own = spacesOf(this.map.config);
     this.ownBoard = own.length > 0;
     this.spaces = this.ownBoard ? mapSpaces(own) : testSpaces(this.config.board.at, this.config.board.spacing);

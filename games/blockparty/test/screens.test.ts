@@ -76,7 +76,7 @@ describe("Block Party's screen rows", () => {
     expect(item).toHaveLength(2);
     expect(item[0].startsWith("§k§i§a§0§f§0")).toBe(true);
     expect(cut(item[0], fields.icon)).toBe("V");
-    expect(item[1]).toBe(`§k§j${ITEMS.villager.what}`);
+    expect(item[1]).toBe(`§k§j${ITEMS.villager.description}`);
     expect(fieldsOf(PANEL_TEXT).what).toEqual({ from: 6, length: 0 });
   });
 

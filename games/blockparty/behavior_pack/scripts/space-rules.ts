@@ -6,29 +6,17 @@
 // left out when it can't do anything. The loop plays them out (space-play.ts, item-play.ts).
 import { DICE } from "./dice.ts";
 import { ITEMS, MAX_ITEMS, MAX_SPECIAL_DICE, type ItemId } from "./dice-items.ts";
+import { itemInFile } from "./items.ts";
 
 /** Something a seat can hold besides the standard die: an item, or a special die by its id in the dice file. */
 export type Prize = { kind: "item"; id: ItemId } | { kind: "die"; id: string };
 
-/** What each item is worth: its Shop price (the plan's table); the Villager item, which no shop sells, 6 (proposed). */
-export const ITEM_VALUES: Readonly<Record<ItemId, number>> = {
-  stone_totem: 5,
-  ender_pearl: 8,
-  cursed_totem: 8,
-  zombie: 8,
-  golden_totem: 10,
-  iron_golem: 10,
-  glove: 10,
-  lightning: 12,
-  villager: 6,
-};
-
 const item = (id: ItemId): Prize => ({ kind: "item", id });
 const die = (id: string): Prize => ({ kind: "die", id });
 
-/** Whether a prize is still in the game (a die the dice file has, a test die never). */
+/** Whether a prize is still in the game (an item or die its file has, a test die never). */
 export function exists(prize: Prize): boolean {
-  if (prize.kind === "item") return prize.id in ITEMS;
+  if (prize.kind === "item") return itemInFile(prize.id);
   const def = DICE[prize.id];
   return def !== undefined && !def.test;
 }
@@ -38,9 +26,9 @@ export function prizeName(prize: Prize): string {
   return prize.kind === "item" ? ITEMS[prize.id].name : (DICE[prize.id]?.name ?? prize.id);
 }
 
-/** What a prize is worth: an item's Shop price, a die's value in the dice file. */
+/** What a prize is worth: its value in the items file or the dice file (an item's is its Shop price). */
 export function valueOf(prize: Prize): number {
-  return prize.kind === "item" ? ITEM_VALUES[prize.id] : (DICE[prize.id]?.value ?? 0);
+  return prize.kind === "item" ? ITEMS[prize.id].value : (DICE[prize.id]?.value ?? 0);
 }
 
 /** What selling it pays (the Villager item, or the Shop): half its value, rounded down. */
