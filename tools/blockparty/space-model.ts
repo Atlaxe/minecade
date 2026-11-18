@@ -345,10 +345,23 @@ export function renderControllers(file: SpacesFile): Record<string, object> {
   return out;
 }
 
-/** The render controllers file with the markers' controllers as they should be (any old one of theirs taken out). */
+/**
+ * The render controllers file with the markers' controllers as they should be, where the first of
+ * theirs was (else at the end), any old one of theirs taken out and everything else left in its order.
+ */
 export function withControllers(file: { render_controllers: Record<string, unknown> }, controllers: Record<string, object>): { render_controllers: Record<string, unknown> } {
-  const kept = Object.entries(file.render_controllers).filter(([id]) => id !== CONTROLLER_PREFIX && !id.startsWith(`${CONTROLLER_PREFIX}_`));
-  return { ...file, render_controllers: { ...Object.fromEntries(kept), ...controllers } };
+  const ours = (id: string) => id === CONTROLLER_PREFIX || id.startsWith(`${CONTROLLER_PREFIX}_`);
+  const out: [string, unknown][] = [];
+  let placed = false;
+  for (const [id, controller] of Object.entries(file.render_controllers)) {
+    if (!ours(id)) out.push([id, controller]);
+    else if (!placed) {
+      out.push(...Object.entries(controllers));
+      placed = true;
+    }
+  }
+  if (!placed) out.push(...Object.entries(controllers));
+  return { ...file, render_controllers: Object.fromEntries(out) };
 }
 
 /** What the game reads (space-markers.ts): the types in the render controllers' order, the floor's blocks and the sizes, in pixels. */

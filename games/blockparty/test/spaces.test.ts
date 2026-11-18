@@ -164,6 +164,12 @@ describe("the files space-pack.ts writes", () => {
     expect(Object.keys(controllers.render_controllers).filter((id) => id.startsWith(CONTROLLER_PREFIX))).toEqual([CONTROLLER_PREFIX, `${CONTROLLER_PREFIX}_lit`]);
   });
 
+  it("puts its render controllers where its old ones were, leaving the others in their order", () => {
+    const before = { render_controllers: { "controller.render.a": {}, [`${CONTROLLER_PREFIX}_perimeter`]: {}, [`${CONTROLLER_PREFIX}_perimeter_lit`]: {}, "controller.render.b": {} } };
+    expect(Object.keys(withControllers(before, renderControllers(file)).render_controllers)).toEqual(["controller.render.a", CONTROLLER_PREFIX, `${CONTROLLER_PREFIX}_lit`, "controller.render.b"]);
+    expect(Object.keys(withControllers({ render_controllers: { "controller.render.a": {} } }, renderControllers(file)).render_controllers)).toEqual(["controller.render.a", CONTROLLER_PREFIX, `${CONTROLLER_PREFIX}_lit`]);
+  });
+
   it(`has the floor block, its clear texture and what the game reads (${RUN})`, () => {
     expect(readJson(FLOOR_FILE)).toEqual(floorBlock(cells));
     expect(readJson(INFO_FILE)).toEqual(modelInfo(size, cells));
