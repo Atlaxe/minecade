@@ -19,12 +19,6 @@
       "Would you like to me to oink-splain the rules?",
       "Want a rundown of the rules before we start?"
     ],
-    "pregame.rules.yes": [
-      "Yes, please!"
-    ],
-    "pregame.rules.no": [
-      "No, let's play!"
-    ],
     "pregame.place.1": [
       "First, {player}."
     ],
@@ -38,8 +32,8 @@
       "And fourth, {player}"
     ],
     "pregame.coins": [
-      "Here are {coins} as gift! Spend them wisely, or don't...",
-      "Here's some {coins} just for you to get you started! Get yourself something nice, on me!"
+      "Here are {coins} as a gift! Spend them wisely, or don't...",
+      "Here's {coins} just for you to get you started! Get yourself something nice, on me!"
     ],
     "tutorial.goal": [
       "Here's the deal: collect the most Stars by the end of the game. Coins buy Stars, and Stars win."
@@ -65,6 +59,263 @@
     "tutorial.end": [
       "That's all you need to know. Good luck, and may the best pig... I mean player, win!"
     ],
+    "turn.chris": [
+      "You're up, {player}!",
+      "{player}, the dice are waiting."
+    ],
+    "turn.rolled.high": [
+      "A {roll}! {player} is on the move!"
+    ],
+    "turn.rolled.one": [
+      "A 1? Oof. Baby steps, {player}."
+    ],
+    "star.chris.offer": [
+      "Well hello, {player}! One shiny Star, just {price}. Interested?",
+      "A Star for {price}! You know you want it, {player}."
+    ],
+    "star.chris.short": [
+      "Ooh, a Star costs {price}, and your pockets are light. Come back richer!"
+    ],
+    "star.chris.sold": [
+      "Pleasure doing business! Congratulations, {player}!"
+    ],
+    "star.chris.declined": [
+      "Suit yourself! It'll be here... for now."
+    ],
+    "star.chris.moves": [
+      "And off it goes! The next Star is waiting at {space}."
+    ],
+    "star.chris.half-price": [
+      "You've got a half-price coupon! That's just {price} for you."
+    ],
+    "shop.welcome": [
+      "Hrmm! Welcome, welcome. Today's stock is right here.",
+      "Hrm? A customer! Come, come, take a look."
+    ],
+    "shop.bought": [
+      "Hrm, an excellent choice. {item} is yours."
+    ],
+    "shop.short": [
+      "Hrmm... that's {price}. Come back with more coins."
+    ],
+    "shop.full": [
+      "Your hands are full, friend. Sell something first?"
+    ],
+    "shop.sold": [
+      "I'll take {item} off your hands for {coins}."
+    ],
+    "shop.bye": [
+      "Hrm! Come again."
+    ],
+    "shop.nothing": [
+      "Just looking? Hrmm."
+    ],
+    "trader.arrives": [
+      "Psst! The Wandering Trader is in town, over at {space}. Only for one round!"
+    ],
+    "trader.offer": [
+      "Rare goods from far away. {item}, just {price}. One buyer only."
+    ],
+    "trader.sold": [
+      "A fine deal. Safe travels, {player}."
+    ],
+    "trader.short": [
+      "No coin, no trade. Off you go."
+    ],
+    "trader.sold-out": [
+      "{player} snagged the Trader's goods! That's gone for good."
+    ],
+    "trader.leaves": [
+      "And just like that, the Wandering Trader has wandered off."
+    ],
+    "chance.welcome": [
+      "Heh heh heh. Come closer, {player}. It's Chance Time!"
+    ],
+    "chance.potions": [
+      "Three potions, three fates. Pick one, if you dare."
+    ],
+    "chance.reroll.offer": [
+      "Don't like them? For {price}, I'll brew three new ones."
+    ],
+    "chance.reroll.done": [
+      "Bubble, bubble... there. Fresh potions."
+    ],
+    "chance.coin-rain": [
+      "Coin Rain! Everybody gets {coins}. Aren't I generous?"
+    ],
+    "chance.coin-swap": [
+      "Coin Swap! {player} and {other} trade purses. Heh heh."
+    ],
+    "chance.reverse-fortune": [
+      "Reverse Fortune! {player} gives {coins} to {other}. The rich get poorer!"
+    ],
+    "chance.double": [
+      "Double or Nothing! Bet your coins on a coin flip."
+    ],
+    "chance.double.won": [
+      "Heads! {player} wins {coins}. Hmph."
+    ],
+    "chance.double.lost": [
+      "Tails! {coins} into my cauldron. Thank you, {player}."
+    ],
+    "chance.gift-exchange": [
+      "Gift Exchange! Everyone passes an item to the next player."
+    ],
+    "chance.lucky-draw": [
+      "Lucky Draw! {player} gets {item}."
+    ],
+    "chance.shuffle": [
+      "Position Shuffle! Everyone swaps places. Try not to get dizzy."
+    ],
+    "chance.battle-royale": [
+      "Battle Royale! The next minigame is a Battle: everyone bets, winner takes the pot."
+    ],
+    "chance.zombie": [
+      "Zombie Outbreak! A hungry friend is coming for you, {player}."
+    ],
+    "chance.half-price": [
+      "Half-price Star! {player}, your next Star is {coins} off."
+    ],
+    "chance.shooting-star": [
+      "Shooting Star! {player}'s Star flies away... and lands with {other}!"
+    ],
+    "chance.bye": [
+      "Come back soon, dearie. Heh heh heh."
+    ],
+    "warden.arrives": [
+      "...You woke me, {player}.",
+      "Too loud. Far too loud."
+    ],
+    "warden.sculk-tax": [
+      "Sculk Tax. {coins}. Now."
+    ],
+    "warden.hush-money": [
+      "Hush Money. Pay each of them {coins}, and keep quiet."
+    ],
+    "warden.star-tax": [
+      "Star Tax. {coins} for every Star you hold."
+    ],
+    "warden.silenced": [
+      "Silenced. The next item you get is mine."
+    ],
+    "warden.slow-curse": [
+      "Slow Curse. Your next roll crawls."
+    ],
+    "warden.zombie-curse": [
+      "Zombie Curse. Something will follow you. For three rounds."
+    ],
+    "warden.sonic-boom": [
+      "SONIC BOOM. {player}, your Star is gone."
+    ],
+    "items.ender-pearl": [
+      "{player} threw an Ender Pearl! The Enderman swaps {player} and {other}."
+    ],
+    "items.iron-golem": [
+      "{player}'s Iron Golem shakes down {other} for {coins}."
+    ],
+    "items.iron-golem.zombie": [
+      "{player}'s Iron Golem sends the zombie packing."
+    ],
+    "items.villager": [
+      "Hrm, I'll give you {coins} for that {item}."
+    ],
+    "zombie.arrives": [
+      "Uuurgh... coins..."
+    ],
+    "zombie.takes": [
+      "Cooooins. Mine."
+    ],
+    "versus.announce": [
+      "Versus! {player}, choose your opponent!"
+    ],
+    "versus.faceoff": [
+      "{player} versus {other}! The loser pays the winner {coins}."
+    ],
+    "versus.glove": [
+      "A challenge! {player} throws down the Dueling Glove. {other}, you're up. {coins} on the line!"
+    ],
+    "versus.doubled": [
+      "It's the final stretch, so the stakes are doubled: {coins}!"
+    ],
+    "versus.bets.open": [
+      "Place your bets! Back {player} or {other}: 0, 3 or 5 coins."
+    ],
+    "versus.bets.closed": [
+      "Bets are locked! The crowd says: {odds}."
+    ],
+    "versus.referee.winner": [
+      "{player} wins! {other} pays {coins}."
+    ],
+    "minigame.chris": [
+      "It's {minigame}! Show me what you've got."
+    ],
+    "minigame.chris.2v2": [
+      "Team game! {players} against {others}."
+    ],
+    "minigame.chris.1v3": [
+      "One against three! {player} takes on {players}."
+    ],
+    "minigame.chris.battle": [
+      "Battle! Everyone puts {coins} in the pot. Winner takes all!"
+    ],
+    "minigame.chris.winner": [
+      "What a performance from {player}!"
+    ],
+    "minigame.chris.pot": [
+      "{player} takes the whole pot: {coins}!"
+    ],
+    "minigame.chris.pot-split": [
+      "{players} split the pot: {coins} each!"
+    ],
+    "announce.halfway": [
+      "We're halfway there! {left} rounds to go."
+    ],
+    "announce.standings": [
+      "Here's where we stand. {player} is out in front!"
+    ],
+    "announce.lead": [
+      "{player} takes the lead!",
+      "New leader: {player}! Everyone else, catch up."
+    ],
+    "announce.comeback": [
+      "Look at {player} climb!"
+    ],
+    "announce.doubling": [
+      "Big news! From now on, every minigame pays double!"
+    ],
+    "announce.final": [
+      "This is it: the final round! Make it count."
+    ],
+    "end.chris.over": [
+      "That's the game! But wait, it's not over yet..."
+    ],
+    "end.bonus.intro": [
+      "Time for the bonus Stars! The Allay has {stars} to hand out."
+    ],
+    "end.allay.hello": [
+      "Hello, hello! I brought Stars!"
+    ],
+    "end.bonus.award": [
+      "For {award}... this Star goes to {player}!"
+    ],
+    "end.tie.chris": [
+      "A tie! {players}, settle it in a sudden-death minigame!"
+    ],
+    "end.tie.allay": [
+      "Hmm, hmm... I pick {player}!"
+    ],
+    "end.podium": [
+      "Your Block Party champion: {player}!"
+    ],
+    "end.thanks": [
+      "Thanks for playing! Same time next round?"
+    ],
+    "pregame.rules.yes": [
+      "Yes, please!"
+    ],
+    "pregame.rules.no": [
+      "No, let's play!"
+    ],
     "round.title": [
       "Round {round} of {rounds}"
     ],
@@ -86,18 +337,8 @@
     "turn.dice.later": [
       "Your dice open when the game asks for a roll."
     ],
-    "turn.chris": [
-      "You're up, {player}!",
-      "{player}, the dice are waiting."
-    ],
     "turn.rolled": [
       "{player} rolled {roll}."
-    ],
-    "turn.rolled.high": [
-      "A {roll}! {player} is on the move!"
-    ],
-    "turn.rolled.one": [
-      "A 1? Oof. Baby steps, {player}."
     ],
     "turn.skipped": [
       "{player} isn't here: their turn is skipped."
@@ -171,29 +412,6 @@
     "star.bought.subtitle": [
       "It moves to {space}"
     ],
-    "star.chris.offer": [
-      "Well hello, {player}! One shiny Star, just {price}. Interested?",
-      "A Star for {price}! You know you want it, {player}."
-    ],
-    "star.chris.short": [
-      "Ooh, a Star costs {price}, and your pockets are light. Come back richer!"
-    ],
-    "star.chris.sold": [
-      "Pleasure doing business! Congratulations, {player}!"
-    ],
-    "star.chris.declined": [
-      "Suit yourself! It'll be here... for now."
-    ],
-    "star.chris.moves": [
-      "And off it goes! The next Star is waiting at {space}."
-    ],
-    "star.chris.half-price": [
-      "You've got a half-price coupon! That's just {price} for you."
-    ],
-    "shop.welcome": [
-      "Hrmm! Welcome, welcome. Today's stock is right here.",
-      "Hrm? A customer! Come, come, take a look."
-    ],
     "shop.form.title": [
       "The Villager's shop"
     ],
@@ -209,59 +427,11 @@
     "shop.form.leave": [
       "Leave"
     ],
-    "shop.bought": [
-      "Hrm, an excellent choice. {item} is yours."
-    ],
-    "shop.short": [
-      "Hrmm... that's {price}. Come back with more coins."
-    ],
-    "shop.full": [
-      "Your hands are full, friend. Sell something first?"
-    ],
-    "shop.sold": [
-      "I'll take {item} off your hands for {coins}."
-    ],
-    "shop.bye": [
-      "Hrm! Come again."
-    ],
-    "shop.nothing": [
-      "Just looking? Hrmm."
-    ],
-    "trader.arrives": [
-      "Psst! The Wandering Trader is in town, over at {space}. Only for one round!"
-    ],
-    "trader.offer": [
-      "Rare goods from far away. {item}, just {price}. One buyer only."
-    ],
     "trader.form.title": [
       "The Wandering Trader"
     ],
     "trader.form.body": [
       "Buy {item} for {price}? You have {coins}."
-    ],
-    "trader.sold": [
-      "A fine deal. Safe travels, {player}."
-    ],
-    "trader.short": [
-      "No coin, no trade. Off you go."
-    ],
-    "trader.sold-out": [
-      "{player} snagged the Trader's goods! That's gone for good."
-    ],
-    "trader.leaves": [
-      "And just like that, the Wandering Trader has wandered off."
-    ],
-    "chance.welcome": [
-      "Heh heh heh. Come closer, {player}. It's Chance Time!"
-    ],
-    "chance.potions": [
-      "Three potions, three fates. Pick one, if you dare."
-    ],
-    "chance.reroll.offer": [
-      "Don't like them? For {price}, I'll brew three new ones."
-    ],
-    "chance.reroll.done": [
-      "Bubble, bubble... there. Fresh potions."
     ],
     "chance.form.title": [
       "Chance Time"
@@ -272,78 +442,11 @@
     "chance.form.reroll": [
       "Brew new ones ({price})"
     ],
-    "chance.coin-rain": [
-      "Coin Rain! Everybody gets {coins}. Aren't I generous?"
-    ],
-    "chance.coin-swap": [
-      "Coin Swap! {player} and {other} trade purses. Heh heh."
-    ],
     "chance.coin-swap.form": [
       "Pick a player to swap coins with."
     ],
-    "chance.reverse-fortune": [
-      "Reverse Fortune! {player} gives {coins} to {other}. The rich get poorer!"
-    ],
-    "chance.double": [
-      "Double or Nothing! Bet your coins on a coin flip."
-    ],
     "chance.double.form": [
       "Bet up to {coins} on a coin flip. Heads, you double it. Tails, it's the Witch's."
-    ],
-    "chance.double.won": [
-      "Heads! {player} wins {coins}. Hmph."
-    ],
-    "chance.double.lost": [
-      "Tails! {coins} into my cauldron. Thank you, {player}."
-    ],
-    "chance.gift-exchange": [
-      "Gift Exchange! Everyone passes an item to the next player."
-    ],
-    "chance.lucky-draw": [
-      "Lucky Draw! {player} gets {item}."
-    ],
-    "chance.shuffle": [
-      "Position Shuffle! Everyone swaps places. Try not to get dizzy."
-    ],
-    "chance.battle-royale": [
-      "Battle Royale! The next minigame is a Battle: everyone bets, winner takes the pot."
-    ],
-    "chance.zombie": [
-      "Zombie Outbreak! A hungry friend is coming for you, {player}."
-    ],
-    "chance.half-price": [
-      "Half-price Star! {player}, your next Star is {coins} off."
-    ],
-    "chance.shooting-star": [
-      "Shooting Star! {player}'s Star flies away... and lands with {other}!"
-    ],
-    "chance.bye": [
-      "Come back soon, dearie. Heh heh heh."
-    ],
-    "warden.arrives": [
-      "...You woke me, {player}.",
-      "Too loud. Far too loud."
-    ],
-    "warden.sculk-tax": [
-      "Sculk Tax. {coins}. Now."
-    ],
-    "warden.hush-money": [
-      "Hush Money. Pay each of them {coins}, and keep quiet."
-    ],
-    "warden.star-tax": [
-      "Star Tax. {coins} for every Star you hold."
-    ],
-    "warden.silenced": [
-      "Silenced. The next item you get is mine."
-    ],
-    "warden.slow-curse": [
-      "Slow Curse. Your next roll crawls."
-    ],
-    "warden.zombie-curse": [
-      "Zombie Curse. Something will follow you. For three rounds."
-    ],
-    "warden.sonic-boom": [
-      "SONIC BOOM. {player}, your Star is gone."
     ],
     "warden.leaves": [
       "The Warden sinks back into the sculk."
@@ -387,9 +490,6 @@
     "items.golden-totem": [
       "{player} used a Golden Totem: an extra die that doubles, next roll."
     ],
-    "items.ender-pearl": [
-      "{player} threw an Ender Pearl! The Enderman swaps {player} and {other}."
-    ],
     "items.cursed-totem": [
       "{player} cursed {other}: their next roll is halved."
     ],
@@ -402,23 +502,8 @@
     "items.zombie-spawn": [
       "{player} sent a zombie after {other}!"
     ],
-    "items.iron-golem": [
-      "{player}'s Iron Golem shakes down {other} for {coins}."
-    ],
-    "items.iron-golem.zombie": [
-      "{player}'s Iron Golem sends the zombie packing."
-    ],
-    "items.villager": [
-      "Hrm, I'll give you {coins} for that {item}."
-    ],
     "items.villager.final": [
       "The Villager doesn't trade on the final turn."
-    ],
-    "zombie.arrives": [
-      "Uuurgh... coins..."
-    ],
-    "zombie.takes": [
-      "Cooooins. Mine."
     ],
     "zombie.takes.chat": [
       "The zombie took {coins} from {player}."
@@ -510,32 +595,11 @@
     "versus.draw.subtitle": [
       "Nobody pays"
     ],
-    "versus.announce": [
-      "Versus! {player}, choose your opponent!"
-    ],
-    "versus.faceoff": [
-      "{player} versus {other}! The loser pays the winner {coins}."
-    ],
-    "versus.glove": [
-      "A challenge! {player} throws down the Dueling Glove. {other}, you're up. {coins} on the line!"
-    ],
-    "versus.doubled": [
-      "It's the final stretch, so the stakes are doubled: {coins}!"
-    ],
-    "versus.bets.open": [
-      "Place your bets! Back {player} or {other}: 0, 3 or 5 coins."
-    ],
     "versus.bets.form.title": [
       "Your bet"
     ],
     "versus.bets.form.body": [
       "Who wins, {player} or {other}?"
-    ],
-    "versus.bets.closed": [
-      "Bets are locked! The crowd says: {odds}."
-    ],
-    "versus.referee.winner": [
-      "{player} wins! {other} pays {coins}."
     ],
     "versus.bet.won": [
       "Your bet paid off: +{coins}."
@@ -621,51 +685,11 @@
     "minigame.pot": [
       "The pot: {paid}."
     ],
-    "minigame.chris": [
-      "It's {minigame}! Show me what you've got."
-    ],
-    "minigame.chris.2v2": [
-      "Team game! {players} against {others}."
-    ],
-    "minigame.chris.1v3": [
-      "One against three! {player} takes on {players}."
-    ],
-    "minigame.chris.battle": [
-      "Battle! Everyone puts {coins} in the pot. Winner takes all!"
-    ],
-    "minigame.chris.winner": [
-      "What a performance from {player}!"
-    ],
-    "minigame.chris.pot": [
-      "{player} takes the whole pot: {coins}!"
-    ],
-    "minigame.chris.pot-split": [
-      "{players} split the pot: {coins} each!"
-    ],
-    "announce.halfway": [
-      "We're halfway there! {left} rounds to go."
-    ],
-    "announce.standings": [
-      "Here's where we stand. {player} is out in front!"
-    ],
-    "announce.lead": [
-      "{player} takes the lead!",
-      "New leader: {player}! Everyone else, catch up."
-    ],
-    "announce.comeback": [
-      "Look at {player} climb!"
-    ],
     "round.doubled.subtitle": [
       "Coins double from now on!"
     ],
     "announce.doubled": [
       "From now on, minigame coins and duel stakes are doubled."
-    ],
-    "announce.doubling": [
-      "Big news! From now on, every minigame pays double!"
-    ],
-    "announce.final": [
-      "This is it: the final round! Make it count."
     ],
     "announce.final.title": [
       "Final round!"
@@ -725,19 +749,7 @@
       "Next"
     ],
     "dialogue.skip": [
-      "Jump to skip"
-    ],
-    "end.chris.over": [
-      "That's the game! But wait, it's not over yet..."
-    ],
-    "end.bonus.intro": [
-      "Time for the bonus Stars! The Allay has {stars} to hand out."
-    ],
-    "end.allay.hello": [
-      "Hello, hello! I brought Stars!"
-    ],
-    "end.bonus.award": [
-      "For {award}... this Star goes to {player}!"
+      "Hold sneak to skip"
     ],
     "award.hazards": [
       "Most Hazards Hit"
@@ -799,12 +811,6 @@
     "end.tie": [
       "{players} are tied: the winner is picked at random (the Allay picks once it's built, pass 8)."
     ],
-    "end.tie.chris": [
-      "A tie! {players}, settle it in a sudden-death minigame!"
-    ],
-    "end.tie.allay": [
-      "Hmm, hmm... I pick {player}!"
-    ],
     "end.title": [
       "{player} wins!"
     ],
@@ -813,12 +819,6 @@
     ],
     "end.standings": [
       "Final standings: {standings}."
-    ],
-    "end.podium": [
-      "Your Block Party champion: {player}!"
-    ],
-    "end.thanks": [
-      "Thanks for playing! Same time next round?"
     ]
   },
   "moments": {
@@ -840,15 +840,18 @@
     },
     "pregame.rules": {
       "character": "Chris",
-      "delivery": "Dialogue box"
-    },
-    "pregame.rules.yes": {
-      "character": "Game",
-      "delivery": "HUD"
-    },
-    "pregame.rules.no": {
-      "character": "Game",
-      "delivery": "HUD"
+      "delivery": "Dialogue box",
+      "choices": [
+        {
+          "key": "c1",
+          "text": "Yes"
+        },
+        {
+          "key": "c2",
+          "text": "No"
+        }
+      ],
+      "chooser": "Player"
     },
     "pregame.place.1": {
       "character": "Chris",
@@ -902,6 +905,342 @@
       "character": "Chris",
       "delivery": "Dialogue box"
     },
+    "turn.chris": {
+      "character": "Chris",
+      "delivery": "Dialogue box"
+    },
+    "turn.rolled.high": {
+      "character": "Chris",
+      "delivery": "Dialogue box"
+    },
+    "turn.rolled.one": {
+      "character": "Chris",
+      "delivery": "Dialogue box"
+    },
+    "star.chris.offer": {
+      "character": "Chris",
+      "delivery": "Dialogue box"
+    },
+    "star.chris.short": {
+      "character": "Chris",
+      "delivery": "Dialogue box"
+    },
+    "star.chris.sold": {
+      "character": "Chris",
+      "delivery": "Dialogue box"
+    },
+    "star.chris.declined": {
+      "character": "Chris",
+      "delivery": "Dialogue box"
+    },
+    "star.chris.moves": {
+      "character": "Chris",
+      "delivery": "Dialogue box"
+    },
+    "star.chris.half-price": {
+      "character": "Chris",
+      "delivery": "Dialogue box"
+    },
+    "shop.welcome": {
+      "character": "Villager",
+      "delivery": "Dialogue box"
+    },
+    "shop.bought": {
+      "character": "Villager",
+      "delivery": "Dialogue box"
+    },
+    "shop.short": {
+      "character": "Villager",
+      "delivery": "Dialogue box"
+    },
+    "shop.full": {
+      "character": "Villager",
+      "delivery": "Dialogue box"
+    },
+    "shop.sold": {
+      "character": "Villager",
+      "delivery": "Dialogue box"
+    },
+    "shop.bye": {
+      "character": "Villager",
+      "delivery": "Dialogue box"
+    },
+    "shop.nothing": {
+      "character": "Villager",
+      "delivery": "Dialogue box"
+    },
+    "trader.arrives": {
+      "character": "Chris",
+      "delivery": "Dialogue box"
+    },
+    "trader.offer": {
+      "character": "Wandering Trader",
+      "delivery": "Dialogue box"
+    },
+    "trader.sold": {
+      "character": "Wandering Trader",
+      "delivery": "Dialogue box"
+    },
+    "trader.short": {
+      "character": "Wandering Trader",
+      "delivery": "Dialogue box"
+    },
+    "trader.sold-out": {
+      "character": "Chris",
+      "delivery": "Dialogue box"
+    },
+    "trader.leaves": {
+      "character": "Chris",
+      "delivery": "Dialogue box"
+    },
+    "chance.welcome": {
+      "character": "Witch",
+      "delivery": "Dialogue box"
+    },
+    "chance.potions": {
+      "character": "Witch",
+      "delivery": "Dialogue box"
+    },
+    "chance.reroll.offer": {
+      "character": "Witch",
+      "delivery": "Dialogue box"
+    },
+    "chance.reroll.done": {
+      "character": "Witch",
+      "delivery": "Dialogue box"
+    },
+    "chance.coin-rain": {
+      "character": "Witch",
+      "delivery": "Dialogue box"
+    },
+    "chance.coin-swap": {
+      "character": "Witch",
+      "delivery": "Dialogue box"
+    },
+    "chance.reverse-fortune": {
+      "character": "Witch",
+      "delivery": "Dialogue box"
+    },
+    "chance.double": {
+      "character": "Witch",
+      "delivery": "Dialogue box"
+    },
+    "chance.double.won": {
+      "character": "Witch",
+      "delivery": "Dialogue box"
+    },
+    "chance.double.lost": {
+      "character": "Witch",
+      "delivery": "Dialogue box"
+    },
+    "chance.gift-exchange": {
+      "character": "Witch",
+      "delivery": "Dialogue box"
+    },
+    "chance.lucky-draw": {
+      "character": "Witch",
+      "delivery": "Dialogue box"
+    },
+    "chance.shuffle": {
+      "character": "Witch",
+      "delivery": "Dialogue box"
+    },
+    "chance.battle-royale": {
+      "character": "Witch",
+      "delivery": "Dialogue box"
+    },
+    "chance.zombie": {
+      "character": "Witch",
+      "delivery": "Dialogue box"
+    },
+    "chance.half-price": {
+      "character": "Witch",
+      "delivery": "Dialogue box"
+    },
+    "chance.shooting-star": {
+      "character": "Witch",
+      "delivery": "Dialogue box"
+    },
+    "chance.bye": {
+      "character": "Witch",
+      "delivery": "Dialogue box"
+    },
+    "warden.arrives": {
+      "character": "Warden",
+      "delivery": "Dialogue box"
+    },
+    "warden.sculk-tax": {
+      "character": "Warden",
+      "delivery": "Dialogue box"
+    },
+    "warden.hush-money": {
+      "character": "Warden",
+      "delivery": "Dialogue box"
+    },
+    "warden.star-tax": {
+      "character": "Warden",
+      "delivery": "Dialogue box"
+    },
+    "warden.silenced": {
+      "character": "Warden",
+      "delivery": "Dialogue box"
+    },
+    "warden.slow-curse": {
+      "character": "Warden",
+      "delivery": "Dialogue box"
+    },
+    "warden.zombie-curse": {
+      "character": "Warden",
+      "delivery": "Dialogue box"
+    },
+    "warden.sonic-boom": {
+      "character": "Warden",
+      "delivery": "Dialogue box"
+    },
+    "items.ender-pearl": {
+      "character": "Enderman",
+      "delivery": "Dialogue box"
+    },
+    "items.iron-golem": {
+      "character": "Iron Golem",
+      "delivery": "Dialogue box"
+    },
+    "items.iron-golem.zombie": {
+      "character": "Iron Golem",
+      "delivery": "Dialogue box"
+    },
+    "items.villager": {
+      "character": "Villager",
+      "delivery": "Dialogue box"
+    },
+    "zombie.arrives": {
+      "character": "Zombie",
+      "delivery": "Dialogue box"
+    },
+    "zombie.takes": {
+      "character": "Zombie",
+      "delivery": "Dialogue box"
+    },
+    "versus.announce": {
+      "character": "Referee",
+      "delivery": "Dialogue box"
+    },
+    "versus.faceoff": {
+      "character": "Referee",
+      "delivery": "Dialogue box"
+    },
+    "versus.glove": {
+      "character": "Referee",
+      "delivery": "Dialogue box"
+    },
+    "versus.doubled": {
+      "character": "Referee",
+      "delivery": "Dialogue box"
+    },
+    "versus.bets.open": {
+      "character": "Referee",
+      "delivery": "Dialogue box"
+    },
+    "versus.bets.closed": {
+      "character": "Referee",
+      "delivery": "Dialogue box"
+    },
+    "versus.referee.winner": {
+      "character": "Referee",
+      "delivery": "Dialogue box"
+    },
+    "minigame.chris": {
+      "character": "Chris",
+      "delivery": "Dialogue box"
+    },
+    "minigame.chris.2v2": {
+      "character": "Chris",
+      "delivery": "Dialogue box"
+    },
+    "minigame.chris.1v3": {
+      "character": "Chris",
+      "delivery": "Dialogue box"
+    },
+    "minigame.chris.battle": {
+      "character": "Chris",
+      "delivery": "Dialogue box"
+    },
+    "minigame.chris.winner": {
+      "character": "Chris",
+      "delivery": "Dialogue box"
+    },
+    "minigame.chris.pot": {
+      "character": "Chris",
+      "delivery": "Dialogue box"
+    },
+    "minigame.chris.pot-split": {
+      "character": "Chris",
+      "delivery": "Dialogue box"
+    },
+    "announce.halfway": {
+      "character": "Chris",
+      "delivery": "Dialogue box"
+    },
+    "announce.standings": {
+      "character": "Chris",
+      "delivery": "Dialogue box"
+    },
+    "announce.lead": {
+      "character": "Chris",
+      "delivery": "Dialogue box"
+    },
+    "announce.comeback": {
+      "character": "Chris",
+      "delivery": "Dialogue box"
+    },
+    "announce.doubling": {
+      "character": "Chris",
+      "delivery": "Dialogue box"
+    },
+    "announce.final": {
+      "character": "Chris",
+      "delivery": "Dialogue box"
+    },
+    "end.chris.over": {
+      "character": "Chris",
+      "delivery": "Dialogue box"
+    },
+    "end.bonus.intro": {
+      "character": "Chris",
+      "delivery": "Dialogue box"
+    },
+    "end.allay.hello": {
+      "character": "Allay",
+      "delivery": "Dialogue box"
+    },
+    "end.bonus.award": {
+      "character": "Allay",
+      "delivery": "Dialogue box"
+    },
+    "end.tie.chris": {
+      "character": "Chris",
+      "delivery": "Dialogue box"
+    },
+    "end.tie.allay": {
+      "character": "Allay",
+      "delivery": "Dialogue box"
+    },
+    "end.podium": {
+      "character": "Chris",
+      "delivery": "Dialogue box"
+    },
+    "end.thanks": {
+      "character": "Chris",
+      "delivery": "Dialogue box"
+    },
+    "pregame.rules.yes": {
+      "character": "Game",
+      "delivery": "HUD"
+    },
+    "pregame.rules.no": {
+      "character": "Game",
+      "delivery": "HUD"
+    },
     "round.title": {
       "character": "Game",
       "delivery": "Title"
@@ -930,20 +1269,8 @@
       "character": "Game",
       "delivery": "Dialogue box"
     },
-    "turn.chris": {
-      "character": "Chris",
-      "delivery": "Dialogue box"
-    },
     "turn.rolled": {
       "character": "Game",
-      "delivery": "Dialogue box"
-    },
-    "turn.rolled.high": {
-      "character": "Chris",
-      "delivery": "Dialogue box"
-    },
-    "turn.rolled.one": {
-      "character": "Chris",
       "delivery": "Dialogue box"
     },
     "turn.skipped": {
@@ -1042,34 +1369,6 @@
       "character": "Game",
       "delivery": "Subtitle"
     },
-    "star.chris.offer": {
-      "character": "Chris",
-      "delivery": "Dialogue box"
-    },
-    "star.chris.short": {
-      "character": "Chris",
-      "delivery": "Dialogue box"
-    },
-    "star.chris.sold": {
-      "character": "Chris",
-      "delivery": "Dialogue box"
-    },
-    "star.chris.declined": {
-      "character": "Chris",
-      "delivery": "Dialogue box"
-    },
-    "star.chris.moves": {
-      "character": "Chris",
-      "delivery": "Dialogue box"
-    },
-    "star.chris.half-price": {
-      "character": "Chris",
-      "delivery": "Dialogue box"
-    },
-    "shop.welcome": {
-      "character": "Villager",
-      "delivery": "Dialogue box"
-    },
     "shop.form.title": {
       "character": "Game",
       "delivery": "Form title"
@@ -1090,38 +1389,6 @@
       "character": "Game",
       "delivery": "Form button"
     },
-    "shop.bought": {
-      "character": "Villager",
-      "delivery": "Dialogue box"
-    },
-    "shop.short": {
-      "character": "Villager",
-      "delivery": "Dialogue box"
-    },
-    "shop.full": {
-      "character": "Villager",
-      "delivery": "Dialogue box"
-    },
-    "shop.sold": {
-      "character": "Villager",
-      "delivery": "Dialogue box"
-    },
-    "shop.bye": {
-      "character": "Villager",
-      "delivery": "Dialogue box"
-    },
-    "shop.nothing": {
-      "character": "Villager",
-      "delivery": "Dialogue box"
-    },
-    "trader.arrives": {
-      "character": "Chris",
-      "delivery": "Dialogue box"
-    },
-    "trader.offer": {
-      "character": "Wandering Trader",
-      "delivery": "Dialogue box"
-    },
     "trader.form.title": {
       "character": "Game",
       "delivery": "Form title"
@@ -1129,38 +1396,6 @@
     "trader.form.body": {
       "character": "Game",
       "delivery": "Form text"
-    },
-    "trader.sold": {
-      "character": "Wandering Trader",
-      "delivery": "Dialogue box"
-    },
-    "trader.short": {
-      "character": "Wandering Trader",
-      "delivery": "Dialogue box"
-    },
-    "trader.sold-out": {
-      "character": "Chris",
-      "delivery": "Dialogue box"
-    },
-    "trader.leaves": {
-      "character": "Chris",
-      "delivery": "Dialogue box"
-    },
-    "chance.welcome": {
-      "character": "Witch",
-      "delivery": "Dialogue box"
-    },
-    "chance.potions": {
-      "character": "Witch",
-      "delivery": "Dialogue box"
-    },
-    "chance.reroll.offer": {
-      "character": "Witch",
-      "delivery": "Dialogue box"
-    },
-    "chance.reroll.done": {
-      "character": "Witch",
-      "delivery": "Dialogue box"
     },
     "chance.form.title": {
       "character": "Game",
@@ -1174,101 +1409,13 @@
       "character": "Game",
       "delivery": "Form button"
     },
-    "chance.coin-rain": {
-      "character": "Witch",
-      "delivery": "Dialogue box"
-    },
-    "chance.coin-swap": {
-      "character": "Witch",
-      "delivery": "Dialogue box"
-    },
     "chance.coin-swap.form": {
       "character": "Game",
       "delivery": "Form text"
     },
-    "chance.reverse-fortune": {
-      "character": "Witch",
-      "delivery": "Dialogue box"
-    },
-    "chance.double": {
-      "character": "Witch",
-      "delivery": "Dialogue box"
-    },
     "chance.double.form": {
       "character": "Game",
       "delivery": "Form text"
-    },
-    "chance.double.won": {
-      "character": "Witch",
-      "delivery": "Dialogue box"
-    },
-    "chance.double.lost": {
-      "character": "Witch",
-      "delivery": "Dialogue box"
-    },
-    "chance.gift-exchange": {
-      "character": "Witch",
-      "delivery": "Dialogue box"
-    },
-    "chance.lucky-draw": {
-      "character": "Witch",
-      "delivery": "Dialogue box"
-    },
-    "chance.shuffle": {
-      "character": "Witch",
-      "delivery": "Dialogue box"
-    },
-    "chance.battle-royale": {
-      "character": "Witch",
-      "delivery": "Dialogue box"
-    },
-    "chance.zombie": {
-      "character": "Witch",
-      "delivery": "Dialogue box"
-    },
-    "chance.half-price": {
-      "character": "Witch",
-      "delivery": "Dialogue box"
-    },
-    "chance.shooting-star": {
-      "character": "Witch",
-      "delivery": "Dialogue box"
-    },
-    "chance.bye": {
-      "character": "Witch",
-      "delivery": "Dialogue box"
-    },
-    "warden.arrives": {
-      "character": "Warden",
-      "delivery": "Dialogue box"
-    },
-    "warden.sculk-tax": {
-      "character": "Warden",
-      "delivery": "Dialogue box"
-    },
-    "warden.hush-money": {
-      "character": "Warden",
-      "delivery": "Dialogue box"
-    },
-    "warden.star-tax": {
-      "character": "Warden",
-      "delivery": "Dialogue box"
-    },
-    "warden.silenced": {
-      "character": "Warden",
-      "delivery": "Dialogue box"
-    },
-    "warden.slow-curse": {
-      "character": "Warden",
-      "delivery": "Dialogue box"
-    },
-    "warden.zombie-curse": {
-      "character": "Warden",
-      "delivery": "Dialogue box"
-    },
-    "warden.sonic-boom": {
-      "character": "Warden",
-      "delivery": "Dialogue box"
     },
     "warden.leaves": {
       "character": "Game",
@@ -1326,10 +1473,6 @@
       "character": "Game",
       "delivery": "Dialogue box"
     },
-    "items.ender-pearl": {
-      "character": "Enderman",
-      "delivery": "Dialogue box"
-    },
     "items.cursed-totem": {
       "character": "Game",
       "delivery": "Dialogue box"
@@ -1346,28 +1489,8 @@
       "character": "Game",
       "delivery": "Dialogue box"
     },
-    "items.iron-golem": {
-      "character": "Iron Golem",
-      "delivery": "Dialogue box"
-    },
-    "items.iron-golem.zombie": {
-      "character": "Iron Golem",
-      "delivery": "Dialogue box"
-    },
-    "items.villager": {
-      "character": "Villager",
-      "delivery": "Dialogue box"
-    },
     "items.villager.final": {
       "character": "Game",
-      "delivery": "Dialogue box"
-    },
-    "zombie.arrives": {
-      "character": "Zombie",
-      "delivery": "Dialogue box"
-    },
-    "zombie.takes": {
-      "character": "Zombie",
       "delivery": "Dialogue box"
     },
     "zombie.takes.chat": {
@@ -1490,26 +1613,6 @@
       "character": "Game",
       "delivery": "Subtitle"
     },
-    "versus.announce": {
-      "character": "Referee",
-      "delivery": "Dialogue box"
-    },
-    "versus.faceoff": {
-      "character": "Referee",
-      "delivery": "Dialogue box"
-    },
-    "versus.glove": {
-      "character": "Referee",
-      "delivery": "Dialogue box"
-    },
-    "versus.doubled": {
-      "character": "Referee",
-      "delivery": "Dialogue box"
-    },
-    "versus.bets.open": {
-      "character": "Referee",
-      "delivery": "Dialogue box"
-    },
     "versus.bets.form.title": {
       "character": "Game",
       "delivery": "Form title"
@@ -1517,14 +1620,6 @@
     "versus.bets.form.body": {
       "character": "Game",
       "delivery": "Form text"
-    },
-    "versus.bets.closed": {
-      "character": "Referee",
-      "delivery": "Dialogue box"
-    },
-    "versus.referee.winner": {
-      "character": "Referee",
-      "delivery": "Dialogue box"
     },
     "versus.bet.won": {
       "character": "Game",
@@ -1638,64 +1733,12 @@
       "character": "Game",
       "delivery": "Dialogue box"
     },
-    "minigame.chris": {
-      "character": "Chris",
-      "delivery": "Dialogue box"
-    },
-    "minigame.chris.2v2": {
-      "character": "Chris",
-      "delivery": "Dialogue box"
-    },
-    "minigame.chris.1v3": {
-      "character": "Chris",
-      "delivery": "Dialogue box"
-    },
-    "minigame.chris.battle": {
-      "character": "Chris",
-      "delivery": "Dialogue box"
-    },
-    "minigame.chris.winner": {
-      "character": "Chris",
-      "delivery": "Dialogue box"
-    },
-    "minigame.chris.pot": {
-      "character": "Chris",
-      "delivery": "Dialogue box"
-    },
-    "minigame.chris.pot-split": {
-      "character": "Chris",
-      "delivery": "Dialogue box"
-    },
-    "announce.halfway": {
-      "character": "Chris",
-      "delivery": "Dialogue box"
-    },
-    "announce.standings": {
-      "character": "Chris",
-      "delivery": "Dialogue box"
-    },
-    "announce.lead": {
-      "character": "Chris",
-      "delivery": "Dialogue box"
-    },
-    "announce.comeback": {
-      "character": "Chris",
-      "delivery": "Dialogue box"
-    },
     "round.doubled.subtitle": {
       "character": "Game",
       "delivery": "Subtitle"
     },
     "announce.doubled": {
       "character": "Game",
-      "delivery": "Dialogue box"
-    },
-    "announce.doubling": {
-      "character": "Chris",
-      "delivery": "Dialogue box"
-    },
-    "announce.final": {
-      "character": "Chris",
       "delivery": "Dialogue box"
     },
     "announce.final.title": {
@@ -1778,22 +1821,6 @@
       "character": "Game",
       "delivery": "HUD"
     },
-    "end.chris.over": {
-      "character": "Chris",
-      "delivery": "Dialogue box"
-    },
-    "end.bonus.intro": {
-      "character": "Chris",
-      "delivery": "Dialogue box"
-    },
-    "end.allay.hello": {
-      "character": "Allay",
-      "delivery": "Dialogue box"
-    },
-    "end.bonus.award": {
-      "character": "Allay",
-      "delivery": "Dialogue box"
-    },
     "award.hazards": {
       "character": "Game",
       "delivery": "Title"
@@ -1874,14 +1901,6 @@
       "character": "Game",
       "delivery": "Dialogue box"
     },
-    "end.tie.chris": {
-      "character": "Chris",
-      "delivery": "Dialogue box"
-    },
-    "end.tie.allay": {
-      "character": "Allay",
-      "delivery": "Dialogue box"
-    },
     "end.title": {
       "character": "Game",
       "delivery": "Title"
@@ -1892,14 +1911,6 @@
     },
     "end.standings": {
       "character": "Game",
-      "delivery": "Dialogue box"
-    },
-    "end.podium": {
-      "character": "Chris",
-      "delivery": "Dialogue box"
-    },
-    "end.thanks": {
-      "character": "Chris",
       "delivery": "Dialogue box"
     }
   }

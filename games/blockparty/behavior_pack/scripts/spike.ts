@@ -1,17 +1,20 @@
 // Block Party's spike (docs/plans/block-party.md, "Suggested order" 1), played as a test game on
 // Probe's map. It lays a 12-space test board beside the platform, makes each player their own piece
-// on it, and gives them the game's hotbar (a stand-in for it) with a Tests menu. The menu tries what
-// the game will need:
+// on it, and gives them the game's bar items with a Tests menu (/blockparty:tests, or the compass).
+// The menu tries what the game will need:
 //   - walking a piece (pieces.ts: the player pushed along the path, easing into corners; each walk
 //     says in chat how it went), watched by everyone through the chase or watch camera;
 //   - camera shots (shots.ts), skipped by everyone jumping (a vote);
 //   - the jump button: every jump is reported in chat with what was locked at the time;
-//   - the hotbar: the pack's own, bottom right (vanilla's is hidden; bar-codes.ts and
-//     ui/blockparty_hud.json), each player's drawn from codes on their action bar: Items, Dice and
-//     Tests in the rightmost slots, only the slots in use showing. Vanilla's slots still pick
-//     (scrolling, number keys). Using Items or Dice swaps the bar for that set (the items held, or the
-//     dice, each with a Back slot); in the dice, the die picked floats over your head and a jump hits
-//     it, and your piece walks the number. Health, hunger and the XP bar are hidden;
+//   - the bar: Items, Dice and Tests in the hotbar's first slots. Vanilla's hotbar shows only while a
+//     minigame plays (the user's call: never on the board or in cutscenes), and the bar's items are
+//     taken away for the minigame, so on the board they're picked blind (scrolling, number keys)
+//     until the board menu of the UI pass. Using Items or Dice swaps the bar for that set (the items
+//     held, or the dice, each with a Back slot); in the dice, the die picked floats over your head
+//     (its name top right) and a jump hits it, and your piece walks the number. Health, hunger and
+//     the XP bar are hidden;
+//   - nobody walks the board by themselves (the user's call): the movement keys move a player only
+//     off the board (a minigame, a ride) and on the pre-game podium until they roll (keepControls);
 //   - the NPCs on the vanilla mobs' models (npcs.ts): hit one for its animations and variants;
 //   - arenas from other maps (spike/blockparty/arena-pack.ts installs them as structures in
 //     private_packs/arenas/): placed far east of the board (or in the map's arena slot), fresh each
@@ -40,7 +43,7 @@ import { ActionFormData, ModalFormData } from "@minecraft/server-ui";
 import { ARENA_SLOT, Minigame, Notes, describeError, draw, facingOf, hudLine, log, say, showForm, spacesOf, worldPoint, type GameContext, type MapPosition, type Result, type SpawnReason } from "@minecade/minigame-core";
 import { BLOCK_PARTY_BOARD } from "@minecade/minigame-core/config";
 import registry from "#registry";
-import { HOTBAR_SIZE, LOADING_LEVELS, barCodes, loadingCode, type BarIcon } from "./bar-codes.ts";
+import { HOTBAR_SIZE, LOADING_LEVELS, loadingCode, type BarIcon } from "./bar-codes.ts";
 import type config from "../../game.config.ts";
 import { boardBox, build, mapSpaces, standAt, testSpaces, type Space, type Vec3 } from "./board.ts";
 import { BoardLoop } from "./board-loop.ts";
@@ -56,15 +59,14 @@ import { MinigameRunner, type ArenaPlace } from "./minigame-runner.ts";
 import { MINIGAMES } from "./minigames/index.ts";
 import { TITLE, type TitleTiming } from "./minigames/kit.ts";
 import { Npcs } from "./npcs.ts";
-import { DEFAULT_SETTINGS, Pieces, WALK_CAMERAS, lock, unlock, type PieceSettings } from "./pieces.ts";
+import { DEFAULT_SETTINGS, Pieces, WALK_CAMERAS, hold, lock, unlock, type PieceSettings } from "./pieces.ts";
 import { SHOTS, Shots, type ShotId } from "./shots.ts";
 
 type Config = typeof config;
 
-// ---- The hotbar ----------------------------------------------------------------------------
+// ---- The bar -------------------------------------------------------------------------------
 // The bar's items are the pack's own (behavior_pack/items/bar_<icon>.json), with a clear texture so
-// nothing shows in the player's hand (the user asked); the bar draws each one's icon (vanilla's
-// textures for now, bar-codes.ts). Each has a name and a line saying what it does.
+// nothing shows in the player's hand (the user asked). Each has a name and a line saying what it does.
 
 interface BarItem {
   id: string;
@@ -103,12 +105,21 @@ const ITEMS: readonly BarItem[] = [
   { id: barItem("glove"), name: "Dueling Glove", what: "A 1v1 duel for 10 coins", icon: "glove" },
 ];
 const BACK: BarItem = { id: BACK_ITEM, name: "Back", what: "Use it: back to the hotbar", icon: "back" };
-/** What the board hides: everything a survival player watches that Block Party has no use for, and vanilla's hotbar (the pack draws its own). */
-const HIDDEN_HUD = [HudElement.Hotbar, HudElement.Health, HudElement.Hunger, HudElement.ProgressBar, HudElement.Armor, HudElement.AirBubbles];
-/** Ticks between sends of each player's bar (the action bar fades unless it's sent again). */
+/** What Block Party hides: everything a survival player watches that it has no use for, and the hotbar with its item names (MINIGAME_HUD). */
+const HIDDEN_HUD = [HudElement.Hotbar, HudElement.ItemText, HudElement.Health, HudElement.Hunger, HudElement.ProgressBar, HudElement.Armor, HudElement.AirBubbles];
+/** What comes back while a player plays a minigame: vanilla's hotbar (the user: only in minigames, never on the board or in cutscenes). */
+const MINIGAME_HUD = [HudElement.Hotbar, HudElement.ItemText];
+/** Ticks between sends of each player's HUD line (the action bar fades unless it's sent again). */
 const BAR_RESEND = 20;
 
 type Bar = "main" | "items" | "dice";
+
+/**
+ * What a player's keys may do now (keepControls): walk ("free": off the board, or on the pre-game
+ * podium before their roll), only look round, jump and sneak ("held": the board), or not even look
+ * round ("locked": their piece walking, their die out).
+ */
+type Controls = "free" | "held" | "locked";
 
 // ---- Jumps and arenas ----------------------------------------------------------------------
 
@@ -161,6 +172,11 @@ interface PlayerTests {
   sentAt?: number;
   /** The open dice bar: the die floating over the player's head. */
   rolling?: { at: Vector3; placed: boolean; shown?: string };
+  /** What their keys were last set to do, and whether vanilla's hotbar was last shown (undefined: set them again). */
+  controls?: Controls;
+  hotbar?: boolean;
+  /** A minigame took the bar away: it comes back with the player onto the board. */
+  barTaken?: boolean;
 }
 
 export class BlockPartySpike extends Minigame<Config> {
@@ -196,6 +212,8 @@ export class BlockPartySpike extends Minigame<Config> {
   private staging!: Stage;
   /** The minigame's line top right while one is on (it takes the board's place). */
   private minigameStatus: string | undefined;
+  /** Players put on the pre-game podium who haven't rolled for turn order yet (by key): they may walk. */
+  private readonly podium = new Set<string>();
 
   constructor(ctx: GameContext, gameConfig: Config) {
     super(ctx, gameConfig);
@@ -257,7 +275,7 @@ export class BlockPartySpike extends Minigame<Config> {
       arenaPlace: () => this.arenaPlace(),
       arenaMaps: (id) => this.ctx.vars.arenas[id] ?? [],
       behindBlack: (work) => this.behindBlack(work),
-      leaveBoard: (who) => this.pieces.release(who.body),
+      leaveBoard: (who) => this.leaveBoard(who),
       backToBoard: (who) => this.backOnBoard(who),
       respawnBot: (who, at, yaw) => this.bots.respawn(who, at, yaw),
       title: (text, subtitle, timing) => this.titleAll(text, subtitle, timing),
@@ -346,8 +364,13 @@ export class BlockPartySpike extends Minigame<Config> {
       this.tests.delete(playerName.toLowerCase());
       this.pieces.forget(playerName);
     });
-    this.scope.interval(() => this.keepHotbars(), 1);
+    this.scope.interval(() => this.keepPlayers(), 1);
     this.scope.add(() => this.cleanUp());
+  }
+
+  /** The Tests menu (/blockparty:tests, main.ts; the compass in the bar too). */
+  openTests(player: Player): void {
+    void this.menu(player);
   }
 
   protected override onStart(): void {
@@ -405,20 +428,42 @@ export class BlockPartySpike extends Minigame<Config> {
     }
   }
 
-  /** A seat back on its space: a player put there, a bot made again there (bots.ts, respawn). */
+  /** Off the board for a minigame: a player gets their movement back, and the bar goes (the minigame has the hotbar). */
+  private leaveBoard(who: Who): void {
+    this.pieces.release(who.body);
+    const player = who.player;
+    if (!player?.isValid) return;
+    const container = player.getComponent(EntityComponentTypes.Inventory)?.container;
+    if (!container) return;
+    for (let slot = 0; slot < HOTBAR_SIZE; slot++) container.setItem(slot, undefined);
+    this.testsOf(player).barTaken = true;
+  }
+
+  /** A seat back on its space: a player put there with the bar again, a bot made again there (bots.ts, respawn). */
   private backOnBoard(who: Who): void {
     if (who.player) {
-      if (who.player.isValid) this.pieces.place(who.player);
+      if (!who.player.isValid) return;
+      this.pieces.place(who.player);
+      this.podium.delete(who.key);
+      const tests = this.testsOf(who.player);
+      if (tests.barTaken) {
+        tests.barTaken = false;
+        this.openBar(who.player, "main");
+      }
       return;
     }
     this.bots.respawn(who, this.pieces.spotOf(who.name));
     if (who.body.isValid) this.pieces.place(who.body);
   }
 
-  /** A seat put somewhere off its space (the podium) facing `yaw`: a player at once, a bot made again there a moment later. */
+  /**
+   * A seat put somewhere off its space (the pre-game podium) facing `yaw`: a player at once, free to
+   * walk there until they roll for turn order (the user's call), a bot made again there a moment later.
+   */
   private putSeat(who: Who, at: Vec3, yaw: number): void {
     const spot = { x: at[0], y: at[1], z: at[2] };
     if (who.player) {
+      this.podium.add(who.key);
       try {
         if (who.player.isValid) who.player.teleport(spot, { rotation: { x: 0, y: yaw } });
       } catch {
@@ -493,7 +538,11 @@ export class BlockPartySpike extends Minigame<Config> {
   protected override onSpawn(player: Player, _why: SpawnReason): void {
     const tests = this.testsOf(player);
     tests.bar = "main";
+    tests.barTaken = false;
     this.giveBar(player);
+    // Their keys and HUD are set again on the next tick (keepPlayers).
+    tests.controls = undefined;
+    tests.hotbar = undefined;
     try {
       player.onScreenDisplay.setHudVisibility(HudVisibility.Hide, HIDDEN_HUD);
     } catch (error) {
@@ -521,7 +570,7 @@ export class BlockPartySpike extends Minigame<Config> {
     }
     this.boardReady = true;
     for (const player of world.getAllPlayers()) this.pieces.place(player);
-    this.everyone(this.ownBoard ? "Block Party on this map's own board. Tests (the compass) has the spike's tests; hit an NPC for its menu." : "Block Party on the test board. Tests (the compass) has the spike's tests; hit an NPC for its menu.");
+    this.everyone(`Block Party on ${this.ownBoard ? "this map's own board" : "the test board"}. /blockparty:tests has the spike's tests; hit an NPC for its menu.`);
   }
 
   // ---- The hotbar -------------------------------------------------------------------------
@@ -534,15 +583,12 @@ export class BlockPartySpike extends Minigame<Config> {
     return MAIN_BAR;
   }
 
-  /**
-   * Puts the player's bar in their hotbar, in the rightmost slots (the bar sits bottom right): the
-   * pack hides the empty ones, so only these show, against the screen's edge. The first is selected.
-   */
+  /** Puts the player's bar in the first slots of their hotbar (the number keys from 1), the first selected. */
   private giveBar(player: Player): void {
     const container = player.getComponent(EntityComponentTypes.Inventory)?.container;
     if (!container) return;
     const items = this.barItems(player);
-    const first = HOTBAR_SIZE - items.length;
+    const first = 0;
     for (let slot = 0; slot < HOTBAR_SIZE; slot++) container.setItem(slot, undefined);
     items.forEach(({ id, name, what }, i) => {
       const item = new ItemStack(id, 1);
@@ -571,17 +617,19 @@ export class BlockPartySpike extends Minigame<Config> {
   }
 
   /**
-   * Every tick: a selection that lands on an empty (hidden) slot moves on to the next slot in use,
-   * the way the scroll went, wrapping round, so scrolling only ever stops on what shows; and the die
-   * over a rolling player's head follows the die they pick.
+   * Every tick, for each player: what their keys may do and whether vanilla's hotbar shows
+   * (keepControls), and on the board, a selection that lands on an empty slot moves on to the next
+   * slot in use, the way the scroll went, wrapping round, so scrolling only ever stops on the bar;
+   * the die over a rolling player's head follows the die they pick.
    */
-  private keepHotbars(): void {
+  private keepPlayers(): void {
     for (const player of world.getAllPlayers()) {
       const tests = this.tests.get(player.name.toLowerCase());
       const container = player.getComponent(EntityComponentTypes.Inventory)?.container;
       if (!tests || !container) continue;
+      this.keepControls(player, tests);
       let slot = player.selectedSlotIndex;
-      if (!container.getItem(slot)) {
+      if (!this.pieces.isOff(player) && !container.getItem(slot)) {
         const step = slot > tests.lastSlot || (tests.lastSlot === HOTBAR_SIZE - 1 && slot === 0) ? 1 : -1;
         for (let i = 1; i < HOTBAR_SIZE; i++) {
           const next = (((slot + step * i) % HOTBAR_SIZE) + HOTBAR_SIZE) % HOTBAR_SIZE;
@@ -605,18 +653,53 @@ export class BlockPartySpike extends Minigame<Config> {
   }
 
   /**
-   * The player's action bar: the core's HUD mark, then their bar's codes (each slot in use, its
-   * icon, the selected one) and the loading screen's level, when it's up. Sent when it changes, and
-   * every BAR_RESEND ticks so it doesn't fade.
+   * What the player's keys may do (Controls), set when it changes: walking only off the board (a
+   * minigame, where its runner also stops everything till Go, or a ride) and on the pre-game podium
+   * until their roll, unless Chris is asking them something (the movement keys steer the box's
+   * buttons); nothing but jumping while their piece walks or their die is out; else only looking
+   * round, jumping and sneaking. A jump test's lock stands in until it's set back to Nothing locked.
+   * And vanilla's hotbar, shown only while they play a minigame.
+   */
+  private keepControls(player: Player, tests: PlayerTests): void {
+    const key = player.name.toLowerCase();
+    const hotbar = this.runner.isPlaying(key);
+    if (tests.hotbar !== hotbar) {
+      tests.hotbar = hotbar;
+      try {
+        player.onScreenDisplay.setHudVisibility(hotbar ? HudVisibility.Reset : HudVisibility.Hide, MINIGAME_HUD);
+      } catch {
+        // gone
+      }
+    }
+    if (tests.jumpMode !== "free") return;
+    let controls: Controls = "held";
+    if (this.pieces.isWalking(player) || tests.rolling) controls = "locked";
+    else if (this.pieces.isOff(player) || (this.podium.has(key) && this.dialogue.steerer !== key)) controls = "free";
+    if (tests.controls === controls) return;
+    tests.controls = controls;
+    if (controls === "locked") lock(player);
+    else if (controls === "held") hold(player);
+    else {
+      // Not Movement: a minigame's runner holds everyone still with it till Go.
+      try {
+        player.inputPermissions.setPermissionCategory(InputPermissionCategory.LateralMovement, true);
+        player.inputPermissions.setPermissionCategory(InputPermissionCategory.Camera, true);
+      } catch {
+        // gone
+      }
+    }
+  }
+
+  /**
+   * The player's action bar: the core's HUD mark, the line top right (the minigame's, the board's,
+   * or while their die is out, the die they've picked: the hotbar doesn't show on the board) and the
+   * loading screen's level, when it's up. Sent when it changes, and every BAR_RESEND ticks so it
+   * doesn't fade.
    */
   private sendLine(player: Player, tests: PlayerTests, container: Container, force = false): void {
-    const slots: { slot: number; icon: BarIcon }[] = [];
-    const icons = new Map([...MAIN_BAR, ...DICE, ...ITEMS, BACK].map((item) => [item.id, item.icon]));
-    for (let slot = 0; slot < HOTBAR_SIZE; slot++) {
-      const icon = icons.get(container.getItem(slot)?.typeId ?? "");
-      if (icon) slots.push({ slot, icon });
-    }
-    const line = hudLine(undefined, this.minigameStatus ?? this.loop?.hudText(player) ?? "", undefined, "", barCodes(slots, player.selectedSlotIndex) + loadingCode(this.loadingLevel));
+    const die = tests.rolling ? DICE.find((d) => d.id === container.getItem(player.selectedSlotIndex)?.typeId) : undefined;
+    const status = die ? `${die.name}: ${die.what}` : (this.minigameStatus ?? this.loop?.hudText(player) ?? "");
+    const line = hudLine(undefined, status, undefined, "", loadingCode(this.loadingLevel));
     if (!force && line === tests.sentLine && system.currentTick - (tests.sentAt ?? 0) < BAR_RESEND) return;
     tests.sentLine = line;
     tests.sentAt = system.currentTick;
@@ -672,6 +755,8 @@ export class BlockPartySpike extends Minigame<Config> {
     const placed = block?.isAir === true;
     if (placed) block?.setType(DICE[0].block);
     tests.rolling = { at: die, placed, shown: placed ? DICE[0].block : undefined };
+    // Rolling for turn order ends the pre-game podium's walking.
+    this.podium.delete(player.name.toLowerCase());
     lock(player);
     // The roll camera: everyone watches a turn's roll; each player their own while everyone rolls for turn order.
     const yaw = (player.getRotation().y * Math.PI) / 180;
@@ -682,13 +767,12 @@ export class BlockPartySpike extends Minigame<Config> {
     this.tell(player, line("turn.roll.hint"));
   }
 
-  /** Takes the die away and gives everyone their own view back (the roll is over or called off). */
+  /** Takes the die away and gives everyone their own view back (the roll is over or called off); keepControls holds the player again. */
   private endRoll(player: Player): void {
     const tests = this.testsOf(player);
     if (tests.rolling?.placed) this.clearDie(tests.rolling.at);
     tests.rolling = undefined;
     for (const watcher of world.getAllPlayers()) watcher.camera.clear();
-    unlock(player);
   }
 
   private clearDie(at: Vector3): void {
@@ -719,7 +803,6 @@ export class BlockPartySpike extends Minigame<Config> {
     if (rolling?.placed) this.clearDie(rolling.at);
     await this.scope.wait(8);
     for (const watcher of watchers) watcher.camera.clear();
-    unlock(player);
     this.openBar(player, "main");
     pending?.resolve(rolled);
   }
@@ -924,6 +1007,8 @@ export class BlockPartySpike extends Minigame<Config> {
     unlock(player);
     player.camera.clear();
     tests.jumpMode = mode;
+    // Nothing locked hands the keys back to the game (keepControls), which sets them again.
+    tests.controls = undefined;
     const perms = player.inputPermissions;
     if (mode === "lateral" || mode === "camera") perms.setPermissionCategory(InputPermissionCategory.LateralMovement, false);
     if (mode === "movement" || mode === "nojump") perms.setPermissionCategory(InputPermissionCategory.Movement, false);
@@ -933,7 +1018,7 @@ export class BlockPartySpike extends Minigame<Config> {
       const yaw = (player.getRotation().y * Math.PI) / 180;
       player.camera.setCamera("minecraft:free", { location: { x: at.x - Math.sin(yaw) * 4, y: at.y + 1.8, z: at.z + Math.cos(yaw) * 4 }, facingLocation: { x: at.x, y: at.y + 1, z: at.z } });
     }
-    this.tell(player, `Jump test: ${JUMP_MODES.find((m) => m.id === mode)?.label}. Jump, and the chat says what came through. Pick Nothing locked to go back.`);
+    this.tell(player, `Jump test: ${JUMP_MODES.find((m) => m.id === mode)?.label}. Jump, and the chat says what came through. Pick Nothing locked to give the game your keys back.`);
   }
 
   // ---- Arenas -----------------------------------------------------------------------------

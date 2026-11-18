@@ -1,53 +1,24 @@
 // Writes Block Party's own HUD (games/blockparty/resource_pack/ui/blockparty_hud.json), the JSON UI
 // that reads the codes the game puts on the action bar (games/blockparty/behavior_pack/scripts/
 // bar-codes.ts), riding in the core's full-screen action bar panel like the gun scope:
-//   - the hotbar, bottom right: for each slot, its tile while the slot is in use, the icon its code
-//     names, and the gold frame while it's selected; the selected item's name and what it does over
-//     it (vanilla's #item_text);
 //   - the loading screen: the star field and Minecade's logo over everything, at one of
 //     LOADING_LEVELS strengths, which the game steps up and down to fade it in and out.
-// A control for every code, so it's generated: rerun after changing the codes or the icons, and
-// commit the file. A test checks the committed file matches (games/blockparty/test/hud-ui.test.ts).
+// (The pack's own hotbar is gone: the hotbar is vanilla's again, shown only in minigames.)
+// A control for every code, so it's generated: rerun after changing the codes, and commit the file.
+// A test checks the committed file matches (games/blockparty/test/hud-ui.test.ts).
 //
 //     npx tsx tools/assets/blockparty-hud-ui.ts
 import { writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { BAR_CODE, BAR_ICONS, HOTBAR_SIZE, LOADING_CODE, LOADING_LEVELS, SELECTED_CODE, slotCode, type BarIcon } from "../../games/blockparty/behavior_pack/scripts/bar-codes.ts";
+import { LOADING_CODE, LOADING_LEVELS } from "../../games/blockparty/behavior_pack/scripts/bar-codes.ts";
 import { has } from "./rounds-hud.ts";
 
 export const BLOCKPARTY_HUD_FILE = fileURLToPath(new URL("../../games/blockparty/resource_pack/ui/blockparty_hud.json", import.meta.url));
 
 type Control = Record<string, unknown>;
 
-/** A slot's width on the bar, its tile's size, and the gap between tiles. */
-const SLOT = 22;
-const TILE: [number, number] = [20, 22];
-const FRAME: [number, number] = [24, 24];
-const ICON: [number, number] = [12, 12];
-/** Room over the bar for the selected item's name and what it does. */
-const NAME_HEIGHT = 20;
 const ATEXT = { $atext: "$actionbar_text" };
-
-function slot(index: number): Control {
-  const icons = (Object.keys(BAR_ICONS) as BarIcon[]).map((icon) => ({
-    [`icon_${icon}`]: { type: "image", texture: BAR_ICONS[icon].texture, size: ICON, layer: 2, ...ATEXT, visible: has(slotCode(index, icon)) },
-  }));
-  return {
-    type: "panel",
-    size: [SLOT, FRAME[1]],
-    anchor_from: "bottom_left",
-    anchor_to: "bottom_left",
-    offset: [index * SLOT, 0],
-    ...ATEXT,
-    visible: has(`${BAR_CODE}§${index}`),
-    controls: [
-      { tile: { type: "image", texture: "textures/blockparty/hud/slot", size: TILE, layer: 1 } },
-      ...icons,
-      { frame: { type: "image", texture: "textures/blockparty/hud/selected", size: FRAME, layer: 3, ...ATEXT, visible: has(`${SELECTED_CODE}§${index}`) } },
-    ],
-  };
-}
 
 function level(step: number): Control {
   const alpha = Math.round((step / LOADING_LEVELS) * 1000) / 1000;
@@ -65,36 +36,8 @@ function level(step: number): Control {
 }
 
 export function blockpartyHud(): Record<string, Control> {
-  const slots = Array.from({ length: HOTBAR_SIZE }, (_, index) => index);
   const levels = Array.from({ length: LOADING_LEVELS }, (_, index) => index + 1);
   return {
-    hotbar: {
-      type: "panel",
-      size: [HOTBAR_SIZE * SLOT, FRAME[1] + NAME_HEIGHT],
-      anchor_from: "bottom_right",
-      anchor_to: "bottom_right",
-      offset: [-4, -4],
-      ...ATEXT,
-      visible: has(BAR_CODE),
-      controls: [
-        {
-          name: {
-            type: "label",
-            anchor_from: "top_right",
-            anchor_to: "top_right",
-            max_size: [260, NAME_HEIGHT],
-            text_alignment: "right",
-            color: [1.0, 0.95, 0.75],
-            shadow: true,
-            layer: 31,
-            text: "#item_text",
-            bindings: [{ binding_name: "#item_text" }],
-          },
-        },
-        ...slots.map((index) => ({ [`slot_${index}@blockparty_hud.slot_${index}`]: {} })),
-      ],
-    },
-    ...Object.fromEntries(slots.map((index) => [`slot_${index}`, slot(index)])),
     loading: {
       type: "panel",
       size: ["100%", "100%"],

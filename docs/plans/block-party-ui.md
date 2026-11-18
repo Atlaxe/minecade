@@ -221,10 +221,14 @@ player.
   - **The words:** what the NPC says, with color codes and inline icons ("Icons").
   - **The buttons:** a column on the right (Next, Buy, Leave, ...), steered with W and S, picked
     with jump; the selected one has the highlight color, the same as a card on its player's turn.
-- **Spoken to everyone** (Chris to all players, not one): the words take the whole width, with no
-  buttons, and where the moment allows it, players can vote to skip with the skip strip ("Skip and
-  Ready").
-- Long lines go over several pages with Next (proposed).
+- **Spoken to everyone** (Chris to all players, not one): the right column names who has jumped,
+  and where the moment allows it, players can vote to skip with the skip strip ("Skip and Ready").
+- **One sentence at a time** (the user, 2026-11-17): nothing said before stays in the box. A jump
+  goes on to the next sentence (or the next line, or block in the dialogue tool's scenes): every
+  player's jump for a line to everyone (bots don't count), the one it's said to for a question.
+  The jump button's icon sits at the bottom right of the right column, the viewer's own (the Space
+  key, the controller's A or cross, the touch jump: the client knows its own input), with the name
+  of the one it waits for on a question. No Next button and no timer.
 - A line can play a sound ("Sounds").
 - **The words come from the dialogue file,** with how each shows: its delivery ("Dialogue box" to
   one player, "Dialogue box, everyone", "Dialogue button" for its buttons), whether it can be
@@ -236,7 +240,9 @@ player.
 ## Skip and Ready (bottom right)
 
 Replaces the x / y count: the word, then the heads of the players who've voted, `Skip [head]
-[head]`, or `Ready [head] [head]` in the minigame tutorial. Beside it, what to press for the viewer's
+[head]`, or `Ready [head] [head]` in the minigame tutorial. A skip vote is holding sneak for 4
+seconds (the user, 2026-11-17: jump goes on to the next sentence), the strip showing how far along
+anyone holding is. Beside it, what to press for the viewer's
 device where the game can tell, otherwise the word ("Button prompts"). Every skippable cutscene (the
 intro), every skippable line spoken to everyone, and every Ready uses it. While the dialogue box is
 up, the Skip strip is a tab on its top border at the right, like the speaker's name at the left
@@ -310,16 +316,19 @@ A pop over a piece for anything gained or lost: coins, a Star, an item, a die.
 - **On the board:** the hotbar, health, hunger, XP, armor, air, the paper doll, status effects and
   the item name popup hidden (`setHudVisibility`, as now), and the crosshair too (proposed: the
   camera is scripted). Touch controls stay: touch players need jump, sneak and the pad.
-- **In minigames:** back as each minigame says. Each minigame lists the vanilla HUD parts it shows
-  (proposed default: the hotbar, health and the crosshair).
+- **In minigames:** vanilla's hotbar comes back while a player plays one, from Go until it ends
+  (the user, 2026-11-17: never on the board or in cutscenes), and the board's bar items are taken
+  away for it. Each minigame may list more vanilla HUD parts it shows (proposed: health and the
+  crosshair).
 - **Chat:** hidden everywhere in Block Party, if it can be (the user). `HudElement` has no chat, so
   the pack's `hud_screen.json` turns vanilla's chat feed off (Block Party's pack loads only on its own
   servers). Opening the chat screen may still show the history: hide it there too if the pack can
   ("Checks first"). This also hides what players type to each other. The Tests' reports and error
   messages go to chat today: proposed, chat stays visible in test games behind a switch.
-- The old bar goes: the bar codes and the loading codes in `bar-codes.ts`, the hotbar and loading
-  screen in `tools/assets/blockparty-hud-ui.ts`, and the bar items (`blockparty:bar_<icon>`). Nothing
-  is in a player's hands on the board.
+- The old bar goes: the pack's own hotbar went 2026-11-17 (bar codes, its JSON UI and art); the
+  loading codes in `bar-codes.ts` and the loading screen in `tools/assets/blockparty-hud-ui.ts`
+  remain, and the bar items (`blockparty:bar_<icon>`, in hidden slots until the board menu) go with
+  the board menu. Nothing is in a player's hands on the board.
 
 ## Settings and Tests
 

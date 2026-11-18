@@ -36,7 +36,8 @@ player animations and the sounds for pass 10: `block-party-ui.md`.
 | Starting coins | 10, handed out by Chris |
 | Bonus Stars | 3 with 3 or 4 players; 2 with 2 players (at most 1 each) |
 | Rolling | Jump to hit the die |
-| Hotbar | None on the board (2026-11-17: minigames need the hotbar for their own items). The game's own JSON UI instead: a menu top left (Dice block, Items, Board) steered with the movement keys, jump and sneak, player cards top right, a dialogue box; health, hunger and XP hidden (see `block-party-ui.md`) |
+| Walking | Nobody walks the board by themselves (the user, 2026-11-17): the movement keys move a player only off the board (a minigame, a ride) and on the pre-game podium until their roll; on the board they look round, jump and sneak |
+| Hotbar | Vanilla's, shown only while a player plays a minigame (the user, 2026-11-17): never on the board or in cutscenes. The board's controls are the game's own JSON UI: a menu top left (Dice block, Items, Board) steered with the movement keys, jump and sneak, player cards top right, a dialogue box (see `block-party-ui.md`); until the menu is built the bar's items sit in hidden slots (the picked die's name top right while rolling) and the Tests are `/blockparty:tests`. Health, hunger and XP hidden |
 | Timers | None: the game waits for the player |
 | Votes | Every player: to skip a cutscene, to start a minigame after its rules, to let a late joiner in |
 | NPC looks | The vanilla mobs' own models, nothing textured |
@@ -916,9 +917,16 @@ reward was dropped.
      (pass 7, with the items).
 6. **NPCs and cameras:** stages, conversations, the shot list. **Built 2026-11-17** with the
    dialogue box from pass 10 (the user asked for the two together):
-   - **The dialogue box** (`dialogue.ts`, `dialogue-codes.ts`, `ui/blockparty_dialogue.json`): see
-     "Dialogue". It rides the scoreboard sidebar, everyone's alike, under the core's
-     `GAME_SIDEBAR_MARK`; the standings come back when it goes.
+   - **The dialogue box** (`dialogue.ts`, `dialogue-codes.ts`, `ui/jui_blockparty_dialogue.json`):
+     see "Dialogue". It rides the scoreboard sidebar, everyone's alike, under the core's
+     `GAME_SIDEBAR_MARK` and its own `BOX_MARK`; the standings come back when it goes. Since
+     2026-11-17 (the user): one sentence at a time, nothing said before left in the box; a jump goes
+     on (every player's, for a line to everyone, the right column naming who has; the one it's
+     said to, for a question), the jump button's icon for the player's own device at the right
+     column's bottom right; holding sneak 4 seconds votes to skip. Its look is the workshop JSON UI
+     tool's `blockparty_dialogue` component (a sidebar piece), which the user edits in the builder;
+     `node tools\install-component.mjs blockparty_dialogue <worktree> blockparty` in the tool
+     installs it.
    - **Voices:** one sound of the speaker's voice for each sentence, from the user's sound map
      (`sounds.json`, installed with the lines); the box's events (open, next, a button, close, a
      skip vote) play their cues once the user maps them.

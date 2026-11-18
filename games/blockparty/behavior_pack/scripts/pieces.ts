@@ -60,6 +60,8 @@ interface PieceState {
   space: number;
   corner: number;
   walking: boolean;
+  /** Off the board (an arena, a ride) until it's placed again: a player may walk there. */
+  off: boolean;
 }
 
 const vec = (v: Vec3): Vector3 => ({ x: v[0], y: v[1], z: v[2] });
@@ -91,7 +93,7 @@ export class Pieces {
     const key = nameOf(body).toLowerCase();
     let state = this.states.get(key);
     if (!state) {
-      state = { space: 0, corner: this.nextCorner++ % 4, walking: false };
+      state = { space: 0, corner: this.nextCorner++ % 4, walking: false, off: false };
       this.states.set(key, state);
     }
     return state;
@@ -101,9 +103,15 @@ export class Pieces {
     return this.state(body).walking;
   }
 
+  /** Whether the body is off the board (released: an arena, a ride). */
+  isOff(body: Entity): boolean {
+    return this.state(body).off;
+  }
+
   /** Puts the piece on its space (Start at first), facing south, a player's name tag hidden. */
   place(body: Entity): void {
     const state = this.state(body);
+    state.off = false;
     try {
       body.teleport(vec(standAt(this.host.spaces()[state.space], state.corner)), { rotation: { x: 0, y: 180 } });
       if (isPlayer(body)) body.nameTag = "";
@@ -127,6 +135,7 @@ export class Pieces {
 
   /** Gives a player back their movement and name tag (off the board: an arena, a ride). */
   release(body: Entity): void {
+    this.state(body).off = true;
     if (!isPlayer(body)) return;
     unlock(body);
     body.nameTag = body.name;
@@ -235,8 +244,8 @@ export class Pieces {
       log.warn(`blockparty: ${nameOf(player)}'s walk failed: ${describeError(error)}`);
       this.host.report(player, `The walk failed: ${describeError(error)}`);
     } finally {
+      // The game holds the player again (spike.ts, keepControls) now the walk is over.
       state.walking = false;
-      if (player.isValid && isPlayer(player)) unlock(player);
     }
   }
 
@@ -318,6 +327,21 @@ export function lock(player: Player): void {
   try {
     player.inputPermissions.setPermissionCategory(InputPermissionCategory.LateralMovement, false);
     player.inputPermissions.setPermissionCategory(InputPermissionCategory.Camera, false);
+  } catch {
+    // gone
+  }
+}
+
+/**
+ * On the board between moves (the user: nobody walks the board by themselves): the movement keys
+ * don't move the player, but they look round, jump and sneak (the game's buttons).
+ */
+export function hold(player: Player): void {
+  try {
+    player.inputPermissions.setPermissionCategory(InputPermissionCategory.LateralMovement, false);
+    for (const category of [InputPermissionCategory.Movement, InputPermissionCategory.Camera, InputPermissionCategory.Jump]) {
+      player.inputPermissions.setPermissionCategory(category, true);
+    }
   } catch {
     // gone
   }

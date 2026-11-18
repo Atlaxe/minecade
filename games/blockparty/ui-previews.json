@@ -3,61 +3,62 @@
   "previews": [
     {
       "name": "Dialogue box: Chris to everyone",
-      "about": "A line said to everyone: the words the whole width, Chris's name on the border.",
+      "about": "A sentence said to everyone: the words on the left, who has jumped in the right column, the jump prompt at its bottom right.",
       "hud": {
         "actionbar": "§r§m§c§r",
         "sidebar": {
-          "title": "§r§m§g§r§k§2§k§8§rChris",
+          "title": "§r§m§g§r§d§l§g§k§2§k§8§rChris",
           "lines": [
             "§k§1§0§rHello travelers, and welcome!",
-            "§k§1§1§rI'm Chris P. Bacon, your friend and guide."
+            "§k§5§0§rAlex",
+            "§k§6§0§r"
           ]
         }
       }
     },
     {
       "name": "Dialogue box: Chris asks one player",
-      "about": "A line said to one player, with buttons beside the words, the first selected.",
+      "about": "The last sentence of a question to one player: its buttons in the right column, the first selected, the prompt naming who it waits for.",
       "hud": {
         "actionbar": "§r§m§c§r",
         "sidebar": {
-          "title": "§r§m§g§r§k§1§k§8§rChris",
+          "title": "§r§m§g§r§d§l§g§k§1§k§8§rChris",
           "lines": [
             "§k§1§0§rWant a rundown of the rules before we start?",
-            "§k§3§0§rYes, please!",
-            "§k§2§1§rNo, let's play!"
+            "§k§2§k§3§0§rYes, please!",
+            "§k§2§1§rNo, let's play!",
+            "§k§6§0§rAlex"
           ]
         }
       }
     },
     {
-      "name": "Dialogue box: a long line",
-      "about": "A page at its fullest: four sentences, one long enough to wrap.",
+      "name": "Dialogue box: a long sentence",
+      "about": "A sentence long enough to wrap over two rows.",
       "hud": {
         "actionbar": "§r§m§c§r",
         "sidebar": {
-          "title": "§r§m§g§r§k§2§k§8§rChris",
+          "title": "§r§m§g§r§d§l§g§k§2§k§8§rChris",
           "lines": [
-            "§k§1§0§rHere's the deal.",
-            "§k§1§1§rCollect the most Stars by the end of the game, because coins buy Stars and Stars win, and nobody remembers who",
-            "§k§1§2§rhad the most coins.",
-            "§k§1§3§rOn your turn, open your Dice and jump to hit it.",
-            "§k§1§4§rGood luck!"
+            "§k§1§0§rCollect the most Stars by the end of the game, because coins buy Stars and Stars win, and nobody remembers who",
+            "§k§1§1§rhad the most coins at the end.",
+            "§k§6§0§r"
           ]
         }
       }
     },
     {
       "name": "Dialogue box: the skip strip",
-      "about": "A skippable line: the strip bottom right names who has jumped to skip.",
+      "about": "A skippable line: the strip on the top border names who has held sneak to skip, and how far along anyone holding it is.",
       "hud": {
         "actionbar": "§r§m§c§r",
         "sidebar": {
-          "title": "§r§m§g§r§k§2§k§8§rChris",
+          "title": "§r§m§g§r§d§l§g§k§2§k§8§rChris",
           "lines": [
-            "§k§1§0§rOkay!",
-            "§k§1§1§rWe're playing 15 rounds tonight.",
-            "§k§4§0§rJump to skip  Alex  Sam"
+            "§k§1§0§rOkay! We're playing 15 rounds tonight.",
+            "§k§5§0§rSam",
+            "§k§6§0§r",
+            "§k§4§0§rHold sneak to skip  Alex  Sam 50%"
           ]
         }
       }
@@ -68,9 +69,10 @@
       "hud": {
         "actionbar": "§r§m§c§r",
         "sidebar": {
-          "title": "§r§m§g§r§k§2§r",
+          "title": "§r§m§g§r§d§l§g§k§2§r",
           "lines": [
-            "§k§1§0§rEveryone, get ready!"
+            "§k§1§0§rEveryone, get ready!",
+            "§k§6§0§r"
           ]
         }
       }

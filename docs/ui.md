@@ -138,9 +138,11 @@ pictures. Probe's chameleon test shows the hiders' costumes this way, to everyon
 `hud.ts`) is drawn by the game's own pack, not the core's: `root_panel`'s sidebar hides for it as
 for notes and pictures, and the rest of the title and the participants are the game's to read.
 Block Party's dialogue box rides it (`games/blockparty/behavior_pack/scripts/dialogue-codes.ts`,
-`ui/blockparty_dialogue.json`): the title says who the box is for and the speaker's name, and each
-participant is a row whose first code says what it is (a sentence, a button, the selected button,
-the skip strip). A game that shows its own sidebar puts its notes back afterward
+`ui/jui_blockparty_dialogue.json`, built by the workshop JSON UI tool from its
+`blockparty_dialogue` sidebar piece): the title holds the box's own mark, who the box is for and
+the speaker's name, and each participant is a row whose first code says what it is (the sentence on
+show, a button, the selected button, who has jumped, the jump prompt, the skip strip). Each thing
+the box draws tests one code, so the selected button carries the button's code too. A game that shows its own sidebar puts its notes back afterward
 (`Notes.display()`; a `Sidebar` going away leaves the slot alone if another has taken it). The
 workshop's JSON UI tool draws the box: its Preview page's **Game preview** list (with the
 blockparty packs) has its states, from `games/blockparty/ui-previews.json`, which

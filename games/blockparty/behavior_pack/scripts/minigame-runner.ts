@@ -11,7 +11,8 @@
 //   3. The rules, through the arena map's Start view camera (or one over the arena), until everyone
 //      has jumped to say they're ready (bots after a moment); nobody moves till Go.
 //   4. 3, 2, 1, Go, and the minigame plays (its play()). A player who's out watches as a spectator
-//      from the spectator spawn; a bot floats there.
+//      from the spectator spawn; a bot floats there. Only while it plays do the players have
+//      vanilla's hotbar (isPlaying; spike.ts shows it, the user's call).
 //   5. The results (what the loop pays, settle()) over the arena: a short title for everyone and
 //      each player's own place and coins under it. Then behind the loading screen again everyone is
 //      back on their pieces (the bots a moment after the players), the arena is cleared and the
@@ -98,6 +99,8 @@ export class MinigameRunner {
   private readyTotal = 0;
   /** Who's out this minigame, by key. */
   private readonly outs = new Set<string>();
+  /** Who's playing it now, from Go until it ends (by key): they get the hotbar. */
+  private readonly playing = new Set<string>();
 
   constructor(host: RunnerHost) {
     this.host = host;
@@ -106,6 +109,11 @@ export class MinigameRunner {
   /** Whether a minigame is on (the board waits). */
   get active(): boolean {
     return this.on;
+  }
+
+  /** Whether `key` is playing a minigame now: from Go until it ends, out or not. */
+  isPlaying(key: string): boolean {
+    return this.playing.has(key);
   }
 
   /** A player jumped: while the rules show, that's their Ready. True when it was. */
@@ -179,6 +187,7 @@ export class MinigameRunner {
       }
       this.host.title(line("minigame.go"), "", TITLE.land);
       for (const who of everyone) if (who.player) setMoving(who.player, true);
+      for (const who of everyone) this.playing.add(who.key);
       const scope = this.host.scope.child(`minigame ${def.id}`);
       const play: Play = {
         scope,
@@ -210,6 +219,7 @@ export class MinigameRunner {
         outcome = def.kind === "ffa" ? { places: [everyone.map((who) => who.key)] } : { winner: undefined };
       } finally {
         scope.dispose();
+        this.playing.clear();
       }
       for (const who of everyone) if (who.player) setMoving(who.player, false);
       const results = settle(outcome);
@@ -235,6 +245,7 @@ export class MinigameRunner {
       });
     } finally {
       this.on = false;
+      this.playing.clear();
       this.waiting = undefined;
       this.host.status(undefined);
       if (boardTime !== undefined) world.setTimeOfDay(boardTime);
