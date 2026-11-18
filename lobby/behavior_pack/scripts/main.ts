@@ -9,7 +9,7 @@ import registry from "#registry";
 import skins from "#skins";
 import { demoGames } from "./demo-games.ts";
 import { countdownContent, teamsContent } from "./holo-content.ts";
-import { Hologram } from "./hologram.ts";
+import { DISPLAY, Hologram } from "./hologram.ts";
 import { LobbyController } from "./lobby-controller.ts";
 import { PREVIEW_SCREENS } from "./holo-preview.ts";
 import { CLOSE, menuChoice, strayClose } from "./game-screen.ts";
@@ -19,18 +19,20 @@ import { StatsController } from "./stats-controller.ts";
 import { TeamPickForm } from "./team-pick-form.ts";
 import { TerminalController } from "./terminal-controller.ts";
 
-// Block components must be registered at startup, before the world (and bootServer) loads. Taps
-// are handed to the terminal once it exists; one per player per tick.
+// Using the terminal: a tap (right click) on a console block, or a punch or right click on the
+// hologram's panels. Taps are handed to the terminal once it exists; one per player per tick.
 let tapTerminal: (name: string) => void = () => {};
 const lastTap = new Map<string, number>();
+function tap(player: Player | undefined): void {
+  if (!player || lastTap.get(player.name) === system.currentTick) return;
+  lastTap.set(player.name, system.currentTick);
+  const name = player.name;
+  system.run(() => tapTerminal(name));
+}
+// Block components must be registered at startup, before the world (and bootServer) loads.
 system.beforeEvents.startup.subscribe(({ blockComponentRegistry }) => {
   blockComponentRegistry.registerCustomComponent("minecade:terminal", {
-    onPlayerInteract: ({ player }) => {
-      if (!player || lastTap.get(player.name) === system.currentTick) return;
-      lastTap.set(player.name, system.currentTick);
-      const name = player.name;
-      system.run(() => tapTerminal(name));
-    },
+    onPlayerInteract: ({ player }) => tap(player),
   });
 });
 
@@ -213,6 +215,14 @@ bootServer(({ vars, transport, transfer, root }) => {
     { now: () => system.currentTick },
   );
   tapTerminal = (name) => void terminal.tap(name);
+  // The hologram's hitbox is its 3x3x3 block of panels (holo_display.json), so a punch anywhere on
+  // a screen lands on it (a tap on a phone is a punch too).
+  root.subscribe(world.afterEvents.entityHitEntity, ({ damagingEntity, hitEntity }) => {
+    if (hitEntity.typeId === DISPLAY && damagingEntity.typeId === "minecraft:player") tap(damagingEntity as Player);
+  });
+  root.subscribe(world.afterEvents.playerInteractWithEntity, ({ player, target }) => {
+    if (target.typeId === DISPLAY) tap(player);
+  });
   // The area may only load once a player is near; ensure() is cheap once everything is there.
   let placed = false;
   const place = () => {

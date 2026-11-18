@@ -54,6 +54,36 @@
         "width": 0.1,
         "height": 0.1
       },
+      "minecraft:custom_hit_test": {
+        "hitboxes": [
+          {
+            "width": 3,
+            "height": 3,
+            "pivot": [
+              0,
+              0,
+              0
+            ]
+          }
+        ]
+      },
+      "minecraft:interact": {
+        "interactions": [
+          {
+            "interact_text": "Open terminal",
+            "swing": true,
+            "on_interact": {
+              "filters": {
+                "test": "is_family",
+                "subject": "other",
+                "value": "player"
+              },
+              "event": "minecade:tap",
+              "target": "self"
+            }
+          }
+        ]
+      },
       "minecraft:physics": {
         "has_gravity": false,
         "has_collision": false
@@ -78,6 +108,9 @@
         "value": 1
       },
       "minecraft:fire_immune": true
+    },
+    "events": {
+      "minecade:tap": {}
     }
   }
 }

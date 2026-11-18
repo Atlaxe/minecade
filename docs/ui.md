@@ -709,7 +709,11 @@ the main menu.
   `resource_pack/entity/...`). Its model is one 3x3 panel copied to all four sides by rotating it
   (`panel_s`, `panel_e`, `panel_n`, `panel_w`), so every side shows the same, unmirrored picture,
   plus a projection beam. The panel is a flat cube at z = +24 whose south face points outward,
-  with its UV running normally (`"uv": [0, 0], "uv_size": [48, 48]`).
+  with its UV running normally (`"uv": [0, 0], "uv_size": [48, 48]`). Punching a screen (a tap on
+  a phone) or right clicking it uses the terminal like tapping the console: the entity's
+  `minecraft:custom_hit_test` is one 3x3x3 hitbox around its middle, the panels' size, and
+  `main.ts` hands `entityHitEntity` and `playerInteractWithEntity` on it to the terminal. Its
+  collision box stays tiny, so nobody bumps into it.
 - **Frames:** the hologram has two background frames, picked by the client-synced
   `minecade:screen` property from `Array.screens` in
   `render_controllers/holo_display.render_controllers.json` (the order must match `FRAMES` in

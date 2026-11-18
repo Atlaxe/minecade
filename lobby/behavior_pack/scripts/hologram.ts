@@ -16,7 +16,8 @@ import { MAX_ELEMENTS, type Box, type Frame, type HoloContent, type HoloElement,
 const FRAMES: Record<Frame, number> = { logo: 0, panel: 1 };
 /** The picture's spots, as the holo_picture render controller shows them. */
 const PICTURE_SPOTS: Record<PictureSpot, number> = { corner: 0, banner: 1, tall: 2 };
-const DISPLAY = "minecade:holo_display";
+/** The hologram's entity type. Punching or right clicking its panels uses the terminal (main.ts). */
+export const DISPLAY = "minecade:holo_display";
 const BLOCK = "minecade:terminal";
 
 /** How far the text sits from the middle: just in front of the 3-block-wide panels. */

@@ -206,7 +206,7 @@ Gamertags in `LAN_PLAYERS` are sent to `LAN_HOST` instead.
 
 ## Playing
 
-- **The terminal** (the glowing 3x3 console in the middle of the lobby): tap it for the menu.
+- **The terminal** (the glowing 3x3 console in the middle of the lobby): tap it, or punch its hologram screens, for the menu.
   One player uses it at a time, and the hologram above it shows everyone what they're doing.
   - **Play:** pick a game, a map (or random), then press Start. Everyone in the lobby when the
     players are sent goes, up to the game's player limit: whoever was there at Start comes first,
