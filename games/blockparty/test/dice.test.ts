@@ -1,7 +1,8 @@
 // The dice file (games/blockparty/dice.json, dice.ts): it reads without problems, a mistake in it is
 // named, a roll throws its faces (a Triple's three, Roll again's extra), the die model's files agree
 // with it (tools/blockparty/dice-model.ts: the body, the faces raised off it in the Minecraft Ten
-// font or a picture), and a step back on the board goes against the links.
+// font or a picture; the numbers over heads, the moves left and a transfer's count), and a step back
+// on the board goes against the links.
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
@@ -10,9 +11,16 @@ import {
   BLANK_FACES,
   COUNT_CONTROLLER,
   COUNT_GEOMETRY,
+  COUNT_ROOT,
   FACE_PICTURES,
+  NUMBER_ALPHA,
+  NUMBER_PALETTE,
+  PACK,
   PLAN_FILE,
   SIDES,
+  TALLY_CONTROLLER,
+  TALLY_GEOMETRY,
+  UPRIGHT_BONE,
   buildFaces,
   burstEffect,
   burstFile,
@@ -25,6 +33,8 @@ import {
   modelFiles,
   modelPlan,
   rectangles,
+  signBone,
+  tallyController,
 } from "../../../tools/blockparty/dice-model.ts";
 import { GLYPH_FILE, TEN_FONT, fontOf, glyphTable, loadTenFont, storedFont, type TenFont } from "../../../tools/blockparty/ten-font.ts";
 import { blankImage, encodePng } from "../../../tools/skins/png.ts";
@@ -32,13 +42,20 @@ import { back, testSpaces } from "../behavior_pack/scripts/board.ts";
 import {
   COUNT_ENTITY,
   COUNT_PROPERTY,
+  DEFAULT_GAIN,
   DEFAULT_INK,
+  DEFAULT_LOSS,
   DEFAULT_NUMBER,
   DICE,
   DICE_PROBLEMS,
   MAX_AGAIN,
   MAX_COUNT,
   STANDARD,
+  TALLY_ENTITY,
+  TALLY_PROPERTY,
+  TONE_GAIN,
+  TONE_LOSS,
+  TONE_PROPERTY,
   burstParticle,
   dieOf,
   modelDice,
@@ -50,6 +67,9 @@ import {
   thrown,
   type DieDef,
 } from "../behavior_pack/scripts/dice.ts";
+
+/** The numbers' looks when the file doesn't say. */
+const LOOKS = { number: DEFAULT_NUMBER, gain: DEFAULT_GAIN, loss: DEFAULT_LOSS };
 
 /** A random() that gives each of `values` in turn (each a face: 0 is the first of six). */
 const faces = (...values: number[]) => {
@@ -132,6 +152,18 @@ describe("the dice file", () => {
     expect(readDice({ number: { ink: "#FFD83D" }, dice: { standard } }).number).toEqual({ ink: "#ffd83d", shadow: "#3f360f" });
     expect(readDice({ number: { ink: "#ffffff", shadow: false }, dice: { standard } }).number).toEqual({ ink: "#ffffff" });
     expect(readDice({ number: { ink: "white" }, dice: { standard } }).problems).toEqual([expect.stringMatching(/^number: "ink"/)]);
+  });
+
+  it("reads a transfer's count's looks, Minecraft's gold coming in and its red going out when the file doesn't say", () => {
+    const standard = { name: "S", letters: "S", block: "minecraft:stone", faces: [1, 2, 3, 4, 5, 6].map((move) => ({ move })) };
+    const plain = readDice({ dice: { standard } });
+    expect([plain.gain, plain.loss]).toEqual([DEFAULT_GAIN, DEFAULT_LOSS]);
+    expect(DEFAULT_GAIN.shadow).toBe(shadowOf(DEFAULT_GAIN.ink));
+    expect(DEFAULT_LOSS.shadow).toBe(shadowOf(DEFAULT_LOSS.ink));
+    const set = readDice({ gain: { ink: "#55FF55", shadow: false }, loss: { ink: "#aa0000" }, dice: { standard } });
+    expect(set.gain).toEqual({ ink: "#55ff55" });
+    expect(set.loss).toEqual({ ink: "#aa0000", shadow: "#2a0000" });
+    expect(readDice({ loss: "red", dice: { standard } }).problems).toEqual([expect.stringMatching(/^loss: "loss" is an object/)]);
   });
 
   it("gives the standard die for one that isn't there", () => {
@@ -226,7 +258,7 @@ describe("the die model", () => {
     expect(plan.dice[0].faces[2]).toEqual({ text: "3", ink: STANDARD.faces[2].ink, shadow: STANDARD.faces[2].shadow });
     // The see-through pixel stays empty, so the 4 x 3 picture is 2 cubes; its red is the palette's first pixel.
     const font: TenFont = { glyph: () => undefined, text: () => ({ width: 0, height: 0, filled: [] }) };
-    const built = buildFaces({ maker: 1, dice: [{ id: "x", texture: "textures/blocks/stone", layout: "plain", faces: [plan.dice[0].faces[0], {}, {}, {}, {}, {}] }], number: DEFAULT_NUMBER }, font, root);
+    const built = buildFaces({ maker: 1, dice: [{ id: "x", texture: "textures/blocks/stone", layout: "plain", faces: [plan.dice[0].faces[0], {}, {}, {}, {}, {}] }], ...LOOKS }, font, root);
     expect(cubesOf(built.geometries[0])).toEqual([]);
     expect(cubesOf(built.geometries[1])).toHaveLength(2);
     expect([...built.palette.data.subarray(0, 4)]).toEqual([200, 40, 40, 255]);
@@ -267,7 +299,7 @@ describe("the die model", () => {
     const face = facePixels({ text: "L", ink: "#ffffff", shadow: "#3f3f3f" }, font)!;
     expect([face.pixels.width, face.pixels.height, face.pixel]).toEqual([3, 4, 0.5]);
     type Cube = { origin: number[]; size: number[] };
-    const plan = { maker: 1, dice: [{ id: "x", texture: "textures/blocks/stone", layout: "plain" as const, faces: [{ text: "L", ink: "#ffffff", shadow: "#3f3f3f" }, {}, {}, {}, {}, {}] }], number: DEFAULT_NUMBER };
+    const plan = { maker: 1, dice: [{ id: "x", texture: "textures/blocks/stone", layout: "plain" as const, faces: [{ text: "L", ink: "#ffffff", shadow: "#3f3f3f" }, {}, {}, {}, {}, {}] }], ...LOOKS };
     const cubes = (buildFaces(plan, font).geometries[1] as { bones: { cubes: Cube[] }[] }).bones[0].cubes;
     // Face 1 is up: the heights the cubes reach over the die's top (12).
     expect(new Set(cubes.map((cube) => cube.origin[1] + cube.size[1]))).toEqual(new Set([12.5, 12.25]));
@@ -275,11 +307,16 @@ describe("the die model", () => {
 
   it("draws the number over a head with every digit, a two-digit number's halves a pixel apart about the middle, and shows only its digits", () => {
     const font = fontOf((char) => (/^[0-9]$/.test(char) ? { columns: 2, filled: [[0, 0], [1, 0], [0, 1], [1, 1]] } : undefined));
-    const { count } = buildFaces({ maker: 1, dice: [], number: { ink: "#ffffff" } }, font);
+    const { count } = buildFaces({ maker: 1, dice: [], ...LOOKS, number: { ink: "#ffffff" } }, font);
     type Cube = { origin: number[]; size: number[] };
     const bones = (count as { description: { identifier: string }; bones: { name: string; parent?: string; cubes?: Cube[] }[] }).bones;
     expect((count as { description: { identifier: string } }).description.identifier).toBe(COUNT_GEOMETRY);
-    expect(bones.map((bone) => bone.name)).toEqual(["count", ...[0, 1, 2, 3, 4, 5, 6, 7, 8, 9].map((d) => countBone("one", d)), ...[1, 2, 3, 4, 5, 6, 7, 8, 9].map((d) => countBone("tens", d)), ...[0, 1, 2, 3, 4, 5, 6, 7, 8, 9].map((d) => countBone("ones", d))]);
+    // The upright bone undoes the entity's turn; the count bone under it turns to the camera.
+    expect(bones.slice(0, 2).map((bone) => [bone.name, bone.parent])).toEqual([
+      [UPRIGHT_BONE, undefined],
+      [COUNT_ROOT, UPRIGHT_BONE],
+    ]);
+    expect(bones.map((bone) => bone.name)).toEqual([UPRIGHT_BONE, "count", ...[0, 1, 2, 3, 4, 5, 6, 7, 8, 9].map((d) => countBone("one", d)), ...[1, 2, 3, 4, 5, 6, 7, 8, 9].map((d) => countBone("tens", d)), ...[0, 1, 2, 3, 4, 5, 6, 7, 8, 9].map((d) => countBone("ones", d))]);
     // A 2 x 2 digit: alone, it's centered (file x is turned over, so its edges are -1.25 and 1.25 either way).
     const xs = (name: string) => bones.find((bone) => bone.name === name)!.cubes!.flatMap((cube) => [-cube.origin[0] - cube.size[0], -cube.origin[0]]);
     expect([Math.min(...xs("one_5")), Math.max(...xs("one_5"))]).toEqual([-1.25, 1.25]);
@@ -287,8 +324,62 @@ describe("the die model", () => {
     expect(Math.max(...xs("tens_1"))).toBeCloseTo(-0.625);
     expect(Math.min(...xs("ones_2"))).toBeCloseTo(0.625);
     const parts = (countController() as { part_visibility: Record<string, unknown>[] }).part_visibility;
-    expect(parts[0]).toEqual({ "*": false });
+    expect(parts.slice(0, 3)).toEqual([{ "*": false }, { [UPRIGHT_BONE]: true }, { [COUNT_ROOT]: true }]);
     expect(parts).toContainEqual({ tens_1: `q.property('${COUNT_PROPERTY}') >= 10 && math.floor(q.property('${COUNT_PROPERTY}') / 10) == 1` });
+  });
+
+  it("draws a transfer's count with its sign first, the whole centered, a geometry for each tone, and nothing at 0", () => {
+    // Digits 2 wide (the 1 one wide), a + 3 wide, a - 2 wide, every glyph 2 high.
+    const font = fontOf((char) => {
+      if (char === "1") return { columns: 1, filled: [[0, 0], [0, 1]] };
+      if (/^[0-9]$/.test(char)) return { columns: 2, filled: [[0, 0], [1, 0], [0, 1], [1, 1]] };
+      if (char === "+") return { columns: 3, filled: [[0, 0], [1, 0], [2, 0], [1, 1]] };
+      if (char === "-") return { columns: 2, filled: [[0, 0], [1, 0]] };
+      return undefined;
+    });
+    const { tallies, numberPalette } = buildFaces({ maker: 1, dice: [], number: { ink: "#ffffff" }, gain: { ink: "#ffaa00" }, loss: { ink: "#ff5555" } }, font);
+    type Cube = { origin: number[]; size: number[]; uv: Record<string, { uv: number[] }> };
+    type Bone = { name: string; parent?: string; cubes?: Cube[] };
+    const [gain, loss] = tallies as { description: { identifier: string }; bones: Bone[] }[];
+    expect([gain.description.identifier, loss.description.identifier]).toEqual([TALLY_GEOMETRY.gain, TALLY_GEOMETRY.loss]);
+    expect(gain.bones.map((bone) => bone.name)).toEqual([
+      UPRIGHT_BONE,
+      COUNT_ROOT,
+      signBone(1),
+      signBone(2),
+      ...[1, 2, 3, 4, 5, 6, 7, 8, 9].map((d) => countBone("one", d)),
+      ...[1, 2, 3, 4, 5, 6, 7, 8, 9].map((d) => countBone("tens", d)),
+      ...[0, 1, 2, 3, 4, 5, 6, 7, 8, 9].map((d) => countBone("ones", d)),
+    ]);
+    // Edges as Blockbench sees them from the south, in pixels (1.25 units each).
+    const edges = (bones: Bone[], name: string) => {
+      const xs = bones.find((bone) => bone.name === name)!.cubes!.flatMap((cube) => [-cube.origin[0] - cube.size[0], -cube.origin[0]]);
+      return [Math.min(...xs) / 1.25 + 0, Math.max(...xs) / 1.25 + 0];
+    };
+    // "+5": the + (3), a pixel, a cell as wide as the widest digit (2): 6 across, from -3 to 3.
+    expect(edges(gain.bones, signBone(1))).toEqual([-3, 0]);
+    expect(edges(gain.bones, "one_5")).toEqual([1, 3]);
+    // "+15": 3 + 1 + 2 + 1 + 2 = 9 across; the 1 sits in the middle of its cell.
+    expect(edges(gain.bones, signBone(2))).toEqual([-4.5, -1.5]);
+    expect(edges(gain.bones, "tens_1")).toEqual([0, 1]);
+    expect(edges(gain.bones, "ones_5")).toEqual([2.5, 4.5]);
+    // "-5": the - is 2 wide, so the loss is laid out on its own.
+    expect(edges(loss.bones, signBone(1))).toEqual([-2.5, -0.5]);
+    // Each tone in its own ink, from the numbers' palette, nearly see-through (drawn unshaded).
+    const ink = (bones: Bone[]) => {
+      const [u, v] = bones.find((bone) => bone.name === "one_5")!.cubes![0].uv.south.uv;
+      return [...numberPalette.data.subarray((Math.floor(v) * numberPalette.width + Math.floor(u)) * 4, (Math.floor(v) * numberPalette.width + Math.floor(u)) * 4 + 4)];
+    };
+    expect(ink(gain.bones)).toEqual([255, 170, 0, NUMBER_ALPHA]);
+    expect(ink(loss.bones)).toEqual([255, 85, 85, NUMBER_ALPHA]);
+    const controller = tallyController() as { arrays: { geometries: Record<string, string[]> }; geometry: string; part_visibility: Record<string, unknown>[] };
+    const tones = controller.arrays.geometries["Array.tones"];
+    expect([tones[TONE_GAIN], tones[TONE_LOSS]]).toEqual(["Geometry.gain", "Geometry.loss"]);
+    expect(controller.geometry).toBe(`Array.tones[q.property('${TONE_PROPERTY}')]`);
+    const value = `q.property('${TALLY_PROPERTY}')`;
+    expect(controller.part_visibility).toContainEqual({ [signBone(1)]: `${value} >= 1 && ${value} < 10` });
+    expect(controller.part_visibility).toContainEqual({ [signBone(2)]: `${value} >= 10` });
+    expect(controller.part_visibility.some((part) => "one_0" in part)).toBe(false);
   });
 
   it.skipIf(!existsSync(TEN_FONT))("reads Minecraft Ten's digits from the game: 7 x 10, the 1 5 wide, two side by side a pixel apart", () => {
@@ -318,6 +409,10 @@ describe("the die model", () => {
     // The number over a head, and each die's burst.
     expect(read("../resource_pack/models/entity/count.geo.json")["minecraft:geometry"][0].description.identifier).toBe(COUNT_GEOMETRY);
     expect(controllers[COUNT_CONTROLLER]).toEqual(countController());
+    const tallies = read("../resource_pack/models/entity/tally.geo.json")["minecraft:geometry"].map((geometry: { description: { identifier: string } }) => geometry.description.identifier);
+    expect(tallies).toEqual([TALLY_GEOMETRY.gain, TALLY_GEOMETRY.loss]);
+    expect(controllers[TALLY_CONTROLLER]).toEqual(tallyController());
+    expect(existsSync(join(PACK, `${NUMBER_PALETTE}.png`))).toBe(true);
     for (const die of plan.dice) {
       const effect = read(`../resource_pack/${burstFile(die.id)}`);
       expect(effect).toEqual(burstEffect(die));
@@ -343,7 +438,31 @@ describe("the die model", () => {
     const count = read("../behavior_pack/entities/count.json")["minecraft:entity"];
     expect(count.description.identifier).toBe(COUNT_ENTITY);
     expect(count.description.properties[COUNT_PROPERTY]).toMatchObject({ type: "int", range: [0, MAX_COUNT], client_sync: true });
-    expect(read("../resource_pack/entity/count.entity.json")["minecraft:client_entity"].description.render_controllers).toEqual([COUNT_CONTROLLER]);
+    const countClient = read("../resource_pack/entity/count.entity.json")["minecraft:client_entity"].description;
+    expect(countClient.render_controllers).toEqual([COUNT_CONTROLLER]);
+    // Drawn unshaded from the numbers' palette, its upright bone undoing the entity's turn.
+    expect(countClient.materials).toEqual({ default: "entity_emissive" });
+    expect(countClient.textures).toEqual({ default: NUMBER_PALETTE });
+    const face = read("../resource_pack/animations/blockparty.animation.json").animations["animation.blockparty.count_face"].bones;
+    expect(face[UPRIGHT_BONE].rotation).toEqual([0, "-q.body_y_rotation", 0]);
+    expect(face[COUNT_ROOT].rotation).toEqual(["q.camera_rotation(0)", "q.camera_rotation(1)", 0]);
+  });
+
+  it("is a transfer's count the game can spawn, with room for its number and its two tones", () => {
+    const tally = read("../behavior_pack/entities/tally.json")["minecraft:entity"];
+    expect(tally.description.identifier).toBe(TALLY_ENTITY);
+    expect(tally.description.properties[TALLY_PROPERTY]).toMatchObject({ type: "int", range: [0, MAX_COUNT], client_sync: true });
+    expect(tally.description.properties[TONE_PROPERTY]).toMatchObject({ type: "int", range: [Math.min(TONE_GAIN, TONE_LOSS), Math.max(TONE_GAIN, TONE_LOSS)], client_sync: true });
+    const client = read("../resource_pack/entity/tally.entity.json")["minecraft:client_entity"].description;
+    expect(client.identifier).toBe(TALLY_ENTITY);
+    expect(client.render_controllers).toEqual([TALLY_CONTROLLER]);
+    expect(client.geometry).toEqual(TALLY_GEOMETRY);
+    expect(client.materials).toEqual({ default: "entity_emissive" });
+    expect(client.textures).toEqual({ default: NUMBER_PALETTE });
+    // It faces the camera and pops as the moves left do, and rises a little as it comes.
+    const animations = read("../resource_pack/animations/blockparty.animation.json").animations;
+    for (const name of Object.values(client.animations as Record<string, string>)) expect(animations[name], name).toBeDefined();
+    expect(client.scripts.animate).toEqual(Object.keys(client.animations));
   });
 });
 

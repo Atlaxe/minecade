@@ -2,15 +2,34 @@
   "format_version": "1.21.100",
   "minecraft:entity": {
     "description": {
-      "identifier": "blockparty:label",
+      "identifier": "blockparty:tally",
       "is_spawnable": false,
-      "is_summonable": true
+      "is_summonable": true,
+      "properties": {
+        "blockparty:tally": {
+          "type": "int",
+          "range": [
+            0,
+            99
+          ],
+          "default": 0,
+          "client_sync": true
+        },
+        "blockparty:tone": {
+          "type": "int",
+          "range": [
+            0,
+            1
+          ],
+          "default": 0,
+          "client_sync": true
+        }
+      }
     },
     "components": {
       "minecraft:type_family": {
         "family": [
-          "blockparty_label",
-          "inanimate"
+          "blockparty_tally"
         ]
       },
       "minecraft:collision_box": {
@@ -40,11 +59,7 @@
       "minecraft:knockback_resistance": {
         "value": 1
       },
-      "minecraft:fire_immune": true,
-      "minecraft:nameable": {
-        "always_show": true,
-        "allow_name_tag_renaming": false
-      }
+      "minecraft:fire_immune": true
     }
   }
 }

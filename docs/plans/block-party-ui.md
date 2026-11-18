@@ -399,13 +399,21 @@ Party. Built for every change of hands, which also covers the pops above (`token
   it goes, its reach, rise and arc as properties, and the pack's animation
   (`animation.blockparty.token.fly`) carries it over its own life from the giver's head up in an arc
   and down into the taker's in 0.7 s, spinning, popping in as it leaves and shrinking away as it
-  lands. Nothing moves it from the server, so nothing jitters.
+  lands. Nothing moves it from the server, so nothing jitters. The properties are whole numbers in
+  hundredths of a block: as floats they never reached the client (seen 2026-11-18: every token
+  stood still as the first item's picture, a stone totem, and since setting them failed before its
+  removal was set, none was ever taken away; they piled up, unseen once their shrink ended, the
+  client logging errors for them every frame, about a gigabyte of log in ten minutes, which made
+  the game lag). Its removal is now set first, and no Block
+  Party entity may have a float property (`test/tokens.test.ts`).
 - **Several** go one after another, a stream 3 ticks apart: up to 10 coins, 5 Stars, 3 items. With
   two or more a count rides over the taker's head, gold "+1" up to "+X" as they land, and a red "-1"
-  to "-X" over a giving player's head as they leave: a name tag on an invisible entity
-  (`blockparty:label`) rising slowly, there a second after the last lands. Each landing on a player
-  plays the user's `gain.coins`, `gain.star` or `gain.item` sound, each leaving a player's head
-  `loss.*`.
+  to "-X" over a giving player's head as they leave. It's drawn as the moves left are, in Minecraft
+  Ten with no name tag plate (`blockparty:tally`: the dice file's `gain` and `loss` looks, its tone
+  property picking the sign and color), facing each camera, where the moves left stand (over them
+  while they show), rising a quarter block as it comes and popping at each step, there a second
+  after the last lands. Each landing on a player plays the user's `gain.coins`, `gain.star` or
+  `gain.item` sound, each leaving a player's head `loss.*`.
 - **Who to whom:** the Star's price to Chris and then the Star to the buyer (who celebrates as it
   lands); the Shop's and the Trader's price to them and the goods back; selling to the Villager (the
   Shop's and the Villager item's), the goods to him and the coins back; the Witch's reroll price;

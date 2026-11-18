@@ -1,6 +1,6 @@
 {
   "about": "What tools/blockparty/dice-pack.ts last made Block Party's die model from (the tests compare it with dice.json).",
-  "maker": 2,
+  "maker": 3,
   "dice": [
     {
       "id": "standard",
@@ -58,5 +58,7 @@
       "faces": [{"text":"1","ink":"#1e1e1e"},{"text":"1","ink":"#1e1e1e"},{"text":"1","ink":"#1e1e1e"},{"text":"1","ink":"#1e1e1e"},{"text":"1","ink":"#1e1e1e"},{"text":"1","ink":"#1e1e1e"}]
     }
   ],
-  "number": {"ink":"#ffffff","shadow":"#3f3f3f"}
+  "number": {"ink":"#ffffff","shadow":"#3f3f3f"},
+  "gain": {"ink":"#ffaa00","shadow":"#3f2a00"},
+  "loss": {"ink":"#ff5555","shadow":"#3f1515"}
 }

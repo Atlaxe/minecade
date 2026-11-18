@@ -18,7 +18,12 @@
 // The moves left over a walker's head after a roll (blockparty:count, counts.ts) are drawn the same
 // way, in the dice file's "number" look: geometry.blockparty.count holds every digit, a bone each
 // (a digit alone, and a two-digit number's tens and ones), and its render controller shows the ones
-// its count property names. The digits face the camera (animation.blockparty.count_face).
+// its count property names. A transfer's count over a head (blockparty:tally, transfers.ts) is the
+// same with a sign: "+3" in the file's "gain" look, "-3" in its "loss" look, a geometry each
+// (geometry.blockparty.tally_gain and _loss), the tone property picking one. The digits face the
+// camera (animation.blockparty.count_face) and are lit the same from every side: they're colored
+// from a palette of their own (textures/blockparty/number_palette) whose pixels are nearly see-
+// through, which the entity_emissive material draws at full brightness, unshaded.
 //
 // tools/blockparty/dice-pack.ts writes it all; this module plans it (what each die's body and faces
 // are) without the font, so the tests can say when the files are out of date (the plan is kept in
@@ -27,7 +32,23 @@ import { createHash } from "node:crypto";
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { COUNT_PROPERTY, DICE, NUMBER, burstParticle, modelDice, type DieDef, type DieFace, type NumberLook } from "../../games/blockparty/behavior_pack/scripts/dice.ts";
+import {
+  COUNT_PROPERTY,
+  DICE,
+  GAIN,
+  LOSS,
+  NUMBER,
+  TALLY_PROPERTY,
+  TONE_GAIN,
+  TONE_LOSS,
+  TONE_PROPERTY,
+  burstParticle,
+  modelDice,
+  type DieDef,
+  type DieFace,
+  type NumberLook,
+  type NumberLooks,
+} from "../../games/blockparty/behavior_pack/scripts/dice.ts";
 import { blankImage, type Image } from "../skins/png.ts";
 import { decodeAnyPng } from "../viewer/png.ts";
 import type { TenFont, TextPixels } from "./ten-font.ts";
@@ -40,10 +61,14 @@ export const PLAN_FILE = fileURLToPath(new URL("./dice-model.json", import.meta.
 export const FACE_PICTURES = "textures/blockparty/dice/faces";
 /** The faces' colors, one pixel each (written by the dice tool). */
 export const PALETTE = "textures/blockparty/die_palette";
+/** The numbers' colors over heads (the count's and the tally's), one pixel each, drawn unshaded (written by the dice tool). */
+export const NUMBER_PALETTE = "textures/blockparty/number_palette";
+/** The number palette's alpha: nearly see-through, so entity_emissive draws it at full brightness (0 would do, but some tools drop a clear pixel's color). */
+export const NUMBER_ALPHA = 1;
 /** The body for no die in particular (property 0). */
 export const BLANK_DIE = "textures/blocks/concrete_white";
 /** Bumped when the way the faces are made changes, so the tests ask for a new run. */
-const MAKER = 2;
+const MAKER = 3;
 
 /** The body's geometries: one square on every face, or six. */
 export const BODY_GEOMETRY = { plain: "geometry.blockparty.die_plain", six: "geometry.blockparty.die" } as const;
@@ -62,11 +87,10 @@ export interface DiePlan {
   layout: Layout;
   faces: FacePlan[];
 }
-export interface ModelPlan {
+/** What the model is made from: the dice, and the numbers' looks (the moves left, a transfer's count coming in and going out). */
+export interface ModelPlan extends NumberLooks {
   maker: number;
   dice: DiePlan[];
-  /** The moves left over a walker's head: its ink and shadow. */
-  number: NumberLook;
 }
 
 /** A picture's size from its PNG header. */
@@ -113,14 +137,18 @@ export function facePlan(face: DieFace, pack: string = PACK): FacePlan {
 }
 
 /** The model's plan from the dice file and the pack's pictures, and anything wrong with them. */
-export function modelPlan(dice: readonly DieDef[] = modelDice(Object.values(DICE)), pack: string = PACK, number: NumberLook = NUMBER): { plan: ModelPlan; problems: string[] } {
+export function modelPlan(
+  dice: readonly DieDef[] = modelDice(Object.values(DICE)),
+  pack: string = PACK,
+  looks: NumberLooks = { number: NUMBER, gain: GAIN, loss: LOSS },
+): { plan: ModelPlan; problems: string[] } {
   const problems: string[] = [];
   const plans = dice.map((die): DiePlan => {
     const texture = die.texture ?? BLANK_DIE;
     const layout = layoutOf(texture, pack, (text) => problems.push(`${die.id}: ${text}`));
     return { id: die.id, texture, layout, faces: die.faces.map((face) => facePlan(face, pack)) };
   });
-  return { plan: { maker: MAKER, dice: plans, number }, problems };
+  return { plan: { maker: MAKER, dice: plans, ...looks }, problems };
 }
 
 /**
@@ -303,58 +331,117 @@ export function facePixels(face: FacePlan, font: TenFont, pack: string = PACK): 
   return undefined;
 }
 
-// ---- The number over a walker's head ---------------------------------------------------------
+// ---- The numbers over heads -------------------------------------------------------------------
 
 export const COUNT_GEOMETRY = "geometry.blockparty.count";
 export const COUNT_CONTROLLER = "controller.render.blockparty.count";
+/** A transfer's count: a geometry for each tone, and its render controller. */
+export const TALLY_GEOMETRY = { gain: "geometry.blockparty.tally_gain", loss: "geometry.blockparty.tally_loss" } as const;
+export const TALLY_CONTROLLER = "controller.render.blockparty.tally";
+/** The sign before a transfer's count, in each tone. */
+export const TALLY_SIGN = { gain: "+", loss: "-" } as const;
 /** The number's pixel (model units: a digit is 7 of them across, 10 high), its depth, and its shadow's behind it. */
 const COUNT_PIXEL = 1.25;
 const COUNT_DEPTH = 1;
 const COUNT_SHADOW_DEPTH = 0.5;
 /** The number's middle over the entity (model units), which it turns about to face the camera. */
 const COUNT_MIDDLE = 8;
-/** The bone holding every digit (the one the animations move), and each digit's: alone, a two-digit number's tens, its ones. */
+/** The pixels between a sign and its number, and between two digits, as Minecraft Ten sets them. */
+const LETTER_GAP = 1;
+/**
+ * The bones: the one undoing the entity's turn (whichever way its body faces, the number's frame is
+ * the same), the one holding every digit (turned to the camera; the pop scales it), and each digit's:
+ * alone, a two-digit number's tens, its ones. A tally's also has its sign, before one digit or two.
+ */
+export const UPRIGHT_BONE = "upright";
 export const COUNT_ROOT = "count";
 export const countBone = (place: "one" | "tens" | "ones", digit: number) => `${place}_${digit}`;
-/** The digits a two-digit number's tens can be (a count over 99 shows 99). */
+export const signBone = (digits: 1 | 2) => `sign_${digits}`;
+/** The digits a two-digit number's tens can be (a count over 99 shows 99), and a tally's digit alone (it never shows 0). */
 const TENS = [1, 2, 3, 4, 5, 6, 7, 8, 9];
 const DIGITS = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
 
 /**
- * The count's bones: every digit in the number's ink, facing south (the side a camera-facing bone
- * shows), and its shadow behind it. A digit alone is centered; a two-digit number's tens end half a
- * pixel left of the middle and its ones start half a pixel right of it, a pixel apart as the font
- * sets them.
+ * A number's bones: every digit in `look`'s ink, facing south (the side a camera-facing bone shows),
+ * and its shadow behind it. With no sign (the moves left) a digit alone is centered, and a
+ * two-digit number's tens end half a pixel left of the middle and its ones start half a pixel right
+ * of it, a pixel apart as the font sets them. With a sign (a transfer's count) the sign comes first,
+ * then each digit centered in a cell as wide as the font's widest digit, a pixel between each, the
+ * whole centered.
  */
-function countBones(look: NumberLook, font: TenFont, uvOf: (color: string) => [number, number]): object[] {
-  const bones: object[] = [{ name: COUNT_ROOT, pivot: [0, COUNT_MIDDLE, 0] }];
-  const bone = (name: string, digit: number, place: (width: number, grid: number, lift: number) => number) => {
-    const text = font.text(String(digit));
+function numberBones(look: NumberLook, font: TenFont, uvOf: (color: string) => [number, number], sign?: string): object[] {
+  const bones: object[] = [
+    { name: UPRIGHT_BONE, pivot: [0, COUNT_MIDDLE, 0] },
+    { name: COUNT_ROOT, parent: UPRIGHT_BONE, pivot: [0, COUNT_MIDDLE, 0] },
+  ];
+  const lift = look.shadow ? SHADOW_OFFSET : 0;
+  /** A bone drawing `text` with its left edge `left` pixels from the middle (given the text's width). */
+  const bone = (name: string, text: TextPixels, left: (width: number) => number) => {
     const drawn = inkPixels(text, look.ink, look.shadow);
-    const lift = look.shadow ? SHADOW_OFFSET : 0;
-    // In pixels: how far right the grid's middle goes, and down by half the shadow's lift, so the text (not its shadow) is where it's meant to be.
-    const shift: [number, number] = [place(text.width, drawn.pixels.width, lift) * COUNT_PIXEL, (-lift / 2) * COUNT_PIXEL];
+    // In pixels: how far right the grid's middle goes (the text is its first columns), and down by half the shadow's lift, so the text (not its shadow) is where it's meant to be.
+    const shift: [number, number] = [(left(text.width) + drawn.pixels.width / 2) * COUNT_PIXEL, (-lift / 2) * COUNT_PIXEL];
     const cubes = [
       ...faceCubes(drawn.pixels, SOUTH, COUNT_PIXEL, uvOf, { half: 0, relief: COUNT_DEPTH, middle: COUNT_MIDDLE, shift }),
       ...(drawn.shadow ? faceCubes(drawn.shadow, SOUTH, COUNT_PIXEL, uvOf, { half: -COUNT_SHADOW_DEPTH, relief: COUNT_SHADOW_DEPTH, middle: COUNT_MIDDLE, shift }) : []),
     ];
     bones.push({ name, parent: COUNT_ROOT, pivot: [0, COUNT_MIDDLE, 0], ...(cubes.length ? { cubes } : {}) });
   };
-  // The grid is centered; the text's columns are its first `width` of `grid`.
-  for (const digit of DIGITS) bone(countBone("one", digit), digit, (_width, _grid, lift) => lift / 2);
-  for (const digit of TENS) bone(countBone("tens", digit), digit, (width, grid) => grid / 2 - width - 0.5);
-  for (const digit of DIGITS) bone(countBone("ones", digit), digit, (_width, grid) => grid / 2 + 0.5);
+  const digit = (value: number) => font.text(String(value));
+  if (sign === undefined) {
+    for (const value of DIGITS) bone(countBone("one", value), digit(value), (width) => -width / 2);
+    for (const value of TENS) bone(countBone("tens", value), digit(value), (width) => -width - LETTER_GAP / 2);
+    for (const value of DIGITS) bone(countBone("ones", value), digit(value), () => LETTER_GAP / 2);
+    return bones;
+  }
+  const mark = font.text(sign);
+  const cell = Math.max(...DIGITS.map((value) => digit(value).width));
+  /** Where a number of `digits` digits starts (its sign's left edge), and its digit cells' left edges. */
+  const layout = (digits: number) => {
+    const start = -(mark.width + digits * (LETTER_GAP + cell)) / 2;
+    const cells = Array.from({ length: digits }, (_, i) => start + mark.width + LETTER_GAP + i * (cell + LETTER_GAP));
+    return { start, cells };
+  };
+  const inCell = (cellLeft: number) => (width: number) => cellLeft + (cell - width) / 2;
+  const one = layout(1);
+  const two = layout(2);
+  bone(signBone(1), mark, () => one.start);
+  bone(signBone(2), mark, () => two.start);
+  for (const value of TENS) bone(countBone("one", value), digit(value), inCell(one.cells[0]));
+  for (const value of TENS) bone(countBone("tens", value), digit(value), inCell(two.cells[0]));
+  for (const value of DIGITS) bone(countBone("ones", value), digit(value), inCell(two.cells[1]));
   return bones;
 }
+
+/** The parts every number shows: the bones that turn it. */
+const NUMBER_FRAME: Record<string, boolean>[] = [{ "*": false }, { [UPRIGHT_BONE]: true }, { [COUNT_ROOT]: true }];
 
 /** The count's render controller: its palette, and only the digits of the number its property holds. */
 export function countController(): object {
   const value = `q.property('${COUNT_PROPERTY}')`;
-  const parts: Record<string, boolean | string>[] = [{ "*": false }, { [COUNT_ROOT]: true }];
+  const parts: Record<string, boolean | string>[] = [...NUMBER_FRAME];
   for (const digit of DIGITS) parts.push({ [countBone("one", digit)]: `${value} == ${digit}` });
   for (const digit of TENS) parts.push({ [countBone("tens", digit)]: `${value} >= 10 && math.floor(${value} / 10) == ${digit}` });
   for (const digit of DIGITS) parts.push({ [countBone("ones", digit)]: `${value} >= 10 && math.mod(${value}, 10) == ${digit}` });
   return { geometry: "Geometry.default", materials: [{ "*": "Material.default" }], textures: ["Texture.default"], part_visibility: parts };
+}
+
+/** The tally's render controller: its tone's geometry, its sign and the digits of the number its property holds; nothing at 0. */
+export function tallyController(): object {
+  const value = `q.property('${TALLY_PROPERTY}')`;
+  const tones: string[] = [];
+  tones[TONE_GAIN] = "Geometry.gain";
+  tones[TONE_LOSS] = "Geometry.loss";
+  const parts: Record<string, boolean | string>[] = [...NUMBER_FRAME, { [signBone(1)]: `${value} >= 1 && ${value} < 10` }, { [signBone(2)]: `${value} >= 10` }];
+  for (const digit of TENS) parts.push({ [countBone("one", digit)]: `${value} == ${digit}` });
+  for (const digit of TENS) parts.push({ [countBone("tens", digit)]: `${value} >= 10 && math.floor(${value} / 10) == ${digit}` });
+  for (const digit of DIGITS) parts.push({ [countBone("ones", digit)]: `${value} >= 10 && math.mod(${value}, 10) == ${digit}` });
+  return {
+    arrays: { geometries: { "Array.tones": tones } },
+    geometry: `Array.tones[q.property('${TONE_PROPERTY}')]`,
+    materials: [{ "*": "Material.default" }],
+    textures: ["Texture.default"],
+    part_visibility: parts,
+  };
 }
 
 // ---- The burst --------------------------------------------------------------------------------
@@ -393,14 +480,35 @@ export function burstEffect(die: DiePlan): object {
 /** The palette's width in pixels (one per color, rows of this many). */
 const PALETTE_WIDTH = 16;
 
-/** Every die's faces geometry (and the blank one), the count's geometry, and the palette they're colored from. */
-export function buildFaces(plan: ModelPlan, font: TenFont, pack: string = PACK): { geometries: object[]; count: object; palette: Image } {
+/** A palette: each color asked for gets the next pixel (`uvOf`), and `image` draws them all at `alpha`. */
+function paletteOf(alpha: number): { uvOf: (color: string) => [number, number]; rows: () => number; image: () => Image } {
   const colors: string[] = [];
-  const uvOf = (color: string): [number, number] => {
-    let at = colors.indexOf(color);
-    if (at < 0) at = colors.push(color) - 1;
-    return [at % PALETTE_WIDTH, Math.floor(at / PALETTE_WIDTH)];
+  const rows = () => Math.max(1, Math.ceil(colors.length / PALETTE_WIDTH));
+  return {
+    uvOf(color) {
+      let at = colors.indexOf(color);
+      if (at < 0) at = colors.push(color) - 1;
+      return [at % PALETTE_WIDTH, Math.floor(at / PALETTE_WIDTH)];
+    },
+    rows,
+    image() {
+      const image = blankImage(PALETTE_WIDTH, rows());
+      colors.forEach((color, i) => {
+        const rgb = [1, 3, 5].map((at) => Number.parseInt(color.slice(at, at + 2), 16));
+        image.data.set([...rgb, alpha], i * 4);
+      });
+      return image;
+    },
   };
+}
+
+/**
+ * Every die's faces geometry (and the blank one) and the palette they're colored from, and the
+ * numbers over heads (the count's geometry and the tally's two, gain then loss) and theirs.
+ */
+export function buildFaces(plan: ModelPlan, font: TenFont, pack: string = PACK): { geometries: object[]; count: object; tallies: object[]; palette: Image; numberPalette: Image } {
+  const faces = paletteOf(255);
+  const uvOf = faces.uvOf;
   const bones = plan.dice.map((die) => {
     const cubes = die.faces.flatMap((face, side) => {
       const value = facePixels(face, font, pack);
@@ -410,14 +518,11 @@ export function buildFaces(plan: ModelPlan, font: TenFont, pack: string = PACK):
     });
     return { id: facesGeometry(die.id), cubes };
   });
-  const countBoneList = countBones(plan.number, font, uvOf);
-  const rows = Math.max(1, Math.ceil(colors.length / PALETTE_WIDTH));
-  const palette = blankImage(PALETTE_WIDTH, rows);
-  colors.forEach((color, i) => {
-    const rgb = [1, 3, 5].map((at) => Number.parseInt(color.slice(at, at + 2), 16));
-    palette.data.set([...rgb, 255], i * 4);
-  });
-  const description = (identifier: string, size: number) => ({
+  const numbers = paletteOf(NUMBER_ALPHA);
+  const countBones = numberBones(plan.number, font, numbers.uvOf);
+  const gainBones = numberBones(plan.gain, font, numbers.uvOf, TALLY_SIGN.gain);
+  const lossBones = numberBones(plan.loss, font, numbers.uvOf, TALLY_SIGN.loss);
+  const description = (identifier: string, size: number, rows: number) => ({
     identifier,
     texture_width: PALETTE_WIDTH,
     texture_height: rows,
@@ -426,12 +531,17 @@ export function buildFaces(plan: ModelPlan, font: TenFont, pack: string = PACK):
     visible_bounds_offset: [0, 0.5, 0],
   });
   const geometry = (identifier: string, cubes: object[]) => ({
-    description: description(identifier, 2),
+    description: description(identifier, 2, faces.rows()),
     bones: [{ name: "die", pivot: [0, MIDDLE_Y, 0], ...(cubes.length ? { cubes } : {}) }],
   });
   return {
     geometries: [geometry(BLANK_FACES, []), ...bones.map((bone) => geometry(bone.id, bone.cubes))],
-    count: { description: description(COUNT_GEOMETRY, 3), bones: countBoneList },
-    palette,
+    count: { description: description(COUNT_GEOMETRY, 3, numbers.rows()), bones: countBones },
+    tallies: [
+      { description: description(TALLY_GEOMETRY.gain, 3, numbers.rows()), bones: gainBones },
+      { description: description(TALLY_GEOMETRY.loss, 3, numbers.rows()), bones: lossBones },
+    ],
+    palette: faces.image(),
+    numberPalette: numbers.image(),
   };
 }

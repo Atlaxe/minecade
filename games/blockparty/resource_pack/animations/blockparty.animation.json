@@ -71,8 +71,19 @@
     "animation.blockparty.count_face": {
       "loop": true,
       "bones": {
+        "upright": {
+          "rotation": [0, "-q.body_y_rotation", 0]
+        },
         "count": {
           "rotation": ["q.camera_rotation(0)", "q.camera_rotation(1)", 0]
+        }
+      }
+    },
+    "animation.blockparty.tally_rise": {
+      "loop": true,
+      "bones": {
+        "upright": {
+          "position": [0, "4 * (1 - math.pow(1 - math.min(1, q.life_time / 0.35), 2))", 0]
         }
       }
     },
@@ -107,8 +118,8 @@
         "root": {
           "position": [
             "0",
-            "16 * (q.property('blockparty:rise') * math.clamp(q.life_time / 0.7, 0, 1) + q.property('blockparty:arc') * 4 * math.clamp(q.life_time / 0.7, 0, 1) * (1 - math.clamp(q.life_time / 0.7, 0, 1)))",
-            "16 * q.property('blockparty:reach') * (0.5 - math.clamp(q.life_time / 0.7, 0, 1))"
+            "0.16 * (q.property('blockparty:rise') * math.clamp(q.life_time / 0.7, 0, 1) + q.property('blockparty:arc') * 4 * math.clamp(q.life_time / 0.7, 0, 1) * (1 - math.clamp(q.life_time / 0.7, 0, 1)))",
+            "0.16 * q.property('blockparty:reach') * (0.5 - math.clamp(q.life_time / 0.7, 0, 1))"
           ],
           "rotation": [
             0,

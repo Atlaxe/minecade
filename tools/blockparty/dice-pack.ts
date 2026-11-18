@@ -4,9 +4,11 @@
 // blockparty:die property picks it; dice.ts, modelIndex) and its burst particle (particles/); the
 // faces' values are drawn in the game's Minecraft Ten font, read from Minecraft on this PC
 // (ten-font.ts), or from the face pictures in resource_pack/textures/blockparty/dice/faces. It also
-// writes the number over a walker's head (geometry.blockparty.count and its render controller, in the
-// file's "number" look) and the glyphs the build draws the dice icons' numbers with
-// (tools/blockparty/ten-glyphs.json). Run it after changing a die's texture, ink, shadow or faces, the
+// writes the numbers over heads: the moves left over a walker's head (geometry.blockparty.count and
+// its render controller, in the file's "number" look) and a transfer's count (blockparty:tally's two
+// geometries and its render controller, in the "gain" and "loss" looks), both colored from
+// textures/blockparty/number_palette; and the glyphs the build draws the dice icons' numbers with
+// (tools/blockparty/ten-glyphs.json). Run it after changing a die's texture, ink, shadow or faces, a
 // number's look, or a face picture:
 //
 //   npx tsx tools/blockparty/dice-pack.ts
@@ -17,13 +19,28 @@ import { mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from "nod
 import { dirname, join } from "node:path";
 import { DICE, DICE_PROBLEMS } from "../../games/blockparty/behavior_pack/scripts/dice.ts";
 import { encodePng } from "../skins/png.ts";
-import { COUNT_CONTROLLER, PACK, PALETTE, PLAN_FILE, buildFaces, burstEffect, burstFile, countController, modelFiles, modelPlan } from "./dice-model.ts";
+import {
+  COUNT_CONTROLLER,
+  NUMBER_PALETTE,
+  PACK,
+  PALETTE,
+  PLAN_FILE,
+  TALLY_CONTROLLER,
+  buildFaces,
+  burstEffect,
+  burstFile,
+  countController,
+  modelFiles,
+  modelPlan,
+  tallyController,
+} from "./dice-model.ts";
 import { GLYPH_FILE, glyphTable, loadTenFont } from "./ten-font.ts";
 
 const ENTITY = join(PACK, "entity", "die.entity.json");
 const CONTROLLERS = join(PACK, "render_controllers", "blockparty.render_controllers.json");
 const FACES = join(PACK, "models", "entity", "die_faces.geo.json");
 const COUNT = join(PACK, "models", "entity", "count.geo.json");
+const TALLY = join(PACK, "models", "entity", "tally.geo.json");
 const PARTICLES = join(PACK, "particles");
 const BODY = "controller.render.blockparty.die";
 const FACE_LAYER = "controller.render.blockparty.die_faces";
@@ -39,7 +56,7 @@ if (problems.length > 0) {
 }
 
 const font = loadTenFont();
-const { geometries, count, palette } = buildFaces(plan, font);
+const { geometries, count, tallies, palette, numberPalette } = buildFaces(plan, font);
 const files = modelFiles(plan);
 const json = (value: unknown) => `${JSON.stringify(value, null, 2)}\n`;
 /** JSON with anything that fits in `width` characters on one line (a cube a line). */
@@ -53,9 +70,15 @@ const compact = (value: unknown, indent = "", width = 320): string => {
 
 writeFileSync(FACES, `${compact({ format_version: "1.12.0", "minecraft:geometry": geometries })}\n`);
 writeFileSync(COUNT, `${compact({ format_version: "1.12.0", "minecraft:geometry": [count] })}\n`);
-const paletteFile = join(PACK, `${PALETTE}.png`);
-mkdirSync(dirname(paletteFile), { recursive: true });
-writeFileSync(paletteFile, encodePng(palette));
+writeFileSync(TALLY, `${compact({ format_version: "1.12.0", "minecraft:geometry": tallies })}\n`);
+for (const [path, image] of [
+  [PALETTE, palette],
+  [NUMBER_PALETTE, numberPalette],
+] as const) {
+  const file = join(PACK, `${path}.png`);
+  mkdirSync(dirname(file), { recursive: true });
+  writeFileSync(file, encodePng(image));
+}
 
 const entity = JSON.parse(readFileSync(ENTITY, "utf8"));
 const description = entity["minecraft:client_entity"].description;
@@ -80,6 +103,7 @@ controllers.render_controllers[FACE_LAYER] = {
   textures: ["Texture.palette"],
 };
 controllers.render_controllers[COUNT_CONTROLLER] = countController();
+controllers.render_controllers[TALLY_CONTROLLER] = tallyController();
 writeFileSync(CONTROLLERS, json(controllers));
 
 // Each die's burst, and none for a die that's gone.

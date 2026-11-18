@@ -412,7 +412,7 @@ export class BlockPartySpike extends Minigame<Config> {
     });
     this.counts = new Counts({ scope: this.scope, bodyOf: (key) => this.bodyOf(key) });
     this.moves = new Moves({ scope: this.scope, random: () => this.ctx.random(), fallIn: (entity) => void this.staging.fallAgain(entity) });
-    this.transfers = new Transfers({ scope: this.scope, dimension: () => dimension, random: () => this.ctx.random() });
+    this.transfers = new Transfers({ scope: this.scope, dimension: () => dimension, random: () => this.ctx.random(), movesShown: (key) => this.counts.shows(key) });
     this.dialogue = new Dialogue({
       scope: this.scope,
       random: () => this.ctx.random(),

@@ -20,7 +20,8 @@
 //     an event (FACE_EVENTS), a line to say when it comes up, what the item panel and the die model
 //     show on it (up to two characters; its move unless it says), and its own ink and shadow.
 // The file's "number" is the look of the moves left over a walker's head after a roll (counts.ts):
-// its ink and shadow, the same way.
+// its ink and shadow, the same way. Its "gain" and "loss" are the looks of the coins, Stars and items
+// a transfer counts over a head, "+3" coming in and "-3" going out (transfers.ts).
 // Pure (no Minecraft), so the tests and the dice pack tool read it too.
 import file from "../../dice.json";
 
@@ -107,6 +108,9 @@ export interface NumberLook {
 }
 /** The number's look when the file doesn't say: white with Minecraft's shadow, as the game writes text. */
 export const DEFAULT_NUMBER: NumberLook = { ink: "#ffffff", shadow: "#3f3f3f" };
+/** A transfer's count when the file doesn't say: Minecraft's gold coming in, its red going out, with its shadows. */
+export const DEFAULT_GAIN: NumberLook = { ink: "#ffaa00", shadow: "#3f2a00" };
+export const DEFAULT_LOSS: NumberLook = { ink: "#ff5555", shadow: "#3f1515" };
 
 /** Minecraft's text shadow under `ink`: each channel a quarter as bright (white's is #3f3f3f). */
 export function shadowOf(ink: string): string {
@@ -127,33 +131,42 @@ function shadowColor(setting: Shadow | false | undefined, ink: string): string |
   return typeof setting === "string" ? setting : undefined;
 }
 
-/** The dice in a dice file, the number's look, and what's wrong with it (each problem in words; a die with one is left out). */
-export function readDice(raw: unknown): { dice: DieDef[]; number: NumberLook; problems: string[] } {
+/** The looks of the numbers over heads: the moves left, and a transfer's count coming in and going out. */
+export interface NumberLooks {
+  number: NumberLook;
+  gain: NumberLook;
+  loss: NumberLook;
+}
+
+/** The dice in a dice file, the numbers' looks, and what's wrong with it (each problem in words; a die with one is left out). */
+export function readDice(raw: unknown): { dice: DieDef[]; problems: string[] } & NumberLooks {
   const problems: string[] = [];
   const dice: DieDef[] = [];
-  const number = readNumber((raw as { number?: unknown } | undefined)?.number, (problem) => problems.push(`number: ${problem}`));
-  const list = (raw as { dice?: unknown } | undefined)?.dice;
-  if (!list || typeof list !== "object" || Array.isArray(list)) return { dice, number, problems: ['the file needs "dice": { "<id>": { ... } }'] };
+  const top = (raw ?? {}) as Record<string, unknown>;
+  const look = (key: keyof NumberLooks, fallback: NumberLook) => readNumber(key, top[key], fallback, (problem) => problems.push(`${key}: ${problem}`));
+  const looks: NumberLooks = { number: look("number", DEFAULT_NUMBER), gain: look("gain", DEFAULT_GAIN), loss: look("loss", DEFAULT_LOSS) };
+  const list = top.dice;
+  if (!list || typeof list !== "object" || Array.isArray(list)) return { dice, ...looks, problems: ['the file needs "dice": { "<id>": { ... } }'] };
   for (const [id, value] of Object.entries(list as Record<string, unknown>)) {
     const before = problems.length;
     const die = readDie(id, value, (problem) => problems.push(`${id}: ${problem}`));
     if (die && problems.length === before) dice.push(die);
   }
   if (!dice.some((die) => die.id === STANDARD_DIE)) problems.push(`there must be a "${STANDARD_DIE}" die: everyone always holds it`);
-  return { dice, number, problems };
+  return { dice, ...looks, problems };
 }
 
-/** The number's look: its ink (white if left out) and shadow (Minecraft's if left out). */
-function readNumber(value: unknown, problem: (text: string) => void): NumberLook {
-  if (value === undefined) return DEFAULT_NUMBER;
+/** A number's look (the file's `key`): its ink (the fallback's if left out) and shadow (Minecraft's if left out). */
+function readNumber(key: string, value: unknown, fallback: NumberLook, problem: (text: string) => void): NumberLook {
+  if (value === undefined) return fallback;
   if (!value || typeof value !== "object" || Array.isArray(value)) {
-    problem('"number" is an object: { "ink": "#ffffff", "shadow": true }');
-    return DEFAULT_NUMBER;
+    problem(`"${key}" is an object: { "ink": "${fallback.ink}", "shadow": true }`);
+    return fallback;
   }
   const look = value as Record<string, unknown>;
-  const ink = look.ink ?? DEFAULT_NUMBER.ink;
-  if (typeof ink !== "string" || !INK.test(ink)) problem('"ink" is a color like "#ffffff"');
-  const color = typeof ink === "string" && INK.test(ink) ? ink.toLowerCase() : DEFAULT_NUMBER.ink;
+  const ink = look.ink ?? fallback.ink;
+  if (typeof ink !== "string" || !INK.test(ink)) problem(`"ink" is a color like "${fallback.ink}"`);
+  const color = typeof ink === "string" && INK.test(ink) ? ink.toLowerCase() : fallback.ink;
   const shadow = shadowColor(readShadow(look.shadow ?? true, problem), color);
   return { ink: color, ...(shadow ? { shadow } : {}) };
 }
@@ -255,11 +268,24 @@ export const DICE_PROBLEMS: readonly string[] = read.problems;
 export const DICE: Readonly<Record<string, DieDef>> = Object.fromEntries(read.dice.map((die) => [die.id, die]));
 /** The look of the moves left over a walker's head (the file's "number"). */
 export const NUMBER: NumberLook = read.number;
+/** The looks of a transfer's count over a head, coming in and going out (the file's "gain" and "loss"). */
+export const GAIN: NumberLook = read.gain;
+export const LOSS: NumberLook = read.loss;
 
 /** The moves left over a walker's head (counts.ts): its entity, and the property holding its number (0 to MAX_COUNT). */
 export const COUNT_ENTITY = "blockparty:count";
 export const COUNT_PROPERTY = "blockparty:count";
 export const MAX_COUNT = 99;
+/**
+ * A transfer's count over a head (transfers.ts): its entity, the property holding its number (0 for
+ * none yet, up to MAX_COUNT), and its tone's (TONE_GAIN, "+" in the gain look; TONE_LOSS, "-" in the
+ * loss look).
+ */
+export const TALLY_ENTITY = "blockparty:tally";
+export const TALLY_PROPERTY = "blockparty:tally";
+export const TONE_PROPERTY = "blockparty:tone";
+export const TONE_GAIN = 0;
+export const TONE_LOSS = 1;
 /** A die's burst when it's hit: chips of its body (the dice tool writes one for every die with a model). */
 export const burstParticle = (id: string) => `blockparty:die_burst_${id}`;
 /** The die everyone always holds (a plain 1 to 6 if the file has none). */

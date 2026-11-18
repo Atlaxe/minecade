@@ -3,7 +3,9 @@
 // space at a time (board-loop.ts, move), gone as they land. It's blockparty:count, a model of every
 // digit the dice tool draws in the dice file's "number" look (tools/blockparty/dice-model.ts); its
 // render controller shows the digits its property names, and its digits turn to face each player's
-// own camera (animation.blockparty.count_face).
+// own camera (animation.blockparty.count_face: its upright bone undoes whatever turn the entity's
+// body took, as it's walked along by impulses, and its count bone turns to the camera as Minecraft's
+// billboard does), drawn unshaded at full brightness (entity_emissive) so white reads white.
 //
 // It follows by being set moving each tick toward its spot over the head, a little ahead of where the
 // body is going, the way the bots walk (bots.ts): teleporting every tick stutters (20 stops a second,
@@ -35,6 +37,11 @@ export class Counts {
     deps.scope.add(() => {
       for (const key of [...this.shown.keys()]) this.set(key, undefined);
     });
+  }
+
+  /** Whether `key`'s moves left are over their head now (a transfer's count stands over them: transfers.ts). */
+  shows(key: string): boolean {
+    return this.shown.get(key)?.isValid === true;
   }
 
   /**

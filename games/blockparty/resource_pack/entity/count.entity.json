@@ -4,10 +4,10 @@
     "description": {
       "identifier": "blockparty:count",
       "materials": {
-        "default": "entity"
+        "default": "entity_emissive"
       },
       "textures": {
-        "default": "textures/blockparty/die_palette"
+        "default": "textures/blockparty/number_palette"
       },
       "geometry": {
         "default": "geometry.blockparty.count"

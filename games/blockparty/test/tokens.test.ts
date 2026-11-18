@@ -1,19 +1,41 @@
-// Transfers' tokens (tokens.ts): what each one shows, its flight from one head to another, the
+// Transfers' tokens (tokens.ts): what each one shows, its flight from one head to another (as whole
+// numbers: no Block Party entity has a float property, since they never reach the client), the
 // count over the heads, the token's client entity naming a picture for every slot, and the build
 // copying each item's and die's icon to its slot.
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { mkdir, mkdtemp, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { DICE } from "../behavior_pack/scripts/dice.ts";
 import { ITEM_IDS } from "../behavior_pack/scripts/items.ts";
-import { LOOK_COIN, LOOK_STAR, MODEL_MIDDLE, SHAPE_COIN, SHAPE_ICON, SHAPE_STAR, TOKEN_SLOTS, counted, flightOf, isSeat, labelSteps, lookOf, shownCount, slotLetters, slotOf, slotPicture, soundOf } from "../behavior_pack/scripts/tokens.ts";
+import {
+  FLIGHT_RANGES,
+  LOOK_COIN,
+  LOOK_STAR,
+  MODEL_MIDDLE,
+  SHAPE_COIN,
+  SHAPE_ICON,
+  SHAPE_STAR,
+  TOKEN_SLOTS,
+  counted,
+  flightOf,
+  flightProperties,
+  isSeat,
+  labelSteps,
+  lookOf,
+  shownCount,
+  slotLetters,
+  slotOf,
+  slotPicture,
+  soundOf,
+} from "../behavior_pack/scripts/tokens.ts";
 import { addTokenSlots } from "../../../tools/blockparty/item-icons.ts";
 import { blankImage, encodePng } from "../../../tools/skins/png.ts";
 import token from "../resource_pack/entity/token.entity.json";
 import controllers from "../resource_pack/render_controllers/blockparty.render_controllers.json";
 import tokenBehavior from "../behavior_pack/entities/token.json";
+import animations from "../resource_pack/animations/blockparty.animation.json";
 
 describe("Block Party's transfer tokens", () => {
   it("show a coin, a Star, or an item's or die's icon from its slot, items first, then the dice", () => {
@@ -43,6 +65,27 @@ describe("Block Party's transfer tokens", () => {
     expect(flight.arc).toBeGreaterThan(0.7);
     // Straight down from the sky: no reach, any facing.
     expect(flightOf([1, 72, 1], [1, 69.4, 1])).toMatchObject({ reach: 0, rise: -2.6, yaw: 0 });
+  });
+
+  it("hand the token its flight in hundredths of a block, cut to the entity's ranges", () => {
+    expect(flightProperties(flightOf([0, 70, 0], [0, 66, 6]))).toEqual({ reach: 600, rise: -400, arc: 142 });
+    expect(flightProperties({ at: [0, 0, 0], yaw: 0, reach: 90, rise: -80, arc: 12 })).toEqual({ reach: 6400, rise: -6400, arc: 800 });
+    // The entity holds the same ranges, as whole numbers.
+    const properties = tokenBehavior["minecraft:entity"].description.properties as Record<string, { type: string; range: number[] }>;
+    for (const [name, range] of Object.entries(FLIGHT_RANGES)) expect(properties[`blockparty:${name}`]).toMatchObject({ type: "int", range });
+    // The pack's flight reads them back in model units (16 a block: 0.16 a hundredth).
+    const [, up, along] = animations.animations["animation.blockparty.token.fly"].bones.root.position;
+    expect(up).toMatch(/^0\.16 \* \(q\.property\('blockparty:rise'\) .* \+ q\.property\('blockparty:arc'\) /);
+    expect(along).toMatch(/^0\.16 \* q\.property\('blockparty:reach'\) /);
+  });
+
+  it("are never float properties on any of the game's entities (the client never gets them)", () => {
+    const folder = new URL("../behavior_pack/entities/", import.meta.url);
+    for (const file of readdirSync(folder)) {
+      const entity = JSON.parse(readFileSync(new URL(file, folder), "utf8"))["minecraft:entity"];
+      const properties = (entity.description.properties ?? {}) as Record<string, { type: string }>;
+      for (const [name, property] of Object.entries(properties)) expect(property.type, `${file}: ${name}`).not.toBe("float");
+    }
   });
 
   it("go up to 10 coins, 5 Stars or 3 items at a time, the count rising to the whole", () => {

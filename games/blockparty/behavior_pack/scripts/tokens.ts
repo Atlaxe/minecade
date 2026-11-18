@@ -9,7 +9,10 @@
 //     reach, rise and arc as properties, and the pack's animation (animation.blockparty.token.fly)
 //     carries it over its own life from the giver's head, up in an arc, down into the taker's head,
 //     spinning, popping in as it leaves and shrinking away as it lands. Nothing moves it from the
-//     server, so it never jitters.
+//     server, so it never jitters. The properties are whole numbers, hundredths of a block
+//     (flightProperties): float properties never reached the client (the first tokens stood still as
+//     the first slot's picture, the client logging "query.property called on an actor without a
+//     property component" every frame), as the RPG's rocket's didn't (guns, 1ab028e).
 //   - Several go one after another, a stream of them, up to a few (10 coins); with two or more a
 //     count rides over the taker's head, "+1" up to "+X" as they land, and "-1" to "-X" over a
 //     giving player's head as they go.
@@ -101,6 +104,15 @@ export function flightOf(from: Vec, to: Vec): Flight {
   const yaw = reach > 0.01 ? (Math.atan2(-dx, dz) * 180) / Math.PI : 0;
   const arc = Math.min(2.5, 0.7 + reach * 0.12);
   return { at: [from[0] + dx / 2, from[1] - MODEL_MIDDLE, from[2] + dz / 2], yaw, reach: round(reach), rise: round(to[1] - from[1]), arc: round(arc) };
+}
+
+/** The flight's properties' ranges on the entity (behavior_pack/entities/token.json), in hundredths of a block. */
+export const FLIGHT_RANGES = { reach: [0, 6400], rise: [-6400, 6400], arc: [0, 800] } as const;
+
+/** A flight's reach, rise and arc as the token's properties hold them: hundredths of a block, cut to their ranges (a far flight is cut short rather than refused). */
+export function flightProperties(flight: Flight): { reach: number; rise: number; arc: number } {
+  const hundredths = (value: number, [low, high]: readonly [number, number]) => Math.max(low, Math.min(high, Math.round(value * 100)));
+  return { reach: hundredths(flight.reach, FLIGHT_RANGES.reach), rise: hundredths(flight.rise, FLIGHT_RANGES.rise), arc: hundredths(flight.arc, FLIGHT_RANGES.arc) };
 }
 
 /** How many tokens fly for `count`: each coin up to 10, each Star up to 5, each item or die up to 3. */
