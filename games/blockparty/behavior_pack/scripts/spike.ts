@@ -385,6 +385,7 @@ export class BlockPartySpike extends Minigame<Config> {
       leaveBoard: (who) => this.leaveBoard(who),
       backToBoard: (who) => this.backOnBoard(who),
       respawnBot: (who, at, yaw) => this.bots.respawn(who, at, yaw),
+      release: (who) => this.moves.release(who.body),
       notice: (text, ticks) => void this.notice(text, "", ticks),
       say: (text) => this.everyone(text),
       random: () => this.ctx.random(),
@@ -515,7 +516,8 @@ export class BlockPartySpike extends Minigame<Config> {
       headline: (title, subtitle, ticks) => this.headline(title, subtitle, ticks),
       changed: () => this.loopChanged(),
       results: (before, after) => this.results.show(before, after),
-      react: (who, set) => this.moves.player(who.body, set),
+      // On the minigame podium a mood is held until everyone goes back (the user).
+      react: (who, set) => this.moves.player(who.body, set, this.runner.onPodium),
       transfer: (from, to, token, count) => this.transfers.give(from, to, token, count),
       zombies: this.zombies,
       random: () => this.ctx.random(),

@@ -39,6 +39,15 @@ describe("Block Party's arenas", () => {
         [16, 1, 10],
       ],
       spectatorSpawn: [15, 12, 2],
+      points: {
+        [MARKUP.podium]: [
+          [12, 4, 44, 180, 0],
+          [10, 3, 44, 180, 0],
+          [14, 2, 44, 180, 0],
+          [16, 1, 44, 180, 0],
+        ],
+        [MARKUP.podiumCamera]: [[13, 5, 36, 0, 10]],
+      },
       regions: { [STRUCTURE_REGION]: [{ min: [0, 0, 0], max: [29, 15, 49] }], [MARKUP.floor]: [{ min: [5, 0, 5], max: [22, 0, 40] }] },
       time: "night",
     };
@@ -59,6 +68,38 @@ describe("Block Party's arenas", () => {
       expect(spawn.y).toBe(65);
     }
     expect(field.watch).toEqual({ x: 147.5, y: 76, z: 215.5 });
+    // The podium turns with the arena (the map's z runs down the world's x here): 1st first, its
+    // camera still 8 blocks in front of it.
+    const podium = field.points(MARKUP.podium);
+    expect(podium).toHaveLength(4);
+    expect(podium.map((spot) => spot.y)).toEqual([68, 67, 66, 65]);
+    const camera = field.points(MARKUP.podiumCamera)[0];
+    expect(camera.x - podium[0].x).toBe(8);
+  });
+
+  it("ask every arena map for a minigame podium of 4, its camera one a map can do without", () => {
+    const base: MapConfig = {
+      name: "No podium",
+      spawns: [
+        [10, 1, 10],
+        [12, 1, 10],
+        [14, 1, 10],
+        [16, 1, 10],
+      ],
+      spectatorSpawn: [15, 12, 2],
+      regions: { [STRUCTURE_REGION]: [{ min: [0, 0, 0], max: [29, 15, 49] }], [MARKUP.floor]: [{ min: [5, 0, 5], max: [22, 0, 40] }] },
+    };
+    for (const arena of ARENAS) {
+      const points = arena.map?.points as Record<string, { label?: string; count?: number }>;
+      expect(points[MARKUP.podium]).toMatchObject({ label: "Minigame podium", count: 4 });
+      expect(points[MARKUP.podiumCamera]).toMatchObject({ label: "Podium camera" });
+      expect(arena.map?.adjustable?.[`points.${MARKUP.podiumCamera}`]).toEqual({ off: true });
+    }
+    const requires = arenaRequirements(ARENAS[0]);
+    expect(mapChecklist(base, { kind: "game", maxPlayers: 4, requires }).ready).toBe(false);
+    const podium = { [MARKUP.podium]: [0, 1, 2, 3].map((i): [number, number, number] => [10 + i * 2, 1, 44]) };
+    expect(mapChecklist({ ...base, points: podium }, { kind: "game", maxPlayers: 4, requires }).ready).toBe(false);
+    expect(mapChecklist({ ...base, points: podium, requirements: { [`points.${MARKUP.podiumCamera}`]: false } }, { kind: "game", maxPlayers: 4, requires }).ready).toBe(true);
   });
 
   it("say why an arena map can't be played, and its test arena stands in", () => {

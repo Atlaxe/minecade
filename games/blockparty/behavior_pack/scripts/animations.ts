@@ -25,7 +25,20 @@ export interface Clip {
   name: string;
   seconds: number;
   loops: boolean;
+  /**
+   * Seconds in, where it's held when it's played to be held (holdPoint: as its last move back to the
+   * resting pose starts). Its own length when it never goes back.
+   */
+  holdAt?: number;
 }
+
+/**
+ * A clip's held pose (the minigame podium, the user: winning and sad emotes played, then held): an
+ * animation named after it with this on the end ("animation.blockparty.player.celebration.arms_up.hold"),
+ * which the player goes into at the clip's holdAt and stays in until they're let go. One the user
+ * makes in Blockbench, named that way, holds with no code change.
+ */
+export const HOLD_SUFFIX = ".hold";
 
 /** The players' animation sets (the dialogue tool's "Player" actions). */
 export const PLAYER_SETS = ["Celebration", "Sad", "Dice roll", "Select"] as const;
@@ -64,16 +77,51 @@ function lastKeyframe(bones: Record<string, unknown> | undefined): number {
   return last;
 }
 
+/** A keyframe's value as numbers ([x, y, z], or its post when it has a pre and a post), or undefined for Molang. */
+function keyValue(value: unknown): number[] | undefined {
+  const plain = value && typeof value === "object" && !Array.isArray(value) ? (value as { post?: unknown }).post : value;
+  return Array.isArray(plain) && plain.every((part) => typeof part === "number") ? (plain as number[]) : undefined;
+}
+
+/**
+ * Where a clip is held when it's played to be held: as its last move back to the resting pose
+ * starts, the earliest of its rotations' last keyframes but one, over the rotations that end at
+ * rest (all zeros) as the clip ends (in its last quarter: a stomp's leg, down again early on, isn't
+ * that move). So arms up in the air stay up and a hung head stays down. The clip's own length when
+ * nothing goes back to rest. The pack's held poses (HOLD_SUFFIX) were made from the pose there.
+ */
+export function holdPoint(bones: Record<string, unknown> | undefined, seconds: number): number {
+  let at = Infinity;
+  for (const bone of Object.values(bones ?? {})) {
+    const rotation = (bone as { rotation?: unknown } | undefined)?.rotation;
+    if (!rotation || typeof rotation !== "object" || Array.isArray(rotation)) continue;
+    const keys = Object.entries(rotation as Record<string, unknown>)
+      .map(([time, value]) => ({ time: Number(time), value }))
+      .filter((key) => Number.isFinite(key.time))
+      .sort((a, b) => a.time - b.time);
+    if (keys.length < 2) continue;
+    const last = keyValue(keys[keys.length - 1].value);
+    if (!last || last.some((part) => part !== 0) || keys[keys.length - 1].time < seconds * 0.75) continue;
+    at = Math.min(at, keys[keys.length - 2].time);
+  }
+  return Number.isFinite(at) ? at : seconds;
+}
+
 /** Every animation in the given animation files, by name. */
 export function clipsIn(files: readonly AnimationFile[]): Map<string, Clip> {
   const clips = new Map<string, Clip>();
   for (const file of files) {
     for (const [name, animation] of Object.entries(file.animations ?? {})) {
       const seconds = typeof animation.animation_length === "number" ? animation.animation_length : lastKeyframe(animation.bones);
-      clips.set(name, { name, seconds, loops: animation.loop === true });
+      clips.set(name, { name, seconds, loops: animation.loop === true, holdAt: holdPoint(animation.bones, seconds) });
     }
   }
   return clips;
+}
+
+/** A clip's held pose (HOLD_SUFFIX), if the pack has one. */
+export function holdOf(clips: ReadonlyMap<string, Clip>, clip: Clip): Clip | undefined {
+  return clips.get(`${clip.name}${HOLD_SUFFIX}`);
 }
 
 /** The game's own animations (its resource pack's animation files). */

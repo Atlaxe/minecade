@@ -19,7 +19,23 @@ export const MARKUP = {
   /** Hunter: the hunter's spawn, and the runners'. */
   hunter: "hunter",
   runners: "runners",
+  /** Every minigame: the minigame podium, where the players stand for its results, 1st to 4th (minigame-podium.ts), and the camera on it. */
+  podium: "podium",
+  podiumCamera: "podiumCamera",
 } as const;
+
+/**
+ * Every arena map's minigame podium (the user, 2026-11-18): 4 spots, 1st place to 4th in order, each
+ * placed standing where a player stands with their facing taken; and the Podium camera, placed the
+ * same way where the camera goes (Take my facing). A map can do without the camera (Checklist
+ * Features): the shot then stands in front of the podium. An arena with no podium plays its results
+ * at its spawns.
+ */
+const PODIUM = {
+  [MARKUP.podium]: { label: "Minigame podium", count: 4, marker: "player" },
+  [MARKUP.podiumCamera]: { label: "Podium camera" },
+} as const;
+const PODIUM_ADJUSTABLE = { [`points.${MARKUP.podiumCamera}`]: { off: true } };
 
 /** Co-op Painters' sides, as its team spawns are keyed. */
 export const PAINTER_TEAMS = [
@@ -37,7 +53,7 @@ export const ARENAS: ArenaConfig[] = [
     maxPlayers: 4,
     box,
     // 4 spawns on the floor (a duel uses the first 2), where the players who fall watch from, and the floor's tiles.
-    map: { spawns: { min: 4, ...inside }, spectatorSpawn: true, regions: { [MARKUP.floor]: { label: "Floor (tiles)", ...inside } } },
+    map: { spawns: { min: 4, ...inside }, spectatorSpawn: true, points: { ...PODIUM }, regions: { [MARKUP.floor]: { label: "Floor (tiles)", ...inside } }, adjustable: PODIUM_ADJUSTABLE },
   },
   {
     id: "painters",
@@ -45,7 +61,7 @@ export const ARENAS: ArenaConfig[] = [
     maxPlayers: 4,
     teams: { count: 2, pick: false, defs: PAINTER_TEAMS },
     box,
-    map: { spawns: false, teamSpawns: { perTeam: 2 }, spectatorSpawn: true, regions: { [MARKUP.floor]: { label: "Floor", ...inside } } },
+    map: { spawns: false, teamSpawns: { perTeam: 2 }, spectatorSpawn: true, points: { ...PODIUM }, regions: { [MARKUP.floor]: { label: "Floor", ...inside } }, adjustable: PODIUM_ADJUSTABLE },
   },
   {
     id: "hunter",
@@ -56,8 +72,9 @@ export const ARENAS: ArenaConfig[] = [
     map: {
       spawns: false,
       spectatorSpawn: true,
-      points: { [MARKUP.hunter]: { label: "Hunter spawn", marker: "player" }, [MARKUP.runners]: { label: "Runner spawns", count: 3, marker: "player" } },
+      points: { [MARKUP.hunter]: { label: "Hunter spawn", marker: "player" }, [MARKUP.runners]: { label: "Runner spawns", count: 3, marker: "player" }, ...PODIUM },
       regions: { [MARKUP.goal]: { label: "Goal", ...inside } },
+      adjustable: PODIUM_ADJUSTABLE,
     },
   },
 ];

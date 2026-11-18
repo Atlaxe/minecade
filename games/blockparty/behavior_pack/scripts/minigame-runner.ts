@@ -18,17 +18,24 @@
 //   4. 3, 2, 1, Go, and the minigame plays (its play()). A player who's out watches as a spectator
 //      from the spectator spawn; a bot floats there. Only while it plays do the players have
 //      vanilla's hotbar (isPlaying; spike.ts shows it, the user's call).
-//   5. The results (what the loop pays, settle()) over the arena: who won, in the dialogue box. Then
-//      the way in backwards: everyone's camera rises from where they are to high over the arena, the
-//      stars come, and behind them everyone is back on their pieces (the bots a moment after the
-//      players), the arena is cleared, the board's time is back and the board's camera waits high
-//      over the board view; the stars turn and fade as it comes down into the board view.
+//   5. The minigame podium (minigame-podium.ts; the user, 2026-11-18): the stars come over the
+//      arena, and behind them everyone who played stands on the arena map's podium, best first (or
+//      on a stand-in podium laid in code, while the arena marks none); the stars go as everyone's
+//      camera comes down into the podium camera. There the results come (what the loop pays,
+//      settle()): who won in the dialogue box, the coins dropping in over heads or flying off them,
+//      and the winners celebrating and those who came away with nothing sad, each holding their pose
+//      (onPodium: the host's moves hold them). Then the way in backwards: everyone's camera rises
+//      from the podium to high over the arena, the stars come, and behind them they're let go and
+//      everyone is back on their pieces (the bots a moment after the players), the arena is
+//      cleared, the board's time is back and the board's camera waits high over the board view;
+//      the stars turn and fade as it comes down into the board view.
 // Nothing is a title (the user, 2026-11-18): the roulette, the rules, the countdown and the results
 // are notices in the dialogue box with no speaker (dialogue.ts, notify; NOTICE for how long).
 import { EasingType, GameMode, InputPermissionCategory, StructureRotation, world, type Dimension, type Entity, type Player, type Vector3 } from "@minecraft/server";
 import { describeError, log, placeArena, turnedSize, turnsToFit, type ArenaMap, type QuarterTurns, type Scope } from "@minecade/minigame-core";
 import { isPlayer, thinkTicks, type Who } from "./bots.ts";
 import { line } from "./lines.ts";
+import { podiumLayout, podiumOrder, podiumPlaces, standInPodium, type PodiumLayout } from "./minigame-podium.ts";
 import { forcedOutcome, pickName, type Format } from "./minigame-rules.ts";
 import { arenaSize, fill, mapField, NOTICE, type Field, type MinigameDef, type Outcome, type Play, type Spot } from "./minigames/kit.ts";
 
@@ -57,6 +64,8 @@ export interface RunnerHost {
   backToBoard(who: Who): void;
   /** A bot made again at `at` facing `yaw` (bots.ts, respawn); `who` gets the new body. */
   respawnBot(who: Who, at: Vector3, yaw: number): void;
+  /** Lets a player or bot go from the pose they hold on the podium (moves.ts, release). */
+  release(who: Who): void;
   /**
    * The game's own words to everyone in the dialogue box with no speaker (no titles, the user's
    * call), for `ticks` or until the next notice; a line break starts a row.
@@ -98,10 +107,13 @@ const STARS_AFTER = 20;
 /** How far over and behind the rules camera the ease down into the arena starts, in blocks. */
 const EASE_IN_RISE = 18;
 const EASE_IN_BACK = 14;
+/** How far over and behind the podium camera the ease down into it starts, in blocks (closer than the arena's). */
+const PODIUM_RISE = 8;
+const PODIUM_BACK = 6;
 /** The roulette's waits between names, in ticks: quick, then slowing to the pick. */
 const ROULETTE = [2, 2, 2, 2, 3, 3, 4, 5, 6, 8];
-/** Ticks the results stay up before everyone goes back. */
-const RESULTS_TICKS = 70;
+/** Ticks the results stay up on the podium before everyone goes back: the coins land and the poses are struck. */
+export const PODIUM_TICKS = 110;
 /** How far over the arena onlookers and players who are out watch from, when its map has no spectator spawn. */
 const WATCH_HEIGHT = 6;
 /** Ticks after the players have moved before the bots are made again beside them (their screens are there by then). */
@@ -143,6 +155,8 @@ export class MinigameRunner {
   private readonly playing = new Set<string>();
   /** The minigame on now, from the roulette until its outcome is known (/minigame win's). */
   private current: Running | undefined;
+  /** The results are on the podium: a mood played now is held. */
+  private podiumUp = false;
 
   constructor(host: RunnerHost) {
     this.host = host;
@@ -151,6 +165,11 @@ export class MinigameRunner {
   /** Whether a minigame is on (the board waits). */
   get active(): boolean {
     return this.on;
+  }
+
+  /** Whether the results are on the podium now: winning and sad emotes played then are held till everyone goes back (the user). */
+  get onPodium(): boolean {
+    return this.podiumUp;
   }
 
   /** Whether `key` is playing a minigame now: from Go until it ends, out or not. */
@@ -298,15 +317,21 @@ export class MinigameRunner {
       }
       if (this.current === current) this.current = undefined;
       for (const who of everyone) if (who.player) setMoving(who.player, false);
-      const results = settle(outcome);
       this.host.status(undefined);
-      this.host.notice([results.title, results.subtitle ?? ""].filter((text) => text !== "").join("\n"), NOTICE.results);
-      await this.host.scope.wait(RESULTS_TICKS);
+      // Everyone who played onto the podium, best first, then the results there: the coins come and
+      // the moods played now are held.
+      await this.toPodium(def, field, sides, outcome, onlookers);
+      this.podiumUp = true;
+      const results = settle(outcome);
+      this.host.notice([results.title, results.subtitle ?? ""].filter((text) => text !== "").join("\n"), PODIUM_TICKS);
+      await this.host.scope.wait(PODIUM_TICKS);
       // The way in backwards: the camera rises over the arena, the stars come over it, and the board's
       // camera comes down into the board view as they go.
       this.rulesCamera(watching, field, "rise");
       await this.host.scope.wait(STARS_AFTER);
       await this.host.behindStars(async () => {
+        this.podiumUp = false;
+        for (const who of everyone) this.host.release(who);
         // The players first; the bots that played once the players' screens are back (onlookers never left).
         for (const who of watching) {
           if (!who.player) continue;
@@ -326,6 +351,7 @@ export class MinigameRunner {
       }, () => this.host.boardIn?.(EASE_IN));
     } finally {
       this.on = false;
+      this.podiumUp = false;
       if (this.current === current) this.current = undefined;
       this.playing.clear();
       this.waiting = undefined;
@@ -437,6 +463,74 @@ export class MinigameRunner {
   }
 
   /**
+   * Behind the stars, everyone who played onto the minigame podium, best first (ties side by side):
+   * the arena map's Minigame podium, or a stand-in laid in code facing the rules camera while it
+   * marks none; the players first, the bots a moment after. Everyone (onlookers too) waits high over
+   * the podium camera, and comes down into it as the stars go.
+   */
+  private async toPodium(def: MinigameDef, field: Field, sides: readonly Who[][], outcome: Outcome, onlookers: readonly Who[]): Promise<void> {
+    const everyone = sides.flat();
+    const byKey = new Map(everyone.map((who) => [who.key, who]));
+    const standing = podiumOrder(podiumPlaces(sides.map((side) => side.map((who) => who.key)), outcome)).flatMap((key) => {
+      const who = byKey.get(key);
+      return who ? [who] : [];
+    });
+    const { location } = rulesCameraOf(field);
+    const middle = middleOf(field);
+    // The stand-in's floor is the minigame's: where its first spawn stands, less a block.
+    const first = def.spawns(field, sides.map((side) => side.length)).flat()[0];
+    const floor = Math.floor((first?.y ?? field.min.y + 1) - 1);
+    const standIn = standInPodium(middle, floor, yawToward(middle, location), standing.length);
+    const layout = podiumLayout(field, standing.length, standIn.spots, location);
+    const watching = [...everyone, ...onlookers];
+    await this.host.behindStars(async () => {
+      if (!layout.marked) {
+        try {
+          for (const { at, block } of standIn.blocks) fill(this.host.dimension, at, at, block);
+        } catch (error) {
+          log.warn(`blockparty: laying the stand-in podium failed: ${describeError(error)}`);
+        }
+      }
+      standing.forEach((who, place) => {
+        const spot = layout.spots[place];
+        if (!spot || !who.player?.isValid) return;
+        this.put(who.player, spot, spot.yaw, GameMode.Adventure);
+        setMoving(who.player, false);
+      });
+      this.podiumCamera(watching, layout, "above");
+      await this.host.scope.wait(BOTS_AFTER);
+      standing.forEach((who, place) => {
+        const spot = layout.spots[place];
+        if (spot && !who.player) this.host.respawnBot(who, spot, spot.yaw);
+      });
+    }, () => this.podiumCamera(watching, layout, "ease"));
+  }
+
+  /**
+   * The podium camera: "above", at once (behind the stars), high over it and further back, looking at
+   * the podium; "ease", down into it from there as the stars go (the way into the arena's rules
+   * camera, closer).
+   */
+  private podiumCamera(who: readonly Who[], layout: PodiumLayout, step: "above" | "ease"): void {
+    const { shot, spots } = layout;
+    const n = spots.length || 1;
+    const look = { x: spots.reduce((sum, at) => sum + at.x, 0) / n, y: spots.reduce((sum, at) => sum + at.y, 0) / n + 1, z: spots.reduce((sum, at) => sum + at.z, 0) / n };
+    const away = { x: shot.location.x - look.x, z: shot.location.z - look.z };
+    const length = Math.hypot(away.x, away.z) || 1;
+    const above = { x: shot.location.x + (away.x / length) * PODIUM_BACK, y: shot.location.y + PODIUM_RISE, z: shot.location.z + (away.z / length) * PODIUM_BACK };
+    const ease = { easeTime: EASE_IN, easeType: EasingType.InOutSine };
+    for (const one of who) {
+      try {
+        if (step === "above") one.player?.camera.setCamera("minecraft:free", { location: above, facingLocation: look });
+        else if (shot.rotation) one.player?.camera.setCamera("minecraft:free", { location: shot.location, rotation: shot.rotation, easeOptions: ease });
+        else if (shot.facing) one.player?.camera.setCamera("minecraft:free", { location: shot.location, facingLocation: shot.facing, easeOptions: ease });
+      } catch {
+        // gone
+      }
+    }
+  }
+
+  /**
    * The rules camera: the arena map's Start view, else over the arena, behind its near side, looking
    * at its middle. "above": where the ease down into it starts, high over it and further back, at
    * once (behind the stars); "ease": down into it from there (block-party-ui.md, "The minigame
@@ -444,9 +538,8 @@ export class MinigameRunner {
    * player's own view to "above", as the minigame ends (the way in backwards).
    */
   private rulesCamera(who: readonly Who[], field: Field, step: "above" | "ease" | "rise"): void {
-    const { min, size, camera } = field;
-    const middle = { x: min.x + size[0] / 2, y: min.y + 1, z: min.z + size[2] / 2 };
-    const location = camera ? { x: camera.x, y: camera.y, z: camera.z } : { x: middle.x, y: min.y + size[1] + 10, z: min.z - Math.max(8, size[2] * 0.4) };
+    const { camera } = field;
+    const { location, middle } = rulesCameraOf(field);
     // Back along the way it looks, and up.
     const away = { x: location.x - middle.x, z: location.z - middle.z };
     const length = Math.hypot(away.x, away.z) || 1;
@@ -530,6 +623,14 @@ export class MinigameRunner {
 /** An arena's middle, on its floor. */
 function middleOf(field: Field): Vector3 {
   return { x: field.min.x + field.size[0] / 2, y: field.min.y, z: field.min.z + field.size[2] / 2 };
+}
+
+/** Where the rules camera stands (the arena map's Start view, else over the arena behind its near side), and the arena's middle it looks at when it has no facing of its own. */
+function rulesCameraOf(field: Field): { location: Vector3; middle: Vector3 } {
+  const { min, size, camera } = field;
+  const middle = { x: min.x + size[0] / 2, y: min.y + 1, z: min.z + size[2] / 2 };
+  const location = camera ? { x: camera.x, y: camera.y, z: camera.z } : { x: middle.x, y: min.y + size[1] + 10, z: min.z - Math.max(8, size[2] * 0.4) };
+  return { location, middle };
 }
 
 /** Where players who are out watch from: the arena map's spectator spawn, else over the arena's middle. */

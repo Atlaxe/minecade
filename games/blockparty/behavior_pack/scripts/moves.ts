@@ -10,7 +10,7 @@
 //     the Enderman's blink with portal particles, the Allay's falling Star.
 import { system, type Dimension, type Entity, type Vector3 } from "@minecraft/server";
 import { describeError, log, type Scope } from "@minecade/minigame-core";
-import { CLIPS, npcMove, pickClip, PLAYER, SHOWN, variantsOf, type PlayerSet } from "./animations.ts";
+import { CLIPS, holdOf, npcMove, pickClip, PLAYER, SHOWN, variantsOf, type PlayerSet } from "./animations.ts";
 import { NPC_ANIMATION } from "./npcs.ts";
 
 /** The animation controller the players' sets play on. */
@@ -41,6 +41,8 @@ export class Moves {
   private readonly playing = new Map<string, { set: string; until: number }>();
   /** Each NPC's latest move, by entity id: a hold's end rests the NPC only if nothing came after it. */
   private readonly latest = new Map<string, number>();
+  /** The players and bots holding a pose (player, hold), by entity id: the play that's holding. */
+  private readonly held = new Map<string, number>();
   private serial = 0;
   /** Moves with nothing to play, logged once each. */
   private readonly missing = new Set<string>();
@@ -53,8 +55,13 @@ export class Moves {
    * One of a set's animations on a player or a bot, unless they're in the middle of the same set
    * (`set`: one of PLAYER_SETS, or a Player action the user added in the dialogue tool). Returns how
    * many ticks it has left to play (0 when there's none).
+   *
+   * `hold` (the minigame podium: winning and sad emotes, then held, the user): at the clip's hold
+   * point (animations.ts, holdPoint) they go into its held pose (HOLD_SUFFIX) and stay in it until
+   * release(); a clip with no held pose plays again each time it ends instead. A body holding a set
+   * isn't started on it again.
    */
-  player(body: Entity, set: PlayerSet | (string & {})): number {
+  player(body: Entity, set: PlayerSet | (string & {}), hold = false): number {
     if (!body.isValid) return 0;
     const now = system.currentTick;
     const playing = this.playing.get(body.id);
@@ -64,15 +71,48 @@ export class Moves {
       this.logMissing(`${PLAYER}/${set}`);
       return 0;
     }
-    try {
-      body.playAnimation(clip.name, { controller: PLAYER_ANIMATION, stopExpression: "q.any_animation_finished", blendOutTime: 0.2 });
-    } catch (error) {
-      log.warn(`blockparty: ${set} on ${body.typeId} failed: ${describeError(error)}`);
-      return 0;
-    }
+    if (!this.play(body, clip.name, "q.any_animation_finished", set)) return 0;
     const ticks = Math.max(1, Math.round(clip.seconds * 20));
-    this.playing.set(body.id, { set, until: now + ticks });
+    this.held.delete(body.id);
+    if (!hold) {
+      this.playing.set(body.id, { set, until: now + ticks });
+      return ticks;
+    }
+    const serial = ++this.serial;
+    this.held.set(body.id, serial);
+    this.playing.set(body.id, { set, until: Infinity });
+    const still = () => body.isValid && this.held.get(body.id) === serial;
+    const pose = holdOf(CLIPS, clip);
+    if (pose) {
+      const at = Math.max(1, Math.round((clip.holdAt ?? clip.seconds) * 20));
+      this.deps.scope.timeout(() => still() && this.play(body, pose.name, "0", set), at);
+    } else {
+      const again = () => {
+        if (!still()) return;
+        this.play(body, clip.name, "q.any_animation_finished", set);
+        this.deps.scope.timeout(again, ticks);
+      };
+      this.deps.scope.timeout(again, ticks);
+    }
     return ticks;
+  }
+
+  /** Lets a body go from a held pose (player, hold): back to resting, nothing playing. */
+  release(body: Entity): void {
+    if (!this.held.delete(body.id)) return;
+    this.playing.delete(body.id);
+    if (body.isValid) this.play(body, REST, "q.any_animation_finished", "rest");
+  }
+
+  /** An animation on the players' controller; false when it couldn't be played. */
+  private play(body: Entity, animation: string, stopExpression: string, what: string): boolean {
+    try {
+      body.playAnimation(animation, { controller: PLAYER_ANIMATION, stopExpression, blendOutTime: 0.2 });
+      return true;
+    } catch (error) {
+      log.warn(`blockparty: ${what} on ${body.typeId} failed: ${describeError(error)}`);
+      return false;
+    }
   }
 
   /**
