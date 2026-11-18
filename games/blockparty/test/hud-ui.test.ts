@@ -1,11 +1,15 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { BLOCKPARTY_HUD_FILE, STARS_LAYER, blockpartyHud, blockpartyHudFile } from "../../../tools/assets/blockparty-hud-ui.ts";
-import { STAR_PHASES, phaseCode, starsCode } from "../behavior_pack/scripts/bar-codes.ts";
-import { PHASE_MS, STAR_LAYERS, STAR_PERIOD_MS, StarField, layerSpeed, layerStart, loopSeconds } from "../behavior_pack/scripts/stars.ts";
+import { STAR_LEVELS, STAR_PHASES, phaseCode, starsCode } from "../behavior_pack/scripts/bar-codes.ts";
+import { LIFE, PHASE_MS, STAR_CYCLE_MS, StarField, ZOOM_FROM, ZOOM_LAYERS, ZOOM_TO, alphaAt, lifeAt, zoomAt } from "../behavior_pack/scripts/stars.ts";
+
+type Anim = { anim_type: string; from: unknown; to: unknown; duration: number; next: string };
+
+const percent = (value: unknown) => Number.parseFloat((value as string[])[0]);
 
 describe("Block Party's own HUD", () => {
-  it("is the file tools/assets/blockparty-hud-ui.ts writes (rerun it after changing the codes or the layers)", () => {
+  it("is the file tools/assets/blockparty-hud-ui.ts writes (rerun it after changing the codes or the star field)", () => {
     expect(readFileSync(BLOCKPARTY_HUD_FILE, "utf8").replaceAll("\r\n", "\n")).toBe(blockpartyHudFile());
   });
 
@@ -14,24 +18,33 @@ describe("Block Party's own HUD", () => {
     expect(JSON.parse(body).namespace).toBe("blockparty_hud");
   });
 
-  it("puts the star field's strength, way and phase on the line", () => {
-    expect(starsCode(0, "down", 3)).toBe("");
+  it("puts the star field's strength and phase on the line", () => {
+    expect(starsCode(0, 3)).toBe("");
     expect(starsCode(3)).toBe("§k§d§3");
     expect(starsCode(99)).toBe("§k§d§8");
-    expect(starsCode(8, "down")).toBe("§k§d§8§k§g");
-    expect(starsCode(8, "down", 0x2f)).toBe("§k§d§8§k§g§2§f");
-    expect(starsCode(1, "up", 255)).toBe("§k§d§1§k§h§f§f");
-    expect(phaseCode("down", STAR_PHASES + 1)).toBe("§k§g§0§1");
-    expect(phaseCode("up", -1)).toBe("§k§h§f§f");
+    expect(starsCode(8, 0x1f)).toBe("§k§d§8§k§x§1§f");
+    expect(phaseCode(STAR_PHASES + 1)).toBe("§k§x§0§1");
+    expect(phaseCode(-1)).toBe("§k§x§1§f");
   });
 
-  it("has a copy of the layers for every phase and way, each built only when the line names it", () => {
-    const field = blockpartyHud().field as { controls: Record<string, { ignored: string }>[] };
-    expect(field.controls).toHaveLength(STAR_PHASES * 2);
-    const ignored = field.controls.map((copy) => Object.values(copy)[0].ignored);
-    expect(new Set(ignored).size).toBe(STAR_PHASES * 2);
-    expect(ignored[0]).toBe("(($atext - '§k§g§0§0') = $atext)");
-    expect(ignored[STAR_PHASES + 37]).toBe("(($atext - '§k§h§2§5') = $atext)");
+  it("shows the star field with visible, which reads its own $atext (ignored reads only its parents', and left it out every time)", () => {
+    const stars = blockpartyHud().stars as { visible?: string; ignored?: string; $atext: string };
+    expect(stars.ignored).toBeUndefined();
+    expect(stars.visible).toBe("(not (($atext - '§k§d') = $atext))");
+    expect(stars.$atext).toBe("$actionbar_text");
+  });
+
+  it("has a copy of the zoom layers for every strength and phase, each built only when the line names it", () => {
+    const stars = blockpartyHud().stars as { controls: Record<string, { ignored: string; controls: Record<string, { ignored?: string; controls?: unknown[] }>[] }>[] };
+    expect(stars.controls).toHaveLength(STAR_LEVELS);
+    const level3 = stars.controls[2].level_3;
+    expect(level3.ignored).toBe("(($atext - '§k§d§3') = $atext)");
+    // The still stars far behind, then a copy for each phase.
+    expect(level3.controls).toHaveLength(1 + STAR_PHASES);
+    const copy = level3.controls[1 + 5].p5;
+    expect(copy.ignored).toBe("(($atext - '§k§x§0§5') = $atext)");
+    expect(copy.controls).toHaveLength(ZOOM_LAYERS);
+    expect(copy.controls![1]).toEqual({ "z1@blockparty_hud.zoom_1": { $zoom_anims: ["@blockparty_hud.size_from_13", "@blockparty_hud.alpha_3_from_13"] } });
   });
 
   it("draws the stars over the board's screens but under the dialogue box and the fork box", () => {
@@ -50,46 +63,60 @@ describe("Block Party's own HUD", () => {
   });
 });
 
-/** How far apart two offsets are on a layer that repeats every `tile`. */
-function apart(a: number, b: number, tile: number): number {
-  const gap = (((a - b) % tile) + tile) % tile;
-  return Math.min(gap, tile - gap);
-}
+describe("the zoom layers", () => {
+  const hud = blockpartyHud() as unknown as Record<string, Anim>;
+  const cycle = STAR_CYCLE_MS / 1000;
 
-describe("the star field's layers", () => {
-  it("slide whole tiles in a period, faster as they come nearer", () => {
-    const speeds = STAR_LAYERS.map(layerSpeed);
-    expect(speeds).toEqual([20, 40, 80]);
-    for (const layer of STAR_LAYERS) expect((loopSeconds(layer) * layerSpeed(layer)) / layer.tile).toBeCloseTo(1);
+  it("grow steadily from small to large over a life, a quarter of a life apart", () => {
+    expect(zoomAt(0)).toBe(ZOOM_FROM);
+    expect(zoomAt(STAR_PHASES)).toBe(ZOOM_TO);
+    expect(lifeAt(0, 1)).toBe(STAR_PHASES / ZOOM_LAYERS);
+    expect(lifeAt(STAR_PHASES - 1, 1)).toBe(STAR_PHASES / ZOOM_LAYERS - 1);
   });
 
-  it("start each phase where the slide has taken them, and reach the loop's end on time", () => {
-    for (const layer of STAR_LAYERS) {
-      const speed = layerSpeed(layer);
-      for (let phase = 0; phase < STAR_PHASES; phase++) {
-        const seconds = (phase * PHASE_MS) / 1000;
-        const slid = (speed * seconds) % layer.tile;
-        const down = layerStart(layer, phase, "down");
-        expect(down.from).toBeGreaterThanOrEqual(-layer.tile);
-        expect(down.from).toBeLessThan(0);
-        expect(apart(down.from + layer.tile, slid, layer.tile)).toBeCloseTo(0);
-        expect(down.from + speed * down.seconds).toBeCloseTo(0);
-        const up = layerStart(layer, phase, "up");
-        expect(up.seconds).toBeGreaterThan(0);
-        expect(up.from - speed * up.seconds).toBeCloseTo(-layer.tile);
-        // The same picture either way at the same phase: reversing doesn't jump.
-        expect(apart(up.from, down.from, layer.tile)).toBeCloseTo(0);
-      }
+  it("are unseen when they jump back to small, and fade in and out between", () => {
+    expect(alphaAt(0)).toBe(0);
+    expect(alphaAt(STAR_PHASES - 1)).toBe(0);
+    expect(alphaAt(4)).toBeCloseTo(0.5);
+    expect(alphaAt(12)).toBe(1);
+    expect(LIFE.at(-1)!.to).toBe(STAR_PHASES);
+  });
+
+  it("start each phase at the size the life has reached, and are at full size when it ends", () => {
+    expect(hud.size_loop.duration).toBeCloseTo(cycle);
+    for (let life = 0; life < STAR_PHASES; life++) {
+      const anim = hud[`size_from_${life}`];
+      expect(percent(anim.from) / 100).toBeCloseTo(zoomAt(life));
+      expect(percent(anim.to) / 100).toBe(ZOOM_TO);
+      expect(anim.duration).toBeCloseTo(((STAR_PHASES - life) * PHASE_MS) / 1000);
+      expect(anim.next).toBe("@blockparty_hud.size_loop");
     }
   });
 
-  it("goes round once in a period", () => {
-    expect(STAR_PERIOD_MS).toBe(STAR_PHASES * PHASE_MS);
+  it("follow one alpha all the way round from any phase, at each strength", () => {
+    for (let level = 1; level <= STAR_LEVELS; level++) {
+      const strength = level / STAR_LEVELS;
+      for (let life = 0; life < STAR_PHASES; life++) {
+        // Walk the chain from this phase until the life comes round: the times add up and each step starts where the last ended.
+        let anim = hud[`alpha_${level}_from_${life}`];
+        expect(anim.from).toBeCloseTo(alphaAt(life) * strength, 2);
+        let time = anim.duration;
+        let at = anim.to as number;
+        while (anim.next !== `@blockparty_hud.alpha_${level}_in`) {
+          anim = hud[anim.next.replace("@blockparty_hud.", "")];
+          expect(anim.from).toBeCloseTo(at, 3);
+          time += anim.duration;
+          at = anim.to as number;
+        }
+        expect(time).toBeCloseTo(((STAR_PHASES - life) * PHASE_MS) / 1000);
+        expect(at).toBe(0);
+      }
+    }
   });
 });
 
 describe("the star field's state", () => {
-  it("slides by the clock while it's up, back as it turns, and holds while it's down", () => {
+  it("zooms by the clock while it's up, and holds while it's down", () => {
     let now = 1000;
     const stars = new StarField(() => now);
     expect(stars.codes()).toBe("");
@@ -97,19 +124,15 @@ describe("the star field's state", () => {
     stars.level = 1;
     now += 1000;
     expect(stars.phase).toBe(10);
-    expect(stars.codes()).toBe("§k§d§1§k§g§0§a");
-    expect(stars.key()).toBe("§k§d§1§k§g");
-    stars.direction = "up";
-    now += 300;
-    expect(stars.phase).toBe(7);
-    expect(stars.codes()).toBe("§k§d§1§k§h§0§7");
-    now += 900;
-    // Slid back past where it started: the phases wrap.
-    expect(stars.phase).toBe(STAR_PHASES - 2);
+    expect(stars.codes()).toBe("§k§d§1§k§x§0§a");
+    expect(stars.key()).toBe("§k§d§1");
+    now += 2600;
+    // Round past the end of a life: the phases wrap.
+    expect(stars.phase).toBe(4);
     stars.level = 0;
     now += 5000;
     stars.level = 2;
-    expect(stars.phase).toBe(STAR_PHASES - 2);
+    expect(stars.phase).toBe(4);
   });
 
   it("is exact on a phase, and not between two", () => {
@@ -124,5 +147,17 @@ describe("the star field's state", () => {
     expect(stars.exact).toBe(false);
     now = 1080;
     expect(stars.exact).toBe(true);
+  });
+});
+
+describe("the star field's codes", () => {
+  it("never match the core's codes on the same line (its clock's places, its count's)", () => {
+    const core = ["§k§a", "§k§b", "§k§c", "§k§e", "§k§g", "§k§h", "§k§i", "§k§j", "§k§l", "§k§m", "§k§n", "§k§p", "§k§q", "§k§s", "§k§t", "§k§u"];
+    for (let level = 1; level <= STAR_LEVELS; level++) {
+      for (let phase = 0; phase < STAR_PHASES; phase++) {
+        const line = starsCode(level, phase);
+        for (const code of core) expect(line).not.toContain(code);
+      }
+    }
   });
 });

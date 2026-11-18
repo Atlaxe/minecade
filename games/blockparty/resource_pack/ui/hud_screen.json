@@ -5,7 +5,7 @@
   //
   // The hotbar is vanilla's, shown only while a player plays a minigame (the user's call; the game
   // hides it everywhere else with setHudVisibility). The minigame announcement's star field (its
-  // layers sliding at their own speeds, faded in and out a level at a time, ui/blockparty_hud.json,
+  // stars zooming out of the middle, faded in and out a level at a time, ui/blockparty_hud.json,
   // scripts/stars.ts) rides on the action bar's codes in the core pack's full-screen action bar
   // panel, like the gun scope (packages/minigame-core's hud_screen.json). The dialogue box
   // (ui/jui_blockparty_dialogue.json, built by the workshop's JSON UI tool from its

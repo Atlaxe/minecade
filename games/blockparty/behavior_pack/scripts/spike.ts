@@ -209,8 +209,6 @@ const ARENA_AREA = "minecade:blockparty_arena";
 const BOARD_AREA = "minecade:blockparty_board";
 /** Ticks between the star field's strengths as it fades in or out (STAR_LEVELS of them). */
 const STAR_STEP = 2;
-/** Ticks the stars slide up (as if coming down) before they fade out and the camera comes down. */
-const STARS_TURN = 12;
 /** Ticks a player's line may wait for the star field's phase to come right before it goes anyway. */
 const STARS_WAIT = 3;
 /** Blocks placed a millisecond, about (docs/spike-results.md, "Block Party": Sinkhole's 667,648 in 608 to 676 ms). */
@@ -1262,7 +1260,7 @@ export class BlockPartySpike extends Minigame<Config> {
    * their own results screen when they've dropped for it. Never empty (KEEP_UP): every screen rides
    * the action bar's panel. Sent when it changes (the star field's phase aside: it moves all the
    * time), and every BAR_RESEND ticks so it doesn't fade. While the stars are up a send waits (up to
-   * STARS_WAIT ticks) for a moment their phase is right, as each send starts their slide over from it.
+   * STARS_WAIT ticks) for a moment their phase is right, as each send starts their zoom over from it.
    */
   private sendLine(player: Player, tests: PlayerTests, force = false): void {
     const status = this.minigameStatus ?? "";
@@ -1896,34 +1894,27 @@ export class BlockPartySpike extends Minigame<Config> {
 
   /**
    * The minigame announcement's star field fades in over everyone's view, a level every STAR_STEP
-   * ticks, its layers sliding down as if the camera still rises (block-party-ui.md, "The minigame
-   * announcement"). The HUD draws over everything, so no camera fade is needed under it: at full
-   * strength its far layer is opaque. Resolves once it's fully up (at once when it is already).
+   * ticks, its stars rushing out of the middle as if flying through them (block-party-ui.md, "The
+   * minigame announcement"). The HUD draws over everything, so no camera fade is needed under it: at
+   * full strength its still stars far behind are opaque. Resolves once it's fully up (at once when
+   * it is already).
    */
   private async starsIn(): Promise<void> {
     if (this.stars.level >= STAR_LEVELS) return;
-    this.stars.direction = "down";
     while (this.stars.level < STAR_LEVELS) await this.starsAt(this.stars.level + 1);
   }
 
-  /**
-   * The stars turn and slide up, as if the camera were coming down; after STARS_TURN ticks `reveal`
-   * runs (the camera's way down into the new place) and they fade out over it.
-   */
+  /** `reveal` runs (the camera's way down into the new place), and the stars fade out over it. */
   private async starsOut(reveal?: () => void): Promise<void> {
-    if (this.stars.level > 0) {
-      this.stars.direction = "up";
-      await this.scope.wait(STARS_TURN);
-    }
     reveal?.();
     while (this.stars.level > 0) await this.starsAt(this.stars.level - 1);
   }
 
   /**
    * A move behind the star field, for everyone: it fades in (unless it's up already), the work is
-   * done (a long placement stalls the server; the stars slide on, on each client), it holds
-   * CLIENT_LOAD ticks more while clients load the new place's chunks, then it turns and fades out
-   * as `reveal` takes the camera down into the new place.
+   * done (a long placement stalls the server; the stars zoom on, on each client), it holds
+   * CLIENT_LOAD ticks more while clients load the new place's chunks, then it fades out as `reveal`
+   * takes the camera down into the new place.
    */
   private async behindStars(work: () => void | Promise<void>, reveal?: () => void): Promise<void> {
     await this.starsIn();

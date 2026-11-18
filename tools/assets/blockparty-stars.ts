@@ -1,25 +1,30 @@
-// Draws the nearer layers of Block Party's star field (games/blockparty/behavior_pack/scripts/
-// stars.ts): see-through stars, drawn the way make-assets.py draws Minecade's star field (mostly
-// faint single pixels, some brighter, a few bright with a small cross of glow, some tinted blue),
-// but on nothing, so the far layer (Minecade's own stars, on black) shows between them. Each wraps
-// at its edges, since it repeats as it slides. The same every run (a fixed seed for each).
+// Draws the zoom layers of Block Party's star field (games/blockparty/behavior_pack/scripts/stars.ts):
+// see-through stars on a picture the shape of the screen (16:9), each drawn as a streak pointing away
+// from the middle, bright at its head and fading back toward the middle, longer the further out it
+// is. The HUD centers each picture and grows it (stars.ts, ZOOM_FROM to ZOOM_TO), so the stars rush
+// outward and their streaks stretch as they go, as out of a ship's front window. The same every run
+// (a fixed seed for each layer).
 //
-//   games/blockparty/resource_pack/textures/blockparty/stars/mid.png    256x256, shown at its size
-//   games/blockparty/resource_pack/textures/blockparty/stars/near.png   256x256, shown twice its size
+//   games/blockparty/resource_pack/textures/blockparty/stars/zoom_<n>.png    1024x576, one per layer
 //
 // Placeholders to paint over: like scope-hud.ts it writes only a file that isn't there (delete one
-// to get it back), and --force writes both again over any edits. A layer's tile size and speed are
-// in stars.ts (STAR_LAYERS): a new size there needs a new picture here.
+// to get it back), and --force writes them all again over any edits.
 //
 //     npx tsx tools/assets/blockparty-stars.ts [--force]
 import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { encodePng } from "../skins/png.ts";
+import { ZOOM_LAYERS } from "../../games/blockparty/behavior_pack/scripts/stars.ts";
 
-const SIZE = 256;
+const WIDTH = 1024;
+const HEIGHT = 576;
+/** Stars on each picture. */
+const STARS = 240;
+/** The longest streak (at a corner), in pixels; one at the middle is a dot. */
+const LONGEST = 40;
 
-const file = (name: string) => fileURLToPath(new URL(`../../games/blockparty/resource_pack/textures/blockparty/stars/${name}.png`, import.meta.url));
+const file = (layer: number) => fileURLToPath(new URL(`../../games/blockparty/resource_pack/textures/blockparty/stars/zoom_${layer}.png`, import.meta.url));
 
 /** A small seeded random number generator (mulberry32), 0 to 1. */
 function random(seed: number): () => number {
@@ -33,42 +38,59 @@ function random(seed: number): () => number {
   };
 }
 
-/**
- * `count` stars on nothing: each star's brightness is its opacity, its color white or a pale blue at
- * full strength. `least` is the faintest a star gets (0 to 255): the near layer's are brighter.
- */
-function starLayer(seed: number, count: number, least: number): Buffer {
+/** One layer's picture: each star's brightness is its opacity, its color white or a pale blue at full strength. */
+function zoomLayer(seed: number): Buffer {
   const rng = random(seed);
-  const data = new Uint8Array(SIZE * SIZE * 4);
+  const data = new Uint8Array(WIDTH * HEIGHT * 4);
+  // A pixel takes the brighter of what's there and what's put on it.
   const put = (x: number, y: number, color: readonly number[], alpha: number) => {
-    const at = ((((y % SIZE) + SIZE) % SIZE) * SIZE + (((x % SIZE) + SIZE) % SIZE)) * 4;
-    if (data[at + 3] >= alpha) return;
-    data.set([color[0], color[1], color[2], alpha], at);
+    if (x < 0 || y < 0 || x >= WIDTH || y >= HEIGHT || alpha <= 0) return;
+    const at = (y * WIDTH + x) * 4;
+    const value = Math.min(255, Math.round(alpha));
+    if (data[at + 3] >= value) return;
+    data.set([color[0], color[1], color[2], value], at);
   };
+  // A point between pixels, shared among the four around it.
+  const splat = (x: number, y: number, color: readonly number[], alpha: number) => {
+    const left = Math.floor(x);
+    const top = Math.floor(y);
+    const right = x - left;
+    const down = y - top;
+    put(left, top, color, alpha * (1 - right) * (1 - down) * 1.6);
+    put(left + 1, top, color, alpha * right * (1 - down) * 1.6);
+    put(left, top + 1, color, alpha * (1 - right) * down * 1.6);
+    put(left + 1, top + 1, color, alpha * right * down * 1.6);
+  };
+  const middle = { x: WIDTH / 2, y: HEIGHT / 2 };
+  const farthest = Math.hypot(middle.x, middle.y);
   const between = (low: number, high: number) => low + Math.floor(rng() * (high - low + 1));
-  for (let star = 0; star < count; star++) {
-    const x = Math.floor(rng() * SIZE);
-    const y = Math.floor(rng() * SIZE);
+  for (let star = 0; star < STARS; star++) {
+    const x = rng() * WIDTH;
+    const y = rng() * HEIGHT;
     const roll = rng();
-    const level = roll < 0.8 ? between(least, Math.max(least, 130)) : roll < 0.97 ? between(150, 220) : between(230, 255);
-    const color = rng() < 0.2 ? [178, 217, 255] : [255, 255, 255];
-    put(x, y, color, level);
-    if (roll >= 0.97) for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) put(x + dx, y + dy, color, Math.round(level * 0.45));
+    const level = roll < 0.7 ? between(110, 170) : roll < 0.95 ? between(175, 235) : between(235, 255);
+    const color = rng() < 0.25 ? [190, 222, 255] : [255, 255, 255];
+    const away = { x: x - middle.x, y: y - middle.y };
+    const out = Math.hypot(away.x, away.y) || 1;
+    const length = 1 + LONGEST * (out / farthest) ** 1.4;
+    // From the head back toward the middle, fading.
+    for (let along = 0; along <= length; along += 0.4) {
+      const fade = (1 - along / length) ** 1.6;
+      splat(x - (away.x / out) * along, y - (away.y / out) * along, color, level * fade);
+    }
+    if (roll >= 0.95) for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) splat(x + dx, y + dy, color, level * 0.5);
   }
-  return encodePng({ width: SIZE, height: SIZE, data });
+  return encodePng({ width: WIDTH, height: HEIGHT, data });
 }
 
 const force = process.argv.includes("--force");
-for (const [name, draw] of [
-  ["mid", () => starLayer(23, 260, 70)],
-  ["near", () => starLayer(41, 70, 110)],
-] as const) {
-  const path = file(name);
+for (let layer = 0; layer < ZOOM_LAYERS; layer++) {
+  const path = file(layer);
   if (existsSync(path) && !force) {
     console.log(`kept ${path} (--force to redraw)`);
     continue;
   }
   mkdirSync(dirname(path), { recursive: true });
-  writeFileSync(path, draw());
+  writeFileSync(path, zoomLayer(101 + layer * 37));
   console.log(`wrote ${path}`);
 }

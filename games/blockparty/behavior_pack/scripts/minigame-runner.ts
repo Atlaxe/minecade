@@ -1,10 +1,10 @@
 // Plays one minigame (docs/plans/block-party.md, "Minigame formats"; block-party-ui.md, "The
 // minigame announcement" and "The minigame tutorial"), from the board and back:
 //   1. The announcement: the board's camera rises and pulls back, a second later the star field
-//      fades in over the view, its layers sliding as if the camera still rises (stars.ts), and on the
-//      stars "Minigame!", then the format under it, then the wheel: up to 6 of the format's
-//      minigames, the light stepping down them, slowing, until it lands on the pick (screen-codes.ts,
-//      announceRows; the blockparty_announce component).
+//      fades in over the view, its stars rushing out of the middle as if flying through them
+//      (stars.ts), and on the stars "Minigame!", then the format under it, then the wheel: up to 6
+//      of the format's minigames, the light stepping down them, slowing, until it lands on the pick
+//      (screen-codes.ts, announceRows; the blockparty_announce component).
 //   2. Behind the stars: the minigame's arena is laid where arenas go, and everyone is put on
 //      its spawns, off their pieces: the players, then a moment later the bots, made again there
 //      (bots.ts, respawn). The arena is one of the minigame's published arena maps (minigames/
@@ -12,8 +12,7 @@
 //      arena slot, with the arena's own time of day; or, while the minigame has none, its test
 //      arena, laid in code (minigames/kit.ts). Anyone not playing (a duel's onlookers) watches from
 //      the arena's spectator spawn, or over it.
-//      Then the stars turn and slide up, as if coming down, and fade out as the camera eases down
-//      into the arena to its rules camera.
+//      Then the stars fade out as the camera eases down into the arena to its rules camera.
 //   3. Through the arena map's Start view camera (or one over the arena), the tutorial panel over
 //      the left third: the minigame's name, what to do and its controls (each side its own in a 1v3),
 //      with the Ready strip bottom right, until everyone has jumped to say they're ready (bots after
@@ -31,7 +30,7 @@
 //      from the podium to high over the arena, the stars come, and behind them they're let go and
 //      everyone is back on their pieces (the bots a moment after the players), the arena is
 //      cleared, the board's time is back and the board's camera waits high over the board view;
-//      the stars turn and fade as it comes down into the board view.
+//      the stars fade as it comes down into the board view.
 // Nothing is a title (the user, 2026-11-18): the countdown and the results are notices in the
 // dialogue box with no speaker (dialogue.ts, notify; NOTICE for how long). The announcement's steps,
 // the countdown and Go play the user's sound map's minigame.* events.
@@ -57,12 +56,11 @@ export interface RunnerHost {
   arenaPlace(): ArenaPlace;
   /** A minigame's published arena maps (the "arenas" server variable). */
   arenaMaps(id: string): readonly ArenaMap[];
-  /** The star field fades in over everyone's view, sliding as if the camera rises; resolves once it's fully up. */
+  /** The star field fades in over everyone's view, its stars rushing past; resolves once it's fully up. */
   starsIn(): Promise<void>;
   /**
-   * A move behind the star field: it fades in (unless it's up already), the work is done, then it
-   * turns (sliding as if the camera comes down), `reveal` runs (the camera's way down into the new
-   * place), and it fades out over it.
+   * A move behind the star field: it fades in (unless it's up already), the work is done, then
+   * `reveal` runs (the camera's way down into the new place) and it fades out over it.
    */
   behindStars(work: () => void | Promise<void>, reveal?: () => void): Promise<void>;
   /** Off the board (a player gets their movement back), and back on it (on their space; a bot made again there). */
