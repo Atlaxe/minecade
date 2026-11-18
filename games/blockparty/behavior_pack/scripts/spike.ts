@@ -33,6 +33,7 @@ import {
   HudVisibility,
   InputButton,
   InputPermissionCategory,
+  ItemStack,
   BlockVolume,
   system,
   world,
@@ -46,7 +47,7 @@ import { ARENA_SLOT, Minigame, describeError, draw, facingOf, hudLine, log, say,
 import { BLOCK_PARTY_BOARD } from "@minecade/minigame-core/config";
 import registry from "#registry";
 import skins from "#skins";
-import { HOTBAR_SIZE, LOADING_LEVELS, loadingCode } from "./bar-codes.ts";
+import { HOTBAR_SIZE, KEEP_UP, LOADING_LEVELS, STANDINGS_CODE, loadingCode } from "./bar-codes.ts";
 import type config from "../../game.config.ts";
 import { boardBox, build, mapSpaces, standAt, testSpaces, type Space, type Vec3 } from "./board.ts";
 import { BoardLoop } from "./board-loop.ts";
@@ -59,7 +60,7 @@ import { ITEM_PROBLEMS } from "./items.ts";
 import { CURSED_DIE } from "./item-play.ts";
 import { CHANCE, HAPPENING, WARDEN, type ChanceId, type HappeningId, type WardenId } from "./space-rules.ts";
 import { Zombies } from "./zombies.ts";
-import { ResultsScreen } from "./results.ts";
+import { ResultsScreen, type ResultSeat } from "./results.ts";
 import { SCREEN_WORDS, cardRows, codesOf } from "./screen-codes.ts";
 import { GameSidebar } from "./sidebar-rows.ts";
 import { Heads } from "./heads.ts";
@@ -74,7 +75,6 @@ import { Bots, hop, isPlayer, thinkTicks, whoOf, type Who } from "./bots.ts";
 import { fits, type Format } from "./minigame-rules.ts";
 import { MinigameRunner, type ArenaPlace } from "./minigame-runner.ts";
 import { MINIGAMES } from "./minigames/index.ts";
-import { TITLE, type TitleTiming } from "./minigames/kit.ts";
 import { Npcs } from "./npcs.ts";
 import { DEFAULT_SETTINGS, Pieces, WALK_CAMERAS, hold, lock, resendLocks, unlock, type PieceSettings } from "./pieces.ts";
 import { SHOTS, Shots, type ShotId } from "./shots.ts";
@@ -96,12 +96,34 @@ interface DieShown {
 const DIE_ENTITY = "blockparty:die";
 const DIE_PROPERTY = "blockparty:die";
 
-/** What Block Party hides: everything a survival player watches that it has no use for, and the hotbar with its item names (MINIGAME_HUD). */
-const HIDDEN_HUD = [HudElement.Hotbar, HudElement.ItemText, HudElement.Health, HudElement.Hunger, HudElement.ProgressBar, HudElement.Armor, HudElement.AirBubbles];
+/**
+ * What Block Party hides: everything a survival player watches that it has no use for, the hotbar
+ * with its item names (MINIGAME_HUD), and the chat (CHAT_HUD).
+ */
+const HIDDEN_HUD = [HudElement.Hotbar, HudElement.ItemText, HudElement.Health, HudElement.Hunger, HudElement.ProgressBar, HudElement.Armor, HudElement.AirBubbles, HudElement.StatusEffects];
 /** What comes back while a player plays a minigame: vanilla's hotbar (the user: only in minigames, never on the board or in cutscenes). */
 const MINIGAME_HUD = [HudElement.Hotbar, HudElement.ItemText];
+/**
+ * The chat's switch (the user: no chat, /chat brings it back): vanilla's status effects element,
+ * whose icons no server shows, so the pack's hud_screen.json shows the chat only while it's on.
+ */
+const CHAT_HUD = [HudElement.StatusEffects];
 /** Ticks between sends of each player's HUD line (the action bar fades unless it's sent again). */
 const BAR_RESEND = 20;
+/** Ticks a roll's number stays in the dialogue box. */
+const ROLL_NOTICE = 45;
+/**
+ * The item every player holds on the board, in each hotbar slot, so a drop (Q, a controller's drop
+ * button) has something to drop: a clear picture, nothing in their hands. The drop shows them their
+ * own results screen (the user's ask); the item never leaves.
+ */
+const STANDINGS_ITEM = "blockparty:standings";
+/** Ticks a player's own results screen stays up unless they drop again. */
+const STANDINGS_TICKS = 160;
+/** Ticks between checks that every player on the board has STANDINGS_ITEM in every hotbar slot. */
+const STANDINGS_EVERY = 10;
+/** How far from a dropped STANDINGS_ITEM its dropper can be, in blocks. */
+const DROP_REACH = 4;
 
 /**
  * What a player's keys may do now (keepControls): walk ("free": off the board, or on the pre-game
@@ -215,6 +237,14 @@ export class BlockPartySpike extends Minigame<Config> {
   private fade!: TurnFade;
   /** The zombies that follow seats (zombies.ts: the Zombie Spawn, the Warden's curse, Chance's outbreak). */
   private zombies!: Zombies;
+  /** The board loop has ended (the core's own "wins" title is left out: the loop's end notice says it). */
+  private loopOver = false;
+  /** Who has turned chat on with /chat (by key): Block Party hides it for everyone else. */
+  private readonly chatOn = new Set<string>();
+  /** Who has the results screen up for themselves (a drop), by key, and the tick it goes. */
+  private readonly viewing = new Map<string, number>();
+  /** The standings last put on the sidebar for them, so they're sent only when they change. */
+  private standingsShown = "[]";
 
   constructor(ctx: GameContext, gameConfig: Config) {
     super(ctx, gameConfig);
@@ -296,8 +326,7 @@ export class BlockPartySpike extends Minigame<Config> {
       leaveBoard: (who) => this.leaveBoard(who),
       backToBoard: (who) => this.backOnBoard(who),
       respawnBot: (who, at, yaw) => this.bots.respawn(who, at, yaw),
-      title: (text, subtitle, timing) => this.titleAll(text, subtitle, timing),
-      titleTo: (player, text, subtitle, timing) => this.titleTo(player, text, subtitle, timing),
+      notice: (text, ticks) => void this.notice(text, "", ticks),
       say: (text) => this.everyone(text),
       random: () => this.ctx.random(),
       status: (text) => (this.minigameStatus = text),
@@ -389,7 +418,7 @@ export class BlockPartySpike extends Minigame<Config> {
       playMinigame: (format, def, sides, pool, onlookers, settle) => this.runner.play(format, def, sides, pool, onlookers, settle),
       everyone: (text) => this.everyone(text),
       tell: (who, text) => who.player && this.tell(who.player, text),
-      title: (text, subtitle) => this.titleAll(text, subtitle),
+      notice: (text, more, ticks) => this.notice(text, more, ticks),
       changed: () => this.loopChanged(),
       results: (before, after) => this.results.show(before, after),
       zombies: this.zombies,
@@ -419,7 +448,10 @@ export class BlockPartySpike extends Minigame<Config> {
       ({ player }) => void (this.dialogue.sneaked(player) || this.boardMenu.sneaked(player)),
       { buttons: [InputButton.Sneak], state: ButtonState.Pressed },
     );
+    // A drop of the board's held item: the dropper's own results screen (the user's ask).
+    this.scope.subscribe(world.afterEvents.entitySpawn, ({ entity }) => this.dropped(entity));
     this.scope.subscribe(world.afterEvents.playerLeave, ({ playerName }) => {
+      this.viewing.delete(playerName.toLowerCase());
       if (this.boardMenu.active === playerName.toLowerCase()) this.boardMenu.close();
       this.pendingRolls.get(playerName.toLowerCase())?.resolve(undefined);
       this.pendingRolls.delete(playerName.toLowerCase());
@@ -458,7 +490,11 @@ export class BlockPartySpike extends Minigame<Config> {
     await this.boardLaid;
     if (!this.boardReady) return draw("the board couldn't be laid");
     this.seatBots();
-    return this.loop.run();
+    try {
+      return await this.loop.run();
+    } finally {
+      this.loopOver = true;
+    }
   }
 
   /** A game one player started gets bots in the empty seats, as many as the lobby's Bots option says. */
@@ -486,22 +522,24 @@ export class BlockPartySpike extends Minigame<Config> {
     return (await showForm(this.scope, player, form))?.selection;
   }
 
-  /** A big line on everyone's screen. */
-  private titleAll(text: string, subtitle?: string, timing: TitleTiming = TITLE.show): void {
-    for (const player of world.getAllPlayers()) this.titleTo(player, text, subtitle ?? "", timing);
+  /**
+   * The game's own words in the dialogue box with no speaker (dialogue.ts, notify), `more` in a row
+   * under `text`: Block Party has no titles or subtitles (the user, 2026-11-18). Nothing for empty
+   * text (lines the user hasn't written).
+   */
+  private notice(text: string, more = "", ticks?: number): () => void {
+    const joined = [text, more].filter((part) => part.trim() !== "").join("\n");
+    return this.dialogue && joined ? this.dialogue.notify(joined, ticks) : () => undefined;
   }
 
   /**
-   * A big line on one player's screen. Nothing when both are empty (lines the user hasn't written);
-   * a subtitle alone gets a blank title, since Bedrock shows a subtitle only with one.
+   * The core's titles (the start's countdown, Go, who won) become notices too. One sent to each
+   * player in turn (the core's Go) is the same for everyone, so it simply shows again. None once the
+   * board loop is over: its own end notice says who won, the user's way.
    */
-  private titleTo(player: Player, text: string, subtitle: string, timing: TitleTiming = TITLE.show): void {
-    if (text === "" && subtitle === "") return;
-    try {
-      player.onScreenDisplay.setTitle(text === "" ? " " : text, { subtitle, fadeInDuration: timing.fadeIn, stayDuration: timing.stay, fadeOutDuration: timing.fadeOut });
-    } catch {
-      // gone
-    }
+  override title(title: string, subtitle?: string, _to?: string, stay = 30): void {
+    if (this.loopOver) return;
+    this.notice(title, subtitle ?? "", stay + 10);
   }
 
   /** Off the board for a minigame: a player gets their movement back (the minigame has the hotbar). */
@@ -572,7 +610,6 @@ export class BlockPartySpike extends Minigame<Config> {
     const body = who.body;
     if (!body.isValid) return undefined;
     const over = this.putDie(body.dimension, overHead(body.location), picked);
-    const watchers = shot ? world.getAllPlayers() : [];
     await this.scope.wait(thinkTicks(() => this.ctx.random(), 25, 45));
     if (!body.isValid) {
       this.takeDie(over);
@@ -581,7 +618,7 @@ export class BlockPartySpike extends Minigame<Config> {
     hop(body);
     await this.scope.wait(5);
     const rolled = rollDie(picked, () => this.ctx.random());
-    for (const watcher of watchers) this.rollTitle(watcher, who.name, rolled);
+    this.rollNotice(who.name, rolled);
     await this.scope.wait(12);
     this.takeDie(over);
     await this.scope.wait(8);
@@ -590,10 +627,10 @@ export class BlockPartySpike extends Minigame<Config> {
     return rolled;
   }
 
-  /** A roll's number big on `watcher`'s screen, whose roll and which die under it (and each throw: "3 + 5 + 2"). */
-  private rollTitle(watcher: Player, name: string, rolled: RollOutcome): void {
+  /** A roll's number in the dialogue box for everyone (no titles), whose roll and which die under it (and each throw: "3 + 5 + 2"). */
+  private rollNotice(name: string, rolled: RollOutcome): void {
     const throws = throwsText(rolled);
-    watcher.onScreenDisplay.setTitle(`${rolled.move}`, { subtitle: `${name}, ${rolled.die.name}${throws ? `: ${throws}` : ""}`, fadeInDuration: 2, stayDuration: 25, fadeOutDuration: 8 });
+    this.notice(`${rolled.move}`, `${name}, ${rolled.die.name}${throws ? `: ${throws}` : ""}`, ROLL_NOTICE);
   }
 
   /** Puts `die` over the block `at` (the roller's head): its model if it has a texture, else its block if the place is empty. */
@@ -688,6 +725,8 @@ export class BlockPartySpike extends Minigame<Config> {
     } catch (error) {
       this.tell(player, `Hiding the health, hunger and XP bars failed: ${describeError(error)}`);
     }
+    // The chat stays on for whoever turned it on.
+    this.showChat(player);
     if (this.boardReady) system.runTimeout(() => player.isValid && this.pieces.place(player), 10);
   }
 
@@ -715,8 +754,13 @@ export class BlockPartySpike extends Minigame<Config> {
 
   // ---- Each tick ---------------------------------------------------------------------------
 
-  /** Every tick, for each player: what their keys may do and whether vanilla's hotbar shows (keepControls), and their HUD line; and the cards and the turn fade. */
+  /**
+   * Every tick, for each player: what their keys may do and whether vanilla's hotbar shows
+   * (keepControls), and their HUD line; the cards, the turn fade, and anyone's own results screen;
+   * every few ticks, the board's held item in every hotbar slot.
+   */
   private keepPlayers(): void {
+    this.keepStandings();
     for (const player of world.getAllPlayers()) {
       const tests = this.tests.get(player.name.toLowerCase());
       if (!tests) continue;
@@ -725,6 +769,98 @@ export class BlockPartySpike extends Minigame<Config> {
     }
     this.drawCards();
     this.keepFade();
+    if (system.currentTick % STANDINGS_EVERY === 0) this.keepStandingsItems();
+  }
+
+  // ---- Chat and a player's own results screen -------------------------------------------
+
+  /** /chat (main.ts): turns the player's chat on, or off again (Block Party hides it). What to tell them. */
+  toggleChat(player: Player): string {
+    const key = player.name.toLowerCase();
+    const on = !this.chatOn.has(key);
+    if (on) this.chatOn.add(key);
+    else this.chatOn.delete(key);
+    this.showChat(player);
+    return on ? "Chat is on. /chat hides it again." : "Chat is off. /chat brings it back.";
+  }
+
+  /** The player's chat as they last set it: hidden (the switch is CHAT_HUD, ui/hud_screen.json) unless they turned it on. */
+  private showChat(player: Player): void {
+    try {
+      player.onScreenDisplay.setHudVisibility(this.chatOn.has(player.name.toLowerCase()) ? HudVisibility.Reset : HudVisibility.Hide, CHAT_HUD);
+    } catch {
+      // gone
+    }
+  }
+
+  /** Every player on the board holds STANDINGS_ITEM in each empty hotbar slot (never while they play a minigame: vanilla's hotbar shows then). */
+  private keepStandingsItems(): void {
+    for (const player of world.getAllPlayers()) {
+      if (this.runner.isPlaying(player.name.toLowerCase())) continue;
+      try {
+        const container = player.getComponent(EntityComponentTypes.Inventory)?.container;
+        for (let slot = 0; container && slot < HOTBAR_SIZE; slot++) {
+          if (container.getItem(slot) === undefined) container.setItem(slot, standingsItem());
+        }
+      } catch {
+        // gone
+      }
+    }
+  }
+
+  /**
+   * A dropped STANDINGS_ITEM: it goes at once (the slot fills again), and its dropper (the nearest
+   * player) gets their own results screen, or loses it if it was up.
+   */
+  private dropped(entity: Entity): void {
+    if (entity.typeId !== "minecraft:item") return;
+    try {
+      if (entity.getComponent(EntityComponentTypes.Item)?.itemStack.typeId !== STANDINGS_ITEM) return;
+      const at = entity.location;
+      const dimension = entity.dimension.id;
+      entity.remove();
+      const near = world
+        .getAllPlayers()
+        .filter((player) => player.dimension.id === dimension)
+        .map((player) => ({ player, far: distance(player.getHeadLocation(), at) }))
+        .filter((one) => one.far <= DROP_REACH)
+        .sort((a, b) => a.far - b.far)[0];
+      if (!near) return;
+      this.toggleStandings(near.player);
+      this.keepStandingsItems();
+    } catch {
+      // gone
+    }
+  }
+
+  /** The player's own results screen comes up (while there are standings and the results aren't playing for everyone), or goes. */
+  private toggleStandings(player: Player): void {
+    const key = player.name.toLowerCase();
+    if (this.viewing.has(key)) this.viewing.delete(key);
+    else if (this.standingSeats().length > 0 && !this.results.showing) this.viewing.set(key, system.currentTick + STANDINGS_TICKS);
+    else return;
+    this.keepStandings();
+    this.sendLine(player, this.testsOf(player), true);
+  }
+
+  /** The standings now, as the results screen ranks them (none before the turn order is rolled). */
+  private standingSeats(): ResultSeat[] {
+    return (this.loop?.cards() ?? []).map((seat) => ({ key: seat.key, name: seat.name, stars: seat.stars, coins: seat.coins }));
+  }
+
+  /** Each tick: own results screens that ran out go (their line is sent again), and the standings are on the sidebar while anyone has one up. */
+  private keepStandings(): void {
+    for (const [key, until] of this.viewing) {
+      if (system.currentTick < until) continue;
+      this.viewing.delete(key);
+      const player = world.getAllPlayers().find((candidate) => candidate.name.toLowerCase() === key);
+      if (player) this.sendLine(player, this.testsOf(player), true);
+    }
+    const seats = this.viewing.size > 0 ? this.standingSeats() : [];
+    const shown = JSON.stringify(seats);
+    if (shown === this.standingsShown) return;
+    this.standingsShown = shown;
+    this.results.standings(seats);
   }
 
   /**
@@ -758,6 +894,8 @@ export class BlockPartySpike extends Minigame<Config> {
       } catch {
         // gone
       }
+      // The board's held item leaves the hotbar while vanilla's shows (keepStandingsItems puts it back after).
+      if (hotbar) takeStandingsItems(player);
     }
     if (tests.jumpMode !== "free") return;
     let controls: Controls = "held";
@@ -786,13 +924,15 @@ export class BlockPartySpike extends Minigame<Config> {
   }
 
   /**
-   * The player's action bar: the core's HUD mark, the line top right (the minigame's or the board's)
-   * and the loading screen's level, when it's up. Sent when it changes, and every BAR_RESEND ticks so
-   * it doesn't fade.
+   * The player's action bar: a minigame's status line while one is on (the board has none: the user
+   * took its round and totals line away), the loading screen's level when it's up, and their own
+   * results screen when they've dropped for it. Never empty (KEEP_UP): every screen rides the action
+   * bar's panel. Sent when it changes, and every BAR_RESEND ticks so it doesn't fade.
    */
   private sendLine(player: Player, tests: PlayerTests, force = false): void {
-    const status = this.minigameStatus ?? this.loop?.hudText(player) ?? "";
-    const line = hudLine(undefined, status, undefined, "", loadingCode(this.loadingLevel));
+    const status = this.minigameStatus ?? "";
+    const codes = loadingCode(this.loadingLevel) + (this.viewing.has(player.name.toLowerCase()) ? STANDINGS_CODE : "");
+    const line = hudLine(undefined, status, undefined, "", codes || (status ? "" : KEEP_UP));
     if (!force && line === tests.sentLine && system.currentTick - (tests.sentAt ?? 0) < BAR_RESEND) return;
     tests.sentLine = line;
     tests.sentAt = system.currentTick;
@@ -954,8 +1094,7 @@ export class BlockPartySpike extends Minigame<Config> {
     const rolling = tests.rolling;
     tests.rolling = undefined;
     this.pendingRolls.delete(key);
-    const watchers = pending?.shot === false ? [player] : world.getAllPlayers();
-    for (const watcher of watchers) this.rollTitle(watcher, player.name, rolled);
+    this.rollNotice(player.name, rolled);
     await this.scope.wait(12);
     this.takeDie(rolling?.over);
     await this.scope.wait(8);
@@ -1411,4 +1550,27 @@ export class BlockPartySpike extends Minigame<Config> {
 /** The block a die floats in over a body standing at `at`: 3 over the block they stand in. */
 function overHead(at: Vector3): Vector3 {
   return { x: Math.floor(at.x), y: Math.floor(at.y) + 3, z: Math.floor(at.z) };
+}
+
+/** The board's held item (STANDINGS_ITEM): one, kept on death. */
+function standingsItem(): ItemStack {
+  const item = new ItemStack(STANDINGS_ITEM, 1);
+  item.keepOnDeath = true;
+  return item;
+}
+
+/** Takes STANDINGS_ITEM out of the player's hotbar (a minigame gives them vanilla's hotbar). */
+function takeStandingsItems(player: Player): void {
+  try {
+    const container = player.getComponent(EntityComponentTypes.Inventory)?.container;
+    for (let slot = 0; container && slot < HOTBAR_SIZE; slot++) {
+      if (container.getItem(slot)?.typeId === STANDINGS_ITEM) container.setItem(slot, undefined);
+    }
+  } catch {
+    // gone
+  }
+}
+
+function distance(a: Vector3, b: Vector3): number {
+  return Math.hypot(a.x - b.x, a.y - b.y, a.z - b.z);
 }

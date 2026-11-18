@@ -48,9 +48,11 @@ cutscene and camera, each line's actions, and the sound map ("The dialogue tool'
 | The pack's own hotbar bottom right (Items, Dice, Tests), picked by scrolling and number keys | The board menu top left (Dice block, Items, Board), steered with the movement keys, picked with jump |
 | The Items and Dice bars | The item panel bottom left, one item or die at a time |
 | Standings top left, each player's line top right | Player cards top right |
-| Chat for much of what the game says | The dialogue box bottom middle; vanilla chat hidden |
+| Chat for much of what the game says | The dialogue box bottom middle; vanilla chat hidden, `/chat` brings it back for the player who types it (the user, 2026-11-18) |
+| Titles and subtitles: whose turn, the round, a roll, the countdown, who won | Notices: the dialogue box with no speaker (the user, 2026-11-18: no titles or subtitles at all) |
+| The board's line above the hotbar: the round, whose turn, the player's coins and Stars | Nothing (the user, 2026-11-18); a minigame's status line still shows while it's on |
 | The Tests menu on a compass in the bar (with the spike's walk settings) | `/blockparty:tests`, and settings out of the HUD (`/blockparty:settings`) |
-| Results as titles and chat | The results screen |
+| Results as titles and chat | The results screen; a drop shows it to that player alone (the user, 2026-11-18) |
 | The roulette in titles, the loading screen's fade | The minigame announcement |
 | Skip and ready counted as x / y | The skip strip: Hold [sneak] to skip, and x / y (the user, 2026-11-18: no heads, no names) |
 
@@ -246,6 +248,14 @@ player.
   - **The words:** what the NPC says, with color codes and inline icons ("Icons").
   - **The buttons:** a column on the right (Next, Buy, Leave, ...), steered with W and S, picked
     with jump; the selected one has the highlight color, the same as a card on its player's turn.
+- **Notices** (the user, 2026-11-18: no titles or subtitles): what the game itself says to everyone
+  (whose turn it is and "Pick a die and jump to roll", the round and coins doubling, a roll's
+  number, the roulette, a minigame's rules, its 3, 2, 1 and Go, who won, the end) shows in the box
+  with no name tab, no face, no jump prompt and no skip strip, a row for each line of it
+  (`dialogue.ts`, `notify`). It stays for its time, or until the game takes it down (the turn's,
+  once the player has rolled). A line said meanwhile takes the box, and the notice comes back after
+  it while it's still up. The core's own titles (the start's countdown, Go) become notices too. The
+  dialogue tool's Title and Subtitle deliveries show this way.
 - **Spoken to everyone** (Chris to all players, not one): the words take the whole width (no right
   column), and where the moment allows it, players can vote to skip with the skip strip ("Skip and
   Ready").
@@ -305,13 +315,26 @@ On the HUD while the minigame's rules camera waits for everyone to be ready:
 After every minigame, and when a player gets a Star.
 - **Behind it:** the camera's view darkened (the user: no blur needed, black is fine).
 - **Results** at the top left, in MinecraftTen.
-- **A row per player,** best first: the place (1st to 4th) in MinecraftTen, the player's head, the
+- **A row per player,** best first: the place (1st to 4th) in MinecraftTen (on the player cards too,
+  the user, 2026-11-18), the player's head, the
   Star icon, the coin icon. Each icon's count sits at its bottom right, the way the hotbar shows a
   stack's count.
 - **In order:** first the standings as they were; then the changes play out: Stars and coins count
   up (or down) a step at a time rather than jumping, the places reorder one at a time, and 1st gets a
   border. Each step plays a sound.
-- If a row can't slide to its new place, swap one pair at a time with a short pause (proposed).
+- **Sliding** (the user, 2026-11-18: one place at a time, not a jump cut): two rows trading places
+  slide past each other a quarter of a row every 2 ticks, then swap. Each row carries a slide code
+  (`§d§2` to `§d§8`, 5 at its place) and the results component's row list draws it that far from
+  its place (the workshop JSON UI builder's row Slide setting: a copy of the row at each offset, the
+  one its code names shown).
+- **For one player** (the user, 2026-11-18): a drop (Q on a keyboard, a controller's drop button)
+  shows the player who pressed it the results screen with the standings as they are, for 8 seconds or
+  until they drop again. On the board every hotbar slot holds an invisible item
+  (`blockparty:standings`) so there's something to drop; it's taken out while vanilla's hotbar shows
+  in a minigame, and a dropped one is removed at once. The sidebar is everyone's, so the standings
+  ride it under the word `bpv` (not the results' `bpr`) while anyone has the screen up, and only a
+  player whose action bar line holds `STANDINGS_CODE` (`§k§f`) sees them (`hud_screen.json`'s
+  `bp_standings`), their cards making way. Touch has no drop without the hotbar.
 
 ## The minigame announcement
 
@@ -359,9 +382,14 @@ A pop over a piece for anything gained or lost: coins, a Star, an item, a die.
   (the user, 2026-11-17: never on the board or in cutscenes), and the board's bar items are taken
   away for it. Each minigame may list more vanilla HUD parts it shows (proposed: health and the
   crosshair).
-- **Chat:** hidden everywhere in Block Party, if it can be (the user). `HudElement` has no chat, so
-  the pack's `hud_screen.json` turns vanilla's chat feed off (Block Party's pack loads only on its own
-  servers). Opening the chat screen may still show the history: hide it there too if the pack can
+- **Chat (built 2026-11-18):** hidden everywhere in Block Party, `/chat` bringing it back for the
+  player who types it (and hiding it again). `HudElement` has no chat, so the switch is vanilla's
+  status effects element: the core pack removes the effect icons on every server already, so
+  `#status_effects_visible` means nothing else, and Block Party's `hud_screen.json` shows the chat
+  feed (the core's `mc_chat_stack`'s `chat_panel`) only while it's on; the game hides the element
+  for everyone and shows it for a player with chat on. Not yet seen in game. Opening the chat screen
+  still shows the history (left as it is: opening it is asking for chat). Earlier proposal: hide it
+  there too if the pack can
   ("Checks first"). This also hides what players type to each other. The Tests' reports and error
   messages go to chat today: proposed, chat stays visible in test games behind a switch.
 - The old bar goes: the pack's own hotbar went 2026-11-17 (bar codes, its JSON UI and art); the
@@ -538,7 +566,11 @@ Known, from the HUD as it is, the core's `hud.ts` and the workshop json-ui calib
 - **The sidebar, the same for everyone:** its title (`#objective_sidebar_name`) is readable (the
   calibration picks its cases by it), and its entries are a list. The shared screens (cards, results,
   the wheel) could ride it, with vanilla's sidebar not drawn ("Checks first").
-- **Titles and subtitles,** per player, with their own fade times.
+- **Titles and subtitles,** per player, with their own fade times: not used (the user, 2026-11-18:
+  no titles or subtitles; notices in the dialogue box instead).
+- **HUD element switches, per player:** `setHudVisibility` drives bindings the pack can read
+  (`#hotbar_visible`, `#status_effects_visible`, ...); one whose vanilla drawing is gone can carry a
+  switch (the chat's, above). The action bar line must never be empty: every screen rides its panel.
 
 Proposed shape, following the existing pattern:
 - **Encoders:** per screen, a pure module in the game's scripts (like `bar-codes.ts`) that turns the
@@ -602,8 +634,8 @@ Short checks, in game or in the previewer, before building on each:
    then a seat entity the player sits on (still, not steerable, with Dismount locked).
 2. `:_input_key.jump:` and the like, in action bar and title text, draw each viewer's own key or
    button.
-3. The chat feed turned off in `hud_screen.json`, and whether the chat screen's history can be
-   hidden too.
+3. The chat feed turned off in `hud_screen.json` (built 2026-11-18 on the status effects switch;
+   not yet seen in game), and whether the chat screen's history can be hidden too.
 4. A picture path taken from the data: a head picked by a code or a name in the text.
 5. The sidebar's entries as a list the pack draws itself, with vanilla's sidebar not drawn.
 6. Looping offset animations on a tiled stars image (parallax), and reversing them.

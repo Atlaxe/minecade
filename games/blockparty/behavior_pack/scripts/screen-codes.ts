@@ -17,6 +17,11 @@
 
 /** Each screen's word: its codes in the sidebar's title show the screen (its component's word). */
 export const SCREEN_WORDS = { cards: "bpc", menu: "bpm", panel: "bpi", results: "bpr" } as const;
+/**
+ * The results' rows under this word instead show only to a player whose action bar line asks for
+ * them (their own results screen after a drop: STANDINGS_CODE, ui/hud_screen.json's bp_standings).
+ */
+export const STANDINGS_WORD = "bpv";
 export type ScreenId = keyof typeof SCREEN_WORDS;
 
 /** A word's letters as formatting codes: "bpc" is "§b§p§c". */
@@ -281,13 +286,19 @@ export function panelRows(show: PanelShow, chevrons: boolean): string[] {
 
 // ---- The results screen ---------------------------------------------------------------------
 
-/** A player's row: which seat (each row its own), 1st's border, the head picture; the place, Stars, coins, the letter, the picture's path. */
+/**
+ * A player's row: which seat (each row its own), 1st's border, the head picture, how far it's drawn
+ * from its place while it slides to a new one (the builder's row slide: 5 is its place, 2 to 4 a
+ * quarter, half or three quarters of a row up, 6 to 8 down); the place, Stars, coins, the letter,
+ * the picture's path.
+ */
 export const RESULT: Layout = {
   parts: [
     { kind: "code", word: "ks" },
     { kind: "pick", name: "seat", letter: "q" },
     { kind: "flag", name: "border", letter: "e" },
     { kind: "flag", name: "picture", letter: "g" },
+    { kind: "pick", name: "slide", letter: "d" },
     { kind: "field", name: "place", length: 3, align: "left" },
     { kind: "field", name: "stars", length: 2, align: "right" },
     { kind: "field", name: "coins", length: 3, align: "right" },
@@ -304,7 +315,14 @@ export interface ResultRow {
   coins: number;
   border: boolean;
   head?: string;
+  /** Quarters of a row it's drawn away from its place, down positive (-3 to 3), while it slides. */
+  slide?: number;
 }
+
+/** A slide's code digit for a row at its place (the builder's row slide). */
+export const SLIDE_HOME = 5;
+/** Steps a row slides in, from one place to the next: quarters. */
+export const SLIDE_STEPS = 4;
 
 /** The results' rows, top to bottom as shown. */
 export function resultRows(rows: readonly ResultRow[]): string[] {
@@ -313,6 +331,7 @@ export function resultRows(rows: readonly ResultRow[]): string[] {
       seat: row.seat,
       border: row.border,
       picture: row.head !== undefined && row.head !== "",
+      slide: SLIDE_HOME + Math.max(1 - SLIDE_STEPS, Math.min(SLIDE_STEPS - 1, Math.round(row.slide ?? 0))),
       place: placeText(row.place),
       stars: amount(row.stars, 2),
       coins: amount(row.coins, 3),

@@ -28,3 +28,7 @@ packs/armor/resource_pack/
 # A game's private test packs come from workshop projects outside the repo and hold files that
 # aren't ours to publish (games/probe/private_packs/README.md).
 /games/*/private_packs/*/
+# A game's data files as a workshop tool saved them, used by builds in place of the committed ones
+# beside them (tools/build/transport-plugin.ts, privateDataPlugin): Block Party's dialogue editor
+# writes dialogue.json and sounds.json there on every save.
+/games/*/private_data/

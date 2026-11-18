@@ -10,7 +10,7 @@
 import { system, type Dimension, type Vector3 } from "@minecraft/server";
 import { BOT_WALK, isPlayer, stepToward, thinkTicks, type Who } from "../bots.ts";
 import { MARKUP } from "./arenas.ts";
-import { at, fill, inOrder, secondsText, spread, testField, TITLE, type Field, type MinigameDef, type Outcome, type Play } from "./kit.ts";
+import { at, fill, inOrder, NOTICE, secondsText, spread, testField, type Field, type MinigameDef, type Outcome, type Play } from "./kit.ts";
 
 const COLORS = [
   { block: "minecraft:red_concrete", name: "§cRed" },
@@ -131,7 +131,7 @@ export const HOT_FLOOR: MinigameDef = {
       for (let i = 0; i < Math.max(2, Math.round(count / 9)); i++) colors[Math.floor(play.random() * colors.length)] = color;
       layTiles(dimension, tiles, colors);
       const countdown = Math.max(LAST_COUNT, FIRST_COUNT - COUNT_STEP * (round - 1));
-      play.title(COLORS[color].name, `Round ${round}`, TITLE.land);
+      play.notice(`${COLORS[color].name}\nRound ${round}`, NOTICE.land);
       dropping.clear();
       // Each bot's tile: the nearest of the color, now and then a wrong one near it.
       const targets = new Map<string, { at: Vector3; from: number }>();

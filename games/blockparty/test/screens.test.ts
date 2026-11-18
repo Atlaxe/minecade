@@ -4,8 +4,10 @@ import { GAME_SIDEBAR_MARK } from "@minecade/minigame-core";
 import { boxRows, boxTitle } from "../behavior_pack/scripts/dialogue-codes.ts";
 import { DICE } from "../behavior_pack/scripts/dice.ts";
 import { ITEMS, holdings } from "../behavior_pack/scripts/dice-items.ts";
-import { CARD, MENU, PANEL, PANEL_TEXT, RESULT, SCREEN_LAYOUTS, SCREEN_WORDS, bytes, cardRows, codesOf, fieldsOf, initialOf, menuRow, panelRows, placeText, resultRows, wordsOf } from "../behavior_pack/scripts/screen-codes.ts";
+import { CARD, MENU, PANEL, PANEL_TEXT, RESULT, SCREEN_LAYOUTS, SCREEN_WORDS, STANDINGS_WORD, bytes, cardRows, codesOf, fieldsOf, initialOf, menuRow, panelRows, placeText, resultRows, wordsOf } from "../behavior_pack/scripts/screen-codes.ts";
 import { MAX_ROWS, compose } from "../behavior_pack/scripts/sidebar-rows.ts";
+import { STANDINGS_CODE } from "../behavior_pack/scripts/bar-codes.ts";
+import { standingRows } from "../behavior_pack/scripts/results.ts";
 
 /** A field cut out of a row the way the UI does: its bytes, spaces out. */
 function cut(row: string, field: { from: number; length: number }): string {
@@ -47,6 +49,35 @@ describe("Block Party's screen rows", () => {
     expect(rows[0]).toContain(codesOf("b0"));
     // Every row before its last field is the same length in bytes.
     expect(bytes(rows[0])).toBe(fields.head.from);
+  });
+
+  it("draws a result row at its place, or a quarter of a row a step toward the next while it slides", () => {
+    const row = (slide?: number) => resultRows([{ seat: 0, name: "Alex", place: 1, stars: 1, coins: 9, border: false, ...(slide === undefined ? {} : { slide }) }])[0];
+    expect(row()).toContain("§d§5");
+    expect(row(1)).toContain("§d§6");
+    expect(row(3)).toContain("§d§8");
+    expect(row(-2)).toContain("§d§3");
+    // Never past three quarters: the next frame has it in its new place.
+    expect(row(9)).toContain("§d§8");
+    expect(row(-9)).toContain("§d§2");
+    // Its fields stay where they were.
+    const fields = fieldsOf(RESULT);
+    expect(cut(row(2), fields.place)).toBe("1st");
+    expect(cut(row(2), fields.coins)).toBe("9");
+  });
+
+  it("ranks the standings for a player's own results screen: best first, ties sharing a place, 1st bordered", () => {
+    const rows = standingRows([
+      { key: "c", name: "Cam", stars: 0, coins: 40 },
+      { key: "a", name: "Alex", stars: 1, coins: 5 },
+      { key: "b", name: "Bea", stars: 1, coins: 5 },
+    ]);
+    expect(rows.map((row) => [row.name, row.place, row.border, row.seat])).toEqual([
+      ["Alex", 1, true, 0],
+      ["Bea", 1, true, 1],
+      ["Cam", 3, false, 2],
+    ]);
+    expect(STANDINGS_WORD).not.toBe(SCREEN_WORDS.results);
   });
 
   it("has at most one field running to the row's end, and it last", () => {
@@ -190,5 +221,29 @@ describe("Block Party's screens' JSON UI (the workshop builder's components, ins
     for (const name of Object.values(files)) expect(at(name)).toBeGreaterThan(0);
     expect(at("jui_blockparty_results")).toBeLessThan(at("jui_blockparty_cards"));
     expect(at("jui_blockparty_panel")).toBeLessThan(at("jui_blockparty_dialogue"));
+  });
+
+  it("shows a player their own results screen for the standings word while their line has the standings code, and hides their cards", () => {
+    const hud = readFileSync(new URL("../resource_pack/ui/hud_screen.json", import.meta.url), "utf8");
+    expect(hud).toContain(`(not (($atext - '${STANDINGS_CODE}') = $atext))`);
+    expect(hud).toContain(`(#objective_sidebar_name - '${codesOf(STANDINGS_WORD)}')`);
+    expect(hud).toContain(`(($atext - '${STANDINGS_CODE}') = $atext)`);
+  });
+
+  it("slides the results' rows on the code the game writes", () => {
+    const text = readFileSync(new URL("../resource_pack/ui/jui_blockparty_results.json", import.meta.url), "utf8");
+    // 5 is a row at its place: shown while the row has none of the others.
+    for (const digit of [2, 3, 4, 6, 7, 8]) expect(text).toContain(`'§d§${digit}'`);
+    expect(text).toContain('"-75%"');
+    expect(text).toContain('"75%"');
+  });
+
+  it("keeps the chat hidden unless the player's chat switch (the status effects element) is on", () => {
+    const hud = readFileSync(new URL("../resource_pack/ui/hud_screen.json", import.meta.url), "utf8");
+    expect(hud).toContain('"control_name": "chat_panel"');
+    expect(hud).toContain("(#editor_chat_visible and #status_effects_visible)");
+    // The core pack takes the status effects' icons away on every server, so the switch shows nothing else.
+    const core = readFileSync(new URL("../../../packages/minigame-core/resource_pack/ui/hud_screen.json", import.meta.url), "utf8");
+    expect(core).toContain('"operation": "remove", "control_name": "mob_effects_renderer"');
   });
 });

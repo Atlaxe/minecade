@@ -263,7 +263,7 @@ describe("the board menu", () => {
 describe("the results screen's steps", () => {
   const seat = (key: string, stars: number, coins: number) => ({ key, name: key, stars, coins });
 
-  it("starts as the standings were, counts, swaps into the new order a pair at a time, then borders 1st", () => {
+  it("starts as the standings were, counts, slides into the new order a pair at a time, then borders 1st", () => {
     const before = [seat("a", 1, 10), seat("b", 0, 30), seat("c", 0, 5)];
     const after = [seat("a", 1, 10), seat("b", 2, 4), seat("c", 0, 25)];
     const frames = resultFrames(before, after);
@@ -279,12 +279,22 @@ describe("the results screen's steps", () => {
     expect(counts[1].rows.find((row) => row.name === "b")?.stars).toBe(2);
     // The places stay as they were while the numbers count.
     expect(counts.at(-1)!.rows.map((row) => row.place)).toEqual([1, 2, 3]);
+    // One swap: a and b slide past each other a quarter of a row a step (the user: no jump cut),
+    // a down and b up, then trade places.
     const swaps = frames.filter((frame) => frame.sound === RESULT_EVENTS.swap);
     expect(swaps.length).toBe(1);
-    expect(swaps[0].rows.map((row) => [row.name, row.place])).toEqual([
-      ["b", 1],
-      ["a", 2],
-      ["c", 3],
+    const sliding = frames.filter((frame) => frame.rows.some((row) => row.slide));
+    expect(sliding.map((frame) => frame.rows.map((row) => [row.name, row.slide ?? 0]))).toEqual([
+      [["a", 1], ["b", -1], ["c", 0]],
+      [["a", 2], ["b", -2], ["c", 0]],
+      [["a", 3], ["b", -3], ["c", 0]],
+    ]);
+    expect(sliding[0]).toBe(swaps[0]);
+    const traded = frames[frames.indexOf(sliding.at(-1)!) + 1];
+    expect(traded.rows.map((row) => [row.name, row.place, row.slide ?? 0])).toEqual([
+      ["b", 1, 0],
+      ["a", 2, 0],
+      ["c", 3, 0],
     ]);
     const last = frames.at(-1)!;
     expect(last.sound).toBe(RESULT_EVENTS.first);

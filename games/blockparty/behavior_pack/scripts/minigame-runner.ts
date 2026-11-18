@@ -1,6 +1,6 @@
 // Plays one minigame (docs/plans/block-party.md, "Minigame formats": the roulette, rules then Ready,
 // and the arenas' "At play time"), from the board and back:
-//   1. The roulette: the format's minigames go by in a title, slowing down, and stop on the pick.
+//   1. The roulette: the format's minigames go by in the dialogue box, slowing down, and stop on the pick.
 //   2. Behind the loading screen: the minigame's arena is laid where arenas go, and everyone is put on
 //      its spawns, off their pieces: the players, then a moment later the bots, made again there
 //      (bots.ts, respawn). The arena is one of the minigame's published arena maps (minigames/
@@ -13,17 +13,17 @@
 //   4. 3, 2, 1, Go, and the minigame plays (its play()). A player who's out watches as a spectator
 //      from the spectator spawn; a bot floats there. Only while it plays do the players have
 //      vanilla's hotbar (isPlaying; spike.ts shows it, the user's call).
-//   5. The results (what the loop pays, settle()) over the arena: a short title for everyone and
-//      each player's own place and coins under it. Then behind the loading screen again everyone is
-//      back on their pieces (the bots a moment after the players), the arena is cleared and the
-//      board's time is back.
-// Titles that follow each other quickly (the roulette, the countdown) come in at once (TITLE).
+//   5. The results (what the loop pays, settle()) over the arena: who won, in the dialogue box. Then
+//      behind the loading screen again everyone is back on their pieces (the bots a moment after the
+//      players), the arena is cleared and the board's time is back.
+// Nothing is a title (the user, 2026-11-18): the roulette, the rules, the countdown and the results
+// are notices in the dialogue box with no speaker (dialogue.ts, notify; NOTICE for how long).
 import { EasingType, GameMode, InputPermissionCategory, StructureRotation, world, type Dimension, type Entity, type Player, type Vector3 } from "@minecraft/server";
 import { describeError, log, placeArena, turnedSize, turnsToFit, type ArenaMap, type QuarterTurns, type Scope } from "@minecade/minigame-core";
 import { isPlayer, thinkTicks, type Who } from "./bots.ts";
 import { line } from "./lines.ts";
 import { forcedOutcome, pickName, type Format } from "./minigame-rules.ts";
-import { arenaSize, fill, mapField, TITLE, type Field, type MinigameDef, type Outcome, type Play, type Spot, type TitleTiming } from "./minigames/kit.ts";
+import { arenaSize, fill, mapField, NOTICE, type Field, type MinigameDef, type Outcome, type Play, type Spot } from "./minigames/kit.ts";
 
 /** Where arenas go: the middle of the floor (the map's arena slot's, or far east of the board), and the slot's size across (x by z) when there is one. */
 export interface ArenaPlace {
@@ -44,9 +44,11 @@ export interface RunnerHost {
   backToBoard(who: Who): void;
   /** A bot made again at `at` facing `yaw` (bots.ts, respawn); `who` gets the new body. */
   respawnBot(who: Who, at: Vector3, yaw: number): void;
-  /** A big line on everyone's screen, or on one player's. */
-  title(text: string, subtitle?: string, timing?: TitleTiming): void;
-  titleTo(player: Player, text: string, subtitle: string, timing?: TitleTiming): void;
+  /**
+   * The game's own words to everyone in the dialogue box with no speaker (no titles, the user's
+   * call), for `ticks` or until the next notice; a line break starts a row.
+   */
+  notice(text: string, ticks?: number): void;
   say(text: string): void;
   random(): number;
   /** The line top right for everyone, while a minigame is on (undefined: the board's again). */
@@ -59,14 +61,14 @@ export interface RunnerHost {
 }
 
 /**
- * What the loop makes of an outcome: the results to show over the arena, the same title for
- * everyone (short: one name, a team, a tie) and each player's own line under it (their place and
- * coins). The whole list goes to chat.
+ * What the loop makes of an outcome: the results to show over the arena, in the dialogue box for
+ * everyone (short: one name, a team, a tie), and a second row under it when there's more to say.
+ * The results screen then shows what each player got.
  */
 export interface Results {
   title: string;
-  /** A player's own line, by key ("" for someone who didn't play). */
-  subtitle(key: string): string;
+  /** A second row for everyone ("" or undefined for none). */
+  subtitle?: string;
 }
 export type Settle = (outcome: Outcome) => Results;
 
@@ -227,18 +229,18 @@ export class MinigameRunner {
         );
       });
       this.rulesCamera([...everyone, ...onlookers], field, "ease");
-      this.host.title(def.name, formatLabel(format, sides));
-      this.host.say(line("minigame.rules", { minigame: def.name, format: formatLabel(format, sides), rules: def.rules }));
+      // The rules stay in the box through the ready vote (the countdown takes their place).
+      this.host.notice(line("minigame.rules", { minigame: def.name, format: formatLabel(format, sides), rules: def.rules }));
       await this.readyVote(everyone, current);
       for (const who of [...everyone, ...onlookers]) clearCamera(who.player);
       for (const count of ["3", "2", "1"]) {
         if (current.forced) break;
-        this.host.title(count, def.name, TITLE.count);
+        this.host.notice(`${def.name}\n${count}`, NOTICE.count + 5);
         await this.host.scope.wait(20);
       }
       if (current.forced) outcome = current.forced;
       else {
-        this.host.title(line("minigame.go"), "", TITLE.land);
+        this.host.notice(line("minigame.go"), NOTICE.land);
         for (const who of everyone) if (who.player) setMoving(who.player, true);
         for (const who of everyone) this.playing.add(who.key);
         const scope = this.host.scope.child(`minigame ${def.id}`);
@@ -257,10 +259,7 @@ export class MinigameRunner {
             setMoving(who.player, false);
             scope.timeout(() => who.player && setMoving(who.player, true), ticks);
           },
-          title: (text, subtitle, timing) => this.host.title(text, subtitle, timing),
-          titleEach: (text, subtitleOf, timing) => {
-            for (const player of world.getAllPlayers()) this.host.titleTo(player, text, subtitleOf(player.name.toLowerCase()), timing);
-          },
+          notice: (text, ticks) => this.host.notice(text, ticks ?? NOTICE.show),
           say: (text) => this.host.say(text),
           status: (text) => this.host.status(text),
         };
@@ -280,7 +279,7 @@ export class MinigameRunner {
       for (const who of everyone) if (who.player) setMoving(who.player, false);
       const results = settle(outcome);
       this.host.status(undefined);
-      for (const player of world.getAllPlayers()) this.host.titleTo(player, results.title, results.subtitle(player.name.toLowerCase()), TITLE.results);
+      this.host.notice([results.title, results.subtitle ?? ""].filter((text) => text !== "").join("\n"), NOTICE.results);
       await this.host.scope.wait(RESULTS_TICKS);
       await this.host.behindBlack(async () => {
         // The players first; the bots that played once the players' screens are back (onlookers never left).
@@ -368,16 +367,16 @@ export class MinigameRunner {
     return this.testLaid(def);
   }
 
-  /** The roulette: the format's minigames in a title, slowing down to the pick. */
+  /** The roulette: the format's minigames go by in the dialogue box, slowing down to the pick. */
   private async roulette(def: MinigameDef, pool: readonly MinigameDef[], format: Format, sides: readonly (readonly Who[])[]): Promise<void> {
     const names = pool.length > 1 ? pool.map((minigame) => minigame.name) : [def.name];
     let index = Math.floor(this.host.random() * names.length);
     for (const wait of ROULETTE) {
-      this.host.title(`§7${names[index % names.length]}`, formatLabel(format, sides), TITLE.swap);
+      this.host.notice(`§7${names[index % names.length]}\n${formatLabel(format, sides)}`, NOTICE.swap);
       index++;
       await this.host.scope.wait(wait);
     }
-    this.host.title(def.name, formatLabel(format, sides), TITLE.land);
+    this.host.notice(`${def.name}\n${formatLabel(format, sides)}`, NOTICE.land);
     await this.host.scope.wait(30);
   }
 

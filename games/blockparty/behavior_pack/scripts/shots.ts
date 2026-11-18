@@ -156,8 +156,9 @@ export class Shots {
           const yaw = (this.host.pieceOf(player).getRotation().y * Math.PI) / 180;
           const front = { x: piece.x - Math.sin(yaw) * 3, y: piece.y + 1.6, z: piece.z + Math.cos(yaw) * 3 };
           player.camera.setCamera("minecraft:free", { location: front, facingLocation: { x: piece.x, y: piece.y + 1.3, z: piece.z }, easeOptions: { easeTime: 1, easeType: EasingType.InOutSine } });
-          player.onScreenDisplay.setTitle("", { subtitle: "Your own shot", fadeInDuration: 5, stayDuration: 50, fadeOutDuration: 10 });
         });
+        // No titles in Block Party: the test says it in chat.
+        this.host.say("Your own shot: each player sees their own piece from the front.");
         await wait(80);
         return;
       }

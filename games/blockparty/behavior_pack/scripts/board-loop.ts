@@ -31,7 +31,7 @@
 // comes is skipped and keeps their place. Someone new comes in at the start of the next round, at
 // Start, last in the turn order, with as many coins as last place and no Stars. No timers: the game
 // waits for each roll and choice. Everything it says is a line from dialogue.json (lines.ts).
-import { world, type Player } from "@minecraft/server";
+import { world } from "@minecraft/server";
 import { describeError, log, type Result, type Scope } from "@minecade/minigame-core";
 import { BLOCK_PARTY_BOARD } from "@minecade/minigame-core/config";
 import { back, type Space } from "./board.ts";
@@ -84,8 +84,12 @@ export interface LoopHost {
   playMinigame(format: Format, def: MinigameDef, sides: Who[][], pool: readonly MinigameDef[], onlookers: readonly Who[], settle: Settle): Promise<Outcome>;
   everyone(text: string): void;
   tell(who: Who, text: string): void;
-  /** A big line on everyone's screen. */
-  title(text: string, subtitle?: string): void;
+  /**
+   * The game's own words to everyone in the dialogue box with no speaker (the user: no titles or
+   * subtitles), the second row under the first when there is one; it stays `ticks` (undefined: until
+   * the returned function takes it down, or another notice replaces it).
+   */
+  notice(text: string, more?: string, ticks?: number): () => void;
   /** Whose turn, coins or Stars changed: the HUD and the cards follow. */
   changed(): void;
   /** The results screen (results.ts) from the standings `before` to `after`; resolves once it's gone. */
@@ -114,6 +118,10 @@ export type TestJump = { kind: "round"; round: number; minigameOnly: boolean } |
 /** Ticks between drawings of the Stars' beams. */
 const BEAM_TICKS = 10;
 const PLACES = ["1st", "2nd", "3rd", "4th"];
+/** Ticks a round's notice stays (the round waits as long before going on), and a Star's or the end's. */
+const ROUND_NOTICE = 40;
+const STAR_NOTICE = 40;
+const END_NOTICE = 100;
 
 export class BoardLoop {
   private readonly seats = new Map<string, Seat>();
@@ -349,15 +357,6 @@ export class BoardLoop {
     return this.running;
   }
 
-  /** The HUD's line for a player: the round, whose turn it is, and what they have. */
-  hudText(player: Player): string {
-    if (!this.running) return "";
-    const seat = this.seats.get(player.name.toLowerCase());
-    const turn = this.turn ? (this.turn === player.name.toLowerCase() ? "your turn" : `${this.seats.get(this.turn)?.name ?? this.turn}'s turn`) : this.round === 0 ? "rolling for turns" : "everyone's moved";
-    const round = this.round === 0 ? "" : `Round ${this.round} of ${this.host.turns}, `;
-    return seat ? `${round}${turn}. You: ${count(seat.coins, "coin")}, ${count(seat.stars, "Star")}` : `${round}${turn}`;
-  }
-
   /**
    * The player cards, in turn order (none before the order is rolled): each seat's Stars, coins,
    * place, whether it's their turn, and whether their card has been revealed yet.
@@ -471,10 +470,12 @@ export class BoardLoop {
       this.round = next;
       this.seatLateJoiners();
       const doubling = this.round === firstDoubled(this.host.turns);
-      this.host.title(line("round.title", { round: this.round, rounds: this.host.turns }), doubling ? line("round.doubled.subtitle") : "");
+      // The round's notice; under it, coins doubling from now on, and the final round.
+      const more = [doubling ? line("round.doubled.subtitle") : "", this.round === this.host.turns ? line("announce.final.title") : ""].filter((text) => text !== "").join("\n");
+      this.host.notice(line("round.title", { round: this.round, rounds: this.host.turns }), more, ROUND_NOTICE);
       if (doubling) this.host.everyone(line("announce.doubled"));
       this.host.changed();
-      await this.host.scope.wait(30);
+      await this.host.scope.wait(ROUND_NOTICE);
       await this.announce(doubling);
       try {
         await this.spacePlay.roundStart();
@@ -601,7 +602,6 @@ export class BoardLoop {
     if (turns >= 4 && this.round === Math.floor(turns / 2) + 1) await this.host.say("announce.halfway", { left: turns - this.round + 1 }, true);
     if (doubling) await this.host.say("announce.doubling", {}, true);
     if (this.round === turns) {
-      this.host.title(line("announce.final.title"), "");
       await this.host.say("announce.final", {}, true);
     }
   }
@@ -651,15 +651,21 @@ export class BoardLoop {
     this.lastTurn = who.key;
     this.turnNow = { key: who.key, item: false, bonus: false };
     this.host.changed();
-    this.host.title(line("turn.title", { player: who.name }), who.player ? line("turn.subtitle") : "");
-    // A zombie on them takes its coins; a curse says which die they'll roll; a bot may use an item.
-    await this.items.zombieBite(who);
-    const seat = this.seats.get(who.key);
-    if (seat?.effects.cursedDie) await this.host.say("dice.cursed.forced", { player: who.name }, false, who);
-    else if (seat?.effects.slow) await this.host.say("dice.slow-curse", { player: who.name }, false, who);
-    if (!who.player) await this.items.botTurn(who);
-    if (!who.body.isValid) return false;
-    const rolled = await this.host.roll(who, true);
+    // Whose turn, in the dialogue box until they've rolled (a line said meanwhile takes the box for a while).
+    const hideTurn = this.host.notice(line("turn.title", { player: who.name }), who.player ? line("turn.subtitle") : "");
+    let rolled: RollOutcome | undefined;
+    try {
+      // A zombie on them takes its coins; a curse says which die they'll roll; a bot may use an item.
+      await this.items.zombieBite(who);
+      const seat = this.seats.get(who.key);
+      if (seat?.effects.cursedDie) await this.host.say("dice.cursed.forced", { player: who.name }, false, who);
+      else if (seat?.effects.slow) await this.host.say("dice.slow-curse", { player: who.name }, false, who);
+      if (!who.player) await this.items.botTurn(who);
+      if (!who.body.isValid) return false;
+      rolled = await this.host.roll(who, true);
+    } finally {
+      hideTurn();
+    }
     if (rolled === undefined) return this.jump !== undefined;
     if (!who.body.isValid) return false;
     await this.items.afterRoll(who, rolled);
@@ -805,8 +811,10 @@ export class BoardLoop {
     const moved = nextStar(spaces, at, this.stars.filter((star) => star !== at), starDistance(spaces.length), this.host.random);
     if (index >= 0) this.stars[index] = moved;
     this.host.changed();
-    this.host.title(line("star.bought.title", { player: who.name }), line("star.bought.subtitle", { space: this.spaceName(spaces[moved]) }));
+    this.host.notice(line("star.bought.title", { player: who.name }), line("star.bought.subtitle", { space: this.spaceName(spaces[moved]) }), STAR_NOTICE);
     this.host.everyone(line("star.bought", { player: who.name, price: count(price, "coin"), starWhere: this.starsText() }));
+    // The notice has the box a moment before Chris speaks.
+    await this.host.scope.wait(STAR_NOTICE);
     await this.host.say("star.chris.sold", { player: who.name }, false, who);
     await stage.starMoved(spaces[at], spaces[moved]);
     await this.host.say("star.chris.moves", { space: this.spaceName(spaces[moved]) }, false, who);
@@ -884,18 +892,15 @@ export class BoardLoop {
       const winners = "places" in outcome ? (outcome.places[0] ?? []) : [];
       winnerKey = winners.length === 1 ? winners[0] : undefined;
       this.settleBets(bets, winnerKey);
-      if (winnerKey === undefined) return { title: line("versus.draw.title"), subtitle: () => line("versus.draw.subtitle") };
+      if (winnerKey === undefined) return { title: line("versus.draw.title"), subtitle: line("versus.draw.subtitle") };
       const winner = winnerKey === who.key ? who : rival;
       const loser = winner === who ? rival : who;
       const paid = this.pay(loser.key, winner.key, stake);
       const result = { player: winner.name, other: loser.name, coins: count(paid, "coin") };
       this.host.everyone(line("versus.won", result));
       this.host.changed();
-      return {
-        title: line("versus.won.title", result),
-        // The winner and the loser each see what it means for them; onlookers who paid whom.
-        subtitle: (key) => (key === winner.key ? line("versus.you.won", result) : key === loser.key ? line("versus.you.lost", result) : line("versus.won.subtitle", result)),
-      };
+      // One box for everyone: who won, and who paid whom.
+      return { title: line("versus.won.title", result), subtitle: line("versus.won.subtitle", result) };
     });
     // A zombie leaves the duel's winner (a win is a top 2 finish).
     if (winnerKey) this.items.shakeOff([winnerKey]);
@@ -1010,33 +1015,25 @@ export class BoardLoop {
 
   /**
    * Pays a minigame's coins (doubled late on; a Battle's pot to its winners) and says so: the places
-   * and coins in chat, and the results over the arena, a short title (one name, a team, a tie: names
-   * joined in a title ran off the screen) with each player's own place and coins under it.
+   * and coins in chat, and who won over the arena in the dialogue box (short: one name, a team, a
+   * tie). The results screen after shows what each player got.
    */
   private payOut(format: Format, def: MinigameDef, sides: readonly Who[][], outcome: Outcome, doubled: boolean, pot: number, bonus = false): Results {
     const names = new Map(sides.flat().map((who) => [who.key, who.name]));
     const nameOf = (key: string) => names.get(key) ?? this.seats.get(key)?.name ?? key;
     let coins: Map<string, number>;
     let title: string;
-    let own: (key: string, coins: string, amount: number) => string;
     if ("places" in outcome) {
       const winners = outcome.places[0] ?? [];
       title = winners.length === 0 ? line("minigame.nobody") : winners.length === 1 ? line("minigame.won.one", { player: nameOf(winners[0]) }) : line("minigame.won.tie", { count: winners.length });
       coins = format === "battle" ? splitPot(pot, winners) : ffaCoins(outcome.places);
-      const placeOf = new Map<string, string>();
       let place = 0;
       const places = outcome.places.map((group) => {
         const name = PLACES[place] ?? `${place + 1}th`;
-        for (const key of group) placeOf.set(key, name);
         place += group.length;
         return `${name}: ${group.map(nameOf).join(", ")}`;
       });
       this.host.everyone(line("minigame.places", { minigame: def.name, places: places.join("; ") }));
-      own = (key, coins, amount) => {
-        const place = placeOf.get(key);
-        if (!place) return "";
-        return amount > 0 ? line("minigame.you.place", { place, coins }) : line("minigame.you.nothing", { place });
-      };
     } else {
       const team = format === "2v2" ? "2v2" : "1v3";
       const keys = sides.map((side) => side.map((who) => who.key));
@@ -1045,20 +1042,13 @@ export class BoardLoop {
       if (outcome.winner === undefined) title = line("minigame.draw");
       else if (format === "2v2") title = line(outcome.winner === 0 ? "minigame.won.red" : "minigame.won.blue");
       else title = outcome.winner === 0 ? line("minigame.won.one", { player: sides[0][0]?.name ?? "?" }) : line("minigame.won.group", { count: sides[1].length });
-      own = (key, coins) => {
-        const side = keys.findIndex((members) => members.includes(key));
-        if (side < 0) return "";
-        return outcome.winner === undefined ? line("minigame.you.draw", { coins }) : side === outcome.winner ? line("minigame.you.won", { coins }) : line("minigame.you.lost", { coins });
-      };
     }
     const factor = (doubled && format !== "battle" ? 2 : 1) * (bonus ? 2 : 1);
     const paid: string[] = [];
-    const got = new Map<string, number>();
     for (const [key, amount] of coins) {
       const seat = this.seats.get(key);
       if (!seat || amount <= 0) continue;
       seat.coins += amount * factor;
-      got.set(key, amount * factor);
       paid.push(`${nameOf(key)} +${amount * factor}`);
     }
     if (paid.length > 0) {
@@ -1066,13 +1056,7 @@ export class BoardLoop {
       this.host.everyone(format === "battle" ? line("minigame.pot", list) : factor > 1 ? line("minigame.coins.doubled", list) : line("minigame.coins", list));
     }
     this.host.changed();
-    return {
-      title,
-      subtitle: (key) => {
-        const amount = got.get(key) ?? 0;
-        return own(key, count(amount, "coin"), amount);
-      },
-    };
+    return { title };
   }
 
   /** The end: most Stars, then coins; a tie still standing goes to chance. */
@@ -1082,7 +1066,7 @@ export class BoardLoop {
     if (tied.length === 0) return { kind: "draw", reason: "nobody played" };
     const winner = tied.length === 1 ? tied[0] : tied[Math.floor(this.host.random() * tied.length)];
     if (tied.length > 1) this.host.everyone(line("end.tie", { players: tied.map((seat) => seat.name).join(" and ") }));
-    this.host.title(line("end.title", { player: winner.name }), line("end.subtitle", { stars: count(winner.stars, "Star"), coins: count(winner.coins, "coin") }));
+    this.host.notice(line("end.title", { player: winner.name }), line("end.subtitle", { stars: count(winner.stars, "Star"), coins: count(winner.coins, "coin") }), END_NOTICE);
     this.host.everyone(line("end.standings", { standings: this.standings().join("; ") }));
     this.running = false;
     return { kind: "win", players: [winner.name], reason: `${count(winner.stars, "Star")} and ${count(winner.coins, "coin")}` };

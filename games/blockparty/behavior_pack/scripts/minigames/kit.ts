@@ -14,27 +14,22 @@ import type { Kind } from "../minigame-rules.ts";
 export type Vec3 = [number, number, number];
 
 /**
- * How long a title takes, in ticks: fading in, staying, fading out. A title that follows another
- * quickly (the roulette's names, the countdown) comes in at once: fading each in made them flicker.
+ * How long a notice stays in the dialogue box, in ticks (dialogue.ts, notify: the user wants no
+ * titles or subtitles, so the game's own words show in the box with no speaker). A notice that
+ * follows another quickly (the roulette's names, the countdown) simply takes its place.
  */
-export interface TitleTiming {
-  fadeIn: number;
-  stay: number;
-  fadeOut: number;
-}
-
-export const TITLE = {
-  /** A title on its own. */
-  show: { fadeIn: 4, stay: 40, fadeOut: 10 },
-  /** One of a run of titles, each replaced by the next before it ends. */
-  swap: { fadeIn: 0, stay: 30, fadeOut: 0 },
+export const NOTICE = {
+  /** A notice on its own. */
+  show: 50,
+  /** One of a run, each replaced by the next before it ends. */
+  swap: 30,
   /** A countdown's number: a second each. */
-  count: { fadeIn: 0, stay: 20, fadeOut: 0 },
-  /** The end of a run (the roulette's pick, Go): in at once, then out slowly. */
-  land: { fadeIn: 0, stay: 40, fadeOut: 10 },
+  count: 20,
+  /** The end of a run (the roulette's pick, Go). */
+  land: 50,
   /** A minigame's results. */
-  results: { fadeIn: 4, stay: 60, fadeOut: 10 },
-} satisfies Record<string, TitleTiming>;
+  results: 70,
+} as const;
 
 /** How a minigame went: places best first (each a group of keys tied for it), or the side that won (undefined: a draw). */
 export type Outcome = { places: string[][] } | { winner: number | undefined };
@@ -135,9 +130,8 @@ export interface Play {
   bodyOf(who: Who): Entity | undefined;
   /** Holds a player where they are for `ticks` (a bot is simply not moved). */
   freeze(who: Who, ticks: number): void;
-  title(text: string, subtitle?: string, timing?: TitleTiming): void;
-  /** The same title for everyone, each player's own line under it (by key; "" for none). */
-  titleEach(text: string, subtitleOf: (key: string) => string, timing?: TitleTiming): void;
+  /** The game's own words to everyone in the dialogue box, no speaker, for `ticks` (NOTICE.show by default); a line break starts a row. */
+  notice(text: string, ticks?: number): void;
   say(text: string): void;
   /** The line top right for everyone while it's on: its clock, its score. */
   status(text: string): void;

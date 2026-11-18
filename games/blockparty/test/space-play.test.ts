@@ -80,7 +80,7 @@ function fake(round = 5, of = 15): Fake {
     cutscene: async <T>(_skippable: boolean, work: () => Promise<T>) => work(),
     stage,
     everyone: () => {},
-    title: () => {},
+    notice: () => () => {},
     changed: () => {},
     zombies,
     random: lcg(3),

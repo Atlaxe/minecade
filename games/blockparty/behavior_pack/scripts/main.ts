@@ -23,6 +23,23 @@ system.beforeEvents.startup.subscribe(({ customCommandRegistry }) => {
       return { status: CustomCommandStatus.Success };
     },
   );
+  // /chat: Block Party hides the chat (the user, 2026-11-18); this brings it back for the player
+  // who types it, and hides it again the next time.
+  customCommandRegistry.registerCommand(
+    { name: "blockparty:chat", description: "Show or hide the chat in Block Party", permissionLevel: CommandPermissionLevel.Any, cheatsRequired: false },
+    (origin) => {
+      const player = origin.sourceEntity;
+      if (player?.typeId !== "minecraft:player") return { status: CustomCommandStatus.Failure, message: "Only a player has a chat to show." };
+      if (!current) return { status: CustomCommandStatus.Failure, message: "Block Party isn't running yet." };
+      const game = current;
+      // A tick later: a command can't change what a player sees where it runs.
+      system.run(() => {
+        if (!player.isValid) return;
+        (player as Player).sendMessage(say.info(game.toggleChat(player as Player)));
+      });
+      return { status: CustomCommandStatus.Success };
+    },
+  );
   // /minigame win <name> (testing): skips the minigame on now, the named player or bot winning it
   // (their side in a team minigame), straight to its results and coins (minigame-runner.ts, win).
   // A name with spaces goes in quotes, or just its start: the one playing whose name starts with it.

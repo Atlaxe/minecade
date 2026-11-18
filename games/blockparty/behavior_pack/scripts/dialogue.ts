@@ -25,6 +25,10 @@
 //     count. Holding is read from the sneak button itself (inputInfo), not from whether the player
 //     sneaks: the user saw holding do nothing, since a player held on the board (their walking
 //     locked, a scripted camera) doesn't always sneak while the button is down.
+//   - Notices (the user, 2026-11-18: no titles or subtitles at all): what the game itself tells
+//     everyone (whose turn it is, a round starting, a minigame's countdown) shows in the box with no
+//     speaker, no jump prompt and no skip strip, for a time or until the game takes it down. A line
+//     said meanwhile takes the box, and the notice comes back after it if it's still up.
 // A line the user hasn't written isn't shown (line() gives "").
 import { ButtonState, InputButton, system, world, type Player } from "@minecraft/server";
 import { describeError, log, type Scope } from "@minecade/minigame-core";
@@ -100,6 +104,20 @@ const LINGER = 3;
 const BOT_THINK: [number, number] = [20, 40];
 const BOT_SHOW = 10;
 
+/** A notice up now: its words in rows, and the tick it goes (undefined: when it's taken down). */
+interface Notice {
+  words: string[];
+  until?: number;
+}
+
+/** A notice's words in rows: each line break starts a row, and a long line runs on into the next. */
+export function noticeRows(text: string): string[] {
+  return text
+    .split("\n")
+    .filter((part) => part.trim() !== "")
+    .flatMap((part) => rowsOf(part));
+}
+
 export class Dialogue {
   private readonly host: DialogueHost;
   private open: Open | undefined;
@@ -113,11 +131,38 @@ export class Dialogue {
   private scene: (Voting & { skippable: boolean; skipping: boolean }) | undefined;
   /** How long each player has held sneak toward a skip vote, in ticks, by name. */
   private readonly holding = new Map<string, number>();
+  /** The notice up now, if any: the box shows it whenever no line is up. */
+  private notice: Notice | undefined;
 
   constructor(host: DialogueHost) {
     this.host = host;
     host.scope.interval(() => this.tick(), 1);
-    host.scope.add(() => this.close());
+    host.scope.add(() => {
+      this.notice = undefined;
+      this.close();
+    });
+  }
+
+  /**
+   * Puts the game's own words in the box with no speaker (in place of a title): no jump goes on from
+   * it and nobody can skip it. It stays `ticks` (undefined: until the returned function takes it
+   * down, or another notice takes its place). A line break starts a new row. A line said meanwhile
+   * takes the box; the notice comes back after it while it's still up. Empty text takes the notice
+   * down.
+   */
+  notify(text: string, ticks?: number): () => void {
+    const words = noticeRows(text);
+    if (words.length === 0) {
+      this.endNotice(this.notice);
+      return () => undefined;
+    }
+    const notice: Notice = { words, until: ticks === undefined ? undefined : system.currentTick + Math.max(1, Math.round(ticks)) };
+    this.notice = notice;
+    if (!this.open) {
+      this.closing = 0;
+      this.drawNotice(notice);
+    }
+    return () => this.endNotice(notice);
   }
 
   /** A cutscene is being skipped: what's left of it shouldn't play (its cameras, its waits). */
@@ -227,10 +272,14 @@ export class Dialogue {
     return true;
   }
 
-  /** Takes the box down now. */
+  /** Takes the box down now (a notice still up takes its place). */
   close(): void {
     this.closing = 0;
     this.open = undefined;
+    if (this.notice && !this.host.scope.disposed) {
+      this.drawNotice(this.notice);
+      return;
+    }
     if (!this.box) return;
     this.box = undefined;
     if (this.host.scope.disposed) return;
@@ -337,10 +386,30 @@ export class Dialogue {
     return open.picked;
   }
 
-  /** Each tick: the steerer's movement keys step through the buttons, and held sneaks count toward skip votes. */
+  /** Each tick: the steerer's movement keys step through the buttons, held sneaks count toward skip votes, and a notice's time runs out. */
   private tick(): void {
     this.steer();
     this.holds();
+    const notice = this.notice;
+    if (notice?.until !== undefined && system.currentTick >= notice.until) this.endNotice(notice);
+  }
+
+  /** Takes `notice` down, if it's still the one up: the box goes with it unless a line has it. */
+  private endNotice(notice: Notice | undefined): void {
+    if (!notice || this.notice !== notice) return;
+    this.notice = undefined;
+    if (!this.open && this.closing === 0) this.close();
+  }
+
+  /** Puts a notice on the sidebar: the box with no speaker, only its words. */
+  private drawNotice(notice: Notice): void {
+    try {
+      const title = boxTitle("everyone", "");
+      this.box = { title };
+      this.host.show({ title, rows: boxRows({ words: notice.words }) });
+    } catch (error) {
+      log.warn(`blockparty: drawing a notice failed: ${describeError(error)}`);
+    }
   }
 
   private steer(): void {

@@ -61,10 +61,8 @@ export const PAINTERS: MinigameDef = {
     const z0 = floor.min.z;
     const width = floor.max.x - x0 + 1;
     const depth = floor.max.z - z0 + 1;
-    play.titleEach("Paint!", (key) => {
-      const side = sides.findIndex((members) => members.some((who) => who.key === key));
-      return side < 0 ? "" : `You're ${TEAMS[side].name}`;
-    });
+    // One notice for everyone (no titles): who paints for which team.
+    play.notice(`Paint!\n${sides.map((members, side) => `${TEAMS[side].name}§r: ${members.map((who) => who.name).join(" and ")}`).join("   ")}`);
     /** Each floor block's team (by x * depth + z), -1 while unpainted. */
     const painted = new Int8Array(width * depth).fill(-1);
     const counts = [0, 0];

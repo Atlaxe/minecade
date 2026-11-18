@@ -2,11 +2,14 @@
 // when a player gets a Star: the camera's view darkened, Results top left, a row per player best
 // first (the place, the head, Stars, coins). First the standings as they were; then the changes play
 // out: the Stars and then the coins count up (or down) a step at a time, the rows swap into their
-// new order a pair at a time, and 1st gets its border. Each step plays its event's sound.
+// new order a pair at a time, sliding past each other a quarter of a row at a time (the user: one
+// place at a time, no jump cut), and 1st gets its border. Each step plays its event's sound.
+// A player who drops gets the standings as they are now on this screen, for them alone
+// (standings(): the rows under STANDINGS_WORD, ui/hud_screen.json's bp_standings).
 // resultFrames() is the pure part (what each step shows); ResultsScreen puts the frames on the game's
 // sidebar (sidebar-rows.ts, screen-codes.ts's rows) one after another.
 import type { Scope } from "@minecade/minigame-core";
-import { SCREEN_WORDS, codesOf, resultRows, type ResultRow } from "./screen-codes.ts";
+import { SCREEN_WORDS, SLIDE_STEPS, STANDINGS_WORD, codesOf, resultRows, type ResultRow } from "./screen-codes.ts";
 import type { GameSidebar } from "./sidebar-rows.ts";
 import { eventCue, playCue } from "./sounds.ts";
 
@@ -29,7 +32,7 @@ export interface Frame {
 export const RESULT_EVENTS = { open: "results.open", count: "results.count", swap: "results.swap", first: "results.first", close: "results.close" } as const;
 
 /** Ticks each kind of step stays. */
-export const RESULT_TICKS = { open: 30, star: 6, coin: 2, swap: 10, first: 16, hold: 70 } as const;
+export const RESULT_TICKS = { open: 30, star: 6, coin: 2, slide: 2, swap: 6, first: 16, hold: 70 } as const;
 /** The most steps the coins take to count, however far they go. */
 const COIN_STEPS = 20;
 
@@ -57,9 +60,16 @@ export function resultFrames(before: readonly ResultSeat[], after: readonly Resu
   const frames: Frame[] = [];
   const firstPlaces = new Map(order.map((one, i) => [one.key, placesOf(order)[i]]));
   let placesNow: (list: typeof order) => number[] = (list) => list.map((one) => firstPlaces.get(one.key) ?? 1);
-  const frame = (ticks: number, sound?: string, border = false) => {
+  const frame = (ticks: number, sound?: string, border = false, slides?: ReadonlyMap<string, number>) => {
     const places = placesNow(order);
-    frames.push({ rows: order.map((one, i) => ({ seat: one.seat, name: one.name, place: places[i], stars: one.stars, coins: one.coins, border: border && places[i] === 1 })), ticks, ...(sound ? { sound } : {}) });
+    frames.push({
+      rows: order.map((one, i) => {
+        const slide = slides?.get(one.key);
+        return { seat: one.seat, name: one.name, place: places[i], stars: one.stars, coins: one.coins, border: border && places[i] === 1, ...(slide ? { slide } : {}) };
+      }),
+      ticks,
+      ...(sound ? { sound } : {}),
+    });
   };
   frame(RESULT_TICKS.open, RESULT_EVENTS.open);
   // The Stars, a step at a time.
@@ -74,15 +84,19 @@ export function resultFrames(before: readonly ResultSeat[], after: readonly Resu
     for (const one of shown) one.coins = toward(one.coins, one.target.coins, step);
     frame(RESULT_TICKS.coin, RESULT_EVENTS.count);
   }
-  // The new order, a swap of neighbors at a time; from here each place is what the numbers say.
+  // The new order, a swap of neighbors at a time: the two slide past each other a quarter of a row a
+  // step, then trade places. From here each place is what the numbers say.
   placesNow = (list) => placesOf(list);
   const goal = rank(shown).map((one) => one.key);
   for (let swapped = true; swapped; ) {
     swapped = false;
     for (let i = 0; i + 1 < order.length; i++) {
       if (goal.indexOf(order[i].key) > goal.indexOf(order[i + 1].key)) {
+        for (let step = 1; step < SLIDE_STEPS; step++) {
+          frame(RESULT_TICKS.slide, step === 1 ? RESULT_EVENTS.swap : undefined, false, new Map([[order[i].key, step], [order[i + 1].key, -step]]));
+        }
         order = [...order.slice(0, i), order[i + 1], order[i], ...order.slice(i + 2)];
-        frame(RESULT_TICKS.swap, RESULT_EVENTS.swap);
+        frame(RESULT_TICKS.swap);
         swapped = true;
       }
     }
@@ -90,6 +104,13 @@ export function resultFrames(before: readonly ResultSeat[], after: readonly Resu
   frame(RESULT_TICKS.first, RESULT_EVENTS.first, true);
   frames.at(-1)!.ticks += RESULT_TICKS.hold;
   return frames;
+}
+
+/** The standings as the results screen shows them, best first, 1st bordered (a player's own view after a drop). */
+export function standingRows(seats: readonly ResultSeat[]): ResultRow[] {
+  const order = rank(seats);
+  const places = placesOf(order);
+  return order.map((one, i) => ({ seat: i, name: one.name, place: places[i], stars: one.stars, coins: one.coins, border: places[i] === 1 }));
 }
 
 export interface ResultsHost {
@@ -102,6 +123,8 @@ export interface ResultsHost {
 export class ResultsScreen {
   private readonly host: ResultsHost;
   private on = false;
+  /** The standings someone has up for themselves (standings()), if anyone does. */
+  private standing: ResultSeat[] | undefined;
 
   constructor(host: ResultsHost) {
     this.host = host;
@@ -128,9 +151,28 @@ export class ResultsScreen {
     } finally {
       this.on = false;
       if (!this.host.scope.disposed) {
-        this.host.sidebar.set("results", undefined);
+        this.drawStandings();
         playCue(eventCue(RESULT_EVENTS.close));
       }
     }
+  }
+
+  /**
+   * The standings on the sidebar while any player has their own results screen up (none: empty), for
+   * them alone (the rows under STANDINGS_WORD); never over the results playing for everyone, and back
+   * once those are over.
+   */
+  standings(seats: readonly ResultSeat[]): void {
+    this.standing = seats.length > 0 ? [...seats] : undefined;
+    if (!this.on) this.drawStandings();
+  }
+
+  private drawStandings(): void {
+    if (!this.standing) {
+      this.host.sidebar.set("results", undefined);
+      return;
+    }
+    const rows = standingRows(this.standing).map((row) => ({ ...row, head: this.host.headOf(row.name) }));
+    this.host.sidebar.set("results", { title: codesOf(STANDINGS_WORD), rows: resultRows(rows) });
   }
 }

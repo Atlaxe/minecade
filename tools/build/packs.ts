@@ -14,7 +14,7 @@ import type { PlayerSkin, Registry } from "@minecade/minigame-core/config";
 import type { TransportKind } from "@minecade/minigame-core/protocol";
 import { MODULE_VERSIONS, pinManifest, type Manifest } from "./mc-versions.ts";
 import { contentHash, withPatchVersion } from "./pack-version.ts";
-import { modBlocksPlugin, registryPlugin, skinsPlugin, transportPlugin } from "./transport-plugin.ts";
+import { modBlocksPlugin, privateDataPlugin, registryPlugin, skinsPlugin, transportPlugin } from "./transport-plugin.ts";
 
 const root = fileURLToPath(new URL("../../", import.meta.url));
 const TRANSPORTS: TransportKind[] = ["http", "log"];
@@ -111,7 +111,14 @@ export async function buildBehaviorPack(src: string, out: string, manifest: Mani
       platform: "neutral",
       target: "es2022",
       external: ["@minecraft/*"],
-      plugins: [transportPlugin(kind), registryPlugin(registry), skinsPlugin(skins), modBlocksPlugin()],
+      plugins: [
+        // Before the others: a game's own saved copy of a data file it imports (git-ignored private_data/).
+        privateDataPlugin((path) => kind === TRANSPORTS[0] && console.log(`${relative(root, src)}: using ${relative(root, path)} (saved by a workshop tool, not committed)`)),
+        transportPlugin(kind),
+        registryPlugin(registry),
+        skinsPlugin(skins),
+        modBlocksPlugin(),
+      ],
       logLevel: "warning",
     });
     const variant = structuredClone(manifest);

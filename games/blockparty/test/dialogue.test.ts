@@ -210,6 +210,47 @@ describe("the dialogue box", () => {
     await until(gone, 3);
   });
 
+  it("shows a notice with no speaker, prompt or skip strip, a row for each line, for its time", async () => {
+    dialogue.notify("Alex's turn\nPick a die and jump to roll", 20);
+    await ticks(1);
+    expect(shown()?.title).toBe(boxTitle("everyone", ""));
+    expect(words()).toEqual(["Alex's turn", "Pick a die and jump to roll"]);
+    expect(rowsOfKind(ROW.face)).toEqual([]);
+    expect(rowsOfKind(ROW.prompt)).toEqual([]);
+    expect(rowsOfKind(ROW.skip)).toEqual([]);
+    // Nobody's jump takes it down.
+    dialogue.jumped(alex as never);
+    await ticks(10);
+    expect(words().length).toBe(2);
+    await ticks(12);
+    expect(shown()).toBeUndefined();
+  });
+
+  it("gives a notice's box to a line said meanwhile, and shows it again after while it's still up", async () => {
+    const hide = dialogue.notify("Round 2 of 15");
+    await ticks(1);
+    const said = dialogue.say("pregame.length", { rounds: 15 });
+    await ticks(2);
+    expect(words()).toEqual(rowsOf(line("pregame.length", { rounds: 15 }, first)).map(visible));
+    await ticks(10);
+    dialogue.jumped(alex as never);
+    await until(said, 3);
+    await ticks(5);
+    expect(words()).toEqual(["Round 2 of 15"]);
+    hide();
+    await ticks(1);
+    expect(shown()).toBeUndefined();
+  });
+
+  it("lets a newer notice take the place of an older one, whose hide then does nothing", async () => {
+    const hideOld = dialogue.notify("3");
+    dialogue.notify("2");
+    await ticks(1);
+    hideOld();
+    await ticks(1);
+    expect(words()).toEqual(["2"]);
+  });
+
   it("goes on by itself after the time to read it when no player is here", async () => {
     leaderName = undefined;
     const done = dialogue.say("pregame.length", { rounds: 15 });

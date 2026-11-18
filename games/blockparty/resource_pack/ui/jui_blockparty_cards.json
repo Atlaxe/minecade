@@ -437,6 +437,7 @@
                         }
                       ],
                       "shadow": true,
+                      "font_type": "MinecraftTen",
                       "localize": false,
                       "layer": 1
                     }

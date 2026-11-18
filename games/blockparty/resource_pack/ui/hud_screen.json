@@ -10,22 +10,91 @@
   // (packages/minigame-core's hud_screen.json). The dialogue box (ui/jui_blockparty_dialogue.json,
   // built by the workshop's JSON UI tool from its blockparty_dialogue component) rides there too,
   // under the loading screen: it reads the sidebar, not the action bar, but this panel is always up
-  // while the game sends its HUD line. The board's screens ride the sidebar the same way (built by
-  // the same tool from its blockparty_results, blockparty_cards, blockparty_menu and
-  // blockparty_panel components, docs/plans/block-party-ui.md): the results screen first (its
-  // darkened view under everything else), then the player cards, the board menu and the item panel,
-  // then the dialogue box over them.
+  // while the game sends its line (never empty: with nothing to show it's only codes). The board's
+  // screens ride the sidebar the same way (built by the same tool from its blockparty_results,
+  // blockparty_cards, blockparty_menu and blockparty_panel components, docs/plans/block-party-ui.md):
+  // the results screen first (its darkened view under everything else), then the player cards, the
+  // board menu and the item panel, then the dialogue box over them.
+  //
+  // A player's own results screen (a drop, the user's ask): the sidebar is everyone's, so the game
+  // puts the standings on it under the word "bpv" (not the results' "bpr", which shows them to
+  // everyone), and only a player whose action bar line has '§k§f' (STANDINGS_CODE in bar-codes.ts)
+  // sees them, through bp_standings: the results layout shown for "bpv" instead. Their cards make way
+  // for it, as everyone's do for the results.
 
   "hud_actionbar_text": {
     "modifications": [
       { "array_name": "controls", "operation": "insert_back", "value": [
         { "jui_blockparty_results@jui_blockparty_results.layout": {} },
-        { "jui_blockparty_cards@jui_blockparty_cards.layout": {} },
+        { "bp_standings@hud.bp_standings": {} },
+        { "bp_cards@hud.bp_cards": {} },
         { "jui_blockparty_menu@jui_blockparty_menu.layout": {} },
         { "jui_blockparty_panel@jui_blockparty_panel.layout": {} },
         { "jui_blockparty_dialogue@jui_blockparty_dialogue.layout": {} },
         { "bp_loading@blockparty_hud.loading": {} }
       ] }
+    ]
+  },
+
+  // The results screen for one player: while their line has STANDINGS_CODE and the sidebar's title
+  // has "bpv" (an instance's bindings take the place of its layout's).
+  "bp_standings": {
+    "type": "panel",
+    "size": [ "100%", "100%" ],
+    "$atext": "$actionbar_text",
+    "visible": "(not (($atext - '§k§f') = $atext))",
+    "controls": [
+      {
+        "jui_blockparty_results@jui_blockparty_results.layout": {
+          "visible": false,
+          "bindings": [
+            { "binding_name": "#scoreboard_sidebar_visible", "binding_type": "global" },
+            { "binding_name": "#objective_sidebar_name", "binding_type": "global" },
+            {
+              "binding_type": "view",
+              "source_property_name": "(#scoreboard_sidebar_visible and (not ((#objective_sidebar_name - '§b§p§v') = #objective_sidebar_name)))",
+              "target_property_name": "#visible"
+            }
+          ]
+        }
+      }
+    ]
+  },
+
+  // The player cards, out of the way while their own results screen is up.
+  "bp_cards": {
+    "type": "panel",
+    "size": [ "100%", "100%" ],
+    "$atext": "$actionbar_text",
+    "visible": "(($atext - '§k§f') = $atext)",
+    "controls": [ { "jui_blockparty_cards@jui_blockparty_cards.layout": {} } ]
+  },
+
+  // Chat is hidden in Block Party (the user, 2026-11-18) unless a player turns it on with /chat. The
+  // switch is vanilla's status effects HUD element, which the game hides for everyone and shows
+  // again for a player with chat on (spike.ts, setHudVisibility): its icons are gone on every server
+  // already (the core pack removes mob_effects_renderer), so #status_effects_visible means only this.
+  // The core pack's column top left (mc_chat_stack) ends with the chat; it's put back with both
+  // switches.
+  "mc_chat_stack": {
+    "modifications": [
+      { "array_name": "controls", "operation": "remove", "control_name": "chat_panel" },
+      {
+        "array_name": "controls",
+        "operation": "insert_back",
+        "value": [
+          {
+            "chat_panel@hud.chat_panel": {
+              "visible": false,
+              "bindings": [
+                { "binding_name": "#editor_chat_visible", "binding_condition": "always" },
+                { "binding_name": "#status_effects_visible", "binding_condition": "always" },
+                { "binding_type": "view", "source_property_name": "(#editor_chat_visible and #status_effects_visible)", "target_property_name": "#visible" }
+              ]
+            }
+          }
+        ]
+      }
     ]
   }
 }
