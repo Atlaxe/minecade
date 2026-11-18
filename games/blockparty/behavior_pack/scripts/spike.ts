@@ -425,6 +425,18 @@ export class BlockPartySpike extends Minigame<Config> {
     void this.menu(player);
   }
 
+  /**
+   * /minigame win (main.ts): ends the minigame on now with `typed` (a player or bot in it) winning,
+   * only while testing: Block Party a test game, DEV_MIN_PLAYERS at 1, or a preview from the map
+   * editor. Says what went wrong, or undefined once it's done.
+   */
+  winMinigame(typed: string): string | undefined {
+    const { devMinPlayers, preview } = this.ctx.vars;
+    if (!this.config.test && devMinPlayers !== 1 && preview === "") return "/minigame win is only for testing: a test game, DEV_MIN_PLAYERS at 1, or a preview from the map editor.";
+    if (!this.runner) return "Block Party isn't running yet.";
+    return this.runner.win(typed);
+  }
+
   protected override onStart(): void {
     this.boardLaid = this.layBoard();
   }

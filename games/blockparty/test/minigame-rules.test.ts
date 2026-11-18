@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { battleBets, ffaCoins, firstDoubled, fits, formatFor, isDoubled, kindOf, pairingKey, pickMinigame, pickPairs, pickSolo, splitPot, teamCoins } from "../behavior_pack/scripts/minigame-rules.ts";
+import { battleBets, ffaCoins, firstDoubled, fits, forcedOutcome, formatFor, isDoubled, kindOf, pairingKey, pickMinigame, pickName, pickPairs, pickSolo, splitPot, teamCoins } from "../behavior_pack/scripts/minigame-rules.ts";
 
 /** Always the first choice. */
 const first = () => 0;
@@ -62,5 +62,26 @@ describe("Block Party's minigame rules", () => {
     expect([13, 14, 15].map((round) => isDoubled(round, 15))).toEqual([false, true, true]);
     expect([9, 10].map((round) => isDoubled(round, 10))).toEqual([false, true]);
     expect([firstDoubled(10), firstDoubled(15), firstDoubled(20)]).toEqual([10, 14, 19]);
+  });
+
+  it("finds who /minigame win names: the name, else the only one it starts, else the only one it's in", () => {
+    const names = ["big red fox", "Bot Alex", "Bot Sam", "Steve"];
+    expect(pickName(names, "BIG RED FOX")).toBe("big red fox");
+    expect(pickName(names, "big")).toBe("big red fox");
+    expect(pickName(names, "bot s")).toBe("Bot Sam");
+    expect(pickName(names, "fox")).toBe("big red fox");
+    expect(pickName(names, "bot")).toBeUndefined();
+    expect(pickName(names, "zed")).toBeUndefined();
+    expect(pickName(names, " ")).toBeUndefined();
+    // A full name wins over the longer ones it starts.
+    expect(pickName(["Sam", "Samuel"], "sam")).toBe("Sam");
+  });
+
+  it("ends a minigame with /minigame win's pick first, or their side winning", () => {
+    expect(forcedOutcome("ffa", [["a"], ["b"], ["c"]], "b")).toEqual({ places: [["b"], ["a", "c"]] });
+    expect(forcedOutcome("ffa", [["a"]], "a")).toEqual({ places: [["a"]] });
+    expect(forcedOutcome("2v2", [["a", "b"], ["c", "d"]], "d")).toEqual({ winner: 1 });
+    expect(forcedOutcome("1v3", [["a"], ["b", "c", "d"]], "a")).toEqual({ winner: 0 });
+    expect(forcedOutcome("ffa", [["a"], ["b"]], "z")).toBeUndefined();
   });
 });

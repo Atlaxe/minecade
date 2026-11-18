@@ -1,6 +1,7 @@
 // Block Party's minigame rules (docs/plans/block-party.md: "Minigame formats", "Coins awarded",
 // "Versus and the Dueling Glove"), pure so the tests can check them: which format a round plays,
 // who's on which side, which minigame comes up, and what everyone is paid.
+import type { Outcome } from "./minigames/kit.ts";
 
 /** A round's format. A Battle plays an FFA minigame with a pot; a duel plays one with two players. */
 export type Format = "ffa" | "battle" | "2v2" | "1v3" | "duel";
@@ -156,3 +157,34 @@ export function firstDoubled(turns: number): number {
 
 /** A Versus space's stake: the loser pays the winner this (capped at what they have). */
 export const VERSUS_STAKE = 5;
+
+/**
+ * Who a name typed into /minigame win means, out of `names` (case aside): the name itself, else the
+ * only one that starts with it, else the only one that has it in it (a gamertag with spaces needs
+ * only its first word). undefined for none, or more than one.
+ */
+export function pickName(names: readonly string[], typed: string): string | undefined {
+  const want = typed.trim().toLowerCase();
+  if (want === "") return undefined;
+  const exact = names.find((name) => name.toLowerCase() === want);
+  if (exact !== undefined) return exact;
+  for (const matches of [(name: string) => name.toLowerCase().startsWith(want), (name: string) => name.toLowerCase().includes(want)]) {
+    const found = names.filter(matches);
+    if (found.length === 1) return found[0];
+    if (found.length > 1) return undefined;
+  }
+  return undefined;
+}
+
+/**
+ * A minigame ended by /minigame win (testing), with `winner` (a key in `sides`) winning: an FFA
+ * minigame (a Battle and a duel too) places them first and everyone else tied second; a team
+ * minigame is won by their side. undefined when they aren't on a side.
+ */
+export function forcedOutcome(kind: Kind, sides: readonly (readonly string[])[], winner: string): Outcome | undefined {
+  const side = sides.findIndex((members) => members.includes(winner));
+  if (side < 0) return undefined;
+  if (kind !== "ffa") return { winner: side };
+  const rest = sides.flat().filter((key) => key !== winner);
+  return { places: rest.length > 0 ? [[winner], rest] : [[winner]] };
+}

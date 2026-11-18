@@ -22,7 +22,7 @@ import { EasingType, GameMode, InputPermissionCategory, StructureRotation, world
 import { describeError, log, placeArena, turnedSize, turnsToFit, type ArenaMap, type QuarterTurns, type Scope } from "@minecade/minigame-core";
 import { isPlayer, thinkTicks, type Who } from "./bots.ts";
 import { line } from "./lines.ts";
-import type { Format } from "./minigame-rules.ts";
+import { forcedOutcome, pickName, type Format } from "./minigame-rules.ts";
 import { arenaSize, fill, mapField, TITLE, type Field, type MinigameDef, type Outcome, type Play, type Spot, type TitleTiming } from "./minigames/kit.ts";
 
 /** Where arenas go: the middle of the floor (the map's arena slot's, or far east of the board), and the slot's size across (x by z) when there is one. */
@@ -93,6 +93,14 @@ interface Laid {
   structure?: { id: string; turns: QuarterTurns; map: string };
 }
 
+/** A minigame on now: what it is, who's on which side, and the outcome /minigame win forced on it, with what ends its play() early. */
+interface Running {
+  def: MinigameDef;
+  sides: Who[][];
+  forced?: Outcome;
+  force?: (outcome: Outcome) => void;
+}
+
 export function formatLabel(format: Format, sides: readonly (readonly Who[])[]): string {
   if (format === "2v2") return line("format.2v2");
   if (format === "1v3") return line("format.1v3", { count: sides[1]?.length ?? 3 });
@@ -112,6 +120,8 @@ export class MinigameRunner {
   private readonly outs = new Set<string>();
   /** Who's playing it now, from Go until it ends (by key): they get the hotbar. */
   private readonly playing = new Set<string>();
+  /** The minigame on now, from the roulette until its outcome is known (/minigame win's). */
+  private current: Running | undefined;
 
   constructor(host: RunnerHost) {
     this.host = host;
@@ -135,6 +145,29 @@ export class MinigameRunner {
   }
 
   /**
+   * /minigame win (testing): ends the minigame on now with `typed` (a player or bot in it, or part
+   * of their name: pickName) as its winner, their side in a team minigame. While it plays it stops at
+   * once; before that (the roulette, the arena loading) it goes as far as the rules and stops there,
+   * with no Ready vote or countdown. Either way the results and the coins come as they would have.
+   * Says what went wrong, or undefined once it's done.
+   */
+  win(typed: string): string | undefined {
+    const current = this.current;
+    if (!current) return "No minigame is on.";
+    if (current.forced) return `${current.def.name} is already ending.`;
+    const everyone = current.sides.flat();
+    const name = pickName(everyone.map((who) => who.name), typed);
+    const who = everyone.find((one) => one.name === name);
+    const outcome = who && forcedOutcome(current.def.kind, current.sides.map((side) => side.map((one) => one.key)), who.key);
+    if (!who || !outcome) return `"${typed}" isn't one player in ${current.def.name}. Playing it: ${everyone.map((one) => one.name).join(", ")}.`;
+    current.forced = outcome;
+    current.force?.(outcome);
+    const team = current.def.kind !== "ffa" && current.sides.find((side) => side.includes(who))!.length > 1;
+    this.host.say(`${current.def.name} was skipped: ${who.name}${team ? "'s side" : ""} wins it (/minigame win).`);
+    return undefined;
+  }
+
+  /**
    * Plays `def` in `format` with `sides` (watched by `onlookers`), the roulette going through `pool`.
    * `settle` turns the outcome into the results shown over the arena. Resolves with the outcome once
    * everyone is back on the board.
@@ -142,6 +175,8 @@ export class MinigameRunner {
   async play(format: Format, def: MinigameDef, sides: Who[][], pool: readonly MinigameDef[], onlookers: readonly Who[], settle: Settle): Promise<Outcome> {
     this.on = true;
     this.outs.clear();
+    const current: Running = { def, sides };
+    this.current = current;
     const everyone = sides.flat();
     const { dimension } = this.host;
     // Picked before the roulette, so a map that can't be played is named while it spins.
@@ -194,48 +229,54 @@ export class MinigameRunner {
       this.rulesCamera([...everyone, ...onlookers], field, "ease");
       this.host.title(def.name, formatLabel(format, sides));
       this.host.say(line("minigame.rules", { minigame: def.name, format: formatLabel(format, sides), rules: def.rules }));
-      await this.readyVote(everyone);
+      await this.readyVote(everyone, current);
       for (const who of [...everyone, ...onlookers]) clearCamera(who.player);
       for (const count of ["3", "2", "1"]) {
+        if (current.forced) break;
         this.host.title(count, def.name, TITLE.count);
         await this.host.scope.wait(20);
       }
-      this.host.title(line("minigame.go"), "", TITLE.land);
-      for (const who of everyone) if (who.player) setMoving(who.player, true);
-      for (const who of everyone) this.playing.add(who.key);
-      const scope = this.host.scope.child(`minigame ${def.id}`);
-      const play: Play = {
-        scope,
-        dimension,
-        field,
-        sides,
-        random: this.host.random,
-        inPlay: () => everyone.filter((who) => !this.outs.has(who.key) && this.bodyOf(who) !== undefined),
-        out: (who) => this.takeOut(who, watchSpot),
-        isOut: (who) => this.outs.has(who.key),
-        bodyOf: (who) => this.bodyOf(who),
-        freeze: (who, ticks) => {
-          if (!who.player) return;
-          setMoving(who.player, false);
-          scope.timeout(() => who.player && setMoving(who.player, true), ticks);
-        },
-        title: (text, subtitle, timing) => this.host.title(text, subtitle, timing),
-        titleEach: (text, subtitleOf, timing) => {
-          for (const player of world.getAllPlayers()) this.host.titleTo(player, text, subtitleOf(player.name.toLowerCase()), timing);
-        },
-        say: (text) => this.host.say(text),
-        status: (text) => this.host.status(text),
-      };
-      try {
-        outcome = await def.play(play);
-      } catch (error) {
-        log.warn(`blockparty: ${def.name} failed: ${describeError(error)}`);
-        this.host.say(`${def.name} failed: ${describeError(error)}. Nobody wins it.`);
-        outcome = def.kind === "ffa" ? { places: [everyone.map((who) => who.key)] } : { winner: undefined };
-      } finally {
-        scope.dispose();
-        this.playing.clear();
+      if (current.forced) outcome = current.forced;
+      else {
+        this.host.title(line("minigame.go"), "", TITLE.land);
+        for (const who of everyone) if (who.player) setMoving(who.player, true);
+        for (const who of everyone) this.playing.add(who.key);
+        const scope = this.host.scope.child(`minigame ${def.id}`);
+        const play: Play = {
+          scope,
+          dimension,
+          field,
+          sides,
+          random: this.host.random,
+          inPlay: () => everyone.filter((who) => !this.outs.has(who.key) && this.bodyOf(who) !== undefined),
+          out: (who) => this.takeOut(who, watchSpot),
+          isOut: (who) => this.outs.has(who.key),
+          bodyOf: (who) => this.bodyOf(who),
+          freeze: (who, ticks) => {
+            if (!who.player) return;
+            setMoving(who.player, false);
+            scope.timeout(() => who.player && setMoving(who.player, true), ticks);
+          },
+          title: (text, subtitle, timing) => this.host.title(text, subtitle, timing),
+          titleEach: (text, subtitleOf, timing) => {
+            for (const player of world.getAllPlayers()) this.host.titleTo(player, text, subtitleOf(player.name.toLowerCase()), timing);
+          },
+          say: (text) => this.host.say(text),
+          status: (text) => this.host.status(text),
+        };
+        try {
+          // /minigame win ends it early: its scope goes below, which stops its waits for good.
+          outcome = await Promise.race([def.play(play), new Promise<Outcome>((resolve) => (current.force = resolve))]);
+        } catch (error) {
+          log.warn(`blockparty: ${def.name} failed: ${describeError(error)}`);
+          this.host.say(`${def.name} failed: ${describeError(error)}. Nobody wins it.`);
+          outcome = def.kind === "ffa" ? { places: [everyone.map((who) => who.key)] } : { winner: undefined };
+        } finally {
+          scope.dispose();
+          this.playing.clear();
+        }
       }
+      if (this.current === current) this.current = undefined;
       for (const who of everyone) if (who.player) setMoving(who.player, false);
       const results = settle(outcome);
       this.host.status(undefined);
@@ -260,6 +301,7 @@ export class MinigameRunner {
       });
     } finally {
       this.on = false;
+      if (this.current === current) this.current = undefined;
       this.playing.clear();
       this.waiting = undefined;
       this.host.status(undefined);
@@ -394,8 +436,8 @@ export class MinigameRunner {
     }
   }
 
-  /** Waits until every player has jumped and every bot has had its moment. */
-  private async readyVote(everyone: readonly Who[]): Promise<void> {
+  /** Waits until every player has jumped and every bot has had its moment, or /minigame win ends the minigame. */
+  private async readyVote(everyone: readonly Who[], current: Running): Promise<void> {
     const players = everyone.filter((who) => who.player?.isValid);
     const bots = everyone.filter((who) => !who.player);
     this.waiting = new Set(players.map((who) => who.key));
@@ -406,10 +448,11 @@ export class MinigameRunner {
     bots.forEach((_, i) =>
       this.host.scope.timeout(() => {
         botsLeft--;
-        this.ready();
+        // Not once the vote is over (a minigame ended early): the count would come back over its results.
+        if (this.waiting) this.ready();
       }, thinkTicks(this.host.random, 20 + i * 10, 50 + i * 10)),
     );
-    while (this.waiting.size > 0 || botsLeft > 0) {
+    while ((this.waiting.size > 0 || botsLeft > 0) && !current.forced) {
       // A player who left isn't waited for.
       for (const key of [...this.waiting]) if (!world.getAllPlayers().some((player) => player.name.toLowerCase() === key)) this.waiting.delete(key);
       await this.host.scope.wait(2);

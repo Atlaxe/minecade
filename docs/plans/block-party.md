@@ -947,7 +947,12 @@ reward was dropped.
      that way), and 30 starting coins while Block Party is a test game or `DEV_MIN_PLAYERS` is 1.
      After the seventh look: Go to a space (Get star's way to the nearest space of a type, Versus
      for a duel), Skip to a round (straight to its minigame or with its turns) and Play a minigame
-     now (any minigame in any of its formats, then the turns go on).
+     now (any minigame in any of its formats, then the turns go on). 2026-11-18 (the user asked):
+     `/minigame win <name>` skips the minigame on now with that player or bot winning it (their
+     side in 2v2 and 1v3; in an FFA, a Battle or a duel everyone else ties second), straight to
+     its results and coins: at once while it plays, at the rules if typed during the roulette.
+     Part of a name does (`big` for "big red fox"). Only while testing: Block Party a test game,
+     `DEV_MIN_PLAYERS` at 1, or a preview from the map editor.
    - **Results** (seventh look: the winners' title ran off the screen and the titles flickered): a
      short title for everyone (one name, Red or Blue, a tie counted) with each player's own place
      and coins under it, the whole list in chat; titles that follow each other quickly (the
