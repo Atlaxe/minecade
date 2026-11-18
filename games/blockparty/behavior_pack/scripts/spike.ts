@@ -167,6 +167,9 @@ const BOARD_AREA = "minecade:blockparty_board";
 const LOADING_AFTER = 4;
 /** Blocks placed a millisecond, about (docs/spike-results.md, "Block Party": Sinkhole's 667,648 in 608 to 676 ms). */
 const BLOCKS_PER_MS = 1000;
+/** What a testing command says when Block Party isn't being tested (spike.ts, testing). */
+const ONLY_TESTING = "is only for testing: a test game, DEV_MIN_PLAYERS at 1, or a preview from the map editor.";
+
 /** Starting coins while Block Party is a test game or a server plays it alone. */
 const TEST_COINS = 30;
 /** Seats at a Block Party game. */
@@ -485,10 +488,38 @@ export class BlockPartySpike extends Minigame<Config> {
    * editor. Says what went wrong, or undefined once it's done.
    */
   winMinigame(typed: string): string | undefined {
-    const { devMinPlayers, preview } = this.ctx.vars;
-    if (!this.config.test && devMinPlayers !== 1 && preview === "") return "/minigame win is only for testing: a test game, DEV_MIN_PLAYERS at 1, or a preview from the map editor.";
+    if (!this.testing) return `/minigame win ${ONLY_TESTING}`;
     if (!this.runner) return "Block Party isn't running yet.";
     return this.runner.win(typed);
+  }
+
+  /**
+   * /blockparty:hold (main.ts) and the Tests menu (the user asked, to try dice and items): holds the
+   * game on the player's turns, or lets it go on again when they hold it. Held, once the turn or
+   * minigame going on ends, every turn is theirs and their dice and items come back after each one
+   * (board-loop.ts, hold). Only while testing, as /minigame win. Says what went wrong, or undefined
+   * once it's done (everyone is told).
+   */
+  holdGame(player: Player): string | undefined {
+    if (!this.testing) return `/blockparty:hold ${ONLY_TESTING}`;
+    if (!this.loop?.active || this.loopOver) return "The board game isn't on.";
+    const key = player.name.toLowerCase();
+    if (this.loop.heldBy === key) {
+      this.loop.hold(undefined);
+      this.everyone(`Test: ${player.name} let go of the hold. The game goes on once this turn ends.`);
+      return undefined;
+    }
+    if (!this.loop.hold(key)) return "The hold works once you're seated in the board game.";
+    this.everyone(
+      `Test: the game is held on ${player.name}'s turns. Once the turn or minigame going on ends, every turn is theirs (no other turns, no minigames), and their dice and items come back after each turn: what they hold now, or what Dice and items held sets. /blockparty:hold again lets the game go on.`,
+    );
+    return undefined;
+  }
+
+  /** Testing: Block Party a test game, DEV_MIN_PLAYERS at 1, or a preview from the map editor. */
+  private get testing(): boolean {
+    const { devMinPlayers, preview } = this.ctx.vars;
+    return this.config.test || devMinPlayers === 1 || preview !== "";
   }
 
   protected override onStart(): void {
@@ -982,6 +1013,12 @@ export class BlockPartySpike extends Minigame<Config> {
     this.tell(player, `You hold ${[STANDARD.name, ...dice.map((die) => die.name)].join(", ")}, and ${held.length > 0 ? held.map((item) => item.name).join(", ") : "no items"}. On your turn the board menu's Dice block and Items show them.`);
   }
 
+  /** Hold the game on my turns, or Let the game go on (Tests): as /blockparty:hold. */
+  private holdFromMenu(player: Player): void {
+    const problem = this.holdGame(player);
+    if (problem !== undefined) this.tell(player, problem);
+  }
+
   /** Next space outcomes (Tests): what the next Chance Time (all three potions), Warden and Happening do, to try each without luck. */
   private async outcomeForm(player: Player): Promise<void> {
     const forced = this.loop.spacePlay.forced;
@@ -1143,6 +1180,7 @@ export class BlockPartySpike extends Minigame<Config> {
       ["Camera shots", () => this.shotsMenu(player)],
       ["Jump test", () => this.jumpMenu(player)],
       ["Dice and items held", () => this.contentsForm(player)],
+      [this.loop?.heldBy === player.name.toLowerCase() ? "Let the game go on" : "Hold the game on my turns", () => this.holdFromMenu(player)],
       ["Next space outcomes", () => this.outcomeForm(player)],
       ["Bring the Wandering Trader", () => this.traderTest(player)],
       ["Coin and Star models", () => this.iconModels(player)],

@@ -40,6 +40,22 @@ system.beforeEvents.startup.subscribe(({ customCommandRegistry }) => {
       return { status: CustomCommandStatus.Success };
     },
   );
+  // /hold (testing): stops the game on the typer's turns, to try dice and items: every turn is theirs
+  // and what they hold comes back after each one (spike.ts, holdGame). Typed again, the game goes on.
+  customCommandRegistry.registerCommand(
+    { name: "blockparty:hold", description: "Testing: hold the game on your turns (dice and items come back), or let it go on", permissionLevel: CommandPermissionLevel.Any, cheatsRequired: false },
+    (origin) => {
+      const player = origin.sourceEntity;
+      if (player?.typeId !== "minecraft:player") return { status: CustomCommandStatus.Failure, message: "Only a player can hold the game." };
+      // A tick later: a command can't change the world where it runs.
+      system.run(() => {
+        if (!player.isValid) return;
+        const problem = current ? current.holdGame(player as Player) : "Block Party isn't running yet.";
+        if (problem !== undefined) (player as Player).sendMessage(say.error(problem));
+      });
+      return { status: CustomCommandStatus.Success };
+    },
+  );
   // /minigame win <name> (testing): skips the minigame on now, the named player or bot winning it
   // (their side in a team minigame), straight to its results and coins (minigame-runner.ts, win).
   // A name with spaces goes in quotes, or just its start: the one playing whose name starts with it.

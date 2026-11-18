@@ -1025,7 +1025,13 @@ reward was dropped.
      side in 2v2 and 1v3; in an FFA, a Battle or a duel everyone else ties second), straight to
      its results and coins: at once while it plays, at the rules if typed during the roulette.
      Part of a name does (`big` for "big red fox"). Only while testing: Block Party a test game,
-     `DEV_MIN_PLAYERS` at 1, or a preview from the map editor.
+     `DEV_MIN_PLAYERS` at 1, or a preview from the map editor. Also 2026-11-18 (the user asked, to
+     try dice and items): `/hold` (`blockparty:hold`, or Hold the game on my turns in Tests) stops
+     the game on the typer's turns. Once the turn or minigame going on ends, every turn is theirs
+     (no other seat's turn, no round's end, no minigame), and their dice and items are put back
+     before and after each turn, so nothing rolled or used is used up: what they held when they
+     typed it, or what Dice and items held sets meanwhile. Typed again (Let the game go on), the
+     game goes on from the seat where it stopped. Only while testing, as `/minigame win`.
    - **Results** (seventh look: the winners' title ran off the screen and the titles flickered): a
      short title for everyone (one name, Red or Blue, a tie counted) with each player's own place
      and coins under it, the whole list in chat; titles that follow each other quickly (the

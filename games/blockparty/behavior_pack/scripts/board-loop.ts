@@ -39,7 +39,7 @@ import { ITEMS, type Holdings, type ItemId } from "./dice-items.ts";
 import { ItemPlay } from "./item-play.ts";
 import { SpacePlay } from "./space-play.ts";
 import { mayUseItem, newSeat, turnDice, type Seat, type TurnState } from "./seats.ts";
-import { BETS, GLOVE_STAKE, betResult, trailOf } from "./space-rules.ts";
+import { BETS, GLOVE_STAKE, betResult, trailOf, type Hands } from "./space-rules.ts";
 import type { TalkOptions } from "./dialogue.ts";
 import type { Stage } from "./stage.ts";
 import { activeStars, addCoins, coinsFor, count, firstStars, leaders, nextStar, ranked, starDistance, starPrice, turnOrder, type Standing } from "./board-rules.ts";
@@ -141,6 +141,12 @@ export class BoardLoop {
   private readonly pairings = new Map<string, number>();
   /** A test's jump, waiting for the turn going on to end. */
   private jump: TestJump | undefined;
+  /** Tests' hold (/blockparty:hold): the seat whose turns come round again and again, the game going no further. */
+  private holder: string | undefined;
+  /** What the holder's hands go back to before and after each held turn, by key (a held turn going on keeps its own after the hold moves). */
+  private readonly heldHands = new Map<string, Hands>();
+  /** The seat whose held turn is going on, by key. */
+  private heldNow: string | undefined;
   /** The seats whose cards the turn order reveal has shown, by key. */
   private readonly revealed = new Set<string>();
   /** Places show on the cards once the first results have been shown. */
@@ -267,7 +273,29 @@ export class BoardLoop {
     const seat = this.seats.get(key);
     if (!seat) return false;
     seat.hands = { dice: [...dice], items: [...items] };
+    // While held, the hands set are the ones every held turn starts and ends with.
+    if (this.heldHands.has(key)) this.heldHands.set(key, copyHands(seat.hands));
     this.host.changed();
+    return true;
+  }
+
+  /** Who holds the game (Tests), by key, if anybody. */
+  get heldBy(): string | undefined {
+    return this.holder;
+  }
+
+  /**
+   * Tests' hold (the user asked, to try dice and items): once the turn or minigame going on ends,
+   * every turn is `key`'s, and their dice and items are back as they are now before and after each
+   * one, so nothing they roll or use is used up; no other seat's turn, no round's end, no minigame.
+   * Undefined lets the game go on from where it stopped. False when `key` isn't seated.
+   */
+  hold(key: string | undefined): boolean {
+    const seat = key === undefined ? undefined : this.seats.get(key);
+    if (key !== undefined && !seat) return false;
+    this.holder = key;
+    for (const held of [...this.heldHands.keys()]) if (held !== this.heldNow) this.heldHands.delete(held);
+    if (key !== undefined && seat) this.heldHands.set(key, copyHands(seat.hands));
     return true;
   }
 
@@ -484,7 +512,8 @@ export class BoardLoop {
       }
       let jumped: { round: number; minigameOnly: boolean } | undefined = withTurns ? undefined : await this.takeJump();
       for (let i = 0; withTurns && i < this.order.length; i++) {
-        jumped = await this.takeJump();
+        // While held (Tests), the holder's turns here, over and over; let go, the game goes on from this seat.
+        jumped = (await this.takeJump()) ?? (await this.heldTurns());
         if (jumped) break;
         const key = this.order[i];
         const who = this.host.present().find((candidate) => candidate.key === key);
@@ -499,6 +528,8 @@ export class BoardLoop {
           log.warn(`blockparty: ${who.name}'s turn failed: ${describeError(error)}`);
         }
       }
+      // Held during the round's last turn: the hold comes before the round's end and its minigame.
+      if (withTurns && !jumped) jumped = await this.heldTurns();
       this.turn = undefined;
       this.turnNow = undefined;
       this.host.changed();
@@ -626,6 +657,49 @@ export class BoardLoop {
       this.host.pieces.reset(who.body);
       this.host.everyone(line("join.late", { player: who.name, coins: count(last, "coin") }));
     }
+  }
+
+  /**
+   * While the game is held (Tests): the holder's turns, one after another, until the hold is let go
+   * or a test jumps to a round (that jump comes back to be taken; a test minigame is played between
+   * two held turns).
+   */
+  private async heldTurns(): Promise<{ round: number; minigameOnly: boolean } | undefined> {
+    let jumped: { round: number; minigameOnly: boolean } | undefined;
+    while (this.holder !== undefined && !jumped) {
+      await this.heldTurn(this.holder);
+      jumped = await this.takeJump();
+    }
+    return jumped;
+  }
+
+  /** One held turn: the seat's hands as the hold keeps them before it and again after it, whatever it rolled or used. */
+  private async heldTurn(key: string): Promise<void> {
+    const seat = this.seats.get(key);
+    const who = this.host.present().find((candidate) => candidate.key === key);
+    if (!seat || !who) {
+      this.hold(undefined);
+      this.host.everyone(`Test: the hold is off (${seat?.name ?? key} isn't here), and the game goes on.`);
+      return;
+    }
+    const keep = () => {
+      const hands = this.heldHands.get(key);
+      if (hands) seat.hands = copyHands(hands);
+      this.host.changed();
+    };
+    this.heldNow = key;
+    keep();
+    try {
+      await this.playTurn(who);
+    } catch (error) {
+      log.warn(`blockparty: ${who.name}'s held turn failed: ${describeError(error)}`);
+    } finally {
+      keep();
+      this.heldNow = undefined;
+      if (this.holder !== key) this.heldHands.delete(key);
+    }
+    // Never a turn after a turn in the same tick (a piece off the board ends a turn at once).
+    await this.host.scope.wait(1);
   }
 
   /** A test's jump, if one was asked: a minigame is played here and now; a round jump comes back to be taken. */
@@ -1107,6 +1181,10 @@ export class BoardLoop {
       }
     }
   }
+}
+
+function copyHands(hands: Hands): Hands {
+  return { dice: [...hands.dice], items: [...hands.items] };
 }
 
 /**
