@@ -155,6 +155,8 @@ export class BoardCamera {
   private yaw: number | undefined;
   private last: CameraShot | undefined;
   private tick = 0;
+  /** Ticks left of the ease down into the board view after a minigame (comeIn): the follow leaves it be. */
+  private landing = 0;
 
   constructor(host: BoardCameraHost) {
     this.host = host;
@@ -225,6 +227,60 @@ export class BoardCamera {
     }
   }
 
+  /**
+   * Back from a minigame, behind the stars: the camera at once where zoomOut leaves it, high over
+   * the board view of the piece it watches, still aimed at it.
+   */
+  above(): void {
+    const view = this.boardViewNow();
+    if (!view) return;
+    const out = zoomOutShot(view.shot, view.point);
+    for (const watcher of this.host.watchers()) {
+      try {
+        watcher.camera.setCamera("minecraft:free", { location: vec(out.location), facingLocation: vec(out.facing) });
+      } catch {
+        // gone
+      }
+    }
+  }
+
+  /**
+   * Then down into the board view over `seconds`, as the stars go (the way into a minigame
+   * backwards). The board view takes it from there: the follow leaves the ease be until it's done,
+   * the minigame letting the camera go meanwhile.
+   */
+  comeIn(seconds: number): void {
+    const view = this.boardViewNow();
+    if (!view) return;
+    const { shot } = view;
+    for (const watcher of this.host.watchers()) {
+      try {
+        watcher.camera.setCamera("minecraft:free", { location: vec(shot.location), rotation: { x: shot.pitch, y: shot.yaw }, easeOptions: { easeTime: seconds, easeType: EasingType.InOutSine } });
+      } catch {
+        // gone
+      }
+    }
+    this.setFov(this.host.settings().fov, seconds);
+    this.zoom = "board";
+    this.taken = false;
+    this.fresh = false;
+    this.wasEngaged = true;
+    this.last = shot;
+    this.landing = Math.ceil(seconds * 20);
+  }
+
+  /** The board view of the piece it watches, where it stands now, and the point it's aimed at. */
+  private boardViewNow(): { shot: CameraShot; point: Vec3 } | undefined {
+    const body = this.host.focus();
+    if (!body?.isValid) return undefined;
+    try {
+      const at = body.location;
+      return { shot: viewShot([at.x, at.y, at.z], this.yawFor(body), this.host.settings(), "board"), point: [at.x, at.y + 0.5, at.z] };
+    } catch {
+      return undefined;
+    }
+  }
+
   /** Which way the camera looks at `body` now: the fixed direction, or (turning) behind them as they face. */
   private yawFor(body: Entity): number {
     const settings = this.host.settings();
@@ -234,6 +290,10 @@ export class BoardCamera {
 
   /** Each tick: while it's the game's camera and nobody else's shot is up, the board view follows the focus. */
   private follow(): void {
+    if (this.landing > 0) {
+      this.landing--;
+      return;
+    }
     const engaged = this.host.engaged();
     if (!engaged) {
       if (this.wasEngaged) {

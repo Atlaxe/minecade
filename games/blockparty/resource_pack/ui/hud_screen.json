@@ -4,19 +4,21 @@
   // Block Party's HUD (the plan's "Turns and controls"). Only Block Party's servers load this pack.
   //
   // The hotbar is vanilla's, shown only while a player plays a minigame (the user's call; the game
-  // hides it everywhere else with setHudVisibility). The loading screen (the star field and
-  // Minecade's logo, faded in and out a level at a time, ui/blockparty_hud.json) rides on the action
-  // bar's codes in the core pack's full-screen action bar panel, like the gun scope
-  // (packages/minigame-core's hud_screen.json). The dialogue box (ui/jui_blockparty_dialogue.json,
-  // built by the workshop's JSON UI tool from its blockparty_dialogue component) rides there too,
-  // under the loading screen: it reads the sidebar, not the action bar, but this panel is always up
-  // while the game sends its line (never empty: with nothing to show it's only codes). The board's
-  // screens ride the sidebar the same way (built by the same tool from its blockparty_results,
-  // blockparty_cards, blockparty_menu and blockparty_panel components, docs/plans/block-party-ui.md):
-  // the results screen first (its darkened view under everything else), then the player cards, the
-  // round bottom right (blockparty_round), the board menu and the item panel, then the dialogue box
-  // over them, and the fork box (blockparty_fork: a fork's Left and Right, in the dialogue box's
-  // place; the two never show together, each needing its own word in the title).
+  // hides it everywhere else with setHudVisibility). The minigame announcement's star field (its
+  // layers sliding at their own speeds, faded in and out a level at a time, ui/blockparty_hud.json,
+  // scripts/stars.ts) rides on the action bar's codes in the core pack's full-screen action bar
+  // panel, like the gun scope (packages/minigame-core's hud_screen.json). The dialogue box
+  // (ui/jui_blockparty_dialogue.json, built by the workshop's JSON UI tool from its
+  // blockparty_dialogue component) rides there too: it reads the sidebar, not the action bar, but
+  // this panel is always up while the game sends its line (never empty: with nothing to show it's
+  // only codes). The board's screens ride the sidebar the same way (built by the same tool from its
+  // blockparty_results, blockparty_cards, blockparty_menu and blockparty_panel components,
+  // docs/plans/block-party-ui.md): the results screen first (its darkened view under everything
+  // else), then the player cards, the round bottom right (blockparty_round), the board menu and the
+  // item panel, then the star field over them (layer 170, over the results screen's 159), then the
+  // dialogue box and the fork box (blockparty_fork: a fork's Left and Right, in the dialogue box's
+  // place; the two never show together, each needing its own word in the title), lifted to layer
+  // 200 so the roulette shows on the stars.
   //
   // A player holding sneak toward a skip vote has '§k§e' on their action bar (SKIPPING_CODE in
   // bar-codes.ts): the dialogue box's skip strip says "Skipping 1/3" for them alone.
@@ -36,9 +38,9 @@
         { "jui_blockparty_round@jui_blockparty_round.layout": {} },
         { "jui_blockparty_menu@jui_blockparty_menu.layout": {} },
         { "jui_blockparty_panel@jui_blockparty_panel.layout": {} },
-        { "jui_blockparty_dialogue@jui_blockparty_dialogue.layout": {} },
-        { "jui_blockparty_fork@jui_blockparty_fork.layout": {} },
-        { "bp_loading@blockparty_hud.loading": {} }
+        { "bp_stars@blockparty_hud.stars": {} },
+        { "jui_blockparty_dialogue@jui_blockparty_dialogue.layout": { "layer": 200 } },
+        { "jui_blockparty_fork@jui_blockparty_fork.layout": { "layer": 200 } }
       ] }
     ]
   },

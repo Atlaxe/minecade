@@ -1,21 +1,28 @@
 // Plays one minigame (docs/plans/block-party.md, "Minigame formats": the roulette, rules then Ready,
 // and the arenas' "At play time"), from the board and back:
-//   1. The roulette: the format's minigames go by in the dialogue box, slowing down, and stop on the pick.
-//   2. Behind the loading screen: the minigame's arena is laid where arenas go, and everyone is put on
+//   1. The announcement (block-party-ui.md, "The minigame announcement"): the board's camera rises and
+//      pulls back, a second later the star field fades in over the view, its layers sliding as if
+//      the camera still rises (stars.ts), and the roulette plays on the stars: the format's minigames
+//      go by in the dialogue box, slowing down, and stop on the pick.
+//   2. Behind the stars: the minigame's arena is laid where arenas go, and everyone is put on
 //      its spawns, off their pieces: the players, then a moment later the bots, made again there
 //      (bots.ts, respawn). The arena is one of the minigame's published arena maps (minigames/
 //      arenas.ts), its structure placed fresh, turned a quarter when that's how it fits the board's
 //      arena slot, with the arena's own time of day; or, while the minigame has none, its test
 //      arena, laid in code (minigames/kit.ts). Anyone not playing (a duel's onlookers) watches from
 //      the arena's spectator spawn, or over it.
+//      Then the stars turn and slide up, as if coming down, and fade out as the camera eases down
+//      into the arena to its rules camera.
 //   3. The rules, through the arena map's Start view camera (or one over the arena), until everyone
 //      has jumped to say they're ready (bots after a moment); nobody moves till Go.
 //   4. 3, 2, 1, Go, and the minigame plays (its play()). A player who's out watches as a spectator
 //      from the spectator spawn; a bot floats there. Only while it plays do the players have
 //      vanilla's hotbar (isPlaying; spike.ts shows it, the user's call).
 //   5. The results (what the loop pays, settle()) over the arena: who won, in the dialogue box. Then
-//      behind the loading screen again everyone is back on their pieces (the bots a moment after the
-//      players), the arena is cleared and the board's time is back.
+//      the way in backwards: everyone's camera rises from where they are to high over the arena, the
+//      stars come, and behind them everyone is back on their pieces (the bots a moment after the
+//      players), the arena is cleared, the board's time is back and the board's camera waits high
+//      over the board view; the stars turn and fade as it comes down into the board view.
 // Nothing is a title (the user, 2026-11-18): the roulette, the rules, the countdown and the results
 // are notices in the dialogue box with no speaker (dialogue.ts, notify; NOTICE for how long).
 import { EasingType, GameMode, InputPermissionCategory, StructureRotation, world, type Dimension, type Entity, type Player, type Vector3 } from "@minecraft/server";
@@ -37,8 +44,14 @@ export interface RunnerHost {
   arenaPlace(): ArenaPlace;
   /** A minigame's published arena maps (the "arenas" server variable). */
   arenaMaps(id: string): readonly ArenaMap[];
-  /** A move behind the loading screen. */
-  behindBlack(work: () => void | Promise<void>): Promise<void>;
+  /** The star field fades in over everyone's view, sliding as if the camera rises; resolves once it's fully up. */
+  starsIn(): Promise<void>;
+  /**
+   * A move behind the star field: it fades in (unless it's up already), the work is done, then it
+   * turns (sliding as if the camera comes down), `reveal` runs (the camera's way down into the new
+   * place), and it fades out over it.
+   */
+  behindStars(work: () => void | Promise<void>, reveal?: () => void): Promise<void>;
   /** Off the board (a player gets their movement back), and back on it (on their space; a bot made again there). */
   leaveBoard(who: Who): void;
   backToBoard(who: Who): void;
@@ -54,10 +67,14 @@ export interface RunnerHost {
   /** The line top right for everyone, while a minigame is on (undefined: the board's again). */
   status(text: string | undefined): void;
   /**
-   * Into a minigame (block-party-ui.md, "The minigame announcement", its camera only for now): the
-   * board's camera rises and pulls back over `seconds`, still aimed at the same point.
+   * Into a minigame (block-party-ui.md, "The minigame announcement"): the board's camera rises and
+   * pulls back over `seconds`, still aimed at the same point.
    */
   zoomOut?(seconds: number): void;
+  /** Back on the board, behind the stars: the board's camera high over the board view, where zoomOut left it. */
+  boardAbove?(): void;
+  /** Then down into the board view over `seconds`, as the stars go. */
+  boardIn?(seconds: number): void;
 }
 
 /**
@@ -73,9 +90,11 @@ export interface Results {
 export type Settle = (outcome: Outcome) => Results;
 
 const ARENA_AREA = "minecade:blockparty_minigame";
-/** Seconds the camera takes to rise from the board as a minigame comes, and to ease down into its arena. */
+/** Seconds the camera takes to rise from the board (or the arena) as a minigame comes (or goes), and to ease down into the arena (or the board). */
 const ZOOM_OUT = 3;
 const EASE_IN = 2.5;
+/** Ticks the camera rises before the stars start to fade in over it (the user's spec: a second). */
+const STARS_AFTER = 20;
 /** How far over and behind the rules camera the ease down into the arena starts, in blocks. */
 const EASE_IN_RISE = 18;
 const EASE_IN_BACK = 14;
@@ -187,11 +206,14 @@ export class MinigameRunner {
     let watchSpot = watchSpotOf(field);
     let boardTime: number | undefined;
     let outcome: Outcome = { places: [] };
+    const watching = [...everyone, ...onlookers];
     try {
-      // The camera rises from the board while the roulette spins.
+      // The camera rises from the board, the stars come over it a second later, and the roulette plays on them.
       this.host.zoomOut?.(ZOOM_OUT);
+      await this.host.scope.wait(STARS_AFTER);
+      await this.host.starsIn();
       await this.roulette(def, pool, format, sides);
-      await this.host.behindBlack(async () => {
+      await this.host.behindStars(async () => {
         field = await this.layDown(def, laid);
         watchSpot = watchSpotOf(field);
         const { min, size } = field;
@@ -217,8 +239,8 @@ export class MinigameRunner {
           }),
         );
         for (const who of onlookers) if (who.player) this.put(who.player, watchSpot, watchSpot.yaw ?? yawToward(watchSpot, middle), GameMode.Spectator);
-        // Behind the black, high over the rules camera; it eases down once the black has gone.
-        this.rulesCamera([...everyone, ...onlookers], field, "above");
+        // Behind the stars, high over the rules camera; it eases down as they go.
+        this.rulesCamera(watching, field, "above");
         await this.host.scope.wait(BOTS_AFTER);
         sides.forEach((side, s) =>
           side.forEach((who, m) => {
@@ -227,8 +249,7 @@ export class MinigameRunner {
             this.host.respawnBot(who, spot, facing(spot));
           }),
         );
-      });
-      this.rulesCamera([...everyone, ...onlookers], field, "ease");
+      }, () => this.rulesCamera(watching, field, "ease"));
       // The rules stay in the box through the ready vote (the countdown takes their place).
       this.host.notice(line("minigame.rules", { minigame: def.name, format: formatLabel(format, sides), rules: def.rules }));
       await this.readyVote(everyone, current);
@@ -281,9 +302,13 @@ export class MinigameRunner {
       this.host.status(undefined);
       this.host.notice([results.title, results.subtitle ?? ""].filter((text) => text !== "").join("\n"), NOTICE.results);
       await this.host.scope.wait(RESULTS_TICKS);
-      await this.host.behindBlack(async () => {
+      // The way in backwards: the camera rises over the arena, the stars come over it, and the board's
+      // camera comes down into the board view as they go.
+      this.rulesCamera(watching, field, "rise");
+      await this.host.scope.wait(STARS_AFTER);
+      await this.host.behindStars(async () => {
         // The players first; the bots that played once the players' screens are back (onlookers never left).
-        for (const who of [...everyone, ...onlookers]) {
+        for (const who of watching) {
           if (!who.player) continue;
           if (who.player.isValid) {
             setMoving(who.player, true);
@@ -297,7 +322,8 @@ export class MinigameRunner {
         this.clearArena(field);
         if (boardTime !== undefined) world.setTimeOfDay(boardTime);
         boardTime = undefined;
-      });
+        this.host.boardAbove?.();
+      }, () => this.host.boardIn?.(EASE_IN));
     } finally {
       this.on = false;
       if (this.current === current) this.current = undefined;
@@ -413,10 +439,11 @@ export class MinigameRunner {
   /**
    * The rules camera: the arena map's Start view, else over the arena, behind its near side, looking
    * at its middle. "above": where the ease down into it starts, high over it and further back, at
-   * once (behind the black); "ease": down into it from there (block-party-ui.md, "The minigame
-   * announcement": the camera eases down into the arena to its rules camera).
+   * once (behind the stars); "ease": down into it from there (block-party-ui.md, "The minigame
+   * announcement": the camera eases down into the arena to its rules camera); "rise": up from each
+   * player's own view to "above", as the minigame ends (the way in backwards).
    */
-  private rulesCamera(who: readonly Who[], field: Field, step: "above" | "ease"): void {
+  private rulesCamera(who: readonly Who[], field: Field, step: "above" | "ease" | "rise"): void {
     const { min, size, camera } = field;
     const middle = { x: min.x + size[0] / 2, y: min.y + 1, z: min.z + size[2] / 2 };
     const location = camera ? { x: camera.x, y: camera.y, z: camera.z } : { x: middle.x, y: min.y + size[1] + 10, z: min.z - Math.max(8, size[2] * 0.4) };
@@ -427,6 +454,7 @@ export class MinigameRunner {
     for (const one of who) {
       try {
         if (step === "above") one.player?.camera.setCamera("minecraft:free", { location: above, facingLocation: middle });
+        else if (step === "rise") one.player?.camera.setCamera("minecraft:free", { location: above, facingLocation: middle, easeOptions: { easeTime: ZOOM_OUT, easeType: EasingType.InOutSine } });
         else if (camera) one.player?.camera.setCamera("minecraft:free", { location, rotation: { x: camera.pitch, y: camera.yaw }, easeOptions: { easeTime: EASE_IN, easeType: EasingType.InOutSine } });
         else one.player?.camera.setCamera("minecraft:free", { location, facingLocation: middle, easeOptions: { easeTime: EASE_IN, easeType: EasingType.InOutSine } });
       } catch {

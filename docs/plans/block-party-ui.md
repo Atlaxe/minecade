@@ -367,8 +367,47 @@ Replaces the roulette titles and the loading screen's plain fade. The user's spe
 - **Covered arenas:** a minigame can be set to cut straight to its arena (proposed, in its Game
   settings): the stars fade in and out, with no camera zoom out or in.
 - The HUD draws over a camera fade (`docs/spike-results.md`, "Block Party"), which is why the star
-  field is HUD, as the loading screen is now. It still covers the screen while the arena's chunks
+  field is HUD, as the loading screen was. It still covers the screen while the arena's chunks
   load (the 2 s hold).
+
+### The star field, as built (2026-11-18)
+
+The fade both ways, steps 1, 2, 6 and 7 (`stars.ts`, `minigame-runner.ts`, `spike.ts`); steps 3 to 5
+are still the roulette in the dialogue box, now played on the stars. It replaces the loading screen
+(the camera's fade to black, then the star field and Minecade's logo): no black and no logo.
+- **Into a minigame:** the camera rises and pulls back over 3 s; after 1 s the star field fades in
+  over the view (8 strengths, one every 2 ticks, 0.8 s), its layers sliding down the screen as if the
+  camera still rises; the roulette plays over it; everyone moves to the arena behind it; it holds 2 s
+  while the arena's chunks load; then the stars turn and slide up (0.6 s), and fade out as the camera
+  eases down into the arena to its rules camera (2.5 s).
+- **Back to the board** (the same backwards): after the results each player's camera rises from
+  where they are to high over the arena; after 1 s the stars fade in, sliding down; behind them
+  everyone is back on their pieces and the board's camera waits high over the board view (where the
+  zoom out leaves it); the stars turn, and fade out as it eases down into the board view (2.5 s,
+  `BoardCamera.comeIn`; the board view follows on from there). Before the board game's rounds (a
+  test), cameras go back to the players' own instead.
+- **The layers,** back to front: Minecade's own star field (`textures/minecade/sky/stars`, opaque, so
+  at full strength nothing shows through) at 20 GUI pixels a second, then two see-through layers of
+  their own (`textures/blockparty/stars/mid` and `near`, drawn by `tools/assets/blockparty-stars.ts`,
+  placeholders to paint over), the near one at twice its size: 40 and 80 a second.
+- **The movement:** the client builds the action bar's controls anew at every send, which starts
+  their animations over, so a plain looping slide would jump back at each send (each level step, and
+  the resend every second). So the line carries a phase (`§k§g` sliding down, `§k§h` up, then two hex
+  digits: 256 phases, 0.1 s apart, the whole field back where it started every 25.6 s), and
+  `ui/blockparty_hud.json` (`tools/assets/blockparty-hud-ui.ts`) has a copy of the layers for each
+  phase and way, built only when the line names it: each layer's offset animation starts where that
+  phase puts it and slides to the end of its tile, then loops a tile at a time. The game keeps the
+  phase by the clock (the client's animations run in real time, through a server stall too) and
+  holds a send up to 3 ticks for a moment within a quarter phase, so a send moves no layer more than
+  about 2 pixels. Turning is the other way's copy at the same phase, so it doesn't jump either. The
+  strength rides on as before (`§k§d` and a digit), its alpha passed down to the layers as
+  `$level_alpha`.
+- **Layers:** the star field is at layer 170 in the action bar's panel, over every board screen (the
+  results screen reaches 159); the dialogue box and the fork box are lifted to 200 in
+  `ui/hud_screen.json`, so the roulette shows on the stars.
+- Not yet seen in game. If the stars hop once a second rather than glide, the offset animations
+  aren't playing in the action bar's controls (or the tiles aren't the texture's size in GUI
+  pixels): what to check first.
 
 ## Gain and loss
 
@@ -452,8 +491,8 @@ Party. Built for every change of hands, which also covers the pops above (`token
   ("Checks first"). This also hides what players type to each other. The Tests' reports and error
   messages go to chat today: proposed, chat stays visible in test games behind a switch.
 - The old bar goes: the pack's own hotbar went 2026-11-17 (bar codes, its JSON UI and art); the
-  loading codes in `bar-codes.ts` and the loading screen in `tools/assets/blockparty-hud-ui.ts`
-  remain, and the bar items (`blockparty:bar_<icon>`, in hidden slots until the board menu) go with
+  star field's codes in `bar-codes.ts` and its JSON UI from `tools/assets/blockparty-hud-ui.ts`
+  remain (the loading screen became the star field, 2026-11-18), and the bar items (`blockparty:bar_<icon>`, in hidden slots until the board menu) go with
   the board menu. Nothing is in a player's hands on the board.
 
 ## Settings and Tests
@@ -525,8 +564,9 @@ stays as proposals.
   - The turn order rolls keep the podium's shot (before, each player had a low camera of their own).
   - Into a minigame: the camera rises and pulls back over 3 s while the roulette spins, still aimed
     at the same point; behind the black it's put high over the arena's rules camera, and it eases
-    down into it (2.5 s) as the black lifts. The star field, Minigame!, the format and the wheel are
-    still to come (the user: camera moves only for now).
+    down into it (2.5 s) as the black lifts. The star field came next (2026-11-18, "The star field,
+    as built": the black is gone), and the way back mirrors it; Minigame!, the format and the wheel
+    are still to come.
   - Pieces stand facing their next space, on landing and when placed.
 - **Facing:** a teleport with the facing; `setRotation` doesn't reach the player's screen (the
   spike).
@@ -689,7 +729,7 @@ needs, as data with no art in it, committed like `dialogue.json`:
 Known, from the HUD as it is, the core's `hud.ts` and the workshop json-ui calibration:
 - **The action bar, per player:** the core's HUD line (`hudLine`, starting with `HUD_MARK`) carries
   formatting codes that never render, which the pack's JSON UI tests with expressions like
-  `has(code)` (`tools/assets/rounds-hud.ts`); Block Party's bar and loading screen ride it today
+  `has(code)` (`tools/assets/rounds-hud.ts`); Block Party's star field rides it today
   (`bar-codes.ts`). Text can be cut out of a binding with string expressions (`'%.8s' * #text`, and
   `-` to remove a part), as the calibration's cases do.
 - **The sidebar, the same for everyone:** its title (`#objective_sidebar_name`) is readable (the

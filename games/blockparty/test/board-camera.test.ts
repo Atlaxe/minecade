@@ -177,6 +177,33 @@ describe("the board camera", () => {
     camera.zoomOut(3);
     expect(alex.camera.view?.location?.y).toBeGreaterThan(before + 5);
   });
+
+  it("comes back down into the board view after a minigame, and the follow leaves that ease be", async () => {
+    engaged = false;
+    await ticks(2);
+    // Behind the stars: high over the board view, where zoomOut leaves it.
+    camera.above();
+    const high = viewShot([10, 64, 20], 180, settings, "board");
+    const out = zoomOutShot(high, [10, 64.5, 20]);
+    expect(sam.camera.view?.location?.y).toBeCloseTo(out.location[1]);
+    expect(sam.camera.view?.location?.z).toBeCloseTo(out.location[2]);
+    // As the stars go: eased down into the board view.
+    camera.comeIn(2.5);
+    const view = sam.camera.view as { location?: { y: number; z: number }; easeOptions?: { easeTime: number } };
+    expect(view.location?.z).toBeCloseTo(20 + settings.distance);
+    expect(view.easeOptions?.easeTime).toBe(2.5);
+    expect(sam.camera.fovs.at(-1)).toBe(settings.fov);
+    // The minigame lets the camera go partway through: no second ease cuts in.
+    await ticks(10);
+    engaged = true;
+    await ticks(10);
+    expect(sam.camera.view).toBe(view);
+    // Once it's down, the board view follows again.
+    await ticks(40);
+    alex.location = { x: 14, y: 64, z: 20 };
+    await ticks(3);
+    expect(sam.camera.view?.location?.x).toBeCloseTo(14);
+  });
 });
 
 describe("the board's controls", () => {
