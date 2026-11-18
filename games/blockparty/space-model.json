@@ -1,0 +1,73 @@
+{
+  "about": "Written by tools/blockparty/space-pack.ts from the space marker model and spaces.json (don't edit it): what the game needs to know of the model, in pixels.",
+  "types": [
+    "start",
+    "blue",
+    "red",
+    "item",
+    "shop",
+    "chance",
+    "warden",
+    "versus",
+    "happening"
+  ],
+  "reach": [
+    24,
+    24
+  ],
+  "height": 8,
+  "pedestal": {
+    "reach": [
+      20,
+      20
+    ],
+    "top": 8
+  },
+  "floor": [
+    {
+      "dx": -1,
+      "dz": -1,
+      "cell": 0
+    },
+    {
+      "dx": 0,
+      "dz": -1,
+      "cell": 1
+    },
+    {
+      "dx": 1,
+      "dz": -1,
+      "cell": 2
+    },
+    {
+      "dx": -1,
+      "dz": 0,
+      "cell": 3
+    },
+    {
+      "dx": 0,
+      "dz": 0,
+      "cell": 4
+    },
+    {
+      "dx": 1,
+      "dz": 0,
+      "cell": 5
+    },
+    {
+      "dx": -1,
+      "dz": 1,
+      "cell": 6
+    },
+    {
+      "dx": 0,
+      "dz": 1,
+      "cell": 7
+    },
+    {
+      "dx": 1,
+      "dz": 1,
+      "cell": 8
+    }
+  ]
+}

@@ -1,14 +1,16 @@
 // The spike's board: a map's own spaces (the board kit's, placed with the Spaces tool), or on a map
-// without any, a test board of 12 spaces around a square, each a 3x3 pad of its type's block on a
-// 3-wide path. Either way each space's type is laid in its vanilla block at the start (the plan's
-// "Building spaces"). Pure, apart from build(), so the tests can check the layout and the paths.
+// without any, a test board of 12 spaces around a square on a 3-wide path. Either way each space is
+// a marker the game puts there at the start, its type's model standing on the floor (space-markers.ts;
+// the plan's "Space markers"), and a piece stands on the marker's pedestal, STAND over the floor.
+// Pure, apart from layPaths(), so the tests can check the layout and the paths.
 import { BlockVolume, type Dimension } from "@minecraft/server";
-import { BLOCK_PARTY_BOARD, type BoardSpace } from "@minecade/minigame-core/config";
+import type { BoardSpace } from "@minecade/minigame-core/config";
+import model from "../../space-model.json";
 
 export type Vec3 = [number, number, number];
 
-/** Each type's block (the board kit's BLOCK_PARTY_BOARD): Start white concrete, Blue blue concrete, and so on. */
-export const SPACE_BLOCKS: Readonly<Record<string, string>> = Object.fromEntries(BLOCK_PARTY_BOARD.types.map((type) => [type.id, type.block]));
+/** How high a piece stands over the floor on a space: the top of its marker's pedestal, in blocks (space-model.json, from the model). */
+export const STAND = model.pedestal.top / 16;
 
 /** The test board's 12 types, Start first, going around. */
 export const TEST_TYPES: readonly string[] = ["start", "blue", "blue", "item", "blue", "red", "chance", "blue", "warden", "shop", "versus", "happening"];
@@ -18,8 +20,10 @@ export const PATH_BLOCK = "minecraft:smooth_stone";
 export interface Space {
   index: number;
   type: string;
-  /** The middle of its pad, where a piece stands: x and z a block's middle, y the top of the pad. */
+  /** The middle of its marker, where a piece stands: x and z a block's middle, y the top of the pedestal (the floor and STAND). */
   at: Vec3;
+  /** The floor the marker stands on (the top of the block under it), when it isn't at's y less STAND. */
+  floor?: number;
   /** The spaces it leads to, by index (a piece takes the first for now). */
   next: number[];
   /** Its id on the map (a map's spaces only). */
@@ -35,7 +39,8 @@ export const TEST_OPENINGS: readonly number[] = [3, 9];
 
 /**
  * The spaces around a square of 4 a side, `spacing` blocks apart, `middle` the square's middle (y the
- * pads' top), clockwise from the north-west corner as seen from above (east is +x, south is +z).
+ * floor the markers stand on), clockwise from the north-west corner as seen from above (east is +x,
+ * south is +z).
  */
 export function testSpaces(middle: Vec3, spacing: number): Space[] {
   const [mx, y, mz] = middle;
@@ -49,7 +54,8 @@ export function testSpaces(middle: Vec3, spacing: number): Space[] {
   return ring.map(([dx, dz], index) => ({
     index,
     type: TEST_TYPES[index % TEST_TYPES.length],
-    at: [Math.floor(mx + dx) + 0.5, y, Math.floor(mz + dz) + 0.5],
+    at: [Math.floor(mx + dx) + 0.5, y + STAND, Math.floor(mz + dz) + 0.5],
+    floor: y,
     next: [(index + 1) % ring.length],
     ...(TEST_STARS.includes(index) ? { star: true } : {}),
     ...(TEST_OPENINGS.includes(index) ? { opening: true } : {}),
@@ -58,8 +64,8 @@ export function testSpaces(middle: Vec3, spacing: number): Space[] {
 
 /**
  * A map's spaces as the spike's: in the map's order, Start first, each at its position (whole x and z
- * are a block's middle, as map.json's positions are), its links as indices. A space without a type
- * is Blue.
+ * are a block's middle, as map.json's positions are; y the floor its marker stands on, a piece STAND
+ * over it), its links as indices. A space without a type is Blue.
  */
 export function mapSpaces(list: readonly BoardSpace[]): Space[] {
   const ordered = [...list].sort((a, b) => (a.type === "start" ? -1 : b.type === "start" ? 1 : 0));
@@ -69,7 +75,8 @@ export function mapSpaces(list: readonly BoardSpace[]): Space[] {
     index: i,
     id: space.id,
     type: space.type ?? "blue",
-    at: [middle(space.at[0]), space.at[1], middle(space.at[2])],
+    at: [middle(space.at[0]), space.at[1] + STAND, middle(space.at[2])],
+    floor: space.at[1],
     next: (space.next ?? []).flatMap((id) => (index.has(id) ? [index.get(id)!] : [])),
     ...(space.star ? { star: true } : {}),
     ...(space.opening ? { opening: true } : {}),
@@ -98,7 +105,7 @@ export function back(spaces: readonly Space[], from: number, steps: number): num
   return at;
 }
 
-/** Where a piece stands on a space: one corner of its pad each, so four can share it (`corner` 0 to 3; -1 the middle). */
+/** Where a piece stands on a space: one corner of its pedestal each, so four can share it (`corner` 0 to 3; -1 the middle). */
 export function standAt(space: Space, corner: number): Vec3 {
   if (corner < 0) return space.at;
   const [x, y, z] = space.at;
@@ -156,29 +163,27 @@ export function angleGap(from: number, to: number): number {
 export function boardBox(spaces: readonly Space[]): { min: Vec3; max: Vec3 } {
   const xs = spaces.map((space) => space.at[0]);
   const zs = spaces.map((space) => space.at[2]);
-  const y = spaces[0].at[1];
+  const y = floorOf(spaces[0]);
   return {
     min: [Math.floor(Math.min(...xs)) - 12, y - 8, Math.floor(Math.min(...zs)) - 12],
     max: [Math.floor(Math.max(...xs)) + 12, y + 30, Math.floor(Math.max(...zs)) + 12],
   };
 }
 
-/** Lays the board: a 3-wide path between neighbors, then each space's 3x3 pad, all at the pads' height. */
-export function build(dimension: Dimension, spaces: readonly Space[], paths = true): void {
+/** The floor a space's marker stands on (the top of the block under it). */
+export function floorOf(space: Pick<Space, "at" | "floor">): number {
+  return space.floor ?? space.at[1] - STAND;
+}
+
+/** Lays the test board's paths: 3 wide between neighbors, the floor's top level with the markers' floor. */
+export function layPaths(dimension: Dimension, spaces: readonly Space[]): void {
   const cell = (space: Space) => [Math.floor(space.at[0]), Math.floor(space.at[2])];
-  if (paths) {
-    const y = spaces[0].at[1] - 1;
-    spaces.forEach((space) => {
-      const [ax, az] = cell(space);
-      for (const next of space.next) {
-        const [bx, bz] = cell(spaces[next]);
-        dimension.fillBlocks(new BlockVolume({ x: Math.min(ax, bx) - 1, y, z: Math.min(az, bz) - 1 }, { x: Math.max(ax, bx) + 1, y, z: Math.max(az, bz) + 1 }), PATH_BLOCK);
-      }
-    });
-  }
-  for (const space of spaces) {
-    const [x, z] = cell(space);
-    const y = Math.floor(space.at[1]) - 1;
-    dimension.fillBlocks(new BlockVolume({ x: x - 1, y, z: z - 1 }, { x: x + 1, y, z: z + 1 }), SPACE_BLOCKS[space.type] ?? SPACE_BLOCKS.blue);
-  }
+  const y = floorOf(spaces[0]) - 1;
+  spaces.forEach((space) => {
+    const [ax, az] = cell(space);
+    for (const next of space.next) {
+      const [bx, bz] = cell(spaces[next]);
+      dimension.fillBlocks(new BlockVolume({ x: Math.min(ax, bx) - 1, y, z: Math.min(az, bz) - 1 }, { x: Math.max(ax, bx) + 1, y, z: Math.max(az, bz) + 1 }), PATH_BLOCK);
+    }
+  });
 }

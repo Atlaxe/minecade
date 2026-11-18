@@ -3,7 +3,7 @@
 // A board map marks its podium and its intro (the Game marker tool: the lineup, Chris's spot, the
 // podium camera, the intro's shots); a map without them gets the stand-ins here, laid out from its
 // spaces, so every board plays.
-import type { Space, Vec3 } from "./board.ts";
+import { floorOf, type Space, type Vec3 } from "./board.ts";
 
 /** How far over a marker's feet the eyes are: a camera marker is placed standing where the camera goes. */
 export const EYE = 1.62;
@@ -65,12 +65,14 @@ export function pathWay(space: Space, spaces: readonly Space[]): [number, number
 
 /**
  * Spots beside a space for an NPC to stand (Chris at the Star), best first: across the path to
- * either side, `away` blocks from the pad's middle, then ahead and behind. The game takes the first
+ * either side, `away` blocks from the marker's middle, then ahead and behind. The game takes the first
  * with ground under it and room to stand.
  */
 export function besideSpace(space: Space, spaces: readonly Space[], away = 2.5): Vec3[] {
   const [dx, dz] = pathWay(space, spaces);
-  const [x, y, z] = space.at;
+  // On the floor beside the marker, not up on its pedestal.
+  const [x, , z] = space.at;
+  const y = floorOf(space);
   return [
     [x - dz * away, y, z + dx * away],
     [x + dz * away, y, z - dx * away],

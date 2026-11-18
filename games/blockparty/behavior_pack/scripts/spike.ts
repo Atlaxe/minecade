@@ -53,7 +53,7 @@ import registry from "#registry";
 import skins from "#skins";
 import { HOTBAR_SIZE, KEEP_UP, LOADING_LEVELS, STANDINGS_CODE, loadingCode } from "./bar-codes.ts";
 import type config from "../../game.config.ts";
-import { boardBox, build, mapSpaces, standAt, testSpaces, type Space, type Vec3 } from "./board.ts";
+import { boardBox, floorOf, layPaths, mapSpaces, standAt, testSpaces, type Space, type Vec3 } from "./board.ts";
 import { BoardLoop } from "./board-loop.ts";
 import { BoardCamera, autoDirection, cameraSettings, type BoardCameraSettings } from "./board-camera.ts";
 import { BoardMenu } from "./board-ui.ts";
@@ -72,6 +72,7 @@ import { Dialogue, type SaidLine } from "./dialogue.ts";
 import { CLIPS, playerClips, roleOf, type LineAction } from "./animations.ts";
 import { Moves, PLAYER_ANIMATION } from "./moves.ts";
 import { TurnFade } from "./fade.ts";
+import { SpaceMarkers } from "./space-markers.ts";
 import { Stage, type StageMarkup } from "./stage.ts";
 import type { Marker } from "./stage-layout.ts";
 import { STAGE_POINTS, chrisKey } from "./stage-markup.ts";
@@ -260,6 +261,8 @@ export class BlockPartySpike extends Minigame<Config> {
   private readonly podium = new Set<string>();
   /** On a turn, everyone else fades away (fade.ts). */
   private fade!: TurnFade;
+  /** The spaces' markers (space-markers.ts): laid with the board, lit where a piece stands or the stage's shot is. */
+  private markers!: SpaceMarkers;
   /** The zombies that follow seats (zombies.ts: the Zombie Spawn, the Warden's curse, Chance's outbreak). */
   private zombies!: Zombies;
   /** The board loop has ended (the core's own "wins" title is left out: the loop's end notice says it). */
@@ -322,7 +325,7 @@ export class BlockPartySpike extends Minigame<Config> {
     if (this.ownBoard) {
       const xs = this.spaces.map((space) => space.at[0]);
       const zs = this.spaces.map((space) => space.at[2]);
-      this.boardMiddle = [(Math.min(...xs) + Math.max(...xs)) / 2, this.spaces[0].at[1], (Math.min(...zs) + Math.max(...zs)) / 2];
+      this.boardMiddle = [(Math.min(...xs) + Math.max(...xs)) / 2, floorOf(this.spaces[0]), (Math.min(...zs) + Math.max(...zs)) / 2];
     } else this.boardMiddle = this.config.board.at;
     const box = boardBox(this.spaces);
     const arenaBox = { min: [ARENA_AT[0] - 100, -64, ARENA_AT[2] - 100] as Vec3, max: [ARENA_AT[0] + 100, 319, ARENA_AT[2] + 100] as Vec3 };
@@ -367,6 +370,13 @@ export class BlockPartySpike extends Minigame<Config> {
     });
     this.gameSidebar = new GameSidebar(this.scope);
     this.fade = new TurnFade(this.scope, () => system.currentTick);
+    this.markers = new SpaceMarkers({
+      scope: this.scope,
+      dimension,
+      spaces: () => this.spaces,
+      // A seat faded out on someone else's turn lights nothing.
+      pieces: () => [...world.getAllPlayers().map(whoOf), ...this.bots.all()].map((who) => who.body).filter((body) => !this.fade.isFaded(body)),
+    });
     this.zombies = new Zombies({
       scope: this.scope,
       dimension,
@@ -414,6 +424,7 @@ export class BlockPartySpike extends Minigame<Config> {
       toStart: (who) => (who.player ? this.backOnBoard(who) : this.scope.timeout(() => this.backOnBoard(who), BOTS_AFTER)),
       cameraTaken: () => this.boardCamera?.take(),
       cameraBack: () => this.boardCamera?.giveBack() ?? false,
+      select: (space) => this.markers.select(space),
     });
     const length = Number(this.ctx.vars.settings.length);
     this.loop = new BoardLoop({
@@ -854,13 +865,14 @@ export class BlockPartySpike extends Minigame<Config> {
     const dimension = world.getDimension("overworld");
     try {
       await world.tickingAreaManager.createTickingArea(BOARD_AREA, { dimension, from: { x: box.min[0], y: box.min[1], z: box.min[2] }, to: { x: box.max[0], y: box.max[1], z: box.max[2] } });
-      // A map's own board keeps its paths; only the spaces' blocks are laid.
-      build(dimension, this.spaces, !this.ownBoard);
+      // A map's own board keeps its paths; the test board gets its own, and a plaza in the middle for the NPCs.
       if (!this.ownBoard) {
-        // A plaza in the middle for the NPCs.
+        layPaths(dimension, this.spaces);
         const [mx, my, mz] = this.middle;
         dimension.fillBlocks(new BlockVolume({ x: Math.floor(mx) - 6, y: my - 1, z: Math.floor(mz) - 6 }, { x: Math.floor(mx) + 6, y: my - 1, z: Math.floor(mz) + 6 }), "minecraft:smooth_stone");
       }
+      // Every space's marker, standing on the floor (space-markers.ts).
+      this.markers.lay();
     } catch (error) {
       log.warn(`blockparty: laying the test board failed: ${describeError(error)}`);
       this.everyone(`Laying the test board failed: ${describeError(error)}`);
@@ -1264,6 +1276,7 @@ export class BlockPartySpike extends Minigame<Config> {
       ["Next space outcomes", () => this.outcomeForm(player)],
       ["Bring the Wandering Trader", () => this.traderTest(player)],
       ["Coin and Star models", () => this.iconModels(player)],
+      [this.markers.allLit ? "Space highlights back to normal" : "Light every space", () => this.markers.lightAll(!this.markers.allLit)],
       ["Player animations", () => this.playerAnimationsForm(player)],
       [this.npcs.spawned ? "Take the NPCs away" : "Put the NPCs out", () => this.toggleNpcs()],
       ["Arenas from other maps", () => this.arenaMenu(player)],

@@ -2,7 +2,7 @@
 // so the tests can check them: which way the movement keys step, stepping through a list that skips
 // what's disabled and wraps round, and Board's view of the whole board (the user: a wide, still view
 // of the entire board, nothing to move).
-import type { Space, Vec3 } from "./board.ts";
+import { floorOf, type Space, type Vec3 } from "./board.ts";
 import type { Shot } from "./stage-layout.ts";
 
 /**
@@ -64,7 +64,7 @@ const PAD = 1.5;
  * Board's view: the whole board from high up, looking down at its middle, from the side that puts the
  * board's longer way across the screen, far enough back that every space fits the narrowest screen.
  */
-export function boardOverview(spaces: readonly Pick<Space, "at">[]): Shot | undefined {
+export function boardOverview(spaces: readonly Pick<Space, "at" | "floor">[]): Shot | undefined {
   if (spaces.length === 0) return undefined;
   const xs = spaces.map((space) => space.at[0]);
   const zs = spaces.map((space) => space.at[2]);
@@ -72,7 +72,7 @@ export function boardOverview(spaces: readonly Pick<Space, "at">[]): Shot | unde
   const maxX = Math.max(...xs) + PAD;
   const minZ = Math.min(...zs) - PAD;
   const maxZ = Math.max(...zs) + PAD;
-  const y = Math.max(...spaces.map((space) => space.at[1]));
+  const y = Math.max(...spaces.map((space) => floorOf(space)));
   const middle: Vec3 = [(minX + maxX) / 2, y, (minZ + maxZ) / 2];
   // Across the screen and away from it: the longer way across.
   const alongX = maxX - minX >= maxZ - minZ;

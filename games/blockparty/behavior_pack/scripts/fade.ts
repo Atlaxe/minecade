@@ -100,6 +100,15 @@ export class TurnFade {
     for (const [id, state] of this.states) if (!state.entity.isValid) this.states.delete(id);
   }
 
+  /** Whether `body` is faded out now (someone else's turn): the space markers don't light for it. */
+  isFaded(body: Entity): boolean {
+    try {
+      return this.states.get(body.id)?.faded === true;
+    } catch {
+      return false;
+    }
+  }
+
   /** Everyone this faded back, at once (the game is over). */
   clear(): void {
     for (const state of this.states.values()) if (state.faded) this.show(state.entity, false);

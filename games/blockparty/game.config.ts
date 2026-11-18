@@ -34,7 +34,7 @@ export default defineGame({
   combat: { damage: "none", fall: false, outOfBounds: "ignore" },
   respawn: { mode: "none" },
   win: "custom",
-  // Boards: spaces (the board kit, BLOCK_PARTY_BOARD: types, shares, blocks, placement rules) and
+  // Boards: spaces (the board kit, BLOCK_PARTY_BOARD: types, shares, placement rules; each space's marker is spaces.json's) and
   // the arena background's slot, a 40 x 60 box arenas load into (docs/plans/block-party.md, "Arena
   // backgrounds"). The spike still plays Probe's maps (a small platform in the void) and its own
   // test board, so a map can turn spaces and the slot off (Checklist Features), as the build's

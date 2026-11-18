@@ -1,0 +1,193 @@
+{
+  "format_version": "1.26.0",
+  "minecraft:block": {
+    "description": {
+      "identifier": "blockparty:space_floor",
+      "menu_category": {
+        "category": "none"
+      },
+      "states": {
+        "blockparty:cell": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8
+        ]
+      }
+    },
+    "components": {
+      "minecraft:geometry": "minecraft:geometry.full_block",
+      "minecraft:material_instances": {
+        "*": {
+          "texture": "blockparty_space_floor",
+          "render_method": "alpha_test"
+        }
+      },
+      "minecraft:collision_box": false,
+      "minecraft:selection_box": false,
+      "minecraft:light_dampening": 0,
+      "minecraft:destructible_by_mining": false,
+      "minecraft:destructible_by_explosion": false
+    },
+    "permutations": [
+      {
+        "condition": "q.block_state('blockparty:cell') == 0",
+        "components": {
+          "minecraft:collision_box": {
+            "origin": [
+              -8,
+              0,
+              -4
+            ],
+            "size": [
+              12,
+              8,
+              12
+            ]
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('blockparty:cell') == 1",
+        "components": {
+          "minecraft:collision_box": {
+            "origin": [
+              -8,
+              0,
+              -4
+            ],
+            "size": [
+              16,
+              8,
+              12
+            ]
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('blockparty:cell') == 2",
+        "components": {
+          "minecraft:collision_box": {
+            "origin": [
+              -4,
+              0,
+              -4
+            ],
+            "size": [
+              12,
+              8,
+              12
+            ]
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('blockparty:cell') == 3",
+        "components": {
+          "minecraft:collision_box": {
+            "origin": [
+              -8,
+              0,
+              -8
+            ],
+            "size": [
+              12,
+              8,
+              16
+            ]
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('blockparty:cell') == 4",
+        "components": {
+          "minecraft:collision_box": {
+            "origin": [
+              -8,
+              0,
+              -8
+            ],
+            "size": [
+              16,
+              8,
+              16
+            ]
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('blockparty:cell') == 5",
+        "components": {
+          "minecraft:collision_box": {
+            "origin": [
+              -4,
+              0,
+              -8
+            ],
+            "size": [
+              12,
+              8,
+              16
+            ]
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('blockparty:cell') == 6",
+        "components": {
+          "minecraft:collision_box": {
+            "origin": [
+              -8,
+              0,
+              -8
+            ],
+            "size": [
+              12,
+              8,
+              12
+            ]
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('blockparty:cell') == 7",
+        "components": {
+          "minecraft:collision_box": {
+            "origin": [
+              -8,
+              0,
+              -8
+            ],
+            "size": [
+              16,
+              8,
+              12
+            ]
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('blockparty:cell') == 8",
+        "components": {
+          "minecraft:collision_box": {
+            "origin": [
+              -4,
+              0,
+              -8
+            ],
+            "size": [
+              12,
+              8,
+              12
+            ]
+          }
+        }
+      }
+    ]
+  }
+}

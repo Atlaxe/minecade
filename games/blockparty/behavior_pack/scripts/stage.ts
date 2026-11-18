@@ -46,6 +46,8 @@ export interface StageDeps {
   cameraTaken?(): void;
   /** The stage is done with the camera: true when the board's own takes it back (else everyone gets their own view). */
   cameraBack?(): boolean;
+  /** The space a shot is on lights up (space-markers.ts); undefined when the shot is on something else. */
+  select?(space: Space | undefined): void;
 }
 
 /** How a shot comes in. */
@@ -105,7 +107,10 @@ export class Stage {
 
   /** Everyone's camera to `shot`: eased there (Pan), at once (Cut), or left as it is (Stay). Nothing while a cutscene is skipped. */
   shot(shot: Shot, move: Move = "Cut", ease = PAN): void {
-    if (move === "Stay" || this.deps.dialogue.skipping) return;
+    if (move === "Stay") return;
+    // A new shot: no space is in it unless the caller says so (spaceShotOf).
+    this.deps.select?.(undefined);
+    if (this.deps.dialogue.skipping) return;
     this.deps.cameraTaken?.();
     const location = vec(shot.location);
     const easeOptions = move === "Pan" ? { easeOptions: { easeTime: ease, easeType: EasingType.InOutSine } } : {};
@@ -121,6 +126,7 @@ export class Stage {
 
   /** The board's own camera again (board-camera.ts) while the board game is on, else everyone's own view. */
   clear(): void {
+    this.deps.select?.(undefined);
     if (this.deps.cameraBack?.()) return;
     for (const player of world.getAllPlayers()) {
       try {
@@ -300,7 +306,7 @@ export class Stage {
 
   /** The Star reveal for one Star: the camera pans to its space, and its Chris drops in beside it. */
   async starReveal(space: Space): Promise<void> {
-    this.shot(spaceShot(space, this.deps.spaces()), this.moveFor("pregame.star", "Pan"));
+    this.spaceShotOf(space, this.moveFor("pregame.star", "Pan"));
     await this.deps.dialogue.wait(Math.round(PAN * 20));
     await this.starChris(space, true);
   }
@@ -337,7 +343,7 @@ export class Stage {
   /** The Star flies on: its Chris leaves `from`, the camera pans to `to`, and a Chris drops in there. */
   async starMoved(from: Space, to: Space): Promise<void> {
     this.remove(starKey(from));
-    this.shot(spaceShot(to, this.deps.spaces()), this.moveFor("star.chris.moves", "Pan"));
+    this.spaceShotOf(to, this.moveFor("star.chris.moves", "Pan"));
     await this.deps.scope.wait(Math.round(PAN * 20));
     await this.starChris(to, true);
   }
@@ -393,8 +399,14 @@ export class Stage {
   /** The camera to a space (a pan by default, or the moment `lineId`'s camera), given time to get there. */
   async toSpace(space: Space, lineId: string, fallback: Move = "Pan"): Promise<void> {
     const move = this.moveFor(lineId, fallback);
-    this.shot(spaceShot(space, this.deps.spaces()), move);
+    this.spaceShotOf(space, move);
     if (move === "Pan") await this.deps.dialogue.wait(Math.round(PAN * 20));
+  }
+
+  /** The shot of a space (spaceShot), the space lit up while the shot stays on it (a Stay keeps the shot there is). */
+  private spaceShotOf(space: Space, move: Move): void {
+    this.shot(spaceShot(space, this.deps.spaces()), move);
+    if (move !== "Stay") this.deps.select?.(space);
   }
 
   /** Two seats in one shot (an Ender Pearl's swap, Coin Swap): a cut by default. */

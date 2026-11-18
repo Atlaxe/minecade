@@ -7,9 +7,9 @@ import { EYE, besideSpace, faceShot, introAround, markerShot, pathWay, podiumFro
 import { STAGE_ADJUSTABLE, STAGE_MARKUP, chrisKey } from "../behavior_pack/scripts/stage-markup.ts";
 import config from "../game.config.ts";
 
-/** A straight run of spaces east (+x), 5 apart, Start first, looping back. */
+/** A straight run of spaces east (+x), 5 apart, Start first, looping back: pieces at 64, on markers whose floor is 63.5. */
 function line(count = 4): Space[] {
-  return Array.from({ length: count }, (_, index) => ({ index, type: index === 0 ? "start" : "blue", at: [index * 5, 64, 0] as Vec3, next: [(index + 1) % count] }));
+  return Array.from({ length: count }, (_, index) => ({ index, type: index === 0 ? "start" : "blue", at: [index * 5, 64, 0] as Vec3, floor: 63.5, next: [(index + 1) % count] }));
 }
 
 const flatDistance = (a: Vec3, b: Vec3) => Math.hypot(a[0] - b[0], a[2] - b[2]);
@@ -20,13 +20,13 @@ describe("Block Party's stage", () => {
     expect(pathWay(spaces[1], spaces)).toEqual([1, 0]);
   });
 
-  it("puts an NPC beside a space across the path first, then ahead and behind", () => {
+  it("puts an NPC beside a space across the path first, then ahead and behind, on the floor", () => {
     const spaces = line();
     const spots = besideSpace(spaces[1], spaces);
-    expect(spots[0]).toEqual([5, 64, 2.5]);
-    expect(spots[1]).toEqual([5, 64, -2.5]);
-    expect(spots[2]).toEqual([7.5, 64, 0]);
-    expect(spots[3]).toEqual([2.5, 64, 0]);
+    expect(spots[0]).toEqual([5, 63.5, 2.5]);
+    expect(spots[1]).toEqual([5, 63.5, -2.5]);
+    expect(spots[2]).toEqual([7.5, 63.5, 0]);
+    expect(spots[3]).toEqual([2.5, 63.5, 0]);
   });
 
   it("frames two people from the side of the line between them, looking at their middle", () => {

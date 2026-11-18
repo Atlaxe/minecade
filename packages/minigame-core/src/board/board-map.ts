@@ -30,9 +30,7 @@ export interface BoardSpaceType {
   name: string;
   /** Its share of the board's spaces, Start left out (0 for Start). */
   share: number;
-  /** The vanilla block the game lays on the space's spot at the start. */
-  block: string;
-  /** Its color in the map editors (0xRRGGBB): the block's, about. */
+  /** Its color in the map editors (0xRRGGBB). */
   color: number;
 }
 
@@ -57,6 +55,8 @@ export interface BoardRules {
   stars?: { every: readonly [number, number]; openings: number; openingFrom: readonly [number, number]; apart: number; others: readonly [number, number] };
   /** What a shortcut saves of the loop's length, about: more or less than `slack` off is a warning. */
   shortcut?: { saves: number; slack: number };
+  /** How many blocks across each space's marker is (Block Party's 3): two spaces closer than that both ways, on one level, overlap. */
+  footprint?: number;
 }
 
 /** A game's board (its config's map.board): what its maps' spaces can be, and how many it needs. */
@@ -77,20 +77,20 @@ export const ARENA_SLOT_FOOTPRINT: [number, number] = [40, 60];
 /** The most spaces one space can lead to (a branch of three). */
 export const MAX_EXITS = 3;
 
-/** Block Party's board: its space types with the plan's shares ("Space types"), and the blocks they're laid in. */
+/** Block Party's board: its space types with the plan's shares ("Space types"). How a space looks in game is games/blockparty/spaces.json's (its marker). */
 export const BLOCK_PARTY_BOARD: BoardConfig = {
   label: "Spaces",
   minSpaces: 12,
   types: [
-    { id: "start", name: "Start", share: 0, block: "minecraft:white_concrete", color: 0xf0f0f0 },
-    { id: "blue", name: "Blue", share: 0.45, block: "minecraft:blue_concrete", color: 0x3c5adc },
-    { id: "red", name: "Red", share: 0.12, block: "minecraft:red_concrete", color: 0xd23c32 },
-    { id: "item", name: "Item", share: 0.075, block: "minecraft:gold_block", color: 0xf5c832 },
-    { id: "shop", name: "Shop", share: 0.055, block: "minecraft:emerald_block", color: 0x32c864 },
-    { id: "chance", name: "Chance Time", share: 0.1, block: "minecraft:purple_concrete", color: 0x9632c8 },
-    { id: "warden", name: "Warden", share: 0.09, block: "minecraft:sculk", color: 0x0f5a64 },
-    { id: "versus", name: "Versus", share: 0.07, block: "minecraft:orange_concrete", color: 0xf08c1e },
-    { id: "happening", name: "Happening", share: 0.04, block: "minecraft:pink_concrete", color: 0xf08cb4 },
+    { id: "start", name: "Start", share: 0, color: 0xf0f0f0 },
+    { id: "blue", name: "Blue", share: 0.45, color: 0x3c5adc },
+    { id: "red", name: "Red", share: 0.12, color: 0xd23c32 },
+    { id: "item", name: "Item", share: 0.075, color: 0xf5c832 },
+    { id: "shop", name: "Shop", share: 0.055, color: 0x32c864 },
+    { id: "chance", name: "Chance Time", share: 0.1, color: 0x9632c8 },
+    { id: "warden", name: "Warden", share: 0.09, color: 0x0f5a64 },
+    { id: "versus", name: "Versus", share: 0.07, color: 0xf08c1e },
+    { id: "happening", name: "Happening", share: 0.04, color: 0xf08cb4 },
   ],
   // The plan's "Placement rules", "Stars" and "Boards".
   rules: {
@@ -102,6 +102,8 @@ export const BLOCK_PARTY_BOARD: BoardConfig = {
     size: [36, 45],
     stars: { every: [4, 6], openings: 2, openingFrom: [10, 20], apart: 3, others: [10, 25] },
     shortcut: { saves: 0.1, slack: 0.05 },
+    // The space markers' footprint (docs/plans/block-party.md, "Space markers").
+    footprint: 3,
   },
 };
 

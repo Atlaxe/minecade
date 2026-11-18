@@ -158,6 +158,16 @@ export function checkBoard(spaces: readonly BoardSpace[], board: BoardConfig): B
     const pairs = spaces.filter((space) => space.type === type && graph.next(space.id).some((next) => graph.byId.get(next)?.type === type));
     for (const space of pairs) warnings.push({ text: `Two ${name(type)} spaces in a row (space ${space.id}).`, spaces: [space.id, ...graph.next(space.id).filter((next) => graph.byId.get(next)?.type === type)] });
   }
+  if (rules.footprint) {
+    // Markers that would overlap: closer than a footprint along both x and z, on about one level.
+    const across = rules.footprint;
+    for (const [i, space] of spaces.entries()) {
+      for (const other of spaces.slice(i + 1)) {
+        const near = Math.abs(space.at[0] - other.at[0]) < across && Math.abs(space.at[2] - other.at[2]) < across && Math.abs(space.at[1] - other.at[1]) < 2;
+        if (near) warnings.push({ text: `Spaces ${space.id} and ${other.id} are closer than ${plural(across, "block")}, so their markers (${across} blocks across) overlap; move them apart.`, spaces: [space.id, other.id] });
+      }
+    }
+  }
   for (const [type, apart] of Object.entries(rules.apart ?? {})) {
     if (type === "chance") continue; // the dealer spreads them; the plan names Wardens and Versus only
     const ofType = spaces.filter((space) => space.type === type);
