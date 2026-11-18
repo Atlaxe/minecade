@@ -6,7 +6,7 @@
 //     through what they hold (wrapping round; W and S do nothing there, the user's call), jump rolls
 //     the die (the one shown floats over their head) or uses the item, sneak goes back to the menu.
 //   - Board shows the whole board from above for everyone (the user: a wide, still view, nothing to
-//     move); sneak goes back.
+//     move); it's a toggle, so a jump goes back to the menu (the user, 2026-11-18), and so does sneak.
 // Only the player whose turn it is steers it, and not while the dialogue box is theirs to steer. A
 // bot's turn shows the same: the menu, then the dice, a moment each, then the roll.
 // What shows goes on the game's sidebar (sidebar-rows.ts) as screen-codes.ts's rows; each step,
@@ -168,7 +168,11 @@ export class BoardMenu {
       this.host.use(turn.who, item);
       return true;
     }
-    // Board: nothing to pick.
+    // Board is a toggle: a jump goes back to the menu.
+    this.host.boardView(false);
+    turn.view = "menu";
+    playCue(eventCue(MENU_EVENTS.back));
+    this.draw();
     return true;
   }
 

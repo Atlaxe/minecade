@@ -153,8 +153,6 @@
                           "target_property_name": "#visible"
                         }
                       ],
-                      "alpha": 0.85,
-                      "propagate_alpha": true,
                       "layer": 2
                     }
                   },
@@ -275,8 +273,6 @@
                           "target_property_name": "#visible"
                         }
                       ],
-                      "alpha": 0.85,
-                      "propagate_alpha": true,
                       "layer": 2
                     }
                   },
@@ -397,8 +393,6 @@
                           "target_property_name": "#visible"
                         }
                       ],
-                      "alpha": 0.85,
-                      "propagate_alpha": true,
                       "layer": 2
                     }
                   },

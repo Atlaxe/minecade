@@ -190,7 +190,7 @@
                                     },
                                     {
                                       "binding_type": "view",
-                                      "source_property_name": "(((('%.20s' * #player_name_sidebar) - ' ') - (('%.18s' * #player_name_sidebar) - ' ')))",
+                                      "source_property_name": "((('§r' + (('%.20s' * #player_name_sidebar) - ' ')) - (('%.18s' * #player_name_sidebar) - ' ')))",
                                       "target_property_name": "#jui_text"
                                     }
                                   ],
@@ -317,7 +317,7 @@
                         },
                         {
                           "binding_type": "view",
-                          "source_property_name": "((#player_name_sidebar - ('%.32s' * #player_name_sidebar)))",
+                          "source_property_name": "((('§r' + #player_name_sidebar) - ('%.32s' * #player_name_sidebar)))",
                           "target_property_name": "#jui_text"
                         }
                       ],
@@ -537,7 +537,7 @@
                                                 },
                                                 {
                                                   "binding_type": "view",
-                                                  "source_property_name": "(((('%.22s' * #player_name_sidebar) - ' ') - (('%.20s' * #player_name_sidebar) - ' ')))",
+                                                  "source_property_name": "((('§r' + (('%.22s' * #player_name_sidebar) - ' ')) - (('%.20s' * #player_name_sidebar) - ' ')))",
                                                   "target_property_name": "#jui_text"
                                                 }
                                               ],
@@ -713,7 +713,7 @@
                                                 },
                                                 {
                                                   "binding_type": "view",
-                                                  "source_property_name": "(((('%.24s' * #player_name_sidebar) - ' ') - (('%.22s' * #player_name_sidebar) - ' ')))",
+                                                  "source_property_name": "((('§r' + (('%.24s' * #player_name_sidebar) - ' ')) - (('%.22s' * #player_name_sidebar) - ' ')))",
                                                   "target_property_name": "#jui_text"
                                                 }
                                               ],
@@ -889,7 +889,7 @@
                                                 },
                                                 {
                                                   "binding_type": "view",
-                                                  "source_property_name": "(((('%.26s' * #player_name_sidebar) - ' ') - (('%.24s' * #player_name_sidebar) - ' ')))",
+                                                  "source_property_name": "((('§r' + (('%.26s' * #player_name_sidebar) - ' ')) - (('%.24s' * #player_name_sidebar) - ' ')))",
                                                   "target_property_name": "#jui_text"
                                                 }
                                               ],
@@ -1065,7 +1065,7 @@
                                                 },
                                                 {
                                                   "binding_type": "view",
-                                                  "source_property_name": "(((('%.28s' * #player_name_sidebar) - ' ') - (('%.26s' * #player_name_sidebar) - ' ')))",
+                                                  "source_property_name": "((('§r' + (('%.28s' * #player_name_sidebar) - ' ')) - (('%.26s' * #player_name_sidebar) - ' ')))",
                                                   "target_property_name": "#jui_text"
                                                 }
                                               ],
@@ -1241,7 +1241,7 @@
                                                 },
                                                 {
                                                   "binding_type": "view",
-                                                  "source_property_name": "(((('%.30s' * #player_name_sidebar) - ' ') - (('%.28s' * #player_name_sidebar) - ' ')))",
+                                                  "source_property_name": "((('§r' + (('%.30s' * #player_name_sidebar) - ' ')) - (('%.28s' * #player_name_sidebar) - ' ')))",
                                                   "target_property_name": "#jui_text"
                                                 }
                                               ],
@@ -1417,7 +1417,7 @@
                                                 },
                                                 {
                                                   "binding_type": "view",
-                                                  "source_property_name": "(((('%.32s' * #player_name_sidebar) - ' ') - (('%.30s' * #player_name_sidebar) - ' ')))",
+                                                  "source_property_name": "((('§r' + (('%.32s' * #player_name_sidebar) - ' ')) - (('%.30s' * #player_name_sidebar) - ' ')))",
                                                   "target_property_name": "#jui_text"
                                                 }
                                               ],
@@ -1527,7 +1527,7 @@
             },
             {
               "binding_type": "view",
-              "source_property_name": "((#player_name_sidebar - ('%.6s' * #player_name_sidebar)))",
+              "source_property_name": "((('§r' + #player_name_sidebar) - ('%.6s' * #player_name_sidebar)))",
               "target_property_name": "#jui_text"
             }
           ],

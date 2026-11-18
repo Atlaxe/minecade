@@ -284,12 +284,13 @@ export interface GameConfig {
    */
   blocks?: "full";
   /**
-   * Each player's face in the game's own resource pack, for its screens (Block Party's player cards
-   * and results): every skin the watcher saved, its face flat with the hat layer over it, at
-   * skinTexture(key, "face") (tools/skins/skin-set.ts renderFace). The scripts know whose faces the
-   * pack has from "#skins"; a player the watcher hasn't seen has none until the next build.
+   * Each player's portrait in the game's own resource pack, for its screens (Block Party's player
+   * cards and results): every skin the watcher saved, head and shoulders at an angle in color, at
+   * skinTexture(key, "portrait") (tools/skins/skin-set.ts), and Steve's from Minecraft's own skin at
+   * skinTexture(STEVE_SKIN, "portrait"). The scripts know whose portraits the pack has from "#skins";
+   * a player the watcher hasn't seen has none until the next build.
    */
-  playerFaces?: boolean;
+  playerPortraits?: boolean;
   /** Game rules for the match (world.gameRules keys). Restored afterwards. */
   gameRules?: Record<string, boolean | number>;
   /** Map entries this game needs. The build checks every map has them, and the map editor lists them. */

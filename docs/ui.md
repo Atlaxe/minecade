@@ -98,11 +98,13 @@ What JSON UI allowed here, found in-game on 26.60:
   `"text": "('%.8s' * $atext)"` works ('%.Ns' keeps the first N bytes).
 - String subtraction doesn't produce text: `"text": "($atext - 'x')"` fails with "expected a
   string". That's why the mark is invisible formatting codes instead of being cut off.
-- In a view binding it does, but a string that starts with a number (" 2", "1st") is read as a
-  number there, and `(' 2' - ' ')` gives nothing (26.x, 2026-11-18: Block Party's cards and
-  results showed no Stars, coins or places, while the letters cut out the same way showed). The
-  workshop JSON UI tool takes the spaces out of the whole row's cuts before taking one out of the
-  other, so a field never meets an operator on its own.
+- In a view binding it does, but text that starts with a number (" 2", "1st") is read as a
+  number there, and a label shows nothing for it (26.x, 2026-11-18: Block Party's cards and
+  results showed no Stars, coins or places, while the letters cut out the same way showed). Not
+  at any step: first `(' 2' - ' ')` gave nothing, then a field that came out as "2" with no
+  operator touching it alone still showed nothing. The workshop JSON UI tool puts a reset code
+  (`§r`, which draws nothing) in front of the row's longer cut before taking the shorter one out,
+  so every step works on text that starts with a code and a label gets "§r2".
 - At the same layer, labels draw under images, whatever their order (the cards' turn color drew
   over the numbers after it, but under the line image after it). The JSON UI tool gives every
   control a layer of its own, in the builder's order.

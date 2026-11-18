@@ -207,6 +207,7 @@ export {
 export {
   BADGE_CHARACTERS,
   PLACEHOLDER_PICTURES,
+  STEVE_SKIN,
   badgeFor,
   holoPictures,
   holoPortraits,

@@ -74,13 +74,17 @@ export interface PlayerSkin {
 /**
  * The renders of each player's skin (tools/skins/skin-set.ts): in the lobby pack, in the hologram's
  * look, head and shoulders (the hologram's portrait and the stats screen's) and the head alone (the
- * stats list's rows); in the pack of a game that asks (GameConfig.playerFaces), the face, flat.
+ * stats list's rows); in the pack of a game that asks (GameConfig.playerPortraits), the same head
+ * and shoulders in color.
  */
-export type SkinRender = "holo" | "holo_head" | "face";
+export type SkinRender = "holo" | "holo_head" | "portrait";
 
 export function skinTexture(key: string, render: SkinRender): string {
   return `textures/minecade/skins/${key}_${render}`;
 }
+
+/** The render key of Minecraft's own Steve, whose portrait a game with playerPortraits gets too (Block Party's bots). */
+export const STEVE_SKIN = "steve";
 
 /**
  * The portraits the lobby hologram can show, in order: none first, then every badge, then each

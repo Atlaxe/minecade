@@ -226,7 +226,12 @@ describe("Minecraft's textures", () => {
     await writeFile(join(pack, "__brarchive", "textures", "blocks.brarchive"), archive({}));
     expect(cacheVanillaTextures(pack, cache)).toBe(true);
     expect((await readdir(cache)).sort()).toEqual(["blocks.brarchive", "items.brarchive"]);
+    // The mobs' archive is optional: Steve's skin, for bots' portraits.
+    expect(VanillaTextures.load(pack, cache)?.entity("steve")).toBeUndefined();
+    await writeFile(join(pack, "__brarchive", "textures", "entity.brarchive"), archive({ "steve.png": png([1, 2, 3, 255]) }));
+    expect(VanillaTextures.load(pack, cache)?.entity("steve")?.width).toBe(16);
     // Without Minecraft, the cache is enough.
     expect(VanillaTextures.load(join(pack, "gone"), cache)?.item("minecraft:snowball")?.kind).toBe("item");
+    expect(VanillaTextures.load(join(pack, "gone"), cache)?.entity("steve")?.width).toBe(16);
   });
 });

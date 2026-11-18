@@ -286,7 +286,7 @@
                   },
                   {
                     "binding_type": "view",
-                    "source_property_name": "(((('%.27s' * #player_name_sidebar) - ' ') - (('%.24s' * #player_name_sidebar) - ' ')))",
+                    "source_property_name": "((('§r' + (('%.27s' * #player_name_sidebar) - ' ')) - (('%.24s' * #player_name_sidebar) - ' ')))",
                     "target_property_name": "#jui_text"
                   }
                 ],
@@ -369,7 +369,7 @@
                               },
                               {
                                 "binding_type": "view",
-                                "source_property_name": "(((('%.33s' * #player_name_sidebar) - ' ') - (('%.32s' * #player_name_sidebar) - ' ')))",
+                                "source_property_name": "((('§r' + (('%.33s' * #player_name_sidebar) - ' ')) - (('%.32s' * #player_name_sidebar) - ' ')))",
                                 "target_property_name": "#jui_text"
                               }
                             ],
@@ -506,7 +506,7 @@
                               },
                               {
                                 "binding_type": "view",
-                                "source_property_name": "(((('%.29s' * #player_name_sidebar) - ' ') - (('%.27s' * #player_name_sidebar) - ' ')))",
+                                "source_property_name": "((('§r' + (('%.29s' * #player_name_sidebar) - ' ')) - (('%.27s' * #player_name_sidebar) - ' ')))",
                                 "target_property_name": "#jui_text"
                               }
                             ],
@@ -606,7 +606,7 @@
                               },
                               {
                                 "binding_type": "view",
-                                "source_property_name": "(((('%.32s' * #player_name_sidebar) - ' ') - (('%.29s' * #player_name_sidebar) - ' ')))",
+                                "source_property_name": "((('§r' + (('%.32s' * #player_name_sidebar) - ' ')) - (('%.29s' * #player_name_sidebar) - ' ')))",
                                 "target_property_name": "#jui_text"
                               }
                             ],

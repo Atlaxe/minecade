@@ -222,6 +222,19 @@ describe("the board menu", () => {
     expect(views).toEqual([true, false]);
   });
 
+  it("toggles Board with a jump: one opens it, the next goes back to the menu", async () => {
+    menu.open(who);
+    await push(0, 1);
+    menu.jumped(alex as never);
+    await ticks(1);
+    expect(menuRow()).toContain(codesOf("n1"));
+    menu.jumped(alex as never);
+    await ticks(1);
+    expect(views).toEqual([true, false]);
+    expect(menuRow()).toContain(codesOf("n0"));
+    expect(menuRow()).toContain(codesOf("s2"));
+  });
+
   it("leaves the keys alone while the player steers the dialogue box, and takes no one else's jumps", async () => {
     menu.open(who);
     busy = true;

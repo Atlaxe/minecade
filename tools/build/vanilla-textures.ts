@@ -14,8 +14,11 @@ export const VANILLA_CACHE = fileURLToPath(new URL("../assets/vanilla/", import.
 export const VANILLA_PACK = process.env.MINECRAFT_VANILLA ?? "C:\\XboxGames\\Minecraft for Windows\\Content\\data\\resource_packs\\vanilla";
 /** The archives, in the pack's __brarchive/textures folder: items/<name>.png and blocks/<name>.png (a few .tga). */
 const ARCHIVES = ["items", "blocks"] as const;
-/** Archives the pictures can do without: the armor models' textures (models/armor.brarchive: leather_1.tga). */
-const OPTIONAL_ARCHIVES = { armor: "models/armor" } as const;
+/**
+ * Archives the pictures can do without: the armor models' textures (models/armor.brarchive:
+ * leather_1.tga), and the mobs' (entity.brarchive: steve.png, for Steve's portrait).
+ */
+const OPTIONAL_ARCHIVES = { armor: "models/armor", entity: "entity" } as const;
 type Folder = (typeof ARCHIVES)[number] | keyof typeof OPTIONAL_ARCHIVES;
 
 /**
@@ -100,7 +103,7 @@ export class VanillaTextures {
   private readonly folders: Record<Folder, Map<string, Uint8Array>>;
 
   constructor(folders: Record<(typeof ARCHIVES)[number], Map<string, Uint8Array>> & Partial<Record<Folder, Map<string, Uint8Array>>>) {
-    this.folders = { armor: new Map(), ...folders };
+    this.folders = { armor: new Map(), entity: new Map(), ...folders };
   }
 
   /** Minecraft's textures, cached first if Minecraft is here; undefined when there are none to read. */
@@ -110,7 +113,12 @@ export class VanillaTextures {
       const path = join(cache, `${name}.brarchive`);
       return existsSync(path) ? readArchive(new Uint8Array(readFileSync(path))) : new Map<string, Uint8Array>();
     };
-    return new VanillaTextures({ items: read("items"), blocks: read("blocks"), armor: read("armor") });
+    return new VanillaTextures({ items: read("items"), blocks: read("blocks"), armor: read("armor"), entity: read("entity") });
+  }
+
+  /** A mob's texture from textures/entity ("steve"), if Minecraft has it. */
+  entity(name: string): Image | undefined {
+    return this.texture("entity", name, "item")?.image;
   }
 
   /** An armor model's texture ("leather_1"), if Minecraft has it. */

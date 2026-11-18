@@ -20,8 +20,6 @@ export interface RenderOptions {
   padding?: number;
   /** Drawn this many times larger, then scaled down, for smooth edges. */
   supersample?: number;
-  /** No shading: every face as bright as its texture (a flat picture, such as the face render). */
-  flat?: boolean;
 }
 
 /** Bones that aren't the player's body; character creator models can carry them. (Their head is on a bone named "helmet".) */
@@ -53,7 +51,7 @@ const HEAD = /head|hat|helmet|hair|face|eye|mouth/i;
 
 /** The layers drawn together (sharing one depth buffer), on a transparent background. */
 export function renderModel(layers: Layer[], options: RenderOptions): Image {
-  const { width, height, yaw = 25, pitch = 12, framing = "full", padding = 0.06, supersample = 3, flat = false } = options;
+  const { width, height, yaw = 25, pitch = 12, framing = "full", padding = 0.06, supersample = 3 } = options;
   const turn = rotation(-pitch, yaw, 0);
   // Turned toward the camera, then flipped to the image: looking along +z, the viewer's right is
   // -x, and image rows grow downward.
@@ -82,7 +80,7 @@ export function renderModel(layers: Layer[], options: RenderOptions): Image {
   for (const face of faces) {
     // Faces pointing away from the camera (which sits at -z) can't be seen.
     if (face.facing[2] >= 0) continue;
-    const brightness = flat ? 1 : 0.55 + 0.45 * Math.max(0, dot(face.facing, LIGHT));
+    const brightness = 0.55 + 0.45 * Math.max(0, dot(face.facing, LIGHT));
     const screen = face.points.map(([x, y, z]) => [x * scale + offsetX, y * scale + offsetY, z] as Vec3);
     // Sampled just inside the face's own texture area, so its edges never pick up a neighbor's texels.
     const us = face.uvs.map((uv) => uv[0]);

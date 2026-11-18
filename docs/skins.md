@@ -36,15 +36,16 @@ volume. bedrock-protocol signs in posing as the Nintendo Switch version of Minec
 account you don't mind losing.
 
 **Looking at the renders:** `npm run skins` renders every saved skin into its folder (`skin.png`,
-`holo.png` and `holo-head.png` as the lobby has them, `portrait.png` and `head.png` in color, and
-`face.png` as games have it), and `npm run skins -- <skin.png> [slim]` renders one skin file.
+`holo.png` and `holo-head.png` as the lobby has them, and `portrait.png` and `head.png` in color),
+and `npm run skins -- <skin.png> [slim]` renders one skin file.
 
-**Faces in a game's pack:** a game with `playerFaces: true` in its config (Block Party) gets each
-saved skin's face in its own resource pack, at `textures/minecade/skins/<xuid>_face`: flat, the
-head's front (8 x 8) with the hat layer over it, scaled to 64 x 64 with hard pixels
-(`renderFace()` in `tools/skins/skin-set.ts`; a character creator skin's head is drawn straight on
-from its own model, unshaded). Its scripts know whose faces are there from `#skins`. Like the
-lobby's, a new skin shows after the next build and restart.
+**Portraits in a game's pack:** a game with `playerPortraits: true` in its config (Block Party)
+gets each saved skin's portrait in color (`portrait.png`: head and shoulders at an angle, 128 x
+128) in its own resource pack, at `textures/minecade/skins/<xuid>_portrait`, and Steve's at
+`textures/minecade/skins/steve_portrait` (`STEVE_SKIN`), drawn from Minecraft's own Steve skin in
+the vanilla texture cache (`tools/build/vanilla-textures.ts`, the `entity` archive, which the
+Panel copies at Start; never in git). Its scripts know whose portraits are there from `#skins`.
+Like the lobby's, a new skin shows after the next build and restart.
 
 **In the map editor:** Edit's mannequins (stand-ins for players in game pictures) can wear the
 saved classic skins (wide, slim, or an old 64x32 one made 64x64): the editor's pack gets them each

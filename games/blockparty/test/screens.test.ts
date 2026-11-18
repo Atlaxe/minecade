@@ -132,16 +132,19 @@ describe("Block Party's sidebar", () => {
 
 describe("Block Party's screens' JSON UI (the workshop builder's components, installed)", () => {
   /**
-   * A field's expression as the builder writes it (its compile.mjs fieldExpression). A trimmed one
-   * takes the spaces out of both cuts before one comes out of the other: the game reads a field
-   * that starts with a number (" 2", "1st") as one and shows nothing for (' 2' - ' ').
+   * A field's expression as the builder writes it (its compile.mjs fieldExpression), for a label
+   * (`lead` "§r") or a picture's path (no lead). The game reads text that starts with a number
+   * (" 2", "1st") as one and shows nothing for it, so a trimmed field takes the spaces out of both
+   * cuts, and a label's puts the reset code in front of the longer one before the shorter one comes
+   * out: no step leaves text starting with a digit.
    */
-  const expression = (field: { from: number; length: number }, trim: boolean) => {
+  const expression = (field: { from: number; length: number }, trim: boolean, lead: string) => {
     const row = "#player_name_sidebar";
     const first = (n: number) => `('%.${n}s' * ${row})`;
     const spaced = (text: string) => (trim ? `(${text} - ' ')` : text);
     const end = field.length === 0 ? row : first(field.from + field.length);
-    return field.from === 0 ? spaced(end) : `(${spaced(end)} - ${spaced(first(field.from))})`;
+    const led = lead ? `('${lead}' + ${spaced(end)})` : spaced(end);
+    return field.from === 0 ? led : `(${led} - ${spaced(first(field.from))})`;
   };
   const files = { cards: "jui_blockparty_cards", menu: "jui_blockparty_menu", panel: "jui_blockparty_panel", results: "jui_blockparty_results" } as const;
 
@@ -155,7 +158,8 @@ describe("Block Party's screens' JSON UI (the workshop builder's components, ins
           // A field the design doesn't use isn't in the file; one it uses must be at the game's place.
           const any = new RegExp(`'%\.${place.from + place.length}s'|'%\.${place.from}s'`);
           if (!any.test(text)) continue;
-          expect(text, `${screen}'s ${field}`).toContain(JSON.stringify(expression(place, kinds[field] === "field")).slice(1, -1));
+          const forms = ["§r", ""].map((lead) => JSON.stringify(expression(place, kinds[field] === "field", lead)).slice(1, -1));
+          expect(forms.some((form) => text.includes(form)), `${screen}'s ${field} at ${place.from}`).toBe(true);
         }
       }
     });

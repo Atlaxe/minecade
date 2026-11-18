@@ -197,8 +197,8 @@ generator). Proposed letters and paths:
 - **Jump:** Dice block and Items open the item panel for dice or items. Board shows the whole
   board (the user, 2026-11-17: a wide, still view of the entire board, nothing to move): one camera
   high over the board's middle, looking down from the side that puts the board's longer way across
-  the screen, far enough back to fit a 4:3 screen (`board-view.ts`, `boardOverview`). Sneak goes
-  back to the menu.
+  the screen, far enough back to fit a 4:3 screen (`board-view.ts`, `boardOverview`). It's a
+  toggle: a jump goes back to the menu (the user, 2026-11-18), and so does sneak.
 - Opens on Dice block (proposed). Sneak here does nothing.
 
 ## The item panel (bottom left)
@@ -382,11 +382,11 @@ A pop over a piece for anything gained or lost: coins, a Star, an item, a die.
 2D pictures of each player's face, for the cards, the skip and ready strip, and the results screen.
 - The network already saves every player's skin (the watcher, `docs/skins.md`) and renders heads into
   the lobby's pack at build time, with a letter badge for anyone the watcher hasn't seen
-  (`badgeFor()`). Block Party's pack gets the same, but flat: the skin's face (8 x 8) with its hat
-  layer over it, scaled up without smoothing (built 2026-11-18: the face render, `playerFaces`).
+  (`badgeFor()`). Block Party's pack gets each skin's portrait in color, head and shoulders at an
+  angle (the user, 2026-11-18, after a flat face first: `playerPortraits`, `docs/skins.md`).
 - Skins are players' personal data: the renders stay out of git, as the lobby's do.
 - A new skin shows after the next build and restart; until then the player has their letter badge.
-  Bots wear Steve's face (the user, 2026-11-18).
+  Bots show Steve's portrait (the user, 2026-11-18), drawn by the build from Minecraft's own Steve.
 - In JSON UI each head's picture path comes from the data (a texture bound from text), so one card
   template serves every player ("Checks first").
 
@@ -581,11 +581,10 @@ top 15 sidebar rows and the screens share them with the dialogue box:
 - **Sound events** (the user's sound map, silent until mapped): `menu.step`, `menu.select`,
   `menu.back`, `menu.disabled`, `panel.step`, `panel.use`, `panel.switch-die`, `results.open`,
   `results.count`, `results.swap`, `results.first`, `results.close`.
-- **Heads** (2026-11-18): each card and result row shows the player's face, flat
-  (`heads.ts`): the build renders it from their saved skin into the game's pack (`playerFaces` in
-  `game.config.ts`, `docs/skins.md`), a bot wears Steve's face (`textures/blockparty/faces/steve`,
-  in the private faces pack, made by the workshop's dialogue tool from the game's own Steve), and a
-  player the watcher hasn't seen yet keeps their letter.
+- **Portraits** (2026-11-18): each card and result row shows the player's portrait in color
+  (`heads.ts`): the build renders it from their saved skin into the game's pack (`playerPortraits`
+  in `game.config.ts`, `docs/skins.md`), a bot shows Steve's (rendered from Minecraft's own skin),
+  and a player the watcher hasn't seen yet keeps their letter.
 - **Not yet:** the gain and loss pops, the count stepping on the
   cards, places on the cards before the first results (none, as proposed).
 
