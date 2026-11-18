@@ -13,6 +13,8 @@
 //     (the camera pans to each Star's space as its Chris drops in beside it).
 // While a cutscene is skipped (dialogue.ts) the shots and waits are left out, but everyone and
 // everything still ends up where it belongs.
+// A line's Speaker (its actions, moves.ts) is the part of its character's role last brought into a
+// scene, put there or turned to a seat (speaker()): of the Chrises on the board, the one at this Star.
 import { EasingType, world, type Dimension, type Entity, type Vector3 } from "@minecraft/server";
 import { describeError, log, type Scope } from "@minecade/minigame-core";
 import { boardBox, type Space, type Vec3 } from "./board.ts";
@@ -62,6 +64,10 @@ const INTRO_EASE = 3;
 export class Stage {
   private readonly deps: StageDeps;
   private readonly cast = new Map<string, Entity>();
+  /** Each part's role, by key. */
+  private readonly roles = new Map<string, string>();
+  /** The part of each role last brought into a scene (put there, or turned to a seat), by role: it speaks that character's lines. */
+  private readonly lastOf = new Map<string, string>();
   /** The podium this game uses (the map's, or the one on Start). */
   private podiumNow: Podium | undefined;
 
@@ -125,6 +131,11 @@ export class Stage {
     }
   }
 
+  /** Whether a cutscene is being skipped (dialogue.ts): what's left of it shouldn't play. */
+  get skipping(): boolean {
+    return this.deps.dialogue.skipping;
+  }
+
   /** How a moment's shot comes in: its camera in the user's file, else `fallback`. */
   moveFor(id: string, fallback: Move): Move {
     const camera = moment(id).camera;
@@ -142,6 +153,8 @@ export class Stage {
         this.cast.set(key, entity);
       } else entity.teleport(vec(at));
       entity.setRotation({ x: 0, y: yaw });
+      this.roles.set(key, role);
+      this.lastOf.set(role, key);
       return entity;
     } catch (error) {
       log.warn(`blockparty: putting ${role} on stage failed: ${describeError(error)}`);
@@ -172,9 +185,31 @@ export class Stage {
     return entity?.isValid ? entity : undefined;
   }
 
+  /**
+   * Who speaks for `role` (a line's Speaker, or a character an action names): the part of it last
+   * brought into a scene while it's still on stage, else any part of it on stage.
+   */
+  speaker(role: string): Entity | undefined {
+    const last = this.lastOf.get(role);
+    const entity = last ? this.get(last) : undefined;
+    if (entity) return entity;
+    for (const [key, part] of this.cast) if (this.roles.get(key) === role && part.isValid) return part;
+    return undefined;
+  }
+
+  /** A part on stage drops in again from above where it stands, facing the same way (a line's Fall in). */
+  async fallAgain(entity: Entity): Promise<void> {
+    const key = [...this.cast].find(([, part]) => part === entity)?.[0];
+    const role = key ? this.roles.get(key) : undefined;
+    if (!key || !role || !entity.isValid) return;
+    const at = arr(entity.location);
+    await this.fallIn(key, role, at, entity.getRotation().y);
+  }
+
   remove(key: string): void {
     const entity = this.cast.get(key);
     this.cast.delete(key);
+    this.roles.delete(key);
     try {
       if (entity?.isValid) entity.remove();
     } catch {
@@ -182,10 +217,12 @@ export class Stage {
     }
   }
 
-  /** Turns a part to face `toward`. */
+  /** Turns a part to face `toward` (it's the one in the scene now: it speaks its role's lines). */
   face(key: string, toward: Vec3): void {
     const entity = this.get(key);
     if (!entity) return;
+    const role = this.roles.get(key);
+    if (role) this.lastOf.set(role, key);
     try {
       entity.setRotation({ x: 0, y: yawFrom(arr(entity.location), toward) });
     } catch {

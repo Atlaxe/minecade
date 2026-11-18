@@ -1084,10 +1084,10 @@ reward was dropped.
      line, and he goes.
    - **Chris's announcements** as a round starts: halfway, coins doubling from now on, the final
      round (each skippable).
-   - **Not yet:** player animations (Celebrate on the reveal, `block-party-ui.md` "Player
-     animations"), line actions and blocks from the dialogue tool, the other NPCs' stages (the
-     Villager, the Witch, the Allay: with their passes), the board view's modes and the turn shot,
-     button prompts per device, heads in the skip strip (names for now).
+   - **Not yet:** blocks from the dialogue tool, the other NPCs' stages (the Villager, the Witch,
+     the Allay: with their passes), the board view's modes and the turn shot, button prompts per
+     device, heads in the skip strip (names for now). Player animations and the lines' actions
+     came later (2026-11-18, `block-party-ui.md` "Player animations", "As built").
    - **After the user's first look (2026-11-17):** the dialogue box showed only Chris's name. Its
      size variables were single parts of a size (`"$box_width": 330`), which the game rejects
      ("Dangling number" in the client's content log), so the box had no width; they're whole pairs

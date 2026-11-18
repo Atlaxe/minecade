@@ -29,12 +29,24 @@
 //     everyone (whose turn it is, a round starting, a minigame's countdown) shows in the box with no
 //     speaker, no jump prompt and no skip strip, for a time or until the game takes it down. A line
 //     said meanwhile takes the box, and the notice comes back after it if it's still up.
+//   - A line's actions (the dialogue tool's, per line: animations.ts): who does what as the card
+//     comes in, some seconds in, or once it's gone on (not when it's skipped). The speaker talks as
+//     the card comes in unless the line gives them something else to do then.
 // A line the user hasn't written isn't shown (line() gives "").
 import { ButtonState, InputButton, system, world, type Player } from "@minecraft/server";
 import { describeError, log, type Scope } from "@minecade/minigame-core";
+import { CLIPS, talks, withTalk, type LineAction } from "./animations.ts";
 import { thinkTicks, type Who } from "./bots.ts";
 import { boxRows, boxTitle, readTicks, rowsOf, sentences, Steering, type BoxMode } from "./dialogue-codes.ts";
-import { line, look, moment, type Fills } from "./lines.ts";
+import { actionsOf, look, moment, pickLine, type Fills } from "./lines.ts";
+
+/** A line as it's said, for its actions: its id, who says it, its fills, and the seat it's to or about (a turn's player, a question's). */
+export interface SaidLine {
+  id: string;
+  character: string;
+  fills: Fills;
+  about?: Who;
+}
 import { eventCue, hasCue, lineCue, playCue, voiceCue } from "./sounds.ts";
 
 export interface DialogueHost {
@@ -47,6 +59,8 @@ export interface DialogueHost {
   show(box: { title: string; rows: readonly string[] } | undefined): void;
   /** The party leader now, if any player is here: only their jump goes on to the next card. */
   leader(): Player | undefined;
+  /** Plays one of a line's actions (who does it is the host's to find: the speaker, a seat, a character). */
+  act?(action: LineAction, said: SaidLine): void;
 }
 
 export interface TalkOptions {
@@ -208,14 +222,16 @@ export class Dialogue {
    */
   async say(id: string, fills: Fills = {}, skippable = false, by?: Who): Promise<void> {
     if (this.skipping) return;
-    const text = line(id, fills, () => this.host.random());
+    const { text, index } = pickLine(id, fills, () => this.host.random());
     if (!text) return;
     const said = moment(id);
     const open = this.show({ mode: "everyone", ...this.speaker(said.character), words: rowsOf(text), selected: 0, by, since: system.currentTick, skippable: skippable || said.skippable || this.scene?.skippable === true, votes: [], skipped: false });
+    const ended = this.actions(open, { id, character: said.character, fills, about: by }, index);
     try {
       this.voice(id, open, text, said.character);
       await this.goneOn(open, text);
       if (!this.done(open)) playCue(eventCue("dialogue.next"));
+      ended();
     } finally {
       this.release(open);
     }
@@ -234,14 +250,17 @@ export class Dialogue {
       await this.say(id, fills, false, options.to);
       return 0;
     }
-    const text = line(id, fills, () => this.host.random());
+    const { text, index } = pickLine(id, fills, () => this.host.random());
     const said = moment(id);
     const selected = Math.min(Math.max(0, options.selected ?? 0), buttons.length - 1);
     const open = this.show({ mode: "one", ...this.speaker(said.character), words: text ? rowsOf(text) : [], buttons, selected, steerer: options.to, back: options.back, since: system.currentTick, skippable: false, votes: [], skipped: false });
     this.steering.reset();
+    const ended = text ? this.actions(open, { id, character: said.character, fills, about: options.to }, index) : () => undefined;
     try {
       if (text) this.voice(id, open, text, said.character);
-      return await this.pick(open, options.botPick);
+      const picked = await this.pick(open, options.botPick);
+      if (picked !== undefined) ended();
+      return picked;
     } finally {
       this.release(open);
     }
@@ -353,6 +372,33 @@ export class Dialogue {
       else this.host.scope.timeout(play, at);
       at += readTicks(sentence);
     }
+  }
+
+  /**
+   * A line's actions (the user's file's, and the speaker's Talk as it starts unless the file gives
+   * them something then): the Start ones now, the After ones that many seconds in, and the End ones
+   * when the returned function is called, once the line has gone on. None of it once the line or
+   * its cutscene is skipped.
+   */
+  private actions(open: Open, said: SaidLine, index: number): () => void {
+    const act = this.host.act;
+    if (!act) return () => undefined;
+    const list = withTalk(actionsOf(said.id, index), said.character, talks(CLIPS, said.character));
+    const play = (action: LineAction) => {
+      if (open.skipped || this.skipping || this.host.scope.disposed) return;
+      try {
+        act(action, said);
+      } catch (error) {
+        log.warn(`blockparty: ${said.id}'s action ${action.who} ${action.action} failed: ${describeError(error)}`);
+      }
+    };
+    for (const action of list) {
+      if (action.when === "Start") play(action);
+      else if (action.when === "After") this.host.scope.timeout(() => play(action), Math.max(1, Math.round((action.seconds ?? 0) * 20)));
+    }
+    return () => {
+      for (const action of list) if (action.when === "End") play(action);
+    };
   }
 
   /** Waits for the jump that goes on (the line is skipped, or its box goes); with no player here, the time to read it. */

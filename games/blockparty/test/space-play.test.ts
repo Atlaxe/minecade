@@ -105,6 +105,7 @@ function fake(round = 5, of = 15): Fake {
       return paid;
     },
     snapshot: () => [],
+    spent: () => {},
     spaceName: (space: Space) => `space ${space.index + 1}`,
     useItem: (one: Who, id: ItemId) => items.use(one, id),
     feature: () => {},

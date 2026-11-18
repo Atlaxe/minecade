@@ -43,10 +43,11 @@ import { BETS, GLOVE_STAKE, betResult, trailOf, type Hands } from "./space-rules
 import type { TalkOptions } from "./dialogue.ts";
 import type { Stage } from "./stage.ts";
 import { activeStars, addCoins, coinsFor, count, firstStars, leaders, nextStar, ranked, starDistance, starPrice, turnOrder, type Standing } from "./board-rules.ts";
+import { moodOf, type CoinsAndStars, type PlayerSet } from "./animations.ts";
 import type { Who } from "./bots.ts";
 import { thrown, type DieFace, type RollOutcome } from "./dice.ts";
 import { button, line, type Fills } from "./lines.ts";
-import { VERSUS_STAKE, battleBets, ffaCoins, firstDoubled, fits, formatFor, isDoubled, kindOf, pairingKey, pickMinigame, pickPairs, pickSolo, splitPot, teamCoins, type Format } from "./minigame-rules.ts";
+import { VERSUS_STAKE, battleBets, ffaCoins, firstDoubled, fits, formatFor, isDoubled, kindOf, minigameMoods, pairingKey, pickMinigame, pickPairs, pickSolo, splitPot, teamCoins, type Format } from "./minigame-rules.ts";
 import type { Results, Settle } from "./minigame-runner.ts";
 import type { MinigameDef, Outcome } from "./minigames/kit.ts";
 import type { Pieces } from "./pieces.ts";
@@ -97,6 +98,12 @@ export interface LoopHost {
   /** The zombies that follow seats (zombies.ts): their bodies; how long they stay is the loop's. */
   zombies: { add(key: string): unknown; remove(key: string): void };
   random(): number;
+  /**
+   * A seat's player (or bot) plays one of the players' animation sets (moves.ts): Celebration on
+   * the turn order reveal, a minigame won, a Star gained; Sad on a minigame lost, a Star or coins
+   * lost; Select when they're picked as a rival.
+   */
+  react?(who: Who, set: PlayerSet): void;
 }
 
 /** A seat as its card shows it (block-party-ui.md, "Player cards"), in turn order. */
@@ -117,6 +124,8 @@ export type TestJump = { kind: "round"; round: number; minigameOnly: boolean } |
 
 /** Ticks between drawings of the Stars' beams. */
 const BEAM_TICKS = 10;
+/** How often the loop looks for coins and Stars won or lost, to make their players celebrate or look sad. */
+const MOOD_TICKS = 2;
 const PLACES = ["1st", "2nd", "3rd", "4th"];
 /** Ticks a round's notice stays (the round waits as long before going on), and a Star's or the end's. */
 const ROUND_NOTICE = 40;
@@ -159,6 +168,9 @@ export class BoardLoop {
   private turnNow: TurnState | undefined;
   /** Seats the turn's scene is about besides the player whose turn it is (they don't fade: fade.ts). */
   private readonly featuring = new Set<string>();
+  /** Each seat's coins and Stars as watchMoods last saw them, and the coins each has spent of its own accord since. */
+  private readonly seen = new Map<string, CoinsAndStars>();
+  private readonly spentSince = new Map<string, number>();
   private readonly host: LoopHost;
   /** The items in play, and the spaces past Blue, Red and Versus (pass 7). */
   readonly items: ItemPlay;
@@ -169,6 +181,7 @@ export class BoardLoop {
     this.items = new ItemPlay(this, host);
     this.spacePlay = new SpacePlay(this, host, this.items);
     host.scope.interval(() => this.drawBeams(), BEAM_TICKS);
+    host.scope.interval(() => this.watchMoods(), MOOD_TICKS);
   }
 
   // ---- What the items and spaces use (item-play.ts, space-play.ts) ----------------------------
@@ -253,6 +266,34 @@ export class BoardLoop {
     payee.coins += paid;
     this.host.changed();
     return paid;
+  }
+
+  /** Coins a seat spends of its own accord (a shop, a reroll, a Battle's pot): losing them doesn't make them sad. */
+  spent(key: string, amount: number): void {
+    if (amount > 0) this.spentSince.set(key, (this.spentSince.get(key) ?? 0) + amount);
+  }
+
+  /**
+   * Every seat's coins and Stars against what they were (animations.ts, moodOf): a Star gained is a
+   * Celebration, a Star or coins lost (but not spent) Sad. Watching them catches every change,
+   * whichever space, item, duel or event made it.
+   */
+  private watchMoods(): void {
+    for (const [key, seat] of this.seats) {
+      const now = { coins: seat.coins, stars: seat.stars };
+      const before = this.seen.get(key);
+      const spent = this.spentSince.get(key) ?? 0;
+      this.seen.set(key, now);
+      this.spentSince.delete(key);
+      const mood = before ? moodOf(before, now, spent) : undefined;
+      if (mood) this.react(key, mood);
+    }
+  }
+
+  /** A seat's player or bot plays one of the players' sets, if they're here. */
+  private react(key: string, set: PlayerSet): void {
+    const who = this.host.present().find((one) => one.key === key);
+    if (who?.body.isValid) this.host.react?.(who, set);
   }
 
   /** What a seat holds as the board menu shows it: the dice it may roll now, its items, and whether Items is spent this turn. */
@@ -589,9 +630,10 @@ export class BoardLoop {
         const seat = seats.findIndex((who) => who.key === this.order[place]);
         const name = this.seats.get(this.order[place])?.name ?? this.order[place];
         if (seat >= 0) await stage.reveal(seat);
-        // Their card comes in as they're shown.
+        // Their card comes in as they're shown, and they celebrate.
         this.revealed.add(this.order[place]);
         this.host.changed();
+        if (!stage.skipping) this.react(this.order[place], "Celebration");
         await this.host.say(`pregame.place.${place + 1}`, { player: name });
       }
       await this.host.say("pregame.coins", { coins: count(this.host.startCoins, "coin") });
@@ -937,6 +979,7 @@ export class BoardLoop {
       buttons: others.map((other) => button("versus.form.button", { player: other.name, coins: count(this.seats.get(other.key)?.coins ?? 0, "coin") })),
       botPick: others.indexOf(leader),
     });
+    this.react(others[picked ?? 0].key, "Select");
     await this.duel(who, others[picked ?? 0], stake, "versus");
   }
 
@@ -969,6 +1012,8 @@ export class BoardLoop {
       if (winnerKey === undefined) return { title: line("versus.draw.title"), subtitle: line("versus.draw.subtitle") };
       const winner = winnerKey === who.key ? who : rival;
       const loser = winner === who ? rival : who;
+      this.react(winner.key, "Celebration");
+      this.react(loser.key, "Sad");
       const paid = this.pay(loser.key, winner.key, stake);
       const result = { player: winner.name, other: loser.name, coins: count(paid, "coin") };
       this.host.everyone(line("versus.won", result));
@@ -1059,6 +1104,7 @@ export class BoardLoop {
       for (const [key, bet] of bets) {
         const seat = this.seats.get(key);
         if (seat) seat.coins -= bet;
+        this.spent(key, bet);
         pot += bet;
       }
       this.host.everyone(line("minigame.battle.pot", { coins: count(pot, "coin") }));
@@ -1117,6 +1163,8 @@ export class BoardLoop {
       else if (format === "2v2") title = line(outcome.winner === 0 ? "minigame.won.red" : "minigame.won.blue");
       else title = outcome.winner === 0 ? line("minigame.won.one", { player: sides[0][0]?.name ?? "?" }) : line("minigame.won.group", { count: sides[1].length });
     }
+    // The winners celebrate and those who came away with nothing are sad, there over the arena.
+    for (const [key, mood] of minigameMoods(format, sides.map((side) => side.map((who) => who.key)), outcome)) this.react(key, mood);
     const factor = (doubled && format !== "battle" ? 2 : 1) * (bonus ? 2 : 1);
     const paid: string[] = [];
     for (const [key, amount] of coins) {
@@ -1141,6 +1189,8 @@ export class BoardLoop {
     const winner = tied.length === 1 ? tied[0] : tied[Math.floor(this.host.random() * tied.length)];
     if (tied.length > 1) this.host.everyone(line("end.tie", { players: tied.map((seat) => seat.name).join(" and ") }));
     this.host.notice(line("end.title", { player: winner.name }), line("end.subtitle", { stars: count(winner.stars, "Star"), coins: count(winner.coins, "coin") }), END_NOTICE);
+    const winnerKey = [...this.seats].find(([, seat]) => seat === winner)?.[0];
+    if (winnerKey) this.react(winnerKey, "Celebration");
     this.host.everyone(line("end.standings", { standings: this.standings().join("; ") }));
     this.running = false;
     return { kind: "win", players: [winner.name], reason: `${count(winner.stars, "Star")} and ${count(winner.coins, "coin")}` };

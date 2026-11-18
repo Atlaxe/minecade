@@ -131,6 +131,29 @@ export function teamCoins(format: "2v2" | "1v3", sides: readonly (readonly strin
   return coins;
 }
 
+/**
+ * Who celebrates and who's sad after a minigame (block-party-ui.md, "Player animations"), by key:
+ * the winners celebrate, and those who come away with nothing are sad (the user: last place, the
+ * losing side of a team minigame; in a Battle everyone but its winners, whose bets are gone). A
+ * draw moves nobody, and a tie for first with nobody behind is everyone's win.
+ */
+export function minigameMoods(format: Format, sides: readonly (readonly string[])[], outcome: Outcome): Map<string, "Celebration" | "Sad"> {
+  const moods = new Map<string, "Celebration" | "Sad">();
+  if ("places" in outcome) {
+    const winners = outcome.places[0] ?? [];
+    if (winners.length === 0) return moods;
+    const behind = format === "battle" ? outcome.places.slice(1).flat() : outcome.places.length > 1 ? outcome.places[outcome.places.length - 1] : [];
+    for (const key of behind) moods.set(key, "Sad");
+    for (const key of winners) moods.set(key, "Celebration");
+    return moods;
+  }
+  if (outcome.winner === undefined) return moods;
+  sides.forEach((side, index) => {
+    for (const key of side) moods.set(key, index === outcome.winner ? "Celebration" : "Sad");
+  });
+  return moods;
+}
+
 /** A Battle's bet: 5 coins each, capped at what they have. */
 export const BATTLE_BET = 5;
 

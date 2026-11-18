@@ -10,7 +10,11 @@
 // Each moment also says who says it and how it shows (moment(): its character, its delivery, and the
 // dialogue box's switches, docs/plans/block-party-ui.md "The dialogue tool's data"), and each
 // character how its name and face look in the dialogue box (look()).
+//
+// Each line (each alternate of a moment) also has its actions (actionsOf()): who does which of the
+// dialogue tool's actions as it starts, as it ends, or seconds in (animations.ts).
 import { log } from "@minecade/minigame-core";
+import type { LineAction } from "./animations.ts";
 import dialogue from "../../dialogue.json";
 
 const LINES: Readonly<Record<string, readonly string[]>> = dialogue.lines;
@@ -68,16 +72,30 @@ const logged = new Set<string>();
  * no line gives "", which the game shows as nothing; a {name} with no fill stays as typed.
  */
 export function line(id: string, fills: Fills = {}, random: () => number = Math.random): string {
+  return pickLine(id, fills, random).text;
+}
+
+/** As line(), and which of the moment's alternates it is (its actions are that one's: actionsOf). */
+export function pickLine(id: string, fills: Fills = {}, random: () => number = Math.random): { text: string; index: number } {
   const texts = LINES[id];
   if (!texts || texts.length === 0) {
     if (!logged.has(id)) {
       logged.add(id);
       log.info(`blockparty: no line "${id}" in dialogue.json, so it's skipped`);
     }
-    return "";
+    return { text: "", index: 0 };
   }
-  const text = texts.length === 1 ? texts[0] : texts[Math.min(texts.length - 1, Math.floor(random() * texts.length))];
-  return text.replace(/\{([^{}]*)\}/g, (whole, name: string) => (Object.prototype.hasOwnProperty.call(fills, name) ? String(fills[name]) : whole));
+  const index = texts.length === 1 ? 0 : Math.min(texts.length - 1, Math.floor(random() * texts.length));
+  const text = texts[index].replace(/\{([^{}]*)\}/g, (whole, name: string) => (Object.prototype.hasOwnProperty.call(fills, name) ? String(fills[name]) : whole));
+  return { text, index };
+}
+
+/** Each moment's actions, alternate by alternate, as the dialogue tool writes them (only moments with any). */
+const ACTIONS: Readonly<Record<string, readonly (readonly LineAction[])[]>> = (dialogue as { actions?: Record<string, LineAction[][]> }).actions ?? {};
+
+/** The actions of `id`'s alternate `index`, as the user's file sets them (none when it doesn't). */
+export function actionsOf(id: string, index: number): readonly LineAction[] {
+  return ACTIONS[id]?.[index] ?? [];
 }
 
 /** A form button's line: as line(), but its id when there's none, since a choice can't be left blank. */

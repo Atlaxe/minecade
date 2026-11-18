@@ -172,6 +172,7 @@ export class SpacePlay {
       return;
     }
     seat.coins -= visit.price;
+    this.loop.spent(who.key, visit.price);
     put(seat.hands, visit.goods);
     this.host.changed();
     await this.host.say("trader.sold", fills, false, who);
@@ -241,6 +242,7 @@ export class SpacePlay {
       return false;
     }
     seat.coins -= price;
+    this.loop.spent(who.key, price);
     put(seat.hands, goods);
     this.host.changed();
     await this.host.say("shop.bought", fills, false, who);
@@ -297,6 +299,7 @@ export class SpacePlay {
         const choice = await this.host.talk("chance.potions", { player: who.name }, { to: who, buttons, botPick: Math.floor(this.host.random() * potions.length) });
         if (canReroll && choice === potions.length) {
           seat.coins -= REROLL_PRICE;
+          this.loop.spent(who.key, REROLL_PRICE);
           rerolled = true;
           this.host.changed();
           stage.act(WITCH, "animation.witch.general");

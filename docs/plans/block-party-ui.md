@@ -504,6 +504,65 @@ Look at the player, Celebrate and Fall in; the Warden's Roar, Sonic boom, Sniff,
 away; and the rest in the tool's list, which the user can add to). The NPCs' moves are their vanilla
 animations where the mob has one, else the game's own.
 
+### As built (2026-11-18)
+
+- **The animations** are the game's own, in its resource pack, in two files Blockbench can open:
+  `animations/blockparty.player.animation.json` (the players' sets) and
+  `animations/blockparty.npc.animation.json` (the NPCs' moves). Each name says what it's for:
+  `animation.blockparty.<owner>.<action>` or `animation.blockparty.<owner>.<action>.<variant>`, the
+  owner `player` or the character, both written as the dialogue tool writes them, lowercased with
+  `_` for spaces (`player.dice_roll.kick`, `chris.look_at_the_player`, `wandering_trader.nod`). The
+  game finds every one by its name (`animations.ts` reads the pack's files), so **a variant saved
+  into those files under such a name plays with no code change**, picked at random with the rest,
+  and so does a new action the user adds to a character in the dialogue tool, once the pack has an
+  animation named after it. Until then a move is skipped and named once in the server's log.
+- **The first animations** (made by hand, to be replaced or joined by the user's): Celebration
+  (arms up with hops, a fist pump, a jumping spin), Sad (a slump, a head shake, a frustrated
+  stomp), Dice roll (a right, left or two-fisted punch up, a punch with a kick, a tuck), Select (a
+  wave with either hand, fists ready with a hop, a point at the camera). Chris talks (a snout bob),
+  celebrates (two hops and a spin) and tilts his head as he looks at the player; the Villager and
+  the Wandering Trader talk, nod and shake their heads, and the Trader and the Witch drink a potion
+  (head back, arms up; no potion in hand); the Witch laughs; the Referee talks and points (his
+  crossed arms thrust out); the Iron Golem offers a flower (the arm out, no flower); the Zombie
+  raises its arms; the Enderman screams (jaw open, arms out) and blinks away and back; the Allay
+  flies in from above and holds out a falling Star. Vanilla's own: the Warden's five, the Allay's
+  dance, the Referee's cheer.
+- **On whom and when** (the game's own moments): Select as a player's turn starts (as the turn shot
+  gets to them) and when they're picked as a rival (an item, a Versus pick, Chance Time's Coin
+  Swap); Dice roll on the jump that hits the die, the turn order's too, and a bot's hop; Celebration
+  on the turn order reveal, a minigame won (over the arena as the results show), a duel won, a Star
+  gained and the game won; Sad on a minigame lost (last place, the losing side, a Battle's losers,
+  a duel's loser), a Star lost, and coins lost. Coins and Stars are watched (every 2 ticks), so
+  every change counts whatever made it; coins a player spends of their own accord (a shop, the
+  Trader, the Witch's reroll, a Battle's pot) don't make them sad. Bots play the sets too. A set
+  asked for while the same set still plays isn't started over (the game and a line often ask at
+  once), and none plays while a cutscene is skipped.
+- **A line's actions** (the dialogue tool's, per line) are in `dialogue.json`'s `actions`, one list
+  per alternate (the tool's install writes them). As the card comes in its Start actions play, an
+  After action plays its seconds in, and its End ones once it's gone on (not when it's skipped).
+  The speaker talks as the card comes in unless the line gives them something else then (a Game
+  line, or a character with no Talk, never does). Speaker is the line's character: the one of its
+  role last brought into the scene (several Chrises stand on the board; the one at this Star
+  speaks), or the Tests' NPC; a character by name likewise; the Zombie is the one following the
+  line's `{player}`. Player is the line's `{player}`, else the seat it's to or about, else every
+  seat (a line to everyone); Other is its `{other}`; Every player is everyone, bots too.
+- **What the script does with a move:** Chris's Look at the player turns him to the line's player,
+  his Fall in drops him again from above where he stands; the Enderman's Teleport puts portal
+  particles round him as his model shrinks away and back; the Allay's Drop a Star spawns the Star
+  model turning and falling from its hands; the Referee's Cheer switches his cheer on for 2.5 s;
+  the Allay's Dance plays one round; the Warden's Dig away leaves him dug in until the game takes
+  him away.
+- **Seeded actions** (the user's to keep or change in the tool): the Villager nods at a sale and
+  shakes his head at no money, full hands or nothing to sell; the Trader nods at a sale; the Witch
+  laughs at Chance Time's welcome, goodbye and its unkind outcomes; the Enderman screams and then
+  blinks away on the Ender Pearl; the Referee points as he asks for a rival and at the Glove's
+  challenge; Chris celebrates a Star sold and the doubling and final-round announcements; the
+  Zombie raises its arms as it arrives and attacks as it takes coins.
+- **Not checked in game yet:** that a script-played animation layers on the player's own as it does
+  on the NPCs (the referee's raised arms showed that playAnimation's animations come after the
+  model's own), the rotation directions (calibrated from vanilla's: an arm's or leg's x below 0
+  swings it forward, a right arm's z above 0 swings it out), and how the poses read on each model.
+
 ## Sounds
 
 Every animation and much of the dialogue plays a sound. The user maps them in the dialogue tool's
@@ -661,7 +720,8 @@ Short checks, in game or in the previewer, before building on each:
    pre-game (intro, podium, order rolls and reveal, Star reveal), with or after pass 6's stages.
 6. The minigame announcement, the tutorial panel and the results screen.
 7. Gain and loss, player animations, the dialogue tool's actions and sound cues (its install
-   extended to carry them).
+   extended to carry them). Player animations and the lines' actions built 2026-11-18 ("Player
+   animations", "As built").
 
 ## Open points for the user
 

@@ -124,8 +124,9 @@ export class ItemPlay {
     });
     const picked = await this.host.talk(lineId, fills, { to: who, buttons: [...buttons, button("items.pick.back")], back: candidates.length, botPick: Math.max(0, Math.min(candidates.length - 1, botPick(candidates))) });
     const rival = picked !== undefined && picked < candidates.length ? candidates[picked] : undefined;
-    // The rival stays in sight while the item works on them.
+    // The rival stays in sight while the item works on them, and does their Select: they're picked.
     this.loop.feature(rival);
+    if (rival) this.host.react?.(rival, "Select");
     return rival;
   }
 

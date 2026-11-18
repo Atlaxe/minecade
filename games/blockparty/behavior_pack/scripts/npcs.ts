@@ -14,7 +14,9 @@
 import type { Dimension, Entity, Player } from "@minecraft/server";
 import { ActionFormData } from "@minecraft/server-ui";
 import { describeError, showForm, type Scope } from "@minecade/minigame-core";
+import { CLIPS, movesOf } from "./animations.ts";
 import type { Vec3 } from "./board.ts";
+import type { Moves } from "./moves.ts";
 
 interface Variant {
   property: string;
@@ -158,10 +160,23 @@ export class Npcs {
     return NPC_ROLES.find((role) => `blockparty:${role.id}` === entity.typeId);
   }
 
-  /** An NPC's menu: its animations, then a button per variant that steps it to the next value. */
-  async menu(player: Player, entity: Entity, role: NpcRole, say: (text: string) => void): Promise<void> {
+  /**
+   * An NPC's menu: its moves (the dialogue tool's actions, as a line plays them: animations.ts,
+   * moves.ts, when `moves` is given), its animations, then a button per variant that steps it to the
+   * next value.
+   */
+  async menu(player: Player, entity: Entity, role: NpcRole, say: (text: string) => void, moves?: Moves): Promise<void> {
     const form = new ActionFormData().title(role.name).body(role.role);
     const actions: (() => void)[] = [];
+    if (moves) {
+      for (const move of movesOf(CLIPS, role.name)) {
+        form.button(`Move: ${move}`);
+        actions.push(() => {
+          moves.npc(entity, role.name, move, player);
+          say(`${role.name}: ${move}`);
+        });
+      }
+    }
     for (const { label, animation, property, hold } of role.animations) {
       form.button(`Play: ${label}${hold ? " (held)" : ""}`);
       actions.push(() => {

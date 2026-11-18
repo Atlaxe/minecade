@@ -19,6 +19,10 @@
 //   - nobody walks the board by themselves (the user's call): the movement keys move a player only
 //     off the board (a minigame, a ride) and on the pre-game podium until they roll (keepControls);
 //   - the NPCs on the vanilla mobs' models (npcs.ts): hit one for its animations and variants;
+//   - animations (animations.ts, moves.ts): the players' sets as the game goes (Select as a turn
+//     starts or a rival is picked, Dice roll on the jump that hits the die, Celebration and Sad on
+//     the turn order reveal, a minigame's result, a Star or coins won and lost), and every line's
+//     actions from the dialogue tool, the speaker talking unless the line says otherwise;
 //   - arenas from other maps (spike/blockparty/arena-pack.ts installs them as structures in
 //     private_packs/arenas/): placed far east of the board (or in the map's arena slot), fresh each
 //     time: a fade to black, the loading screen (the star field and Minecade's logo) fading in over
@@ -64,7 +68,9 @@ import { ResultsScreen, type ResultSeat } from "./results.ts";
 import { SCREEN_WORDS, cardRows, codesOf } from "./screen-codes.ts";
 import { GameSidebar } from "./sidebar-rows.ts";
 import { Heads } from "./heads.ts";
-import { Dialogue } from "./dialogue.ts";
+import { Dialogue, type SaidLine } from "./dialogue.ts";
+import { CLIPS, playerClips, roleOf, type LineAction } from "./animations.ts";
+import { Moves, PLAYER_ANIMATION } from "./moves.ts";
 import { TurnFade } from "./fade.ts";
 import { Stage, type StageMarkup } from "./stage.ts";
 import type { Marker } from "./stage-layout.ts";
@@ -122,6 +128,8 @@ const CHAT_HUD = [HudElement.StatusEffects];
 const BAR_RESEND = 20;
 /** Ticks a roll's number stays in the dialogue box. */
 const ROLL_NOTICE = 45;
+/** Ticks after a turn starts before its player's Select (the turn shot eases in on them meanwhile). */
+const SELECT_AFTER = 10;
 /**
  * The item every player holds on the board, in each hotbar slot, so a drop (Q, a controller's drop
  * button) has something to drop: a clear picture, nothing in their hands. The drop shows them their
@@ -242,6 +250,8 @@ export class BlockPartySpike extends Minigame<Config> {
   /** The dialogue box (dialogue.ts) and the stage: the NPCs and the shots (stage.ts). */
   private dialogue!: Dialogue;
   private staging!: Stage;
+  /** The players' and NPCs' animations (moves.ts). */
+  private moves!: Moves;
   /** The minigame's line top right while one is on (it takes the board's place). */
   private minigameStatus: string | undefined;
   /** Players put on the pre-game podium who haven't rolled for turn order yet (by key): they may walk. */
@@ -365,7 +375,14 @@ export class BlockPartySpike extends Minigame<Config> {
       },
       fade: this.fade,
     });
-    this.dialogue = new Dialogue({ scope: this.scope, random: () => this.ctx.random(), show: (box) => this.gameSidebar.set("dialogue", box), leader: () => this.leader() });
+    this.moves = new Moves({ scope: this.scope, random: () => this.ctx.random(), fallIn: (entity) => void this.staging.fallAgain(entity) });
+    this.dialogue = new Dialogue({
+      scope: this.scope,
+      random: () => this.ctx.random(),
+      show: (box) => this.gameSidebar.set("dialogue", box),
+      leader: () => this.leader(),
+      act: (action, said) => this.lineAction(action, said),
+    });
     this.boardMenu = new BoardMenu({
       scope: this.scope,
       sidebar: this.gameSidebar,
@@ -413,6 +430,8 @@ export class BlockPartySpike extends Minigame<Config> {
         // their keys locked first so they keep facing it (the user: nobody moves round on their turn).
         if (shot && player) this.keepControls(player, this.testsOf(player));
         if (shot) this.boardCamera.turnShot(who.body);
+        // Their turn: Select, as the turn shot gets to them.
+        if (shot) this.scope.timeout(() => this.moves.player(who.body, "Select"), SELECT_AFTER);
         if (!player) return shot ? this.boardMenu.botTurn(who).then((die) => this.botRoll(who, shot, die)) : this.botRoll(who, shot, STANDARD);
         return new Promise((resolve) => {
           const key = player.name.toLowerCase();
@@ -434,6 +453,7 @@ export class BlockPartySpike extends Minigame<Config> {
       notice: (text, more, ticks) => this.notice(text, more, ticks),
       changed: () => this.loopChanged(),
       results: (before, after) => this.results.show(before, after),
+      react: (who, set) => this.moves.player(who.body, set),
       zombies: this.zombies,
       random: () => this.ctx.random(),
     });
@@ -448,7 +468,7 @@ export class BlockPartySpike extends Minigame<Config> {
     this.scope.subscribe(world.afterEvents.entityHitEntity, ({ damagingEntity, hitEntity }) => {
       if (damagingEntity.typeId !== "minecraft:player") return;
       const role = this.npcs.roleOf(hitEntity);
-      if (role) void this.npcs.menu(damagingEntity as Player, hitEntity, role, (text) => this.everyone(text));
+      if (role) void this.npcs.menu(damagingEntity as Player, hitEntity, role, (text) => this.everyone(text), this.moves);
     });
     this.scope.subscribe(
       world.afterEvents.playerButtonInput,
@@ -657,6 +677,7 @@ export class BlockPartySpike extends Minigame<Config> {
       return undefined;
     }
     hop(body);
+    this.moves.player(body, "Dice roll");
     await this.scope.wait(5);
     const rolled = rollDie(picked, () => this.ctx.random());
     this.rollNotice(who.name, rolled);
@@ -672,6 +693,36 @@ export class BlockPartySpike extends Minigame<Config> {
   private rollNotice(name: string, rolled: RollOutcome): void {
     const throws = throwsText(rolled);
     this.notice(`${rolled.move}`, `${name}, ${rolled.die.name}${throws ? `: ${throws}` : ""}`, ROLL_NOTICE);
+  }
+
+  /**
+   * One of a line's actions (dialogue.ts: the dialogue tool's, per line), on whoever the line means.
+   * Speaker is the line's character, and a character by name is that one: the part of its role last
+   * brought into a scene (stage.ts), the zombie following the line's player, or the Tests' NPC.
+   * Player is the {player} the line names, else the seat it's to or about, else every seat (a line
+   * to everyone); Other is its {other}; Every player is every seat. Bots play the players' sets too.
+   */
+  private lineAction(action: LineAction, said: SaidLine): void {
+    const seats = [...world.getAllPlayers().map(whoOf), ...this.bots.all()];
+    const named = (fill: string): Who | undefined => {
+      const name = said.fills[fill];
+      return name === undefined ? undefined : seats.find((who) => who.name === String(name));
+    };
+    const about = named("player") ?? said.about;
+    if (action.who === "Every player" || (action.who === "Player" && !about)) {
+      for (const who of seats) this.moves.player(who.body, action.action);
+      return;
+    }
+    if (action.who === "Player" || action.who === "Other") {
+      const who = action.who === "Player" ? about : named("other");
+      if (who) this.moves.player(who.body, action.action);
+      return;
+    }
+    const character = action.who === "Speaker" ? said.character : action.who;
+    if (character === "Game") return;
+    const role = roleOf(character);
+    const entity = role === "zombie" ? (about ? this.zombies.of(about.key) : undefined) : (this.staging.speaker(role) ?? this.npcs.get(role));
+    if (entity) this.moves.npc(entity, character, action.action, about?.body);
   }
 
   /** Puts `die` over the block `at` (the roller's head): its model if it has a texture, else its block if the place is empty. */
@@ -1159,6 +1210,8 @@ export class BlockPartySpike extends Minigame<Config> {
     const rolling = tests.rolling;
     tests.rolling = undefined;
     this.pendingRolls.delete(key);
+    // The jump that hits it: one or both fists up (the jump itself is their own).
+    this.moves.player(player, "Dice roll");
     this.rollNotice(player.name, rolled);
     await this.scope.wait(12);
     this.takeDie(rolling?.over);
@@ -1184,6 +1237,7 @@ export class BlockPartySpike extends Minigame<Config> {
       ["Next space outcomes", () => this.outcomeForm(player)],
       ["Bring the Wandering Trader", () => this.traderTest(player)],
       ["Coin and Star models", () => this.iconModels(player)],
+      ["Player animations", () => this.playerAnimationsForm(player)],
       [this.npcs.spawned ? "Take the NPCs away" : "Put the NPCs out", () => this.toggleNpcs()],
       ["Arenas from other maps", () => this.arenaMenu(player)],
       ["Ride and lead (two players)", () => this.rideMenu(player)],
@@ -1317,6 +1371,21 @@ export class BlockPartySpike extends Minigame<Config> {
     const id: ShotId = SHOTS[response.selection].id;
     if (id === "clear") this.shots.stop();
     else void this.shots.play(id, player);
+  }
+
+  /**
+   * Player animations (Tests): every animation of the players' sets, each played on the player who
+   * picks it (seen from outside: F5, or another player watching). The game picks one of a set's at
+   * random; here each one can be seen on its own.
+   */
+  private async playerAnimationsForm(player: Player): Promise<void> {
+    const clips = playerClips(CLIPS);
+    const form = new ActionFormData().title("Player animations").body("Each plays on you. Press F5 to see yourself, or have someone watch.");
+    for (const clip of clips) form.button(clip.name.replace("animation.blockparty.player.", "").replace(/_/g, " ").replace(".", ": "));
+    const picked = (await showForm(this.scope, player, form))?.selection;
+    const clip = picked === undefined ? undefined : clips[picked];
+    if (!clip || !player.isValid) return;
+    player.playAnimation(clip.name, { controller: PLAYER_ANIMATION, stopExpression: "q.any_animation_finished", blendOutTime: 0.2 });
   }
 
   private toggleNpcs(): void {
