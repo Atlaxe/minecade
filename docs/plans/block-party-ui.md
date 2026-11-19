@@ -363,10 +363,10 @@ Key letters are black on the cap, as vanilla's keyboard helpers draw them. Each 
 sit straight in a row of their own, not in a centered row's slots, so the hidden ones take no room.
 A minigame lists at most 3 controls a side (`MAX_CONTROLS`).
 
-The Ready strip, bottom right: "Press [use] when ready 1/4" (a minigame's Ready is a press of use
-since 59d0c7a): Right Click on a key cap, the controller's LT (L2, ZL), or the touch interact button,
-the same way as the controls, and "Ready! Waiting for the others 3/4" for a player who has pressed
-it (`§k§z`, `READY_CODE`), with the sound map's `vote.ready` and `vote.done`. Bots count once they've
+The Ready strip, bottom right: "Press [jump] when ready 1/4" (a minigame's Ready is the jump, the
+user after trying a punch and a press of use, 25d4d93): Space on a key cap, the controller's A
+(cross), or the touch jump button, the same way as the controls, and "Ready! Waiting for the others
+3/4" for a player who has jumped (`§k§z`, `READY_CODE`), with the sound map's `vote.ready` and `vote.done`. Bots count once they've
 had their moment. It replaces the ready count that was top right. The countdown and Go are still
 notices in the dialogue box.
 

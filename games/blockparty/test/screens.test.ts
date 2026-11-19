@@ -318,8 +318,11 @@ describe("Block Party's screens' JSON UI (the workshop builder's components, ins
     for (const key of ["W", "A", "S", "D", "Space", "Left Click", "Right Click", "Shift", "Ctrl"]) expect(tutorial).toContain(`"text": "${key}"`);
     for (const binding of ["#controller_left_stick_icon", "#controller_face_down_icon", "#controller_right_trigger", "#controller_left_trigger", "#controller_face_right_icon"]) expect(tutorial).toContain(`"binding_name": "${binding}"`);
     for (const button of ["joystick_frame", "jump", "attack", "interact", "sneak", "sprint"]) expect(tutorial).toContain(`"texture": "textures/ui/${button}"`);
-    // The Ready strip asks for a press of use, a minigame's Ready (with each side's use input: three).
-    expect(tutorial.split('"text": "Right Click"').length - 1).toBe(3);
+    // The Ready strip asks for the jump, a minigame's Ready (25d4d93): Space beside each side's jump
+    // input (three), and no Right Click but each side's use input (two).
+    expect(tutorial.split('"text": "Space"').length - 1).toBe(3);
+    expect(tutorial.split('"text": "Right Click"').length - 1).toBe(2);
+    expect(tutorial.split('"texture": "textures/ui/interact"').length - 1).toBe(2);
   });
 
   it("shows a player their own results screen for the standings word while their line has the standings code, and hides their cards", () => {

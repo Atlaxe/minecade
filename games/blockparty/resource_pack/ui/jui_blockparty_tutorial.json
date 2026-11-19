@@ -3651,7 +3651,7 @@
                                           {
                                             "b_a1b00048": {
                                               "type": "label",
-                                              "text": "Right Click",
+                                              "text": "Space",
                                               "size": [
                                                 "default",
                                                 "default"
@@ -3681,7 +3681,7 @@
                                 "b_a1b30001": {
                                   "type": "panel",
                                   "size": [
-                                    12,
+                                    11,
                                     11
                                   ],
                                   "controls": [
@@ -3689,14 +3689,14 @@
                                       "b_a1b00043": {
                                         "type": "image",
                                         "size": [
-                                          14,
-                                          14
+                                          20,
+                                          20
                                         ],
                                         "keep_ratio": true,
-                                        "texture": "#controller_left_trigger",
+                                        "texture": "#controller_face_down_icon",
                                         "bindings": [
                                           {
-                                            "binding_name": "#controller_left_trigger",
+                                            "binding_name": "#controller_face_down_icon",
                                             "binding_name_override": "#texture"
                                           }
                                         ],
@@ -3724,7 +3724,7 @@
                                     11
                                   ],
                                   "keep_ratio": true,
-                                  "texture": "textures/ui/interact",
+                                  "texture": "textures/ui/jump",
                                   "visible": false,
                                   "bindings": [
                                     {
