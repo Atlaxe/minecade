@@ -269,7 +269,7 @@
     },
     {
       "name": "Minigame: the announcement",
-      "about": "Minigame! over the full star field (its stars zoom in game, not here), the format under it, the wheel's light on its way down.",
+      "about": "Minigame! over the full star field (the frames step in game, not here), the format under it, the wheel's light on its way down.",
       "hud": {
         "actionbar": "§r§m§c§r§k§d§8§k§x§0§0",
         "sidebar": {

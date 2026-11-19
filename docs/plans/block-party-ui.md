@@ -395,8 +395,8 @@ Replaces the roulette titles and the loading screen's plain fade. The user's spe
 ### The star field, as built (2026-11-18)
 
 The fade both ways, steps 1, 2, 6 and 7 (`stars.ts`, `minigame-runner.ts`, `spike.ts`); steps 3 to 5
-were the roulette in the dialogue box, played on the stars, until the titles and the wheel below. It replaces the loading screen
-(the camera's fade to black, then the star field and Minecade's logo): no black and no logo.
+are the titles and the wheel below, on the stars. It replaces the loading screen's star field and
+Minecade's logo; the camera's fade to black under it stays, as before.
 - **The look** (the user, after the first look: like the front window of a ship, zooming through
   the stars, not falling through them): Minecade's own star field stands still far behind
   (`textures/minecade/sky/stars`, opaque, so at full strength nothing shows through), and four
@@ -405,36 +405,38 @@ were the roulette in the dialogue box, played on the stars, until the titles and
   from the middle, longer further out) grow from the middle of the screen, 1x to 3.5x over a 3.2 s
   life, each fading in small and out large and gone a moment before it jumps back to small, a
   quarter of a life apart. So stars always rush outward and stretch as they pass. The zoom always
-  goes forward: the spec's turn ("the stars' motion reverses") is dropped with the sliding.
-- **Into a minigame:** the camera rises and pulls back over 3 s; after 1 s the star field fades in
-  over the view (8 strengths, one every 2 ticks, 0.8 s); the roulette plays over it; everyone moves
-  to the arena behind it; it holds 2 s while the arena's chunks load; then it fades out as the
-  camera eases down into the arena to its rules camera (2.5 s).
-- **Back to the board** (the same backwards): after the results each player's camera rises from
-  where they are to high over the arena; after 1 s the stars fade in; behind them everyone is back
-  on their pieces and the board's camera waits high over the board view (where the zoom out leaves
-  it); the stars fade out as it eases down into the board view (2.5 s, `BoardCamera.comeIn`; the
-  board view follows on from there). Before the board game's rounds (a test), cameras go back to the
-  players' own instead.
-- **The movement:** the client builds the action bar's controls anew at every send, which starts
-  their animations over, so a plain looping zoom would jump back at each send (each strength step,
-  and the resend every second). So the line carries a phase (`§k§x` and two hex digits: 32 phases,
-  0.1 s apart, a whole life), and `ui/blockparty_hud.json` (`tools/assets/blockparty-hud-ui.ts`) has
-  a copy of the zoom layers for each strength and phase, built only when the line names both: each
-  layer's size and alpha animations start where that phase puts it in its life (`size_from_<n>`,
-  `alpha_<strength>_from_<n>`) and go on round its life from there (`size_loop`, and the alpha's
-  parts one after another). Every number is written out in the file; nothing is worked out in the
-  client. The game keeps the phase by the clock (the client's animations run in real time, through a
-  server stall too) and holds a send up to 3 ticks for a moment within a quarter phase.
+  goes forward: the spec's turn ("the stars' motion reverses") is dropped.
+- **The fade** (the user, after the second look, when nothing had shown either time: the previous
+  fade back, with the stars moving like a gif): as the old loading screen's. The screen fades to
+  black (a camera fade, 0.4 s), the star field fades in over the black a level a tick (8 levels; the
+  HUD draws over a camera fade), and the black goes behind it once it's up. At the end the black
+  comes back under it, the star field fades out to the black a level a tick, and the black lifts
+  (0.6 s) on the new place as the camera comes down into it.
+- **The movement, like a gif:** 64 frames, one a tick, round and round (3.2 s). The game steps the
+  frame on everyone's action bar line every tick while the star field is up (`§k§x` and two hex
+  digits, after the strength's `§k§d` and digit; not `§k§g`, the core clock's first place), so the
+  line is sent every tick then. Each frame in `ui/blockparty_hud.json` (`tools/assets/blockparty-hud-ui.ts`)
+  is the four zoom pictures at set sizes and alphas for that frame and strength, every number
+  written out: no JSON UI animations at all. Only the strength and frame the line names are built.
+- **Into a minigame:** the camera rises and pulls back over 3 s; after 1 s the black and the star
+  field come over it; Minigame!, the format and the wheel play on the stars; everyone moves to the
+  arena behind them; they hold 2 s while the arena's chunks load; then they go as the camera eases
+  down into the arena to its rules camera (2.5 s).
+- **Back to the board** (the same backwards): after the podium each player's camera rises to high
+  over the arena; after 1 s the black and the stars come; behind them everyone is back on their
+  pieces and the board's camera waits high over the board view (where the zoom out leaves it); they
+  go as it eases down into the board view (2.5 s, `BoardCamera.comeIn`; the board view follows on
+  from there). Before the board game's rounds (a test), cameras go back to the players' own instead.
 - **Layers:** the star field is at layer 170 in the action bar's panel, over every board screen (the
-  results screen reaches 159); the dialogue box and the fork box are lifted to 200 in
-  `ui/hud_screen.json`, so the roulette shows on the stars.
-- **The first look's fault:** nothing showed (no stars, the map's reset in plain view). The star
-  field's top control was left out by `ignored`, which reads `$atext` from the control's parents and
-  never its own (the content log: "Expected variable not found in ancestor tree: '$atext'"); the top
-  control uses `visible` now, and only the controls under it use `ignored`.
-- Not yet seen in game. If the stars jump about once a second rather than glide, the animations
-  aren't playing in the action bar's controls: what to check first.
+  results screen reaches 159); the dialogue box, the fork box and the announcement are lifted to 200
+  in `ui/hud_screen.json`, so they show on the stars.
+- **What went wrong before:** at the first look the star field's top control was left out by
+  `ignored`, which reads `$atext` from the control's parents and never its own (the content log:
+  "Expected variable not found in ancestor tree: '$atext'"); it uses `visible` now, and only the
+  controls under it use `ignored`. At the second look the server had been built a minute before
+  that fix reached the main checkout, so it showed the first version again. The sliding layers and
+  then the zoom both used JSON UI animations, which never got to show; the frames replace them.
+- Not yet seen in game.
 
 ### The titles and the wheel, as built (2026-11-18)
 

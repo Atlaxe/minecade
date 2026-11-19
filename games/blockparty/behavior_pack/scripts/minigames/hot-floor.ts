@@ -10,7 +10,7 @@
 import { system, type Dimension, type Vector3 } from "@minecraft/server";
 import { BOT_WALK, isPlayer, stepToward, thinkTicks, type Who } from "../bots.ts";
 import { MARKUP } from "./arenas.ts";
-import { at, fill, inOrder, NOTICE, secondsText, spread, testField, type Field, type MinigameDef, type Outcome, type Play } from "./kit.ts";
+import { at, fill, inOrder, secondsText, spread, testField, type Field, type MinigameDef, type Outcome, type Play } from "./kit.ts";
 
 const COLORS = [
   { block: "minecraft:red_concrete", name: "§cRed" },
@@ -140,7 +140,6 @@ export const HOT_FLOOR: MinigameDef = {
       for (let i = 0; i < Math.max(2, Math.round(count / 9)); i++) colors[Math.floor(play.random() * colors.length)] = color;
       layTiles(dimension, tiles, colors);
       const countdown = Math.max(LAST_COUNT, FIRST_COUNT - COUNT_STEP * (round - 1));
-      play.notice(`${COLORS[color].name}\nRound ${round}`, NOTICE.land);
       dropping.clear();
       // Each bot's tile: the nearest of the color, now and then a wrong one near it.
       const targets = new Map<string, { at: Vector3; from: number }>();
@@ -176,7 +175,9 @@ export const HOT_FLOOR: MinigameDef = {
           }
         }
         if (tick === countdown + BOT_DROP) for (const who of play.inPlay()) if (dropping.has(who.key)) fell(who, true);
-        play.status(tick < countdown ? `${COLORS[color].name.slice(2)} in ${secondsText(countdown - tick)}` : `Round ${round}`);
+        // The round and the color on the action bar line only (the user, 2026-11-18: no notice in the dialogue box).
+        const colorName = COLORS[color].name.slice(2);
+        play.status(tick < countdown ? `Round ${round}: ${colorName} in ${secondsText(countdown - tick)}` : `Round ${round}: ${colorName}`);
         for (const who of play.inPlay()) {
           const target = targets.get(who.key);
           if (target && system.currentTick >= target.from) stepToward(who.body, target.at, BOT_WALK);

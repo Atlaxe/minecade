@@ -207,10 +207,10 @@ const JUMP_MODES: readonly { id: JumpMode; label: string }[] = [
 const ARENA_AT: Vec3 = [2000, 0, 0];
 const ARENA_AREA = "minecade:blockparty_arena";
 const BOARD_AREA = "minecade:blockparty_board";
-/** Ticks between the star field's strengths as it fades in or out (STAR_LEVELS of them). */
-const STAR_STEP = 2;
-/** Ticks a player's line may wait for the star field's phase to come right before it goes anyway. */
-const STARS_WAIT = 3;
+/** Ticks between the star field's strengths as it fades in or out (STAR_LEVELS of them), as the old loading screen's. */
+const STAR_STEP = 1;
+/** Ticks of black before the star field starts fading in over it. */
+const STARS_AFTER_BLACK = 4;
 /** Blocks placed a millisecond, about (docs/spike-results.md, "Block Party": Sinkhole's 667,648 in 608 to 676 ms). */
 const BLOCKS_PER_MS = 1000;
 /** What a testing command says when Block Party isn't being tested (spike.ts, testing). */
@@ -238,8 +238,6 @@ interface PlayerTests {
   /** The action bar line last sent, and when: sent again when it changes or every BAR_RESEND ticks. */
   sentLine?: string;
   sentAt?: number;
-  /** Ticks the line has waited for the star field's phase to come right. */
-  starsWaited?: number;
   /**
    * Their die out: which die it is, the block over their head it floats in, and what shows there;
    * `next` when it's back for another throw of the same roll (a Triple Die's), the jump that hits it.
@@ -269,7 +267,7 @@ export class BlockPartySpike extends Minigame<Config> {
   /** The board's middle: the test board's, or the middle of the map's spaces. */
   private boardMiddle: Vec3 = [0, 64, 0];
   /** The minigame announcement's star field, the same for everyone (stars.ts). */
-  private readonly stars = new StarField(() => Date.now());
+  private readonly stars = new StarField();
   /** The board loop (board-loop.ts). */
   private loop!: BoardLoop;
   /** The game's one sidebar (the dialogue box and the board's screens), the board menu and item panel, the results screen. */
@@ -1061,6 +1059,7 @@ export class BlockPartySpike extends Minigame<Config> {
    * every few ticks, the board's held item in every hotbar slot.
    */
   private keepPlayers(): void {
+    this.stars.tick();
     this.keepStandings();
     for (const player of world.getAllPlayers()) {
       const tests = this.tests.get(player.name.toLowerCase());
@@ -1256,11 +1255,10 @@ export class BlockPartySpike extends Minigame<Config> {
 
   /**
    * The player's action bar: a minigame's status line while one is on (the board has none: the user
-   * took its round and totals line away), the star field's strength, way and phase when it's up, and
-   * their own results screen when they've dropped for it. Never empty (KEEP_UP): every screen rides
-   * the action bar's panel. Sent when it changes (the star field's phase aside: it moves all the
-   * time), and every BAR_RESEND ticks so it doesn't fade. While the stars are up a send waits (up to
-   * STARS_WAIT ticks) for a moment their phase is right, as each send starts their zoom over from it.
+   * took its round and totals line away), the star field's strength and frame when it's up (a new
+   * frame every tick, so it's sent every tick then), and their own results screen when they've
+   * dropped for it. Never empty (KEEP_UP): every screen rides the action bar's panel. Sent when it
+   * changes, and every BAR_RESEND ticks so it doesn't fade.
    */
   private sendLine(player: Player, tests: PlayerTests, force = false): void {
     const status = this.minigameStatus ?? "";
@@ -1271,19 +1269,12 @@ export class BlockPartySpike extends Minigame<Config> {
       holdingCode(this.dialogue?.holdStep(player.name)) +
       (tutorial?.secondSide.has(name) ? SIDE_TWO_CODE : "") +
       (tutorial?.readyKeys.has(name) ? READY_CODE : "");
-    const lineWith = (stars: string) => hudLine(undefined, status, undefined, "", stars + own || (status ? "" : KEEP_UP));
-    const key = lineWith(this.stars.key());
-    if (!force && key === tests.sentLine && system.currentTick - (tests.sentAt ?? 0) < BAR_RESEND) return;
-    if (!this.stars.exact && (tests.starsWaited ?? 0) < STARS_WAIT) {
-      // Next tick: keepPlayers sends it once the phase is right.
-      tests.starsWaited = (tests.starsWaited ?? 0) + 1;
-      tests.sentLine = undefined;
-      return;
-    }
-    tests.starsWaited = 0;
-    tests.sentLine = key;
+    const codes = this.stars.codes() + own;
+    const line = hudLine(undefined, status, undefined, "", codes || (status ? "" : KEEP_UP));
+    if (!force && line === tests.sentLine && system.currentTick - (tests.sentAt ?? 0) < BAR_RESEND) return;
+    tests.sentLine = line;
     tests.sentAt = system.currentTick;
-    player.onScreenDisplay.setActionBar(lineWith(this.stars.codes()));
+    player.onScreenDisplay.setActionBar(line);
   }
 
   /** Dice and items held (Tests): sets what your seat holds, any two of the dice file's special dice and any three items. */
@@ -1893,34 +1884,57 @@ export class BlockPartySpike extends Minigame<Config> {
   }
 
   /**
-   * The minigame announcement's star field fades in over everyone's view, a level every STAR_STEP
-   * ticks, its stars rushing out of the middle as if flying through them (block-party-ui.md, "The
-   * minigame announcement"). The HUD draws over everything, so no camera fade is needed under it: at
-   * full strength its still stars far behind are opaque. Resolves once it's fully up (at once when
-   * it is already).
+   * The minigame announcement's star field comes over everyone's view the way the old loading screen
+   * did (the user asked for that fade back, 2026-11-18): the screen fades to black (a camera fade),
+   * then the star field fades in over the black a level a tick (the HUD draws over a camera fade),
+   * its stars rushing out of the middle a frame a tick (stars.ts), and the black goes behind it once
+   * it's fully up (at full strength its still stars far behind are opaque). Resolves once it's fully
+   * up (at once when it is already).
    */
   private async starsIn(): Promise<void> {
     if (this.stars.level >= STAR_LEVELS) return;
+    // Black, held until the stars are fully up over it, then gone behind them.
+    this.blackFade(0.4, 0.4 + (STARS_AFTER_BLACK + STAR_LEVELS * STAR_STEP + 4) / 20, 0.2);
+    await this.scope.wait(8 + STARS_AFTER_BLACK);
     while (this.stars.level < STAR_LEVELS) await this.starsAt(this.stars.level + 1);
   }
 
-  /** `reveal` runs (the camera's way down into the new place), and the stars fade out over it. */
+  /**
+   * The way out, as the old loading screen's: black again behind the star field, held while it fades
+   * out to the black; then `reveal` runs (the camera's way down into the new place) as the black
+   * lifts on it.
+   */
   private async starsOut(reveal?: () => void): Promise<void> {
+    if (this.stars.level > 0) {
+      this.blackFade(0.2, (STAR_LEVELS * STAR_STEP + 6) / 20, 0.6);
+      await this.scope.wait(5);
+      while (this.stars.level > 0) await this.starsAt(this.stars.level - 1);
+    }
     reveal?.();
-    while (this.stars.level > 0) await this.starsAt(this.stars.level - 1);
+  }
+
+  /** A camera fade to black for everyone, in, held and out over these seconds. */
+  private blackFade(fadeInTime: number, holdTime: number, fadeOutTime: number): void {
+    for (const player of world.getAllPlayers()) {
+      try {
+        player.camera.fade({ fadeTime: { fadeInTime, holdTime, fadeOutTime }, fadeColor: { red: 0, green: 0, blue: 0 } });
+      } catch {
+        // gone
+      }
+    }
   }
 
   /**
-   * A move behind the star field, for everyone: it fades in (unless it's up already), the work is
-   * done (a long placement stalls the server; the stars zoom on, on each client), it holds
-   * CLIENT_LOAD ticks more while clients load the new place's chunks, then it fades out as `reveal`
-   * takes the camera down into the new place.
+   * A move behind the star field, for everyone: it comes (unless it's up already), the work is done
+   * (a long placement stalls the server; the screen holds), it holds CLIENT_LOAD ticks more while
+   * clients load the new place's chunks, then it goes as `reveal` takes the camera down into the new
+   * place.
    */
   private async behindStars(work: () => void | Promise<void>, reveal?: () => void): Promise<void> {
     await this.starsIn();
     try {
       // The full strength is sent: the stall can't hide it.
-      await this.scope.wait(STAR_STEP);
+      await this.scope.wait(2);
       if (this.slowLoads) await this.scope.wait(SLOW_LOAD);
       await work();
       await this.scope.wait(CLIENT_LOAD);

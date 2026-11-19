@@ -4,7 +4,8 @@
 // code, each left out unless its code is in the line.
 //   - The star field (stars.ts): the minigame announcement's stars rushing past over everything but
 //     the dialogue box, at one of STAR_LEVELS strengths (STARS_CODE and the level's digit), stepped
-//     up and down to fade, and where the zoom is (STARS_PHASE_CODE and the phase in two hex digits).
+//     up and down to fade, and its frame (STARS_FRAME_CODE and the frame in two hex digits), stepped
+//     every tick like a gif.
 //   - A player's own results screen (STANDINGS_CODE): the standings, shown to them alone after a
 //     drop (ui/hud_screen.json's bp_standings).
 //   - The minigame tutorial's per-player parts (the blockparty_tutorial component reads them): the
@@ -20,8 +21,8 @@
 // board menu and the item panel (board-ui.ts), and nothing is in a player's hands on the board.
 
 export const STARS_CODE = "§k§d";
-/** Not §k§g, the core clock's first place (its digit checks would match the phase). */
-export const STARS_PHASE_CODE = "§k§x";
+/** Not §k§g, the core clock's first place (its digit checks would match the frame). */
+export const STARS_FRAME_CODE = "§k§x";
 export const STANDINGS_CODE = "§k§f";
 /**
  * The player holds use toward a skip vote (dialogue.ts, holdStep): their dialogue box's skip strip
@@ -39,8 +40,8 @@ export const READY_CODE = "§k§z";
 /** A code alone, so a line with nothing else in it is still marked and keeps the panel up. */
 export const KEEP_UP = "§r";
 export const STAR_LEVELS = 8;
-/** Where the star field's zoom can be, a phase each (written in two hex digits). */
-export const STAR_PHASES = 32;
+/** The star field's frames, one a tick, round and round (written in two hex digits). */
+export const STAR_FRAMES = 64;
 export const HOTBAR_SIZE = 9;
 
 /** A player holding use toward a skip vote, `step` of the way (0 to 3), or nothing when they aren't (undefined). */
@@ -50,18 +51,14 @@ export function holdingCode(step: number | undefined): string {
 
 const HEX = "0123456789abcdef";
 
-/** The star field's phase code (0 to STAR_PHASES - 1; others wrap round). */
-export function phaseCode(phase: number): string {
-  const at = ((Math.round(phase) % STAR_PHASES) + STAR_PHASES) % STAR_PHASES;
-  return `${STARS_PHASE_CODE}§${HEX[at >> 4]}§${HEX[at & 15]}`;
+/** The star field's frame code (0 to STAR_FRAMES - 1; others wrap round). */
+export function frameCode(frame: number): string {
+  const at = ((Math.round(frame) % STAR_FRAMES) + STAR_FRAMES) % STAR_FRAMES;
+  return `${STARS_FRAME_CODE}§${HEX[at >> 4]}§${HEX[at & 15]}`;
 }
 
-/**
- * The star field at `level` (1 to STAR_LEVELS), or nothing at 0, with its phase when given
- * (without one, the codes that say what changed: the phase moves all the time).
- */
-export function starsCode(level: number, phase?: number): string {
+/** The star field at `level` (1 to STAR_LEVELS), or nothing at 0, at `frame`. */
+export function starsCode(level: number, frame = 0): string {
   if (level <= 0) return "";
-  const strength = `${STARS_CODE}§${Math.min(level, STAR_LEVELS)}`;
-  return phase === undefined ? strength : strength + phaseCode(phase);
+  return `${STARS_CODE}§${Math.min(level, STAR_LEVELS)}${frameCode(frame)}`;
 }
