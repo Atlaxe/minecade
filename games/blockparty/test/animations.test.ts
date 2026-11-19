@@ -145,16 +145,16 @@ describe("Block Party's animation names", () => {
     expect(client.scripts.animate).toContainEqual({ hide: `!q.property('${SHOWN}')` });
     expect(NPC_MOVES.Warden.Emerge.appear).toBe(true);
     expect(NPC_MOVES.Warden["Dig away"]).toMatchObject({ hold: "stays" });
-    // Vanilla's emerge holds his head out on the floor and his dig keeps it out: the pack's rise keeps
-    // him 2 blocks lower through the emerge's hold and lets him climb, and its sink takes him 3 blocks
-    // under as the dig goes on, held; he's hidden only once it has.
+    // He comes up in the pack's entrance, from 4 blocks down to standing; vanilla's dig keeps his head
+    // out, so the pack's sink takes him 3 blocks under as it goes on, held; he's hidden only once it has.
     type Clip = { loop?: unknown; animation_length?: number; bones: Record<string, { position: Record<string, number[]> }> };
     const clips = gamePack.animations as Record<string, Clip>;
-    const rise = clips[NPC_MOVES.Warden.Emerge.also!];
-    expect(NPC_MOVES.Warden.Emerge.also).toBe("animation.blockparty.warden.rise");
-    expect(rise.bones.root.position["1.2"][1]).toBe(-32);
-    expect(rise.bones.root.position["2.88"][1]).toBe(-32);
-    expect(Object.values(rise.bones.root.position).at(-1)![1]).toBe(0);
+    expect(NPC_MOVES.Warden.Emerge.animation).toBe("animation.blockparty.warden.enter");
+    const enter = clips["animation.blockparty.warden.enter"];
+    expect(enter.bones.root.position["0.0"][1]).toBeLessThanOrEqual(-64);
+    expect(Object.values(enter.bones.root.position).at(-1)![1]).toBe(0);
+    // Drawn only while shown: never a frame before the entrance is under way.
+    for (const controller of client.render_controllers as unknown[]) expect(Object.values(controller as Record<string, string>)).toEqual([`q.property('${SHOWN}')`]);
     const sink = clips[NPC_MOVES.Warden["Dig away"].also!];
     expect(NPC_MOVES.Warden["Dig away"].also).toBe("animation.blockparty.warden.sink");
     expect(sink.loop).toBe("hold_on_last_frame");

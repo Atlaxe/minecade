@@ -440,7 +440,7 @@
                               0,
                               0
                             ],
-                            "layer": 48
+                            "layer": 54
                           }
                         }
                       ]
@@ -1861,6 +1861,96 @@
               }
             },
             {
+              "b_d1a10011_slot": {
+                "type": "panel",
+                "size": [
+                  "100%cm",
+                  "100%"
+                ],
+                "controls": [
+                  {
+                    "b_d1a10011": {
+                      "type": "image",
+                      "size": [
+                        10,
+                        10
+                      ],
+                      "keep_ratio": true,
+                      "texture": "#controller_face_down_icon",
+                      "bindings": [
+                        {
+                          "binding_name": "#controller_face_down_icon",
+                          "binding_name_override": "#texture"
+                        },
+                        {
+                          "binding_name": "#is_using_gamepad",
+                          "binding_name_override": "#visible"
+                        }
+                      ],
+                      "visible": false,
+                      "anchor_from": "left_middle",
+                      "anchor_to": "left_middle",
+                      "layer": 1
+                    }
+                  }
+                ],
+                "layer": 4
+              }
+            },
+            {
+              "b_d1a10015_gap2": {
+                "type": "panel",
+                "size": [
+                  3,
+                  0
+                ],
+                "layer": 6
+              }
+            },
+            {
+              "b_d1a10012_slot": {
+                "type": "panel",
+                "size": [
+                  "100%cm",
+                  "100%"
+                ],
+                "controls": [
+                  {
+                    "b_d1a10012": {
+                      "type": "image",
+                      "size": [
+                        10,
+                        10
+                      ],
+                      "keep_ratio": true,
+                      "texture": "textures/ui/jump",
+                      "visible": false,
+                      "bindings": [
+                        {
+                          "binding_name": "#hud_visible_centered_touch",
+                          "binding_name_override": "#visible"
+                        }
+                      ],
+                      "anchor_from": "left_middle",
+                      "anchor_to": "left_middle",
+                      "layer": 1
+                    }
+                  }
+                ],
+                "layer": 7
+              }
+            },
+            {
+              "b_d1a10015_gap3": {
+                "type": "panel",
+                "size": [
+                  3,
+                  0
+                ],
+                "layer": 9
+              }
+            },
+            {
               "b_d1a10014_slot": {
                 "type": "panel",
                 "size": [
@@ -1874,6 +1964,20 @@
                       "size": [
                         "100%cm",
                         10
+                      ],
+                      "visible": false,
+                      "bindings": [
+                        {
+                          "binding_name": "#is_using_gamepad"
+                        },
+                        {
+                          "binding_name": "#hud_visible_centered_touch"
+                        },
+                        {
+                          "binding_type": "view",
+                          "source_property_name": "((not #is_using_gamepad) and (not #hud_visible_centered_touch))",
+                          "target_property_name": "#visible"
+                        }
                       ],
                       "controls": [
                         {
@@ -1902,7 +2006,7 @@
                               {
                                 "b_d1a10013": {
                                   "type": "label",
-                                  "text": "Use",
+                                  "text": "Space",
                                   "size": [
                                     "default",
                                     "default"
@@ -1935,7 +2039,7 @@
                     }
                   }
                 ],
-                "layer": 4
+                "layer": 10
               }
             }
           ],

@@ -277,20 +277,6 @@ export const NUMBER: NumberLook = read.number;
 export const GAIN: NumberLook = read.gain;
 export const LOSS: NumberLook = read.loss;
 
-/** The moves left over a walker's head (counts.ts): its entity, and the property holding its number (0 to MAX_COUNT). */
-export const COUNT_ENTITY = "blockparty:count";
-export const COUNT_PROPERTY = "blockparty:count";
-export const MAX_COUNT = 99;
-/**
- * A transfer's count over a head (transfers.ts): its entity, the property holding its number (0 for
- * none yet, up to MAX_COUNT), and its tone's (TONE_GAIN, "+" in the gain look; TONE_LOSS, "-" in the
- * loss look).
- */
-export const TALLY_ENTITY = "blockparty:tally";
-export const TALLY_PROPERTY = "blockparty:tally";
-export const TONE_PROPERTY = "blockparty:tone";
-export const TONE_GAIN = 0;
-export const TONE_LOSS = 1;
 /** A die's burst when it's hit: chips of its body (the dice tool writes one for every die with a model). */
 export const burstParticle = (id: string) => `blockparty:die_burst_${id}`;
 /** The die everyone always holds (a plain 1 to 6 if the file has none). */

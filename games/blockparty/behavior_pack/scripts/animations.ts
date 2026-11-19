@@ -187,14 +187,13 @@ export const NPC_MOVES: Readonly<Record<string, Readonly<Record<string, NpcMove>
     Roar: { animation: "animation.warden.roar" },
     "Sonic boom": { animation: "animation.warden.sonic_boom" },
     Sniff: { animation: "animation.warden.sniff" },
-    // He's hidden until his emerge is under way (it starts 4 blocks down; moves.ts shows him
-    // APPEAR_AFTER ticks in, so a late start on the client never shows him standing first). Vanilla's
-    // emerge holds him 2 blocks down for 1.7 seconds with his head out on the floor, and its dig
-    // keeps his head out for seconds before he's under: the pack's rise and sink, played with them on
-    // a controller of their own, keep him 2 more blocks down through that hold and take him under
-    // as the dig goes on, so he comes up and goes down in one go (the user saw his head sitting on the
-    // floor before and after, 2026-11-18). Hidden once the sink has him under.
-    Emerge: { animation: "animation.warden.emerge", also: "animation.blockparty.warden.rise", appear: true },
+    // He comes up in the pack's own entrance, a climb out from 4 blocks down in 1.6 seconds, arms
+    // first (vanilla's emerge held his head out on the floor for nearly 2 seconds and took 6.6, the
+    // user saw it flicker and drag, 2026-11-18). He's drawn only while shown (warden.entity.json's
+    // render controllers, so never for a frame before), shown APPEAR_AFTER ticks in (still under the
+    // floor). Vanilla's dig keeps his head out for seconds: the pack's sink, played with it on a
+    // controller of its own, takes him under as it goes on, and he's hidden once it has.
+    Emerge: { animation: "animation.blockparty.warden.enter", appear: true },
     "Dig away": { animation: "animation.warden.dig", also: "animation.blockparty.warden.sink", hold: "stays", vanish: 4.1 },
   },
   Enderman: {

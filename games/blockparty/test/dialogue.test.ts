@@ -527,9 +527,9 @@ describe("the pack's dialogue box", () => {
     // straight in an expression, it never matched).
     expect(ui).toContain('"$atext": "$actionbar_text"');
     expect(ui).not.toMatch(/\(\$actionbar_text -/);
-    // The wide box for long button labels, and the prompt is a press of use now.
+    // The wide box for long button labels, and the prompt is the jump (the user went back to it).
     expect(ui).toContain(`'${BOX_WIDE}'`);
-    expect(ui).toContain('"Use"');
+    expect(ui).toContain("textures/ui/jump");
   });
 
   it("has the fork box, reading the codes the game writes", () => {

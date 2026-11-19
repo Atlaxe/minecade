@@ -1,6 +1,6 @@
 {
   "about": "What tools/blockparty/dice-pack.ts last made Block Party's die model from (the tests compare it with dice.json).",
-  "maker": 4,
+  "maker": 5,
   "dice": [
     {
       "id": "standard",

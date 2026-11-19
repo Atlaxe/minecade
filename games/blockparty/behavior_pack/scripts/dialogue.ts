@@ -23,8 +23,8 @@
 //     is and picked with jump; each way picked turns everyone's camera down it (the caller's focus).
 //   - A jump in a card's first moments doesn't count (it was meant for the one before).
 //   - A skippable line or cutscene shows the skip strip on the box's top border. Holding use (right
-//     click: the board's item, spike.ts, holdingUse; a press of it goes on) for 4 seconds is a vote;
-//     once every player has voted, the rest of it is skipped (a question in it too). The strip says (the user, 2026-11-18;
+//     click: the board's item, spike.ts, holdingUse) for 4 seconds is a vote; once every player has
+//     voted, the rest of it is skipped (a question in it too). The strip says (the user, 2026-11-18;
 //     skipText): "Hold use to skip" before anyone has voted, "Waiting to skip 1 / 3" while some have,
 //     "Waiting for Alex to skip" when one is left, and "Skipping" once everyone has. A player holding
 //     use toward their vote sees "Skipping..." instead, its dots lighting up as the hold goes on
@@ -141,7 +141,7 @@ const JUMP_AFTER = 6;
 /** Ticks use is held to vote to skip (the user's 4 seconds), and the steps its dots light up in. */
 const SKIP_HOLD = 80;
 const HOLD_STEPS = 4;
-/** Ticks use is held before the player's strip says Skipping...: a press (spike.ts, PRESS_TICKS) goes on and shows nothing. */
+/** Ticks use is held before the player's strip says Skipping... (a click shows nothing). */
 const HOLD_SHOWN = 10;
 /** Ticks the box waits before going, so the next line (if one comes at once) takes its place without a flicker. */
 const LINGER = 3;

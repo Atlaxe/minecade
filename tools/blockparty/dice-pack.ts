@@ -4,10 +4,9 @@
 // blockparty:die property picks it; dice.ts, modelIndex) and its burst particle (particles/); the
 // faces' values are drawn in the game's Minecraft Ten font, read from Minecraft on this PC
 // (ten-font.ts), or from the face pictures in resource_pack/textures/blockparty/dice/faces. It also
-// writes the numbers over heads: the moves left over a walker's head (geometry.blockparty.count and
-// its render controller, in the file's "number" look) and a transfer's count (blockparty:tally's two
-// geometries and its render controller, in the "gain" and "loss" looks), both colored from
-// textures/blockparty/number_palette; and the glyphs the build draws the dice icons' numbers with
+// writes the numbers over heads (the moves left and a transfer's count): the atlas of every number in
+// the file's "number", "gain" and "loss" looks (textures/blockparty/numbers.png) and the particle that
+// shows one (particles/number.json); and the glyphs the build draws the dice icons' numbers with
 // (tools/blockparty/ten-glyphs.json). Run it after changing a die's texture, ink, shadow or faces, a
 // number's look, or a face picture:
 //
@@ -19,28 +18,16 @@ import { mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from "nod
 import { dirname, join } from "node:path";
 import { DICE, DICE_PROBLEMS } from "../../games/blockparty/behavior_pack/scripts/dice.ts";
 import { encodePng } from "../skins/png.ts";
-import {
-  COUNT_CONTROLLER,
-  NUMBER_PALETTE,
-  PACK,
-  PALETTE,
-  PLAN_FILE,
-  TALLY_CONTROLLER,
-  buildFaces,
-  burstEffect,
-  burstFile,
-  countController,
-  modelFiles,
-  modelPlan,
-  tallyController,
-} from "./dice-model.ts";
+import { NUMBER_ATLAS } from "../../games/blockparty/behavior_pack/scripts/numbers.ts";
+import { NUMBER_PARTICLE_FILE, PACK, PALETTE, PLAN_FILE, buildFaces, burstEffect, burstFile, modelFiles, modelPlan, numberAtlas, numberParticle } from "./dice-model.ts";
 import { GLYPH_FILE, glyphTable, loadTenFont } from "./ten-font.ts";
 
 const ENTITY = join(PACK, "entity", "die.entity.json");
 const CONTROLLERS = join(PACK, "render_controllers", "blockparty.render_controllers.json");
 const FACES = join(PACK, "models", "entity", "die_faces.geo.json");
-const COUNT = join(PACK, "models", "entity", "count.geo.json");
-const TALLY = join(PACK, "models", "entity", "tally.geo.json");
+/** What the numbers over heads were before they were particles: taken out of the pack if they're there. */
+const GONE = ["models/entity/count.geo.json", "models/entity/tally.geo.json", "textures/blockparty/number_palette.png"].map((path) => join(PACK, path));
+const GONE_CONTROLLERS = ["controller.render.blockparty.count", "controller.render.blockparty.tally"];
 const PARTICLES = join(PACK, "particles");
 const BODY = "controller.render.blockparty.die";
 const FACE_LAYER = "controller.render.blockparty.die_faces";
@@ -56,7 +43,7 @@ if (problems.length > 0) {
 }
 
 const font = loadTenFont();
-const { geometries, count, tallies, palette, numberPalette } = buildFaces(plan, font);
+const { geometries, palette } = buildFaces(plan, font);
 const files = modelFiles(plan);
 const json = (value: unknown) => `${JSON.stringify(value, null, 2)}\n`;
 /** JSON with anything that fits in `width` characters on one line (a cube a line). */
@@ -69,11 +56,10 @@ const compact = (value: unknown, indent = "", width = 320): string => {
 };
 
 writeFileSync(FACES, `${compact({ format_version: "1.12.0", "minecraft:geometry": geometries })}\n`);
-writeFileSync(COUNT, `${compact({ format_version: "1.12.0", "minecraft:geometry": [count] })}\n`);
-writeFileSync(TALLY, `${compact({ format_version: "1.12.0", "minecraft:geometry": tallies })}\n`);
+for (const file of GONE) rmSync(file, { force: true });
 for (const [path, image] of [
   [PALETTE, palette],
-  [NUMBER_PALETTE, numberPalette],
+  [NUMBER_ATLAS, numberAtlas(plan, font)],
 ] as const) {
   const file = join(PACK, `${path}.png`);
   mkdirSync(dirname(file), { recursive: true });
@@ -102,8 +88,7 @@ controllers.render_controllers[FACE_LAYER] = {
   materials: [{ "*": "Material.faces" }],
   textures: ["Texture.palette"],
 };
-controllers.render_controllers[COUNT_CONTROLLER] = countController();
-controllers.render_controllers[TALLY_CONTROLLER] = tallyController();
+for (const name of GONE_CONTROLLERS) delete controllers.render_controllers[name];
 writeFileSync(CONTROLLERS, json(controllers));
 
 // Each die's burst, and none for a die that's gone.
@@ -113,6 +98,7 @@ for (const name of readdirSync(PARTICLES)) {
   if (name.startsWith("die_burst_") && !bursts.has(`particles/${name}`)) rmSync(join(PARTICLES, name));
 }
 for (const entry of plan.dice) writeFileSync(join(PACK, burstFile(entry.id)), json(burstEffect(entry)));
+writeFileSync(join(PACK, NUMBER_PARTICLE_FILE), json(numberParticle()));
 
 writeFileSync(PLAN_FILE, `${compact({ about: "What tools/blockparty/dice-pack.ts last made Block Party's die model from (the tests compare it with dice.json).", ...plan }, "", 200)}
 `);

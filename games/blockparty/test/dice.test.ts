@@ -9,39 +9,30 @@ import { dirname, join } from "node:path";
 import { afterAll, describe, expect, it } from "vitest";
 import {
   BLANK_FACES,
-  COUNT_CONTROLLER,
-  COUNT_GEOMETRY,
-  COUNT_ROOT,
   FACE_PICTURES,
-  NUMBER_ALPHA,
-  NUMBER_PALETTE,
+  NUMBER_PARTICLE_FILE,
   PACK,
   PLAN_FILE,
   SIDES,
-  TALLY_CONTROLLER,
-  TALLY_GEOMETRY,
-  UPRIGHT_BONE,
   buildFaces,
   burstEffect,
   burstFile,
-  countBone,
-  countController,
   faceCubes,
   facePixels,
   facesGeometry,
   inkPixels,
   modelFiles,
   modelPlan,
+  numberAtlas,
+  numberParticle,
   rectangles,
-  signBone,
-  tallyController,
 } from "../../../tools/blockparty/dice-model.ts";
 import { GLYPH_FILE, TEN_FONT, fontOf, glyphTable, loadTenFont, storedFont, type TenFont } from "../../../tools/blockparty/ten-font.ts";
 import { blankImage, encodePng } from "../../../tools/skins/png.ts";
 import { back, testSpaces } from "../behavior_pack/scripts/board.ts";
+import { ATLAS, CELL, CELLS, COLUMNS, MAX_NUMBER, NUMBER_ATLAS, NUMBER_PARTICLE, cellAt, cellOf, cellText, halfSize, popScale } from "../behavior_pack/scripts/numbers.ts";
+import { decodeAnyPng } from "../../../tools/viewer/png.ts";
 import {
-  COUNT_ENTITY,
-  COUNT_PROPERTY,
   DEFAULT_GAIN,
   DEFAULT_INK,
   DEFAULT_LOSS,
@@ -49,13 +40,7 @@ import {
   DICE,
   DICE_PROBLEMS,
   MAX_AGAIN,
-  MAX_COUNT,
   STANDARD,
-  TALLY_ENTITY,
-  TALLY_PROPERTY,
-  TONE_GAIN,
-  TONE_LOSS,
-  TONE_PROPERTY,
   burstParticle,
   dieOf,
   modelDice,
@@ -320,92 +305,66 @@ describe("the die model", () => {
     expect(new Set(cubes.map((cube) => cube.origin[1] + cube.size[1]))).toEqual(new Set([12.5, 12.25]));
   });
 
-  it("draws the number over a head with every digit, a two-digit number's halves a pixel apart about the middle, and shows only its digits", () => {
-    const font = fontOf((char) => (/^[0-9]$/.test(char) ? { columns: 2, filled: [[0, 0], [1, 0], [0, 1], [1, 1]] } : undefined));
-    const { count } = buildFaces({ maker: 1, dice: [], ...LOOKS, number: { ink: "#ffffff" } }, font);
-    type Cube = { origin: number[]; size: number[] };
-    const bones = (count as { description: { identifier: string }; bones: { name: string; parent?: string; cubes?: Cube[] }[] }).bones;
-    expect((count as { description: { identifier: string } }).description.identifier).toBe(COUNT_GEOMETRY);
-    // The upright bone undoes the entity's turn; the count bone under it turns to the camera.
-    expect(bones.slice(0, 2).map((bone) => [bone.name, bone.parent])).toEqual([
-      [UPRIGHT_BONE, undefined],
-      [COUNT_ROOT, UPRIGHT_BONE],
-    ]);
-    expect(bones.map((bone) => bone.name)).toEqual([UPRIGHT_BONE, "count", ...[0, 1, 2, 3, 4, 5, 6, 7, 8, 9].map((d) => countBone("one", d)), ...[1, 2, 3, 4, 5, 6, 7, 8, 9].map((d) => countBone("tens", d)), ...[0, 1, 2, 3, 4, 5, 6, 7, 8, 9].map((d) => countBone("ones", d))]);
-    // A 2 x 2 digit: alone, it's centered. Seen from the north (the side the billboard turns to the
-    // camera), right is the file's +x.
-    const xs = (name: string) => bones.find((bone) => bone.name === name)!.cubes!.flatMap((cube) => [cube.origin[0], cube.origin[0] + cube.size[0]]);
-    expect([Math.min(...xs("one_5")), Math.max(...xs("one_5"))]).toEqual([-1.25, 1.25]);
-    // Tens end half a pixel left of the middle, ones start half a pixel right of it (seen from the north).
-    expect(Math.max(...xs("tens_1"))).toBeCloseTo(-0.625);
-    expect(Math.min(...xs("ones_2"))).toBeCloseTo(0.625);
-    const parts = (countController() as { part_visibility: Record<string, unknown>[] }).part_visibility;
-    expect(parts.slice(0, 3)).toEqual([{ "*": false }, { [UPRIGHT_BONE]: true }, { [COUNT_ROOT]: true }]);
-    expect(parts).toContainEqual({ tens_1: `q.property('${COUNT_PROPERTY}') >= 10 && math.floor(q.property('${COUNT_PROPERTY}') / 10) == 1` });
+  it("lays every number over a head out in cells: the moves left 0 to 99, then +1 to +99, then -1 to -99", () => {
+    expect(cellOf("count", 0)).toBe(0);
+    expect(cellOf("count", 7)).toBe(7);
+    expect(cellOf("count", 140)).toBe(MAX_NUMBER);
+    expect(cellOf("gain", 3)).toBe(103);
+    expect(cellOf("gain", 0)).toBe(101);
+    expect(cellOf("loss", 12)).toBe(212);
+    expect(cellText(7)).toEqual({ kind: "count", text: "7" });
+    expect(cellText(103)).toEqual({ kind: "gain", text: "+3" });
+    expect(cellText(299)).toEqual({ kind: "loss", text: "-99" });
+    expect(cellText(100)).toBeUndefined();
+    expect(cellText(CELLS)).toBeUndefined();
+    expect(cellAt(17)).toEqual([CELL.width, CELL.height]);
+    // A transfer's count is half the moves left's size; a billboard's size is its half-size.
+    expect(halfSize("gain")[1] * 2).toBeCloseTo(halfSize("count")[1]);
+    expect(halfSize("count")[1] * 2).toBeCloseTo((CELL.height * 1.25) / 16);
+    // It grows in, swells as it changes, and settles.
+    expect(popScale(0, 1)).toBe(0);
+    expect(popScale(1, 0.1)).toBeCloseTo(1.35);
+    expect(popScale(1, 1)).toBe(1);
   });
 
-  it("draws a transfer's count with its sign first, the whole centered, a geometry for each tone, and nothing at 0", () => {
-    // Digits 2 wide (the 1 one wide), a + 3 wide, a - 2 wide, every glyph 2 high.
+  it("draws every number in its look with its shadow, centered in its cell, and shows a cell with one particle facing the camera", () => {
+    // Digits 2 x 2, a + and a - one row: "+5" is 2 + 1 + 2 = 5 across and 2 high, 6 x 3 with its shadow.
     const font = fontOf((char) => {
-      if (char === "1") return { columns: 1, filled: [[0, 0], [0, 1]] };
       if (/^[0-9]$/.test(char)) return { columns: 2, filled: [[0, 0], [1, 0], [0, 1], [1, 1]] };
-      if (char === "+") return { columns: 3, filled: [[0, 0], [1, 0], [2, 0], [1, 1]] };
-      if (char === "-") return { columns: 2, filled: [[0, 0], [1, 0]] };
+      if (char === "+" || char === "-") return { columns: 2, filled: [[0, 0], [1, 0]] };
       return undefined;
     });
-    const { tallies, numberPalette } = buildFaces({ maker: 1, dice: [], number: { ink: "#ffffff" }, gain: { ink: "#ffaa00" }, loss: { ink: "#ff5555" } }, font);
-    type Cube = { origin: number[]; size: number[]; uv: Record<string, { uv: number[] }> };
-    type Bone = { name: string; parent?: string; cubes?: Cube[] };
-    const [gain, loss] = tallies as { description: { identifier: string }; bones: Bone[] }[];
-    expect([gain.description.identifier, loss.description.identifier]).toEqual([TALLY_GEOMETRY.gain, TALLY_GEOMETRY.loss]);
-    expect(gain.bones.map((bone) => bone.name)).toEqual([
-      UPRIGHT_BONE,
-      COUNT_ROOT,
-      signBone(1),
-      signBone(2),
-      ...[1, 2, 3, 4, 5, 6, 7, 8, 9].map((d) => countBone("one", d)),
-      ...[1, 2, 3, 4, 5, 6, 7, 8, 9].map((d) => countBone("tens", d)),
-      ...[0, 1, 2, 3, 4, 5, 6, 7, 8, 9].map((d) => countBone("ones", d)),
-    ]);
-    // Edges seen from the north, in pixels: a transfer's count is half the moves left's size (0.625 units a pixel).
-    const edges = (bones: Bone[], name: string) => {
-      const xs = bones.find((bone) => bone.name === name)!.cubes!.flatMap((cube) => [cube.origin[0], cube.origin[0] + cube.size[0]]);
-      return [Math.min(...xs) / 0.625 + 0, Math.max(...xs) / 0.625 + 0];
+    const looks = { number: { ink: "#ffffff", shadow: "#3f3f3f" }, gain: { ink: "#ffaa00", shadow: "#3f2a00" }, loss: { ink: "#ff5555" } };
+    const atlas = numberAtlas(looks, font);
+    expect([atlas.width, atlas.height]).toEqual([ATLAS.width, ATLAS.height]);
+    const pixel = (x: number, y: number) => [...atlas.data.subarray((y * atlas.width + x) * 4, (y * atlas.width + x) * 4 + 4)];
+    const colorsIn = (cell: number) => {
+      const [left, top] = cellAt(cell);
+      const seen = new Set<string>();
+      for (let y = top; y < top + CELL.height; y++) for (let x = left; x < left + CELL.width; x++) if (pixel(x, y)[3] > 0) seen.add(pixel(x, y).slice(0, 3).join(","));
+      return seen;
     };
-    // "+5": the + (3), a pixel, a cell as wide as the widest digit (2): 6 across, from -3 to 3.
-    expect(edges(gain.bones, signBone(1))).toEqual([-3, 0]);
-    expect(edges(gain.bones, "one_5")).toEqual([1, 3]);
-    // "+15": 3 + 1 + 2 + 1 + 2 = 9 across; the 1 sits in the middle of its cell.
-    expect(edges(gain.bones, signBone(2))).toEqual([-4.5, -1.5]);
-    expect(edges(gain.bones, "tens_1")).toEqual([0, 1]);
-    expect(edges(gain.bones, "ones_5")).toEqual([2.5, 4.5]);
-    // "-5": the - is 2 wide, so the loss is laid out on its own.
-    expect(edges(loss.bones, signBone(1))).toEqual([-2.5, -0.5]);
-    // Each tone in its own ink, from the numbers' palette, nearly see-through (drawn unshaded).
-    const ink = (bones: Bone[]) => {
-      const [u, v] = bones.find((bone) => bone.name === "one_5")!.cubes![0].uv.north.uv;
-      return [...numberPalette.data.subarray((Math.floor(v) * numberPalette.width + Math.floor(u)) * 4, (Math.floor(v) * numberPalette.width + Math.floor(u)) * 4 + 4)];
-    };
-    expect(ink(gain.bones)).toEqual([255, 170, 0, NUMBER_ALPHA]);
-    expect(ink(loss.bones)).toEqual([255, 85, 85, NUMBER_ALPHA]);
-    const controller = tallyController() as { arrays: { geometries: Record<string, string[]> }; geometry: string; part_visibility: Record<string, unknown>[] };
-    const tones = controller.arrays.geometries["Array.tones"];
-    expect([tones[TONE_GAIN], tones[TONE_LOSS]]).toEqual(["Geometry.gain", "Geometry.loss"]);
-    expect(controller.geometry).toBe(`Array.tones[q.property('${TONE_PROPERTY}')]`);
-    const value = `q.property('${TALLY_PROPERTY}')`;
-    expect(controller.part_visibility).toContainEqual({ [signBone(1)]: `${value} >= 1 && ${value} < 10` });
-    expect(controller.part_visibility).toContainEqual({ [signBone(2)]: `${value} >= 10` });
-    expect(controller.part_visibility.some((part) => "one_0" in part)).toBe(false);
-  });
-
-  it.skipIf(!existsSync(TEN_FONT))("reads Minecraft Ten's digits from the game: 7 x 10, the 1 5 wide, two side by side a pixel apart", () => {
-    const font = loadTenFont();
-    expect(font.text("8")).toMatchObject({ width: 7, height: 10 });
-    expect(font.text("1")).toMatchObject({ width: 5, height: 10 });
-    expect(font.text("12")).toMatchObject({ width: 13, height: 10 });
-    const zero = font.text("0");
-    const row = (r: number) => zero.filled.slice(r * zero.width, (r + 1) * zero.width).map((on) => (on ? "#" : ".")).join("");
-    expect([row(0), row(4), row(9)]).toEqual(["#######", "###.###", "#######"]);
+    expect(colorsIn(cellOf("count", 5))).toEqual(new Set(["255,255,255", "63,63,63"]));
+    expect(colorsIn(cellOf("gain", 5))).toEqual(new Set(["255,170,0", "63,42,0"]));
+    // A look with no shadow has none.
+    expect(colorsIn(cellOf("loss", 5))).toEqual(new Set(["255,85,85"]));
+    // An unused cell is see-through.
+    expect(colorsIn(100).size).toBe(0);
+    // "5" with its shadow, 3 x 3, centered in its cell: its ink starts (24 - 3) / 2 = 10 across, (12 - 3) / 2 = 4 down.
+    const [left, top] = cellAt(cellOf("count", 5));
+    expect(pixel(left + 10, top + 4)).toEqual([255, 255, 255, 255]);
+    expect(pixel(left + 9, top + 4)[3]).toBe(0);
+    // The particle shows the cell its variables name, the size they say, and moves as they say.
+    const particle = numberParticle() as { particle_effect: { description: { identifier: string; basic_render_parameters: { texture: string } }; components: Record<string, any> } };
+    expect(particle.particle_effect.description.identifier).toBe(NUMBER_PARTICLE);
+    expect(particle.particle_effect.description.basic_render_parameters.texture).toBe(NUMBER_ATLAS);
+    const billboard = particle.particle_effect.components["minecraft:particle_appearance_billboard"];
+    expect(billboard.facing_camera_mode).toBe("rotate_xyz");
+    expect(billboard.size).toEqual(["v.half_w", "v.half_h"]);
+    expect(billboard.uv).toMatchObject({ texture_width: ATLAS.width, texture_height: ATLAS.height, uv_size: [CELL.width, CELL.height] });
+    expect(billboard.uv.uv).toEqual([`math.mod(v.cell, ${COLUMNS}) * ${CELL.width}`, `math.floor(v.cell / ${COLUMNS}) * ${CELL.height}`]);
+    // Unlit: no lighting component, so it's as bright as its picture.
+    expect(particle.particle_effect.components["minecraft:particle_appearance_lighting"]).toBeUndefined();
   });
 
   it("has the dice file's model (else run: npx tsx tools/blockparty/dice-pack.ts)", () => {
@@ -422,13 +381,15 @@ describe("the die model", () => {
     expect(controllers["controller.render.blockparty.die_faces"].arrays).toEqual({ geometries: { "Array.faces": files.faces } });
     const geometries = read("../resource_pack/models/entity/die_faces.geo.json")["minecraft:geometry"].map((geometry: { description: { identifier: string } }) => geometry.description.identifier);
     expect(geometries).toEqual([BLANK_FACES, ...plan.dice.map((die) => facesGeometry(die.id))]);
-    // The number over a head, and each die's burst.
-    expect(read("../resource_pack/models/entity/count.geo.json")["minecraft:geometry"][0].description.identifier).toBe(COUNT_GEOMETRY);
-    expect(controllers[COUNT_CONTROLLER]).toEqual(countController());
-    const tallies = read("../resource_pack/models/entity/tally.geo.json")["minecraft:geometry"].map((geometry: { description: { identifier: string } }) => geometry.description.identifier);
-    expect(tallies).toEqual([TALLY_GEOMETRY.gain, TALLY_GEOMETRY.loss]);
-    expect(controllers[TALLY_CONTROLLER]).toEqual(tallyController());
-    expect(existsSync(join(PACK, `${NUMBER_PALETTE}.png`))).toBe(true);
+    // The numbers over heads (their atlas and particle), and each die's burst.
+    expect(existsSync(join(PACK, `${NUMBER_ATLAS}.png`))).toBe(true);
+    expect(read(`../resource_pack/${NUMBER_PARTICLE_FILE}`)).toEqual(numberParticle());
+    expect(controllers["controller.render.blockparty.count"]).toBeUndefined();
+    if (existsSync(TEN_FONT)) {
+      const made = numberAtlas(plan, loadTenFont());
+      const atlas = decodeAnyPng(readFileSync(join(PACK, `${NUMBER_ATLAS}.png`)));
+      expect(Buffer.from(atlas.data).equals(Buffer.from(made.data))).toBe(true);
+    }
     for (const die of plan.dice) {
       const effect = read(`../resource_pack/${burstFile(die.id)}`);
       expect(effect).toEqual(burstEffect(die));
@@ -446,39 +407,11 @@ describe("the die model", () => {
     if (existsSync(TEN_FONT)) expect(glyphs).toEqual(glyphTable(loadTenFont(), chars));
   });
 
-  it("is a die the game can spawn, with room in its property for every die, and a number the same", () => {
+  it("is a die the game can spawn, with room in its property for every die", () => {
     const entity = read("../behavior_pack/entities/die.json")["minecraft:entity"];
     expect(entity.description.identifier).toBe("blockparty:die");
     expect(entity.description.properties["blockparty:die"].range[1]).toBeGreaterThanOrEqual(modelDice().length);
     expect(entity.description.properties["blockparty:burst"]).toMatchObject({ type: "bool", client_sync: true });
-    const count = read("../behavior_pack/entities/count.json")["minecraft:entity"];
-    expect(count.description.identifier).toBe(COUNT_ENTITY);
-    expect(count.description.properties[COUNT_PROPERTY]).toMatchObject({ type: "int", range: [0, MAX_COUNT], client_sync: true });
-    const countClient = read("../resource_pack/entity/count.entity.json")["minecraft:client_entity"].description;
-    expect(countClient.render_controllers).toEqual([COUNT_CONTROLLER]);
-    // Drawn unshaded from the numbers' palette, its upright bone undoing the entity's turn.
-    expect(countClient.materials).toEqual({ default: "entity_emissive" });
-    expect(countClient.textures).toEqual({ default: NUMBER_PALETTE });
-    const face = read("../resource_pack/animations/blockparty.animation.json").animations["animation.blockparty.count_face"].bones;
-    expect(face[UPRIGHT_BONE].rotation).toEqual([0, "-q.body_y_rotation", 0]);
-    expect(face[COUNT_ROOT].rotation).toEqual(["q.camera_rotation(0)", "q.camera_rotation(1)", 0]);
-  });
-
-  it("is a transfer's count the game can spawn, with room for its number and its two tones", () => {
-    const tally = read("../behavior_pack/entities/tally.json")["minecraft:entity"];
-    expect(tally.description.identifier).toBe(TALLY_ENTITY);
-    expect(tally.description.properties[TALLY_PROPERTY]).toMatchObject({ type: "int", range: [0, MAX_COUNT], client_sync: true });
-    expect(tally.description.properties[TONE_PROPERTY]).toMatchObject({ type: "int", range: [Math.min(TONE_GAIN, TONE_LOSS), Math.max(TONE_GAIN, TONE_LOSS)], client_sync: true });
-    const client = read("../resource_pack/entity/tally.entity.json")["minecraft:client_entity"].description;
-    expect(client.identifier).toBe(TALLY_ENTITY);
-    expect(client.render_controllers).toEqual([TALLY_CONTROLLER]);
-    expect(client.geometry).toEqual(TALLY_GEOMETRY);
-    expect(client.materials).toEqual({ default: "entity_emissive" });
-    expect(client.textures).toEqual({ default: NUMBER_PALETTE });
-    // It faces the camera and pops as the moves left do, and rises a little as it comes.
-    const animations = read("../resource_pack/animations/blockparty.animation.json").animations;
-    for (const name of Object.values(client.animations as Record<string, string>)) expect(animations[name], name).toBeDefined();
-    expect(client.scripts.animate).toEqual(Object.keys(client.animations));
   });
 });
 

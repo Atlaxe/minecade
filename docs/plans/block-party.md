@@ -769,16 +769,14 @@ The user's asks after a look at pass 7, all in `stage.ts`, `entrances.ts` and `f
 
 ### The user's look at the board, as built (2026-11-18, evening)
 
-- **The board's button is use** (right click; the user's second answer, after a punch): a press
-  (let go within 8 ticks) picks in the board menu (Dice, Items, Board, an item to use, back from
-  Board), a dialogue box's choice or going on, the results' Go on, and Ready before a minigame; a
-  hold is the skip vote. The jump only hits the die over the head (the dice panel's, the turn
-  order's, and each throw after the first). The board's item (`blockparty:standings`, format
+- **The board's button is the jump again** (the controller's A, the space bar): picking in the
+  board menu (Dice, Items, Board, an item to use, back from Board), a dialogue box's choice or going
+  on, the results' Go on, Ready before a minigame, and the hit on the die. The user tried a punch,
+  then a press of use, and went back to it (2026-11-18); the prompts are the jump's icons again.
+  **Use (right click) held is the skip vote:** the board's item (`blockparty:standings`, format
   1.21.120: at 1.21.60 its newer components kept it from loading, so nothing could be held) has a use
   that lasts (`use_modifiers`), so `itemStartUse` and `itemStopUse` say when the button goes down and
-  up; a right click on a block or a mob is down while its events keep coming; a plain `itemUse` with
-  no lasting use after it is a press. The prompts (the dialogue box's, the results') are a "Use" key
-  cap on every device: Minecraft has no picture for a trigger or a mouse button.
+  up; a right click on a block or a mob is down while its events keep coming.
 - **Skipping is holding use** for 4 seconds. The skip strip says, for everyone (`skipText`): "Hold
   use to skip" before anyone has voted, "Waiting to skip 1 / 3" while some have, "Waiting for Alex to
   skip" when one is left, "Skipping" once all have. A player holding use (past half a second, so a
@@ -800,15 +798,21 @@ The user's asks after a look at pass 7, all in `stage.ts`, `entrances.ts` and `f
 - **The dice look like the standard die:** the user's textures for every die (`dice/<id>.png`), each
   die's `"number": { "ink", "shadow" }` read as its faces' ink and shadow (the look the file's
   top-level `number` has), and the Mystery Die's faces show "?".
-- **The numbers over heads** were mirrored (their backs to the camera): they're drawn on the
-  model's north side now, the side the billboard turns to the camera. A transfer's count is half
-  the size of the moves left and stands just over the head (its entity 1.6 over the feet, 1.2 higher
-  while the moves left show).
+- **The numbers over heads are particles** (`numbers.ts`, `number-sprites.ts`): a model's billboard
+  turns to `q.camera_rotation`, the player's own look, not the scripted camera they look through, so
+  the moves left and a transfer's count faced the wrong way whenever the camera wasn't in front of the
+  player. Minecraft always draws a particle facing the camera that draws it, so the game sends one
+  `blockparty:number` a tick where each number stands, moving the way the number moves until the next
+  takes over, its picture a cell of one atlas of every number (`textures/blockparty/numbers.png`, the
+  moves left 0 to 99 and "+1" to "+99", "-1" to "-99" in the dice file's looks with their shadows,
+  written by `dice-pack.ts`). The count and tally entities, their models, palette and animations are
+  gone. A transfer's count is half the moves left's size and stands just over the head (its middle
+  2.1 over the feet, 1.2 higher while the moves left show).
 - **Tokens fly to the taker:** a spawned entity's body doesn't keep the turn it's given, so the
   tokens flew off any which way. Their models (the icon's, and the private icons pack's coin and
-  Star) have the moves left's bones: `upright` undoes the body's turn, `heading` turns to the token's
-  heading property (Minecraft's yaw toward the taker, whole degrees), and `root` flies from half the
-  reach back to half on.
+  Star) have the moves left's old bones: `upright` undoes the body's turn, `heading` turns to the
+  token's heading property (Minecraft's yaw toward the taker, whole degrees), and `root` flies along
+  the heading's -z (with +z they flew from the taker to the giver, the user saw).
 - **Players stand square** to where they look on the board: a teleport turns only the head, so the
   pack's `animation.blockparty.square_up` (on controller `blockparty.square`, played again every 5
   seconds, stopped in minigames) turns the whole model by the head's turn from the body
@@ -818,12 +822,13 @@ The user's asks after a look at pass 7, all in `stage.ts`, `entrances.ts` and `f
 - **Zombies** come and go in the Witch's puff of smoke (events `npc.zombie.appear` and `.vanish`),
   and one leaving says `zombie.leaves` in the dialogue box (chat is hidden on the board), after the
   results when a minigame shakes it off.
-- **The Warden** comes up and goes down in one go: vanilla's emerge holds him 2 blocks down with
-  his head out on the floor for 1.7 seconds, and its dig keeps his head out for seconds, so the
-  pack's `warden.rise` (2 blocks lower through that hold, then easing back as he climbs) and
-  `warden.sink` (3 blocks under from 2.4 to 4 seconds into the dig), played with them on a second
-  controller (`NpcMove.also`) on the model's `root`, keep his head under. He's shown 9 ticks into
-  the emerge and hidden 4.1 seconds into the dig.
+- **The Warden** comes up in the pack's own entrance (`warden.enter`: a climb out from 4 blocks down
+  in 1.6 seconds, arms first), in place of vanilla's emerge, which held his head out on the floor for
+  nearly 2 seconds and took 6.6. He's drawn only while shown (each of his render controllers has the
+  condition `q.property('blockparty:shown')`, so never for a frame before), shown 9 ticks in. Vanilla's
+  dig keeps his head out for seconds, so the pack's `warden.sink` (3 blocks under from 2.4 to 4
+  seconds, on his `root`, played with the dig on a second controller, `NpcMove.also`) takes him
+  under, and he's hidden 4.1 seconds into the dig.
 - **The crying Sad** has its arms come in over the face (their sideways turn had the wrong sign, so
   a raised arm swung out), a little lower.
 - **The round bottom right** is "Round 3 /" light gray (`§7`) and the rounds in all dark gray (`§8`),

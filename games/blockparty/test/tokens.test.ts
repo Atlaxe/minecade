@@ -76,12 +76,12 @@ describe("Block Party's transfer tokens", () => {
     const properties = tokenBehavior["minecraft:entity"].description.properties as Record<string, { type: string; range: number[] }>;
     for (const [name, range] of Object.entries(FLIGHT_RANGES)) expect(properties[`blockparty:${name}`]).toMatchObject({ type: "int", range });
     // The pack's flight reads them back in model units (16 a block: 0.16 a hundredth), from the giver
-    // (half its reach back) to the taker (half on), along a bone turned to its heading under one that
-    // undoes the entity's own turn.
+    // to the taker along a bone turned to its heading under one that undoes the entity's own turn
+    // (the bone's -z is the heading's way: the user saw (t - 0.5) fly from the taker to the giver).
     const bones = animations.animations["animation.blockparty.token.fly"].bones;
     const [, up, along] = bones.root.position;
     expect(up).toMatch(/^0\.16 \* \(q\.property\('blockparty:rise'\) .* \+ q\.property\('blockparty:arc'\) /);
-    expect(along).toBe("0.16 * q.property('blockparty:reach') * (math.clamp(q.life_time / 0.7, 0, 1) - 0.5)");
+    expect(along).toBe("0.16 * q.property('blockparty:reach') * (0.5 - math.clamp(q.life_time / 0.7, 0, 1))");
     expect(bones.upright.rotation).toEqual([0, "-q.body_y_rotation", 0]);
     expect(bones.heading.rotation).toEqual([0, "q.property('blockparty:heading')", 0]);
     // The icon's model has the same bones, root under heading under upright.

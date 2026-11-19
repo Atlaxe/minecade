@@ -74,34 +74,6 @@
         }
       }
     },
-    "animation.blockparty.count_face": {
-      "loop": true,
-      "bones": {
-        "upright": {
-          "rotation": [0, "-q.body_y_rotation", 0]
-        },
-        "count": {
-          "rotation": ["q.camera_rotation(0)", "q.camera_rotation(1)", 0]
-        }
-      }
-    },
-    "animation.blockparty.tally_rise": {
-      "loop": true,
-      "bones": {
-        "upright": {
-          "position": [0, "4 * (1 - math.pow(1 - math.min(1, q.life_time / 0.35), 2))", 0]
-        }
-      }
-    },
-    "animation.blockparty.count_pop": {
-      "loop": true,
-      "bones": {
-        "count": {
-          "position": [0, "math.sin(q.life_time * 180) * 0.5", 0],
-          "scale": "math.min(1, q.life_time * 6) * (v.since < 0.1 ? 1 + v.since * 3.5 : (v.since < 0.25 ? 1.35 - (v.since - 0.1) * 2.33 : 1))"
-        }
-      }
-    },
     "animation.blockparty.icon_turn": {
       "loop": true,
       "bones": {
@@ -118,11 +90,13 @@
         }
       }
     },
-    "animation.blockparty.warden.rise": {
-      "loop": "hold_on_last_frame",
-      "animation_length": 6.64,
+    "animation.blockparty.warden.enter": {
+      "animation_length": 1.6,
       "bones": {
-        "root": { "position": { "0.0": [0, 0, 0], "1.2": [0, -32, 0], "2.88": [0, -32, 0], "4.44": [0, 0, 0] } }
+        "root": { "position": { "0.0": [0, -64, 0], "0.2": [0, -62, 0], "1.1": [0, -5, 0], "1.35": [0, 1, 0], "1.6": [0, 0, 0] } },
+        "right_arm": { "rotation": { "0.0": [-165, 0, 0], "0.9": [-160, 0, 0], "1.35": [-30, 0, 0], "1.6": [0, 0, 0] } },
+        "left_arm": { "rotation": { "0.0": [-165, 0, 0], "0.9": [-160, 0, 0], "1.35": [-30, 0, 0], "1.6": [0, 0, 0] } },
+        "head": { "rotation": { "0.0": [-25, 0, 0], "1.1": [-25, 0, 0], "1.6": [0, 0, 0] } }
       }
     },
     "animation.blockparty.warden.sink": {
@@ -145,7 +119,7 @@
           "position": [
             "0",
             "0.16 * (q.property('blockparty:rise') * math.clamp(q.life_time / 0.7, 0, 1) + q.property('blockparty:arc') * 4 * math.clamp(q.life_time / 0.7, 0, 1) * (1 - math.clamp(q.life_time / 0.7, 0, 1)))",
-            "0.16 * q.property('blockparty:reach') * (math.clamp(q.life_time / 0.7, 0, 1) - 0.5)"
+            "0.16 * q.property('blockparty:reach') * (0.5 - math.clamp(q.life_time / 0.7, 0, 1))"
           ],
           "rotation": [
             0,

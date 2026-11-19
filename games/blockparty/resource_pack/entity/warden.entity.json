@@ -19,12 +19,12 @@
         "default": "geometry.warden"
       },
       "render_controllers": [
-        "controller.render.warden",
-        "controller.render.warden_bioluminescent_layer",
-        "controller.render.warden_spots_1",
-        "controller.render.warden_spots_2",
-        "controller.render.warden_tendrils",
-        "controller.render.warden_heart"
+        { "controller.render.warden": "q.property('blockparty:shown')" },
+        { "controller.render.warden_bioluminescent_layer": "q.property('blockparty:shown')" },
+        { "controller.render.warden_spots_1": "q.property('blockparty:shown')" },
+        { "controller.render.warden_spots_2": "q.property('blockparty:shown')" },
+        { "controller.render.warden_tendrils": "q.property('blockparty:shown')" },
+        { "controller.render.warden_heart": "q.property('blockparty:shown')" }
       ],
       "animations": {
         "base_pose": "animation.humanoid.base_pose.v1.0",

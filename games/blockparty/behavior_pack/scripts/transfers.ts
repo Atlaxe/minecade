@@ -3,13 +3,15 @@
 // (the dialogue tool's events gain.coins, gain.star, gain.item as one lands on a seat, and loss.* as
 // one leaves a seat's head).
 //
-// The count over a head is blockparty:tally, drawn as the moves left are (counts.ts): "+3" or "-3" in
-// Minecraft Ten, in the dice file's gain or loss look, facing each player's camera, with no name tag
-// plate. It stands just over the head (over the moves left when they're showing), and rises a little
-// as it comes (its own animation, animation.blockparty.tally_rise); nothing moves it.
-import type { Dimension, Entity, Vector3 } from "@minecraft/server";
+// The count over a head is drawn as the moves left are (counts.ts): a particle sent every tick
+// (numbers.ts, number-sprites.ts), "+3" or "-3" in Minecraft Ten in the dice file's gain or loss look,
+// half the moves left's size, always facing the camera the players look through. It stands just over
+// the head (over the moves left when they're showing), rises a little as it comes and swells at each
+// step, and is gone a second after the last token lands.
+import { system, type Dimension, type Entity, type Vector3 } from "@minecraft/server";
 import { describeError, log, type Scope } from "@minecade/minigame-core";
-import { MAX_COUNT, TALLY_ENTITY, TALLY_PROPERTY, TONE_GAIN, TONE_LOSS, TONE_PROPERTY } from "./dice.ts";
+import { sendNumber } from "./number-sprites.ts";
+import { popScale, type NumberKind } from "./numbers.ts";
 import { eventCue, playCue } from "./sounds.ts";
 import { FLIGHT_TICKS, LAUNCH_EVERY, SKY, TOKEN_TICKS, counted, flightOf, flightProperties, isSeat, labelSteps, lookOf, shownCount, soundOf, type Party, type Token } from "./tokens.ts";
 
@@ -23,14 +25,26 @@ const HEADING = "blockparty:heading";
 /** How far over a head a token comes in or goes out. */
 const OVER_HEAD = 0.3;
 /**
- * How far over the feet a count's entity stands (its number's middle half a block higher, a little
- * over the head: the user asked for it closer, 2026-11-18), and how much higher while the moves left
- * show over the same head.
+ * How far over the feet a count's middle stands (a little over the head: the user asked for it
+ * closer, 2026-11-18), how much higher while the moves left show over the same head, and how far it
+ * rises as it comes, over how many seconds.
  */
-const TALLY_OVER = 1.6;
+const TALLY_MIDDLE = 2.1;
 const OVER_MOVES = 1.2;
+const TALLY_RISE = 0.25;
+const RISE_SECONDS = 0.35;
 /** Ticks a count stays after the last token lands. */
 const TALLY_LINGER = 24;
+
+/** A count over a head: where it stands, its look ("+" or "-"), its number so far (0 shows nothing), and when it came and last changed. */
+interface Tally {
+  dimension: Dimension;
+  at: Vector3;
+  kind: NumberKind;
+  value: number;
+  shownAt: number;
+  changedAt: number;
+}
 
 export interface TransfersDeps {
   scope: Scope;
@@ -44,9 +58,13 @@ export class Transfers {
   private readonly deps: TransfersDeps;
   /** The warnings said this game (warnOnce). */
   private readonly warned = new Set<string>();
+  /** The counts over heads now. */
+  private readonly tallies = new Set<Tally>();
 
   constructor(deps: TransfersDeps) {
     this.deps = deps;
+    deps.scope.interval(() => this.drawTallies(), 1);
+    deps.scope.add(() => this.tallies.clear());
   }
 
   /**
@@ -61,8 +79,8 @@ export class Transfers {
     const shown = shownCount(token, count);
     const steps = labelSteps(count, shown);
     const sound = soundOf(token);
-    const outTally = counted(count) && isSeat(from) ? this.tally(from.key, from.body, TONE_LOSS) : undefined;
-    const inTally = counted(count) && isSeat(to) ? this.tally(to.key, to.body, TONE_GAIN) : undefined;
+    const outTally = counted(count) && isSeat(from) ? this.tally(from.key, from.body, "loss") : undefined;
+    const inTally = counted(count) && isSeat(to) ? this.tally(to.key, to.body, "gain") : undefined;
     for (let i = 0; i < shown && !this.deps.scope.disposed; i++) {
       const start = giver ? headOf(giver) : skyOver(taker);
       const end = taker ? headOf(taker) : this.awayFrom(giver);
@@ -78,8 +96,8 @@ export class Transfers {
     }
     await this.deps.scope.wait(FLIGHT_TICKS);
     this.deps.scope.timeout(() => {
-      remove(outTally);
-      remove(inTally);
+      if (outTally) this.tallies.delete(outTally);
+      if (inTally) this.tallies.delete(inTally);
     }, TALLY_LINGER);
   }
 
@@ -113,19 +131,38 @@ export class Transfers {
    * A count over a seat's head: where the moves left stand (over them while they show), empty until
    * the first token goes or lands. Its tone is its sign and look: "+" coming in, "-" going out.
    */
-  private tally(key: string, body: Entity, tone: number): Entity | undefined {
+  private tally(key: string, body: Entity, kind: NumberKind): Tally | undefined {
     if (!body.isValid) return undefined;
     try {
       const feet = body.location;
-      const over = TALLY_OVER + (this.deps.movesShown?.(key) ? OVER_MOVES : 0);
-      const tally = this.deps.dimension().spawnEntity(TALLY_ENTITY, { x: feet.x, y: feet.y + over, z: feet.z });
-      // Like the moves left, it never turns of its own accord (the model undoes any turn anyway).
-      tally.setRotation({ x: 0, y: 0 });
-      tally.setProperty(TONE_PROPERTY, tone);
+      const over = TALLY_MIDDLE + (this.deps.movesShown?.(key) ? OVER_MOVES : 0);
+      const now = system.currentTick;
+      const tally: Tally = { dimension: body.dimension, at: { x: feet.x, y: feet.y + over, z: feet.z }, kind, value: 0, shownAt: now, changedAt: now };
+      this.tallies.add(tally);
       return tally;
     } catch (error) {
       this.warnOnce(`blockparty: a transfer's count failed: ${describeError(error)}`);
       return undefined;
+    }
+  }
+
+  /** Each tick, every count's particle: risen as far as it has, swelled at each step. */
+  private drawTallies(): void {
+    const now = system.currentTick;
+    for (const tally of this.tallies) {
+      if (tally.value <= 0) continue;
+      const life = (now - tally.shownAt) / 20;
+      const t = Math.min(1, life / RISE_SECONDS);
+      const rise = TALLY_RISE * (1 - (1 - t) * (1 - t));
+      // Still rising: the particle rises as the next tick's will start.
+      const speed = t < 1 ? (TALLY_RISE * 2 * (1 - t)) / RISE_SECONDS : 0;
+      sendNumber(tally.dimension, {
+        kind: tally.kind,
+        value: tally.value,
+        at: { x: tally.at.x, y: tally.at.y + rise, z: tally.at.z },
+        velocity: { x: 0, y: speed, z: 0 },
+        scale: popScale(life, (now - tally.changedAt) / 20),
+      });
     }
   }
 
@@ -167,13 +204,12 @@ function skyOver(taker: Entity | undefined): Vector3 | undefined {
   return head ? { x: head.x, y: head.y + SKY, z: head.z } : undefined;
 }
 
-/** A count's number (its sign is its tone's). */
-function setTally(tally: Entity, value: number): void {
-  try {
-    if (tally.isValid) tally.setProperty(TALLY_PROPERTY, Math.max(0, Math.min(MAX_COUNT, Math.round(value))));
-  } catch {
-    // gone
-  }
+/** A count's number (its sign is its look's): it grows in and rises with its first, and swells as it changes. */
+function setTally(tally: Tally, value: number): void {
+  if (tally.value === value) return;
+  if (tally.value <= 0) tally.shownAt = system.currentTick;
+  tally.value = value;
+  tally.changedAt = system.currentTick;
 }
 
 function remove(entity: Entity | undefined): void {
